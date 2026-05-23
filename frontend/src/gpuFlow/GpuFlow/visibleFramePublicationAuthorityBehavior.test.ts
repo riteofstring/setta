@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import {
+  createGpuFlowCommittedSurfacePresentationProof,
+  type GpuFlowCommittedSurfaceFrame,
+} from "../committedSurfaceFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
-import { createGpuFlowPresentableCommit } from "./visibleFramePublicationAuthority";
+import { createGpuFlowVisibleFrameCommitPublicationToken } from "./visibleFramePublicationKernel";
 
 describe("GPU Flow visible publication authority behavior", () => {
   it("rejects commit authority for non-publishable frames", () => {
     expect(() =>
-      createGpuFlowPresentableCommit({
+      createGpuFlowVisibleFrameCommitPublicationToken({
         frame: committedSurfaceFrame({
           publishability: {
             blockingActorIds: ["actor-a"],
@@ -22,7 +25,7 @@ describe("GPU Flow visible publication authority behavior", () => {
 
   it("rejects commit authority for incoherent DOM/canvas presentation pairs", () => {
     expect(() =>
-      createGpuFlowPresentableCommit({
+      createGpuFlowVisibleFrameCommitPublicationToken({
         frame: committedSurfaceFrame({
           coherence: {
             domControlCommittedFrameId: 42,
@@ -31,6 +34,66 @@ describe("GPU Flow visible publication authority behavior", () => {
         projectionSample: liveProjectionSample(),
       }),
     ).toThrow(/coherent DOM\/canvas presentation pair/);
+  });
+
+  it("rejects commit authority when the DOM generation is not staged and exposable", () => {
+    const frame = committedSurfaceFrame();
+
+    expect(() =>
+      createGpuFlowVisibleFrameCommitPublicationToken({
+        frame: {
+          ...frame,
+          presentationProof: {
+            ...frame.presentationProof,
+            domGeneration: {
+              ...frame.presentationProof.domGeneration,
+              staged: false,
+            },
+          },
+        } as unknown as GpuFlowCommittedSurfaceFrame,
+        projectionSample: liveProjectionSample(),
+      }),
+    ).toThrow(/DOM generation staged and exposable/);
+  });
+
+  it("rejects commit authority when the canvas generation is not prepared and exposable", () => {
+    const frame = committedSurfaceFrame();
+
+    expect(() =>
+      createGpuFlowVisibleFrameCommitPublicationToken({
+        frame: {
+          ...frame,
+          presentationProof: {
+            ...frame.presentationProof,
+            canvasGeneration: {
+              ...frame.presentationProof.canvasGeneration,
+              prepared: false,
+            },
+          },
+        } as unknown as GpuFlowCommittedSurfaceFrame,
+        projectionSample: liveProjectionSample(),
+      }),
+    ).toThrow(/canvas generation prepared and exposable/);
+  });
+
+  it("rejects commit authority when DOM and canvas generations are not in the same presentation batch", () => {
+    const frame = committedSurfaceFrame();
+
+    expect(() =>
+      createGpuFlowVisibleFrameCommitPublicationToken({
+        frame: {
+          ...frame,
+          presentationProof: {
+            ...frame.presentationProof,
+            domGeneration: {
+              ...frame.presentationProof.domGeneration,
+              presentationBatchId: "presentation:other",
+            },
+          },
+        } as unknown as GpuFlowCommittedSurfaceFrame,
+        projectionSample: liveProjectionSample(),
+      }),
+    ).toThrow(/same presentation batch/);
   });
 });
 
@@ -41,29 +104,34 @@ function committedSurfaceFrame({
     kind: "publishable",
   },
 }: {
-  readonly coherence?: Partial<
-    GpuFlowCommittedSurfaceFrame["coherence"]
-  > | undefined;
+  readonly coherence?:
+    | Partial<GpuFlowCommittedSurfaceFrame["coherence"]>
+    | undefined;
   readonly publishability?:
     | Partial<GpuFlowCommittedSurfaceFrame["publishability"]>
     | undefined;
 } = {}): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = 7;
+  const committedCoherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip",
+    debugSnapshotFrameId: displayFrameId,
+    domControlCommittedFrameId: displayFrameId,
+    domIslandCommittedFrameId: displayFrameId,
+    gpuNativeVisualCommittedFrameId: displayFrameId,
+    hitGenerationId: `hit:${displayFrameId}`,
+    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+    ...coherence,
+  };
   return {
     actorGenerations: [],
-    coherence: {
-      canvasRetainedFrameId: displayFrameId,
-      clipChainRevision: "clip",
-      debugSnapshotFrameId: displayFrameId,
-      domControlCommittedFrameId: displayFrameId,
-      domIslandCommittedFrameId: displayFrameId,
-      gpuNativeVisualCommittedFrameId: displayFrameId,
-      hitGenerationId: `hit:${displayFrameId}`,
-      htmlTextureOverlayCommittedFrameId: displayFrameId,
-      retainedScrollRevision: 0,
-      ...coherence,
-    },
+    coherence: committedCoherence,
     displayFrameId,
+    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      coherence: committedCoherence,
+      displayFrameId,
+    }),
     projectionHorizon: {
       textActorCoverage: {
         blockedAwaitingBrowserVisualActorIds: [],

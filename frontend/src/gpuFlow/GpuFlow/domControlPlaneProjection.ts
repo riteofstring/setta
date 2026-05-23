@@ -566,10 +566,10 @@ function syncGpuFlowDomControlPlaneStyles({
     viewport,
   });
   for (const host of hostByControlId.values()) {
-    if (!controlById.has(host.controlId)) {
+    const control = controlById.get(host.controlId);
+    if (!control) {
       continue;
     }
-    const control = host.control;
     if (control.active) {
       activeControlId = control.sourceId;
     }

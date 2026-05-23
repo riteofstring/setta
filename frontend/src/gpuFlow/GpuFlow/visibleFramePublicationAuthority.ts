@@ -1,4 +1,7 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import {
+  assertGpuFlowCommittedSurfacePresentationProof,
+  type GpuFlowCommittedSurfaceFrame,
+} from "../committedSurfaceFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 
 const GPU_FLOW_COMMIT_PUBLICATION_TOKEN = Symbol(
@@ -179,7 +182,6 @@ function assertGpuFlowPresentableCommitFrame({
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
 }): void {
-  assertGpuFlowPresentationPairFeasible({ frame });
   if (
     frame.publishability.kind !== "publishable" ||
     frame.publishability.blockingActorIds.length > 0
@@ -188,6 +190,7 @@ function assertGpuFlowPresentableCommitFrame({
       "GPU Flow commit publication authority requires a publishable committed surface frame.",
     );
   }
+  assertGpuFlowPresentationPairFeasible({ frame });
 }
 
 function assertGpuFlowPresentationPairFeasible({
@@ -208,6 +211,7 @@ function assertGpuFlowPresentationPairFeasible({
       "GPU Flow commit publication authority requires one coherent DOM/canvas presentation pair.",
     );
   }
+  assertGpuFlowCommittedSurfacePresentationProof(frame);
 }
 
 export function createGpuFlowCommitPublicationToken({
@@ -373,7 +377,11 @@ export function assertGpuFlowCommitPublicationTokenForFrameId({
     token.committedFrameId !== committedFrameId
   ) {
     throw new Error(
-      "GPU Flow browser visual publication requires a commit publication token for the same visible frame.",
+      `GPU Flow browser visual publication requires a commit publication token for the same visible frame (expected frame ${committedFrameId}, received ${
+        isGpuFlowCommitPublicationToken(token)
+          ? token.committedFrameId
+          : "unbranded"
+      }).`,
     );
   }
 }
@@ -444,6 +452,30 @@ export function assertGpuFlowPreparedCandidateAbortToken({
   ) {
     throw new Error(
       "GPU Flow prepared browser visual abort requires a hold-previous or blocked publication token.",
+    );
+  }
+}
+
+export function assertGpuFlowCommitPublicationTokenBrand({
+  token,
+}: {
+  readonly token: GpuFlowCommitPublicationToken;
+}): void {
+  if (!isGpuFlowCommitPublicationToken(token)) {
+    throw new Error(
+      "GPU Flow commit-only publication resource release requires a commit publication token.",
+    );
+  }
+}
+
+export function assertGpuFlowBlockedPublicationTokenBrand({
+  token,
+}: {
+  readonly token: GpuFlowBlockedPublicationToken;
+}): void {
+  if (!isGpuFlowBlockedPublicationToken(token)) {
+    throw new Error(
+      "GPU Flow rejected candidate resource release requires a blocked publication token.",
     );
   }
 }
@@ -601,9 +633,16 @@ function createGpuFlowPresentationPairDigest({
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): GpuFlowPresentationPairDigest {
   return JSON.stringify({
-    canvasGeneration: frame.displayFrameId,
-    domControlGeneration: frame.coherence.domControlCommittedFrameId,
-    domIslandGeneration: frame.coherence.domIslandCommittedFrameId,
+    actorManifestDigest: createGpuFlowActorManifestDigest(frame),
+    browserVisualFragmentDigest:
+      frame.presentationProof.browserVisualFragmentDigest,
+    canvasGeneration: frame.presentationProof.canvasGeneration,
+    domGeneration: frame.presentationProof.domGeneration,
+    presentationBatchId: frame.presentationProof.batchId,
     projectionSampleId,
+    proofDigest: createGpuFlowVisibleProofDigest(frame),
+    proofPresentationActorManifestDigest:
+      frame.presentationProof.actorManifestDigest,
+    surfaceTransactionDigest: frame.presentationProof.surfaceTransactionDigest,
   });
 }

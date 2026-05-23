@@ -33,10 +33,8 @@ import {
   stageBrowserVisualCandidate,
 } from "./domControlPlaneProjectionRuntimeTestUtils";
 import { getGpuRetainedDomControlSnapshotSurfaceId } from "./retainedDomControlSources";
-import {
-  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
-  createGpuFlowBlockedPublicationToken,
-} from "./visibleFramePublicationAuthority";
+import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
+import { createGpuFlowVisibleFrameBlockedPublicationToken } from "./visibleFramePublicationKernel";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePublicationTokens";
 
 let root: Root | null = null;
@@ -50,6 +48,27 @@ describe("GPU flow DOM control projection runtime", () => {
     delete (window as Window & { __SETTA_CHROME_REPRO_ACTIVE__?: boolean })
       .__SETTA_CHROME_REPRO_ACTIVE__;
     document.body.replaceChildren();
+  });
+
+  it("requires a committed publication token before visible host registration", () => {
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const control = domControl({ index: 0 });
+    const element = document.body.appendChild(document.createElement("input"));
+
+    expect(() =>
+      browserVisualRuntime.setDomControlElement({
+        control,
+        element,
+        presentation: "preparation",
+      }),
+    ).not.toThrow();
+    expect(() =>
+      browserVisualRuntime.setDomControlElement({
+        control,
+        element,
+        presentation: "visible",
+      }),
+    ).toThrow(/visible browser visual host registration requires/);
   });
 
   it("keeps focused DOM-control hosts focused across frame metadata updates", () => {
@@ -170,6 +189,152 @@ describe("GPU flow DOM control projection runtime", () => {
 
     expect(document.activeElement).toBe(
       document.querySelector("[data-row-id='row-0']"),
+    );
+  });
+
+  it("reuses mounted live hosts while candidate projection and snapshot keys change", () => {
+    const control = domControl({ index: 0, value: "hello" });
+    const nextControl = {
+      ...control,
+      clipChainRevision: "clip-next",
+      clipRectSurfaceCssPx: {
+        ...control.clipRectSurfaceCssPx,
+        y: control.clipRectSurfaceCssPx.y + 12,
+      },
+      geometryRevision: "geometry-next",
+      snapshotCacheKeyRevision: "snapshot-cache-next",
+      worldRectFlowPx: {
+        ...control.worldRectFlowPx,
+        y: control.worldRectFlowPx.y + 12,
+      },
+    } satisfies GpuRetainedDomControlSourceDescriptor;
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const committedSurfaceRuntime =
+      createCommittedSurfaceRuntimeWithBrowserVisuals({
+        frame: committedSurfaceFrame({
+          displayFrameId: 1,
+          retainedRuntimeFrame: retainedRuntimeFrame([control]),
+        }),
+        viewportRuntime,
+        viewportStore,
+      });
+    const browserVisualRuntime =
+      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
+        committedSurfaceRuntime,
+      );
+    const host = document.body.appendChild(document.createElement("div"));
+    root = createRoot(host);
+
+    act(() => {
+      root?.render(
+        <GpuFlowDomControlPlane
+          committedSurfaceRuntime={committedSurfaceRuntime}
+          getRetainedScrollOffset={undefined}
+          onActivate={undefined}
+          renderControl={(control) => (
+            <input data-row-id={control.rowId} readOnly value={control.value} />
+          )}
+          viewportRuntime={viewportRuntime}
+          viewportStore={viewportStore}
+        />,
+      );
+    });
+
+    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: retainedRuntimeFrame([nextControl], 2),
+      }),
+    });
+
+    expect(domControlCoverageState(candidate, nextControl)).toBe(
+      "live-host-ready",
+    );
+  });
+
+  it("mounts preparation hosts when an active candidate differs from the visible host", () => {
+    const passiveControl = domControl({ active: false, index: 0 });
+    const activeControl = domControl({ active: true, index: 0 });
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const committedSurfaceRuntime =
+      createCommittedSurfaceRuntimeWithBrowserVisuals({
+        frame: committedSurfaceFrame({
+          displayFrameId: 1,
+          retainedRuntimeFrame: retainedRuntimeFrame([passiveControl]),
+        }),
+        viewportRuntime,
+        viewportStore,
+      });
+    const browserVisualRuntime =
+      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
+        committedSurfaceRuntime,
+      );
+    const host = document.body.appendChild(document.createElement("div"));
+    root = createRoot(host);
+    const renderPlane = () => (
+      <GpuFlowDomControlPlane
+        committedSurfaceRuntime={committedSurfaceRuntime}
+        getRetainedScrollOffset={undefined}
+        onActivate={undefined}
+        renderControl={(control) => (
+          <input
+            data-active={control.active ? "true" : "false"}
+            data-row-id={control.rowId}
+            readOnly
+            value={control.value}
+          />
+        )}
+        viewportRuntime={viewportRuntime}
+        viewportStore={viewportStore}
+      />
+    );
+
+    act(() => {
+      root?.render(renderPlane());
+    });
+    expect(mountedRowIds()).toEqual(["row-0"]);
+
+    const blockedCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: retainedRuntimeFrame([activeControl], 2),
+      }),
+    });
+    expect(domControlCoverageState(blockedCandidate, activeControl)).toBe(
+      "blocked-awaiting-live-host",
+    );
+
+    act(() => {
+      stageBrowserVisualCandidate({
+        actorId: activeControl.sourceId,
+        browserVisualRuntime,
+        candidate: blockedCandidate,
+        reason: "active-editor",
+      });
+      root?.render(renderPlane());
+    });
+
+    expect(mountedRowIds()).toEqual(["row-0"]);
+    expect(preparationRowIds()).toEqual(["row-0"]);
+
+    const readyCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 3,
+        retainedRuntimeFrame: retainedRuntimeFrame([activeControl], 3),
+      }),
+    });
+    expect(domControlCoverageState(readyCandidate, activeControl)).toBe(
+      "live-host-ready",
     );
   });
 
@@ -401,6 +566,7 @@ describe("GPU flow DOM control projection runtime", () => {
     browserVisualRuntime.setDomControlElement({
       control: firstControl,
       element: document.body.appendChild(document.createElement("input")),
+      presentation: "preparation",
     });
 
     const firstCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
@@ -574,7 +740,7 @@ describe("GPU flow DOM control projection runtime", () => {
 
     browserVisualRuntime.abortPreparedBrowserVisualActors({
       candidate,
-      token: createGpuFlowBlockedPublicationToken({
+      token: createGpuFlowVisibleFrameBlockedPublicationToken({
         blockedReasons: [
           {
             actorId: nextControl.sourceId,
@@ -764,7 +930,7 @@ describe("GPU flow DOM control projection runtime", () => {
     );
   });
 
-  it("keeps snapshot preparation batch ownership in the browser visual runtime", () => {
+  it("keeps snapshot preparation staging batched by the browser visual runtime", () => {
     const snapshotControls = Array.from({ length: 26 }, (_, offset) =>
       domControl({
         index: 70 + offset,
@@ -808,12 +974,39 @@ describe("GPU flow DOM control projection runtime", () => {
       browserVisualRuntime,
       candidate: firstReadiness,
     });
+    const stagedSnapshotControlIds = browserVisualRuntime
+      .getPreparationSnapshot()
+      .domControls.snapshotControls.map((control) => control.sourceId);
+    expect(stagedSnapshotControlIds.length).toBeLessThanOrEqual(4);
+    expect(
+      stagedSnapshotControlIds.every((sourceId) =>
+        snapshotControls.some((control) => control.sourceId === sourceId),
+      ),
+    ).toBe(true);
+    expect(stagedSnapshotControlIds.length).toBeGreaterThan(0);
+
+    const targetedControl = snapshotControls[10];
+    if (!targetedControl) {
+      throw new Error("Expected a targeted snapshot control.");
+    }
+    const targetedReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: runtimeFrame,
+      }),
+    });
+    stageBrowserVisualCandidate({
+      actorId: targetedControl.sourceId,
+      browserVisualRuntime,
+      candidate: targetedReadiness,
+      sampleId: 2,
+    });
     expect(
       browserVisualRuntime
         .getPreparationSnapshot()
         .domControls.snapshotControls.map((control) => control.sourceId),
     ).toEqual(
-      Array.from({ length: 8 }, (_, offset) => `source-${70 + offset}`),
+      expect.arrayContaining([targetedControl.sourceId]),
     );
 
     for (const control of snapshotControls) {
@@ -835,24 +1028,10 @@ describe("GPU flow DOM control projection runtime", () => {
     }
     const nextReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
       retainedDisplayFrame: retainedDisplayFrame({
-        id: 2,
+        id: 3,
         retainedRuntimeFrame: runtimeFrame,
       }),
     });
-    stageBrowserVisualCandidate({
-      browserVisualRuntime,
-      candidate: nextReadiness,
-    });
-
-    expect(
-      browserVisualRuntime
-        .getPreparationSnapshot()
-        .domControls.snapshotControls.map((control) => control.sourceId),
-    ).toEqual(
-      expect.arrayContaining(
-        Array.from({ length: 26 }, (_, offset) => `source-${70 + offset}`),
-      ),
-    );
     for (const control of snapshotControls) {
       expect(domControlCoverageState(nextReadiness, control)).toBe(
         "exact-snapshot-ready",
@@ -940,6 +1119,92 @@ describe("GPU flow DOM control projection runtime", () => {
         actorId: overflowControl.sourceId,
         contentGenerationId: overflowControl.snapshotCacheKeyRevision,
         id: overflowSnapshotSurfaceId,
+        kind: "texture",
+        projectionGenerationId: expect.any(String),
+        resourceGenerationId: expect.any(String),
+      }),
+    ]);
+  });
+
+  it("repairs blocked browser-visual controls through staged exact snapshots", () => {
+    const blockedControl = domControl({
+      index: 0,
+      value: "blocked visual value",
+      visualPolicy: "blocked-awaiting-browser-visual",
+    });
+    const runtimeFrame = retainedRuntimeFrame([blockedControl]);
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 3_000,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const committedTextureBySurfaceId = new Map<
+      string,
+      CommittedHtmlSurfaceTextureSnapshot
+    >();
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+    browserVisualRuntime.setDomControlSnapshotTextureManager({
+      getCommittedSurfaceTexture: (surfaceId) =>
+        committedTextureBySurfaceId.get(surfaceId),
+    });
+
+    const firstReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 1,
+        retainedRuntimeFrame: runtimeFrame,
+      }),
+    });
+    stageBrowserVisualCandidate({
+      browserVisualRuntime,
+      candidate: firstReadiness,
+    });
+
+    const blockedSnapshotSurfaceId =
+      getGpuRetainedDomControlSnapshotSurfaceId(blockedControl);
+    expect(domControlCoverageState(firstReadiness, blockedControl)).toBe(
+      "blocked-awaiting-snapshot",
+    );
+    expect(
+      browserVisualRuntime
+        .getPreparationSnapshot()
+        .domControls.snapshotControls.map((control) => control.sourceId),
+    ).toContain(blockedControl.sourceId);
+
+    const element = document.body.appendChild(document.createElement("div"));
+    browserVisualRuntime.setDomControlSnapshotElement({
+      element,
+      surfaceId: blockedSnapshotSurfaceId,
+    });
+    committedTextureBySurfaceId.set(
+      blockedSnapshotSurfaceId,
+      committedSnapshotTexture({
+        textureContentKey: blockedControl.snapshotCacheKeyRevision,
+      }),
+    );
+
+    const readyReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: runtimeFrame,
+      }),
+    });
+
+    expect(domControlCoverageState(readyReadiness, blockedControl)).toBe(
+      "exact-snapshot-ready",
+    );
+    expect(
+      domControlReadinessResourceHandles(readyReadiness, blockedControl),
+    ).toEqual([
+      expect.objectContaining({
+        actorId: blockedControl.sourceId,
+        contentGenerationId: blockedControl.snapshotCacheKeyRevision,
+        id: blockedSnapshotSurfaceId,
         kind: "texture",
         projectionGenerationId: expect.any(String),
         resourceGenerationId: expect.any(String),

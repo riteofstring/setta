@@ -1,8 +1,20 @@
+import {
+  assertGpuFlowBlockedPublicationTokenBrand,
+  assertGpuFlowCommitPublicationTokenBrand,
+  type GpuFlowBlockedPublicationToken,
+  type GpuFlowCommitPublicationToken,
+} from "./GpuFlow/visibleFramePublicationTokens";
+
 const GPU_FLOW_SURFACE_TEXTURE_RELEASE_TOKEN = Symbol(
   "GpuFlowSurfaceTextureReleaseToken",
 );
 
-export type GpuFlowSurfaceTextureReleaseReason = "source-unmounted" | "test";
+export type GpuFlowSurfaceTextureReleaseReason =
+  | "blocked-rejected-candidate"
+  | "commit-superseded"
+  | "source-unmounted";
+
+type GpuFlowSurfaceTexturePublicationOutcome = "blocked" | "commit" | "none";
 
 type SurfaceTextureReleaseTokenBrand = {
   readonly [GPU_FLOW_SURFACE_TEXTURE_RELEASE_TOKEN]: true;
@@ -10,6 +22,7 @@ type SurfaceTextureReleaseTokenBrand = {
 
 export type GpuFlowSurfaceTextureReleaseToken =
   SurfaceTextureReleaseTokenBrand & {
+    readonly publicationOutcome: GpuFlowSurfaceTexturePublicationOutcome;
     readonly reason: GpuFlowSurfaceTextureReleaseReason;
     readonly surfaceId: string;
     readonly transactionId: string;
@@ -40,7 +53,7 @@ export type GpuFlowSurfaceTextureReleaseTarget = {
   ): GpuFlowSurfaceTextureReleaseResult;
 };
 
-export function releaseGpuFlowSurfaceTexture({
+function releaseGpuFlowSurfaceTexture({
   reason,
   surfaceId,
   textureManager,
@@ -59,7 +72,106 @@ export function releaseGpuFlowSurfaceTexture({
     });
   }
   return textureManager.destroySurfaceTexture(
-    createGpuFlowSurfaceTextureReleaseToken({ reason, surfaceId }),
+    createGpuFlowSurfaceTextureReleaseToken({
+      publicationOutcome: "none",
+      reason,
+      surfaceId,
+      transactionId: `surface-texture-release:${reason}:${surfaceId}`,
+    }),
+    surfaceId,
+  );
+}
+
+export function releaseGpuFlowUnmountedSourceSurfaceTexture({
+  surfaceId,
+  textureManager,
+}: {
+  readonly surfaceId: string;
+  readonly textureManager:
+    | GpuFlowSurfaceTextureReleaseTarget
+    | null
+    | undefined;
+}): GpuFlowSurfaceTextureReleaseResult {
+  return releaseGpuFlowSurfaceTexture({
+    reason: "source-unmounted",
+    surfaceId,
+    textureManager,
+  });
+}
+
+export function releaseGpuFlowSupersededSurfaceTexture({
+  surfaceId,
+  textureManager,
+  token,
+}: {
+  readonly surfaceId: string;
+  readonly textureManager:
+    | GpuFlowSurfaceTextureReleaseTarget
+    | null
+    | undefined;
+  readonly token: GpuFlowCommitPublicationToken;
+}): GpuFlowSurfaceTextureReleaseResult {
+  assertGpuFlowCommitPublicationTokenBrand({ token });
+  return releaseGpuFlowPublicationOutcomeSurfaceTexture({
+    publicationOutcome: "commit",
+    reason: "commit-superseded",
+    surfaceId,
+    textureManager,
+    transactionId: token.transactionId,
+  });
+}
+
+export function releaseGpuFlowRejectedCandidateSurfaceTexture({
+  surfaceId,
+  textureManager,
+  token,
+}: {
+  readonly surfaceId: string;
+  readonly textureManager:
+    | GpuFlowSurfaceTextureReleaseTarget
+    | null
+    | undefined;
+  readonly token: GpuFlowBlockedPublicationToken;
+}): GpuFlowSurfaceTextureReleaseResult {
+  assertGpuFlowBlockedPublicationTokenBrand({ token });
+  return releaseGpuFlowPublicationOutcomeSurfaceTexture({
+    publicationOutcome: "blocked",
+    reason: "blocked-rejected-candidate",
+    surfaceId,
+    textureManager,
+    transactionId: token.transactionId,
+  });
+}
+
+function releaseGpuFlowPublicationOutcomeSurfaceTexture({
+  publicationOutcome,
+  reason,
+  surfaceId,
+  textureManager,
+  transactionId,
+}: {
+  readonly publicationOutcome: GpuFlowSurfaceTexturePublicationOutcome;
+  readonly reason: GpuFlowSurfaceTextureReleaseReason;
+  readonly surfaceId: string;
+  readonly textureManager:
+    | GpuFlowSurfaceTextureReleaseTarget
+    | null
+    | undefined;
+  readonly transactionId: string;
+}): GpuFlowSurfaceTextureReleaseResult {
+  if (!textureManager) {
+    return Object.freeze({
+      kind: "manager-unavailable" as const,
+      surfaceId,
+    });
+  }
+  return textureManager.destroySurfaceTexture(
+    createGpuFlowSurfaceTextureReleaseToken({
+      publicationOutcome,
+      reason,
+      surfaceId,
+      transactionId,
+    }),
     surfaceId,
   );
 }
@@ -83,16 +195,21 @@ export function assertGpuFlowSurfaceTextureReleaseToken({
 }
 
 function createGpuFlowSurfaceTextureReleaseToken({
+  publicationOutcome,
   reason,
   surfaceId,
+  transactionId,
 }: {
+  readonly publicationOutcome: GpuFlowSurfaceTexturePublicationOutcome;
   readonly reason: GpuFlowSurfaceTextureReleaseReason;
   readonly surfaceId: string;
+  readonly transactionId: string;
 }): GpuFlowSurfaceTextureReleaseToken {
   return Object.freeze({
     [GPU_FLOW_SURFACE_TEXTURE_RELEASE_TOKEN]: true as const,
+    publicationOutcome,
     reason,
     surfaceId,
-    transactionId: `surface-texture-release:${reason}:${surfaceId}`,
+    transactionId,
   });
 }

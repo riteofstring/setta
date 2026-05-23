@@ -239,6 +239,75 @@ describe("GPU flow projection frame coverage", () => {
       }),
     );
   });
+
+  it("publishes the requested projection after the held-previous budget when an active DOM control is waiting", () => {
+    const previousSample = liveSample({
+      id: 1,
+      retainedScrollY: 0,
+    });
+    const firstHeld = resolveGpuFlowProjectionFrameTransaction({
+      frameReasons: ["retained-scroll"],
+      heldPreviousProjectionState: visibleProjectionState({
+        committedFrameId: 11,
+        sample: previousSample,
+      }),
+      layer: retainedLayer(),
+      projectionSchedulerKnobs: {
+        maxConsecutiveMotionFramesBeforeContentProbe: 6,
+        maxContentInterleaveMs: 2,
+        maxHeldPreviousFrames: 1,
+        maxHeldPreviousMs: 5,
+        maxMaintenanceInterleaveMs: 1,
+        motionSettleWindowMs: 120,
+      },
+      retainedDisplayFrame: retainedDisplayFrame(),
+      requestedTransaction:
+        createGpuFlowProjectionTransactionForCommittedFrameId({
+          committedFrameId: 12,
+          kind: "motion-projection",
+          lane: "motion",
+          rawReasons: ["retained-scroll"],
+          sample: liveSample({ id: 2, retainedScrollY: 400 }),
+        }),
+    });
+    const requestedTransaction =
+      createGpuFlowProjectionTransactionForCommittedFrameId({
+        committedFrameId: 12,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["retained-scroll"],
+        sample: liveSample({ id: 10, retainedScrollY: 500 }),
+      });
+
+    const secondHeld = resolveGpuFlowProjectionFrameTransaction({
+      frameReasons: ["retained-scroll"],
+      heldPreviousProjectionState: createGpuFlowVisibleProjectionState({
+        committedFrame: {
+          displayFrameId: 11,
+        } as GpuFlowCommittedSurfaceFrame,
+        heldPreviousProjection: firstHeld.heldPreviousProjection,
+        transaction: firstHeld.transaction,
+      }),
+      layer: retainedLayer(),
+      projectionSchedulerKnobs: {
+        maxConsecutiveMotionFramesBeforeContentProbe: 6,
+        maxContentInterleaveMs: 2,
+        maxHeldPreviousFrames: 1,
+        maxHeldPreviousMs: 5,
+        maxMaintenanceInterleaveMs: 1,
+        motionSettleWindowMs: 120,
+      },
+      retainedDisplayFrame: retainedDisplayFrame({ activeDomControl: true }),
+      requestedTransaction,
+    });
+
+    expect(secondHeld.blockedReason).toBeNull();
+    expect(secondHeld.heldPreviousProjection).toBeNull();
+    expect(secondHeld.transaction).toBe(requestedTransaction);
+    expect(secondHeld.retainedProjectionFrame.needsRetainedPageMaintenance).toBe(
+      true,
+    );
+  });
 });
 
 function retainedSurface(
@@ -374,7 +443,11 @@ function retainedContentSurface(): GpuContentSurface {
   };
 }
 
-function retainedDisplayFrame(): RetainedDisplayFrame {
+function retainedDisplayFrame({
+  activeDomControl = false,
+}: {
+  readonly activeDomControl?: boolean | undefined;
+} = {}): RetainedDisplayFrame {
   return {
     drawRegions: [
       {
@@ -390,6 +463,9 @@ function retainedDisplayFrame(): RetainedDisplayFrame {
     ],
     flatSurfaces: [],
     retainedRuntimeFrame: {
+      descriptors: {
+        domControlSources: activeDomControl ? [{ active: true }] : [],
+      },
       input: {
         scrollOffsets: new Map([["surface-a", { x: 0, y: 0 }]]),
         viewportZoomBucket: 1,

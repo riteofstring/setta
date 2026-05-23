@@ -13,7 +13,7 @@ import {
 } from "./visibleFramePublicationAuthority";
 
 describe("GpuFlowSurfaceView", () => {
-  it("renders a blocked cold-start shell without mounting projection hosts", () => {
+  it("renders a blocked cold-start shell as an overlay while projection hosts stay mounted", () => {
     const markup = renderToStaticMarkup(
       <GpuFlowSurfaceView
         className="setta-gpu-flow"
@@ -63,7 +63,7 @@ describe("GpuFlowSurfaceView", () => {
       'data-gpu-flow-cold-start-shell-reason="browser-visual-publication-blocked-before-first-commit"',
     );
     expect(markup).toContain("Preparing surface");
-    expect(markup).not.toContain("data-gpu-flow-dom-control-plane");
+    expect(markup).toContain("data-gpu-flow-dom-control-plane");
     expect(markup).not.toContain("data-gpu-flow-dom-island-layer");
   });
 });

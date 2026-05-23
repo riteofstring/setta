@@ -831,6 +831,9 @@ function getLiveDomControlCoverageState(
   if (readinessState === "exact-snapshot-ready") {
     return "exact-snapshot-ready";
   }
+  if (readinessState === "blocked-awaiting-snapshot") {
+    return "blocked-awaiting-snapshot";
+  }
   return readinessState === "live-host-ready"
     ? "live-host-ready"
     : "blocked-awaiting-live-host";
@@ -841,6 +844,9 @@ function getSnapshotDomControlCoverageState(
     | BrowserVisualActorRepresentationReadiness["coverageState"]
     | undefined,
 ): BrowserVisualActorCoverageState {
+  if (readinessState === "live-host-ready") {
+    return "live-host-ready";
+  }
   return readinessState === "exact-snapshot-ready"
     ? "exact-snapshot-ready"
     : "blocked-awaiting-snapshot";

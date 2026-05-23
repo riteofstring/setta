@@ -66,10 +66,13 @@ import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
-import { resolveGpuFlowCommittedSurfacePublicationGate } from "./flowCommittedSurfacePublication";
+import {
+  resolveGpuFlowCommittedSurfacePublicationGate,
+  type GpuFlowCommittedSurfacePublicationGateEffect,
+} from "./flowCommittedSurfacePublication";
 import {
   handleGpuFlowCommittedSurfacePublicationGate,
-  publishGpuFlowProjectionDebugAttributesForCommittedFrame,
+  type GpuFlowBlockedCommittedSurfacePublication,
 } from "./flowCommittedSurfacePublicationGateHandling";
 import {
   resolveActiveGpuFlowNodeId,
@@ -77,7 +80,7 @@ import {
 } from "./flowFrameInteractionState";
 import {
   reportGpuFlowNodeLayerFramePerformance,
-  updateGpuFlowNodeLayerFrameState,
+  type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
 import {
   combineGpuFlowHtmlSurfaceNativeVisuals,
@@ -112,11 +115,6 @@ import {
 } from "./flowSurfaceTypes";
 import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "./flowVisibleProjectionState";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
-import type {
-  GpuFlowBlockedPublicationToken,
-  GpuFlowCommitPublicationToken,
-  GpuFlowHoldPreviousToken,
-} from "./visibleFramePublicationTokens";
 
 export function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
@@ -517,9 +515,13 @@ export function renderGpuFlowNodeLayerFrame({
   onRetainedPreparedRuntimeFrame,
   onRetainedRuntimeFrame,
   onRetainedDisplayFrame,
+  onRetainedDisplayFramePublishable,
+  onRetainedDisplayFollowUpFrameNeeded,
+  onNodeLayerFrameStatePublishable,
+  onCommittedSurfacePublicationGateEffect,
+  onRetainedProjectionPublicationBlocked,
   onCommittedSurfaceFramePublishable,
   onBlockedSurfacePublication,
-  onPreparedCommittedSurfaceFrameBlocked,
   onPreparedCommittedSurfaceFrameHeld,
 }: {
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
@@ -562,29 +564,29 @@ export function renderGpuFlowNodeLayerFrame({
           | undefined,
       ) => GpuFlowCommittedSurfaceFrame | void)
     | undefined;
+  readonly onRetainedDisplayFramePublishable?:
+    | ((frame: RetainedDisplayFrame) => void)
+    | undefined;
+  readonly onRetainedDisplayFollowUpFrameNeeded?:
+    | ((reason: GpuFrameReason) => void)
+    | undefined;
+  readonly onNodeLayerFrameStatePublishable?:
+    | ((publication: GpuFlowNodeLayerFrameStatePublication) => void)
+    | undefined;
+  readonly onCommittedSurfacePublicationGateEffect?:
+    | ((effect: GpuFlowCommittedSurfacePublicationGateEffect) => void)
+    | undefined;
   readonly onCommittedSurfaceFramePublishable?:
-    | ((
-        token: GpuFlowCommitPublicationToken,
-        frame: GpuFlowCommittedSurfaceFrame,
-      ) => void)
+    | ((frame: GpuFlowCommittedSurfaceFrame) => void)
     | undefined;
   readonly onBlockedSurfacePublication?:
-    | ((token: GpuFlowBlockedPublicationToken) => void)
+    | ((publication: GpuFlowBlockedCommittedSurfacePublication) => void)
     | undefined;
-  readonly onPreparedCommittedSurfaceFrameBlocked?:
-    | ((
-        token: GpuFlowBlockedPublicationToken,
-        frame: GpuFlowCommittedSurfaceFrame,
-        options?:
-          | {
-              readonly preservePreparationSnapshot?: boolean | undefined;
-            }
-          | undefined,
-      ) => void)
+  readonly onRetainedProjectionPublicationBlocked?:
+    | ((blockedReason: string) => void)
     | undefined;
   readonly onPreparedCommittedSurfaceFrameHeld?:
     | ((
-        token: GpuFlowHoldPreviousToken,
         frame: GpuFlowCommittedSurfaceFrame,
         options?:
           | {
@@ -688,7 +690,7 @@ export function renderGpuFlowNodeLayerFrame({
   retainedPageMaintenanceMs +=
     retainedDisplayPublication.retainedPageMaintenanceMs;
   if (retainedDisplayOutcome.kind === "block-cold-first-coverage") {
-    surfaceRef.current?.requestFrame("texture-upload");
+    onRetainedProjectionPublicationBlocked?.(retainedDisplayOutcome.reason);
     return null;
   }
   if (
@@ -697,10 +699,9 @@ export function renderGpuFlowNodeLayerFrame({
       outcomeKind: retainedDisplayOutcome.kind,
     })
   ) {
-    surfaceRef.current?.requestFrame("texture-upload");
+    onRetainedDisplayFollowUpFrameNeeded?.("texture-upload");
   }
   const publishedRetainedFrame = retainedDisplayOutcome.frame;
-  retainedDisplayFrameRef.current = publishedRetainedFrame;
   const publishedRetainedRuntimeFrame =
     publishedRetainedFrame.retainedRuntimeFrame;
   const publishedRetainedPageFrame = publishedRetainedFrame.pageFrame;
@@ -754,11 +755,10 @@ export function renderGpuFlowNodeLayerFrame({
       publicationLane,
       publishedCommittedSurfaceFrame,
       publishedRetainedFrame,
-      previousRetainedDisplayFrame,
-      retainedDisplayFrameRef,
-      runtimeCanvas: runtime.canvas,
-      surfaceRef,
     });
+  onCommittedSurfacePublicationGateEffect?.(
+    committedSurfacePublicationGate.effect,
+  );
   const getRetainedDomControlRuntimeScrollOffset = (surfaceId: string) =>
     runtimeScrollOffsets.get(surfaceId) ?? null;
   prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceGate({
@@ -780,7 +780,6 @@ export function renderGpuFlowNodeLayerFrame({
       gate: committedSurfacePublicationGate,
       onBlockedSurfacePublication,
       onCommittedSurfaceFramePublishable,
-      onPreparedCommittedSurfaceFrameBlocked,
       onPreparedCommittedSurfaceFrameHeld,
       publishedCommittedSurfaceFrame,
     });
@@ -913,7 +912,7 @@ export function renderGpuFlowNodeLayerFrame({
     viewport: liveProjectionSample.viewport,
     viewportFrame,
   });
-  updateGpuFlowNodeLayerFrameState({
+  onNodeLayerFrameStatePublishable?.({
     callbacksRef,
     layerResult: combinedLayerResult,
     nodeInteractionRef,
@@ -932,11 +931,7 @@ export function renderGpuFlowNodeLayerFrame({
       "GPU Flow committed surface publication continued without a publish gate.",
     );
   }
-  publishGpuFlowProjectionDebugAttributesForCommittedFrame({
-    runtimeCanvas: runtime.canvas,
-    token: committedSurfacePublicationGate.token,
-    visibleProjectionState,
-  });
+  onRetainedDisplayFramePublishable?.(publishedRetainedFrame);
   notifyGpuFlowRetainedRuntimeFrame(
     onRetainedRuntimeFrame,
     publishedRetainedRuntimeFrame,

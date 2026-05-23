@@ -210,6 +210,23 @@ export function GpuFlow({
     useRef<GpuFlowColdStartShellFrame | null>(null);
   const [activeColdStartShellFrame, setActiveColdStartShellFrame] =
     useState<GpuFlowColdStartShellFrame | null>(null);
+  const publishColdStartShellFrame = useCallback<
+    Parameters<
+      typeof renderGpuFlowSurfaceFrame
+    >[0]["publishColdStartShellFrame"]
+  >((publication) => {
+    void publication.token;
+    const nextColdStartShellFrame = publication.frame;
+    const currentColdStartShellFrame = activeColdStartShellFrameRef.current;
+    if (
+      currentColdStartShellFrame?.id === nextColdStartShellFrame?.id &&
+      currentColdStartShellFrame?.reason === nextColdStartShellFrame?.reason
+    ) {
+      return;
+    }
+    activeColdStartShellFrameRef.current = nextColdStartShellFrame;
+    setActiveColdStartShellFrame(nextColdStartShellFrame);
+  }, []);
   const getRetainedDomControlScrollOffset = useCallback(
     (surfaceId: string) =>
       visibleProjectionStateRef.current?.sample.retainedScrollOffsets.get(
@@ -220,6 +237,9 @@ export function GpuFlow({
     [activeRetainedContentRuntimeState],
   );
   const retainedRuntimeFrameRenderSignatureRef = useRef<string | null>(null);
+  const retainedRuntimeFrameSourceRenderSignatureRef = useRef<string | null>(
+    null,
+  );
   const retainedPreparationRuntimeFrameRenderSignatureRef = useRef<
     string | null
   >(null);
@@ -243,6 +263,7 @@ export function GpuFlow({
     committedSurfaceFrameRef,
     committedSurfaceRuntime,
     prepareCommittedSurfaceFrame,
+    projectCommittedBrowserVisualActors,
     resetCommittedSurfaceFrame,
     visibleCommittedSurfaceFrame,
   } = useGpuFlowCommittedSurfaceFrameState({
@@ -404,7 +425,9 @@ export function GpuFlow({
       });
     };
     const timer =
-      typeof window === "undefined" ? null : window.setTimeout(syncSceneState, 0);
+      typeof window === "undefined"
+        ? null
+        : window.setTimeout(syncSceneState, 0);
     if (timer === null) {
       syncSceneState();
     }
@@ -448,6 +471,7 @@ export function GpuFlow({
     setActiveColdStartShellFrame(null);
     resetCommittedSurfaceFrame();
     retainedPreparationRuntimeFrameRenderSignatureRef.current = null;
+    retainedRuntimeFrameSourceRenderSignatureRef.current = null;
     retainedRuntimeFrameRenderSignatureRef.current = null;
   }, [resetCommittedSurfaceFrame, scene]);
 
@@ -877,6 +901,8 @@ export function GpuFlow({
         nodeInteractionRef,
         nodeLayerRef,
         prepareCommittedSurfaceFrame,
+        projectCommittedBrowserVisualActors,
+        publishColdStartShellFrame,
         retainedContentFrameCacheRef,
         retainedContentPageManagerRef,
         retainedContentRuntimeState: activeRetainedContentRuntimeState,
@@ -885,6 +911,7 @@ export function GpuFlow({
         retainedPreparationRuntimeFrameRenderSignatureRef,
         retainedPreparationRuntimeFrameScrollRevisionRef,
         retainedRuntimeFrameRenderSignatureRef,
+        retainedRuntimeFrameSourceRenderSignatureRef,
         runtime,
         surfaceRef,
         textureManagerRef,
@@ -897,15 +924,7 @@ export function GpuFlow({
         viewportRuntime,
         viewportStore,
       });
-      const nextColdStartShellFrame = publicationResult.coldStartShellFrame;
-      const currentColdStartShellFrame = activeColdStartShellFrameRef.current;
-      if (
-        currentColdStartShellFrame?.id !== nextColdStartShellFrame?.id ||
-        currentColdStartShellFrame?.reason !== nextColdStartShellFrame?.reason
-      ) {
-        activeColdStartShellFrameRef.current = nextColdStartShellFrame;
-        setActiveColdStartShellFrame(nextColdStartShellFrame);
-      }
+      void publicationResult;
     },
     [
       abortPreparedCommittedSurfaceFrame,
@@ -913,6 +932,8 @@ export function GpuFlow({
       commitPreparedCommittedSurfaceFrame,
       initialRetainedRuntimeFrame,
       prepareCommittedSurfaceFrame,
+      projectCommittedBrowserVisualActors,
+      publishColdStartShellFrame,
       retainedContentSwitchAnimations,
       visibleCommittedSurfaceFrame,
       viewportRuntime,

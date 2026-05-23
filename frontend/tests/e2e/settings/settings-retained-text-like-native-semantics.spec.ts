@@ -61,6 +61,16 @@ test.use({
   viewport: { height: 672, width: 1200 },
 });
 
+test.beforeEach(async ({ page }) => {
+  await page.route("**/setParamEnteredValue", async (route) => {
+    await route.fulfill({
+      body: "null",
+      contentType: "application/json",
+      status: 200,
+    });
+  });
+});
+
 test("native selection and caret stay with a retained text-like editor across projection frames", async ({
   page,
 }) => {
@@ -143,6 +153,61 @@ test("native selection and caret stay with a retained text-like editor across pr
   expectNativeTextStateAlignedToRow(caretAfterPan, caretDetails);
 });
 
+test("typing before and after retained motion stays in the same active editor", async ({
+  page,
+}) => {
+  const { row, target } = await openNativeTextLikeRow(page);
+
+  await activateNativeTextLikeEditor(page, row);
+  await page.keyboard.press(selectAllShortcut());
+  await page.keyboard.type("motion-before");
+  const typedBefore = await waitForActiveNativeTextValue(page, {
+    expectedText: "motion-before",
+    rowId: row.rowId,
+  });
+  const caretBeforeMotion = await waitForNativeTextSelectionState(page, {
+    expectedCollapsed: true,
+    rowId: row.rowId,
+  });
+
+  const wheelPoint = await resolveRetainedSurfaceWheelPoint(
+    page,
+    target.surfaceId,
+  );
+  await page.mouse.move(wheelPoint.x, wheelPoint.y);
+  await page.mouse.wheel(0, 28);
+  await applyViewportTransformDelta(page, { dx: 48, dy: -26 });
+  await waitForAnimationFrame(page);
+  const caretAfterMotion = await waitForNativeTextSelectionState(page, {
+    expectedCollapsed: true,
+    minEditorXDeltaFrom: caretBeforeMotion,
+    rowId: row.rowId,
+  });
+
+  await page.keyboard.type("-after");
+  const typedAfter = await waitForActiveNativeTextValue(page, {
+    expectedText: "motion-before-after",
+    rowId: row.rowId,
+  });
+  const details = JSON.stringify(
+    {
+      caretAfterMotion,
+      caretBeforeMotion,
+      row,
+      target,
+      typedAfter,
+      typedBefore,
+    },
+    null,
+    2,
+  );
+
+  expect(typedBefore.activeEditorId, details).toContain(row.rowId);
+  expect(typedAfter.activeEditorId, details).toBe(typedBefore.activeEditorId);
+  expect(typedAfter.text, details).toContain("motion-before-after");
+  expectNativeTextStateAlignedToRow(caretAfterMotion, details);
+});
+
 test("IME composition stays live and aligned through retained scroll and viewport projection", async ({
   page,
 }) => {
@@ -168,14 +233,11 @@ test("IME composition stays live and aligned through retained scroll and viewpor
   await page.mouse.move(wheelPoint.x, wheelPoint.y);
   await page.mouse.wheel(0, 28);
   await waitForAnimationFrame(page);
-  const composingAfterScroll = await dispatchSyntheticCompositionEvent(
-    page,
-    {
-      data: "kana-scroll",
-      kind: "compositionupdate",
-      rowId: row.rowId,
-    },
-  );
+  const composingAfterScroll = await dispatchSyntheticCompositionEvent(page, {
+    data: "kana-scroll",
+    kind: "compositionupdate",
+    rowId: row.rowId,
+  });
   await applyViewportTransformDelta(page, { dx: 52, dy: -28 });
   await waitForAnimationFrame(page);
   const composingAfterPan = await dispatchSyntheticCompositionEvent(
@@ -366,6 +428,32 @@ async function readNativeTextActivationDiagnostics(
       row.controlClientRect.x + row.controlClientRect.width / 2,
       row.controlClientRect.y + row.controlClientRect.height / 2,
     );
+    const lastBlockedEvent =
+      (
+        window as typeof window & {
+          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly {
+            readonly blockedReasons?: readonly {
+              readonly actorId?: string | null;
+              readonly reason?: string | null;
+            }[];
+          }[];
+        }
+      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?.at(-1) ?? null;
+    const readBrowserVisualPreparation = (
+      window as typeof window & {
+        __settaGpuFlowBrowserVisualPreparationDiagnostics?: (
+          actorId?: string | null,
+        ) => unknown;
+      }
+    ).__settaGpuFlowBrowserVisualPreparationDiagnostics;
+    const blockedActorPreparations =
+      lastBlockedEvent?.blockedReasons
+        ?.map((reason) => ({
+          actorId: reason.actorId ?? null,
+          preparation: readBrowserVisualPreparation?.(reason.actorId) ?? null,
+          reason: reason.reason ?? null,
+        }))
+        .slice(0, 10) ?? [];
     return {
       activeElement: describeElement(document.activeElement),
       activeElementInsideHost:
@@ -385,9 +473,22 @@ async function readNativeTextActivationDiagnostics(
             __settaGpuFlowDomControlPlaneDiagnostics?: () => unknown;
           }
         ).__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null,
+      browserVisualPreparation:
+        readBrowserVisualPreparation?.(
+          `retained-dom-control:${row.surfaceId}:${row.rowId}`,
+        ) ?? null,
+      blockedActorPreparations,
+      coldStartShell: document.querySelector<HTMLElement>(
+        '[data-gpu-flow-cold-start-shell="true"]',
+      )
+        ? true
+        : false,
+      lastBlockedEvent,
       host: host ? describeElement(host) : null,
       hostControls: host
-        ? Array.from(host.querySelectorAll<HTMLElement>("[data-gpu-flow-control]"))
+        ? Array.from(
+            host.querySelectorAll<HTMLElement>("[data-gpu-flow-control]"),
+          )
             .slice(0, 5)
             .map((element) => ({
               ...(describeElement(element) as Record<string, unknown>),
@@ -763,6 +864,69 @@ async function readNativeTextSelectionState(
   }, rowId);
 }
 
+async function waitForActiveNativeTextValue(
+  page: Page,
+  {
+    expectedText,
+    rowId,
+  }: {
+    readonly expectedText: string;
+    readonly rowId: string;
+  },
+): Promise<{
+  readonly activeEditorId: string;
+  readonly text: string;
+}> {
+  const deadline = Date.now() + 5_000;
+  let latestValue: {
+    activeEditorId: string | null;
+    text: string | null;
+  } | null = null;
+  while (Date.now() < deadline) {
+    latestValue = await readActiveNativeTextValue(page);
+    if (
+      latestValue?.activeEditorId?.includes(rowId) &&
+      latestValue.text?.includes(expectedText)
+    ) {
+      return {
+        activeEditorId: latestValue.activeEditorId,
+        text: latestValue.text,
+      };
+    }
+    await page.waitForTimeout(80);
+  }
+  throw new Error(
+    `Native text value did not reach the expected text. ${JSON.stringify(
+      { expectedText, latestValue, rowId },
+      null,
+      2,
+    )}`,
+  );
+}
+
+async function readActiveNativeTextValue(page: Page): Promise<{
+  readonly activeEditorId: string | null;
+  readonly text: string | null;
+}> {
+  return await page.evaluate(() => {
+    const activeElement = document.activeElement;
+    const activeEditor =
+      activeElement instanceof Element
+        ? activeElement.closest(".cm-editor")
+        : null;
+    const activeEditorId =
+      activeElement instanceof Element
+        ? activeElement
+            .closest("[data-gpu-flow-control]")
+            ?.getAttribute("data-gpu-flow-control") ?? null
+        : null;
+    return {
+      activeEditorId,
+      text: activeEditor?.querySelector(".cm-content")?.textContent ?? null,
+    };
+  });
+}
+
 function isExpectedNativeTextSelectionState(
   state: NativeTextSelectionState | null,
   options: {
@@ -804,7 +968,9 @@ function isExpectedNativeTextSelectionState(
   return state.selectedText.length > 0 && state.selectionRect !== null;
 }
 
-function isNativeTextStateAlignedToRow(state: NativeTextSelectionState): boolean {
+function isNativeTextStateAlignedToRow(
+  state: NativeTextSelectionState,
+): boolean {
   return (
     Math.abs(state.editorRowDelta.x) <= 3 &&
     Math.abs(state.editorRowDelta.y) <= 9 &&

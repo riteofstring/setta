@@ -24,7 +24,7 @@ import {
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
-import { releaseGpuFlowSurfaceTexture } from "../surfaceTextureReleaseAuthority";
+import { releaseGpuFlowUnmountedSourceSurfaceTexture } from "../surfaceTextureReleaseAuthority";
 import { getGpuFlowBrowserVisualActorRuntimeForCommittedSurface } from "./browserVisualActorRuntime";
 import type { GpuFlowDomControlRenderer } from "./domControlPlane";
 import { projectGpuFlowDomControlPlaneGeometry } from "./domControlPlaneProjection";
@@ -37,6 +37,19 @@ const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SURFACE_ID_PREFIX =
 const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_SIZE = 1;
 const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_DELAY_MS = 750;
 const noop = () => {};
+type GpuRetainedDomControlSnapshotSourceDiagnostic = {
+  readonly expectedTextureContentKey: string;
+  readonly inPreparation: boolean;
+  readonly sourceId: string;
+  readonly surfaceId: string;
+  readonly texture: {
+    readonly dirtyContent: boolean;
+    readonly dirtyResolution: boolean;
+    readonly lastUploadFrame: number;
+    readonly textureContentKey: string | undefined;
+    readonly textureContentKeyMatches: boolean;
+  } | null;
+};
 
 export function useGpuFlowRetainedDomControlSnapshotSources({
   committedSurfaceRuntime,
@@ -136,10 +149,57 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
     browserVisualSnapshot,
     retainedRuntimeFrame,
   ]);
+  const preparationSnapshotSourceIds = useMemo(
+    () =>
+      browserVisualRuntime
+        ? new Set(
+            (
+              browserVisualPreparationSnapshot?.domControls.snapshotControls ??
+              []
+            ).map(getGpuRetainedDomControlSnapshotSourceId),
+          )
+        : undefined,
+    [browserVisualPreparationSnapshot, browserVisualRuntime],
+  );
   const retainedDomControlSnapshotSurfaces = useMemo(
     () => getGpuRetainedDomControlSnapshotSurfaceLayouts(snapshotSources),
     [snapshotSources],
   );
+  useLayoutEffect(() => {
+    const view = window as typeof window & {
+      __settaGpuFlowDomControlSnapshotSourceDiagnostics?:
+        | (() => readonly GpuRetainedDomControlSnapshotSourceDiagnostic[])
+        | undefined;
+    };
+    view.__settaGpuFlowDomControlSnapshotSourceDiagnostics = () =>
+      snapshotSources.map((source) => {
+        const surfaceId = getGpuRetainedDomControlSnapshotSourceId(source);
+        const texture =
+          textureManagerRef.current?.getCommittedSurfaceTexture(surfaceId) ??
+          null;
+        return {
+          expectedTextureContentKey: source.snapshotCacheKeyRevision,
+          inPreparation: preparationSnapshotSourceIds?.has(surfaceId) === true,
+          sourceId: source.sourceId,
+          surfaceId,
+          texture: texture
+            ? {
+                dirtyContent: texture.dirtyContent,
+                dirtyResolution: texture.dirtyResolution,
+                lastUploadFrame: texture.lastUploadFrame,
+                textureContentKey: texture.textureContentKey,
+                textureContentKeyMatches:
+                  texture.textureContentKey === source.snapshotCacheKeyRevision,
+              }
+            : null,
+        };
+      });
+    return () => {
+      if (view.__settaGpuFlowDomControlSnapshotSourceDiagnostics) {
+        delete view.__settaGpuFlowDomControlSnapshotSourceDiagnostics;
+      }
+    };
+  }, [preparationSnapshotSourceIds, snapshotSources, textureManagerRef]);
   const handleSnapshotElementChange = useCallback(
     (surfaceId: string, element: HTMLElement | null) => {
       clearGpuNodeDomTransformSyncCacheNode(
@@ -149,8 +209,7 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
       if (!element) {
         nodeElementByIdRef.current.delete(surfaceId);
         transformOnlyPaintNodeIdsRef.current.delete(surfaceId);
-        releaseGpuFlowSurfaceTexture({
-          reason: "source-unmounted",
+        releaseGpuFlowUnmountedSourceSurfaceTexture({
           surfaceId,
           textureManager: textureManagerRef.current,
         });
@@ -216,6 +275,7 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
       <GpuRetainedDomControlSnapshotSourceLayer
         onSnapshotDraw={handleSnapshotDraw}
         onSnapshotElementChange={handleSnapshotElementChange}
+        prioritySourceIds={preparationSnapshotSourceIds}
         renderControl={renderControl}
         sources={snapshotSources}
       />
@@ -356,6 +416,7 @@ function isGpuRetainedDomControlSnapshotOverlay(
 function GpuRetainedDomControlSnapshotSourceLayer({
   onSnapshotDraw,
   onSnapshotElementChange,
+  prioritySourceIds,
   renderControl,
   sources,
 }: {
@@ -363,6 +424,7 @@ function GpuRetainedDomControlSnapshotSourceLayer({
   readonly onSnapshotElementChange?:
     | ((surfaceId: string, element: HTMLElement | null) => void)
     | undefined;
+  readonly prioritySourceIds?: ReadonlySet<string> | undefined;
   readonly renderControl: GpuFlowDomControlRenderer | undefined;
   readonly sources: readonly GpuRetainedDomControlSourceDescriptor[];
 }) {
@@ -376,6 +438,7 @@ function GpuRetainedDomControlSnapshotSourceLayer({
       }
       getSourceId={getGpuRetainedDomControlSnapshotSourceId}
       onSourceElementChange={onSnapshotElementChange}
+      prioritySourceIds={prioritySourceIds}
       progressiveBatchDelayMs={
         GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_DELAY_MS
       }
@@ -421,6 +484,7 @@ function GpuRetainedDomControlSnapshotSource({
       }}
     >
       {renderControl(source, {
+        hostPresentation: "snapshot-source",
         onActivate: undefined,
         presentation: "dom-control-plane",
       })}

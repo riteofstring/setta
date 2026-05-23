@@ -28,7 +28,7 @@ import type {
   GpuFlowLayoutStore,
   GpuFlowLayoutStoreApi,
 } from "../layoutStore";
-import { releaseGpuFlowSurfaceTexture } from "../surfaceTextureReleaseAuthority";
+import { releaseGpuFlowUnmountedSourceSurfaceTexture } from "../surfaceTextureReleaseAuthority";
 import type { GpuRect } from "../viewportMath";
 
 type GpuNodeDragPreviewSnapshot = {
@@ -138,8 +138,7 @@ export function useGpuFlowNodeDragPreviewSources({
       if (!element) {
         nodeElementByIdRef.current.delete(surfaceId);
         transformOnlyPaintNodeIdsRef.current.delete(surfaceId);
-        releaseGpuFlowSurfaceTexture({
-          reason: "source-unmounted",
+        releaseGpuFlowUnmountedSourceSurfaceTexture({
           surfaceId,
           textureManager: textureManagerRef.current,
         });

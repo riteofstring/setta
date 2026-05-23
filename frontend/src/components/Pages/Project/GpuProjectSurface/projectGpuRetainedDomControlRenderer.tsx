@@ -5,6 +5,7 @@ import {
 } from "components/Params/ParamUIs/textLikeParamCodeMirrorVisual";
 import { DummyCodeMirror } from "components/Utils/CodeMirror/DummyCodeMirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
+import type { GpuFlowDomControlRenderer } from "gpuFlow/GpuFlow/domControlPlane";
 import type { GpuRetainedDomControlSourceDescriptor } from "gpuFlow/retainedDomControlScene";
 import { useRef } from "react";
 import { useTypeErrors } from "state/definitions";
@@ -13,8 +14,9 @@ import { PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID } from "./projectGpuP
 
 export function renderProjectGpuRetainedDomControl(
   source: GpuRetainedDomControlSourceDescriptor,
+  context?: Parameters<GpuFlowDomControlRenderer>[1],
 ) {
-  return source.active ? (
+  return source.active && context?.hostPresentation === "visible" ? (
     <ProjectGpuActiveRetainedDomControl source={source} />
   ) : (
     <ProjectGpuPassiveRetainedDomControl source={source} />

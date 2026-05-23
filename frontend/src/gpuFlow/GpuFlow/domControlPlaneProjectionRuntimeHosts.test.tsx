@@ -14,6 +14,7 @@ import {
   createMockViewportRuntime,
   domControl,
   mountedRowIds,
+  publicationToken,
   publishBrowserVisualFrame,
   retainedDisplayFrame,
   retainedRuntimeFrame,
@@ -115,7 +116,15 @@ describe("GPU flow DOM control projection host publication", () => {
       .domControls.mountedControls.map((control) => control.rowId);
 
     retainedScrollY = 280;
-    browserVisualRuntime.projectDomControls({ x: 0, y: 0, zoom: 1 });
+    browserVisualRuntime.projectDomControls({
+      token: publicationToken(
+        committedSurfaceFrame({
+          displayFrameId: 0,
+          retainedRuntimeFrame: retainedRuntimeFrame([]),
+        }),
+      ),
+      viewport: { x: 0, y: 0, zoom: 1 },
+    });
 
     expect(
       browserVisualRuntime
@@ -136,9 +145,16 @@ describe("GPU flow DOM control projection host publication", () => {
       }),
     });
 
-    expect(() => browserVisualRuntime.projectDomControls()).toThrow(
-      /commit publication token/,
-    );
+    expect(() =>
+      browserVisualRuntime.projectDomControls(undefined as never),
+    ).toThrow(/commit publication token/);
+    expect(() =>
+      browserVisualRuntime.projectDomControls({
+        x: 0,
+        y: 0,
+        zoom: 1,
+      } as never),
+    ).toThrow(/commit publication token/);
   });
 
   it("pins focused DOM-control hosts while retained active state catches up", () => {

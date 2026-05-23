@@ -22,7 +22,7 @@ import {
   type HtmlSurfaceSourceElementConfig,
 } from "../htmlSurfaces/sourceLayer";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
-import { releaseGpuFlowSurfaceTexture } from "../surfaceTextureReleaseAuthority";
+import { releaseGpuFlowUnmountedSourceSurfaceTexture } from "../surfaceTextureReleaseAuthority";
 import {
   screenToFlowPosition,
   type GpuRect,
@@ -141,8 +141,7 @@ export function useGpuFlowSelectionOverlaySources({
       if (!element) {
         nodeElementByIdRef.current.delete(surfaceId);
         transformOnlyPaintNodeIdsRef.current.delete(surfaceId);
-        releaseGpuFlowSurfaceTexture({
-          reason: "source-unmounted",
+        releaseGpuFlowUnmountedSourceSurfaceTexture({
           surfaceId,
           textureManager: textureManagerRef.current,
         });

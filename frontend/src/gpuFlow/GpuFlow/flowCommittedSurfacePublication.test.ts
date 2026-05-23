@@ -7,8 +7,17 @@ import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import { resolveGpuFlowCommittedSurfacePublicationGate } from "./flowCommittedSurfacePublication";
-import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
+import {
+  applyGpuFlowCommittedSurfacePublicationGateEffect,
+  recordGpuFlowBlockedVisiblePublication,
+  resolveGpuFlowCommittedSurfacePublicationGate,
+  type GpuFlowCommittedSurfacePublicationGateEffect,
+} from "./flowCommittedSurfacePublication";
+import {
+  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+} from "./visibleFramePublicationAuthority";
+import { createGpuFlowVisibleFrameBlockedPublicationToken } from "./visibleFramePublicationKernel";
 
 describe("GPU Flow committed surface publication gate", () => {
   afterEach(() => {
@@ -31,8 +40,6 @@ describe("GPU Flow committed surface publication gate", () => {
     const requestFrame = vi.fn();
     const result = resolveGpuFlowCommittedSurfacePublicationGate(
       gateInput({
-        canvas,
-        requestFrame,
         timestamp: 10,
       }),
     );
@@ -41,20 +48,15 @@ describe("GPU Flow committed surface publication gate", () => {
     if (result.kind !== "blocked") {
       throw new Error("Expected blocked publication result.");
     }
-    expect(result.token.transactionId).toBe(
-      "blocked:frame-cold-start-shell:browser-visual:sample-1",
+    expect(result.blockedPublicationCandidate.frozenFrameId).toBe(
+      GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
     );
-    expect(result.token.frozenFrame).toEqual({
-      frame: {
-        id: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
-        input: "disabled",
-        kind: "cold-start-shell",
-        reason: "browser-visual-publication-blocked-before-first-commit",
-      },
-      frameId: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
-      kind: "cold-start-shell",
-    });
-    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+    expect(result.candidateFrame.displayFrameId).toBe(2);
+    expect(result.preservePreparationSnapshot).toBe(true);
+    expect(requestFrame).not.toHaveBeenCalled();
+    expect(readStarvationReports()).toEqual([]);
+    applyGateEffect(result.effect, { canvas, requestFrame });
+    expect(requestFrame).not.toHaveBeenCalled();
     expect(readStarvationReports()).toEqual([
       expect.objectContaining({
         actorId: "actor-a",
@@ -69,45 +71,69 @@ describe("GPU Flow committed surface publication gate", () => {
         visibleActorCount: 1,
       }),
     ]);
-    expect(readBlockedVisiblePublicationEvents()).toEqual([
-      expect.objectContaining({
-        blockedReasons: [
-          {
-            actorId: "actor-a",
-            family: "dom-control",
-            reason: "snapshot-pending",
-          },
-        ],
-        candidateFrameId: 2,
-        frozenFrame: result.token.frozenFrame,
-        frozenFrameId: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
-        projectionSampleId: 1,
-        tokenTransactionId:
-          "blocked:frame-cold-start-shell:browser-visual:sample-1",
-      }),
-    ]);
+    expect(readBlockedVisiblePublicationEvents()).toEqual([]);
   });
 
-  it("defers browser visual retry frames during motion-heavy publication", () => {
+  it("uses a deferred watchdog while waiting for browser visual repair signals during motion-heavy publication", () => {
     vi.useFakeTimers();
     const canvas = document.createElement("canvas");
     const requestFrame = vi.fn();
 
     const result = resolveGpuFlowCommittedSurfacePublicationGate(
       gateInput({
-        canvas,
         deferBrowserVisualRetry: true,
-        requestFrame,
         timestamp: 10,
       }),
     );
 
     expect(result.kind).toBe("blocked");
+    applyGateEffect(result.effect, { canvas, requestFrame });
     expect(requestFrame).not.toHaveBeenCalled();
     vi.advanceTimersByTime(159);
     expect(requestFrame).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
+    expect(requestFrame).toHaveBeenCalledTimes(1);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+  });
+
+  it("records cold-start shell blocked publication without a committed candidate frame", () => {
+    const canvas = document.createElement("canvas");
+    const token = createGpuFlowVisibleFrameBlockedPublicationToken({
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "retained-projection",
+          reason: "coverage-missing",
+        },
+      ],
+      frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+      projectionSample: {
+        id: 9,
+      } as Parameters<
+        typeof createGpuFlowVisibleFrameBlockedPublicationToken
+      >[0]["projectionSample"],
+    });
+
+    recordGpuFlowBlockedVisiblePublication({
+      frame: null,
+      runtimeCanvas: canvas,
+      token,
+    });
+
+    expect(readBlockedVisiblePublicationEvents()).toEqual([
+      expect.objectContaining({
+        blockedReasons: [
+          {
+            actorId: null,
+            family: "retained-projection",
+            reason: "coverage-missing",
+          },
+        ],
+        candidateFrameId: null,
+        frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+        projectionSampleId: 9,
+      }),
+    ]);
   });
 
   it("fails loudly in test runtime when browser visual coverage starves beyond budget", () => {
@@ -119,38 +145,36 @@ describe("GPU Flow committed surface publication gate", () => {
       index += 1
     ) {
       expect(() =>
-        resolveGpuFlowCommittedSurfacePublicationGate(
-          gateInput({
-            canvas,
-            requestFrame,
-            timestamp: index,
-          }),
+        applyGateEffect(
+          resolveGpuFlowCommittedSurfacePublicationGate(
+            gateInput({
+              timestamp: index,
+            }),
+          ).effect,
+          { canvas, requestFrame },
         ),
       ).not.toThrow();
     }
 
     expect(() =>
-      resolveGpuFlowCommittedSurfacePublicationGate(
-        gateInput({
-          canvas,
-          requestFrame,
-          timestamp:
-            DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames,
-        }),
+      applyGateEffect(
+        resolveGpuFlowCommittedSurfacePublicationGate(
+          gateInput({
+            timestamp:
+              DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames,
+          }),
+        ).effect,
+        { canvas, requestFrame },
       ),
     ).toThrow(/browser visual actor starvation exceeded budget/);
   });
 });
 
 function gateInput({
-  canvas,
   deferBrowserVisualRetry = false,
-  requestFrame,
   timestamp,
 }: {
-  readonly canvas: HTMLCanvasElement;
   readonly deferBrowserVisualRetry?: boolean | undefined;
-  readonly requestFrame: (reason: GpuFrameReason) => void;
   readonly timestamp: number;
 }): Parameters<typeof resolveGpuFlowCommittedSurfacePublicationGate>[0] {
   const retainedFrame = {} as RetainedDisplayFrame;
@@ -163,15 +187,47 @@ function gateInput({
     publicationLane: "content",
     publishedCommittedSurfaceFrame: blockedCommittedSurfaceFrame(),
     publishedRetainedFrame: retainedFrame,
-    previousRetainedDisplayFrame: retainedFrame,
-    retainedDisplayFrameRef: { current: retainedFrame },
+  } as unknown as Parameters<
+    typeof resolveGpuFlowCommittedSurfacePublicationGate
+  >[0];
+}
+
+function applyGateEffect(
+  effect: GpuFlowCommittedSurfacePublicationGateEffect,
+  {
+    canvas,
+    requestFrame,
+  }: {
+    readonly canvas: HTMLCanvasElement;
+    readonly requestFrame: (reason: GpuFrameReason) => void;
+  },
+): void {
+  applyGpuFlowCommittedSurfacePublicationGateEffect({
+    effect,
     runtimeCanvas: canvas,
     surfaceRef: {
       current: { requestFrame } as unknown as GpuSurfaceHandle,
     },
-  } as unknown as Parameters<
-    typeof resolveGpuFlowCommittedSurfacePublicationGate
-  >[0];
+    token: blockedPublicationToken(),
+  });
+}
+
+function blockedPublicationToken() {
+  return createGpuFlowVisibleFrameBlockedPublicationToken({
+    blockedReasons: [
+      {
+        actorId: "actor-a",
+        family: "browser-visual",
+        reason: "snapshot-pending",
+      },
+    ],
+    frozenFrameId: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+    projectionSample: {
+      id: 1,
+    } as Parameters<
+      typeof createGpuFlowVisibleFrameBlockedPublicationToken
+    >[0]["projectionSample"],
+  });
 }
 
 function blockedCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {

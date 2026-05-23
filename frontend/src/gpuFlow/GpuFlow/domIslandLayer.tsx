@@ -77,8 +77,16 @@ export function GpuFlowDomIslandLayer({
   const frameIds = snapshot.frameIds;
 
   const setDomIslandElement = useCallback(
-    (islandId: string, element: HTMLElement | null) => {
-      browserVisualRuntime.setDomIslandElement({ element, islandId });
+    (
+      islandId: string,
+      element: HTMLElement | null,
+      presentation: "preparation" | "visible",
+    ) => {
+      browserVisualRuntime.setDomIslandElement({
+        element,
+        islandId,
+        presentation,
+      });
     },
     [browserVisualRuntime],
   );
@@ -92,8 +100,8 @@ export function GpuFlowDomIslandLayer({
 
   useLayoutEffect(() => {
     return viewportRuntime.registerOverlayManager({
-      applyViewport(viewport) {
-        browserVisualRuntime.projectDomIslands(viewport);
+      applyViewport() {
+        browserVisualRuntime.getSnapshot();
       },
     });
   }, [browserVisualRuntime, viewportRuntime]);
@@ -122,7 +130,7 @@ export function GpuFlowDomIslandLayer({
           data-gpu-flow-dom-island-id={island.id}
           data-gpu-flow-dom-island-kind={island.kind}
           key={island.id}
-          ref={(element) => setDomIslandElement(island.id, element)}
+          ref={(element) => setDomIslandElement(island.id, element, "visible")}
           style={getGpuFlowDomIslandInitialStyle({
             island,
             viewport: normalizedViewport,
@@ -139,7 +147,9 @@ export function GpuFlowDomIslandLayer({
           data-gpu-flow-dom-island-id={island.id}
           data-gpu-flow-dom-island-kind={island.kind}
           key={`preparation:${island.id}`}
-          ref={(element) => setDomIslandElement(island.id, element)}
+          ref={(element) =>
+            setDomIslandElement(island.id, element, "preparation")
+          }
           style={{
             ...getGpuFlowDomIslandInitialStyle({
               island,

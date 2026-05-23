@@ -6,19 +6,21 @@ import type {
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import { assertGpuFlowSingleVisiblePublicationOutcome } from "./flowVisiblePublicationOutcomeGuard";
+import { createGpuFlowVisibleFrameHoldPreviousToken } from "./visibleFramePublicationKernel";
+import type { GpuFlowVisiblePublicationOutcome } from "./visibleFramePublicationKernel";
 
 describe("GPU Flow visible publication outcome guard", () => {
   it("rejects multiple outcomes for the same surface and projection sample", () => {
     const surface = surfaceHandle();
     assertGpuFlowSingleVisiblePublicationOutcome({
-      outcome: { kind: "not-published" },
+      outcome: holdOutcome(1),
       publicationDecision: publicationDecision(1),
       surface,
     });
 
     expect(() =>
       assertGpuFlowSingleVisiblePublicationOutcome({
-        outcome: { kind: "not-published" },
+        outcome: holdOutcome(1),
         publicationDecision: publicationDecision(1),
         surface,
       }),
@@ -28,21 +30,21 @@ describe("GPU Flow visible publication outcome guard", () => {
   it("allows independent surfaces and later projection samples", () => {
     const surface = surfaceHandle();
     assertGpuFlowSingleVisiblePublicationOutcome({
-      outcome: { kind: "not-published" },
+      outcome: holdOutcome(1),
       publicationDecision: publicationDecision(1),
       surface,
     });
 
     expect(() =>
       assertGpuFlowSingleVisiblePublicationOutcome({
-        outcome: { kind: "not-published" },
+        outcome: holdOutcome(1),
         publicationDecision: publicationDecision(1),
         surface: surfaceHandle(),
       }),
     ).not.toThrow();
     expect(() =>
       assertGpuFlowSingleVisiblePublicationOutcome({
-        outcome: { kind: "not-published" },
+        outcome: holdOutcome(2),
         publicationDecision: publicationDecision(2),
         surface,
       }),
@@ -63,6 +65,18 @@ function publicationDecision(
     rawReasons: [],
     sample: liveProjectionSample(sampleId),
     schedulerState: "idle",
+  };
+}
+
+function holdOutcome(sampleId: number): GpuFlowVisiblePublicationOutcome {
+  return {
+    kind: "hold-previous",
+    token: createGpuFlowVisibleFrameHoldPreviousToken({
+      committedFrameId: 7,
+      holdAgeFrames: 1,
+      holdAgeMs: 0,
+      projectionSample: liveProjectionSample(sampleId),
+    }),
   };
 }
 

@@ -150,33 +150,30 @@ export function GpuFlowSurfaceView({
             {nodeResizeOverlaySourceElement}
             {nodeDragPreviewSourceElement}
           </GpuSurface>
+          {profileGpuFlowReactElement(
+            "dom-control-plane",
+            <GpuFlowDomControlPlane
+              committedSurfaceRuntime={committedSurfaceRuntime}
+              getRetainedScrollOffset={getRetainedDomControlScrollOffset}
+              onActivate={onDomControlActivation}
+              renderControl={renderRetainedDomControl}
+              surfaceRef={surfaceRef}
+              viewportStore={viewportStore}
+              viewportRuntime={viewportRuntime}
+            />,
+          )}
+          {profileGpuFlowReactElement(
+            "dom-island-layer",
+            <GpuFlowDomIslandLayer
+              committedSurfaceRuntime={committedSurfaceRuntime}
+              renderDomIsland={renderDomIsland}
+              viewportStore={viewportStore}
+              viewportRuntime={viewportRuntime}
+            />,
+          )}
           {coldStartShellFrame ? (
             <GpuFlowColdStartShellOverlay frame={coldStartShellFrame} />
-          ) : (
-            <>
-              {profileGpuFlowReactElement(
-                "dom-control-plane",
-                <GpuFlowDomControlPlane
-                  committedSurfaceRuntime={committedSurfaceRuntime}
-                  getRetainedScrollOffset={getRetainedDomControlScrollOffset}
-                  onActivate={onDomControlActivation}
-                  renderControl={renderRetainedDomControl}
-                  surfaceRef={surfaceRef}
-                  viewportStore={viewportStore}
-                  viewportRuntime={viewportRuntime}
-                />,
-              )}
-              {profileGpuFlowReactElement(
-                "dom-island-layer",
-                <GpuFlowDomIslandLayer
-                  committedSurfaceRuntime={committedSurfaceRuntime}
-                  renderDomIsland={renderDomIsland}
-                  viewportStore={viewportStore}
-                  viewportRuntime={viewportRuntime}
-                />,
-              )}
-            </>
-          )}
+          ) : null}
           <GpuFlowPortalLayer portals={portalGroups.viewport} />
         </div>
       </GpuFlowSceneContext.Provider>

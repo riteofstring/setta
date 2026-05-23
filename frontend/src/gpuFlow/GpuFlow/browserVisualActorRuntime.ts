@@ -1,6 +1,7 @@
 import { createGpuFlowDomControlSnapshotResourceHandle } from "../browserSnapshotResourceHandle";
 import type { GpuFlowCommittedSurfaceBrowserVisualReadiness } from "../committedSurfaceFrame";
 import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
+import type { GpuSurfaceHandle } from "../GpuSurface";
 import type {
   CommittedHtmlSurfaceTextureSnapshot,
   HtmlSurfaceTextureManager,
@@ -16,8 +17,8 @@ import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import {
-  areBrowserVisualActorRuntimeSnapshotsEqual,
   addSetValue,
+  areBrowserVisualActorRuntimeSnapshotsEqual,
   blurFocusedDescendantBeforeUnmount,
   createGpuFlowCompatiblePreviousDomControlReadiness,
   createGpuFlowDomControlProjectionSourceRevision,
@@ -81,17 +82,27 @@ export type GpuFlowBrowserVisualActorRuntimeSnapshot = {
 };
 
 type BrowserVisualActorRuntimeListener = () => void;
-type GpuFlowBrowserVisualActorProjectionInput =
-  | GpuViewportInput
-  | {
-      readonly token: GpuFlowCommitPublicationToken;
-      readonly viewport?: GpuViewportInput | undefined;
-    };
+type GpuFlowBrowserVisualActorProjectionInput = {
+  readonly token: GpuFlowCommitPublicationToken;
+  readonly viewport?: GpuViewportInput | undefined;
+};
 
 export type GpuFlowBrowserVisualActorCandidate = {
   readonly id: string;
   readonly readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness;
   readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
+};
+
+export type GpuFlowDomControlHostReadinessDiagnostics = {
+  readonly elementConnected: boolean;
+  readonly hasHost: boolean;
+  readonly matches: {
+    readonly snapshotCacheKeyRevision: boolean;
+    readonly sourceKey: boolean;
+    readonly textCoverageRevision: boolean;
+    readonly valueStyleRevision: boolean;
+  };
+  readonly ready: boolean;
 };
 
 const EMPTY_DOM_CONTROL_DESCRIPTORS: readonly GpuRetainedDomControlSourceDescriptor[] =
@@ -101,7 +112,9 @@ const BLOCKED_AWAITING_LIVE_HOST_READINESS: BrowserVisualActorRepresentationRead
   Object.freeze({ coverageState: "blocked-awaiting-live-host" });
 const BLOCKED_AWAITING_SNAPSHOT_READINESS: BrowserVisualActorRepresentationReadiness =
   Object.freeze({ coverageState: "blocked-awaiting-snapshot" });
-const GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_PREPARATION_BATCH_SIZE = 8;
+const GPU_FLOW_BROWSER_VISUAL_LIVE_PREPARATION_BATCH_SIZE = 4;
+const GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_PREPARATION_BATCH_SIZE = 64;
+const GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_STAGE_BATCH_SIZE = 4;
 const GPU_FLOW_FOCUSED_DOM_CONTROL_VISUAL_SEMANTICS = Object.freeze({
   accessibility: "active-browser-editor",
   focusable: true,
@@ -153,32 +166,16 @@ function resolveGpuFlowBrowserVisualActorProjectionViewport({
     | GpuFlowBrowserVisualActorProjectionInput
     | undefined;
 }): GpuViewportInput | undefined {
-  if (projectionInput === undefined) {
+  if (!projectionInput) {
     throw new Error(
       "GPU Flow current browser visual projection requires a commit publication token.",
     );
   }
-  if (isGpuFlowBrowserVisualActorProjectionTokenInput(projectionInput)) {
-    assertGpuFlowCommitPublicationTokenForFrameId({
-      committedFrameId,
-      token: projectionInput.token,
-    });
-    return projectionInput.viewport;
-  }
-  return projectionInput;
-}
-
-function isGpuFlowBrowserVisualActorProjectionTokenInput(
-  projectionInput: GpuFlowBrowserVisualActorProjectionInput,
-): projectionInput is Extract<
-  GpuFlowBrowserVisualActorProjectionInput,
-  { readonly token: GpuFlowCommitPublicationToken }
-> {
-  return (
-    typeof projectionInput === "object" &&
-    projectionInput !== null &&
-    "token" in projectionInput
-  );
+  assertGpuFlowCommitPublicationTokenForFrameId({
+    committedFrameId,
+    token: projectionInput.token,
+  });
+  return projectionInput.viewport;
 }
 
 export class GpuFlowBrowserVisualActorRuntime {
@@ -188,7 +185,11 @@ export class GpuFlowBrowserVisualActorRuntime {
     committedFrameId: 0,
     runtimeFrameId: 0,
   });
-  private readonly domControlHostById = new Map<
+  private readonly preparationDomControlHostById = new Map<
+    string,
+    GpuFlowDomControlPlaneMountedHost
+  >();
+  private readonly visibleDomControlHostById = new Map<
     string,
     GpuFlowDomControlPlaneMountedHost
   >();
@@ -214,6 +215,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   private readonly preparationListeners =
     new Set<BrowserVisualActorRuntimeListener>();
   private snapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
+  private snapshotPublicationToken: GpuFlowCommitPublicationToken | null = null;
   private suspendPassivePointerActivation = false;
 
   getSnapshot(): GpuFlowBrowserVisualActorRuntimeSnapshot {
@@ -226,6 +228,16 @@ export class GpuFlowBrowserVisualActorRuntime {
 
   getDomControlDiagnostics(): GpuFlowDomControlPlaneDiagnostics {
     return { ...this.diagnostics };
+  }
+
+  getDomControlHostReadinessDiagnostics(
+    controlId: string,
+  ): GpuFlowDomControlHostReadinessDiagnostics {
+    const control =
+      this.preparationSnapshot.domControls.controlById.get(controlId) ??
+      this.snapshot.domControls.controlById.get(controlId) ??
+      null;
+    return this.describeDomControlHostReadiness(control);
   }
 
   subscribe(listener: BrowserVisualActorRuntimeListener): () => void {
@@ -304,6 +316,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     assertGpuFlowPreparedCandidateAbortToken({ token });
     this.stageBrowserVisualPreparation({
       preparedSnapshot: candidate.snapshot,
+      token,
     });
   }
 
@@ -336,8 +349,6 @@ export class GpuFlowBrowserVisualActorRuntime {
       this.preparationSnapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
       this.emitPreparation();
     }
-    this.projectDomControls({ token });
-    this.projectDomIslands({ token });
   }
 
   abortPreparedBrowserVisualActors({
@@ -397,20 +408,28 @@ export class GpuFlowBrowserVisualActorRuntime {
   setDomControlElement({
     control,
     element,
+    presentation,
   }: {
     readonly control: GpuRetainedDomControlSourceDescriptor;
     readonly element: HTMLElement | null;
+    readonly presentation: "preparation" | "visible";
   }): void {
     if (!element) {
-      const mounted = this.domControlHostById.get(control.sourceId);
+      const hostMap = this.getDomControlHostMap(presentation);
+      const mounted = hostMap.get(control.sourceId);
       if (mounted) {
         blurFocusedDescendantBeforeUnmount(mounted.element);
       }
-      this.domControlHostById.delete(control.sourceId);
-      this.composingDomControlIds.delete(control.sourceId);
+      hostMap.delete(control.sourceId);
+      if (presentation === "visible") {
+        this.composingDomControlIds.delete(control.sourceId);
+      }
       return;
     }
-    this.domControlHostById.set(control.sourceId, {
+    this.assertBrowserVisualHostRegistrationToken({
+      presentation,
+    });
+    this.getDomControlHostMap(presentation).set(control.sourceId, {
       control,
       controlId: control.sourceId,
       element,
@@ -458,22 +477,42 @@ export class GpuFlowBrowserVisualActorRuntime {
     }
   }
 
+  requestCommittedBrowserVisualRepairFrame({
+    surface,
+  }: {
+    readonly surface: Pick<GpuSurfaceHandle, "requestFrame"> | null | undefined;
+  }): void {
+    if (!surface || !this.snapshotPublicationToken) {
+      return;
+    }
+    assertGpuFlowCommitPublicationTokenForFrameId({
+      committedFrameId: this.snapshot.frameIds.committedFrameId,
+      token: this.snapshotPublicationToken,
+    });
+    surface.requestFrame("texture-upload");
+  }
+
   setDomIslandElement({
     element,
     islandId,
+    presentation,
   }: {
     readonly element: HTMLElement | null;
     readonly islandId: string;
+    readonly presentation: "preparation" | "visible";
   }): void {
     if (!element) {
       this.domIslandElementById.delete(islandId);
       return;
     }
+    this.assertBrowserVisualHostRegistrationToken({
+      presentation,
+    });
     this.domIslandElementById.set(islandId, element);
   }
 
   projectDomControls(
-    projectionInput?: GpuFlowBrowserVisualActorProjectionInput,
+    projectionInput: GpuFlowBrowserVisualActorProjectionInput,
   ): void {
     const viewportRuntime = this.controlViewportRuntime;
     const viewportStore = this.controlViewportStore;
@@ -520,7 +559,7 @@ export class GpuFlowBrowserVisualActorRuntime {
         .map((assignment) => assignment.control.sourceId),
     );
     return new Map(
-      [...this.domControlHostById.entries()].filter(([controlId]) =>
+      [...this.visibleDomControlHostById.entries()].filter(([controlId]) =>
         projectableControlIds.has(controlId),
       ),
     );
@@ -532,7 +571,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       GpuFlowDomControlPlaneMountedHost
     >,
   ): void {
-    for (const [controlId, host] of this.domControlHostById) {
+    for (const [controlId, host] of this.visibleDomControlHostById) {
       if (projectableHostByControlId.has(controlId)) {
         continue;
       }
@@ -549,7 +588,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   }
 
   projectDomIslands(
-    projectionInput?: GpuFlowBrowserVisualActorProjectionInput,
+    projectionInput: GpuFlowBrowserVisualActorProjectionInput,
   ): void {
     const viewportRuntime = this.islandViewportRuntime;
     const viewportStore = this.islandViewportStore;
@@ -630,23 +669,33 @@ export class GpuFlowBrowserVisualActorRuntime {
 
   private stageBrowserVisualPreparation({
     preparedSnapshot,
+    token,
   }: {
     readonly preparedSnapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
+    readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
   }): void {
     const preparedDomControls = preparedSnapshot.domControls;
+    const preparedMountedControls =
+      this.resolveDomControlLiveHostPreparationStage({
+        preparedDomControls,
+        token,
+      });
+    const preparedSnapshotControls =
+      this.resolveDomControlSnapshotPreparationStage({
+        preparedDomControls,
+        token,
+      });
     const mountedControls = mergeGpuFlowDomControlProjectedControls({
       controlById: preparedDomControls.controlById,
       currentControls: this.snapshot.domControls.mountedControls,
-      nextControls: preparedDomControls.mountedControls,
+      nextControls: preparedMountedControls,
     });
     const nextPreparationSnapshot: GpuFlowBrowserVisualActorRuntimeSnapshot =
       Object.freeze({
         domControls: Object.freeze({
           ...preparedDomControls,
           mountedControls: Object.freeze([...mountedControls]),
-          snapshotControls: Object.freeze([
-            ...preparedDomControls.snapshotControls,
-          ]),
+          snapshotControls: Object.freeze([...preparedSnapshotControls]),
         }),
         domIslands: preparedSnapshot.domIslands,
         frameIds: preparedSnapshot.frameIds,
@@ -674,6 +723,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       committedFrameId: nextSnapshot.frameIds.committedFrameId,
       token,
     });
+    this.snapshotPublicationToken = token;
     if (
       areBrowserVisualActorRuntimeSnapshotsEqual(this.snapshot, nextSnapshot)
     ) {
@@ -685,6 +735,83 @@ export class GpuFlowBrowserVisualActorRuntime {
       runtimeFrameId: nextSnapshot.frameIds.runtimeFrameId,
     });
     this.emit();
+  }
+
+  private resolveDomControlLiveHostPreparationStage({
+    preparedDomControls,
+    token,
+  }: {
+    readonly preparedDomControls: GpuFlowBrowserVisualActorRuntimeSnapshot["domControls"];
+    readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
+  }): readonly GpuRetainedDomControlSourceDescriptor[] {
+    const requestedActorIds = getGpuFlowBrowserVisualRepairActorIds(token);
+    const readyControls: GpuRetainedDomControlSourceDescriptor[] = [];
+    const pendingControls: GpuRetainedDomControlSourceDescriptor[] = [];
+    for (const control of preparedDomControls.mountedControls) {
+      if (this.isDomControlHostReady(control)) {
+        readyControls.push(control);
+        continue;
+      }
+      if (requestedActorIds && !requestedActorIds.has(control.sourceId)) {
+        continue;
+      }
+      pendingControls.push(control);
+    }
+    return Object.freeze([
+      ...readyControls,
+      ...pendingControls.slice(
+        0,
+        GPU_FLOW_BROWSER_VISUAL_LIVE_PREPARATION_BATCH_SIZE,
+      ),
+    ]);
+  }
+
+  private resolveDomControlSnapshotPreparationStage({
+    preparedDomControls,
+    token,
+  }: {
+    readonly preparedDomControls: GpuFlowBrowserVisualActorRuntimeSnapshot["domControls"];
+    readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
+  }): readonly GpuRetainedDomControlSourceDescriptor[] {
+    const requestedActorIds = getGpuFlowBrowserVisualRepairActorIds(token);
+    const readyControls: GpuRetainedDomControlSourceDescriptor[] = [];
+    const pendingControls: GpuRetainedDomControlSourceDescriptor[] = [];
+    for (const control of preparedDomControls.snapshotControls) {
+      if (this.isDomControlSnapshotReady(control)) {
+        readyControls.push(control);
+        continue;
+      }
+      if (requestedActorIds && !requestedActorIds.has(control.sourceId)) {
+        continue;
+      }
+      pendingControls.push(control);
+    }
+    return Object.freeze([
+      ...readyControls,
+      ...pendingControls.slice(
+        0,
+        GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_STAGE_BATCH_SIZE,
+      ),
+    ]);
+  }
+
+  private assertBrowserVisualHostRegistrationToken({
+    presentation,
+  }: {
+    readonly presentation: "preparation" | "visible";
+  }): void {
+    if (presentation !== "visible") {
+      return;
+    }
+    if (!this.snapshotPublicationToken) {
+      throw new Error(
+        "GPU Flow visible browser visual host registration requires a committed publication token.",
+      );
+    }
+    assertGpuFlowCommitPublicationTokenForFrameId({
+      committedFrameId: this.snapshot.frameIds.committedFrameId,
+      token: this.snapshotPublicationToken,
+    });
   }
 
   private resolveDomControlSnapshotPreparationPool(
@@ -752,7 +879,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   private getRuntimeDomControlTextCoverageState(
     control: GpuRetainedDomControlSourceDescriptor,
   ): GpuRetainedDomControlTextCoverageState {
-    const host = this.domControlHostById.get(control.sourceId);
+    const host = this.visibleDomControlHostById.get(control.sourceId);
     const focused = host ? isDomControlHostFocused(host.element) : false;
     const composing = this.composingDomControlIds.has(control.sourceId);
     if (!control.active && !focused && !composing) {
@@ -812,7 +939,7 @@ export class GpuFlowBrowserVisualActorRuntime {
           createBlockedDomControlReadiness(control)
         );
       case "blocked-awaiting-browser-visual":
-        return BLOCKED_AWAITING_SNAPSHOT_READINESS;
+        return this.createSnapshotDomControlReadiness(control);
       case "blocked-awaiting-live-host":
         return this.createBlockedLiveHostDomControlReadiness({
           control,
@@ -904,19 +1031,53 @@ export class GpuFlowBrowserVisualActorRuntime {
   private isDomControlHostReady(
     control: GpuRetainedDomControlSourceDescriptor,
   ): boolean {
-    const host = this.domControlHostById.get(control.sourceId);
-    return Boolean(
+    return this.describeDomControlHostReadiness(control).ready;
+  }
+
+  private describeDomControlHostReadiness(
+    control: GpuRetainedDomControlSourceDescriptor | null,
+  ): GpuFlowDomControlHostReadinessDiagnostics {
+    const host = control ? this.getDomControlReadinessHost(control) : null;
+    const matches = {
+      snapshotCacheKeyRevision: Boolean(
+        host &&
+          control &&
+          host.control.snapshotCacheKeyRevision ===
+            control.snapshotCacheKeyRevision,
+      ),
+      sourceKey: Boolean(
+        host && control && host.control.sourceKey === control.sourceKey,
+      ),
+      textCoverageRevision: Boolean(
+        host &&
+          control &&
+          host.control.textCoverageRevision === control.textCoverageRevision,
+      ),
+      valueStyleRevision: Boolean(
+        host &&
+          control &&
+          host.control.valueStyleRevision === control.valueStyleRevision,
+      ),
+    };
+    const elementConnected = Boolean(host?.element.isConnected);
+    // Geometry and clip revisions are applied by the commit-token projection;
+    // snapshot cache keys are texture-only; requiring either here would deadlock
+    // already-mounted live hosts before commit.
+    const ready = Boolean(
       host &&
-        host.element.isConnected &&
+        control &&
+        elementConnected &&
         host.control.sourceId === control.sourceId &&
-        host.control.sourceKey === control.sourceKey &&
-        host.control.snapshotCacheKeyRevision ===
-          control.snapshotCacheKeyRevision &&
-        host.control.textCoverageRevision === control.textCoverageRevision &&
-        host.control.valueStyleRevision === control.valueStyleRevision &&
-        host.control.geometryRevision === control.geometryRevision &&
-        host.control.clipChainRevision === control.clipChainRevision,
+        matches.sourceKey &&
+        matches.textCoverageRevision &&
+        matches.valueStyleRevision,
     );
+    return Object.freeze({
+      elementConnected,
+      hasHost: Boolean(host),
+      matches: Object.freeze(matches),
+      ready,
+    });
   }
 
   private isDomControlSnapshotReady(
@@ -962,6 +1123,24 @@ export class GpuFlowBrowserVisualActorRuntime {
       listener();
     }
   }
+
+  private getDomControlHostMap(
+    presentation: "preparation" | "visible",
+  ): Map<string, GpuFlowDomControlPlaneMountedHost> {
+    return presentation === "visible"
+      ? this.visibleDomControlHostById
+      : this.preparationDomControlHostById;
+  }
+
+  private getDomControlReadinessHost(
+    control: GpuRetainedDomControlSourceDescriptor,
+  ): GpuFlowDomControlPlaneMountedHost | null {
+    return (
+      this.preparationDomControlHostById.get(control.sourceId) ??
+      this.visibleDomControlHostById.get(control.sourceId) ??
+      null
+    );
+  }
 }
 
 function createEmptyBrowserVisualActorRuntimeSnapshot(): GpuFlowBrowserVisualActorRuntimeSnapshot {
@@ -990,8 +1169,21 @@ function isDomControlSnapshotPreparationAssignment(
 ): boolean {
   return (
     assignment.coverageState === "snapshot" ||
+    assignment.coverageState === "blocked-awaiting-browser-visual" ||
     (assignment.coverageState === "blocked-awaiting-live-host" &&
       assignment.reason === "live-host-overflow" &&
       !assignment.control.active)
   );
+}
+
+function getGpuFlowBrowserVisualRepairActorIds(
+  token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
+): ReadonlySet<string> | null {
+  if (!("blockedReasons" in token)) {
+    return null;
+  }
+  const actorIds = token.blockedReasons.flatMap((reason) =>
+    reason.actorId === null ? [] : [reason.actorId],
+  );
+  return actorIds.length > 0 ? new Set(actorIds) : null;
 }

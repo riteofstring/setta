@@ -74,9 +74,6 @@ export type GpuFlowVisiblePublicationCompletionOutcome =
   | {
       readonly kind: "blocked";
       readonly token: GpuFlowBlockedPublicationToken;
-    }
-  | {
-      readonly kind: "not-published";
     };
 
 type GpuFlowVisiblePublicationScheduler = {

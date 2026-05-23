@@ -22,7 +22,7 @@ import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 
 import { findGpuNodeIdForEventTarget } from "../nodeInteractionDirty/nodeTargetLookup";
 import { resolveGpuNodeZIndex } from "../nodeZIndex";
-import { releaseGpuFlowSurfaceTexture } from "../surfaceTextureReleaseAuthority";
+import { releaseGpuFlowUnmountedSourceSurfaceTexture } from "../surfaceTextureReleaseAuthority";
 import {
   flowToScreenPosition,
   normalizeGpuViewport,
@@ -409,8 +409,7 @@ export function clearGpuFlowNodeElement({
   nodeInteractionRef.current?.clearNode(nodeId);
   sourceInteractionProjector.clearSource(nodeId);
   transformOnlyPaintNodeIdsRef.current.delete(nodeId);
-  releaseGpuFlowSurfaceTexture({
-    reason: "source-unmounted",
+  releaseGpuFlowUnmountedSourceSurfaceTexture({
     surfaceId: nodeId,
     textureManager: textureManagerRef.current,
   });

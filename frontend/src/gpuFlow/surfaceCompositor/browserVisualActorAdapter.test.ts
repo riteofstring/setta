@@ -142,6 +142,38 @@ describe("browser visual actor adapter", () => {
     ]);
   });
 
+  it("publishes promoted snapshot DOM-control coverage from exact live hosts", () => {
+    const control = domControl({
+      snapshotSurfaceId: "snapshot-a",
+      value: "hello",
+      visualPolicy: "snapshot",
+    });
+    const actor = createDomControlBrowserVisualActor(control, {
+      representationReadiness: {
+        coverageState: "live-host-ready",
+        resourceHandles: [{ id: control.sourceId, kind: "source" }],
+      },
+    });
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(actor).toEqual(
+      expect.objectContaining({
+        coverageState: "live-host-ready",
+        representation: expect.objectContaining({
+          hostId: expect.stringContaining(control.sourceId),
+          kind: "passive-live-display",
+        }),
+        representationKind: "passive-live-display",
+      }),
+    );
+    expect(fragment.exactCoverage[0]?.resourceHandles).toEqual([
+      expect.objectContaining({
+        id: control.sourceId,
+        kind: "source",
+      }),
+    ]);
+  });
+
   it("uses versioned snapshot resource handles when runtime readiness omits handles", () => {
     const control = domControl({
       snapshotSurfaceId: "snapshot-versioned",
@@ -252,6 +284,34 @@ describe("browser visual actor adapter", () => {
         kind: "texture",
       }),
     ]);
+  });
+
+  it("keeps pending overflow fallbacks on the snapshot repair path", () => {
+    const actor = createDomControlBrowserVisualActor(
+      domControl({
+        sourceId: "source-live-overflow",
+        value: "hello",
+      }),
+      {
+        representationReadiness: {
+          coverageState: "blocked-awaiting-snapshot",
+        },
+      },
+    );
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(actor).toEqual(
+      expect.objectContaining({
+        coverageState: "blocked-awaiting-snapshot",
+        representation: expect.objectContaining({
+          kind: "blocked",
+          reason: "snapshot-pending",
+        }),
+        representationKind: "blocked",
+      }),
+    );
+    expect(fragment.blockingSurfaceIds).toEqual([actor.surfaceId]);
+    expect(fragment.exactCoverage).toEqual([]);
   });
 
   it("publishes compatible previous DOM-control coverage through shared compatible entries", () => {

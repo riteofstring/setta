@@ -10,10 +10,11 @@ import {
   type GpuFlowVisiblePublicationCompletionOutcome,
 } from "../projectionScheduler";
 import { recordGpuFlowBlockedPublicationGuard } from "./flowVisiblePublicationBlockedGuard";
+import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import {
-  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
-  createGpuFlowBlockedPublicationToken,
-} from "./visibleFramePublicationAuthority";
+  createGpuFlowVisibleFrameBlockedPublicationToken,
+  createGpuFlowVisibleFrameHoldPreviousToken,
+} from "./visibleFramePublicationKernel";
 
 describe("GPU Flow blocked visible publication guard", () => {
   it("fails loudly when repeated blocked outcomes exceed the frame budget", () => {
@@ -22,7 +23,8 @@ describe("GPU Flow blocked visible publication guard", () => {
 
       for (
         let index = 1;
-        index <= DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames;
+        index <=
+        DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames;
         index += 1
       ) {
         expect(() =>
@@ -54,7 +56,8 @@ describe("GPU Flow blocked visible publication guard", () => {
       const surface = surfaceHandle();
       for (
         let index = 1;
-        index <= DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames;
+        index <=
+        DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames;
         index += 1
       ) {
         recordGpuFlowBlockedPublicationGuard({
@@ -64,7 +67,7 @@ describe("GPU Flow blocked visible publication guard", () => {
         });
       }
       recordGpuFlowBlockedPublicationGuard({
-        outcome: { kind: "not-published" },
+        outcome: holdOutcome(100, 100),
         publicationDecision: publicationDecision(100, 100),
         surface,
       });
@@ -94,7 +97,7 @@ function blockedOutcome(
 ): GpuFlowVisiblePublicationCompletionOutcome {
   return {
     kind: "blocked",
-    token: createGpuFlowBlockedPublicationToken({
+    token: createGpuFlowVisibleFrameBlockedPublicationToken({
       blockedReasons: [
         {
           actorId: null,
@@ -103,6 +106,21 @@ function blockedOutcome(
         },
       ],
       frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+      projectionSample: liveProjectionSample(sampleId, timestamp),
+    }),
+  };
+}
+
+function holdOutcome(
+  sampleId: number,
+  timestamp: number,
+): GpuFlowVisiblePublicationCompletionOutcome {
+  return {
+    kind: "hold-previous",
+    token: createGpuFlowVisibleFrameHoldPreviousToken({
+      committedFrameId: 7,
+      holdAgeFrames: 1,
+      holdAgeMs: 0,
       projectionSample: liveProjectionSample(sampleId, timestamp),
     }),
   };

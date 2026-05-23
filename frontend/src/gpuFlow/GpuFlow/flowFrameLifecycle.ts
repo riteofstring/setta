@@ -1,12 +1,12 @@
 import { type MutableRefObject } from "react";
 
-import { type GpuFrameReason } from "../gpuRenderer";
-import { type GpuSurfaceHandle } from "../GpuSurface";
 import {
   createGpuFlowFramePerformanceEvent,
   type GpuFlowFramePhaseDiagnostics,
   type GpuFlowRetainedTexturePageFrameMetrics,
 } from "../framePerformance";
+import { type GpuFrameReason } from "../gpuRenderer";
+import { type GpuSurfaceHandle } from "../GpuSurface";
 import { type RenderHtmlSurfaceFrameResult } from "../htmlSurfaces/frame";
 import { createGpuFlowInteractionDiagnosticsSnapshot } from "../interactionDiagnostics";
 import { type GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
@@ -121,6 +121,10 @@ export function updateGpuFlowNodeLayerFrameState({
     switchAnimationFollowUpFrame,
   });
 }
+
+export type GpuFlowNodeLayerFrameStatePublication = Parameters<
+  typeof updateGpuFlowNodeLayerFrameState
+>[0];
 
 function completeGpuNodeInteractionFrame(
   nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,

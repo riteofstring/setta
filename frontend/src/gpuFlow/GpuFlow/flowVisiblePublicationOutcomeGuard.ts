@@ -44,13 +44,11 @@ export function assertGpuFlowSingleVisiblePublicationOutcome({
 
 function getGpuFlowVisiblePublicationOutcomeTransactionId(
   outcome: GpuFlowVisiblePublicationCompletionOutcome,
-): string | null {
+): string {
   switch (outcome.kind) {
     case "blocked":
     case "commit":
     case "hold-previous":
       return outcome.token.transactionId;
-    case "not-published":
-      return null;
   }
 }

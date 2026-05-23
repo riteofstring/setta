@@ -46,6 +46,11 @@ export type GpuFlowDomControlActivationHandler = (
 export type GpuFlowDomControlRenderer = (
   control: GpuRetainedDomControlSourceDescriptor,
   context: {
+    readonly hostPresentation?:
+      | "preparation"
+      | "snapshot-source"
+      | "visible"
+      | undefined;
     readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
     readonly presentation: "dom-control-plane";
   },
@@ -136,10 +141,14 @@ export function GpuFlowDomControlPlane({
   );
   const preparationControlsToMount = useMemo(
     () =>
-      preparationSnapshot.domControls.mountedControls.filter(
-        (control) => !visibleControlIds.has(control.sourceId),
+      preparationSnapshot.domControls.mountedControls.filter((control) =>
+        isGpuFlowDomControlPreparationHostRequired({
+          control,
+          visibleControlById: snapshot.domControls.controlById,
+          visibleControlIds,
+        }),
       ),
-    [preparationSnapshot, visibleControlIds],
+    [preparationSnapshot, snapshot.domControls.controlById, visibleControlIds],
   );
   const assignmentsToMount = snapshot.domControls.assignments;
   const assignmentByControlId = useMemo(
@@ -157,6 +166,7 @@ export function GpuFlowDomControlPlane({
     (
       control: GpuRetainedDomControlSourceDescriptor,
       element: HTMLElement | null,
+      presentation: "preparation" | "visible",
     ) => {
       const currentFrameIds = frameIdsRef.current;
       const finishMeasure = startGpuFlowPerformanceMeasure(
@@ -171,9 +181,12 @@ export function GpuFlowDomControlPlane({
         browserVisualRuntime.setDomControlElement({
           control,
           element,
+          presentation,
         });
         if (element) {
-          surfaceRef?.current?.requestFrame("texture-upload");
+          browserVisualRuntime.requestCommittedBrowserVisualRepairFrame({
+            surface: surfaceRef?.current,
+          });
         }
       } finally {
         finishMeasure();
@@ -223,7 +236,7 @@ export function GpuFlowDomControlPlane({
 
   useLayoutEffect(() => {
     return viewportRuntime.registerOverlayManager({
-      applyViewport(viewport) {
+      applyViewport() {
         const finishMeasure = startGpuFlowPerformanceMeasure(
           "dom-control-projection",
           {
@@ -233,7 +246,7 @@ export function GpuFlowDomControlPlane({
           },
         );
         try {
-          browserVisualRuntime.projectDomControls(viewport);
+          browserVisualRuntime.getDomControlDiagnostics();
         } finally {
           finishMeasure();
         }
@@ -253,9 +266,12 @@ export function GpuFlowDomControlPlane({
       projectedFrameRequestKeyRef.current !== projectionFrameKey
     ) {
       projectedFrameRequestKeyRef.current = projectionFrameKey;
-      surfaceRef?.current?.requestFrame("texture-upload");
+      browserVisualRuntime.requestCommittedBrowserVisualRepairFrame({
+        surface: surfaceRef?.current,
+      });
     }
   }, [
+    browserVisualRuntime,
     controlsToMount.length,
     frameIds,
     snapshot.domControls.sourceRevision,
@@ -264,12 +280,98 @@ export function GpuFlowDomControlPlane({
 
   useLayoutEffect(() => {
     const view = window as typeof window & {
+      __settaGpuFlowBrowserVisualPreparationDiagnostics?: (
+        actorId?: string | null,
+      ) => {
+        readonly preparationAssignment: {
+          readonly coverageState: string;
+          readonly phase: string;
+          readonly priority: number;
+          readonly reason: string;
+          readonly sourceId: string;
+          readonly textCoverageState: GpuRetainedDomControlSourceDescriptor["textCoverageState"];
+          readonly visualPolicy: string;
+        } | null;
+        readonly preparationAssignmentCount: number;
+        readonly preparationControl: {
+          readonly active: boolean;
+          readonly snapshotSurfaceId: string | null;
+          readonly sourceId: string;
+          readonly textCoverageState: GpuRetainedDomControlSourceDescriptor["textCoverageState"];
+          readonly visualPolicy: string;
+        } | null;
+        readonly preparationControlCount: number;
+        readonly preparationFrameIds: {
+          readonly committedFrameId: number;
+          readonly runtimeFrameId: number;
+        };
+        readonly preparationMountedControl: string | null;
+        readonly preparationMountedControlCount: number;
+        readonly preparationSnapshotControl: string | null;
+        readonly preparationSnapshotControlCount: number;
+        readonly readiness: unknown;
+      };
       __settaGpuFlowDomControlPlaneDiagnostics?: () => GpuFlowDomControlPlaneDiagnostics;
+    };
+    view.__settaGpuFlowBrowserVisualPreparationDiagnostics = (actorId) => {
+      const preparation = browserVisualRuntime.getPreparationSnapshot();
+      const preparationAssignment =
+        preparation.domControls.assignments.find(
+          (assignment) => assignment.control.sourceId === actorId,
+        ) ?? null;
+      const preparationControl =
+        preparation.domControls.controls.find(
+          (control) => control.sourceId === actorId,
+        ) ?? null;
+      return {
+        preparationAssignment: preparationAssignment
+          ? {
+              coverageState: preparationAssignment.coverageState,
+              phase: preparationAssignment.phase,
+              priority: preparationAssignment.priority,
+              reason: preparationAssignment.reason,
+              sourceId: preparationAssignment.control.sourceId,
+              textCoverageState:
+                preparationAssignment.control.textCoverageState,
+              visualPolicy: preparationAssignment.control.visualPolicy,
+            }
+          : null,
+        preparationAssignmentCount: preparation.domControls.assignments.length,
+        preparationControl: preparationControl
+          ? {
+              active: preparationControl.active,
+              snapshotSurfaceId: preparationControl.snapshotSurfaceId,
+              sourceId: preparationControl.sourceId,
+              textCoverageState: preparationControl.textCoverageState,
+              visualPolicy: preparationControl.visualPolicy,
+            }
+          : null,
+        preparationControlCount: preparation.domControls.controls.length,
+        preparationFrameIds: preparation.frameIds,
+        preparationMountedControl:
+          preparation.domControls.mountedControls.find(
+            (control) => control.sourceId === actorId,
+          )?.sourceId ?? null,
+        preparationMountedControlCount:
+          preparation.domControls.mountedControls.length,
+        preparationSnapshotControl:
+          preparation.domControls.snapshotControls.find(
+            (control) => control.sourceId === actorId,
+          )?.sourceId ?? null,
+        preparationSnapshotControlCount:
+          preparation.domControls.snapshotControls.length,
+        readiness: actorId
+          ? browserVisualRuntime.getDomControlHostReadinessDiagnostics(actorId)
+          : null,
+      };
     };
     view.__settaGpuFlowDomControlPlaneDiagnostics = () => ({
       ...browserVisualRuntime.getDomControlDiagnostics(),
     });
     return () => {
+      if (view.__settaGpuFlowBrowserVisualPreparationDiagnostics) {
+        delete view.__settaGpuFlowBrowserVisualPreparationDiagnostics;
+      }
       if (view.__settaGpuFlowDomControlPlaneDiagnostics) {
         delete view.__settaGpuFlowDomControlPlaneDiagnostics;
       }
@@ -350,6 +452,30 @@ export function GpuFlowDomControlPlane({
   );
 }
 
+function isGpuFlowDomControlPreparationHostRequired({
+  control,
+  visibleControlById,
+  visibleControlIds,
+}: {
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+  readonly visibleControlById: ReadonlyMap<
+    string,
+    GpuRetainedDomControlSourceDescriptor
+  >;
+  readonly visibleControlIds: ReadonlySet<string>;
+}): boolean {
+  if (!visibleControlIds.has(control.sourceId)) {
+    return true;
+  }
+  const visibleControl = visibleControlById.get(control.sourceId);
+  return (
+    !visibleControl ||
+    visibleControl.sourceKey !== control.sourceKey ||
+    visibleControl.textCoverageRevision !== control.textCoverageRevision ||
+    visibleControl.valueStyleRevision !== control.valueStyleRevision
+  );
+}
+
 function GpuFlowDomControlHost({
   assignment,
   control,
@@ -377,6 +503,7 @@ function GpuFlowDomControlHost({
   readonly setControlElement: (
     control: GpuRetainedDomControlSourceDescriptor,
     element: HTMLElement | null,
+    presentation: "preparation" | "visible",
   ) => void;
 }) {
   const hostElementRef = useRef<HTMLDivElement | null>(null);
@@ -399,15 +526,15 @@ function GpuFlowDomControlHost({
       if (element) {
         const nextControl = latestControlRef.current;
         registeredControlRef.current = nextControl;
-        setControlElement(nextControl, element);
+        setControlElement(nextControl, element, presentation);
         return;
       }
       const previousControl =
         registeredControlRef.current ?? latestControlRef.current;
       registeredControlRef.current = null;
-      setControlElement(previousControl, null);
+      setControlElement(previousControl, null, presentation);
     },
-    [setControlElement],
+    [presentation, setControlElement],
   );
 
   useLayoutEffect(() => {
@@ -416,8 +543,8 @@ function GpuFlowDomControlHost({
       return;
     }
     registeredControlRef.current = control;
-    setControlElement(control, element);
-  }, [control, setControlElement]);
+    setControlElement(control, element, presentation);
+  }, [control, presentation, setControlElement]);
 
   useLayoutEffect(() => {
     if (presentation !== "visible" || !control.active) {
@@ -535,6 +662,7 @@ function GpuFlowDomControlHost({
         }}
       >
         {renderControl(control, {
+          hostPresentation: presentation,
           onActivate,
           presentation: "dom-control-plane",
         })}

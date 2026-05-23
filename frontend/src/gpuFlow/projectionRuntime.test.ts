@@ -2,13 +2,15 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "./committedSurfaceFrame";
 import {
-  createGpuFlowBlockedPublicationToken,
-  createGpuFlowCommitPublicationToken,
-  createGpuFlowHoldPreviousToken,
-  createGpuFlowPresentableCommit,
-} from "./GpuFlow/visibleFramePublicationAuthority";
+  createGpuFlowCommittedSurfacePresentationProof,
+  type GpuFlowCommittedSurfaceFrame,
+} from "./committedSurfaceFrame";
+import {
+  createGpuFlowVisibleFrameBlockedPublicationToken,
+  createGpuFlowVisibleFrameCommitPublicationToken,
+  createGpuFlowVisibleFrameHoldPreviousToken,
+} from "./GpuFlow/visibleFramePublicationKernel";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
@@ -89,7 +91,7 @@ describe("GPU Flow projection runtime", () => {
     expect(decision.debt.motion).toBe(true);
   });
 
-  it("keeps selected lane debt queued when no visible frame published", () => {
+  it("keeps selected lane debt queued when a frame blocks", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
@@ -106,11 +108,9 @@ describe("GPU Flow projection runtime", () => {
       motion: false,
     });
 
-    const completion = scheduler.completeFrame(decision, {
-      kind: "not-published",
-    });
+    const completion = completeBlockedFrame(scheduler, decision);
 
-    expect(completion.outcome).toBe("not-published");
+    expect(completion.outcome).toBe("blocked");
     expect(completion.debt).toEqual({
       content: true,
       maintenance: true,
@@ -133,7 +133,7 @@ describe("GPU Flow projection runtime", () => {
 
     const completion = scheduler.completeFrame(decision, {
       kind: "hold-previous",
-      token: createGpuFlowHoldPreviousToken({
+      token: createGpuFlowVisibleFrameHoldPreviousToken({
         committedFrameId: 41,
         holdAgeFrames: 1,
         holdAgeMs: 0,
@@ -161,7 +161,7 @@ describe("GPU Flow projection runtime", () => {
 
     const completion = scheduler.completeFrame(decision, {
       kind: "blocked",
-      token: createGpuFlowBlockedPublicationToken({
+      token: createGpuFlowVisibleFrameBlockedPublicationToken({
         blockedReasons: [
           { actorId: "actor-a", family: "dom-control", reason: "pending" },
         ],
@@ -236,11 +236,9 @@ describe("GPU Flow projection runtime", () => {
       scheduler.completeFrame(decision, {
         debtProof: createDebtProofForSelectedLane(decision),
         kind: "commit",
-        token: createGpuFlowCommitPublicationToken({
-          presentableCommit: createGpuFlowPresentableCommit({
-            frame: committedFrameForSchedulerToken(decision),
-            projectionSample: liveSample(2),
-          }),
+        token: createGpuFlowVisibleFrameCommitPublicationToken({
+          frame: committedFrameForSchedulerToken(decision),
+          projectionSample: liveSample(2),
         }),
       }),
     ).toThrow(/selected projection sample/);
@@ -280,7 +278,7 @@ describe("GPU Flow projection runtime", () => {
     expect(() =>
       scheduler.completeFrame(decision, {
         kind: "blocked",
-        token: createGpuFlowBlockedPublicationToken({
+        token: createGpuFlowVisibleFrameBlockedPublicationToken({
           blockedReasons: [
             { actorId: "actor-a", family: "dom-control", reason: "pending" },
           ],
@@ -569,7 +567,7 @@ describe("GPU Flow projection runtime", () => {
       maintenance: true,
       motion: false,
     });
-    scheduler.completeFrame(settling, { kind: "not-published" });
+    completeHeldFrame(scheduler, settling);
 
     const catchup = scheduler.selectFrame({
       hasCommittedContentFrame: true,
@@ -623,7 +621,7 @@ describe("GPU Flow projection runtime", () => {
       maintenance: true,
       motion: false,
     });
-    scheduler.completeFrame(settling, { kind: "not-published" });
+    completeHeldFrame(scheduler, settling);
 
     const maintenance = scheduler.selectFrame({
       hasCommittedContentFrame: true,
@@ -720,7 +718,7 @@ describe("GPU Flow projection runtime", () => {
     setProjectionDebugAttributes(
       element,
       heldState.debugState,
-      createGpuFlowHoldPreviousToken({
+      createGpuFlowVisibleFrameHoldPreviousToken({
         committedFrameId: heldState.committedFrame.displayFrameId,
         holdAgeFrames: heldPreviousProjection.consecutiveFrameCount,
         holdAgeMs: heldPreviousProjection.heldDurationMs,
@@ -779,11 +777,9 @@ describe("GPU Flow projection runtime", () => {
     applyGpuFlowProjectionDebugAttributes({
       canvas: canvasB,
       debugState: visibleState.debugState,
-      token: createGpuFlowCommitPublicationToken({
-        presentableCommit: createGpuFlowPresentableCommit({
-          frame: committedFrameForDebugToken(7),
-          projectionSample: visibleState.sample,
-        }),
+      token: createGpuFlowVisibleFrameCommitPublicationToken({
+        frame: committedFrameForDebugToken(7),
+        projectionSample: visibleState.sample,
       }),
     });
 
@@ -805,11 +801,40 @@ function completeCommittedFrame(
   return scheduler.completeFrame(decision, {
     debtProof,
     kind: "commit",
-    token: createGpuFlowCommitPublicationToken({
-      presentableCommit: createGpuFlowPresentableCommit({
-        frame: committedFrameForSchedulerToken(decision),
-        projectionSample: decision.sample,
-      }),
+    token: createGpuFlowVisibleFrameCommitPublicationToken({
+      frame: committedFrameForSchedulerToken(decision),
+      projectionSample: decision.sample,
+    }),
+  });
+}
+
+function completeHeldFrame(
+  scheduler: ReturnType<typeof createGpuFlowVisiblePublicationScheduler>,
+  decision: GpuFlowVisiblePublicationDecision,
+) {
+  return scheduler.completeFrame(decision, {
+    kind: "hold-previous",
+    token: createGpuFlowVisibleFrameHoldPreviousToken({
+      committedFrameId: 41,
+      holdAgeFrames: 1,
+      holdAgeMs: 0,
+      projectionSample: decision.sample,
+    }),
+  });
+}
+
+function completeBlockedFrame(
+  scheduler: ReturnType<typeof createGpuFlowVisiblePublicationScheduler>,
+  decision: GpuFlowVisiblePublicationDecision,
+) {
+  return scheduler.completeFrame(decision, {
+    kind: "blocked",
+    token: createGpuFlowVisibleFrameBlockedPublicationToken({
+      blockedReasons: [
+        { actorId: null, family: "visible-transaction", reason: "blocked" },
+      ],
+      frozenFrameId: 41,
+      projectionSample: decision.sample,
     }),
   });
 }
@@ -833,20 +858,25 @@ function committedFrameForSchedulerToken(
 function committedFrameForDebugToken(
   displayFrameId: number,
 ): GpuFlowCommittedSurfaceFrame {
+  const coherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip-chain",
+    debugSnapshotFrameId: displayFrameId,
+    domControlCommittedFrameId: displayFrameId,
+    domIslandCommittedFrameId: displayFrameId,
+    gpuNativeVisualCommittedFrameId: displayFrameId,
+    hitGenerationId: "hit-generation",
+    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+  };
   return {
     actorGenerations: [],
-    coherence: {
-      canvasRetainedFrameId: displayFrameId,
-      clipChainRevision: "clip-chain",
-      debugSnapshotFrameId: displayFrameId,
-      domControlCommittedFrameId: displayFrameId,
-      domIslandCommittedFrameId: displayFrameId,
-      gpuNativeVisualCommittedFrameId: displayFrameId,
-      hitGenerationId: "hit-generation",
-      htmlTextureOverlayCommittedFrameId: displayFrameId,
-      retainedScrollRevision: 0,
-    },
+    coherence,
     displayFrameId,
+    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      coherence,
+      displayFrameId,
+    }),
     projectionHorizon: {
       textActorCoverage: {
         blockedAwaitingBrowserVisualActorIds: [],

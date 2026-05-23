@@ -1,6 +1,8 @@
 export {
+  assertGpuFlowBlockedPublicationTokenBrand,
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
   assertGpuFlowCommitPublicationToken,
+  assertGpuFlowCommitPublicationTokenBrand,
   assertGpuFlowCommitPublicationTokenForFrameId,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowCommittedSurfaceResetToken,

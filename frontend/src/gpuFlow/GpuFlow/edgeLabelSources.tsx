@@ -17,7 +17,7 @@ import {
   type GpuNodeDomTransformSyncCache,
 } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
-import { releaseGpuFlowSurfaceTexture } from "../surfaceTextureReleaseAuthority";
+import { releaseGpuFlowUnmountedSourceSurfaceTexture } from "../surfaceTextureReleaseAuthority";
 
 const EMPTY_EDGE_LABELS: readonly GpuEdgeSceneLabel[] = [];
 
@@ -53,8 +53,7 @@ export function useGpuFlowEdgeLabelSources({
       if (!element) {
         nodeElementByIdRef.current.delete(surfaceId);
         transformOnlyPaintNodeIdsRef.current.delete(surfaceId);
-        releaseGpuFlowSurfaceTexture({
-          reason: "source-unmounted",
+        releaseGpuFlowUnmountedSourceSurfaceTexture({
           surfaceId,
           textureManager: textureManagerRef.current,
         });

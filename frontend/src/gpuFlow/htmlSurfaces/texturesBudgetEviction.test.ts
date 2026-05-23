@@ -1,7 +1,21 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { releaseGpuFlowSurfaceTexture } from "../surfaceTextureReleaseAuthority";
+import {
+  createGpuFlowCommittedSurfacePresentationProof,
+  type GpuFlowCommittedSurfaceFrame,
+} from "../committedSurfaceFrame";
+import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "../GpuFlow/visibleFramePublicationAuthority";
+import {
+  createGpuFlowVisibleFrameBlockedPublicationToken,
+  createGpuFlowVisibleFrameCommitPublicationToken,
+} from "../GpuFlow/visibleFramePublicationKernel";
+import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
+import {
+  releaseGpuFlowRejectedCandidateSurfaceTexture,
+  releaseGpuFlowSupersededSurfaceTexture,
+  releaseGpuFlowUnmountedSourceSurfaceTexture,
+} from "../surfaceTextureReleaseAuthority";
 import { HtmlSurfaceTextureManager } from "./textures";
 import {
   createGpuTextureMock,
@@ -274,8 +288,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     registerNode(manager, "node-b", "visible");
 
     expect(
-      releaseGpuFlowSurfaceTexture({
-        reason: "test",
+      releaseGpuFlowUnmountedSourceSurfaceTexture({
         surfaceId: "node-a",
         textureManager: manager,
       }),
@@ -313,6 +326,58 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     expect(manager.getCommittedSurfaceTexture("node-a")).toBeDefined();
   });
 
+  it("uses outcome-specific publication tokens for transaction-owned release", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+    const commitToken = createGpuFlowVisibleFrameCommitPublicationToken({
+      frame: committedSurfaceFrame(4),
+      projectionSample: projectionSample(9),
+    });
+    const blockedToken = createGpuFlowVisibleFrameBlockedPublicationToken({
+      blockedReasons: [
+        {
+          actorId: "candidate-a",
+          family: "dom-control",
+          reason: "snapshot-pending",
+        },
+      ],
+      frozenFrameId: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+      projectionSample: projectionSample(10),
+    });
+
+    registerNode(manager, "superseded", "visible");
+    registerNode(manager, "rejected", "visible");
+
+    expect(
+      releaseGpuFlowSupersededSurfaceTexture({
+        surfaceId: "superseded",
+        textureManager: manager,
+        token: commitToken,
+      }),
+    ).toEqual({
+      kind: "released",
+      surfaceId: "superseded",
+    });
+    expect(
+      releaseGpuFlowRejectedCandidateSurfaceTexture({
+        surfaceId: "rejected",
+        textureManager: manager,
+        token: blockedToken,
+      }),
+    ).toEqual({
+      kind: "released",
+      surfaceId: "rejected",
+    });
+    expect(() =>
+      releaseGpuFlowSupersededSurfaceTexture({
+        surfaceId: "rejected",
+        textureManager: manager,
+        token: blockedToken as never,
+      }),
+    ).toThrow(/commit publication token/);
+  });
+
   it("defers source texture release while a published frame protects the surface", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
@@ -325,8 +390,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     });
 
     expect(
-      releaseGpuFlowSurfaceTexture({
-        reason: "test",
+      releaseGpuFlowUnmountedSourceSurfaceTexture({
         surfaceId: "node-a",
         textureManager: manager,
       }),
@@ -356,8 +420,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
       budgetBytes: Number.POSITIVE_INFINITY,
       protectedSurfaceIds: ["node-a"],
     });
-    releaseGpuFlowSurfaceTexture({
-      reason: "test",
+    releaseGpuFlowUnmountedSourceSurfaceTexture({
       surfaceId: "node-a",
       textureManager: manager,
     });
@@ -372,3 +435,49 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     expect(manager.getCommittedSurfaceTexture("node-a")).toBeDefined();
   });
 });
+
+function committedSurfaceFrame(
+  displayFrameId: number,
+): GpuFlowCommittedSurfaceFrame {
+  const coherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip",
+    debugSnapshotFrameId: displayFrameId,
+    domControlCommittedFrameId: displayFrameId,
+    domIslandCommittedFrameId: displayFrameId,
+    gpuNativeVisualCommittedFrameId: displayFrameId,
+    hitGenerationId: `hit:${displayFrameId}`,
+    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+  };
+  return {
+    actorGenerations: [],
+    coherence,
+    displayFrameId,
+    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      coherence,
+      displayFrameId,
+    }),
+    projectionHorizon: {
+      textActorCoverage: {
+        blockedAwaitingBrowserVisualActorIds: [],
+        blockedAwaitingLiveHostActorIds: [],
+        compatiblePreviousActorIds: [],
+        exactLiveDomActorIds: [],
+        exactSnapshotActorIds: [],
+        trueHoleActorIds: [],
+      },
+    },
+    publishability: {
+      blockingActorIds: [],
+      kind: "publishable",
+    },
+    surfaceTransaction: null,
+  } as unknown as GpuFlowCommittedSurfaceFrame;
+}
+
+function projectionSample(id: number): GpuFlowLiveProjectionSample {
+  return {
+    id,
+  } as GpuFlowLiveProjectionSample;
+}

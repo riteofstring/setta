@@ -2,6 +2,7 @@ import type {
   GpuFlowCommittedSurfaceBrowserVisualReadiness,
   GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
+import { createGpuFlowCommittedSurfacePresentationProof } from "../committedSurfaceFrame";
 import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import type { CommittedHtmlSurfaceTextureSnapshot } from "../htmlSurfaces/textures";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
@@ -23,12 +24,11 @@ import {
   type GpuFlowBrowserVisualActorCandidate,
 } from "./browserVisualActorRuntime";
 import type { GpuFlowRetainedScrollOffsetGetter } from "./domControlPlane";
+import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import {
-  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
-  createGpuFlowBlockedPublicationToken,
-  createGpuFlowCommitPublicationToken,
-  createGpuFlowPresentableCommit,
-} from "./visibleFramePublicationAuthority";
+  createGpuFlowVisibleFrameBlockedPublicationToken,
+  createGpuFlowVisibleFrameCommitPublicationToken,
+} from "./visibleFramePublicationKernel";
 
 export function createMockViewportRuntime(
   initialViewport: GpuViewportTuple,
@@ -150,7 +150,7 @@ export function stageBrowserVisualCandidate({
 }): void {
   browserVisualRuntime.stagePreparedBrowserVisualActors({
     candidate,
-    token: createGpuFlowBlockedPublicationToken({
+    token: createGpuFlowVisibleFrameBlockedPublicationToken({
       blockedReasons: [
         {
           actorId,
@@ -171,20 +171,25 @@ export function committedSurfaceFrame({
   readonly displayFrameId: number;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 }): GpuFlowCommittedSurfaceFrame {
+  const coherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip",
+    debugSnapshotFrameId: displayFrameId,
+    domControlCommittedFrameId: displayFrameId,
+    domIslandCommittedFrameId: displayFrameId,
+    gpuNativeVisualCommittedFrameId: displayFrameId,
+    hitGenerationId: `hit:${displayFrameId}`,
+    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+  };
   return {
     actorGenerations: [],
-    coherence: {
-      canvasRetainedFrameId: displayFrameId,
-      clipChainRevision: "clip",
-      debugSnapshotFrameId: displayFrameId,
-      domControlCommittedFrameId: displayFrameId,
-      domIslandCommittedFrameId: displayFrameId,
-      gpuNativeVisualCommittedFrameId: displayFrameId,
-      hitGenerationId: `hit:${displayFrameId}`,
-      htmlTextureOverlayCommittedFrameId: displayFrameId,
-      retainedScrollRevision: 0,
-    },
+    coherence,
     displayFrameId,
+    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      coherence,
+      displayFrameId,
+    }),
     projectionHorizon: {
       textActorCoverage: {
         blockedAwaitingBrowserVisualActorIds: [],
@@ -206,13 +211,11 @@ export function committedSurfaceFrame({
 }
 
 export function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
-  return createGpuFlowCommitPublicationToken({
-    presentableCommit: createGpuFlowPresentableCommit({
-      frame,
-      projectionSample: {
-        id: frame.displayFrameId,
-      } as GpuFlowLiveProjectionSample,
-    }),
+  return createGpuFlowVisibleFrameCommitPublicationToken({
+    frame,
+    projectionSample: {
+      id: frame.displayFrameId,
+    } as GpuFlowLiveProjectionSample,
   });
 }
 

@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "./committedSurfaceFrame";
+import {
+  createGpuFlowCommittedSurfacePresentationProof,
+  type GpuFlowCommittedSurfaceFrame,
+} from "./committedSurfaceFrame";
 import { createGpuFlowCommittedSurfaceRuntime } from "./committedSurfaceRuntime";
 import {
-  createGpuFlowCommitPublicationToken,
-  createGpuFlowCommittedSurfaceResetToken,
-  createGpuFlowCommittedSurfaceStartupToken,
-  createGpuFlowPresentableCommit,
-} from "./GpuFlow/visibleFramePublicationAuthority";
+  createGpuFlowCommittedSurfaceResetPublicationToken,
+  createGpuFlowCommittedSurfaceStartupPublicationToken,
+  createGpuFlowVisibleFrameCommitPublicationToken,
+} from "./GpuFlow/visibleFramePublicationKernel";
 import type { GpuFlowLiveProjectionSample } from "./projectionRuntime";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 
@@ -52,7 +54,7 @@ describe("GPU Flow committed surface runtime", () => {
 
     const nextStartupFrame = committedFrame({ displayFrameId: 2 });
     runtime.setStartupFrame(
-      createGpuFlowCommittedSurfaceStartupToken({
+      createGpuFlowCommittedSurfaceStartupPublicationToken({
         frame: nextStartupFrame,
       }),
       nextStartupFrame,
@@ -84,13 +86,17 @@ describe("GPU Flow committed surface runtime", () => {
 
     expect(() =>
       runtime.setStartupFrame(
-        {} as ReturnType<typeof createGpuFlowCommittedSurfaceStartupToken>,
+        {} as ReturnType<
+          typeof createGpuFlowCommittedSurfaceStartupPublicationToken
+        >,
         nextStartupFrame,
       ),
     ).toThrow(/startup token/);
     expect(() =>
       runtime.resetCommittedContentFrame(
-        {} as ReturnType<typeof createGpuFlowCommittedSurfaceResetToken>,
+        {} as ReturnType<
+          typeof createGpuFlowCommittedSurfaceResetPublicationToken
+        >,
       ),
     ).toThrow(/reset publication token/);
   });
@@ -103,7 +109,7 @@ describe("GPU Flow committed surface runtime", () => {
 
     expect(() =>
       runtime.setStartupFrame(
-        createGpuFlowCommittedSurfaceStartupToken({
+        createGpuFlowCommittedSurfaceStartupPublicationToken({
           frame: tokenFrame,
         }),
         nextStartupFrame,
@@ -138,6 +144,17 @@ function committedFrame({
     | undefined;
   readonly displayFrameId: number;
 }): GpuFlowCommittedSurfaceFrame {
+  const coherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip",
+    debugSnapshotFrameId: displayFrameId,
+    domControlCommittedFrameId: displayFrameId,
+    domIslandCommittedFrameId: displayFrameId,
+    gpuNativeVisualCommittedFrameId: displayFrameId,
+    hitGenerationId: `hit:${displayFrameId}`,
+    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+  };
   return {
     actorGenerations,
     displayFrameId,
@@ -155,17 +172,12 @@ function committedFrame({
       },
     } as unknown as GpuRetainedRuntimeFrame,
     sceneRevision: 1,
-    coherence: {
-      canvasRetainedFrameId: displayFrameId,
-      clipChainRevision: "clip",
-      debugSnapshotFrameId: displayFrameId,
-      domControlCommittedFrameId: displayFrameId,
-      domIslandCommittedFrameId: displayFrameId,
-      gpuNativeVisualCommittedFrameId: displayFrameId,
-      hitGenerationId: `hit:${displayFrameId}`,
-      htmlTextureOverlayCommittedFrameId: displayFrameId,
-      retainedScrollRevision: 0,
-    },
+    coherence,
+    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      actorGenerations,
+      coherence,
+      displayFrameId,
+    }),
     projectionHorizon: {
       textActorCoverage: {
         blockedAwaitingBrowserVisualActorIds: [],
@@ -200,12 +212,10 @@ function committedActor(
 }
 
 function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
-  return createGpuFlowCommitPublicationToken({
-    presentableCommit: createGpuFlowPresentableCommit({
-      frame,
-      projectionSample: {
-        id: frame.displayFrameId,
-      } as GpuFlowLiveProjectionSample,
-    }),
+  return createGpuFlowVisibleFrameCommitPublicationToken({
+    frame,
+    projectionSample: {
+      id: frame.displayFrameId,
+    } as GpuFlowLiveProjectionSample,
   });
 }

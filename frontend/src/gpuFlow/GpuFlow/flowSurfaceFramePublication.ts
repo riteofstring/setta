@@ -7,6 +7,7 @@ import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceProps } from "../GpuSurface";
 import { getGpuWheelGestureOwnershipArbiter } from "../interactions/wheelOwnership";
 import {
+  applyGpuFlowProjectionDebugAttributes,
   createGpuFlowLiveProjectionSampler,
   createGpuFlowProjectionTransaction,
   createGpuFlowVisibleProjectionState,
@@ -18,11 +19,21 @@ import {
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
+import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import { chooseZoomBucket } from "../textureResolution";
-import { normalizeGpuViewport } from "../viewportMath";
+import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
+import {
+  applyGpuFlowCommittedSurfacePublicationGateEffect,
+  recordGpuFlowBlockedVisiblePublication,
+  type GpuFlowCommittedSurfacePublicationGateEffect,
+} from "./flowCommittedSurfacePublication";
 import { renderGpuFlowNodeLayerFrame } from "./flowFrame";
+import {
+  updateGpuFlowNodeLayerFrameState,
+  type GpuFlowNodeLayerFrameStatePublication,
+} from "./flowFrameLifecycle";
 import { renderGpuFlowNodeLayerProjectionFrame } from "./flowProjectionFrame";
 import {
   createGpuFlowRetainedRuntimeFrameOverlayRenderSignature,
@@ -38,11 +49,16 @@ import { recordGpuFlowBlockedPublicationGuard } from "./flowVisiblePublicationBl
 import { postGpuFlowVisiblePublicationOutcomeChromeReproEvent } from "./flowVisiblePublicationOutcomeChromeRepro";
 import { assertGpuFlowSingleVisiblePublicationOutcome } from "./flowVisiblePublicationOutcomeGuard";
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
+import type { GpuFlowColdStartShellFrame } from "./visibleFramePublicationAuthority";
 import {
-  createGpuFlowCommitPublicationToken,
-  createGpuFlowHoldPreviousToken,
-  createGpuFlowPresentableCommit,
-} from "./visibleFramePublicationAuthority";
+  createGpuFlowBrowserVisualBlockedPublicationCandidate,
+  createGpuFlowRetainedProjectionBlockedPublicationCandidate,
+  runGpuFlowVisibleFramePublicationKernel,
+  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFramePublicationKernelResult,
+  type GpuFlowVisibleFramePublicationPreparedFrame,
+  type GpuFlowVisiblePublicationOutcome,
+} from "./visibleFramePublicationKernel";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
@@ -57,19 +73,34 @@ type GpuFlowSurfaceFrameEvent = Parameters<
 >[1];
 
 type GpuFlowContentPublicationFrameResult = {
-  readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-  readonly commitPublicationToken: GpuFlowCommitPublicationToken | null;
+  readonly blockedErrorMessage: string | null;
+  readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly blockedPreservePreparationSnapshot: boolean;
+  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly committedSurfacePublicationGateEffect: GpuFlowCommittedSurfacePublicationGateEffect | null;
   readonly forceImmediatePublicationDebtFrame: boolean;
-  readonly holdPreviousToken: GpuFlowHoldPreviousToken | null;
+  readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly rendered: boolean;
+  readonly retainedDisplayFrame: RetainedDisplayFrame | null;
+  readonly retainedDisplayFollowUpFrameReason: GpuFrameReason | null;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
 
 type GpuFlowMotionProjectionFrameResult = {
-  readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-  readonly commitPublicationToken: GpuFlowCommitPublicationToken | null;
-  readonly holdPreviousToken: GpuFlowHoldPreviousToken | null;
+  readonly blockedProjectionReason: string | null;
+  readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly rendered: boolean;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
+
+type GpuFlowSurfacePublicationPreparedFrame =
+  GpuFlowVisibleFramePublicationPreparedFrame & {
+    readonly contentPublicationFrame: GpuFlowContentPublicationFrameResult;
+    readonly motionProjectionFrame: GpuFlowMotionProjectionFrameResult;
+  };
 
 type RenderGpuFlowSurfaceFrameInput = Omit<
   GpuFlowNodeLayerFrameInput,
@@ -80,9 +111,14 @@ type RenderGpuFlowSurfaceFrameInput = Omit<
   | "liveProjectionSample"
   | "onBlockedSurfacePublication"
   | "onCommittedSurfaceFramePublishable"
+  | "onCommittedSurfacePublicationGateEffect"
+  | "onNodeLayerFrameStatePublishable"
   | "onPreparedCommittedSurfaceFrameBlocked"
   | "onPreparedCommittedSurfaceFrameHeld"
   | "onRetainedDisplayFrame"
+  | "onRetainedDisplayFramePublishable"
+  | "onRetainedDisplayFollowUpFrameNeeded"
+  | "onRetainedProjectionPublicationBlocked"
   | "onRetainedPreparedRuntimeFrame"
   | "onRetainedRuntimeFrame"
   | "publicationLane"
@@ -110,6 +146,17 @@ type RenderGpuFlowSurfaceFrameInput = Omit<
   readonly prepareCommittedSurfaceFrame: NonNullable<
     GpuFlowNodeLayerFrameInput["onRetainedDisplayFrame"]
   >;
+  readonly projectCommittedBrowserVisualActors: (
+    token: GpuFlowCommitPublicationToken,
+    viewport?: GpuViewportInput | undefined,
+  ) => void;
+  readonly publishColdStartShellFrame: (publication: {
+    readonly frame: GpuFlowColdStartShellFrame | null;
+    readonly token:
+      | GpuFlowBlockedPublicationToken
+      | GpuFlowCommitPublicationToken
+      | GpuFlowHoldPreviousToken;
+  }) => void;
   readonly retainedPreparationRuntimeFrameRenderSignatureRef: MutableRefObject<
     string | null
   >;
@@ -117,6 +164,9 @@ type RenderGpuFlowSurfaceFrameInput = Omit<
     number | null
   >;
   readonly retainedRuntimeFrameRenderSignatureRef: MutableRefObject<
+    string | null
+  >;
+  readonly retainedRuntimeFrameSourceRenderSignatureRef: MutableRefObject<
     string | null
   >;
   readonly runtime: GpuFlowRuntime;
@@ -175,120 +225,126 @@ export function renderGpuFlowSurfaceFrame({
         viewport: nodeLayerRef.current.viewport,
       },
     );
-    const publicationDecision =
-      input.visiblePublicationSchedulerRef.current.selectFrame({
-        hasCommittedContentFrame:
-          input.retainedDisplayFrameRef.current !== null,
-        rawReasons: event.reasons,
-        sample: liveProjectionSample,
-        timestamp: event.timestamp,
-        viewportInteractionActive,
-      });
-    frameMeasureDetail.lane = publicationDecision.lane;
-    frameMeasureDetail.schedulerState = publicationDecision.schedulerState;
-    const viewportFrame = isGpuFlowViewportFrame({
-      reasons: event.reasons,
-      runtimeViewportFrame: runtimeFrame.viewportFrame,
-    });
-    frameMeasureDetail.viewportFrame = viewportFrame;
-    const deferResolutionUpdates = shouldDeferGpuFlowResolutionUpdates({
-      lane: publicationDecision.lane,
-      schedulerState: publicationDecision.schedulerState,
-      viewportFrame,
+    const previousVisibleProjectionState =
+      input.visibleProjectionStateRef.current;
+    let finishCompletionMeasure: () => number = () => 0;
+    runGpuFlowVisibleFramePublicationKernel({
+      hasCommittedContentFrame: input.retainedDisplayFrameRef.current !== null,
+      prepare: (publicationDecision) => {
+        frameMeasureDetail.lane = publicationDecision.lane;
+        frameMeasureDetail.schedulerState = publicationDecision.schedulerState;
+        const viewportFrame = isGpuFlowViewportFrame({
+          reasons: event.reasons,
+          runtimeViewportFrame: runtimeFrame.viewportFrame,
+        });
+        frameMeasureDetail.viewportFrame = viewportFrame;
+        const deferResolutionUpdates = shouldDeferGpuFlowResolutionUpdates({
+          lane: publicationDecision.lane,
+          schedulerState: publicationDecision.schedulerState,
+          viewportFrame,
+          viewportInteractionActive,
+        });
+        frameMeasureDetail.deferResolutionUpdates = deferResolutionUpdates;
+        finishSetupMeasure();
+        const finishMotionMeasure = startGpuFlowPerformanceMeasure(
+          "surface-frame-motion-projection",
+          frameMeasureDetail,
+        );
+        const motionProjectionFrame = renderGpuFlowSurfaceMotionProjectionFrame(
+          {
+            ...input,
+            event,
+            liveProjectionSample,
+            nodeLayerRef,
+            publicationDecision,
+            retainedContentRuntimeState,
+            runtime,
+            viewportFrame,
+            viewportStore,
+          },
+        );
+        finishMotionMeasure();
+        frameMeasureDetail.motionRendered = motionProjectionFrame.rendered;
+        const finishContentMeasure = startGpuFlowPerformanceMeasure(
+          "surface-frame-content-publication",
+          frameMeasureDetail,
+        );
+        const contentPublicationFrame =
+          renderGpuFlowSurfaceContentPublicationFrame({
+            ...input,
+            deferResolutionUpdates,
+            event,
+            liveProjectionSample,
+            nodeLayerRef,
+            publicationDecision,
+            renderedProjectionOnlyFrame: motionProjectionFrame.rendered,
+            retainedContentRuntimeState,
+            runtime,
+            viewportFrame,
+            viewportStore,
+          });
+        finishContentMeasure();
+        frameMeasureDetail.contentRendered = contentPublicationFrame.rendered;
+        finishCompletionMeasure = startGpuFlowPerformanceMeasure(
+          "surface-frame-completion",
+          frameMeasureDetail,
+        );
+        const selectedVisibleProjectionState =
+          selectGpuFlowSurfaceVisibleProjectionState({
+            contentPublicationFrame,
+            motionProjectionFrame,
+          });
+        return {
+          blockedPublicationToken: null,
+          blockedPublicationCandidate:
+            contentPublicationFrame.blockedPublicationCandidate ??
+            createGpuFlowMotionProjectionBlockedPublicationCandidate({
+              blockedProjectionReason:
+                motionProjectionFrame.blockedProjectionReason,
+              heldPreviousProjectionState:
+                input.visibleProjectionStateRef.current,
+            }),
+          contentPublicationFrame,
+          motionProjectionFrame,
+          renderedVisibleFrame: selectedVisibleProjectionState !== null,
+          visibleProjectionState: selectedVisibleProjectionState,
+        };
+      },
+      previousVisibleProjectionState,
+      publish: (transaction) => {
+        completeGpuFlowSurfacePublicationFrame({
+          abortPreparedCommittedSurfaceFrame:
+            input.abortPreparedCommittedSurfaceFrame,
+          callbacksRef: input.callbacksRef,
+          commitPreparedCommittedSurfaceFrame:
+            input.commitPreparedCommittedSurfaceFrame,
+          projectCommittedBrowserVisualActors:
+            input.projectCommittedBrowserVisualActors,
+          publicationTransaction: transaction,
+          publishColdStartShellFrame: input.publishColdStartShellFrame,
+          retainedDisplayFrameRef: input.retainedDisplayFrameRef,
+          retainedRuntimeFrameRenderSignatureRef:
+            input.retainedRuntimeFrameRenderSignatureRef,
+          retainedRuntimeFrameSourceRenderSignatureRef:
+            input.retainedRuntimeFrameSourceRenderSignatureRef,
+          runtimeCanvas: runtime.canvas,
+          surfaceRef: input.surfaceRef,
+          viewportRuntime,
+          visibleOverlayProjectionKeyRef: input.visibleOverlayProjectionKeyRef,
+          visibleProjectionStateRef: input.visibleProjectionStateRef,
+          visiblePublicationSchedulerRef: input.visiblePublicationSchedulerRef,
+        });
+      },
+      rawReasons: event.reasons,
+      sample: liveProjectionSample,
+      scheduler: input.visiblePublicationSchedulerRef.current,
+      timestamp: event.timestamp,
       viewportInteractionActive,
     });
-    frameMeasureDetail.deferResolutionUpdates = deferResolutionUpdates;
-    finishSetupMeasure();
-    const finishMotionMeasure = startGpuFlowPerformanceMeasure(
-      "surface-frame-motion-projection",
-      frameMeasureDetail,
-    );
-    const motionProjectionFrame = renderGpuFlowSurfaceMotionProjectionFrame({
-      ...input,
-      event,
-      liveProjectionSample,
-      nodeLayerRef,
-      publicationDecision,
-      retainedContentRuntimeState,
-      runtime,
-      viewportFrame,
-      viewportStore,
-    });
-    finishMotionMeasure();
-    frameMeasureDetail.motionRendered = motionProjectionFrame.rendered;
-    const finishContentMeasure = startGpuFlowPerformanceMeasure(
-      "surface-frame-content-publication",
-      frameMeasureDetail,
-    );
-    const renderedContentPublicationFrame =
-      renderGpuFlowSurfaceContentPublicationFrame({
-        ...input,
-        deferResolutionUpdates,
-        event,
-        liveProjectionSample,
-        nodeLayerRef,
-        publicationDecision,
-        renderedProjectionOnlyFrame: motionProjectionFrame.rendered,
-        retainedContentRuntimeState,
-        runtime,
-        viewportFrame,
-        viewportStore,
-      });
-    finishContentMeasure();
-    frameMeasureDetail.contentRendered =
-      renderedContentPublicationFrame.rendered;
-    const finishCompletionMeasure = startGpuFlowPerformanceMeasure(
-      "surface-frame-completion",
-      frameMeasureDetail,
-    );
-    const visiblePublicationTokens = selectGpuFlowVisiblePublicationTokens({
-      contentPublicationFrame: renderedContentPublicationFrame,
-      motionProjectionFrame,
-      visibleProjectionState: input.visibleProjectionStateRef.current,
-    });
-    const blockedPublicationToken =
-      renderedContentPublicationFrame.blockedPublicationToken ??
-      motionProjectionFrame.blockedPublicationToken;
-    completeGpuFlowSurfacePublicationFrame({
-      forceImmediatePublicationDebtFrame:
-        renderedContentPublicationFrame.forceImmediatePublicationDebtFrame,
-      publicationDecision,
-      renderedVisibleFrame:
-        motionProjectionFrame.rendered ||
-        renderedContentPublicationFrame.rendered,
-      blockedPublicationToken,
-      commitPublicationToken: visiblePublicationTokens.commitPublicationToken,
-      holdPreviousToken: visiblePublicationTokens.holdPreviousToken,
-      surfaceRef: input.surfaceRef,
-      visibleProjectionStateRef: input.visibleProjectionStateRef,
-      visiblePublicationSchedulerRef: input.visiblePublicationSchedulerRef,
-    });
     finishCompletionMeasure();
-    const finishOverlayMeasure = startGpuFlowPerformanceMeasure(
-      "surface-frame-overlay",
-      frameMeasureDetail,
-    );
     const visibleProjectionState = input.visibleProjectionStateRef.current;
-    if (visibleProjectionState) {
-      const overlayProjectionKey = createGpuFlowVisibleOverlayProjectionKey(
-        visibleProjectionState,
-      );
-      if (
-        input.visibleOverlayProjectionKeyRef.current !== overlayProjectionKey
-      ) {
-        input.visibleOverlayProjectionKeyRef.current = overlayProjectionKey;
-        viewportRuntime.applyOverlayTransforms(
-          visibleProjectionState.sample.viewport,
-        );
-      }
-    }
-    finishOverlayMeasure();
     input.callbacksRef.current.onFrame?.(runtime, event);
     return {
-      coldStartShellFrame:
-        blockedPublicationToken?.frozenFrame.kind === "cold-start-shell"
-          ? blockedPublicationToken.frozenFrame.frame
-          : null,
       visibleProjectionState,
     };
   } finally {
@@ -296,85 +352,32 @@ export function renderGpuFlowSurfaceFrame({
   }
 }
 
-function selectGpuFlowVisiblePublicationTokens({
+function createGpuFlowMotionProjectionBlockedPublicationCandidate({
+  blockedProjectionReason,
+  heldPreviousProjectionState,
+}: {
+  readonly blockedProjectionReason: string | null;
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowVisibleFrameBlockedPublicationCandidate | null {
+  if (blockedProjectionReason === null) {
+    return null;
+  }
+  return createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+    blockedReason: blockedProjectionReason,
+    heldPreviousProjectionState,
+  });
+}
+
+function selectGpuFlowSurfaceVisibleProjectionState({
   contentPublicationFrame,
   motionProjectionFrame,
-  visibleProjectionState,
 }: {
   readonly contentPublicationFrame: GpuFlowContentPublicationFrameResult;
   readonly motionProjectionFrame: GpuFlowMotionProjectionFrameResult;
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): {
-  readonly commitPublicationToken: GpuFlowCommitPublicationToken | null;
-  readonly holdPreviousToken: GpuFlowHoldPreviousToken | null;
-} {
-  if (!visibleProjectionState) {
-    return {
-      commitPublicationToken: null,
-      holdPreviousToken: null,
-    };
-  }
-  return {
-    commitPublicationToken: selectGpuFlowVisibleCommitPublicationToken({
-      tokens: [
-        contentPublicationFrame.commitPublicationToken,
-        motionProjectionFrame.commitPublicationToken,
-      ],
-      visibleProjectionState,
-    }),
-    holdPreviousToken: selectGpuFlowVisibleHoldPreviousToken({
-      tokens: [
-        contentPublicationFrame.holdPreviousToken,
-        motionProjectionFrame.holdPreviousToken,
-      ],
-      visibleProjectionState,
-    }),
-  };
-}
-
-function selectGpuFlowVisibleCommitPublicationToken({
-  tokens,
-  visibleProjectionState,
-}: {
-  readonly tokens: readonly (GpuFlowCommitPublicationToken | null)[];
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}): GpuFlowCommitPublicationToken | null {
+}): GpuFlowVisibleProjectionState | null {
   return (
-    tokens.find(
-      (token) =>
-        token !== null &&
-        token.committedFrameId ===
-          visibleProjectionState.committedFrame.displayFrameId &&
-        token.projectionSampleId === visibleProjectionState.sample.id,
-    ) ?? null
-  );
-}
-
-function selectGpuFlowVisibleHoldPreviousToken({
-  tokens,
-  visibleProjectionState,
-}: {
-  readonly tokens: readonly (GpuFlowHoldPreviousToken | null)[];
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}): GpuFlowHoldPreviousToken | null {
-  const heldPreviousProjection = visibleProjectionState.heldPreviousProjection;
-  if (
-    visibleProjectionState.transaction.kind !== "held-previous" ||
-    heldPreviousProjection === null
-  ) {
-    return null;
-  }
-  return (
-    tokens.find(
-      (token) =>
-        token !== null &&
-        token.committedFrameId ===
-          visibleProjectionState.committedFrame.displayFrameId &&
-        token.holdAgeFrames === heldPreviousProjection.consecutiveFrameCount &&
-        token.holdAgeMs === heldPreviousProjection.heldDurationMs &&
-        token.projectionSampleId ===
-          heldPreviousProjection.requestedProjectionSampleId,
-    ) ?? null
+    contentPublicationFrame.visibleProjectionState ??
+    motionProjectionFrame.visibleProjectionState
   );
 }
 
@@ -437,6 +440,8 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
     rawReasons: event.reasons,
     sample: liveProjectionSample,
   });
+  let nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null =
+    null;
   const rendered = renderGpuFlowNodeLayerProjectionFrame({
     activeResizeNodeIdRef: input.activeResizeNodeIdRef,
     callbacksRef: input.callbacksRef,
@@ -449,7 +454,6 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
     nodeInteractionRef: input.nodeInteractionRef,
     nodeLayerRef,
     projectionTransaction,
-    projectionCommittedSurfaceFrame: committedFrame,
     projectionSchedulerKnobs:
       input.visiblePublicationSchedulerRef.current.getKnobs(),
     heldPreviousProjectionState: input.visibleProjectionStateRef.current,
@@ -463,66 +467,60 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
     visibleNodeIdsRef: input.visibleNodeIdsRef,
     viewportStore,
     viewportFrame,
+    onNodeLayerFrameStatePublishable: (publication) => {
+      nodeLayerFrameStatePublication = publication;
+    },
   });
   if (!rendered.rendered) {
     return createGpuFlowMotionProjectionFrameResult({
-      blockedPublicationToken: rendered.blockedPublicationToken ?? null,
+      blockedProjectionReason: rendered.blockedProjectionReason,
       rendered: false,
     });
   }
-  if (rendered.rendered) {
-    const visibleCommittedFrame =
-      rendered.transaction.kind === "held-previous"
-        ? input.visibleProjectionStateRef.current?.committedFrame ??
-          committedFrame
-        : committedFrame;
-    publishGpuFlowVisibleProjectionState({
-      commitPublicationToken: rendered.commitPublicationToken,
-      holdPreviousToken: rendered.holdPreviousToken,
-      visibleProjectionState: createGpuFlowVisibleProjectionState({
-        committedFrame: visibleCommittedFrame,
-        heldPreviousProjection: rendered.heldPreviousProjection,
-        transaction: rendered.transaction,
-      }),
-      visibleProjectionStateRef: input.visibleProjectionStateRef,
-    });
-  }
+  const visibleCommittedFrame =
+    rendered.transaction.kind === "held-previous"
+      ? input.visibleProjectionStateRef.current?.committedFrame ??
+        committedFrame
+      : committedFrame;
   return createGpuFlowMotionProjectionFrameResult({
-    commitPublicationToken: rendered.commitPublicationToken,
-    holdPreviousToken: rendered.holdPreviousToken,
+    nodeLayerFrameStatePublication,
     rendered: true,
+    visibleProjectionState: createGpuFlowVisibleProjectionState({
+      committedFrame: visibleCommittedFrame,
+      heldPreviousProjection: rendered.heldPreviousProjection,
+      transaction: rendered.transaction,
+    }),
   });
 }
 
 function createGpuFlowMotionProjectionFrameResult({
-  blockedPublicationToken = null,
-  commitPublicationToken = null,
-  holdPreviousToken = null,
+  blockedProjectionReason = null,
+  nodeLayerFrameStatePublication = null,
   rendered,
+  visibleProjectionState = null,
 }: {
-  readonly blockedPublicationToken?:
-    | GpuFlowBlockedPublicationToken
+  readonly blockedProjectionReason?: string | null | undefined;
+  readonly nodeLayerFrameStatePublication?:
+    | GpuFlowNodeLayerFrameStatePublication
     | null
     | undefined;
-  readonly commitPublicationToken?:
-    | GpuFlowCommitPublicationToken
-    | null
-    | undefined;
-  readonly holdPreviousToken?: GpuFlowHoldPreviousToken | null | undefined;
   readonly rendered: boolean;
+  readonly visibleProjectionState?:
+    | GpuFlowVisibleProjectionState
+    | null
+    | undefined;
 }): GpuFlowMotionProjectionFrameResult {
   return {
-    blockedPublicationToken,
-    commitPublicationToken,
-    holdPreviousToken,
+    blockedProjectionReason,
+    nodeLayerFrameStatePublication,
     rendered,
+    visibleProjectionState,
   };
 }
 
 function renderGpuFlowSurfaceContentPublicationFrame({
   deferResolutionUpdates,
   event,
-  initialRetainedRuntimeFrame,
   liveProjectionSample,
   nodeLayerRef,
   publicationDecision,
@@ -530,7 +528,6 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   retainedContentRuntimeState,
   retainedPreparationRuntimeFrameRenderSignatureRef,
   retainedPreparationRuntimeFrameScrollRevisionRef,
-  retainedRuntimeFrameRenderSignatureRef,
   runtime,
   viewportFrame,
   viewportStore,
@@ -558,13 +555,29 @@ function renderGpuFlowSurfaceContentPublicationFrame({
       publicationDecision,
       retainedContentFrameCacheRef: input.retainedContentFrameCacheRef,
       retainedDisplayFrameRef: input.retainedDisplayFrameRef,
+      retainedPreparationRuntimeFrameRenderSignatureRef,
+      retainedRuntimeFrameSourceRenderSignatureRef:
+        input.retainedRuntimeFrameSourceRenderSignatureRef,
     })
   ) {
     return createGpuFlowContentPublicationFrameResult({ rendered: false });
   }
-  let blockedPublicationToken: GpuFlowBlockedPublicationToken | null = null;
-  let commitPublicationToken: GpuFlowCommitPublicationToken | null = null;
-  let holdPreviousToken: GpuFlowHoldPreviousToken | null = null;
+  let blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null =
+    null;
+  let blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null =
+    null;
+  let blockedErrorMessage: string | null = null;
+  let blockedPreservePreparationSnapshot = false;
+  let committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null = null;
+  let committedSurfacePublicationGateEffect: GpuFlowCommittedSurfacePublicationGateEffect | null =
+    null;
+  let heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null =
+    null;
+  let nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null =
+    null;
+  let retainedDisplayFrame: RetainedDisplayFrame | null = null;
+  let retainedDisplayFollowUpFrameReason: GpuFrameReason | null = null;
+  let retainedRuntimeFrame: GpuRetainedRuntimeFrame | null = null;
   const visibleProjectionState = renderGpuFlowNodeLayerFrame({
     activeResizeNodeIdRef: input.activeResizeNodeIdRef,
     callbacksRef: input.callbacksRef,
@@ -598,15 +611,6 @@ function renderGpuFlowSurfaceContentPublicationFrame({
     viewportStore,
     viewportFrame,
     onRetainedPreparedRuntimeFrame: (nextRetainedRuntimeFrame) => {
-      const previousScrollRevision =
-        retainedPreparationRuntimeFrameScrollRevisionRef.current ??
-        initialRetainedRuntimeFrame.input.scrollRevision;
-      if (
-        deferResolutionUpdates &&
-        nextRetainedRuntimeFrame.input.scrollRevision === previousScrollRevision
-      ) {
-        return;
-      }
       const nextSignature =
         createGpuFlowRetainedRuntimeFrameSourceRenderSignature(
           nextRetainedRuntimeFrame,
@@ -621,85 +625,166 @@ function renderGpuFlowSurfaceContentPublicationFrame({
       retainedPreparationRuntimeFrameScrollRevisionRef.current =
         nextRetainedRuntimeFrame.input.scrollRevision;
     },
-    onCommittedSurfaceFramePublishable: (token, frame) => {
-      commitPublicationToken = token;
-      input.commitPreparedCommittedSurfaceFrame(token, frame);
+    onCommittedSurfaceFramePublishable: (frame) => {
+      committedSurfaceFrame = frame;
     },
-    onBlockedSurfacePublication: (token) => {
-      blockedPublicationToken = token;
+    onCommittedSurfacePublicationGateEffect: (effect) => {
+      committedSurfacePublicationGateEffect = effect;
     },
-    onPreparedCommittedSurfaceFrameBlocked: (token, frame, options) => {
-      input.abortPreparedCommittedSurfaceFrame(token, frame, options);
+    onBlockedSurfacePublication: (publication) => {
+      blockedPublicationCandidate = publication.blockedPublicationCandidate;
+      blockedPreparedCommittedSurfaceFrame = publication.candidateFrame;
+      blockedErrorMessage = publication.errorMessage;
+      blockedPreservePreparationSnapshot =
+        publication.preservePreparationSnapshot;
     },
-    onPreparedCommittedSurfaceFrameHeld: (token, frame, options) => {
-      holdPreviousToken = token;
-      input.abortPreparedCommittedSurfaceFrame(token, frame, options);
+    onRetainedProjectionPublicationBlocked: (blockedReason) => {
+      blockedPublicationCandidate =
+        createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+          blockedReason,
+          heldPreviousProjectionState: input.visibleProjectionStateRef.current,
+        });
+    },
+    onPreparedCommittedSurfaceFrameHeld: (frame) => {
+      heldPreparedCommittedSurfaceFrame = frame;
+    },
+    onNodeLayerFrameStatePublishable: (publication) => {
+      nodeLayerFrameStatePublication = publication;
     },
     onRetainedDisplayFrame: input.prepareCommittedSurfaceFrame,
+    onRetainedDisplayFramePublishable: (frame) => {
+      retainedDisplayFrame = frame;
+    },
+    onRetainedDisplayFollowUpFrameNeeded: (reason) => {
+      retainedDisplayFollowUpFrameReason = reason;
+    },
     onRetainedRuntimeFrame: (nextRetainedRuntimeFrame) => {
-      input.callbacksRef.current.onRetainedRuntimeFrame?.(
-        nextRetainedRuntimeFrame,
-      );
-      const nextSignature =
-        createGpuFlowRetainedRuntimeFrameOverlayRenderSignature(
-          nextRetainedRuntimeFrame,
-        );
-      if (retainedRuntimeFrameRenderSignatureRef.current === nextSignature) {
-        return;
-      }
-      retainedRuntimeFrameRenderSignatureRef.current = nextSignature;
+      retainedRuntimeFrame = nextRetainedRuntimeFrame;
     },
   });
   if (visibleProjectionState) {
-    publishGpuFlowVisibleProjectionState({
-      commitPublicationToken,
-      holdPreviousToken,
-      visibleProjectionState,
-      visibleProjectionStateRef: input.visibleProjectionStateRef,
-    });
     const heldPrevious =
       visibleProjectionState.transaction.kind === "held-previous";
     return createGpuFlowContentPublicationFrameResult({
-      commitPublicationToken,
+      blockedPublicationCandidate:
+        createGpuFlowHeldCommittedSurfaceBlockedPublicationCandidate({
+          committedSurfacePublicationGateEffect,
+          heldPreviousProjectionState: input.visibleProjectionStateRef.current,
+        }),
+      committedSurfaceFrame,
+      committedSurfacePublicationGateEffect,
       forceImmediatePublicationDebtFrame:
         heldPrevious && !deferResolutionUpdates,
-      holdPreviousToken,
+      heldPreparedCommittedSurfaceFrame,
+      nodeLayerFrameStatePublication,
       rendered: deferResolutionUpdates || !heldPrevious,
+      retainedDisplayFrame,
+      retainedDisplayFollowUpFrameReason,
+      retainedRuntimeFrame,
+      visibleProjectionState,
     });
   }
   return createGpuFlowContentPublicationFrameResult({
-    blockedPublicationToken,
-    commitPublicationToken,
-    holdPreviousToken,
+    blockedErrorMessage,
+    blockedPreparedCommittedSurfaceFrame,
+    blockedPreservePreparationSnapshot,
+    blockedPublicationCandidate,
+    committedSurfaceFrame,
+    committedSurfacePublicationGateEffect,
+    heldPreparedCommittedSurfaceFrame,
+    nodeLayerFrameStatePublication,
     rendered: false,
+    retainedRuntimeFrame,
+    retainedDisplayFollowUpFrameReason,
+  });
+}
+
+function createGpuFlowHeldCommittedSurfaceBlockedPublicationCandidate({
+  committedSurfacePublicationGateEffect,
+  heldPreviousProjectionState,
+}: {
+  readonly committedSurfacePublicationGateEffect: GpuFlowCommittedSurfacePublicationGateEffect | null;
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowVisibleFrameBlockedPublicationCandidate | null {
+  if (committedSurfacePublicationGateEffect?.kind !== "held-previous") {
+    return null;
+  }
+  return createGpuFlowBrowserVisualBlockedPublicationCandidate({
+    frame: committedSurfacePublicationGateEffect.candidateFrame,
+    heldPreviousProjectionState,
   });
 }
 
 function createGpuFlowContentPublicationFrameResult({
-  blockedPublicationToken = null,
-  commitPublicationToken = null,
+  blockedErrorMessage = null,
+  blockedPreparedCommittedSurfaceFrame = null,
+  blockedPreservePreparationSnapshot = false,
+  blockedPublicationCandidate = null,
+  committedSurfaceFrame = null,
+  committedSurfacePublicationGateEffect = null,
   forceImmediatePublicationDebtFrame = false,
-  holdPreviousToken = null,
+  heldPreparedCommittedSurfaceFrame = null,
+  nodeLayerFrameStatePublication = null,
   rendered,
+  retainedDisplayFrame = null,
+  retainedDisplayFollowUpFrameReason = null,
+  retainedRuntimeFrame = null,
+  visibleProjectionState = null,
 }: {
-  readonly blockedPublicationToken?:
-    | GpuFlowBlockedPublicationToken
+  readonly blockedErrorMessage?: string | null | undefined;
+  readonly blockedPreparedCommittedSurfaceFrame?:
+    | GpuFlowCommittedSurfaceFrame
     | null
     | undefined;
-  readonly commitPublicationToken?:
-    | GpuFlowCommitPublicationToken
+  readonly blockedPreservePreparationSnapshot?: boolean | undefined;
+  readonly blockedPublicationCandidate?:
+    | GpuFlowVisibleFrameBlockedPublicationCandidate
+    | null
+    | undefined;
+  readonly committedSurfaceFrame?:
+    | GpuFlowCommittedSurfaceFrame
+    | null
+    | undefined;
+  readonly committedSurfacePublicationGateEffect?:
+    | GpuFlowCommittedSurfacePublicationGateEffect
     | null
     | undefined;
   readonly forceImmediatePublicationDebtFrame?: boolean | undefined;
-  readonly holdPreviousToken?: GpuFlowHoldPreviousToken | null | undefined;
+  readonly heldPreparedCommittedSurfaceFrame?:
+    | GpuFlowCommittedSurfaceFrame
+    | null
+    | undefined;
+  readonly nodeLayerFrameStatePublication?:
+    | GpuFlowNodeLayerFrameStatePublication
+    | null
+    | undefined;
   readonly rendered: boolean;
+  readonly retainedDisplayFrame?: RetainedDisplayFrame | null | undefined;
+  readonly retainedDisplayFollowUpFrameReason?:
+    | GpuFrameReason
+    | null
+    | undefined;
+  readonly retainedRuntimeFrame?: GpuRetainedRuntimeFrame | null | undefined;
+  readonly visibleProjectionState?:
+    | GpuFlowVisibleProjectionState
+    | null
+    | undefined;
 }): GpuFlowContentPublicationFrameResult {
   return {
-    blockedPublicationToken,
-    commitPublicationToken,
+    blockedErrorMessage,
+    blockedPreparedCommittedSurfaceFrame,
+    blockedPreservePreparationSnapshot,
+    blockedPublicationCandidate,
+    committedSurfaceFrame,
+    committedSurfacePublicationGateEffect,
     forceImmediatePublicationDebtFrame,
-    holdPreviousToken,
+    heldPreparedCommittedSurfaceFrame,
+    nodeLayerFrameStatePublication,
     rendered,
+    retainedDisplayFrame,
+    retainedDisplayFollowUpFrameReason,
+    retainedRuntimeFrame,
+    visibleProjectionState,
   };
 }
 
@@ -717,6 +802,8 @@ function shouldSkipDeferredGpuFlowContentPublication({
   publicationDecision,
   retainedContentFrameCacheRef,
   retainedDisplayFrameRef,
+  retainedPreparationRuntimeFrameRenderSignatureRef,
+  retainedRuntimeFrameSourceRenderSignatureRef,
 }: {
   readonly deferResolutionUpdates: boolean;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
@@ -724,6 +811,8 @@ function shouldSkipDeferredGpuFlowContentPublication({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly retainedContentFrameCacheRef: RenderGpuFlowSurfaceFrameInput["retainedContentFrameCacheRef"];
   readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
+  readonly retainedPreparationRuntimeFrameRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedPreparationRuntimeFrameRenderSignatureRef"];
+  readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
 }): boolean {
   if (
     !deferResolutionUpdates ||
@@ -737,6 +826,14 @@ function shouldSkipDeferredGpuFlowContentPublication({
   if (!preparedFrame) {
     return false;
   }
+  if (
+    hasUnpublishedGpuFlowRetainedRuntimeSourceFrame({
+      retainedPreparationRuntimeFrameRenderSignatureRef,
+      retainedRuntimeFrameSourceRenderSignatureRef,
+    })
+  ) {
+    return false;
+  }
   const targetZoomBucket = chooseZoomBucket(
     normalizeGpuViewport(liveProjectionSample.viewport).zoom,
   );
@@ -744,6 +841,21 @@ function shouldSkipDeferredGpuFlowContentPublication({
     preparedFrame.sceneRevision ===
       (nodeLayerRef.current.scene?.revision ?? 0) &&
     preparedFrame.viewportZoomBucket === targetZoomBucket
+  );
+}
+
+function hasUnpublishedGpuFlowRetainedRuntimeSourceFrame({
+  retainedPreparationRuntimeFrameRenderSignatureRef,
+  retainedRuntimeFrameSourceRenderSignatureRef,
+}: {
+  readonly retainedPreparationRuntimeFrameRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedPreparationRuntimeFrameRenderSignatureRef"];
+  readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
+}): boolean {
+  const preparedSourceSignature =
+    retainedPreparationRuntimeFrameRenderSignatureRef.current;
+  return (
+    preparedSourceSignature !== null &&
+    preparedSourceSignature !== retainedRuntimeFrameSourceRenderSignatureRef.current
   );
 }
 
@@ -768,56 +880,119 @@ function getGpuFlowContentPublicationLane(
 }
 
 function completeGpuFlowSurfacePublicationFrame({
-  blockedPublicationToken,
-  commitPublicationToken,
-  forceImmediatePublicationDebtFrame,
-  holdPreviousToken,
-  publicationDecision,
-  renderedVisibleFrame,
+  abortPreparedCommittedSurfaceFrame,
+  callbacksRef,
+  commitPreparedCommittedSurfaceFrame,
+  projectCommittedBrowserVisualActors,
+  publicationTransaction,
+  publishColdStartShellFrame,
+  retainedDisplayFrameRef,
+  retainedRuntimeFrameRenderSignatureRef,
+  retainedRuntimeFrameSourceRenderSignatureRef,
+  runtimeCanvas,
   surfaceRef,
+  viewportRuntime,
+  visibleOverlayProjectionKeyRef,
   visibleProjectionStateRef,
   visiblePublicationSchedulerRef,
 }: {
-  readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-  readonly commitPublicationToken: GpuFlowCommitPublicationToken | null;
-  readonly forceImmediatePublicationDebtFrame: boolean;
-  readonly holdPreviousToken: GpuFlowHoldPreviousToken | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly renderedVisibleFrame: boolean;
+  readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
+  readonly callbacksRef: RenderGpuFlowSurfaceFrameInput["callbacksRef"];
+  readonly commitPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["commitPreparedCommittedSurfaceFrame"];
+  readonly projectCommittedBrowserVisualActors: RenderGpuFlowSurfaceFrameInput["projectCommittedBrowserVisualActors"];
+  readonly publicationTransaction: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>;
+  readonly publishColdStartShellFrame: RenderGpuFlowSurfaceFrameInput["publishColdStartShellFrame"];
+  readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
+  readonly retainedRuntimeFrameRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameRenderSignatureRef"];
+  readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
+  readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
+  readonly viewportRuntime: GpuFlowViewportRuntime;
+  readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
   readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
   readonly visiblePublicationSchedulerRef: RenderGpuFlowSurfaceFrameInput["visiblePublicationSchedulerRef"];
 }) {
-  const outcome = createGpuFlowVisiblePublicationCompletionOutcome({
+  const {
+    completion,
+    outcome,
+    preparedFrame: {
+      contentPublicationFrame: {
+        blockedErrorMessage,
+        blockedPreparedCommittedSurfaceFrame,
+        blockedPreservePreparationSnapshot,
+        committedSurfaceFrame,
+        committedSurfacePublicationGateEffect,
+        forceImmediatePublicationDebtFrame,
+        heldPreparedCommittedSurfaceFrame,
+        nodeLayerFrameStatePublication: contentNodeLayerFrameStatePublication,
+        retainedDisplayFrame,
+        retainedDisplayFollowUpFrameReason,
+        retainedRuntimeFrame,
+      },
+      motionProjectionFrame: {
+        nodeLayerFrameStatePublication: motionNodeLayerFrameStatePublication,
+      },
+      visibleProjectionState: selectedVisibleProjectionState,
+    },
     publicationDecision,
-    blockedPublicationToken,
-    commitPublicationToken,
-    holdPreviousToken,
-    renderedVisibleFrame,
-    visibleProjectionState: visibleProjectionStateRef.current,
-  });
+  } = publicationTransaction;
+  const nodeLayerFrameStatePublication =
+    contentNodeLayerFrameStatePublication ??
+    motionNodeLayerFrameStatePublication;
   assertGpuFlowSingleVisiblePublicationOutcome({
     outcome,
     publicationDecision,
     surface: surfaceRef.current,
   });
-  const completion = visiblePublicationSchedulerRef.current.completeFrame(
-    publicationDecision,
+  publishGpuFlowSurfaceVisibleProjectionState({
+    abortPreparedCommittedSurfaceFrame,
+    callbacksRef,
+    committedSurfaceFrame,
+    committedSurfacePublicationGateEffect,
+    commitPreparedCommittedSurfaceFrame,
+    blockedErrorMessage,
+    blockedPreparedCommittedSurfaceFrame,
+    blockedPreservePreparationSnapshot,
+    heldPreparedCommittedSurfaceFrame,
+    nodeLayerFrameStatePublication,
     outcome,
-  );
+    projectCommittedBrowserVisualActors,
+    retainedDisplayFrame,
+    retainedDisplayFrameRef,
+    retainedRuntimeFrame,
+    retainedRuntimeFrameRenderSignatureRef,
+    retainedRuntimeFrameSourceRenderSignatureRef,
+    runtimeCanvas,
+    selectedVisibleProjectionState,
+    surfaceRef,
+    viewportRuntime,
+    visibleOverlayProjectionKeyRef,
+    visibleProjectionStateRef,
+  });
+  publishGpuFlowColdStartShellFrame({
+    outcome,
+    publishColdStartShellFrame,
+  });
   postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
     completion,
     outcome,
     publicationDecision,
-    visibleProjectionState: visibleProjectionStateRef.current,
+    previousCommittedFrameId: publicationTransaction.previousCommittedFrameId,
+    visibleProjectionState: selectedVisibleProjectionState,
   });
   recordGpuFlowBlockedPublicationGuard({
     outcome,
     publicationDecision,
     surface: surfaceRef.current,
   });
+  if (retainedDisplayFollowUpFrameReason) {
+    surfaceRef.current?.requestFrame(retainedDisplayFollowUpFrameReason);
+  }
   if (hasGpuFlowVisiblePublicationDebt(completion.debt)) {
-    const frameReason = getGpuFlowVisiblePublicationDebtReason(completion.debt);
+    const frameReason = getGpuFlowSurfacePublicationDebtFrameReason({
+      completion,
+      outcome,
+    });
     const delayedDebtRequestMs = getDelayedGpuFlowPublicationDebtRequestMs({
       publicationDecision,
       schedulerMotionSettleWindowMs:
@@ -825,6 +1000,7 @@ function completeGpuFlowSurfacePublicationFrame({
     });
     if (
       !forceImmediatePublicationDebtFrame &&
+      !shouldRequestGpuFlowSurfacePublicationDebtFrameImmediately(outcome) &&
       delayedDebtRequestMs !== null &&
       scheduleDelayedGpuFlowPublicationDebtFrame({
         delayMs: delayedDebtRequestMs,
@@ -838,152 +1014,533 @@ function completeGpuFlowSurfacePublicationFrame({
   }
 }
 
-function createGpuFlowVisiblePublicationCompletionOutcome({
-  blockedPublicationToken,
-  commitPublicationToken,
-  holdPreviousToken,
-  publicationDecision,
-  renderedVisibleFrame,
-  visibleProjectionState,
+function publishGpuFlowColdStartShellFrame({
+  outcome,
+  publishColdStartShellFrame,
 }: {
-  readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-  readonly commitPublicationToken: GpuFlowCommitPublicationToken | null;
-  readonly holdPreviousToken: GpuFlowHoldPreviousToken | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly renderedVisibleFrame: boolean;
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
-}) {
-  if (!renderedVisibleFrame) {
-    return createGpuFlowUnrenderedPublicationCompletionOutcome({
-      blockedPublicationToken,
-    });
-  }
-  if (visibleProjectionState === null) {
-    throw new Error(
-      "GPU Flow visible publication completion cannot commit a rendered frame without visible projection state.",
-    );
-  }
-  if (visibleProjectionState.transaction.kind === "held-previous") {
-    return createGpuFlowHoldPreviousPublicationCompletionOutcome({
-      holdPreviousToken,
-      publicationDecision,
-      visibleProjectionState,
-    });
-  }
-  return createGpuFlowCommitPublicationCompletionOutcome({
-    commitPublicationToken,
-    publicationDecision,
-    visibleProjectionState,
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly publishColdStartShellFrame: RenderGpuFlowSurfaceFrameInput["publishColdStartShellFrame"];
+}): void {
+  publishColdStartShellFrame({
+    frame:
+      outcome.kind === "blocked" &&
+      outcome.token.frozenFrame.kind === "cold-start-shell"
+        ? outcome.token.frozenFrame.frame
+        : null,
+    token: outcome.token,
   });
 }
 
-function createGpuFlowUnrenderedPublicationCompletionOutcome({
-  blockedPublicationToken,
+function getGpuFlowSurfacePublicationDebtFrameReason({
+  completion,
+  outcome,
 }: {
-  readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-}) {
-  if (blockedPublicationToken) {
-    return { kind: "blocked" as const, token: blockedPublicationToken };
+  readonly completion: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>["completion"];
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+}): GpuFrameReason {
+  if (isGpuFlowRetainedProjectionBlockedOutcome(outcome)) {
+    return "texture-upload";
   }
-  return { kind: "not-published" as const };
+  return getGpuFlowVisiblePublicationDebtReason(completion.debt);
 }
 
-function createGpuFlowHoldPreviousPublicationCompletionOutcome({
-  holdPreviousToken,
-  publicationDecision,
-  visibleProjectionState,
-}: {
-  readonly holdPreviousToken: GpuFlowHoldPreviousToken | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}) {
-  const heldPreviousProjection = visibleProjectionState.heldPreviousProjection;
-  if (
-    heldPreviousProjection === null ||
-    heldPreviousProjection.requestedProjectionSampleId !==
-      publicationDecision.sample.id
-  ) {
-    throw new Error(
-      "GPU Flow held-previous publication completion requires diagnostics for the selected projection sample.",
-    );
-  }
-  return {
-    kind: "hold-previous" as const,
-    token:
-      holdPreviousToken ??
-      createGpuFlowHoldPreviousToken({
-        committedFrameId: visibleProjectionState.committedFrame.displayFrameId,
-        holdAgeFrames: heldPreviousProjection.consecutiveFrameCount,
-        holdAgeMs: heldPreviousProjection.heldDurationMs,
-        projectionSample: publicationDecision.sample,
-      }),
-  };
+function shouldRequestGpuFlowSurfacePublicationDebtFrameImmediately(
+  outcome: GpuFlowVisiblePublicationOutcome,
+): boolean {
+  return isGpuFlowRetainedProjectionBlockedOutcome(outcome);
 }
 
-function createGpuFlowCommitPublicationCompletionOutcome({
-  commitPublicationToken,
-  publicationDecision,
-  visibleProjectionState,
-}: {
-  readonly commitPublicationToken: GpuFlowCommitPublicationToken | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}) {
-  if (visibleProjectionState.sample.id !== publicationDecision.sample.id) {
-    throw new Error(
-      "GPU Flow committed publication completion requires visible projection state for the selected sample.",
-    );
-  }
-  if (
-    visibleProjectionState.transaction.kind === "content-publication" &&
-    commitPublicationToken === null
-  ) {
-    throw new Error(
-      "GPU Flow content publication completion requires the commit token that published the visible frame.",
-    );
-  }
-  return {
-    debtProof: createGpuFlowVisiblePublicationCommitDebtProof({
-      committedFrame: visibleProjectionState.committedFrame,
-      publicationDecision,
-    }),
-    kind: "commit" as const,
-    token:
-      commitPublicationToken ??
-      createGpuFlowCommitPublicationToken({
-        presentableCommit: createGpuFlowPresentableCommit({
-          frame: visibleProjectionState.committedFrame,
-          projectionSample: publicationDecision.sample,
-        }),
-      }),
-  };
-}
-
-export function createGpuFlowVisiblePublicationCommitDebtProof({
-  committedFrame,
-  publicationDecision,
-}: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-}) {
-  const hasCompatiblePreviousCoverage =
-    hasGpuFlowCommittedSurfaceCompatiblePreviousCoverage(committedFrame);
-  return Object.freeze({
-    content:
-      publicationDecision.lane === "content" && !hasCompatiblePreviousCoverage,
-    maintenance:
-      publicationDecision.lane === "maintenance" &&
-      !hasCompatiblePreviousCoverage,
-    motion: publicationDecision.lane === "motion",
-  });
-}
-
-function hasGpuFlowCommittedSurfaceCompatiblePreviousCoverage(
-  frame: GpuFlowCommittedSurfaceFrame,
+function isGpuFlowRetainedProjectionBlockedOutcome(
+  outcome: GpuFlowVisiblePublicationOutcome,
 ): boolean {
   return (
-    frame.projectionHorizon.textActorCoverage.compatiblePreviousActorIds
-      .length > 0 ||
-    (frame.surfaceTransaction?.coverageProof.compatibleCoverage.length ?? 0) > 0
+    outcome.kind === "blocked" &&
+    outcome.token.blockedReasons.some(
+      (reason) => reason.family === "retained-projection",
+    )
   );
+}
+
+function publishGpuFlowSurfaceVisibleProjectionState({
+  abortPreparedCommittedSurfaceFrame,
+  blockedErrorMessage,
+  blockedPreparedCommittedSurfaceFrame,
+  blockedPreservePreparationSnapshot,
+  callbacksRef,
+  committedSurfaceFrame,
+  committedSurfacePublicationGateEffect,
+  commitPreparedCommittedSurfaceFrame,
+  heldPreparedCommittedSurfaceFrame,
+  nodeLayerFrameStatePublication,
+  outcome,
+  projectCommittedBrowserVisualActors,
+  retainedDisplayFrame,
+  retainedDisplayFrameRef,
+  retainedRuntimeFrame,
+  retainedRuntimeFrameRenderSignatureRef,
+  retainedRuntimeFrameSourceRenderSignatureRef,
+  runtimeCanvas,
+  selectedVisibleProjectionState,
+  surfaceRef,
+  viewportRuntime,
+  visibleOverlayProjectionKeyRef,
+  visibleProjectionStateRef,
+}: {
+  readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
+  readonly callbacksRef: RenderGpuFlowSurfaceFrameInput["callbacksRef"];
+  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly committedSurfacePublicationGateEffect: GpuFlowCommittedSurfacePublicationGateEffect | null;
+  readonly commitPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["commitPreparedCommittedSurfaceFrame"];
+  readonly blockedErrorMessage: string | null;
+  readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly blockedPreservePreparationSnapshot: boolean;
+  readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly projectCommittedBrowserVisualActors: RenderGpuFlowSurfaceFrameInput["projectCommittedBrowserVisualActors"];
+  readonly retainedDisplayFrame: RetainedDisplayFrame | null;
+  readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null;
+  readonly retainedRuntimeFrameRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameRenderSignatureRef"];
+  readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
+  readonly runtimeCanvas: HTMLCanvasElement;
+  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
+  readonly viewportRuntime: GpuFlowViewportRuntime;
+  readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
+  readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
+}): void {
+  switch (outcome.kind) {
+    case "commit":
+      publishGpuFlowCommittedSurfaceVisibleProjectionState({
+        callbacksRef,
+        committedSurfaceFrame,
+        committedSurfacePublicationGateEffect,
+        commitPreparedCommittedSurfaceFrame,
+        nodeLayerFrameStatePublication,
+        outcome,
+        projectCommittedBrowserVisualActors,
+        retainedDisplayFrame,
+        retainedDisplayFrameRef,
+        retainedRuntimeFrame,
+        retainedRuntimeFrameRenderSignatureRef,
+        retainedRuntimeFrameSourceRenderSignatureRef,
+        runtimeCanvas,
+        selectedVisibleProjectionState,
+        surfaceRef,
+        viewportRuntime,
+        visibleOverlayProjectionKeyRef,
+        visibleProjectionStateRef,
+      });
+      return;
+    case "hold-previous":
+      publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
+        abortPreparedCommittedSurfaceFrame,
+        heldPreparedCommittedSurfaceFrame,
+        nodeLayerFrameStatePublication,
+        committedSurfacePublicationGateEffect,
+        outcome,
+        retainedDisplayFrame,
+        retainedDisplayFrameRef,
+        runtimeCanvas,
+        selectedVisibleProjectionState,
+        surfaceRef,
+        viewportRuntime,
+        visibleOverlayProjectionKeyRef,
+        visibleProjectionStateRef,
+      });
+      return;
+    case "blocked":
+      publishGpuFlowBlockedSurfaceVisibleProjectionState({
+        abortPreparedCommittedSurfaceFrame,
+        blockedErrorMessage,
+        blockedPreparedCommittedSurfaceFrame:
+          resolveGpuFlowBlockedPreparedCommittedSurfaceFrame({
+            blockedPreparedCommittedSurfaceFrame,
+            committedSurfaceFrame,
+            heldPreparedCommittedSurfaceFrame,
+            outcome,
+            selectedVisibleProjectionState,
+          }),
+        blockedPreservePreparationSnapshot:
+          resolveGpuFlowBlockedPreparedCommittedSurfaceFramePreservation({
+            blockedPreparedCommittedSurfaceFrame,
+            blockedPreservePreparationSnapshot,
+            heldPreparedCommittedSurfaceFrame,
+            outcome,
+            selectedVisibleProjectionState,
+          }),
+        committedSurfacePublicationGateEffect,
+        outcome,
+        runtimeCanvas,
+        surfaceRef,
+      });
+      return;
+  }
+}
+
+function resolveGpuFlowBlockedPreparedCommittedSurfaceFrame({
+  blockedPreparedCommittedSurfaceFrame,
+  committedSurfaceFrame,
+  heldPreparedCommittedSurfaceFrame,
+  outcome,
+  selectedVisibleProjectionState,
+}: {
+  readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowCommittedSurfaceFrame | null {
+  if (blockedPreparedCommittedSurfaceFrame) {
+    return blockedPreparedCommittedSurfaceFrame;
+  }
+  if (
+    !isGpuFlowBlockedHeldPreviousPublicationOutcomeForVisibleState({
+      outcome,
+      selectedVisibleProjectionState,
+    })
+  ) {
+    return null;
+  }
+  return heldPreparedCommittedSurfaceFrame ?? committedSurfaceFrame;
+}
+
+function resolveGpuFlowBlockedPreparedCommittedSurfaceFramePreservation({
+  blockedPreparedCommittedSurfaceFrame,
+  blockedPreservePreparationSnapshot,
+  heldPreparedCommittedSurfaceFrame,
+  outcome,
+  selectedVisibleProjectionState,
+}: {
+  readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly blockedPreservePreparationSnapshot: boolean;
+  readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): boolean {
+  if (blockedPreparedCommittedSurfaceFrame) {
+    return blockedPreservePreparationSnapshot;
+  }
+  if (
+    heldPreparedCommittedSurfaceFrame &&
+    isGpuFlowBlockedHeldPreviousPublicationOutcomeForVisibleState({
+      outcome,
+      selectedVisibleProjectionState,
+    })
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function isGpuFlowBlockedHeldPreviousPublicationOutcomeForVisibleState({
+  outcome,
+  selectedVisibleProjectionState,
+}: {
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): boolean {
+  return (
+    outcome.kind === "blocked" &&
+    selectedVisibleProjectionState?.transaction.kind === "held-previous"
+  );
+}
+
+function publishGpuFlowCommittedSurfaceVisibleProjectionState({
+  callbacksRef,
+  committedSurfaceFrame,
+  committedSurfacePublicationGateEffect,
+  commitPreparedCommittedSurfaceFrame,
+  nodeLayerFrameStatePublication,
+  outcome,
+  projectCommittedBrowserVisualActors,
+  retainedDisplayFrame,
+  retainedDisplayFrameRef,
+  retainedRuntimeFrame,
+  retainedRuntimeFrameRenderSignatureRef,
+  retainedRuntimeFrameSourceRenderSignatureRef,
+  runtimeCanvas,
+  selectedVisibleProjectionState,
+  surfaceRef,
+  viewportRuntime,
+  visibleOverlayProjectionKeyRef,
+  visibleProjectionStateRef,
+}: {
+  readonly callbacksRef: RenderGpuFlowSurfaceFrameInput["callbacksRef"];
+  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly committedSurfacePublicationGateEffect: GpuFlowCommittedSurfacePublicationGateEffect | null;
+  readonly commitPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["commitPreparedCommittedSurfaceFrame"];
+  readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly outcome: Extract<
+    GpuFlowVisiblePublicationOutcome,
+    { readonly kind: "commit" }
+  >;
+  readonly projectCommittedBrowserVisualActors: RenderGpuFlowSurfaceFrameInput["projectCommittedBrowserVisualActors"];
+  readonly retainedDisplayFrame: RetainedDisplayFrame | null;
+  readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null;
+  readonly retainedRuntimeFrameRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameRenderSignatureRef"];
+  readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
+  readonly runtimeCanvas: HTMLCanvasElement;
+  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
+  readonly viewportRuntime: GpuFlowViewportRuntime;
+  readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
+  readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
+}): void {
+  if (!selectedVisibleProjectionState) {
+    throw new Error(
+      "GPU Flow visible publication commit requires selected visible projection state.",
+    );
+  }
+  if (
+    selectedVisibleProjectionState.transaction.kind === "content-publication" &&
+    !committedSurfaceFrame
+  ) {
+    throw new Error(
+      "GPU Flow content publication commit requires the prepared committed surface frame.",
+    );
+  }
+  if (committedSurfaceFrame) {
+    commitPreparedCommittedSurfaceFrame(outcome.token, committedSurfaceFrame);
+  }
+  publishGpuFlowRetainedDisplayFrame({
+    retainedDisplayFrame,
+    retainedDisplayFrameRef,
+    token: outcome.token,
+  });
+  applyGpuFlowCommittedSurfacePublicationGateEffect({
+    effect: committedSurfacePublicationGateEffect,
+    runtimeCanvas,
+    surfaceRef,
+    token: outcome.token,
+  });
+  applyGpuFlowProjectionDebugAttributes({
+    canvas: runtimeCanvas,
+    debugState: selectedVisibleProjectionState.debugState,
+    token: outcome.token,
+  });
+  projectCommittedBrowserVisualActors(
+    outcome.token,
+    selectedVisibleProjectionState.sample.viewport,
+  );
+  publishGpuFlowVisibleProjectionState({
+    commitPublicationToken: outcome.token,
+    holdPreviousToken: null,
+    visibleProjectionState: selectedVisibleProjectionState,
+    visibleProjectionStateRef,
+  });
+  publishGpuFlowVisibleOverlayProjectionTransform({
+    viewportRuntime,
+    visibleOverlayProjectionKeyRef,
+    visibleProjectionState: selectedVisibleProjectionState,
+  });
+  publishGpuFlowNodeLayerFrameState({
+    nodeLayerFrameStatePublication,
+    token: outcome.token,
+  });
+  publishGpuFlowRetainedRuntimeFrame({
+    callbacksRef,
+    retainedRuntimeFrame,
+    retainedRuntimeFrameRenderSignatureRef,
+    retainedRuntimeFrameSourceRenderSignatureRef,
+  });
+}
+
+function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
+  abortPreparedCommittedSurfaceFrame,
+  committedSurfacePublicationGateEffect,
+  heldPreparedCommittedSurfaceFrame,
+  nodeLayerFrameStatePublication,
+  outcome,
+  retainedDisplayFrame,
+  retainedDisplayFrameRef,
+  runtimeCanvas,
+  selectedVisibleProjectionState,
+  surfaceRef,
+  viewportRuntime,
+  visibleOverlayProjectionKeyRef,
+  visibleProjectionStateRef,
+}: {
+  readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
+  readonly committedSurfacePublicationGateEffect: GpuFlowCommittedSurfacePublicationGateEffect | null;
+  readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly outcome: Extract<
+    GpuFlowVisiblePublicationOutcome,
+    { readonly kind: "hold-previous" }
+  >;
+  readonly retainedDisplayFrame: RetainedDisplayFrame | null;
+  readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
+  readonly runtimeCanvas: HTMLCanvasElement;
+  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
+  readonly viewportRuntime: GpuFlowViewportRuntime;
+  readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
+  readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
+}): void {
+  if (!selectedVisibleProjectionState) {
+    return;
+  }
+  publishGpuFlowRetainedDisplayFrame({
+    retainedDisplayFrame,
+    retainedDisplayFrameRef,
+    token: outcome.token,
+  });
+  applyGpuFlowCommittedSurfacePublicationGateEffect({
+    effect: committedSurfacePublicationGateEffect,
+    runtimeCanvas,
+    surfaceRef,
+    token: outcome.token,
+  });
+  if (heldPreparedCommittedSurfaceFrame) {
+    abortPreparedCommittedSurfaceFrame(
+      outcome.token,
+      heldPreparedCommittedSurfaceFrame,
+      {
+        preservePreparationSnapshot: true,
+      },
+    );
+  }
+  publishGpuFlowVisibleProjectionState({
+    commitPublicationToken: null,
+    holdPreviousToken: outcome.token,
+    visibleProjectionState: selectedVisibleProjectionState,
+    visibleProjectionStateRef,
+  });
+  publishGpuFlowVisibleOverlayProjectionTransform({
+    viewportRuntime,
+    visibleOverlayProjectionKeyRef,
+    visibleProjectionState: selectedVisibleProjectionState,
+  });
+  publishGpuFlowNodeLayerFrameState({
+    nodeLayerFrameStatePublication,
+    token: outcome.token,
+  });
+  applyGpuFlowProjectionDebugAttributes({
+    canvas: runtimeCanvas,
+    debugState: selectedVisibleProjectionState.debugState,
+    token: outcome.token,
+  });
+}
+
+function publishGpuFlowNodeLayerFrameState(publication: {
+  readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly token: GpuFlowCommitPublicationToken | GpuFlowHoldPreviousToken;
+}): void {
+  const { nodeLayerFrameStatePublication } = publication;
+  if (nodeLayerFrameStatePublication === null) {
+    return;
+  }
+  updateGpuFlowNodeLayerFrameState(nodeLayerFrameStatePublication);
+}
+
+function publishGpuFlowVisibleOverlayProjectionTransform({
+  viewportRuntime,
+  visibleOverlayProjectionKeyRef,
+  visibleProjectionState,
+}: {
+  readonly viewportRuntime: GpuFlowViewportRuntime;
+  readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
+}): void {
+  const overlayProjectionKey = createGpuFlowVisibleOverlayProjectionKey(
+    visibleProjectionState,
+  );
+  if (visibleOverlayProjectionKeyRef.current === overlayProjectionKey) {
+    return;
+  }
+  visibleOverlayProjectionKeyRef.current = overlayProjectionKey;
+  viewportRuntime.applyOverlayTransforms(
+    visibleProjectionState.sample.viewport,
+  );
+}
+
+function publishGpuFlowRetainedDisplayFrame(publication: {
+  readonly retainedDisplayFrame: RetainedDisplayFrame | null;
+  readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
+  readonly token: GpuFlowCommitPublicationToken | GpuFlowHoldPreviousToken;
+}): void {
+  const { retainedDisplayFrame, retainedDisplayFrameRef } = publication;
+  if (retainedDisplayFrame === null) {
+    return;
+  }
+  retainedDisplayFrameRef.current = retainedDisplayFrame;
+}
+
+function publishGpuFlowBlockedSurfaceVisibleProjectionState({
+  abortPreparedCommittedSurfaceFrame,
+  blockedErrorMessage,
+  blockedPreparedCommittedSurfaceFrame,
+  blockedPreservePreparationSnapshot,
+  committedSurfacePublicationGateEffect,
+  outcome,
+  runtimeCanvas,
+  surfaceRef,
+}: {
+  readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
+  readonly blockedErrorMessage: string | null;
+  readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly blockedPreservePreparationSnapshot: boolean;
+  readonly committedSurfacePublicationGateEffect: GpuFlowCommittedSurfacePublicationGateEffect | null;
+  readonly outcome: Extract<
+    GpuFlowVisiblePublicationOutcome,
+    { readonly kind: "blocked" }
+  >;
+  readonly runtimeCanvas: HTMLCanvasElement;
+  readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
+}): void {
+  if (blockedPreparedCommittedSurfaceFrame) {
+    abortPreparedCommittedSurfaceFrame(
+      outcome.token,
+      blockedPreparedCommittedSurfaceFrame,
+      {
+        preservePreparationSnapshot: blockedPreservePreparationSnapshot,
+      },
+    );
+  }
+  applyGpuFlowCommittedSurfacePublicationGateEffect({
+    effect: committedSurfacePublicationGateEffect,
+    runtimeCanvas,
+    surfaceRef,
+    token: outcome.token,
+  });
+  recordGpuFlowBlockedVisiblePublication({
+    frame: blockedPreparedCommittedSurfaceFrame,
+    runtimeCanvas,
+    token: outcome.token,
+  });
+  if (blockedErrorMessage) {
+    throw new Error(blockedErrorMessage);
+  }
+}
+
+function publishGpuFlowRetainedRuntimeFrame({
+  callbacksRef,
+  retainedRuntimeFrame,
+  retainedRuntimeFrameRenderSignatureRef,
+  retainedRuntimeFrameSourceRenderSignatureRef,
+}: {
+  readonly callbacksRef: RenderGpuFlowSurfaceFrameInput["callbacksRef"];
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null;
+  readonly retainedRuntimeFrameRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameRenderSignatureRef"];
+  readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
+}): void {
+  if (retainedRuntimeFrame === null) {
+    return;
+  }
+  callbacksRef.current.onRetainedRuntimeFrame?.(retainedRuntimeFrame);
+  retainedRuntimeFrameSourceRenderSignatureRef.current =
+    createGpuFlowRetainedRuntimeFrameSourceRenderSignature(
+      retainedRuntimeFrame,
+    );
+  const nextSignature =
+    createGpuFlowRetainedRuntimeFrameOverlayRenderSignature(
+      retainedRuntimeFrame,
+    );
+  if (retainedRuntimeFrameRenderSignatureRef.current === nextSignature) {
+    return;
+  }
+  retainedRuntimeFrameRenderSignatureRef.current = nextSignature;
 }

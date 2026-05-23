@@ -4,6 +4,7 @@ import {
   assertGpuFlowCommittedSurfaceFrameCoherent,
   createGpuFlowCommittedSurfaceFrame,
   createGpuFlowCommittedSurfaceFrameRenderSignature,
+  createGpuFlowCommittedSurfacePresentationProof,
   createGpuFlowStartupCommittedSurfaceFrame,
   type GpuFlowCommittedSurfaceBrowserVisualReadiness,
   type GpuFlowCommittedSurfaceFrame,
@@ -271,18 +272,16 @@ describe("GPU Flow committed surface frame", () => {
     expect(firstControl.contentGenerationId).toBe(
       secondControl.contentGenerationId,
     );
-    expect(firstControl.canonicalActorId).toBe(
-      secondControl.canonicalActorId,
-    );
+    expect(firstControl.canonicalActorId).toBe(secondControl.canonicalActorId);
     expect(firstControl.generationClassification.contentGenerationId).toBe(
       secondControl.generationClassification.contentGenerationId,
     );
     expect(firstControl.layoutProjectionGenerationId).not.toBe(
       secondControl.layoutProjectionGenerationId,
     );
-    expect(firstControl.generationClassification.projectionGenerationId).not.toBe(
-      secondControl.generationClassification.projectionGenerationId,
-    );
+    expect(
+      firstControl.generationClassification.projectionGenerationId,
+    ).not.toBe(secondControl.generationClassification.projectionGenerationId);
   });
 
   it("rejects visible frame id drift across committed surface families", () => {
@@ -300,6 +299,26 @@ describe("GPU Flow committed surface frame", () => {
     expect(() => assertGpuFlowCommittedSurfaceFrameCoherent(drifted)).toThrow(
       /incoherent visible frame ids/,
     );
+  });
+
+  it("rejects presentation proofs that do not match the actor manifest", () => {
+    const frame = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame: createRuntimeFrame({ frameId: 4 }),
+    });
+    const staleProof: GpuFlowCommittedSurfaceFrame = {
+      ...frame,
+      presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+        actorGenerations: [],
+        browserVisualSurfaceFragment: frame.browserVisualSurfaceFragment,
+        coherence: frame.coherence,
+        displayFrameId: frame.displayFrameId,
+        surfaceTransaction: frame.surfaceTransaction,
+      }),
+    };
+
+    expect(() =>
+      assertGpuFlowCommittedSurfaceFrameCoherent(staleProof),
+    ).toThrow(/actor manifest and browser visual resources/);
   });
 
   it("represents blocked visible DOM-control actors as typed publishability", () => {
@@ -652,9 +671,7 @@ function expectBlockedCompatiblePreviousDomControlActor({
   readonly frame: GpuFlowCommittedSurfaceFrame;
 }): void {
   expect(actor).toBeDefined();
-  expect(actor?.browserVisual?.coverageState).toBe(
-    "blocked-awaiting-snapshot",
-  );
+  expect(actor?.browserVisual?.coverageState).toBe("blocked-awaiting-snapshot");
   expect(actor?.textCoverageProof).toEqual(
     expect.objectContaining({
       projectionCoverage: "blocked-awaiting-browser-visual",

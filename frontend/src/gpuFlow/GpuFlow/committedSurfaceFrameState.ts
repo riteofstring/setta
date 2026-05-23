@@ -15,14 +15,15 @@ import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
+import type { GpuViewportInput } from "../viewportMath";
 import {
   getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
   type GpuFlowBrowserVisualActorCandidate,
 } from "./browserVisualActorRuntime";
 import {
-  createGpuFlowCommittedSurfaceResetToken,
-  createGpuFlowCommittedSurfaceStartupToken,
-} from "./visibleFramePublicationAuthority";
+  createGpuFlowCommittedSurfaceResetPublicationToken,
+  createGpuFlowCommittedSurfaceStartupPublicationToken,
+} from "./visibleFramePublicationKernel";
 import {
   assertGpuFlowPreparedCandidateAbortToken,
   type GpuFlowBlockedPublicationToken,
@@ -53,7 +54,7 @@ export function useGpuFlowCommittedSurfaceFrameState({
   );
   useEffect(() => {
     committedSurfaceRuntimeRef.current.setStartupFrame(
-      createGpuFlowCommittedSurfaceStartupToken({
+      createGpuFlowCommittedSurfaceStartupPublicationToken({
         frame: startupCommittedSurfaceFrame,
       }),
       startupCommittedSurfaceFrame,
@@ -71,12 +72,13 @@ export function useGpuFlowCommittedSurfaceFrameState({
     ),
   );
   const visibleCommittedSurfaceFrame = semanticSnapshot.frame;
-  committedSurfaceFrameRef.current = visibleCommittedSurfaceFrame;
+  committedSurfaceFrameRef.current =
+    committedSurfaceRuntimeRef.current.getCommittedContentFrame();
 
   const resetCommittedSurfaceFrame = useCallback(() => {
     pendingBrowserVisualCandidateByFrameIdRef.current.clear();
     committedSurfaceRuntimeRef.current.resetCommittedContentFrame(
-      createGpuFlowCommittedSurfaceResetToken(),
+      createGpuFlowCommittedSurfaceResetPublicationToken(),
     );
     committedSurfaceFrameRef.current =
       committedSurfaceRuntimeRef.current.getCommittedContentFrame();
@@ -150,6 +152,20 @@ export function useGpuFlowCommittedSurfaceFrameState({
     },
     [],
   );
+  const projectCommittedBrowserVisualActors = useCallback(
+    (
+      token: GpuFlowCommitPublicationToken,
+      viewport?: GpuViewportInput | undefined,
+    ): void => {
+      const browserVisualRuntime =
+        getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
+          committedSurfaceRuntimeRef.current,
+        );
+      browserVisualRuntime.projectDomControls({ token, viewport });
+      browserVisualRuntime.projectDomIslands({ token, viewport });
+    },
+    [],
+  );
   const abortPreparedCommittedSurfaceFrame = useCallback(
     (
       token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
@@ -196,6 +212,7 @@ export function useGpuFlowCommittedSurfaceFrameState({
     committedSurfaceFrameRef,
     committedSurfaceRuntime: committedSurfaceRuntimeRef.current,
     prepareCommittedSurfaceFrame,
+    projectCommittedBrowserVisualActors,
     resetCommittedSurfaceFrame,
     visibleCommittedSurfaceFrame,
   };
