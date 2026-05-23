@@ -40,8 +40,8 @@ const SURFACE_TEXTURE_RELEASE_AUTHORITY_MODULE_PATH = modulePath(
 const VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH = modulePath(
   "./visibleFrameDiagnostics.ts",
 );
-const COMMITTED_SURFACE_PUBLICATION_CANDIDATE_HANDLING_MODULE_PATH = modulePath(
-  "./flowCommittedSurfacePublicationCandidateHandling.ts",
+const COMMITTED_SURFACE_CANDIDATE_ACTION_MODULE_PATH = modulePath(
+  "./visibleFrameActorAdapters/committedSurfaceCandidateAction.ts",
 );
 const COMMITTED_SURFACE_RUNTIME_MODULE_PATH = modulePath(
   "../committedSurfaceRuntime.ts",
@@ -412,7 +412,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const candidateHandlingSource = readFileSync(
-      COMMITTED_SURFACE_PUBLICATION_CANDIDATE_HANDLING_MODULE_PATH,
+      COMMITTED_SURFACE_CANDIDATE_ACTION_MODULE_PATH,
       "utf8",
     );
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
@@ -439,11 +439,9 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(flowFrameSource).not.toContain(
       "prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
+    expect(flowFrameSource).not.toContain("committedSurfaceCandidateAction");
     expect(flowFrameSource).not.toContain(
-      "flowCommittedSurfacePublicationCandidateHandling",
-    );
-    expect(flowFrameSource).not.toContain(
-      "resolveGpuFlowCommittedSurfacePublicationCandidateAction",
+      "resolveGpuFlowCommittedSurfaceCandidateAction",
     );
     expect(flowFrameSource).not.toContain(
       "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
@@ -463,13 +461,13 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     expect(surfaceFrameSource).not.toContain(
-      "resolveGpuFlowCommittedSurfacePublicationCandidateAction",
+      "resolveGpuFlowCommittedSurfaceCandidateAction",
     );
     expect(candidateHandlingSource).not.toContain(
-      "export function resolveGpuFlowCommittedSurfacePublicationCandidateAction",
+      "export function resolveGpuFlowCommittedSurfaceCandidateAction",
     );
     expect(kernelSource).not.toContain(
-      "createGpuFlowCommittedSurfacePublicationCandidateActionResolver",
+      "createGpuFlowCommittedSurfaceCandidateActionResolver",
     );
     expect(kernelSource).not.toContain(
       "createGpuFlowCommittedSurfacePublicationActionFrameResultResolver",
@@ -615,7 +613,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
     const candidateSource = readCommittedSurfaceAuthorityCandidateSource();
     const candidateHandlingSource = readFileSync(
-      COMMITTED_SURFACE_PUBLICATION_CANDIDATE_HANDLING_MODULE_PATH,
+      COMMITTED_SURFACE_CANDIDATE_ACTION_MODULE_PATH,
       "utf8",
     );
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();

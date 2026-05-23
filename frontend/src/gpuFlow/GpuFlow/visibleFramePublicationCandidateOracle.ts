@@ -4,7 +4,6 @@ import {
   type GpuFlowProjectionTransaction,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import type { GpuFlowCommittedSurfacePublicationCandidateAction } from "./flowCommittedSurfacePublicationCandidateHandling";
 import {
   createGpuFlowNodeLayerCommittedSurfacePublicationResult,
   type GpuFlowNodeLayerCommittedSurfacePublicationResult,
@@ -12,6 +11,7 @@ import {
 } from "./flowFrameResult";
 import type { GpuFlowRetainedDisplayPublicationResult } from "./flowRetainedDisplayTransaction";
 import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "./flowVisibleProjectionState";
+import type { GpuFlowCommittedSurfaceCandidateAction } from "./visibleFrameActorAdapters/committedSurfaceCandidateAction";
 import {
   createGpuFlowBrowserVisualBlockedPublicationCandidate,
   createGpuFlowRetainedProjectionBlockedPublicationCandidate,
@@ -235,7 +235,8 @@ export function prepareGpuFlowCommittedSurfacePublicationCandidate({
     );
   }
   return {
-    blockedPublicationCandidate: publicationReadiness.blockedPublicationCandidate,
+    blockedPublicationCandidate:
+      publicationReadiness.blockedPublicationCandidate,
     candidateFrame: publishedCommittedSurfaceFrame,
     effect: {
       candidateFrame: publishedCommittedSurfaceFrame,
@@ -303,7 +304,7 @@ function selectGpuFlowCommittedSurfacePublicationFramePlan({
   readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
   readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
 }): GpuFlowCommittedSurfacePublicationFramePlan {
-  const action = resolveGpuFlowCommittedSurfacePublicationCandidateAction({
+  const action = resolveGpuFlowCommittedSurfaceCandidateAction({
     candidate,
     publishedCommittedSurfaceFrame,
   });
@@ -327,13 +328,13 @@ function selectGpuFlowCommittedSurfacePublicationFramePlan({
   };
 }
 
-function resolveGpuFlowCommittedSurfacePublicationCandidateAction({
+function resolveGpuFlowCommittedSurfaceCandidateAction({
   candidate,
   publishedCommittedSurfaceFrame,
 }: {
   readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
   readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
-}): GpuFlowCommittedSurfacePublicationCandidateAction {
+}): GpuFlowCommittedSurfaceCandidateAction {
   switch (candidate.kind) {
     case "nonpublishable":
       return {
@@ -365,7 +366,7 @@ function resolveGpuFlowCommittedSurfacePublicationActionFrameResult({
   action,
   effect,
 }: {
-  readonly action: GpuFlowCommittedSurfacePublicationCandidateAction;
+  readonly action: GpuFlowCommittedSurfaceCandidateAction;
   readonly effect: GpuFlowCommittedSurfacePublicationEffect;
 }): GpuFlowCommittedSurfacePublicationActionFrameResult {
   const committedSurfacePublication =

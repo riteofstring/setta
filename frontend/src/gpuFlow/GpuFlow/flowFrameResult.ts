@@ -1,16 +1,16 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type {
-  GpuFlowBlockedCommittedSurfacePublication,
-  GpuFlowCommittedSurfacePublicationCandidateAction,
-} from "./flowCommittedSurfacePublicationCandidateHandling";
+  GpuFlowBlockedCommittedSurfaceCandidate,
+  GpuFlowCommittedSurfaceCandidateAction,
+} from "./visibleFrameActorAdapters/committedSurfaceCandidateAction";
 import type {
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFrameBlockedPublicationCandidate,
 } from "./visibleFramePublicationContentPlan";
 
 export type GpuFlowNodeLayerCommittedSurfacePublicationResult = {
-  readonly blockedSurfacePublication: GpuFlowBlockedCommittedSurfacePublication | null;
+  readonly blockedSurfacePublication: GpuFlowBlockedCommittedSurfaceCandidate | null;
   readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly committedSurfacePublicationEffect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
@@ -51,7 +51,7 @@ export function createGpuFlowNodeLayerCommittedSurfacePublicationResult({
   action,
   effect,
 }: {
-  readonly action: GpuFlowCommittedSurfacePublicationCandidateAction;
+  readonly action: GpuFlowCommittedSurfaceCandidateAction;
   readonly effect: GpuFlowCommittedSurfacePublicationEffect;
 }): GpuFlowNodeLayerCommittedSurfacePublicationResult {
   switch (action.kind) {
