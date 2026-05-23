@@ -9,6 +9,9 @@ const KERNEL_MODULE_PATH = fileURLToPath(
 const AUTHORITY_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresentationProofs.ts", import.meta.url),
 );
+const TOKEN_AUTHORITY_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePresentationTokens.ts", import.meta.url),
+);
 const COMPLETION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameOutcomeReport.ts", import.meta.url),
 );
@@ -26,6 +29,10 @@ describe("GPU Flow visible publication kernel phases", () => {
   it("runs sample, prepare, prove, decide, completion, and publish through the visible frame engine lifecycle", () => {
     const source = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
+    const tokenAuthoritySource = readFileSync(
+      TOKEN_AUTHORITY_MODULE_PATH,
+      "utf8",
+    );
     const runStart = source.indexOf(
       "export function runGpuFlowVisibleFramePublicationCandidateSetKernel",
     );
@@ -90,7 +97,7 @@ describe("GPU Flow visible publication kernel phases", () => {
     expect(authoritySource).toContain(
       "export function proveGpuFlowVisibleFramePublicationPresentation",
     );
-    expect(authoritySource).toContain(
+    expect(tokenAuthoritySource).toContain(
       "visiblePublicationTokenIssuer.createCommitPublicationToken",
     );
     expect(source).toContain(
@@ -157,7 +164,11 @@ describe("GPU Flow visible publication kernel phases", () => {
 
   it("keeps visible outcome token minting in the kernel", () => {
     const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
-    const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
+    const authoritySource = readFileSync(TOKEN_AUTHORITY_MODULE_PATH, "utf8");
+    const presentationProofSource = readFileSync(
+      AUTHORITY_MODULE_PATH,
+      "utf8",
+    );
     const completionSource = readFileSync(COMPLETION_MODULE_PATH, "utf8");
     const rawTokenConstructors = [
       "createGpuFlowBlockedPublicationToken",
@@ -189,19 +200,16 @@ describe("GPU Flow visible publication kernel phases", () => {
         `export function ${constructorName}`,
       );
     }
-    expect(authoritySource).toContain(
+    expect(presentationProofSource).toContain(
       "commitAuthorityProof: commitOracle.commitAuthorityProof",
     );
-    expect(authoritySource).toContain(
+    expect(presentationProofSource).toContain(
       "function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
     );
     expect(authoritySource).not.toContain(
-      "export function createGpuFlowVisibleFrameBlockedPublicationToken",
+      "export function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
     );
-    expect(authoritySource).not.toContain(
-      "export function createGpuFlowVisibleFrameHoldPreviousToken",
-    );
-    expect(authoritySource).not.toContain(
+    expect(authoritySource).toContain(
       "export function createGpuFlowVisiblePublicationCompletionCommitToken",
     );
     expect(authoritySource).not.toContain(

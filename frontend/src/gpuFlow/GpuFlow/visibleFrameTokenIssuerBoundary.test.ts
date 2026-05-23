@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 const modulePath = (path: string): string =>
   fileURLToPath(new URL(path, import.meta.url));
 const GPU_FLOW_ROOT = modulePath("../");
-const AUTHORITY_MODULE_PATH = modulePath("./visibleFramePresentationProofs.ts");
+const AUTHORITY_MODULE_PATH = modulePath("./visibleFramePresentationTokens.ts");
 
 describe("GPU Flow visible publication token issuer boundary", () => {
   it("keeps the visible publication token issuer module-private", () => {
@@ -26,7 +26,7 @@ describe("GPU Flow visible publication token issuer boundary", () => {
       }
       const source = readFileSync(filePath, "utf8");
       const importsTokenIssuer = extractNamedImports({
-        moduleName: "visibleFramePresentationProofs",
+        moduleName: "visibleFramePresentationTokens",
         source,
       }).some((bindings) =>
         bindings.includes("createGpuFlowVisiblePublicationTokenIssuer"),
