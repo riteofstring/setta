@@ -330,6 +330,29 @@ function selectGpuFlowVisibleFrameBlockingProof({
   readonly candidate: GpuFlowVisibleFrameCandidate;
 }): GpuFlowVisibleFrameBlockingProof | null {
   const requiredProofs = createGpuFlowVisibleFrameRequiredProofMap(candidate);
+  return (
+    selectGpuFlowVisibleFrameMissingOrTrueHoleProof({
+      candidate,
+      requiredProofs,
+    }) ??
+    selectGpuFlowVisibleFrameIncompatiblePreviousProof({
+      candidate,
+      requiredProofs,
+    }) ??
+    selectGpuFlowVisibleFrameBlockedRequiredProof({
+      candidate,
+      requiredProofs,
+    })
+  );
+}
+
+function selectGpuFlowVisibleFrameMissingOrTrueHoleProof({
+  candidate,
+  requiredProofs,
+}: {
+  readonly candidate: GpuFlowVisibleFrameCandidate;
+  readonly requiredProofs: ReadonlyMap<string, GpuFlowVisibleFrameActorProof>;
+}): GpuFlowVisibleFrameBlockingProof | null {
   for (const actor of candidate.requiredActors) {
     const proof = requiredProofs.get(createGpuFlowVisibleFrameActorKey(actor));
     if (!proof) {
@@ -353,6 +376,16 @@ function selectGpuFlowVisibleFrameBlockingProof({
       };
     }
   }
+  return null;
+}
+
+function selectGpuFlowVisibleFrameIncompatiblePreviousProof({
+  candidate,
+  requiredProofs,
+}: {
+  readonly candidate: GpuFlowVisibleFrameCandidate;
+  readonly requiredProofs: ReadonlyMap<string, GpuFlowVisibleFrameActorProof>;
+}): GpuFlowVisibleFrameBlockingProof | null {
   for (const actor of candidate.requiredActors) {
     const proof = requiredProofs.get(createGpuFlowVisibleFrameActorKey(actor));
     if (!proof) {
@@ -375,6 +408,16 @@ function selectGpuFlowVisibleFrameBlockingProof({
       };
     }
   }
+  return null;
+}
+
+function selectGpuFlowVisibleFrameBlockedRequiredProof({
+  candidate,
+  requiredProofs,
+}: {
+  readonly candidate: GpuFlowVisibleFrameCandidate;
+  readonly requiredProofs: ReadonlyMap<string, GpuFlowVisibleFrameActorProof>;
+}): GpuFlowVisibleFrameBlockingProof | null {
   for (const actor of candidate.requiredActors) {
     const proof = requiredProofs.get(createGpuFlowVisibleFrameActorKey(actor));
     if (proof?.proof === "blocked") {
