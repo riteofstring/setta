@@ -4,6 +4,7 @@ import type { GpuFlowCommittedSurfacePublicationCandidateAction } from "./flowCo
 import {
   createGpuFlowNodeLayerCommittedSurfacePublicationResult,
   type GpuFlowNodeLayerCommittedSurfacePublicationResult,
+  type GpuFlowNodeLayerFrameResult,
 } from "./flowFrameResult";
 import type { GpuFlowRetainedDisplayPublicationResult } from "./flowRetainedDisplayTransaction";
 import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "./flowVisibleProjectionState";
@@ -131,6 +132,26 @@ export type GpuFlowRetainedDisplayPublicationFramePlanResultResolver =
     readonly framePlan: GpuFlowRetainedDisplayPublicationFramePlan;
   }) => GpuFlowRetainedDisplayOutcomeFrameResult;
 
+export type GpuFlowContentPublicationBlockedCandidateSelector = (input: {
+  readonly blockedCommittedSurfacePublicationCandidate?:
+    | GpuFlowVisibleFrameBlockedPublicationCandidate
+    | null
+    | undefined;
+  readonly committedSurfacePublicationEffect?:
+    | GpuFlowCommittedSurfacePublicationEffect
+    | null
+    | undefined;
+  readonly retainedDisplayBlockedPublicationCandidate?:
+    | GpuFlowVisibleFrameBlockedPublicationCandidate
+    | null
+    | undefined;
+}) => GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+
+export type GpuFlowContentPublicationBlockedCandidateForFrameResultSelector =
+  (input: {
+    readonly nodeLayerFrameResult: GpuFlowNodeLayerFrameResult;
+  }) => GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+
 export function prepareGpuFlowCommittedSurfacePublicationCandidate({
   committedGpuNativeVisuals,
   deferBrowserVisualRetry,
@@ -210,6 +231,32 @@ export function createGpuFlowCommittedSurfacePublicationFramePlanSelector(): Gpu
 
 export function createGpuFlowRetainedDisplayPublicationFramePlanResultResolver(): GpuFlowRetainedDisplayPublicationFramePlanResultResolver {
   return resolveGpuFlowRetainedDisplayPublicationFramePlanResult;
+}
+
+export function createGpuFlowContentPublicationBlockedCandidateSelector({
+  previousVisibleProjectionState,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowContentPublicationBlockedCandidateSelector {
+  return selectGpuFlowContentPublicationBlockedCandidate({
+    previousVisibleProjectionState,
+  });
+}
+
+export function createGpuFlowContentPublicationBlockedCandidateForFrameResultSelector({
+  previousVisibleProjectionState,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowContentPublicationBlockedCandidateForFrameResultSelector {
+  const selectContentPublicationBlockedCandidate =
+    selectGpuFlowContentPublicationBlockedCandidate({
+      previousVisibleProjectionState,
+    });
+  return ({ nodeLayerFrameResult }) =>
+    selectGpuFlowContentPublicationBlockedCandidateForFrameResult({
+      nodeLayerFrameResult,
+      selectContentPublicationBlockedCandidate,
+    });
 }
 
 function decideGpuFlowCommittedSurfacePublicationTransaction({
@@ -464,4 +511,50 @@ function resolveGpuFlowRetainedDisplayPublicationOutcomeFrame(
     outcome,
     outcomeKind: outcome.kind,
   };
+}
+
+function selectGpuFlowContentPublicationBlockedCandidate({
+  previousVisibleProjectionState,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowContentPublicationBlockedCandidateSelector {
+  return ({
+    blockedCommittedSurfacePublicationCandidate,
+    committedSurfacePublicationEffect,
+    retainedDisplayBlockedPublicationCandidate,
+  }) => {
+    if (blockedCommittedSurfacePublicationCandidate) {
+      return blockedCommittedSurfacePublicationCandidate;
+    }
+    if (retainedDisplayBlockedPublicationCandidate) {
+      return retainedDisplayBlockedPublicationCandidate;
+    }
+    if (committedSurfacePublicationEffect?.kind !== "held-previous") {
+      return null;
+    }
+    return createGpuFlowBrowserVisualBlockedPublicationCandidate({
+      frame: committedSurfacePublicationEffect.candidateFrame,
+      heldPreviousProjectionState: previousVisibleProjectionState,
+    });
+  };
+}
+
+function selectGpuFlowContentPublicationBlockedCandidateForFrameResult({
+  nodeLayerFrameResult,
+  selectContentPublicationBlockedCandidate,
+}: {
+  readonly nodeLayerFrameResult: GpuFlowNodeLayerFrameResult;
+  readonly selectContentPublicationBlockedCandidate: GpuFlowContentPublicationBlockedCandidateSelector;
+}): GpuFlowVisibleFrameBlockedPublicationCandidate | null {
+  const committedSurfacePublication =
+    nodeLayerFrameResult.committedSurfacePublication;
+  return selectContentPublicationBlockedCandidate({
+    blockedCommittedSurfacePublicationCandidate:
+      committedSurfacePublication.blockedSurfacePublication
+        ?.blockedPublicationCandidate ?? null,
+    committedSurfacePublicationEffect:
+      committedSurfacePublication.committedSurfacePublicationEffect,
+    retainedDisplayBlockedPublicationCandidate:
+      nodeLayerFrameResult.blockedPublicationCandidate,
+  });
 }

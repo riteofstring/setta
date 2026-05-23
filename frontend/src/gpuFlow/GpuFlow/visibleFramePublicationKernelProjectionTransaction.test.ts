@@ -17,17 +17,11 @@ import {
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationProjectionPlan.ts", import.meta.url),
 );
-const PROJECTION_TRANSACTION_AUTHORITY_MODULE_PATH = fileURLToPath(
-  new URL(
-    "./visibleFramePublicationProjectionTransactionAuthority.ts",
-    import.meta.url,
-  ),
-);
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
 
-describe("GPU Flow visible publication projection transaction authority", () => {
+describe("GPU Flow visible publication kernel projection transactions", () => {
   it("selects requested, held, and blocked transactions from publication decisions", () => {
     const requestedFrame = projectionFrame({
       needsRetainedPageMaintenance: true,
@@ -111,13 +105,9 @@ describe("GPU Flow visible publication projection transaction authority", () => 
     });
   });
 
-  it("keeps retained projection decisions in the kernel and out of render planning", () => {
+  it("keeps retained projection transaction decisions in the kernel and out of render planning", () => {
     const projectionPlanSource = readFileSync(
       PROJECTION_PLAN_MODULE_PATH,
-      "utf8",
-    );
-    const transactionAuthoritySource = readFileSync(
-      PROJECTION_TRANSACTION_AUTHORITY_MODULE_PATH,
       "utf8",
     );
     const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
@@ -131,29 +121,23 @@ describe("GPU Flow visible publication projection transaction authority", () => 
     expect(projectionPlanSource).not.toContain(
       "createGpuFlowProjectionFrameTransactionSelector",
     );
-    expect(transactionAuthoritySource).toContain(
+    expect(kernelSource).toContain(
       "GpuFlowRetainedProjectionPublicationTransactionDecision",
     );
-    expect(transactionAuthoritySource).toContain(
+    expect(kernelSource).toContain(
       "selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
     );
-    expect(transactionAuthoritySource).not.toContain(
+    expect(kernelSource).not.toContain(
       "export function selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
     );
-    expect(transactionAuthoritySource).not.toContain(
+    expect(kernelSource).not.toContain(
       "export function decideGpuFlowRetainedProjectionPublicationTransaction",
     );
-    expect(transactionAuthoritySource).toContain(
+    expect(kernelSource).toContain(
       "createGpuFlowProjectionFrameTransactionSelector",
     );
-    expect(transactionAuthoritySource).not.toContain(
+    expect(kernelSource).toContain(
       "createGpuFlowRetainedProjectionPublicationDecisionSelector",
-    );
-    expect(transactionAuthoritySource).not.toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
-    );
-    expect(transactionAuthoritySource).not.toContain(
-      "createGpuFlowHeldPreviousProjection",
     );
     expect(kernelSource).toContain(
       "function decideGpuFlowRetainedProjectionPublicationTransaction",

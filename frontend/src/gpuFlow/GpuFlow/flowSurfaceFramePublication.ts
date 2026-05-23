@@ -35,13 +35,13 @@ import {
   type GpuFlowContentPublicationFrameResult,
   type GpuFlowContentPublicationWorkPlan,
   type GpuFlowMotionProjectionFramePreparation,
+  type GpuFlowMotionProjectionFrameWorkReport,
   type GpuFlowMotionProjectionWorkPlan,
   type GpuFlowProjectionFrameRenderablePlan,
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
 } from "./visibleFramePublicationKernel";
-import type { GpuFlowMotionProjectionFrameWorkReport } from "./visibleFramePublicationProjectionWorkAuthority";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,

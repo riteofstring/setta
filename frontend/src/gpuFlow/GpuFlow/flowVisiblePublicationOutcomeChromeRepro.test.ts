@@ -296,6 +296,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
               projectionSampleId: 11,
             },
             proofDigest: "proof",
+            resourceProtectionDigest: "resource",
           },
           presentationProof: {
             ...presentationProof(),
@@ -312,6 +313,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
             },
             projectionSampleId: 11,
             proofDigest: "proof",
+            resourceProtectionDigest: "resource",
             transactionId: "transaction-a",
           },
           transactionId: "transaction-a",
@@ -364,6 +366,7 @@ function commitOutcome({
       },
       projectionSampleId: sample.id,
       proofDigest: "proof",
+      resourceProtectionDigest: "resource",
       transactionId: "transaction-a",
     } as GpuFlowCommitPublicationToken,
   };

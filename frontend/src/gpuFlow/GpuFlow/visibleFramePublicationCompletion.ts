@@ -161,6 +161,7 @@ function createGpuFlowVisibleTransactionReport({
             presentationPairDigest: commitToken.presentationPairDigest,
             presentationPairProof: commitToken.presentationPairProof,
             proofDigest: commitToken.proofDigest,
+            resourceProtectionDigest: commitToken.resourceProtectionDigest,
           },
     presentationProof: selectGpuFlowVisiblePresentationProofReport({
       outcome,
@@ -224,6 +225,7 @@ function createGpuFlowVisiblePublicationOutcomeTokenPayload(
         presentationPairProof: outcome.token.presentationPairProof,
         projectionSampleId: outcome.token.projectionSampleId,
         proofDigest: outcome.token.proofDigest,
+        resourceProtectionDigest: outcome.token.resourceProtectionDigest,
         transactionId: outcome.token.transactionId,
       };
     case "hold-previous":

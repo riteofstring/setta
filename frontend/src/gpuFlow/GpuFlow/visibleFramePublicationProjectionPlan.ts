@@ -1,4 +1,4 @@
-import type { GpuFlowProjectionFrameTransaction } from "./visibleFramePublicationProjectionTransactionAuthority";
+import type { GpuFlowProjectionFrameTransaction } from "./visibleFramePublicationKernel";
 
 export type GpuFlowProjectionFrameRenderPlan =
   {

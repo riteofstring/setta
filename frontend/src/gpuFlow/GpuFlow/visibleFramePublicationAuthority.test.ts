@@ -19,9 +19,6 @@ const KERNEL_PRESENTATION_MODULE_PATH = modulePath(
 const CONTENT_PLAN_MODULE_PATH = modulePath(
   "./visibleFramePublicationContentPlan.ts",
 );
-const PROJECTION_TRANSACTION_AUTHORITY_MODULE_PATH = modulePath(
-  "./visibleFramePublicationProjectionTransactionAuthority.ts",
-);
 const KERNEL_COMPLETION_MODULE_PATH = modulePath(
   "./visibleFramePublicationCompletion.ts",
 );
@@ -175,25 +172,40 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(violations).toEqual([]);
   });
 
-  it("keeps direct visible publication token mint helpers out of production callers", () => {
+  it("keeps direct visible publication proof helpers out of production callers", () => {
+    const forbiddenImports: readonly {
+      readonly moduleName: string;
+      readonly names: readonly string[];
+    }[] = [
+      {
+        moduleName: "visibleFramePublicationKernel",
+        names: DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES,
+      },
+      {
+        moduleName: "visibleFramePublicationOracle",
+        names: [
+          "createGpuFlowVisiblePublicationCommitDebtProof",
+          "createGpuFlowVisiblePublicationCommitOracleFactory",
+        ],
+      },
+    ];
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath) || filePath === KERNEL_MODULE_PATH) {
         return [];
       }
       const source = readFileSync(filePath, "utf8");
-      const importedHelpers = extractNamedImports({
-        moduleName: "visibleFramePublicationKernel",
-        source,
-      }).flatMap((bindings) =>
-        DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES.filter((helperName) =>
-          bindings.includes(helperName),
+      const importedHelpers = forbiddenImports.flatMap(({ moduleName, names }) =>
+        extractNamedImports({ moduleName, source }).flatMap((bindings) =>
+          names
+            .filter((helperName) => bindings.includes(helperName))
+            .map((helperName) => `${moduleName}:${helperName}`),
         ),
       );
       if (importedHelpers.length === 0) {
         return [];
       }
       return [
-        `${relativeGpuFlowPath(filePath)} imports direct visible token mint helpers ${[
+        `${relativeGpuFlowPath(filePath)} imports direct visible publication proof helpers ${[
           ...new Set(importedHelpers),
         ].join(", ")}`,
       ];
@@ -1132,8 +1144,6 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
     KERNEL_PRESENTATION_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
     CONTENT_PLAN_MODULE_PATH,
-    PROJECTION_TRANSACTION_AUTHORITY_MODULE_PATH,
-    modulePath("./visibleFramePublicationContentAuthority.ts"),
     modulePath("./visibleFramePublicationOracle.ts"),
   ]
     .map((filePath) => readFileSync(filePath, "utf8"))

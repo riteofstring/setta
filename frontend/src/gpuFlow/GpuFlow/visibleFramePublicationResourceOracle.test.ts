@@ -8,6 +8,7 @@ import type {
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
   createGpuFlowVisiblePublicationResourceBlockedReasons,
+  createGpuFlowVisiblePublicationResourceProtectionDigest,
   createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFramePublicationResourceOracle";
 
@@ -85,6 +86,27 @@ describe("GPU Flow visible publication resource oracle", () => {
     expect(() =>
       assertGpuFlowVisiblePublicationResourcesProtected(report),
     ).toThrow(/requires protected resources.*source:source-a/);
+  });
+
+  it("creates stable resource protection digests for oracle commit proofs", () => {
+    const report = createGpuFlowVisiblePublicationResourceProtectionReport(
+      committedSurfaceFrame({
+        actorResourceHandles: [resourceHandle("source", "source-b")],
+        protectedResourceHandles: [
+          protectedResource(resourceHandle("source", "source-b")),
+          protectedResource(resourceHandle("texture", "extra-texture")),
+        ],
+      }),
+    );
+
+    expect(createGpuFlowVisiblePublicationResourceProtectionDigest(report)).toBe(
+      JSON.stringify({
+        missingResourceKeys: [],
+        protected: true,
+        protectedResourceKeys: ["source:source-b", "texture:extra-texture"],
+        requiredResourceKeys: ["source:source-b"],
+      }),
+    );
   });
 });
 

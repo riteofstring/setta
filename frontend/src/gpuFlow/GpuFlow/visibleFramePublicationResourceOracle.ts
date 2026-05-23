@@ -9,6 +9,8 @@ export type GpuFlowVisiblePublicationResourceProtectionReport = {
   readonly requiredResourceKeys: readonly string[];
 };
 
+export type GpuFlowVisiblePublicationResourceProtectionDigest = string;
+
 export function createGpuFlowVisiblePublicationResourceProtectionReport(
   committedFrame: GpuFlowCommittedSurfaceFrame | null,
 ): GpuFlowVisiblePublicationResourceProtectionReport {
@@ -39,6 +41,17 @@ export function createGpuFlowVisiblePublicationResourceBlockedReasons(
         }),
       ),
   );
+}
+
+export function createGpuFlowVisiblePublicationResourceProtectionDigest(
+  report: GpuFlowVisiblePublicationResourceProtectionReport,
+): GpuFlowVisiblePublicationResourceProtectionDigest {
+  return JSON.stringify({
+    missingResourceKeys: [...report.missingResourceKeys].sort(),
+    protected: report.protected,
+    protectedResourceKeys: [...report.protectedResourceKeys].sort(),
+    requiredResourceKeys: [...report.requiredResourceKeys].sort(),
+  });
 }
 
 export function assertGpuFlowVisiblePublicationResourcesProtected(

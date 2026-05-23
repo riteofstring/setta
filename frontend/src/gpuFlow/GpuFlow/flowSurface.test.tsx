@@ -1,7 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it } from "vitest";
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import {
+  createGpuFlowCommittedSurfacePresentationProof,
+  type GpuFlowCommittedSurfaceFrame,
+} from "../committedSurfaceFrame";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import { createGpuFlowLayoutStore } from "../layoutStore";
 import {
@@ -23,9 +26,9 @@ import { GpuFlow } from "./flowSurface";
 import { createGpuFlowVisibleOverlayProjectionKey } from "./flowVisibleOverlayProjectionKey";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import {
-  createGpuFlowVisiblePublicationCommitDebtProof,
   shouldDeferGpuFlowResolutionUpdates,
 } from "./visibleFramePublicationKernel";
+import { createGpuFlowVisiblePublicationCommitDebtProof } from "./visibleFramePublicationOracle";
 
 describe("GpuFlow", () => {
   it("mounts source-local portals and edge labels inside the canvas source subtree and viewport portals outside it", () => {
@@ -577,9 +580,30 @@ function committedSurfaceFrameForDebtProof({
 }: {
   readonly compatiblePreviousActorIds: readonly string[];
 }): GpuFlowCommittedSurfaceFrame {
+  const displayFrameId = 19;
+  const coherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip",
+    debugSnapshotFrameId: displayFrameId,
+    domControlCommittedFrameId: displayFrameId,
+    domIslandCommittedFrameId: displayFrameId,
+    gpuNativeVisualCommittedFrameId: displayFrameId,
+    hitGenerationId: `hit:${displayFrameId}`,
+    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+  };
   return {
     actorGenerations: [],
-    displayFrameId: 19,
+    coherence,
+    displayFrameId,
+    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      coherence,
+      displayFrameId,
+    }),
+    publishability: {
+      blockingActorIds: [],
+      kind: "publishable",
+    },
     projectionHorizon: {
       textActorCoverage: {
         blockedAwaitingBrowserVisualActorIds: [],

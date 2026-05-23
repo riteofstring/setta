@@ -6,6 +6,7 @@ import {
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
+  createGpuFlowVisiblePublicationResourceProtectionDigest,
   createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFramePublicationResourceOracle";
 
@@ -30,6 +31,7 @@ export type GpuFlowProjectionSampleId = number;
 export type GpuFlowActorManifestDigest = string;
 export type GpuFlowVisibleProofDigest = string;
 export type GpuFlowPresentationPairDigest = string;
+export type GpuFlowResourceProtectionDigest = string;
 export const GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID =
   "cold-start-shell:browser-visual";
 export const GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID =
@@ -61,6 +63,7 @@ export type GpuFlowCommitAuthorityProof = {
   readonly presentationPairDigest: GpuFlowPresentationPairDigest;
   readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
   readonly proofDigest: GpuFlowVisibleProofDigest;
+  readonly resourceProtectionDigest: GpuFlowResourceProtectionDigest;
 };
 
 export type GpuFlowBlockedFrozenFrame =
@@ -105,6 +108,7 @@ export type GpuFlowCommitPublicationToken = CommitPublicationTokenBrand & {
   readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly proofDigest: GpuFlowVisibleProofDigest;
+  readonly resourceProtectionDigest: GpuFlowResourceProtectionDigest;
   readonly transactionId: GpuFlowVisibleTransactionId;
 };
 
@@ -128,6 +132,7 @@ export type GpuFlowPresentableCommit = PresentableCommitBrand & {
   readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly proofDigest: GpuFlowVisibleProofDigest;
+  readonly resourceProtectionDigest: GpuFlowResourceProtectionDigest;
   readonly transactionId: GpuFlowVisibleTransactionId;
 };
 
@@ -198,6 +203,7 @@ export function createGpuFlowPresentableCommit({
     presentationPairProof: commitAuthorityProof.presentationPairProof,
     projectionSampleId: projectionSample.id,
     proofDigest: commitAuthorityProof.proofDigest,
+    resourceProtectionDigest: commitAuthorityProof.resourceProtectionDigest,
     transactionId: createGpuFlowVisibleTransactionId({
       frame,
       projectionSample,
@@ -219,6 +225,8 @@ export function createGpuFlowCommitAuthorityProof({
     presentationPairProof,
     projectionSampleId,
   });
+  const resourceProtectionDigest =
+    createGpuFlowCommitResourceProtectionDigestForFrame({ frame });
   return Object.freeze({
     expectedActorSetDigest: presentationPairProof.actorManifestDigest,
     presentationPairDigest: createGpuFlowPresentationPairDigest({
@@ -227,6 +235,7 @@ export function createGpuFlowCommitAuthorityProof({
     }),
     presentationPairProof,
     proofDigest: createGpuFlowVisibleProofDigest(frame),
+    resourceProtectionDigest,
   });
 }
 
@@ -269,7 +278,6 @@ function assertGpuFlowPresentationPairFeasible({
     commitAuthorityProof,
     projectionSampleId,
   });
-  assertGpuFlowPresentableCommitResourcesProtected({ frame });
 }
 
 function assertGpuFlowCommitAuthorityProofMatchesFrame({
@@ -286,6 +294,15 @@ function assertGpuFlowCommitAuthorityProofMatchesFrame({
     presentationPairProof: commitAuthorityProof.presentationPairProof,
     projectionSampleId,
   });
+  const resourceProtectionDigest =
+    createGpuFlowCommitResourceProtectionDigestForFrame({ frame });
+  if (
+    commitAuthorityProof.resourceProtectionDigest !== resourceProtectionDigest
+  ) {
+    throw new Error(
+      "GPU Flow commit publication authority requires the transaction oracle resource protection proof for the selected frame.",
+    );
+  }
   if (
     commitAuthorityProof.expectedActorSetDigest !==
       frame.presentationProof.actorManifestDigest ||
@@ -345,14 +362,14 @@ function areGpuFlowPresentationGenerationProofsEqual(
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-function assertGpuFlowPresentableCommitResourcesProtected({
+function createGpuFlowCommitResourceProtectionDigestForFrame({
   frame,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
-}): void {
-  assertGpuFlowVisiblePublicationResourcesProtected(
-    createGpuFlowVisiblePublicationResourceProtectionReport(frame),
-  );
+}): GpuFlowResourceProtectionDigest {
+  const report = createGpuFlowVisiblePublicationResourceProtectionReport(frame);
+  assertGpuFlowVisiblePublicationResourcesProtected(report);
+  return createGpuFlowVisiblePublicationResourceProtectionDigest(report);
 }
 
 export function createGpuFlowCommitPublicationToken({
@@ -369,6 +386,7 @@ export function createGpuFlowCommitPublicationToken({
     presentationPairProof: presentableCommit.presentationPairProof,
     projectionSampleId: presentableCommit.projectionSampleId,
     proofDigest: presentableCommit.proofDigest,
+    resourceProtectionDigest: presentableCommit.resourceProtectionDigest,
     transactionId: presentableCommit.transactionId,
   });
 }
@@ -463,6 +481,8 @@ export function assertGpuFlowCommitPublicationToken({
     token.committedFrameId !== frame.displayFrameId ||
     token.expectedActorSetDigest !== createGpuFlowActorManifestDigest(frame) ||
     token.proofDigest !== createGpuFlowVisibleProofDigest(frame) ||
+    token.resourceProtectionDigest !==
+      createGpuFlowCommitResourceProtectionDigestForFrame({ frame }) ||
     !token.presentationPairProof ||
     token.presentationPairDigest !==
       createGpuFlowPresentationPairDigest({

@@ -124,6 +124,14 @@ describe("GPU Flow visible publication authority behavior", () => {
         presentationBatchId: frame.presentationProof.batchId,
       }),
     );
+    expect(token.resourceProtectionDigest).toBe(
+      JSON.stringify({
+        missingResourceKeys: [],
+        protected: true,
+        protectedResourceKeys: [],
+        requiredResourceKeys: [],
+      }),
+    );
   });
 
   it("rejects presentable commits without the oracle proof digest for the selected frame", async () => {
@@ -185,10 +193,37 @@ describe("GPU Flow visible publication authority behavior", () => {
     ).toThrow(/DOM\/canvas presentation pair proof/);
   });
 
-  it("rejects presentable commits when actor proof resources are not protected", async () => {
+  it("rejects presentable commits without the oracle resource protection proof", async () => {
     const {
       createGpuFlowCommitAuthorityProof,
       createGpuFlowPresentableCommit,
+    } = await import("./visibleFramePublicationAuthority");
+    const frame = committedSurfaceFrame();
+    const projectionSample = liveProjectionSample();
+    const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
+      frame,
+      presentationPairProof: {
+        ...frame.presentationProof,
+        projectionSampleId: projectionSample.id,
+      },
+      projectionSampleId: projectionSample.id,
+    });
+
+    expect(() =>
+      createGpuFlowPresentableCommit({
+        frame,
+        commitAuthorityProof: {
+          ...commitAuthorityProof,
+          resourceProtectionDigest: "stale-resource-protection-proof",
+        },
+        projectionSample,
+      }),
+    ).toThrow(/resource protection proof/);
+  });
+
+  it("rejects presentable commits when actor proof resources are not protected", async () => {
+    const {
+      createGpuFlowCommitAuthorityProof,
     } = await import("./visibleFramePublicationAuthority");
     const resourceHandle = {
       id: "snapshot-a",
@@ -207,20 +242,14 @@ describe("GPU Flow visible publication authority behavior", () => {
       }),
     });
     const projectionSample = liveProjectionSample();
-    const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
-      frame,
-      presentationPairProof: {
-        ...frame.presentationProof,
-        projectionSampleId: projectionSample.id,
-      },
-      projectionSampleId: projectionSample.id,
-    });
-
     expect(() =>
-      createGpuFlowPresentableCommit({
+      createGpuFlowCommitAuthorityProof({
         frame,
-        commitAuthorityProof,
-        projectionSample,
+        presentationPairProof: {
+          ...frame.presentationProof,
+          projectionSampleId: projectionSample.id,
+        },
+        projectionSampleId: projectionSample.id,
       }),
     ).toThrow(/requires protected resources/);
   });

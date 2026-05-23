@@ -11,12 +11,12 @@ import {
 import {
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   type GpuFlowRetainedProjectionFrame,
+  type GpuFlowMotionProjectionFrameWorkReport,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
-import type { GpuFlowMotionProjectionFrameWorkReport } from "./visibleFramePublicationProjectionWorkAuthority";
 
-describe("GPU Flow visible publication kernel projection work authority", () => {
+describe("GPU Flow visible publication kernel projection work", () => {
   it("mints retained projection blocked tokens from projection work reports inside the kernel", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler({
       knobs: {

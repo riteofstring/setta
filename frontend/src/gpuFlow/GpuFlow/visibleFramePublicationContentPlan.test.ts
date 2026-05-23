@@ -53,9 +53,6 @@ const KERNEL_CONTENT_DECISION_MODULE_PATH = fileURLToPath(
 const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
 );
-const CONTENT_AUTHORITY_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationContentAuthority.ts", import.meta.url),
-);
 const CONTENT_PREPARATION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationContentPreparation.ts", import.meta.url),
 );
@@ -456,12 +453,9 @@ describe("GPU Flow visible publication content plans", () => {
     );
   });
 
-  it("keeps content blocked-candidate selection in publication authority", () => {
+  it("keeps content blocked-candidate selection in the kernel", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
-    const contentAuthoritySource = readFileSync(
-      CONTENT_AUTHORITY_MODULE_PATH,
-      "utf8",
-    );
+    const kernelSource = readGpuFlowVisiblePublicationKernelSource();
 
     expect(contentPlanSource).not.toContain(
       "export function selectGpuFlowContentPublicationBlockedCandidate",
@@ -469,22 +463,22 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentPlanSource).not.toContain(
       "createGpuFlowBrowserVisualBlockedPublicationCandidate(",
     );
-    expect(contentAuthoritySource).toContain(
+    expect(kernelSource).toContain(
       "function selectGpuFlowContentPublicationBlockedCandidate",
     );
-    expect(contentAuthoritySource).not.toContain(
+    expect(kernelSource).not.toContain(
       "export function selectGpuFlowContentPublicationBlockedCandidate",
     );
-    expect(contentAuthoritySource).toContain(
+    expect(kernelSource).toContain(
       "function selectGpuFlowContentPublicationBlockedCandidateForFrameResult",
     );
-    expect(contentAuthoritySource).not.toContain(
+    expect(kernelSource).not.toContain(
       "export function selectGpuFlowContentPublicationBlockedCandidateForFrameResult",
     );
-    expect(contentAuthoritySource).toContain(
+    expect(kernelSource).toContain(
       "createGpuFlowBrowserVisualBlockedPublicationCandidate",
     );
-    expect(contentAuthoritySource).not.toContain(
+    expect(kernelSource).not.toContain(
       "createGpuFlowBrowserVisualBlockedPublicationCandidateFactory",
     );
   });

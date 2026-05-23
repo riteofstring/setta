@@ -283,6 +283,8 @@ export function createGpuFlowVisiblePublicationCommitOracleReport(
     commitOracle: {
       debtProof: commitOracle.debtProof,
       hasCompatiblePreviousCoverage: commitOracle.hasCompatiblePreviousCoverage,
+      resourceProtectionDigest:
+        commitOracle.commitAuthorityProof.resourceProtectionDigest,
     },
     compatiblePreviousProofs: commitOracle.compatiblePreviousProofs,
     coverage: commitOracle.coverage,

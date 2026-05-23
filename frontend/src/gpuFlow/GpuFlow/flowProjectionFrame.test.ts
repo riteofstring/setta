@@ -16,18 +16,14 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
+  assertGpuFlowMotionProjectionFrameWork,
   createGpuFlowProjectionFrameTransactionSelector,
+  createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector,
   createGpuFlowRetainedProjectionPublicationDecisionSelector,
   hasActiveGpuFlowRetainedDomControlPublicationProof,
-} from "./visibleFramePublicationKernel";
-import {
   isGpuFlowRetainedProjectionSurfaceCovered,
   resolveGpuFlowRetainedProjectionFrame,
-} from "./visibleFramePublicationProjectionCoverageAuthority";
-import {
-  assertGpuFlowMotionProjectionFrameWork,
-  createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector,
-} from "./visibleFramePublicationProjectionWorkAuthority";
+} from "./visibleFramePublicationKernel";
 
 describe("GPU flow projection frame coverage", () => {
   it("requires committed retained pages to cover the projected scroll sample", () => {

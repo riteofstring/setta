@@ -18,12 +18,12 @@ import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFram
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
 import {
   createGpuFlowRetainedProjectionPublicationDecisionSelector,
-  createGpuFlowVisiblePublicationCommitOracleFactory,
   prepareGpuFlowCommittedSurfacePublicationCandidate,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
+import { createGpuFlowVisiblePublicationCommitOracleFactory } from "./visibleFramePublicationOracle";
 
 const createGpuFlowVisiblePublicationCommitOracle =
   createGpuFlowVisiblePublicationCommitOracleFactory();

@@ -37,8 +37,10 @@ import {
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
-import type { GpuFlowProjectionFrameRenderablePlan } from "./visibleFramePublicationKernel";
-import type { GpuFlowMotionProjectionFrameWorkReport } from "./visibleFramePublicationProjectionWorkAuthority";
+import type {
+  GpuFlowMotionProjectionFrameWorkReport,
+  GpuFlowProjectionFrameRenderablePlan,
+} from "./visibleFramePublicationKernel";
 
 type RenderGpuFlowNodeLayerProjectionFrameResult =
   | {
