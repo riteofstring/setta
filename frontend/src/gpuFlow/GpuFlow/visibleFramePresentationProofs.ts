@@ -44,7 +44,9 @@ import {
 const GPU_FLOW_COMMIT_PUBLICATION_TOKEN = Symbol(
   "GpuFlowCommitPublicationToken",
 );
-const GPU_FLOW_PRESENTABLE_COMMIT = Symbol("GpuFlowPresentableCommit");
+const GPU_FLOW_PRESENTABLE_COMMIT = Symbol(
+  "GpuFlowVisibleFramePresentableCommit",
+);
 const GPU_FLOW_HOLD_PREVIOUS_TOKEN = Symbol("GpuFlowHoldPreviousToken");
 const GPU_FLOW_BLOCKED_PUBLICATION_TOKEN = Symbol(
   "GpuFlowBlockedPublicationToken",

@@ -10,7 +10,7 @@ import {
   assertGpuFlowCommitPublicationToken,
   proveGpuFlowVisibleFramePublicationPresentation,
   type GpuFlowCommitAuthorityProof,
-} from "./visibleFramePublicationAuthority";
+} from "./visibleFramePresentationProofs";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePublicationPresentationEvidence";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 
@@ -168,7 +168,7 @@ describe("GPU Flow visible publication authority behavior", () => {
 
   it("rejects commit token issuance without the oracle proof digest for the selected frame", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
-      "./visibleFramePublicationAuthority"
+      "./visibleFramePresentationProofs"
     );
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
@@ -195,7 +195,7 @@ describe("GPU Flow visible publication authority behavior", () => {
 
   it("rejects commit token issuance without the oracle DOM/canvas pair proof for the projection sample", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
-      "./visibleFramePublicationAuthority"
+      "./visibleFramePresentationProofs"
     );
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
@@ -225,7 +225,7 @@ describe("GPU Flow visible publication authority behavior", () => {
 
   it("rejects commit token issuance without the oracle resource protection proof", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
-      "./visibleFramePublicationAuthority"
+      "./visibleFramePresentationProofs"
     );
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
@@ -252,7 +252,7 @@ describe("GPU Flow visible publication authority behavior", () => {
 
   it("rejects presentable commits when actor proof resources are not protected", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
-      "./visibleFramePublicationAuthority"
+      "./visibleFramePresentationProofs"
     );
     const resourceHandle = {
       id: "snapshot-a",

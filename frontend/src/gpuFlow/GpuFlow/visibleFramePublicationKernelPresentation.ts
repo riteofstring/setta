@@ -1,1 +1,1 @@
-export { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePublicationAuthority";
+export { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";

@@ -4,6 +4,7 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
+import { createGpuFlowCommitAuthorityProof } from "./visibleFramePresentationProofs";
 import {
   assertGpuFlowVisiblePublicationCommitActorProofs,
   createGpuFlowVisiblePublicationActorProofDigest,
@@ -11,7 +12,6 @@ import {
   createGpuFlowVisiblePublicationBlockedActorReasonsForFrame,
   createGpuFlowVisiblePublicationRemainingActorDebt,
 } from "./visibleFramePublicationActorOracle";
-import { createGpuFlowCommitAuthorityProof } from "./visibleFramePublicationAuthority";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
 import {
   createGpuFlowVisiblePublicationPresentationBlockedReasons,

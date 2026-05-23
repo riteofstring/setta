@@ -10,7 +10,7 @@ const KERNEL_PRESENTATION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernelPresentation.ts", import.meta.url),
 );
 const AUTHORITY_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationAuthority.ts", import.meta.url),
+  new URL("./visibleFramePresentationProofs.ts", import.meta.url),
 );
 const COMPLETION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationCompletion.ts", import.meta.url),

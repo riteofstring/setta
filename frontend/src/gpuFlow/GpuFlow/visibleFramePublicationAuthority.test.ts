@@ -7,9 +7,7 @@ const modulePath = (path: string): string =>
   fileURLToPath(new URL(path, import.meta.url));
 const GPU_FLOW_ROOT = modulePath("../");
 const TOKEN_MODULE_PATH = modulePath("./visibleFramePublicationTokens.ts");
-const AUTHORITY_MODULE_PATH = modulePath(
-  "./visibleFramePublicationAuthority.ts",
-);
+const AUTHORITY_MODULE_PATH = modulePath("./visibleFramePresentationProofs.ts");
 const KERNEL_MODULE_PATH = modulePath("./visibleFramePublicationKernel.ts");
 const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = modulePath(
   "./visibleFramePublicationCandidateOracle.ts",
@@ -67,7 +65,7 @@ const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
   "createGpuFlowVisibleFrameHoldPreviousToken",
 ] as const;
 const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([
-  "GpuFlow/visibleFramePublicationAuthority.ts",
+  "GpuFlow/visibleFramePresentationProofs.ts",
   "GpuFlow/visibleFramePublicationKernel.ts",
 ]);
 const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
@@ -159,7 +157,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       }
       const source = readFileSync(filePath, "utf8");
       const importedConstructors = extractNamedImports({
-        moduleName: "visibleFramePublicationAuthority",
+        moduleName: "visibleFramePresentationProofs",
         source,
       }).flatMap((bindings) =>
         TOKEN_CONSTRUCTOR_NAMES.filter((constructorName) =>

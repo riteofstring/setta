@@ -8,12 +8,12 @@ export {
   assertGpuFlowHoldPreviousTokenBrand,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
   assertGpuFlowPreparedCandidateAbortToken,
-} from "./visibleFramePublicationAuthority";
+} from "./visibleFramePresentationProofs";
 export type {
   GpuFlowBlockedFrozenFrame,
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
-} from "./visibleFramePublicationAuthority";
+} from "./visibleFramePresentationProofs";
 export type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
