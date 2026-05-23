@@ -43,12 +43,16 @@ export type GpuFlowVisiblePublicationOutcome =
 
 export type GpuFlowVisiblePublicationTransactionCompletion = {
   readonly coldStartShellPublication: GpuFlowColdStartShellPublication;
-  readonly completion: GpuFlowVisiblePublicationCompletion;
-  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
+  readonly completeSchedulerFrame: () => GpuFlowVisiblePublicationSchedulerFrameCompletion;
   readonly followUpFrameRequests: readonly GpuFrameReason[];
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousCommittedFrameId: number | null;
+};
+
+export type GpuFlowVisiblePublicationSchedulerFrameCompletion = {
+  readonly completion: GpuFlowVisiblePublicationCompletion;
+  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
 };
 
 export type GpuFlowVisiblePublicationDebtFrameRequest = {

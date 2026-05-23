@@ -64,11 +64,7 @@ describe("GPU Flow visible publication browser visual fault injection", () => {
       scheduler,
     });
 
-    expect(phases).toEqual([
-      "motion:skip",
-      "content:skip",
-      "publish:blocked",
-    ]);
+    expect(phases).toEqual(["motion:skip", "content:skip", "publish:blocked"]);
     expect(result.outcome.kind).toBe("blocked");
     if (result.outcome.kind !== "blocked") {
       throw new Error("Expected blocked publication outcome.");
@@ -83,7 +79,9 @@ describe("GPU Flow visible publication browser visual fault injection", () => {
         reason: "snapshot-pending",
       },
     ]);
-    expect(result.completion.debt.maintenance).toBe(true);
+    expect(result.completeSchedulerFrame().completion.debt.maintenance).toBe(
+      true,
+    );
     expect(result.preparedFrame.transactionOracle.blockedSource).toBe(
       "browser-visual-proof",
     );

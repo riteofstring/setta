@@ -131,7 +131,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: true,
     });
 
-    const completion = scheduler.completeFrame(decision, {
+    const completion = scheduler.recordUncommittedFrame(decision, {
       kind: "hold-previous",
       token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
         committedFrameId: 41,
@@ -159,7 +159,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: true,
     });
 
-    const completion = scheduler.completeFrame(decision, {
+    const completion = scheduler.recordUncommittedFrame(decision, {
       kind: "blocked",
       token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
         blockedReasons: [
@@ -276,7 +276,7 @@ describe("GPU Flow projection runtime", () => {
     });
 
     expect(() =>
-      scheduler.completeFrame(decision, {
+      scheduler.recordUncommittedFrame(decision, {
         kind: "blocked",
         token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
           blockedReasons: [
@@ -300,7 +300,7 @@ describe("GPU Flow projection runtime", () => {
     });
 
     expect(() =>
-      scheduler.completeFrame(heldDecision, {
+      scheduler.recordUncommittedFrame(heldDecision, {
         kind: "hold-previous",
         token: {
           projectionSampleId: heldDecision.sample.id,
@@ -317,7 +317,7 @@ describe("GPU Flow projection runtime", () => {
     });
 
     expect(() =>
-      scheduler.completeFrame(blockedDecision, {
+      scheduler.recordUncommittedFrame(blockedDecision, {
         kind: "blocked",
         token: {
           projectionSampleId: blockedDecision.sample.id,
@@ -865,7 +865,7 @@ function completeHeldFrame(
   scheduler: ReturnType<typeof createGpuFlowVisiblePublicationScheduler>,
   decision: GpuFlowVisiblePublicationDecision,
 ) {
-  return scheduler.completeFrame(decision, {
+  return scheduler.recordUncommittedFrame(decision, {
     kind: "hold-previous",
     token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
       committedFrameId: 41,
@@ -880,7 +880,7 @@ function completeBlockedFrame(
   scheduler: ReturnType<typeof createGpuFlowVisiblePublicationScheduler>,
   decision: GpuFlowVisiblePublicationDecision,
 ) {
-  return scheduler.completeFrame(decision, {
+  return scheduler.recordUncommittedFrame(decision, {
     kind: "blocked",
     token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
       blockedReasons: [

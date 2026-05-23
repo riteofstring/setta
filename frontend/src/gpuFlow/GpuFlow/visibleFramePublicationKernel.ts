@@ -68,7 +68,9 @@ import type {
 export { createGpuFlowVisiblePublicationTransactionReport } from "./visibleFramePublicationCompletion";
 export type {
   GpuFlowVisiblePublicationCompletion,
+  GpuFlowVisiblePublicationDebtFrameRequest,
   GpuFlowVisiblePublicationOutcome,
+  GpuFlowVisiblePublicationSchedulerFrameCompletion,
   GpuFlowVisiblePublicationTransactionCompletion,
 } from "./visibleFramePublicationCompletion";
 export { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFramePublicationContentAbort";

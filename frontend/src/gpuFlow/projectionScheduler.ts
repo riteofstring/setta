@@ -61,12 +61,13 @@ type GpuFlowVisiblePublicationCompletion = {
   readonly outcome: GpuFlowVisiblePublicationCompletionOutcome["kind"];
 };
 
-export type GpuFlowVisiblePublicationCompletionOutcome =
-  | {
-      readonly debtProof: GpuFlowVisiblePublicationDebtProof;
-      readonly kind: "commit";
-      readonly token: GpuFlowCommitPublicationToken;
-    }
+export type GpuFlowVisiblePublicationCommitCompletionOutcome = {
+  readonly debtProof: GpuFlowVisiblePublicationDebtProof;
+  readonly kind: "commit";
+  readonly token: GpuFlowCommitPublicationToken;
+};
+
+export type GpuFlowVisiblePublicationUncommittedCompletionOutcome =
   | {
       readonly kind: "hold-previous";
       readonly token: GpuFlowHoldPreviousToken;
@@ -76,12 +77,20 @@ export type GpuFlowVisiblePublicationCompletionOutcome =
       readonly token: GpuFlowBlockedPublicationToken;
     };
 
+export type GpuFlowVisiblePublicationCompletionOutcome =
+  | GpuFlowVisiblePublicationCommitCompletionOutcome
+  | GpuFlowVisiblePublicationUncommittedCompletionOutcome;
+
 type GpuFlowVisiblePublicationScheduler = {
   completeFrame(
     decision: GpuFlowVisiblePublicationDecision,
-    outcome: GpuFlowVisiblePublicationCompletionOutcome,
+    outcome: GpuFlowVisiblePublicationCommitCompletionOutcome,
   ): GpuFlowVisiblePublicationCompletion;
   getKnobs(): GpuFlowProjectionSchedulerKnobs;
+  recordUncommittedFrame(
+    decision: GpuFlowVisiblePublicationDecision,
+    outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcome,
+  ): GpuFlowVisiblePublicationCompletion;
   selectFrame(input: {
     readonly hasCommittedContentFrame: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
@@ -179,29 +188,39 @@ export function createGpuFlowVisiblePublicationScheduler({
 
   return {
     completeFrame(decision, outcome) {
-      if (outcome.kind === "commit") {
-        assertGpuFlowVisiblePublicationCommitTokenMatchesDecision({
-          decision,
-          token: outcome.token,
-        });
-        assertGpuFlowVisiblePublicationCommitDebtProofMatchesDecision({
-          debtProof: outcome.debtProof,
-          decision,
-        });
-        if (outcome.debtProof.motion) {
-          motionDebt = false;
-          lastMotionAtMs = decision.sample.timestamp;
-          consecutiveMotionFrames += 1;
-        }
-        if (outcome.debtProof.content) {
-          contentDebt = false;
-          consecutiveMotionFrames = 0;
-        }
-        if (outcome.debtProof.maintenance) {
-          maintenanceDebt = false;
-          consecutiveMotionFrames = 0;
-        }
-      } else if (outcome.kind === "hold-previous") {
+      assertGpuFlowVisiblePublicationCommitTokenMatchesDecision({
+        decision,
+        token: outcome.token,
+      });
+      assertGpuFlowVisiblePublicationCommitDebtProofMatchesDecision({
+        debtProof: outcome.debtProof,
+        decision,
+      });
+      if (outcome.debtProof.motion) {
+        motionDebt = false;
+        lastMotionAtMs = decision.sample.timestamp;
+        consecutiveMotionFrames += 1;
+      }
+      if (outcome.debtProof.content) {
+        contentDebt = false;
+        consecutiveMotionFrames = 0;
+      }
+      if (outcome.debtProof.maintenance) {
+        maintenanceDebt = false;
+        consecutiveMotionFrames = 0;
+      }
+      return createGpuFlowVisiblePublicationCompletion({
+        contentDebt,
+        maintenanceDebt,
+        motionDebt,
+        outcome: outcome.kind,
+      });
+    },
+    getKnobs() {
+      return schedulerKnobs;
+    },
+    recordUncommittedFrame(decision, outcome) {
+      if (outcome.kind === "hold-previous") {
         assertGpuFlowHoldPreviousTokenForProjectionSample({
           projectionSampleId: decision.sample.id,
           token: outcome.token,
@@ -212,17 +231,12 @@ export function createGpuFlowVisiblePublicationScheduler({
           token: outcome.token,
         });
       }
-      return Object.freeze({
-        debt: createGpuFlowVisiblePublicationDebt({
-          content: contentDebt,
-          maintenance: maintenanceDebt,
-          motion: motionDebt,
-        }),
+      return createGpuFlowVisiblePublicationCompletion({
+        contentDebt,
+        maintenanceDebt,
+        motionDebt,
         outcome: outcome.kind,
       });
-    },
-    getKnobs() {
-      return schedulerKnobs;
     },
     selectFrame({
       hasCommittedContentFrame,
@@ -266,6 +280,27 @@ export function createGpuFlowVisiblePublicationScheduler({
       });
     },
   };
+}
+
+function createGpuFlowVisiblePublicationCompletion({
+  contentDebt,
+  maintenanceDebt,
+  motionDebt,
+  outcome,
+}: {
+  readonly contentDebt: boolean;
+  readonly maintenanceDebt: boolean;
+  readonly motionDebt: boolean;
+  readonly outcome: GpuFlowVisiblePublicationCompletion["outcome"];
+}): GpuFlowVisiblePublicationCompletion {
+  return Object.freeze({
+    debt: createGpuFlowVisiblePublicationDebt({
+      content: contentDebt,
+      maintenance: maintenanceDebt,
+      motion: motionDebt,
+    }),
+    outcome,
+  });
 }
 
 function createGpuFlowVisiblePublicationDebt({

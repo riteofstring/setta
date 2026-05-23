@@ -17,12 +17,12 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
 import { createGpuFlowCommittedSurfacePublicationFramePlanPreparer } from "./visibleFramePublicationContentPlan";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationKernelContentDecisions";
 import {
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
+import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationKernelContentDecisions";
 import { createGpuFlowVisiblePublicationCommitOracleFactory } from "./visibleFramePublicationOracle";
 
 const createGpuFlowVisiblePublicationCommitOracle =
@@ -439,7 +439,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
         reason: "snapshot-pending",
       },
     ]);
-    expect(result.completion.debt.content).toBe(true);
+    expect(result.completeSchedulerFrame().completion.debt.content).toBe(true);
   });
 
   it.each([
@@ -556,7 +556,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
     const heldState = result.heldPreviousVisibleProjectionState;
     expect(heldState?.transaction.kind).toBe("held-previous");
     expect(heldState?.heldPreviousProjection?.reason).toBe("no-visible-frame");
-    expect(result.completion.debt.motion).toBe(true);
+    expect(result.completeSchedulerFrame().completion.debt.motion).toBe(true);
   });
 
   it("turns a no-frame cold start into a blocked shell", () => {
@@ -580,7 +580,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
         reason: "no-visible-frame-before-first-commit",
       },
     ]);
-    expect(result.completion.debt.content).toBe(true);
+    expect(result.completeSchedulerFrame().completion.debt.content).toBe(true);
   });
 
   it("keeps selected content debt queued for held-previous transactions", () => {
@@ -607,7 +607,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
     expect(result.publicationDecision.lane).toBe("content");
     expect(result.outcome.kind).toBe("hold-previous");
     expect(result.previousCommittedFrameId).toBe(7);
-    expect(result.completion.debt.content).toBe(true);
+    expect(result.completeSchedulerFrame().completion.debt.content).toBe(true);
   });
 
   it("blocks rendered held-previous transactions that exceed the kernel budget", () => {
@@ -657,7 +657,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
         reason: "held-previous-budget-exceeded",
       },
     ]);
-    expect(result.completion.debt.content).toBe(true);
+    expect(result.completeSchedulerFrame().completion.debt.content).toBe(true);
   });
 
   it("creates committed-surface held-previous transaction state and mints its token at completion", () => {
@@ -817,8 +817,17 @@ function committedSurfaceFrameWithCompatiblePreviousCoverage({
         actorFamily: "text-like-dom-control",
         actorId: "actor-a",
         browserVisual: {
-          proof: { actualInteraction: actualInteractionProof, actualVisual: "compatible-previous", requiredInteraction: requiredInteractionProof, requiredVisual: "browser-visual" },
-          representation: { actorId: "actor-a", kind: "compatible-previous", previousTransactionId: "previous-transaction" },
+          proof: {
+            actualInteraction: actualInteractionProof,
+            actualVisual: "compatible-previous",
+            requiredInteraction: requiredInteractionProof,
+            requiredVisual: "browser-visual",
+          },
+          representation: {
+            actorId: "actor-a",
+            kind: "compatible-previous",
+            previousTransactionId: "previous-transaction",
+          },
         },
         canonicalActorId: "canonical-text-a",
         visibleNonempty: true,
@@ -829,15 +838,19 @@ function committedSurfaceFrameWithCompatiblePreviousCoverage({
             hitMappingCompatible: true,
             maxProofAgeFrames: 2,
             maxProofAgeMs: 120,
-            previousActorGenerationId: "previous-generation-a", previousCommittedFrameId: 6,
-            previousProjectionSampleRevision: "viewport-previous", previousTransactionId: "previous-transaction",
+            previousActorGenerationId: "previous-generation-a",
+            previousCommittedFrameId: 6,
+            previousProjectionSampleRevision: "viewport-previous",
+            previousTransactionId: "previous-transaction",
             previousVisualGenerationId: "previous-visual-a",
             proofAgeFrames: budgetState === "over-budget" ? 3 : 1,
             proofAgeMs: budgetState === "over-budget" ? 121 : 16,
             protectedResourceIds: ["source:actor-a"],
             reasonCode: "same-value-and-geometry",
-            requestedActorGenerationId: "generation-a", requestedProjectionSampleRevision: "viewport-current",
-            requestedVisualGenerationId: "generation-a", resourceHandles: [],
+            requestedActorGenerationId: "generation-a",
+            requestedProjectionSampleRevision: "viewport-current",
+            requestedVisualGenerationId: "generation-a",
+            resourceHandles: [],
             retainedScrollCompatible: true,
           },
           projectionCoverage: "compatible-previous",
@@ -1066,10 +1079,16 @@ function fixedPublicationScheduler({
         outcome: outcome.kind,
       }),
     getKnobs: baseScheduler.getKnobs,
-    selectFrame: ({
-      rawReasons,
-      sample,
-    }): GpuFlowVisiblePublicationDecision =>
+    recordUncommittedFrame: (_decision, outcome) =>
+      Object.freeze({
+        debt: Object.freeze({
+          content: lane !== "content",
+          maintenance: lane !== "maintenance",
+          motion: lane !== "motion",
+        }),
+        outcome: outcome.kind,
+      }),
+    selectFrame: ({ rawReasons, sample }): GpuFlowVisiblePublicationDecision =>
       Object.freeze({
         debt: Object.freeze({
           content: lane !== "content",

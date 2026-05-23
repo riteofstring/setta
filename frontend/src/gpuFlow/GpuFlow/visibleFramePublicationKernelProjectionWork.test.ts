@@ -103,8 +103,9 @@ describe("GPU Flow visible publication kernel projection work", () => {
       },
     ]);
     expect(result.outcome.token.projectionSampleId).toBe(sample.id);
-    expect(result.completion.debt.motion).toBe(true);
-    expect(result.debtFrameRequest).toEqual({
+    const schedulerCompletion = result.completeSchedulerFrame();
+    expect(schedulerCompletion.completion.debt.motion).toBe(true);
+    expect(schedulerCompletion.debtFrameRequest).toEqual({
       delayMs: null,
       frameReason: "texture-upload",
     });

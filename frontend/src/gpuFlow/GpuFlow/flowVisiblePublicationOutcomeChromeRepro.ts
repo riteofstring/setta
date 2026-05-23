@@ -10,12 +10,12 @@ import type {
 import {
   createGpuFlowVisiblePublicationTransactionReport,
   type GpuFlowVisibleFramePublicationTransactionOracle,
+  type GpuFlowVisiblePublicationCompletion,
   type GpuFlowVisiblePublicationOutcome,
-  type GpuFlowVisiblePublicationTransactionCompletion,
 } from "./visibleFramePublicationKernel";
 
 type GpuFlowVisiblePublicationSchedulerCompletion =
-  GpuFlowVisiblePublicationTransactionCompletion["completion"];
+  GpuFlowVisiblePublicationCompletion;
 
 export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
   completion,

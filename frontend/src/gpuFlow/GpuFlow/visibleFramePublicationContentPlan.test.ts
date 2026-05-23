@@ -44,6 +44,9 @@ const KERNEL_CONTENT_DECISION_MODULE_PATH = fileURLToPath(
     import.meta.url,
   ),
 );
+const KERNEL_CONTENT_ORACLE_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationContentOracle.ts", import.meta.url),
+);
 const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
 );
@@ -54,7 +57,11 @@ const contentDecisionKernel =
   createGpuFlowVisiblePublicationContentDecisionKernel();
 
 function readGpuFlowVisiblePublicationKernelSource(): string {
-  return [KERNEL_MODULE_PATH, KERNEL_CONTENT_DECISION_MODULE_PATH]
+  return [
+    KERNEL_MODULE_PATH,
+    KERNEL_CONTENT_DECISION_MODULE_PATH,
+    KERNEL_CONTENT_ORACLE_MODULE_PATH,
+  ]
     .map((filePath) => readFileSync(filePath, "utf8"))
     .join("\n");
 }
@@ -465,6 +472,7 @@ describe("GPU Flow visible publication content plans", () => {
 
   it("keeps committed-surface transaction candidate selection in the kernel", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
+    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const kernelSource = readGpuFlowVisiblePublicationKernelSource();
 
     expect(contentPlanSource).not.toContain(
@@ -479,8 +487,8 @@ describe("GPU Flow visible publication content plans", () => {
     expect(kernelSource).toContain(
       "function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
-    expect(kernelSource).not.toContain(
-      "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
+    expect(kernelModuleSource).not.toContain(
+      "prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     expect(kernelSource).toContain(
       "decideGpuFlowCommittedSurfacePublicationTransaction",

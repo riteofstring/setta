@@ -1,7 +1,6 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-
 import { describe, expect, it } from "vitest";
 
 const modulePath = (path: string): string =>
@@ -12,7 +11,9 @@ const AUTHORITY_MODULE_PATH = modulePath(
   "./visibleFramePublicationAuthority.ts",
 );
 const KERNEL_MODULE_PATH = modulePath("./visibleFramePublicationKernel.ts");
-const KERNEL_CONTENT_DECISION_MODULE_PATH = modulePath("./visibleFramePublicationKernelContentDecisions.ts");
+const KERNEL_CONTENT_DECISION_MODULE_PATH = modulePath(
+  "./visibleFramePublicationKernelContentDecisions.ts",
+);
 const KERNEL_PRESENTATION_MODULE_PATH = modulePath(
   "./visibleFramePublicationKernelPresentation.ts",
 );
@@ -168,7 +169,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
         ].join(", ")}`,
       ];
     });
-
     expect(violations).toEqual([]);
   });
 
@@ -194,12 +194,13 @@ describe("GPU Flow visible publication authority boundaries", () => {
         return [];
       }
       const source = readFileSync(filePath, "utf8");
-      const importedHelpers = forbiddenImports.flatMap(({ moduleName, names }) =>
-        extractNamedImports({ moduleName, source }).flatMap((bindings) =>
-          names
-            .filter((helperName) => bindings.includes(helperName))
-            .map((helperName) => `${moduleName}:${helperName}`),
-        ),
+      const importedHelpers = forbiddenImports.flatMap(
+        ({ moduleName, names }) =>
+          extractNamedImports({ moduleName, source }).flatMap((bindings) =>
+            names
+              .filter((helperName) => bindings.includes(helperName))
+              .map((helperName) => `${moduleName}:${helperName}`),
+          ),
       );
       if (importedHelpers.length === 0) {
         return [];
@@ -213,7 +214,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
 
     expect(violations).toEqual([]);
   });
-
   it("keeps visible publication scheduler selection and completion inside the transaction kernel", () => {
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
@@ -221,7 +221,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       }
       const source = readFileSync(filePath, "utf8");
       if (
-        !/\b(?:visiblePublicationSchedulerRef\.current|scheduler)\.(?:selectFrame|completeFrame)\s*\(/.test(
+        !/\b(?:visiblePublicationSchedulerRef\.current|scheduler)\.(?:selectFrame|completeFrame|recordUncommittedFrame)\s*\(/.test(
           source,
         )
       ) {
@@ -232,13 +232,12 @@ describe("GPU Flow visible publication authority boundaries", () => {
         return [];
       }
       return [
-        `${relativePath} selects or completes visible publication scheduler debt outside the transaction kernel`,
+        `${relativePath} selects, completes, or observes visible publication scheduler debt outside the transaction kernel`,
       ];
     });
 
     expect(violations).toEqual([]);
   });
-
   it("keeps visible publication transaction report assembly inside the transaction kernel", () => {
     const source = readFileSync(CHROME_REPRO_MODULE_PATH, "utf8");
     const forbiddenReportAssembly = [
@@ -1149,6 +1148,7 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
     KERNEL_PRESENTATION_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
     CONTENT_PLAN_MODULE_PATH,
+    modulePath("./visibleFramePublicationContentOracle.ts"),
     modulePath("./visibleFramePublicationOracle.ts"),
   ]
     .map((filePath) => readFileSync(filePath, "utf8"))
@@ -1156,7 +1156,7 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
 }
 
 function readCommittedSurfaceAuthorityCandidateSource(): string {
-  const source = readFileSync(KERNEL_CONTENT_DECISION_MODULE_PATH, "utf8");
+  const source = readVisibleFramePublicationKernelAuthoritySource();
   const candidateStart = source.indexOf(
     "function prepareGpuFlowCommittedSurfacePublicationCandidate",
   );

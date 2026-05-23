@@ -13,7 +13,7 @@ import {
 } from "./visibleFramePublicationBlockedCandidate";
 import type {
   GpuFlowCommittedSurfacePublicationEffect,
-  GpuFlowVisiblePublicationTransactionCompletion,
+  GpuFlowVisiblePublicationCompletion,
 } from "./visibleFramePublicationKernel";
 import {
   assertGpuFlowBlockedPublicationTokenBrand,
@@ -53,8 +53,8 @@ type GpuFlowBlockedVisiblePublicationEvent = {
   readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
   readonly publicationLane: GpuFlowVisiblePublicationDecision["lane"];
   readonly projectionSampleId: number;
-  readonly remainingDebt: GpuFlowVisiblePublicationTransactionCompletion["completion"]["debt"];
-  readonly schedulerOutcome: GpuFlowVisiblePublicationTransactionCompletion["completion"]["outcome"];
+  readonly remainingDebt: GpuFlowVisiblePublicationCompletion["debt"];
+  readonly schedulerOutcome: GpuFlowVisiblePublicationCompletion["outcome"];
   readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
   readonly tokenTransactionId: string;
 };
@@ -464,7 +464,7 @@ export function recordGpuFlowBlockedVisiblePublication({
   token,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
-  readonly publicationCompletion: GpuFlowVisiblePublicationTransactionCompletion["completion"];
+  readonly publicationCompletion: GpuFlowVisiblePublicationCompletion;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly token: GpuFlowBlockedPublicationToken;

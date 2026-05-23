@@ -121,7 +121,9 @@ describe("GPU Flow visible publication kernel phases", () => {
     expect(source).not.toContain(
       "visiblePublicationSchedulerRef.current.getKnobs",
     );
-    expect(source).not.toMatch(/\.(?:selectFrame|completeFrame)\s*\(/);
+    expect(source).not.toMatch(
+      /\.(?:selectFrame|completeFrame|recordUncommittedFrame)\s*\(/,
+    );
   });
 
   it("keeps frame-context deferral decisions private to the transaction kernel", () => {
@@ -156,7 +158,9 @@ describe("GPU Flow visible publication kernel phases", () => {
       "createGpuFlowPresentableCommit",
     ] as const;
 
-    expect(kernelSource).toContain("createGpuFlowVisiblePublicationTokenIssuer");
+    expect(kernelSource).toContain(
+      "createGpuFlowVisiblePublicationTokenIssuer",
+    );
     expect(kernelSource).toContain(
       "visiblePublicationTokenIssuer.createCommitPublicationToken",
     );
