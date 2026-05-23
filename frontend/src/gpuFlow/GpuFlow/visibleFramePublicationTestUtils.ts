@@ -18,7 +18,7 @@ import type {
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
-} from "./visibleFramePublicationPresentationEvidence";
+} from "./visibleFramePresentationEvidence";
 
 type GpuFlowVisibleFramePublicationTestCandidate = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;

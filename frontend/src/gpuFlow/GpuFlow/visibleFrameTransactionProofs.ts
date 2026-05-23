@@ -24,7 +24,7 @@ import {
   createGpuFlowVisiblePublicationPresentationBlockedReasons,
   type GpuFlowVisiblePublicationCanvasPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
-} from "./visibleFramePublicationPresentationEvidence";
+} from "./visibleFramePresentationEvidence";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
   createGpuFlowVisiblePublicationResourceBlockedReasons,

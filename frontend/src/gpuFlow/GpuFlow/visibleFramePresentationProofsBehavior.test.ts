@@ -12,7 +12,7 @@ import {
   proveGpuFlowVisibleFramePublicationPresentation,
   type GpuFlowCommitAuthorityProof,
 } from "./visibleFramePresentationProofs";
-import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePublicationPresentationEvidence";
+import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 import { createGpuFlowContentFrameId } from "./visibleFrameTypes";
 

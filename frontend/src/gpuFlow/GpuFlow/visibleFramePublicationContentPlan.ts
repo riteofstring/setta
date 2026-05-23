@@ -31,7 +31,7 @@ import {
 import {
   createGpuFlowVisiblePublicationPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
-} from "./visibleFramePublicationPresentationEvidence";
+} from "./visibleFramePresentationEvidence";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,

@@ -46,7 +46,7 @@ import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFramePublication
 import {
   createGpuFlowVisiblePublicationPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
-} from "./visibleFramePublicationPresentationEvidence";
+} from "./visibleFramePresentationEvidence";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,

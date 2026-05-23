@@ -19,7 +19,7 @@ import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./vi
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
-} from "./visibleFramePublicationPresentationEvidence";
+} from "./visibleFramePresentationEvidence";
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
   createGpuFlowVisibleFramePublicationTransactionOracleFactory,

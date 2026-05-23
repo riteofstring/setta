@@ -18,6 +18,7 @@ const REMOVED_VISIBLE_PUBLICATION_AUTHORITY_MODULES = [
   "./visibleFramePublicationCandidateOracle",
   "./visibleFramePublicationCompletion",
   "./visibleFramePublicationKernelPresentation",
+  "./visibleFramePublicationPresentationEvidence",
   "./visibleFramePublicationResourceOracle",
 ] as const;
 
