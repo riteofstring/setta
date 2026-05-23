@@ -24,7 +24,7 @@ export type GpuFlowDomControlSnapshotTextureManager = Pick<
   "getCommittedSurfaceTexture"
 >;
 
-export const EMPTY_DOM_CONTROL_DESCRIPTORS: readonly GpuRetainedDomControlSourceDescriptor[] =
+const EMPTY_DOM_CONTROL_DESCRIPTORS: readonly GpuRetainedDomControlSourceDescriptor[] =
   Object.freeze([]);
 export const EMPTY_DOM_ISLANDS: readonly GpuDomIsland[] = Object.freeze([]);
 

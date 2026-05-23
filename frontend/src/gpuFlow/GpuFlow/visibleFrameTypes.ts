@@ -50,9 +50,9 @@ export type GpuFlowVisibleFrameDebt = {
   readonly motion: boolean;
 };
 
-export type GpuFlowVisibleFrameActorRequirement = "maintenance" | "required";
+type GpuFlowVisibleFrameActorRequirement = "maintenance" | "required";
 
-export type GpuFlowRetainedPageCompatiblePreviousProof = {
+type GpuFlowRetainedPageCompatiblePreviousProof = {
   readonly candidateContentFrameId: GpuFlowContentFrameId;
   readonly candidateProjectionSampleId: GpuFlowProjectionSampleId;
   readonly clipChainGeneration: string;
@@ -67,7 +67,7 @@ export type GpuFlowRetainedPageCompatiblePreviousProof = {
   readonly zoomBucket: string;
 };
 
-export type GpuFlowBrowserVisualCompatiblePreviousProof = {
+type GpuFlowBrowserVisualCompatiblePreviousProof = {
   readonly activeEditorState?:
     | {
         readonly focusPreserved: true;
@@ -91,7 +91,7 @@ export type GpuFlowBrowserVisualCompatiblePreviousProof = {
   readonly visibleClip: GpuFlowVisibleFrameRect;
 };
 
-export type GpuFlowVisibleFrameCompatiblePreviousProof =
+type GpuFlowVisibleFrameCompatiblePreviousProof =
   | {
       readonly family: "browser-visual";
       readonly proof: GpuFlowBrowserVisualCompatiblePreviousProof;

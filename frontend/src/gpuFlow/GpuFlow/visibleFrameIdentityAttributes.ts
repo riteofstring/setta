@@ -1,6 +1,6 @@
 import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
 
-export type GpuFlowVisibleFrameIdentityDataAttributes = {
+type GpuFlowVisibleFrameIdentityDataAttributes = {
   readonly "data-gpu-flow-content-frame-id"?: string | undefined;
   readonly "data-gpu-flow-presentation-id"?: string | undefined;
 };

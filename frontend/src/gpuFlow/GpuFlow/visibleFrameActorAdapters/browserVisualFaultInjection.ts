@@ -7,7 +7,7 @@ export type GpuFlowBrowserVisualFaultInjectedDomControlReadiness =
   | "blocked-awaiting-live-host"
   | "blocked-awaiting-snapshot";
 
-export type GpuFlowBrowserVisualFaultInjection = {
+type GpuFlowBrowserVisualFaultInjection = {
   readonly domControlReadiness?:
     | GpuFlowBrowserVisualFaultInjectedDomControlReadiness
     | undefined;
@@ -87,7 +87,7 @@ export function readGpuFlowBrowserVisualFaultInjection(): GpuFlowBrowserVisualFa
   };
 }
 
-export function hasGpuFlowBrowserVisualFaultInjectionWithheldDomControls({
+function hasGpuFlowBrowserVisualFaultInjectionWithheldDomControls({
   faultInjection,
 }: {
   readonly faultInjection: GpuFlowBrowserVisualFaultInjection;

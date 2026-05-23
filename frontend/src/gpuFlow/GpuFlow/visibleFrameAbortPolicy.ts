@@ -1,7 +1,7 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 
-export type GpuFlowBlockedCommittedSurfacePublicationAbort = {
+type GpuFlowBlockedCommittedSurfacePublicationAbort = {
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
   readonly preservePreparationSnapshot: boolean;
 };

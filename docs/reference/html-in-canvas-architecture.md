@@ -21,9 +21,10 @@ The reusable canvas runtime lives under `frontend/src/gpuFlow/`.
 
 The project surface is a WebGPU canvas composed from several owner surfaces:
 
-- DOM section sources: real React section DOM mounted as direct children of the
-  `<canvas layoutsubtree>` element. Chromium paints those children into HTML
-  textures, and WebGPU composes the textures into the visible project surface.
+- DOM section sources: real React section DOM progressively mounted as direct
+  children of the `<canvas layoutsubtree>` element. Chromium paints those
+  children into HTML textures, and WebGPU composes the textures into the visible
+  project surface.
 - Retained parameter content: project-owned retained scenes for parameter rows,
   controls, popups, drag previews, hit records, and port anchors. These scenes
   are page-rasterized into WebGPU textures by the retained texture page manager.
@@ -169,13 +170,12 @@ The reusable runtime is centered on these modules:
 - `GpuFlow/flowSurface.tsx` owns runtime composition, frame scheduling hooks,
   controller attachment, source layers, overlay sources, portals, DOM islands,
   and renderer callbacks.
-- `GpuFlow/flowSurfaceFramePublication.ts` owns visible publication lane
-  selection, live projection sampling, motion projection dispatch, content and
-  maintenance publication dispatch, debt re-requesting, and motion-settling
-  deferral.
-- `GpuFlow/flowFrame.tsx` owns per-frame orchestration for retained content
-  pages, HTML surface rendering, performance reporting, and additional frame
-  requests.
+- `GpuFlow/visibleFrameSurfaceFrame.ts` bridges `GpuSurface` frame events into
+  the visible-frame kernel: it samples the live viewport and retained-scroll
+  state, prepares motion/content candidate sets, and invokes the presenter.
+- `GpuFlow/flowFrame.tsx` owns content-publication orchestration for retained
+  content pages, HTML surface rendering, performance reporting, and additional
+  frame requests.
 - `GpuFlow/flowProjectionFrame.tsx` redraws committed retained/page/HTML
   surfaces for motion-only projection frames, remaps retained scroll visuals
   when committed coverage allows it, and holds a previous projection when the
@@ -374,6 +374,14 @@ and inserts each host beside its anchor as a direct canvas child. The direct
 canvas-child shape is required for the browser to paint and upload the source
 through html-in-canvas.
 
+`GpuFlowSurfaceView` renders section source hosts through `HtmlSurfaceNodeLayer`
+with progressive batching: one priority source near the current viewport is
+mounted first when viewport size is known; before viewport size is known, the
+first source is mounted instead. The remaining section sources are added in idle
+batches. This affects initial source availability only; viewport culling later
+controls visibility, texture work, and interaction eligibility without
+unmounting an already-mounted source host.
+
 The simplified project runtime DOM shape is:
 
 ```tsx
@@ -488,15 +496,16 @@ transform: translate(surfaceX - localX, surfaceY - localY)
 pointer-events: auto
 ```
 
-The source-layer mechanism mounts section DOM sources and HTML overlay sources.
-Those sources are registered with `HtmlSurfaceTextureManager` and drawn as DOM
-textures. Retained DOM-control descriptors are sampled from retained hit-test
-surfaces in `createGpuRetainedRuntimeFrame()` for DOM-owned text-like controls
-and mounted by `GpuFlowDomControlPlane`, which is a sibling of the canvas rather
-than a canvas layout-subtree child. Visible DOM-control hosts consume the
-committed browser visual runtime snapshot. Hidden preparation hosts may be
-mounted from a prepared candidate for readiness checks, but they do not advance
-the visible DOM-control layer until the candidate is committed.
+The source-layer mechanism mounts section DOM sources, HTML overlay sources, and
+capture-only DOM-control snapshot sources. Those sources are registered with
+`HtmlSurfaceTextureManager` and drawn as DOM textures. Retained DOM-control
+descriptors are sampled from retained hit-test surfaces in
+`createGpuRetainedRuntimeFrame()` for DOM-owned text-like controls and mounted
+by `GpuFlowDomControlPlane`, which is a sibling of the canvas rather than a
+canvas layout-subtree child. Visible DOM-control hosts consume the committed
+browser visual runtime snapshot. Hidden preparation hosts may be mounted from a
+prepared candidate for readiness checks, but they do not advance the visible
+DOM-control layer until the candidate is committed.
 
 Retained page descriptors are sampled from runtime scroll offsets in
 `GpuFlow/flowFrame.tsx` via `createGpuRetainedRuntimeFrame()`. Retained page
@@ -516,7 +525,9 @@ DOM-owned text-like retained controls publish committed text actors for passive
 browser rendering. Readable passive controls are viewport-projected
 `DummyCodeMirror` display hosts, while excess visible passive controls enter a
 bounded snapshot source lane rendered by
-`GpuRetainedDomControlSnapshotSourceLayer`. Those snapshot sources are
+`GpuRetainedDomControlSnapshotSourceLayer`. Snapshot sources are priority
+mounted from prepared candidates when available and otherwise use the same
+one-source progressive batching as section sources. Those snapshot sources are
 browser-rendered `DummyCodeMirror` DOM captured through the normal HTML surface
 texture path and composed as `dom-control` page overlays.
 
@@ -596,6 +607,13 @@ event resolves changed source elements to owning textures and requests a
 `paint` frame. Retained-content scroll requests a `retained-scroll` frame.
 Exhausted upload budgets request another `texture-upload` frame, while active
 retained switch transitions request another `animation` frame.
+
+`GpuFlow` handles each coalesced `GpuSurface` frame through
+`renderGpuFlowSurfaceFrame()` in `GpuFlow/visibleFrameSurfaceFrame.ts`. That
+entrypoint runs the visible-frame candidate-set kernel, samples the runtime
+viewport and retained-scroll state once, prepares a motion projection candidate
+and/or a content publication candidate according to the scheduler decision, and
+hands the selected transaction to `GpuFlow/visibleFramePresenter.ts`.
 
 Visible publication is lane-owned rather than reason-owned. `GpuSurface` still
 coalesces raw frame reasons for diagnostics, but `GpuFlow` classifies the next
@@ -836,11 +854,12 @@ each bucket. The same visibility set drives:
 - stable source host size, z-index, and passive pointer state
 - texture memory protection during eviction
 
-DOM section sources remain mounted even when viewport-culled. Viewport culling
-affects presentation and interaction eligibility, not React mount lifecycle.
-Retained content applies the same principle to page windows: missing or stale
-pages are scheduled for raster/upload without remounting the section body that
-owns the retained surface.
+Once a DOM section source is mounted, viewport culling does not unmount it.
+Viewport culling affects presentation, texture work, and interaction
+eligibility; progressive source batching affects only not-yet-mounted initial
+sources. Retained content applies the same principle to page windows: missing or
+stale pages are scheduled for raster/upload without remounting the section body
+that owns the retained surface.
 
 ## Section Content Rendering
 
@@ -901,12 +920,15 @@ The adapter computes:
   reveal state, and retained drag previews.
 
 `projectGpuParamRowAdapter.ts` maps each project parameter implementation to a
-retained row input and declares whether each control is canvas-owned,
-DOM-owned, or GPU-native. `createGpuRetainedRowContentScene()` turns those row
-inputs into structural draw commands, hit records, popup records, scrollbar
-commands, row order, visible row ranges, and control descriptors. The retained
-page rasterizer filters scrollbar commands because scrollbars are drawn as
-overlay-owned native visuals. Text-like control chrome can be drawn by
+retained row input and declares the control's canvas-owned or DOM-owned
+rendering path. The retained descriptor type also permits `gpu-native`, but the
+current GPU-native retained visuals are sampled separately as native visuals
+rather than emitted as parameter control descriptors.
+`createGpuRetainedRowContentScene()` turns those row inputs into structural draw
+commands, hit records, popup records, scrollbar commands, row order, visible row
+ranges, and control descriptors. The retained page rasterizer filters scrollbar
+commands because scrollbars are drawn as overlay-owned native visuals.
+Text-like control chrome can be drawn by
 `retainedContentTextLikeCanvas.ts`, but text-like value pixels are not drawn by
 the retained canvas. Readable passive text values are browser-rendered
 `DummyCodeMirror` actors in the DOM-control plane or captured by the

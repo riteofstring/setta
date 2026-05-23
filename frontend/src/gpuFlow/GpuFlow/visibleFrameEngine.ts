@@ -26,7 +26,7 @@ export type GpuFlowVisibleFrameStarvationPolicy = {
   readonly motionSettleWindowMs: number;
 };
 
-export type GpuFlowVisibleFrameHeldPreviousBudgetStatus = {
+type GpuFlowVisibleFrameHeldPreviousBudgetStatus = {
   readonly maxHeldPreviousFramesExceeded: boolean;
   readonly maxHeldPreviousMsExceeded: boolean;
 };
@@ -45,7 +45,7 @@ type GpuFlowVisibleFrameEngineOutcomeBrand = {
   readonly [GPU_FLOW_VISIBLE_FRAME_ENGINE_OUTCOME]: true;
 };
 
-export type GpuFlowVisibleFrameEngineOutcomeReason = {
+type GpuFlowVisibleFrameEngineOutcomeReason = {
   readonly actorId: string | null;
   readonly family: GpuFlowVisibleFrameActorFamily | "frame";
   readonly proof: "blocked" | "compatible-previous" | "missing" | "true-hole";
@@ -144,7 +144,7 @@ type GpuFlowVisibleFrameEngineColdStartOutcome = Extract<
   { readonly kind: "blocked-cold-start" }
 >;
 
-export type GpuFlowVisibleFrameEngine = {
+type GpuFlowVisibleFrameEngine = {
   readonly abort: (
     preparedFrame: GpuFlowVisibleFramePreparedFrame,
     outcome: GpuFlowVisibleFrameEngineOutcome,
@@ -163,7 +163,7 @@ export type GpuFlowVisibleFrameEngine = {
   readonly sample: () => GpuFlowVisibleFrameEngineSample;
 };
 
-export type GpuFlowVisibleFrameEngineInput = {
+type GpuFlowVisibleFrameEngineInput = {
   readonly abortVisibleFrameCandidate: (input: {
     readonly outcome: GpuFlowVisibleFrameEngineAbortedOutcome;
     readonly preparedFrame: GpuFlowVisibleFramePreparedFrame;

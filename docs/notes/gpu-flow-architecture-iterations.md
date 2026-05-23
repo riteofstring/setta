@@ -16,7 +16,7 @@ The reviewed range is:
 git log --reverse --pretty=format:'%h %ad %s' --date=short go-rewrite..HEAD
 ```
 
-That range contains 967 commits from 2026-04-28 through 2026-05-23. Not every
+That range contains 1027 commits from 2026-04-28 through 2026-05-23. Not every
 commit is GPU Flow work, so this note focuses on the commits that changed
 `frontend/src/gpuFlow/`, the project GPU surface adapter, GPU Flow E2E probes,
 performance reports, and the related architecture docs.
@@ -836,6 +836,59 @@ boundary" to "a committed surface frame is one prepared input to a visible frame
 transaction." The visible-frame engine is now the authority that decides which
 prepared facts become user-visible and which effects are allowed to run.
 
+## Iteration 22: Harden Visible-Frame Outcomes And Evidence
+
+Representative commits:
+
+- `d218256f0` Add GPU Flow visible frame reducer
+- `6df5adc81` Add GPU Flow visible frame engine lifecycle
+- `2a71cf9aa` Bridge GPU Flow transactions into visible frame engine
+- `5459a0ef8` Run GPU Flow publication through visible frame engine
+- `3d41cf819` Split GPU Flow engine proof selection
+- `984458842` Split GPU Flow transaction proof adapters
+- `6739dff25` Split GPU Flow presentation proof authority
+- `b0f20e5a6` Split GPU Flow retry cooldown lanes
+- `0f0a63eeb` Stamp GPU Flow presentation identity
+- `30b9b8dc2` Move GPU Flow starvation policy into engine
+- `ece0705e5` Move visible frame resource lifetime into registry
+- `79de7e575` Cover active editor abort and clip cases
+
+After the visible-frame authority cutover, the next pass made that authority
+operationally harder to misuse. The old publication modules had been removed,
+but the engine still needed sharper lifecycle types, retry rules, resource
+ownership, identity evidence, and active-editor coverage.
+
+This iteration tightened the finish-line contracts:
+
+- `visibleFrameEngine.ts` became the explicit lifecycle reducer for
+  `presented`, `projected`, `held`, `blocked-cold-start`, and `aborted`
+  outcomes, with production publication routed through the engine instead of
+  legacy publication authority shells;
+- actor proof selection, transaction proof adapters, presentation proof
+  authority, candidate action, content decision, and fault parsing were split
+  into focused modules so candidate preparation cannot also complete
+  presentation side effects;
+- visible-frame resource lifetime moved into `visibleFrameResourceRegistry.ts`,
+  making protected resources and releases part of the selected outcome rather
+  than an incidental cleanup path;
+- retry behavior became lane-specific: browser-visual blocked content debt,
+  content/maintenance held-previous blocks, and motion held-previous blocks now
+  cool down separately instead of immediately replaying rejected candidates
+  during retained motion;
+- starvation policy moved into the engine, so held-previous age, frame-count
+  budgets, content interleave, maintenance interleave, and motion settle windows
+  are visible-frame decisions rather than scheduler side effects;
+- presentation identity now carries content-frame id, presentation id,
+  projection sample id, browser host epochs, and debug-snapshot evidence through
+  committed frames, projected hosts, repro payloads, and outcome reports;
+- active text-editor coverage was verified across retained motion, held
+  candidate aborts, clip-boundary projection, focus/selection preservation, and
+  accessibility exposure.
+
+The practical change is that "visible publication" is no longer just a module
+name. It is a lifecycle with typed outcomes, resource ownership, bounded retry
+policy, and observable presentation identity.
+
 ## Current Architecture
 
 After these iterations, GPU Flow has these major boundaries:
@@ -893,6 +946,12 @@ After these iterations, GPU Flow has these major boundaries:
   actor/resource/presentation proofs, projection work plans, presentation token
   issuance, and completion accounting that select presented, projected, held,
   blocked-cold-start, or aborted outcomes.
+- `GpuFlow/visibleFrameCommitProofs.ts`,
+  `GpuFlow/visibleFrameResourceRegistry.ts`,
+  `GpuFlow/visibleFramePresentationTokens.ts`, and
+  `GpuFlow/visibleFrameIdentityAttributes.ts` bind visible-frame outcomes to
+  protected resources, presentation tokens, content-frame ids, presentation ids,
+  projection sample ids, browser host epochs, and debug/repro identity.
 - Visible side effects are presenter effects: canvas submission, committed-frame
   store mutation, browser visual host promotion, browser visual notifications,
   retained display state, projection debug ids, overlay transforms, node-layer
@@ -964,6 +1023,13 @@ The branch moved GPU Flow in these directions:
 24. From shared publication helpers to module-private outcome tokens that guard
     committed-frame mutation, browser visual promotion, retained display
     updates, projection state, scheduler debt completion, and resource release.
+25. From a single authority cutover to a visible-frame lifecycle with typed
+    presented, projected, held, blocked-cold-start, and aborted outcomes.
+26. From generic blocked/held retries to lane-specific retry cooldowns and
+    engine-owned starvation budgets.
+27. From local frame ids to presentation identity that ties content frame,
+    projection sample, browser host epoch, debug snapshot, and repro evidence
+    together.
 
 The remaining pressure is not whether GPU Flow should be canvas-first or
 whether active/browser-semantic text-like controls should use real DOM. Those
@@ -1006,6 +1072,9 @@ Useful reports from this branch:
 - [GPU Flow retained settings runtime finish line](../../perf/reports/gpu-flow-retained-settings-runtime-finish-line-20260519.md)
 - [GPU Flow browser visual finish-line report](../../perf/gpu-flow-browser-visual-finish-line-report.md)
 - [GPU Flow browser visual actor runtime finish-line report](../../perf/gpu-flow-browser-visual-actor-runtime-finish-line-20260520.md)
+- [GPU Flow visible frame baseline](../../perf/reports/frontend/2026-05-23_gpu-flow-visible-frame-baseline.md)
+- [GPU Flow visible frame retry follow-up](../../perf/reports/frontend/2026-05-23_gpu-flow-visible-frame-retry-followup.md)
+- [GPU Flow visible frame final verification](../../perf/reports/frontend/2026-05-23_gpu-flow-visible-frame-final-verification.md)
 
 The May 21-23 coherent visible-frame cutover is covered mainly by focused
 Vitest authority and boundary suites plus retained Settings E2E coverage:
@@ -1015,8 +1084,8 @@ Vitest authority and boundary suites plus retained Settings E2E coverage:
 [visibleFramePresentationProofsBoundary.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePresentationProofsBoundary.test.ts),
 [visibleFramePresentationTokenBoundary.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePresentationTokenBoundary.test.ts),
 [visibleFrameResourceRegistry.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameResourceRegistry.test.ts),
-and the final verification report
-[GPU Flow Visible Frame Final Verification - 2026-05-23](../../perf/reports/frontend/2026-05-23_gpu-flow-visible-frame-final-verification.md).
+and the visible-frame baseline, retry follow-up, and final verification reports
+linked above.
 
 Together, these reports show the same architectural progression from the
 measurement side: less hidden publication work, more explicit diagnostics, more

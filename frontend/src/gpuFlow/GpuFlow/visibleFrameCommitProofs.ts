@@ -120,7 +120,7 @@ function assertGpuFlowPresentationPairFeasible({
   });
 }
 
-export function assertGpuFlowCommitAuthorityProofMatchesFrame({
+function assertGpuFlowCommitAuthorityProofMatchesFrame({
   frame,
   commitAuthorityProof,
   projectionSampleId,

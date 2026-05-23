@@ -27,7 +27,7 @@ type GpuFlowVisibleFrameCandidateResourceEntry = {
   readonly requiredResourceKeys: readonly string[];
 };
 
-export type GpuFlowVisibleFrameResourceRegistrySnapshot = {
+type GpuFlowVisibleFrameResourceRegistrySnapshot = {
   readonly activeEditorPins: readonly string[];
   readonly candidateResourceKeys: readonly string[];
   readonly committedFrameId: number | null;
@@ -35,14 +35,14 @@ export type GpuFlowVisibleFrameResourceRegistrySnapshot = {
   readonly pendingCandidateFrameIds: readonly number[];
 };
 
-export type GpuFlowVisibleFrameCommittedSurfaceCommitResult = {
+type GpuFlowVisibleFrameCommittedSurfaceCommitResult = {
   readonly activeEditorPins: readonly string[];
   readonly published: boolean;
   readonly releasedCandidateResourceKeys: readonly string[];
   readonly releasedCommittedResourceKeys: readonly string[];
 };
 
-export type GpuFlowVisibleFrameCommittedSurfaceAbortResult = {
+type GpuFlowVisibleFrameCommittedSurfaceAbortResult = {
   readonly activeEditorPins: readonly string[];
   readonly releasedCandidateResourceKeys: readonly string[];
 };
