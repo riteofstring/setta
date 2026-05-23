@@ -136,6 +136,12 @@ describe("GPU flow DOM control projection runtime", () => {
         retainedRuntimeFrame: frame.retainedRuntimeFrame,
       }),
     });
+    let hostVisibleWhenSnapshotEmits = false;
+    browserVisualRuntime.subscribe(() => {
+      hostVisibleWhenSnapshotEmits =
+        element.dataset.gpuFlowDomControl === "true" &&
+        element.dataset.gpuFlowDomControlPreparation === undefined;
+    });
 
     browserVisualRuntime.commitPreparedBrowserVisualActors({
       candidate,
@@ -148,6 +154,7 @@ describe("GPU flow DOM control projection runtime", () => {
 
     expect(element.dataset.gpuFlowDomControl).toBe("true");
     expect(element.dataset.gpuFlowDomControlPreparation).toBeUndefined();
+    expect(hostVisibleWhenSnapshotEmits).toBe(true);
     expect(element.style.opacity).toBe("");
     expect(element.style.visibility).toBe("");
     expect(

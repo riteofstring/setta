@@ -867,6 +867,35 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
   });
 
+  it("realizes browser visual hosts before notifying React store observers", () => {
+    const browserVisualRuntimeSource = readFileSync(
+      BROWSER_VISUAL_RUNTIME_MODULE_PATH,
+      "utf8",
+    );
+    const commitMethodStart = browserVisualRuntimeSource.indexOf(
+      "commitPreparedBrowserVisualActors",
+    );
+    const abortMethodStart = browserVisualRuntimeSource.indexOf(
+      "abortPreparedBrowserVisualActors",
+    );
+    const commitMethodSource = browserVisualRuntimeSource.slice(
+      commitMethodStart,
+      abortMethodStart,
+    );
+
+    expect(commitMethodStart).toBeGreaterThanOrEqual(0);
+    expect(abortMethodStart).toBeGreaterThan(commitMethodStart);
+    expect(commitMethodSource).toContain(
+      "this.publishBrowserVisualHostPresentation",
+    );
+    expect(
+      commitMethodSource.indexOf("this.publishBrowserVisualHostPresentation"),
+    ).toBeLessThan(commitMethodSource.indexOf("this.emit()"));
+    expect(browserVisualRuntimeSource).toContain(
+      "assertGpuFlowCommitPublicationTokenForFrameId",
+    );
+  });
+
   it("publishes projection debug frame ids only from visible publication paths", () => {
     const debugAttributePattern =
       /\b(?:applyGpuFlowProjectionDebugAttributes|setProjectionDebugAttributes)\s*\(/;
