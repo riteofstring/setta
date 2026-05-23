@@ -7,7 +7,10 @@ import {
 } from "../framePerformance";
 import { type GpuFrameReason } from "../gpuRenderer";
 import { type GpuSurfaceHandle } from "../GpuSurface";
-import { type RenderHtmlSurfaceFrameResult } from "../htmlSurfaces/frame";
+import {
+  type HtmlSurfaceFrameCanvasSubmission,
+  type RenderHtmlSurfaceFrameResult,
+} from "../htmlSurfaces/frame";
 import { createGpuFlowInteractionDiagnosticsSnapshot } from "../interactionDiagnostics";
 import { type GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
 import { type GpuFlowProjectionDebugState } from "../projectionRuntime";
@@ -99,7 +102,45 @@ export function publishGpuFlowNodeLayerFrameState({
   readonly token: GpuFlowCommitPublicationToken;
 }): void {
   assertGpuFlowCommitPublicationTokenBrand({ token });
-  updateGpuFlowNodeLayerFrameState(publication);
+  updateGpuFlowNodeLayerFrameState({
+    ...publication,
+    layerResult: publishGpuFlowHtmlSurfaceCanvasSubmission({
+      layerResult: publication.layerResult,
+      token,
+    }),
+  });
+}
+
+function publishGpuFlowHtmlSurfaceCanvasSubmission({
+  layerResult,
+  token,
+}: {
+  readonly layerResult: RenderHtmlSurfaceFrameResult;
+  readonly token: GpuFlowCommitPublicationToken;
+}): RenderHtmlSurfaceFrameResult {
+  const canvasSubmission = layerResult.canvasSubmission ?? null;
+  if (!canvasSubmission) {
+    return layerResult;
+  }
+  submitGpuFlowHtmlSurfaceCanvasFrame({
+    canvasSubmission,
+    token,
+  });
+  return {
+    ...layerResult,
+    canvasSubmission: null,
+  };
+}
+
+function submitGpuFlowHtmlSurfaceCanvasFrame({
+  canvasSubmission,
+  token,
+}: {
+  readonly canvasSubmission: HtmlSurfaceFrameCanvasSubmission;
+  readonly token: GpuFlowCommitPublicationToken;
+}): void {
+  assertGpuFlowCommitPublicationTokenBrand({ token });
+  canvasSubmission.submit();
 }
 
 function updateGpuFlowNodeLayerFrameState({

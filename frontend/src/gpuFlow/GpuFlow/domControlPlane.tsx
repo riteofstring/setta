@@ -24,6 +24,7 @@ import {
   getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
   type GpuFlowBrowserVisualActorRuntime,
 } from "./browserVisualActorRuntime";
+import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
 import {
   projectGpuFlowDomControlPlaneGeometry,
   projectGpuFlowDomControlPlaneHost,
@@ -132,6 +133,7 @@ export function GpuFlowDomControlPlane({
     browserVisualRuntime.getPreparationSnapshot.bind(browserVisualRuntime),
   );
   const frameIds = snapshot.frameIds;
+  const publicationToken = snapshot.publicationToken;
   const frameIdsRef = useRef(frameIds);
   frameIdsRef.current = frameIds;
   const controlsToMount = snapshot.domControls.mountedControls;
@@ -167,6 +169,7 @@ export function GpuFlowDomControlPlane({
       control: GpuRetainedDomControlSourceDescriptor,
       element: HTMLElement | null,
       presentation: "preparation" | "visible",
+      token: GpuFlowCommitPublicationToken | null,
     ) => {
       const currentFrameIds = frameIdsRef.current;
       const finishMeasure = startGpuFlowPerformanceMeasure(
@@ -182,6 +185,7 @@ export function GpuFlowDomControlPlane({
           control,
           element,
           presentation,
+          ...(token === null ? {} : { token }),
         });
         if (element) {
           browserVisualRuntime.requestCommittedBrowserVisualRepairFrame({
@@ -413,6 +417,7 @@ export function GpuFlowDomControlPlane({
             key={control.sourceId}
             onActivate={onActivate}
             presentation="visible"
+            publicationToken={publicationToken}
             renderControl={renderControl}
             setControlCompositionActive={setControlCompositionActive}
             setControlElement={setControlElement}
@@ -440,6 +445,7 @@ export function GpuFlowDomControlPlane({
                 key={control.sourceId}
                 onActivate={undefined}
                 presentation="preparation"
+                publicationToken={null}
                 renderControl={renderControl}
                 setControlCompositionActive={setControlCompositionActive}
                 setControlElement={setControlElement}
@@ -483,6 +489,7 @@ function GpuFlowDomControlHost({
   initialStyle,
   onActivate,
   presentation,
+  publicationToken,
   renderControl,
   setControlCompositionActive,
   setControlElement,
@@ -495,6 +502,7 @@ function GpuFlowDomControlHost({
   readonly initialStyle: ReturnType<typeof projectGpuFlowDomControlPlaneHost>;
   readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
   readonly presentation: "preparation" | "visible";
+  readonly publicationToken: GpuFlowCommitPublicationToken | null;
   readonly renderControl: GpuFlowDomControlRenderer;
   readonly setControlCompositionActive: (
     controlId: string,
@@ -504,6 +512,7 @@ function GpuFlowDomControlHost({
     control: GpuRetainedDomControlSourceDescriptor,
     element: HTMLElement | null,
     presentation: "preparation" | "visible",
+    token: GpuFlowCommitPublicationToken | null,
   ) => void;
 }) {
   const hostElementRef = useRef<HTMLDivElement | null>(null);
@@ -526,15 +535,20 @@ function GpuFlowDomControlHost({
       if (element) {
         const nextControl = latestControlRef.current;
         registeredControlRef.current = nextControl;
-        setControlElement(nextControl, element, presentation);
+        setControlElement(nextControl, element, presentation, publicationToken);
         return;
       }
       const previousControl =
         registeredControlRef.current ?? latestControlRef.current;
       registeredControlRef.current = null;
-      setControlElement(previousControl, null, presentation);
+      setControlElement(
+        previousControl,
+        null,
+        presentation,
+        publicationToken,
+      );
     },
-    [presentation, setControlElement],
+    [presentation, publicationToken, setControlElement],
   );
 
   useLayoutEffect(() => {
@@ -543,8 +557,8 @@ function GpuFlowDomControlHost({
       return;
     }
     registeredControlRef.current = control;
-    setControlElement(control, element, presentation);
-  }, [control, presentation, setControlElement]);
+    setControlElement(control, element, presentation, publicationToken);
+  }, [control, presentation, publicationToken, setControlElement]);
 
   useLayoutEffect(() => {
     if (presentation !== "visible" || !control.active) {

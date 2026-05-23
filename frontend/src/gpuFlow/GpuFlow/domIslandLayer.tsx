@@ -19,6 +19,7 @@ import {
   getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
   type GpuFlowBrowserVisualActorRuntime,
 } from "./browserVisualActorRuntime";
+import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
 
 export type GpuFlowDomIslandRenderer = (island: GpuDomIsland) => ReactNode;
 
@@ -63,6 +64,7 @@ export function GpuFlowDomIslandLayer({
     browserVisualRuntime.getPreparationSnapshot.bind(browserVisualRuntime),
   );
   const domIslands = snapshot.domIslands.islands;
+  const publicationToken = snapshot.publicationToken;
   const visibleIslandIds = useMemo(
     () => new Set(domIslands.map((island) => island.id)),
     [domIslands],
@@ -81,11 +83,13 @@ export function GpuFlowDomIslandLayer({
       islandId: string,
       element: HTMLElement | null,
       presentation: "preparation" | "visible",
+      token: GpuFlowCommitPublicationToken | null,
     ) => {
       browserVisualRuntime.setDomIslandElement({
         element,
         islandId,
         presentation,
+        ...(token === null ? {} : { token }),
       });
     },
     [browserVisualRuntime],
@@ -130,7 +134,14 @@ export function GpuFlowDomIslandLayer({
           data-gpu-flow-dom-island-id={island.id}
           data-gpu-flow-dom-island-kind={island.kind}
           key={island.id}
-          ref={(element) => setDomIslandElement(island.id, element, "visible")}
+          ref={(element) =>
+            setDomIslandElement(
+              island.id,
+              element,
+              "visible",
+              publicationToken,
+            )
+          }
           style={getGpuFlowDomIslandInitialStyle({
             island,
             viewport: normalizedViewport,
@@ -148,7 +159,7 @@ export function GpuFlowDomIslandLayer({
           data-gpu-flow-dom-island-kind={island.kind}
           key={`preparation:${island.id}`}
           ref={(element) =>
-            setDomIslandElement(island.id, element, "preparation")
+            setDomIslandElement(island.id, element, "preparation", null)
           }
           style={{
             ...getGpuFlowDomIslandInitialStyle({

@@ -37,6 +37,7 @@ import {
   HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE,
 } from "./sourceDom";
 import { HtmlSurfaceTextureManager } from "./textures";
+import type { RenderHtmlSurfacesInput } from "./renderer";
 
 describe("HTML surface frame helpers", () => {
   afterEach(() => {
@@ -548,6 +549,39 @@ describe("HTML surface frame helpers", () => {
     });
     expect(visible.style.transform).toBe("translate(0px, 0px) scale(1)");
     expect(culled.style.pointerEvents).toBe("none");
+  });
+
+  it("can prepare canvas commands without submitting the visible frame", () => {
+    const manager = createFrameTextureManager();
+    const immediateRenderer = createFrameRenderer();
+    const submit = vi.fn();
+    const renderer = {
+      prepare: vi.fn((input: RenderHtmlSurfacesInput) => ({
+        result: immediateRenderer.render(input),
+        submit,
+      })),
+      render: vi.fn(),
+    };
+
+    const result = renderHtmlSurfaceFrame({
+      canvasSize: canvasSize(),
+      canvasSubmissionMode: "deferred",
+      elementByNodeId: new Map(),
+      frame: 1,
+      marginCssPx: 0,
+      nodes: [],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(renderer.prepare).toHaveBeenCalledOnce();
+    expect(renderer.render).not.toHaveBeenCalled();
+    expect(submit).not.toHaveBeenCalled();
+
+    result.canvasSubmission?.submit();
+
+    expect(submit).toHaveBeenCalledOnce();
   });
 
   it("prepares visible overlay textures without rendering a frame", () => {

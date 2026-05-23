@@ -159,6 +159,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
       nodeInteractionRef,
     }),
     canvasSize,
+    canvasSubmissionMode: "deferred",
     deferResolutionUpdates: true,
     domTransformCache: nodeDomTransformSyncCacheRef.current,
     edges: layer.edges,

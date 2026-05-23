@@ -70,6 +70,7 @@ export type GpuFlowBrowserVisualActorRuntimeSnapshot = {
     readonly islands: readonly GpuDomIsland[];
   };
   readonly frameIds: GpuFlowBrowserVisualActorRuntimeFrameIds;
+  readonly publicationToken: GpuFlowCommitPublicationToken | null;
 };
 
 type BrowserVisualActorRuntimeListener = () => void;
@@ -163,6 +164,10 @@ export class GpuFlowBrowserVisualActorRuntime {
     "getCommittedSurfaceTexture"
   > | null = null;
   private readonly domIslandElementById = new Map<string, HTMLElement>();
+  private readonly domIslandRegistrationCommittedFrameIdById = new Map<
+    string,
+    number
+  >();
   private getRetainedScrollOffset:
     | GpuFlowRetainedScrollOffsetGetter
     | undefined;
@@ -258,6 +263,7 @@ export class GpuFlowBrowserVisualActorRuntime {
         ]),
       }),
       frameIds,
+      publicationToken: null,
     });
     const readiness = Object.freeze({
       domControlReadinessByActorId:
@@ -383,14 +389,23 @@ export class GpuFlowBrowserVisualActorRuntime {
     control,
     element,
     presentation,
+    token,
   }: {
     readonly control: GpuRetainedDomControlSourceDescriptor;
     readonly element: HTMLElement | null;
     readonly presentation: "preparation" | "visible";
+    readonly token?: GpuFlowCommitPublicationToken | undefined;
   }): void {
+    const hostMap = this.getDomControlHostMap(presentation);
+    const mounted = hostMap.get(control.sourceId);
+    this.assertBrowserVisualHostRegistrationToken({
+      committedFrameId:
+        mounted?.registrationCommittedFrameId ??
+        (!element ? token?.committedFrameId : undefined),
+      presentation,
+      token,
+    });
     if (!element) {
-      const hostMap = this.getDomControlHostMap(presentation);
-      const mounted = hostMap.get(control.sourceId);
       if (mounted) {
         blurFocusedDescendantBeforeUnmount(mounted.element);
       }
@@ -400,13 +415,13 @@ export class GpuFlowBrowserVisualActorRuntime {
       }
       return;
     }
-    this.assertBrowserVisualHostRegistrationToken({
-      presentation,
-    });
     this.getDomControlHostMap(presentation).set(control.sourceId, {
       control,
       controlId: control.sourceId,
       element,
+      ...(presentation === "visible"
+        ? { registrationCommittedFrameId: token?.committedFrameId }
+        : {}),
     });
     if (!this.isDomControlProjectable(control.sourceId)) {
       parkDomControlElement(element);
@@ -470,19 +485,32 @@ export class GpuFlowBrowserVisualActorRuntime {
     element,
     islandId,
     presentation,
+    token,
   }: {
     readonly element: HTMLElement | null;
     readonly islandId: string;
     readonly presentation: "preparation" | "visible";
+    readonly token?: GpuFlowCommitPublicationToken | undefined;
   }): void {
+    this.assertBrowserVisualHostRegistrationToken({
+      committedFrameId:
+        this.domIslandRegistrationCommittedFrameIdById.get(islandId) ??
+        (!element ? token?.committedFrameId : undefined),
+      presentation,
+      token,
+    });
     if (!element) {
       this.domIslandElementById.delete(islandId);
+      this.domIslandRegistrationCommittedFrameIdById.delete(islandId);
       return;
     }
-    this.assertBrowserVisualHostRegistrationToken({
-      presentation,
-    });
     this.domIslandElementById.set(islandId, element);
+    if (presentation === "visible" && token) {
+      this.domIslandRegistrationCommittedFrameIdById.set(
+        islandId,
+        token.committedFrameId,
+      );
+    }
   }
 
   projectDomControls(
@@ -673,6 +701,7 @@ export class GpuFlowBrowserVisualActorRuntime {
         }),
         domIslands: preparedSnapshot.domIslands,
         frameIds: preparedSnapshot.frameIds,
+        publicationToken: null,
       });
     if (
       areBrowserVisualActorRuntimeSnapshotsEqual(
@@ -697,13 +726,18 @@ export class GpuFlowBrowserVisualActorRuntime {
       committedFrameId: nextSnapshot.frameIds.committedFrameId,
       token,
     });
+    const publishedSnapshot = withGpuFlowBrowserVisualSnapshotPublicationToken({
+      snapshot: nextSnapshot,
+      token,
+    });
     this.snapshotPublicationToken = token;
     if (
       areBrowserVisualActorRuntimeSnapshotsEqual(this.snapshot, nextSnapshot)
     ) {
+      this.snapshot = publishedSnapshot;
       return;
     }
-    this.snapshot = nextSnapshot;
+    this.snapshot = publishedSnapshot;
     this.diagnostics = createEmptyDomControlPlaneDiagnostics({
       committedFrameId: nextSnapshot.frameIds.committedFrameId,
       runtimeFrameId: nextSnapshot.frameIds.runtimeFrameId,
@@ -778,21 +812,26 @@ export class GpuFlowBrowserVisualActorRuntime {
   }
 
   private assertBrowserVisualHostRegistrationToken({
+    committedFrameId,
     presentation,
+    token,
   }: {
+    readonly committedFrameId?: number | undefined;
     readonly presentation: "preparation" | "visible";
+    readonly token?: GpuFlowCommitPublicationToken | undefined;
   }): void {
     if (presentation !== "visible") {
       return;
     }
-    if (!this.snapshotPublicationToken) {
+    if (!token) {
       throw new Error(
         "GPU Flow visible browser visual host registration requires a committed publication token.",
       );
     }
     assertGpuFlowCommitPublicationTokenForFrameId({
-      committedFrameId: this.snapshot.frameIds.committedFrameId,
-      token: this.snapshotPublicationToken,
+      committedFrameId:
+        committedFrameId ?? this.snapshot.frameIds.committedFrameId,
+      token,
     });
   }
 
@@ -886,6 +925,20 @@ function createEmptyBrowserVisualActorRuntimeSnapshot(): GpuFlowBrowserVisualAct
       islands: EMPTY_DOM_ISLANDS,
     }),
     frameIds,
+    publicationToken: null,
+  });
+}
+
+function withGpuFlowBrowserVisualSnapshotPublicationToken({
+  snapshot,
+  token,
+}: {
+  readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
+  readonly token: GpuFlowCommitPublicationToken;
+}): GpuFlowBrowserVisualActorRuntimeSnapshot {
+  return Object.freeze({
+    ...snapshot,
+    publicationToken: token,
   });
 }
 

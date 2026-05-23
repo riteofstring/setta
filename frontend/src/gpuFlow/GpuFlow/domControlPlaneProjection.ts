@@ -38,6 +38,7 @@ export type GpuFlowDomControlPlaneMountedHost = {
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly controlId: string;
   readonly element: HTMLElement;
+  readonly registrationCommittedFrameId?: number | undefined;
 };
 
 export type GpuFlowDomControlProjectionAssignment = {

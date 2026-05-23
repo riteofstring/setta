@@ -22,6 +22,7 @@ import {
   GpuGridInput,
   GridDrawResources,
   HtmlSurfaceRenderRuntime,
+  PreparedHtmlSurfaceSceneSubmission,
   RenderHtmlSurfaceSceneBaseInput,
   RenderHtmlSurfaceSceneResult,
 } from "../gpuPipelines/pipelineTypes";
@@ -52,6 +53,8 @@ export type RenderHtmlSurfacesInput = RenderHtmlSurfaceSceneBaseInput & {
   readonly scene: HtmlSurfaceVisualScene;
 };
 export type RenderHtmlSurfacesResult = RenderHtmlSurfaceSceneResult;
+export type PreparedHtmlSurfaceRenderSubmission =
+  PreparedHtmlSurfaceSceneSubmission;
 export { encodeHtmlSurfaceCameraUniform } from "./rendererCamera";
 type PreparedMeshSurfaceDraw = {
   readonly draw: ReturnType<HtmlSurfaceMeshPass["prepare"]>;
@@ -154,13 +157,35 @@ export class HtmlSurfaceRenderer {
 
   render({
     canvasSize,
+    clearColor,
+    edgePalette,
+    edges,
+    grid,
+    scene,
+    viewport,
+  }: RenderHtmlSurfacesInput): RenderHtmlSurfacesResult {
+    const submission = this.prepare({
+      canvasSize,
+      clearColor,
+      edgePalette,
+      edges,
+      grid,
+      scene,
+      viewport,
+    });
+    submission.submit();
+    return submission.result;
+  }
+
+  prepare({
+    canvasSize,
     clearColor = DEFAULT_CLEAR_COLOR,
     edgePalette = DEFAULT_EDGE_PALETTE_INPUT,
     edges = EMPTY_EDGE_BUFFER_INPUTS,
     grid,
     scene,
     viewport,
-  }: RenderHtmlSurfacesInput): RenderHtmlSurfacesResult {
+  }: RenderHtmlSurfacesInput): PreparedHtmlSurfaceRenderSubmission {
     const flatSurfaces = scene.flatSurfaces;
     const lateFlatSurfaces = scene.lateFlatSurfaces;
     const tiledFlatSurfaceTiles = createTiledFlatSurfaceDrawTiles(
@@ -263,8 +288,8 @@ export class HtmlSurfaceRenderer {
     );
     pass.end();
 
-    this.runtime.device.queue.submit([commandEncoder.finish()]);
-    return createHtmlSurfaceRenderResult({
+    const commandBuffer = commandEncoder.finish();
+    const result = createHtmlSurfaceRenderResult({
       edgeBufferData,
       effectSurfaces,
       flatSurfaces,
@@ -282,6 +307,19 @@ export class HtmlSurfaceRenderer {
         solidRoundedRectSurfaces,
         tiledFlatSurfaceTiles,
       }),
+    });
+    let submitted = false;
+    return Object.freeze({
+      result,
+      submit: () => {
+        if (submitted) {
+          throw new Error(
+            "HTML surface render submission cannot be submitted more than once.",
+          );
+        }
+        submitted = true;
+        this.runtime.device.queue.submit([commandBuffer]);
+      },
     });
   }
 

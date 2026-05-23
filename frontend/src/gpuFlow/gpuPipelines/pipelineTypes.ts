@@ -43,6 +43,11 @@ export type RenderHtmlSurfaceSceneResult = {
   readonly vertexCount: number;
 };
 
+export type PreparedHtmlSurfaceSceneSubmission = {
+  readonly result: RenderHtmlSurfaceSceneResult;
+  submit(): void;
+};
+
 export type EdgeDrawResources = {
   readonly bindGroup: GPUBindGroup;
   readonly pipeline: GPURenderPipeline;

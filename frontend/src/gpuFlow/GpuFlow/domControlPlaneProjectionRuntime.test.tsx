@@ -74,6 +74,32 @@ describe("GPU flow DOM control projection runtime", () => {
         presentation: "visible",
       }),
     ).toThrow(/visible browser visual host registration requires/);
+
+    const frame = committedSurfaceFrame({
+      displayFrameId: 1,
+      retainedRuntimeFrame: retainedRuntimeFrame([control], 1),
+    });
+    const token = publicationToken(frame);
+    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: frame.displayFrameId,
+        retainedRuntimeFrame: frame.retainedRuntimeFrame,
+      }),
+    });
+    browserVisualRuntime.commitPreparedBrowserVisualActors({
+      candidate,
+      token,
+    });
+
+    expect(browserVisualRuntime.getSnapshot().publicationToken).toBe(token);
+    expect(() =>
+      browserVisualRuntime.setDomControlElement({
+        control,
+        element,
+        presentation: "visible",
+        token,
+      }),
+    ).not.toThrow();
   });
 
   it("keeps focused DOM-control hosts focused across frame metadata updates", () => {

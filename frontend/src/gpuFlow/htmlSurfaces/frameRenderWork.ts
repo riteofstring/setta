@@ -15,6 +15,7 @@ import {
 } from "./frameDomTransformSync";
 import { toGpuHtmlSurfaceOverlayNodeLayouts } from "./frameOverlayLayers";
 import type {
+  PreparedHtmlSurfaceRenderSubmission,
   RenderHtmlSurfacesInput,
   RenderHtmlSurfacesResult,
 } from "./renderer";
@@ -39,6 +40,9 @@ export type GpuNodeTextureController = Pick<
 >;
 
 export type GpuNodeSurfaceRenderTarget = {
+  prepare?: (
+    input: RenderHtmlSurfacesInput,
+  ) => PreparedHtmlSurfaceRenderSubmission;
   render(input: RenderHtmlSurfacesInput): RenderHtmlSurfacesResult;
 };
 
@@ -162,6 +166,41 @@ export function renderHtmlSurfaceVisualScene({
   readonly viewport: GpuViewportInput;
 }): RenderHtmlSurfacesResult {
   return renderer.render({
+    canvasSize,
+    clearColor,
+    ...(edgePalette === undefined ? {} : { edgePalette }),
+    ...(edges === undefined ? {} : { edges }),
+    ...(grid === undefined ? {} : { grid }),
+    scene,
+    viewport,
+  });
+}
+
+export function prepareHtmlSurfaceVisualSceneSubmission({
+  canvasSize,
+  clearColor,
+  edgePalette,
+  edges,
+  grid,
+  renderer,
+  scene,
+  viewport,
+}: {
+  readonly canvasSize: GpuCanvasSize;
+  readonly clearColor: GPUColorDict | undefined;
+  readonly edgePalette: GpuEdgePaletteInput | undefined;
+  readonly edges: readonly GpuEdgeBufferInput[] | undefined;
+  readonly grid: GpuGridInput | undefined;
+  readonly renderer: GpuNodeSurfaceRenderTarget;
+  readonly scene: HtmlSurfaceVisualScene;
+  readonly viewport: GpuViewportInput;
+}): PreparedHtmlSurfaceRenderSubmission {
+  if (!renderer.prepare) {
+    throw new Error(
+      "Deferred HTML surface canvas publication requires a renderer with a prepare step.",
+    );
+  }
+  return renderer.prepare({
     canvasSize,
     clearColor,
     ...(edgePalette === undefined ? {} : { edgePalette }),

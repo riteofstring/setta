@@ -62,6 +62,7 @@ import {
 
 import {
   evictHtmlSurfaceFrameTextures,
+  prepareHtmlSurfaceVisualSceneSubmission,
   renderHtmlSurfaceVisualScene,
   resolveHtmlSurfaceFrameTextureWork,
   syncHtmlSurfaceFrameDomTransforms,
@@ -197,6 +198,7 @@ export type GpuNodeUploadBudget = Pick<
 type RenderHtmlSurfaceFrameInput = {
   readonly activeNodeId?: string | null | undefined;
   readonly canvasSize: GpuCanvasSize;
+  readonly canvasSubmissionMode?: "deferred" | "immediate" | undefined;
   readonly clearColor?: GPUColorDict | undefined;
   readonly deferResolutionUpdates?: boolean | undefined;
   readonly edgePalette?: GpuEdgePaletteInput | undefined;
@@ -232,9 +234,14 @@ type RenderHtmlSurfaceFrameInput = {
   readonly viewport: GpuViewportInput;
 };
 
+export type HtmlSurfaceFrameCanvasSubmission = {
+  submit(): void;
+};
+
 export type RenderHtmlSurfaceFrameResult = {
   readonly activeNodeId: string | null;
   readonly budgetExhausted: boolean;
+  readonly canvasSubmission?: HtmlSurfaceFrameCanvasSubmission | null;
   readonly domTransformParkedNodeIds: readonly string[];
   readonly domTransformUpdatedNodeIds: readonly string[];
   readonly drawnEdgeIds: readonly string[];
@@ -364,6 +371,7 @@ function mergeGpuNodeHostClassName(
 export function renderHtmlSurfaceFrame({
   activeNodeId,
   canvasSize,
+  canvasSubmissionMode = "immediate",
   clearColor,
   deferResolutionUpdates,
   domTransformCache,
@@ -507,16 +515,28 @@ export function renderHtmlSurfaceFrame({
     htmlSurfaceLateVisuals: lateOverlayVisualSurfaces.flatSurfaces,
     visualSurfaces,
   });
-  const renderResult = renderHtmlSurfaceVisualScene({
-    canvasSize,
-    clearColor,
-    edgePalette,
-    edges,
-    grid,
-    renderer,
-    scene: visualScene,
-    viewport,
-  });
+  const { canvasSubmission, renderResult } =
+    canvasSubmissionMode === "deferred"
+      ? prepareDeferredHtmlSurfaceFrameCanvasSubmission({
+          canvasSize,
+          clearColor,
+          edgePalette,
+          edges,
+          grid,
+          renderer,
+          visualScene,
+          viewport,
+        })
+      : renderImmediateHtmlSurfaceFrameCanvas({
+          canvasSize,
+          clearColor,
+          edgePalette,
+          edges,
+          grid,
+          renderer,
+          visualScene,
+          viewport,
+        });
   const evictionResult = evictHtmlSurfaceFrameTextures({
     nodeTextureMemoryBudgetBytes,
     protectedTextureSurfaceIds,
@@ -534,6 +554,7 @@ export function renderHtmlSurfaceFrame({
   return {
     activeNodeId: activeNodeId ?? null,
     budgetExhausted: uploadResult.budgetExhausted,
+    canvasSubmission,
     domTransformParkedNodeIds: domTransformResult.parkedNodeIds,
     domTransformUpdatedNodeIds: domTransformResult.updatedNodeIds,
     drawnEdgeIds: renderResult.drawnEdgeIds,
@@ -574,6 +595,81 @@ export function renderHtmlSurfaceFrame({
     ),
     visibleNodeIds: [...visibleNodeIds],
     visualScene,
+  };
+}
+
+function renderImmediateHtmlSurfaceFrameCanvas({
+  canvasSize,
+  clearColor,
+  edgePalette,
+  edges,
+  grid,
+  renderer,
+  visualScene,
+  viewport,
+}: {
+  readonly canvasSize: GpuCanvasSize;
+  readonly clearColor: GPUColorDict | undefined;
+  readonly edgePalette: GpuEdgePaletteInput | undefined;
+  readonly edges: readonly GpuEdgeBufferInput[] | undefined;
+  readonly grid: GpuGridInput | undefined;
+  readonly renderer: GpuNodeSurfaceRenderTarget;
+  readonly visualScene: HtmlSurfaceVisualScene;
+  readonly viewport: GpuViewportInput;
+}): {
+  readonly canvasSubmission: null;
+  readonly renderResult: ReturnType<typeof renderHtmlSurfaceVisualScene>;
+} {
+  return {
+    canvasSubmission: null,
+    renderResult: renderHtmlSurfaceVisualScene({
+      canvasSize,
+      clearColor,
+      edgePalette,
+      edges,
+      grid,
+      renderer,
+      scene: visualScene,
+      viewport,
+    }),
+  };
+}
+
+function prepareDeferredHtmlSurfaceFrameCanvasSubmission({
+  canvasSize,
+  clearColor,
+  edgePalette,
+  edges,
+  grid,
+  renderer,
+  visualScene,
+  viewport,
+}: {
+  readonly canvasSize: GpuCanvasSize;
+  readonly clearColor: GPUColorDict | undefined;
+  readonly edgePalette: GpuEdgePaletteInput | undefined;
+  readonly edges: readonly GpuEdgeBufferInput[] | undefined;
+  readonly grid: GpuGridInput | undefined;
+  readonly renderer: GpuNodeSurfaceRenderTarget;
+  readonly visualScene: HtmlSurfaceVisualScene;
+  readonly viewport: GpuViewportInput;
+}): {
+  readonly canvasSubmission: HtmlSurfaceFrameCanvasSubmission;
+  readonly renderResult: ReturnType<typeof renderHtmlSurfaceVisualScene>;
+} {
+  const submission = prepareHtmlSurfaceVisualSceneSubmission({
+    canvasSize,
+    clearColor,
+    edgePalette,
+    edges,
+    grid,
+    renderer,
+    scene: visualScene,
+    viewport,
+  });
+  return {
+    canvasSubmission: submission,
+    renderResult: submission.result,
   };
 }
 
