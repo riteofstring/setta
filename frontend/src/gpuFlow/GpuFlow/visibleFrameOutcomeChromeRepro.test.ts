@@ -339,14 +339,6 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
           inputSampleId: 11,
           outcome: "commit",
           presentableCommit: expect.objectContaining({
-            expectedActorSetDigest: expect.objectContaining({
-              preview: "actors",
-              truncated: false,
-            }),
-            presentationPairDigest: expect.objectContaining({
-              preview: "presentation",
-              truncated: false,
-            }),
             presentationPairProof: expect.objectContaining({
               actorManifestDigest: expect.objectContaining({
                 preview: "manifest-digest",
@@ -357,10 +349,6 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
                 truncated: false,
               }),
               projectionSampleId: 11,
-            }),
-            proofDigest: expect.objectContaining({
-              preview: "proof",
-              truncated: false,
             }),
             resourceProtectionDigest: expect.objectContaining({
               preview: "resource",
@@ -381,14 +369,6 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
           previousCommittedFrameId: 6,
           token: expect.objectContaining({
             committedFrameId: 7,
-            expectedActorSetDigest: expect.objectContaining({
-              preview: "actors",
-              truncated: false,
-            }),
-            presentationPairDigest: expect.objectContaining({
-              preview: "presentation",
-              truncated: false,
-            }),
             presentationPairProof: expect.objectContaining({
               actorManifestDigest: expect.objectContaining({
                 preview: "manifest-digest",
@@ -401,10 +381,6 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
               projectionSampleId: 11,
             }),
             projectionSampleId: 11,
-            proofDigest: expect.objectContaining({
-              preview: "proof",
-              truncated: false,
-            }),
             resourceProtectionDigest: expect.objectContaining({
               preview: "resource",
               truncated: false,

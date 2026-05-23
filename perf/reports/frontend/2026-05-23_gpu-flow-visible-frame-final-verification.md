@@ -27,18 +27,25 @@ Branch: `go-rewrite-canvas-html-gpu-surfaces-plan`
 
 ## Fresh Chrome Recording
 
-- Recording: `recording-20260523-203436`
-- Path: `/private/var/folders/7t/11607ml14sjf_yx1xt0hg54h0000gn/T/setta-chrome-recordings/setta.go-rewrite-1814143074/recording-20260523-203436`
-- Scenario: Chrome repro recorder with `CanvasDrawElement`, unsafe WebGPU, WebGPU developer features, disabled background throttling, and CDP attached on port 9241. CDP opened Settings, selected All Settings, centered a retained Settings surface, posted finish-line markers, drove retained scroll/projection work through debug hooks, and captured a viewport screenshot.
+- Recording: `recording-20260523-214021`
+- Path: `/private/var/folders/7t/11607ml14sjf_yx1xt0hg54h0000gn/T/setta-chrome-recordings/setta.go-rewrite-1814143074/recording-20260523-214021`
+- Scenario: Chrome repro recorder with `CanvasDrawElement`, unsafe WebGPU, WebGPU developer features, disabled background throttling, and CDP attached on port 9241. CDP opened Settings, selected All Settings, settled `settings-section__shortcuts:param-content:unpinned` until 12 retained DOM controls were visible, posted one `finish-line-start` marker, dispatched two native CDP wheel events, posted one retained DOM-control visual-evidence trigger while 12 retained controls were still visible, and closed Chrome immediately after the visual-evidence window.
 
 Recording stream summary:
 
-- Console events: 2 debug, 1 info, 1 warn.
+- Bundle size: `535M` total; `app_state.ndjson` `49M`; `performance.ndjson` `112M`; `recording.json` `145M`.
+- Console events: 4 debug, 2 info, 2 warn.
 - Console/page errors: 0.
 - Old blocked/held exception text occurrences: 0.
-- `scripts/chrome_repro_gpuflow_finish_line_report.py --latest --json`: failed because the CDP-driven recorder window produced runtime measures after the marker but no `gpu-flow-frame` app-state entries in the marker window. The analyzer reported `no-gpu-flow-frames-after-marker`, `no-content-frames-after-marker`, `no-motion-projection-frames-after-marker`, `no-interaction-active-frames-after-marker`, and no browser visual evidence events.
-- The recording is still useful for console/runtime error evidence, but the retained Settings Playwright subset above remains the current authoritative finish-line browser coverage for frame budgets and visual coherence.
+- Post-marker app-state window: 35 `gpu-flow-frame` entries, 35 `gpu-flow-visible-publication-outcome` entries, 2 retained content scroll flush entries, one `gpu-flow-retained-dom-controls` trigger, and one `gpu-flow-browser-visual-evidence` event.
+- `scripts/chrome_repro_gpuflow_finish_line_report.py --latest --json`: passed with `failureCount: 0`.
+  - Finish-line completeness: `frameCount: 35`, `projectionFrameCount: 35`, `interactionActiveFrameCount: 35`, `visualEvidenceWindow: true`, no missing reasons.
+  - Long tasks: `0`.
+  - Retained uploads after settle: `0` bytes.
+  - Violations: no cold placeholders, true-hole publications, projection content work during motion, non-repair uploads during interaction, held-previous over-budget frames, retained budget misses, missing phase/projection fields, or visual-evidence blank text clips.
+  - Visual evidence: one screenshot-backed event, `12` text clips, `pixelSourceCount: 1`, `screenshotCount: 1`, `blankTextClips: []`.
 
 CDP visual check: done. The retained Settings page rendered with All Settings
-selected, the retained rows debug surface reported `441` rows, no cold-start
-shell, and visible rows for `settings-section__shortcuts:param-content:unpinned`.
+selected, the retained rows debug surface exposed visible rows for
+`settings-section__shortcuts:param-content:unpinned`, and the recorder captured
+12 visible retained DOM controls with no cold-start shell.

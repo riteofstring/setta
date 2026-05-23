@@ -199,22 +199,18 @@ function summarizeChromeReproOutcomeToken(
   token: GpuFlowVisiblePublicationTransactionReportToken,
 ): GpuFlowVisiblePublicationTransactionReportToken | Record<string, unknown> {
   if ("presentationPairProof" in token) {
-    const { presentationPairProof, ...rest } = token;
     return {
-      ...rest,
-      expectedActorSetDigest: summarizeChromeReproDigest(
-        token.expectedActorSetDigest,
-      ),
-      presentationPairDigest: summarizeChromeReproDigest(
-        token.presentationPairDigest,
-      ),
+      committedFrameId: token.committedFrameId,
+      contentFrameId: token.contentFrameId,
+      presentationId: token.presentationId,
       presentationPairProof: summarizeChromeReproPresentationProof(
-        presentationPairProof,
+        token.presentationPairProof,
       ),
-      proofDigest: summarizeChromeReproDigest(token.proofDigest),
+      projectionSampleId: token.projectionSampleId,
       resourceProtectionDigest: summarizeChromeReproDigest(
         token.resourceProtectionDigest,
       ),
+      transactionId: token.transactionId,
     };
   }
   if ("frozenFrame" in token) {
@@ -241,21 +237,17 @@ function summarizeChromeReproVisibleTransaction(
       presentableCommit === null
         ? null
         : {
-            expectedActorSetDigest: summarizeChromeReproDigest(
-              presentableCommit.expectedActorSetDigest,
-            ),
-            presentationPairDigest: summarizeChromeReproDigest(
-              presentableCommit.presentationPairDigest,
-            ),
+            committedFrameId: presentableCommit.committedFrameId,
+            contentFrameId: presentableCommit.contentFrameId,
+            presentationId: presentableCommit.presentationId,
             presentationPairProof: summarizeChromeReproPresentationProof(
               presentableCommit.presentationPairProof,
             ),
-            proofDigest: summarizeChromeReproDigest(
-              presentableCommit.proofDigest,
-            ),
+            projectionSampleId: presentableCommit.projectionSampleId,
             resourceProtectionDigest: summarizeChromeReproDigest(
               presentableCommit.resourceProtectionDigest,
             ),
+            transactionId: presentableCommit.transactionId,
           },
     presentationProof:
       presentationProof === null
