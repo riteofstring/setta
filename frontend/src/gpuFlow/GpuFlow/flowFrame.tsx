@@ -509,7 +509,6 @@ function createGpuFlowRetainedRuntimeFrameForLayer({
   });
 }
 
-export { getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls };
 export {
   shouldReuseGpuFlowDeferredRetainedContentPublicationFrame,
   shouldReuseGpuFlowRetainedContentFrameCache,
@@ -517,6 +516,7 @@ export {
   type GpuFlowRetainedContentFrameCache,
 } from "./flowRetainedContentFrameCache";
 export { shouldDeferGpuFlowRetainedContentPostSubmitMaintenance } from "./flowRetainedPageMaintenance";
+export { getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls };
 
 type GpuFlowRetainedCommittedSurfacePublicationRenderContext = {
   readonly committedGpuNativeVisuals: ReturnType<
@@ -676,7 +676,7 @@ export function renderGpuFlowNodeLayerFrame({
     deferResolutionUpdates,
     frameReasons,
     liveProjectionSample,
-    onCommittedSurfacePrepared: ({
+    onCommittedSurfaceCandidatePrepared: ({
       committedSurfacePublicationPreparation,
       context,
       preparedCommittedSurfaceFrame,
@@ -704,14 +704,13 @@ export function renderGpuFlowNodeLayerFrame({
       diagnosticsMs += performance.now() - retainedDiagnosticsStart;
       const htmlSurfaceOverlays =
         projectGpuRetainedDomControlSnapshotSurfaceLayouts({
-          controls: getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls(
-            {
+          controls:
+            getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
               controls:
                 context.publishedRetainedRuntimeFrame.descriptors
                   .domControlSources,
               preparedCommittedSurfaceFrame,
-            },
-          ),
+            }),
           getRetainedScrollOffset:
             context.getRetainedDomControlRuntimeScrollOffset,
           overlays: layer.edgeLabelSurfaces,
@@ -737,7 +736,7 @@ export function renderGpuFlowNodeLayerFrame({
         publicationPreparation: committedSurfacePublicationPreparation,
       });
     },
-    onCommittedSurfacePublished: ({
+    onCommittedSurfaceCandidateAccepted: ({
       committedSurfacePublication,
       context,
       createContentPublicationFrameResultForVisibleProjectionState,
@@ -756,14 +755,13 @@ export function renderGpuFlowNodeLayerFrame({
       });
       const htmlSurfaceOverlays =
         projectGpuRetainedDomControlSnapshotSurfaceLayouts({
-          controls: getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls(
-            {
+          controls:
+            getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
               controls:
                 context.publishedRetainedRuntimeFrame.descriptors
                   .domControlSources,
               preparedCommittedSurfaceFrame,
-            },
-          ),
+            }),
           getRetainedScrollOffset:
             context.getRetainedDomControlRuntimeScrollOffset,
           overlays: layer.edgeLabelSurfaces,
@@ -905,7 +903,9 @@ export function renderGpuFlowNodeLayerFrame({
         visibleProjectionState,
       });
     },
-    onRetainedDisplayPublished: ({ publishedRetainedDisplayOutcomeFrame }) => {
+    onRetainedDisplayCandidateAccepted: ({
+      publishedRetainedDisplayOutcomeFrame,
+    }) => {
       const publishedRetainedFrame = publishedRetainedDisplayOutcomeFrame.frame;
       const publishedRetainedRuntimeFrame =
         publishedRetainedFrame.retainedRuntimeFrame;

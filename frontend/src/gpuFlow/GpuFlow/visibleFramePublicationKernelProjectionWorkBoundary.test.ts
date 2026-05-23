@@ -9,6 +9,9 @@ const FLOW_PROJECTION_FRAME_MODULE_PATH = fileURLToPath(
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
+const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationCandidateOracle.ts", import.meta.url),
+);
 const KERNEL_PROJECTION_COVERAGE_MODULE_PATH = fileURLToPath(
   new URL(
     "./visibleFramePublicationKernelProjectionCoverage.ts",
@@ -26,6 +29,10 @@ describe("GPU Flow visible publication kernel projection work", () => {
       "utf8",
     );
     const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const candidateOracleSource = readFileSync(
+      KERNEL_CANDIDATE_ORACLE_MODULE_PATH,
+      "utf8",
+    );
     const kernelProjectionCoverageSource = readFileSync(
       KERNEL_PROJECTION_COVERAGE_MODULE_PATH,
       "utf8",
@@ -49,10 +56,16 @@ describe("GPU Flow visible publication kernel projection work", () => {
     expect(projectionFrameSource).not.toContain(
       "isGpuFlowRetainedProjectionSurfaceCovered",
     );
-    expect(kernelSource).toContain(
+    expect(candidateOracleSource).toContain(
       "function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
     expect(kernelSource).not.toContain(
+      "function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
+    );
+    expect(kernelSource).not.toContain(
+      "export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
+    );
+    expect(candidateOracleSource).not.toContain(
       "export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
     expect(kernelSource).not.toContain(
@@ -64,7 +77,7 @@ describe("GPU Flow visible publication kernel projection work", () => {
     expect(kernelSource).not.toContain(
       "createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector",
     );
-    expect(kernelSource).toContain(
+    expect(candidateOracleSource).toContain(
       "function selectGpuFlowMotionProjectionFrameWorkBlockedReason",
     );
     expect(kernelSource).not.toContain("resolveGpuFlowRetainedProjectionFrame");

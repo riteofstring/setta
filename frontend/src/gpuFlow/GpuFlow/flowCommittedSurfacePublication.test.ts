@@ -15,12 +15,12 @@ import {
   GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
 } from "./visibleFramePublicationAuthority";
+import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationCandidateOracle";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   type GpuFlowCommittedSurfacePublicationCandidateInput,
   type GpuFlowCommittedSurfacePublicationEffect,
 } from "./visibleFramePublicationContentPlan";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationKernelContentDecisions";
 import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 
 const prepareCommittedSurfacePublicationFramePlanForTest =

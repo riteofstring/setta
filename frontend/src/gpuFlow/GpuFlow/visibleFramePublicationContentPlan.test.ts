@@ -13,6 +13,7 @@ import type {
   RetainedDisplayFrame,
   RetainedDisplayFrameOutcome,
 } from "../retainedDisplayFrame";
+import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationCandidateOracle";
 import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFramePublicationContentAbort";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
@@ -24,7 +25,6 @@ import {
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
 } from "./visibleFramePublicationContentPlan";
 import { prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate } from "./visibleFramePublicationContentPreparation";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationKernelContentDecisions";
 
 const FLOW_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowFrame.tsx", import.meta.url),
@@ -38,14 +38,8 @@ const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
-const KERNEL_CONTENT_DECISION_MODULE_PATH = fileURLToPath(
-  new URL(
-    "./visibleFramePublicationKernelContentDecisions.ts",
-    import.meta.url,
-  ),
-);
-const KERNEL_CONTENT_ORACLE_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationContentOracle.ts", import.meta.url),
+const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationCandidateOracle.ts", import.meta.url),
 );
 const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
@@ -57,11 +51,7 @@ const contentDecisionKernel =
   createGpuFlowVisiblePublicationContentDecisionKernel();
 
 function readGpuFlowVisiblePublicationKernelSource(): string {
-  return [
-    KERNEL_MODULE_PATH,
-    KERNEL_CONTENT_DECISION_MODULE_PATH,
-    KERNEL_CONTENT_ORACLE_MODULE_PATH,
-  ]
+  return [KERNEL_MODULE_PATH, KERNEL_CANDIDATE_ORACLE_MODULE_PATH]
     .map((filePath) => readFileSync(filePath, "utf8"))
     .join("\n");
 }
@@ -200,13 +190,13 @@ describe("GPU Flow visible publication content plans", () => {
   it("keeps content publication selector factories off the kernel public surface", () => {
     const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
-    const contentDecisionSource = readFileSync(
-      KERNEL_CONTENT_DECISION_MODULE_PATH,
+    const candidateOracleSource = readFileSync(
+      KERNEL_CANDIDATE_ORACLE_MODULE_PATH,
       "utf8",
     );
 
     expect(kernelModuleSource).not.toMatch(
-      /export \{[\s\S]*createGpuFlow(?:CommittedSurfacePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector)[\s\S]*\} from "\.\/visibleFramePublicationKernelContentDecisions";/,
+      /export \{[\s\S]*createGpuFlow(?:CommittedSurfacePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector)[\s\S]*\} from "\.\/visibleFramePublicationCandidateOracle";/,
     );
     expect(kernelModuleSource).not.toContain(
       "export { prepareGpuFlowCommittedSurfacePublicationCandidate",
@@ -218,6 +208,9 @@ describe("GPU Flow visible publication content plans", () => {
       "createGpuFlowRetainedDisplayPublicationFramePlanSelector();",
     );
     expect(kernelModuleSource).toContain(
+      "createGpuFlowVisiblePublicationCandidateOracle",
+    );
+    expect(kernelModuleSource).not.toContain(
       "createGpuFlowVisiblePublicationContentDecisionKernel",
     );
     expect(contentPlanSource).not.toContain(
@@ -226,10 +219,10 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentPlanSource).not.toContain(
       "const visiblePublicationContentDecisionKernel",
     );
-    expect(contentDecisionSource).toContain(
+    expect(candidateOracleSource).toContain(
       "export function createGpuFlowVisiblePublicationContentDecisionKernel",
     );
-    expect(contentDecisionSource).not.toMatch(
+    expect(candidateOracleSource).not.toMatch(
       /export function createGpuFlow(?:CommittedSurfacePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector|CommittedSurfacePublicationFramePlanResultResolver|RetainedDisplayPublicationFramePlanResultResolver)/,
     );
   });
@@ -379,6 +372,9 @@ describe("GPU Flow visible publication content plans", () => {
     expect(flowFrameSource).not.toContain("content-frame-result");
     expect(flowFrameSource).not.toContain("published-outcome-frame");
     expect(flowFrameSource).not.toContain("committed-surface-publication");
+    expect(flowFrameSource).not.toContain("onCommittedSurfacePrepared");
+    expect(flowFrameSource).not.toContain("onCommittedSurfacePublished");
+    expect(flowFrameSource).not.toContain("onRetainedDisplayPublished");
     expect(flowFrameSource).toContain(
       "runRetainedCommittedSurfacePublicationContentStage",
     );
@@ -715,10 +711,10 @@ describe("GPU Flow visible publication content plans", () => {
       deferResolutionUpdates: false,
       frameReasons: ["texture-upload"],
       liveProjectionSample: liveProjectionSample(),
-      onCommittedSurfacePublished: () => {
+      onCommittedSurfaceCandidateAccepted: () => {
         throw new Error("Blocked retained stages must not publish committed.");
       },
-      onRetainedDisplayPublished: () => {
+      onRetainedDisplayCandidateAccepted: () => {
         throw new Error("Blocked retained stages must not publish retained.");
       },
       prepareCommittedSurfaceFrame: () => {
@@ -798,10 +794,10 @@ describe("GPU Flow visible publication content plans", () => {
       deferResolutionUpdates: false,
       frameReasons: ["texture-upload"],
       liveProjectionSample: liveProjectionSample(),
-      onCommittedSurfacePublished: () => {
+      onCommittedSurfaceCandidateAccepted: () => {
         throw new Error("Blocked committed stages must not publish.");
       },
-      onRetainedDisplayPublished: ({
+      onRetainedDisplayCandidateAccepted: ({
         publishedRetainedDisplayOutcomeFrame,
       }) => {
         expect(publishedRetainedDisplayOutcomeFrame.frame).toBe(
@@ -915,7 +911,7 @@ describe("GPU Flow visible publication content plans", () => {
       deferResolutionUpdates: false,
       frameReasons: ["texture-upload"],
       liveProjectionSample: liveProjectionSample(),
-      onCommittedSurfacePrepared: ({
+      onCommittedSurfaceCandidatePrepared: ({
         context,
         preparedCommittedSurfaceFrame: preparedFrame,
         retainedDisplayFollowUpFrameReason,
@@ -925,7 +921,7 @@ describe("GPU Flow visible publication content plans", () => {
         expect(preparedFrame).toBe(preparedCommittedSurfaceFrame);
         expect(retainedDisplayFollowUpFrameReason).toBe("texture-upload");
       },
-      onCommittedSurfacePublished: ({
+      onCommittedSurfaceCandidateAccepted: ({
         committedSurfacePublication: publication,
         context,
       }) => {
@@ -934,7 +930,7 @@ describe("GPU Flow visible publication content plans", () => {
         expect(publication).toBe(committedSurfacePublication);
         return "published";
       },
-      onRetainedDisplayPublished: ({
+      onRetainedDisplayCandidateAccepted: ({
         publishedRetainedDisplayOutcomeFrame,
         retainedDisplayPublication: publication,
       }) => {

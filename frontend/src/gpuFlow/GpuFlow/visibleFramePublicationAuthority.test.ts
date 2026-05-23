@@ -11,8 +11,8 @@ const AUTHORITY_MODULE_PATH = modulePath(
   "./visibleFramePublicationAuthority.ts",
 );
 const KERNEL_MODULE_PATH = modulePath("./visibleFramePublicationKernel.ts");
-const KERNEL_CONTENT_DECISION_MODULE_PATH = modulePath(
-  "./visibleFramePublicationKernelContentDecisions.ts",
+const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = modulePath(
+  "./visibleFramePublicationCandidateOracle.ts",
 );
 const KERNEL_PRESENTATION_MODULE_PATH = modulePath(
   "./visibleFramePublicationKernelPresentation.ts",
@@ -1144,11 +1144,10 @@ function extractNamedImports({
 function readVisibleFramePublicationKernelAuthoritySource(): string {
   return [
     KERNEL_MODULE_PATH,
-    KERNEL_CONTENT_DECISION_MODULE_PATH,
+    KERNEL_CANDIDATE_ORACLE_MODULE_PATH,
     KERNEL_PRESENTATION_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
     CONTENT_PLAN_MODULE_PATH,
-    modulePath("./visibleFramePublicationContentOracle.ts"),
     modulePath("./visibleFramePublicationOracle.ts"),
   ]
     .map((filePath) => readFileSync(filePath, "utf8"))
@@ -1156,7 +1155,7 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
 }
 
 function readCommittedSurfaceAuthorityCandidateSource(): string {
-  const source = readVisibleFramePublicationKernelAuthoritySource();
+  const source = readFileSync(KERNEL_CANDIDATE_ORACLE_MODULE_PATH, "utf8");
   const candidateStart = source.indexOf(
     "function prepareGpuFlowCommittedSurfacePublicationCandidate",
   );
