@@ -3,6 +3,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
   type MutableRefObject,
   type ReactNode,
@@ -24,7 +25,6 @@ import {
   getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
   type GpuFlowBrowserVisualActorRuntime,
 } from "./browserVisualActorRuntime";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
 import {
   projectGpuFlowDomControlPlaneGeometry,
   projectGpuFlowDomControlPlaneHost,
@@ -33,6 +33,7 @@ import {
   type GpuFlowRetainedScrollOffsetGetter,
 } from "./domControlPlaneProjection";
 import { getLiveGpuFlowDomControlPlaneViewport } from "./domControlPlaneViewport";
+import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
 export {
   filterGpuFlowDomControlPlaneMountedControls,
   resolveGpuFlowDomControlPlaneProjectionAssignments,
@@ -127,10 +128,8 @@ export function GpuFlowDomControlPlane({
     browserVisualRuntime.getSnapshot.bind(browserVisualRuntime),
     browserVisualRuntime.getSnapshot.bind(browserVisualRuntime),
   );
-  const preparationSnapshot = useSyncExternalStore(
-    browserVisualRuntime.subscribePreparation.bind(browserVisualRuntime),
-    browserVisualRuntime.getPreparationSnapshot.bind(browserVisualRuntime),
-    browserVisualRuntime.getPreparationSnapshot.bind(browserVisualRuntime),
+  const [preparationSnapshot, setPreparationSnapshot] = useState(() =>
+    browserVisualRuntime.getPreparationSnapshot(),
   );
   const frameIds = snapshot.frameIds;
   const publicationToken = snapshot.publicationToken;
@@ -207,6 +206,14 @@ export function GpuFlowDomControlPlane({
     },
     [browserVisualRuntime],
   );
+  useLayoutEffect(() => {
+    browserVisualRuntime.setDomControlPreparationHostRenderer(
+      setPreparationSnapshot,
+    );
+    return () => {
+      browserVisualRuntime.setDomControlPreparationHostRenderer(null);
+    };
+  }, [browserVisualRuntime]);
 
   useLayoutEffect(() => {
     browserVisualRuntime.setDomControlProjectionEnvironment({
@@ -541,12 +548,7 @@ function GpuFlowDomControlHost({
       const previousControl =
         registeredControlRef.current ?? latestControlRef.current;
       registeredControlRef.current = null;
-      setControlElement(
-        previousControl,
-        null,
-        presentation,
-        publicationToken,
-      );
+      setControlElement(previousControl, null, presentation, publicationToken);
     },
     [presentation, publicationToken, setControlElement],
   );

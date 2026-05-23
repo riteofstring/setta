@@ -616,12 +616,6 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(domControlCoverageState(readyReadiness!, nextControl)).toBe(
       "live-host-ready",
     );
-    let preparationNotificationsAfterCommit = 0;
-    const unsubscribePreparation = browserVisualRuntime.subscribePreparation(
-      () => {
-        preparationNotificationsAfterCommit += 1;
-      },
-    );
     await act(async () => {
       browserVisualRuntime.commitPreparedBrowserVisualActors({
         candidate: readyReadiness!,
@@ -634,7 +628,6 @@ describe("GPU flow DOM control projection runtime", () => {
       });
       await nextMicrotask();
     });
-    unsubscribePreparation();
     expect(
       browserVisualRuntime
         .getSnapshot()
@@ -643,7 +636,6 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(
       browserVisualRuntime.getPreparationSnapshot().domControls.mountedControls,
     ).toContain(nextControl);
-    expect(preparationNotificationsAfterCommit).toBe(0);
   });
 
   it("reports compatible previous projection as proof-backed readiness", () => {
@@ -727,7 +719,7 @@ describe("GPU flow DOM control projection runtime", () => {
     );
   });
 
-  it("does not emit preparation snapshots until a hold or blocked outcome stages the candidate", () => {
+  it("stages preparation snapshots without a React external-store publisher", () => {
     const nextControl = domControl({ index: 1 });
     const nextRuntimeFrame = retainedRuntimeFrame([nextControl], 2);
     const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
@@ -742,10 +734,7 @@ describe("GPU flow DOM control projection runtime", () => {
       viewportRuntime,
       viewportStore,
     });
-    let preparationEmitCount = 0;
-    const unsubscribe = browserVisualRuntime.subscribePreparation(() => {
-      preparationEmitCount += 1;
-    });
+    expect("subscribePreparation" in browserVisualRuntime).toBe(false);
 
     const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
       retainedDisplayFrame: retainedDisplayFrame({
@@ -754,7 +743,6 @@ describe("GPU flow DOM control projection runtime", () => {
       }),
     });
 
-    expect(preparationEmitCount).toBe(0);
     expect(
       browserVisualRuntime.getPreparationSnapshot().domControls.mountedControls,
     ).toEqual([]);
@@ -765,13 +753,11 @@ describe("GPU flow DOM control projection runtime", () => {
       candidate,
     });
 
-    expect(preparationEmitCount).toBe(1);
     expect(
       browserVisualRuntime
         .getPreparationSnapshot()
         .domControls.mountedControls.map((control) => control.rowId),
     ).toContain("row-1");
-    unsubscribe();
   });
 
   it("rejects unbranded tokens when staging prepared candidate hosts", () => {

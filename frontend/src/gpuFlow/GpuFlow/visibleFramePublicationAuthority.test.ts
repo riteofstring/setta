@@ -31,6 +31,9 @@ const BROWSER_VISUAL_RUNTIME_MODULE_PATH = modulePath(
 );
 const DOM_CONTROL_PLANE_MODULE_PATH = modulePath("./domControlPlane.tsx");
 const DOM_ISLAND_LAYER_MODULE_PATH = modulePath("./domIslandLayer.tsx");
+const RETAINED_DOM_CONTROL_SNAPSHOT_SOURCES_MODULE_PATH = modulePath(
+  "./retainedDomControlSnapshotSources.tsx",
+);
 const SURFACE_TEXTURE_RELEASE_AUTHORITY_MODULE_PATH = modulePath(
   "../surfaceTextureReleaseAuthority.ts",
 );
@@ -916,6 +919,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "utf8",
     );
     const domIslandSource = readFileSync(DOM_ISLAND_LAYER_MODULE_PATH, "utf8");
+    const retainedSnapshotSource = readFileSync(
+      RETAINED_DOM_CONTROL_SNAPSHOT_SOURCES_MODULE_PATH,
+      "utf8",
+    );
     const browserVisualRuntimeSource = readFileSync(
       BROWSER_VISUAL_RUNTIME_MODULE_PATH,
       "utf8",
@@ -940,6 +947,15 @@ describe("GPU Flow visible publication authority boundaries", () => {
       BROWSER_VISUAL_RUNTIME_MODULE_PATH,
       "utf8",
     );
+    const domControlSource = readFileSync(
+      DOM_CONTROL_PLANE_MODULE_PATH,
+      "utf8",
+    );
+    const domIslandSource = readFileSync(DOM_ISLAND_LAYER_MODULE_PATH, "utf8");
+    const retainedSnapshotSource = readFileSync(
+      RETAINED_DOM_CONTROL_SNAPSHOT_SOURCES_MODULE_PATH,
+      "utf8",
+    );
     const commitMethodStart = browserVisualRuntimeSource.indexOf(
       "commitPreparedBrowserVisualActors",
     );
@@ -957,6 +973,11 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "this.publishBrowserVisualHostPresentation",
     );
     expect(commitMethodSource).not.toContain("this.emitPreparation()");
+    expect(browserVisualRuntimeSource).not.toContain("subscribePreparation");
+    expect(browserVisualRuntimeSource).not.toContain("preparationListeners");
+    expect(domControlSource).not.toContain("subscribePreparation");
+    expect(domIslandSource).not.toContain("subscribePreparation");
+    expect(retainedSnapshotSource).not.toContain("subscribePreparation");
     expect(
       commitMethodSource.indexOf("this.publishBrowserVisualHostPresentation"),
     ).toBeLessThan(commitMethodSource.indexOf("this.scheduleSnapshotEmit()"));

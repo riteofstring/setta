@@ -3,6 +3,7 @@ import {
   useCallback,
   useLayoutEffect,
   useMemo,
+  useState,
   useSyncExternalStore,
   type MutableRefObject,
   type ReactNode,
@@ -116,22 +117,28 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
       [browserVisualRuntime],
     ),
   );
-  const browserVisualPreparationSnapshot = useSyncExternalStore(
-    useCallback(
-      (listener) =>
-        browserVisualRuntime
-          ? browserVisualRuntime.subscribePreparation(listener)
-          : noop,
-      [browserVisualRuntime],
-    ),
-    useCallback(
-      () => browserVisualRuntime?.getPreparationSnapshot() ?? null,
-      [browserVisualRuntime],
-    ),
-    useCallback(
-      () => browserVisualRuntime?.getPreparationSnapshot() ?? null,
-      [browserVisualRuntime],
-    ),
+  const [
+    browserVisualPreparationSnapshot,
+    setBrowserVisualPreparationSnapshot,
+  ] = useState(() => browserVisualRuntime?.getPreparationSnapshot() ?? null);
+  useLayoutEffect(() => {
+    if (!browserVisualRuntime) {
+      setBrowserVisualPreparationSnapshot(null);
+      return;
+    }
+    browserVisualRuntime.setDomControlSnapshotPreparationRenderer(
+      setBrowserVisualPreparationSnapshot,
+    );
+    return () => {
+      browserVisualRuntime.setDomControlSnapshotPreparationRenderer(null);
+    };
+  }, [browserVisualRuntime]);
+  const retainedRuntimeFrameSnapshotSources = useMemo(
+    () =>
+      getGpuRetainedDomControlSnapshotSources(
+        retainedRuntimeFrame?.descriptors.domControlSources,
+      ),
+    [retainedRuntimeFrame],
   );
   const snapshotSources = useMemo(() => {
     if (browserVisualRuntime) {
@@ -141,14 +148,12 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
           []),
       ]);
     }
-    return getGpuRetainedDomControlSnapshotSources(
-      retainedRuntimeFrame?.descriptors.domControlSources,
-    );
+    return retainedRuntimeFrameSnapshotSources;
   }, [
     browserVisualRuntime,
     browserVisualPreparationSnapshot,
     browserVisualSnapshot,
-    retainedRuntimeFrame,
+    retainedRuntimeFrameSnapshotSources,
   ]);
   const preparationSnapshotSourceIds = useMemo(
     () =>
@@ -179,9 +184,9 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
         const texture =
           textureManager?.getCommittedSurfaceTexture(surfaceId) ?? null;
         const lifecycle =
-          textureManager?.getSurfaceTextureLifecycleDiagnostics([surfaceId])?.[
-            0
-          ] ?? null;
+          textureManager?.getSurfaceTextureLifecycleDiagnostics([
+            surfaceId,
+          ])?.[0] ?? null;
         return {
           expectedTextureContentKey: source.snapshotCacheKeyRevision,
           inPreparation: preparationSnapshotSourceIds?.has(surfaceId) === true,
@@ -354,7 +359,10 @@ export function registerGpuFlowRetainedDomControlSnapshotSourceTexture({
   readonly element: Element;
   readonly source: GpuRetainedDomControlSourceDescriptor;
   readonly surfaceId: string;
-  readonly textureManager: Pick<HtmlSurfaceTextureManager, "registerSurfaceTexture">;
+  readonly textureManager: Pick<
+    HtmlSurfaceTextureManager,
+    "registerSurfaceTexture"
+  >;
 }): void {
   textureManager.registerSurfaceTexture({
     cssHeight: source.sourceRectCssPx.height,

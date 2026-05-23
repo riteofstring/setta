@@ -74,6 +74,9 @@ export type GpuFlowBrowserVisualActorRuntimeSnapshot = {
 };
 
 type BrowserVisualActorRuntimeListener = () => void;
+type BrowserVisualActorPreparationHostRenderer = (
+  snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot,
+) => void;
 type GpuFlowBrowserVisualActorProjectionInput = {
   readonly token: GpuFlowCommitPublicationToken;
   readonly viewport?: GpuViewportInput | undefined;
@@ -176,9 +179,13 @@ export class GpuFlowBrowserVisualActorRuntime {
   private readonly listeners = new Set<BrowserVisualActorRuntimeListener>();
   private readonly projectionManager =
     createGpuFlowDomControlProjectionManager();
+  private domControlPreparationHostRenderer: BrowserVisualActorPreparationHostRenderer | null =
+    null;
+  private domControlSnapshotPreparationRenderer: BrowserVisualActorPreparationHostRenderer | null =
+    null;
+  private domIslandPreparationHostRenderer: BrowserVisualActorPreparationHostRenderer | null =
+    null;
   private preparationSnapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
-  private readonly preparationListeners =
-    new Set<BrowserVisualActorRuntimeListener>();
   private snapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
   private snapshotEmitQueued = false;
   private snapshotEmitPending = false;
@@ -217,15 +224,6 @@ export class GpuFlowBrowserVisualActorRuntime {
     }
     return () => {
       this.listeners.delete(listener);
-    };
-  }
-
-  subscribePreparation(
-    listener: BrowserVisualActorRuntimeListener,
-  ): () => void {
-    this.preparationListeners.add(listener);
-    return () => {
-      this.preparationListeners.delete(listener);
     };
   }
 
@@ -323,6 +321,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     this.projectionManager.commitPromotedRepresentations(
       candidate.snapshot.domControls.assignments,
     );
+    this.renderBrowserVisualPreparationHosts();
     if (snapshotChanged) {
       this.scheduleSnapshotEmit();
     }
@@ -345,7 +344,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       return;
     }
     this.preparationSnapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
-    this.emitPreparation();
+    this.renderBrowserVisualPreparationHosts();
   }
 
   setDomControlProjectionEnvironment({
@@ -373,6 +372,27 @@ export class GpuFlowBrowserVisualActorRuntime {
   }): void {
     this.islandViewportRuntime = viewportRuntime;
     this.islandViewportStore = viewportStore;
+  }
+
+  setDomControlPreparationHostRenderer(
+    renderer: BrowserVisualActorPreparationHostRenderer | null,
+  ): void {
+    this.domControlPreparationHostRenderer = renderer;
+    renderer?.(this.preparationSnapshot);
+  }
+
+  setDomControlSnapshotPreparationRenderer(
+    renderer: BrowserVisualActorPreparationHostRenderer | null,
+  ): void {
+    this.domControlSnapshotPreparationRenderer = renderer;
+    renderer?.(this.preparationSnapshot);
+  }
+
+  setDomIslandPreparationHostRenderer(
+    renderer: BrowserVisualActorPreparationHostRenderer | null,
+  ): void {
+    this.domIslandPreparationHostRenderer = renderer;
+    renderer?.(this.preparationSnapshot);
   }
 
   setSuspendPassivePointerActivation(suspend: boolean): void {
@@ -711,7 +731,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       return;
     }
     this.preparationSnapshot = nextPreparationSnapshot;
-    this.emitPreparation();
+    this.renderBrowserVisualPreparationHosts();
   }
 
   private publishBrowserVisualSnapshot({
@@ -998,10 +1018,10 @@ export class GpuFlowBrowserVisualActorRuntime {
     }
   }
 
-  private emitPreparation(): void {
-    for (const listener of this.preparationListeners) {
-      listener();
-    }
+  private renderBrowserVisualPreparationHosts(): void {
+    this.domControlPreparationHostRenderer?.(this.preparationSnapshot);
+    this.domControlSnapshotPreparationRenderer?.(this.preparationSnapshot);
+    this.domIslandPreparationHostRenderer?.(this.preparationSnapshot);
   }
 
   private getDomControlHostMap(

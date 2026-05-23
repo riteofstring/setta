@@ -3,6 +3,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
@@ -58,10 +59,8 @@ export function GpuFlowDomIslandLayer({
     browserVisualRuntime.getSnapshot.bind(browserVisualRuntime),
     browserVisualRuntime.getSnapshot.bind(browserVisualRuntime),
   );
-  const preparationSnapshot = useSyncExternalStore(
-    browserVisualRuntime.subscribePreparation.bind(browserVisualRuntime),
-    browserVisualRuntime.getPreparationSnapshot.bind(browserVisualRuntime),
-    browserVisualRuntime.getPreparationSnapshot.bind(browserVisualRuntime),
+  const [preparationSnapshot, setPreparationSnapshot] = useState(() =>
+    browserVisualRuntime.getPreparationSnapshot(),
   );
   const domIslands = snapshot.domIslands.islands;
   const publicationToken = snapshot.publicationToken;
@@ -94,13 +93,21 @@ export function GpuFlowDomIslandLayer({
     },
     [browserVisualRuntime],
   );
-
   useLayoutEffect(() => {
     browserVisualRuntime.setDomIslandProjectionEnvironment({
       viewportRuntime,
       viewportStore,
     });
   }, [browserVisualRuntime, viewportRuntime, viewportStore]);
+
+  useLayoutEffect(() => {
+    browserVisualRuntime.setDomIslandPreparationHostRenderer(
+      setPreparationSnapshot,
+    );
+    return () => {
+      browserVisualRuntime.setDomIslandPreparationHostRenderer(null);
+    };
+  }, [browserVisualRuntime]);
 
   useLayoutEffect(() => {
     return viewportRuntime.registerOverlayManager({
@@ -111,10 +118,7 @@ export function GpuFlowDomIslandLayer({
   }, [browserVisualRuntime, viewportRuntime]);
 
   const renderDomIslandContent = renderDomIsland;
-  if (
-    !renderDomIslandContent ||
-    (domIslands.length === 0 && preparationDomIslands.length === 0)
-  ) {
+  if (!renderDomIslandContent) {
     return null;
   }
 
@@ -135,12 +139,7 @@ export function GpuFlowDomIslandLayer({
           data-gpu-flow-dom-island-kind={island.kind}
           key={island.id}
           ref={(element) =>
-            setDomIslandElement(
-              island.id,
-              element,
-              "visible",
-              publicationToken,
-            )
+            setDomIslandElement(island.id, element, "visible", publicationToken)
           }
           style={getGpuFlowDomIslandInitialStyle({
             island,
