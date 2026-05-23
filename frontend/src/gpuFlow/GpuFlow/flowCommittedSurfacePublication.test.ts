@@ -16,10 +16,10 @@ import {
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
 } from "./visibleFramePublicationAuthority";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationToken,
   prepareGpuFlowCommittedSurfacePublicationCandidate,
   type GpuFlowCommittedSurfacePublicationEffect,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFramePublicationContentPlan";
+import { createGpuFlowVisibleFrameBlockedPublicationToken } from "./visibleFramePublicationKernel";
 
 describe("GPU Flow committed surface publication effect executor", () => {
   afterEach(() => {

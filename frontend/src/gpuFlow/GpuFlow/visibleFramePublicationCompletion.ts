@@ -1,8 +1,8 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
   createGpuFlowVisiblePublicationScheduler,
-  type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowLiveProjectionSample,
+  type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
@@ -494,6 +494,7 @@ export function createGpuFlowVisiblePublicationTransactionReport({
     previousCommittedFrameId,
     projectionSampleId: publicationDecision.sample.id,
     rawReasons: publicationDecision.rawReasons,
+    remainingActorDebt: commitOracleReport.remainingActorDebt,
     remainingDebt: completion.debt,
     schedulerOutcome: completion.outcome,
     schedulerState: publicationDecision.schedulerState,

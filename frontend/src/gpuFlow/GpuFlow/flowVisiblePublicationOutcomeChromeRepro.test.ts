@@ -25,12 +25,13 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
             browserVisual: {
               proof: {
                 actualInteraction: "inactive-visual-only",
-                actualVisual: "exact-snapshot",
+                actualVisual: "compatible-previous",
                 requiredInteraction: "inactive-visual-only",
                 requiredVisual: "browser-visual",
               },
             },
             canonicalActorId: "canonical-text-a",
+            visibleNonempty: true,
             textCoverageProof: {
               compatiblePreviousProof: {
                 budgetState: "within-budget",
@@ -61,6 +62,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
               },
             },
             canonicalActorId: "canonical-text-b",
+            visibleNonempty: true,
           },
           {
             actorFamily: "dom-island",
@@ -149,8 +151,8 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
           },
           actualVisual: {
             blocked: 1,
+            "compatible-previous": 1,
             "exact-live-host": 1,
-            "exact-snapshot": 1,
           },
           requiredInteraction: {
             "active-editor-live": 1,
@@ -195,6 +197,20 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         },
         outcome: "commit",
         previousCommittedFrameId: 6,
+        remainingActorDebt: [
+          {
+            actorId: "actor-a",
+            canonicalActorId: "canonical-text-a",
+            ownerFamily: "text-like-dom-control",
+            remainingDebt: ["exact-browser-visual"],
+          },
+          {
+            actorId: "actor-b",
+            canonicalActorId: "canonical-text-b",
+            ownerFamily: "text-like-dom-control",
+            remainingDebt: ["browser-visual", "active-editor"],
+          },
+        ],
         transactionId: "transaction-a",
         visibleTransaction: {
           inputSampleId: 11,

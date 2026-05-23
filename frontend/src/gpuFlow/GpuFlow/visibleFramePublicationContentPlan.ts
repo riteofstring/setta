@@ -29,7 +29,10 @@ import {
 } from "./flowRetainedDisplayTransaction";
 import {
   createGpuFlowBrowserVisualBlockedPublicationCandidate,
+  createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction,
   createGpuFlowRetainedProjectionBlockedPublicationCandidate,
+  decideGpuFlowCommittedSurfacePublicationTransaction,
+  shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair,
 } from "./visibleFramePublicationCandidates";
 import type {
   GpuFlowBlockedPublicationToken,
@@ -210,6 +213,71 @@ export type GpuFlowCommittedSurfacePublicationFramePlanPreparation = {
 export type GpuFlowCommittedSurfacePublicationFramePlanPreparer = (
   input: GpuFlowCommittedSurfacePublicationCandidateInput,
 ) => GpuFlowCommittedSurfacePublicationFramePlanPreparation;
+
+export function prepareGpuFlowCommittedSurfacePublicationCandidate({
+  committedGpuNativeVisuals,
+  deferBrowserVisualRetry,
+  frameReasons,
+  heldPreviousProjectionState,
+  liveProjectionSample,
+  publicationLane,
+  publishedCommittedSurfaceFrame,
+  publishedRetainedFrame,
+}: GpuFlowCommittedSurfacePublicationCandidateInput): GpuFlowCommittedSurfacePublicationCandidate {
+  const transactionDecision =
+    decideGpuFlowCommittedSurfacePublicationTransaction({
+      heldPreviousProjectionState,
+      publishedCommittedSurfaceFrame,
+    });
+  if (transactionDecision.kind === "publish") {
+    return {
+      effect: { kind: "publish" },
+      kind: "publish",
+    };
+  }
+  if (!publishedCommittedSurfaceFrame) {
+    throw new Error(
+      "GPU Flow committed surface publication transaction blocked without a candidate frame.",
+    );
+  }
+  if (transactionDecision.kind === "blocked") {
+    return {
+      blockedPublicationCandidate:
+        transactionDecision.blockedPublicationCandidate,
+      candidateFrame: publishedCommittedSurfaceFrame,
+      effect: {
+        candidateFrame: publishedCommittedSurfaceFrame,
+        deferRetry: deferBrowserVisualRetry === true,
+        kind: "blocked",
+        timestamp: liveProjectionSample.timestamp,
+      },
+      errorMessage: transactionDecision.errorMessage,
+      kind: "blocked",
+      preservePreparationSnapshot:
+        shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair(
+          transactionDecision.blockedPublicationCandidate,
+        ),
+    };
+  }
+  const heldPreviousTransaction =
+    createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction({
+      committedGpuNativeVisuals,
+      frameReasons,
+      heldPreviousProjectionState,
+      liveProjectionSample,
+      publicationLane,
+      publishedRetainedFrame,
+    });
+  return {
+    ...heldPreviousTransaction,
+    effect: {
+      candidateFrame: publishedCommittedSurfaceFrame,
+      deferRetry: deferBrowserVisualRetry === true,
+      kind: "held-previous",
+      timestamp: liveProjectionSample.timestamp,
+    },
+  };
+}
 
 export type GpuFlowRetainedDisplayPublicationOutcomeFrameResolver = (
   input: Parameters<

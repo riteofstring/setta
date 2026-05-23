@@ -60,34 +60,24 @@ describe("GPU Flow visible publication transaction oracle", () => {
     );
   });
 
-  it("records content and motion proof sources", () => {
+  it("records blocked proof sources", () => {
     const contentVisibleState = visibleProjectionState({
       kind: "content-publication",
       sample: liveProjectionSample({ id: 43, timestamp: 430 }),
-    });
-    const motionVisibleState = visibleProjectionState({
-      kind: "motion-projection",
-      sample: liveProjectionSample({ id: 44, timestamp: 446 }),
     });
     const contentBlockedCandidate =
       createGpuFlowRetainedProjectionBlockedPublicationCandidate({
         blockedReason: "content-publication-blocked",
         heldPreviousProjectionState: null,
       });
-    const motionBlockedCandidate =
-      createGpuFlowRetainedProjectionBlockedPublicationCandidate({
-        blockedReason: "motion-projection-blocked",
-        heldPreviousProjectionState: null,
-      });
-
     const oracle = createGpuFlowVisibleFramePublicationTransactionOracle({
       contentPublicationFrame: {
         blockedPublicationCandidate: contentBlockedCandidate,
-        visibleProjectionState: contentVisibleState,
+        visibleProjectionState: null,
       },
       motionProjectionFrame: {
-        blockedPublicationCandidate: motionBlockedCandidate,
-        visibleProjectionState: motionVisibleState,
+        blockedPublicationCandidate: null,
+        visibleProjectionState: null,
       },
       publicationDecision: publicationDecision(contentVisibleState.sample),
     });
@@ -100,11 +90,10 @@ describe("GPU Flow visible publication transaction oracle", () => {
       source: "content-publication",
     });
     expect(oracle.blockedSource).toBe("content-publication");
-    expect(oracle.commitOracle).not.toBeNull();
-    expect(oracle.commitOracle?.debtProof.content).toBe(true);
-    expect(oracle.renderedVisibleFrame).toBe(true);
-    expect(oracle.visibleProjectionSource).toBe("content-publication");
-    expect(oracle.visibleProjectionState).toBe(contentVisibleState);
+    expect(oracle.commitOracle).toBeNull();
+    expect(oracle.renderedVisibleFrame).toBe(false);
+    expect(oracle.visibleProjectionSource).toBeNull();
+    expect(oracle.visibleProjectionState).toBeNull();
   });
 
   it("reports authoritative per-actor visual and interaction proof entries", () => {
@@ -132,6 +121,14 @@ describe("GPU Flow visible publication transaction oracle", () => {
         requiredVisualRepresentation: "browser-visual",
         sampledVisualEvidence: "compatible-previous",
       }),
+    ]);
+    expect(oracle.remainingActorDebt).toEqual([
+      {
+        actorId: "control-a",
+        canonicalActorId: actor.canonicalActorId,
+        ownerFamily: "text-like-dom-control",
+        remainingDebt: ["exact-browser-visual", "active-editor"],
+      },
     ]);
     expect(oracle.actorProofDigest).toContain("text-like-dom-control");
     expect(oracle.browserActorProofs.actualVisual).toEqual({
@@ -169,7 +166,7 @@ describe("GPU Flow visible publication transaction oracle", () => {
     },
   );
 
-  it("selects content visible state over motion visible state", () => {
+  it("rejects competing content and motion visible projection states", () => {
     const contentVisibleState = visibleProjectionState({
       kind: "content-publication",
       sample: liveProjectionSample({ id: 40, timestamp: 400 }),
@@ -179,24 +176,94 @@ describe("GPU Flow visible publication transaction oracle", () => {
       sample: liveProjectionSample({ id: 41, timestamp: 416 }),
     });
 
+    expect(() =>
+      selectGpuFlowVisibleFramePublicationPreparedFrame({
+        contentPublicationFrame: {
+          blockedPublicationCandidate: null,
+          visibleProjectionState: contentVisibleState,
+        },
+        motionProjectionFrame: {
+          blockedPublicationCandidate: null,
+          visibleProjectionState: motionVisibleState,
+        },
+        publicationDecision: publicationDecision(contentVisibleState.sample),
+      }),
+    ).toThrow(
+      "GPU Flow visible publication oracle received competing content and motion visible projection states for one transaction.",
+    );
+  });
+
+  it("rejects blocked proof beside a visible projection state", () => {
+    const contentVisibleState = visibleProjectionState({
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 44, timestamp: 440 }),
+    });
+    const motionBlockedCandidate =
+      createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+        blockedReason: "motion-projection-blocked",
+        heldPreviousProjectionState: null,
+      });
+
+    expect(() =>
+      createGpuFlowVisibleFramePublicationTransactionOracle({
+        contentPublicationFrame: {
+          blockedPublicationCandidate: null,
+          visibleProjectionState: contentVisibleState,
+        },
+        motionProjectionFrame: {
+          blockedPublicationCandidate: motionBlockedCandidate,
+          visibleProjectionState: null,
+        },
+        publicationDecision: publicationDecision(contentVisibleState.sample),
+      }),
+    ).toThrow(
+      "GPU Flow visible publication oracle cannot combine a blocked proof with a visible projection state.",
+    );
+  });
+
+  it("records motion projection as the visible source when content does not publish", () => {
+    const motionVisibleState = visibleProjectionState({
+      kind: "motion-projection",
+      sample: liveProjectionSample({ id: 41, timestamp: 416 }),
+    });
+
     const prepared = selectGpuFlowVisibleFramePublicationPreparedFrame({
       contentPublicationFrame: {
         blockedPublicationCandidate: null,
-        visibleProjectionState: contentVisibleState,
+        visibleProjectionState: null,
       },
       motionProjectionFrame: {
         blockedPublicationCandidate: null,
         visibleProjectionState: motionVisibleState,
       },
-      publicationDecision: publicationDecision(contentVisibleState.sample),
+      publicationDecision: publicationDecision(motionVisibleState.sample),
     });
 
     expect(prepared.renderedVisibleFrame).toBe(true);
-    expect(prepared.visibleProjectionState).toBe(contentVisibleState);
+    expect(prepared.presentableCommit).toEqual(
+      expect.objectContaining({
+        committedFrameId: motionVisibleState.committedFrame.displayFrameId,
+        projectionSampleId: motionVisibleState.sample.id,
+      }),
+    );
+    expect(prepared.visibleProjectionState).toBe(motionVisibleState);
+    expect(
+      createGpuFlowVisibleFramePublicationTransactionOracle({
+        contentPublicationFrame: {
+          blockedPublicationCandidate: null,
+          visibleProjectionState: null,
+        },
+        motionProjectionFrame: {
+          blockedPublicationCandidate: null,
+          visibleProjectionState: motionVisibleState,
+        },
+        publicationDecision: publicationDecision(motionVisibleState.sample),
+      }).visibleProjectionSource,
+    ).toBe("motion-projection");
     expect(prepared.commitOracle?.debtProof.content).toBe(true);
   });
 
-  it("selects content blocked candidates over motion projection blocks", () => {
+  it("rejects competing content and motion blocked candidates", () => {
     const contentBlockedCandidate =
       createGpuFlowRetainedProjectionBlockedPublicationCandidate({
         blockedReason: "content-publication-blocked",
@@ -208,29 +275,23 @@ describe("GPU Flow visible publication transaction oracle", () => {
         heldPreviousProjectionState: null,
       });
 
-    const prepared = selectGpuFlowVisibleFramePublicationPreparedFrame({
-      contentPublicationFrame: {
-        blockedPublicationCandidate: contentBlockedCandidate,
-        visibleProjectionState: null,
-      },
-      motionProjectionFrame: {
-        blockedPublicationCandidate: motionBlockedCandidate,
-        visibleProjectionState: null,
-      },
-      publicationDecision: publicationDecision(
-        liveProjectionSample({ id: 46, timestamp: 460 }),
-      ),
-    });
-
-    expect(prepared.blockedPublicationCandidate).toBe(contentBlockedCandidate);
-    expect(prepared.blockedProof).toEqual({
-      blockedReasons: contentBlockedCandidate.blockedReasons,
-      candidate: contentBlockedCandidate,
-      frozenFrameId: contentBlockedCandidate.frozenFrameId,
-      source: "content-publication",
-    });
-    expect(prepared.commitOracle).toBeNull();
-    expect(prepared.renderedVisibleFrame).toBe(false);
+    expect(() =>
+      selectGpuFlowVisibleFramePublicationPreparedFrame({
+        contentPublicationFrame: {
+          blockedPublicationCandidate: contentBlockedCandidate,
+          visibleProjectionState: null,
+        },
+        motionProjectionFrame: {
+          blockedPublicationCandidate: motionBlockedCandidate,
+          visibleProjectionState: null,
+        },
+        publicationDecision: publicationDecision(
+          liveProjectionSample({ id: 46, timestamp: 460 }),
+        ),
+      }),
+    ).toThrow(
+      "GPU Flow visible publication oracle received competing content and motion blocked publication candidates for one transaction.",
+    );
   });
 
   it("uses prepared motion projection blocked candidates", () => {
@@ -260,6 +321,7 @@ describe("GPU Flow visible publication transaction oracle", () => {
 
     expect(prepared.renderedVisibleFrame).toBe(false);
     expect(prepared.commitOracle).toBeNull();
+    expect(prepared.presentableCommit).toBeNull();
     expect(prepared.blockedPublicationCandidate).toBe(motionBlockedCandidate);
     expect(prepared.blockedProof).toEqual({
       blockedReasons: motionBlockedCandidate.blockedReasons,
@@ -298,6 +360,7 @@ describe("GPU Flow visible publication transaction oracle", () => {
       blockedPublicationCandidate: null,
       blockedProof: null,
       commitOracle: null,
+      presentableCommit: null,
       renderedVisibleFrame: false,
       visibleProjectionState: null,
     });

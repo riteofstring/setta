@@ -39,13 +39,19 @@ export function createGpuFlowMotionProjectionWorkPlan({
 }
 
 export function createGpuFlowContentPublicationWorkPlan({
+  blockedProjectionOnlyFrame,
   publicationDecision,
   renderedProjectionOnlyFrame,
 }: {
+  readonly blockedProjectionOnlyFrame: boolean;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly renderedProjectionOnlyFrame: boolean;
 }): GpuFlowContentPublicationWorkPlan {
-  if (renderedProjectionOnlyFrame || publicationDecision.lane === "idle") {
+  if (
+    blockedProjectionOnlyFrame ||
+    renderedProjectionOnlyFrame ||
+    publicationDecision.lane === "idle"
+  ) {
     return Object.freeze({
       kind: "skip" as const,
     });

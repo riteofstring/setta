@@ -14,12 +14,14 @@ import {
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import {
-  completeGpuFlowVisibleFramePublicationTransaction,
   createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction,
+  decideGpuFlowCommittedSurfacePublicationTransaction,
+} from "./visibleFramePublicationCandidates";
+import {
+  completeGpuFlowVisibleFramePublicationTransaction,
   createGpuFlowRetainedProjectionBlockedPublicationCandidate,
   createGpuFlowVisibleFrameBlockedPublicationToken,
   createGpuFlowVisiblePublicationCommitOracle,
-  decideGpuFlowCommittedSurfacePublicationTransaction,
   decideGpuFlowRetainedProjectionPublicationTransaction,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   type GpuFlowVisibleFramePublicationSample,
@@ -109,6 +111,9 @@ describe("GPU Flow visible publication transaction kernel", () => {
         committedFrameId: contentVisibleState.committedFrame.displayFrameId,
         projectionSampleId: sample.id,
       }),
+    );
+    expect(result.preparedFrame.transactionOracle.presentableCommit).toBe(
+      result.preparedFrame.presentableCommit,
     );
   });
 
@@ -250,11 +255,19 @@ describe("GPU Flow visible publication transaction kernel", () => {
       maintenance: false,
       motion: false,
     });
+    expect(oracle.remainingActorDebt).toEqual([
+      {
+        actorId: "actor-a",
+        canonicalActorId: "canonical-text-a",
+        ownerFamily: "text-like-dom-control",
+        remainingDebt: ["exact-browser-visual"],
+      },
+    ]);
     expect(oracle.browserActorProofs).toEqual(
       expect.objectContaining({
         actorCount: 1,
         actualInteraction: { "inactive-visual-only": 1 },
-        actualVisual: { "exact-snapshot": 1 },
+        actualVisual: { "compatible-previous": 1 },
       }),
     );
     expect(oracle.compatiblePreviousProofs).toEqual(
@@ -982,12 +995,13 @@ function committedSurfaceFrameWithCompatiblePreviousCoverage(): GpuFlowCommitted
         browserVisual: {
           proof: {
             actualInteraction: "inactive-visual-only",
-            actualVisual: "exact-snapshot",
+            actualVisual: "compatible-previous",
             requiredInteraction: "inactive-visual-only",
             requiredVisual: "browser-visual",
           },
         },
         canonicalActorId: "canonical-text-a",
+        visibleNonempty: true,
         textCoverageProof: {
           compatiblePreviousProof: {
             budgetState: "within-budget",

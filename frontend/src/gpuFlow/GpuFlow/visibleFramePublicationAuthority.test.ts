@@ -14,6 +14,9 @@ const AUTHORITY_MODULE_PATH = fileURLToPath(
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
+const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
+);
 const KERNEL_CANDIDATES_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationCandidates.ts", import.meta.url),
 );
@@ -74,6 +77,7 @@ const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
 const PRODUCTION_TOKEN_CONSTRUCTOR_IMPORTERS = new Set([
   "GpuFlow/visibleFramePublicationKernel.ts",
   "GpuFlow/visibleFramePublicationCompletion.ts",
+  "GpuFlow/visibleFramePublicationOracle.ts",
 ]);
 const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([
   "GpuFlow/visibleFramePublicationKernel.ts",
@@ -145,7 +149,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
         )} from visibleFramePublicationTokens`,
       ];
     });
-
     expect(violations).toEqual([]);
   });
 
@@ -301,12 +304,13 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
   });
 
-  it("keeps committed-surface held-previous transaction assembly inside the transaction kernel", () => {
+  it("keeps committed-surface held-previous transaction assembly inside content publication planning", () => {
     const committedSurfaceSource = readFileSync(
       COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
       "utf8",
     );
-    const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
+    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
 
     expect(committedSurfaceSource).not.toContain(
       "createGpuFlowVisibleProjectionStateForRetainedPublication",
@@ -317,8 +321,14 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(committedSurfaceSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
-    expect(kernelSource).toContain(
-      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
+    expect(kernelModuleSource).not.toContain(
+      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction({",
+    );
+    expect(kernelModuleSource).not.toContain(
+      "decideGpuFlowCommittedSurfacePublicationTransaction",
+    );
+    expect(contentPlanSource).toContain(
+      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction({",
     );
   });
 
@@ -403,7 +413,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
-    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
     const publishBranchStart = kernelSource.indexOf(
       'if (transactionDecision.kind === "publish")',
     );
@@ -418,10 +428,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const effectApplierStart = committedSurfaceSource.indexOf(
       "export function applyGpuFlowCommittedSurfacePublicationEffect",
     );
-    const candidateStart = kernelModuleSource.indexOf(
+    const candidateStart = contentPlanSource.indexOf(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
-    const candidateSource = kernelModuleSource.slice(candidateStart);
+    const candidateSource = contentPlanSource.slice(candidateStart);
 
     expect(committedSurfaceSource).not.toContain(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
@@ -480,15 +490,15 @@ describe("GPU Flow visible publication authority boundaries", () => {
       COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
       "utf8",
     );
-    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
-    const candidateStart = kernelModuleSource.indexOf(
+    const candidateStart = contentPlanSource.indexOf(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     const effectApplierStart = committedSurfaceSource.indexOf(
       "export function applyGpuFlowCommittedSurfacePublicationEffect",
     );
-    const candidateSource = kernelModuleSource.slice(candidateStart);
+    const candidateSource = contentPlanSource.slice(candidateStart);
 
     expect(candidateStart).toBeGreaterThanOrEqual(0);
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
@@ -604,7 +614,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
       "utf8",
     );
-    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
     const candidateHandlingSource = readFileSync(
       COMMITTED_SURFACE_PUBLICATION_CANDIDATE_HANDLING_MODULE_PATH,
       "utf8",
@@ -613,10 +623,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const effectApplierStart = committedSurfaceSource.indexOf(
       "export function applyGpuFlowCommittedSurfacePublicationEffect",
     );
-    const candidateStart = kernelModuleSource.indexOf(
+    const candidateStart = contentPlanSource.indexOf(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
-    const candidateSource = kernelModuleSource.slice(candidateStart);
+    const candidateSource = contentPlanSource.slice(candidateStart);
 
     expect(candidateStart).toBeGreaterThanOrEqual(0);
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
@@ -1145,9 +1155,7 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
     KERNEL_MODULE_PATH,
     KERNEL_CANDIDATES_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
-    fileURLToPath(
-      new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
-    ),
+    CONTENT_PLAN_MODULE_PATH,
     fileURLToPath(
       new URL("./visibleFramePublicationOracle.ts", import.meta.url),
     ),

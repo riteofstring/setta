@@ -38,24 +38,35 @@ describe("GPU Flow visible publication kernel work plans", () => {
   it("maps content publication preparation lanes inside the kernel", () => {
     expect(
       createGpuFlowContentPublicationWorkPlan({
+        blockedProjectionOnlyFrame: false,
         publicationDecision: publicationDecision({ lane: "maintenance" }),
         renderedProjectionOnlyFrame: false,
       }),
     ).toEqual({ kind: "prepare", publicationLane: "maintenance" });
     expect(
       createGpuFlowContentPublicationWorkPlan({
+        blockedProjectionOnlyFrame: false,
         publicationDecision: publicationDecision({ lane: "motion" }),
         renderedProjectionOnlyFrame: false,
       }),
     ).toEqual({ kind: "prepare", publicationLane: "content" });
     expect(
       createGpuFlowContentPublicationWorkPlan({
+        blockedProjectionOnlyFrame: false,
         publicationDecision: publicationDecision({ lane: "content" }),
         renderedProjectionOnlyFrame: true,
       }),
     ).toEqual({ kind: "skip" });
     expect(
       createGpuFlowContentPublicationWorkPlan({
+        blockedProjectionOnlyFrame: true,
+        publicationDecision: publicationDecision({ lane: "motion" }),
+        renderedProjectionOnlyFrame: false,
+      }),
+    ).toEqual({ kind: "skip" });
+    expect(
+      createGpuFlowContentPublicationWorkPlan({
+        blockedProjectionOnlyFrame: false,
         publicationDecision: publicationDecision({ lane: "idle" }),
         renderedProjectionOnlyFrame: false,
       }),

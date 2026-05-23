@@ -41,7 +41,7 @@ describe("GPU Flow visible publication kernel phases", () => {
       "function proveGpuFlowVisibleFramePublicationCandidateSet",
     );
     expect(source).toContain(
-      "function proveGpuFlowVisibleFramePublicationPresentation",
+      "presentableCommit: transactionOracle.presentableCommit",
     );
     expect(source).toContain(
       "function decideGpuFlowVisibleFramePublicationOutcome",
@@ -70,9 +70,7 @@ describe("GPU Flow visible publication kernel phases", () => {
       "selectGpuFlowVisibleFramePublicationTransaction",
     );
     expect(source).not.toContain("selectProjectionFrameTransaction");
-    expect(source).not.toContain(
-      "selectRetainedProjectionPublicationDecision",
-    );
+    expect(source).not.toContain("selectRetainedProjectionPublicationDecision");
     expect(source).not.toContain(
       "selectContentPublicationBlockedCandidateForFrameResult",
     );
