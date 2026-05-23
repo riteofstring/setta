@@ -53,8 +53,7 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
 import type {
-  GpuFlowProjectionFrameRenderPlanSelector,
-  GpuFlowProjectionFrameTransaction,
+  GpuFlowProjectionFrameRenderPlan,
 } from "./visibleFramePublicationKernel";
 
 export type GpuFlowRetainedProjectionFrame = {
@@ -93,8 +92,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   nodeElementByIdRef,
   nodeInteractionRef,
   nodeLayerRef,
-  projectionFrameTransaction,
-  selectProjectionFrameRenderPlan,
+  projectionFrameRenderPlan,
   requestedProjectionTransaction,
   heldPreviousProjectionState,
   htmlSurfaceRendererRef,
@@ -119,8 +117,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
-  readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
-  readonly selectProjectionFrameRenderPlan: GpuFlowProjectionFrameRenderPlanSelector;
+  readonly projectionFrameRenderPlan: GpuFlowProjectionFrameRenderPlan;
   readonly requestedProjectionTransaction: GpuFlowProjectionTransaction;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
@@ -167,9 +164,6 @@ export function renderGpuFlowNodeLayerProjectionFrame({
       transactionId: requestedProjectionTransaction.id,
     },
   );
-  const projectionFrameRenderPlan = selectProjectionFrameRenderPlan({
-    projectionFrameTransaction,
-  });
   if (projectionFrameRenderPlan.kind === "blocked") {
     finishProjectionResolveMeasure();
     return {

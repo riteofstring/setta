@@ -13,6 +13,9 @@ import {
 const FLOW_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowFrame.tsx", import.meta.url),
 );
+const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
+  new URL("./flowSurfaceFramePublication.ts", import.meta.url),
+);
 const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
 );
@@ -80,17 +83,44 @@ describe("GPU Flow visible publication content plans", () => {
     expect(flowFrameSource).not.toContain(
       "committedSurfacePublicationCandidateAction",
     );
-    expect(flowFrameSource).toContain(
+    expect(flowFrameSource).not.toContain(
       "selectRetainedDisplayPublicationFramePlan",
     );
-    expect(flowFrameSource).toContain(
+    expect(flowFrameSource).not.toContain(
       "selectCommittedSurfacePublicationFramePlan",
+    );
+    expect(flowFrameSource).toContain(
+      "prepareRetainedDisplayPublicationFramePlan",
+    );
+    expect(flowFrameSource).toContain(
+      "prepareCommittedSurfacePublicationFramePlan",
     );
     expect(contentPlanSource).toContain(
       "resolveGpuFlowRetainedDisplayOutcomeFrameResult",
     );
     expect(contentPlanSource).toContain(
       "resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+    );
+  });
+
+  it("keeps content publication frame-result derivation out of the surface frame", () => {
+    const surfaceFrameSource = readFileSync(
+      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
+      "utf8",
+    );
+    const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
+
+    expect(surfaceFrameSource).not.toContain(
+      "function createGpuFlowVisibleContentPublicationFrameResult",
+    );
+    expect(surfaceFrameSource).not.toContain(
+      "function createGpuFlowNotVisibleContentPublicationFrameResult",
+    );
+    expect(contentPlanSource).toContain(
+      "function createGpuFlowVisibleContentPublicationFrameResult",
+    );
+    expect(contentPlanSource).toContain(
+      "function createGpuFlowNotVisibleContentPublicationFrameResult",
     );
   });
 });

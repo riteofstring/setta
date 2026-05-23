@@ -70,7 +70,10 @@ describe("GPU Flow visible publication projection plans", () => {
     expect(projectionFrameSource).not.toContain(
       "projectionFrameTransaction.blockedReason",
     );
-    expect(projectionFrameSource).toContain("selectProjectionFrameRenderPlan");
+    expect(projectionFrameSource).not.toContain(
+      "selectProjectionFrameRenderPlan",
+    );
+    expect(projectionFrameSource).toContain("projectionFrameRenderPlan");
     expect(kernelSource).toContain(
       "createGpuFlowProjectionFrameRenderPlanSelector",
     );

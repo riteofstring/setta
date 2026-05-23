@@ -111,11 +111,9 @@ import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDo
 import {
   assertGpuFlowCommittedSurfacePublicationCandidatePublished,
   type GpuFlowCommittedSurfacePublicationCandidate,
-  type GpuFlowCommittedSurfacePublicationCandidatePreparer,
-  type GpuFlowCommittedSurfacePublicationFramePlanSelector,
+  type GpuFlowCommittedSurfacePublicationFramePlanPreparer,
   type GpuFlowRetainedDisplayFollowUpFrameNotifier,
-  type GpuFlowRetainedDisplayPublicationFramePlanSelector,
-  type GpuFlowRetainedDisplayPublicationPreparer,
+  type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
 } from "./visibleFramePublicationKernel";
 
 export function resolveRenderableGpuFlowLayerFrameInput({
@@ -521,10 +519,8 @@ export function renderGpuFlowNodeLayerFrame({
   onRetainedDisplayFollowUpFrameNeeded,
   onNodeLayerFrameStatePublishable,
   notifyRetainedDisplayFollowUpFrameNeeded,
-  prepareCommittedSurfacePublicationCandidate,
-  prepareRetainedDisplayPublicationCandidate,
-  selectCommittedSurfacePublicationFramePlan,
-  selectRetainedDisplayPublicationFramePlan,
+  prepareCommittedSurfacePublicationFramePlan,
+  prepareRetainedDisplayPublicationFramePlan,
 }: {
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
@@ -576,10 +572,8 @@ export function renderGpuFlowNodeLayerFrame({
     | ((publication: GpuFlowNodeLayerFrameStatePublication) => void)
     | undefined;
   readonly notifyRetainedDisplayFollowUpFrameNeeded: GpuFlowRetainedDisplayFollowUpFrameNotifier;
-  readonly prepareCommittedSurfacePublicationCandidate: GpuFlowCommittedSurfacePublicationCandidatePreparer;
-  readonly prepareRetainedDisplayPublicationCandidate: GpuFlowRetainedDisplayPublicationPreparer;
-  readonly selectCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanSelector;
-  readonly selectRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanSelector;
+  readonly prepareCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanPreparer;
+  readonly prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer;
   readonly onRetainedPreparedRuntimeFrame?:
     | ((frame: GpuRetainedRuntimeFrame) => void)
     | undefined;
@@ -655,8 +649,8 @@ export function renderGpuFlowNodeLayerFrame({
     retainedRuntimeFrame,
   );
   const previousRetainedDisplayFrame = retainedDisplayFrameRef.current;
-  const retainedDisplayPublication = prepareRetainedDisplayPublicationCandidate(
-    {
+  const retainedDisplayPublicationPreparation =
+    prepareRetainedDisplayPublicationFramePlan({
       darkMode,
       deferResolutionUpdates,
       nowMs: renderStartedAt,
@@ -664,8 +658,9 @@ export function renderGpuFlowNodeLayerFrame({
       previousRetainedDisplayFrame,
       retainedContentPageManager: resources.retainedContentPageManager,
       retainedRuntimeFrame,
-    },
-  );
+    });
+  const retainedDisplayPublication =
+    retainedDisplayPublicationPreparation.publication;
   retainedPagePreparedFrame =
     retainedDisplayPublication.retainedPagePreparedFrame;
   const prePublishRetainedPageMaintenance =
@@ -675,9 +670,7 @@ export function renderGpuFlowNodeLayerFrame({
   retainedPageMaintenanceMs +=
     retainedDisplayPublication.retainedPageMaintenanceMs;
   const retainedDisplayPublicationFramePlan =
-    selectRetainedDisplayPublicationFramePlan({
-      retainedDisplayOutcome: retainedDisplayPublication.retainedDisplayOutcome,
-    });
+    retainedDisplayPublicationPreparation.framePlan;
   if (retainedDisplayPublicationFramePlan.kind === "blocked") {
     return retainedDisplayPublicationFramePlan.frameResult;
   }
@@ -732,8 +725,8 @@ export function renderGpuFlowNodeLayerFrame({
     viewportInteractionActive: deferResolutionUpdates,
   });
   diagnosticsMs += performance.now() - retainedDiagnosticsStart;
-  const committedSurfacePublicationCandidate =
-    prepareCommittedSurfacePublicationCandidate({
+  const committedSurfacePublicationPreparation =
+    prepareCommittedSurfacePublicationFramePlan({
       committedGpuNativeVisuals,
       deferBrowserVisualRetry,
       frameReasons,
@@ -743,6 +736,8 @@ export function renderGpuFlowNodeLayerFrame({
       publishedCommittedSurfaceFrame,
       publishedRetainedFrame,
     });
+  const committedSurfacePublicationCandidate =
+    committedSurfacePublicationPreparation.candidate;
   const getRetainedDomControlRuntimeScrollOffset = (surfaceId: string) =>
     runtimeScrollOffsets.get(surfaceId) ?? null;
   prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceCandidate({
@@ -760,10 +755,7 @@ export function renderGpuFlowNodeLayerFrame({
     publicationKind: committedSurfacePublicationCandidate.kind,
   });
   const committedSurfacePublicationFramePlan =
-    selectCommittedSurfacePublicationFramePlan({
-      candidate: committedSurfacePublicationCandidate,
-      publishedCommittedSurfaceFrame,
-    });
+    committedSurfacePublicationPreparation.framePlan;
   if (committedSurfacePublicationFramePlan.kind === "frame-result") {
     return committedSurfacePublicationFramePlan.frameResult;
   }

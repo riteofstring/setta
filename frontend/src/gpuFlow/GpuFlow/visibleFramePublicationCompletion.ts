@@ -26,6 +26,7 @@ import type {
   GpuFlowCommittedSurfaceResetToken,
   GpuFlowCommittedSurfaceStartupToken,
   GpuFlowHoldPreviousToken,
+  GpuFlowPresentableCommit,
 } from "./visibleFramePublicationTokens";
 
 type GpuFlowVisiblePublicationScheduler = ReturnType<
@@ -269,9 +270,11 @@ function createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
 }
 
 export function createGpuFlowVisiblePublicationCompletionCommitToken({
+  presentableCommit,
   publicationDecision,
   visibleProjectionState,
 }: {
+  readonly presentableCommit: GpuFlowPresentableCommit | null;
   readonly publicationDecision: {
     readonly sample: GpuFlowLiveProjectionSample;
   };
@@ -282,20 +285,35 @@ export function createGpuFlowVisiblePublicationCompletionCommitToken({
       "GPU Flow committed publication completion requires visible projection state for the selected sample.",
     );
   }
-  return createGpuFlowVisibleFrameCommitPublicationToken({
-    frame: visibleProjectionState.committedFrame,
-    projectionSample: publicationDecision.sample,
+  if (presentableCommit === null) {
+    throw new Error(
+      "GPU Flow committed publication completion requires a presentable commit proof from the transaction kernel.",
+    );
+  }
+  if (
+    presentableCommit.committedFrameId !==
+      visibleProjectionState.committedFrame.displayFrameId ||
+    presentableCommit.projectionSampleId !== publicationDecision.sample.id
+  ) {
+    throw new Error(
+      "GPU Flow committed publication completion requires a presentable commit proof for the selected visible frame and projection sample.",
+    );
+  }
+  return createGpuFlowCommitPublicationToken({
+    presentableCommit,
   });
 }
 
 export function createGpuFlowVisiblePublicationCompletionOutcome({
   blockedPublicationToken,
+  presentableCommit,
   publicationDecision,
   previousVisibleProjectionState,
   renderedVisibleFrame,
   visibleProjectionState,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
+  readonly presentableCommit: GpuFlowPresentableCommit | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly renderedVisibleFrame: boolean;
@@ -342,6 +360,7 @@ export function createGpuFlowVisiblePublicationCompletionOutcome({
     }).debtProof,
     kind: "commit",
     token: createGpuFlowVisiblePublicationCompletionCommitToken({
+      presentableCommit,
       publicationDecision,
       visibleProjectionState,
     }),
@@ -350,6 +369,7 @@ export function createGpuFlowVisiblePublicationCompletionOutcome({
 
 export function completeGpuFlowVisibleFramePublicationTransaction({
   blockedPublicationToken,
+  presentableCommit,
   publicationDecision,
   previousVisibleProjectionState,
   renderedVisibleFrame,
@@ -357,6 +377,7 @@ export function completeGpuFlowVisibleFramePublicationTransaction({
   visibleProjectionState,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
+  readonly presentableCommit: GpuFlowPresentableCommit | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly renderedVisibleFrame: boolean;
@@ -365,6 +386,7 @@ export function completeGpuFlowVisibleFramePublicationTransaction({
 }): GpuFlowVisiblePublicationTransactionCompletion {
   const outcome = createGpuFlowVisiblePublicationCompletionOutcome({
     blockedPublicationToken,
+    presentableCommit,
     publicationDecision,
     previousVisibleProjectionState,
     renderedVisibleFrame,

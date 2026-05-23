@@ -5,7 +5,10 @@ import type {
 } from "../projectionRuntime";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationCandidates";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
-import type { GpuFlowBlockedPublicationToken } from "./visibleFramePublicationTokens";
+import type {
+  GpuFlowBlockedPublicationToken,
+  GpuFlowPresentableCommit,
+} from "./visibleFramePublicationTokens";
 
 export type GpuFlowVisiblePublicationCommitDebtProof = {
   readonly content: boolean;
@@ -67,6 +70,7 @@ export type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
 > = GpuFlowVisibleFramePublicationPreparedFrame & {
   readonly contentPublicationFrame: ContentPublicationFrame;
   readonly motionProjectionFrame: MotionProjectionFrame;
+  readonly presentableCommit: GpuFlowPresentableCommit | null;
   readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle;
 };
 

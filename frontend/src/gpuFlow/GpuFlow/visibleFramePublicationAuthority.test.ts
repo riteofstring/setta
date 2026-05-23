@@ -519,7 +519,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const branchStart = source.indexOf(
-      "selectRetainedDisplayPublicationFramePlan",
+      "prepareRetainedDisplayPublicationFramePlan",
     );
 
     expect(branchStart).toBeGreaterThanOrEqual(0);
@@ -544,15 +544,18 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(surfaceFrameSource).not.toContain(
       "createGpuFlowBrowserVisualBlockedPublicationCandidate",
     );
-    expect(surfaceFrameSource).toContain("retainedProjectionBlockedReason");
+    expect(surfaceFrameSource).not.toContain("retainedProjectionBlockedReason");
+    expect(kernelSource).toContain("retainedProjectionBlockedReason");
     expect(surfaceFrameSource).not.toContain(
       "prepareGpuFlowRetainedDisplayPublicationCandidate",
     );
+    expect(source).not.toContain("selectRetainedDisplayPublicationFramePlan");
+    expect(source).not.toContain("selectCommittedSurfacePublicationFramePlan");
     expect(kernelSource).toContain(
       "prepareGpuFlowRetainedDisplayPublicationCandidate",
     );
     expect(kernelSource).toContain(
-      "createGpuFlowRetainedDisplayPublicationFramePlanSelector",
+      "createGpuFlowRetainedDisplayPublicationFramePlanPreparer",
     );
     expect(kernelSource).toContain(
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
@@ -1041,13 +1044,13 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const contentFrameStart = source.indexOf(
       "function renderGpuFlowSurfaceContentPublicationFrame",
     );
-    const contentResultStart = source.indexOf(
-      "function createGpuFlowContentPublicationFrameResult",
+    const contentFrameEnd = source.indexOf(
+      "function shouldRenderGpuFlowSurfaceContentPublicationFrame",
       contentFrameStart,
     );
     const contentFrameSource = source.slice(
       contentFrameStart,
-      contentResultStart,
+      contentFrameEnd,
     );
     const completionPublisherStart = source.indexOf(
       "function publishGpuFlowRetainedRuntimeFrame",
@@ -1055,7 +1058,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const completionPublisherSource = source.slice(completionPublisherStart);
 
     expect(contentFrameStart).toBeGreaterThanOrEqual(0);
-    expect(contentResultStart).toBeGreaterThan(contentFrameStart);
+    expect(contentFrameEnd).toBeGreaterThan(contentFrameStart);
     expect(contentFrameSource).not.toContain(
       "callbacksRef.current.onRetainedRuntimeFrame",
     );

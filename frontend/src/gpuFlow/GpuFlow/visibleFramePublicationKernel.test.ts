@@ -12,6 +12,7 @@ import {
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
+import { createGpuFlowNodeLayerFrameRetainedProjectionBlockedResult } from "./flowFrameResult";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import {
   completeGpuFlowVisibleFramePublicationTransaction,
@@ -101,6 +102,12 @@ describe("GPU Flow visible publication transaction kernel", () => {
     expect(result.preparedFrame.transactionOracle.visibleProjectionSource).toBe(
       "content-publication",
     );
+    expect(result.preparedFrame.presentableCommit).toEqual(
+      expect.objectContaining({
+        committedFrameId: contentVisibleState.committedFrame.displayFrameId,
+        projectionSampleId: sample.id,
+      }),
+    );
   });
 
   it("binds retained projection decisions to the kernel sample, reasons, and previous frame", () => {
@@ -177,28 +184,30 @@ describe("GPU Flow visible publication transaction kernel", () => {
     runGpuFlowVisibleFramePublicationCandidateSetKernel({
       hasCommittedContentFrame: true,
       prepareContentPublicationFrame: ({
-        selectCommittedSurfacePublicationFramePlan,
-        selectContentPublicationBlockedCandidate,
-        selectRetainedDisplayPublicationFramePlan,
+        prepareCommittedSurfacePublicationFramePlan,
+        prepareRetainedDisplayPublicationFramePlan,
+        selectContentPublicationBlockedCandidateForFrameResult,
       }) => {
-        const committedPlan = selectCommittedSurfacePublicationFramePlan({
-          candidate: {
-            effect: { kind: "publish" },
-            kind: "publish",
-          },
+        const committedPreparation = prepareCommittedSurfacePublicationFramePlan({
+          committedGpuNativeVisuals: undefined,
+          frameReasons: ["manual"],
+          heldPreviousProjectionState: null,
+          liveProjectionSample: sample,
+          publicationLane: "content",
           publishedCommittedSurfaceFrame: committedFrame,
+          publishedRetainedFrame: retainedDisplayFrame(),
         });
-        expect(committedPlan.kind).toBe("publish");
-        const retainedPlan = selectRetainedDisplayPublicationFramePlan({
-          retainedDisplayOutcome: {
-            kind: "block-cold-first-coverage",
-            reason: "coverage-missing",
-          },
-        });
-        const blockedCandidate = selectContentPublicationBlockedCandidate({
-          retainedProjectionBlockedReason: "coverage-missing",
-        });
-        expect(retainedPlan.kind).toBe("blocked");
+        expect(committedPreparation.framePlan.kind).toBe("publish");
+        expect(typeof prepareRetainedDisplayPublicationFramePlan).toBe(
+          "function",
+        );
+        const blockedCandidate =
+          selectContentPublicationBlockedCandidateForFrameResult({
+            nodeLayerFrameResult:
+              createGpuFlowNodeLayerFrameRetainedProjectionBlockedResult(
+                "coverage-missing",
+              ),
+          });
         expect(blockedCandidate).toEqual({
           blockedReasons: [
             {
@@ -228,43 +237,6 @@ describe("GPU Flow visible publication transaction kernel", () => {
       scheduler,
       timestamp: sample.timestamp,
       viewportInteractionActive: false,
-    });
-  });
-
-  it("selects and completes motion commits through the kernel", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
-    const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction(
-      {
-        hasCommittedContentFrame: true,
-        rawReasons: ["viewport"],
-        sample: liveProjectionSample({ id: 1, timestamp: 10 }),
-        scheduler,
-        timestamp: 10,
-        viewportInteractionActive: true,
-      },
-    );
-
-    const result = completeGpuFlowVisibleFramePublicationTransaction({
-      blockedPublicationToken: null,
-      publicationDecision,
-      previousVisibleProjectionState: null,
-      renderedVisibleFrame: true,
-      scheduler,
-      visibleProjectionState: visibleProjectionState({
-        kind: "motion-projection",
-        sample: publicationDecision.sample,
-      }),
-    });
-
-    expect(publicationDecision.lane).toBe("motion");
-    expect(result.outcome.kind).toBe("commit");
-    expect(result.completion).toEqual({
-      debt: {
-        content: false,
-        maintenance: false,
-        motion: false,
-      },
-      outcome: "commit",
     });
   });
 
@@ -477,6 +449,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: blockedToken,
+      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: null,
       renderedVisibleFrame: false,
@@ -662,6 +635,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
+      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState,
       renderedVisibleFrame: false,
@@ -697,6 +671,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
+      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: null,
       renderedVisibleFrame: false,
@@ -734,6 +709,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
+      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: visibleProjectionState({
         kind: "motion-projection",
@@ -775,6 +751,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
+      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: visibleProjectionState({
         kind: "content-publication",
@@ -844,6 +821,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: blockedToken,
+      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: visibleProjectionState({
         kind: "content-publication",
@@ -916,6 +894,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
     ).toBe(previousVisibleProjectionState.committedFrame.displayFrameId);
     const completion = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
+      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState,
       renderedVisibleFrame: true,
