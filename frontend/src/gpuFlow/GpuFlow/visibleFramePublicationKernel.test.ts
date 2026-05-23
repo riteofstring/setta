@@ -23,6 +23,7 @@ import {
   decideGpuFlowRetainedProjectionPublicationTransaction,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   selectGpuFlowVisibleFramePublicationTransaction,
+  type GpuFlowRetainedProjectionPublicationDecisionSelector,
 } from "./visibleFramePublicationKernel";
 
 describe("GPU Flow visible publication transaction kernel", () => {
@@ -100,6 +101,138 @@ describe("GPU Flow visible publication transaction kernel", () => {
     expect(result.preparedFrame.transactionOracle.visibleProjectionSource).toBe(
       "content-publication",
     );
+  });
+
+  it("binds retained projection decisions to the kernel sample, reasons, and previous frame", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const sample = liveProjectionSample({ id: 54, timestamp: 540 });
+    const previousVisibleProjectionState = visibleProjectionState({
+      kind: "motion-projection",
+      sample: liveProjectionSample({ id: 53, timestamp: 524 }),
+    });
+    const requestedTransaction = retainedProjectionTransaction({ sample });
+    const selectedDecisions: ReturnType<GpuFlowRetainedProjectionPublicationDecisionSelector>[] =
+      [];
+
+    runGpuFlowVisibleFramePublicationCandidateSetKernel({
+      hasCommittedContentFrame: true,
+      prepareContentPublicationFrame: () => ({
+        blockedPublicationCandidate: null,
+        rendered: false,
+        visibleProjectionState: null,
+      }),
+      prepareMotionProjectionFrame: ({
+        previousVisibleProjectionState: kernelPreviousVisibleProjectionState,
+        selectRetainedProjectionPublicationDecision,
+      }) => {
+        expect(kernelPreviousVisibleProjectionState).toBe(
+          previousVisibleProjectionState,
+        );
+        selectedDecisions.push(
+          selectRetainedProjectionPublicationDecision({
+            hasActiveRetainedDomControl: false,
+            requestedProjectionCoverageMissing: true,
+            requestedTransaction,
+          }),
+        );
+        return {
+          blockedProjectionReason: null,
+          rendered: false,
+          visibleProjectionState: null,
+        };
+      },
+      previousVisibleProjectionState,
+      publish: () => {},
+      rawReasons: ["retained-scroll"],
+      runtimeViewportFrame: false,
+      sample,
+      scheduler,
+      timestamp: sample.timestamp,
+      viewportInteractionActive: false,
+    });
+
+    const selectedDecision = selectedDecisions[0];
+    if (!selectedDecision) {
+      throw new Error("Expected retained projection decision selection.");
+    }
+    expect(selectedDecision.kind).toBe("held-previous");
+    expect(selectedDecision.transaction.kind).toBe("held-previous");
+    expect(selectedDecision.transaction.rawReasons).toEqual([
+      "retained-scroll",
+    ]);
+    expect(selectedDecision.transaction.sample).toBe(sample);
+    expect(selectedDecision.transaction.committedFrameId).toBe(
+      previousVisibleProjectionState.committedFrame.displayFrameId,
+    );
+  });
+
+  it("supplies content publication decision helpers from the kernel", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const sample = liveProjectionSample({ id: 55, timestamp: 550 });
+    const committedFrame = committedSurfaceFrame();
+    const contentVisibleState = visibleProjectionState({
+      kind: "content-publication",
+      sample,
+    });
+    runGpuFlowVisibleFramePublicationCandidateSetKernel({
+      hasCommittedContentFrame: true,
+      prepareContentPublicationFrame: ({
+        resolveCommittedSurfacePublicationCandidateAction,
+        resolveRetainedDisplayPublicationOutcomeFrame,
+        selectContentPublicationBlockedCandidate,
+      }) => {
+        const action = resolveCommittedSurfacePublicationCandidateAction({
+          candidate: {
+            effect: { kind: "publish" },
+            kind: "publish",
+          },
+          publishedCommittedSurfaceFrame: committedFrame,
+        });
+        if (action.kind !== "publish") {
+          throw new Error("Expected committed-surface publish action.");
+        }
+        const retainedOutcome = resolveRetainedDisplayPublicationOutcomeFrame({
+          kind: "block-cold-first-coverage",
+          reason: "coverage-missing",
+        });
+        const blockedCandidate = selectContentPublicationBlockedCandidate({
+          retainedProjectionBlockedReason: "coverage-missing",
+        });
+        expect(action.committedSurfaceFrame).toBe(committedFrame);
+        expect(retainedOutcome).toEqual({
+          kind: "blocked",
+          reason: "coverage-missing",
+        });
+        expect(blockedCandidate).toEqual({
+          blockedReasons: [
+            {
+              actorId: null,
+              family: "retained-projection",
+              reason: "coverage-missing",
+            },
+          ],
+          frozenFrameId: "cold-start-shell:retained-projection",
+        });
+        return {
+          blockedPublicationCandidate: null,
+          rendered: true,
+          visibleProjectionState: contentVisibleState,
+        };
+      },
+      prepareMotionProjectionFrame: () => ({
+        blockedProjectionReason: null,
+        rendered: false,
+        visibleProjectionState: null,
+      }),
+      previousVisibleProjectionState: null,
+      publish: () => {},
+      rawReasons: ["manual"],
+      runtimeViewportFrame: false,
+      sample,
+      scheduler,
+      timestamp: sample.timestamp,
+      viewportInteractionActive: false,
+    });
   });
 
   it("selects and completes motion commits through the kernel", () => {

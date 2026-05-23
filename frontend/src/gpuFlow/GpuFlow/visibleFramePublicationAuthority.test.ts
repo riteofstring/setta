@@ -329,6 +329,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
   it("keeps projection frames from minting publication tokens before completion", () => {
     const source = readFileSync(PROJECTION_FRAME_MODULE_PATH, "utf8");
     const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
+    const surfaceFrameSource = readFileSync(
+      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
+      "utf8",
+    );
 
     expect(source).not.toMatch(
       /\bcreateGpuFlow(?:ProjectionFrameDebugPublicationToken|RetainedProjectionBlockedPublicationToken|VisibleFrameBlockedPublicationToken|VisibleFrameCommitPublicationToken|VisibleFrameHoldPreviousToken)\b/,
@@ -347,8 +351,20 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(source).not.toContain(
       "decideGpuFlowRetainedProjectionPublicationTransaction",
     );
+    expect(source).not.toContain(
+      "resolveGpuFlowProjectionFrameTransactionFromPublicationDecision",
+    );
+    expect(surfaceFrameSource).not.toContain(
+      "decideGpuFlowRetainedProjectionPublicationTransaction",
+    );
+    expect(surfaceFrameSource).not.toContain(
+      "resolveGpuFlowProjectionFrameTransactionFromPublicationDecision",
+    );
     expect(kernelSource).toContain(
       "decideGpuFlowRetainedProjectionPublicationTransaction",
+    );
+    expect(kernelSource).toContain(
+      "selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
     );
     expect(kernelSource).toContain("createGpuFlowHeldPreviousProjection");
     expect(source).not.toContain("holdPreviousToken");
@@ -423,13 +439,37 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(flowFrameSource).not.toContain(
       "prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
+    expect(flowFrameSource).not.toContain(
+      "flowCommittedSurfacePublicationCandidateHandling",
+    );
+    expect(flowFrameSource).not.toContain(
+      "resolveGpuFlowCommittedSurfacePublicationCandidateAction",
+    );
+    expect(flowFrameSource).not.toContain(
+      "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
+    );
+    expect(flowFrameSource).not.toContain(
+      "createGpuFlowNodeLayerFrameResultForVisibleProjectionState",
+    );
+    expect(flowFrameSource).not.toContain(
+      "committedSurfacePublicationCandidateAction.kind",
+    );
     expect(flowFrameSource).not.toContain("onBlockedSurfacePublication");
     expect(flowFrameSource).not.toContain("onCommittedSurfaceFramePublishable");
     expect(flowFrameSource).not.toContain(
       "onPreparedCommittedSurfaceFrameHeld",
     );
-    expect(surfaceFrameSource).toContain(
+    expect(surfaceFrameSource).not.toContain(
       "prepareGpuFlowCommittedSurfacePublicationCandidate",
+    );
+    expect(surfaceFrameSource).not.toContain(
+      "resolveGpuFlowCommittedSurfacePublicationCandidateAction",
+    );
+    expect(kernelSource).toContain(
+      "createGpuFlowCommittedSurfacePublicationCandidateActionResolver",
+    );
+    expect(kernelSource).toContain(
+      "resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
     );
     expect(candidateStart).toBeGreaterThanOrEqual(0);
     expect(candidateEnd).toBeGreaterThan(candidateStart);
@@ -488,10 +528,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const branchStart = source.indexOf(
-      'if (retainedDisplayOutcomeFrame.kind === "blocked")',
+      "resolveRetainedDisplayOutcomeFrameResult",
     );
     const branchEnd = source.indexOf(
-      "notifyGpuFlowRetainedDisplayFollowUpFrameNeeded",
+      "notifyRetainedDisplayFollowUpFrameNeeded",
       branchStart,
     );
     const branchSource = source.slice(branchStart, branchEnd);
@@ -499,27 +539,66 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(branchStart).toBeGreaterThanOrEqual(0);
     expect(branchEnd).toBeGreaterThan(branchStart);
     expect(source).not.toContain("block-cold-first-coverage");
+    expect(source).not.toContain(
+      'retainedDisplayOutcomeFrame.kind === "blocked"',
+    );
     expect(source).not.toMatch(/\bresolveGpuFlowRetainedDisplayPublication\(/);
-    expect(source).toContain(
+    expect(source).not.toContain(
+      "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
+    );
+    expect(source).not.toContain(
+      "notifyGpuFlowRetainedDisplayFollowUpFrameNeeded",
+    );
+    expect(surfaceFrameSource).not.toContain(
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
     );
     expect(source).not.toContain("onRetainedProjectionPublicationBlocked");
-    expect(branchSource).toContain(
+    expect(branchSource).not.toContain(
       "createGpuFlowNodeLayerFrameRetainedProjectionBlockedResult",
     );
     expect(branchSource).not.toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
     expect(branchSource).not.toContain("requestFrame");
-    expect(surfaceFrameSource).toContain(
+    expect(surfaceFrameSource).not.toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
+    expect(surfaceFrameSource).not.toContain(
+      "createGpuFlowBrowserVisualBlockedPublicationCandidate",
+    );
     expect(surfaceFrameSource).toContain("retainedProjectionBlockedReason");
-    expect(surfaceFrameSource).toContain(
+    expect(surfaceFrameSource).not.toContain(
       "prepareGpuFlowRetainedDisplayPublicationCandidate",
     );
     expect(kernelSource).toContain(
       "prepareGpuFlowRetainedDisplayPublicationCandidate",
+    );
+    expect(kernelSource).toContain(
+      "createGpuFlowRetainedDisplayPublicationOutcomeFrameResolver",
+    );
+    expect(kernelSource).toContain(
+      "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
+    );
+    expect(kernelSource).toContain(
+      "createGpuFlowRetainedDisplayFollowUpFrameNotifier",
+    );
+    expect(kernelSource).toContain(
+      "notifyGpuFlowRetainedDisplayFollowUpFrameNeeded",
+    );
+    expect(kernelSource).toContain(
+      "resolveGpuFlowRetainedDisplayOutcomeFrameResult",
+    );
+    expect(kernelSource).toContain(
+      "createGpuFlowNodeLayerFrameRetainedProjectionBlockedResult",
+    );
+    expect(kernelSource).toContain(
+      "createGpuFlowContentPublicationBlockedCandidateSelector",
+    );
+    expect(kernelSource).toContain(
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+    );
+    expect(kernelSource).toContain(
+      "createGpuFlowBrowserVisualBlockedPublicationCandidate",
     );
   });
 

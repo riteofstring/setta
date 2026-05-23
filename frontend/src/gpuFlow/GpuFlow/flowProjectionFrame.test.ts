@@ -18,12 +18,12 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
   assertGpuFlowMotionProjectionFrameWork,
   isGpuFlowRetainedProjectionSurfaceCovered,
-  resolveGpuFlowProjectionFrameTransactionFromPublicationDecision,
   resolveGpuFlowRetainedProjectionFrame,
 } from "./flowProjectionFrame";
 import {
   decideGpuFlowRetainedProjectionPublicationTransaction,
   hasActiveGpuFlowRetainedDomControlPublicationProof,
+  selectGpuFlowProjectionFrameTransactionFromPublicationDecision,
 } from "./visibleFramePublicationKernel";
 
 describe("GPU flow projection frame coverage", () => {
@@ -352,11 +352,15 @@ function resolveGpuFlowProjectionFrameTransaction({
         requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
       requestedTransaction,
     });
-  return resolveGpuFlowProjectionFrameTransactionFromPublicationDecision({
-    layer,
+  return selectGpuFlowProjectionFrameTransactionFromPublicationDecision({
     publicationDecision,
-    retainedDisplayFrame,
     requestedRetainedProjectionFrame,
+    resolveHeldRetainedProjectionFrame: ({ transaction }) =>
+      resolveGpuFlowRetainedProjectionFrame({
+        layer,
+        retainedDisplayFrame,
+        transaction,
+      }),
   });
 }
 

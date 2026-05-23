@@ -5,6 +5,7 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
+import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTransaction";
 import { assertGpuFlowCommitPublicationToken } from "./visibleFramePublicationAuthority";
 import { createGpuFlowVisibleFrameCommitPublicationToken } from "./visibleFramePublicationKernel";
 
@@ -97,6 +98,31 @@ describe("GPU Flow visible publication authority behavior", () => {
     ).toThrow(/same presentation batch/);
   });
 
+  it("rejects commit authority when actor proof resources are not protected", () => {
+    const resourceHandle = {
+      id: "snapshot-a",
+      kind: "texture" as const,
+    };
+
+    expect(() =>
+      createGpuFlowVisibleFrameCommitPublicationToken({
+        frame: committedSurfaceFrame({
+          actorGenerations: [
+            committedActorGeneration({
+              actorId: "actor-a",
+              resourceHandles: [resourceHandle],
+            }),
+          ],
+          surfaceTransaction: surfaceTransaction({
+            protectedResourceHandles: [],
+            resourceHandles: [resourceHandle],
+          }),
+        }),
+        projectionSample: liveProjectionSample(),
+      }),
+    ).toThrow(/requires protected resources/);
+  });
+
   it("rejects commit tokens when the DOM/canvas presentation proof changes after minting", () => {
     const frame = committedSurfaceFrame();
     const token = createGpuFlowVisibleFrameCommitPublicationToken({
@@ -123,18 +149,24 @@ describe("GPU Flow visible publication authority behavior", () => {
 });
 
 function committedSurfaceFrame({
+  actorGenerations = [],
   coherence = {},
   publishability = {
     blockingActorIds: [],
     kind: "publishable",
   },
+  surfaceTransaction = null,
 }: {
+  readonly actorGenerations?:
+    | readonly GpuFlowCommittedSurfaceFrame["actorGenerations"][number][]
+    | undefined;
   readonly coherence?:
     | Partial<GpuFlowCommittedSurfaceFrame["coherence"]>
     | undefined;
   readonly publishability?:
     | Partial<GpuFlowCommittedSurfaceFrame["publishability"]>
     | undefined;
+  readonly surfaceTransaction?: SurfaceDisplayTransaction | null | undefined;
 } = {}): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = 7;
   const committedCoherence = {
@@ -150,12 +182,14 @@ function committedSurfaceFrame({
     ...coherence,
   };
   return {
-    actorGenerations: [],
+    actorGenerations,
     coherence: committedCoherence,
     displayFrameId,
     presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      actorGenerations,
       coherence: committedCoherence,
       displayFrameId,
+      surfaceTransaction,
     }),
     projectionHorizon: {
       textActorCoverage: {
@@ -172,8 +206,70 @@ function committedSurfaceFrame({
       kind: "publishable",
       ...publishability,
     },
-    surfaceTransaction: null,
+    surfaceTransaction,
   } as unknown as GpuFlowCommittedSurfaceFrame;
+}
+
+function committedActorGeneration({
+  actorId,
+  resourceHandles,
+}: {
+  readonly actorId: string;
+  readonly resourceHandles: NonNullable<
+    GpuFlowCommittedSurfaceFrame["actorGenerations"][number]["browserVisual"]
+  >["resourceHandles"];
+}): GpuFlowCommittedSurfaceFrame["actorGenerations"][number] {
+  return {
+    actorFamily: "text-like-dom-control",
+    actorId,
+    browserVisual: {
+      coverageState: "exact",
+      proof: null,
+      resourceHandles,
+    },
+    canonicalActorId: actorId,
+    contentGenerationId: `content:${actorId}`,
+    generationClassification: "browser-visual",
+    generationId: `generation:${actorId}`,
+    kind: "dom-control",
+    layoutProjectionGenerationId: `layout:${actorId}`,
+    ownerSurfaceId: `surface:${actorId}`,
+    textCoverageProof: null,
+  } as unknown as GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+}
+
+function surfaceTransaction({
+  protectedResourceHandles,
+  resourceHandles,
+}: {
+  readonly protectedResourceHandles: SurfaceDisplayTransaction["protectedResourceHandles"];
+  readonly resourceHandles: readonly {
+    readonly id: string;
+    readonly kind: string;
+  }[];
+}): SurfaceDisplayTransaction {
+  return {
+    coverageProof: {
+      compatibleCoverage: [],
+      exactCoverage: [
+        {
+          resourceHandles,
+        },
+      ],
+      protectedResourceHandles,
+      trueHoleRects: [],
+    },
+    desiredSurfaceGenerations: [],
+    drawCommands: [],
+    hitIndex: {
+      generationIds: [],
+      id: "hit:transaction",
+    },
+    id: "surface-transaction",
+    protectedResourceHandles,
+    rendererBuckets: [],
+    zOrder: [],
+  } as unknown as SurfaceDisplayTransaction;
 }
 
 function liveProjectionSample(): GpuFlowLiveProjectionSample {

@@ -52,19 +52,12 @@ import {
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
-import type { GpuFlowRetainedProjectionPublicationTransactionDecision } from "./visibleFramePublicationKernel";
+import type { GpuFlowProjectionFrameTransaction } from "./visibleFramePublicationKernel";
 
 export type GpuFlowRetainedProjectionFrame = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly missingCoverageSurfaceIds: ReadonlySet<string>;
   readonly needsRetainedPageMaintenance: boolean;
-};
-
-export type GpuFlowProjectionFrameTransaction = {
-  readonly blockedReason: string | null;
-  readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
-  readonly retainedProjectionFrame: GpuFlowRetainedProjectionFrame;
-  readonly transaction: GpuFlowProjectionTransaction;
 };
 
 type RenderGpuFlowNodeLayerProjectionFrameResult =
@@ -375,51 +368,6 @@ function hasGpuFlowProjectionOnlyForbiddenContentWork({
     blockedWork.evictedTextureNodeIds.length > 0,
     blockedWork.uploadedNodeIds.length > 0,
   ].some(Boolean);
-}
-
-export function resolveGpuFlowProjectionFrameTransactionFromPublicationDecision({
-  layer,
-  publicationDecision,
-  retainedDisplayFrame,
-  requestedRetainedProjectionFrame,
-}: {
-  readonly layer: GpuFlowNodeLayerState;
-  readonly publicationDecision: GpuFlowRetainedProjectionPublicationTransactionDecision;
-  readonly retainedDisplayFrame: RetainedDisplayFrame;
-  readonly requestedRetainedProjectionFrame: GpuFlowRetainedProjectionFrame;
-}): GpuFlowProjectionFrameTransaction {
-  if (publicationDecision.kind === "project-requested") {
-    return {
-      blockedReason: null,
-      heldPreviousProjection: null,
-      retainedProjectionFrame: requestedRetainedProjectionFrame,
-      transaction: publicationDecision.transaction,
-    };
-  }
-  if (publicationDecision.kind === "blocked") {
-    return {
-      blockedReason: publicationDecision.blockedReason,
-      heldPreviousProjection: publicationDecision.heldPreviousProjection,
-      retainedProjectionFrame: requestedRetainedProjectionFrame,
-      transaction: publicationDecision.transaction,
-    };
-  }
-  const heldProjectionFrame = resolveGpuFlowRetainedProjectionFrame({
-    layer,
-    retainedDisplayFrame,
-    transaction: publicationDecision.transaction,
-  });
-  return {
-    blockedReason: null,
-    heldPreviousProjection: publicationDecision.heldPreviousProjection,
-    retainedProjectionFrame: {
-      ...heldProjectionFrame,
-      needsRetainedPageMaintenance:
-        heldProjectionFrame.needsRetainedPageMaintenance ||
-        requestedRetainedProjectionFrame.needsRetainedPageMaintenance,
-    },
-    transaction: publicationDecision.transaction,
-  };
 }
 
 export function resolveGpuFlowRetainedProjectionFrame({
