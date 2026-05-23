@@ -81,7 +81,6 @@ const PRODUCTION_TOKEN_CONSTRUCTOR_IMPORTERS = new Set([
 ]);
 const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([
   "GpuFlow/visibleFramePublicationKernel.ts",
-  "GpuFlow/visibleFramePublicationCompletion.ts",
 ]);
 const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
   "committedSurfaceRuntime.ts",

@@ -546,7 +546,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
     ]);
   });
 
-  it("mints retained projection blocked tokens from prepared blocked candidates inside the kernel", () => {
+  it("mints retained projection blocked tokens from prepared projection block reasons inside the kernel", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 6,
@@ -571,19 +571,23 @@ describe("GPU Flow visible publication transaction kernel", () => {
       }),
       prepareMotionProjectionFrame: () => ({
         createBlockedProjectionFrame: ({ blockedPublicationCandidate }) => ({
-          blockedPublicationCandidate,
+          blockedPublicationCandidate: blockedPublicationCandidate as never,
+          publicationBlockedReason: null as string | null,
           rendered: false as const,
           visibleProjectionState: null,
         }),
         hasActiveRetainedDomControl: false,
         kind: "render",
-        requestedProjectionCoverageMissing: true,
+        requestedProjectionCoverageMissing: false,
         requestedProjectionFrame: retainedProjectionFrame(),
         requestedTransaction: retainedProjectionTransaction({ sample }),
         resolveHeldRetainedProjectionFrame: () => retainedProjectionFrame(),
-        renderProjectionFrame: () => {
-          throw new Error("Blocked projection transactions must not render.");
-        },
+        renderProjectionFrame: () => ({
+          blockedPublicationCandidate: null,
+          publicationBlockedReason: "projection-only-content-work" as string | null,
+          rendered: false as const,
+          visibleProjectionState: null,
+        }),
       }),
       publish: (transaction) => {
         publishedOutcomeKind = transaction.outcome.kind;
@@ -608,6 +612,9 @@ describe("GPU Flow visible publication transaction kernel", () => {
       frameId: previousVisibleProjectionState.committedFrame.displayFrameId,
       kind: "committed",
     });
+    expect(result.outcome.token.blockedReasons).toEqual([
+      { actorId: null, family: "retained-projection", reason: "projection-only-content-work" },
+    ]);
     expect(result.outcome.token.projectionSampleId).toBe(sample.id);
     expect(result.completion.debt.motion).toBe(true);
   });

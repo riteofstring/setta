@@ -6,7 +6,7 @@ import {
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import { completeGpuFlowVisibleFramePublicationTransaction } from "./visibleFramePublicationCompletion";
+import { completeGpuFlowVisibleFramePublicationTransaction } from "./visibleFramePublicationKernel";
 
 describe("GPU Flow visible publication completion", () => {
   it("blocks no-frame held-previous outcomes after the kernel hold budget", () => {

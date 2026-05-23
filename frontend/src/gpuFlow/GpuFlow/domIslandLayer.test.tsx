@@ -23,7 +23,7 @@ import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { getGpuFlowBrowserVisualActorRuntimeForCommittedSurface } from "./browserVisualActorRuntime";
 import { GpuFlowDomIslandLayer } from "./domIslandLayer";
-import { createGpuFlowVisibleFrameCommitPublicationToken } from "./visibleFramePublicationKernel";
+import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 
 let root: Root | null = null;
 
@@ -224,7 +224,7 @@ function committedSurfaceFrame({
 }
 
 function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
-  return createGpuFlowVisibleFrameCommitPublicationToken({
+  return createGpuFlowVisibleFrameCommitPublicationTokenForTest({
     frame,
     projectionSample: {
       id: frame.displayFrameId,

@@ -25,6 +25,7 @@ import {
   hasActiveGpuFlowRetainedDomControlPublicationProof,
   selectGpuFlowProjectionFrameTransactionFromPublicationDecision,
 } from "./visibleFramePublicationKernel";
+import { selectGpuFlowMotionProjectionFrameWorkBlockedReason } from "./visibleFramePublicationProjectionPlan";
 
 describe("GPU flow projection frame coverage", () => {
   it("requires committed retained pages to cover the projected scroll sample", () => {
@@ -48,6 +49,16 @@ describe("GPU flow projection frame coverage", () => {
   });
 
   it("rejects uploads and resource churn during projection-only frames", () => {
+    expect(
+      selectGpuFlowMotionProjectionFrameWorkBlockedReason({
+        layerResult: projectionLayerResult({
+          uploadedNodeIds: ["node-a"],
+        }),
+        projectionLane: "motion",
+        transactionKind: "motion-projection",
+      }),
+    ).toBe("projection-only-content-work");
+
     expect(() =>
       assertGpuFlowMotionProjectionFrameWork({
         layerResult: projectionLayerResult({
@@ -67,16 +78,15 @@ describe("GPU flow projection frame coverage", () => {
         transactionKind: "content-publication",
       }),
     ).not.toThrow();
-
-    expect(() =>
-      assertGpuFlowMotionProjectionFrameWork({
+    expect(
+      selectGpuFlowMotionProjectionFrameWorkBlockedReason({
         layerResult: projectionLayerResult({
           uploadedNodeIds: ["node-a"],
         }),
-        projectionLane: "motion",
-        transactionKind: "motion-projection",
+        projectionLane: "maintenance",
+        transactionKind: "content-publication",
       }),
-    ).toThrow(/forbidden content work/);
+    ).toBeNull();
 
     expect(() =>
       assertGpuFlowMotionProjectionFrameWork({

@@ -10,15 +10,15 @@ import type {
 } from "../projectionRuntime";
 import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTransaction";
 import { assertGpuFlowCommitPublicationToken } from "./visibleFramePublicationAuthority";
+import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 import {
-  createGpuFlowVisibleFrameCommitPublicationToken,
   createGpuFlowVisiblePublicationCompletionCommitToken,
 } from "./visibleFramePublicationKernel";
 
 describe("GPU Flow visible publication authority behavior", () => {
   it("rejects commit authority for non-publishable frames", () => {
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationToken({
+      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
         frame: committedSurfaceFrame({
           publishability: {
             blockingActorIds: ["actor-a"],
@@ -49,7 +49,7 @@ describe("GPU Flow visible publication authority behavior", () => {
 
   it("rejects commit authority for incoherent DOM/canvas presentation pairs", () => {
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationToken({
+      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
         frame: committedSurfaceFrame({
           coherence: {
             domControlCommittedFrameId: 42,
@@ -64,7 +64,7 @@ describe("GPU Flow visible publication authority behavior", () => {
     const frame = committedSurfaceFrame();
 
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationToken({
+      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
         frame: {
           ...frame,
           presentationProof: {
@@ -84,7 +84,7 @@ describe("GPU Flow visible publication authority behavior", () => {
     const frame = committedSurfaceFrame();
 
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationToken({
+      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
         frame: {
           ...frame,
           presentationProof: {
@@ -104,7 +104,7 @@ describe("GPU Flow visible publication authority behavior", () => {
     const frame = committedSurfaceFrame();
 
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationToken({
+      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
         frame: {
           ...frame,
           presentationProof: {
@@ -127,7 +127,7 @@ describe("GPU Flow visible publication authority behavior", () => {
     };
 
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationToken({
+      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
         frame: committedSurfaceFrame({
           actorGenerations: [
             committedActorGeneration({
@@ -180,7 +180,7 @@ describe("GPU Flow visible publication authority behavior", () => {
       } as unknown as GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
 
       expect(() =>
-        createGpuFlowVisibleFrameCommitPublicationToken({
+        createGpuFlowVisibleFrameCommitPublicationTokenForTest({
           frame: {
             ...frame,
             actorGenerations: [changedActor],
@@ -193,7 +193,7 @@ describe("GPU Flow visible publication authority behavior", () => {
 
   it("rejects commit tokens when the DOM/canvas presentation proof changes after minting", () => {
     const frame = committedSurfaceFrame();
-    const token = createGpuFlowVisibleFrameCommitPublicationToken({
+    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
       frame,
       projectionSample: liveProjectionSample(),
     });
@@ -341,6 +341,8 @@ function surfaceTransaction({
 }): SurfaceDisplayTransaction {
   return {
     coverageProof: {
+      blockingGenerationIds: [],
+      blockingSurfaceIds: [],
       compatibleCoverage: [],
       exactCoverage: [
         {
@@ -348,7 +350,10 @@ function surfaceTransaction({
         },
       ],
       protectedResourceHandles,
+      rendererBuckets: [],
       trueHoleRects: [],
+      visibleRects: [],
+      zOrder: [],
     },
     desiredSurfaceGenerations: [],
     drawCommands: [],

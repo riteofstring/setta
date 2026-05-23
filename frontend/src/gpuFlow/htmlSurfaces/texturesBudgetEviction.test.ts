@@ -8,8 +8,8 @@ import {
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "../GpuFlow/visibleFramePublicationAuthority";
 import {
   createGpuFlowVisibleFrameBlockedPublicationToken,
-  createGpuFlowVisibleFrameCommitPublicationToken,
 } from "../GpuFlow/visibleFramePublicationKernel";
+import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "../GpuFlow/visibleFramePublicationTestUtils";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   releaseGpuFlowRejectedCandidateSurfaceTexture,
@@ -330,7 +330,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
-    const commitToken = createGpuFlowVisibleFrameCommitPublicationToken({
+    const commitToken = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
       frame: committedSurfaceFrame(4),
       projectionSample: projectionSample(9),
     });

@@ -27,8 +27,8 @@ import type { GpuFlowRetainedScrollOffsetGetter } from "./domControlPlane";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowVisibleFrameBlockedPublicationToken,
-  createGpuFlowVisibleFrameCommitPublicationToken,
 } from "./visibleFramePublicationKernel";
+import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 
 export function createMockViewportRuntime(
   initialViewport: GpuViewportTuple,
@@ -211,7 +211,7 @@ export function committedSurfaceFrame({
 }
 
 export function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
-  return createGpuFlowVisibleFrameCommitPublicationToken({
+  return createGpuFlowVisibleFrameCommitPublicationTokenForTest({
     frame,
     projectionSample: {
       id: frame.displayFrameId,

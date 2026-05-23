@@ -11,11 +11,10 @@ import type {
 } from "../retainedDisplayFrame";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
-  createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation,
-  createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
-  requireGpuFlowRetainedDisplayPublishedOutcomeFrame,
+  resolveGpuFlowCommittedSurfacePublicationContentResolution,
   resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult,
+  resolveGpuFlowRetainedDisplayPublicationContentResolution,
   resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult,
   selectGpuFlowCommittedSurfacePublicationFramePlan,
   selectGpuFlowRetainedDisplayPublicationFramePlan,
@@ -145,14 +144,20 @@ describe("GPU Flow visible publication content plans", () => {
       "retainedDisplayPublicationPreparation.publishedOutcomeFrame",
     );
     expect(flowFrameSource).not.toContain("framePlanResult");
-    expect(flowFrameSource).toContain(
+    expect(flowFrameSource).not.toContain(
       "createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation",
     );
-    expect(flowFrameSource).toContain(
+    expect(flowFrameSource).not.toContain(
       "createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation",
     );
-    expect(flowFrameSource).toContain(
+    expect(flowFrameSource).not.toContain(
       "requireGpuFlowRetainedDisplayPublishedOutcomeFrame",
+    );
+    expect(flowFrameSource).toContain(
+      "resolveGpuFlowRetainedDisplayPublicationContentResolution",
+    );
+    expect(flowFrameSource).toContain(
+      "resolveGpuFlowCommittedSurfacePublicationContentResolution",
     );
     expect(flowFrameSource).toContain(
       "prepareRetainedDisplayPublicationFramePlan",
@@ -286,16 +291,18 @@ describe("GPU Flow visible publication content plans", () => {
       {} as Parameters<typeof prepareRetainedDisplayPublicationFramePlan>[0],
     );
 
-    const result =
-      createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation(
-        {
-          deferResolutionUpdates: false,
-          preparation,
-          previousVisibleProjectionState: null,
-        },
-      );
+    const resolution =
+      resolveGpuFlowRetainedDisplayPublicationContentResolution({
+        deferResolutionUpdates: false,
+        preparation,
+        previousVisibleProjectionState: null,
+      });
 
-    expect(result).toEqual(
+    expect(resolution.kind).toBe("content-frame-result");
+    if (resolution.kind !== "content-frame-result") {
+      throw new Error("Expected retained display candidate frame result.");
+    }
+    expect(resolution.frameResult).toEqual(
       expect.objectContaining({
         blockedPublicationCandidate: expect.objectContaining({
           frozenFrameId: "cold-start-shell:retained-projection",
@@ -303,11 +310,6 @@ describe("GPU Flow visible publication content plans", () => {
         rendered: false,
         retainedDisplayFollowUpFrameReason: null,
       }),
-    );
-    expect(() =>
-      requireGpuFlowRetainedDisplayPublishedOutcomeFrame({ preparation }),
-    ).toThrow(
-      "GPU Flow retained display content plan must provide a published outcome frame after candidate resolution.",
     );
   });
 
@@ -343,17 +345,19 @@ describe("GPU Flow visible publication content plans", () => {
       {} as Parameters<typeof prepareCommittedSurfacePublicationFramePlan>[0],
     );
 
-    const result =
-      createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation(
-        {
-          deferResolutionUpdates: false,
-          preparation,
-          previousVisibleProjectionState: null,
-          retainedDisplayFollowUpFrameReason: "texture-upload",
-        },
-      );
+    const resolution =
+      resolveGpuFlowCommittedSurfacePublicationContentResolution({
+        deferResolutionUpdates: false,
+        preparation,
+        previousVisibleProjectionState: null,
+        retainedDisplayFollowUpFrameReason: "texture-upload",
+      });
 
-    expect(result).toEqual(
+    expect(resolution.kind).toBe("content-frame-result");
+    if (resolution.kind !== "content-frame-result") {
+      throw new Error("Expected committed-surface candidate frame result.");
+    }
+    expect(resolution.frameResult).toEqual(
       expect.objectContaining({
         blockedErrorMessage: "blocked surface",
         blockedPreparedCommittedSurfaceFrame: candidateFrame,

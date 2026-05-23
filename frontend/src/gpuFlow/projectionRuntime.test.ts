@@ -8,9 +8,9 @@ import {
 } from "./committedSurfaceFrame";
 import {
   createGpuFlowVisibleFrameBlockedPublicationToken,
-  createGpuFlowVisibleFrameCommitPublicationToken,
   createGpuFlowVisibleFrameHoldPreviousToken,
 } from "./GpuFlow/visibleFramePublicationKernel";
+import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./GpuFlow/visibleFramePublicationTestUtils";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
@@ -236,7 +236,7 @@ describe("GPU Flow projection runtime", () => {
       scheduler.completeFrame(decision, {
         debtProof: createDebtProofForSelectedLane(decision),
         kind: "commit",
-        token: createGpuFlowVisibleFrameCommitPublicationToken({
+        token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
           frame: committedFrameForSchedulerToken(decision),
           projectionSample: liveSample(2),
         }),
@@ -769,7 +769,7 @@ describe("GPU Flow projection runtime", () => {
     applyGpuFlowProjectionDebugAttributes({
       canvas: canvasB,
       debugState: visibleState.debugState,
-      token: createGpuFlowVisibleFrameCommitPublicationToken({
+      token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
         frame: committedFrameForDebugToken(7),
         projectionSample: visibleState.sample,
       }),
@@ -793,7 +793,7 @@ function completeCommittedFrame(
   return scheduler.completeFrame(decision, {
     debtProof,
     kind: "commit",
-    token: createGpuFlowVisibleFrameCommitPublicationToken({
+    token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
       frame: committedFrameForSchedulerToken(decision),
       projectionSample: decision.sample,
     }),

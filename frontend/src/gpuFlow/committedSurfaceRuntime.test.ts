@@ -8,8 +8,8 @@ import { createGpuFlowCommittedSurfaceRuntime } from "./committedSurfaceRuntime"
 import {
   createGpuFlowCommittedSurfaceResetPublicationToken,
   createGpuFlowCommittedSurfaceStartupPublicationToken,
-  createGpuFlowVisibleFrameCommitPublicationToken,
 } from "./GpuFlow/visibleFramePublicationKernel";
+import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./GpuFlow/visibleFramePublicationTestUtils";
 import type { GpuFlowLiveProjectionSample } from "./projectionRuntime";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 
@@ -212,7 +212,7 @@ function committedActor(
 }
 
 function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
-  return createGpuFlowVisibleFrameCommitPublicationToken({
+  return createGpuFlowVisibleFrameCommitPublicationTokenForTest({
     frame,
     projectionSample: {
       id: frame.displayFrameId,

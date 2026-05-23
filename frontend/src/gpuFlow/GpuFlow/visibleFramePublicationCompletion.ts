@@ -2,7 +2,6 @@ import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
   createGpuFlowVisiblePublicationScheduler,
   type GpuFlowLiveProjectionSample,
-  type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
@@ -12,8 +11,6 @@ import {
   createGpuFlowCommittedSurfaceResetToken,
   createGpuFlowCommittedSurfaceStartupToken,
   createGpuFlowHoldPreviousToken,
-  createGpuFlowPresentableCommit,
-  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
 } from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowVisiblePublicationCommitOracleReport,
@@ -38,9 +35,20 @@ export type GpuFlowVisiblePublicationCompletion = ReturnType<
   GpuFlowVisiblePublicationScheduler["completeFrame"]
 >;
 
-export type GpuFlowVisiblePublicationOutcome = ReturnType<
-  typeof createGpuFlowVisiblePublicationCompletionOutcome
->;
+export type GpuFlowVisiblePublicationOutcome =
+  | {
+      readonly kind: "blocked";
+      readonly token: GpuFlowBlockedPublicationToken;
+    }
+  | {
+      readonly kind: "commit";
+      readonly debtProof: GpuFlowVisiblePublicationCommitDebtProof;
+      readonly token: GpuFlowCommitPublicationToken;
+    }
+  | {
+      readonly kind: "hold-previous";
+      readonly token: GpuFlowHoldPreviousToken;
+    };
 
 export type GpuFlowVisiblePublicationTransactionCompletion = {
   readonly completion: GpuFlowVisiblePublicationCompletion;
@@ -58,21 +66,6 @@ export function createGpuFlowCommittedSurfaceStartupPublicationToken({
   readonly frame: GpuFlowCommittedSurfaceFrame;
 }): GpuFlowCommittedSurfaceStartupToken {
   return createGpuFlowCommittedSurfaceStartupToken({ frame });
-}
-
-export function createGpuFlowVisibleFrameCommitPublicationToken({
-  frame,
-  projectionSample,
-}: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
-  readonly projectionSample: GpuFlowLiveProjectionSample;
-}): GpuFlowCommitPublicationToken {
-  return createGpuFlowCommitPublicationToken({
-    presentableCommit: createGpuFlowPresentableCommit({
-      frame,
-      projectionSample,
-    }),
-  });
 }
 
 export function createGpuFlowVisibleFrameHoldPreviousToken({
@@ -110,213 +103,6 @@ export function createGpuFlowVisibleFrameBlockedPublicationToken({
   });
 }
 
-export function createGpuFlowVisiblePublicationCompletionHoldOutcome({
-  publicationDecision,
-  visibleProjectionState,
-}: {
-  readonly publicationDecision: {
-    readonly sample: GpuFlowLiveProjectionSample;
-  };
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}) {
-  const heldPreviousProjection =
-    assertGpuFlowHeldPreviousPublicationCompletionMatchesSample({
-      publicationDecision,
-      visibleProjectionState,
-    });
-  return {
-    kind: "hold-previous" as const,
-    token: createGpuFlowVisibleFrameHoldPreviousToken({
-      committedFrameId: visibleProjectionState.committedFrame.displayFrameId,
-      holdAgeFrames: heldPreviousProjection.consecutiveFrameCount,
-      holdAgeMs: heldPreviousProjection.heldDurationMs,
-      projectionSample: publicationDecision.sample,
-    }),
-  };
-}
-
-function createGpuFlowVisiblePublicationCompletionHeldPreviousOutcome({
-  blockedPublicationToken,
-  publicationDecision,
-  visibleProjectionState,
-}: {
-  readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}):
-  | {
-      readonly kind: "blocked";
-      readonly token: GpuFlowBlockedPublicationToken;
-    }
-  | {
-      readonly kind: "hold-previous";
-      readonly token: GpuFlowHoldPreviousToken;
-    } {
-  assertGpuFlowHeldPreviousPublicationCompletionMatchesSample({
-    publicationDecision,
-    visibleProjectionState,
-  });
-  if (
-    !isGpuFlowVisiblePublicationHeldPreviousOverBudget(visibleProjectionState)
-  ) {
-    return createGpuFlowVisiblePublicationCompletionHoldOutcome({
-      publicationDecision,
-      visibleProjectionState,
-    });
-  }
-  if (blockedPublicationToken) {
-    return {
-      kind: "blocked",
-      token: blockedPublicationToken,
-    };
-  }
-  return {
-    kind: "blocked",
-    token: createGpuFlowVisibleFrameBlockedPublicationToken({
-      blockedReasons: [
-        {
-          actorId: null,
-          family: "visible-transaction",
-          reason: "held-previous-budget-exceeded",
-        },
-      ],
-      frozenFrameId: visibleProjectionState.committedFrame.displayFrameId,
-      projectionSample: publicationDecision.sample,
-    }),
-  };
-}
-
-function assertGpuFlowHeldPreviousPublicationCompletionMatchesSample({
-  publicationDecision,
-  visibleProjectionState,
-}: {
-  readonly publicationDecision: {
-    readonly sample: GpuFlowLiveProjectionSample;
-  };
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}): NonNullable<GpuFlowVisibleProjectionState["heldPreviousProjection"]> {
-  const heldPreviousProjection = visibleProjectionState.heldPreviousProjection;
-  if (
-    heldPreviousProjection === null ||
-    heldPreviousProjection.requestedProjectionSampleId !==
-      publicationDecision.sample.id
-  ) {
-    throw new Error(
-      "GPU Flow held-previous publication completion requires diagnostics for the selected projection sample.",
-    );
-  }
-  return heldPreviousProjection;
-}
-
-function isGpuFlowVisiblePublicationHeldPreviousOverBudget(
-  visibleProjectionState: GpuFlowVisibleProjectionState,
-): boolean {
-  const heldPreviousProjection = visibleProjectionState.heldPreviousProjection;
-  if (heldPreviousProjection === null) {
-    return false;
-  }
-  return Boolean(
-    heldPreviousProjection.maxHeldPreviousFramesExceeded ||
-      heldPreviousProjection.maxHeldPreviousMsExceeded,
-  );
-}
-
-function createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
-  previousVisibleProjectionState,
-  publicationDecision,
-  schedulerKnobs,
-}: {
-  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
-}):
-  | {
-      readonly kind: "blocked";
-      readonly token: GpuFlowBlockedPublicationToken;
-    }
-  | {
-      readonly kind: "hold-previous";
-      readonly token: GpuFlowHoldPreviousToken;
-    } {
-  if (!previousVisibleProjectionState) {
-    return {
-      kind: "blocked",
-      token: createGpuFlowVisibleFrameBlockedPublicationToken({
-        blockedReasons: [
-          {
-            actorId: null,
-            family: "visible-transaction",
-            reason: "no-visible-frame-before-first-commit",
-          },
-        ],
-        frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
-        projectionSample: publicationDecision.sample,
-      }),
-    };
-  }
-  const previousHeld = previousVisibleProjectionState.heldPreviousProjection;
-  const firstHeldAtMs =
-    previousHeld?.firstHeldAtMs ?? publicationDecision.sample.timestamp;
-  const holdAgeFrames = (previousHeld?.consecutiveFrameCount ?? 0) + 1;
-  const holdAgeMs = Math.max(
-    0,
-    publicationDecision.sample.timestamp - firstHeldAtMs,
-  );
-  if (
-    isGpuFlowNoFrameHeldPreviousOverBudget({
-      holdAgeFrames,
-      holdAgeMs,
-      previousHeld,
-      schedulerKnobs,
-    })
-  ) {
-    return {
-      kind: "blocked",
-      token: createGpuFlowVisibleFrameBlockedPublicationToken({
-        blockedReasons: [
-          {
-            actorId: null,
-            family: "visible-transaction",
-            reason: "held-previous-budget-exceeded",
-          },
-        ],
-        frozenFrameId:
-          previousVisibleProjectionState.committedFrame.displayFrameId,
-        projectionSample: publicationDecision.sample,
-      }),
-    };
-  }
-  return {
-    kind: "hold-previous",
-    token: createGpuFlowVisibleFrameHoldPreviousToken({
-      committedFrameId:
-        previousVisibleProjectionState.committedFrame.displayFrameId,
-      holdAgeFrames,
-      holdAgeMs,
-      projectionSample: publicationDecision.sample,
-    }),
-  };
-}
-
-function isGpuFlowNoFrameHeldPreviousOverBudget({
-  holdAgeFrames,
-  holdAgeMs,
-  previousHeld,
-  schedulerKnobs,
-}: {
-  readonly holdAgeFrames: number;
-  readonly holdAgeMs: number;
-  readonly previousHeld: GpuFlowVisibleProjectionState["heldPreviousProjection"];
-  readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
-}): boolean {
-  return Boolean(
-    previousHeld?.maxHeldPreviousFramesExceeded ||
-      previousHeld?.maxHeldPreviousMsExceeded ||
-      holdAgeFrames > schedulerKnobs.maxHeldPreviousFrames ||
-      holdAgeMs > schedulerKnobs.maxHeldPreviousMs,
-  );
-}
-
 export function createGpuFlowVisiblePublicationCompletionCommitToken({
   presentableCommit,
   publicationDecision,
@@ -349,116 +135,6 @@ export function createGpuFlowVisiblePublicationCompletionCommitToken({
   }
   return createGpuFlowCommitPublicationToken({
     presentableCommit,
-  });
-}
-
-export function createGpuFlowVisiblePublicationCompletionOutcome({
-  blockedPublicationToken,
-  commitOracle,
-  presentableCommit,
-  publicationDecision,
-  previousVisibleProjectionState,
-  renderedVisibleFrame,
-  schedulerKnobs,
-  visibleProjectionState,
-}: {
-  readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-  readonly commitOracle: GpuFlowVisiblePublicationCommitOracle | null;
-  readonly presentableCommit: GpuFlowPresentableCommit | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly renderedVisibleFrame: boolean;
-  readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
-}):
-  | {
-      readonly kind: "blocked";
-      readonly token: GpuFlowBlockedPublicationToken;
-    }
-  | {
-      readonly kind: "commit";
-      readonly debtProof: GpuFlowVisiblePublicationCommitDebtProof;
-      readonly token: GpuFlowCommitPublicationToken;
-    }
-  | {
-      readonly kind: "hold-previous";
-      readonly token: GpuFlowHoldPreviousToken;
-    } {
-  if (!renderedVisibleFrame) {
-    if (blockedPublicationToken) {
-      return { kind: "blocked", token: blockedPublicationToken };
-    }
-    return createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
-      previousVisibleProjectionState,
-      publicationDecision,
-      schedulerKnobs,
-    });
-  }
-  if (visibleProjectionState === null) {
-    throw new Error(
-      "GPU Flow visible publication completion cannot commit a rendered frame without visible projection state.",
-    );
-  }
-  if (visibleProjectionState.transaction.kind === "held-previous") {
-    return createGpuFlowVisiblePublicationCompletionHeldPreviousOutcome({
-      blockedPublicationToken,
-      publicationDecision,
-      visibleProjectionState,
-    });
-  }
-  if (commitOracle === null) {
-    throw new Error(
-      "GPU Flow committed publication completion requires the transaction oracle commit proof.",
-    );
-  }
-  return {
-    debtProof: commitOracle.debtProof,
-    kind: "commit",
-    token: createGpuFlowVisiblePublicationCompletionCommitToken({
-      presentableCommit,
-      publicationDecision,
-      visibleProjectionState,
-    }),
-  };
-}
-
-export function completeGpuFlowVisibleFramePublicationTransaction({
-  blockedPublicationToken,
-  commitOracle,
-  presentableCommit,
-  publicationDecision,
-  previousVisibleProjectionState,
-  renderedVisibleFrame,
-  scheduler,
-  visibleProjectionState,
-}: {
-  readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-  readonly commitOracle: GpuFlowVisiblePublicationCommitOracle | null;
-  readonly presentableCommit: GpuFlowPresentableCommit | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly renderedVisibleFrame: boolean;
-  readonly scheduler: Pick<
-    GpuFlowVisiblePublicationScheduler,
-    "completeFrame" | "getKnobs"
-  >;
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowVisiblePublicationTransactionCompletion {
-  const outcome = createGpuFlowVisiblePublicationCompletionOutcome({
-    blockedPublicationToken,
-    commitOracle,
-    presentableCommit,
-    publicationDecision,
-    previousVisibleProjectionState,
-    renderedVisibleFrame,
-    schedulerKnobs: scheduler.getKnobs(),
-    visibleProjectionState,
-  });
-  return Object.freeze({
-    completion: scheduler.completeFrame(publicationDecision, outcome),
-    outcome,
-    previousCommittedFrameId:
-      previousVisibleProjectionState?.committedFrame.displayFrameId ?? null,
   });
 }
 

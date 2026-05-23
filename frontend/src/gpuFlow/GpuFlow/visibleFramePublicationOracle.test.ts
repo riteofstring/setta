@@ -17,6 +17,7 @@ import type {
 } from "../projectionRuntime";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationKernel";
 import {
+  createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
   createGpuFlowVisibleFramePublicationTransactionOracle,
   createGpuFlowVisiblePublicationCommitOracle,
   selectGpuFlowVisibleFramePublicationPreparedFrame,
@@ -57,6 +58,12 @@ describe("GPU Flow visible publication transaction oracle", () => {
     );
     expect(oracleSource).toContain(
       "type GpuFlowVisiblePublicationBlockedProof",
+    );
+    expect(oracleSource).toContain(
+      "function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame",
+    );
+    expect(kernelSource).not.toContain(
+      "function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame",
     );
   });
 
@@ -261,6 +268,49 @@ describe("GPU Flow visible publication transaction oracle", () => {
       }).visibleProjectionSource,
     ).toBe("motion-projection");
     expect(prepared.commitOracle?.debtProof.content).toBe(true);
+  });
+
+  it("assembles prepared candidate-set frames from the transaction oracle proof", () => {
+    const motionVisibleState = visibleProjectionState({
+      kind: "motion-projection",
+      sample: liveProjectionSample({ id: 49, timestamp: 490 }),
+    });
+    const contentPublicationFrame = {
+      blockedPublicationCandidate: null,
+      visibleProjectionState: null,
+    };
+    const motionProjectionFrame = {
+      blockedPublicationCandidate: null,
+      visibleProjectionState: motionVisibleState,
+    };
+    const transactionOracle =
+      createGpuFlowVisibleFramePublicationTransactionOracle({
+        contentPublicationFrame,
+        motionProjectionFrame,
+        publicationDecision: publicationDecision(motionVisibleState.sample),
+      });
+
+    const prepared =
+      createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame({
+        contentPublicationFrame,
+        motionProjectionFrame,
+        transactionOracle,
+      });
+
+    expect(prepared.contentPublicationFrame).toBe(contentPublicationFrame);
+    expect(prepared.motionProjectionFrame).toBe(motionProjectionFrame);
+    expect(prepared.transactionOracle).toBe(transactionOracle);
+    expect(prepared.blockedPublicationCandidate).toBe(
+      transactionOracle.blockedPublicationCandidate,
+    );
+    expect(prepared.blockedProof).toBe(transactionOracle.blockedProof);
+    expect(prepared.presentableCommit).toBe(transactionOracle.presentableCommit);
+    expect(prepared.renderedVisibleFrame).toBe(
+      transactionOracle.renderedVisibleFrame,
+    );
+    expect(prepared.visibleProjectionState).toBe(
+      transactionOracle.visibleProjectionState,
+    );
   });
 
   it("rejects competing content and motion blocked candidates", () => {

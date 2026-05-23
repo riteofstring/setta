@@ -9,7 +9,6 @@ import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
   renderHtmlSurfaceFrame,
   type GpuNodeDomTransformSyncCache,
-  type RenderHtmlSurfaceFrameResult,
 } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceRenderer } from "../htmlSurfaces/renderer";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
@@ -20,9 +19,7 @@ import { type GpuNodeInteractionDirtyController } from "../nodeInteractionDirty"
 import {
   createGpuFlowProjectionDebugState,
   type GpuFlowHeldPreviousProjection,
-  type GpuFlowProjectionLane,
   type GpuFlowProjectionTransaction,
-  type GpuFlowProjectionTransactionKind,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
@@ -53,6 +50,12 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
 import type { GpuFlowProjectionFrameRenderablePlan } from "./visibleFramePublicationKernel";
+import {
+  createGpuFlowProjectionOnlyBlockedWork,
+  selectGpuFlowMotionProjectionFrameWorkBlockedReason,
+  type GpuFlowProjectionOnlyFrameWorkInput,
+  type GpuFlowProjectionOnlyFrameWorkResult,
+} from "./visibleFramePublicationProjectionPlan";
 
 export type GpuFlowRetainedProjectionFrame = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
@@ -62,6 +65,7 @@ export type GpuFlowRetainedProjectionFrame = {
 
 type RenderGpuFlowNodeLayerProjectionFrameResult =
   | {
+      readonly publicationBlockedReason?: string | null;
       readonly rendered: false;
     }
   | {
@@ -205,11 +209,18 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     uploadBudget: layer.uploadBudget,
     viewport: projectionViewport,
   });
-  assertGpuFlowMotionProjectionFrameWork({
-    layerResult,
-    projectionLane: transaction.lane,
-    transactionKind: transaction.kind,
-  });
+  const publicationBlockedReason =
+    selectGpuFlowMotionProjectionFrameWorkBlockedReason({
+      layerResult,
+      projectionLane: transaction.lane,
+      transactionKind: transaction.kind,
+    });
+  if (publicationBlockedReason !== null) {
+    return {
+      publicationBlockedReason,
+      rendered: false,
+    };
+  }
   const projectionDebugState = createGpuFlowProjectionDebugState(
     transaction,
     heldPreviousProjection,
@@ -295,71 +306,24 @@ export function assertGpuFlowMotionProjectionFrameWork({
   projectionLane,
   transactionKind,
 }: {
-  readonly layerResult: Pick<
-    RenderHtmlSurfaceFrameResult,
-    | "budgetExhausted"
-    | "deferredNodeIds"
-    | "evictedTextureBytes"
-    | "evictedTextureNodeIds"
-    | "missingElementNodeIds"
-    | "remainingDirtyNodeIds"
-    | "skippedNodeIds"
-    | "uploadedNodeIds"
-  >;
-  readonly projectionLane: GpuFlowProjectionLane;
-  readonly transactionKind: GpuFlowProjectionTransactionKind;
+  readonly layerResult: GpuFlowProjectionOnlyFrameWorkResult;
+  readonly projectionLane: GpuFlowProjectionOnlyFrameWorkInput["projectionLane"];
+  readonly transactionKind: GpuFlowProjectionOnlyFrameWorkInput["transactionKind"];
 }): void {
-  if (
-    projectionLane !== "motion" ||
-    (transactionKind !== "motion-projection" &&
-      transactionKind !== "held-previous")
-  ) {
+  const blockedReason = selectGpuFlowMotionProjectionFrameWorkBlockedReason({
+    layerResult,
+    projectionLane,
+    transactionKind,
+  });
+  if (blockedReason === null) {
     return;
   }
-  const blockedWork = {
-    deferredNodeIds: layerResult.deferredNodeIds,
-    evictedTextureBytes: layerResult.evictedTextureBytes,
-    evictedTextureNodeIds: layerResult.evictedTextureNodeIds,
-    missingElementNodeIds: layerResult.missingElementNodeIds,
-    remainingDirtyNodeIds: layerResult.remainingDirtyNodeIds,
-    skippedNodeIds: layerResult.skippedNodeIds,
-    uploadedNodeIds: layerResult.uploadedNodeIds,
-  };
-  if (
-    hasGpuFlowProjectionOnlyForbiddenContentWork({
-      budgetExhausted: layerResult.budgetExhausted,
+  const blockedWork = createGpuFlowProjectionOnlyBlockedWork(layerResult);
+  throw new Error(
+    `GPU Flow motion projection frame performed forbidden content work: ${JSON.stringify(
       blockedWork,
-    })
-  ) {
-    throw new Error(
-      `GPU Flow motion projection frame performed forbidden content work: ${JSON.stringify(
-        blockedWork,
-      )}`,
-    );
-  }
-}
-
-function hasGpuFlowProjectionOnlyForbiddenContentWork({
-  blockedWork,
-  budgetExhausted,
-}: {
-  readonly blockedWork: {
-    readonly deferredNodeIds: readonly string[];
-    readonly evictedTextureBytes: number;
-    readonly evictedTextureNodeIds: readonly string[];
-    readonly missingElementNodeIds: readonly string[];
-    readonly remainingDirtyNodeIds: readonly string[];
-    readonly skippedNodeIds: readonly string[];
-    readonly uploadedNodeIds: readonly string[];
-  };
-  readonly budgetExhausted: boolean;
-}): boolean {
-  return [
-    budgetExhausted,
-    blockedWork.evictedTextureBytes > 0,
-    blockedWork.evictedTextureNodeIds.length > 0,
-    blockedWork.uploadedNodeIds.length > 0,
-  ].some(Boolean);
+    )}`,
+  );
 }
 
 export function resolveGpuFlowRetainedProjectionFrame({

@@ -60,6 +60,7 @@ type GpuFlowSurfaceFrameEvent = Parameters<
 type GpuFlowMotionProjectionFrameResult = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly publicationBlockedReason: string | null;
   readonly rendered: boolean;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
@@ -472,6 +473,7 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
   });
   if (!rendered.rendered) {
     return createGpuFlowMotionProjectionFrameResult({
+      publicationBlockedReason: rendered.publicationBlockedReason ?? null,
       rendered: false,
     });
   }
@@ -493,6 +495,7 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
 function createGpuFlowMotionProjectionFrameResult({
   blockedPublicationCandidate = null,
   nodeLayerFrameStatePublication = null,
+  publicationBlockedReason = null,
   rendered,
   visibleProjectionState = null,
 }: {
@@ -504,6 +507,7 @@ function createGpuFlowMotionProjectionFrameResult({
     | GpuFlowNodeLayerFrameStatePublication
     | null
     | undefined;
+  readonly publicationBlockedReason?: string | null | undefined;
   readonly rendered: boolean;
   readonly visibleProjectionState?:
     | GpuFlowVisibleProjectionState
@@ -513,6 +517,7 @@ function createGpuFlowMotionProjectionFrameResult({
   return {
     blockedPublicationCandidate,
     nodeLayerFrameStatePublication,
+    publicationBlockedReason,
     rendered,
     visibleProjectionState,
   };

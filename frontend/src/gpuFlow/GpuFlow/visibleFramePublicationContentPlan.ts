@@ -445,6 +445,47 @@ export function createGpuFlowContentPublicationFrameResultForRetainedDisplayPubl
   });
 }
 
+export function resolveGpuFlowRetainedDisplayPublicationContentResolution({
+  deferResolutionUpdates,
+  preparation,
+  previousVisibleProjectionState,
+}: {
+  readonly deferResolutionUpdates: boolean;
+  readonly preparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}):
+  | {
+      readonly frameResult: GpuFlowContentPublicationFrameResult;
+      readonly kind: "content-frame-result";
+    }
+  | {
+      readonly kind: "published-outcome-frame";
+      readonly publishedOutcomeFrame: NonNullable<
+        GpuFlowRetainedDisplayPublicationFramePlanPreparation["publishedOutcomeFrame"]
+      >;
+    } {
+  const frameResult =
+    createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation(
+      {
+        deferResolutionUpdates,
+        preparation,
+        previousVisibleProjectionState,
+      },
+    );
+  if (frameResult) {
+    return {
+      frameResult,
+      kind: "content-frame-result",
+    };
+  }
+  return {
+    kind: "published-outcome-frame",
+    publishedOutcomeFrame: requireGpuFlowRetainedDisplayPublishedOutcomeFrame({
+      preparation,
+    }),
+  };
+}
+
 export function requireGpuFlowRetainedDisplayPublishedOutcomeFrame({
   preparation,
 }: {
@@ -483,6 +524,46 @@ export function createGpuFlowContentPublicationFrameResultForCommittedSurfacePub
     retainedDisplayFrame: null,
     retainedRuntimeFrame: null,
   });
+}
+
+export function resolveGpuFlowCommittedSurfacePublicationContentResolution({
+  deferResolutionUpdates,
+  preparation,
+  previousVisibleProjectionState,
+  retainedDisplayFollowUpFrameReason,
+}: {
+  readonly deferResolutionUpdates: boolean;
+  readonly preparation: GpuFlowCommittedSurfacePublicationFramePlanPreparation;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly retainedDisplayFollowUpFrameReason: GpuFrameReason | null;
+}):
+  | {
+      readonly frameResult: GpuFlowContentPublicationFrameResult;
+      readonly kind: "content-frame-result";
+    }
+  | {
+      readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
+      readonly kind: "committed-surface-publication";
+    } {
+  const frameResult =
+    createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation(
+      {
+        deferResolutionUpdates,
+        preparation,
+        previousVisibleProjectionState,
+        retainedDisplayFollowUpFrameReason,
+      },
+    );
+  if (frameResult) {
+    return {
+      frameResult,
+      kind: "content-frame-result",
+    };
+  }
+  return {
+    committedSurfacePublication: preparation.committedSurfacePublication,
+    kind: "committed-surface-publication",
+  };
 }
 
 export function createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
