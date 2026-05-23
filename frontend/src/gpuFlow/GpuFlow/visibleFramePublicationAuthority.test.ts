@@ -958,10 +958,25 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(commitMethodSource).not.toContain("this.emitPreparation()");
     expect(
       commitMethodSource.indexOf("this.publishBrowserVisualHostPresentation"),
-    ).toBeLessThan(commitMethodSource.indexOf("this.emit()"));
+    ).toBeLessThan(commitMethodSource.indexOf("this.scheduleSnapshotEmit()"));
+    expect(commitMethodSource).not.toContain("this.emitSnapshot()");
     expect(browserVisualRuntimeSource).toContain(
       "assertGpuFlowCommitPublicationTokenForFrameId",
     );
+    const scheduleMethodStart = browserVisualRuntimeSource.indexOf(
+      "private scheduleSnapshotEmit",
+    );
+    const emitMethodStart = browserVisualRuntimeSource.indexOf(
+      "private emitSnapshot",
+    );
+    const scheduleMethodSource = browserVisualRuntimeSource.slice(
+      scheduleMethodStart,
+      emitMethodStart,
+    );
+    expect(scheduleMethodStart).toBeGreaterThan(commitMethodStart);
+    expect(emitMethodStart).toBeGreaterThan(scheduleMethodStart);
+    expect(scheduleMethodSource).toContain("queueMicrotask");
+    expect(scheduleMethodSource).toContain("snapshotEmitQueued");
   });
 
   it("publishes projection debug frame ids only from visible publication paths", () => {

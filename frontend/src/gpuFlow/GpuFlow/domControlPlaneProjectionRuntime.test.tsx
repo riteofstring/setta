@@ -102,7 +102,7 @@ describe("GPU flow DOM control projection runtime", () => {
     ).not.toThrow();
   });
 
-  it("promotes prepared DOM-control hosts during committed publication", () => {
+  it("promotes prepared DOM-control hosts during committed publication", async () => {
     const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
     const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
     const viewportStore = createGpuFlowViewportStore({
@@ -147,6 +147,7 @@ describe("GPU flow DOM control projection runtime", () => {
       candidate,
       token,
     });
+    expect(hostVisibleWhenSnapshotEmits).toBe(false);
     browserVisualRuntime.projectDomControls({
       token,
       viewport: [0, 0, 1],
@@ -154,6 +155,7 @@ describe("GPU flow DOM control projection runtime", () => {
 
     expect(element.dataset.gpuFlowDomControl).toBe("true");
     expect(element.dataset.gpuFlowDomControlPreparation).toBeUndefined();
+    await nextMicrotask();
     expect(hostVisibleWhenSnapshotEmits).toBe(true);
     expect(element.style.opacity).toBe("");
     expect(element.style.visibility).toBe("");
@@ -455,7 +457,7 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(recorderMounted).toEqual(normalMounted);
   });
 
-  it("tracks committed-frame store updates when React semantic rendering dedupes", () => {
+  it("tracks committed-frame store updates when React semantic rendering dedupes", async () => {
     const firstControls = [domControl({ index: 0 })];
     const nextControls = [domControl({ index: 1 })];
     const firstRuntimeFrame = retainedRuntimeFrame(firstControls, 1);
@@ -495,7 +497,7 @@ describe("GPU flow DOM control projection runtime", () => {
     });
     expect(mountedRowIds()).toEqual(["row-0"]);
 
-    act(() => {
+    await act(async () => {
       const frame = committedSurfaceFrame({
         displayFrameId: 2,
         retainedRuntimeFrame: nextRuntimeFrame,
@@ -506,6 +508,7 @@ describe("GPU flow DOM control projection runtime", () => {
         viewportRuntime,
         viewportStore,
       });
+      await nextMicrotask();
     });
 
     expect(mountedRowIds()).toEqual(["row-1"]);
@@ -516,7 +519,7 @@ describe("GPU flow DOM control projection runtime", () => {
     ).toBe("2");
   });
 
-  it("prepares candidate hosts offscreen before reporting live-host readiness", () => {
+  it("prepares candidate hosts offscreen before reporting live-host readiness", async () => {
     const firstControl = domControl({ index: 0 });
     const nextControl = domControl({ index: 1 });
     const firstRuntimeFrame = retainedRuntimeFrame([firstControl]);
@@ -619,7 +622,7 @@ describe("GPU flow DOM control projection runtime", () => {
         preparationNotificationsAfterCommit += 1;
       },
     );
-    act(() => {
+    await act(async () => {
       browserVisualRuntime.commitPreparedBrowserVisualActors({
         candidate: readyReadiness!,
         token: publicationToken(
@@ -629,6 +632,7 @@ describe("GPU flow DOM control projection runtime", () => {
           }),
         ),
       });
+      await nextMicrotask();
     });
     unsubscribePreparation();
     expect(
@@ -1272,4 +1276,8 @@ function renderMountedRowIds({
   });
 
   return mountedRowIds();
+}
+
+async function nextMicrotask(): Promise<void> {
+  await Promise.resolve();
 }

@@ -180,6 +180,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   private readonly preparationListeners =
     new Set<BrowserVisualActorRuntimeListener>();
   private snapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
+  private snapshotEmitQueued = false;
   private snapshotPublicationToken: GpuFlowCommitPublicationToken | null = null;
   private suspendPassivePointerActivation = false;
 
@@ -319,7 +320,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       candidate.snapshot.domControls.assignments,
     );
     if (snapshotChanged) {
-      this.emit();
+      this.scheduleSnapshotEmit();
     }
   }
 
@@ -971,7 +972,18 @@ export class GpuFlowBrowserVisualActorRuntime {
     }).ready;
   }
 
-  private emit(): void {
+  private scheduleSnapshotEmit(): void {
+    if (this.snapshotEmitQueued) {
+      return;
+    }
+    this.snapshotEmitQueued = true;
+    queueMicrotask(() => {
+      this.snapshotEmitQueued = false;
+      this.emitSnapshot();
+    });
+  }
+
+  private emitSnapshot(): void {
     for (const listener of this.listeners) {
       listener();
     }

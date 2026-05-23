@@ -36,7 +36,7 @@ describe("GPU Flow DOM island layer", () => {
     document.body.replaceChildren();
   });
 
-  it("tracks committed-frame store updates when React semantic rendering dedupes", () => {
+  it("tracks committed-frame store updates when React semantic rendering dedupes", async () => {
     const firstRuntimeFrame = retainedRuntimeFrame([domIsland("island-a")], 1);
     const nextRuntimeFrame = retainedRuntimeFrame([domIsland("island-b")], 2);
     const committedSurfaceRuntime = createGpuFlowCommittedSurfaceRuntime(
@@ -75,7 +75,7 @@ describe("GPU Flow DOM island layer", () => {
     });
     expect(mountedIslandIds()).toEqual(["island-a"]);
 
-    act(() => {
+    await act(async () => {
       const frame = committedSurfaceFrame({
         displayFrameId: 2,
         retainedRuntimeFrame: nextRuntimeFrame,
@@ -86,6 +86,7 @@ describe("GPU Flow DOM island layer", () => {
         viewportRuntime,
         viewportStore,
       });
+      await nextMicrotask();
     });
 
     expect(mountedIslandIds()).toEqual(["island-b"]);
@@ -252,4 +253,8 @@ function domIsland(id: string): GpuDomIsland {
     source: { kind: "custom" },
     zIndex: 3,
   };
+}
+
+async function nextMicrotask(): Promise<void> {
+  await Promise.resolve();
 }
