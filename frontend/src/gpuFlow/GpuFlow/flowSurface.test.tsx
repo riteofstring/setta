@@ -578,6 +578,7 @@ function committedSurfaceFrameForDebtProof({
   readonly compatiblePreviousActorIds: readonly string[];
 }): GpuFlowCommittedSurfaceFrame {
   return {
+    actorGenerations: [],
     displayFrameId: 19,
     projectionHorizon: {
       textActorCoverage: {

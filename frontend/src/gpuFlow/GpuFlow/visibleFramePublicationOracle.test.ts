@@ -5,15 +5,19 @@ import { describe, expect, it } from "vitest";
 
 import {
   createGpuFlowCommittedSurfacePresentationProof,
+  type GpuFlowCommittedSurfaceActorGeneration,
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
+import { freezeActor } from "../committedSurfaceActorFreeze";
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionTransactionKind,
+  GpuFlowVisiblePublicationDecision,
   GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationKernel";
 import {
+  createGpuFlowVisiblePublicationCommitOracle,
   createGpuFlowVisibleFramePublicationTransactionOracle,
   selectGpuFlowVisibleFramePublicationPreparedFrame,
 } from "./visibleFramePublicationOracle";
@@ -82,6 +86,38 @@ describe("GPU Flow visible publication transaction oracle", () => {
     expect(oracle.renderedVisibleFrame).toBe(true);
     expect(oracle.visibleProjectionSource).toBe("content-publication");
     expect(oracle.visibleProjectionState).toBe(contentVisibleState);
+  });
+
+  it("reports authoritative per-actor visual and interaction proof entries", () => {
+    const sample = liveProjectionSample({ id: 45, timestamp: 450 });
+    const actor = retainedDomControlActor();
+    const oracle = createGpuFlowVisiblePublicationCommitOracle({
+      committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+      publicationDecision: publicationDecision(sample),
+    });
+
+    expect(oracle.actorProofs).toEqual([
+      expect.objectContaining({
+        actorId: "control-a",
+        actualInteractionProof: "blocked",
+        actualVisualProof: "compatible-previous",
+        canonicalActorId: actor.canonicalActorId,
+        contentGenerationId: "content-a",
+        ownerFamily: "text-like-dom-control",
+        ownerSurfaceId: "surface-a",
+        projectionGenerationId: "layout-a",
+        projectionSampleId: sample.id,
+        proofState: "blocked",
+        remainingDebt: ["exact-browser-visual", "active-editor"],
+        requiredInteractionRepresentation: "active-editor-live",
+        requiredVisualRepresentation: "browser-visual",
+        sampledVisualEvidence: "compatible-previous",
+      }),
+    ]);
+    expect(oracle.actorProofDigest).toContain("text-like-dom-control");
+    expect(oracle.browserActorProofs.actualVisual).toEqual({
+      "compatible-previous": 1,
+    });
   });
 
   it("selects content visible state over motion visible state", () => {
@@ -222,7 +258,11 @@ function visibleProjectionState({
   };
 }
 
-function committedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+function committedSurfaceFrame({
+  actorGenerations = [],
+}: {
+  readonly actorGenerations?: readonly GpuFlowCommittedSurfaceActorGeneration[];
+} = {}): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = 7;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
@@ -236,10 +276,11 @@ function committedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
     retainedScrollRevision: 0,
   };
   return {
-    actorGenerations: [],
+    actorGenerations,
     coherence,
     displayFrameId,
     presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      actorGenerations,
       coherence,
       displayFrameId,
     }),
@@ -259,6 +300,77 @@ function committedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
     },
     surfaceTransaction: null,
   } as unknown as GpuFlowCommittedSurfaceFrame;
+}
+
+function retainedDomControlActor(): GpuFlowCommittedSurfaceActorGeneration {
+  return freezeActor({
+    active: true,
+    actorFamily: "text-like-dom-control",
+    actorId: "control-a",
+    browserVisual: {
+      coverageExemption: null,
+      coverageRequired: {
+        reason: "active-editor",
+        required: true,
+      },
+      coverageState: "compatible-previous-ready",
+      nonemptyReason: "value-text",
+      proof: {
+        actualInteraction: "blocked",
+        actualVisual: "compatible-previous",
+        requiredInteraction: "active-editor-live",
+        requiredVisual: "browser-visual",
+      },
+      representation: {
+        actorId: "control-a",
+        kind: "compatible-previous",
+        previousTransactionId: "previous-transaction",
+      },
+      representationKind: "compatible-previous",
+      resourceHandles: [],
+      visibilityReason: "visible",
+    } as GpuFlowCommittedSurfaceActorGeneration["browserVisual"],
+    clipChainRevision: "clip-a",
+    clipRect: rect(),
+    contentGenerationId: "content-a",
+    controlId: "control-a",
+    focusIdentity: "control-a",
+    flowRect: rect(),
+    generationId: "generation-a",
+    islandId: null,
+    kind: "dom-control",
+    layoutProjectionGenerationId: "layout-a",
+    liveMotionSampleId: "sample-a",
+    mountReadiness: "ready",
+    ownerSurfaceId: "surface-a",
+    pointerEvents: "auto",
+    projectionReadiness: "ready",
+    readinessGenerationId: "ready-a",
+    retainedScrollOffset: null,
+    retainedScrollRevision: 1,
+    rowId: "row-a",
+    sourceRect: rect(),
+    valueStyleRevision: "value-style-a",
+    visibleNonempty: true,
+    wheelPolicy: "retained-scroll-or-editor-scroll",
+    zOrder: 1,
+  });
+}
+
+function rect() {
+  return { height: 20, width: 100, x: 0, y: 0 };
+}
+
+function publicationDecision(
+  sample: GpuFlowLiveProjectionSample,
+): GpuFlowVisiblePublicationDecision {
+  return {
+    debt: { content: true, maintenance: false, motion: false },
+    lane: "content",
+    rawReasons: ["manual"],
+    sample,
+    schedulerState: "idle",
+  };
 }
 
 function liveProjectionSample({

@@ -1,6 +1,7 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
   createGpuFlowVisiblePublicationScheduler,
+  type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
@@ -223,9 +224,11 @@ function isGpuFlowVisiblePublicationHeldPreviousOverBudget(
 function createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
   previousVisibleProjectionState,
   publicationDecision,
+  schedulerKnobs,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
 }):
   | {
       readonly kind: "blocked";
@@ -254,19 +257,64 @@ function createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
   const previousHeld = previousVisibleProjectionState.heldPreviousProjection;
   const firstHeldAtMs =
     previousHeld?.firstHeldAtMs ?? publicationDecision.sample.timestamp;
+  const holdAgeFrames = (previousHeld?.consecutiveFrameCount ?? 0) + 1;
+  const holdAgeMs = Math.max(
+    0,
+    publicationDecision.sample.timestamp - firstHeldAtMs,
+  );
+  if (
+    isGpuFlowNoFrameHeldPreviousOverBudget({
+      holdAgeFrames,
+      holdAgeMs,
+      previousHeld,
+      schedulerKnobs,
+    })
+  ) {
+    return {
+      kind: "blocked",
+      token: createGpuFlowVisibleFrameBlockedPublicationToken({
+        blockedReasons: [
+          {
+            actorId: null,
+            family: "visible-transaction",
+            reason: "held-previous-budget-exceeded",
+          },
+        ],
+        frozenFrameId:
+          previousVisibleProjectionState.committedFrame.displayFrameId,
+        projectionSample: publicationDecision.sample,
+      }),
+    };
+  }
   return {
     kind: "hold-previous",
     token: createGpuFlowVisibleFrameHoldPreviousToken({
       committedFrameId:
         previousVisibleProjectionState.committedFrame.displayFrameId,
-      holdAgeFrames: (previousHeld?.consecutiveFrameCount ?? 0) + 1,
-      holdAgeMs: Math.max(
-        0,
-        publicationDecision.sample.timestamp - firstHeldAtMs,
-      ),
+      holdAgeFrames,
+      holdAgeMs,
       projectionSample: publicationDecision.sample,
     }),
   };
+}
+
+function isGpuFlowNoFrameHeldPreviousOverBudget({
+  holdAgeFrames,
+  holdAgeMs,
+  previousHeld,
+  schedulerKnobs,
+}: {
+  readonly holdAgeFrames: number;
+  readonly holdAgeMs: number;
+  readonly previousHeld: GpuFlowVisibleProjectionState["heldPreviousProjection"];
+  readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
+}): boolean {
+  return Boolean(
+    previousHeld?.maxHeldPreviousFramesExceeded ||
+      previousHeld?.maxHeldPreviousMsExceeded ||
+      holdAgeFrames > schedulerKnobs.maxHeldPreviousFrames ||
+      holdAgeMs > schedulerKnobs.maxHeldPreviousMs,
+  );
 }
 
 export function createGpuFlowVisiblePublicationCompletionCommitToken({
@@ -310,6 +358,7 @@ export function createGpuFlowVisiblePublicationCompletionOutcome({
   publicationDecision,
   previousVisibleProjectionState,
   renderedVisibleFrame,
+  schedulerKnobs,
   visibleProjectionState,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
@@ -317,6 +366,7 @@ export function createGpuFlowVisiblePublicationCompletionOutcome({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly renderedVisibleFrame: boolean;
+  readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }):
   | {
@@ -339,6 +389,7 @@ export function createGpuFlowVisiblePublicationCompletionOutcome({
     return createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
       previousVisibleProjectionState,
       publicationDecision,
+      schedulerKnobs,
     });
   }
   if (visibleProjectionState === null) {
@@ -381,7 +432,10 @@ export function completeGpuFlowVisibleFramePublicationTransaction({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly renderedVisibleFrame: boolean;
-  readonly scheduler: Pick<GpuFlowVisiblePublicationScheduler, "completeFrame">;
+  readonly scheduler: Pick<
+    GpuFlowVisiblePublicationScheduler,
+    "completeFrame" | "getKnobs"
+  >;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowVisiblePublicationTransactionCompletion {
   const outcome = createGpuFlowVisiblePublicationCompletionOutcome({
@@ -390,6 +444,7 @@ export function completeGpuFlowVisibleFramePublicationTransaction({
     publicationDecision,
     previousVisibleProjectionState,
     renderedVisibleFrame,
+    schedulerKnobs: scheduler.getKnobs(),
     visibleProjectionState,
   });
   return Object.freeze({

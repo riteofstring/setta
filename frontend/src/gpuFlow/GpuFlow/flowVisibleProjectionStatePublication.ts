@@ -1,6 +1,14 @@
 import type { MutableRefObject } from "react";
 
-import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
+import {
+  createGpuFlowHeldPreviousProjection,
+  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowVisibleProjectionState,
+  type GpuFlowProjectionLane,
+  type GpuFlowProjectionSchedulerKnobs,
+  type GpuFlowVisibleProjectionState,
+  type GpuFlowVisiblePublicationDecision,
+} from "../projectionRuntime";
 import {
   assertGpuFlowCommitPublicationToken,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
@@ -52,6 +60,64 @@ export function recordGpuFlowHeldPreviousVisibleProjectionState({
     visibleProjectionPublicationStateRef,
     visibleProjectionState,
   });
+}
+
+export function recordGpuFlowNoFrameHeldPreviousVisibleProjectionState({
+  previousVisibleProjectionState,
+  publicationDecision,
+  schedulerKnobs,
+  token,
+  visibleProjectionPublicationStateRef,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
+  readonly token: GpuFlowHoldPreviousToken | null;
+  readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
+}): void {
+  if (!previousVisibleProjectionState) {
+    throw new Error(
+      "GPU Flow no-frame held-previous diagnostics require a previous visible projection state.",
+    );
+  }
+  const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
+    committedFrameId: previousVisibleProjectionState.committedFrame.displayFrameId,
+    kind: "held-previous",
+    lane: resolveGpuFlowHeldPreviousPublicationLane({
+      previousVisibleProjectionState,
+      publicationDecision,
+    }),
+    rawReasons: publicationDecision.rawReasons,
+    sample: publicationDecision.sample,
+  });
+  recordHeldPreviousVisibleProjectionState({
+    token,
+    visibleProjectionPublicationStateRef,
+    visibleProjectionState: createGpuFlowVisibleProjectionState({
+      committedFrame: previousVisibleProjectionState.committedFrame,
+      heldPreviousProjection: createGpuFlowHeldPreviousProjection({
+        heldTransaction: transaction,
+        knobs: schedulerKnobs,
+        previousVisibleProjectionState,
+        reason: "no-visible-frame",
+        requestedSample: publicationDecision.sample,
+      }),
+      transaction,
+    }),
+  });
+}
+
+function resolveGpuFlowHeldPreviousPublicationLane({
+  previousVisibleProjectionState,
+  publicationDecision,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}): GpuFlowProjectionLane {
+  if (publicationDecision.lane !== "idle") {
+    return publicationDecision.lane;
+  }
+  return previousVisibleProjectionState.transaction.lane;
 }
 
 function publishCommittedVisibleProjectionState({
