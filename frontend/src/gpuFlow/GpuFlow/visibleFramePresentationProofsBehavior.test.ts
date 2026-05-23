@@ -442,6 +442,93 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       debtFrameRequest: null,
     });
   });
+
+  it("keeps held-previous budget blocked retained follow-up queued behind scheduler debt", () => {
+    const projectionSample = liveProjectionSample();
+    const completion = proveGpuFlowVisibleFramePublicationPresentation({
+      blockedPublicationProof: {
+        blockedReasons: [
+          {
+            actorId: null,
+            family: "visible-transaction",
+            reason: "held-previous-budget-exceeded",
+          },
+        ],
+        candidate: {
+          blockedReasons: [
+            {
+              actorId: null,
+              family: "visible-transaction",
+              reason: "held-previous-budget-exceeded",
+            },
+          ],
+          frozenFrameId: 7,
+        },
+        frozenFrameId: 7,
+        source: "presentation-pair",
+      },
+      forceImmediatePublicationDebtFrame: false,
+      followUpFrameReason: "texture-upload",
+      previousVisibleProjectionState: null,
+      publicationDecision: {
+        debt: { content: false, maintenance: true, motion: true },
+        lane: "content",
+        rawReasons: ["texture-upload"],
+        sample: projectionSample,
+        schedulerState: "content-catchup",
+      } as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["publicationDecision"],
+      scheduler: {
+        completeFrame: () => {
+          throw new Error("Unexpected committed frame completion.");
+        },
+        getKnobs: () => DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+        recordUncommittedFrame: () => ({
+          debt: { content: true, maintenance: true, motion: true },
+          outcome: "blocked",
+        }),
+      } as unknown as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["scheduler"],
+      transactionOracle: {
+        renderedVisibleFrame: false,
+        visibleFrameEngineOutcome: {
+          debt: {
+            browserVisual: false,
+            content: true,
+            maintenance: true,
+            motion: true,
+          },
+          decidingProof: {
+            actorId: null,
+            family: "retained-page",
+            proof: "blocked",
+            reason: "held-previous-budget-exceeded",
+          },
+          kind: "aborted",
+          previousPresentationId: "presentation:previous",
+          releasedResourceIds: [],
+        },
+        visibleProjectionState: null,
+      } as unknown as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["transactionOracle"],
+    });
+
+    expect(completion.outcome.kind).toBe("blocked");
+    expect(completion.followUpFrameRequests).toEqual([]);
+    expect(completion.completeSchedulerFrame()).toEqual({
+      completion: {
+        debt: { content: true, maintenance: true, motion: true },
+        outcome: "blocked",
+      },
+      debtFrameRequest: {
+        delayMs: null,
+        frameReason: "retained-scroll",
+      },
+    });
+  });
 });
 
 function proveGpuFlowVisibleFramePublicationPresentationForCommit({

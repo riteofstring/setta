@@ -115,7 +115,9 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
       }),
     followUpFrameRequests: createGpuFlowVisiblePublicationFollowUpFrameRequests(
       {
+        blockedPublicationProof,
         followUpFrameReason,
+        outcome,
       },
     ),
     heldPreviousVisibleProjectionState:
@@ -188,10 +190,22 @@ function createGpuFlowVisiblePublicationColdStartShellPublication({
 }
 
 function createGpuFlowVisiblePublicationFollowUpFrameRequests({
+  blockedPublicationProof,
   followUpFrameReason,
+  outcome,
 }: {
+  readonly blockedPublicationProof: GpuFlowVisiblePublicationBlockedProof | null;
   readonly followUpFrameReason: GpuFrameReason | null;
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
 }): readonly GpuFrameReason[] {
+  if (
+    outcome.kind !== "commit" &&
+    blockedPublicationProof?.blockedReasons.some(
+      isGpuFlowHeldPreviousBudgetBlockedReason,
+    )
+  ) {
+    return Object.freeze([]);
+  }
   return Object.freeze(
     followUpFrameReason === null ? [] : [followUpFrameReason],
   );
@@ -276,6 +290,12 @@ function isGpuFlowBrowserVisualReadinessBlockedReason(reason: {
     reason.reason === "live-dom-budget" ||
     reason.reason === "snapshot-pending"
   );
+}
+
+function isGpuFlowHeldPreviousBudgetBlockedReason(reason: {
+  readonly reason: string;
+}): boolean {
+  return reason.reason === "held-previous-budget-exceeded";
 }
 
 function getGpuFlowVisiblePublicationDebtFrameReason({
