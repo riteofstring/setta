@@ -87,11 +87,9 @@ import {
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
 import {
-  assertGpuFlowBlockedPublicationTokenBrand,
-  assertGpuFlowCommitPublicationTokenBrand,
-  assertGpuFlowHoldPreviousTokenBrand,
   type GpuFlowColdStartShellFrame,
 } from "./visibleFramePublicationTokens";
+import { assertGpuFlowColdStartShellPublicationToken } from "./flowColdStartShellFramePublication";
 
 export function GpuFlow({
   children,
@@ -209,6 +207,8 @@ export function GpuFlow({
     createGpuFlowVisiblePublicationScheduler(),
   );
   const visibleProjectionStateRef =
+    useRef<GpuFlowVisibleProjectionState | null>(null);
+  const visibleProjectionPublicationStateRef =
     useRef<GpuFlowVisibleProjectionState | null>(null);
   const visibleOverlayProjectionKeyRef = useRef<string | null>(null);
   const activeColdStartShellFrameRef =
@@ -473,6 +473,7 @@ export function GpuFlow({
       return;
     }
     retainedDisplayFrameRef.current = null;
+    visibleProjectionPublicationStateRef.current = null;
     visibleProjectionStateRef.current = null;
     visibleOverlayProjectionKeyRef.current = null;
     activeColdStartShellFrameRef.current = null;
@@ -927,6 +928,7 @@ export function GpuFlow({
         visibleCommittedSurfaceFrame,
         visibleNodeIdsRef,
         visibleOverlayProjectionKeyRef,
+        visibleProjectionPublicationStateRef,
         visibleProjectionStateRef,
         visiblePublicationSchedulerRef,
         viewportRuntime,
@@ -993,24 +995,4 @@ export function GpuFlow({
       children={children}
     />
   );
-}
-
-type GpuFlowColdStartShellFramePublication = Parameters<
-  Parameters<typeof renderGpuFlowSurfaceFrame>[0]["publishColdStartShellFrame"]
->[0];
-
-function assertGpuFlowColdStartShellPublicationToken({
-  token,
-}: {
-  readonly token: GpuFlowColdStartShellFramePublication["token"];
-}): void {
-  if (token && "blockedReasons" in token) {
-    assertGpuFlowBlockedPublicationTokenBrand({ token });
-    return;
-  }
-  if (token && "holdAgeFrames" in token) {
-    assertGpuFlowHoldPreviousTokenBrand({ token });
-    return;
-  }
-  assertGpuFlowCommitPublicationTokenBrand({ token });
 }

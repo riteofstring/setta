@@ -667,7 +667,7 @@ describe("GPU Flow projection runtime", () => {
     ]);
   });
 
-  it("exposes held-previous diagnostics on visible debug attributes", () => {
+  it("rejects held-previous diagnostics as visible debug attributes", () => {
     const previousTransaction =
       createGpuFlowProjectionTransactionForCommittedFrameId({
         committedFrameId: 42,
@@ -715,28 +715,20 @@ describe("GPU Flow projection runtime", () => {
     });
     const element = document.createElement("div");
 
-    setProjectionDebugAttributes(
-      element,
-      heldState.debugState,
-      createGpuFlowVisibleFrameHoldPreviousToken({
-        committedFrameId: heldState.committedFrame.displayFrameId,
-        holdAgeFrames: heldPreviousProjection.consecutiveFrameCount,
-        holdAgeMs: heldPreviousProjection.heldDurationMs,
-        projectionSample: requestedSample,
-      }),
-    );
-
-    expect(element.dataset.gpuFlowHeldPreviousFrameCount).toBe("1");
-    expect(element.dataset.gpuFlowHeldPreviousDurationMs).toBe("0");
-    expect(element.dataset.gpuFlowHeldPreviousOverBudget).toBe("true");
-    expect(element.dataset.gpuFlowHeldPreviousReason).toBe(
-      "retained-projection-coverage-missing",
-    );
-    expect(element.dataset.gpuFlowHeldPreviousRequestedSampleId).toBe("12");
-    expect(element.dataset.gpuFlowProjectionTransactionKind).toBe(
-      "held-previous",
-    );
-    expect(element.dataset.gpuFlowProjectionGestureOwner).toBe("idle");
+    expect(() =>
+      setProjectionDebugAttributes(
+        element,
+        heldState.debugState,
+        createGpuFlowVisibleFrameHoldPreviousToken({
+          committedFrameId: heldState.committedFrame.displayFrameId,
+          holdAgeFrames: heldPreviousProjection.consecutiveFrameCount,
+          holdAgeMs: heldPreviousProjection.heldDurationMs,
+          projectionSample: requestedSample,
+        }) as unknown as GpuFlowCommitPublicationToken,
+      ),
+    ).toThrow(/commit publication token/);
+    expect(element.dataset.gpuFlowHeldPreviousFrameCount).toBeUndefined();
+    expect(element.dataset.gpuFlowProjectionTransactionKind).toBeUndefined();
   });
 
   it("scopes projection debug attributes to the canvas owning DOM control plane", () => {

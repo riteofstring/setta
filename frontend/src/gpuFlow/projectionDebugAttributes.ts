@@ -1,15 +1,9 @@
 import {
   assertGpuFlowCommitPublicationTokenForFrameId,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
-  assertGpuFlowHoldPreviousTokenForProjectionSample,
   type GpuFlowCommitPublicationToken,
-  type GpuFlowHoldPreviousToken,
 } from "./GpuFlow/visibleFramePublicationTokens";
 import type { GpuFlowProjectionDebugState } from "./projectionRuntime";
-
-type GpuFlowProjectionDebugPublicationToken =
-  | GpuFlowCommitPublicationToken
-  | GpuFlowHoldPreviousToken;
 
 export function applyGpuFlowProjectionDebugAttributes({
   canvas,
@@ -18,7 +12,7 @@ export function applyGpuFlowProjectionDebugAttributes({
 }: {
   readonly canvas: HTMLCanvasElement;
   readonly debugState: GpuFlowProjectionDebugState;
-  readonly token: GpuFlowProjectionDebugPublicationToken;
+  readonly token: GpuFlowCommitPublicationToken;
 }): void {
   setProjectionDebugAttributes(canvas, debugState, token);
   const root = canvas
@@ -32,7 +26,7 @@ export function applyGpuFlowProjectionDebugAttributes({
 export function setProjectionDebugAttributes(
   element: HTMLElement,
   debugState: GpuFlowProjectionDebugState,
-  token: GpuFlowProjectionDebugPublicationToken,
+  token: GpuFlowCommitPublicationToken,
 ): void {
   assertGpuFlowProjectionDebugPublicationToken({ debugState, token });
   element.dataset.gpuFlowCommittedFrameId = String(debugState.committedFrameId);
@@ -65,24 +59,8 @@ function assertGpuFlowProjectionDebugPublicationToken({
   token,
 }: {
   readonly debugState: GpuFlowProjectionDebugState;
-  readonly token: GpuFlowProjectionDebugPublicationToken;
+  readonly token: GpuFlowCommitPublicationToken;
 }): void {
-  if ("holdAgeFrames" in token) {
-    assertGpuFlowHoldPreviousTokenForProjectionSample({
-      projectionSampleId: token.projectionSampleId,
-      token,
-    });
-    if (
-      token.committedFrameId !== debugState.committedFrameId ||
-      token.holdAgeFrames !== debugState.heldPreviousFrameCount ||
-      token.holdAgeMs !== debugState.heldPreviousDurationMs
-    ) {
-      throw new Error(
-        "GPU Flow projection debug publication requires a hold token for the same frozen visible frame.",
-      );
-    }
-    return;
-  }
   assertGpuFlowCommitPublicationTokenForFrameId({
     committedFrameId: debugState.committedFrameId,
     token,

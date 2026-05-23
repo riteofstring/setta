@@ -695,7 +695,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       [...surfaceFrameSource.matchAll(/\.applyOverlayTransforms\s*\(/g)].length,
     ).toBe(1);
     expect(overlayPublisherSource).toContain(
-      "assertGpuFlowCommitOrHoldPublicationTokenBrand",
+      "assertGpuFlowCommitPublicationTokenBrand",
     );
     expect(overlayPublisherSource).toContain(".applyOverlayTransforms(");
   });
@@ -722,7 +722,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(projectionFrameSource).toContain("onNodeLayerFrameStatePublishable");
     expect(nodeLayerPublisherStart).toBeGreaterThanOrEqual(0);
     expect(nodeLayerPublisherSource).toContain(
-      "assertGpuFlowCommitOrHoldPublicationTokenBrand",
+      "assertGpuFlowCommitPublicationTokenBrand",
+    );
+    expect(nodeLayerPublisherSource).toContain(
+      "readonly token: GpuFlowCommitPublicationToken",
     );
     expect(
       [
@@ -836,6 +839,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
   it("publishes projection debug frame ids only from visible publication paths", () => {
     const debugAttributePattern =
       /\b(?:applyGpuFlowProjectionDebugAttributes|setProjectionDebugAttributes)\s*\(/;
+    const projectionDebugSource = readFileSync(
+      join(GPU_FLOW_ROOT, "projectionDebugAttributes.ts"),
+      "utf8",
+    );
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
         return [];
@@ -857,6 +864,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
     });
 
     expect(violations).toEqual([]);
+    expect(projectionDebugSource).toContain(
+      "readonly token: GpuFlowCommitPublicationToken",
+    );
+    expect(projectionDebugSource).not.toContain("GpuFlowHoldPreviousToken");
   });
 
   it("keeps raw surface texture release behind the release authority", () => {
@@ -971,8 +982,8 @@ describe("GPU Flow visible publication authority boundaries", () => {
 
     expect(violations).toEqual([]);
     expect(helperIndex).toBeGreaterThanOrEqual(0);
-    expect(publicationCallCount).toBe(2);
-    expect(helperPublicationCallCount).toBe(2);
+    expect(publicationCallCount).toBe(1);
+    expect(helperPublicationCallCount).toBe(1);
   });
 
   it("commits prepared committed surface frames only from visible publication completion", () => {
@@ -1032,7 +1043,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(publisherStart).toBeGreaterThanOrEqual(0);
     expect([...surfaceFrameSource.matchAll(assignmentPattern)].length).toBe(1);
     expect(publisherSource).toContain(
-      "assertGpuFlowCommitOrHoldPublicationTokenBrand",
+      "assertGpuFlowCommitPublicationTokenBrand",
+    );
+    expect(publisherSource).toContain(
+      "readonly token: GpuFlowCommitPublicationToken",
     );
     expect(publisherSource).toContain(
       "retainedDisplayFrameRef.current = retainedDisplayFrame",
@@ -1075,10 +1089,12 @@ describe("GPU Flow visible publication authority boundaries", () => {
   });
 
   it("publishes cold-start shell frames only from visible publication completion", () => {
-    const flowSurfaceSource = readFileSync(
-      join(GPU_FLOW_ROOT, "GpuFlow/flowSurface.tsx"),
-      "utf8",
-    );
+    const flowSurfaceSource =
+      readFileSync(join(GPU_FLOW_ROOT, "GpuFlow/flowSurface.tsx"), "utf8") +
+      readFileSync(
+        join(GPU_FLOW_ROOT, "GpuFlow/flowColdStartShellFramePublication.ts"),
+        "utf8",
+      );
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const completionPublisherStart = surfaceFrameSource.indexOf(
       "function publishGpuFlowColdStartShellFrame",
@@ -1087,9 +1103,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       completionPublisherStart,
     );
 
-    expect(flowSurfaceSource).not.toContain(
-      "publicationResult.coldStartShellFrame",
-    );
+    expect(flowSurfaceSource).not.toContain("publicationResult.coldStartShellFrame");
     expect(flowSurfaceSource).not.toContain("void publication.token");
     expect(flowSurfaceSource).toContain("publishColdStartShellFrame");
     expect(flowSurfaceSource).toContain(

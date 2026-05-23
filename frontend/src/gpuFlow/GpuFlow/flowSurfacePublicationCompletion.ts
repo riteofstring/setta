@@ -11,7 +11,9 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import {
+  applyGpuFlowBlockedCommittedSurfacePublicationEffect,
   applyGpuFlowCommittedSurfacePublicationEffect,
+  applyGpuFlowHeldPreviousCommittedSurfacePublicationEffect,
   recordGpuFlowBlockedVisiblePublication,
 } from "./flowCommittedSurfacePublication";
 import {
@@ -31,7 +33,10 @@ import {
   scheduleDelayedGpuFlowPublicationDebtFrame,
 } from "./flowSurfacePublicationDebtFrame";
 import { createGpuFlowVisibleOverlayProjectionKey } from "./flowVisibleOverlayProjectionKey";
-import { publishGpuFlowVisibleProjectionState } from "./flowVisibleProjectionStatePublication";
+import {
+  publishGpuFlowVisibleProjectionState,
+  recordGpuFlowHeldPreviousVisibleProjectionState,
+} from "./flowVisibleProjectionStatePublication";
 import { recordGpuFlowBlockedPublicationGuard } from "./flowVisiblePublicationBlockedGuard";
 import { postGpuFlowVisiblePublicationOutcomeChromeReproEvent } from "./flowVisiblePublicationOutcomeChromeRepro";
 import { assertGpuFlowSingleVisiblePublicationOutcome } from "./flowVisiblePublicationOutcomeGuard";
@@ -42,9 +47,7 @@ import type {
 } from "./visibleFramePublicationKernel";
 import {
   assertGpuFlowCommitPublicationTokenBrand,
-  assertGpuFlowHoldPreviousTokenBrand,
   type GpuFlowCommitPublicationToken,
-  type GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationTokens";
 
 export function completeGpuFlowSurfacePublicationFrame({
@@ -61,6 +64,7 @@ export function completeGpuFlowSurfacePublicationFrame({
   surfaceRef,
   viewportRuntime,
   visibleOverlayProjectionKeyRef,
+  visibleProjectionPublicationStateRef,
   visibleProjectionStateRef,
   visiblePublicationSchedulerRef,
 }: {
@@ -77,6 +81,7 @@ export function completeGpuFlowSurfacePublicationFrame({
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
+  readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
   readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
   readonly visiblePublicationSchedulerRef: RenderGpuFlowSurfaceFrameInput["visiblePublicationSchedulerRef"];
 }) {
@@ -135,6 +140,7 @@ export function completeGpuFlowSurfacePublicationFrame({
     surfaceRef,
     viewportRuntime,
     visibleOverlayProjectionKeyRef,
+    visibleProjectionPublicationStateRef,
     visibleProjectionStateRef,
   });
   publishGpuFlowColdStartShellFrame({
@@ -277,6 +283,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
   surfaceRef,
   viewportRuntime,
   visibleOverlayProjectionKeyRef,
+  visibleProjectionPublicationStateRef,
   visibleProjectionStateRef,
 }: {
   readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
@@ -301,6 +308,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
+  readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
   readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
 }): void {
   switch (outcome.kind) {
@@ -323,6 +331,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
         surfaceRef,
         viewportRuntime,
         visibleOverlayProjectionKeyRef,
+        visibleProjectionPublicationStateRef,
         visibleProjectionStateRef,
       });
       return;
@@ -330,17 +339,12 @@ function publishGpuFlowSurfaceVisibleProjectionState({
       publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
         abortPreparedCommittedSurfaceFrame,
         heldPreparedCommittedSurfaceFrame,
-        nodeLayerFrameStatePublication,
         committedSurfacePublicationEffect,
         outcome,
-        retainedDisplayFrame,
-        retainedDisplayFrameRef,
         runtimeCanvas,
         selectedVisibleProjectionState,
         surfaceRef,
-        viewportRuntime,
-        visibleOverlayProjectionKeyRef,
-        visibleProjectionStateRef,
+        visibleProjectionPublicationStateRef,
       });
       return;
     case "blocked":
@@ -458,6 +462,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
   surfaceRef,
   viewportRuntime,
   visibleOverlayProjectionKeyRef,
+  visibleProjectionPublicationStateRef,
   visibleProjectionStateRef,
 }: {
   readonly callbacksRef: RenderGpuFlowSurfaceFrameInput["callbacksRef"];
@@ -480,6 +485,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
+  readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
   readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
 }): void {
   if (!selectedVisibleProjectionState) {
@@ -520,7 +526,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
   );
   publishGpuFlowVisibleProjectionState({
     commitPublicationToken: outcome.token,
-    holdPreviousToken: null,
+    visibleProjectionPublicationStateRef,
     visibleProjectionState: selectedVisibleProjectionState,
     visibleProjectionStateRef,
   });
@@ -547,43 +553,28 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
   abortPreparedCommittedSurfaceFrame,
   committedSurfacePublicationEffect,
   heldPreparedCommittedSurfaceFrame,
-  nodeLayerFrameStatePublication,
   outcome,
-  retainedDisplayFrame,
-  retainedDisplayFrameRef,
   runtimeCanvas,
   selectedVisibleProjectionState,
   surfaceRef,
-  viewportRuntime,
-  visibleOverlayProjectionKeyRef,
-  visibleProjectionStateRef,
+  visibleProjectionPublicationStateRef,
 }: {
   readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
   readonly committedSurfacePublicationEffect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly outcome: Extract<
     GpuFlowVisiblePublicationOutcome,
     { readonly kind: "hold-previous" }
   >;
-  readonly retainedDisplayFrame: RetainedDisplayFrame | null;
-  readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
-  readonly viewportRuntime: GpuFlowViewportRuntime;
-  readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
-  readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
+  readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
 }): void {
   if (!selectedVisibleProjectionState) {
     return;
   }
-  publishGpuFlowRetainedDisplayFrame({
-    retainedDisplayFrame,
-    retainedDisplayFrameRef,
-    token: outcome.token,
-  });
-  applyGpuFlowCommittedSurfacePublicationEffect({
+  applyGpuFlowHeldPreviousCommittedSurfacePublicationEffect({
     effect: committedSurfacePublicationEffect,
     runtimeCanvas,
     surfaceRef,
@@ -598,35 +589,19 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
       },
     );
   }
-  publishGpuFlowVisibleProjectionState({
-    commitPublicationToken: null,
-    holdPreviousToken: outcome.token,
+  recordGpuFlowHeldPreviousVisibleProjectionState({
+    token: outcome.token,
+    visibleProjectionPublicationStateRef,
     visibleProjectionState: selectedVisibleProjectionState,
-    visibleProjectionStateRef,
-  });
-  publishGpuFlowVisibleOverlayProjectionTransform({
-    token: outcome.token,
-    viewportRuntime,
-    visibleOverlayProjectionKeyRef,
-    visibleProjectionState: selectedVisibleProjectionState,
-  });
-  publishGpuFlowNodeLayerFrameState({
-    nodeLayerFrameStatePublication,
-    token: outcome.token,
-  });
-  applyGpuFlowProjectionDebugAttributes({
-    canvas: runtimeCanvas,
-    debugState: selectedVisibleProjectionState.debugState,
-    token: outcome.token,
   });
 }
 
 function publishGpuFlowNodeLayerFrameState(publication: {
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
-  readonly token: GpuFlowCommitPublicationToken | GpuFlowHoldPreviousToken;
+  readonly token: GpuFlowCommitPublicationToken;
 }): void {
   const { nodeLayerFrameStatePublication, token } = publication;
-  assertGpuFlowCommitOrHoldPublicationTokenBrand({ token });
+  assertGpuFlowCommitPublicationTokenBrand({ token });
   if (nodeLayerFrameStatePublication === null) {
     return;
   }
@@ -639,12 +614,12 @@ function publishGpuFlowVisibleOverlayProjectionTransform({
   visibleOverlayProjectionKeyRef,
   visibleProjectionState,
 }: {
-  readonly token: GpuFlowCommitPublicationToken | GpuFlowHoldPreviousToken;
+  readonly token: GpuFlowCommitPublicationToken;
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): void {
-  assertGpuFlowCommitOrHoldPublicationTokenBrand({ token });
+  assertGpuFlowCommitPublicationTokenBrand({ token });
   const overlayProjectionKey = createGpuFlowVisibleOverlayProjectionKey(
     visibleProjectionState,
   );
@@ -660,10 +635,10 @@ function publishGpuFlowVisibleOverlayProjectionTransform({
 function publishGpuFlowRetainedDisplayFrame(publication: {
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
-  readonly token: GpuFlowCommitPublicationToken | GpuFlowHoldPreviousToken;
+  readonly token: GpuFlowCommitPublicationToken;
 }): void {
   const { retainedDisplayFrame, retainedDisplayFrameRef, token } = publication;
-  assertGpuFlowCommitOrHoldPublicationTokenBrand({ token });
+  assertGpuFlowCommitPublicationTokenBrand({ token });
   if (retainedDisplayFrame === null) {
     return;
   }
@@ -701,7 +676,7 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionState({
       },
     );
   }
-  applyGpuFlowCommittedSurfacePublicationEffect({
+  applyGpuFlowBlockedCommittedSurfacePublicationEffect({
     effect: committedSurfacePublicationEffect,
     runtimeCanvas,
     surfaceRef,
@@ -747,16 +722,4 @@ function publishGpuFlowRetainedRuntimeFrame({
     return;
   }
   retainedRuntimeFrameRenderSignatureRef.current = nextSignature;
-}
-
-function assertGpuFlowCommitOrHoldPublicationTokenBrand({
-  token,
-}: {
-  readonly token: GpuFlowCommitPublicationToken | GpuFlowHoldPreviousToken;
-}): void {
-  if (token && "holdAgeFrames" in token) {
-    assertGpuFlowHoldPreviousTokenBrand({ token });
-    return;
-  }
-  assertGpuFlowCommitPublicationTokenBrand({ token });
 }

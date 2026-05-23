@@ -83,6 +83,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   | "frameReasons"
   | "heldPreviousProjectionState"
   | "liveProjectionSample"
+  | "notifyRetainedDisplayFollowUpFrameNeeded"
   | "onNodeLayerFrameStatePublishable"
   | "onRetainedDisplayFrame"
   | "onRetainedDisplayFramePublishable"
@@ -142,6 +143,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   readonly runtime: GpuFlowRuntime;
   readonly visibleCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame;
   readonly visibleOverlayProjectionKeyRef: MutableRefObject<string | null>;
+  readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visibleProjectionStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visiblePublicationSchedulerRef: MutableRefObject<
     ReturnType<typeof createGpuFlowVisiblePublicationScheduler>
@@ -196,6 +198,7 @@ export function renderGpuFlowSurfaceFrame({
       },
     );
     const previousVisibleProjectionState =
+      input.visibleProjectionPublicationStateRef.current ??
       input.visibleProjectionStateRef.current;
     let finishCompletionMeasure: () => number = () => 0;
     runGpuFlowVisibleFramePublicationCandidateSetKernel({
@@ -285,6 +288,7 @@ export function renderGpuFlowSurfaceFrame({
             notifyRetainedDisplayFollowUpFrameNeeded,
             prepareCommittedSurfacePublicationFramePlan,
             prepareRetainedDisplayPublicationFramePlan,
+            previousVisibleProjectionState,
             publicationDecision,
             retainedContentRuntimeState,
             runtime,
@@ -321,6 +325,8 @@ export function renderGpuFlowSurfaceFrame({
           surfaceRef: input.surfaceRef,
           viewportRuntime,
           visibleOverlayProjectionKeyRef: input.visibleOverlayProjectionKeyRef,
+          visibleProjectionPublicationStateRef:
+            input.visibleProjectionPublicationStateRef,
           visibleProjectionStateRef: input.visibleProjectionStateRef,
           visiblePublicationSchedulerRef: input.visiblePublicationSchedulerRef,
         });
@@ -553,6 +559,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   notifyRetainedDisplayFollowUpFrameNeeded,
   prepareCommittedSurfacePublicationFramePlan,
   prepareRetainedDisplayPublicationFramePlan,
+  previousVisibleProjectionState,
   publicationDecision,
   retainedContentRuntimeState,
   retainedPreparationRuntimeFrameRenderSignatureRef,
@@ -569,6 +576,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   readonly notifyRetainedDisplayFollowUpFrameNeeded: GpuFlowRetainedDisplayFollowUpFrameNotifier;
   readonly prepareCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanPreparer;
   readonly prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly selectContentPublicationBlockedCandidateForFrameResult: GpuFlowContentPublicationBlockedCandidateForFrameResultSelector;
   readonly viewportFrame: boolean;
@@ -623,7 +631,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
     retainedContentRuntimeState,
     retainedDisplayFrameRef: input.retainedDisplayFrameRef,
     retainedContentSwitchAnimations: input.retainedContentSwitchAnimations,
-    heldPreviousProjectionState: input.visibleProjectionStateRef.current,
+    heldPreviousProjectionState: previousVisibleProjectionState,
     liveProjectionSample,
     publicationLane: contentPublicationWorkPlan.publicationLane,
     runtime,

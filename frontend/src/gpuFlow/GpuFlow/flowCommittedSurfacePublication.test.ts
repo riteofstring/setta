@@ -8,7 +8,7 @@ import type { GpuSurfaceHandle } from "../GpuSurface";
 import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import {
-  applyGpuFlowCommittedSurfacePublicationEffect,
+  applyGpuFlowBlockedCommittedSurfacePublicationEffect,
   recordGpuFlowBlockedVisiblePublication,
 } from "./flowCommittedSurfacePublication";
 import {
@@ -96,6 +96,54 @@ describe("GPU Flow committed surface publication effect executor", () => {
     vi.advanceTimersByTime(1);
     expect(requestFrame).toHaveBeenCalledTimes(1);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+  });
+
+  it("rejects unbranded publication effect tokens", () => {
+    const result = prepareGpuFlowCommittedSurfacePublicationCandidate(
+      publicationCandidateInput({
+        timestamp: 10,
+      }),
+    );
+    const canvas = document.createElement("canvas");
+
+    expect(() =>
+      applyGpuFlowBlockedCommittedSurfacePublicationEffect({
+        effect: result.effect,
+        runtimeCanvas: canvas,
+        surfaceRef: {
+          current: { requestFrame: vi.fn() } as unknown as GpuSurfaceHandle,
+        },
+        token: {} as Parameters<
+          typeof applyGpuFlowBlockedCommittedSurfacePublicationEffect
+        >[0]["token"],
+      }),
+    ).toThrow(/blocked publication token/);
+  });
+
+  it("records rejected held-prepared candidates as blocked effects", () => {
+    const canvas = document.createElement("canvas");
+    const requestFrame = vi.fn();
+
+    applyGpuFlowBlockedCommittedSurfacePublicationEffect({
+      effect: {
+        candidateFrame: blockedCommittedSurfaceFrame(),
+        deferRetry: false,
+        kind: "held-previous",
+        timestamp: 12,
+      },
+      runtimeCanvas: canvas,
+      surfaceRef: {
+        current: { requestFrame } as unknown as GpuSurfaceHandle,
+      },
+      token: blockedPublicationToken(),
+    });
+
+    expect(readStarvationReports()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        outcome: "blocked",
+      }),
+    ]);
   });
 
   it("records cold-start shell blocked publication without a committed candidate frame", () => {
@@ -204,7 +252,7 @@ function applyPublicationEffect(
     readonly requestFrame: (reason: GpuFrameReason) => void;
   },
 ): void {
-  applyGpuFlowCommittedSurfacePublicationEffect({
+  applyGpuFlowBlockedCommittedSurfacePublicationEffect({
     effect,
     runtimeCanvas: canvas,
     surfaceRef: {
