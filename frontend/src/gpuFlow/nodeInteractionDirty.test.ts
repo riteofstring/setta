@@ -527,8 +527,7 @@ describe("gpu node interaction dirty tracking", () => {
     const clearProjectedHoverInteraction = vi.fn();
     const projectedNodeIds: Array<string | null> = ["node-a", "node-b", null];
     const projectHoverInteraction = vi.fn(
-      (_event: PointerEvent, _previousNodeId: string | null) =>
-        projectedNodeIds.shift() ?? null,
+      () => projectedNodeIds.shift() ?? null,
     );
     const controller = createGpuNodeInteractionDirtyController({
       clearProjectedHoverInteraction,
