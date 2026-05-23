@@ -254,17 +254,20 @@ The reusable runtime is centered on these modules:
   track live-host, snapshot, and island readiness, and expose the snapshots
   consumed by the browser visual layers.
 - `GpuFlow/committedSurfaceFrameState.ts` ties committed-frame creation to
-  browser visual actor preparation, publication tokens, projection, and abort
-  handling.
-- `GpuFlow/visibleFramePublication*.ts` owns the visible-publication kernel,
-  scheduler authority, actor/resource/presentation oracles, projection work
-  plans, publication tokens, and completion accounting that select commit,
-  hold-previous, or blocked outcomes.
-- `GpuFlow/flowCommittedSurfacePublication.ts` applies committed-surface
-  publication effects: it clears browser-visual starvation debt on publish,
-  requests follow-up `texture-upload` frames for held or blocked browser visual
-  coverage, emits blocked-publication diagnostics, and fails loudly when browser
-  visual starvation exceeds its budget.
+  browser visual actor preparation, visible-frame presentation tokens,
+  projection, and abort handling.
+- `GpuFlow/visibleFrameTypes.ts`, `GpuFlow/visibleFrameEngine.ts`,
+  `GpuFlow/visibleFrameKernel.ts`, and `GpuFlow/visibleFrameActorAdapters/*`
+  own the visible-frame lifecycle: sample, prepare, reduce actor/resource/
+  presentation proofs, and select presented, projected, held,
+  blocked-cold-start, or aborted outcomes.
+- `GpuFlow/visibleFramePresenter.ts` is the production presentation barrier.
+  It applies the visible DOM-control, DOM-island, canvas, hit/debug, runtime
+  committed-frame, React semantic snapshot, and debt-accounting mutation batch
+  for a selected presentation token.
+- `GpuFlow/visibleFrameResourceRegistry.ts` owns committed and candidate
+  resource lifetime, active-editor pins, loser release, and candidate abort
+  release after the presenter selects the visible outcome.
 - `surfaceCompositor/browserVisualActorAdapter.ts` adapts retained DOM controls
   and DOM islands into `BrowserVisualActor` surface transaction fragments with
   exact, compatible, blocked, exempt, or true-hole coverage.

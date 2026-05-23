@@ -801,42 +801,40 @@ submission, React semantic notifications, retained display side effects, and
 blocked/held diagnostics were all visible-frame decisions, but parts of them
 could still be completed by separate helpers.
 
-The May 21-23 cutover moved those decisions behind one visible publication
-authority:
+The May 21-23 cutover ultimately moved those decisions behind one coherent
+visible-frame engine:
 
-- `visibleFramePublicationKernel.ts` now samples one live projection frame,
-  selects the lane, prepares content and motion candidates, asks the
-  transaction oracle to prove the candidates, and publishes exactly one
-  outcome: commit, hold previous, or blocked;
+- `visibleFrameKernel.ts` samples one live projection frame, selects the lane,
+  prepares content and motion candidates, asks the engine-owned proof reducers
+  to prove the candidates, and returns exactly one outcome: presented,
+  projected, held, blocked-cold-start, or aborted;
 - content and motion candidates are prepared facts, not permission to mutate
   visible state. They become visible only after actor proofs, resource
   protection proofs, compatible-previous proofs, and presentation evidence
   agree;
-- publication tokens are outcome-specific and minted only inside
-  `visibleFramePublicationAuthority.ts`: commit tokens, hold-previous tokens,
-  and blocked tokens guard every side effect that can make a frame visible or
-  release resources from a rejected frame;
-- canvas submission is deferred until visible publication, so the frame that
-  produces WebGPU output is the same frame whose DOM/browser visual generation
-  has been staged and proven exposable;
-- browser visual host promotion, browser visual store notifications, React
-  semantic committed-frame notifications, retained display publication,
-  projection debug ids, overlay transforms, node-layer publication, and surface
-  texture release are completed from publication completion rather than from
-  preparation;
-- blocked and held-previous outcomes carry frozen-frame identity and explicit
-  reasons instead of leaking partial side effects or letting a failed content
-  candidate advance visible state;
-- publication diagnostics now distinguish selected lane, candidate oracle
-  result, actor/resource/presentation proof failures, browser visual starvation,
-  held-previous age, cold-start shell publication, and completed scheduler
-  debt.
+- outcome tokens are minted by the visible-frame presentation-token path and
+  guard every side effect that can make a frame visible or release resources
+  from an aborted candidate;
+- canvas submission is deferred until visible-frame presentation, so the frame
+  that produces WebGPU output is the same frame whose DOM/browser visual
+  generation has been staged and proven exposable;
+- `visibleFramePresenter.ts` completes browser visual host promotion, browser
+  visual store notifications, React semantic committed-frame notifications,
+  retained display publication, projection debug ids, overlay transforms,
+  node-layer presentation state, and selected resource release from one
+  presentation barrier rather than from preparation;
+- blocked and held outcomes carry frozen-frame identity and explicit reasons
+  instead of leaking partial side effects or letting a failed content candidate
+  advance visible state;
+- visible-frame diagnostics now distinguish selected lane, candidate proof
+  result, actor/resource/presentation proof failures, browser visual
+  starvation, held-previous age, cold-start shell publication, and completed
+  scheduler debt.
 
 The architecture changed from "a committed surface frame is the shared visible
-boundary" to "a committed surface frame is one prepared input to a visible
-publication transaction." The visible transaction is now the authority that
-decides which prepared facts become user-visible and which effects are allowed
-to run.
+boundary" to "a committed surface frame is one prepared input to a visible frame
+transaction." The visible-frame engine is now the authority that decides which
+prepared facts become user-visible and which effects are allowed to run.
 
 ## Current Architecture
 
@@ -882,22 +880,24 @@ After these iterations, GPU Flow has these major boundaries:
   a presentation batch, actor-manifest digest, DOM generation evidence, canvas
   generation evidence, browser visual fragment digest, and surface transaction
   digest.
-- `GpuFlow/flowCommittedSurfacePublication.ts` gates committed surface
-  publication on actual browser visual actor readiness and records starvation
-  when visible nonempty browser-owned actors cannot produce live, snapshot, or
-  compatible-previous coverage.
+- `GpuFlow/visibleFrameActorAdapters/browserVisualProofs.ts` and
+  `GpuFlowBrowserVisualActorRuntime` gate browser-owned visual readiness and
+  record starvation when visible nonempty browser-owned actors cannot produce
+  live, snapshot, or compatible-previous coverage.
 - Committed surface frames own content publication; live projection samples can
   advance without independently advancing React-visible committed content.
-- `GpuFlow/visibleFramePublication*.ts` owns the single visible-publication
-  kernel, scheduler authority, prepared content and motion facts, actor,
-  resource, and presentation oracles, projection work plans, module-private
-  publication token issuer, and completion accounting that select commit,
-  hold-previous, or blocked outcomes.
-- Visible side effects are publication-completion effects: canvas submission,
-  committed-frame store mutation, browser visual host promotion, browser visual
-  notifications, retained display state, projection debug ids, overlay
-  transforms, node-layer frame state, and resource release all require an
-  outcome token for the selected visible frame.
+- `GpuFlow/visibleFrameEngine.ts`, `GpuFlow/visibleFrameKernel.ts`,
+  `GpuFlow/visibleFrameContentPlan.ts`, `GpuFlow/visibleFrameProjectionWork.ts`,
+  and `GpuFlow/visibleFrameTransactionProofs.ts` own the single visible-frame
+  kernel, scheduler authority, prepared content and motion facts,
+  actor/resource/presentation proofs, projection work plans, presentation token
+  issuance, and completion accounting that select presented, projected, held,
+  blocked-cold-start, or aborted outcomes.
+- Visible side effects are presenter effects: canvas submission, committed-frame
+  store mutation, browser visual host promotion, browser visual notifications,
+  retained display state, projection debug ids, overlay transforms, node-layer
+  frame state, and resource release all require an outcome token for the
+  selected visible frame.
 - `projectionRuntime.ts` owns immutable live projection samples, projection
   transactions, held-previous debug state, and projection horizon obligations.
 - `projectionScheduler.ts` arbitrates content, maintenance, and motion lanes,
@@ -1007,15 +1007,16 @@ Useful reports from this branch:
 - [GPU Flow browser visual finish-line report](../../perf/gpu-flow-browser-visual-finish-line-report.md)
 - [GPU Flow browser visual actor runtime finish-line report](../../perf/gpu-flow-browser-visual-actor-runtime-finish-line-20260520.md)
 
-The May 21-23 single-publication-authority cutover is covered mainly by
-focused Vitest authority and boundary suites rather than a new perf report:
-[visibleFramePublicationAuthority.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePublicationAuthority.test.ts),
-[visibleFramePublicationKernel.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePublicationKernel.test.ts),
-[visibleFramePublicationOracle.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePublicationOracle.test.ts),
-[visibleFramePublicationContentPlan.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePublicationContentPlan.test.ts),
-[visibleFramePublicationCompletion.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePublicationCompletion.test.ts),
-and
-[flowVisiblePublicationOutcomeGuard.test.ts](../../frontend/src/gpuFlow/GpuFlow/flowVisiblePublicationOutcomeGuard.test.ts).
+The May 21-23 coherent visible-frame cutover is covered mainly by focused
+Vitest authority and boundary suites plus retained Settings E2E coverage:
+[visibleFrameEngine.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameEngine.test.ts),
+[visibleFrameKernel.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameKernel.test.ts),
+[visibleFrameTransactionProofs.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameTransactionProofs.test.ts),
+[visibleFramePresentationProofsBoundary.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePresentationProofsBoundary.test.ts),
+[visibleFramePresentationTokenBoundary.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePresentationTokenBoundary.test.ts),
+[visibleFrameResourceRegistry.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameResourceRegistry.test.ts),
+and the final verification report
+[GPU Flow Visible Frame Final Verification - 2026-05-23](../../perf/reports/frontend/2026-05-23_gpu-flow-visible-frame-final-verification.md).
 
 Together, these reports show the same architectural progression from the
 measurement side: less hidden publication work, more explicit diagnostics, more
