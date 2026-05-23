@@ -10,6 +10,7 @@ import {
   type GpuFlowVisibleFrameCommittedActorCoverage,
   type GpuFlowVisibleFrameCommittedPresentation,
   type GpuFlowVisibleFrameDebt,
+  type GpuFlowVisibleFrameRect,
 } from "./visibleFrameTypes";
 
 const GPU_FLOW_VISIBLE_FRAME_ENGINE_OUTCOME = Symbol(
@@ -74,6 +75,163 @@ type GpuFlowVisibleFrameBlockingProof = {
   readonly proof: GpuFlowVisibleFrameEngineOutcomeReason;
 };
 
+export type GpuFlowVisibleFrameEngineSample = {
+  readonly activeGestureOwner: string | null;
+  readonly canvasSize: {
+    readonly height: number;
+    readonly width: number;
+  };
+  readonly currentCommittedFrameId: number | string | null;
+  readonly dpr: number;
+  readonly projectionSampleId: GpuFlowProjectionSampleId;
+  readonly queuedDebt: GpuFlowVisibleFrameDebt;
+  readonly retainedScrollOffsets: readonly {
+    readonly actorId: string;
+    readonly scrollLeft: number;
+    readonly scrollTop: number;
+  }[];
+  readonly sceneGeneration: string;
+  readonly viewport: GpuFlowVisibleFrameRect;
+};
+
+export type GpuFlowVisibleFramePreparedFrame = {
+  readonly candidate: GpuFlowVisibleFrameCandidate;
+  readonly previousPresentation: GpuFlowVisibleFrameCommittedPresentation | null;
+  readonly sample: GpuFlowVisibleFrameEngineSample;
+};
+
+type GpuFlowVisibleFrameEnginePresentationOutcome = Extract<
+  GpuFlowVisibleFrameEngineOutcome,
+  { readonly kind: "presented" | "projected" }
+>;
+
+type GpuFlowVisibleFrameEngineAbortedOutcome = Extract<
+  GpuFlowVisibleFrameEngineOutcome,
+  { readonly kind: "aborted" }
+>;
+
+type GpuFlowVisibleFrameEngineHeldOutcome = Extract<
+  GpuFlowVisibleFrameEngineOutcome,
+  { readonly kind: "held" }
+>;
+
+type GpuFlowVisibleFrameEngineColdStartOutcome = Extract<
+  GpuFlowVisibleFrameEngineOutcome,
+  { readonly kind: "blocked-cold-start" }
+>;
+
+export type GpuFlowVisibleFrameEngine = {
+  readonly abort: (
+    preparedFrame: GpuFlowVisibleFramePreparedFrame,
+    outcome: GpuFlowVisibleFrameEngineOutcome,
+  ) => void;
+  readonly prepare: (
+    sample: GpuFlowVisibleFrameEngineSample,
+  ) => GpuFlowVisibleFramePreparedFrame;
+  readonly present: (
+    preparedFrame: GpuFlowVisibleFramePreparedFrame,
+    outcome: GpuFlowVisibleFrameEngineOutcome,
+  ) => void;
+  readonly prove: (
+    preparedFrame: GpuFlowVisibleFramePreparedFrame,
+  ) => GpuFlowVisibleFrameEngineOutcome;
+  readonly runFrame: () => GpuFlowVisibleFrameEngineOutcome;
+  readonly sample: () => GpuFlowVisibleFrameEngineSample;
+};
+
+export type GpuFlowVisibleFrameEngineInput = {
+  readonly abortVisibleFrameCandidate: (input: {
+    readonly outcome: GpuFlowVisibleFrameEngineAbortedOutcome;
+    readonly preparedFrame: GpuFlowVisibleFramePreparedFrame;
+  }) => void;
+  readonly blockColdStartVisibleFrame?: (input: {
+    readonly outcome: GpuFlowVisibleFrameEngineColdStartOutcome;
+    readonly preparedFrame: GpuFlowVisibleFramePreparedFrame;
+  }) => void;
+  readonly holdVisibleFrame?: (input: {
+    readonly outcome: GpuFlowVisibleFrameEngineHeldOutcome;
+    readonly preparedFrame: GpuFlowVisibleFramePreparedFrame;
+  }) => void;
+  readonly prepareVisibleFrameCandidate: (input: {
+    readonly sample: GpuFlowVisibleFrameEngineSample;
+  }) => GpuFlowVisibleFramePreparedFrame;
+  readonly presentVisibleFrame: (input: {
+    readonly outcome: GpuFlowVisibleFrameEnginePresentationOutcome;
+    readonly preparedFrame: GpuFlowVisibleFramePreparedFrame;
+  }) => void;
+  readonly sampleVisibleFrame: () => GpuFlowVisibleFrameEngineSample;
+};
+
+export function createGpuFlowVisibleFrameEngine({
+  abortVisibleFrameCandidate,
+  blockColdStartVisibleFrame = () => {},
+  holdVisibleFrame = () => {},
+  prepareVisibleFrameCandidate,
+  presentVisibleFrame,
+  sampleVisibleFrame,
+}: GpuFlowVisibleFrameEngineInput): GpuFlowVisibleFrameEngine {
+  const engine: GpuFlowVisibleFrameEngine = Object.freeze({
+    abort: (preparedFrame, outcome) => {
+      const abortedOutcome = assertGpuFlowVisibleFrameEngineOutcomeKind({
+        kind: "aborted",
+        outcome,
+      });
+      abortVisibleFrameCandidate({
+        outcome: abortedOutcome,
+        preparedFrame,
+      });
+    },
+    prepare: (sample) =>
+      Object.freeze(
+        prepareVisibleFrameCandidate({
+          sample,
+        }),
+      ),
+    present: (preparedFrame, outcome) => {
+      const presentationOutcome =
+        assertGpuFlowVisibleFrameEnginePresentationOutcome({ outcome });
+      presentVisibleFrame({
+        outcome: presentationOutcome,
+        preparedFrame,
+      });
+    },
+    prove: (preparedFrame) =>
+      proveGpuFlowVisibleFrameEngineFrame({
+        candidate: preparedFrame.candidate,
+        previousPresentation: preparedFrame.previousPresentation,
+      }),
+    runFrame: () => {
+      const sample = engine.sample();
+      const preparedFrame = engine.prepare(sample);
+      const outcome = engine.prove(preparedFrame);
+      switch (outcome.kind) {
+        case "presented":
+        case "projected":
+          engine.present(preparedFrame, outcome);
+          break;
+        case "aborted":
+          engine.abort(preparedFrame, outcome);
+          break;
+        case "blocked-cold-start":
+          blockColdStartVisibleFrame({
+            outcome,
+            preparedFrame,
+          });
+          break;
+        case "held":
+          holdVisibleFrame({
+            outcome,
+            preparedFrame,
+          });
+          break;
+      }
+      return outcome;
+    },
+    sample: () => freezeGpuFlowVisibleFrameEngineSample(sampleVisibleFrame()),
+  });
+  return engine;
+}
+
 export function proveGpuFlowVisibleFrameEngineFrame({
   candidate,
   previousPresentation,
@@ -129,6 +287,41 @@ export function assertGpuFlowVisibleFrameEngineOutcomeBrand({
   if (!hasGpuFlowVisibleFrameEngineOutcomeBrand(outcome)) {
     throw new Error("Expected GPU Flow visible frame engine outcome.");
   }
+}
+
+function assertGpuFlowVisibleFrameEnginePresentationOutcome({
+  outcome,
+}: {
+  readonly outcome: GpuFlowVisibleFrameEngineOutcome;
+}): GpuFlowVisibleFrameEnginePresentationOutcome {
+  assertGpuFlowVisibleFrameEngineOutcomeBrand({ outcome });
+  if (outcome.kind !== "presented" && outcome.kind !== "projected") {
+    throw new Error(
+      "GPU Flow visible frame engine present requires a presented or projected outcome.",
+    );
+  }
+  return outcome;
+}
+
+function assertGpuFlowVisibleFrameEngineOutcomeKind<
+  Kind extends GpuFlowVisibleFrameEngineOutcome["kind"],
+>({
+  kind,
+  outcome,
+}: {
+  readonly kind: Kind;
+  readonly outcome: GpuFlowVisibleFrameEngineOutcome;
+}): Extract<GpuFlowVisibleFrameEngineOutcome, { readonly kind: Kind }> {
+  assertGpuFlowVisibleFrameEngineOutcomeBrand({ outcome });
+  if (outcome.kind !== kind) {
+    throw new Error(
+      `GPU Flow visible frame engine outcome ${outcome.kind} cannot be used as ${kind}.`,
+    );
+  }
+  return outcome as Extract<
+    GpuFlowVisibleFrameEngineOutcome,
+    { readonly kind: Kind }
+  >;
 }
 
 function selectGpuFlowVisibleFrameBlockingProof({
@@ -347,4 +540,20 @@ function hasGpuFlowVisibleFrameEngineOutcomeBrand(
     outcome !== null &&
     GPU_FLOW_VISIBLE_FRAME_ENGINE_OUTCOME in outcome
   );
+}
+
+function freezeGpuFlowVisibleFrameEngineSample(
+  sample: GpuFlowVisibleFrameEngineSample,
+): GpuFlowVisibleFrameEngineSample {
+  return Object.freeze({
+    ...sample,
+    canvasSize: Object.freeze({ ...sample.canvasSize }),
+    queuedDebt: Object.freeze({ ...sample.queuedDebt }),
+    retainedScrollOffsets: Object.freeze(
+      sample.retainedScrollOffsets.map((offset) =>
+        Object.freeze({ ...offset }),
+      ),
+    ),
+    viewport: Object.freeze({ ...sample.viewport }),
+  });
 }

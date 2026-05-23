@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertGpuFlowVisibleFrameEngineOutcomeBrand,
+  createGpuFlowVisibleFrameEngine,
   proveGpuFlowVisibleFrameEngineFrame,
   type GpuFlowVisibleFrameEngineOutcome,
+  type GpuFlowVisibleFrameEngineSample,
+  type GpuFlowVisibleFramePreparedFrame,
 } from "./visibleFrameEngine";
 import {
   createGpuFlowContentFrameId,
@@ -285,6 +288,181 @@ describe("GPU Flow visible frame engine reducer", () => {
   });
 });
 
+describe("GPU Flow visible frame engine lifecycle", () => {
+  it("samples immutably, prepares a candidate, proves it, then presents only a branded complete outcome", () => {
+    const order: string[] = [];
+    const mutableSample = engineSample();
+    let presented: {
+      readonly outcome: GpuFlowVisibleFrameEngineOutcome;
+      readonly preparedFrame: GpuFlowVisibleFramePreparedFrame;
+    } | null = null;
+    const engine = createGpuFlowVisibleFrameEngine({
+      abortVisibleFrameCandidate: () => {
+        order.push("abort");
+      },
+      prepareVisibleFrameCandidate: ({ sample }) => {
+        order.push(`prepare:${Object.isFrozen(sample)}`);
+        expect(sample).not.toBe(mutableSample);
+        return preparedFrame({
+          candidate: candidate({
+            actorProofs: [exactProof({ actor: ACTOR_A })],
+            projectionSampleId: sample.projectionSampleId,
+            requiredActors: [ACTOR_A],
+          }),
+          sample,
+        });
+      },
+      presentVisibleFrame: (input) => {
+        order.push(`present:${input.outcome.kind}`);
+        presented = input;
+      },
+      sampleVisibleFrame: () => {
+        order.push("sample");
+        return mutableSample;
+      },
+    });
+
+    const outcome = engine.runFrame();
+
+    expect(outcome.kind).toBe("presented");
+    expect(order).toEqual(["sample", "prepare:true", "present:presented"]);
+    expect(presented?.outcome).toBe(outcome);
+    expect(Object.isFrozen(presented?.preparedFrame)).toBe(true);
+    expect(Object.isFrozen(mutableSample)).toBe(false);
+  });
+
+  it("holds the previous coherent frame without running the present or abort callbacks", () => {
+    const contentFrameId = createGpuFlowContentFrameId("content-a");
+    const calls: string[] = [];
+    const engine = createGpuFlowVisibleFrameEngine({
+      abortVisibleFrameCandidate: () => calls.push("abort"),
+      holdVisibleFrame: ({ outcome }) => calls.push(`hold:${outcome.kind}`),
+      prepareVisibleFrameCandidate: ({ sample }) =>
+        preparedFrame({
+          candidate: candidate({
+            actorProofs: [blockedProof(ACTOR_A, "snapshot-pending")],
+            contentFrameId,
+            projectionSampleId: sample.projectionSampleId,
+            requiredActors: [ACTOR_A],
+          }),
+          previousPresentation: committedPresentation({
+            contentFrameId,
+            coverages: [coverage({ actor: ACTOR_A, contentFrameId })],
+          }),
+          sample,
+        }),
+      presentVisibleFrame: () => calls.push("present"),
+      sampleVisibleFrame: () => engineSample(),
+    });
+
+    const outcome = engine.runFrame();
+
+    expect(outcome.kind).toBe("held");
+    expect(calls).toEqual(["hold:held"]);
+  });
+
+  it("aborts candidate resources without running the present callback when previous coverage is incomplete", () => {
+    const contentFrameId = createGpuFlowContentFrameId("content-a");
+    let releasedResourceIds: readonly string[] | null = null;
+    const engine = createGpuFlowVisibleFrameEngine({
+      abortVisibleFrameCandidate: ({ outcome }) => {
+        releasedResourceIds = outcome.releasedResourceIds;
+      },
+      prepareVisibleFrameCandidate: ({ sample }) =>
+        preparedFrame({
+          candidate: candidate({
+            actorProofs: [blockedProof(ACTOR_A, "snapshot-pending")],
+            contentFrameId,
+            preparedResourceIds: ["candidate-resource-a"],
+            projectionSampleId: sample.projectionSampleId,
+            requiredActors: [ACTOR_A],
+          }),
+          previousPresentation: committedPresentation({
+            contentFrameId,
+            coverages: [],
+          }),
+          sample,
+        }),
+      presentVisibleFrame: () => {
+        throw new Error("present callback should not run for aborted frames");
+      },
+      sampleVisibleFrame: () => engineSample(),
+    });
+
+    const outcome = engine.runFrame();
+
+    expect(outcome.kind).toBe("aborted");
+    expect(releasedResourceIds).toEqual(["candidate-resource-a"]);
+  });
+
+  it("routes cold-start blocks to the deliberate shell callback without presenting partial content", () => {
+    const calls: string[] = [];
+    const engine = createGpuFlowVisibleFrameEngine({
+      abortVisibleFrameCandidate: () => calls.push("abort"),
+      blockColdStartVisibleFrame: ({ outcome }) =>
+        calls.push(`cold-start:${outcome.shellFrameId}`),
+      prepareVisibleFrameCandidate: ({ sample }) =>
+        preparedFrame({
+          candidate: candidate({
+            actorProofs: [blockedProof(ACTOR_A, "coverage-missing")],
+            projectionSampleId: sample.projectionSampleId,
+            requiredActors: [ACTOR_A],
+          }),
+          sample,
+        }),
+      presentVisibleFrame: () => calls.push("present"),
+      sampleVisibleFrame: () => engineSample(),
+    });
+
+    const outcome = engine.runFrame();
+
+    expect(outcome.kind).toBe("blocked-cold-start");
+    expect(calls).toEqual(["cold-start:cold-start-shell"]);
+  });
+
+  it("rejects unbranded or wrong-kind outcomes at presentation and abort boundaries", () => {
+    const contentFrameId = createGpuFlowContentFrameId("content-a");
+    const prepared = preparedFrame({
+      candidate: candidate({
+        actorProofs: [exactProof({ actor: ACTOR_A })],
+        contentFrameId,
+        requiredActors: [ACTOR_A],
+      }),
+      sample: engineSample(),
+    });
+    const engine = createGpuFlowVisibleFrameEngine({
+      abortVisibleFrameCandidate: () => {},
+      prepareVisibleFrameCandidate: () => prepared,
+      presentVisibleFrame: () => {},
+      sampleVisibleFrame: () => engineSample(),
+    });
+    const presented = engine.prove(prepared);
+    const held = proveGpuFlowVisibleFrameEngineFrame({
+      candidate: candidate({
+        actorProofs: [blockedProof(ACTOR_A, "snapshot-pending")],
+        contentFrameId,
+        requiredActors: [ACTOR_A],
+      }),
+      previousPresentation: committedPresentation({
+        contentFrameId,
+        coverages: [coverage({ actor: ACTOR_A, contentFrameId })],
+      }),
+    });
+
+    expect(() =>
+      engine.present(prepared, {
+        kind: "presented",
+      } as GpuFlowVisibleFrameEngineOutcome),
+    ).toThrow(/visible frame engine outcome/);
+    expect(() => engine.present(prepared, held)).toThrow(
+      /present requires a presented or projected outcome/,
+    );
+    expect(() => engine.abort(prepared, presented)).toThrow(
+      /cannot be used as aborted/,
+    );
+  });
+});
+
 function candidate({
   actorProofs,
   contentFrameId = createGpuFlowContentFrameId("content-a"),
@@ -307,6 +485,52 @@ function candidate({
     projectionSampleId,
     queuedDebt,
     requiredActors,
+  };
+}
+
+function preparedFrame({
+  candidate: preparedCandidate,
+  previousPresentation = null,
+  sample,
+}: {
+  readonly candidate: GpuFlowVisibleFrameCandidate;
+  readonly previousPresentation?:
+    | GpuFlowVisibleFrameCommittedPresentation
+    | null
+    | undefined;
+  readonly sample: GpuFlowVisibleFrameEngineSample;
+}): GpuFlowVisibleFramePreparedFrame {
+  return {
+    candidate: preparedCandidate,
+    previousPresentation,
+    sample,
+  };
+}
+
+function engineSample({
+  projectionSampleId = "sample-1",
+}: {
+  readonly projectionSampleId?: GpuFlowProjectionSampleId | undefined;
+} = {}): GpuFlowVisibleFrameEngineSample {
+  return {
+    activeGestureOwner: "retained-section",
+    canvasSize: {
+      height: 600,
+      width: 800,
+    },
+    currentCommittedFrameId: null,
+    dpr: 2,
+    projectionSampleId,
+    queuedDebt: EMPTY_DEBT,
+    retainedScrollOffsets: [
+      {
+        actorId: "section-a",
+        scrollLeft: 0,
+        scrollTop: 10,
+      },
+    ],
+    sceneGeneration: "scene-a",
+    viewport: rect(),
   };
 }
 
