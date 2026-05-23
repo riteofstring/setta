@@ -18,28 +18,25 @@ import {
   createGpuFlowRetainedRuntimeFrameOverlayRenderSignature,
   createGpuFlowRetainedRuntimeFrameSourceRenderSignature,
 } from "./flowRetainedRuntimeFrameSignatures";
-import type {
-  GpuFlowSurfacePublicationPreparedFrame,
-  RenderGpuFlowSurfaceFrameInput,
-} from "./visibleFrameSurfaceFrame";
 import { createGpuFlowVisibleOverlayProjectionKey } from "./flowVisibleOverlayProjectionKey";
+import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFrameAbortPolicy";
 import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutcomeGuard";
-import { postGpuFlowVisiblePublicationOutcomeChromeReproEvent } from "./visibleFrameOutcomeChromeRepro";
-import { assertGpuFlowSingleVisiblePublicationOutcome } from "./visibleFrameOutcomeGuard";
 import {
   recordGpuFlowBlockedVisiblePublication,
   recordGpuFlowVisibleFrameBlocked,
   recordGpuFlowVisibleFrameHeld,
   recordGpuFlowVisibleFramePresented,
 } from "./visibleFrameDiagnostics";
-import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFrameAbortPolicy";
 import type {
+  GpuFlowCommittedSurfaceBlockedCandidateRetry,
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFramePublicationKernelResult,
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDebtFrameRequest,
   GpuFlowVisiblePublicationOutcome,
 } from "./visibleFrameKernel";
+import { postGpuFlowVisiblePublicationOutcomeChromeReproEvent } from "./visibleFrameOutcomeChromeRepro";
+import { assertGpuFlowSingleVisiblePublicationOutcome } from "./visibleFrameOutcomeGuard";
 import {
   assertGpuFlowCommitPublicationTokenBrand,
   assertGpuFlowCommitPublicationTokenForFrameId,
@@ -48,6 +45,10 @@ import {
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
+import type {
+  GpuFlowSurfacePublicationPreparedFrame,
+  RenderGpuFlowSurfaceFrameInput,
+} from "./visibleFrameSurfaceFrame";
 
 type GpuFlowVisibleFramePresenter = (
   publicationTransaction: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>,
@@ -198,6 +199,7 @@ function presentGpuFlowVisibleFramePublicationFrame({
       contentPublicationFrame: {
         blockedErrorMessage,
         blockedPreparedCommittedSurfaceFrame,
+        blockedPreparedCommittedSurfaceFrameRetry,
         blockedPreservePreparationSnapshot,
         committedSurfaceFrame,
         committedSurfacePublicationEffect,
@@ -231,6 +233,7 @@ function presentGpuFlowVisibleFramePublicationFrame({
       commitPreparedCommittedSurfaceFrame,
       blockedErrorMessage,
       blockedPreparedCommittedSurfaceFrame,
+      blockedPreparedCommittedSurfaceFrameRetry,
       blockedPreservePreparationSnapshot,
       heldPreparedCommittedSurfaceFrame,
       heldPreviousVisibleProjectionState,
@@ -501,6 +504,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
   abortPreparedCommittedSurfaceFrame,
   blockedErrorMessage,
   blockedPreparedCommittedSurfaceFrame,
+  blockedPreparedCommittedSurfaceFrameRetry,
   blockedPreservePreparationSnapshot,
   callbacksRef,
   committedSurfaceFrame,
@@ -531,6 +535,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
   readonly commitPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["commitPreparedCommittedSurfaceFrame"];
   readonly blockedErrorMessage: string | null;
   readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly blockedPreparedCommittedSurfaceFrameRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry | null;
   readonly blockedPreservePreparationSnapshot: boolean;
   readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -581,7 +586,13 @@ function publishGpuFlowSurfaceVisibleProjectionState({
           heldPreparedCommittedSurfaceFrame ??
           blockedPreparedCommittedSurfaceFrame ??
           committedSurfaceFrame,
-        committedSurfacePublicationEffect,
+        heldPreparedCommittedSurfaceFrameRetry:
+          blockedPreparedCommittedSurfaceFrame !== null &&
+          (heldPreparedCommittedSurfaceFrame ??
+            blockedPreparedCommittedSurfaceFrame ??
+            committedSurfaceFrame) === blockedPreparedCommittedSurfaceFrame
+            ? blockedPreparedCommittedSurfaceFrameRetry
+            : null,
         heldPreviousVisibleProjectionState,
         outcome,
         runtimeCanvas,
@@ -603,9 +614,14 @@ function publishGpuFlowSurfaceVisibleProjectionState({
         abortPreparedCommittedSurfaceFrame,
         blockedPreparedCommittedSurfaceFrame:
           blockedCommittedSurfaceAbort.frame,
+        blockedPreparedCommittedSurfaceFrameRetry:
+          blockedCommittedSurfaceAbort.frame !== null &&
+          blockedCommittedSurfaceAbort.frame ===
+            blockedPreparedCommittedSurfaceFrame
+            ? blockedPreparedCommittedSurfaceFrameRetry
+            : null,
         blockedPreservePreparationSnapshot:
           blockedCommittedSurfaceAbort.preservePreparationSnapshot,
-        committedSurfacePublicationEffect,
         outcome,
         runtimeCanvas,
         surfaceRef,
@@ -684,7 +700,6 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
     token: outcome.token,
   });
   recordGpuFlowVisibleFramePresented({
-    effect: committedSurfacePublicationEffect,
     runtimeCanvas,
     surfaceRef,
     token: outcome.token,
@@ -725,8 +740,8 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
 
 function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
   abortPreparedCommittedSurfaceFrame,
-  committedSurfacePublicationEffect,
   heldPreparedCommittedSurfaceFrame,
+  heldPreparedCommittedSurfaceFrameRetry,
   heldPreviousVisibleProjectionState,
   outcome,
   runtimeCanvas,
@@ -735,8 +750,8 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
   visibleProjectionPublicationStateRef,
 }: {
   readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
-  readonly committedSurfacePublicationEffect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly heldPreparedCommittedSurfaceFrameRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry | null;
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly outcome: Extract<
     GpuFlowVisiblePublicationOutcome,
@@ -748,7 +763,8 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
   readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
 }): void {
   recordGpuFlowVisibleFrameHeld({
-    effect: committedSurfacePublicationEffect,
+    candidateFrame: heldPreparedCommittedSurfaceFrame,
+    candidateRetry: heldPreparedCommittedSurfaceFrameRetry,
     runtimeCanvas,
     surfaceRef,
     token: outcome.token,
@@ -830,16 +846,16 @@ function publishGpuFlowRetainedDisplayFrame(publication: {
 function publishGpuFlowBlockedSurfaceVisibleProjectionState({
   abortPreparedCommittedSurfaceFrame,
   blockedPreparedCommittedSurfaceFrame,
+  blockedPreparedCommittedSurfaceFrameRetry,
   blockedPreservePreparationSnapshot,
-  committedSurfacePublicationEffect,
   outcome,
   runtimeCanvas,
   surfaceRef,
 }: {
   readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
   readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly blockedPreparedCommittedSurfaceFrameRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry | null;
   readonly blockedPreservePreparationSnapshot: boolean;
-  readonly committedSurfacePublicationEffect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly outcome: Extract<
     GpuFlowVisiblePublicationOutcome,
     { readonly kind: "blocked" }
@@ -857,7 +873,8 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionState({
     );
   }
   recordGpuFlowVisibleFrameBlocked({
-    effect: committedSurfacePublicationEffect,
+    candidateFrame: blockedPreparedCommittedSurfaceFrame,
+    candidateRetry: blockedPreparedCommittedSurfaceFrameRetry,
     runtimeCanvas,
     surfaceRef,
     token: outcome.token,

@@ -10,9 +10,7 @@ const KERNEL_MODULE_PATH = modulePath("./visibleFrameKernel.ts");
 const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = modulePath(
   "./visibleFrameActorAdapters/contentDecisionKernel.ts",
 );
-const CONTENT_PLAN_MODULE_PATH = modulePath(
-  "./visibleFrameContentPlan.ts",
-);
+const CONTENT_PLAN_MODULE_PATH = modulePath("./visibleFrameContentPlan.ts");
 const KERNEL_COMPLETION_MODULE_PATH = modulePath(
   "./visibleFrameOutcomeReport.ts",
 );
@@ -72,6 +70,8 @@ const PRODUCTION_VISIBLE_PROJECTION_STATE_PUBLISHERS = new Set([
   "GpuFlow/visibleFramePresenter.ts",
 ]);
 const PRODUCTION_PREPARED_COMMITTED_SURFACE_FRAME_COMMITTERS = new Set([
+  "GpuFlow/committedSurfaceFrameState.ts",
+  "GpuFlow/visibleFrameResourceRegistry.ts",
   "GpuFlow/visibleFramePresenter.ts",
 ]);
 
@@ -99,7 +99,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "resolveGpuFlowCommittedSurfacePublicationReadiness",
     );
     expect(kernelSource).toContain('"nonpublishable"');
-    expect(kernelSource).toContain('"rejected-candidate"');
+    expect(kernelSource).toContain('"blocked-candidate"');
   });
 
   it("keeps projection frames from minting publication tokens before completion", () => {
@@ -893,7 +893,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(helperPublicationCallCount).toBe(1);
   });
 
-  it("commits prepared committed surface frames only from visible publication completion", () => {
+  it("commits prepared committed surface frames only through the visible-frame presenter and resource registry", () => {
     const commitPattern = /\bcommitPreparedCommittedSurfaceFrame\s*\(/g;
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
@@ -1011,9 +1011,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(flowSurfaceSource).not.toContain("void publication.token");
     expect(flowSurfaceSource).toContain("publishColdStartShellFrame");
-    expect(flowSurfaceSource).toContain(
-      "assertGpuFlowColdStartShellToken",
-    );
+    expect(flowSurfaceSource).toContain("assertGpuFlowColdStartShellToken");
     expect(flowSurfaceSource).toContain(
       "assertGpuFlowBlockedPublicationTokenBrand",
     );

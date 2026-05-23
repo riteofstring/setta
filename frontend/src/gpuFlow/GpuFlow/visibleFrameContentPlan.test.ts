@@ -13,8 +13,8 @@ import type {
   RetainedDisplayFrame,
   RetainedDisplayFrameOutcome,
 } from "../retainedDisplayFrame";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFrameAbortPolicy";
+import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
@@ -165,15 +165,13 @@ describe("GPU Flow visible publication content plans", () => {
             frozenFrameId: "cold-start-shell:browser-visual",
           },
           candidateFrame: committedFrame,
-          effect: {
-            candidateFrame: committedFrame,
-            deferRetry: false,
-            kind: "rejected-candidate",
-            timestamp: 16,
-          },
           errorMessage: null,
           kind: "nonpublishable",
           preservePreparationSnapshot: true,
+          retry: {
+            deferRetry: false,
+            timestamp: 16,
+          },
         }),
       });
     const publishPlan = preparePublishPlan(
@@ -529,7 +527,7 @@ describe("GPU Flow visible publication content plans", () => {
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
     expect(kernelSource).toContain('"nonpublishable"');
-    expect(kernelSource).toContain('"rejected-candidate"');
+    expect(kernelSource).toContain('"blocked-candidate"');
   });
 
   it("keeps committed-surface frame-plan selection in the kernel", () => {
@@ -812,15 +810,13 @@ describe("GPU Flow visible publication content plans", () => {
         prepareCommittedSurfacePublicationCandidate: () => ({
           blockedPublicationCandidate,
           candidateFrame,
-          effect: {
-            candidateFrame,
-            deferRetry: false,
-            kind: "rejected-candidate",
-            timestamp: 24,
-          },
           errorMessage: "blocked surface",
           kind: "nonpublishable",
           preservePreparationSnapshot: true,
+          retry: {
+            deferRetry: false,
+            timestamp: 24,
+          },
         }),
       });
     const result = runGpuFlowRetainedCommittedSurfacePublicationContentStage<

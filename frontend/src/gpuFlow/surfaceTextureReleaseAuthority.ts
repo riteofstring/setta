@@ -10,7 +10,7 @@ const GPU_FLOW_SURFACE_TEXTURE_RELEASE_TOKEN = Symbol(
 );
 
 type GpuFlowSurfaceTextureReleaseReason =
-  | "blocked-rejected-candidate"
+  | "blocked-candidate"
   | "commit-superseded"
   | "source-unmounted";
 
@@ -121,7 +121,7 @@ export function releaseGpuFlowSupersededSurfaceTexture({
   });
 }
 
-export function releaseGpuFlowRejectedCandidateSurfaceTexture({
+export function releaseGpuFlowBlockedCandidateSurfaceTexture({
   surfaceId,
   textureManager,
   token,
@@ -136,7 +136,7 @@ export function releaseGpuFlowRejectedCandidateSurfaceTexture({
   assertGpuFlowBlockedPublicationTokenBrand({ token });
   return releaseGpuFlowPublicationOutcomeSurfaceTexture({
     publicationOutcome: "blocked",
-    reason: "blocked-rejected-candidate",
+    reason: "blocked-candidate",
     surfaceId,
     textureManager,
     transactionId: token.transactionId,

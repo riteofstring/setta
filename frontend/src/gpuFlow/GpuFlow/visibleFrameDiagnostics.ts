@@ -12,7 +12,7 @@ import {
   getGpuFlowCommittedSurfacePublishabilityActorIds,
 } from "./visibleFrameBlockedCandidate";
 import type {
-  GpuFlowCommittedSurfacePublicationEffect,
+  GpuFlowCommittedSurfaceBlockedCandidateRetry,
   GpuFlowVisiblePublicationCompletion,
 } from "./visibleFrameKernel";
 import {
@@ -85,21 +85,12 @@ const GPU_FLOW_BROWSER_VISUAL_DEFERRED_RETRY_MS =
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2;
 
 export function recordGpuFlowVisibleFramePresented(application: {
-  readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly token: GpuFlowCommitPublicationToken;
 }): void {
-  const { effect, runtimeCanvas, surfaceRef, token } = application;
+  const { runtimeCanvas, surfaceRef, token } = application;
   assertGpuFlowCommitPublicationTokenBrand({ token });
-  if (effect === null) {
-    return;
-  }
-  if (effect.kind !== "publish") {
-    throw new Error(
-      "GPU Flow committed surface commit effect requires a publish effect.",
-    );
-  }
   clearGpuFlowBrowserVisualStarvationDebt(runtimeCanvas);
   clearGpuFlowBrowserVisualRetryFrame({
     runtimeCanvas,
@@ -108,21 +99,21 @@ export function recordGpuFlowVisibleFramePresented(application: {
 }
 
 export function recordGpuFlowVisibleFrameHeld(application: {
-  readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;
+  readonly candidateFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly candidateRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly token: GpuFlowHoldPreviousToken;
 }): void {
-  const { effect, runtimeCanvas, surfaceRef, token } = application;
+  const { candidateFrame, candidateRetry, runtimeCanvas, surfaceRef, token } =
+    application;
   assertGpuFlowHoldPreviousTokenBrand({ token });
-  if (effect === null) {
+  if (candidateFrame === null || candidateRetry === null) {
     return;
   }
-  if (effect.kind === "publish") {
-    return;
-  }
-  applyGpuFlowBrowserVisualStarvationEffect({
-    effect,
+  applyGpuFlowBrowserVisualStarvationCandidate({
+    candidateFrame,
+    candidateRetry,
     outcome: "held-previous",
     runtimeCanvas,
     surfaceRef,
@@ -130,51 +121,50 @@ export function recordGpuFlowVisibleFrameHeld(application: {
 }
 
 export function recordGpuFlowVisibleFrameBlocked(application: {
-  readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;
+  readonly candidateFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly candidateRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly token: GpuFlowBlockedPublicationToken;
 }): void {
-  const { effect, runtimeCanvas, surfaceRef, token } = application;
+  const { candidateFrame, candidateRetry, runtimeCanvas, surfaceRef, token } =
+    application;
   assertGpuFlowBlockedPublicationTokenBrand({ token });
-  if (effect === null) {
+  if (candidateFrame === null || candidateRetry === null) {
     return;
   }
-  if (effect.kind === "publish") {
-    return;
-  }
-  applyGpuFlowBrowserVisualStarvationEffect({
-    effect,
+  applyGpuFlowBrowserVisualStarvationCandidate({
+    candidateFrame,
+    candidateRetry,
     outcome: "blocked",
     runtimeCanvas,
     surfaceRef,
   });
 }
 
-function applyGpuFlowBrowserVisualStarvationEffect({
-  effect,
+function applyGpuFlowBrowserVisualStarvationCandidate({
+  candidateFrame,
+  candidateRetry,
   outcome,
   runtimeCanvas,
   surfaceRef,
 }: {
-  readonly effect: Extract<
-    GpuFlowCommittedSurfacePublicationEffect,
-    { readonly kind: "rejected-candidate" }
-  >;
+  readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
+  readonly candidateRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry;
   readonly outcome: GpuFlowBrowserVisualStarvationOutcome;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
 }): void {
   recordGpuFlowBrowserVisualStarvation({
-    frame: effect.candidateFrame,
-    nowMs: effect.timestamp,
+    frame: candidateFrame,
+    nowMs: candidateRetry.timestamp,
     outcome,
     runtimeCanvas,
   });
   requestGpuFlowBrowserVisualRetryFrame({
     deferRetry:
-      effect.deferRetry ||
-      shouldWaitForGpuFlowBrowserVisualRepairSignal(effect.candidateFrame),
+      candidateRetry.deferRetry ||
+      shouldWaitForGpuFlowBrowserVisualRepairSignal(candidateFrame),
     runtimeCanvas,
     surfaceRef,
   });

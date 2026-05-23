@@ -52,14 +52,13 @@ export function createGpuFlowNodeLayerCommittedSurfacePublicationResult({
   effect,
 }: {
   readonly action: GpuFlowCommittedSurfaceCandidateAction;
-  readonly effect: GpuFlowCommittedSurfacePublicationEffect;
+  readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;
 }): GpuFlowNodeLayerCommittedSurfacePublicationResult {
   switch (action.kind) {
-    case "rejected-candidate":
+    case "blocked-candidate":
       return {
         ...EMPTY_GPU_FLOW_NODE_LAYER_COMMITTED_SURFACE_PUBLICATION,
         blockedSurfacePublication: action.blockedSurfacePublication,
-        committedSurfacePublicationEffect: effect,
       };
     case "publish":
       return {

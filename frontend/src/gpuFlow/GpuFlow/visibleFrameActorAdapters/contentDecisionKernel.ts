@@ -29,14 +29,14 @@ import type {
 } from "../visibleFrameContentPlan";
 import type { GpuFlowRetainedProjectionFrame } from "../visibleFrameProjectionCoverage";
 import type {
+  GpuFlowProjectionFrameTransaction,
+  GpuFlowRetainedProjectionFrameResolver,
+} from "../visibleFrameProjectionPlan";
+import type {
   GpuFlowMotionProjectionFrameWithWorkReport,
   GpuFlowMotionProjectionFrameWorkReport,
   GpuFlowMotionProjectionFrameWorkResult,
 } from "../visibleFrameProjectionWorkTypes";
-import type {
-  GpuFlowProjectionFrameTransaction,
-  GpuFlowRetainedProjectionFrameResolver,
-} from "../visibleFrameProjectionPlan";
 import type { GpuFlowCommittedSurfaceCandidateAction } from "./committedSurfaceCandidateAction";
 
 type GpuFlowCommittedSurfacePublicationReadiness =
@@ -249,18 +249,16 @@ export function prepareGpuFlowCommittedSurfacePublicationCandidate({
     blockedPublicationCandidate:
       publicationReadiness.blockedPublicationCandidate,
     candidateFrame: publishedCommittedSurfaceFrame,
-    effect: {
-      candidateFrame: publishedCommittedSurfaceFrame,
-      deferRetry: deferBrowserVisualRetry === true,
-      kind: "rejected-candidate",
-      timestamp: liveProjectionSample.timestamp,
-    },
     errorMessage: publicationReadiness.errorMessage,
     kind: "nonpublishable",
     preservePreparationSnapshot:
       shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair(
         publicationReadiness.blockedPublicationCandidate,
       ),
+    retry: {
+      deferRetry: deferBrowserVisualRetry === true,
+      timestamp: liveProjectionSample.timestamp,
+    },
   };
 }
 
@@ -321,7 +319,7 @@ function selectGpuFlowCommittedSurfacePublicationFramePlan({
   });
   const result = resolveGpuFlowCommittedSurfacePublicationActionFrameResult({
     action,
-    effect: candidate.effect,
+    effect: candidate.kind === "publish" ? candidate.effect : null,
   });
   if (action.kind !== "publish") {
     return {
@@ -350,7 +348,7 @@ function resolveGpuFlowCommittedSurfaceCandidateAction({
     case "nonpublishable":
       return {
         blockedSurfacePublication: candidate,
-        kind: "rejected-candidate",
+        kind: "blocked-candidate",
         visibleProjectionState: null,
       };
     case "publish":
@@ -378,7 +376,7 @@ function resolveGpuFlowCommittedSurfacePublicationActionFrameResult({
   effect,
 }: {
   readonly action: GpuFlowCommittedSurfaceCandidateAction;
-  readonly effect: GpuFlowCommittedSurfacePublicationEffect;
+  readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;
 }): GpuFlowCommittedSurfacePublicationActionFrameResult {
   const committedSurfacePublication =
     createGpuFlowNodeLayerCommittedSurfacePublicationResult({
@@ -392,7 +390,7 @@ function resolveGpuFlowCommittedSurfacePublicationActionFrameResult({
       visibleProjectionState: null,
     };
   }
-  if (action.kind === "rejected-candidate") {
+  if (action.kind === "blocked-candidate") {
     return {
       blockedPublicationCandidate:
         action.blockedSurfacePublication.blockedPublicationCandidate,

@@ -576,7 +576,7 @@ export function assertGpuFlowBlockedPublicationTokenBrand({
 }): void {
   if (!isGpuFlowBlockedPublicationToken(token)) {
     throw new Error(
-      "GPU Flow rejected candidate resource release requires a blocked publication token.",
+      "GPU Flow blocked candidate resource release requires a blocked publication token.",
     );
   }
 }

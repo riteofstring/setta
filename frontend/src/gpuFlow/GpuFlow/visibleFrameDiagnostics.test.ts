@@ -9,15 +9,15 @@ import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntim
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
+  createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
+  type GpuFlowCommittedSurfaceBlockedCandidateRetry,
+  type GpuFlowCommittedSurfacePublicationCandidateInput,
+} from "./visibleFrameContentPlan";
+import {
   recordGpuFlowBlockedVisiblePublication,
   recordGpuFlowVisibleFrameBlocked,
   recordGpuFlowVisibleFrameHeld,
 } from "./visibleFrameDiagnostics";
-import {
-  createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
-  type GpuFlowCommittedSurfacePublicationCandidateInput,
-  type GpuFlowCommittedSurfacePublicationEffect,
-} from "./visibleFrameContentPlan";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
@@ -33,7 +33,7 @@ const prepareCommittedSurfacePublicationFramePlanForTest =
       createGpuFlowVisiblePublicationContentDecisionKernel(),
   });
 
-describe("GPU Flow committed surface publication effect executor", () => {
+describe("GPU Flow visible frame blocked candidate diagnostics", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
@@ -69,7 +69,10 @@ describe("GPU Flow committed surface publication effect executor", () => {
     expect(result.preservePreparationSnapshot).toBe(true);
     expect(requestFrame).not.toHaveBeenCalled();
     expect(readStarvationReports()).toEqual([]);
-    applyPublicationEffect(result.effect, { canvas, requestFrame });
+    applyBlockedCandidate(result.candidateFrame, result.retry, {
+      canvas,
+      requestFrame,
+    });
     expect(requestFrame).not.toHaveBeenCalled();
     expect(readStarvationReports()).toEqual([
       expect.objectContaining({
@@ -101,7 +104,13 @@ describe("GPU Flow committed surface publication effect executor", () => {
     );
 
     expect(result.kind).toBe("nonpublishable");
-    applyPublicationEffect(result.effect, { canvas, requestFrame });
+    if (result.kind !== "nonpublishable") {
+      throw new Error("Expected nonpublishable publication candidate.");
+    }
+    applyBlockedCandidate(result.candidateFrame, result.retry, {
+      canvas,
+      requestFrame,
+    });
     expect(requestFrame).not.toHaveBeenCalled();
     vi.advanceTimersByTime(
       DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2 - 1,
@@ -112,17 +121,21 @@ describe("GPU Flow committed surface publication effect executor", () => {
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
   });
 
-  it("rejects unbranded publication effect tokens", () => {
+  it("rejects unbranded blocked candidate tokens", () => {
     const result = prepareGpuFlowCommittedSurfacePublicationCandidate(
       publicationCandidateInput({
         timestamp: 10,
       }),
     );
     const canvas = document.createElement("canvas");
+    if (result.kind !== "nonpublishable") {
+      throw new Error("Expected nonpublishable publication candidate.");
+    }
 
     expect(() =>
       recordGpuFlowVisibleFrameBlocked({
-        effect: result.effect,
+        candidateFrame: result.candidateFrame,
+        candidateRetry: result.retry,
         runtimeCanvas: canvas,
         surfaceRef: {
           current: { requestFrame: vi.fn() } as unknown as GpuSurfaceHandle,
@@ -134,15 +147,14 @@ describe("GPU Flow committed surface publication effect executor", () => {
     ).toThrow(/blocked publication token/);
   });
 
-  it("records rejected held-prepared candidates as blocked effects", () => {
+  it("records held-prepared candidates as blocked outcomes", () => {
     const canvas = document.createElement("canvas");
     const requestFrame = vi.fn();
 
     recordGpuFlowVisibleFrameBlocked({
-      effect: {
-        candidateFrame: blockedCommittedSurfaceFrame(),
+      candidateFrame: blockedCommittedSurfaceFrame(),
+      candidateRetry: {
         deferRetry: false,
-        kind: "rejected-candidate",
         timestamp: 12,
       },
       runtimeCanvas: canvas,
@@ -160,13 +172,14 @@ describe("GPU Flow committed surface publication effect executor", () => {
     ]);
   });
 
-  it("treats publish effects as no-op inputs for blocked or held outcomes owned by other proofs", () => {
+  it("treats missing blocked candidates as no-op inputs for blocked or held outcomes owned by other proofs", () => {
     const blockedCanvas = document.createElement("canvas");
     const heldCanvas = document.createElement("canvas");
     const requestFrame = vi.fn();
 
     recordGpuFlowVisibleFrameBlocked({
-      effect: { kind: "publish" },
+      candidateFrame: null,
+      candidateRetry: null,
       runtimeCanvas: blockedCanvas,
       surfaceRef: {
         current: { requestFrame } as unknown as GpuSurfaceHandle,
@@ -174,7 +187,8 @@ describe("GPU Flow committed surface publication effect executor", () => {
       token: blockedPublicationToken(),
     });
     recordGpuFlowVisibleFrameHeld({
-      effect: { kind: "publish" },
+      candidateFrame: null,
+      candidateRetry: null,
       runtimeCanvas: heldCanvas,
       surfaceRef: {
         current: { requestFrame } as unknown as GpuSurfaceHandle,
@@ -333,25 +347,25 @@ describe("GPU Flow committed surface publication effect executor", () => {
       index += 1
     ) {
       expect(() =>
-        applyPublicationEffect(
+        applyPreparedBlockedCandidate(
           prepareGpuFlowCommittedSurfacePublicationCandidate(
             publicationCandidateInput({
               timestamp: index,
             }),
-          ).effect,
+          ),
           { canvas, requestFrame },
         ),
       ).not.toThrow();
     }
 
     expect(() =>
-      applyPublicationEffect(
+      applyPreparedBlockedCandidate(
         prepareGpuFlowCommittedSurfacePublicationCandidate(
           publicationCandidateInput({
             timestamp:
               DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames,
           }),
-        ).effect,
+        ),
         { canvas, requestFrame },
       ),
     ).toThrow(/browser visual actor starvation exceeded budget/);
@@ -384,8 +398,24 @@ function prepareGpuFlowCommittedSurfacePublicationCandidate(
   return prepareCommittedSurfacePublicationFramePlanForTest(input).candidate;
 }
 
-function applyPublicationEffect(
-  effect: GpuFlowCommittedSurfacePublicationEffect,
+function applyPreparedBlockedCandidate(
+  candidate: ReturnType<
+    typeof prepareGpuFlowCommittedSurfacePublicationCandidate
+  >,
+  output: {
+    readonly canvas: HTMLCanvasElement;
+    readonly requestFrame: (reason: GpuFrameReason) => void;
+  },
+): void {
+  if (candidate.kind !== "nonpublishable") {
+    throw new Error("Expected nonpublishable committed surface candidate.");
+  }
+  applyBlockedCandidate(candidate.candidateFrame, candidate.retry, output);
+}
+
+function applyBlockedCandidate(
+  candidateFrame: GpuFlowCommittedSurfaceFrame,
+  candidateRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry,
   {
     canvas,
     requestFrame,
@@ -395,7 +425,8 @@ function applyPublicationEffect(
   },
 ): void {
   recordGpuFlowVisibleFrameBlocked({
-    effect,
+    candidateFrame,
+    candidateRetry,
     runtimeCanvas: canvas,
     surfaceRef: {
       current: { requestFrame } as unknown as GpuSurfaceHandle,

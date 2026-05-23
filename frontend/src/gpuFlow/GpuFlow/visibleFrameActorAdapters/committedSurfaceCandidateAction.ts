@@ -13,6 +13,6 @@ export type GpuFlowCommittedSurfaceCandidateAction =
     }
   | {
       readonly blockedSurfacePublication: GpuFlowBlockedCommittedSurfaceCandidate;
-      readonly kind: "rejected-candidate";
+      readonly kind: "blocked-candidate";
       readonly visibleProjectionState: null;
     };

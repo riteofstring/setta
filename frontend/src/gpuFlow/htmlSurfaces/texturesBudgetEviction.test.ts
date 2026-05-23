@@ -12,7 +12,7 @@ import {
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "../GpuFlow/visibleFrameTypes";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
-  releaseGpuFlowRejectedCandidateSurfaceTexture,
+  releaseGpuFlowBlockedCandidateSurfaceTexture,
   releaseGpuFlowSupersededSurfaceTexture,
   releaseGpuFlowUnmountedSourceSurfaceTexture,
 } from "../surfaceTextureReleaseAuthority";
@@ -334,17 +334,18 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
       frame: committedSurfaceFrame(4),
       projectionSample: projectionSample(9),
     });
-    const blockedToken = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
-      blockedReasons: [
-        {
-          actorId: "candidate-a",
-          family: "dom-control",
-          reason: "snapshot-pending",
-        },
-      ],
-      frozenFrameId: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
-      projectionSample: projectionSample(10),
-    });
+    const blockedToken =
+      createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+        blockedReasons: [
+          {
+            actorId: "candidate-a",
+            family: "dom-control",
+            reason: "snapshot-pending",
+          },
+        ],
+        frozenFrameId: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+        projectionSample: projectionSample(10),
+      });
 
     registerNode(manager, "superseded", "visible");
     registerNode(manager, "rejected", "visible");
@@ -360,7 +361,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
       surfaceId: "superseded",
     });
     expect(
-      releaseGpuFlowRejectedCandidateSurfaceTexture({
+      releaseGpuFlowBlockedCandidateSurfaceTexture({
         surfaceId: "rejected",
         textureManager: manager,
         token: blockedToken,
@@ -378,21 +379,22 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     ).toThrow(/commit publication token/);
   });
 
-  it("preserves previous-frame textures when blocked publication releases rejected candidates", () => {
+  it("preserves previous-frame textures when blocked publication releases blocked candidates", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
-    const blockedToken = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
-      blockedReasons: [
-        {
-          actorId: "candidate",
-          family: "dom-control",
-          reason: "snapshot-pending",
-        },
-      ],
-      frozenFrameId: 4,
-      projectionSample: projectionSample(10),
-    });
+    const blockedToken =
+      createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+        blockedReasons: [
+          {
+            actorId: "candidate",
+            family: "dom-control",
+            reason: "snapshot-pending",
+          },
+        ],
+        frozenFrameId: 4,
+        projectionSample: projectionSample(10),
+      });
 
     registerNode(manager, "previous", "visible", { frame: 4 });
     registerNode(manager, "candidate", "visible", { frame: 5 });
@@ -402,7 +404,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     });
 
     expect(
-      releaseGpuFlowRejectedCandidateSurfaceTexture({
+      releaseGpuFlowBlockedCandidateSurfaceTexture({
         surfaceId: "candidate",
         textureManager: manager,
         token: blockedToken,

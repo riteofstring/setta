@@ -37,16 +37,14 @@ import type {
   GpuFlowBlockedVisibleReason,
 } from "./visibleFramePresentationProofs";
 
-export type GpuFlowCommittedSurfacePublicationEffect =
-  | {
-      readonly kind: "publish";
-    }
-  | {
-      readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
-      readonly deferRetry: boolean;
-      readonly kind: "rejected-candidate";
-      readonly timestamp: number;
-    };
+export type GpuFlowCommittedSurfacePublicationEffect = {
+  readonly kind: "publish";
+};
+
+export type GpuFlowCommittedSurfaceBlockedCandidateRetry = {
+  readonly deferRetry: boolean;
+  readonly timestamp: number;
+};
 
 export type GpuFlowVisibleFrameBlockedPublicationCandidate = {
   readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
@@ -56,6 +54,7 @@ export type GpuFlowVisibleFrameBlockedPublicationCandidate = {
 export type GpuFlowContentPublicationFrameResult = {
   readonly blockedErrorMessage: string | null;
   readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly blockedPreparedCommittedSurfaceFrameRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry | null;
   readonly blockedPreservePreparationSnapshot: boolean;
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
@@ -80,6 +79,7 @@ type GpuFlowContentPublicationFrameResultInput = Pick<
 const EMPTY_GPU_FLOW_CONTENT_PUBLICATION_FRAME_RESULT_FIELDS = Object.freeze({
   blockedErrorMessage: null,
   blockedPreparedCommittedSurfaceFrame: null,
+  blockedPreparedCommittedSurfaceFrameRetry: null,
   blockedPreservePreparationSnapshot: false,
   blockedPublicationCandidate: null,
   committedSurfaceFrame: null,
@@ -102,10 +102,10 @@ export type GpuFlowCommittedSurfacePublicationCandidate =
   | {
       readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
       readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
-      readonly effect: GpuFlowCommittedSurfacePublicationEffect;
       readonly errorMessage: string | null;
       readonly kind: "nonpublishable";
       readonly preservePreparationSnapshot: boolean;
+      readonly retry: GpuFlowCommittedSurfaceBlockedCandidateRetry;
     };
 
 export type GpuFlowCommittedSurfacePublicationCandidateInput = {
@@ -864,6 +864,8 @@ function createGpuFlowNotVisibleContentPublicationFrameResult({
     blockedErrorMessage: blockedSurfacePublication?.errorMessage ?? null,
     blockedPreparedCommittedSurfaceFrame:
       blockedSurfacePublication?.candidateFrame ?? null,
+    blockedPreparedCommittedSurfaceFrameRetry:
+      blockedSurfacePublication?.retry ?? null,
     blockedPreservePreparationSnapshot:
       blockedSurfacePublication?.preservePreparationSnapshot ?? false,
     blockedPublicationCandidate,

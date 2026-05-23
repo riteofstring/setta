@@ -16,25 +16,19 @@ import {
   type GpuFlowVisiblePublicationCandidateOracle,
 } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
-  createGpuFlowVisibleFrameEngine,
-  type GpuFlowVisibleFrameEngineOutcome,
-  type GpuFlowVisibleFrameEngineSample,
-} from "./visibleFrameEngine";
-import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFrameOutcomeReport";
-import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
 } from "./visibleFrameContentPlan";
-import { prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet } from "./visibleFrameForcedBlockedCandidateSet";
-import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";
 import {
-  createGpuFlowContentPublicationWorkPlan,
-  createGpuFlowMotionProjectionWorkPlan,
-  type GpuFlowContentPublicationWorkPlan,
-  type GpuFlowMotionProjectionWorkPlan,
-} from "./visibleFrameWorkPlan";
+  createGpuFlowVisibleFrameEngine,
+  type GpuFlowVisibleFrameEngineOutcome,
+  type GpuFlowVisibleFrameEngineSample,
+} from "./visibleFrameEngine";
+import { prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet } from "./visibleFrameForcedBlockedCandidateSet";
+import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFrameOutcomeReport";
+import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";
 import type {
   GpuFlowMotionProjectionFramePreparation,
   GpuFlowProjectionFrameRenderPlan,
@@ -51,17 +45,16 @@ import {
   type GpuFlowVisibleFramePublicationTransactionOracle,
   type GpuFlowVisiblePublicationBlockedProof,
 } from "./visibleFrameTransactionProofs";
+import {
+  createGpuFlowContentPublicationWorkPlan,
+  createGpuFlowMotionProjectionWorkPlan,
+  type GpuFlowContentPublicationWorkPlan,
+  type GpuFlowMotionProjectionWorkPlan,
+} from "./visibleFrameWorkPlan";
 
-export { createGpuFlowVisiblePublicationTransactionReport } from "./visibleFrameOutcomeReport";
-export type {
-  GpuFlowVisiblePublicationCompletion,
-  GpuFlowVisiblePublicationDebtFrameRequest,
-  GpuFlowVisiblePublicationOutcome,
-  GpuFlowVisiblePublicationSchedulerFrameCompletion,
-  GpuFlowVisiblePublicationTransactionCompletion,
-} from "./visibleFrameOutcomeReport";
 export { createGpuFlowContentPublicationFrameResult } from "./visibleFrameContentPlan";
 export type {
+  GpuFlowCommittedSurfaceBlockedCandidateRetry,
   GpuFlowCommittedSurfacePublicationCandidate,
   GpuFlowCommittedSurfacePublicationCandidateInput,
   GpuFlowCommittedSurfacePublicationCandidatePreparer,
@@ -77,20 +70,14 @@ export type {
   GpuFlowRetainedDisplayPublicationPreparer,
   GpuFlowVisibleFrameBlockedPublicationCandidate,
 } from "./visibleFrameContentPlan";
+export { createGpuFlowVisiblePublicationTransactionReport } from "./visibleFrameOutcomeReport";
 export type {
-  GpuFlowMotionProjectionFrameWorkReport,
-  GpuFlowMotionProjectionFrameWorkResult,
-} from "./visibleFrameProjectionWorkTypes";
-export {
-  createGpuFlowContentPublicationWorkPlan,
-  createGpuFlowMotionProjectionWorkPlan,
-  shouldConsiderGpuFlowDeferredContentPublication,
-  shouldDeferGpuFlowBrowserVisualRetryForPublication,
-} from "./visibleFrameWorkPlan";
-export type {
-  GpuFlowContentPublicationWorkPlan,
-  GpuFlowMotionProjectionWorkPlan,
-} from "./visibleFrameWorkPlan";
+  GpuFlowVisiblePublicationCompletion,
+  GpuFlowVisiblePublicationDebtFrameRequest,
+  GpuFlowVisiblePublicationOutcome,
+  GpuFlowVisiblePublicationSchedulerFrameCompletion,
+  GpuFlowVisiblePublicationTransactionCompletion,
+} from "./visibleFrameOutcomeReport";
 export type {
   GpuFlowMotionProjectionFramePreparation,
   GpuFlowProjectionFrameRenderablePlan,
@@ -98,6 +85,10 @@ export type {
   GpuFlowProjectionFrameTransaction,
   GpuFlowRetainedProjectionFrameResolver,
 } from "./visibleFrameProjectionPlan";
+export type {
+  GpuFlowMotionProjectionFrameWorkReport,
+  GpuFlowMotionProjectionFrameWorkResult,
+} from "./visibleFrameProjectionWorkTypes";
 export type {
   GpuFlowVisibleFramePublicationCandidateSet,
   GpuFlowVisibleFramePublicationContentCandidate,
@@ -111,6 +102,16 @@ export type {
   GpuFlowVisiblePublicationBlockedProof,
   GpuFlowVisiblePublicationCommitDebtProof,
 } from "./visibleFrameTransactionProofs";
+export {
+  createGpuFlowContentPublicationWorkPlan,
+  createGpuFlowMotionProjectionWorkPlan,
+  shouldConsiderGpuFlowDeferredContentPublication,
+  shouldDeferGpuFlowBrowserVisualRetryForPublication,
+} from "./visibleFrameWorkPlan";
+export type {
+  GpuFlowContentPublicationWorkPlan,
+  GpuFlowMotionProjectionWorkPlan,
+} from "./visibleFrameWorkPlan";
 type GpuFlowVisiblePublicationScheduler = ReturnType<
   typeof createGpuFlowVisiblePublicationScheduler
 >;
