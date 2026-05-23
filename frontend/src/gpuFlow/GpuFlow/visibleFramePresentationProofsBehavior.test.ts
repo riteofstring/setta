@@ -4,7 +4,10 @@ import {
   createGpuFlowCommittedSurfacePresentationProof,
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
-import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
+import {
+  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  type GpuFlowLiveProjectionSample,
+} from "../projectionRuntime";
 import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTransaction";
 import { proveGpuFlowVisibleFrameEngineFrame } from "./visibleFrameEngine";
 import {
@@ -355,6 +358,89 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         token,
       }),
     ).toThrow(/commit publication token for the same visible frame/);
+  });
+
+  it("keeps browser visual blocked content debt queued without an immediate manual retry", () => {
+    const projectionSample = liveProjectionSample();
+    const completion = proveGpuFlowVisibleFramePublicationPresentation({
+      blockedPublicationProof: {
+        blockedReasons: [
+          {
+            actorId: "actor-a",
+            family: "browser-visual",
+            reason: "live-dom-budget",
+          },
+        ],
+        candidate: {
+          blockedReasons: [
+            {
+              actorId: "actor-a",
+              family: "browser-visual",
+              reason: "live-dom-budget",
+            },
+          ],
+          frozenFrameId: 7,
+        },
+        frozenFrameId: 7,
+        source: "content-publication",
+      },
+      forceImmediatePublicationDebtFrame: false,
+      followUpFrameReason: null,
+      previousVisibleProjectionState: null,
+      publicationDecision: {
+        debt: { content: false, maintenance: false, motion: false },
+        lane: "content",
+        rawReasons: ["manual"],
+        sample: projectionSample,
+        schedulerState: "content-catchup",
+      } as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["publicationDecision"],
+      scheduler: {
+        completeFrame: () => {
+          throw new Error("Unexpected committed frame completion.");
+        },
+        getKnobs: () => DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+        recordUncommittedFrame: () => ({
+          debt: { content: true, maintenance: false, motion: false },
+          outcome: "blocked",
+        }),
+      } as unknown as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["scheduler"],
+      transactionOracle: {
+        renderedVisibleFrame: false,
+        visibleFrameEngineOutcome: {
+          debt: {
+            browserVisual: true,
+            content: true,
+            maintenance: false,
+            motion: false,
+          },
+          decidingProof: {
+            actorId: "actor-a",
+            family: "browser-visual",
+            proof: "blocked",
+            reason: "live-dom-budget",
+          },
+          kind: "aborted",
+          previousPresentationId: "presentation:previous",
+          releasedResourceIds: [],
+        },
+        visibleProjectionState: null,
+      } as unknown as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["transactionOracle"],
+    });
+
+    expect(completion.outcome.kind).toBe("blocked");
+    expect(completion.completeSchedulerFrame()).toEqual({
+      completion: {
+        debt: { content: true, maintenance: false, motion: false },
+        outcome: "blocked",
+      },
+      debtFrameRequest: null,
+    });
   });
 });
 

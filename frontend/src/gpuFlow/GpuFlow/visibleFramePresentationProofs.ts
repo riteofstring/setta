@@ -106,6 +106,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
       createGpuFlowVisiblePublicationColdStartShellPublication({ outcome }),
     completeSchedulerFrame:
       createGpuFlowVisiblePublicationSchedulerFrameCompleter({
+        blockedPublicationProof,
         forceImmediatePublicationDebtFrame,
         outcome,
         publicationDecision,
@@ -132,12 +133,14 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
 }
 
 function createGpuFlowVisiblePublicationSchedulerFrameCompleter({
+  blockedPublicationProof,
   forceImmediatePublicationDebtFrame,
   outcome,
   publicationDecision,
   scheduler,
   schedulerKnobs,
 }: {
+  readonly blockedPublicationProof: GpuFlowVisiblePublicationBlockedProof | null;
   readonly forceImmediatePublicationDebtFrame: boolean;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
@@ -157,6 +160,7 @@ function createGpuFlowVisiblePublicationSchedulerFrameCompleter({
     schedulerFrameCompletion = Object.freeze({
       completion,
       debtFrameRequest: createGpuFlowVisiblePublicationDebtFrameRequest({
+        blockedPublicationProof,
         completion,
         forceImmediatePublicationDebtFrame,
         outcome,
@@ -194,12 +198,14 @@ function createGpuFlowVisiblePublicationFollowUpFrameRequests({
 }
 
 function createGpuFlowVisiblePublicationDebtFrameRequest({
+  blockedPublicationProof,
   completion,
   forceImmediatePublicationDebtFrame,
   outcome,
   publicationDecision,
   schedulerKnobs,
 }: {
+  readonly blockedPublicationProof: GpuFlowVisiblePublicationBlockedProof | null;
   readonly completion: GpuFlowVisiblePublicationSchedulerFrameCompletion["completion"];
   readonly forceImmediatePublicationDebtFrame: boolean;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
@@ -207,6 +213,16 @@ function createGpuFlowVisiblePublicationDebtFrameRequest({
   readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
 }): GpuFlowVisiblePublicationDebtFrameRequest | null {
   if (!hasGpuFlowVisiblePublicationDebt(completion.debt)) {
+    return null;
+  }
+  if (
+    shouldWaitForGpuFlowBrowserVisualReadinessBeforeContentRetry({
+      blockedPublicationProof,
+      completion,
+      outcome,
+      publicationDecision,
+    })
+  ) {
     return null;
   }
   return Object.freeze({
@@ -226,6 +242,40 @@ function createGpuFlowVisiblePublicationDebtFrameRequest({
       outcome,
     }),
   });
+}
+
+function shouldWaitForGpuFlowBrowserVisualReadinessBeforeContentRetry({
+  blockedPublicationProof,
+  completion,
+  outcome,
+  publicationDecision,
+}: {
+  readonly blockedPublicationProof: GpuFlowVisiblePublicationBlockedProof | null;
+  readonly completion: GpuFlowVisiblePublicationSchedulerFrameCompletion["completion"];
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}): boolean {
+  return (
+    publicationDecision.lane === "content" &&
+    outcome.kind !== "commit" &&
+    completion.debt.content &&
+    blockedPublicationProof !== null &&
+    blockedPublicationProof.blockedReasons.some(
+      isGpuFlowBrowserVisualReadinessBlockedReason,
+    )
+  );
+}
+
+function isGpuFlowBrowserVisualReadinessBlockedReason(reason: {
+  readonly family: string;
+  readonly reason: string;
+}): boolean {
+  return (
+    reason.family === "browser-visual" ||
+    reason.family === "text-like-dom-control" ||
+    reason.reason === "live-dom-budget" ||
+    reason.reason === "snapshot-pending"
+  );
 }
 
 function getGpuFlowVisiblePublicationDebtFrameReason({
