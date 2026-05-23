@@ -20,10 +20,12 @@ import {
 } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { GpuFlow } from "./flowSurface";
-import { shouldDeferGpuFlowResolutionUpdates } from "./flowSurfaceFramePublication";
 import { createGpuFlowVisibleOverlayProjectionKey } from "./flowVisibleOverlayProjectionKey";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
-import { createGpuFlowVisiblePublicationCommitDebtProof } from "./visibleFramePublicationKernel";
+import {
+  createGpuFlowVisiblePublicationCommitDebtProof,
+  shouldDeferGpuFlowResolutionUpdates,
+} from "./visibleFramePublicationKernel";
 
 describe("GpuFlow", () => {
   it("mounts source-local portals and edge labels inside the canvas source subtree and viewport portals outside it", () => {

@@ -1,4 +1,5 @@
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
+import type { GpuFrameReason } from "../gpuRenderer";
 import type {
   RetainedContentTexturePageManager,
   RetainedContentTexturePagePreparedFrame,
@@ -7,6 +8,7 @@ import {
   createRetainedDisplayFrameInput,
   resolveRetainedDisplayFrameTransaction,
   type RetainedDisplayFrame,
+  type RetainedDisplayFrameOutcome,
 } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 
@@ -20,6 +22,10 @@ const MAX_DEFERRED_RETAINED_DISPLAY_HOLD_MS = 50;
 
 type RetainedDisplayOutcome = ReturnType<
   typeof resolveRetainedDisplayFrameTransaction
+>;
+type RetainedDisplayPublishedOutcome = Extract<
+  RetainedDisplayOutcome,
+  { readonly frame: RetainedDisplayFrame }
 >;
 type RetainedPrePublishMaintenance = ReturnType<
   typeof resolveGpuFlowRetainedPageMaintenanceBeforePublish
@@ -44,13 +50,35 @@ type RetainedHeldRepairPublication = {
   readonly retainedPagePreparedFrame: RetainedContentTexturePagePreparedFrame;
 };
 
-type RetainedDisplayPublicationResult = {
+export type GpuFlowRetainedDisplayPublicationResult = {
   readonly retainedDisplayOutcome: RetainedDisplayOutcome;
   readonly retainedDisplayTransactionMs: number;
   readonly retainedPageMaintenanceMs: number;
   readonly retainedPagePreparedFrame: RetainedContentTexturePagePreparedFrame;
   readonly prePublishRetainedPageMaintenance: RetainedPrePublishMaintenance;
 };
+
+export type GpuFlowRetainedDisplayPublicationInput = {
+  readonly darkMode: boolean;
+  readonly deferResolutionUpdates: boolean;
+  readonly nowMs: number;
+  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
+  readonly previousRetainedDisplayFrame: RetainedDisplayFrame | null;
+  readonly retainedContentPageManager: RetainedContentTexturePageManager;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
+};
+
+export type GpuFlowRetainedDisplayPublicationOutcomeFrame =
+  | {
+      readonly kind: "blocked";
+      readonly reason: string;
+    }
+  | {
+      readonly frame: RetainedDisplayFrame;
+      readonly kind: "published";
+      readonly outcome: RetainedDisplayPublishedOutcome;
+      readonly outcomeKind: RetainedDisplayPublishedOutcome["kind"];
+    };
 
 export function resolveGpuFlowRetainedDisplayPublication({
   darkMode,
@@ -60,15 +88,7 @@ export function resolveGpuFlowRetainedDisplayPublication({
   previousRetainedDisplayFrame,
   retainedContentPageManager,
   retainedRuntimeFrame,
-}: {
-  readonly darkMode: boolean;
-  readonly deferResolutionUpdates: boolean;
-  readonly nowMs: number;
-  readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly previousRetainedDisplayFrame: RetainedDisplayFrame | null;
-  readonly retainedContentPageManager: RetainedContentTexturePageManager;
-  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-}): RetainedDisplayPublicationResult {
+}: GpuFlowRetainedDisplayPublicationInput): GpuFlowRetainedDisplayPublicationResult {
   const initialMaintenance = resolveInitialPrePublishRetainedPageMaintenance({
     darkMode,
     deferResolutionUpdates,
@@ -100,6 +120,54 @@ export function resolveGpuFlowRetainedDisplayPublication({
     initialMaintenance,
     initialTransaction,
   });
+}
+
+export function resolveGpuFlowRetainedDisplayPublicationOutcomeFrame(
+  outcome: RetainedDisplayOutcome,
+): GpuFlowRetainedDisplayPublicationOutcomeFrame {
+  if (outcome.kind === "block-cold-first-coverage") {
+    return {
+      kind: "blocked",
+      reason: outcome.reason,
+    };
+  }
+  return {
+    frame: outcome.frame,
+    kind: "published",
+    outcome,
+    outcomeKind: outcome.kind,
+  };
+}
+
+export function notifyGpuFlowRetainedDisplayFollowUpFrameNeeded({
+  deferResolutionUpdates,
+  onRetainedDisplayFollowUpFrameNeeded,
+  outcomeKind,
+}: {
+  readonly deferResolutionUpdates: boolean;
+  readonly onRetainedDisplayFollowUpFrameNeeded:
+    | ((reason: GpuFrameReason) => void)
+    | undefined;
+  readonly outcomeKind: RetainedDisplayFrameOutcome["kind"];
+}): void {
+  if (
+    shouldRequestGpuFlowRetainedDisplayFollowUpFrame({
+      deferResolutionUpdates,
+      outcomeKind,
+    })
+  ) {
+    onRetainedDisplayFollowUpFrameNeeded?.("texture-upload");
+  }
+}
+
+function shouldRequestGpuFlowRetainedDisplayFollowUpFrame({
+  deferResolutionUpdates,
+  outcomeKind,
+}: {
+  readonly deferResolutionUpdates: boolean;
+  readonly outcomeKind: RetainedDisplayFrameOutcome["kind"];
+}): boolean {
+  return outcomeKind === "hold-previous" && !deferResolutionUpdates;
 }
 
 function resolveInitialPrePublishRetainedPageMaintenance({
@@ -246,7 +314,7 @@ function createRetainedDisplayPublicationResult({
   readonly heldRepair: RetainedHeldRepairPublication | null;
   readonly initialMaintenance: RetainedPageMaintenanceTiming;
   readonly initialTransaction: RetainedDisplayTransactionTiming;
-}): RetainedDisplayPublicationResult {
+}): GpuFlowRetainedDisplayPublicationResult {
   if (!heldRepair) {
     return {
       retainedDisplayOutcome: initialTransaction.outcome,

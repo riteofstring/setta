@@ -22,9 +22,7 @@ import {
   decideGpuFlowCommittedSurfacePublicationTransaction,
   decideGpuFlowRetainedProjectionPublicationTransaction,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
-  selectGpuFlowVisibleFramePublicationPreparedFrame,
   selectGpuFlowVisibleFramePublicationTransaction,
-  type GpuFlowVisibleFramePublicationPreparedFrame,
 } from "./visibleFramePublicationKernel";
 
 describe("GPU Flow visible publication transaction kernel", () => {
@@ -36,9 +34,6 @@ describe("GPU Flow visible publication transaction kernel", () => {
       sample,
     });
     const phases: string[] = [];
-    type TestPublicationFrameContext = {
-      readonly contextId: string;
-    };
     type TestContentPublicationFrame = {
       readonly blockedPublicationCandidate: null;
       readonly rendered: boolean;
@@ -49,43 +44,17 @@ describe("GPU Flow visible publication transaction kernel", () => {
       readonly rendered: boolean;
       readonly visibleProjectionState: null;
     };
-    type TestPreparedFrame = GpuFlowVisibleFramePublicationPreparedFrame & {
-      readonly contentPublicationFrame: TestContentPublicationFrame;
-      readonly motionProjectionFrame: TestMotionProjectionFrame;
-    };
-
     const result = runGpuFlowVisibleFramePublicationCandidateSetKernel<
-      TestPublicationFrameContext,
       TestContentPublicationFrame,
-      TestMotionProjectionFrame,
-      TestPreparedFrame
+      TestMotionProjectionFrame
     >({
-      composePreparedFrame: ({
-        contentPublicationFrame,
-        motionProjectionFrame,
-        preparedCandidateSet,
-        publicationFrameContext,
-      }) => {
-        phases.push(
-          `compose:${preparedCandidateSet.visibleProjectionState?.transaction.kind}:${publicationFrameContext.contextId}`,
-        );
-        return {
-          blockedPublicationToken: null,
-          blockedPublicationCandidate:
-            preparedCandidateSet.blockedPublicationCandidate,
-          contentPublicationFrame,
-          motionProjectionFrame,
-          renderedVisibleFrame: preparedCandidateSet.renderedVisibleFrame,
-          visibleProjectionState: preparedCandidateSet.visibleProjectionState,
-        };
-      },
       hasCommittedContentFrame: true,
       prepareContentPublicationFrame: ({
         motionProjectionFrame,
         publicationFrameContext,
       }) => {
         phases.push(
-          `content:${motionProjectionFrame.visibleProjectionState === null ? "no-motion" : "motion"}:${publicationFrameContext.contextId}`,
+          `content:${motionProjectionFrame.visibleProjectionState === null ? "no-motion" : "motion"}:viewport=${publicationFrameContext.viewportFrame}:defer=${publicationFrameContext.deferResolutionUpdates}`,
         );
         return {
           blockedPublicationCandidate: null,
@@ -98,7 +67,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
         publicationFrameContext,
       }) => {
         phases.push(
-          `motion:${publicationDecision.lane}:${publicationFrameContext.contextId}`,
+          `motion:${publicationDecision.lane}:viewport=${publicationFrameContext.viewportFrame}:defer=${publicationFrameContext.deferResolutionUpdates}`,
         );
         return {
           blockedProjectionReason: null,
@@ -106,15 +75,12 @@ describe("GPU Flow visible publication transaction kernel", () => {
           visibleProjectionState: null,
         };
       },
-      preparePublicationFrameContext: (publicationDecision) => {
-        phases.push(`context:${publicationDecision.lane}`);
-        return { contextId: `context:${publicationDecision.sample.id}` };
-      },
       previousVisibleProjectionState: null,
       publish: (transaction) => {
         phases.push(`publish:${transaction.outcome.kind}`);
       },
       rawReasons: ["manual"],
+      runtimeViewportFrame: false,
       sample,
       scheduler,
       timestamp: sample.timestamp,
@@ -122,16 +88,17 @@ describe("GPU Flow visible publication transaction kernel", () => {
     });
 
     expect(phases).toEqual([
-      "context:content",
-      "motion:content:context:50",
-      "content:no-motion:context:50",
-      "compose:content-publication:context:50",
+      "motion:content:viewport=false:defer=false",
+      "content:no-motion:viewport=false:defer=false",
       "publish:commit",
     ]);
     expect(result.outcome.kind).toBe("commit");
     expect(result.preparedFrame.contentPublicationFrame.rendered).toBe(true);
     expect(result.preparedFrame.visibleProjectionState).toBe(
       contentVisibleState,
+    );
+    expect(result.preparedFrame.transactionOracle.visibleProjectionSource).toBe(
+      "content-publication",
     );
   });
 
@@ -219,106 +186,6 @@ describe("GPU Flow visible publication transaction kernel", () => {
         protectedResourceCount: 1,
       }),
     );
-  });
-
-  it("selects content visible state over motion visible state inside the kernel", () => {
-    const contentVisibleState = visibleProjectionState({
-      kind: "content-publication",
-      sample: liveProjectionSample({ id: 40, timestamp: 400 }),
-    });
-    const motionVisibleState = visibleProjectionState({
-      kind: "motion-projection",
-      sample: liveProjectionSample({ id: 41, timestamp: 416 }),
-    });
-
-    const prepared = selectGpuFlowVisibleFramePublicationPreparedFrame({
-      contentPublicationFrame: {
-        blockedPublicationCandidate: null,
-        visibleProjectionState: contentVisibleState,
-      },
-      heldPreviousProjectionState: null,
-      motionProjectionFrame: {
-        blockedProjectionReason: null,
-        visibleProjectionState: motionVisibleState,
-      },
-    });
-
-    expect(prepared.renderedVisibleFrame).toBe(true);
-    expect(prepared.visibleProjectionState).toBe(contentVisibleState);
-  });
-
-  it("selects content blocked candidates over motion projection blocks inside the kernel", () => {
-    const contentBlockedCandidate =
-      createGpuFlowRetainedProjectionBlockedPublicationCandidate({
-        blockedReason: "content-publication-blocked",
-        heldPreviousProjectionState: null,
-      });
-
-    const prepared = selectGpuFlowVisibleFramePublicationPreparedFrame({
-      contentPublicationFrame: {
-        blockedPublicationCandidate: contentBlockedCandidate,
-        visibleProjectionState: null,
-      },
-      heldPreviousProjectionState: null,
-      motionProjectionFrame: {
-        blockedProjectionReason: "motion-projection-blocked",
-        visibleProjectionState: null,
-      },
-    });
-
-    expect(prepared.blockedPublicationCandidate).toBe(contentBlockedCandidate);
-    expect(prepared.renderedVisibleFrame).toBe(false);
-  });
-
-  it("turns motion projection block reasons into retained-projection candidates inside the kernel", () => {
-    const previousVisibleProjectionState = visibleProjectionState({
-      kind: "content-publication",
-      sample: liveProjectionSample({ id: 42, timestamp: 420 }),
-    });
-
-    const prepared = selectGpuFlowVisibleFramePublicationPreparedFrame({
-      contentPublicationFrame: {
-        blockedPublicationCandidate: null,
-        visibleProjectionState: null,
-      },
-      heldPreviousProjectionState: previousVisibleProjectionState,
-      motionProjectionFrame: {
-        blockedProjectionReason: "held-previous-budget-exceeded",
-        visibleProjectionState: null,
-      },
-    });
-
-    expect(prepared.renderedVisibleFrame).toBe(false);
-    expect(prepared.blockedPublicationCandidate?.frozenFrameId).toBe(
-      previousVisibleProjectionState.committedFrame.displayFrameId,
-    );
-    expect(prepared.blockedPublicationCandidate?.blockedReasons).toEqual([
-      {
-        actorId: null,
-        family: "retained-projection",
-        reason: "held-previous-budget-exceeded",
-      },
-    ]);
-  });
-
-  it("reports no rendered visible frame when content and motion do not prepare one", () => {
-    const prepared = selectGpuFlowVisibleFramePublicationPreparedFrame({
-      contentPublicationFrame: {
-        blockedPublicationCandidate: null,
-        visibleProjectionState: null,
-      },
-      heldPreviousProjectionState: null,
-      motionProjectionFrame: {
-        blockedProjectionReason: null,
-        visibleProjectionState: null,
-      },
-    });
-
-    expect(prepared).toEqual({
-      blockedPublicationCandidate: null,
-      renderedVisibleFrame: false,
-      visibleProjectionState: null,
-    });
   });
 
   it("holds retained projection coverage misses inside the kernel while within budget", () => {
@@ -590,7 +457,6 @@ describe("GPU Flow visible publication transaction kernel", () => {
         blockedReason: "held-previous-budget-exceeded",
         heldPreviousProjectionState: null,
       });
-    type TestPublicationFrameContext = Record<string, never>;
     type TestContentPublicationFrame = {
       readonly blockedPublicationCandidate: typeof blockedPublicationCandidate;
       readonly rendered: false;
@@ -601,30 +467,10 @@ describe("GPU Flow visible publication transaction kernel", () => {
       readonly rendered: false;
       readonly visibleProjectionState: null;
     };
-    type TestPreparedFrame = GpuFlowVisibleFramePublicationPreparedFrame & {
-      readonly contentPublicationFrame: TestContentPublicationFrame;
-      readonly motionProjectionFrame: TestMotionProjectionFrame;
-    };
-
     const result = runGpuFlowVisibleFramePublicationCandidateSetKernel<
-      TestPublicationFrameContext,
       TestContentPublicationFrame,
-      TestMotionProjectionFrame,
-      TestPreparedFrame
+      TestMotionProjectionFrame
     >({
-      composePreparedFrame: ({
-        contentPublicationFrame,
-        motionProjectionFrame,
-        preparedCandidateSet,
-      }) => ({
-        blockedPublicationCandidate:
-          preparedCandidateSet.blockedPublicationCandidate,
-        blockedPublicationToken: null,
-        contentPublicationFrame,
-        motionProjectionFrame,
-        renderedVisibleFrame: preparedCandidateSet.renderedVisibleFrame,
-        visibleProjectionState: preparedCandidateSet.visibleProjectionState,
-      }),
       hasCommittedContentFrame: true,
       prepareContentPublicationFrame: () => ({
         blockedPublicationCandidate,
@@ -636,12 +482,12 @@ describe("GPU Flow visible publication transaction kernel", () => {
         rendered: false,
         visibleProjectionState: null,
       }),
-      preparePublicationFrameContext: () => ({}),
       previousVisibleProjectionState: null,
       publish: (transaction) => {
         publishedOutcomeKind = transaction.outcome.kind;
       },
       rawReasons: ["retained-scroll"],
+      runtimeViewportFrame: false,
       sample,
       scheduler,
       timestamp: sample.timestamp,

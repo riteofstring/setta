@@ -14,6 +14,12 @@ const AUTHORITY_MODULE_PATH = fileURLToPath(
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
+const KERNEL_CANDIDATES_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationCandidates.ts", import.meta.url),
+);
+const KERNEL_COMPLETION_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationCompletion.ts", import.meta.url),
+);
 const CHROME_REPRO_MODULE_PATH = fileURLToPath(
   new URL("./flowVisiblePublicationOutcomeChromeRepro.ts", import.meta.url),
 );
@@ -48,6 +54,9 @@ const FLOW_FRAME_MODULE_PATH = fileURLToPath(
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfaceFramePublication.ts", import.meta.url),
 );
+const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
+  new URL("./flowSurfacePublicationCompletion.ts", import.meta.url),
+);
 const TOKEN_CONSTRUCTOR_NAMES = [
   "createGpuFlowBlockedPublicationToken",
   "createGpuFlowCommittedSurfaceResetToken",
@@ -64,9 +73,11 @@ const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
 ] as const;
 const PRODUCTION_TOKEN_CONSTRUCTOR_IMPORTERS = new Set([
   "GpuFlow/visibleFramePublicationKernel.ts",
+  "GpuFlow/visibleFramePublicationCompletion.ts",
 ]);
 const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([
   "GpuFlow/visibleFramePublicationKernel.ts",
+  "GpuFlow/visibleFramePublicationCompletion.ts",
 ]);
 const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
   "committedSurfaceRuntime.ts",
@@ -74,12 +85,14 @@ const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
 ]);
 const PRODUCTION_OVERLAY_TRANSFORM_CALLERS = new Set([
   "GpuFlow/flowSurfaceFramePublication.ts",
+  "GpuFlow/flowSurfacePublicationCompletion.ts",
 ]);
 const PRODUCTION_BROWSER_VISUAL_CURRENT_PROJECTION_CALLERS = new Set([
   "GpuFlow/committedSurfaceFrameState.ts",
 ]);
 const PRODUCTION_PROJECTION_DEBUG_ATTRIBUTE_CALLERS = new Set([
   "GpuFlow/flowSurfaceFramePublication.ts",
+  "GpuFlow/flowSurfacePublicationCompletion.ts",
 ]);
 const PRODUCTION_SURFACE_TEXTURE_RELEASE_CALLERS = new Set([
   "htmlSurfaces/textures.ts",
@@ -94,9 +107,11 @@ const PRODUCTION_VISIBLE_PROJECTION_STATE_MUTATORS = new Set([
 ]);
 const PRODUCTION_VISIBLE_PROJECTION_STATE_PUBLISHERS = new Set([
   "GpuFlow/flowSurfaceFramePublication.ts",
+  "GpuFlow/flowSurfacePublicationCompletion.ts",
 ]);
 const PRODUCTION_PREPARED_COMMITTED_SURFACE_FRAME_COMMITTERS = new Set([
   "GpuFlow/flowSurfaceFramePublication.ts",
+  "GpuFlow/flowSurfacePublicationCompletion.ts",
 ]);
 
 describe("GPU Flow visible publication authority boundaries", () => {
@@ -295,7 +310,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
       "utf8",
     );
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
 
     expect(committedSurfaceSource).not.toContain(
       "createGpuFlowVisibleProjectionStateForRetainedPublication",
@@ -313,7 +328,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
 
   it("keeps projection frames from minting publication tokens before completion", () => {
     const source = readFileSync(PROJECTION_FRAME_MODULE_PATH, "utf8");
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
 
     expect(source).not.toMatch(
       /\bcreateGpuFlow(?:ProjectionFrameDebugPublicationToken|RetainedProjectionBlockedPublicationToken|VisibleFrameBlockedPublicationToken|VisibleFrameCommitPublicationToken|VisibleFrameHoldPreviousToken)\b/,
@@ -329,7 +344,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(source).not.toContain(
       "createGpuFlowProjectionTransactionForCommittedFrameId",
     );
-    expect(source).toContain(
+    expect(source).not.toContain(
+      "decideGpuFlowRetainedProjectionPublicationTransaction",
+    );
+    expect(kernelSource).toContain(
       "decideGpuFlowRetainedProjectionPublicationTransaction",
     );
     expect(kernelSource).toContain("createGpuFlowHeldPreviousProjection");
@@ -338,11 +356,8 @@ describe("GPU Flow visible publication authority boundaries", () => {
 
   it("keeps motion projection blocked repair scheduling inside the kernel", () => {
     const source = readFileSync(PROJECTION_FRAME_MODULE_PATH, "utf8");
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
-    const surfaceFrameSource = readFileSync(
-      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
-      "utf8",
-    );
+    const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
+    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
 
     expect(source).not.toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
@@ -358,8 +373,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "createGpuFlowMotionProjectionBlockedPublicationCandidate",
     );
     expect(kernelSource).toContain(
-      "selectGpuFlowVisibleFramePublicationPreparedFrame",
+      "createGpuFlowVisibleFramePublicationTransactionOracle",
     );
+    expect(kernelSource).toContain("blockedSource");
+    expect(kernelSource).toContain("visibleProjectionSource");
     expect(kernelSource).toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
@@ -370,11 +387,13 @@ describe("GPU Flow visible publication authority boundaries", () => {
       COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
       "utf8",
     );
+    const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const candidateHandlingSource = readFileSync(
       COMMITTED_SURFACE_PUBLICATION_CANDIDATE_HANDLING_MODULE_PATH,
       "utf8",
     );
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
+    const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
     const publishBranchStart = kernelSource.indexOf(
       'if (transactionDecision.kind === "publish")',
     );
@@ -393,13 +412,24 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     const candidateEnd = kernelSource.indexOf(
-      "export function createGpuFlowCommittedSurfaceResetPublicationToken",
+      "function createGpuFlowMotionProjectionBlockedPublicationCandidate",
       candidateStart,
     );
     const candidateSource = kernelSource.slice(candidateStart, candidateEnd);
 
     expect(committedSurfaceSource).not.toContain(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
+    );
+    expect(flowFrameSource).not.toContain(
+      "prepareGpuFlowCommittedSurfacePublicationCandidate",
+    );
+    expect(flowFrameSource).not.toContain("onBlockedSurfacePublication");
+    expect(flowFrameSource).not.toContain("onCommittedSurfaceFramePublishable");
+    expect(flowFrameSource).not.toContain(
+      "onPreparedCommittedSurfaceFrameHeld",
+    );
+    expect(surfaceFrameSource).toContain(
+      "prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     expect(candidateStart).toBeGreaterThanOrEqual(0);
     expect(candidateEnd).toBeGreaterThan(candidateStart);
@@ -421,16 +451,13 @@ describe("GPU Flow visible publication authority boundaries", () => {
       COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
       "utf8",
     );
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
-    const surfaceFrameSource = readFileSync(
-      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
-      "utf8",
-    );
+    const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
+    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const candidateStart = kernelSource.indexOf(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     const candidateEnd = kernelSource.indexOf(
-      "export function createGpuFlowCommittedSurfaceResetPublicationToken",
+      "function createGpuFlowMotionProjectionBlockedPublicationCandidate",
       candidateStart,
     );
     const effectApplierStart = committedSurfaceSource.indexOf(
@@ -458,22 +485,28 @@ describe("GPU Flow visible publication authority boundaries", () => {
 
   it("reports retained cold-start coverage blocks as kernel candidates", () => {
     const source = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
-    const surfaceFrameSource = readFileSync(
-      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
-      "utf8",
-    );
+    const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
+    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const branchStart = source.indexOf(
-      'if (retainedDisplayOutcome.kind === "block-cold-first-coverage")',
+      'if (retainedDisplayOutcomeFrame.kind === "blocked")',
     );
     const branchEnd = source.indexOf(
-      "shouldRequestGpuFlowRetainedDisplayFollowUpFrame",
+      "notifyGpuFlowRetainedDisplayFollowUpFrameNeeded",
       branchStart,
     );
     const branchSource = source.slice(branchStart, branchEnd);
 
     expect(branchStart).toBeGreaterThanOrEqual(0);
     expect(branchEnd).toBeGreaterThan(branchStart);
-    expect(branchSource).toContain("onRetainedProjectionPublicationBlocked");
+    expect(source).not.toContain("block-cold-first-coverage");
+    expect(source).not.toMatch(/\bresolveGpuFlowRetainedDisplayPublication\(/);
+    expect(source).toContain(
+      "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
+    );
+    expect(source).not.toContain("onRetainedProjectionPublicationBlocked");
+    expect(branchSource).toContain(
+      "createGpuFlowNodeLayerFrameRetainedProjectionBlockedResult",
+    );
     expect(branchSource).not.toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
@@ -481,14 +514,18 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(surfaceFrameSource).toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
+    expect(surfaceFrameSource).toContain("retainedProjectionBlockedReason");
+    expect(surfaceFrameSource).toContain(
+      "prepareGpuFlowRetainedDisplayPublicationCandidate",
+    );
+    expect(kernelSource).toContain(
+      "prepareGpuFlowRetainedDisplayPublicationCandidate",
+    );
   });
 
   it("keeps retained display repair scheduling behind visible publication completion", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
-    const surfaceFrameSource = readFileSync(
-      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
-      "utf8",
-    );
+    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const completionStart = surfaceFrameSource.indexOf(
       "function completeGpuFlowSurfacePublicationFrame",
     );
@@ -510,15 +547,12 @@ describe("GPU Flow visible publication authority boundaries", () => {
       COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
       "utf8",
     );
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
     const candidateHandlingSource = readFileSync(
       COMMITTED_SURFACE_PUBLICATION_CANDIDATE_HANDLING_MODULE_PATH,
       "utf8",
     );
-    const surfaceFrameSource = readFileSync(
-      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
-      "utf8",
-    );
+    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const effectApplierStart = committedSurfaceSource.indexOf(
       "export function applyGpuFlowCommittedSurfacePublicationEffect",
     );
@@ -526,7 +560,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     const candidateEnd = kernelSource.indexOf(
-      "export function createGpuFlowCommittedSurfaceResetPublicationToken",
+      "function createGpuFlowMotionProjectionBlockedPublicationCandidate",
       candidateStart,
     );
     const candidateSource = kernelSource.slice(candidateStart, candidateEnd);
@@ -592,10 +626,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
         `${relativePath} applies viewport overlay transforms outside visible publication completion`,
       ];
     });
-    const surfaceFrameSource = readFileSync(
-      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
-      "utf8",
-    );
+    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const overlayPublisherStart = surfaceFrameSource.indexOf(
       "function publishGpuFlowVisibleOverlayProjectionTransform",
     );
@@ -620,10 +651,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       PROJECTION_FRAME_MODULE_PATH,
       "utf8",
     );
-    const surfaceFrameSource = readFileSync(
-      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
-      "utf8",
-    );
+    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const nodeLayerPublisherStart = surfaceFrameSource.indexOf(
       "function publishGpuFlowNodeLayerFrameState",
     );
@@ -875,10 +903,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
         `${relativePath} publishes visible projection state outside surface publication completion`,
       ];
     });
-    const publisherSource = readFileSync(
-      join(GPU_FLOW_ROOT, "GpuFlow/flowSurfaceFramePublication.ts"),
-      "utf8",
-    );
+    const publisherSource = readSurfaceFramePublicationAuthoritySource();
     const helperIndex = publisherSource.indexOf(
       "function publishGpuFlowSurfaceVisibleProjectionState",
     );
@@ -924,6 +949,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const productionAssignmentModules = new Set([
       "GpuFlow/flowSurface.tsx",
       "GpuFlow/flowSurfaceFramePublication.ts",
+      "GpuFlow/flowSurfacePublicationCompletion.ts",
     ]);
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
@@ -941,10 +967,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
         `${relativePath} publishes retained display frames outside visible publication completion`,
       ];
     });
-    const surfaceFrameSource = readFileSync(
-      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
-      "utf8",
-    );
+    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const publisherStart = surfaceFrameSource.indexOf(
       "function publishGpuFlowRetainedDisplayFrame",
     );
@@ -962,7 +985,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
   });
 
   it("publishes retained runtime callbacks only from visible publication completion", () => {
-    const source = readFileSync(SURFACE_FRAME_PUBLICATION_MODULE_PATH, "utf8");
+    const source = readSurfaceFramePublicationAuthoritySource();
     const contentFrameStart = source.indexOf(
       "function renderGpuFlowSurfaceContentPublicationFrame",
     );
@@ -1001,10 +1024,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       join(GPU_FLOW_ROOT, "GpuFlow/flowSurface.tsx"),
       "utf8",
     );
-    const surfaceFrameSource = readFileSync(
-      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
-      "utf8",
-    );
+    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const completionPublisherStart = surfaceFrameSource.indexOf(
       "function publishGpuFlowColdStartShellFrame",
     );
@@ -1050,6 +1070,25 @@ function extractNamedImports({
       ),
     ),
   ].map((match) => match.groups?.bindings ?? "");
+}
+
+function readVisibleFramePublicationKernelAuthoritySource(): string {
+  return [
+    KERNEL_MODULE_PATH,
+    KERNEL_CANDIDATES_MODULE_PATH,
+    KERNEL_COMPLETION_MODULE_PATH,
+  ]
+    .map((filePath) => readFileSync(filePath, "utf8"))
+    .join("\n");
+}
+
+function readSurfaceFramePublicationAuthoritySource(): string {
+  return [
+    SURFACE_FRAME_PUBLICATION_MODULE_PATH,
+    SURFACE_PUBLICATION_COMPLETION_MODULE_PATH,
+  ]
+    .map((filePath) => readFileSync(filePath, "utf8"))
+    .join("\n");
 }
 
 function isTestSourceFile(path: string): boolean {

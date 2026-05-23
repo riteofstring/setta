@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleProjectionState,
   type GpuFlowLiveProjectionSample,
+  type GpuFlowProjectionSchedulerKnobs,
+  type GpuFlowProjectionTransaction,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import { createGpuRetainedRowContentScene } from "../retainedContentScene";
@@ -15,8 +18,13 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
   assertGpuFlowMotionProjectionFrameWork,
   isGpuFlowRetainedProjectionSurfaceCovered,
-  resolveGpuFlowProjectionFrameTransaction,
+  resolveGpuFlowProjectionFrameTransactionFromPublicationDecision,
+  resolveGpuFlowRetainedProjectionFrame,
 } from "./flowProjectionFrame";
+import {
+  decideGpuFlowRetainedProjectionPublicationTransaction,
+  hasActiveGpuFlowRetainedDomControlPublicationProof,
+} from "./visibleFramePublicationKernel";
 
 describe("GPU flow projection frame coverage", () => {
   it("requires committed retained pages to cover the projected scroll sample", () => {
@@ -304,11 +312,53 @@ describe("GPU flow projection frame coverage", () => {
     expect(secondHeld.blockedReason).toBeNull();
     expect(secondHeld.heldPreviousProjection).toBeNull();
     expect(secondHeld.transaction).toBe(requestedTransaction);
-    expect(secondHeld.retainedProjectionFrame.needsRetainedPageMaintenance).toBe(
-      true,
-    );
+    expect(
+      secondHeld.retainedProjectionFrame.needsRetainedPageMaintenance,
+    ).toBe(true);
   });
 });
+
+function resolveGpuFlowProjectionFrameTransaction({
+  frameReasons,
+  heldPreviousProjectionState,
+  layer,
+  projectionSchedulerKnobs,
+  retainedDisplayFrame,
+  requestedTransaction,
+}: {
+  readonly frameReasons: readonly GpuFrameReason[];
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly layer: GpuFlowNodeLayerState;
+  readonly projectionSchedulerKnobs?: GpuFlowProjectionSchedulerKnobs;
+  readonly retainedDisplayFrame: RetainedDisplayFrame;
+  readonly requestedTransaction: GpuFlowProjectionTransaction;
+}) {
+  const requestedRetainedProjectionFrame =
+    resolveGpuFlowRetainedProjectionFrame({
+      layer,
+      retainedDisplayFrame,
+      transaction: requestedTransaction,
+    });
+  const publicationDecision =
+    decideGpuFlowRetainedProjectionPublicationTransaction({
+      frameReasons,
+      hasActiveRetainedDomControl:
+        hasActiveGpuFlowRetainedDomControlPublicationProof(
+          retainedDisplayFrame,
+        ),
+      heldPreviousProjectionState,
+      projectionSchedulerKnobs,
+      requestedProjectionCoverageMissing:
+        requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
+      requestedTransaction,
+    });
+  return resolveGpuFlowProjectionFrameTransactionFromPublicationDecision({
+    layer,
+    publicationDecision,
+    retainedDisplayFrame,
+    requestedRetainedProjectionFrame,
+  });
+}
 
 function retainedSurface(
   visibleSourceRectCss: RetainedContentTexturePageFrameSurface["visibleSourceRectCss"],

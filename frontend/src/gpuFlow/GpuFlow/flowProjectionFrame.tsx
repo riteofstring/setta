@@ -21,7 +21,6 @@ import {
   createGpuFlowProjectionDebugState,
   type GpuFlowHeldPreviousProjection,
   type GpuFlowProjectionLane,
-  type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowProjectionTransaction,
   type GpuFlowProjectionTransactionKind,
   type GpuFlowVisibleProjectionState,
@@ -53,15 +52,15 @@ import {
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
-import { decideGpuFlowRetainedProjectionPublicationTransaction } from "./visibleFramePublicationKernel";
+import type { GpuFlowRetainedProjectionPublicationTransactionDecision } from "./visibleFramePublicationKernel";
 
-type GpuFlowRetainedProjectionFrame = {
+export type GpuFlowRetainedProjectionFrame = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly missingCoverageSurfaceIds: ReadonlySet<string>;
   readonly needsRetainedPageMaintenance: boolean;
 };
 
-type GpuFlowProjectionFrameTransaction = {
+export type GpuFlowProjectionFrameTransaction = {
   readonly blockedReason: string | null;
   readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
   readonly retainedProjectionFrame: GpuFlowRetainedProjectionFrame;
@@ -98,8 +97,8 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   nodeElementByIdRef,
   nodeInteractionRef,
   nodeLayerRef,
-  projectionTransaction,
-  projectionSchedulerKnobs,
+  projectionFrameTransaction,
+  requestedProjectionTransaction,
   heldPreviousProjectionState,
   htmlSurfaceRendererRef,
   retainedContentPageManagerRef,
@@ -123,8 +122,8 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   readonly nodeElementByIdRef: MutableRefObject<Map<string, HTMLElement>>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
-  readonly projectionTransaction: GpuFlowProjectionTransaction;
-  readonly projectionSchedulerKnobs: GpuFlowProjectionSchedulerKnobs;
+  readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
+  readonly requestedProjectionTransaction: GpuFlowProjectionTransaction;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
@@ -156,7 +155,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     return {
       heldPreviousProjection: null,
       rendered: true,
-      transaction: projectionTransaction,
+      transaction: requestedProjectionTransaction,
     };
   }
   const { canvasSize, layer, nodes, resources } = frameInput;
@@ -167,17 +166,9 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     "projection-surface-resolve",
     {
       frame,
-      transactionId: projectionTransaction.id,
+      transactionId: requestedProjectionTransaction.id,
     },
   );
-  const projectionFrameTransaction = resolveGpuFlowProjectionFrameTransaction({
-    frameReasons,
-    heldPreviousProjectionState,
-    layer,
-    projectionSchedulerKnobs,
-    retainedDisplayFrame,
-    requestedTransaction: projectionTransaction,
-  });
   if (projectionFrameTransaction.blockedReason) {
     finishProjectionResolveMeasure();
     return {
@@ -386,38 +377,17 @@ function hasGpuFlowProjectionOnlyForbiddenContentWork({
   ].some(Boolean);
 }
 
-export function resolveGpuFlowProjectionFrameTransaction({
-  frameReasons,
-  heldPreviousProjectionState,
+export function resolveGpuFlowProjectionFrameTransactionFromPublicationDecision({
   layer,
-  projectionSchedulerKnobs,
+  publicationDecision,
   retainedDisplayFrame,
-  requestedTransaction,
+  requestedRetainedProjectionFrame,
 }: {
-  readonly frameReasons: readonly GpuFrameReason[];
-  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly layer: GpuFlowNodeLayerState;
-  readonly projectionSchedulerKnobs?: GpuFlowProjectionSchedulerKnobs;
+  readonly publicationDecision: GpuFlowRetainedProjectionPublicationTransactionDecision;
   readonly retainedDisplayFrame: RetainedDisplayFrame;
-  readonly requestedTransaction: GpuFlowProjectionTransaction;
+  readonly requestedRetainedProjectionFrame: GpuFlowRetainedProjectionFrame;
 }): GpuFlowProjectionFrameTransaction {
-  const requestedRetainedProjectionFrame =
-    resolveGpuFlowRetainedProjectionFrame({
-      layer,
-      retainedDisplayFrame,
-      transaction: requestedTransaction,
-    });
-  const publicationDecision =
-    decideGpuFlowRetainedProjectionPublicationTransaction({
-      frameReasons,
-      hasActiveRetainedDomControl:
-        hasActiveGpuFlowRetainedDomControl(retainedDisplayFrame),
-      heldPreviousProjectionState,
-      projectionSchedulerKnobs,
-      requestedProjectionCoverageMissing:
-        requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
-      requestedTransaction,
-    });
   if (publicationDecision.kind === "project-requested") {
     return {
       blockedReason: null,
@@ -452,15 +422,7 @@ export function resolveGpuFlowProjectionFrameTransaction({
   };
 }
 
-function hasActiveGpuFlowRetainedDomControl(
-  retainedDisplayFrame: RetainedDisplayFrame,
-): boolean {
-  return retainedDisplayFrame.retainedRuntimeFrame.descriptors.domControlSources.some(
-    (control) => control.active,
-  );
-}
-
-function resolveGpuFlowRetainedProjectionFrame({
+export function resolveGpuFlowRetainedProjectionFrame({
   layer,
   retainedDisplayFrame,
   transaction,

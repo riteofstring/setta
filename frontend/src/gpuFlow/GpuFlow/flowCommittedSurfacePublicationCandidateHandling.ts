@@ -11,114 +11,60 @@ export type GpuFlowBlockedCommittedSurfacePublication = Extract<
   { readonly kind: "blocked" }
 >;
 
-type GpuFlowCommittedSurfacePublicationCandidateAction =
+export type GpuFlowCommittedSurfacePublicationCandidateAction =
   | {
-      readonly kind: "continue";
+      readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+      readonly kind: "publish";
     }
   | {
-      readonly kind: "return";
+      readonly blockedSurfacePublication: GpuFlowBlockedCommittedSurfacePublication;
+      readonly kind: "blocked";
+      readonly visibleProjectionState: null;
+    }
+  | {
+      readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+      readonly kind: "held-previous";
       readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
     };
 
-export function handleGpuFlowCommittedSurfacePublicationCandidate({
+export function resolveGpuFlowCommittedSurfacePublicationCandidateAction({
   candidate,
-  onBlockedSurfacePublication,
-  onCommittedSurfaceFramePublishable,
-  onPreparedCommittedSurfaceFrameHeld,
   publishedCommittedSurfaceFrame,
 }: {
   readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
-  readonly onBlockedSurfacePublication:
-    | ((publication: GpuFlowBlockedCommittedSurfacePublication) => void)
-    | undefined;
-  readonly onCommittedSurfaceFramePublishable:
-    | ((frame: GpuFlowCommittedSurfaceFrame) => void)
-    | undefined;
-  readonly onPreparedCommittedSurfaceFrameHeld:
-    | ((
-        frame: GpuFlowCommittedSurfaceFrame,
-        options?:
-          | {
-              readonly preservePreparationSnapshot?: boolean | undefined;
-            }
-          | undefined,
-      ) => void)
-    | undefined;
   readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
 }): GpuFlowCommittedSurfacePublicationCandidateAction {
   switch (candidate.kind) {
     case "blocked":
-      handleGpuFlowBlockedCommittedSurfacePublicationCandidate({
-        candidate,
-        onBlockedSurfacePublication,
-      });
-      return { kind: "return", visibleProjectionState: null };
-    case "held-previous":
-      handleGpuFlowHeldPreviousCommittedSurfacePublicationCandidate({
-        onPreparedCommittedSurfaceFrameHeld,
-        publishedCommittedSurfaceFrame,
-      });
       return {
-        kind: "return",
+        blockedSurfacePublication: candidate,
+        kind: "blocked",
+        visibleProjectionState: null,
+      };
+    case "held-previous":
+      return {
+        heldPreparedCommittedSurfaceFrame:
+          publishedCommittedSurfaceFrame ?? null,
+        kind: "held-previous",
         visibleProjectionState: candidate.visibleProjectionState,
       };
     case "publish":
-      handleGpuFlowPublishCommittedSurfacePublicationCandidate({
-        onCommittedSurfaceFramePublishable,
-        publishedCommittedSurfaceFrame,
-      });
-      return { kind: "continue" };
+      return {
+        committedSurfaceFrame: publishedCommittedSurfaceFrame ?? null,
+        kind: "publish",
+      };
   }
 }
 
-function handleGpuFlowBlockedCommittedSurfacePublicationCandidate({
-  candidate,
-  onBlockedSurfacePublication,
-}: {
-  readonly candidate: Extract<
-    GpuFlowCommittedSurfacePublicationCandidate,
-    { readonly kind: "blocked" }
-  >;
-  readonly onBlockedSurfacePublication:
-    | ((publication: GpuFlowBlockedCommittedSurfacePublication) => void)
-    | undefined;
-}): void {
-  onBlockedSurfacePublication?.(candidate);
-}
-
-function handleGpuFlowHeldPreviousCommittedSurfacePublicationCandidate({
-  onPreparedCommittedSurfaceFrameHeld,
-  publishedCommittedSurfaceFrame,
-}: {
-  readonly onPreparedCommittedSurfaceFrameHeld:
-    | ((
-        frame: GpuFlowCommittedSurfaceFrame,
-        options?:
-          | {
-              readonly preservePreparationSnapshot?: boolean | undefined;
-            }
-          | undefined,
-      ) => void)
-    | undefined;
-  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
-}): void {
-  if (publishedCommittedSurfaceFrame) {
-    onPreparedCommittedSurfaceFrameHeld?.(publishedCommittedSurfaceFrame, {
-      preservePreparationSnapshot: true,
-    });
-  }
-}
-
-function handleGpuFlowPublishCommittedSurfacePublicationCandidate({
-  onCommittedSurfaceFramePublishable,
-  publishedCommittedSurfaceFrame,
-}: {
-  readonly onCommittedSurfaceFramePublishable:
-    | ((frame: GpuFlowCommittedSurfaceFrame) => void)
-    | undefined;
-  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
-}): void {
-  if (publishedCommittedSurfaceFrame) {
-    onCommittedSurfaceFramePublishable?.(publishedCommittedSurfaceFrame);
+export function assertGpuFlowCommittedSurfacePublicationCandidatePublished(
+  candidate: GpuFlowCommittedSurfacePublicationCandidate,
+): asserts candidate is Extract<
+  GpuFlowCommittedSurfacePublicationCandidate,
+  { readonly kind: "publish" }
+> {
+  if (candidate.kind !== "publish") {
+    throw new Error(
+      "GPU Flow committed surface publication continued without a publish candidate.",
+    );
   }
 }
