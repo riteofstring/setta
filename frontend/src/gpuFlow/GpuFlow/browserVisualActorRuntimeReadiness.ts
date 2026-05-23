@@ -24,6 +24,11 @@ import {
   withGpuRetainedDomControlTextCoverageState,
 } from "./retainedDomControlSourceKeys";
 import { getGpuRetainedDomControlResolvedSnapshotSurfaceId } from "./retainedDomControlSources";
+import {
+  readGpuFlowBrowserVisualFaultInjection,
+  shouldGpuFlowBrowserVisualFaultInjectionWithholdDomControl,
+  type GpuFlowBrowserVisualFaultInjectedDomControlReadiness,
+} from "./visibleFrameActorAdapters/browserVisualFaultInjection";
 
 export type GpuFlowDomControlHostReadinessDiagnostics = {
   readonly elementConnected: boolean;
@@ -35,24 +40,6 @@ export type GpuFlowDomControlHostReadinessDiagnostics = {
     readonly valueStyleRevision: boolean;
   };
   readonly ready: boolean;
-};
-
-type GpuFlowBrowserVisualFaultInjectedDomControlReadiness =
-  | "blocked-awaiting-live-host"
-  | "blocked-awaiting-snapshot";
-
-type GpuFlowBrowserVisualFaultInjection = {
-  readonly domControlReadiness?:
-    | GpuFlowBrowserVisualFaultInjectedDomControlReadiness
-    | undefined;
-  readonly withholdAllDomControls?: boolean | undefined;
-  readonly withholdDomControlActorIds?: readonly string[] | undefined;
-};
-
-type GpuFlowBrowserVisualFaultInjectionWindow = Window & {
-  readonly __SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__?:
-    | GpuFlowBrowserVisualFaultInjection
-    | unknown;
 };
 
 type GpuFlowDomControlSnapshotTextureManager = Pick<
@@ -497,10 +484,11 @@ function createGpuFlowBrowserVisualFaultInjectedDomControlReadiness(
   if (!faultInjection) {
     return null;
   }
-  const actorIds = faultInjection.withholdDomControlActorIds ?? [];
   if (
-    faultInjection.withholdAllDomControls !== true &&
-    !actorIds.includes(control.sourceId)
+    !shouldGpuFlowBrowserVisualFaultInjectionWithholdDomControl({
+      actorId: control.sourceId,
+      faultInjection,
+    })
   ) {
     return null;
   }
@@ -515,102 +503,6 @@ function createGpuFlowBrowserVisualFaultInjectedDomControlReadiness(
     case "blocked-awaiting-snapshot":
       return BLOCKED_AWAITING_SNAPSHOT_READINESS;
   }
-}
-
-function readGpuFlowBrowserVisualFaultInjection(): GpuFlowBrowserVisualFaultInjection | null {
-  if (!isGpuFlowBrowserVisualFaultInjectionEnabled()) {
-    return null;
-  }
-  if (typeof window === "undefined") {
-    return null;
-  }
-  const faultInjection = (window as GpuFlowBrowserVisualFaultInjectionWindow)
-    .__SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__;
-  if (faultInjection === undefined) {
-    return null;
-  }
-  if (!isGpuFlowBrowserVisualFaultInjectionObject(faultInjection)) {
-    throw new Error(
-      "GPU Flow browser visual fault injection must be an object.",
-    );
-  }
-  const {
-    domControlReadiness,
-    withholdAllDomControls,
-    withholdDomControlActorIds,
-  } = faultInjection;
-  assertGpuFlowBrowserVisualFaultInjectionDomControlReadiness(
-    domControlReadiness,
-  );
-  assertGpuFlowBrowserVisualFaultInjectionWithholdAllDomControls(
-    withholdAllDomControls,
-  );
-  assertGpuFlowBrowserVisualFaultInjectionActorIds(withholdDomControlActorIds);
-  return {
-    domControlReadiness,
-    withholdAllDomControls,
-    withholdDomControlActorIds,
-  };
-}
-
-function isGpuFlowBrowserVisualFaultInjectionObject(
-  faultInjection: unknown,
-): faultInjection is GpuFlowBrowserVisualFaultInjection {
-  return (
-    faultInjection !== null &&
-    typeof faultInjection === "object" &&
-    !Array.isArray(faultInjection)
-  );
-}
-
-function assertGpuFlowBrowserVisualFaultInjectionDomControlReadiness(
-  readiness: GpuFlowBrowserVisualFaultInjection["domControlReadiness"],
-): void {
-  if (
-    readiness !== undefined &&
-    readiness !== "blocked-awaiting-live-host" &&
-    readiness !== "blocked-awaiting-snapshot"
-  ) {
-    throw new Error(
-      "GPU Flow browser visual fault injection has an invalid DOM-control readiness.",
-    );
-  }
-}
-
-function assertGpuFlowBrowserVisualFaultInjectionWithholdAllDomControls(
-  withholdAllDomControls: GpuFlowBrowserVisualFaultInjection["withholdAllDomControls"],
-): void {
-  if (
-    withholdAllDomControls !== undefined &&
-    typeof withholdAllDomControls !== "boolean"
-  ) {
-    throw new Error(
-      "GPU Flow browser visual fault injection withholdAllDomControls must be a boolean.",
-    );
-  }
-}
-
-function assertGpuFlowBrowserVisualFaultInjectionActorIds(
-  withholdDomControlActorIds: GpuFlowBrowserVisualFaultInjection["withholdDomControlActorIds"],
-): void {
-  const hasInvalidActorIds =
-    withholdDomControlActorIds !== undefined &&
-    (!Array.isArray(withholdDomControlActorIds) ||
-      withholdDomControlActorIds.some(
-        (actorId) => typeof actorId !== "string",
-      ));
-  if (hasInvalidActorIds) {
-    throw new Error(
-      "GPU Flow browser visual fault injection withholdDomControlActorIds must be a string array.",
-    );
-  }
-}
-
-function isGpuFlowBrowserVisualFaultInjectionEnabled(): boolean {
-  return (
-    import.meta.env.DEV ||
-    (typeof process !== "undefined" && process.env.NODE_ENV === "test")
-  );
 }
 
 function createGpuFlowDomControlHostReadinessMatches(

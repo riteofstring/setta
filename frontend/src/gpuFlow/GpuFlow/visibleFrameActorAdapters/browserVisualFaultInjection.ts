@@ -3,11 +3,11 @@ import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "../visibleF
 import type { GpuFlowBlockedVisibleReason } from "../visibleFramePresentationProofs";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "../visibleFrameTypes";
 
-type GpuFlowBrowserVisualFaultInjectedDomControlReadiness =
+export type GpuFlowBrowserVisualFaultInjectedDomControlReadiness =
   | "blocked-awaiting-live-host"
   | "blocked-awaiting-snapshot";
 
-type GpuFlowBrowserVisualFaultInjection = {
+export type GpuFlowBrowserVisualFaultInjection = {
   readonly domControlReadiness?:
     | GpuFlowBrowserVisualFaultInjectedDomControlReadiness
     | undefined;
@@ -30,8 +30,11 @@ export function createGpuFlowBrowserVisualFaultInjectedBlockedCandidate({
   if (!faultInjection) {
     return null;
   }
-  const actorIds = faultInjection.withholdDomControlActorIds ?? [];
-  if (faultInjection.withholdAllDomControls !== true && actorIds.length === 0) {
+  if (
+    !hasGpuFlowBrowserVisualFaultInjectionWithheldDomControls({
+      faultInjection,
+    })
+  ) {
     return null;
   }
   const reason = getGpuFlowBrowserVisualFaultInjectionBlockedReason(
@@ -39,7 +42,7 @@ export function createGpuFlowBrowserVisualFaultInjectedBlockedCandidate({
   );
   return Object.freeze({
     blockedReasons: createGpuFlowBrowserVisualFaultInjectionBlockedReasons({
-      actorIds,
+      actorIds: faultInjection.withholdDomControlActorIds ?? [],
       reason,
     }),
     frozenFrameId:
@@ -48,7 +51,7 @@ export function createGpuFlowBrowserVisualFaultInjectedBlockedCandidate({
   });
 }
 
-function readGpuFlowBrowserVisualFaultInjection(): GpuFlowBrowserVisualFaultInjection | null {
+export function readGpuFlowBrowserVisualFaultInjection(): GpuFlowBrowserVisualFaultInjection | null {
   if (!isGpuFlowBrowserVisualFaultInjectionEnabled()) {
     return null;
   }
@@ -82,6 +85,30 @@ function readGpuFlowBrowserVisualFaultInjection(): GpuFlowBrowserVisualFaultInje
     withholdAllDomControls,
     withholdDomControlActorIds,
   };
+}
+
+export function hasGpuFlowBrowserVisualFaultInjectionWithheldDomControls({
+  faultInjection,
+}: {
+  readonly faultInjection: GpuFlowBrowserVisualFaultInjection;
+}): boolean {
+  return (
+    faultInjection.withholdAllDomControls === true ||
+    (faultInjection.withholdDomControlActorIds ?? []).length > 0
+  );
+}
+
+export function shouldGpuFlowBrowserVisualFaultInjectionWithholdDomControl({
+  actorId,
+  faultInjection,
+}: {
+  readonly actorId: string;
+  readonly faultInjection: GpuFlowBrowserVisualFaultInjection;
+}): boolean {
+  return (
+    faultInjection.withholdAllDomControls === true ||
+    (faultInjection.withholdDomControlActorIds ?? []).includes(actorId)
+  );
 }
 
 function createGpuFlowBrowserVisualFaultInjectionBlockedReasons({
