@@ -9,6 +9,7 @@ import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisiblePublicationScheduler,
   type GpuFlowLiveProjectionSample,
+  type GpuFlowProjectionTransaction,
   type GpuFlowProjectionTransactionKind,
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
@@ -212,13 +213,15 @@ describe("GPU Flow visible publication transaction kernel", () => {
               missingCoverageSurfaceIds: ["surface-a"],
             }),
           renderProjectionFrame: ({ projectionFrameRenderPlan }) => {
-            void projectionFrameRenderPlan;
             return {
               blockedPublicationCandidate: null,
               rendered: true,
               visibleProjectionState: visibleProjectionState({
-                kind: "motion-projection",
-                sample,
+                heldPreviousProjection:
+                  projectionFrameRenderPlan.heldPreviousProjection,
+                kind: projectionFrameRenderPlan.transaction.kind,
+                sample: projectionFrameRenderPlan.transaction.sample,
+                transaction: projectionFrameRenderPlan.transaction,
               }),
             };
           },
@@ -234,16 +237,10 @@ describe("GPU Flow visible publication transaction kernel", () => {
       scheduler,
     });
 
-    expect(blockedCandidates).toHaveLength(1);
-    expect(blockedCandidates[0]?.blockedReasons).toEqual([
-      {
-        actorId: null,
-        family: "retained-projection",
-        reason: "retained-projection-coverage-missing",
-      },
-    ]);
+    expect(blockedCandidates).toEqual([]);
     const selectedTransaction =
-      result.heldPreviousVisibleProjectionState?.transaction;
+      result.preparedFrame.motionProjectionFrame.visibleProjectionState
+        ?.transaction;
     if (!selectedTransaction) {
       throw new Error("Expected retained projection transaction selection.");
     }
@@ -784,13 +781,30 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
 function visibleProjectionState({
   committedFrame = committedSurfaceFrame(),
+  heldPreviousProjection,
   kind,
   sample,
+  transaction,
 }: {
   readonly committedFrame?: GpuFlowCommittedSurfaceFrame | undefined;
+  readonly heldPreviousProjection?:
+    | GpuFlowVisibleProjectionState["heldPreviousProjection"]
+    | undefined;
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly sample: GpuFlowLiveProjectionSample;
+  readonly transaction?: GpuFlowProjectionTransaction | undefined;
 }): GpuFlowVisibleProjectionState {
+  const selectedTransaction =
+    transaction ??
+    ({
+      committedFrameId: committedFrame.displayFrameId,
+      id: `transaction:${kind}:${sample.id}`,
+      kind,
+      lane: "content",
+      rawReasons: ["manual"],
+      sample,
+      startedAtMs: sample.timestamp,
+    } satisfies GpuFlowProjectionTransaction);
   return {
     committedFrame,
     debugState: {
@@ -808,8 +822,9 @@ function visibleProjectionState({
       transactionKind: kind,
     },
     heldPreviousProjection:
-      kind === "held-previous"
-        ? ({
+      selectedTransaction.kind === "held-previous"
+        ? heldPreviousProjection ??
+          ({
             committedFrameId: committedFrame.displayFrameId,
             consecutiveFrameCount: 1,
             heldDurationMs: 16,
@@ -820,15 +835,7 @@ function visibleProjectionState({
           } as GpuFlowVisibleProjectionState["heldPreviousProjection"])
         : null,
     sample,
-    transaction: {
-      committedFrameId: committedFrame.displayFrameId,
-      id: `transaction:${kind}:${sample.id}`,
-      kind,
-      lane: "content",
-      rawReasons: ["manual"],
-      sample,
-      startedAtMs: sample.timestamp,
-    },
+    transaction: selectedTransaction,
   };
 }
 

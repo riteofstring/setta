@@ -374,7 +374,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(kernelSource).not.toContain(
       "export function selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
     );
-    expect(kernelSource).not.toContain("createGpuFlowHeldPreviousProjection");
+    expect(source).not.toContain("createGpuFlowHeldPreviousProjection");
     expect(source).not.toContain("holdPreviousToken");
   });
 

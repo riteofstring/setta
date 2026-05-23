@@ -1,6 +1,10 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../../committedSurfaceFrame";
 import type { GpuFrameReason } from "../../gpuRenderer";
 import {
+  createGpuFlowHeldPreviousProjection,
+  createGpuFlowProjectionTransactionForCommittedFrameId,
+  type GpuFlowHeldPreviousProjection,
+  type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowProjectionTransaction,
   type GpuFlowVisibleProjectionState,
 } from "../../projectionRuntime";
@@ -133,6 +137,12 @@ export type GpuFlowRetainedProjectionPublicationCandidate =
       readonly transaction: GpuFlowProjectionTransaction;
     }
   | {
+      readonly blockedReason: null;
+      readonly heldPreviousProjection: GpuFlowHeldPreviousProjection;
+      readonly kind: "hold-previous";
+      readonly transaction: GpuFlowProjectionTransaction;
+    }
+  | {
       readonly blockedReason: string;
       readonly kind: "blocked-candidate";
       readonly transaction: GpuFlowProjectionTransaction;
@@ -155,6 +165,7 @@ export type GpuFlowVisiblePublicationCandidateOracle =
     readonly createRetainedProjectionBlockedPublicationCandidate: typeof createGpuFlowRetainedProjectionBlockedPublicationCandidate;
     readonly createRetainedProjectionPublicationCandidateSelector: (input: {
       readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+      readonly projectionSchedulerKnobs: GpuFlowProjectionSchedulerKnobs;
       readonly rawReasons: readonly GpuFrameReason[];
     }) => GpuFlowRetainedProjectionPublicationCandidateSelector;
     readonly selectMotionProjectionFrameBlockedPublicationReason: (
@@ -463,13 +474,13 @@ function selectGpuFlowMotionProjectionFrameBlockedPublicationReason(
 
 function createGpuFlowRetainedProjectionPublicationCandidateSelector({
   previousVisibleProjectionState,
+  projectionSchedulerKnobs,
   rawReasons,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly projectionSchedulerKnobs: GpuFlowProjectionSchedulerKnobs;
   readonly rawReasons: readonly GpuFrameReason[];
 }): GpuFlowRetainedProjectionPublicationCandidateSelector {
-  void previousVisibleProjectionState;
-  void rawReasons;
   return ({
     hasActiveRetainedDomControl,
     requestedProjectionCoverageMissing,
@@ -477,6 +488,9 @@ function createGpuFlowRetainedProjectionPublicationCandidateSelector({
   }) =>
     prepareGpuFlowRetainedProjectionPublicationCandidate({
       hasActiveRetainedDomControl,
+      previousVisibleProjectionState,
+      projectionSchedulerKnobs,
+      rawReasons,
       requestedProjectionCoverageMissing,
       requestedTransaction,
     });
@@ -528,6 +542,14 @@ function selectGpuFlowProjectionFrameTransactionFromPublicationCandidate({
       transaction: publicationCandidate.transaction,
     };
   }
+  if (publicationCandidate.kind === "hold-previous") {
+    return {
+      blockedReason: null,
+      heldPreviousProjection: publicationCandidate.heldPreviousProjection,
+      retainedProjectionFrame: requestedRetainedProjectionFrame,
+      transaction: publicationCandidate.transaction,
+    };
+  }
   return {
     blockedReason: publicationCandidate.blockedReason,
     heldPreviousProjection: null,
@@ -538,10 +560,16 @@ function selectGpuFlowProjectionFrameTransactionFromPublicationCandidate({
 
 function prepareGpuFlowRetainedProjectionPublicationCandidate({
   hasActiveRetainedDomControl,
+  previousVisibleProjectionState,
+  projectionSchedulerKnobs,
+  rawReasons,
   requestedProjectionCoverageMissing,
   requestedTransaction,
 }: {
   readonly hasActiveRetainedDomControl: boolean;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly projectionSchedulerKnobs: GpuFlowProjectionSchedulerKnobs;
+  readonly rawReasons: readonly GpuFrameReason[];
   readonly requestedProjectionCoverageMissing: boolean;
   readonly requestedTransaction: GpuFlowProjectionTransaction;
 }): GpuFlowRetainedProjectionPublicationCandidate {
@@ -550,6 +578,40 @@ function prepareGpuFlowRetainedProjectionPublicationCandidate({
       blockedReason: null,
       kind: "project-requested",
       transaction: requestedTransaction,
+    };
+  }
+  if (previousVisibleProjectionState) {
+    const heldTransaction =
+      createGpuFlowProjectionTransactionForCommittedFrameId({
+        committedFrameId:
+          previousVisibleProjectionState.committedFrame.displayFrameId,
+        kind: "held-previous",
+        lane: requestedTransaction.lane,
+        rawReasons,
+        sample: requestedTransaction.sample,
+      });
+    const heldPreviousProjection = createGpuFlowHeldPreviousProjection({
+      heldTransaction,
+      knobs: projectionSchedulerKnobs,
+      previousVisibleProjectionState,
+      reason: "retained-projection-coverage-missing",
+      requestedSample: requestedTransaction.sample,
+    });
+    if (
+      heldPreviousProjection.maxHeldPreviousFramesExceeded ||
+      heldPreviousProjection.maxHeldPreviousMsExceeded
+    ) {
+      return {
+        blockedReason: "held-previous-budget-exceeded",
+        kind: "blocked-candidate",
+        transaction: requestedTransaction,
+      };
+    }
+    return {
+      blockedReason: null,
+      heldPreviousProjection,
+      kind: "hold-previous",
+      transaction: heldTransaction,
     };
   }
   return {

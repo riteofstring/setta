@@ -85,17 +85,22 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
         throw new Error("blocked candidate must not resolve held frame");
       },
     });
-    expect(heldSelection.blockedPublicationCandidate).toEqual({
-      blockedReasons: [
-        {
-          actorId: null,
-          family: "retained-projection",
-          reason: "retained-projection-coverage-missing",
-        },
-      ],
-      frozenFrameId: 11,
+    expect(heldSelection.blockedPublicationCandidate).toBeNull();
+    expect(heldSelection.renderPlan).toEqual({
+      heldPreviousProjection: expect.objectContaining({
+        committedFrameId: 11,
+        reason: "retained-projection-coverage-missing",
+        requestedProjectionSampleId: requestedTransaction.sample.id,
+      }),
+      kind: "render",
+      retainedProjectionFrame: missingRequestedFrame,
+      transaction: expect.objectContaining({
+        committedFrameId: 11,
+        kind: "held-previous",
+        rawReasons: ["retained-scroll"],
+        sample: requestedTransaction.sample,
+      }),
     });
-    expect(heldSelection.renderPlan).toBeNull();
     expect(heldSelection.resolvedHeldTransaction).toBeNull();
     expect(heldSelection.outcomeKind).toBe("hold-previous");
 
@@ -121,7 +126,7 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
         {
           actorId: null,
           family: "retained-projection",
-          reason: "retained-projection-coverage-missing",
+          reason: "held-previous-budget-exceeded",
         },
       ],
       frozenFrameId: 11,

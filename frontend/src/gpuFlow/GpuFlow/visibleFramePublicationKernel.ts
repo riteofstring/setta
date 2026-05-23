@@ -250,6 +250,7 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
     previousVisibleProjectionState,
     publicationDecision,
     publicationFrameContext,
+    projectionSchedulerKnobs: scheduler.getKnobs(),
     rawReasons,
   });
   const preparedFrame = proveGpuFlowVisibleFramePublicationCandidateSet({
@@ -308,6 +309,7 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   previousVisibleProjectionState,
   publicationDecision,
   publicationFrameContext,
+  projectionSchedulerKnobs,
   rawReasons,
 }: {
   readonly prepareContentPublicationFrame: GpuFlowVisibleFramePublicationContentFramePreparer<
@@ -318,6 +320,9 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
+  readonly projectionSchedulerKnobs: ReturnType<
+    GpuFlowVisiblePublicationScheduler["getKnobs"]
+  >;
   readonly rawReasons: readonly GpuFrameReason[];
 }): GpuFlowVisibleFramePublicationCandidateSet<
   ContentPublicationFrame,
@@ -356,6 +361,7 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   const selectRetainedProjectionPublicationCandidate =
     candidateOracle.createRetainedProjectionPublicationCandidateSelector({
       previousVisibleProjectionState,
+      projectionSchedulerKnobs,
       rawReasons,
     });
   const motionProjectionWorkPlan = createGpuFlowMotionProjectionWorkPlan({
