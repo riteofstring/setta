@@ -1,4 +1,8 @@
-import type { GpuFlowCommittedSurfaceBrowserVisualReadiness } from "../committedSurfaceFrame";
+import {
+  createGpuFlowCommittedSurfaceDomPresentationEvidence,
+  type GpuFlowCommittedSurfaceBrowserVisualReadiness,
+  type GpuFlowCommittedSurfaceDomPresentationEvidence,
+} from "../committedSurfaceFrame";
 import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
@@ -84,6 +88,7 @@ type GpuFlowBrowserVisualActorProjectionInput = {
 
 export type GpuFlowBrowserVisualActorCandidate = {
   readonly id: string;
+  readonly presentationEvidence: GpuFlowCommittedSurfaceDomPresentationEvidence;
   readonly readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness;
   readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
 };
@@ -282,8 +287,16 @@ export class GpuFlowBrowserVisualActorRuntime {
             EMPTY_DOM_ISLANDS,
         }),
     });
+    const candidateId = `browser-visual-candidate:${frameIds.committedFrameId}:${frameIds.runtimeFrameId}`;
     return Object.freeze({
-      id: `browser-visual-candidate:${frameIds.committedFrameId}:${frameIds.runtimeFrameId}`,
+      id: candidateId,
+      presentationEvidence:
+        createGpuFlowBrowserVisualCandidatePresentationEvidence({
+          candidateId,
+          frameIds,
+          readiness,
+          snapshot: preparedSnapshot,
+        }),
       readiness,
       snapshot: preparedSnapshot,
     });
@@ -1108,6 +1121,43 @@ function withGpuFlowBrowserVisualSnapshotPublicationToken({
     ...snapshot,
     publicationToken: token,
   });
+}
+
+function createGpuFlowBrowserVisualCandidatePresentationEvidence({
+  candidateId,
+  frameIds,
+  readiness,
+  snapshot,
+}: {
+  readonly candidateId: string;
+  readonly frameIds: GpuFlowBrowserVisualActorRuntimeFrameIds;
+  readonly readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness;
+  readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
+}): GpuFlowCommittedSurfaceDomPresentationEvidence {
+  return createGpuFlowCommittedSurfaceDomPresentationEvidence({
+    browserVisualCandidateId: candidateId,
+    committedFrameId: frameIds.committedFrameId,
+    domControlMountedCount: snapshot.domControls.mountedControls.length,
+    domControlSnapshotCount: snapshot.domControls.snapshotControls.length,
+    domIslandCount: snapshot.domIslands.islands.length,
+    exposable: isGpuFlowBrowserVisualReadinessExposable(readiness),
+    runtimeFrameId: frameIds.runtimeFrameId,
+    source: "browser-visual-runtime-candidate",
+    staged: true,
+  });
+}
+
+function isGpuFlowBrowserVisualReadinessExposable(
+  readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness,
+): boolean {
+  return [
+    ...readiness.domControlReadinessByActorId.values(),
+    ...readiness.domIslandReadinessByActorId.values(),
+  ].every(
+    (entry) =>
+      entry.coverageState !== "blocked-awaiting-live-host" &&
+      entry.coverageState !== "blocked-awaiting-snapshot",
+  );
 }
 
 function applyVisibleGpuFlowDomControlHostPresentation({

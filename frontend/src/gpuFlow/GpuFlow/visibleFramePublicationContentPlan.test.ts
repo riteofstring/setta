@@ -205,6 +205,21 @@ describe("GPU Flow visible publication content plans", () => {
     );
   });
 
+  it("requires prepared committed frames for content visible projections", () => {
+    expect(() =>
+      contentDecisionKernel.createVisibleProjectionStateForRetainedPublication({
+        frameReasons: ["manual"],
+        heldPreviousProjectionState: null,
+        liveProjectionSample: liveProjectionSample(),
+        publicationLane: "content",
+        publishedCommittedSurfaceFrame: undefined,
+        retainedDisplayOutcomeKind: "publish-exact",
+      }),
+    ).toThrow(
+      "GPU Flow visible projection requires a prepared committed surface frame.",
+    );
+  });
+
   it("keeps content publication selector factories off the kernel public surface", () => {
     const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");

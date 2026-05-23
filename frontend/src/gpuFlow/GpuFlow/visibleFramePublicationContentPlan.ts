@@ -32,6 +32,10 @@ import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,
 } from "./visibleFramePublicationTokens";
+import {
+  createGpuFlowVisiblePublicationPresentationEvidence,
+  type GpuFlowVisiblePublicationPresentationEvidence,
+} from "./visibleFramePublicationPresentationEvidence";
 
 export type GpuFlowCommittedSurfacePublicationEffect =
   | {
@@ -59,6 +63,7 @@ export type GpuFlowContentPublicationFrameResult = {
   readonly forceImmediatePublicationDebtFrame: boolean;
   readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
   readonly rendered: boolean;
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedDisplayFollowUpFrameReason: GpuFrameReason | null;
@@ -82,6 +87,7 @@ const EMPTY_GPU_FLOW_CONTENT_PUBLICATION_FRAME_RESULT_FIELDS = Object.freeze({
   forceImmediatePublicationDebtFrame: false,
   heldPreparedCommittedSurfaceFrame: null,
   nodeLayerFrameStatePublication: null,
+  presentationEvidence: null,
   retainedDisplayFrame: null,
   retainedDisplayFollowUpFrameReason: null,
   retainedRuntimeFrame: null,
@@ -272,7 +278,6 @@ export type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner = <
 
 export type GpuFlowRetainedPublicationVisibleProjectionStatePreparer = (input: {
   readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
-  readonly publishedRetainedFrame: RetainedDisplayFrame;
 }) => GpuFlowVisibleProjectionState;
 
 export type GpuFlowContentPublicationFrameResultForVisibleProjectionStatePreparer =
@@ -517,15 +522,12 @@ export function runGpuFlowRetainedCommittedSurfacePublicationContentStage<
             createVisibleProjectionStateForRetainedPublication: (input) =>
               contentDecisionKernel.createVisibleProjectionStateForRetainedPublication(
                 {
-                  committedGpuNativeVisuals:
-                    retainedDisplayContent.committedGpuNativeVisuals,
                   frameReasons,
                   heldPreviousProjectionState: previousVisibleProjectionState,
                   liveProjectionSample,
                   publicationLane,
                   publishedCommittedSurfaceFrame:
                     input.publishedCommittedSurfaceFrame,
-                  publishedRetainedFrame: input.publishedRetainedFrame,
                   retainedDisplayOutcomeKind:
                     publishedRetainedDisplayOutcomeFrame.outcomeKind,
                 },
@@ -829,6 +831,11 @@ function createGpuFlowVisibleContentPublicationFrameResult({
     heldPreparedCommittedSurfaceFrame:
       committedSurfacePublication.heldPreparedCommittedSurfaceFrame,
     nodeLayerFrameStatePublication,
+    presentationEvidence:
+      createGpuFlowVisiblePublicationPresentationEvidence({
+        nodeLayerFrameStatePublication,
+        visibleProjectionState,
+      }),
     rendered: deferResolutionUpdates || !heldPrevious,
     retainedDisplayFrame,
     retainedDisplayFollowUpFrameReason,

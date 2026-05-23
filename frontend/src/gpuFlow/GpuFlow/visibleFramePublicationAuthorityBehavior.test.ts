@@ -11,6 +11,7 @@ import {
   proveGpuFlowVisibleFramePublicationPresentation,
   type GpuFlowCommitAuthorityProof,
 } from "./visibleFramePublicationAuthority";
+import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePublicationPresentationEvidence";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 
 describe("GPU Flow visible publication authority behavior", () => {
@@ -110,10 +111,9 @@ describe("GPU Flow visible publication authority behavior", () => {
       projectionSample,
     });
 
-    expect(token.presentationPairProof).toEqual({
-      ...frame.presentationProof,
-      projectionSampleId: projectionSample.id,
-    });
+    expect(token.presentationPairProof).toEqual(
+      presentationPairProof({ frame, projectionSample }),
+    );
     expect(token.presentationPairProof.domGeneration).toEqual(
       expect.objectContaining({
         exposable: true,
@@ -172,13 +172,13 @@ describe("GPU Flow visible publication authority behavior", () => {
     );
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
+    const pairProof = presentationPairProof({ frame, projectionSample });
     const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
       frame,
-      presentationPairProof: {
-        ...frame.presentationProof,
-        projectionSampleId: projectionSample.id,
-      },
+      presentationPairProof: pairProof,
       projectionSampleId: projectionSample.id,
+      projectionTransactionId:
+        pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
 
     expect(() =>
@@ -199,13 +199,13 @@ describe("GPU Flow visible publication authority behavior", () => {
     );
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
+    const pairProof = presentationPairProof({ frame, projectionSample });
     const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
       frame,
-      presentationPairProof: {
-        ...frame.presentationProof,
-        projectionSampleId: projectionSample.id,
-      },
+      presentationPairProof: pairProof,
       projectionSampleId: projectionSample.id,
+      projectionTransactionId:
+        pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
 
     expect(() =>
@@ -229,13 +229,13 @@ describe("GPU Flow visible publication authority behavior", () => {
     );
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
+    const pairProof = presentationPairProof({ frame, projectionSample });
     const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
       frame,
-      presentationPairProof: {
-        ...frame.presentationProof,
-        projectionSampleId: projectionSample.id,
-      },
+      presentationPairProof: pairProof,
       projectionSampleId: projectionSample.id,
+      projectionTransactionId:
+        pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
 
     expect(() =>
@@ -271,14 +271,14 @@ describe("GPU Flow visible publication authority behavior", () => {
       }),
     });
     const projectionSample = liveProjectionSample();
+    const pairProof = presentationPairProof({ frame, projectionSample });
     expect(() =>
       createGpuFlowCommitAuthorityProof({
         frame,
-        presentationPairProof: {
-          ...frame.presentationProof,
-          projectionSampleId: projectionSample.id,
-        },
+        presentationPairProof: pairProof,
         projectionSampleId: projectionSample.id,
+        projectionTransactionId:
+          pairProof.canvasGenerationEvidence.projectionTransactionId,
       }),
     ).toThrow(/requires protected resources/);
   });
@@ -425,6 +425,25 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
       typeof proveGpuFlowVisibleFramePublicationPresentation
     >[0]["transactionOracle"],
   });
+}
+
+function presentationPairProof({
+  frame,
+  projectionSample,
+}: {
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly projectionSample: GpuFlowLiveProjectionSample;
+}) {
+  return {
+    ...frame.presentationProof,
+    canvasGenerationEvidence:
+      createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+        committedFrame: frame,
+        projectionSampleId: projectionSample.id,
+        projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
+      }),
+    projectionSampleId: projectionSample.id,
+  };
 }
 
 function committedSurfaceFrame({

@@ -24,6 +24,10 @@ import {
   type GpuFlowVisibleFramePublicationContentCandidate,
   type GpuFlowVisibleFramePublicationMotionCandidate,
 } from "./visibleFramePublicationOracle";
+import {
+  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
+  type GpuFlowVisiblePublicationPresentationEvidence,
+} from "./visibleFramePublicationPresentationEvidence";
 
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
@@ -31,12 +35,65 @@ const KERNEL_MODULE_PATH = fileURLToPath(
 const ORACLE_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationOracle.ts", import.meta.url),
 );
-const createGpuFlowVisibleFramePublicationTransactionOracle =
+const createGpuFlowVisibleFramePublicationTransactionOracleFromFactory =
   createGpuFlowVisibleFramePublicationTransactionOracleFactory();
-const createGpuFlowVisiblePublicationCommitOracle =
+const createGpuFlowVisiblePublicationCommitOracleFromFactory =
   createGpuFlowVisiblePublicationCommitOracleFactory();
 const createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame =
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory();
+
+function createGpuFlowVisibleFramePublicationTransactionOracle<
+  ContentPublicationFrame extends
+    GpuFlowVisibleFramePublicationContentCandidate,
+  MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
+>(
+  input: GpuFlowVisibleFramePublicationCandidateSet<
+    ContentPublicationFrame,
+    MotionProjectionFrame
+  > & {
+    readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
+    readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  },
+) {
+  return createGpuFlowVisibleFramePublicationTransactionOracleFromFactory({
+    ...input,
+    contentPublicationFrame:
+      withTestGpuFlowVisiblePublicationPresentationEvidence(
+        input.contentPublicationFrame,
+      ),
+    motionProjectionFrame:
+      withTestGpuFlowVisiblePublicationPresentationEvidence(
+        input.motionProjectionFrame,
+      ),
+  });
+}
+
+function createGpuFlowVisiblePublicationCommitOracle({
+  committedFrame,
+  presentationEvidence,
+  publicationDecision,
+}: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly presentationEvidence?:
+    | GpuFlowVisiblePublicationPresentationEvidence
+    | undefined;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}) {
+  const selectedPresentationEvidence =
+    presentationEvidence ??
+    createTestGpuFlowVisiblePublicationPresentationEvidence({
+      committedFrame,
+      publicationDecision,
+    });
+  return createGpuFlowVisiblePublicationCommitOracleFromFactory({
+    committedFrame,
+    presentationEvidence: selectedPresentationEvidence,
+    publicationDecision,
+    projectionTransactionId:
+      selectedPresentationEvidence.canvasGenerationEvidence
+        .projectionTransactionId,
+  });
+}
 
 function selectGpuFlowVisibleFramePublicationPreparedFrame<
   ContentPublicationFrame extends
@@ -55,8 +112,14 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
 }) {
   const transactionOracle =
     createGpuFlowVisibleFramePublicationTransactionOracle({
-      contentPublicationFrame,
-      motionProjectionFrame,
+      contentPublicationFrame:
+        withTestGpuFlowVisiblePublicationPresentationEvidence(
+          contentPublicationFrame,
+        ),
+      motionProjectionFrame:
+        withTestGpuFlowVisiblePublicationPresentationEvidence(
+          motionProjectionFrame,
+        ),
       ...oracleInput,
     });
   const preparedFrame =
@@ -72,6 +135,53 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
     renderedVisibleFrame: preparedFrame.renderedVisibleFrame,
     visibleProjectionState: preparedFrame.visibleProjectionState,
   };
+}
+
+function withTestGpuFlowVisiblePublicationPresentationEvidence<
+  Candidate extends
+    | GpuFlowVisibleFramePublicationContentCandidate
+    | GpuFlowVisibleFramePublicationMotionCandidate,
+>(candidate: Candidate): Candidate {
+  if (
+    candidate.presentationEvidence !== undefined ||
+    candidate.visibleProjectionState === null ||
+    candidate.visibleProjectionState.transaction.kind === "held-previous"
+  ) {
+    return candidate;
+  }
+  return {
+    ...candidate,
+    presentationEvidence:
+      createTestGpuFlowVisiblePublicationPresentationEvidence({
+        committedFrame: candidate.visibleProjectionState.committedFrame,
+        publicationDecision: {
+          sample: candidate.visibleProjectionState.sample,
+        },
+        projectionTransactionId: candidate.visibleProjectionState.transaction.id,
+      }),
+  };
+}
+
+function createTestGpuFlowVisiblePublicationPresentationEvidence({
+  committedFrame,
+  publicationDecision,
+  projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`,
+}: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly publicationDecision: Pick<
+    GpuFlowVisiblePublicationDecision,
+    "sample"
+  >;
+  readonly projectionTransactionId?: string | undefined;
+}): GpuFlowVisiblePublicationPresentationEvidence {
+  return Object.freeze({
+    canvasGenerationEvidence:
+      createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+        committedFrame,
+        projectionSampleId: publicationDecision.sample.id,
+        projectionTransactionId,
+      }),
+  });
 }
 
 describe("GPU Flow visible publication transaction oracle", () => {
@@ -709,6 +819,73 @@ describe("GPU Flow visible publication transaction oracle", () => {
       }).visibleProjectionSource,
     ).toBe("motion-projection");
     expect(prepared.commitOracle?.debtProof.content).toBe(true);
+  });
+
+  it("blocks commit authority when the deferred canvas generation is not prepared", () => {
+    const contentVisibleState = visibleProjectionState({
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 52, timestamp: 520 }),
+    });
+
+    const oracle = createGpuFlowVisibleFramePublicationTransactionOracle({
+      contentPublicationFrame: {
+        blockedPublicationCandidate: null,
+        presentationEvidence: null,
+        visibleProjectionState: contentVisibleState,
+      },
+      motionProjectionFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: null,
+      },
+      publicationDecision: publicationDecision(contentVisibleState.sample),
+    });
+
+    expect(oracle.blockedSource).toBe("presentation-pair");
+    expect(oracle.blockedPublicationCandidate?.blockedReasons).toContainEqual({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "canvas-generation-not-prepared",
+    });
+    expect(oracle.commitOracle).toBeNull();
+    expect(oracle.renderedVisibleFrame).toBe(false);
+  });
+
+  it("blocks commit authority when DOM runtime evidence is not exposable", () => {
+    const committedFrame = committedSurfaceFrame();
+    const contentVisibleState = visibleProjectionState({
+      committedFrame: {
+        ...committedFrame,
+        presentationProof: {
+          ...committedFrame.presentationProof,
+          domGenerationEvidence: {
+            ...committedFrame.presentationProof.domGenerationEvidence,
+            exposable: false,
+          },
+        },
+      } as GpuFlowCommittedSurfaceFrame,
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 53, timestamp: 530 }),
+    });
+
+    const oracle = createGpuFlowVisibleFramePublicationTransactionOracle({
+      contentPublicationFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: contentVisibleState,
+      },
+      motionProjectionFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: null,
+      },
+      publicationDecision: publicationDecision(contentVisibleState.sample),
+    });
+
+    expect(oracle.blockedSource).toBe("presentation-pair");
+    expect(oracle.blockedPublicationCandidate?.blockedReasons).toContainEqual({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "dom-generation-not-exposable",
+    });
+    expect(oracle.commitOracle).toBeNull();
   });
 
   it("assembles prepared candidate-set frames from the transaction oracle proof", () => {

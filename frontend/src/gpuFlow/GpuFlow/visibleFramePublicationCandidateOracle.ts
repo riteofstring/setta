@@ -182,13 +182,11 @@ export type GpuFlowVisiblePublicationContentDecisionKernel = {
 
 type GpuFlowRetainedPublicationVisibleProjectionStateInput = Pick<
   GpuFlowCommittedSurfacePublicationCandidateInput,
-  | "committedGpuNativeVisuals"
   | "frameReasons"
   | "heldPreviousProjectionState"
   | "liveProjectionSample"
   | "publicationLane"
   | "publishedCommittedSurfaceFrame"
-  | "publishedRetainedFrame"
 > & {
   readonly retainedDisplayOutcomeKind: string;
 };

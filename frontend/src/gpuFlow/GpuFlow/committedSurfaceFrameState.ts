@@ -91,6 +91,7 @@ export function useGpuFlowCommittedSurfaceFrameState({
       );
       const nextCommittedSurfaceFrame = createGpuFlowCommittedSurfaceFrame({
         browserVisualReadiness: browserVisualCandidate.readiness,
+        domPresentationEvidence: browserVisualCandidate.presentationEvidence,
         gpuNativeVisuals: options?.gpuNativeVisuals,
         previousCommittedSurfaceFrame,
         retainedDisplayFrame: nextRetainedDisplayFrame,

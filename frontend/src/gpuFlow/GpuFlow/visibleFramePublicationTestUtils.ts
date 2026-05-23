@@ -15,9 +15,14 @@ import type {
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationTokens";
+import {
+  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
+  type GpuFlowVisiblePublicationPresentationEvidence,
+} from "./visibleFramePublicationPresentationEvidence";
 
 type GpuFlowVisibleFramePublicationTestCandidate = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
   readonly rendered: boolean;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
@@ -34,11 +39,18 @@ export function createGpuFlowVisibleFrameCommitPublicationTokenForTest({
     heldPreviousProjection: null,
     sample: projectionSample,
     transaction: {
+      committedFrameId: frame.displayFrameId,
+      id: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
       kind: "content-publication",
+      sample: projectionSample,
     },
   } as unknown as GpuFlowVisibleProjectionState;
   const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
     contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
+      presentationEvidence:
+        createGpuFlowVisiblePublicationTestPresentationEvidence({
+          visibleProjectionState,
+        }),
       rendered: true,
       visibleProjectionState,
     }),
@@ -146,14 +158,31 @@ function runGpuFlowVisibleFramePublicationTestTokenKernel({
 
 function createGpuFlowVisibleFramePublicationTestCandidate({
   blockedPublicationCandidate = null,
+  presentationEvidence = null,
   rendered = false,
   visibleProjectionState = null,
 }: Partial<GpuFlowVisibleFramePublicationTestCandidate> = {}): GpuFlowVisibleFramePublicationTestCandidate {
   return {
     blockedPublicationCandidate,
+    presentationEvidence,
     rendered,
     visibleProjectionState,
   };
+}
+
+function createGpuFlowVisiblePublicationTestPresentationEvidence({
+  visibleProjectionState,
+}: {
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
+}): GpuFlowVisiblePublicationPresentationEvidence {
+  return Object.freeze({
+    canvasGenerationEvidence:
+      createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+        committedFrame: visibleProjectionState.committedFrame,
+        projectionSampleId: visibleProjectionState.sample.id,
+        projectionTransactionId: visibleProjectionState.transaction.id,
+      }),
+  });
 }
 
 function createGpuFlowVisibleFramePublicationTestSample({

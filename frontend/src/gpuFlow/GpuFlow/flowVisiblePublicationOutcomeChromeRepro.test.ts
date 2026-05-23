@@ -15,10 +15,37 @@ import {
   type GpuFlowVisibleFramePublicationTransactionOracle,
   type GpuFlowVisiblePublicationCommitOracle,
 } from "./visibleFramePublicationOracle";
+import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePublicationPresentationEvidence";
 import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
 
-const createGpuFlowVisiblePublicationCommitOracle =
+const createGpuFlowVisiblePublicationCommitOracleFromFactory =
   createGpuFlowVisiblePublicationCommitOracleFactory();
+const createGpuFlowVisiblePublicationCommitOracle = ({
+  committedFrame,
+  publicationDecision,
+}: {
+  readonly committedFrame: Parameters<
+    typeof createGpuFlowVisiblePublicationCommitOracleFromFactory
+  >[0]["committedFrame"];
+  readonly publicationDecision: Parameters<
+    typeof createGpuFlowVisiblePublicationCommitOracleFromFactory
+  >[0]["publicationDecision"];
+}) => {
+  const projectionTransactionId = "transaction-a";
+  return createGpuFlowVisiblePublicationCommitOracleFromFactory({
+    committedFrame,
+    presentationEvidence: {
+      canvasGenerationEvidence:
+        createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+          committedFrame,
+          projectionSampleId: publicationDecision.sample.id,
+          projectionTransactionId,
+        }),
+    },
+    publicationDecision,
+    projectionTransactionId,
+  });
+};
 
 describe("GPU Flow visible publication Chrome repro payload", () => {
   it("records committed coverage proof counts with the visible outcome", () => {
@@ -292,14 +319,14 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
             expectedActorSetDigest: "actors",
             presentationPairDigest: "presentation",
             presentationPairProof: {
-              ...presentationProof(),
+              ...presentationProof(11),
               projectionSampleId: 11,
             },
             proofDigest: "proof",
             resourceProtectionDigest: "resource",
           },
           presentationProof: {
-            ...presentationProof(),
+            ...presentationProof(11),
             projectionSampleId: 11,
           },
           previousCommittedFrameId: 6,
@@ -308,7 +335,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
             expectedActorSetDigest: "actors",
             presentationPairDigest: "presentation",
             presentationPairProof: {
-              ...presentationProof(),
+              ...presentationProof(11),
               projectionSampleId: 11,
             },
             projectionSampleId: 11,
@@ -361,7 +388,7 @@ function commitOutcome({
       expectedActorSetDigest: "actors",
       presentationPairDigest: "presentation",
       presentationPairProof: {
-        ...presentationProof(),
+        ...presentationProof(sample.id),
         projectionSampleId: sample.id,
       },
       projectionSampleId: sample.id,
@@ -384,12 +411,21 @@ function publicationDecision(
   };
 }
 
-function presentationProof() {
+function presentationProof(projectionSampleId = 10) {
   const presentationBatchId = "presentation:7";
   return {
     actorManifestDigest: "manifest-digest",
     batchId: presentationBatchId,
     browserVisualFragmentDigest: "browser-visual-fragment-digest",
+    canvasGenerationEvidence: {
+      committedFrameId: 7,
+      exposable: true,
+      prepared: true,
+      presentationBatchId,
+      projectionSampleId,
+      projectionTransactionId: "transaction-a",
+      source: "deferred-canvas-submission",
+    },
     canvasGeneration: {
       canvasRetainedFrameId: 7,
       debugSnapshotFrameId: 7,
@@ -405,6 +441,17 @@ function presentationProof() {
       domIslandCommittedFrameId: 7,
       exposable: true,
       presentationBatchId,
+      staged: true,
+    },
+    domGenerationEvidence: {
+      browserVisualCandidateId: "browser-visual-candidate:7:7",
+      committedFrameId: 7,
+      domControlMountedCount: 0,
+      domControlSnapshotCount: 0,
+      domIslandCount: 0,
+      exposable: true,
+      runtimeFrameId: 7,
+      source: "browser-visual-runtime-candidate",
       staged: true,
     },
     surfaceTransactionDigest: "surface-transaction-digest",

@@ -22,6 +22,7 @@ import {
   assertGpuFlowCommittedSurfaceFrameCoherent,
   createGpuFlowCommittedSurfacePresentationProof,
   type GpuFlowCommittedSurfaceCoherence,
+  type GpuFlowCommittedSurfaceDomPresentationEvidence,
   type GpuFlowCommittedSurfacePresentationProof,
 } from "./committedSurfacePresentationProof";
 import {
@@ -51,8 +52,10 @@ export {
   assertGpuFlowCommittedSurfaceFrameCoherent,
   assertGpuFlowCommittedSurfacePresentationProof,
   createGpuFlowCommittedSurfaceActorManifestDigest,
+  createGpuFlowCommittedSurfaceDomPresentationEvidence,
   createGpuFlowCommittedSurfacePresentationProof,
 } from "./committedSurfacePresentationProof";
+export type { GpuFlowCommittedSurfaceDomPresentationEvidence } from "./committedSurfacePresentationProof";
 
 type GpuFlowCommittedSurfaceActorKind =
   | "retained-page"
@@ -358,6 +361,7 @@ export type GpuFlowCommittedSurfaceBrowserVisualReadiness = {
 
 export function createGpuFlowCommittedSurfaceFrame({
   browserVisualReadiness,
+  domPresentationEvidence,
   gpuNativeVisuals,
   previousCommittedSurfaceFrame,
   retainedDisplayFrame,
@@ -365,6 +369,9 @@ export function createGpuFlowCommittedSurfaceFrame({
   readonly browserVisualReadiness?:
     | GpuFlowCommittedSurfaceBrowserVisualReadiness
     | null
+    | undefined;
+  readonly domPresentationEvidence?:
+    | GpuFlowCommittedSurfaceDomPresentationEvidence
     | undefined;
   readonly gpuNativeVisuals?:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
@@ -414,6 +421,7 @@ export function createGpuFlowCommittedSurfaceFrame({
     actorGenerations,
     browserVisualSurfaceFragment,
     displayFrameId: retainedDisplayFrame.id,
+    domPresentationEvidence,
     retainedDisplayFrame,
     retainedRuntimeFrame,
     transactionOutcome: retainedDisplayFrame.diagnostics.transactionOutcome,
@@ -446,6 +454,7 @@ export function createGpuFlowStartupCommittedSurfaceFrame({
     actorGenerations,
     browserVisualSurfaceFragment,
     displayFrameId: retainedRuntimeFrame.frameId,
+    domPresentationEvidence: undefined,
     retainedDisplayFrame: null,
     retainedRuntimeFrame,
     transactionOutcome: "startup",
@@ -482,6 +491,7 @@ function freezeCommittedSurfaceFrame({
   actorGenerations,
   browserVisualSurfaceFragment,
   displayFrameId,
+  domPresentationEvidence,
   retainedDisplayFrame,
   retainedRuntimeFrame,
   transactionOutcome,
@@ -489,6 +499,9 @@ function freezeCommittedSurfaceFrame({
   readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
   readonly browserVisualSurfaceFragment: BrowserVisualSurfaceTransactionFragment;
   readonly displayFrameId: number;
+  readonly domPresentationEvidence:
+    | GpuFlowCommittedSurfaceDomPresentationEvidence
+    | undefined;
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly transactionOutcome: string;
@@ -540,6 +553,7 @@ function freezeCommittedSurfaceFrame({
     browserVisualSurfaceFragment,
     coherence,
     displayFrameId,
+    domGenerationEvidence: domPresentationEvidence,
     surfaceTransaction,
   });
   return Object.freeze({

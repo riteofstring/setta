@@ -841,7 +841,6 @@ export function renderGpuFlowNodeLayerFrame({
       const visibleProjectionState =
         createVisibleProjectionStateForRetainedPublication({
           publishedCommittedSurfaceFrame: preparedCommittedSurfaceFrame,
-          publishedRetainedFrame: context.publishedRetainedFrame,
         });
       reportGpuFlowNodeLayerFramePerformance({
         callbacksRef,

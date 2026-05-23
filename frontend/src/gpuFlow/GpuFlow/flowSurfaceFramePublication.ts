@@ -49,6 +49,10 @@ import type {
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationTokens";
+import {
+  createGpuFlowVisiblePublicationPresentationEvidence,
+  type GpuFlowVisiblePublicationPresentationEvidence,
+} from "./visibleFramePublicationPresentationEvidence";
 
 type GpuFlowNodeLayerFrameInput = Parameters<
   typeof renderGpuFlowNodeLayerFrame
@@ -60,6 +64,7 @@ type GpuFlowSurfaceFrameEvent = Parameters<
 type GpuFlowMotionProjectionFrameResult = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
   readonly projectionOnlyFrameWork: GpuFlowMotionProjectionFrameWorkReport | null;
   readonly rendered: boolean;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -592,6 +597,7 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
 function createGpuFlowMotionProjectionFrameResult({
   blockedPublicationCandidate = null,
   nodeLayerFrameStatePublication = null,
+  presentationEvidence,
   projectionOnlyFrameWork = null,
   rendered,
   visibleProjectionState = null,
@@ -602,6 +608,10 @@ function createGpuFlowMotionProjectionFrameResult({
     | undefined;
   readonly nodeLayerFrameStatePublication?:
     | GpuFlowNodeLayerFrameStatePublication
+    | null
+    | undefined;
+  readonly presentationEvidence?:
+    | GpuFlowVisiblePublicationPresentationEvidence
     | null
     | undefined;
   readonly projectionOnlyFrameWork?:
@@ -617,6 +627,14 @@ function createGpuFlowMotionProjectionFrameResult({
   return {
     blockedPublicationCandidate,
     nodeLayerFrameStatePublication,
+    presentationEvidence:
+      presentationEvidence ??
+      (visibleProjectionState
+        ? createGpuFlowVisiblePublicationPresentationEvidence({
+            nodeLayerFrameStatePublication,
+            visibleProjectionState,
+          })
+        : null),
     projectionOnlyFrameWork,
     rendered,
     visibleProjectionState,

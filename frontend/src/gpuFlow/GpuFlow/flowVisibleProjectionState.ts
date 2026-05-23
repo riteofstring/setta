@@ -1,9 +1,5 @@
-import {
-  createGpuFlowCommittedSurfaceFrame,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
-import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import {
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
   createGpuFlowHeldPreviousProjection,
@@ -14,22 +10,16 @@ import {
   type GpuFlowProjectionTransaction,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 
 export function createGpuFlowVisibleProjectionStateForRetainedPublication({
-  committedGpuNativeVisuals,
   frameReasons,
   heldPreviousProjectionState,
   heldPreviousReason = "retained-display-coverage-missing",
   liveProjectionSample,
   publicationLane,
   publishedCommittedSurfaceFrame,
-  publishedRetainedFrame,
   retainedDisplayOutcomeKind,
 }: {
-  readonly committedGpuNativeVisuals:
-    | readonly HtmlSurfaceSolidRoundedRectVisual[]
-    | undefined;
   readonly frameReasons: readonly GpuFrameReason[];
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly heldPreviousReason?: string | undefined;
@@ -39,7 +29,6 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
     "content" | "maintenance"
   >;
   readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
-  readonly publishedRetainedFrame: RetainedDisplayFrame;
   readonly retainedDisplayOutcomeKind: string;
 }): GpuFlowVisibleProjectionState {
   const heldPrevious = getGpuFlowHeldPreviousProjectionState({
@@ -47,10 +36,8 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
     retainedDisplayOutcomeKind,
   });
   const visibleCommittedFrame = getGpuFlowVisibleCommittedSurfaceFrame({
-    committedGpuNativeVisuals,
     heldPrevious,
     publishedCommittedSurfaceFrame,
-    publishedRetainedFrame,
   });
   const transaction: GpuFlowProjectionTransaction =
     createGpuFlowProjectionTransactionForCommittedFrameId({
@@ -89,17 +76,11 @@ function getGpuFlowHeldPreviousProjectionState({
 }
 
 function getGpuFlowVisibleCommittedSurfaceFrame({
-  committedGpuNativeVisuals,
   heldPrevious,
   publishedCommittedSurfaceFrame,
-  publishedRetainedFrame,
 }: {
-  readonly committedGpuNativeVisuals:
-    | readonly HtmlSurfaceSolidRoundedRectVisual[]
-    | undefined;
   readonly heldPrevious: GpuFlowVisibleProjectionState | null;
   readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
-  readonly publishedRetainedFrame: RetainedDisplayFrame;
 }): GpuFlowCommittedSurfaceFrame {
   if (heldPrevious) {
     return heldPrevious.committedFrame;
@@ -107,10 +88,9 @@ function getGpuFlowVisibleCommittedSurfaceFrame({
   if (publishedCommittedSurfaceFrame) {
     return publishedCommittedSurfaceFrame;
   }
-  return createGpuFlowCommittedSurfaceFrame({
-    gpuNativeVisuals: committedGpuNativeVisuals,
-    retainedDisplayFrame: publishedRetainedFrame,
-  });
+  throw new Error(
+    "GPU Flow visible projection requires a prepared committed surface frame.",
+  );
 }
 
 function getGpuFlowProjectionTransactionKind(

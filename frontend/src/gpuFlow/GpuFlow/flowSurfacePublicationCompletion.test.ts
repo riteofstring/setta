@@ -500,5 +500,5 @@ function liveProjectionSample({
     retainedScrollOffsets: new Map(),
     timestamp,
     viewport: [0, 0, 1],
-  } as GpuFlowLiveProjectionSample;
+  } as unknown as GpuFlowLiveProjectionSample;
 }

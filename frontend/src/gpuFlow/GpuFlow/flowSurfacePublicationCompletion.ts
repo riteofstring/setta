@@ -579,7 +579,8 @@ function publishGpuFlowSurfaceVisibleProjectionState({
         abortPreparedCommittedSurfaceFrame,
         heldPreparedCommittedSurfaceFrame:
           heldPreparedCommittedSurfaceFrame ??
-          blockedPreparedCommittedSurfaceFrame,
+          blockedPreparedCommittedSurfaceFrame ??
+          committedSurfaceFrame,
         committedSurfacePublicationEffect,
         heldPreviousVisibleProjectionState,
         outcome,

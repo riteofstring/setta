@@ -24,9 +24,32 @@ import {
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
 import { createGpuFlowVisiblePublicationCommitOracleFactory } from "./visibleFramePublicationOracle";
+import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePublicationPresentationEvidence";
 
-const createGpuFlowVisiblePublicationCommitOracle =
+const createGpuFlowVisiblePublicationCommitOracleFromFactory =
   createGpuFlowVisiblePublicationCommitOracleFactory();
+const createGpuFlowVisiblePublicationCommitOracle = ({
+  committedFrame,
+  publicationDecision,
+}: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}) => {
+  const projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`;
+  return createGpuFlowVisiblePublicationCommitOracleFromFactory({
+    committedFrame,
+    presentationEvidence: {
+      canvasGenerationEvidence:
+        createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+          committedFrame,
+          projectionSampleId: publicationDecision.sample.id,
+          projectionTransactionId,
+        }),
+    },
+    publicationDecision,
+    projectionTransactionId,
+  });
+};
 const prepareCommittedSurfacePublicationFramePlanForTest =
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
     contentDecisionKernel:
@@ -44,6 +67,11 @@ describe("GPU Flow visible publication transaction kernel", () => {
     const phases: string[] = [];
     type TestContentPublicationFrame = {
       readonly blockedPublicationCandidate: null;
+      readonly presentationEvidence: {
+        readonly canvasGenerationEvidence: ReturnType<
+          typeof createGpuFlowVisiblePublicationCanvasPresentationEvidence
+        >;
+      };
       readonly rendered: boolean;
       readonly visibleProjectionState: GpuFlowVisibleProjectionState;
     };
@@ -65,6 +93,14 @@ describe("GPU Flow visible publication transaction kernel", () => {
         );
         return {
           blockedPublicationCandidate: null,
+          presentationEvidence: {
+            canvasGenerationEvidence:
+              createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+                committedFrame: contentVisibleState.committedFrame,
+                projectionSampleId: contentVisibleState.sample.id,
+                projectionTransactionId: contentVisibleState.transaction.id,
+              }),
+          },
           rendered: true,
           visibleProjectionState: contentVisibleState,
         };

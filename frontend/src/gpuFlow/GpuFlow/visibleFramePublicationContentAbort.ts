@@ -31,6 +31,12 @@ export function resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
       preservePreparationSnapshot: true,
     });
   }
+  if (committedSurfaceFrame && selectedVisibleProjectionState === null) {
+    return Object.freeze({
+      frame: committedSurfaceFrame,
+      preservePreparationSnapshot: true,
+    });
+  }
   if (selectedVisibleProjectionState?.transaction.kind !== "held-previous") {
     return Object.freeze({
       frame: null,
