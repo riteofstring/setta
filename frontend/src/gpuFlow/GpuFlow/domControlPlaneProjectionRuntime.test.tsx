@@ -102,6 +102,61 @@ describe("GPU flow DOM control projection runtime", () => {
     ).not.toThrow();
   });
 
+  it("promotes prepared DOM-control hosts during committed publication", () => {
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 120,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const control = domControl({ index: 0 });
+    const element = document.body.appendChild(document.createElement("div"));
+    element.dataset.gpuFlowDomControlPreparation = "true";
+    element.style.opacity = "0";
+    element.style.visibility = "hidden";
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+    browserVisualRuntime.setDomControlElement({
+      control,
+      element,
+      presentation: "preparation",
+    });
+    const frame = committedSurfaceFrame({
+      displayFrameId: 1,
+      retainedRuntimeFrame: retainedRuntimeFrame([control], 1),
+    });
+    const token = publicationToken(frame);
+    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: frame.displayFrameId,
+        retainedRuntimeFrame: frame.retainedRuntimeFrame,
+      }),
+    });
+
+    browserVisualRuntime.commitPreparedBrowserVisualActors({
+      candidate,
+      token,
+    });
+    browserVisualRuntime.projectDomControls({
+      token,
+      viewport: [0, 0, 1],
+    });
+
+    expect(element.dataset.gpuFlowDomControl).toBe("true");
+    expect(element.dataset.gpuFlowDomControlPreparation).toBeUndefined();
+    expect(element.style.opacity).toBe("");
+    expect(element.style.visibility).toBe("");
+    expect(
+      browserVisualRuntime.getDomControlHostReadinessDiagnostics(
+        control.sourceId,
+      ).ready,
+    ).toBe(true);
+  });
+
   it("keeps focused DOM-control hosts focused across frame metadata updates", () => {
     const controls = [
       domControl({ active: true, index: 0 }),
