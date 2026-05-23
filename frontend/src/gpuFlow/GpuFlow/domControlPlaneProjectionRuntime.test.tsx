@@ -33,9 +33,9 @@ import {
   stageBrowserVisualCandidate,
 } from "./domControlPlaneProjectionRuntimeTestUtils";
 import { getGpuRetainedDomControlSnapshotSurfaceId } from "./retainedDomControlSources";
-import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePublicationTokens";
+import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
 let root: Root | null = null;
 

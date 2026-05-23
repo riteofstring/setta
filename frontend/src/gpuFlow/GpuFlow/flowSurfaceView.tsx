@@ -24,7 +24,7 @@ import { GpuFlowDomIslandLayer } from "./domIslandLayer";
 import { profileGpuFlowReactElement } from "./flowReactProfiler";
 import type { GpuFlowProps } from "./flowSurfaceTypes";
 import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
-import type { GpuFlowColdStartShellFrame } from "./visibleFramePublicationAuthority";
+import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
 const GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_SIZE = 1;
 const GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_DELAY_MS = 750;

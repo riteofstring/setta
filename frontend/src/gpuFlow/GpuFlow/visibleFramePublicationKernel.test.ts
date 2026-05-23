@@ -14,7 +14,6 @@ import {
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationCandidateOracle";
 import { createGpuFlowCommittedSurfacePublicationFramePlanPreparer } from "./visibleFramePublicationContentPlan";
@@ -25,6 +24,7 @@ import {
 } from "./visibleFramePublicationKernel";
 import { createGpuFlowVisiblePublicationCommitOracleFactory } from "./visibleFramePublicationOracle";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePublicationPresentationEvidence";
+import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
 const createGpuFlowVisiblePublicationCommitOracleFromFactory =
   createGpuFlowVisiblePublicationCommitOracleFactory();

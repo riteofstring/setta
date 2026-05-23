@@ -10,7 +10,7 @@ import { GpuFlowSurfaceView } from "./flowSurfaceView";
 import {
   GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
   type GpuFlowColdStartShellFrame,
-} from "./visibleFramePublicationAuthority";
+} from "./visibleFrameTypes";
 
 describe("GpuFlowSurfaceView", () => {
   it("renders a blocked cold-start shell as an overlay while projection hosts stay mounted", () => {

@@ -1,14 +1,14 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
-import {
-  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
-  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
-} from "./visibleFramePublicationAuthority";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,
 } from "./visibleFramePublicationTokens";
+import {
+  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+} from "./visibleFrameTypes";
 
 type GpuFlowBrowserVisualActorGeneration =
   GpuFlowCommittedSurfaceFrame["actorGenerations"][number];

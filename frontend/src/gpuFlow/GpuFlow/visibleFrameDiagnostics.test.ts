@@ -12,10 +12,6 @@ import {
   recordGpuFlowVisibleFrameBlocked,
   recordGpuFlowVisibleFrameHeld,
 } from "./visibleFrameDiagnostics";
-import {
-  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
-  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
-} from "./visibleFramePublicationAuthority";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationCandidateOracle";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
@@ -26,6 +22,10 @@ import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
 } from "./visibleFramePublicationTestUtils";
+import {
+  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+} from "./visibleFrameTypes";
 
 const prepareCommittedSurfacePublicationFramePlanForTest =
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer({

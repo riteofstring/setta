@@ -34,6 +34,12 @@ import {
   createGpuFlowVisiblePublicationResourceProtectionDigest,
   createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFramePublicationResourceOracle";
+import {
+  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+  type GpuFlowColdStartShellFrame,
+  type GpuFlowColdStartShellFrameId,
+} from "./visibleFrameTypes";
 
 const GPU_FLOW_COMMIT_PUBLICATION_TOKEN = Symbol(
   "GpuFlowCommitPublicationToken",
@@ -51,21 +57,6 @@ type GpuFlowActorManifestDigest = string;
 type GpuFlowVisibleProofDigest = string;
 type GpuFlowPresentationPairDigest = string;
 type GpuFlowResourceProtectionDigest = string;
-export const GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID =
-  "cold-start-shell:browser-visual";
-export const GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID =
-  "cold-start-shell:retained-projection";
-
-type GpuFlowColdStartShellFrameId =
-  | typeof GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID
-  | typeof GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID;
-
-export type GpuFlowColdStartShellFrame = {
-  readonly id: GpuFlowColdStartShellFrameId;
-  readonly input: "disabled";
-  readonly kind: "cold-start-shell";
-  readonly reason: string;
-};
 
 type GpuFlowCommitPresentationPairProof = {
   readonly actorManifestDigest: string;
@@ -675,11 +666,12 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
     ) {
       return { kind: "blocked", token: blockedPublicationToken };
     }
-    const noFrameOutcome = createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
-      previousVisibleProjectionState,
-      publicationDecision,
-      schedulerKnobs,
-    });
+    const noFrameOutcome =
+      createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
+        previousVisibleProjectionState,
+        publicationDecision,
+        schedulerKnobs,
+      });
     if (noFrameOutcome.kind === "hold-previous" || !blockedPublicationToken) {
       return noFrameOutcome;
     }
@@ -1071,7 +1063,8 @@ function isGpuFlowCommitPresentationPairProofHeaderValid({
   return (
     presentationPairProof.projectionSampleId === projectionSampleId &&
     presentationPairProof.batchId === expected.batchId &&
-    presentationPairProof.actorManifestDigest === expected.actorManifestDigest &&
+    presentationPairProof.actorManifestDigest ===
+      expected.actorManifestDigest &&
     presentationPairProof.browserVisualFragmentDigest ===
       expected.browserVisualFragmentDigest &&
     presentationPairProof.surfaceTransactionDigest ===

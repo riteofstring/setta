@@ -1,7 +1,7 @@
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
-import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
 import type { GpuFlowBlockedVisibleReason } from "./visibleFramePublicationTokens";
+import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
 type GpuFlowBrowserVisualFaultInjectedDomControlReadiness =
   | "blocked-awaiting-live-host"
@@ -31,10 +31,7 @@ export function createGpuFlowBrowserVisualFaultInjectedBlockedPublicationCandida
     return null;
   }
   const actorIds = faultInjection.withholdDomControlActorIds ?? [];
-  if (
-    faultInjection.withholdAllDomControls !== true &&
-    actorIds.length === 0
-  ) {
+  if (faultInjection.withholdAllDomControls !== true && actorIds.length === 0) {
     return null;
   }
   const reason = getGpuFlowBrowserVisualFaultInjectionBlockedReason(

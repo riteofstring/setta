@@ -10,11 +10,11 @@ import {
   type GpuFlowVisiblePublicationCompletionOutcome,
 } from "../projectionScheduler";
 import { recordGpuFlowBlockedPublicationGuard } from "./flowVisiblePublicationBlockedGuard";
-import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
 } from "./visibleFramePublicationTestUtils";
+import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
 describe("GPU Flow blocked visible publication guard", () => {
   it("fails loudly when repeated blocked outcomes exceed the frame budget", () => {

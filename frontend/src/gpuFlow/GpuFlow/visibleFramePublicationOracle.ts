@@ -11,22 +11,20 @@ import {
   createGpuFlowVisiblePublicationBlockedActorReasonsForFrame,
   createGpuFlowVisiblePublicationRemainingActorDebt,
 } from "./visibleFramePublicationActorOracle";
-import {
-  createGpuFlowCommitAuthorityProof,
-  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
-} from "./visibleFramePublicationAuthority";
+import { createGpuFlowCommitAuthorityProof } from "./visibleFramePublicationAuthority";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
+import {
+  createGpuFlowVisiblePublicationPresentationBlockedReasons,
+  type GpuFlowVisiblePublicationCanvasPresentationEvidence,
+  type GpuFlowVisiblePublicationPresentationEvidence,
+} from "./visibleFramePublicationPresentationEvidence";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
   createGpuFlowVisiblePublicationResourceBlockedReasons,
   createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFramePublicationResourceOracle";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePublicationTokens";
-import {
-  createGpuFlowVisiblePublicationPresentationBlockedReasons,
-  type GpuFlowVisiblePublicationCanvasPresentationEvidence,
-  type GpuFlowVisiblePublicationPresentationEvidence,
-} from "./visibleFramePublicationPresentationEvidence";
+import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
 export type GpuFlowVisiblePublicationCommitDebtProof = {
   readonly content: boolean;
@@ -571,11 +569,12 @@ function createGpuFlowVisibleFramePublicationOraclePresentationBlockedProof({
   ) {
     return null;
   }
-  const blockedReasons = createGpuFlowVisiblePublicationPresentationBlockedReasons({
-    presentationEvidence,
-    publicationDecision,
-    visibleProjectionState,
-  });
+  const blockedReasons =
+    createGpuFlowVisiblePublicationPresentationBlockedReasons({
+      presentationEvidence,
+      publicationDecision,
+      visibleProjectionState,
+    });
   if (blockedReasons.length === 0) {
     return null;
   }

@@ -24,11 +24,11 @@ import {
   type GpuFlowBrowserVisualActorCandidate,
 } from "./browserVisualActorRuntime";
 import type { GpuFlowRetainedScrollOffsetGetter } from "./domControlPlane";
-import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameCommitPublicationTokenForTest,
 } from "./visibleFramePublicationTestUtils";
+import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
 export function createMockViewportRuntime(
   initialViewport: GpuViewportTuple,

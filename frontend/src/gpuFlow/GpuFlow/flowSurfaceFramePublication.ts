@@ -27,7 +27,6 @@ import { shouldReuseGpuFlowDeferredRetainedContentPublicationFrame } from "./flo
 import { createGpuFlowRetainedRuntimeFrameSourceRenderSignature } from "./flowRetainedRuntimeFrameSignatures";
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
 import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
-import type { GpuFlowColdStartShellFrame } from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowContentPublicationFrameResult,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
@@ -53,6 +52,7 @@ import type {
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationTokens";
+import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
 type GpuFlowNodeLayerFrameInput = Parameters<
   typeof renderGpuFlowNodeLayerFrame

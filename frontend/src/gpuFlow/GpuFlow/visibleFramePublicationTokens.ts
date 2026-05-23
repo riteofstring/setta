@@ -13,7 +13,7 @@ export type {
   GpuFlowBlockedFrozenFrame,
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,
-  GpuFlowColdStartShellFrame,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationAuthority";
+export type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
