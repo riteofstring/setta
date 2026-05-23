@@ -45,6 +45,7 @@ import {
   createTiledFlatSurfaceDrawTiles,
   type TiledFlatSurfaceDrawTile,
 } from "./rendererTiledFlat";
+import { getHtmlSurfaceRenderVertexCount } from "./rendererVertexCount";
 import type {
   HtmlSurfaceFlatVisual,
   HtmlSurfaceVisualScene,
@@ -297,14 +298,17 @@ export class HtmlSurfaceRenderer {
       meshSurfaces,
       scene,
       solidRoundedRectSurfaces,
-      vertexCount: this.getRenderVertexCount({
+      vertexCount: getHtmlSurfaceRenderVertexCount({
         effectSurfaceDraw,
         effectSurfaces,
+        flatLayerPasses: this.flatLayerPasses,
         flatSurfaces,
         lateFlatSurfaces,
         meshSurfaceDraw,
         meshSurfaces,
+        solidRoundedRectSurfacePass: this.solidRoundedRectSurfacePass,
         solidRoundedRectSurfaces,
+        tiledFlatSurfacePass: this.tiledFlatSurfacePass,
         tiledFlatSurfaceTiles,
       }),
     });
@@ -321,52 +325,6 @@ export class HtmlSurfaceRenderer {
         this.runtime.device.queue.submit([commandBuffer]);
       },
     });
-  }
-
-  private getRenderVertexCount({
-    effectSurfaceDraw,
-    effectSurfaces,
-    flatSurfaces,
-    lateFlatSurfaces,
-    meshSurfaceDraw,
-    meshSurfaces,
-    solidRoundedRectSurfaces,
-    tiledFlatSurfaceTiles,
-  }: {
-    readonly effectSurfaceDraw: PreparedEffectSurfaceDraw | null;
-    readonly effectSurfaces: HtmlSurfaceVisualScene["effectSurfaces"];
-    readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
-    readonly lateFlatSurfaces: readonly HtmlSurfaceFlatVisual[];
-    readonly meshSurfaceDraw: PreparedMeshSurfaceDraw | null;
-    readonly meshSurfaces: HtmlSurfaceVisualScene["meshSurfaces"];
-    readonly solidRoundedRectSurfaces: HtmlSurfaceVisualScene["solidRoundedRectSurfaces"];
-    readonly tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[];
-  }): number {
-    const meshVertexCount = this.getMeshSurfaceVertexCount(
-      meshSurfaceDraw,
-      meshSurfaces,
-    );
-    const effectVertexCount = this.getEffectSurfaceVertexCount(
-      effectSurfaceDraw,
-      effectSurfaces,
-    );
-    const flatVertexCount =
-      this.flatLayerPasses.getFlatVertexCount(flatSurfaces);
-    const lateFlatVertexCount =
-      this.flatLayerPasses.getLateFlatVertexCount(lateFlatSurfaces);
-    const tiledFlatVertexCount = this.getTiledFlatSurfaceVertexCount(
-      tiledFlatSurfaceTiles,
-    );
-    const solidRoundedRectVertexCount =
-      this.getSolidRoundedRectSurfaceVertexCount(solidRoundedRectSurfaces);
-    return (
-      flatVertexCount +
-      lateFlatVertexCount +
-      tiledFlatVertexCount +
-      meshVertexCount +
-      effectVertexCount +
-      solidRoundedRectVertexCount
-    );
   }
 
   private ensureCameraBindGroup(): GPUBindGroup {
@@ -929,38 +887,6 @@ export class HtmlSurfaceRenderer {
       solidRoundedRectSurfaceDraw,
       solidRoundedRectSurfaces,
     });
-  }
-
-  private getTiledFlatSurfaceVertexCount(
-    tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[],
-  ): number {
-    return (
-      this.tiledFlatSurfacePass?.getVertexCount(tiledFlatSurfaceTiles) ?? 0
-    );
-  }
-
-  private getMeshSurfaceVertexCount(
-    meshSurfaceDraw: PreparedMeshSurfaceDraw | null,
-    meshSurfaces: HtmlSurfaceVisualScene["meshSurfaces"],
-  ): number {
-    return meshSurfaceDraw?.pass.getVertexCount(meshSurfaces) ?? 0;
-  }
-
-  private getEffectSurfaceVertexCount(
-    effectSurfaceDraw: PreparedEffectSurfaceDraw | null,
-    effectSurfaces: HtmlSurfaceVisualScene["effectSurfaces"],
-  ): number {
-    return effectSurfaceDraw?.pass.getVertexCount(effectSurfaces) ?? 0;
-  }
-
-  private getSolidRoundedRectSurfaceVertexCount(
-    solidRoundedRectSurfaces: HtmlSurfaceVisualScene["solidRoundedRectSurfaces"],
-  ): number {
-    return (
-      this.solidRoundedRectSurfacePass?.getVertexCount(
-        solidRoundedRectSurfaces,
-      ) ?? 0
-    );
   }
 
   private getTextureBindGroup(surface: {
