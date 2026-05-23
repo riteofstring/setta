@@ -12,6 +12,12 @@ const PROJECTION_WORK_AUTHORITY_MODULE_PATH = fileURLToPath(
     import.meta.url,
   ),
 );
+const PROJECTION_COVERAGE_AUTHORITY_MODULE_PATH = fileURLToPath(
+  new URL(
+    "./visibleFramePublicationProjectionCoverageAuthority.ts",
+    import.meta.url,
+  ),
+);
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationProjectionPlan.ts", import.meta.url),
 );
@@ -26,6 +32,10 @@ describe("GPU Flow visible publication projection work authority", () => {
       PROJECTION_WORK_AUTHORITY_MODULE_PATH,
       "utf8",
     );
+    const coverageAuthoritySource = readFileSync(
+      PROJECTION_COVERAGE_AUTHORITY_MODULE_PATH,
+      "utf8",
+    );
     const projectionPlanSource = readFileSync(
       PROJECTION_PLAN_MODULE_PATH,
       "utf8",
@@ -38,8 +48,12 @@ describe("GPU Flow visible publication projection work authority", () => {
     expect(projectionFrameSource).not.toContain(
       "assertGpuFlowMotionProjectionFrameWork",
     );
+    expect(projectionFrameSource).not.toContain("projection-only-content-work");
     expect(projectionFrameSource).not.toContain(
-      "projection-only-content-work",
+      "resolveGpuFlowRetainedProjectionFrame",
+    );
+    expect(projectionFrameSource).not.toContain(
+      "isGpuFlowRetainedProjectionSurfaceCovered",
     );
     expect(authoritySource).toContain(
       "function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
@@ -47,9 +61,7 @@ describe("GPU Flow visible publication projection work authority", () => {
     expect(authoritySource).not.toContain(
       "export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
-    expect(authoritySource).toContain(
-      "assertGpuFlowMotionProjectionFrameWork",
-    );
+    expect(authoritySource).toContain("assertGpuFlowMotionProjectionFrameWork");
     expect(authoritySource).toContain(
       "function selectGpuFlowMotionProjectionFrameWorkBlockedReason",
     );
@@ -59,8 +71,12 @@ describe("GPU Flow visible publication projection work authority", () => {
     expect(projectionPlanSource).not.toContain(
       "selectGpuFlowMotionProjectionFrameWorkBlockedReason",
     );
-    expect(projectionPlanSource).not.toContain(
-      "projection-only-content-work",
+    expect(projectionPlanSource).not.toContain("projection-only-content-work");
+    expect(coverageAuthoritySource).toContain(
+      "function resolveGpuFlowRetainedProjectionFrame",
+    );
+    expect(coverageAuthoritySource).toContain(
+      "function isGpuFlowRetainedProjectionSurfaceCovered",
     );
   });
 });

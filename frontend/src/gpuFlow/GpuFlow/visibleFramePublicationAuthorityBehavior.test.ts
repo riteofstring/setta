@@ -4,9 +4,7 @@ import {
   createGpuFlowCommittedSurfacePresentationProof,
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
-import type {
-  GpuFlowLiveProjectionSample,
-} from "../projectionRuntime";
+import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTransaction";
 import { assertGpuFlowCommitPublicationToken } from "./visibleFramePublicationAuthority";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
@@ -98,6 +96,34 @@ describe("GPU Flow visible publication authority behavior", () => {
         projectionSample: liveProjectionSample(),
       }),
     ).toThrow(/same presentation batch/);
+  });
+
+  it("carries DOM/canvas presentation pair proof on commit tokens", () => {
+    const frame = committedSurfaceFrame();
+    const projectionSample = liveProjectionSample();
+    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      frame,
+      projectionSample,
+    });
+
+    expect(token.presentationPairProof).toEqual({
+      ...frame.presentationProof,
+      projectionSampleId: projectionSample.id,
+    });
+    expect(token.presentationPairProof.domGeneration).toEqual(
+      expect.objectContaining({
+        exposable: true,
+        presentationBatchId: frame.presentationProof.batchId,
+        staged: true,
+      }),
+    );
+    expect(token.presentationPairProof.canvasGeneration).toEqual(
+      expect.objectContaining({
+        exposable: true,
+        prepared: true,
+        presentationBatchId: frame.presentationProof.batchId,
+      }),
+    );
   });
 
   it("rejects presentable commits without the oracle proof digest for the selected frame", async () => {
@@ -205,7 +231,9 @@ describe("GPU Flow visible publication authority behavior", () => {
         actorGenerations: [actor],
       });
       if (actor.browserVisual === null) {
-        throw new Error("Expected committed test actor to carry browser proof.");
+        throw new Error(
+          "Expected committed test actor to carry browser proof.",
+        );
       }
       const changedActor = {
         ...actor,
@@ -358,7 +386,9 @@ function browserVisualProof({
   readonly actualInteraction?:
     | CommittedBrowserVisualProof["actualInteraction"]
     | undefined;
-  readonly actualVisual?: CommittedBrowserVisualProof["actualVisual"] | undefined;
+  readonly actualVisual?:
+    | CommittedBrowserVisualProof["actualVisual"]
+    | undefined;
 } = {}): CommittedBrowserVisualProof {
   return {
     actualInteraction,

@@ -8,9 +8,9 @@ import {
   type GpuFlowProjectionTransactionKind,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import type { GpuFlowRetainedProjectionFrame } from "./flowProjectionFrame";
 import {
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  type GpuFlowRetainedProjectionFrame,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";

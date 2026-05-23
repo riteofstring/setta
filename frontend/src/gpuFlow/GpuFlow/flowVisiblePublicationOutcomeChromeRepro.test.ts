@@ -15,9 +15,7 @@ import {
   type GpuFlowVisibleFramePublicationTransactionOracle,
   type GpuFlowVisiblePublicationCommitOracle,
 } from "./visibleFramePublicationOracle";
-import type {
-  GpuFlowCommitPublicationToken,
-} from "./visibleFramePublicationTokens";
+import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
 
 const createGpuFlowVisiblePublicationCommitOracle =
   createGpuFlowVisiblePublicationCommitOracleFactory();
@@ -244,6 +242,10 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
           presentableCommit: {
             expectedActorSetDigest: "actors",
             presentationPairDigest: "presentation",
+            presentationPairProof: {
+              ...presentationProof(),
+              projectionSampleId: 11,
+            },
             proofDigest: "proof",
           },
           presentationProof: {
@@ -255,6 +257,10 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
             committedFrameId: 7,
             expectedActorSetDigest: "actors",
             presentationPairDigest: "presentation",
+            presentationPairProof: {
+              ...presentationProof(),
+              projectionSampleId: 11,
+            },
             projectionSampleId: 11,
             proofDigest: "proof",
             transactionId: "transaction-a",
@@ -303,6 +309,10 @@ function commitOutcome({
       committedFrameId: frame.displayFrameId,
       expectedActorSetDigest: "actors",
       presentationPairDigest: "presentation",
+      presentationPairProof: {
+        ...presentationProof(),
+        projectionSampleId: sample.id,
+      },
       projectionSampleId: sample.id,
       proofDigest: "proof",
       transactionId: "transaction-a",

@@ -164,6 +164,22 @@ export type GpuFlowCommittedSurfacePublicationFramePlanPreparer = (
   input: GpuFlowCommittedSurfacePublicationCandidateInput,
 ) => GpuFlowCommittedSurfacePublicationFramePlanPreparation;
 
+export type GpuFlowRetainedDisplayCommittedSurfaceFramePreparer = (
+  frame: RetainedDisplayFrame,
+  options?:
+    | {
+        readonly gpuNativeVisuals:
+          | readonly HtmlSurfaceSolidRoundedRectVisual[]
+          | undefined;
+      }
+    | undefined,
+) => GpuFlowCommittedSurfaceFrame | void;
+
+export type GpuFlowPreparedCommittedSurfacePublicationFramePlan = {
+  readonly preparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly publicationPreparation: GpuFlowCommittedSurfacePublicationFramePlanPreparation;
+};
+
 export type GpuFlowBlockedCommittedSurfacePublicationAbort = {
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
   readonly preservePreparationSnapshot: boolean;
@@ -207,6 +223,81 @@ export type GpuFlowCommittedSurfacePublicationContentStage =
       readonly kind: "published";
       readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
     };
+
+export type GpuFlowRetainedCommittedSurfacePublicationContentPublishedRetainedDisplay<
+  Context,
+> = {
+  readonly committedGpuNativeVisuals:
+    | readonly HtmlSurfaceSolidRoundedRectVisual[]
+    | undefined;
+  readonly context: Context;
+};
+
+export type GpuFlowRetainedCommittedSurfacePublicationContentStageInput<
+  RetainedContext,
+  Result,
+> = {
+  readonly deferBrowserVisualRetry: boolean;
+  readonly deferResolutionUpdates: boolean;
+  readonly frameReasons: readonly GpuFrameReason[];
+  readonly liveProjectionSample: GpuFlowLiveProjectionSample;
+  readonly onCommittedSurfacePrepared?: (input: {
+    readonly committedSurfacePublicationPreparation: GpuFlowCommittedSurfacePublicationFramePlanPreparation;
+    readonly context: RetainedContext;
+    readonly preparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
+    readonly publishedRetainedDisplayOutcomeFrame: NonNullable<
+      GpuFlowRetainedDisplayPublicationFramePlanPreparation["publishedOutcomeFrame"]
+    >;
+    readonly retainedDisplayFollowUpFrameReason: GpuFrameReason | null;
+    readonly retainedDisplayPublication: GpuFlowRetainedDisplayPublicationResult;
+    readonly retainedDisplayPublicationPreparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
+  }) => void;
+  readonly onCommittedSurfacePublished: (input: {
+    readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
+    readonly committedSurfacePublicationPreparation: GpuFlowCommittedSurfacePublicationFramePlanPreparation;
+    readonly context: RetainedContext;
+    readonly preparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
+    readonly publishedRetainedDisplayOutcomeFrame: NonNullable<
+      GpuFlowRetainedDisplayPublicationFramePlanPreparation["publishedOutcomeFrame"]
+    >;
+    readonly retainedDisplayFollowUpFrameReason: GpuFrameReason | null;
+    readonly retainedDisplayPublication: GpuFlowRetainedDisplayPublicationResult;
+    readonly retainedDisplayPublicationPreparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
+  }) => Result;
+  readonly onRetainedDisplayPublished: (input: {
+    readonly publishedRetainedDisplayOutcomeFrame: NonNullable<
+      GpuFlowRetainedDisplayPublicationFramePlanPreparation["publishedOutcomeFrame"]
+    >;
+    readonly retainedDisplayFollowUpFrameReason: GpuFrameReason | null;
+    readonly retainedDisplayPublication: GpuFlowRetainedDisplayPublicationResult;
+    readonly retainedDisplayPublicationPreparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
+  }) => GpuFlowRetainedCommittedSurfacePublicationContentPublishedRetainedDisplay<RetainedContext>;
+  readonly prepareCommittedSurfaceFrame:
+    | GpuFlowRetainedDisplayCommittedSurfaceFramePreparer
+    | undefined;
+  readonly prepareCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanPreparer;
+  readonly prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly publicationLane: Extract<
+    GpuFlowProjectionLane,
+    "content" | "maintenance"
+  >;
+  readonly retainedDisplayPublicationInput: GpuFlowRetainedDisplayPublicationInput;
+};
+
+export type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner = <
+  RetainedContext,
+  Result,
+>(
+  input: Omit<
+    GpuFlowRetainedCommittedSurfacePublicationContentStageInput<
+      RetainedContext,
+      Result
+    >,
+    | "prepareCommittedSurfacePublicationFramePlan"
+    | "prepareRetainedDisplayPublicationFramePlan"
+  >,
+) => GpuFlowContentPublicationFrameResult | Result;
 
 export function applyGpuFlowRetainedDisplayPublicationContentStage<Result>({
   contentStage,
@@ -297,6 +388,155 @@ export function runGpuFlowCommittedSurfacePublicationContentStage<Result>({
     }),
     onPublished,
   });
+}
+
+export function prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay({
+  committedGpuNativeVisuals,
+  deferBrowserVisualRetry,
+  frameReasons,
+  heldPreviousProjectionState,
+  liveProjectionSample,
+  prepareCommittedSurfaceFrame,
+  prepareCommittedSurfacePublicationFramePlan,
+  publicationLane,
+  publishedRetainedFrame,
+}: {
+  readonly committedGpuNativeVisuals:
+    | readonly HtmlSurfaceSolidRoundedRectVisual[]
+    | undefined;
+  readonly deferBrowserVisualRetry: boolean;
+  readonly frameReasons: readonly GpuFrameReason[];
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly liveProjectionSample: GpuFlowLiveProjectionSample;
+  readonly prepareCommittedSurfaceFrame:
+    | GpuFlowRetainedDisplayCommittedSurfaceFramePreparer
+    | undefined;
+  readonly prepareCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanPreparer;
+  readonly publicationLane: Extract<
+    GpuFlowProjectionLane,
+    "content" | "maintenance"
+  >;
+  readonly publishedRetainedFrame: RetainedDisplayFrame;
+}): GpuFlowPreparedCommittedSurfacePublicationFramePlan {
+  const preparedCommittedSurfaceFrame = prepareCommittedSurfaceFrame?.(
+    publishedRetainedFrame,
+    {
+      gpuNativeVisuals: committedGpuNativeVisuals,
+    },
+  );
+  return Object.freeze({
+    preparedCommittedSurfaceFrame,
+    publicationPreparation: prepareCommittedSurfacePublicationFramePlan({
+      committedGpuNativeVisuals,
+      deferBrowserVisualRetry,
+      frameReasons,
+      heldPreviousProjectionState,
+      liveProjectionSample,
+      publicationLane,
+      publishedCommittedSurfaceFrame: preparedCommittedSurfaceFrame,
+      publishedRetainedFrame,
+    }),
+  });
+}
+
+export function runGpuFlowRetainedCommittedSurfacePublicationContentStage<
+  RetainedContext,
+  Result,
+>({
+  deferBrowserVisualRetry,
+  deferResolutionUpdates,
+  frameReasons,
+  liveProjectionSample,
+  onCommittedSurfacePrepared,
+  onCommittedSurfacePublished,
+  onRetainedDisplayPublished,
+  prepareCommittedSurfaceFrame,
+  prepareCommittedSurfacePublicationFramePlan,
+  prepareRetainedDisplayPublicationFramePlan,
+  previousVisibleProjectionState,
+  publicationLane,
+  retainedDisplayPublicationInput,
+}: GpuFlowRetainedCommittedSurfacePublicationContentStageInput<
+  RetainedContext,
+  Result
+>): GpuFlowContentPublicationFrameResult | Result {
+  const retainedDisplayPublicationPreparation =
+    prepareRetainedDisplayPublicationFramePlan(retainedDisplayPublicationInput);
+  const retainedDisplayPublication =
+    retainedDisplayPublicationPreparation.publication;
+  const retainedDisplayFollowUpFrameReason =
+    retainedDisplayPublicationPreparation.followUpFrameReason;
+  return runGpuFlowRetainedDisplayPublicationContentStage({
+    deferResolutionUpdates,
+    onPublished: (publishedRetainedDisplayOutcomeFrame) => {
+      const retainedDisplayContent = onRetainedDisplayPublished({
+        publishedRetainedDisplayOutcomeFrame,
+        retainedDisplayFollowUpFrameReason,
+        retainedDisplayPublication,
+        retainedDisplayPublicationPreparation,
+      });
+      const committedSurfacePreparation =
+        prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay({
+          committedGpuNativeVisuals:
+            retainedDisplayContent.committedGpuNativeVisuals,
+          deferBrowserVisualRetry,
+          frameReasons,
+          heldPreviousProjectionState: previousVisibleProjectionState,
+          liveProjectionSample,
+          prepareCommittedSurfaceFrame,
+          prepareCommittedSurfacePublicationFramePlan,
+          publicationLane,
+          publishedRetainedFrame: publishedRetainedDisplayOutcomeFrame.frame,
+        });
+      const committedSurfacePublicationPreparation =
+        committedSurfacePreparation.publicationPreparation;
+      onCommittedSurfacePrepared?.({
+        committedSurfacePublicationPreparation,
+        context: retainedDisplayContent.context,
+        preparedCommittedSurfaceFrame:
+          committedSurfacePreparation.preparedCommittedSurfaceFrame,
+        publishedRetainedDisplayOutcomeFrame,
+        retainedDisplayFollowUpFrameReason,
+        retainedDisplayPublication,
+        retainedDisplayPublicationPreparation,
+      });
+      return runGpuFlowCommittedSurfacePublicationContentStage({
+        deferResolutionUpdates,
+        onPublished: (committedSurfacePublication) =>
+          onCommittedSurfacePublished({
+            committedSurfacePublication,
+            committedSurfacePublicationPreparation,
+            context: retainedDisplayContent.context,
+            preparedCommittedSurfaceFrame:
+              committedSurfacePreparation.preparedCommittedSurfaceFrame,
+            publishedRetainedDisplayOutcomeFrame,
+            retainedDisplayFollowUpFrameReason,
+            retainedDisplayPublication,
+            retainedDisplayPublicationPreparation,
+          }),
+        preparation: committedSurfacePublicationPreparation,
+        previousVisibleProjectionState,
+        retainedDisplayFollowUpFrameReason,
+      });
+    },
+    preparation: retainedDisplayPublicationPreparation,
+    previousVisibleProjectionState,
+  });
+}
+
+export function createGpuFlowRetainedCommittedSurfacePublicationContentStageRunner({
+  prepareCommittedSurfacePublicationFramePlan,
+  prepareRetainedDisplayPublicationFramePlan,
+}: {
+  readonly prepareCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanPreparer;
+  readonly prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer;
+}): GpuFlowRetainedCommittedSurfacePublicationContentStageRunner {
+  return (input) =>
+    runGpuFlowRetainedCommittedSurfacePublicationContentStage({
+      ...input,
+      prepareCommittedSurfacePublicationFramePlan,
+      prepareRetainedDisplayPublicationFramePlan,
+    });
 }
 
 export function createGpuFlowContentPublicationFrameResult(

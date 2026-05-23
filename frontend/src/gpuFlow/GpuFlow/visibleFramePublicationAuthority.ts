@@ -103,6 +103,7 @@ export type GpuFlowCommitPublicationToken = CommitPublicationTokenBrand & {
   readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
   readonly expectedActorSetDigest: GpuFlowActorManifestDigest;
   readonly presentationPairDigest: GpuFlowPresentationPairDigest;
+  readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly proofDigest: GpuFlowVisibleProofDigest;
   readonly transactionId: GpuFlowVisibleTransactionId;
@@ -125,6 +126,7 @@ export type GpuFlowPresentableCommit = PresentableCommitBrand & {
   readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
   readonly expectedActorSetDigest: GpuFlowActorManifestDigest;
   readonly presentationPairDigest: GpuFlowPresentationPairDigest;
+  readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly proofDigest: GpuFlowVisibleProofDigest;
   readonly transactionId: GpuFlowVisibleTransactionId;
@@ -194,6 +196,7 @@ export function createGpuFlowPresentableCommit({
     committedFrameId: frame.displayFrameId,
     expectedActorSetDigest: commitAuthorityProof.expectedActorSetDigest,
     presentationPairDigest: commitAuthorityProof.presentationPairDigest,
+    presentationPairProof: commitAuthorityProof.presentationPairProof,
     projectionSampleId: projectionSample.id,
     proofDigest: commitAuthorityProof.proofDigest,
     transactionId: createGpuFlowVisibleTransactionId({
@@ -287,7 +290,8 @@ function assertGpuFlowCommitAuthorityProofMatchesFrame({
   if (
     commitAuthorityProof.expectedActorSetDigest !==
       frame.presentationProof.actorManifestDigest ||
-    commitAuthorityProof.proofDigest !== createGpuFlowVisibleProofDigest(frame) ||
+    commitAuthorityProof.proofDigest !==
+      createGpuFlowVisibleProofDigest(frame) ||
     commitAuthorityProof.presentationPairDigest !==
       createGpuFlowPresentationPairDigest({ frame, projectionSampleId })
   ) {
@@ -413,6 +417,7 @@ export function createGpuFlowCommitPublicationToken({
     committedFrameId: presentableCommit.committedFrameId,
     expectedActorSetDigest: presentableCommit.expectedActorSetDigest,
     presentationPairDigest: presentableCommit.presentationPairDigest,
+    presentationPairProof: presentableCommit.presentationPairProof,
     projectionSampleId: presentableCommit.projectionSampleId,
     proofDigest: presentableCommit.proofDigest,
     transactionId: presentableCommit.transactionId,
@@ -509,6 +514,7 @@ export function assertGpuFlowCommitPublicationToken({
     token.committedFrameId !== frame.displayFrameId ||
     token.expectedActorSetDigest !== createGpuFlowActorManifestDigest(frame) ||
     token.proofDigest !== createGpuFlowVisibleProofDigest(frame) ||
+    !token.presentationPairProof ||
     token.presentationPairDigest !==
       createGpuFlowPresentationPairDigest({
         frame,
@@ -519,6 +525,11 @@ export function assertGpuFlowCommitPublicationToken({
       "GPU Flow committed content publication requires a commit publication token for the same visible frame.",
     );
   }
+  assertGpuFlowCommitPresentationPairProof({
+    frame,
+    presentationPairProof: token.presentationPairProof,
+    projectionSampleId: token.projectionSampleId,
+  });
 }
 
 export function assertGpuFlowCommittedSurfaceResetToken({

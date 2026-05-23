@@ -11,9 +11,9 @@ import {
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import type { GpuFlowRetainedProjectionFrame } from "./flowProjectionFrame";
 import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
+import type { GpuFlowRetainedProjectionFrame } from "./visibleFramePublicationProjectionCoverageAuthority";
 
 export type GpuFlowRetainedProjectionBlockedPublicationCandidateFactory =
   (input: {

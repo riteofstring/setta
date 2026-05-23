@@ -7,10 +7,10 @@ import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionTransaction,
 } from "../projectionRuntime";
-import type { GpuFlowRetainedProjectionFrame } from "./flowProjectionFrame";
 import {
   createGpuFlowProjectionFrameRenderPlanSelector,
   type GpuFlowProjectionFrameTransaction,
+  type GpuFlowRetainedProjectionFrame,
 } from "./visibleFramePublicationKernel";
 
 const PROJECTION_FRAME_MODULE_PATH = fileURLToPath(
@@ -30,13 +30,12 @@ describe("GPU Flow visible publication projection plans", () => {
   it("rejects blocked projection transactions before rendering", () => {
     const selectProjectionFrameRenderPlan =
       createGpuFlowProjectionFrameRenderPlanSelector();
-    expect(
-      () =>
-        selectProjectionFrameRenderPlan({
-          projectionFrameTransaction: projectionFrameTransaction({
-            blockedReason: "retained-projection-coverage-missing",
-          }),
+    expect(() =>
+      selectProjectionFrameRenderPlan({
+        projectionFrameTransaction: projectionFrameTransaction({
+          blockedReason: "retained-projection-coverage-missing",
         }),
+      }),
     ).toThrow(/nonblocked projection transaction/);
   });
 

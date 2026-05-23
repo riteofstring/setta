@@ -158,6 +158,7 @@ function createGpuFlowVisibleTransactionReport({
         : {
             expectedActorSetDigest: commitToken.expectedActorSetDigest,
             presentationPairDigest: commitToken.presentationPairDigest,
+            presentationPairProof: commitToken.presentationPairProof,
             proofDigest: commitToken.proofDigest,
           },
     presentationProof: selectGpuFlowVisiblePresentationProofReport({
@@ -219,6 +220,7 @@ function createGpuFlowVisiblePublicationOutcomeTokenPayload(
         committedFrameId: outcome.token.committedFrameId,
         expectedActorSetDigest: outcome.token.expectedActorSetDigest,
         presentationPairDigest: outcome.token.presentationPairDigest,
+        presentationPairProof: outcome.token.presentationPairProof,
         projectionSampleId: outcome.token.projectionSampleId,
         proofDigest: outcome.token.proofDigest,
         transactionId: outcome.token.transactionId,

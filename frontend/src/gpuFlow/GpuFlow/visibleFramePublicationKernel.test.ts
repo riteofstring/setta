@@ -188,37 +188,26 @@ describe("GPU Flow visible publication transaction kernel", () => {
     );
   });
 
-  it("supplies content publication plan preparers from the kernel", () => {
+  it("supplies a content publication stage runner from the kernel", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const sample = liveProjectionSample({ id: 55, timestamp: 550 });
-    const committedFrame = committedSurfaceFrame();
-    const contentVisibleState = visibleProjectionState({
-      kind: "content-publication",
-      sample,
-    });
+    let suppliedRunner = false;
     runGpuFlowVisibleFramePublicationCandidateSetKernel({
-      prepareContentPublicationFrame: ({
-        prepareCommittedSurfacePublicationFramePlan,
-        prepareRetainedDisplayPublicationFramePlan,
-      }) => {
-        const committedPreparation =
-          prepareCommittedSurfacePublicationFramePlan({
-            committedGpuNativeVisuals: undefined,
-            frameReasons: ["manual"],
-            heldPreviousProjectionState: null,
-            liveProjectionSample: sample,
-            publicationLane: "content",
-            publishedCommittedSurfaceFrame: committedFrame,
-            publishedRetainedFrame: retainedDisplayFrame(),
-          });
-        expect(committedPreparation.framePlan.kind).toBe("publish");
-        expect(typeof prepareRetainedDisplayPublicationFramePlan).toBe(
-          "function",
+      prepareContentPublicationFrame: (input) => {
+        suppliedRunner = true;
+        expect(
+          typeof input.runRetainedCommittedSurfacePublicationContentStage,
+        ).toBe("function");
+        expect(input).not.toHaveProperty(
+          "prepareCommittedSurfacePublicationFramePlan",
+        );
+        expect(input).not.toHaveProperty(
+          "prepareRetainedDisplayPublicationFramePlan",
         );
         return {
           blockedPublicationCandidate: null,
           rendered: true,
-          visibleProjectionState: contentVisibleState,
+          visibleProjectionState: null,
         };
       },
       prepareMotionProjectionFrame: () => ({
@@ -234,6 +223,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
         visibleFramePublicationSample({ sample }),
       scheduler,
     });
+    expect(suppliedRunner).toBe(true);
   });
 
   it("uses one commit oracle for compatible-previous proof reports and debt", () => {
@@ -294,7 +284,11 @@ describe("GPU Flow visible publication transaction kernel", () => {
     {
       blockedSource: "compatible-previous-proof" as const,
       frameInput: { budgetState: "over-budget" as const },
-      reason: { actorId: "actor-a", family: "compatible-previous", reason: "compatible-previous-budget-exceeded" },
+      reason: {
+        actorId: "actor-a",
+        family: "compatible-previous",
+        reason: "compatible-previous-budget-exceeded",
+      },
     },
     {
       blockedSource: "actor-proof" as const,
@@ -302,7 +296,11 @@ describe("GPU Flow visible publication transaction kernel", () => {
         actualInteractionProof: "active-editor-live",
         requiredInteractionProof: "active-editor-live",
       },
-      reason: { actorId: "actor-a", family: "active-editor", reason: "active-editor-live-proof-required" },
+      reason: {
+        actorId: "actor-a",
+        family: "active-editor",
+        reason: "active-editor-live-proof-required",
+      },
     },
   ])(
     "blocks $blockedSource compatible-previous proof before publishing a commit token",
@@ -314,7 +312,8 @@ describe("GPU Flow visible publication transaction kernel", () => {
         sample: liveProjectionSample({ id: 52, timestamp: 514 }),
       });
       const contentVisibleState = visibleProjectionState({
-        committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage(frameInput),
+        committedFrame:
+          committedSurfaceFrameWithCompatiblePreviousCoverage(frameInput),
         kind: "content-publication",
         sample,
       });
@@ -335,7 +334,9 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
       expect(result.outcome.kind).toBe("blocked");
       expect(publishedOutcome).toBe("blocked");
-      expect(result.preparedFrame.transactionOracle.blockedSource).toBe(blockedSource);
+      expect(result.preparedFrame.transactionOracle.blockedSource).toBe(
+        blockedSource,
+      );
       expect(result.preparedFrame.transactionOracle.commitOracle).toBeNull();
       if (result.outcome.kind !== "blocked") {
         throw new Error("Expected compatible previous proof block.");
@@ -1059,7 +1060,9 @@ function selectRetainedProjectionPublicationDecisionForTest({
     | GpuFlowProjectionSchedulerKnobs
     | undefined;
   readonly requestedProjectionCoverageMissing: boolean;
-  readonly requestedTransaction: ReturnType<typeof retainedProjectionTransaction>;
+  readonly requestedTransaction: ReturnType<
+    typeof retainedProjectionTransaction
+  >;
 }) {
   return createGpuFlowRetainedProjectionPublicationDecisionSelector({
     previousVisibleProjectionState: heldPreviousProjectionState,
@@ -1109,7 +1112,9 @@ function runPreparedCandidateKernel({
   >[0]["publish"];
   readonly rawReasons?: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
-  readonly scheduler: ReturnType<typeof createGpuFlowVisiblePublicationScheduler>;
+  readonly scheduler: ReturnType<
+    typeof createGpuFlowVisiblePublicationScheduler
+  >;
   readonly viewportInteractionActive?: boolean;
 }) {
   return runGpuFlowVisibleFramePublicationCandidateSetKernel<

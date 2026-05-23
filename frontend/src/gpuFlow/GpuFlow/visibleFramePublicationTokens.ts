@@ -18,6 +18,7 @@ export type {
   GpuFlowBlockedVisibleReason,
   GpuFlowColdStartShellFrame,
   GpuFlowColdStartShellFrameId,
+  GpuFlowCommitPresentationPairProof,
   GpuFlowCommitPublicationToken,
   GpuFlowCommittedSurfaceResetToken,
   GpuFlowCommittedSurfaceStartupToken,

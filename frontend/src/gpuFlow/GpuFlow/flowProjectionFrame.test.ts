@@ -16,14 +16,14 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
-  isGpuFlowRetainedProjectionSurfaceCovered,
-  resolveGpuFlowRetainedProjectionFrame,
-} from "./flowProjectionFrame";
-import {
   createGpuFlowProjectionFrameTransactionSelector,
   createGpuFlowRetainedProjectionPublicationDecisionSelector,
   hasActiveGpuFlowRetainedDomControlPublicationProof,
 } from "./visibleFramePublicationKernel";
+import {
+  isGpuFlowRetainedProjectionSurfaceCovered,
+  resolveGpuFlowRetainedProjectionFrame,
+} from "./visibleFramePublicationProjectionCoverageAuthority";
 import {
   assertGpuFlowMotionProjectionFrameWork,
   createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector,
@@ -359,15 +359,13 @@ function resolveGpuFlowProjectionFrameTransaction({
       rawReasons: frameReasons,
     });
   const publicationDecision = selectProjectionPublicationDecision({
-      hasActiveRetainedDomControl:
-        hasActiveGpuFlowRetainedDomControlPublicationProof(
-          retainedDisplayFrame,
-        ),
-      projectionSchedulerKnobs,
-      requestedProjectionCoverageMissing:
-        requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
-      requestedTransaction,
-    });
+    hasActiveRetainedDomControl:
+      hasActiveGpuFlowRetainedDomControlPublicationProof(retainedDisplayFrame),
+    projectionSchedulerKnobs,
+    requestedProjectionCoverageMissing:
+      requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
+    requestedTransaction,
+  });
   return createGpuFlowProjectionFrameTransactionSelector()({
     publicationDecision,
     requestedRetainedProjectionFrame,

@@ -8,11 +8,11 @@ import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionTransaction,
 } from "../projectionRuntime";
-import type { GpuFlowRetainedProjectionFrame } from "./flowProjectionFrame";
 import {
   createGpuFlowProjectionFrameTransactionSelector,
+  type GpuFlowRetainedProjectionFrame,
   type GpuFlowRetainedProjectionPublicationTransactionDecision,
-} from "./visibleFramePublicationProjectionTransactionAuthority";
+} from "./visibleFramePublicationKernel";
 
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationProjectionPlan.ts", import.meta.url),

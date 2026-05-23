@@ -3,18 +3,15 @@ import type {
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import { createGpuFlowBrowserVisualFaultInjectedBlockedPublicationCandidate } from "./browserVisualFaultInjectionPublication";
-import type {
-  GpuFlowCommittedSurfacePublicationFramePlanPreparer,
-  GpuFlowRetainedDisplayPublicationFramePlanPreparer,
-} from "./visibleFramePublicationContentPlan";
-import type {
-  GpuFlowContentPublicationWorkPlan,
-  GpuFlowMotionProjectionWorkPlan,
-} from "./visibleFramePublicationKernelWorkPlan";
+import type { GpuFlowRetainedCommittedSurfacePublicationContentStageRunner } from "./visibleFramePublicationContentPlan";
 import type {
   GpuFlowMotionProjectionFramePreparation,
   GpuFlowVisibleFramePublicationFrameContext,
 } from "./visibleFramePublicationKernel";
+import type {
+  GpuFlowContentPublicationWorkPlan,
+  GpuFlowMotionProjectionWorkPlan,
+} from "./visibleFramePublicationKernelWorkPlan";
 import type {
   GpuFlowVisibleFramePublicationCandidateSet,
   GpuFlowVisibleFramePublicationContentCandidate,
@@ -31,8 +28,7 @@ type GpuFlowForcedBlockedContentFramePreparer<
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
-  readonly prepareCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanPreparer;
-  readonly prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer;
+  readonly runRetainedCommittedSurfacePublicationContentStage: GpuFlowRetainedCommittedSurfacePublicationContentStageRunner;
 }) => ContentPublicationFrame;
 
 type GpuFlowForcedBlockedMotionFramePreparer<
@@ -50,23 +46,21 @@ export function prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet<
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
   prepareContentPublicationFrame,
-  prepareCommittedSurfacePublicationFramePlan,
   prepareMotionProjectionFrame,
-  prepareRetainedDisplayPublicationFramePlan,
   previousVisibleProjectionState,
   publicationDecision,
   publicationFrameContext,
+  runRetainedCommittedSurfacePublicationContentStage,
 }: {
   readonly prepareContentPublicationFrame: GpuFlowForcedBlockedContentFramePreparer<
     ContentPublicationFrame,
     MotionProjectionFrame
   >;
-  readonly prepareCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanPreparer;
   readonly prepareMotionProjectionFrame: GpuFlowForcedBlockedMotionFramePreparer<MotionProjectionFrame>;
-  readonly prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
+  readonly runRetainedCommittedSurfacePublicationContentStage: GpuFlowRetainedCommittedSurfacePublicationContentStageRunner;
 }): GpuFlowVisibleFramePublicationCandidateSet<
   ContentPublicationFrame,
   MotionProjectionFrame
@@ -98,10 +92,9 @@ export function prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet<
     } satisfies GpuFlowContentPublicationWorkPlan),
     motionProjectionFrame,
     previousVisibleProjectionState,
-    prepareCommittedSurfacePublicationFramePlan,
-    prepareRetainedDisplayPublicationFramePlan,
     publicationDecision,
     publicationFrameContext,
+    runRetainedCommittedSurfacePublicationContentStage,
   });
   return Object.freeze({
     contentPublicationFrame,

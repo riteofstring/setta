@@ -509,7 +509,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const branchStart = source.indexOf(
-      "prepareRetainedDisplayPublicationFramePlan",
+      "runRetainedCommittedSurfacePublicationContentStage",
     );
 
     expect(branchStart).toBeGreaterThanOrEqual(0);
