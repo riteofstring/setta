@@ -1,16 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import {
+  createGpuFlowCommittedSurfacePresentationProof,
+  type GpuFlowCommittedSurfaceFrame,
+} from "../committedSurfaceFrame";
+import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type {
   ProtectedSurfaceResourceHandle,
   SurfaceResourceHandle,
 } from "../surfaceCompositor/surfaceCoverage";
+import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
+  createGpuFlowVisibleFrameResourceRegistry,
   createGpuFlowVisiblePublicationResourceBlockedReasons,
   createGpuFlowVisiblePublicationResourceProtectionDigest,
   createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFrameResourceRegistry";
+import {
+  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
+} from "./visibleFrameTestUtils";
 
 describe("GPU Flow visible frame resource registry proofs", () => {
   it("reports null frames as protected empty resource sets", () => {
@@ -66,7 +76,9 @@ describe("GPU Flow visible frame resource registry proofs", () => {
       protectedResourceHandles: [],
     });
 
-    expect(createGpuFlowVisiblePublicationResourceBlockedReasons(frame)).toEqual([
+    expect(
+      createGpuFlowVisiblePublicationResourceBlockedReasons(frame),
+    ).toEqual([
       {
         actorId: null,
         family: "resource-protection",
@@ -99,7 +111,9 @@ describe("GPU Flow visible frame resource registry proofs", () => {
       }),
     );
 
-    expect(createGpuFlowVisiblePublicationResourceProtectionDigest(report)).toBe(
+    expect(
+      createGpuFlowVisiblePublicationResourceProtectionDigest(report),
+    ).toBe(
       JSON.stringify({
         missingResourceKeys: [],
         protected: true,
@@ -108,12 +122,177 @@ describe("GPU Flow visible frame resource registry proofs", () => {
       }),
     );
   });
+
+  it("owns prepared candidate resources and active editor pins", () => {
+    const registry = createGpuFlowVisibleFrameResourceRegistry();
+    const actorTexture = resourceHandle("texture", "actor-texture");
+    const frame = committedSurfaceFrame({
+      actorResourceHandles: [actorTexture],
+      displayFrameId: 41,
+      protectedResourceHandles: [protectedResource(actorTexture)],
+    });
+
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: browserVisualCandidate({
+        controls: [
+          domControl({ active: true, sourceId: "row-a" }),
+          domControl({
+            sourceId: "row-b",
+            snapshotSurfaceId: "snapshot-row-b",
+          }),
+        ],
+        frameId: frame.displayFrameId,
+        islands: [{ id: "island-a" }],
+        mountedControlIds: ["row-a"],
+        snapshotControlIds: ["row-b"],
+      }),
+      frame,
+    });
+
+    expect(registry.getSnapshot()).toEqual({
+      activeEditorPins: ["row-a"],
+      candidateResourceKeys: [
+        "texture:actor-texture",
+        "dom-control:row-a",
+        "dom-control-snapshot:snapshot-row-b",
+        "dom-island:island-a",
+      ],
+      committedFrameId: null,
+      committedResourceKeys: [],
+      pendingCandidateFrameIds: [41],
+    });
+  });
+
+  it("commits one candidate, records committed resources, and releases loser candidates", () => {
+    const registry = createGpuFlowVisibleFrameResourceRegistry();
+    const loserResource = resourceHandle("page", "loser-page");
+    const winnerResource = resourceHandle("page", "winner-page");
+    const loserFrame = committedSurfaceFrame({
+      displayFrameId: 51,
+      exactSurfaceResourceHandles: [loserResource],
+      protectedResourceHandles: [protectedResource(loserResource)],
+    });
+    const winnerFrame = committedSurfaceFrame({
+      displayFrameId: 52,
+      exactSurfaceResourceHandles: [winnerResource],
+      protectedResourceHandles: [protectedResource(winnerResource)],
+    });
+    const loserCandidate = browserVisualCandidate({
+      controls: [domControl({ sourceId: "loser-control" })],
+      frameId: loserFrame.displayFrameId,
+      mountedControlIds: ["loser-control"],
+    });
+    const winnerCandidate = browserVisualCandidate({
+      controls: [domControl({ active: true, sourceId: "winner-control" })],
+      frameId: winnerFrame.displayFrameId,
+      mountedControlIds: ["winner-control"],
+    });
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: loserCandidate,
+      frame: loserFrame,
+    });
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: winnerCandidate,
+      frame: winnerFrame,
+    });
+
+    const committedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
+    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      frame: winnerFrame,
+      projectionSample: liveProjectionSample(52),
+    });
+    const result = registry.commitPreparedCommittedSurfaceFrame({
+      commitBrowserVisualCandidate: ({ candidate }) => {
+        committedCandidates.push(candidate);
+      },
+      frame: winnerFrame,
+      publishCommittedSurfaceFrame: () => true,
+      token,
+    });
+
+    expect(committedCandidates).toEqual([winnerCandidate]);
+    expect(result).toEqual({
+      activeEditorPins: ["winner-control"],
+      published: true,
+      releasedCandidateResourceKeys: [
+        "page:loser-page",
+        "dom-control:loser-control",
+      ],
+      releasedCommittedResourceKeys: [],
+    });
+    expect(registry.getSnapshot()).toEqual({
+      activeEditorPins: [],
+      candidateResourceKeys: [],
+      committedFrameId: 52,
+      committedResourceKeys: ["page:winner-page"],
+      pendingCandidateFrameIds: [],
+    });
+  });
+
+  it("releases candidate resources on abort without changing the committed owner", () => {
+    const registry = createGpuFlowVisibleFrameResourceRegistry();
+    const candidateResource = resourceHandle("texture", "candidate-texture");
+    const frame = committedSurfaceFrame({
+      actorResourceHandles: [candidateResource],
+      displayFrameId: 61,
+      protectedResourceHandles: [protectedResource(candidateResource)],
+    });
+    const candidate = browserVisualCandidate({
+      controls: [domControl({ active: true, sourceId: "candidate-control" })],
+      frameId: frame.displayFrameId,
+      mountedControlIds: ["candidate-control"],
+    });
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: candidate,
+      frame,
+    });
+    const abortedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
+
+    const result = registry.abortPreparedCommittedSurfaceFrame({
+      abortBrowserVisualCandidate: ({ candidate }) => {
+        abortedCandidates.push(candidate);
+      },
+      frame,
+      preservePreparationSnapshot: false,
+      stageBrowserVisualCandidate: () => {
+        throw new Error("Unexpected preserved candidate staging.");
+      },
+      token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+        blockedReasons: [
+          {
+            actorId: "candidate-control",
+            family: "browser-visual",
+            reason: "snapshot-pending",
+          },
+        ],
+        frozenFrameId: frame.displayFrameId,
+        projectionSample: liveProjectionSample(61),
+      }),
+    });
+
+    expect(abortedCandidates).toEqual([candidate]);
+    expect(result).toEqual({
+      activeEditorPins: ["candidate-control"],
+      releasedCandidateResourceKeys: [
+        "texture:candidate-texture",
+        "dom-control:candidate-control",
+      ],
+    });
+    expect(registry.getSnapshot()).toEqual({
+      activeEditorPins: [],
+      candidateResourceKeys: [],
+      committedFrameId: null,
+      committedResourceKeys: [],
+      pendingCandidateFrameIds: [],
+    });
+  });
 });
 
 function committedSurfaceFrame({
   actorResourceHandles = [],
   compatiblePreviousResourceHandles = [],
   compatibleSurfaceResourceHandles = [],
+  displayFrameId = 1,
   exactSurfaceResourceHandles = [],
   protectedResourceHandles = [],
 }: {
@@ -124,42 +303,197 @@ function committedSurfaceFrame({
   readonly compatibleSurfaceResourceHandles?:
     | readonly SurfaceResourceHandle[]
     | undefined;
-  readonly exactSurfaceResourceHandles?: readonly SurfaceResourceHandle[] | undefined;
+  readonly displayFrameId?: number | undefined;
+  readonly exactSurfaceResourceHandles?:
+    | readonly SurfaceResourceHandle[]
+    | undefined;
   readonly protectedResourceHandles?:
     | readonly ProtectedSurfaceResourceHandle[]
     | undefined;
 }): GpuFlowCommittedSurfaceFrame {
-  return {
-    actorGenerations: [
-      {
-        browserVisual: {
-          resourceHandles: actorResourceHandles,
-        },
-        textCoverageProof: {
-          compatiblePreviousProof: {
-            resourceHandles: compatiblePreviousResourceHandles,
-          },
-          projectionCoverage: "compatible-previous",
-        },
-      },
-    ],
-    surfaceTransaction: {
-      coverageProof: {
-        compatibleCoverage: [
+  const coherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip",
+    debugSnapshotFrameId: displayFrameId,
+    domControlCommittedFrameId: displayFrameId,
+    domIslandCommittedFrameId: displayFrameId,
+    gpuNativeVisualCommittedFrameId: displayFrameId,
+    hitGenerationId: `hit:${displayFrameId}`,
+    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+  };
+  const actorGenerations =
+    actorResourceHandles.length > 0 ||
+    compatiblePreviousResourceHandles.length > 0
+      ? [
           {
-            resourceHandles: compatibleSurfaceResourceHandles,
+            browserVisual: {
+              resourceHandles: actorResourceHandles,
+            },
+            textCoverageProof: {
+              compatiblePreviousProof: {
+                resourceHandles: compatiblePreviousResourceHandles,
+              },
+              projectionCoverage: "compatible-previous",
+            },
           },
-        ],
-        exactCoverage: [
-          {
-            resourceHandles: exactSurfaceResourceHandles,
-          },
-        ],
-        protectedResourceHandles,
-      },
-      protectedResourceHandles,
+        ]
+      : [];
+  const surfaceTransaction = {
+    activeDomIslandTransaction: {
+      islands: [],
+      mode: "none",
     },
+    coverageProof: {
+      blockingGenerationIds: [],
+      blockingSurfaceIds: [],
+      compatibleCoverage: [
+        {
+          resourceHandles: compatibleSurfaceResourceHandles,
+        },
+      ],
+      exactCoverage: [
+        {
+          resourceHandles: exactSurfaceResourceHandles,
+        },
+      ],
+      protectedResourceHandles,
+      rendererBuckets: [],
+      trueHoleRects: [],
+      visibleRects: [],
+      zOrder: [],
+    },
+    desiredSurfaceGenerations: [],
+    diagnostics: {},
+    drawCommands: [],
+    followUpWorkRequests: [],
+    hitIndex: {
+      generationIds: [],
+      id: `hit:${displayFrameId}`,
+    },
+    id: `surface-transaction:${displayFrameId}`,
+    motionFrame: {},
+    protectedResourceHandles,
+    rendererBuckets: [],
+    zOrder: [],
+  };
+  return {
+    actorGenerations,
+    coherence,
+    displayFrameId,
+    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      actorGenerations:
+        actorGenerations as unknown as GpuFlowCommittedSurfaceFrame["actorGenerations"],
+      coherence,
+      displayFrameId,
+      surfaceTransaction:
+        surfaceTransaction as unknown as GpuFlowCommittedSurfaceFrame["surfaceTransaction"],
+    }),
+    projectionHorizon: {
+      textActorCoverage: {
+        blockedAwaitingBrowserVisualActorIds: [],
+        blockedAwaitingLiveHostActorIds: [],
+        compatiblePreviousActorIds: [],
+        exactLiveDomActorIds: [],
+        exactSnapshotActorIds: [],
+        trueHoleActorIds: [],
+      },
+    },
+    publishability: {
+      blockingActorIds: [],
+      kind: "publishable",
+    },
+    surfaceTransaction,
   } as unknown as GpuFlowCommittedSurfaceFrame;
+}
+
+function browserVisualCandidate({
+  controls = [],
+  frameId,
+  islands = [],
+  mountedControlIds = [],
+  snapshotControlIds = [],
+}: {
+  readonly controls?: readonly ReturnType<typeof domControl>[] | undefined;
+  readonly frameId: number;
+  readonly islands?: readonly { readonly id: string }[] | undefined;
+  readonly mountedControlIds?: readonly string[] | undefined;
+  readonly snapshotControlIds?: readonly string[] | undefined;
+}): GpuFlowBrowserVisualActorCandidate {
+  const controlById = new Map(
+    controls.map((control) => [control.sourceId, control]),
+  );
+  return {
+    id: `candidate:${frameId}`,
+    presentationEvidence: {},
+    readiness: {
+      domControlReadinessByActorId: new Map(),
+      domIslandReadinessByActorId: new Map(),
+    },
+    snapshot: {
+      domControls: {
+        assignments: [],
+        controlById,
+        controls,
+        mountedControls: controls.filter((control) =>
+          mountedControlIds.includes(control.sourceId),
+        ),
+        snapshotControls: controls.filter((control) =>
+          snapshotControlIds.includes(control.sourceId),
+        ),
+        sourceRevision: `source:${frameId}`,
+      },
+      domIslands: {
+        islands,
+      },
+      frameIds: {
+        committedFrameId: frameId,
+        runtimeFrameId: frameId,
+      },
+      publicationToken: null,
+    },
+  } as unknown as GpuFlowBrowserVisualActorCandidate;
+}
+
+function domControl({
+  active = false,
+  caret = "hidden",
+  composition = "inactive",
+  selection = "none",
+  snapshotSurfaceId = null,
+  sourceId,
+}: {
+  readonly active?: boolean | undefined;
+  readonly caret?: "hidden" | "visible" | undefined;
+  readonly composition?: "active" | "inactive" | undefined;
+  readonly selection?: "collapsed" | "none" | "range" | undefined;
+  readonly snapshotSurfaceId?: string | null | undefined;
+  readonly sourceId: string;
+}) {
+  return {
+    active,
+    snapshotSurfaceId,
+    sourceId,
+    textCoverageState: {
+      caret,
+      composition,
+      selection,
+    },
+    visualSemantics: {
+      accessibility: active
+        ? "active-browser-editor"
+        : "visual-only-aria-hidden",
+    },
+  };
+}
+
+function liveProjectionSample(id: number): GpuFlowLiveProjectionSample {
+  return {
+    id,
+    retainedScrollOffsets: new Map(),
+    timestamp: id * 16,
+    viewport: [0, 0, 1],
+  } as unknown as GpuFlowLiveProjectionSample;
 }
 
 function resourceHandle(
