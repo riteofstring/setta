@@ -67,13 +67,9 @@ import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
 import {
-  resolveGpuFlowCommittedSurfacePublicationGate,
-  type GpuFlowCommittedSurfacePublicationGateEffect,
-} from "./flowCommittedSurfacePublication";
-import {
-  handleGpuFlowCommittedSurfacePublicationGate,
+  handleGpuFlowCommittedSurfacePublicationCandidate,
   type GpuFlowBlockedCommittedSurfacePublication,
-} from "./flowCommittedSurfacePublicationGateHandling";
+} from "./flowCommittedSurfacePublicationCandidateHandling";
 import {
   resolveActiveGpuFlowNodeId,
   resolveGpuFlowNodeInteractionActiveNodeId,
@@ -115,6 +111,10 @@ import {
 } from "./flowSurfaceTypes";
 import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "./flowVisibleProjectionState";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
+import {
+  prepareGpuFlowCommittedSurfacePublicationCandidate,
+  type GpuFlowCommittedSurfacePublicationEffect,
+} from "./visibleFramePublicationKernel";
 
 export function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
@@ -518,7 +518,7 @@ export function renderGpuFlowNodeLayerFrame({
   onRetainedDisplayFramePublishable,
   onRetainedDisplayFollowUpFrameNeeded,
   onNodeLayerFrameStatePublishable,
-  onCommittedSurfacePublicationGateEffect,
+  onCommittedSurfacePublicationEffect,
   onRetainedProjectionPublicationBlocked,
   onCommittedSurfaceFramePublishable,
   onBlockedSurfacePublication,
@@ -573,8 +573,8 @@ export function renderGpuFlowNodeLayerFrame({
   readonly onNodeLayerFrameStatePublishable?:
     | ((publication: GpuFlowNodeLayerFrameStatePublication) => void)
     | undefined;
-  readonly onCommittedSurfacePublicationGateEffect?:
-    | ((effect: GpuFlowCommittedSurfacePublicationGateEffect) => void)
+  readonly onCommittedSurfacePublicationEffect?:
+    | ((effect: GpuFlowCommittedSurfacePublicationEffect) => void)
     | undefined;
   readonly onCommittedSurfaceFramePublishable?:
     | ((frame: GpuFlowCommittedSurfaceFrame) => void)
@@ -745,8 +745,8 @@ export function renderGpuFlowNodeLayerFrame({
     viewportInteractionActive: deferResolutionUpdates,
   });
   diagnosticsMs += performance.now() - retainedDiagnosticsStart;
-  const committedSurfacePublicationGate =
-    resolveGpuFlowCommittedSurfacePublicationGate({
+  const committedSurfacePublicationCandidate =
+    prepareGpuFlowCommittedSurfacePublicationCandidate({
       committedGpuNativeVisuals,
       deferBrowserVisualRetry,
       frameReasons,
@@ -756,12 +756,12 @@ export function renderGpuFlowNodeLayerFrame({
       publishedCommittedSurfaceFrame,
       publishedRetainedFrame,
     });
-  onCommittedSurfacePublicationGateEffect?.(
-    committedSurfacePublicationGate.effect,
+  onCommittedSurfacePublicationEffect?.(
+    committedSurfacePublicationCandidate.effect,
   );
   const getRetainedDomControlRuntimeScrollOffset = (surfaceId: string) =>
     runtimeScrollOffsets.get(surfaceId) ?? null;
-  prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceGate({
+  prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceCandidate({
     input: {
       canvasSize,
       deferResolutionUpdates,
@@ -773,18 +773,18 @@ export function renderGpuFlowNodeLayerFrame({
       uploadBudget: layer.uploadBudget,
       viewport: liveProjectionSample.viewport,
     },
-    publicationKind: committedSurfacePublicationGate.kind,
+    publicationKind: committedSurfacePublicationCandidate.kind,
   });
-  const committedSurfacePublicationGateAction =
-    handleGpuFlowCommittedSurfacePublicationGate({
-      gate: committedSurfacePublicationGate,
+  const committedSurfacePublicationCandidateAction =
+    handleGpuFlowCommittedSurfacePublicationCandidate({
+      candidate: committedSurfacePublicationCandidate,
       onBlockedSurfacePublication,
       onCommittedSurfaceFramePublishable,
       onPreparedCommittedSurfaceFrameHeld,
       publishedCommittedSurfaceFrame,
     });
-  if (committedSurfacePublicationGateAction.kind === "return") {
-    return committedSurfacePublicationGateAction.visibleProjectionState;
+  if (committedSurfacePublicationCandidateAction.kind === "return") {
+    return committedSurfacePublicationCandidateAction.visibleProjectionState;
   }
   markGpuFlowRetainedContentFrameFreshnessDirty({
     deferResolutionUpdates,
@@ -926,9 +926,9 @@ export function renderGpuFlowNodeLayerFrame({
     viewportFrame,
     visibleNodeIdsRef,
   });
-  if (committedSurfacePublicationGate.kind !== "publish") {
+  if (committedSurfacePublicationCandidate.kind !== "publish") {
     throw new Error(
-      "GPU Flow committed surface publication continued without a publish gate.",
+      "GPU Flow committed surface publication continued without a publish candidate.",
     );
   }
   onRetainedDisplayFramePublishable?.(publishedRetainedFrame);
@@ -974,13 +974,13 @@ function shouldRequestGpuFlowRetainedDisplayFollowUpFrame({
   return outcomeKind === "hold-previous" && !deferResolutionUpdates;
 }
 
-function prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceGate({
+function prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceCandidate({
   input,
   publicationKind,
 }: {
   readonly input: Parameters<typeof prepareHtmlSurfaceOverlayTextures>[0];
   readonly publicationKind: ReturnType<
-    typeof resolveGpuFlowCommittedSurfacePublicationGate
+    typeof prepareGpuFlowCommittedSurfacePublicationCandidate
   >["kind"];
 }) {
   if (publicationKind === "publish") {

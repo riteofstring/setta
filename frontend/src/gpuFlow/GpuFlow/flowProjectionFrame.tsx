@@ -18,10 +18,7 @@ import type { MutableGpuFlowInteractionDiagnostics } from "../interactionDiagnos
 import { createGpuFlowInteractionDiagnosticsSnapshot } from "../interactionDiagnostics";
 import { type GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
 import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
-  createGpuFlowHeldPreviousProjection,
   createGpuFlowProjectionDebugState,
-  createGpuFlowProjectionTransactionForCommittedFrameId,
   type GpuFlowHeldPreviousProjection,
   type GpuFlowProjectionLane,
   type GpuFlowProjectionSchedulerKnobs,
@@ -56,6 +53,7 @@ import {
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
+import { decideGpuFlowRetainedProjectionPublicationTransaction } from "./visibleFramePublicationKernel";
 
 type GpuFlowRetainedProjectionFrame = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
@@ -409,65 +407,48 @@ export function resolveGpuFlowProjectionFrameTransaction({
       retainedDisplayFrame,
       transaction: requestedTransaction,
     });
-  if (
-    requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size === 0 ||
-    heldPreviousProjectionState === null
-  ) {
+  const publicationDecision =
+    decideGpuFlowRetainedProjectionPublicationTransaction({
+      frameReasons,
+      hasActiveRetainedDomControl:
+        hasActiveGpuFlowRetainedDomControl(retainedDisplayFrame),
+      heldPreviousProjectionState,
+      projectionSchedulerKnobs,
+      requestedProjectionCoverageMissing:
+        requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
+      requestedTransaction,
+    });
+  if (publicationDecision.kind === "project-requested") {
     return {
       blockedReason: null,
       heldPreviousProjection: null,
       retainedProjectionFrame: requestedRetainedProjectionFrame,
-      transaction: requestedTransaction,
+      transaction: publicationDecision.transaction,
     };
   }
-  const heldPreviousTransaction =
-    createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId:
-        heldPreviousProjectionState.committedFrame.displayFrameId,
-      kind: "held-previous",
-      lane: requestedTransaction.lane,
-      rawReasons: frameReasons,
-      sample: requestedTransaction.sample,
-    });
-  const heldPreviousProjection = createGpuFlowHeldPreviousProjection({
-    heldTransaction: heldPreviousTransaction,
-    knobs:
-      projectionSchedulerKnobs ?? DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
-    previousVisibleProjectionState: heldPreviousProjectionState,
-    reason: "retained-projection-coverage-missing",
-    requestedSample: requestedTransaction.sample,
-  });
-  if (isGpuFlowHeldPreviousProjectionOverBudget(heldPreviousProjection)) {
-    if (hasActiveGpuFlowRetainedDomControl(retainedDisplayFrame)) {
-      return {
-        blockedReason: null,
-        heldPreviousProjection: null,
-        retainedProjectionFrame: requestedRetainedProjectionFrame,
-        transaction: requestedTransaction,
-      };
-    }
+  if (publicationDecision.kind === "blocked") {
     return {
-      blockedReason: "held-previous-budget-exceeded",
-      heldPreviousProjection,
+      blockedReason: publicationDecision.blockedReason,
+      heldPreviousProjection: publicationDecision.heldPreviousProjection,
       retainedProjectionFrame: requestedRetainedProjectionFrame,
-      transaction: requestedTransaction,
+      transaction: publicationDecision.transaction,
     };
   }
   const heldProjectionFrame = resolveGpuFlowRetainedProjectionFrame({
     layer,
     retainedDisplayFrame,
-    transaction: heldPreviousTransaction,
+    transaction: publicationDecision.transaction,
   });
   return {
     blockedReason: null,
-    heldPreviousProjection,
+    heldPreviousProjection: publicationDecision.heldPreviousProjection,
     retainedProjectionFrame: {
       ...heldProjectionFrame,
       needsRetainedPageMaintenance:
         heldProjectionFrame.needsRetainedPageMaintenance ||
         requestedRetainedProjectionFrame.needsRetainedPageMaintenance,
     },
-    transaction: heldPreviousTransaction,
+    transaction: publicationDecision.transaction,
   };
 }
 
@@ -476,15 +457,6 @@ function hasActiveGpuFlowRetainedDomControl(
 ): boolean {
   return retainedDisplayFrame.retainedRuntimeFrame.descriptors.domControlSources.some(
     (control) => control.active,
-  );
-}
-
-function isGpuFlowHeldPreviousProjectionOverBudget(
-  heldPreviousProjection: GpuFlowHeldPreviousProjection,
-): boolean {
-  return Boolean(
-    heldPreviousProjection.maxHeldPreviousFramesExceeded ||
-      heldPreviousProjection.maxHeldPreviousMsExceeded,
   );
 }
 

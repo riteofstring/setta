@@ -5,6 +5,7 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
+import { assertGpuFlowCommitPublicationToken } from "./visibleFramePublicationAuthority";
 import { createGpuFlowVisibleFrameCommitPublicationToken } from "./visibleFramePublicationKernel";
 
 describe("GPU Flow visible publication authority behavior", () => {
@@ -33,7 +34,7 @@ describe("GPU Flow visible publication authority behavior", () => {
         }),
         projectionSample: liveProjectionSample(),
       }),
-    ).toThrow(/coherent DOM\/canvas presentation pair/);
+    ).toThrow(/DOM and canvas generations for the same committed frame/);
   });
 
   it("rejects commit authority when the DOM generation is not staged and exposable", () => {
@@ -94,6 +95,30 @@ describe("GPU Flow visible publication authority behavior", () => {
         projectionSample: liveProjectionSample(),
       }),
     ).toThrow(/same presentation batch/);
+  });
+
+  it("rejects commit tokens when the DOM/canvas presentation proof changes after minting", () => {
+    const frame = committedSurfaceFrame();
+    const token = createGpuFlowVisibleFrameCommitPublicationToken({
+      frame,
+      projectionSample: liveProjectionSample(),
+    });
+
+    expect(() =>
+      assertGpuFlowCommitPublicationToken({
+        frame: {
+          ...frame,
+          presentationProof: {
+            ...frame.presentationProof,
+            domGeneration: {
+              ...frame.presentationProof.domGeneration,
+              presentationBatchId: "presentation:stale-dom",
+            },
+          },
+        } as unknown as GpuFlowCommittedSurfaceFrame,
+        token,
+      }),
+    ).toThrow(/commit publication token for the same visible frame/);
   });
 });
 

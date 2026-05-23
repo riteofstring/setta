@@ -8,18 +8,20 @@ import type { GpuSurfaceHandle } from "../GpuSurface";
 import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import {
-  applyGpuFlowCommittedSurfacePublicationGateEffect,
+  applyGpuFlowCommittedSurfacePublicationEffect,
   recordGpuFlowBlockedVisiblePublication,
-  resolveGpuFlowCommittedSurfacePublicationGate,
-  type GpuFlowCommittedSurfacePublicationGateEffect,
 } from "./flowCommittedSurfacePublication";
 import {
   GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
 } from "./visibleFramePublicationAuthority";
-import { createGpuFlowVisibleFrameBlockedPublicationToken } from "./visibleFramePublicationKernel";
+import {
+  createGpuFlowVisibleFrameBlockedPublicationToken,
+  prepareGpuFlowCommittedSurfacePublicationCandidate,
+  type GpuFlowCommittedSurfacePublicationEffect,
+} from "./visibleFramePublicationKernel";
 
-describe("GPU Flow committed surface publication gate", () => {
+describe("GPU Flow committed surface publication effect executor", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
@@ -38,8 +40,8 @@ describe("GPU Flow committed surface publication gate", () => {
   it("emits browser visual starvation reports for blocked actor coverage", () => {
     const canvas = document.createElement("canvas");
     const requestFrame = vi.fn();
-    const result = resolveGpuFlowCommittedSurfacePublicationGate(
-      gateInput({
+    const result = prepareGpuFlowCommittedSurfacePublicationCandidate(
+      publicationCandidateInput({
         timestamp: 10,
       }),
     );
@@ -55,7 +57,7 @@ describe("GPU Flow committed surface publication gate", () => {
     expect(result.preservePreparationSnapshot).toBe(true);
     expect(requestFrame).not.toHaveBeenCalled();
     expect(readStarvationReports()).toEqual([]);
-    applyGateEffect(result.effect, { canvas, requestFrame });
+    applyPublicationEffect(result.effect, { canvas, requestFrame });
     expect(requestFrame).not.toHaveBeenCalled();
     expect(readStarvationReports()).toEqual([
       expect.objectContaining({
@@ -79,15 +81,15 @@ describe("GPU Flow committed surface publication gate", () => {
     const canvas = document.createElement("canvas");
     const requestFrame = vi.fn();
 
-    const result = resolveGpuFlowCommittedSurfacePublicationGate(
-      gateInput({
+    const result = prepareGpuFlowCommittedSurfacePublicationCandidate(
+      publicationCandidateInput({
         deferBrowserVisualRetry: true,
         timestamp: 10,
       }),
     );
 
     expect(result.kind).toBe("blocked");
-    applyGateEffect(result.effect, { canvas, requestFrame });
+    applyPublicationEffect(result.effect, { canvas, requestFrame });
     expect(requestFrame).not.toHaveBeenCalled();
     vi.advanceTimersByTime(159);
     expect(requestFrame).not.toHaveBeenCalled();
@@ -145,9 +147,9 @@ describe("GPU Flow committed surface publication gate", () => {
       index += 1
     ) {
       expect(() =>
-        applyGateEffect(
-          resolveGpuFlowCommittedSurfacePublicationGate(
-            gateInput({
+        applyPublicationEffect(
+          prepareGpuFlowCommittedSurfacePublicationCandidate(
+            publicationCandidateInput({
               timestamp: index,
             }),
           ).effect,
@@ -157,9 +159,9 @@ describe("GPU Flow committed surface publication gate", () => {
     }
 
     expect(() =>
-      applyGateEffect(
-        resolveGpuFlowCommittedSurfacePublicationGate(
-          gateInput({
+      applyPublicationEffect(
+        prepareGpuFlowCommittedSurfacePublicationCandidate(
+          publicationCandidateInput({
             timestamp:
               DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames,
           }),
@@ -170,13 +172,13 @@ describe("GPU Flow committed surface publication gate", () => {
   });
 });
 
-function gateInput({
+function publicationCandidateInput({
   deferBrowserVisualRetry = false,
   timestamp,
 }: {
   readonly deferBrowserVisualRetry?: boolean | undefined;
   readonly timestamp: number;
-}): Parameters<typeof resolveGpuFlowCommittedSurfacePublicationGate>[0] {
+}): Parameters<typeof prepareGpuFlowCommittedSurfacePublicationCandidate>[0] {
   const retainedFrame = {} as RetainedDisplayFrame;
   return {
     committedGpuNativeVisuals: undefined,
@@ -188,12 +190,12 @@ function gateInput({
     publishedCommittedSurfaceFrame: blockedCommittedSurfaceFrame(),
     publishedRetainedFrame: retainedFrame,
   } as unknown as Parameters<
-    typeof resolveGpuFlowCommittedSurfacePublicationGate
+    typeof prepareGpuFlowCommittedSurfacePublicationCandidate
   >[0];
 }
 
-function applyGateEffect(
-  effect: GpuFlowCommittedSurfacePublicationGateEffect,
+function applyPublicationEffect(
+  effect: GpuFlowCommittedSurfacePublicationEffect,
   {
     canvas,
     requestFrame,
@@ -202,7 +204,7 @@ function applyGateEffect(
     readonly requestFrame: (reason: GpuFrameReason) => void;
   },
 ): void {
-  applyGpuFlowCommittedSurfacePublicationGateEffect({
+  applyGpuFlowCommittedSurfacePublicationEffect({
     effect,
     runtimeCanvas: canvas,
     surfaceRef: {

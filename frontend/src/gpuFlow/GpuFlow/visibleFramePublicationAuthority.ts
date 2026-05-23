@@ -198,19 +198,6 @@ function assertGpuFlowPresentationPairFeasible({
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
 }): void {
-  const frameIds = [
-    frame.coherence.canvasRetainedFrameId,
-    frame.coherence.debugSnapshotFrameId,
-    frame.coherence.domControlCommittedFrameId,
-    frame.coherence.domIslandCommittedFrameId,
-    frame.coherence.gpuNativeVisualCommittedFrameId,
-    frame.coherence.htmlTextureOverlayCommittedFrameId,
-  ];
-  if (frameIds.some((frameId) => frameId !== frame.displayFrameId)) {
-    throw new Error(
-      "GPU Flow commit publication authority requires one coherent DOM/canvas presentation pair.",
-    );
-  }
   assertGpuFlowCommittedSurfacePresentationProof(frame);
 }
 
@@ -639,10 +626,25 @@ function createGpuFlowPresentationPairDigest({
     canvasGeneration: frame.presentationProof.canvasGeneration,
     domGeneration: frame.presentationProof.domGeneration,
     presentationBatchId: frame.presentationProof.batchId,
+    presentationProofDigest: createGpuFlowPresentationProofDigest(frame),
     projectionSampleId,
     proofDigest: createGpuFlowVisibleProofDigest(frame),
     proofPresentationActorManifestDigest:
       frame.presentationProof.actorManifestDigest,
+    surfaceTransactionDigest: frame.presentationProof.surfaceTransactionDigest,
+  });
+}
+
+function createGpuFlowPresentationProofDigest(
+  frame: GpuFlowCommittedSurfaceFrame,
+): string {
+  return JSON.stringify({
+    actorManifestDigest: frame.presentationProof.actorManifestDigest,
+    browserVisualFragmentDigest:
+      frame.presentationProof.browserVisualFragmentDigest,
+    canvasGeneration: frame.presentationProof.canvasGeneration,
+    domGeneration: frame.presentationProof.domGeneration,
+    presentationBatchId: frame.presentationProof.batchId,
     surfaceTransactionDigest: frame.presentationProof.surfaceTransactionDigest,
   });
 }

@@ -637,6 +637,20 @@ export function assertGpuFlowCommittedSurfacePresentationProof(
       "GPU Flow committed surface presentation proof requires canvas generation prepared and exposable.",
     );
   }
+  const presentedFrameIds = [
+    proof.domGeneration.browserVisualCommittedFrameId,
+    proof.domGeneration.domControlCommittedFrameId,
+    proof.domGeneration.domIslandCommittedFrameId,
+    proof.canvasGeneration.canvasRetainedFrameId,
+    proof.canvasGeneration.debugSnapshotFrameId,
+    proof.canvasGeneration.gpuNativeVisualCommittedFrameId,
+    proof.canvasGeneration.htmlTextureOverlayCommittedFrameId,
+  ];
+  if (presentedFrameIds.some((frameId) => frameId !== frame.displayFrameId)) {
+    throw new Error(
+      "GPU Flow committed surface presentation proof requires DOM and canvas generations for the same committed frame.",
+    );
+  }
   const expected = createGpuFlowCommittedSurfacePresentationProof({
     actorGenerations: frame.actorGenerations,
     browserVisualSurfaceFragment: frame.browserVisualSurfaceFragment,

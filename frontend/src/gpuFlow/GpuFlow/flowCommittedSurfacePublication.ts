@@ -2,22 +2,12 @@ import type { MutableRefObject } from "react";
 import { postChromeReproEvent } from "state/actions/chromeRepro";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceHandle } from "../GpuSurface";
-import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
+import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntime";
 import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
-  type GpuFlowLiveProjectionSample,
-  type GpuFlowProjectionLane,
-  type GpuFlowVisibleProjectionState,
-} from "../projectionRuntime";
-import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import {
-  createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction,
-  decideGpuFlowCommittedSurfacePublicationTransaction,
   getGpuFlowBrowserVisualBlockedReason,
   getGpuFlowCommittedSurfacePublishabilityActorIds,
-  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowCommittedSurfacePublicationEffect,
 } from "./visibleFramePublicationKernel";
 import type {
   GpuFlowBlockedFrozenFrame,
@@ -25,42 +15,6 @@ import type {
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationTokens";
-
-export type GpuFlowCommittedSurfacePublicationGateEffect =
-  | {
-      readonly kind: "publish";
-    }
-  | {
-      readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
-      readonly deferRetry: boolean;
-      readonly kind: "blocked";
-      readonly timestamp: number;
-    }
-  | {
-      readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
-      readonly deferRetry: boolean;
-      readonly kind: "held-previous";
-      readonly timestamp: number;
-    };
-
-type GpuFlowCommittedSurfacePublicationGateResult =
-  | {
-      readonly effect: GpuFlowCommittedSurfacePublicationGateEffect;
-      readonly kind: "publish";
-    }
-  | {
-      readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
-      readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
-      readonly effect: GpuFlowCommittedSurfacePublicationGateEffect;
-      readonly errorMessage: string | null;
-      readonly kind: "blocked";
-      readonly preservePreparationSnapshot: boolean;
-    }
-  | {
-      readonly effect: GpuFlowCommittedSurfacePublicationGateEffect;
-      readonly kind: "held-previous";
-      readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-    };
 
 type GpuFlowBrowserVisualStarvationOutcome = "blocked" | "held-previous";
 
@@ -115,87 +69,8 @@ const browserVisualStarvationDebtByCanvas = new WeakMap<
 const browserVisualRetryFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
 const GPU_FLOW_BROWSER_VISUAL_DEFERRED_RETRY_MS = 160;
 
-export function resolveGpuFlowCommittedSurfacePublicationGate({
-  committedGpuNativeVisuals,
-  deferBrowserVisualRetry,
-  frameReasons,
-  heldPreviousProjectionState,
-  liveProjectionSample,
-  publicationLane,
-  publishedCommittedSurfaceFrame,
-  publishedRetainedFrame,
-}: {
-  readonly committedGpuNativeVisuals:
-    | readonly HtmlSurfaceSolidRoundedRectVisual[]
-    | undefined;
-  readonly deferBrowserVisualRetry?: boolean | undefined;
-  readonly frameReasons: readonly GpuFrameReason[];
-  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly liveProjectionSample: GpuFlowLiveProjectionSample;
-  readonly publicationLane: Extract<
-    GpuFlowProjectionLane,
-    "content" | "maintenance"
-  >;
-  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
-  readonly publishedRetainedFrame: RetainedDisplayFrame;
-}): GpuFlowCommittedSurfacePublicationGateResult {
-  const transactionDecision =
-    decideGpuFlowCommittedSurfacePublicationTransaction({
-      heldPreviousProjectionState,
-      publishedCommittedSurfaceFrame,
-    });
-  if (transactionDecision.kind === "publish") {
-    return {
-      effect: { kind: "publish" },
-      kind: "publish",
-    };
-  }
-  if (!publishedCommittedSurfaceFrame) {
-    throw new Error(
-      "GPU Flow committed surface publication transaction blocked without a candidate frame.",
-    );
-  }
-  if (transactionDecision.kind === "blocked") {
-    return {
-      blockedPublicationCandidate:
-        transactionDecision.blockedPublicationCandidate,
-      candidateFrame: publishedCommittedSurfaceFrame,
-      effect: {
-        candidateFrame: publishedCommittedSurfaceFrame,
-        deferRetry: deferBrowserVisualRetry === true,
-        kind: "blocked",
-        timestamp: liveProjectionSample.timestamp,
-      },
-      errorMessage: transactionDecision.errorMessage,
-      kind: "blocked",
-      preservePreparationSnapshot:
-        shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair(
-          transactionDecision.blockedPublicationCandidate,
-        ),
-    };
-  }
-  const heldPreviousTransaction =
-    createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction({
-      committedGpuNativeVisuals,
-      frameReasons,
-      heldPreviousProjectionState,
-      liveProjectionSample,
-      publicationLane,
-      publishedRetainedFrame,
-    });
-  return {
-    ...heldPreviousTransaction,
-    effect: {
-      candidateFrame: publishedCommittedSurfaceFrame,
-      deferRetry: deferBrowserVisualRetry === true,
-      kind: "held-previous",
-      timestamp: liveProjectionSample.timestamp,
-    },
-  };
-}
-
-export function applyGpuFlowCommittedSurfacePublicationGateEffect(application: {
-  readonly effect: GpuFlowCommittedSurfacePublicationGateEffect | null;
+export function applyGpuFlowCommittedSurfacePublicationEffect(application: {
+  readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly token:
@@ -577,19 +452,6 @@ function emitGpuFlowBlockedVisiblePublicationEvent({
     new CustomEvent("setta-gpu-flow-blocked-visible-publication", {
       detail: event,
     }),
-  );
-}
-
-function shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair(
-  candidate: GpuFlowVisibleFrameBlockedPublicationCandidate,
-): boolean {
-  return candidate.blockedReasons.some(
-    (reason) =>
-      reason.family === "dom-control" ||
-      reason.family === "dom-island" ||
-      reason.reason === "snapshot-pending" ||
-      reason.reason === "live-dom-budget" ||
-      reason.reason === "visible-dom-control-not-projected",
   );
 }
 

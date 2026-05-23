@@ -1,17 +1,17 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
-import type { resolveGpuFlowCommittedSurfacePublicationGate } from "./flowCommittedSurfacePublication";
+import type { prepareGpuFlowCommittedSurfacePublicationCandidate } from "./visibleFramePublicationKernel";
 
-type GpuFlowCommittedSurfacePublicationGate = ReturnType<
-  typeof resolveGpuFlowCommittedSurfacePublicationGate
+type GpuFlowCommittedSurfacePublicationCandidate = ReturnType<
+  typeof prepareGpuFlowCommittedSurfacePublicationCandidate
 >;
 
 export type GpuFlowBlockedCommittedSurfacePublication = Extract<
-  GpuFlowCommittedSurfacePublicationGate,
+  GpuFlowCommittedSurfacePublicationCandidate,
   { readonly kind: "blocked" }
 >;
 
-type GpuFlowCommittedSurfacePublicationGateAction =
+type GpuFlowCommittedSurfacePublicationCandidateAction =
   | {
       readonly kind: "continue";
     }
@@ -20,14 +20,14 @@ type GpuFlowCommittedSurfacePublicationGateAction =
       readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
     };
 
-export function handleGpuFlowCommittedSurfacePublicationGate({
-  gate,
+export function handleGpuFlowCommittedSurfacePublicationCandidate({
+  candidate,
   onBlockedSurfacePublication,
   onCommittedSurfaceFramePublishable,
   onPreparedCommittedSurfaceFrameHeld,
   publishedCommittedSurfaceFrame,
 }: {
-  readonly gate: GpuFlowCommittedSurfacePublicationGate;
+  readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
   readonly onBlockedSurfacePublication:
     | ((publication: GpuFlowBlockedCommittedSurfacePublication) => void)
     | undefined;
@@ -45,25 +45,25 @@ export function handleGpuFlowCommittedSurfacePublicationGate({
       ) => void)
     | undefined;
   readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
-}): GpuFlowCommittedSurfacePublicationGateAction {
-  switch (gate.kind) {
+}): GpuFlowCommittedSurfacePublicationCandidateAction {
+  switch (candidate.kind) {
     case "blocked":
-      handleGpuFlowBlockedCommittedSurfacePublicationGate({
-        gate,
+      handleGpuFlowBlockedCommittedSurfacePublicationCandidate({
+        candidate,
         onBlockedSurfacePublication,
       });
       return { kind: "return", visibleProjectionState: null };
     case "held-previous":
-      handleGpuFlowHeldPreviousCommittedSurfacePublicationGate({
+      handleGpuFlowHeldPreviousCommittedSurfacePublicationCandidate({
         onPreparedCommittedSurfaceFrameHeld,
         publishedCommittedSurfaceFrame,
       });
       return {
         kind: "return",
-        visibleProjectionState: gate.visibleProjectionState,
+        visibleProjectionState: candidate.visibleProjectionState,
       };
     case "publish":
-      handleGpuFlowPublishCommittedSurfacePublicationGate({
+      handleGpuFlowPublishCommittedSurfacePublicationCandidate({
         onCommittedSurfaceFramePublishable,
         publishedCommittedSurfaceFrame,
       });
@@ -71,22 +71,22 @@ export function handleGpuFlowCommittedSurfacePublicationGate({
   }
 }
 
-function handleGpuFlowBlockedCommittedSurfacePublicationGate({
-  gate,
+function handleGpuFlowBlockedCommittedSurfacePublicationCandidate({
+  candidate,
   onBlockedSurfacePublication,
 }: {
-  readonly gate: Extract<
-    GpuFlowCommittedSurfacePublicationGate,
+  readonly candidate: Extract<
+    GpuFlowCommittedSurfacePublicationCandidate,
     { readonly kind: "blocked" }
   >;
   readonly onBlockedSurfacePublication:
     | ((publication: GpuFlowBlockedCommittedSurfacePublication) => void)
     | undefined;
 }): void {
-  onBlockedSurfacePublication?.(gate);
+  onBlockedSurfacePublication?.(candidate);
 }
 
-function handleGpuFlowHeldPreviousCommittedSurfacePublicationGate({
+function handleGpuFlowHeldPreviousCommittedSurfacePublicationCandidate({
   onPreparedCommittedSurfaceFrameHeld,
   publishedCommittedSurfaceFrame,
 }: {
@@ -109,7 +109,7 @@ function handleGpuFlowHeldPreviousCommittedSurfacePublicationGate({
   }
 }
 
-function handleGpuFlowPublishCommittedSurfacePublicationGate({
+function handleGpuFlowPublishCommittedSurfacePublicationCandidate({
   onCommittedSurfaceFramePublishable,
   publishedCommittedSurfaceFrame,
 }: {
