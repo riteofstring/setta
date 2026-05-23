@@ -166,6 +166,19 @@ describe("GPU Flow committed surface publication effect executor", () => {
 
     recordGpuFlowBlockedVisiblePublication({
       frame: null,
+      publicationCompletion: {
+        debt: { content: true, maintenance: false, motion: false },
+        outcome: "blocked",
+      },
+      publicationDecision: {
+        debt: { content: false, maintenance: false, motion: false },
+        lane: "content",
+        rawReasons: ["texture-upload"],
+        sample: { id: 9 },
+        schedulerState: "content-catchup",
+      } as unknown as Parameters<
+        typeof recordGpuFlowBlockedVisiblePublication
+      >[0]["publicationDecision"],
       runtimeCanvas: canvas,
       token,
     });
@@ -181,7 +194,11 @@ describe("GPU Flow committed surface publication effect executor", () => {
         ],
         candidateFrameId: null,
         frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+        publicationLane: "content",
         projectionSampleId: 9,
+        remainingDebt: { content: true, maintenance: false, motion: false },
+        schedulerOutcome: "blocked",
+        schedulerState: "content-catchup",
       }),
     ]);
   });

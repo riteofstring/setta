@@ -3,11 +3,15 @@ import { postChromeReproEvent } from "state/actions/chromeRepro";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuSurfaceHandle } from "../GpuSurface";
-import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntime";
+import {
+  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  type GpuFlowVisiblePublicationDecision,
+} from "../projectionRuntime";
 import {
   getGpuFlowBrowserVisualBlockedReason,
   getGpuFlowCommittedSurfacePublishabilityActorIds,
   type GpuFlowCommittedSurfacePublicationEffect,
+  type GpuFlowVisiblePublicationTransactionCompletion,
 } from "./visibleFramePublicationKernel";
 import {
   assertGpuFlowBlockedPublicationTokenBrand,
@@ -44,7 +48,11 @@ type GpuFlowBlockedVisiblePublicationEvent = {
   readonly candidateFrameId: number | null;
   readonly frozenFrame: GpuFlowBlockedFrozenFrame;
   readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
+  readonly publicationLane: GpuFlowVisiblePublicationDecision["lane"];
   readonly projectionSampleId: number;
+  readonly remainingDebt: GpuFlowVisiblePublicationTransactionCompletion["completion"]["debt"];
+  readonly schedulerOutcome: GpuFlowVisiblePublicationTransactionCompletion["completion"]["outcome"];
+  readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
   readonly tokenTransactionId: string;
 };
 
@@ -447,10 +455,14 @@ function emitGpuFlowBrowserVisualStarvationReports({
 
 export function recordGpuFlowBlockedVisiblePublication({
   frame,
+  publicationCompletion,
+  publicationDecision,
   runtimeCanvas,
   token,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
+  readonly publicationCompletion: GpuFlowVisiblePublicationTransactionCompletion["completion"];
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly token: GpuFlowBlockedPublicationToken;
 }): GpuFlowBlockedPublicationToken {
@@ -459,7 +471,11 @@ export function recordGpuFlowBlockedVisiblePublication({
     candidateFrameId: frame?.displayFrameId ?? null,
     frozenFrame: token.frozenFrame,
     frozenFrameId: token.frozenFrameId,
+    publicationLane: publicationDecision.lane,
     projectionSampleId: token.projectionSampleId,
+    remainingDebt: publicationCompletion.debt,
+    schedulerOutcome: publicationCompletion.outcome,
+    schedulerState: publicationDecision.schedulerState,
     tokenTransactionId: token.transactionId,
   } satisfies GpuFlowBlockedVisiblePublicationEvent);
   emitGpuFlowBlockedVisiblePublicationEvent({
@@ -471,7 +487,11 @@ export function recordGpuFlowBlockedVisiblePublication({
     candidateFrameId: event.candidateFrameId,
     frozenFrame: event.frozenFrame,
     frozenFrameId: event.frozenFrameId,
+    publicationLane: event.publicationLane,
     projectionSampleId: event.projectionSampleId,
+    remainingDebt: event.remainingDebt,
+    schedulerOutcome: event.schedulerOutcome,
+    schedulerState: event.schedulerState,
     transactionId: event.tokenTransactionId,
   });
   return token;

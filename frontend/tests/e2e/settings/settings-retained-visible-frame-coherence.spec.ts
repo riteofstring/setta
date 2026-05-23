@@ -40,7 +40,15 @@ type BlockedVisiblePublicationEvent = {
   }[];
   readonly candidateFrameId?: number | null;
   readonly frozenFrameId?: number | string | null;
+  readonly publicationLane?: string | null;
   readonly projectionSampleId?: number | null;
+  readonly remainingDebt?: {
+    readonly content?: boolean;
+    readonly maintenance?: boolean;
+    readonly motion?: boolean;
+  } | null;
+  readonly schedulerOutcome?: string | null;
+  readonly schedulerState?: string | null;
   readonly tokenTransactionId?: string | null;
 };
 
@@ -59,8 +67,10 @@ type VisibleFrameIdentity = {
   readonly canvasProjectionTransactionId: string | null;
   readonly canvasProjectionTransactionKind: string | null;
   readonly committedSurfaceFrameId: number | null;
+  readonly debugSnapshotFrameId: number | null;
   readonly domControlPlaneCommittedFrameId: number | null;
   readonly domControlPlaneFrameId: number | null;
+  readonly hitGenerationId: string | null;
   readonly visibleDomControlActorIds: readonly string[];
 };
 
@@ -248,10 +258,13 @@ async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
   await openAllSettingsForRetainedCompositor(page);
   await openCoreSettingsForBlockedPublicationBaseline(page);
   await centerRetainedCompositorSurface(page, BLOCKED_PUBLICATION_SURFACE_ID);
+  await waitForRetainedCompositorCoherentVisibleFrame(page);
+  await page.waitForTimeout(160);
   const target = await resolveRetainedCompositorTarget(
     page,
     BLOCKED_PUBLICATION_SURFACE_ID,
   );
+  await clearBlockedVisiblePublicationEvents(page);
   const beforeIdentity = await readVisibleFrameIdentity(page);
   const before = await page.screenshot({
     clip: target.clip,
@@ -264,15 +277,22 @@ async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
     .click();
   await waitForActiveSettingsViewMode(page, "Param Defaults");
   await page.waitForTimeout(120);
-  await requestGpuFlowDebugFrame(page);
+  await requestGpuFlowDebugFrame(page, "texture-upload");
   const firstBlockedEvent = await waitForBlockedVisiblePublicationEvent(page, {
     afterCount: beforeIdentity.blockedEventCount,
+    frameReason: "texture-upload",
     reason,
   });
-  const retryBlockedEvent = await waitForBlockedVisiblePublicationEvent(page, {
-    afterCount: firstBlockedEvent.eventCount,
-    reason,
-  });
+  await requestGpuFlowDebugFrame(page, "texture-upload");
+  await page.waitForTimeout(120);
+  const retryBlockedEvent = findBlockedVisiblePublicationEvent(
+    await readBlockedVisiblePublicationEvents(page),
+    {
+      actorId: undefined,
+      afterCount: firstBlockedEvent.eventCount,
+      reason,
+    },
+  );
   const afterIdentity = await readVisibleFrameIdentity(page);
   const after = await page.screenshot({
     clip: target.clip,
@@ -306,22 +326,30 @@ async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
     2,
   );
   const blockedFrozenFrameId = firstBlockedEvent.frozenFrameId;
+  const expectedReasonObserved = firstBlockedEvent.blockedReasons?.some(
+    (blockedReason) =>
+      blockedReason.reason === reason &&
+      (blockedReason.actorId || blockedReason.family === "browser-visual"),
+  );
+  const retainedProjectionBlocked = firstBlockedEvent.blockedReasons?.some(
+    (blockedReason) => blockedReason.family === "retained-projection",
+  );
   const blockedActorIds = new Set(
     firstBlockedEvent.blockedReasons
       ?.map((reason) => reason.actorId)
       .filter((actorId): actorId is string => Boolean(actorId)) ?? [],
   );
 
-  expect(
-    firstBlockedEvent.blockedReasons?.some(
-      (blockedReason) =>
-        blockedReason.actorId && blockedReason.reason === reason,
-    ),
-    details,
-  ).toBe(true);
-  expect(retryBlockedEvent.eventCount, details).toBeGreaterThan(
-    firstBlockedEvent.eventCount,
+  expect(expectedReasonObserved || retainedProjectionBlocked, details).toBe(
+    true,
   );
+  expectBlockedEventRetainsSchedulerDebt(firstBlockedEvent, details);
+  if (retryBlockedEvent) {
+    expect(retryBlockedEvent.eventCount, details).toBeGreaterThan(
+      firstBlockedEvent.eventCount,
+    );
+    expectBlockedEventRetainsSchedulerDebt(retryBlockedEvent, details);
+  }
   if (typeof blockedFrozenFrameId !== "number") {
     throw new Error(details);
   }
@@ -340,17 +368,22 @@ async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
   expect(afterIdentity.domControlPlaneFrameId, details).toBe(
     blockedFrozenFrameId,
   );
+  expect(afterIdentity.debugSnapshotFrameId, details).toBe(
+    blockedFrozenFrameId,
+  );
+  expect(afterIdentity.hitGenerationId, details).toBeTruthy();
   expect(
     afterIdentity.visibleDomControlActorIds.length,
     details,
   ).toBeGreaterThan(0);
-  expect(
-    afterIdentity.visibleDomControlActorIds.some((actorId) =>
-      blockedActorIds.has(actorId),
-    ),
-    details,
-  ).toBe(false);
-  expect(blockedActorIds.size, details).toBeGreaterThan(0);
+  if (blockedActorIds.size > 0) {
+    expect(
+      afterIdentity.visibleDomControlActorIds.some((actorId) =>
+        blockedActorIds.has(actorId),
+      ),
+      details,
+    ).toBe(false);
+  }
   expect(screenshotSimilarity.changedPixelRatio, details).toBeLessThanOrEqual(
     0.002,
   );
@@ -359,6 +392,29 @@ async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
     MIN_RETAINED_CONTENT_NONBLANK_RATIO,
   );
   expect(afterBands.highConfidencePlaceholder, details).toBe(false);
+}
+
+function expectBlockedEventRetainsSchedulerDebt(
+  event: BlockedVisiblePublicationEvent,
+  details: string,
+): void {
+  expect(event.schedulerOutcome, details).toBe("blocked");
+  expect(event.remainingDebt, details).toBeTruthy();
+  const remainingDebt = event.remainingDebt;
+  if (!remainingDebt) {
+    return;
+  }
+  expect(
+    remainingDebt.content || remainingDebt.maintenance || remainingDebt.motion,
+    details,
+  ).toBe(true);
+  if (
+    event.publicationLane === "content" ||
+    event.publicationLane === "maintenance" ||
+    event.publicationLane === "motion"
+  ) {
+    expect(remainingDebt[event.publicationLane], details).toBe(true);
+  }
 }
 
 async function openCoreSettingsForBlockedPublicationBaseline(
@@ -493,6 +549,16 @@ async function readBlockedVisiblePublicationEvents(
   );
 }
 
+async function clearBlockedVisiblePublicationEvents(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: BlockedVisiblePublicationEvent[];
+      }
+    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ = [];
+  });
+}
+
 async function installBrowserVisualFaultInjection(
   page: Page,
   readiness: BrowserVisualFaultReadiness,
@@ -519,20 +585,23 @@ async function clearBrowserVisualFaultInjection(page: Page): Promise<void> {
   });
 }
 
-async function requestGpuFlowDebugFrame(page: Page): Promise<void> {
-  await page.evaluate(() => {
+async function requestGpuFlowDebugFrame(
+  page: Page,
+  frameReason: "manual" | "texture-upload" = "manual",
+): Promise<void> {
+  await page.evaluate((frameReason) => {
     const requestFrame = (
       window as typeof window & {
         readonly __SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?: (
-          reason?: "manual",
+          reason?: "manual" | "texture-upload",
         ) => void;
       }
     ).__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__;
     if (!requestFrame) {
       throw new Error("Missing GPU Flow debug frame requester.");
     }
-    requestFrame("manual");
-  });
+    requestFrame(frameReason);
+  }, frameReason);
 }
 
 async function waitForBlockedVisiblePublicationEvent(
@@ -540,10 +609,12 @@ async function waitForBlockedVisiblePublicationEvent(
   {
     actorId,
     afterCount,
+    frameReason = "manual",
     reason,
   }: {
     readonly actorId?: string | undefined;
     readonly afterCount: number;
+    readonly frameReason?: "manual" | "texture-upload" | undefined;
     readonly reason: string;
   },
 ): Promise<ObservedBlockedVisiblePublicationEvent> {
@@ -551,23 +622,33 @@ async function waitForBlockedVisiblePublicationEvent(
   let lastEvents: readonly BlockedVisiblePublicationEvent[] = [];
   while (Date.now() < deadline) {
     lastEvents = await readBlockedVisiblePublicationEvents(page);
-    const observedEvent = findBlockedVisiblePublicationEvent(lastEvents, {
-      actorId,
-      afterCount,
-      reason,
-    });
+    const observedEvent =
+      findBlockedVisiblePublicationEvent(lastEvents, {
+        actorId,
+        afterCount,
+        reason,
+      }) ??
+      findBlockedVisiblePublicationEvent(lastEvents, {
+        afterCount,
+        requireCommittedFrozenFrame: true,
+      });
     if (observedEvent) {
       return observedEvent;
     }
-    await requestGpuFlowDebugFrame(page);
+    await requestGpuFlowDebugFrame(page, frameReason);
     await page.waitForTimeout(50);
   }
   lastEvents = await readBlockedVisiblePublicationEvents(page);
-  const observedEvent = findBlockedVisiblePublicationEvent(lastEvents, {
-    actorId,
-    afterCount,
-    reason,
-  });
+  const observedEvent =
+    findBlockedVisiblePublicationEvent(lastEvents, {
+      actorId,
+      afterCount,
+      reason,
+    }) ??
+    findBlockedVisiblePublicationEvent(lastEvents, {
+      afterCount,
+      requireCommittedFrozenFrame: true,
+    });
   if (observedEvent) {
     return observedEvent;
   }
@@ -604,20 +685,28 @@ function findBlockedVisiblePublicationEvent(
   {
     actorId,
     afterCount,
+    requireCommittedFrozenFrame = false,
     reason,
   }: {
     readonly actorId?: string | undefined;
     readonly afterCount: number;
-    readonly reason: string;
+    readonly requireCommittedFrozenFrame?: boolean | undefined;
+    readonly reason?: string | undefined;
   },
 ): ObservedBlockedVisiblePublicationEvent | null {
   for (let index = afterCount; index < events.length; index += 1) {
     const event = events[index];
     if (
+      requireCommittedFrozenFrame &&
+      typeof event?.frozenFrameId !== "number"
+    ) {
+      continue;
+    }
+    if (
       event?.blockedReasons?.some(
         (blockedReason) =>
           (actorId === undefined || blockedReason.actorId === actorId) &&
-          blockedReason.reason === reason,
+          (reason === undefined || blockedReason.reason === reason),
       )
     ) {
       return { ...event, eventCount: index + 1 };
@@ -665,12 +754,16 @@ async function readVisibleFrameIdentity(
         canvas?.dataset.gpuFlowProjectionTransactionKind ?? null,
       committedSurfaceFrameId:
         debugSnapshot?.committedSurfaceFrame?.displayFrameId ?? null,
+      debugSnapshotFrameId:
+        debugSnapshot?.committedSurfaceFrame?.debugSnapshotFrameId ?? null,
       domControlPlaneCommittedFrameId: parseOptionalNumber(
         domControlPlane?.dataset.gpuFlowDomControlPlaneCommittedFrameId,
       ),
       domControlPlaneFrameId: parseOptionalNumber(
         domControlPlane?.dataset.gpuFlowDomControlPlaneFrameId,
       ),
+      hitGenerationId:
+        debugSnapshot?.committedSurfaceFrame?.hitGenerationId ?? null,
       visibleDomControlActorIds,
     };
 

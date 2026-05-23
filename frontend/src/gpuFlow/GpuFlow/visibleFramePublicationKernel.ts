@@ -12,6 +12,7 @@ import {
   type GpuFlowRetainedDisplayPublicationInput,
   type GpuFlowRetainedDisplayPublicationResult,
 } from "./flowRetainedDisplayTransaction";
+import { createGpuFlowVisibleFrameBlockedPublicationTokenForProof } from "./visibleFramePublicationBlockedProofToken";
 import {
   createGpuFlowRetainedProjectionBlockedPublicationCandidate,
   decideGpuFlowRetainedProjectionPublicationTransaction,
@@ -25,6 +26,7 @@ import {
   type GpuFlowVisiblePublicationTransactionCompletion,
 } from "./visibleFramePublicationCompletion";
 import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
+import { prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet } from "./visibleFramePublicationForcedBlockedCandidateSet";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowCommittedSurfacePublicationFramePlanSelector,
@@ -50,7 +52,6 @@ import {
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
   type GpuFlowVisibleFramePublicationPreparedFrame,
   type GpuFlowVisibleFramePublicationTransactionOracle,
-  type GpuFlowVisiblePublicationBlockedProof,
   type GpuFlowVisiblePublicationCommitOracle,
 } from "./visibleFramePublicationOracle";
 import {
@@ -79,6 +80,9 @@ export {
   hasActiveGpuFlowRetainedDomControlPublicationProof,
 } from "./visibleFramePublicationCandidates";
 export type { GpuFlowRetainedProjectionPublicationTransactionDecision } from "./visibleFramePublicationCandidates";
+export {
+  createGpuFlowVisibleFrameBlockedPublicationTokenForProof,
+} from "./visibleFramePublicationBlockedProofToken";
 export {
   createGpuFlowCommittedSurfaceResetPublicationToken,
   createGpuFlowCommittedSurfaceStartupPublicationToken,
@@ -396,15 +400,6 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   ContentPublicationFrame,
   MotionProjectionFrame
 > {
-  const selectRetainedProjectionPublicationDecision =
-    createGpuFlowRetainedProjectionPublicationDecisionSelector({
-      previousVisibleProjectionState,
-      rawReasons,
-    });
-  const selectProjectionFrameTransaction =
-    createGpuFlowProjectionFrameTransactionSelector();
-  const selectProjectionFrameRenderPlan =
-    createGpuFlowProjectionFrameRenderPlanSelector();
   const selectCommittedSurfacePublicationFramePlan =
     createGpuFlowCommittedSurfacePublicationFramePlanSelector();
   const selectRetainedDisplayPublicationFramePlan =
@@ -422,6 +417,28 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
         prepareGpuFlowRetainedDisplayPublicationCandidate,
       selectRetainedDisplayPublicationFramePlan,
     });
+  const forcedCandidateSet =
+    prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet({
+      prepareContentPublicationFrame,
+      prepareCommittedSurfacePublicationFramePlan,
+      prepareMotionProjectionFrame,
+      prepareRetainedDisplayPublicationFramePlan,
+      previousVisibleProjectionState,
+      publicationDecision,
+      publicationFrameContext,
+    });
+  if (forcedCandidateSet) {
+    return forcedCandidateSet;
+  }
+  const selectRetainedProjectionPublicationDecision =
+    createGpuFlowRetainedProjectionPublicationDecisionSelector({
+      previousVisibleProjectionState,
+      rawReasons,
+    });
+  const selectProjectionFrameTransaction =
+    createGpuFlowProjectionFrameTransactionSelector();
+  const selectProjectionFrameRenderPlan =
+    createGpuFlowProjectionFrameRenderPlanSelector();
   const motionProjectionWorkPlan = createGpuFlowMotionProjectionWorkPlan({
     publicationDecision,
   });
@@ -480,6 +497,8 @@ function proveGpuFlowVisibleFramePublicationCandidateSet<
   const transactionOracle =
     createGpuFlowVisibleFramePublicationTransactionOracle({
       contentPublicationFrame: candidateSet.contentPublicationFrame,
+      forcedBlockedPublicationCandidate:
+        candidateSet.forcedBlockedPublicationCandidate,
       motionProjectionFrame: candidateSet.motionProjectionFrame,
       publicationDecision,
     });
@@ -947,23 +966,6 @@ function publishGpuFlowVisibleFramePublicationOutcome<
 }): GpuFlowVisibleFramePublicationKernelResult<PreparedFrame> {
   publish(transaction);
   return transaction;
-}
-
-export function createGpuFlowVisibleFrameBlockedPublicationTokenForProof({
-  proof,
-  publicationDecision,
-}: {
-  readonly proof: GpuFlowVisiblePublicationBlockedProof | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-}): GpuFlowBlockedPublicationToken | null {
-  if (!proof) {
-    return null;
-  }
-  return createGpuFlowVisibleFrameBlockedPublicationToken({
-    blockedReasons: proof.blockedReasons,
-    frozenFrameId: proof.frozenFrameId,
-    projectionSample: publicationDecision.sample,
-  });
 }
 
 function selectGpuFlowVisibleFramePublicationTransaction({
