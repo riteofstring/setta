@@ -16,6 +16,7 @@ import {
 import { createGpuFlowPresentableCommit } from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction,
+  createGpuFlowRetainedProjectionBlockedPublicationCandidate,
   decideGpuFlowCommittedSurfacePublicationTransaction,
   decideGpuFlowRetainedProjectionPublicationTransaction,
   shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair,
@@ -205,7 +206,7 @@ export type GpuFlowMotionProjectionFramePreparation<
     }
   | {
       readonly createBlockedProjectionFrame: (input: {
-        readonly blockedProjectionReason: string;
+        readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
       }) => MotionProjectionFrame;
       readonly kind: "render";
       readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
@@ -217,6 +218,16 @@ export type GpuFlowMotionProjectionFramePreparation<
 export type GpuFlowVisibleFramePublicationFrameContext = {
   readonly deferResolutionUpdates: boolean;
   readonly viewportFrame: boolean;
+};
+
+export type GpuFlowVisibleFramePublicationSample = {
+  readonly hasCommittedContentFrame: boolean;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly rawReasons: readonly GpuFrameReason[];
+  readonly runtimeViewportFrame: boolean;
+  readonly sample: GpuFlowLiveProjectionSample;
+  readonly timestamp: DOMHighResTimeStamp;
+  readonly viewportInteractionActive: boolean;
 };
 
 export type GpuFlowRetainedProjectionPublicationDecisionSelector = (input: {
@@ -240,22 +251,16 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
-  hasCommittedContentFrame,
   prepareContentPublicationFrame,
   prepareMotionProjectionFrame,
-  previousVisibleProjectionState,
   publish,
-  rawReasons,
-  runtimeViewportFrame,
-  sample,
+  sampleVisibleFramePublication,
   scheduler,
-  timestamp,
-  viewportInteractionActive,
 }: {
-  readonly hasCommittedContentFrame: boolean;
   readonly prepareContentPublicationFrame: (input: {
     readonly contentPublicationWorkPlan: GpuFlowContentPublicationWorkPlan;
     readonly motionProjectionFrame: MotionProjectionFrame;
+    readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
     readonly publicationDecision: GpuFlowVisiblePublicationDecision;
     readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
     readonly prepareCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanPreparer;
@@ -271,7 +276,6 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
     readonly selectProjectionFrameTransaction: GpuFlowProjectionFrameTransactionSelector;
     readonly selectRetainedProjectionPublicationDecision: GpuFlowRetainedProjectionPublicationDecisionSelector;
   }) => GpuFlowMotionProjectionFramePreparation<MotionProjectionFrame>;
-  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publish: (
     transaction: GpuFlowVisibleFramePublicationKernelResult<
       GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
@@ -280,18 +284,23 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
       >
     >,
   ) => void;
-  readonly rawReasons: readonly GpuFrameReason[];
-  readonly runtimeViewportFrame: boolean;
-  readonly sample: GpuFlowLiveProjectionSample;
+  readonly sampleVisibleFramePublication: () => GpuFlowVisibleFramePublicationSample;
   readonly scheduler: GpuFlowVisiblePublicationScheduler;
-  readonly timestamp: DOMHighResTimeStamp;
-  readonly viewportInteractionActive: boolean;
 }): GpuFlowVisibleFramePublicationKernelResult<
   GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
     ContentPublicationFrame,
     MotionProjectionFrame
   >
 > {
+  const {
+    hasCommittedContentFrame,
+    previousVisibleProjectionState,
+    rawReasons,
+    runtimeViewportFrame,
+    sample,
+    timestamp,
+    viewportInteractionActive,
+  } = sampleVisibleFramePublication();
   const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction({
     hasCommittedContentFrame,
     rawReasons,
@@ -330,6 +339,7 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
     });
   const prepareRetainedDisplayPublicationFramePlan =
     createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
+      previousVisibleProjectionState,
       prepareRetainedDisplayPublicationCandidate:
         prepareGpuFlowRetainedDisplayPublicationCandidate,
       selectRetainedDisplayPublicationFramePlan,
@@ -350,6 +360,7 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
       selectProjectionFrameTransaction,
       selectRetainedProjectionPublicationDecision,
     }),
+    previousVisibleProjectionState,
     selectProjectionFrameRenderPlan,
   });
   const contentPublicationWorkPlan = createGpuFlowContentPublicationWorkPlan({
@@ -360,6 +371,7 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
   const contentPublicationFrame = prepareContentPublicationFrame({
     contentPublicationWorkPlan,
     motionProjectionFrame,
+    previousVisibleProjectionState,
     prepareCommittedSurfacePublicationFramePlan,
     prepareRetainedDisplayPublicationFramePlan,
     publicationDecision,
@@ -370,8 +382,8 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
   const transactionOracle =
     createGpuFlowVisibleFramePublicationTransactionOracle({
       contentPublicationFrame,
-      heldPreviousProjectionState: previousVisibleProjectionState,
       motionProjectionFrame,
+      publicationDecision,
     });
   const presentableCommit =
     createGpuFlowVisibleFramePublicationPresentableCommit({
@@ -448,22 +460,28 @@ function resolveGpuFlowMotionProjectionFramePreparation<
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
   preparation,
+  previousVisibleProjectionState,
   selectProjectionFrameRenderPlan,
 }: {
   readonly preparation: GpuFlowMotionProjectionFramePreparation<MotionProjectionFrame>;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly selectProjectionFrameRenderPlan: GpuFlowProjectionFrameRenderPlanSelector;
 }): MotionProjectionFrame {
   if (preparation.kind === "not-rendered") {
     return preparation.frame;
   }
+  if (preparation.projectionFrameTransaction.blockedReason !== null) {
+    return preparation.createBlockedProjectionFrame({
+      blockedPublicationCandidate:
+        createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+          blockedReason: preparation.projectionFrameTransaction.blockedReason,
+          heldPreviousProjectionState: previousVisibleProjectionState,
+        }),
+    });
+  }
   const projectionFrameRenderPlan = selectProjectionFrameRenderPlan({
     projectionFrameTransaction: preparation.projectionFrameTransaction,
   });
-  if (projectionFrameRenderPlan.kind === "blocked") {
-    return preparation.createBlockedProjectionFrame({
-      blockedProjectionReason: projectionFrameRenderPlan.blockedProjectionReason,
-    });
-  }
   return preparation.renderProjectionFrame({ projectionFrameRenderPlan });
 }
 
@@ -524,6 +542,7 @@ function createGpuFlowVisibleFramePublicationPresentableCommit({
 }): GpuFlowPresentableCommit | null {
   const visibleProjectionState = transactionOracle.visibleProjectionState;
   if (
+    transactionOracle.commitOracle === null ||
     !transactionOracle.renderedVisibleFrame ||
     visibleProjectionState === null ||
     visibleProjectionState.transaction.kind === "held-previous"
@@ -539,6 +558,7 @@ function createGpuFlowVisibleFramePublicationPresentableCommit({
 function completeGpuFlowVisibleFramePublicationPreparedFrame<
   PreparedFrame extends GpuFlowVisibleFramePublicationPreparedFrame & {
     readonly presentableCommit: GpuFlowPresentableCommit | null;
+    readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle;
   },
 >({
   preparedFrame,
@@ -563,6 +583,7 @@ function completeGpuFlowVisibleFramePublicationPreparedFrame<
     });
   const completion = completeGpuFlowVisibleFramePublicationTransaction({
     blockedPublicationToken,
+    commitOracle: preparedFrame.transactionOracle.commitOracle,
     presentableCommit: preparedFrame.presentableCommit,
     publicationDecision,
     previousVisibleProjectionState,

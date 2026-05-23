@@ -671,8 +671,13 @@ export function renderGpuFlowNodeLayerFrame({
     retainedDisplayPublication.retainedPageMaintenanceMs;
   const retainedDisplayPublicationFramePlanResult =
     retainedDisplayPublicationPreparation.framePlanResult;
-  if (retainedDisplayPublicationFramePlanResult.frameResult) {
-    return retainedDisplayPublicationFramePlanResult.frameResult;
+  if (
+    retainedDisplayPublicationFramePlanResult.blockedPublicationCandidate
+  ) {
+    return createGpuFlowNodeLayerFrameNotRenderedResult({
+      blockedPublicationCandidate:
+        retainedDisplayPublicationFramePlanResult.blockedPublicationCandidate,
+    });
   }
   const publishedRetainedDisplayOutcomeFrame =
     retainedDisplayPublicationFramePlanResult.publishedOutcomeFrame;
@@ -756,8 +761,23 @@ export function renderGpuFlowNodeLayerFrame({
   });
   const committedSurfacePublicationFramePlanResult =
     committedSurfacePublicationPreparation.framePlanResult;
-  if (committedSurfacePublicationFramePlanResult.frameResult) {
-    return committedSurfacePublicationFramePlanResult.frameResult;
+  if (
+    committedSurfacePublicationFramePlanResult.blockedPublicationCandidate !==
+      null ||
+    committedSurfacePublicationFramePlanResult.visibleProjectionState !== null
+  ) {
+    const candidateResultOptions = {
+      blockedPublicationCandidate:
+        committedSurfacePublicationFramePlanResult.blockedPublicationCandidate,
+      committedSurfacePublication:
+        committedSurfacePublicationFramePlanResult.committedSurfacePublication,
+    };
+    return committedSurfacePublicationFramePlanResult.visibleProjectionState
+      ? createGpuFlowNodeLayerFrameVisibleProjectionStateResult(
+          committedSurfacePublicationFramePlanResult.visibleProjectionState,
+          candidateResultOptions,
+        )
+      : createGpuFlowNodeLayerFrameNotRenderedResult(candidateResultOptions);
   }
   const committedSurfacePublication =
     committedSurfacePublicationFramePlanResult.committedSurfacePublication;

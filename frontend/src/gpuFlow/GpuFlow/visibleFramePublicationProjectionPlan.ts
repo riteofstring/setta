@@ -23,16 +23,12 @@ export type GpuFlowProjectionFrameTransactionSelector = (input: {
 }) => GpuFlowProjectionFrameTransaction;
 
 export type GpuFlowProjectionFrameRenderPlan =
-  | {
-      readonly blockedProjectionReason: string;
-      readonly kind: "blocked";
-    }
-  | {
-      readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
-      readonly kind: "render";
-      readonly retainedProjectionFrame: GpuFlowRetainedProjectionFrame;
-      readonly transaction: GpuFlowProjectionTransaction;
-    };
+  {
+    readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
+    readonly kind: "render";
+    readonly retainedProjectionFrame: GpuFlowRetainedProjectionFrame;
+    readonly transaction: GpuFlowProjectionTransaction;
+  };
 
 export type GpuFlowProjectionFrameRenderablePlan = Extract<
   GpuFlowProjectionFrameRenderPlan,
@@ -97,16 +93,23 @@ export function selectGpuFlowProjectionFrameRenderPlan({
 }: {
   readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
 }): GpuFlowProjectionFrameRenderPlan {
-  if (projectionFrameTransaction.blockedReason !== null) {
-    return {
-      blockedProjectionReason: projectionFrameTransaction.blockedReason,
-      kind: "blocked" as const,
-    };
-  }
+  assertGpuFlowProjectionFrameTransactionRenderable(
+    projectionFrameTransaction,
+  );
   return {
     heldPreviousProjection: projectionFrameTransaction.heldPreviousProjection,
     kind: "render" as const,
     retainedProjectionFrame: projectionFrameTransaction.retainedProjectionFrame,
     transaction: projectionFrameTransaction.transaction,
   };
+}
+
+function assertGpuFlowProjectionFrameTransactionRenderable(
+  projectionFrameTransaction: GpuFlowProjectionFrameTransaction,
+): void {
+  if (projectionFrameTransaction.blockedReason !== null) {
+    throw new Error(
+      "GPU Flow projection frame render plans require a nonblocked projection transaction.",
+    );
+  }
 }

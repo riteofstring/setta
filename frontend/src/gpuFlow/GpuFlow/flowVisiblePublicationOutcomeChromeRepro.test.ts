@@ -10,6 +10,7 @@ import type {
   GpuFlowVisiblePublicationDebtProof,
 } from "../projectionScheduler";
 import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./flowVisiblePublicationOutcomeChromeRepro";
+import { createGpuFlowVisiblePublicationCommitOracle } from "./visibleFramePublicationOracle";
 import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
 
 describe("GPU Flow visible publication Chrome repro payload", () => {
@@ -114,6 +115,10 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
 
     expect(
       createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
+        commitOracle: createGpuFlowVisiblePublicationCommitOracle({
+          committedFrame: visibleProjectionState.committedFrame,
+          publicationDecision: publicationDecision(sample),
+        }),
         completion: {
           debt: { content: false, maintenance: true, motion: false },
           outcome: "commit",
@@ -128,6 +133,8 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
       }),
     ).toEqual(
       expect.objectContaining({
+        actorProofDigest: expect.any(String),
+        actorProofs: expect.any(Array),
         browserActorProofs: {
           actorCount: 3,
           canonicalActorCount: 3,

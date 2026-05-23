@@ -64,7 +64,6 @@ export type GpuFlowRetainedProjectionFrame = {
 
 type RenderGpuFlowNodeLayerProjectionFrameResult =
   | {
-      readonly blockedProjectionReason: string | null;
       readonly rendered: false;
     }
   | {
@@ -136,7 +135,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
 }): RenderGpuFlowNodeLayerProjectionFrameResult {
   const retainedDisplayFrame = retainedDisplayFrameRef.current;
   if (!retainedDisplayFrame) {
-    return { blockedProjectionReason: null, rendered: false };
+    return { rendered: false };
   }
   const frameInput = resolveRenderableGpuFlowLayerFrameInput({
     canvasSizeRef,

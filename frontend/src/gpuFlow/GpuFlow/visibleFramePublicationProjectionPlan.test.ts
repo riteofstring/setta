@@ -27,17 +27,15 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
 );
 
 describe("GPU Flow visible publication projection plans", () => {
-  it("selects blocked projection render plans outside the projection renderer", () => {
+  it("rejects blocked projection transactions before rendering", () => {
     expect(
-      selectGpuFlowProjectionFrameRenderPlan({
-        projectionFrameTransaction: projectionFrameTransaction({
-          blockedReason: "retained-projection-coverage-missing",
+      () =>
+        selectGpuFlowProjectionFrameRenderPlan({
+          projectionFrameTransaction: projectionFrameTransaction({
+            blockedReason: "retained-projection-coverage-missing",
+          }),
         }),
-      }),
-    ).toEqual({
-      blockedProjectionReason: "retained-projection-coverage-missing",
-      kind: "blocked",
-    });
+    ).toThrow(/nonblocked projection transaction/);
   });
 
   it("selects render plans for publishable projection transactions", () => {
@@ -81,7 +79,7 @@ describe("GPU Flow visible publication projection plans", () => {
       'projectionFrameRenderPlan.kind === "blocked"',
     );
     expect(projectionFrameSource).not.toContain(
-      "projectionFrameRenderPlan.blockedProjectionReason",
+      "projectionFrameRenderPlan.blockedPublicationCandidate",
     );
     expect(projectionFrameSource).not.toContain(
       "selectProjectionFrameRenderPlan",
@@ -90,12 +88,13 @@ describe("GPU Flow visible publication projection plans", () => {
     expect(surfaceFrameSource).not.toContain(
       'projectionFrameRenderPlan.kind === "blocked"',
     );
-    expect(kernelSource).toContain(
+    expect(kernelSource).not.toContain(
       'projectionFrameRenderPlan.kind === "blocked"',
     );
     expect(kernelSource).toContain(
-      "createGpuFlowProjectionFrameRenderPlanSelector",
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
+    expect(kernelSource).toContain("projectionFrameTransaction.blockedReason");
     expect(projectionPlanSource).toContain(
       "projectionFrameTransaction.blockedReason",
     );

@@ -151,6 +151,8 @@ export function completeGpuFlowSurfacePublicationFrame({
     publishColdStartShellFrame,
   });
   postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
+    commitOracle: publicationTransaction.preparedFrame.transactionOracle
+      .commitOracle,
     completion,
     outcome,
     publicationDecision,

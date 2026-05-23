@@ -378,15 +378,12 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(source).not.toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
-    expect(source).toContain("blockedProjectionReason");
+    expect(source).not.toContain("blockedProjectionReason");
     expect(surfaceFrameSource).not.toContain(
-      "createGpuFlowMotionProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
     expect(surfaceFrameSource).toContain(
       "runGpuFlowVisibleFramePublicationCandidateSetKernel",
-    );
-    expect(kernelSource).toContain(
-      "createGpuFlowMotionProjectionBlockedPublicationCandidate",
     );
     expect(kernelSource).toContain(
       "createGpuFlowVisibleFramePublicationTransactionOracle",
@@ -545,7 +542,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "createGpuFlowBrowserVisualBlockedPublicationCandidate",
     );
     expect(surfaceFrameSource).not.toContain("retainedProjectionBlockedReason");
-    expect(kernelSource).toContain("retainedProjectionBlockedReason");
+    expect(kernelSource).not.toContain("retainedProjectionBlockedReason");
     expect(surfaceFrameSource).not.toContain(
       "prepareGpuFlowRetainedDisplayPublicationCandidate",
     );
@@ -569,7 +566,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(kernelSource).toContain(
       "resolveGpuFlowRetainedDisplayOutcomeFrameResult",
     );
-    expect(kernelSource).toContain(
+    expect(kernelSource).not.toContain(
       "createGpuFlowNodeLayerFrameRetainedProjectionBlockedResult",
     );
     expect(kernelSource).toContain(

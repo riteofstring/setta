@@ -23,6 +23,7 @@ const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
 describe("GPU Flow visible publication content plans", () => {
   it("selects retained display blocked plans outside flowFrame", () => {
     const plan = selectGpuFlowRetainedDisplayPublicationFramePlan({
+      previousVisibleProjectionState: null,
       retainedDisplayOutcome: {
         kind: "block-cold-first-coverage",
         reason: "coverage-missing",
@@ -33,10 +34,16 @@ describe("GPU Flow visible publication content plans", () => {
     if (plan.kind !== "blocked") {
       throw new Error("Expected retained display blocked plan.");
     }
-    expect(plan.frameResult.kind).toBe("retained-projection-blocked");
-    expect(plan.frameResult.retainedProjectionBlockedReason).toBe(
-      "coverage-missing",
-    );
+    expect(plan.blockedPublicationCandidate).toEqual({
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "retained-projection",
+          reason: "coverage-missing",
+        },
+      ],
+      frozenFrameId: "cold-start-shell:retained-projection",
+    });
   });
 
   it("selects committed-surface publish and held plans outside flowFrame", () => {
@@ -69,7 +76,11 @@ describe("GPU Flow visible publication content plans", () => {
     expect(publishPlan.committedSurfacePublication.committedSurfaceFrame).toBe(
       committedFrame,
     );
-    expect(heldPlan.kind).toBe("frame-result");
+    expect(heldPlan.kind).toBe("candidate");
+    if (heldPlan.kind !== "candidate") {
+      throw new Error("Expected committed-surface held candidate plan.");
+    }
+    expect(heldPlan.visibleProjectionState).toBeNull();
   });
 
   it("keeps retained and committed content result selection out of flowFrame", () => {

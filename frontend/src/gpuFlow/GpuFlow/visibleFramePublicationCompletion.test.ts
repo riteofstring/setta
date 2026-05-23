@@ -28,6 +28,7 @@ describe("GPU Flow visible publication completion", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
+      commitOracle: null,
       presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: previousHeldVisibleProjectionState(),

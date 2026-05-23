@@ -49,6 +49,7 @@ import {
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
   type GpuFlowRetainedProjectionPublicationDecisionSelector,
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
+  type GpuFlowVisibleFrameBlockedPublicationCandidate,
 } from "./visibleFramePublicationKernel";
 import type {
   GpuFlowBlockedPublicationToken,
@@ -64,7 +65,7 @@ type GpuFlowSurfaceFrameEvent = Parameters<
 >[1];
 
 type GpuFlowMotionProjectionFrameResult = {
-  readonly blockedProjectionReason: string | null;
+  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly rendered: boolean;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -176,33 +177,8 @@ export function renderGpuFlowSurfaceFrame({
       "surface-frame-setup",
       frameMeasureDetail,
     );
-    const runtimeFrame = viewportRuntime.runFrame(event.timestamp);
-    nodeLayerRef.current = {
-      ...nodeLayerRef.current,
-      viewport: viewportRuntime.getViewportTuple(),
-    };
-    sampleGpuFlowRetainedContentRuntimeScene({
-      nodeLayerRef,
-      retainedContentRuntimeState,
-    });
-    const viewportInteractionActive =
-      viewportStore.getState().viewportInteractionActive;
-    const liveProjectionSample = input.liveProjectionSamplerRef.current.capture(
-      {
-        canvasSize: input.canvasSizeRef.current,
-        gestureOwner:
-          getGpuWheelGestureOwnershipArbiter(viewportStore).getState().owner,
-        retainedContentRuntimeState,
-        timestamp: event.timestamp,
-        viewport: nodeLayerRef.current.viewport,
-      },
-    );
-    const previousVisibleProjectionState =
-      input.visibleProjectionPublicationStateRef.current ??
-      input.visibleProjectionStateRef.current;
     let finishCompletionMeasure: () => number = () => 0;
     runGpuFlowVisibleFramePublicationCandidateSetKernel({
-      hasCommittedContentFrame: input.retainedDisplayFrameRef.current !== null,
       prepareMotionProjectionFrame: ({
         motionProjectionWorkPlan,
         previousVisibleProjectionState,
@@ -226,7 +202,7 @@ export function renderGpuFlowSurfaceFrame({
           prepareGpuFlowSurfaceMotionProjectionFrame({
             ...input,
             event,
-            liveProjectionSample,
+            liveProjectionSample: publicationDecision.sample,
             nodeLayerRef,
             previousVisibleProjectionState,
             motionProjectionWorkPlan,
@@ -268,6 +244,7 @@ export function renderGpuFlowSurfaceFrame({
         prepareCommittedSurfacePublicationFramePlan,
         prepareRetainedDisplayPublicationFramePlan,
         notifyRetainedDisplayFollowUpFrameNeeded,
+        previousVisibleProjectionState,
         publicationDecision,
         publicationFrameContext,
         selectContentPublicationBlockedCandidateForFrameResult,
@@ -282,7 +259,7 @@ export function renderGpuFlowSurfaceFrame({
             deferResolutionUpdates:
               publicationFrameContext.deferResolutionUpdates,
             event,
-            liveProjectionSample,
+            liveProjectionSample: publicationDecision.sample,
             nodeLayerRef,
             contentPublicationWorkPlan,
             notifyRetainedDisplayFollowUpFrameNeeded,
@@ -304,7 +281,6 @@ export function renderGpuFlowSurfaceFrame({
         );
         return contentPublicationFrame;
       },
-      previousVisibleProjectionState,
       publish: (transaction) => {
         completeGpuFlowSurfacePublicationFrame({
           abortPreparedCommittedSurfaceFrame:
@@ -331,12 +307,39 @@ export function renderGpuFlowSurfaceFrame({
           visiblePublicationSchedulerRef: input.visiblePublicationSchedulerRef,
         });
       },
-      rawReasons: event.reasons,
-      runtimeViewportFrame: runtimeFrame.viewportFrame,
-      sample: liveProjectionSample,
+      sampleVisibleFramePublication: () => {
+        const runtimeFrame = viewportRuntime.runFrame(event.timestamp);
+        nodeLayerRef.current = {
+          ...nodeLayerRef.current,
+          viewport: viewportRuntime.getViewportTuple(),
+        };
+        sampleGpuFlowRetainedContentRuntimeScene({
+          nodeLayerRef,
+          retainedContentRuntimeState,
+        });
+        return {
+          hasCommittedContentFrame:
+            input.retainedDisplayFrameRef.current !== null,
+          previousVisibleProjectionState:
+            input.visibleProjectionPublicationStateRef.current ??
+            input.visibleProjectionStateRef.current,
+          rawReasons: event.reasons,
+          runtimeViewportFrame: runtimeFrame.viewportFrame,
+          sample: input.liveProjectionSamplerRef.current.capture({
+            canvasSize: input.canvasSizeRef.current,
+            gestureOwner:
+              getGpuWheelGestureOwnershipArbiter(viewportStore).getState()
+                .owner,
+            retainedContentRuntimeState,
+            timestamp: event.timestamp,
+            viewport: nodeLayerRef.current.viewport,
+          }),
+          timestamp: event.timestamp,
+          viewportInteractionActive:
+            viewportStore.getState().viewportInteractionActive,
+        };
+      },
       scheduler: input.visiblePublicationSchedulerRef.current,
-      timestamp: event.timestamp,
-      viewportInteractionActive,
     });
     finishCompletionMeasure();
     const visibleProjectionState = input.visibleProjectionStateRef.current;
@@ -425,9 +428,9 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
       }),
   });
   return {
-    createBlockedProjectionFrame: ({ blockedProjectionReason }) =>
+    createBlockedProjectionFrame: ({ blockedPublicationCandidate }) =>
       createGpuFlowMotionProjectionFrameResult({
-        blockedProjectionReason,
+        blockedPublicationCandidate,
         rendered: false,
       }),
     kind: "render",
@@ -506,7 +509,6 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
   });
   if (!rendered.rendered) {
     return createGpuFlowMotionProjectionFrameResult({
-      blockedProjectionReason: rendered.blockedProjectionReason,
       rendered: false,
     });
   }
@@ -526,12 +528,15 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
 }
 
 function createGpuFlowMotionProjectionFrameResult({
-  blockedProjectionReason = null,
+  blockedPublicationCandidate = null,
   nodeLayerFrameStatePublication = null,
   rendered,
   visibleProjectionState = null,
 }: {
-  readonly blockedProjectionReason?: string | null | undefined;
+  readonly blockedPublicationCandidate?:
+    | GpuFlowVisibleFrameBlockedPublicationCandidate
+    | null
+    | undefined;
   readonly nodeLayerFrameStatePublication?:
     | GpuFlowNodeLayerFrameStatePublication
     | null
@@ -543,7 +548,7 @@ function createGpuFlowMotionProjectionFrameResult({
     | undefined;
 }): GpuFlowMotionProjectionFrameResult {
   return {
-    blockedProjectionReason,
+    blockedPublicationCandidate,
     nodeLayerFrameStatePublication,
     rendered,
     visibleProjectionState,

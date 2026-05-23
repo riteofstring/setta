@@ -6,7 +6,6 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationCandidates";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
 import type {
   GpuFlowBlockedPublicationToken,
@@ -66,7 +65,7 @@ export type GpuFlowVisibleFramePublicationContentCandidate = {
 };
 
 export type GpuFlowVisibleFramePublicationMotionCandidate = {
-  readonly blockedProjectionReason: string | null;
+  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
 
@@ -81,6 +80,7 @@ export type GpuFlowVisibleFramePublicationCandidateSet<
 
 export type GpuFlowVisibleFramePublicationPreparedCandidateSet = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly commitOracle: GpuFlowVisiblePublicationCommitOracle | null;
   readonly renderedVisibleFrame: boolean;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
@@ -88,6 +88,7 @@ export type GpuFlowVisibleFramePublicationPreparedCandidateSet = {
 export type GpuFlowVisibleFramePublicationTransactionOracle = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly blockedSource: "content-publication" | "motion-projection" | null;
+  readonly commitOracle: GpuFlowVisiblePublicationCommitOracle | null;
   readonly renderedVisibleFrame: boolean;
   readonly visibleProjectionSource:
     | "content-publication"
@@ -204,21 +205,22 @@ export function selectGpuFlowVisibleFramePublicationPreparedFrame<
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
   contentPublicationFrame,
-  heldPreviousProjectionState,
   motionProjectionFrame,
+  publicationDecision,
 }: GpuFlowVisibleFramePublicationCandidateSet<
   ContentPublicationFrame,
   MotionProjectionFrame
 > & {
-  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }): GpuFlowVisibleFramePublicationPreparedCandidateSet {
   const oracle = createGpuFlowVisibleFramePublicationTransactionOracle({
     contentPublicationFrame,
-    heldPreviousProjectionState,
     motionProjectionFrame,
+    publicationDecision,
   });
   return Object.freeze({
     blockedPublicationCandidate: oracle.blockedPublicationCandidate,
+    commitOracle: oracle.commitOracle,
     renderedVisibleFrame: oracle.renderedVisibleFrame,
     visibleProjectionState: oracle.visibleProjectionState,
   });
@@ -230,29 +232,30 @@ export function createGpuFlowVisibleFramePublicationTransactionOracle<
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
   contentPublicationFrame,
-  heldPreviousProjectionState,
   motionProjectionFrame,
+  publicationDecision,
 }: GpuFlowVisibleFramePublicationCandidateSet<
   ContentPublicationFrame,
   MotionProjectionFrame
 > & {
-  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }): GpuFlowVisibleFramePublicationTransactionOracle {
   const visibleProjectionState =
     contentPublicationFrame.visibleProjectionState ??
     motionProjectionFrame.visibleProjectionState;
   const blockedPublicationCandidate =
     contentPublicationFrame.blockedPublicationCandidate ??
-    createGpuFlowMotionProjectionBlockedPublicationCandidate({
-      blockedProjectionReason: motionProjectionFrame.blockedProjectionReason,
-      heldPreviousProjectionState,
-    });
+    motionProjectionFrame.blockedPublicationCandidate;
   return Object.freeze({
     blockedPublicationCandidate,
     blockedSource: createGpuFlowVisibleFramePublicationOracleBlockedSource({
       blockedPublicationCandidate,
       contentPublicationFrame,
       motionProjectionFrame,
+    }),
+    commitOracle: createGpuFlowVisibleFramePublicationTransactionCommitOracle({
+      publicationDecision,
+      visibleProjectionState,
     }),
     renderedVisibleFrame: visibleProjectionState !== null,
     visibleProjectionSource:
@@ -262,6 +265,25 @@ export function createGpuFlowVisibleFramePublicationTransactionOracle<
         visibleProjectionState,
       }),
     visibleProjectionState,
+  });
+}
+
+function createGpuFlowVisibleFramePublicationTransactionCommitOracle({
+  publicationDecision,
+  visibleProjectionState,
+}: {
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowVisiblePublicationCommitOracle | null {
+  if (
+    visibleProjectionState === null ||
+    visibleProjectionState.transaction.kind === "held-previous"
+  ) {
+    return null;
+  }
+  return createGpuFlowVisiblePublicationCommitOracle({
+    committedFrame: visibleProjectionState.committedFrame,
+    publicationDecision,
   });
 }
 
@@ -511,7 +533,7 @@ function createGpuFlowVisibleFramePublicationOracleBlockedSource<
   if (contentPublicationFrame.blockedPublicationCandidate) {
     return "content-publication";
   }
-  if (motionProjectionFrame.blockedProjectionReason !== null) {
+  if (motionProjectionFrame.blockedPublicationCandidate !== null) {
     return "motion-projection";
   }
   return null;
@@ -541,22 +563,6 @@ function createGpuFlowVisibleFramePublicationOracleProjectionSource<
     return "motion-projection";
   }
   return null;
-}
-
-function createGpuFlowMotionProjectionBlockedPublicationCandidate({
-  blockedProjectionReason,
-  heldPreviousProjectionState,
-}: {
-  readonly blockedProjectionReason: string | null;
-  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowVisibleFrameBlockedPublicationCandidate | null {
-  if (blockedProjectionReason === null) {
-    return null;
-  }
-  return createGpuFlowRetainedProjectionBlockedPublicationCandidate({
-    blockedReason: blockedProjectionReason,
-    heldPreviousProjectionState,
-  });
 }
 
 function createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame(

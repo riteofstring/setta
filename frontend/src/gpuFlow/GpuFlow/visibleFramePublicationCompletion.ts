@@ -16,9 +16,9 @@ import {
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
 } from "./visibleFramePublicationAuthority";
 import {
-  createGpuFlowVisiblePublicationCommitOracle,
   createGpuFlowVisiblePublicationCommitOracleReport,
   type GpuFlowVisiblePublicationCommitDebtProof,
+  type GpuFlowVisiblePublicationCommitOracle,
 } from "./visibleFramePublicationOracle";
 import type {
   GpuFlowBlockedPublicationToken,
@@ -354,6 +354,7 @@ export function createGpuFlowVisiblePublicationCompletionCommitToken({
 
 export function createGpuFlowVisiblePublicationCompletionOutcome({
   blockedPublicationToken,
+  commitOracle,
   presentableCommit,
   publicationDecision,
   previousVisibleProjectionState,
@@ -362,6 +363,7 @@ export function createGpuFlowVisiblePublicationCompletionOutcome({
   visibleProjectionState,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
+  readonly commitOracle: GpuFlowVisiblePublicationCommitOracle | null;
   readonly presentableCommit: GpuFlowPresentableCommit | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -404,11 +406,13 @@ export function createGpuFlowVisiblePublicationCompletionOutcome({
       visibleProjectionState,
     });
   }
+  if (commitOracle === null) {
+    throw new Error(
+      "GPU Flow committed publication completion requires the transaction oracle commit proof.",
+    );
+  }
   return {
-    debtProof: createGpuFlowVisiblePublicationCommitOracle({
-      committedFrame: visibleProjectionState.committedFrame,
-      publicationDecision,
-    }).debtProof,
+    debtProof: commitOracle.debtProof,
     kind: "commit",
     token: createGpuFlowVisiblePublicationCompletionCommitToken({
       presentableCommit,
@@ -420,6 +424,7 @@ export function createGpuFlowVisiblePublicationCompletionOutcome({
 
 export function completeGpuFlowVisibleFramePublicationTransaction({
   blockedPublicationToken,
+  commitOracle,
   presentableCommit,
   publicationDecision,
   previousVisibleProjectionState,
@@ -428,6 +433,7 @@ export function completeGpuFlowVisibleFramePublicationTransaction({
   visibleProjectionState,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
+  readonly commitOracle: GpuFlowVisiblePublicationCommitOracle | null;
   readonly presentableCommit: GpuFlowPresentableCommit | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -440,6 +446,7 @@ export function completeGpuFlowVisibleFramePublicationTransaction({
 }): GpuFlowVisiblePublicationTransactionCompletion {
   const outcome = createGpuFlowVisiblePublicationCompletionOutcome({
     blockedPublicationToken,
+    commitOracle,
     presentableCommit,
     publicationDecision,
     previousVisibleProjectionState,
@@ -456,12 +463,14 @@ export function completeGpuFlowVisibleFramePublicationTransaction({
 }
 
 export function createGpuFlowVisiblePublicationTransactionReport({
+  commitOracle,
   completion,
   outcome,
   previousCommittedFrameId,
   publicationDecision,
   visibleProjectionState,
 }: {
+  readonly commitOracle: GpuFlowVisiblePublicationCommitOracle | null;
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousCommittedFrameId: number | null;
@@ -469,15 +478,11 @@ export function createGpuFlowVisiblePublicationTransactionReport({
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
   const token = createGpuFlowVisiblePublicationOutcomeTokenPayload(outcome);
-  const commitOracle = visibleProjectionState
-    ? createGpuFlowVisiblePublicationCommitOracle({
-        committedFrame: visibleProjectionState.committedFrame,
-        publicationDecision,
-      })
-    : null;
   const commitOracleReport =
     createGpuFlowVisiblePublicationCommitOracleReport(commitOracle);
   return {
+    actorProofDigest: commitOracleReport.actorProofDigest,
+    actorProofs: commitOracleReport.actorProofs,
     browserActorProofs: commitOracleReport.browserActorProofs,
     commitOracle: commitOracleReport.commitOracle,
     compatiblePreviousProofs: commitOracleReport.compatiblePreviousProofs,
