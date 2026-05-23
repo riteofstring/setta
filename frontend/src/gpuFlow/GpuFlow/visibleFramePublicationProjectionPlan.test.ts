@@ -9,7 +9,7 @@ import type {
 } from "../projectionRuntime";
 import type { GpuFlowRetainedProjectionFrame } from "./flowProjectionFrame";
 import {
-  selectGpuFlowProjectionFrameRenderPlan,
+  createGpuFlowProjectionFrameRenderPlanSelector,
   type GpuFlowProjectionFrameTransaction,
 } from "./visibleFramePublicationKernel";
 
@@ -28,9 +28,11 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
 
 describe("GPU Flow visible publication projection plans", () => {
   it("rejects blocked projection transactions before rendering", () => {
+    const selectProjectionFrameRenderPlan =
+      createGpuFlowProjectionFrameRenderPlanSelector();
     expect(
       () =>
-        selectGpuFlowProjectionFrameRenderPlan({
+        selectProjectionFrameRenderPlan({
           projectionFrameTransaction: projectionFrameTransaction({
             blockedReason: "retained-projection-coverage-missing",
           }),
@@ -39,11 +41,13 @@ describe("GPU Flow visible publication projection plans", () => {
   });
 
   it("selects render plans for publishable projection transactions", () => {
+    const selectProjectionFrameRenderPlan =
+      createGpuFlowProjectionFrameRenderPlanSelector();
     const transaction = projectionTransaction();
     const retainedProjectionFrame = projectionFrame();
 
     expect(
-      selectGpuFlowProjectionFrameRenderPlan({
+      selectProjectionFrameRenderPlan({
         projectionFrameTransaction: projectionFrameTransaction({
           retainedProjectionFrame,
           transaction,
@@ -97,6 +101,9 @@ describe("GPU Flow visible publication projection plans", () => {
     expect(kernelSource).toContain("projectionFrameTransaction.blockedReason");
     expect(projectionPlanSource).toContain(
       "projectionFrameTransaction.blockedReason",
+    );
+    expect(projectionPlanSource).not.toContain(
+      "export function selectGpuFlowProjectionFrameRenderPlan",
     );
   });
 });

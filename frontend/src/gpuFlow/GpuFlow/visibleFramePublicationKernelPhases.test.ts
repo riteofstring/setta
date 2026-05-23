@@ -70,7 +70,7 @@ describe("GPU Flow visible publication kernel phases", () => {
     const source = readFileSync(SURFACE_FRAME_PUBLICATION_MODULE_PATH, "utf8");
 
     expect(source).not.toContain(
-      "createGpuFlowVisibleFramePublicationTransactionOracle",
+      "createGpuFlowVisibleFramePublicationTransactionOracle(",
     );
     expect(source).not.toContain(
       "proveGpuFlowVisibleFramePublicationCandidateSet",
@@ -98,7 +98,10 @@ describe("GPU Flow visible publication kernel phases", () => {
     const visibleTokenConstructors = [
       "createGpuFlowBlockedPublicationToken",
       "createGpuFlowCommitPublicationToken",
+      "createGpuFlowCommittedSurfaceResetToken",
+      "createGpuFlowCommittedSurfaceStartupToken",
       "createGpuFlowHoldPreviousToken",
+      "createGpuFlowPresentableCommit",
     ] as const;
 
     for (const constructorName of visibleTokenConstructors) {

@@ -18,7 +18,7 @@ import type {
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationKernel";
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
-  createGpuFlowVisibleFramePublicationTransactionOracle,
+  createGpuFlowVisibleFramePublicationTransactionOracleFactory,
   createGpuFlowVisiblePublicationCommitOracle,
   selectGpuFlowVisibleFramePublicationPreparedFrame,
 } from "./visibleFramePublicationOracle";
@@ -29,6 +29,8 @@ const KERNEL_MODULE_PATH = fileURLToPath(
 const ORACLE_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationOracle.ts", import.meta.url),
 );
+const createGpuFlowVisibleFramePublicationTransactionOracle =
+  createGpuFlowVisibleFramePublicationTransactionOracleFactory();
 
 describe("GPU Flow visible publication transaction oracle", () => {
   it("keeps candidate-set oracle assembly out of the kernel wrapper", () => {
@@ -279,9 +281,8 @@ describe("GPU Flow visible publication transaction oracle", () => {
     });
 
     expect(prepared.renderedVisibleFrame).toBe(true);
-    expect(prepared.presentableCommit).toEqual(
+    expect(prepared.commitOracle?.presentationProof).toEqual(
       expect.objectContaining({
-        committedFrameId: motionVisibleState.committedFrame.displayFrameId,
         projectionSampleId: motionVisibleState.sample.id,
       }),
     );
@@ -336,9 +337,6 @@ describe("GPU Flow visible publication transaction oracle", () => {
       transactionOracle.blockedPublicationCandidate,
     );
     expect(prepared.blockedProof).toBe(transactionOracle.blockedProof);
-    expect(prepared.presentableCommit).toBe(
-      transactionOracle.presentableCommit,
-    );
     expect(prepared.renderedVisibleFrame).toBe(
       transactionOracle.renderedVisibleFrame,
     );
@@ -405,7 +403,6 @@ describe("GPU Flow visible publication transaction oracle", () => {
 
     expect(prepared.renderedVisibleFrame).toBe(false);
     expect(prepared.commitOracle).toBeNull();
-    expect(prepared.presentableCommit).toBeNull();
     expect(prepared.blockedPublicationCandidate).toBe(motionBlockedCandidate);
     expect(prepared.blockedProof).toEqual({
       blockedReasons: motionBlockedCandidate.blockedReasons,
@@ -444,7 +441,6 @@ describe("GPU Flow visible publication transaction oracle", () => {
       blockedPublicationCandidate: null,
       blockedProof: null,
       commitOracle: null,
-      presentableCommit: null,
       renderedVisibleFrame: false,
       visibleProjectionState: null,
     });

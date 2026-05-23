@@ -36,7 +36,7 @@ export function createGpuFlowContentPublicationBlockedCandidateSelector({
   });
 }
 
-export function selectGpuFlowContentPublicationBlockedCandidate({
+function selectGpuFlowContentPublicationBlockedCandidate({
   previousVisibleProjectionState,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -78,7 +78,7 @@ export function createGpuFlowContentPublicationBlockedCandidateForFrameResultSel
     });
 }
 
-export function selectGpuFlowContentPublicationBlockedCandidateForFrameResult({
+function selectGpuFlowContentPublicationBlockedCandidateForFrameResult({
   nodeLayerFrameResult,
   selectContentPublicationBlockedCandidate,
 }: {

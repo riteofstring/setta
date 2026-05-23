@@ -21,8 +21,8 @@ import {
   type GpuFlowRetainedDisplayPublicationResult,
 } from "./flowRetainedDisplayTransaction";
 import {
-  resolveGpuFlowCommittedSurfacePublicationFramePlanResult as resolveCommittedSurfaceFramePlanResultByPublicationAuthority,
-  selectGpuFlowCommittedSurfacePublicationFramePlan as selectCommittedSurfaceFramePlanByPublicationAuthority,
+  createGpuFlowCommittedSurfacePublicationFramePlanResultResolver,
+  createGpuFlowCommittedSurfacePublicationFramePlanSelector,
   type GpuFlowCommittedSurfacePublicationFramePlan,
   type GpuFlowCommittedSurfacePublicationFramePlanResult,
   type GpuFlowCommittedSurfacePublicationFramePlanSelector,
@@ -101,6 +101,10 @@ const EMPTY_GPU_FLOW_CONTENT_PUBLICATION_FRAME_RESULT_FIELDS = Object.freeze({
   visibleProjectionState: null,
 } satisfies Omit<GpuFlowContentPublicationFrameResult, "rendered">);
 
+const selectCommittedSurfaceFramePlanByPublicationAuthority =
+  createGpuFlowCommittedSurfacePublicationFramePlanSelector();
+const resolveCommittedSurfaceFramePlanResultByPublicationAuthority =
+  createGpuFlowCommittedSurfacePublicationFramePlanResultResolver();
 const selectRetainedDisplayFramePlanByPublicationAuthority =
   createGpuFlowRetainedDisplayPublicationFramePlanSelector();
 const resolveRetainedDisplayFramePlanResultByPublicationAuthority =

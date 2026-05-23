@@ -75,8 +75,6 @@ const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
 ] as const;
 const PRODUCTION_TOKEN_CONSTRUCTOR_IMPORTERS = new Set([
   "GpuFlow/visibleFramePublicationKernel.ts",
-  "GpuFlow/visibleFramePublicationCompletion.ts",
-  "GpuFlow/visibleFramePublicationOracle.ts",
 ]);
 const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([
   "GpuFlow/visibleFramePublicationKernel.ts",
@@ -393,7 +391,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "runGpuFlowVisibleFramePublicationCandidateSetKernel",
     );
     expect(kernelSource).toContain(
-      "createGpuFlowVisibleFramePublicationTransactionOracle",
+      "createGpuFlowVisibleFramePublicationTransactionOracleFactory",
     );
     expect(kernelSource).toContain("blockedSource");
     expect(kernelSource).toContain("visibleProjectionSource");
@@ -462,11 +460,14 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(surfaceFrameSource).not.toContain(
       "resolveGpuFlowCommittedSurfacePublicationCandidateAction",
     );
+    expect(candidateHandlingSource).not.toContain(
+      "export function resolveGpuFlowCommittedSurfacePublicationCandidateAction",
+    );
     expect(kernelSource).toContain(
       "createGpuFlowCommittedSurfacePublicationCandidateActionResolver",
     );
     expect(kernelSource).toContain(
-      "resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+      "createGpuFlowCommittedSurfacePublicationActionFrameResultResolver",
     );
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
     expect(candidateSource).not.toMatch(/\bGpuFlowCommitPublicationToken\b/);

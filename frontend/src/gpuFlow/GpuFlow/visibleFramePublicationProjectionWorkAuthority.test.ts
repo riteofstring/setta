@@ -42,13 +42,19 @@ describe("GPU Flow visible publication projection work authority", () => {
       "projection-only-content-work",
     );
     expect(authoritySource).toContain(
-      "selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
+      "function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
+    );
+    expect(authoritySource).not.toContain(
+      "export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
     expect(authoritySource).toContain(
       "assertGpuFlowMotionProjectionFrameWork",
     );
     expect(authoritySource).toContain(
-      "selectGpuFlowMotionProjectionFrameWorkBlockedReason",
+      "function selectGpuFlowMotionProjectionFrameWorkBlockedReason",
+    );
+    expect(authoritySource).not.toContain(
+      "export function selectGpuFlowMotionProjectionFrameWorkBlockedReason",
     );
     expect(projectionPlanSource).not.toContain(
       "selectGpuFlowMotionProjectionFrameWorkBlockedReason",

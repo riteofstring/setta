@@ -29,7 +29,21 @@ type GpuFlowMotionProjectionFrameWithWorkReport = {
     | undefined;
 };
 
-export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason(
+export type GpuFlowMotionProjectionFrameBlockedPublicationReasonSelector =
+  (frame: unknown) => string | null;
+
+export type GpuFlowMotionProjectionFrameWorkBlockedReasonSelector =
+  (workReport: GpuFlowMotionProjectionFrameWorkReport) => string | null;
+
+export function createGpuFlowMotionProjectionFrameBlockedPublicationReasonSelector(): GpuFlowMotionProjectionFrameBlockedPublicationReasonSelector {
+  return selectGpuFlowMotionProjectionFrameBlockedPublicationReason;
+}
+
+export function createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector(): GpuFlowMotionProjectionFrameWorkBlockedReasonSelector {
+  return selectGpuFlowMotionProjectionFrameWorkBlockedReason;
+}
+
+function selectGpuFlowMotionProjectionFrameBlockedPublicationReason(
   frame: unknown,
 ): string | null {
   if (!hasGpuFlowMotionProjectionFrameWorkReport(frame)) {
@@ -66,7 +80,7 @@ function hasGpuFlowMotionProjectionFrameWorkReport(
   return frame !== null && typeof frame === "object";
 }
 
-export function selectGpuFlowMotionProjectionFrameWorkBlockedReason({
+function selectGpuFlowMotionProjectionFrameWorkBlockedReason({
   layerResult,
   projectionLane,
   transactionKind,

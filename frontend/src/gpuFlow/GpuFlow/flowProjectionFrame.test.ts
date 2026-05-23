@@ -26,7 +26,7 @@ import {
 } from "./visibleFramePublicationKernel";
 import {
   assertGpuFlowMotionProjectionFrameWork,
-  selectGpuFlowMotionProjectionFrameWorkBlockedReason,
+  createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector,
 } from "./visibleFramePublicationProjectionWorkAuthority";
 
 describe("GPU flow projection frame coverage", () => {
@@ -51,8 +51,10 @@ describe("GPU flow projection frame coverage", () => {
   });
 
   it("rejects uploads and resource churn during projection-only frames", () => {
+    const selectMotionProjectionFrameWorkBlockedReason =
+      createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector();
     expect(
-      selectGpuFlowMotionProjectionFrameWorkBlockedReason({
+      selectMotionProjectionFrameWorkBlockedReason({
         layerResult: projectionLayerResult({
           uploadedNodeIds: ["node-a"],
         }),
@@ -81,7 +83,7 @@ describe("GPU flow projection frame coverage", () => {
       }),
     ).not.toThrow();
     expect(
-      selectGpuFlowMotionProjectionFrameWorkBlockedReason({
+      selectMotionProjectionFrameWorkBlockedReason({
         layerResult: projectionLayerResult({
           uploadedNodeIds: ["node-a"],
         }),

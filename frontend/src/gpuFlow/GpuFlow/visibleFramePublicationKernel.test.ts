@@ -104,14 +104,14 @@ describe("GPU Flow visible publication transaction kernel", () => {
         debtProof: { content: true, maintenance: false, motion: false },
       }),
     );
-    expect(result.preparedFrame.presentableCommit).toEqual(
+    if (result.outcome.kind !== "commit") {
+      throw new Error("Expected visible frame publication to commit.");
+    }
+    expect(result.outcome.token).toEqual(
       expect.objectContaining({
         committedFrameId: contentVisibleState.committedFrame.displayFrameId,
         projectionSampleId: sample.id,
       }),
-    );
-    expect(result.preparedFrame.transactionOracle.presentableCommit).toBe(
-      result.preparedFrame.presentableCommit,
     );
   });
 

@@ -23,35 +23,6 @@ export type GpuFlowCommittedSurfacePublicationCandidateAction =
       readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
     };
 
-export function resolveGpuFlowCommittedSurfacePublicationCandidateAction({
-  candidate,
-  publishedCommittedSurfaceFrame,
-}: {
-  readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
-  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
-}): GpuFlowCommittedSurfacePublicationCandidateAction {
-  switch (candidate.kind) {
-    case "blocked":
-      return {
-        blockedSurfacePublication: candidate,
-        kind: "blocked",
-        visibleProjectionState: null,
-      };
-    case "held-previous":
-      return {
-        heldPreparedCommittedSurfaceFrame:
-          publishedCommittedSurfaceFrame ?? null,
-        kind: "held-previous",
-        visibleProjectionState: candidate.visibleProjectionState,
-      };
-    case "publish":
-      return {
-        committedSurfaceFrame: publishedCommittedSurfaceFrame ?? null,
-        kind: "publish",
-      };
-  }
-}
-
 export function assertGpuFlowCommittedSurfacePublicationCandidatePublished(
   candidate: GpuFlowCommittedSurfacePublicationCandidate,
 ): asserts candidate is Extract<

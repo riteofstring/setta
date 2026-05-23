@@ -21,7 +21,7 @@ export function createGpuFlowProjectionFrameRenderPlanSelector(): GpuFlowProject
   return selectGpuFlowProjectionFrameRenderPlan;
 }
 
-export function selectGpuFlowProjectionFrameRenderPlan({
+function selectGpuFlowProjectionFrameRenderPlan({
   projectionFrameTransaction,
 }: {
   readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;

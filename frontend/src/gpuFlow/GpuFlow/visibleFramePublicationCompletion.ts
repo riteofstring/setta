@@ -1,13 +1,8 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
   createGpuFlowVisiblePublicationScheduler,
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import {
-  createGpuFlowCommittedSurfaceResetToken,
-  createGpuFlowCommittedSurfaceStartupToken,
-} from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowVisiblePublicationCommitOracleReport,
   createGpuFlowVisiblePublicationTransactionOracleReport,
@@ -18,8 +13,6 @@ import {
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
-  GpuFlowCommittedSurfaceResetToken,
-  GpuFlowCommittedSurfaceStartupToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationTokens";
 
@@ -51,18 +44,6 @@ export type GpuFlowVisiblePublicationTransactionCompletion = {
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousCommittedFrameId: number | null;
 };
-
-export function createGpuFlowCommittedSurfaceResetPublicationToken(): GpuFlowCommittedSurfaceResetToken {
-  return createGpuFlowCommittedSurfaceResetToken();
-}
-
-export function createGpuFlowCommittedSurfaceStartupPublicationToken({
-  frame,
-}: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
-}): GpuFlowCommittedSurfaceStartupToken {
-  return createGpuFlowCommittedSurfaceStartupToken({ frame });
-}
 
 export function createGpuFlowVisiblePublicationTransactionReport({
   completion,

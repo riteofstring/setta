@@ -8,7 +8,6 @@ import type {
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import {
-  resolveGpuFlowCommittedSurfacePublicationCandidateAction,
   type GpuFlowCommittedSurfacePublicationCandidateAction,
 } from "./flowCommittedSurfacePublicationCandidateHandling";
 import {
@@ -59,9 +58,10 @@ type GpuFlowCommittedSurfaceHeldPreviousPublicationTransaction = {
 };
 
 export type GpuFlowCommittedSurfacePublicationCandidateActionResolver = (
-  input: Parameters<
-    typeof resolveGpuFlowCommittedSurfacePublicationCandidateAction
-  >[0],
+  input: {
+    readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
+    readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
+  },
 ) => GpuFlowCommittedSurfacePublicationCandidateAction;
 
 export type GpuFlowCommittedSurfacePublicationActionFrameResult = {
@@ -92,6 +92,11 @@ export type GpuFlowCommittedSurfacePublicationFramePlan =
 
 export type GpuFlowCommittedSurfacePublicationFramePlanResult =
   GpuFlowCommittedSurfacePublicationActionFrameResult;
+
+export type GpuFlowCommittedSurfacePublicationFramePlanResultResolver =
+  (input: {
+    readonly framePlan: GpuFlowCommittedSurfacePublicationFramePlan;
+  }) => GpuFlowCommittedSurfacePublicationFramePlanResult;
 
 export type GpuFlowCommittedSurfacePublicationFramePlanSelector = (input: {
   readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
@@ -280,11 +285,15 @@ export function createGpuFlowCommittedSurfacePublicationActionFrameResultResolve
   return resolveGpuFlowCommittedSurfacePublicationActionFrameResult;
 }
 
+export function createGpuFlowCommittedSurfacePublicationFramePlanResultResolver(): GpuFlowCommittedSurfacePublicationFramePlanResultResolver {
+  return resolveGpuFlowCommittedSurfacePublicationFramePlanResult;
+}
+
 export function createGpuFlowCommittedSurfacePublicationFramePlanSelector(): GpuFlowCommittedSurfacePublicationFramePlanSelector {
   return selectGpuFlowCommittedSurfacePublicationFramePlan;
 }
 
-export function selectGpuFlowCommittedSurfacePublicationFramePlan({
+function selectGpuFlowCommittedSurfacePublicationFramePlan({
   candidate,
   publishedCommittedSurfaceFrame,
 }: {
@@ -315,7 +324,36 @@ export function selectGpuFlowCommittedSurfacePublicationFramePlan({
   };
 }
 
-export function resolveGpuFlowCommittedSurfacePublicationFramePlanResult({
+function resolveGpuFlowCommittedSurfacePublicationCandidateAction({
+  candidate,
+  publishedCommittedSurfaceFrame,
+}: {
+  readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
+  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
+}): GpuFlowCommittedSurfacePublicationCandidateAction {
+  switch (candidate.kind) {
+    case "blocked":
+      return {
+        blockedSurfacePublication: candidate,
+        kind: "blocked",
+        visibleProjectionState: null,
+      };
+    case "held-previous":
+      return {
+        heldPreparedCommittedSurfaceFrame:
+          publishedCommittedSurfaceFrame ?? null,
+        kind: "held-previous",
+        visibleProjectionState: candidate.visibleProjectionState,
+      };
+    case "publish":
+      return {
+        committedSurfaceFrame: publishedCommittedSurfaceFrame ?? null,
+        kind: "publish",
+      };
+  }
+}
+
+function resolveGpuFlowCommittedSurfacePublicationFramePlanResult({
   framePlan,
 }: {
   readonly framePlan: GpuFlowCommittedSurfacePublicationFramePlan;
@@ -327,7 +365,7 @@ export function resolveGpuFlowCommittedSurfacePublicationFramePlanResult({
   };
 }
 
-export function resolveGpuFlowCommittedSurfacePublicationActionFrameResult({
+function resolveGpuFlowCommittedSurfacePublicationActionFrameResult({
   action,
   effect,
 }: {

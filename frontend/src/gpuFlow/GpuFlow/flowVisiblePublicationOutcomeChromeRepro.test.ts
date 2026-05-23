@@ -17,7 +17,6 @@ import {
 } from "./visibleFramePublicationOracle";
 import type {
   GpuFlowCommitPublicationToken,
-  GpuFlowPresentableCommit,
 } from "./visibleFramePublicationTokens";
 
 describe("GPU Flow visible publication Chrome repro payload", () => {
@@ -262,7 +261,6 @@ function transactionOracle({
     blockedProof: null,
     blockedSource: null,
     commitOracle,
-    presentableCommit: {} as GpuFlowPresentableCommit,
     renderedVisibleFrame: true,
     visibleProjectionSource: "content-publication",
     visibleProjectionState: {} as GpuFlowVisibleProjectionState,
