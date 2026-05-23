@@ -16,6 +16,11 @@ import {
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
 } from "./visibleFramePublicationAuthority";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
+import {
+  assertGpuFlowVisiblePublicationResourcesProtected,
+  createGpuFlowVisiblePublicationResourceBlockedReasons,
+  createGpuFlowVisiblePublicationResourceProtectionReport,
+} from "./visibleFramePublicationResourceOracle";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePublicationTokens";
 
 export type GpuFlowVisiblePublicationCommitDebtProof = {
@@ -52,7 +57,8 @@ export type GpuFlowVisiblePublicationBlockedProof = {
     | "browser-visual-proof"
     | "compatible-previous-proof"
     | "content-publication"
-    | "motion-projection";
+    | "motion-projection"
+    | "resource-protection";
 };
 
 export type GpuFlowVisibleFramePublicationPreparedFrame = {
@@ -194,14 +200,18 @@ function createGpuFlowVisiblePublicationCommitOracle({
     projectionSampleId: publicationDecision.sample.id,
   });
   assertGpuFlowVisiblePublicationCommitActorProofs(actorProofs);
+  const resourceProtection =
+    createGpuFlowVisiblePublicationResourceProtectionReport(committedFrame);
+  assertGpuFlowVisiblePublicationResourcesProtected(resourceProtection);
   const browserActorProofs =
     createGpuFlowVisiblePublicationBrowserActorProofReportForFrame(
       committedFrame,
     );
   const compatiblePreviousProofs =
-    createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame(
+    createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame({
       committedFrame,
-    );
+      projectionSampleId: publicationDecision.sample.id,
+    });
   const coverage =
     createGpuFlowVisiblePublicationCoverageReportForFrame(committedFrame);
   const presentationProof =
@@ -240,6 +250,7 @@ function createGpuFlowVisiblePublicationCommitOracle({
     presentationProof,
     remainingActorDebt:
       createGpuFlowVisiblePublicationRemainingActorDebt(actorProofs),
+    resourceProtection,
   });
 }
 
@@ -254,12 +265,15 @@ export function createGpuFlowVisiblePublicationCommitOracleReport(
         createGpuFlowVisiblePublicationBrowserActorProofReportForFrame(null),
       commitOracle: null,
       compatiblePreviousProofs:
-        createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame(
-          null,
-        ),
+        createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame({
+          committedFrame: null,
+          projectionSampleId: null,
+        }),
       coverage: null,
       presentationProof: null,
       remainingActorDebt: [],
+      resourceProtection:
+        createGpuFlowVisiblePublicationResourceProtectionReport(null),
     };
   }
   return {
@@ -274,6 +288,7 @@ export function createGpuFlowVisiblePublicationCommitOracleReport(
     coverage: commitOracle.coverage,
     presentationProof: commitOracle.presentationProof,
     remainingActorDebt: commitOracle.remainingActorDebt,
+    resourceProtection: commitOracle.resourceProtection,
   };
 }
 
@@ -466,10 +481,20 @@ function resolveGpuFlowVisibleFramePublicationOracleProofState({
       visibleProjectionState: candidateVisibleProjectionState,
     });
   if (actorBlockedProof === null) {
-    return {
-      blockedProof: null,
-      visibleProjectionState: candidateVisibleProjectionState,
-    };
+    const resourceBlockedProof =
+      createGpuFlowVisibleFramePublicationOracleResourceBlockedProof({
+        previousVisibleProjectionState,
+        visibleProjectionState: candidateVisibleProjectionState,
+      });
+    return resourceBlockedProof === null
+      ? {
+          blockedProof: null,
+          visibleProjectionState: candidateVisibleProjectionState,
+        }
+      : {
+          blockedProof: resourceBlockedProof,
+          visibleProjectionState: null,
+        };
   }
   return {
     blockedProof: actorBlockedProof,
@@ -514,6 +539,33 @@ function assertGpuFlowVisibleFramePublicationOracleOutcomeCoherent({
       "GPU Flow visible publication oracle cannot combine a blocked proof with a visible projection state.",
     );
   }
+}
+
+function createGpuFlowVisibleFramePublicationOracleResourceBlockedProof({
+  previousVisibleProjectionState,
+  visibleProjectionState,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowVisiblePublicationBlockedProof | null {
+  if (visibleProjectionState === null) {
+    return null;
+  }
+  const blockedReasons = createGpuFlowVisiblePublicationResourceBlockedReasons(
+    visibleProjectionState.committedFrame,
+  );
+  if (blockedReasons.length === 0) {
+    return null;
+  }
+  return createGpuFlowVisiblePublicationBlockedProof({
+    candidate: Object.freeze({
+      blockedReasons,
+      frozenFrameId:
+        previousVisibleProjectionState?.committedFrame.displayFrameId ??
+        GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+    }),
+    source: "resource-protection",
+  });
 }
 
 function createGpuFlowVisibleFramePublicationTransactionCommitOracle({
@@ -684,9 +736,13 @@ function createGpuFlowVisibleFramePublicationOracleProjectionSource<
   return null;
 }
 
-function createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame(
-  committedFrame: GpuFlowCommittedSurfaceFrame | null,
-) {
+function createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame({
+  committedFrame,
+  projectionSampleId,
+}: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly projectionSampleId: number | null;
+}) {
   const actorGenerations = committedFrame?.actorGenerations ?? [];
   const samples = actorGenerations.flatMap((actor) => {
     const textCoverageProof = actor.textCoverageProof;
@@ -700,18 +756,26 @@ function createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame(
         actorId: actor.actorId,
         budgetState: proof.budgetState,
         canonicalActorId: actor.canonicalActorId,
+        clipChainRevision: proof.clipChainRevision,
         hitMappingCompatible: proof.hitMappingCompatible,
         maxProofAgeFrames: proof.maxProofAgeFrames,
         maxProofAgeMs: proof.maxProofAgeMs,
+        previousActorGenerationId: proof.previousActorGenerationId,
         previousCommittedFrameId: proof.previousCommittedFrameId,
         previousProjectionSampleRevision:
           proof.previousProjectionSampleRevision,
+        previousTransactionId: proof.previousTransactionId,
+        previousVisualGenerationId: proof.previousVisualGenerationId,
         proofAgeFrames: proof.proofAgeFrames,
         proofAgeMs: proof.proofAgeMs,
         protectedResourceIds: proof.protectedResourceIds,
         reasonCode: proof.reasonCode,
+        requestedActorGenerationId: proof.requestedActorGenerationId,
+        requestedLiveProjectionSampleId: projectionSampleId,
         requestedProjectionSampleRevision:
           proof.requestedProjectionSampleRevision,
+        requestedVisualGenerationId: proof.requestedVisualGenerationId,
+        resourceHandleIds: proof.resourceHandles.map((handle) => handle.id),
         retainedScrollCompatible: proof.retainedScrollCompatible,
       },
     ];

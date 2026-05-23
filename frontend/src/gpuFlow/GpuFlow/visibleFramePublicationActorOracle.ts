@@ -2,6 +2,7 @@ import type {
   GpuFlowCommittedSurfaceActorGeneration,
   GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
+import type { BrowserTextActorRepresentation } from "../surfaceCompositor/browserVisualActorAdapter";
 import type { GpuFlowBlockedVisibleReason } from "./visibleFramePublicationTokens";
 
 type GpuFlowCompatiblePreviousBudgetState =
@@ -13,6 +14,7 @@ export type GpuFlowVisiblePublicationActorProof = {
   readonly actorId: string;
   readonly actualInteractionProof: string;
   readonly actualVisualProof: string;
+  readonly browserVisualRepresentation: BrowserTextActorRepresentation | null;
   readonly canonicalActorId: string;
   readonly clipChainRevision: string;
   readonly compatiblePreviousBudgetState: GpuFlowCompatiblePreviousBudgetState;
@@ -79,6 +81,7 @@ export function createGpuFlowVisiblePublicationActorProofDigest(
       proof.actualVisualProof,
       proof.requiredInteractionRepresentation,
       proof.actualInteractionProof,
+      proof.browserVisualRepresentation,
       proof.compatiblePreviousBudgetState,
       proof.proofState,
       proof.remainingDebt,
@@ -98,8 +101,7 @@ export function createGpuFlowVisiblePublicationBlockedActorReasonsForFrame({
       committedFrame,
       projectionSampleId,
     })
-      .filter((proof) => proof.proofState === "blocked")
-      .map(createGpuFlowVisiblePublicationBlockedActorReason),
+      .flatMap(createGpuFlowVisiblePublicationBlockedActorReasons),
   );
 }
 
@@ -126,19 +128,32 @@ export function assertGpuFlowVisiblePublicationCommitActorProofs(
   const blockedProofs = actorProofs.filter(
     (proof) => proof.proofState === "blocked",
   );
-  if (blockedProofs.length === 0) {
+  if (blockedProofs.length > 0) {
+    throw new Error(
+      `GPU Flow visible publication oracle cannot commit blocked actor proofs: ${blockedProofs
+        .map((proof) =>
+          [
+            proof.actorId,
+            proof.actualVisualProof,
+            proof.actualInteractionProof,
+          ].join(":"),
+        )
+        .join(", ")}.`,
+    );
+  }
+  const representationMismatches = actorProofs.flatMap((proof) => {
+    const mismatch = getGpuFlowVisiblePublicationActorRepresentationMismatch(
+      proof,
+    );
+    return mismatch === null ? [] : [mismatch];
+  });
+  if (representationMismatches.length === 0) {
     return;
   }
   throw new Error(
-    `GPU Flow visible publication oracle cannot commit blocked actor proofs: ${blockedProofs
-      .map((proof) =>
-        [
-          proof.actorId,
-          proof.actualVisualProof,
-          proof.actualInteractionProof,
-        ].join(":"),
-      )
-      .join(", ")}.`,
+    `GPU Flow visible publication oracle cannot commit actor proofs with mismatched browser visual representation: ${representationMismatches.join(
+      ", ",
+    )}.`,
   );
 }
 
@@ -170,6 +185,8 @@ function createGpuFlowVisiblePublicationActorProof({
     actorId: actor.actorId,
     actualInteractionProof,
     actualVisualProof,
+    browserVisualRepresentation:
+      createGpuFlowVisiblePublicationBrowserVisualRepresentation(actor),
     canonicalActorId: actor.canonicalActorId,
     clipChainRevision: actor.clipChainRevision,
     compatiblePreviousBudgetState,
@@ -193,6 +210,91 @@ function createGpuFlowVisiblePublicationActorProof({
       actualVisualProof,
     }),
   });
+}
+
+function createGpuFlowVisiblePublicationBrowserVisualRepresentation(
+  actor: GpuFlowCommittedSurfaceActorGeneration,
+): BrowserTextActorRepresentation | null {
+  const representation = actor.browserVisual?.representation ?? null;
+  return representation === null ? null : Object.freeze({ ...representation });
+}
+
+function getGpuFlowVisiblePublicationActorRepresentationMismatch(
+  proof: GpuFlowVisiblePublicationActorProof,
+): string | null {
+  const representation = proof.browserVisualRepresentation;
+  if (representation && representation.actorId !== proof.actorId) {
+    return `${proof.actorId}:${proof.actualVisualProof}:actor-id-mismatch`;
+  }
+  return getGpuFlowVisiblePublicationActorVisualRepresentationMismatch(proof);
+}
+
+function getGpuFlowVisiblePublicationActorVisualRepresentationMismatch(
+  proof: GpuFlowVisiblePublicationActorProof,
+): string | null {
+  switch (proof.actualVisualProof) {
+    case "compatible-previous":
+      return getGpuFlowCompatiblePreviousRepresentationMismatch(proof);
+    case "exact-snapshot":
+      return getGpuFlowExactSnapshotRepresentationMismatch(proof);
+    case "same-live-host-compatible-projection":
+      return getGpuFlowSameLiveHostRepresentationMismatch(proof);
+    case "exact-live-host":
+      return getGpuFlowExactLiveHostRepresentationMismatch(proof);
+    case "blocked":
+    case "not-required":
+    default:
+      return null;
+  }
+}
+
+function getGpuFlowCompatiblePreviousRepresentationMismatch(
+  proof: GpuFlowVisiblePublicationActorProof,
+): string | null {
+  return proof.browserVisualRepresentation?.kind === "compatible-previous"
+    ? null
+    : `${proof.actorId}:compatible-previous:previous-transaction-identity-required`;
+}
+
+function getGpuFlowExactSnapshotRepresentationMismatch(
+  proof: GpuFlowVisiblePublicationActorProof,
+): string | null {
+  if (proof.ownerFamily !== "text-like-dom-control") {
+    return null;
+  }
+  return proof.browserVisualRepresentation?.kind === "passive-snapshot"
+    ? null
+    : `${proof.actorId}:exact-snapshot:snapshot-identity-required`;
+}
+
+function getGpuFlowSameLiveHostRepresentationMismatch(
+  proof: GpuFlowVisiblePublicationActorProof,
+): string | null {
+  return isGpuFlowVisiblePublicationLiveHostRepresentation(
+    proof.browserVisualRepresentation,
+  )
+    ? null
+    : `${proof.actorId}:same-live-host-compatible-projection:live-host-identity-required`;
+}
+
+function getGpuFlowExactLiveHostRepresentationMismatch(
+  proof: GpuFlowVisiblePublicationActorProof,
+): string | null {
+  if (proof.requiredInteractionRepresentation !== "active-editor-live") {
+    return null;
+  }
+  return proof.browserVisualRepresentation?.kind === "active-editor"
+    ? null
+    : `${proof.actorId}:exact-live-host:active-editor-host-identity-required`;
+}
+
+function isGpuFlowVisiblePublicationLiveHostRepresentation(
+  representation: BrowserTextActorRepresentation | null,
+): boolean {
+  return (
+    representation?.kind === "active-editor" ||
+    representation?.kind === "passive-live-display"
+  );
 }
 
 function getGpuFlowVisiblePublicationRequiredVisualRepresentation(
@@ -341,6 +443,28 @@ function createGpuFlowVisiblePublicationActorRemainingDebt({
     );
   }
   return Object.freeze([...debt]);
+}
+
+function createGpuFlowVisiblePublicationBlockedActorReasons(
+  proof: GpuFlowVisiblePublicationActorProof,
+): readonly GpuFlowBlockedVisibleReason[] {
+  if (proof.proofState === "blocked") {
+    return [createGpuFlowVisiblePublicationBlockedActorReason(proof)];
+  }
+  const representationMismatch =
+    getGpuFlowVisiblePublicationActorRepresentationMismatch(proof);
+  return representationMismatch === null
+    ? []
+    : [
+        Object.freeze({
+          actorId: proof.actorId,
+          family:
+            proof.requiredInteractionRepresentation === "active-editor-live"
+              ? "active-editor"
+              : "browser-visual",
+          reason: representationMismatch,
+        }),
+      ];
 }
 
 function createGpuFlowVisiblePublicationBlockedActorReason(

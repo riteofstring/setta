@@ -98,6 +98,7 @@ export function createGpuFlowVisiblePublicationTransactionReport({
     rawReasons: publicationDecision.rawReasons,
     remainingActorDebt: commitOracleReport.remainingActorDebt,
     remainingDebt: completion.debt,
+    resourceProtection: commitOracleReport.resourceProtection,
     schedulerOutcome: completion.outcome,
     schedulerState: publicationDecision.schedulerState,
     token,

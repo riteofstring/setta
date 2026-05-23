@@ -124,6 +124,7 @@ describe("GPU Flow visible publication transaction oracle", () => {
     const sample = liveProjectionSample({ id: 45, timestamp: 450 });
     const actor = retainedDomControlActor({
       actualInteractionProof: "inactive-visual-only",
+      compatiblePreviousBudgetState: "within-budget",
       requiredInteractionProof: "inactive-visual-only",
     });
     const oracle = createGpuFlowVisiblePublicationCommitOracle({
@@ -136,6 +137,11 @@ describe("GPU Flow visible publication transaction oracle", () => {
         actorId: "control-a",
         actualInteractionProof: "inactive-visual-only",
         actualVisualProof: "compatible-previous",
+        browserVisualRepresentation: {
+          actorId: "control-a",
+          kind: "compatible-previous",
+          previousTransactionId: "previous-transaction",
+        },
         canonicalActorId: actor.canonicalActorId,
         contentGenerationId: "content-a",
         ownerFamily: "text-like-dom-control",
@@ -161,6 +167,23 @@ describe("GPU Flow visible publication transaction oracle", () => {
     expect(oracle.browserActorProofs.actualVisual).toEqual({
       "compatible-previous": 1,
     });
+    expect(oracle.compatiblePreviousProofs.samples).toEqual([
+      expect.objectContaining({
+        actorId: "control-a",
+        clipChainRevision: "clip-a",
+        previousActorGenerationId: "previous-generation-a",
+        previousCommittedFrameId: 6,
+        previousTransactionId: "previous-transaction",
+        previousVisualGenerationId: "previous-visual-a",
+        protectedResourceIds: ["source:control-a"],
+        requestedActorGenerationId: "generation-a",
+        requestedLiveProjectionSampleId: sample.id,
+        requestedProjectionSampleRevision: "viewport-current",
+        requestedVisualGenerationId: "generation-a",
+        resourceHandleIds: [],
+        retainedScrollCompatible: true,
+      }),
+    ]);
     expect(oracle.presentationProof).toEqual(
       expect.objectContaining({
         batchId: expect.any(String),
@@ -333,6 +356,12 @@ describe("GPU Flow visible publication transaction oracle", () => {
         expect.objectContaining({
           actualInteractionProof: "active-editor-live",
           actualVisualProof,
+          browserVisualRepresentation: {
+            actorId: "control-a",
+            hostId: "host-a",
+            islandId: "island-a",
+            kind: "active-editor",
+          },
           proofState: "exact",
           remainingDebt: [],
           requiredInteractionRepresentation: "active-editor-live",
@@ -342,6 +371,174 @@ describe("GPU Flow visible publication transaction oracle", () => {
       ]);
       expect(oracle.browserActorProofs.actualInteraction).toEqual({
         "active-editor-live": 1,
+      });
+    },
+  );
+
+  it("rejects compatible previous proof without previous transaction representation identity", () => {
+    const sample = liveProjectionSample({ id: 55, timestamp: 550 });
+    const actor = actorWithBrowserVisualRepresentation(
+      retainedDomControlActor({
+        actualInteractionProof: "inactive-visual-only",
+        compatiblePreviousBudgetState: "within-budget",
+        requiredInteractionProof: "inactive-visual-only",
+      }),
+      null,
+    );
+
+    expect(() =>
+      createGpuFlowVisiblePublicationCommitOracle({
+        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        publicationDecision: publicationDecision(sample),
+      }),
+    ).toThrow(
+      /compatible-previous:previous-transaction-identity-required/,
+    );
+  });
+
+  it("rejects active-editor live proof without active host representation identity", () => {
+    const sample = liveProjectionSample({ id: 56, timestamp: 560 });
+    const actor = actorWithBrowserVisualRepresentation(
+      retainedDomControlActor({
+        actualInteractionProof: "active-editor-live",
+        actualVisualProof: "exact-live-host",
+      }),
+      { actorId: "control-a", hostId: "host-a", kind: "passive-live-display" },
+    );
+
+    expect(() =>
+      createGpuFlowVisiblePublicationCommitOracle({
+        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        publicationDecision: publicationDecision(sample),
+      }),
+    ).toThrow(/exact-live-host:active-editor-host-identity-required/);
+  });
+
+  it("rejects commit oracle proof when actor resources are unprotected", () => {
+    const sample = liveProjectionSample({ id: 57, timestamp: 570 });
+    const actor = actorWithBrowserVisualResourceHandles(
+      retainedDomControlActor({
+        actualInteractionProof: "active-editor-live",
+        actualVisualProof: "exact-live-host",
+      }),
+      [{ id: "source-a", kind: "source" }],
+    );
+
+    expect(() =>
+      createGpuFlowVisiblePublicationCommitOracle({
+        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        publicationDecision: publicationDecision(sample),
+      }),
+    ).toThrow(/requires protected resources.*source:source-a/);
+  });
+
+  it("converts missing protected resources into a blocked transaction proof", () => {
+    const sample = liveProjectionSample({ id: 58, timestamp: 580 });
+    const actor = actorWithBrowserVisualResourceHandles(
+      retainedDomControlActor({
+        actualInteractionProof: "active-editor-live",
+        actualVisualProof: "exact-live-host",
+      }),
+      [{ id: "source-a", kind: "source" }],
+    );
+    const previousVisibleProjectionState = visibleProjectionState({
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 57, timestamp: 564 }),
+    });
+    const visibleProjectionStateWithMissingResource = visibleProjectionState({
+      committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+      kind: "content-publication",
+      sample,
+    });
+
+    const oracle = createGpuFlowVisibleFramePublicationTransactionOracle({
+      contentPublicationFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: visibleProjectionStateWithMissingResource,
+      },
+      motionProjectionFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: null,
+      },
+      previousVisibleProjectionState,
+      publicationDecision: publicationDecision(sample),
+    });
+
+    expect(oracle.blockedSource).toBe("resource-protection");
+    expect(oracle.commitOracle).toBeNull();
+    expect(oracle.blockedPublicationCandidate).toEqual({
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "resource-protection",
+          reason: "missing-protected-resource:source:source-a",
+        },
+      ],
+      frozenFrameId:
+        previousVisibleProjectionState.committedFrame.displayFrameId,
+    });
+  });
+
+  it.each([
+    {
+      actor: actorWithBrowserVisualRepresentation(
+        retainedDomControlActor({
+          actualInteractionProof: "inactive-visual-only",
+          compatiblePreviousBudgetState: "within-budget",
+          requiredInteractionProof: "inactive-visual-only",
+        }),
+        null,
+      ),
+      family: "browser-visual",
+      reason:
+        "control-a:compatible-previous:previous-transaction-identity-required",
+    },
+    {
+      actor: actorWithBrowserVisualRepresentation(
+        retainedDomControlActor({
+          actualInteractionProof: "active-editor-live",
+          actualVisualProof: "exact-live-host",
+        }),
+        { actorId: "control-a", hostId: "host-a", kind: "passive-live-display" },
+      ),
+      family: "active-editor",
+      reason: "control-a:exact-live-host:active-editor-host-identity-required",
+    },
+  ])(
+    "converts browser representation mismatch into a blocked transaction proof",
+    ({ actor, family, reason }) => {
+      const sample = liveProjectionSample({ id: 57, timestamp: 570 });
+      const previousVisibleProjectionState = visibleProjectionState({
+        kind: "content-publication",
+        sample: liveProjectionSample({ id: 56, timestamp: 554 }),
+      });
+      const visibleProjectionStateWithMismatch = visibleProjectionState({
+        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        kind: "content-publication",
+        sample,
+      });
+
+      const oracle = createGpuFlowVisibleFramePublicationTransactionOracle({
+        contentPublicationFrame: {
+          blockedPublicationCandidate: null,
+          visibleProjectionState: visibleProjectionStateWithMismatch,
+        },
+        motionProjectionFrame: {
+          blockedPublicationCandidate: null,
+          visibleProjectionState: null,
+        },
+        previousVisibleProjectionState,
+        publicationDecision: publicationDecision(sample),
+      });
+
+      expect(oracle.blockedSource).toBe("actor-proof");
+      expect(oracle.commitOracle).toBeNull();
+      expect(oracle.renderedVisibleFrame).toBe(false);
+      expect(oracle.visibleProjectionState).toBeNull();
+      expect(oracle.blockedPublicationCandidate).toEqual({
+        blockedReasons: [{ actorId: "control-a", family, reason }],
+        frozenFrameId:
+          previousVisibleProjectionState.committedFrame.displayFrameId,
       });
     },
   );
@@ -720,6 +917,42 @@ function retainedDomControlActor({
     visibleNonempty: true,
     wheelPolicy: "retained-scroll-or-editor-scroll",
     zOrder: 1,
+  });
+}
+
+function actorWithBrowserVisualRepresentation(
+  actor: GpuFlowCommittedSurfaceActorGeneration,
+  representation: NonNullable<
+    GpuFlowCommittedSurfaceActorGeneration["browserVisual"]
+  >["representation"],
+): GpuFlowCommittedSurfaceActorGeneration {
+  if (!actor.browserVisual) {
+    throw new Error("Expected browser visual actor.");
+  }
+  return freezeActor({
+    ...actor,
+    browserVisual: {
+      ...actor.browserVisual,
+      representation,
+    },
+  });
+}
+
+function actorWithBrowserVisualResourceHandles(
+  actor: GpuFlowCommittedSurfaceActorGeneration,
+  resourceHandles: NonNullable<
+    GpuFlowCommittedSurfaceActorGeneration["browserVisual"]
+  >["resourceHandles"],
+): GpuFlowCommittedSurfaceActorGeneration {
+  if (!actor.browserVisual) {
+    throw new Error("Expected browser visual actor.");
+  }
+  return freezeActor({
+    ...actor,
+    browserVisual: {
+      ...actor.browserVisual,
+      resourceHandles,
+    },
   });
 }
 

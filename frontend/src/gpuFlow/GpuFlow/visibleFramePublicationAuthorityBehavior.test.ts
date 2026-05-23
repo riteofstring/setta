@@ -185,27 +185,42 @@ describe("GPU Flow visible publication authority behavior", () => {
     ).toThrow(/DOM\/canvas presentation pair proof/);
   });
 
-  it("rejects commit authority when actor proof resources are not protected", () => {
+  it("rejects presentable commits when actor proof resources are not protected", async () => {
+    const {
+      createGpuFlowCommitAuthorityProof,
+      createGpuFlowPresentableCommit,
+    } = await import("./visibleFramePublicationAuthority");
     const resourceHandle = {
       id: "snapshot-a",
       kind: "texture" as const,
     };
+    const frame = committedSurfaceFrame({
+      actorGenerations: [
+        committedActorGeneration({
+          actorId: "actor-a",
+          resourceHandles: [resourceHandle],
+        }),
+      ],
+      surfaceTransaction: surfaceTransaction({
+        protectedResourceHandles: [],
+        resourceHandles: [resourceHandle],
+      }),
+    });
+    const projectionSample = liveProjectionSample();
+    const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
+      frame,
+      presentationPairProof: {
+        ...frame.presentationProof,
+        projectionSampleId: projectionSample.id,
+      },
+      projectionSampleId: projectionSample.id,
+    });
 
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
-        frame: committedSurfaceFrame({
-          actorGenerations: [
-            committedActorGeneration({
-              actorId: "actor-a",
-              resourceHandles: [resourceHandle],
-            }),
-          ],
-          surfaceTransaction: surfaceTransaction({
-            protectedResourceHandles: [],
-            resourceHandles: [resourceHandle],
-          }),
-        }),
-        projectionSample: liveProjectionSample(),
+      createGpuFlowPresentableCommit({
+        frame,
+        commitAuthorityProof,
+        projectionSample,
       }),
     ).toThrow(/requires protected resources/);
   });
