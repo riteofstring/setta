@@ -6,9 +6,9 @@ import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 import {
   createGpuFlowInteractionDiagnosticsSnapshot,
   type GpuFlowCommittedSurfaceDebugEntry,
-  type GpuFlowRetainedSceneDebugSummary,
   type GpuFlowCommittedSurfaceTextActorProofDebugEntry,
   type GpuFlowRetainedRowDebugEntry,
+  type GpuFlowRetainedSceneDebugSummary,
   type GpuFlowVisualSurfaceDebugEntry,
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
@@ -36,6 +36,7 @@ import {
 } from "../viewportMath";
 import { getRegisteredGpuFlowViewportRuntime } from "../viewportRuntimeRegistry";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
+import type { GpuFlowVisibleFramePresentationIdentity } from "./visibleFrameTypes";
 
 type GpuFlowRetainedRowDebugContext = {
   readonly containerRect: DOMRect;
@@ -63,6 +64,7 @@ export function useGpuFlowDebugGlobals<
   containerRef,
   getViewport,
   getCommittedSurfaceFrame,
+  getPresentationIdentity,
   interactionDiagnosticsRef,
   nodeInteractionRef,
   nodeLayerRef,
@@ -75,6 +77,9 @@ export function useGpuFlowDebugGlobals<
   readonly getViewport: () => GpuViewportTuple;
   readonly getCommittedSurfaceFrame?:
     | (() => GpuFlowCommittedSurfaceFrame | null)
+    | undefined;
+  readonly getPresentationIdentity?:
+    | (() => GpuFlowVisibleFramePresentationIdentity | null)
     | undefined;
   readonly interactionDiagnosticsRef: MutableRefObject<MutableGpuFlowInteractionDiagnostics>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
@@ -109,21 +114,25 @@ export function useGpuFlowDebugGlobals<
       }
       viewportStore.getState().setTransform(viewport);
     };
-    const getSnapshot = () =>
-      createGpuFlowInteractionDiagnosticsSnapshot({
+    const getSnapshot = () => {
+      const presentationIdentity = getPresentationIdentity?.() ?? null;
+      return createGpuFlowInteractionDiagnosticsSnapshot({
         activeResizeNodeId: activeResizeNodeIdRef.current,
-        committedSurfaceFrame: toCommittedSurfaceDebugEntry(
-          getCommittedSurfaceFrame?.() ?? null,
-        ),
+        committedSurfaceFrame: createGpuFlowCommittedSurfaceDebugEntry({
+          frame: getCommittedSurfaceFrame?.() ?? null,
+          presentationIdentity,
+        }),
         diagnostics: interactionDiagnosticsRef.current,
         nodeInteractionActiveNodeId:
           nodeInteractionRef.current?.getActiveNodeId() ?? null,
         ownerDocument: containerRef.current?.ownerDocument ?? window.document,
+        presentationIdentity,
         viewportState: {
           ...viewportStore.getState(),
           transform: getLiveViewport(),
         },
       });
+    };
     const getRetainedRows = () =>
       createGpuFlowRetainedRowsDebugSnapshot({
         container: containerRef.current,
@@ -191,6 +200,7 @@ export function useGpuFlowDebugGlobals<
     containerRef,
     getViewport,
     getCommittedSurfaceFrame,
+    getPresentationIdentity,
     interactionDiagnosticsRef,
     nodeInteractionRef,
     nodeLayerRef,
@@ -280,9 +290,13 @@ function countGpuFlowRetainedSurfaceDebugEntries({
   ).length;
 }
 
-function toCommittedSurfaceDebugEntry(
-  frame: GpuFlowCommittedSurfaceFrame | null,
-): GpuFlowCommittedSurfaceDebugEntry | null {
+export function createGpuFlowCommittedSurfaceDebugEntry({
+  frame,
+  presentationIdentity,
+}: {
+  readonly frame: GpuFlowCommittedSurfaceFrame | null;
+  readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null;
+}): GpuFlowCommittedSurfaceDebugEntry | null {
   if (!frame) {
     return null;
   }
@@ -291,6 +305,7 @@ function toCommittedSurfaceDebugEntry(
     blockingActorIds: frame.displayCompleteness.blockingActorIds,
     canvasRetainedFrameId: frame.coherence.canvasRetainedFrameId,
     clipChainRevision: frame.coherence.clipChainRevision,
+    contentFrameId: presentationIdentity?.contentFrameId ?? null,
     debugSnapshotFrameId: frame.coherence.debugSnapshotFrameId,
     displayFrameId: frame.displayFrameId,
     displayCompletenessStatus: frame.displayCompleteness.status,
@@ -305,6 +320,9 @@ function toCommittedSurfaceDebugEntry(
     htmlTextureActorCount: frame.diagnostics.htmlTextureActorCount,
     htmlTextureOverlayCommittedFrameId:
       frame.coherence.htmlTextureOverlayCommittedFrameId,
+    presentationId: presentationIdentity?.presentationId ?? null,
+    presentationProjectionSampleId:
+      presentationIdentity?.projectionSampleId ?? null,
     projectedVisibleNonemptyDomControlCount:
       frame.displayCompleteness.projectedVisibleNonemptyDomControlCount,
     projectionHorizon: {

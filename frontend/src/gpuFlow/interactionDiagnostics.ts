@@ -1,3 +1,4 @@
+import type { GpuFlowVisibleFramePresentationIdentity } from "./GpuFlow/visibleFrameTypes";
 import type { GpuFrameReason } from "./gpuRenderer";
 import type { GpuRetainedContentInteractionHit } from "./interactions/retainedContentInteraction";
 import type { GpuRetainedContentHitTarget } from "./retainedContentHitTest";
@@ -89,6 +90,7 @@ export type GpuFlowInteractionDiagnostics = {
   readonly activeMode: GpuFlowInteractionMode;
   readonly activeResizeNodeId: string | null;
   readonly committedSurfaceFrame: GpuFlowCommittedSurfaceDebugEntry | null;
+  readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null;
   readonly activeRetainedHit: GpuFlowRetainedHitDiagnostics | null;
   readonly hoveredRetainedHit: GpuFlowRetainedHitDiagnostics | null;
   readonly lastPointer: GpuFlowPointerDiagnostics | null;
@@ -123,6 +125,9 @@ export type GpuFlowCommittedSurfaceDebugEntry = {
   readonly blockingActorIds: readonly string[];
   readonly canvasRetainedFrameId: number;
   readonly clipChainRevision: string;
+  readonly contentFrameId:
+    | GpuFlowVisibleFramePresentationIdentity["contentFrameId"]
+    | null;
   readonly debugSnapshotFrameId: number;
   readonly displayFrameId: number;
   readonly displayCompletenessStatus: string;
@@ -135,6 +140,12 @@ export type GpuFlowCommittedSurfaceDebugEntry = {
   readonly hitGenerationId: string;
   readonly htmlTextureActorCount: number;
   readonly htmlTextureOverlayCommittedFrameId: number;
+  readonly presentationId:
+    | GpuFlowVisibleFramePresentationIdentity["presentationId"]
+    | null;
+  readonly presentationProjectionSampleId:
+    | GpuFlowVisibleFramePresentationIdentity["projectionSampleId"]
+    | null;
   readonly projectedVisibleNonemptyDomControlCount: number;
   readonly projectionHorizon: {
     readonly textActorBlockedAwaitingBrowserVisualCount: number;
@@ -228,6 +239,7 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
   diagnostics,
   nodeInteractionActiveNodeId,
   ownerDocument,
+  presentationIdentity = null,
   viewportState,
 }: {
   readonly activeResizeNodeId: string | null;
@@ -238,6 +250,10 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
   readonly diagnostics: MutableGpuFlowInteractionDiagnostics;
   readonly nodeInteractionActiveNodeId: string | null;
   readonly ownerDocument: Document | null;
+  readonly presentationIdentity?:
+    | GpuFlowVisibleFramePresentationIdentity
+    | null
+    | undefined;
   readonly viewportState: GpuFlowViewportStore;
 }): GpuFlowInteractionDiagnostics {
   const viewport = normalizeGpuViewport(viewportState.transform);
@@ -253,6 +269,7 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
     }),
     activeResizeNodeId,
     committedSurfaceFrame,
+    presentationIdentity,
     activeRetainedHit: diagnostics.activeRetainedHit,
     hoveredRetainedHit: diagnostics.hoveredRetainedHit,
     lastPointer: diagnostics.lastPointer,

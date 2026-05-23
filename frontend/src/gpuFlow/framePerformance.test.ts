@@ -170,6 +170,7 @@ describe("framePerformance", () => {
         hoveredRetainedHit: null,
         lastPointer: null,
         nodeInteractionActiveNodeId: null,
+        presentationIdentity: null,
         pointerCapture: { active: true, pointerId: 2 },
         viewport: {
           connectionStartHandlePresent: false,

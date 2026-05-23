@@ -60,7 +60,6 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { attachGpuFlowNodeResizeController } from "./flowNodeResizeController";
 import { useGpuFlowOverlaySources } from "./flowOverlays";
 import { syncGpuFlowNodeLayerSceneState } from "./flowSceneStateSync";
-import { renderGpuFlowSurfaceFrame } from "./visibleFrameSurfaceFrame";
 import {
   useGpuFlowNodeElementChangeHandler,
   useGpuFlowNodeScreenRectDebug,
@@ -86,8 +85,9 @@ import {
   projectGpuFlowNodeHoverSourceForPointerEvent,
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
-import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 import { assertGpuFlowColdStartShellToken } from "./visibleFrameColdStartShell";
+import { renderGpuFlowSurfaceFrame } from "./visibleFrameSurfaceFrame";
+import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
 export function GpuFlow({
   children,
@@ -387,6 +387,8 @@ export function GpuFlow({
     activeResizeNodeIdRef,
     containerRef,
     getCommittedSurfaceFrame: () => committedSurfaceFrameRef.current,
+    getPresentationIdentity: () =>
+      committedSurfaceRuntime.getReactSemanticSnapshot().presentationIdentity,
     getViewport: () => viewportRuntime.getViewportTuple(),
     interactionDiagnosticsRef,
     nodeInteractionRef,
