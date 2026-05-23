@@ -6,6 +6,7 @@ import {
 } from "../committedSurfaceFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTransaction";
+import { proveGpuFlowVisibleFrameEngineFrame } from "./visibleFrameEngine";
 import {
   assertGpuFlowCommitPublicationToken,
   proveGpuFlowVisibleFramePublicationPresentation,
@@ -13,6 +14,7 @@ import {
 } from "./visibleFramePresentationProofs";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePublicationPresentationEvidence";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
+import { createGpuFlowContentFrameId } from "./visibleFrameTypes";
 
 describe("GPU Flow visible frame presentation proof behavior", () => {
   it("rejects commit authority for non-publishable frames", () => {
@@ -413,6 +415,24 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
         },
       },
       renderedVisibleFrame: true,
+      visibleFrameEngineOutcome: proveGpuFlowVisibleFrameEngineFrame({
+        candidate: {
+          actorProofs: [],
+          contentFrameId: createGpuFlowContentFrameId(
+            String(frame.displayFrameId),
+          ),
+          preparedResourceIds: [],
+          projectionSampleId: projectionSample.id,
+          queuedDebt: {
+            browserVisual: false,
+            content: true,
+            maintenance: true,
+            motion: true,
+          },
+          requiredActors: [],
+        },
+        previousPresentation: null,
+      }),
       visibleProjectionState: {
         committedFrame: frame,
         heldPreviousProjection: null,

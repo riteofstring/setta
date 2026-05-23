@@ -483,6 +483,46 @@ describe("GPU Flow visible publication transaction kernel", () => {
     },
   );
 
+  it("lets the engine hold a proof-blocked candidate when the previous frame covers the actors", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const sample = liveProjectionSample({ id: 531, timestamp: 5310 });
+    const previousVisibleProjectionState = visibleProjectionState({
+      committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage(),
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 530, timestamp: 5294 }),
+    });
+    const contentVisibleState = visibleProjectionState({
+      committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage({
+        budgetState: "over-budget",
+      }),
+      kind: "content-publication",
+      sample,
+    });
+
+    const result = runPreparedCandidateKernel({
+      contentFrame: testPublicationCandidate({
+        rendered: true,
+        visibleProjectionState: contentVisibleState,
+      }),
+      previousVisibleProjectionState,
+      sample,
+      scheduler,
+    });
+
+    expect(result.preparedFrame.transactionOracle.blockedSource).toBe(
+      "compatible-previous-proof",
+    );
+    expect(result.preparedFrame.visibleFrameEngineOutcome?.kind).toBe("held");
+    expect(
+      result.preparedFrame.visibleFrameEngineOutcome?.decidingProof,
+    ).toEqual(
+      expect.objectContaining({
+        reason: "compatible-previous-budget-exceeded",
+      }),
+    );
+    expect(result.outcome.kind).toBe("hold-previous");
+  });
+
   it("keeps selected content debt queued for blocked transactions", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const result = runPreparedCandidateKernel({

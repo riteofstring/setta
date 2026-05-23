@@ -820,22 +820,27 @@ function createGpuFlowVisibleFramePublicationEnginePreviousPresentation({
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowVisibleFrameCommittedPresentation | null {
-  if (previousVisibleProjectionState === null) {
+  const previousProjectionState =
+    previousVisibleProjectionState ??
+    (selectedVisibleProjectionState?.transaction.kind === "held-previous"
+      ? selectedVisibleProjectionState
+      : null);
+  if (previousProjectionState === null) {
     return null;
   }
   const previousContentFrameId = createGpuFlowContentFrameId(
-    String(previousVisibleProjectionState.committedFrame.displayFrameId),
+    String(previousProjectionState.committedFrame.displayFrameId),
   );
   const presentationId = createGpuFlowPresentationId(
-    previousVisibleProjectionState.transaction?.id ??
-      `previous:${previousVisibleProjectionState.committedFrame.displayFrameId}`,
+    previousProjectionState.transaction?.id ??
+      `previous:${previousProjectionState.committedFrame.displayFrameId}`,
   );
   const coverageByActor = new Map<
     string,
     GpuFlowVisibleFrameCommittedActorCoverage
   >();
-  for (const actor of previousVisibleProjectionState.committedFrame
-    .actorGenerations ?? []) {
+  for (const actor of previousProjectionState.committedFrame.actorGenerations ??
+    []) {
     if (!actor.visibleNonempty) {
       continue;
     }
@@ -854,7 +859,7 @@ function createGpuFlowVisibleFramePublicationEnginePreviousPresentation({
     blockedProof !== null &&
     shouldGpuFlowVisibleFramePublicationEngineUseBlockedFrozenFrameCoverage({
       blockedProof,
-      previousVisibleProjectionState,
+      previousVisibleProjectionState: previousProjectionState,
     })
   ) {
     for (const reason of blockedProof.blockedReasons) {
