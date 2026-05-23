@@ -11,6 +11,7 @@ import {
   publicationToken,
   retainedDisplayFrame,
   retainedRuntimeFrame,
+  stageBrowserVisualCandidate,
 } from "./domControlPlaneProjectionRuntimeTestUtils";
 
 describe("GPU flow DOM control projection runtime publication", () => {
@@ -137,6 +138,46 @@ describe("GPU flow DOM control projection runtime publication", () => {
     expect(emittedFrameIds).toEqual([]);
     await nextMicrotask();
     expect(emittedFrameIds).toEqual([1]);
+  });
+
+  it("does not render preparation hosts again during visible commit", () => {
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const control = domControl({ index: 0 });
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const frame = committedSurfaceFrame({
+      displayFrameId: 1,
+      retainedRuntimeFrame: retainedRuntimeFrame([control]),
+    });
+    const renderedRuntimeFrameIds: Array<number | string | null> = [];
+    browserVisualRuntime.setDomControlPreparationHostRenderer((snapshot) => {
+      renderedRuntimeFrameIds.push(snapshot.frameIds.runtimeFrameId);
+    });
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: frame.displayFrameId,
+        retainedRuntimeFrame: frame.retainedRuntimeFrame,
+      }),
+    });
+
+    stageBrowserVisualCandidate({ browserVisualRuntime, candidate });
+    expect(renderedRuntimeFrameIds).toHaveLength(2);
+
+    browserVisualRuntime.commitPreparedBrowserVisualActors({
+      candidate,
+      token: publicationToken(frame),
+    });
+
+    expect(renderedRuntimeFrameIds).toHaveLength(2);
   });
 });
 

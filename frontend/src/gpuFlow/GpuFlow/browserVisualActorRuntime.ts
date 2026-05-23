@@ -321,7 +321,6 @@ export class GpuFlowBrowserVisualActorRuntime {
     this.projectionManager.commitPromotedRepresentations(
       candidate.snapshot.domControls.assignments,
     );
-    this.renderBrowserVisualPreparationHosts();
     if (snapshotChanged) {
       this.scheduleSnapshotEmit();
     }
