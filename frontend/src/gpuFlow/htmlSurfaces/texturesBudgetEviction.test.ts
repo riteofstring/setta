@@ -378,6 +378,45 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     ).toThrow(/commit publication token/);
   });
 
+  it("preserves previous-frame textures when blocked publication releases rejected candidates", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+    const blockedToken = createGpuFlowVisibleFrameBlockedPublicationToken({
+      blockedReasons: [
+        {
+          actorId: "candidate",
+          family: "dom-control",
+          reason: "snapshot-pending",
+        },
+      ],
+      frozenFrameId: 4,
+      projectionSample: projectionSample(10),
+    });
+
+    registerNode(manager, "previous", "visible", { frame: 4 });
+    registerNode(manager, "candidate", "visible", { frame: 5 });
+    manager.evictSurfaceTextures({
+      budgetBytes: Number.POSITIVE_INFINITY,
+      protectedSurfaceIds: ["previous"],
+    });
+
+    expect(
+      releaseGpuFlowRejectedCandidateSurfaceTexture({
+        surfaceId: "candidate",
+        textureManager: manager,
+        token: blockedToken,
+      }),
+    ).toEqual({
+      kind: "released",
+      surfaceId: "candidate",
+    });
+    expect(manager.getCommittedSurfaceTexture("candidate")).toBeUndefined();
+    expect(manager.getCommittedSurfaceTexture("previous")).toBeDefined();
+    expect(gpu.textures[0]?.destroy).not.toHaveBeenCalled();
+    expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
+  });
+
   it("defers source texture release while a published frame protects the surface", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

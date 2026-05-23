@@ -22,6 +22,7 @@ import {
 } from "./flowFrameResult";
 import {
   resolveGpuFlowRetainedDisplayPublicationOutcomeFrame,
+  selectGpuFlowRetainedDisplayFollowUpFrameReason,
   type GpuFlowRetainedDisplayPublicationInput,
   type GpuFlowRetainedDisplayPublicationOutcomeFrame,
   type GpuFlowRetainedDisplayPublicationResult,
@@ -203,6 +204,7 @@ export type GpuFlowCommittedSurfacePublicationFramePlanPreparation = {
   readonly framePlan: GpuFlowCommittedSurfacePublicationFramePlan;
   readonly framePlanResult: GpuFlowCommittedSurfacePublicationFramePlanResult;
   readonly nodeLayerFrameResult: GpuFlowNodeLayerFrameResult | null;
+  readonly shouldPrepareHtmlSurfaceOverlayTextures: boolean;
 };
 
 export type GpuFlowCommittedSurfacePublicationFramePlanPreparer = (
@@ -256,6 +258,7 @@ export type GpuFlowRetainedDisplayPublicationPreparer = (
 ) => GpuFlowRetainedDisplayPublicationResult;
 
 export type GpuFlowRetainedDisplayPublicationFramePlanPreparation = {
+  readonly followUpFrameReason: GpuFrameReason | null;
   readonly framePlan: GpuFlowRetainedDisplayPublicationFramePlan;
   readonly framePlanResult: GpuFlowRetainedDisplayOutcomeFrameResult;
   readonly nodeLayerFrameResult: GpuFlowNodeLayerFrameResult | null;
@@ -349,6 +352,69 @@ export function createGpuFlowContentPublicationFrameResult(
     ...EMPTY_GPU_FLOW_CONTENT_PUBLICATION_FRAME_RESULT_FIELDS,
     ...input,
   };
+}
+
+export function createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation({
+  deferResolutionUpdates,
+  preparation,
+  previousVisibleProjectionState,
+}: {
+  readonly deferResolutionUpdates: boolean;
+  readonly preparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowContentPublicationFrameResult | null {
+  if (preparation.nodeLayerFrameResult === null) {
+    return null;
+  }
+  return createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
+    deferResolutionUpdates,
+    nodeLayerFrameResult: preparation.nodeLayerFrameResult,
+    nodeLayerFrameStatePublication: null,
+    previousVisibleProjectionState,
+    retainedDisplayFollowUpFrameReason: preparation.followUpFrameReason,
+    retainedDisplayFrame: null,
+    retainedRuntimeFrame: null,
+  });
+}
+
+export function requireGpuFlowRetainedDisplayPublishedOutcomeFrame({
+  preparation,
+}: {
+  readonly preparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
+}): NonNullable<
+  GpuFlowRetainedDisplayPublicationFramePlanPreparation["publishedOutcomeFrame"]
+> {
+  if (preparation.publishedOutcomeFrame === null) {
+    throw new Error(
+      "GPU Flow retained display content plan must provide a published outcome frame after candidate resolution.",
+    );
+  }
+  return preparation.publishedOutcomeFrame;
+}
+
+export function createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation({
+  deferResolutionUpdates,
+  preparation,
+  previousVisibleProjectionState,
+  retainedDisplayFollowUpFrameReason,
+}: {
+  readonly deferResolutionUpdates: boolean;
+  readonly preparation: GpuFlowCommittedSurfacePublicationFramePlanPreparation;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly retainedDisplayFollowUpFrameReason: GpuFrameReason | null;
+}): GpuFlowContentPublicationFrameResult | null {
+  if (preparation.nodeLayerFrameResult === null) {
+    return null;
+  }
+  return createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
+    deferResolutionUpdates,
+    nodeLayerFrameResult: preparation.nodeLayerFrameResult,
+    nodeLayerFrameStatePublication: null,
+    previousVisibleProjectionState,
+    retainedDisplayFollowUpFrameReason,
+    retainedDisplayFrame: null,
+    retainedRuntimeFrame: null,
+  });
 }
 
 export function createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
@@ -510,6 +576,7 @@ export function createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
         resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult({
           framePlanResult,
         }),
+      shouldPrepareHtmlSurfaceOverlayTextures: candidate.kind !== "publish",
     });
   };
 }
@@ -647,6 +714,13 @@ export function createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
         framePlan,
       });
     return Object.freeze({
+      followUpFrameReason:
+        framePlanResult.publishedOutcomeFrame === null
+          ? null
+          : selectGpuFlowRetainedDisplayFollowUpFrameReason({
+              deferResolutionUpdates: input.deferResolutionUpdates,
+              outcomeKind: framePlanResult.publishedOutcomeFrame.outcomeKind,
+            }),
       framePlan,
       framePlanResult,
       nodeLayerFrameResult:

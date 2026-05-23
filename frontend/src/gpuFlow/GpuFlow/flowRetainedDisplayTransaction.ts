@@ -139,25 +139,22 @@ export function resolveGpuFlowRetainedDisplayPublicationOutcomeFrame(
   };
 }
 
-export function notifyGpuFlowRetainedDisplayFollowUpFrameNeeded({
+export function selectGpuFlowRetainedDisplayFollowUpFrameReason({
   deferResolutionUpdates,
-  onRetainedDisplayFollowUpFrameNeeded,
   outcomeKind,
 }: {
   readonly deferResolutionUpdates: boolean;
-  readonly onRetainedDisplayFollowUpFrameNeeded:
-    | ((reason: GpuFrameReason) => void)
-    | undefined;
   readonly outcomeKind: RetainedDisplayFrameOutcome["kind"];
-}): void {
+}): GpuFrameReason | null {
   if (
     shouldRequestGpuFlowRetainedDisplayFollowUpFrame({
       deferResolutionUpdates,
       outcomeKind,
     })
   ) {
-    onRetainedDisplayFollowUpFrameNeeded?.("texture-upload");
+    return "texture-upload";
   }
+  return null;
 }
 
 function shouldRequestGpuFlowRetainedDisplayFollowUpFrame({

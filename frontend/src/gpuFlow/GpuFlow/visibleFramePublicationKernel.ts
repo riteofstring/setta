@@ -8,7 +8,6 @@ import {
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import {
-  notifyGpuFlowRetainedDisplayFollowUpFrameNeeded,
   resolveGpuFlowRetainedDisplayPublication,
   type GpuFlowRetainedDisplayPublicationInput,
   type GpuFlowRetainedDisplayPublicationResult,
@@ -110,11 +109,14 @@ export {
   createGpuFlowCommittedSurfacePublicationFramePlanSelector,
   createGpuFlowContentPublicationBlockedCandidateSelector,
   createGpuFlowContentPublicationFrameResult,
+  createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation,
   createGpuFlowContentPublicationFrameResultForNodeLayerFrame,
+  createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation,
   createGpuFlowRetainedDisplayOutcomeFrameResultResolver,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanSelector,
   createGpuFlowRetainedDisplayPublicationOutcomeFrameResolver,
+  requireGpuFlowRetainedDisplayPublishedOutcomeFrame,
   resolveGpuFlowCommittedSurfacePublicationActionFrameResult,
   resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult,
   resolveGpuFlowCommittedSurfacePublicationFramePlanResult,
@@ -173,9 +175,9 @@ export type {
   GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
   GpuFlowVisibleFramePublicationPreparedFrame,
   GpuFlowVisibleFramePublicationTransactionOracle,
+  GpuFlowVisiblePublicationBlockedProof,
   GpuFlowVisiblePublicationCommitDebtProof,
   GpuFlowVisiblePublicationCommitOracle,
-  GpuFlowVisiblePublicationBlockedProof,
 } from "./visibleFramePublicationOracle";
 export {
   createGpuFlowProjectionFrameRenderPlanSelector,
@@ -195,9 +197,6 @@ export type {
 type GpuFlowVisiblePublicationScheduler = ReturnType<
   typeof createGpuFlowVisiblePublicationScheduler
 >;
-
-export type GpuFlowRetainedDisplayFollowUpFrameNotifier =
-  typeof notifyGpuFlowRetainedDisplayFollowUpFrameNeeded;
 
 export type GpuFlowMotionProjectionFramePreparation<
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
@@ -265,7 +264,6 @@ type GpuFlowVisibleFramePublicationContentFramePreparer<
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
   readonly prepareCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanPreparer;
   readonly prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer;
-  readonly notifyRetainedDisplayFollowUpFrameNeeded: GpuFlowRetainedDisplayFollowUpFrameNotifier;
 }) => ContentPublicationFrame;
 
 type GpuFlowVisibleFramePublicationMotionFramePreparer<
@@ -419,8 +417,6 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
     createGpuFlowProjectionFrameRenderPlanSelector();
   const selectCommittedSurfacePublicationFramePlan =
     createGpuFlowCommittedSurfacePublicationFramePlanSelector();
-  const notifyRetainedDisplayFollowUpFrameNeeded =
-    createGpuFlowRetainedDisplayFollowUpFrameNotifier();
   const selectRetainedDisplayPublicationFramePlan =
     createGpuFlowRetainedDisplayPublicationFramePlanSelector();
   const prepareCommittedSurfacePublicationFramePlan =
@@ -465,7 +461,6 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
     prepareRetainedDisplayPublicationFramePlan,
     publicationDecision,
     publicationFrameContext,
-    notifyRetainedDisplayFollowUpFrameNeeded,
   });
   return Object.freeze({
     contentPublicationFrame,
@@ -508,10 +503,6 @@ function proveGpuFlowVisibleFramePublicationCandidateSet<
       transactionOracle,
     });
   return preparedFrame;
-}
-
-export function createGpuFlowRetainedDisplayFollowUpFrameNotifier(): GpuFlowRetainedDisplayFollowUpFrameNotifier {
-  return notifyGpuFlowRetainedDisplayFollowUpFrameNeeded;
 }
 
 export function createGpuFlowRetainedProjectionPublicationDecisionSelector({

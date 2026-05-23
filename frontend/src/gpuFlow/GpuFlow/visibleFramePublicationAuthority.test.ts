@@ -84,14 +84,12 @@ const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
   "GpuFlow/committedSurfaceFrameState.ts",
 ]);
 const PRODUCTION_OVERLAY_TRANSFORM_CALLERS = new Set([
-  "GpuFlow/flowSurfaceFramePublication.ts",
   "GpuFlow/flowSurfacePublicationCompletion.ts",
 ]);
 const PRODUCTION_BROWSER_VISUAL_CURRENT_PROJECTION_CALLERS = new Set([
   "GpuFlow/committedSurfaceFrameState.ts",
 ]);
 const PRODUCTION_PROJECTION_DEBUG_ATTRIBUTE_CALLERS = new Set([
-  "GpuFlow/flowSurfaceFramePublication.ts",
   "GpuFlow/flowSurfacePublicationCompletion.ts",
 ]);
 const PRODUCTION_SURFACE_TEXTURE_RELEASE_CALLERS = new Set([
@@ -106,11 +104,9 @@ const PRODUCTION_VISIBLE_PROJECTION_STATE_MUTATORS = new Set([
   "GpuFlow/flowVisibleProjectionStatePublication.ts",
 ]);
 const PRODUCTION_VISIBLE_PROJECTION_STATE_PUBLISHERS = new Set([
-  "GpuFlow/flowSurfaceFramePublication.ts",
   "GpuFlow/flowSurfacePublicationCompletion.ts",
 ]);
 const PRODUCTION_PREPARED_COMMITTED_SURFACE_FRAME_COMMITTERS = new Set([
-  "GpuFlow/flowSurfaceFramePublication.ts",
   "GpuFlow/flowSurfacePublicationCompletion.ts",
 ]);
 
@@ -531,8 +527,12 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(source).not.toContain(
       "notifyGpuFlowRetainedDisplayFollowUpFrameNeeded",
     );
+    expect(source).not.toContain("notifyRetainedDisplayFollowUpFrameNeeded");
     expect(surfaceFrameSource).not.toContain(
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
+    );
+    expect(surfaceFrameSource).not.toContain(
+      "notifyRetainedDisplayFollowUpFrameNeeded",
     );
     expect(source).not.toContain("onRetainedProjectionPublicationBlocked");
     expect(surfaceFrameSource).not.toContain(
@@ -558,10 +558,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
     );
     expect(kernelSource).toContain(
-      "createGpuFlowRetainedDisplayFollowUpFrameNotifier",
-    );
-    expect(kernelSource).toContain(
-      "notifyGpuFlowRetainedDisplayFollowUpFrameNeeded",
+      "selectGpuFlowRetainedDisplayFollowUpFrameReason",
     );
     expect(kernelSource).toContain(
       "resolveGpuFlowRetainedDisplayOutcomeFrameResult",
@@ -591,7 +588,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(flowFrameSource).not.toContain(
       'surfaceRef.current?.requestFrame("texture-upload")',
     );
-    expect(flowFrameSource).toContain("onRetainedDisplayFollowUpFrameNeeded");
+    expect(flowFrameSource).not.toContain(
+      "onRetainedDisplayFollowUpFrameNeeded",
+    );
+    expect(flowFrameSource).toContain("retainedDisplayFollowUpFrameReason");
     expect(completionStart).toBeGreaterThanOrEqual(0);
     expect(completionSource).toContain("retainedDisplayFollowUpFrameReason");
     expect(completionSource).toContain(
@@ -712,11 +712,15 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
 
     expect(flowFrameSource).not.toContain("updateGpuFlowNodeLayerFrameState");
-    expect(flowFrameSource).toContain("onNodeLayerFrameStatePublishable");
+    expect(flowFrameSource).not.toContain("onNodeLayerFrameStatePublishable");
+    expect(flowFrameSource).toContain("nodeLayerFrameStatePublication");
     expect(projectionFrameSource).not.toContain(
       "updateGpuFlowNodeLayerFrameState",
     );
-    expect(projectionFrameSource).toContain("onNodeLayerFrameStatePublishable");
+    expect(projectionFrameSource).not.toContain(
+      "onNodeLayerFrameStatePublishable",
+    );
+    expect(projectionFrameSource).toContain("nodeLayerFrameStatePublication");
     expect(nodeLayerPublisherStart).toBeGreaterThanOrEqual(0);
     expect(nodeLayerPublisherSource).toContain(
       "assertGpuFlowCommitPublicationTokenBrand",
@@ -1011,7 +1015,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const assignmentPattern = /retainedDisplayFrameRef\.current\s*=(?!=)/g;
     const productionAssignmentModules = new Set([
       "GpuFlow/flowSurface.tsx",
-      "GpuFlow/flowSurfaceFramePublication.ts",
       "GpuFlow/flowSurfacePublicationCompletion.ts",
     ]);
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
@@ -1059,10 +1062,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "function shouldRenderGpuFlowSurfaceContentPublicationFrame",
       contentFrameStart,
     );
-    const contentFrameSource = source.slice(
-      contentFrameStart,
-      contentFrameEnd,
-    );
+    const contentFrameSource = source.slice(contentFrameStart, contentFrameEnd);
     const completionPublisherStart = source.indexOf(
       "function publishGpuFlowRetainedRuntimeFrame",
     );
@@ -1100,7 +1100,9 @@ describe("GPU Flow visible publication authority boundaries", () => {
       completionPublisherStart,
     );
 
-    expect(flowSurfaceSource).not.toContain("publicationResult.coldStartShellFrame");
+    expect(flowSurfaceSource).not.toContain(
+      "publicationResult.coldStartShellFrame",
+    );
     expect(flowSurfaceSource).not.toContain("void publication.token");
     expect(flowSurfaceSource).toContain("publishColdStartShellFrame");
     expect(flowSurfaceSource).toContain(

@@ -52,9 +52,7 @@ import {
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
-import type {
-  GpuFlowProjectionFrameRenderablePlan,
-} from "./visibleFramePublicationKernel";
+import type { GpuFlowProjectionFrameRenderablePlan } from "./visibleFramePublicationKernel";
 
 export type GpuFlowRetainedProjectionFrame = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
@@ -69,6 +67,7 @@ type RenderGpuFlowNodeLayerProjectionFrameResult =
   | {
       readonly rendered: true;
       readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
+      readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
       readonly transaction: GpuFlowProjectionTransaction;
     };
 
@@ -104,7 +103,6 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   visibleNodeIdsRef,
   viewportStore,
   viewportFrame,
-  onNodeLayerFrameStatePublishable,
 }: {
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
@@ -129,9 +127,6 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportFrame: boolean;
-  readonly onNodeLayerFrameStatePublishable?:
-    | ((publication: GpuFlowNodeLayerFrameStatePublication) => void)
-    | undefined;
 }): RenderGpuFlowNodeLayerProjectionFrameResult {
   const retainedDisplayFrame = retainedDisplayFrameRef.current;
   if (!retainedDisplayFrame) {
@@ -148,6 +143,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   if (!frameInput) {
     return {
       heldPreviousProjection: null,
+      nodeLayerFrameStatePublication: null,
       rendered: true,
       transaction: requestedProjectionTransaction,
     };
@@ -252,23 +248,25 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     viewport: projectionViewport,
     viewportFrame,
   });
-  onNodeLayerFrameStatePublishable?.({
-    callbacksRef,
-    layerResult,
-    nodeInteractionRef,
-    nodeLayerRef,
-    retainedRuntimeFrame: projectionRetainedRuntimeFrame,
-    retainedTexturePageFollowUpFrame:
-      retainedProjectionFrame.needsRetainedPageMaintenance,
-    surfaceRef,
-    switchAnimationFollowUpFrame: false,
-    transformOnlyPaintNodeIdsRef,
-    viewport: projectionViewport,
-    viewportFrame,
-    visibleNodeIdsRef,
-  });
+  const nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication =
+    {
+      callbacksRef,
+      layerResult,
+      nodeInteractionRef,
+      nodeLayerRef,
+      retainedRuntimeFrame: projectionRetainedRuntimeFrame,
+      retainedTexturePageFollowUpFrame:
+        retainedProjectionFrame.needsRetainedPageMaintenance,
+      surfaceRef,
+      switchAnimationFollowUpFrame: false,
+      transformOnlyPaintNodeIdsRef,
+      viewport: projectionViewport,
+      viewportFrame,
+      visibleNodeIdsRef,
+    };
   return {
     heldPreviousProjection,
+    nodeLayerFrameStatePublication,
     rendered: true,
     transaction,
   };
