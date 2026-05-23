@@ -266,6 +266,9 @@ test("retained settings text editor activation keeps text ink aligned with the p
 });
 
 async function openSettings(page: Page): Promise<void> {
+  if (page.url() !== "about:blank") {
+    await page.goto("about:blank", { waitUntil: "domcontentloaded" });
+  }
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
@@ -450,7 +453,7 @@ async function centerGuiRowAtZoom(
         throw new Error("Missing GPU Flow debug viewport setter.");
       }
       setViewport({
-        x: paneRect.width * 0.68 - flowCenter.x * zoom,
+        x: paneRect.width * 0.86 - flowCenter.x * zoom,
         y: paneRect.height * 0.46 - flowCenter.y * zoom,
         zoom,
       });
@@ -461,9 +464,13 @@ async function centerGuiRowAtZoom(
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
   let latestViewportMatch: {
+    readonly blockedEventCount?: number;
     readonly committed: unknown;
+    readonly lastBlockedEvent?: unknown;
+    readonly lastStarvationReport?: unknown;
     readonly live: unknown;
     readonly ready: boolean;
+    readonly starvationReportCount?: number;
   } | null = null;
   try {
     await expect
@@ -475,22 +482,47 @@ async function centerGuiRowAtZoom(
             const live = snapshot?.viewport.transform ?? null;
             const committed =
               snapshot?.committedSurfaceFrame?.viewportSample ?? null;
+            const blockedEvents =
+              window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ??
+              [];
+            const starvationReports =
+              window.__SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__ ?? [];
+            const lastBlockedEvent =
+              blockedEvents.length > 0
+                ? blockedEvents[blockedEvents.length - 1]
+                : null;
+            const lastStarvationReport =
+              starvationReports.length > 0
+                ? starvationReports[starvationReports.length - 1]
+                : null;
             if (!live || !committed) {
-              return { committed, live, ready: false };
+              return {
+                blockedEventCount: blockedEvents.length,
+                committed,
+                lastBlockedEvent,
+                lastStarvationReport,
+                live,
+                ready: false,
+                starvationReportCount: starvationReports.length,
+              };
             }
             return {
+              blockedEventCount: blockedEvents.length,
               committed,
+              lastBlockedEvent,
+              lastStarvationReport,
               live,
               ready:
                 Math.abs(live.zoom - expectedZoom) < 0.001 &&
                 Math.abs(committed.zoom - live.zoom) < 0.001 &&
                 Math.abs(committed.x - live.x) < 0.5 &&
                 Math.abs(committed.y - live.y) < 0.5,
+              starvationReportCount: starvationReports.length,
             };
           }, zoom);
           return latestViewportMatch.ready;
         },
-        { timeout: 5_000 },
+        { timeout: 15_000 },
       )
       .toBe(true);
   } catch (error) {

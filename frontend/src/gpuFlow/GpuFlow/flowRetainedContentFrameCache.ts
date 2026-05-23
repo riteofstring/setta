@@ -55,20 +55,23 @@ export function shouldReuseGpuFlowRetainedContentFrameCache({
 }
 
 export function shouldReuseGpuFlowRetainedRuntimeFrameForSample({
+  allowActiveMotionViewportDrift = false,
   cachedFrame,
   nativeVisualSignature,
   viewport,
 }: {
+  readonly allowActiveMotionViewportDrift?: boolean | undefined;
   readonly cachedFrame: GpuFlowRetainedContentFrameCache;
   readonly nativeVisualSignature: string;
   readonly viewport: GpuViewportInput;
 }): boolean {
   return (
     cachedFrame.nativeVisualSignature === nativeVisualSignature &&
-    areGpuFlowProjectionViewportsEqual(
-      cachedFrame.retainedRuntimeFrame.input.viewport,
-      viewport,
-    )
+    (allowActiveMotionViewportDrift ||
+      areGpuFlowProjectionViewportsEqual(
+        cachedFrame.retainedRuntimeFrame.input.viewport,
+        viewport,
+      ))
   );
 }
 

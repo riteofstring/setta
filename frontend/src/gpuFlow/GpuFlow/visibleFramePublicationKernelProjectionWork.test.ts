@@ -106,7 +106,7 @@ describe("GPU Flow visible publication kernel projection work", () => {
     const schedulerCompletion = result.completeSchedulerFrame();
     expect(schedulerCompletion.completion.debt.motion).toBe(true);
     expect(schedulerCompletion.debtFrameRequest).toEqual({
-      delayMs: null,
+      delayMs: 160,
       frameReason: "texture-upload",
     });
   });

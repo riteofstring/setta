@@ -189,6 +189,27 @@ describe("GPU flow frame helpers", () => {
     ).toBe(false);
   });
 
+  it("reuses retained runtime frame metadata across active-motion viewport drift", () => {
+    const cachedFrame = retainedFrameCache({});
+
+    expect(
+      shouldReuseGpuFlowRetainedRuntimeFrameForSample({
+        allowActiveMotionViewportDrift: true,
+        cachedFrame,
+        nativeVisualSignature: cachedFrame.nativeVisualSignature,
+        viewport: [40, 0, 1.2],
+      }),
+    ).toBe(true);
+    expect(
+      shouldReuseGpuFlowRetainedRuntimeFrameForSample({
+        allowActiveMotionViewportDrift: true,
+        cachedFrame,
+        nativeVisualSignature: "changed-native-visuals",
+        viewport: [40, 0, 1.2],
+      }),
+    ).toBe(false);
+  });
+
   it("does not skip deferred content publication across viewport samples", () => {
     const cachedFrame = retainedFrameCache({});
 

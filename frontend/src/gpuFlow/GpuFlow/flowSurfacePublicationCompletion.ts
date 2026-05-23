@@ -40,8 +40,8 @@ import type {
 } from "./visibleFramePublicationKernel";
 import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFramePublicationKernel";
 import {
-  assertGpuFlowCommitPublicationToken,
   assertGpuFlowCommitPublicationTokenBrand,
+  assertGpuFlowCommitPublicationTokenForFrameId,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
   type GpuFlowCommitPublicationToken,
@@ -120,8 +120,8 @@ function publishCommittedVisibleProjectionState({
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
   readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
 }): void {
-  assertGpuFlowCommitPublicationToken({
-    frame: visibleProjectionState.committedFrame,
+  assertGpuFlowCommitPublicationTokenForFrameId({
+    committedFrameId: visibleProjectionState.committedFrame.displayFrameId,
     token,
   });
   assertGpuFlowCommitPublicationTokenForProjectionSample({

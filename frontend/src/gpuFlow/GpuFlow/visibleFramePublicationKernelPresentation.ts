@@ -191,7 +191,10 @@ function createGpuFlowVisiblePublicationDebtFrameRequest({
   return Object.freeze({
     delayMs:
       forceImmediatePublicationDebtFrame ||
-      shouldRequestGpuFlowVisiblePublicationDebtFrameImmediately(outcome)
+      shouldRequestGpuFlowVisiblePublicationDebtFrameImmediately({
+        outcome,
+        publicationDecision,
+      })
         ? null
         : getDelayedGpuFlowVisiblePublicationDebtRequestMs({
             publicationDecision,
@@ -217,10 +220,17 @@ function getGpuFlowVisiblePublicationDebtFrameReason({
   return getGpuFlowVisiblePublicationDebtReason(completion.debt);
 }
 
-function shouldRequestGpuFlowVisiblePublicationDebtFrameImmediately(
-  outcome: GpuFlowVisiblePublicationOutcome,
-): boolean {
-  return isGpuFlowRetainedProjectionBlockedOutcome(outcome);
+function shouldRequestGpuFlowVisiblePublicationDebtFrameImmediately({
+  outcome,
+  publicationDecision,
+}: {
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}): boolean {
+  return (
+    isGpuFlowRetainedProjectionBlockedOutcome(outcome) &&
+    publicationDecision.schedulerState !== "motion-active"
+  );
 }
 
 function isGpuFlowRetainedProjectionBlockedOutcome(
@@ -241,11 +251,11 @@ function getDelayedGpuFlowVisiblePublicationDebtRequestMs({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly schedulerMotionSettleWindowMs: number;
 }): number | null {
-  if (publicationDecision.lane === "motion") {
-    return null;
-  }
   if (publicationDecision.schedulerState === "motion-active") {
     return GPU_FLOW_MOTION_ACTIVE_DEBT_RETRY_DELAY_MS;
+  }
+  if (publicationDecision.lane === "motion") {
+    return null;
   }
   if (publicationDecision.schedulerState === "motion-settling") {
     return schedulerMotionSettleWindowMs * 8;

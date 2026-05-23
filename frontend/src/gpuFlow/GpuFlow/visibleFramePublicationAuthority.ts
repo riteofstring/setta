@@ -3,6 +3,7 @@ import {
   createGpuFlowCommittedSurfaceActorManifestDigest,
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
+import { createGpuFlowJsonDigest } from "../gpuFlowDigest";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
@@ -398,15 +399,73 @@ function assertGpuFlowCommitPresentationPairProof({
   }
 }
 
+type GpuFlowPresentationGenerationProof =
+  | GpuFlowCommitPresentationPairProof["domGeneration"]
+  | GpuFlowCommitPresentationPairProof["canvasGeneration"];
+type GpuFlowDomPresentationGenerationProof =
+  GpuFlowCommitPresentationPairProof["domGeneration"];
+type GpuFlowCanvasPresentationGenerationProof =
+  GpuFlowCommitPresentationPairProof["canvasGeneration"];
+
 function areGpuFlowPresentationGenerationProofsEqual(
-  left:
-    | GpuFlowCommitPresentationPairProof["domGeneration"]
-    | GpuFlowCommitPresentationPairProof["canvasGeneration"],
-  right:
-    | GpuFlowCommitPresentationPairProof["domGeneration"]
-    | GpuFlowCommitPresentationPairProof["canvasGeneration"],
+  left: GpuFlowPresentationGenerationProof,
+  right: GpuFlowPresentationGenerationProof,
 ): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  if (isGpuFlowDomPresentationGenerationProof(left)) {
+    return (
+      isGpuFlowDomPresentationGenerationProof(right) &&
+      areGpuFlowDomPresentationGenerationProofsEqual(left, right)
+    );
+  }
+  return (
+    isGpuFlowCanvasPresentationGenerationProof(left) &&
+    isGpuFlowCanvasPresentationGenerationProof(right) &&
+    areGpuFlowCanvasPresentationGenerationProofsEqual(left, right)
+  );
+}
+
+function isGpuFlowDomPresentationGenerationProof(
+  proof: GpuFlowPresentationGenerationProof,
+): proof is GpuFlowDomPresentationGenerationProof {
+  return "staged" in proof;
+}
+
+function isGpuFlowCanvasPresentationGenerationProof(
+  proof: GpuFlowPresentationGenerationProof,
+): proof is GpuFlowCanvasPresentationGenerationProof {
+  return "prepared" in proof;
+}
+
+function areGpuFlowDomPresentationGenerationProofsEqual(
+  left: GpuFlowDomPresentationGenerationProof,
+  right: GpuFlowDomPresentationGenerationProof,
+): boolean {
+  return (
+    left.browserVisualCommittedFrameId ===
+      right.browserVisualCommittedFrameId &&
+    left.domControlCommittedFrameId === right.domControlCommittedFrameId &&
+    left.domIslandCommittedFrameId === right.domIslandCommittedFrameId &&
+    left.exposable === right.exposable &&
+    left.presentationBatchId === right.presentationBatchId &&
+    left.staged === right.staged
+  );
+}
+
+function areGpuFlowCanvasPresentationGenerationProofsEqual(
+  left: GpuFlowCanvasPresentationGenerationProof,
+  right: GpuFlowCanvasPresentationGenerationProof,
+): boolean {
+  return (
+    left.canvasRetainedFrameId === right.canvasRetainedFrameId &&
+    left.debugSnapshotFrameId === right.debugSnapshotFrameId &&
+    left.exposable === right.exposable &&
+    left.gpuNativeVisualCommittedFrameId ===
+      right.gpuNativeVisualCommittedFrameId &&
+    left.htmlTextureOverlayCommittedFrameId ===
+      right.htmlTextureOverlayCommittedFrameId &&
+    left.prepared === right.prepared &&
+    left.presentationBatchId === right.presentationBatchId
+  );
 }
 
 function createGpuFlowCommitResourceProtectionDigestForFrame({
@@ -530,6 +589,37 @@ export function assertGpuFlowCommitPublicationToken({
     token.proofDigest !== createGpuFlowVisibleProofDigest(frame) ||
     token.resourceProtectionDigest !==
       createGpuFlowCommitResourceProtectionDigestForFrame({ frame }) ||
+    !token.presentationPairProof ||
+    token.presentationPairDigest !==
+      createGpuFlowPresentationPairDigest({
+        frame,
+        projectionSampleId: token.projectionSampleId,
+      })
+  ) {
+    throw new Error(
+      "GPU Flow committed content publication requires a commit publication token for the same visible frame.",
+    );
+  }
+  assertGpuFlowCommitPresentationPairProof({
+    frame,
+    presentationPairProof: token.presentationPairProof,
+    projectionSampleId: token.projectionSampleId,
+  });
+}
+
+export function assertGpuFlowCommitPublicationTokenForPresentationProof({
+  frame,
+  token,
+}: {
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly token: GpuFlowCommitPublicationToken;
+}): void {
+  if (
+    !token ||
+    token[GPU_FLOW_COMMIT_PUBLICATION_TOKEN] !== true ||
+    token.committedFrameId !== frame.displayFrameId ||
+    token.expectedActorSetDigest !== frame.presentationProof.actorManifestDigest ||
+    token.proofDigest !== createGpuFlowVisibleProofDigest(frame) ||
     !token.presentationPairProof ||
     token.presentationPairDigest !==
       createGpuFlowPresentationPairDigest({
@@ -825,7 +915,7 @@ function createGpuFlowVisibleProofDigest(
   frame: GpuFlowCommittedSurfaceFrame,
 ): GpuFlowVisibleProofDigest {
   const transaction = frame.surfaceTransaction;
-  return JSON.stringify({
+  return createGpuFlowJsonDigest("visible-publication-proof", {
     blockingActorIds: frame.publishability.blockingActorIds,
     browserVisualCoverage: frame.projectionHorizon.textActorCoverage,
     kind: frame.publishability.kind,
@@ -847,7 +937,7 @@ function createGpuFlowPresentationPairDigest({
   readonly frame: GpuFlowCommittedSurfaceFrame;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): GpuFlowPresentationPairDigest {
-  return JSON.stringify({
+  return createGpuFlowJsonDigest("visible-presentation-pair", {
     actorManifestDigest: frame.presentationProof.actorManifestDigest,
     browserVisualFragmentDigest:
       frame.presentationProof.browserVisualFragmentDigest,
@@ -866,7 +956,7 @@ function createGpuFlowPresentationPairDigest({
 function createGpuFlowPresentationProofDigest(
   frame: GpuFlowCommittedSurfaceFrame,
 ): string {
-  return JSON.stringify({
+  return createGpuFlowJsonDigest("visible-presentation-proof", {
     actorManifestDigest: frame.presentationProof.actorManifestDigest,
     browserVisualFragmentDigest:
       frame.presentationProof.browserVisualFragmentDigest,

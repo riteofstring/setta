@@ -15,6 +15,7 @@ import {
   createGpuFlowContentFramePublishability,
   createGpuFlowProjectionHorizon,
 } from "./committedSurfaceFrameProjection";
+import { createGpuFlowJsonDigest } from "./gpuFlowDigest";
 import type { SurfaceResourceHandle } from "./surfaceCompositor/surfaceCoverage";
 import type { SurfaceDisplayTransaction } from "./surfaceCompositor/surfaceTransaction";
 import type { BrowserVisualSurfaceTransactionFragment } from "./surfaceCompositor/browserVisualActorAdapter";
@@ -54,6 +55,32 @@ export type GpuFlowCommittedSurfacePresentationProof = {
   };
   readonly surfaceTransactionDigest: string | null;
 };
+
+type GpuFlowCommittedSurfacePresentationProofValidationCache = {
+  readonly actorGenerations: GpuFlowCommittedSurfaceFrame["actorGenerations"];
+  readonly browserVisualSurfaceFragment: GpuFlowCommittedSurfaceFrame["browserVisualSurfaceFragment"];
+  readonly coherence: GpuFlowCommittedSurfaceFrame["coherence"];
+  readonly displayFrameId: GpuFlowCommittedSurfaceFrame["displayFrameId"];
+  readonly presentationProof: GpuFlowCommittedSurfacePresentationProof;
+  readonly surfaceTransaction: GpuFlowCommittedSurfaceFrame["surfaceTransaction"];
+};
+
+const actorManifestDigestCache = new WeakMap<
+  readonly GpuFlowCommittedSurfaceActorGeneration[],
+  string
+>();
+const browserVisualFragmentDigestCache = new WeakMap<
+  BrowserVisualSurfaceTransactionFragment,
+  string
+>();
+const surfaceTransactionDigestCache = new WeakMap<
+  SurfaceDisplayTransaction,
+  string
+>();
+const presentationProofValidationCache = new WeakMap<
+  GpuFlowCommittedSurfaceFrame,
+  GpuFlowCommittedSurfacePresentationProofValidationCache
+>();
 
 export function assertGpuFlowCommittedSurfaceFrameCoherent(
   frame: GpuFlowCommittedSurfaceFrame,
@@ -155,6 +182,9 @@ export function createGpuFlowCommittedSurfacePresentationProof({
 export function assertGpuFlowCommittedSurfacePresentationProof(
   frame: GpuFlowCommittedSurfaceFrame,
 ): void {
+  if (hasCachedGpuFlowCommittedSurfacePresentationProofValidation(frame)) {
+    return;
+  }
   const proof = frame.presentationProof;
   assertGpuFlowPresentationProofExists(proof);
   assertGpuFlowDomPresentationGeneration(proof);
@@ -170,12 +200,25 @@ export function assertGpuFlowCommittedSurfacePresentationProof(
   assertGpuFlowPresentationBatch({ expected, proof });
   assertGpuFlowPresentationGenerations({ expected, proof });
   assertGpuFlowPresentationDigests({ expected, proof });
+  presentationProofValidationCache.set(frame, {
+    actorGenerations: frame.actorGenerations,
+    browserVisualSurfaceFragment: frame.browserVisualSurfaceFragment,
+    coherence: frame.coherence,
+    displayFrameId: frame.displayFrameId,
+    presentationProof: proof,
+    surfaceTransaction: frame.surfaceTransaction,
+  });
 }
 
 export function createGpuFlowCommittedSurfaceActorManifestDigest(
   actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[],
 ): string {
-  return JSON.stringify(
+  const cached = actorManifestDigestCache.get(actorGenerations);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const digest = createGpuFlowJsonDigest(
+    "committed-surface-actor-manifest",
     actorGenerations.map((actor) => ({
       accessibilityProjection: actor.accessibilityProjection,
       activationPolicy: actor.activationPolicy,
@@ -228,6 +271,24 @@ export function createGpuFlowCommittedSurfaceActorManifestDigest(
       wheelPolicy: actor.wheelPolicy,
       zOrder: actor.zOrder,
     })),
+  );
+  actorManifestDigestCache.set(actorGenerations, digest);
+  return digest;
+}
+
+function hasCachedGpuFlowCommittedSurfacePresentationProofValidation(
+  frame: GpuFlowCommittedSurfaceFrame,
+): boolean {
+  const cached = presentationProofValidationCache.get(frame);
+  return Boolean(
+    cached &&
+      cached.actorGenerations === frame.actorGenerations &&
+      cached.browserVisualSurfaceFragment ===
+        frame.browserVisualSurfaceFragment &&
+      cached.coherence === frame.coherence &&
+      cached.displayFrameId === frame.displayFrameId &&
+      cached.presentationProof === frame.presentationProof &&
+      cached.surfaceTransaction === frame.surfaceTransaction,
   );
 }
 
@@ -415,7 +476,11 @@ function createGpuFlowCommittedSurfaceResourceHandleDigest(
 function createGpuFlowCommittedSurfacePresentationBrowserVisualFragmentDigest(
   fragment: BrowserVisualSurfaceTransactionFragment,
 ): string {
-  return JSON.stringify({
+  const cached = browserVisualFragmentDigestCache.get(fragment);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const digest = createGpuFlowJsonDigest("committed-surface-browser-visual", {
     activeIslandIds: fragment.activeIslands.map((island) => island.islandId),
     actorGenerations: fragment.actorSnapshots.map(
       (snapshot) => snapshot.generation.generationId,
@@ -438,23 +503,35 @@ function createGpuFlowCommittedSurfacePresentationBrowserVisualFragmentDigest(
     visibleRectCount: fragment.visibleRects.length,
     zOrderCount: fragment.zOrder.length,
   });
+  browserVisualFragmentDigestCache.set(fragment, digest);
+  return digest;
 }
 
 function createGpuFlowCommittedSurfacePresentationSurfaceTransactionDigest(
   transaction: SurfaceDisplayTransaction,
 ): string {
-  return JSON.stringify({
-    desiredSurfaceGenerationCount: transaction.desiredSurfaceGenerations.length,
-    drawCommandCount: transaction.drawCommands.length,
-    hitGenerationCount: transaction.hitIndex.generationIds.length,
-    hitIndexId: transaction.hitIndex.id,
-    id: transaction.id,
-    protectedResourceHandles: transaction.protectedResourceHandles.map(
-      (handle) => [handle.kind, handle.id, handle.reason],
-    ),
-    rendererBucketCount: transaction.rendererBuckets.length,
-    zOrderCount: transaction.zOrder.length,
-  });
+  const cached = surfaceTransactionDigestCache.get(transaction);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const digest = createGpuFlowJsonDigest(
+    "committed-surface-transaction",
+    {
+      desiredSurfaceGenerationCount:
+        transaction.desiredSurfaceGenerations.length,
+      drawCommandCount: transaction.drawCommands.length,
+      hitGenerationCount: transaction.hitIndex.generationIds.length,
+      hitIndexId: transaction.hitIndex.id,
+      id: transaction.id,
+      protectedResourceHandles: transaction.protectedResourceHandles.map(
+        (handle) => [handle.kind, handle.id, handle.reason],
+      ),
+      rendererBucketCount: transaction.rendererBuckets.length,
+      zOrderCount: transaction.zOrder.length,
+    },
+  );
+  surfaceTransactionDigestCache.set(transaction, digest);
+  return digest;
 }
 
 function createGpuFlowCommittedSurfacePresentationBatchId({

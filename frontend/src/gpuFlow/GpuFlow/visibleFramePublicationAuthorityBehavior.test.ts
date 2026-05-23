@@ -134,6 +134,34 @@ describe("GPU Flow visible publication authority behavior", () => {
     );
   });
 
+  it("keeps commit proof digests compact for large actor manifests", () => {
+    const frame = committedSurfaceFrame({
+      actorGenerations: Array.from({ length: 80 }, (_, index) =>
+        committedActorGeneration({
+          actorId: `actor-${index}`,
+          resourceHandles: [],
+        }),
+      ),
+    });
+    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      frame,
+      projectionSample: liveProjectionSample(),
+    });
+
+    expect(token.expectedActorSetDigest).toMatch(
+      /^setta-gpu-flow-digest:v1:committed-surface-actor-manifest:/,
+    );
+    expect(token.presentationPairDigest).toMatch(
+      /^setta-gpu-flow-digest:v1:visible-presentation-pair:/,
+    );
+    expect(token.proofDigest).toMatch(
+      /^setta-gpu-flow-digest:v1:visible-publication-proof:/,
+    );
+    expect(token.expectedActorSetDigest.length).toBeLessThan(120);
+    expect(token.presentationPairDigest.length).toBeLessThan(120);
+    expect(token.proofDigest.length).toBeLessThan(120);
+  });
+
   it("rejects commit token issuance without the oracle proof digest for the selected frame", async () => {
     const {
       createGpuFlowCommitAuthorityProof,

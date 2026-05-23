@@ -6,6 +6,7 @@ import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 import {
   createGpuFlowInteractionDiagnosticsSnapshot,
   type GpuFlowCommittedSurfaceDebugEntry,
+  type GpuFlowRetainedSceneDebugSummary,
   type GpuFlowCommittedSurfaceTextActorProofDebugEntry,
   type GpuFlowRetainedRowDebugEntry,
   type GpuFlowVisualSurfaceDebugEntry,
@@ -135,6 +136,8 @@ export function useGpuFlowDebugGlobals<
         retainedContentRuntimeState,
         scene: nodeLayerRef.current.scene,
       });
+    const getRetainedSceneSummary = () =>
+      createGpuFlowRetainedSceneDebugSummary(nodeLayerRef.current.scene);
     const requestDebugFrame = (reason: GpuFrameReason = "manual") => {
       requestFrame?.(reason);
     };
@@ -147,6 +150,8 @@ export function useGpuFlowDebugGlobals<
     window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ = getSnapshot;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__ = getRetainedRows;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__ = getRetainedRowCount;
+    window.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__ =
+      getRetainedSceneSummary;
     window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__ = requestDebugFrame;
     window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__ = setViewport;
     window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__ = getVisualSurfaces;
@@ -162,6 +167,12 @@ export function useGpuFlowDebugGlobals<
         getRetainedRowCount
       ) {
         delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__;
+      }
+      if (
+        window.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__ ===
+        getRetainedSceneSummary
+      ) {
+        delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__;
       }
       if (window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__ === requestDebugFrame) {
         delete window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__;
@@ -187,6 +198,43 @@ export function useGpuFlowDebugGlobals<
     retainedContentRuntimeState,
     viewportStore,
   ]);
+}
+
+function createGpuFlowRetainedSceneDebugSummary(
+  scene: GpuFlowScene | undefined,
+): GpuFlowRetainedSceneDebugSummary {
+  if (!scene) {
+    return {
+      controlKinds: [],
+      nodeCount: 0,
+      retainedRowCount: 0,
+      surfaceCount: 0,
+    };
+  }
+  const controlKinds = new Set<string>();
+  let retainedRowCount = 0;
+  let surfaceCount = 0;
+  for (const surface of scene.contentSurfaces) {
+    if (!isGpuRetainedContentSurfaceWithScene(surface)) {
+      continue;
+    }
+    surfaceCount += 1;
+    const rows = surface.retainedScene.rows;
+    retainedRowCount += rows.length;
+    for (const row of rows) {
+      if (row.controlKind) {
+        controlKinds.add(row.controlKind);
+      }
+    }
+  }
+  return {
+    controlKinds: [...controlKinds].sort((left, right) =>
+      left.localeCompare(right),
+    ),
+    nodeCount: scene.sections.length,
+    retainedRowCount,
+    surfaceCount,
+  };
 }
 
 function countGpuFlowRetainedRowsDebugSnapshot({

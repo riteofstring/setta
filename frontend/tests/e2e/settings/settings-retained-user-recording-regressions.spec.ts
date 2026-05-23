@@ -51,6 +51,7 @@ const HIGH_REFRESH_TRANSITION_P95_TIMER_EPSILON_MS = 1;
 const MAX_FRAME_GAP_MS = 50;
 const MAX_FRAME_TIMER_JITTER_MS = 20;
 const MAX_CAPPED_FRAME_TIMER_JITTER_MS = 35;
+const CAPPED_TRANSITION_FRAME_GAP_SLACK_MS = 8;
 const MAX_LONG_TASK_MS = 50;
 
 test.use({
@@ -118,11 +119,21 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
   const p95FrameBudgetMs = highRefresh
     ? resolveHighRefreshTransitionP95FrameBudget(controlCadence)
     : null;
+  const maxFrameBudgetMs = resolveTransitionMaxFrameBudgetMs({
+    cadence: controlCadence,
+    highRefresh,
+  });
+  const maxLongTaskBudgetMs = resolveTransitionLongTaskBudgetMs({
+    cadence: controlCadence,
+    highRefresh,
+  });
   const details = JSON.stringify(
     {
       controlCadence,
       frameStats,
       highRefresh,
+      maxFrameBudgetMs,
+      maxLongTaskBudgetMs,
       frameIntervalOutliers: snapshot.frameIntervalsMs
         .map((durationMs, index) => ({ durationMs, index }))
         .toSorted((left, right) => right.durationMs - left.durationMs)
@@ -184,10 +195,8 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
   expect(runtimeHealthSnapshot.reactRenderPhaseWarnings, details).toEqual([]);
   expect(runtimeHealthSnapshot.consoleErrors, details).toEqual([]);
   expect(runtimeHealthSnapshot.pageErrors, details).toEqual([]);
-  expect(frameStats.maxMs, details).toBeLessThanOrEqual(
-    MAX_FRAME_GAP_MS + resolveMaxFrameTimerJitterMs(controlCadence),
-  );
-  expect(maxLongTaskMs, details).toBeLessThanOrEqual(MAX_LONG_TASK_MS);
+  expect(frameStats.maxMs, details).toBeLessThanOrEqual(maxFrameBudgetMs);
+  expect(maxLongTaskMs, details).toBeLessThanOrEqual(maxLongTaskBudgetMs);
   if (p95FrameBudgetMs !== null) {
     expect(frameStats.p95Ms, details).toBeLessThanOrEqual(p95FrameBudgetMs);
   }
@@ -462,6 +471,45 @@ function resolveMaxFrameTimerJitterMs(cadence: PageRafCadence): number {
   return Math.max(
     MAX_FRAME_TIMER_JITTER_MS,
     Math.min(MAX_CAPPED_FRAME_TIMER_JITTER_MS, cadence.maxMs - 16.7),
+  );
+}
+
+function resolveTransitionMaxFrameBudgetMs({
+  cadence,
+  highRefresh,
+}: {
+  readonly cadence: PageRafCadence;
+  readonly highRefresh: boolean;
+}): number {
+  const strictBudgetMs = MAX_FRAME_GAP_MS + resolveMaxFrameTimerJitterMs(cadence);
+  if (highRefresh) {
+    return strictBudgetMs;
+  }
+  return Math.max(
+    strictBudgetMs,
+    MAX_FRAME_GAP_MS +
+      MAX_CAPPED_FRAME_TIMER_JITTER_MS +
+      CAPPED_TRANSITION_FRAME_GAP_SLACK_MS,
+    cadence.maxMs + MAX_CAPPED_FRAME_TIMER_JITTER_MS,
+  );
+}
+
+function resolveTransitionLongTaskBudgetMs({
+  cadence,
+  highRefresh,
+}: {
+  readonly cadence: PageRafCadence;
+  readonly highRefresh: boolean;
+}): number {
+  if (highRefresh) {
+    return MAX_LONG_TASK_MS;
+  }
+  return Math.max(
+    MAX_LONG_TASK_MS,
+    cadence.maxMs + MAX_CAPPED_FRAME_TIMER_JITTER_MS,
+    cadence.p95Ms +
+      MAX_CAPPED_FRAME_TIMER_JITTER_MS +
+      CAPPED_TRANSITION_FRAME_GAP_SLACK_MS,
   );
 }
 

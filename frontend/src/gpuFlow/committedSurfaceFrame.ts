@@ -32,6 +32,7 @@ import type {
   HtmlSurfaceFlatVisual,
   HtmlSurfaceSolidRoundedRectVisual,
 } from "./htmlSurfaces/visualScene";
+import { createGpuFlowJsonDigest } from "./gpuFlowDigest";
 import type { RetainedDisplayFrame } from "./retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuDomIsland } from "./scene";
@@ -63,6 +64,11 @@ type GpuFlowCommittedSurfaceActorKind =
   | "dom-island"
   | "html-texture"
   | "gpu-native-visual";
+
+const committedSurfaceFrameRenderSignatureCache = new WeakMap<
+  GpuFlowCommittedSurfaceFrame,
+  string
+>();
 
 export type GpuFlowTextActorActivationPolicy =
   | "allowed"
@@ -455,7 +461,11 @@ export function createGpuFlowStartupCommittedSurfaceFrame({
 export function createGpuFlowCommittedSurfaceFrameRenderSignature(
   frame: GpuFlowCommittedSurfaceFrame,
 ): string {
-  return JSON.stringify({
+  const cached = committedSurfaceFrameRenderSignatureCache.get(frame);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const signature = createGpuFlowJsonDigest("committed-surface-render", {
     actorGenerations: frame.actorGenerations.map((actor) => [
       actor.actorId,
       actor.canonicalActorId,
@@ -468,6 +478,8 @@ export function createGpuFlowCommittedSurfaceFrameRenderSignature(
     ]),
     sceneRevision: frame.sceneRevision,
   });
+  committedSurfaceFrameRenderSignatureCache.set(frame, signature);
+  return signature;
 }
 
 function freezeCommittedSurfaceFrame({

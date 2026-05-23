@@ -204,6 +204,13 @@ export type GpuFlowVisualSurfaceDebugEntry = {
   readonly zIndex: number;
 };
 
+export type GpuFlowRetainedSceneDebugSummary = {
+  readonly controlKinds: readonly string[];
+  readonly nodeCount: number;
+  readonly retainedRowCount: number;
+  readonly surfaceCount: number;
+};
+
 export function createGpuFlowInteractionDiagnosticsState(): MutableGpuFlowInteractionDiagnostics {
   return {
     activeRetainedHit: null,
@@ -546,6 +553,9 @@ declare global {
       | (() => readonly GpuFlowRetainedRowDebugEntry[])
       | undefined;
     __SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__?: (() => number) | undefined;
+    __SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__?:
+      | (() => GpuFlowRetainedSceneDebugSummary)
+      | undefined;
     __SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?:
       | ((reason?: GpuFrameReason) => void)
       | undefined;

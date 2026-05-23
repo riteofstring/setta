@@ -15,6 +15,10 @@ import {
   waitForAnimationFrame,
 } from "./settings-retained-frame-helpers";
 import {
+  resolvePanZoomCappedLongTaskBudget,
+  resolvePanZoomCappedP95FrameBudget,
+} from "./settings-retained-pan-zoom-budget-helpers";
+import {
   activateRetainedEditor,
   readActiveEditorText,
   resolveControlScreenshotClip,
@@ -38,14 +42,7 @@ const SETTINGS_PARAM_CONTENT_SUFFIX = ":param-content:unpinned";
 const SETTINGS_SCROLL_TEST_SURFACE_ID = `settings-section__shortcuts${SETTINGS_PARAM_CONTENT_SUFFIX}`;
 const GESTURE_EVENT_SPACING_MS = 8;
 const ZOOM_WHEEL_DELTA_Y = -0.25;
-const PAN_ZOOM_P95_FRAME_BUDGET_MS = 8.5;
-const PAN_ZOOM_CAPPED_P95_FRAME_BUDGET_MS = 20;
-const CAPPED_P95_FRAME_BUDGET_SLACK_MS = 4;
-const CAPPED_GESTURE_P95_FRAME_BUDGET_SLACK_MS = 4;
-const STRICT_GESTURE_EVENT_P95_BUDGET_MS = 9;
-const STRICT_RAF_P95_BUDGET_MS = 10;
 const PAN_ZOOM_MAX_FRAME_BUDGET_MS = 60;
-const PAN_ZOOM_LONG_TASK_BUDGET_MS = 60;
 const TEXT_ROW_TARGET = {
   rowId: "settings-codeobj__gui__gui__maxZoom",
   surfaceId: "settings-section__gui" + SETTINGS_PARAM_CONTENT_SUFFIX,
@@ -179,11 +176,19 @@ test("all-settings retained pan and zoom sustain frame cadence without blanks", 
 
   const zoomStats = summarizeMeasuredFrames(zoomSnapshot);
   const panStats = summarizeMeasuredFrames(panSnapshot);
-  const zoomP95BudgetMs = resolveCappedP95FrameBudget({
+  const zoomP95BudgetMs = resolvePanZoomCappedP95FrameBudget({
     gesture: zoomGesture,
     rafCadence: beforeZoomRafCadence,
   });
-  const panP95BudgetMs = resolveCappedP95FrameBudget({
+  const panP95BudgetMs = resolvePanZoomCappedP95FrameBudget({
+    gesture: panGesture,
+    rafCadence: beforePanRafCadence,
+  });
+  const zoomLongTaskBudgetMs = resolvePanZoomCappedLongTaskBudget({
+    gesture: zoomGesture,
+    rafCadence: beforeZoomRafCadence,
+  });
+  const panLongTaskBudgetMs = resolvePanZoomCappedLongTaskBudget({
     gesture: panGesture,
     rafCadence: beforePanRafCadence,
   });
@@ -207,7 +212,12 @@ test("all-settings retained pan and zoom sustain frame cadence without blanks", 
       },
       viewport: { afterPan, afterZoom, before },
       viewportRuntimeDebug,
-      budgets: { panP95BudgetMs, zoomP95BudgetMs },
+      budgets: {
+        panLongTaskBudgetMs,
+        panP95BudgetMs,
+        zoomLongTaskBudgetMs,
+        zoomP95BudgetMs,
+      },
       panStats,
       rafCadence: {
         beforePan: beforePanRafCadence,
@@ -264,10 +274,10 @@ test("all-settings retained pan and zoom sustain frame cadence without blanks", 
     PAN_ZOOM_MAX_FRAME_BUDGET_MS,
   );
   expect(zoomStats.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
-    PAN_ZOOM_LONG_TASK_BUDGET_MS,
+    zoomLongTaskBudgetMs,
   );
   expect(panStats.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
-    PAN_ZOOM_LONG_TASK_BUDGET_MS,
+    panLongTaskBudgetMs,
   );
 });
 
@@ -337,11 +347,19 @@ test("retained section stays nonblank through native scroll then viewport pan an
   );
   const panStats = summarizeMeasuredFrames(panSnapshot);
   const zoomStats = summarizeMeasuredFrames(zoomSnapshot);
-  const panP95BudgetMs = resolveCappedP95FrameBudget({
+  const panP95BudgetMs = resolvePanZoomCappedP95FrameBudget({
     gesture: panGesture,
     rafCadence: beforePanRafCadence,
   });
-  const zoomP95BudgetMs = resolveCappedP95FrameBudget({
+  const zoomP95BudgetMs = resolvePanZoomCappedP95FrameBudget({
+    gesture: zoomGesture,
+    rafCadence: beforeZoomRafCadence,
+  });
+  const panLongTaskBudgetMs = resolvePanZoomCappedLongTaskBudget({
+    gesture: panGesture,
+    rafCadence: beforePanRafCadence,
+  });
+  const zoomLongTaskBudgetMs = resolvePanZoomCappedLongTaskBudget({
     gesture: zoomGesture,
     rafCadence: beforeZoomRafCadence,
   });
@@ -349,7 +367,9 @@ test("retained section stays nonblank through native scroll then viewport pan an
     {
       canvasPoint,
       budgets: {
+        panLongTaskBudgetMs,
         panP95BudgetMs,
+        zoomLongTaskBudgetMs,
         zoomP95BudgetMs,
       },
       gestures: { pan: panGesture, scroll: scrollGesture, zoom: zoomGesture },
@@ -414,10 +434,10 @@ test("retained section stays nonblank through native scroll then viewport pan an
     PAN_ZOOM_MAX_FRAME_BUDGET_MS,
   );
   expect(panStats.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
-    PAN_ZOOM_LONG_TASK_BUDGET_MS,
+    panLongTaskBudgetMs,
   );
   expect(zoomStats.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
-    PAN_ZOOM_LONG_TASK_BUDGET_MS,
+    zoomLongTaskBudgetMs,
   );
 });
 
@@ -444,7 +464,10 @@ test("viewport gesture continues while minimap and debug observers are active", 
   const after = await readViewportSample(page);
   const rows = await captureVisibleRetainedRowVisuals(page);
   const stats = summarizeMeasuredFrames(snapshot);
-  const p95BudgetMs = resolveCappedP95FrameBudget({ gesture, rafCadence });
+  const p95BudgetMs = resolvePanZoomCappedP95FrameBudget({
+    gesture,
+    rafCadence,
+  });
   const details = JSON.stringify(
     {
       after,
@@ -482,9 +505,6 @@ async function openAllSettings(page: Page): Promise<void> {
   await page.getByRole("button", { name: "fit view" }).click();
   await waitForViewportIdle(page);
   await page.getByRole("button", { exact: true, name: "All Settings" }).click();
-  await page.waitForFunction(
-    () => document.querySelectorAll(".setta-gpu-flow__node").length > 30,
-  );
   await expect
     .poll(() => readRetainedRowCount(page), { timeout: 10_000 })
     .toBeGreaterThan(50);
@@ -682,31 +702,6 @@ function summarizeProbeForDetails(snapshot: GpuFlowPerformanceSnapshot) {
       })),
     ),
   };
-}
-
-function resolveCappedP95FrameBudget({
-  gesture,
-  rafCadence,
-}: {
-  readonly gesture: WheelViewportBurstResult;
-  readonly rafCadence: { readonly p95Ms: number };
-}) {
-  const gestureP95Ms = percentile(
-    [...gesture.eventSpacingMs].sort((left, right) => left - right),
-    0.95,
-  );
-  const measuredBudgetMs = Math.max(
-    PAN_ZOOM_P95_FRAME_BUDGET_MS,
-    rafCadence.p95Ms + CAPPED_P95_FRAME_BUDGET_SLACK_MS,
-    gestureP95Ms + CAPPED_GESTURE_P95_FRAME_BUDGET_SLACK_MS,
-  );
-  if (
-    rafCadence.p95Ms <= STRICT_RAF_P95_BUDGET_MS &&
-    gestureP95Ms <= STRICT_GESTURE_EVENT_P95_BUDGET_MS
-  ) {
-    return measuredBudgetMs;
-  }
-  return Math.max(PAN_ZOOM_CAPPED_P95_FRAME_BUDGET_MS, measuredBudgetMs);
 }
 
 function countByString(values: readonly string[]): Record<string, number> {
@@ -1174,7 +1169,11 @@ async function resolveRetainedSurfaceWheelPoint(page: Page, surfaceId: string) {
 
 async function readRetainedRowCount(page: Page): Promise<number> {
   return await page.evaluate(
-    () => window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
+    () =>
+      window.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__?.()
+        .retainedRowCount ??
+      window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ??
+      0,
   );
 }
 

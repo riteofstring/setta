@@ -4,6 +4,7 @@ export {
   assertGpuFlowCommitPublicationToken,
   assertGpuFlowCommitPublicationTokenBrand,
   assertGpuFlowCommitPublicationTokenForFrameId,
+  assertGpuFlowCommitPublicationTokenForPresentationProof,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowCommittedSurfaceResetToken,
   assertGpuFlowCommittedSurfaceStartupToken,

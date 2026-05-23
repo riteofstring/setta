@@ -340,6 +340,7 @@ function resolveGpuFlowRetainedContentFrame({
     );
     const retainedRuntimeFrame =
       shouldReuseGpuFlowRetainedRuntimeFrameForSample({
+        allowActiveMotionViewportDrift: deferResolutionUpdates,
         cachedFrame,
         nativeVisualSignature,
         viewport,

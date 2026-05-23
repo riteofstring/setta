@@ -57,7 +57,7 @@ describe("GPU Flow visible publication completion", () => {
     const schedulerCompletion = result.completeSchedulerFrame();
     expect(schedulerCompletion.completion.debt.motion).toBe(true);
     expect(schedulerCompletion.debtFrameRequest).toEqual({
-      delayMs: null,
+      delayMs: 160,
       frameReason: "retained-scroll",
     });
     expect(result.followUpFrameRequests).toEqual([]);

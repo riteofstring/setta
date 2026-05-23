@@ -3,7 +3,7 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
 import {
-  assertGpuFlowCommitPublicationToken,
+  assertGpuFlowCommitPublicationTokenForPresentationProof,
   assertGpuFlowCommittedSurfaceResetToken,
   assertGpuFlowCommittedSurfaceStartupToken,
   type GpuFlowCommitPublicationToken,
@@ -78,7 +78,10 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     token: GpuFlowCommitPublicationToken,
     frame: GpuFlowCommittedContentFrame,
   ): boolean {
-    assertGpuFlowCommitPublicationToken({ frame, token });
+    assertGpuFlowCommitPublicationTokenForPresentationProof({
+      frame,
+      token,
+    });
     const renderSignature =
       createGpuFlowCommittedSurfaceFrameRenderSignature(frame);
     if (this.semanticSnapshot.renderSignature === renderSignature) {

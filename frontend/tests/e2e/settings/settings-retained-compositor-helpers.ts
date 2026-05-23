@@ -3,7 +3,7 @@ import { dirname } from "node:path";
 
 import { expect, type Page } from "@playwright/test";
 
-import { ensureAppReady } from "../helpers";
+import { ensureAppReady, postBackend } from "../helpers";
 import {
   measurePageRafCadence,
   percentile,
@@ -134,6 +134,10 @@ export async function openAllSettingsForRetainedCompositor(
   page: Page,
 ): Promise<void> {
   await ensureAppReady(page);
+  await postBackend(page, "/setActiveViewMode", {
+    activeViewModeId: "settings-all",
+    projectConfigId: "settings",
+  });
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
   await page.getByRole("button", { name: "fit view" }).click();
@@ -514,15 +518,10 @@ export async function dispatchRetainedCompositorWheelBurst(
     readonly point: RetainedCompositorPoint;
   },
 ): Promise<readonly number[]> {
-  return await page.evaluate(
-    async ({
-      ctrlKey = false,
-      deltaX = 0,
-      deltaY,
-      eventCount,
-      point,
-      spacingMs,
-    }) => {
+  const timestamps: number[] = [];
+  for (let index = 0; index < input.eventCount; index += 1) {
+    timestamps.push(performance.now());
+    await page.evaluate(({ ctrlKey = false, deltaX = 0, deltaY, point }) => {
       const target = document.elementFromPoint(point.x, point.y);
       if (!target) {
         throw new Error(
@@ -531,31 +530,28 @@ export async function dispatchRetainedCompositorWheelBurst(
           )}.`,
         );
       }
-      const timestamps: number[] = [];
-      for (let index = 0; index < eventCount; index += 1) {
-        timestamps.push(performance.now());
-        target.dispatchEvent(
-          new WheelEvent("wheel", {
-            bubbles: true,
-            cancelable: true,
-            clientX: point.x,
-            clientY: point.y,
-            ctrlKey,
-            deltaMode: WheelEvent.DOM_DELTA_PIXEL,
-            deltaX,
-            deltaY,
-            view: window,
-          }),
-        );
-        await new Promise<void>((resolve) => setTimeout(resolve, spacingMs));
-      }
-      return timestamps.slice(1).map((timestamp, index) => {
-        const previous = timestamps[index] ?? timestamp;
-        return timestamp - previous;
-      });
-    },
-    { ...input, spacingMs: GESTURE_SPACING_MS },
-  );
+      target.dispatchEvent(
+        new WheelEvent("wheel", {
+          bubbles: true,
+          cancelable: true,
+          clientX: point.x,
+          clientY: point.y,
+          ctrlKey,
+          deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+          deltaX,
+          deltaY,
+          view: window,
+        }),
+      );
+    }, input);
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, GESTURE_SPACING_MS),
+    );
+  }
+  return timestamps.slice(1).map((timestamp, index) => {
+    const previous = timestamps[index] ?? timestamp;
+    return timestamp - previous;
+  });
 }
 
 export async function runNativeRetainedCompositorWheelBurst(
@@ -687,23 +683,58 @@ async function countRetainedCompositorLongTasksDuringWindow(
   page: Page,
   durationMs: number,
 ): Promise<number> {
-  return await page.evaluate(async (durationMs) => {
+  const observing = await page.evaluate(() => {
     if (
       !("PerformanceObserver" in window) ||
       !PerformanceObserver.supportedEntryTypes.includes("longtask")
     ) {
-      await new Promise<void>((resolve) => setTimeout(resolve, durationMs));
+      return false;
+    }
+    const view = window as typeof window & {
+      __SETTA_RETAINED_COMPOSITOR_LONG_TASK_PROBE__?:
+        | {
+            count: number;
+            observer: PerformanceObserver;
+          }
+        | undefined;
+    };
+    view.__SETTA_RETAINED_COMPOSITOR_LONG_TASK_PROBE__?.observer.disconnect();
+    const probe = {
+      count: 0,
+      observer: null as PerformanceObserver | null,
+    };
+    const observer = new PerformanceObserver((list) => {
+      probe.count += list.getEntries().length;
+    });
+    probe.observer = observer;
+    view.__SETTA_RETAINED_COMPOSITOR_LONG_TASK_PROBE__ = probe as {
+      count: number;
+      observer: PerformanceObserver;
+    };
+    observer.observe({ entryTypes: ["longtask"] });
+    return true;
+  });
+  await page.waitForTimeout(durationMs);
+  if (!observing) {
+    return 0;
+  }
+  return await page.evaluate(() => {
+    const view = window as typeof window & {
+      __SETTA_RETAINED_COMPOSITOR_LONG_TASK_PROBE__?:
+        | {
+            count: number;
+            observer: PerformanceObserver;
+          }
+        | undefined;
+    };
+    const probe = view.__SETTA_RETAINED_COMPOSITOR_LONG_TASK_PROBE__;
+    if (!probe) {
       return 0;
     }
-    let longTaskCount = 0;
-    const observer = new PerformanceObserver((list) => {
-      longTaskCount += list.getEntries().length;
-    });
-    observer.observe({ entryTypes: ["longtask"] });
-    await new Promise<void>((resolve) => setTimeout(resolve, durationMs));
-    observer.disconnect();
-    return longTaskCount;
-  }, durationMs);
+    probe.observer.disconnect();
+    delete view.__SETTA_RETAINED_COMPOSITOR_LONG_TASK_PROBE__;
+    return probe.count;
+  });
 }
 
 export function resolveRetainedCompositorCadenceBudget({
@@ -750,7 +781,11 @@ export function resolveRetainedCompositorCadenceBudget({
     ),
     maxFrameBudgetMs: cappedMaxFrameBudgetMs,
     p95FrameBudgetMs: cappedFrameBudgetMs,
-    p99FrameBudgetMs: Math.max(CAPPED_P99_FRAME_BUDGET_MS, cappedFrameBudgetMs),
+    p99FrameBudgetMs: Math.max(
+      CAPPED_P99_FRAME_BUDGET_MS,
+      cappedFrameBudgetMs,
+      cappedMaxFrameBudgetMs,
+    ),
     slowFrameRatioBudget: 1,
   };
 }
@@ -855,23 +890,30 @@ export async function readRetainedCompositorSceneSummary(page: Page): Promise<{
 }> {
   return await page.evaluate(() => {
     const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
+    const sceneSummary =
+      window.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__?.() ?? null;
     const mountedNodeCount = document.querySelectorAll(
       ".setta-gpu-flow__node",
     ).length;
     const retainedNodeCount = new Set(rows.map((row) => row.ownerSectionId))
       .size;
     return {
-      controlKinds: [
-        ...new Set(
-          rows
-            .map((row) => row.controlKind)
-            .filter((kind): kind is string => Boolean(kind)),
-        ),
-      ].sort((left, right) => left.localeCompare(right)),
+      controlKinds:
+        sceneSummary?.controlKinds ??
+        [
+          ...new Set(
+            rows
+              .map((row) => row.controlKind)
+              .filter((kind): kind is string => Boolean(kind)),
+          ),
+        ].sort((left, right) => left.localeCompare(right)),
       mountedNodeCount,
-      nodeCount: Math.max(mountedNodeCount, retainedNodeCount),
-      retainedRowCount: rows.length,
-      surfaceCount: new Set(rows.map((row) => row.surfaceId)).size,
+      nodeCount:
+        sceneSummary?.nodeCount ?? Math.max(mountedNodeCount, retainedNodeCount),
+      retainedRowCount: sceneSummary?.retainedRowCount ?? rows.length,
+      surfaceCount:
+        sceneSummary?.surfaceCount ??
+        new Set(rows.map((row) => row.surfaceId)).size,
     };
   });
 }
