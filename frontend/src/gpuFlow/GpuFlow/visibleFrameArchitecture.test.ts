@@ -13,9 +13,11 @@ const REMOVED_VISIBLE_PUBLICATION_AUTHORITY_MODULES = [
   "./flowCommittedSurfacePublication",
   "./flowSurfacePublicationCompletion",
   "./visibleFramePublicationAuthority",
+  "./visibleFramePublicationActorOracle",
   "./visibleFramePublicationOracle",
   "./visibleFramePublicationCandidateOracle",
   "./visibleFramePublicationCompletion",
+  "./visibleFramePublicationKernelPresentation",
   "./visibleFramePublicationResourceOracle",
 ] as const;
 

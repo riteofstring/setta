@@ -1,9 +1,9 @@
 import type {
   GpuFlowCommittedSurfaceActorGeneration,
   GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
-import type { BrowserTextActorRepresentation } from "../surfaceCompositor/browserVisualActorAdapter";
-import type { GpuFlowBlockedVisibleReason } from "./visibleFramePublicationTokens";
+} from "../../committedSurfaceFrame";
+import type { BrowserTextActorRepresentation } from "../../surfaceCompositor/browserVisualActorAdapter";
+import type { GpuFlowBlockedVisibleReason } from "../visibleFramePublicationTokens";
 
 type GpuFlowCompatiblePreviousBudgetState =
   | "over-budget"

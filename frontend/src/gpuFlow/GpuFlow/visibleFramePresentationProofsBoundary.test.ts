@@ -12,9 +12,6 @@ const KERNEL_MODULE_PATH = modulePath("./visibleFramePublicationKernel.ts");
 const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = modulePath(
   "./visibleFrameActorAdapters/contentDecisionKernel.ts",
 );
-const KERNEL_PRESENTATION_MODULE_PATH = modulePath(
-  "./visibleFramePublicationKernelPresentation.ts",
-);
 const CONTENT_PLAN_MODULE_PATH = modulePath(
   "./visibleFramePublicationContentPlan.ts",
 );
@@ -1282,7 +1279,6 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
   return [
     KERNEL_MODULE_PATH,
     KERNEL_CANDIDATE_ORACLE_MODULE_PATH,
-    KERNEL_PRESENTATION_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
     CONTENT_PLAN_MODULE_PATH,
     modulePath("./visibleFrameTransactionProofs.ts"),

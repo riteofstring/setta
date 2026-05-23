@@ -28,7 +28,7 @@ import {
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
 } from "./visibleFramePublicationContentPlan";
 import { prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet } from "./visibleFramePublicationForcedBlockedCandidateSet";
-import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePublicationKernelPresentation";
+import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";
 import {
   createGpuFlowContentPublicationWorkPlan,
   createGpuFlowMotionProjectionWorkPlan,

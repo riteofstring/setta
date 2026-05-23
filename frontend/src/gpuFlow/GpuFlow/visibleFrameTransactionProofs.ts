@@ -18,7 +18,7 @@ import {
   createGpuFlowVisiblePublicationActorProofsForFrame,
   createGpuFlowVisiblePublicationBlockedActorReasonsForFrame,
   createGpuFlowVisiblePublicationRemainingActorDebt,
-} from "./visibleFramePublicationActorOracle";
+} from "./visibleFrameActorAdapters/browserVisualProofs";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
 import {
   createGpuFlowVisiblePublicationPresentationBlockedReasons,

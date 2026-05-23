@@ -6,9 +6,6 @@ import { describe, expect, it } from "vitest";
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
-const KERNEL_PRESENTATION_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationKernelPresentation.ts", import.meta.url),
-);
 const AUTHORITY_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresentationProofs.ts", import.meta.url),
 );
@@ -28,10 +25,6 @@ const SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH = fileURLToPath(
 describe("GPU Flow visible publication kernel phases", () => {
   it("runs sample, prepare, prove, decide, completion, and publish through the visible frame engine lifecycle", () => {
     const source = readFileSync(KERNEL_MODULE_PATH, "utf8");
-    const presentationSource = readFileSync(
-      KERNEL_PRESENTATION_MODULE_PATH,
-      "utf8",
-    );
     const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
     const runStart = source.indexOf(
       "export function runGpuFlowVisibleFramePublicationCandidateSetKernel",
@@ -91,8 +84,8 @@ describe("GPU Flow visible publication kernel phases", () => {
     expect(source).toContain(
       "function decideGpuFlowVisibleFramePublicationOutcome",
     );
-    expect(presentationSource).toContain(
-      "export { proveGpuFlowVisibleFramePublicationPresentation }",
+    expect(source).toContain(
+      'from "./visibleFramePresentationProofs"',
     );
     expect(authoritySource).toContain(
       "export function proveGpuFlowVisibleFramePublicationPresentation",
