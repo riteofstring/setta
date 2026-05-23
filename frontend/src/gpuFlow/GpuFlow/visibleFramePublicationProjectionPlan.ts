@@ -34,6 +34,11 @@ export type GpuFlowProjectionFrameRenderPlan =
       readonly transaction: GpuFlowProjectionTransaction;
     };
 
+export type GpuFlowProjectionFrameRenderablePlan = Extract<
+  GpuFlowProjectionFrameRenderPlan,
+  { readonly kind: "render" }
+>;
+
 export type GpuFlowProjectionFrameRenderPlanSelector = (input: {
   readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
 }) => GpuFlowProjectionFrameRenderPlan;

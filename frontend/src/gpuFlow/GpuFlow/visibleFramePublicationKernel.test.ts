@@ -72,9 +72,12 @@ describe("GPU Flow visible publication transaction kernel", () => {
           `motion:${publicationDecision.lane}:viewport=${publicationFrameContext.viewportFrame}:defer=${publicationFrameContext.deferResolutionUpdates}`,
         );
         return {
-          blockedProjectionReason: null,
-          rendered: false,
-          visibleProjectionState: null,
+          frame: {
+            blockedProjectionReason: null,
+            rendered: false,
+            visibleProjectionState: null,
+          },
+          kind: "not-rendered",
         };
       },
       previousVisibleProjectionState: null,
@@ -143,9 +146,12 @@ describe("GPU Flow visible publication transaction kernel", () => {
           }),
         );
         return {
-          blockedProjectionReason: null,
-          rendered: false,
-          visibleProjectionState: null,
+          frame: {
+            blockedProjectionReason: null,
+            rendered: false,
+            visibleProjectionState: null,
+          },
+          kind: "not-rendered",
         };
       },
       previousVisibleProjectionState,
@@ -225,9 +231,12 @@ describe("GPU Flow visible publication transaction kernel", () => {
         };
       },
       prepareMotionProjectionFrame: () => ({
-        blockedProjectionReason: null,
-        rendered: false,
-        visibleProjectionState: null,
+        frame: {
+          blockedProjectionReason: null,
+          rendered: false,
+          visibleProjectionState: null,
+        },
+        kind: "not-rendered",
       }),
       previousVisibleProjectionState: null,
       publish: () => {},
@@ -580,9 +589,12 @@ describe("GPU Flow visible publication transaction kernel", () => {
         visibleProjectionState: null,
       }),
       prepareMotionProjectionFrame: () => ({
-        blockedProjectionReason: null,
-        rendered: false,
-        visibleProjectionState: null,
+        frame: {
+          blockedProjectionReason: null,
+          rendered: false,
+          visibleProjectionState: null,
+        },
+        kind: "not-rendered",
       }),
       previousVisibleProjectionState: null,
       publish: (transaction) => {

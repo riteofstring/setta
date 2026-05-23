@@ -181,6 +181,9 @@ export type GpuFlowCommittedSurfacePublicationFramePlan =
       readonly kind: "frame-result";
     };
 
+export type GpuFlowCommittedSurfacePublicationFramePlanResult =
+  GpuFlowCommittedSurfacePublicationActionFrameResult;
+
 export type GpuFlowCommittedSurfacePublicationFramePlanSelector = (input: {
   readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
   readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
@@ -189,6 +192,7 @@ export type GpuFlowCommittedSurfacePublicationFramePlanSelector = (input: {
 export type GpuFlowCommittedSurfacePublicationFramePlanPreparation = {
   readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
   readonly framePlan: GpuFlowCommittedSurfacePublicationFramePlan;
+  readonly framePlanResult: GpuFlowCommittedSurfacePublicationFramePlanResult;
 };
 
 export type GpuFlowCommittedSurfacePublicationFramePlanPreparer = (
@@ -241,6 +245,7 @@ export type GpuFlowRetainedDisplayPublicationPreparer = (
 
 export type GpuFlowRetainedDisplayPublicationFramePlanPreparation = {
   readonly framePlan: GpuFlowRetainedDisplayPublicationFramePlan;
+  readonly framePlanResult: GpuFlowRetainedDisplayOutcomeFrameResult;
   readonly publication: GpuFlowRetainedDisplayPublicationResult;
 };
 
@@ -475,12 +480,17 @@ export function createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
 }): GpuFlowCommittedSurfacePublicationFramePlanPreparer {
   return (input) => {
     const candidate = prepareCommittedSurfacePublicationCandidate(input);
+    const framePlan = selectCommittedSurfacePublicationFramePlan({
+      candidate,
+      publishedCommittedSurfaceFrame: input.publishedCommittedSurfaceFrame,
+    });
     return Object.freeze({
       candidate,
-      framePlan: selectCommittedSurfacePublicationFramePlan({
-        candidate,
-        publishedCommittedSurfaceFrame: input.publishedCommittedSurfaceFrame,
-      }),
+      framePlan,
+      framePlanResult:
+        resolveGpuFlowCommittedSurfacePublicationFramePlanResult({
+          framePlan,
+        }),
     });
   };
 }
@@ -509,6 +519,24 @@ export function selectGpuFlowCommittedSurfacePublicationFramePlan({
   return {
     committedSurfacePublication: result.committedSurfacePublication,
     kind: "publish" as const,
+  };
+}
+
+export function resolveGpuFlowCommittedSurfacePublicationFramePlanResult({
+  framePlan,
+}: {
+  readonly framePlan: GpuFlowCommittedSurfacePublicationFramePlan;
+}): GpuFlowCommittedSurfacePublicationFramePlanResult {
+  if (framePlan.kind === "frame-result") {
+    return {
+      committedSurfacePublication:
+        framePlan.frameResult.committedSurfacePublication,
+      frameResult: framePlan.frameResult,
+    };
+  }
+  return {
+    committedSurfacePublication: framePlan.committedSurfacePublication,
+    frameResult: null,
   };
 }
 
@@ -561,10 +589,16 @@ export function createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
 }): GpuFlowRetainedDisplayPublicationFramePlanPreparer {
   return (input) => {
     const publication = prepareRetainedDisplayPublicationCandidate(input);
+    const framePlan = selectRetainedDisplayPublicationFramePlan({
+      retainedDisplayOutcome: publication.retainedDisplayOutcome,
+    });
     return Object.freeze({
-      framePlan: selectRetainedDisplayPublicationFramePlan({
-        retainedDisplayOutcome: publication.retainedDisplayOutcome,
-      }),
+      framePlan,
+      framePlanResult: resolveGpuFlowRetainedDisplayPublicationFramePlanResult(
+        {
+          framePlan,
+        },
+      ),
       publication,
     });
   };
@@ -590,6 +624,23 @@ export function selectGpuFlowRetainedDisplayPublicationFramePlan({
   return {
     kind: "published" as const,
     publishedOutcomeFrame: result.publishedOutcomeFrame,
+  };
+}
+
+export function resolveGpuFlowRetainedDisplayPublicationFramePlanResult({
+  framePlan,
+}: {
+  readonly framePlan: GpuFlowRetainedDisplayPublicationFramePlan;
+}): GpuFlowRetainedDisplayOutcomeFrameResult {
+  if (framePlan.kind === "blocked") {
+    return {
+      frameResult: framePlan.frameResult,
+      publishedOutcomeFrame: null,
+    };
+  }
+  return {
+    frameResult: null,
+    publishedOutcomeFrame: framePlan.publishedOutcomeFrame,
   };
 }
 

@@ -669,13 +669,13 @@ export function renderGpuFlowNodeLayerFrame({
     retainedDisplayPublication.retainedDisplayTransactionMs;
   retainedPageMaintenanceMs +=
     retainedDisplayPublication.retainedPageMaintenanceMs;
-  const retainedDisplayPublicationFramePlan =
-    retainedDisplayPublicationPreparation.framePlan;
-  if (retainedDisplayPublicationFramePlan.kind === "blocked") {
-    return retainedDisplayPublicationFramePlan.frameResult;
+  const retainedDisplayPublicationFramePlanResult =
+    retainedDisplayPublicationPreparation.framePlanResult;
+  if (retainedDisplayPublicationFramePlanResult.frameResult) {
+    return retainedDisplayPublicationFramePlanResult.frameResult;
   }
   const publishedRetainedDisplayOutcomeFrame =
-    retainedDisplayPublicationFramePlan.publishedOutcomeFrame;
+    retainedDisplayPublicationFramePlanResult.publishedOutcomeFrame;
   notifyRetainedDisplayFollowUpFrameNeeded({
     deferResolutionUpdates,
     onRetainedDisplayFollowUpFrameNeeded,
@@ -754,13 +754,13 @@ export function renderGpuFlowNodeLayerFrame({
     },
     publicationKind: committedSurfacePublicationCandidate.kind,
   });
-  const committedSurfacePublicationFramePlan =
-    committedSurfacePublicationPreparation.framePlan;
-  if (committedSurfacePublicationFramePlan.kind === "frame-result") {
-    return committedSurfacePublicationFramePlan.frameResult;
+  const committedSurfacePublicationFramePlanResult =
+    committedSurfacePublicationPreparation.framePlanResult;
+  if (committedSurfacePublicationFramePlanResult.frameResult) {
+    return committedSurfacePublicationFramePlanResult.frameResult;
   }
   const committedSurfacePublication =
-    committedSurfacePublicationFramePlan.committedSurfacePublication;
+    committedSurfacePublicationFramePlanResult.committedSurfacePublication;
   markGpuFlowRetainedContentFrameFreshnessDirty({
     deferResolutionUpdates,
     frame,

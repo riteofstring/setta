@@ -89,6 +89,13 @@ describe("GPU Flow visible publication content plans", () => {
     expect(flowFrameSource).not.toContain(
       "selectCommittedSurfacePublicationFramePlan",
     );
+    expect(flowFrameSource).not.toContain(
+      "retainedDisplayPublicationFramePlan.kind",
+    );
+    expect(flowFrameSource).not.toContain(
+      "committedSurfacePublicationFramePlan.kind",
+    );
+    expect(flowFrameSource).toContain("framePlanResult");
     expect(flowFrameSource).toContain(
       "prepareRetainedDisplayPublicationFramePlan",
     );
@@ -100,6 +107,12 @@ describe("GPU Flow visible publication content plans", () => {
     );
     expect(contentPlanSource).toContain(
       "resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+    );
+    expect(contentPlanSource).toContain(
+      "resolveGpuFlowRetainedDisplayPublicationFramePlanResult",
+    );
+    expect(contentPlanSource).toContain(
+      "resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
     );
   });
 

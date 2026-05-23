@@ -22,6 +22,9 @@ const KERNEL_MODULE_PATH = fileURLToPath(
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationProjectionPlan.ts", import.meta.url),
 );
+const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
+  new URL("./flowSurfaceFramePublication.ts", import.meta.url),
+);
 
 describe("GPU Flow visible publication projection plans", () => {
   it("selects blocked projection render plans outside the projection renderer", () => {
@@ -66,14 +69,30 @@ describe("GPU Flow visible publication projection plans", () => {
       PROJECTION_PLAN_MODULE_PATH,
       "utf8",
     );
+    const surfaceFrameSource = readFileSync(
+      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
+      "utf8",
+    );
 
     expect(projectionFrameSource).not.toContain(
       "projectionFrameTransaction.blockedReason",
     );
     expect(projectionFrameSource).not.toContain(
+      'projectionFrameRenderPlan.kind === "blocked"',
+    );
+    expect(projectionFrameSource).not.toContain(
+      "projectionFrameRenderPlan.blockedProjectionReason",
+    );
+    expect(projectionFrameSource).not.toContain(
       "selectProjectionFrameRenderPlan",
     );
     expect(projectionFrameSource).toContain("projectionFrameRenderPlan");
+    expect(surfaceFrameSource).not.toContain(
+      'projectionFrameRenderPlan.kind === "blocked"',
+    );
+    expect(kernelSource).toContain(
+      'projectionFrameRenderPlan.kind === "blocked"',
+    );
     expect(kernelSource).toContain(
       "createGpuFlowProjectionFrameRenderPlanSelector",
     );
