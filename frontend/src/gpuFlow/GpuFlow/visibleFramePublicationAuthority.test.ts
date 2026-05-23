@@ -888,6 +888,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(commitMethodSource).toContain(
       "this.publishBrowserVisualHostPresentation",
     );
+    expect(commitMethodSource).not.toContain("this.emitPreparation()");
     expect(
       commitMethodSource.indexOf("this.publishBrowserVisualHostPresentation"),
     ).toBeLessThan(commitMethodSource.indexOf("this.emit()"));

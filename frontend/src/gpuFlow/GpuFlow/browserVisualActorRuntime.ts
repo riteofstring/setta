@@ -321,21 +321,6 @@ export class GpuFlowBrowserVisualActorRuntime {
     if (snapshotChanged) {
       this.emit();
     }
-    if (
-      this.preparationSnapshot.frameIds.committedFrameId ===
-        candidate.snapshot.frameIds.committedFrameId &&
-      this.preparationSnapshot.frameIds.runtimeFrameId ===
-        candidate.snapshot.frameIds.runtimeFrameId
-    ) {
-      this.preparationSnapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
-      this.emitPreparation();
-    } else if (
-      this.preparationSnapshot.frameIds.committedFrameId !== 0 ||
-      this.preparationSnapshot.frameIds.runtimeFrameId !== 0
-    ) {
-      this.preparationSnapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
-      this.emitPreparation();
-    }
   }
 
   abortPreparedBrowserVisualActors({

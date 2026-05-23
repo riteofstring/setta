@@ -613,6 +613,12 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(domControlCoverageState(readyReadiness!, nextControl)).toBe(
       "live-host-ready",
     );
+    let preparationNotificationsAfterCommit = 0;
+    const unsubscribePreparation = browserVisualRuntime.subscribePreparation(
+      () => {
+        preparationNotificationsAfterCommit += 1;
+      },
+    );
     act(() => {
       browserVisualRuntime.commitPreparedBrowserVisualActors({
         candidate: readyReadiness!,
@@ -624,6 +630,7 @@ describe("GPU flow DOM control projection runtime", () => {
         ),
       });
     });
+    unsubscribePreparation();
     expect(
       browserVisualRuntime
         .getSnapshot()
@@ -631,7 +638,8 @@ describe("GPU flow DOM control projection runtime", () => {
     ).toContain("row-1");
     expect(
       browserVisualRuntime.getPreparationSnapshot().domControls.mountedControls,
-    ).toEqual([]);
+    ).toContain(nextControl);
+    expect(preparationNotificationsAfterCommit).toBe(0);
   });
 
   it("reports compatible previous projection as proof-backed readiness", () => {
