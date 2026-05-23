@@ -136,6 +136,13 @@ describe("GPU Flow visible publication transaction kernel", () => {
       "publish:commit",
     ]);
     expect(result.outcome.kind).toBe("commit");
+    expect(result.preparedFrame.visibleFrameEngineOutcome?.kind).toBe(
+      "presented",
+    );
+    expect(
+      result.preparedFrame.visibleFrameEnginePreparedFrame?.candidate
+        .projectionSampleId,
+    ).toBe(sample.id);
     expect(result.preparedFrame.contentPublicationFrame.rendered).toBe(true);
     expect(result.preparedFrame.visibleProjectionState).toBe(
       contentVisibleState,
@@ -249,6 +256,14 @@ describe("GPU Flow visible publication transaction kernel", () => {
     expect(selectedTransaction.sample).toBe(sample);
     expect(selectedTransaction.committedFrameId).toBe(
       previousVisibleProjectionState.committedFrame.displayFrameId,
+    );
+    expect(result.preparedFrame.visibleFrameEngineOutcome?.kind).toBe("held");
+    expect(
+      result.preparedFrame.visibleFrameEngineOutcome?.decidingProof,
+    ).toEqual(
+      expect.objectContaining({
+        reason: "held-previous",
+      }),
     );
   });
 
@@ -776,6 +791,9 @@ describe("GPU Flow visible publication transaction kernel", () => {
     expect(
       completion.heldPreviousVisibleProjectionState?.transaction.kind,
     ).toBe("held-previous");
+    expect(completion.preparedFrame.visibleFrameEngineOutcome?.kind).toBe(
+      "held",
+    );
   });
 });
 
