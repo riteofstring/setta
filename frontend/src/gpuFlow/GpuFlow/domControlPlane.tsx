@@ -324,58 +324,11 @@ export function GpuFlowDomControlPlane({
       };
       __settaGpuFlowDomControlPlaneDiagnostics?: () => GpuFlowDomControlPlaneDiagnostics;
     };
-    view.__settaGpuFlowBrowserVisualPreparationDiagnostics = (actorId) => {
-      const preparation = browserVisualRuntime.getPreparationSnapshot();
-      const preparationAssignment =
-        preparation.domControls.assignments.find(
-          (assignment) => assignment.control.sourceId === actorId,
-        ) ?? null;
-      const preparationControl =
-        preparation.domControls.controls.find(
-          (control) => control.sourceId === actorId,
-        ) ?? null;
-      return {
-        preparationAssignment: preparationAssignment
-          ? {
-              coverageState: preparationAssignment.coverageState,
-              phase: preparationAssignment.phase,
-              priority: preparationAssignment.priority,
-              reason: preparationAssignment.reason,
-              sourceId: preparationAssignment.control.sourceId,
-              textCoverageState:
-                preparationAssignment.control.textCoverageState,
-              visualPolicy: preparationAssignment.control.visualPolicy,
-            }
-          : null,
-        preparationAssignmentCount: preparation.domControls.assignments.length,
-        preparationControl: preparationControl
-          ? {
-              active: preparationControl.active,
-              snapshotSurfaceId: preparationControl.snapshotSurfaceId,
-              sourceId: preparationControl.sourceId,
-              textCoverageState: preparationControl.textCoverageState,
-              visualPolicy: preparationControl.visualPolicy,
-            }
-          : null,
-        preparationControlCount: preparation.domControls.controls.length,
-        preparationFrameIds: preparation.frameIds,
-        preparationMountedControl:
-          preparation.domControls.mountedControls.find(
-            (control) => control.sourceId === actorId,
-          )?.sourceId ?? null,
-        preparationMountedControlCount:
-          preparation.domControls.mountedControls.length,
-        preparationSnapshotControl:
-          preparation.domControls.snapshotControls.find(
-            (control) => control.sourceId === actorId,
-          )?.sourceId ?? null,
-        preparationSnapshotControlCount:
-          preparation.domControls.snapshotControls.length,
-        readiness: actorId
-          ? browserVisualRuntime.getDomControlHostReadinessDiagnostics(actorId)
-          : null,
-      };
-    };
+    view.__settaGpuFlowBrowserVisualPreparationDiagnostics = (actorId) =>
+      createGpuFlowBrowserVisualPreparationDiagnostics({
+        actorId,
+        browserVisualRuntime,
+      });
     view.__settaGpuFlowDomControlPlaneDiagnostics = () => ({
       ...browserVisualRuntime.getDomControlDiagnostics(),
     });
@@ -487,6 +440,82 @@ function isGpuFlowDomControlPreparationHostRequired({
     visibleControl.textCoverageRevision !== control.textCoverageRevision ||
     visibleControl.valueStyleRevision !== control.valueStyleRevision
   );
+}
+
+function createGpuFlowBrowserVisualPreparationDiagnostics({
+  actorId,
+  browserVisualRuntime,
+}: {
+  readonly actorId: string | null;
+  readonly browserVisualRuntime: GpuFlowBrowserVisualActorRuntime;
+}) {
+  const preparation = browserVisualRuntime.getPreparationSnapshot();
+  const preparationAssignment =
+    preparation.domControls.assignments.find(
+      (assignment) => assignment.control.sourceId === actorId,
+    ) ?? null;
+  const preparationControl =
+    preparation.domControls.controls.find(
+      (control) => control.sourceId === actorId,
+    ) ?? null;
+  return {
+    preparationAssignment:
+      createGpuFlowDomControlPreparationAssignmentDiagnostic(
+        preparationAssignment,
+      ),
+    preparationAssignmentCount: preparation.domControls.assignments.length,
+    preparationControl:
+      createGpuFlowDomControlPreparationControlDiagnostic(preparationControl),
+    preparationControlCount: preparation.domControls.controls.length,
+    preparationFrameIds: preparation.frameIds,
+    preparationMountedControl:
+      preparation.domControls.mountedControls.find(
+        (control) => control.sourceId === actorId,
+      )?.sourceId ?? null,
+    preparationMountedControlCount:
+      preparation.domControls.mountedControls.length,
+    preparationSnapshotControl:
+      preparation.domControls.snapshotControls.find(
+        (control) => control.sourceId === actorId,
+      )?.sourceId ?? null,
+    preparationSnapshotControlCount:
+      preparation.domControls.snapshotControls.length,
+    readiness: actorId
+      ? browserVisualRuntime.getDomControlHostReadinessDiagnostics(actorId)
+      : null,
+  };
+}
+
+function createGpuFlowDomControlPreparationAssignmentDiagnostic(
+  assignment: GpuFlowDomControlProjectionAssignment | null,
+) {
+  if (!assignment) {
+    return null;
+  }
+  return {
+    coverageState: assignment.coverageState,
+    phase: assignment.phase,
+    priority: assignment.priority,
+    reason: assignment.reason,
+    sourceId: assignment.control.sourceId,
+    textCoverageState: assignment.control.textCoverageState,
+    visualPolicy: assignment.control.visualPolicy,
+  };
+}
+
+function createGpuFlowDomControlPreparationControlDiagnostic(
+  control: GpuRetainedDomControlSourceDescriptor | null,
+) {
+  if (!control) {
+    return null;
+  }
+  return {
+    active: control.active,
+    snapshotSurfaceId: control.snapshotSurfaceId,
+    sourceId: control.sourceId,
+    textCoverageState: control.textCoverageState,
+    visualPolicy: control.visualPolicy,
+  };
 }
 
 function GpuFlowDomControlHost({

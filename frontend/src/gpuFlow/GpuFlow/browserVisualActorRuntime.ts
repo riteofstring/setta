@@ -424,22 +424,14 @@ export class GpuFlowBrowserVisualActorRuntime {
       token,
     });
     if (!element) {
-      if (mounted) {
-        blurFocusedDescendantBeforeUnmount(mounted.element);
-      }
-      hostMap.delete(control.sourceId);
-      if (presentation === "visible") {
-        this.composingDomControlIds.delete(control.sourceId);
-      }
+      this.clearDomControlElement({ control, hostMap, mounted, presentation });
       return;
     }
-    this.getDomControlHostMap(presentation).set(control.sourceId, {
+    this.registerDomControlElement({
       control,
-      controlId: control.sourceId,
       element,
-      ...(presentation === "visible"
-        ? { registrationCommittedFrameId: token?.committedFrameId }
-        : {}),
+      presentation,
+      token,
     });
     if (!this.isDomControlProjectable(control.sourceId)) {
       parkDomControlElement(element);
@@ -458,6 +450,47 @@ export class GpuFlowBrowserVisualActorRuntime {
       return;
     }
     this.domControlSnapshotElementBySurfaceId.set(surfaceId, element);
+  }
+
+  private clearDomControlElement({
+    control,
+    hostMap,
+    mounted,
+    presentation,
+  }: {
+    readonly control: GpuRetainedDomControlSourceDescriptor;
+    readonly hostMap: Map<string, GpuFlowDomControlPlaneMountedHost>;
+    readonly mounted: GpuFlowDomControlPlaneMountedHost | undefined;
+    readonly presentation: "preparation" | "visible";
+  }): void {
+    if (mounted) {
+      blurFocusedDescendantBeforeUnmount(mounted.element);
+    }
+    hostMap.delete(control.sourceId);
+    if (presentation === "visible") {
+      this.composingDomControlIds.delete(control.sourceId);
+    }
+  }
+
+  private registerDomControlElement({
+    control,
+    element,
+    presentation,
+    token,
+  }: {
+    readonly control: GpuRetainedDomControlSourceDescriptor;
+    readonly element: HTMLElement;
+    readonly presentation: "preparation" | "visible";
+    readonly token?: GpuFlowCommitPublicationToken | undefined;
+  }): void {
+    this.getDomControlHostMap(presentation).set(control.sourceId, {
+      control,
+      controlId: control.sourceId,
+      element,
+      ...(presentation === "visible"
+        ? { registrationCommittedFrameId: token?.committedFrameId }
+        : {}),
+    });
   }
 
   setDomControlSnapshotTextureManager(
