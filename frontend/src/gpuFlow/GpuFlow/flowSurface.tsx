@@ -86,7 +86,12 @@ import {
   projectGpuFlowNodeHoverSourceForPointerEvent,
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
-import type { GpuFlowColdStartShellFrame } from "./visibleFramePublicationAuthority";
+import {
+  assertGpuFlowBlockedPublicationTokenBrand,
+  assertGpuFlowCommitPublicationTokenBrand,
+  assertGpuFlowHoldPreviousTokenBrand,
+  type GpuFlowColdStartShellFrame,
+} from "./visibleFramePublicationTokens";
 
 export function GpuFlow({
   children,
@@ -215,7 +220,9 @@ export function GpuFlow({
       typeof renderGpuFlowSurfaceFrame
     >[0]["publishColdStartShellFrame"]
   >((publication) => {
-    void publication.token;
+    assertGpuFlowColdStartShellPublicationToken({
+      token: publication.token,
+    });
     const nextColdStartShellFrame = publication.frame;
     const currentColdStartShellFrame = activeColdStartShellFrameRef.current;
     if (
@@ -985,4 +992,24 @@ export function GpuFlow({
       children={children}
     />
   );
+}
+
+type GpuFlowColdStartShellFramePublication = Parameters<
+  Parameters<typeof renderGpuFlowSurfaceFrame>[0]["publishColdStartShellFrame"]
+>[0];
+
+function assertGpuFlowColdStartShellPublicationToken({
+  token,
+}: {
+  readonly token: GpuFlowColdStartShellFramePublication["token"];
+}): void {
+  if (token && "blockedReasons" in token) {
+    assertGpuFlowBlockedPublicationTokenBrand({ token });
+    return;
+  }
+  if (token && "holdAgeFrames" in token) {
+    assertGpuFlowHoldPreviousTokenBrand({ token });
+    return;
+  }
+  assertGpuFlowCommitPublicationTokenBrand({ token });
 }

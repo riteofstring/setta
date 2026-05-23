@@ -7,6 +7,7 @@ export {
   assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowCommittedSurfaceResetToken,
   assertGpuFlowCommittedSurfaceStartupToken,
+  assertGpuFlowHoldPreviousTokenBrand,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
   assertGpuFlowPreparedCandidateAbortToken,
 } from "./visibleFramePublicationAuthority";

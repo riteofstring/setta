@@ -467,6 +467,18 @@ export function assertGpuFlowBlockedPublicationTokenBrand({
   }
 }
 
+export function assertGpuFlowHoldPreviousTokenBrand({
+  token,
+}: {
+  readonly token: GpuFlowHoldPreviousToken;
+}): void {
+  if (!isGpuFlowHoldPreviousToken(token)) {
+    throw new Error(
+      "GPU Flow held-previous visible publication requires a hold-previous publication token.",
+    );
+  }
+}
+
 function assertGpuFlowPresentableCommit({
   presentableCommit,
 }: {

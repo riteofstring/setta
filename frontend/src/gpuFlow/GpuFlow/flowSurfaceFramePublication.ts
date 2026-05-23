@@ -64,6 +64,10 @@ import type {
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationTokens";
+import {
+  assertGpuFlowCommitPublicationTokenBrand,
+  assertGpuFlowHoldPreviousTokenBrand,
+} from "./visibleFramePublicationTokens";
 
 type GpuFlowNodeLayerFrameInput = Parameters<
   typeof renderGpuFlowNodeLayerFrame
@@ -1317,6 +1321,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
     visibleProjectionStateRef,
   });
   publishGpuFlowVisibleOverlayProjectionTransform({
+    token: outcome.token,
     viewportRuntime,
     visibleOverlayProjectionKeyRef,
     visibleProjectionState: selectedVisibleProjectionState,
@@ -1330,6 +1335,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
     retainedRuntimeFrame,
     retainedRuntimeFrameRenderSignatureRef,
     retainedRuntimeFrameSourceRenderSignatureRef,
+    token: outcome.token,
   });
 }
 
@@ -1395,6 +1401,7 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
     visibleProjectionStateRef,
   });
   publishGpuFlowVisibleOverlayProjectionTransform({
+    token: outcome.token,
     viewportRuntime,
     visibleOverlayProjectionKeyRef,
     visibleProjectionState: selectedVisibleProjectionState,
@@ -1414,7 +1421,8 @@ function publishGpuFlowNodeLayerFrameState(publication: {
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly token: GpuFlowCommitPublicationToken | GpuFlowHoldPreviousToken;
 }): void {
-  const { nodeLayerFrameStatePublication } = publication;
+  const { nodeLayerFrameStatePublication, token } = publication;
+  assertGpuFlowCommitOrHoldPublicationTokenBrand({ token });
   if (nodeLayerFrameStatePublication === null) {
     return;
   }
@@ -1422,14 +1430,17 @@ function publishGpuFlowNodeLayerFrameState(publication: {
 }
 
 function publishGpuFlowVisibleOverlayProjectionTransform({
+  token,
   viewportRuntime,
   visibleOverlayProjectionKeyRef,
   visibleProjectionState,
 }: {
+  readonly token: GpuFlowCommitPublicationToken | GpuFlowHoldPreviousToken;
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): void {
+  assertGpuFlowCommitOrHoldPublicationTokenBrand({ token });
   const overlayProjectionKey = createGpuFlowVisibleOverlayProjectionKey(
     visibleProjectionState,
   );
@@ -1447,7 +1458,8 @@ function publishGpuFlowRetainedDisplayFrame(publication: {
   readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
   readonly token: GpuFlowCommitPublicationToken | GpuFlowHoldPreviousToken;
 }): void {
-  const { retainedDisplayFrame, retainedDisplayFrameRef } = publication;
+  const { retainedDisplayFrame, retainedDisplayFrameRef, token } = publication;
+  assertGpuFlowCommitOrHoldPublicationTokenBrand({ token });
   if (retainedDisplayFrame === null) {
     return;
   }
@@ -1506,12 +1518,15 @@ function publishGpuFlowRetainedRuntimeFrame({
   retainedRuntimeFrame,
   retainedRuntimeFrameRenderSignatureRef,
   retainedRuntimeFrameSourceRenderSignatureRef,
+  token,
 }: {
   readonly callbacksRef: RenderGpuFlowSurfaceFrameInput["callbacksRef"];
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null;
   readonly retainedRuntimeFrameRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameRenderSignatureRef"];
   readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
+  readonly token: GpuFlowCommitPublicationToken;
 }): void {
+  assertGpuFlowCommitPublicationTokenBrand({ token });
   if (retainedRuntimeFrame === null) {
     return;
   }
@@ -1528,4 +1543,16 @@ function publishGpuFlowRetainedRuntimeFrame({
     return;
   }
   retainedRuntimeFrameRenderSignatureRef.current = nextSignature;
+}
+
+function assertGpuFlowCommitOrHoldPublicationTokenBrand({
+  token,
+}: {
+  readonly token: GpuFlowCommitPublicationToken | GpuFlowHoldPreviousToken;
+}): void {
+  if (token && "holdAgeFrames" in token) {
+    assertGpuFlowHoldPreviousTokenBrand({ token });
+    return;
+  }
+  assertGpuFlowCommitPublicationTokenBrand({ token });
 }

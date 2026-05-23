@@ -608,6 +608,9 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(
       [...surfaceFrameSource.matchAll(/\.applyOverlayTransforms\s*\(/g)].length,
     ).toBe(1);
+    expect(overlayPublisherSource).toContain(
+      "assertGpuFlowCommitOrHoldPublicationTokenBrand",
+    );
     expect(overlayPublisherSource).toContain(".applyOverlayTransforms(");
   });
 
@@ -635,6 +638,9 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
     expect(projectionFrameSource).toContain("onNodeLayerFrameStatePublishable");
     expect(nodeLayerPublisherStart).toBeGreaterThanOrEqual(0);
+    expect(nodeLayerPublisherSource).toContain(
+      "assertGpuFlowCommitOrHoldPublicationTokenBrand",
+    );
     expect(
       [
         ...surfaceFrameSource.matchAll(
@@ -948,6 +954,9 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(publisherStart).toBeGreaterThanOrEqual(0);
     expect([...surfaceFrameSource.matchAll(assignmentPattern)].length).toBe(1);
     expect(publisherSource).toContain(
+      "assertGpuFlowCommitOrHoldPublicationTokenBrand",
+    );
+    expect(publisherSource).toContain(
       "retainedDisplayFrameRef.current = retainedDisplayFrame",
     );
   });
@@ -977,6 +986,12 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
     expect(completionPublisherStart).toBeGreaterThanOrEqual(0);
     expect(completionPublisherSource).toContain(
+      "assertGpuFlowCommitPublicationTokenBrand",
+    );
+    expect(completionPublisherSource).toContain(
+      "readonly token: GpuFlowCommitPublicationToken",
+    );
+    expect(completionPublisherSource).toContain(
       "callbacksRef.current.onRetainedRuntimeFrame",
     );
   });
@@ -1000,7 +1015,18 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(flowSurfaceSource).not.toContain(
       "publicationResult.coldStartShellFrame",
     );
+    expect(flowSurfaceSource).not.toContain("void publication.token");
     expect(flowSurfaceSource).toContain("publishColdStartShellFrame");
+    expect(flowSurfaceSource).toContain(
+      "assertGpuFlowColdStartShellPublicationToken",
+    );
+    expect(flowSurfaceSource).toContain(
+      "assertGpuFlowBlockedPublicationTokenBrand",
+    );
+    expect(flowSurfaceSource).toContain(
+      "assertGpuFlowCommitPublicationTokenBrand",
+    );
+    expect(flowSurfaceSource).toContain("assertGpuFlowHoldPreviousTokenBrand");
     expect(completionPublisherStart).toBeGreaterThanOrEqual(0);
     expect(completionPublisherSource).toContain("outcome.token");
     expect(completionPublisherSource).toContain(

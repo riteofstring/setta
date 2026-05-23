@@ -70,6 +70,65 @@ test("focused retained text-like editor follows its owning section during pan an
   expectTrackingDeltasWithinTolerance(afterZoom, details);
 });
 
+test("active retained text-like editor accepts typing before and after projected motion", async ({
+  page,
+}) => {
+  await openObservedRegressionSettings(page);
+  let row = await scrollTargetTextRowIntoView(page);
+  await activateObservedRetainedEditor(page, row);
+
+  const firstToken = "12";
+  const secondToken = "3";
+  await page.keyboard.press(selectAllShortcut());
+  await page.keyboard.insertText(firstToken);
+  await expect
+    .poll(() => readActiveEditorText(page), { timeout: 3_000 })
+    .toContain(firstToken);
+  const beforeMotion = await readActiveEditorTrackingState(page, row.rowId);
+
+  await dispatchRetainedCompositorWheelBurst(page, {
+    deltaY: 4,
+    eventCount: 8,
+    point: retainedRowSectionScrollPoint(row),
+  });
+  await waitForAnimationFrame(page);
+  await applyViewportTransformDelta(page, { zoomFactor: 1.04 });
+  await waitForAnimationFrame(page);
+  await page.keyboard.insertText(secondToken);
+  await waitForViewportIdle(page);
+
+  const finalText = await readActiveEditorText(page);
+  const afterMotion = await readActiveEditorTrackingState(page, row.rowId);
+  row = await resolveVisibleTextLikeRow(page, SECTION_SIZING_SURFACE_ID, {
+    rowId: row.rowId,
+  });
+  const activeHost = await waitForDomControlCoherenceSample(page, row);
+  const details = JSON.stringify(
+    {
+      activeHost,
+      afterMotion,
+      beforeMotion,
+      finalText,
+      row,
+      tokens: { firstToken, secondToken },
+    },
+    null,
+    2,
+  );
+
+  expect(beforeMotion.activeEditorId, details).toContain(row.rowId);
+  expect(afterMotion.activeEditorId, details).toContain(row.rowId);
+  expect(finalText, details).toContain(`${firstToken}${secondToken}`);
+  expect(activeHost.active, details).toBe("true");
+  expect(activeHost.activeEditorId, details).toContain(row.rowId);
+  expect(activeHost.coverageState, details).toBe("live");
+  expect(activeHost.coverageReason, details).toBe("active-pinned");
+  expect(activeHost.focusable, details).toBe("true");
+  expect(activeHost.hostTextLength, details).toBeGreaterThan(0);
+  expect(activeHost.pointerSemantics, details).toBe("active-browser-editor");
+  expectTrackingDeltasWithinTolerance(afterMotion, details);
+});
+
 test("browser-derived retained text-like values remain visible before click after section scroll", async ({
   page,
 }, testInfo) => {
@@ -397,6 +456,7 @@ async function readDomControlCoherenceSample(
   readonly active: string | null;
   readonly activeEditorId: string | null;
   readonly canvasTransactionId: string | null;
+  readonly coverageReason: string | null;
   readonly coverageState: string | null;
   readonly elementAtPointControlId: string | null;
   readonly focusable: string | null;
@@ -450,6 +510,7 @@ async function readDomControlCoherenceSample(
           : null,
       canvasTransactionId:
         canvas?.dataset.gpuFlowProjectionTransactionId ?? null,
+      coverageReason: host.dataset.gpuFlowDomControlCoverageReason ?? null,
       coverageState: host.dataset.gpuFlowDomControlCoverageState ?? null,
       elementAtPointControlId:
         elementAtPoint instanceof Element
