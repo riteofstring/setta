@@ -26,7 +26,7 @@ const SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH = fileURLToPath(
 );
 
 describe("GPU Flow visible publication kernel phases", () => {
-  it("runs sample, prepare, prove, decide, prove-presentation, and publish phases inside the kernel", () => {
+  it("runs sample, prepare, prove, decide, completion, and publish through the visible frame engine lifecycle", () => {
     const source = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const presentationSource = readFileSync(
       KERNEL_PRESENTATION_MODULE_PATH,
@@ -37,21 +37,33 @@ describe("GPU Flow visible publication kernel phases", () => {
       "export function runGpuFlowVisibleFramePublicationCandidateSetKernel",
     );
     const firstHelperStart = source.indexOf(
-      "function sampleGpuFlowVisibleFramePublicationTransaction",
+      "function assertGpuFlowVisibleFrameKernelEngineOutcomeMatchesTransaction",
     );
     const runSource = source.slice(runStart, firstHelperStart);
 
     expect(runStart).toBeGreaterThanOrEqual(0);
     expect(firstHelperStart).toBeGreaterThan(runStart);
     expectOrderedPhases(runSource, [
+      "createGpuFlowVisibleFrameEngine({",
+      "sampleVisibleFrame: () => {",
       "sampleGpuFlowVisibleFramePublicationTransaction({",
+      "prepareVisibleFrameCandidate: () => {",
       "selectGpuFlowVisibleFramePublicationTransaction({",
       "prepareGpuFlowVisibleFramePublicationCandidateSet({",
       "proveGpuFlowVisibleFramePublicationCandidateSet({",
       "decideGpuFlowVisibleFramePublicationOutcome({",
-      "proveGpuFlowVisibleFramePublicationPresentation(",
-      "publishGpuFlowVisibleFramePublicationOutcome({",
+      "presentVisibleFrame: ({ outcome })",
+      "holdVisibleFrame: ({ outcome })",
+      "blockColdStartVisibleFrame: ({ outcome })",
+      "abortVisibleFrameCandidate: ({ outcome })",
+      "engine.runFrame();",
     ]);
+    expect(runSource).toContain(
+      "proveGpuFlowVisibleFramePublicationPresentation({",
+    );
+    expect(runSource).toContain(
+      "publishGpuFlowVisibleFramePublicationOutcome({",
+    );
     expect(source).toContain(
       "function sampleGpuFlowVisibleFramePublicationTransaction",
     );
