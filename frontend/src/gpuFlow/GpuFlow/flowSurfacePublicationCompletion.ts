@@ -2,6 +2,7 @@ import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
+  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
   applyGpuFlowProjectionDebugAttributes,
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
@@ -254,8 +255,14 @@ function completeGpuFlowSurfacePublicationFrame({
     coldStartShellPublication,
     publishColdStartShellFrame,
   });
-  const { completion, debtFrameRequest } =
+  const schedulerFrameCompletion =
     publicationTransaction.completeSchedulerFrame();
+  const { completion } = schedulerFrameCompletion;
+  const debtFrameRequest = createGpuFlowSurfacePublicationDebtFrameRequest({
+    completion,
+    debtFrameRequest: schedulerFrameCompletion.debtFrameRequest,
+    publicationDecision,
+  });
   recordGpuFlowBlockedSurfaceVisibleProjectionPublication({
     blockedVisiblePublication,
     completion,
@@ -278,6 +285,7 @@ function completeGpuFlowSurfacePublicationFrame({
     surface: surfaceRef.current,
   });
   requestGpuFlowSurfacePublicationFollowUpFrames({
+    debtFrameRequest,
     followUpFrameRequests,
     surfaceRef,
   });
@@ -357,15 +365,74 @@ export function createGpuFlowSurfacePublicationPublisher({
 }
 
 function requestGpuFlowSurfacePublicationFollowUpFrames({
+  debtFrameRequest,
   followUpFrameRequests,
   surfaceRef,
 }: {
+  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
   readonly followUpFrameRequests: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>["followUpFrameRequests"];
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
 }): void {
   for (const frameReason of followUpFrameRequests) {
+    if (debtFrameRequest?.frameReason === frameReason) {
+      continue;
+    }
     surfaceRef.current?.requestFrame(frameReason);
   }
+}
+
+function createGpuFlowSurfacePublicationDebtFrameRequest({
+  completion,
+  debtFrameRequest,
+  publicationDecision,
+}: {
+  readonly completion: GpuFlowVisiblePublicationCompletion;
+  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}): GpuFlowVisiblePublicationDebtFrameRequest | null {
+  if (debtFrameRequest === null) {
+    return null;
+  }
+  if (
+    !shouldDelayGpuFlowSurfacePublicationDebtFrame({
+      completion,
+      debtFrameRequest,
+      publicationDecision,
+    })
+  ) {
+    return debtFrameRequest;
+  }
+  return Object.freeze({
+    ...debtFrameRequest,
+    delayMs:
+      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2,
+  });
+}
+
+function shouldDelayGpuFlowSurfacePublicationDebtFrame({
+  completion,
+  debtFrameRequest,
+  publicationDecision,
+}: {
+  readonly completion: GpuFlowVisiblePublicationCompletion;
+  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}): boolean {
+  if (publicationDecision.schedulerState === "maintenance-deferred") {
+    return true;
+  }
+  if (
+    publicationDecision.schedulerState === "motion-active" &&
+    debtFrameRequest.delayMs !== null
+  ) {
+    return true;
+  }
+  return (
+    publicationDecision.lane === "content" &&
+    !completion.debt.content &&
+    completion.debt.maintenance &&
+    !completion.debt.motion
+  );
 }
 
 function requestGpuFlowSurfacePublicationDebtFrame({

@@ -99,7 +99,9 @@ describe("GPU Flow committed surface publication effect executor", () => {
     expect(result.kind).toBe("blocked");
     applyPublicationEffect(result.effect, { canvas, requestFrame });
     expect(requestFrame).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(159);
+    vi.advanceTimersByTime(
+      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2 - 1,
+    );
     expect(requestFrame).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(requestFrame).toHaveBeenCalledTimes(1);

@@ -17,6 +17,7 @@ import type {
 type GpuFlowProjectionSchedulerState =
   | "content-catchup"
   | "idle"
+  | "maintenance-deferred"
   | "maintenance-drain"
   | "motion-active"
   | "motion-settling";
@@ -109,6 +110,7 @@ export function createGpuFlowVisiblePublicationScheduler({
   let contentDebt = false;
   let maintenanceDebt = false;
   let motionDebt = false;
+  let lastContentAtMs: number | null = null;
   let lastMotionAtMs: number | null = null;
   let consecutiveMotionFrames = 0;
 
@@ -121,6 +123,59 @@ export function createGpuFlowVisiblePublicationScheduler({
     readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
   }): GpuFlowProjectionSchedulerState {
+    const motionSettling = isGpuFlowProjectionMotionSettling(timestamp);
+    const priorityState = selectGpuFlowProjectionPrioritySchedulerState({
+      motionSettling,
+      rawReasons,
+      timestamp,
+      viewportInteractionActive,
+    });
+    if (priorityState !== null) {
+      return priorityState;
+    }
+    return selectGpuFlowProjectionDebtSchedulerState({
+      motionSettling,
+    });
+  }
+
+  function selectGpuFlowProjectionPrioritySchedulerState({
+    motionSettling,
+    rawReasons,
+    timestamp,
+    viewportInteractionActive,
+  }: {
+    readonly motionSettling: boolean;
+    readonly rawReasons: readonly GpuFrameReason[];
+    readonly timestamp: DOMHighResTimeStamp;
+    readonly viewportInteractionActive: boolean;
+  }): GpuFlowProjectionSchedulerState | null {
+    if (
+      hasCurrentGpuFlowProjectionMotion({
+        rawReasons,
+        viewportInteractionActive,
+      })
+    ) {
+      return "motion-active";
+    }
+    if (motionDebt && !contentDebt) {
+      return "motion-active";
+    }
+    if (
+      shouldDeferGpuFlowProjectionMaintenanceOnlyFrame({
+        contentDebt,
+        maintenanceDebt,
+        motionDebt,
+        motionSettling,
+        postContentMaintenanceSettling:
+          isGpuFlowProjectionPostContentMaintenanceSettling(timestamp),
+        rawReasons,
+      })
+    ) {
+      return "maintenance-deferred";
+    }
+    if (motionSettling && !contentDebt) {
+      return "motion-settling";
+    }
     if (
       shouldPublishGpuFlowProjectionContentDebtNow({
         rawReasons,
@@ -132,10 +187,18 @@ export function createGpuFlowVisiblePublicationScheduler({
     if (shouldProbeGpuFlowProjectionContentDebt(viewportInteractionActive)) {
       return "content-catchup";
     }
-    if (hasActiveGpuFlowProjectionMotion(viewportInteractionActive)) {
+    return null;
+  }
+
+  function selectGpuFlowProjectionDebtSchedulerState({
+    motionSettling,
+  }: {
+    readonly motionSettling: boolean;
+  }): GpuFlowProjectionSchedulerState {
+    if (motionDebt) {
       return "motion-active";
     }
-    if (isGpuFlowProjectionMotionSettling(timestamp)) {
+    if (motionSettling) {
       return "motion-settling";
     }
     return selectGpuFlowProjectionNonMotionSchedulerState({
@@ -171,10 +234,16 @@ export function createGpuFlowVisiblePublicationScheduler({
     );
   }
 
-  function hasActiveGpuFlowProjectionMotion(
-    viewportInteractionActive: boolean,
-  ): boolean {
-    return motionDebt || viewportInteractionActive;
+  function hasCurrentGpuFlowProjectionMotion({
+    rawReasons,
+    viewportInteractionActive,
+  }: {
+    readonly rawReasons: readonly GpuFrameReason[];
+    readonly viewportInteractionActive: boolean;
+  }): boolean {
+    return (
+      viewportInteractionActive || rawReasons.some(isGpuFlowMotionFrameReason)
+    );
   }
 
   function isGpuFlowProjectionMotionSettling(
@@ -183,6 +252,15 @@ export function createGpuFlowVisiblePublicationScheduler({
     return (
       lastMotionAtMs !== null &&
       timestamp - lastMotionAtMs <= schedulerKnobs.motionSettleWindowMs
+    );
+  }
+
+  function isGpuFlowProjectionPostContentMaintenanceSettling(
+    timestamp: DOMHighResTimeStamp,
+  ): boolean {
+    return (
+      lastContentAtMs !== null &&
+      timestamp - lastContentAtMs < schedulerKnobs.motionSettleWindowMs * 2
     );
   }
 
@@ -203,6 +281,7 @@ export function createGpuFlowVisiblePublicationScheduler({
       }
       if (outcome.debtProof.content) {
         contentDebt = false;
+        lastContentAtMs = decision.sample.timestamp;
         consecutiveMotionFrames = 0;
       }
       if (outcome.debtProof.maintenance) {
@@ -358,6 +437,7 @@ function selectVisiblePublicationLane({
       });
     case "maintenance-drain":
       return selectMaintenanceDrainVisiblePublicationLane({ maintenanceDebt });
+    case "maintenance-deferred":
     case "idle":
       return "idle";
   }
@@ -478,6 +558,32 @@ function getGpuFlowVisiblePublicationDebt(
   return "debt" in debtOrDecision ? debtOrDecision.debt : debtOrDecision;
 }
 
+function shouldDeferGpuFlowProjectionMaintenanceOnlyFrame({
+  contentDebt,
+  motionDebt,
+  maintenanceDebt,
+  motionSettling,
+  postContentMaintenanceSettling,
+  rawReasons,
+}: {
+  readonly contentDebt: boolean;
+  readonly maintenanceDebt: boolean;
+  readonly motionDebt: boolean;
+  readonly motionSettling: boolean;
+  readonly postContentMaintenanceSettling: boolean;
+  readonly rawReasons: readonly GpuFrameReason[];
+}): boolean {
+  const maintenanceOnlyFrame =
+    rawReasons.length > 0 && rawReasons.every(isGpuFlowMaintenanceFrameReason);
+  return (
+    !motionDebt &&
+    maintenanceOnlyFrame &&
+    (contentDebt ||
+      motionSettling ||
+      (maintenanceDebt && postContentMaintenanceSettling))
+  );
+}
+
 function isGpuFlowMotionFrameReason(reason: GpuFrameReason): boolean {
   return reason === "retained-scroll" || reason === "viewport";
 }
@@ -487,13 +593,12 @@ function isGpuFlowContentFrameReason(reason: GpuFrameReason): boolean {
     reason === "animation" ||
     reason === "init" ||
     reason === "manual" ||
-    reason === "paint" ||
     reason === "resize"
   );
 }
 
 function isGpuFlowMaintenanceFrameReason(reason: GpuFrameReason): boolean {
-  return reason === "texture-upload";
+  return reason === "paint" || reason === "texture-upload";
 }
 
 function assertGpuFlowVisiblePublicationCommitTokenMatchesDecision({

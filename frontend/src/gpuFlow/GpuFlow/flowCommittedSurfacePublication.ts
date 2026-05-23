@@ -81,7 +81,8 @@ const browserVisualStarvationDebtByCanvas = new WeakMap<
   GpuFlowBrowserVisualStarvationDebt
 >();
 const browserVisualRetryFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
-const GPU_FLOW_BROWSER_VISUAL_DEFERRED_RETRY_MS = 160;
+const GPU_FLOW_BROWSER_VISUAL_DEFERRED_RETRY_MS =
+  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2;
 
 export function applyGpuFlowCommittedSurfacePublicationEffect(application: {
   readonly effect: GpuFlowCommittedSurfacePublicationEffect | null;

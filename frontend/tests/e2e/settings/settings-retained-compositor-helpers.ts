@@ -10,10 +10,26 @@ import {
   waitForAnimationFrame,
   type PageRafCadence,
 } from "./settings-retained-frame-helpers";
+import {
+  startRetainedCompositorGestureFrameSampler,
+  stopRetainedCompositorGestureFrameSampler,
+  type RetainedCompositorFrameSample,
+  type RetainedCompositorLongTaskSample,
+} from "./settings-retained-frame-sampler";
 import type {
   Rect,
   RetainedRowDebugEntry,
 } from "./settings-retained-visual-analysis";
+export {
+  captureRetainedCompositorEvidenceScreenshot,
+  startRetainedCompositorGestureFrameSampler,
+  stopRetainedCompositorGestureFrameSampler,
+} from "./settings-retained-frame-sampler";
+export type {
+  RetainedCompositorFrameSample,
+  RetainedCompositorLongTaskAttribution,
+  RetainedCompositorLongTaskSample,
+} from "./settings-retained-frame-sampler";
 
 export const SETTINGS_PARAM_CONTENT_SUFFIX = ":param-content:unpinned";
 export const SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID = `settings-section__shortcuts${SETTINGS_PARAM_CONTENT_SUFFIX}`;
@@ -36,12 +52,6 @@ const CAPPED_FRAME_TIMER_JITTER_EPSILON_MS = 1;
 // browser/display path is not measuring a strict 120 Hz cadence. Duration
 // budgets still guard visible stalls, but a slow-frame ratio is not meaningful
 // when the browser or native event delivery is already externally capped.
-const FRAME_SAMPLER_KEY = "__settaRetainedCompositorFrameSampler";
-
-type FrameSamplerHandle = {
-  readonly stop: () => RetainedCompositorFrameSample;
-};
-
 export type RetainedCompositorPoint = {
   readonly x: number;
   readonly y: number;
@@ -54,27 +64,6 @@ export type RetainedCompositorIntervalStats = {
   readonly p95Ms: number;
   readonly p99Ms: number;
   readonly slowFrameRatio: number;
-};
-
-export type RetainedCompositorFrameSample = {
-  readonly intervalsMs: readonly number[];
-  readonly longTasks: readonly RetainedCompositorLongTaskSample[];
-};
-
-export type RetainedCompositorLongTaskSample = {
-  readonly attribution: readonly RetainedCompositorLongTaskAttribution[];
-  readonly durationMs: number;
-  readonly name: string;
-  readonly relativeStartTimeMs: number;
-  readonly startTimeMs: number;
-};
-
-export type RetainedCompositorLongTaskAttribution = {
-  readonly containerId: string;
-  readonly containerName: string;
-  readonly containerSrc: string;
-  readonly containerType: string;
-  readonly name: string;
 };
 
 export type RetainedCompositorGestureResult = {
@@ -123,12 +112,6 @@ export type RetainedCompositorViewportSample = {
   readonly y: number;
   readonly zoom: number;
 };
-
-declare global {
-  interface Window {
-    [FRAME_SAMPLER_KEY]?: FrameSamplerHandle | undefined;
-  }
-}
 
 export async function openAllSettingsForRetainedCompositor(
   page: Page,
@@ -487,13 +470,13 @@ export async function measureRetainedCompositorGesture(
   operation: () => Promise<readonly number[]>,
   options: { readonly settleMs?: number | undefined } = {},
 ): Promise<RetainedCompositorGestureResult> {
-  await startGestureFrameSampler(page);
+  await startRetainedCompositorGestureFrameSampler(page);
   const eventSpacingMs = await operation();
   const settleMs = options.settleMs ?? 180;
   if (settleMs > 0) {
     await page.waitForTimeout(settleMs);
   }
-  const sample = await stopGestureFrameSampler(page);
+  const sample = await stopRetainedCompositorGestureFrameSampler(page);
   return {
     eventSpacing: summarizeRetainedCompositorIntervals(eventSpacingMs),
     frame: summarizeRetainedCompositorIntervals(sample.intervalsMs),
@@ -1064,91 +1047,6 @@ export function summarizeRetainedCompositorIntervals(
         ? 0
         : values.filter((interval) => interval > 16.7).length / values.length,
   };
-}
-
-export async function startRetainedCompositorGestureFrameSampler(
-  page: Page,
-): Promise<void> {
-  await startGestureFrameSampler(page);
-}
-
-export async function stopRetainedCompositorGestureFrameSampler(
-  page: Page,
-): Promise<RetainedCompositorFrameSample> {
-  return await stopGestureFrameSampler(page);
-}
-
-async function startGestureFrameSampler(page: Page): Promise<void> {
-  await page.evaluate((samplerKey) => {
-    const intervalsMs: number[] = [];
-    const longTasks: RetainedCompositorLongTaskSample[] = [];
-    const samplerStartTimeMs = performance.now();
-    let previousTimestamp: number | null = null;
-    let running = true;
-    const observer =
-      "PerformanceObserver" in window &&
-      PerformanceObserver.supportedEntryTypes.includes("longtask")
-        ? new PerformanceObserver((list) => {
-            for (const entry of list.getEntries()) {
-              const longTaskEntry = entry as PerformanceEntry & {
-                readonly attribution?: readonly {
-                  readonly containerId?: string;
-                  readonly containerName?: string;
-                  readonly containerSrc?: string;
-                  readonly containerType?: string;
-                  readonly name?: string;
-                }[];
-              };
-              longTasks.push({
-                attribution: (longTaskEntry.attribution ?? []).map(
-                  (attribution) => ({
-                    containerId: attribution.containerId ?? "",
-                    containerName: attribution.containerName ?? "",
-                    containerSrc: attribution.containerSrc ?? "",
-                    containerType: attribution.containerType ?? "",
-                    name: attribution.name ?? "",
-                  }),
-                ),
-                durationMs: entry.duration,
-                name: entry.name,
-                relativeStartTimeMs: entry.startTime - samplerStartTimeMs,
-                startTimeMs: entry.startTime,
-              });
-            }
-          })
-        : null;
-    observer?.observe({ entryTypes: ["longtask"] });
-    const tick = (timestamp: number) => {
-      if (previousTimestamp !== null) {
-        intervalsMs.push(timestamp - previousTimestamp);
-      }
-      previousTimestamp = timestamp;
-      if (running) {
-        requestAnimationFrame(tick);
-      }
-    };
-    requestAnimationFrame(tick);
-    window[samplerKey] = {
-      stop: () => {
-        running = false;
-        observer?.disconnect();
-        return { intervalsMs, longTasks };
-      },
-    };
-  }, FRAME_SAMPLER_KEY);
-}
-
-async function stopGestureFrameSampler(
-  page: Page,
-): Promise<RetainedCompositorFrameSample> {
-  return await page.evaluate((samplerKey) => {
-    const sampler = window[samplerKey];
-    if (!sampler) {
-      throw new Error("Missing retained compositor frame sampler.");
-    }
-    delete window[samplerKey];
-    return sampler.stop();
-  }, FRAME_SAMPLER_KEY);
 }
 
 function normalizeClip(rect: Rect): Rect {

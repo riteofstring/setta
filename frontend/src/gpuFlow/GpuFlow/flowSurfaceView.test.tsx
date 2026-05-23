@@ -64,7 +64,8 @@ describe("GpuFlowSurfaceView", () => {
     );
     expect(markup).toContain("Preparing surface");
     expect(markup).toContain("data-gpu-flow-dom-control-plane");
-    expect(markup).not.toContain("data-gpu-flow-dom-island-layer");
+    expect(markup).toContain("data-gpu-flow-dom-island-layer");
+    expect(markup).not.toContain("data-rendered-dom-island");
   });
 });
 

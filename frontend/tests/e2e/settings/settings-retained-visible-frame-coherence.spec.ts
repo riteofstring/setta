@@ -4,6 +4,7 @@ import { ensureAppReady, postBackend } from "../helpers";
 import {
   SETTINGS_PARAM_CONTENT_SUFFIX,
   SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
+  captureRetainedCompositorEvidenceScreenshot,
   centerRetainedCompositorSurface,
   dispatchRetainedCompositorWheelBurst,
   expectRetainedCompositorGestureWithinBudget,
@@ -115,7 +116,7 @@ test("retained scroll and hover zoom make visible progress within the held-frame
   const target = await resolveRetainedCompositorTarget(page);
   await warmRetainedCompositorNativeWheelTarget(page, target.point);
   const controlCadence = await measureRetainedCompositorControlCadence(page);
-  const before = await page.screenshot({
+  const before = await captureRetainedCompositorEvidenceScreenshot(page, {
     clip: target.clip,
     path: testInfo.outputPath("visible-progress-before.png"),
   });
@@ -136,21 +137,27 @@ test("retained scroll and hover zoom make visible progress within the held-frame
         eventCount: 4,
         point: target.point,
       });
-      sampleAround60Ms = await page.screenshot({
-        clip: target.clip,
-        path: testInfo.outputPath("visible-progress-around-60ms.png"),
-      });
+      sampleAround60Ms = await captureRetainedCompositorEvidenceScreenshot(
+        page,
+        {
+          clip: target.clip,
+          path: testInfo.outputPath("visible-progress-around-60ms.png"),
+        },
+      );
       await page.waitForTimeout(56);
-      sampleAround120Ms = await page.screenshot({
-        clip: target.clip,
-        path: testInfo.outputPath("visible-progress-around-120ms.png"),
-      });
+      sampleAround120Ms = await captureRetainedCompositorEvidenceScreenshot(
+        page,
+        {
+          clip: target.clip,
+          path: testInfo.outputPath("visible-progress-around-120ms.png"),
+        },
+      );
       return [...scrollSpacing, ...zoomSpacing];
     },
     { settleMs: 160 },
   );
 
-  const final = await page.screenshot({
+  const final = await captureRetainedCompositorEvidenceScreenshot(page, {
     clip: target.clip,
     path: testInfo.outputPath("visible-progress-final.png"),
   });

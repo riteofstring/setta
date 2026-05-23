@@ -214,6 +214,59 @@ describe("GPU Flow surface publication completion", () => {
 
     expect(submitCanvas).toHaveBeenCalledOnce();
   });
+
+  it("lets scheduler debt own duplicate retained follow-up frame requests", () => {
+    const committedFrame = committedSurfaceFrame({ displayFrameId: 31 });
+    const selectedState = visibleProjectionState({
+      displayFrameId: committedFrame.displayFrameId,
+      kind: "content-publication",
+      sampleId: 31,
+    });
+    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      frame: committedFrame,
+      projectionSample: selectedState.sample,
+    });
+    const requestFrame = vi.fn();
+    const publisher = createGpuFlowSurfacePublicationPublisher({
+      abortPreparedCommittedSurfaceFrame: () => {
+        throw new Error("Unexpected prepared committed surface abort.");
+      },
+      callbacksRef: { current: null },
+      commitPreparedCommittedSurfaceFrame: () => true,
+      projectCommittedBrowserVisualActors: () => {},
+      publishColdStartShellFrame: () => {},
+      retainedDisplayFrameRef: { current: null },
+      retainedRuntimeFrameRenderSignatureRef: { current: null },
+      retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
+      runtimeCanvas: testCanvas(),
+      surfaceRef: { current: { requestFrame } },
+      viewportRuntime: {
+        applyOverlayTransforms: () => {},
+      },
+      visibleOverlayProjectionKeyRef: { current: null },
+      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionStateRef: { current: null },
+    } as unknown as Parameters<
+      typeof createGpuFlowSurfacePublicationPublisher
+    >[0]);
+
+    publisher(
+      committedPublicationTransaction({
+        committedFrame,
+        debtFrameRequest: {
+          delayMs: null,
+          frameReason: "texture-upload",
+        },
+        followUpFrameRequests: ["texture-upload"],
+        onCompleteSchedulerFrame: () => {},
+        selectedState,
+        token,
+      }),
+    );
+
+    expect(requestFrame).toHaveBeenCalledOnce();
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+  });
 });
 
 function heldPreviousPublicationTransaction({
@@ -275,12 +328,16 @@ function heldPreviousPublicationTransaction({
 
 function committedPublicationTransaction({
   committedFrame,
+  debtFrameRequest = null,
+  followUpFrameRequests = [],
   nodeLayerFrameStatePublication = null,
   onCompleteSchedulerFrame,
   selectedState,
   token,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly debtFrameRequest?: unknown;
+  readonly followUpFrameRequests?: readonly string[];
   readonly nodeLayerFrameStatePublication?: unknown;
   readonly onCompleteSchedulerFrame: () => void;
   readonly selectedState: GpuFlowVisibleProjectionState;
@@ -304,10 +361,10 @@ function committedPublicationTransaction({
           },
           outcome: "commit",
         },
-        debtFrameRequest: null,
+        debtFrameRequest,
       };
     },
-    followUpFrameRequests: [],
+    followUpFrameRequests,
     heldPreviousVisibleProjectionState: null,
     outcome: {
       debtProof: {

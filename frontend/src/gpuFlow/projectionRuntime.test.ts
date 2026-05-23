@@ -39,7 +39,7 @@ describe("GPU Flow projection runtime", () => {
 
     const mixed = scheduler.selectFrame({
       hasCommittedContentFrame: true,
-      rawReasons: ["retained-scroll", "paint", "texture-upload"],
+      rawReasons: ["retained-scroll", "manual", "texture-upload"],
       sample,
       timestamp: 1,
       viewportInteractionActive: true,
@@ -74,7 +74,141 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
+    expect(maintenance.schedulerState).toBe("maintenance-deferred");
+    expect(maintenance.lane).toBe("idle");
+    completeHeldFrame(scheduler, maintenance);
+
+    const delayedMaintenance = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["texture-upload"],
+      sample: liveSample(260),
+      timestamp: 260,
+      viewportInteractionActive: false,
+    });
+
+    expect(delayedMaintenance.schedulerState).toBe("maintenance-drain");
+    expect(delayedMaintenance.lane).toBe("maintenance");
+  });
+
+  it("keeps stale-sample catch-up debt queued behind retained-scroll motion", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const motion = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll", "manual", "texture-upload"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+
+    expect(motion.schedulerState).toBe("motion-active");
+    expect(motion.lane).toBe("motion");
+    expect(motion.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: false,
+    });
+
+    completeCommittedFrame(scheduler, motion);
+    const catchup = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+
+    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.lane).toBe("content");
+    expect(catchup.debt.maintenance).toBe(true);
+    completeCommittedFrame(scheduler, catchup);
+
+    const postContentTextureUpload = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["texture-upload"],
+      sample: liveSample(120),
+      timestamp: 120,
+      viewportInteractionActive: false,
+    });
+
+    expect(postContentTextureUpload.schedulerState).toBe(
+      "maintenance-deferred",
+    );
+    expect(postContentTextureUpload.lane).toBe("idle");
+    expect(postContentTextureUpload.debt).toEqual({
+      content: false,
+      maintenance: true,
+      motion: false,
+    });
+    completeHeldFrame(scheduler, postContentTextureUpload);
+
+    const maintenance = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["texture-upload"],
+      sample: liveSample(260),
+      timestamp: 260,
+      viewportInteractionActive: false,
+    });
+
+    expect(maintenance.schedulerState).toBe("maintenance-drain");
     expect(maintenance.lane).toBe("maintenance");
+  });
+
+  it("defers maintenance-only frames while explicit content debt is queued", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const motion = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll", "manual"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: true,
+    });
+    completeCommittedFrame(scheduler, motion);
+
+    const textureUpload = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["texture-upload"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+
+    expect(textureUpload.schedulerState).toBe("maintenance-deferred");
+    expect(textureUpload.lane).toBe("idle");
+    expect(textureUpload.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: false,
+    });
+    completeHeldFrame(scheduler, textureUpload);
+
+    const paint = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["paint"],
+      sample: liveSample(3),
+      timestamp: 3,
+      viewportInteractionActive: false,
+    });
+
+    expect(paint.schedulerState).toBe("maintenance-deferred");
+    expect(paint.lane).toBe("idle");
+    expect(paint.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: false,
+    });
+    completeHeldFrame(scheduler, paint);
+
+    const catchup = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(4),
+      timestamp: 4,
+      viewportInteractionActive: false,
+    });
+
+    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.lane).toBe("content");
+    expect(catchup.debt.maintenance).toBe(true);
   });
 
   it("uses content publication for cold motion without a committed frame", () => {
@@ -95,7 +229,7 @@ describe("GPU Flow projection runtime", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
-      rawReasons: ["retained-scroll", "paint", "texture-upload"],
+      rawReasons: ["retained-scroll", "manual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
       viewportInteractionActive: true,
@@ -125,7 +259,7 @@ describe("GPU Flow projection runtime", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
-      rawReasons: ["retained-scroll", "paint", "texture-upload"],
+      rawReasons: ["retained-scroll", "manual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
       viewportInteractionActive: true,
@@ -153,7 +287,7 @@ describe("GPU Flow projection runtime", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
-      rawReasons: ["retained-scroll", "paint", "texture-upload"],
+      rawReasons: ["retained-scroll", "manual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
       viewportInteractionActive: true,
@@ -182,7 +316,7 @@ describe("GPU Flow projection runtime", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
-      rawReasons: ["retained-scroll", "paint", "texture-upload"],
+      rawReasons: ["retained-scroll", "manual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
       viewportInteractionActive: true,
@@ -206,7 +340,7 @@ describe("GPU Flow projection runtime", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
-      rawReasons: ["retained-scroll", "paint", "texture-upload"],
+      rawReasons: ["retained-scroll", "manual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
       viewportInteractionActive: true,
@@ -440,7 +574,7 @@ describe("GPU Flow projection runtime", () => {
     for (let index = 0; index < 2; index += 1) {
       const motion = scheduler.selectFrame({
         hasCommittedContentFrame: true,
-        rawReasons: ["retained-scroll", "paint"],
+        rawReasons: ["retained-scroll", "manual"],
         sample: liveSample(index + 1),
         timestamp: index + 1,
         viewportInteractionActive: true,
@@ -476,7 +610,7 @@ describe("GPU Flow projection runtime", () => {
     for (let index = 0; index < 2; index += 1) {
       const motion = scheduler.selectFrame({
         hasCommittedContentFrame: true,
-        rawReasons: ["retained-scroll", "paint"],
+        rawReasons: ["retained-scroll", "manual"],
         sample: liveSample(index + 1),
         timestamp: index + 1,
         viewportInteractionActive: true,
@@ -497,7 +631,7 @@ describe("GPU Flow projection runtime", () => {
     expect(catchup.debt.motion).toBe(false);
   });
 
-  it("uses the content probe knob for inactive motion with requeued motion debt", () => {
+  it("keeps an inactive retained-scroll sample ahead of queued content debt", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 2,
@@ -520,7 +654,7 @@ describe("GPU Flow projection runtime", () => {
       completeCommittedFrame(scheduler, motion);
     }
 
-    const catchup = scheduler.selectFrame({
+    const motion = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(3),
@@ -528,9 +662,10 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(catchup.schedulerState).toBe("content-catchup");
-    expect(catchup.lane).toBe("content");
-    expect(catchup.debt.motion).toBe(true);
+    expect(motion.schedulerState).toBe("motion-active");
+    expect(motion.lane).toBe("motion");
+    expect(motion.debt.content).toBe(true);
+    expect(motion.debt.motion).toBe(false);
   });
 
   it("prioritizes inactive explicit content debt over queued motion debt", () => {
@@ -675,7 +810,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(settling.schedulerState).toBe("motion-settling");
+    expect(settling.schedulerState).toBe("maintenance-deferred");
     expect(settling.lane).toBe("idle");
     expect(settling.debt).toEqual({
       content: false,
