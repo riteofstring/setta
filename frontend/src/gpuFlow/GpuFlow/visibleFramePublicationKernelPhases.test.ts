@@ -19,7 +19,7 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfaceFramePublication.ts", import.meta.url),
 );
 const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
-  new URL("./flowSurfacePublicationCompletion.ts", import.meta.url),
+  new URL("./visibleFramePresenter.ts", import.meta.url),
 );
 const SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfacePublicationDebtFrame.ts", import.meta.url),

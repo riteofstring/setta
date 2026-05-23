@@ -2,8 +2,8 @@ import type { MutableRefObject } from "react";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowRuntime } from "../gpuDevice";
-import type { GpuFrameReason } from "../gpuRenderer";
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
+import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceProps } from "../GpuSurface";
 import { getGpuWheelGestureOwnershipArbiter } from "../interactions/wheelOwnership";
 import {
@@ -22,11 +22,11 @@ import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import { renderGpuFlowNodeLayerFrame } from "./flowFrame";
 import type { GpuFlowNodeLayerFrameStatePublication } from "./flowFrameLifecycle";
-import { shouldReuseGpuFlowDeferredRetainedContentPublicationFrame } from "./flowRetainedContentFrameCache";
 import { renderGpuFlowNodeLayerProjectionFrame } from "./flowProjectionFrame";
+import { shouldReuseGpuFlowDeferredRetainedContentPublicationFrame } from "./flowRetainedContentFrameCache";
 import { createGpuFlowRetainedRuntimeFrameSourceRenderSignature } from "./flowRetainedRuntimeFrameSignatures";
-import { createGpuFlowSurfacePublicationPublisher } from "./flowSurfacePublicationCompletion";
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
+import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
 import type { GpuFlowColdStartShellFrame } from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowContentPublicationFrameResult,
@@ -44,15 +44,15 @@ import {
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
 } from "./visibleFramePublicationKernel";
 import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
+import {
+  createGpuFlowVisiblePublicationPresentationEvidence,
+  type GpuFlowVisiblePublicationPresentationEvidence,
+} from "./visibleFramePublicationPresentationEvidence";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationTokens";
-import {
-  createGpuFlowVisiblePublicationPresentationEvidence,
-  type GpuFlowVisiblePublicationPresentationEvidence,
-} from "./visibleFramePublicationPresentationEvidence";
 
 type GpuFlowNodeLayerFrameInput = Parameters<
   typeof renderGpuFlowNodeLayerFrame
@@ -172,7 +172,7 @@ export function renderGpuFlowSurfaceFrame({
     );
     let finishCompletionMeasure: () => number = () => 0;
     const publishGpuFlowSurfacePublicationFrame =
-      createGpuFlowSurfacePublicationPublisher({
+      createGpuFlowVisibleFramePresenter({
         abortPreparedCommittedSurfaceFrame:
           input.abortPreparedCommittedSurfaceFrame,
         callbacksRef: input.callbacksRef,
@@ -278,7 +278,7 @@ export function renderGpuFlowSurfaceFrame({
             runRetainedCommittedSurfacePublicationContentStage,
             viewportFrame: publicationFrameContext.viewportFrame,
             viewportStore,
-        });
+          });
         finishContentMeasure();
         frameMeasureDetail.contentRendered = contentPublicationFrame.rendered;
         frameMeasureDetail.contentVisibleTransaction =
@@ -326,12 +326,11 @@ export function renderGpuFlowSurfaceFrame({
           previousVisibleProjectionState:
             input.visibleProjectionPublicationStateRef.current ??
             input.visibleProjectionStateRef.current,
-          rawReasons:
-            withGpuFlowContentCatchupReasonForStalePublicationSample({
-              committedFrame: input.committedSurfaceFrameRef.current,
-              rawReasons: event.reasons,
-              sample,
-            }),
+          rawReasons: withGpuFlowContentCatchupReasonForStalePublicationSample({
+            committedFrame: input.committedSurfaceFrameRef.current,
+            rawReasons: event.reasons,
+            sample,
+          }),
           runtimeViewportFrame: runtimeFrame.viewportFrame,
           sample,
           timestamp: event.timestamp,
@@ -357,9 +356,10 @@ export function withGpuFlowContentCatchupReasonForStalePublicationSample({
   rawReasons,
   sample,
 }: {
-  readonly committedFrame:
-    | Pick<GpuFlowCommittedSurfaceFrame, "coherence" | "viewportSample">
-    | null;
+  readonly committedFrame: Pick<
+    GpuFlowCommittedSurfaceFrame,
+    "coherence" | "viewportSample"
+  > | null;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly sample: Pick<
     GpuFlowLiveProjectionSample,
@@ -384,9 +384,10 @@ export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
   deferResolutionUpdates,
   sample,
 }: {
-  readonly committedFrame:
-    | Pick<GpuFlowCommittedSurfaceFrame, "coherence" | "viewportSample">
-    | null;
+  readonly committedFrame: Pick<
+    GpuFlowCommittedSurfaceFrame,
+    "coherence" | "viewportSample"
+  > | null;
   readonly deferResolutionUpdates: boolean;
   readonly sample: Pick<
     GpuFlowLiveProjectionSample,
@@ -484,7 +485,7 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
       createGpuFlowMotionProjectionFrameResult({
         blockedPublicationCandidate,
         rendered: false,
-    }),
+      }),
     hasActiveRetainedDomControl:
       hasActiveGpuFlowRetainedDomControlCandidate(retainedDisplayFrame),
     kind: "render",

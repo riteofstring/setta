@@ -51,8 +51,8 @@ const FLOW_FRAME_MODULE_PATH = modulePath("./flowFrame.tsx");
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = modulePath(
   "./flowSurfaceFramePublication.ts",
 );
-const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = modulePath(
-  "./flowSurfacePublicationCompletion.ts",
+const VISIBLE_FRAME_PRESENTER_MODULE_PATH = modulePath(
+  "./visibleFramePresenter.ts",
 );
 const TOKEN_CONSTRUCTOR_NAMES = [
   "createGpuFlowBlockedPublicationToken",
@@ -75,13 +75,13 @@ const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
   "GpuFlow/committedSurfaceFrameState.ts",
 ]);
 const PRODUCTION_OVERLAY_TRANSFORM_CALLERS = new Set([
-  "GpuFlow/flowSurfacePublicationCompletion.ts",
+  "GpuFlow/visibleFramePresenter.ts",
 ]);
 const PRODUCTION_BROWSER_VISUAL_CURRENT_PROJECTION_CALLERS = new Set([
   "GpuFlow/committedSurfaceFrameState.ts",
 ]);
 const PRODUCTION_PROJECTION_DEBUG_ATTRIBUTE_CALLERS = new Set([
-  "GpuFlow/flowSurfacePublicationCompletion.ts",
+  "GpuFlow/visibleFramePresenter.ts",
 ]);
 const PRODUCTION_SURFACE_TEXTURE_RELEASE_CALLERS = new Set([
   "htmlSurfaces/textures.ts",
@@ -92,13 +92,13 @@ const PRODUCTION_RAW_SURFACE_TEXTURE_RELEASE_CALLERS = new Set([
 ]);
 const PRODUCTION_VISIBLE_PROJECTION_STATE_MUTATORS = new Set([
   "GpuFlow/flowSurface.tsx",
-  "GpuFlow/flowSurfacePublicationCompletion.ts",
+  "GpuFlow/visibleFramePresenter.ts",
 ]);
 const PRODUCTION_VISIBLE_PROJECTION_STATE_PUBLISHERS = new Set([
-  "GpuFlow/flowSurfacePublicationCompletion.ts",
+  "GpuFlow/visibleFramePresenter.ts",
 ]);
 const PRODUCTION_PREPARED_COMMITTED_SURFACE_FRAME_COMMITTERS = new Set([
-  "GpuFlow/flowSurfacePublicationCompletion.ts",
+  "GpuFlow/visibleFramePresenter.ts",
 ]);
 
 describe("GPU Flow visible publication authority boundaries", () => {
@@ -587,13 +587,13 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
   });
 
-  it("keeps retained display repair scheduling behind visible publication completion", () => {
+  it("keeps retained display repair scheduling behind the visible frame presenter", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
-    const completionStart = surfaceFrameSource.indexOf(
-      "function completeGpuFlowSurfacePublicationFrame",
+    const presenterStart = surfaceFrameSource.indexOf(
+      "function presentGpuFlowVisibleFramePublicationFrame",
     );
-    const completionSource = surfaceFrameSource.slice(completionStart);
+    const presenterSource = surfaceFrameSource.slice(presenterStart);
 
     expect(flowFrameSource).not.toContain(
       'surfaceRef.current?.requestFrame("texture-upload")',
@@ -602,14 +602,12 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "onRetainedDisplayFollowUpFrameNeeded",
     );
     expect(flowFrameSource).not.toContain("retainedDisplayFollowUpFrameReason");
-    expect(completionStart).toBeGreaterThanOrEqual(0);
-    expect(completionSource).not.toContain(
-      "retainedDisplayFollowUpFrameReason",
-    );
-    expect(completionSource).toContain(
+    expect(presenterStart).toBeGreaterThanOrEqual(0);
+    expect(presenterSource).not.toContain("retainedDisplayFollowUpFrameReason");
+    expect(presenterSource).toContain(
       "requestGpuFlowSurfacePublicationFollowUpFrames",
     );
-    expect(completionSource).toContain("followUpFrameRequests");
+    expect(presenterSource).toContain("followUpFrameRequests");
   });
 
   it("keeps held-previous committed-surface candidates tokenless until completion", () => {
@@ -1161,7 +1159,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const assignmentPattern = /retainedDisplayFrameRef\.current\s*=(?!=)/g;
     const productionAssignmentModules = new Set([
       "GpuFlow/flowSurface.tsx",
-      "GpuFlow/flowSurfacePublicationCompletion.ts",
+      "GpuFlow/visibleFramePresenter.ts",
     ]);
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
@@ -1311,7 +1309,7 @@ function readCommittedSurfaceAuthorityCandidateSource(): string {
 function readSurfaceFramePublicationAuthoritySource(): string {
   return [
     SURFACE_FRAME_PUBLICATION_MODULE_PATH,
-    SURFACE_PUBLICATION_COMPLETION_MODULE_PATH,
+    VISIBLE_FRAME_PRESENTER_MODULE_PATH,
   ]
     .map((filePath) => readFileSync(filePath, "utf8"))
     .join("\n");

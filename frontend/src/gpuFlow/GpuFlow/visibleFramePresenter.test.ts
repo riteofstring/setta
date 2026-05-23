@@ -8,14 +8,14 @@ import {
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import { createGpuFlowSurfacePublicationPublisher } from "./flowSurfacePublicationCompletion";
+import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
 import {
   createGpuFlowVisibleFrameCommitPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
 } from "./visibleFramePublicationTestUtils";
 
 type GpuFlowSurfacePublicationTransaction = Parameters<
-  ReturnType<typeof createGpuFlowSurfacePublicationPublisher>
+  ReturnType<typeof createGpuFlowVisibleFramePresenter>
 >[0];
 
 describe("GPU Flow surface publication completion", () => {
@@ -32,7 +32,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     const visibleProjectionStateRef = { current: committedState };
     const visibleProjectionPublicationStateRef = { current: committedState };
-    const publisher = createGpuFlowSurfacePublicationPublisher({
+    const presenter = createGpuFlowVisibleFramePresenter({
       abortPreparedCommittedSurfaceFrame: () => {
         throw new Error("Unexpected prepared committed surface abort.");
       },
@@ -57,11 +57,9 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef,
       visibleProjectionStateRef,
-    } as unknown as Parameters<
-      typeof createGpuFlowSurfacePublicationPublisher
-    >[0]);
+    } as unknown as Parameters<typeof createGpuFlowVisibleFramePresenter>[0]);
 
-    publisher(
+    presenter(
       heldPreviousPublicationTransaction({
         heldState,
         previousCommittedFrameId: committedState.committedFrame.displayFrameId,
@@ -84,7 +82,7 @@ describe("GPU Flow surface publication completion", () => {
       projectionSample: selectedState.sample,
     });
     let schedulerCompletionCount = 0;
-    const publisher = createGpuFlowSurfacePublicationPublisher({
+    const presenter = createGpuFlowVisibleFramePresenter({
       abortPreparedCommittedSurfaceFrame: () => {
         throw new Error("Unexpected prepared committed surface abort.");
       },
@@ -111,12 +109,10 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<
-      typeof createGpuFlowSurfacePublicationPublisher
-    >[0]);
+    } as unknown as Parameters<typeof createGpuFlowVisibleFramePresenter>[0]);
 
     expect(() =>
-      publisher(
+      presenter(
         committedPublicationTransaction({
           committedFrame,
           onCompleteSchedulerFrame: () => {
@@ -142,7 +138,7 @@ describe("GPU Flow surface publication completion", () => {
       projectionSample: selectedState.sample,
     });
     const submitCanvas = vi.fn();
-    const publisher = createGpuFlowSurfacePublicationPublisher({
+    const presenter = createGpuFlowVisibleFramePresenter({
       abortPreparedCommittedSurfaceFrame: () => {
         throw new Error("Unexpected prepared committed surface abort.");
       },
@@ -166,11 +162,9 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<
-      typeof createGpuFlowSurfacePublicationPublisher
-    >[0]);
+    } as unknown as Parameters<typeof createGpuFlowVisibleFramePresenter>[0]);
 
-    publisher(
+    presenter(
       committedPublicationTransaction({
         committedFrame,
         nodeLayerFrameStatePublication: {
@@ -227,7 +221,7 @@ describe("GPU Flow surface publication completion", () => {
       projectionSample: selectedState.sample,
     });
     const requestFrame = vi.fn();
-    const publisher = createGpuFlowSurfacePublicationPublisher({
+    const presenter = createGpuFlowVisibleFramePresenter({
       abortPreparedCommittedSurfaceFrame: () => {
         throw new Error("Unexpected prepared committed surface abort.");
       },
@@ -246,11 +240,9 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<
-      typeof createGpuFlowSurfacePublicationPublisher
-    >[0]);
+    } as unknown as Parameters<typeof createGpuFlowVisibleFramePresenter>[0]);
 
-    publisher(
+    presenter(
       committedPublicationTransaction({
         committedFrame,
         debtFrameRequest: {

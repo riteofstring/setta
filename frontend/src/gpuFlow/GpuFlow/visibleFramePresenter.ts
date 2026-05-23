@@ -49,7 +49,7 @@ import {
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationTokens";
 
-type GpuFlowSurfacePublicationPublisher = (
+type GpuFlowVisibleFramePresenter = (
   publicationTransaction: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>,
 ) => void;
 
@@ -60,8 +60,8 @@ type GpuFlowBlockedSurfaceVisibleProjectionPublication = {
 
 const deferredResolutionFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
 
-type GpuFlowSurfacePublicationPublisherInput = Omit<
-  Parameters<typeof completeGpuFlowSurfacePublicationFrame>[0],
+type GpuFlowVisibleFramePresenterInput = Omit<
+  Parameters<typeof presentGpuFlowVisibleFramePublicationFrame>[0],
   "publicationTransaction"
 >;
 
@@ -157,7 +157,7 @@ function recordHeldPreviousVisibleProjectionState({
   visibleProjectionPublicationStateRef.current = visibleProjectionState;
 }
 
-function completeGpuFlowSurfacePublicationFrame({
+function presentGpuFlowVisibleFramePublicationFrame({
   abortPreparedCommittedSurfaceFrame,
   callbacksRef,
   commitPreparedCommittedSurfaceFrame,
@@ -328,7 +328,7 @@ function recordGpuFlowBlockedSurfaceVisibleProjectionPublication({
   });
 }
 
-export function createGpuFlowSurfacePublicationPublisher({
+export function createGpuFlowVisibleFramePresenter({
   abortPreparedCommittedSurfaceFrame,
   callbacksRef,
   commitPreparedCommittedSurfaceFrame,
@@ -343,9 +343,9 @@ export function createGpuFlowSurfacePublicationPublisher({
   visibleOverlayProjectionKeyRef,
   visibleProjectionPublicationStateRef,
   visibleProjectionStateRef,
-}: GpuFlowSurfacePublicationPublisherInput): GpuFlowSurfacePublicationPublisher {
+}: GpuFlowVisibleFramePresenterInput): GpuFlowVisibleFramePresenter {
   return (publicationTransaction) =>
-    completeGpuFlowSurfacePublicationFrame({
+    presentGpuFlowVisibleFramePublicationFrame({
       abortPreparedCommittedSurfaceFrame,
       callbacksRef,
       commitPreparedCommittedSurfaceFrame,

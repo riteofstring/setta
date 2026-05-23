@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const VISIBLE_PROJECTION_PUBLICATION_MODULE_PATH = fileURLToPath(
-  new URL("./flowSurfacePublicationCompletion.ts", import.meta.url),
+  new URL("./visibleFramePresenter.ts", import.meta.url),
 );
 
 describe("GPU Flow visible projection state publication authority", () => {

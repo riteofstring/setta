@@ -33,7 +33,7 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfaceFramePublication.ts", import.meta.url),
 );
 const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
-  new URL("./flowSurfacePublicationCompletion.ts", import.meta.url),
+  new URL("./visibleFramePresenter.ts", import.meta.url),
 );
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
