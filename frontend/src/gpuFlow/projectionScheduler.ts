@@ -778,8 +778,8 @@ function shouldThrottleGpuFlowContentRetryAfterUncommittedFrame(
   outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcome,
 ): boolean {
   return (
-    decision.lane === "content" &&
-    (outcome.kind === "hold-previous" ||
+    (decision.lane === "content" && outcome.kind === "hold-previous") ||
+    (outcome.kind === "blocked" &&
       outcome.token.blockedReasons.some(isGpuFlowHeldPreviousBudgetBlockedReason))
   );
 }

@@ -11,6 +11,51 @@ import {
 } from "./projectionRuntime";
 
 describe("GPU Flow projection scheduler content retry throttling", () => {
+  it("defers content retries after motion hits held-previous budget", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const motion = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll", "manual"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: true,
+    });
+    expect(motion.lane).toBe("motion");
+    completeBlockedFrame(scheduler, motion, [
+      {
+        actorId: null,
+        family: "retained-projection",
+        reason: "held-previous-budget-exceeded",
+      },
+    ]);
+
+    const immediateRetry = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "texture-upload"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+    expect(immediateRetry.schedulerState).toBe("motion-active");
+    expect(immediateRetry.lane).toBe("motion");
+    expect(immediateRetry.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: false,
+    });
+
+    const delayedRetry = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(250),
+      timestamp: 250,
+      viewportInteractionActive: false,
+    });
+    expect(delayedRetry.schedulerState).toBe("content-catchup");
+    expect(delayedRetry.lane).toBe("content");
+    expect(delayedRetry.debt.motion).toBe(true);
+  });
+
   it("defers immediate content retries after held-previous budget blocks", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const motion = scheduler.selectFrame({
