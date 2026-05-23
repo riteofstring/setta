@@ -109,6 +109,9 @@ type GpuFlowDomControlProjectionManager = {
   promote(
     assignments: readonly GpuFlowDomControlProjectionAssignment[],
   ): readonly GpuRetainedDomControlSourceDescriptor[];
+  commitPromotedRepresentations(
+    assignments: readonly GpuFlowDomControlProjectionAssignment[],
+  ): void;
 };
 
 export function createGpuFlowDomControlProjectionManager(): GpuFlowDomControlProjectionManager {
@@ -127,21 +130,28 @@ export function createGpuFlowDomControlProjectionManager(): GpuFlowDomControlPro
       syncGpuFlowDomControlPlaneStyles(input);
     },
     promote(assignments) {
-      const controls = assignments
-        .filter(
-          (assignment) =>
-            assignment.coverageState === "live" ||
-            assignment.coverageState === "compatible-previous",
-        )
-        .map((assignment) => assignment.control);
+      return selectGpuFlowDomControlPromotedControls(assignments);
+    },
+    commitPromotedRepresentations(assignments) {
       promotedRepresentationByControlId =
         createGpuFlowDomControlPromotedRepresentationMap({
           assignments,
           previousRepresentationByControlId: promotedRepresentationByControlId,
         });
-      return controls;
     },
   };
+}
+
+function selectGpuFlowDomControlPromotedControls(
+  assignments: readonly GpuFlowDomControlProjectionAssignment[],
+): readonly GpuRetainedDomControlSourceDescriptor[] {
+  return assignments
+    .filter(
+      (assignment) =>
+        assignment.coverageState === "live" ||
+        assignment.coverageState === "compatible-previous",
+    )
+    .map((assignment) => assignment.control);
 }
 
 export function filterGpuFlowDomControlPlaneMountedControls({

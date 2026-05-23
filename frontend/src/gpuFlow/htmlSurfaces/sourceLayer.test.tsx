@@ -170,7 +170,7 @@ describe("HtmlSurfaceSourceLayer", () => {
     canvas.remove();
   });
 
-  it("prioritizes selected sources and mounts the remaining sources in frame batches", () => {
+  it("prioritizes selected sources and mounts the remaining sources in frame batches", async () => {
     const canvas = document.createElement("canvas");
     document.body.append(canvas);
     const root = createRoot(canvas);
@@ -214,7 +214,10 @@ describe("HtmlSurfaceSourceLayer", () => {
     if (!firstFrame) {
       throw new Error("Expected a progressive source frame.");
     }
-    act(() => firstFrame(16));
+    await act(async () => {
+      firstFrame(16);
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
 
     expect([...elements.keys()]).toEqual([
       "source-c",

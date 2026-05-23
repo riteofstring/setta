@@ -35,10 +35,12 @@ function applyAcknowledgedViewModeProjectConfig(
 function dispatchOptimisticViewModeMutation({
   apply,
   projectConfigId,
+  rollback,
   send,
 }: {
   apply: (state: ZustandProjectState) => void;
   projectConfigId: string;
+  rollback?: ((state: ZustandProjectState) => void) | undefined;
   send: (args: {
     frontendOpId: string;
     projectConfigId: string;
@@ -46,9 +48,9 @@ function dispatchOptimisticViewModeMutation({
     | ProjectConfigMutationRouteResponse
     | Promise<ProjectConfigMutationRouteResponse>;
 }) {
-  const previousProjectConfig = createProjectConfig(
-    useProjectState.getState().projectConfig,
-  );
+  const previousProjectConfig = rollback
+    ? null
+    : createProjectConfig(useProjectState.getState().projectConfig);
   let acknowledgedProjectConfig: ZustandProjectState["projectConfig"] | null =
     null;
   dispatchOptimisticProjectStateUpdate({
@@ -64,9 +66,16 @@ function dispatchOptimisticViewModeMutation({
       }
       apply(state);
     },
-    rollback: (state) => {
-      state.projectConfig = createProjectConfig(previousProjectConfig);
-    },
+    rollback:
+      rollback ??
+      ((state) => {
+        if (!previousProjectConfig) {
+          throw new Error(
+            "View mode optimistic rollback missing previous project config.",
+          );
+        }
+        state.projectConfig = createProjectConfig(previousProjectConfig);
+      }),
     send: async (frontendOpId) => {
       const response = await send({
         frontendOpId,
@@ -76,10 +85,7 @@ function dispatchOptimisticViewModeMutation({
         acknowledgedProjectConfig = createProjectConfig(
           response.data.projectConfig,
         );
-        publishProjectConfigSnapshot(
-          projectConfigId,
-          createProjectConfig(acknowledgedProjectConfig),
-        );
+        publishProjectConfigSnapshot(projectConfigId, acknowledgedProjectConfig);
       }
       return response;
     },
@@ -112,6 +118,7 @@ export function persistActiveViewMode(
   dispatchOptimisticViewModeMutation({
     apply: (state) => applyOptimisticActiveViewMode(state, activeViewModeId),
     projectConfigId,
+    rollback: createActiveViewModeRollback(projectConfigId, activeViewModeId),
     send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
       callOpenAPI(
         setActiveViewMode({
@@ -123,6 +130,101 @@ export function persistActiveViewMode(
         } as Parameters<typeof setActiveViewMode>[0]),
       ),
   });
+}
+
+type ActiveViewModeRollbackSnapshot = {
+  readonly activeViewModeId: string | null;
+  readonly modeSnapshots: ReadonlyMap<string, ActiveViewModeSnapshot>;
+  readonly topLevelSections: ProjectTopLevelSectionLayouts;
+  readonly viewport: ProjectViewport;
+  readonly viewportInitialized: boolean;
+};
+
+type ActiveViewModeSnapshot = {
+  readonly topLevelSections: ProjectTopLevelSectionLayouts;
+  readonly viewport: ProjectViewport;
+  readonly viewportInitialized: boolean | undefined;
+};
+
+function createActiveViewModeRollback(
+  projectConfigId: string,
+  nextActiveViewModeId: string,
+): (state: ZustandProjectState) => void {
+  const projectConfig = useProjectState.getState().projectConfig;
+  if (projectConfig.id !== projectConfigId) {
+    return () => {};
+  }
+  const snapshot = createActiveViewModeRollbackSnapshot(
+    projectConfig,
+    nextActiveViewModeId,
+  );
+  return (state) => {
+    state.projectConfig.activeViewModeId = snapshot.activeViewModeId;
+    state.projectConfig.topLevelSections = cloneProjectTopLevelSectionLayouts(
+      snapshot.topLevelSections,
+    );
+    state.projectConfig.viewport = cloneProjectViewport(snapshot.viewport);
+    state.projectConfig.viewportInitialized = snapshot.viewportInitialized;
+    for (const [modeId, modeSnapshot] of snapshot.modeSnapshots) {
+      const mode = state.projectConfig.viewModes[modeId];
+      if (!mode) {
+        continue;
+      }
+      mode.topLevelSections = cloneProjectTopLevelSectionLayouts(
+        modeSnapshot.topLevelSections,
+      );
+      mode.viewport = cloneProjectViewport(modeSnapshot.viewport);
+      applyViewModeViewportInitializedSnapshot(
+        mode,
+        modeSnapshot.viewportInitialized,
+      );
+    }
+  };
+}
+
+function createActiveViewModeRollbackSnapshot(
+  projectConfig: ZustandProjectState["projectConfig"],
+  nextActiveViewModeId: string,
+): ActiveViewModeRollbackSnapshot {
+  const modeSnapshots = new Map<string, ActiveViewModeSnapshot>();
+  const modeIds = new Set(
+    [projectConfig.activeViewModeId, nextActiveViewModeId].filter(
+      (modeId): modeId is string => Boolean(modeId),
+    ),
+  );
+  for (const modeId of modeIds) {
+    const mode = projectConfig.viewModes[modeId];
+    if (!mode) {
+      continue;
+    }
+    modeSnapshots.set(modeId, {
+      topLevelSections: cloneProjectTopLevelSectionLayouts(
+        mode.topLevelSections,
+      ),
+      viewport: cloneProjectViewport(mode.viewport ?? null),
+      viewportInitialized: mode.viewportInitialized,
+    });
+  }
+  return {
+    activeViewModeId: projectConfig.activeViewModeId,
+    modeSnapshots,
+    topLevelSections: cloneProjectTopLevelSectionLayouts(
+      projectConfig.topLevelSections,
+    ),
+    viewport: cloneProjectViewport(projectConfig.viewport),
+    viewportInitialized: projectConfig.viewportInitialized,
+  };
+}
+
+function applyViewModeViewportInitializedSnapshot(
+  mode: ZustandProjectState["projectConfig"]["viewModes"][string],
+  viewportInitialized: boolean | undefined,
+): void {
+  if (viewportInitialized === undefined) {
+    delete mode.viewportInitialized;
+    return;
+  }
+  mode.viewportInitialized = viewportInitialized;
 }
 
 function applyOptimisticActiveViewMode(

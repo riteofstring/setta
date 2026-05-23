@@ -28,6 +28,7 @@ import type {
   GpuFlowLayoutStore,
   GpuFlowLayoutStoreApi,
 } from "../layoutStore";
+import { releaseGpuFlowSurfaceTexture } from "../surfaceTextureReleaseAuthority";
 import type { GpuRect } from "../viewportMath";
 
 type GpuNodeDragPreviewSnapshot = {
@@ -137,7 +138,11 @@ export function useGpuFlowNodeDragPreviewSources({
       if (!element) {
         nodeElementByIdRef.current.delete(surfaceId);
         transformOnlyPaintNodeIdsRef.current.delete(surfaceId);
-        textureManagerRef.current?.destroySurfaceTexture(surfaceId);
+        releaseGpuFlowSurfaceTexture({
+          reason: "source-unmounted",
+          surfaceId,
+          textureManager: textureManagerRef.current,
+        });
         return;
       }
       nodeElementByIdRef.current.set(surfaceId, element);

@@ -10,7 +10,6 @@ import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
 import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import { projectHtmlSurfaceActiveDomIsland } from "../htmlSurfaces/interactionProjector";
-import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuDomIsland } from "../scene";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
@@ -31,17 +30,13 @@ const GPU_FLOW_DOM_ISLAND_CLASS_NAME = [
 const GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME = "setta-gpu-flow__dom-island-layer";
 
 export function GpuFlowDomIslandLayer({
-  committedFrameId,
   committedSurfaceRuntime,
   renderDomIsland,
-  retainedRuntimeFrame,
   viewportStore,
   viewportRuntime,
 }: {
-  readonly committedFrameId?: number | undefined;
   readonly committedSurfaceRuntime?: GpuFlowCommittedSurfaceRuntime | undefined;
   readonly renderDomIsland: GpuFlowDomIslandRenderer | undefined;
-  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportRuntime: GpuFlowViewportRuntime;
 }) {
@@ -62,7 +57,23 @@ export function GpuFlowDomIslandLayer({
     browserVisualRuntime.getSnapshot.bind(browserVisualRuntime),
     browserVisualRuntime.getSnapshot.bind(browserVisualRuntime),
   );
+  const preparationSnapshot = useSyncExternalStore(
+    browserVisualRuntime.subscribePreparation.bind(browserVisualRuntime),
+    browserVisualRuntime.getPreparationSnapshot.bind(browserVisualRuntime),
+    browserVisualRuntime.getPreparationSnapshot.bind(browserVisualRuntime),
+  );
   const domIslands = snapshot.domIslands.islands;
+  const visibleIslandIds = useMemo(
+    () => new Set(domIslands.map((island) => island.id)),
+    [domIslands],
+  );
+  const preparationDomIslands = useMemo(
+    () =>
+      preparationSnapshot.domIslands.islands.filter(
+        (island) => !visibleIslandIds.has(island.id),
+      ),
+    [preparationSnapshot, visibleIslandIds],
+  );
   const frameIds = snapshot.frameIds;
 
   const setDomIslandElement = useCallback(
@@ -71,19 +82,6 @@ export function GpuFlowDomIslandLayer({
     },
     [browserVisualRuntime],
   );
-
-  useLayoutEffect(() => {
-    browserVisualRuntime.setCommittedSurfaceSource({
-      committedFrameId,
-      committedSurfaceRuntime,
-      retainedRuntimeFrame,
-    });
-  }, [
-    browserVisualRuntime,
-    committedFrameId,
-    committedSurfaceRuntime,
-    retainedRuntimeFrame,
-  ]);
 
   useLayoutEffect(() => {
     browserVisualRuntime.setDomIslandProjectionEnvironment({
@@ -100,21 +98,11 @@ export function GpuFlowDomIslandLayer({
     });
   }, [browserVisualRuntime, viewportRuntime]);
 
-  useLayoutEffect(() => {
-    return viewportStore.subscribe((state, previousState) => {
-      if (state.transform === previousState.transform) {
-        return;
-      }
-      browserVisualRuntime.projectDomIslands(state.transform);
-    });
-  }, [browserVisualRuntime, viewportStore]);
-
-  useLayoutEffect(() => {
-    browserVisualRuntime.projectDomIslands();
-  }, [browserVisualRuntime, domIslands]);
-
   const renderDomIslandContent = renderDomIsland;
-  if (!renderDomIslandContent || domIslands.length === 0) {
+  if (
+    !renderDomIslandContent ||
+    (domIslands.length === 0 && preparationDomIslands.length === 0)
+  ) {
     return null;
   }
 
@@ -139,6 +127,29 @@ export function GpuFlowDomIslandLayer({
             island,
             viewport: normalizedViewport,
           })}
+        >
+          {renderDomIslandContent(island)}
+        </div>
+      ))}
+      {preparationDomIslands.map((island) => (
+        <div
+          aria-hidden="true"
+          className={GPU_FLOW_DOM_ISLAND_CLASS_NAME}
+          data-gpu-flow-dom-island-preparation="true"
+          data-gpu-flow-dom-island-id={island.id}
+          data-gpu-flow-dom-island-kind={island.kind}
+          key={`preparation:${island.id}`}
+          ref={(element) => setDomIslandElement(island.id, element)}
+          style={{
+            ...getGpuFlowDomIslandInitialStyle({
+              island,
+              viewport: normalizedViewport,
+            }),
+            opacity: 0,
+            pointerEvents: "none",
+            transform: "translate3d(-100000px, -100000px, 0)",
+            visibility: "hidden",
+          }}
         >
           {renderDomIslandContent(island)}
         </div>

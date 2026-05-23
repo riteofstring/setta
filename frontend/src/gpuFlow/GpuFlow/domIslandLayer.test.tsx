@@ -7,12 +7,23 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
+import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
+import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuDomIsland } from "../scene";
-import type { GpuViewportInput, GpuViewportTuple } from "../viewportMath";
+import {
+  normalizeGpuViewport,
+  type GpuViewportInput,
+  type GpuViewportTuple,
+} from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import { createGpuFlowViewportStore } from "../viewportStore";
+import { getGpuFlowBrowserVisualActorRuntimeForCommittedSurface } from "./browserVisualActorRuntime";
 import { GpuFlowDomIslandLayer } from "./domIslandLayer";
+import {
+  createGpuFlowCommitPublicationToken,
+  createGpuFlowPresentableCommit,
+} from "./visibleFramePublicationAuthority";
 
 let root: Root | null = null;
 
@@ -40,16 +51,23 @@ describe("GPU Flow DOM island layer", () => {
       transform: [0, 0, 1],
       width: 400,
     });
+    publishBrowserVisualFrame({
+      committedSurfaceRuntime,
+      frame: committedSurfaceFrame({
+        displayFrameId: 1,
+        retainedRuntimeFrame: firstRuntimeFrame,
+      }),
+      viewportRuntime,
+      viewportStore,
+    });
     const host = document.body.appendChild(document.createElement("div"));
     root = createRoot(host);
 
     act(() => {
       root?.render(
         <GpuFlowDomIslandLayer
-          committedFrameId={1}
           committedSurfaceRuntime={committedSurfaceRuntime}
           renderDomIsland={(island) => <span>{island.id}</span>}
-          retainedRuntimeFrame={firstRuntimeFrame}
           viewportRuntime={viewportRuntime}
           viewportStore={viewportStore}
         />,
@@ -58,12 +76,16 @@ describe("GPU Flow DOM island layer", () => {
     expect(mountedIslandIds()).toEqual(["island-a"]);
 
     act(() => {
-      committedSurfaceRuntime.publishCommittedContentFrame(
-        committedSurfaceFrame({
-          displayFrameId: 2,
-          retainedRuntimeFrame: nextRuntimeFrame,
-        }),
-      );
+      const frame = committedSurfaceFrame({
+        displayFrameId: 2,
+        retainedRuntimeFrame: nextRuntimeFrame,
+      });
+      publishBrowserVisualFrame({
+        committedSurfaceRuntime,
+        frame,
+        viewportRuntime,
+        viewportStore,
+      });
     });
 
     expect(mountedIslandIds()).toEqual(["island-b"]);
@@ -97,14 +119,49 @@ function createMockViewportRuntime(
       };
     },
     setViewport(nextViewport: GpuViewportInput) {
-      viewport = Array.isArray(nextViewport)
-        ? [nextViewport[0], nextViewport[1], nextViewport[2]]
-        : [nextViewport.x, nextViewport.y, nextViewport.zoom];
+      const normalizedViewport = normalizeGpuViewport(nextViewport);
+      viewport = [
+        normalizedViewport.x,
+        normalizedViewport.y,
+        normalizedViewport.zoom,
+      ];
       for (const manager of overlayManagers) {
         manager.applyViewport(viewport);
       }
     },
   } as unknown as GpuFlowViewportRuntime;
+}
+
+function publishBrowserVisualFrame({
+  committedSurfaceRuntime,
+  frame,
+  viewportRuntime,
+  viewportStore,
+}: {
+  readonly committedSurfaceRuntime: ReturnType<
+    typeof createGpuFlowCommittedSurfaceRuntime
+  >;
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly viewportRuntime: GpuFlowViewportRuntime;
+  readonly viewportStore: ReturnType<typeof createGpuFlowViewportStore>;
+}): void {
+  const browserVisualRuntime =
+    getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
+      committedSurfaceRuntime,
+    );
+  browserVisualRuntime.setDomIslandProjectionEnvironment({
+    viewportRuntime,
+    viewportStore,
+  });
+  const token = publicationToken(frame);
+  const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    retainedDisplayFrame: {
+      id: frame.displayFrameId,
+      retainedRuntimeFrame: frame.retainedRuntimeFrame,
+    } as RetainedDisplayFrame,
+  });
+  browserVisualRuntime.commitPreparedBrowserVisualActors({ candidate, token });
+  committedSurfaceRuntime.publishCommittedContentFrame(token, frame);
 }
 
 function retainedRuntimeFrame(
@@ -113,10 +170,11 @@ function retainedRuntimeFrame(
 ): GpuRetainedRuntimeFrame {
   return {
     descriptors: {
+      domControlSources: [],
       nativeDomIslands: islands,
     },
     frameId,
-  } as GpuRetainedRuntimeFrame;
+  } as unknown as GpuRetainedRuntimeFrame;
 }
 
 function committedSurfaceFrame({
@@ -128,10 +186,47 @@ function committedSurfaceFrame({
 }): GpuFlowCommittedSurfaceFrame {
   return {
     actorGenerations: [],
+    coherence: {
+      canvasRetainedFrameId: displayFrameId,
+      clipChainRevision: "clip",
+      debugSnapshotFrameId: displayFrameId,
+      domControlCommittedFrameId: displayFrameId,
+      domIslandCommittedFrameId: displayFrameId,
+      gpuNativeVisualCommittedFrameId: displayFrameId,
+      hitGenerationId: `hit:${displayFrameId}`,
+      htmlTextureOverlayCommittedFrameId: displayFrameId,
+      retainedScrollRevision: 0,
+    },
     displayFrameId,
+    projectionHorizon: {
+      textActorCoverage: {
+        blockedAwaitingBrowserVisualActorIds: [],
+        blockedAwaitingLiveHostActorIds: [],
+        compatiblePreviousActorIds: [],
+        exactLiveDomActorIds: [],
+        exactSnapshotActorIds: [],
+        trueHoleActorIds: [],
+      },
+    },
+    publishability: {
+      blockingActorIds: [],
+      kind: "publishable",
+    },
     retainedRuntimeFrame,
     sceneRevision: 1,
-  } as GpuFlowCommittedSurfaceFrame;
+    surfaceTransaction: null,
+  } as unknown as GpuFlowCommittedSurfaceFrame;
+}
+
+function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
+  return createGpuFlowCommitPublicationToken({
+    presentableCommit: createGpuFlowPresentableCommit({
+      frame,
+      projectionSample: {
+        id: frame.displayFrameId,
+      } as GpuFlowLiveProjectionSample,
+    }),
+  });
 }
 
 function mountedIslandIds(): readonly string[] {

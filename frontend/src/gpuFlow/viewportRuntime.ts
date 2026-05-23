@@ -157,7 +157,6 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
       this.pendingInputs.length = 0;
       this.cancelRuntimeTransition();
       this.viewport = gpuViewportToTuple(state.transform);
-      this.applyOverlayTransforms();
       this.requestViewportFrame();
     });
   }
@@ -237,7 +236,6 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
         return false;
       }
       this.viewport = nextViewport;
-      this.applyOverlayTransforms();
       this.publishObserverSnapshot({ force: true });
       this.requestViewportFrame();
       return true;
@@ -301,9 +299,6 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
       viewportChanged = this.runTransitionFrame(timestampMs) || viewportChanged;
     }
     if (viewportChanged) {
-      const overlayStartedAtMs = performanceNow();
-      this.applyOverlayTransforms();
-      overlayMs = performanceNow() - overlayStartedAtMs;
       observerSnapshotPublish = this.publishObserverSnapshotWhenIdle({
         force: false,
         timestampMs,
@@ -331,7 +326,6 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
 
   registerOverlayManager(manager: GpuFlowViewportOverlayManager): () => void {
     this.overlayManagers.add(manager);
-    manager.applyViewport(this.viewport);
     return () => {
       this.overlayManagers.delete(manager);
     };
@@ -545,7 +539,6 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
       this.transitionCompletionHandle = null;
       this.transition = null;
       this.viewport = gpuViewportToTuple(transition.to);
-      this.applyOverlayTransforms();
       this.store
         .getState()
         .setViewportInteractionFlags({ viewportAnimating: false });

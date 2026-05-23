@@ -152,7 +152,35 @@ export function syncGpuFlowNodeLayerSceneState({
       retainedContentPageManagerRef,
     );
   }
-  surfaceRef.current?.requestFrame("viewport");
+  requestGpuFlowSceneStateFrame({
+    previousScene,
+    nextScene,
+    surface: surfaceRef.current,
+  });
+}
+
+function requestGpuFlowSceneStateFrame({
+  previousScene,
+  nextScene,
+  surface,
+}: {
+  readonly previousScene: GpuFlowScene | undefined;
+  readonly nextScene: GpuFlowScene | undefined;
+  readonly surface: GpuSurfaceHandle | null;
+}): void {
+  if (!surface) {
+    return;
+  }
+  if (
+    previousScene !== nextScene &&
+    typeof globalThis.requestAnimationFrame === "function"
+  ) {
+    globalThis.requestAnimationFrame(() => {
+      surface.requestFrame("viewport");
+    });
+    return;
+  }
+  surface.requestFrame("viewport");
 }
 
 function resolveRetainedRuntimeFrameForSceneStateSync({

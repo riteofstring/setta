@@ -125,6 +125,11 @@ export function useGpuFlowDebugGlobals<
         scene: nodeLayerRef.current.scene,
         viewport: getVisualSceneViewport(),
       });
+    const getRetainedRowCount = () =>
+      countGpuFlowRetainedRowsDebugSnapshot({
+        retainedContentRuntimeState,
+        scene: nodeLayerRef.current.scene,
+      });
     const getVisualSurfaces = () =>
       createGpuFlowVisualSurfacesDebugSnapshot({
         container: containerRef.current,
@@ -133,6 +138,7 @@ export function useGpuFlowDebugGlobals<
       });
     window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ = getSnapshot;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__ = getRetainedRows;
+    window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__ = getRetainedRowCount;
     window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__ = setViewport;
     window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__ = getVisualSurfaces;
     return () => {
@@ -141,6 +147,12 @@ export function useGpuFlowDebugGlobals<
       }
       if (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__ === getRetainedRows) {
         delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__;
+      }
+      if (
+        window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__ ===
+        getRetainedRowCount
+      ) {
+        delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__;
       }
       if (window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__ === setViewport) {
         delete window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__;
@@ -162,6 +174,49 @@ export function useGpuFlowDebugGlobals<
     retainedContentRuntimeState,
     viewportStore,
   ]);
+}
+
+function countGpuFlowRetainedRowsDebugSnapshot({
+  retainedContentRuntimeState,
+  scene,
+}: {
+  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly scene: GpuFlowScene | undefined;
+}): number {
+  if (!scene) {
+    return 0;
+  }
+  let count = 0;
+  for (const surface of scene.contentSurfaces) {
+    count += countGpuFlowRetainedSurfaceDebugEntries({
+      retainedContentRuntimeState,
+      surface,
+    });
+  }
+  return count;
+}
+
+function countGpuFlowRetainedSurfaceDebugEntries({
+  retainedContentRuntimeState,
+  surface,
+}: {
+  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly surface: GpuContentSurface;
+}): number {
+  const retainedScene = surface.retainedScene;
+  if (!retainedScene || !isGpuRetainedContentSurfaceWithScene(surface)) {
+    return 0;
+  }
+  const sampledRetainedScene = createGpuRetainedContentSampledSceneForSurface({
+    scrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
+      retainedContentRuntimeState,
+    ),
+    surface,
+  });
+  const clipBounds = getGpuFlowSurfaceClipBounds(surface);
+  return sampledRetainedScene.rows.filter((row) =>
+    retainedRowLabelPointInsideClipBounds(row, surface, clipBounds),
+  ).length;
 }
 
 function toCommittedSurfaceDebugEntry(

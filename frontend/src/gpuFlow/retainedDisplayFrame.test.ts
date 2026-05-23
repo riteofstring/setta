@@ -630,7 +630,7 @@ function sceneWithRetainedSurface(surfaceId: string): GpuFlowScene {
           id: surfaceId,
           ownerSectionId: "section",
           rowHeight: 24,
-          rows: [{ depth: 0, id: "row", label: "Row" }],
+          rows: [{ controlKind: null, depth: 0, id: "row", label: "Row" }],
           scrollOffset: { x: 0, y: 0 },
           viewportRect: rect,
         }),

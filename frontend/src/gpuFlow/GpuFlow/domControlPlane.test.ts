@@ -217,7 +217,7 @@ describe("GPU flow DOM control plane", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       viewportSize: { height: 60, width: 400 },
     });
-    manager.promote(initialAssignments);
+    manager.commitPromotedRepresentations(initialAssignments);
 
     const firstCarry = manager.prepare({
       controls,
@@ -235,7 +235,7 @@ describe("GPU flow DOM control plane", () => {
     expect(row0FirstCarry?.compatibilityProof?.reasonCode).toBe(
       "same-value-and-geometry",
     );
-    manager.promote(firstCarry);
+    manager.commitPromotedRepresentations(firstCarry);
 
     const secondCarry = manager.prepare({
       controls,
@@ -246,7 +246,7 @@ describe("GPU flow DOM control plane", () => {
     expect(assignmentForRow(secondCarry, "row-0")?.coverageState).toBe(
       "compatible-previous",
     );
-    manager.promote(secondCarry);
+    manager.commitPromotedRepresentations(secondCarry);
 
     const exhaustedCarry = manager.prepare({
       controls,
@@ -270,7 +270,7 @@ describe("GPU flow DOM control plane", () => {
       control.rowId === "row-0" ? { ...control, value: "changed" } : control,
     );
     const manager = createGpuFlowDomControlProjectionManager();
-    manager.promote(
+    manager.commitPromotedRepresentations(
       manager.prepare({
         controls,
         getRetainedScrollOffset: undefined,
@@ -297,7 +297,7 @@ describe("GPU flow DOM control plane", () => {
       domControl({ index }),
     );
     const manager = createGpuFlowDomControlProjectionManager();
-    manager.promote(
+    manager.commitPromotedRepresentations(
       manager.prepare({
         controls,
         getRetainedScrollOffset: undefined,

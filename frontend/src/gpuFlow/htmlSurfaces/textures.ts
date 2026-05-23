@@ -9,8 +9,12 @@ import type {
   HtmlInCanvasCanvas,
 } from "../htmlInCanvasTypes";
 import {
+  assertGpuFlowSurfaceTextureReleaseToken,
+  type GpuFlowSurfaceTextureReleaseResult,
+  type GpuFlowSurfaceTextureReleaseToken,
+} from "../surfaceTextureReleaseAuthority";
+import {
   chooseTextureResolution,
-  textureResolutionMatches,
   type TextureResolution,
 } from "../textureResolution";
 import {
@@ -33,7 +37,6 @@ import { createHtmlSurfaceTextureMemorySnapshot } from "./textureMemorySnapshot"
 import { HtmlSurfaceTexturePaintDeferral } from "./texturePaintDeferral";
 import {
   createTextureUploadBudget,
-  pendingTextureResolutionMatches,
   uploadPendingResolutionRecord,
 } from "./texturePendingResolution";
 import {
@@ -44,11 +47,6 @@ import {
   destroyTextureTiles,
   estimateDirtySurfaceUploadBytes,
   markExistingSurfaceTextureRecordDirty,
-  resolutionSnapshot,
-  resolveTargetTextureContentKey,
-  textureContentKeysEqual,
-  textureResolutionFromSnapshot,
-  textureSourceRectsEqual,
   toDirtySurfaceState,
   toSurfaceTextureMemoryRecord,
   toSurfaceTextureResolutionDiagnostic,
@@ -64,6 +62,12 @@ import {
   type HtmlSurfaceTexturePriority,
   type HtmlSurfaceTextureTileRecord,
 } from "./textureRecords";
+import {
+  preparePendingContentTextureUpdate,
+  preparePendingResolutionTextureUpdate,
+  resolveRegisteredSurfaceTextureUpdate,
+  type RegisteredSurfaceTextureUpdateKind,
+} from "./textureRegistrationUpdates";
 import {
   createSurfaceTextureLayoutResources,
   normalizeTextureTileDimension,
@@ -155,7 +159,9 @@ export class HtmlSurfaceTextureManager {
   private readonly maxTextureBytes: number;
   private readonly maxTextureDimension2D: number;
   private readonly maxTextureTileDimension2D: number;
+  private readonly pendingProtectedSurfaceTextureReleaseIds = new Set<string>();
   private readonly paintDeferral = new HtmlSurfaceTexturePaintDeferral();
+  private protectedSurfaceTextureIds = new Set<string>();
   private readonly records = new Map<string, HtmlSurfaceTextureHandle>();
   private readonly textureUsage: GPUTextureUsageFlags;
 
@@ -181,17 +187,44 @@ export class HtmlSurfaceTextureManager {
     }
     this.records.clear();
     this.dirtyQueue.clearAll();
+    this.pendingProtectedSurfaceTextureReleaseIds.clear();
     this.paintDeferral.clear();
+    this.protectedSurfaceTextureIds.clear();
   }
-  destroySurfaceTexture(surfaceId: string) {
+  destroySurfaceTexture(
+    token: GpuFlowSurfaceTextureReleaseToken,
+    surfaceId: string,
+  ): GpuFlowSurfaceTextureReleaseResult {
+    assertGpuFlowSurfaceTextureReleaseToken({ surfaceId, token });
+    if (this.protectedSurfaceTextureIds.has(surfaceId)) {
+      this.pendingProtectedSurfaceTextureReleaseIds.add(surfaceId);
+      this.dirtyQueue.clear(surfaceId);
+      this.paintDeferral.deleteSurface(surfaceId);
+      return Object.freeze({
+        kind: "deferred-protected" as const,
+        surfaceId,
+      });
+    }
+    return this.destroySurfaceTextureRecord(surfaceId);
+  }
+  private destroySurfaceTextureRecord(
+    surfaceId: string,
+  ): GpuFlowSurfaceTextureReleaseResult {
     const record = this.records.get(surfaceId);
     if (!record) {
-      return;
+      return Object.freeze({
+        kind: "not-found" as const,
+        surfaceId,
+      });
     }
     destroyTextureRecord(record);
     this.records.delete(surfaceId);
     this.dirtyQueue.clear(surfaceId);
     this.paintDeferral.deleteSurface(surfaceId);
+    return Object.freeze({
+      kind: "released" as const,
+      surfaceId,
+    });
   }
   getDirtySurfaces(): DirtyHtmlSurfaceTextureState[] {
     return this.dirtyQueue
@@ -278,6 +311,7 @@ export class HtmlSurfaceTextureManager {
   registerSurfaceTexture(
     input: RegisterHtmlSurfaceTextureInput,
   ): CommittedHtmlSurfaceTextureSnapshot {
+    this.pendingProtectedSurfaceTextureReleaseIds.delete(input.surfaceId);
     const existing = this.records.get(input.surfaceId);
     const resolution = chooseTextureResolution({
       cssHeight: input.cssHeight,
@@ -426,6 +460,7 @@ export class HtmlSurfaceTextureManager {
       protectedSurfaceIds,
       visibleSurfaceIds: visibleIds,
     });
+    this.updateProtectedSurfaceTextures(protectedIds);
     const memoryBefore = this.getMemorySnapshot({
       visibleSurfaceIds: visibleIds,
     });
@@ -441,7 +476,7 @@ export class HtmlSurfaceTextureManager {
         evictedSurfaceIds.push(record.committed.surfaceId);
         evictedBytes += record.committed.textureBytes;
         allocatedBytes -= record.committed.textureBytes;
-        this.destroySurfaceTexture(record.committed.surfaceId);
+        this.destroySurfaceTextureRecord(record.committed.surfaceId);
       }
     }
 
@@ -854,6 +889,23 @@ export class HtmlSurfaceTextureManager {
     });
   }
 
+  private updateProtectedSurfaceTextures(
+    protectedSurfaceIds: ReadonlySet<string>,
+  ): void {
+    this.protectedSurfaceTextureIds = new Set(protectedSurfaceIds);
+    this.releasePendingUnprotectedSurfaceTextures();
+  }
+
+  private releasePendingUnprotectedSurfaceTextures(): void {
+    for (const surfaceId of this.pendingProtectedSurfaceTextureReleaseIds) {
+      if (this.protectedSurfaceTextureIds.has(surfaceId)) {
+        continue;
+      }
+      this.pendingProtectedSurfaceTextureReleaseIds.delete(surfaceId);
+      this.destroySurfaceTextureRecord(surfaceId);
+    }
+  }
+
   private resolveProtectedTextureSurfaceIds({
     protectedSurfaceIds,
     visibleSurfaceIds,
@@ -902,99 +954,4 @@ export function createHtmlSurfaceTextureManager(
     canvas: runtime.canvas,
     maxTextureDimension2D: runtime.maxTextureDimension2D,
   });
-}
-
-type RegisteredSurfaceTextureUpdateKind =
-  | "content"
-  | "none"
-  | "resolution"
-  | "source-rect";
-
-function resolveRegisteredSurfaceTextureUpdate(
-  existing: HtmlSurfaceTextureHandle,
-  input: RegisterHtmlSurfaceTextureInput,
-  resolution: TextureResolution,
-): RegisteredSurfaceTextureUpdateKind {
-  if (
-    !input.deferResolution &&
-    !textureResolutionMatches(resolutionSnapshot(existing), resolution)
-  ) {
-    return "resolution";
-  }
-  const textureContentKeyChanged = !textureContentKeysEqual(
-    resolveTargetTextureContentKey(existing),
-    input.textureContentKey,
-  );
-  const textureSourceRectChanged = !textureSourceRectsEqual(
-    resolveTargetTextureSourceRect(existing),
-    input.textureSourceRect,
-  );
-  if (
-    canCommitTextureSourceRectOnlyUpdate({
-      existing,
-      input,
-      textureContentKeyChanged,
-      textureSourceRectChanged,
-    })
-  ) {
-    return "source-rect";
-  }
-  return textureContentKeyChanged || textureSourceRectChanged
-    ? "content"
-    : "none";
-}
-function canCommitTextureSourceRectOnlyUpdate({
-  existing,
-  input,
-  textureContentKeyChanged,
-  textureSourceRectChanged,
-}: {
-  readonly existing: HtmlSurfaceTextureHandle;
-  readonly input: RegisterHtmlSurfaceTextureInput;
-  readonly textureContentKeyChanged: boolean;
-  readonly textureSourceRectChanged: boolean;
-}): boolean {
-  return (
-    textureSourceRectChanged &&
-    !textureContentKeyChanged &&
-    input.textureContentKey !== undefined &&
-    !existing.pendingResolution &&
-    !existing.pendingTextureRecord
-  );
-}
-
-function resolveTargetTextureSourceRect(
-  existing: HtmlSurfaceTextureHandle,
-): HtmlSurfaceDirtyRect | undefined {
-  return existing.pendingTextureSourceRect === undefined
-    ? existing.committed.textureSourceRect
-    : existing.pendingTextureSourceRect ?? undefined;
-}
-
-function preparePendingResolutionTextureUpdate(
-  existing: HtmlSurfaceTextureHandle,
-  input: RegisterHtmlSurfaceTextureInput,
-  resolution: TextureResolution,
-) {
-  if (
-    existing.pendingTextureRecord &&
-    !pendingTextureResolutionMatches(existing.pendingTextureRecord, resolution)
-  ) {
-    destroyTextureTiles(existing.pendingTextureRecord.tiles);
-    existing.pendingTextureRecord = null;
-  }
-  existing.pendingResolution = resolution;
-  existing.pendingTextureContentKey = input.textureContentKey ?? null;
-  existing.pendingTextureSourceRect = input.textureSourceRect ?? null;
-}
-
-function preparePendingContentTextureUpdate(
-  existing: HtmlSurfaceTextureHandle,
-  input: RegisterHtmlSurfaceTextureInput,
-) {
-  existing.pendingResolution =
-    existing.pendingResolution ??
-    textureResolutionFromSnapshot(existing.committed);
-  existing.pendingTextureContentKey = input.textureContentKey ?? null;
-  existing.pendingTextureSourceRect = input.textureSourceRect ?? null;
 }

@@ -7,6 +7,7 @@ type GpuFlowDomControlProjectionKnobs = {
   readonly directionalHorizonMultiplier: number;
   readonly maxCompatiblePreviousControls: number;
   readonly maxCompatiblePreviousFrames: number;
+  readonly maxCompatiblePreviousMs: number;
   readonly maxOverscanMountedControls: number;
   readonly maxReadableMountedControls: number;
   readonly minVisibleScreenHeightCssPx: number;
@@ -21,6 +22,7 @@ export const DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS: GpuFlowDomControlPro
     directionalHorizonMultiplier: 2,
     maxCompatiblePreviousControls: 8,
     maxCompatiblePreviousFrames: 2,
+    maxCompatiblePreviousMs: 120,
     maxOverscanMountedControls: 8,
     maxReadableMountedControls: 24,
     minVisibleScreenHeightCssPx: 8,

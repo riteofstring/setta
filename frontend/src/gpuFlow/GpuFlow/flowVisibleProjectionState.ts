@@ -58,10 +58,7 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
       kind: getGpuFlowProjectionTransactionKind(heldPrevious),
       lane: publicationLane,
       rawReasons: frameReasons,
-      sample: getGpuFlowProjectionTransactionSample({
-        heldPrevious,
-        liveProjectionSample,
-      }),
+      sample: liveProjectionSample,
     });
   return createGpuFlowVisibleProjectionState({
     committedFrame: visibleCommittedFrame,
@@ -120,14 +117,4 @@ function getGpuFlowProjectionTransactionKind(
   heldPrevious: GpuFlowVisibleProjectionState | null,
 ): GpuFlowProjectionTransaction["kind"] {
   return heldPrevious ? "held-previous" : "content-publication";
-}
-
-function getGpuFlowProjectionTransactionSample({
-  heldPrevious,
-  liveProjectionSample,
-}: {
-  readonly heldPrevious: GpuFlowVisibleProjectionState | null;
-  readonly liveProjectionSample: GpuFlowLiveProjectionSample;
-}): GpuFlowLiveProjectionSample {
-  return heldPrevious?.sample ?? liveProjectionSample;
 }

@@ -140,9 +140,6 @@ export async function openAllSettingsForRetainedCompositor(
   await page.getByRole("button", { name: "fit view" }).click();
   await waitForAnimationFrame(page);
   await page.getByRole("button", { exact: true, name: "All Settings" }).click();
-  await page.waitForFunction(
-    () => document.querySelectorAll(".setta-gpu-flow__node").length > 30,
-  );
   await expect
     .poll(() => readRetainedCompositorRowCount(page), { timeout: 10_000 })
     .toBeGreaterThan(50);

@@ -1,11 +1,12 @@
 import { type MutableRefObject } from "react";
 
+import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowRuntime } from "../gpuDevice";
+import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import { type GpuCanvasSize, type GpuFrameReason } from "../gpuRenderer";
 import { getGpuRetainedContentTexturePageFrameSurfacesFromSourceSurfaces } from "../GpuRetainedContentPageFrameSurfaces";
 import { getGpuRetainedContentSourceSurfaces } from "../GpuRetainedContentSurfaces";
 import type { GpuSurfaceHandle } from "../GpuSurface";
-import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import {
   renderHtmlSurfaceFrame,
   type GpuNodeDomTransformSyncCache,
@@ -47,16 +48,28 @@ import {
   resolveRenderableGpuFlowLayerFrameInput,
 } from "./flowFrame";
 import {
-  reportGpuFlowNodeLayerFramePerformance,
-  updateGpuFlowNodeLayerFrameState,
-} from "./flowFrameLifecycle";
-import {
   resolveActiveGpuFlowNodeId,
   resolveGpuFlowNodeInteractionActiveNodeId,
 } from "./flowFrameInteractionState";
+import {
+  reportGpuFlowNodeLayerFramePerformance,
+  updateGpuFlowNodeLayerFrameState,
+} from "./flowFrameLifecycle";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
+import {
+  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+  createGpuFlowBlockedPublicationToken,
+  createGpuFlowCommitPublicationToken,
+  createGpuFlowHoldPreviousToken,
+  createGpuFlowPresentableCommit,
+} from "./visibleFramePublicationAuthority";
+import type {
+  GpuFlowBlockedPublicationToken,
+  GpuFlowCommitPublicationToken,
+  GpuFlowHoldPreviousToken,
+} from "./visibleFramePublicationTokens";
 
 type GpuFlowRetainedProjectionFrame = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
@@ -65,6 +78,7 @@ type GpuFlowRetainedProjectionFrame = {
 };
 
 type GpuFlowProjectionFrameTransaction = {
+  readonly blockedReason: string | null;
   readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
   readonly retainedProjectionFrame: GpuFlowRetainedProjectionFrame;
   readonly transaction: GpuFlowProjectionTransaction;
@@ -72,10 +86,13 @@ type GpuFlowProjectionFrameTransaction = {
 
 type RenderGpuFlowNodeLayerProjectionFrameResult =
   | {
+      readonly blockedPublicationToken?: GpuFlowBlockedPublicationToken | null;
       readonly rendered: false;
     }
   | {
+      readonly commitPublicationToken: GpuFlowCommitPublicationToken | null;
       readonly rendered: true;
+      readonly holdPreviousToken: GpuFlowHoldPreviousToken | null;
       readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
       readonly transaction: GpuFlowProjectionTransaction;
     };
@@ -101,6 +118,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   nodeLayerRef,
   projectionTransaction,
   projectionSchedulerKnobs,
+  projectionCommittedSurfaceFrame,
   heldPreviousProjectionState,
   htmlSurfaceRendererRef,
   retainedContentPageManagerRef,
@@ -125,6 +143,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
   readonly projectionTransaction: GpuFlowProjectionTransaction;
   readonly projectionSchedulerKnobs: GpuFlowProjectionSchedulerKnobs;
+  readonly projectionCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
@@ -151,7 +170,9 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   });
   if (!frameInput) {
     return {
+      commitPublicationToken: null,
       heldPreviousProjection: null,
+      holdPreviousToken: null,
       rendered: true,
       transaction: projectionTransaction,
     };
@@ -167,21 +188,32 @@ export function renderGpuFlowNodeLayerProjectionFrame({
       transactionId: projectionTransaction.id,
     },
   );
-  const { heldPreviousProjection, retainedProjectionFrame, transaction } =
-    resolveGpuFlowProjectionFrameTransaction({
-      frameReasons,
+  const projectionFrameTransaction = resolveGpuFlowProjectionFrameTransaction({
+    frameReasons,
+    heldPreviousProjectionState,
+    layer,
+    projectionSchedulerKnobs,
+    retainedDisplayFrame,
+    requestedTransaction: projectionTransaction,
+  });
+  if (projectionFrameTransaction.blockedReason) {
+    finishProjectionResolveMeasure();
+    return createGpuFlowBlockedProjectionFrameResult({
+      blockedReason: projectionFrameTransaction.blockedReason,
       heldPreviousProjectionState,
-      layer,
-      projectionSchedulerKnobs,
-      retainedDisplayFrame,
-      requestedTransaction: projectionTransaction,
+      projectionTransaction,
+      surfaceRef,
     });
+  }
+  const { heldPreviousProjection, retainedProjectionFrame, transaction } =
+    projectionFrameTransaction;
   const projectionViewport = transaction.sample.viewport;
   const projectionRetainedRuntimeFrame =
-    transaction.kind === "held-previous"
-      ? heldPreviousProjectionState?.committedFrame.retainedRuntimeFrame ??
-        retainedRuntimeFrame
-      : retainedRuntimeFrame;
+    resolveGpuFlowProjectionRetainedRuntimeFrame({
+      fallbackRetainedRuntimeFrame: retainedRuntimeFrame,
+      heldPreviousProjectionState,
+      transaction,
+    });
   const retainedPageVisuals = retainedProjectionFrame.flatSurfaces;
   const htmlSurfaceOverlays =
     projectGpuRetainedDomControlSnapshotSurfaceLayouts({
@@ -228,6 +260,16 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     transaction,
     heldPreviousProjection,
   );
+  const debugPublicationToken = createGpuFlowProjectionFrameDebugToken({
+    committedFrame: projectionCommittedSurfaceFrame,
+    heldPreviousProjection,
+    requestedSample: projectionTransaction.sample,
+    transaction,
+  });
+  const commitPublicationToken =
+    "holdAgeFrames" in debugPublicationToken ? null : debugPublicationToken;
+  const holdPreviousToken =
+    "holdAgeFrames" in debugPublicationToken ? debugPublicationToken : null;
   const htmlSurfaceFrameMs = performance.now() - htmlSurfaceFrameStart;
   reportGpuFlowNodeLayerFramePerformance({
     callbacksRef,
@@ -280,12 +322,95 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   applyGpuFlowProjectionDebugAttributes({
     canvas: runtime.canvas,
     debugState: projectionDebugState,
+    token: debugPublicationToken,
   });
   return {
+    commitPublicationToken,
     heldPreviousProjection,
+    holdPreviousToken,
     rendered: true,
     transaction,
   };
+}
+
+function createGpuFlowBlockedProjectionFrameResult({
+  blockedReason,
+  heldPreviousProjectionState,
+  projectionTransaction,
+  surfaceRef,
+}: {
+  readonly blockedReason: string;
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly projectionTransaction: GpuFlowProjectionTransaction;
+  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+}): RenderGpuFlowNodeLayerProjectionFrameResult {
+  surfaceRef.current?.requestFrame("texture-upload");
+  return {
+    blockedPublicationToken: createGpuFlowBlockedPublicationToken({
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "retained-projection",
+          reason: blockedReason,
+        },
+      ],
+      frozenFrameId:
+        heldPreviousProjectionState?.committedFrame.displayFrameId ??
+        GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+      projectionSample: projectionTransaction.sample,
+    }),
+    rendered: false,
+  };
+}
+
+function resolveGpuFlowProjectionRetainedRuntimeFrame({
+  fallbackRetainedRuntimeFrame,
+  heldPreviousProjectionState,
+  transaction,
+}: {
+  readonly fallbackRetainedRuntimeFrame: RetainedDisplayFrame["retainedRuntimeFrame"];
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly transaction: GpuFlowProjectionTransaction;
+}): RetainedDisplayFrame["retainedRuntimeFrame"] {
+  if (transaction.kind !== "held-previous") {
+    return fallbackRetainedRuntimeFrame;
+  }
+  return (
+    heldPreviousProjectionState?.committedFrame.retainedRuntimeFrame ??
+    fallbackRetainedRuntimeFrame
+  );
+}
+
+function createGpuFlowProjectionFrameDebugToken({
+  committedFrame,
+  heldPreviousProjection,
+  requestedSample,
+  transaction,
+}: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
+  readonly requestedSample: GpuFlowProjectionTransaction["sample"];
+  readonly transaction: GpuFlowProjectionTransaction;
+}): GpuFlowCommitPublicationToken | GpuFlowHoldPreviousToken {
+  if (transaction.kind !== "held-previous") {
+    return createGpuFlowCommitPublicationToken({
+      presentableCommit: createGpuFlowPresentableCommit({
+        frame: committedFrame,
+        projectionSample: transaction.sample,
+      }),
+    });
+  }
+  if (!heldPreviousProjection) {
+    throw new Error(
+      "GPU Flow held-previous projection debug publication requires held-previous diagnostics.",
+    );
+  }
+  return createGpuFlowHoldPreviousToken({
+    committedFrameId: transaction.committedFrameId,
+    holdAgeFrames: heldPreviousProjection.consecutiveFrameCount,
+    holdAgeMs: heldPreviousProjection.heldDurationMs,
+    projectionSample: requestedSample,
+  });
 }
 
 export function assertGpuFlowMotionProjectionFrameWork({
@@ -386,6 +511,7 @@ export function resolveGpuFlowProjectionFrameTransaction({
     heldPreviousProjectionState === null
   ) {
     return {
+      blockedReason: null,
       heldPreviousProjection: null,
       retainedProjectionFrame: requestedRetainedProjectionFrame,
       transaction: requestedTransaction,
@@ -398,7 +524,7 @@ export function resolveGpuFlowProjectionFrameTransaction({
       kind: "held-previous",
       lane: requestedTransaction.lane,
       rawReasons: frameReasons,
-      sample: heldPreviousProjectionState.sample,
+      sample: requestedTransaction.sample,
     });
   const heldPreviousProjection = createGpuFlowHeldPreviousProjection({
     heldTransaction: heldPreviousTransaction,
@@ -408,12 +534,21 @@ export function resolveGpuFlowProjectionFrameTransaction({
     reason: "retained-projection-coverage-missing",
     requestedSample: requestedTransaction.sample,
   });
+  if (isGpuFlowHeldPreviousProjectionOverBudget(heldPreviousProjection)) {
+    return {
+      blockedReason: "held-previous-budget-exceeded",
+      heldPreviousProjection,
+      retainedProjectionFrame: requestedRetainedProjectionFrame,
+      transaction: requestedTransaction,
+    };
+  }
   const heldProjectionFrame = resolveGpuFlowRetainedProjectionFrame({
     layer,
     retainedDisplayFrame,
     transaction: heldPreviousTransaction,
   });
   return {
+    blockedReason: null,
     heldPreviousProjection,
     retainedProjectionFrame: {
       ...heldProjectionFrame,
@@ -423,6 +558,15 @@ export function resolveGpuFlowProjectionFrameTransaction({
     },
     transaction: heldPreviousTransaction,
   };
+}
+
+function isGpuFlowHeldPreviousProjectionOverBudget(
+  heldPreviousProjection: GpuFlowHeldPreviousProjection,
+): boolean {
+  return Boolean(
+    heldPreviousProjection.maxHeldPreviousFramesExceeded ||
+      heldPreviousProjection.maxHeldPreviousMsExceeded,
+  );
 }
 
 function resolveGpuFlowRetainedProjectionFrame({

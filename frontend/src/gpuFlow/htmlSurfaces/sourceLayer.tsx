@@ -4,6 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
+  startTransition,
   type ReactNode,
 } from "react";
 
@@ -42,6 +43,7 @@ type HtmlSurfaceSourceLayerProps<TSource> = {
     | ReadonlySet<string>
     | readonly string[]
     | undefined;
+  readonly progressiveBatchDelayMs?: number | undefined;
   readonly progressiveBatchSize?: number | undefined;
   readonly renderSource: (source: TSource) => ReactNode;
   readonly sourceClassName?: string | undefined;
@@ -62,6 +64,7 @@ export function HtmlSurfaceSourceLayer<TSource>({
   onSourceElementChange,
   preservedClassNames,
   prioritySourceIds,
+  progressiveBatchDelayMs,
   progressiveBatchSize,
   renderSource,
   sourceClassName = HTML_SURFACE_SOURCE_CLASS_NAME,
@@ -83,6 +86,7 @@ export function HtmlSurfaceSourceLayer<TSource>({
   const renderSources = useProgressiveHtmlSurfaceSources({
     getSourceId,
     minimumInitialSourceCount: prioritySourceCount,
+    progressiveBatchDelayMs,
     progressiveBatchSize,
     sources: orderedSources,
   });
@@ -138,15 +142,20 @@ function orderHtmlSurfaceSources<TSource>({
 function useProgressiveHtmlSurfaceSources<TSource>({
   getSourceId,
   minimumInitialSourceCount,
+  progressiveBatchDelayMs,
   progressiveBatchSize,
   sources,
 }: {
   readonly getSourceId: (source: TSource) => string;
   readonly minimumInitialSourceCount: number;
+  readonly progressiveBatchDelayMs?: number | undefined;
   readonly progressiveBatchSize?: number | undefined;
   readonly sources: readonly TSource[];
 }): readonly TSource[] {
   const batchSize = normalizeProgressiveBatchSize(progressiveBatchSize);
+  const batchDelayMs = normalizeProgressiveBatchDelayMs(
+    progressiveBatchDelayMs,
+  );
   const sourceKey = useMemo(
     () => sources.map(getSourceId).join("\u001f"),
     [getSourceId, sources],
@@ -176,24 +185,77 @@ function useProgressiveHtmlSurfaceSources<TSource>({
       return;
     }
     let cancelled = false;
+    let idle: number | null = null;
+    let timer: number | null = null;
+    const commitProgress = () => {
+      if (cancelled) {
+        return;
+      }
+      startTransition(() => {
+        setProgress((current) => {
+          const currentLimit =
+            current.sourceKey === sourceKey ? current.limit : initialLimit;
+          return {
+            limit: Math.min(sources.length, currentLimit + batchSize),
+            sourceKey,
+          };
+        });
+      });
+    };
+    const requestIdleProgress = () => {
+      if (cancelled) {
+        return;
+      }
+      if (
+        typeof window.requestIdleCallback === "function" &&
+        typeof window.cancelIdleCallback === "function"
+      ) {
+        const runIdle = (deadline: IdleDeadline) => {
+          idle = null;
+          if (cancelled) {
+            return;
+          }
+          if (
+            !deadline.didTimeout &&
+            deadline.timeRemaining() < HTML_SURFACE_PROGRESSIVE_MIN_IDLE_MS
+          ) {
+            idle = window.requestIdleCallback(runIdle, {
+              timeout: HTML_SURFACE_PROGRESSIVE_IDLE_TIMEOUT_MS,
+            });
+            return;
+          }
+          commitProgress();
+        };
+        idle = window.requestIdleCallback(runIdle, {
+          timeout: HTML_SURFACE_PROGRESSIVE_IDLE_TIMEOUT_MS,
+        });
+        return;
+      }
+      commitProgress();
+    };
     const frame = window.requestAnimationFrame(() => {
       if (cancelled) {
         return;
       }
-      setProgress((current) => {
-        const currentLimit =
-          current.sourceKey === sourceKey ? current.limit : initialLimit;
-        return {
-          limit: Math.min(sources.length, currentLimit + batchSize),
-          sourceKey,
-        };
-      });
+      timer = window.setTimeout(() => {
+        timer = null;
+        requestIdleProgress();
+      }, batchDelayMs);
     });
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(frame);
+      if (
+        idle !== null &&
+        typeof window.cancelIdleCallback === "function"
+      ) {
+        window.cancelIdleCallback(idle);
+      }
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
     };
-  }, [batchSize, initialLimit, renderLimit, sourceKey, sources]);
+  }, [batchDelayMs, batchSize, initialLimit, renderLimit, sourceKey, sources]);
   useProgressiveHtmlSurfaceSourceHeartbeat(
     batchSize !== null && renderLimit < sources.length,
   );
@@ -268,6 +330,21 @@ function normalizeProgressiveBatchSize(
   }
   const batchSize = Math.floor(progressiveBatchSize);
   return batchSize > 0 ? batchSize : null;
+}
+
+const HTML_SURFACE_PROGRESSIVE_IDLE_TIMEOUT_MS = 1_200;
+const HTML_SURFACE_PROGRESSIVE_MIN_IDLE_MS = 12;
+
+function normalizeProgressiveBatchDelayMs(
+  progressiveBatchDelayMs: number | undefined,
+): number {
+  if (progressiveBatchDelayMs === undefined) {
+    return 0;
+  }
+  if (!Number.isFinite(progressiveBatchDelayMs)) {
+    return 0;
+  }
+  return Math.max(0, Math.floor(progressiveBatchDelayMs));
 }
 
 function HtmlSurfaceSourceChild<TSource>({

@@ -26,6 +26,7 @@ import {
   getGpuNodeResizeHandleRects,
   type GpuNodeResizeDirection,
 } from "../resizeHandles";
+import { releaseGpuFlowSurfaceTexture } from "../surfaceTextureReleaseAuthority";
 import type { GpuRect } from "../viewportMath";
 
 type GpuNodeResizeOverlayHandle = {
@@ -94,7 +95,11 @@ export function useGpuFlowNodeResizeOverlaySources({
       if (!element) {
         nodeElementByIdRef.current.delete(surfaceId);
         transformOnlyPaintNodeIdsRef.current.delete(surfaceId);
-        textureManagerRef.current?.destroySurfaceTexture(surfaceId);
+        releaseGpuFlowSurfaceTexture({
+          reason: "source-unmounted",
+          surfaceId,
+          textureManager: textureManagerRef.current,
+        });
         return;
       }
       nodeElementByIdRef.current.set(surfaceId, element);

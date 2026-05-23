@@ -17,8 +17,12 @@ export type SurfaceResourceProtectionReason =
   | "interactive-source";
 
 export type SurfaceResourceHandle = {
+  readonly actorId?: string | undefined;
+  readonly contentGenerationId?: string | undefined;
   readonly id: string;
   readonly kind: "texture" | "page" | "native-dom-island" | "source";
+  readonly projectionGenerationId?: string | undefined;
+  readonly resourceGenerationId?: string | undefined;
 };
 
 export type ProtectedSurfaceResourceHandle = SurfaceResourceHandle & {

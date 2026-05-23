@@ -1,8 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it } from "vitest";
+import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import { createGpuFlowLayoutStore } from "../layoutStore";
+import {
+  createGpuFlowProjectionTransaction,
+  createGpuFlowVisibleProjectionState,
+  type GpuFlowLiveProjectionSample,
+  type GpuFlowVisibleProjectionState,
+  type GpuFlowVisiblePublicationDecision,
+} from "../projectionRuntime";
 import { createGpuRetainedRowContentScene } from "../retainedContentScene";
 import {
   getGpuFlowSceneDomSectionNodes,
@@ -12,7 +20,11 @@ import {
 } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { GpuFlow } from "./flowSurface";
-import { shouldDeferGpuFlowResolutionUpdates } from "./flowSurfaceFramePublication";
+import {
+  createGpuFlowVisiblePublicationCommitDebtProof,
+  shouldDeferGpuFlowResolutionUpdates,
+} from "./flowSurfaceFramePublication";
+import { createGpuFlowVisibleOverlayProjectionKey } from "./flowVisibleOverlayProjectionKey";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 
 describe("GpuFlow", () => {
@@ -252,6 +264,79 @@ describe("GpuFlow", () => {
     ).toBe(false);
   });
 
+  it("includes retained scroll state in the visible overlay projection key", () => {
+    const firstKey = createGpuFlowVisibleOverlayProjectionKey(
+      visibleProjectionStateForOverlayKey({
+        retainedScrollOffsets: new Map([
+          ["surface-b", { x: 8, y: 13 }],
+          ["surface-a", { x: 5, y: 7 }],
+        ]),
+        retainedScrollRevision: 3,
+      }),
+    );
+    const sameScrollDifferentMapOrderKey =
+      createGpuFlowVisibleOverlayProjectionKey(
+        visibleProjectionStateForOverlayKey({
+          retainedScrollOffsets: new Map([
+            ["surface-a", { x: 5, y: 7 }],
+            ["surface-b", { x: 8, y: 13 }],
+          ]),
+          retainedScrollRevision: 3,
+        }),
+      );
+    const revisedScrollKey = createGpuFlowVisibleOverlayProjectionKey(
+      visibleProjectionStateForOverlayKey({
+        retainedScrollOffsets: new Map([
+          ["surface-a", { x: 5, y: 7 }],
+          ["surface-b", { x: 8, y: 13 }],
+        ]),
+        retainedScrollRevision: 4,
+      }),
+    );
+    const shiftedScrollKey = createGpuFlowVisibleOverlayProjectionKey(
+      visibleProjectionStateForOverlayKey({
+        retainedScrollOffsets: new Map([
+          ["surface-a", { x: 5, y: 7 }],
+          ["surface-b", { x: 8, y: 14 }],
+        ]),
+        retainedScrollRevision: 3,
+      }),
+    );
+
+    expect(sameScrollDifferentMapOrderKey).toBe(firstKey);
+    expect(revisedScrollKey).not.toBe(firstKey);
+    expect(shiftedScrollKey).not.toBe(firstKey);
+  });
+
+  it("keeps exact content debt queued for compatible-previous committed coverage", () => {
+    const publicationDecision = visiblePublicationDecision({ lane: "content" });
+
+    expect(
+      createGpuFlowVisiblePublicationCommitDebtProof({
+        committedFrame: committedSurfaceFrameForDebtProof({
+          compatiblePreviousActorIds: ["actor-a"],
+        }),
+        publicationDecision,
+      }),
+    ).toEqual({
+      content: false,
+      maintenance: false,
+      motion: false,
+    });
+    expect(
+      createGpuFlowVisiblePublicationCommitDebtProof({
+        committedFrame: committedSurfaceFrameForDebtProof({
+          compatiblePreviousActorIds: [],
+        }),
+        publicationDecision,
+      }),
+    ).toEqual({
+      content: true,
+      maintenance: false,
+      motion: false,
+    });
+  });
+
   it("prefers subscribed layout store geometry over matching scene snapshot nodes", () => {
     const layoutStore = createGpuFlowLayoutStore({
       nodes: [
@@ -315,7 +400,7 @@ describe("GpuFlow", () => {
     expect(markup).not.toContain('data-gpu-flow-source-id="stale-node-a"');
   });
 
-  it("renders scene DOM island content with the viewport transform", () => {
+  it("does not server-render DOM island content before visible publication", () => {
     const markup = renderToStaticMarkup(
       <GpuFlow
         renderDomIsland={(island) => (
@@ -328,16 +413,8 @@ describe("GpuFlow", () => {
       />,
     );
 
-    expect(markup).toContain('data-gpu-flow-dom-island="true"');
-    expect(markup).toContain('data-gpu-flow-dom-island-id="island-a"');
-    expect(markup).toContain(
-      'data-gpu-flow-dom-island-kind="retained-content-control"',
-    );
-    expect(markup).toContain('class="setta-gpu-flow__dom-island nodrag nopan"');
-    expect(markup).toContain('data-rendered-dom-island="island-a"');
-    expect(markup).toContain("left:19px");
-    expect(markup).toContain("top:38px");
-    expect(markup).toContain("transform:scale(1.5)");
+    expect(markup).not.toContain('data-gpu-flow-dom-island="true"');
+    expect(markup).not.toContain('data-rendered-dom-island="island-a"');
   });
 });
 
@@ -488,5 +565,103 @@ function sectionSceneNode(sectionId: string): GpuSectionSceneNode {
     scrollOffset: { x: 0, y: 0 },
     sectionId,
     worldRect: rect,
+  };
+}
+
+const overlayProjectionCommittedFrame = {
+  displayFrameId: 17,
+} as GpuFlowCommittedSurfaceFrame;
+
+function committedSurfaceFrameForDebtProof({
+  compatiblePreviousActorIds,
+}: {
+  readonly compatiblePreviousActorIds: readonly string[];
+}): GpuFlowCommittedSurfaceFrame {
+  return {
+    displayFrameId: 19,
+    projectionHorizon: {
+      textActorCoverage: {
+        blockedAwaitingBrowserVisualActorIds: [],
+        blockedAwaitingLiveHostActorIds: [],
+        compatiblePreviousActorIds,
+        exactLiveDomActorIds: [],
+        exactSnapshotActorIds: [],
+        trueHoleActorIds: [],
+      },
+    },
+    surfaceTransaction: null,
+  } as unknown as GpuFlowCommittedSurfaceFrame;
+}
+
+function visiblePublicationDecision({
+  lane,
+}: {
+  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
+}): GpuFlowVisiblePublicationDecision {
+  return {
+    debt: {
+      content: lane !== "content",
+      maintenance: lane !== "maintenance",
+      motion: lane !== "motion",
+    },
+    lane,
+    rawReasons: [],
+    sample: liveProjectionSampleForOverlayKey({
+      retainedScrollOffsets: new Map(),
+      retainedScrollRevision: 0,
+    }),
+    schedulerState: "content-catchup",
+  };
+}
+
+function visibleProjectionStateForOverlayKey({
+  retainedScrollOffsets,
+  retainedScrollRevision,
+}: {
+  readonly retainedScrollOffsets: ReadonlyMap<
+    string,
+    { readonly x: number; readonly y: number }
+  >;
+  readonly retainedScrollRevision: number;
+}): GpuFlowVisibleProjectionState {
+  const sample = liveProjectionSampleForOverlayKey({
+    retainedScrollOffsets,
+    retainedScrollRevision,
+  });
+  return createGpuFlowVisibleProjectionState({
+    committedFrame: overlayProjectionCommittedFrame,
+    transaction: createGpuFlowProjectionTransaction({
+      committedFrame: overlayProjectionCommittedFrame,
+      kind: "motion-projection",
+      lane: "motion",
+      rawReasons: ["viewport"],
+      sample,
+    }),
+  });
+}
+
+function liveProjectionSampleForOverlayKey({
+  retainedScrollOffsets,
+  retainedScrollRevision,
+}: {
+  readonly retainedScrollOffsets: ReadonlyMap<
+    string,
+    { readonly x: number; readonly y: number }
+  >;
+  readonly retainedScrollRevision: number;
+}): GpuFlowLiveProjectionSample {
+  return {
+    cssViewport: { height: 600, width: 800 },
+    devicePixelRatio: 1,
+    gestureOwner: "idle",
+    id: 1,
+    retainedScrollDelta: new Map(),
+    retainedScrollOffsets,
+    retainedScrollRevision,
+    retainedScrollVelocityCssPxPerMs: new Map(),
+    timestamp: 1,
+    viewport: { x: 10, y: 20, zoom: 1.5 },
+    viewportDelta: { x: 0, y: 0, zoom: 0 },
+    viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },
   };
 }

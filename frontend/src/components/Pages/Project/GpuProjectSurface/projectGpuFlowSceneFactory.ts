@@ -41,7 +41,10 @@ export type ProjectGpuFlowSceneOptions = {
     | ProjectGpuRetainedParamTarget
     | null
     | undefined;
-  readonly activeParamDomIsland?: ProjectGpuActiveParamDomIsland | null;
+  readonly activeParamDomIsland?:
+    | ProjectGpuActiveParamDomIsland
+    | null
+    | undefined;
   readonly hoveredParamTarget?:
     | ProjectGpuRetainedParamTarget
     | null
@@ -57,7 +60,7 @@ export type ProjectGpuFlowSceneOptions = {
     | ProjectGpuRetainedParamDragPreview
     | null
     | undefined;
-  readonly resizePolicyContext?: ProjectGpuSceneResizePolicyContext;
+  readonly resizePolicyContext?: ProjectGpuSceneResizePolicyContext | undefined;
   readonly revision?: number | undefined;
   readonly scrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
   readonly typeErrors?: ZustandTypeErrors["errors"] | undefined;

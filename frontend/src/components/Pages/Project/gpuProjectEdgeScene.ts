@@ -82,6 +82,14 @@ type UseProjectGpuEdgeSceneInput = ProjectGpuEdgeVisibility & {
   readonly scene: GpuFlowScene;
 };
 
+type ProjectGpuEdgeSources = {
+  readonly agenticEdges: readonly GpuAgenticEdgeSource[];
+  readonly agenticMissingEdges: readonly GpuAgenticMissingEdgeSource[];
+  readonly connectionLine: GpuConnectionLineSource | null;
+  readonly dataEdges: readonly GpuDataEdgeSource[];
+  readonly workflowEdges: readonly GpuWorkflowEdgeSource[];
+};
+
 type SelectProjectGpuEdgeInput = {
   readonly canEditStructure: boolean;
   readonly event: Pick<GpuEdgeInteractionEvent, "edgeId" | "family">;
@@ -97,6 +105,13 @@ const INACTIVE_PROJECT_GPU_CONNECTION_STATE: ProjectGpuConnectionState = {
   connectionStatus: null,
   transform: [0, 0, 1],
 };
+const EMPTY_PROJECT_GPU_EDGE_SCENE: GpuEdgeScene = Object.freeze({
+  edges: Object.freeze([]),
+  entries: Object.freeze([]),
+  hitTestEdges: Object.freeze([]),
+  labels: Object.freeze([]),
+  reconnectAnchors: Object.freeze([]),
+});
 const workflowSourceActivationCountOperatorLabelByValue = new Map(
   StateMachineUIConfig.sourceActivationCountOperatorOptions.map((option) => [
     option.value,
@@ -164,38 +179,152 @@ export function buildProjectGpuEdgeScene({
   showAgenticEdges,
   showDataEdges,
 }: BuildProjectGpuEdgeSceneInput): GpuEdgeScene {
-  const handlePositions = buildProjectGpuEdgeHandlePositions(scene);
+  const sources = buildProjectGpuEdgeSources({
+    connectionState,
+    projectConfig,
+    scopeViolationEdges,
+    showAgenticEdges,
+    showDataEdges,
+  });
+  if (!hasProjectGpuEdgeSources(sources)) {
+    return EMPTY_PROJECT_GPU_EDGE_SCENE;
+  }
+  const needsHandlePositions =
+    sources.connectionLine !== null || sources.dataEdges.length > 0;
+  const needsNodeFrames =
+    sources.agenticEdges.length > 0 ||
+    sources.agenticMissingEdges.length > 0 ||
+    sources.workflowEdges.length > 0;
   return buildGpuEdgeScene({
-    agenticEdges: showAgenticEdges
-      ? buildProjectGpuAgenticEdgeSources(projectConfig.agenticEdges ?? [])
-      : [],
+    agenticEdges: sources.agenticEdges,
+    connectionLine: sources.connectionLine,
+    dataEdges: sources.dataEdges,
+    handlePositions: needsHandlePositions
+      ? buildProjectGpuEdgeHandlePositions(scene)
+      : undefined,
+    nodes: needsNodeFrames ? buildGpuEdgeNodeFrames(layoutNodes) : undefined,
+    runningSourceSectionIds: getProjectGpuRunningSourceSectionIds({
+      projectConfig,
+      sectionImpls,
+      sectionVariants,
+      sources,
+    }),
+    scopeViolationEdges: sources.agenticMissingEdges,
+    workflowEdges: sources.workflowEdges,
+  });
+}
+
+function buildProjectGpuEdgeSources({
+  connectionState,
+  projectConfig,
+  scopeViolationEdges,
+  showAgenticEdges,
+  showDataEdges,
+}: Pick<
+  BuildProjectGpuEdgeSceneInput,
+  | "connectionState"
+  | "projectConfig"
+  | "scopeViolationEdges"
+  | "showAgenticEdges"
+  | "showDataEdges"
+>): ProjectGpuEdgeSources {
+  return {
+    agenticEdges: getProjectGpuAgenticEdgeSources({
+      edges: projectConfig.agenticEdges ?? [],
+      showAgenticEdges,
+    }),
+    agenticMissingEdges: getProjectGpuAgenticMissingEdgeSources({
+      edges: scopeViolationEdges ?? [],
+      showAgenticEdges,
+    }),
     connectionLine: resolveProjectGpuConnectionLine({
       connectionState,
       showAgenticEdges,
       showDataEdges,
     }),
-    dataEdges: showDataEdges
-      ? buildProjectGpuDataEdgeSources({
-          edges: projectConfig.edges ?? [],
-          sectionVariantMap: projectConfig.sectionVariantMap,
-        })
-      : [],
-    handlePositions,
-    nodes: buildGpuEdgeNodeFrames(layoutNodes),
-    runningSourceSectionIds: showAgenticEdges
-      ? getRunningAgenticSourceSectionIds({
-          sectionImpls,
-          sectionVariantMap: projectConfig.sectionVariantMap,
-          sectionVariants,
-          topLevelSections: projectConfig.topLevelSections,
-        })
-      : undefined,
-    scopeViolationEdges: showAgenticEdges
-      ? buildProjectGpuAgenticMissingEdgeSources(scopeViolationEdges ?? [])
-      : [],
+    dataEdges: getProjectGpuDataEdgeSources({
+      edges: projectConfig.edges ?? [],
+      sectionVariantMap: projectConfig.sectionVariantMap,
+      showDataEdges,
+    }),
     workflowEdges: buildProjectGpuWorkflowEdgeSources(
       projectConfig.stateMachineEdges ?? [],
     ),
+  };
+}
+
+function hasProjectGpuEdgeSources(sources: ProjectGpuEdgeSources): boolean {
+  const sourceCounts = [
+    sources.agenticEdges.length,
+    sources.agenticMissingEdges.length,
+    sources.dataEdges.length,
+    sources.workflowEdges.length,
+  ];
+  return (
+    sources.connectionLine !== null || sourceCounts.some((count) => count > 0)
+  );
+}
+
+function getProjectGpuDataEdgeSources({
+  edges,
+  sectionVariantMap,
+  showDataEdges,
+}: {
+  readonly edges: readonly ProjectDataEdge[];
+  readonly sectionVariantMap: SectionVariantMap;
+  readonly showDataEdges: boolean;
+}): GpuDataEdgeSource[] {
+  if (!showDataEdges) {
+    return [];
+  }
+  return buildProjectGpuDataEdgeSources({ edges, sectionVariantMap });
+}
+
+function getProjectGpuAgenticEdgeSources({
+  edges,
+  showAgenticEdges,
+}: {
+  readonly edges: readonly ProjectAgenticEdge[];
+  readonly showAgenticEdges: boolean;
+}): GpuAgenticEdgeSource[] {
+  if (!showAgenticEdges) {
+    return [];
+  }
+  return buildProjectGpuAgenticEdgeSources(edges);
+}
+
+function getProjectGpuAgenticMissingEdgeSources({
+  edges,
+  showAgenticEdges,
+}: {
+  readonly edges: readonly ProjectAgenticMissingEdgeSource[];
+  readonly showAgenticEdges: boolean;
+}): GpuAgenticMissingEdgeSource[] {
+  if (!showAgenticEdges) {
+    return [];
+  }
+  return buildProjectGpuAgenticMissingEdgeSources(edges);
+}
+
+function getProjectGpuRunningSourceSectionIds({
+  projectConfig,
+  sectionImpls,
+  sectionVariants,
+  sources,
+}: {
+  readonly projectConfig: ProjectConfig;
+  readonly sectionImpls: SectionImpls;
+  readonly sectionVariants: SectionVariants;
+  readonly sources: ProjectGpuEdgeSources;
+}): ReadonlySet<string> | undefined {
+  if (sources.agenticEdges.length === 0) {
+    return undefined;
+  }
+  return getRunningAgenticSourceSectionIds({
+    sectionImpls,
+    sectionVariantMap: projectConfig.sectionVariantMap,
+    sectionVariants,
+    topLevelSections: projectConfig.topLevelSections,
   });
 }
 

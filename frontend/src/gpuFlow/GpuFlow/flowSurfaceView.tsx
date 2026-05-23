@@ -1,6 +1,5 @@
 import { useMemo, type ReactNode, type RefObject } from "react";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import { GpuSurface, type GpuSurfaceHandle } from "../GpuSurface";
 import type { GpuNodeLayout } from "../htmlSurfaces/frame";
@@ -22,15 +21,20 @@ import {
   type GpuFlowRetainedScrollOffsetGetter,
 } from "./domControlPlane";
 import { GpuFlowDomIslandLayer } from "./domIslandLayer";
+import { profileGpuFlowReactElement } from "./flowReactProfiler";
 import type { GpuFlowProps } from "./flowSurfaceTypes";
 import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
+import type { GpuFlowColdStartShellFrame } from "./visibleFramePublicationAuthority";
 
 const GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_SIZE = 1;
+const GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_DELAY_MS = 750;
+const GPU_FLOW_NODE_SOURCE_MAX_INITIAL_PRIORITY_COUNT = 1;
 const GPU_FLOW_NODE_SOURCE_PRIORITY_MARGIN_CSS_PX = 360;
 
 export function GpuFlowSurfaceView({
   children,
   className,
+  coldStartShellFrame,
   committedSurfaceRuntime,
   containerRef,
   deviceOptions,
@@ -60,10 +64,10 @@ export function GpuFlowSurfaceView({
   surfaceRef,
   viewportRuntime,
   viewportStore,
-  visibleCommittedSurfaceFrame,
 }: {
   readonly children: ReactNode;
   readonly className: string;
+  readonly coldStartShellFrame: GpuFlowColdStartShellFrame | null;
   readonly committedSurfaceRuntime: GpuFlowCommittedSurfaceRuntime;
   readonly containerRef: RefObject<HTMLDivElement | null>;
   readonly deviceOptions: GpuFlowProps["deviceOptions"];
@@ -95,7 +99,6 @@ export function GpuFlowSurfaceView({
   readonly surfaceRef: RefObject<GpuSurfaceHandle | null>;
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly viewportStore: GpuFlowViewportStoreApi;
-  readonly visibleCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame;
 }) {
   const priorityNodeIds = useMemo(
     () =>
@@ -110,13 +113,12 @@ export function GpuFlowSurfaceView({
     nodes,
     onNodeElementChange,
     priorityNodeIds,
+    progressiveBatchDelayMs: GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_DELAY_MS,
     progressiveBatchSize: GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_SIZE,
     renderNode,
   });
   const portalGroups = partitionGpuFlowPortals(portals);
   assertGpuFlowPortalGroupsRenderable(portalGroups);
-  const visibleRetainedRuntimeFrame =
-    visibleCommittedSurfaceFrame.retainedRuntimeFrame;
   return (
     <GpuFlowLayoutStoreContext.Provider value={layoutStore ?? null}>
       <GpuFlowSceneContext.Provider value={sceneContextValue}>
@@ -136,38 +138,72 @@ export function GpuFlowSurfaceView({
             onResize={handleResize}
             ref={surfaceRef}
           >
-            {nodeLayerElement}
+            {profileGpuFlowReactElement("node-layer-source", nodeLayerElement)}
             {children}
             <GpuFlowPortalLayer portals={portalGroups.sourceLocal} />
             {edgeLabelSourceElement}
-            {retainedDomControlSnapshotSourceElement}
+            {profileGpuFlowReactElement(
+              "retained-dom-control-snapshot-source",
+              retainedDomControlSnapshotSourceElement,
+            )}
             {selectionOverlaySourceElement}
             {nodeResizeOverlaySourceElement}
             {nodeDragPreviewSourceElement}
           </GpuSurface>
-          <GpuFlowDomControlPlane
-            committedFrameId={visibleCommittedSurfaceFrame.displayFrameId}
-            committedSurfaceRuntime={committedSurfaceRuntime}
-            getRetainedScrollOffset={getRetainedDomControlScrollOffset}
-            onActivate={onDomControlActivation}
-            renderControl={renderRetainedDomControl}
-            retainedRuntimeFrame={visibleRetainedRuntimeFrame}
-            surfaceRef={surfaceRef}
-            viewportStore={viewportStore}
-            viewportRuntime={viewportRuntime}
-          />
-          <GpuFlowDomIslandLayer
-            committedFrameId={visibleCommittedSurfaceFrame.displayFrameId}
-            committedSurfaceRuntime={committedSurfaceRuntime}
-            renderDomIsland={renderDomIsland}
-            retainedRuntimeFrame={visibleRetainedRuntimeFrame}
-            viewportStore={viewportStore}
-            viewportRuntime={viewportRuntime}
-          />
+          {coldStartShellFrame ? (
+            <GpuFlowColdStartShellOverlay frame={coldStartShellFrame} />
+          ) : (
+            <>
+              {profileGpuFlowReactElement(
+                "dom-control-plane",
+                <GpuFlowDomControlPlane
+                  committedSurfaceRuntime={committedSurfaceRuntime}
+                  getRetainedScrollOffset={getRetainedDomControlScrollOffset}
+                  onActivate={onDomControlActivation}
+                  renderControl={renderRetainedDomControl}
+                  surfaceRef={surfaceRef}
+                  viewportStore={viewportStore}
+                  viewportRuntime={viewportRuntime}
+                />,
+              )}
+              {profileGpuFlowReactElement(
+                "dom-island-layer",
+                <GpuFlowDomIslandLayer
+                  committedSurfaceRuntime={committedSurfaceRuntime}
+                  renderDomIsland={renderDomIsland}
+                  viewportStore={viewportStore}
+                  viewportRuntime={viewportRuntime}
+                />,
+              )}
+            </>
+          )}
           <GpuFlowPortalLayer portals={portalGroups.viewport} />
         </div>
       </GpuFlowSceneContext.Provider>
     </GpuFlowLayoutStoreContext.Provider>
+  );
+}
+
+function GpuFlowColdStartShellOverlay({
+  frame,
+}: {
+  readonly frame: GpuFlowColdStartShellFrame;
+}) {
+  return (
+    <div
+      aria-busy="true"
+      aria-live="polite"
+      className="setta-gpu-flow__cold-start-shell"
+      data-gpu-flow-cold-start-shell="true"
+      data-gpu-flow-cold-start-shell-frame-id={frame.id}
+      data-gpu-flow-cold-start-shell-input={frame.input}
+      data-gpu-flow-cold-start-shell-reason={frame.reason}
+      role="status"
+    >
+      <span className="setta-gpu-flow__cold-start-shell-label">
+        Preparing surface
+      </span>
+    </div>
   );
 }
 
@@ -210,7 +246,7 @@ function resolveGpuFlowPrioritySourceNodeIds({
     }
   }
   return priorityIds.length > 0
-    ? priorityIds
+    ? priorityIds.slice(0, GPU_FLOW_NODE_SOURCE_MAX_INITIAL_PRIORITY_COUNT)
     : nodes
         .slice(0, GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_SIZE)
         .map((node) => node.nodeId);

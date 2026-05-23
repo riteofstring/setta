@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useLayoutEffect,
   useMemo,
@@ -23,6 +24,7 @@ import {
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
+import { releaseGpuFlowSurfaceTexture } from "../surfaceTextureReleaseAuthority";
 import { getGpuFlowBrowserVisualActorRuntimeForCommittedSurface } from "./browserVisualActorRuntime";
 import type { GpuFlowDomControlRenderer } from "./domControlPlane";
 import { projectGpuFlowDomControlPlaneGeometry } from "./domControlPlaneProjection";
@@ -32,6 +34,8 @@ const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SOURCE_CLASS_NAME =
   "setta-gpu-flow__dom-control-snapshot-source";
 const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SURFACE_ID_PREFIX =
   "retained-dom-control-snapshot:";
+const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_SIZE = 1;
+const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_DELAY_MS = 750;
 const noop = () => {};
 
 export function useGpuFlowRetainedDomControlSnapshotSources({
@@ -98,14 +102,40 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
       [browserVisualRuntime],
     ),
   );
+  const browserVisualPreparationSnapshot = useSyncExternalStore(
+    useCallback(
+      (listener) =>
+        browserVisualRuntime
+          ? browserVisualRuntime.subscribePreparation(listener)
+          : noop,
+      [browserVisualRuntime],
+    ),
+    useCallback(
+      () => browserVisualRuntime?.getPreparationSnapshot() ?? null,
+      [browserVisualRuntime],
+    ),
+    useCallback(
+      () => browserVisualRuntime?.getPreparationSnapshot() ?? null,
+      [browserVisualRuntime],
+    ),
+  );
   const snapshotSources = useMemo(() => {
     if (browserVisualRuntime) {
-      return browserVisualSnapshot?.domControls.snapshotControls ?? [];
+      return combineGpuFlowRetainedDomControlSnapshotSources([
+        ...(browserVisualSnapshot?.domControls.snapshotControls ?? []),
+        ...(browserVisualPreparationSnapshot?.domControls.snapshotControls ??
+          []),
+      ]);
     }
     return getGpuRetainedDomControlSnapshotSources(
       retainedRuntimeFrame?.descriptors.domControlSources,
     );
-  }, [browserVisualRuntime, browserVisualSnapshot, retainedRuntimeFrame]);
+  }, [
+    browserVisualRuntime,
+    browserVisualPreparationSnapshot,
+    browserVisualSnapshot,
+    retainedRuntimeFrame,
+  ]);
   const retainedDomControlSnapshotSurfaces = useMemo(
     () => getGpuRetainedDomControlSnapshotSurfaceLayouts(snapshotSources),
     [snapshotSources],
@@ -119,7 +149,11 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
       if (!element) {
         nodeElementByIdRef.current.delete(surfaceId);
         transformOnlyPaintNodeIdsRef.current.delete(surfaceId);
-        textureManagerRef.current?.destroySurfaceTexture(surfaceId);
+        releaseGpuFlowSurfaceTexture({
+          reason: "source-unmounted",
+          surfaceId,
+          textureManager: textureManagerRef.current,
+        });
         registerGpuFlowRetainedDomControlSnapshotTextureManager({
           committedSurfaceRuntime,
           textureManager: browserVisualTextureManager,
@@ -197,6 +231,19 @@ function getGpuRetainedDomControlSnapshotSources(
     (control) =>
       control.visualPolicy === "snapshot" && control.snapshotSurfaceId,
   );
+}
+
+function combineGpuFlowRetainedDomControlSnapshotSources(
+  controls: readonly GpuRetainedDomControlSourceDescriptor[],
+): readonly GpuRetainedDomControlSourceDescriptor[] {
+  const controlBySourceId = new Map<
+    string,
+    GpuRetainedDomControlSourceDescriptor
+  >();
+  for (const control of controls) {
+    controlBySourceId.set(control.sourceId, control);
+  }
+  return Object.freeze([...controlBySourceId.values()]);
 }
 
 function registerGpuFlowRetainedDomControlSnapshotElement({
@@ -329,8 +376,14 @@ function GpuRetainedDomControlSnapshotSourceLayer({
       }
       getSourceId={getGpuRetainedDomControlSnapshotSourceId}
       onSourceElementChange={onSnapshotElementChange}
+      progressiveBatchDelayMs={
+        GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_DELAY_MS
+      }
+      progressiveBatchSize={
+        GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_SIZE
+      }
       renderSource={(source) => (
-        <GpuRetainedDomControlSnapshotSource
+        <MemoizedGpuRetainedDomControlSnapshotSource
           onSnapshotDraw={onSnapshotDraw}
           renderControl={renderControl}
           source={source}
@@ -372,6 +425,49 @@ function GpuRetainedDomControlSnapshotSource({
         presentation: "dom-control-plane",
       })}
     </div>
+  );
+}
+
+const MemoizedGpuRetainedDomControlSnapshotSource = memo(
+  GpuRetainedDomControlSnapshotSource,
+  areGpuRetainedDomControlSnapshotSourcePropsEqual,
+);
+
+function areGpuRetainedDomControlSnapshotSourcePropsEqual(
+  previous: {
+    readonly onSnapshotDraw?: ((surfaceId: string) => void) | undefined;
+    readonly renderControl: GpuFlowDomControlRenderer;
+    readonly source: GpuRetainedDomControlSourceDescriptor;
+  },
+  next: {
+    readonly onSnapshotDraw?: ((surfaceId: string) => void) | undefined;
+    readonly renderControl: GpuFlowDomControlRenderer;
+    readonly source: GpuRetainedDomControlSourceDescriptor;
+  },
+): boolean {
+  return (
+    previous.onSnapshotDraw === next.onSnapshotDraw &&
+    previous.renderControl === next.renderControl &&
+    previous.source.active === next.source.active &&
+    previous.source.sourceId === next.source.sourceId &&
+    previous.source.sourceKey === next.source.sourceKey &&
+    previous.source.snapshotCacheKeyRevision ===
+      next.source.snapshotCacheKeyRevision &&
+    gpuRetainedDomControlActivationEqual(
+      previous.source.activation,
+      next.source.activation,
+    )
+  );
+}
+
+function gpuRetainedDomControlActivationEqual(
+  previous: GpuRetainedDomControlSourceDescriptor["activation"],
+  next: GpuRetainedDomControlSourceDescriptor["activation"],
+): boolean {
+  return (
+    previous?.kind === next?.kind &&
+    previous?.clientPoint.x === next?.clientPoint.x &&
+    previous?.clientPoint.y === next?.clientPoint.y
   );
 }
 

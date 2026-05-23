@@ -1,7 +1,6 @@
 import type { GpuRetainedContentScrollOffsetMap } from "gpuFlow/retainedContentScroll";
 import type { GpuFlowScene } from "gpuFlow/scene";
 import type { GpuSectionSceneScrollOffsetMap } from "gpuFlow/sceneScroll";
-import { getActiveViewModeTopLevelSections } from "state/actions/sectionInfos/codeObjectsAndLayout";
 import type { ZustandProjectState } from "state/definitions";
 import type { ProjectGpuFlowSceneOptions } from "./projectGpuFlowSceneFactory";
 import type {
@@ -43,9 +42,14 @@ type ProjectGpuFlowSceneCacheKey = {
     | NonNullable<ProjectGpuFlowSceneOptions["projectSearch"]>["lookup"]
     | undefined;
   readonly activeViewModeId: ZustandProjectState["projectConfig"]["activeViewModeId"];
-  readonly activeViewModeLayoutSignature: string;
-  readonly activeViewModeVisibilitySignature: string;
+  readonly activeViewModeTopLevelSections:
+    | ZustandProjectState["projectConfig"]["topLevelSections"]
+    | undefined;
+  readonly activeViewModeVisibilityBySectionId:
+    | ZustandProjectState["projectConfig"]["viewModes"][string]["visibilityBySectionId"]
+    | undefined;
   readonly isEditingViewMode: ZustandProjectState["projectConfig"]["isEditingViewMode"];
+  readonly projectTopLevelSections: ZustandProjectState["projectConfig"]["topLevelSections"];
   readonly resizeEventBySectionId:
     | ProjectGpuSceneResizePolicyContext["resizeEventBySectionId"]
     | undefined;
@@ -85,9 +89,10 @@ const PROJECT_GPU_FLOW_SCENE_CACHE_KEY_FIELDS = [
   "projectSearchFocused",
   "projectSearchLookup",
   "activeViewModeId",
-  "activeViewModeLayoutSignature",
-  "activeViewModeVisibilitySignature",
+  "activeViewModeTopLevelSections",
+  "activeViewModeVisibilityBySectionId",
   "isEditingViewMode",
+  "projectTopLevelSections",
   "resizeEventBySectionId",
   "revision",
   "sectionImpls",
@@ -162,6 +167,36 @@ export function prewarmProjectGpuFlowSceneCache(
   }
 }
 
+export function getProjectGpuFlowPrewarmViewModeIds(
+  projectState: ZustandProjectState,
+): readonly string[] {
+  const activeViewModeId = projectState.projectConfig.activeViewModeId;
+  return Object.values(projectState.projectConfig.viewModes)
+    .filter((mode) => mode.id !== activeViewModeId)
+    .sort(
+      (left, right) =>
+        (left.sortIndex ?? Number.MAX_SAFE_INTEGER) -
+        (right.sortIndex ?? Number.MAX_SAFE_INTEGER),
+    )
+    .slice(0, MAX_PROJECT_GPU_FLOW_PREWARM_VIEW_MODES)
+    .map((mode) => mode.id);
+}
+
+export function prewarmProjectGpuFlowSceneCacheViewMode(
+  projectState: ZustandProjectState,
+  options: ProjectGpuFlowSceneOptions,
+  activeViewModeId: string,
+  resolveScene: (
+    projectState: ZustandProjectState,
+    options: ProjectGpuFlowSceneOptions,
+  ) => GpuFlowScene,
+): void {
+  resolveScene(
+    createProjectStateForGpuFlowViewMode(projectState, activeViewModeId),
+    options,
+  );
+}
+
 export function createProjectGpuFlowPrewarmKey(
   projectState: ZustandProjectState,
   options: ProjectGpuFlowSceneOptions,
@@ -194,6 +229,7 @@ export function createProjectGpuFlowSceneCacheKey(
   options: ProjectGpuFlowSceneOptions,
 ): ProjectGpuFlowSceneCacheKey {
   const policy = resolveProjectGpuFlowSceneCachePolicy(options.paramEditPolicy);
+  const activeViewMode = getProjectGpuActiveViewMode(projectState);
   return {
     activeParamCanvasControlSignature: projectGpuParamTargetSignature(
       options.activeParamCanvasControl,
@@ -221,11 +257,11 @@ export function createProjectGpuFlowSceneCacheKey(
       options.passwordRevealStates,
     ),
     activeViewModeId: projectState.projectConfig.activeViewModeId,
-    activeViewModeLayoutSignature:
-      getProjectGpuActiveViewModeLayoutSignature(projectState),
-    activeViewModeVisibilitySignature:
-      getProjectGpuActiveViewModeVisibilitySignature(projectState),
+    activeViewModeTopLevelSections: activeViewMode?.topLevelSections,
+    activeViewModeVisibilityBySectionId:
+      activeViewMode?.visibilityBySectionId,
     isEditingViewMode: projectState.projectConfig.isEditingViewMode,
+    projectTopLevelSections: projectState.projectConfig.topLevelSections,
     projectSearchFocused: options.projectSearch?.focused,
     projectSearchLookup: options.projectSearch?.lookup,
     resizeEventBySectionId: options.resizePolicyContext?.resizeEventBySectionId,
@@ -244,7 +280,7 @@ function createProjectGpuFlowSearchPrewarmKeyParts(
 ): readonly string[] {
   return [
     projectSearch?.focused ? "search-focused" : "search-blurred",
-    projectSearch?.lookup ?? "",
+    setStringSignature(projectSearch?.lookup),
   ];
 }
 
@@ -252,9 +288,25 @@ function createProjectGpuFlowResizePrewarmKeyParts(
   resizePolicyContext: ProjectGpuFlowSceneOptions["resizePolicyContext"],
 ): readonly string[] {
   return [
-    resizePolicyContext?.sizingPolicy ?? "",
-    resizePolicyContext?.resizeEventBySectionId ?? "",
+    String(resizePolicyContext?.sizingPolicy ?? ""),
+    stringRecordSignature(resizePolicyContext?.resizeEventBySectionId),
   ];
+}
+
+function setStringSignature(values: ReadonlySet<string> | undefined): string {
+  return values ? [...values].sort().join(",") : "";
+}
+
+function stringRecordSignature(
+  record: Readonly<Record<string, string | undefined>> | undefined,
+): string {
+  if (!record) {
+    return "";
+  }
+  return Object.entries(record)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}:${value ?? ""}`)
+    .join(",");
 }
 
 function createProjectGpuFlowInteractionPrewarmKeyParts(
@@ -312,41 +364,11 @@ function isProjectGpuFlowSceneCacheHit(
   );
 }
 
-function getProjectGpuActiveViewModeLayoutSignature(
+function getProjectGpuActiveViewMode(
   projectState: ZustandProjectState,
-): string {
-  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
-  return Object.entries(topLevelSections)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(
-      ([sectionId, layout]) =>
-        [
-          sectionId,
-          layout.x,
-          layout.y,
-          layout.w ?? "",
-          layout.h ?? "",
-          layout.zIndex ?? "",
-        ].join(":"),
-    )
-    .join("|");
-}
-
-function getProjectGpuActiveViewModeVisibilitySignature(
-  projectState: ZustandProjectState,
-): string {
+): ZustandProjectState["projectConfig"]["viewModes"][string] | undefined {
   const { activeViewModeId, viewModes } = projectState.projectConfig;
-  const visibilityBySectionId =
-    activeViewModeId && viewModes[activeViewModeId]
-      ? viewModes[activeViewModeId].visibilityBySectionId
-      : undefined;
-  if (!visibilityBySectionId) {
-    return "";
-  }
-  return Object.entries(visibilityBySectionId)
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([sectionId, visible]) => `${sectionId}:${visible ? "1" : "0"}`)
-    .join("|");
+  return activeViewModeId ? viewModes[activeViewModeId] : undefined;
 }
 
 function projectGpuParamTargetSignature(target: OptionalParamTarget): string {

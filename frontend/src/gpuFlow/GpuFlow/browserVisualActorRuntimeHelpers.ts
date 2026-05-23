@@ -13,6 +13,7 @@ import type {
 } from "./browserVisualActorRuntime";
 import type { GpuFlowDomControlProjectionAssignment } from "./domControlPlaneProjection";
 import { DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS } from "./domControlProjectionHorizon";
+import type { BrowserVisualActorRepresentationReadiness } from "../surfaceCompositor/browserVisualActorAdapter";
 
 const GPU_FLOW_DOM_CONTROL_HOST_RETAINED_PREVIOUS_LIMIT =
   DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.maxReadableMountedControls +
@@ -61,6 +62,32 @@ export function isProjectableDomControlAssignment(
     assignment.coverageState === "live" ||
     assignment.coverageState === "compatible-previous"
   );
+}
+
+export function createGpuFlowCompatiblePreviousDomControlReadiness({
+  assignment,
+}: {
+  readonly assignment: GpuFlowDomControlProjectionAssignment;
+}): BrowserVisualActorRepresentationReadiness | null {
+  if (!assignment.compatibilityProof) {
+    return null;
+  }
+  return Object.freeze({
+    compatibilityProof: assignment.compatibilityProof,
+    coverageState: "compatible-previous-ready" as const,
+  });
+}
+
+export function addSetValue<T>(set: Set<T>, value: T): boolean {
+  if (set.has(value)) {
+    return false;
+  }
+  set.add(value);
+  return true;
+}
+
+export function deleteSetValue<T>(set: Set<T>, value: T): boolean {
+  return set.delete(value);
 }
 
 export function mergeGpuFlowDomControlProjectedControls({

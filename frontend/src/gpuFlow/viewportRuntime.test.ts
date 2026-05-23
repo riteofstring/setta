@@ -51,11 +51,32 @@ describe("GpuFlow viewport runtime", () => {
     runtime.applyOverlayTransforms([0, 0, 1]);
 
     expect(runtime.getViewportTuple()).toEqual([10, 0, 1]);
-    expect(projectedViewports).toEqual([
-      [0, 0, 1],
-      [10, 0, 1],
-      [0, 0, 1],
-    ]);
+    expect(projectedViewports).toEqual([[0, 0, 1]]);
+
+    runtime.destroy();
+  });
+
+  it("does not project overlays before publication applies an explicit sample", () => {
+    const store = createGpuFlowViewportStore({
+      transform: [0, 0, 1],
+    });
+    const runtime = createGpuFlowViewportRuntime({
+      requestFrame: vi.fn(),
+      store,
+    });
+    const projectedViewports: unknown[] = [];
+    runtime.registerOverlayManager({
+      applyViewport(viewport) {
+        projectedViewports.push(viewport);
+      },
+    });
+
+    runtime.applyViewportCommand([20, 0, 1]);
+    runtime.enqueuePan({ x: 10, y: 0 });
+    runtime.runFrame(16);
+
+    expect(runtime.getViewportTuple()).toEqual([30, 0, 1]);
+    expect(projectedViewports).toEqual([]);
 
     runtime.destroy();
   });

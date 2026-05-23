@@ -4,6 +4,7 @@ import {
   surfaceCoverageIsComplete,
   type ProtectedSurfaceResourceHandle,
   type SurfaceCoverageProof,
+  type SurfaceResourceHandle,
   type SurfaceResourceProtectionReason,
 } from "./surfaceCoverage";
 import {
@@ -327,10 +328,7 @@ export function protectedSurfaceResourcesForTransaction({
   handles,
   reason,
 }: {
-  readonly handles: readonly {
-    readonly id: string;
-    readonly kind: "texture" | "page" | "native-dom-island" | "source";
-  }[];
+  readonly handles: readonly SurfaceResourceHandle[];
   readonly reason: SurfaceResourceProtectionReason;
 }): readonly ProtectedSurfaceResourceHandle[] {
   return Object.freeze(

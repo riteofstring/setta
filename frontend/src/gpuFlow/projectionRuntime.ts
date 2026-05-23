@@ -100,6 +100,7 @@ type GpuFlowProjectionHorizonObligationList = {
 export type GpuFlowTextControlCompatibilityProof = {
   readonly activationPolicy: string;
   readonly actorId: string;
+  readonly canonicalActorId: string;
   readonly clipChainRevision: string;
   readonly controlKind: string;
   readonly displayRevision: string | null;

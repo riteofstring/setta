@@ -3,10 +3,10 @@ import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomContro
 import type {
   BrowserActorBlockedReason,
   BrowserTextActorRepresentation,
-  BrowserVisualActorCompatiblePreviousProof,
   BrowserVisualActorCoverageState,
   HostId,
 } from "./browserVisualActorAdapter";
+import type { BrowserVisualActorCompatiblePreviousProof } from "./browserVisualActorProofTypes";
 
 export function createDomControlTextActorRepresentation({
   compatiblePreviousProof,
@@ -39,6 +39,17 @@ export function createDomControlTextActorRepresentation({
       coverageState,
     }),
   });
+}
+
+export function requiresLiveDomControlTextActorRepresentation(
+  control: GpuRetainedDomControlSourceDescriptor,
+): boolean {
+  return (
+    control.active ||
+    control.textCoverageState.caret === "visible" ||
+    control.textCoverageState.composition === "active" ||
+    control.textCoverageState.selection !== "none"
+  );
 }
 
 function createSnapshotDomControlTextActorRepresentation(
@@ -85,7 +96,7 @@ function getBlockedDomControlTextActorRepresentationReason({
 function createLiveHostDomControlTextActorRepresentation(
   control: GpuRetainedDomControlSourceDescriptor,
 ): BrowserTextActorRepresentation {
-  if (control.active) {
+  if (requiresLiveDomControlTextActorRepresentation(control)) {
     return Object.freeze({
       actorId: control.sourceId,
       hostId: createDomControlHostId(control),

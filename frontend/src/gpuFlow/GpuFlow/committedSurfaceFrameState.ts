@@ -1,4 +1,10 @@
-import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 
 import {
   createGpuFlowCommittedSurfaceFrame,
@@ -9,7 +15,20 @@ import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
-import { getGpuFlowBrowserVisualActorRuntimeForCommittedSurface } from "./browserVisualActorRuntime";
+import {
+  getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
+  type GpuFlowBrowserVisualActorCandidate,
+} from "./browserVisualActorRuntime";
+import {
+  createGpuFlowCommittedSurfaceResetToken,
+  createGpuFlowCommittedSurfaceStartupToken,
+} from "./visibleFramePublicationAuthority";
+import {
+  assertGpuFlowPreparedCandidateAbortToken,
+  type GpuFlowBlockedPublicationToken,
+  type GpuFlowCommitPublicationToken,
+  type GpuFlowHoldPreviousToken,
+} from "./visibleFramePublicationTokens";
 
 export function useGpuFlowCommittedSurfaceFrameState({
   initialRetainedRuntimeFrame,
@@ -29,9 +48,17 @@ export function useGpuFlowCommittedSurfaceFrameState({
   const committedSurfaceRuntimeRef = useRef(
     createGpuFlowCommittedSurfaceRuntime(startupCommittedSurfaceFrame),
   );
-  committedSurfaceRuntimeRef.current.setStartupFrame(
-    startupCommittedSurfaceFrame,
+  const pendingBrowserVisualCandidateByFrameIdRef = useRef(
+    new Map<number, GpuFlowBrowserVisualActorCandidate>(),
   );
+  useEffect(() => {
+    committedSurfaceRuntimeRef.current.setStartupFrame(
+      createGpuFlowCommittedSurfaceStartupToken({
+        frame: startupCommittedSurfaceFrame,
+      }),
+      startupCommittedSurfaceFrame,
+    );
+  }, [startupCommittedSurfaceFrame]);
   const semanticSnapshot = useSyncExternalStore(
     committedSurfaceRuntimeRef.current.subscribeReactSemanticSnapshot.bind(
       committedSurfaceRuntimeRef.current,
@@ -47,12 +74,15 @@ export function useGpuFlowCommittedSurfaceFrameState({
   committedSurfaceFrameRef.current = visibleCommittedSurfaceFrame;
 
   const resetCommittedSurfaceFrame = useCallback(() => {
-    committedSurfaceRuntimeRef.current.resetCommittedContentFrame();
+    pendingBrowserVisualCandidateByFrameIdRef.current.clear();
+    committedSurfaceRuntimeRef.current.resetCommittedContentFrame(
+      createGpuFlowCommittedSurfaceResetToken(),
+    );
     committedSurfaceFrameRef.current =
       committedSurfaceRuntimeRef.current.getCommittedContentFrame();
   }, []);
 
-  const publishCommittedSurfaceFrame = useCallback(
+  const prepareCommittedSurfaceFrame = useCallback(
     (
       nextRetainedDisplayFrame: RetainedDisplayFrame,
       options?:
@@ -69,32 +99,103 @@ export function useGpuFlowCommittedSurfaceFrameState({
         getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
           committedSurfaceRuntimeRef.current,
         );
-      const browserVisualReadiness =
+      const browserVisualCandidate =
         browserVisualRuntime.prepareCommittedSurfaceFrame({
           retainedDisplayFrame: nextRetainedDisplayFrame,
         });
+      pendingBrowserVisualCandidateByFrameIdRef.current.set(
+        nextRetainedDisplayFrame.id,
+        browserVisualCandidate,
+      );
       const nextCommittedSurfaceFrame = createGpuFlowCommittedSurfaceFrame({
-        browserVisualReadiness,
+        browserVisualReadiness: browserVisualCandidate.readiness,
         gpuNativeVisuals: options?.gpuNativeVisuals,
         previousCommittedSurfaceFrame,
         retainedDisplayFrame: nextRetainedDisplayFrame,
       });
-      if (nextCommittedSurfaceFrame.publishability.kind !== "publishable") {
-        return nextCommittedSurfaceFrame;
-      }
-      committedSurfaceRuntimeRef.current.publishCommittedContentFrame(
-        nextCommittedSurfaceFrame,
-      );
-      committedSurfaceFrameRef.current = nextCommittedSurfaceFrame;
       return nextCommittedSurfaceFrame;
+    },
+    [],
+  );
+  const commitPreparedCommittedSurfaceFrame = useCallback(
+    (
+      token: GpuFlowCommitPublicationToken,
+      frame: GpuFlowCommittedSurfaceFrame,
+    ): boolean => {
+      const browserVisualCandidate =
+        pendingBrowserVisualCandidateByFrameIdRef.current.get(
+          frame.displayFrameId,
+        );
+      if (!browserVisualCandidate) {
+        throw new Error(
+          `GPU Flow browser visual candidate missing for committed frame ${frame.displayFrameId}.`,
+        );
+      }
+      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
+        committedSurfaceRuntimeRef.current,
+      ).commitPreparedBrowserVisualActors({
+        candidate: browserVisualCandidate,
+        token,
+      });
+      const published =
+        committedSurfaceRuntimeRef.current.publishCommittedContentFrame(
+          token,
+          frame,
+        );
+      committedSurfaceFrameRef.current = frame;
+      pendingBrowserVisualCandidateByFrameIdRef.current.delete(
+        frame.displayFrameId,
+      );
+      return published;
+    },
+    [],
+  );
+  const abortPreparedCommittedSurfaceFrame = useCallback(
+    (
+      token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
+      frame: GpuFlowCommittedSurfaceFrame,
+      options?:
+        | {
+            readonly preservePreparationSnapshot?: boolean | undefined;
+          }
+        | undefined,
+    ): void => {
+      assertGpuFlowPreparedCandidateAbortToken({ token });
+      const browserVisualCandidate =
+        pendingBrowserVisualCandidateByFrameIdRef.current.get(
+          frame.displayFrameId,
+        );
+      if (!browserVisualCandidate) {
+        return;
+      }
+      const browserVisualRuntime =
+        getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
+          committedSurfaceRuntimeRef.current,
+        );
+      if (options?.preservePreparationSnapshot === true) {
+        browserVisualRuntime.stagePreparedBrowserVisualActors({
+          candidate: browserVisualCandidate,
+          token,
+        });
+      } else {
+        browserVisualRuntime.abortPreparedBrowserVisualActors({
+          candidate: browserVisualCandidate,
+          token,
+        });
+      }
+      pendingBrowserVisualCandidateByFrameIdRef.current.delete(
+        frame.displayFrameId,
+      );
     },
     [],
   );
 
   return {
+    abortPreparedCommittedSurfaceFrame,
+    commitPreparedCommittedSurfaceFrame,
     committedSurfaceFrameRef,
     committedSurfaceRuntime: committedSurfaceRuntimeRef.current,
-    publishCommittedSurfaceFrame,
+    prepareCommittedSurfaceFrame,
     resetCommittedSurfaceFrame,
     visibleCommittedSurfaceFrame,
   };

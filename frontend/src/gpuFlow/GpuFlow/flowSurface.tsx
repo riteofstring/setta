@@ -86,6 +86,7 @@ import {
   projectGpuFlowNodeHoverSourceForPointerEvent,
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
+import type { GpuFlowColdStartShellFrame } from "./visibleFramePublicationAuthority";
 
 export function GpuFlow({
   children,
@@ -204,6 +205,11 @@ export function GpuFlow({
   );
   const visibleProjectionStateRef =
     useRef<GpuFlowVisibleProjectionState | null>(null);
+  const visibleOverlayProjectionKeyRef = useRef<string | null>(null);
+  const activeColdStartShellFrameRef =
+    useRef<GpuFlowColdStartShellFrame | null>(null);
+  const [activeColdStartShellFrame, setActiveColdStartShellFrame] =
+    useState<GpuFlowColdStartShellFrame | null>(null);
   const getRetainedDomControlScrollOffset = useCallback(
     (surfaceId: string) =>
       visibleProjectionStateRef.current?.sample.retainedScrollOffsets.get(
@@ -220,29 +226,23 @@ export function GpuFlow({
   const retainedPreparationRuntimeFrameScrollRevisionRef = useRef<
     number | null
   >(null);
-  const initialRetainedRuntimeFrame = useMemo(
-    () =>
-      createInitialGpuFlowRetainedRuntimeFrame({
-        retainedContentRuntimeState: activeRetainedContentRuntimeState,
-        scene,
-        viewport,
-        viewportRuntime,
-        viewportStore,
-      }),
-    [
-      activeRetainedContentRuntimeState,
-      scene,
+  const [initialRetainedRuntimeFrame] = useState(() =>
+    createInitialGpuFlowRetainedRuntimeFrame({
+      retainedContentRuntimeState: activeRetainedContentRuntimeState,
+      scene: undefined,
       viewport,
       viewportRuntime,
       viewportStore,
-    ],
+    }),
   );
   retainedPreparationRuntimeFrameScrollRevisionRef.current ??=
     initialRetainedRuntimeFrame.input.scrollRevision;
   const {
+    abortPreparedCommittedSurfaceFrame,
+    commitPreparedCommittedSurfaceFrame,
     committedSurfaceFrameRef,
     committedSurfaceRuntime,
-    publishCommittedSurfaceFrame,
+    prepareCommittedSurfaceFrame,
     resetCommittedSurfaceFrame,
     visibleCommittedSurfaceFrame,
   } = useGpuFlowCommittedSurfaceFrameState({
@@ -370,33 +370,50 @@ export function GpuFlow({
     viewportStore,
   });
   useEffect(() => {
-    syncGpuFlowNodeLayerSceneState({
-      activeRetainedContentRuntimeState,
-      edgeInteraction,
-      edgePalette,
-      edgeReconnect,
-      edgeScene,
-      edges,
-      forceVisibleNodeIds,
-      grid,
-      htmlSurfaceNativeVisuals,
-      htmlSurfaceOverlays,
-      htmlSurfaceRendererRef,
-      marginCssPx,
-      nodeDomTransformSyncCacheRef,
-      nodeLayerRef,
-      nodes,
-      nodeTextureMemoryBudgetBytes,
-      retainedContentPageManagerRef,
-      scene,
-      sourceInteractionProjector,
-      surfaceRef,
-      textureManagerRef,
-      transformOnlyPaintNodeIdsRef,
-      uploadBudget,
-      viewport: viewportRuntime.getViewportTuple(),
-      visibleNodeIdsRef,
-    });
+    let canceled = false;
+    const syncSceneState = () => {
+      if (canceled) {
+        return;
+      }
+      syncGpuFlowNodeLayerSceneState({
+        activeRetainedContentRuntimeState,
+        edgeInteraction,
+        edgePalette,
+        edgeReconnect,
+        edgeScene,
+        edges,
+        forceVisibleNodeIds,
+        grid,
+        htmlSurfaceNativeVisuals,
+        htmlSurfaceOverlays,
+        htmlSurfaceRendererRef,
+        marginCssPx,
+        nodeDomTransformSyncCacheRef,
+        nodeLayerRef,
+        nodes,
+        nodeTextureMemoryBudgetBytes,
+        retainedContentPageManagerRef,
+        scene,
+        sourceInteractionProjector,
+        surfaceRef,
+        textureManagerRef,
+        transformOnlyPaintNodeIdsRef,
+        uploadBudget,
+        viewport: viewportRuntime.getViewportTuple(),
+        visibleNodeIdsRef,
+      });
+    };
+    const timer =
+      typeof window === "undefined" ? null : window.setTimeout(syncSceneState, 0);
+    if (timer === null) {
+      syncSceneState();
+    }
+    return () => {
+      canceled = true;
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
+    };
   }, [
     activeRetainedContentRuntimeState,
     edgeInteraction,
@@ -426,6 +443,9 @@ export function GpuFlow({
     }
     retainedDisplayFrameRef.current = null;
     visibleProjectionStateRef.current = null;
+    visibleOverlayProjectionKeyRef.current = null;
+    activeColdStartShellFrameRef.current = null;
+    setActiveColdStartShellFrame(null);
     resetCommittedSurfaceFrame();
     retainedPreparationRuntimeFrameRenderSignatureRef.current = null;
     retainedRuntimeFrameRenderSignatureRef.current = null;
@@ -839,10 +859,12 @@ export function GpuFlow({
 
   const handleFrame = useCallback<NonNullable<GpuSurfaceProps["onFrame"]>>(
     (runtime, event) => {
-      renderGpuFlowSurfaceFrame({
+      const publicationResult = renderGpuFlowSurfaceFrame({
         activeResizeNodeIdRef,
+        abortPreparedCommittedSurfaceFrame,
         callbacksRef,
         canvasSizeRef,
+        commitPreparedCommittedSurfaceFrame,
         committedSurfaceFrameRef,
         event,
         frameRef,
@@ -854,7 +876,7 @@ export function GpuFlow({
         nodeElementByIdRef,
         nodeInteractionRef,
         nodeLayerRef,
-        publishCommittedSurfaceFrame,
+        prepareCommittedSurfaceFrame,
         retainedContentFrameCacheRef,
         retainedContentPageManagerRef,
         retainedContentRuntimeState: activeRetainedContentRuntimeState,
@@ -869,16 +891,28 @@ export function GpuFlow({
         transformOnlyPaintNodeIdsRef,
         visibleCommittedSurfaceFrame,
         visibleNodeIdsRef,
+        visibleOverlayProjectionKeyRef,
         visibleProjectionStateRef,
         visiblePublicationSchedulerRef,
         viewportRuntime,
         viewportStore,
       });
+      const nextColdStartShellFrame = publicationResult.coldStartShellFrame;
+      const currentColdStartShellFrame = activeColdStartShellFrameRef.current;
+      if (
+        currentColdStartShellFrame?.id !== nextColdStartShellFrame?.id ||
+        currentColdStartShellFrame?.reason !== nextColdStartShellFrame?.reason
+      ) {
+        activeColdStartShellFrameRef.current = nextColdStartShellFrame;
+        setActiveColdStartShellFrame(nextColdStartShellFrame);
+      }
     },
     [
+      abortPreparedCommittedSurfaceFrame,
       activeRetainedContentRuntimeState,
+      commitPreparedCommittedSurfaceFrame,
       initialRetainedRuntimeFrame,
-      publishCommittedSurfaceFrame,
+      prepareCommittedSurfaceFrame,
       retainedContentSwitchAnimations,
       visibleCommittedSurfaceFrame,
       viewportRuntime,
@@ -895,6 +929,7 @@ export function GpuFlow({
   return (
     <GpuFlowSurfaceView
       className={className}
+      coldStartShellFrame={activeColdStartShellFrame}
       committedSurfaceRuntime={committedSurfaceRuntime}
       containerRef={containerRef}
       deviceOptions={deviceOptions}
@@ -926,7 +961,6 @@ export function GpuFlow({
       surfaceRef={surfaceRef}
       viewportRuntime={viewportRuntime}
       viewportStore={viewportStore}
-      visibleCommittedSurfaceFrame={visibleCommittedSurfaceFrame}
       children={children}
     />
   );

@@ -3,14 +3,13 @@ import {
   resolveEdgeStripInputPortAnchorLocalPosition,
   resolveEdgeStripOutputPortAnchorLocalPosition,
 } from "components/Params/edgeStripUtils";
+import { startGpuFlowPerformanceMeasure } from "gpuFlow/gpuFlowPerformanceMarks";
 import {
   EMPTY_GPU_FLOW_LAYOUT_NODES,
   useGpuFlowLayoutStoreNodes,
 } from "gpuFlow/layoutHooks";
-import { startGpuFlowPerformanceMeasure } from "gpuFlow/gpuFlowPerformanceMarks";
 import {
   gpuFlowLayoutStore,
-  type GpuFlowLayoutChange,
   type GpuFlowLayoutNode,
   type GpuFlowLayoutStoreApi,
 } from "gpuFlow/layoutStore";
@@ -20,7 +19,6 @@ import {
 } from "gpuFlow/retainedContentRuntimeState";
 import type { GpuRetainedContentScrollOffsetMap } from "gpuFlow/retainedContentScroll";
 import {
-  getGpuFlowSceneDomSectionNodes,
   type GpuFlowScene,
   type GpuPortAnchorDescriptor,
   type GpuSectionContentRendererDescriptor,
@@ -34,7 +32,7 @@ import {
   type GpuSectionSceneScrollOffsetMap,
 } from "gpuFlow/sceneScroll";
 import type { GpuRect } from "gpuFlow/viewportMath";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { getCurrEffectiveSectionImplIfPresent } from "state/actions/sectionInfos";
 import { getActiveViewModeTopLevelSections } from "state/actions/sectionInfos/codeObjectsAndLayout";
 import {
@@ -74,25 +72,28 @@ import {
   type ProjectGpuResizePreviewSceneInput,
 } from "./projectGpuFlowSceneFactory";
 import {
-  cacheProjectGpuFlowScene,
-  claimProjectGpuFlowPrewarmKey,
-  createProjectGpuFlowPrewarmKey,
-  createProjectGpuFlowSceneCacheKey,
-  getCachedProjectGpuFlowScene,
-  prewarmProjectGpuFlowSceneCache,
-} from "./projectGpuLayoutSceneCache";
+  hasProjectGpuLayoutStoreSyncSubscribers,
+  syncProjectGpuLayoutStoreFromScene,
+  useProjectGpuFlowSceneCachePrewarm,
+  useProjectGpuLayoutStoreSceneSync,
+} from "./projectGpuLayoutAdapterScheduling";
 import { getProjectGpuLayoutNode } from "./projectGpuLayoutNodeAdapter";
 import {
-  type ProjectGpuActiveParamCanvasPopup,
-  type ProjectGpuActiveParamDomIsland,
-  type ProjectGpuRetainedParamTarget,
-} from "./projectGpuParamContentAdapter";
+  cacheProjectGpuFlowScene,
+  createProjectGpuFlowSceneCacheKey,
+  getCachedProjectGpuFlowScene,
+} from "./projectGpuLayoutSceneCache";
 import {
   createProjectNestedSectionInitialLocalRect,
   DEFAULT_PROJECT_GPU_NESTED_SECTION_HEIGHT,
   DEFAULT_PROJECT_GPU_NESTED_SECTION_WIDTH,
   getProjectSectionSceneChildLayout,
 } from "./projectGpuNestedSectionLayout";
+import {
+  type ProjectGpuActiveParamCanvasPopup,
+  type ProjectGpuActiveParamDomIsland,
+  type ProjectGpuRetainedParamTarget,
+} from "./projectGpuParamContentAdapter";
 import { getProjectGpuParamFixedContentHeightForSection } from "./projectGpuParamContentHeight";
 import type { ProjectGpuRetainedParamDragPreview } from "./projectGpuParamDragAdapter";
 import {
@@ -130,6 +131,7 @@ export {
   type ProjectGpuFlowSceneOptions,
   type ProjectGpuResizePreviewSceneInput,
 } from "./projectGpuFlowSceneFactory";
+export { syncProjectGpuLayoutStoreFromScene } from "./projectGpuLayoutAdapterScheduling";
 export type {
   ProjectGpuActiveParamCanvasPopup,
   ProjectGpuActiveParamDomIsland,
@@ -161,7 +163,6 @@ type ProjectSectionSceneAspectRatioFields = {
   readonly aspectRatioExtraHeight?: number | null | undefined;
   readonly aspectRatioExtraWidth?: number | null | undefined;
 };
-let projectGpuLayoutStoreSyncSubscriberCount = 0;
 
 type OptionalParamCanvasPopup =
   | ProjectGpuActiveParamCanvasPopup
@@ -261,26 +262,11 @@ export function useProjectGpuLayoutAdapter({
     () => getProjectGpuFlowScene(projectState, sceneOptions),
     [projectState, sceneOptions],
   );
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-    const prewarmKey = createProjectGpuFlowPrewarmKey(
-      projectState,
-      sceneOptions,
-    );
-    if (!claimProjectGpuFlowPrewarmKey(prewarmKey)) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      prewarmProjectGpuFlowSceneCache(
-        projectState,
-        sceneOptions,
-        getProjectGpuFlowScene,
-      );
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [projectState, sceneOptions]);
+  useProjectGpuFlowSceneCachePrewarm({
+    getProjectGpuFlowScene,
+    projectState,
+    sceneOptions,
+  });
   useProjectGpuLayoutStoreSceneSync(layoutStore, scene);
   const nodeLayouts =
     useGpuFlowLayoutStoreNodes(layoutStore) ?? EMPTY_GPU_FLOW_LAYOUT_NODES;
@@ -383,18 +369,6 @@ export function useProjectGpuLayoutAdapter({
 export function useProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
   const layoutStore = getProjectGpuLayoutStore();
   return layoutStore;
-}
-
-export function syncProjectGpuLayoutStoreFromScene(
-  layoutStore: GpuFlowLayoutStoreApi,
-  scene: GpuFlowScene,
-): GpuFlowLayoutChange {
-  return layoutStore
-    .getState()
-    .replaceNodes(getGpuFlowSceneDomSectionNodes(scene), {
-      phase: "commit",
-      reason: "project-sync",
-    });
 }
 
 export function getProjectGpuFlowScene(
@@ -507,7 +481,7 @@ export function getProjectGpuFlowScene(
 }
 
 function getProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
-  if (projectGpuLayoutStoreSyncSubscriberCount === 0) {
+  if (!hasProjectGpuLayoutStoreSyncSubscribers()) {
     const projectState = useProjectState.getState();
     syncProjectGpuLayoutStoreFromScene(
       gpuFlowLayoutStore,
@@ -520,22 +494,6 @@ function getProjectGpuLayoutStore(): GpuFlowLayoutStoreApi {
     );
   }
   return gpuFlowLayoutStore;
-}
-
-function useProjectGpuLayoutStoreSceneSync(
-  layoutStore: GpuFlowLayoutStoreApi,
-  scene: GpuFlowScene,
-) {
-  useEffect(() => {
-    projectGpuLayoutStoreSyncSubscriberCount += 1;
-    syncProjectGpuLayoutStoreFromScene(layoutStore, scene);
-    return () => {
-      projectGpuLayoutStoreSyncSubscriberCount = Math.max(
-        0,
-        projectGpuLayoutStoreSyncSubscriberCount - 1,
-      );
-    };
-  }, [layoutStore, scene]);
 }
 
 function appendProjectChildSectionSceneNodes({

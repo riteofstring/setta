@@ -2,6 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { GpuFlowCommittedSurfaceFrame } from "./committedSurfaceFrame";
 import { createGpuFlowCommittedSurfaceRuntime } from "./committedSurfaceRuntime";
+import {
+  createGpuFlowCommitPublicationToken,
+  createGpuFlowCommittedSurfaceResetToken,
+  createGpuFlowCommittedSurfaceStartupToken,
+  createGpuFlowPresentableCommit,
+} from "./GpuFlow/visibleFramePublicationAuthority";
+import type { GpuFlowLiveProjectionSample } from "./projectionRuntime";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 
 describe("GPU Flow committed surface runtime", () => {
@@ -18,9 +25,12 @@ describe("GPU Flow committed surface runtime", () => {
     });
 
     const transformOnlyFrame = committedFrame({ displayFrameId: 2 });
-    expect(runtime.publishCommittedContentFrame(transformOnlyFrame)).toBe(
-      false,
-    );
+    expect(
+      runtime.publishCommittedContentFrame(
+        publicationToken(transformOnlyFrame),
+        transformOnlyFrame,
+      ),
+    ).toBe(false);
 
     expect(runtime.getCommittedContentFrame()).toBe(transformOnlyFrame);
     expect(runtime.getReactSemanticSnapshot().frame).toBe(startupFrame);
@@ -41,22 +51,95 @@ describe("GPU Flow committed surface runtime", () => {
     });
 
     const nextStartupFrame = committedFrame({ displayFrameId: 2 });
-    runtime.setStartupFrame(nextStartupFrame);
+    runtime.setStartupFrame(
+      createGpuFlowCommittedSurfaceStartupToken({
+        frame: nextStartupFrame,
+      }),
+      nextStartupFrame,
+    );
 
     expect(runtime.getCommittedContentFrame()).toBe(nextStartupFrame);
     expect(runtime.getReactSemanticSnapshot().frame).toBe(startupFrame);
     expect(committedFrameUpdates).toBe(1);
     expect(semanticUpdates).toBe(0);
   });
+
+  it("rejects committed content publication with a token for a different visible frame", () => {
+    const startupFrame = committedFrame({ displayFrameId: 1 });
+    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const nextFrame = committedFrame({ displayFrameId: 2 });
+
+    expect(() =>
+      runtime.publishCommittedContentFrame(
+        publicationToken(startupFrame),
+        nextFrame,
+      ),
+    ).toThrow(/requires a commit publication token/);
+  });
+
+  it("rejects unbranded startup and reset lifecycle tokens", () => {
+    const startupFrame = committedFrame({ displayFrameId: 1 });
+    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const nextStartupFrame = committedFrame({ displayFrameId: 2 });
+
+    expect(() =>
+      runtime.setStartupFrame(
+        {} as ReturnType<typeof createGpuFlowCommittedSurfaceStartupToken>,
+        nextStartupFrame,
+      ),
+    ).toThrow(/startup token/);
+    expect(() =>
+      runtime.resetCommittedContentFrame(
+        {} as ReturnType<typeof createGpuFlowCommittedSurfaceResetToken>,
+      ),
+    ).toThrow(/reset publication token/);
+  });
+
+  it("rejects startup lifecycle tokens for a different startup frame", () => {
+    const startupFrame = committedFrame({ displayFrameId: 1 });
+    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const tokenFrame = committedFrame({ displayFrameId: 2 });
+    const nextStartupFrame = committedFrame({ displayFrameId: 3 });
+
+    expect(() =>
+      runtime.setStartupFrame(
+        createGpuFlowCommittedSurfaceStartupToken({
+          frame: tokenFrame,
+        }),
+        nextStartupFrame,
+      ),
+    ).toThrow(/same startup frame/);
+  });
+
+  it("rejects committed content publication with a stale token for the same visible frame id", () => {
+    const startupFrame = committedFrame({ displayFrameId: 1 });
+    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const staleFrame = committedFrame({
+      actorGenerations: [committedActor("actor-stale")],
+      displayFrameId: 2,
+    });
+    const nextFrame = committedFrame({ displayFrameId: 2 });
+
+    expect(() =>
+      runtime.publishCommittedContentFrame(
+        publicationToken(staleFrame),
+        nextFrame,
+      ),
+    ).toThrow(/requires a commit publication token/);
+  });
 });
 
 function committedFrame({
+  actorGenerations = [],
   displayFrameId,
 }: {
+  readonly actorGenerations?:
+    | GpuFlowCommittedSurfaceFrame["actorGenerations"]
+    | undefined;
   readonly displayFrameId: number;
 }): GpuFlowCommittedSurfaceFrame {
   return {
-    actorGenerations: [],
+    actorGenerations,
     displayFrameId,
     retainedRuntimeFrame: {
       descriptors: {
@@ -72,5 +155,57 @@ function committedFrame({
       },
     } as unknown as GpuRetainedRuntimeFrame,
     sceneRevision: 1,
-  } as GpuFlowCommittedSurfaceFrame;
+    coherence: {
+      canvasRetainedFrameId: displayFrameId,
+      clipChainRevision: "clip",
+      debugSnapshotFrameId: displayFrameId,
+      domControlCommittedFrameId: displayFrameId,
+      domIslandCommittedFrameId: displayFrameId,
+      gpuNativeVisualCommittedFrameId: displayFrameId,
+      hitGenerationId: `hit:${displayFrameId}`,
+      htmlTextureOverlayCommittedFrameId: displayFrameId,
+      retainedScrollRevision: 0,
+    },
+    projectionHorizon: {
+      textActorCoverage: {
+        blockedAwaitingBrowserVisualActorIds: [],
+        blockedAwaitingLiveHostActorIds: [],
+        compatiblePreviousActorIds: [],
+        exactLiveDomActorIds: [],
+        exactSnapshotActorIds: [],
+        trueHoleActorIds: [],
+      },
+    },
+    publishability: {
+      blockingActorIds: [],
+      kind: "publishable",
+    },
+    surfaceTransaction: null,
+  } as unknown as GpuFlowCommittedSurfaceFrame;
+}
+
+function committedActor(
+  actorId: string,
+): GpuFlowCommittedSurfaceFrame["actorGenerations"][number] {
+  return {
+    actorFamily: "dom-control",
+    actorId,
+    browserVisual: null,
+    contentGenerationId: `content:${actorId}`,
+    generationId: `generation:${actorId}`,
+    layoutProjectionGenerationId: `layout:${actorId}`,
+    ownerSurfaceId: `surface:${actorId}`,
+    textCoverageProof: null,
+  } as GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+}
+
+function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
+  return createGpuFlowCommitPublicationToken({
+    presentableCommit: createGpuFlowPresentableCommit({
+      frame,
+      projectionSample: {
+        id: frame.displayFrameId,
+      } as GpuFlowLiveProjectionSample,
+    }),
+  });
 }

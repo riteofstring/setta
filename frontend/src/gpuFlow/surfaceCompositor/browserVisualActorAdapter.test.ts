@@ -6,6 +6,7 @@ import {
   createDomControlBrowserVisualActor,
   createDomIslandBrowserVisualActor,
 } from "./browserVisualActorAdapter";
+import type { BrowserVisualActorCompatiblePreviousProof } from "./browserVisualActorProofTypes";
 
 describe("browser visual actor adapter", () => {
   it("publishes live DOM-control coverage through shared surface entries", () => {
@@ -26,6 +27,12 @@ describe("browser visual actor adapter", () => {
         coverageRequired: { reason: "value-text", required: true },
         coverageState: "live-host-ready",
         nonemptyReason: "value-text",
+        proof: {
+          actualInteraction: "inactive-visual-only",
+          actualVisual: "exact-live-host",
+          requiredInteraction: "inactive-visual-only",
+          requiredVisual: "browser-visual",
+        },
         representationKind: "passive-live-display",
         visibilityReason: "visible",
       }),
@@ -135,6 +142,31 @@ describe("browser visual actor adapter", () => {
     ]);
   });
 
+  it("uses versioned snapshot resource handles when runtime readiness omits handles", () => {
+    const control = domControl({
+      snapshotSurfaceId: "snapshot-versioned",
+      value: "hello",
+      visualPolicy: "snapshot",
+    });
+    const actor = createDomControlBrowserVisualActor(control, {
+      representationReadiness: {
+        coverageState: "exact-snapshot-ready",
+      },
+    });
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(fragment.exactCoverage[0]?.resourceHandles).toEqual([
+      expect.objectContaining({
+        actorId: control.sourceId,
+        contentGenerationId: control.snapshotCacheKeyRevision,
+        id: "snapshot-versioned",
+        kind: "texture",
+        projectionGenerationId: expect.any(String),
+        resourceGenerationId: expect.any(String),
+      }),
+    ]);
+  });
+
   it("requires coverage for empty visible controls with caret or selection state", () => {
     const actor = createDomControlBrowserVisualActor(
       domControl({
@@ -229,12 +261,7 @@ describe("browser visual actor adapter", () => {
         visualPolicy: "blocked-awaiting-browser-visual",
       }),
       {
-        compatiblePreviousProof: {
-          previousTransactionId: "transaction-a",
-          previousVisualGenerationId: "visual-a",
-          reasonCode: "same-value-and-geometry",
-          resourceHandles: [{ id: "source-a", kind: "source" }],
-        },
+        compatiblePreviousProof: compatiblePreviousProof(),
       },
     );
     const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
@@ -242,6 +269,12 @@ describe("browser visual actor adapter", () => {
     expect(actor).toEqual(
       expect.objectContaining({
         coverageState: "compatible-previous-ready",
+        proof: {
+          actualInteraction: "inactive-visual-only",
+          actualVisual: "compatible-previous",
+          requiredInteraction: "inactive-visual-only",
+          requiredVisual: "browser-visual",
+        },
         representation: expect.objectContaining({
           kind: "compatible-previous",
           previousTransactionId: "transaction-a",
@@ -256,6 +289,73 @@ describe("browser visual actor adapter", () => {
       }),
     ]);
     expect(fragment.trueHoleRects).toEqual([]);
+  });
+
+  it("does not use compatible previous coverage for active DOM-control editors", () => {
+    const actor = createDomControlBrowserVisualActor(
+      domControl({
+        active: true,
+        value: "hello",
+        visualPolicy: "blocked-awaiting-browser-visual",
+      }),
+      {
+        compatiblePreviousProof: compatiblePreviousProof({
+          focusState: "active",
+        }),
+        representationReadiness: {
+          coverageState: "blocked-awaiting-live-host",
+        },
+      },
+    );
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(actor).toEqual(
+      expect.objectContaining({
+        coverageRequired: { reason: "active-editor", required: true },
+        coverageState: "blocked-awaiting-live-host",
+        proof: {
+          actualInteraction: "blocked",
+          actualVisual: "blocked",
+          requiredInteraction: "active-editor-live",
+          requiredVisual: "browser-visual",
+        },
+        representationKind: "blocked",
+      }),
+    );
+    expect(fragment.compatibleCoverage).toEqual([]);
+    expect(fragment.blockingSurfaceIds).toEqual([actor.surfaceId]);
+  });
+
+  it("does not publish active DOM-control editors from snapshot readiness", () => {
+    const actor = createDomControlBrowserVisualActor(
+      domControl({
+        active: true,
+        snapshotSurfaceId: "snapshot-a",
+        value: "hello",
+        visualPolicy: "snapshot",
+      }),
+      {
+        representationReadiness: {
+          coverageState: "exact-snapshot-ready",
+          resourceHandles: [{ id: "snapshot-a", kind: "texture" }],
+        },
+      },
+    );
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(actor).toEqual(
+      expect.objectContaining({
+        coverageRequired: { reason: "active-editor", required: true },
+        coverageState: "blocked-awaiting-live-host",
+        representation: expect.objectContaining({
+          kind: "blocked",
+          reason: "live-dom-budget",
+        }),
+        representationKind: "blocked",
+      }),
+    );
+    expect(fragment.exactCoverage).toEqual([]);
+    expect(fragment.blockingSurfaceIds).toEqual([actor.surfaceId]);
   });
 
   it("keeps DOM-control and DOM-island z-order and clipping in one transaction fragment", () => {
@@ -313,6 +413,12 @@ describe("browser visual actor adapter", () => {
       }),
     ]);
     expect(control.clipRect).toEqual({ height: 18, width: 120, x: 12, y: 14 });
+    expect(island.proof).toEqual({
+      actualInteraction: "live-hit-compatible",
+      actualVisual: "exact-live-host",
+      requiredInteraction: "live-hit-compatible",
+      requiredVisual: "browser-visual",
+    });
     expect(island.clipRect).toEqual(island.flowRect);
   });
 });
@@ -323,7 +429,47 @@ const DEFAULT_TEXT_COVERAGE_STATE = {
   selection: "none",
 } as const;
 
+function compatiblePreviousProof(
+  proof: Partial<BrowserVisualActorCompatiblePreviousProof> = {},
+): BrowserVisualActorCompatiblePreviousProof {
+  return {
+    activationPolicy: "requires-current-visual",
+    actorFamily: "text-like-dom-control",
+    actorId: "source-a",
+    budgetState: "within-budget",
+    canonicalActorId:
+      '{"actorFamily":"text-like-dom-control","ownerIdentity":"control-a","ownerSurfaceId":"surface-a","representationRole":"browser-text-control"}',
+    clipChainRevision: "clip",
+    controlKind: "input",
+    displayRevision: "value-style",
+    flowRect: { height: 24, width: 180, x: 4, y: 8 },
+    focusState: "inactive",
+    hitMappingCompatible: true,
+    hitTargetId: "control-a",
+    maxProofAgeFrames: 2,
+    maxProofAgeMs: 120,
+    previousActorGenerationId: "actor-generation-a",
+    previousCommittedFrameId: 12,
+    previousProjectionSampleRevision: "viewport-a",
+    previousTransactionId: "transaction-a",
+    previousVisualGenerationId: "visual-a",
+    proofAgeFrames: 1,
+    proofAgeMs: 32,
+    protectedResourceIds: ["source:source-a"],
+    reasonCode: "same-value-and-geometry",
+    requestedActorGenerationId: "actor-generation-b",
+    requestedProjectionSampleRevision: "viewport-b",
+    requestedVisualGenerationId: "visual-b",
+    resourceHandles: [{ id: "source-a", kind: "source" as const }],
+    retainedScrollCompatible: true,
+    retainedSurfaceId: "surface-a",
+    semanticGenerationId: "semantic-a",
+    ...proof,
+  };
+}
+
 function domControl({
+  active = false,
   clipRect,
   projectionVisibility = "viewport-visible",
   snapshotSurfaceId = null,
@@ -334,6 +480,7 @@ function domControl({
   worldRect,
   zOrder = 2,
 }: {
+  readonly active?: boolean | undefined;
   readonly clipRect?: GpuRetainedDomControlSourceDescriptor["clipRectSurfaceCssPx"];
   readonly projectionVisibility?:
     | GpuRetainedDomControlSourceDescriptor["projectionVisibility"]
@@ -355,7 +502,7 @@ function domControl({
     textCoverageState ?? DEFAULT_TEXT_COVERAGE_STATE;
   const textCoverageRevision = JSON.stringify(resolvedTextCoverageState);
   return {
-    active: false,
+    active,
     clipChainRevision: "clip",
     clipRectSurfaceCssPx: rects.clipRect,
     controlId: "control-a",
@@ -376,6 +523,12 @@ function domControl({
     textCoverageState: resolvedTextCoverageState,
     value,
     valueStyleRevision: "value-style",
+    visualSemantics: {
+      accessibility: "visual-only-aria-hidden",
+      focusable: false,
+      pointer: "retained-activation-model",
+      selectable: "none",
+    },
     visualPolicy,
     worldRectFlowPx: rects.worldRect,
     zOrder,

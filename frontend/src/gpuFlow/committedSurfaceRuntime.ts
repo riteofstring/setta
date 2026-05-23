@@ -2,6 +2,14 @@ import {
   createGpuFlowCommittedSurfaceFrameRenderSignature,
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
+import {
+  assertGpuFlowCommitPublicationToken,
+  assertGpuFlowCommittedSurfaceResetToken,
+  assertGpuFlowCommittedSurfaceStartupToken,
+  type GpuFlowCommitPublicationToken,
+  type GpuFlowCommittedSurfaceResetToken,
+  type GpuFlowCommittedSurfaceStartupToken,
+} from "./GpuFlow/visibleFramePublicationTokens";
 
 type GpuFlowCommittedContentFrame = GpuFlowCommittedSurfaceFrame;
 
@@ -16,9 +24,15 @@ type GpuFlowCommittedSurfaceRuntimeListener = () => void;
 export type GpuFlowCommittedSurfaceRuntime = {
   getCommittedContentFrame(): GpuFlowCommittedContentFrame;
   getReactSemanticSnapshot(): GpuFlowReactSemanticSnapshot;
-  publishCommittedContentFrame(frame: GpuFlowCommittedContentFrame): boolean;
-  resetCommittedContentFrame(): void;
-  setStartupFrame(frame: GpuFlowCommittedContentFrame): void;
+  publishCommittedContentFrame(
+    token: GpuFlowCommitPublicationToken,
+    frame: GpuFlowCommittedContentFrame,
+  ): boolean;
+  resetCommittedContentFrame(token: GpuFlowCommittedSurfaceResetToken): void;
+  setStartupFrame(
+    token: GpuFlowCommittedSurfaceStartupToken,
+    frame: GpuFlowCommittedContentFrame,
+  ): void;
   subscribeCommittedContentFrame(
     listener: GpuFlowCommittedSurfaceRuntimeListener,
   ): () => void;
@@ -58,7 +72,11 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     return this.semanticSnapshot;
   }
 
-  publishCommittedContentFrame(frame: GpuFlowCommittedContentFrame): boolean {
+  publishCommittedContentFrame(
+    token: GpuFlowCommitPublicationToken,
+    frame: GpuFlowCommittedContentFrame,
+  ): boolean {
+    assertGpuFlowCommitPublicationToken({ frame, token });
     const renderSignature =
       createGpuFlowCommittedSurfaceFrameRenderSignature(frame);
     if (this.semanticSnapshot.renderSignature === renderSignature) {
@@ -78,7 +96,8 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     return true;
   }
 
-  resetCommittedContentFrame(): void {
+  resetCommittedContentFrame(token: GpuFlowCommittedSurfaceResetToken): void {
+    assertGpuFlowCommittedSurfaceResetToken({ token });
     this.currentFrame = null;
     this.publishCount += 1;
     this.semanticSnapshot = this.createSemanticSnapshot(this.startupFrame);
@@ -86,7 +105,11 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     this.emit();
   }
 
-  setStartupFrame(frame: GpuFlowCommittedContentFrame): void {
+  setStartupFrame(
+    token: GpuFlowCommittedSurfaceStartupToken,
+    frame: GpuFlowCommittedContentFrame,
+  ): void {
+    assertGpuFlowCommittedSurfaceStartupToken({ frame, token });
     const previousStartupFrame = this.startupFrame;
     this.startupFrame = frame;
     if (this.currentFrame) {

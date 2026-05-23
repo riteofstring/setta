@@ -82,7 +82,7 @@ describe("GPU flow projection frame coverage", () => {
     ).not.toThrow();
   });
 
-  it("holds the previous transaction sample when retained projection coverage is missing", () => {
+  it("holds the previous frame for the requested projection sample when retained projection coverage is missing", () => {
     const previousSample = liveSample({
       id: 1,
       retainedScrollY: 0,
@@ -113,11 +113,12 @@ describe("GPU flow projection frame coverage", () => {
 
     expect(result.transaction.kind).toBe("held-previous");
     expect(result.transaction.committedFrameId).toBe(11);
-    expect(result.transaction.sample.id).toBe(1);
+    expect(result.transaction.sample.id).toBe(2);
     expect(result.heldPreviousProjection).toEqual(
       expect.objectContaining({
         consecutiveFrameCount: 1,
         heldDurationMs: 0,
+        projectionSampleId: 2,
         reason: "retained-projection-coverage-missing",
         requestedProjectionSampleId: 2,
       }),
@@ -167,7 +168,7 @@ describe("GPU flow projection frame coverage", () => {
     );
   });
 
-  it("reports held-previous overuse against the projection scheduler knobs", () => {
+  it("blocks held-previous projection after the scheduler budget is exceeded", () => {
     const previousSample = liveSample({
       id: 1,
       retainedScrollY: 0,
@@ -226,6 +227,9 @@ describe("GPU flow projection frame coverage", () => {
         }),
     });
 
+    expect(secondHeld.blockedReason).toBe("held-previous-budget-exceeded");
+    expect(secondHeld.transaction.kind).toBe("motion-projection");
+    expect(secondHeld.transaction.sample.id).toBe(10);
     expect(secondHeld.heldPreviousProjection).toEqual(
       expect.objectContaining({
         consecutiveFrameCount: 2,

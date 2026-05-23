@@ -79,6 +79,7 @@ describe("GPU flow performance probe helpers", () => {
         },
       ],
       queueWrappersInstalled: true,
+      rafCallbacks: [],
       requestPaintCalls: [{ index: 0, timestampMs: 225 }],
       sourceMutations: [
         {
@@ -255,6 +256,18 @@ describe("GPU flow performance probe helpers", () => {
     ]);
     expect(snapshot?.frameCount).toBe(2);
     expect(snapshot?.frameIntervalsMs).toEqual([16]);
+    expect(snapshot?.rafCallbacks).toEqual([
+      expect.objectContaining({
+        durationMs: expect.any(Number),
+        index: 0,
+        startedAtMs: expect.any(Number),
+      }),
+      expect.objectContaining({
+        durationMs: expect.any(Number),
+        index: 1,
+        startedAtMs: expect.any(Number),
+      }),
+    ]);
     expect(snapshot?.requestPaintCalls).toHaveLength(1);
     expect(snapshot?.sourceMutations).toEqual([
       expect.objectContaining({

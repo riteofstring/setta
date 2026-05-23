@@ -1,4 +1,5 @@
 import type { MutableRefObject } from "react";
+import { postChromeReproEvent } from "state/actions/chromeRepro";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
@@ -13,12 +14,32 @@ import {
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "./flowVisibleProjectionState";
+import {
+  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+  createGpuFlowBlockedPublicationToken,
+  createGpuFlowCommitPublicationToken,
+  createGpuFlowHoldPreviousToken,
+  createGpuFlowPresentableCommit,
+} from "./visibleFramePublicationAuthority";
+import type {
+  GpuFlowBlockedFrozenFrame,
+  GpuFlowBlockedPublicationToken,
+  GpuFlowCommitPublicationToken,
+  GpuFlowHoldPreviousToken,
+} from "./visibleFramePublicationTokens";
 
 type GpuFlowCommittedSurfacePublicationGateResult =
-  | { readonly kind: "publish" }
-  | { readonly kind: "blocked" }
+  | {
+      readonly kind: "publish";
+      readonly token: GpuFlowCommitPublicationToken | null;
+    }
+  | {
+      readonly kind: "blocked";
+      readonly token: GpuFlowBlockedPublicationToken;
+    }
   | {
       readonly kind: "held-previous";
+      readonly token: GpuFlowHoldPreviousToken;
       readonly visibleProjectionState: GpuFlowVisibleProjectionState;
     };
 
@@ -38,12 +59,29 @@ type GpuFlowBrowserVisualStarvationReport = {
   readonly visibleActorCount: number;
 };
 
+type GpuFlowBlockedVisiblePublicationEvent = {
+  readonly blockedReasons: readonly {
+    readonly actorId: string | null;
+    readonly family: string;
+    readonly reason: string;
+  }[];
+  readonly candidateFrameId: number;
+  readonly frozenFrame: GpuFlowBlockedFrozenFrame;
+  readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
+  readonly projectionSampleId: number;
+  readonly tokenTransactionId: string;
+};
+
 type GpuFlowBrowserVisualActorGeneration =
   GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
 
 type GpuFlowBrowserVisualTextCoverageProof = NonNullable<
   GpuFlowBrowserVisualActorGeneration["textCoverageProof"]
 >;
+type OptionalGpuFlowBrowserVisualTextCoverageProof =
+  | GpuFlowBrowserVisualTextCoverageProof
+  | null
+  | undefined;
 
 type GpuFlowBrowserVisualStarvationDebt = {
   readonly actorIdsKey: string;
@@ -55,9 +93,12 @@ const browserVisualStarvationDebtByCanvas = new WeakMap<
   HTMLCanvasElement,
   GpuFlowBrowserVisualStarvationDebt
 >();
+const browserVisualRetryFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
+const GPU_FLOW_BROWSER_VISUAL_DEFERRED_RETRY_MS = 160;
 
 export function resolveGpuFlowCommittedSurfacePublicationGate({
   committedGpuNativeVisuals,
+  deferBrowserVisualRetry,
   frameReasons,
   heldPreviousProjectionState,
   liveProjectionSample,
@@ -72,6 +113,7 @@ export function resolveGpuFlowCommittedSurfacePublicationGate({
   readonly committedGpuNativeVisuals:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
     | undefined;
+  readonly deferBrowserVisualRetry?: boolean | undefined;
   readonly frameReasons: readonly GpuFrameReason[];
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
@@ -91,7 +133,21 @@ export function resolveGpuFlowCommittedSurfacePublicationGate({
     publishedCommittedSurfaceFrame.publishability.kind === "publishable"
   ) {
     clearGpuFlowBrowserVisualStarvationDebt(runtimeCanvas);
-    return { kind: "publish" };
+    clearGpuFlowBrowserVisualRetryFrame({
+      runtimeCanvas,
+      surface: surfaceRef.current,
+    });
+    return {
+      kind: "publish",
+      token: publishedCommittedSurfaceFrame
+        ? createGpuFlowCommitPublicationToken({
+            presentableCommit: createGpuFlowPresentableCommit({
+              frame: publishedCommittedSurfaceFrame,
+              projectionSample: liveProjectionSample,
+            }),
+          })
+        : null,
+    };
   }
   retainedDisplayFrameRef.current = previousRetainedDisplayFrame;
   if (publishedCommittedSurfaceFrame.publishability.kind === "true-hole") {
@@ -101,13 +157,25 @@ export function resolveGpuFlowCommittedSurfacePublicationGate({
       outcome: "blocked",
       runtimeCanvas,
     });
+    recordGpuFlowBlockedVisiblePublication({
+      frame: publishedCommittedSurfaceFrame,
+      frozenFrameId: resolveGpuFlowBlockedVisibleFrozenFrameId({
+        heldPreviousProjectionState,
+      }),
+      projectionSample: liveProjectionSample,
+      runtimeCanvas,
+    });
     throw new Error(
       `GPU Flow committed surface frame has true-hole browser visual coverage: ${getGpuFlowCommittedSurfacePublishabilityActorIds(
         publishedCommittedSurfaceFrame,
       ).join(", ")}.`,
     );
   }
-  surfaceRef.current?.requestFrame("texture-upload");
+  requestGpuFlowBrowserVisualRetryFrame({
+    deferRetry: deferBrowserVisualRetry === true,
+    runtimeCanvas,
+    surfaceRef,
+  });
   if (
     publishedCommittedSurfaceFrame.publishability.kind !== "hold-previous" ||
     !heldPreviousProjectionState
@@ -118,7 +186,15 @@ export function resolveGpuFlowCommittedSurfacePublicationGate({
       outcome: "blocked",
       runtimeCanvas,
     });
-    return { kind: "blocked" };
+    const token = recordGpuFlowBlockedVisiblePublication({
+      frame: publishedCommittedSurfaceFrame,
+      frozenFrameId: resolveGpuFlowBlockedVisibleFrozenFrameId({
+        heldPreviousProjectionState,
+      }),
+      projectionSample: liveProjectionSample,
+      runtimeCanvas,
+    });
+    return { kind: "blocked", token };
   }
   recordGpuFlowBrowserVisualStarvation({
     frame: publishedCommittedSurfaceFrame,
@@ -138,11 +214,82 @@ export function resolveGpuFlowCommittedSurfacePublicationGate({
       publishedRetainedFrame,
       retainedDisplayOutcomeKind: "hold-previous",
     });
+  const heldPreviousProjection = visibleProjectionState.heldPreviousProjection;
+  if (!heldPreviousProjection) {
+    throw new Error(
+      "GPU Flow held-previous publication requires held-previous diagnostics.",
+    );
+  }
+  const token = createGpuFlowHoldPreviousToken({
+    committedFrameId: visibleProjectionState.committedFrame.displayFrameId,
+    holdAgeFrames: heldPreviousProjection.consecutiveFrameCount,
+    holdAgeMs: heldPreviousProjection.heldDurationMs,
+    projectionSample: liveProjectionSample,
+  });
   applyGpuFlowProjectionDebugAttributes({
     canvas: runtimeCanvas,
     debugState: visibleProjectionState.debugState,
+    token,
   });
-  return { kind: "held-previous", visibleProjectionState };
+  return {
+    kind: "held-previous",
+    token,
+    visibleProjectionState,
+  };
+}
+
+function requestGpuFlowBrowserVisualRetryFrame({
+  deferRetry,
+  runtimeCanvas,
+  surfaceRef,
+}: {
+  readonly deferRetry: boolean;
+  readonly runtimeCanvas: HTMLCanvasElement;
+  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
+}): void {
+  const surface = surfaceRef.current;
+  if (!surface) {
+    return;
+  }
+  if (!deferRetry) {
+    clearGpuFlowBrowserVisualRetryFrame({
+      runtimeCanvas,
+      surface,
+    });
+    surface.requestFrame("texture-upload");
+    return;
+  }
+  if (browserVisualRetryFrameTimers.has(surface)) {
+    return;
+  }
+  const ownerWindow = runtimeCanvas.ownerDocument.defaultView;
+  if (!ownerWindow) {
+    surface.requestFrame("texture-upload");
+    return;
+  }
+  const timer = ownerWindow.setTimeout(() => {
+    browserVisualRetryFrameTimers.delete(surface);
+    surface.requestFrame("texture-upload");
+  }, GPU_FLOW_BROWSER_VISUAL_DEFERRED_RETRY_MS);
+  browserVisualRetryFrameTimers.set(surface, timer);
+}
+
+function clearGpuFlowBrowserVisualRetryFrame({
+  runtimeCanvas,
+  surface,
+}: {
+  readonly runtimeCanvas: HTMLCanvasElement;
+  readonly surface: GpuSurfaceHandle | null;
+}): void {
+  if (!surface) {
+    return;
+  }
+  const timer = browserVisualRetryFrameTimers.get(surface);
+  if (timer === undefined) {
+    return;
+  }
+  runtimeCanvas.ownerDocument.defaultView?.clearTimeout(timer);
+  browserVisualRetryFrameTimers.delete(surface);
 }
 
 function clearGpuFlowBrowserVisualStarvationDebt(
@@ -283,12 +430,12 @@ function getGpuFlowBrowserVisualBlockedReason({
   textCoverage,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
-  readonly textCoverage: GpuFlowBrowserVisualTextCoverageProof | undefined;
+  readonly textCoverage: OptionalGpuFlowBrowserVisualTextCoverageProof;
 }): string {
-  if (textCoverage?.readinessReason) {
+  if (textCoverage && "readinessReason" in textCoverage) {
     return textCoverage.readinessReason;
   }
-  return frame.publishability.reason ?? "browser-visual-coverage-missing";
+  return getGpuFlowCommittedSurfacePublishabilityReason(frame);
 }
 
 function getGpuFlowBrowserVisualPendingWorkId({
@@ -298,7 +445,7 @@ function getGpuFlowBrowserVisualPendingWorkId({
 }: {
   readonly actor: GpuFlowBrowserVisualActorGeneration | undefined;
   readonly actorId: string;
-  readonly textCoverage: GpuFlowBrowserVisualTextCoverageProof | undefined;
+  readonly textCoverage: OptionalGpuFlowBrowserVisualTextCoverageProof;
 }): string {
   if (textCoverage?.snapshotCacheKeyRevision) {
     return [actorId, textCoverage.snapshotCacheKeyRevision].join("|");
@@ -314,7 +461,7 @@ function getGpuFlowBrowserVisualRequiredRepresentation({
   textCoverage,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
-  readonly textCoverage: GpuFlowBrowserVisualTextCoverageProof | undefined;
+  readonly textCoverage: OptionalGpuFlowBrowserVisualTextCoverageProof;
 }): string {
   return textCoverage?.projectionCoverage ?? frame.publishability.kind;
 }
@@ -325,6 +472,19 @@ function getGpuFlowCommittedSurfacePublishabilityActorIds(
   return frame.publishability.kind === "true-hole"
     ? frame.publishability.actorIds
     : frame.publishability.blockingActorIds;
+}
+
+function getGpuFlowCommittedSurfacePublishabilityReason(
+  frame: GpuFlowCommittedSurfaceFrame,
+): string {
+  switch (frame.publishability.kind) {
+    case "block-first-publication":
+    case "hold-previous":
+    case "true-hole":
+      return frame.publishability.reason;
+    case "publishable":
+      return "browser-visual-coverage-missing";
+  }
 }
 
 function emitGpuFlowBrowserVisualStarvationReports({
@@ -354,6 +514,106 @@ function emitGpuFlowBrowserVisualStarvationReports({
       }),
     );
   }
+}
+
+function recordGpuFlowBlockedVisiblePublication({
+  frame,
+  frozenFrameId,
+  projectionSample,
+  runtimeCanvas,
+}: {
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
+  readonly projectionSample: GpuFlowLiveProjectionSample;
+  readonly runtimeCanvas: HTMLCanvasElement;
+}): GpuFlowBlockedPublicationToken {
+  const blockedReasons = createGpuFlowBlockedVisibleReasons(frame);
+  const token = createGpuFlowBlockedPublicationToken({
+    blockedReasons,
+    frozenFrameId,
+    projectionSample,
+  });
+  const event = Object.freeze({
+    blockedReasons,
+    candidateFrameId: frame.displayFrameId,
+    frozenFrame: token.frozenFrame,
+    frozenFrameId,
+    projectionSampleId: projectionSample.id,
+    tokenTransactionId: token.transactionId,
+  } satisfies GpuFlowBlockedVisiblePublicationEvent);
+  emitGpuFlowBlockedVisiblePublicationEvent({
+    event,
+    runtimeCanvas,
+  });
+  postChromeReproEvent("gpu-flow-blocked-visible-publication", {
+    blockedReasons: event.blockedReasons,
+    candidateFrameId: event.candidateFrameId,
+    frozenFrame: event.frozenFrame,
+    frozenFrameId: event.frozenFrameId,
+    projectionSampleId: event.projectionSampleId,
+    transactionId: event.tokenTransactionId,
+  });
+  return token;
+}
+
+function createGpuFlowBlockedVisibleReasons(
+  frame: GpuFlowCommittedSurfaceFrame,
+): GpuFlowBlockedVisiblePublicationEvent["blockedReasons"] {
+  const actorById = new Map(
+    frame.actorGenerations.map((actor) => [actor.actorId, actor]),
+  );
+  const actorIds = getGpuFlowCommittedSurfacePublishabilityActorIds(frame);
+  return Object.freeze(
+    actorIds.map((actorId) => {
+      const actor = actorById.get(actorId);
+      return Object.freeze({
+        actorId,
+        family: actor?.actorFamily ?? actor?.kind ?? "unknown",
+        reason: getGpuFlowBrowserVisualBlockedReason({
+          frame,
+          textCoverage: actor?.textCoverageProof,
+        }),
+      });
+    }),
+  );
+}
+
+function emitGpuFlowBlockedVisiblePublicationEvent({
+  event,
+  runtimeCanvas,
+}: {
+  readonly event: GpuFlowBlockedVisiblePublicationEvent;
+  readonly runtimeCanvas: HTMLCanvasElement;
+}): void {
+  const ownerWindow = runtimeCanvas.ownerDocument.defaultView;
+  if (!ownerWindow) {
+    return;
+  }
+  const view = ownerWindow as typeof ownerWindow & {
+    __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: GpuFlowBlockedVisiblePublicationEvent[];
+  };
+  const existingEvents =
+    view.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [];
+  view.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ = [
+    ...existingEvents,
+    event,
+  ];
+  runtimeCanvas.dispatchEvent(
+    new CustomEvent("setta-gpu-flow-blocked-visible-publication", {
+      detail: event,
+    }),
+  );
+}
+
+function resolveGpuFlowBlockedVisibleFrozenFrameId({
+  heldPreviousProjectionState,
+}: {
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowBlockedPublicationToken["frozenFrameId"] {
+  return (
+    heldPreviousProjectionState?.committedFrame.displayFrameId ??
+    GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID
+  );
 }
 
 function isGpuFlowBrowserVisualStarvationBudgetExceeded({

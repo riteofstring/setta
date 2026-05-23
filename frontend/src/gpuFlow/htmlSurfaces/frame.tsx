@@ -151,6 +151,7 @@ type HtmlSurfaceNodeLayerProps = {
     | ReadonlySet<string>
     | readonly string[]
     | undefined;
+  readonly progressiveBatchDelayMs?: number | undefined;
   readonly progressiveBatchSize?: number | undefined;
   readonly renderNode: (node: GpuNodeLayout) => ReactNode;
 };
@@ -288,6 +289,7 @@ export function HtmlSurfaceNodeLayer({
   nodes,
   onNodeElementChange,
   priorityNodeIds,
+  progressiveBatchDelayMs,
   progressiveBatchSize,
   renderNode,
 }: HtmlSurfaceNodeLayerProps) {
@@ -298,6 +300,7 @@ export function HtmlSurfaceNodeLayer({
       onSourceElementChange={onNodeElementChange}
       preservedClassNames={PRESERVED_GPU_NODE_STATE_CLASSES}
       prioritySourceIds={priorityNodeIds}
+      progressiveBatchDelayMs={progressiveBatchDelayMs}
       progressiveBatchSize={progressiveBatchSize}
       renderSource={renderNode}
       sourceClassName={`${HTML_SURFACE_SOURCE_CLASS_NAME} ${className}`}

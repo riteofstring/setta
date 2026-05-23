@@ -522,6 +522,7 @@ declare global {
     __SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?:
       | (() => readonly GpuFlowRetainedRowDebugEntry[])
       | undefined;
+    __SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__?: (() => number) | undefined;
     __SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__?:
       | ((viewport: GpuViewportInput) => void)
       | undefined;

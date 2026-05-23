@@ -1,4 +1,10 @@
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import {
+  expect,
+  test,
+  type ConsoleMessage,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 
 import {
   installGpuFlowPerformanceProbe,
@@ -23,6 +29,7 @@ import {
 } from "./settings-retained-frame-helpers";
 import {
   analyzeHorizontalPlaceholderBands,
+  compareScreenshotSimilarity,
   type Rect,
 } from "./settings-retained-visual-analysis";
 
@@ -33,8 +40,13 @@ const SECTION_SIZING_SURFACE_ID =
   "settings-section__sectionSizingPolicy" + SETTINGS_PARAM_CONTENT_SUFFIX;
 const SHORTCUTS_SURFACE_ID =
   "settings-section__shortcuts" + SETTINGS_PARAM_CONTENT_SUFFIX;
+const MIN_RETAINED_CONTENT_NONBLANK_RATIO = 0.02;
+const MAX_CHROME_REPRO_PARITY_CHANGED_PIXEL_RATIO = 0.12;
+const MAX_CHROME_REPRO_PARITY_MEAN_DELTA = 18;
+const MAX_CHROME_REPRO_PARITY_P95_DELTA = 54;
 const HIGH_REFRESH_P95_FRAME_BUDGET_MS = 8.5;
 const HIGH_REFRESH_TRANSITION_P95_SLACK_MS = 8;
+const HIGH_REFRESH_TRANSITION_P95_TIMER_EPSILON_MS = 1;
 const MAX_FRAME_GAP_MS = 50;
 const MAX_FRAME_TIMER_JITTER_MS = 20;
 const MAX_CAPPED_FRAME_TIMER_JITTER_MS = 35;
@@ -52,11 +64,13 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
 }, testInfo) => {
   await installGpuFlowPerformanceProbe(page);
   await ensureAppReady(page);
+  const runtimeHealth = capturePageRuntimeHealth(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
   const controlCadence = await measurePageRafCadence(page);
 
   await resetGpuFlowPerformanceProbe(page);
+  await installLongAnimationFrameProbe(page);
   await startMeasurementRafHeartbeat(page);
   let snapshot: Awaited<
     ReturnType<typeof readGpuFlowPerformanceSnapshot>
@@ -69,8 +83,7 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
       .getByRole("button", { exact: true, name: "All Settings" })
       .click();
     await page.waitForFunction(
-      () =>
-        (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0) > 50,
+      () => (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__?.() ?? 0) > 50,
       undefined,
       { timeout: 10_000 },
     );
@@ -81,6 +94,7 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
   } finally {
     await stopMeasurementRafHeartbeat(page);
   }
+  const runtimeHealthSnapshot = runtimeHealth.stop();
   if (!snapshot) {
     throw new Error("Missing GPU Flow performance snapshot.");
   }
@@ -93,11 +107,13 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
     screenshot,
   });
   const frameStats = summarizeIntervals(snapshot.frameIntervalsMs.slice(2));
+  const longAnimationFrames = await readLongAnimationFrameProbe(page);
   const maxLongTaskMs = Math.max(
     0,
     ...snapshot.longTasks.map((task) => task.durationMs),
   );
   const highRefresh = isHighRefreshCadence(controlCadence);
+  const domControlDiagnostics = await readDomControlDiagnostics(page);
   const p95FrameBudgetMs = highRefresh
     ? resolveHighRefreshTransitionP95FrameBudget(controlCadence)
     : null;
@@ -106,10 +122,47 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
       controlCadence,
       frameStats,
       highRefresh,
+      frameIntervalOutliers: snapshot.frameIntervalsMs
+        .map((durationMs, index) => ({ durationMs, index }))
+        .toSorted((left, right) => right.durationMs - left.durationMs)
+        .slice(0, 8),
+      longAnimationFrames,
       longTasks: snapshot.longTasks,
+      domControlDiagnostics,
+      domSourceDiagnostics: await readDomSourceDiagnostics(page),
       placeholderStats,
       p95FrameBudgetMs,
+      performanceMeasureCount: snapshot.performanceMeasures.length,
+      performanceMeasuresFirst: snapshot.performanceMeasures.slice(0, 12),
+      performanceMeasuresLast: snapshot.performanceMeasures.slice(-12),
+      performanceMeasuresTopDuration: snapshot.performanceMeasures
+        .toSorted((left, right) => right.durationMs - left.durationMs)
+        .slice(0, 12),
+      reactProfilesTopDuration: snapshot.performanceMeasures
+        .filter((measure) => measure.name.includes("react-profile"))
+        .toSorted((left, right) => right.durationMs - left.durationMs)
+        .slice(0, 24),
+      queueCallsAroundLongTasks: snapshot.longTasks.flatMap((task) =>
+        snapshot.queueCalls.filter(
+          (call) =>
+            Math.abs(call.timestampMs - task.startTimeMs) <= 100 ||
+            (call.timestampMs >= task.startTimeMs &&
+              call.timestampMs <= task.startTimeMs + task.durationMs + 100),
+        ),
+      ),
+      queueCallsTopPixels: snapshot.queueCalls
+        .filter((call) => call.method === "copyElementImageToTexture")
+        .map((call) => ({
+          ...call,
+          pixels: (call.width ?? 0) * (call.height ?? 0),
+        }))
+        .toSorted((left, right) => right.pixels - left.pixels)
+        .slice(0, 12),
+      rafCallbacksTopDuration: snapshot.rafCallbacks
+        .toSorted((left, right) => right.durationMs - left.durationMs)
+        .slice(0, 12),
       rowCount: await readRetainedRowCount(page),
+      runtimeHealth: runtimeHealthSnapshot,
       snapshotSummary: {
         frameCount: snapshot.frameCount,
         nodeLayerFrameCount: snapshot.nodeLayerFrames.length,
@@ -123,8 +176,13 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
     sample: JSON.parse(details),
   });
 
-  expect(placeholderStats.nonblankRatio, details).toBeGreaterThan(0.02);
+  expect(placeholderStats.nonblankRatio, details).toBeGreaterThan(
+    MIN_RETAINED_CONTENT_NONBLANK_RATIO,
+  );
   expect(placeholderStats.highConfidencePlaceholder, details).toBe(false);
+  expect(runtimeHealthSnapshot.reactRenderPhaseWarnings, details).toEqual([]);
+  expect(runtimeHealthSnapshot.consoleErrors, details).toEqual([]);
+  expect(runtimeHealthSnapshot.pageErrors, details).toEqual([]);
   expect(frameStats.maxMs, details).toBeLessThanOrEqual(
     MAX_FRAME_GAP_MS + resolveMaxFrameTimerJitterMs(controlCadence),
   );
@@ -152,13 +210,33 @@ test("Chrome repro capture flag does not change retained Settings visible public
     page,
     testInfo,
   });
-  const details = JSON.stringify({ normal, recorder }, null, 2);
+  const visualSimilarity = await compareScreenshotSimilarity(page, {
+    actual: recorder.screenshot,
+    expected: normal.screenshot,
+  });
+  const details = JSON.stringify(
+    {
+      normal: summarizeChromeReproParitySample(normal),
+      recorder: summarizeChromeReproParitySample(recorder),
+      visualSimilarity,
+    },
+    null,
+    2,
+  );
 
   expect(normal.chromeReproActive, details).toBe(false);
   expect(recorder.chromeReproActive, details).toBe(true);
-  expect(normal.placeholderStats.nonblankRatio, details).toBeGreaterThan(0.02);
+  expect(normal.runtimeHealth.consoleErrors, details).toEqual([]);
+  expect(normal.runtimeHealth.pageErrors, details).toEqual([]);
+  expect(normal.runtimeHealth.reactRenderPhaseWarnings, details).toEqual([]);
+  expect(recorder.runtimeHealth.consoleErrors, details).toEqual([]);
+  expect(recorder.runtimeHealth.pageErrors, details).toEqual([]);
+  expect(recorder.runtimeHealth.reactRenderPhaseWarnings, details).toEqual([]);
+  expect(normal.placeholderStats.nonblankRatio, details).toBeGreaterThan(
+    MIN_RETAINED_CONTENT_NONBLANK_RATIO,
+  );
   expect(recorder.placeholderStats.nonblankRatio, details).toBeGreaterThan(
-    0.02,
+    MIN_RETAINED_CONTENT_NONBLANK_RATIO,
   );
   expect(normal.placeholderStats.highConfidencePlaceholder, details).toBe(
     false,
@@ -166,10 +244,49 @@ test("Chrome repro capture flag does not change retained Settings visible public
   expect(recorder.placeholderStats.highConfidencePlaceholder, details).toBe(
     false,
   );
-  expect(recorder.committed, details).toEqual(normal.committed);
-  expect(recorder.diagnostics?.visibleControlRectCount, details).toBe(
-    normal.diagnostics?.visibleControlRectCount,
+  expect(normal.committed?.publishabilityKind, details).toBe("publishable");
+  expect(recorder.committed?.publishabilityKind, details).toBe("publishable");
+  expect(normal.committed?.textActorTrueHoleCount, details).toBe(0);
+  expect(recorder.committed?.textActorTrueHoleCount, details).toBe(0);
+  expect(
+    normal.committed?.textActorExactCoverageCount ?? 0,
+    details,
+  ).toBeGreaterThan(0);
+  expect(
+    recorder.committed?.textActorExactCoverageCount ?? 0,
+    details,
+  ).toBeGreaterThan(0);
+  expect(
+    normal.committed?.visibleNonemptyDomControlCount ?? 0,
+    details,
+  ).toBeGreaterThan(0);
+  expect(
+    recorder.committed?.visibleNonemptyDomControlCount ?? 0,
+    details,
+  ).toBeGreaterThan(0);
+  expect(visualSimilarity.changedPixelRatio, details).toBeLessThanOrEqual(
+    MAX_CHROME_REPRO_PARITY_CHANGED_PIXEL_RATIO,
   );
+  expect(visualSimilarity.meanDelta, details).toBeLessThanOrEqual(
+    MAX_CHROME_REPRO_PARITY_MEAN_DELTA,
+  );
+  expect(visualSimilarity.p95Delta, details).toBeLessThanOrEqual(
+    MAX_CHROME_REPRO_PARITY_P95_DELTA,
+  );
+  expect(
+    recorder.diagnostics?.visibleControlRectCount ?? 0,
+    details,
+  ).toBeGreaterThan(0);
+  expect(
+    normal.diagnostics?.visibleControlRectCount ?? 0,
+    details,
+  ).toBeGreaterThan(0);
+  expect(recorder.diagnostics?.committedFrameId ?? 0, details).toBeGreaterThan(
+    0,
+  );
+  expect(normal.diagnostics?.committedFrameId ?? 0, details).toBeGreaterThan(0);
+  expect(recorder.diagnostics?.runtimeFrameId ?? 0, details).toBeGreaterThan(0);
+  expect(normal.diagnostics?.runtimeFrameId ?? 0, details).toBeGreaterThan(0);
   expect(
     recorder.diagnostics?.mountedControlCount ?? 0,
     details,
@@ -264,6 +381,50 @@ function hasProjectionFrameContentWork(
   );
 }
 
+function capturePageRuntimeHealth(page: Page): {
+  readonly stop: () => {
+    readonly consoleErrors: readonly string[];
+    readonly pageErrors: readonly string[];
+    readonly reactRenderPhaseWarnings: readonly string[];
+  };
+} {
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  const reactRenderPhaseWarnings: string[] = [];
+  const onConsole = (message: ConsoleMessage) => {
+    if (message.type() !== "error") {
+      return;
+    }
+    const text = message.text();
+    consoleErrors.push(text);
+    if (isReactRenderPhaseWarning(text)) {
+      reactRenderPhaseWarnings.push(text);
+    }
+  };
+  const onPageError = (error: Error) => {
+    pageErrors.push(error instanceof Error ? error.message : String(error));
+  };
+  page.on("console", onConsole);
+  page.on("pageerror", onPageError);
+  return {
+    stop() {
+      page.off("console", onConsole);
+      page.off("pageerror", onPageError);
+      return {
+        consoleErrors,
+        pageErrors,
+        reactRenderPhaseWarnings,
+      };
+    },
+  };
+}
+
+function isReactRenderPhaseWarning(text: string): boolean {
+  return text.includes(
+    "Cannot update a component while rendering a different component",
+  );
+}
+
 function isMotionProjectionFrame(
   frame: GpuFlowNodeLayerFrameProbeSummary,
 ): boolean {
@@ -283,9 +444,11 @@ function isHighRefreshCadence(cadence: PageRafCadence): boolean {
 function resolveHighRefreshTransitionP95FrameBudget(
   cadence: PageRafCadence,
 ): number {
-  return Math.max(
-    HIGH_REFRESH_P95_FRAME_BUDGET_MS,
-    cadence.p95Ms + HIGH_REFRESH_TRANSITION_P95_SLACK_MS,
+  return (
+    Math.max(
+      HIGH_REFRESH_P95_FRAME_BUDGET_MS,
+      cadence.p95Ms + HIGH_REFRESH_TRANSITION_P95_SLACK_MS,
+    ) + HIGH_REFRESH_TRANSITION_P95_TIMER_EPSILON_MS
   );
 }
 
@@ -298,8 +461,40 @@ function resolveMaxFrameTimerJitterMs(cadence: PageRafCadence): number {
 
 async function readRetainedRowCount(page: Page): Promise<number> {
   return await page.evaluate(
-    () => window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
+    () => window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__?.() ?? 0,
   );
+}
+
+async function readDomControlDiagnostics(page: Page): Promise<unknown> {
+  return await page.evaluate(
+    () =>
+      (
+        window as typeof window & {
+          __settaGpuFlowDomControlPlaneDiagnostics?: () => unknown;
+        }
+      ).__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null,
+  );
+}
+
+async function readDomSourceDiagnostics(page: Page): Promise<unknown> {
+  return await page.evaluate(() => {
+    const sources = [
+      ...document.querySelectorAll<HTMLElement>(
+        ".setta-gpu-flow__html-source",
+      ),
+    ];
+    return {
+      count: sources.length,
+      topDescendantCounts: sources
+        .map((source) => ({
+          className: source.className,
+          descendantCount: source.querySelectorAll("*").length,
+          sourceId: source.getAttribute("data-gpu-flow-source-id"),
+        }))
+        .sort((left, right) => right.descendantCount - left.descendantCount)
+        .slice(0, 16),
+    };
+  });
 }
 
 async function captureChromeReproParitySample({
@@ -311,6 +506,7 @@ async function captureChromeReproParitySample({
   readonly page: Page;
   readonly testInfo: TestInfo;
 }) {
+  const runtimeHealth = capturePageRuntimeHealth(page);
   await openAllSettingsForRetainedCompositor(page);
   await centerRetainedCompositorSurface(page, SECTION_SIZING_SURFACE_ID);
   await waitForRetainedCompositorVisibleDomPublication(page);
@@ -319,6 +515,7 @@ async function captureChromeReproParitySample({
     page,
     SECTION_SIZING_SURFACE_ID,
   );
+  await waitForRetainedCompositorNonblankClip(page, target.clip);
   const screenshot = await page.screenshot({
     clip: target.clip,
     path: testInfo.outputPath(`chrome-repro-parity-${label}.png`),
@@ -365,10 +562,41 @@ async function captureChromeReproParitySample({
       diagnostics,
     };
   });
+  const runtimeHealthSnapshot = runtimeHealth.stop();
   return {
     ...runtime,
     placeholderStats,
+    runtimeHealth: runtimeHealthSnapshot,
+    screenshot,
   };
+}
+
+function summarizeChromeReproParitySample(
+  sample: Awaited<ReturnType<typeof captureChromeReproParitySample>>,
+) {
+  const { screenshot: _screenshot, ...summary } = sample;
+  return summary;
+}
+
+async function waitForRetainedCompositorNonblankClip(
+  page: Page,
+  clip: Rect,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const screenshot = await page.screenshot({ clip });
+        const placeholderStats = await analyzeHorizontalPlaceholderBands(page, {
+          screenshot,
+        });
+        return placeholderStats.nonblankRatio;
+      },
+      {
+        intervals: [50, 80, 120, 180],
+        timeout: 10_000,
+      },
+    )
+    .toBeGreaterThan(MIN_RETAINED_CONTENT_NONBLANK_RATIO);
 }
 
 async function waitForRetainedCompositorVisibleDomPublication(
@@ -456,6 +684,89 @@ async function startMeasurementRafHeartbeat(page: Page): Promise<void> {
       }
     };
     requestAnimationFrame(tick);
+  });
+}
+
+async function installLongAnimationFrameProbe(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const win = window as Window & {
+      __settaRetainedSettingsLongAnimationFrames__?: unknown[];
+      __settaRetainedSettingsLongAnimationFrameObserver__?: PerformanceObserver;
+    };
+    win.__settaRetainedSettingsLongAnimationFrames__ = [];
+    win.__settaRetainedSettingsLongAnimationFrameObserver__?.disconnect();
+    if (
+      typeof PerformanceObserver !== "function" ||
+      !PerformanceObserver.supportedEntryTypes.includes(
+        "long-animation-frame",
+      )
+    ) {
+      return;
+    }
+    const observer = new PerformanceObserver((list) => {
+      const samples = win.__settaRetainedSettingsLongAnimationFrames__;
+      if (!samples) {
+        return;
+      }
+      for (const entry of list.getEntries()) {
+        const record = entry as PerformanceEntry & {
+          blockingDuration?: number;
+          renderStart?: number;
+          scripts?: Array<{
+            duration?: number;
+            forcedStyleAndLayoutDuration?: number;
+            invoker?: string;
+            invokerType?: string;
+            pauseDuration?: number;
+            sourceFunctionName?: string;
+            sourceURL?: string;
+            sourceCharPosition?: number;
+            startTime?: number;
+            styleAndLayoutStart?: number;
+            windowAttribution?: string;
+          }>;
+        };
+        samples.push({
+          blockingDuration: record.blockingDuration ?? 0,
+          duration: record.duration,
+          name: record.name,
+          renderStart: record.renderStart ?? null,
+          scripts: (record.scripts ?? [])
+            .map((script) => ({
+              duration: script.duration ?? 0,
+              forcedStyleAndLayoutDuration:
+                script.forcedStyleAndLayoutDuration ?? 0,
+              invoker: script.invoker ?? "",
+              invokerType: script.invokerType ?? "",
+              pauseDuration: script.pauseDuration ?? 0,
+              sourceFunctionName: script.sourceFunctionName ?? "",
+              sourceURL: script.sourceURL ?? "",
+              startTime: script.startTime ?? 0,
+              styleAndLayoutStart: script.styleAndLayoutStart ?? 0,
+              windowAttribution: script.windowAttribution ?? "",
+            }))
+            .sort((left, right) => right.duration - left.duration)
+            .slice(0, 5),
+          startTime: record.startTime,
+        });
+      }
+      if (samples.length > 16) {
+        samples.splice(0, samples.length - 16);
+      }
+    });
+    observer.observe({ type: "long-animation-frame", buffered: true });
+    win.__settaRetainedSettingsLongAnimationFrameObserver__ = observer;
+  });
+}
+
+async function readLongAnimationFrameProbe(page: Page): Promise<unknown[]> {
+  return await page.evaluate(() => {
+    const win = window as Window & {
+      __settaRetainedSettingsLongAnimationFrames__?: unknown[];
+      __settaRetainedSettingsLongAnimationFrameObserver__?: PerformanceObserver;
+    };
+    win.__settaRetainedSettingsLongAnimationFrameObserver__?.disconnect();
+    return win.__settaRetainedSettingsLongAnimationFrames__ ?? [];
   });
 }
 

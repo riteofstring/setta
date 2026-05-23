@@ -5,31 +5,39 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type {
-  GpuFlowCommittedSurfaceBrowserVisualReadiness,
-  GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
 import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import type { CommittedHtmlSurfaceTextureSnapshot } from "../htmlSurfaces/textures";
-import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import {
-  GPU_RETAINED_TEXT_LIKE_INTERACTION_POLICY,
-  type GpuRetainedDomControlSourceDescriptor,
-} from "../retainedDomControlScene";
-import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
-import {
-  normalizeGpuViewport,
-  type GpuViewportInput,
-  type GpuViewportTuple,
-} from "../viewportMath";
-import type { GpuFlowViewportRuntime } from "../viewportRuntime";
+import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
+import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
   createGpuFlowBrowserVisualActorRuntime,
   getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
+  type GpuFlowBrowserVisualActorCandidate,
 } from "./browserVisualActorRuntime";
 import { GpuFlowDomControlPlane } from "./domControlPlane";
+import {
+  committedSnapshotTexture,
+  committedSurfaceFrame,
+  createCommittedSurfaceRuntimeWithBrowserVisuals,
+  createMockViewportRuntime,
+  domControl,
+  domControlCoverageState,
+  domControlReadinessResourceHandles,
+  mountedRowIds,
+  preparationRowIds,
+  publicationToken,
+  publishBrowserVisualFrame,
+  retainedDisplayFrame,
+  retainedRuntimeFrame,
+  stageBrowserVisualCandidate,
+} from "./domControlPlaneProjectionRuntimeTestUtils";
 import { getGpuRetainedDomControlSnapshotSurfaceId } from "./retainedDomControlSources";
+import {
+  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+  createGpuFlowBlockedPublicationToken,
+} from "./visibleFramePublicationAuthority";
+import type { GpuFlowBlockedPublicationToken } from "./visibleFramePublicationTokens";
 
 let root: Root | null = null;
 
@@ -42,157 +50,6 @@ describe("GPU flow DOM control projection runtime", () => {
     delete (window as Window & { __SETTA_CHROME_REPRO_ACTIVE__?: boolean })
       .__SETTA_CHROME_REPRO_ACTIVE__;
     document.body.replaceChildren();
-  });
-
-  it("projects mounted hosts on viewport motion without React mount selection", () => {
-    const controls = [
-      domControl({ active: true, index: 0 }),
-      ...Array.from({ length: 99 }, (_, index) =>
-        domControl({ index: index + 1 }),
-      ),
-    ];
-    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
-    const viewportStore = createGpuFlowViewportStore({
-      height: 60,
-      transform: [0, 0, 1],
-      width: 400,
-    });
-    const host = document.body.appendChild(document.createElement("div"));
-    root = createRoot(host);
-
-    act(() => {
-      root?.render(
-        <GpuFlowDomControlPlane
-          committedFrameId={1}
-          getRetainedScrollOffset={undefined}
-          onActivate={undefined}
-          renderControl={(control) => (
-            <input data-row-id={control.rowId} readOnly value={control.value} />
-          )}
-          retainedRuntimeFrame={retainedRuntimeFrame(controls)}
-          viewportRuntime={viewportRuntime}
-          viewportStore={viewportStore}
-        />,
-      );
-    });
-    const mountedBefore = mountedRowIds();
-
-    act(() => {
-      viewportRuntime.applyOverlayTransforms([0, -280, 1]);
-    });
-
-    expect(mountedBefore.length).toBeGreaterThan(0);
-    expect(mountedRowIds()).toEqual(mountedBefore);
-  });
-
-  it("projects retained scroll motion without refreshing runtime host assignments", () => {
-    const controls = Array.from({ length: 100 }, (_, index) =>
-      domControl({ index }),
-    );
-    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
-    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
-    const viewportStore = createGpuFlowViewportStore({
-      height: 60,
-      transform: [0, 0, 1],
-      width: 400,
-    });
-    let retainedScrollY = 0;
-    browserVisualRuntime.setDomControlProjectionEnvironment({
-      getRetainedScrollOffset: () => ({ x: 0, y: retainedScrollY }),
-      viewportRuntime,
-      viewportStore,
-    });
-    browserVisualRuntime.prepareCommittedSurfaceFrame({
-      retainedDisplayFrame: retainedDisplayFrame({
-        id: 1,
-        retainedRuntimeFrame: retainedRuntimeFrame(controls),
-      }),
-    });
-    const mountedBefore = browserVisualRuntime
-      .getSnapshot()
-      .domControls.mountedControls.map((control) => control.rowId);
-
-    retainedScrollY = 280;
-    browserVisualRuntime.projectDomControls();
-
-    expect(
-      browserVisualRuntime
-        .getSnapshot()
-        .domControls.mountedControls.map((control) => control.rowId),
-    ).toEqual(mountedBefore);
-  });
-
-  it("pins focused DOM-control hosts while retained active state catches up", () => {
-    const activeControls = [
-      domControl({ active: true, index: 0 }),
-      ...Array.from({ length: 99 }, (_, index) =>
-        domControl({ index: index + 1 }),
-      ),
-    ];
-    const passiveControls = [
-      domControl({ active: false, index: 0 }),
-      ...Array.from({ length: 99 }, (_, index) =>
-        domControl({ index: index + 1 }),
-      ),
-    ];
-    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
-    const viewportStore = createGpuFlowViewportStore({
-      height: 60,
-      transform: [0, 0, 1],
-      width: 400,
-    });
-    const host = document.body.appendChild(document.createElement("div"));
-    root = createRoot(host);
-
-    const renderPlane = (
-      controls: readonly GpuRetainedDomControlSourceDescriptor[],
-    ) => (
-      <GpuFlowDomControlPlane
-        committedFrameId={1}
-        getRetainedScrollOffset={undefined}
-        onActivate={undefined}
-        renderControl={(control) => (
-          <input
-            data-active={control.active ? "true" : "false"}
-            data-row-id={control.rowId}
-            readOnly
-            value={control.value}
-          />
-        )}
-        retainedRuntimeFrame={retainedRuntimeFrame(controls)}
-        viewportRuntime={viewportRuntime}
-        viewportStore={viewportStore}
-      />
-    );
-
-    act(() => {
-      root?.render(renderPlane(activeControls));
-    });
-    const input = document.querySelector<HTMLInputElement>(
-      "input[data-row-id='row-0']",
-    );
-    if (!input) {
-      throw new Error("Expected row-0 DOM control input to mount.");
-    }
-    act(() => {
-      input.focus();
-    });
-
-    act(() => {
-      root?.render(renderPlane(passiveControls));
-    });
-
-    const rowHost = document.querySelector<HTMLElement>(
-      "[data-gpu-flow-dom-control-row-id='row-0']",
-    );
-    expect(document.activeElement).toBe(input);
-    expect(rowHost?.dataset.gpuFlowDomControlActive).toBe("true");
-
-    act(() => {
-      viewportRuntime.applyOverlayTransforms([0, -280, 1]);
-    });
-
-    expect(rowHost?.style.display).not.toBe("none");
   });
 
   it("keeps focused DOM-control hosts focused across frame metadata updates", () => {
@@ -209,25 +66,33 @@ describe("GPU flow DOM control projection runtime", () => {
       transform: [0, 0, 1],
       width: 400,
     });
+    const committedSurfaceRuntime =
+      createCommittedSurfaceRuntimeWithBrowserVisuals({
+        frame: committedSurfaceFrame({
+          displayFrameId: 1,
+          retainedRuntimeFrame: runtimeFrame,
+        }),
+        viewportRuntime,
+        viewportStore,
+      });
     const host = document.body.appendChild(document.createElement("div"));
     root = createRoot(host);
 
-    const renderPlane = (committedFrameId: number) => (
+    const renderPlane = () => (
       <GpuFlowDomControlPlane
-        committedFrameId={committedFrameId}
+        committedSurfaceRuntime={committedSurfaceRuntime}
         getRetainedScrollOffset={undefined}
         onActivate={undefined}
         renderControl={(control) => (
           <input data-row-id={control.rowId} readOnly value={control.value} />
         )}
-        retainedRuntimeFrame={runtimeFrame}
         viewportRuntime={viewportRuntime}
         viewportStore={viewportStore}
       />
     );
 
     act(() => {
-      root?.render(renderPlane(1));
+      root?.render(renderPlane());
     });
     const input = document.querySelector<HTMLInputElement>(
       "input[data-row-id='row-0']",
@@ -240,7 +105,16 @@ describe("GPU flow DOM control projection runtime", () => {
     });
 
     act(() => {
-      root?.render(renderPlane(2));
+      publishBrowserVisualFrame({
+        committedSurfaceRuntime,
+        frame: committedSurfaceFrame({
+          displayFrameId: 2,
+          retainedRuntimeFrame: runtimeFrame,
+        }),
+        viewportRuntime,
+        viewportStore,
+      });
+      root?.render(renderPlane());
     });
 
     expect(document.activeElement).toBe(input);
@@ -259,13 +133,22 @@ describe("GPU flow DOM control projection runtime", () => {
       transform: [0, 0, 1],
       width: 400,
     });
+    const committedSurfaceRuntime =
+      createCommittedSurfaceRuntimeWithBrowserVisuals({
+        frame: committedSurfaceFrame({
+          displayFrameId: 1,
+          retainedRuntimeFrame: retainedRuntimeFrame(controls),
+        }),
+        viewportRuntime,
+        viewportStore,
+      });
     const host = document.body.appendChild(document.createElement("div"));
     root = createRoot(host);
 
     act(() => {
       root?.render(
         <GpuFlowDomControlPlane
-          committedFrameId={1}
+          committedSurfaceRuntime={committedSurfaceRuntime}
           getRetainedScrollOffset={undefined}
           onActivate={undefined}
           renderControl={(control) => (
@@ -279,7 +162,6 @@ describe("GPU flow DOM control projection runtime", () => {
               />
             </div>
           )}
-          retainedRuntimeFrame={retainedRuntimeFrame(controls)}
           viewportRuntime={viewportRuntime}
           viewportStore={viewportStore}
         />,
@@ -320,32 +202,34 @@ describe("GPU flow DOM control projection runtime", () => {
     const nextControls = [domControl({ index: 1 })];
     const firstRuntimeFrame = retainedRuntimeFrame(firstControls, 1);
     const nextRuntimeFrame = retainedRuntimeFrame(nextControls, 2);
-    const committedSurfaceRuntime = createGpuFlowCommittedSurfaceRuntime(
-      committedSurfaceFrame({
-        displayFrameId: 1,
-        retainedRuntimeFrame: firstRuntimeFrame,
-      }),
-    );
+    const firstFrame = committedSurfaceFrame({
+      displayFrameId: 1,
+      retainedRuntimeFrame: firstRuntimeFrame,
+    });
     const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
     const viewportStore = createGpuFlowViewportStore({
       height: 60,
       transform: [0, 0, 1],
       width: 400,
     });
+    const committedSurfaceRuntime =
+      createCommittedSurfaceRuntimeWithBrowserVisuals({
+        frame: firstFrame,
+        viewportRuntime,
+        viewportStore,
+      });
     const host = document.body.appendChild(document.createElement("div"));
     root = createRoot(host);
 
     act(() => {
       root?.render(
         <GpuFlowDomControlPlane
-          committedFrameId={1}
           committedSurfaceRuntime={committedSurfaceRuntime}
           getRetainedScrollOffset={undefined}
           onActivate={undefined}
           renderControl={(control) => (
             <input data-row-id={control.rowId} readOnly value={control.value} />
           )}
-          retainedRuntimeFrame={firstRuntimeFrame}
           viewportRuntime={viewportRuntime}
           viewportStore={viewportStore}
         />,
@@ -354,12 +238,16 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(mountedRowIds()).toEqual(["row-0"]);
 
     act(() => {
-      committedSurfaceRuntime.publishCommittedContentFrame(
-        committedSurfaceFrame({
-          displayFrameId: 2,
-          retainedRuntimeFrame: nextRuntimeFrame,
-        }),
-      );
+      const frame = committedSurfaceFrame({
+        displayFrameId: 2,
+        retainedRuntimeFrame: nextRuntimeFrame,
+      });
+      publishBrowserVisualFrame({
+        committedSurfaceRuntime,
+        frame,
+        viewportRuntime,
+        viewportStore,
+      });
     });
 
     expect(mountedRowIds()).toEqual(["row-1"]);
@@ -371,11 +259,10 @@ describe("GPU flow DOM control projection runtime", () => {
   });
 
   it("prepares candidate hosts offscreen before reporting live-host readiness", () => {
-    const firstRuntimeFrame = retainedRuntimeFrame([domControl({ index: 0 })]);
-    const nextRuntimeFrame = retainedRuntimeFrame(
-      [domControl({ index: 1 })],
-      2,
-    );
+    const firstControl = domControl({ index: 0 });
+    const nextControl = domControl({ index: 1 });
+    const firstRuntimeFrame = retainedRuntimeFrame([firstControl]);
+    const nextRuntimeFrame = retainedRuntimeFrame([nextControl], 2);
     const committedSurfaceRuntime = createGpuFlowCommittedSurfaceRuntime(
       committedSurfaceFrame({
         displayFrameId: 1,
@@ -392,40 +279,47 @@ describe("GPU flow DOM control projection runtime", () => {
       transform: [0, 0, 1],
       width: 400,
     });
+    publishBrowserVisualFrame({
+      committedSurfaceRuntime,
+      frame: committedSurfaceFrame({
+        displayFrameId: 1,
+        retainedRuntimeFrame: firstRuntimeFrame,
+      }),
+      viewportRuntime,
+      viewportStore,
+    });
     const host = document.body.appendChild(document.createElement("div"));
     root = createRoot(host);
 
     act(() => {
       root?.render(
         <GpuFlowDomControlPlane
-          committedFrameId={1}
           committedSurfaceRuntime={committedSurfaceRuntime}
           getRetainedScrollOffset={undefined}
           onActivate={undefined}
           renderControl={(control) => (
             <input data-row-id={control.rowId} readOnly value={control.value} />
           )}
-          retainedRuntimeFrame={firstRuntimeFrame}
           viewportRuntime={viewportRuntime}
           viewportStore={viewportStore}
         />,
       );
     });
 
-    const firstReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
-      retainedDisplayFrame: retainedDisplayFrame({
-        id: 1,
-        retainedRuntimeFrame: firstRuntimeFrame,
-      }),
+    let firstReadiness: GpuFlowBrowserVisualActorCandidate | undefined;
+    act(() => {
+      firstReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+        retainedDisplayFrame: retainedDisplayFrame({
+          id: 1,
+          retainedRuntimeFrame: firstRuntimeFrame,
+        }),
+      });
     });
-    expect(
-      firstReadiness.domControlReadinessByActorId.get("source-0")
-        ?.coverageState,
-    ).toBe("live-host-ready");
+    expect(domControlCoverageState(firstReadiness!, firstControl)).toBe(
+      "live-host-ready",
+    );
 
-    let blockedReadiness:
-      | GpuFlowCommittedSurfaceBrowserVisualReadiness
-      | undefined;
+    let blockedReadiness: GpuFlowBrowserVisualActorCandidate | undefined;
     act(() => {
       blockedReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
         retainedDisplayFrame: retainedDisplayFrame({
@@ -434,14 +328,19 @@ describe("GPU flow DOM control projection runtime", () => {
         }),
       });
     });
-    expect(
-      blockedReadiness!.domControlReadinessByActorId.get("source-1")
-        ?.coverageState,
-    ).toBe("blocked-awaiting-live-host");
+    expect(domControlCoverageState(blockedReadiness!, nextControl)).toBe(
+      "blocked-awaiting-live-host",
+    );
+    act(() => {
+      stageBrowserVisualCandidate({
+        actorId: nextControl.sourceId,
+        browserVisualRuntime,
+        candidate: blockedReadiness!,
+        reason: "live-dom-budget",
+      });
+    });
 
-    let readyReadiness:
-      | GpuFlowCommittedSurfaceBrowserVisualReadiness
-      | undefined;
+    let readyReadiness: GpuFlowBrowserVisualActorCandidate | undefined;
     act(() => {
       readyReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
         retainedDisplayFrame: retainedDisplayFrame({
@@ -451,11 +350,282 @@ describe("GPU flow DOM control projection runtime", () => {
       });
     });
 
-    expect(mountedRowIds()).toContain("row-1");
+    expect(mountedRowIds()).not.toContain("row-1");
+    expect(preparationRowIds()).toContain("row-1");
+    expect(domControlCoverageState(readyReadiness!, nextControl)).toBe(
+      "live-host-ready",
+    );
+    act(() => {
+      browserVisualRuntime.commitPreparedBrowserVisualActors({
+        candidate: readyReadiness!,
+        token: publicationToken(
+          committedSurfaceFrame({
+            displayFrameId: 2,
+            retainedRuntimeFrame: nextRuntimeFrame,
+          }),
+        ),
+      });
+    });
     expect(
-      readyReadiness!.domControlReadinessByActorId.get("source-1")
-        ?.coverageState,
-    ).toBe("live-host-ready");
+      browserVisualRuntime
+        .getSnapshot()
+        .domControls.mountedControls.map((control) => control.rowId),
+    ).toContain("row-1");
+    expect(
+      browserVisualRuntime.getPreparationSnapshot().domControls.mountedControls,
+    ).toEqual([]);
+  });
+
+  it("reports compatible previous projection as proof-backed readiness", () => {
+    const firstControl = domControl({ index: 1, value: "hello" });
+    const nextControl = {
+      ...firstControl,
+      projectionVisibility: "viewport-visible" as const,
+      snapshotSurfaceId: null,
+      visualPolicy: "blocked-awaiting-browser-visual" as const,
+    };
+    const firstRuntimeFrame = retainedRuntimeFrame([firstControl], 1);
+    const nextRuntimeFrame = retainedRuntimeFrame([nextControl], 2);
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+    browserVisualRuntime.setDomControlElement({
+      control: firstControl,
+      element: document.body.appendChild(document.createElement("input")),
+    });
+
+    const firstCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 1,
+        retainedRuntimeFrame: firstRuntimeFrame,
+      }),
+    });
+    expect(domControlCoverageState(firstCandidate, firstControl)).toBe(
+      "live-host-ready",
+    );
+
+    const uncommittedCompatibleCandidate =
+      browserVisualRuntime.prepareCommittedSurfaceFrame({
+        retainedDisplayFrame: retainedDisplayFrame({
+          id: 2,
+          retainedRuntimeFrame: nextRuntimeFrame,
+        }),
+      });
+    expect(
+      domControlCoverageState(uncommittedCompatibleCandidate, nextControl),
+    ).toBe("blocked-awaiting-snapshot");
+    browserVisualRuntime.commitPreparedBrowserVisualActors({
+      candidate: firstCandidate,
+      token: publicationToken(
+        committedSurfaceFrame({
+          displayFrameId: 1,
+          retainedRuntimeFrame: firstRuntimeFrame,
+        }),
+      ),
+    });
+
+    const compatibleCandidate =
+      browserVisualRuntime.prepareCommittedSurfaceFrame({
+        retainedDisplayFrame: retainedDisplayFrame({
+          id: 2,
+          retainedRuntimeFrame: nextRuntimeFrame,
+        }),
+      });
+    const readiness =
+      compatibleCandidate.readiness.domControlReadinessByActorId.get(
+        nextControl.sourceId,
+      );
+
+    expect(readiness).toEqual(
+      expect.objectContaining({
+        compatibilityProof: expect.objectContaining({
+          actorId: nextControl.sourceId,
+          reasonCode: "same-value-and-geometry",
+        }),
+        coverageState: "compatible-previous-ready",
+      }),
+    );
+  });
+
+  it("does not emit preparation snapshots until a hold or blocked outcome stages the candidate", () => {
+    const nextControl = domControl({ index: 1 });
+    const nextRuntimeFrame = retainedRuntimeFrame([nextControl], 2);
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+    let preparationEmitCount = 0;
+    const unsubscribe = browserVisualRuntime.subscribePreparation(() => {
+      preparationEmitCount += 1;
+    });
+
+    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: nextRuntimeFrame,
+      }),
+    });
+
+    expect(preparationEmitCount).toBe(0);
+    expect(
+      browserVisualRuntime.getPreparationSnapshot().domControls.mountedControls,
+    ).toEqual([]);
+
+    stageBrowserVisualCandidate({
+      actorId: nextControl.sourceId,
+      browserVisualRuntime,
+      candidate,
+    });
+
+    expect(preparationEmitCount).toBe(1);
+    expect(
+      browserVisualRuntime
+        .getPreparationSnapshot()
+        .domControls.mountedControls.map((control) => control.rowId),
+    ).toContain("row-1");
+    unsubscribe();
+  });
+
+  it("rejects unbranded tokens when staging prepared candidate hosts", () => {
+    const nextControl = domControl({ index: 1 });
+    const nextRuntimeFrame = retainedRuntimeFrame([nextControl], 2);
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+
+    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: nextRuntimeFrame,
+      }),
+    });
+
+    expect(() =>
+      browserVisualRuntime.stagePreparedBrowserVisualActors({
+        candidate,
+        token: {
+          projectionSampleId: 2,
+        } as unknown as GpuFlowBlockedPublicationToken,
+      }),
+    ).toThrow(/hold-previous or blocked publication token/);
+    expect(
+      browserVisualRuntime.getPreparationSnapshot().domControls.mountedControls,
+    ).toEqual([]);
+  });
+
+  it("aborts prepared candidate hosts without publishing the visible snapshot", () => {
+    const nextControl = domControl({ index: 1 });
+    const nextRuntimeFrame = retainedRuntimeFrame([nextControl], 2);
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+
+    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: nextRuntimeFrame,
+      }),
+    });
+    stageBrowserVisualCandidate({
+      actorId: nextControl.sourceId,
+      browserVisualRuntime,
+      candidate,
+    });
+    expect(
+      browserVisualRuntime
+        .getPreparationSnapshot()
+        .domControls.mountedControls.map((control) => control.rowId),
+    ).toContain("row-1");
+
+    browserVisualRuntime.abortPreparedBrowserVisualActors({
+      candidate,
+      token: createGpuFlowBlockedPublicationToken({
+        blockedReasons: [
+          {
+            actorId: nextControl.sourceId,
+            family: "dom-control",
+            reason: "snapshot-pending",
+          },
+        ],
+        frozenFrameId: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+        projectionSample: { id: 2 } as GpuFlowLiveProjectionSample,
+      }),
+    });
+
+    expect(
+      browserVisualRuntime.getPreparationSnapshot().domControls.mountedControls,
+    ).toEqual([]);
+    expect(
+      browserVisualRuntime.getSnapshot().domControls.mountedControls,
+    ).toEqual([]);
+  });
+
+  it("rejects unbranded tokens when aborting prepared candidate hosts", () => {
+    const nextControl = domControl({ index: 1 });
+    const nextRuntimeFrame = retainedRuntimeFrame([nextControl], 2);
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+
+    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: nextRuntimeFrame,
+      }),
+    });
+
+    expect(() =>
+      browserVisualRuntime.abortPreparedBrowserVisualActors({
+        candidate,
+        token: {
+          projectionSampleId: 2,
+        } as unknown as GpuFlowBlockedPublicationToken,
+      }),
+    ).toThrow(/hold-previous or blocked publication token/);
   });
 
   it("requires captured snapshot texture content before reporting exact snapshot readiness", () => {
@@ -496,9 +666,14 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(domControlCoverageState(firstReadiness, control)).toBe(
       "blocked-awaiting-snapshot",
     );
+    stageBrowserVisualCandidate({
+      actorId: control.sourceId,
+      browserVisualRuntime,
+      candidate: firstReadiness,
+    });
     expect(
       browserVisualRuntime
-        .getSnapshot()
+        .getPreparationSnapshot()
         .domControls.snapshotControls.map(
           (snapshotControl) => snapshotControl.sourceId,
         ),
@@ -575,10 +750,18 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(domControlCoverageState(readyReadiness, control)).toBe(
       "exact-snapshot-ready",
     );
-    expect(
-      readyReadiness.domControlReadinessByActorId.get(control.sourceId)
-        ?.resourceHandles,
-    ).toEqual([{ id: "snapshot-0", kind: "texture" }]);
+    expect(domControlReadinessResourceHandles(readyReadiness, control)).toEqual(
+      [
+        expect.objectContaining({
+          actorId: control.sourceId,
+          contentGenerationId: control.snapshotCacheKeyRevision,
+          id: "snapshot-0",
+          kind: "texture",
+          projectionGenerationId: expect.any(String),
+          resourceGenerationId: expect.any(String),
+        }),
+      ],
+    );
   });
 
   it("keeps snapshot preparation batch ownership in the browser visual runtime", () => {
@@ -615,15 +798,19 @@ describe("GPU flow DOM control projection runtime", () => {
         committedTextureBySurfaceId.get(surfaceId),
     });
 
-    browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const firstReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 1,
         retainedRuntimeFrame: runtimeFrame,
       }),
     });
+    stageBrowserVisualCandidate({
+      browserVisualRuntime,
+      candidate: firstReadiness,
+    });
     expect(
       browserVisualRuntime
-        .getSnapshot()
+        .getPreparationSnapshot()
         .domControls.snapshotControls.map((control) => control.sourceId),
     ).toEqual(
       Array.from({ length: 8 }, (_, offset) => `source-${70 + offset}`),
@@ -652,10 +839,14 @@ describe("GPU flow DOM control projection runtime", () => {
         retainedRuntimeFrame: runtimeFrame,
       }),
     });
+    stageBrowserVisualCandidate({
+      browserVisualRuntime,
+      candidate: nextReadiness,
+    });
 
     expect(
       browserVisualRuntime
-        .getSnapshot()
+        .getPreparationSnapshot()
         .domControls.snapshotControls.map((control) => control.sourceId),
     ).toEqual(
       expect.arrayContaining(
@@ -701,9 +892,13 @@ describe("GPU flow DOM control projection runtime", () => {
         retainedRuntimeFrame: runtimeFrame,
       }),
     });
+    stageBrowserVisualCandidate({
+      browserVisualRuntime,
+      candidate: firstReadiness,
+    });
 
     const overflowControl = browserVisualRuntime
-      .getSnapshot()
+      .getPreparationSnapshot()
       .domControls.snapshotControls.find(
         (control) => control.visualPolicy === "live-dom",
       );
@@ -739,9 +934,17 @@ describe("GPU flow DOM control projection runtime", () => {
       "exact-snapshot-ready",
     );
     expect(
-      readyReadiness.domControlReadinessByActorId.get(overflowControl.sourceId)
-        ?.resourceHandles,
-    ).toEqual([{ id: overflowSnapshotSurfaceId, kind: "texture" }]);
+      domControlReadinessResourceHandles(readyReadiness, overflowControl),
+    ).toEqual([
+      expect.objectContaining({
+        actorId: overflowControl.sourceId,
+        contentGenerationId: overflowControl.snapshotCacheKeyRevision,
+        id: overflowSnapshotSurfaceId,
+        kind: "texture",
+        projectionGenerationId: expect.any(String),
+        resourceGenerationId: expect.any(String),
+      }),
+    ]);
   });
 });
 
@@ -761,19 +964,27 @@ function renderMountedRowIds({
     transform: [0, 0, 1],
     width: 400,
   });
+  const committedSurfaceRuntime =
+    createCommittedSurfaceRuntimeWithBrowserVisuals({
+      frame: committedSurfaceFrame({
+        displayFrameId: 1,
+        retainedRuntimeFrame: retainedRuntimeFrame(controls),
+      }),
+      viewportRuntime,
+      viewportStore,
+    });
   const host = document.body.appendChild(document.createElement("div"));
   root = createRoot(host);
 
   act(() => {
     root?.render(
       <GpuFlowDomControlPlane
-        committedFrameId={1}
+        committedSurfaceRuntime={committedSurfaceRuntime}
         getRetainedScrollOffset={undefined}
         onActivate={undefined}
         renderControl={(control) => (
           <input data-row-id={control.rowId} readOnly value={control.value} />
         )}
-        retainedRuntimeFrame={retainedRuntimeFrame(controls)}
         viewportRuntime={viewportRuntime}
         viewportStore={viewportStore}
       />,
@@ -781,220 +992,4 @@ function renderMountedRowIds({
   });
 
   return mountedRowIds();
-}
-
-function createMockViewportRuntime(
-  initialViewport: GpuViewportTuple,
-): GpuFlowViewportRuntime {
-  let viewport = initialViewport;
-  const overlayManagers: Array<{
-    readonly applyViewport: (viewport: GpuViewportTuple) => void;
-  }> = [];
-  return {
-    applyOverlayTransforms(nextViewport: GpuViewportInput = viewport) {
-      viewport = normalizeViewportTuple(nextViewport);
-      for (const manager of overlayManagers) {
-        manager.applyViewport(viewport);
-      }
-    },
-    getViewportTuple() {
-      return viewport;
-    },
-    registerOverlayManager(manager) {
-      overlayManagers.push(manager);
-      manager.applyViewport(viewport);
-      return () => {
-        const index = overlayManagers.indexOf(manager);
-        if (index >= 0) {
-          overlayManagers.splice(index, 1);
-        }
-      };
-    },
-  } as unknown as GpuFlowViewportRuntime;
-}
-
-function normalizeViewportTuple(viewport: GpuViewportInput): GpuViewportTuple {
-  const normalized = normalizeGpuViewport(viewport);
-  return [normalized.x, normalized.y, normalized.zoom];
-}
-
-function retainedRuntimeFrame(
-  controls: readonly GpuRetainedDomControlSourceDescriptor[],
-  frameId = 1,
-): GpuRetainedRuntimeFrame {
-  return {
-    descriptors: {
-      domControlSources: controls,
-    },
-    frameId,
-  } as GpuRetainedRuntimeFrame;
-}
-
-function committedSurfaceFrame({
-  displayFrameId,
-  retainedRuntimeFrame,
-}: {
-  readonly displayFrameId: number;
-  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-}): GpuFlowCommittedSurfaceFrame {
-  return {
-    actorGenerations: [],
-    displayFrameId,
-    retainedRuntimeFrame,
-    sceneRevision: 1,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
-}
-
-function retainedDisplayFrame({
-  id,
-  retainedRuntimeFrame,
-}: {
-  readonly id: number;
-  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-}): RetainedDisplayFrame {
-  return {
-    id,
-    retainedRuntimeFrame,
-  } as unknown as RetainedDisplayFrame;
-}
-
-function mountedRowIds(): readonly string[] {
-  return [
-    ...document.querySelectorAll<HTMLElement>(
-      "[data-gpu-flow-dom-control='true']",
-    ),
-  ].map((element) => element.dataset.gpuFlowDomControlRowId ?? "");
-}
-
-function domControlCoverageState(
-  readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness,
-  control: GpuRetainedDomControlSourceDescriptor,
-) {
-  return readiness.domControlReadinessByActorId.get(control.sourceId)
-    ?.coverageState;
-}
-
-function committedSnapshotTexture(
-  texture: Partial<
-    Pick<
-      CommittedHtmlSurfaceTextureSnapshot,
-      | "dirtyContent"
-      | "dirtyResolution"
-      | "lastUploadFrame"
-      | "textureContentKey"
-    >
-  > = {},
-): CommittedHtmlSurfaceTextureSnapshot {
-  return {
-    dirtyContent: false,
-    dirtyResolution: false,
-    lastUploadFrame: 1,
-    textureContentKey: "cache-key",
-    ...texture,
-  } as CommittedHtmlSurfaceTextureSnapshot;
-}
-
-function domControl({
-  active = false,
-  index,
-  snapshotSurfaceId = null,
-  value = "",
-  visualPolicy = "live-dom",
-}: {
-  readonly active?: boolean | undefined;
-  readonly index: number;
-  readonly snapshotSurfaceId?: string | null | undefined;
-  readonly value?: string | undefined;
-  readonly visualPolicy?:
-    | GpuRetainedDomControlSourceDescriptor["visualPolicy"]
-    | undefined;
-}): GpuRetainedDomControlSourceDescriptor {
-  const rect = { height: 24, width: 273, x: 0, y: index * 28 };
-  const snapshotCacheKey = {
-    appThemeRevision: "theme",
-    caretVisibility: active ? "visible" : "hidden",
-    codeMirrorThemeRevision: "codemirror-theme",
-    compositionState: "inactive",
-    cssStyleRevision: "value-style",
-    defaultValue: "",
-    devicePixelRatioBucket: 1,
-    disabled: false,
-    editorExtensionGeneration: "text|single-line|nowrap",
-    editorKind: "text" as const,
-    error: false,
-    fontGeneration: "fonts",
-    language: null,
-    linePolicy: "single-line" as const,
-    measuredLayoutMode: "single-line" as const,
-    placeholder: "",
-    rendererFamily: "text-like",
-    selectionState: active ? "collapsed" : "none",
-    sourceHeight: rect.height,
-    sourceWidth: rect.width,
-    syntaxGeneration: "plain-text",
-    value,
-    wrapLines: false,
-    zoomBucket: 1,
-  } as const;
-  const textCoverageState = createTestTextCoverageState(active);
-  const textCoverageRevision = JSON.stringify(textCoverageState);
-  return {
-    active,
-    clipChainRevision: "clip",
-    clipRectSurfaceCssPx: rect,
-    controlId: `control-${index}`,
-    controlRectSurfaceCssPx: rect,
-    defaultValue: "",
-    disabled: false,
-    editorKind: "text",
-    error: false,
-    geometryRevision: "geometry",
-    interactionPolicy: GPU_RETAINED_TEXT_LIKE_INTERACTION_POLICY,
-    language: null,
-    layerSlot: "dom-control-plane",
-    lifecycleState: active ? "active-projected" : "passive-projected",
-    linePolicy: "single-line",
-    maxVisibleLines: 1,
-    minVisibleLines: 1,
-    projectionVisibility: "viewport-visible",
-    rendererFamily: "text-like",
-    role: "text-like",
-    rowId: `row-${index}`,
-    sectionClipRectFlowPx: { height: 10_000, width: 400, x: 0, y: 0 },
-    sectionId: "section",
-    sectionScrollOffset: { x: 0, y: 0 },
-    sectionScrollRevision: 0,
-    snapshotCacheKey,
-    snapshotCacheKeyRevision: JSON.stringify(snapshotCacheKey),
-    snapshotSurfaceId,
-    sourceId: `source-${index}`,
-    sourceKey: `source-${index}`,
-    sourceRectCssPx: rect,
-    surfaceId: "surface",
-    textCoverageRevision,
-    textCoverageState,
-    value,
-    valueStyleKey: "value-style",
-    valueStyleRevision: "value-style",
-    viewportRectCssPx: rect,
-    viewportSampleRevision: "viewport",
-    visualPolicy,
-    visualSemantics: {
-      accessibility: "visual-only-aria-hidden",
-      focusable: false,
-      pointer: "retained-activation-model",
-      selectable: "none",
-    },
-    worldRectFlowPx: rect,
-    wrapLines: false,
-    zOrder: index,
-  };
-}
-
-function createTestTextCoverageState(active: boolean) {
-  return {
-    caret: active ? "visible" : "hidden",
-    composition: "inactive",
-    selection: active ? "collapsed" : "none",
-  } as const;
 }

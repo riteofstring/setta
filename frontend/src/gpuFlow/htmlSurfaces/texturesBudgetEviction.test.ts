@@ -1,6 +1,7 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { releaseGpuFlowSurfaceTexture } from "../surfaceTextureReleaseAuthority";
 import { HtmlSurfaceTextureManager } from "./textures";
 import {
   createGpuTextureMock,
@@ -272,12 +273,102 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     registerNode(manager, "node-a", "visible");
     registerNode(manager, "node-b", "visible");
 
-    manager.destroySurfaceTexture("node-a");
+    expect(
+      releaseGpuFlowSurfaceTexture({
+        reason: "test",
+        surfaceId: "node-a",
+        textureManager: manager,
+      }),
+    ).toEqual({
+      kind: "released",
+      surfaceId: "node-a",
+    });
     expect(gpu.textures[0]?.destroy).toHaveBeenCalledTimes(1);
     expect(manager.getCommittedSurfaceTexture("node-a")).toBeUndefined();
 
     manager.destroy();
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
     expect(manager.getDirtySurfaces()).toEqual([]);
+  });
+
+  it("rejects unbranded direct texture release tokens", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+
+    registerNode(manager, "node-a", "visible");
+
+    expect(() =>
+      manager.destroySurfaceTexture(
+        {
+          reason: "test",
+          surfaceId: "node-a",
+          transactionId: "fake",
+        } as never,
+        "node-a",
+      ),
+    ).toThrow(
+      'GPU Flow surface texture release requires a release token for surface "node-a".',
+    );
+    expect(manager.getCommittedSurfaceTexture("node-a")).toBeDefined();
+  });
+
+  it("defers source texture release while a published frame protects the surface", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+
+    registerNode(manager, "node-a", "visible", { frame: 1 });
+    manager.evictSurfaceTextures({
+      budgetBytes: Number.POSITIVE_INFINITY,
+      protectedSurfaceIds: ["node-a"],
+    });
+
+    expect(
+      releaseGpuFlowSurfaceTexture({
+        reason: "test",
+        surfaceId: "node-a",
+        textureManager: manager,
+      }),
+    ).toEqual({
+      kind: "deferred-protected",
+      surfaceId: "node-a",
+    });
+    expect(gpu.textures[0]?.destroy).not.toHaveBeenCalled();
+    expect(manager.getCommittedSurfaceTexture("node-a")).toBeDefined();
+
+    manager.evictSurfaceTextures({
+      budgetBytes: Number.POSITIVE_INFINITY,
+      protectedSurfaceIds: [],
+    });
+
+    expect(gpu.textures[0]?.destroy).toHaveBeenCalledTimes(1);
+    expect(manager.getCommittedSurfaceTexture("node-a")).toBeUndefined();
+  });
+
+  it("cancels deferred release when the source remounts before protection clears", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+
+    registerNode(manager, "node-a", "visible", { frame: 1 });
+    manager.evictSurfaceTextures({
+      budgetBytes: Number.POSITIVE_INFINITY,
+      protectedSurfaceIds: ["node-a"],
+    });
+    releaseGpuFlowSurfaceTexture({
+      reason: "test",
+      surfaceId: "node-a",
+      textureManager: manager,
+    });
+
+    registerNode(manager, "node-a", "visible", { frame: 2 });
+    manager.evictSurfaceTextures({
+      budgetBytes: Number.POSITIVE_INFINITY,
+      protectedSurfaceIds: [],
+    });
+
+    expect(gpu.textures[0]?.destroy).not.toHaveBeenCalled();
+    expect(manager.getCommittedSurfaceTexture("node-a")).toBeDefined();
   });
 });

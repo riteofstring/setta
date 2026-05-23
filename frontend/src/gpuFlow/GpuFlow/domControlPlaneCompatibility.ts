@@ -1,5 +1,6 @@
 import type { GpuFlowTextControlCompatibilityProof } from "../projectionRuntime";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
+import { createGpuFlowCanonicalActorId } from "../committedSurfaceActorIdentity";
 import type { GpuRect } from "../viewportMath";
 import type { GpuFlowDomControlProjectionAssignment } from "./domControlPlaneProjection";
 import { DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS } from "./domControlProjectionHorizon";
@@ -125,6 +126,15 @@ export function createGpuFlowDomControlCompatiblePreviousProof({
   return {
     activationPolicy: current.active ? "allowed" : "requires-current-visual",
     actorId: current.sourceId,
+    canonicalActorId: createGpuFlowCanonicalActorId({
+      actorFamily: "text-like-dom-control",
+      actorId: current.sourceId,
+      controlId: current.controlId,
+      islandId: null,
+      ownerSurfaceId: current.surfaceId,
+      representationRole: "browser-text-control",
+      rowId: current.rowId,
+    }),
     clipChainRevision: current.clipChainRevision,
     controlKind: current.editorKind,
     displayRevision: current.valueStyleRevision,

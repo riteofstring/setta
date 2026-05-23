@@ -576,7 +576,6 @@ export function useGpuFlowRetainedContentControllers({
           result: event,
           state: retainedContentRuntimeState,
         });
-        viewportRuntime.applyOverlayTransforms();
         retainedContentKeyboard.onNavigation(event);
         requestGpuFlowRetainedContentRuntimeScrollFrameOnChanges({
           previousScrollOffsets: new Map(),
@@ -623,7 +622,6 @@ export function useGpuFlowRetainedContentControllers({
           result,
           state: retainedContentRuntimeState,
         });
-        viewportRuntime.applyOverlayTransforms();
         retainedContentScroll.onScrollOffsetsCommit?.(scrollOffsets, result);
       },
       requestFrame: (reason) => {

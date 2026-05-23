@@ -27,6 +27,15 @@ export type GpuFlowRequestPaintCall = {
   readonly timestampMs: number;
 };
 
+export type GpuFlowRafCallback = {
+  readonly callbackName: string;
+  readonly durationMs: number;
+  readonly index: number;
+  readonly requestedAtMs: number;
+  readonly stack: readonly string[];
+  readonly startedAtMs: number;
+};
+
 export type GpuFlowSourceMutation = {
   readonly attributeName: string;
   readonly index: number;
@@ -129,6 +138,7 @@ export type GpuFlowPerformanceSnapshot = {
   readonly performanceMeasures: readonly GpuFlowPerformanceMeasure[];
   readonly queueCalls: readonly GpuFlowQueueCall[];
   readonly queueWrappersInstalled: boolean;
+  readonly rafCallbacks: readonly GpuFlowRafCallback[];
   readonly requestPaintCalls: readonly GpuFlowRequestPaintCall[];
   readonly sourceMutations: readonly GpuFlowSourceMutation[];
   readonly timestampMs: number;
@@ -273,6 +283,8 @@ export function createGpuFlowPerformanceProbeInitScript(): string {
     isCopyElementImageToTextureSourceRectCall.toString(),
     recordWriteBufferCall.toString(),
     recordSourceMutation.toString(),
+    recordRafCallback.toString(),
+    captureRafCallbackStack.toString(),
     startSourceMutationObserver.toString(),
     stopSourceMutationObserver.toString(),
     hasTransformMutation.toString(),
@@ -408,7 +420,7 @@ function installGpuFlowPerformanceProbeInPage() {
   const existing = win[probeKey] as
     | { installQueueWrappers?: () => boolean; version?: number }
     | undefined;
-  if (existing?.version === 6) {
+  if (existing?.version === 7) {
     existing.installQueueWrappers?.();
     return;
   }
@@ -437,6 +449,7 @@ function installGpuFlowPerformanceProbeInPage() {
     performanceMeasures: [] as GpuFlowPerformanceMeasure[],
     queueCalls: [] as GpuFlowQueueCall[],
     queueWrappersInstalled: false,
+    rafCallbacks: [] as GpuFlowRafCallback[],
     requestPaintCalls: [] as GpuFlowRequestPaintCall[],
     sourceMutationRecording: true,
     sourceMutationObserver: null as MutationObserver | null,
@@ -444,13 +457,26 @@ function installGpuFlowPerformanceProbeInPage() {
   };
 
   window.requestAnimationFrame = (callback: FrameRequestCallback): number => {
+    const requestedAtMs = performance.now();
+    const stack = captureRafCallbackStack();
     return originalRequestAnimationFrame.call(window, (timestamp) => {
       if (state.lastFrameTimestampMs !== null) {
         state.frameIntervalsMs.push(timestamp - state.lastFrameTimestampMs);
       }
       state.frameCount += 1;
       state.lastFrameTimestampMs = timestamp;
-      callback(timestamp);
+      const startedAtMs = performance.now();
+      try {
+        callback(timestamp);
+      } finally {
+        recordRafCallback(state, {
+          callbackName: callback.name,
+          durationMs: performance.now() - startedAtMs,
+          requestedAtMs,
+          stack,
+          startedAtMs,
+        });
+      }
     });
   };
 
@@ -549,6 +575,7 @@ function installGpuFlowPerformanceProbeInPage() {
       state.nodeLayerFrames = [];
       state.performanceMeasures = [];
       state.queueCalls = [];
+      state.rafCallbacks = [];
       state.requestPaintCalls = [];
       state.sourceMutations = [];
     },
@@ -570,6 +597,7 @@ function installGpuFlowPerformanceProbeInPage() {
         performanceMeasures: [...state.performanceMeasures],
         queueCalls: [...state.queueCalls],
         queueWrappersInstalled: state.queueWrappersInstalled,
+        rafCallbacks: [...state.rafCallbacks],
         requestPaintCalls: [...state.requestPaintCalls],
         sourceMutations: [...state.sourceMutations],
         timestampMs: performance.now(),
@@ -596,10 +624,36 @@ function installGpuFlowPerformanceProbeInPage() {
       stopSourceMutationObserver(state);
       delete win[probeKey];
     },
-    version: 6,
+    version: 7,
   };
   win[probeKey] = api;
   api.installQueueWrappers();
+}
+
+function recordRafCallback(
+  state: { rafCallbacks: GpuFlowRafCallback[] },
+  callback: Omit<GpuFlowRafCallback, "index">,
+) {
+  state.rafCallbacks.push({
+    ...callback,
+    callbackName: callback.callbackName || "",
+    index: state.rafCallbacks.length,
+  });
+  if (state.rafCallbacks.length > 500) {
+    state.rafCallbacks.splice(0, state.rafCallbacks.length - 500);
+  }
+}
+
+function captureRafCallbackStack(): readonly string[] {
+  const stack = new Error().stack;
+  if (!stack) {
+    return [];
+  }
+  return stack
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .slice(1, 8);
 }
 
 function getGpuQueueMethod(
