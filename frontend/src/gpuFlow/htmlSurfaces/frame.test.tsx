@@ -53,7 +53,6 @@ describe("HTML surface frame helpers", () => {
       node("unknown-size", 10, 10, null, 100, 0),
       node("forced", 2_000, 2_000, 100, 100, 2),
     ];
-
     const quads = collectVisibleGpuNodeQuads({
       canvasHeight: 300,
       canvasWidth: 400,
@@ -1162,7 +1161,6 @@ describe("HTML surface frame helpers", () => {
       frame: 7,
       textureManager: manager,
     });
-
     expect(dirtyNodeIds).toEqual(["node-a"]);
     expect(elementByNodeId.iterationCount).toBe(0);
     expect(manager.markSurfacesPainted).toHaveBeenCalledWith(["node-a"]);
@@ -1181,7 +1179,6 @@ describe("HTML surface frame helpers", () => {
       markSurfaceTextureDirty: vi.fn(() => true),
       markSurfacesPainted: vi.fn(),
     };
-
     const dirtyNodeIds = markHtmlSurfaceFramePaintDirty({
       changedElements: [nodeElement],
       elementByNodeId: new Map([["node-a", nodeElement]]),
