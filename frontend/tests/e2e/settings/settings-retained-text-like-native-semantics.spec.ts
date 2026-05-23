@@ -1,10 +1,4 @@
-import {
-  expect,
-  test,
-  type ConsoleMessage,
-  type Page,
-  type TestInfo,
-} from "@playwright/test";
+import { expect, test, type ConsoleMessage, type Page } from "@playwright/test";
 
 import { waitForAnimationFrame } from "./settings-retained-frame-helpers";
 import {
@@ -218,6 +212,10 @@ test("retained motion preserves active editor visual ink and runtime health", as
     page,
     { rowId: row.rowId },
   );
+  const accessibilityBefore = await readNativeTextAccessibilityExposure(
+    page,
+    row.rowId,
+  );
   const beforeClip = await clampScreenshotClipToViewport(
     page,
     caretBeforeMotion.rowControlRect,
@@ -269,9 +267,15 @@ test("retained motion preserves active editor visual ink and runtime health", as
     page,
     { rowId: row.rowId },
   );
+  const accessibilityAfter = await readNativeTextAccessibilityExposure(
+    page,
+    row.rowId,
+  );
   const runtimeHealthSnapshot = runtimeHealth.stop();
   const details = JSON.stringify(
     {
+      accessibilityAfter,
+      accessibilityBefore,
       afterClip,
       afterInk,
       beforeClip,
@@ -307,6 +311,8 @@ test("retained motion preserves active editor visual ink and runtime health", as
   expect(committedProofAfter.actualInteraction, details).toBe(
     "active-editor-live",
   );
+  expectSingleNativeTextAccessibilityExposure(accessibilityBefore, details);
+  expectSingleNativeTextAccessibilityExposure(accessibilityAfter, details);
   expectNativeTextStateAlignedToRow(caretBeforeMotion, details);
   expectNativeTextStateAlignedToRow(caretAfterMotion, details);
 });
@@ -314,6 +320,21 @@ test("retained motion preserves active editor visual ink and runtime health", as
 type RuntimeHealthSnapshot = {
   readonly consoleErrors: readonly string[];
   readonly pageErrors: readonly string[];
+};
+
+type NativeTextAccessibilityExposure = {
+  readonly activeEditorId: string | null;
+  readonly activeHostCount: number;
+  readonly exposedHostCount: number;
+  readonly exposedHosts: readonly {
+    readonly active: string | null;
+    readonly ariaHidden: string | null;
+    readonly controlId: string | null;
+    readonly hasActiveEditor: boolean;
+    readonly textLength: number;
+  }[];
+  readonly hostCount: number;
+  readonly rowId: string;
 };
 
 function capturePageRuntimeHealth(page: Page): {
@@ -342,6 +363,58 @@ function capturePageRuntimeHealth(page: Page): {
       };
     },
   };
+}
+
+function expectSingleNativeTextAccessibilityExposure(
+  exposure: NativeTextAccessibilityExposure,
+  details: string,
+): void {
+  expect(exposure.activeEditorId, details).toContain(exposure.rowId);
+  expect(exposure.activeHostCount, details).toBe(1);
+  expect(exposure.exposedHostCount, details).toBe(1);
+  expect(exposure.exposedHosts[0]?.hasActiveEditor, details).toBe(true);
+}
+
+async function readNativeTextAccessibilityExposure(
+  page: Page,
+  rowId: string,
+): Promise<NativeTextAccessibilityExposure> {
+  return await page.evaluate((rowId) => {
+    const hosts = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        `[data-gpu-flow-dom-control-row-id="${CSS.escape(rowId)}"]`,
+      ),
+    );
+    const activeElement = document.activeElement;
+    const activeEditorId =
+      activeElement instanceof Element
+        ? activeElement
+            .closest("[data-gpu-flow-control]")
+            ?.getAttribute("data-gpu-flow-control") ?? null
+        : null;
+    const exposedHosts = hosts
+      .filter(
+        (host) =>
+          !host.closest('[aria-hidden="true"]') &&
+          host.getClientRects().length > 0,
+      )
+      .map((host) => ({
+        active: host.dataset.gpuFlowDomControlActive ?? null,
+        ariaHidden: host.getAttribute("aria-hidden"),
+        controlId: host.dataset.gpuFlowDomControlId ?? null,
+        hasActiveEditor: Boolean(host.querySelector(".cm-editor")),
+        textLength: (host.textContent ?? "").trim().length,
+      }));
+    return {
+      activeEditorId,
+      activeHostCount: exposedHosts.filter((host) => host.active === "true")
+        .length,
+      exposedHostCount: exposedHosts.length,
+      exposedHosts,
+      hostCount: hosts.length,
+      rowId,
+    };
+  }, rowId);
 }
 
 async function clampScreenshotClipToViewport(
