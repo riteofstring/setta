@@ -9,10 +9,7 @@ export function createGpuFlowJsonDigest(
   return createGpuFlowTextDigest(namespace, JSON.stringify(value));
 }
 
-export function createGpuFlowTextDigest(
-  namespace: string,
-  value: string,
-): string {
+function createGpuFlowTextDigest(namespace: string, value: string): string {
   let primary = FNV_OFFSET_BASIS;
   let secondary = FNV_OFFSET_BASIS ^ 0x9e3779b9;
   primary = mixGpuFlowDigestText(primary, namespace);

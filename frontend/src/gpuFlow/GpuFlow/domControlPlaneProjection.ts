@@ -714,7 +714,7 @@ function isGpuFlowDomControlPlaneClipPartial({
   );
 }
 
-export function syncGpuFlowDomControlPlaneElementStyle({
+function syncGpuFlowDomControlPlaneElementStyle({
   control,
   element,
   getRetainedScrollOffset,

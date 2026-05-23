@@ -26,19 +26,19 @@ const GPU_FLOW_BLOCKED_PUBLICATION_TOKEN = Symbol(
   "GpuFlowBlockedPublicationToken",
 );
 
-export type GpuFlowVisibleTransactionId = string;
-export type GpuFlowCommittedVisibleFrameId = number;
-export type GpuFlowProjectionSampleId = number;
-export type GpuFlowActorManifestDigest = string;
-export type GpuFlowVisibleProofDigest = string;
-export type GpuFlowPresentationPairDigest = string;
-export type GpuFlowResourceProtectionDigest = string;
+type GpuFlowVisibleTransactionId = string;
+type GpuFlowCommittedVisibleFrameId = number;
+type GpuFlowProjectionSampleId = number;
+type GpuFlowActorManifestDigest = string;
+type GpuFlowVisibleProofDigest = string;
+type GpuFlowPresentationPairDigest = string;
+type GpuFlowResourceProtectionDigest = string;
 export const GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID =
   "cold-start-shell:browser-visual";
 export const GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID =
   "cold-start-shell:retained-projection";
 
-export type GpuFlowColdStartShellFrameId =
+type GpuFlowColdStartShellFrameId =
   | typeof GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID
   | typeof GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID;
 
@@ -49,7 +49,7 @@ export type GpuFlowColdStartShellFrame = {
   readonly reason: string;
 };
 
-export type GpuFlowCommitPresentationPairProof = {
+type GpuFlowCommitPresentationPairProof = {
   readonly actorManifestDigest: string;
   readonly batchId: string;
   readonly browserVisualFragmentDigest: string | null;
@@ -126,7 +126,7 @@ export type GpuFlowCommittedSurfaceStartupToken =
     readonly transactionId: GpuFlowVisibleTransactionId;
   };
 
-export type GpuFlowPresentableCommit = PresentableCommitBrand & {
+type GpuFlowPresentableCommit = PresentableCommitBrand & {
   readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
   readonly expectedActorSetDigest: GpuFlowActorManifestDigest;
   readonly presentationPairDigest: GpuFlowPresentationPairDigest;
@@ -161,7 +161,7 @@ export type GpuFlowBlockedPublicationToken = BlockedPublicationTokenBrand & {
   readonly transactionId: GpuFlowVisibleTransactionId;
 };
 
-export type GpuFlowVisiblePublicationTokenIssuer = {
+type GpuFlowVisiblePublicationTokenIssuer = {
   readonly createBlockedPublicationToken: (input: {
     readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
     readonly frozenFrameId:
@@ -618,7 +618,8 @@ export function assertGpuFlowCommitPublicationTokenForPresentationProof({
     !token ||
     token[GPU_FLOW_COMMIT_PUBLICATION_TOKEN] !== true ||
     token.committedFrameId !== frame.displayFrameId ||
-    token.expectedActorSetDigest !== frame.presentationProof.actorManifestDigest ||
+    token.expectedActorSetDigest !==
+      frame.presentationProof.actorManifestDigest ||
     token.proofDigest !== createGpuFlowVisibleProofDigest(frame) ||
     !token.presentationPairProof ||
     token.presentationPairDigest !==

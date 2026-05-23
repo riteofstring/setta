@@ -71,7 +71,7 @@ export function shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepai
   );
 }
 
-export function createGpuFlowBlockedVisibleReasons(
+function createGpuFlowBlockedVisibleReasons(
   frame: GpuFlowCommittedSurfaceFrame,
 ): readonly GpuFlowBlockedVisibleReason[] {
   const actorById = new Map(

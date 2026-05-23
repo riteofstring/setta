@@ -10,7 +10,7 @@ type GpuFlowCompatiblePreviousBudgetState =
   | "within-budget"
   | null;
 
-export type GpuFlowVisiblePublicationActorProof = {
+type GpuFlowVisiblePublicationActorProof = {
   readonly actorId: string;
   readonly actualInteractionProof: string;
   readonly actualVisualProof: string;
@@ -43,7 +43,7 @@ export type GpuFlowVisiblePublicationActorProof = {
     | "same-live-host-compatible-projection";
 };
 
-export type GpuFlowVisiblePublicationActorDebt = {
+type GpuFlowVisiblePublicationActorDebt = {
   readonly actorId: string;
   readonly canonicalActorId: string;
   readonly ownerFamily: string;
@@ -100,8 +100,7 @@ export function createGpuFlowVisiblePublicationBlockedActorReasonsForFrame({
     createGpuFlowVisiblePublicationActorProofsForFrame({
       committedFrame,
       projectionSampleId,
-    })
-      .flatMap(createGpuFlowVisiblePublicationBlockedActorReasons),
+    }).flatMap(createGpuFlowVisiblePublicationBlockedActorReasons),
   );
 }
 
@@ -142,9 +141,8 @@ export function assertGpuFlowVisiblePublicationCommitActorProofs(
     );
   }
   const representationMismatches = actorProofs.flatMap((proof) => {
-    const mismatch = getGpuFlowVisiblePublicationActorRepresentationMismatch(
-      proof,
-    );
+    const mismatch =
+      getGpuFlowVisiblePublicationActorRepresentationMismatch(proof);
     return mismatch === null ? [] : [mismatch];
   });
   if (representationMismatches.length === 0) {
@@ -480,7 +478,8 @@ function createGpuFlowVisiblePublicationBlockedActorReason(
   if (
     isGpuFlowActiveEditorCompatiblePreviousProofBlocked({
       actualVisualProof: proof.actualVisualProof,
-      requiredInteractionRepresentation: proof.requiredInteractionRepresentation,
+      requiredInteractionRepresentation:
+        proof.requiredInteractionRepresentation,
     })
   ) {
     return Object.freeze({

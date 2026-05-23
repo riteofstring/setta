@@ -61,13 +61,13 @@ type GpuFlowVisiblePublicationCompletion = {
   readonly outcome: GpuFlowVisiblePublicationCompletionOutcome["kind"];
 };
 
-export type GpuFlowVisiblePublicationCommitCompletionOutcome = {
+type GpuFlowVisiblePublicationCommitCompletionOutcome = {
   readonly debtProof: GpuFlowVisiblePublicationDebtProof;
   readonly kind: "commit";
   readonly token: GpuFlowCommitPublicationToken;
 };
 
-export type GpuFlowVisiblePublicationUncommittedCompletionOutcome =
+type GpuFlowVisiblePublicationUncommittedCompletionOutcome =
   | {
       readonly kind: "hold-previous";
       readonly token: GpuFlowHoldPreviousToken;

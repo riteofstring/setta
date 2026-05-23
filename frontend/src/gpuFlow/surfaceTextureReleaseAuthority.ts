@@ -9,7 +9,7 @@ const GPU_FLOW_SURFACE_TEXTURE_RELEASE_TOKEN = Symbol(
   "GpuFlowSurfaceTextureReleaseToken",
 );
 
-export type GpuFlowSurfaceTextureReleaseReason =
+type GpuFlowSurfaceTextureReleaseReason =
   | "blocked-rejected-candidate"
   | "commit-superseded"
   | "source-unmounted";
@@ -46,7 +46,7 @@ export type GpuFlowSurfaceTextureReleaseResult =
       readonly surfaceId: string;
     };
 
-export type GpuFlowSurfaceTextureReleaseTarget = {
+type GpuFlowSurfaceTextureReleaseTarget = {
   destroySurfaceTexture(
     token: GpuFlowSurfaceTextureReleaseToken,
     surfaceId: string,

@@ -2,14 +2,14 @@ import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { SurfaceResourceHandle } from "../surfaceCompositor/surfaceCoverage";
 import type { GpuFlowBlockedVisibleReason } from "./visibleFramePublicationTokens";
 
-export type GpuFlowVisiblePublicationResourceProtectionReport = {
+type GpuFlowVisiblePublicationResourceProtectionReport = {
   readonly missingResourceKeys: readonly string[];
   readonly protected: boolean;
   readonly protectedResourceKeys: readonly string[];
   readonly requiredResourceKeys: readonly string[];
 };
 
-export type GpuFlowVisiblePublicationResourceProtectionDigest = string;
+type GpuFlowVisiblePublicationResourceProtectionDigest = string;
 
 export function createGpuFlowVisiblePublicationResourceProtectionReport(
   committedFrame: GpuFlowCommittedSurfaceFrame | null,
@@ -32,14 +32,15 @@ export function createGpuFlowVisiblePublicationResourceBlockedReasons(
   committedFrame: GpuFlowCommittedSurfaceFrame,
 ): readonly GpuFlowBlockedVisibleReason[] {
   return Object.freeze(
-    createGpuFlowVisiblePublicationResourceProtectionReport(committedFrame)
-      .missingResourceKeys.map((resourceKey) =>
-        Object.freeze({
-          actorId: null,
-          family: "resource-protection",
-          reason: `missing-protected-resource:${resourceKey}`,
-        }),
-      ),
+    createGpuFlowVisiblePublicationResourceProtectionReport(
+      committedFrame,
+    ).missingResourceKeys.map((resourceKey) =>
+      Object.freeze({
+        actorId: null,
+        family: "resource-protection",
+        reason: `missing-protected-resource:${resourceKey}`,
+      }),
+    ),
   );
 }
 

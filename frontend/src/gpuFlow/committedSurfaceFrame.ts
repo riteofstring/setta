@@ -28,11 +28,11 @@ import {
   createDomControlActorSet,
   type DomControlActorOptions,
 } from "./committedSurfaceTextActor";
+import { createGpuFlowJsonDigest } from "./gpuFlowDigest";
 import type {
   HtmlSurfaceFlatVisual,
   HtmlSurfaceSolidRoundedRectVisual,
 } from "./htmlSurfaces/visualScene";
-import { createGpuFlowJsonDigest } from "./gpuFlowDigest";
 import type { RetainedDisplayFrame } from "./retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuDomIsland } from "./scene";
@@ -52,10 +52,6 @@ export {
   assertGpuFlowCommittedSurfacePresentationProof,
   createGpuFlowCommittedSurfaceActorManifestDigest,
   createGpuFlowCommittedSurfacePresentationProof,
-} from "./committedSurfacePresentationProof";
-export type {
-  GpuFlowCommittedSurfaceCoherence,
-  GpuFlowCommittedSurfacePresentationProof,
 } from "./committedSurfacePresentationProof";
 
 type GpuFlowCommittedSurfaceActorKind =

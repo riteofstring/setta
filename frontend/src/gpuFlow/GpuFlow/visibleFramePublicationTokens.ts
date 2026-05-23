@@ -1,7 +1,6 @@
 export {
   assertGpuFlowBlockedPublicationTokenBrand,
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
-  assertGpuFlowCommitPublicationToken,
   assertGpuFlowCommitPublicationTokenBrand,
   assertGpuFlowCommitPublicationTokenForFrameId,
   assertGpuFlowCommitPublicationTokenForPresentationProof,
@@ -13,21 +12,12 @@ export {
   assertGpuFlowPreparedCandidateAbortToken,
 } from "./visibleFramePublicationAuthority";
 export type {
-  GpuFlowActorManifestDigest,
   GpuFlowBlockedFrozenFrame,
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,
   GpuFlowColdStartShellFrame,
-  GpuFlowColdStartShellFrameId,
-  GpuFlowCommitPresentationPairProof,
   GpuFlowCommitPublicationToken,
   GpuFlowCommittedSurfaceResetToken,
   GpuFlowCommittedSurfaceStartupToken,
-  GpuFlowCommittedVisibleFrameId,
   GpuFlowHoldPreviousToken,
-  GpuFlowPresentableCommit,
-  GpuFlowPresentationPairDigest,
-  GpuFlowProjectionSampleId,
-  GpuFlowVisibleProofDigest,
-  GpuFlowVisibleTransactionId,
 } from "./visibleFramePublicationAuthority";

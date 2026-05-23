@@ -1,4 +1,4 @@
-export type GpuFlowCommittedSurfaceActorRepresentationRole =
+type GpuFlowCommittedSurfaceActorRepresentationRole =
   | "browser-dom-island"
   | "browser-text-control"
   | "gpu-native-visual"

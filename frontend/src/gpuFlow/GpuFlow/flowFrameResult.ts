@@ -103,16 +103,3 @@ export function createGpuFlowNodeLayerFrameVisibleProjectionStateResult(
     visibleProjectionState,
   };
 }
-
-export function createGpuFlowNodeLayerFrameResultForVisibleProjectionState(
-  visibleProjectionState: GpuFlowVisibleProjectionState | null,
-  options: GpuFlowNodeLayerFrameResultOptions = {},
-): GpuFlowNodeLayerFrameResult {
-  if (visibleProjectionState === null) {
-    return createGpuFlowNodeLayerFrameNotRenderedResult(options);
-  }
-  return createGpuFlowNodeLayerFrameVisibleProjectionStateResult(
-    visibleProjectionState,
-    options,
-  );
-}

@@ -2,11 +2,9 @@ import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomContro
 import type { BrowserVisualActorCoverageState } from "./browserVisualActorAdapter";
 import { requiresLiveDomControlTextActorRepresentation } from "./browserVisualActorRepresentation";
 
-export type BrowserVisualActorRequiredVisualProof =
-  | "browser-visual"
-  | "none";
+type BrowserVisualActorRequiredVisualProof = "browser-visual" | "none";
 
-export type BrowserVisualActorActualVisualProof =
+type BrowserVisualActorActualVisualProof =
   | "blocked"
   | "compatible-previous"
   | "exact-live-host"
@@ -14,7 +12,7 @@ export type BrowserVisualActorActualVisualProof =
   | "not-required"
   | "same-live-host-compatible-projection";
 
-export type BrowserVisualActorInteractionProof =
+type BrowserVisualActorInteractionProof =
   | "active-editor-live"
   | "blocked"
   | "inactive-visual-only"
