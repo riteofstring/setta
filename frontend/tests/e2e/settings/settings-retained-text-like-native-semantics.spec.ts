@@ -317,9 +317,219 @@ test("retained motion preserves active editor visual ink and runtime health", as
   expectNativeTextStateAlignedToRow(caretAfterMotion, details);
 });
 
+test("selection drag survives held candidate abort during active-editor motion", async ({
+  page,
+}) => {
+  const runtimeHealth = capturePageRuntimeHealth(page);
+  const { row } = await openNativeTextLikeRow(page);
+
+  await activateNativeTextLikeEditor(page, row);
+  await page.keyboard.press(selectAllShortcut());
+  await page.keyboard.type("drag abort text");
+  const caretBeforeDrag = await waitForNativeTextSelectionState(page, {
+    expectedCollapsed: true,
+    rowId: row.rowId,
+  });
+  const committedProofBefore = await waitForCommittedActiveEditorTextProof(
+    page,
+    { rowId: row.rowId },
+  );
+  await installNativePointerProbe(page, row.rowId);
+  await clearBlockedVisiblePublicationEvents(page);
+
+  const dragStart = {
+    x: caretBeforeDrag.editorRect.x + 16,
+    y: caretBeforeDrag.editorRect.y + caretBeforeDrag.editorRect.height / 2,
+  };
+  const dragMid = {
+    x:
+      caretBeforeDrag.editorRect.x +
+      Math.max(72, caretBeforeDrag.editorRect.width * 0.42),
+    y: dragStart.y,
+  };
+  const dragEnd = {
+    x:
+      caretBeforeDrag.editorRect.x +
+      Math.max(120, caretBeforeDrag.editorRect.width * 0.78),
+    y: dragStart.y,
+  };
+  await page.mouse.move(dragStart.x, dragStart.y);
+  await page.mouse.down();
+  await page.mouse.move(dragMid.x, dragMid.y, { steps: 5 });
+
+  await installBrowserVisualFaultInjectionForActor(page, {
+    actorId: committedProofBefore.actorId,
+    readiness: "blocked-awaiting-live-host",
+  });
+  await applyViewportTransformDelta(page, { dx: 36, dy: -18 });
+  await requestGpuFlowDebugFrame(page, "texture-upload");
+  const blockedEvent = await waitForBlockedVisiblePublicationEvent(page, {
+    actorId: committedProofBefore.actorId,
+    reason: "live-dom-budget",
+  });
+
+  await page.mouse.move(dragEnd.x + 36, dragEnd.y - 18, { steps: 6 });
+  await page.mouse.up();
+  await clearBrowserVisualFaultInjection(page);
+  await requestGpuFlowDebugFrame(page);
+
+  const selectedAfterAbort = await waitForNativeTextSelectionState(page, {
+    expectedCollapsed: false,
+    rowId: row.rowId,
+  });
+  const committedProofAfter = await waitForCommittedActiveEditorTextProof(page, {
+    rowId: row.rowId,
+  });
+  const pointerProbe = await readNativePointerProbe(page);
+  const accessibilityAfter = await readNativeTextAccessibilityExposure(
+    page,
+    row.rowId,
+  );
+  const runtimeHealthSnapshot = runtimeHealth.stop();
+  const details = JSON.stringify(
+    {
+      accessibilityAfter,
+      blockedEvent,
+      caretBeforeDrag,
+      committedProofAfter,
+      committedProofBefore,
+      pointerProbe,
+      row,
+      runtimeHealth: runtimeHealthSnapshot,
+      selectedAfterAbort,
+    },
+    null,
+    2,
+  );
+
+  expect(runtimeHealthSnapshot.consoleErrors, details).toEqual([]);
+  expect(runtimeHealthSnapshot.pageErrors, details).toEqual([]);
+  const observedCandidateAbort =
+    blockedEvent.blockedReasons?.some(
+      (blockedReason) =>
+        (blockedReason.actorId === committedProofBefore.actorId &&
+          blockedReason.family === "browser-visual" &&
+          blockedReason.reason === "live-dom-budget") ||
+        (blockedReason.family === "visible-transaction" &&
+          blockedReason.reason === "held-previous-budget-exceeded"),
+    ) ?? false;
+  expect(
+    observedCandidateAbort,
+    details,
+  ).toBe(true);
+  expect(typeof blockedEvent.frozenFrameId, details).toBe("number");
+  expect(pointerProbe.pointerDownCount, details).toBe(1);
+  expect(pointerProbe.pointerMoveCount, details).toBeGreaterThanOrEqual(4);
+  expect(pointerProbe.pointerUpCount, details).toBe(1);
+  expect(pointerProbe.pointerCancelCount, details).toBe(0);
+  expect(pointerProbe.activeEditorMoveCount, details).toBeGreaterThanOrEqual(1);
+  expect(selectedAfterAbort.selectedText.length, details).toBeGreaterThan(4);
+  expect(committedProofAfter.actorId, details).toBe(
+    committedProofBefore.actorId,
+  );
+  expect(committedProofAfter.active, details).toBe(true);
+  expectSingleNativeTextAccessibilityExposure(accessibilityAfter, details);
+  expectNativeTextStateAlignedToRow(selectedAfterAbort, details);
+});
+
+test("active editor crossing viewport clip boundary keeps one exposed live host", async ({
+  page,
+}) => {
+  const runtimeHealth = capturePageRuntimeHealth(page);
+  const { row } = await openNativeTextLikeRow(page);
+
+  await activateNativeTextLikeEditor(page, row);
+  await page.keyboard.press(selectAllShortcut());
+  await page.keyboard.type("clip boundary active editor");
+  const caretBeforeClip = await waitForNativeTextSelectionState(page, {
+    expectedCollapsed: true,
+    rowId: row.rowId,
+  });
+  const committedProofBefore = await waitForCommittedActiveEditorTextProof(
+    page,
+    { rowId: row.rowId },
+  );
+  const accessibilityBefore = await readNativeTextAccessibilityExposure(
+    page,
+    row.rowId,
+  );
+
+  await applyViewportTransformDelta(page, {
+    dy: -4 - caretBeforeClip.rowControlRect.y,
+  });
+  await waitForAnimationFrame(page);
+  const caretAtClipBoundary = await waitForNativeTextSelectionState(page, {
+    expectedCollapsed: true,
+    rowId: row.rowId,
+  });
+  const committedProofAtClip = await waitForCommittedActiveEditorTextProof(
+    page,
+    { rowId: row.rowId },
+  );
+  const accessibilityAtClip = await readNativeTextAccessibilityExposure(
+    page,
+    row.rowId,
+  );
+  const runtimeHealthSnapshot = runtimeHealth.stop();
+  const details = JSON.stringify(
+    {
+      accessibilityAtClip,
+      accessibilityBefore,
+      caretAtClipBoundary,
+      caretBeforeClip,
+      committedProofAtClip,
+      committedProofBefore,
+      row,
+      runtimeHealth: runtimeHealthSnapshot,
+    },
+    null,
+    2,
+  );
+
+  expect(runtimeHealthSnapshot.consoleErrors, details).toEqual([]);
+  expect(runtimeHealthSnapshot.pageErrors, details).toEqual([]);
+  expect(caretAtClipBoundary.rowControlRect.y, details).toBeLessThan(0);
+  expect(
+    caretAtClipBoundary.rowControlRect.y +
+      caretAtClipBoundary.rowControlRect.height,
+    details,
+  ).toBeGreaterThan(4);
+  expect(committedProofAtClip.actorId, details).toBe(
+    committedProofBefore.actorId,
+  );
+  expect(committedProofAtClip.active, details).toBe(true);
+  expectSingleNativeTextAccessibilityExposure(accessibilityBefore, details);
+  expectSingleNativeTextAccessibilityExposure(accessibilityAtClip, details);
+  expectNativeTextStateAlignedToRow(caretBeforeClip, details);
+  expectNativeTextStateAlignedToRow(caretAtClipBoundary, details);
+});
+
 type RuntimeHealthSnapshot = {
   readonly consoleErrors: readonly string[];
   readonly pageErrors: readonly string[];
+};
+
+type BrowserVisualFaultReadiness =
+  | "blocked-awaiting-live-host"
+  | "blocked-awaiting-snapshot";
+
+type BlockedVisiblePublicationEvent = {
+  readonly blockedReasons?: readonly {
+    readonly actorId?: string | null;
+    readonly family?: string | null;
+    readonly reason?: string | null;
+  }[];
+  readonly eventCount: number;
+  readonly frozenFrameId?: number | string | null;
+};
+
+type NativePointerProbeSnapshot = {
+  readonly activeEditorMoveCount: number;
+  readonly pointerCancelCount: number;
+  readonly pointerDownCount: number;
+  readonly pointerMoveCount: number;
+  readonly pointerUpCount: number;
+  readonly rowId: string;
 };
 
 type NativeTextAccessibilityExposure = {
@@ -415,6 +625,225 @@ async function readNativeTextAccessibilityExposure(
       rowId,
     };
   }, rowId);
+}
+
+async function installNativePointerProbe(
+  page: Page,
+  rowId: string,
+): Promise<void> {
+  await page.evaluate((rowId) => {
+    const view = window as typeof window & {
+      __SETTA_GPU_FLOW_TEST_POINTER__?: {
+        activeEditorMoveCount: number;
+        pointerCancelCount: number;
+        pointerDownCount: number;
+        pointerMoveCount: number;
+        pointerUpCount: number;
+        rowId: string;
+      };
+    };
+    const state = {
+      activeEditorMoveCount: 0,
+      pointerCancelCount: 0,
+      pointerDownCount: 0,
+      pointerMoveCount: 0,
+      pointerUpCount: 0,
+      rowId,
+    };
+    view.__SETTA_GPU_FLOW_TEST_POINTER__ = state;
+    const readPointerRowId = (event: PointerEvent): string | null => {
+      const target = event.target;
+      const targetElement =
+        target instanceof Element
+          ? target
+          : target instanceof Node
+            ? target.parentElement
+            : null;
+      return (
+        targetElement
+          ?.closest("[data-gpu-flow-dom-control-row-id]")
+          ?.getAttribute("data-gpu-flow-dom-control-row-id") ?? null
+      );
+    };
+    const handlePointer = (event: PointerEvent) => {
+      if (event.type === "pointerdown") {
+        state.pointerDownCount += 1;
+      } else if (event.type === "pointermove") {
+        state.pointerMoveCount += 1;
+        if (readPointerRowId(event) === rowId) {
+          state.activeEditorMoveCount += 1;
+        }
+      } else if (event.type === "pointerup") {
+        state.pointerUpCount += 1;
+      } else if (event.type === "pointercancel") {
+        state.pointerCancelCount += 1;
+      }
+    };
+    document.addEventListener("pointerdown", handlePointer, true);
+    document.addEventListener("pointermove", handlePointer, true);
+    document.addEventListener("pointerup", handlePointer, true);
+    document.addEventListener("pointercancel", handlePointer, true);
+  }, rowId);
+}
+
+async function readNativePointerProbe(
+  page: Page,
+): Promise<NativePointerProbeSnapshot> {
+  return await page.evaluate(() => {
+    const state = (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_TEST_POINTER__?: NativePointerProbeSnapshot;
+      }
+    ).__SETTA_GPU_FLOW_TEST_POINTER__;
+    if (!state) {
+      throw new Error("Missing native pointer probe.");
+    }
+    return state;
+  });
+}
+
+async function installBrowserVisualFaultInjectionForActor(
+  page: Page,
+  {
+    actorId,
+    readiness,
+  }: {
+    readonly actorId: string;
+    readonly readiness: BrowserVisualFaultReadiness;
+  },
+): Promise<void> {
+  await page.evaluate(
+    ({ actorId, readiness }) => {
+      (
+        window as typeof window & {
+          __SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__?: unknown;
+        }
+      ).__SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__ = {
+        domControlReadiness: readiness,
+        withholdDomControlActorIds: [actorId],
+      };
+    },
+    { actorId, readiness },
+  );
+}
+
+async function clearBrowserVisualFaultInjection(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    delete (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__?: unknown;
+      }
+    ).__SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__;
+  });
+}
+
+async function clearBlockedVisiblePublicationEvents(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: unknown[];
+      }
+    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ = [];
+  });
+}
+
+async function requestGpuFlowDebugFrame(
+  page: Page,
+  frameReason: "manual" | "texture-upload" = "manual",
+): Promise<void> {
+  await page.evaluate((frameReason) => {
+    const requestFrame = (
+      window as typeof window & {
+        readonly __SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?: (
+          reason?: "manual" | "texture-upload",
+        ) => void;
+      }
+    ).__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__;
+    if (!requestFrame) {
+      throw new Error("Missing GPU Flow debug frame requester.");
+    }
+    requestFrame(frameReason);
+  }, frameReason);
+}
+
+async function waitForBlockedVisiblePublicationEvent(
+  page: Page,
+  {
+    actorId,
+    reason,
+  }: {
+    readonly actorId: string;
+    readonly reason: string;
+  },
+): Promise<BlockedVisiblePublicationEvent> {
+  const deadline = Date.now() + 5_000;
+  let latestEvents: readonly BlockedVisiblePublicationEvent[] = [];
+  while (Date.now() < deadline) {
+    latestEvents = await readBlockedVisiblePublicationEvents(page);
+    const event = findBlockedVisiblePublicationEvent(latestEvents, {
+      actorId,
+      reason,
+    });
+    if (event) {
+      return event;
+    }
+    await requestGpuFlowDebugFrame(page, "texture-upload");
+    await page.waitForTimeout(50);
+  }
+  throw new Error(
+    `Timed out waiting for blocked visible publication. ${JSON.stringify(
+      {
+        actorId,
+        events: latestEvents.slice(-6),
+        reason,
+      },
+      null,
+      2,
+    )}`,
+  );
+}
+
+async function readBlockedVisiblePublicationEvents(
+  page: Page,
+): Promise<readonly BlockedVisiblePublicationEvent[]> {
+  return await page.evaluate(
+    () =>
+      (
+        window as typeof window & {
+          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly BlockedVisiblePublicationEvent[];
+        }
+      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [],
+  );
+}
+
+function findBlockedVisiblePublicationEvent(
+  events: readonly BlockedVisiblePublicationEvent[],
+  {
+    actorId,
+    reason,
+  }: {
+    readonly actorId: string;
+    readonly reason: string;
+  },
+): BlockedVisiblePublicationEvent | null {
+  let committedFrozenFallback: BlockedVisiblePublicationEvent | null = null;
+  for (const [index, event] of events.entries()) {
+    if (
+      event.blockedReasons?.some(
+        (blockedReason) =>
+          blockedReason.actorId === actorId && blockedReason.reason === reason,
+      )
+    ) {
+      return { ...event, eventCount: index + 1 };
+    }
+    if (
+      committedFrozenFallback === null &&
+      typeof event.frozenFrameId === "number"
+    ) {
+      committedFrozenFallback = { ...event, eventCount: index + 1 };
+    }
+  }
+  return committedFrozenFallback;
 }
 
 async function clampScreenshotClipToViewport(

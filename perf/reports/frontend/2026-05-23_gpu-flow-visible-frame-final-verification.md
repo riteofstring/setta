@@ -12,8 +12,8 @@ Branch: `go-rewrite-canvas-html-gpu-surfaces-plan`
   - Passed: 3 tests.
   - Evidence logs: `/var/folders/7t/11607ml14sjf_yx1xt0hg54h0000gn/T//setta-e2e-logs-setta.go-rewrite-20260523-205247`.
 - `./scripts/run-playwright-e2e.sh tests/e2e/settings/settings-retained-text-like-native-semantics.spec.ts`
-  - Passed: 3 tests, including active-editor visual ink, runtime health, and single effective accessibility exposure before and after retained motion.
-  - Evidence logs: `/var/folders/7t/11607ml14sjf_yx1xt0hg54h0000gn/T//setta-e2e-logs-setta.go-rewrite-20260523-204745`.
+  - Passed: 5 tests, including active-editor visual ink, runtime health, selection drag through a held candidate abort, clip-boundary projection, and single effective accessibility exposure before and after retained motion.
+  - Evidence logs: `/var/folders/7t/11607ml14sjf_yx1xt0hg54h0000gn/T//setta-e2e-logs-setta.go-rewrite-20260523-215152`.
 - `./scripts/run-playwright-e2e.sh tests/e2e/settings/settings-retained-user-recording-regressions.spec.ts`
   - Passed: 3 tests.
   - Evidence logs: `/var/folders/7t/11607ml14sjf_yx1xt0hg54h0000gn/T//setta-e2e-logs-setta.go-rewrite-20260523-205101`.
