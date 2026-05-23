@@ -145,6 +145,12 @@ export type GpuFlowVisibleFrameCommittedPresentation = {
   readonly presentationId: GpuFlowPresentationId;
 };
 
+export type GpuFlowVisibleFramePresentationIdentity = {
+  readonly contentFrameId: GpuFlowContentFrameId;
+  readonly presentationId: GpuFlowPresentationId;
+  readonly projectionSampleId: GpuFlowProjectionSampleId;
+};
+
 export type GpuFlowVisibleFrameCandidate = {
   readonly actorProofs: readonly GpuFlowVisibleFrameActorProof[];
   readonly contentFrameId: GpuFlowContentFrameId;

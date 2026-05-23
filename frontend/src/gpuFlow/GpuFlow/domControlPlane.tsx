@@ -33,6 +33,7 @@ import {
   type GpuFlowRetainedScrollOffsetGetter,
 } from "./domControlPlaneProjection";
 import { getLiveGpuFlowDomControlPlaneViewport } from "./domControlPlaneViewport";
+import { getGpuFlowVisibleFrameIdentityDataAttributes } from "./visibleFrameIdentityAttributes";
 import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
 export {
   filterGpuFlowDomControlPlaneMountedControls,
@@ -359,6 +360,7 @@ export function GpuFlowDomControlPlane({
       data-gpu-flow-dom-control-plane-committed-frame-id={
         frameIds.committedFrameId
       }
+      {...getGpuFlowVisibleFrameIdentityDataAttributes(publicationToken)}
     >
       {controlsToMount.map((control) => {
         const initialStyle = projectGpuFlowDomControlPlaneHost({

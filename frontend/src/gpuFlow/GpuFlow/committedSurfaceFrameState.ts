@@ -1,9 +1,4 @@
-import {
-  useCallback,
-  useMemo,
-  useRef,
-  useSyncExternalStore,
-} from "react";
+import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 
 import {
   createGpuFlowCommittedSurfaceFrame,
@@ -66,13 +61,13 @@ export function useGpuFlowCommittedSurfaceFrameState({
     (
       nextRetainedDisplayFrame: RetainedDisplayFrame,
       options?:
-          | {
-              readonly gpuNativeVisuals:
-                | readonly HtmlSurfaceSolidRoundedRectVisual[]
-                | undefined;
-              readonly viewport?: GpuViewportInput | undefined;
-            }
-          | undefined,
+        | {
+            readonly gpuNativeVisuals:
+              | readonly HtmlSurfaceSolidRoundedRectVisual[]
+              | undefined;
+            readonly viewport?: GpuViewportInput | undefined;
+          }
+        | undefined,
     ): GpuFlowCommittedSurfaceFrame => {
       const previousCommittedSurfaceFrame =
         committedSurfaceRuntimeRef.current.getCommittedContentFrame();
@@ -144,6 +139,9 @@ export function useGpuFlowCommittedSurfaceFrameState({
         );
       browserVisualRuntime.projectDomControls({ token, viewport });
       browserVisualRuntime.projectDomIslands({ token, viewport });
+      committedSurfaceRuntimeRef.current.publishCommittedPresentationIdentity(
+        token,
+      );
     },
     [],
   );

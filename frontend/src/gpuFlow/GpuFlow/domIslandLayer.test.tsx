@@ -75,18 +75,12 @@ describe("GPU Flow DOM island layer", () => {
     });
     expect(mountedIslandIds()).toEqual(["island-a"]);
 
-    await act(async () => {
-      const frame = committedSurfaceFrame({
-        displayFrameId: 2,
-        retainedRuntimeFrame: nextRuntimeFrame,
-      });
-      publishBrowserVisualFrame({
-        committedSurfaceRuntime,
-        frame,
-        viewportRuntime,
-        viewportStore,
-      });
-      await nextMicrotask();
+    const nextToken = await publishBrowserVisualFrameInAct({
+      committedSurfaceRuntime,
+      displayFrameId: 2,
+      retainedRuntimeFrame: nextRuntimeFrame,
+      viewportRuntime,
+      viewportStore,
     });
 
     expect(mountedIslandIds()).toEqual(["island-b"]);
@@ -95,8 +89,67 @@ describe("GPU Flow DOM island layer", () => {
         "[data-gpu-flow-dom-island-layer='viewport']",
       )?.dataset.gpuFlowDomIslandCommittedFrameId,
     ).toBe("2");
+    expectDomIslandPresentationIdentity(nextToken);
   });
 });
+
+async function publishBrowserVisualFrameInAct({
+  committedSurfaceRuntime,
+  displayFrameId,
+  retainedRuntimeFrame,
+  viewportRuntime,
+  viewportStore,
+}: {
+  readonly committedSurfaceRuntime: ReturnType<
+    typeof createGpuFlowCommittedSurfaceRuntime
+  >;
+  readonly displayFrameId: number;
+  readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
+  readonly viewportRuntime: GpuFlowViewportRuntime;
+  readonly viewportStore: ReturnType<typeof createGpuFlowViewportStore>;
+}): Promise<ReturnType<typeof publicationToken>> {
+  let token: ReturnType<typeof publicationToken> | null = null;
+  await act(async () => {
+    const frame = committedSurfaceFrame({
+      displayFrameId,
+      retainedRuntimeFrame,
+    });
+    token = publishBrowserVisualFrame({
+      committedSurfaceRuntime,
+      frame,
+      viewportRuntime,
+      viewportStore,
+    });
+    await nextMicrotask();
+  });
+  if (token === null) {
+    throw new Error("Expected DOM island publication token.");
+  }
+  return token;
+}
+
+function expectDomIslandPresentationIdentity(
+  token: ReturnType<typeof publicationToken>,
+): void {
+  const layer = document.querySelector<HTMLElement>(
+    "[data-gpu-flow-dom-island-layer='viewport']",
+  );
+  expect(layer?.dataset.gpuFlowContentFrameId).toBe(
+    String(token.contentFrameId),
+  );
+  expect(layer?.dataset.gpuFlowPresentationId).toBe(
+    String(token.presentationId),
+  );
+  const island = document.querySelector<HTMLElement>(
+    "[data-gpu-flow-dom-island='true']",
+  );
+  expect(island?.dataset.gpuFlowContentFrameId).toBe(
+    String(token.contentFrameId),
+  );
+  expect(island?.dataset.gpuFlowPresentationId).toBe(
+    String(token.presentationId),
+  );
+}
 
 function createMockViewportRuntime(
   initialViewport: GpuViewportTuple,
@@ -163,6 +216,7 @@ function publishBrowserVisualFrame({
   });
   browserVisualRuntime.commitPreparedBrowserVisualActors({ candidate, token });
   committedSurfaceRuntime.publishCommittedContentFrame(token, frame);
+  return token;
 }
 
 function retainedRuntimeFrame(

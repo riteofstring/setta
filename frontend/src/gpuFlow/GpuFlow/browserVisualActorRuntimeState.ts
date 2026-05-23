@@ -6,14 +6,13 @@ import {
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuDomIsland } from "../scene";
-import { isGpuFlowDomControlSnapshotReady } from "./browserVisualActorRuntimeReadiness";
-import type {
-  GpuFlowDomControlProjectionAssignment,
-} from "./domControlPlaneProjection";
 import type {
   GpuFlowBrowserVisualActorRuntimeFrameIds,
   GpuFlowBrowserVisualActorRuntimeSnapshot,
 } from "./browserVisualActorRuntime";
+import { isGpuFlowDomControlSnapshotReady } from "./browserVisualActorRuntimeReadiness";
+import type { GpuFlowDomControlProjectionAssignment } from "./domControlPlaneProjection";
+import { setGpuFlowVisibleFrameIdentityAttributes } from "./visibleFrameIdentityAttributes";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
@@ -246,10 +245,13 @@ function getGpuFlowBrowserVisualRepairActorIds(
 export function applyVisibleGpuFlowDomControlHostPresentation({
   control,
   element,
+  token,
 }: {
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly element: HTMLElement;
+  readonly token: GpuFlowCommitPublicationToken;
 }): void {
+  setGpuFlowVisibleFrameIdentityAttributes(element, token);
   element.dataset.gpuFlowDomControl = "true";
   delete element.dataset.gpuFlowDomControlPreparation;
   element.dataset.gpuFlowDomControlId = control.sourceId;

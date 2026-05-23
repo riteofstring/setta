@@ -1,3 +1,4 @@
+import { setGpuFlowVisibleFrameIdentityAttributes } from "./GpuFlow/visibleFrameIdentityAttributes";
 import {
   assertGpuFlowCommitPublicationTokenForFrameId,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
@@ -29,6 +30,7 @@ export function setProjectionDebugAttributes(
   token: GpuFlowCommitPublicationToken,
 ): void {
   assertGpuFlowProjectionDebugPublicationToken({ debugState, token });
+  setGpuFlowVisibleFrameIdentityAttributes(element, token);
   element.dataset.gpuFlowCommittedFrameId = String(debugState.committedFrameId);
   element.dataset.gpuFlowHeldPreviousDurationMs = String(
     debugState.heldPreviousDurationMs,

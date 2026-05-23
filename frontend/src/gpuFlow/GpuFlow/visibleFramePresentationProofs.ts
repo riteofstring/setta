@@ -18,17 +18,20 @@ import type {
   GpuFlowVisiblePublicationSchedulerFrameCompletion,
   GpuFlowVisiblePublicationTransactionCompletion,
 } from "./visibleFrameOutcomeReport";
-import type {
-  GpuFlowVisibleFramePublicationTransactionOracle,
-  GpuFlowVisiblePublicationBlockedProof,
-} from "./visibleFrameTransactionProofs";
 import {
   createGpuFlowVisibleFrameBlockedPublicationToken,
   createGpuFlowVisibleFrameHoldPreviousToken,
   createGpuFlowVisiblePublicationCompletionCommitToken,
   type GpuFlowBlockedPublicationToken,
 } from "./visibleFramePresentationTokens";
-import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
+import type {
+  GpuFlowVisibleFramePublicationTransactionOracle,
+  GpuFlowVisiblePublicationBlockedProof,
+} from "./visibleFrameTransactionProofs";
+import {
+  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+  type GpuFlowVisibleFramePresentationIdentity,
+} from "./visibleFrameTypes";
 
 export {
   createGpuFlowCommitAuthorityProof,
@@ -603,10 +606,35 @@ function createGpuFlowVisiblePublicationCompletionCommitOutcome({
     kind: "commit",
     token: createGpuFlowVisiblePublicationCompletionCommitToken({
       commitAuthorityProof: commitOracle.commitAuthorityProof,
+      presentationIdentity:
+        createGpuFlowVisibleFramePublicationPresentationIdentity({
+          transactionOracle,
+        }),
       publicationDecision,
       visibleProjectionState,
     }),
   };
+}
+
+function createGpuFlowVisibleFramePublicationPresentationIdentity({
+  transactionOracle,
+}: {
+  readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle;
+}): GpuFlowVisibleFramePresentationIdentity {
+  const visibleFrameEngineOutcome = transactionOracle.visibleFrameEngineOutcome;
+  if (
+    visibleFrameEngineOutcome?.kind !== "presented" &&
+    visibleFrameEngineOutcome?.kind !== "projected"
+  ) {
+    throw new Error(
+      "GPU Flow committed publication completion requires a presented visible frame engine identity.",
+    );
+  }
+  return Object.freeze({
+    contentFrameId: visibleFrameEngineOutcome.contentFrameId,
+    presentationId: visibleFrameEngineOutcome.presentationId,
+    projectionSampleId: visibleFrameEngineOutcome.projectionSampleId,
+  });
 }
 
 function createGpuFlowVisiblePublicationCompletionHoldOutcome({

@@ -29,8 +29,8 @@ import {
   retainedRuntimeFrame,
   stageBrowserVisualCandidate,
 } from "./domControlPlaneProjectionRuntimeTestUtils";
-import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFrameTestUtils";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
+import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFrameTestUtils";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
 let root: Root | null = null;
@@ -151,6 +151,12 @@ describe("GPU flow DOM control projection runtime", () => {
 
     expect(element.dataset.gpuFlowDomControl).toBe("true");
     expect(element.dataset.gpuFlowDomControlPreparation).toBeUndefined();
+    expect(element.dataset.gpuFlowContentFrameId).toBe(
+      String(token.contentFrameId),
+    );
+    expect(element.dataset.gpuFlowPresentationId).toBe(
+      String(token.presentationId),
+    );
     await nextMicrotask();
     expect(hostVisibleWhenSnapshotEmits).toBe(true);
     expect(element.style.opacity).toBe("");
@@ -880,7 +886,6 @@ describe("GPU flow DOM control projection runtime", () => {
       }),
     ).toThrow(/hold-previous or blocked publication token/);
   });
-
 });
 
 function renderMountedRowIds({

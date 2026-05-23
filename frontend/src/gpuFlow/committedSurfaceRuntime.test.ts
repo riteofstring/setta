@@ -29,15 +29,16 @@ describe("GPU Flow committed surface runtime", () => {
       );
     });
 
-    expect(
-      runtime.publishCommittedContentFrame(
-        publicationToken(nextFrame),
-        nextFrame,
-      ),
-    ).toBe(true);
+    const token = publicationToken(nextFrame);
+    expect(runtime.publishCommittedContentFrame(token, nextFrame)).toBe(true);
 
     expect(runtime.getCommittedContentFrame()).toBe(nextFrame);
     expect(runtime.getReactSemanticSnapshot().frame).toBe(nextFrame);
+    expect(runtime.getReactSemanticSnapshot().presentationIdentity).toEqual({
+      contentFrameId: token.contentFrameId,
+      presentationId: token.presentationId,
+      projectionSampleId: token.projectionSampleId,
+    });
     expect(notifications).toEqual(["committed:2"]);
 
     await nextMicrotask();
@@ -130,17 +131,52 @@ describe("GPU Flow committed surface runtime", () => {
     });
 
     const transformOnlyFrame = committedFrame({ displayFrameId: 2 });
+    const token = publicationToken(transformOnlyFrame);
     expect(
-      runtime.publishCommittedContentFrame(
-        publicationToken(transformOnlyFrame),
-        transformOnlyFrame,
-      ),
+      runtime.publishCommittedContentFrame(token, transformOnlyFrame),
     ).toBe(false);
 
     expect(runtime.getCommittedContentFrame()).toBe(transformOnlyFrame);
     expect(runtime.getReactSemanticSnapshot().frame).toBe(startupFrame);
+    expect(runtime.getReactSemanticSnapshot().presentationIdentity).toEqual({
+      contentFrameId: token.contentFrameId,
+      presentationId: token.presentationId,
+      projectionSampleId: token.projectionSampleId,
+    });
     expect(committedFrameUpdates).toBe(1);
     expect(semanticUpdates).toBe(0);
+  });
+
+  it("advances React semantic presentation metadata for motion-only commits", async () => {
+    const frame = committedFrame({ displayFrameId: 1 });
+    const runtime = createGpuFlowCommittedSurfaceRuntime(frame);
+    const contentToken = publicationToken(frame);
+    const motionToken = publicationTokenForSample(frame, 2);
+    const presentationIds: string[] = [];
+    runtime.subscribeReactSemanticSnapshot(() => {
+      const identity = runtime.getReactSemanticSnapshot().presentationIdentity;
+      if (identity !== null) {
+        presentationIds.push(String(identity.presentationId));
+      }
+    });
+
+    expect(runtime.publishCommittedContentFrame(contentToken, frame)).toBe(
+      false,
+    );
+    expect(runtime.publishCommittedPresentationIdentity(motionToken)).toBe(
+      true,
+    );
+
+    expect(runtime.getCommittedContentFrame()).toBe(frame);
+    expect(runtime.getReactSemanticSnapshot().presentationIdentity).toEqual({
+      contentFrameId: motionToken.contentFrameId,
+      presentationId: motionToken.presentationId,
+      projectionSampleId: motionToken.projectionSampleId,
+    });
+
+    await nextMicrotask();
+
+    expect(presentationIds).toEqual([String(motionToken.presentationId)]);
   });
 
   it("rejects committed content publication with a token for a different visible frame", () => {
@@ -259,10 +295,17 @@ function committedActor(
 }
 
 function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
+  return publicationTokenForSample(frame, frame.displayFrameId);
+}
+
+function publicationTokenForSample(
+  frame: GpuFlowCommittedSurfaceFrame,
+  sampleId: number,
+) {
   return createGpuFlowVisibleFrameCommitPublicationTokenForTest({
     frame,
     projectionSample: {
-      id: frame.displayFrameId,
+      id: sampleId,
     } as GpuFlowLiveProjectionSample,
   });
 }

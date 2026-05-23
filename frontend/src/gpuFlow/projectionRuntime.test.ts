@@ -6,16 +6,16 @@ import {
   createGpuFlowCommittedSurfacePresentationProof,
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
-import {
-  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
-  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
-  createGpuFlowVisibleFrameHoldPreviousTokenForTest,
-} from "./GpuFlow/visibleFrameTestUtils";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./GpuFlow/visibleFramePresentationProofs";
+import {
+  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
+  createGpuFlowVisibleFrameHoldPreviousTokenForTest,
+} from "./GpuFlow/visibleFrameTestUtils";
 import {
   applyGpuFlowProjectionDebugAttributes,
   createGpuFlowHeldPreviousProjection,
@@ -962,17 +962,31 @@ describe("GPU Flow projection runtime", () => {
       throw new Error("Expected projection debug test elements.");
     }
 
+    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      frame: committedFrameForDebugToken(7),
+      projectionSample: visibleState.sample,
+    });
+
     applyGpuFlowProjectionDebugAttributes({
       canvas: canvasB,
       debugState: visibleState.debugState,
-      token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
-        frame: committedFrameForDebugToken(7),
-        projectionSample: visibleState.sample,
-      }),
+      token,
     });
 
+    expect(canvasB.dataset.gpuFlowContentFrameId).toBe(
+      String(token.contentFrameId),
+    );
+    expect(canvasB.dataset.gpuFlowPresentationId).toBe(
+      String(token.presentationId),
+    );
     expect(canvasB.dataset.gpuFlowProjectionTransactionId).toBe(
       "motion-projection:content-7:sample-3",
+    );
+    expect(planeB.dataset.gpuFlowContentFrameId).toBe(
+      String(token.contentFrameId),
+    );
+    expect(planeB.dataset.gpuFlowPresentationId).toBe(
+      String(token.presentationId),
     );
     expect(planeB.dataset.gpuFlowProjectionTransactionId).toBe(
       "motion-projection:content-7:sample-3",

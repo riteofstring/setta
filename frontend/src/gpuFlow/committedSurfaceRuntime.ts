@@ -3,14 +3,17 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
 import {
+  assertGpuFlowCommitPublicationTokenBrand,
   assertGpuFlowCommitPublicationTokenForPresentationProof,
   type GpuFlowCommitPublicationToken,
 } from "./GpuFlow/visibleFramePresentationProofs";
+import type { GpuFlowVisibleFramePresentationIdentity } from "./GpuFlow/visibleFrameTypes";
 
 type GpuFlowCommittedContentFrame = GpuFlowCommittedSurfaceFrame;
 
 type GpuFlowReactSemanticSnapshot = {
   readonly frame: GpuFlowCommittedContentFrame;
+  readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null;
   readonly publishCount: number;
   readonly renderSignature: string;
 };
@@ -23,6 +26,9 @@ export type GpuFlowCommittedSurfaceRuntime = {
   publishCommittedContentFrame(
     token: GpuFlowCommitPublicationToken,
     frame: GpuFlowCommittedContentFrame,
+  ): boolean;
+  publishCommittedPresentationIdentity(
+    token: GpuFlowCommitPublicationToken,
   ): boolean;
   subscribeCommittedContentFrame(
     listener: GpuFlowCommittedSurfaceRuntimeListener,
@@ -75,21 +81,43 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     });
     const renderSignature =
       createGpuFlowCommittedSurfaceFrameRenderSignature(frame);
-    if (this.semanticSnapshot.renderSignature === renderSignature) {
-      this.currentFrame = frame;
-      this.emitCommittedFrame();
-      return false;
-    }
+    const renderSignatureChanged =
+      this.semanticSnapshot.renderSignature !== renderSignature;
+    const presentationIdentity =
+      createGpuFlowPresentationIdentityForToken(token);
     this.currentFrame = frame;
-    this.publishCount += 1;
-    this.semanticSnapshot = {
-      frame,
+    if (renderSignatureChanged) {
+      this.publishCount += 1;
+    }
+    const semanticSnapshotChanged = this.setReactSemanticSnapshot({
+      frame: renderSignatureChanged ? frame : this.semanticSnapshot.frame,
+      presentationIdentity,
       publishCount: this.publishCount,
       renderSignature,
-    };
+    });
     this.emitCommittedFrame();
-    this.scheduleReactSemanticEmit();
-    return true;
+    if (semanticSnapshotChanged) {
+      this.scheduleReactSemanticEmit();
+    }
+    return renderSignatureChanged;
+  }
+
+  publishCommittedPresentationIdentity(
+    token: GpuFlowCommitPublicationToken,
+  ): boolean {
+    assertGpuFlowCommitPublicationTokenBrand({ token });
+    assertGpuFlowCommitPublicationTokenForPresentationProof({
+      frame: this.getCommittedContentFrame(),
+      token,
+    });
+    const semanticSnapshotChanged = this.setReactSemanticSnapshot({
+      ...this.semanticSnapshot,
+      presentationIdentity: createGpuFlowPresentationIdentityForToken(token),
+    });
+    if (semanticSnapshotChanged) {
+      this.scheduleReactSemanticEmit();
+    }
+    return semanticSnapshotChanged;
   }
 
   subscribeCommittedContentFrame(
@@ -118,9 +146,22 @@ class DefaultGpuFlowCommittedSurfaceRuntime
   ): GpuFlowReactSemanticSnapshot {
     return {
       frame,
+      presentationIdentity: null,
       publishCount: this.publishCount,
       renderSignature: createGpuFlowCommittedSurfaceFrameRenderSignature(frame),
     };
+  }
+
+  private setReactSemanticSnapshot(
+    snapshot: GpuFlowReactSemanticSnapshot,
+  ): boolean {
+    if (
+      areGpuFlowReactSemanticSnapshotsEqual(this.semanticSnapshot, snapshot)
+    ) {
+      return false;
+    }
+    this.semanticSnapshot = snapshot;
+    return true;
   }
 
   private scheduleReactSemanticEmit(): void {
@@ -150,4 +191,43 @@ class DefaultGpuFlowCommittedSurfaceRuntime
       listener();
     }
   }
+}
+
+function createGpuFlowPresentationIdentityForToken(
+  token: GpuFlowCommitPublicationToken,
+): GpuFlowVisibleFramePresentationIdentity {
+  return Object.freeze({
+    contentFrameId: token.contentFrameId,
+    presentationId: token.presentationId,
+    projectionSampleId: token.projectionSampleId,
+  });
+}
+
+function areGpuFlowReactSemanticSnapshotsEqual(
+  left: GpuFlowReactSemanticSnapshot,
+  right: GpuFlowReactSemanticSnapshot,
+): boolean {
+  return (
+    left.frame === right.frame &&
+    areGpuFlowPresentationIdentitiesEqual(
+      left.presentationIdentity,
+      right.presentationIdentity,
+    ) &&
+    left.publishCount === right.publishCount &&
+    left.renderSignature === right.renderSignature
+  );
+}
+
+function areGpuFlowPresentationIdentitiesEqual(
+  left: GpuFlowVisibleFramePresentationIdentity | null,
+  right: GpuFlowVisibleFramePresentationIdentity | null,
+): boolean {
+  return (
+    left === right ||
+    (left !== null &&
+      right !== null &&
+      left.contentFrameId === right.contentFrameId &&
+      left.presentationId === right.presentationId &&
+      left.projectionSampleId === right.projectionSampleId)
+  );
 }

@@ -20,6 +20,7 @@ import {
   getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
   type GpuFlowBrowserVisualActorRuntime,
 } from "./browserVisualActorRuntime";
+import { getGpuFlowVisibleFrameIdentityDataAttributes } from "./visibleFrameIdentityAttributes";
 import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
 
 export type GpuFlowDomIslandRenderer = (island: GpuDomIsland) => ReactNode;
@@ -130,6 +131,7 @@ export function GpuFlowDomIslandLayer({
       className={GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME}
       data-gpu-flow-dom-island-committed-frame-id={frameIds.committedFrameId}
       data-gpu-flow-dom-island-layer="viewport"
+      {...getGpuFlowVisibleFrameIdentityDataAttributes(publicationToken)}
     >
       {domIslands.map((island) => (
         <div

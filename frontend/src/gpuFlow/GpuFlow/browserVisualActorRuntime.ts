@@ -19,6 +19,7 @@ import {
   isProjectableDomControlAssignment,
   mergeGpuFlowDomControlProjectedControls,
   parkDomControlElement,
+  publishGpuFlowBrowserVisualDomIslandHostPresentation,
   resolveGpuFlowBrowserVisualActorFrameIds,
   syncGpuFlowBrowserVisualDomIslandLayerStyles,
 } from "./browserVisualActorRuntimeHelpers";
@@ -30,6 +31,17 @@ import {
   type GpuFlowDomControlHostReadinessDiagnostics,
   type GpuFlowDomControlReadinessContext,
 } from "./browserVisualActorRuntimeReadiness";
+import {
+  EMPTY_DOM_ISLANDS,
+  applyVisibleGpuFlowDomControlHostPresentation,
+  createEmptyBrowserVisualActorRuntimeSnapshot,
+  createGpuFlowBrowserVisualCandidatePresentationEvidence,
+  resolveGpuFlowDomControlLiveHostPreparationStage,
+  resolveGpuFlowDomControlSnapshotPreparationPool,
+  resolveGpuFlowDomControlSnapshotPreparationStage,
+  withGpuFlowBrowserVisualSnapshotPublicationToken,
+  type GpuFlowDomControlSnapshotTextureManager,
+} from "./browserVisualActorRuntimeState";
 import {
   createEmptyDomControlPlaneDiagnostics,
   createGpuFlowDomControlProjectionManager,
@@ -43,23 +55,16 @@ import {
   getLiveGpuFlowDomControlPlaneViewport,
 } from "./domControlPlaneViewport";
 import {
+  clearGpuFlowVisibleFrameIdentityAttributes,
+  setGpuFlowVisibleFrameIdentityAttributes,
+} from "./visibleFrameIdentityAttributes";
+import {
   assertGpuFlowCommitPublicationTokenForFrameId,
   assertGpuFlowPreparedCandidateAbortToken,
   type GpuFlowBlockedPublicationToken,
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
-import {
-  EMPTY_DOM_ISLANDS,
-  applyVisibleGpuFlowDomControlHostPresentation,
-  createEmptyBrowserVisualActorRuntimeSnapshot,
-  createGpuFlowBrowserVisualCandidatePresentationEvidence,
-  resolveGpuFlowDomControlLiveHostPreparationStage,
-  resolveGpuFlowDomControlSnapshotPreparationPool,
-  resolveGpuFlowDomControlSnapshotPreparationStage,
-  withGpuFlowBrowserVisualSnapshotPublicationToken,
-  type GpuFlowDomControlSnapshotTextureManager,
-} from "./browserVisualActorRuntimeState";
 
 export type GpuFlowBrowserVisualActorRuntimeFrameIds = {
   readonly committedFrameId: number;
@@ -494,6 +499,9 @@ export class GpuFlowBrowserVisualActorRuntime {
     readonly presentation: "preparation" | "visible";
     readonly token?: GpuFlowCommitPublicationToken | undefined;
   }): void {
+    if (presentation === "visible" && token) {
+      setGpuFlowVisibleFrameIdentityAttributes(element, token);
+    }
     this.getDomControlHostMap(presentation).set(control.sourceId, {
       control,
       controlId: control.sourceId,
@@ -566,6 +574,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     }
     this.domIslandElementById.set(islandId, element);
     if (presentation === "visible" && token) {
+      setGpuFlowVisibleFrameIdentityAttributes(element, token);
       this.domIslandRegistrationCommittedFrameIdById.set(
         islandId,
         token.committedFrameId,
@@ -716,8 +725,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       assignments,
       domControlSnapshotElementBySurfaceId:
         this.domControlSnapshotElementBySurfaceId,
-      domControlSnapshotTextureManager:
-        this.domControlSnapshotTextureManager,
+      domControlSnapshotTextureManager: this.domControlSnapshotTextureManager,
     });
     const mountedControls = mergeGpuFlowDomControlProjectedControls({
       controlById,
@@ -744,8 +752,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     const preparedDomControls = preparedSnapshot.domControls;
     const preparedMountedControls =
       resolveGpuFlowDomControlLiveHostPreparationStage({
-        isDomControlHostReady: (control) =>
-          this.isDomControlHostReady(control),
+        isDomControlHostReady: (control) => this.isDomControlHostReady(control),
         preparedDomControls,
         token,
       });
@@ -753,8 +760,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       resolveGpuFlowDomControlSnapshotPreparationStage({
         domControlSnapshotElementBySurfaceId:
           this.domControlSnapshotElementBySurfaceId,
-        domControlSnapshotTextureManager:
-          this.domControlSnapshotTextureManager,
+        domControlSnapshotTextureManager: this.domControlSnapshotTextureManager,
         preparedDomControls,
         token,
       });
@@ -858,6 +864,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       applyVisibleGpuFlowDomControlHostPresentation({
         control,
         element: host.element,
+        token,
       });
       this.visibleDomControlHostById.set(control.sourceId, {
         control,
@@ -871,6 +878,7 @@ export class GpuFlowBrowserVisualActorRuntime {
         continue;
       }
       blurFocusedDescendantBeforeUnmount(host.element);
+      clearGpuFlowVisibleFrameIdentityAttributes(host.element);
       parkDomControlElement(host.element);
       this.visibleDomControlHostById.delete(controlId);
       this.composingDomControlIds.delete(controlId);
@@ -884,37 +892,13 @@ export class GpuFlowBrowserVisualActorRuntime {
     readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
     readonly token: GpuFlowCommitPublicationToken;
   }): void {
-    const visibleIslandIds = new Set(
-      snapshot.domIslands.islands.map((island) => island.id),
-    );
-    for (const island of snapshot.domIslands.islands) {
-      const element = this.domIslandElementById.get(island.id);
-      if (!element) {
-        continue;
-      }
-      element.dataset.gpuFlowDomIsland = "true";
-      delete element.dataset.gpuFlowDomIslandPreparation;
-      element.style.removeProperty("opacity");
-      element.style.removeProperty("visibility");
-      this.domIslandRegistrationCommittedFrameIdById.set(
-        island.id,
-        token.committedFrameId,
-      );
-    }
-    for (const islandId of [
-      ...this.domIslandRegistrationCommittedFrameIdById.keys(),
-    ]) {
-      if (visibleIslandIds.has(islandId)) {
-        continue;
-      }
-      const element = this.domIslandElementById.get(islandId);
-      if (element) {
-        element.style.display = "none";
-        element.style.pointerEvents = "none";
-        delete element.dataset.gpuFlowDomIsland;
-      }
-      this.domIslandRegistrationCommittedFrameIdById.delete(islandId);
-    }
+    publishGpuFlowBrowserVisualDomIslandHostPresentation({
+      elementById: this.domIslandElementById,
+      registrationCommittedFrameIdById:
+        this.domIslandRegistrationCommittedFrameIdById,
+      snapshot,
+      token,
+    });
   }
 
   private assertBrowserVisualHostRegistrationToken({

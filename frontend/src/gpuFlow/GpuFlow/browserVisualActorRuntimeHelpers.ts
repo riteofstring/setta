@@ -6,6 +6,7 @@ import {
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuDomIsland } from "../scene";
+import type { BrowserVisualActorRepresentationReadiness } from "../surfaceCompositor/browserVisualActorAdapter";
 import { getVisibleFlowRect, type GpuViewportInput } from "../viewportMath";
 import type {
   GpuFlowBrowserVisualActorRuntimeFrameIds,
@@ -13,7 +14,11 @@ import type {
 } from "./browserVisualActorRuntime";
 import type { GpuFlowDomControlProjectionAssignment } from "./domControlPlaneProjection";
 import { DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS } from "./domControlProjectionHorizon";
-import type { BrowserVisualActorRepresentationReadiness } from "../surfaceCompositor/browserVisualActorAdapter";
+import {
+  clearGpuFlowVisibleFrameIdentityAttributes,
+  setGpuFlowVisibleFrameIdentityAttributes,
+} from "./visibleFrameIdentityAttributes";
+import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
 
 const GPU_FLOW_DOM_CONTROL_HOST_RETAINED_PREVIOUS_LIMIT =
   DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.maxReadableMountedControls +
@@ -201,6 +206,47 @@ export function syncGpuFlowBrowserVisualDomIslandLayerStyles({
         zIndex: island.zIndex,
       }),
     });
+  }
+}
+
+export function publishGpuFlowBrowserVisualDomIslandHostPresentation({
+  elementById,
+  registrationCommittedFrameIdById,
+  snapshot,
+  token,
+}: {
+  readonly elementById: ReadonlyMap<string, HTMLElement>;
+  readonly registrationCommittedFrameIdById: Map<string, number>;
+  readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
+  readonly token: GpuFlowCommitPublicationToken;
+}): void {
+  const visibleIslandIds = new Set(
+    snapshot.domIslands.islands.map((island) => island.id),
+  );
+  for (const island of snapshot.domIslands.islands) {
+    const element = elementById.get(island.id);
+    if (!element) {
+      continue;
+    }
+    element.dataset.gpuFlowDomIsland = "true";
+    setGpuFlowVisibleFrameIdentityAttributes(element, token);
+    delete element.dataset.gpuFlowDomIslandPreparation;
+    element.style.removeProperty("opacity");
+    element.style.removeProperty("visibility");
+    registrationCommittedFrameIdById.set(island.id, token.committedFrameId);
+  }
+  for (const islandId of [...registrationCommittedFrameIdById.keys()]) {
+    if (visibleIslandIds.has(islandId)) {
+      continue;
+    }
+    const element = elementById.get(islandId);
+    if (element) {
+      element.style.display = "none";
+      element.style.pointerEvents = "none";
+      delete element.dataset.gpuFlowDomIsland;
+      clearGpuFlowVisibleFrameIdentityAttributes(element);
+    }
+    registrationCommittedFrameIdById.delete(islandId);
   }
 }
 
