@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
+  resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult,
+  resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult,
   selectGpuFlowCommittedSurfacePublicationFramePlan,
   selectGpuFlowRetainedDisplayPublicationFramePlan,
   type GpuFlowCommittedSurfacePublicationCandidate,
@@ -87,6 +89,15 @@ describe("GPU Flow visible publication content plans", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
 
+    expect(flowFrameSource).not.toContain(
+      "retainedDisplayPublicationFramePlanResult.blockedPublicationCandidate",
+    );
+    expect(flowFrameSource).not.toContain(
+      "committedSurfacePublicationFramePlanResult.blockedPublicationCandidate",
+    );
+    expect(flowFrameSource).not.toContain(
+      "committedSurfacePublicationFramePlanResult.visibleProjectionState",
+    );
     expect(flowFrameSource).not.toContain("retainedDisplayOutcomeFrameResult");
     expect(flowFrameSource).not.toContain(
       "committedSurfacePublicationActionResult",
@@ -106,7 +117,9 @@ describe("GPU Flow visible publication content plans", () => {
     expect(flowFrameSource).not.toContain(
       "committedSurfacePublicationFramePlan.kind",
     );
-    expect(flowFrameSource).toContain("framePlanResult");
+    expect(flowFrameSource).not.toContain("framePlanResult");
+    expect(flowFrameSource).toContain("nodeLayerFrameResult");
+    expect(flowFrameSource).toContain("publishedOutcomeFrame");
     expect(flowFrameSource).toContain(
       "prepareRetainedDisplayPublicationFramePlan",
     );
@@ -124,6 +137,64 @@ describe("GPU Flow visible publication content plans", () => {
     );
     expect(contentPlanSource).toContain(
       "resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
+    );
+    expect(contentPlanSource).toContain(
+      "resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
+    );
+    expect(contentPlanSource).toContain(
+      "resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult",
+    );
+    expect(contentPlanSource).toContain("nodeLayerFrameResult:");
+    expect(contentPlanSource).toContain(
+      "publishedOutcomeFrame: framePlanResult.publishedOutcomeFrame",
+    );
+  });
+
+  it("converts retained and committed candidate plans to node-layer results outside flowFrame", () => {
+    const blockedPublicationCandidate = {
+      blockedReasons: [
+        {
+          actorId: "actor-a",
+          family: "dom-control",
+          reason: "snapshot-pending",
+        },
+      ],
+      frozenFrameId: 7,
+    };
+    const retainedResult =
+      resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult({
+        framePlanResult: {
+          blockedPublicationCandidate,
+          publishedOutcomeFrame: null,
+        },
+      });
+    const committedSurfacePublication = {
+      blockedSurfacePublication: null,
+      committedSurfaceFrame: null,
+      committedSurfacePublicationEffect: null,
+      heldPreparedCommittedSurfaceFrame: null,
+    };
+    const committedResult =
+      resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult({
+        framePlanResult: {
+          blockedPublicationCandidate,
+          committedSurfacePublication,
+          visibleProjectionState: null,
+        },
+      });
+
+    expect(retainedResult).toEqual(
+      expect.objectContaining({
+        blockedPublicationCandidate,
+        kind: "not-rendered",
+      }),
+    );
+    expect(committedResult).toEqual(
+      expect.objectContaining({
+        blockedPublicationCandidate,
+        committedSurfacePublication,
+        kind: "not-rendered",
+      }),
     );
   });
 

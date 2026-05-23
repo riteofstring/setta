@@ -45,7 +45,8 @@ export type GpuFlowVisiblePublicationActorProof = {
     | "compatible-previous"
     | "exact-live-host"
     | "exact-snapshot"
-    | "not-required";
+    | "not-required"
+    | "same-live-host-compatible-projection";
 };
 
 export type GpuFlowVisiblePublicationCommitOracle = ReturnType<
@@ -157,9 +158,8 @@ export function createGpuFlowVisiblePublicationCommitOracle({
     motion: publicationDecision.lane === "motion",
   });
   return Object.freeze({
-    actorProofDigest: createGpuFlowVisiblePublicationActorProofDigest(
-      actorProofs,
-    ),
+    actorProofDigest:
+      createGpuFlowVisiblePublicationActorProofDigest(actorProofs),
     actorProofs,
     browserActorProofs,
     compatiblePreviousProofs,
@@ -467,6 +467,8 @@ function createGpuFlowVisiblePublicationActorEvidenceState({
       return "exact-live-host";
     case "exact-snapshot":
       return "exact-snapshot";
+    case "same-live-host-compatible-projection":
+      return "same-live-host-compatible-projection";
     case "not-required":
       return "not-required";
     default:

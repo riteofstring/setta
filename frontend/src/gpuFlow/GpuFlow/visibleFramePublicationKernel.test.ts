@@ -23,7 +23,6 @@ import {
   decideGpuFlowCommittedSurfacePublicationTransaction,
   decideGpuFlowRetainedProjectionPublicationTransaction,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
-  selectGpuFlowVisibleFramePublicationTransaction,
   type GpuFlowRetainedProjectionPublicationDecisionSelector,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
@@ -194,17 +193,20 @@ describe("GPU Flow visible publication transaction kernel", () => {
         prepareRetainedDisplayPublicationFramePlan,
         selectContentPublicationBlockedCandidateForFrameResult,
       }) => {
-        const committedPreparation = prepareCommittedSurfacePublicationFramePlan({
-          committedGpuNativeVisuals: undefined,
-          frameReasons: ["manual"],
-          heldPreviousProjectionState: null,
-          liveProjectionSample: sample,
-          publicationLane: "content",
-          publishedCommittedSurfaceFrame: committedFrame,
-          publishedRetainedFrame: retainedDisplayFrame(),
-        });
+        const committedPreparation =
+          prepareCommittedSurfacePublicationFramePlan({
+            committedGpuNativeVisuals: undefined,
+            frameReasons: ["manual"],
+            heldPreviousProjectionState: null,
+            liveProjectionSample: sample,
+            publicationLane: "content",
+            publishedCommittedSurfaceFrame: committedFrame,
+            publishedRetainedFrame: retainedDisplayFrame(),
+          });
         expect(committedPreparation.framePlan.kind).toBe("publish");
-        expect(typeof prepareRetainedDisplayPublicationFramePlan).toBe("function");
+        expect(typeof prepareRetainedDisplayPublicationFramePlan).toBe(
+          "function",
+        );
         const retainedBlockedCandidate =
           createGpuFlowRetainedProjectionBlockedPublicationCandidate({
             blockedReason: "coverage-missing",
@@ -240,16 +242,13 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
   it("uses one commit oracle for compatible-previous proof reports and debt", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
-    const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction(
-      {
-        hasCommittedContentFrame: true,
-        rawReasons: ["manual"],
-        sample: liveProjectionSample({ id: 51, timestamp: 510 }),
-        scheduler,
-        timestamp: 510,
-        viewportInteractionActive: false,
-      },
-    );
+    const publicationDecision = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveProjectionSample({ id: 51, timestamp: 510 }),
+      timestamp: 510,
+      viewportInteractionActive: false,
+    });
 
     const oracle = createGpuFlowVisiblePublicationCommitOracle({
       committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage(),
@@ -423,16 +422,13 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
   it("keeps selected content debt queued for blocked transactions", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
-    const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction(
-      {
-        hasCommittedContentFrame: true,
-        rawReasons: ["manual"],
-        sample: liveProjectionSample({ id: 2, timestamp: 20 }),
-        scheduler,
-        timestamp: 20,
-        viewportInteractionActive: false,
-      },
-    );
+    const publicationDecision = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveProjectionSample({ id: 2, timestamp: 20 }),
+      timestamp: 20,
+      viewportInteractionActive: false,
+    });
     const blockedToken = createGpuFlowVisibleFrameBlockedPublicationToken({
       blockedReasons: [
         {
@@ -618,16 +614,13 @@ describe("GPU Flow visible publication transaction kernel", () => {
       kind: "content-publication",
       sample: liveProjectionSample({ id: 4, timestamp: 40 }),
     });
-    const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction(
-      {
-        hasCommittedContentFrame: true,
-        rawReasons: ["retained-scroll"],
-        sample: liveProjectionSample({ id: 5, timestamp: 56 }),
-        scheduler,
-        timestamp: 56,
-        viewportInteractionActive: true,
-      },
-    );
+    const publicationDecision = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll"],
+      sample: liveProjectionSample({ id: 5, timestamp: 56 }),
+      timestamp: 56,
+      viewportInteractionActive: true,
+    });
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
@@ -655,16 +648,13 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
   it("turns a no-frame cold start into a blocked shell", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
-    const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction(
-      {
-        hasCommittedContentFrame: false,
-        rawReasons: ["manual"],
-        sample: liveProjectionSample({ id: 6, timestamp: 72 }),
-        scheduler,
-        timestamp: 72,
-        viewportInteractionActive: false,
-      },
-    );
+    const publicationDecision = scheduler.selectFrame({
+      hasCommittedContentFrame: false,
+      rawReasons: ["manual"],
+      sample: liveProjectionSample({ id: 6, timestamp: 72 }),
+      timestamp: 72,
+      viewportInteractionActive: false,
+    });
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
@@ -694,16 +684,13 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
   it("keeps selected content debt queued for held-previous transactions", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
-    const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction(
-      {
-        hasCommittedContentFrame: true,
-        rawReasons: ["manual"],
-        sample: liveProjectionSample({ id: 3, timestamp: 30 }),
-        scheduler,
-        timestamp: 30,
-        viewportInteractionActive: false,
-      },
-    );
+    const publicationDecision = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveProjectionSample({ id: 3, timestamp: 30 }),
+      timestamp: 30,
+      viewportInteractionActive: false,
+    });
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
@@ -730,16 +717,13 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
   it("blocks rendered held-previous transactions that exceed the kernel budget", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
-    const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction(
-      {
-        hasCommittedContentFrame: true,
-        rawReasons: ["manual"],
-        sample: liveProjectionSample({ id: 33, timestamp: 330 }),
-        scheduler,
-        timestamp: 330,
-        viewportInteractionActive: false,
-      },
-    );
+    const publicationDecision = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveProjectionSample({ id: 33, timestamp: 330 }),
+      timestamp: 330,
+      viewportInteractionActive: false,
+    });
     const heldVisibleProjectionState = visibleProjectionState({
       kind: "held-previous",
       sample: publicationDecision.sample,
@@ -790,16 +774,13 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
   it("preserves prepared blocked reasons when held-previous completion exceeds budget", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
-    const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction(
-      {
-        hasCommittedContentFrame: true,
-        rawReasons: ["manual"],
-        sample: liveProjectionSample({ id: 34, timestamp: 340 }),
-        scheduler,
-        timestamp: 340,
-        viewportInteractionActive: false,
-      },
-    );
+    const publicationDecision = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveProjectionSample({ id: 34, timestamp: 340 }),
+      timestamp: 340,
+      viewportInteractionActive: false,
+    });
     const heldVisibleProjectionState = visibleProjectionState({
       kind: "held-previous",
       sample: publicationDecision.sample,
@@ -858,16 +839,13 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
   it("creates committed-surface held-previous transaction state and mints its token at completion", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
-    const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction(
-      {
-        hasCommittedContentFrame: true,
-        rawReasons: ["manual"],
-        sample: liveProjectionSample({ id: 4, timestamp: 64 }),
-        scheduler,
-        timestamp: 64,
-        viewportInteractionActive: false,
-      },
-    );
+    const publicationDecision = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveProjectionSample({ id: 4, timestamp: 64 }),
+      timestamp: 64,
+      viewportInteractionActive: false,
+    });
     const sample = publicationDecision.sample;
     const previousVisibleProjectionState = visibleProjectionState({
       kind: "content-publication",
@@ -1153,7 +1131,9 @@ function retainedProjectionTransaction({
   });
 }
 
-type VisibleFramePublicationSampleInput = Partial<Omit<GpuFlowVisibleFramePublicationSample, "sample">> & { readonly sample: GpuFlowLiveProjectionSample };
+type VisibleFramePublicationSampleInput = Partial<
+  Omit<GpuFlowVisibleFramePublicationSample, "sample">
+> & { readonly sample: GpuFlowLiveProjectionSample };
 
 function visibleFramePublicationSample({
   hasCommittedContentFrame = true,

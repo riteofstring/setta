@@ -3,22 +3,22 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
+import { freezeActor } from "../committedSurfaceActorFreeze";
 import {
   createGpuFlowCommittedSurfacePresentationProof,
   type GpuFlowCommittedSurfaceActorGeneration,
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
-import { freezeActor } from "../committedSurfaceActorFreeze";
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionTransactionKind,
-  GpuFlowVisiblePublicationDecision,
   GpuFlowVisibleProjectionState,
+  GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationKernel";
 import {
-  createGpuFlowVisiblePublicationCommitOracle,
   createGpuFlowVisibleFramePublicationTransactionOracle,
+  createGpuFlowVisiblePublicationCommitOracle,
   selectGpuFlowVisibleFramePublicationPreparedFrame,
 } from "./visibleFramePublicationOracle";
 
@@ -129,6 +129,36 @@ describe("GPU Flow visible publication transaction oracle", () => {
       "compatible-previous": 1,
     });
   });
+
+  it.each(["exact-live-host", "same-live-host-compatible-projection"] as const)(
+    "accepts active-editor motion proof from %s",
+    (actualVisualProof) => {
+      const sample = liveProjectionSample({ id: 49, timestamp: 490 });
+      const actor = retainedDomControlActor({
+        actualInteractionProof: "active-editor-live",
+        actualVisualProof,
+      });
+      const oracle = createGpuFlowVisiblePublicationCommitOracle({
+        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        publicationDecision: publicationDecision(sample),
+      });
+
+      expect(oracle.actorProofs).toEqual([
+        expect.objectContaining({
+          actualInteractionProof: "active-editor-live",
+          actualVisualProof,
+          proofState: "exact",
+          remainingDebt: [],
+          requiredInteractionRepresentation: "active-editor-live",
+          requiredVisualRepresentation: "browser-visual",
+          sampledVisualEvidence: actualVisualProof,
+        }),
+      ]);
+      expect(oracle.browserActorProofs.actualInteraction).toEqual({
+        "active-editor-live": 1,
+      });
+    },
+  );
 
   it("selects content visible state over motion visible state", () => {
     const contentVisibleState = visibleProjectionState({
@@ -333,7 +363,13 @@ function committedSurfaceFrame({
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
 
-function retainedDomControlActor(): GpuFlowCommittedSurfaceActorGeneration {
+function retainedDomControlActor({
+  actualInteractionProof = "blocked",
+  actualVisualProof = "compatible-previous",
+}: {
+  readonly actualInteractionProof?: string | undefined;
+  readonly actualVisualProof?: string | undefined;
+} = {}): GpuFlowCommittedSurfaceActorGeneration {
   return freezeActor({
     active: true,
     actorFamily: "text-like-dom-control",
@@ -344,20 +380,34 @@ function retainedDomControlActor(): GpuFlowCommittedSurfaceActorGeneration {
         reason: "active-editor",
         required: true,
       },
-      coverageState: "compatible-previous-ready",
+      coverageState:
+        actualVisualProof === "compatible-previous"
+          ? "compatible-previous-ready"
+          : "live-host-ready",
       nonemptyReason: "value-text",
       proof: {
-        actualInteraction: "blocked",
-        actualVisual: "compatible-previous",
+        actualInteraction: actualInteractionProof,
+        actualVisual: actualVisualProof,
         requiredInteraction: "active-editor-live",
         requiredVisual: "browser-visual",
       },
-      representation: {
-        actorId: "control-a",
-        kind: "compatible-previous",
-        previousTransactionId: "previous-transaction",
-      },
-      representationKind: "compatible-previous",
+      representation:
+        actualVisualProof === "compatible-previous"
+          ? {
+              actorId: "control-a",
+              kind: "compatible-previous",
+              previousTransactionId: "previous-transaction",
+            }
+          : {
+              actorId: "control-a",
+              hostId: "host-a",
+              islandId: "island-a",
+              kind: "active-editor",
+            },
+      representationKind:
+        actualVisualProof === "compatible-previous"
+          ? "compatible-previous"
+          : "active-editor",
       resourceHandles: [],
       visibilityReason: "visible",
     } as GpuFlowCommittedSurfaceActorGeneration["browserVisual"],
