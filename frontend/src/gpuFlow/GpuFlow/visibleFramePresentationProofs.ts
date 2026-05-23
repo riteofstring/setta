@@ -25,15 +25,15 @@ import type {
   GpuFlowVisiblePublicationSchedulerFrameCompletion,
   GpuFlowVisiblePublicationTransactionCompletion,
 } from "./visibleFramePublicationCompletion";
-import type {
-  GpuFlowVisibleFramePublicationTransactionOracle,
-  GpuFlowVisiblePublicationBlockedProof,
-} from "./visibleFramePublicationOracle";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
   createGpuFlowVisiblePublicationResourceProtectionDigest,
   createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFramePublicationResourceOracle";
+import type {
+  GpuFlowVisibleFramePublicationTransactionOracle,
+  GpuFlowVisiblePublicationBlockedProof,
+} from "./visibleFrameTransactionProofs";
 import {
   GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,

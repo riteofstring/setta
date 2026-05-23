@@ -1,3 +1,4 @@
+// Builds immutable transaction proof records; visible mutation stays in the presenter.
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type {

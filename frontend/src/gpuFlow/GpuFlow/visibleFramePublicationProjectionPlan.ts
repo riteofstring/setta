@@ -4,7 +4,7 @@ import type {
 } from "../projectionRuntime";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
-import type { GpuFlowVisibleFramePublicationMotionCandidate } from "./visibleFramePublicationOracle";
+import type { GpuFlowVisibleFramePublicationMotionCandidate } from "./visibleFrameTransactionProofs";
 
 export type GpuFlowProjectionFrameTransaction = {
   readonly blockedReason: string | null;
@@ -17,13 +17,12 @@ export type GpuFlowRetainedProjectionFrameResolver = (input: {
   readonly transaction: GpuFlowProjectionTransaction;
 }) => GpuFlowRetainedProjectionFrame;
 
-export type GpuFlowProjectionFrameRenderPlan =
-  {
-    readonly heldPreviousProjection: GpuFlowProjectionFrameTransaction["heldPreviousProjection"];
-    readonly kind: "render";
-    readonly retainedProjectionFrame: GpuFlowProjectionFrameTransaction["retainedProjectionFrame"];
-    readonly transaction: GpuFlowProjectionFrameTransaction["transaction"];
-  };
+export type GpuFlowProjectionFrameRenderPlan = {
+  readonly heldPreviousProjection: GpuFlowProjectionFrameTransaction["heldPreviousProjection"];
+  readonly kind: "render";
+  readonly retainedProjectionFrame: GpuFlowProjectionFrameTransaction["retainedProjectionFrame"];
+  readonly transaction: GpuFlowProjectionFrameTransaction["transaction"];
+};
 
 export type GpuFlowProjectionFrameRenderablePlan = Extract<
   GpuFlowProjectionFrameRenderPlan,

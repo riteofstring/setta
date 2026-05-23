@@ -30,6 +30,11 @@ import {
   type GpuFlowContentPublicationWorkPlan,
   type GpuFlowMotionProjectionWorkPlan,
 } from "./visibleFramePublicationKernelWorkPlan";
+import type {
+  GpuFlowMotionProjectionFramePreparation,
+  GpuFlowProjectionFrameRenderPlan,
+  GpuFlowProjectionFrameTransaction,
+} from "./visibleFramePublicationProjectionPlan";
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
   createGpuFlowVisibleFramePublicationTransactionOracleFactory,
@@ -40,12 +45,7 @@ import {
   type GpuFlowVisibleFramePublicationPreparedFrame,
   type GpuFlowVisibleFramePublicationTransactionOracle,
   type GpuFlowVisiblePublicationBlockedProof,
-} from "./visibleFramePublicationOracle";
-import type {
-  GpuFlowMotionProjectionFramePreparation,
-  GpuFlowProjectionFrameRenderPlan,
-  GpuFlowProjectionFrameTransaction,
-} from "./visibleFramePublicationProjectionPlan";
+} from "./visibleFrameTransactionProofs";
 
 export { createGpuFlowVisiblePublicationTransactionReport } from "./visibleFramePublicationCompletion";
 export type {
@@ -89,6 +89,13 @@ export type {
   GpuFlowMotionProjectionWorkPlan,
 } from "./visibleFramePublicationKernelWorkPlan";
 export type {
+  GpuFlowMotionProjectionFramePreparation,
+  GpuFlowProjectionFrameRenderablePlan,
+  GpuFlowProjectionFrameRenderPlan,
+  GpuFlowProjectionFrameTransaction,
+  GpuFlowRetainedProjectionFrameResolver,
+} from "./visibleFramePublicationProjectionPlan";
+export type {
   GpuFlowVisibleFramePublicationCandidateSet,
   GpuFlowVisibleFramePublicationContentCandidate,
   GpuFlowVisibleFramePublicationMotionCandidate,
@@ -100,14 +107,7 @@ export type {
   GpuFlowVisibleFramePublicationTransactionOracleFactory,
   GpuFlowVisiblePublicationBlockedProof,
   GpuFlowVisiblePublicationCommitDebtProof,
-} from "./visibleFramePublicationOracle";
-export type {
-  GpuFlowMotionProjectionFramePreparation,
-  GpuFlowProjectionFrameRenderablePlan,
-  GpuFlowProjectionFrameRenderPlan,
-  GpuFlowProjectionFrameTransaction,
-  GpuFlowRetainedProjectionFrameResolver,
-} from "./visibleFramePublicationProjectionPlan";
+} from "./visibleFrameTransactionProofs";
 type GpuFlowVisiblePublicationScheduler = ReturnType<
   typeof createGpuFlowVisiblePublicationScheduler
 >;

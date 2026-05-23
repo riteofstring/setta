@@ -10,13 +10,13 @@ import type {
   GpuFlowVisiblePublicationDebtProof,
 } from "../projectionScheduler";
 import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./flowVisiblePublicationOutcomeChromeRepro";
+import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePublicationPresentationEvidence";
+import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
 import {
   createGpuFlowVisiblePublicationCommitOracleFactory,
   type GpuFlowVisibleFramePublicationTransactionOracle,
   type GpuFlowVisiblePublicationCommitOracle,
-} from "./visibleFramePublicationOracle";
-import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePublicationPresentationEvidence";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
+} from "./visibleFrameTransactionProofs";
 
 const createGpuFlowVisiblePublicationCommitOracleFromFactory =
   createGpuFlowVisiblePublicationCommitOracleFactory();

@@ -187,7 +187,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
         names: DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES,
       },
       {
-        moduleName: "visibleFramePublicationOracle",
+        moduleName: "visibleFrameTransactionProofs",
         names: [
           "createGpuFlowVisiblePublicationCommitDebtProof",
           "createGpuFlowVisiblePublicationCommitOracleFactory",
@@ -1285,7 +1285,7 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
     KERNEL_PRESENTATION_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
     CONTENT_PLAN_MODULE_PATH,
-    modulePath("./visibleFramePublicationOracle.ts"),
+    modulePath("./visibleFrameTransactionProofs.ts"),
   ]
     .map((filePath) => readFileSync(filePath, "utf8"))
     .join("\n");

@@ -16,7 +16,7 @@ import type {
   GpuFlowVisibleFramePublicationCandidateSet,
   GpuFlowVisibleFramePublicationContentCandidate,
   GpuFlowVisibleFramePublicationMotionCandidate,
-} from "./visibleFramePublicationOracle";
+} from "./visibleFrameTransactionProofs";
 
 type GpuFlowForcedBlockedContentFramePreparer<
   ContentPublicationFrame extends

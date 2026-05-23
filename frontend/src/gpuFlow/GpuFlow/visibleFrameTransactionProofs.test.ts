@@ -17,23 +17,23 @@ import type {
 } from "../projectionRuntime";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
 import {
+  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
+  type GpuFlowVisiblePublicationPresentationEvidence,
+} from "./visibleFramePublicationPresentationEvidence";
+import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
   createGpuFlowVisibleFramePublicationTransactionOracleFactory,
   createGpuFlowVisiblePublicationCommitOracleFactory,
   type GpuFlowVisibleFramePublicationCandidateSet,
   type GpuFlowVisibleFramePublicationContentCandidate,
   type GpuFlowVisibleFramePublicationMotionCandidate,
-} from "./visibleFramePublicationOracle";
-import {
-  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
-  type GpuFlowVisiblePublicationPresentationEvidence,
-} from "./visibleFramePublicationPresentationEvidence";
+} from "./visibleFrameTransactionProofs";
 
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
 const ORACLE_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationOracle.ts", import.meta.url),
+  new URL("./visibleFrameTransactionProofs.ts", import.meta.url),
 );
 const createGpuFlowVisibleFramePublicationTransactionOracleFromFactory =
   createGpuFlowVisibleFramePublicationTransactionOracleFactory();
@@ -157,7 +157,8 @@ function withTestGpuFlowVisiblePublicationPresentationEvidence<
         publicationDecision: {
           sample: candidate.visibleProjectionState.sample,
         },
-        projectionTransactionId: candidate.visibleProjectionState.transaction.id,
+        projectionTransactionId:
+          candidate.visibleProjectionState.transaction.id,
       }),
   };
 }
@@ -184,7 +185,7 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
   });
 }
 
-describe("GPU Flow visible publication transaction oracle", () => {
+describe("GPU Flow visible frame transaction proofs", () => {
   it("keeps candidate-set oracle assembly out of the kernel wrapper", () => {
     const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const oracleSource = readFileSync(ORACLE_MODULE_PATH, "utf8");
@@ -570,9 +571,7 @@ describe("GPU Flow visible publication transaction oracle", () => {
         committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
         publicationDecision: publicationDecision(sample),
       }),
-    ).toThrow(
-      /compatible-previous:previous-transaction-identity-required/,
-    );
+    ).toThrow(/compatible-previous:previous-transaction-identity-required/);
   });
 
   it("rejects active-editor live proof without active host representation identity", () => {
@@ -678,7 +677,11 @@ describe("GPU Flow visible publication transaction oracle", () => {
           actualInteractionProof: "active-editor-live",
           actualVisualProof: "exact-live-host",
         }),
-        { actorId: "control-a", hostId: "host-a", kind: "passive-live-display" },
+        {
+          actorId: "control-a",
+          hostId: "host-a",
+          kind: "passive-live-display",
+        },
       ),
       family: "active-editor",
       reason: "control-a:exact-live-host:active-editor-host-identity-required",

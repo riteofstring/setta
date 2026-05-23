@@ -4,19 +4,19 @@ import {
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import {
-  createGpuFlowVisiblePublicationCommitOracleReport,
-  createGpuFlowVisiblePublicationTransactionOracleReport,
-  type GpuFlowVisibleFramePublicationTransactionOracle,
-  type GpuFlowVisiblePublicationCommitDebtProof,
-  type GpuFlowVisiblePublicationPresentationProofReport,
-} from "./visibleFramePublicationOracle";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowColdStartShellFrame,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationTokens";
+import {
+  createGpuFlowVisiblePublicationCommitOracleReport,
+  createGpuFlowVisiblePublicationTransactionOracleReport,
+  type GpuFlowVisibleFramePublicationTransactionOracle,
+  type GpuFlowVisiblePublicationCommitDebtProof,
+  type GpuFlowVisiblePublicationPresentationProofReport,
+} from "./visibleFrameTransactionProofs";
 
 type GpuFlowVisiblePublicationScheduler = ReturnType<
   typeof createGpuFlowVisiblePublicationScheduler

@@ -68,13 +68,13 @@ describe("GPU Flow visible publication kernel phases", () => {
       "function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame",
     );
     expect(source).not.toMatch(
-      /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory[\s\S]*\}\s+from "\.\/visibleFramePublicationOracle"/,
+      /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
     );
     expect(source).not.toMatch(
-      /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationPreparedFrameSelector[\s\S]*\}\s+from "\.\/visibleFramePublicationOracle"/,
+      /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationPreparedFrameSelector[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
     );
     expect(source).not.toMatch(
-      /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationTransactionOracleFactory[\s\S]*\}\s+from "\.\/visibleFramePublicationOracle"/,
+      /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationTransactionOracleFactory[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
     );
     expect(source).toContain(
       "function decideGpuFlowVisibleFramePublicationOutcome",
