@@ -56,6 +56,7 @@ class DefaultGpuFlowCommittedSurfaceRuntime
   private readonly listeners =
     new Set<GpuFlowCommittedSurfaceRuntimeListener>();
   private publishCount = 0;
+  private reactSemanticEmitQueued = false;
   private semanticSnapshot: GpuFlowReactSemanticSnapshot;
   private startupFrame: GpuFlowCommittedContentFrame;
 
@@ -92,7 +93,7 @@ class DefaultGpuFlowCommittedSurfaceRuntime
       renderSignature,
     };
     this.emitCommittedFrame();
-    this.emit();
+    this.scheduleReactSemanticEmit();
     return true;
   }
 
@@ -102,7 +103,7 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     this.publishCount += 1;
     this.semanticSnapshot = this.createSemanticSnapshot(this.startupFrame);
     this.emitCommittedFrame();
-    this.emit();
+    this.scheduleReactSemanticEmit();
   }
 
   setStartupFrame(
@@ -159,7 +160,18 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     };
   }
 
-  private emit(): void {
+  private scheduleReactSemanticEmit(): void {
+    if (this.reactSemanticEmitQueued) {
+      return;
+    }
+    this.reactSemanticEmitQueued = true;
+    queueMicrotask(() => {
+      this.reactSemanticEmitQueued = false;
+      this.emitReactSemanticSnapshot();
+    });
+  }
+
+  private emitReactSemanticSnapshot(): void {
     for (const listener of this.listeners) {
       listener();
     }

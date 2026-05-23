@@ -40,6 +40,9 @@ const COMMITTED_SURFACE_PUBLICATION_MODULE_PATH = modulePath(
 const COMMITTED_SURFACE_PUBLICATION_CANDIDATE_HANDLING_MODULE_PATH = modulePath(
   "./flowCommittedSurfacePublicationCandidateHandling.ts",
 );
+const COMMITTED_SURFACE_RUNTIME_MODULE_PATH = modulePath(
+  "../committedSurfaceRuntime.ts",
+);
 const PROJECTION_FRAME_MODULE_PATH = modulePath("./flowProjectionFrame.tsx");
 const FLOW_FRAME_MODULE_PATH = modulePath("./flowFrame.tsx");
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = modulePath(
@@ -658,6 +661,70 @@ describe("GPU Flow visible publication authority boundaries", () => {
     });
 
     expect(violations).toEqual([]);
+  });
+
+  it("keeps React semantic committed-surface observers downstream of publication", () => {
+    const committedSurfaceRuntimeSource = readFileSync(
+      COMMITTED_SURFACE_RUNTIME_MODULE_PATH,
+      "utf8",
+    );
+    const publishMethodStart = committedSurfaceRuntimeSource.indexOf(
+      [
+        "  publishCommittedContentFrame(",
+        "    token: GpuFlowCommitPublicationToken,",
+        "    frame: GpuFlowCommittedContentFrame,",
+        "  ): boolean {",
+      ].join("\n"),
+    );
+    const resetMethodStart = committedSurfaceRuntimeSource.indexOf(
+      "  resetCommittedContentFrame(token: GpuFlowCommittedSurfaceResetToken): void {",
+    );
+    const startupMethodStart = committedSurfaceRuntimeSource.indexOf(
+      [
+        "  setStartupFrame(",
+        "    token: GpuFlowCommittedSurfaceStartupToken,",
+        "    frame: GpuFlowCommittedContentFrame,",
+        "  ): void {",
+      ].join("\n"),
+    );
+    const scheduleMethodStart = committedSurfaceRuntimeSource.indexOf(
+      "private scheduleReactSemanticEmit",
+    );
+    const emitSemanticMethodStart = committedSurfaceRuntimeSource.indexOf(
+      "private emitReactSemanticSnapshot",
+    );
+    const publishMethodSource = committedSurfaceRuntimeSource.slice(
+      publishMethodStart,
+      resetMethodStart,
+    );
+    const resetMethodSource = committedSurfaceRuntimeSource.slice(
+      resetMethodStart,
+      startupMethodStart,
+    );
+    const scheduleMethodSource = committedSurfaceRuntimeSource.slice(
+      scheduleMethodStart,
+      emitSemanticMethodStart,
+    );
+
+    expect(publishMethodStart).toBeGreaterThanOrEqual(0);
+    expect(resetMethodStart).toBeGreaterThan(publishMethodStart);
+    expect(startupMethodStart).toBeGreaterThan(resetMethodStart);
+    expect(scheduleMethodStart).toBeGreaterThan(startupMethodStart);
+    expect(emitSemanticMethodStart).toBeGreaterThan(scheduleMethodStart);
+    expect(publishMethodSource).toContain("this.emitCommittedFrame()");
+    expect(publishMethodSource).toContain("this.scheduleReactSemanticEmit()");
+    expect(
+      publishMethodSource.indexOf("this.emitCommittedFrame()"),
+    ).toBeLessThan(
+      publishMethodSource.indexOf("this.scheduleReactSemanticEmit()"),
+    );
+    expect(publishMethodSource).not.toContain(
+      "this.emitReactSemanticSnapshot()",
+    );
+    expect(resetMethodSource).toContain("this.scheduleReactSemanticEmit()");
+    expect(resetMethodSource).not.toContain("this.emitReactSemanticSnapshot()");
+    expect(scheduleMethodSource).toContain("queueMicrotask");
+    expect(scheduleMethodSource).toContain("reactSemanticEmitQueued");
   });
 
   it("applies viewport overlay transforms only from visible publication completion", () => {

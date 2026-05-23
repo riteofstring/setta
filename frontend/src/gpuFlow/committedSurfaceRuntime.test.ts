@@ -14,6 +14,85 @@ import type { GpuFlowLiveProjectionSample } from "./projectionRuntime";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 
 describe("GPU Flow committed surface runtime", () => {
+  it("notifies committed-frame subscribers synchronously while deferring React semantic observers", async () => {
+    const startupFrame = committedFrame({ displayFrameId: 1 });
+    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const nextFrame = committedFrame({
+      actorGenerations: [committedActor("actor-next")],
+      displayFrameId: 2,
+    });
+    const notifications: string[] = [];
+    runtime.subscribeCommittedContentFrame(() => {
+      notifications.push(
+        `committed:${runtime.getCommittedContentFrame().displayFrameId}`,
+      );
+    });
+    runtime.subscribeReactSemanticSnapshot(() => {
+      notifications.push(
+        `semantic:${runtime.getReactSemanticSnapshot().frame.displayFrameId}`,
+      );
+    });
+
+    expect(
+      runtime.publishCommittedContentFrame(
+        publicationToken(nextFrame),
+        nextFrame,
+      ),
+    ).toBe(true);
+
+    expect(runtime.getCommittedContentFrame()).toBe(nextFrame);
+    expect(runtime.getReactSemanticSnapshot().frame).toBe(nextFrame);
+    expect(notifications).toEqual(["committed:2"]);
+
+    await nextMicrotask();
+
+    expect(notifications).toEqual(["committed:2", "semantic:2"]);
+  });
+
+  it("coalesces React semantic observers behind the latest committed frame", async () => {
+    const startupFrame = committedFrame({ displayFrameId: 1 });
+    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const firstFrame = committedFrame({
+      actorGenerations: [committedActor("actor-first")],
+      displayFrameId: 2,
+    });
+    const secondFrame = committedFrame({
+      actorGenerations: [committedActor("actor-second")],
+      displayFrameId: 3,
+    });
+    const committedFrameIds: number[] = [];
+    const semanticFrameIds: number[] = [];
+    runtime.subscribeCommittedContentFrame(() => {
+      committedFrameIds.push(runtime.getCommittedContentFrame().displayFrameId);
+    });
+    runtime.subscribeReactSemanticSnapshot(() => {
+      semanticFrameIds.push(
+        runtime.getReactSemanticSnapshot().frame.displayFrameId,
+      );
+    });
+
+    expect(
+      runtime.publishCommittedContentFrame(
+        publicationToken(firstFrame),
+        firstFrame,
+      ),
+    ).toBe(true);
+    expect(
+      runtime.publishCommittedContentFrame(
+        publicationToken(secondFrame),
+        secondFrame,
+      ),
+    ).toBe(true);
+
+    expect(runtime.getCommittedContentFrame()).toBe(secondFrame);
+    expect(committedFrameIds).toEqual([2, 3]);
+    expect(semanticFrameIds).toEqual([]);
+
+    await nextMicrotask();
+
+    expect(semanticFrameIds).toEqual([3]);
+  });
+
   it("notifies committed-frame subscribers for render-signature deduped frames", () => {
     const startupFrame = committedFrame({ displayFrameId: 1 });
     const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
@@ -218,4 +297,8 @@ function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
       id: frame.displayFrameId,
     } as GpuFlowLiveProjectionSample,
   });
+}
+
+async function nextMicrotask(): Promise<void> {
+  await Promise.resolve();
 }
