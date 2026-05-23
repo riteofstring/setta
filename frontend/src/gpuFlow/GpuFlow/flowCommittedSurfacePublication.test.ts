@@ -9,6 +9,7 @@ import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntim
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import {
   applyGpuFlowBlockedCommittedSurfacePublicationEffect,
+  applyGpuFlowHeldPreviousCommittedSurfacePublicationEffect,
   recordGpuFlowBlockedVisiblePublication,
 } from "./flowCommittedSurfacePublication";
 import {
@@ -21,7 +22,10 @@ import {
   type GpuFlowCommittedSurfacePublicationCandidateInput,
   type GpuFlowCommittedSurfacePublicationEffect,
 } from "./visibleFramePublicationContentPlan";
-import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
+import {
+  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameHoldPreviousTokenForTest,
+} from "./visibleFramePublicationTestUtils";
 
 const prepareCommittedSurfacePublicationFramePlanForTest =
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
@@ -154,6 +158,32 @@ describe("GPU Flow committed surface publication effect executor", () => {
         outcome: "blocked",
       }),
     ]);
+  });
+
+  it("treats publish effects as no-op inputs for blocked or held outcomes owned by other proofs", () => {
+    const blockedCanvas = document.createElement("canvas");
+    const heldCanvas = document.createElement("canvas");
+    const requestFrame = vi.fn();
+
+    applyGpuFlowBlockedCommittedSurfacePublicationEffect({
+      effect: { kind: "publish" },
+      runtimeCanvas: blockedCanvas,
+      surfaceRef: {
+        current: { requestFrame } as unknown as GpuSurfaceHandle,
+      },
+      token: blockedPublicationToken(),
+    });
+    applyGpuFlowHeldPreviousCommittedSurfacePublicationEffect({
+      effect: { kind: "publish" },
+      runtimeCanvas: heldCanvas,
+      surfaceRef: {
+        current: { requestFrame } as unknown as GpuSurfaceHandle,
+      },
+      token: heldPreviousPublicationToken(),
+    });
+
+    expect(requestFrame).not.toHaveBeenCalled();
+    expect(readStarvationReports()).toEqual([]);
   });
 
   it("records cold-start shell blocked publication without a committed candidate frame", () => {
@@ -388,6 +418,19 @@ function blockedPublicationToken() {
       id: 1,
     } as Parameters<
       typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
+    >[0]["projectionSample"],
+  });
+}
+
+function heldPreviousPublicationToken() {
+  return createGpuFlowVisibleFrameHoldPreviousTokenForTest({
+    committedFrameId: 2,
+    holdAgeFrames: 1,
+    holdAgeMs: 16,
+    projectionSample: {
+      id: 1,
+    } as Parameters<
+      typeof createGpuFlowVisibleFrameHoldPreviousTokenForTest
     >[0]["projectionSample"],
   });
 }
