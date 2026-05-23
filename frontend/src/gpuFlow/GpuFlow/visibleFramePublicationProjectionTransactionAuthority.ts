@@ -15,6 +15,12 @@ import type { GpuFlowRetainedProjectionFrame } from "./flowProjectionFrame";
 import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
 
+export type GpuFlowRetainedProjectionBlockedPublicationCandidateFactory =
+  (input: {
+    readonly blockedReason: string;
+    readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  }) => GpuFlowVisibleFrameBlockedPublicationCandidate;
+
 export type GpuFlowRetainedProjectionPublicationTransactionDecision =
   | {
       readonly blockedReason: null;
@@ -167,7 +173,7 @@ export function hasActiveGpuFlowRetainedDomControlPublicationProof(
   );
 }
 
-export function createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+function createGpuFlowRetainedProjectionBlockedPublicationCandidate({
   blockedReason,
   heldPreviousProjectionState,
 }: {
@@ -186,6 +192,10 @@ export function createGpuFlowRetainedProjectionBlockedPublicationCandidate({
       heldPreviousProjectionState?.committedFrame.displayFrameId ??
       GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
   });
+}
+
+export function createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory(): GpuFlowRetainedProjectionBlockedPublicationCandidateFactory {
+  return createGpuFlowRetainedProjectionBlockedPublicationCandidate;
 }
 
 function selectGpuFlowProjectionFrameTransactionFromPublicationDecision({

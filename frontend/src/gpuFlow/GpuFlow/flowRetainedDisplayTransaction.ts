@@ -23,10 +23,6 @@ const MAX_DEFERRED_RETAINED_DISPLAY_HOLD_MS = 50;
 type RetainedDisplayOutcome = ReturnType<
   typeof resolveRetainedDisplayFrameTransaction
 >;
-type RetainedDisplayPublishedOutcome = Extract<
-  RetainedDisplayOutcome,
-  { readonly frame: RetainedDisplayFrame }
->;
 type RetainedPrePublishMaintenance = ReturnType<
   typeof resolveGpuFlowRetainedPageMaintenanceBeforePublish
 >;
@@ -68,18 +64,6 @@ export type GpuFlowRetainedDisplayPublicationInput = {
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 };
 
-export type GpuFlowRetainedDisplayPublicationOutcomeFrame =
-  | {
-      readonly kind: "blocked";
-      readonly reason: string;
-    }
-  | {
-      readonly frame: RetainedDisplayFrame;
-      readonly kind: "published";
-      readonly outcome: RetainedDisplayPublishedOutcome;
-      readonly outcomeKind: RetainedDisplayPublishedOutcome["kind"];
-    };
-
 export function resolveGpuFlowRetainedDisplayPublication({
   darkMode,
   deferResolutionUpdates,
@@ -120,23 +104,6 @@ export function resolveGpuFlowRetainedDisplayPublication({
     initialMaintenance,
     initialTransaction,
   });
-}
-
-export function resolveGpuFlowRetainedDisplayPublicationOutcomeFrame(
-  outcome: RetainedDisplayOutcome,
-): GpuFlowRetainedDisplayPublicationOutcomeFrame {
-  if (outcome.kind === "block-cold-first-coverage") {
-    return {
-      kind: "blocked",
-      reason: outcome.reason,
-    };
-  }
-  return {
-    frame: outcome.frame,
-    kind: "published",
-    outcome,
-    outcomeKind: outcome.kind,
-  };
 }
 
 export function selectGpuFlowRetainedDisplayFollowUpFrameReason({

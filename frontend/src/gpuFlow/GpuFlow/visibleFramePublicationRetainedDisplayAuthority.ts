@@ -1,17 +1,36 @@
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
-  resolveGpuFlowRetainedDisplayPublicationOutcomeFrame,
-  type GpuFlowRetainedDisplayPublicationOutcomeFrame,
   type GpuFlowRetainedDisplayPublicationResult,
 } from "./flowRetainedDisplayTransaction";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
-import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationProjectionTransactionAuthority";
+import { createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory } from "./visibleFramePublicationProjectionTransactionAuthority";
 
-export type GpuFlowRetainedDisplayPublicationOutcomeFrameResolver = (
-  input: Parameters<
-    typeof resolveGpuFlowRetainedDisplayPublicationOutcomeFrame
-  >[0],
-) => GpuFlowRetainedDisplayPublicationOutcomeFrame;
+const createRetainedProjectionBlockedPublicationCandidate =
+  createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory();
+
+type GpuFlowRetainedDisplayPublicationOutcome =
+  GpuFlowRetainedDisplayPublicationResult["retainedDisplayOutcome"];
+
+type GpuFlowRetainedDisplayPublicationOutcomeFrame =
+  | {
+      readonly kind: "blocked";
+      readonly reason: string;
+    }
+  | {
+      readonly frame: Extract<
+        GpuFlowRetainedDisplayPublicationOutcome,
+        { readonly frame: unknown }
+      >["frame"];
+      readonly kind: "published";
+      readonly outcome: Extract<
+        GpuFlowRetainedDisplayPublicationOutcome,
+        { readonly frame: unknown }
+      >;
+      readonly outcomeKind: Extract<
+        GpuFlowRetainedDisplayPublicationOutcome,
+        { readonly frame: unknown }
+      >["kind"];
+    };
 
 export type GpuFlowRetainedDisplayOutcomeFrameResult =
   | {
@@ -25,11 +44,6 @@ export type GpuFlowRetainedDisplayOutcomeFrameResult =
         { readonly kind: "published" }
       >;
     };
-
-export type GpuFlowRetainedDisplayOutcomeFrameResultResolver = (input: {
-  readonly outcomeFrame: GpuFlowRetainedDisplayPublicationOutcomeFrame;
-  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}) => GpuFlowRetainedDisplayOutcomeFrameResult;
 
 export type GpuFlowRetainedDisplayPublicationFramePlan =
   | {
@@ -53,14 +67,6 @@ export type GpuFlowRetainedDisplayPublicationFramePlanResultResolver =
   (input: {
     readonly framePlan: GpuFlowRetainedDisplayPublicationFramePlan;
   }) => GpuFlowRetainedDisplayOutcomeFrameResult;
-
-export function createGpuFlowRetainedDisplayPublicationOutcomeFrameResolver(): GpuFlowRetainedDisplayPublicationOutcomeFrameResolver {
-  return resolveGpuFlowRetainedDisplayPublicationOutcomeFrame;
-}
-
-export function createGpuFlowRetainedDisplayOutcomeFrameResultResolver(): GpuFlowRetainedDisplayOutcomeFrameResultResolver {
-  return resolveGpuFlowRetainedDisplayOutcomeFrameResult;
-}
 
 export function createGpuFlowRetainedDisplayPublicationFramePlanResultResolver(): GpuFlowRetainedDisplayPublicationFramePlanResultResolver {
   return resolveGpuFlowRetainedDisplayPublicationFramePlanResult;
@@ -96,6 +102,23 @@ function selectGpuFlowRetainedDisplayPublicationFramePlan({
   };
 }
 
+function resolveGpuFlowRetainedDisplayPublicationOutcomeFrame(
+  outcome: GpuFlowRetainedDisplayPublicationOutcome,
+): GpuFlowRetainedDisplayPublicationOutcomeFrame {
+  if (outcome.kind === "block-cold-first-coverage") {
+    return {
+      kind: "blocked",
+      reason: outcome.reason,
+    };
+  }
+  return {
+    frame: outcome.frame,
+    kind: "published",
+    outcome,
+    outcomeKind: outcome.kind,
+  };
+}
+
 function resolveGpuFlowRetainedDisplayPublicationFramePlanResult({
   framePlan,
 }: {
@@ -128,7 +151,7 @@ function resolveGpuFlowRetainedDisplayOutcomeFrameResult({
   }
   return {
     blockedPublicationCandidate:
-      createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+      createRetainedProjectionBlockedPublicationCandidate({
         blockedReason: outcomeFrame.reason,
         heldPreviousProjectionState: previousVisibleProjectionState,
       }),

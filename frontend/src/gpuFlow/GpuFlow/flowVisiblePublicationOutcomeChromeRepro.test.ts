@@ -11,13 +11,16 @@ import type {
 } from "../projectionScheduler";
 import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./flowVisiblePublicationOutcomeChromeRepro";
 import {
-  createGpuFlowVisiblePublicationCommitOracle,
+  createGpuFlowVisiblePublicationCommitOracleFactory,
   type GpuFlowVisibleFramePublicationTransactionOracle,
   type GpuFlowVisiblePublicationCommitOracle,
 } from "./visibleFramePublicationOracle";
 import type {
   GpuFlowCommitPublicationToken,
 } from "./visibleFramePublicationTokens";
+
+const createGpuFlowVisiblePublicationCommitOracle =
+  createGpuFlowVisiblePublicationCommitOracleFactory();
 
 describe("GPU Flow visible publication Chrome repro payload", () => {
   it("records committed coverage proof counts with the visible outcome", () => {
@@ -86,6 +89,20 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         ],
         displayFrameId: 7,
         presentationProof: presentationProof(),
+        projectionHorizon: {
+          textActorCoverage: {
+            blockedAwaitingBrowserVisualActorIds: [],
+            blockedAwaitingLiveHostActorIds: [],
+            compatiblePreviousActorIds: ["actor-a"],
+            exactLiveDomActorIds: ["actor-b", "island-a"],
+            exactSnapshotActorIds: [],
+            trueHoleActorIds: [],
+          },
+        },
+        publishability: {
+          blockingActorIds: [],
+          kind: "publishable",
+        },
         surfaceTransaction: {
           coverageProof: {
             blockingGenerationIds: ["generation-blocked"],

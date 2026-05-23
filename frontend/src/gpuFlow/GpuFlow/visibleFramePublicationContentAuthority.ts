@@ -1,10 +1,13 @@
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuFlowNodeLayerFrameResult } from "./flowFrameResult";
-import { createGpuFlowBrowserVisualBlockedPublicationCandidate } from "./visibleFramePublicationCommittedSurfaceAuthority";
+import { createGpuFlowBrowserVisualBlockedPublicationCandidateFactory } from "./visibleFramePublicationCommittedSurfaceAuthority";
 import type {
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFrameBlockedPublicationCandidate,
 } from "./visibleFramePublicationContentPlan";
+
+const createBrowserVisualBlockedPublicationCandidateByAuthority =
+  createGpuFlowBrowserVisualBlockedPublicationCandidateFactory();
 
 export type GpuFlowContentPublicationBlockedCandidateSelector = (input: {
   readonly blockedCommittedSurfacePublicationCandidate?:
@@ -55,7 +58,7 @@ function selectGpuFlowContentPublicationBlockedCandidate({
     if (committedSurfacePublicationEffect?.kind !== "held-previous") {
       return null;
     }
-    return createGpuFlowBrowserVisualBlockedPublicationCandidate({
+    return createBrowserVisualBlockedPublicationCandidateByAuthority({
       frame: committedSurfacePublicationEffect.candidateFrame,
       heldPreviousProjectionState: previousVisibleProjectionState,
     });

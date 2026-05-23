@@ -57,24 +57,16 @@ type GpuFlowCommittedSurfaceHeldPreviousPublicationTransaction = {
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 };
 
-export type GpuFlowCommittedSurfacePublicationCandidateActionResolver = (
-  input: {
-    readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
-    readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
-  },
-) => GpuFlowCommittedSurfacePublicationCandidateAction;
+export type GpuFlowBrowserVisualBlockedPublicationCandidateFactory = (input: {
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+}) => GpuFlowVisibleFrameBlockedPublicationCandidate;
 
 export type GpuFlowCommittedSurfacePublicationActionFrameResult = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
-
-export type GpuFlowCommittedSurfacePublicationActionFrameResultResolver =
-  (input: {
-    readonly action: GpuFlowCommittedSurfacePublicationCandidateAction;
-    readonly effect: GpuFlowCommittedSurfacePublicationEffect;
-  }) => GpuFlowCommittedSurfacePublicationActionFrameResult;
 
 export type GpuFlowCommittedSurfacePublicationFramePlan =
   | {
@@ -141,7 +133,7 @@ function decideGpuFlowCommittedSurfacePublicationTransaction({
   };
 }
 
-export function createGpuFlowBrowserVisualBlockedPublicationCandidate({
+function createGpuFlowBrowserVisualBlockedPublicationCandidate({
   frame,
   heldPreviousProjectionState,
 }: {
@@ -154,6 +146,10 @@ export function createGpuFlowBrowserVisualBlockedPublicationCandidate({
       heldPreviousProjectionState,
     }),
   });
+}
+
+export function createGpuFlowBrowserVisualBlockedPublicationCandidateFactory(): GpuFlowBrowserVisualBlockedPublicationCandidateFactory {
+  return createGpuFlowBrowserVisualBlockedPublicationCandidate;
 }
 
 export function prepareGpuFlowCommittedSurfacePublicationCandidate({
@@ -275,14 +271,6 @@ export function shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepai
       reason.reason === "live-dom-budget" ||
       reason.reason === "visible-dom-control-not-projected",
   );
-}
-
-export function createGpuFlowCommittedSurfacePublicationCandidateActionResolver(): GpuFlowCommittedSurfacePublicationCandidateActionResolver {
-  return resolveGpuFlowCommittedSurfacePublicationCandidateAction;
-}
-
-export function createGpuFlowCommittedSurfacePublicationActionFrameResultResolver(): GpuFlowCommittedSurfacePublicationActionFrameResultResolver {
-  return resolveGpuFlowCommittedSurfacePublicationActionFrameResult;
 }
 
 export function createGpuFlowCommittedSurfacePublicationFramePlanResultResolver(): GpuFlowCommittedSurfacePublicationFramePlanResultResolver {

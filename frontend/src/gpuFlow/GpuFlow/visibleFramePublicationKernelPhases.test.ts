@@ -44,7 +44,7 @@ describe("GPU Flow visible publication kernel phases", () => {
       "function proveGpuFlowVisibleFramePublicationCandidateSet",
     );
     expect(source).toContain(
-      "createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame({",
+      "createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory()({",
     );
     expect(source).not.toContain(
       "function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame",
@@ -108,6 +108,9 @@ describe("GPU Flow visible publication kernel phases", () => {
       expect(kernelSource).toContain(constructorName);
       expect(completionSource).not.toContain(constructorName);
     }
+    expect(kernelSource).toContain(
+      "commitAuthorityProof: commitOracle.commitAuthorityProof",
+    );
     expect(kernelSource).toContain(
       "function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
     );

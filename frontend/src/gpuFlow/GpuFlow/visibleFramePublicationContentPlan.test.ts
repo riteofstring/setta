@@ -389,7 +389,7 @@ describe("GPU Flow visible publication content plans", () => {
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
     );
     expect(contentPlanSource).not.toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidate(",
     );
     expect(retainedDisplayAuthoritySource).toContain(
       "function selectGpuFlowRetainedDisplayPublicationFramePlan",
@@ -401,7 +401,10 @@ describe("GPU Flow visible publication content plans", () => {
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
     );
     expect(retainedDisplayAuthoritySource).toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory",
+    );
+    expect(retainedDisplayAuthoritySource).not.toContain(
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidate({",
     );
   });
 
@@ -416,7 +419,7 @@ describe("GPU Flow visible publication content plans", () => {
       "export function selectGpuFlowContentPublicationBlockedCandidate",
     );
     expect(contentPlanSource).not.toContain(
-      "createGpuFlowBrowserVisualBlockedPublicationCandidate",
+      "createGpuFlowBrowserVisualBlockedPublicationCandidate(",
     );
     expect(contentAuthoritySource).toContain(
       "function selectGpuFlowContentPublicationBlockedCandidate",
@@ -431,7 +434,10 @@ describe("GPU Flow visible publication content plans", () => {
       "export function selectGpuFlowContentPublicationBlockedCandidateForFrameResult",
     );
     expect(contentAuthoritySource).toContain(
-      "createGpuFlowBrowserVisualBlockedPublicationCandidate",
+      "createGpuFlowBrowserVisualBlockedPublicationCandidateFactory",
+    );
+    expect(contentAuthoritySource).not.toContain(
+      "createGpuFlowBrowserVisualBlockedPublicationCandidate({",
     );
   });
 

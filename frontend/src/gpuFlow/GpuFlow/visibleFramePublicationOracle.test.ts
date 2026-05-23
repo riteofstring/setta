@@ -15,12 +15,12 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationKernel";
+import { createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory } from "./visibleFramePublicationKernel";
 import {
-  createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
+  createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
+  createGpuFlowVisibleFramePublicationPreparedFrameSelector,
   createGpuFlowVisibleFramePublicationTransactionOracleFactory,
-  createGpuFlowVisiblePublicationCommitOracle,
-  selectGpuFlowVisibleFramePublicationPreparedFrame,
+  createGpuFlowVisiblePublicationCommitOracleFactory,
 } from "./visibleFramePublicationOracle";
 
 const KERNEL_MODULE_PATH = fileURLToPath(
@@ -31,6 +31,14 @@ const ORACLE_MODULE_PATH = fileURLToPath(
 );
 const createGpuFlowVisibleFramePublicationTransactionOracle =
   createGpuFlowVisibleFramePublicationTransactionOracleFactory();
+const createGpuFlowVisiblePublicationCommitOracle =
+  createGpuFlowVisiblePublicationCommitOracleFactory();
+const createGpuFlowRetainedProjectionBlockedPublicationCandidate =
+  createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory();
+const selectGpuFlowVisibleFramePublicationPreparedFrame =
+  createGpuFlowVisibleFramePublicationPreparedFrameSelector();
+const createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame =
+  createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory();
 
 describe("GPU Flow visible publication transaction oracle", () => {
   it("keeps candidate-set oracle assembly out of the kernel wrapper", () => {
@@ -63,6 +71,15 @@ describe("GPU Flow visible publication transaction oracle", () => {
     );
     expect(oracleSource).toContain(
       "function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame",
+    );
+    expect(oracleSource).not.toContain(
+      "export function createGpuFlowVisiblePublicationCommitOracle(",
+    );
+    expect(oracleSource).not.toContain(
+      "export function selectGpuFlowVisibleFramePublicationPreparedFrame(",
+    );
+    expect(oracleSource).not.toContain(
+      "export function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame(",
     );
     expect(kernelSource).not.toContain(
       "function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame",

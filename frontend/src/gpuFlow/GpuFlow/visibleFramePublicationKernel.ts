@@ -45,7 +45,7 @@ import {
   type GpuFlowMotionProjectionWorkPlan,
 } from "./visibleFramePublicationKernelWorkPlan";
 import {
-  createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
+  createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
   createGpuFlowVisibleFramePublicationTransactionOracleFactory,
   type GpuFlowVisibleFramePublicationCandidateSet,
   type GpuFlowVisibleFramePublicationContentCandidate,
@@ -62,8 +62,8 @@ import {
 } from "./visibleFramePublicationProjectionPlan";
 import {
   createGpuFlowProjectionFrameTransactionSelector,
+  createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory,
   createGpuFlowRetainedProjectionPublicationDecisionSelector,
-  createGpuFlowRetainedProjectionBlockedPublicationCandidate,
   type GpuFlowProjectionFrameTransaction,
   type GpuFlowProjectionFrameTransactionSelector,
   type GpuFlowRetainedProjectionFrameResolver,
@@ -86,8 +86,8 @@ import type {
 
 export { assertGpuFlowCommittedSurfacePublicationCandidatePublished } from "./flowCommittedSurfacePublicationCandidateHandling";
 export type { GpuFlowCommittedSurfacePublicationCandidateAction } from "./flowCommittedSurfacePublicationCandidateHandling";
-export { createGpuFlowCommittedSurfacePublicationActionFrameResultResolver, createGpuFlowCommittedSurfacePublicationCandidateActionResolver, createGpuFlowCommittedSurfacePublicationFramePlanResultResolver, createGpuFlowCommittedSurfacePublicationFramePlanSelector, prepareGpuFlowCommittedSurfacePublicationCandidate } from "./visibleFramePublicationCommittedSurfaceAuthority";
-export type { GpuFlowCommittedSurfacePublicationActionFrameResult, GpuFlowCommittedSurfacePublicationActionFrameResultResolver, GpuFlowCommittedSurfacePublicationCandidateActionResolver, GpuFlowCommittedSurfacePublicationFramePlan, GpuFlowCommittedSurfacePublicationFramePlanResult, GpuFlowCommittedSurfacePublicationFramePlanResultResolver, GpuFlowCommittedSurfacePublicationFramePlanSelector } from "./visibleFramePublicationCommittedSurfaceAuthority";
+export { createGpuFlowCommittedSurfacePublicationFramePlanResultResolver, createGpuFlowCommittedSurfacePublicationFramePlanSelector, prepareGpuFlowCommittedSurfacePublicationCandidate } from "./visibleFramePublicationCommittedSurfaceAuthority";
+export type { GpuFlowCommittedSurfacePublicationActionFrameResult, GpuFlowCommittedSurfacePublicationFramePlan, GpuFlowCommittedSurfacePublicationFramePlanResult, GpuFlowCommittedSurfacePublicationFramePlanResultResolver, GpuFlowCommittedSurfacePublicationFramePlanSelector } from "./visibleFramePublicationCommittedSurfaceAuthority";
 export { createGpuFlowVisiblePublicationTransactionReport } from "./visibleFramePublicationCompletion";
 export type { GpuFlowVisiblePublicationCompletion, GpuFlowVisiblePublicationOutcome, GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFramePublicationCompletion";
 export { createGpuFlowContentPublicationBlockedCandidateForFrameResultSelector, createGpuFlowContentPublicationBlockedCandidateSelector } from "./visibleFramePublicationContentAuthority";
@@ -96,18 +96,21 @@ export { createGpuFlowCommittedSurfacePublicationContentStep, createGpuFlowCommi
 export type { GpuFlowCommittedSurfacePublicationCandidate, GpuFlowCommittedSurfacePublicationCandidateInput, GpuFlowCommittedSurfacePublicationCandidatePreparer, GpuFlowCommittedSurfacePublicationEffect, GpuFlowCommittedSurfacePublicationFramePlanPreparer, GpuFlowContentPublicationFrameResult, GpuFlowRetainedDisplayPublicationFramePlanPreparer, GpuFlowRetainedDisplayPublicationPreparer, GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
 export { createGpuFlowContentPublicationWorkPlan, createGpuFlowMotionProjectionWorkPlan, shouldConsiderGpuFlowDeferredContentPublication, shouldDeferGpuFlowBrowserVisualRetryForPublication } from "./visibleFramePublicationKernelWorkPlan";
 export type { GpuFlowContentPublicationWorkPlan, GpuFlowMotionProjectionWorkPlan } from "./visibleFramePublicationKernelWorkPlan";
-export { createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame, createGpuFlowVisibleFramePublicationTransactionOracleFactory, createGpuFlowVisiblePublicationCommitDebtProof, createGpuFlowVisiblePublicationCommitOracle, selectGpuFlowVisibleFramePublicationPreparedFrame } from "./visibleFramePublicationOracle";
-export type { GpuFlowVisibleFramePublicationCandidateSet, GpuFlowVisibleFramePublicationContentCandidate, GpuFlowVisibleFramePublicationMotionCandidate, GpuFlowVisibleFramePublicationPreparedCandidateSet, GpuFlowVisibleFramePublicationPreparedCandidateSetFrame, GpuFlowVisibleFramePublicationPreparedFrame, GpuFlowVisibleFramePublicationTransactionOracle, GpuFlowVisibleFramePublicationTransactionOracleFactory, GpuFlowVisiblePublicationBlockedProof, GpuFlowVisiblePublicationCommitDebtProof, GpuFlowVisiblePublicationCommitOracle } from "./visibleFramePublicationOracle";
+export { createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory, createGpuFlowVisibleFramePublicationPreparedFrameSelector, createGpuFlowVisibleFramePublicationTransactionOracleFactory, createGpuFlowVisiblePublicationCommitDebtProof, createGpuFlowVisiblePublicationCommitOracleFactory } from "./visibleFramePublicationOracle";
+export type { GpuFlowVisibleFramePublicationCandidateSet, GpuFlowVisibleFramePublicationContentCandidate, GpuFlowVisibleFramePublicationMotionCandidate, GpuFlowVisibleFramePublicationPreparedCandidateSet, GpuFlowVisibleFramePublicationPreparedCandidateSetFrame, GpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory, GpuFlowVisibleFramePublicationPreparedFrame, GpuFlowVisibleFramePublicationPreparedFrameSelector, GpuFlowVisibleFramePublicationTransactionOracle, GpuFlowVisibleFramePublicationTransactionOracleFactory, GpuFlowVisiblePublicationBlockedProof, GpuFlowVisiblePublicationCommitDebtProof, GpuFlowVisiblePublicationCommitOracle, GpuFlowVisiblePublicationCommitOracleFactory } from "./visibleFramePublicationOracle";
 export { createGpuFlowProjectionFrameRenderPlanSelector } from "./visibleFramePublicationProjectionPlan";
 export type { GpuFlowProjectionFrameRenderablePlan, GpuFlowProjectionFrameRenderPlan, GpuFlowProjectionFrameRenderPlanSelector } from "./visibleFramePublicationProjectionPlan";
-export { createGpuFlowProjectionFrameTransactionSelector, createGpuFlowRetainedProjectionBlockedPublicationCandidate, createGpuFlowRetainedProjectionPublicationDecisionSelector, hasActiveGpuFlowRetainedDomControlPublicationProof } from "./visibleFramePublicationProjectionTransactionAuthority";
-export type { GpuFlowProjectionFrameTransaction, GpuFlowProjectionFrameTransactionSelector, GpuFlowRetainedProjectionFrameResolver, GpuFlowRetainedProjectionPublicationDecisionSelector, GpuFlowRetainedProjectionPublicationTransactionDecision } from "./visibleFramePublicationProjectionTransactionAuthority";
-export { createGpuFlowRetainedDisplayOutcomeFrameResultResolver, createGpuFlowRetainedDisplayPublicationFramePlanResultResolver, createGpuFlowRetainedDisplayPublicationFramePlanSelector, createGpuFlowRetainedDisplayPublicationOutcomeFrameResolver } from "./visibleFramePublicationRetainedDisplayAuthority";
-export type { GpuFlowRetainedDisplayOutcomeFrameResult, GpuFlowRetainedDisplayOutcomeFrameResultResolver, GpuFlowRetainedDisplayPublicationFramePlan, GpuFlowRetainedDisplayPublicationFramePlanResultResolver, GpuFlowRetainedDisplayPublicationFramePlanSelector, GpuFlowRetainedDisplayPublicationOutcomeFrameResolver } from "./visibleFramePublicationRetainedDisplayAuthority";
+export { createGpuFlowProjectionFrameTransactionSelector, createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory, createGpuFlowRetainedProjectionPublicationDecisionSelector, hasActiveGpuFlowRetainedDomControlPublicationProof } from "./visibleFramePublicationProjectionTransactionAuthority";
+export type { GpuFlowProjectionFrameTransaction, GpuFlowProjectionFrameTransactionSelector, GpuFlowRetainedProjectionBlockedPublicationCandidateFactory, GpuFlowRetainedProjectionFrameResolver, GpuFlowRetainedProjectionPublicationDecisionSelector, GpuFlowRetainedProjectionPublicationTransactionDecision } from "./visibleFramePublicationProjectionTransactionAuthority";
+export { createGpuFlowRetainedDisplayPublicationFramePlanResultResolver, createGpuFlowRetainedDisplayPublicationFramePlanSelector } from "./visibleFramePublicationRetainedDisplayAuthority";
+export type { GpuFlowRetainedDisplayOutcomeFrameResult, GpuFlowRetainedDisplayPublicationFramePlan, GpuFlowRetainedDisplayPublicationFramePlanResultResolver, GpuFlowRetainedDisplayPublicationFramePlanSelector } from "./visibleFramePublicationRetainedDisplayAuthority";
 
 type GpuFlowVisiblePublicationScheduler = ReturnType<
   typeof createGpuFlowVisiblePublicationScheduler
 >;
+
+const createRetainedProjectionBlockedPublicationCandidate =
+  createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory();
 
 export function createGpuFlowCommittedSurfaceResetPublicationToken(): GpuFlowCommittedSurfaceResetToken {
   return createGpuFlowCommittedSurfaceResetToken();
@@ -426,7 +429,7 @@ function proveGpuFlowVisibleFramePublicationCandidateSet<
       publicationDecision,
     });
   const preparedFrame =
-    createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame({
+    createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory()({
       contentPublicationFrame: candidateSet.contentPublicationFrame,
       motionProjectionFrame: candidateSet.motionProjectionFrame,
       transactionOracle,
@@ -496,7 +499,7 @@ function resolveGpuFlowMotionProjectionFramePreparation<
   if (projectionFrameTransaction.blockedReason !== null) {
     return preparation.createBlockedProjectionFrame({
       blockedPublicationCandidate:
-        createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+        createRetainedProjectionBlockedPublicationCandidate({
           blockedReason: projectionFrameTransaction.blockedReason,
           heldPreviousProjectionState: previousVisibleProjectionState,
         }),
@@ -514,7 +517,7 @@ function resolveGpuFlowMotionProjectionFramePreparation<
   if (projectionBlockedReason) {
     return preparation.createBlockedProjectionFrame({
       blockedPublicationCandidate:
-        createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+        createRetainedProjectionBlockedPublicationCandidate({
           blockedReason: projectionBlockedReason,
           heldPreviousProjectionState: previousVisibleProjectionState,
         }),
@@ -697,6 +700,7 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
   }
   const presentableCommit = createGpuFlowPresentableCommit({
     frame: visibleProjectionState.committedFrame,
+    commitAuthorityProof: commitOracle.commitAuthorityProof,
     projectionSample: publicationDecision.sample,
   });
   return {

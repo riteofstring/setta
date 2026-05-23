@@ -6,6 +6,7 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
+import { createGpuFlowCommitAuthorityProof } from "./visibleFramePublicationAuthority";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePublicationTokens";
 
@@ -27,23 +28,11 @@ export type GpuFlowVisiblePublicationActorProof = {
   readonly ownerSurfaceId: string;
   readonly projectionGenerationId: string;
   readonly projectionSampleId: number;
-  readonly proofState:
-    | "blocked"
-    | "compatible-previous"
-    | "exact"
-    | "inactive-visual-only"
-    | "not-required";
+  readonly proofState: "blocked" | "compatible-previous" | "exact" | "inactive-visual-only" | "not-required";
   readonly remainingDebt: readonly string[];
   readonly requiredInteractionRepresentation: string;
   readonly requiredVisualRepresentation: string;
-  readonly sampledVisualEvidence:
-    | "blocked"
-    | "canvas"
-    | "compatible-previous"
-    | "exact-live-host"
-    | "exact-snapshot"
-    | "not-required"
-    | "same-live-host-compatible-projection";
+  readonly sampledVisualEvidence: "blocked" | "canvas" | "compatible-previous" | "exact-live-host" | "exact-snapshot" | "not-required" | "same-live-host-compatible-projection";
 };
 
 export type GpuFlowVisiblePublicationActorDebt = {
@@ -63,9 +52,12 @@ export type GpuFlowVisiblePublicationPresentationProofReport = {
   readonly surfaceTransactionDigest: string | null;
 };
 
-export type GpuFlowVisiblePublicationCommitOracle = ReturnType<
-  typeof createGpuFlowVisiblePublicationCommitOracle
->;
+export type GpuFlowVisiblePublicationCommitOracle = ReturnType<typeof createGpuFlowVisiblePublicationCommitOracle>;
+
+export type GpuFlowVisiblePublicationCommitOracleFactory = (input: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}) => GpuFlowVisiblePublicationCommitOracle;
 
 export type GpuFlowVisiblePublicationBlockedProof = {
   readonly blockedReasons: GpuFlowVisibleFrameBlockedPublicationCandidate["blockedReasons"];
@@ -151,6 +143,30 @@ export type GpuFlowVisibleFramePublicationTransactionOracleFactory = <
   },
 ) => GpuFlowVisibleFramePublicationTransactionOracle;
 
+export type GpuFlowVisibleFramePublicationPreparedFrameSelector = <
+  ContentPublicationFrame extends GpuFlowVisibleFramePublicationContentCandidate,
+  MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
+>(
+  input: GpuFlowVisibleFramePublicationCandidateSet<
+    ContentPublicationFrame,
+    MotionProjectionFrame
+  > & {
+    readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  },
+) => GpuFlowVisibleFramePublicationPreparedCandidateSet;
+
+export type GpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory = <
+  ContentPublicationFrame extends GpuFlowVisibleFramePublicationContentCandidate,
+  MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
+>(input: {
+  readonly contentPublicationFrame: ContentPublicationFrame;
+  readonly motionProjectionFrame: MotionProjectionFrame;
+  readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle;
+}) => GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
+  ContentPublicationFrame,
+  MotionProjectionFrame
+>;
+
 export function createGpuFlowVisiblePublicationCommitDebtProof({
   committedFrame,
   publicationDecision,
@@ -164,7 +180,11 @@ export function createGpuFlowVisiblePublicationCommitDebtProof({
   }).debtProof;
 }
 
-export function createGpuFlowVisiblePublicationCommitOracle({
+export function createGpuFlowVisiblePublicationCommitOracleFactory(): GpuFlowVisiblePublicationCommitOracleFactory {
+  return createGpuFlowVisiblePublicationCommitOracle;
+}
+
+function createGpuFlowVisiblePublicationCommitOracle({
   committedFrame,
   publicationDecision,
 }: {
@@ -214,6 +234,11 @@ export function createGpuFlowVisiblePublicationCommitOracle({
     coverage,
     debtProof,
     hasCompatiblePreviousCoverage,
+    commitAuthorityProof: createGpuFlowCommitAuthorityProof({
+      frame: committedFrame,
+      presentationPairProof: presentationProof,
+      projectionSampleId: publicationDecision.sample.id,
+    }),
     presentationProof,
     remainingActorDebt:
       createGpuFlowVisiblePublicationRemainingActorDebt(actorProofs),
@@ -291,7 +316,11 @@ export function createGpuFlowVisibleFramePublicationTransactionOracleFactory(): 
   return createGpuFlowVisibleFramePublicationTransactionOracle;
 }
 
-export function selectGpuFlowVisibleFramePublicationPreparedFrame<
+export function createGpuFlowVisibleFramePublicationPreparedFrameSelector(): GpuFlowVisibleFramePublicationPreparedFrameSelector {
+  return selectGpuFlowVisibleFramePublicationPreparedFrame;
+}
+
+function selectGpuFlowVisibleFramePublicationPreparedFrame<
   ContentPublicationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
@@ -321,7 +350,11 @@ export function selectGpuFlowVisibleFramePublicationPreparedFrame<
   });
 }
 
-export function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
+export function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory(): GpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory {
+  return createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame;
+}
+
+function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
   ContentPublicationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,

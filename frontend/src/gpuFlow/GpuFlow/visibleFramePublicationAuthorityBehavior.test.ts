@@ -100,6 +100,65 @@ describe("GPU Flow visible publication authority behavior", () => {
     ).toThrow(/same presentation batch/);
   });
 
+  it("rejects presentable commits without the oracle proof digest for the selected frame", async () => {
+    const {
+      createGpuFlowCommitAuthorityProof,
+      createGpuFlowPresentableCommit,
+    } = await import("./visibleFramePublicationAuthority");
+    const frame = committedSurfaceFrame();
+    const projectionSample = liveProjectionSample();
+    const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
+      frame,
+      presentationPairProof: {
+        ...frame.presentationProof,
+        projectionSampleId: projectionSample.id,
+      },
+      projectionSampleId: projectionSample.id,
+    });
+
+    expect(() =>
+      createGpuFlowPresentableCommit({
+        frame,
+        commitAuthorityProof: {
+          ...commitAuthorityProof,
+          proofDigest: "stale-visible-proof",
+        },
+        projectionSample,
+      }),
+    ).toThrow(/transaction oracle presentable commit proof/);
+  });
+
+  it("rejects presentable commits without the oracle DOM/canvas pair proof for the projection sample", async () => {
+    const {
+      createGpuFlowCommitAuthorityProof,
+      createGpuFlowPresentableCommit,
+    } = await import("./visibleFramePublicationAuthority");
+    const frame = committedSurfaceFrame();
+    const projectionSample = liveProjectionSample();
+    const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
+      frame,
+      presentationPairProof: {
+        ...frame.presentationProof,
+        projectionSampleId: projectionSample.id,
+      },
+      projectionSampleId: projectionSample.id,
+    });
+
+    expect(() =>
+      createGpuFlowPresentableCommit({
+        frame,
+        commitAuthorityProof: {
+          ...commitAuthorityProof,
+          presentationPairProof: {
+            ...commitAuthorityProof.presentationPairProof,
+            projectionSampleId: projectionSample.id + 1,
+          },
+        },
+        projectionSample,
+      }),
+    ).toThrow(/DOM\/canvas presentation pair proof/);
+  });
+
   it("rejects commit authority when actor proof resources are not protected", () => {
     const resourceHandle = {
       id: "snapshot-a",

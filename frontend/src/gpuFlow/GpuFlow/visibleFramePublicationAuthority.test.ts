@@ -282,7 +282,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const digestSource = source.slice(digestStart);
 
     expect(digestStart).toBeGreaterThanOrEqual(0);
-    expect(digestSource).toContain("createGpuFlowActorManifestDigest(frame)");
     expect(digestSource).toContain("createGpuFlowVisibleProofDigest(frame)");
     expect(digestSource).toContain(
       "createGpuFlowPresentationProofDigest(frame)",
@@ -396,7 +395,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(kernelSource).toContain("blockedSource");
     expect(kernelSource).toContain("visibleProjectionSource");
     expect(kernelSource).toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory",
     );
   });
 
@@ -463,10 +462,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(candidateHandlingSource).not.toContain(
       "export function resolveGpuFlowCommittedSurfacePublicationCandidateAction",
     );
-    expect(kernelSource).toContain(
+    expect(kernelSource).not.toContain(
       "createGpuFlowCommittedSurfacePublicationCandidateActionResolver",
     );
-    expect(kernelSource).toContain(
+    expect(kernelSource).not.toContain(
       "createGpuFlowCommittedSurfacePublicationActionFrameResultResolver",
     );
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
@@ -512,6 +511,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
   it("reports retained cold-start coverage blocks as kernel candidates", () => {
     const source = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
+    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const branchStart = source.indexOf(
       "prepareRetainedDisplayPublicationFramePlan",
@@ -556,13 +556,13 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(kernelSource).toContain(
       "createGpuFlowRetainedDisplayPublicationFramePlanPreparer",
     );
-    expect(kernelSource).toContain(
+    expect(kernelModuleSource).not.toContain(
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
     );
     expect(kernelSource).toContain(
       "selectGpuFlowRetainedDisplayFollowUpFrameReason",
     );
-    expect(kernelSource).toContain(
+    expect(kernelModuleSource).not.toContain(
       "createGpuFlowRetainedDisplayOutcomeFrameResultResolver",
     );
     expect(kernelSource).not.toContain(
@@ -572,10 +572,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "createGpuFlowContentPublicationBlockedCandidateSelector",
     );
     expect(kernelSource).toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidateFactory",
     );
     expect(kernelSource).toContain(
-      "createGpuFlowBrowserVisualBlockedPublicationCandidate",
+      "createGpuFlowBrowserVisualBlockedPublicationCandidateFactory",
     );
   });
 
