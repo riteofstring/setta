@@ -66,8 +66,8 @@ const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
   "createGpuFlowVisibleFrameHoldPreviousToken",
 ] as const;
 const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([
+  "GpuFlow/visibleFramePublicationAuthority.ts",
   "GpuFlow/visibleFramePublicationKernel.ts",
-  "GpuFlow/visibleFramePublicationKernelPresentation.ts",
 ]);
 const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
   "committedSurfaceRuntime.ts",
@@ -112,6 +112,9 @@ describe("GPU Flow visible publication authority boundaries", () => {
       );
     }
     expect(authoritySource).toContain(
+      "function createGpuFlowVisiblePublicationTokenIssuer",
+    );
+    expect(authoritySource).not.toContain(
       "export function createGpuFlowVisiblePublicationTokenIssuer",
     );
   });
@@ -827,9 +830,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const submitterSource = lifecycleSource.slice(submitterStart);
 
     expect(flowFrameSource).toContain('canvasSubmissionMode: "deferred"');
-    expect(projectionFrameSource).toContain(
-      'canvasSubmissionMode: "deferred"',
-    );
+    expect(projectionFrameSource).toContain('canvasSubmissionMode: "deferred"');
     expect(submitterStart).toBeGreaterThanOrEqual(0);
     expect(submitterSource).toContain(
       "assertGpuFlowCommitPublicationTokenBrand",

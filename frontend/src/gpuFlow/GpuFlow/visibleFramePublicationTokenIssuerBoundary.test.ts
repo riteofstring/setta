@@ -10,13 +10,18 @@ const GPU_FLOW_ROOT = modulePath("../");
 const AUTHORITY_MODULE_PATH = modulePath(
   "./visibleFramePublicationAuthority.ts",
 );
-const PRODUCTION_VISIBLE_PUBLICATION_TOKEN_ISSUER_CALLERS = new Set([
-  "GpuFlow/visibleFramePublicationKernel.ts",
-  "GpuFlow/visibleFramePublicationKernelPresentation.ts",
-]);
 
 describe("GPU Flow visible publication token issuer boundary", () => {
-  it("keeps the visible publication token issuer isolated to kernel modules", () => {
+  it("keeps the visible publication token issuer module-private", () => {
+    const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
+
+    expect(authoritySource).toContain(
+      "function createGpuFlowVisiblePublicationTokenIssuer",
+    );
+    expect(authoritySource).not.toContain(
+      "export function createGpuFlowVisiblePublicationTokenIssuer",
+    );
+
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath) || filePath === AUTHORITY_MODULE_PATH) {
         return [];
@@ -32,13 +37,8 @@ describe("GPU Flow visible publication token issuer boundary", () => {
         return [];
       }
       const relativePath = relativeGpuFlowPath(filePath);
-      if (
-        PRODUCTION_VISIBLE_PUBLICATION_TOKEN_ISSUER_CALLERS.has(relativePath)
-      ) {
-        return [];
-      }
       return [
-        `${relativePath} imports the visible publication token issuer outside the transaction kernel`,
+        `${relativePath} imports the module-private visible publication token issuer`,
       ];
     });
 

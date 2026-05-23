@@ -9,6 +9,9 @@ const KERNEL_MODULE_PATH = fileURLToPath(
 const KERNEL_PRESENTATION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernelPresentation.ts", import.meta.url),
 );
+const AUTHORITY_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePublicationAuthority.ts", import.meta.url),
+);
 const COMPLETION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationCompletion.ts", import.meta.url),
 );
@@ -29,6 +32,7 @@ describe("GPU Flow visible publication kernel phases", () => {
       KERNEL_PRESENTATION_MODULE_PATH,
       "utf8",
     );
+    const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
     const runStart = source.indexOf(
       "export function runGpuFlowVisibleFramePublicationCandidateSetKernel",
     );
@@ -76,9 +80,12 @@ describe("GPU Flow visible publication kernel phases", () => {
       "function decideGpuFlowVisibleFramePublicationOutcome",
     );
     expect(presentationSource).toContain(
+      "export { proveGpuFlowVisibleFramePublicationPresentation }",
+    );
+    expect(authoritySource).toContain(
       "export function proveGpuFlowVisibleFramePublicationPresentation",
     );
-    expect(presentationSource).toContain(
+    expect(authoritySource).toContain(
       "visiblePublicationTokenIssuer.createCommitPublicationToken",
     );
     expect(source).toContain(
@@ -144,10 +151,8 @@ describe("GPU Flow visible publication kernel phases", () => {
   });
 
   it("keeps visible outcome token minting in the kernel", () => {
-    const kernelSource =
-      readFileSync(KERNEL_MODULE_PATH, "utf8") +
-      "\n" +
-      readFileSync(KERNEL_PRESENTATION_MODULE_PATH, "utf8");
+    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
     const completionSource = readFileSync(COMPLETION_MODULE_PATH, "utf8");
     const rawTokenConstructors = [
       "createGpuFlowBlockedPublicationToken",
@@ -158,38 +163,45 @@ describe("GPU Flow visible publication kernel phases", () => {
       "createGpuFlowPresentableCommit",
     ] as const;
 
-    expect(kernelSource).toContain(
+    expect(authoritySource).toContain(
       "createGpuFlowVisiblePublicationTokenIssuer",
     );
-    expect(kernelSource).toContain(
+    expect(authoritySource).not.toContain(
+      "export function createGpuFlowVisiblePublicationTokenIssuer",
+    );
+    expect(authoritySource).toContain(
       "visiblePublicationTokenIssuer.createCommitPublicationToken",
     );
-    expect(kernelSource).toContain(
+    expect(authoritySource).toContain(
       "visiblePublicationTokenIssuer.createBlockedPublicationToken",
     );
-    expect(kernelSource).toContain(
+    expect(authoritySource).toContain(
       "visiblePublicationTokenIssuer.createHoldPreviousToken",
     );
     for (const constructorName of rawTokenConstructors) {
       expect(kernelSource).not.toContain(constructorName);
       expect(completionSource).not.toContain(constructorName);
+      expect(authoritySource).toContain(`function ${constructorName}`);
+      expect(authoritySource).not.toContain(
+        `export function ${constructorName}`,
+      );
     }
-    expect(kernelSource).toContain(
+    expect(authoritySource).toContain(
       "commitAuthorityProof: commitOracle.commitAuthorityProof",
     );
-    expect(kernelSource).toContain(
+    expect(authoritySource).toContain(
       "function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
     );
-    expect(kernelSource).not.toContain(
+    expect(authoritySource).not.toContain(
       "export function createGpuFlowVisibleFrameBlockedPublicationToken",
     );
-    expect(kernelSource).not.toContain(
+    expect(authoritySource).not.toContain(
       "export function createGpuFlowVisibleFrameHoldPreviousToken",
     );
-    expect(kernelSource).not.toContain(
+    expect(authoritySource).not.toContain(
       "export function createGpuFlowVisiblePublicationCompletionCommitToken",
     );
-    expect(kernelSource).not.toContain(
+    expect(authoritySource).not.toContain(
       "visibleFramePublicationBlockedProofToken",
     );
   });

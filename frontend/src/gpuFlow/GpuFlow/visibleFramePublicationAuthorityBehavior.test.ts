@@ -6,7 +6,11 @@ import {
 } from "../committedSurfaceFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTransaction";
-import { assertGpuFlowCommitPublicationToken } from "./visibleFramePublicationAuthority";
+import {
+  assertGpuFlowCommitPublicationToken,
+  proveGpuFlowVisibleFramePublicationPresentation,
+  type GpuFlowCommitAuthorityProof,
+} from "./visibleFramePublicationAuthority";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 
 describe("GPU Flow visible publication authority behavior", () => {
@@ -163,13 +167,11 @@ describe("GPU Flow visible publication authority behavior", () => {
   });
 
   it("rejects commit token issuance without the oracle proof digest for the selected frame", async () => {
-    const {
-      createGpuFlowCommitAuthorityProof,
-      createGpuFlowVisiblePublicationTokenIssuer,
-    } = await import("./visibleFramePublicationAuthority");
+    const { createGpuFlowCommitAuthorityProof } = await import(
+      "./visibleFramePublicationAuthority"
+    );
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
-    const tokenIssuer = createGpuFlowVisiblePublicationTokenIssuer();
     const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
       frame,
       presentationPairProof: {
@@ -180,7 +182,7 @@ describe("GPU Flow visible publication authority behavior", () => {
     });
 
     expect(() =>
-      tokenIssuer.createCommitPublicationToken({
+      proveGpuFlowVisibleFramePublicationPresentationForCommit({
         commitAuthorityProof: {
           ...commitAuthorityProof,
           proofDigest: "stale-visible-proof",
@@ -192,13 +194,11 @@ describe("GPU Flow visible publication authority behavior", () => {
   });
 
   it("rejects commit token issuance without the oracle DOM/canvas pair proof for the projection sample", async () => {
-    const {
-      createGpuFlowCommitAuthorityProof,
-      createGpuFlowVisiblePublicationTokenIssuer,
-    } = await import("./visibleFramePublicationAuthority");
+    const { createGpuFlowCommitAuthorityProof } = await import(
+      "./visibleFramePublicationAuthority"
+    );
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
-    const tokenIssuer = createGpuFlowVisiblePublicationTokenIssuer();
     const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
       frame,
       presentationPairProof: {
@@ -209,12 +209,12 @@ describe("GPU Flow visible publication authority behavior", () => {
     });
 
     expect(() =>
-      tokenIssuer.createCommitPublicationToken({
+      proveGpuFlowVisibleFramePublicationPresentationForCommit({
         commitAuthorityProof: {
           ...commitAuthorityProof,
           presentationPairProof: {
             ...commitAuthorityProof.presentationPairProof,
-            projectionSampleId: projectionSample.id + 1,
+            batchId: "presentation:stale",
           },
         },
         frame,
@@ -224,13 +224,11 @@ describe("GPU Flow visible publication authority behavior", () => {
   });
 
   it("rejects commit token issuance without the oracle resource protection proof", async () => {
-    const {
-      createGpuFlowCommitAuthorityProof,
-      createGpuFlowVisiblePublicationTokenIssuer,
-    } = await import("./visibleFramePublicationAuthority");
+    const { createGpuFlowCommitAuthorityProof } = await import(
+      "./visibleFramePublicationAuthority"
+    );
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
-    const tokenIssuer = createGpuFlowVisiblePublicationTokenIssuer();
     const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
       frame,
       presentationPairProof: {
@@ -241,7 +239,7 @@ describe("GPU Flow visible publication authority behavior", () => {
     });
 
     expect(() =>
-      tokenIssuer.createCommitPublicationToken({
+      proveGpuFlowVisibleFramePublicationPresentationForCommit({
         commitAuthorityProof: {
           ...commitAuthorityProof,
           resourceProtectionDigest: "stale-resource-protection-proof",
@@ -253,9 +251,9 @@ describe("GPU Flow visible publication authority behavior", () => {
   });
 
   it("rejects presentable commits when actor proof resources are not protected", async () => {
-    const {
-      createGpuFlowCommitAuthorityProof,
-    } = await import("./visibleFramePublicationAuthority");
+    const { createGpuFlowCommitAuthorityProof } = await import(
+      "./visibleFramePublicationAuthority"
+    );
     const resourceHandle = {
       id: "snapshot-a",
       kind: "texture" as const,
@@ -357,6 +355,77 @@ describe("GPU Flow visible publication authority behavior", () => {
     ).toThrow(/commit publication token for the same visible frame/);
   });
 });
+
+function proveGpuFlowVisibleFramePublicationPresentationForCommit({
+  commitAuthorityProof,
+  frame,
+  projectionSample,
+}: {
+  readonly commitAuthorityProof: GpuFlowCommitAuthorityProof;
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly projectionSample: GpuFlowLiveProjectionSample;
+}): void {
+  proveGpuFlowVisibleFramePublicationPresentation({
+    blockedPublicationProof: null,
+    forceImmediatePublicationDebtFrame: false,
+    followUpFrameReason: null,
+    previousVisibleProjectionState: null,
+    publicationDecision: {
+      lane: "content",
+      rawReasons: ["manual"],
+      sample: projectionSample,
+      schedulerState: "idle",
+    } as unknown as Parameters<
+      typeof proveGpuFlowVisibleFramePublicationPresentation
+    >[0]["publicationDecision"],
+    scheduler: {
+      completeFrame: () => ({
+        debt: {
+          content: false,
+          maintenance: false,
+          motion: false,
+        },
+        kind: "committed",
+      }),
+      getKnobs: () => ({
+        maxHeldPreviousFrames: 6,
+        maxHeldPreviousMs: 120,
+        motionSettleWindowMs: 80,
+      }),
+      recordUncommittedFrame: () => ({
+        debt: {
+          content: true,
+          maintenance: true,
+          motion: true,
+        },
+        kind: "uncommitted",
+      }),
+    } as unknown as Parameters<
+      typeof proveGpuFlowVisibleFramePublicationPresentation
+    >[0]["scheduler"],
+    transactionOracle: {
+      commitOracle: {
+        commitAuthorityProof,
+        debtProof: {
+          content: true,
+          maintenance: true,
+          motion: true,
+        },
+      },
+      renderedVisibleFrame: true,
+      visibleProjectionState: {
+        committedFrame: frame,
+        heldPreviousProjection: null,
+        sample: projectionSample,
+        transaction: {
+          kind: "content-publication",
+        },
+      },
+    } as unknown as Parameters<
+      typeof proveGpuFlowVisibleFramePublicationPresentation
+    >[0]["transactionOracle"],
+  });
+}
 
 function committedSurfaceFrame({
   actorGenerations = [],
