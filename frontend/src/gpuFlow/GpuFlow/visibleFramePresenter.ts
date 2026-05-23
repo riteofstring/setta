@@ -47,7 +47,7 @@ import {
   assertGpuFlowHoldPreviousTokenForProjectionSample,
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFramePresentationProofs";
 
 type GpuFlowVisibleFramePresenter = (
   publicationTransaction: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>,

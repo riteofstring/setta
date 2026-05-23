@@ -14,7 +14,7 @@ import type {
   GpuFlowBlockedVisibleReason,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFramePresentationProofs";
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,

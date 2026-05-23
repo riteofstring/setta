@@ -22,7 +22,7 @@ import { markTransformOnlyPaintNodesForViewportFrame } from "./flowTransformOnly
 import {
   assertGpuFlowCommitPublicationTokenBrand,
   type GpuFlowCommitPublicationToken,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFramePresentationProofs";
 
 export function reportGpuFlowNodeLayerFramePerformance({
   callbacksRef,

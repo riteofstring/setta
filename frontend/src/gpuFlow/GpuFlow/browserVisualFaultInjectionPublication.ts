@@ -1,6 +1,6 @@
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
-import type { GpuFlowBlockedVisibleReason } from "./visibleFramePublicationTokens";
+import type { GpuFlowBlockedVisibleReason } from "./visibleFramePresentationProofs";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
 type GpuFlowBrowserVisualFaultInjectedDomControlReadiness =

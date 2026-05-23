@@ -35,7 +35,7 @@ import {
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFramePresentationProofs";
 
 export type GpuFlowCommittedSurfacePublicationEffect =
   | {

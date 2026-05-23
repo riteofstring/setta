@@ -8,7 +8,7 @@ import {
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFramePresentationProofs";
 
 type GpuFlowBlockedPublicationDebt = {
   readonly firstBlockedAtMs: number;

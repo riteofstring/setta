@@ -30,7 +30,7 @@ import {
   createGpuFlowVisiblePublicationResourceBlockedReasons,
   createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFrameResourceRegistry";
-import type { GpuFlowBlockedPublicationToken } from "./visibleFramePublicationTokens";
+import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
 import {
   createGpuFlowContentFrameId,
   createGpuFlowPresentationId,

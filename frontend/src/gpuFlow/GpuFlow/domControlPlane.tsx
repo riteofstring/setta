@@ -33,7 +33,7 @@ import {
   type GpuFlowRetainedScrollOffsetGetter,
 } from "./domControlPlaneProjection";
 import { getLiveGpuFlowDomControlPlaneViewport } from "./domControlPlaneViewport";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
+import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
 export {
   filterGpuFlowDomControlPlaneMountedControls,
   resolveGpuFlowDomControlPlaneProjectionAssignments,

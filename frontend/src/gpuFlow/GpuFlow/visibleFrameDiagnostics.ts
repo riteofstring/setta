@@ -24,7 +24,7 @@ import {
   type GpuFlowBlockedPublicationToken,
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFramePresentationProofs";
 
 type GpuFlowBrowserVisualStarvationOutcome = "blocked" | "held-previous";
 

@@ -51,7 +51,7 @@ import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFramePresentationProofs";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
 type GpuFlowNodeLayerFrameInput = Parameters<

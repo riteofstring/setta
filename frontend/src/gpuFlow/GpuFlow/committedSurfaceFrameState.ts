@@ -24,7 +24,7 @@ import {
   type GpuFlowBlockedPublicationToken,
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFramePresentationProofs";
 
 export function useGpuFlowCommittedSurfaceFrameState({
   initialRetainedRuntimeFrame,

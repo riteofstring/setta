@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 const modulePath = (path: string): string =>
   fileURLToPath(new URL(path, import.meta.url));
 const GPU_FLOW_ROOT = modulePath("../");
-const TOKEN_MODULE_PATH = modulePath("./visibleFramePublicationTokens.ts");
 const AUTHORITY_MODULE_PATH = modulePath("./visibleFramePresentationProofs.ts");
 const KERNEL_MODULE_PATH = modulePath("./visibleFramePublicationKernel.ts");
 const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = modulePath(
@@ -97,12 +96,10 @@ const PRODUCTION_PREPARED_COMMITTED_SURFACE_FRAME_COMMITTERS = new Set([
 ]);
 
 describe("GPU Flow visible frame presentation proof boundaries", () => {
-  it("keeps raw publication token constructors out of the public token module", () => {
-    const tokenModuleSource = readFileSync(TOKEN_MODULE_PATH, "utf8");
+  it("keeps raw publication token constructors private to the presentation proof authority", () => {
     const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
 
     for (const constructorName of TOKEN_CONSTRUCTOR_NAMES) {
-      expect(tokenModuleSource).not.toContain(constructorName);
       expect(authoritySource).not.toContain(
         `export function ${constructorName}`,
       );
@@ -123,7 +120,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       const source = readFileSync(filePath, "utf8");
       const tokenImports = [
         ...source.matchAll(
-          /import\s+(?:type\s+)?\{(?<bindings>[^}]*)\}\s+from\s+["'][^"']*visibleFramePublicationTokens["']/g,
+          /import\s+(?:type\s+)?\{(?<bindings>[^}]*)\}\s+from\s+["'][^"']*visibleFramePresentationProofs["']/g,
         ),
       ];
       const importedConstructors = tokenImports.flatMap((match) => {
@@ -138,7 +135,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       return [
         `${relative(GPU_FLOW_ROOT, filePath)} imports ${importedConstructors.join(
           ", ",
-        )} from visibleFramePublicationTokens`,
+        )} from visibleFramePresentationProofs`,
       ];
     });
     expect(violations).toEqual([]);

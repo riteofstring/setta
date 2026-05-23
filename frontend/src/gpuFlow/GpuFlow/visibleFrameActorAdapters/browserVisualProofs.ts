@@ -3,7 +3,7 @@ import type {
   GpuFlowCommittedSurfaceFrame,
 } from "../../committedSurfaceFrame";
 import type { BrowserTextActorRepresentation } from "../../surfaceCompositor/browserVisualActorAdapter";
-import type { GpuFlowBlockedVisibleReason } from "../visibleFramePublicationTokens";
+import type { GpuFlowBlockedVisibleReason } from "../visibleFramePresentationProofs";
 
 type GpuFlowCompatiblePreviousBudgetState =
   | "over-budget"

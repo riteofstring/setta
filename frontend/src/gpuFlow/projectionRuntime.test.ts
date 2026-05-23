@@ -15,7 +15,7 @@ import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
-} from "./GpuFlow/visibleFramePublicationTokens";
+} from "./GpuFlow/visibleFramePresentationProofs";
 import {
   applyGpuFlowProjectionDebugAttributes,
   createGpuFlowHeldPreviousProjection,

@@ -86,9 +86,7 @@ import {
   projectGpuFlowNodeHoverSourceForPointerEvent,
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
-import {
-  type GpuFlowColdStartShellFrame,
-} from "./visibleFramePublicationTokens";
+import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 import { assertGpuFlowColdStartShellPublicationToken } from "./flowColdStartShellFramePublication";
 
 export function GpuFlow({

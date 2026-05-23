@@ -1,6 +1,6 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { SurfaceResourceHandle } from "../surfaceCompositor/surfaceCoverage";
-import type { GpuFlowBlockedVisibleReason } from "./visibleFramePublicationTokens";
+import type { GpuFlowBlockedVisibleReason } from "./visibleFramePresentationProofs";
 
 type GpuFlowVisiblePublicationResourceProtectionReport = {
   readonly missingResourceKeys: readonly string[];

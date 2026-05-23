@@ -10,7 +10,7 @@ import type {
   GpuFlowColdStartShellFrame,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFramePresentationProofs";
 import {
   createGpuFlowVisiblePublicationCommitOracleReport,
   createGpuFlowVisiblePublicationTransactionOracleReport,

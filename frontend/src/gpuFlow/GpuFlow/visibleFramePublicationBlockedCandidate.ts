@@ -4,7 +4,7 @@ import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFr
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFramePresentationProofs";
 import {
   GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,

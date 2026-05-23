@@ -5,7 +5,7 @@ import {
 import {
   assertGpuFlowCommitPublicationTokenForPresentationProof,
   type GpuFlowCommitPublicationToken,
-} from "./GpuFlow/visibleFramePublicationTokens";
+} from "./GpuFlow/visibleFramePresentationProofs";
 
 type GpuFlowCommittedContentFrame = GpuFlowCommittedSurfaceFrame;
 

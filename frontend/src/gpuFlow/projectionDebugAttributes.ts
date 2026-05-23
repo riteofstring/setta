@@ -2,7 +2,7 @@ import {
   assertGpuFlowCommitPublicationTokenForFrameId,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
   type GpuFlowCommitPublicationToken,
-} from "./GpuFlow/visibleFramePublicationTokens";
+} from "./GpuFlow/visibleFramePresentationProofs";
 import type { GpuFlowProjectionDebugState } from "./projectionRuntime";
 
 export function applyGpuFlowProjectionDebugAttributes({

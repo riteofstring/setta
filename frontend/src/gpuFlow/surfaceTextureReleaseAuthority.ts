@@ -3,7 +3,7 @@ import {
   assertGpuFlowCommitPublicationTokenBrand,
   type GpuFlowBlockedPublicationToken,
   type GpuFlowCommitPublicationToken,
-} from "./GpuFlow/visibleFramePublicationTokens";
+} from "./GpuFlow/visibleFramePresentationProofs";
 
 const GPU_FLOW_SURFACE_TEXTURE_RELEASE_TOKEN = Symbol(
   "GpuFlowSurfaceTextureReleaseToken",

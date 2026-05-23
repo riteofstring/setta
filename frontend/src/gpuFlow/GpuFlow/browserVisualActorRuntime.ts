@@ -51,7 +51,7 @@ import {
   type GpuFlowBlockedPublicationToken,
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFramePresentationProofs";
 
 export type GpuFlowBrowserVisualActorRuntimeFrameIds = {
   readonly committedFrameId: number;

@@ -11,7 +11,7 @@ import type {
 } from "../projectionScheduler";
 import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./flowVisiblePublicationOutcomeChromeRepro";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
+import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
 import {
   createGpuFlowVisiblePublicationCommitOracleFactory,
   type GpuFlowVisibleFramePublicationTransactionOracle,

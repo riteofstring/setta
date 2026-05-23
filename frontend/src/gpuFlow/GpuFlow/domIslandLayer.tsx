@@ -20,7 +20,7 @@ import {
   getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
   type GpuFlowBrowserVisualActorRuntime,
 } from "./browserVisualActorRuntime";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
+import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
 
 export type GpuFlowDomIslandRenderer = (island: GpuDomIsland) => ReactNode;
 

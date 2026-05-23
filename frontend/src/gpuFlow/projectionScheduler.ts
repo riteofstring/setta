@@ -2,12 +2,12 @@ import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
-} from "./GpuFlow/visibleFramePublicationTokens";
+} from "./GpuFlow/visibleFramePresentationProofs";
 import {
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
-} from "./GpuFlow/visibleFramePublicationTokens";
+} from "./GpuFlow/visibleFramePresentationProofs";
 import type { GpuFrameReason } from "./gpuRenderer";
 import type {
   GpuFlowLiveProjectionSample,
