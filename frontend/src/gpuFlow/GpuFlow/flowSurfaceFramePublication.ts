@@ -41,7 +41,7 @@ import {
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 import {
   createGpuFlowVisiblePublicationPresentationEvidence,

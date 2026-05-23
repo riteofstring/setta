@@ -12,7 +12,7 @@ import {
   type GpuFlowVisibleFramePublicationTransactionOracle,
   type GpuFlowVisiblePublicationCompletion,
   type GpuFlowVisiblePublicationOutcome,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 
 type GpuFlowVisiblePublicationSchedulerCompletion =
   GpuFlowVisiblePublicationCompletion;

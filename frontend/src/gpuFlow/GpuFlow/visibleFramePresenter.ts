@@ -39,7 +39,7 @@ import type {
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDebtFrameRequest,
   GpuFlowVisiblePublicationOutcome,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 import {
   assertGpuFlowCommitPublicationTokenBrand,
   assertGpuFlowCommitPublicationTokenForFrameId,

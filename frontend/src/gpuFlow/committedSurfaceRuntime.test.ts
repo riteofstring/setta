@@ -5,7 +5,7 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
 import { createGpuFlowCommittedSurfaceRuntime } from "./committedSurfaceRuntime";
-import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./GpuFlow/visibleFramePublicationTestUtils";
+import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./GpuFlow/visibleFrameTestUtils";
 import type { GpuFlowLiveProjectionSample } from "./projectionRuntime";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 

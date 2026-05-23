@@ -21,7 +21,7 @@ import {
   type GpuFlowProjectionFrameRenderablePlan,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 import {
   resolveGpuFlowRetainedProjectionFrame,
   type GpuFlowRetainedProjectionFrame,

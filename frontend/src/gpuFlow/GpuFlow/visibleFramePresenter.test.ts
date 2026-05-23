@@ -12,7 +12,7 @@ import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
 import {
   createGpuFlowVisibleFrameCommitPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
-} from "./visibleFramePublicationTestUtils";
+} from "./visibleFrameTestUtils";
 
 type GpuFlowSurfacePublicationTransaction = Parameters<
   ReturnType<typeof createGpuFlowVisibleFramePresenter>

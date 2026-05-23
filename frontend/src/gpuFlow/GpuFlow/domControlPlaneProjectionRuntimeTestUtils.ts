@@ -27,7 +27,7 @@ import type { GpuFlowRetainedScrollOffsetGetter } from "./domControlPlane";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameCommitPublicationTokenForTest,
-} from "./visibleFramePublicationTestUtils";
+} from "./visibleFrameTestUtils";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
 export function createMockViewportRuntime(

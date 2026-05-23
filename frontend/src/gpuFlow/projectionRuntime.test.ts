@@ -10,7 +10,7 @@ import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameCommitPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
-} from "./GpuFlow/visibleFramePublicationTestUtils";
+} from "./GpuFlow/visibleFrameTestUtils";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,

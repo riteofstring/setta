@@ -5,11 +5,11 @@ import {
   createGpuFlowCommittedSurfacePresentationProof,
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
-import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "../GpuFlow/visibleFramePublicationAuthority";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameCommitPublicationTokenForTest,
-} from "../GpuFlow/visibleFramePublicationTestUtils";
+} from "../GpuFlow/visibleFrameTestUtils";
+import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "../GpuFlow/visibleFrameTypes";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   releaseGpuFlowRejectedCandidateSurfaceTexture,

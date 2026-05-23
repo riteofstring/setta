@@ -108,7 +108,7 @@ import {
   type GpuFlowContentPublicationFrameResult,
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
   type GpuFlowRetainedDisplayCommittedSurfaceFramePreparer,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 
 export function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,

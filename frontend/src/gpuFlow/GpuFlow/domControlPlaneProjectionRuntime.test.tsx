@@ -33,7 +33,7 @@ import {
   stageBrowserVisualCandidate,
 } from "./domControlPlaneProjectionRuntimeTestUtils";
 import { getGpuRetainedDomControlSnapshotSurfaceId } from "./retainedDomControlSources";
-import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
+import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFrameTestUtils";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 

@@ -7,7 +7,7 @@ const modulePath = (path: string): string =>
   fileURLToPath(new URL(path, import.meta.url));
 const GPU_FLOW_ROOT = modulePath("../");
 const AUTHORITY_MODULE_PATH = modulePath("./visibleFramePresentationProofs.ts");
-const KERNEL_MODULE_PATH = modulePath("./visibleFramePublicationKernel.ts");
+const KERNEL_MODULE_PATH = modulePath("./visibleFrameKernel.ts");
 const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = modulePath(
   "./visibleFrameActorAdapters/contentDecisionKernel.ts",
 );
@@ -62,7 +62,7 @@ const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
 ] as const;
 const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([
   "GpuFlow/visibleFramePresentationProofs.ts",
-  "GpuFlow/visibleFramePublicationKernel.ts",
+  "GpuFlow/visibleFrameKernel.ts",
 ]);
 const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
   "committedSurfaceRuntime.ts",
@@ -177,7 +177,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       readonly names: readonly string[];
     }[] = [
       {
-        moduleName: "visibleFramePublicationKernel",
+        moduleName: "visibleFrameKernel",
         names: DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES,
       },
       {

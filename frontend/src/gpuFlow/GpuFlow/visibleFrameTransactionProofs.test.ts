@@ -30,7 +30,7 @@ import {
 } from "./visibleFrameTransactionProofs";
 
 const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationKernel.ts", import.meta.url),
+  new URL("./visibleFrameKernel.ts", import.meta.url),
 );
 const ORACLE_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameTransactionProofs.ts", import.meta.url),

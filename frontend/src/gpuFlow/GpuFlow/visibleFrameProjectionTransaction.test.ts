@@ -16,7 +16,7 @@ import {
   type GpuFlowProjectionFrameRenderablePlan,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 
 type TestProjectionPublicationFrame = {
@@ -28,7 +28,7 @@ const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameProjectionPlan.ts", import.meta.url),
 );
 const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationKernel.ts", import.meta.url),
+  new URL("./visibleFrameKernel.ts", import.meta.url),
 );
 const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = fileURLToPath(
   new URL(

@@ -40,7 +40,7 @@ import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDo
 import type {
   GpuFlowMotionProjectionFrameWorkReport,
   GpuFlowProjectionFrameRenderablePlan,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 
 type RenderGpuFlowNodeLayerProjectionFrameResult =
   | {

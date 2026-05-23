@@ -10,7 +10,7 @@ import {
 import {
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 
 describe("GPU Flow visible frame outcome report", () => {
   it("blocks no-frame held-previous outcomes after the kernel hold budget", () => {

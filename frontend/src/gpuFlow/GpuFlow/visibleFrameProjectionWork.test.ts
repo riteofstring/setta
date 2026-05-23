@@ -13,7 +13,7 @@ import {
   type GpuFlowMotionProjectionFrameWorkReport,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 
 describe("GPU Flow visible publication kernel projection work", () => {

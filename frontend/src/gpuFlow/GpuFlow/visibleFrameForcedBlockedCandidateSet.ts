@@ -7,7 +7,7 @@ import type { GpuFlowRetainedCommittedSurfacePublicationContentStageRunner } fro
 import type {
   GpuFlowMotionProjectionFramePreparation,
   GpuFlowVisibleFramePublicationFrameContext,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 import type {
   GpuFlowContentPublicationWorkPlan,
   GpuFlowMotionProjectionWorkPlan,

@@ -22,6 +22,7 @@ const REMOVED_VISIBLE_PUBLICATION_AUTHORITY_MODULES = [
   "./visibleFramePublicationContentPlan",
   "./visibleFramePublicationContentPreparation",
   "./visibleFramePublicationForcedBlockedCandidateSet",
+  "./visibleFramePublicationKernel",
   "./visibleFramePublicationKernelPresentation",
   "./visibleFramePublicationKernelProjectionCoverage",
   "./visibleFramePublicationKernelProjectionWorkTypes",
@@ -29,6 +30,7 @@ const REMOVED_VISIBLE_PUBLICATION_AUTHORITY_MODULES = [
   "./visibleFramePublicationPresentationEvidence",
   "./visibleFramePublicationProjectionPlan",
   "./visibleFramePublicationResourceOracle",
+  "./visibleFramePublicationTestUtils",
   "./visibleFramePublicationTokens",
 ] as const;
 

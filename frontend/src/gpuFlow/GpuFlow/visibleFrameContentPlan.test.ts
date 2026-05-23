@@ -36,7 +36,7 @@ const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresenter.ts", import.meta.url),
 );
 const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationKernel.ts", import.meta.url),
+  new URL("./visibleFrameKernel.ts", import.meta.url),
 );
 const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = fileURLToPath(
   new URL(

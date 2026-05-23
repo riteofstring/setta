@@ -13,7 +13,7 @@ import { recordGpuFlowBlockedPublicationGuard } from "./flowVisiblePublicationBl
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
-} from "./visibleFramePublicationTestUtils";
+} from "./visibleFrameTestUtils";
 import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
 describe("GPU Flow blocked visible publication guard", () => {

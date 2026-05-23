@@ -10,7 +10,7 @@ import {
 import {
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 
 describe("GPU Flow visible publication browser visual fault injection", () => {
   afterEach(() => {

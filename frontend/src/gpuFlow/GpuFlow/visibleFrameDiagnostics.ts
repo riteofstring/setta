@@ -14,7 +14,7 @@ import {
 import type {
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisiblePublicationCompletion,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 import {
   assertGpuFlowBlockedPublicationTokenBrand,
   assertGpuFlowBlockedPublicationTokenForProjectionSample,

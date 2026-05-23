@@ -12,13 +12,13 @@ import {
   createGpuFlowMotionProjectionWorkPlan,
   shouldConsiderGpuFlowDeferredContentPublication,
   shouldDeferGpuFlowBrowserVisualRetryForPublication,
-} from "./visibleFramePublicationKernel";
+} from "./visibleFrameKernel";
 
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfaceFramePublication.ts", import.meta.url),
 );
 const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationKernel.ts", import.meta.url),
+  new URL("./visibleFrameKernel.ts", import.meta.url),
 );
 
 describe("GPU Flow visible publication kernel work plans", () => {

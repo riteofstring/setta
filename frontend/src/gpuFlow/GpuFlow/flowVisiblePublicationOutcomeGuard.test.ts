@@ -6,8 +6,8 @@ import type {
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import { assertGpuFlowSingleVisiblePublicationOutcome } from "./flowVisiblePublicationOutcomeGuard";
-import type { GpuFlowVisiblePublicationOutcome } from "./visibleFramePublicationKernel";
-import { createGpuFlowVisibleFrameHoldPreviousTokenForTest } from "./visibleFramePublicationTestUtils";
+import type { GpuFlowVisiblePublicationOutcome } from "./visibleFrameKernel";
+import { createGpuFlowVisibleFrameHoldPreviousTokenForTest } from "./visibleFrameTestUtils";
 
 describe("GPU Flow visible publication outcome guard", () => {
   it("rejects multiple outcomes for the same surface and projection sample", () => {
