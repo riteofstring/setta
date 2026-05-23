@@ -14,7 +14,7 @@ import {
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePublicationPresentationEvidence";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
 
-describe("GPU Flow visible publication authority behavior", () => {
+describe("GPU Flow visible frame presentation proof behavior", () => {
   it("rejects commit authority for non-publishable frames", () => {
     expect(() =>
       createGpuFlowVisibleFrameCommitPublicationTokenForTest({

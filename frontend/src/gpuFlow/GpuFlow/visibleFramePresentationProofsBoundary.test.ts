@@ -99,7 +99,7 @@ const PRODUCTION_PREPARED_COMMITTED_SURFACE_FRAME_COMMITTERS = new Set([
   "GpuFlow/visibleFramePresenter.ts",
 ]);
 
-describe("GPU Flow visible publication authority boundaries", () => {
+describe("GPU Flow visible frame presentation proof boundaries", () => {
   it("keeps raw publication token constructors out of the public token module", () => {
     const tokenModuleSource = readFileSync(TOKEN_MODULE_PATH, "utf8");
     const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
