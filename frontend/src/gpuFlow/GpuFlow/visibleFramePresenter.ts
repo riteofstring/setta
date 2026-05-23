@@ -32,6 +32,7 @@ import {
   recordGpuFlowVisibleFrameHeld,
   recordGpuFlowVisibleFramePresented,
 } from "./visibleFrameDiagnostics";
+import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFrameAbortPolicy";
 import type {
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFramePublicationKernelResult,
@@ -39,7 +40,6 @@ import type {
   GpuFlowVisiblePublicationDebtFrameRequest,
   GpuFlowVisiblePublicationOutcome,
 } from "./visibleFramePublicationKernel";
-import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFramePublicationKernel";
 import {
   assertGpuFlowCommitPublicationTokenBrand,
   assertGpuFlowCommitPublicationTokenForFrameId,

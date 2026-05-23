@@ -2,8 +2,8 @@ import type {
   GpuFlowHeldPreviousProjection,
   GpuFlowProjectionTransaction,
 } from "../projectionRuntime";
-import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
-import type { GpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
+import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
+import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 import type { GpuFlowVisibleFramePublicationMotionCandidate } from "./visibleFrameTransactionProofs";
 
 export type GpuFlowProjectionFrameTransaction = {

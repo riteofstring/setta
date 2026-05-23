@@ -25,7 +25,7 @@ import {
 import {
   resolveGpuFlowRetainedProjectionFrame,
   type GpuFlowRetainedProjectionFrame,
-} from "./visibleFramePublicationKernelProjectionCoverage";
+} from "./visibleFrameProjectionCoverage";
 
 type TestProjectionPublicationFrame = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;

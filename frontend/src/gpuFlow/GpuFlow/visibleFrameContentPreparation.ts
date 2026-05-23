@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfacePublicationFramePlanPreparation } from "./visibleFramePublicationContentPlan";
+import type { GpuFlowCommittedSurfacePublicationFramePlanPreparation } from "./visibleFrameContentPlan";
 
 export function prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate<
   OverlayTextureInput,

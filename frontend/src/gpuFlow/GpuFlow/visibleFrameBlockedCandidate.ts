@@ -1,6 +1,6 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
-import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
+import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,

@@ -20,23 +20,23 @@ import {
   createGpuFlowRetainedProjectionBlockedPublicationCandidate,
   getGpuFlowCommittedSurfacePublishabilityActorIds,
   shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair,
-} from "../visibleFramePublicationBlockedCandidate";
+} from "../visibleFrameBlockedCandidate";
 import type {
   GpuFlowCommittedSurfacePublicationCandidate,
   GpuFlowCommittedSurfacePublicationCandidateInput,
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFrameBlockedPublicationCandidate,
-} from "../visibleFramePublicationContentPlan";
-import type { GpuFlowRetainedProjectionFrame } from "../visibleFramePublicationKernelProjectionCoverage";
+} from "../visibleFrameContentPlan";
+import type { GpuFlowRetainedProjectionFrame } from "../visibleFrameProjectionCoverage";
 import type {
   GpuFlowMotionProjectionFrameWithWorkReport,
   GpuFlowMotionProjectionFrameWorkReport,
   GpuFlowMotionProjectionFrameWorkResult,
-} from "../visibleFramePublicationKernelProjectionWorkTypes";
+} from "../visibleFrameProjectionWorkTypes";
 import type {
   GpuFlowProjectionFrameTransaction,
   GpuFlowRetainedProjectionFrameResolver,
-} from "../visibleFramePublicationProjectionPlan";
+} from "../visibleFrameProjectionPlan";
 import type { GpuFlowCommittedSurfaceCandidateAction } from "./committedSurfaceCandidateAction";
 
 type GpuFlowCommittedSurfacePublicationReadiness =

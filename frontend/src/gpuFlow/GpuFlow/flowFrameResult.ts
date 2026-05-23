@@ -7,7 +7,7 @@ import type {
 import type {
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFrameBlockedPublicationCandidate,
-} from "./visibleFramePublicationContentPlan";
+} from "./visibleFrameContentPlan";
 
 export type GpuFlowNodeLayerCommittedSurfacePublicationResult = {
   readonly blockedSurfacePublication: GpuFlowBlockedCommittedSurfaceCandidate | null;

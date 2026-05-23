@@ -19,7 +19,7 @@ import {
   createGpuFlowVisiblePublicationBlockedActorReasonsForFrame,
   createGpuFlowVisiblePublicationRemainingActorDebt,
 } from "./visibleFrameActorAdapters/browserVisualProofs";
-import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
+import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
 import {
   createGpuFlowVisiblePublicationPresentationBlockedReasons,
   type GpuFlowVisiblePublicationCanvasPresentationEvidence,

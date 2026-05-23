@@ -42,7 +42,7 @@ import {
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
 } from "./visibleFramePublicationKernel";
-import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
+import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 import {
   createGpuFlowVisiblePublicationPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,

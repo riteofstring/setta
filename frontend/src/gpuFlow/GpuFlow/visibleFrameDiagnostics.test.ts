@@ -17,7 +17,7 @@ import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   type GpuFlowCommittedSurfacePublicationCandidateInput,
   type GpuFlowCommittedSurfacePublicationEffect,
-} from "./visibleFramePublicationContentPlan";
+} from "./visibleFrameContentPlan";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,

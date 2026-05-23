@@ -15,7 +15,7 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
+import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,

@@ -102,7 +102,7 @@ import {
   type GpuFlowCallbacks,
 } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
-import { prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate } from "./visibleFramePublicationContentPreparation";
+import { prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate } from "./visibleFrameContentPreparation";
 import {
   createGpuFlowContentPublicationFrameResult,
   type GpuFlowContentPublicationFrameResult,

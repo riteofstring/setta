@@ -3,7 +3,7 @@ import type {
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import { createGpuFlowBrowserVisualFaultInjectedBlockedPublicationCandidate } from "./browserVisualFaultInjectionPublication";
-import type { GpuFlowRetainedCommittedSurfacePublicationContentStageRunner } from "./visibleFramePublicationContentPlan";
+import type { GpuFlowRetainedCommittedSurfacePublicationContentStageRunner } from "./visibleFrameContentPlan";
 import type {
   GpuFlowMotionProjectionFramePreparation,
   GpuFlowVisibleFramePublicationFrameContext,
@@ -11,7 +11,7 @@ import type {
 import type {
   GpuFlowContentPublicationWorkPlan,
   GpuFlowMotionProjectionWorkPlan,
-} from "./visibleFramePublicationKernelWorkPlan";
+} from "./visibleFrameWorkPlan";
 import type {
   GpuFlowVisibleFramePublicationCandidateSet,
   GpuFlowVisibleFramePublicationContentCandidate,

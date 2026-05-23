@@ -14,7 +14,7 @@ import type {
   RetainedDisplayFrameOutcome,
 } from "../retainedDisplayFrame";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
-import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFramePublicationContentAbort";
+import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFrameAbortPolicy";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
@@ -23,8 +23,8 @@ import {
   type GpuFlowCommittedSurfacePublicationFramePlanPreparer,
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
-} from "./visibleFramePublicationContentPlan";
-import { prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate } from "./visibleFramePublicationContentPreparation";
+} from "./visibleFrameContentPlan";
+import { prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate } from "./visibleFrameContentPreparation";
 
 const FLOW_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowFrame.tsx", import.meta.url),
@@ -45,10 +45,10 @@ const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = fileURLToPath(
   ),
 );
 const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
+  new URL("./visibleFrameContentPlan.ts", import.meta.url),
 );
 const CONTENT_PREPARATION_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationContentPreparation.ts", import.meta.url),
+  new URL("./visibleFrameContentPreparation.ts", import.meta.url),
 );
 const contentDecisionKernel =
   createGpuFlowVisiblePublicationContentDecisionKernel();
@@ -65,7 +65,7 @@ describe("GPU Flow visible publication content plans", () => {
     const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const contentPlanReExport =
       kernelModuleSource.match(
-        /export \{[\s\S]*?\} from "\.\/visibleFramePublicationContentPlan";/,
+        /export \{[\s\S]*?\} from "\.\/visibleFrameContentPlan";/,
       )?.[0] ?? "";
 
     expect(contentPlanReExport).toContain(

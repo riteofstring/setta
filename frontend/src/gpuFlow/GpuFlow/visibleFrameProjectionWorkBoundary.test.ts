@@ -17,12 +17,12 @@ const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = fileURLToPath(
 );
 const KERNEL_PROJECTION_COVERAGE_MODULE_PATH = fileURLToPath(
   new URL(
-    "./visibleFramePublicationKernelProjectionCoverage.ts",
+    "./visibleFrameProjectionCoverage.ts",
     import.meta.url,
   ),
 );
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationProjectionPlan.ts", import.meta.url),
+  new URL("./visibleFrameProjectionPlan.ts", import.meta.url),
 );
 
 describe("GPU Flow visible publication kernel projection work", () => {

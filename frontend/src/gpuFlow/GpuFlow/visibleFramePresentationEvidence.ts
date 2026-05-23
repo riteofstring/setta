@@ -3,7 +3,7 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
+import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
 import type { GpuFlowNodeLayerFrameStatePublication } from "./flowFrameLifecycle";
 
 export type GpuFlowVisiblePublicationCanvasPresentationEvidence = {

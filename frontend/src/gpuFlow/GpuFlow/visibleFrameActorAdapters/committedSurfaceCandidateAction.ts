@@ -1,5 +1,5 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../../committedSurfaceFrame";
-import type { GpuFlowCommittedSurfacePublicationCandidate } from "../visibleFramePublicationContentPlan";
+import type { GpuFlowCommittedSurfacePublicationCandidate } from "../visibleFrameContentPlan";
 
 export type GpuFlowBlockedCommittedSurfaceCandidate = Extract<
   GpuFlowCommittedSurfacePublicationCandidate,

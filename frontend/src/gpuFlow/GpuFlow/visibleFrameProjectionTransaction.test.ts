@@ -17,7 +17,7 @@ import {
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
-import type { GpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
+import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 
 type TestProjectionPublicationFrame = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
@@ -25,7 +25,7 @@ type TestProjectionPublicationFrame = {
 };
 
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationProjectionPlan.ts", import.meta.url),
+  new URL("./visibleFrameProjectionPlan.ts", import.meta.url),
 );
 const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),

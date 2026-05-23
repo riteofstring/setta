@@ -10,7 +10,7 @@ import {
 import {
   getGpuFlowBrowserVisualBlockedReason,
   getGpuFlowCommittedSurfacePublishabilityActorIds,
-} from "./visibleFramePublicationBlockedCandidate";
+} from "./visibleFrameBlockedCandidate";
 import type {
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisiblePublicationCompletion,

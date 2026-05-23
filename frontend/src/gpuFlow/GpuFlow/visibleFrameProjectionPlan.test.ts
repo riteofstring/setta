@@ -10,7 +10,7 @@ const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationProjectionPlan.ts", import.meta.url),
+  new URL("./visibleFrameProjectionPlan.ts", import.meta.url),
 );
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfaceFramePublication.ts", import.meta.url),

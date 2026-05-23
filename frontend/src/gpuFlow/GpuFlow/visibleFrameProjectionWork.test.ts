@@ -14,7 +14,7 @@ import {
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
-import type { GpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
+import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 
 describe("GPU Flow visible publication kernel projection work", () => {
   it("mints retained projection blocked tokens from projection work reports inside the kernel", () => {

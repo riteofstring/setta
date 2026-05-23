@@ -12,7 +12,7 @@ const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = modulePath(
   "./visibleFrameActorAdapters/contentDecisionKernel.ts",
 );
 const CONTENT_PLAN_MODULE_PATH = modulePath(
-  "./visibleFramePublicationContentPlan.ts",
+  "./visibleFrameContentPlan.ts",
 );
 const KERNEL_COMPLETION_MODULE_PATH = modulePath(
   "./visibleFrameOutcomeReport.ts",
