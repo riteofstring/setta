@@ -112,7 +112,7 @@ import {
   createGpuFlowCommittedSurfacePublicationContentStep,
   createGpuFlowContentPublicationFrameResult,
   createGpuFlowContentPublicationFrameResultForNodeLayerFrame,
-  createGpuFlowRetainedDisplayPublicationContentStep,
+  createGpuFlowRetainedDisplayPublicationContentStage,
   type GpuFlowCommittedSurfacePublicationFramePlanPreparer,
   type GpuFlowContentPublicationFrameResult,
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
@@ -655,17 +655,17 @@ export function renderGpuFlowNodeLayerFrame({
     retainedDisplayPublication.retainedPageMaintenanceMs;
   const retainedDisplayFollowUpFrameReason =
     retainedDisplayPublicationPreparation.followUpFrameReason;
-  const retainedDisplayContentStep =
-    createGpuFlowRetainedDisplayPublicationContentStep({
+  const retainedDisplayContentStage =
+    createGpuFlowRetainedDisplayPublicationContentStage({
       deferResolutionUpdates,
       preparation: retainedDisplayPublicationPreparation,
       previousVisibleProjectionState: heldPreviousProjectionState,
     });
-  if (retainedDisplayContentStep.frameResult !== null) {
-    return retainedDisplayContentStep.frameResult;
+  if (retainedDisplayContentStage.kind === "blocked") {
+    return retainedDisplayContentStage.blockedFrameResult;
   }
   const publishedRetainedDisplayOutcomeFrame =
-    retainedDisplayContentStep.publishedOutcomeFrame;
+    retainedDisplayContentStage.publishedOutcomeFrame;
   const publishedRetainedFrame = publishedRetainedDisplayOutcomeFrame.frame;
   const publishedRetainedRuntimeFrame =
     publishedRetainedFrame.retainedRuntimeFrame;

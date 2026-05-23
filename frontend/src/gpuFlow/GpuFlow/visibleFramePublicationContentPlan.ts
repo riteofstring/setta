@@ -181,13 +181,13 @@ export type GpuFlowRetainedDisplayPublicationFramePlanPreparer = (
   input: GpuFlowRetainedDisplayPublicationInput,
 ) => GpuFlowRetainedDisplayPublicationFramePlanPreparation;
 
-export type GpuFlowRetainedDisplayPublicationContentStep =
+export type GpuFlowRetainedDisplayPublicationContentStage =
   | {
-      readonly frameResult: GpuFlowContentPublicationFrameResult;
-      readonly publishedOutcomeFrame: null;
+      readonly blockedFrameResult: GpuFlowContentPublicationFrameResult;
+      readonly kind: "blocked";
     }
   | {
-      readonly frameResult: null;
+      readonly kind: "published";
       readonly publishedOutcomeFrame: NonNullable<
         GpuFlowRetainedDisplayPublicationFramePlanPreparation["publishedOutcomeFrame"]
       >;
@@ -235,7 +235,7 @@ function createGpuFlowContentPublicationFrameResultForRetainedDisplayPublication
   });
 }
 
-export function createGpuFlowRetainedDisplayPublicationContentStep({
+export function createGpuFlowRetainedDisplayPublicationContentStage({
   deferResolutionUpdates,
   preparation,
   previousVisibleProjectionState,
@@ -243,7 +243,7 @@ export function createGpuFlowRetainedDisplayPublicationContentStep({
   readonly deferResolutionUpdates: boolean;
   readonly preparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowRetainedDisplayPublicationContentStep {
+}): GpuFlowRetainedDisplayPublicationContentStage {
   const frameResult =
     createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation(
       {
@@ -254,12 +254,12 @@ export function createGpuFlowRetainedDisplayPublicationContentStep({
     );
   if (frameResult) {
     return {
-      frameResult,
-      publishedOutcomeFrame: null,
+      blockedFrameResult: frameResult,
+      kind: "blocked",
     };
   }
   return {
-    frameResult: null,
+    kind: "published",
     publishedOutcomeFrame: requireGpuFlowRetainedDisplayPublishedOutcomeFrame({
       preparation,
     }),

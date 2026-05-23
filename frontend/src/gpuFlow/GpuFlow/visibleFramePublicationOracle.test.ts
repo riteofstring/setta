@@ -125,7 +125,8 @@ describe("GPU Flow visible publication transaction oracle", () => {
   it("reports authoritative per-actor visual and interaction proof entries", () => {
     const sample = liveProjectionSample({ id: 45, timestamp: 450 });
     const actor = retainedDomControlActor({
-      actualInteractionProof: "active-editor-live",
+      actualInteractionProof: "inactive-visual-only",
+      requiredInteractionProof: "inactive-visual-only",
     });
     const oracle = createGpuFlowVisiblePublicationCommitOracle({
       committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
@@ -135,7 +136,7 @@ describe("GPU Flow visible publication transaction oracle", () => {
     expect(oracle.actorProofs).toEqual([
       expect.objectContaining({
         actorId: "control-a",
-        actualInteractionProof: "active-editor-live",
+        actualInteractionProof: "inactive-visual-only",
         actualVisualProof: "compatible-previous",
         canonicalActorId: actor.canonicalActorId,
         contentGenerationId: "content-a",
@@ -145,7 +146,7 @@ describe("GPU Flow visible publication transaction oracle", () => {
         projectionSampleId: sample.id,
         proofState: "compatible-previous",
         remainingDebt: ["exact-browser-visual"],
-        requiredInteractionRepresentation: "active-editor-live",
+        requiredInteractionRepresentation: "inactive-visual-only",
         requiredVisualRepresentation: "browser-visual",
         sampledVisualEvidence: "compatible-previous",
       }),
@@ -192,6 +193,129 @@ describe("GPU Flow visible publication transaction oracle", () => {
     ).toThrow(
       "GPU Flow visible publication oracle cannot commit blocked actor proofs: control-a:compatible-previous:blocked.",
     );
+  });
+
+  it("rejects active-editor proof on compatible-previous visual coverage", () => {
+    const sample = liveProjectionSample({ id: 51, timestamp: 510 });
+    const actor = retainedDomControlActor({
+      actualInteractionProof: "active-editor-live",
+    });
+
+    expect(() =>
+      createGpuFlowVisiblePublicationCommitOracle({
+        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        publicationDecision: publicationDecision(sample),
+      }),
+    ).toThrow(
+      "GPU Flow visible publication oracle cannot commit blocked actor proofs: control-a:compatible-previous:active-editor-live.",
+    );
+  });
+
+  it("rejects over-budget compatible previous proofs as commit candidates", () => {
+    const sample = liveProjectionSample({ id: 52, timestamp: 520 });
+    const actor = retainedDomControlActor({
+      actualInteractionProof: "inactive-visual-only",
+      compatiblePreviousBudgetState: "over-budget",
+    });
+
+    expect(() =>
+      createGpuFlowVisiblePublicationCommitOracle({
+        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        publicationDecision: publicationDecision(sample),
+      }),
+    ).toThrow(
+      "GPU Flow visible publication oracle cannot commit blocked actor proofs: control-a:compatible-previous:inactive-visual-only.",
+    );
+  });
+
+  it("converts over-budget compatible previous proof into a blocked transaction proof", () => {
+    const sample = liveProjectionSample({ id: 53, timestamp: 530 });
+    const actor = retainedDomControlActor({
+      actualInteractionProof: "inactive-visual-only",
+      compatiblePreviousBudgetState: "over-budget",
+    });
+    const previousVisibleProjectionState = visibleProjectionState({
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 52, timestamp: 514 }),
+    });
+    const overBudgetVisibleProjectionState = visibleProjectionState({
+      committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+      kind: "content-publication",
+      sample,
+    });
+
+    const oracle = createGpuFlowVisibleFramePublicationTransactionOracle({
+      contentPublicationFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: overBudgetVisibleProjectionState,
+      },
+      motionProjectionFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: null,
+      },
+      previousVisibleProjectionState,
+      publicationDecision: publicationDecision(sample),
+    });
+
+    expect(oracle.blockedSource).toBe("compatible-previous-proof");
+    expect(oracle.commitOracle).toBeNull();
+    expect(oracle.renderedVisibleFrame).toBe(false);
+    expect(oracle.visibleProjectionState).toBeNull();
+    expect(oracle.blockedPublicationCandidate).toEqual({
+      blockedReasons: [
+        {
+          actorId: "control-a",
+          family: "compatible-previous",
+          reason: "compatible-previous-budget-exceeded",
+        },
+      ],
+      frozenFrameId:
+        previousVisibleProjectionState.committedFrame.displayFrameId,
+    });
+  });
+
+  it("converts active-editor compatible previous proof into a blocked transaction proof", () => {
+    const sample = liveProjectionSample({ id: 54, timestamp: 540 });
+    const actor = retainedDomControlActor({
+      actualInteractionProof: "active-editor-live",
+    });
+    const previousVisibleProjectionState = visibleProjectionState({
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 53, timestamp: 524 }),
+    });
+    const activeEditorVisibleProjectionState = visibleProjectionState({
+      committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+      kind: "motion-projection",
+      sample,
+    });
+
+    const oracle = createGpuFlowVisibleFramePublicationTransactionOracle({
+      contentPublicationFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: null,
+      },
+      motionProjectionFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: activeEditorVisibleProjectionState,
+      },
+      previousVisibleProjectionState,
+      publicationDecision: publicationDecision(sample),
+    });
+
+    expect(oracle.blockedSource).toBe("actor-proof");
+    expect(oracle.commitOracle).toBeNull();
+    expect(oracle.renderedVisibleFrame).toBe(false);
+    expect(oracle.blockedPublicationCandidate).toEqual({
+      blockedReasons: [
+        {
+          actorId: "control-a",
+          family: "active-editor",
+          reason: "active-editor-live-proof-required",
+        },
+      ],
+      frozenFrameId:
+        previousVisibleProjectionState.committedFrame.displayFrameId,
+    });
   });
 
   it.each(["exact-live-host", "same-live-host-compatible-projection"] as const)(
@@ -465,13 +589,14 @@ describe("GPU Flow visible publication transaction oracle", () => {
 });
 
 function visibleProjectionState({
+  committedFrame = committedSurfaceFrame(),
   kind,
   sample,
 }: {
+  readonly committedFrame?: GpuFlowCommittedSurfaceFrame | undefined;
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleProjectionState {
-  const committedFrame = committedSurfaceFrame();
   return {
     committedFrame,
     debugState: {
@@ -548,51 +673,27 @@ function committedSurfaceFrame({
 function retainedDomControlActor({
   actualInteractionProof = "blocked",
   actualVisualProof = "compatible-previous",
+  compatiblePreviousBudgetState = null,
+  requiredInteractionProof = "active-editor-live",
 }: {
   readonly actualInteractionProof?: string | undefined;
   readonly actualVisualProof?: string | undefined;
+  readonly compatiblePreviousBudgetState?:
+    | "over-budget"
+    | "within-budget"
+    | null
+    | undefined;
+  readonly requiredInteractionProof?: string | undefined;
 } = {}): GpuFlowCommittedSurfaceActorGeneration {
   return freezeActor({
     active: true,
     actorFamily: "text-like-dom-control",
     actorId: "control-a",
-    browserVisual: {
-      coverageExemption: null,
-      coverageRequired: {
-        reason: "active-editor",
-        required: true,
-      },
-      coverageState:
-        actualVisualProof === "compatible-previous"
-          ? "compatible-previous-ready"
-          : "live-host-ready",
-      nonemptyReason: "value-text",
-      proof: {
-        actualInteraction: actualInteractionProof,
-        actualVisual: actualVisualProof,
-        requiredInteraction: "active-editor-live",
-        requiredVisual: "browser-visual",
-      },
-      representation:
-        actualVisualProof === "compatible-previous"
-          ? {
-              actorId: "control-a",
-              kind: "compatible-previous",
-              previousTransactionId: "previous-transaction",
-            }
-          : {
-              actorId: "control-a",
-              hostId: "host-a",
-              islandId: "island-a",
-              kind: "active-editor",
-            },
-      representationKind:
-        actualVisualProof === "compatible-previous"
-          ? "compatible-previous"
-          : "active-editor",
-      resourceHandles: [],
-      visibilityReason: "visible",
-    } as GpuFlowCommittedSurfaceActorGeneration["browserVisual"],
+    browserVisual: retainedDomControlBrowserVisual({
+      actualInteractionProof,
+      actualVisualProof,
+      requiredInteractionProof,
+    }),
     clipChainRevision: "clip-a",
     clipRect: rect(),
     contentGenerationId: "content-a",
@@ -613,11 +714,130 @@ function retainedDomControlActor({
     retainedScrollRevision: 1,
     rowId: "row-a",
     sourceRect: rect(),
+    textCoverageProof: createRetainedDomControlCompatiblePreviousProof({
+      actualVisualProof,
+      compatiblePreviousBudgetState,
+    }),
     valueStyleRevision: "value-style-a",
     visibleNonempty: true,
     wheelPolicy: "retained-scroll-or-editor-scroll",
     zOrder: 1,
   });
+}
+
+function retainedDomControlBrowserVisual({
+  actualInteractionProof,
+  actualVisualProof,
+  requiredInteractionProof,
+}: {
+  readonly actualInteractionProof: string;
+  readonly actualVisualProof: string;
+  readonly requiredInteractionProof: string;
+}): GpuFlowCommittedSurfaceActorGeneration["browserVisual"] {
+  const compatiblePrevious = actualVisualProof === "compatible-previous";
+  return {
+    coverageExemption: null,
+    coverageRequired: {
+      reason:
+        requiredInteractionProof === "active-editor-live"
+          ? "active-editor"
+          : "value-text",
+      required: requiredInteractionProof === "active-editor-live",
+    },
+    coverageState: compatiblePrevious
+      ? "compatible-previous-ready"
+      : "live-host-ready",
+    nonemptyReason: "value-text",
+    proof: {
+      actualInteraction: actualInteractionProof,
+      actualVisual: actualVisualProof,
+      requiredInteraction: requiredInteractionProof,
+      requiredVisual: "browser-visual",
+    },
+    representation: compatiblePrevious
+      ? {
+          actorId: "control-a",
+          kind: "compatible-previous",
+          previousTransactionId: "previous-transaction",
+        }
+      : {
+          actorId: "control-a",
+          hostId: "host-a",
+          islandId: "island-a",
+          kind: "active-editor",
+        },
+    representationKind: compatiblePrevious
+      ? "compatible-previous"
+      : "active-editor",
+    resourceHandles: [],
+    visibilityReason: "visible",
+  } as GpuFlowCommittedSurfaceActorGeneration["browserVisual"];
+}
+
+function createRetainedDomControlCompatiblePreviousProof({
+  actualVisualProof,
+  compatiblePreviousBudgetState,
+}: {
+  readonly actualVisualProof: string;
+  readonly compatiblePreviousBudgetState:
+    | "over-budget"
+    | "within-budget"
+    | null;
+}): GpuFlowCommittedSurfaceActorGeneration["textCoverageProof"] {
+  if (
+    actualVisualProof !== "compatible-previous" ||
+    compatiblePreviousBudgetState === null
+  ) {
+    return null;
+  }
+  const overBudget = compatiblePreviousBudgetState === "over-budget";
+  return {
+    accessibilityProjection: "browser-dom",
+    activationPolicy: "allowed",
+    compatiblePreviousProof: {
+      activationPolicy: "allowed",
+      actorFamily: "text-like-dom-control",
+      actorId: "control-a",
+      budgetState: compatiblePreviousBudgetState,
+      canonicalActorId: "canonical-control-a",
+      clipChainRevision: "clip-a",
+      controlKind: "input",
+      displayRevision: "display-a",
+      flowRect: rect(),
+      focusState: "inactive",
+      hitMappingCompatible: true,
+      hitTargetId: "control-a",
+      maxProofAgeFrames: 2,
+      maxProofAgeMs: 120,
+      previousActorGenerationId: "previous-generation-a",
+      previousCommittedFrameId: 6,
+      previousProjectionSampleRevision: "viewport-previous",
+      previousTransactionId: "previous-transaction",
+      previousVisualGenerationId: "previous-visual-a",
+      proofAgeFrames: overBudget ? 3 : 1,
+      proofAgeMs: overBudget ? 121 : 16,
+      protectedResourceIds: ["source:control-a"],
+      reasonCode: "same-value-and-geometry",
+      requestedActorGenerationId: "generation-a",
+      requestedProjectionSampleRevision: "viewport-current",
+      requestedVisualGenerationId: "generation-a",
+      resourceHandles: [],
+      retainedScrollCompatible: true,
+      retainedSurfaceId: "surface-a",
+      semanticGenerationId: "content-a",
+    },
+    focusable: true,
+    pointerSemantics: "active-browser-editor",
+    previousVisualGenerationId: "previous-visual-a",
+    projectionCoverage: "compatible-previous",
+    rendererFamily: "browser-dom",
+    rendererSource: "browser-dom",
+    role: "text-like",
+    selectable: "browser-editor",
+    semanticGenerationId: "content-a",
+    snapshotCacheKeyRevision: "snapshot-a",
+    visualGenerationId: "generation-a",
+  };
 }
 
 function rect() {

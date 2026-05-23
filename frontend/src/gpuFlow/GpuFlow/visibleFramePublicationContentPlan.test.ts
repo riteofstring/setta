@@ -17,8 +17,8 @@ import {
   createGpuFlowCommittedSurfacePublicationContentStep,
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowCommittedSurfacePublicationFramePlanSelector,
+  createGpuFlowRetainedDisplayPublicationContentStage,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
-  createGpuFlowRetainedDisplayPublicationContentStep,
   createGpuFlowRetainedDisplayPublicationFramePlanSelector,
   resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult,
   resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult,
@@ -207,8 +207,17 @@ describe("GPU Flow visible publication content plans", () => {
     expect(flowFrameSource).not.toContain(
       "function prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceCandidate",
     );
-    expect(flowFrameSource).toContain(
+    expect(flowFrameSource).not.toContain(
       "createGpuFlowRetainedDisplayPublicationContentStep",
+    );
+    expect(flowFrameSource).toContain(
+      "createGpuFlowRetainedDisplayPublicationContentStage",
+    );
+    expect(flowFrameSource).not.toContain(
+      "retainedDisplayContentStep.frameResult",
+    );
+    expect(flowFrameSource).not.toContain(
+      "retainedDisplayContentStep.publishedOutcomeFrame",
     );
     expect(flowFrameSource).toContain(
       "createGpuFlowCommittedSurfacePublicationContentStep",
@@ -543,18 +552,17 @@ describe("GPU Flow visible publication content plans", () => {
       {} as Parameters<typeof prepareRetainedDisplayPublicationFramePlan>[0],
     );
 
-    const contentStep = createGpuFlowRetainedDisplayPublicationContentStep({
+    const contentStage = createGpuFlowRetainedDisplayPublicationContentStage({
       deferResolutionUpdates: false,
       preparation,
       previousVisibleProjectionState: null,
     });
 
-    expect(contentStep.frameResult).not.toBeNull();
-    if (contentStep.frameResult === null) {
+    expect(contentStage.kind).toBe("blocked");
+    if (contentStage.kind !== "blocked") {
       throw new Error("Expected retained display candidate frame result.");
     }
-    expect(contentStep.publishedOutcomeFrame).toBeNull();
-    expect(contentStep.frameResult).toEqual(
+    expect(contentStage.blockedFrameResult).toEqual(
       expect.objectContaining({
         blockedPublicationCandidate: expect.objectContaining({
           frozenFrameId: "cold-start-shell:retained-projection",

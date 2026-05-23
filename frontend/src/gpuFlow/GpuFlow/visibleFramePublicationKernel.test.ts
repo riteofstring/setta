@@ -290,6 +290,63 @@ describe("GPU Flow visible publication transaction kernel", () => {
     );
   });
 
+  it.each([
+    {
+      blockedSource: "compatible-previous-proof" as const,
+      frameInput: { budgetState: "over-budget" as const },
+      reason: { actorId: "actor-a", family: "compatible-previous", reason: "compatible-previous-budget-exceeded" },
+    },
+    {
+      blockedSource: "actor-proof" as const,
+      frameInput: {
+        actualInteractionProof: "active-editor-live",
+        requiredInteractionProof: "active-editor-live",
+      },
+      reason: { actorId: "actor-a", family: "active-editor", reason: "active-editor-live-proof-required" },
+    },
+  ])(
+    "blocks $blockedSource compatible-previous proof before publishing a commit token",
+    ({ blockedSource, frameInput, reason }) => {
+      const scheduler = createGpuFlowVisiblePublicationScheduler();
+      const sample = liveProjectionSample({ id: 53, timestamp: 530 });
+      const previousVisibleProjectionState = visibleProjectionState({
+        kind: "content-publication",
+        sample: liveProjectionSample({ id: 52, timestamp: 514 }),
+      });
+      const contentVisibleState = visibleProjectionState({
+        committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage(frameInput),
+        kind: "content-publication",
+        sample,
+      });
+      let publishedOutcome: string | null = null;
+
+      const result = runPreparedCandidateKernel({
+        contentFrame: testPublicationCandidate({
+          rendered: true,
+          visibleProjectionState: contentVisibleState,
+        }),
+        previousVisibleProjectionState,
+        publish: (transaction) => {
+          publishedOutcome = transaction.outcome.kind;
+        },
+        sample,
+        scheduler,
+      });
+
+      expect(result.outcome.kind).toBe("blocked");
+      expect(publishedOutcome).toBe("blocked");
+      expect(result.preparedFrame.transactionOracle.blockedSource).toBe(blockedSource);
+      expect(result.preparedFrame.transactionOracle.commitOracle).toBeNull();
+      if (result.outcome.kind !== "blocked") {
+        throw new Error("Expected compatible previous proof block.");
+      }
+      expect(result.outcome.token.frozenFrameId).toBe(
+        previousVisibleProjectionState.committedFrame.displayFrameId,
+      );
+      expect(result.outcome.token.blockedReasons).toEqual([reason]);
+    },
+  );
+
   it("holds retained projection coverage misses inside the kernel while within budget", () => {
     const requestedTransaction = retainedProjectionTransaction({
       sample: liveProjectionSample({ id: 60, timestamp: 600 }),
@@ -720,13 +777,14 @@ describe("GPU Flow visible publication transaction kernel", () => {
 });
 
 function visibleProjectionState({
+  committedFrame = committedSurfaceFrame(),
   kind,
   sample,
 }: {
+  readonly committedFrame?: GpuFlowCommittedSurfaceFrame | undefined;
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleProjectionState {
-  const committedFrame = committedSurfaceFrame();
   return {
     committedFrame,
     debugState: {
@@ -807,7 +865,15 @@ function committedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
 
-function committedSurfaceFrameWithCompatiblePreviousCoverage(): GpuFlowCommittedSurfaceFrame {
+function committedSurfaceFrameWithCompatiblePreviousCoverage({
+  actualInteractionProof = "inactive-visual-only",
+  budgetState = "within-budget",
+  requiredInteractionProof = "inactive-visual-only",
+}: {
+  readonly actualInteractionProof?: string | undefined;
+  readonly budgetState?: "over-budget" | "within-budget" | undefined;
+  readonly requiredInteractionProof?: string | undefined;
+} = {}): GpuFlowCommittedSurfaceFrame {
   return {
     ...committedSurfaceFrame(),
     actorGenerations: [
@@ -816,9 +882,9 @@ function committedSurfaceFrameWithCompatiblePreviousCoverage(): GpuFlowCommitted
         actorId: "actor-a",
         browserVisual: {
           proof: {
-            actualInteraction: "inactive-visual-only",
+            actualInteraction: actualInteractionProof,
             actualVisual: "compatible-previous",
-            requiredInteraction: "inactive-visual-only",
+            requiredInteraction: requiredInteractionProof,
             requiredVisual: "browser-visual",
           },
         },
@@ -826,14 +892,14 @@ function committedSurfaceFrameWithCompatiblePreviousCoverage(): GpuFlowCommitted
         visibleNonempty: true,
         textCoverageProof: {
           compatiblePreviousProof: {
-            budgetState: "within-budget",
+            budgetState,
             hitMappingCompatible: true,
             maxProofAgeFrames: 2,
             maxProofAgeMs: 120,
             previousCommittedFrameId: 6,
             previousProjectionSampleRevision: "viewport-previous",
-            proofAgeFrames: 1,
-            proofAgeMs: 16,
+            proofAgeFrames: budgetState === "over-budget" ? 3 : 1,
+            proofAgeMs: budgetState === "over-budget" ? 121 : 16,
             protectedResourceIds: ["source:actor-a"],
             reasonCode: "same-value-and-geometry",
             requestedProjectionSampleRevision: "viewport-current",
@@ -1023,6 +1089,7 @@ function runPreparedCandidateKernel({
   hasCommittedContentFrame = true,
   motionFrame = testPublicationCandidate(),
   previousVisibleProjectionState = null,
+  publish = () => {},
   rawReasons = ["manual"],
   sample,
   scheduler,
@@ -1032,6 +1099,12 @@ function runPreparedCandidateKernel({
   readonly hasCommittedContentFrame?: boolean;
   readonly motionFrame?: TestPublicationCandidate;
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
+  readonly publish?: Parameters<
+    typeof runGpuFlowVisibleFramePublicationCandidateSetKernel<
+      TestPublicationCandidate,
+      TestPublicationCandidate
+    >
+  >[0]["publish"];
   readonly rawReasons?: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
   readonly scheduler: ReturnType<typeof createGpuFlowVisiblePublicationScheduler>;
@@ -1046,7 +1119,7 @@ function runPreparedCandidateKernel({
       frame: motionFrame,
       kind: "not-rendered",
     }),
-    publish: () => {},
+    publish,
     sampleVisibleFramePublication: () =>
       visibleFramePublicationSample({
         hasCommittedContentFrame,
