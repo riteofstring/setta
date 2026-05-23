@@ -1,4 +1,10 @@
-import { expect, test } from "@playwright/test";
+import {
+  expect,
+  test,
+  type ConsoleMessage,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 
 import { waitForAnimationFrame } from "./settings-retained-frame-helpers";
 import {
@@ -12,6 +18,10 @@ import {
   waitForCommittedActiveEditorTextProof,
   waitForNativeTextSelectionState,
 } from "./settings-retained-text-like-native-semantics-helpers";
+import {
+  analyzeCodeMirrorTextInkBounds,
+  type Rect,
+} from "./settings-retained-visual-analysis";
 
 test.use({
   userAgent:
@@ -183,3 +193,184 @@ test("typing before and after retained motion stays in the same active editor", 
   expect(committedProof.projectionCoverage, details).toBe("exact-live-dom");
   expectNativeTextStateAlignedToRow(caretAfterMotion, details);
 });
+
+test("retained motion preserves active editor visual ink and runtime health", async ({
+  page,
+}, testInfo) => {
+  const runtimeHealth = capturePageRuntimeHealth(page);
+  const { row, target } = await openNativeTextLikeRow(page);
+  await page.addStyleTag({
+    content: ".cm-cursor,.cm-cursorLayer{opacity:0!important}",
+  });
+
+  await activateNativeTextLikeEditor(page, row);
+  await page.keyboard.press(selectAllShortcut());
+  await page.keyboard.type("visible-motion-before");
+  const typedBefore = await waitForActiveNativeTextValue(page, {
+    expectedText: "visible-motion-before",
+    rowId: row.rowId,
+  });
+  const caretBeforeMotion = await waitForNativeTextSelectionState(page, {
+    expectedCollapsed: true,
+    rowId: row.rowId,
+  });
+  const committedProofBefore = await waitForCommittedActiveEditorTextProof(
+    page,
+    { rowId: row.rowId },
+  );
+  const beforeClip = await clampScreenshotClipToViewport(
+    page,
+    caretBeforeMotion.rowControlRect,
+  );
+  const beforeFrame = await page.screenshot({
+    clip: beforeClip,
+    path: testInfo.outputPath("active-editor-motion-before.png"),
+  });
+  const beforeInk = await analyzeCodeMirrorTextInkBounds(page, {
+    clip: beforeClip,
+    screenshot: beforeFrame,
+    searchRect: caretBeforeMotion.rowControlRect,
+  });
+
+  const wheelPoint = await resolveRetainedSurfaceWheelPoint(
+    page,
+    target.surfaceId,
+  );
+  await page.mouse.move(wheelPoint.x, wheelPoint.y);
+  await page.mouse.wheel(0, 36);
+  await applyViewportTransformDelta(page, { dx: 42, dy: -24 });
+  await waitForAnimationFrame(page);
+
+  const caretAfterMotion = await waitForNativeTextSelectionState(page, {
+    expectedCollapsed: true,
+    minEditorXDeltaFrom: caretBeforeMotion,
+    rowId: row.rowId,
+  });
+  const afterClip = await clampScreenshotClipToViewport(
+    page,
+    caretAfterMotion.rowControlRect,
+  );
+  const afterFrame = await page.screenshot({
+    clip: afterClip,
+    path: testInfo.outputPath("active-editor-motion-after.png"),
+  });
+  const afterInk = await analyzeCodeMirrorTextInkBounds(page, {
+    clip: afterClip,
+    screenshot: afterFrame,
+    searchRect: caretAfterMotion.rowControlRect,
+  });
+
+  await page.keyboard.type("-after");
+  const typedAfter = await waitForActiveNativeTextValue(page, {
+    expectedText: "visible-motion-before-after",
+    rowId: row.rowId,
+  });
+  const committedProofAfter = await waitForCommittedActiveEditorTextProof(
+    page,
+    { rowId: row.rowId },
+  );
+  const runtimeHealthSnapshot = runtimeHealth.stop();
+  const details = JSON.stringify(
+    {
+      afterClip,
+      afterInk,
+      beforeClip,
+      beforeInk,
+      caretAfterMotion,
+      caretBeforeMotion,
+      committedProofAfter,
+      committedProofBefore,
+      row,
+      runtimeHealth: runtimeHealthSnapshot,
+      target,
+      typedAfter,
+      typedBefore,
+    },
+    null,
+    2,
+  );
+
+  expect(runtimeHealthSnapshot.consoleErrors, details).toEqual([]);
+  expect(runtimeHealthSnapshot.pageErrors, details).toEqual([]);
+  expect(typedBefore.activeEditorId, details).toContain(row.rowId);
+  expect(typedAfter.activeEditorId, details).toBe(typedBefore.activeEditorId);
+  expect(typedAfter.text, details).toContain("visible-motion-before-after");
+  expect(beforeInk?.pixelCount ?? 0, details).toBeGreaterThan(0);
+  expect(afterInk?.pixelCount ?? 0, details).toBeGreaterThan(0);
+  expect(committedProofAfter.actorId, details).toBe(
+    committedProofBefore.actorId,
+  );
+  expect(committedProofAfter.active, details).toBe(true);
+  expect(committedProofAfter.requiredInteraction, details).toBe(
+    "active-editor-live",
+  );
+  expect(committedProofAfter.actualInteraction, details).toBe(
+    "active-editor-live",
+  );
+  expectNativeTextStateAlignedToRow(caretBeforeMotion, details);
+  expectNativeTextStateAlignedToRow(caretAfterMotion, details);
+});
+
+type RuntimeHealthSnapshot = {
+  readonly consoleErrors: readonly string[];
+  readonly pageErrors: readonly string[];
+};
+
+function capturePageRuntimeHealth(page: Page): {
+  readonly stop: () => RuntimeHealthSnapshot;
+} {
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  const onConsole = (message: ConsoleMessage) => {
+    if (message.type() !== "error") {
+      return;
+    }
+    consoleErrors.push(message.text());
+  };
+  const onPageError = (error: Error) => {
+    pageErrors.push(error.message);
+  };
+  page.on("console", onConsole);
+  page.on("pageerror", onPageError);
+  return {
+    stop: () => {
+      page.off("console", onConsole);
+      page.off("pageerror", onPageError);
+      return {
+        consoleErrors,
+        pageErrors,
+      };
+    },
+  };
+}
+
+async function clampScreenshotClipToViewport(
+  page: Page,
+  rect: Rect,
+): Promise<Rect> {
+  return await page.evaluate((rect) => {
+    const padding = 8;
+    const x = Math.min(
+      Math.max(0, Math.floor(rect.x - padding)),
+      Math.max(0, window.innerWidth - 1),
+    );
+    const y = Math.min(
+      Math.max(0, Math.floor(rect.y - padding)),
+      Math.max(0, window.innerHeight - 1),
+    );
+    const right = Math.min(
+      window.innerWidth,
+      Math.max(x + 1, Math.ceil(rect.x + rect.width + padding)),
+    );
+    const bottom = Math.min(
+      window.innerHeight,
+      Math.max(y + 1, Math.ceil(rect.y + rect.height + padding)),
+    );
+    return {
+      height: Math.max(1, bottom - y),
+      width: Math.max(1, right - x),
+      x,
+      y,
+    };
+  }, rect);
+}
