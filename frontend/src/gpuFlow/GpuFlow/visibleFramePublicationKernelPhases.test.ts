@@ -78,7 +78,9 @@ describe("GPU Flow visible publication kernel phases", () => {
     expect(presentationSource).toContain(
       "export function proveGpuFlowVisibleFramePublicationPresentation",
     );
-    expect(presentationSource).toContain("createGpuFlowPresentableCommit({");
+    expect(presentationSource).toContain(
+      "visiblePublicationTokenIssuer.createCommitPublicationToken",
+    );
     expect(source).toContain(
       "function publishGpuFlowVisibleFramePublicationOutcome",
     );
@@ -128,7 +130,7 @@ describe("GPU Flow visible publication kernel phases", () => {
       "\n" +
       readFileSync(KERNEL_PRESENTATION_MODULE_PATH, "utf8");
     const completionSource = readFileSync(COMPLETION_MODULE_PATH, "utf8");
-    const visibleTokenConstructors = [
+    const rawTokenConstructors = [
       "createGpuFlowBlockedPublicationToken",
       "createGpuFlowCommitPublicationToken",
       "createGpuFlowCommittedSurfaceResetToken",
@@ -137,8 +139,18 @@ describe("GPU Flow visible publication kernel phases", () => {
       "createGpuFlowPresentableCommit",
     ] as const;
 
-    for (const constructorName of visibleTokenConstructors) {
-      expect(kernelSource).toContain(constructorName);
+    expect(kernelSource).toContain("createGpuFlowVisiblePublicationTokenIssuer");
+    expect(kernelSource).toContain(
+      "visiblePublicationTokenIssuer.createCommitPublicationToken",
+    );
+    expect(kernelSource).toContain(
+      "visiblePublicationTokenIssuer.createBlockedPublicationToken",
+    );
+    expect(kernelSource).toContain(
+      "visiblePublicationTokenIssuer.createHoldPreviousToken",
+    );
+    for (const constructorName of rawTokenConstructors) {
+      expect(kernelSource).not.toContain(constructorName);
       expect(completionSource).not.toContain(constructorName);
     }
     expect(kernelSource).toContain(

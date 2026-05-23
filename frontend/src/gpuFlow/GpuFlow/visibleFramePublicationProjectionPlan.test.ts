@@ -3,16 +3,6 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import type {
-  GpuFlowLiveProjectionSample,
-  GpuFlowProjectionTransaction,
-} from "../projectionRuntime";
-import {
-  createGpuFlowProjectionFrameRenderPlanSelector,
-  type GpuFlowProjectionFrameTransaction,
-  type GpuFlowRetainedProjectionFrame,
-} from "./visibleFramePublicationKernel";
-
 const PROJECTION_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowProjectionFrame.tsx", import.meta.url),
 );
@@ -27,39 +17,6 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
 );
 
 describe("GPU Flow visible publication projection plans", () => {
-  it("rejects blocked projection transactions before rendering", () => {
-    const selectProjectionFrameRenderPlan =
-      createGpuFlowProjectionFrameRenderPlanSelector();
-    expect(() =>
-      selectProjectionFrameRenderPlan({
-        projectionFrameTransaction: projectionFrameTransaction({
-          blockedReason: "retained-projection-coverage-missing",
-        }),
-      }),
-    ).toThrow(/nonblocked projection transaction/);
-  });
-
-  it("selects render plans for publishable projection transactions", () => {
-    const selectProjectionFrameRenderPlan =
-      createGpuFlowProjectionFrameRenderPlanSelector();
-    const transaction = projectionTransaction();
-    const retainedProjectionFrame = projectionFrame();
-
-    expect(
-      selectProjectionFrameRenderPlan({
-        projectionFrameTransaction: projectionFrameTransaction({
-          retainedProjectionFrame,
-          transaction,
-        }),
-      }),
-    ).toEqual({
-      heldPreviousProjection: null,
-      kind: "render",
-      retainedProjectionFrame,
-      transaction,
-    });
-  });
-
   it("keeps raw projection blocked-field inspection out of the renderer", () => {
     const projectionFrameSource = readFileSync(
       PROJECTION_FRAME_MODULE_PATH,
@@ -98,65 +55,26 @@ describe("GPU Flow visible publication projection plans", () => {
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
     expect(kernelSource).toContain("projectionFrameTransaction.blockedReason");
-    expect(projectionPlanSource).toContain(
+    expect(kernelSource).toContain(
       "projectionFrameTransaction.blockedReason",
+    );
+    expect(kernelSource).toContain(
+      "function selectGpuFlowProjectionFrameRenderPlan",
+    );
+    expect(kernelSource).not.toContain(
+      "export function selectGpuFlowProjectionFrameRenderPlan",
+    );
+    expect(projectionPlanSource).not.toContain(
+      "createGpuFlowProjectionFrameRenderPlanSelector",
+    );
+    expect(projectionPlanSource).not.toContain(
+      "function selectGpuFlowProjectionFrameRenderPlan",
+    );
+    expect(projectionPlanSource).toContain(
+      "export type GpuFlowProjectionFrameRenderPlan",
     );
     expect(projectionPlanSource).not.toContain(
       "export function selectGpuFlowProjectionFrameRenderPlan",
     );
   });
 });
-
-function projectionFrameTransaction({
-  blockedReason = null,
-  retainedProjectionFrame = projectionFrame(),
-  transaction = projectionTransaction(),
-}: {
-  readonly blockedReason?: string | null | undefined;
-  readonly retainedProjectionFrame?: GpuFlowRetainedProjectionFrame | undefined;
-  readonly transaction?: GpuFlowProjectionTransaction | undefined;
-} = {}): GpuFlowProjectionFrameTransaction {
-  return {
-    blockedReason,
-    heldPreviousProjection: null,
-    retainedProjectionFrame,
-    transaction,
-  };
-}
-
-function projectionFrame(): GpuFlowRetainedProjectionFrame {
-  return {
-    flatSurfaces: [],
-    missingCoverageSurfaceIds: new Set(),
-    needsRetainedPageMaintenance: false,
-  };
-}
-
-function projectionTransaction(): GpuFlowProjectionTransaction {
-  return {
-    committedFrameId: 12,
-    id: "projection:12:1",
-    kind: "motion-projection",
-    lane: "motion",
-    rawReasons: ["retained-scroll"],
-    sample: liveProjectionSample(),
-    startedAtMs: 16,
-  };
-}
-
-function liveProjectionSample(): GpuFlowLiveProjectionSample {
-  return {
-    cssViewport: { height: 600, width: 800 },
-    devicePixelRatio: 1,
-    gestureOwner: "idle",
-    id: 1,
-    retainedScrollDelta: new Map(),
-    retainedScrollOffsets: new Map(),
-    retainedScrollRevision: 0,
-    retainedScrollVelocityCssPxPerMs: new Map(),
-    timestamp: 16,
-    viewport: [0, 0, 1],
-    viewportDelta: { x: 0, y: 0, zoom: 0 },
-    viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },
-  };
-}

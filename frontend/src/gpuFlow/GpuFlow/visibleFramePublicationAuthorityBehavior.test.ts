@@ -134,13 +134,14 @@ describe("GPU Flow visible publication authority behavior", () => {
     );
   });
 
-  it("rejects presentable commits without the oracle proof digest for the selected frame", async () => {
+  it("rejects commit token issuance without the oracle proof digest for the selected frame", async () => {
     const {
       createGpuFlowCommitAuthorityProof,
-      createGpuFlowPresentableCommit,
+      createGpuFlowVisiblePublicationTokenIssuer,
     } = await import("./visibleFramePublicationAuthority");
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
+    const tokenIssuer = createGpuFlowVisiblePublicationTokenIssuer();
     const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
       frame,
       presentationPairProof: {
@@ -151,24 +152,25 @@ describe("GPU Flow visible publication authority behavior", () => {
     });
 
     expect(() =>
-      createGpuFlowPresentableCommit({
-        frame,
+      tokenIssuer.createCommitPublicationToken({
         commitAuthorityProof: {
           ...commitAuthorityProof,
           proofDigest: "stale-visible-proof",
         },
+        frame,
         projectionSample,
       }),
     ).toThrow(/transaction oracle presentable commit proof/);
   });
 
-  it("rejects presentable commits without the oracle DOM/canvas pair proof for the projection sample", async () => {
+  it("rejects commit token issuance without the oracle DOM/canvas pair proof for the projection sample", async () => {
     const {
       createGpuFlowCommitAuthorityProof,
-      createGpuFlowPresentableCommit,
+      createGpuFlowVisiblePublicationTokenIssuer,
     } = await import("./visibleFramePublicationAuthority");
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
+    const tokenIssuer = createGpuFlowVisiblePublicationTokenIssuer();
     const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
       frame,
       presentationPairProof: {
@@ -179,8 +181,7 @@ describe("GPU Flow visible publication authority behavior", () => {
     });
 
     expect(() =>
-      createGpuFlowPresentableCommit({
-        frame,
+      tokenIssuer.createCommitPublicationToken({
         commitAuthorityProof: {
           ...commitAuthorityProof,
           presentationPairProof: {
@@ -188,18 +189,20 @@ describe("GPU Flow visible publication authority behavior", () => {
             projectionSampleId: projectionSample.id + 1,
           },
         },
+        frame,
         projectionSample,
       }),
     ).toThrow(/DOM\/canvas presentation pair proof/);
   });
 
-  it("rejects presentable commits without the oracle resource protection proof", async () => {
+  it("rejects commit token issuance without the oracle resource protection proof", async () => {
     const {
       createGpuFlowCommitAuthorityProof,
-      createGpuFlowPresentableCommit,
+      createGpuFlowVisiblePublicationTokenIssuer,
     } = await import("./visibleFramePublicationAuthority");
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
+    const tokenIssuer = createGpuFlowVisiblePublicationTokenIssuer();
     const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
       frame,
       presentationPairProof: {
@@ -210,12 +213,12 @@ describe("GPU Flow visible publication authority behavior", () => {
     });
 
     expect(() =>
-      createGpuFlowPresentableCommit({
-        frame,
+      tokenIssuer.createCommitPublicationToken({
         commitAuthorityProof: {
           ...commitAuthorityProof,
           resourceProtectionDigest: "stale-resource-protection-proof",
         },
+        frame,
         projectionSample,
       }),
     ).toThrow(/resource protection proof/);

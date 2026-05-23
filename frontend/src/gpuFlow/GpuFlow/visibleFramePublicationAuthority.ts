@@ -160,14 +160,61 @@ export type GpuFlowBlockedPublicationToken = BlockedPublicationTokenBrand & {
   readonly transactionId: GpuFlowVisibleTransactionId;
 };
 
-export function createGpuFlowCommittedSurfaceResetToken(): GpuFlowCommittedSurfaceResetToken {
+export type GpuFlowVisiblePublicationTokenIssuer = {
+  readonly createBlockedPublicationToken: (input: {
+    readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
+    readonly frozenFrameId:
+      | GpuFlowCommittedVisibleFrameId
+      | GpuFlowColdStartShellFrameId;
+    readonly projectionSample: GpuFlowLiveProjectionSample;
+  }) => GpuFlowBlockedPublicationToken;
+  readonly createCommitPublicationToken: (input: {
+    readonly commitAuthorityProof: GpuFlowCommitAuthorityProof;
+    readonly frame: GpuFlowCommittedSurfaceFrame;
+    readonly projectionSample: GpuFlowLiveProjectionSample;
+  }) => GpuFlowCommitPublicationToken;
+  readonly createCommittedSurfaceResetToken: () => GpuFlowCommittedSurfaceResetToken;
+  readonly createCommittedSurfaceStartupToken: (input: {
+    readonly frame: GpuFlowCommittedSurfaceFrame;
+  }) => GpuFlowCommittedSurfaceStartupToken;
+  readonly createHoldPreviousToken: (input: {
+    readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
+    readonly holdAgeFrames: number;
+    readonly holdAgeMs: number;
+    readonly projectionSample: GpuFlowLiveProjectionSample;
+  }) => GpuFlowHoldPreviousToken;
+};
+
+export function createGpuFlowVisiblePublicationTokenIssuer(): GpuFlowVisiblePublicationTokenIssuer {
+  return Object.freeze({
+    createBlockedPublicationToken: createGpuFlowBlockedPublicationToken,
+    createCommitPublicationToken: ({
+      commitAuthorityProof,
+      frame,
+      projectionSample,
+    }) =>
+      createGpuFlowCommitPublicationToken({
+        presentableCommit: createGpuFlowPresentableCommit({
+          commitAuthorityProof,
+          frame,
+          projectionSample,
+        }),
+      }),
+    createCommittedSurfaceResetToken: createGpuFlowCommittedSurfaceResetToken,
+    createCommittedSurfaceStartupToken:
+      createGpuFlowCommittedSurfaceStartupToken,
+    createHoldPreviousToken: createGpuFlowHoldPreviousToken,
+  });
+}
+
+function createGpuFlowCommittedSurfaceResetToken(): GpuFlowCommittedSurfaceResetToken {
   return Object.freeze({
     [GPU_FLOW_COMMITTED_SURFACE_RESET_TOKEN]: true as const,
     transactionId: "semantic-reset:committed-surface",
   });
 }
 
-export function createGpuFlowCommittedSurfaceStartupToken({
+function createGpuFlowCommittedSurfaceStartupToken({
   frame,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
@@ -181,7 +228,7 @@ export function createGpuFlowCommittedSurfaceStartupToken({
   });
 }
 
-export function createGpuFlowPresentableCommit({
+function createGpuFlowPresentableCommit({
   frame,
   commitAuthorityProof,
   projectionSample,
@@ -372,7 +419,7 @@ function createGpuFlowCommitResourceProtectionDigestForFrame({
   return createGpuFlowVisiblePublicationResourceProtectionDigest(report);
 }
 
-export function createGpuFlowCommitPublicationToken({
+function createGpuFlowCommitPublicationToken({
   presentableCommit,
 }: {
   readonly presentableCommit: GpuFlowPresentableCommit;
@@ -391,7 +438,7 @@ export function createGpuFlowCommitPublicationToken({
   });
 }
 
-export function createGpuFlowHoldPreviousToken({
+function createGpuFlowHoldPreviousToken({
   committedFrameId,
   holdAgeFrames,
   holdAgeMs,
@@ -412,7 +459,7 @@ export function createGpuFlowHoldPreviousToken({
   });
 }
 
-export function createGpuFlowBlockedPublicationToken({
+function createGpuFlowBlockedPublicationToken({
   blockedReasons,
   frozenFrameId,
   projectionSample,

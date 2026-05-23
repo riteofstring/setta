@@ -14,11 +14,9 @@ import {
   hasGpuFlowVisiblePublicationDebt,
 } from "../projectionRuntime";
 import {
-  createGpuFlowBlockedPublicationToken,
-  createGpuFlowCommitPublicationToken,
-  createGpuFlowHoldPreviousToken,
-  createGpuFlowPresentableCommit,
+  createGpuFlowVisiblePublicationTokenIssuer,
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+  type GpuFlowCommitAuthorityProof,
 } from "./visibleFramePublicationAuthority";
 import type {
   GpuFlowColdStartShellPublication,
@@ -32,7 +30,6 @@ import type {
   GpuFlowBlockedVisibleReason,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
-  GpuFlowPresentableCommit,
 } from "./visibleFramePublicationTokens";
 
 type GpuFlowVisibleFramePublicationPresentationScheduler = {
@@ -44,6 +41,8 @@ type GpuFlowVisibleFramePublicationPresentationScheduler = {
 };
 
 const GPU_FLOW_MOTION_ACTIVE_DEBT_RETRY_DELAY_MS = 160;
+const visiblePublicationTokenIssuer =
+  createGpuFlowVisiblePublicationTokenIssuer();
 
 export function proveGpuFlowVisibleFramePublicationPresentation({
   blockedPublicationToken,
@@ -275,7 +274,7 @@ function createGpuFlowVisibleFrameHoldPreviousToken({
   readonly holdAgeMs: number;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowHoldPreviousToken {
-  return createGpuFlowHoldPreviousToken({
+  return visiblePublicationTokenIssuer.createHoldPreviousToken({
     committedFrameId,
     holdAgeFrames,
     holdAgeMs,
@@ -292,7 +291,7 @@ function createGpuFlowVisibleFrameBlockedPublicationToken({
   readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowBlockedPublicationToken {
-  return createGpuFlowBlockedPublicationToken({
+  return visiblePublicationTokenIssuer.createBlockedPublicationToken({
     blockedReasons,
     frozenFrameId,
     projectionSample,
@@ -300,11 +299,11 @@ function createGpuFlowVisibleFrameBlockedPublicationToken({
 }
 
 function createGpuFlowVisiblePublicationCompletionCommitToken({
-  presentableCommit,
+  commitAuthorityProof,
   publicationDecision,
   visibleProjectionState,
 }: {
-  readonly presentableCommit: GpuFlowPresentableCommit;
+  readonly commitAuthorityProof: GpuFlowCommitAuthorityProof;
   readonly publicationDecision: {
     readonly sample: GpuFlowLiveProjectionSample;
   };
@@ -316,16 +315,20 @@ function createGpuFlowVisiblePublicationCompletionCommitToken({
     );
   }
   if (
-    presentableCommit.committedFrameId !==
-      visibleProjectionState.committedFrame.displayFrameId ||
-    presentableCommit.projectionSampleId !== publicationDecision.sample.id
+    commitAuthorityProof.expectedActorSetDigest !==
+      visibleProjectionState.committedFrame.presentationProof
+        .actorManifestDigest ||
+    commitAuthorityProof.presentationPairProof.projectionSampleId !==
+      publicationDecision.sample.id
   ) {
     throw new Error(
-      "GPU Flow committed publication completion requires a presentable commit proof for the selected visible frame and projection sample.",
+      "GPU Flow committed publication completion requires a commit authority proof for the selected visible frame and projection sample.",
     );
   }
-  return createGpuFlowCommitPublicationToken({
-    presentableCommit,
+  return visiblePublicationTokenIssuer.createCommitPublicationToken({
+    commitAuthorityProof,
+    frame: visibleProjectionState.committedFrame,
+    projectionSample: publicationDecision.sample,
   });
 }
 
@@ -371,16 +374,11 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
       "GPU Flow committed publication completion requires the transaction oracle commit proof.",
     );
   }
-  const presentableCommit = createGpuFlowPresentableCommit({
-    frame: visibleProjectionState.committedFrame,
-    commitAuthorityProof: commitOracle.commitAuthorityProof,
-    projectionSample: publicationDecision.sample,
-  });
   return {
     debtProof: commitOracle.debtProof,
     kind: "commit",
     token: createGpuFlowVisiblePublicationCompletionCommitToken({
-      presentableCommit,
+      commitAuthorityProof: commitOracle.commitAuthorityProof,
       publicationDecision,
       visibleProjectionState,
     }),

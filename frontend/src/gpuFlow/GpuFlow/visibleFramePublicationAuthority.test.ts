@@ -61,10 +61,6 @@ const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
   "createGpuFlowVisibleFrameCommitPublicationToken",
   "createGpuFlowVisibleFrameHoldPreviousToken",
 ] as const;
-const PRODUCTION_TOKEN_CONSTRUCTOR_IMPORTERS = new Set([
-  "GpuFlow/visibleFramePublicationKernel.ts",
-  "GpuFlow/visibleFramePublicationKernelPresentation.ts",
-]);
 const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([
   "GpuFlow/visibleFramePublicationKernel.ts",
   "GpuFlow/visibleFramePublicationKernelPresentation.ts",
@@ -103,10 +99,17 @@ const PRODUCTION_PREPARED_COMMITTED_SURFACE_FRAME_COMMITTERS = new Set([
 describe("GPU Flow visible publication authority boundaries", () => {
   it("keeps raw publication token constructors out of the public token module", () => {
     const tokenModuleSource = readFileSync(TOKEN_MODULE_PATH, "utf8");
+    const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
 
     for (const constructorName of TOKEN_CONSTRUCTOR_NAMES) {
       expect(tokenModuleSource).not.toContain(constructorName);
+      expect(authoritySource).not.toContain(
+        `export function ${constructorName}`,
+      );
     }
+    expect(authoritySource).toContain(
+      "export function createGpuFlowVisiblePublicationTokenIssuer",
+    );
   });
 
   it("imports raw token constructors only from the publication authority module", () => {
@@ -159,9 +162,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
         return [];
       }
       const relativePath = relativeGpuFlowPath(filePath);
-      if (PRODUCTION_TOKEN_CONSTRUCTOR_IMPORTERS.has(relativePath)) {
-        return [];
-      }
       return [
         `${relativePath} imports raw publication token constructors ${[
           ...new Set(importedConstructors),
@@ -566,7 +566,10 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "createGpuFlowNodeLayerFrameRetainedProjectionBlockedResult",
     );
     expect(kernelSource).toContain(
-      "createGpuFlowContentPublicationBlockedCandidateSelector",
+      "selectGpuFlowContentPublicationBlockedCandidate",
+    );
+    expect(kernelSource).not.toContain(
+      "export function createGpuFlowContentPublicationBlockedCandidateSelector",
     );
     expect(kernelSource).toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
@@ -1155,7 +1158,7 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
 function readCommittedSurfaceAuthorityCandidateSource(): string {
   const source = readFileSync(KERNEL_CONTENT_DECISION_MODULE_PATH, "utf8");
   const candidateStart = source.indexOf(
-    "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
+    "function prepareGpuFlowCommittedSurfacePublicationCandidate",
   );
   expect(candidateStart).toBeGreaterThanOrEqual(0);
   return source.slice(candidateStart);

@@ -1,4 +1,21 @@
-import type { GpuFlowProjectionFrameTransaction } from "./visibleFramePublicationKernel";
+import type {
+  GpuFlowHeldPreviousProjection,
+  GpuFlowProjectionTransaction,
+} from "../projectionRuntime";
+import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
+import type { GpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
+import type { GpuFlowVisibleFramePublicationMotionCandidate } from "./visibleFramePublicationOracle";
+
+export type GpuFlowProjectionFrameTransaction = {
+  readonly blockedReason: string | null;
+  readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
+  readonly retainedProjectionFrame: GpuFlowRetainedProjectionFrame;
+  readonly transaction: GpuFlowProjectionTransaction;
+};
+
+export type GpuFlowRetainedProjectionFrameResolver = (input: {
+  readonly transaction: GpuFlowProjectionTransaction;
+}) => GpuFlowRetainedProjectionFrame;
 
 export type GpuFlowProjectionFrameRenderPlan =
   {
@@ -13,36 +30,25 @@ export type GpuFlowProjectionFrameRenderablePlan = Extract<
   { readonly kind: "render" }
 >;
 
-export type GpuFlowProjectionFrameRenderPlanSelector = (input: {
-  readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
-}) => GpuFlowProjectionFrameRenderPlan;
-
-export function createGpuFlowProjectionFrameRenderPlanSelector(): GpuFlowProjectionFrameRenderPlanSelector {
-  return selectGpuFlowProjectionFrameRenderPlan;
-}
-
-function selectGpuFlowProjectionFrameRenderPlan({
-  projectionFrameTransaction,
-}: {
-  readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
-}): GpuFlowProjectionFrameRenderPlan {
-  assertGpuFlowProjectionFrameTransactionRenderable(
-    projectionFrameTransaction,
-  );
-  return {
-    heldPreviousProjection: projectionFrameTransaction.heldPreviousProjection,
-    kind: "render" as const,
-    retainedProjectionFrame: projectionFrameTransaction.retainedProjectionFrame,
-    transaction: projectionFrameTransaction.transaction,
-  };
-}
-
-function assertGpuFlowProjectionFrameTransactionRenderable(
-  projectionFrameTransaction: GpuFlowProjectionFrameTransaction,
-): void {
-  if (projectionFrameTransaction.blockedReason !== null) {
-    throw new Error(
-      "GPU Flow projection frame render plans require a nonblocked projection transaction.",
-    );
-  }
-}
+export type GpuFlowMotionProjectionFramePreparation<
+  MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
+> =
+  | {
+      readonly frame: MotionProjectionFrame;
+      readonly kind: "not-rendered";
+    }
+  | {
+      readonly createBlockedProjectionFrame: (input: {
+        readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
+      }) => MotionProjectionFrame;
+      readonly hasActiveRetainedDomControl: boolean;
+      readonly kind: "render";
+      readonly requestedProjectionCoverageMissing: boolean;
+      readonly requestedProjectionFrame: GpuFlowProjectionFrameTransaction["retainedProjectionFrame"];
+      readonly requestedTransaction: GpuFlowProjectionTransaction;
+      readonly resolveHeldRetainedProjectionFrame: GpuFlowRetainedProjectionFrameResolver;
+      readonly renderProjectionFrame: (input: {
+        readonly projectionFrameRenderPlan: GpuFlowProjectionFrameRenderablePlan;
+        readonly requestedProjectionTransaction: GpuFlowProjectionTransaction;
+      }) => MotionProjectionFrame;
+    };

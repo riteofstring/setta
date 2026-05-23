@@ -14,6 +14,7 @@ import {
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
+import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import { chooseZoomBucket } from "../textureResolution";
 import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
@@ -27,7 +28,6 @@ import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRunti
 import type { GpuFlowColdStartShellFrame } from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowContentPublicationFrameResult,
-  hasActiveGpuFlowRetainedDomControlPublicationProof,
   resolveGpuFlowRetainedProjectionFrame,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   shouldConsiderGpuFlowDeferredContentPublication,
@@ -380,9 +380,9 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
       createGpuFlowMotionProjectionFrameResult({
         blockedPublicationCandidate,
         rendered: false,
-      }),
+    }),
     hasActiveRetainedDomControl:
-      hasActiveGpuFlowRetainedDomControlPublicationProof(retainedDisplayFrame),
+      hasActiveGpuFlowRetainedDomControlCandidate(retainedDisplayFrame),
     kind: "render",
     requestedProjectionCoverageMissing:
       requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
@@ -411,6 +411,14 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
         viewportStore,
       }),
   };
+}
+
+function hasActiveGpuFlowRetainedDomControlCandidate(
+  retainedDisplayFrame: RetainedDisplayFrame,
+): boolean {
+  return retainedDisplayFrame.retainedRuntimeFrame.descriptors.domControlSources.some(
+    (control) => control.active,
+  );
 }
 
 function renderGpuFlowSurfaceMotionProjectionFrame({

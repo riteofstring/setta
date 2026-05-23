@@ -22,16 +22,3 @@ export type GpuFlowCommittedSurfacePublicationCandidateAction =
       readonly kind: "held-previous";
       readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
     };
-
-export function assertGpuFlowCommittedSurfacePublicationCandidatePublished(
-  candidate: GpuFlowCommittedSurfacePublicationCandidate,
-): asserts candidate is Extract<
-  GpuFlowCommittedSurfacePublicationCandidate,
-  { readonly kind: "publish" }
-> {
-  if (candidate.kind !== "publish") {
-    throw new Error(
-      "GPU Flow committed surface publication continued without a publish candidate.",
-    );
-  }
-}

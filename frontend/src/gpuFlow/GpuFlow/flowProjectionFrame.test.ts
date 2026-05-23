@@ -17,9 +17,6 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
-  assertGpuFlowMotionProjectionFrameWork,
-  createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector,
-  hasActiveGpuFlowRetainedDomControlPublicationProof,
   isGpuFlowRetainedProjectionSurfaceCovered,
   resolveGpuFlowRetainedProjectionFrame,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
@@ -62,60 +59,6 @@ describe("GPU flow projection frame coverage", () => {
         surface,
       }),
     ).toBe(false);
-  });
-
-  it("rejects uploads and resource churn during projection-only frames", () => {
-    const selectMotionProjectionFrameWorkBlockedReason =
-      createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector();
-    expect(
-      selectMotionProjectionFrameWorkBlockedReason({
-        layerResult: projectionLayerResult({
-          uploadedNodeIds: ["node-a"],
-        }),
-        projectionLane: "motion",
-        transactionKind: "motion-projection",
-      }),
-    ).toBe("projection-only-content-work");
-
-    expect(() =>
-      assertGpuFlowMotionProjectionFrameWork({
-        layerResult: projectionLayerResult({
-          uploadedNodeIds: ["node-a"],
-        }),
-        projectionLane: "motion",
-        transactionKind: "motion-projection",
-      }),
-    ).toThrow(/forbidden content work/);
-
-    expect(() =>
-      assertGpuFlowMotionProjectionFrameWork({
-        layerResult: projectionLayerResult({
-          uploadedNodeIds: ["node-a"],
-        }),
-        projectionLane: "maintenance",
-        transactionKind: "content-publication",
-      }),
-    ).not.toThrow();
-    expect(
-      selectMotionProjectionFrameWorkBlockedReason({
-        layerResult: projectionLayerResult({
-          uploadedNodeIds: ["node-a"],
-        }),
-        projectionLane: "maintenance",
-        transactionKind: "content-publication",
-      }),
-    ).toBeNull();
-
-    expect(() =>
-      assertGpuFlowMotionProjectionFrameWork({
-        layerResult: projectionLayerResult({
-          remainingDirtyNodeIds: ["node-a"],
-          skippedNodeIds: ["node-a"],
-        }),
-        projectionLane: "motion",
-        transactionKind: "held-previous",
-      }),
-    ).not.toThrow();
   });
 
   it("holds the previous frame for the requested projection sample when retained projection coverage is missing", () => {
@@ -389,7 +332,7 @@ function resolveGpuFlowProjectionFrameTransaction({
         });
       },
       hasActiveRetainedDomControl:
-        hasActiveGpuFlowRetainedDomControlPublicationProof(retainedDisplayFrame),
+        hasActiveGpuFlowRetainedDomControlCandidate(retainedDisplayFrame),
       kind: "render",
       requestedProjectionCoverageMissing:
         requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
@@ -483,6 +426,14 @@ function retainedSurface(
   } as RetainedContentTexturePageFrameSurface;
 }
 
+function hasActiveGpuFlowRetainedDomControlCandidate(
+  retainedDisplayFrame: RetainedDisplayFrame,
+): boolean {
+  return retainedDisplayFrame.retainedRuntimeFrame.descriptors.domControlSources.some(
+    (control) => control.active,
+  );
+}
+
 function retainedPages(
   rects: readonly RetainedDisplayFrame["drawRegions"][number]["page"]["descriptor"]["sourceRectCss"][],
 ): ReadonlyMap<string, RetainedDisplayFrame["drawRegions"][number]["page"]> {
@@ -498,23 +449,6 @@ function retainedPages(
   );
 }
 
-function projectionLayerResult(
-  overrides: Partial<
-    Parameters<typeof assertGpuFlowMotionProjectionFrameWork>[0]["layerResult"]
-  > = {},
-): Parameters<typeof assertGpuFlowMotionProjectionFrameWork>[0]["layerResult"] {
-  return {
-    budgetExhausted: false,
-    deferredNodeIds: [],
-    evictedTextureBytes: 0,
-    evictedTextureNodeIds: [],
-    missingElementNodeIds: [],
-    remainingDirtyNodeIds: [],
-    skippedNodeIds: [],
-    uploadedNodeIds: [],
-    ...overrides,
-  };
-}
 
 function liveSample({
   id,

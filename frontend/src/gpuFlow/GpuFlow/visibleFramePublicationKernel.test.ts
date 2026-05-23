@@ -15,8 +15,8 @@ import {
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
+import { createGpuFlowCommittedSurfacePublicationFramePlanPreparer } from "./visibleFramePublicationContentPlan";
 import {
-  prepareGpuFlowCommittedSurfacePublicationCandidate,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
@@ -25,6 +25,8 @@ import { createGpuFlowVisiblePublicationCommitOracleFactory } from "./visibleFra
 
 const createGpuFlowVisiblePublicationCommitOracle =
   createGpuFlowVisiblePublicationCommitOracleFactory();
+const prepareCommittedSurfacePublicationFramePlanForTest =
+  createGpuFlowCommittedSurfacePublicationFramePlanPreparer();
 
 describe("GPU Flow visible publication transaction kernel", () => {
   it("prepares motion and content candidate sets inside the kernel before completion", () => {
@@ -817,7 +819,7 @@ function prepareCommittedSurfacePublicationCandidateForTest({
   readonly liveSample?: GpuFlowLiveProjectionSample | undefined;
   readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame;
 }) {
-  return prepareGpuFlowCommittedSurfacePublicationCandidate({
+  return prepareCommittedSurfacePublicationFramePlanForTest({
     committedGpuNativeVisuals: undefined,
     frameReasons: ["manual"],
     heldPreviousProjectionState,
@@ -825,7 +827,7 @@ function prepareCommittedSurfacePublicationCandidateForTest({
     publicationLane: "content",
     publishedCommittedSurfaceFrame,
     publishedRetainedFrame: retainedDisplayFrame(),
-  });
+  }).candidate;
 }
 
 function blockedCommittedSurfaceFrame({

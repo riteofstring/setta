@@ -15,9 +15,15 @@ import {
   GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
 } from "./visibleFramePublicationAuthority";
-import type { GpuFlowCommittedSurfacePublicationEffect } from "./visibleFramePublicationContentPlan";
-import { prepareGpuFlowCommittedSurfacePublicationCandidate } from "./visibleFramePublicationKernel";
+import {
+  createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
+  type GpuFlowCommittedSurfacePublicationCandidateInput,
+  type GpuFlowCommittedSurfacePublicationEffect,
+} from "./visibleFramePublicationContentPlan";
 import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFramePublicationTestUtils";
+
+const prepareCommittedSurfacePublicationFramePlanForTest =
+  createGpuFlowCommittedSurfacePublicationFramePlanPreparer();
 
 describe("GPU Flow committed surface publication effect executor", () => {
   afterEach(() => {
@@ -322,7 +328,7 @@ function publicationCandidateInput({
 }: {
   readonly deferBrowserVisualRetry?: boolean | undefined;
   readonly timestamp: number;
-}): Parameters<typeof prepareGpuFlowCommittedSurfacePublicationCandidate>[0] {
+}): GpuFlowCommittedSurfacePublicationCandidateInput {
   const retainedFrame = {} as RetainedDisplayFrame;
   return {
     committedGpuNativeVisuals: undefined,
@@ -333,9 +339,13 @@ function publicationCandidateInput({
     publicationLane: "content",
     publishedCommittedSurfaceFrame: blockedCommittedSurfaceFrame(),
     publishedRetainedFrame: retainedFrame,
-  } as unknown as Parameters<
-    typeof prepareGpuFlowCommittedSurfacePublicationCandidate
-  >[0];
+  } as unknown as GpuFlowCommittedSurfacePublicationCandidateInput;
+}
+
+function prepareGpuFlowCommittedSurfacePublicationCandidate(
+  input: GpuFlowCommittedSurfacePublicationCandidateInput,
+) {
+  return prepareCommittedSurfacePublicationFramePlanForTest(input).candidate;
 }
 
 function applyPublicationEffect(
