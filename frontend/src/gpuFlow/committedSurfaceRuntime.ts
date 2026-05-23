@@ -57,6 +57,7 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     new Set<GpuFlowCommittedSurfaceRuntimeListener>();
   private publishCount = 0;
   private reactSemanticEmitQueued = false;
+  private reactSemanticEmitPending = false;
   private semanticSnapshot: GpuFlowReactSemanticSnapshot;
   private startupFrame: GpuFlowCommittedContentFrame;
 
@@ -145,6 +146,9 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     listener: GpuFlowCommittedSurfaceRuntimeListener,
   ): () => void {
     this.listeners.add(listener);
+    if (this.reactSemanticEmitPending && !this.reactSemanticEmitQueued) {
+      this.scheduleReactSemanticEmit();
+    }
     return () => {
       this.listeners.delete(listener);
     };
@@ -161,12 +165,17 @@ class DefaultGpuFlowCommittedSurfaceRuntime
   }
 
   private scheduleReactSemanticEmit(): void {
+    this.reactSemanticEmitPending = true;
     if (this.reactSemanticEmitQueued) {
       return;
     }
     this.reactSemanticEmitQueued = true;
     queueMicrotask(() => {
       this.reactSemanticEmitQueued = false;
+      if (this.listeners.size === 0) {
+        return;
+      }
+      this.reactSemanticEmitPending = false;
       this.emitReactSemanticSnapshot();
     });
   }

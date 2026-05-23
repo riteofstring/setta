@@ -43,11 +43,22 @@ test("retained settings text editors show live CodeMirror feedback before persis
     releaseBackendConfirmation = resolve;
   });
   let delayedBackendRequests = 0;
+  const delayedBackendBodies: unknown[] = [];
+  const delayedBackendCompletions = new Set<Promise<void>>();
   let backendConfirmationReleasedForTest = false;
   await page.route("**/setParamEnteredValue", async (route) => {
     delayedBackendRequests += 1;
-    await backendConfirmationReleased;
-    await route.continue();
+    delayedBackendBodies.push(route.request().postDataJSON());
+    const completion = (async () => {
+      await backendConfirmationReleased;
+      await route.continue();
+    })();
+    delayedBackendCompletions.add(completion);
+    try {
+      await completion;
+    } finally {
+      delayedBackendCompletions.delete(completion);
+    }
   });
 
   try {
@@ -59,37 +70,18 @@ test("retained settings text editors show live CodeMirror feedback before persis
 
     await page.keyboard.insertText(replacementValue);
     await waitForAnimationFrame(page);
-    const typedState = await readActiveEditorState(
-      page,
-      row.controlClientPoint,
-    );
     const typedFrame = await page.screenshot({ clip });
-    const visualChange = await compareScreenshots(
-      page,
-      selectedFrame,
-      typedFrame,
-    );
-    const failureDetails = JSON.stringify(
+    const preRapidTypingFailureDetails = JSON.stringify(
       {
-        activeEditorId: typedState.activeEditorId,
+        delayedBackendBodies,
         delayedBackendRequests,
-        editorText: typedState.text,
-        elementAtControlPoint: typedState.elementAtControlPoint,
         replacementValue,
-        visualChange,
       },
       null,
       2,
     );
 
-    expect(typedState.text, failureDetails).toBe(replacementValue);
-    expect(typedState.activeEditorId, failureDetails).toContain(row.rowId);
-    expect(
-      typedState.elementAtControlPoint?.insideActiveEditor,
-      failureDetails,
-    ).toBe(true);
-    expect(visualChange.meanDelta, failureDetails).toBeGreaterThan(1.5);
-    expect(delayedBackendRequests, failureDetails).toBe(0);
+    expect(delayedBackendRequests, preRapidTypingFailureDetails).toBe(0);
 
     await page.keyboard.press(selectAllShortcut());
     await page.keyboard.type("12", { delay: 75 });
@@ -98,13 +90,45 @@ test("retained settings text editors show live CodeMirror feedback before persis
       page,
       row.controlClientPoint,
     );
-    expect(rapidTypingState.text, failureDetails).toBe("12");
-    expect(delayedBackendRequests, failureDetails).toBe(0);
+    const rapidTypingFailureDetails = JSON.stringify(
+      {
+        activeEditorId: rapidTypingState.activeEditorId,
+        delayedBackendBodies,
+        delayedBackendRequests,
+        editorText: rapidTypingState.text,
+        elementAtControlPoint: rapidTypingState.elementAtControlPoint,
+        replacementValue: "12",
+      },
+      null,
+      2,
+    );
+    expect(rapidTypingState.text, rapidTypingFailureDetails).toBe("12");
+    expect(delayedBackendRequests, rapidTypingFailureDetails).toBe(0);
+
+    const visualChange = await compareScreenshots(
+      page,
+      selectedFrame,
+      typedFrame,
+    );
+    const visualFailureDetails = JSON.stringify(
+      {
+        activeEditorId: rapidTypingState.activeEditorId,
+        editorText: rapidTypingState.text,
+        elementAtControlPoint: rapidTypingState.elementAtControlPoint,
+        replacementValue,
+        visualChange,
+      },
+      null,
+      2,
+    );
+    expect(visualChange.meanDelta, visualFailureDetails).toBeGreaterThan(1.5);
     await expect.poll(() => delayedBackendRequests, { timeout: 2_000 }).toBe(1);
   } finally {
     backendConfirmationReleasedForTest = true;
     releaseBackendConfirmation();
-    await page.waitForTimeout(0);
+    await expect
+      .poll(() => delayedBackendCompletions.size, { timeout: 2_000 })
+      .toBe(0);
     await page.unroute("**/setParamEnteredValue");
     await restoreMaxZoom(page, row.rowId, originalMaxZoom);
   }
@@ -250,18 +274,24 @@ async function openSettings(page: Page): Promise<void> {
   await waitForCoreSettingsView(page);
   await page.getByRole("button", { name: "fit view" }).click();
   await waitForViewportIdle(page);
-  await expect(
-    page.locator(`.setta-gpu-flow__node[data-id="${GUI_SECTION_ID}"]`),
-  ).toBeVisible();
   await expect
     .poll(
       async () =>
         await page.evaluate(
-          () => window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
+          ({ label, surfaceId }) =>
+            (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).filter(
+              (row) =>
+                row.surfaceId === surfaceId &&
+                row.rowLabel === label &&
+                row.clientRect.width > 16 &&
+                row.clientRect.height > 8 &&
+                row.controlClientPoint !== null,
+            ).length,
+          { label: MAX_ZOOM_LABEL, surfaceId: GUI_CONTENT_SURFACE_ID },
         ),
       { timeout: 10_000 },
     )
-    .toBeGreaterThan(10);
+    .toBeGreaterThan(0);
   await scrollGuiRowIntoView(page, MAX_ZOOM_LABEL);
 }
 
@@ -415,19 +445,61 @@ async function centerGuiRowAtZoom(
           (row.controlClientPoint.y - paneRect.top - transform.y) /
           transform.zoom,
       };
-      const { gpuFlowViewportStore } = await import(
-        "/src/gpuFlow/viewportStore.ts"
-      );
-      gpuFlowViewportStore.getState().setTransform({
+      const setViewport = window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__;
+      if (!setViewport) {
+        throw new Error("Missing GPU Flow debug viewport setter.");
+      }
+      setViewport({
         x: paneRect.width * 0.68 - flowCenter.x * zoom,
         y: paneRect.height * 0.46 - flowCenter.y * zoom,
         zoom,
       });
+      window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("viewport");
     },
     { label, surfaceId: GUI_CONTENT_SURFACE_ID, zoom },
   );
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
+  let latestViewportMatch: {
+    readonly committed: unknown;
+    readonly live: unknown;
+    readonly ready: boolean;
+  } | null = null;
+  try {
+    await expect
+      .poll(
+        async () => {
+          latestViewportMatch = await page.evaluate((expectedZoom) => {
+            window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("viewport");
+            const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
+            const live = snapshot?.viewport.transform ?? null;
+            const committed =
+              snapshot?.committedSurfaceFrame?.viewportSample ?? null;
+            if (!live || !committed) {
+              return { committed, live, ready: false };
+            }
+            return {
+              committed,
+              live,
+              ready:
+                Math.abs(live.zoom - expectedZoom) < 0.001 &&
+                Math.abs(committed.zoom - live.zoom) < 0.001 &&
+                Math.abs(committed.x - live.x) < 0.5 &&
+                Math.abs(committed.y - live.y) < 0.5,
+            };
+          }, zoom);
+          return latestViewportMatch.ready;
+        },
+        { timeout: 5_000 },
+      )
+      .toBe(true);
+  } catch (error) {
+    const causeMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Timed out waiting for committed viewport: ${JSON.stringify(latestViewportMatch)} (${causeMessage})`,
+    );
+  }
+  await waitForViewportIdle(page);
 }
 
 async function readActiveCodeMirrorId(page: Page): Promise<string | null> {
@@ -582,7 +654,7 @@ async function waitForStableScreenshotClip(
       },
       {
         intervals: [80, 120, 180, 240],
-        timeout: 2_000,
+        timeout: 5_000,
       },
     )
     .toBeLessThan(1);

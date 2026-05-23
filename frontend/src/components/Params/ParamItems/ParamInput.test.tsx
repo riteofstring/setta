@@ -12,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type CapturedParamUIProps = {
   onChange: (value: unknown, options?: { skipBackendUpdate?: boolean }) => void;
+  onTextInputActivity?: () => void;
   onTextInputBlur?: () => void;
   onDropzoneStateless?: (
     attachments: Array<
@@ -264,7 +265,7 @@ describe("ParamInput", () => {
     try {
       await act(async () => {
         requireParamUIProps().onChange("next value");
-        vi.advanceTimersByTime(249);
+        vi.advanceTimersByTime(1_499);
         await Promise.resolve();
       });
       expect(
@@ -308,9 +309,9 @@ describe("ParamInput", () => {
     try {
       await act(async () => {
         requireParamUIProps().onChange("n");
-        vi.advanceTimersByTime(125);
+        vi.advanceTimersByTime(750);
         requireParamUIProps().onChange("next");
-        vi.advanceTimersByTime(249);
+        vi.advanceTimersByTime(1_499);
         await Promise.resolve();
       });
       expect(
@@ -323,6 +324,44 @@ describe("ParamInput", () => {
       });
 
       expect(mocks.pendingValues).toEqual(["n", "next"]);
+      expect(
+        mocks.dispatchOptimisticProjectStateUpdateMock,
+      ).toHaveBeenCalledTimes(1);
+      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
+        body: {
+          frontendOpId: "frontend-op-1",
+          paramInfoId: "param-1",
+          projectConfigId: "project-config-1",
+          sectionId: "section-1",
+          sectionVariantId: "section-variant-1",
+          value: "next",
+        },
+      });
+    } finally {
+      await cleanupRenderedParamInput(rendered);
+    }
+  });
+
+  it("keeps pending text param persistence alive across editor selection activity", async () => {
+    const rendered = await renderParamInput();
+
+    try {
+      await act(async () => {
+        requireParamUIProps().onChange("next");
+        vi.advanceTimersByTime(1_000);
+        requireParamUIProps().onTextInputActivity?.();
+        vi.advanceTimersByTime(1_499);
+        await Promise.resolve();
+      });
+      expect(
+        mocks.dispatchOptimisticProjectStateUpdateMock,
+      ).not.toHaveBeenCalled();
+
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+        await Promise.resolve();
+      });
+
       expect(
         mocks.dispatchOptimisticProjectStateUpdateMock,
       ).toHaveBeenCalledTimes(1);

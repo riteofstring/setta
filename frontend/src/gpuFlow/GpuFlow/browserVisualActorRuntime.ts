@@ -181,6 +181,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     new Set<BrowserVisualActorRuntimeListener>();
   private snapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
   private snapshotEmitQueued = false;
+  private snapshotEmitPending = false;
   private snapshotPublicationToken: GpuFlowCommitPublicationToken | null = null;
   private suspendPassivePointerActivation = false;
 
@@ -211,6 +212,9 @@ export class GpuFlowBrowserVisualActorRuntime {
 
   subscribe(listener: BrowserVisualActorRuntimeListener): () => void {
     this.listeners.add(listener);
+    if (this.snapshotEmitPending && !this.snapshotEmitQueued) {
+      this.scheduleSnapshotEmit();
+    }
     return () => {
       this.listeners.delete(listener);
     };
@@ -973,12 +977,17 @@ export class GpuFlowBrowserVisualActorRuntime {
   }
 
   private scheduleSnapshotEmit(): void {
+    this.snapshotEmitPending = true;
     if (this.snapshotEmitQueued) {
       return;
     }
     this.snapshotEmitQueued = true;
     queueMicrotask(() => {
       this.snapshotEmitQueued = false;
+      if (this.listeners.size === 0) {
+        return;
+      }
+      this.snapshotEmitPending = false;
       this.emitSnapshot();
     });
   }
@@ -1059,8 +1068,9 @@ function applyVisibleGpuFlowDomControlHostPresentation({
   element.dataset.gpuFlowDomControl = "true";
   delete element.dataset.gpuFlowDomControlPreparation;
   element.dataset.gpuFlowDomControlId = control.sourceId;
-  element.dataset.gpuFlowDomControlFocusable =
-    control.visualSemantics.focusable ? "true" : "false";
+  element.dataset.gpuFlowDomControlFocusable = control.visualSemantics.focusable
+    ? "true"
+    : "false";
   element.dataset.gpuFlowDomControlPointerSemantics =
     control.visualSemantics.pointer;
   element.dataset.gpuFlowDomControlRowId = control.rowId;

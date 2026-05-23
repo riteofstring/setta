@@ -72,6 +72,7 @@ type ParamUIProps = {
   paramInfoId: string;
   value: string;
   onChange: ParamValueChange;
+  onTextInputActivity?: () => void;
   onTextInputBlur?: () => void;
   onDropzoneStateless?: (attachments: DropzoneStatelessAttachment[]) => void;
   onRevealPassword?: () => void;
@@ -246,6 +247,7 @@ function renderTextLikeParam({
   paramInfoId,
   value,
   onChange,
+  onTextInputActivity,
   onTextInputBlur,
   onEscape,
   maybeErrorMessage,
@@ -268,6 +270,7 @@ function renderTextLikeParam({
       value={value}
       defaultVal={paramUiState.defaultVal}
       onChange={onChange}
+      onActivity={onTextInputActivity}
       onBlur={onTextInputBlur}
       onEscape={onEscape}
       maybeErrorMessage={maybeErrorMessage}

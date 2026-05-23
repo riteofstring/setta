@@ -27,6 +27,7 @@ import {
   commitParamInputValueChange,
   flushPendingParamInputValueChange,
   getParamInputPreviewState,
+  touchPendingParamInputValueChange,
   type ParamInputPreviewState,
 } from "./paramValueUpdates";
 
@@ -277,6 +278,18 @@ function _ParamInput({
       sectionVariantId: previewParamState.sectionVariantId,
     });
   }
+  function onTextInputActivity() {
+    if (!hasPreviewParamState || isPasswordParam) {
+      return;
+    }
+    touchPendingParamInputValueChange({
+      codeObjVariantId,
+      paramInfoId,
+      projectConfigId,
+      sectionId,
+      sectionVariantId: previewParamState.sectionVariantId,
+    });
+  }
   function onRevealPassword() {
     if (!hasPreviewParamState || !isPasswordParam || isRevealing || value) {
       return;
@@ -312,6 +325,7 @@ function _ParamInput({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
+      onTextInputActivity={onTextInputActivity}
       onTextInputBlur={onTextInputBlur}
       onDropzoneStateless={onDropzoneStateless}
       onRevealPassword={onRevealPassword}

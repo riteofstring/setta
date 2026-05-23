@@ -1,6 +1,6 @@
+import { createGpuFlowCanonicalActorId } from "../committedSurfaceActorIdentity";
 import type { GpuFlowTextControlCompatibilityProof } from "../projectionRuntime";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
-import { createGpuFlowCanonicalActorId } from "../committedSurfaceActorIdentity";
 import type { GpuRect } from "../viewportMath";
 import type { GpuFlowDomControlProjectionAssignment } from "./domControlPlaneProjection";
 import { DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS } from "./domControlProjectionHorizon";
@@ -56,6 +56,9 @@ export function resolveGpuFlowDomControlCompatiblePreviousAssignments({
 function canUseGpuFlowDomControlCompatiblePreviousCoverage(
   assignment: GpuFlowDomControlProjectionAssignment,
 ): boolean {
+  if (assignment.reason === "near-future-live") {
+    return false;
+  }
   return (
     assignment.coverageState === "blocked-awaiting-browser-visual" ||
     assignment.coverageState === "blocked-awaiting-live-host"

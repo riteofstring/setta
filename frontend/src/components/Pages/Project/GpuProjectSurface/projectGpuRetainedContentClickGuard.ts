@@ -2,15 +2,21 @@ import { GPU_FLOW_CLASS_NAMES } from "gpuFlow/gpuFlowDomClasses";
 import { hitTestGpuRetainedContentInteraction } from "gpuFlow/interactions/retainedContentInteraction";
 import type { GpuRetainedRuntimeFrame } from "gpuFlow/retainedRuntimeFrame";
 import type { GpuFlowScene } from "gpuFlow/scene";
-import type { MouseEvent as ReactMouseEvent } from "react";
+
+type ProjectRetainedContentPointerEvent = Pick<
+  PointerEvent,
+  "clientX" | "clientY"
+>;
 
 export function isProjectRetainedContentClickPoint({
   event,
+  forceCurrentScene = false,
   getRetainedRuntimeFrame,
   root,
   scene,
 }: {
-  readonly event: ReactMouseEvent<HTMLElement>;
+  readonly event: ProjectRetainedContentPointerEvent;
+  readonly forceCurrentScene?: boolean | undefined;
   readonly getRetainedRuntimeFrame:
     | (() => GpuRetainedRuntimeFrame | null | undefined)
     | undefined;
@@ -27,6 +33,7 @@ export function isProjectRetainedContentClickPoint({
     hitTestGpuRetainedContentInteraction({
       element: pane,
       event,
+      forceCurrentScene,
       getRetainedRuntimeFrame,
       getScene: () => scene,
     }) !== null

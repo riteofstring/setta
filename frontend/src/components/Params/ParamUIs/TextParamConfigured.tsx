@@ -17,6 +17,7 @@ export function TextParamConfigured({
   value,
   defaultVal,
   onChange,
+  onActivity,
   onBlur,
   onEscape,
   maybeErrorMessage,
@@ -34,6 +35,7 @@ export function TextParamConfigured({
   value: string;
   defaultVal: string;
   onChange: ParamValueChange;
+  onActivity?: (() => void) | undefined;
   onBlur?: () => void;
   onEscape: () => void;
   maybeErrorMessage: string | undefined;
@@ -66,6 +68,7 @@ export function TextParamConfigured({
         value={value}
         defaultVal={defaultVal}
         onChange={onChange}
+        onActivity={onActivity}
         onBlur={onBlur}
         onMouseDown={undefined}
         onEscape={(completionResult) => {

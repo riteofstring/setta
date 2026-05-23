@@ -228,7 +228,11 @@ export function GpuProjectSurface() {
   );
   const handleActiveParamDomIslandChange = useCallback(
     (island: ProjectGpuActiveParamDomIsland | null) => {
-      setActiveParamDomIsland(island);
+      setActiveParamDomIsland((current) =>
+        areProjectGpuActiveParamDomIslandsEquivalent(current, island)
+          ? current
+          : island,
+      );
       if (island) {
         setActiveParamCanvasControl(null);
         setActiveParamCanvasPopup(null);
@@ -317,7 +321,16 @@ export function GpuProjectSurface() {
       onPointerDownCapture={(event) => {
         if (
           activeParamDomIsland &&
-          shouldClearProjectGpuActiveParamDomIslandOnPointerDown(event.target)
+          shouldClearProjectGpuActiveParamDomIslandOnPointerDown(
+            event.target,
+          ) &&
+          !isProjectRetainedContentClickPoint({
+            event,
+            forceCurrentScene: true,
+            root: rootRef.current,
+            getRetainedRuntimeFrame,
+            scene: layoutAdapter.scene,
+          })
         ) {
           setActiveParamDomIsland(null);
         }
@@ -326,6 +339,7 @@ export function GpuProjectSurface() {
         if (
           isProjectRetainedContentClickPoint({
             event,
+            forceCurrentScene: true,
             root: rootRef.current,
             getRetainedRuntimeFrame,
             scene: layoutAdapter.scene,
@@ -707,6 +721,27 @@ function ProjectGpuFlowLayer({
       selectionDrag={selectionDragOptions}
       uploadBudget={PROJECT_GPU_NODE_UPLOAD_BUDGET}
     />,
+  );
+}
+
+function areProjectGpuActiveParamDomIslandsEquivalent(
+  left: ProjectGpuActiveParamDomIsland | null,
+  right: ProjectGpuActiveParamDomIsland | null,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right) {
+    return false;
+  }
+  return (
+    left.hitRecordId === right.hitRecordId &&
+    left.paramInfoId === right.paramInfoId &&
+    left.sectionId === right.sectionId &&
+    left.surfaceId === right.surfaceId &&
+    left.activation?.kind === right.activation?.kind &&
+    left.activation?.clientPoint.x === right.activation?.clientPoint.x &&
+    left.activation?.clientPoint.y === right.activation?.clientPoint.y
   );
 }
 

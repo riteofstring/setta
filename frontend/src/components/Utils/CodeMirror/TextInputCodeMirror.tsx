@@ -29,6 +29,7 @@ export function TextInputCodeMirror({
   value,
   defaultVal,
   onChange,
+  onActivity,
   onBlur,
   onMouseDown,
   dummyCodeClassName,
@@ -158,6 +159,7 @@ export function TextInputCodeMirror({
           value={value}
           defaultVal={defaultVal}
           onChange={onChange}
+          onActivity={onActivity}
           className={realCodeClassName}
           singleLine={singleLine}
           wrapLines={wrapLines}
@@ -364,6 +366,7 @@ function CoreCodeMirror({
   singleLine,
   wrapLines,
   keyComboActions,
+  onActivity,
   onEscape,
   onBlur,
   onTab,
@@ -399,6 +402,7 @@ function CoreCodeMirror({
     wrapLines,
     tabToAutocomplete: true,
     keyComboActions,
+    onActivity,
     onTab,
     onEscape,
   });
@@ -433,6 +437,7 @@ function CoreCodeMirror({
       ]}
       onChange={onChange}
       onBlur={onBlur}
+      onKeyDownCapture={onActivity}
       indentWithTab={false} // I take care of this in getExtensions
       tabIndex={0} // keep focusable for tab navigation
     />

@@ -93,6 +93,34 @@ describe("GPU Flow committed surface runtime", () => {
     expect(semanticFrameIds).toEqual([3]);
   });
 
+  it("keeps deferred React semantic updates pending until a subscriber attaches", async () => {
+    const startupFrame = committedFrame({ displayFrameId: 1 });
+    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const nextFrame = committedFrame({
+      actorGenerations: [committedActor("actor-next")],
+      displayFrameId: 2,
+    });
+
+    expect(
+      runtime.publishCommittedContentFrame(
+        publicationToken(nextFrame),
+        nextFrame,
+      ),
+    ).toBe(true);
+    await nextMicrotask();
+
+    const semanticFrameIds: number[] = [];
+    runtime.subscribeReactSemanticSnapshot(() => {
+      semanticFrameIds.push(
+        runtime.getReactSemanticSnapshot().frame.displayFrameId,
+      );
+    });
+
+    expect(semanticFrameIds).toEqual([]);
+    await nextMicrotask();
+    expect(semanticFrameIds).toEqual([2]);
+  });
+
   it("notifies committed-frame subscribers for render-signature deduped frames", () => {
     const startupFrame = committedFrame({ displayFrameId: 1 });
     const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);

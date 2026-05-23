@@ -5,8 +5,10 @@ import { describe, expect, it } from "vitest";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { createGpuFlowBrowserVisualActorRuntime } from "./browserVisualActorRuntime";
 import {
+  committedSurfaceFrame,
   createMockViewportRuntime,
   domControl,
+  publicationToken,
   retainedDisplayFrame,
   retainedRuntimeFrame,
 } from "./domControlPlaneProjectionRuntimeTestUtils";
@@ -93,4 +95,51 @@ describe("GPU flow DOM control projection runtime publication", () => {
       }),
     );
   });
+
+  it("keeps deferred visible snapshot updates pending until a subscriber attaches", async () => {
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const control = domControl({ index: 0 });
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const frame = committedSurfaceFrame({
+      displayFrameId: 1,
+      retainedRuntimeFrame: retainedRuntimeFrame([control]),
+    });
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: frame.displayFrameId,
+        retainedRuntimeFrame: frame.retainedRuntimeFrame,
+      }),
+    });
+
+    browserVisualRuntime.commitPreparedBrowserVisualActors({
+      candidate,
+      token: publicationToken(frame),
+    });
+    await nextMicrotask();
+
+    const emittedFrameIds: number[] = [];
+    browserVisualRuntime.subscribe(() => {
+      emittedFrameIds.push(
+        browserVisualRuntime.getSnapshot().frameIds.committedFrameId,
+      );
+    });
+
+    expect(emittedFrameIds).toEqual([]);
+    await nextMicrotask();
+    expect(emittedFrameIds).toEqual([1]);
+  });
 });
+
+async function nextMicrotask(): Promise<void> {
+  await Promise.resolve();
+}

@@ -53,7 +53,7 @@ type StandardParamPersistenceQueueEntry = {
   timer: ReturnType<typeof setTimeout> | null;
 };
 
-const PARAM_VALUE_PERSISTENCE_IDLE_MS = 250;
+const PARAM_VALUE_PERSISTENCE_IDLE_MS = 1_500;
 const standardParamPersistenceQueues = new Map<
   string,
   StandardParamPersistenceQueueEntry
@@ -268,6 +268,38 @@ export function flushPendingParamInputValueChange({
     entry.timer = null;
   }
   flushStandardParamPersistenceQueue(key, entry);
+}
+
+export function touchPendingParamInputValueChange({
+  codeObjVariantId,
+  paramInfoId,
+  projectConfigId,
+  sectionId,
+  sectionVariantId,
+}: {
+  readonly codeObjVariantId: string | null;
+  readonly paramInfoId: string;
+  readonly projectConfigId: string;
+  readonly sectionId: string;
+  readonly sectionVariantId: string | null;
+}) {
+  if (!codeObjVariantId || !sectionVariantId) {
+    return;
+  }
+  const key = getStandardParamPersistenceKey({
+    codeObjVariantId,
+    paramInfoId,
+    projectConfigId,
+    sectionId,
+    sectionVariantId,
+    value: "",
+  });
+  const entry = standardParamPersistenceQueues.get(key);
+  if (!entry || entry.inflight) {
+    return;
+  }
+  entry.lastUpdatedAt = Date.now();
+  scheduleStandardParamPersistenceFlush(key, entry);
 }
 
 function getStandardParamPersistenceKey({

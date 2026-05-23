@@ -59,6 +59,7 @@ type GetExtensionsOptions = {
   tabToAutocomplete?: boolean;
   indentWithTab?: boolean;
   keyComboActions?: Record<string, (text: string) => boolean | void>;
+  onActivity?: () => void;
   onTab?: (text: string, completionResult: boolean) => void;
   onEnter?: (text: string, completionResult: boolean) => void;
   onEscape?: (status: ReturnType<typeof completionStatus>) => void;
@@ -101,6 +102,7 @@ export function getExtensions({
   onTab,
   onEnter,
   onEscape,
+  onActivity,
   keyComboActions,
   isDisabled,
   useJsx,
@@ -143,6 +145,16 @@ export function getExtensions({
 
   if (isDisabled) {
     extensions.push(EditorState.readOnly.of(true));
+  }
+
+  if (onActivity) {
+    extensions.push(
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged || update.selectionSet) {
+          onActivity();
+        }
+      }),
+    );
   }
 
   const keymapArray = getKeyMapArray({
