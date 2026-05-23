@@ -42,6 +42,7 @@ export const DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS: GpuFlowProjectionSched
   });
 
 const GPU_FLOW_CONTENT_BLOCKED_RETRY_DELAY_MULTIPLIER = 2;
+const GPU_FLOW_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER = 2;
 
 export type GpuFlowVisiblePublicationDecision = {
   readonly debt: GpuFlowVisiblePublicationDebt;
@@ -115,15 +116,18 @@ export function createGpuFlowVisiblePublicationScheduler({
   let lastContentAtMs: number | null = null;
   let lastMotionAtMs: number | null = null;
   let contentRetryBlockedUntilMs: number | null = null;
+  let motionRetryBlockedUntilMs: number | null = null;
   let consecutiveMotionFrames = 0;
 
   function currentState({
     contentRetryDeferred,
+    motionRetryDeferred,
     rawReasons,
     timestamp,
     viewportInteractionActive,
   }: {
     readonly contentRetryDeferred: boolean;
+    readonly motionRetryDeferred: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
     readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
@@ -132,6 +136,7 @@ export function createGpuFlowVisiblePublicationScheduler({
     const priorityState = selectGpuFlowProjectionPrioritySchedulerState({
       contentRetryDeferred,
       motionSettling,
+      motionRetryDeferred,
       rawReasons,
       timestamp,
       viewportInteractionActive,
@@ -142,24 +147,28 @@ export function createGpuFlowVisiblePublicationScheduler({
     return selectGpuFlowProjectionDebtSchedulerState({
       contentRetryDeferred,
       motionSettling,
+      motionRetryDeferred,
     });
   }
 
   function selectGpuFlowProjectionPrioritySchedulerState({
     contentRetryDeferred,
     motionSettling,
+    motionRetryDeferred,
     rawReasons,
     timestamp,
     viewportInteractionActive,
   }: {
     readonly contentRetryDeferred: boolean;
     readonly motionSettling: boolean;
+    readonly motionRetryDeferred: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
     readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
   }): GpuFlowProjectionSchedulerState | null {
     if (
       hasCurrentGpuFlowProjectionMotion({
+        motionRetryDeferred,
         rawReasons,
         viewportInteractionActive,
       })
@@ -171,6 +180,7 @@ export function createGpuFlowVisiblePublicationScheduler({
         contentDebt,
         contentRetryDeferred,
         motionDebt,
+        motionRetryDeferred,
       })
     ) {
       return "motion-active";
@@ -214,11 +224,13 @@ export function createGpuFlowVisiblePublicationScheduler({
   function selectGpuFlowProjectionDebtSchedulerState({
     contentRetryDeferred,
     motionSettling,
+    motionRetryDeferred,
   }: {
     readonly contentRetryDeferred: boolean;
     readonly motionSettling: boolean;
+    readonly motionRetryDeferred: boolean;
   }): GpuFlowProjectionSchedulerState {
-    if (motionDebt) {
+    if (motionDebt && !motionRetryDeferred) {
       return "motion-active";
     }
     if (motionSettling) {
@@ -267,14 +279,17 @@ export function createGpuFlowVisiblePublicationScheduler({
   }
 
   function hasCurrentGpuFlowProjectionMotion({
+    motionRetryDeferred,
     rawReasons,
     viewportInteractionActive,
   }: {
+    readonly motionRetryDeferred: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
     readonly viewportInteractionActive: boolean;
   }): boolean {
     return (
-      viewportInteractionActive || rawReasons.some(isGpuFlowMotionFrameReason)
+      !motionRetryDeferred &&
+      (viewportInteractionActive || rawReasons.some(isGpuFlowMotionFrameReason))
     );
   }
 
@@ -308,6 +323,7 @@ export function createGpuFlowVisiblePublicationScheduler({
       });
       if (outcome.debtProof.motion) {
         motionDebt = false;
+        motionRetryBlockedUntilMs = null;
         lastMotionAtMs = decision.sample.timestamp;
         consecutiveMotionFrames += 1;
       }
@@ -343,12 +359,27 @@ export function createGpuFlowVisiblePublicationScheduler({
           token: outcome.token,
         });
       }
-      if (shouldThrottleGpuFlowContentRetryAfterUncommittedFrame(decision, outcome)) {
+      if (
+        shouldThrottleGpuFlowContentRetryAfterUncommittedFrame(
+          decision,
+          outcome,
+        )
+      ) {
         contentRetryBlockedUntilMs = Math.max(
           contentRetryBlockedUntilMs ?? 0,
           decision.sample.timestamp +
             schedulerKnobs.motionSettleWindowMs *
               GPU_FLOW_CONTENT_BLOCKED_RETRY_DELAY_MULTIPLIER,
+        );
+      }
+      if (
+        shouldThrottleGpuFlowMotionRetryAfterUncommittedFrame(decision, outcome)
+      ) {
+        motionRetryBlockedUntilMs = Math.max(
+          motionRetryBlockedUntilMs ?? 0,
+          decision.sample.timestamp +
+            schedulerKnobs.motionSettleWindowMs *
+              GPU_FLOW_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER,
         );
       }
       return createGpuFlowVisiblePublicationCompletion({
@@ -382,8 +413,16 @@ export function createGpuFlowVisiblePublicationScheduler({
       });
       contentRetryBlockedUntilMs = contentRetryBlock.blockedUntilMs;
       const { contentRetryDeferred } = contentRetryBlock;
+      const motionRetryBlock = resolveGpuFlowProjectionMotionRetryBlock({
+        hasCommittedContentFrame,
+        motionRetryBlockedUntilMs,
+        timestamp,
+      });
+      motionRetryBlockedUntilMs = motionRetryBlock.blockedUntilMs;
+      const { motionRetryDeferred } = motionRetryBlock;
       const schedulerState = currentState({
         contentRetryDeferred,
+        motionRetryDeferred,
         rawReasons,
         timestamp,
         viewportInteractionActive,
@@ -394,6 +433,7 @@ export function createGpuFlowVisiblePublicationScheduler({
         hasCommittedContentFrame,
         maintenanceDebt,
         motionDebt,
+        motionRetryDeferred,
         schedulerKnobs,
         schedulerState,
       });
@@ -451,6 +491,7 @@ function selectVisiblePublicationLane({
   hasCommittedContentFrame,
   maintenanceDebt,
   motionDebt,
+  motionRetryDeferred,
   schedulerKnobs,
   schedulerState,
 }: {
@@ -459,6 +500,7 @@ function selectVisiblePublicationLane({
   readonly hasCommittedContentFrame: boolean;
   readonly maintenanceDebt: boolean;
   readonly motionDebt: boolean;
+  readonly motionRetryDeferred: boolean;
   readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
   readonly schedulerState: GpuFlowProjectionSchedulerState;
 }): GpuFlowVisiblePublicationDecision["lane"] {
@@ -479,6 +521,7 @@ function selectVisiblePublicationLane({
         hasCommittedContentFrame,
         maintenanceDebt,
         motionDebt,
+        motionRetryDeferred,
         schedulerKnobs,
         schedulerState,
       });
@@ -507,7 +550,10 @@ function selectGpuFlowProjectionNonMotionSchedulerState({
   readonly maintenanceDebt: boolean;
 }): GpuFlowProjectionSchedulerState {
   if (contentDebt) {
-    return contentRetryDeferred ? "idle" : "content-catchup";
+    if (!contentRetryDeferred) {
+      return "content-catchup";
+    }
+    return maintenanceDebt ? "maintenance-drain" : "idle";
   }
   return maintenanceDebt ? "maintenance-drain" : "idle";
 }
@@ -528,6 +574,7 @@ function selectMotionPriorityVisiblePublicationLane({
   hasCommittedContentFrame,
   maintenanceDebt,
   motionDebt,
+  motionRetryDeferred,
   schedulerState,
   schedulerKnobs,
 }: {
@@ -536,6 +583,7 @@ function selectMotionPriorityVisiblePublicationLane({
   readonly hasCommittedContentFrame: boolean;
   readonly maintenanceDebt: boolean;
   readonly motionDebt: boolean;
+  readonly motionRetryDeferred: boolean;
   readonly schedulerState: GpuFlowProjectionSchedulerState;
   readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
 }): GpuFlowVisiblePublicationDecision["lane"] {
@@ -543,6 +591,7 @@ function selectMotionPriorityVisiblePublicationLane({
     shouldSelectGpuFlowMotionPriorityPublicationLane({
       hasCommittedContentFrame,
       motionDebt,
+      motionRetryDeferred,
       schedulerState,
     })
   ) {
@@ -663,12 +712,16 @@ function shouldPrioritizeGpuFlowProjectionMotionDebt({
   contentDebt,
   contentRetryDeferred,
   motionDebt,
+  motionRetryDeferred,
 }: {
   readonly contentDebt: boolean;
   readonly contentRetryDeferred: boolean;
   readonly motionDebt: boolean;
+  readonly motionRetryDeferred: boolean;
 }): boolean {
-  return motionDebt && (!contentDebt || contentRetryDeferred);
+  return (
+    motionDebt && !motionRetryDeferred && (!contentDebt || contentRetryDeferred)
+  );
 }
 
 function isGpuFlowContentFrameReason(reason: GpuFrameReason): boolean {
@@ -738,17 +791,64 @@ function resolveGpuFlowProjectionContentRetryBlock({
   });
 }
 
+function shouldDeferGpuFlowProjectionMotionRetry({
+  hasCommittedContentFrame,
+  motionRetryBlockedUntilMs,
+  timestamp,
+}: {
+  readonly hasCommittedContentFrame: boolean;
+  readonly motionRetryBlockedUntilMs: number | null;
+  readonly timestamp: DOMHighResTimeStamp;
+}): boolean {
+  return (
+    hasCommittedContentFrame &&
+    motionRetryBlockedUntilMs !== null &&
+    timestamp < motionRetryBlockedUntilMs
+  );
+}
+
+function resolveGpuFlowProjectionMotionRetryBlock({
+  hasCommittedContentFrame,
+  motionRetryBlockedUntilMs,
+  timestamp,
+}: {
+  readonly hasCommittedContentFrame: boolean;
+  readonly motionRetryBlockedUntilMs: number | null;
+  readonly timestamp: DOMHighResTimeStamp;
+}): {
+  readonly blockedUntilMs: number | null;
+  readonly motionRetryDeferred: boolean;
+} {
+  const motionRetryDeferred = shouldDeferGpuFlowProjectionMotionRetry({
+    hasCommittedContentFrame,
+    motionRetryBlockedUntilMs,
+    timestamp,
+  });
+  return Object.freeze({
+    blockedUntilMs:
+      motionRetryBlockedUntilMs !== null &&
+      !motionRetryDeferred &&
+      timestamp >= motionRetryBlockedUntilMs
+        ? null
+        : motionRetryBlockedUntilMs,
+    motionRetryDeferred,
+  });
+}
+
 function shouldSelectGpuFlowMotionPriorityPublicationLane({
   hasCommittedContentFrame,
   motionDebt,
+  motionRetryDeferred,
   schedulerState,
 }: {
   readonly hasCommittedContentFrame: boolean;
   readonly motionDebt: boolean;
+  readonly motionRetryDeferred: boolean;
   readonly schedulerState: GpuFlowProjectionSchedulerState;
 }): boolean {
   return (
     hasCommittedContentFrame &&
+    !motionRetryDeferred &&
     (motionDebt || schedulerState === "motion-active")
   );
 }
@@ -780,7 +880,22 @@ function shouldThrottleGpuFlowContentRetryAfterUncommittedFrame(
   return (
     (decision.lane === "content" && outcome.kind === "hold-previous") ||
     (outcome.kind === "blocked" &&
-      outcome.token.blockedReasons.some(isGpuFlowHeldPreviousBudgetBlockedReason))
+      decision.lane !== "idle" &&
+      decision.lane !== "motion" &&
+      outcome.token.blockedReasons.some(
+        isGpuFlowHeldPreviousBudgetBlockedReason,
+      ))
+  );
+}
+
+function shouldThrottleGpuFlowMotionRetryAfterUncommittedFrame(
+  decision: GpuFlowVisiblePublicationDecision,
+  outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcome,
+): boolean {
+  return (
+    decision.lane === "motion" &&
+    outcome.kind === "blocked" &&
+    outcome.token.blockedReasons.some(isGpuFlowHeldPreviousBudgetBlockedReason)
   );
 }
 

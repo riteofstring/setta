@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 
+import type { GpuFlowBlockedPublicationToken } from "./GpuFlow/visibleFramePresentationProofs";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
 } from "./GpuFlow/visibleFrameTestUtils";
-import type { GpuFlowBlockedPublicationToken } from "./GpuFlow/visibleFramePresentationProofs";
 import {
   createGpuFlowVisiblePublicationScheduler,
   type GpuFlowVisiblePublicationDecision,
 } from "./projectionRuntime";
 
 describe("GPU Flow projection scheduler content retry throttling", () => {
-  it("defers content retries after motion hits held-previous budget", () => {
+  it("defers motion retries after motion hits held-previous budget", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const motion = scheduler.selectFrame({
       hasCommittedContentFrame: true,
@@ -36,12 +36,12 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(immediateRetry.schedulerState).toBe("motion-active");
-    expect(immediateRetry.lane).toBe("motion");
+    expect(immediateRetry.schedulerState).toBe("content-catchup");
+    expect(immediateRetry.lane).toBe("content");
     expect(immediateRetry.debt).toEqual({
-      content: true,
+      content: false,
       maintenance: true,
-      motion: false,
+      motion: true,
     });
 
     const delayedRetry = scheduler.selectFrame({
@@ -130,11 +130,11 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(immediateRetry.schedulerState).toBe("idle");
-    expect(immediateRetry.lane).toBe("idle");
+    expect(immediateRetry.schedulerState).toBe("maintenance-drain");
+    expect(immediateRetry.lane).toBe("maintenance");
     expect(immediateRetry.debt).toEqual({
       content: true,
-      maintenance: true,
+      maintenance: false,
       motion: false,
     });
 
@@ -148,6 +148,46 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     expect(delayedRetry.schedulerState).toBe("content-catchup");
     expect(delayedRetry.lane).toBe("content");
     expect(delayedRetry.debt.maintenance).toBe(true);
+  });
+
+  it("does not extend content retry cooldown after idle held-previous budget blocks", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const content = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(content.lane).toBe("content");
+    completeHeldFrame(scheduler, content);
+
+    const idle = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+    expect(idle.schedulerState).toBe("idle");
+    expect(idle.lane).toBe("idle");
+    completeBlockedFrame(scheduler, idle, [
+      {
+        actorId: null,
+        family: "visible-transaction",
+        reason: "held-previous-budget-exceeded",
+      },
+    ]);
+
+    const delayedRetry = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(250),
+      timestamp: 250,
+      viewportInteractionActive: false,
+    });
+    expect(delayedRetry.schedulerState).toBe("content-catchup");
+    expect(delayedRetry.lane).toBe("content");
   });
 });
 
