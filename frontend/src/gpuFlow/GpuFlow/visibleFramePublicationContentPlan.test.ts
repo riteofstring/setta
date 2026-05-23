@@ -13,15 +13,10 @@ import type {
 import {
   applyGpuFlowCommittedSurfacePublicationContentStage,
   applyGpuFlowRetainedDisplayPublicationContentStage,
-  createGpuFlowCommittedSurfacePublicationContentStage,
-  createGpuFlowRetainedDisplayPublicationContentStage,
-} from "./visibleFramePublicationContentPlan";
-import { prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate } from "./visibleFramePublicationContentPreparation";
-import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
-  createGpuFlowCommittedSurfacePublicationFramePlanSelector,
+  createGpuFlowCommittedSurfacePublicationContentStage,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
-  createGpuFlowRetainedDisplayPublicationFramePlanSelector,
+  createGpuFlowRetainedDisplayPublicationContentStage,
   prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay,
   resolveGpuFlowBlockedCommittedSurfacePublicationAbort,
   resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult,
@@ -29,6 +24,11 @@ import {
   runGpuFlowCommittedSurfacePublicationContentStage,
   runGpuFlowRetainedCommittedSurfacePublicationContentStage,
   runGpuFlowRetainedDisplayPublicationContentStage,
+} from "./visibleFramePublicationContentPlan";
+import { prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate } from "./visibleFramePublicationContentPreparation";
+import {
+  createGpuFlowCommittedSurfacePublicationFramePlanSelector,
+  createGpuFlowRetainedDisplayPublicationFramePlanSelector,
   type GpuFlowCommittedSurfacePublicationCandidate,
   type GpuFlowCommittedSurfacePublicationFramePlanPreparer,
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
@@ -67,6 +67,30 @@ function readGpuFlowVisiblePublicationKernelSource(): string {
 }
 
 describe("GPU Flow visible publication content plans", () => {
+  it("does not re-export single-stage content publication gates from the public kernel surface", () => {
+    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const contentPlanReExport =
+      kernelModuleSource.match(
+        /export \{[\s\S]*?\} from "\.\/visibleFramePublicationContentPlan";/,
+      )?.[0] ?? "";
+
+    expect(contentPlanReExport).toContain(
+      "createGpuFlowContentPublicationFrameResult",
+    );
+    expect(contentPlanReExport).not.toContain(
+      "runGpuFlowRetainedDisplayPublicationContentStage",
+    );
+    expect(contentPlanReExport).not.toContain(
+      "runGpuFlowCommittedSurfacePublicationContentStage",
+    );
+    expect(contentPlanReExport).not.toContain(
+      "prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay",
+    );
+    expect(contentPlanReExport).not.toContain(
+      "resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult",
+    );
+  });
+
   it("selects retained display blocked plans outside flowFrame", () => {
     const selectRetainedDisplayPublicationFramePlan =
       createGpuFlowRetainedDisplayPublicationFramePlanSelector();

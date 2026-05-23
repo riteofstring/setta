@@ -91,7 +91,7 @@ const PRODUCTION_RAW_SURFACE_TEXTURE_RELEASE_CALLERS = new Set([
 ]);
 const PRODUCTION_VISIBLE_PROJECTION_STATE_MUTATORS = new Set([
   "GpuFlow/flowSurface.tsx",
-  "GpuFlow/flowVisibleProjectionStatePublication.ts",
+  "GpuFlow/flowSurfacePublicationCompletion.ts",
 ]);
 const PRODUCTION_VISIBLE_PROJECTION_STATE_PUBLISHERS = new Set([
   "GpuFlow/flowSurfacePublicationCompletion.ts",
@@ -700,11 +700,15 @@ describe("GPU Flow visible publication authority boundaries", () => {
       PROJECTION_FRAME_MODULE_PATH,
       "utf8",
     );
-    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
-    const nodeLayerPublisherStart = surfaceFrameSource.indexOf(
-      "function publishGpuFlowNodeLayerFrameState",
+    const lifecycleSource = readFileSync(
+      modulePath("./flowFrameLifecycle.ts"),
+      "utf8",
     );
-    const nodeLayerPublisherSource = surfaceFrameSource.slice(
+    const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
+    const nodeLayerPublisherStart = lifecycleSource.indexOf(
+      "export function publishGpuFlowNodeLayerFrameState",
+    );
+    const nodeLayerPublisherSource = lifecycleSource.slice(
       nodeLayerPublisherStart,
     );
 
@@ -719,6 +723,9 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
     expect(projectionFrameSource).toContain("nodeLayerFrameStatePublication");
     expect(nodeLayerPublisherStart).toBeGreaterThanOrEqual(0);
+    expect(lifecycleSource).not.toContain(
+      "export function updateGpuFlowNodeLayerFrameState",
+    );
     expect(nodeLayerPublisherSource).toContain(
       "assertGpuFlowCommitPublicationTokenBrand",
     );
@@ -731,10 +738,8 @@ describe("GPU Flow visible publication authority boundaries", () => {
           /\bupdateGpuFlowNodeLayerFrameState\s*\(/g,
         ),
       ].length,
-    ).toBe(1);
-    expect(nodeLayerPublisherSource).toContain(
-      "updateGpuFlowNodeLayerFrameState(",
-    );
+    ).toBe(0);
+    expect(surfaceFrameSource).toContain("publishGpuFlowNodeLayerFrameState({");
   });
 
   it("keeps browser visual projection on tokenized publication paths", () => {
@@ -957,9 +962,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
         return [];
       }
       const relativePath = relativeGpuFlowPath(filePath);
-      if (relativePath === "GpuFlow/flowVisibleProjectionStatePublication.ts") {
-        return [];
-      }
       if (PRODUCTION_VISIBLE_PROJECTION_STATE_PUBLISHERS.has(relativePath)) {
         return [];
       }
@@ -980,7 +982,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
 
     expect(violations).toEqual([]);
     expect(helperIndex).toBeGreaterThanOrEqual(0);
-    expect(publicationCallCount).toBe(1);
+    expect(publicationCallCount).toBe(2);
     expect(helperPublicationCallCount).toBe(1);
   });
 

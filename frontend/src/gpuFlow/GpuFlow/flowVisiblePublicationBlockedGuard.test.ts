@@ -89,6 +89,18 @@ describe("GPU Flow blocked visible publication guard", () => {
       }).not.toThrow();
     });
   });
+
+  it("rejects blocked guard updates for a different publication sample", () => {
+    withTestRuntime(() => {
+      expect(() =>
+        recordGpuFlowBlockedPublicationGuard({
+          outcome: blockedOutcome(1, 10),
+          publicationDecision: publicationDecision(2, 20),
+          surface: surfaceHandle(),
+        }),
+      ).toThrow(/blocked token for the selected projection sample/);
+    });
+  });
 });
 
 function blockedOutcome(

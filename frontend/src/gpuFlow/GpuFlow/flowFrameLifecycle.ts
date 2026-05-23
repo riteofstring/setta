@@ -16,6 +16,10 @@ import { type GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { type GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { markTransformOnlyPaintNodesForViewportFrame } from "./flowTransformOnlyPaintNodes";
+import {
+  assertGpuFlowCommitPublicationTokenBrand,
+  type GpuFlowCommitPublicationToken,
+} from "./visibleFramePublicationTokens";
 
 export function reportGpuFlowNodeLayerFramePerformance({
   callbacksRef,
@@ -73,20 +77,7 @@ export function reportGpuFlowNodeLayerFramePerformance({
   );
 }
 
-export function updateGpuFlowNodeLayerFrameState({
-  callbacksRef,
-  layerResult,
-  nodeInteractionRef,
-  nodeLayerRef,
-  retainedRuntimeFrame,
-  retainedTexturePageFollowUpFrame,
-  surfaceRef,
-  switchAnimationFollowUpFrame,
-  transformOnlyPaintNodeIdsRef,
-  viewport,
-  viewportFrame,
-  visibleNodeIdsRef,
-}: {
+export type GpuFlowNodeLayerFrameStatePublication = {
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
@@ -99,7 +90,32 @@ export function updateGpuFlowNodeLayerFrameState({
   readonly viewport: GpuFlowNodeLayerState["viewport"];
   readonly viewportFrame: boolean;
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
-}) {
+};
+
+export function publishGpuFlowNodeLayerFrameState({
+  token,
+  ...publication
+}: GpuFlowNodeLayerFrameStatePublication & {
+  readonly token: GpuFlowCommitPublicationToken;
+}): void {
+  assertGpuFlowCommitPublicationTokenBrand({ token });
+  updateGpuFlowNodeLayerFrameState(publication);
+}
+
+function updateGpuFlowNodeLayerFrameState({
+  callbacksRef,
+  layerResult,
+  nodeInteractionRef,
+  nodeLayerRef,
+  retainedRuntimeFrame,
+  retainedTexturePageFollowUpFrame,
+  surfaceRef,
+  switchAnimationFollowUpFrame,
+  transformOnlyPaintNodeIdsRef,
+  viewport,
+  viewportFrame,
+  visibleNodeIdsRef,
+}: GpuFlowNodeLayerFrameStatePublication) {
   markTransformOnlyPaintNodesForViewportFrame({
     layerResult,
     transformOnlyPaintNodeIdsRef,
@@ -121,10 +137,6 @@ export function updateGpuFlowNodeLayerFrameState({
     switchAnimationFollowUpFrame,
   });
 }
-
-export type GpuFlowNodeLayerFrameStatePublication = Parameters<
-  typeof updateGpuFlowNodeLayerFrameState
->[0];
 
 function completeGpuNodeInteractionFrame(
   nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>,

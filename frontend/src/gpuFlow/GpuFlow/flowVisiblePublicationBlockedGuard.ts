@@ -4,6 +4,11 @@ import {
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
   type GpuFlowVisiblePublicationCompletionOutcome,
 } from "../projectionScheduler";
+import {
+  assertGpuFlowBlockedPublicationTokenForProjectionSample,
+  assertGpuFlowCommitPublicationTokenForProjectionSample,
+  assertGpuFlowHoldPreviousTokenForProjectionSample,
+} from "./visibleFramePublicationTokens";
 
 type GpuFlowBlockedPublicationDebt = {
   readonly firstBlockedAtMs: number;
@@ -25,6 +30,10 @@ export function recordGpuFlowBlockedPublicationGuard({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly surface: GpuSurfaceHandle | null;
 }): void {
+  assertGpuFlowBlockedPublicationGuardOutcomeToken({
+    outcome,
+    publicationDecision,
+  });
   if (!surface) {
     return;
   }
@@ -66,6 +75,36 @@ export function recordGpuFlowBlockedPublicationGuard({
         transactionId: outcome.token.transactionId,
       })}`,
     );
+  }
+}
+
+function assertGpuFlowBlockedPublicationGuardOutcomeToken({
+  outcome,
+  publicationDecision,
+}: {
+  readonly outcome: GpuFlowVisiblePublicationCompletionOutcome;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}): void {
+  const projectionSampleId = publicationDecision.sample.id;
+  switch (outcome.kind) {
+    case "commit":
+      assertGpuFlowCommitPublicationTokenForProjectionSample({
+        projectionSampleId,
+        token: outcome.token,
+      });
+      return;
+    case "hold-previous":
+      assertGpuFlowHoldPreviousTokenForProjectionSample({
+        projectionSampleId,
+        token: outcome.token,
+      });
+      return;
+    case "blocked":
+      assertGpuFlowBlockedPublicationTokenForProjectionSample({
+        projectionSampleId,
+        token: outcome.token,
+      });
+      return;
   }
 }
 

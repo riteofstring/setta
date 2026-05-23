@@ -201,6 +201,87 @@ describe("GPU Flow committed surface publication effect executor", () => {
     ]);
   });
 
+  it("rejects blocked publication records for a different selected sample", () => {
+    const canvas = document.createElement("canvas");
+    const token = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "retained-projection",
+          reason: "coverage-missing",
+        },
+      ],
+      frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+      projectionSample: {
+        id: 9,
+      } as Parameters<
+        typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
+      >[0]["projectionSample"],
+    });
+
+    expect(() =>
+      recordGpuFlowBlockedVisiblePublication({
+        frame: null,
+        publicationCompletion: {
+          debt: { content: true, maintenance: false, motion: false },
+          outcome: "blocked",
+        },
+        publicationDecision: {
+          debt: { content: false, maintenance: false, motion: false },
+          lane: "content",
+          rawReasons: ["texture-upload"],
+          sample: { id: 10 },
+          schedulerState: "content-catchup",
+        } as unknown as Parameters<
+          typeof recordGpuFlowBlockedVisiblePublication
+        >[0]["publicationDecision"],
+        runtimeCanvas: canvas,
+        token,
+      }),
+    ).toThrow(/blocked token for the selected projection sample/);
+    expect(readBlockedVisiblePublicationEvents()).toEqual([]);
+  });
+
+  it("rejects blocked publication records without a blocked scheduler completion", () => {
+    const canvas = document.createElement("canvas");
+
+    expect(() =>
+      recordGpuFlowBlockedVisiblePublication({
+        frame: null,
+        publicationCompletion: {
+          debt: { content: true, maintenance: false, motion: false },
+          outcome: "commit",
+        },
+        publicationDecision: {
+          debt: { content: false, maintenance: false, motion: false },
+          lane: "content",
+          rawReasons: ["texture-upload"],
+          sample: { id: 9 },
+          schedulerState: "content-catchup",
+        } as unknown as Parameters<
+          typeof recordGpuFlowBlockedVisiblePublication
+        >[0]["publicationDecision"],
+        runtimeCanvas: canvas,
+        token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+          blockedReasons: [
+            {
+              actorId: null,
+              family: "retained-projection",
+              reason: "coverage-missing",
+            },
+          ],
+          frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+          projectionSample: {
+            id: 9,
+          } as Parameters<
+            typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
+          >[0]["projectionSample"],
+        }),
+      }),
+    ).toThrow(/blocked scheduler completion/);
+    expect(readBlockedVisiblePublicationEvents()).toEqual([]);
+  });
+
   it("fails loudly in test runtime when browser visual coverage starves beyond budget", () => {
     const canvas = document.createElement("canvas");
     const requestFrame = vi.fn();

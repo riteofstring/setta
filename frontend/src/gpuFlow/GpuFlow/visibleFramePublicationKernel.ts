@@ -104,18 +104,9 @@ export type {
   GpuFlowVisiblePublicationTransactionCompletion,
 } from "./visibleFramePublicationCompletion";
 export {
-  createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowContentPublicationFrameResult,
   createGpuFlowContentPublicationFrameResultForNodeLayerFrame,
-  createGpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
-  createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
-  prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay,
   resolveGpuFlowBlockedCommittedSurfacePublicationAbort,
-  resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult,
-  resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult,
-  runGpuFlowCommittedSurfacePublicationContentStage,
-  runGpuFlowRetainedCommittedSurfacePublicationContentStage,
-  runGpuFlowRetainedDisplayPublicationContentStage,
 } from "./visibleFramePublicationContentPlan";
 export type {
   GpuFlowCommittedSurfacePublicationCandidate,
@@ -143,11 +134,6 @@ export type {
   GpuFlowContentPublicationWorkPlan,
   GpuFlowMotionProjectionWorkPlan,
 } from "./visibleFramePublicationKernelWorkPlan";
-export {
-  createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
-  createGpuFlowVisibleFramePublicationPreparedFrameSelector,
-  createGpuFlowVisibleFramePublicationTransactionOracleFactory,
-} from "./visibleFramePublicationOracle";
 export type {
   GpuFlowVisibleFramePublicationCandidateSet,
   GpuFlowVisibleFramePublicationContentCandidate,

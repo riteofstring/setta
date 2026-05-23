@@ -17,6 +17,7 @@ import type {
 } from "./visibleFramePublicationKernel";
 import {
   assertGpuFlowBlockedPublicationTokenBrand,
+  assertGpuFlowBlockedPublicationTokenForProjectionSample,
   assertGpuFlowCommitPublicationTokenBrand,
   assertGpuFlowHoldPreviousTokenBrand,
   type GpuFlowBlockedFrozenFrame,
@@ -468,6 +469,15 @@ export function recordGpuFlowBlockedVisiblePublication({
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly token: GpuFlowBlockedPublicationToken;
 }): GpuFlowBlockedPublicationToken {
+  assertGpuFlowBlockedPublicationTokenForProjectionSample({
+    projectionSampleId: publicationDecision.sample.id,
+    token,
+  });
+  if (publicationCompletion.outcome !== "blocked") {
+    throw new Error(
+      "GPU Flow blocked visible publication recording requires a blocked scheduler completion.",
+    );
+  }
   const event = Object.freeze({
     blockedReasons: token.blockedReasons,
     candidateFrameId: frame?.displayFrameId ?? null,
