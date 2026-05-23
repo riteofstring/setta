@@ -355,23 +355,25 @@ export function createGpuFlowContentPublicationFrameResultForNodeLayerFrame({
   deferResolutionUpdates,
   nodeLayerFrameResult,
   nodeLayerFrameStatePublication,
+  previousVisibleProjectionState,
   retainedDisplayFollowUpFrameReason,
   retainedDisplayFrame,
   retainedRuntimeFrame,
-  selectContentPublicationBlockedCandidateForFrameResult,
 }: {
   readonly deferResolutionUpdates: boolean;
   readonly nodeLayerFrameResult: GpuFlowNodeLayerFrameResult;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly retainedDisplayFollowUpFrameReason: GpuFrameReason | null;
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null;
-  readonly selectContentPublicationBlockedCandidateForFrameResult: GpuFlowContentPublicationBlockedCandidateForFrameResultSelector;
 }): GpuFlowContentPublicationFrameResult {
   const committedSurfacePublication =
     nodeLayerFrameResult.committedSurfacePublication;
   const blockedPublicationCandidate =
-    selectContentPublicationBlockedCandidateForFrameResult({
+    createGpuFlowContentPublicationBlockedCandidateForFrameResultSelector({
+      previousVisibleProjectionState,
+    })({
       nodeLayerFrameResult,
     });
   const visibleProjectionState = nodeLayerFrameResult.visibleProjectionState;

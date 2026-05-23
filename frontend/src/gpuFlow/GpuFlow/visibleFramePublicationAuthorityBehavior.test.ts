@@ -145,6 +145,52 @@ describe("GPU Flow visible publication authority behavior", () => {
     ).toThrow(/requires protected resources/);
   });
 
+  it.each([
+    {
+      actualInteraction: "active-editor-live" as const,
+      actualVisual: "same-live-host-compatible-projection" as const,
+    },
+    {
+      actualInteraction: "blocked" as const,
+      actualVisual: "exact-live-host" as const,
+    },
+  ])(
+    "rejects commit authority when active-editor proof changes after presentation staging",
+    ({ actualInteraction, actualVisual }) => {
+      const actor = committedActorGeneration({
+        actorId: "actor-a",
+        proof: browserVisualProof(),
+        resourceHandles: [],
+      });
+      const frame = committedSurfaceFrame({
+        actorGenerations: [actor],
+      });
+      if (actor.browserVisual === null) {
+        throw new Error("Expected committed test actor to carry browser proof.");
+      }
+      const changedActor = {
+        ...actor,
+        browserVisual: {
+          ...actor.browserVisual,
+          proof: browserVisualProof({
+            actualInteraction,
+            actualVisual,
+          }),
+        },
+      } as unknown as GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+
+      expect(() =>
+        createGpuFlowVisibleFrameCommitPublicationToken({
+          frame: {
+            ...frame,
+            actorGenerations: [changedActor],
+          } as unknown as GpuFlowCommittedSurfaceFrame,
+          projectionSample: liveProjectionSample(),
+        }),
+      ).toThrow(/actor manifest and browser visual resources/);
+    },
+  );
+
   it("rejects commit tokens when the DOM/canvas presentation proof changes after minting", () => {
     const frame = committedSurfaceFrame();
     const token = createGpuFlowVisibleFrameCommitPublicationToken({
@@ -232,11 +278,17 @@ function committedSurfaceFrame({
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
 
+type CommittedBrowserVisualProof = NonNullable<
+  GpuFlowCommittedSurfaceFrame["actorGenerations"][number]["browserVisual"]
+>["proof"];
+
 function committedActorGeneration({
   actorId,
+  proof = null,
   resourceHandles,
 }: {
   readonly actorId: string;
+  readonly proof?: CommittedBrowserVisualProof | null | undefined;
   readonly resourceHandles: NonNullable<
     GpuFlowCommittedSurfaceFrame["actorGenerations"][number]["browserVisual"]
   >["resourceHandles"];
@@ -246,7 +298,7 @@ function committedActorGeneration({
     actorId,
     browserVisual: {
       coverageState: "exact",
-      proof: null,
+      proof,
       resourceHandles,
     },
     canonicalActorId: actorId,
@@ -258,6 +310,23 @@ function committedActorGeneration({
     ownerSurfaceId: `surface:${actorId}`,
     textCoverageProof: null,
   } as unknown as GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+}
+
+function browserVisualProof({
+  actualInteraction = "active-editor-live",
+  actualVisual = "exact-live-host",
+}: {
+  readonly actualInteraction?:
+    | CommittedBrowserVisualProof["actualInteraction"]
+    | undefined;
+  readonly actualVisual?: CommittedBrowserVisualProof["actualVisual"] | undefined;
+} = {}): CommittedBrowserVisualProof {
+  return {
+    actualInteraction,
+    actualVisual,
+    requiredInteraction: "active-editor-live",
+    requiredVisual: "browser-visual",
+  };
 }
 
 function surfaceTransaction({

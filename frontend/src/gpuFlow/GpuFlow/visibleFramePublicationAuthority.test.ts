@@ -67,7 +67,7 @@ const TOKEN_CONSTRUCTOR_NAMES = [
 ] as const;
 const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
   "createGpuFlowVisibleFrameBlockedPublicationToken",
-  "createGpuFlowVisibleFrameBlockedPublicationTokenForCandidate",
+  "createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
   "createGpuFlowVisibleFrameCommitPublicationToken",
   "createGpuFlowVisibleFrameHoldPreviousToken",
 ] as const;

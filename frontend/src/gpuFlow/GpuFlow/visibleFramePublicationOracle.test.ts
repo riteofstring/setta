@@ -47,13 +47,16 @@ describe("GPU Flow visible publication transaction oracle", () => {
       "function createGpuFlowMotionProjectionBlockedPublicationCandidate",
     );
     expect(oracleSource).toContain(
-      "createGpuFlowVisibleFramePublicationOracleBlockedSource",
+      "createGpuFlowVisibleFramePublicationOracleBlockedProof",
     );
     expect(oracleSource).toContain(
       "createGpuFlowVisibleFramePublicationOracleProjectionSource",
     );
     expect(oracleSource).toContain(
       "motionProjectionFrame.blockedPublicationCandidate",
+    );
+    expect(oracleSource).toContain(
+      "type GpuFlowVisiblePublicationBlockedProof",
     );
   });
 
@@ -90,6 +93,12 @@ describe("GPU Flow visible publication transaction oracle", () => {
     });
 
     expect(oracle.blockedPublicationCandidate).toBe(contentBlockedCandidate);
+    expect(oracle.blockedProof).toEqual({
+      blockedReasons: contentBlockedCandidate.blockedReasons,
+      candidate: contentBlockedCandidate,
+      frozenFrameId: contentBlockedCandidate.frozenFrameId,
+      source: "content-publication",
+    });
     expect(oracle.blockedSource).toBe("content-publication");
     expect(oracle.commitOracle).not.toBeNull();
     expect(oracle.commitOracle?.debtProof.content).toBe(true);
@@ -214,6 +223,12 @@ describe("GPU Flow visible publication transaction oracle", () => {
     });
 
     expect(prepared.blockedPublicationCandidate).toBe(contentBlockedCandidate);
+    expect(prepared.blockedProof).toEqual({
+      blockedReasons: contentBlockedCandidate.blockedReasons,
+      candidate: contentBlockedCandidate,
+      frozenFrameId: contentBlockedCandidate.frozenFrameId,
+      source: "content-publication",
+    });
     expect(prepared.commitOracle).toBeNull();
     expect(prepared.renderedVisibleFrame).toBe(false);
   });
@@ -246,6 +261,12 @@ describe("GPU Flow visible publication transaction oracle", () => {
     expect(prepared.renderedVisibleFrame).toBe(false);
     expect(prepared.commitOracle).toBeNull();
     expect(prepared.blockedPublicationCandidate).toBe(motionBlockedCandidate);
+    expect(prepared.blockedProof).toEqual({
+      blockedReasons: motionBlockedCandidate.blockedReasons,
+      candidate: motionBlockedCandidate,
+      frozenFrameId: motionBlockedCandidate.frozenFrameId,
+      source: "motion-projection",
+    });
     expect(prepared.blockedPublicationCandidate?.frozenFrameId).toBe(
       previousVisibleProjectionState.committedFrame.displayFrameId,
     );
@@ -275,6 +296,7 @@ describe("GPU Flow visible publication transaction oracle", () => {
 
     expect(prepared).toEqual({
       blockedPublicationCandidate: null,
+      blockedProof: null,
       commitOracle: null,
       renderedVisibleFrame: false,
       visibleProjectionState: null,

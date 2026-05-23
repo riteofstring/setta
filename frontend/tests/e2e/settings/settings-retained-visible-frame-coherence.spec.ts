@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import { postBackend } from "../helpers";
 import {
@@ -47,6 +47,10 @@ type BlockedVisiblePublicationEvent = {
 type ObservedBlockedVisiblePublicationEvent = BlockedVisiblePublicationEvent & {
   readonly eventCount: number;
 };
+
+type BrowserVisualFaultReadiness =
+  | "blocked-awaiting-live-host"
+  | "blocked-awaiting-snapshot";
 
 type VisibleFrameIdentity = {
   readonly blockedEventCount: number;
@@ -207,6 +211,39 @@ test("retained scroll and hover zoom make visible progress within the held-frame
 test("browser visual snapshot withholding blocks while preserving the coherent visible frame", async ({
   page,
 }, testInfo) => {
+  await expectBrowserVisualFaultInjectionBlocksVisiblePublication(page, {
+    outputPrefix: "blocked-visible-snapshot",
+    readiness: "blocked-awaiting-snapshot",
+    reason: "snapshot-pending",
+    testInfo,
+  });
+});
+
+test("browser visual live-host withholding blocks while preserving the coherent visible frame", async ({
+  page,
+}, testInfo) => {
+  await expectBrowserVisualFaultInjectionBlocksVisiblePublication(page, {
+    outputPrefix: "blocked-visible-live-host",
+    readiness: "blocked-awaiting-live-host",
+    reason: "live-dom-budget",
+    testInfo,
+  });
+});
+
+async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
+  page: Page,
+  {
+    outputPrefix,
+    readiness,
+    reason,
+    testInfo,
+  }: {
+    readonly outputPrefix: string;
+    readonly readiness: BrowserVisualFaultReadiness;
+    readonly reason: "live-dom-budget" | "snapshot-pending";
+    readonly testInfo: TestInfo;
+  },
+): Promise<void> {
   await installOptionalRetainedCompositorFrameProbe(page);
   await openAllSettingsForRetainedCompositor(page);
   await openCoreSettingsForBlockedPublicationBaseline(page);
@@ -218,10 +255,10 @@ test("browser visual snapshot withholding blocks while preserving the coherent v
   const beforeIdentity = await readVisibleFrameIdentity(page);
   const before = await page.screenshot({
     clip: target.clip,
-    path: testInfo.outputPath("blocked-visible-before.png"),
+    path: testInfo.outputPath(`${outputPrefix}-before.png`),
   });
 
-  await installBrowserVisualSnapshotFaultInjection(page);
+  await installBrowserVisualFaultInjection(page, readiness);
   await page
     .getByRole("button", { exact: true, name: "Param Defaults" })
     .click();
@@ -230,16 +267,16 @@ test("browser visual snapshot withholding blocks while preserving the coherent v
   await requestGpuFlowDebugFrame(page);
   const firstBlockedEvent = await waitForBlockedVisiblePublicationEvent(page, {
     afterCount: beforeIdentity.blockedEventCount,
-    reason: "snapshot-pending",
+    reason,
   });
   const retryBlockedEvent = await waitForBlockedVisiblePublicationEvent(page, {
     afterCount: firstBlockedEvent.eventCount,
-    reason: "snapshot-pending",
+    reason,
   });
   const afterIdentity = await readVisibleFrameIdentity(page);
   const after = await page.screenshot({
     clip: target.clip,
-    path: testInfo.outputPath("blocked-visible-after.png"),
+    path: testInfo.outputPath(`${outputPrefix}-after.png`),
   });
   await clearBrowserVisualFaultInjection(page);
 
@@ -258,7 +295,9 @@ test("browser visual snapshot withholding blocks while preserving the coherent v
       afterIdentity,
       beforeIdentity,
       firstBlockedEvent,
+      readiness,
       retainedFrameProbe,
+      reason,
       retryBlockedEvent,
       screenshotSimilarity,
       target,
@@ -275,7 +314,8 @@ test("browser visual snapshot withholding blocks while preserving the coherent v
 
   expect(
     firstBlockedEvent.blockedReasons?.some(
-      (reason) => reason.actorId && reason.reason === "snapshot-pending",
+      (blockedReason) =>
+        blockedReason.actorId && blockedReason.reason === reason,
     ),
     details,
   ).toBe(true);
@@ -319,7 +359,7 @@ test("browser visual snapshot withholding blocks while preserving the coherent v
     MIN_RETAINED_CONTENT_NONBLANK_RATIO,
   );
   expect(afterBands.highConfidencePlaceholder, details).toBe(false);
-});
+}
 
 async function openCoreSettingsForBlockedPublicationBaseline(
   page: Page,
@@ -453,19 +493,20 @@ async function readBlockedVisiblePublicationEvents(
   );
 }
 
-async function installBrowserVisualSnapshotFaultInjection(
+async function installBrowserVisualFaultInjection(
   page: Page,
+  readiness: BrowserVisualFaultReadiness,
 ): Promise<void> {
-  await page.evaluate(() => {
+  await page.evaluate((domControlReadiness) => {
     (
       window as typeof window & {
         __SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__?: unknown;
       }
     ).__SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__ = {
-      domControlReadiness: "blocked-awaiting-snapshot",
+      domControlReadiness,
       withholdAllDomControls: true,
     };
-  });
+  }, readiness);
 }
 
 async function clearBrowserVisualFaultInjection(page: Page): Promise<void> {

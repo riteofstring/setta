@@ -69,6 +69,16 @@ describe("GPU Flow visible publication kernel phases", () => {
     expect(source).not.toContain(
       "selectGpuFlowVisibleFramePublicationTransaction",
     );
+    expect(source).not.toContain("selectProjectionFrameTransaction");
+    expect(source).not.toContain(
+      "selectRetainedProjectionPublicationDecision",
+    );
+    expect(source).not.toContain(
+      "selectContentPublicationBlockedCandidateForFrameResult",
+    );
+    expect(source).not.toContain(
+      "visiblePublicationSchedulerRef.current.getKnobs",
+    );
     expect(source).not.toMatch(/\.(?:selectFrame|completeFrame)\s*\(/);
   });
 });

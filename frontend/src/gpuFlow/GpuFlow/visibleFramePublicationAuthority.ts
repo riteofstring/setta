@@ -1,5 +1,6 @@
 import {
   assertGpuFlowCommittedSurfacePresentationProof,
+  createGpuFlowCommittedSurfaceActorManifestDigest,
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
@@ -654,20 +655,8 @@ function createGpuFlowVisibleTransactionId({
 function createGpuFlowActorManifestDigest(
   frame: GpuFlowCommittedSurfaceFrame,
 ): GpuFlowActorManifestDigest {
-  return JSON.stringify(
-    frame.actorGenerations.map((actor) => [
-      actor.actorId,
-      actor.canonicalActorId,
-      actor.actorFamily,
-      actor.ownerSurfaceId,
-      actor.generationClassification,
-      actor.generationId,
-      actor.contentGenerationId,
-      actor.layoutProjectionGenerationId,
-      actor.browserVisual?.coverageState ?? null,
-      actor.browserVisual?.proof ?? null,
-      actor.textCoverageProof ?? null,
-    ]),
+  return createGpuFlowCommittedSurfaceActorManifestDigest(
+    frame.actorGenerations,
   );
 }
 
