@@ -1,6 +1,6 @@
 # GPU Flow Architecture Iterations
 
-Date: 2026-05-20
+Date: 2026-05-23
 
 This note summarizes the GPU Flow architecture work on this branch since it
 forked from `go-rewrite`. The branch point is:
@@ -16,7 +16,7 @@ The reviewed range is:
 git log --reverse --pretty=format:'%h %ad %s' --date=short go-rewrite..HEAD
 ```
 
-That range contains 900 commits from 2026-04-28 through 2026-05-20. Not every
+That range contains 967 commits from 2026-04-28 through 2026-05-23. Not every
 commit is GPU Flow work, so this note focuses on the commits that changed
 `frontend/src/gpuFlow/`, the project GPU surface adapter, GPU Flow E2E probes,
 performance reports, and the related architecture docs.
@@ -766,6 +766,78 @@ snapshot, compatible previous, or explicitly blocked." It also made browser
 visual evidence part of the finish-line reports, so descriptor counts cannot
 mask blank text-like controls.
 
+## Iteration 21: Cut Over To One Visible Publication Authority
+
+Representative commits:
+
+- `5288f9536` Plan GPU Flow single publication authority cutover
+- `27773b6ee` gpuflow: cut over visible publication authority
+- `adfa10269` Consolidate GPU flow publication authority
+- `1e23e447a` Harden GPU flow publication token guards
+- `b03a2b3bf` Add GPU flow publication diagnostics tests
+- `0f2e8eef6` Finalize GPU flow publication authority cutover
+- `64fa47352` Centralize GPU flow frame publication authority
+- `7b2775f43` Move visible publication authority phases into kernel
+- `557319aa7` Consolidate visible frame publication proof ownership
+- `95f1d9a6c` Extract visible frame publication authorities
+- `481c5db03` Bind GPU flow commits to oracle authority proof
+- `bceb468e9` Cut over GPU flow actor proof authority
+- `5e009c277` Move GPU flow presentation authority into kernel
+- `e76971675` Move GPU flow publication completion authority into kernel
+- `932910655` Move GPU flow publication decisions into kernel
+- `6889f25cf` Defer GPU flow canvas submission until publication
+- `76f34afa5` Promote browser visual hosts during publication
+- `fbd5af845` Defer React semantic surface notifications
+- `9af1f70d6` Defer browser visual store notifications
+- `f5a9803e8` Make GPU Flow publication token issuer private
+- `4b5810334` Remove committed surface lifecycle publication tokens
+- `451960b95` Demote publication candidates to prepared facts
+- `8ddc9e45a` Prove visible publication presentation evidence
+- `59013debc` Reduce presentation proof diagnostics complexity
+
+The browser visual actor runtime made the final ownership problem explicit:
+content publication, motion projection, browser host promotion, canvas
+submission, React semantic notifications, retained display side effects, and
+blocked/held diagnostics were all visible-frame decisions, but parts of them
+could still be completed by separate helpers.
+
+The May 21-23 cutover moved those decisions behind one visible publication
+authority:
+
+- `visibleFramePublicationKernel.ts` now samples one live projection frame,
+  selects the lane, prepares content and motion candidates, asks the
+  transaction oracle to prove the candidates, and publishes exactly one
+  outcome: commit, hold previous, or blocked;
+- content and motion candidates are prepared facts, not permission to mutate
+  visible state. They become visible only after actor proofs, resource
+  protection proofs, compatible-previous proofs, and presentation evidence
+  agree;
+- publication tokens are outcome-specific and minted only inside
+  `visibleFramePublicationAuthority.ts`: commit tokens, hold-previous tokens,
+  and blocked tokens guard every side effect that can make a frame visible or
+  release resources from a rejected frame;
+- canvas submission is deferred until visible publication, so the frame that
+  produces WebGPU output is the same frame whose DOM/browser visual generation
+  has been staged and proven exposable;
+- browser visual host promotion, browser visual store notifications, React
+  semantic committed-frame notifications, retained display publication,
+  projection debug ids, overlay transforms, node-layer publication, and surface
+  texture release are completed from publication completion rather than from
+  preparation;
+- blocked and held-previous outcomes carry frozen-frame identity and explicit
+  reasons instead of leaking partial side effects or letting a failed content
+  candidate advance visible state;
+- publication diagnostics now distinguish selected lane, candidate oracle
+  result, actor/resource/presentation proof failures, browser visual starvation,
+  held-previous age, cold-start shell publication, and completed scheduler
+  debt.
+
+The architecture changed from "a committed surface frame is the shared visible
+boundary" to "a committed surface frame is one prepared input to a visible
+publication transaction." The visible transaction is now the authority that
+decides which prepared facts become user-visible and which effects are allowed
+to run.
+
 ## Current Architecture
 
 After these iterations, GPU Flow has these major boundaries:
@@ -802,16 +874,30 @@ After these iterations, GPU Flow has these major boundaries:
   DOM-island actors into that shared vocabulary, so browser-owned visual
   coverage participates in the same transaction as retained pages and native
   visuals.
-- `GpuFlowCommittedSurfaceFrame` is the visible commit boundary that ties
-  retained pages, DOM controls, DOM islands, HTML texture actors, GPU-native
-  visuals, hit testing, debug snapshots, retained scroll samples, and
-  completeness diagnostics to one frame.
+- `GpuFlowCommittedSurfaceFrame` is the committed content-frame boundary that
+  ties retained pages, DOM controls, DOM islands, HTML texture actors,
+  GPU-native visuals, hit testing, debug snapshots, retained scroll samples,
+  and completeness diagnostics to one prepared frame.
+- `committedSurfacePresentationProof.ts` binds each committed surface frame to
+  a presentation batch, actor-manifest digest, DOM generation evidence, canvas
+  generation evidence, browser visual fragment digest, and surface transaction
+  digest.
 - `GpuFlow/flowCommittedSurfacePublication.ts` gates committed surface
   publication on actual browser visual actor readiness and records starvation
   when visible nonempty browser-owned actors cannot produce live, snapshot, or
   compatible-previous coverage.
 - Committed surface frames own content publication; live projection samples can
   advance without independently advancing React-visible committed content.
+- `GpuFlow/visibleFramePublication*.ts` owns the single visible-publication
+  kernel, scheduler authority, prepared content and motion facts, actor,
+  resource, and presentation oracles, projection work plans, module-private
+  publication token issuer, and completion accounting that select commit,
+  hold-previous, or blocked outcomes.
+- Visible side effects are publication-completion effects: canvas submission,
+  committed-frame store mutation, browser visual host promotion, browser visual
+  notifications, retained display state, projection debug ids, overlay
+  transforms, node-layer frame state, and resource release all require an
+  outcome token for the selected visible frame.
 - `projectionRuntime.ts` owns immutable live projection samples, projection
   transactions, held-previous debug state, and projection horizon obligations.
 - `projectionScheduler.ts` arbitrates content, maintenance, and motion lanes,
@@ -868,14 +954,24 @@ The branch moved GPU Flow in these directions:
     hole.
 20. From Chrome recording as an accidental rendering-policy input to Chrome
     recording as screenshot-backed browser visual evidence.
+21. From distributed visible side effects to one visible publication authority
+    that selects commit, hold-previous, or blocked.
+22. From publication candidates that could imply side effects to prepared facts
+    adjudicated by actor, resource, compatible-previous, and presentation
+    proofs.
+23. From implicit DOM/canvas readiness to explicit presentation evidence for
+    the browser visual generation and deferred canvas submission.
+24. From shared publication helpers to module-private outcome tokens that guard
+    committed-frame mutation, browser visual promotion, retained display
+    updates, projection state, scheduler debt completion, and resource release.
 
 The remaining pressure is not whether GPU Flow should be canvas-first or
 whether active/browser-semantic text-like controls should use real DOM. Those
 decisions have been made in code. The ongoing pressure is tightening the
-commit boundary so every new visual or interactive surface declares its owner,
-generation, representation coverage, projection policy, and interaction
-ownership explicitly, then proving that contract in the frame performance
-stream as the same rules spread beyond the Settings stress path.
+visible publication boundary so every new visual or interactive surface
+declares its owner, generation, representation coverage, projection policy, and
+interaction ownership explicitly, then proving that contract in the frame
+performance stream as the same rules spread beyond the Settings stress path.
 
 ## Verification Trail
 
@@ -910,6 +1006,16 @@ Useful reports from this branch:
 - [GPU Flow retained settings runtime finish line](../../perf/reports/gpu-flow-retained-settings-runtime-finish-line-20260519.md)
 - [GPU Flow browser visual finish-line report](../../perf/gpu-flow-browser-visual-finish-line-report.md)
 - [GPU Flow browser visual actor runtime finish-line report](../../perf/gpu-flow-browser-visual-actor-runtime-finish-line-20260520.md)
+
+The May 21-23 single-publication-authority cutover is covered mainly by
+focused Vitest authority and boundary suites rather than a new perf report:
+[visibleFramePublicationAuthority.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePublicationAuthority.test.ts),
+[visibleFramePublicationKernel.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePublicationKernel.test.ts),
+[visibleFramePublicationOracle.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePublicationOracle.test.ts),
+[visibleFramePublicationContentPlan.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePublicationContentPlan.test.ts),
+[visibleFramePublicationCompletion.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePublicationCompletion.test.ts),
+and
+[flowVisiblePublicationOutcomeGuard.test.ts](../../frontend/src/gpuFlow/GpuFlow/flowVisiblePublicationOutcomeGuard.test.ts).
 
 Together, these reports show the same architectural progression from the
 measurement side: less hidden publication work, more explicit diagnostics, more

@@ -85,10 +85,12 @@ textures do not call `requestPaint()`, upload HTML source textures with
 `GPUQueue.copyElementImageToTexture()`, force section React renders, or rewrite
 every source transform. Retained display publication is guarded by the
 committed surface transaction model: exact or compatible retained coverage can
-publish, missing coverage holds the previous coherent visible frame when one
-exists, and cold first coverage blocks publication in the project path until a
-`texture-upload` frame catches up. Prepared retained frames may queue follow-up
-work without independently advancing visible DOM-control actors.
+publish, missing coverage holds a compatible previous coherent visible frame
+when one exists, incompatible previous retained scenes publish a current-scene
+cold placeholder instead of showing stale unrelated content, and cold first
+coverage blocks publication in the project path until a `texture-upload` frame
+catches up. Prepared retained frames may queue follow-up work without
+independently advancing visible DOM-control actors.
 
 ## Scene Model
 
@@ -244,14 +246,25 @@ The reusable runtime is centered on these modules:
   `GpuFlow/domControlPlaneCompatibility.ts` select live DOM-control hosts,
   compute directional projection horizons, and carry compatible-previous
   coverage.
-- `committedSurfaceRuntime.ts` publishes every committed content frame
-  to browser visual layers, even when React semantic rendering is deduped for a
-  transform-only frame.
-- `GpuFlow/flowCommittedSurfacePublication.ts` gates committed surface
-  publication on browser visual actor readiness, requests follow-up
-  `texture-upload` frames when live or snapshot coverage is missing, holds the
-  previous projection when compatible coverage exists, and fails loudly on
-  true-hole browser visual coverage.
+- `committedSurfaceRuntime.ts` stores the currently committed content frame and
+  the React semantic snapshot. It still publishes committed-frame updates when
+  React semantic rendering is deduped for a transform-only frame.
+- `GpuFlow/browserVisualActorRuntime.ts` and its helper modules stage, commit,
+  abort, repair, and project DOM-control and DOM-island browser visual actors,
+  track live-host, snapshot, and island readiness, and expose the snapshots
+  consumed by the browser visual layers.
+- `GpuFlow/committedSurfaceFrameState.ts` ties committed-frame creation to
+  browser visual actor preparation, publication tokens, projection, and abort
+  handling.
+- `GpuFlow/visibleFramePublication*.ts` owns the visible-publication kernel,
+  scheduler authority, actor/resource/presentation oracles, projection work
+  plans, publication tokens, and completion accounting that select commit,
+  hold-previous, or blocked outcomes.
+- `GpuFlow/flowCommittedSurfacePublication.ts` applies committed-surface
+  publication effects: it clears browser-visual starvation debt on publish,
+  requests follow-up `texture-upload` frames for held or blocked browser visual
+  coverage, emits blocked-publication diagnostics, and fails loudly when browser
+  visual starvation exceeds its budget.
 - `surfaceCompositor/browserVisualActorAdapter.ts` adapts retained DOM controls
   and DOM islands into `BrowserVisualActor` surface transaction fragments with
   exact, compatible, blocked, exempt, or true-hole coverage.
@@ -477,8 +490,10 @@ Those sources are registered with `HtmlSurfaceTextureManager` and drawn as DOM
 textures. Retained DOM-control descriptors are sampled from retained hit-test
 surfaces in `createGpuRetainedRuntimeFrame()` for DOM-owned text-like controls
 and mounted by `GpuFlowDomControlPlane`, which is a sibling of the canvas rather
-than a canvas layout-subtree child. The plane consumes the committed surface
-frame's retained runtime frame, not a newer prepared retained frame.
+than a canvas layout-subtree child. Visible DOM-control hosts consume the
+committed browser visual runtime snapshot. Hidden preparation hosts may be
+mounted from a prepared candidate for readiness checks, but they do not advance
+the visible DOM-control layer until the candidate is committed.
 
 Retained page descriptors are sampled from runtime scroll offsets in
 `GpuFlow/flowFrame.tsx` via `createGpuRetainedRuntimeFrame()`. Retained page
@@ -509,10 +524,11 @@ the live-host projection budget: large scenes can mount up to 24 readable live
 hosts and 8 overscan live hosts, while scenes of 64 controls or fewer mount all
 eligible controls. Compatible-previous coverage can carry a bounded set of
 previous live representations across frames. Browser visual layers subscribe to
-`GpuFlowCommittedSurfaceRuntime.subscribeCommittedContentFrame`, so DOM-control
-and DOM-island projection follows the latest committed content frame even when
-React skips a semantic rerender. Chrome repro mode records screenshot-backed
-browser visual evidence, but it is not a rendering policy input.
+the `GpuFlowBrowserVisualActorRuntime` snapshot associated with the committed
+surface runtime, so DOM-control and DOM-island projection follows the latest
+committed browser visual snapshot even when React skips a semantic rerender.
+Chrome repro mode records canvas ink probes and publication diagnostics, but
+those diagnostics are not rendering policy inputs.
 
 When the project marks a text-like row active, the retained runtime samples one
 active DOM-control descriptor for the same canonical actor id that represented
@@ -614,14 +630,17 @@ Content, paint, upload, and maintenance frames follow this shape:
    any true-hole count for pages that are required for first-visible coverage.
 4. `resolveRetainedDisplayFrameTransaction()` resolves the retained surface
    transaction. Exact or compatible coverage publishes; missing coverage holds
-   the previous retained display when one exists. In the project frame path,
+   the previous retained display only when the previous retained scene is
+   compatible with the current source-surface set. In the project frame path,
    missing cold first coverage returns `block-cold-first-coverage` and requests
-   a `texture-upload` frame. The lower-level retained transaction can publish a
-   cold placeholder only when a caller explicitly allows it; `GpuFlow` passes
-   `allowColdPlaceholder: false`. Published `RetainedDisplayFrame` diagnostics
-   record active native-island `none`, `attach`, `survive`, `commit-detach`,
-   and `replace` transitions; held frames keep the previous native-island
-   publication.
+   a `texture-upload` frame. If a previous retained frame exists but belongs to
+   an incompatible scene, the retained display frame publishes a current-scene
+   cold placeholder with empty retained draw regions instead of holding stale
+   unrelated content. `GpuFlow` still passes `allowColdPlaceholder: false`; the
+   incompatible-previous case is supplied by the retained display transaction
+   guard. Published `RetainedDisplayFrame` diagnostics record active
+   native-island `none`, `attach`, `survive`, `commit-detach`, and `replace`
+   transitions; held frames keep the previous native-island publication.
    Published retained transactions do not contain true-hole coverage.
 5. `createGpuFlowCommittedSurfaceFrame()` wraps the published retained display
    in the visible committed surface frame. The committed frame id drives the
@@ -666,10 +685,12 @@ while `deferResolutionUpdates` is true: during active viewport interaction, on
 viewport frames, and on non-idle motion-settling lanes. Maintenance debt is
 re-requested as `texture-upload` and may be delayed during motion-settling.
 Retained display transactions never publish true-hole coverage: in the project
-path they publish exact or compatible coverage, hold the previous retained
-display, or block cold first coverage until retained texture uploads catch up.
-The lower-level retained transaction API can publish a cold placeholder only
-when a caller opts in.
+path they publish exact or compatible coverage, hold a compatible previous
+retained display, publish a current-scene cold placeholder when the previous
+retained scene is incompatible, or block cold first coverage until retained
+texture uploads catch up. The lower-level surface transaction API can publish a
+cold placeholder when its caller permits it; the retained display layer permits
+that for incompatible previous-scene replacement.
 Visible true-hole work is not passively deferred, so post-submit retained
 maintenance keeps first-visible page uploads active until coverage catches up.
 When compatible committed pages already cover the frame, post-submit retained
