@@ -9,7 +9,7 @@ import {
   startCompletion,
 } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
-import { EditorState, Prec, type ChangeSpec } from "@codemirror/state";
+import { EditorState, Prec, type ChangeSpec, type Extension } from "@codemirror/state";
 import {
   EditorView,
   keymap,
@@ -109,25 +109,10 @@ export function getExtensions({
   triggerCompletionAfterAccept,
   completionTriggerChars,
 }: GetExtensionsOptions) {
-  const extensions = [
-    CODEMIRROR_GUTTER_LAYOUT_FIX,
-    GPU_FLOW_DIRTY_UPDATE_LISTENER,
-  ];
   const shouldWrap = wrapLines ?? !singleLine;
   const triggerChars = completionTriggerChars ?? ["/", "\\"];
-  if (shouldWrap) {
-    extensions.push(EditorView.lineWrapping);
-  }
   const enableJsx = useJsx === true;
-
-  if (parent) {
-    extensions.push(
-      tooltips({
-        parent,
-      }),
-    );
-  }
-
+  const extensions = createCodeMirrorBaseExtensions({ parent, shouldWrap });
   extensions.push(...getLanguageExtensions(language, enableJsx));
   extensions.push(
     ...getAutocompleteExtensions({
@@ -138,42 +123,95 @@ export function getExtensions({
       triggerChars,
     }),
   );
-
-  if (singleLine) {
-    extensions.push(createSingleLineTransactionFilter());
-  }
-
-  if (isDisabled) {
-    extensions.push(EditorState.readOnly.of(true));
-  }
-
-  if (onActivity) {
-    extensions.push(
-      EditorView.updateListener.of((update) => {
-        if (update.docChanged || update.selectionSet) {
-          onActivity();
-        }
-      }),
-    );
-  }
-
-  const keymapArray = getKeyMapArray({
-    hasCompletions: Boolean(completionsFn),
-    indentWithTab,
-    singleLine,
-    tabToAutocomplete,
-    onTab,
-    onEnter,
-    onEscape,
-    keyComboActions,
-  });
-  const fullKeymap =
-    completionsFn && completionsFn !== null
-      ? [...keymapArray, ...completionKeymap]
-      : keymapArray;
-  extensions.push(Prec.highest(keymap.of(fullKeymap)));
+  extensions.push(
+    ...getEditorStateExtensions({
+      isDisabled,
+      onActivity,
+      singleLine,
+    }),
+  );
+  extensions.push(
+    createCodeMirrorKeymapExtension({
+      hasCompletions: Boolean(completionsFn),
+      indentWithTab,
+      keyComboActions,
+      onEnter,
+      onEscape,
+      onTab,
+      singleLine,
+      tabToAutocomplete,
+    }),
+  );
 
   return extensions;
+}
+
+function createCodeMirrorBaseExtensions({
+  parent,
+  shouldWrap,
+}: {
+  readonly parent: HTMLElement | null | undefined;
+  readonly shouldWrap: boolean;
+}): Extension[] {
+  return [
+    CODEMIRROR_GUTTER_LAYOUT_FIX,
+    GPU_FLOW_DIRTY_UPDATE_LISTENER,
+    ...(shouldWrap ? [EditorView.lineWrapping] : []),
+    ...(parent
+      ? [
+          tooltips({
+            parent,
+          }),
+        ]
+      : []),
+  ];
+}
+
+function getEditorStateExtensions({
+  isDisabled,
+  onActivity,
+  singleLine,
+}: Pick<GetExtensionsOptions, "isDisabled" | "onActivity" | "singleLine">) {
+  return [
+    ...(singleLine ? [createSingleLineTransactionFilter()] : []),
+    ...(isDisabled ? [EditorState.readOnly.of(true)] : []),
+    ...(onActivity
+      ? [
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged || update.selectionSet) {
+              onActivity();
+            }
+          }),
+        ]
+      : []),
+  ];
+}
+
+function createCodeMirrorKeymapExtension({
+  hasCompletions,
+  indentWithTab,
+  keyComboActions,
+  onEnter,
+  onEscape,
+  onTab,
+  singleLine,
+  tabToAutocomplete,
+}: GetKeyMapArrayOptions) {
+  const keymapArray = getKeyMapArray({
+    hasCompletions,
+    indentWithTab,
+    keyComboActions,
+    onEnter,
+    onEscape,
+    onTab,
+    singleLine,
+    tabToAutocomplete,
+  });
+  const fullKeymap =
+    hasCompletions
+      ? [...keymapArray, ...completionKeymap]
+      : keymapArray;
+  return Prec.highest(keymap.of(fullKeymap));
 }
 
 function createSingleLineTransactionFilter() {

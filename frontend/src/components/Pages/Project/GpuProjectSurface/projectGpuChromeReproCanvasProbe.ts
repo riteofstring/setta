@@ -49,6 +49,46 @@ export function createProjectGpuCanvasInkProbeAtClientPoint({
   if (!canvas) {
     return { available: false, reason: "missing-canvas" };
   }
+  const geometry = createProjectGpuCanvasProbeGeometry({
+    canvas,
+    clientPoint,
+    radiusCssPx,
+  });
+  if (!geometry.available) {
+    return geometry.probe;
+  }
+  return readProjectGpuCanvasProbePixels({
+    canvas,
+    geometry: geometry.geometry,
+  });
+}
+
+function createProjectGpuCanvasProbeGeometry({
+  canvas,
+  clientPoint,
+  radiusCssPx,
+}: {
+  readonly canvas: HTMLCanvasElement;
+  readonly clientPoint: { readonly x: number; readonly y: number };
+  readonly radiusCssPx: number;
+}):
+  | {
+      readonly available: false;
+      readonly probe: ProjectGpuChromeReproCanvasProbe;
+    }
+  | {
+      readonly available: true;
+      readonly geometry: {
+        readonly roundedCanvasRect: ProjectGpuChromeReproCanvasProbe["canvasRect"];
+        readonly sampleRectCss: NonNullable<
+          ProjectGpuChromeReproCanvasProbe["sampleRectCss"]
+        >;
+        readonly sourceHeight: number;
+        readonly sourceWidth: number;
+        readonly sourceX: number;
+        readonly sourceY: number;
+      };
+    } {
   const canvasRect = canvas.getBoundingClientRect();
   const roundedCanvasRect = roundProjectGpuChromeReproRect({
     height: canvasRect.height,
@@ -84,27 +124,70 @@ export function createProjectGpuCanvasInkProbeAtClientPoint({
     };
   }
 
-  const sampleRectCss = {
-    height: Math.min(radiusCssPx * 2, canvasRect.height),
-    width: Math.min(radiusCssPx * 2, canvasRect.width),
-    x: clampNumber(pointCssX - radiusCssPx, 0, canvasRect.width),
-    y: clampNumber(pointCssY - radiusCssPx, 0, canvasRect.height),
-  };
-  sampleRectCss.width = Math.min(
-    sampleRectCss.width,
-    canvasRect.width - sampleRectCss.x,
-  );
-  sampleRectCss.height = Math.min(
-    sampleRectCss.height,
-    canvasRect.height - sampleRectCss.y,
-  );
-
+  const sampleRectCss = createProjectGpuCanvasProbeSampleRect({
+    canvasRect,
+    pointCssX,
+    pointCssY,
+    radiusCssPx,
+  });
   const scaleX = canvas.width / canvasRect.width;
   const scaleY = canvas.height / canvasRect.height;
   const sourceX = Math.floor(sampleRectCss.x * scaleX);
   const sourceY = Math.floor(sampleRectCss.y * scaleY);
   const sourceWidth = Math.max(1, Math.ceil(sampleRectCss.width * scaleX));
   const sourceHeight = Math.max(1, Math.ceil(sampleRectCss.height * scaleY));
+  return {
+    available: true,
+    geometry: {
+      roundedCanvasRect,
+      sampleRectCss,
+      sourceHeight,
+      sourceWidth,
+      sourceX,
+      sourceY,
+    },
+  };
+}
+
+function createProjectGpuCanvasProbeSampleRect({
+  canvasRect,
+  pointCssX,
+  pointCssY,
+  radiusCssPx,
+}: {
+  readonly canvasRect: DOMRect;
+  readonly pointCssX: number;
+  readonly pointCssY: number;
+  readonly radiusCssPx: number;
+}) {
+  const x = clampNumber(pointCssX - radiusCssPx, 0, canvasRect.width);
+  const y = clampNumber(pointCssY - radiusCssPx, 0, canvasRect.height);
+  return {
+    height: Math.min(radiusCssPx * 2, canvasRect.height - y),
+    width: Math.min(radiusCssPx * 2, canvasRect.width - x),
+    x,
+    y,
+  };
+}
+
+function readProjectGpuCanvasProbePixels({
+  canvas,
+  geometry,
+}: {
+  readonly canvas: HTMLCanvasElement;
+  readonly geometry: Extract<
+    ReturnType<typeof createProjectGpuCanvasProbeGeometry>,
+    { readonly available: true }
+  >["geometry"];
+}): ProjectGpuChromeReproCanvasProbe {
+  const {
+    roundedCanvasRect,
+    sampleRectCss,
+    sourceHeight,
+    sourceWidth,
+    sourceX,
+    sourceY,
+  } = geometry;
   const tempCanvas = canvas.ownerDocument.createElement("canvas");
   tempCanvas.width = sourceWidth;
   tempCanvas.height = sourceHeight;
@@ -221,43 +304,11 @@ function summarizeProjectGpuCanvasProbePixels({
     };
   }
 
-  const firstR = data[0] ?? 0;
-  const firstG = data[1] ?? 0;
-  const firstB = data[2] ?? 0;
-  const firstA = data[3] ?? 0;
-  let alphaNonZeroCount = 0;
-  let lumaSum = 0;
-  let lumaSquareSum = 0;
-  let nonUniformPixelCount = 0;
-  const colorBuckets = new Set<number>();
-  for (let offset = 0; offset < data.length; offset += 4) {
-    const r = data[offset] ?? 0;
-    const g = data[offset + 1] ?? 0;
-    const b = data[offset + 2] ?? 0;
-    const a = data[offset + 3] ?? 0;
-    if (a > 0) {
-      alphaNonZeroCount += 1;
-    }
-    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    lumaSum += luma;
-    lumaSquareSum += luma * luma;
-    if (
-      Math.abs(r - firstR) +
-        Math.abs(g - firstG) +
-        Math.abs(b - firstB) +
-        Math.abs(a - firstA) >
-      8
-    ) {
-      nonUniformPixelCount += 1;
-    }
-    colorBuckets.add(
-      ((r >> 5) << 15) | ((g >> 5) << 10) | ((b >> 5) << 5) | (a >> 5),
-    );
-  }
-  const lumaMean = lumaSum / totalPixels;
+  const stats = summarizeProjectGpuCanvasProbePixelStats(data);
+  const lumaMean = stats.lumaSum / totalPixels;
   const lumaVariance = Math.max(
     0,
-    lumaSquareSum / totalPixels - lumaMean * lumaMean,
+    stats.lumaSquareSum / totalPixels - lumaMean * lumaMean,
   );
   const centerOffset =
     (Math.floor(imageData.height / 2) * imageData.width +
@@ -265,7 +316,7 @@ function summarizeProjectGpuCanvasProbePixels({
     4;
   return {
     alphaNonZeroRatio: roundProjectGpuChromeReproRatio(
-      alphaNonZeroCount / totalPixels,
+      stats.alphaNonZeroCount / totalPixels,
     ),
     available: true,
     backingRect,
@@ -276,15 +327,75 @@ function summarizeProjectGpuCanvasProbePixels({
       g: data[centerOffset + 1] ?? 0,
       r: data[centerOffset] ?? 0,
     },
-    colorBucketCount: colorBuckets.size,
+    colorBucketCount: stats.colorBucketCount,
     lumaMean: roundChromeReproMs(lumaMean),
     lumaStdDev: roundChromeReproMs(Math.sqrt(lumaVariance)),
     nonUniformPixelRatio: roundProjectGpuChromeReproRatio(
-      nonUniformPixelCount / totalPixels,
+      stats.nonUniformPixelCount / totalPixels,
     ),
     sampleRectCss: roundProjectGpuChromeReproRect(sampleRectCss),
     totalPixels,
   };
+}
+
+function summarizeProjectGpuCanvasProbePixelStats(data: Uint8ClampedArray) {
+  const firstPixel = readProjectGpuCanvasProbePixel(data, 0);
+  let alphaNonZeroCount = 0;
+  let lumaSquareSum = 0;
+  let lumaSum = 0;
+  let nonUniformPixelCount = 0;
+  const colorBuckets = new Set<number>();
+  for (let offset = 0; offset < data.length; offset += 4) {
+    const pixel = readProjectGpuCanvasProbePixel(data, offset);
+    alphaNonZeroCount += pixel.a > 0 ? 1 : 0;
+    const luma = 0.2126 * pixel.r + 0.7152 * pixel.g + 0.0722 * pixel.b;
+    lumaSum += luma;
+    lumaSquareSum += luma * luma;
+    nonUniformPixelCount += areProjectGpuCanvasProbePixelsSimilar(
+      firstPixel,
+      pixel,
+    )
+      ? 0
+      : 1;
+    colorBuckets.add(
+      ((pixel.r >> 5) << 15) |
+        ((pixel.g >> 5) << 10) |
+        ((pixel.b >> 5) << 5) |
+        (pixel.a >> 5),
+    );
+  }
+  return {
+    alphaNonZeroCount,
+    colorBucketCount: colorBuckets.size,
+    lumaSquareSum,
+    lumaSum,
+    nonUniformPixelCount,
+  };
+}
+
+function readProjectGpuCanvasProbePixel(
+  data: Uint8ClampedArray,
+  offset: number,
+) {
+  return {
+    a: data[offset + 3] ?? 0,
+    b: data[offset + 2] ?? 0,
+    g: data[offset + 1] ?? 0,
+    r: data[offset] ?? 0,
+  };
+}
+
+function areProjectGpuCanvasProbePixelsSimilar(
+  left: ReturnType<typeof readProjectGpuCanvasProbePixel>,
+  right: ReturnType<typeof readProjectGpuCanvasProbePixel>,
+): boolean {
+  return (
+    Math.abs(left.r - right.r) +
+      Math.abs(left.g - right.g) +
+      Math.abs(left.b - right.b) +
+      Math.abs(left.a - right.a) <=
+    8
+  );
 }
 
 function clampNumber(value: number, min: number, max: number): number {

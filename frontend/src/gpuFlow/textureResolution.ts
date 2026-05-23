@@ -122,19 +122,41 @@ export function chooseStableZoomBucket(
   if (currentIndex < 0 || targetIndex < 0 || currentIndex === targetIndex) {
     return targetBucket;
   }
-  if (targetIndex > currentIndex) {
-    return zoom >
-      currentZoomBucket * (1 + TEXTURE_RESOLUTION_ZOOM_BUCKET_HYSTERESIS)
-      ? targetBucket
-      : currentZoomBucket;
-  }
-  const previousBucket = normalizedBuckets[currentIndex - 1];
-  if (previousBucket === undefined) {
-    return currentZoomBucket;
-  }
-  return zoom < previousBucket * (1 - TEXTURE_RESOLUTION_ZOOM_BUCKET_HYSTERESIS)
+  return shouldSwitchStableZoomBucket({
+    currentIndex,
+    currentZoomBucket,
+    normalizedBuckets,
+    targetIndex,
+    zoom,
+  })
     ? targetBucket
     : currentZoomBucket;
+}
+
+function shouldSwitchStableZoomBucket({
+  currentIndex,
+  currentZoomBucket,
+  normalizedBuckets,
+  targetIndex,
+  zoom,
+}: {
+  readonly currentIndex: number;
+  readonly currentZoomBucket: number;
+  readonly normalizedBuckets: readonly number[];
+  readonly targetIndex: number;
+  readonly zoom: number;
+}): boolean {
+  if (targetIndex > currentIndex) {
+    return (
+      zoom >
+      currentZoomBucket * (1 + TEXTURE_RESOLUTION_ZOOM_BUCKET_HYSTERESIS)
+    );
+  }
+  const previousBucket = normalizedBuckets[currentIndex - 1];
+  return (
+    previousBucket !== undefined &&
+    zoom < previousBucket * (1 - TEXTURE_RESOLUTION_ZOOM_BUCKET_HYSTERESIS)
+  );
 }
 
 export function textureResolutionMatches(

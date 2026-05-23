@@ -51,6 +51,7 @@ import {
   useProjectGpuActiveParamCanvasPopupKeyboard,
   useProjectGpuActiveParamCanvasPopupWheel,
 } from "./projectGpuActiveParamCanvasPopupKeyboard";
+import { areProjectGpuActiveParamDomIslandsEquivalent } from "./projectGpuActiveParamDomIslandEquality";
 import { shouldClearProjectGpuActiveParamDomIslandOnPointerDown } from "./projectGpuActiveParamDomIslandDeactivation";
 import { PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER } from "./projectGpuFramePerformance";
 import { getProjectGpuAutoPanInsetsPx } from "./projectGpuHandleAdapter";
@@ -721,27 +722,6 @@ function ProjectGpuFlowLayer({
       selectionDrag={selectionDragOptions}
       uploadBudget={PROJECT_GPU_NODE_UPLOAD_BUDGET}
     />,
-  );
-}
-
-function areProjectGpuActiveParamDomIslandsEquivalent(
-  left: ProjectGpuActiveParamDomIsland | null,
-  right: ProjectGpuActiveParamDomIsland | null,
-): boolean {
-  if (left === right) {
-    return true;
-  }
-  if (!left || !right) {
-    return false;
-  }
-  return (
-    left.hitRecordId === right.hitRecordId &&
-    left.paramInfoId === right.paramInfoId &&
-    left.sectionId === right.sectionId &&
-    left.surfaceId === right.surfaceId &&
-    left.activation?.kind === right.activation?.kind &&
-    left.activation?.clientPoint.x === right.activation?.clientPoint.x &&
-    left.activation?.clientPoint.y === right.activation?.clientPoint.y
   );
 }
 
