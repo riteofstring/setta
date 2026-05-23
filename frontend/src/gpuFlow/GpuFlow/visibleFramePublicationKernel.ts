@@ -63,10 +63,8 @@ import {
   type GpuFlowProjectionFrameTransactionSelector,
   type GpuFlowRetainedProjectionFrameResolver,
 } from "./visibleFramePublicationProjectionPlan";
-import type {
-  GpuFlowBlockedPublicationToken,
-  GpuFlowPresentableCommit,
-} from "./visibleFramePublicationTokens";
+import { selectGpuFlowMotionProjectionFrameBlockedPublicationReason } from "./visibleFramePublicationProjectionWorkAuthority";
+import type { GpuFlowBlockedPublicationToken, GpuFlowPresentableCommit } from "./visibleFramePublicationTokens";
 
 export { assertGpuFlowCommittedSurfacePublicationCandidatePublished } from "./flowCommittedSurfacePublicationCandidateHandling";
 export type { GpuFlowCommittedSurfacePublicationCandidateAction } from "./flowCommittedSurfacePublicationCandidateHandling";
@@ -607,11 +605,13 @@ function resolveGpuFlowMotionProjectionFramePreparation<
     projectionFrameRenderPlan,
     requestedProjectionTransaction: preparation.requestedTransaction,
   });
-  if (projectionFrame.publicationBlockedReason) {
+  const projectionBlockedReason =
+    selectGpuFlowMotionProjectionFrameBlockedPublicationReason(projectionFrame);
+  if (projectionBlockedReason) {
     return preparation.createBlockedProjectionFrame({
       blockedPublicationCandidate:
         createGpuFlowRetainedProjectionBlockedPublicationCandidate({
-          blockedReason: projectionFrame.publicationBlockedReason,
+          blockedReason: projectionBlockedReason,
           heldPreviousProjectionState: previousVisibleProjectionState,
         }),
     });

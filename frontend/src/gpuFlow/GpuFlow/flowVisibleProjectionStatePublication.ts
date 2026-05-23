@@ -23,7 +23,7 @@ export function publishGpuFlowVisibleProjectionState({
   visibleProjectionState,
   visibleProjectionStateRef,
 }: {
-  readonly commitPublicationToken: GpuFlowCommitPublicationToken | null;
+  readonly commitPublicationToken: GpuFlowCommitPublicationToken;
   readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
   readonly visibleProjectionStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
@@ -46,7 +46,7 @@ export function recordGpuFlowHeldPreviousVisibleProjectionState({
   visibleProjectionPublicationStateRef,
   visibleProjectionState,
 }: {
-  readonly token: GpuFlowHoldPreviousToken | null;
+  readonly token: GpuFlowHoldPreviousToken;
   readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): void {
@@ -72,7 +72,7 @@ export function recordGpuFlowNoFrameHeldPreviousVisibleProjectionState({
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
-  readonly token: GpuFlowHoldPreviousToken | null;
+  readonly token: GpuFlowHoldPreviousToken;
   readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
 }): void {
   if (!previousVisibleProjectionState) {
@@ -126,16 +126,11 @@ function publishCommittedVisibleProjectionState({
   visibleProjectionState,
   visibleProjectionStateRef,
 }: {
-  readonly token: GpuFlowCommitPublicationToken | null;
+  readonly token: GpuFlowCommitPublicationToken;
   readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
   readonly visibleProjectionStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
 }): void {
-  if (!token) {
-    throw new Error(
-      "GPU Flow visible projection state publication requires the commit token that published the visible frame.",
-    );
-  }
   assertGpuFlowCommitPublicationToken({
     frame: visibleProjectionState.committedFrame,
     token,
@@ -153,15 +148,10 @@ function recordHeldPreviousVisibleProjectionState({
   visibleProjectionPublicationStateRef,
   visibleProjectionState,
 }: {
-  readonly token: GpuFlowHoldPreviousToken | null;
+  readonly token: GpuFlowHoldPreviousToken;
   readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): void {
-  if (!token) {
-    throw new Error(
-      "GPU Flow held-previous visible projection state publication requires the hold-previous token for the selected frame.",
-    );
-  }
   assertGpuFlowHoldPreviousTokenForProjectionSample({
     projectionSampleId: visibleProjectionState.sample.id,
     token,

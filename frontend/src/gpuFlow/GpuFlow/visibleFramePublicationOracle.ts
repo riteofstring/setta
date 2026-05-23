@@ -86,7 +86,6 @@ export type GpuFlowVisibleFramePublicationContentCandidate = {
 
 export type GpuFlowVisibleFramePublicationMotionCandidate = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
-  readonly publicationBlockedReason?: string | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
 

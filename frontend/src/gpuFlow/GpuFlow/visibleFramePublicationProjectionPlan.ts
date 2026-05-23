@@ -1,10 +1,7 @@
 import type {
   GpuFlowHeldPreviousProjection,
-  GpuFlowProjectionLane,
   GpuFlowProjectionTransaction,
-  GpuFlowProjectionTransactionKind,
 } from "../projectionRuntime";
-import type { RenderHtmlSurfaceFrameResult } from "../htmlSurfaces/frame";
 import type { GpuFlowRetainedProjectionFrame } from "./flowProjectionFrame";
 import type { GpuFlowRetainedProjectionPublicationTransactionDecision } from "./visibleFramePublicationCandidates";
 
@@ -41,24 +38,6 @@ export type GpuFlowProjectionFrameRenderablePlan = Extract<
 export type GpuFlowProjectionFrameRenderPlanSelector = (input: {
   readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
 }) => GpuFlowProjectionFrameRenderPlan;
-
-export type GpuFlowProjectionOnlyFrameWorkResult = Pick<
-  RenderHtmlSurfaceFrameResult,
-  | "budgetExhausted"
-  | "deferredNodeIds"
-  | "evictedTextureBytes"
-  | "evictedTextureNodeIds"
-  | "missingElementNodeIds"
-  | "remainingDirtyNodeIds"
-  | "skippedNodeIds"
-  | "uploadedNodeIds"
->;
-
-export type GpuFlowProjectionOnlyFrameWorkInput = {
-  readonly layerResult: GpuFlowProjectionOnlyFrameWorkResult;
-  readonly projectionLane: GpuFlowProjectionLane;
-  readonly transactionKind: GpuFlowProjectionTransactionKind;
-};
 
 export function createGpuFlowProjectionFrameTransactionSelector(): GpuFlowProjectionFrameTransactionSelector {
   return selectGpuFlowProjectionFrameTransactionFromPublicationDecision;
@@ -133,56 +112,4 @@ function assertGpuFlowProjectionFrameTransactionRenderable(
       "GPU Flow projection frame render plans require a nonblocked projection transaction.",
     );
   }
-}
-
-export function selectGpuFlowMotionProjectionFrameWorkBlockedReason({
-  layerResult,
-  projectionLane,
-  transactionKind,
-}: GpuFlowProjectionOnlyFrameWorkInput): string | null {
-  if (
-    projectionLane !== "motion" ||
-    (transactionKind !== "motion-projection" &&
-      transactionKind !== "held-previous")
-  ) {
-    return null;
-  }
-  if (
-    hasGpuFlowProjectionOnlyForbiddenContentWork({
-      budgetExhausted: layerResult.budgetExhausted,
-      blockedWork: createGpuFlowProjectionOnlyBlockedWork(layerResult),
-    })
-  ) {
-    return "projection-only-content-work";
-  }
-  return null;
-}
-
-export function createGpuFlowProjectionOnlyBlockedWork(
-  layerResult: Omit<GpuFlowProjectionOnlyFrameWorkResult, "budgetExhausted">,
-) {
-  return {
-    deferredNodeIds: layerResult.deferredNodeIds,
-    evictedTextureBytes: layerResult.evictedTextureBytes,
-    evictedTextureNodeIds: layerResult.evictedTextureNodeIds,
-    missingElementNodeIds: layerResult.missingElementNodeIds,
-    remainingDirtyNodeIds: layerResult.remainingDirtyNodeIds,
-    skippedNodeIds: layerResult.skippedNodeIds,
-    uploadedNodeIds: layerResult.uploadedNodeIds,
-  };
-}
-
-function hasGpuFlowProjectionOnlyForbiddenContentWork({
-  blockedWork,
-  budgetExhausted,
-}: {
-  readonly blockedWork: ReturnType<typeof createGpuFlowProjectionOnlyBlockedWork>;
-  readonly budgetExhausted: boolean;
-}): boolean {
-  return [
-    budgetExhausted,
-    blockedWork.evictedTextureBytes > 0,
-    blockedWork.evictedTextureNodeIds.length > 0,
-    blockedWork.uploadedNodeIds.length > 0,
-  ].some(Boolean);
 }

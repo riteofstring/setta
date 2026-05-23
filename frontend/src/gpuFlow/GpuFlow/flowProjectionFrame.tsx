@@ -50,12 +50,7 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
 import type { GpuFlowProjectionFrameRenderablePlan } from "./visibleFramePublicationKernel";
-import {
-  createGpuFlowProjectionOnlyBlockedWork,
-  selectGpuFlowMotionProjectionFrameWorkBlockedReason,
-  type GpuFlowProjectionOnlyFrameWorkInput,
-  type GpuFlowProjectionOnlyFrameWorkResult,
-} from "./visibleFramePublicationProjectionPlan";
+import type { GpuFlowMotionProjectionFrameWorkReport } from "./visibleFramePublicationProjectionWorkAuthority";
 
 export type GpuFlowRetainedProjectionFrame = {
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
@@ -65,13 +60,13 @@ export type GpuFlowRetainedProjectionFrame = {
 
 type RenderGpuFlowNodeLayerProjectionFrameResult =
   | {
-      readonly publicationBlockedReason?: string | null;
       readonly rendered: false;
     }
   | {
       readonly rendered: true;
       readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
       readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+      readonly projectionOnlyFrameWork?: GpuFlowMotionProjectionFrameWorkReport | null;
       readonly transaction: GpuFlowProjectionTransaction;
     };
 
@@ -209,18 +204,11 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     uploadBudget: layer.uploadBudget,
     viewport: projectionViewport,
   });
-  const publicationBlockedReason =
-    selectGpuFlowMotionProjectionFrameWorkBlockedReason({
-      layerResult,
-      projectionLane: transaction.lane,
-      transactionKind: transaction.kind,
-    });
-  if (publicationBlockedReason !== null) {
-    return {
-      publicationBlockedReason,
-      rendered: false,
-    };
-  }
+  const projectionOnlyFrameWork = {
+    layerResult,
+    projectionLane: transaction.lane,
+    transactionKind: transaction.kind,
+  } satisfies GpuFlowMotionProjectionFrameWorkReport;
   const projectionDebugState = createGpuFlowProjectionDebugState(
     transaction,
     heldPreviousProjection,
@@ -278,6 +266,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   return {
     heldPreviousProjection,
     nodeLayerFrameStatePublication,
+    projectionOnlyFrameWork,
     rendered: true,
     transaction,
   };
@@ -298,31 +287,6 @@ function resolveGpuFlowProjectionRetainedRuntimeFrame({
   return (
     heldPreviousProjectionState?.committedFrame.retainedRuntimeFrame ??
     fallbackRetainedRuntimeFrame
-  );
-}
-
-export function assertGpuFlowMotionProjectionFrameWork({
-  layerResult,
-  projectionLane,
-  transactionKind,
-}: {
-  readonly layerResult: GpuFlowProjectionOnlyFrameWorkResult;
-  readonly projectionLane: GpuFlowProjectionOnlyFrameWorkInput["projectionLane"];
-  readonly transactionKind: GpuFlowProjectionOnlyFrameWorkInput["transactionKind"];
-}): void {
-  const blockedReason = selectGpuFlowMotionProjectionFrameWorkBlockedReason({
-    layerResult,
-    projectionLane,
-    transactionKind,
-  });
-  if (blockedReason === null) {
-    return;
-  }
-  const blockedWork = createGpuFlowProjectionOnlyBlockedWork(layerResult);
-  throw new Error(
-    `GPU Flow motion projection frame performed forbidden content work: ${JSON.stringify(
-      blockedWork,
-    )}`,
   );
 }
 
