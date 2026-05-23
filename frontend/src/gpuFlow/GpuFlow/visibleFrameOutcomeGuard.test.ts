@@ -5,7 +5,7 @@ import type {
   GpuFlowLiveProjectionSample,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import { assertGpuFlowSingleVisiblePublicationOutcome } from "./flowVisiblePublicationOutcomeGuard";
+import { assertGpuFlowSingleVisiblePublicationOutcome } from "./visibleFrameOutcomeGuard";
 import type { GpuFlowVisiblePublicationOutcome } from "./visibleFrameKernel";
 import { createGpuFlowVisibleFrameHoldPreviousTokenForTest } from "./visibleFrameTestUtils";
 

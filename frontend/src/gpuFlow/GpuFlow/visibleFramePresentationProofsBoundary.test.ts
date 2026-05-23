@@ -18,7 +18,7 @@ const KERNEL_COMPLETION_MODULE_PATH = modulePath(
   "./visibleFrameOutcomeReport.ts",
 );
 const CHROME_REPRO_MODULE_PATH = modulePath(
-  "./flowVisiblePublicationOutcomeChromeRepro.ts",
+  "./visibleFrameOutcomeChromeRepro.ts",
 );
 const BROWSER_VISUAL_RUNTIME_MODULE_PATH = modulePath(
   "./browserVisualActorRuntime.ts",
@@ -43,7 +43,7 @@ const COMMITTED_SURFACE_RUNTIME_MODULE_PATH = modulePath(
 const PROJECTION_FRAME_MODULE_PATH = modulePath("./flowProjectionFrame.tsx");
 const FLOW_FRAME_MODULE_PATH = modulePath("./flowFrame.tsx");
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = modulePath(
-  "./flowSurfaceFramePublication.ts",
+  "./visibleFrameSurfaceFrame.ts",
 );
 const VISIBLE_FRAME_PRESENTER_MODULE_PATH = modulePath(
   "./visibleFramePresenter.ts",

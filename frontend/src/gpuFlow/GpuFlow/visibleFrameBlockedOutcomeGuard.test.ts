@@ -9,7 +9,7 @@ import {
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
   type GpuFlowVisiblePublicationCompletionOutcome,
 } from "../projectionScheduler";
-import { recordGpuFlowBlockedPublicationGuard } from "./flowVisiblePublicationBlockedGuard";
+import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutcomeGuard";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,

@@ -60,7 +60,7 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { attachGpuFlowNodeResizeController } from "./flowNodeResizeController";
 import { useGpuFlowOverlaySources } from "./flowOverlays";
 import { syncGpuFlowNodeLayerSceneState } from "./flowSceneStateSync";
-import { renderGpuFlowSurfaceFrame } from "./flowSurfaceFramePublication";
+import { renderGpuFlowSurfaceFrame } from "./visibleFrameSurfaceFrame";
 import {
   useGpuFlowNodeElementChangeHandler,
   useGpuFlowNodeScreenRectDebug,

@@ -6,7 +6,7 @@ import type { GpuViewportInput } from "../viewportMath";
 import {
   shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample,
   withGpuFlowContentCatchupReasonForStalePublicationSample,
-} from "./flowSurfaceFramePublication";
+} from "./visibleFrameSurfaceFrame";
 
 describe("GPU Flow surface frame publication", () => {
   it("keeps raw reasons unchanged when the committed sample is current", () => {

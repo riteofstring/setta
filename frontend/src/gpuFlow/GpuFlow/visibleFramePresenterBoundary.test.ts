@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
-  new URL("./flowSurfaceFramePublication.ts", import.meta.url),
+  new URL("./visibleFrameSurfaceFrame.ts", import.meta.url),
 );
 const VISIBLE_FRAME_PRESENTER_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresenter.ts", import.meta.url),
