@@ -27,15 +27,15 @@ import {
   type GpuFlowRetainedDisplayOutcomeFrameResult,
   type GpuFlowRetainedDisplayPublicationFramePlan,
   type GpuFlowVisiblePublicationContentDecisionKernel,
-} from "./visibleFramePublicationCandidateOracle";
-import type {
-  GpuFlowBlockedPublicationToken,
-  GpuFlowBlockedVisibleReason,
-} from "./visibleFramePublicationTokens";
+} from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
   createGpuFlowVisiblePublicationPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
 } from "./visibleFramePublicationPresentationEvidence";
+import type {
+  GpuFlowBlockedPublicationToken,
+  GpuFlowBlockedVisibleReason,
+} from "./visibleFramePublicationTokens";
 
 export type GpuFlowCommittedSurfacePublicationEffect =
   | {
@@ -831,11 +831,10 @@ function createGpuFlowVisibleContentPublicationFrameResult({
     heldPreparedCommittedSurfaceFrame:
       committedSurfacePublication.heldPreparedCommittedSurfaceFrame,
     nodeLayerFrameStatePublication,
-    presentationEvidence:
-      createGpuFlowVisiblePublicationPresentationEvidence({
-        nodeLayerFrameStatePublication,
-        visibleProjectionState,
-      }),
+    presentationEvidence: createGpuFlowVisiblePublicationPresentationEvidence({
+      nodeLayerFrameStatePublication,
+      visibleProjectionState,
+    }),
     rendered: deferResolutionUpdates || !heldPrevious,
     retainedDisplayFrame,
     retainedDisplayFollowUpFrameReason,

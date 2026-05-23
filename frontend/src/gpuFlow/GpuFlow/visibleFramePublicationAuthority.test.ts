@@ -10,7 +10,7 @@ const TOKEN_MODULE_PATH = modulePath("./visibleFramePublicationTokens.ts");
 const AUTHORITY_MODULE_PATH = modulePath("./visibleFramePresentationProofs.ts");
 const KERNEL_MODULE_PATH = modulePath("./visibleFramePublicationKernel.ts");
 const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = modulePath(
-  "./visibleFramePublicationCandidateOracle.ts",
+  "./visibleFrameActorAdapters/contentDecisionKernel.ts",
 );
 const KERNEL_PRESENTATION_MODULE_PATH = modulePath(
   "./visibleFramePublicationKernelPresentation.ts",

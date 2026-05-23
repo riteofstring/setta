@@ -14,8 +14,8 @@ import {
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
+import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationCandidateOracle";
 import { createGpuFlowCommittedSurfacePublicationFramePlanPreparer } from "./visibleFramePublicationContentPlan";
 import {
   runGpuFlowVisibleFramePublicationCandidateSetKernel,

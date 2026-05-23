@@ -1,39 +1,39 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import type { GpuFrameReason } from "../gpuRenderer";
+import type { GpuFlowCommittedSurfaceFrame } from "../../committedSurfaceFrame";
+import type { GpuFrameReason } from "../../gpuRenderer";
 import {
   type GpuFlowProjectionTransaction,
   type GpuFlowVisibleProjectionState,
-} from "../projectionRuntime";
+} from "../../projectionRuntime";
 import {
   createGpuFlowNodeLayerCommittedSurfacePublicationResult,
   type GpuFlowNodeLayerCommittedSurfacePublicationResult,
   type GpuFlowNodeLayerFrameResult,
-} from "./flowFrameResult";
-import type { GpuFlowRetainedDisplayPublicationResult } from "./flowRetainedDisplayTransaction";
-import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "./flowVisibleProjectionState";
-import type { GpuFlowCommittedSurfaceCandidateAction } from "./visibleFrameActorAdapters/committedSurfaceCandidateAction";
+} from "../flowFrameResult";
+import type { GpuFlowRetainedDisplayPublicationResult } from "../flowRetainedDisplayTransaction";
+import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "../flowVisibleProjectionState";
 import {
   createGpuFlowBrowserVisualBlockedPublicationCandidate,
   createGpuFlowRetainedProjectionBlockedPublicationCandidate,
   getGpuFlowCommittedSurfacePublishabilityActorIds,
   shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair,
-} from "./visibleFramePublicationBlockedCandidate";
+} from "../visibleFramePublicationBlockedCandidate";
 import type {
   GpuFlowCommittedSurfacePublicationCandidate,
   GpuFlowCommittedSurfacePublicationCandidateInput,
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFrameBlockedPublicationCandidate,
-} from "./visibleFramePublicationContentPlan";
-import type { GpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
+} from "../visibleFramePublicationContentPlan";
+import type { GpuFlowRetainedProjectionFrame } from "../visibleFramePublicationKernelProjectionCoverage";
 import type {
   GpuFlowMotionProjectionFrameWithWorkReport,
   GpuFlowMotionProjectionFrameWorkReport,
   GpuFlowMotionProjectionFrameWorkResult,
-} from "./visibleFramePublicationKernelProjectionWorkTypes";
+} from "../visibleFramePublicationKernelProjectionWorkTypes";
 import type {
   GpuFlowProjectionFrameTransaction,
   GpuFlowRetainedProjectionFrameResolver,
-} from "./visibleFramePublicationProjectionPlan";
+} from "../visibleFramePublicationProjectionPlan";
+import type { GpuFlowCommittedSurfaceCandidateAction } from "./committedSurfaceCandidateAction";
 
 type GpuFlowCommittedSurfacePublicationReadiness =
   | {

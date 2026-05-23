@@ -14,7 +14,7 @@ import {
   createGpuFlowVisiblePublicationCandidateOracle,
   type GpuFlowRetainedProjectionPublicationCandidateSelector,
   type GpuFlowVisiblePublicationCandidateOracle,
-} from "./visibleFramePublicationCandidateOracle";
+} from "./visibleFrameActorAdapters/contentDecisionKernel";
 import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFramePublicationCompletion";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,

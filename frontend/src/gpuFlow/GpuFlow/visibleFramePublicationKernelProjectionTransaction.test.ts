@@ -31,7 +31,10 @@ const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
 const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationCandidateOracle.ts", import.meta.url),
+  new URL(
+    "./visibleFrameActorAdapters/contentDecisionKernel.ts",
+    import.meta.url,
+  ),
 );
 
 describe("GPU Flow visible publication kernel projection transactions", () => {

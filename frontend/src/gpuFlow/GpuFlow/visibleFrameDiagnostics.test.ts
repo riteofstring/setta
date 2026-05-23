@@ -7,12 +7,12 @@ import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
+import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
   recordGpuFlowBlockedVisiblePublication,
   recordGpuFlowVisibleFrameBlocked,
   recordGpuFlowVisibleFrameHeld,
 } from "./visibleFrameDiagnostics";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationCandidateOracle";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   type GpuFlowCommittedSurfacePublicationCandidateInput,

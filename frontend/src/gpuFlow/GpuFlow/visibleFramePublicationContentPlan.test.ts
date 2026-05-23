@@ -13,7 +13,7 @@ import type {
   RetainedDisplayFrame,
   RetainedDisplayFrameOutcome,
 } from "../retainedDisplayFrame";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFramePublicationCandidateOracle";
+import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFramePublicationContentAbort";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
@@ -39,7 +39,10 @@ const KERNEL_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationKernel.ts", import.meta.url),
 );
 const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationCandidateOracle.ts", import.meta.url),
+  new URL(
+    "./visibleFrameActorAdapters/contentDecisionKernel.ts",
+    import.meta.url,
+  ),
 );
 const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
@@ -229,7 +232,7 @@ describe("GPU Flow visible publication content plans", () => {
     );
 
     expect(kernelModuleSource).not.toMatch(
-      /export \{[\s\S]*createGpuFlow(?:CommittedSurfacePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector)[\s\S]*\} from "\.\/visibleFramePublicationCandidateOracle";/,
+      /export \{[\s\S]*createGpuFlow(?:CommittedSurfacePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector)[\s\S]*\} from "\.\/visibleFrameActorAdapters\/contentDecisionKernel";/,
     );
     expect(kernelModuleSource).not.toContain(
       "export { prepareGpuFlowCommittedSurfacePublicationCandidate",
