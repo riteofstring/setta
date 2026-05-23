@@ -24,6 +24,11 @@ type TextLikeNativeSemanticsTarget = {
   readonly surfaceId: string;
 };
 
+type NativeTextLikeRow = RetainedRowDebugEntry & {
+  readonly controlClientPoint: Point;
+  readonly controlClientRect: Rect;
+};
+
 type NativeTextSelectionState = {
   readonly activeEditorId: string | null;
   readonly caretRect: Rect | null;
@@ -67,10 +72,7 @@ const TARGET_TEXT_LIKE_ROW: TextLikeNativeSemanticsTarget = {
 };
 
 export async function openNativeTextLikeRow(page: Page): Promise<{
-  readonly row: RetainedRowDebugEntry & {
-    readonly controlClientPoint: Point;
-    readonly controlClientRect: Rect;
-  };
+  readonly row: NativeTextLikeRow;
   readonly target: TextLikeNativeSemanticsTarget;
 }> {
   await openAllSettingsForRetainedCompositor(page);
@@ -134,44 +136,120 @@ export function expectNativeCompositionStateAlignedToRow(
 
 export async function activateNativeTextLikeEditor(
   page: Page,
-  row: RetainedRowDebugEntry & {
-    readonly controlClientPoint: Point;
-    readonly controlClientRect: Rect;
-  },
+  row: NativeTextLikeRow,
 ): Promise<void> {
-  const points = [
-    row.controlClientPoint,
-    {
-      x: row.controlClientRect.x + row.controlClientRect.width / 2,
-      y: row.controlClientRect.y + row.controlClientRect.height / 2,
-    },
-  ];
-  for (const point of points) {
-    await page.mouse.click(point.x, point.y);
-    try {
-      await expect
-        .poll(() => readActiveCodeMirrorId(page), { timeout: 6_000 })
-        .toContain(row.rowId);
-      return;
-    } catch {
-      await waitForAnimationFrame(page);
+  const deadline = Date.now() + 10_000;
+  let currentRow = row;
+  while (Date.now() < deadline) {
+    const visibleRow = await resolveVisibleTargetRow(page, {
+      rowId: row.rowId,
+      surfaceId: row.surfaceId,
+    });
+    if (visibleRow?.controlClientPoint && visibleRow.controlClientRect) {
+      currentRow = {
+        ...visibleRow,
+        controlClientPoint: visibleRow.controlClientPoint,
+        controlClientRect: visibleRow.controlClientRect,
+      };
     }
+    const points = await resolveNativeTextActivationPoints(page, currentRow);
+    for (const point of points) {
+      await page.mouse.click(point.x, point.y);
+      try {
+        await expect
+          .poll(() => readActiveCodeMirrorId(page), { timeout: 1_200 })
+          .toContain(row.rowId);
+        return;
+      } catch {
+        await waitForAnimationFrame(page);
+      }
+    }
+    await page.waitForTimeout(80);
   }
   throw new Error(
     `Could not activate native text-like editor. ${JSON.stringify(
-      await readNativeTextActivationDiagnostics(page, row),
+      await readNativeTextActivationDiagnostics(page, currentRow),
       null,
       2,
     )}`,
   );
 }
 
+async function resolveNativeTextActivationPoints(
+  page: Page,
+  row: NativeTextLikeRow,
+): Promise<readonly Point[]> {
+  const hostRect = await readVisibleNativeTextDomControlHostRect(page, row);
+  const candidates: Point[] = [
+    row.controlClientPoint,
+    hostRect
+      ? {
+          x: hostRect.x + hostRect.width / 2,
+          y: hostRect.y + hostRect.height / 2,
+        }
+      : null,
+    {
+      x: row.controlClientRect.x + row.controlClientRect.width / 2,
+      y: row.controlClientRect.y + row.controlClientRect.height / 2,
+    },
+    {
+      x:
+        row.controlClientRect.x + Math.min(48, row.controlClientRect.width / 3),
+      y: row.controlClientRect.y + row.controlClientRect.height / 2,
+    },
+  ].filter((point): point is Point => point !== null);
+  return dedupeViewportPoints(candidates);
+}
+
+async function readVisibleNativeTextDomControlHostRect(
+  page: Page,
+  row: RetainedRowDebugEntry,
+): Promise<Rect | null> {
+  return await page.evaluate(({ rowId, surfaceId }) => {
+    const selector = [
+      "[data-gpu-flow-dom-control='true']",
+      `[data-gpu-flow-dom-control-surface-id='${CSS.escape(surfaceId)}']`,
+      `[data-gpu-flow-dom-control-row-id='${CSS.escape(rowId)}']`,
+    ].join("");
+    const host = document.querySelector<HTMLElement>(selector);
+    if (!host) {
+      return null;
+    }
+    const rect = host.getBoundingClientRect();
+    if (
+      rect.width <= 8 ||
+      rect.height <= 8 ||
+      rect.x + rect.width <= 0 ||
+      rect.y + rect.height <= 0 ||
+      rect.x >= window.innerWidth ||
+      rect.y >= window.innerHeight
+    ) {
+      return null;
+    }
+    return {
+      height: rect.height,
+      width: rect.width,
+      x: rect.x,
+      y: rect.y,
+    };
+  }, row);
+}
+
+function dedupeViewportPoints(points: readonly Point[]): readonly Point[] {
+  const seen = new Set<string>();
+  return points.filter((point) => {
+    const key = `${Math.round(point.x)}:${Math.round(point.y)}`;
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 async function readNativeTextActivationDiagnostics(
   page: Page,
-  row: RetainedRowDebugEntry & {
-    readonly controlClientPoint: Point;
-    readonly controlClientRect: Rect;
-  },
+  row: NativeTextLikeRow,
 ): Promise<unknown> {
   return await page.evaluate((row) => {
     const host = document.querySelector<HTMLElement>(
