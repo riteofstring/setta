@@ -23,17 +23,15 @@ import {
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanResultResolver,
   createGpuFlowCommittedSurfacePublicationFramePlanSelector,
+  createGpuFlowRetainedDisplayPublicationFramePlanResultResolver,
   type GpuFlowCommittedSurfacePublicationFramePlan,
   type GpuFlowCommittedSurfacePublicationFramePlanResult,
   type GpuFlowCommittedSurfacePublicationFramePlanSelector,
-} from "./visibleFramePublicationCommittedSurfaceAuthority";
-import { createGpuFlowContentPublicationBlockedCandidateForFrameResultSelector } from "./visibleFramePublicationContentAuthority";
-import {
-  createGpuFlowRetainedDisplayPublicationFramePlanResultResolver,
   type GpuFlowRetainedDisplayOutcomeFrameResult,
   type GpuFlowRetainedDisplayPublicationFramePlan,
   type GpuFlowRetainedDisplayPublicationFramePlanSelector,
-} from "./visibleFramePublicationRetainedDisplayAuthority";
+} from "./visibleFramePublicationKernelContentDecisions";
+import { createGpuFlowContentPublicationBlockedCandidateForFrameResultSelector } from "./visibleFramePublicationContentAuthority";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,

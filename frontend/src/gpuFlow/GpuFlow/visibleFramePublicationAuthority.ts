@@ -4,6 +4,10 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
+import {
+  assertGpuFlowVisiblePublicationResourcesProtected,
+  createGpuFlowVisiblePublicationResourceProtectionReport,
+} from "./visibleFramePublicationResourceOracle";
 
 const GPU_FLOW_COMMIT_PUBLICATION_TOKEN = Symbol(
   "GpuFlowCommitPublicationToken",
@@ -40,11 +44,6 @@ export type GpuFlowColdStartShellFrame = {
   readonly input: "disabled";
   readonly kind: "cold-start-shell";
   readonly reason: string;
-};
-
-type GpuFlowPresentableResourceHandle = {
-  readonly id: string;
-  readonly kind: string;
 };
 
 export type GpuFlowCommitPresentationPairProof = {
@@ -351,59 +350,9 @@ function assertGpuFlowPresentableCommitResourcesProtected({
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
 }): void {
-  const requiredResourceHandles =
-    getGpuFlowPresentableCommitRequiredResourceHandles(frame);
-  if (requiredResourceHandles.length === 0) {
-    return;
-  }
-  const protectedResourceKeys = new Set(
-    [
-      ...(frame.surfaceTransaction?.protectedResourceHandles ?? []),
-      ...(frame.surfaceTransaction?.coverageProof.protectedResourceHandles ??
-        []),
-    ].map(createGpuFlowPresentableResourceHandleKey),
+  assertGpuFlowVisiblePublicationResourcesProtected(
+    createGpuFlowVisiblePublicationResourceProtectionReport(frame),
   );
-  const missingResourceHandles = requiredResourceHandles.filter(
-    (handle) =>
-      !protectedResourceKeys.has(
-        createGpuFlowPresentableResourceHandleKey(handle),
-      ),
-  );
-  if (missingResourceHandles.length === 0) {
-    return;
-  }
-  throw new Error(
-    `GPU Flow commit publication authority requires protected resources for all presented actor proofs: ${[
-      ...new Set(
-        missingResourceHandles.map(createGpuFlowPresentableResourceHandleKey),
-      ),
-    ].join(", ")}.`,
-  );
-}
-
-function getGpuFlowPresentableCommitRequiredResourceHandles(
-  frame: GpuFlowCommittedSurfaceFrame,
-): readonly GpuFlowPresentableResourceHandle[] {
-  return [
-    ...frame.actorGenerations.flatMap((actor) => [
-      ...(actor.browserVisual?.resourceHandles ?? []),
-      ...(actor.textCoverageProof?.projectionCoverage === "compatible-previous"
-        ? actor.textCoverageProof.compatiblePreviousProof.resourceHandles
-        : []),
-    ]),
-    ...(frame.surfaceTransaction?.coverageProof.exactCoverage.flatMap(
-      (entry) => entry.resourceHandles,
-    ) ?? []),
-    ...(frame.surfaceTransaction?.coverageProof.compatibleCoverage.flatMap(
-      (entry) => entry.resourceHandles,
-    ) ?? []),
-  ];
-}
-
-function createGpuFlowPresentableResourceHandleKey(
-  handle: GpuFlowPresentableResourceHandle,
-): string {
-  return `${handle.kind}:${handle.id}`;
 }
 
 export function createGpuFlowCommitPublicationToken({

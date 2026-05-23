@@ -19,9 +19,6 @@ const KERNEL_PRESENTATION_MODULE_PATH = modulePath(
 const CONTENT_PLAN_MODULE_PATH = modulePath(
   "./visibleFramePublicationContentPlan.ts",
 );
-const COMMITTED_SURFACE_AUTHORITY_MODULE_PATH = modulePath(
-  "./visibleFramePublicationCommittedSurfaceAuthority.ts",
-);
 const PROJECTION_TRANSACTION_AUTHORITY_MODULE_PATH = modulePath(
   "./visibleFramePublicationProjectionTransactionAuthority.ts",
 );
@@ -301,10 +298,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "utf8",
     );
     const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
-    const committedSurfaceAuthoritySource = readFileSync(
-      COMMITTED_SURFACE_AUTHORITY_MODULE_PATH,
-      "utf8",
-    );
 
     expect(committedSurfaceSource).not.toContain(
       "createGpuFlowVisibleProjectionStateForRetainedPublication",
@@ -319,12 +312,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction({",
     );
     expect(kernelSource).toContain(
-      "decideGpuFlowCommittedSurfacePublicationTransaction",
-    );
-    expect(committedSurfaceAuthoritySource).not.toContain(
-      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction({",
-    );
-    expect(committedSurfaceAuthoritySource).not.toContain(
       "decideGpuFlowCommittedSurfacePublicationTransaction",
     );
   });
@@ -1144,11 +1131,9 @@ function readVisibleFramePublicationKernelAuthoritySource(): string {
     KERNEL_CONTENT_DECISION_MODULE_PATH,
     KERNEL_PRESENTATION_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
-    COMMITTED_SURFACE_AUTHORITY_MODULE_PATH,
     CONTENT_PLAN_MODULE_PATH,
     PROJECTION_TRANSACTION_AUTHORITY_MODULE_PATH,
     modulePath("./visibleFramePublicationContentAuthority.ts"),
-    modulePath("./visibleFramePublicationRetainedDisplayAuthority.ts"),
     modulePath("./visibleFramePublicationOracle.ts"),
   ]
     .map((filePath) => readFileSync(filePath, "utf8"))

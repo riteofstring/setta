@@ -23,7 +23,6 @@ import {
   createGpuFlowCommittedSurfaceStartupToken,
 } from "./visibleFramePublicationAuthority";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
-import { createGpuFlowCommittedSurfacePublicationFramePlanSelector } from "./visibleFramePublicationCommittedSurfaceAuthority";
 import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFramePublicationCompletion";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
@@ -68,6 +67,7 @@ import {
   type GpuFlowMotionProjectionFrameBlockedPublicationReasonSelector,
 } from "./visibleFramePublicationProjectionWorkAuthority";
 import {
+  createGpuFlowCommittedSurfacePublicationFramePlanSelector,
   createGpuFlowRetainedDisplayPublicationFramePlanSelector,
   prepareGpuFlowCommittedSurfacePublicationCandidate,
 } from "./visibleFramePublicationKernelContentDecisions";
@@ -83,14 +83,21 @@ export type { GpuFlowCommittedSurfacePublicationCandidateAction } from "./flowCo
 export {
   createGpuFlowCommittedSurfacePublicationFramePlanResultResolver,
   createGpuFlowCommittedSurfacePublicationFramePlanSelector,
-} from "./visibleFramePublicationCommittedSurfaceAuthority";
+  createGpuFlowRetainedDisplayPublicationFramePlanResultResolver,
+  createGpuFlowRetainedDisplayPublicationFramePlanSelector,
+  prepareGpuFlowCommittedSurfacePublicationCandidate,
+} from "./visibleFramePublicationKernelContentDecisions";
 export type {
   GpuFlowCommittedSurfacePublicationActionFrameResult,
   GpuFlowCommittedSurfacePublicationFramePlan,
   GpuFlowCommittedSurfacePublicationFramePlanResult,
   GpuFlowCommittedSurfacePublicationFramePlanResultResolver,
   GpuFlowCommittedSurfacePublicationFramePlanSelector,
-} from "./visibleFramePublicationCommittedSurfaceAuthority";
+  GpuFlowRetainedDisplayOutcomeFrameResult,
+  GpuFlowRetainedDisplayPublicationFramePlan,
+  GpuFlowRetainedDisplayPublicationFramePlanResultResolver,
+  GpuFlowRetainedDisplayPublicationFramePlanSelector,
+} from "./visibleFramePublicationKernelContentDecisions";
 export { createGpuFlowVisiblePublicationTransactionReport } from "./visibleFramePublicationCompletion";
 export type {
   GpuFlowVisiblePublicationCompletion,
@@ -105,10 +112,6 @@ export type {
   GpuFlowContentPublicationBlockedCandidateForFrameResultSelector,
   GpuFlowContentPublicationBlockedCandidateSelector,
 } from "./visibleFramePublicationContentAuthority";
-export {
-  createGpuFlowRetainedDisplayPublicationFramePlanSelector,
-  prepareGpuFlowCommittedSurfacePublicationCandidate,
-} from "./visibleFramePublicationKernelContentDecisions";
 export {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowContentPublicationFrameResult,
@@ -193,15 +196,6 @@ export type {
   GpuFlowRetainedProjectionFrameResolver,
   GpuFlowRetainedProjectionPublicationTransactionDecision,
 } from "./visibleFramePublicationProjectionTransactionAuthority";
-export {
-  createGpuFlowRetainedDisplayPublicationFramePlanResultResolver,
-} from "./visibleFramePublicationRetainedDisplayAuthority";
-export type {
-  GpuFlowRetainedDisplayOutcomeFrameResult,
-  GpuFlowRetainedDisplayPublicationFramePlan,
-  GpuFlowRetainedDisplayPublicationFramePlanResultResolver,
-  GpuFlowRetainedDisplayPublicationFramePlanSelector,
-} from "./visibleFramePublicationRetainedDisplayAuthority";
 
 type GpuFlowVisiblePublicationScheduler = ReturnType<
   typeof createGpuFlowVisiblePublicationScheduler
