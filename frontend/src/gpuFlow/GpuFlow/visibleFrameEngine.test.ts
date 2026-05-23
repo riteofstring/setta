@@ -199,6 +199,35 @@ describe("GPU Flow visible frame engine reducer", () => {
     ]);
   });
 
+  it("aborts over-budget held-previous candidates instead of extending the hold", () => {
+    const contentFrameId = createGpuFlowContentFrameId("content-a");
+    const previousPresentation = committedPresentation({
+      contentFrameId,
+      coverages: [coverage({ actor: ACTOR_A, contentFrameId })],
+    });
+
+    const outcome = proveGpuFlowVisibleFrameEngineFrame({
+      candidate: candidate({
+        actorProofs: [blockedProof(ACTOR_A, "held-previous-budget-exceeded")],
+        contentFrameId,
+        preparedResourceIds: ["candidate-resource-a"],
+        requiredActors: [ACTOR_A],
+      }),
+      previousPresentation,
+    });
+
+    const abortedOutcome = expectOutcomeKind(outcome, "aborted");
+    expect(abortedOutcome.decidingProof).toEqual({
+      actorId: ACTOR_A.actorId,
+      family: ACTOR_A.family,
+      proof: "blocked",
+      reason: "held-previous-budget-exceeded",
+    });
+    expect(abortedOutcome.releasedResourceIds).toEqual([
+      "candidate-resource-a",
+    ]);
+  });
+
   it("keeps maintenance proof debt queued without blocking coherent presentation", () => {
     const contentFrameId = createGpuFlowContentFrameId("content-a");
     const previousPresentation = committedPresentation({

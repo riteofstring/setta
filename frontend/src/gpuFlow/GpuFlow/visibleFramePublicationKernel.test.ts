@@ -742,6 +742,16 @@ describe("GPU Flow visible publication transaction kernel", () => {
         reason: "held-previous-budget-exceeded",
       },
     ]);
+    expect(result.preparedFrame.visibleFrameEngineOutcome?.kind).toBe(
+      "aborted",
+    );
+    expect(
+      result.preparedFrame.visibleFrameEngineOutcome?.decidingProof,
+    ).toEqual(
+      expect.objectContaining({
+        reason: "held-previous-budget-exceeded",
+      }),
+    );
     expect(result.completeSchedulerFrame().completion.debt.content).toBe(true);
   });
 

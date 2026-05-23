@@ -588,7 +588,9 @@ function createGpuFlowVisibleFramePublicationEngineCandidate({
         family: "retained-page",
         reason:
           selectedVisibleProjectionState?.transaction.kind === "held-previous"
-            ? "held-previous"
+            ? getGpuFlowVisibleFramePublicationEngineHeldPreviousReason(
+                selectedVisibleProjectionState,
+              )
             : "no-visible-frame",
       });
     setGpuFlowVisibleFramePublicationEngineActorProof({
@@ -620,6 +622,16 @@ function createGpuFlowVisibleFramePublicationEngineCandidate({
         ),
     ),
   });
+}
+
+function getGpuFlowVisibleFramePublicationEngineHeldPreviousReason(
+  visibleProjectionState: GpuFlowVisibleProjectionState,
+): string {
+  const heldPreviousProjection = visibleProjectionState.heldPreviousProjection;
+  return heldPreviousProjection?.maxHeldPreviousFramesExceeded ||
+    heldPreviousProjection?.maxHeldPreviousMsExceeded
+    ? "held-previous-budget-exceeded"
+    : "held-previous";
 }
 
 function createGpuFlowVisibleFramePublicationEngineContentFrameId({

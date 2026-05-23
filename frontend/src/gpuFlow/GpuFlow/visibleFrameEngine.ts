@@ -408,6 +408,15 @@ function createGpuFlowVisibleFrameBlockedOutcome({
       shellFrameId: "cold-start-shell",
     });
   }
+  if (reason.reason === "held-previous-budget-exceeded") {
+    return brandGpuFlowVisibleFrameEngineOutcome({
+      debt: candidate.queuedDebt,
+      decidingProof: reason,
+      kind: "aborted",
+      previousPresentationId: previousPresentation.presentationId,
+      releasedResourceIds: candidate.preparedResourceIds,
+    });
+  }
   if (
     doesGpuFlowPreviousPresentationCoverRequiredActors({
       candidate,
