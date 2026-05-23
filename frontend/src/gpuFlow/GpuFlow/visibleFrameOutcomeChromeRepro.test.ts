@@ -309,8 +309,18 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         resourceProtection: expect.objectContaining({
           missingResourceKeys: [],
           protected: true,
-          protectedResourceKeys: ["source:source-a"],
-          requiredResourceKeys: ["source:source-a"],
+          protectedResourceKeys: [
+            expect.objectContaining({
+              preview: "source:source-a",
+              truncated: false,
+            }),
+          ],
+          requiredResourceKeys: [
+            expect.objectContaining({
+              preview: "source:source-a",
+              truncated: false,
+            }),
+          ],
         }),
         transactionId: "transaction-a",
         transactionProof: {
@@ -342,7 +352,10 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
                 preview: "manifest-digest",
                 truncated: false,
               }),
-              batchId: "presentation:7",
+              batchId: expect.objectContaining({
+                preview: "presentation:7",
+                truncated: false,
+              }),
               projectionSampleId: 11,
             }),
             proofDigest: expect.objectContaining({
@@ -359,7 +372,10 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
               preview: "manifest-digest",
               truncated: false,
             }),
-            batchId: "presentation:7",
+            batchId: expect.objectContaining({
+              preview: "presentation:7",
+              truncated: false,
+            }),
             projectionSampleId: 11,
           }),
           previousCommittedFrameId: 6,
@@ -378,7 +394,10 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
                 preview: "manifest-digest",
                 truncated: false,
               }),
-              batchId: "presentation:7",
+              batchId: expect.objectContaining({
+                preview: "presentation:7",
+                truncated: false,
+              }),
               projectionSampleId: 11,
             }),
             projectionSampleId: 11,

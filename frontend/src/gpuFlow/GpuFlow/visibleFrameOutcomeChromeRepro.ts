@@ -26,7 +26,7 @@ type GpuFlowVisibleTransactionReport =
 type GpuFlowVisiblePublicationActorProof =
   GpuFlowVisiblePublicationTransactionReport["actorProofs"][number];
 
-const CHROME_REPRO_DIGEST_PREVIEW_LENGTH = 160;
+const CHROME_REPRO_DIGEST_PREVIEW_LENGTH = 64;
 const CHROME_REPRO_ACTOR_PROOF_SAMPLE_LIMIT = 8;
 
 export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
@@ -94,6 +94,7 @@ function createBoundedGpuFlowVisiblePublicationOutcomeChromeReproPayload(
   const {
     actorProofDigest,
     actorProofs,
+    commitProof,
     resourceProtection,
     token,
     visibleTransaction,
@@ -106,6 +107,7 @@ function createBoundedGpuFlowVisiblePublicationOutcomeChromeReproPayload(
     actorProofSamples: actorProofs
       .slice(0, CHROME_REPRO_ACTOR_PROOF_SAMPLE_LIMIT)
       .map(summarizeChromeReproActorProof),
+    commitProof: summarizeChromeReproCommitProof(commitProof),
     resourceProtection:
       summarizeChromeReproResourceProtection(resourceProtection),
     token: summarizeChromeReproOutcomeToken(token),
@@ -164,15 +166,32 @@ function summarizeChromeReproResourceProtection(
 ) {
   return {
     ...resourceProtection,
-    missingResourceKeys: resourceProtection.missingResourceKeys.slice(0, 16),
+    missingResourceKeys: summarizeChromeReproStringList(
+      resourceProtection.missingResourceKeys,
+    ),
     missingResourceKeyCount: resourceProtection.missingResourceKeys.length,
-    protectedResourceKeys: resourceProtection.protectedResourceKeys.slice(
-      0,
-      16,
+    protectedResourceKeys: summarizeChromeReproStringList(
+      resourceProtection.protectedResourceKeys,
     ),
     protectedResourceKeyCount: resourceProtection.protectedResourceKeys.length,
-    requiredResourceKeys: resourceProtection.requiredResourceKeys.slice(0, 16),
+    requiredResourceKeys: summarizeChromeReproStringList(
+      resourceProtection.requiredResourceKeys,
+    ),
     requiredResourceKeyCount: resourceProtection.requiredResourceKeys.length,
+  };
+}
+
+function summarizeChromeReproCommitProof(
+  commitProof: GpuFlowVisiblePublicationTransactionReport["commitProof"],
+) {
+  if (commitProof === null) {
+    return null;
+  }
+  return {
+    ...commitProof,
+    resourceProtectionDigest: summarizeChromeReproDigest(
+      commitProof.resourceProtectionDigest,
+    ),
   };
 }
 
@@ -251,17 +270,36 @@ function summarizeChromeReproPresentationProof(
 ) {
   return {
     actorManifestDigest: summarizeChromeReproDigest(proof.actorManifestDigest),
-    batchId: proof.batchId,
+    batchId: summarizeChromeReproDigest(proof.batchId),
     browserVisualFragmentDigest: summarizeChromeReproDigest(
       proof.browserVisualFragmentDigest,
     ),
-    canvasGeneration: proof.canvasGeneration,
-    canvasGenerationEvidence: proof.canvasGenerationEvidence,
-    domGeneration: proof.domGeneration,
-    domGenerationEvidence: proof.domGenerationEvidence,
+    canvasGeneration: summarizeChromeReproScalarRecord(proof.canvasGeneration),
+    canvasGenerationEvidence: summarizeChromeReproScalarRecord(
+      proof.canvasGenerationEvidence,
+    ),
+    domGeneration: summarizeChromeReproScalarRecord(proof.domGeneration),
+    domGenerationEvidence: summarizeChromeReproScalarRecord(
+      proof.domGenerationEvidence,
+    ),
     projectionSampleId: proof.projectionSampleId,
     surfaceTransactionDigest: summarizeChromeReproDigest(
       proof.surfaceTransactionDigest,
     ),
   };
+}
+
+function summarizeChromeReproStringList(values: readonly string[]) {
+  return values.slice(0, 16).map(summarizeChromeReproDigest);
+}
+
+function summarizeChromeReproScalarRecord(
+  record: Record<string, string | number | boolean | null>,
+) {
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [
+      key,
+      typeof value === "string" ? summarizeChromeReproDigest(value) : value,
+    ]),
+  );
 }
