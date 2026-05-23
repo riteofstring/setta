@@ -1,9 +1,6 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import type { GpuFrameReason } from "../gpuRenderer";
 import {
   applyGpuFlowProjectionDebugAttributes,
-  getGpuFlowVisiblePublicationDebtReason,
-  hasGpuFlowVisiblePublicationDebt,
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
@@ -28,10 +25,7 @@ import type {
   GpuFlowSurfacePublicationPreparedFrame,
   RenderGpuFlowSurfaceFrameInput,
 } from "./flowSurfaceFramePublication";
-import {
-  getDelayedGpuFlowPublicationDebtRequestMs,
-  scheduleDelayedGpuFlowPublicationDebtFrame,
-} from "./flowSurfacePublicationDebtFrame";
+import { scheduleDelayedGpuFlowPublicationDebtFrame } from "./flowSurfacePublicationDebtFrame";
 import { createGpuFlowVisibleOverlayProjectionKey } from "./flowVisibleOverlayProjectionKey";
 import {
   publishGpuFlowVisibleProjectionState,
@@ -45,6 +39,7 @@ import type {
   GpuFlowVisibleFramePublicationKernelResult,
   GpuFlowVisiblePublicationOutcome,
 } from "./visibleFramePublicationKernel";
+import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFramePublicationKernel";
 import {
   assertGpuFlowCommitPublicationTokenBrand,
   type GpuFlowCommitPublicationToken,
@@ -75,7 +70,6 @@ function completeGpuFlowSurfacePublicationFrame({
   visibleOverlayProjectionKeyRef,
   visibleProjectionPublicationStateRef,
   visibleProjectionStateRef,
-  visiblePublicationSchedulerRef,
 }: {
   readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
   readonly callbacksRef: RenderGpuFlowSurfaceFrameInput["callbacksRef"];
@@ -92,10 +86,11 @@ function completeGpuFlowSurfacePublicationFrame({
   readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
   readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
   readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
-  readonly visiblePublicationSchedulerRef: RenderGpuFlowSurfaceFrameInput["visiblePublicationSchedulerRef"];
 }) {
   const {
     completion,
+    debtFrameRequest,
+    followUpFrameRequests,
     heldPreviousVisibleProjectionState,
     outcome,
     preparedFrame: {
@@ -105,11 +100,9 @@ function completeGpuFlowSurfacePublicationFrame({
         blockedPreservePreparationSnapshot,
         committedSurfaceFrame,
         committedSurfacePublicationEffect,
-        forceImmediatePublicationDebtFrame,
         heldPreparedCommittedSurfaceFrame,
         nodeLayerFrameStatePublication: contentNodeLayerFrameStatePublication,
         retainedDisplayFrame,
-        retainedDisplayFollowUpFrameReason,
         retainedRuntimeFrame,
       },
       motionProjectionFrame: {
@@ -119,6 +112,7 @@ function completeGpuFlowSurfacePublicationFrame({
     },
     publicationDecision,
   } = publicationTransaction;
+  const { coldStartShellPublication } = publicationTransaction;
   const nodeLayerFrameStatePublication =
     contentNodeLayerFrameStatePublication ??
     motionNodeLayerFrameStatePublication;
@@ -157,7 +151,7 @@ function completeGpuFlowSurfacePublicationFrame({
     visibleProjectionStateRef,
   });
   publishGpuFlowColdStartShellFrame({
-    outcome,
+    coldStartShellPublication,
     publishColdStartShellFrame,
   });
   postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
@@ -174,16 +168,13 @@ function completeGpuFlowSurfacePublicationFrame({
     publicationDecision,
     surface: surfaceRef.current,
   });
-  if (retainedDisplayFollowUpFrameReason) {
-    surfaceRef.current?.requestFrame(retainedDisplayFollowUpFrameReason);
-  }
-  requestGpuFlowSurfacePublicationDebtFrame({
-    completion,
-    forceImmediatePublicationDebtFrame,
-    outcome,
-    publicationDecision,
+  requestGpuFlowSurfacePublicationFollowUpFrames({
+    followUpFrameRequests,
     surfaceRef,
-    visiblePublicationSchedulerRef,
+  });
+  requestGpuFlowSurfacePublicationDebtFrame({
+    debtFrameRequest,
+    surfaceRef,
   });
 }
 
@@ -202,7 +193,6 @@ export function createGpuFlowSurfacePublicationPublisher({
   visibleOverlayProjectionKeyRef,
   visibleProjectionPublicationStateRef,
   visibleProjectionStateRef,
-  visiblePublicationSchedulerRef,
 }: GpuFlowSurfacePublicationPublisherInput): GpuFlowSurfacePublicationPublisher {
   return (publicationTransaction) =>
     completeGpuFlowSurfacePublicationFrame({
@@ -221,96 +211,52 @@ export function createGpuFlowSurfacePublicationPublisher({
       visibleOverlayProjectionKeyRef,
       visibleProjectionPublicationStateRef,
       visibleProjectionStateRef,
-      visiblePublicationSchedulerRef,
     });
 }
 
-function requestGpuFlowSurfacePublicationDebtFrame({
-  completion,
-  forceImmediatePublicationDebtFrame,
-  outcome,
-  publicationDecision,
+function requestGpuFlowSurfacePublicationFollowUpFrames({
+  followUpFrameRequests,
   surfaceRef,
-  visiblePublicationSchedulerRef,
 }: {
-  readonly completion: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>["completion"];
-  readonly forceImmediatePublicationDebtFrame: boolean;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly followUpFrameRequests: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>["followUpFrameRequests"];
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
-  readonly visiblePublicationSchedulerRef: RenderGpuFlowSurfaceFrameInput["visiblePublicationSchedulerRef"];
 }): void {
-  if (hasGpuFlowVisiblePublicationDebt(completion.debt)) {
-    const frameReason = getGpuFlowSurfacePublicationDebtFrameReason({
-      completion,
-      outcome,
-    });
-    const delayedDebtRequestMs = getDelayedGpuFlowPublicationDebtRequestMs({
-      publicationDecision,
-      schedulerMotionSettleWindowMs:
-        visiblePublicationSchedulerRef.current.getKnobs().motionSettleWindowMs,
-    });
-    if (
-      !forceImmediatePublicationDebtFrame &&
-      !shouldRequestGpuFlowSurfacePublicationDebtFrameImmediately(outcome) &&
-      delayedDebtRequestMs !== null &&
-      scheduleDelayedGpuFlowPublicationDebtFrame({
-        delayMs: delayedDebtRequestMs,
-        frameReason,
-        surfaceRef,
-      })
-    ) {
-      return;
-    }
+  for (const frameReason of followUpFrameRequests) {
     surfaceRef.current?.requestFrame(frameReason);
   }
 }
 
+function requestGpuFlowSurfacePublicationDebtFrame({
+  debtFrameRequest,
+  surfaceRef,
+}: {
+  readonly debtFrameRequest: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>["debtFrameRequest"];
+  readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
+}): void {
+  if (debtFrameRequest === null) {
+    return;
+  }
+  if (
+    debtFrameRequest.delayMs !== null &&
+    scheduleDelayedGpuFlowPublicationDebtFrame({
+      delayMs: debtFrameRequest.delayMs,
+      frameReason: debtFrameRequest.frameReason,
+      surfaceRef,
+    })
+  ) {
+    return;
+  }
+  surfaceRef.current?.requestFrame(debtFrameRequest.frameReason);
+}
+
 function publishGpuFlowColdStartShellFrame({
-  outcome,
+  coldStartShellPublication,
   publishColdStartShellFrame,
 }: {
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly coldStartShellPublication: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>["coldStartShellPublication"];
   readonly publishColdStartShellFrame: RenderGpuFlowSurfaceFrameInput["publishColdStartShellFrame"];
 }): void {
-  publishColdStartShellFrame({
-    frame:
-      outcome.kind === "blocked" &&
-      outcome.token.frozenFrame.kind === "cold-start-shell"
-        ? outcome.token.frozenFrame.frame
-        : null,
-    token: outcome.token,
-  });
-}
-
-function getGpuFlowSurfacePublicationDebtFrameReason({
-  completion,
-  outcome,
-}: {
-  readonly completion: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>["completion"];
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
-}): GpuFrameReason {
-  if (isGpuFlowRetainedProjectionBlockedOutcome(outcome)) {
-    return "texture-upload";
-  }
-  return getGpuFlowVisiblePublicationDebtReason(completion.debt);
-}
-
-function shouldRequestGpuFlowSurfacePublicationDebtFrameImmediately(
-  outcome: GpuFlowVisiblePublicationOutcome,
-): boolean {
-  return isGpuFlowRetainedProjectionBlockedOutcome(outcome);
-}
-
-function isGpuFlowRetainedProjectionBlockedOutcome(
-  outcome: GpuFlowVisiblePublicationOutcome,
-): boolean {
-  return (
-    outcome.kind === "blocked" &&
-    outcome.token.blockedReasons.some(
-      (reason) => reason.family === "retained-projection",
-    )
-  );
+  publishColdStartShellFrame(coldStartShellPublication);
 }
 
 function publishGpuFlowSurfaceVisibleProjectionState({
@@ -407,26 +353,22 @@ function publishGpuFlowSurfaceVisibleProjectionState({
         visibleProjectionPublicationStateRef,
       });
       return;
-    case "blocked":
+    case "blocked": {
+      const blockedCommittedSurfaceAbort =
+        resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
+          blockedPreparedCommittedSurfaceFrame,
+          blockedPreservePreparationSnapshot,
+          committedSurfaceFrame,
+          heldPreparedCommittedSurfaceFrame,
+          selectedVisibleProjectionState,
+        });
       publishGpuFlowBlockedSurfaceVisibleProjectionState({
         abortPreparedCommittedSurfaceFrame,
         blockedErrorMessage,
         blockedPreparedCommittedSurfaceFrame:
-          resolveGpuFlowBlockedPreparedCommittedSurfaceFrame({
-            blockedPreparedCommittedSurfaceFrame,
-            committedSurfaceFrame,
-            heldPreparedCommittedSurfaceFrame,
-            outcome,
-            selectedVisibleProjectionState,
-          }),
+          blockedCommittedSurfaceAbort.frame,
         blockedPreservePreparationSnapshot:
-          resolveGpuFlowBlockedPreparedCommittedSurfaceFramePreservation({
-            blockedPreparedCommittedSurfaceFrame,
-            blockedPreservePreparationSnapshot,
-            heldPreparedCommittedSurfaceFrame,
-            outcome,
-            selectedVisibleProjectionState,
-          }),
+          blockedCommittedSurfaceAbort.preservePreparationSnapshot,
         committedSurfacePublicationEffect,
         completion,
         outcome,
@@ -435,75 +377,8 @@ function publishGpuFlowSurfaceVisibleProjectionState({
         surfaceRef,
       });
       return;
+    }
   }
-}
-
-function resolveGpuFlowBlockedPreparedCommittedSurfaceFrame({
-  blockedPreparedCommittedSurfaceFrame,
-  committedSurfaceFrame,
-  heldPreparedCommittedSurfaceFrame,
-  outcome,
-  selectedVisibleProjectionState,
-}: {
-  readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowCommittedSurfaceFrame | null {
-  if (blockedPreparedCommittedSurfaceFrame) {
-    return blockedPreparedCommittedSurfaceFrame;
-  }
-  if (
-    !isGpuFlowBlockedHeldPreviousPublicationOutcomeForVisibleState({
-      outcome,
-      selectedVisibleProjectionState,
-    })
-  ) {
-    return null;
-  }
-  return heldPreparedCommittedSurfaceFrame ?? committedSurfaceFrame;
-}
-
-function resolveGpuFlowBlockedPreparedCommittedSurfaceFramePreservation({
-  blockedPreparedCommittedSurfaceFrame,
-  blockedPreservePreparationSnapshot,
-  heldPreparedCommittedSurfaceFrame,
-  outcome,
-  selectedVisibleProjectionState,
-}: {
-  readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly blockedPreservePreparationSnapshot: boolean;
-  readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): boolean {
-  if (blockedPreparedCommittedSurfaceFrame) {
-    return blockedPreservePreparationSnapshot;
-  }
-  if (
-    heldPreparedCommittedSurfaceFrame &&
-    isGpuFlowBlockedHeldPreviousPublicationOutcomeForVisibleState({
-      outcome,
-      selectedVisibleProjectionState,
-    })
-  ) {
-    return true;
-  }
-  return false;
-}
-
-function isGpuFlowBlockedHeldPreviousPublicationOutcomeForVisibleState({
-  outcome,
-  selectedVisibleProjectionState,
-}: {
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): boolean {
-  return (
-    outcome.kind === "blocked" &&
-    selectedVisibleProjectionState?.transaction.kind === "held-previous"
-  );
 }
 
 function publishGpuFlowCommittedSurfaceVisibleProjectionState({

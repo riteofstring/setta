@@ -1,3 +1,4 @@
+import type { GpuFrameReason } from "../gpuRenderer";
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionLane,
@@ -9,6 +10,8 @@ import {
   createGpuFlowHeldPreviousProjection,
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleProjectionState,
+  getGpuFlowVisiblePublicationDebtReason,
+  hasGpuFlowVisiblePublicationDebt,
 } from "../projectionRuntime";
 import {
   createGpuFlowBlockedPublicationToken,
@@ -18,6 +21,8 @@ import {
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
 } from "./visibleFramePublicationAuthority";
 import type {
+  GpuFlowColdStartShellPublication,
+  GpuFlowVisiblePublicationDebtFrameRequest,
   GpuFlowVisiblePublicationOutcome,
   GpuFlowVisiblePublicationTransactionCompletion,
 } from "./visibleFramePublicationCompletion";
@@ -38,14 +43,20 @@ type GpuFlowVisibleFramePublicationPresentationScheduler = {
   readonly getKnobs: () => GpuFlowProjectionSchedulerKnobs;
 };
 
+const GPU_FLOW_MOTION_ACTIVE_DEBT_RETRY_DELAY_MS = 160;
+
 export function proveGpuFlowVisibleFramePublicationPresentation({
   blockedPublicationToken,
+  forceImmediatePublicationDebtFrame,
+  followUpFrameReason,
   publicationDecision,
   previousVisibleProjectionState,
   scheduler,
   transactionOracle,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
+  readonly forceImmediatePublicationDebtFrame: boolean;
+  readonly followUpFrameReason: GpuFrameReason | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly scheduler: GpuFlowVisibleFramePublicationPresentationScheduler;
@@ -59,8 +70,23 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
     schedulerKnobs,
     transactionOracle,
   });
+  const completion = scheduler.completeFrame(publicationDecision, outcome);
   return Object.freeze({
-    completion: scheduler.completeFrame(publicationDecision, outcome),
+    coldStartShellPublication:
+      createGpuFlowVisiblePublicationColdStartShellPublication({ outcome }),
+    completion,
+    debtFrameRequest: createGpuFlowVisiblePublicationDebtFrameRequest({
+      completion,
+      forceImmediatePublicationDebtFrame,
+      outcome,
+      publicationDecision,
+      schedulerKnobs,
+    }),
+    followUpFrameRequests: createGpuFlowVisiblePublicationFollowUpFrameRequests(
+      {
+        followUpFrameReason,
+      },
+    ),
     heldPreviousVisibleProjectionState:
       createGpuFlowVisiblePublicationCompletionHeldPreviousState({
         outcome,
@@ -73,6 +99,112 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
     previousCommittedFrameId:
       previousVisibleProjectionState?.committedFrame.displayFrameId ?? null,
   });
+}
+
+function createGpuFlowVisiblePublicationColdStartShellPublication({
+  outcome,
+}: {
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+}): GpuFlowColdStartShellPublication {
+  return Object.freeze({
+    frame:
+      outcome.kind === "blocked" &&
+      outcome.token.frozenFrame.kind === "cold-start-shell"
+        ? outcome.token.frozenFrame.frame
+        : null,
+    token: outcome.token,
+  });
+}
+
+function createGpuFlowVisiblePublicationFollowUpFrameRequests({
+  followUpFrameReason,
+}: {
+  readonly followUpFrameReason: GpuFrameReason | null;
+}): readonly GpuFrameReason[] {
+  return Object.freeze(
+    followUpFrameReason === null ? [] : [followUpFrameReason],
+  );
+}
+
+function createGpuFlowVisiblePublicationDebtFrameRequest({
+  completion,
+  forceImmediatePublicationDebtFrame,
+  outcome,
+  publicationDecision,
+  schedulerKnobs,
+}: {
+  readonly completion: GpuFlowVisiblePublicationTransactionCompletion["completion"];
+  readonly forceImmediatePublicationDebtFrame: boolean;
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
+}): GpuFlowVisiblePublicationDebtFrameRequest | null {
+  if (!hasGpuFlowVisiblePublicationDebt(completion.debt)) {
+    return null;
+  }
+  return Object.freeze({
+    delayMs:
+      forceImmediatePublicationDebtFrame ||
+      shouldRequestGpuFlowVisiblePublicationDebtFrameImmediately(outcome)
+        ? null
+        : getDelayedGpuFlowVisiblePublicationDebtRequestMs({
+            publicationDecision,
+            schedulerMotionSettleWindowMs: schedulerKnobs.motionSettleWindowMs,
+          }),
+    frameReason: getGpuFlowVisiblePublicationDebtFrameReason({
+      completion,
+      outcome,
+    }),
+  });
+}
+
+function getGpuFlowVisiblePublicationDebtFrameReason({
+  completion,
+  outcome,
+}: {
+  readonly completion: GpuFlowVisiblePublicationTransactionCompletion["completion"];
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+}): GpuFrameReason {
+  if (isGpuFlowRetainedProjectionBlockedOutcome(outcome)) {
+    return "texture-upload";
+  }
+  return getGpuFlowVisiblePublicationDebtReason(completion.debt);
+}
+
+function shouldRequestGpuFlowVisiblePublicationDebtFrameImmediately(
+  outcome: GpuFlowVisiblePublicationOutcome,
+): boolean {
+  return isGpuFlowRetainedProjectionBlockedOutcome(outcome);
+}
+
+function isGpuFlowRetainedProjectionBlockedOutcome(
+  outcome: GpuFlowVisiblePublicationOutcome,
+): boolean {
+  return (
+    outcome.kind === "blocked" &&
+    outcome.token.blockedReasons.some(
+      (reason) => reason.family === "retained-projection",
+    )
+  );
+}
+
+function getDelayedGpuFlowVisiblePublicationDebtRequestMs({
+  publicationDecision,
+  schedulerMotionSettleWindowMs,
+}: {
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly schedulerMotionSettleWindowMs: number;
+}): number | null {
+  if (publicationDecision.lane === "motion") {
+    return null;
+  }
+  if (publicationDecision.schedulerState === "motion-active") {
+    return GPU_FLOW_MOTION_ACTIVE_DEBT_RETRY_DELAY_MS;
+  }
+  if (publicationDecision.schedulerState === "motion-settling") {
+    return schedulerMotionSettleWindowMs * 8;
+  }
+  return null;
 }
 
 function createGpuFlowVisiblePublicationCompletionHeldPreviousState({

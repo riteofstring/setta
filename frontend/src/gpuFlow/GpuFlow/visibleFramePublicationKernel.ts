@@ -104,26 +104,23 @@ export type {
   GpuFlowContentPublicationBlockedCandidateSelector,
 } from "./visibleFramePublicationContentAuthority";
 export {
-  applyGpuFlowCommittedSurfacePublicationContentStage,
-  applyGpuFlowRetainedDisplayPublicationContentStage,
-  createGpuFlowCommittedSurfacePublicationContentStage,
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowContentPublicationFrameResult,
   createGpuFlowContentPublicationFrameResultForNodeLayerFrame,
-  createGpuFlowRetainedDisplayPublicationContentStage,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
+  resolveGpuFlowBlockedCommittedSurfacePublicationAbort,
   resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult,
   resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult,
+  runGpuFlowCommittedSurfacePublicationContentStage,
+  runGpuFlowRetainedDisplayPublicationContentStage,
 } from "./visibleFramePublicationContentPlan";
 export type {
   GpuFlowCommittedSurfacePublicationCandidate,
   GpuFlowCommittedSurfacePublicationCandidateInput,
   GpuFlowCommittedSurfacePublicationCandidatePreparer,
-  GpuFlowCommittedSurfacePublicationContentStage,
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowCommittedSurfacePublicationFramePlanPreparer,
   GpuFlowContentPublicationFrameResult,
-  GpuFlowRetainedDisplayPublicationContentStage,
   GpuFlowRetainedDisplayPublicationFramePlanPreparer,
   GpuFlowRetainedDisplayPublicationPreparer,
   GpuFlowVisibleFrameBlockedPublicationCandidate,
@@ -386,6 +383,12 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
   const transactionCompletion = proveGpuFlowVisibleFramePublicationPresentation(
     {
       blockedPublicationToken: outcomeDecision.blockedPublicationToken,
+      forceImmediatePublicationDebtFrame:
+        outcomeDecision.preparedFrame.contentPublicationFrame
+          .forceImmediatePublicationDebtFrame ?? false,
+      followUpFrameReason:
+        outcomeDecision.preparedFrame.contentPublicationFrame
+          .retainedDisplayFollowUpFrameReason ?? null,
       previousVisibleProjectionState:
         outcomeDecision.previousVisibleProjectionState,
       publicationDecision: outcomeDecision.publicationDecision,

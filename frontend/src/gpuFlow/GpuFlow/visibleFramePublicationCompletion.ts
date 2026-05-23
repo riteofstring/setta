@@ -1,3 +1,4 @@
+import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowVisiblePublicationScheduler,
   type GpuFlowVisibleProjectionState,
@@ -12,6 +13,7 @@ import {
 } from "./visibleFramePublicationOracle";
 import type {
   GpuFlowBlockedPublicationToken,
+  GpuFlowColdStartShellFrame,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationTokens";
@@ -40,10 +42,23 @@ export type GpuFlowVisiblePublicationOutcome =
     };
 
 export type GpuFlowVisiblePublicationTransactionCompletion = {
+  readonly coldStartShellPublication: GpuFlowColdStartShellPublication;
   readonly completion: GpuFlowVisiblePublicationCompletion;
+  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
+  readonly followUpFrameRequests: readonly GpuFrameReason[];
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousCommittedFrameId: number | null;
+};
+
+export type GpuFlowVisiblePublicationDebtFrameRequest = {
+  readonly delayMs: number | null;
+  readonly frameReason: GpuFrameReason;
+};
+
+export type GpuFlowColdStartShellPublication = {
+  readonly frame: GpuFlowColdStartShellFrame | null;
+  readonly token: GpuFlowVisiblePublicationOutcome["token"];
 };
 
 export function createGpuFlowVisiblePublicationTransactionReport({

@@ -2,29 +2,8 @@ import type { RefObject } from "react";
 
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceHandle } from "../GpuSurface";
-import type { GpuFlowVisiblePublicationDecision } from "../projectionRuntime";
 
 const deferredResolutionFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
-const GPU_FLOW_MOTION_ACTIVE_DEBT_RETRY_DELAY_MS = 160;
-
-export function getDelayedGpuFlowPublicationDebtRequestMs({
-  publicationDecision,
-  schedulerMotionSettleWindowMs,
-}: {
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly schedulerMotionSettleWindowMs: number;
-}): number | null {
-  if (publicationDecision.lane === "motion") {
-    return null;
-  }
-  if (publicationDecision.schedulerState === "motion-active") {
-    return GPU_FLOW_MOTION_ACTIVE_DEBT_RETRY_DELAY_MS;
-  }
-  if (publicationDecision.schedulerState === "motion-settling") {
-    return schedulerMotionSettleWindowMs * 8;
-  }
-  return null;
-}
 
 export function scheduleDelayedGpuFlowPublicationDebtFrame({
   delayMs,

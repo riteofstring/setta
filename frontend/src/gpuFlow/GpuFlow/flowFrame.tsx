@@ -109,12 +109,10 @@ import {
   prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay,
 } from "./visibleFramePublicationContentPreparation";
 import {
-  applyGpuFlowCommittedSurfacePublicationContentStage,
-  applyGpuFlowRetainedDisplayPublicationContentStage,
-  createGpuFlowCommittedSurfacePublicationContentStage,
   createGpuFlowContentPublicationFrameResult,
   createGpuFlowContentPublicationFrameResultForNodeLayerFrame,
-  createGpuFlowRetainedDisplayPublicationContentStage,
+  runGpuFlowCommittedSurfacePublicationContentStage,
+  runGpuFlowRetainedDisplayPublicationContentStage,
   type GpuFlowCommittedSurfacePublicationFramePlanPreparer,
   type GpuFlowContentPublicationFrameResult,
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
@@ -657,14 +655,8 @@ export function renderGpuFlowNodeLayerFrame({
     retainedDisplayPublication.retainedPageMaintenanceMs;
   const retainedDisplayFollowUpFrameReason =
     retainedDisplayPublicationPreparation.followUpFrameReason;
-  const retainedDisplayContentStage =
-    createGpuFlowRetainedDisplayPublicationContentStage({
-      deferResolutionUpdates,
-      preparation: retainedDisplayPublicationPreparation,
-      previousVisibleProjectionState: heldPreviousProjectionState,
-    });
-  return applyGpuFlowRetainedDisplayPublicationContentStage({
-    contentStage: retainedDisplayContentStage,
+  return runGpuFlowRetainedDisplayPublicationContentStage({
+    deferResolutionUpdates,
     onPublished: (publishedRetainedDisplayOutcomeFrame) => {
       const publishedRetainedFrame = publishedRetainedDisplayOutcomeFrame.frame;
       const publishedRetainedRuntimeFrame =
@@ -737,15 +729,8 @@ export function renderGpuFlowNodeLayerFrame({
         prepareOverlayTextures: prepareHtmlSurfaceOverlayTextures,
         publicationPreparation: committedSurfacePublicationPreparation,
       });
-      const committedSurfaceContentStage =
-        createGpuFlowCommittedSurfacePublicationContentStage({
-          deferResolutionUpdates,
-          preparation: committedSurfacePublicationPreparation,
-          previousVisibleProjectionState: heldPreviousProjectionState,
-          retainedDisplayFollowUpFrameReason,
-        });
-      return applyGpuFlowCommittedSurfacePublicationContentStage({
-        contentStage: committedSurfaceContentStage,
+      return runGpuFlowCommittedSurfacePublicationContentStage({
+        deferResolutionUpdates,
         onPublished: (committedSurfacePublication) => {
           markGpuFlowRetainedContentFrameFreshnessDirty({
             deferResolutionUpdates,
@@ -911,8 +896,13 @@ export function renderGpuFlowNodeLayerFrame({
             retainedRuntimeFrame: publishedRetainedRuntimeFrame,
           });
         },
+        preparation: committedSurfacePublicationPreparation,
+        previousVisibleProjectionState: heldPreviousProjectionState,
+        retainedDisplayFollowUpFrameReason,
       });
     },
+    preparation: retainedDisplayPublicationPreparation,
+    previousVisibleProjectionState: heldPreviousProjectionState,
   });
 }
 

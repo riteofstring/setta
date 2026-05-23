@@ -590,10 +590,13 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
     expect(flowFrameSource).toContain("retainedDisplayFollowUpFrameReason");
     expect(completionStart).toBeGreaterThanOrEqual(0);
-    expect(completionSource).toContain("retainedDisplayFollowUpFrameReason");
-    expect(completionSource).toContain(
-      "surfaceRef.current?.requestFrame(retainedDisplayFollowUpFrameReason)",
+    expect(completionSource).not.toContain(
+      "retainedDisplayFollowUpFrameReason",
     );
+    expect(completionSource).toContain(
+      "requestGpuFlowSurfacePublicationFollowUpFrames",
+    );
+    expect(completionSource).toContain("followUpFrameRequests");
   });
 
   it("keeps held-previous committed-surface candidates tokenless until completion", () => {
@@ -1108,9 +1111,9 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
     expect(flowSurfaceSource).toContain("assertGpuFlowHoldPreviousTokenBrand");
     expect(completionPublisherStart).toBeGreaterThanOrEqual(0);
-    expect(completionPublisherSource).toContain("outcome.token");
+    expect(completionPublisherSource).toContain("coldStartShellPublication");
     expect(completionPublisherSource).toContain(
-      "outcome.token.frozenFrame.frame",
+      "publishColdStartShellFrame(coldStartShellPublication)",
     );
   });
 });

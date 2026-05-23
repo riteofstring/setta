@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { GpuFrameReason } from "../gpuRenderer";
 import {
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
   createGpuFlowVisiblePublicationScheduler,
@@ -54,12 +55,70 @@ describe("GPU Flow visible publication completion", () => {
       },
     ]);
     expect(result.completion.debt.motion).toBe(true);
+    expect(result.debtFrameRequest).toEqual({
+      delayMs: null,
+      frameReason: "retained-scroll",
+    });
+    expect(result.followUpFrameRequests).toEqual([]);
+  });
+
+  it("returns retained follow-up frame requests from kernel completion", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const result = runGpuFlowVisibleFramePublicationCandidateSetKernel({
+      prepareContentPublicationFrame: () =>
+        noVisiblePublicationCandidate({
+          retainedDisplayFollowUpFrameReason: "texture-upload",
+        }),
+      prepareMotionProjectionFrame: () => ({
+        frame: noVisiblePublicationCandidate(),
+        kind: "not-rendered",
+      }),
+      publish: () => {},
+      sampleVisibleFramePublication: () =>
+        visibleFramePublicationSample({
+          sample: liveProjectionSample({ id: 9, timestamp: 9 }),
+        }),
+      scheduler,
+    });
+
+    expect(result.followUpFrameRequests).toEqual(["texture-upload"]);
+  });
+
+  it("returns cold-start shell publication from kernel completion", () => {
+    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const result = runGpuFlowVisibleFramePublicationCandidateSetKernel({
+      prepareContentPublicationFrame: () => noVisiblePublicationCandidate(),
+      prepareMotionProjectionFrame: () => ({
+        frame: noVisiblePublicationCandidate(),
+        kind: "not-rendered",
+      }),
+      publish: () => {},
+      sampleVisibleFramePublication: () =>
+        visibleFramePublicationSample({
+          hasCommittedContentFrame: false,
+          sample: liveProjectionSample({ id: 10, timestamp: 10 }),
+        }),
+      scheduler,
+    });
+
+    expect(result.coldStartShellPublication.frame?.kind).toBe(
+      "cold-start-shell",
+    );
+    expect(result.coldStartShellPublication.token).toBe(result.outcome.token);
   });
 });
 
-function noVisiblePublicationCandidate() {
+function noVisiblePublicationCandidate({
+  retainedDisplayFollowUpFrameReason = null,
+}: {
+  readonly retainedDisplayFollowUpFrameReason?:
+    | GpuFrameReason
+    | null
+    | undefined;
+} = {}) {
   return {
     blockedPublicationCandidate: null,
+    retainedDisplayFollowUpFrameReason,
     rendered: false,
     visibleProjectionState: null,
   };

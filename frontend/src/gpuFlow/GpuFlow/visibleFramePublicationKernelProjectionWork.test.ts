@@ -106,6 +106,10 @@ describe("GPU Flow visible publication kernel projection work authority", () => 
     ]);
     expect(result.outcome.token.projectionSampleId).toBe(sample.id);
     expect(result.completion.debt.motion).toBe(true);
+    expect(result.debtFrameRequest).toEqual({
+      delayMs: null,
+      frameReason: "texture-upload",
+    });
   });
 });
 

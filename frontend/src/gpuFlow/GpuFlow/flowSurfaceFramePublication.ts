@@ -190,7 +190,6 @@ export function renderGpuFlowSurfaceFrame({
         visibleProjectionPublicationStateRef:
           input.visibleProjectionPublicationStateRef,
         visibleProjectionStateRef: input.visibleProjectionStateRef,
-        visiblePublicationSchedulerRef: input.visiblePublicationSchedulerRef,
       });
     runGpuFlowVisibleFramePublicationCandidateSetKernel({
       prepareMotionProjectionFrame: ({
