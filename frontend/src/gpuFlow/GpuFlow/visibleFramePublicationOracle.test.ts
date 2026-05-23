@@ -639,7 +639,7 @@ describe("GPU Flow visible publication transaction oracle", () => {
     );
   });
 
-  it("rejects blocked proof beside a visible projection state", () => {
+  it("ignores blocked candidates from the unselected projection lane", () => {
     const contentVisibleState = visibleProjectionState({
       kind: "content-publication",
       sample: liveProjectionSample({ id: 44, timestamp: 440 }),
@@ -650,21 +650,24 @@ describe("GPU Flow visible publication transaction oracle", () => {
         heldPreviousProjectionState: null,
       });
 
-    expect(() =>
-      createGpuFlowVisibleFramePublicationTransactionOracle({
-        contentPublicationFrame: {
-          blockedPublicationCandidate: null,
-          visibleProjectionState: contentVisibleState,
-        },
-        motionProjectionFrame: {
-          blockedPublicationCandidate: motionBlockedCandidate,
-          visibleProjectionState: null,
-        },
-        publicationDecision: publicationDecision(contentVisibleState.sample),
-      }),
-    ).toThrow(
-      "GPU Flow visible publication oracle cannot combine a blocked proof with a visible projection state.",
-    );
+    const oracle = createGpuFlowVisibleFramePublicationTransactionOracle({
+      contentPublicationFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: contentVisibleState,
+      },
+      motionProjectionFrame: {
+        blockedPublicationCandidate: motionBlockedCandidate,
+        visibleProjectionState: null,
+      },
+      publicationDecision: publicationDecision(contentVisibleState.sample),
+    });
+
+    expect(oracle.blockedPublicationCandidate).toBeNull();
+    expect(oracle.blockedSource).toBeNull();
+    expect(oracle.commitOracle).not.toBeNull();
+    expect(oracle.renderedVisibleFrame).toBe(true);
+    expect(oracle.visibleProjectionSource).toBe("content-publication");
+    expect(oracle.visibleProjectionState).toBe(contentVisibleState);
   });
 
   it("records motion projection as the visible source when content does not publish", () => {

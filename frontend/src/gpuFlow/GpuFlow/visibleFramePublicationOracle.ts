@@ -364,13 +364,19 @@ function createGpuFlowVisibleFramePublicationTransactionOracle<
       forcedBlockedPublicationCandidate,
       motionProjectionFrame,
     });
-  assertGpuFlowVisibleFramePublicationOracleOutcomeCoherent({
-    blockedProof: candidateBlockedProof,
-    visibleProjectionState: candidateVisibleProjectionState,
-  });
+  const candidateVisibleProjectionSource =
+    createGpuFlowVisibleFramePublicationOracleProjectionSource({
+      contentPublicationFrame,
+      motionProjectionFrame,
+      visibleProjectionState: candidateVisibleProjectionState,
+    });
   const { blockedProof, visibleProjectionState } =
     resolveGpuFlowVisibleFramePublicationOracleProofState({
-      candidateBlockedProof,
+      candidateBlockedProof:
+        resolveGpuFlowVisibleFramePublicationOracleCandidateBlockedProof({
+          candidateBlockedProof,
+          candidateVisibleProjectionSource,
+        }),
       candidateVisibleProjectionState,
       previousVisibleProjectionState,
     });
@@ -395,6 +401,24 @@ function createGpuFlowVisibleFramePublicationTransactionOracle<
   });
 }
 
+function resolveGpuFlowVisibleFramePublicationOracleCandidateBlockedProof({
+  candidateBlockedProof,
+  candidateVisibleProjectionSource,
+}: {
+  readonly candidateBlockedProof: GpuFlowVisiblePublicationBlockedProof | null;
+  readonly candidateVisibleProjectionSource: GpuFlowVisibleFramePublicationTransactionOracle["visibleProjectionSource"];
+}): GpuFlowVisiblePublicationBlockedProof | null {
+  if (
+    candidateBlockedProof === null ||
+    candidateVisibleProjectionSource === null ||
+    candidateBlockedProof.source === "browser-visual-proof" ||
+    candidateBlockedProof.source === candidateVisibleProjectionSource
+  ) {
+    return candidateBlockedProof;
+  }
+  return null;
+}
+
 function resolveGpuFlowVisibleFramePublicationOracleProofState({
   candidateBlockedProof,
   candidateVisibleProjectionState,
@@ -410,7 +434,7 @@ function resolveGpuFlowVisibleFramePublicationOracleProofState({
   if (candidateBlockedProof !== null) {
     return {
       blockedProof: candidateBlockedProof,
-      visibleProjectionState: candidateVisibleProjectionState,
+      visibleProjectionState: null,
     };
   }
   const actorBlockedProof =
@@ -463,20 +487,6 @@ function resolveGpuFlowVisibleFramePublicationOracleVisibleProjectionState<
     contentPublicationFrame.visibleProjectionState ??
     motionProjectionFrame.visibleProjectionState
   );
-}
-
-function assertGpuFlowVisibleFramePublicationOracleOutcomeCoherent({
-  blockedProof,
-  visibleProjectionState,
-}: {
-  readonly blockedProof: GpuFlowVisiblePublicationBlockedProof | null;
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): void {
-  if (blockedProof !== null && visibleProjectionState !== null) {
-    throw new Error(
-      "GPU Flow visible publication oracle cannot combine a blocked proof with a visible projection state.",
-    );
-  }
 }
 
 function createGpuFlowVisibleFramePublicationOracleResourceBlockedProof({
