@@ -29,7 +29,7 @@ import {
   assertGpuFlowVisiblePublicationResourcesProtected,
   createGpuFlowVisiblePublicationResourceBlockedReasons,
   createGpuFlowVisiblePublicationResourceProtectionReport,
-} from "./visibleFramePublicationResourceOracle";
+} from "./visibleFrameResourceRegistry";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePublicationTokens";
 import {
   createGpuFlowContentFrameId,

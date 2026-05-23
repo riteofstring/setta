@@ -10,9 +10,9 @@ import {
   createGpuFlowVisiblePublicationResourceBlockedReasons,
   createGpuFlowVisiblePublicationResourceProtectionDigest,
   createGpuFlowVisiblePublicationResourceProtectionReport,
-} from "./visibleFramePublicationResourceOracle";
+} from "./visibleFrameResourceRegistry";
 
-describe("GPU Flow visible publication resource oracle", () => {
+describe("GPU Flow visible frame resource registry proofs", () => {
   it("reports null frames as protected empty resource sets", () => {
     expect(
       createGpuFlowVisiblePublicationResourceProtectionReport(null),
