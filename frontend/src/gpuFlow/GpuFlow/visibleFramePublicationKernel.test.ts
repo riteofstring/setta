@@ -131,10 +131,23 @@ describe("GPU Flow visible publication transaction kernel", () => {
       sample: liveProjectionSample({ id: 53, timestamp: 524 }),
     });
     const requestedTransaction = retainedProjectionTransaction({ sample });
-    const selectedTransactions: GpuFlowVisibleProjectionState["transaction"][] =
+    const blockedCandidates: GpuFlowVisibleFrameBlockedPublicationCandidate[] =
       [];
 
-    runGpuFlowVisibleFramePublicationCandidateSetKernel({
+    type TestContentPublicationFrame = {
+      readonly blockedPublicationCandidate: null;
+      readonly rendered: boolean;
+      readonly visibleProjectionState: null;
+    };
+    type TestMotionProjectionFrame = {
+      readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+      readonly rendered: boolean;
+      readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
+    };
+    const result = runGpuFlowVisibleFramePublicationCandidateSetKernel<
+      TestContentPublicationFrame,
+      TestMotionProjectionFrame
+    >({
       prepareContentPublicationFrame: () => ({
         blockedPublicationCandidate: null,
         rendered: false,
@@ -147,8 +160,13 @@ describe("GPU Flow visible publication transaction kernel", () => {
           previousVisibleProjectionState,
         );
         return {
-          createBlockedProjectionFrame: () => {
-            throw new Error("Within-budget projection should hold.");
+          createBlockedProjectionFrame: ({ blockedPublicationCandidate }) => {
+            blockedCandidates.push(blockedPublicationCandidate);
+            return {
+              blockedPublicationCandidate,
+              rendered: false,
+              visibleProjectionState: null,
+            };
           },
           hasActiveRetainedDomControl: false,
           kind: "render",
@@ -158,12 +176,12 @@ describe("GPU Flow visible publication transaction kernel", () => {
               missingCoverageSurfaceIds: ["surface-a"],
             }),
           renderProjectionFrame: ({ projectionFrameRenderPlan }) => {
-            selectedTransactions.push(projectionFrameRenderPlan.transaction);
+            void projectionFrameRenderPlan;
             return {
               blockedPublicationCandidate: null,
               rendered: true,
               visibleProjectionState: visibleProjectionState({
-                kind: "held-previous",
+                kind: "motion-projection",
                 sample,
               }),
             };
@@ -180,7 +198,16 @@ describe("GPU Flow visible publication transaction kernel", () => {
       scheduler,
     });
 
-    const selectedTransaction = selectedTransactions[0];
+    expect(blockedCandidates).toHaveLength(1);
+    expect(blockedCandidates[0]?.blockedReasons).toEqual([
+      {
+        actorId: null,
+        family: "retained-projection",
+        reason: "retained-projection-coverage-missing",
+      },
+    ]);
+    const selectedTransaction =
+      result.heldPreviousVisibleProjectionState?.transaction;
     if (!selectedTransaction) {
       throw new Error("Expected retained projection transaction selection.");
     }
@@ -454,7 +481,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
       readinessReason: "snapshot-pending",
     },
   ] as const)(
-    "holds previous frame for within-budget withheld browser visual proof $projectionCoverage",
+    "prepares a nonpublishable browser visual candidate for withheld proof $projectionCoverage",
     ({ actorFamily, projectionCoverage, readinessReason }) => {
       const previousVisibleProjectionState = visibleProjectionState({
         kind: "content-publication",
@@ -469,12 +496,22 @@ describe("GPU Flow visible publication transaction kernel", () => {
         }),
       });
 
-      expect(candidate.kind).toBe("held-previous");
+      expect(candidate.kind).toBe("nonpublishable");
+      if (candidate.kind !== "nonpublishable") {
+        throw new Error("Expected nonpublishable committed-surface candidate.");
+      }
+      expect(candidate.blockedPublicationCandidate.blockedReasons).toEqual([
+        {
+          actorId: "actor-a",
+          family: actorFamily,
+          reason: readinessReason,
+        },
+      ]);
       expect(readinessReason).toMatch(/live-dom-budget|snapshot-pending/);
     },
   );
 
-  it("blocks withheld browser visual proof after the held-previous budget is exceeded", () => {
+  it("keeps over-budget withheld browser visual proof as a nonpublishable candidate", () => {
     const previousVisibleProjectionState = visibleProjectionState({
       kind: "held-previous",
       sample: liveProjectionSample({ id: 22, timestamp: 220 }),
@@ -495,9 +532,9 @@ describe("GPU Flow visible publication transaction kernel", () => {
       }),
     });
 
-    expect(candidate.kind).toBe("blocked");
-    if (candidate.kind !== "blocked") {
-      throw new Error("Expected blocked committed-surface decision.");
+    expect(candidate.kind).toBe("nonpublishable");
+    if (candidate.kind !== "nonpublishable") {
+      throw new Error("Expected nonpublishable committed-surface candidate.");
     }
     expect(candidate.blockedPublicationCandidate.frozenFrameId).toBe(
       previousVisibleProjectionState.committedFrame.displayFrameId,
@@ -660,7 +697,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
     expect(result.completeSchedulerFrame().completion.debt.content).toBe(true);
   });
 
-  it("creates committed-surface held-previous transaction state and mints its token at completion", () => {
+  it("turns a nonpublishable committed-surface candidate into a held outcome at completion", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const sample = liveProjectionSample({ id: 4, timestamp: 64 });
     const previousVisibleProjectionState = visibleProjectionState({
@@ -678,23 +715,17 @@ describe("GPU Flow visible publication transaction kernel", () => {
       }),
     });
 
-    expect(candidate.kind).toBe("held-previous");
-    if (candidate.kind !== "held-previous") {
-      throw new Error("Expected held-previous committed-surface candidate.");
+    expect(candidate.kind).toBe("nonpublishable");
+    if (candidate.kind !== "nonpublishable") {
+      throw new Error("Expected nonpublishable committed-surface candidate.");
     }
     expect("token" in candidate).toBe(false);
-    expect(candidate.visibleProjectionState.transaction.kind).toBe(
-      "held-previous",
-    );
-    expect(candidate.visibleProjectionState.sample.id).toBe(sample.id);
-    expect(candidate.visibleProjectionState.committedFrame.displayFrameId).toBe(
-      previousVisibleProjectionState.committedFrame.displayFrameId,
-    );
 
     const completion = runPreparedCandidateKernel({
       contentFrame: testPublicationCandidate({
-        rendered: true,
-        visibleProjectionState: candidate.visibleProjectionState,
+        blockedPublicationCandidate: candidate.blockedPublicationCandidate,
+        rendered: false,
+        visibleProjectionState: null,
       }),
       previousVisibleProjectionState,
       sample,
@@ -709,6 +740,9 @@ describe("GPU Flow visible publication transaction kernel", () => {
       previousVisibleProjectionState.committedFrame.displayFrameId,
     );
     expect(completion.outcome.token.projectionSampleId).toBe(sample.id);
+    expect(
+      completion.heldPreviousVisibleProjectionState?.transaction.kind,
+    ).toBe("held-previous");
   });
 });
 

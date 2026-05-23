@@ -2,7 +2,6 @@ import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowVisiblePublicationScheduler,
   type GpuFlowLiveProjectionSample,
-  type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
@@ -13,7 +12,7 @@ import {
 } from "./flowRetainedDisplayTransaction";
 import {
   createGpuFlowVisiblePublicationCandidateOracle,
-  type GpuFlowRetainedProjectionPublicationDecisionSelector,
+  type GpuFlowRetainedProjectionPublicationCandidateSelector,
   type GpuFlowVisiblePublicationCandidateOracle,
 } from "./visibleFramePublicationCandidateOracle";
 import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFramePublicationCompletion";
@@ -252,7 +251,6 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
     publicationDecision,
     publicationFrameContext,
     rawReasons,
-    scheduler,
   });
   const preparedFrame = proveGpuFlowVisibleFramePublicationCandidateSet({
     candidateSet,
@@ -311,7 +309,6 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   publicationDecision,
   publicationFrameContext,
   rawReasons,
-  scheduler,
 }: {
   readonly prepareContentPublicationFrame: GpuFlowVisibleFramePublicationContentFramePreparer<
     ContentPublicationFrame,
@@ -322,7 +319,6 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
   readonly rawReasons: readonly GpuFrameReason[];
-  readonly scheduler: Pick<GpuFlowVisiblePublicationScheduler, "getKnobs">;
 }): GpuFlowVisibleFramePublicationCandidateSet<
   ContentPublicationFrame,
   MotionProjectionFrame
@@ -357,8 +353,8 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   if (forcedCandidateSet) {
     return forcedCandidateSet;
   }
-  const selectRetainedProjectionPublicationDecision =
-    candidateOracle.createRetainedProjectionPublicationDecisionSelector({
+  const selectRetainedProjectionPublicationCandidate =
+    candidateOracle.createRetainedProjectionPublicationCandidateSelector({
       previousVisibleProjectionState,
       rawReasons,
     });
@@ -372,11 +368,10 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
       publicationDecision,
       publicationFrameContext,
     }),
-    projectionSchedulerKnobs: scheduler.getKnobs(),
     previousVisibleProjectionState,
     candidateOracle,
     selectProjectionFrameRenderPlan: selectGpuFlowProjectionFrameRenderPlan,
-    selectRetainedProjectionPublicationDecision,
+    selectRetainedProjectionPublicationCandidate,
   });
   const contentPublicationWorkPlan = createGpuFlowContentPublicationWorkPlan({
     blockedProjectionOnlyFrame:
@@ -463,14 +458,12 @@ function resolveGpuFlowMotionProjectionFramePreparation<
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
   preparation,
-  projectionSchedulerKnobs,
   previousVisibleProjectionState,
   candidateOracle,
   selectProjectionFrameRenderPlan,
-  selectRetainedProjectionPublicationDecision,
+  selectRetainedProjectionPublicationCandidate,
 }: {
   readonly preparation: GpuFlowMotionProjectionFramePreparation<MotionProjectionFrame>;
-  readonly projectionSchedulerKnobs: GpuFlowProjectionSchedulerKnobs;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly candidateOracle: Pick<
     GpuFlowVisiblePublicationCandidateOracle,
@@ -479,7 +472,7 @@ function resolveGpuFlowMotionProjectionFramePreparation<
     | "selectProjectionFrameTransaction"
   >;
   readonly selectProjectionFrameRenderPlan: GpuFlowProjectionFrameRenderPlanSelector;
-  readonly selectRetainedProjectionPublicationDecision: GpuFlowRetainedProjectionPublicationDecisionSelector;
+  readonly selectRetainedProjectionPublicationCandidate: GpuFlowRetainedProjectionPublicationCandidateSelector;
 }): MotionProjectionFrame {
   if (preparation.kind === "not-rendered") {
     return preparation.frame;
@@ -488,17 +481,16 @@ function resolveGpuFlowMotionProjectionFramePreparation<
     preparation.resolveRetainedProjectionFrame({
       transaction: preparation.requestedTransaction,
     });
-  const retainedProjectionPublicationDecision =
-    selectRetainedProjectionPublicationDecision({
+  const retainedProjectionPublicationCandidate =
+    selectRetainedProjectionPublicationCandidate({
       hasActiveRetainedDomControl: preparation.hasActiveRetainedDomControl,
-      projectionSchedulerKnobs,
       requestedProjectionCoverageMissing:
         requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
       requestedTransaction: preparation.requestedTransaction,
     });
   const projectionFrameTransaction =
     candidateOracle.selectProjectionFrameTransaction({
-      publicationDecision: retainedProjectionPublicationDecision,
+      publicationCandidate: retainedProjectionPublicationCandidate,
       requestedRetainedProjectionFrame,
       resolveHeldRetainedProjectionFrame:
         preparation.resolveRetainedProjectionFrame,

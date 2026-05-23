@@ -577,7 +577,9 @@ function publishGpuFlowSurfaceVisibleProjectionState({
     case "hold-previous":
       publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
         abortPreparedCommittedSurfaceFrame,
-        heldPreparedCommittedSurfaceFrame,
+        heldPreparedCommittedSurfaceFrame:
+          heldPreparedCommittedSurfaceFrame ??
+          blockedPreparedCommittedSurfaceFrame,
         committedSurfacePublicationEffect,
         heldPreviousVisibleProjectionState,
         outcome,

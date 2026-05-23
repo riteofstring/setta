@@ -118,9 +118,9 @@ export function applyGpuFlowHeldPreviousCommittedSurfacePublicationEffect(applic
   if (effect === null) {
     return;
   }
-  if (effect.kind !== "held-previous") {
+  if (effect.kind !== "rejected-candidate") {
     throw new Error(
-      "GPU Flow held-previous committed surface effect requires a held-previous effect.",
+      "GPU Flow held-previous committed surface effect requires a rejected candidate effect.",
     );
   }
   applyGpuFlowBrowserVisualStarvationEffect({
@@ -142,9 +142,9 @@ export function applyGpuFlowBlockedCommittedSurfacePublicationEffect(application
   if (effect === null) {
     return;
   }
-  if (effect.kind === "publish") {
+  if (effect.kind !== "rejected-candidate") {
     throw new Error(
-      "GPU Flow blocked committed surface effect cannot apply a publish effect.",
+      "GPU Flow blocked committed surface effect requires a rejected candidate effect.",
     );
   }
   applyGpuFlowBrowserVisualStarvationEffect({
@@ -163,7 +163,7 @@ function applyGpuFlowBrowserVisualStarvationEffect({
 }: {
   readonly effect: Extract<
     GpuFlowCommittedSurfacePublicationEffect,
-    { readonly kind: "blocked" | "held-previous" }
+    { readonly kind: "rejected-candidate" }
   >;
   readonly outcome: GpuFlowBrowserVisualStarvationOutcome;
   readonly runtimeCanvas: HTMLCanvasElement;

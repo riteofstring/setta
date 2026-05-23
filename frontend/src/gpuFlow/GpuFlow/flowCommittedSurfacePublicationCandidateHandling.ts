@@ -1,10 +1,9 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuFlowCommittedSurfacePublicationCandidate } from "./visibleFramePublicationContentPlan";
 
 export type GpuFlowBlockedCommittedSurfacePublication = Extract<
   GpuFlowCommittedSurfacePublicationCandidate,
-  { readonly kind: "blocked" }
+  { readonly kind: "nonpublishable" }
 >;
 
 export type GpuFlowCommittedSurfacePublicationCandidateAction =
@@ -14,11 +13,6 @@ export type GpuFlowCommittedSurfacePublicationCandidateAction =
     }
   | {
       readonly blockedSurfacePublication: GpuFlowBlockedCommittedSurfacePublication;
-      readonly kind: "blocked";
+      readonly kind: "rejected-candidate";
       readonly visibleProjectionState: null;
-    }
-  | {
-      readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-      readonly kind: "held-previous";
-      readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
     };

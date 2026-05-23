@@ -310,7 +310,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
   });
 
-  it("keeps committed-surface held-previous transaction assembly inside the kernel", () => {
+  it("keeps committed-surface nonpublishable candidate preparation inside the kernel", () => {
     const committedSurfaceSource = readFileSync(
       COMMITTED_SURFACE_PUBLICATION_MODULE_PATH,
       "utf8",
@@ -326,12 +326,14 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(committedSurfaceSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
-    expect(kernelSource).toContain(
-      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction({",
+    expect(kernelSource).not.toContain(
+      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
     expect(kernelSource).toContain(
-      "decideGpuFlowCommittedSurfacePublicationTransaction",
+      "resolveGpuFlowCommittedSurfacePublicationReadiness",
     );
+    expect(kernelSource).toContain('"nonpublishable"');
+    expect(kernelSource).toContain('"rejected-candidate"');
   });
 
   it("keeps projection frames from minting publication tokens before completion", () => {
@@ -357,24 +359,24 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "createGpuFlowProjectionTransactionForCommittedFrameId",
     );
     expect(source).not.toContain(
-      "decideGpuFlowRetainedProjectionPublicationTransaction",
+      "prepareGpuFlowRetainedProjectionPublicationCandidate",
     );
     expect(source).not.toContain(
-      "resolveGpuFlowProjectionFrameTransactionFromPublicationDecision",
+      "selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
     );
     expect(surfaceFrameSource).not.toContain(
-      "decideGpuFlowRetainedProjectionPublicationTransaction",
+      "prepareGpuFlowRetainedProjectionPublicationCandidate",
     );
     expect(surfaceFrameSource).not.toContain(
-      "resolveGpuFlowProjectionFrameTransactionFromPublicationDecision",
+      "selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
     );
     expect(kernelSource).not.toContain(
-      "export function decideGpuFlowRetainedProjectionPublicationTransaction",
+      "export function prepareGpuFlowRetainedProjectionPublicationCandidate",
     );
     expect(kernelSource).not.toContain(
-      "export function selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
+      "export function selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
     );
-    expect(kernelSource).toContain("createGpuFlowHeldPreviousProjection");
+    expect(kernelSource).not.toContain("createGpuFlowHeldPreviousProjection");
     expect(source).not.toContain("holdPreviousToken");
   });
 
@@ -417,7 +419,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     const kernelSource = readVisibleFramePublicationKernelAuthoritySource();
     const candidateSource = readCommittedSurfaceAuthorityCandidateSource();
     const publishBranchStart = kernelSource.indexOf(
-      'if (transactionDecision.kind === "publish")',
+      'if (publicationReadiness.kind === "publish")',
     );
     const publishBranchEnd = kernelSource.indexOf(
       "if (!publishedCommittedSurfaceFrame)",

@@ -35,16 +35,13 @@ const KERNEL_CANDIDATE_ORACLE_MODULE_PATH = fileURLToPath(
 );
 
 describe("GPU Flow visible publication kernel projection transactions", () => {
-  it("selects requested, held, and blocked transactions from publication decisions", () => {
+  it("selects requested projection candidates and reports missing coverage for global hold/block decisions", () => {
     const requestedFrame = projectionFrame({
       needsRetainedPageMaintenance: true,
     });
     const missingRequestedFrame = projectionFrame({
       missingCoverageSurfaceIds: ["surface-a"],
       needsRetainedPageMaintenance: true,
-    });
-    const heldFrame = projectionFrame({
-      needsRetainedPageMaintenance: false,
     });
     const requestedTransaction = projectionTransaction({
       id: "projection:12:1",
@@ -78,34 +75,26 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
         transaction: heldTransaction,
       }),
       requestedTransaction,
-      resolveRetainedProjectionFrame: ({ transaction }) =>
-        transaction === requestedTransaction
-          ? missingRequestedFrame
-          : heldFrame,
-    });
-    expect(heldSelection.blockedPublicationCandidate).toBeNull();
-    expect(heldSelection.resolvedHeldTransaction).toBe(
-      heldSelection.renderPlan?.transaction,
-    );
-    expect(heldSelection.renderPlan).toEqual({
-      heldPreviousProjection: expect.objectContaining({
-        committedFrameId: 11,
-        consecutiveFrameCount: 1,
-        projectionSampleId: requestedTransaction.sample.id,
-        reason: "retained-projection-coverage-missing",
-        requestedProjectionSampleId: requestedTransaction.sample.id,
-      }),
-      kind: "render",
-      retainedProjectionFrame: {
-        ...heldFrame,
-        needsRetainedPageMaintenance: true,
+      resolveRetainedProjectionFrame: ({ transaction }) => {
+        if (transaction === requestedTransaction) {
+          return missingRequestedFrame;
+        }
+        throw new Error("blocked candidate must not resolve held frame");
       },
-      transaction: expect.objectContaining({
-        committedFrameId: 11,
-        kind: "held-previous",
-        sample: requestedTransaction.sample,
-      }),
     });
+    expect(heldSelection.blockedPublicationCandidate).toEqual({
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "retained-projection",
+          reason: "retained-projection-coverage-missing",
+        },
+      ],
+      frozenFrameId: 11,
+    });
+    expect(heldSelection.renderPlan).toBeNull();
+    expect(heldSelection.resolvedHeldTransaction).toBeNull();
+    expect(heldSelection.outcomeKind).toBe("hold-previous");
 
     const blockedSelection = selectProjectionFrameTransactionThroughKernel({
       previousVisibleProjectionState: visibleProjectionState({
@@ -129,7 +118,7 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
         {
           actorId: null,
           family: "retained-projection",
-          reason: "held-previous-budget-exceeded",
+          reason: "retained-projection-coverage-missing",
         },
       ],
       frozenFrameId: 11,
@@ -137,7 +126,7 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
     expect(blockedSelection.outcomeKind).toBe("blocked");
   });
 
-  it("keeps retained projection transaction decisions in the kernel-owned oracle and out of render planning", () => {
+  it("keeps retained projection transaction candidates in the kernel-owned oracle and out of render planning", () => {
     const projectionPlanSource = readFileSync(
       PROJECTION_PLAN_MODULE_PATH,
       "utf8",
@@ -153,52 +142,52 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
     ].join("\n");
 
     expect(projectionPlanSource).not.toContain(
-      "GpuFlowRetainedProjectionPublicationTransactionDecision",
+      "GpuFlowRetainedProjectionPublicationCandidate",
     );
     expect(projectionPlanSource).not.toContain(
-      "selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
+      "selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
     );
     expect(projectionPlanSource).not.toContain(
       "createGpuFlowProjectionFrameTransactionSelector",
     );
     expect(kernelAuthoritySource).toContain(
-      "GpuFlowRetainedProjectionPublicationTransactionDecision",
+      "GpuFlowRetainedProjectionPublicationCandidate",
     );
     expect(candidateOracleSource).toContain(
-      "selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
+      "selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
-      "function selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
+      "function selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
-      "export function selectGpuFlowProjectionFrameTransactionFromPublicationDecision",
+      "export function selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
-      "function decideGpuFlowRetainedProjectionPublicationTransaction",
+      "function prepareGpuFlowRetainedProjectionPublicationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
-      "export function decideGpuFlowRetainedProjectionPublicationTransaction",
+      "export function prepareGpuFlowRetainedProjectionPublicationCandidate",
     );
     expect(kernelModuleSource).toContain(
       "createGpuFlowVisiblePublicationCandidateOracle",
     );
     expect(kernelModuleSource).not.toContain(
-      "createGpuFlowRetainedProjectionPublicationDecisionSelector",
+      "createGpuFlowRetainedProjectionPublicationCandidateSelector",
     );
     expect(kernelModuleSource).not.toContain(
       "export function createGpuFlowProjectionFrameTransactionSelector",
     );
     expect(kernelModuleSource).not.toContain(
-      "export function createGpuFlowRetainedProjectionPublicationDecisionSelector",
+      "export function createGpuFlowRetainedProjectionPublicationCandidateSelector",
     );
     expect(candidateOracleSource).not.toContain(
       "export function createGpuFlowProjectionFrameTransactionSelector",
     );
     expect(candidateOracleSource).not.toContain(
-      "export function createGpuFlowRetainedProjectionPublicationDecisionSelector",
+      "export function createGpuFlowRetainedProjectionPublicationCandidateSelector",
     );
     expect(candidateOracleSource).toContain(
-      "function decideGpuFlowRetainedProjectionPublicationTransaction",
+      "function prepareGpuFlowRetainedProjectionPublicationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",

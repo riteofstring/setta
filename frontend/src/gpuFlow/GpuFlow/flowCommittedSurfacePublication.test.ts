@@ -54,9 +54,9 @@ describe("GPU Flow committed surface publication effect executor", () => {
       }),
     );
 
-    expect(result.kind).toBe("blocked");
-    if (result.kind !== "blocked") {
-      throw new Error("Expected blocked publication result.");
+    expect(result.kind).toBe("nonpublishable");
+    if (result.kind !== "nonpublishable") {
+      throw new Error("Expected nonpublishable publication candidate.");
     }
     expect(result.blockedPublicationCandidate.frozenFrameId).toBe(
       GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
@@ -96,7 +96,7 @@ describe("GPU Flow committed surface publication effect executor", () => {
       }),
     );
 
-    expect(result.kind).toBe("blocked");
+    expect(result.kind).toBe("nonpublishable");
     applyPublicationEffect(result.effect, { canvas, requestFrame });
     expect(requestFrame).not.toHaveBeenCalled();
     vi.advanceTimersByTime(
@@ -138,7 +138,7 @@ describe("GPU Flow committed surface publication effect executor", () => {
       effect: {
         candidateFrame: blockedCommittedSurfaceFrame(),
         deferRetry: false,
-        kind: "held-previous",
+        kind: "rejected-candidate",
         timestamp: 12,
       },
       runtimeCanvas: canvas,

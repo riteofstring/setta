@@ -40,13 +40,7 @@ export type GpuFlowCommittedSurfacePublicationEffect =
   | {
       readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
       readonly deferRetry: boolean;
-      readonly kind: "blocked";
-      readonly timestamp: number;
-    }
-  | {
-      readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
-      readonly deferRetry: boolean;
-      readonly kind: "held-previous";
+      readonly kind: "rejected-candidate";
       readonly timestamp: number;
     };
 
@@ -104,15 +98,8 @@ export type GpuFlowCommittedSurfacePublicationCandidate =
       readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
       readonly effect: GpuFlowCommittedSurfacePublicationEffect;
       readonly errorMessage: string | null;
-      readonly kind: "blocked";
+      readonly kind: "nonpublishable";
       readonly preservePreparationSnapshot: boolean;
-    }
-  | {
-      readonly effect: GpuFlowCommittedSurfacePublicationEffect;
-      readonly kind: "held-previous";
-      readonly visibleProjectionState: NonNullable<
-        GpuFlowNodeLayerFrameResult["visibleProjectionState"]
-      >;
     };
 
 export type GpuFlowCommittedSurfacePublicationCandidateInput = {

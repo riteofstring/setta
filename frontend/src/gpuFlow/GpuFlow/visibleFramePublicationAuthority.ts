@@ -297,6 +297,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
 }): GpuFlowVisiblePublicationTransactionCompletion {
   const schedulerKnobs = scheduler.getKnobs();
   const outcome = createGpuFlowVisiblePublicationCompletionOutcome({
+    blockedPublicationProof,
     blockedPublicationToken:
       createGpuFlowVisibleFrameBlockedPublicationTokenForProof({
         proof: blockedPublicationProof,
@@ -634,12 +635,14 @@ function createGpuFlowVisiblePublicationCompletionCommitToken({
 }
 
 function createGpuFlowVisiblePublicationCompletionOutcome({
+  blockedPublicationProof,
   blockedPublicationToken,
   publicationDecision,
   previousVisibleProjectionState,
   schedulerKnobs,
   transactionOracle,
 }: {
+  readonly blockedPublicationProof: GpuFlowVisiblePublicationBlockedProof | null;
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -647,14 +650,23 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
   readonly transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle;
 }): GpuFlowVisiblePublicationOutcome {
   if (!transactionOracle.renderedVisibleFrame) {
-    if (blockedPublicationToken) {
+    if (
+      blockedPublicationToken &&
+      shouldBlockGpuFlowVisiblePublicationProofImmediately(
+        blockedPublicationProof,
+      )
+    ) {
       return { kind: "blocked", token: blockedPublicationToken };
     }
-    return createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
+    const noFrameOutcome = createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
       previousVisibleProjectionState,
       publicationDecision,
       schedulerKnobs,
     });
+    if (noFrameOutcome.kind === "hold-previous" || !blockedPublicationToken) {
+      return noFrameOutcome;
+    }
+    return { kind: "blocked", token: blockedPublicationToken };
   }
   const visibleProjectionState = transactionOracle.visibleProjectionState;
   if (visibleProjectionState === null) {
@@ -684,6 +696,22 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
       visibleProjectionState,
     }),
   };
+}
+
+function shouldBlockGpuFlowVisiblePublicationProofImmediately(
+  proof: GpuFlowVisiblePublicationBlockedProof | null,
+): boolean {
+  switch (proof?.source) {
+    case "actor-proof":
+    case "browser-visual-proof":
+    case "compatible-previous-proof":
+    case "resource-protection":
+      return true;
+    case "content-publication":
+    case "motion-projection":
+    case undefined:
+      return false;
+  }
 }
 
 function createGpuFlowVisiblePublicationCompletionHoldOutcome({

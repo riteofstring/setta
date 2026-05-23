@@ -137,9 +137,8 @@ describe("GPU Flow visible publication content plans", () => {
     });
   });
 
-  it("selects committed-surface publish and held plans outside flowFrame", () => {
+  it("selects committed-surface publish and nonpublishable candidate plans outside flowFrame", () => {
     const committedFrame = committedSurfaceFrame();
-    const heldVisibleProjectionState = visibleProjectionState("held-previous");
     const preparePublishPlan =
       createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
         contentDecisionKernel,
@@ -148,18 +147,30 @@ describe("GPU Flow visible publication content plans", () => {
           kind: "publish",
         }),
       });
-    const prepareHeldPlan =
+    const prepareNonpublishablePlan =
       createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
         contentDecisionKernel,
         prepareCommittedSurfacePublicationCandidate: () => ({
+          blockedPublicationCandidate: {
+            blockedReasons: [
+              {
+                actorId: "actor-a",
+                family: "browser-visual",
+                reason: "snapshot-pending",
+              },
+            ],
+            frozenFrameId: "cold-start-shell:browser-visual",
+          },
+          candidateFrame: committedFrame,
           effect: {
             candidateFrame: committedFrame,
             deferRetry: false,
-            kind: "held-previous",
+            kind: "rejected-candidate",
             timestamp: 16,
           },
-          kind: "held-previous",
-          visibleProjectionState: heldVisibleProjectionState,
+          errorMessage: null,
+          kind: "nonpublishable",
+          preservePreparationSnapshot: true,
         }),
       });
     const publishPlan = preparePublishPlan(
@@ -167,7 +178,7 @@ describe("GPU Flow visible publication content plans", () => {
         publishedCommittedSurfaceFrame: committedFrame,
       }),
     ).framePlan;
-    const heldPlan = prepareHeldPlan(
+    const nonpublishablePlan = prepareNonpublishablePlan(
       committedSurfacePublicationCandidateInput({
         publishedCommittedSurfaceFrame: committedFrame,
       }),
@@ -180,11 +191,18 @@ describe("GPU Flow visible publication content plans", () => {
     expect(publishPlan.committedSurfacePublication.committedSurfaceFrame).toBe(
       committedFrame,
     );
-    expect(heldPlan.kind).toBe("candidate");
-    if (heldPlan.kind !== "candidate") {
-      throw new Error("Expected committed-surface held candidate plan.");
+    expect(nonpublishablePlan.kind).toBe("candidate");
+    if (nonpublishablePlan.kind !== "candidate") {
+      throw new Error(
+        "Expected committed-surface nonpublishable candidate plan.",
+      );
     }
-    expect(heldPlan.visibleProjectionState).toBe(heldVisibleProjectionState);
+    expect(nonpublishablePlan.visibleProjectionState).toBeNull();
+    expect(nonpublishablePlan.blockedPublicationCandidate).toEqual(
+      expect.objectContaining({
+        frozenFrameId: "cold-start-shell:browser-visual",
+      }),
+    );
   });
 
   it("keeps content publication selector factories off the kernel public surface", () => {
@@ -445,7 +463,7 @@ describe("GPU Flow visible publication content plans", () => {
       "resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).not.toContain(
-      "decideGpuFlowCommittedSurfacePublicationTransaction",
+      "resolveGpuFlowCommittedSurfacePublicationReadiness",
     );
     expect(contentPlanSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
@@ -475,7 +493,7 @@ describe("GPU Flow visible publication content plans", () => {
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     expect(contentPlanSource).not.toContain(
-      "decideGpuFlowCommittedSurfacePublicationTransaction",
+      "resolveGpuFlowCommittedSurfacePublicationReadiness",
     );
     expect(contentPlanSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
@@ -487,11 +505,13 @@ describe("GPU Flow visible publication content plans", () => {
       "prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     expect(kernelSource).toContain(
-      "decideGpuFlowCommittedSurfacePublicationTransaction",
+      "resolveGpuFlowCommittedSurfacePublicationReadiness",
     );
-    expect(kernelSource).toContain(
+    expect(kernelSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
+    expect(kernelSource).toContain('"nonpublishable"');
+    expect(kernelSource).toContain('"rejected-candidate"');
   });
 
   it("keeps committed-surface frame-plan selection in the kernel", () => {
@@ -777,11 +797,11 @@ describe("GPU Flow visible publication content plans", () => {
           effect: {
             candidateFrame,
             deferRetry: false,
-            kind: "blocked",
+            kind: "rejected-candidate",
             timestamp: 24,
           },
           errorMessage: "blocked surface",
-          kind: "blocked",
+          kind: "nonpublishable",
           preservePreparationSnapshot: true,
         }),
       });
