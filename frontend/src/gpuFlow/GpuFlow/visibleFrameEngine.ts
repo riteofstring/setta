@@ -17,6 +17,30 @@ const GPU_FLOW_VISIBLE_FRAME_ENGINE_OUTCOME = Symbol(
   "GpuFlowVisibleFrameEngineOutcome",
 );
 
+export type GpuFlowVisibleFrameStarvationPolicy = {
+  readonly maxConsecutiveMotionFramesBeforeContentProbe: number;
+  readonly maxContentInterleaveMs: number;
+  readonly maxHeldPreviousFrames: number;
+  readonly maxHeldPreviousMs: number;
+  readonly maxMaintenanceInterleaveMs: number;
+  readonly motionSettleWindowMs: number;
+};
+
+export type GpuFlowVisibleFrameHeldPreviousBudgetStatus = {
+  readonly maxHeldPreviousFramesExceeded: boolean;
+  readonly maxHeldPreviousMsExceeded: boolean;
+};
+
+export const DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY: GpuFlowVisibleFrameStarvationPolicy =
+  Object.freeze({
+    maxConsecutiveMotionFramesBeforeContentProbe: 6,
+    maxContentInterleaveMs: 2,
+    maxHeldPreviousFrames: 6,
+    maxHeldPreviousMs: 120,
+    maxMaintenanceInterleaveMs: 1,
+    motionSettleWindowMs: 120,
+  });
+
 type GpuFlowVisibleFrameEngineOutcomeBrand = {
   readonly [GPU_FLOW_VISIBLE_FRAME_ENGINE_OUTCOME]: true;
 };
@@ -230,6 +254,31 @@ export function createGpuFlowVisibleFrameEngine({
     sample: () => freezeGpuFlowVisibleFrameEngineSample(sampleVisibleFrame()),
   });
   return engine;
+}
+
+export function createGpuFlowVisibleFrameStarvationPolicy(
+  policy: GpuFlowVisibleFrameStarvationPolicy = DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
+): GpuFlowVisibleFrameStarvationPolicy {
+  assertGpuFlowVisibleFrameStarvationPolicy(policy);
+  return Object.freeze({ ...policy });
+}
+
+export function getGpuFlowVisibleFrameHeldPreviousBudgetStatus({
+  consecutiveFrameCount,
+  heldDurationMs,
+  policy,
+}: {
+  readonly consecutiveFrameCount: number;
+  readonly heldDurationMs: number;
+  readonly policy: GpuFlowVisibleFrameStarvationPolicy;
+}): GpuFlowVisibleFrameHeldPreviousBudgetStatus {
+  const starvationPolicy = createGpuFlowVisibleFrameStarvationPolicy(policy);
+  return Object.freeze({
+    maxHeldPreviousFramesExceeded:
+      consecutiveFrameCount > starvationPolicy.maxHeldPreviousFrames,
+    maxHeldPreviousMsExceeded:
+      heldDurationMs > starvationPolicy.maxHeldPreviousMs,
+  });
 }
 
 export function proveGpuFlowVisibleFrameEngineFrame({
@@ -592,6 +641,18 @@ function hasGpuFlowVisibleFrameEngineOutcomeBrand(
     outcome !== null &&
     GPU_FLOW_VISIBLE_FRAME_ENGINE_OUTCOME in outcome
   );
+}
+
+function assertGpuFlowVisibleFrameStarvationPolicy(
+  policy: GpuFlowVisibleFrameStarvationPolicy,
+): void {
+  for (const [name, value] of Object.entries(policy)) {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(
+        `GPU Flow visible frame starvation policy ${name} must be finite and non-negative.`,
+      );
+    }
+  }
 }
 
 function freezeGpuFlowVisibleFrameEngineSample(

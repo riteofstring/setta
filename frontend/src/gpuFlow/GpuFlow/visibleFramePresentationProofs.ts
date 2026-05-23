@@ -32,6 +32,7 @@ import {
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
   type GpuFlowVisibleFramePresentationIdentity,
 } from "./visibleFrameTypes";
+import { getGpuFlowVisibleFrameHeldPreviousBudgetStatus } from "./visibleFrameEngine";
 
 export {
   createGpuFlowCommitAuthorityProof,
@@ -829,10 +830,15 @@ function isGpuFlowNoFrameHeldPreviousOverBudget({
   readonly previousHeld: GpuFlowVisibleProjectionState["heldPreviousProjection"];
   readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
 }): boolean {
+  const budgetStatus = getGpuFlowVisibleFrameHeldPreviousBudgetStatus({
+    consecutiveFrameCount: holdAgeFrames,
+    heldDurationMs: holdAgeMs,
+    policy: schedulerKnobs,
+  });
   return Boolean(
     previousHeld?.maxHeldPreviousFramesExceeded ||
       previousHeld?.maxHeldPreviousMsExceeded ||
-      holdAgeFrames > schedulerKnobs.maxHeldPreviousFrames ||
-      holdAgeMs > schedulerKnobs.maxHeldPreviousMs,
+      budgetStatus.maxHeldPreviousFramesExceeded ||
+      budgetStatus.maxHeldPreviousMsExceeded,
   );
 }

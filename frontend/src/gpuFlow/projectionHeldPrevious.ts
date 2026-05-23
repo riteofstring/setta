@@ -1,3 +1,4 @@
+import { getGpuFlowVisibleFrameHeldPreviousBudgetStatus } from "./GpuFlow/visibleFrameEngine";
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionSchedulerKnobs,
@@ -67,6 +68,11 @@ export function createGpuFlowHeldPreviousProjection({
   const hitGenerationId =
     previousVisibleProjectionState.committedFrame.coherence?.hitGenerationId ??
     `hit:${committedFrameId}`;
+  const budgetStatus = getGpuFlowVisibleFrameHeldPreviousBudgetStatus({
+    consecutiveFrameCount,
+    heldDurationMs,
+    policy: knobs,
+  });
   return Object.freeze({
     activationMappingId: `activation:${committedFrameId}:${hitGenerationId}`,
     canvasDrawStateId: `canvas:${committedFrameId}`,
@@ -79,8 +85,8 @@ export function createGpuFlowHeldPreviousProjection({
     heldDurationMs,
     hitProjectionId: hitGenerationId,
     maxHeldPreviousFramesExceeded:
-      consecutiveFrameCount > knobs.maxHeldPreviousFrames,
-    maxHeldPreviousMsExceeded: heldDurationMs > knobs.maxHeldPreviousMs,
+      budgetStatus.maxHeldPreviousFramesExceeded,
+    maxHeldPreviousMsExceeded: budgetStatus.maxHeldPreviousMsExceeded,
     previousTransactionId: previousVisibleProjectionState.transaction.id,
     projectionSampleId: heldTransaction.sample.id,
     reason,

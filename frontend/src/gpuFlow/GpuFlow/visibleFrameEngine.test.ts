@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   assertGpuFlowVisibleFrameEngineOutcomeBrand,
+  createGpuFlowVisibleFrameStarvationPolicy,
   createGpuFlowVisibleFrameEngine,
+  DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
+  getGpuFlowVisibleFrameHeldPreviousBudgetStatus,
   proveGpuFlowVisibleFrameEngineFrame,
   type GpuFlowVisibleFrameEngineOutcome,
   type GpuFlowVisibleFrameEngineSample,
@@ -489,6 +492,62 @@ describe("GPU Flow visible frame engine lifecycle", () => {
     expect(() => engine.abort(prepared, presented)).toThrow(
       /cannot be used as aborted/,
     );
+  });
+});
+
+describe("GPU Flow visible frame engine starvation policy", () => {
+  it("owns the default visible-frame fairness and held-previous budgets", () => {
+    expect(DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY).toEqual({
+      maxConsecutiveMotionFramesBeforeContentProbe: 6,
+      maxContentInterleaveMs: 2,
+      maxHeldPreviousFrames: 6,
+      maxHeldPreviousMs: 120,
+      maxMaintenanceInterleaveMs: 1,
+      motionSettleWindowMs: 120,
+    });
+    expect(
+      createGpuFlowVisibleFrameStarvationPolicy(
+        DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
+      ),
+    ).not.toBe(DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY);
+  });
+
+  it("computes held-previous over-budget state from the engine policy", () => {
+    const policy = createGpuFlowVisibleFrameStarvationPolicy({
+      ...DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
+      maxHeldPreviousFrames: 2,
+      maxHeldPreviousMs: 30,
+    });
+
+    expect(
+      getGpuFlowVisibleFrameHeldPreviousBudgetStatus({
+        consecutiveFrameCount: 2,
+        heldDurationMs: 30,
+        policy,
+      }),
+    ).toEqual({
+      maxHeldPreviousFramesExceeded: false,
+      maxHeldPreviousMsExceeded: false,
+    });
+    expect(
+      getGpuFlowVisibleFrameHeldPreviousBudgetStatus({
+        consecutiveFrameCount: 3,
+        heldDurationMs: 31,
+        policy,
+      }),
+    ).toEqual({
+      maxHeldPreviousFramesExceeded: true,
+      maxHeldPreviousMsExceeded: true,
+    });
+  });
+
+  it("rejects invalid starvation budgets before the scheduler can use them", () => {
+    expect(() =>
+      createGpuFlowVisibleFrameStarvationPolicy({
+        ...DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
+        maxHeldPreviousMs: -1,
+      }),
+    ).toThrow(/starvation policy maxHeldPreviousMs/);
   });
 });
 

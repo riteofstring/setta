@@ -4,6 +4,11 @@ import type {
   GpuFlowHoldPreviousToken,
 } from "./GpuFlow/visibleFramePresentationProofs";
 import {
+  createGpuFlowVisibleFrameStarvationPolicy,
+  DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
+  type GpuFlowVisibleFrameStarvationPolicy,
+} from "./GpuFlow/visibleFrameEngine";
+import {
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
@@ -22,24 +27,11 @@ type GpuFlowProjectionSchedulerState =
   | "motion-active"
   | "motion-settling";
 
-export type GpuFlowProjectionSchedulerKnobs = {
-  readonly maxConsecutiveMotionFramesBeforeContentProbe: number;
-  readonly maxContentInterleaveMs: number;
-  readonly maxHeldPreviousFrames: number;
-  readonly maxHeldPreviousMs: number;
-  readonly maxMaintenanceInterleaveMs: number;
-  readonly motionSettleWindowMs: number;
-};
+export type GpuFlowProjectionSchedulerKnobs =
+  GpuFlowVisibleFrameStarvationPolicy;
 
 export const DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS: GpuFlowProjectionSchedulerKnobs =
-  Object.freeze({
-    maxConsecutiveMotionFramesBeforeContentProbe: 6,
-    maxContentInterleaveMs: 2,
-    maxHeldPreviousFrames: 6,
-    maxHeldPreviousMs: 120,
-    maxMaintenanceInterleaveMs: 1,
-    motionSettleWindowMs: 120,
-  });
+  DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY;
 
 const GPU_FLOW_CONTENT_BLOCKED_RETRY_DELAY_MULTIPLIER = 2;
 const GPU_FLOW_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER = 2;
@@ -109,7 +101,7 @@ export function createGpuFlowVisiblePublicationScheduler({
 }: {
   readonly knobs?: GpuFlowProjectionSchedulerKnobs | undefined;
 } = {}): GpuFlowVisiblePublicationScheduler {
-  const schedulerKnobs = Object.freeze({ ...knobs });
+  const schedulerKnobs = createGpuFlowVisibleFrameStarvationPolicy(knobs);
   let contentDebt = false;
   let maintenanceDebt = false;
   let motionDebt = false;
