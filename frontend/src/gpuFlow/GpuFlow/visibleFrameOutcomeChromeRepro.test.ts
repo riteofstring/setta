@@ -9,11 +9,11 @@ import type {
   GpuFlowVisiblePublicationCompletionOutcome,
   GpuFlowVisiblePublicationDebtProof,
 } from "../projectionScheduler";
-import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./visibleFrameOutcomeChromeRepro";
 import type {
   GpuFlowVisibleFrameEngineOutcome,
   GpuFlowVisibleFramePreparedFrame,
 } from "./visibleFrameEngine";
+import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./visibleFrameOutcomeChromeRepro";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
 import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
 import {
@@ -189,26 +189,31 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
       committedFrame: visibleProjectionState.committedFrame,
       publicationDecision: publicationDecision(sample),
     });
-
-    expect(
-      createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
-        completion: {
-          debt: { content: false, maintenance: true, motion: false },
-          outcome: "commit",
-        },
-        outcome: commitOutcome({
-          debtProof: { content: true, maintenance: false, motion: false },
-          sample,
-        }),
-        previousCommittedFrameId: 6,
-        publicationDecision: publicationDecision(sample),
-        transactionProof: transactionProof({ commitProof }),
-        visibleProjectionState,
+    const payload = createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
+      completion: {
+        debt: { content: false, maintenance: true, motion: false },
+        outcome: "commit",
+      },
+      outcome: commitOutcome({
+        debtProof: { content: true, maintenance: false, motion: false },
+        sample,
       }),
-    ).toEqual(
+      previousCommittedFrameId: 6,
+      publicationDecision: publicationDecision(sample),
+      transactionProof: transactionProof({ commitProof }),
+      visibleProjectionState,
+    });
+
+    expect(JSON.stringify(payload).length).toBeLessThan(12000);
+    expect(payload).toEqual(
       expect.objectContaining({
-        actorProofDigest: expect.any(String),
-        actorProofs: expect.arrayContaining([
+        actorProofCount: 2,
+        actorProofDigest: expect.objectContaining({
+          length: expect.any(Number),
+          preview: expect.any(String),
+          truncated: expect.any(Boolean),
+        }),
+        actorProofSamples: expect.arrayContaining([
           expect.objectContaining({
             actorId: "actor-a",
             browserVisualRepresentation: expect.objectContaining({
@@ -301,12 +306,12 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
             remainingDebt: ["exact-browser-visual"],
           },
         ],
-        resourceProtection: {
+        resourceProtection: expect.objectContaining({
           missingResourceKeys: [],
           protected: true,
           protectedResourceKeys: ["source:source-a"],
           requiredResourceKeys: ["source:source-a"],
-        },
+        }),
         transactionId: "transaction-a",
         transactionProof: {
           blockedProof: null,
@@ -323,34 +328,70 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         visibleTransaction: {
           inputSampleId: 11,
           outcome: "commit",
-          presentableCommit: {
-            expectedActorSetDigest: "actors",
-            presentationPairDigest: "presentation",
-            presentationPairProof: {
-              ...presentationProof(11),
+          presentableCommit: expect.objectContaining({
+            expectedActorSetDigest: expect.objectContaining({
+              preview: "actors",
+              truncated: false,
+            }),
+            presentationPairDigest: expect.objectContaining({
+              preview: "presentation",
+              truncated: false,
+            }),
+            presentationPairProof: expect.objectContaining({
+              actorManifestDigest: expect.objectContaining({
+                preview: "manifest-digest",
+                truncated: false,
+              }),
+              batchId: "presentation:7",
               projectionSampleId: 11,
-            },
-            proofDigest: "proof",
-            resourceProtectionDigest: "resource",
-          },
-          presentationProof: {
-            ...presentationProof(11),
+            }),
+            proofDigest: expect.objectContaining({
+              preview: "proof",
+              truncated: false,
+            }),
+            resourceProtectionDigest: expect.objectContaining({
+              preview: "resource",
+              truncated: false,
+            }),
+          }),
+          presentationProof: expect.objectContaining({
+            actorManifestDigest: expect.objectContaining({
+              preview: "manifest-digest",
+              truncated: false,
+            }),
+            batchId: "presentation:7",
             projectionSampleId: 11,
-          },
+          }),
           previousCommittedFrameId: 6,
-          token: {
+          token: expect.objectContaining({
             committedFrameId: 7,
-            expectedActorSetDigest: "actors",
-            presentationPairDigest: "presentation",
-            presentationPairProof: {
-              ...presentationProof(11),
+            expectedActorSetDigest: expect.objectContaining({
+              preview: "actors",
+              truncated: false,
+            }),
+            presentationPairDigest: expect.objectContaining({
+              preview: "presentation",
+              truncated: false,
+            }),
+            presentationPairProof: expect.objectContaining({
+              actorManifestDigest: expect.objectContaining({
+                preview: "manifest-digest",
+                truncated: false,
+              }),
+              batchId: "presentation:7",
               projectionSampleId: 11,
-            },
+            }),
             projectionSampleId: 11,
-            proofDigest: "proof",
-            resourceProtectionDigest: "resource",
+            proofDigest: expect.objectContaining({
+              preview: "proof",
+              truncated: false,
+            }),
+            resourceProtectionDigest: expect.objectContaining({
+              preview: "resource",
+              truncated: false,
+            }),
             transactionId: "transaction-a",
-          },
+          }),
           transactionId: "transaction-a",
           visibleCommittedFrameId: 7,
         },
