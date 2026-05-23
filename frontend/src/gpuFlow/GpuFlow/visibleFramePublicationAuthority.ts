@@ -37,12 +37,6 @@ import {
 const GPU_FLOW_COMMIT_PUBLICATION_TOKEN = Symbol(
   "GpuFlowCommitPublicationToken",
 );
-const GPU_FLOW_COMMITTED_SURFACE_RESET_TOKEN = Symbol(
-  "GpuFlowCommittedSurfaceResetToken",
-);
-const GPU_FLOW_COMMITTED_SURFACE_STARTUP_TOKEN = Symbol(
-  "GpuFlowCommittedSurfaceStartupToken",
-);
 const GPU_FLOW_PRESENTABLE_COMMIT = Symbol("GpuFlowPresentableCommit");
 const GPU_FLOW_HOLD_PREVIOUS_TOKEN = Symbol("GpuFlowHoldPreviousToken");
 const GPU_FLOW_BLOCKED_PUBLICATION_TOKEN = Symbol(
@@ -105,14 +99,6 @@ type CommitPublicationTokenBrand = {
   readonly [GPU_FLOW_COMMIT_PUBLICATION_TOKEN]: true;
 };
 
-type CommittedSurfaceResetTokenBrand = {
-  readonly [GPU_FLOW_COMMITTED_SURFACE_RESET_TOKEN]: true;
-};
-
-type CommittedSurfaceStartupTokenBrand = {
-  readonly [GPU_FLOW_COMMITTED_SURFACE_STARTUP_TOKEN]: true;
-};
-
 type PresentableCommitBrand = {
   readonly [GPU_FLOW_PRESENTABLE_COMMIT]: true;
 };
@@ -135,19 +121,6 @@ export type GpuFlowCommitPublicationToken = CommitPublicationTokenBrand & {
   readonly resourceProtectionDigest: GpuFlowResourceProtectionDigest;
   readonly transactionId: GpuFlowVisibleTransactionId;
 };
-
-export type GpuFlowCommittedSurfaceResetToken =
-  CommittedSurfaceResetTokenBrand & {
-    readonly transactionId: GpuFlowVisibleTransactionId;
-  };
-
-export type GpuFlowCommittedSurfaceStartupToken =
-  CommittedSurfaceStartupTokenBrand & {
-    readonly expectedActorSetDigest: GpuFlowActorManifestDigest;
-    readonly proofDigest: GpuFlowVisibleProofDigest;
-    readonly startupFrameId: GpuFlowCommittedVisibleFrameId;
-    readonly transactionId: GpuFlowVisibleTransactionId;
-  };
 
 type GpuFlowPresentableCommit = PresentableCommitBrand & {
   readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
@@ -197,10 +170,6 @@ type GpuFlowVisiblePublicationTokenIssuer = {
     readonly frame: GpuFlowCommittedSurfaceFrame;
     readonly projectionSample: GpuFlowLiveProjectionSample;
   }) => GpuFlowCommitPublicationToken;
-  readonly createCommittedSurfaceResetToken: () => GpuFlowCommittedSurfaceResetToken;
-  readonly createCommittedSurfaceStartupToken: (input: {
-    readonly frame: GpuFlowCommittedSurfaceFrame;
-  }) => GpuFlowCommittedSurfaceStartupToken;
   readonly createHoldPreviousToken: (input: {
     readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
     readonly holdAgeFrames: number;
@@ -224,9 +193,6 @@ function createGpuFlowVisiblePublicationTokenIssuer(): GpuFlowVisiblePublication
           projectionSample,
         }),
       }),
-    createCommittedSurfaceResetToken: createGpuFlowCommittedSurfaceResetToken,
-    createCommittedSurfaceStartupToken:
-      createGpuFlowCommittedSurfaceStartupToken,
     createHoldPreviousToken: createGpuFlowHoldPreviousToken,
   });
 }
@@ -253,41 +219,6 @@ type GpuFlowVisibleFramePublicationPresentationScheduler = {
 };
 
 const GPU_FLOW_MOTION_ACTIVE_DEBT_RETRY_DELAY_MS = 160;
-
-export function createGpuFlowCommittedSurfaceResetPublicationToken(): GpuFlowCommittedSurfaceResetToken {
-  return visiblePublicationTokenIssuer.createCommittedSurfaceResetToken();
-}
-
-export function createGpuFlowCommittedSurfaceStartupPublicationToken({
-  frame,
-}: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
-}): GpuFlowCommittedSurfaceStartupToken {
-  return visiblePublicationTokenIssuer.createCommittedSurfaceStartupToken({
-    frame,
-  });
-}
-
-function createGpuFlowCommittedSurfaceResetToken(): GpuFlowCommittedSurfaceResetToken {
-  return Object.freeze({
-    [GPU_FLOW_COMMITTED_SURFACE_RESET_TOKEN]: true as const,
-    transactionId: "semantic-reset:committed-surface",
-  });
-}
-
-function createGpuFlowCommittedSurfaceStartupToken({
-  frame,
-}: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
-}): GpuFlowCommittedSurfaceStartupToken {
-  return Object.freeze({
-    [GPU_FLOW_COMMITTED_SURFACE_STARTUP_TOKEN]: true as const,
-    expectedActorSetDigest: frame.presentationProof.actorManifestDigest,
-    proofDigest: createGpuFlowVisibleProofDigest(frame),
-    startupFrameId: frame.displayFrameId,
-    transactionId: `semantic-startup:frame-${frame.displayFrameId}`,
-  });
-}
 
 function createGpuFlowPresentableCommit({
   frame,
@@ -1307,37 +1238,6 @@ export function assertGpuFlowCommitPublicationTokenForPresentationProof({
   });
 }
 
-export function assertGpuFlowCommittedSurfaceResetToken({
-  token,
-}: {
-  readonly token: GpuFlowCommittedSurfaceResetToken;
-}): void {
-  if (!isGpuFlowCommittedSurfaceResetToken(token)) {
-    throw new Error(
-      "GPU Flow committed surface reset requires a committed-surface reset publication token.",
-    );
-  }
-}
-
-export function assertGpuFlowCommittedSurfaceStartupToken({
-  frame,
-  token,
-}: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
-  readonly token: GpuFlowCommittedSurfaceStartupToken;
-}): void {
-  if (
-    !isGpuFlowCommittedSurfaceStartupToken(token) ||
-    token.startupFrameId !== frame.displayFrameId ||
-    token.expectedActorSetDigest !== createGpuFlowActorManifestDigest(frame) ||
-    token.proofDigest !== createGpuFlowVisibleProofDigest(frame)
-  ) {
-    throw new Error(
-      "GPU Flow committed surface startup publication requires a startup token for the same startup frame.",
-    );
-  }
-}
-
 export function assertGpuFlowCommitPublicationTokenForFrameId({
   committedFrameId,
   token,
@@ -1489,34 +1389,6 @@ function isGpuFlowPresentableCommit(
           readonly [GPU_FLOW_PRESENTABLE_COMMIT]?: true;
         }
       )[GPU_FLOW_PRESENTABLE_COMMIT] === true,
-  );
-}
-
-function isGpuFlowCommittedSurfaceResetToken(
-  token: unknown,
-): token is GpuFlowCommittedSurfaceResetToken {
-  return Boolean(
-    token &&
-      typeof token === "object" &&
-      (
-        token as {
-          readonly [GPU_FLOW_COMMITTED_SURFACE_RESET_TOKEN]?: true;
-        }
-      )[GPU_FLOW_COMMITTED_SURFACE_RESET_TOKEN] === true,
-  );
-}
-
-function isGpuFlowCommittedSurfaceStartupToken(
-  token: unknown,
-): token is GpuFlowCommittedSurfaceStartupToken {
-  return Boolean(
-    token &&
-      typeof token === "object" &&
-      (
-        token as {
-          readonly [GPU_FLOW_COMMITTED_SURFACE_STARTUP_TOKEN]?: true;
-        }
-      )[GPU_FLOW_COMMITTED_SURFACE_STARTUP_TOKEN] === true,
   );
 }
 

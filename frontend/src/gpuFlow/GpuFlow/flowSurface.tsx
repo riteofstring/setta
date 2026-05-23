@@ -271,7 +271,6 @@ export function GpuFlow({
     committedSurfaceRuntime,
     prepareCommittedSurfaceFrame,
     projectCommittedBrowserVisualActors,
-    resetCommittedSurfaceFrame,
     visibleCommittedSurfaceFrame,
   } = useGpuFlowCommittedSurfaceFrameState({
     initialRetainedRuntimeFrame,
@@ -472,17 +471,10 @@ export function GpuFlow({
     if (scene) {
       return;
     }
-    retainedDisplayFrameRef.current = null;
-    visibleProjectionPublicationStateRef.current = null;
-    visibleProjectionStateRef.current = null;
-    visibleOverlayProjectionKeyRef.current = null;
-    activeColdStartShellFrameRef.current = null;
-    setActiveColdStartShellFrame(null);
-    resetCommittedSurfaceFrame();
     retainedPreparationRuntimeFrameRenderSignatureRef.current = null;
     retainedRuntimeFrameSourceRenderSignatureRef.current = null;
     retainedRuntimeFrameRenderSignatureRef.current = null;
-  }, [resetCommittedSurfaceFrame, scene]);
+  }, [scene]);
 
   useEffect(() => {
     if (!nodeResizeEnabled) {

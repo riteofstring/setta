@@ -5,10 +5,6 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
 import { createGpuFlowCommittedSurfaceRuntime } from "./committedSurfaceRuntime";
-import {
-  createGpuFlowCommittedSurfaceResetPublicationToken,
-  createGpuFlowCommittedSurfaceStartupPublicationToken,
-} from "./GpuFlow/visibleFramePublicationKernel";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./GpuFlow/visibleFramePublicationTestUtils";
 import type { GpuFlowLiveProjectionSample } from "./projectionRuntime";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
@@ -147,32 +143,6 @@ describe("GPU Flow committed surface runtime", () => {
     expect(semanticUpdates).toBe(0);
   });
 
-  it("keeps startup committed-frame subscribers current when semantic identity is unchanged", () => {
-    const startupFrame = committedFrame({ displayFrameId: 1 });
-    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
-    let committedFrameUpdates = 0;
-    let semanticUpdates = 0;
-    runtime.subscribeCommittedContentFrame(() => {
-      committedFrameUpdates += 1;
-    });
-    runtime.subscribeReactSemanticSnapshot(() => {
-      semanticUpdates += 1;
-    });
-
-    const nextStartupFrame = committedFrame({ displayFrameId: 2 });
-    runtime.setStartupFrame(
-      createGpuFlowCommittedSurfaceStartupPublicationToken({
-        frame: nextStartupFrame,
-      }),
-      nextStartupFrame,
-    );
-
-    expect(runtime.getCommittedContentFrame()).toBe(nextStartupFrame);
-    expect(runtime.getReactSemanticSnapshot().frame).toBe(startupFrame);
-    expect(committedFrameUpdates).toBe(1);
-    expect(semanticUpdates).toBe(0);
-  });
-
   it("rejects committed content publication with a token for a different visible frame", () => {
     const startupFrame = committedFrame({ displayFrameId: 1 });
     const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
@@ -186,42 +156,12 @@ describe("GPU Flow committed surface runtime", () => {
     ).toThrow(/requires a commit publication token/);
   });
 
-  it("rejects unbranded startup and reset lifecycle tokens", () => {
+  it("does not expose reset or startup lifecycle mutators", () => {
     const startupFrame = committedFrame({ displayFrameId: 1 });
     const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
-    const nextStartupFrame = committedFrame({ displayFrameId: 2 });
 
-    expect(() =>
-      runtime.setStartupFrame(
-        {} as ReturnType<
-          typeof createGpuFlowCommittedSurfaceStartupPublicationToken
-        >,
-        nextStartupFrame,
-      ),
-    ).toThrow(/startup token/);
-    expect(() =>
-      runtime.resetCommittedContentFrame(
-        {} as ReturnType<
-          typeof createGpuFlowCommittedSurfaceResetPublicationToken
-        >,
-      ),
-    ).toThrow(/reset publication token/);
-  });
-
-  it("rejects startup lifecycle tokens for a different startup frame", () => {
-    const startupFrame = committedFrame({ displayFrameId: 1 });
-    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
-    const tokenFrame = committedFrame({ displayFrameId: 2 });
-    const nextStartupFrame = committedFrame({ displayFrameId: 3 });
-
-    expect(() =>
-      runtime.setStartupFrame(
-        createGpuFlowCommittedSurfaceStartupPublicationToken({
-          frame: tokenFrame,
-        }),
-        nextStartupFrame,
-      ),
-    ).toThrow(/same startup frame/);
+    expect("resetCommittedContentFrame" in runtime).toBe(false);
+    expect("setStartupFrame" in runtime).toBe(false);
   });
 
   it("rejects committed content publication with a stale token for the same visible frame id", () => {

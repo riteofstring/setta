@@ -1,4 +1,3 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowVisiblePublicationScheduler,
@@ -12,10 +11,6 @@ import {
   type GpuFlowRetainedDisplayPublicationInput,
   type GpuFlowRetainedDisplayPublicationResult,
 } from "./flowRetainedDisplayTransaction";
-import {
-  createGpuFlowCommittedSurfaceResetPublicationToken as createGpuFlowCommittedSurfaceResetPublicationTokenFromAuthority,
-  createGpuFlowCommittedSurfaceStartupPublicationToken as createGpuFlowCommittedSurfaceStartupPublicationTokenFromAuthority,
-} from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowVisiblePublicationCandidateOracle,
   type GpuFlowRetainedProjectionPublicationDecisionSelector,
@@ -52,10 +47,6 @@ import type {
   GpuFlowProjectionFrameRenderPlan,
   GpuFlowProjectionFrameTransaction,
 } from "./visibleFramePublicationProjectionPlan";
-import type {
-  GpuFlowCommittedSurfaceResetToken,
-  GpuFlowCommittedSurfaceStartupToken,
-} from "./visibleFramePublicationTokens";
 
 export { createGpuFlowVisiblePublicationTransactionReport } from "./visibleFramePublicationCompletion";
 export type {
@@ -125,20 +116,6 @@ type GpuFlowVisiblePublicationScheduler = ReturnType<
 type GpuFlowProjectionFrameRenderPlanSelector = (input: {
   readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
 }) => GpuFlowProjectionFrameRenderPlan;
-
-export function createGpuFlowCommittedSurfaceResetPublicationToken(): GpuFlowCommittedSurfaceResetToken {
-  return createGpuFlowCommittedSurfaceResetPublicationTokenFromAuthority();
-}
-
-export function createGpuFlowCommittedSurfaceStartupPublicationToken({
-  frame,
-}: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
-}): GpuFlowCommittedSurfaceStartupToken {
-  return createGpuFlowCommittedSurfaceStartupPublicationTokenFromAuthority({
-    frame,
-  });
-}
 
 export type GpuFlowVisibleFramePublicationFrameContext = {
   readonly deferResolutionUpdates: boolean;

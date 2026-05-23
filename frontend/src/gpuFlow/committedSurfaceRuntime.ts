@@ -4,11 +4,7 @@ import {
 } from "./committedSurfaceFrame";
 import {
   assertGpuFlowCommitPublicationTokenForPresentationProof,
-  assertGpuFlowCommittedSurfaceResetToken,
-  assertGpuFlowCommittedSurfaceStartupToken,
   type GpuFlowCommitPublicationToken,
-  type GpuFlowCommittedSurfaceResetToken,
-  type GpuFlowCommittedSurfaceStartupToken,
 } from "./GpuFlow/visibleFramePublicationTokens";
 
 type GpuFlowCommittedContentFrame = GpuFlowCommittedSurfaceFrame;
@@ -28,11 +24,6 @@ export type GpuFlowCommittedSurfaceRuntime = {
     token: GpuFlowCommitPublicationToken,
     frame: GpuFlowCommittedContentFrame,
   ): boolean;
-  resetCommittedContentFrame(token: GpuFlowCommittedSurfaceResetToken): void;
-  setStartupFrame(
-    token: GpuFlowCommittedSurfaceStartupToken,
-    frame: GpuFlowCommittedContentFrame,
-  ): void;
   subscribeCommittedContentFrame(
     listener: GpuFlowCommittedSurfaceRuntimeListener,
   ): () => void;
@@ -59,7 +50,7 @@ class DefaultGpuFlowCommittedSurfaceRuntime
   private reactSemanticEmitQueued = false;
   private reactSemanticEmitPending = false;
   private semanticSnapshot: GpuFlowReactSemanticSnapshot;
-  private startupFrame: GpuFlowCommittedContentFrame;
+  private readonly startupFrame: GpuFlowCommittedContentFrame;
 
   constructor(startupFrame: GpuFlowCommittedContentFrame) {
     this.startupFrame = startupFrame;
@@ -99,41 +90,6 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     this.emitCommittedFrame();
     this.scheduleReactSemanticEmit();
     return true;
-  }
-
-  resetCommittedContentFrame(token: GpuFlowCommittedSurfaceResetToken): void {
-    assertGpuFlowCommittedSurfaceResetToken({ token });
-    this.currentFrame = null;
-    this.publishCount += 1;
-    this.semanticSnapshot = this.createSemanticSnapshot(this.startupFrame);
-    this.emitCommittedFrame();
-    this.scheduleReactSemanticEmit();
-  }
-
-  setStartupFrame(
-    token: GpuFlowCommittedSurfaceStartupToken,
-    frame: GpuFlowCommittedContentFrame,
-  ): void {
-    assertGpuFlowCommittedSurfaceStartupToken({ frame, token });
-    const previousStartupFrame = this.startupFrame;
-    this.startupFrame = frame;
-    if (this.currentFrame) {
-      return;
-    }
-    const renderSignature =
-      createGpuFlowCommittedSurfaceFrameRenderSignature(frame);
-    if (this.semanticSnapshot.renderSignature === renderSignature) {
-      if (previousStartupFrame !== frame) {
-        this.emitCommittedFrame();
-      }
-      return;
-    }
-    this.semanticSnapshot = {
-      frame,
-      publishCount: this.publishCount,
-      renderSignature,
-    };
-    this.emitCommittedFrame();
   }
 
   subscribeCommittedContentFrame(

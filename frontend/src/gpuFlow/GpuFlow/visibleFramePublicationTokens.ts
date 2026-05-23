@@ -5,8 +5,6 @@ export {
   assertGpuFlowCommitPublicationTokenForFrameId,
   assertGpuFlowCommitPublicationTokenForPresentationProof,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
-  assertGpuFlowCommittedSurfaceResetToken,
-  assertGpuFlowCommittedSurfaceStartupToken,
   assertGpuFlowHoldPreviousTokenBrand,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
   assertGpuFlowPreparedCandidateAbortToken,
@@ -17,7 +15,5 @@ export type {
   GpuFlowBlockedVisibleReason,
   GpuFlowColdStartShellFrame,
   GpuFlowCommitPublicationToken,
-  GpuFlowCommittedSurfaceResetToken,
-  GpuFlowCommittedSurfaceStartupToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePublicationAuthority";

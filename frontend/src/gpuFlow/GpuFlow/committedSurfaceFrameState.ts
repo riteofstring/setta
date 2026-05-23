@@ -1,6 +1,5 @@
 import {
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useSyncExternalStore,
@@ -20,10 +19,6 @@ import {
   getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
   type GpuFlowBrowserVisualActorCandidate,
 } from "./browserVisualActorRuntime";
-import {
-  createGpuFlowCommittedSurfaceResetPublicationToken,
-  createGpuFlowCommittedSurfaceStartupPublicationToken,
-} from "./visibleFramePublicationKernel";
 import {
   assertGpuFlowPreparedCandidateAbortToken,
   type GpuFlowBlockedPublicationToken,
@@ -52,14 +47,6 @@ export function useGpuFlowCommittedSurfaceFrameState({
   const pendingBrowserVisualCandidateByFrameIdRef = useRef(
     new Map<number, GpuFlowBrowserVisualActorCandidate>(),
   );
-  useEffect(() => {
-    committedSurfaceRuntimeRef.current.setStartupFrame(
-      createGpuFlowCommittedSurfaceStartupPublicationToken({
-        frame: startupCommittedSurfaceFrame,
-      }),
-      startupCommittedSurfaceFrame,
-    );
-  }, [startupCommittedSurfaceFrame]);
   const semanticSnapshot = useSyncExternalStore(
     committedSurfaceRuntimeRef.current.subscribeReactSemanticSnapshot.bind(
       committedSurfaceRuntimeRef.current,
@@ -74,15 +61,6 @@ export function useGpuFlowCommittedSurfaceFrameState({
   const visibleCommittedSurfaceFrame = semanticSnapshot.frame;
   committedSurfaceFrameRef.current =
     committedSurfaceRuntimeRef.current.getCommittedContentFrame();
-
-  const resetCommittedSurfaceFrame = useCallback(() => {
-    pendingBrowserVisualCandidateByFrameIdRef.current.clear();
-    committedSurfaceRuntimeRef.current.resetCommittedContentFrame(
-      createGpuFlowCommittedSurfaceResetPublicationToken(),
-    );
-    committedSurfaceFrameRef.current =
-      committedSurfaceRuntimeRef.current.getCommittedContentFrame();
-  }, []);
 
   const prepareCommittedSurfaceFrame = useCallback(
     (
@@ -215,7 +193,6 @@ export function useGpuFlowCommittedSurfaceFrameState({
     committedSurfaceRuntime: committedSurfaceRuntimeRef.current,
     prepareCommittedSurfaceFrame,
     projectCommittedBrowserVisualActors,
-    resetCommittedSurfaceFrame,
     visibleCommittedSurfaceFrame,
   };
 }

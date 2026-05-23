@@ -157,8 +157,6 @@ describe("GPU Flow visible publication kernel phases", () => {
     const rawTokenConstructors = [
       "createGpuFlowBlockedPublicationToken",
       "createGpuFlowCommitPublicationToken",
-      "createGpuFlowCommittedSurfaceResetToken",
-      "createGpuFlowCommittedSurfaceStartupToken",
       "createGpuFlowHoldPreviousToken",
       "createGpuFlowPresentableCommit",
     ] as const;

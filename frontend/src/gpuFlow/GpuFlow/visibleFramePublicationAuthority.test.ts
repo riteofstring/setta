@@ -56,8 +56,6 @@ const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = modulePath(
 );
 const TOKEN_CONSTRUCTOR_NAMES = [
   "createGpuFlowBlockedPublicationToken",
-  "createGpuFlowCommittedSurfaceResetToken",
-  "createGpuFlowCommittedSurfaceStartupToken",
   "createGpuFlowCommitPublicationToken",
   "createGpuFlowHoldPreviousToken",
   "createGpuFlowPresentableCommit",
@@ -647,8 +645,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
   });
 
   it("keeps committed content store mutation inside committed-surface publication state", () => {
-    const mutatorPattern =
-      /\b(?:publishCommittedContentFrame|resetCommittedContentFrame|setStartupFrame)\s*\(/;
+    const mutatorPattern = /\bpublishCommittedContentFrame\s*\(/;
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
         return [];
@@ -682,16 +679,9 @@ describe("GPU Flow visible publication authority boundaries", () => {
         "  ): boolean {",
       ].join("\n"),
     );
-    const resetMethodStart = committedSurfaceRuntimeSource.indexOf(
-      "  resetCommittedContentFrame(token: GpuFlowCommittedSurfaceResetToken): void {",
-    );
-    const startupMethodStart = committedSurfaceRuntimeSource.indexOf(
-      [
-        "  setStartupFrame(",
-        "    token: GpuFlowCommittedSurfaceStartupToken,",
-        "    frame: GpuFlowCommittedContentFrame,",
-        "  ): void {",
-      ].join("\n"),
+    const publishMethodEnd = committedSurfaceRuntimeSource.indexOf(
+      "  subscribeCommittedContentFrame(",
+      publishMethodStart,
     );
     const scheduleMethodStart = committedSurfaceRuntimeSource.indexOf(
       "private scheduleReactSemanticEmit",
@@ -701,11 +691,7 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
     const publishMethodSource = committedSurfaceRuntimeSource.slice(
       publishMethodStart,
-      resetMethodStart,
-    );
-    const resetMethodSource = committedSurfaceRuntimeSource.slice(
-      resetMethodStart,
-      startupMethodStart,
+      publishMethodEnd,
     );
     const scheduleMethodSource = committedSurfaceRuntimeSource.slice(
       scheduleMethodStart,
@@ -713,9 +699,12 @@ describe("GPU Flow visible publication authority boundaries", () => {
     );
 
     expect(publishMethodStart).toBeGreaterThanOrEqual(0);
-    expect(resetMethodStart).toBeGreaterThan(publishMethodStart);
-    expect(startupMethodStart).toBeGreaterThan(resetMethodStart);
-    expect(scheduleMethodStart).toBeGreaterThan(startupMethodStart);
+    expect(publishMethodEnd).toBeGreaterThan(publishMethodStart);
+    expect(committedSurfaceRuntimeSource).not.toContain(
+      "resetCommittedContentFrame",
+    );
+    expect(committedSurfaceRuntimeSource).not.toContain("setStartupFrame");
+    expect(scheduleMethodStart).toBeGreaterThan(publishMethodEnd);
     expect(emitSemanticMethodStart).toBeGreaterThan(scheduleMethodStart);
     expect(publishMethodSource).toContain("this.emitCommittedFrame()");
     expect(publishMethodSource).toContain("this.scheduleReactSemanticEmit()");
@@ -727,8 +716,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
     expect(publishMethodSource).not.toContain(
       "this.emitReactSemanticSnapshot()",
     );
-    expect(resetMethodSource).toContain("this.scheduleReactSemanticEmit()");
-    expect(resetMethodSource).not.toContain("this.emitReactSemanticSnapshot()");
     expect(scheduleMethodSource).toContain("queueMicrotask");
     expect(scheduleMethodSource).toContain("reactSemanticEmitQueued");
   });
@@ -919,10 +906,6 @@ describe("GPU Flow visible publication authority boundaries", () => {
       "utf8",
     );
     const domIslandSource = readFileSync(DOM_ISLAND_LAYER_MODULE_PATH, "utf8");
-    const retainedSnapshotSource = readFileSync(
-      RETAINED_DOM_CONTROL_SNAPSHOT_SOURCES_MODULE_PATH,
-      "utf8",
-    );
     const browserVisualRuntimeSource = readFileSync(
       BROWSER_VISUAL_RUNTIME_MODULE_PATH,
       "utf8",
