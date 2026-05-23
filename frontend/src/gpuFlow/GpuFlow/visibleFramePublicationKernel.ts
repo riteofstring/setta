@@ -114,11 +114,6 @@ export type {
   GpuFlowVisiblePublicationBlockedProof,
   GpuFlowVisiblePublicationCommitDebtProof,
 } from "./visibleFramePublicationOracle";
-export {
-  isGpuFlowRetainedProjectionSurfaceCovered,
-  resolveGpuFlowRetainedProjectionFrame,
-} from "./visibleFramePublicationKernelProjectionCoverage";
-export type { GpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
 export type {
   GpuFlowMotionProjectionFrameWorkReport,
   GpuFlowMotionProjectionFrameWorkResult,
@@ -573,19 +568,22 @@ function resolveGpuFlowMotionProjectionFramePreparation<
   if (preparation.kind === "not-rendered") {
     return preparation.frame;
   }
+  const requestedRetainedProjectionFrame =
+    preparation.resolveRetainedProjectionFrame({
+      transaction: preparation.requestedTransaction,
+    });
   const retainedProjectionPublicationDecision =
     selectRetainedProjectionPublicationDecision({
       hasActiveRetainedDomControl: preparation.hasActiveRetainedDomControl,
       projectionSchedulerKnobs,
       requestedProjectionCoverageMissing:
-        preparation.requestedProjectionCoverageMissing,
+        requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
       requestedTransaction: preparation.requestedTransaction,
     });
   const projectionFrameTransaction = selectProjectionFrameTransaction({
     publicationDecision: retainedProjectionPublicationDecision,
-    requestedRetainedProjectionFrame: preparation.requestedProjectionFrame,
-    resolveHeldRetainedProjectionFrame:
-      preparation.resolveHeldRetainedProjectionFrame,
+    requestedRetainedProjectionFrame,
+    resolveHeldRetainedProjectionFrame: preparation.resolveRetainedProjectionFrame,
   });
   if (projectionFrameTransaction.blockedReason !== null) {
     return preparation.createBlockedProjectionFrame({
@@ -757,7 +755,7 @@ function selectGpuFlowProjectionFrameTransactionFromPublicationDecision({
   };
 }
 
-export function shouldDeferGpuFlowResolutionUpdates({
+function shouldDeferGpuFlowResolutionUpdates({
   lane,
   schedulerState,
   viewportFrame,

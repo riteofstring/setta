@@ -77,4 +77,34 @@ describe("GPU Flow visible publication projection plans", () => {
       "export function selectGpuFlowProjectionFrameRenderPlan",
     );
   });
+
+  it("keeps requested retained projection coverage derivation inside the kernel", () => {
+    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const projectionPlanSource = readFileSync(
+      PROJECTION_PLAN_MODULE_PATH,
+      "utf8",
+    );
+    const surfaceFrameSource = readFileSync(
+      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
+      "utf8",
+    );
+
+    expect(surfaceFrameSource).not.toContain(
+      "requestedProjectionCoverageMissing",
+    );
+    expect(surfaceFrameSource).not.toContain("requestedProjectionFrame");
+    expect(surfaceFrameSource).not.toContain(
+      "resolveHeldRetainedProjectionFrame",
+    );
+    expect(surfaceFrameSource).toContain("resolveRetainedProjectionFrame");
+    expect(projectionPlanSource).not.toContain(
+      "requestedProjectionCoverageMissing",
+    );
+    expect(projectionPlanSource).not.toContain("requestedProjectionFrame");
+    expect(projectionPlanSource).toContain("resolveRetainedProjectionFrame");
+    expect(kernelSource).toContain("const requestedRetainedProjectionFrame");
+    expect(kernelSource).toContain(
+      "requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0",
+    );
+  });
 });

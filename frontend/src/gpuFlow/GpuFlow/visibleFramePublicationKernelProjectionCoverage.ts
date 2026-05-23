@@ -54,7 +54,7 @@ export function resolveGpuFlowRetainedProjectionFrame({
   });
 }
 
-export function isGpuFlowRetainedProjectionSurfaceCovered({
+function isGpuFlowRetainedProjectionSurfaceCovered({
   pages,
   surface,
 }: {

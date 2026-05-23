@@ -28,7 +28,6 @@ import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRunti
 import type { GpuFlowColdStartShellFrame } from "./visibleFramePublicationAuthority";
 import {
   createGpuFlowContentPublicationFrameResult,
-  resolveGpuFlowRetainedProjectionFrame,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   shouldConsiderGpuFlowDeferredContentPublication,
   shouldDeferGpuFlowBrowserVisualRetryForPublication,
@@ -42,6 +41,7 @@ import {
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
 } from "./visibleFramePublicationKernel";
+import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
@@ -369,12 +369,6 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
       kind: "not-rendered",
     };
   }
-  const requestedRetainedProjectionFrame =
-    resolveGpuFlowRetainedProjectionFrame({
-      layer: nodeLayerRef.current,
-      retainedDisplayFrame,
-      transaction: projectionTransaction,
-    });
   return {
     createBlockedProjectionFrame: ({ blockedPublicationCandidate }) =>
       createGpuFlowMotionProjectionFrameResult({
@@ -384,11 +378,8 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
     hasActiveRetainedDomControl:
       hasActiveGpuFlowRetainedDomControlCandidate(retainedDisplayFrame),
     kind: "render",
-    requestedProjectionCoverageMissing:
-      requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
-    requestedProjectionFrame: requestedRetainedProjectionFrame,
     requestedTransaction: projectionTransaction,
-    resolveHeldRetainedProjectionFrame: ({ transaction }) =>
+    resolveRetainedProjectionFrame: ({ transaction }) =>
       resolveGpuFlowRetainedProjectionFrame({
         layer: nodeLayerRef.current,
         retainedDisplayFrame,

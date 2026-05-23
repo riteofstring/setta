@@ -43,10 +43,8 @@ export type GpuFlowMotionProjectionFramePreparation<
       }) => MotionProjectionFrame;
       readonly hasActiveRetainedDomControl: boolean;
       readonly kind: "render";
-      readonly requestedProjectionCoverageMissing: boolean;
-      readonly requestedProjectionFrame: GpuFlowProjectionFrameTransaction["retainedProjectionFrame"];
       readonly requestedTransaction: GpuFlowProjectionTransaction;
-      readonly resolveHeldRetainedProjectionFrame: GpuFlowRetainedProjectionFrameResolver;
+      readonly resolveRetainedProjectionFrame: GpuFlowRetainedProjectionFrameResolver;
       readonly renderProjectionFrame: (input: {
         readonly projectionFrameRenderPlan: GpuFlowProjectionFrameRenderablePlan;
         readonly requestedProjectionTransaction: GpuFlowProjectionTransaction;

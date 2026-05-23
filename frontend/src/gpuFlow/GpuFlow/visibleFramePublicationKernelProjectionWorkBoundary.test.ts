@@ -67,6 +67,13 @@ describe("GPU Flow visible publication kernel projection work", () => {
     expect(kernelSource).toContain(
       "function selectGpuFlowMotionProjectionFrameWorkBlockedReason",
     );
+    expect(kernelSource).not.toContain("resolveGpuFlowRetainedProjectionFrame");
+    expect(kernelSource).not.toContain(
+      "isGpuFlowRetainedProjectionSurfaceCovered",
+    );
+    expect(kernelSource).not.toContain(
+      "export type { GpuFlowRetainedProjectionFrame }",
+    );
     expect(kernelSource).not.toContain(
       "export function selectGpuFlowMotionProjectionFrameWorkBlockedReason",
     );
@@ -79,6 +86,9 @@ describe("GPU Flow visible publication kernel projection work", () => {
     );
     expect(kernelProjectionCoverageSource).toContain(
       "function isGpuFlowRetainedProjectionSurfaceCovered",
+    );
+    expect(kernelProjectionCoverageSource).not.toContain(
+      "export function isGpuFlowRetainedProjectionSurfaceCovered",
     );
   });
 });

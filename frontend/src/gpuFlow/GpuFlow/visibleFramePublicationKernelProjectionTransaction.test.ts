@@ -16,10 +16,10 @@ import {
 import {
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   type GpuFlowProjectionFrameRenderablePlan,
-  type GpuFlowRetainedProjectionFrame,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
+import type { GpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
 
 type TestProjectionPublicationFrame = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
@@ -38,6 +38,10 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
     const requestedFrame = projectionFrame({
       needsRetainedPageMaintenance: true,
     });
+    const missingRequestedFrame = projectionFrame({
+      missingCoverageSurfaceIds: ["surface-a"],
+      needsRetainedPageMaintenance: true,
+    });
     const heldFrame = projectionFrame({
       needsRetainedPageMaintenance: false,
     });
@@ -52,10 +56,11 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
 
     const requestedSelection = selectProjectionFrameTransactionThroughKernel({
       previousVisibleProjectionState: null,
-      requestedProjectionCoverageMissing: false,
-      requestedProjectionFrame: requestedFrame,
       requestedTransaction,
-      resolveHeldRetainedProjectionFrame: () => {
+      resolveRetainedProjectionFrame: ({ transaction }) => {
+        if (transaction === requestedTransaction) {
+          return requestedFrame;
+        }
         throw new Error("project-requested must not resolve held frame");
       },
     });
@@ -71,10 +76,9 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
       previousVisibleProjectionState: visibleProjectionState({
         transaction: heldTransaction,
       }),
-      requestedProjectionCoverageMissing: true,
-      requestedProjectionFrame: requestedFrame,
       requestedTransaction,
-      resolveHeldRetainedProjectionFrame: () => heldFrame,
+      resolveRetainedProjectionFrame: ({ transaction }) =>
+        transaction === requestedTransaction ? missingRequestedFrame : heldFrame,
     });
     expect(heldSelection.blockedPublicationCandidate).toBeNull();
     expect(heldSelection.resolvedHeldTransaction).toBe(
@@ -108,10 +112,11 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
         },
         transaction: heldTransaction,
       }),
-      requestedProjectionCoverageMissing: true,
-      requestedProjectionFrame: requestedFrame,
       requestedTransaction,
-      resolveHeldRetainedProjectionFrame: () => {
+      resolveRetainedProjectionFrame: ({ transaction }) => {
+        if (transaction === requestedTransaction) {
+          return missingRequestedFrame;
+        }
         throw new Error("blocked must not resolve held frame");
       },
     });
@@ -176,29 +181,27 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
 });
 
 function projectionFrame({
+  missingCoverageSurfaceIds = [],
   needsRetainedPageMaintenance = false,
 }: {
+  readonly missingCoverageSurfaceIds?: readonly string[] | undefined;
   readonly needsRetainedPageMaintenance?: boolean | undefined;
 } = {}): GpuFlowRetainedProjectionFrame {
   return {
     flatSurfaces: [],
-    missingCoverageSurfaceIds: new Set(),
+    missingCoverageSurfaceIds: new Set(missingCoverageSurfaceIds),
     needsRetainedPageMaintenance,
   };
 }
 
 function selectProjectionFrameTransactionThroughKernel({
   previousVisibleProjectionState,
-  requestedProjectionCoverageMissing,
-  requestedProjectionFrame,
   requestedTransaction,
-  resolveHeldRetainedProjectionFrame,
+  resolveRetainedProjectionFrame,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly requestedProjectionCoverageMissing: boolean;
-  readonly requestedProjectionFrame: GpuFlowRetainedProjectionFrame;
   readonly requestedTransaction: GpuFlowProjectionTransaction;
-  readonly resolveHeldRetainedProjectionFrame: (input: {
+  readonly resolveRetainedProjectionFrame: (input: {
     readonly transaction: GpuFlowProjectionTransaction;
   }) => GpuFlowRetainedProjectionFrame;
 }): {
@@ -229,12 +232,12 @@ function selectProjectionFrameTransactionThroughKernel({
       },
       hasActiveRetainedDomControl: false,
       kind: "render",
-      requestedProjectionCoverageMissing,
-      requestedProjectionFrame,
       requestedTransaction,
-      resolveHeldRetainedProjectionFrame: ({ transaction }) => {
-        resolvedHeldTransaction = transaction;
-        return resolveHeldRetainedProjectionFrame({ transaction });
+      resolveRetainedProjectionFrame: ({ transaction }) => {
+        if (transaction !== requestedTransaction) {
+          resolvedHeldTransaction = transaction;
+        }
+        return resolveRetainedProjectionFrame({ transaction });
       },
       renderProjectionFrame: ({ projectionFrameRenderPlan }) => {
         selection.renderPlan = projectionFrameRenderPlan;

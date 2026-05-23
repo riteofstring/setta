@@ -11,6 +11,7 @@ import {
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionTransactionKind,
   type GpuFlowVisibleProjectionState,
+  type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFramePublicationAuthority";
@@ -147,10 +148,11 @@ describe("GPU Flow visible publication transaction kernel", () => {
           },
           hasActiveRetainedDomControl: false,
           kind: "render",
-          requestedProjectionCoverageMissing: true,
-          requestedProjectionFrame: retainedProjectionFrame(),
           requestedTransaction,
-          resolveHeldRetainedProjectionFrame: () => retainedProjectionFrame(),
+          resolveRetainedProjectionFrame: () =>
+            retainedProjectionFrame({
+              missingCoverageSurfaceIds: ["surface-a"],
+            }),
           renderProjectionFrame: ({ projectionFrameRenderPlan }) => {
             selectedTransactions.push(projectionFrameRenderPlan.transaction);
             return {
@@ -222,6 +224,62 @@ describe("GPU Flow visible publication transaction kernel", () => {
       scheduler,
     });
     expect(suppliedRunner).toBe(true);
+  });
+
+  it("computes retained resolution deferral inside the kernel frame context", () => {
+    const cases = [
+      {
+        expected: true,
+        lane: "content",
+        runtimeViewportFrame: false,
+        schedulerState: "motion-settling",
+        viewportInteractionActive: false,
+      },
+      {
+        expected: true,
+        lane: "maintenance",
+        runtimeViewportFrame: true,
+        schedulerState: "idle",
+        viewportInteractionActive: false,
+      },
+      {
+        expected: false,
+        lane: "content",
+        runtimeViewportFrame: false,
+        schedulerState: "content-catchup",
+        viewportInteractionActive: false,
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const observed: boolean[] = [];
+      runGpuFlowVisibleFramePublicationCandidateSetKernel({
+        prepareContentPublicationFrame: ({ publicationFrameContext }) => {
+          observed.push(publicationFrameContext.deferResolutionUpdates);
+          return testPublicationCandidate();
+        },
+        prepareMotionProjectionFrame: ({ publicationFrameContext }) => {
+          observed.push(publicationFrameContext.deferResolutionUpdates);
+          return {
+            frame: testPublicationCandidate(),
+            kind: "not-rendered" as const,
+          };
+        },
+        publish: () => {},
+        sampleVisibleFramePublication: () =>
+          visibleFramePublicationSample({
+            runtimeViewportFrame: testCase.runtimeViewportFrame,
+            sample: liveProjectionSample({ id: 57, timestamp: 570 }),
+            viewportInteractionActive: testCase.viewportInteractionActive,
+          }),
+        scheduler: fixedPublicationScheduler({
+          lane: testCase.lane,
+          schedulerState: testCase.schedulerState,
+        }),
+      });
+
+      expect(observed).toEqual([testCase.expected, testCase.expected]);
+    }
   });
 
   it("uses one commit oracle for compatible-previous proof reports and debt", () => {
@@ -917,10 +975,14 @@ function retainedProjectionTransaction({
   });
 }
 
-function retainedProjectionFrame() {
+function retainedProjectionFrame({
+  missingCoverageSurfaceIds = [],
+}: {
+  readonly missingCoverageSurfaceIds?: readonly string[] | undefined;
+} = {}) {
   return {
     flatSurfaces: [],
-    missingCoverageSurfaceIds: new Set<string>(),
+    missingCoverageSurfaceIds: new Set<string>(missingCoverageSurfaceIds),
     needsRetainedPageMaintenance: false,
   };
 }
@@ -979,6 +1041,43 @@ function runPreparedCandidateKernel({
       }),
     scheduler,
   });
+}
+
+function fixedPublicationScheduler({
+  lane,
+  schedulerState,
+}: {
+  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
+  readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
+}): ReturnType<typeof createGpuFlowVisiblePublicationScheduler> {
+  const baseScheduler = createGpuFlowVisiblePublicationScheduler();
+  return {
+    completeFrame: (_decision, outcome) =>
+      Object.freeze({
+        debt: Object.freeze({
+          content: lane !== "content",
+          maintenance: lane !== "maintenance",
+          motion: lane !== "motion",
+        }),
+        outcome: outcome.kind,
+      }),
+    getKnobs: baseScheduler.getKnobs,
+    selectFrame: ({
+      rawReasons,
+      sample,
+    }): GpuFlowVisiblePublicationDecision =>
+      Object.freeze({
+        debt: Object.freeze({
+          content: lane !== "content",
+          maintenance: lane !== "maintenance",
+          motion: lane !== "motion",
+        }),
+        lane,
+        rawReasons: Object.freeze([...rawReasons]),
+        sample,
+        schedulerState,
+      }),
+  };
 }
 
 function testPublicationCandidate({

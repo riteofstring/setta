@@ -124,6 +124,23 @@ describe("GPU Flow visible publication kernel phases", () => {
     expect(source).not.toMatch(/\.(?:selectFrame|completeFrame)\s*\(/);
   });
 
+  it("keeps frame-context deferral decisions private to the transaction kernel", () => {
+    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const surfaceSource = readFileSync(
+      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
+      "utf8",
+    );
+
+    expect(kernelSource).toContain(
+      "function shouldDeferGpuFlowResolutionUpdates",
+    );
+    expect(kernelSource).not.toContain(
+      "export function shouldDeferGpuFlowResolutionUpdates",
+    );
+    expect(surfaceSource).not.toContain("shouldDeferGpuFlowResolutionUpdates");
+    expect(surfaceSource).toContain("publicationFrameContext");
+  });
+
   it("keeps visible outcome token minting in the kernel", () => {
     const kernelSource =
       readFileSync(KERNEL_MODULE_PATH, "utf8") +

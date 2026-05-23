@@ -11,20 +11,21 @@ import {
   type GpuFlowProjectionTransaction,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
+import { createRetainedCommittedPageLifecycle } from "../retainedContentLifecycle";
 import { createGpuRetainedRowContentScene } from "../retainedContentScene";
-import type { RetainedContentTexturePageFrameSurface } from "../retainedContentTexturePageManager";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
-  isGpuFlowRetainedProjectionSurfaceCovered,
-  resolveGpuFlowRetainedProjectionFrame,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
   type GpuFlowProjectionFrameRenderablePlan,
-  type GpuFlowRetainedProjectionFrame,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
+import {
+  resolveGpuFlowRetainedProjectionFrame,
+  type GpuFlowRetainedProjectionFrame,
+} from "./visibleFramePublicationKernelProjectionCoverage";
 
 type TestProjectionPublicationFrame = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
@@ -42,23 +43,32 @@ type TestProjectionFrameTransaction = {
 
 describe("GPU flow projection frame coverage", () => {
   it("requires committed retained pages to cover the projected scroll sample", () => {
-    const surface = retainedSurface({ height: 100, width: 100, x: 0, y: 0 });
+    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
+      committedFrameId: 12,
+      kind: "motion-projection",
+      lane: "motion",
+      rawReasons: ["retained-scroll"],
+      sample: liveSample({ id: 2, retainedScrollY: 400 }),
+    });
 
     expect(
-      isGpuFlowRetainedProjectionSurfaceCovered({
-        pages: retainedPages([
-          { height: 50, width: 100, x: 0, y: 0 },
-          { height: 50, width: 100, x: 0, y: 50 },
-        ]),
-        surface,
-      }),
-    ).toBe(true);
+      resolveGpuFlowRetainedProjectionFrame({
+        layer: retainedLayer(),
+        retainedDisplayFrame: retainedDisplayFrame({
+          pageRects: [{ height: 100, width: 100, x: 0, y: 400 }],
+        }),
+        transaction,
+      }).missingCoverageSurfaceIds.size,
+    ).toBe(0);
     expect(
-      isGpuFlowRetainedProjectionSurfaceCovered({
-        pages: retainedPages([{ height: 60, width: 100, x: 0, y: 0 }]),
-        surface,
-      }),
-    ).toBe(false);
+      resolveGpuFlowRetainedProjectionFrame({
+        layer: retainedLayer(),
+        retainedDisplayFrame: retainedDisplayFrame({
+          pageRects: [{ height: 60, width: 100, x: 0, y: 400 }],
+        }),
+        transaction,
+      }).missingCoverageSurfaceIds,
+    ).toEqual(new Set(["surface-a"]));
   });
 
   it("holds the previous frame for the requested projection sample when retained projection coverage is missing", () => {
@@ -304,12 +314,6 @@ function resolveGpuFlowProjectionFrameTransaction({
   readonly retainedDisplayFrame: RetainedDisplayFrame;
   readonly requestedTransaction: GpuFlowProjectionTransaction;
 }): TestProjectionFrameTransaction {
-  const requestedRetainedProjectionFrame =
-    resolveGpuFlowRetainedProjectionFrame({
-      layer,
-      retainedDisplayFrame,
-      transaction: requestedTransaction,
-    });
   const scheduler = createGpuFlowVisiblePublicationScheduler({
     knobs: projectionSchedulerKnobs,
   });
@@ -334,11 +338,8 @@ function resolveGpuFlowProjectionFrameTransaction({
       hasActiveRetainedDomControl:
         hasActiveGpuFlowRetainedDomControlCandidate(retainedDisplayFrame),
       kind: "render",
-      requestedProjectionCoverageMissing:
-        requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
-      requestedProjectionFrame: requestedRetainedProjectionFrame,
       requestedTransaction,
-      resolveHeldRetainedProjectionFrame: ({ transaction }) =>
+      resolveRetainedProjectionFrame: ({ transaction }) =>
         resolveGpuFlowRetainedProjectionFrame({
           layer,
           retainedDisplayFrame,
@@ -379,7 +380,11 @@ function resolveGpuFlowProjectionFrameTransaction({
       selection.blockedPublicationCandidate?.blockedReasons[0]?.reason ?? null,
     heldPreviousProjection: null,
     outcomeKind: result.outcome.kind,
-    retainedProjectionFrame: requestedRetainedProjectionFrame,
+    retainedProjectionFrame: resolveGpuFlowRetainedProjectionFrame({
+      layer,
+      retainedDisplayFrame,
+      transaction: requestedTransaction,
+    }),
     transaction: requestedTransaction,
   };
 }
@@ -418,14 +423,6 @@ function visibleFramePublicationSample({
   };
 }
 
-function retainedSurface(
-  visibleSourceRectCss: RetainedContentTexturePageFrameSurface["visibleSourceRectCss"],
-): RetainedContentTexturePageFrameSurface {
-  return {
-    visibleSourceRectCss,
-  } as RetainedContentTexturePageFrameSurface;
-}
-
 function hasActiveGpuFlowRetainedDomControlCandidate(
   retainedDisplayFrame: RetainedDisplayFrame,
 ): boolean {
@@ -433,22 +430,6 @@ function hasActiveGpuFlowRetainedDomControlCandidate(
     (control) => control.active,
   );
 }
-
-function retainedPages(
-  rects: readonly RetainedDisplayFrame["drawRegions"][number]["page"]["descriptor"]["sourceRectCss"][],
-): ReadonlyMap<string, RetainedDisplayFrame["drawRegions"][number]["page"]> {
-  return new Map(
-    rects.map((sourceRectCss, index) => [
-      `page-${index}`,
-      {
-        descriptor: {
-          sourceRectCss,
-        },
-      } as RetainedDisplayFrame["drawRegions"][number]["page"],
-    ]),
-  );
-}
-
 
 function liveSample({
   id,
@@ -544,22 +525,58 @@ function retainedContentSurface(): GpuContentSurface {
 
 function retainedDisplayFrame({
   activeDomControl = false,
+  pageRects = [{ height: 100, width: 100, x: 0, y: 0 }],
 }: {
   readonly activeDomControl?: boolean | undefined;
+  readonly pageRects?:
+    | readonly RetainedDisplayFrame["drawRegions"][number]["page"]["descriptor"]["sourceRectCss"][]
+    | undefined;
 } = {}): RetainedDisplayFrame {
   return {
-    drawRegions: [
-      {
+    drawRegions: pageRects.map((sourceRectCss, index) => {
+      const descriptor = {
+        contentVersion: 1,
+        devicePixelRatioBucket: 1,
+        lodLevel: 0,
+        lodScale: 1,
+        pixelHeight: sourceRectCss.height,
+        pixelWidth: sourceRectCss.width,
+        scaleKey: "1",
+        sourceKey: `surface-a:${index}`,
+        sourceRectCss,
+        sourceVersion: 1,
+        sourceWindowCss: sourceRectCss,
+        surfaceId: "surface-a",
+        tileColumn: 0,
+        tileRow: index,
+        viewportZoomBucket: 1,
+      };
+      return {
         page: {
-          descriptor: {
-            sourceRectCss: { height: 100, width: 100, x: 0, y: 0 },
-            surfaceId: "surface-a",
+          byteSize: 4,
+          committedFrame: 1,
+          descriptor,
+          key: `page-${index}`,
+          lastUsedFrame: 1,
+          resource: {
+            retainedContentTextureRegion: {
+              atlasId: `page-${index}`,
+              pixelHeight: sourceRectCss.height,
+              pixelWidth: sourceRectCss.width,
+              texturePixelHeight: sourceRectCss.height,
+              texturePixelWidth: sourceRectCss.width,
+              x: 0,
+              y: 0,
+            },
+            sampler: {},
+            texture: {},
+            textureView: {},
           },
-          key: "page-a",
+          ...createRetainedCommittedPageLifecycle(descriptor),
         },
-        sampleRectCss: { height: 100, width: 100, x: 0, y: 0 },
-      },
-    ],
+        sampleRectCss: sourceRectCss,
+      };
+    }),
     flatSurfaces: [],
     retainedRuntimeFrame: {
       descriptors: {

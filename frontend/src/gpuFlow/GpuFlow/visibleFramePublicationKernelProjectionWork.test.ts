@@ -10,11 +10,11 @@ import {
 } from "../projectionRuntime";
 import {
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
-  type GpuFlowRetainedProjectionFrame,
   type GpuFlowMotionProjectionFrameWorkReport,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
+import type { GpuFlowRetainedProjectionFrame } from "./visibleFramePublicationKernelProjectionCoverage";
 
 describe("GPU Flow visible publication kernel projection work", () => {
   it("mints retained projection blocked tokens from projection work reports inside the kernel", () => {
@@ -63,10 +63,8 @@ describe("GPU Flow visible publication kernel projection work", () => {
         }),
         hasActiveRetainedDomControl: false,
         kind: "render",
-        requestedProjectionCoverageMissing: false,
-        requestedProjectionFrame: retainedProjectionFrame(),
         requestedTransaction: retainedProjectionTransaction({ sample }),
-        resolveHeldRetainedProjectionFrame: () => retainedProjectionFrame(),
+        resolveRetainedProjectionFrame: () => retainedProjectionFrame(),
         renderProjectionFrame: () => ({
           blockedPublicationCandidate: null,
           projectionOnlyFrameWork: projectionOnlyContentWorkReport(),
