@@ -18,9 +18,7 @@ const CONTENT_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationContentPlan.ts", import.meta.url),
 );
 const COMMITTED_SURFACE_AUTHORITY_MODULE_PATH = fileURLToPath(new URL("./visibleFramePublicationCommittedSurfaceAuthority.ts", import.meta.url));
-const KERNEL_CANDIDATES_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationCandidates.ts", import.meta.url),
-);
+const PROJECTION_TRANSACTION_AUTHORITY_MODULE_PATH = fileURLToPath(new URL("./visibleFramePublicationProjectionTransactionAuthority.ts", import.meta.url));
 const KERNEL_COMPLETION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationCompletion.ts", import.meta.url),
 );
@@ -1141,10 +1139,10 @@ function extractNamedImports({
 function readVisibleFramePublicationKernelAuthoritySource(): string {
   return [
     KERNEL_MODULE_PATH,
-    KERNEL_CANDIDATES_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
     COMMITTED_SURFACE_AUTHORITY_MODULE_PATH,
     CONTENT_PLAN_MODULE_PATH,
+    PROJECTION_TRANSACTION_AUTHORITY_MODULE_PATH,
     fileURLToPath(new URL("./visibleFramePublicationContentAuthority.ts", import.meta.url)),
     fileURLToPath(new URL("./visibleFramePublicationRetainedDisplayAuthority.ts", import.meta.url)),
     fileURLToPath(

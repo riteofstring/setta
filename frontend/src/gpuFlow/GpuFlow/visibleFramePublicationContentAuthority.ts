@@ -1,6 +1,6 @@
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuFlowNodeLayerFrameResult } from "./flowFrameResult";
-import { createGpuFlowBrowserVisualBlockedPublicationCandidate } from "./visibleFramePublicationCandidates";
+import { createGpuFlowBrowserVisualBlockedPublicationCandidate } from "./visibleFramePublicationCommittedSurfaceAuthority";
 import type {
   GpuFlowCommittedSurfacePublicationEffect,
   GpuFlowVisibleFrameBlockedPublicationCandidate,

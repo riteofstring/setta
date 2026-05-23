@@ -1,6 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-import { postBackend } from "../helpers";
+import { ensureAppReady, postBackend } from "../helpers";
 import {
   SETTINGS_PARAM_CONTENT_SUFFIX,
   SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
@@ -29,6 +29,11 @@ const MIN_VISIBLE_PROGRESS_MEAN_DELTA = 0.5;
 const MIN_FINAL_CHANGED_PIXEL_RATIO = 0.004;
 const MIN_FINAL_MEAN_DELTA = 1;
 const BLOCKED_PUBLICATION_OBSERVATION_TIMEOUT_MS = 6_000;
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
+const GPU_FLOW_READY_SELECTOR = ".setta-gpu-flow__pane";
+const BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID =
+  "cold-start-shell:browser-visual";
 const BLOCKED_PUBLICATION_SURFACE_ID =
   "settings-section__sectionSizingPolicy" + SETTINGS_PARAM_CONTENT_SUFFIX;
 
@@ -59,6 +64,12 @@ type ObservedBlockedVisiblePublicationEvent = BlockedVisiblePublicationEvent & {
 type BrowserVisualFaultReadiness =
   | "blocked-awaiting-live-host"
   | "blocked-awaiting-snapshot";
+
+type ColdStartShellFrame = {
+  readonly frameId: string | null;
+  readonly input: string | null;
+  readonly reason: string | null;
+};
 
 type VisibleFrameIdentity = {
   readonly blockedEventCount: number;
@@ -238,6 +249,76 @@ test("browser visual live-host withholding blocks while preserving the coherent 
     reason: "live-dom-budget",
     testInfo,
   });
+});
+
+test("browser visual cold-start withholding publishes a blocked shell frame", async ({
+  page,
+}, testInfo) => {
+  await installOptionalRetainedCompositorFrameProbe(page);
+  await installBrowserVisualFaultInjectionForSettingsStartup(page, {
+    readiness: "blocked-awaiting-snapshot",
+  });
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(GPU_FLOW_READY_SELECTOR);
+  await page.getByRole("button", { name: "fit view" }).click();
+  await requestGpuFlowDebugFrame(page, "texture-upload");
+  const firstBlockedEvent = await waitForBlockedVisiblePublicationEvent(page, {
+    afterCount: 0,
+    frameReason: "texture-upload",
+    reason: "snapshot-pending",
+  });
+  const shellFrame = await waitForColdStartShellFrame(page);
+  const shellScreenshot = await page.screenshot({
+    path: testInfo.outputPath("blocked-visible-cold-start-shell.png"),
+  });
+  const shellBands = await analyzeHorizontalPlaceholderBands(page, {
+    screenshot: shellScreenshot,
+  });
+  const identity = await readVisibleFrameIdentity(page);
+  await clearBrowserVisualFaultInjection(page);
+  await requestGpuFlowDebugFrame(page, "texture-upload");
+  await waitForRetainedCompositorCoherentVisibleFrame(page);
+  const repairedIdentity = await readVisibleFrameIdentity(page);
+  const retainedFrameProbe =
+    await readOptionalRetainedCompositorFrameProbe(page);
+  const details = JSON.stringify(
+    {
+      firstBlockedEvent,
+      identity,
+      repairedIdentity,
+      retainedFrameProbe,
+      shellBands,
+      shellFrame,
+    },
+    null,
+    2,
+  );
+
+  expect(firstBlockedEvent.frozenFrameId, details).toBe(
+    BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+  );
+  expect(firstBlockedEvent.blockedReasons, details).toContainEqual({
+    actorId: null,
+    family: "browser-visual",
+    reason: "snapshot-pending",
+  });
+  expectBlockedEventRetainsSchedulerDebt(firstBlockedEvent, details);
+  expect(shellFrame, details).toEqual({
+    frameId: BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+    input: "disabled",
+    reason: "browser-visual-publication-blocked-before-first-commit",
+  });
+  expect(identity.visibleDomControlActorIds, details).toEqual([]);
+  expect(shellBands.nonblankRatio, details).toBeGreaterThan(0.001);
+  expect(repairedIdentity.committedSurfaceFrameId, details).toBeTruthy();
+  expect(repairedIdentity.committedSurfaceFrameId, details).toBe(
+    repairedIdentity.canvasCommittedFrameId,
+  );
+  expect(
+    repairedIdentity.visibleDomControlActorIds.length,
+    details,
+  ).toBeGreaterThan(0);
 });
 
 async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
@@ -575,6 +656,29 @@ async function installBrowserVisualFaultInjection(
   }, readiness);
 }
 
+async function installBrowserVisualFaultInjectionForSettingsStartup(
+  page: Page,
+  {
+    readiness,
+  }: {
+    readonly readiness: BrowserVisualFaultReadiness;
+  },
+): Promise<void> {
+  await page.addInitScript((domControlReadiness) => {
+    if (window.location.pathname !== "/settings") {
+      return;
+    }
+    (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__?: unknown;
+      }
+    ).__SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__ = {
+      domControlReadiness,
+      withholdAllDomControls: true,
+    };
+  }, readiness);
+}
+
 async function clearBrowserVisualFaultInjection(page: Page): Promise<void> {
   await page.evaluate(() => {
     delete (
@@ -602,6 +706,25 @@ async function requestGpuFlowDebugFrame(
     }
     requestFrame(frameReason);
   }, frameReason);
+}
+
+async function waitForColdStartShellFrame(
+  page: Page,
+): Promise<ColdStartShellFrame> {
+  await page.waitForSelector('[data-gpu-flow-cold-start-shell="true"]');
+  return await page.evaluate(() => {
+    const shell = document.querySelector<HTMLElement>(
+      '[data-gpu-flow-cold-start-shell="true"]',
+    );
+    if (!shell) {
+      throw new Error("Missing GPU Flow cold-start shell frame.");
+    }
+    return {
+      frameId: shell.dataset.gpuFlowColdStartShellFrameId ?? null,
+      input: shell.dataset.gpuFlowColdStartShellInput ?? null,
+      reason: shell.dataset.gpuFlowColdStartShellReason ?? null,
+    };
+  });
 }
 
 async function waitForBlockedVisiblePublicationEvent(

@@ -16,7 +16,7 @@ import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFram
 import {
   createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction,
   decideGpuFlowCommittedSurfacePublicationTransaction,
-} from "./visibleFramePublicationCandidates";
+} from "./visibleFramePublicationCommittedSurfaceAuthority";
 import {
   completeGpuFlowVisibleFramePublicationTransaction,
   createGpuFlowRetainedProjectionBlockedPublicationCandidate,

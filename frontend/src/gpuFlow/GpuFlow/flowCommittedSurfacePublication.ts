@@ -10,8 +10,10 @@ import {
 import {
   getGpuFlowBrowserVisualBlockedReason,
   getGpuFlowCommittedSurfacePublishabilityActorIds,
-  type GpuFlowCommittedSurfacePublicationEffect,
-  type GpuFlowVisiblePublicationTransactionCompletion,
+} from "./visibleFramePublicationCommittedSurfaceAuthority";
+import type {
+  GpuFlowCommittedSurfacePublicationEffect,
+  GpuFlowVisiblePublicationTransactionCompletion,
 } from "./visibleFramePublicationKernel";
 import {
   assertGpuFlowBlockedPublicationTokenBrand,

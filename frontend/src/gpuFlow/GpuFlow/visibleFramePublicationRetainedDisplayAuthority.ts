@@ -4,8 +4,8 @@ import {
   type GpuFlowRetainedDisplayPublicationOutcomeFrame,
   type GpuFlowRetainedDisplayPublicationResult,
 } from "./flowRetainedDisplayTransaction";
-import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationCandidates";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFramePublicationContentPlan";
+import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationProjectionTransactionAuthority";
 
 export type GpuFlowRetainedDisplayPublicationOutcomeFrameResolver = (
   input: Parameters<

@@ -9,8 +9,10 @@ import type {
   GpuFlowProjectionTransaction,
 } from "../projectionRuntime";
 import type { GpuFlowRetainedProjectionFrame } from "./flowProjectionFrame";
-import type { GpuFlowRetainedProjectionPublicationTransactionDecision } from "./visibleFramePublicationCandidates";
-import { selectGpuFlowProjectionFrameTransactionFromPublicationDecision } from "./visibleFramePublicationProjectionTransactionAuthority";
+import {
+  selectGpuFlowProjectionFrameTransactionFromPublicationDecision,
+  type GpuFlowRetainedProjectionPublicationTransactionDecision,
+} from "./visibleFramePublicationProjectionTransactionAuthority";
 
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePublicationProjectionPlan.ts", import.meta.url),
@@ -30,7 +32,9 @@ describe("GPU Flow visible publication projection transaction authority", () => 
     const heldFrame = projectionFrame({
       needsRetainedPageMaintenance: false,
     });
-    const requestedTransaction = projectionTransaction({ id: "projection:12:1" });
+    const requestedTransaction = projectionTransaction({
+      id: "projection:12:1",
+    });
     const heldTransaction = projectionTransaction({
       committedFrameId: 11,
       id: "projection:11:held",
@@ -140,7 +144,10 @@ function publicationDecision({
   transaction,
 }: {
   readonly blockedReason?: string | undefined;
-  readonly heldPreviousProjection?: GpuFlowHeldPreviousProjection | null | undefined;
+  readonly heldPreviousProjection?:
+    | GpuFlowHeldPreviousProjection
+    | null
+    | undefined;
   readonly kind: GpuFlowRetainedProjectionPublicationTransactionDecision["kind"];
   readonly transaction: GpuFlowProjectionTransaction;
 }): GpuFlowRetainedProjectionPublicationTransactionDecision {
