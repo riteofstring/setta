@@ -25,7 +25,7 @@ import {
   resolveGpuFlowRetainedProjectionFrame,
 } from "./flowProjectionFrame";
 import { createGpuFlowRetainedRuntimeFrameSourceRenderSignature } from "./flowRetainedRuntimeFrameSignatures";
-import { completeGpuFlowSurfacePublicationFrame } from "./flowSurfacePublicationCompletion";
+import { createGpuFlowSurfacePublicationPublisher } from "./flowSurfacePublicationCompletion";
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
 import type { GpuFlowColdStartShellFrame } from "./visibleFramePublicationAuthority";
 import {
@@ -168,6 +168,30 @@ export function renderGpuFlowSurfaceFrame({
       frameMeasureDetail,
     );
     let finishCompletionMeasure: () => number = () => 0;
+    const publishGpuFlowSurfacePublicationFrame =
+      createGpuFlowSurfacePublicationPublisher({
+        abortPreparedCommittedSurfaceFrame:
+          input.abortPreparedCommittedSurfaceFrame,
+        callbacksRef: input.callbacksRef,
+        commitPreparedCommittedSurfaceFrame:
+          input.commitPreparedCommittedSurfaceFrame,
+        projectCommittedBrowserVisualActors:
+          input.projectCommittedBrowserVisualActors,
+        publishColdStartShellFrame: input.publishColdStartShellFrame,
+        retainedDisplayFrameRef: input.retainedDisplayFrameRef,
+        retainedRuntimeFrameRenderSignatureRef:
+          input.retainedRuntimeFrameRenderSignatureRef,
+        retainedRuntimeFrameSourceRenderSignatureRef:
+          input.retainedRuntimeFrameSourceRenderSignatureRef,
+        runtimeCanvas: runtime.canvas,
+        surfaceRef: input.surfaceRef,
+        viewportRuntime,
+        visibleOverlayProjectionKeyRef: input.visibleOverlayProjectionKeyRef,
+        visibleProjectionPublicationStateRef:
+          input.visibleProjectionPublicationStateRef,
+        visibleProjectionStateRef: input.visibleProjectionStateRef,
+        visiblePublicationSchedulerRef: input.visiblePublicationSchedulerRef,
+      });
     runGpuFlowVisibleFramePublicationCandidateSetKernel({
       prepareMotionProjectionFrame: ({
         motionProjectionWorkPlan,
@@ -263,32 +287,7 @@ export function renderGpuFlowSurfaceFrame({
         );
         return contentPublicationFrame;
       },
-      publish: (transaction) => {
-        completeGpuFlowSurfacePublicationFrame({
-          abortPreparedCommittedSurfaceFrame:
-            input.abortPreparedCommittedSurfaceFrame,
-          callbacksRef: input.callbacksRef,
-          commitPreparedCommittedSurfaceFrame:
-            input.commitPreparedCommittedSurfaceFrame,
-          projectCommittedBrowserVisualActors:
-            input.projectCommittedBrowserVisualActors,
-          publicationTransaction: transaction,
-          publishColdStartShellFrame: input.publishColdStartShellFrame,
-          retainedDisplayFrameRef: input.retainedDisplayFrameRef,
-          retainedRuntimeFrameRenderSignatureRef:
-            input.retainedRuntimeFrameRenderSignatureRef,
-          retainedRuntimeFrameSourceRenderSignatureRef:
-            input.retainedRuntimeFrameSourceRenderSignatureRef,
-          runtimeCanvas: runtime.canvas,
-          surfaceRef: input.surfaceRef,
-          viewportRuntime,
-          visibleOverlayProjectionKeyRef: input.visibleOverlayProjectionKeyRef,
-          visibleProjectionPublicationStateRef:
-            input.visibleProjectionPublicationStateRef,
-          visibleProjectionStateRef: input.visibleProjectionStateRef,
-          visiblePublicationSchedulerRef: input.visiblePublicationSchedulerRef,
-        });
-      },
+      publish: publishGpuFlowSurfacePublicationFrame,
       sampleVisibleFramePublication: () => {
         const runtimeFrame = viewportRuntime.runFrame(event.timestamp);
         nodeLayerRef.current = {

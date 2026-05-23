@@ -6,7 +6,10 @@ import {
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import { completeGpuFlowVisibleFramePublicationTransaction } from "./visibleFramePublicationKernel";
+import {
+  completeGpuFlowVisibleFramePublicationTransaction,
+  type GpuFlowVisibleFramePublicationTransactionOracle,
+} from "./visibleFramePublicationKernel";
 
 describe("GPU Flow visible publication completion", () => {
   it("blocks no-frame held-previous outcomes after the kernel hold budget", () => {
@@ -28,13 +31,10 @@ describe("GPU Flow visible publication completion", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
-      commitOracle: null,
-      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: previousHeldVisibleProjectionState(),
-      renderedVisibleFrame: false,
       scheduler,
-      visibleProjectionState: null,
+      transactionOracle: transactionOracle(),
     });
 
     expect(result.outcome.kind).toBe("blocked");
@@ -52,6 +52,19 @@ describe("GPU Flow visible publication completion", () => {
     expect(result.completion.debt.motion).toBe(true);
   });
 });
+
+function transactionOracle(): GpuFlowVisibleFramePublicationTransactionOracle {
+  return {
+    blockedPublicationCandidate: null,
+    blockedProof: null,
+    blockedSource: null,
+    commitOracle: null,
+    presentableCommit: null,
+    renderedVisibleFrame: false,
+    visibleProjectionSource: null,
+    visibleProjectionState: null,
+  };
+}
 
 function previousHeldVisibleProjectionState(): GpuFlowVisibleProjectionState {
   return {

@@ -24,6 +24,7 @@ import {
   createGpuFlowVisiblePublicationCommitOracle,
   decideGpuFlowRetainedProjectionPublicationTransaction,
   runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  type GpuFlowVisibleFramePublicationTransactionOracle,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFramePublicationKernel";
 
@@ -444,13 +445,10 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: blockedToken,
-      commitOracle: null,
-      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: null,
-      renderedVisibleFrame: false,
       scheduler,
-      visibleProjectionState: null,
+      transactionOracle: transactionOracle(),
     });
 
     expect(publicationDecision.lane).toBe("content");
@@ -562,13 +560,10 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
-      commitOracle: null,
-      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState,
-      renderedVisibleFrame: false,
       scheduler,
-      visibleProjectionState: null,
+      transactionOracle: transactionOracle(),
     });
 
     expect(result.outcome.kind).toBe("hold-previous");
@@ -596,13 +591,10 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
-      commitOracle: null,
-      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: null,
-      renderedVisibleFrame: false,
       scheduler,
-      visibleProjectionState: null,
+      transactionOracle: transactionOracle(),
     });
 
     expect(result.outcome.kind).toBe("blocked");
@@ -630,20 +622,21 @@ describe("GPU Flow visible publication transaction kernel", () => {
       viewportInteractionActive: false,
     });
 
+    const heldVisibleProjectionState = visibleProjectionState({
+      kind: "held-previous",
+      sample: publicationDecision.sample,
+    });
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
-      commitOracle: null,
-      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: visibleProjectionState({
         kind: "motion-projection",
         sample: liveProjectionSample({ id: 99, timestamp: 1 }),
       }),
-      renderedVisibleFrame: true,
       scheduler,
-      visibleProjectionState: visibleProjectionState({
-        kind: "held-previous",
-        sample: publicationDecision.sample,
+      transactionOracle: transactionOracle({
+        renderedVisibleFrame: true,
+        visibleProjectionState: heldVisibleProjectionState,
       }),
     });
 
@@ -672,25 +665,25 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
-      commitOracle: null,
-      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: visibleProjectionState({
         kind: "content-publication",
         sample: liveProjectionSample({ id: 32, timestamp: 316 }),
       }),
-      renderedVisibleFrame: true,
       scheduler,
-      visibleProjectionState: {
-        ...heldVisibleProjectionState,
-        heldPreviousProjection: {
-          ...heldVisibleProjectionState.heldPreviousProjection,
-          consecutiveFrameCount: 7,
-          heldDurationMs: 121,
-          maxHeldPreviousFramesExceeded: true,
-          maxHeldPreviousMsExceeded: true,
+      transactionOracle: transactionOracle({
+        renderedVisibleFrame: true,
+        visibleProjectionState: {
+          ...heldVisibleProjectionState,
+          heldPreviousProjection: {
+            ...heldVisibleProjectionState.heldPreviousProjection,
+            consecutiveFrameCount: 7,
+            heldDurationMs: 121,
+            maxHeldPreviousFramesExceeded: true,
+            maxHeldPreviousMsExceeded: true,
+          },
         },
-      },
+      }),
     });
 
     expect(result.outcome.kind).toBe("blocked");
@@ -740,25 +733,25 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     const result = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: blockedToken,
-      commitOracle: null,
-      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState: visibleProjectionState({
         kind: "content-publication",
         sample: liveProjectionSample({ id: 33, timestamp: 330 }),
       }),
-      renderedVisibleFrame: true,
       scheduler,
-      visibleProjectionState: {
-        ...heldVisibleProjectionState,
-        heldPreviousProjection: {
-          ...heldVisibleProjectionState.heldPreviousProjection,
-          consecutiveFrameCount: 7,
-          heldDurationMs: 121,
-          maxHeldPreviousFramesExceeded: true,
-          maxHeldPreviousMsExceeded: true,
+      transactionOracle: transactionOracle({
+        renderedVisibleFrame: true,
+        visibleProjectionState: {
+          ...heldVisibleProjectionState,
+          heldPreviousProjection: {
+            ...heldVisibleProjectionState.heldPreviousProjection,
+            consecutiveFrameCount: 7,
+            heldDurationMs: 121,
+            maxHeldPreviousFramesExceeded: true,
+            maxHeldPreviousMsExceeded: true,
+          },
         },
-      },
+      }),
     });
 
     expect(result.outcome.kind).toBe("blocked");
@@ -811,13 +804,13 @@ describe("GPU Flow visible publication transaction kernel", () => {
     ).toBe(previousVisibleProjectionState.committedFrame.displayFrameId);
     const completion = completeGpuFlowVisibleFramePublicationTransaction({
       blockedPublicationToken: null,
-      commitOracle: null,
-      presentableCommit: null,
       publicationDecision,
       previousVisibleProjectionState,
-      renderedVisibleFrame: true,
       scheduler,
-      visibleProjectionState: transaction.visibleProjectionState,
+      transactionOracle: transactionOracle({
+        renderedVisibleFrame: true,
+        visibleProjectionState: transaction.visibleProjectionState,
+      }),
     });
 
     expect(completion.outcome.kind).toBe("hold-previous");
@@ -1075,6 +1068,22 @@ function retainedProjectionFrame() {
     flatSurfaces: [],
     missingCoverageSurfaceIds: new Set<string>(),
     needsRetainedPageMaintenance: false,
+  };
+}
+
+function transactionOracle(
+  overrides: Partial<GpuFlowVisibleFramePublicationTransactionOracle> = {},
+): GpuFlowVisibleFramePublicationTransactionOracle {
+  return {
+    blockedPublicationCandidate: null,
+    blockedProof: null,
+    blockedSource: null,
+    commitOracle: null,
+    presentableCommit: null,
+    renderedVisibleFrame: false,
+    visibleProjectionSource: null,
+    visibleProjectionState: null,
+    ...overrides,
   };
 }
 

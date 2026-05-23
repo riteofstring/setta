@@ -14,11 +14,11 @@ import {
   prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay,
 } from "./visibleFramePublicationContentPreparation";
 import {
+  createGpuFlowCommittedSurfacePublicationContentStep,
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
-  resolveGpuFlowCommittedSurfacePublicationContentResolution,
+  createGpuFlowRetainedDisplayPublicationContentStep,
   resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult,
-  resolveGpuFlowRetainedDisplayPublicationContentResolution,
   resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult,
   selectGpuFlowCommittedSurfacePublicationFramePlan,
   selectGpuFlowRetainedDisplayPublicationFramePlan,
@@ -204,11 +204,20 @@ describe("GPU Flow visible publication content plans", () => {
       "function prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceCandidate",
     );
     expect(flowFrameSource).toContain(
-      "resolveGpuFlowRetainedDisplayPublicationContentResolution",
+      "createGpuFlowRetainedDisplayPublicationContentStep",
     );
     expect(flowFrameSource).toContain(
+      "createGpuFlowCommittedSurfacePublicationContentStep",
+    );
+    expect(flowFrameSource).not.toContain(
+      "resolveGpuFlowRetainedDisplayPublicationContentResolution",
+    );
+    expect(flowFrameSource).not.toContain(
       "resolveGpuFlowCommittedSurfacePublicationContentResolution",
     );
+    expect(flowFrameSource).not.toContain("content-frame-result");
+    expect(flowFrameSource).not.toContain("published-outcome-frame");
+    expect(flowFrameSource).not.toContain("committed-surface-publication");
     expect(flowFrameSource).toContain(
       "prepareRetainedDisplayPublicationFramePlan",
     );
@@ -476,18 +485,18 @@ describe("GPU Flow visible publication content plans", () => {
       {} as Parameters<typeof prepareRetainedDisplayPublicationFramePlan>[0],
     );
 
-    const resolution =
-      resolveGpuFlowRetainedDisplayPublicationContentResolution({
-        deferResolutionUpdates: false,
-        preparation,
-        previousVisibleProjectionState: null,
-      });
+    const contentStep = createGpuFlowRetainedDisplayPublicationContentStep({
+      deferResolutionUpdates: false,
+      preparation,
+      previousVisibleProjectionState: null,
+    });
 
-    expect(resolution.kind).toBe("content-frame-result");
-    if (resolution.kind !== "content-frame-result") {
+    expect(contentStep.frameResult).not.toBeNull();
+    if (contentStep.frameResult === null) {
       throw new Error("Expected retained display candidate frame result.");
     }
-    expect(resolution.frameResult).toEqual(
+    expect(contentStep.publishedOutcomeFrame).toBeNull();
+    expect(contentStep.frameResult).toEqual(
       expect.objectContaining({
         blockedPublicationCandidate: expect.objectContaining({
           frozenFrameId: "cold-start-shell:retained-projection",
@@ -530,19 +539,19 @@ describe("GPU Flow visible publication content plans", () => {
       {} as Parameters<typeof prepareCommittedSurfacePublicationFramePlan>[0],
     );
 
-    const resolution =
-      resolveGpuFlowCommittedSurfacePublicationContentResolution({
-        deferResolutionUpdates: false,
-        preparation,
-        previousVisibleProjectionState: null,
-        retainedDisplayFollowUpFrameReason: "texture-upload",
-      });
+    const contentStep = createGpuFlowCommittedSurfacePublicationContentStep({
+      deferResolutionUpdates: false,
+      preparation,
+      previousVisibleProjectionState: null,
+      retainedDisplayFollowUpFrameReason: "texture-upload",
+    });
 
-    expect(resolution.kind).toBe("content-frame-result");
-    if (resolution.kind !== "content-frame-result") {
+    expect(contentStep.frameResult).not.toBeNull();
+    if (contentStep.frameResult === null) {
       throw new Error("Expected committed-surface candidate frame result.");
     }
-    expect(resolution.frameResult).toEqual(
+    expect(contentStep.committedSurfacePublication).toBeNull();
+    expect(contentStep.frameResult).toEqual(
       expect.objectContaining({
         blockedErrorMessage: "blocked surface",
         blockedPreparedCommittedSurfaceFrame: candidateFrame,

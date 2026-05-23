@@ -172,6 +172,28 @@ export type GpuFlowRetainedDisplayPublicationFramePlanPreparer = (
   input: GpuFlowRetainedDisplayPublicationInput,
 ) => GpuFlowRetainedDisplayPublicationFramePlanPreparation;
 
+export type GpuFlowRetainedDisplayPublicationContentStep =
+  | {
+      readonly frameResult: GpuFlowContentPublicationFrameResult;
+      readonly publishedOutcomeFrame: null;
+    }
+  | {
+      readonly frameResult: null;
+      readonly publishedOutcomeFrame: NonNullable<
+        GpuFlowRetainedDisplayPublicationFramePlanPreparation["publishedOutcomeFrame"]
+      >;
+    };
+
+export type GpuFlowCommittedSurfacePublicationContentStep =
+  | {
+      readonly committedSurfacePublication: null;
+      readonly frameResult: GpuFlowContentPublicationFrameResult;
+    }
+  | {
+      readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
+      readonly frameResult: null;
+    };
+
 export function createGpuFlowContentPublicationFrameResult(
   input: GpuFlowContentPublicationFrameResultInput,
 ): GpuFlowContentPublicationFrameResult {
@@ -204,7 +226,7 @@ function createGpuFlowContentPublicationFrameResultForRetainedDisplayPublication
   });
 }
 
-export function resolveGpuFlowRetainedDisplayPublicationContentResolution({
+export function createGpuFlowRetainedDisplayPublicationContentStep({
   deferResolutionUpdates,
   preparation,
   previousVisibleProjectionState,
@@ -212,17 +234,7 @@ export function resolveGpuFlowRetainedDisplayPublicationContentResolution({
   readonly deferResolutionUpdates: boolean;
   readonly preparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}):
-  | {
-      readonly frameResult: GpuFlowContentPublicationFrameResult;
-      readonly kind: "content-frame-result";
-    }
-  | {
-      readonly kind: "published-outcome-frame";
-      readonly publishedOutcomeFrame: NonNullable<
-        GpuFlowRetainedDisplayPublicationFramePlanPreparation["publishedOutcomeFrame"]
-      >;
-    } {
+}): GpuFlowRetainedDisplayPublicationContentStep {
   const frameResult =
     createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation(
       {
@@ -234,11 +246,11 @@ export function resolveGpuFlowRetainedDisplayPublicationContentResolution({
   if (frameResult) {
     return {
       frameResult,
-      kind: "content-frame-result",
+      publishedOutcomeFrame: null,
     };
   }
   return {
-    kind: "published-outcome-frame",
+    frameResult: null,
     publishedOutcomeFrame: requireGpuFlowRetainedDisplayPublishedOutcomeFrame({
       preparation,
     }),
@@ -285,7 +297,7 @@ function createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicatio
   });
 }
 
-export function resolveGpuFlowCommittedSurfacePublicationContentResolution({
+export function createGpuFlowCommittedSurfacePublicationContentStep({
   deferResolutionUpdates,
   preparation,
   previousVisibleProjectionState,
@@ -295,15 +307,7 @@ export function resolveGpuFlowCommittedSurfacePublicationContentResolution({
   readonly preparation: GpuFlowCommittedSurfacePublicationFramePlanPreparation;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly retainedDisplayFollowUpFrameReason: GpuFrameReason | null;
-}):
-  | {
-      readonly frameResult: GpuFlowContentPublicationFrameResult;
-      readonly kind: "content-frame-result";
-    }
-  | {
-      readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
-      readonly kind: "committed-surface-publication";
-    } {
+}): GpuFlowCommittedSurfacePublicationContentStep {
   const frameResult =
     createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation(
       {
@@ -315,13 +319,13 @@ export function resolveGpuFlowCommittedSurfacePublicationContentResolution({
     );
   if (frameResult) {
     return {
+      committedSurfacePublication: null,
       frameResult,
-      kind: "content-frame-result",
     };
   }
   return {
     committedSurfacePublication: preparation.committedSurfacePublication,
-    kind: "committed-surface-publication",
+    frameResult: null,
   };
 }
 

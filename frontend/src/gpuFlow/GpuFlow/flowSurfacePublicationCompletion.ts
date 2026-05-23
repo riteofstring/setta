@@ -51,7 +51,15 @@ import {
   type GpuFlowCommitPublicationToken,
 } from "./visibleFramePublicationTokens";
 
-export function completeGpuFlowSurfacePublicationFrame({
+type GpuFlowSurfacePublicationPublisher =
+  (publicationTransaction: GpuFlowVisibleFramePublicationKernelResult<GpuFlowSurfacePublicationPreparedFrame>) => void;
+
+type GpuFlowSurfacePublicationPublisherInput = Omit<
+  Parameters<typeof completeGpuFlowSurfacePublicationFrame>[0],
+  "publicationTransaction"
+>;
+
+function completeGpuFlowSurfacePublicationFrame({
   abortPreparedCommittedSurfaceFrame,
   callbacksRef,
   commitPreparedCommittedSurfaceFrame,
@@ -152,12 +160,11 @@ export function completeGpuFlowSurfacePublicationFrame({
     publishColdStartShellFrame,
   });
   postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
-    commitOracle: publicationTransaction.preparedFrame.transactionOracle
-      .commitOracle,
     completion,
     outcome,
     publicationDecision,
     previousCommittedFrameId: publicationTransaction.previousCommittedFrameId,
+    transactionOracle: publicationTransaction.preparedFrame.transactionOracle,
     visibleProjectionState: selectedVisibleProjectionState,
   });
   recordGpuFlowBlockedPublicationGuard({
@@ -176,6 +183,44 @@ export function completeGpuFlowSurfacePublicationFrame({
     surfaceRef,
     visiblePublicationSchedulerRef,
   });
+}
+
+export function createGpuFlowSurfacePublicationPublisher({
+  abortPreparedCommittedSurfaceFrame,
+  callbacksRef,
+  commitPreparedCommittedSurfaceFrame,
+  projectCommittedBrowserVisualActors,
+  publishColdStartShellFrame,
+  retainedDisplayFrameRef,
+  retainedRuntimeFrameRenderSignatureRef,
+  retainedRuntimeFrameSourceRenderSignatureRef,
+  runtimeCanvas,
+  surfaceRef,
+  viewportRuntime,
+  visibleOverlayProjectionKeyRef,
+  visibleProjectionPublicationStateRef,
+  visibleProjectionStateRef,
+  visiblePublicationSchedulerRef,
+}: GpuFlowSurfacePublicationPublisherInput): GpuFlowSurfacePublicationPublisher {
+  return (publicationTransaction) =>
+    completeGpuFlowSurfacePublicationFrame({
+      abortPreparedCommittedSurfaceFrame,
+      callbacksRef,
+      commitPreparedCommittedSurfaceFrame,
+      projectCommittedBrowserVisualActors,
+      publicationTransaction,
+      publishColdStartShellFrame,
+      retainedDisplayFrameRef,
+      retainedRuntimeFrameRenderSignatureRef,
+      retainedRuntimeFrameSourceRenderSignatureRef,
+      runtimeCanvas,
+      surfaceRef,
+      viewportRuntime,
+      visibleOverlayProjectionKeyRef,
+      visibleProjectionPublicationStateRef,
+      visibleProjectionStateRef,
+      visiblePublicationSchedulerRef,
+    });
 }
 
 function requestGpuFlowSurfacePublicationDebtFrame({

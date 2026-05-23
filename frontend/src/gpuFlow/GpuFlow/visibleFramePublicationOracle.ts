@@ -57,6 +57,16 @@ export type GpuFlowVisiblePublicationActorDebt = {
   readonly remainingDebt: readonly string[];
 };
 
+export type GpuFlowVisiblePublicationPresentationProofReport = {
+  readonly actorManifestDigest: string;
+  readonly batchId: string;
+  readonly browserVisualFragmentDigest: string | null;
+  readonly canvasGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["canvasGeneration"];
+  readonly domGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGeneration"];
+  readonly projectionSampleId: number;
+  readonly surfaceTransactionDigest: string | null;
+};
+
 export type GpuFlowVisiblePublicationCommitOracle = ReturnType<
   typeof createGpuFlowVisiblePublicationCommitOracle
 >;
@@ -171,6 +181,11 @@ export function createGpuFlowVisiblePublicationCommitOracle({
     );
   const coverage =
     createGpuFlowVisiblePublicationCoverageReportForFrame(committedFrame);
+  const presentationProof =
+    createGpuFlowVisiblePublicationPresentationProofReportForFrame({
+      committedFrame,
+      projectionSampleId: publicationDecision.sample.id,
+    });
   const hasCompatiblePreviousCoverage =
     hasGpuFlowVisiblePublicationCompatiblePreviousCoverage({
       committedFrame,
@@ -194,6 +209,7 @@ export function createGpuFlowVisiblePublicationCommitOracle({
     coverage,
     debtProof,
     hasCompatiblePreviousCoverage,
+    presentationProof,
     remainingActorDebt:
       createGpuFlowVisiblePublicationRemainingActorDebt(actorProofs),
   });
@@ -214,6 +230,7 @@ export function createGpuFlowVisiblePublicationCommitOracleReport(
           null,
         ),
       coverage: null,
+      presentationProof: null,
       remainingActorDebt: [],
     };
   }
@@ -227,7 +244,38 @@ export function createGpuFlowVisiblePublicationCommitOracleReport(
     },
     compatiblePreviousProofs: commitOracle.compatiblePreviousProofs,
     coverage: commitOracle.coverage,
+    presentationProof: commitOracle.presentationProof,
     remainingActorDebt: commitOracle.remainingActorDebt,
+  };
+}
+
+export function createGpuFlowVisiblePublicationTransactionOracleReport(
+  transactionOracle: GpuFlowVisibleFramePublicationTransactionOracle | null,
+) {
+  if (transactionOracle === null) {
+    return {
+      blockedProof: null,
+      blockedSource: null,
+      hasCommitOracle: false,
+      hasPresentableCommit: false,
+      renderedVisibleFrame: false,
+      visibleProjectionSource: null,
+    };
+  }
+  return {
+    blockedProof:
+      transactionOracle.blockedProof === null
+        ? null
+        : {
+            blockedReasons: transactionOracle.blockedProof.blockedReasons,
+            frozenFrameId: transactionOracle.blockedProof.frozenFrameId,
+            source: transactionOracle.blockedProof.source,
+          },
+    blockedSource: transactionOracle.blockedSource,
+    hasCommitOracle: transactionOracle.commitOracle !== null,
+    hasPresentableCommit: transactionOracle.presentableCommit !== null,
+    renderedVisibleFrame: transactionOracle.renderedVisibleFrame,
+    visibleProjectionSource: transactionOracle.visibleProjectionSource,
   };
 }
 
@@ -900,6 +948,25 @@ function createGpuFlowVisiblePublicationCoverageReportForFrame(
     visibleRectCount: coverageProof.visibleRects.length,
     zOrderCount: coverageProof.zOrder.length,
   };
+}
+
+function createGpuFlowVisiblePublicationPresentationProofReportForFrame({
+  committedFrame,
+  projectionSampleId,
+}: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly projectionSampleId: number;
+}): GpuFlowVisiblePublicationPresentationProofReport {
+  const proof = committedFrame.presentationProof;
+  return Object.freeze({
+    actorManifestDigest: proof.actorManifestDigest,
+    batchId: proof.batchId,
+    browserVisualFragmentDigest: proof.browserVisualFragmentDigest,
+    canvasGeneration: Object.freeze({ ...proof.canvasGeneration }),
+    domGeneration: Object.freeze({ ...proof.domGeneration }),
+    projectionSampleId,
+    surfaceTransactionDigest: proof.surfaceTransactionDigest,
+  });
 }
 
 function maxNumber(values: readonly number[]): number | null {

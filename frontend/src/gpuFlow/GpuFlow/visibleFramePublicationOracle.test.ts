@@ -143,6 +143,22 @@ describe("GPU Flow visible publication transaction oracle", () => {
     expect(oracle.browserActorProofs.actualVisual).toEqual({
       "compatible-previous": 1,
     });
+    expect(oracle.presentationProof).toEqual(
+      expect.objectContaining({
+        batchId: expect.any(String),
+        projectionSampleId: sample.id,
+      }),
+    );
+    expect(oracle.presentationProof.domGeneration.staged).toBe(true);
+    expect(oracle.presentationProof.domGeneration.exposable).toBe(true);
+    expect(oracle.presentationProof.canvasGeneration.prepared).toBe(true);
+    expect(oracle.presentationProof.canvasGeneration.exposable).toBe(true);
+    expect(oracle.presentationProof.domGeneration.presentationBatchId).toBe(
+      oracle.presentationProof.batchId,
+    );
+    expect(oracle.presentationProof.canvasGeneration.presentationBatchId).toBe(
+      oracle.presentationProof.batchId,
+    );
   });
 
   it("rejects blocked actor proofs as commit candidates", () => {

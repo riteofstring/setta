@@ -10,8 +10,15 @@ import type {
   GpuFlowVisiblePublicationDebtProof,
 } from "../projectionScheduler";
 import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./flowVisiblePublicationOutcomeChromeRepro";
-import { createGpuFlowVisiblePublicationCommitOracle } from "./visibleFramePublicationOracle";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePublicationTokens";
+import {
+  createGpuFlowVisiblePublicationCommitOracle,
+  type GpuFlowVisibleFramePublicationTransactionOracle,
+  type GpuFlowVisiblePublicationCommitOracle,
+} from "./visibleFramePublicationOracle";
+import type {
+  GpuFlowCommitPublicationToken,
+  GpuFlowPresentableCommit,
+} from "./visibleFramePublicationTokens";
 
 describe("GPU Flow visible publication Chrome repro payload", () => {
   it("records committed coverage proof counts with the visible outcome", () => {
@@ -79,6 +86,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
           },
         ],
         displayFrameId: 7,
+        presentationProof: presentationProof(),
         surfaceTransaction: {
           coverageProof: {
             blockingGenerationIds: ["generation-blocked"],
@@ -114,13 +122,13 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         kind: "content-publication",
       },
     } as unknown as GpuFlowVisibleProjectionState;
+    const commitOracle = createGpuFlowVisiblePublicationCommitOracle({
+      committedFrame: visibleProjectionState.committedFrame,
+      publicationDecision: publicationDecision(sample),
+    });
 
     expect(
       createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
-        commitOracle: createGpuFlowVisiblePublicationCommitOracle({
-          committedFrame: visibleProjectionState.committedFrame,
-          publicationDecision: publicationDecision(sample),
-        }),
         completion: {
           debt: { content: false, maintenance: true, motion: false },
           outcome: "commit",
@@ -131,6 +139,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         }),
         previousCommittedFrameId: 6,
         publicationDecision: publicationDecision(sample),
+        transactionOracle: transactionOracle({ commitOracle }),
         visibleProjectionState,
       }),
     ).toEqual(
@@ -205,6 +214,14 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
           },
         ],
         transactionId: "transaction-a",
+        transactionOracle: {
+          blockedProof: null,
+          blockedSource: null,
+          hasCommitOracle: true,
+          hasPresentableCommit: true,
+          renderedVisibleFrame: true,
+          visibleProjectionSource: "content-publication",
+        },
         visibleTransaction: {
           inputSampleId: 11,
           outcome: "commit",
@@ -212,6 +229,10 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
             expectedActorSetDigest: "actors",
             presentationPairDigest: "presentation",
             proofDigest: "proof",
+          },
+          presentationProof: {
+            ...presentationProof(),
+            projectionSampleId: 11,
           },
           previousCommittedFrameId: 6,
           token: {
@@ -230,6 +251,23 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
     );
   });
 });
+
+function transactionOracle({
+  commitOracle,
+}: {
+  readonly commitOracle: GpuFlowVisiblePublicationCommitOracle;
+}): GpuFlowVisibleFramePublicationTransactionOracle {
+  return {
+    blockedPublicationCandidate: null,
+    blockedProof: null,
+    blockedSource: null,
+    commitOracle,
+    presentableCommit: {} as GpuFlowPresentableCommit,
+    renderedVisibleFrame: true,
+    visibleProjectionSource: "content-publication",
+    visibleProjectionState: {} as GpuFlowVisibleProjectionState,
+  };
+}
 
 function commitOutcome({
   debtProof,
@@ -266,6 +304,33 @@ function publicationDecision(
     rawReasons: ["manual"],
     sample,
     schedulerState: "content-catchup",
+  };
+}
+
+function presentationProof() {
+  const presentationBatchId = "presentation:7";
+  return {
+    actorManifestDigest: "manifest-digest",
+    batchId: presentationBatchId,
+    browserVisualFragmentDigest: "browser-visual-fragment-digest",
+    canvasGeneration: {
+      canvasRetainedFrameId: 7,
+      debugSnapshotFrameId: 7,
+      exposable: true,
+      gpuNativeVisualCommittedFrameId: 7,
+      htmlTextureOverlayCommittedFrameId: 7,
+      prepared: true,
+      presentationBatchId,
+    },
+    domGeneration: {
+      browserVisualCommittedFrameId: 7,
+      domControlCommittedFrameId: 7,
+      domIslandCommittedFrameId: 7,
+      exposable: true,
+      presentationBatchId,
+      staged: true,
+    },
+    surfaceTransactionDigest: "surface-transaction-digest",
   };
 }
 

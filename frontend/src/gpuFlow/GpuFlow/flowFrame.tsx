@@ -109,10 +109,10 @@ import {
   prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay,
 } from "./visibleFramePublicationContentPreparation";
 import {
+  createGpuFlowCommittedSurfacePublicationContentStep,
   createGpuFlowContentPublicationFrameResult,
   createGpuFlowContentPublicationFrameResultForNodeLayerFrame,
-  resolveGpuFlowCommittedSurfacePublicationContentResolution,
-  resolveGpuFlowRetainedDisplayPublicationContentResolution,
+  createGpuFlowRetainedDisplayPublicationContentStep,
   type GpuFlowCommittedSurfacePublicationFramePlanPreparer,
   type GpuFlowContentPublicationFrameResult,
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
@@ -655,17 +655,17 @@ export function renderGpuFlowNodeLayerFrame({
     retainedDisplayPublication.retainedPageMaintenanceMs;
   const retainedDisplayFollowUpFrameReason =
     retainedDisplayPublicationPreparation.followUpFrameReason;
-  const retainedDisplayContentResolution =
-    resolveGpuFlowRetainedDisplayPublicationContentResolution({
+  const retainedDisplayContentStep =
+    createGpuFlowRetainedDisplayPublicationContentStep({
       deferResolutionUpdates,
       preparation: retainedDisplayPublicationPreparation,
       previousVisibleProjectionState: heldPreviousProjectionState,
     });
-  if (retainedDisplayContentResolution.kind === "content-frame-result") {
-    return retainedDisplayContentResolution.frameResult;
+  if (retainedDisplayContentStep.frameResult !== null) {
+    return retainedDisplayContentStep.frameResult;
   }
   const publishedRetainedDisplayOutcomeFrame =
-    retainedDisplayContentResolution.publishedOutcomeFrame;
+    retainedDisplayContentStep.publishedOutcomeFrame;
   const publishedRetainedFrame = publishedRetainedDisplayOutcomeFrame.frame;
   const publishedRetainedRuntimeFrame =
     publishedRetainedFrame.retainedRuntimeFrame;
@@ -737,18 +737,18 @@ export function renderGpuFlowNodeLayerFrame({
     prepareOverlayTextures: prepareHtmlSurfaceOverlayTextures,
     publicationPreparation: committedSurfacePublicationPreparation,
   });
-  const committedSurfaceContentResolution =
-    resolveGpuFlowCommittedSurfacePublicationContentResolution({
+  const committedSurfaceContentStep =
+    createGpuFlowCommittedSurfacePublicationContentStep({
       deferResolutionUpdates,
       preparation: committedSurfacePublicationPreparation,
       previousVisibleProjectionState: heldPreviousProjectionState,
       retainedDisplayFollowUpFrameReason,
     });
-  if (committedSurfaceContentResolution.kind === "content-frame-result") {
-    return committedSurfaceContentResolution.frameResult;
+  if (committedSurfaceContentStep.frameResult !== null) {
+    return committedSurfaceContentStep.frameResult;
   }
   const committedSurfacePublication =
-    committedSurfaceContentResolution.committedSurfacePublication;
+    committedSurfaceContentStep.committedSurfacePublication;
   markGpuFlowRetainedContentFrameFreshnessDirty({
     deferResolutionUpdates,
     frame,
