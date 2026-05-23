@@ -142,7 +142,6 @@ export type {
   GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
   GpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
   GpuFlowVisibleFramePublicationPreparedFrame,
-  GpuFlowVisibleFramePublicationPreparedFrameSelector,
   GpuFlowVisibleFramePublicationTransactionOracle,
   GpuFlowVisibleFramePublicationTransactionOracleFactory,
   GpuFlowVisiblePublicationBlockedProof,

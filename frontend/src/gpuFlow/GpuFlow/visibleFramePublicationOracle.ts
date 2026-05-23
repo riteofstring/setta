@@ -144,20 +144,6 @@ export type GpuFlowVisibleFramePublicationTransactionOracleFactory = <
   },
 ) => GpuFlowVisibleFramePublicationTransactionOracle;
 
-export type GpuFlowVisibleFramePublicationPreparedFrameSelector = <
-  ContentPublicationFrame extends
-    GpuFlowVisibleFramePublicationContentCandidate,
-  MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
->(
-  input: GpuFlowVisibleFramePublicationCandidateSet<
-    ContentPublicationFrame,
-    MotionProjectionFrame
-  > & {
-    readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-    readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  },
-) => GpuFlowVisibleFramePublicationPreparedCandidateSet;
-
 export type GpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory = <
   ContentPublicationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
@@ -329,43 +315,6 @@ export function createGpuFlowVisiblePublicationTransactionOracleReport(
 
 export function createGpuFlowVisibleFramePublicationTransactionOracleFactory(): GpuFlowVisibleFramePublicationTransactionOracleFactory {
   return createGpuFlowVisibleFramePublicationTransactionOracle;
-}
-
-export function createGpuFlowVisibleFramePublicationPreparedFrameSelector(): GpuFlowVisibleFramePublicationPreparedFrameSelector {
-  return selectGpuFlowVisibleFramePublicationPreparedFrame;
-}
-
-function selectGpuFlowVisibleFramePublicationPreparedFrame<
-  ContentPublicationFrame extends
-    GpuFlowVisibleFramePublicationContentCandidate,
-  MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
->({
-  contentPublicationFrame,
-  forcedBlockedPublicationCandidate = null,
-  motionProjectionFrame,
-  previousVisibleProjectionState = null,
-  publicationDecision,
-}: GpuFlowVisibleFramePublicationCandidateSet<
-  ContentPublicationFrame,
-  MotionProjectionFrame
-> & {
-  readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-}): GpuFlowVisibleFramePublicationPreparedCandidateSet {
-  const oracle = createGpuFlowVisibleFramePublicationTransactionOracle({
-    contentPublicationFrame,
-    forcedBlockedPublicationCandidate,
-    motionProjectionFrame,
-    previousVisibleProjectionState,
-    publicationDecision,
-  });
-  return Object.freeze({
-    blockedPublicationCandidate: oracle.blockedPublicationCandidate,
-    blockedProof: oracle.blockedProof,
-    commitOracle: oracle.commitOracle,
-    renderedVisibleFrame: oracle.renderedVisibleFrame,
-    visibleProjectionState: oracle.visibleProjectionState,
-  });
 }
 
 export function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory(): GpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory {

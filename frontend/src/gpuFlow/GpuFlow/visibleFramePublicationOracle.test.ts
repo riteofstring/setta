@@ -18,9 +18,11 @@ import type {
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFramePublicationBlockedCandidate";
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
-  createGpuFlowVisibleFramePublicationPreparedFrameSelector,
   createGpuFlowVisibleFramePublicationTransactionOracleFactory,
   createGpuFlowVisiblePublicationCommitOracleFactory,
+  type GpuFlowVisibleFramePublicationCandidateSet,
+  type GpuFlowVisibleFramePublicationContentCandidate,
+  type GpuFlowVisibleFramePublicationMotionCandidate,
 } from "./visibleFramePublicationOracle";
 
 const KERNEL_MODULE_PATH = fileURLToPath(
@@ -33,10 +35,44 @@ const createGpuFlowVisibleFramePublicationTransactionOracle =
   createGpuFlowVisibleFramePublicationTransactionOracleFactory();
 const createGpuFlowVisiblePublicationCommitOracle =
   createGpuFlowVisiblePublicationCommitOracleFactory();
-const selectGpuFlowVisibleFramePublicationPreparedFrame =
-  createGpuFlowVisibleFramePublicationPreparedFrameSelector();
 const createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame =
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory();
+
+function selectGpuFlowVisibleFramePublicationPreparedFrame<
+  ContentPublicationFrame extends
+    GpuFlowVisibleFramePublicationContentCandidate,
+  MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
+>({
+  contentPublicationFrame,
+  motionProjectionFrame,
+  ...oracleInput
+}: GpuFlowVisibleFramePublicationCandidateSet<
+  ContentPublicationFrame,
+  MotionProjectionFrame
+> & {
+  readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}) {
+  const transactionOracle =
+    createGpuFlowVisibleFramePublicationTransactionOracle({
+      contentPublicationFrame,
+      motionProjectionFrame,
+      ...oracleInput,
+    });
+  const preparedFrame =
+    createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame({
+      contentPublicationFrame,
+      motionProjectionFrame,
+      transactionOracle,
+    });
+  return {
+    blockedPublicationCandidate: preparedFrame.blockedPublicationCandidate,
+    blockedProof: preparedFrame.blockedProof,
+    commitOracle: preparedFrame.transactionOracle.commitOracle,
+    renderedVisibleFrame: preparedFrame.renderedVisibleFrame,
+    visibleProjectionState: preparedFrame.visibleProjectionState,
+  };
+}
 
 describe("GPU Flow visible publication transaction oracle", () => {
   it("keeps candidate-set oracle assembly out of the kernel wrapper", () => {
