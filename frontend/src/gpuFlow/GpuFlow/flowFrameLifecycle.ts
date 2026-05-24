@@ -189,7 +189,12 @@ function submitGpuFlowHtmlSurfaceDomTransformFrame({
   readonly token: GpuFlowCommitPublicationToken;
 }): void {
   assertGpuFlowCommitPublicationTokenBrand({ token });
-  domTransformSubmission.submit();
+  domTransformSubmission.submit({
+    contentFrameId: String(token.contentFrameId),
+    presentationId: String(token.presentationId),
+    projectionSampleId: String(token.projectionSampleId),
+    transactionId: token.transactionId,
+  });
 }
 
 function updateGpuFlowNodeLayerFrameState({

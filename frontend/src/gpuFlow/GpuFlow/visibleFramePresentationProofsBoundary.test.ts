@@ -616,7 +616,8 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(submitterSource).toContain(
       "assertGpuFlowCommitPublicationTokenBrand",
     );
-    expect(submitterSource).toContain("domTransformSubmission.submit()");
+    expect(submitterSource).toContain("domTransformSubmission.submit({");
+    expect(submitterSource).toContain("presentationId");
   });
 
   it("publishes frame performance only from commit-tokened node-layer publication", () => {

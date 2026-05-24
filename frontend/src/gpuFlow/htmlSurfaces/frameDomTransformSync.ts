@@ -54,10 +54,19 @@ const EMPTY_DOM_TRANSFORM_SYNC_RESULT: GpuNodeDomTransformSyncResult = {
 
 export type GpuNodeDomTransformSubmission = {
   readonly result: GpuNodeDomTransformSyncResult;
-  submit(): void;
+  submit(metadata?: GpuNodeDomTransformSubmissionMetadata): void;
 };
 
-type GpuNodeDomTransformOperation = () => void;
+export type GpuNodeDomTransformSubmissionMetadata = {
+  readonly contentFrameId: string;
+  readonly presentationId: string;
+  readonly projectionSampleId: string;
+  readonly transactionId: string;
+};
+
+type GpuNodeDomTransformOperation = (
+  metadata: GpuNodeDomTransformSubmissionMetadata | undefined,
+) => void;
 
 export function createGpuNodeDomTransformSyncCache(): GpuNodeDomTransformSyncCache {
   return {
@@ -158,7 +167,7 @@ function createGpuNodeDomTransformSubmission({
   let submitted = false;
   return Object.freeze({
     result,
-    submit: () => {
+    submit: (metadata) => {
       if (submitted) {
         throw new Error(
           "GPU node DOM transform submission cannot be submitted more than once.",
@@ -166,10 +175,49 @@ function createGpuNodeDomTransformSubmission({
       }
       submitted = true;
       for (const operation of operations) {
-        operation();
+        operation(metadata);
       }
     },
   });
+}
+
+function applyGpuNodeDomTransformSubmissionMetadata(
+  element: HTMLElement,
+  metadata: GpuNodeDomTransformSubmissionMetadata | undefined,
+) {
+  if (!metadata) {
+    return;
+  }
+  setDatasetValue(
+    element,
+    "gpuFlowDomTransformContentFrameId",
+    metadata.contentFrameId,
+  );
+  setDatasetValue(
+    element,
+    "gpuFlowDomTransformPresentationId",
+    metadata.presentationId,
+  );
+  setDatasetValue(
+    element,
+    "gpuFlowDomTransformProjectionSampleId",
+    metadata.projectionSampleId,
+  );
+  setDatasetValue(
+    element,
+    "gpuFlowDomTransformTransactionId",
+    metadata.transactionId,
+  );
+}
+
+function setDatasetValue(
+  element: HTMLElement,
+  property: string,
+  value: string,
+) {
+  if (element.dataset[property] !== value) {
+    element.dataset[property] = value;
+  }
 }
 
 function syncVisibleGpuNodeDomTransforms({
@@ -208,8 +256,9 @@ function syncVisibleGpuNodeDomTransforms({
       skippedNodeIds.push(quad.nodeId);
       continue;
     }
-    operations.push(() => {
+    operations.push((metadata) => {
       applyNodeDomTransformState(element, state);
+      applyGpuNodeDomTransformSubmissionMetadata(element, metadata);
       cache.stateByNodeId.set(quad.nodeId, state);
     });
     updatedNodeIds.push(quad.nodeId);
@@ -258,8 +307,9 @@ function parkExitedGpuNodeDomTransforms({
         skippedNodeIds.push(nodeId);
         continue;
       }
-      operations.push(() => {
+      operations.push((metadata) => {
         applyNodeDomTransformState(element, retainedState);
+        applyGpuNodeDomTransformSubmissionMetadata(element, metadata);
         cache.stateByNodeId.set(nodeId, retainedState);
       });
       continue;
@@ -304,20 +354,22 @@ export function prepareGpuNodeDomTransforms({
     }
     const visible = visibleNodeIds.has(node.nodeId);
     if (visible) {
-      operations.push(() => {
+      operations.push((metadata) => {
         applyVisibleNodeDomTransform(element, {
           height: node.height ?? 0,
           interactive: activeIds.has(node.nodeId),
           width: node.width ?? 0,
           zIndex: resolveGpuNodeZIndex(node),
         });
+        applyGpuNodeDomTransformSubmissionMetadata(element, metadata);
       });
       updatedNodeIds.push(node.nodeId);
       continue;
     }
 
-    operations.push(() => {
+    operations.push((metadata) => {
       applyCulledNodeDomTransform(element);
+      applyGpuNodeDomTransformSubmissionMetadata(element, metadata);
     });
     parkedNodeIds.push(node.nodeId);
   }

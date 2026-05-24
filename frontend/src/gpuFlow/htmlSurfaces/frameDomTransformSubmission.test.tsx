@@ -94,4 +94,45 @@ describe("HTML surface frame DOM transform submission", () => {
     expect(element.style.transform).toBe("translate(0px, 0px) scale(1)");
     expect([...domTransformCache.previousVisibleNodeIds]).toEqual(["node-a"]);
   });
+
+  it("stamps submitted DOM transforms with presentation metadata", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+    const renderer = createFrameRenderer();
+    const element = document.createElement("div");
+    const domTransformCache = createGpuNodeDomTransformSyncCache();
+
+    const frame = renderHtmlSurfaceFrame({
+      canvasSize: canvasSize(),
+      domTransformCache,
+      domTransformSubmissionMode: "deferred",
+      elementByNodeId: new Map([["node-a", element]]),
+      frame: 1,
+      nodes: [node("node-a", 10, 20, 100, 50, 0)],
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    frame.domTransformSubmission?.submit({
+      contentFrameId: "content-42",
+      presentationId: "presentation-7",
+      projectionSampleId: "sample-5",
+      transactionId: "transaction-a",
+    });
+
+    expect(element.dataset.gpuFlowDomTransformContentFrameId).toBe(
+      "content-42",
+    );
+    expect(element.dataset.gpuFlowDomTransformPresentationId).toBe(
+      "presentation-7",
+    );
+    expect(element.dataset.gpuFlowDomTransformProjectionSampleId).toBe(
+      "sample-5",
+    );
+    expect(element.dataset.gpuFlowDomTransformTransactionId).toBe(
+      "transaction-a",
+    );
+  });
 });
