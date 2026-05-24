@@ -308,9 +308,6 @@ function getGpuFlowBrowserVisualRepairActorIds(
   if (!("blockedReasons" in token)) {
     return null;
   }
-  if (token.frozenFrame.kind === "cold-start-shell") {
-    return null;
-  }
   const actorIds = token.blockedReasons.flatMap((reason) =>
     reason.actorId === null ? [] : [reason.actorId],
   );
@@ -320,6 +317,7 @@ function getGpuFlowBrowserVisualRepairActorIds(
 type GpuFlowBrowserVisualRepairSelection = {
   readonly actorIds: ReadonlySet<string> | null;
   readonly budgetSelectedResourceKeys: ReadonlySet<string> | null;
+  readonly unrestrictedToken: boolean;
 };
 
 function createGpuFlowBrowserVisualRepairSelection({
@@ -339,6 +337,7 @@ function createGpuFlowBrowserVisualRepairSelection({
       browserVisualResourceKeys.length > 0
         ? new Set(browserVisualResourceKeys)
         : null,
+    unrestrictedToken: isGpuFlowBrowserVisualUnrestrictedRepairToken(token),
   });
 }
 
@@ -358,6 +357,9 @@ function shouldPrepareGpuFlowDomControlLiveHost({
     });
   }
   if (repairSelection.actorIds) {
+    if (repairSelection.unrestrictedToken) {
+      return true;
+    }
     return repairSelection.actorIds.has(control.sourceId);
   }
   return true;
@@ -379,9 +381,20 @@ function shouldPrepareGpuFlowDomControlSnapshot({
     });
   }
   if (repairSelection.actorIds) {
+    if (repairSelection.unrestrictedToken) {
+      return true;
+    }
     return repairSelection.actorIds.has(control.sourceId);
   }
   return true;
+}
+
+function isGpuFlowBrowserVisualUnrestrictedRepairToken(
+  token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
+): boolean {
+  return (
+    "blockedReasons" in token && token.frozenFrame.kind === "cold-start-shell"
+  );
 }
 
 function hasGpuFlowBrowserVisualSelectedResourceKeyForControl({
