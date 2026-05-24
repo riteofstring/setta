@@ -4,7 +4,7 @@ import {
 } from "./columnWidthUtils";
 
 export const PARAM_COLUMN_CENTER_OFFSET_PX = 18;
-export const PARAM_MIN_VALUE_COLUMN_WIDTH_PX = 100;
+const PARAM_MIN_VALUE_COLUMN_WIDTH_PX = 100;
 
 export function calculateBoundedParamColumnRawWidth({
   containerWidth,

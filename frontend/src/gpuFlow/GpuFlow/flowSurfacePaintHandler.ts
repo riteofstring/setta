@@ -24,7 +24,7 @@ type GpuFlowSurfacePaintTextureManager = Pick<
   "getDirtySurfaces" | "markSurfaceTextureDirty" | "markSurfacesPainted"
 >;
 
-export type GpuFlowSurfacePaintInput = {
+type GpuFlowSurfacePaintInput = {
   readonly callbacks: GpuFlowCallbacks;
   readonly event: GpuFlowSurfacePaintEvent;
   readonly getFrame: () => number;

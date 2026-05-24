@@ -30,7 +30,7 @@ import {
 } from "./visibleFrameTypes";
 export { GPU_FLOW_PRESENTATION_ACTOR_FAMILIES } from "./visibleFramePresentationActors";
 
-export type GpuFlowVisibleFrameResourceStateName =
+type GpuFlowVisibleFrameResourceStateName =
   | "absent"
   | "preparing"
   | "presented"
@@ -64,7 +64,7 @@ export type GpuFlowVisibleFrameActorManifestEntry =
     readonly zOrder: number;
   };
 
-export type GpuFlowVisibleFrameActorManifest = {
+type GpuFlowVisibleFrameActorManifest = {
   readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
   readonly entries: readonly GpuFlowVisibleFrameActorManifestEntry[];
   readonly requiredActors: readonly GpuFlowVisibleFrameActorKey[];

@@ -57,7 +57,7 @@ export type GpuNodeDomTransformSubmission = {
   submit(metadata?: GpuNodeDomTransformSubmissionMetadata): void;
 };
 
-export type GpuNodeDomTransformSubmissionMetadata = {
+type GpuNodeDomTransformSubmissionMetadata = {
   readonly contentFrameId: string;
   readonly presentationId: string;
   readonly projectionSampleId: string;

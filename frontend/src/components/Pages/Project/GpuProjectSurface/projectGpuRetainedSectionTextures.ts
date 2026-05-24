@@ -1,6 +1,6 @@
 import type { GpuFlowScene } from "gpuFlow/scene";
 
-export function getProjectRetainedContentSectionIds(
+function getProjectRetainedContentSectionIds(
   scene: GpuFlowScene,
 ): ReadonlySet<string> {
   return new Set(

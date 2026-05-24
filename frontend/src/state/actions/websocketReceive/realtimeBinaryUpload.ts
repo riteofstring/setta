@@ -119,7 +119,7 @@ export function isSocketGenerationCurrent(socketGeneration: number): boolean {
   return activeWebsocketGeneration === socketGeneration;
 }
 
-export function sendBinaryMessage(
+function sendBinaryMessage(
   message: FrontendOutboundMessage,
   payload: ArrayBuffer,
 ) {

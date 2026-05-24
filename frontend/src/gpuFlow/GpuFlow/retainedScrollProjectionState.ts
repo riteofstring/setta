@@ -27,7 +27,7 @@ export function isGpuFlowVisibleProjectionStateRetainedScrollCurrent({
   );
 }
 
-export function areGpuFlowRetainedScrollOffsetMapsEqual({
+function areGpuFlowRetainedScrollOffsetMapsEqual({
   left,
   right,
 }: {

@@ -21,7 +21,7 @@ type ProjectGpuRetainedParamSearchRevealSurface = GpuContentSurface & {
   readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
 };
 
-export type ProjectGpuRetainedParamSearchRevealResult = {
+type ProjectGpuRetainedParamSearchRevealResult = {
   readonly changed: boolean;
   readonly rowCenter: GpuPoint;
   readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;

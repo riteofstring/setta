@@ -5,7 +5,7 @@ import {
   type GpuFlowBrowserStyleVisibleFrameActorFamily,
 } from "./visibleFrameActorRegistry";
 
-export type GpuFlowMissingSectionStructureActorManifestEntry = {
+type GpuFlowMissingSectionStructureActorManifestEntry = {
   readonly actorId: string;
   readonly family: GpuFlowBrowserStyleVisibleFrameActorFamily;
   readonly reason: "missing-section-structure-actor";

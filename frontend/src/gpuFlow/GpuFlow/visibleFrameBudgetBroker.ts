@@ -1,3 +1,4 @@
+import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 import type {
   GpuFlowVisibleFrameResourceGraphSnapshot,
   GpuFlowVisibleFrameResourcePreparationLane,
@@ -5,12 +6,10 @@ import type {
   GpuFlowVisibleFrameResourceStateKind,
   GpuFlowVisibleFrameResourceStateSnapshot,
 } from "./visibleFrameResourceGraph";
-import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 
-export type GpuFlowVisibleFrameBudgetPriority =
-  GpuFlowVisibleFrameResourcePriority;
+type GpuFlowVisibleFrameBudgetPriority = GpuFlowVisibleFrameResourcePriority;
 
-export type GpuFlowVisibleFrameBudgetDebtRequest = {
+type GpuFlowVisibleFrameBudgetDebtRequest = {
   readonly debtAgeFrames?: number | undefined;
   readonly deadlineFrame?: number | null | undefined;
   readonly estimatedCostMs: number;
@@ -24,7 +23,7 @@ export type GpuFlowVisibleFrameBudgetDebtRequest = {
   readonly source?: "resource-graph" | "synthetic" | undefined;
 };
 
-export type GpuFlowVisibleFrameBudgetBrokerPolicy = {
+type GpuFlowVisibleFrameBudgetBrokerPolicy = {
   readonly maxSafetyDebtAgeFrames: number;
   readonly maxContinuityDebtAgeFrames: number;
   readonly minPreparationBudgetDuringMotionMs: number;
@@ -71,7 +70,7 @@ export type GpuFlowVisibleFrameBudgetBroker = {
   }) => GpuFlowVisibleFrameBudgetBrokerDecision;
 };
 
-export const DEFAULT_GPU_FLOW_VISIBLE_FRAME_BUDGET_BROKER_POLICY: GpuFlowVisibleFrameBudgetBrokerPolicy =
+const DEFAULT_GPU_FLOW_VISIBLE_FRAME_BUDGET_BROKER_POLICY: GpuFlowVisibleFrameBudgetBrokerPolicy =
   Object.freeze({
     maxSafetyDebtAgeFrames: 1,
     maxContinuityDebtAgeFrames: 2,
@@ -510,19 +509,17 @@ function assertGpuFlowVisibleFrameBudgetDebtNotStarved({
       return lane === undefined ? [] : [lane];
     }),
   );
-  const starvedDebtIds = overBudgetDebtIds.filter(
-    (debtId) => {
-      const debt = debtById.get(debtId);
-      return (
-        !selectedDebtIdSet.has(debtId) &&
-        !isGpuFlowSyntheticBrowserVisualRepairDebt(debt) &&
-        !isGpuFlowVisibleFrameBudgetDebtLaneProgressing({
-          debt,
-          selectedPreparationLanes,
-        })
-      );
-    },
-  );
+  const starvedDebtIds = overBudgetDebtIds.filter((debtId) => {
+    const debt = debtById.get(debtId);
+    return (
+      !selectedDebtIdSet.has(debtId) &&
+      !isGpuFlowSyntheticBrowserVisualRepairDebt(debt) &&
+      !isGpuFlowVisibleFrameBudgetDebtLaneProgressing({
+        debt,
+        selectedPreparationLanes,
+      })
+    );
+  });
   if (starvedDebtIds.length === 0) {
     return;
   }

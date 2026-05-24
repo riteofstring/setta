@@ -28,11 +28,6 @@ export {
   createGpuFlowVisibleFramePresentationResourceProtectionDigest,
   createGpuFlowVisibleFramePresentationResourceProtectionReport,
 } from "./visibleFrameResourceGraphResources";
-export type {
-  GpuFlowVisibleFramePresentationResourceProtectionDigest,
-  GpuFlowVisibleFramePresentationResourceProtectionReport,
-} from "./visibleFrameResourceGraphResources";
-
 export type GpuFlowVisibleFrameResourceGraphSnapshot = {
   readonly activeEditorPins: readonly string[];
   readonly actorResourceKeys?: readonly string[] | undefined;
@@ -60,14 +55,14 @@ type GpuFlowVisibleFramePreparedContentFrameAbortResult = {
   readonly releasedCandidateResourceKeys: readonly string[];
 };
 
-export type GpuFlowVisibleFrameResourceWorkTransition = {
+type GpuFlowVisibleFrameResourceWorkTransition = {
   readonly fromState: GpuFlowVisibleFrameResourceStateKind;
   readonly ownerFrameId: number | null;
   readonly resourceKey: string;
   readonly toState: GpuFlowVisibleFrameResourceStateKind;
 };
 
-export type GpuFlowVisibleFrameResourceWorkResult = {
+type GpuFlowVisibleFrameResourceWorkResult = {
   readonly remainingQueuedResourceKeys: readonly string[];
   readonly transitions: readonly GpuFlowVisibleFrameResourceWorkTransition[];
 };
@@ -713,9 +708,7 @@ export class GpuFlowVisibleFrameResourceGraph {
       return null;
     }
     if (
-      !isGpuFlowVisibleFrameBrowserVisualPreparationLane(
-        state.preparationLane,
-      )
+      !isGpuFlowVisibleFrameBrowserVisualPreparationLane(state.preparationLane)
     ) {
       return null;
     }

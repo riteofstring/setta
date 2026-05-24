@@ -1,6 +1,6 @@
 import { roundChromeReproMs } from "state/actions/chromeRepro";
 
-export type ProjectGpuChromeReproCanvasProbe = {
+type ProjectGpuChromeReproCanvasProbe = {
   readonly alphaNonZeroRatio?: number | undefined;
   readonly available: boolean;
   readonly backingRect?: {

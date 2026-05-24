@@ -9,7 +9,7 @@ export type GpuFlowBlockedSurfaceVisibleProjectionPresentation = {
   readonly frame: GpuFlowPreparedContentFrame | null;
 };
 
-export type GpuFlowSelectedSurfaceVisibleProjectionContent = {
+type GpuFlowSelectedSurfaceVisibleProjectionContent = {
   readonly preparedContentFrame: GpuFlowPreparedContentFrame | null;
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null;

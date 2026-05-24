@@ -5,9 +5,7 @@ import type {
 } from "../preparedContentFrame";
 import { readGpuFlowBrowserVisualFaultInjection } from "./visibleFrameActorAdapters/browserVisualFaultInjection";
 
-export type GpuFlowVisibleFramePreparedActorRequirement =
-  | "maintenance"
-  | "required";
+type GpuFlowVisibleFramePreparedActorRequirement = "maintenance" | "required";
 
 export function getGpuFlowVisibleFramePreparedActorRequirement({
   activeEditorPresentationPending,

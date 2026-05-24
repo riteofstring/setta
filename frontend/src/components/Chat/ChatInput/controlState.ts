@@ -1,4 +1,3 @@
-import { type CSSProperties } from "react";
 import { type ChatDictationMode } from "utils/generatedTypes";
 import { type ChatSlashCommandDefinition } from "../chatComposerControls";
 import {
@@ -193,31 +192,5 @@ export function resolveRuntimeActivityVisibilityState(args: {
     showContextBadge,
     showRuntimeActivityCounters,
     showSubagentDropdown,
-  };
-}
-
-export function resolveSlashSuggestionsDisplayState(args: {
-  resolvedSlashPlacement: "above" | "below";
-  shouldShowSlashSuggestions: boolean;
-  slashSuggestionsPortalStyle: CSSProperties | null;
-}): {
-  canRenderSlashSuggestionsInPortal: boolean;
-  slashSuggestionsPositionClass: string;
-} {
-  const {
-    resolvedSlashPlacement,
-    shouldShowSlashSuggestions,
-    slashSuggestionsPortalStyle,
-  } = args;
-  return {
-    canRenderSlashSuggestionsInPortal:
-      shouldShowSlashSuggestions &&
-      slashSuggestionsPortalStyle !== null &&
-      typeof document !== "undefined" &&
-      Boolean(document.body),
-    slashSuggestionsPositionClass:
-      resolvedSlashPlacement === "below"
-        ? "top-[calc(100%+4px)]"
-        : "bottom-[calc(100%+4px)]",
   };
 }

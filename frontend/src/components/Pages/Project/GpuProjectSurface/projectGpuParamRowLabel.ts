@@ -4,7 +4,7 @@ import { getParamDisplayNameIfPresent } from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
 import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 
-export type ProjectGpuParamRowLabel = {
+type ProjectGpuParamRowLabel = {
   readonly label: string;
   readonly labelAppearance: GpuRetainedContentLabelAppearance;
 };

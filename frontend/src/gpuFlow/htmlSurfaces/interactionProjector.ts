@@ -18,7 +18,7 @@ type HtmlSurfaceInteractionProjectionInput = {
   readonly surfaceY: number;
 };
 
-export type HtmlSurfaceInteractionPresentationMetadata = {
+type HtmlSurfaceInteractionPresentationMetadata = {
   readonly contentFrameId: string;
   readonly presentationId: string;
   readonly projectionSampleId: string;

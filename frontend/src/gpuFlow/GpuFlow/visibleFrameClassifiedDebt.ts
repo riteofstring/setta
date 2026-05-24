@@ -1,4 +1,4 @@
-export type GpuFlowVisibleFrameClassifiedDebtEntry = {
+type GpuFlowVisibleFrameClassifiedDebtEntry = {
   readonly active: boolean;
   readonly ageFrames: number;
   readonly ageMs: number;
@@ -10,7 +10,7 @@ export type GpuFlowVisibleFrameClassifiedDebt = {
   readonly safety: GpuFlowVisibleFrameClassifiedDebtEntry;
 };
 
-export type GpuFlowVisibleFrameClassifiedDebtTracker = {
+type GpuFlowVisibleFrameClassifiedDebtTracker = {
   active: boolean;
   ageFrames: number;
   firstActiveAtMs: number | null;

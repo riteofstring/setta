@@ -349,7 +349,7 @@ type AtomicallyPublishedProjectStoreState = {
 let stagedProjectStorePublication: AtomicallyPublishedProjectStoreState | null =
   null;
 
-export function patchPublishedProjectStoreGetState<TState>(
+function patchPublishedProjectStoreGetState<TState>(
   store: {
     getState: () => TState;
   },
@@ -367,13 +367,12 @@ export function patchPublishedProjectStoreGetState<TState>(
   }) as typeof store.getState;
 }
 
-export const readRawProjectState =
-  useProjectState.getState.bind(useProjectState);
+const readRawProjectState = useProjectState.getState.bind(useProjectState);
 
 const readRawActiveSectionUIState =
   useActiveSectionUI.getState.bind(useActiveSectionUI);
 
-export const readRawNodeInternalsState =
+const readRawNodeInternalsState =
   useNodeInternals.getState.bind(useNodeInternals);
 
 patchPublishedProjectStoreGetState(

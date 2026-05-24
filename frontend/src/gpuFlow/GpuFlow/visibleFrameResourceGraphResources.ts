@@ -16,14 +16,14 @@ import type {
   GpuFlowVisibleFrameResourcePriority,
 } from "./visibleFrameResourceGraph";
 
-export type GpuFlowVisibleFramePresentationResourceProtectionReport = {
+type GpuFlowVisibleFramePresentationResourceProtectionReport = {
   readonly missingResourceKeys: readonly string[];
   readonly protected: boolean;
   readonly protectedResourceKeys: readonly string[];
   readonly requiredResourceKeys: readonly string[];
 };
 
-export type GpuFlowVisibleFramePresentationResourceProtectionDigest = string;
+type GpuFlowVisibleFramePresentationResourceProtectionDigest = string;
 
 export type GpuFlowVisibleFrameCandidateResourceEntry = {
   readonly activeEditorPins: readonly string[];

@@ -142,31 +142,6 @@ export function cacheProjectGpuFlowScene(
   ].slice(0, MAX_PROJECT_GPU_FLOW_SCENE_CACHE_ENTRIES);
 }
 
-export function prewarmProjectGpuFlowSceneCache(
-  projectState: ZustandProjectState,
-  options: ProjectGpuFlowSceneOptions,
-  resolveScene: (
-    projectState: ZustandProjectState,
-    options: ProjectGpuFlowSceneOptions,
-  ) => GpuFlowScene,
-): void {
-  const activeViewModeId = projectState.projectConfig.activeViewModeId;
-  const inactiveViewModes = Object.values(projectState.projectConfig.viewModes)
-    .filter((mode) => mode.id !== activeViewModeId)
-    .sort(
-      (left, right) =>
-        (left.sortIndex ?? Number.MAX_SAFE_INTEGER) -
-        (right.sortIndex ?? Number.MAX_SAFE_INTEGER),
-    )
-    .slice(0, MAX_PROJECT_GPU_FLOW_PREWARM_VIEW_MODES);
-  for (const viewMode of inactiveViewModes) {
-    resolveScene(
-      createProjectStateForGpuFlowViewMode(projectState, viewMode.id),
-      options,
-    );
-  }
-}
-
 export function getProjectGpuFlowPrewarmViewModeIds(
   projectState: ZustandProjectState,
 ): readonly string[] {
@@ -258,8 +233,7 @@ export function createProjectGpuFlowSceneCacheKey(
     ),
     activeViewModeId: projectState.projectConfig.activeViewModeId,
     activeViewModeTopLevelSections: activeViewMode?.topLevelSections,
-    activeViewModeVisibilityBySectionId:
-      activeViewMode?.visibilityBySectionId,
+    activeViewModeVisibilityBySectionId: activeViewMode?.visibilityBySectionId,
     isEditingViewMode: projectState.projectConfig.isEditingViewMode,
     projectTopLevelSections: projectState.projectConfig.topLevelSections,
     projectSearchFocused: options.projectSearch?.focused,

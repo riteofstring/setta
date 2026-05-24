@@ -126,11 +126,7 @@ import { getProjectSectionSceneKwargsControlsHeight } from "./projectSectionScen
 import { getProjectSectionSceneLinkPortAnchors } from "./projectSectionSceneLinkAnchors";
 import { getProjectSectionSceneSearchHeight } from "./projectSectionSceneSearchLayout";
 
-export {
-  resolveProjectGpuResizePreviewScene,
-  type ProjectGpuFlowSceneOptions,
-  type ProjectGpuResizePreviewSceneInput,
-} from "./projectGpuFlowSceneFactory";
+export { resolveProjectGpuResizePreviewScene } from "./projectGpuFlowSceneFactory";
 export { syncProjectGpuLayoutStoreFromScene } from "./projectGpuLayoutAdapterScheduling";
 export type {
   ProjectGpuActiveParamCanvasPopup,

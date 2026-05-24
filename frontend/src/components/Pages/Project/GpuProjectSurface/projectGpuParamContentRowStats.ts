@@ -17,7 +17,7 @@ import {
 import type { ProjectGpuParamContentSectionImpl } from "./projectGpuParamContentSection";
 import { getProjectGpuParamRowHeightForCodeObjType } from "./projectGpuParamRowHeight";
 
-export type ProjectGpuParamRetainedListRowStats = {
+type ProjectGpuParamRetainedListRowStats = {
   readonly endsWithNestedRow: boolean;
   readonly hasNestedBlockBottomChrome: boolean;
   readonly maxNestedDepth: number;
@@ -213,7 +213,7 @@ function getProjectGpuParamRowsContentHeight({
   }, 0);
 }
 
-export function getProjectGpuParamRowsVerticalGapHeight(
+function getProjectGpuParamRowsVerticalGapHeight(
   rows: readonly {
     readonly depth: number;
     readonly isParent: boolean;

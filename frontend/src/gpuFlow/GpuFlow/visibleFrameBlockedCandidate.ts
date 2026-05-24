@@ -157,7 +157,7 @@ export function createGpuFlowFrozenPreviousSafeBlockedReasons({
   );
 }
 
-export function createGpuFlowColdStartSafeBlockedReasons({
+function createGpuFlowColdStartSafeBlockedReasons({
   blockedReasons,
 }: {
   readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];

@@ -36,32 +36,6 @@ export function getProjectGpuRenderableTopLevelSectionIds(
   });
 }
 
-export function getProjectGpuSceneSectionIds(
-  projectState: ZustandProjectState,
-): readonly string[] {
-  const sectionIds: string[] = [];
-  const seenSectionIds = new Set<string>();
-  for (const sectionId of getProjectGpuRenderableTopLevelSectionIds(
-    projectState,
-  )) {
-    const sectionImpl = getCurrEffectiveSectionImplIfPresent(
-      projectState,
-      sectionId,
-    );
-    if (!sectionImpl) {
-      continue;
-    }
-    appendProjectGpuSceneSectionIds({
-      projectState,
-      sectionId,
-      sectionIds,
-      sectionImpl,
-      seenSectionIds,
-    });
-  }
-  return sectionIds;
-}
-
 export function getRenderableProjectChildSectionIds(
   projectState: ZustandProjectState,
   sectionId: string,
@@ -104,47 +78,4 @@ export function shouldRenderProjectSceneSection(
     return true;
   }
   return getSectionShouldRender(visibility, isEditingViewMode);
-}
-
-function appendProjectGpuSceneSectionIds({
-  projectState,
-  sectionId,
-  sectionIds,
-  sectionImpl,
-  seenSectionIds,
-}: {
-  readonly projectState: ZustandProjectState;
-  readonly sectionId: string;
-  readonly sectionIds: string[];
-  readonly sectionImpl: BaseSectionImplUnion;
-  readonly seenSectionIds: Set<string>;
-}) {
-  if (seenSectionIds.has(sectionId)) {
-    throw new Error(`Duplicate project GPU scene section ${sectionId}.`);
-  }
-  seenSectionIds.add(sectionId);
-  sectionIds.push(sectionId);
-  for (const childSectionId of getRenderableProjectChildSectionIds(
-    projectState,
-    sectionId,
-    sectionImpl,
-  )) {
-    if (!shouldRenderProjectSceneSection(projectState, childSectionId)) {
-      continue;
-    }
-    const childImpl = getCurrEffectiveSectionImplIfPresent(
-      projectState,
-      childSectionId,
-    );
-    if (!childImpl) {
-      continue;
-    }
-    appendProjectGpuSceneSectionIds({
-      projectState,
-      sectionId: childSectionId,
-      sectionIds,
-      sectionImpl: childImpl,
-      seenSectionIds,
-    });
-  }
 }

@@ -67,7 +67,7 @@ export type HtmlSurfaceFrameTextureEvictionSubmission = {
   submit(): HtmlSurfaceTextureEvictionResult;
 };
 
-export type HtmlSurfaceFrameTextureEvictionWork = {
+type HtmlSurfaceFrameTextureEvictionWork = {
   readonly result: HtmlSurfaceTextureEvictionResult;
   readonly submission: HtmlSurfaceFrameTextureEvictionSubmission | null;
 };
@@ -284,7 +284,7 @@ export function prepareHtmlSurfaceVisualSceneSubmission({
   });
 }
 
-export function evictHtmlSurfaceFrameTextures({
+function evictHtmlSurfaceFrameTextures({
   nodeTextureMemoryBudgetBytes,
   protectedTextureSurfaceIds,
   retainedNodeIds,

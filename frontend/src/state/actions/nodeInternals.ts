@@ -279,21 +279,6 @@ export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
   useNodeInternals.setState({ x: newNodes });
 }
 
-export function raiseTempZIndex(nodes: Array<Node>) {
-  const newNodes = getNewNodes();
-  for (const [, n] of newNodes) {
-    n.tempZIndex = n.zIndex;
-  }
-  for (const n of nodes) {
-    const node = newNodes.get(n.id);
-    if (!node) {
-      throw new Error(`Missing node ${n.id}`);
-    }
-    node.tempZIndex = node.zIndex + 1000;
-  }
-  useNodeInternals.setState({ x: newNodes });
-}
-
 export function moveNodes(
   nodeMoves: Array<{
     id: string;

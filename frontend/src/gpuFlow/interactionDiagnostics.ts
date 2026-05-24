@@ -127,7 +127,7 @@ export type GpuFlowInteractionDiagnostics = {
   };
 };
 
-export type GpuFlowVisibleProjectionDebugEntry = {
+type GpuFlowVisibleProjectionDebugEntry = {
   readonly preparedContentFrameId: number;
   readonly retainedScrollRevision: number;
   readonly sampleId: number;

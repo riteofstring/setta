@@ -14,6 +14,5 @@ export type {
   SettaCollision,
 } from "./types";
 export { useDndMonitor } from "./useDndMonitor";
-export { useDraggable } from "./useDraggable";
 export { useDroppable } from "./useDroppable";
 export { useSortable } from "./useSortable";

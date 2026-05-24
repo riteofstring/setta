@@ -11,7 +11,7 @@ export type ProjectGpuRetainedContentScrollSetter = (
   offsets: GpuRetainedContentScrollOffsetMap,
 ) => void;
 
-export type ProjectGpuRetainedContentRuntimeAdapter = {
+type ProjectGpuRetainedContentRuntimeAdapter = {
   readonly contentScrollCommandRevision: number;
   readonly getContentScrollOffsets: () => GpuRetainedContentScrollOffsetMap;
   readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;

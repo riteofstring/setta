@@ -13,7 +13,6 @@ export {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuardIfPresent,
   getCurrIFrameSectionImpl,
-  getCurrSectionVariant,
   getCurrSectionVariantId,
   getEmbeddedAttachedTerminalForCodeSection,
   getEmbeddedAttachedTerminalParentIdForTerminalSection,

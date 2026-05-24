@@ -7,16 +7,16 @@ export type GpuFlowBrowserVisualResourceWorkOutcome =
   | "blocked"
   | "held-previous";
 
-export type GpuFlowBrowserVisualResourceReadinessState =
+type GpuFlowBrowserVisualResourceReadinessState =
   | "preparing"
   | "ready"
   | "requested";
 
-export type GpuFlowBrowserVisualResourceWakeupSource =
+type GpuFlowBrowserVisualResourceWakeupSource =
   | "blocked-presentation"
   | "immediate-frame-request";
 
-export type GpuFlowBrowserVisualResourceWorkSnapshot = Omit<
+type GpuFlowBrowserVisualResourceWorkSnapshot = Omit<
   GpuFlowBrowserVisualResourceWorkRequest,
   "debtAgeFrames" | "readinessState" | "wakeupSource"
 > & {

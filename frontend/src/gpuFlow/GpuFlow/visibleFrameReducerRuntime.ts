@@ -89,12 +89,12 @@ export type GpuFlowVisibleFrameReducerCompletion = {
   readonly debt: GpuFlowVisibleFrameReducerDebt;
   readonly outcome: GpuFlowVisibleFrameReducerCompletionOutcome["kind"];
 };
-export type GpuFlowVisibleFrameReducerPresentCompletionOutcome = {
+type GpuFlowVisibleFrameReducerPresentCompletionOutcome = {
   readonly debtProof: GpuFlowVisibleFrameReducerDebtProof;
   readonly kind: "present";
   readonly token: GpuFlowVisibleFramePresentationToken;
 };
-export type GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome =
+type GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome =
   | {
       readonly kind: "hold-previous";
       readonly token: GpuFlowHoldPreviousToken;
@@ -992,8 +992,4 @@ export {
   hasGpuFlowVisibleFrameReducerDebt,
   shouldDeferGpuFlowMaintenanceContentCatchup,
 } from "./visibleFrameReducerDebt";
-export type {
-  GpuFlowVisibleFrameClassifiedDebt,
-  GpuFlowVisibleFrameClassifiedDebtEntry,
-} from "./visibleFrameClassifiedDebt";
 export { reduceGpuFlowVisibleFrameReducerDecision } from "./visibleFrameStateMachine";
