@@ -5,7 +5,7 @@ import {
 } from "../projectionRuntime";
 import {
   runGpuFlowVisibleFrameCoordinator,
-  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFrameBlockedPresentationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameCoordinator";
 import {
@@ -15,7 +15,7 @@ import {
   type GpuFlowVisibleFramePresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import type {
-  GpuFlowBlockedPublicationToken,
+  GpuFlowBlockedPresentationToken,
   GpuFlowBlockedVisibleReason,
   GpuFlowHoldPreviousToken,
   GpuFlowVisibleFramePresentationToken,
@@ -23,7 +23,7 @@ import type {
 import { createGpuFlowVisibleFrameReducerRuntime } from "./visibleFrameReducerRuntime";
 
 type GpuFlowVisibleFramePublicationTestCandidate = {
-  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence | null;
   readonly rendered: boolean;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -130,18 +130,18 @@ export function createGpuFlowVisibleFrameHoldPreviousTokenForTest({
   return result.outcome.token;
 }
 
-export function createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+export function createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
   blockedReasons,
   frozenFrameId,
   projectionSample,
 }: {
   readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
-  readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
+  readonly frozenFrameId: GpuFlowBlockedPresentationToken["frozenFrameId"];
   readonly projectionSample: GpuFlowLiveProjectionSample;
-}): GpuFlowBlockedPublicationToken {
+}): GpuFlowBlockedPresentationToken {
   const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
     contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
-      blockedPublicationCandidate: {
+      blockedPresentationCandidate: {
         blockedReasons,
         frozenFrameId,
       },
@@ -187,13 +187,13 @@ function runGpuFlowVisibleFramePublicationTestTokenKernel({
 }
 
 function createGpuFlowVisibleFramePublicationTestCandidate({
-  blockedPublicationCandidate = null,
+  blockedPresentationCandidate = null,
   presentationEvidence = null,
   rendered = false,
   visibleProjectionState = null,
 }: Partial<GpuFlowVisibleFramePublicationTestCandidate> = {}): GpuFlowVisibleFramePublicationTestCandidate {
   return {
-    blockedPublicationCandidate,
+    blockedPresentationCandidate,
     presentationEvidence,
     rendered,
     visibleProjectionState,

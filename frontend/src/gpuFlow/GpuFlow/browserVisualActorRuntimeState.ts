@@ -20,7 +20,7 @@ import {
 } from "./visibleFrameBrowserVisualResourceKeys";
 import { setGpuFlowVisibleFrameIdentityAttributes } from "./visibleFrameIdentityAttributes";
 import type {
-  GpuFlowBlockedPublicationToken,
+  GpuFlowBlockedPresentationToken,
   GpuFlowHoldPreviousToken,
   GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
@@ -162,7 +162,7 @@ export function resolveGpuFlowDomControlLiveHostPreparationStage({
   ) => boolean;
   readonly preparedDomControls: GpuFlowBrowserVisualActorRuntimeSnapshot["domControls"];
   readonly selectedResourceKeys?: readonly string[] | undefined;
-  readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
+  readonly token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken;
 }): readonly GpuRetainedDomControlSourceDescriptor[] {
   const repairSelection = createGpuFlowBrowserVisualRepairSelection({
     selectedResourceKeys,
@@ -214,7 +214,7 @@ export function resolveGpuFlowDomControlSnapshotPreparationStage({
   readonly domControlSnapshotTextureManager: GpuFlowDomControlSnapshotTextureManager | null;
   readonly preparedDomControls: GpuFlowBrowserVisualActorRuntimeSnapshot["domControls"];
   readonly selectedResourceKeys?: readonly string[] | undefined;
-  readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
+  readonly token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken;
 }): readonly GpuRetainedDomControlSourceDescriptor[] {
   const repairSelection = createGpuFlowBrowserVisualRepairSelection({
     selectedResourceKeys,
@@ -310,7 +310,7 @@ function isDomControlSnapshotPreparationAssignment(
 }
 
 function getGpuFlowBrowserVisualRepairActorIds(
-  token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
+  token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken,
 ): ReadonlySet<string> | null {
   if (!("blockedReasons" in token)) {
     return null;
@@ -332,7 +332,7 @@ function createGpuFlowBrowserVisualRepairSelection({
   token,
 }: {
   readonly selectedResourceKeys?: readonly string[] | undefined;
-  readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
+  readonly token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken;
 }): GpuFlowBrowserVisualRepairSelection {
   const browserVisualResourceKeys =
     selectedResourceKeys?.filter(
@@ -403,7 +403,7 @@ function shouldPrepareGpuFlowDomControlSnapshot({
 }
 
 function isGpuFlowBrowserVisualUnrestrictedRepairToken(
-  token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
+  token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken,
 ): boolean {
   return (
     "blockedReasons" in token && token.frozenFrame.kind === "cold-start-shell"

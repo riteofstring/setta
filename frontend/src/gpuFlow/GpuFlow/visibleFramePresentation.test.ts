@@ -14,7 +14,7 @@ import {
   type GpuFlowVisibleFramePresentationRuntime,
 } from "./visibleFramePresentation";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameBlockedPresentationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
   createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
@@ -577,7 +577,7 @@ describe("GPU Flow surface publication completion", () => {
       id: 51,
       timestamp: 51,
     });
-    const token = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+    const token = createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
       blockedReasons: [
         {
           actorId: "retained-dom-control:a",
@@ -639,7 +639,7 @@ describe("GPU Flow surface publication completion", () => {
     >[0]);
 
     presentationBoundary(
-      blockedPublicationTransaction({
+      blockedPresentationTransaction({
         blockedFrame,
         debtFrameRequest: {
           delayMs: null,
@@ -671,7 +671,7 @@ describe("GPU Flow surface publication completion", () => {
       id: 61,
       timestamp: 61,
     });
-    const token = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+    const token = createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
       blockedReasons: [],
       frozenFrameId: blockedFrame.displayFrameId,
       projectionSample: sample,
@@ -711,7 +711,7 @@ describe("GPU Flow surface publication completion", () => {
     >[0]);
 
     presentationBoundary(
-      blockedPublicationTransaction({
+      blockedPresentationTransaction({
         blockedFrame,
         blockedPreservePreparationSnapshot: true,
         debtFrameRequest: null,
@@ -748,7 +748,7 @@ describe("GPU Flow surface publication completion", () => {
       id: 62,
       timestamp: 62,
     });
-    const token = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+    const token = createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
       blockedReasons: [
         {
           actorId: null,
@@ -797,7 +797,7 @@ describe("GPU Flow surface publication completion", () => {
     >[0]);
 
     presentationBoundary(
-      blockedPublicationTransaction({
+      blockedPresentationTransaction({
         blockedFrame,
         blockedPreservePreparationSnapshot: true,
         blockedResourceWork: resourceWork,
@@ -1029,12 +1029,12 @@ function browserVisualResourceWork(
       representationKind: "blocked-awaiting-live-host",
       sourceHostIdentity: `actor-${index}`,
       sourceRect: null,
-      wakeupSource: "blocked-publication" as const,
+      wakeupSource: "blocked-presentation" as const,
     })),
   };
 }
 
-function blockedPublicationTransaction({
+function blockedPresentationTransaction({
   blockedFrame,
   blockedPreservePreparationSnapshot = false,
   blockedResourceWork = null,
@@ -1055,7 +1055,7 @@ function blockedPublicationTransaction({
   readonly sample: GpuFlowLiveProjectionSample;
   readonly reducerCompletion: unknown;
   readonly token: ReturnType<
-    typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
+    typeof createGpuFlowVisibleFrameBlockedPresentationTokenForTest
   >;
 }): GpuFlowSurfacePublicationTransaction {
   return {

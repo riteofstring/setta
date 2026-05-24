@@ -17,7 +17,7 @@ import {
   shouldSelectGpuFlowSettledExplicitContentRepairLane,
   type GpuFlowVisibleFrameReducerState,
 } from "../projectionSchedulerPolicy";
-import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
+import { createGpuFlowRetainedProjectionBlockedPresentationCandidate } from "./visibleFrameBlockedCandidate";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 import type {
   GpuFlowMotionProjectionFramePreparation,
@@ -180,7 +180,7 @@ export function reduceGpuFlowVisibleFrameMotionProjectionTransaction({
 }): GpuFlowProjectionFrameTransaction {
   if (!requestedProjectionCoverageMissing) {
     return {
-      blockedPublicationCandidate: null,
+      blockedPresentationCandidate: null,
       blockedReason: null,
       heldPreviousProjection: null,
       retainedProjectionFrame: requestedRetainedProjectionFrame,
@@ -205,7 +205,7 @@ export function reduceGpuFlowVisibleFrameMotionProjectionTransaction({
       requestedSample: requestedTransaction.sample,
     });
     return {
-      blockedPublicationCandidate: null,
+      blockedPresentationCandidate: null,
       blockedReason: null,
       heldPreviousProjection,
       retainedProjectionFrame: requestedRetainedProjectionFrame,
@@ -214,8 +214,8 @@ export function reduceGpuFlowVisibleFrameMotionProjectionTransaction({
   }
   const blockedReason = "retained-projection-coverage-missing";
   return {
-    blockedPublicationCandidate:
-      createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+    blockedPresentationCandidate:
+      createGpuFlowRetainedProjectionBlockedPresentationCandidate({
         blockedReason,
         heldPreviousProjectionState: previousVisibleProjectionState,
       }),
@@ -256,10 +256,10 @@ export function reduceGpuFlowMotionProjectionFramePreparation<
       requestedRetainedProjectionFrame,
       requestedTransaction: preparation.requestedTransaction,
     });
-  if (projectionFrameTransaction.blockedPublicationCandidate !== null) {
+  if (projectionFrameTransaction.blockedPresentationCandidate !== null) {
     return preparation.createBlockedProjectionFrame({
-      blockedPublicationCandidate:
-        projectionFrameTransaction.blockedPublicationCandidate,
+      blockedPresentationCandidate:
+        projectionFrameTransaction.blockedPresentationCandidate,
     });
   }
   const projectionFrameRenderPlan = selectGpuFlowProjectionFrameRenderPlan({
@@ -313,7 +313,7 @@ function selectGpuFlowProjectionFrameRenderPlan({
 function assertGpuFlowProjectionFrameTransactionRenderable(
   projectionFrameTransaction: GpuFlowProjectionFrameTransaction,
 ): void {
-  if (projectionFrameTransaction.blockedPublicationCandidate !== null) {
+  if (projectionFrameTransaction.blockedPresentationCandidate !== null) {
     throw new Error(
       "GPU Flow projection frame render plans require a nonblocked projection transaction.",
     );

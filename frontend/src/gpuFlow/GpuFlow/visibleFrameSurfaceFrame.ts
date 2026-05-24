@@ -42,7 +42,7 @@ import {
   type GpuFlowMotionProjectionWorkPlan,
   type GpuFlowProjectionFrameRenderablePlan,
   type GpuFlowRetainedPreparedContentFramePublicationContentStageRunner,
-  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFrameBlockedPresentationCandidate,
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
 } from "./visibleFrameCoordinator";
 import {
@@ -50,7 +50,7 @@ import {
   type GpuFlowVisibleFramePresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import type {
-  GpuFlowBlockedPublicationToken,
+  GpuFlowBlockedPresentationToken,
   GpuFlowHoldPreviousToken,
   GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
@@ -74,7 +74,7 @@ type GpuFlowSurfaceFrameEvent = Parameters<
 >[1];
 
 type GpuFlowMotionProjectionFrameResult = {
-  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence | null;
   readonly projectionOnlyFrameWork: GpuFlowMotionProjectionFrameWorkReport | null;
@@ -102,7 +102,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   | "viewportFrame"
 > & {
   readonly abortPreparedContentFrame: (
-    token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
+    token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken,
     frame: GpuFlowPreparedContentFrame,
     options?:
       | {
@@ -323,7 +323,7 @@ export function renderGpuFlowSurfaceFrame({
         frameMeasureDetail.contentPresentedSurfacePublished =
           contentPreparationFrame.preparedContentFrame !== null;
         frameMeasureDetail.contentBlocked =
-          contentPreparationFrame.blockedPublicationCandidate !== null;
+          contentPreparationFrame.blockedPresentationCandidate !== null;
         frameMeasureDetail.contentForceImmediateDebtFrame =
           contentPreparationFrame.forceImmediateReducerDebtFrame;
         finishCompletionMeasure = startGpuFlowPerformanceMeasure(
@@ -498,9 +498,9 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
     };
   }
   return {
-    createBlockedProjectionFrame: ({ blockedPublicationCandidate }) =>
+    createBlockedProjectionFrame: ({ blockedPresentationCandidate }) =>
       createGpuFlowMotionProjectionFrameResult({
-        blockedPublicationCandidate,
+        blockedPresentationCandidate,
         rendered: false,
       }),
     kind: "render",
@@ -605,15 +605,15 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
 }
 
 function createGpuFlowMotionProjectionFrameResult({
-  blockedPublicationCandidate = null,
+  blockedPresentationCandidate = null,
   nodeLayerFrameStatePublication = null,
   presentationEvidence,
   projectionOnlyFrameWork = null,
   rendered,
   visibleProjectionState = null,
 }: {
-  readonly blockedPublicationCandidate?:
-    | GpuFlowVisibleFrameBlockedPublicationCandidate
+  readonly blockedPresentationCandidate?:
+    | GpuFlowVisibleFrameBlockedPresentationCandidate
     | null
     | undefined;
   readonly nodeLayerFrameStatePublication?:
@@ -635,7 +635,7 @@ function createGpuFlowMotionProjectionFrameResult({
     | undefined;
 }): GpuFlowMotionProjectionFrameResult {
   return {
-    blockedPublicationCandidate,
+    blockedPresentationCandidate,
     nodeLayerFrameStatePublication,
     presentationEvidence:
       presentationEvidence ??

@@ -1,6 +1,6 @@
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
-  assertGpuFlowBlockedPublicationTokenForProjectionSample,
+  assertGpuFlowBlockedPresentationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
   assertGpuFlowVisibleFramePresentationTokenForProjectionSample,
 } from "./visibleFramePresentationProofs";
@@ -10,18 +10,18 @@ import {
   type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 
-type GpuFlowBlockedPublicationDebt = {
+type GpuFlowBlockedPresentationDebt = {
   readonly firstBlockedAtMs: number;
   readonly frameCount: number;
   readonly key: string;
 };
 
-const blockedPublicationDebtBySurface = new WeakMap<
+const blockedPresentationDebtBySurface = new WeakMap<
   GpuSurfaceHandle,
-  GpuFlowBlockedPublicationDebt
+  GpuFlowBlockedPresentationDebt
 >();
 
-export function recordGpuFlowBlockedPublicationGuard({
+export function recordGpuFlowBlockedPresentationGuard({
   outcome,
   reducerDecision,
   surface,
@@ -30,7 +30,7 @@ export function recordGpuFlowBlockedPublicationGuard({
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly surface: GpuSurfaceHandle | null;
 }): void {
-  assertGpuFlowBlockedPublicationGuardOutcomeToken({
+  assertGpuFlowBlockedPresentationGuardOutcomeToken({
     outcome,
     reducerDecision,
   });
@@ -38,11 +38,11 @@ export function recordGpuFlowBlockedPublicationGuard({
     return;
   }
   if (outcome.kind !== "blocked") {
-    blockedPublicationDebtBySurface.delete(surface);
+    blockedPresentationDebtBySurface.delete(surface);
     return;
   }
-  const key = createGpuFlowBlockedPublicationDebtKey(outcome);
-  const previousDebt = blockedPublicationDebtBySurface.get(surface);
+  const key = createGpuFlowBlockedPresentationDebtKey(outcome);
+  const previousDebt = blockedPresentationDebtBySurface.get(surface);
   const debt =
     previousDebt?.key === key
       ? {
@@ -55,10 +55,10 @@ export function recordGpuFlowBlockedPublicationGuard({
           frameCount: 1,
           key,
         };
-  blockedPublicationDebtBySurface.set(surface, debt);
+  blockedPresentationDebtBySurface.set(surface, debt);
   if (
-    isGpuFlowBlockedPublicationFailFastRuntime() &&
-    isGpuFlowBlockedPublicationBudgetExceeded({
+    isGpuFlowBlockedPresentationFailFastRuntime() &&
+    isGpuFlowBlockedPresentationBudgetExceeded({
       ageMs: Math.max(
         0,
         reducerDecision.sample.timestamp - debt.firstBlockedAtMs,
@@ -80,7 +80,7 @@ export function recordGpuFlowBlockedPublicationGuard({
   }
 }
 
-function assertGpuFlowBlockedPublicationGuardOutcomeToken({
+function assertGpuFlowBlockedPresentationGuardOutcomeToken({
   outcome,
   reducerDecision,
 }: {
@@ -102,7 +102,7 @@ function assertGpuFlowBlockedPublicationGuardOutcomeToken({
       });
       return;
     case "blocked":
-      assertGpuFlowBlockedPublicationTokenForProjectionSample({
+      assertGpuFlowBlockedPresentationTokenForProjectionSample({
         projectionSampleId,
         token: outcome.token,
       });
@@ -110,7 +110,7 @@ function assertGpuFlowBlockedPublicationGuardOutcomeToken({
   }
 }
 
-function createGpuFlowBlockedPublicationDebtKey(
+function createGpuFlowBlockedPresentationDebtKey(
   outcome: Extract<
     GpuFlowVisibleFrameReducerCompletionOutcome,
     { readonly kind: "blocked" }
@@ -122,7 +122,7 @@ function createGpuFlowBlockedPublicationDebtKey(
   ]);
 }
 
-function isGpuFlowBlockedPublicationBudgetExceeded({
+function isGpuFlowBlockedPresentationBudgetExceeded({
   ageMs,
   frameCount,
 }: {
@@ -136,6 +136,6 @@ function isGpuFlowBlockedPublicationBudgetExceeded({
   );
 }
 
-function isGpuFlowBlockedPublicationFailFastRuntime(): boolean {
+function isGpuFlowBlockedPresentationFailFastRuntime(): boolean {
   return typeof process !== "undefined" && process.env.NODE_ENV === "test";
 }

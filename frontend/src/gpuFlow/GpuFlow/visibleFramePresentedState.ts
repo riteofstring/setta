@@ -17,7 +17,7 @@ import {
 } from "./visibleFrameBudgetBroker";
 import {
   assertGpuFlowPreparedCandidateAbortToken,
-  type GpuFlowBlockedPublicationToken,
+  type GpuFlowBlockedPresentationToken,
   type GpuFlowHoldPreviousToken,
   type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
@@ -153,7 +153,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
   );
   const abortPreparedContentFrame = useCallback(
     (
-      token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
+      token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken,
       frame: GpuFlowPreparedContentFrame,
       options?:
         | {

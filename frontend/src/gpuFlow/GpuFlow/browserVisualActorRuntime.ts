@@ -62,7 +62,7 @@ import { setGpuFlowVisibleFrameIdentityAttributes } from "./visibleFrameIdentity
 import {
   assertGpuFlowPreparedCandidateAbortToken,
   assertGpuFlowVisibleFramePresentationTokenForFrameId,
-  type GpuFlowBlockedPublicationToken,
+  type GpuFlowBlockedPresentationToken,
   type GpuFlowHoldPreviousToken,
   type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
@@ -275,7 +275,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   }: {
     readonly candidate: GpuFlowBrowserVisualActorCandidate;
     readonly selectedResourceKeys?: readonly string[] | undefined;
-    readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
+    readonly token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken;
   }): void {
     assertGpuFlowPreparedCandidateAbortToken({ token });
     this.stageBrowserVisualPreparation({
@@ -313,7 +313,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     token,
   }: {
     readonly candidate: GpuFlowBrowserVisualActorCandidate;
-    readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
+    readonly token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken;
   }): void {
     assertGpuFlowPreparedCandidateAbortToken({ token });
     if (
@@ -740,7 +740,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   }: {
     readonly preparedSnapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
     readonly selectedResourceKeys?: readonly string[] | undefined;
-    readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
+    readonly token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken;
   }): void {
     const preparedDomControls = preparedSnapshot.domControls;
     const preparedMountedControls =

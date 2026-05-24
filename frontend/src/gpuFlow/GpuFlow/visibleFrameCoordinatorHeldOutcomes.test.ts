@@ -14,11 +14,11 @@ import {
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
-import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
+import { createGpuFlowRetainedProjectionBlockedPresentationCandidate } from "./visibleFrameBlockedCandidate";
 import { createGpuFlowPreparedContentFramePublicationFramePlanPreparer } from "./visibleFrameContentPlan";
 import {
   runGpuFlowVisibleFrameCoordinator,
-  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFrameBlockedPresentationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameCoordinator";
 
@@ -31,7 +31,7 @@ const preparePreparedContentFramePublicationFramePlanForTest =
 describe("GPU Flow visible frame coordinator held outcomes", () => {
   it("creates first-class cold-start shell candidates for retained projection blocks", () => {
     const candidate =
-      createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+      createGpuFlowRetainedProjectionBlockedPresentationCandidate({
         blockedReason: "retained-projection-coverage-missing",
         heldPreviousProjectionState: null,
       });
@@ -216,7 +216,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
 
     const completion = runPreparedCandidateCoordinator({
       contentFrame: testPublicationCandidate({
-        blockedPublicationCandidate: candidate.blockedPublicationCandidate,
+        blockedPresentationCandidate: candidate.blockedPresentationCandidate,
         rendered: false,
         visibleProjectionState: null,
       }),
@@ -263,7 +263,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       );
     }
     expect(candidate.errorMessage).toBeNull();
-    expect(candidate.blockedPublicationCandidate.frozenFrameId).toBe(
+    expect(candidate.blockedPresentationCandidate.frozenFrameId).toBe(
       previousVisibleProjectionState.preparedContentFrame.displayFrameId,
     );
 
@@ -499,7 +499,7 @@ function retainedDisplayFrame(): RetainedDisplayFrame {
 }
 
 type TestPublicationCandidate = {
-  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly rendered: boolean;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
@@ -555,12 +555,12 @@ function runPreparedCandidateCoordinator({
 }
 
 function testPublicationCandidate({
-  blockedPublicationCandidate = null,
+  blockedPresentationCandidate = null,
   rendered = false,
   visibleProjectionState = null,
 }: Partial<TestPublicationCandidate> = {}): TestPublicationCandidate {
   return {
-    blockedPublicationCandidate,
+    blockedPresentationCandidate,
     rendered,
     visibleProjectionState,
   };

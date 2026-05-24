@@ -3,10 +3,10 @@ import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type {
   GpuFlowBrowserVisualResourceWorkRect,
   GpuFlowBrowserVisualResourceWorkRequest,
-  GpuFlowVisibleFrameBlockedPublicationCandidate,
+  GpuFlowVisibleFrameBlockedPresentationCandidate,
 } from "./visibleFrameContentPlan";
 import type {
-  GpuFlowBlockedPublicationToken,
+  GpuFlowBlockedPresentationToken,
   GpuFlowBlockedVisibleReason,
 } from "./visibleFramePresentationProofs";
 import {
@@ -26,13 +26,13 @@ type OptionalGpuFlowBrowserVisualTextCoverageProof =
   | null
   | undefined;
 
-export function createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+export function createGpuFlowRetainedProjectionBlockedPresentationCandidate({
   blockedReason,
   heldPreviousProjectionState,
 }: {
   readonly blockedReason: string;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowVisibleFrameBlockedPublicationCandidate {
+}): GpuFlowVisibleFrameBlockedPresentationCandidate {
   return Object.freeze({
     blockedReasons: Object.freeze([
       Object.freeze({
@@ -47,15 +47,15 @@ export function createGpuFlowRetainedProjectionBlockedPublicationCandidate({
   });
 }
 
-export function createGpuFlowBrowserVisualBlockedPublicationCandidate({
+export function createGpuFlowBrowserVisualBlockedPresentationCandidate({
   frame,
   heldPreviousProjectionState,
 }: {
   readonly frame: GpuFlowPreparedContentFrame;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowVisibleFrameBlockedPublicationCandidate {
+}): GpuFlowVisibleFrameBlockedPresentationCandidate {
   if (isGpuFlowRetainedSurfaceTrueHoleFrame(frame)) {
-    return createGpuFlowRetainedSurfaceTrueHoleBlockedPublicationCandidate({
+    return createGpuFlowRetainedSurfaceTrueHoleBlockedPresentationCandidate({
       frame,
       heldPreviousProjectionState,
     });
@@ -68,13 +68,13 @@ export function createGpuFlowBrowserVisualBlockedPublicationCandidate({
   });
 }
 
-function createGpuFlowRetainedSurfaceTrueHoleBlockedPublicationCandidate({
+function createGpuFlowRetainedSurfaceTrueHoleBlockedPresentationCandidate({
   frame,
   heldPreviousProjectionState,
 }: {
   readonly frame: GpuFlowPreparedContentFrame;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowVisibleFrameBlockedPublicationCandidate {
+}): GpuFlowVisibleFrameBlockedPresentationCandidate {
   return Object.freeze({
     blockedReasons: Object.freeze(
       getGpuFlowPreparedContentPublishabilityActorIds(frame).map((actorId) =>
@@ -101,7 +101,7 @@ function isGpuFlowRetainedSurfaceTrueHoleFrame(
 }
 
 export function shouldPreservePreparedContentFrameForBrowserVisualRepair(
-  candidate: GpuFlowVisibleFrameBlockedPublicationCandidate,
+  candidate: GpuFlowVisibleFrameBlockedPresentationCandidate,
 ): boolean {
   return candidate.blockedReasons.some(
     (reason) =>
@@ -182,7 +182,7 @@ export function resolveGpuFlowColdStartBlockedFrozenFrameId({
   blockedReasons,
 }: {
   readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
-}): GpuFlowBlockedPublicationToken["frozenFrameId"] {
+}): GpuFlowBlockedPresentationToken["frozenFrameId"] {
   return shouldCollapseGpuFlowColdStartBrowserVisualBlockedReasons(
     blockedReasons,
   )
@@ -235,17 +235,17 @@ function isGpuFlowFrozenPreviousHiddenBlockedReason({
 }
 
 export function createGpuFlowBrowserVisualResourceWorkRequests({
-  blockedPublicationCandidate,
+  blockedPresentationCandidate,
   frame,
 }: {
-  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
+  readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate;
   readonly frame: GpuFlowPreparedContentFrame;
 }): readonly GpuFlowBrowserVisualResourceWorkRequest[] {
   const actorById = new Map(
     frame.actorGenerations.map((actor) => [actor.actorId, actor]),
   );
   return Object.freeze(
-    blockedPublicationCandidate.blockedReasons
+    blockedPresentationCandidate.blockedReasons
       .filter((reason) =>
         isGpuFlowBrowserVisualBlockedReasonFamily(reason.family),
       )
@@ -367,7 +367,7 @@ function createGpuFlowBrowserVisualResourceWorkRequest({
       reason,
     }),
     sourceRect: createGpuFlowBrowserVisualResourceWorkRect(actor?.sourceRect),
-    wakeupSource: "blocked-publication" as const,
+    wakeupSource: "blocked-presentation" as const,
   });
 }
 
@@ -552,7 +552,7 @@ function resolveGpuFlowBlockedVisibleFrozenFrameId({
   heldPreviousProjectionState,
 }: {
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowBlockedPublicationToken["frozenFrameId"] {
+}): GpuFlowBlockedPresentationToken["frozenFrameId"] {
   return (
     heldPreviousProjectionState?.preparedContentFrame.displayFrameId ??
     GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID

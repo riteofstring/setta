@@ -314,8 +314,8 @@ test("retained scroll plus zoom makes visible progress within 120 ms", async ({
   const projectionAdvancedWithin120ms =
     projectionAt120ms.projectionSampleId !==
       beforeProjection.projectionSampleId &&
-    projectionAt120ms.blockedPublicationEventCount ===
-      beforeProjection.blockedPublicationEventCount;
+    projectionAt120ms.blockedPresentationEventCount ===
+      beforeProjection.blockedPresentationEventCount;
   const details = JSON.stringify(
     {
       budget,
@@ -372,7 +372,7 @@ type RetainedCompositorTimelineFrame = {
 };
 
 type RetainedCompositorProjectionProgress = {
-  readonly blockedPublicationEventCount: number;
+  readonly blockedPresentationEventCount: number;
   readonly preparedContentFrameId: number | null;
   readonly projectionSampleId: number | null;
   readonly projectionTransactionId: string | null;
@@ -483,7 +483,7 @@ async function readRetainedCompositorProjectionProgress(
         }
       ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? [];
     return {
-      blockedPublicationEventCount: blockedEvents.length,
+      blockedPresentationEventCount: blockedEvents.length,
       preparedContentFrameId: parseOptionalNumber(
         canvas?.dataset.gpuFlowPreparedContentFrameId,
       ),

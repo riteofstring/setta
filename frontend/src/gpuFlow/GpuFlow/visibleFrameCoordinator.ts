@@ -68,7 +68,7 @@ export type {
   GpuFlowRetainedPreparedContentFramePublicationContentPublishedRetainedDisplay,
   GpuFlowRetainedPreparedContentFramePublicationContentStageInput,
   GpuFlowRetainedPreparedContentFramePublicationContentStageRunner,
-  GpuFlowVisibleFrameBlockedPublicationCandidate,
+  GpuFlowVisibleFrameBlockedPresentationCandidate,
 } from "./visibleFrameContentPlan";
 export { createGpuFlowVisibleFramePresentationTransactionReport } from "./visibleFrameOutcomeReport";
 export type {
@@ -427,7 +427,7 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   });
   const contentPreparationWorkPlan = createGpuFlowContentPreparationWorkPlan({
     blockedProjectionOnlyFrame:
-      motionProjectionFrame.blockedPublicationCandidate !== null,
+      motionProjectionFrame.blockedPresentationCandidate !== null,
     reducerDecision,
     renderedProjectionOnlyFrame:
       motionProjectionFrame.visibleProjectionState !== null,
@@ -468,8 +468,8 @@ function createGpuFlowVisibleFramePublicationPreparedFrame<
   const transactionProof =
     createGpuFlowVisibleFramePublicationTransactionProofFactory()({
       contentPreparationFrame: candidateSet.contentPreparationFrame,
-      forcedBlockedPublicationCandidate:
-        candidateSet.forcedBlockedPublicationCandidate,
+      forcedBlockedPresentationCandidate:
+        candidateSet.forcedBlockedPresentationCandidate,
       motionProjectionFrame: candidateSet.motionProjectionFrame,
       previousVisibleProjectionState,
       reducerDecision,

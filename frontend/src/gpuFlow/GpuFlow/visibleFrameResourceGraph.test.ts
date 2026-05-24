@@ -18,7 +18,7 @@ import {
   createGpuFlowVisibleFrameResourceGraph,
 } from "./visibleFrameResourceGraph";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameBlockedPresentationTokenForTest,
   createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
 
@@ -447,7 +447,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       stageBrowserVisualCandidate: () => {
         throw new Error("Unexpected preserved candidate staging.");
       },
-      token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+      token: createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
         blockedReasons: [
           {
             actorId: "candidate-control",
@@ -521,7 +521,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         stagedCandidates.push(candidate);
         stagedResourceKeys.push(selectedResourceKeys);
       },
-      token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+      token: createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
         blockedReasons: [
           {
             actorId: "active-control",

@@ -50,7 +50,7 @@ describe("GPU Flow visible frame presentation projection plans", () => {
       'projectionFrameRenderPlan.kind === "blocked"',
     );
     expect(projectionFrameSource).not.toContain(
-      "projectionFrameRenderPlan.blockedPublicationCandidate",
+      "projectionFrameRenderPlan.blockedPresentationCandidate",
     );
     expect(projectionFrameSource).not.toContain(
       "selectProjectionFrameRenderPlan",
@@ -63,7 +63,7 @@ describe("GPU Flow visible frame presentation projection plans", () => {
       'projectionFrameRenderPlan.kind === "blocked"',
     );
     expect(coordinatorSource).not.toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
     );
     expect(coordinatorSource).toContain(
       "reduceGpuFlowMotionProjectionFramePreparation",
@@ -72,7 +72,7 @@ describe("GPU Flow visible frame presentation projection plans", () => {
       "reduceGpuFlowVisibleFrameMotionProjectionTransaction",
     );
     expect(stateMachineReductionSource).toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
     );
     expect(stateMachineReductionSource).toContain(
       "reduceGpuFlowVisibleFrameMotionProjectionTransaction",
@@ -81,7 +81,7 @@ describe("GPU Flow visible frame presentation projection plans", () => {
       'from "./visibleFrameStateMachineReduction"',
     );
     expect(coordinatorSource).not.toContain(
-      "projectionFrameTransaction.blockedPublicationCandidate",
+      "projectionFrameTransaction.blockedPresentationCandidate",
     );
     expect(coordinatorSource).not.toContain(
       "projectionFrameTransaction.blockedReason",

@@ -17,7 +17,7 @@ import {
 } from "./flowRetainedRuntimeFrameSignatures";
 import { createGpuFlowVisibleOverlayProjectionKey } from "./flowVisibleOverlayProjectionKey";
 import { resolveGpuFlowBlockedPreparedContentFramePublicationAbort } from "./visibleFrameAbortPolicy";
-import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutcomeGuard";
+import { recordGpuFlowBlockedPresentationGuard } from "./visibleFrameBlockedOutcomeGuard";
 import { requestGpuFlowBrowserVisualResourcePreparation } from "./visibleFrameBrowserVisualPreparation";
 import { clearGpuFlowBrowserVisualResourceWork } from "./visibleFrameBrowserVisualResourceWork";
 import type {
@@ -281,7 +281,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
     visibleProjectionState:
       selectedVisibleProjectionState ?? heldPreviousVisibleProjectionState,
   });
-  recordGpuFlowBlockedPublicationGuard({
+  recordGpuFlowBlockedPresentationGuard({
     outcome,
     reducerDecision,
     surface: surfaceRef.current,

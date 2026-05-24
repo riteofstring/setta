@@ -71,28 +71,28 @@ describe("GPU Flow visible frame coordinator projection work", () => {
       "isGpuFlowRetainedProjectionSurfaceCovered",
     );
     expect(transactionProofsSource).toContain(
-      "selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
+      "selectGpuFlowMotionProjectionFrameBlockedPresentationReason",
     );
     expect(projectionWorkProofSource).toContain(
-      "function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
+      "function selectGpuFlowMotionProjectionFrameBlockedPresentationReason",
     );
     expect(coordinatorSource).not.toContain(
-      "function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
+      "function selectGpuFlowMotionProjectionFrameBlockedPresentationReason",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
+      "function selectGpuFlowMotionProjectionFrameBlockedPresentationReason",
     );
     expect(coordinatorSource).not.toContain(
-      "export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
+      "export function selectGpuFlowMotionProjectionFrameBlockedPresentationReason",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
+      "export function selectGpuFlowMotionProjectionFrameBlockedPresentationReason",
     );
     expect(coordinatorSource).not.toContain(
       "export function assertGpuFlowMotionProjectionFrameWork",
     );
     expect(coordinatorSource).not.toContain(
-      "createGpuFlowMotionProjectionFrameBlockedPublicationReasonSelector",
+      "createGpuFlowMotionProjectionFrameBlockedPresentationReasonSelector",
     );
     expect(coordinatorSource).not.toContain(
       "createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector",

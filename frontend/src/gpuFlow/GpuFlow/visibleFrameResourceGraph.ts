@@ -4,7 +4,7 @@ import {
   assertGpuFlowPreparedCandidateAbortToken,
   assertGpuFlowVisibleFramePresentationTokenForFrameId,
   assertGpuFlowVisibleFramePresentationTokenForPresentationProof,
-  type GpuFlowBlockedPublicationToken,
+  type GpuFlowBlockedPresentationToken,
   type GpuFlowHoldPreviousToken,
   type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
@@ -82,7 +82,7 @@ type GpuFlowVisibleFramePresentedContentFramePublisher = (input: {
 type GpuFlowVisibleFrameBrowserVisualCandidateAborter = (input: {
   readonly candidate: GpuFlowBrowserVisualActorCandidate;
   readonly selectedResourceKeys?: readonly string[] | undefined;
-  readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
+  readonly token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken;
 }) => void;
 
 export type GpuFlowVisibleFrameResourceStateKind =
@@ -410,7 +410,7 @@ export class GpuFlowVisibleFrameResourceGraph {
     readonly frame: GpuFlowPreparedContentFrame;
     readonly preservePreparationSnapshot: boolean;
     readonly stageBrowserVisualCandidate: GpuFlowVisibleFrameBrowserVisualCandidateAborter;
-    readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
+    readonly token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken;
   }): GpuFlowVisibleFramePreparedContentFrameAbortResult | null {
     assertGpuFlowPreparedCandidateAbortToken({ token });
     const frameId = getGpuFlowPreparedContentFrameId(frame);

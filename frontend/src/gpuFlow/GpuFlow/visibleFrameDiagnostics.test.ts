@@ -23,7 +23,7 @@ import {
   recordGpuFlowVisibleFramePresented,
 } from "./visibleFrameDiagnostics";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameBlockedPresentationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
   createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
@@ -72,7 +72,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     if (result.kind !== "nonpublishable") {
       throw new Error("Expected nonpublishable publication candidate.");
     }
-    expect(result.blockedPublicationCandidate.frozenFrameId).toBe(
+    expect(result.blockedPresentationCandidate.frozenFrameId).toBe(
       GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
     );
     expect(result.candidateFrame.displayFrameId).toBe(2);
@@ -132,7 +132,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         readinessState: "requested",
         representationKind: "blocked-awaiting-browser-visual",
         sourceHostIdentity: "actor-a",
-        wakeupSource: "blocked-publication",
+        wakeupSource: "blocked-presentation",
       }),
     ]);
   });
@@ -166,7 +166,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       expect.objectContaining({
         actorId: "actor-a",
         readinessState: "requested",
-        wakeupSource: "blocked-publication",
+        wakeupSource: "blocked-presentation",
       }),
     ]);
     expect(requestFrame).not.toHaveBeenCalled();
@@ -309,7 +309,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           typeof recordGpuFlowVisibleFrameBlocked
         >[0]["token"],
       }),
-    ).toThrow(/blocked publication token/);
+    ).toThrow(/blocked presentation token/);
   });
 
   it("records held-prepared candidates as blocked outcomes", () => {
@@ -318,7 +318,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     recordGpuFlowVisibleFrameBlocked({
       candidateFrame: blockedPreparedContentFrame(),
       runtimeCanvas: canvas,
-      token: blockedPublicationToken(),
+      token: blockedPresentationToken(),
     });
 
     expect(readStarvationReports()).toEqual([
@@ -329,7 +329,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     ]);
   });
 
-  it("records required actor-family manifest diagnostics on blocked publication events", () => {
+  it("records required actor-family manifest diagnostics on blocked presentation events", () => {
     const canvas = document.createElement("canvas");
 
     recordGpuFlowBlockedVisibleFramePresentation({
@@ -348,7 +348,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         typeof recordGpuFlowBlockedVisibleFramePresentation
       >[0]["reducerDecision"],
       runtimeCanvas: canvas,
-      token: blockedPublicationToken(),
+      token: blockedPresentationToken(),
     });
 
     expect(readBlockedVisibleFramePresentationEvents()).toEqual([
@@ -393,7 +393,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     recordGpuFlowVisibleFrameBlocked({
       candidateFrame: null,
       runtimeCanvas: blockedCanvas,
-      token: blockedPublicationToken(),
+      token: blockedPresentationToken(),
     });
     recordGpuFlowVisibleFrameHeld({
       candidateFrame: null,
@@ -405,9 +405,9 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     expect(readStarvationReports()).toEqual([]);
   });
 
-  it("records cold-start shell blocked publication without a committed candidate frame", () => {
+  it("records cold-start shell blocked presentation without a committed candidate frame", () => {
     const canvas = document.createElement("canvas");
-    const token = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+    const token = createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
       blockedReasons: [
         {
           actorId: null,
@@ -419,7 +419,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       projectionSample: {
         id: 9,
       } as Parameters<
-        typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
+        typeof createGpuFlowVisibleFrameBlockedPresentationTokenForTest
       >[0]["projectionSample"],
     });
 
@@ -462,9 +462,9 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     ]);
   });
 
-  it("rejects blocked publication records for a different selected sample", () => {
+  it("rejects blocked presentation records for a different selected sample", () => {
     const canvas = document.createElement("canvas");
-    const token = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+    const token = createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
       blockedReasons: [
         {
           actorId: null,
@@ -476,7 +476,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       projectionSample: {
         id: 9,
       } as Parameters<
-        typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
+        typeof createGpuFlowVisibleFrameBlockedPresentationTokenForTest
       >[0]["projectionSample"],
     });
 
@@ -503,7 +503,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     expect(readBlockedVisibleFramePresentationEvents()).toEqual([]);
   });
 
-  it("rejects blocked publication records without a blocked reducer completion", () => {
+  it("rejects blocked presentation records without a blocked reducer completion", () => {
     const canvas = document.createElement("canvas");
 
     expect(() =>
@@ -523,7 +523,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           typeof recordGpuFlowBlockedVisibleFramePresentation
         >[0]["reducerDecision"],
         runtimeCanvas: canvas,
-        token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+        token: createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
           blockedReasons: [
             {
               actorId: null,
@@ -535,7 +535,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           projectionSample: {
             id: 9,
           } as Parameters<
-            typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
+            typeof createGpuFlowVisibleFrameBlockedPresentationTokenForTest
           >[0]["projectionSample"],
         }),
       }),
@@ -631,12 +631,12 @@ function applyBlockedCandidate(
   recordGpuFlowVisibleFrameBlocked({
     candidateFrame,
     runtimeCanvas: canvas,
-    token: blockedPublicationToken(),
+    token: blockedPresentationToken(),
   });
 }
 
-function blockedPublicationToken() {
-  return createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+function blockedPresentationToken() {
+  return createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
     blockedReasons: [
       {
         actorId: "actor-a",
@@ -648,7 +648,7 @@ function blockedPublicationToken() {
     projectionSample: {
       id: 1,
     } as Parameters<
-      typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
+      typeof createGpuFlowVisibleFrameBlockedPresentationTokenForTest
     >[0]["projectionSample"],
   });
 }

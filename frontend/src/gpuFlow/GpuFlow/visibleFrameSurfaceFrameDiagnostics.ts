@@ -148,7 +148,7 @@ function createGpuFlowSurfaceFrameDebtRequestDiagnostic(
 function getGpuFlowSurfaceFrameBlockedReasons(
   contentFrame: GpuFlowSurfaceFrameCoordinatorResult["preparedFrame"]["contentPreparationFrame"],
 ) {
-  return contentFrame.blockedPublicationCandidate?.blockedReasons ?? [];
+  return contentFrame.blockedPresentationCandidate?.blockedReasons ?? [];
 }
 
 function createGpuFlowSurfaceFrameBudgetDecisionDiagnostic(

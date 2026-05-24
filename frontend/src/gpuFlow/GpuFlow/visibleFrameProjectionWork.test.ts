@@ -14,7 +14,7 @@ import {
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowMotionProjectionFrameWorkReport,
-  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFrameBlockedPresentationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameCoordinator";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
@@ -38,12 +38,12 @@ describe("GPU Flow visible frame coordinator projection work", () => {
     });
     let publishedOutcomeKind: string | null = null;
     type TestContentPreparationFrame = {
-      readonly blockedPublicationCandidate: null;
+      readonly blockedPresentationCandidate: null;
       readonly rendered: boolean;
       readonly visibleProjectionState: null;
     };
     type TestMotionProjectionFrame = {
-      readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+      readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
       readonly projectionOnlyFrameWork: GpuFlowMotionProjectionFrameWorkReport | null;
       readonly rendered: boolean;
       readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -53,13 +53,13 @@ describe("GPU Flow visible frame coordinator projection work", () => {
       TestMotionProjectionFrame
     >({
       prepareContentPreparationFrame: () => ({
-        blockedPublicationCandidate: null,
+        blockedPresentationCandidate: null,
         rendered: false,
         visibleProjectionState: null,
       }),
       prepareMotionProjectionFrame: () => ({
-        createBlockedProjectionFrame: ({ blockedPublicationCandidate }) => ({
-          blockedPublicationCandidate,
+        createBlockedProjectionFrame: ({ blockedPresentationCandidate }) => ({
+          blockedPresentationCandidate,
           projectionOnlyFrameWork: null,
           rendered: false,
           visibleProjectionState: null,
@@ -68,7 +68,7 @@ describe("GPU Flow visible frame coordinator projection work", () => {
         requestedTransaction: retainedProjectionTransaction({ sample }),
         resolveRetainedProjectionFrame: () => retainedProjectionFrame(),
         renderProjectionFrame: () => ({
-          blockedPublicationCandidate: null,
+          blockedPresentationCandidate: null,
           projectionOnlyFrameWork: projectionOnlyContentWorkReport(),
           rendered: true,
           visibleProjectionState: visibleProjectionState({

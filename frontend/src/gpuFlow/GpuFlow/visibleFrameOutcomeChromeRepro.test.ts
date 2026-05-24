@@ -422,7 +422,7 @@ function transactionProof({
   readonly presentableFrameProof: GpuFlowVisibleFramePresentableFrameProof;
 }): GpuFlowVisibleFramePublicationTransactionProof {
   return {
-    blockedPublicationCandidate: null,
+    blockedPresentationCandidate: null,
     blockedProof: null,
     blockedSource: null,
     presentableFrameProof,

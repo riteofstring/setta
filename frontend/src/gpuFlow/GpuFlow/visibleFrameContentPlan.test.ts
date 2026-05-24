@@ -19,7 +19,7 @@ import {
   type GpuFlowPreparedContentFramePublicationCandidateInput,
   type GpuFlowPreparedContentFramePublicationFramePlanPreparer,
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
-  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFrameBlockedPresentationCandidate,
 } from "./visibleFrameContentPlan";
 import { prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate } from "./visibleFrameContentPreparation";
 
@@ -111,7 +111,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
         contentDecisionKernel,
         preparePreparedContentFramePublicationCandidate: () => ({
-          blockedPublicationCandidate: {
+          blockedPresentationCandidate: {
             blockedReasons: [
               {
                 actorId: "actor-a",
@@ -157,7 +157,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       );
     }
     expect(nonpublishablePlan.visibleProjectionState).toBeNull();
-    expect(nonpublishablePlan.blockedPublicationCandidate).toEqual(
+    expect(nonpublishablePlan.blockedPresentationCandidate).toEqual(
       expect.objectContaining({
         frozenFrameId: "cold-start-shell:browser-visual",
       }),
@@ -248,10 +248,10 @@ describe("GPU Flow visible frame presentation content plans", () => {
     );
 
     expect(flowFrameSource).not.toContain(
-      "retainedDisplayPublicationFramePlanResult.blockedPublicationCandidate",
+      "retainedDisplayPublicationFramePlanResult.blockedPresentationCandidate",
     );
     expect(flowFrameSource).not.toContain(
-      "preparedContentFramePublicationFramePlanResult.blockedPublicationCandidate",
+      "preparedContentFramePublicationFramePlanResult.blockedPresentationCandidate",
     );
     expect(flowFrameSource).not.toContain(
       "preparedContentFramePublicationFramePlanResult.visibleProjectionState",
@@ -580,7 +580,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
     );
     expect(contentPlanSource).not.toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate(",
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate(",
     );
     expect(stateMachineSource).toContain(
       "export function selectGpuFlowRetainedDisplayPublicationFramePlan",
@@ -608,7 +608,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "export function selectGpuFlowContentPreparationBlockedCandidate",
     );
     expect(contentPlanSource).not.toContain(
-      "createGpuFlowBrowserVisualBlockedPublicationCandidate(",
+      "createGpuFlowBrowserVisualBlockedPresentationCandidate(",
     );
     expect(stateMachineSource).toContain(
       "function selectGpuFlowContentPreparationBlockedCandidate",
@@ -626,10 +626,10 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "function selectGpuFlowContentPreparationBlockedCandidateForFrameResult",
     );
     expect(stateMachineSource).toContain(
-      "createGpuFlowBrowserVisualBlockedPublicationCandidate",
+      "createGpuFlowBrowserVisualBlockedPresentationCandidate",
     );
     expect(stateMachineSource).not.toContain(
-      "createGpuFlowBrowserVisualBlockedPublicationCandidateFactory",
+      "createGpuFlowBrowserVisualBlockedPresentationCandidateFactory",
     );
   });
 
@@ -773,7 +773,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
   it("converts prepared-content-frame publication blocks through the combined content stage", () => {
     const candidateFrame = createPreparedContentFrame();
     const publishedRetainedFrame = { id: 11 } as RetainedDisplayFrame;
-    const blockedPublicationCandidate = {
+    const blockedPresentationCandidate = {
       blockedReasons: [
         {
           actorId: "surface-a",
@@ -782,12 +782,12 @@ describe("GPU Flow visible frame presentation content plans", () => {
         },
       ],
       frozenFrameId: 9,
-    } satisfies GpuFlowVisibleFrameBlockedPublicationCandidate;
+    } satisfies GpuFlowVisibleFrameBlockedPresentationCandidate;
     const preparePreparedContentFramePublicationFramePlan =
       createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
         contentDecisionKernel,
         preparePreparedContentFramePublicationCandidate: () => ({
-          blockedPublicationCandidate,
+          blockedPresentationCandidate,
           candidateFrame,
           errorMessage: "blocked surface",
           kind: "nonpublishable",
@@ -840,7 +840,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
         blockedErrorMessage: "blocked surface",
         blockedPreparedContentFrame: candidateFrame,
         blockedPreservePreparationSnapshot: true,
-        blockedPublicationCandidate,
+        blockedPresentationCandidate,
         rendered: false,
         retainedDisplayFollowUpFrameReason: "texture-upload",
       }),
@@ -884,7 +884,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
             publishedOutcomeFrame,
           },
           framePlanResult: {
-            blockedPublicationCandidate: null,
+            blockedPresentationCandidate: null,
             publishedOutcomeFrame,
           },
           nodeLayerFrameResult: null,
@@ -901,13 +901,13 @@ describe("GPU Flow visible frame presentation content plans", () => {
           candidate: { kind: "publish" },
           preparedContentFramePublication,
           framePlan: {
-            blockedPublicationCandidate: null,
+            blockedPresentationCandidate: null,
             preparedContentFramePublication,
             kind: "publish",
             visibleProjectionState: null,
           },
           framePlanResult: {
-            blockedPublicationCandidate: null,
+            blockedPresentationCandidate: null,
             preparedContentFramePublication,
             visibleProjectionState: null,
           },
@@ -1154,7 +1154,7 @@ function createPublishedRetainedDisplayPublicationFramePlan({
       publishedOutcomeFrame,
     },
     framePlanResult: {
-      blockedPublicationCandidate: null,
+      blockedPresentationCandidate: null,
       publishedOutcomeFrame,
     },
     nodeLayerFrameResult: null,

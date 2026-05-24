@@ -19,7 +19,7 @@ import type {
   ProtectedSurfaceResourceHandle,
   SurfaceResourceHandle,
 } from "../surfaceCompositor/surfaceCoverage";
-import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
+import { createGpuFlowRetainedProjectionBlockedPresentationCandidate } from "./visibleFrameBlockedCandidate";
 import {
   createGpuFlowVisibleFramePresentationCanvasPresentationEvidence,
   createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence,
@@ -133,7 +133,7 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
       transactionProof,
     });
   return {
-    blockedPublicationCandidate: preparedFrame.blockedPublicationCandidate,
+    blockedPresentationCandidate: preparedFrame.blockedPresentationCandidate,
     blockedProof: preparedFrame.blockedProof,
     presentableFrameProof: preparedFrame.transactionProof.presentableFrameProof,
     renderedVisibleFrame: preparedFrame.renderedVisibleFrame,
@@ -214,10 +214,10 @@ describe("GPU Flow visible frame transaction proofs", () => {
       "selectGpuFlowVisibleFramePublicationProjectionSource",
     );
     expect(kernelSource).not.toContain(
-      "function createGpuFlowMotionProjectionBlockedPublicationCandidate",
+      "function createGpuFlowMotionProjectionBlockedPresentationCandidate",
     );
     expect(proofSource).not.toContain(
-      "function createGpuFlowMotionProjectionBlockedPublicationCandidate",
+      "function createGpuFlowMotionProjectionBlockedPresentationCandidate",
     );
     expect(proofSource).toContain(
       "createGpuFlowVisibleFramePublicationCandidateBlockedProof",
@@ -226,7 +226,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
       "selectGpuFlowVisibleFramePublicationProjectionSource",
     );
     expect(proofSource).toContain(
-      "motionProjectionFrame.blockedPublicationCandidate",
+      "motionProjectionFrame.blockedPresentationCandidate",
     );
     expect(proofSource).toContain(
       "type GpuFlowVisibleFramePresentationBlockedProof",
@@ -257,23 +257,23 @@ describe("GPU Flow visible frame transaction proofs", () => {
       sample: liveProjectionSample({ id: 43, timestamp: 430 }),
     });
     const contentBlockedCandidate =
-      createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+      createGpuFlowRetainedProjectionBlockedPresentationCandidate({
         blockedReason: "prepared-content-blocked",
         heldPreviousProjectionState: null,
       });
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
       contentPreparationFrame: {
-        blockedPublicationCandidate: contentBlockedCandidate,
+        blockedPresentationCandidate: contentBlockedCandidate,
         visibleProjectionState: null,
       },
       motionProjectionFrame: {
-        blockedPublicationCandidate: null,
+        blockedPresentationCandidate: null,
         visibleProjectionState: null,
       },
       reducerDecision: reducerDecision(contentVisibleState.sample),
     });
 
-    expect(proof.blockedPublicationCandidate).toBe(contentBlockedCandidate);
+    expect(proof.blockedPresentationCandidate).toBe(contentBlockedCandidate);
     expect(proof.blockedProof).toEqual({
       blockedReasons: contentBlockedCandidate.blockedReasons,
       candidate: contentBlockedCandidate,
@@ -476,11 +476,11 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
       contentPreparationFrame: {
-        blockedPublicationCandidate: null,
+        blockedPresentationCandidate: null,
         visibleProjectionState: overBudgetVisibleProjectionState,
       },
       motionProjectionFrame: {
-        blockedPublicationCandidate: null,
+        blockedPresentationCandidate: null,
         visibleProjectionState: null,
       },
       previousVisibleProjectionState,
@@ -491,7 +491,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     expect(proof.presentableFrameProof).toBeNull();
     expect(proof.renderedVisibleFrame).toBe(false);
     expect(proof.visibleProjectionState).toBeNull();
-    expect(proof.blockedPublicationCandidate).toEqual({
+    expect(proof.blockedPresentationCandidate).toEqual({
       blockedReasons: [
         {
           actorId: "control-a",
@@ -523,11 +523,11 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
       contentPreparationFrame: {
-        blockedPublicationCandidate: null,
+        blockedPresentationCandidate: null,
         visibleProjectionState: null,
       },
       motionProjectionFrame: {
-        blockedPublicationCandidate: null,
+        blockedPresentationCandidate: null,
         visibleProjectionState: activeEditorVisibleProjectionState,
       },
       previousVisibleProjectionState,
@@ -537,7 +537,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     expect(proof.blockedSource).toBe("actor-proof");
     expect(proof.presentableFrameProof).toBeNull();
     expect(proof.renderedVisibleFrame).toBe(false);
-    expect(proof.blockedPublicationCandidate).toEqual({
+    expect(proof.blockedPresentationCandidate).toEqual({
       blockedReasons: [
         {
           actorId: "control-a",
@@ -658,11 +658,11 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
       contentPreparationFrame: {
-        blockedPublicationCandidate: null,
+        blockedPresentationCandidate: null,
         visibleProjectionState: visibleProjectionStateWithMissingResource,
       },
       motionProjectionFrame: {
-        blockedPublicationCandidate: null,
+        blockedPresentationCandidate: null,
         visibleProjectionState: null,
       },
       previousVisibleProjectionState,
@@ -671,7 +671,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(proof.blockedSource).toBe("resource-protection");
     expect(proof.presentableFrameProof).toBeNull();
-    expect(proof.blockedPublicationCandidate).toEqual({
+    expect(proof.blockedPresentationCandidate).toEqual({
       blockedReasons: [
         {
           actorId: null,
@@ -732,11 +732,11 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
       const proof = createGpuFlowVisibleFramePublicationTransactionProof({
         contentPreparationFrame: {
-          blockedPublicationCandidate: null,
+          blockedPresentationCandidate: null,
           visibleProjectionState: visibleProjectionStateWithMismatch,
         },
         motionProjectionFrame: {
-          blockedPublicationCandidate: null,
+          blockedPresentationCandidate: null,
           visibleProjectionState: null,
         },
         previousVisibleProjectionState,
@@ -747,7 +747,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
       expect(proof.presentableFrameProof).toBeNull();
       expect(proof.renderedVisibleFrame).toBe(false);
       expect(proof.visibleProjectionState).toBeNull();
-      expect(proof.blockedPublicationCandidate).toEqual({
+      expect(proof.blockedPresentationCandidate).toEqual({
         blockedReasons: [{ actorId: "control-a", family, reason }],
         frozenFrameId:
           previousVisibleProjectionState.preparedContentFrame.displayFrameId,
@@ -768,11 +768,11 @@ describe("GPU Flow visible frame transaction proofs", () => {
     expect(() =>
       selectGpuFlowVisibleFramePublicationPreparedFrame({
         contentPreparationFrame: {
-          blockedPublicationCandidate: null,
+          blockedPresentationCandidate: null,
           visibleProjectionState: contentVisibleState,
         },
         motionProjectionFrame: {
-          blockedPublicationCandidate: null,
+          blockedPresentationCandidate: null,
           visibleProjectionState: motionVisibleState,
         },
         reducerDecision: reducerDecision(contentVisibleState.sample),
@@ -788,24 +788,24 @@ describe("GPU Flow visible frame transaction proofs", () => {
       sample: liveProjectionSample({ id: 44, timestamp: 440 }),
     });
     const motionBlockedCandidate =
-      createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+      createGpuFlowRetainedProjectionBlockedPresentationCandidate({
         blockedReason: "motion-projection-blocked",
         heldPreviousProjectionState: null,
       });
 
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
       contentPreparationFrame: {
-        blockedPublicationCandidate: null,
+        blockedPresentationCandidate: null,
         visibleProjectionState: contentVisibleState,
       },
       motionProjectionFrame: {
-        blockedPublicationCandidate: motionBlockedCandidate,
+        blockedPresentationCandidate: motionBlockedCandidate,
         visibleProjectionState: null,
       },
       reducerDecision: reducerDecision(contentVisibleState.sample),
     });
 
-    expect(proof.blockedPublicationCandidate).toBeNull();
+    expect(proof.blockedPresentationCandidate).toBeNull();
     expect(proof.blockedSource).toBeNull();
     expect(proof.presentableFrameProof).not.toBeNull();
     expect(proof.renderedVisibleFrame).toBe(true);
@@ -821,11 +821,11 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     const prepared = selectGpuFlowVisibleFramePublicationPreparedFrame({
       contentPreparationFrame: {
-        blockedPublicationCandidate: null,
+        blockedPresentationCandidate: null,
         visibleProjectionState: null,
       },
       motionProjectionFrame: {
-        blockedPublicationCandidate: null,
+        blockedPresentationCandidate: null,
         visibleProjectionState: motionVisibleState,
       },
       reducerDecision: reducerDecision(motionVisibleState.sample),
@@ -841,11 +841,11 @@ describe("GPU Flow visible frame transaction proofs", () => {
     expect(
       createGpuFlowVisibleFramePublicationTransactionProof({
         contentPreparationFrame: {
-          blockedPublicationCandidate: null,
+          blockedPresentationCandidate: null,
           visibleProjectionState: null,
         },
         motionProjectionFrame: {
-          blockedPublicationCandidate: null,
+          blockedPresentationCandidate: null,
           visibleProjectionState: motionVisibleState,
         },
         reducerDecision: reducerDecision(motionVisibleState.sample),

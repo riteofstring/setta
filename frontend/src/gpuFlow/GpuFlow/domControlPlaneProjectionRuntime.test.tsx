@@ -30,9 +30,9 @@ import {
   retainedRuntimeFrame,
   stageBrowserVisualCandidate,
 } from "./domControlPlaneProjectionRuntimeTestUtils";
-import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
+import type { GpuFlowBlockedPresentationToken } from "./visibleFramePresentationProofs";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameBlockedPresentationTokenForTest,
   createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
@@ -1035,9 +1035,9 @@ describe("GPU flow DOM control projection runtime", () => {
         candidate,
         token: {
           projectionSampleId: 2,
-        } as unknown as GpuFlowBlockedPublicationToken,
+        } as unknown as GpuFlowBlockedPresentationToken,
       }),
-    ).toThrow(/hold-previous or blocked publication token/);
+    ).toThrow(/hold-previous or blocked presentation token/);
     expect(
       browserVisualRuntime.getPreparationSnapshot().domControls.mountedControls,
     ).toEqual([]);
@@ -1078,7 +1078,7 @@ describe("GPU flow DOM control projection runtime", () => {
 
     browserVisualRuntime.abortPreparedBrowserVisualActors({
       candidate,
-      token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+      token: createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
         blockedReasons: [
           {
             actorId: nextControl.sourceId,
@@ -1127,9 +1127,9 @@ describe("GPU flow DOM control projection runtime", () => {
         candidate,
         token: {
           projectionSampleId: 2,
-        } as unknown as GpuFlowBlockedPublicationToken,
+        } as unknown as GpuFlowBlockedPresentationToken,
       }),
-    ).toThrow(/hold-previous or blocked publication token/);
+    ).toThrow(/hold-previous or blocked presentation token/);
   });
 });
 

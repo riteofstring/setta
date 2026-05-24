@@ -2,7 +2,7 @@
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type {
-  GpuFlowBlockedPublicationToken,
+  GpuFlowBlockedPresentationToken,
   GpuFlowHoldPreviousToken,
   GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
@@ -24,7 +24,7 @@ export type { GpuFlowVisibleFrameReducerCompletion } from "./visibleFrameReducer
 export type GpuFlowVisibleFramePresentationOutcome =
   | {
       readonly kind: "blocked";
-      readonly token: GpuFlowBlockedPublicationToken;
+      readonly token: GpuFlowBlockedPresentationToken;
     }
   | {
       readonly kind: "present";

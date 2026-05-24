@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameBlockedPresentationTokenForTest,
   createGpuFlowVisibleFramePresentationTokenForTest,
 } from "../GpuFlow/visibleFrameTestUtils";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "../GpuFlow/visibleFrameTypes";
@@ -437,7 +437,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
       projectionSample: projectionSample(9),
     });
     const blockedToken =
-      createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+      createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
         blockedReasons: [
           {
             actorId: "candidate-a",
@@ -481,12 +481,12 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     ).toThrow(/visible frame presentation token/);
   });
 
-  it("preserves previous-frame textures when blocked publication releases blocked candidates", () => {
+  it("preserves previous-frame textures when blocked presentation releases blocked candidates", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
     const blockedToken =
-      createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+      createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
         blockedReasons: [
           {
             actorId: "candidate",

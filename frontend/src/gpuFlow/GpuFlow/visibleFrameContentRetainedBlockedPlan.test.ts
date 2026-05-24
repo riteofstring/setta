@@ -38,7 +38,7 @@ describe("GPU Flow retained display candidate content plans", () => {
     );
 
     expect(preparation.framePlan.kind).toBe("published");
-    expect(preparation.framePlanResult.blockedPublicationCandidate).toBeNull();
+    expect(preparation.framePlanResult.blockedPresentationCandidate).toBeNull();
     expect(preparation.nodeLayerFrameResult).toBeNull();
     expect(preparation.publishedOutcomeFrame.frame).toBe(retainedFrame);
   });
@@ -97,7 +97,7 @@ describe("GPU Flow retained display candidate content plans", () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        blockedPublicationCandidate: {
+        blockedPresentationCandidate: {
           blockedReasons: [
             {
               actorId: "text-control-a",
@@ -173,7 +173,7 @@ describe("GPU Flow retained display candidate content plans", () => {
         blockedPreparedContentFrameResourceWork: expect.objectContaining({
           workItems: [],
         }),
-        blockedPublicationCandidate: {
+        blockedPresentationCandidate: {
           blockedReasons: [
             {
               actorId: "retained-surface-a",

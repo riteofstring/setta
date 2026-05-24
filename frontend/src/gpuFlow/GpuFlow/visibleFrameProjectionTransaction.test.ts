@@ -14,13 +14,13 @@ import { createGpuFlowVisibleFrameReducerRuntime } from "../projectionRuntime";
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowProjectionFrameRenderablePlan,
-  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFrameBlockedPresentationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameCoordinator";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 
 type TestProjectionPublicationFrame = {
-  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly visibleProjectionState: null;
 };
 
@@ -72,7 +72,7 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
           throw new Error("project-requested must not resolve held frame");
         },
       });
-    expect(requestedSelection.blockedPublicationCandidate).toBeNull();
+    expect(requestedSelection.blockedPresentationCandidate).toBeNull();
     expect(requestedSelection.renderPlan).toEqual({
       heldPreviousProjection: null,
       kind: "render",
@@ -92,7 +92,7 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
         throw new Error("blocked candidate must not resolve held frame");
       },
     });
-    expect(heldSelection.blockedPublicationCandidate).toBeNull();
+    expect(heldSelection.blockedPresentationCandidate).toBeNull();
     expect(heldSelection.renderPlan).toEqual({
       heldPreviousProjection: expect.objectContaining({
         preparedContentFrameId: 11,
@@ -144,7 +144,7 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
         sample: requestedTransaction.sample,
       }),
     });
-    expect(blockedSelection.blockedPublicationCandidate).toBeNull();
+    expect(blockedSelection.blockedPresentationCandidate).toBeNull();
     expect(blockedSelection.outcomeKind).toBe("blocked");
   });
 
@@ -238,7 +238,7 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
     );
     expect(kernelModuleSource).not.toContain("candidateDecisionKernel");
     expect(stateMachineReductionSource).toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
     );
   });
 });
@@ -268,17 +268,17 @@ function resolveProjectionFrameTransactionThroughCoordinator({
     readonly transaction: GpuFlowProjectionTransaction;
   }) => GpuFlowRetainedProjectionFrame;
 }): {
-  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly outcomeKind: string;
   readonly renderPlan: GpuFlowProjectionFrameRenderablePlan | null;
   readonly resolvedHeldTransaction: GpuFlowProjectionTransaction | null;
 } {
   const scheduler = createGpuFlowVisibleFrameReducerRuntime();
   const selection: {
-    blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+    blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
     renderPlan: GpuFlowProjectionFrameRenderablePlan | null;
   } = {
-    blockedPublicationCandidate: null,
+    blockedPresentationCandidate: null,
     renderPlan: null,
   };
   let resolvedHeldTransaction: GpuFlowProjectionTransaction | null = null;
@@ -288,9 +288,9 @@ function resolveProjectionFrameTransactionThroughCoordinator({
   >({
     prepareContentPreparationFrame: () => testProjectionPublicationFrame(),
     prepareMotionProjectionFrame: () => ({
-      createBlockedProjectionFrame: ({ blockedPublicationCandidate }) => {
+      createBlockedProjectionFrame: ({ blockedPresentationCandidate }) => {
         return testProjectionPublicationFrame({
-          blockedPublicationCandidate,
+          blockedPresentationCandidate,
         });
       },
       kind: "render",
@@ -307,8 +307,8 @@ function resolveProjectionFrameTransactionThroughCoordinator({
       },
     }),
     publish: (transaction) => {
-      selection.blockedPublicationCandidate =
-        transaction.preparedFrame.motionProjectionFrame.blockedPublicationCandidate;
+      selection.blockedPresentationCandidate =
+        transaction.preparedFrame.motionProjectionFrame.blockedPresentationCandidate;
     },
     sampleVisibleFramePublication: () =>
       visibleFramePublicationSample({
@@ -318,7 +318,7 @@ function resolveProjectionFrameTransactionThroughCoordinator({
     reducerRuntime: scheduler,
   });
   return {
-    blockedPublicationCandidate: selection.blockedPublicationCandidate,
+    blockedPresentationCandidate: selection.blockedPresentationCandidate,
     outcomeKind: result.outcome.kind,
     renderPlan: selection.renderPlan,
     resolvedHeldTransaction,
@@ -326,15 +326,15 @@ function resolveProjectionFrameTransactionThroughCoordinator({
 }
 
 function testProjectionPublicationFrame({
-  blockedPublicationCandidate = null,
+  blockedPresentationCandidate = null,
 }: {
-  readonly blockedPublicationCandidate?:
-    | GpuFlowVisibleFrameBlockedPublicationCandidate
+  readonly blockedPresentationCandidate?:
+    | GpuFlowVisibleFrameBlockedPresentationCandidate
     | null
     | undefined;
 } = {}): TestProjectionPublicationFrame {
   return {
-    blockedPublicationCandidate,
+    blockedPresentationCandidate,
     visibleProjectionState: null,
   };
 }

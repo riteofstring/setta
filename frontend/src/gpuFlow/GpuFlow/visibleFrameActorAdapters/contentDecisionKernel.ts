@@ -9,7 +9,7 @@ import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "../fl
 import type {
   GpuFlowPreparedContentFramePublicationCandidate,
   GpuFlowPreparedContentFramePublicationCandidateInput,
-  GpuFlowVisibleFrameBlockedPublicationCandidate,
+  GpuFlowVisibleFrameBlockedPresentationCandidate,
 } from "../visibleFrameContentPlan";
 import {
   reduceGpuFlowPreparedContentFramePublicationCandidate,
@@ -24,20 +24,20 @@ type GpuFlowRetainedDisplayPublicationOutcome =
   GpuFlowRetainedDisplayPublicationResult["retainedDisplayOutcome"];
 
 export type GpuFlowPreparedContentFramePublicationActionFrameResult = {
-  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly preparedContentFramePublication: GpuFlowNodeLayerPreparedContentFramePublicationResult;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
 
 export type GpuFlowPreparedContentFramePublicationFramePlan =
   | {
-      readonly blockedPublicationCandidate: null;
+      readonly blockedPresentationCandidate: null;
       readonly preparedContentFramePublication: GpuFlowNodeLayerPreparedContentFramePublicationResult;
       readonly kind: "publish";
       readonly visibleProjectionState: null;
     }
   | {
-      readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+      readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
       readonly preparedContentFramePublication: GpuFlowNodeLayerPreparedContentFramePublicationResult;
       readonly kind: "candidate";
       readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -56,7 +56,7 @@ type GpuFlowPreparedContentFramePublicationFramePlanSelector = (input: {
 }) => GpuFlowPreparedContentFramePublicationFramePlan;
 
 export type GpuFlowRetainedDisplayOutcomeFrameResult = {
-  readonly blockedPublicationCandidate: null;
+  readonly blockedPresentationCandidate: null;
   readonly publishedOutcomeFrame: GpuFlowRetainedDisplayPublicationOutcomeFrame;
 };
 
@@ -87,7 +87,7 @@ export type GpuFlowVisibleFramePresentationContentDecisionKernel = {
   readonly selectContentPreparationBlockedCandidateForFrameResult: (input: {
     readonly nodeLayerFrameResult: GpuFlowNodeLayerFrameResult;
     readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  }) => GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  }) => GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly selectRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanSelector;
 };
 

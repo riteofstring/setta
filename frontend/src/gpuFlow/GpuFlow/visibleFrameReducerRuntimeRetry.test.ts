@@ -5,13 +5,13 @@ import {
   type GpuFlowPreparedContentFrame,
 } from "../preparedContentFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
-import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
+import type { GpuFlowBlockedPresentationToken } from "./visibleFramePresentationProofs";
 import {
   createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameBlockedPresentationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
   createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
@@ -1059,13 +1059,13 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
 function completeBlockedFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisibleFrameReducerDecision,
-  blockedReasons: GpuFlowBlockedPublicationToken["blockedReasons"] = [
+  blockedReasons: GpuFlowBlockedPresentationToken["blockedReasons"] = [
     { actorId: null, family: "visible-transaction", reason: "blocked" },
   ],
 ) {
   return reducerRuntime.recordUnpresentedFrame(decision, {
     kind: "blocked",
-    token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+    token: createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
       blockedReasons,
       frozenFrameId: 41,
       projectionSample: decision.sample,

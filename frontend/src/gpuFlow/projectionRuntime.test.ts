@@ -3,12 +3,12 @@
 import { describe, expect, it } from "vitest";
 
 import type {
-  GpuFlowBlockedPublicationToken,
+  GpuFlowBlockedPresentationToken,
   GpuFlowHoldPreviousToken,
   GpuFlowVisibleFramePresentationToken,
 } from "./GpuFlow/visibleFramePresentationProofs";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameBlockedPresentationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
   createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./GpuFlow/visibleFrameTestUtils";
@@ -310,7 +310,7 @@ describe("GPU Flow projection runtime", () => {
     });
   });
 
-  it("keeps selected lane debt queued when a blocked publication is recorded", () => {
+  it("keeps selected lane debt queued when a blocked presentation is recorded", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const decision = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -322,7 +322,7 @@ describe("GPU Flow projection runtime", () => {
 
     const completion = reducerRuntime.recordUnpresentedFrame(decision, {
       kind: "blocked",
-      token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+      token: createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
         blockedReasons: [
           { actorId: "actor-a", family: "dom-control", reason: "pending" },
         ],
@@ -439,7 +439,7 @@ describe("GPU Flow projection runtime", () => {
     expect(() =>
       reducerRuntime.recordUnpresentedFrame(decision, {
         kind: "blocked",
-        token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+        token: createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
           blockedReasons: [
             { actorId: "actor-a", family: "dom-control", reason: "pending" },
           ],
@@ -450,7 +450,7 @@ describe("GPU Flow projection runtime", () => {
     ).toThrow(/blocked token for the selected projection sample/);
   });
 
-  it("rejects unbranded hold and blocked publication tokens", () => {
+  it("rejects unbranded hold and blocked presentation tokens", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const heldDecision = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -482,7 +482,7 @@ describe("GPU Flow projection runtime", () => {
         kind: "blocked",
         token: {
           projectionSampleId: blockedDecision.sample.id,
-        } as unknown as GpuFlowBlockedPublicationToken,
+        } as unknown as GpuFlowBlockedPresentationToken,
       }),
     ).toThrow(/blocked token for the selected projection sample/);
   });
@@ -1069,13 +1069,13 @@ function completeHeldFrame(
 function completeBlockedFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisibleFrameReducerDecision,
-  blockedReasons: GpuFlowBlockedPublicationToken["blockedReasons"] = [
+  blockedReasons: GpuFlowBlockedPresentationToken["blockedReasons"] = [
     { actorId: null, family: "visible-transaction", reason: "blocked" },
   ],
 ) {
   return reducerRuntime.recordUnpresentedFrame(decision, {
     kind: "blocked",
-    token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+    token: createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
       blockedReasons,
       frozenFrameId: 41,
       projectionSample: decision.sample,

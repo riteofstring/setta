@@ -26,7 +26,7 @@ import {
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowProjectionFrameRenderablePlan,
-  type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFrameBlockedPresentationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameCoordinator";
 import {
@@ -35,12 +35,12 @@ import {
 } from "./visibleFrameProjectionCoverage";
 
 type TestProjectionPublicationFrame = {
-  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly visibleProjectionState: null;
 };
 
 type TestProjectionFrameTransaction = {
-  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly blockedReason: string | null;
   readonly heldPreviousProjection:
     | GpuFlowProjectionFrameRenderablePlan["heldPreviousProjection"]
@@ -512,7 +512,7 @@ describe("GPU flow projection frame coverage", () => {
         requestedProjectionSampleId: 10,
       }),
     );
-    expect(secondHeld.blockedPublicationCandidate).toBeNull();
+    expect(secondHeld.blockedPresentationCandidate).toBeNull();
     expect(secondHeld.outcomeKind).toBe("blocked");
   });
 
@@ -611,10 +611,10 @@ function resolveGpuFlowProjectionFrameTransaction({
     knobs: projectionSchedulerKnobs,
   });
   const selection: {
-    blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+    blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
     renderPlan: GpuFlowProjectionFrameRenderablePlan | null;
   } = {
-    blockedPublicationCandidate: null,
+    blockedPresentationCandidate: null,
     renderPlan: null,
   };
   const result = runGpuFlowVisibleFrameCoordinator<
@@ -623,9 +623,9 @@ function resolveGpuFlowProjectionFrameTransaction({
   >({
     prepareContentPreparationFrame: () => testProjectionPublicationFrame(),
     prepareMotionProjectionFrame: () => ({
-      createBlockedProjectionFrame: ({ blockedPublicationCandidate }) => {
+      createBlockedProjectionFrame: ({ blockedPresentationCandidate }) => {
         return testProjectionPublicationFrame({
-          blockedPublicationCandidate,
+          blockedPresentationCandidate,
         });
       },
       kind: "render",
@@ -642,8 +642,8 @@ function resolveGpuFlowProjectionFrameTransaction({
       },
     }),
     publish: (transaction) => {
-      selection.blockedPublicationCandidate =
-        transaction.preparedFrame.motionProjectionFrame.blockedPublicationCandidate;
+      selection.blockedPresentationCandidate =
+        transaction.preparedFrame.motionProjectionFrame.blockedPresentationCandidate;
     },
     sampleVisibleFramePublication: () =>
       visibleFramePublicationSample({
@@ -656,7 +656,7 @@ function resolveGpuFlowProjectionFrameTransaction({
   const renderPlan = selection.renderPlan;
   if (renderPlan) {
     return {
-      blockedPublicationCandidate: null,
+      blockedPresentationCandidate: null,
       blockedReason: null,
       heldPreviousProjection: renderPlan.heldPreviousProjection,
       outcomeKind: result.outcome.kind,
@@ -665,9 +665,9 @@ function resolveGpuFlowProjectionFrameTransaction({
     };
   }
   return {
-    blockedPublicationCandidate: selection.blockedPublicationCandidate,
+    blockedPresentationCandidate: selection.blockedPresentationCandidate,
     blockedReason:
-      selection.blockedPublicationCandidate?.blockedReasons[0]?.reason ?? null,
+      selection.blockedPresentationCandidate?.blockedReasons[0]?.reason ?? null,
     heldPreviousProjection: null,
     outcomeKind: result.outcome.kind,
     retainedProjectionFrame: resolveGpuFlowRetainedProjectionFrame({
@@ -680,15 +680,15 @@ function resolveGpuFlowProjectionFrameTransaction({
 }
 
 function testProjectionPublicationFrame({
-  blockedPublicationCandidate = null,
+  blockedPresentationCandidate = null,
 }: {
-  readonly blockedPublicationCandidate?:
-    | GpuFlowVisibleFrameBlockedPublicationCandidate
+  readonly blockedPresentationCandidate?:
+    | GpuFlowVisibleFrameBlockedPresentationCandidate
     | null
     | undefined;
 } = {}): TestProjectionPublicationFrame {
   return {
-    blockedPublicationCandidate,
+    blockedPresentationCandidate,
     visibleProjectionState: null,
   };
 }

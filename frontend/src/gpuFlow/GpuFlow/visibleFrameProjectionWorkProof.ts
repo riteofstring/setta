@@ -4,7 +4,7 @@ import type {
   GpuFlowMotionProjectionFrameWorkResult,
 } from "./visibleFrameProjectionWorkTypes";
 
-export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason(
+export function selectGpuFlowMotionProjectionFrameBlockedPresentationReason(
   frame: GpuFlowMotionProjectionFrameWithWorkReport,
 ): string | null {
   const workReport = frame.projectionOnlyFrameWork ?? null;

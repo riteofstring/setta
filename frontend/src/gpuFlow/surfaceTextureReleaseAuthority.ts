@@ -1,7 +1,7 @@
 import {
-  assertGpuFlowBlockedPublicationTokenBrand,
+  assertGpuFlowBlockedPresentationTokenBrand,
   assertGpuFlowVisibleFramePresentationTokenBrand,
-  type GpuFlowBlockedPublicationToken,
+  type GpuFlowBlockedPresentationToken,
   type GpuFlowVisibleFramePresentationToken,
 } from "./GpuFlow/visibleFramePresentationProofs";
 
@@ -131,9 +131,9 @@ export function releaseGpuFlowBlockedCandidateSurfaceTexture({
     | GpuFlowSurfaceTextureReleaseTarget
     | null
     | undefined;
-  readonly token: GpuFlowBlockedPublicationToken;
+  readonly token: GpuFlowBlockedPresentationToken;
 }): GpuFlowSurfaceTextureReleaseResult {
-  assertGpuFlowBlockedPublicationTokenBrand({ token });
+  assertGpuFlowBlockedPresentationTokenBrand({ token });
   return releaseGpuFlowPublicationOutcomeSurfaceTexture({
     publicationOutcome: "blocked",
     reason: "blocked-candidate",

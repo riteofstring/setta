@@ -29,12 +29,12 @@ import {
 } from "../projectionSchedulerPolicy";
 import { shouldDrainGpuFlowBrowserVisualMaintenanceNow } from "./visibleFrameMaintenanceScheduling";
 import type {
-  GpuFlowBlockedPublicationToken,
+  GpuFlowBlockedPresentationToken,
   GpuFlowHoldPreviousToken,
   GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationTokens";
 import {
-  assertGpuFlowBlockedPublicationTokenForProjectionSample,
+  assertGpuFlowBlockedPresentationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
 } from "./visibleFramePresentationTokens";
 import {
@@ -101,7 +101,7 @@ export type GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome =
     }
   | {
       readonly kind: "blocked";
-      readonly token: GpuFlowBlockedPublicationToken;
+      readonly token: GpuFlowBlockedPresentationToken;
     };
 
 export type GpuFlowVisibleFrameReducerCompletionOutcome =
@@ -580,7 +580,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       });
       return;
     }
-    assertGpuFlowBlockedPublicationTokenForProjectionSample({
+    assertGpuFlowBlockedPresentationTokenForProjectionSample({
       projectionSampleId: decision.sample.id,
       token: outcome.token,
     });

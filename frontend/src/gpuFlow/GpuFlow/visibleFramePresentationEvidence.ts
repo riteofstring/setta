@@ -1,7 +1,7 @@
 import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuFlowNodeLayerFrameStatePublication } from "./flowFrameLifecycle";
-import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
+import type { GpuFlowVisibleFrameBlockedPresentationCandidate } from "./visibleFrameContentPlan";
 import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 
 export type GpuFlowVisibleFramePresentationCanvasPresentationEvidence = {
@@ -156,7 +156,7 @@ export function createGpuFlowVisibleFramePresentationBlockedReasons({
   readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}): readonly GpuFlowVisibleFrameBlockedPublicationCandidate["blockedReasons"][number][] {
+}): readonly GpuFlowVisibleFrameBlockedPresentationCandidate["blockedReasons"][number][] {
   const preparedContentFrame = visibleProjectionState.preparedContentFrame;
   return Object.freeze([
     ...createGpuFlowVisibleFramePresentationDomPresentationBlockedReasons({
@@ -191,7 +191,7 @@ export function createGpuFlowVisibleFramePresentationBlockedReasons({
 }
 
 type GpuFlowVisibleFramePresentationBlockedReason =
-  GpuFlowVisibleFrameBlockedPublicationCandidate["blockedReasons"][number];
+  GpuFlowVisibleFrameBlockedPresentationCandidate["blockedReasons"][number];
 
 function createGpuFlowVisibleFramePresentationDomPresentationBlockedReasons({
   preparedContentFrame,

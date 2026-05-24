@@ -5,13 +5,13 @@ import type {
   GpuFlowLiveProjectionSample,
   GpuFlowVisibleFrameReducerDecision,
 } from "../projectionRuntime";
-import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutcomeGuard";
+import { recordGpuFlowBlockedPresentationGuard } from "./visibleFrameBlockedOutcomeGuard";
 import {
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
   type GpuFlowVisibleFrameReducerCompletionOutcome,
 } from "./visibleFrameReducerRuntime";
 import {
-  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameBlockedPresentationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
 } from "./visibleFrameTestUtils";
 import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
@@ -28,7 +28,7 @@ describe("GPU Flow blocked visible frame presentation guard", () => {
         index += 1
       ) {
         expect(() =>
-          recordGpuFlowBlockedPublicationGuard({
+          recordGpuFlowBlockedPresentationGuard({
             outcome: blockedOutcome(index, index * 10),
             reducerDecision: reducerDecision(index, index * 10),
             surface,
@@ -39,7 +39,7 @@ describe("GPU Flow blocked visible frame presentation guard", () => {
       const overBudgetFrame =
         DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames + 1;
       expect(() =>
-        recordGpuFlowBlockedPublicationGuard({
+        recordGpuFlowBlockedPresentationGuard({
           outcome: blockedOutcome(overBudgetFrame, overBudgetFrame * 10),
           reducerDecision: reducerDecision(
             overBudgetFrame,
@@ -60,13 +60,13 @@ describe("GPU Flow blocked visible frame presentation guard", () => {
         DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames;
         index += 1
       ) {
-        recordGpuFlowBlockedPublicationGuard({
+        recordGpuFlowBlockedPresentationGuard({
           outcome: blockedOutcome(index, index),
           reducerDecision: reducerDecision(index, index),
           surface,
         });
       }
-      recordGpuFlowBlockedPublicationGuard({
+      recordGpuFlowBlockedPresentationGuard({
         outcome: holdOutcome(100, 100),
         reducerDecision: reducerDecision(100, 100),
         surface,
@@ -80,7 +80,7 @@ describe("GPU Flow blocked visible frame presentation guard", () => {
             DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames;
           index += 1
         ) {
-          recordGpuFlowBlockedPublicationGuard({
+          recordGpuFlowBlockedPresentationGuard({
             outcome: blockedOutcome(index, index),
             reducerDecision: reducerDecision(index, index),
             surface,
@@ -93,7 +93,7 @@ describe("GPU Flow blocked visible frame presentation guard", () => {
   it("rejects blocked guard updates for a different publication sample", () => {
     withTestRuntime(() => {
       expect(() =>
-        recordGpuFlowBlockedPublicationGuard({
+        recordGpuFlowBlockedPresentationGuard({
           outcome: blockedOutcome(1, 10),
           reducerDecision: reducerDecision(2, 20),
           surface: surfaceHandle(),
@@ -109,7 +109,7 @@ function blockedOutcome(
 ): GpuFlowVisibleFrameReducerCompletionOutcome {
   return {
     kind: "blocked",
-    token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+    token: createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
       blockedReasons: [
         {
           actorId: null,

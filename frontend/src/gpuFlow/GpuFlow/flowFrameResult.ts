@@ -4,7 +4,7 @@ import type {
   GpuFlowBlockedPreparedContentFrameCandidate,
   GpuFlowPreparedContentFrameCandidateAction,
 } from "./visibleFrameActorAdapters/preparedContentFrameCandidateAction";
-import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
+import type { GpuFlowVisibleFrameBlockedPresentationCandidate } from "./visibleFrameContentPlan";
 
 export type GpuFlowNodeLayerPreparedContentFramePublicationResult = {
   readonly blockedSurfacePublication: GpuFlowBlockedPreparedContentFrameCandidate | null;
@@ -21,21 +21,21 @@ const EMPTY_GPU_FLOW_NODE_LAYER_PREPARED_CONTENT_FRAME_PUBLICATION =
 
 export type GpuFlowNodeLayerFrameResult =
   | {
-      readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+      readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
       readonly preparedContentFramePublication: GpuFlowNodeLayerPreparedContentFramePublicationResult;
       readonly kind: "not-rendered";
       readonly visibleProjectionState: null;
     }
   | {
-      readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+      readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
       readonly preparedContentFramePublication: GpuFlowNodeLayerPreparedContentFramePublicationResult;
       readonly kind: "visible-projection-state";
       readonly visibleProjectionState: GpuFlowVisibleProjectionState;
     };
 
 type GpuFlowNodeLayerFrameResultOptions = {
-  readonly blockedPublicationCandidate?:
-    | GpuFlowVisibleFrameBlockedPublicationCandidate
+  readonly blockedPresentationCandidate?:
+    | GpuFlowVisibleFrameBlockedPresentationCandidate
     | null
     | undefined;
   readonly preparedContentFramePublication?:
@@ -66,7 +66,7 @@ export function createGpuFlowNodeLayerFrameNotRenderedResult(
   options: GpuFlowNodeLayerFrameResultOptions = {},
 ): GpuFlowNodeLayerFrameResult {
   return {
-    blockedPublicationCandidate: options.blockedPublicationCandidate ?? null,
+    blockedPresentationCandidate: options.blockedPresentationCandidate ?? null,
     preparedContentFramePublication:
       options.preparedContentFramePublication ??
       EMPTY_GPU_FLOW_NODE_LAYER_PREPARED_CONTENT_FRAME_PUBLICATION,
@@ -80,7 +80,7 @@ export function createGpuFlowNodeLayerFrameVisibleProjectionStateResult(
   options: GpuFlowNodeLayerFrameResultOptions = {},
 ): GpuFlowNodeLayerFrameResult {
   return {
-    blockedPublicationCandidate: options.blockedPublicationCandidate ?? null,
+    blockedPresentationCandidate: options.blockedPresentationCandidate ?? null,
     preparedContentFramePublication:
       options.preparedContentFramePublication ??
       EMPTY_GPU_FLOW_NODE_LAYER_PREPARED_CONTENT_FRAME_PUBLICATION,

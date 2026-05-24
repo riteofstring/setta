@@ -11,12 +11,12 @@ import {
 } from "./visibleFrameBlockedCandidate";
 import type { GpuFlowVisibleFrameReducerCompletion } from "./visibleFrameCoordinator";
 import {
-  assertGpuFlowBlockedPublicationTokenBrand,
-  assertGpuFlowBlockedPublicationTokenForProjectionSample,
+  assertGpuFlowBlockedPresentationTokenBrand,
+  assertGpuFlowBlockedPresentationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenBrand,
   assertGpuFlowVisibleFramePresentationTokenBrand,
   type GpuFlowBlockedFrozenFrame,
-  type GpuFlowBlockedPublicationToken,
+  type GpuFlowBlockedPresentationToken,
   type GpuFlowHoldPreviousToken,
   type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
@@ -50,7 +50,7 @@ type GpuFlowBlockedVisibleFramePresentationEvent = {
   }[];
   readonly candidateFrameId: number | null;
   readonly frozenFrame: GpuFlowBlockedFrozenFrame;
-  readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
+  readonly frozenFrameId: GpuFlowBlockedPresentationToken["frozenFrameId"];
   readonly reducerLane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly projectionSampleId: number;
   readonly remainingDebt: GpuFlowVisibleFrameReducerCompletion["debt"];
@@ -119,10 +119,10 @@ export function recordGpuFlowVisibleFrameHeld(application: {
 export function recordGpuFlowVisibleFrameBlocked(application: {
   readonly candidateFrame: GpuFlowPreparedContentFrame | null;
   readonly runtimeCanvas: HTMLCanvasElement;
-  readonly token: GpuFlowBlockedPublicationToken;
+  readonly token: GpuFlowBlockedPresentationToken;
 }): void {
   const { candidateFrame, runtimeCanvas, token } = application;
-  assertGpuFlowBlockedPublicationTokenBrand({ token });
+  assertGpuFlowBlockedPresentationTokenBrand({ token });
   if (candidateFrame === null) {
     return;
   }
@@ -343,9 +343,9 @@ export function recordGpuFlowBlockedVisibleFramePresentation({
       }
     | null
     | undefined;
-  readonly token: GpuFlowBlockedPublicationToken;
-}): GpuFlowBlockedPublicationToken {
-  assertGpuFlowBlockedPublicationTokenForProjectionSample({
+  readonly token: GpuFlowBlockedPresentationToken;
+}): GpuFlowBlockedPresentationToken {
+  assertGpuFlowBlockedPresentationTokenForProjectionSample({
     projectionSampleId: reducerDecision.sample.id,
     token,
   });

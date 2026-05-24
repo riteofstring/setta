@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
-import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
+import type { GpuFlowBlockedPresentationToken } from "./visibleFramePresentationProofs";
 import {
   createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
-import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFrameTestUtils";
+import { createGpuFlowVisibleFrameBlockedPresentationTokenForTest } from "./visibleFrameTestUtils";
 
 describe("GPU Flow cold-start maintenance retry", () => {
   it("lets maintenance upload run after browser text snapshots block first content", () => {
@@ -49,11 +49,11 @@ describe("GPU Flow cold-start maintenance retry", () => {
 function completeBlockedFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisibleFrameReducerDecision,
-  blockedReasons: GpuFlowBlockedPublicationToken["blockedReasons"],
+  blockedReasons: GpuFlowBlockedPresentationToken["blockedReasons"],
 ) {
   return reducerRuntime.recordUnpresentedFrame(decision, {
     kind: "blocked",
-    token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+    token: createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
       blockedReasons,
       frozenFrameId: 41,
       projectionSample: decision.sample,

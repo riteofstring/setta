@@ -2,12 +2,12 @@ import type {
   GpuFlowHeldPreviousProjection,
   GpuFlowProjectionTransaction,
 } from "../projectionRuntime";
-import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
+import type { GpuFlowVisibleFrameBlockedPresentationCandidate } from "./visibleFrameContentPlan";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 import type { GpuFlowVisibleFramePublicationMotionCandidate } from "./visibleFrameTransactionProofs";
 
 export type GpuFlowProjectionFrameTransaction = {
-  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly blockedReason: string | null;
   readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
   readonly retainedProjectionFrame: GpuFlowRetainedProjectionFrame;
@@ -39,7 +39,7 @@ export type GpuFlowMotionProjectionFramePreparation<
     }
   | {
       readonly createBlockedProjectionFrame: (input: {
-        readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
+        readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate;
       }) => MotionProjectionFrame;
       readonly kind: "render";
       readonly requestedTransaction: GpuFlowProjectionTransaction;

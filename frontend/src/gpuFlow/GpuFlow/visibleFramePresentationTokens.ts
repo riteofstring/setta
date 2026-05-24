@@ -27,8 +27,8 @@ const GPU_FLOW_PRESENTABLE_FRAME = Symbol(
   "GpuFlowVisibleFramePresentableFrame",
 );
 const GPU_FLOW_HOLD_PREVIOUS_TOKEN = Symbol("GpuFlowHoldPreviousToken");
-const GPU_FLOW_BLOCKED_PUBLICATION_TOKEN = Symbol(
-  "GpuFlowBlockedPublicationToken",
+const GPU_FLOW_BLOCKED_PRESENTATION_TOKEN = Symbol(
+  "GpuFlowBlockedPresentationToken",
 );
 
 type GpuFlowVisibleTransactionId = string;
@@ -62,8 +62,8 @@ type HoldPreviousTokenBrand = {
   readonly [GPU_FLOW_HOLD_PREVIOUS_TOKEN]: true;
 };
 
-type BlockedPublicationTokenBrand = {
-  readonly [GPU_FLOW_BLOCKED_PUBLICATION_TOKEN]: true;
+type BlockedPresentationTokenBrand = {
+  readonly [GPU_FLOW_BLOCKED_PRESENTATION_TOKEN]: true;
 };
 
 export type GpuFlowVisibleFramePresentationToken =
@@ -107,7 +107,7 @@ export type GpuFlowBlockedVisibleReason = {
   readonly reason: string;
 };
 
-export type GpuFlowBlockedPublicationToken = BlockedPublicationTokenBrand & {
+export type GpuFlowBlockedPresentationToken = BlockedPresentationTokenBrand & {
   readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
   readonly frozenFrame: GpuFlowBlockedFrozenFrame;
   readonly frozenFrameId:
@@ -118,13 +118,13 @@ export type GpuFlowBlockedPublicationToken = BlockedPublicationTokenBrand & {
 };
 
 type GpuFlowVisibleFramePresentationTokenIssuer = {
-  readonly createBlockedPublicationToken: (input: {
+  readonly createBlockedPresentationToken: (input: {
     readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
     readonly frozenFrameId:
       | GpuFlowCommittedVisibleFrameId
       | GpuFlowColdStartShellFrameId;
     readonly projectionSample: GpuFlowLiveProjectionSample;
-  }) => GpuFlowBlockedPublicationToken;
+  }) => GpuFlowBlockedPresentationToken;
   readonly createPresentationToken: (input: {
     readonly presentationAuthorityProof: GpuFlowPresentationAuthorityProof;
     readonly frame: GpuFlowPreparedContentFrame;
@@ -141,7 +141,7 @@ type GpuFlowVisibleFramePresentationTokenIssuer = {
 
 function createGpuFlowVisibleFramePresentationTokenIssuer(): GpuFlowVisibleFramePresentationTokenIssuer {
   return Object.freeze({
-    createBlockedPublicationToken: createGpuFlowBlockedPublicationToken,
+    createBlockedPresentationToken: createGpuFlowBlockedPresentationToken,
     createPresentationToken: ({
       presentationAuthorityProof,
       frame,
@@ -222,16 +222,16 @@ export function createGpuFlowVisibleFrameHoldPreviousToken({
   });
 }
 
-export function createGpuFlowVisibleFrameBlockedPublicationToken({
+export function createGpuFlowVisibleFrameBlockedPresentationToken({
   blockedReasons,
   frozenFrameId,
   projectionSample,
 }: {
   readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
-  readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
+  readonly frozenFrameId: GpuFlowBlockedPresentationToken["frozenFrameId"];
   readonly projectionSample: GpuFlowLiveProjectionSample;
-}): GpuFlowBlockedPublicationToken {
-  return visibleFramePresentationTokenIssuer.createBlockedPublicationToken({
+}): GpuFlowBlockedPresentationToken {
+  return visibleFramePresentationTokenIssuer.createBlockedPresentationToken({
     blockedReasons,
     frozenFrameId,
     projectionSample,
@@ -339,7 +339,7 @@ function createGpuFlowHoldPreviousToken({
   });
 }
 
-function createGpuFlowBlockedPublicationToken({
+function createGpuFlowBlockedPresentationToken({
   blockedReasons,
   frozenFrameId,
   projectionSample,
@@ -349,10 +349,10 @@ function createGpuFlowBlockedPublicationToken({
     | GpuFlowCommittedVisibleFrameId
     | GpuFlowColdStartShellFrameId;
   readonly projectionSample: GpuFlowLiveProjectionSample;
-}): GpuFlowBlockedPublicationToken {
+}): GpuFlowBlockedPresentationToken {
   const frozenFrame = createGpuFlowBlockedFrozenFrame(frozenFrameId);
   return Object.freeze({
-    [GPU_FLOW_BLOCKED_PUBLICATION_TOKEN]: true as const,
+    [GPU_FLOW_BLOCKED_PRESENTATION_TOKEN]: true as const,
     blockedReasons: Object.freeze(
       blockedReasons.map((reason) => Object.freeze({ ...reason })),
     ),
@@ -516,15 +516,15 @@ export function assertGpuFlowHoldPreviousTokenForProjectionSample({
   }
 }
 
-export function assertGpuFlowBlockedPublicationTokenForProjectionSample({
+export function assertGpuFlowBlockedPresentationTokenForProjectionSample({
   projectionSampleId,
   token,
 }: {
   readonly projectionSampleId: GpuFlowProjectionSampleId;
-  readonly token: GpuFlowBlockedPublicationToken;
+  readonly token: GpuFlowBlockedPresentationToken;
 }): void {
   if (
-    !isGpuFlowBlockedPublicationToken(token) ||
+    !isGpuFlowBlockedPresentationToken(token) ||
     token.projectionSampleId !== projectionSampleId
   ) {
     throw new Error(
@@ -536,14 +536,14 @@ export function assertGpuFlowBlockedPublicationTokenForProjectionSample({
 export function assertGpuFlowPreparedCandidateAbortToken({
   token,
 }: {
-  readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
+  readonly token: GpuFlowBlockedPresentationToken | GpuFlowHoldPreviousToken;
 }): void {
   if (
-    !isGpuFlowBlockedPublicationToken(token) &&
+    !isGpuFlowBlockedPresentationToken(token) &&
     !isGpuFlowHoldPreviousToken(token)
   ) {
     throw new Error(
-      "GPU Flow prepared browser visual abort requires a hold-previous or blocked publication token.",
+      "GPU Flow prepared browser visual abort requires a hold-previous or blocked presentation token.",
     );
   }
 }
@@ -560,14 +560,14 @@ export function assertGpuFlowVisibleFramePresentationTokenBrand({
   }
 }
 
-export function assertGpuFlowBlockedPublicationTokenBrand({
+export function assertGpuFlowBlockedPresentationTokenBrand({
   token,
 }: {
-  readonly token: GpuFlowBlockedPublicationToken;
+  readonly token: GpuFlowBlockedPresentationToken;
 }): void {
-  if (!isGpuFlowBlockedPublicationToken(token)) {
+  if (!isGpuFlowBlockedPresentationToken(token)) {
     throw new Error(
-      "GPU Flow blocked candidate resource release requires a blocked publication token.",
+      "GPU Flow blocked candidate resource release requires a blocked presentation token.",
     );
   }
 }
@@ -638,17 +638,17 @@ function isGpuFlowHoldPreviousToken(
   );
 }
 
-function isGpuFlowBlockedPublicationToken(
+function isGpuFlowBlockedPresentationToken(
   token: unknown,
-): token is GpuFlowBlockedPublicationToken {
+): token is GpuFlowBlockedPresentationToken {
   return Boolean(
     token &&
       typeof token === "object" &&
       (
         token as {
-          readonly [GPU_FLOW_BLOCKED_PUBLICATION_TOKEN]?: true;
+          readonly [GPU_FLOW_BLOCKED_PRESENTATION_TOKEN]?: true;
         }
-      )[GPU_FLOW_BLOCKED_PUBLICATION_TOKEN] === true,
+      )[GPU_FLOW_BLOCKED_PRESENTATION_TOKEN] === true,
   );
 }
 

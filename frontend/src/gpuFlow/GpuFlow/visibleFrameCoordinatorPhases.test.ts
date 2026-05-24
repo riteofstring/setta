@@ -219,7 +219,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "reduceGpuFlowVisibleFrameMotionProjectionTransaction({",
     );
     expect(coordinatorSource).not.toContain(
-      "projectionFrameTransaction.blockedPublicationCandidate",
+      "projectionFrameTransaction.blockedPresentationCandidate",
     );
     expect(coordinatorSource).not.toContain("createBlockedProjectionFrame({");
     expect(stateMachineSource).toContain(
@@ -232,7 +232,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function reduceGpuFlowVisibleFrameMotionProjectionTransaction",
     );
     expect(stateMachineReductionSource).toContain(
-      "projectionFrameTransaction.blockedPublicationCandidate",
+      "projectionFrameTransaction.blockedPresentationCandidate",
     );
     expect(stateMachineReductionSource).toContain(
       "createBlockedProjectionFrame({",
@@ -316,7 +316,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     const presentationProofSource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
     const completionSource = readFileSync(COMPLETION_MODULE_PATH, "utf8");
     const rawTokenConstructors = [
-      "createGpuFlowBlockedPublicationToken",
+      "createGpuFlowBlockedPresentationToken",
       "createGpuFlowVisibleFramePresentationToken",
       "createGpuFlowHoldPreviousToken",
       "createGpuFlowPresentableFrame",
@@ -332,7 +332,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "visibleFramePresentationTokenIssuer.createPresentationToken",
     );
     expect(authoritySource).toContain(
-      "visibleFramePresentationTokenIssuer.createBlockedPublicationToken",
+      "visibleFramePresentationTokenIssuer.createBlockedPresentationToken",
     );
     expect(authoritySource).toContain(
       "visibleFramePresentationTokenIssuer.createHoldPreviousToken",
@@ -350,10 +350,10 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "presentableFrameProof.presentationAuthorityProof",
     );
     expect(presentationProofSource).toContain(
-      "function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
+      "function createGpuFlowVisibleFrameBlockedPresentationTokenForProof",
     );
     expect(authoritySource).not.toContain(
-      "export function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
+      "export function createGpuFlowVisibleFrameBlockedPresentationTokenForProof",
     );
     expect(authoritySource).toContain(
       "export function createGpuFlowVisibleFrameReducerCompletionPresentationToken",

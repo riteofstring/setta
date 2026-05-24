@@ -120,7 +120,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
 
     expect(source).not.toMatch(
-      /\bcreateGpuFlow(?:ProjectionFrameDebugPublicationToken|RetainedProjectionBlockedPublicationToken|VisibleFrameBlockedPublicationToken|VisibleFramePresentationToken|VisibleFrameHoldPreviousToken)\b/,
+      /\bcreateGpuFlow(?:ProjectionFrameDebugPublicationToken|RetainedProjectionBlockedPresentationToken|VisibleFrameBlockedPresentationToken|VisibleFramePresentationToken|VisibleFrameHoldPreviousToken)\b/,
     );
     expect(coordinatorSource).not.toContain(
       "createGpuFlowProjectionFrameDebugPublicationToken",
@@ -164,11 +164,11 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
 
     expect(source).not.toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
     );
     expect(source).not.toContain("blockedProjectionReason");
     expect(surfaceFrameSource).not.toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
     );
     expect(surfaceFrameSource).toContain("runGpuFlowVisibleFrameCoordinator");
     expect(coordinatorSource).toContain(
@@ -177,7 +177,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(coordinatorSource).toContain("blockedSource");
     expect(coordinatorSource).toContain("visibleProjectionSource");
     expect(coordinatorSource).toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
     );
   });
 
@@ -318,10 +318,10 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(source).not.toContain("onRetainedProjectionPublicationBlocked");
     expect(surfaceFrameSource).not.toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
     );
     expect(surfaceFrameSource).not.toContain(
-      "createGpuFlowBrowserVisualBlockedPublicationCandidate",
+      "createGpuFlowBrowserVisualBlockedPresentationCandidate",
     );
     expect(surfaceFrameSource).not.toContain("retainedProjectionBlockedReason");
     expect(coordinatorSource).not.toContain("retainedProjectionBlockedReason");
@@ -357,10 +357,10 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "export function createGpuFlowContentPreparationBlockedCandidateSelector",
     );
     expect(coordinatorSource).toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
     );
     expect(coordinatorSource).toContain(
-      "createGpuFlowBrowserVisualBlockedPublicationCandidate",
+      "createGpuFlowBrowserVisualBlockedPresentationCandidate",
     );
   });
 

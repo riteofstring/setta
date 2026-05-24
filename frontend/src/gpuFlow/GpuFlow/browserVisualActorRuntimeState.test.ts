@@ -5,7 +5,7 @@ import {
   resolveGpuFlowDomControlLiveHostPreparationStage,
   resolveGpuFlowDomControlSnapshotPreparationStage,
 } from "./browserVisualActorRuntimeState";
-import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
+import type { GpuFlowBlockedPresentationToken } from "./visibleFramePresentationProofs";
 
 describe("GPU Flow browser visual actor runtime state", () => {
   it("stages budget-selected live controls instead of the first live preparation batch", () => {
@@ -104,7 +104,7 @@ function domControl({
 
 function blockedToken(
   actorIds: readonly string[] = [],
-): GpuFlowBlockedPublicationToken {
+): GpuFlowBlockedPresentationToken {
   return {
     blockedReasons: actorIds.map((actorId) => ({
       actorId,
@@ -118,5 +118,5 @@ function blockedToken(
     frozenFrameId: 1,
     projectionSampleId: 1,
     transactionId: "blocked:1",
-  } as unknown as GpuFlowBlockedPublicationToken;
+  } as unknown as GpuFlowBlockedPresentationToken;
 }

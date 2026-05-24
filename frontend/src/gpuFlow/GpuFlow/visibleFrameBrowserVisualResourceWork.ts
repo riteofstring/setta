@@ -13,7 +13,7 @@ export type GpuFlowBrowserVisualResourceReadinessState =
   | "requested";
 
 export type GpuFlowBrowserVisualResourceWakeupSource =
-  | "blocked-publication"
+  | "blocked-presentation"
   | "immediate-frame-request";
 
 export type GpuFlowBrowserVisualResourceWorkSnapshot = Omit<
@@ -58,7 +58,7 @@ export function recordGpuFlowBrowserVisualResourceWorkRequested({
         lastUpdatedAtMs: nowMs,
         outcome,
         readinessState: "requested" as const,
-        wakeupSource: "blocked-publication" as const,
+        wakeupSource: "blocked-presentation" as const,
       }),
     );
   }

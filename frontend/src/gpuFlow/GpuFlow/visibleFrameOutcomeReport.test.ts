@@ -120,7 +120,7 @@ function noVisibleFramePresentationCandidate({
     | undefined;
 } = {}) {
   return {
-    blockedPublicationCandidate: null,
+    blockedPresentationCandidate: null,
     retainedDisplayFollowUpFrameReason,
     rendered: false,
     visibleProjectionState: null,

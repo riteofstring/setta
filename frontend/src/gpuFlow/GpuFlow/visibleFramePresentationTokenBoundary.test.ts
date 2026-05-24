@@ -15,14 +15,14 @@ const CHROME_REPRO_MODULE_PATH = modulePath(
   "./visibleFrameOutcomeChromeRepro.ts",
 );
 const TOKEN_CONSTRUCTOR_NAMES = [
-  "createGpuFlowBlockedPublicationToken",
+  "createGpuFlowBlockedPresentationToken",
   "createGpuFlowVisibleFramePresentationToken",
   "createGpuFlowHoldPreviousToken",
   "createGpuFlowPresentableFrame",
 ] as const;
 const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
-  "createGpuFlowVisibleFrameBlockedPublicationToken",
-  "createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
+  "createGpuFlowVisibleFrameBlockedPresentationToken",
+  "createGpuFlowVisibleFrameBlockedPresentationTokenForProof",
   "createGpuFlowVisibleFramePresentationToken",
   "createGpuFlowVisibleFrameHoldPreviousToken",
 ] as const;

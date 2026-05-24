@@ -423,12 +423,12 @@ function fixedPublicationScheduler({
 }
 
 function testPublicationCandidate(): {
-  readonly blockedPublicationCandidate: null;
+  readonly blockedPresentationCandidate: null;
   readonly rendered: boolean;
   readonly visibleProjectionState: null;
 } {
   return {
-    blockedPublicationCandidate: null,
+    blockedPresentationCandidate: null,
     rendered: false,
     visibleProjectionState: null,
   };

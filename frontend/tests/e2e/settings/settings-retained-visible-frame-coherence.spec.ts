@@ -364,7 +364,7 @@ async function expectBrowserVisualFaultInjectionBlocksVisibleFramePresentation(
 ): Promise<void> {
   await installOptionalRetainedCompositorFrameProbe(page);
   await openAllSettingsForRetainedCompositor(page);
-  await openCoreSettingsForBlockedPublicationBaseline(page);
+  await openCoreSettingsForBlockedPresentationBaseline(page);
   await centerRetainedCompositorSurface(page, BLOCKED_PUBLICATION_SURFACE_ID);
   await waitForRetainedCompositorCoherentVisibleFrame(page);
   await page.waitForTimeout(160);
@@ -552,7 +552,7 @@ function expectVisibleFrameEpochCoherent(
   }
 }
 
-async function openCoreSettingsForBlockedPublicationBaseline(
+async function openCoreSettingsForBlockedPresentationBaseline(
   page: Page,
 ): Promise<void> {
   await setSettingsViewMode(page, "Core");
