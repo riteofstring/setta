@@ -48,7 +48,7 @@ export function createGpuFlowPrimitiveSequenceDigest(
   });
 }
 
-export function createGpuFlowTextDigest(
+function createGpuFlowTextDigest(
   namespace: string,
   value: string,
 ): string {

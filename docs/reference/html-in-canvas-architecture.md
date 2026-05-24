@@ -137,10 +137,13 @@ The project integration is centered on these modules:
   preview scene resolution.
 - `projectGpuFlowSceneFactory.ts` attaches retained parameter content surfaces
   and active DOM islands to a resolved section layout scene.
-- `projectGpuNodeRenderer.tsx` renders DOM section sources with
-  `SectionContainer` for standard section bodies and a lightweight retained
-  section shell for sections whose parameter rows are rendered by retained
-  content surfaces.
+- `projectGpuNodeRenderer.tsx` renders DOM section sources through
+  `SectionContainer`. That path applies project visibility and section chrome
+  while `SectionContainerCore` renders with `renderParamRows={false}`, so
+  retained parameter content surfaces own the row pixels for parameter sections.
+- `projectGpuRetainedSectionTextures.ts` marks sections with retained parameter
+  content using a retained-section-shell texture content key so section-shell
+  textures invalidate with the scene revision.
 - `projectGpuParamContentAdapter.ts` creates retained parameter surfaces,
   retained row scenes, active parameter DOM island descriptors, and row state
   that drives retained native-control activation.
@@ -249,9 +252,9 @@ The reusable runtime is centered on these modules:
   `GpuFlow/domControlPlaneCompatibility.ts` select live DOM-control hosts,
   compute directional projection horizons, and carry compatible-previous
   coverage.
-- `presentedSurfaceRuntime.ts` stores the currently presented content frame and
-  the React semantic snapshot. It still publishes presented-frame updates when
-  React semantic rendering is deduped for a transform-only frame.
+- `presentedSurfaceRuntime.ts` stores the presented content frame and the React
+  semantic snapshot. It publishes presented-frame updates when React semantic
+  rendering is deduped for a transform-only frame.
 - `GpuFlow/browserVisualActorRuntime.ts` and its helper modules stage, present,
   abort, repair, and project DOM-control and DOM-island browser visual actors,
   track live-host, snapshot, and island readiness, and expose the snapshots
@@ -295,8 +298,9 @@ The reusable runtime is centered on these modules:
 `GpuProjectSurface` wires the reusable GPU flow runtime to Setta's project
 runtime:
 
-- renders DOM section sources as `SectionContainer` or, for retained-parameter
-  sections, the lightweight retained section shell
+- renders DOM section sources through `SectionContainer`; parameter rows are
+  suppressed in that DOM path and rendered by retained parameter content
+  surfaces
 - observes section element resizes and writes section dimensions through the
   project dimension update path
 - mirrors GUI settings for zoom bounds, grid style, pan behavior, zoom
@@ -408,14 +412,7 @@ The simplified project runtime DOM shape is:
         data-gpu-flow-node="true"
         data-gpu-flow-source-id={nodeId}
       >
-        {retainedContentSection ? (
-          <ProjectGpuRetainedSectionSourceShell
-            sectionId={nodeId}
-            isTopLevel={true}
-          />
-        ) : (
-          <SectionContainer sectionId={nodeId} isTopLevel={true} />
-        )}
+        <SectionContainer sectionId={nodeId} isTopLevel={true} />
       </div>
       <div
         id="setta-codemirror-tooltips"
@@ -626,8 +623,8 @@ viewport and retained-scroll state once, prepares a motion projection candidate
 and/or a content publication candidate according to the scheduler decision, and
 hands the selected transaction to `GpuFlow/visibleFramePresentation.ts`.
 
-Visible publication is lane-owned rather than reason-owned. `GpuSurface` still
-coalesces raw frame reasons for diagnostics, but `GpuFlow` classifies the next
+Visible publication is lane-owned rather than reason-owned. `GpuSurface`
+coalesces raw frame reasons for diagnostics, and `GpuFlow` classifies the next
 visible frame as `motion`, `content`, `maintenance`, or idle before publishing.
 When a presented content frame exists and any unpresented `viewport` or
 `retained-scroll` sample is pending, the motion lane runs first even if the same
@@ -645,8 +642,8 @@ display.
 Content and maintenance work remain queued as debt and drain after motion has
 settled or through bounded content probes during continuous motion. During the
 motion-settling window, content or maintenance lanes can be selected, but
-`shouldDeferGpuFlowResolutionUpdates()` still keeps passive resolution work
-deferred. If debt remains after a non-motion settling frame, `GpuFlow`
+`shouldDeferGpuFlowResolutionUpdates()` keeps passive resolution work deferred.
+If debt remains after a non-motion settling frame, `GpuFlow`
 re-requests it after a delayed settle-window timer.
 
 Content, paint, upload, and maintenance frames follow this shape:
@@ -669,7 +666,7 @@ Content, paint, upload, and maintenance frames follow this shape:
    a `texture-upload` frame. If a previous retained frame exists but belongs to
    an incompatible scene, the retained display frame publishes a current-scene
    cold placeholder with empty retained draw regions instead of holding stale
-   unrelated content. `GpuFlow` still passes `allowColdPlaceholder: false`; the
+   unrelated content. `GpuFlow` passes `allowColdPlaceholder: false`; the
    incompatible-previous case is supplied by the retained display transaction
    guard. Published `RetainedDisplayFrame` diagnostics record active
    native-island `none`, `attach`, `survive`, `commit-detach`, and `replace`
@@ -902,21 +899,21 @@ Each section scene node includes:
 
 Once the scene is resolved, `getGpuFlowSceneDomSectionNodes()` selects
 renderable in-clip `dom-section` nodes; viewport visibility is resolved later by
-`collectVisibleGpuNodeQuads()`. `renderProjectGpuNode()` renders standard
+`collectVisibleGpuNodeQuads()`. `renderProjectGpuNode()` renders DOM section
 sources as:
 
 ```tsx
 <SectionContainer sectionId={node.nodeId} isTopLevel={...} />
 ```
 
-For sections that own retained parameter content, `renderProjectGpuNode()` uses
-`ProjectGpuRetainedSectionSourceShell` instead, so the DOM source supplies the
-section shell while retained content surfaces render the parameter rows.
 `SectionContainer` applies project visibility rules, wraps the section in
-`GpuSceneSectionContainer`, and renders `SectionContainerCore` for standard
-section bodies. When a standard parameter-owning body is rendered through that
-path, it uses `renderParamRows={false}`; retained parameter content surfaces
-render the parameter rows.
+`GpuSceneSectionContainer`, returns no DOM body for group sections, and renders
+`SectionContainerCore` for section bodies with `fillSurface`,
+`scenePortGeometry`, and `renderParamRows={false}`. Retained parameter content
+surfaces render the parameter rows. Sections with retained parameter content
+also receive a retained-section-shell texture content key from
+`createProjectGpuRetainedSectionTextureScene()` so shell texture freshness is
+tied to the scene revision.
 
 ## Retained Parameter Content Rendering
 
@@ -939,9 +936,9 @@ The adapter computes:
 
 `projectGpuParamRowAdapter.ts` maps each project parameter implementation to a
 retained row input and declares the control's canvas-owned or DOM-owned
-rendering path. The retained descriptor type also permits `gpu-native`, but the
-current GPU-native retained visuals are sampled separately as native visuals
-rather than emitted as parameter control descriptors.
+rendering path. The retained descriptor type also permits `gpu-native`, but
+GPU-native retained visuals are sampled separately as native visuals rather
+than emitted as parameter control descriptors.
 `createGpuRetainedRowContentScene()` turns those row inputs into structural draw
 commands, hit records, popup records, scrollbar commands, row order, visible row
 ranges, and control descriptors. The retained page rasterizer filters scrollbar
@@ -983,7 +980,7 @@ The retained renderer uses texture pages:
   DOM, and sampled active descriptors render `ParamInput` under the same
   DOM-control actor id; live DOM-control hosts are clipped to the retained
   surface and projected through the live viewport as real DOM. The project
-  activation target still identifies the row and activation point, but
+  activation target identifies the row and activation point, and
   text-like active editing participates in the browser visual transaction as a
   DOM-control representation rather than a DOM island.
 - Text-like parameter descriptors are DOM-owned readable controls. They publish

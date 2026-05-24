@@ -1,6 +1,6 @@
 # GPU Flow Architecture Iterations
 
-Date: 2026-05-23
+Date: 2026-05-27
 
 This note summarizes the GPU Flow architecture work on this branch since it
 forked from `go-rewrite`. The branch point is:
@@ -16,7 +16,7 @@ The reviewed range is:
 git log --reverse --pretty=format:'%h %ad %s' --date=short go-rewrite..HEAD
 ```
 
-That range contains 1027 commits from 2026-04-28 through 2026-05-23. Not every
+That range contains 1191 commits from 2026-04-28 through 2026-05-27. Not every
 commit is GPU Flow work, so this note focuses on the commits that changed
 `frontend/src/gpuFlow/`, the project GPU surface adapter, GPU Flow E2E probes,
 performance reports, and the related architecture docs.
@@ -496,8 +496,8 @@ generations. A retained page could hold a previous coherent display frame while
 the DOM control plane advanced to a prepared frame, or a wheel gesture could
 cross a projected `.nopan` control and change ownership mid-burst.
 
-The latest implementation adds `GpuFlowCommittedSurfaceFrame` in
-`frontend/src/gpuFlow/committedSurfaceFrame.ts`. It is now the visible
+That implementation added `GpuFlowCommittedSurfaceFrame` in
+`frontend/src/gpuFlow/committedSurfaceFrame.ts`. It became the visible
 publication boundary for:
 
 - retained page actors;
@@ -508,16 +508,16 @@ publication boundary for:
 - hit generation, clip-chain revision, retained scroll revision, z-order, and
   display completeness diagnostics.
 
-`useGpuFlowCommittedSurfaceFrameState()` publishes the committed frame after a
-retained display frame resolves, dedupes equivalent render signatures, and
-uses the committed frame as the source for the visible DOM control and DOM
+`useGpuFlowCommittedSurfaceFrameState()` published the committed frame after a
+retained display frame resolved, deduped equivalent render signatures, and
+used the committed frame as the source for the visible DOM control and DOM
 island layers. The committed frame asserts that canvas retained content, debug
 snapshots, DOM controls, DOM islands, GPU-native visuals, HTML texture overlay
 actors, and retained scroll samples agree on one display-frame id.
 
 The same final pass also added a wheel gesture ownership arbiter. Wheel pan,
 wheel zoom, retained section scroll, focused editor scroll, and native page
-wheel paths now preserve the owner for a wheel burst instead of recomputing
+wheel paths began preserving the owner for a wheel burst instead of recomputing
 ownership from each event target independently.
 
 This made the next problem visible: committed actor identity existed, but the
@@ -536,11 +536,12 @@ Representative commits:
 
 This iteration completed the cut from "React-visible committed actor state" to
 a runtime-owned committed content frame.
-`frontend/src/gpuFlow/committedSurfaceRuntime.ts` now owns publication of the
-current committed content frame, exposes React semantic snapshots through
+At that point, `frontend/src/gpuFlow/committedSurfaceRuntime.ts` owned
+publication of the current committed content frame, exposed React semantic
+snapshots through
 `useSyncExternalStore`, and dedupes React-visible updates with
 `createGpuFlowCommittedSurfaceFrameRenderSignature()`. A new committed frame
-can update the runtime without forcing a React render when its semantic
+could update the runtime without forcing a React render when its semantic
 signature is unchanged.
 
 The main architectural changes were:
@@ -548,7 +549,7 @@ The main architectural changes were:
 - committed content identity is split from live projection samples, so
   viewport pan/zoom can project already committed actors without publishing new
   semantic React state;
-- committed actor generations now separate content, layout/projection,
+- committed actor generations began to separate content, layout/projection,
   readiness, retained scroll revision, and live-motion sample identity;
 - retained section scroll uses per-surface retained scroll revisions and a
   distinct `"retained-scroll"` frame reason instead of being folded into the
@@ -564,11 +565,12 @@ The main architectural changes were:
   deferred resolution-only uploads, and eviction accounting have a clearer
   owner.
 
-The design correction is that GPU Flow has one committed content frame for
-what the user sees and interacts with, plus live projection samples for
-hot-path viewport and retained-scroll motion. Prepared frames can queue
-retained work and candidate actor generations, but they do not independently
-drive visible DOM or replace coherent content with startup placeholders.
+At that stage, the design correction was that GPU Flow had one committed
+content frame for what the user sees and interacts with, plus live projection
+samples for hot-path viewport and retained-scroll motion. Prepared frames could
+queue retained work and candidate actor generations, but they did not
+independently drive visible DOM or replace coherent content with startup
+placeholders.
 
 ## Iteration 17: Split Content Publication From Projection
 
@@ -590,7 +592,7 @@ The important changes were:
 - canvas retained row drawing still owns labels, row chrome, focus treatment,
   hover, clipping, hit testing, scrollbars, and final GPU composition, but it
   no longer draws text-like value pixels for DOM-owned controls;
-- `GpuFlowCommittedSurfaceFrame` now carries publishability diagnostics,
+- `GpuFlowCommittedSurfaceFrame` carried publishability diagnostics,
   actor-family generation ids, text coverage proof, projection horizon
   diagnostics, and coherence checks for retained pages, DOM controls, DOM
   islands, HTML texture actors, native visuals, and hit/debug state;
@@ -727,12 +729,12 @@ React-visible paths. The May 20 work turned DOM controls and DOM islands into
 one browser visual actor family that participates in the same surface
 transaction as retained pages and native visuals.
 
-The implementation adds `GpuFlowBrowserVisualActorRuntime` and
+The implementation added `GpuFlowBrowserVisualActorRuntime` and
 `surfaceCompositor/browserVisualActorAdapter.ts`.
 
 Key changes:
 
-- browser-owned actors now declare visibility, nonempty reason, coverage
+- browser-owned actors declared visibility, nonempty reason, coverage
   requirement, coverage exemption, representation kind, activation class,
   clip-chain membership, and resource handles before publication;
 - DOM-control and DOM-island actors adapt into shared `SurfaceActor`,
@@ -745,11 +747,11 @@ Key changes:
 - passive display, passive snapshot, active editor, compatible previous, and
   blocked states are variants of one canonical browser actor identity for
   text-like retained controls;
-- the browser visual runtime subscribes to the committed surface runtime
-  outside React semantic deduplication, stages DOM-control host assignments,
+- the browser visual runtime subscribed to the committed surface runtime
+  outside React semantic deduplication and staged DOM-control host assignments,
   snapshot-source controls, DOM-island elements, projection transforms, and
   offscreen parking from the committed content frame;
-- committed surface publication now gates on actual browser visual readiness,
+- committed surface publication began gating on actual browser visual readiness,
   requests follow-up texture-upload work when browser coverage is missing,
   holds previous coherent projection when that is the valid outcome, and fails
   loudly for true-hole browser visual coverage;
@@ -818,8 +820,8 @@ visible-frame engine:
 - canvas submission is deferred until visible-frame presentation, so the frame
   that produces WebGPU output is the same frame whose DOM/browser visual
   generation has been staged and proven exposable;
-- `visibleFramePresenter.ts` completes browser visual host promotion, browser
-  visual store notifications, React semantic committed-frame notifications,
+- the visible-frame presentation path completes browser visual host promotion,
+  browser visual store notifications, React semantic surface notifications,
   retained display publication, projection debug ids, overlay transforms,
   node-layer presentation state, and selected resource release from one
   presentation barrier rather than from preparation;
@@ -829,7 +831,7 @@ visible-frame engine:
 - visible-frame diagnostics now distinguish selected lane, candidate proof
   result, actor/resource/presentation proof failures, browser visual
   starvation, held-previous age, cold-start shell publication, and completed
-  scheduler debt.
+  frame debt.
 
 The architecture changed from "a committed surface frame is the shared visible
 boundary" to "a committed surface frame is one prepared input to a visible frame
@@ -889,6 +891,172 @@ The practical change is that "visible publication" is no longer just a module
 name. It is a lifecycle with typed outcomes, resource ownership, bounded retry
 policy, and observable presentation identity.
 
+## Iteration 23: Make Visible Resource Debt Budgeted Work
+
+Representative commits:
+
+- `676768581` Separate browser visual prep from diagnostics
+- `7de7419c0` Make visible frame resources budgeted owner debt
+- `cd617526b` Route frame context deferral through budget broker
+- `725da7e38` Feed resource graph debt into frame budget decisions
+- `3744349f3` Drive resource preparation from frame budget
+- `e0e4d07bd` Remove resource graph drain escape hatch
+- `2574c092b` Let visible resource debt preempt motion
+- `9fb5383d5` Require budgeted resource work selection
+- `a312bc63c` Prioritize critical visible surface first uploads
+- `c2913672d` Recompute frame context after budget lane preemption
+
+Once the visible-frame engine owned outcomes, the next failure mode was that
+resource preparation could still behave like a side channel. Browser visual
+host work, snapshot preparation, retained page repair, texture uploads, and
+section actor work were visible prerequisites, but they were not all competing
+inside one bounded frame budget.
+
+This iteration moved resource work into the visible-frame decision path:
+
+- browser visual preparation stopped being diagnostic-only state and became
+  resource graph debt with owner, priority, lane, and deadline;
+- `visibleFrameBudgetBroker.ts` started selecting content, maintenance,
+  motion, browser visual, retained page, texture, and section-structure debt
+  before candidate preparation runs;
+- resource graph debt can preempt projection motion when the selected visible
+  work is safety or continuity critical;
+- the old "drain everything" escape hatch was removed, so visible-frame work
+  must be explicitly selected, prepared, presented, deferred, or diagnosed as
+  over budget;
+- critical first-visible uploads and concrete browser visual debt are selected
+  before lower-priority catch-up work.
+
+The architectural move was from "the engine notices resources are missing" to
+"the engine budgets the resource work needed to make a visible frame true."
+
+## Iteration 24: Move Presenter Effects Behind Presentation Evidence
+
+Representative commits:
+
+- `a81c9ca57` Defer GPU Flow DOM transform presentation
+- `be17a4643` Gate DOM transforms on visible frame presentation
+- `da179aa4b` Stamp DOM transform presentation identity
+- `b63268581` Enforce frozen browser visual presentation barriers
+- `557f115f1` Defer HTML surface texture eviction to presentation
+- `9aefae962` Require DOM transform evidence for visible commits
+- `4b804f814` Require texture eviction evidence for visible commits
+- `c429f5315` Bind commit tokens to projection transaction kind
+- `3a488fba8` Guard production HTML surface renders as deferred
+- `9070db429` Move visible frame resource work before publication
+
+The budgeted-resource pass made another boundary visible: side effects could be
+correctly selected but still run too early. DOM transform application, texture
+eviction, canvas submission, browser visual promotion, retained display
+publication, and resource release all needed to be tied to the same selected
+visible-frame presentation.
+
+This pass tightened presentation into an evidence-bearing barrier:
+
+- DOM transforms are stamped with presentation identity and gated by the
+  selected visible-frame token;
+- texture eviction is deferred until presentation and requires eviction
+  evidence for the frame being presented;
+- frozen browser visual barriers prevent blocked or held candidates from
+  mutating live hosts while their prepared content is not selected;
+- HTML surface renders on the production path are treated as deferred work
+  until the visible-frame presenter admits them;
+- presentation tokens are bound to the projection transaction kind, so content,
+  motion, held, and blocked outcomes cannot reuse the wrong authority proof.
+
+The result is that preparation can stage facts, but only presentation evidence
+can expose them or retire the resources behind the previously visible frame.
+
+## Iteration 25: Rename Prepared And Presented Boundaries
+
+Representative commits:
+
+- `2957785ee` Enforce strict visible frame projection coverage
+- `090a50cf7` Route visible presentation through coordinator authority
+- `73745189a` Centralize visible-frame outcome reductions
+- `c371fe240` Split visible frame state machine reductions
+- `38178504d` Rename visible semantic runtime to presented surface runtime
+- `579140c54` Rename committed surface owner to prepared content
+- `af00cef8a` Rename presentation token runtime APIs
+- `709ee6022` Rename visible frame scheduler runtime to reducer runtime
+- `ccad36155` Route browser visual prep through resource graph
+- `3c23d9645` Guard visible frame reducer boundaries
+
+After the engine was working, the names were carrying the wrong mental model.
+"Committed surface" implied the prepared content frame was already visible.
+"Publication" blurred content preparation, reducer selection, and presenter
+effects. The May 26 pass renamed the runtime around what the code actually
+does.
+
+The important structural changes were:
+
+- `GpuFlowCommittedSurfaceFrame` became `GpuFlowPreparedContentFrame`: a
+  prepared content fact with actor generations, retained display state, browser
+  visual fragments, completeness diagnostics, and presentation proof;
+- the old semantic/committed runtime became `presentedSurfaceRuntime.ts`,
+  which exposes the frame that actually became visible;
+- `visibleFrameScheduling.ts` became `visibleFrameReducerRuntime.ts`, and
+  reducer state, reducer decisions, reducer debt, content work lanes, and
+  unpresented completion paths were named around reduction rather than
+  scheduling;
+- outcome reduction was split and centralized so lifecycle transitions,
+  blocked proofs, selected resource debt, and presentation completion are
+  reduced in one vocabulary;
+- strict projection coverage and coordinator-owned presentation authority made
+  projection-only success impossible without the coverage and token proof for
+  the selected outcome.
+
+The design correction was not cosmetic. It separated prepared content,
+presented surface state, visible-frame reduction, and presentation effects into
+different owners with names that match their authority.
+
+## Iteration 26: Stabilize Cadence And Continuity Repair
+
+Representative commits:
+
+- `75335d92a` Allow visible repair preparation during motion
+- `6115a40a4` Expose classified visible frame debt age
+- `e45389498` Force retained scroll continuity repair after debt ages
+- `e27d5c4e1` Keep continuity repair out of deferred skip
+- `3b4a5803c` Record visible debt diagnostics on surface frames
+- `ef04f9716` Force safety debt ahead of motion
+- `918be0ff7` Promote GPU flow actor resources into graph lifecycle
+- `03b6f0ee7` Budget continuity repair during GPU flow motion
+- `e4052af12` Stabilize GPU flow visible frame cadence
+- `6cbafa07a` Skip full content prep during motion repair
+- `3a0c94697` Reuse identical prepared content frames
+- `0b505c519` Reuse identical retained display frames
+- `ca580d081` Defer viewport-only continuity catchup work
+- `e86ffef2c` Clear content debt for retained compatible pages
+
+The manual Chrome recordings after the visible-frame refactor showed that the
+source had the right ownership shape but could still feel broken: retained
+section scroll and pan/zoom were able to keep choosing motion or held outcomes
+while safety or continuity debt aged for hundreds of frames. The engine could
+explain the debt, but it did not always spend the budget needed to repair it.
+
+The cadence pass changed the runtime rules:
+
+- visible debt is classified as safety, continuity, or quality and carries age
+  into reducer, budget, and surface-frame diagnostics;
+- aged safety and continuity debt can force or reserve repair work during
+  motion instead of being skipped by a projection-only frame;
+- continuity repair uses a bounded path that can prepare the needed retained
+  pages, actors, or browser visuals without forcing a full content pass on
+  every motion frame;
+- identical prepared content frames and retained display frames are reused, so
+  cadence work does not create churn when content facts have not changed;
+- viewport-only catch-up can be deferred, while retained-compatible pages clear
+  content debt instead of keeping the repair loop alive;
+- section header actors and actor resources are promoted into the resource
+  graph lifecycle so first-visible section structure is part of the same
+  visible-frame contract as retained pages and browser visuals.
+
+This iteration made the visible-frame architecture more honest about the
+remaining user-facing pressure: frame cadence and scroll continuity are not
+secondary telemetry. They are conformance requirements that must be satisfied
+by the same resource graph, reducer, and presentation boundary.
+
 ## Current Architecture
 
 After these iterations, GPU Flow has these major boundaries:
@@ -900,9 +1068,10 @@ After these iterations, GPU Flow has these major boundaries:
   interaction previews.
 - DOM section sources and HTML overlays are browser DOM mounted under
   `<canvas layoutsubtree>` and uploaded as cached WebGPU HTML textures.
-- `htmlSurfaces/textureRecords.ts` owns committed and pending texture handles,
-  dirty source rect identity, dirty tile summaries, memory snapshots,
-  diagnostics, and eviction ordering for those HTML texture actors.
+- `htmlSurfaces/textures.ts`, `htmlSurfaces/textureRecords.ts`, and the
+  texture helper modules own committed and pending texture handles, dirty
+  source rect identity, dirty tile summaries, memory snapshots, diagnostics,
+  paint deferral, upload ordering, and eviction for HTML texture actors.
 - Retained parameter content is project-owned descriptor data rasterized into
   retained texture pages.
 - GPU-native retained visuals handle scrollbars, row hover, and switch
@@ -925,52 +1094,68 @@ After these iterations, GPU Flow has these major boundaries:
   DOM-island actors into that shared vocabulary, so browser-owned visual
   coverage participates in the same transaction as retained pages and native
   visuals.
-- `GpuFlowCommittedSurfaceFrame` is the committed content-frame boundary that
-  ties retained pages, DOM controls, DOM islands, HTML texture actors,
-  GPU-native visuals, hit testing, debug snapshots, retained scroll samples,
-  and completeness diagnostics to one prepared frame.
-- `committedSurfacePresentationProof.ts` binds each committed surface frame to
-  a presentation batch, actor-manifest digest, DOM generation evidence, canvas
+- `GpuFlowPreparedContentFrame` is the prepared content boundary that ties
+  retained pages, DOM controls, DOM islands, HTML texture actors, GPU-native
+  visuals, hit testing, debug snapshots, retained scroll samples, browser
+  visual fragments, and completeness diagnostics to one prepared fact.
+- `preparedContentPresentationProof.ts` binds each prepared content frame to a
+  presentation batch, actor-manifest digest, DOM generation evidence, canvas
   generation evidence, browser visual fragment digest, and surface transaction
   digest.
+- `presentedSurfaceRuntime.ts` exposes the prepared content frame that actually
+  became the presented surface for React semantic subscribers and browser visual
+  layers.
 - `GpuFlow/visibleFrameActorAdapters/browserVisualProofs.ts` and
   `GpuFlowBrowserVisualActorRuntime` gate browser-owned visual readiness and
   record starvation when visible nonempty browser-owned actors cannot produce
   live, snapshot, or compatible-previous coverage.
-- Committed surface frames own content publication; live projection samples can
-  advance without independently advancing React-visible committed content.
+- Prepared content frames are not publication by themselves. They become
+  visible only when the visible-frame reducer and presentation authority select
+  them, while live projection samples can advance without independently
+  advancing React-visible presented content.
 - `GpuFlow/visibleFrameStateMachine.ts`, `GpuFlow/visibleFrameCoordinator.ts`,
+  `GpuFlow/visibleFrameStateMachineReduction.ts`,
+  `GpuFlow/visibleFrameReducerRuntime.ts`,
   `GpuFlow/visibleFrameContentPlan.ts`, `GpuFlow/visibleFrameProjectionWork.ts`,
   and `GpuFlow/visibleFrameTransactionProofs.ts` own the single visible-frame
-  coordinator, scheduler authority, prepared content and motion facts,
-  actor/resource/presentation proofs, projection work plans, presentation token
-  issuance, and completion accounting that select presented, projected, held,
-  blocked-cold-start, or aborted outcomes.
-- `GpuFlow/visibleFrameCommitProofs.ts`,
+  coordinator, reducer authority, prepared content and motion facts,
+  actor/resource/presentation proofs, projection work plans, presentation
+  token issuance, and completion accounting that select presented, projected,
+  held, blocked-cold-start, or aborted outcomes.
+- `GpuFlow/visibleFramePresentationAuthorityProofs.ts`,
   `GpuFlow/visibleFrameResourceGraph.ts`,
   `GpuFlow/visibleFramePresentationTokens.ts`, and
   `GpuFlow/visibleFrameIdentityAttributes.ts` bind visible-frame outcomes to
   protected resources, presentation tokens, content-frame ids, presentation ids,
   projection sample ids, browser host epochs, and debug/repro identity.
-- Visible side effects are presenter effects: canvas submission, committed-frame
-  store mutation, browser visual host promotion, browser visual notifications,
-  retained display state, projection debug ids, overlay transforms, node-layer
-  frame state, and resource release all require an outcome token for the
-  selected visible frame.
+- `GpuFlow/visibleFramePresentation.ts` owns presenter effects: canvas
+  submission, presented-surface store mutation, browser visual host promotion,
+  browser visual notifications, retained display state, projection debug ids,
+  overlay transforms, node-layer frame state, and resource release all require
+  an outcome token for the selected visible frame.
+- `GpuFlow/visibleFrameBudgetBroker.ts`,
+  `GpuFlow/visibleFrameClassifiedDebt.ts`, and
+  `GpuFlow/visibleFrameResourceGraphResources.ts` classify safety, continuity,
+  quality, content, maintenance, motion, and concrete resource debt, select
+  bounded preparation work, and record selected, deferred, and over-budget debt
+  in surface-frame diagnostics.
 - `projectionRuntime.ts` owns immutable live projection samples, projection
   transactions, held-previous debug state, and projection horizon obligations.
-- `projectionScheduler.ts` arbitrates content, maintenance, and motion lanes,
-  and only clears publication debt after the chosen lane actually publishes.
+- `projectionSchedulerPolicy.ts` supplies motion/content policy helpers, while
+  the visible-frame reducer runtime arbitrates content, maintenance, and motion
+  lanes and only clears debt after the selected outcome is reduced and
+  presented or explicitly recorded as unpresented.
 - DOM-control projection is bounded by a directional horizon, mounted-host
   budgets, and compatible-previous proofs, so browser-owned readable controls
   can stay visually continuous through retained scroll and viewport motion.
 - Retained display publication includes pre-publish page maintenance and
   bounded held-previous repair before a retained display frame becomes visible.
-- GPU Flow runtime measurements now attribute projection, content publication,
-  retained page work, DOM-control projection, scheduling, and eviction phases
-  to the frame performance stream and Chrome repro reports.
+- GPU Flow runtime measurements now attribute projection, content preparation,
+  retained page work, DOM-control projection, visible-frame reduction, resource
+  debt, presentation, and eviction phases to the frame performance stream and
+  Chrome repro reports.
 - The viewport and retained-scroll transforms remain live so pan, zoom, and
-  retained section scroll can project already committed actors without waiting
+  retained section scroll can project already presented actors without waiting
   for React render, retained publication, or texture upload.
 
 ## Design Direction
@@ -991,13 +1176,13 @@ The branch moved GPU Flow in these directions:
 8. From retained-only compositor rules to generalized surface actor
    transactions.
 9. From copied text-like snapshots to visible projected DOM controls.
-10. From independently advanced visible layers to one committed surface frame.
-11. From React-owned committed publication to a runtime-owned committed
-    content frame with separate live projection samples.
+10. From independently advanced visible layers to one prepared content frame.
+11. From React-owned committed publication to a runtime-owned prepared content
+    frame with separate live projection samples and presented surface state.
 12. From a combined content/projection path to draw-only projection frames for
     viewport and retained-scroll reasons.
 13. From canvas-drawn text-like passive values back to browser-owned readable
-    DOM actors with explicit committed-frame coverage proof.
+    DOM actors with explicit prepared-frame coverage proof.
 14. From live-only passive text actors to bounded browser-rendered snapshot
     artifacts for excess visible passive controls.
 15. From projection as an optimization to motion/content/maintenance
@@ -1021,8 +1206,8 @@ The branch moved GPU Flow in these directions:
 23. From implicit DOM/canvas readiness to explicit presentation evidence for
     the browser visual generation and deferred canvas submission.
 24. From shared publication helpers to module-private outcome tokens that guard
-    committed-frame mutation, browser visual promotion, retained display
-    updates, projection state, scheduler debt completion, and resource release.
+    presented-frame mutation, browser visual promotion, retained display
+    updates, projection state, reducer debt completion, and resource release.
 25. From a single authority cutover to a visible-frame lifecycle with typed
     presented, projected, held, blocked-cold-start, and aborted outcomes.
 26. From generic blocked/held retries to lane-specific retry cooldowns and
@@ -1030,14 +1215,25 @@ The branch moved GPU Flow in these directions:
 27. From local frame ids to presentation identity that ties content frame,
     projection sample, browser host epoch, debug snapshot, and repro evidence
     together.
+28. From resource preparation as follow-up work to budgeted visible-frame debt
+    selected before candidate preparation.
+29. From presenter side effects that could run during preparation to DOM
+    transform, canvas, texture eviction, browser visual, and resource-release
+    effects gated by presentation evidence.
+30. From committed-surface vocabulary to prepared content, presented surface,
+    visible-frame reducer, and presentation-effect owners.
+31. From motion winning indefinitely over stale retained-scroll content to
+    safety and continuity debt with age, deadlines, reserved repair budget, and
+    observed cadence conformance.
 
 The remaining pressure is not whether GPU Flow should be canvas-first or
 whether active/browser-semantic text-like controls should use real DOM. Those
 decisions have been made in code. The ongoing pressure is tightening the
-visible publication boundary so every new visual or interactive surface
+visible-frame boundary so every new visual or interactive surface
 declares its owner, generation, representation coverage, projection policy, and
-interaction ownership explicitly, then proving that contract in the frame
-performance stream as the same rules spread beyond the Settings stress path.
+interaction ownership explicitly, then proving visual continuity and frame
+cadence from browser-observed evidence instead of trusting internal invariants
+alone.
 
 ## Verification Trail
 
@@ -1075,6 +1271,8 @@ Useful reports from this branch:
 - [GPU Flow visible frame baseline](../../perf/reports/frontend/2026-05-23_gpu-flow-visible-frame-baseline.md)
 - [GPU Flow visible frame retry follow-up](../../perf/reports/frontend/2026-05-23_gpu-flow-visible-frame-retry-followup.md)
 - [GPU Flow visible frame final verification](../../perf/reports/frontend/2026-05-23_gpu-flow-visible-frame-final-verification.md)
+- [GPU Flow browser-style visible frame refactor verification](../../perf/reports/frontend/2026-05-24_gpu-flow-browser-style-visible-frame-refactor-verification.md)
+- [GPU Flow browser-style visible frame conformance checklist](../plans/gpu-flow-browser-style-visible-frame-conformance-checklist.md)
 
 The May 21-23 coherent visible-frame cutover is covered mainly by focused
 Vitest authority and boundary suites plus retained Settings E2E coverage:
@@ -1087,9 +1285,23 @@ Vitest authority and boundary suites plus retained Settings E2E coverage:
 and the visible-frame baseline, retry follow-up, and final verification reports
 linked above.
 
+The May 24-27 resource-budget, presentation-boundary, rename, and cadence
+passes are covered mainly by focused Vitest authority and boundary suites plus
+the conformance checklist:
+[visibleFrameBudgetBroker.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameBudgetBroker.test.ts),
+[visibleFrameResourceGraph.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameResourceGraph.test.ts),
+[visibleFramePresentation.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePresentation.test.ts),
+[visibleFrameTransactionPresentationEvidence.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameTransactionPresentationEvidence.test.ts),
+[visibleFrameReducerRuntimeRetainedScroll.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameReducerRuntimeRetainedScroll.test.ts),
+[visibleFrameSurfaceFrameDiagnostics.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameSurfaceFrameDiagnostics.test.ts),
+[preparedContentFrame.test.ts](../../frontend/src/gpuFlow/preparedContentFrame.test.ts),
+and
+[presentedSurfaceRuntime.test.ts](../../frontend/src/gpuFlow/presentedSurfaceRuntime.test.ts).
+
 Together, these reports show the same architectural progression from the
 measurement side: less hidden publication work, more explicit diagnostics, more
 observed-behavior regression coverage, and clearer separation between live
 viewport motion, retained section scroll projection, retained texture work, DOM
-projection, browser visual representation coverage, committed visible frames,
-projection transaction debt, and retained finish-line budgets.
+projection, browser visual representation coverage, prepared content frames,
+presented surface state, visible-frame outcomes, projection transaction debt,
+resource debt budgets, and retained finish-line budgets.
