@@ -29,7 +29,7 @@ const SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH = fileURLToPath(
 );
 
 describe("GPU Flow visible frame coordinator phases", () => {
-  it("runs sample, prepare, prove, reduce, completion, and publish through one transaction authority", () => {
+  it("runs sample, one reducer, and publish through one transaction authority", () => {
     const source = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
     const tokenAuthoritySource = readFileSync(
@@ -48,14 +48,34 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expect(firstHelperStart).toBeGreaterThan(runStart);
     expectOrderedPhases(runSource, [
       "sampleGpuFlowVisibleFramePublicationTransaction({",
-      "selectGpuFlowVisibleFramePublicationTransaction({",
-      "prepareGpuFlowVisibleFramePublicationCandidateSet({",
-      "proveGpuFlowVisibleFramePublicationCandidateSet({",
-      "reduceGpuFlowVisibleFramePublicationTransaction({",
+      "reduceGpuFlowVisibleFramePublicationFrame({",
       "publishGpuFlowVisibleFramePublicationOutcome({",
     ]);
+    expect(runSource).not.toContain(
+      "prepareGpuFlowVisibleFramePublicationCandidateSet({",
+    );
+    expect(runSource).not.toContain(
+      "proveGpuFlowVisibleFramePublicationPresentation({",
+    );
     expect(runSource).not.toContain("createGpuFlowVisibleFrameStateMachine({");
     expect(runSource).not.toContain("stateMachine.runFrame();");
+    const reducerStart = source.indexOf(
+      "function reduceGpuFlowVisibleFramePublicationFrame",
+    );
+    const reducerEnd = source.indexOf(
+      "function prepareGpuFlowVisibleFramePublicationCandidateSet",
+      reducerStart,
+    );
+    const reducerSource = source.slice(reducerStart, reducerEnd);
+    expect(reducerStart).toBeGreaterThan(firstHelperStart);
+    expect(reducerEnd).toBeGreaterThan(reducerStart);
+    expectOrderedPhases(reducerSource, [
+      "selectGpuFlowVisibleFramePublicationTransaction({",
+      "createGpuFlowVisibleFramePublicationFrameContext({",
+      "prepareGpuFlowVisibleFramePublicationCandidateSet({",
+      "createGpuFlowVisibleFramePublicationPreparedFrame({",
+      "proveGpuFlowVisibleFramePublicationPresentation({",
+    ]);
     expect(source).toContain(
       "function sampleGpuFlowVisibleFramePublicationTransaction",
     );
@@ -63,6 +83,9 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "function prepareGpuFlowVisibleFramePublicationCandidateSet",
     );
     expect(source).toContain(
+      "function createGpuFlowVisibleFramePublicationPreparedFrame",
+    );
+    expect(source).not.toContain(
       "function proveGpuFlowVisibleFramePublicationCandidateSet",
     );
     expect(source).toContain(
@@ -80,7 +103,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expect(source).not.toMatch(
       /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationTransactionProofFactory[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
     );
-    expect(source).toContain(
+    expect(source).not.toContain(
       "function reduceGpuFlowVisibleFramePublicationTransaction",
     );
     expect(source).toContain('from "./visibleFramePresentationProofs"');
