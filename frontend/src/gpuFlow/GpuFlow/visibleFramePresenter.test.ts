@@ -665,13 +665,9 @@ describe("GPU Flow surface publication completion", () => {
         blockedFrame,
         blockedPreservePreparationSnapshot: true,
         debtFrameRequest: null,
-        publicationFrameContext: {
-          budgetDecision: {
-            preparationBudget: {
-              selectedResourceDebtIds: selectedResourceKeys,
-            },
-          },
-        },
+        publicationFrameContext: publicationFrameContextForTest({
+          selectedResourceDebtIds: selectedResourceKeys,
+        }),
         sample,
         schedulerCompletion: {
           debt: {
@@ -830,6 +826,7 @@ function heldPreviousPublicationTransaction({
       visibleProjectionState: heldState,
     },
     previousCommittedFrameId,
+    publicationFrameContext: publicationFrameContextForTest(),
     publicationDecision: {
       lane: "content",
       rawReasons: ["manual"],
@@ -907,6 +904,7 @@ function committedPublicationTransaction({
       visibleProjectionState: selectedState,
     },
     previousCommittedFrameId: null,
+    publicationFrameContext: publicationFrameContextForTest(),
     publicationDecision: {
       lane: "content",
       rawReasons: ["manual"],
@@ -989,7 +987,7 @@ function blockedPublicationTransaction({
   blockedPreservePreparationSnapshot = false,
   blockedResourceWork = null,
   debtFrameRequest,
-  publicationFrameContext = null,
+  publicationFrameContext = publicationFrameContextForTest(),
   sample,
   schedulerCompletion,
   token,
@@ -1047,6 +1045,23 @@ function blockedPublicationTransaction({
       schedulerState: "content-catchup",
     },
   } as unknown as GpuFlowSurfacePublicationTransaction;
+}
+
+function publicationFrameContextForTest({
+  activeEditorPins = [],
+  selectedResourceDebtIds = [],
+}: {
+  readonly activeEditorPins?: readonly string[] | undefined;
+  readonly selectedResourceDebtIds?: readonly string[] | undefined;
+} = {}) {
+  return {
+    activeEditorPins,
+    budgetDecision: {
+      preparationBudget: {
+        selectedResourceDebtIds,
+      },
+    },
+  };
 }
 
 function visibleProjectionState({
