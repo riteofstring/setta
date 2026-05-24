@@ -56,25 +56,28 @@ Code audit update, 2026-05-27:
   motion is active, so a projected frame can keep repair preparation on the
   content path even before concrete resource-graph repair items appear.
 
-Therefore the refactor is substantially implemented in code, but it is not
-strictly complete by the original plan's success criteria until the remaining
-retained-scroll debt rules are closed and a fresh observed-browser verification
-passes.
+Therefore the refactor now appears source-complete by code audit, but it is
+not strictly complete by the original plan's success criteria until a fresh
+observed-browser verification passes.
 
 ## Invariants Still Open Or Requiring Verification
 
 | Plan invariant | Current status | Required resolution |
 | --- | --- | --- |
-| Motion must not starve safety or continuity repair. | Partly implemented; browser verification still required. Reducer debt classification and budgeted repair exist, but the latest recording predates or does not prove the current behavior. | Run the observed Settings flow and confirm safety or continuity debt cannot remain in an unbounded `motion-active` / `hold-previous` loop. |
-| Retained section scroll must not be treated as plain projection motion when it exposes new required content. | Partly implemented. Retained scroll may still use the motion lane while coverage is present or debt is within budget. That is acceptable only if exposed retained pages and browser visuals are covered. | Verify retained-scroll horizon exposure, stale retained-scroll revision, missing retained pages, and browser visual gaps become continuity or safety debt with bounded repair. |
+| Motion must not starve safety or continuity repair. | Implemented in code; browser verification still required. Reducer debt classification, budgeted repair, and over-budget debt handling exist, but the latest recording predates or does not prove the current behavior. | Run the observed Settings flow and confirm safety or continuity debt cannot remain in an unbounded `motion-active` / `hold-previous` loop. |
+| Retained section scroll must not be treated as plain projection motion when it exposes new required content. | Implemented in code shape; browser verification still required. Retained scroll may still use the motion lane while coverage is present or debt is within budget, and code now forces content repair once continuity debt exceeds the probe budget. | Verify retained-scroll horizon exposure, stale retained-scroll revision, missing retained pages, and browser visual gaps become continuity or safety debt with bounded repair. |
 | Section shell/header/chrome must be explicit actor families. | Implemented in code; runtime proof still required. `section-shell`, `section-header`, and `section-body-clip` are registered actor families and produced from retained runtime section data. | Keep these actors required in manifest eligibility and verify the E2E diagnostics include ready/blocked/missing counts by family. |
 | Preparation budget must exist during active gestures. | Implemented in code; browser verification still required. The budget broker reserves preparation budget during motion and selects visible resource debt. | Confirm the fresh recording shows repair work making bounded progress during pan, zoom, and retained scroll. |
-| A motion-rendered frame must not suppress repair preparation. | Implemented in code shape; browser verification still required. The coordinator prepares budget-selected resources before candidate preparation and can prepare repair resources while presenting/projecting motion. | Confirm no motion path or work-plan skip prevents safety or continuity resource preparation in the fresh recording. |
+| A motion-rendered frame must not suppress repair preparation. | Implemented in code; browser verification still required. The coordinator prepares budget-selected resources before candidate preparation and can prepare repair resources while presenting/projecting motion. | Confirm no motion path or work-plan skip prevents safety or continuity resource preparation in the fresh recording. |
 | All user-visible actor resources must be represented by the resource lifecycle or by an explicitly justified manifest authority. | Implemented in code; browser verification still required. Actor resource keys are graph-managed candidate resources and receive lifecycle states with actor-family preparation lanes. | Confirm fresh diagnostics show actor resource keys in `candidateResourceKeys`, `resourceStates`, and presented/retired lifecycle transitions. |
 | Debt may clear only after the chosen visible outcome actually presents. | Substantially code-proven; runtime verification still required. Boundary tests cover visible canvas, DOM projection, browser visual projection, retained display state, and public projection state. | Keep the presentation-token boundary tests and confirm diagnostics do not show partial publication or stale debt clearing in the fresh recording. |
 | Observed behavior, not frame-internal invariants alone, defines completion. | Test coverage exists; completion is unverified. The Settings observed-failure spec now covers first render, retained scroll, pan/zoom cadence, flicker, and latest-recording parity. | Run the observed E2E spec and capture a fresh Chrome recording as the final pass/fail oracle. |
 
 ## Implementation Checklist
+
+Unchecked items below are verification gates unless they explicitly say to
+change implementation. If browser or diagnostic verification fails, use the
+failing evidence to reopen implementation work narrowly.
 
 ### 1. Keep This As Existing-Plan Conformance
 
@@ -118,14 +121,15 @@ passes.
   section data.
 - [x] Add synthetic blocked manifest entries for missing required section
   structure actors.
-- [ ] Verify required actor families are derived from the sampled scene and
+- [x] Verify required actor families are derived from the sampled scene and
   viewport before visible candidate eligibility is accepted.
-- [ ] Make missing section shell/header/chrome a hard eligibility blocker unless
+- [x] Make missing section shell/header/chrome a hard eligibility blocker unless
   the scene provides an explicit reason they are absent.
-- [ ] Report required, ready, compatible, blocked, and missing counts by family
+- [x] Report required, ready, compatible, blocked, and missing counts by family
   in diagnostics.
-- [ ] Ensure section/header/body clip transforms are all derived from the same
-  presentation matrix as canvas and browser-owned DOM actors.
+- [ ] Verify section/header/body clip transforms are all derived from the same
+  presentation matrix as canvas and browser-owned DOM actors in the fresh
+  browser run.
 - [x] Close the actor-resource lifecycle gap: promote actor resource keys into
   graph-managed candidate resources, or explicitly define manifest eligibility
   as the actor-family authority.
@@ -135,17 +139,18 @@ passes.
 - [x] Add safety, continuity, and quality debt classification with age.
 - [x] Allow retained scroll to use projection only while continuity debt remains
   within its bounded repair budget.
-- [ ] Treat retained scroll as continuity-sensitive content motion whenever it
+- [x] Treat retained scroll as continuity-sensitive content motion whenever it
   exposes new required content, not as plain projection motion.
-- [ ] Track desired and presented retained-scroll revisions per visible retained
-  surface.
-- [ ] Track retained page coverage for current and near-future scroll exposure.
-- [ ] Track browser control live-host or snapshot coverage for the same scroll
-  horizon.
-- [ ] Treat scroll deltas that expose uncovered rows, stale browser visuals, or
-  missing retained pages as continuity or safety debt with age and deadline.
-- [ ] Keep section header/chrome stationary relative to the section surface
-  through scroll projection.
+- [ ] Verify diagnostics expose desired and presented retained-scroll revisions
+  per visible retained surface.
+- [ ] Verify diagnostics expose retained page coverage for current and
+  near-future scroll exposure.
+- [ ] Verify diagnostics expose browser control live-host or snapshot coverage
+  for the same scroll horizon.
+- [ ] Verify scroll deltas that expose uncovered rows, stale browser visuals, or
+  missing retained pages become continuity or safety debt with age and deadline.
+- [ ] Verify section header/chrome stays stationary relative to the section
+  surface through scroll projection.
 
 ### 5. Fix Lane Selection And Debt Aging
 
@@ -156,16 +161,17 @@ passes.
   reducer probe budget.
 - [x] Fail loudly in the budget broker when over-budget visible debt remains
   deferred.
-- [ ] Stop allowing `retained-scroll` to suppress competing content or
-  maintenance reasons when safety or continuity debt exists.
-- [ ] Prevent motion from indefinitely preempting safety or continuity debt in
+- [x] Stop allowing `retained-scroll` to suppress competing content or
+  maintenance reasons once safety or continuity debt exceeds the bounded repair
+  budget.
+- [ ] Verify motion does not indefinitely preempt safety or continuity debt in
   the observed browser flow, not only in reducer/budget unit tests.
-- [ ] When safety debt exists, select repair or block loudly instead of
-  presenting lower-coverage content as success.
-- [ ] When continuity debt exceeds its budget, force repair or hold with an
+- [ ] Verify safety debt selects repair or blocks loudly instead of presenting
+  lower-coverage content as success.
+- [x] When continuity debt exceeds its budget, force repair or hold with an
   over-budget diagnostic instead of continuing a healthy `motion-active` loop in
   browser diagnostics.
-- [ ] Clear content, maintenance, and motion debt only after the selected
+- [x] Clear content, maintenance, and motion debt only after the selected
   visible outcome actually presents or intentionally resolves that debt.
 
 ### 6. Decouple Motion Presentation From Repair Preparation
@@ -178,7 +184,7 @@ passes.
   work can start during active gestures.
 - [x] Remove any rule where `renderedProjectionOnlyFrame` or motion lane
   selection automatically skips safety or continuity content preparation.
-- [ ] Ensure texture uploads, browser visual host preparation, retained page
+- [x] Ensure texture uploads, browser visual host preparation, retained page
   rasterization, and snapshot capture remain preparation work and do not mutate
   visible state until `Present`.
 - [ ] Verify in a fresh Chrome recording that selected repair resources advance
@@ -194,8 +200,9 @@ passes.
   diagnostics and schedule future work.
 - [x] Keep active editors exact-live unless an explicit family-specific rule
   says otherwise.
-- [ ] Stamp every visible mutation with one presentation id.
-- [ ] Make compatible-previous proof family-specific and narrow.
+- [ ] Verify runtime diagnostics stamp visible mutations with one presentation
+  id.
+- [x] Make compatible-previous proof family-specific and narrow.
 - [ ] Verify the boundary with runtime diagnostics in addition to static
   boundary tests.
 
