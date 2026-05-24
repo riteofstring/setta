@@ -161,6 +161,7 @@ function createGpuFlowSurfaceFrameResourceGraphDiagnostic(
     .filter((state) => state.state === "retired")
     .map((state) => state.resourceKey);
   return {
+    actorResourceKeys: snapshot.actorResourceKeys ?? [],
     candidateResourceKeys: snapshot.candidateResourceKeys,
     committedFrameId: snapshot.committedFrameId,
     committedResourceKeys: snapshot.committedResourceKeys,

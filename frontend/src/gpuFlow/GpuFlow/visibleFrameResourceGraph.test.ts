@@ -247,6 +247,45 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     );
   });
 
+  it("exposes actor-level presentation obligations separately from queued resources", () => {
+    const registry = createGpuFlowVisibleFrameResourceGraph();
+    const frame = {
+      ...committedSurfaceFrame({ displayFrameId: 43 }),
+      actorGenerations: [
+        {
+          actorFamily: "section-header",
+          actorId: "settings:section-header",
+          visibleNonempty: true,
+        },
+      ],
+    } as unknown as GpuFlowCommittedSurfaceFrame;
+
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: browserVisualCandidate({
+        frameId: frame.displayFrameId,
+      }),
+      frame,
+    });
+
+    const snapshot = registry.getSnapshot();
+    expect(snapshot.actorResourceKeys).toEqual(
+      expect.arrayContaining([
+        "actor:scene-background:scene-background",
+        "actor:grid:grid",
+        "actor:edges:edges",
+        "actor:viewport-portal:viewport-portal",
+        "actor:hit-generation:hit-generation",
+        "actor:accessibility-exposure:accessibility-exposure",
+        "actor:debug-snapshot:debug-snapshot",
+        "actor:public-runtime-state:public-runtime-state",
+        "actor:section-header:settings:section-header",
+      ]),
+    );
+    expect(snapshot.candidateResourceKeys).toEqual([]);
+    expect(snapshot.queuedResourceKeys).toEqual([]);
+    expect(snapshot.resourceStates).toEqual([]);
+  });
+
   it("commits one candidate, records committed resources, and releases loser candidates", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const loserResource = resourceHandle("page", "loser-page");

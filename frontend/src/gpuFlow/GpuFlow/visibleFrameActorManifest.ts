@@ -88,7 +88,7 @@ type GpuFlowVisibleFramePresentationGenerationFactory = (input: {
   readonly sample: GpuFlowLiveProjectionSample | null;
 }) => GpuFlowVisibleFramePresentationGeneration;
 
-const GPU_FLOW_PRESENTATION_ACTOR_FAMILIES = Object.freeze([
+export const GPU_FLOW_PRESENTATION_ACTOR_FAMILIES = Object.freeze([
   "scene-background",
   "grid",
   "edges",

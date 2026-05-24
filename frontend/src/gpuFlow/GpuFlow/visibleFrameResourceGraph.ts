@@ -31,6 +31,7 @@ export type {
 
 export type GpuFlowVisibleFrameResourceGraphSnapshot = {
   readonly activeEditorPins: readonly string[];
+  readonly actorResourceKeys?: readonly string[] | undefined;
   readonly candidateResourceKeys: readonly string[];
   readonly committedFrameId: number | null;
   readonly committedResourceKeys: readonly string[];
@@ -432,6 +433,11 @@ export class GpuFlowVisibleFrameResourceGraph {
       activeEditorPins: Object.freeze(
         uniqueStrings(
           pendingEntries.flatMap((entry) => entry.activeEditorPins),
+        ),
+      ),
+      actorResourceKeys: Object.freeze(
+        uniqueStrings(
+          pendingEntries.flatMap((entry) => entry.actorResourceKeys),
         ),
       ),
       candidateResourceKeys: Object.freeze(

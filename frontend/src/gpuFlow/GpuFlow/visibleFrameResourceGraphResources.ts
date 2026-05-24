@@ -5,6 +5,7 @@ import type {
 } from "../committedSurfaceFrame";
 import type { SurfaceResourceHandle } from "../surfaceCompositor/surfaceCoverage";
 import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
+import { GPU_FLOW_PRESENTATION_ACTOR_FAMILIES } from "./visibleFrameActorManifest";
 import {
   createGpuFlowDomControlLiveHostPreparationResourceKey,
   createGpuFlowDomControlSnapshotPreparationResourceKey,
@@ -26,6 +27,7 @@ export type GpuFlowVisiblePublicationResourceProtectionDigest = string;
 
 export type GpuFlowVisibleFrameCandidateResourceEntry = {
   readonly activeEditorPins: readonly string[];
+  readonly actorResourceKeys: readonly string[];
   readonly browserVisualCandidate: GpuFlowBrowserVisualActorCandidate;
   readonly candidateResourceKeys: readonly string[];
   readonly frame: GpuFlowCommittedSurfaceFrame;
@@ -294,6 +296,9 @@ export function createGpuFlowVisibleFrameCandidateResourceEntry({
         browserVisualCandidate,
       ),
     ),
+    actorResourceKeys: Object.freeze(
+      createGpuFlowVisibleFrameCandidateActorResourceKeys(frame),
+    ),
     browserVisualCandidate,
     candidateResourceKeys: Object.freeze(
       uniqueStrings([
@@ -515,6 +520,40 @@ function createGpuFlowBrowserVisualCandidateResourceKeys(
       (island) => `dom-island:${island.id}`,
     ),
   ]);
+}
+
+function createGpuFlowVisibleFrameCandidateActorResourceKeys(
+  frame: GpuFlowCommittedSurfaceFrame,
+): readonly string[] {
+  return uniqueStrings([
+    ...GPU_FLOW_PRESENTATION_ACTOR_FAMILIES.map((family) =>
+      createGpuFlowVisibleFrameActorResourceKey({
+        actorId: family,
+        family,
+      }),
+    ),
+    ...frame.actorGenerations.flatMap((actor) => {
+      if (!actor.actorFamily || actor.visibleNonempty === false) {
+        return [];
+      }
+      return [
+        createGpuFlowVisibleFrameActorResourceKey({
+          actorId: actor.actorId,
+          family: actor.actorFamily,
+        }),
+      ];
+    }),
+  ]);
+}
+
+function createGpuFlowVisibleFrameActorResourceKey({
+  actorId,
+  family,
+}: {
+  readonly actorId: string;
+  readonly family: string;
+}): string {
+  return `actor:${family}:${actorId}`;
 }
 
 function createGpuFlowVisibleFrameCandidateActiveEditorPins(
