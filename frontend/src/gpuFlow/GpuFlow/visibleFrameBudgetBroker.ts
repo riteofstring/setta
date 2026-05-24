@@ -1,6 +1,6 @@
 import type { GpuFlowVisiblePublicationDecision } from "../projectionRuntime";
 
-export type GpuFlowVisibleFrameBudgetBrokerDecision = {
+type GpuFlowVisibleFrameBudgetBrokerDecision = {
   readonly browserVisualRepair: {
     readonly eligible: true;
     readonly priority: "safety";

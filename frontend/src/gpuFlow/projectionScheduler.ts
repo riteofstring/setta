@@ -45,8 +45,6 @@ import {
 } from "./projectionSchedulerPolicy";
 
 export {
-  isGpuFlowCriticalContentFrameReason,
-  isGpuFlowMaintenanceFrameReason,
   shouldDeferGpuFlowMaintenanceContentCatchup,
 } from "./projectionSchedulerPolicy";
 

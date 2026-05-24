@@ -242,7 +242,7 @@ function shouldDeferGpuFlowProjectionContentRetry({
   );
 }
 
-export function isGpuFlowCriticalContentFrameReason(
+function isGpuFlowCriticalContentFrameReason(
   reason: GpuFrameReason,
 ): boolean {
   return (
