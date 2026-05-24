@@ -176,8 +176,8 @@ export type GpuFlowPresentedContentFrameDebugEntry = {
     readonly textActorTrueHoleCount: number;
     readonly viewportOverscanCssPx: number;
   };
-  readonly publishabilityKind: string;
-  readonly publishabilityReason: string | null;
+  readonly presentabilityKind: string;
+  readonly presentabilityReason: string | null;
   readonly retainedScrollRevision: number;
   readonly retainedPageActorCount: number;
   readonly sceneRevision: number;

@@ -74,11 +74,11 @@ test("presented content frame debug snapshot keeps passive DOM actor scale bound
   expect(sample.presentedContentFrame?.displayCompletenessStatus, details).toBe(
     "complete",
   );
-  expect(sample.presentedContentFrame?.publishabilityKind, details).toBe(
-    "publishable",
+  expect(sample.presentedContentFrame?.presentabilityKind, details).toBe(
+    "presentable",
   );
   expect(
-    sample.presentedContentFrame?.publishabilityReason,
+    sample.presentedContentFrame?.presentabilityReason,
     details,
   ).toBeNull();
   expect(
@@ -193,7 +193,7 @@ function isPresentedContentFrameDomActorSampleReady(
     sample.presentedContentFrame &&
       sample.diagnostics &&
       sample.presentedContentFrame.displayCompletenessStatus === "complete" &&
-      sample.presentedContentFrame.publishabilityKind === "publishable" &&
+      sample.presentedContentFrame.presentabilityKind === "presentable" &&
       sample.canvasProjectionTransactionId &&
       sample.planeProjectionTransactionId &&
       sample.diagnostics.mountedControlCount <=

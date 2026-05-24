@@ -77,7 +77,7 @@ function createGpuFlowRetainedSurfaceTrueHoleBlockedPresentationCandidate({
 }): GpuFlowVisibleFrameBlockedPresentationCandidate {
   return Object.freeze({
     blockedReasons: Object.freeze(
-      getGpuFlowPreparedContentPublishabilityActorIds(frame).map((actorId) =>
+      getGpuFlowPreparedContentPresentabilityActorIds(frame).map((actorId) =>
         Object.freeze({
           actorId,
           family: "retained-projection",
@@ -95,8 +95,8 @@ function isGpuFlowRetainedSurfaceTrueHoleFrame(
   frame: GpuFlowPreparedContentFrame,
 ): boolean {
   return (
-    frame.publishability.kind === "true-hole" &&
-    frame.publishability.reason === "retained-surface-true-hole"
+    frame.presentability.kind === "true-hole" &&
+    frame.presentability.reason === "retained-surface-true-hole"
   );
 }
 
@@ -265,15 +265,15 @@ function createGpuFlowBlockedVisibleReasons(
   const actorById = new Map(
     frame.actorGenerations.map((actor) => [actor.actorId, actor]),
   );
-  const actorIds = getGpuFlowPreparedContentPublishabilityActorIds(frame);
-  const publishabilityActorFamily =
-    getGpuFlowPreparedContentPublishabilityActorFamily(frame);
+  const actorIds = getGpuFlowPreparedContentPresentabilityActorIds(frame);
+  const presentabilityActorFamily =
+    getGpuFlowPreparedContentPresentabilityActorFamily(frame);
   return Object.freeze(
     actorIds.map((actorId) => {
       const actor = actorById.get(actorId);
       return Object.freeze({
         actorId,
-        family: actor?.actorFamily ?? actor?.kind ?? publishabilityActorFamily,
+        family: actor?.actorFamily ?? actor?.kind ?? presentabilityActorFamily,
         reason: getGpuFlowBrowserVisualBlockedReason({
           frame,
           textCoverage: actor?.textCoverageProof,
@@ -446,7 +446,7 @@ function getGpuFlowBrowserVisualResourceRepresentationKind({
     actor?.browserVisual?.representationKind ??
     actor?.textCoverageProof?.projectionCoverage ??
     reason.family ??
-    frame.publishability.kind
+    frame.presentability.kind
   );
 }
 
@@ -506,19 +506,19 @@ function readGpuFlowBrowserVisualStringProperty(
   return typeof propertyValue === "string" ? propertyValue : null;
 }
 
-export function getGpuFlowPreparedContentPublishabilityActorIds(
+export function getGpuFlowPreparedContentPresentabilityActorIds(
   frame: GpuFlowPreparedContentFrame,
 ): readonly string[] {
-  return frame.publishability.kind === "true-hole"
-    ? frame.publishability.actorIds
-    : frame.publishability.blockingActorIds;
+  return frame.presentability.kind === "true-hole"
+    ? frame.presentability.actorIds
+    : frame.presentability.blockingActorIds;
 }
 
-function getGpuFlowPreparedContentPublishabilityActorFamily(
+function getGpuFlowPreparedContentPresentabilityActorFamily(
   frame: GpuFlowPreparedContentFrame,
 ): string {
-  return frame.publishability.kind === "true-hole"
-    ? frame.publishability.actorFamily
+  return frame.presentability.kind === "true-hole"
+    ? frame.presentability.actorFamily
     : "unknown";
 }
 
@@ -532,18 +532,18 @@ export function getGpuFlowBrowserVisualBlockedReason({
   if (textCoverage && "readinessReason" in textCoverage) {
     return textCoverage.readinessReason;
   }
-  return getGpuFlowPreparedContentPublishabilityReason(frame);
+  return getGpuFlowPreparedContentPresentabilityReason(frame);
 }
 
-function getGpuFlowPreparedContentPublishabilityReason(
+function getGpuFlowPreparedContentPresentabilityReason(
   frame: GpuFlowPreparedContentFrame,
 ): string {
-  switch (frame.publishability.kind) {
-    case "block-first-publication":
+  switch (frame.presentability.kind) {
+    case "block-first-presentation":
     case "hold-previous":
     case "true-hole":
-      return frame.publishability.reason;
-    case "publishable":
+      return frame.presentability.reason;
+    case "presentable":
       return "browser-visual-coverage-missing";
   }
 }

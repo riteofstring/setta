@@ -18,7 +18,7 @@ import {
   isGpuFlowPreparedContentCompletenessBlockingActor,
 } from "./preparedContentCompleteness";
 import {
-  createGpuFlowContentFramePublishability,
+  createGpuFlowContentFramePresentability,
   createGpuFlowPreparedContentRetainedTrueHoleActorIds,
   createGpuFlowProjectionHorizon,
   isGpuFlowPreparedTextActor,
@@ -254,28 +254,28 @@ type GpuFlowCoverageBlockReason =
   | "text-actor-true-hole"
   | "visible-dom-control-not-projected";
 
-type GpuFlowContentFramePublishabilityBase = {
+type GpuFlowContentFramePresentabilityBase = {
   readonly blockingActorIds: readonly string[];
-  readonly status: "blocked" | "publishable" | "startup";
+  readonly status: "blocked" | "presentable" | "startup";
   readonly textActorCount: number;
   readonly textActorExactCoverageCount: number;
   readonly transactionOutcome: string;
   readonly visibleNonemptyTextActorCount: number;
 };
 
-export type GpuFlowContentFramePublishability =
-  | (GpuFlowContentFramePublishabilityBase & {
-      readonly kind: "publishable";
+export type GpuFlowContentFramePresentability =
+  | (GpuFlowContentFramePresentabilityBase & {
+      readonly kind: "presentable";
     })
-  | (GpuFlowContentFramePublishabilityBase & {
+  | (GpuFlowContentFramePresentabilityBase & {
       readonly kind: "hold-previous";
       readonly reason: GpuFlowCoverageBlockReason;
     })
-  | (GpuFlowContentFramePublishabilityBase & {
-      readonly kind: "block-first-publication";
+  | (GpuFlowContentFramePresentabilityBase & {
+      readonly kind: "block-first-presentation";
       readonly reason: GpuFlowCoverageBlockReason;
     })
-  | (GpuFlowContentFramePublishabilityBase & {
+  | (GpuFlowContentFramePresentabilityBase & {
       readonly actorFamily: "retained-page" | "text-like-dom-control";
       readonly actorIds: readonly string[];
       readonly kind: "true-hole";
@@ -346,7 +346,7 @@ export type GpuFlowPreparedContentFrame = {
   readonly id: number;
   readonly projectionHorizon: GpuFlowProjectionHorizon;
   readonly presentationProof: GpuFlowPreparedContentPresentationProof;
-  readonly publishability: GpuFlowContentFramePublishability;
+  readonly presentability: GpuFlowContentFramePresentability;
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly sceneRevision: number;
@@ -518,7 +518,7 @@ function freezePreparedContentFrame({
     actorGenerations,
     startup: retainedDisplayFrame === null,
   });
-  const publishability = createGpuFlowContentFramePublishability({
+  const presentability = createGpuFlowContentFramePresentability({
     actorGenerations,
     displayCompleteness,
     retainedSurfaceTrueHoleActorIds:
@@ -533,7 +533,7 @@ function freezePreparedContentFrame({
     displayFrameId,
   });
   const surfaceTransaction =
-    retainedDisplayFrame && publishability.kind === "publishable"
+    retainedDisplayFrame && presentability.kind === "presentable"
       ? createGpuFlowPreparedContentTransaction({
           browserVisualSurfaceFragment,
           displayFrameId: retainedDisplayFrame.id,
@@ -607,7 +607,7 @@ function freezePreparedContentFrame({
     id: displayFrameId,
     projectionHorizon,
     presentationProof,
-    publishability,
+    presentability,
     retainedDisplayFrame,
     retainedRuntimeFrame,
     sceneRevision: retainedRuntimeFrame.input.sceneRevision,

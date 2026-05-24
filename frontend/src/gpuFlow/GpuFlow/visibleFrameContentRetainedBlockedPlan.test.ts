@@ -222,7 +222,7 @@ function trueHolePreparedContentFrame(): GpuFlowPreparedContentFrame {
       },
     ],
     displayFrameId: 12,
-    publishability: {
+    presentability: {
       actorFamily: "text-like-dom-control",
       actorIds: ["text-control-a"],
       blockingActorIds: ["text-control-a"],
@@ -241,7 +241,7 @@ function retainedTrueHolePreparedContentFrame(): GpuFlowPreparedContentFrame {
   return {
     actorGenerations: [],
     displayFrameId: 13,
-    publishability: {
+    presentability: {
       actorFamily: "retained-page",
       actorIds: ["retained-surface-a"],
       blockingActorIds: [],

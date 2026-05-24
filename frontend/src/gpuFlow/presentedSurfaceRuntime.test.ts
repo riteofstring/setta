@@ -253,9 +253,9 @@ function preparedContentFrame({
         trueHoleActorIds: [],
       },
     },
-    publishability: {
+    presentability: {
       blockingActorIds: [],
-      kind: "publishable",
+      kind: "presentable",
     },
     surfaceTransaction: null,
   } as unknown as GpuFlowPreparedContentFrame;

@@ -299,7 +299,7 @@ async function readCoreVisualSceneState(page: Page): Promise<{
     readonly displayCompletenessStatus: string;
     readonly gpuNativeVisualActorCount: number;
     readonly htmlTextureActorCount: number;
-    readonly publishabilityKind: string;
+    readonly presentabilityKind: string;
     readonly retainedPageActorCount: number;
     readonly sceneRevision: number;
   } | null;
@@ -349,7 +349,7 @@ async function readCoreVisualSceneState(page: Page): Promise<{
                 displayFrameId: frame.displayFrameId,
                 gpuNativeVisualActorCount: frame.gpuNativeVisualActorCount,
                 htmlTextureActorCount: frame.htmlTextureActorCount,
-                publishabilityKind: frame.publishabilityKind,
+                presentabilityKind: frame.presentabilityKind,
                 retainedPageActorCount: frame.retainedPageActorCount,
                 sceneRevision: frame.sceneRevision,
               }

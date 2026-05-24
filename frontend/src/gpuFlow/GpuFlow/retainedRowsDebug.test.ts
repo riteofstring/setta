@@ -140,8 +140,8 @@ function preparedContentFrame(
         overscanCssPx: 0,
       },
     },
-    publishability: {
-      kind: "publishable",
+    presentability: {
+      kind: "presentable",
     },
     retainedRuntimeFrame: null,
     sceneRevision: 1,

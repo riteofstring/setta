@@ -169,9 +169,9 @@ describe("GPU Flow visible frame presentation Chrome repro payload", () => {
             trueHoleActorIds: [],
           },
         },
-        publishability: {
+        presentability: {
           blockingActorIds: [],
-          kind: "publishable",
+          kind: "presentable",
         },
         surfaceTransaction: {
           coverageProof: {

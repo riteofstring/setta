@@ -666,7 +666,7 @@ function heldPreviousPresentationToken() {
 
 function presentationToken() {
   return createGpuFlowVisibleFramePresentationTokenForTest({
-    frame: publishablePreparedContentFrame(3),
+    frame: presentablePreparedContentFrame(3),
     projectionSample: {
       id: 1,
     } as Parameters<
@@ -675,7 +675,7 @@ function presentationToken() {
   });
 }
 
-function publishablePreparedContentFrame(
+function presentablePreparedContentFrame(
   displayFrameId: number,
 ): GpuFlowPreparedContentFrame {
   const coherence = {
@@ -702,9 +702,9 @@ function publishablePreparedContentFrame(
         visibleActorIds: [],
       },
     },
-    publishability: {
+    presentability: {
       blockingActorIds: [],
-      kind: "publishable",
+      kind: "presentable",
     },
   } as unknown as GpuFlowPreparedContentFrame;
 }
@@ -751,7 +751,7 @@ function blockedPreparedContentFrame(): GpuFlowPreparedContentFrame {
         visibleActorIds: ["actor-a"],
       },
     },
-    publishability: {
+    presentability: {
       blockingActorIds: ["actor-a"],
       kind: "hold-previous",
       reason: "visible-dom-control-not-projected",

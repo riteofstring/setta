@@ -309,7 +309,7 @@ function resolveGpuFlowPreparedContentFramePresentationReadiness({
 }): GpuFlowPreparedContentFramePresentationReadiness {
   if (
     !preparedContentFrame ||
-    preparedContentFrame.publishability.kind === "publishable"
+    preparedContentFrame.presentability.kind === "presentable"
   ) {
     return {
       kind: "present",

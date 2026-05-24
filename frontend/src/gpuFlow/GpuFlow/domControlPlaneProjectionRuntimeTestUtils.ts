@@ -202,9 +202,9 @@ export function preparedContentFrame({
         trueHoleActorIds: [],
       },
     },
-    publishability: {
+    presentability: {
       blockingActorIds: [],
-      kind: "publishable",
+      kind: "presentable",
     },
     retainedRuntimeFrame,
     sceneRevision: 1,

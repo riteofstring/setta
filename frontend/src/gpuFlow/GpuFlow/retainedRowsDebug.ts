@@ -490,9 +490,9 @@ export function createGpuFlowPresentedContentFrameDebugEntry({
     projectedVisibleNonemptyDomControlCount:
       frame.displayCompleteness.projectedVisibleNonemptyDomControlCount,
     projectionHorizon: createPresentedContentFrameDebugProjectionHorizon(frame),
-    publishabilityKind: frame.publishability.kind,
-    publishabilityReason: getPresentedContentFrameDebugPublishabilityReason(
-      frame.publishability,
+    presentabilityKind: frame.presentability.kind,
+    presentabilityReason: getPresentedContentFrameDebugPresentabilityReason(
+      frame.presentability,
     ),
     retainedScrollRevision: frame.coherence.retainedScrollRevision,
     retainedPageActorCount: frame.diagnostics.retainedPageActorCount,
@@ -546,10 +546,10 @@ function createPresentedContentFrameDebugProjectionHorizon(
   };
 }
 
-function getPresentedContentFrameDebugPublishabilityReason(
-  publishability: GpuFlowPreparedContentFrame["publishability"],
+function getPresentedContentFrameDebugPresentabilityReason(
+  presentability: GpuFlowPreparedContentFrame["presentability"],
 ): string | null {
-  return "reason" in publishability ? publishability.reason : null;
+  return "reason" in presentability ? presentability.reason : null;
 }
 
 function flowViewportInputToDebugEntry(viewport: GpuViewportInput): {

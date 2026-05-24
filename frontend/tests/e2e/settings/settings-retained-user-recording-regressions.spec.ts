@@ -268,8 +268,8 @@ test("Chrome repro capture flag does not change retained Settings visible frame 
   expect(recorder.committed?.displayCompletenessStatus, details).toBe(
     "complete",
   );
-  expect(normal.committed?.publishabilityKind, details).toBe("publishable");
-  expect(recorder.committed?.publishabilityKind, details).toBe("publishable");
+  expect(normal.committed?.presentabilityKind, details).toBe("presentable");
+  expect(recorder.committed?.presentabilityKind, details).toBe("presentable");
   expect(normal.committed?.textActorTrueHoleCount, details).toBe(0);
   expect(recorder.committed?.textActorTrueHoleCount, details).toBe(0);
   expect(
@@ -634,8 +634,8 @@ async function captureChromeReproParitySample({
             domControlActorCount: presentedContentFrame.domControlActorCount,
             projectedVisibleNonemptyDomControlCount:
               presentedContentFrame.projectedVisibleNonemptyDomControlCount,
-            publishabilityKind: presentedContentFrame.publishabilityKind,
-            publishabilityReason: presentedContentFrame.publishabilityReason,
+            presentabilityKind: presentedContentFrame.presentabilityKind,
+            presentabilityReason: presentedContentFrame.presentabilityReason,
             textActorProofSummary: summarizeTextActorProofs(
               presentedContentFrame.textActorProofs,
             ),
@@ -787,7 +787,7 @@ async function waitForRetainedCompositorVisibleDomPublication(
       .toEqual(
         expect.objectContaining({
           hasVisibleNonemptyDomControls: true,
-          publishabilityKind: "publishable",
+          presentabilityKind: "presentable",
           visibleEpochCoherent: true,
         }),
       );
@@ -815,8 +815,8 @@ async function waitForRetainedCompositorVisibleDomPublication(
               domControlActorCount: presentedContentFrame.domControlActorCount,
               projectedVisibleNonemptyDomControlCount:
                 presentedContentFrame.projectedVisibleNonemptyDomControlCount,
-              publishabilityKind: presentedContentFrame.publishabilityKind,
-              publishabilityReason: presentedContentFrame.publishabilityReason,
+              presentabilityKind: presentedContentFrame.presentabilityKind,
+              presentabilityReason: presentedContentFrame.presentabilityReason,
               textActorBlockedAwaitingBrowserVisualCount:
                 presentedContentFrame.projectionHorizon
                   .textActorBlockedAwaitingBrowserVisualCount,
@@ -945,7 +945,7 @@ async function readRetainedCompositorVisibleFramePresentationState(page: Page) {
       domControlPlanePresentationId:
         domControlPlane?.dataset.gpuFlowPresentationId ?? null,
       hasVisibleNonemptyDomControls: visibleNonemptyDomControlCount > 0,
-      publishabilityKind: presentedContentFrame?.publishabilityKind ?? null,
+      presentabilityKind: presentedContentFrame?.presentabilityKind ?? null,
       surfaceContentFrameCoherent,
       surfacePresentationCoherent,
       visibleDomControlIdentities,

@@ -7,7 +7,7 @@ import {
 } from "./visibleFrameActorManifestDiagnostics";
 import {
   getGpuFlowBrowserVisualBlockedReason,
-  getGpuFlowPreparedContentPublishabilityActorIds,
+  getGpuFlowPreparedContentPresentabilityActorIds,
 } from "./visibleFrameBlockedCandidate";
 import type { GpuFlowVisibleFrameReducerCompletion } from "./visibleFrameCoordinator";
 import {
@@ -151,7 +151,7 @@ function recordGpuFlowBrowserVisualStarvation({
   readonly outcome: GpuFlowBrowserVisualStarvationOutcome;
   readonly runtimeCanvas: HTMLCanvasElement;
 }): void {
-  const actorIds = getGpuFlowPreparedContentPublishabilityActorIds(frame);
+  const actorIds = getGpuFlowPreparedContentPresentabilityActorIds(frame);
   const actorIdsKey = actorIds.join("\n");
   const previousDebt = browserVisualStarvationDebtByCanvas.get(runtimeCanvas);
   const debt =
@@ -210,7 +210,7 @@ function createGpuFlowBrowserVisualStarvationReports({
   const visibleActorCount =
     frame.projectionHorizon.obligations.visibleActorIds.length;
   return Object.freeze(
-    getGpuFlowPreparedContentPublishabilityActorIds(frame).map((actorId) =>
+    getGpuFlowPreparedContentPresentabilityActorIds(frame).map((actorId) =>
       createGpuFlowBrowserVisualStarvationReport({
         actor: actorById.get(actorId),
         actorId,
@@ -292,7 +292,7 @@ function getGpuFlowBrowserVisualRequiredRepresentation({
   readonly frame: GpuFlowPreparedContentFrame;
   readonly textCoverage: OptionalGpuFlowBrowserVisualTextCoverageProof;
 }): string {
-  return textCoverage?.projectionCoverage ?? frame.publishability.kind;
+  return textCoverage?.projectionCoverage ?? frame.presentability.kind;
 }
 
 function emitGpuFlowBrowserVisualStarvationReports({

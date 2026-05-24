@@ -1,5 +1,5 @@
 import type {
-  GpuFlowContentFramePublishability,
+  GpuFlowContentFramePresentability,
   GpuFlowPreparedContentActorGeneration,
   GpuFlowPreparedContentCompleteness,
   GpuFlowProjectionHorizon,
@@ -15,7 +15,7 @@ type GpuFlowProjectionHorizonSurfaceEntry = {
 
 const GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX = 720;
 
-export function createGpuFlowContentFramePublishability({
+export function createGpuFlowContentFramePresentability({
   actorGenerations,
   displayCompleteness,
   retainedSurfaceTrueHoleActorIds = [],
@@ -27,7 +27,7 @@ export function createGpuFlowContentFramePublishability({
   readonly retainedSurfaceTrueHoleActorIds?: readonly string[] | undefined;
   readonly startup: boolean;
   readonly transactionOutcome: string;
-}): GpuFlowContentFramePublishability {
+}): GpuFlowContentFramePresentability {
   const textActors = actorGenerations.filter(isGpuFlowPreparedTextActor);
   const visibleNonemptyTextTrueHoleActorIds = textActors
     .filter(
@@ -38,10 +38,10 @@ export function createGpuFlowContentFramePublishability({
     .map((actor) => actor.actorId)
     .sort();
   const hasRetainedSurfaceTrueHole = retainedSurfaceTrueHoleActorIds.length > 0;
-  const status: GpuFlowContentFramePublishability["status"] = startup
+  const status: GpuFlowContentFramePresentability["status"] = startup
     ? "startup"
     : displayCompleteness.status === "complete" && !hasRetainedSurfaceTrueHole
-      ? "publishable"
+      ? "presentable"
       : "blocked";
   const base = {
     blockingActorIds: Object.freeze([...displayCompleteness.blockingActorIds]),
@@ -79,7 +79,7 @@ export function createGpuFlowContentFramePublishability({
     if (startup) {
       return Object.freeze({
         ...base,
-        kind: "block-first-publication",
+        kind: "block-first-presentation",
         reason: "visible-dom-control-not-projected",
       });
     }
@@ -91,17 +91,17 @@ export function createGpuFlowContentFramePublishability({
   }
   return Object.freeze({
     ...base,
-    kind: "publishable",
+    kind: "presentable",
   });
 }
 
-export function assertGpuFlowContentFramePublishability(
-  left: GpuFlowContentFramePublishability,
-  right: GpuFlowContentFramePublishability,
+export function assertGpuFlowContentFramePresentability(
+  left: GpuFlowContentFramePresentability,
+  right: GpuFlowContentFramePresentability,
 ): void {
   if (JSON.stringify(left) !== JSON.stringify(right)) {
     throw new Error(
-      "GPU Flow prepared content frame has stale content publishability.",
+      "GPU Flow prepared content frame has stale content presentability.",
     );
   }
 }

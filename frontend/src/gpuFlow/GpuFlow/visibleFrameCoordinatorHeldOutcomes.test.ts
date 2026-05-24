@@ -364,9 +364,9 @@ function createPreparedContentFrame(): GpuFlowPreparedContentFrame {
         trueHoleActorIds: [],
       },
     },
-    publishability: {
+    presentability: {
       blockingActorIds: [],
-      kind: "publishable",
+      kind: "presentable",
     },
     surfaceTransaction: null,
   } as unknown as GpuFlowPreparedContentFrame;
@@ -435,7 +435,7 @@ function blockedPreparedContentFrame({
         trueHoleActorIds: [],
       },
     },
-    publishability: {
+    presentability: {
       blockingActorIds: ["actor-a"],
       kind: "hold-previous",
       reason: "visible-dom-control-not-projected",
@@ -462,7 +462,7 @@ function trueHolePreparedContentFrame(): GpuFlowPreparedContentFrame {
         trueHoleActorIds: [],
       },
     },
-    publishability: {
+    presentability: {
       actorFamily: "retained-page",
       actorIds: [actorId],
       blockingActorIds: [],

@@ -160,7 +160,7 @@ function expectBlockedCompatiblePreviousDomControlActor({
     }),
   );
   expect(frame.displayCompleteness.status).toBe("complete");
-  expect(frame.publishability.kind).toBe("publishable");
+  expect(frame.presentability.kind).toBe("presentable");
   expect(frame.surfaceTransaction).toEqual(
     expect.objectContaining({
       id: "prepared-content:14:retained:14",
@@ -239,7 +239,7 @@ function expectCompatiblePreviousFramePublication({
   readonly frame: GpuFlowPreparedContentFrame;
 }): void {
   expect(frame.displayCompleteness.status).toBe("complete");
-  expect(frame.publishability.kind).toBe("publishable");
+  expect(frame.presentability.kind).toBe("presentable");
   expect(frame.projectionHorizon.textActorCoverage).toEqual(
     expect.objectContaining({
       compatiblePreviousActorIds: [actor.actorId],

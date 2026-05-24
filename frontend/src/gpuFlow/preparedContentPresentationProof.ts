@@ -9,9 +9,9 @@ import type {
   GpuFlowPreparedContentFrame,
 } from "./preparedContentFrame";
 import {
-  assertGpuFlowContentFramePublishability,
+  assertGpuFlowContentFramePresentability,
   assertGpuFlowProjectionHorizon,
-  createGpuFlowContentFramePublishability,
+  createGpuFlowContentFramePresentability,
   createGpuFlowPreparedContentRetainedTrueHoleActorIds,
   createGpuFlowProjectionHorizon,
 } from "./preparedContentFrameProjection";
@@ -112,9 +112,9 @@ export function assertGpuFlowPreparedContentFrameCoherent(
     actorGenerations: frame.actorGenerations,
     browserVisualSurfaceFragment: frame.browserVisualSurfaceFragment,
   });
-  assertGpuFlowContentFramePublishability(
-    frame.publishability,
-    createGpuFlowContentFramePublishability({
+  assertGpuFlowContentFramePresentability(
+    frame.presentability,
+    createGpuFlowContentFramePresentability({
       actorGenerations: frame.actorGenerations,
       displayCompleteness: expectedCompleteness,
       retainedSurfaceTrueHoleActorIds:

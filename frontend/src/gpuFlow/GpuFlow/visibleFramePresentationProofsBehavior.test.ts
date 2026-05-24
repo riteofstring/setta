@@ -24,11 +24,11 @@ import { createGpuFlowVisibleFramePresentationTokenForTest } from "./visibleFram
 import { createGpuFlowContentFrameId } from "./visibleFrameTypes";
 
 describe("GPU Flow visible frame presentation proof behavior", () => {
-  it("rejects presentation authority for non-publishable frames", () => {
+  it("rejects presentation authority for non-presentable frames", () => {
     expect(() =>
       createGpuFlowVisibleFramePresentationTokenForTest({
         frame: preparedContentFrame({
-          publishability: {
+          presentability: {
             blockingActorIds: ["actor-a"],
             kind: "hold-previous",
             reason: "visible-dom-control-not-projected",
@@ -36,7 +36,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         }),
         projectionSample: liveProjectionSample(),
       }),
-    ).toThrow(/publishable prepared content frame frame/);
+    ).toThrow(/presentable prepared content frame frame/);
   });
 
   it("rejects presentation authority for incoherent DOM/canvas presentation pairs", () => {
@@ -966,9 +966,9 @@ function presentationPairProof({
 function preparedContentFrame({
   actorGenerations = [],
   coherence = {},
-  publishability = {
+  presentability = {
     blockingActorIds: [],
-    kind: "publishable",
+    kind: "presentable",
   },
   surfaceTransaction = null,
 }: {
@@ -978,8 +978,8 @@ function preparedContentFrame({
   readonly coherence?:
     | Partial<GpuFlowPreparedContentFrame["coherence"]>
     | undefined;
-  readonly publishability?:
-    | Partial<GpuFlowPreparedContentFrame["publishability"]>
+  readonly presentability?:
+    | Partial<GpuFlowPreparedContentFrame["presentability"]>
     | undefined;
   readonly surfaceTransaction?: SurfaceDisplayTransaction | null | undefined;
 } = {}): GpuFlowPreparedContentFrame {
@@ -1016,10 +1016,10 @@ function preparedContentFrame({
         trueHoleActorIds: [],
       },
     },
-    publishability: {
+    presentability: {
       blockingActorIds: [],
-      kind: "publishable",
-      ...publishability,
+      kind: "presentable",
+      ...presentability,
     },
     surfaceTransaction,
   } as unknown as GpuFlowPreparedContentFrame;

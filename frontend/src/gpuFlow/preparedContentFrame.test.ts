@@ -101,9 +101,9 @@ describe("GPU Flow prepared content frame", () => {
     );
     expect(frame.browserVisualSurfaceFragment.actorSnapshots).toHaveLength(1);
     expect(frame.displayCompleteness.visibleNonemptyDomControlCount).toBe(1);
-    expect(frame.publishability).toEqual(
+    expect(frame.presentability).toEqual(
       expect.objectContaining({
-        kind: "block-first-publication",
+        kind: "block-first-presentation",
         status: "startup",
         textActorCount: 1,
         textActorExactCoverageCount: 0,
@@ -291,7 +291,7 @@ describe("GPU Flow prepared content frame", () => {
     );
   });
 
-  it("keeps blocked passive visible DOM-control actors as publishable browser visual debt", () => {
+  it("keeps blocked passive visible DOM-control actors as presentable browser visual debt", () => {
     const retainedRuntimeFrame = createBlockedRuntimeFrame({ frameId: 5 });
     const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
@@ -305,10 +305,10 @@ describe("GPU Flow prepared content frame", () => {
     ).not.toThrow();
     expect(frame.displayCompleteness.status).toBe("complete");
     expect(frame.displayCompleteness.blockingActorIds).toEqual([]);
-    expect(frame.publishability).toEqual(
+    expect(frame.presentability).toEqual(
       expect.objectContaining({
-        kind: "publishable",
-        status: "publishable",
+        kind: "presentable",
+        status: "presentable",
       }),
     );
     expect(
@@ -336,7 +336,7 @@ describe("GPU Flow prepared content frame", () => {
     );
     expect(frame.displayCompleteness.status).toBe("blocked");
     expect(frame.displayCompleteness.blockingActorIds).toEqual([actor.actorId]);
-    expect(frame.publishability).toEqual(
+    expect(frame.presentability).toEqual(
       expect.objectContaining({
         kind: "hold-previous",
         reason: "visible-dom-control-not-projected",
@@ -378,7 +378,7 @@ describe("GPU Flow prepared content frame", () => {
       }),
     );
     expect(frame.displayCompleteness.status).toBe("complete");
-    expect(frame.publishability.kind).toBe("publishable");
+    expect(frame.presentability.kind).toBe("presentable");
     expect(frame.surfaceTransaction).toEqual(
       expect.objectContaining({
         id: "prepared-content:17:retained:17",
@@ -430,7 +430,7 @@ describe("GPU Flow prepared content frame", () => {
       }),
     );
     expect(frame.displayCompleteness.status).toBe("complete");
-    expect(frame.publishability.kind).toBe("publishable");
+    expect(frame.presentability.kind).toBe("presentable");
     expect(frame.surfaceTransaction).toEqual(
       expect.objectContaining({
         id: "prepared-content:16:retained:16",
@@ -443,7 +443,7 @@ describe("GPU Flow prepared content frame", () => {
     expect(frame.browserVisualSurfaceFragment.compatibleCoverage).toEqual([]);
   });
 
-  it("reports typed publishability and retained-scroll horizon diagnostics", () => {
+  it("reports typed presentability and retained-scroll horizon diagnostics", () => {
     const retainedRuntimeFrame = createRuntimeFrame({ frameId: 6 });
     const frame = createGpuFlowPreparedContentFrame({
       browserVisualReadiness:
@@ -454,7 +454,7 @@ describe("GPU Flow prepared content frame", () => {
       }),
     });
 
-    expect(frame.publishability.kind).toBe("publishable");
+    expect(frame.presentability.kind).toBe("presentable");
     expect(frame.surfaceTransaction).toEqual(
       expect.objectContaining({
         hitIndex: expect.objectContaining({
@@ -512,7 +512,7 @@ describe("GPU Flow prepared content frame", () => {
       }),
     });
 
-    expect(frame.publishability).toEqual(
+    expect(frame.presentability).toEqual(
       expect.objectContaining({
         actorFamily: "retained-page",
         actorIds: [retainedSurfaceId],
@@ -558,7 +558,7 @@ describe("GPU Flow prepared content frame", () => {
       }),
     });
 
-    expect(frame.publishability.kind).toBe("publishable");
+    expect(frame.presentability.kind).toBe("presentable");
     expect(frame.browserVisualSurfaceFragment.exactCoverage).toEqual([
       expect.objectContaining({
         resourceHandles: [snapshotHandle],

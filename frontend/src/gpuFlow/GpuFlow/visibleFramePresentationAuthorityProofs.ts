@@ -112,11 +112,11 @@ export function assertGpuFlowPresentationAuthorityFrame({
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): void {
   if (
-    frame.publishability.kind !== "publishable" ||
-    frame.publishability.blockingActorIds.length > 0
+    frame.presentability.kind !== "presentable" ||
+    frame.presentability.blockingActorIds.length > 0
   ) {
     throw new Error(
-      "GPU Flow visible presentation authority requires a publishable prepared content frame frame.",
+      "GPU Flow visible presentation authority requires a presentable prepared content frame frame.",
     );
   }
   assertGpuFlowPresentationPairFeasible({
@@ -455,9 +455,9 @@ export function createGpuFlowVisibleProofDigest(
 ): GpuFlowVisibleProofDigest {
   const transaction = frame.surfaceTransaction;
   return createGpuFlowJsonDigest("visible-frame-presentation-proof", {
-    blockingActorIds: frame.publishability.blockingActorIds,
+    blockingActorIds: frame.presentability.blockingActorIds,
     browserVisualCoverage: frame.projectionHorizon.textActorCoverage,
-    kind: frame.publishability.kind,
+    kind: frame.presentability.kind,
     protectedResourceHandles: transaction?.protectedResourceHandles ?? [],
     surfaceCoverage: transaction
       ? {
