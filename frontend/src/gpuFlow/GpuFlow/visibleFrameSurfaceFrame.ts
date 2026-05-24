@@ -199,6 +199,7 @@ export function renderGpuFlowSurfaceFrame({
         visibleProjectionStateRef: input.visibleProjectionStateRef,
       });
     runGpuFlowVisibleFrameCoordinator({
+      budgetBroker: input.visibleFrameBudgetBrokerRef.current,
       prepareMotionProjectionFrame: ({
         motionProjectionWorkPlan,
         previousVisibleProjectionState,

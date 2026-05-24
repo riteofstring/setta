@@ -20,8 +20,10 @@ import { createGpuFlowCommittedSurfacePublicationFramePlanPreparer } from "./vis
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
+  type GpuFlowVisibleFramePublicationFrameContext,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameCoordinator";
+import { createGpuFlowVisibleFrameBudgetBroker } from "./visibleFrameBudgetBroker";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
 import { createGpuFlowVisiblePublicationCommitProofFactory } from "./visibleFrameTransactionProofs";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
@@ -306,10 +308,11 @@ describe("GPU Flow visible frame coordinator", () => {
     expect(suppliedRunner).toBe(true);
   });
 
-  it("computes retained resolution deferral inside the coordinator frame context", () => {
+  it("brokers retained resolution deferral inside the coordinator frame context", () => {
     const cases = [
       {
-        expected: true,
+        expected: false,
+        expectedResolutionDebtRequested: true,
         lane: "content",
         rawReasons: ["manual"],
         runtimeViewportFrame: false,
@@ -317,7 +320,8 @@ describe("GPU Flow visible frame coordinator", () => {
         viewportInteractionActive: false,
       },
       {
-        expected: true,
+        expected: false,
+        expectedResolutionDebtRequested: true,
         lane: "maintenance",
         rawReasons: ["manual"],
         runtimeViewportFrame: true,
@@ -326,6 +330,7 @@ describe("GPU Flow visible frame coordinator", () => {
       },
       {
         expected: false,
+        expectedResolutionDebtRequested: false,
         lane: "content",
         rawReasons: ["manual"],
         runtimeViewportFrame: true,
@@ -334,6 +339,7 @@ describe("GPU Flow visible frame coordinator", () => {
       },
       {
         expected: false,
+        expectedResolutionDebtRequested: false,
         lane: "content",
         rawReasons: ["manual"],
         runtimeViewportFrame: false,
@@ -341,7 +347,8 @@ describe("GPU Flow visible frame coordinator", () => {
         viewportInteractionActive: false,
       },
       {
-        expected: true,
+        expected: false,
+        expectedResolutionDebtRequested: true,
         lane: "content",
         rawReasons: ["texture-upload", "manual"],
         runtimeViewportFrame: false,
@@ -350,6 +357,7 @@ describe("GPU Flow visible frame coordinator", () => {
       },
       {
         expected: false,
+        expectedResolutionDebtRequested: false,
         lane: "content",
         rawReasons: ["retained-scroll", "texture-upload"],
         runtimeViewportFrame: false,
@@ -358,6 +366,7 @@ describe("GPU Flow visible frame coordinator", () => {
       },
       {
         expected: false,
+        expectedResolutionDebtRequested: false,
         lane: "content",
         rawReasons: ["texture-upload", "dom-control-activation"],
         runtimeViewportFrame: false,
@@ -367,14 +376,21 @@ describe("GPU Flow visible frame coordinator", () => {
     ] as const;
 
     for (const testCase of cases) {
-      const observed: boolean[] = [];
+      const observed: Array<{
+        readonly deferResolutionUpdates: boolean;
+        readonly resolutionDebtRequested: boolean;
+      }> = [];
       runGpuFlowVisibleFrameCoordinator({
         prepareContentPublicationFrame: ({ publicationFrameContext }) => {
-          observed.push(publicationFrameContext.deferResolutionUpdates);
+          observed.push(
+            observeResolutionDeferralContext(publicationFrameContext),
+          );
           return testPublicationCandidate();
         },
         prepareMotionProjectionFrame: ({ publicationFrameContext }) => {
-          observed.push(publicationFrameContext.deferResolutionUpdates);
+          observed.push(
+            observeResolutionDeferralContext(publicationFrameContext),
+          );
           return {
             frame: testPublicationCandidate(),
             kind: "not-rendered" as const,
@@ -394,8 +410,54 @@ describe("GPU Flow visible frame coordinator", () => {
         }),
       });
 
-      expect(observed).toEqual([testCase.expected, testCase.expected]);
+      expect(observed).toEqual([
+        {
+          deferResolutionUpdates: testCase.expected,
+          resolutionDebtRequested: testCase.expectedResolutionDebtRequested,
+        },
+        {
+          deferResolutionUpdates: testCase.expected,
+          resolutionDebtRequested: testCase.expectedResolutionDebtRequested,
+        },
+      ]);
     }
+
+    const starvedObserved: boolean[] = [];
+    runGpuFlowVisibleFrameCoordinator({
+      budgetBroker: createGpuFlowVisibleFrameBudgetBroker({
+        policy: {
+          maxContinuityDebtAgeFrames: 2,
+          maxSafetyDebtAgeFrames: 1,
+          minPreparationBudgetDuringMotionMs: 0,
+          perFramePreparationBudgetMs: 0,
+          reservedMotionProjectionBudgetMs: 2,
+        },
+      }),
+      prepareContentPublicationFrame: ({ publicationFrameContext }) => {
+        starvedObserved.push(publicationFrameContext.deferResolutionUpdates);
+        return testPublicationCandidate();
+      },
+      prepareMotionProjectionFrame: ({ publicationFrameContext }) => {
+        starvedObserved.push(publicationFrameContext.deferResolutionUpdates);
+        return {
+          frame: testPublicationCandidate(),
+          kind: "not-rendered" as const,
+        };
+      },
+      publish: () => {},
+      sampleVisibleFramePublication: () =>
+        visibleFramePublicationSample({
+          rawReasons: ["manual"],
+          runtimeViewportFrame: false,
+          sample: liveProjectionSample({ id: 58, timestamp: 580 }),
+          viewportInteractionActive: false,
+        }),
+      scheduler: fixedPublicationScheduler({
+        lane: "content",
+        schedulerState: "motion-settling",
+      }),
+    });
+    expect(starvedObserved).toEqual([true, true]);
   });
 
   it("uses one commit proof for compatible-previous proof reports and debt", () => {
@@ -1042,38 +1104,49 @@ function fixedPublicationScheduler({
   readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
 }): ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator> {
   const baseScheduler = createGpuFlowVisibleFrameRequestCoordinator();
+  const debt = Object.freeze({
+    content: false,
+    maintenance: false,
+    motion: false,
+  });
   return {
     completeFrame: (_decision, outcome) =>
       Object.freeze({
-        debt: Object.freeze({
-          content: lane !== "content",
-          maintenance: lane !== "maintenance",
-          motion: lane !== "motion",
-        }),
+        debt,
         outcome: outcome.kind,
       }),
     getKnobs: baseScheduler.getKnobs,
     recordUncommittedFrame: (_decision, outcome) =>
       Object.freeze({
-        debt: Object.freeze({
-          content: lane !== "content",
-          maintenance: lane !== "maintenance",
-          motion: lane !== "motion",
-        }),
+        debt,
         outcome: outcome.kind,
       }),
     selectFrame: ({ rawReasons, sample }): GpuFlowVisiblePublicationDecision =>
       Object.freeze({
-        debt: Object.freeze({
-          content: lane !== "content",
-          maintenance: lane !== "maintenance",
-          motion: lane !== "motion",
-        }),
+        debt,
         lane,
         rawReasons: Object.freeze([...rawReasons]),
         sample,
         schedulerState,
       }),
+  };
+}
+
+function observeResolutionDeferralContext(
+  publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext,
+): {
+  readonly deferResolutionUpdates: boolean;
+  readonly resolutionDebtRequested: boolean;
+} {
+  const selectedDebtIds =
+    publicationFrameContext.budgetDecision.preparationBudget.selectedDebtIds;
+  const deferredDebtIds =
+    publicationFrameContext.budgetDecision.preparationBudget.deferredDebtIds;
+  return {
+    deferResolutionUpdates: publicationFrameContext.deferResolutionUpdates,
+    resolutionDebtRequested:
+      selectedDebtIds.includes("resolution-update") ||
+      deferredDebtIds.includes("resolution-update"),
   };
 }
 

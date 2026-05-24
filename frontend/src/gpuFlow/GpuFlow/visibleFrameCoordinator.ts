@@ -19,6 +19,11 @@ import {
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
 } from "./visibleFrameContentPlan";
+import {
+  createGpuFlowVisibleFrameBudgetBrokerDecision,
+  type GpuFlowVisibleFrameBudgetBroker,
+  type GpuFlowVisibleFrameBudgetBrokerDecision,
+} from "./visibleFrameBudgetBroker";
 import { prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet } from "./visibleFrameForcedBlockedCandidateSet";
 import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFrameOutcomeReport";
 import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";
@@ -116,6 +121,7 @@ type GpuFlowProjectionFrameRenderPlanSelector = (input: {
 }) => GpuFlowProjectionFrameRenderPlan;
 
 export type GpuFlowVisibleFramePublicationFrameContext = {
+  readonly budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision;
   readonly deferResolutionUpdates: boolean;
   readonly viewportFrame: boolean;
 };
@@ -173,6 +179,7 @@ type GpuFlowVisibleFrameCoordinatorInput<
     MotionProjectionFrame
   >;
   readonly prepareMotionProjectionFrame: GpuFlowVisibleFramePublicationMotionFramePreparer<MotionProjectionFrame>;
+  readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly publish: GpuFlowVisibleFramePublicationPublisher<
     GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
       ContentPublicationFrame,
@@ -199,6 +206,7 @@ export function runGpuFlowVisibleFrameCoordinator<
 >({
   prepareContentPublicationFrame,
   prepareMotionProjectionFrame,
+  budgetBroker,
   publish,
   sampleVisibleFramePublication,
   scheduler,
@@ -234,6 +242,7 @@ export function runGpuFlowVisibleFrameCoordinator<
   const publicationFrameContext =
     createGpuFlowVisibleFramePublicationFrameContext({
       publicationDecision,
+      budgetBroker,
       rawReasons,
       runtimeViewportFrame,
       viewportInteractionActive,
@@ -414,25 +423,34 @@ function proveGpuFlowVisibleFramePublicationCandidateSet<
 }
 
 function createGpuFlowVisibleFramePublicationFrameContext({
+  budgetBroker,
   publicationDecision,
   rawReasons,
   runtimeViewportFrame,
   viewportInteractionActive,
 }: {
+  readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly runtimeViewportFrame: boolean;
   readonly viewportInteractionActive: boolean;
 }): GpuFlowVisibleFramePublicationFrameContext {
   const viewportFrame = rawReasons.includes("viewport") || runtimeViewportFrame;
+  const deferResolutionUpdates = shouldDeferGpuFlowResolutionUpdates({
+    lane: publicationDecision.lane,
+    rawReasons,
+    schedulerState: publicationDecision.schedulerState,
+    viewportFrame,
+    viewportInteractionActive,
+  });
+  const budgetDecision = createGpuFlowVisibleFrameBudgetBrokerDecision({
+    budgetBroker,
+    deferResolutionUpdates,
+    publicationDecision,
+  });
   return Object.freeze({
-    deferResolutionUpdates: shouldDeferGpuFlowResolutionUpdates({
-      lane: publicationDecision.lane,
-      rawReasons,
-      schedulerState: publicationDecision.schedulerState,
-      viewportFrame,
-      viewportInteractionActive,
-    }),
+    budgetDecision,
+    deferResolutionUpdates: budgetDecision.resolutionUpdates.deferred,
     viewportFrame,
   });
 }
