@@ -128,7 +128,7 @@ export type GpuFlowInteractionDiagnostics = {
 };
 
 export type GpuFlowVisibleProjectionDebugEntry = {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly retainedScrollRevision: number;
   readonly sampleId: number;
   readonly transactionKind: string;
@@ -341,7 +341,8 @@ function createGpuFlowVisibleProjectionDebugEntry(
   }
   const viewport = normalizeGpuViewport(visibleProjectionState.sample.viewport);
   return {
-    committedFrameId: visibleProjectionState.committedFrame.displayFrameId,
+    preparedContentFrameId:
+      visibleProjectionState.preparedContentFrame.displayFrameId,
     retainedScrollRevision:
       visibleProjectionState.sample.retainedScrollRevision,
     sampleId: visibleProjectionState.sample.id,

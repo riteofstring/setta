@@ -45,7 +45,7 @@ describe("GPU Flow retained display candidate content plans", () => {
 
   it("reports visible true-hole blockers from prepared content frame candidates", () => {
     const retainedFrame = {} as RetainedDisplayFrame;
-    const committedFrame = trueHolePreparedContentFrame();
+    const preparedContentFrame = trueHolePreparedContentFrame();
     const result =
       runGpuFlowRetainedPreparedContentFramePublicationContentStage<
         Record<string, never>,
@@ -68,7 +68,7 @@ describe("GPU Flow retained display candidate content plans", () => {
           committedGpuNativeVisuals: undefined,
           context: {},
         }),
-        prepareContentFrame: () => committedFrame,
+        prepareContentFrame: () => preparedContentFrame,
         preparePreparedContentFramePublicationFramePlan:
           createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
             contentDecisionKernel,
@@ -107,7 +107,7 @@ describe("GPU Flow retained display candidate content plans", () => {
           ],
           frozenFrameId: "cold-start-shell:browser-visual",
         },
-        blockedPreparedContentFrame: committedFrame,
+        blockedPreparedContentFrame: preparedContentFrame,
         rendered: false,
       }),
     );
@@ -115,7 +115,7 @@ describe("GPU Flow retained display candidate content plans", () => {
 
   it("reports retained true-hole blockers without publishing a surface transaction", () => {
     const retainedFrame = {} as RetainedDisplayFrame;
-    const committedFrame = retainedTrueHolePreparedContentFrame();
+    const preparedContentFrame = retainedTrueHolePreparedContentFrame();
     const result =
       runGpuFlowRetainedPreparedContentFramePublicationContentStage<
         Record<string, never>,
@@ -140,7 +140,7 @@ describe("GPU Flow retained display candidate content plans", () => {
           committedGpuNativeVisuals: undefined,
           context: {},
         }),
-        prepareContentFrame: () => committedFrame,
+        prepareContentFrame: () => preparedContentFrame,
         preparePreparedContentFramePublicationFramePlan:
           createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
             contentDecisionKernel,
@@ -169,7 +169,7 @@ describe("GPU Flow retained display candidate content plans", () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        blockedPreparedContentFrame: committedFrame,
+        blockedPreparedContentFrame: preparedContentFrame,
         blockedPreparedContentFrameResourceWork: expect.objectContaining({
           workItems: [],
         }),

@@ -203,7 +203,7 @@ function summarizeChromeReproOutcomeToken(
   | Record<string, unknown> {
   if ("presentationPairProof" in token) {
     return {
-      committedFrameId: token.committedFrameId,
+      preparedContentFrameId: token.preparedContentFrameId,
       presentationPairProof: summarizeChromeReproPresentationProof(
         token.presentationPairProof,
       ),
@@ -303,7 +303,7 @@ function summarizeChromeReproDomTransformEvidence(
   evidence: GpuFlowPresentationPairProof["domTransformEvidence"],
 ) {
   return {
-    committedFrameId: evidence.committedFrameId,
+    preparedContentFrameId: evidence.preparedContentFrameId,
     prepared: evidence.prepared,
     projectionSampleId: evidence.projectionSampleId,
   };

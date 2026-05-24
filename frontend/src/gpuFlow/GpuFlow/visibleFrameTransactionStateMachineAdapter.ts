@@ -164,7 +164,9 @@ function createGpuFlowVisibleFramePublicationStateMachineContentFrameId({
 }): GpuFlowContentFrameId {
   if (candidateVisibleProjectionState !== null) {
     return createGpuFlowContentFrameId(
-      String(candidateVisibleProjectionState.committedFrame.displayFrameId),
+      String(
+        candidateVisibleProjectionState.preparedContentFrame.displayFrameId,
+      ),
     );
   }
   if (candidateContentFrame !== null) {
@@ -174,7 +176,9 @@ function createGpuFlowVisibleFramePublicationStateMachineContentFrameId({
   }
   if (previousVisibleProjectionState !== null) {
     return createGpuFlowContentFrameId(
-      String(previousVisibleProjectionState.committedFrame.displayFrameId),
+      String(
+        previousVisibleProjectionState.preparedContentFrame.displayFrameId,
+      ),
     );
   }
   return createGpuFlowContentFrameId(
@@ -191,7 +195,7 @@ function resolveGpuFlowVisibleFramePublicationStateMachineManifestFrame({
 }): GpuFlowPreparedContentFrame | null {
   return (
     candidateContentFrame ??
-    candidateVisibleProjectionState?.committedFrame ??
+    candidateVisibleProjectionState?.preparedContentFrame ??
     null
   );
 }
@@ -214,11 +218,11 @@ function createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
     return null;
   }
   const previousContentFrameId = createGpuFlowContentFrameId(
-    String(previousProjectionState.committedFrame.displayFrameId),
+    String(previousProjectionState.preparedContentFrame.displayFrameId),
   );
   const presentationId = createGpuFlowPresentationId(
     previousProjectionState.transaction?.id ??
-      `previous:${previousProjectionState.committedFrame.displayFrameId}`,
+      `previous:${previousProjectionState.preparedContentFrame.displayFrameId}`,
   );
   const coverageByActor = new Map<
     string,
@@ -273,7 +277,7 @@ function addGpuFlowVisibleFramePublicationStateMachinePreviousActorCoverage({
   readonly previousProjectionState: GpuFlowVisibleProjectionState;
 }): void {
   const previousManifest = createGpuFlowVisibleFrameActorManifest({
-    frame: previousProjectionState.committedFrame,
+    frame: previousProjectionState.preparedContentFrame,
     sample: previousProjectionState.sample,
   });
   for (const coverage of createGpuFlowVisibleFramePresentedActorCoverageForManifest(
@@ -448,7 +452,7 @@ function shouldGpuFlowVisibleFramePublicationStateMachineUseBlockedFrozenFrameCo
   }
   return (
     String(blockedProof.frozenFrameId) ===
-    String(previousVisibleProjectionState.committedFrame.displayFrameId)
+    String(previousVisibleProjectionState.preparedContentFrame.displayFrameId)
   );
 }
 
@@ -550,14 +554,16 @@ function createGpuFlowVisibleFramePublicationStateMachineCanvasSize(
 function getGpuFlowVisibleFramePublicationStateMachineCurrentFrameId(
   previousVisibleProjectionState: GpuFlowVisibleProjectionState | null,
 ): GpuFlowVisibleFrameStateMachineSample["currentContentFrameId"] {
-  return previousVisibleProjectionState?.committedFrame.displayFrameId ?? null;
+  return (
+    previousVisibleProjectionState?.preparedContentFrame.displayFrameId ?? null
+  );
 }
 
 function getGpuFlowVisibleFramePublicationStateMachineSceneGeneration(
   previousVisibleProjectionState: GpuFlowVisibleProjectionState | null,
 ): string {
   return (
-    previousVisibleProjectionState?.committedFrame.sceneRevision?.toString() ??
+    previousVisibleProjectionState?.preparedContentFrame.sceneRevision?.toString() ??
     "unknown"
   );
 }

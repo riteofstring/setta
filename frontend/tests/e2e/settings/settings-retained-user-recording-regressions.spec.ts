@@ -289,10 +289,14 @@ test("Chrome repro capture flag does not change retained Settings visible frame 
   expect(visualSimilarity.p95Delta, details).toBeLessThanOrEqual(
     MAX_CHROME_REPRO_PARITY_P95_DELTA,
   );
-  expect(recorder.diagnostics?.committedFrameId ?? 0, details).toBeGreaterThan(
-    0,
-  );
-  expect(normal.diagnostics?.committedFrameId ?? 0, details).toBeGreaterThan(0);
+  expect(
+    recorder.diagnostics?.preparedContentFrameId ?? 0,
+    details,
+  ).toBeGreaterThan(0);
+  expect(
+    normal.diagnostics?.preparedContentFrameId ?? 0,
+    details,
+  ).toBeGreaterThan(0);
   expect(recorder.diagnostics?.runtimeFrameId ?? 0, details).toBeGreaterThan(0);
   expect(normal.diagnostics?.runtimeFrameId ?? 0, details).toBeGreaterThan(0);
   expect(
@@ -345,7 +349,7 @@ test("viewport and retained-scroll gestures do not perform content work on proje
   );
   const missingProjectionDiagnostics = projectionFrames.filter(
     (frame) =>
-      frame.projectionDiagnostics.committedFrameId === null ||
+      frame.projectionDiagnostics.preparedContentFrameId === null ||
       frame.projectionDiagnostics.gestureOwner === null ||
       frame.projectionDiagnostics.lane !== "motion" ||
       frame.projectionDiagnostics.sampleId === null ||
@@ -592,7 +596,7 @@ async function captureChromeReproParitySample({
       (
         window as typeof window & {
           __settaGpuFlowDomControlPlaneDiagnostics?: () => {
-            readonly committedFrameId: number;
+            readonly preparedContentFrameId: number;
             readonly mountedControlCount: number;
             readonly runtimeFrameId: number;
             readonly visibleControlRectCount: number;

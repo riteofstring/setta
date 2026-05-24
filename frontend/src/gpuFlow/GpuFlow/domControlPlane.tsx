@@ -184,7 +184,7 @@ export function GpuFlowDomControlPlane({
       const finishMeasure = startGpuFlowPerformanceMeasure(
         "dom-control-host-assignment",
         {
-          committedFrameId: currentFrameIds.committedFrameId,
+          preparedContentFrameId: currentFrameIds.preparedContentFrameId,
           controlId: control.sourceId,
           runtimeFrameId: currentFrameIds.runtimeFrameId,
         },
@@ -263,7 +263,7 @@ export function GpuFlowDomControlPlane({
         const finishMeasure = startGpuFlowPerformanceMeasure(
           "dom-control-projection",
           {
-            committedFrameId: frameIds.committedFrameId,
+            preparedContentFrameId: frameIds.preparedContentFrameId,
             hostCount: controlsToMount.length,
             runtimeFrameId: frameIds.runtimeFrameId,
           },
@@ -279,7 +279,7 @@ export function GpuFlowDomControlPlane({
 
   useLayoutEffect(() => {
     const projectionFrameKey = [
-      frameIds.committedFrameId,
+      frameIds.preparedContentFrameId,
       frameIds.runtimeFrameId,
       activeControlsToMount.length,
       snapshot.domControls.sourceRevision,
@@ -305,13 +305,14 @@ export function GpuFlowDomControlPlane({
     const preparationFrameIds = preparationSnapshot.frameIds;
     if (
       activePreparationControlsToMount.length === 0 ||
-      (preparationFrameIds.committedFrameId === frameIds.committedFrameId &&
+      (preparationFrameIds.preparedContentFrameId ===
+        frameIds.preparedContentFrameId &&
         preparationFrameIds.runtimeFrameId === frameIds.runtimeFrameId)
     ) {
       return;
     }
     const preparationFrameKey = [
-      preparationFrameIds.committedFrameId,
+      preparationFrameIds.preparedContentFrameId,
       preparationFrameIds.runtimeFrameId,
       activePreparationControlsToMount.length,
       preparationSnapshot.domControls.sourceRevision,
@@ -323,7 +324,7 @@ export function GpuFlowDomControlPlane({
     surfaceRef?.current?.requestFrame("dom-control-activation");
   }, [
     activePreparationControlsToMount.length,
-    frameIds.committedFrameId,
+    frameIds.preparedContentFrameId,
     frameIds.runtimeFrameId,
     preparationSnapshot.domControls.sourceRevision,
     preparationSnapshot.frameIds,
@@ -354,7 +355,7 @@ export function GpuFlowDomControlPlane({
         } | null;
         readonly preparationControlCount: number;
         readonly preparationFrameIds: {
-          readonly committedFrameId: number;
+          readonly preparedContentFrameId: number;
           readonly runtimeFrameId: number;
         };
         readonly preparationMountedControl: string | null;
@@ -398,8 +399,8 @@ export function GpuFlowDomControlPlane({
       className={GPU_FLOW_DOM_CONTROL_PLANE_CLASS_NAME}
       data-gpu-flow-dom-control-plane="true"
       data-gpu-flow-dom-control-plane-frame-id={frameIds.runtimeFrameId}
-      data-gpu-flow-dom-control-plane-committed-frame-id={
-        frameIds.committedFrameId
+      data-gpu-flow-dom-control-plane-prepared-content-frame-id={
+        frameIds.preparedContentFrameId
       }
       {...getGpuFlowVisibleFrameIdentityDataAttributes(publicationToken)}
     >

@@ -77,7 +77,7 @@ type PendingRetainedTexturePage = {
 
 export type CommittedRetainedTexturePage<TResource = unknown> = {
   readonly byteSize: number;
-  readonly committedFrame: number;
+  readonly preparedContentFrame: number;
   readonly descriptor: RetainedTexturePageDescriptor;
   readonly key: string;
   readonly lastUsedFrame: number;
@@ -218,7 +218,7 @@ export class RetainedTexturePageCache<TResource = unknown> {
     const existing = this.committedPages.get(key);
     const page: CommittedRetainedTexturePage<TResource> = {
       byteSize: estimatePageByteSize(normalizedDescriptor),
-      committedFrame: frame,
+      preparedContentFrame: frame,
       descriptor: normalizedDescriptor,
       key,
       lastUsedFrame: frame,

@@ -37,11 +37,11 @@ export function createGpuFlowVisibleFramePresentationTokenForTest({
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleFramePresentationToken {
   const visibleProjectionState = {
-    committedFrame: frame,
+    preparedContentFrame: frame,
     heldPreviousProjection: null,
     sample: projectionSample,
     transaction: {
-      committedFrameId: frame.displayFrameId,
+      preparedContentFrameId: frame.displayFrameId,
       id: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
       kind: "content-publication",
       sample: projectionSample,
@@ -66,23 +66,23 @@ export function createGpuFlowVisibleFramePresentationTokenForTest({
 }
 
 export function createGpuFlowVisibleFrameHoldPreviousTokenForTest({
-  committedFrameId,
+  preparedContentFrameId,
   holdAgeFrames,
   holdAgeMs,
   projectionSample,
 }: {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly holdAgeFrames: number;
   readonly holdAgeMs: number;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowHoldPreviousToken {
   const visibleProjectionState = {
-    committedFrame: {
+    preparedContentFrame: {
       actorGenerations: [],
-      displayFrameId: committedFrameId,
+      displayFrameId: preparedContentFrameId,
     },
     heldPreviousProjection: {
-      committedFrameId,
+      preparedContentFrameId,
       consecutiveFrameCount: holdAgeFrames,
       heldDurationMs: holdAgeMs,
       maxHeldPreviousFramesExceeded: false,
@@ -91,21 +91,21 @@ export function createGpuFlowVisibleFrameHoldPreviousTokenForTest({
     },
     sample: projectionSample,
     transaction: {
-      committedFrameId,
+      preparedContentFrameId,
       kind: "held-previous",
       sample: projectionSample,
     },
   } as unknown as GpuFlowVisibleProjectionState;
   const previousVisibleProjectionState = {
-    committedFrame: visibleProjectionState.committedFrame,
+    preparedContentFrame: visibleProjectionState.preparedContentFrame,
     heldPreviousProjection: null,
     sample: {
       ...projectionSample,
       id: projectionSample.id - 1,
     },
     transaction: {
-      committedFrameId,
-      id: `test-content-publication:${committedFrameId}:${projectionSample.id - 1}`,
+      preparedContentFrameId,
+      id: `test-content-publication:${preparedContentFrameId}:${projectionSample.id - 1}`,
       kind: "content-publication",
       sample: {
         ...projectionSample,
@@ -208,19 +208,19 @@ function createGpuFlowVisibleFramePresentationTestPresentationEvidence({
   return Object.freeze({
     canvasGenerationEvidence:
       createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
-        committedFrame: visibleProjectionState.committedFrame,
+        preparedContentFrame: visibleProjectionState.preparedContentFrame,
         projectionSampleId: visibleProjectionState.sample.id,
         projectionTransactionId: visibleProjectionState.transaction.id,
       }),
     domTransformEvidence:
       createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence({
-        committedFrame: visibleProjectionState.committedFrame,
+        preparedContentFrame: visibleProjectionState.preparedContentFrame,
         projectionSampleId: visibleProjectionState.sample.id,
         projectionTransactionId: visibleProjectionState.transaction.id,
       }),
     textureEvictionEvidence:
       createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence({
-        committedFrame: visibleProjectionState.committedFrame,
+        preparedContentFrame: visibleProjectionState.preparedContentFrame,
         projectionSampleId: visibleProjectionState.sample.id,
         projectionTransactionId: visibleProjectionState.transaction.id,
       }),

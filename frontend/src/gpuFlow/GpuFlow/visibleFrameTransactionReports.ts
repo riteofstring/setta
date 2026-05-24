@@ -23,13 +23,13 @@ export type GpuFlowVisibleFramePresentationProofReport = {
 };
 
 export function createGpuFlowVisibleFramePresentationCompatiblePreviousProofReportForFrame({
-  committedFrame,
+  preparedContentFrame,
   projectionSampleId,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame | null;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | null;
   readonly projectionSampleId: number | null;
 }) {
-  const actorGenerations = committedFrame?.actorGenerations ?? [];
+  const actorGenerations = preparedContentFrame?.actorGenerations ?? [];
   const samples = actorGenerations.flatMap((actor) => {
     const textCoverageProof = actor.textCoverageProof;
     if (textCoverageProof?.projectionCoverage !== "compatible-previous") {
@@ -85,9 +85,9 @@ export function createGpuFlowVisibleFramePresentationCompatiblePreviousProofRepo
 }
 
 export function createGpuFlowVisibleFramePresentationBrowserActorProofReportForFrame(
-  committedFrame: GpuFlowPreparedContentFrame | null,
+  preparedContentFrame: GpuFlowPreparedContentFrame | null,
 ) {
-  const actorGenerations = committedFrame?.actorGenerations ?? [];
+  const actorGenerations = preparedContentFrame?.actorGenerations ?? [];
   const proofCounts = {
     actualInteraction: {} as Record<string, number>,
     actualVisual: {} as Record<string, number>,
@@ -133,10 +133,10 @@ export function createGpuFlowVisibleFramePresentationBrowserActorProofReportForF
 }
 
 export function createGpuFlowVisibleFramePresentationCoverageReportForFrame(
-  committedFrame: GpuFlowPreparedContentFrame | null,
+  preparedContentFrame: GpuFlowPreparedContentFrame | null,
 ) {
   const coverageProof =
-    committedFrame?.surfaceTransaction?.coverageProof ?? null;
+    preparedContentFrame?.surfaceTransaction?.coverageProof ?? null;
   if (!coverageProof) {
     return null;
   }
@@ -154,12 +154,12 @@ export function createGpuFlowVisibleFramePresentationCoverageReportForFrame(
 }
 
 export function createGpuFlowVisibleFramePresentationProofReportForFrame({
-  committedFrame,
+  preparedContentFrame,
   presentationEvidence,
   projectionSampleId,
   projectionTransactionKind,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence;
   readonly projectionSampleId: number;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
@@ -185,7 +185,7 @@ export function createGpuFlowVisibleFramePresentationProofReportForFrame({
       "GPU Flow visible frame presentation proof forbids texture eviction evidence during motion projection.",
     );
   }
-  const proof = committedFrame.presentationProof;
+  const proof = preparedContentFrame.presentationProof;
   return Object.freeze({
     actorManifestDigest: proof.actorManifestDigest,
     batchId: proof.batchId,

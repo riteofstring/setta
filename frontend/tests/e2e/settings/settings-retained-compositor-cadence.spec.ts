@@ -373,7 +373,7 @@ type RetainedCompositorTimelineFrame = {
 
 type RetainedCompositorProjectionProgress = {
   readonly blockedPublicationEventCount: number;
-  readonly committedFrameId: number | null;
+  readonly preparedContentFrameId: number | null;
   readonly projectionSampleId: number | null;
   readonly projectionTransactionId: string | null;
   readonly visibleProjection: unknown;
@@ -484,8 +484,8 @@ async function readRetainedCompositorProjectionProgress(
       ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? [];
     return {
       blockedPublicationEventCount: blockedEvents.length,
-      committedFrameId: parseOptionalNumber(
-        canvas?.dataset.gpuFlowCommittedFrameId,
+      preparedContentFrameId: parseOptionalNumber(
+        canvas?.dataset.gpuFlowPreparedContentFrameId,
       ),
       projectionSampleId: parseOptionalNumber(
         canvas?.dataset.gpuFlowProjectionSampleId,

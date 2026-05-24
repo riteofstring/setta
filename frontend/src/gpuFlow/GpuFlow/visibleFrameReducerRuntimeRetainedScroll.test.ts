@@ -23,7 +23,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, content);
 
     for (let index = 0; index < 6; index += 1) {
       const motion = reducerRuntime.selectFrame({
@@ -35,7 +35,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       });
       expect(motion.reducerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(reducerRuntime, motion);
+      completePreparedContentFrame(reducerRuntime, motion);
     }
 
     const retainedScroll = reducerRuntime.selectFrame({
@@ -62,7 +62,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, content);
 
     for (let index = 0; index < 6; index += 1) {
       const motion = reducerRuntime.selectFrame({
@@ -76,7 +76,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       });
       expect(motion.reducerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(reducerRuntime, motion);
+      completePreparedContentFrame(reducerRuntime, motion);
     }
 
     const retainedScroll = reducerRuntime.selectFrame({
@@ -103,7 +103,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, content);
 
     const retainedScroll = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -115,7 +115,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(retainedScroll.lane).toBe("motion");
-    completeCommittedFrame(reducerRuntime, retainedScroll);
+    completePreparedContentFrame(reducerRuntime, retainedScroll);
 
     const postScrollManual = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -179,7 +179,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, content);
 
     const retainedScroll = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -191,7 +191,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(retainedScroll.lane).toBe("motion");
-    completeCommittedFrame(reducerRuntime, retainedScroll);
+    completePreparedContentFrame(reducerRuntime, retainedScroll);
 
     const deferredManual = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -214,7 +214,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     });
     expect(retainedScrollPulse.reducerState).toBe("motion-active");
     expect(retainedScrollPulse.lane).toBe("motion");
-    completeCommittedFrame(reducerRuntime, retainedScrollPulse);
+    completePreparedContentFrame(reducerRuntime, retainedScrollPulse);
 
     const manualViewportDuringCooldown = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -243,7 +243,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, content);
 
     const retainedScroll = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -255,7 +255,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(retainedScroll.lane).toBe("motion");
-    completeCommittedFrame(reducerRuntime, retainedScroll);
+    completePreparedContentFrame(reducerRuntime, retainedScroll);
 
     const idleCatchup = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -267,7 +267,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     expect(idleCatchup.reducerState).toBe("motion-active");
     expect(idleCatchup.lane).toBe("motion");
     expect(idleCatchup.rawReasons).toEqual(["retained-scroll", "manual"]);
-    completeCommittedFrame(reducerRuntime, idleCatchup);
+    completePreparedContentFrame(reducerRuntime, idleCatchup);
 
     const contentCatchup = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -296,7 +296,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     });
     expect(activation.reducerState).toBe("motion-active");
     expect(activation.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(reducerRuntime, activation);
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, activation);
 
     const motion = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -317,7 +317,7 @@ describe("GPU Flow retained scroll scheduling", () => {
   });
 });
 
-function completeCommittedFrame(
+function completePreparedContentFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisibleFrameReducerDecision,
 ) {
@@ -329,13 +329,13 @@ function completeCommittedFrame(
     },
     kind: "present",
     token: createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedFrameForReducerToken(decision),
+      frame: preparedContentFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),
   });
 }
 
-function completeCompatiblePreviousCommittedFrame(
+function completeCompatiblePreviousPreparedContentFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisibleFrameReducerDecision,
 ) {
@@ -347,7 +347,7 @@ function completeCompatiblePreviousCommittedFrame(
     },
     kind: "present",
     token: createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedFrameForReducerToken(decision),
+      frame: preparedContentFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),
   });
@@ -374,7 +374,7 @@ function liveSample(
   };
 }
 
-function committedFrameForReducerToken(
+function preparedContentFrameForReducerToken(
   decision: GpuFlowVisibleFrameReducerDecision,
 ): GpuFlowPreparedContentFrame {
   const displayFrameId = decision.sample.id;

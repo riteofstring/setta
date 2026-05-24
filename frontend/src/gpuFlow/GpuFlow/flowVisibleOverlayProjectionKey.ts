@@ -9,7 +9,7 @@ export function createGpuFlowVisibleOverlayProjectionKey(
 ): string {
   const viewport = normalizeGpuViewport(visibleProjectionState.sample.viewport);
   return JSON.stringify([
-    visibleProjectionState.committedFrame.displayFrameId,
+    visibleProjectionState.preparedContentFrame.displayFrameId,
     visibleProjectionState.sample.id,
     visibleProjectionState.transaction.id,
     viewport.x,

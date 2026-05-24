@@ -45,9 +45,9 @@ export type GpuFlowVisibleFrameCandidateResourceRequest = {
 };
 
 export function createGpuFlowVisibleFramePresentationResourceProtectionReport(
-  committedFrame: GpuFlowPreparedContentFrame | null,
+  preparedContentFrame: GpuFlowPreparedContentFrame | null,
 ): GpuFlowVisibleFramePresentationResourceProtectionReport {
-  if (committedFrame === null) {
+  if (preparedContentFrame === null) {
     return createGpuFlowVisibleFramePresentationResourceProtectionReportFromKeys(
       {
         protectedResourceKeys: [],
@@ -58,19 +58,21 @@ export function createGpuFlowVisibleFramePresentationResourceProtectionReport(
   return createGpuFlowVisibleFramePresentationResourceProtectionReportFromKeys({
     protectedResourceKeys:
       createGpuFlowVisibleFramePresentationProtectedResourceKeys(
-        committedFrame,
+        preparedContentFrame,
       ),
     requiredResourceKeys:
-      createGpuFlowVisibleFramePresentationRequiredResourceKeys(committedFrame),
+      createGpuFlowVisibleFramePresentationRequiredResourceKeys(
+        preparedContentFrame,
+      ),
   });
 }
 
 export function createGpuFlowVisibleFramePresentationResourceBlockedReasons(
-  committedFrame: GpuFlowPreparedContentFrame,
+  preparedContentFrame: GpuFlowPreparedContentFrame,
 ): readonly GpuFlowBlockedVisibleReason[] {
   return Object.freeze(
     createGpuFlowVisibleFramePresentationResourceProtectionReport(
-      committedFrame,
+      preparedContentFrame,
     ).missingResourceKeys.map((resourceKey) =>
       Object.freeze({
         actorId: null,
@@ -341,37 +343,40 @@ function createGpuFlowVisibleFramePresentationResourceProtectionReportFromKeys({
 }
 
 function createGpuFlowVisibleFramePresentationRequiredResourceKeys(
-  committedFrame: GpuFlowPreparedContentFrame,
+  preparedContentFrame: GpuFlowPreparedContentFrame,
 ): readonly string[] {
   return createGpuFlowVisibleFramePresentationResourceKeys(
-    getGpuFlowVisibleFramePresentationRequiredResourceHandles(committedFrame),
+    getGpuFlowVisibleFramePresentationRequiredResourceHandles(
+      preparedContentFrame,
+    ),
   );
 }
 
 function createGpuFlowVisibleFramePresentationProtectedResourceKeys(
-  committedFrame: GpuFlowPreparedContentFrame,
+  preparedContentFrame: GpuFlowPreparedContentFrame,
 ): readonly string[] {
   return createGpuFlowVisibleFramePresentationResourceKeys([
-    ...(committedFrame.surfaceTransaction?.protectedResourceHandles ?? []),
-    ...(committedFrame.surfaceTransaction?.coverageProof
+    ...(preparedContentFrame.surfaceTransaction?.protectedResourceHandles ??
+      []),
+    ...(preparedContentFrame.surfaceTransaction?.coverageProof
       .protectedResourceHandles ?? []),
   ]);
 }
 
 function getGpuFlowVisibleFramePresentationRequiredResourceHandles(
-  committedFrame: GpuFlowPreparedContentFrame,
+  preparedContentFrame: GpuFlowPreparedContentFrame,
 ): readonly SurfaceResourceHandle[] {
   return [
-    ...committedFrame.actorGenerations.flatMap((actor) =>
+    ...preparedContentFrame.actorGenerations.flatMap((actor) =>
       getGpuFlowVisibleFramePresentationActorRequiredResourceHandles({
         actor,
-        startup: committedFrame.retainedDisplayFrame === null,
+        startup: preparedContentFrame.retainedDisplayFrame === null,
       }),
     ),
-    ...(committedFrame.surfaceTransaction?.coverageProof.exactCoverage.flatMap(
+    ...(preparedContentFrame.surfaceTransaction?.coverageProof.exactCoverage.flatMap(
       (entry) => entry.resourceHandles,
     ) ?? []),
-    ...(committedFrame.surfaceTransaction?.coverageProof.compatibleCoverage.flatMap(
+    ...(preparedContentFrame.surfaceTransaction?.coverageProof.compatibleCoverage.flatMap(
       (entry) => entry.resourceHandles,
     ) ?? []),
   ];

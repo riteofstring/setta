@@ -73,11 +73,11 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
 }
 
 function createGpuFlowVisibleFramePresentableFrameProof({
-  committedFrame,
+  preparedContentFrame,
   presentationEvidence,
   reducerDecision,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly presentationEvidence?:
     | GpuFlowVisibleFramePresentationEvidence
     | undefined;
@@ -86,11 +86,11 @@ function createGpuFlowVisibleFramePresentableFrameProof({
   const selectedPresentationEvidence =
     presentationEvidence ??
     createTestGpuFlowVisibleFramePresentationEvidence({
-      committedFrame,
+      preparedContentFrame,
       reducerDecision,
     });
   return createGpuFlowVisibleFramePresentableFrameProofFromFactory({
-    committedFrame,
+    preparedContentFrame,
     presentationEvidence: selectedPresentationEvidence,
     reducerDecision,
     projectionTransactionKind: "content-publication",
@@ -156,7 +156,8 @@ function withTestGpuFlowVisibleFramePresentationEvidence<
   return {
     ...candidate,
     presentationEvidence: createTestGpuFlowVisibleFramePresentationEvidence({
-      committedFrame: candidate.visibleProjectionState.committedFrame,
+      preparedContentFrame:
+        candidate.visibleProjectionState.preparedContentFrame,
       reducerDecision: {
         sample: candidate.visibleProjectionState.sample,
       },
@@ -168,19 +169,19 @@ function withTestGpuFlowVisibleFramePresentationEvidence<
 }
 
 function createTestGpuFlowVisibleFramePresentationEvidence({
-  committedFrame,
+  preparedContentFrame,
   reducerDecision,
   projectionTransactionKind = "content-publication",
   projectionTransactionId = `transaction:content-publication:${reducerDecision.sample.id}`,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly reducerDecision: Pick<GpuFlowVisibleFrameReducerDecision, "sample">;
   readonly projectionTransactionKind?: GpuFlowProjectionTransactionKind;
   readonly projectionTransactionId?: string;
 }): GpuFlowVisibleFramePresentationEvidence {
   const projectionSampleId = reducerDecision.sample.id;
   const evidenceInput = {
-    committedFrame,
+    preparedContentFrame,
     projectionSampleId,
     projectionTransactionId,
   };
@@ -294,7 +295,9 @@ describe("GPU Flow visible frame transaction proofs", () => {
       requiredInteractionProof: "inactive-visual-only",
     });
     const proof = createGpuFlowVisibleFramePresentableFrameProof({
-      committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
+      preparedContentFrame: createPreparedContentFrame({
+        actorGenerations: [actor],
+      }),
       reducerDecision: reducerDecision(sample),
     });
 
@@ -374,7 +377,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(
       createGpuFlowVisibleFramePresentableFrameProof({
-        committedFrame: preparedContentFrame({
+        preparedContentFrame: createPreparedContentFrame({
           compatiblePreviousActorIds: ["actor-a"],
         }),
         reducerDecision: reducerDecisionWithContentDebt,
@@ -386,7 +389,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     });
     expect(
       createGpuFlowVisibleFramePresentableFrameProof({
-        committedFrame: preparedContentFrame({
+        preparedContentFrame: createPreparedContentFrame({
           compatiblePreviousActorIds: [],
         }),
         reducerDecision: reducerDecisionWithContentDebt,
@@ -404,7 +407,9 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisibleFramePresentableFrameProof({
-        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
+        preparedContentFrame: createPreparedContentFrame({
+          actorGenerations: [actor],
+        }),
         reducerDecision: reducerDecision(sample),
       }),
     ).toThrow(
@@ -420,7 +425,9 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisibleFramePresentableFrameProof({
-        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
+        preparedContentFrame: createPreparedContentFrame({
+          actorGenerations: [actor],
+        }),
         reducerDecision: reducerDecision(sample),
       }),
     ).toThrow(
@@ -437,7 +444,9 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisibleFramePresentableFrameProof({
-        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
+        preparedContentFrame: createPreparedContentFrame({
+          actorGenerations: [actor],
+        }),
         reducerDecision: reducerDecision(sample),
       }),
     ).toThrow(
@@ -458,7 +467,9 @@ describe("GPU Flow visible frame transaction proofs", () => {
       sample: liveProjectionSample({ id: 52, timestamp: 514 }),
     });
     const overBudgetVisibleProjectionState = visibleProjectionState({
-      committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
+      preparedContentFrame: createPreparedContentFrame({
+        actorGenerations: [actor],
+      }),
       kind: "content-publication",
       sample,
     });
@@ -489,7 +500,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
         },
       ],
       frozenFrameId:
-        previousVisibleProjectionState.committedFrame.displayFrameId,
+        previousVisibleProjectionState.preparedContentFrame.displayFrameId,
     });
   });
 
@@ -503,7 +514,9 @@ describe("GPU Flow visible frame transaction proofs", () => {
       sample: liveProjectionSample({ id: 53, timestamp: 524 }),
     });
     const activeEditorVisibleProjectionState = visibleProjectionState({
-      committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
+      preparedContentFrame: createPreparedContentFrame({
+        actorGenerations: [actor],
+      }),
       kind: "motion-projection",
       sample,
     });
@@ -533,7 +546,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
         },
       ],
       frozenFrameId:
-        previousVisibleProjectionState.committedFrame.displayFrameId,
+        previousVisibleProjectionState.preparedContentFrame.displayFrameId,
     });
   });
 
@@ -546,7 +559,9 @@ describe("GPU Flow visible frame transaction proofs", () => {
         actualVisualProof,
       });
       const proof = createGpuFlowVisibleFramePresentableFrameProof({
-        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
+        preparedContentFrame: createPreparedContentFrame({
+          actorGenerations: [actor],
+        }),
         reducerDecision: reducerDecision(sample),
       });
 
@@ -586,7 +601,9 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisibleFramePresentableFrameProof({
-        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
+        preparedContentFrame: createPreparedContentFrame({
+          actorGenerations: [actor],
+        }),
         reducerDecision: reducerDecision(sample),
       }),
     ).toThrow(/compatible-previous:previous-transaction-identity-required/);
@@ -604,7 +621,9 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisibleFramePresentableFrameProof({
-        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
+        preparedContentFrame: createPreparedContentFrame({
+          actorGenerations: [actor],
+        }),
         reducerDecision: reducerDecision(sample),
       }),
     ).toThrow(/exact-live-host:active-editor-host-identity-required/);
@@ -615,7 +634,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisibleFramePresentableFrameProof({
-        committedFrame: preparedContentFrame({
+        preparedContentFrame: createPreparedContentFrame({
           exactSurfaceResourceHandles: [{ id: "source-a", kind: "source" }],
         }),
         reducerDecision: reducerDecision(sample),
@@ -630,7 +649,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
       sample: liveProjectionSample({ id: 57, timestamp: 564 }),
     });
     const visibleProjectionStateWithMissingResource = visibleProjectionState({
-      committedFrame: preparedContentFrame({
+      preparedContentFrame: createPreparedContentFrame({
         exactSurfaceResourceHandles: [{ id: "source-a", kind: "source" }],
       }),
       kind: "content-publication",
@@ -661,7 +680,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
         },
       ],
       frozenFrameId:
-        previousVisibleProjectionState.committedFrame.displayFrameId,
+        previousVisibleProjectionState.preparedContentFrame.displayFrameId,
     });
   });
 
@@ -704,7 +723,9 @@ describe("GPU Flow visible frame transaction proofs", () => {
         sample: liveProjectionSample({ id: 56, timestamp: 554 }),
       });
       const visibleProjectionStateWithMismatch = visibleProjectionState({
-        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
+        preparedContentFrame: createPreparedContentFrame({
+          actorGenerations: [actor],
+        }),
         kind: "content-publication",
         sample,
       });
@@ -729,7 +750,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
       expect(proof.blockedPublicationCandidate).toEqual({
         blockedReasons: [{ actorId: "control-a", family, reason }],
         frozenFrameId:
-          previousVisibleProjectionState.committedFrame.displayFrameId,
+          previousVisibleProjectionState.preparedContentFrame.displayFrameId,
       });
     },
   );
@@ -835,18 +856,18 @@ describe("GPU Flow visible frame transaction proofs", () => {
 });
 
 function visibleProjectionState({
-  committedFrame = preparedContentFrame(),
+  preparedContentFrame = createPreparedContentFrame(),
   kind,
   sample,
 }: {
-  readonly committedFrame?: GpuFlowPreparedContentFrame | undefined;
+  readonly preparedContentFrame?: GpuFlowPreparedContentFrame | undefined;
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleProjectionState {
   return {
-    committedFrame,
+    preparedContentFrame,
     debugState: {
-      committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrameId: preparedContentFrame.displayFrameId,
       gestureOwner: "idle",
       heldPreviousDurationMs: 0,
       heldPreviousFrameCount: 0,
@@ -861,7 +882,7 @@ function visibleProjectionState({
     heldPreviousProjection: null,
     sample,
     transaction: {
-      committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrameId: preparedContentFrame.displayFrameId,
       id: `transaction:${kind}:${sample.id}`,
       kind,
       lane: "content",
@@ -872,7 +893,7 @@ function visibleProjectionState({
   };
 }
 
-function preparedContentFrame({
+function createPreparedContentFrame({
   actorGenerations = [],
   compatiblePreviousActorIds = [],
   exactSurfaceResourceHandles = [],

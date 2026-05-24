@@ -1,7 +1,7 @@
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import {
-  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowProjectionTransactionForPreparedContentFrameId,
   createGpuFlowVisibleProjectionState,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionLane,
@@ -22,18 +22,19 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
   >;
   readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }): GpuFlowVisibleProjectionState {
-  const visibleCommittedFrame = getGpuFlowVisiblePreparedContentFrame({
+  const visiblePreparedContentFrame = getGpuFlowVisiblePreparedContentFrame({
     preparedContentFrame,
   });
-  const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-    committedFrameId: visibleCommittedFrame.displayFrameId,
-    kind: "content-publication",
-    lane: contentWorkLane,
-    rawReasons: frameReasons,
-    sample: liveProjectionSample,
-  });
+  const transaction =
+    createGpuFlowProjectionTransactionForPreparedContentFrameId({
+      preparedContentFrameId: visiblePreparedContentFrame.displayFrameId,
+      kind: "content-publication",
+      lane: contentWorkLane,
+      rawReasons: frameReasons,
+      sample: liveProjectionSample,
+    });
   return createGpuFlowVisibleProjectionState({
-    committedFrame: visibleCommittedFrame,
+    preparedContentFrame: visiblePreparedContentFrame,
     heldPreviousProjection: null,
     transaction,
   });

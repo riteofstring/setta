@@ -212,7 +212,7 @@ describe("GPU flow performance probe helpers", () => {
         htmlSurfaceFrameMs: 1,
       },
       projectionDiagnostics: {
-        committedFrameId: 17,
+        preparedContentFrameId: 17,
         gestureOwner: "ownedByRetainedSectionScroll",
         heldPreviousDurationMs: 12,
         heldPreviousFrameCount: 2,
@@ -287,7 +287,7 @@ describe("GPU flow performance probe helpers", () => {
       textureLargestBytes: 400,
       textureVisibleBytes: 400,
       projectionDiagnostics: {
-        committedFrameId: 17,
+        preparedContentFrameId: 17,
         gestureOwner: "ownedByRetainedSectionScroll",
         heldPreviousDurationMs: 12,
         heldPreviousFrameCount: 2,
@@ -359,7 +359,7 @@ function nodeLayerFrame(
       schedulingMs: 0,
     },
     projectionDiagnostics: {
-      committedFrameId: null,
+      preparedContentFrameId: null,
       gestureOwner: null,
       heldPreviousDurationMs: 0,
       heldPreviousFrameCount: 0,

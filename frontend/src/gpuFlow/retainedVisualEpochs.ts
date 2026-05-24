@@ -65,13 +65,13 @@ export function createRetainedVisualEpochsFromDrawRegions(
       epochsByKey.get(key) ??
       createMutableRetainedVisualEpoch({
         descriptor,
-        generation: drawRegion.page.committedFrame,
+        generation: drawRegion.page.preparedContentFrame,
         kind,
       });
     epoch.committedCoverage.push(freezeRect(drawRegion.sampleRectCss));
     epoch.generation = Math.max(
       epoch.generation,
-      drawRegion.page.committedFrame,
+      drawRegion.page.preparedContentFrame,
     );
     epoch.pages.push(
       Object.freeze({

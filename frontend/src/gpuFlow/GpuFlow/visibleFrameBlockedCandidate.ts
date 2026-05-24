@@ -42,7 +42,7 @@ export function createGpuFlowRetainedProjectionBlockedPublicationCandidate({
       }),
     ]),
     frozenFrameId:
-      heldPreviousProjectionState?.committedFrame.displayFrameId ??
+      heldPreviousProjectionState?.preparedContentFrame.displayFrameId ??
       GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
   });
 }
@@ -86,7 +86,7 @@ function createGpuFlowRetainedSurfaceTrueHoleBlockedPublicationCandidate({
       ),
     ),
     frozenFrameId:
-      heldPreviousProjectionState?.committedFrame.displayFrameId ??
+      heldPreviousProjectionState?.preparedContentFrame.displayFrameId ??
       GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
   });
 }
@@ -128,7 +128,7 @@ export function createGpuFlowFrozenPreviousSafeBlockedReasons({
   }
   const previousPassiveVisibleActorIds =
     createGpuFlowPassiveBrowserVisualActorIdSet(
-      previousVisibleProjectionState.committedFrame,
+      previousVisibleProjectionState.preparedContentFrame,
     );
   if (previousPassiveVisibleActorIds.size === 0) {
     return blockedReasons;
@@ -554,7 +554,7 @@ function resolveGpuFlowBlockedVisibleFrozenFrameId({
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowBlockedPublicationToken["frozenFrameId"] {
   return (
-    heldPreviousProjectionState?.committedFrame.displayFrameId ??
+    heldPreviousProjectionState?.preparedContentFrame.displayFrameId ??
     GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID
   );
 }

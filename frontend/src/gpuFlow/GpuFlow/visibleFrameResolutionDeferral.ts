@@ -3,11 +3,11 @@ import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 
 export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
-  committedFrame,
+  preparedContentFrame,
   deferResolutionUpdates,
   sample,
 }: {
-  readonly committedFrame: Pick<
+  readonly preparedContentFrame: Pick<
     GpuFlowPreparedContentFrame,
     "coherence" | "viewportSample"
   > | null;
@@ -19,19 +19,22 @@ export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
 }): boolean {
   return (
     deferResolutionUpdates &&
-    (committedFrame === null ||
-      isGpuFlowPreparedContentFrameSampleCurrent({ committedFrame, sample }))
+    (preparedContentFrame === null ||
+      isGpuFlowPreparedContentFrameSampleCurrent({
+        preparedContentFrame,
+        sample,
+      }))
   );
 }
 
 export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
-  committedFrame,
+  preparedContentFrame,
   deferResolutionUpdates,
   hasPreviousVisibleProjectionState,
   sample,
   viewportFrame,
 }: {
-  readonly committedFrame: Pick<
+  readonly preparedContentFrame: Pick<
     GpuFlowPreparedContentFrame,
     "coherence" | "viewportSample"
   > | null;
@@ -51,17 +54,17 @@ export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
     return true;
   }
   return shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
-    committedFrame,
+    preparedContentFrame,
     deferResolutionUpdates,
     sample,
   });
 }
 
 function isGpuFlowPreparedContentFrameSampleCurrent({
-  committedFrame,
+  preparedContentFrame,
   sample,
 }: {
-  readonly committedFrame: Pick<
+  readonly preparedContentFrame: Pick<
     GpuFlowPreparedContentFrame,
     "coherence" | "viewportSample"
   >;
@@ -71,10 +74,10 @@ function isGpuFlowPreparedContentFrameSampleCurrent({
   >;
 }): boolean {
   return (
-    committedFrame.coherence.retainedScrollRevision ===
+    preparedContentFrame.coherence.retainedScrollRevision ===
       sample.retainedScrollRevision &&
     areGpuFlowProjectionViewportsEqual(
-      committedFrame.viewportSample,
+      preparedContentFrame.viewportSample,
       sample.viewport,
     )
   );

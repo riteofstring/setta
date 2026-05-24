@@ -4,7 +4,7 @@ import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGpuFlowStartupPreparedContentFrame } from "../preparedContentFrame";
 import {
-  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowProjectionTransactionForPreparedContentFrameId,
   createGpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
@@ -497,13 +497,13 @@ describe("GPU retained content interaction controller", () => {
       viewport: [0, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupPreparedContentFrame({
+    const preparedContentFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame,
     });
     const visibleProjectionState = createGpuFlowVisibleProjectionState({
-      committedFrame,
-      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrame,
+      transaction: createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: preparedContentFrame.displayFrameId,
         kind: "motion-projection",
         lane: "motion",
         rawReasons: ["viewport"],
@@ -575,13 +575,13 @@ describe("GPU retained content interaction controller", () => {
       viewport: [40, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupPreparedContentFrame({
+    const preparedContentFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame,
     });
     const visibleProjectionState = createGpuFlowVisibleProjectionState({
-      committedFrame,
-      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrame,
+      transaction: createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: preparedContentFrame.displayFrameId,
         kind: "motion-projection",
         lane: "motion",
         rawReasons: ["viewport"],

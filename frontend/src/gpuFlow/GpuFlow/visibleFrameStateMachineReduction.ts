@@ -1,7 +1,7 @@
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowHeldPreviousProjection,
-  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowProjectionTransactionForPreparedContentFrameId,
   type GpuFlowProjectionLane,
   type GpuFlowProjectionTransaction,
   type GpuFlowVisibleProjectionState,
@@ -26,8 +26,8 @@ import type {
 } from "./visibleFrameProjectionPlan";
 import { createGpuFlowVisibleFrameReducerDecisionForLane } from "./visibleFrameReducerDecision";
 import type {
-  GpuFlowVisibleFrameRequestFacts,
   GpuFlowVisibleFrameReducerDecision,
+  GpuFlowVisibleFrameRequestFacts,
 } from "./visibleFrameReducerRuntime";
 import type { GpuFlowVisibleFramePublicationMotionCandidate } from "./visibleFrameTransactionProofs";
 
@@ -189,9 +189,9 @@ export function reduceGpuFlowVisibleFrameMotionProjectionTransaction({
   }
   if (previousVisibleProjectionState) {
     const heldTransaction =
-      createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId:
-          previousVisibleProjectionState.committedFrame.displayFrameId,
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId:
+          previousVisibleProjectionState.preparedContentFrame.displayFrameId,
         kind: "held-previous",
         lane: requestedTransaction.lane,
         rawReasons,

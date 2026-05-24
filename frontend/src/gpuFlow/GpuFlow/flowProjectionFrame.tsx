@@ -19,10 +19,10 @@ import {
   type GpuFlowProjectionTransaction,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
+import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
+import { getGpuRetainedContentSwitchAnimationVisuals } from "../retainedContentSwitchVisuals";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import { getGpuRetainedContentSwitchAnimationVisuals } from "../retainedContentSwitchVisuals";
-import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import {
   nextFrame,
@@ -36,10 +36,10 @@ import {
   type GpuFlowNodeLayerFramePerformanceReport,
   type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
-import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { combineGpuFlowHtmlSurfaceNativeVisuals } from "./flowFrameVisuals";
-import { hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces } from "./flowRetainedSwitchAnimationFrame";
+import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { createGpuFlowRetainedRuntimeFrameForLayer } from "./flowRetainedRuntimeFrame";
+import { hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces } from "./flowRetainedSwitchAnimationFrame";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
 import type {
@@ -154,13 +154,14 @@ export function renderGpuFlowNodeLayerProjectionFrame({
       layer,
       transaction,
     });
-  const htmlSurfaceNativeVisuals = resolveGpuFlowProjectionHtmlSurfaceNativeVisuals({
-    darkMode: isGpuFlowProjectionFrameDarkMode(runtime.canvas),
-    nowMs: renderStartedAt,
-    projectionRetainedRuntimeFrame,
-    scene: layer.scene,
-    switchAnimations: retainedContentSwitchAnimations,
-  });
+  const htmlSurfaceNativeVisuals =
+    resolveGpuFlowProjectionHtmlSurfaceNativeVisuals({
+      darkMode: isGpuFlowProjectionFrameDarkMode(runtime.canvas),
+      nowMs: renderStartedAt,
+      projectionRetainedRuntimeFrame,
+      scene: layer.scene,
+      switchAnimations: retainedContentSwitchAnimations,
+    });
   const retainedPageVisuals = retainedProjectionFrame.flatSurfaces;
   const htmlSurfaceOverlays =
     projectGpuRetainedDomControlSnapshotSurfaceLayouts({
@@ -343,7 +344,7 @@ export function resolveGpuFlowProjectionRetainedRuntimeFrame({
     return fallbackRetainedRuntimeFrame;
   }
   return (
-    heldPreviousProjectionState?.committedFrame.retainedRuntimeFrame ??
+    heldPreviousProjectionState?.preparedContentFrame.retainedRuntimeFrame ??
     fallbackRetainedRuntimeFrame
   );
 }

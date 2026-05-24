@@ -115,7 +115,7 @@ function toCommittedHtmlSurfaceTextureSnapshot(
     cssWidth: descriptor.sourceRectCss.width,
     dirtyContent: false,
     dirtyResolution: false,
-    lastUploadFrame: page.committedFrame,
+    lastUploadFrame: page.preparedContentFrame,
     lastVisibleFrame: page.lastUsedFrame,
     maxTextureDimension2D: Math.max(
       descriptor.pixelHeight,

@@ -131,7 +131,7 @@ describe("GPU flow DOM control projection runtime publication", () => {
     const emittedFrameIds: number[] = [];
     browserVisualRuntime.subscribe(() => {
       emittedFrameIds.push(
-        browserVisualRuntime.getSnapshot().frameIds.committedFrameId,
+        browserVisualRuntime.getSnapshot().frameIds.preparedContentFrameId,
       );
     });
 

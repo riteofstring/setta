@@ -68,7 +68,7 @@ type BlockedPublicationTokenBrand = {
 
 export type GpuFlowVisibleFramePresentationToken =
   VisibleFramePresentationTokenBrand & {
-    readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
+    readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
     readonly contentFrameId: GpuFlowVisibleFramePresentationIdentity["contentFrameId"];
     readonly expectedActorSetDigest: GpuFlowActorManifestDigest;
     readonly presentationId: GpuFlowVisibleFramePresentationIdentity["presentationId"];
@@ -81,7 +81,7 @@ export type GpuFlowVisibleFramePresentationToken =
   };
 
 type GpuFlowPresentableFrame = PresentableFrameBrand & {
-  readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
+  readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
   readonly contentFrameId: GpuFlowVisibleFramePresentationIdentity["contentFrameId"];
   readonly expectedActorSetDigest: GpuFlowActorManifestDigest;
   readonly presentationId: GpuFlowVisibleFramePresentationIdentity["presentationId"];
@@ -94,7 +94,7 @@ type GpuFlowPresentableFrame = PresentableFrameBrand & {
 };
 
 export type GpuFlowHoldPreviousToken = HoldPreviousTokenBrand & {
-  readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
+  readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
   readonly holdAgeFrames: number;
   readonly holdAgeMs: number;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
@@ -132,7 +132,7 @@ type GpuFlowVisibleFramePresentationTokenIssuer = {
     readonly projectionSample: GpuFlowLiveProjectionSample;
   }) => GpuFlowVisibleFramePresentationToken;
   readonly createHoldPreviousToken: (input: {
-    readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
+    readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
     readonly holdAgeFrames: number;
     readonly holdAgeMs: number;
     readonly projectionSample: GpuFlowLiveProjectionSample;
@@ -186,7 +186,7 @@ function createGpuFlowPresentableFrame({
   });
   return Object.freeze({
     [GPU_FLOW_PRESENTABLE_FRAME]: true as const,
-    committedFrameId: frame.displayFrameId,
+    preparedContentFrameId: frame.displayFrameId,
     contentFrameId: presentationIdentity.contentFrameId,
     expectedActorSetDigest: presentationAuthorityProof.expectedActorSetDigest,
     presentationId: presentationIdentity.presentationId,
@@ -204,18 +204,18 @@ function createGpuFlowPresentableFrame({
 }
 
 export function createGpuFlowVisibleFrameHoldPreviousToken({
-  committedFrameId,
+  preparedContentFrameId,
   holdAgeFrames,
   holdAgeMs,
   projectionSample,
 }: {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly holdAgeFrames: number;
   readonly holdAgeMs: number;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowHoldPreviousToken {
   return visibleFramePresentationTokenIssuer.createHoldPreviousToken({
-    committedFrameId,
+    preparedContentFrameId,
     holdAgeFrames,
     holdAgeMs,
     projectionSample,
@@ -258,7 +258,7 @@ export function createGpuFlowVisibleFrameReducerCompletionPresentationToken({
   }
   if (
     presentationAuthorityProof.expectedActorSetDigest !==
-      visibleProjectionState.committedFrame.presentationProof
+      visibleProjectionState.preparedContentFrame.presentationProof
         .actorManifestDigest ||
     presentationAuthorityProof.projectionTransactionKind !==
       visibleProjectionState.transaction.kind ||
@@ -271,7 +271,7 @@ export function createGpuFlowVisibleFrameReducerCompletionPresentationToken({
   }
   return visibleFramePresentationTokenIssuer.createPresentationToken({
     presentationAuthorityProof,
-    frame: visibleProjectionState.committedFrame,
+    frame: visibleProjectionState.preparedContentFrame,
     presentationIdentity,
     projectionSample: reducerDecision.sample,
   });
@@ -285,7 +285,7 @@ function createGpuFlowVisibleFramePresentationToken({
   assertGpuFlowPresentableFrame({ presentableFrame });
   return Object.freeze({
     [GPU_FLOW_VISIBLE_FRAME_PRESENTATION_TOKEN]: true as const,
-    committedFrameId: presentableFrame.committedFrameId,
+    preparedContentFrameId: presentableFrame.preparedContentFrameId,
     contentFrameId: presentableFrame.contentFrameId,
     expectedActorSetDigest: presentableFrame.expectedActorSetDigest,
     presentationId: presentableFrame.presentationId,
@@ -319,23 +319,23 @@ function assertGpuFlowVisibleFramePresentationIdentity({
 }
 
 function createGpuFlowHoldPreviousToken({
-  committedFrameId,
+  preparedContentFrameId,
   holdAgeFrames,
   holdAgeMs,
   projectionSample,
 }: {
-  readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
+  readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
   readonly holdAgeFrames: number;
   readonly holdAgeMs: number;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowHoldPreviousToken {
   return Object.freeze({
     [GPU_FLOW_HOLD_PREVIOUS_TOKEN]: true as const,
-    committedFrameId,
+    preparedContentFrameId,
     holdAgeFrames,
     holdAgeMs,
     projectionSampleId: projectionSample.id,
-    transactionId: `hold:frame-${committedFrameId}:sample-${projectionSample.id}`,
+    transactionId: `hold:frame-${preparedContentFrameId}:sample-${projectionSample.id}`,
   });
 }
 
@@ -389,7 +389,7 @@ export function assertGpuFlowVisibleFramePresentationToken({
   if (
     !token ||
     token[GPU_FLOW_VISIBLE_FRAME_PRESENTATION_TOKEN] !== true ||
-    token.committedFrameId !== frame.displayFrameId ||
+    token.preparedContentFrameId !== frame.displayFrameId ||
     token.expectedActorSetDigest !== createGpuFlowActorManifestDigest(frame) ||
     token.proofDigest !== createGpuFlowVisibleProofDigest(frame) ||
     token.resourceProtectionDigest !==
@@ -428,7 +428,7 @@ export function assertGpuFlowVisibleFramePresentationTokenForPresentationProof({
   if (
     !token ||
     token[GPU_FLOW_VISIBLE_FRAME_PRESENTATION_TOKEN] !== true ||
-    token.committedFrameId !== frame.displayFrameId ||
+    token.preparedContentFrameId !== frame.displayFrameId ||
     token.expectedActorSetDigest !==
       frame.presentationProof.actorManifestDigest ||
     token.proofDigest !== createGpuFlowVisibleProofDigest(frame) ||
@@ -457,21 +457,21 @@ export function assertGpuFlowVisibleFramePresentationTokenForPresentationProof({
 }
 
 export function assertGpuFlowVisibleFramePresentationTokenForFrameId({
-  committedFrameId,
+  preparedContentFrameId,
   token,
 }: {
-  readonly committedFrameId: GpuFlowCommittedVisibleFrameId;
+  readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
   readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   if (
     !token ||
     token[GPU_FLOW_VISIBLE_FRAME_PRESENTATION_TOKEN] !== true ||
-    token.committedFrameId !== committedFrameId
+    token.preparedContentFrameId !== preparedContentFrameId
   ) {
     throw new Error(
-      `GPU Flow browser visual publication requires a visible frame presentation token for the same visible frame (expected frame ${committedFrameId}, received ${
+      `GPU Flow browser visual publication requires a visible frame presentation token for the same visible frame (expected frame ${preparedContentFrameId}, received ${
         isGpuFlowVisibleFramePresentationToken(token)
-          ? token.committedFrameId
+          ? token.preparedContentFrameId
           : "unbranded"
       }).`,
     );

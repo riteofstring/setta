@@ -202,11 +202,11 @@ describe("getGpuRetainedDomControlSources", () => {
       }),
     );
 
-    const committedFrame = createGpuFlowStartupPreparedContentFrame({
+    const preparedContentFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: runtimeFrame,
     });
     expect(
-      committedFrame.projectionHorizon.obligations.nearFutureActorIds,
+      preparedContentFrame.projectionHorizon.obligations.nearFutureActorIds,
     ).toContain(nearFutureSource?.sourceId);
   });
 
@@ -242,10 +242,10 @@ describe("getGpuRetainedDomControlSources", () => {
       }),
     );
 
-    const committedFrame = createGpuFlowStartupPreparedContentFrame({
+    const preparedContentFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: runtimeFrame,
     });
-    const coverage = committedFrame.projectionHorizon.textActorCoverage;
+    const coverage = preparedContentFrame.projectionHorizon.textActorCoverage;
     const blockedActorIds = new Set([
       ...coverage.blockedAwaitingLiveHostActorIds,
       ...coverage.blockedAwaitingBrowserVisualActorIds,
@@ -258,7 +258,9 @@ describe("getGpuRetainedDomControlSources", () => {
     );
     expect(coverage.exactLiveDomActorIds).toEqual([]);
     expect(coverage.exactSnapshotActorIds).toEqual([]);
-    expect(committedFrame.diagnostics.textActorExactCoverageCount).toBe(0);
+    expect(preparedContentFrame.diagnostics.textActorExactCoverageCount).toBe(
+      0,
+    );
 
     const firstSnapshotLayout =
       getGpuRetainedDomControlSnapshotSurfaceLayouts(snapshotSources)[0];
@@ -654,11 +656,11 @@ describe("getGpuRetainedDomControlSources", () => {
       }),
     );
 
-    const committedFrame = createGpuFlowStartupPreparedContentFrame({
+    const preparedContentFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: nextFrame,
     });
     expect(
-      committedFrame.projectionHorizon.textActorCoverage
+      preparedContentFrame.projectionHorizon.textActorCoverage
         .blockedAwaitingBrowserVisualActorIds,
     ).toContain(nextSnapshotSource.sourceId);
   });

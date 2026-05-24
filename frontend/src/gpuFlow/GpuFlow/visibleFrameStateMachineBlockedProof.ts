@@ -120,7 +120,7 @@ function createGpuFlowVisibleFramePublicationCandidateActorBlockedProof({
   const blockedCandidate = Object.freeze({
     blockedReasons: visibleBlockedReasons,
     frozenFrameId:
-      previousVisibleProjectionState?.committedFrame.displayFrameId ??
+      previousVisibleProjectionState?.preparedContentFrame.displayFrameId ??
       resolveGpuFlowColdStartBlockedFrozenFrameId({
         blockedReasons: visibleBlockedReasons,
       }),
@@ -154,7 +154,7 @@ function createGpuFlowVisibleFramePublicationActorBlockedProof({
   const candidate = Object.freeze({
     blockedReasons,
     frozenFrameId:
-      previousVisibleProjectionState?.committedFrame.displayFrameId ??
+      previousVisibleProjectionState?.preparedContentFrame.displayFrameId ??
       resolveGpuFlowColdStartBlockedFrozenFrameId({ blockedReasons }),
   });
   return Object.freeze({

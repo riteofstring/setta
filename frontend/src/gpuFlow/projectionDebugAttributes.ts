@@ -31,7 +31,9 @@ export function setProjectionDebugAttributes(
 ): void {
   assertGpuFlowProjectionDebugPublicationToken({ debugState, token });
   setGpuFlowVisibleFrameIdentityAttributes(element, token);
-  element.dataset.gpuFlowCommittedFrameId = String(debugState.committedFrameId);
+  element.dataset.gpuFlowPreparedContentFrameId = String(
+    debugState.preparedContentFrameId,
+  );
   element.dataset.gpuFlowHeldPreviousDurationMs = String(
     debugState.heldPreviousDurationMs,
   );
@@ -64,7 +66,7 @@ function assertGpuFlowProjectionDebugPublicationToken({
   readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   assertGpuFlowVisibleFramePresentationTokenForFrameId({
-    committedFrameId: debugState.committedFrameId,
+    preparedContentFrameId: debugState.preparedContentFrameId,
     token,
   });
   assertGpuFlowVisibleFramePresentationTokenForProjectionSample({

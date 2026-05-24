@@ -111,9 +111,9 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
         domControlCount: document.querySelectorAll(
           '[data-gpu-flow-dom-control="true"]',
         ).length,
-        domControlPlaneCommittedFrameId:
-          domControlPlane?.dataset.gpuFlowDomControlPlaneCommittedFrameId ??
-          null,
+        domControlPlanePreparedContentFrameId:
+          domControlPlane?.dataset
+            .gpuFlowDomControlPlanePreparedContentFrameId ?? null,
         publicationDebtFrameRequests,
         recentGpuFlowFrameMeasures,
         retainedNativeVisuals,
@@ -134,8 +134,9 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
       domControlCount: document.querySelectorAll(
         '[data-gpu-flow-dom-control="true"]',
       ).length,
-      domControlPlaneCommittedFrameId:
-        domControlPlane?.dataset.gpuFlowDomControlPlaneCommittedFrameId ?? null,
+      domControlPlanePreparedContentFrameId:
+        domControlPlane?.dataset.gpuFlowDomControlPlanePreparedContentFrameId ??
+        null,
       domControlPlaneRuntimeFrameId:
         domControlPlane?.dataset.gpuFlowDomControlPlaneFrameId ?? null,
       lastBlockedEvent: lastBlockedEvent ?? null,

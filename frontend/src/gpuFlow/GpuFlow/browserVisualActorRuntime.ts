@@ -103,7 +103,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   private controlViewportRuntime: GpuFlowViewportRuntime | null = null;
   private controlViewportStore: GpuFlowViewportStoreApi | null = null;
   private diagnostics = createEmptyDomControlPlaneDiagnostics({
-    committedFrameId: 0,
+    preparedContentFrameId: 0,
     runtimeFrameId: 0,
   });
   private readonly preparationDomControlHostById = new Map<
@@ -122,7 +122,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   private domControlSnapshotTextureManager: GpuFlowDomControlSnapshotTextureManager | null =
     null;
   private readonly domIslandElementById = new Map<string, HTMLElement>();
-  private readonly domIslandRegistrationCommittedFrameIdById = new Map<
+  private readonly domIslandRegistrationPreparedContentFrameIdById = new Map<
     string,
     number
   >();
@@ -207,7 +207,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   }): GpuFlowBrowserVisualActorCandidate {
     const retainedRuntimeFrame = retainedDisplayFrame.retainedRuntimeFrame;
     const frameIds = resolveGpuFlowBrowserVisualActorFrameIds({
-      committedFrameId: retainedDisplayFrame.id,
+      preparedContentFrameId: retainedDisplayFrame.id,
       retainedRuntimeFrame,
     });
     const controls = withGpuFlowFocusedDomControlPins({
@@ -253,7 +253,7 @@ export class GpuFlowBrowserVisualActorRuntime {
             EMPTY_DOM_ISLANDS,
         }),
     });
-    const candidateId = `browser-visual-candidate:${frameIds.committedFrameId}:${frameIds.runtimeFrameId}`;
+    const candidateId = `browser-visual-candidate:${frameIds.preparedContentFrameId}:${frameIds.runtimeFrameId}`;
     return Object.freeze({
       id: candidateId,
       presentationEvidence:
@@ -317,8 +317,8 @@ export class GpuFlowBrowserVisualActorRuntime {
   }): void {
     assertGpuFlowPreparedCandidateAbortToken({ token });
     if (
-      this.preparationSnapshot.frameIds.committedFrameId !==
-        candidate.snapshot.frameIds.committedFrameId ||
+      this.preparationSnapshot.frameIds.preparedContentFrameId !==
+        candidate.snapshot.frameIds.preparedContentFrameId ||
       this.preparationSnapshot.frameIds.runtimeFrameId !==
         candidate.snapshot.frameIds.runtimeFrameId
     ) {
@@ -397,10 +397,10 @@ export class GpuFlowBrowserVisualActorRuntime {
     const hostMap = this.getDomControlHostMap(presentation);
     const mounted = hostMap.get(control.sourceId);
     this.assertBrowserVisualHostRegistrationToken({
-      committedFrameId:
+      preparedContentFrameId:
         !element && token
-          ? token.committedFrameId
-          : mounted?.registrationCommittedFrameId,
+          ? token.preparedContentFrameId
+          : mounted?.registrationPreparedContentFrameId,
       presentation,
       token,
     });
@@ -472,7 +472,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       controlId: control.sourceId,
       element,
       ...(presentation === "visible"
-        ? { registrationCommittedFrameId: token?.committedFrameId }
+        ? { registrationPreparedContentFrameId: token?.preparedContentFrameId }
         : {}),
     });
   }
@@ -507,7 +507,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       return;
     }
     assertGpuFlowVisibleFramePresentationTokenForFrameId({
-      committedFrameId: this.snapshot.frameIds.committedFrameId,
+      preparedContentFrameId: this.snapshot.frameIds.preparedContentFrameId,
       token: this.snapshotPublicationToken,
     });
     surface.requestFrame("texture-upload");
@@ -525,24 +525,24 @@ export class GpuFlowBrowserVisualActorRuntime {
     readonly token?: GpuFlowVisibleFramePresentationToken | undefined;
   }): void {
     this.assertBrowserVisualHostRegistrationToken({
-      committedFrameId:
+      preparedContentFrameId:
         !element && token
-          ? token.committedFrameId
-          : this.domIslandRegistrationCommittedFrameIdById.get(islandId),
+          ? token.preparedContentFrameId
+          : this.domIslandRegistrationPreparedContentFrameIdById.get(islandId),
       presentation,
       token,
     });
     if (!element) {
       this.domIslandElementById.delete(islandId);
-      this.domIslandRegistrationCommittedFrameIdById.delete(islandId);
+      this.domIslandRegistrationPreparedContentFrameIdById.delete(islandId);
       return;
     }
     this.domIslandElementById.set(islandId, element);
     if (presentation === "visible" && token) {
       setGpuFlowVisibleFrameIdentityAttributes(element, token);
-      this.domIslandRegistrationCommittedFrameIdById.set(
+      this.domIslandRegistrationPreparedContentFrameIdById.set(
         islandId,
-        token.committedFrameId,
+        token.preparedContentFrameId,
       );
     }
   }
@@ -556,7 +556,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       return;
     }
     const viewport = resolveGpuFlowBrowserVisualActorProjectionViewport({
-      committedFrameId: this.snapshot.frameIds.committedFrameId,
+      preparedContentFrameId: this.snapshot.frameIds.preparedContentFrameId,
       projectionInput,
     });
     this.publishBrowserVisualPresentationIdentity(projectionInput.token);
@@ -575,7 +575,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       });
     const diagnosticsRef = { current: this.diagnostics };
     this.projectionManager.project({
-      committedFrameId: this.snapshot.frameIds.committedFrameId,
+      preparedContentFrameId: this.snapshot.frameIds.preparedContentFrameId,
       controlById: this.snapshot.domControls.controlById,
       diagnosticsRef,
       getRetainedScrollOffset: this.getRetainedScrollOffset,
@@ -637,14 +637,14 @@ export class GpuFlowBrowserVisualActorRuntime {
       return;
     }
     const viewport = resolveGpuFlowBrowserVisualActorProjectionViewport({
-      committedFrameId: this.snapshot.frameIds.committedFrameId,
+      preparedContentFrameId: this.snapshot.frameIds.preparedContentFrameId,
       projectionInput,
     });
     this.publishBrowserVisualPresentationIdentity(projectionInput.token);
     stampGpuFlowVisibleDomIslandHostPresentationIdentity({
       elementById: this.domIslandElementById,
       registeredIslandIds:
-        this.domIslandRegistrationCommittedFrameIdById.keys(),
+        this.domIslandRegistrationPreparedContentFrameIdById.keys(),
       token: projectionInput.token,
     });
     syncGpuFlowBrowserVisualDomIslandLayerStyles({
@@ -795,7 +795,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     readonly token: GpuFlowVisibleFramePresentationToken;
   }): boolean {
     assertGpuFlowVisibleFramePresentationTokenForFrameId({
-      committedFrameId: nextSnapshot.frameIds.committedFrameId,
+      preparedContentFrameId: nextSnapshot.frameIds.preparedContentFrameId,
       token,
     });
     const publishedSnapshot = withGpuFlowBrowserVisualSnapshotPublicationToken({
@@ -811,7 +811,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     }
     this.snapshot = publishedSnapshot;
     this.diagnostics = createEmptyDomControlPlaneDiagnostics({
-      committedFrameId: nextSnapshot.frameIds.committedFrameId,
+      preparedContentFrameId: nextSnapshot.frameIds.preparedContentFrameId,
       runtimeFrameId: nextSnapshot.frameIds.runtimeFrameId,
     });
     return true;
@@ -825,7 +825,8 @@ export class GpuFlowBrowserVisualActorRuntime {
     readonly token: GpuFlowVisibleFramePresentationToken;
   }): void {
     assertGpuFlowVisibleFramePresentationTokenForFrameId({
-      committedFrameId: candidate.snapshot.frameIds.committedFrameId,
+      preparedContentFrameId:
+        candidate.snapshot.frameIds.preparedContentFrameId,
       token,
     });
     this.publishDomControlHostPresentation({
@@ -865,7 +866,7 @@ export class GpuFlowBrowserVisualActorRuntime {
         control,
         controlId: control.sourceId,
         element: host.element,
-        registrationCommittedFrameId: token.committedFrameId,
+        registrationPreparedContentFrameId: token.preparedContentFrameId,
       });
     }
     for (const [controlId, host] of this.visibleDomControlHostById) {
@@ -889,19 +890,19 @@ export class GpuFlowBrowserVisualActorRuntime {
   }): void {
     publishGpuFlowBrowserVisualDomIslandHostPresentation({
       elementById: this.domIslandElementById,
-      registrationCommittedFrameIdById:
-        this.domIslandRegistrationCommittedFrameIdById,
+      registrationPreparedContentFrameIdById:
+        this.domIslandRegistrationPreparedContentFrameIdById,
       snapshot,
       token,
     });
   }
 
   private assertBrowserVisualHostRegistrationToken({
-    committedFrameId,
+    preparedContentFrameId,
     presentation,
     token,
   }: {
-    readonly committedFrameId?: number | undefined;
+    readonly preparedContentFrameId?: number | undefined;
     readonly presentation: "preparation" | "visible";
     readonly token?: GpuFlowVisibleFramePresentationToken | undefined;
   }): void {
@@ -914,8 +915,8 @@ export class GpuFlowBrowserVisualActorRuntime {
       );
     }
     assertGpuFlowVisibleFramePresentationTokenForFrameId({
-      committedFrameId:
-        committedFrameId ?? this.snapshot.frameIds.committedFrameId,
+      preparedContentFrameId:
+        preparedContentFrameId ?? this.snapshot.frameIds.preparedContentFrameId,
       token,
     });
   }

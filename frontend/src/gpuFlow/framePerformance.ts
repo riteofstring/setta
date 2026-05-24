@@ -143,7 +143,7 @@ export type GpuFlowRetainedTexturePageDiagnosticMetrics =
   };
 
 type GpuFlowFrameProjectionDiagnostics = {
-  readonly committedFrameId: number | null;
+  readonly preparedContentFrameId: number | null;
   readonly gestureOwner: GpuWheelGestureOwner | null;
   readonly heldPreviousDurationMs: number;
   readonly heldPreviousFrameCount: number;
@@ -407,7 +407,7 @@ function createGpuFlowFrameProjectionDiagnostics(
 ): GpuFlowFrameProjectionDiagnostics {
   if (!debugState) {
     return {
-      committedFrameId: null,
+      preparedContentFrameId: null,
       gestureOwner: null,
       heldPreviousDurationMs: 0,
       heldPreviousFrameCount: 0,
@@ -421,7 +421,7 @@ function createGpuFlowFrameProjectionDiagnostics(
     };
   }
   return {
-    committedFrameId: debugState.committedFrameId,
+    preparedContentFrameId: debugState.preparedContentFrameId,
     gestureOwner: debugState.gestureOwner,
     heldPreviousDurationMs: debugState.heldPreviousDurationMs,
     heldPreviousFrameCount: debugState.heldPreviousFrameCount,

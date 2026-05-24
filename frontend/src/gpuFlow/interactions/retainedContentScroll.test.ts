@@ -4,7 +4,7 @@ import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetained
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createGpuFlowStartupPreparedContentFrame } from "../preparedContentFrame";
 import {
-  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowProjectionTransactionForPreparedContentFrameId,
   createGpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
@@ -91,13 +91,13 @@ describe("GPU retained content scroll controller", () => {
       viewport: [0, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupPreparedContentFrame({
+    const preparedContentFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame,
     });
     const visibleProjectionState = createGpuFlowVisibleProjectionState({
-      committedFrame,
-      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrame,
+      transaction: createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: preparedContentFrame.displayFrameId,
         kind: "motion-projection",
         lane: "motion",
         rawReasons: ["viewport"],

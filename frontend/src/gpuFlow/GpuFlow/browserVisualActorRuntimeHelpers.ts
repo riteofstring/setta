@@ -25,24 +25,24 @@ const GPU_FLOW_DOM_CONTROL_HOST_RETAINED_PREVIOUS_LIMIT =
   DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.maxOverscanMountedControls;
 
 export function resolveGpuFlowBrowserVisualActorFrameIds({
-  committedFrameId,
+  preparedContentFrameId,
   retainedRuntimeFrame,
 }: {
-  readonly committedFrameId: number | undefined;
+  readonly preparedContentFrameId: number | undefined;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame | null | undefined;
 }): GpuFlowBrowserVisualActorRuntimeFrameIds {
   const runtimeFrameId = retainedRuntimeFrame?.frameId ?? 0;
   return Object.freeze({
-    committedFrameId: committedFrameId ?? runtimeFrameId,
+    preparedContentFrameId: preparedContentFrameId ?? runtimeFrameId,
     runtimeFrameId,
   });
 }
 
 export function resolveGpuFlowBrowserVisualActorProjectionViewport({
-  committedFrameId,
+  preparedContentFrameId,
   projectionInput,
 }: {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly projectionInput:
     | {
         readonly token: GpuFlowVisibleFramePresentationToken;
@@ -56,7 +56,7 @@ export function resolveGpuFlowBrowserVisualActorProjectionViewport({
     );
   }
   assertGpuFlowVisibleFramePresentationTokenForFrameId({
-    committedFrameId,
+    preparedContentFrameId,
     token: projectionInput.token,
   });
   return projectionInput.viewport;
@@ -70,7 +70,7 @@ export function createGpuFlowDomControlProjectionSourceRevision({
   readonly frameIds: GpuFlowBrowserVisualActorRuntimeFrameIds;
 }): string {
   return JSON.stringify({
-    committedFrameId: frameIds.committedFrameId,
+    preparedContentFrameId: frameIds.preparedContentFrameId,
     controls: controls.map((control) => [
       control.sourceId,
       control.sourceKey,
@@ -168,7 +168,8 @@ export function areBrowserVisualActorRuntimeSnapshotsEqual(
   right: GpuFlowBrowserVisualActorRuntimeSnapshot,
 ): boolean {
   return (
-    left.frameIds.committedFrameId === right.frameIds.committedFrameId &&
+    left.frameIds.preparedContentFrameId ===
+      right.frameIds.preparedContentFrameId &&
     left.frameIds.runtimeFrameId === right.frameIds.runtimeFrameId &&
     left.domControls.sourceRevision === right.domControls.sourceRevision &&
     areGpuFlowDomControlProjectedControlsEqual({
@@ -235,12 +236,12 @@ export function syncGpuFlowBrowserVisualDomIslandLayerStyles({
 
 export function publishGpuFlowBrowserVisualDomIslandHostPresentation({
   elementById,
-  registrationCommittedFrameIdById,
+  registrationPreparedContentFrameIdById,
   snapshot,
   token,
 }: {
   readonly elementById: ReadonlyMap<string, HTMLElement>;
-  readonly registrationCommittedFrameIdById: Map<string, number>;
+  readonly registrationPreparedContentFrameIdById: Map<string, number>;
   readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
   readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
@@ -257,9 +258,12 @@ export function publishGpuFlowBrowserVisualDomIslandHostPresentation({
     delete element.dataset.gpuFlowDomIslandPreparation;
     element.style.removeProperty("opacity");
     element.style.removeProperty("visibility");
-    registrationCommittedFrameIdById.set(island.id, token.committedFrameId);
+    registrationPreparedContentFrameIdById.set(
+      island.id,
+      token.preparedContentFrameId,
+    );
   }
-  for (const islandId of [...registrationCommittedFrameIdById.keys()]) {
+  for (const islandId of [...registrationPreparedContentFrameIdById.keys()]) {
     if (visibleIslandIds.has(islandId)) {
       continue;
     }
@@ -270,7 +274,7 @@ export function publishGpuFlowBrowserVisualDomIslandHostPresentation({
       element.style.pointerEvents = "none";
       delete element.dataset.gpuFlowDomIsland;
     }
-    registrationCommittedFrameIdById.delete(islandId);
+    registrationPreparedContentFrameIdById.delete(islandId);
   }
 }
 

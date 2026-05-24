@@ -1,7 +1,7 @@
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowHeldPreviousProjection,
-  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowProjectionTransactionForPreparedContentFrameId,
   createGpuFlowVisibleProjectionState,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionLane,
@@ -133,7 +133,8 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
       }),
     outcome,
     previousContentFrameId:
-      previousVisibleProjectionState?.committedFrame.displayFrameId ?? null,
+      previousVisibleProjectionState?.preparedContentFrame.displayFrameId ??
+      null,
   });
 }
 
@@ -371,19 +372,20 @@ function createGpuFlowVisibleFrameReducerCompletionHeldPreviousState({
   ) {
     return null;
   }
-  const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-    committedFrameId:
-      previousVisibleProjectionState.committedFrame.displayFrameId,
-    kind: "held-previous",
-    lane: resolveGpuFlowHeldPreviousWorkLane({
-      previousVisibleProjectionState,
-      reducerDecision,
-    }),
-    rawReasons: reducerDecision.rawReasons,
-    sample: reducerDecision.sample,
-  });
+  const transaction =
+    createGpuFlowProjectionTransactionForPreparedContentFrameId({
+      preparedContentFrameId:
+        previousVisibleProjectionState.preparedContentFrame.displayFrameId,
+      kind: "held-previous",
+      lane: resolveGpuFlowHeldPreviousWorkLane({
+        previousVisibleProjectionState,
+        reducerDecision,
+      }),
+      rawReasons: reducerDecision.rawReasons,
+      sample: reducerDecision.sample,
+    });
   return createGpuFlowVisibleProjectionState({
-    committedFrame: previousVisibleProjectionState.committedFrame,
+    preparedContentFrame: previousVisibleProjectionState.preparedContentFrame,
     heldPreviousProjection: createGpuFlowHeldPreviousProjection({
       heldTransaction: transaction,
       knobs: reducerPolicy,
@@ -561,7 +563,7 @@ function createGpuFlowVisibleFrameReducerCompletionAbortedStateMachineOutcome({
           },
         ],
         frozenFrameId:
-          previousVisibleProjectionState?.committedFrame.displayFrameId ??
+          previousVisibleProjectionState?.preparedContentFrame.displayFrameId ??
           GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
         projectionSample: reducerDecision.sample,
       }),
@@ -665,7 +667,8 @@ function createGpuFlowVisibleFrameReducerCompletionHoldOutcome({
   return {
     kind: "hold-previous",
     token: createGpuFlowVisibleFrameHoldPreviousToken({
-      committedFrameId: visibleProjectionState.committedFrame.displayFrameId,
+      preparedContentFrameId:
+        visibleProjectionState.preparedContentFrame.displayFrameId,
       holdAgeFrames: heldPreviousProjection.consecutiveFrameCount,
       holdAgeMs: heldPreviousProjection.heldDurationMs,
       projectionSample: reducerDecision.sample,
@@ -713,7 +716,7 @@ function createGpuFlowVisibleFrameReducerCompletionHeldPreviousOutcome({
           visibleProjectionState,
         ),
       ],
-      frozenFrameId: visibleProjectionState.committedFrame.displayFrameId,
+      frozenFrameId: visibleProjectionState.preparedContentFrame.displayFrameId,
       projectionSample: reducerDecision.sample,
     }),
   };
@@ -817,7 +820,7 @@ function createGpuFlowVisibleFrameReducerCompletionNoFrameOutcome({
           },
         ],
         frozenFrameId:
-          previousVisibleProjectionState.committedFrame.displayFrameId,
+          previousVisibleProjectionState.preparedContentFrame.displayFrameId,
         projectionSample: reducerDecision.sample,
       }),
     };
@@ -825,8 +828,8 @@ function createGpuFlowVisibleFrameReducerCompletionNoFrameOutcome({
   return {
     kind: "hold-previous",
     token: createGpuFlowVisibleFrameHoldPreviousToken({
-      committedFrameId:
-        previousVisibleProjectionState.committedFrame.displayFrameId,
+      preparedContentFrameId:
+        previousVisibleProjectionState.preparedContentFrame.displayFrameId,
       holdAgeFrames,
       holdAgeMs,
       projectionSample: reducerDecision.sample,

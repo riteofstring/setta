@@ -129,7 +129,9 @@ export function GpuFlowDomIslandLayer({
   return (
     <div
       className={GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME}
-      data-gpu-flow-dom-island-committed-frame-id={frameIds.committedFrameId}
+      data-gpu-flow-dom-island-prepared-content-frame-id={
+        frameIds.preparedContentFrameId
+      }
       data-gpu-flow-dom-island-layer="viewport"
       {...getGpuFlowVisibleFrameIdentityDataAttributes(publicationToken)}
     >

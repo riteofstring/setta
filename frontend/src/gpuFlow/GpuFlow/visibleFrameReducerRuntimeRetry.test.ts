@@ -438,7 +438,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     });
     expect(upload.reducerState).toBe("maintenance-drain");
     expect(upload.lane).toBe("maintenance");
-    completeCommittedFrame(reducerRuntime, upload);
+    completePreparedContentFrame(reducerRuntime, upload);
 
     const retry = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -524,7 +524,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       maintenance: true,
       motion: false,
     });
-    completeCommittedFrame(reducerRuntime, immediateViewportRepair);
+    completePreparedContentFrame(reducerRuntime, immediateViewportRepair);
 
     const deferredViewportRepair = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -628,7 +628,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       motion: false,
     });
 
-    completeCommittedFrame(reducerRuntime, retry);
+    completePreparedContentFrame(reducerRuntime, retry);
 
     const deferredContentRetry = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -662,7 +662,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, content);
 
     for (let index = 0; index < 6; index += 1) {
       const motion = reducerRuntime.selectFrame({
@@ -674,7 +674,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       });
       expect(motion.reducerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(reducerRuntime, motion);
+      completePreparedContentFrame(reducerRuntime, motion);
     }
 
     const contentProbe = reducerRuntime.selectFrame({
@@ -699,7 +699,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, content);
 
     for (let index = 0; index < 6; index += 1) {
       const motion = reducerRuntime.selectFrame({
@@ -711,7 +711,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       });
       expect(motion.reducerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(reducerRuntime, motion);
+      completePreparedContentFrame(reducerRuntime, motion);
     }
 
     const contentProbe = reducerRuntime.selectFrame({
@@ -741,7 +741,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, content);
 
     const motion = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -752,7 +752,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     });
     expect(motion.reducerState).toBe("motion-active");
     expect(motion.lane).toBe("motion");
-    completeCommittedFrame(reducerRuntime, motion);
+    completePreparedContentFrame(reducerRuntime, motion);
 
     const contentCatchup = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -781,7 +781,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, content);
 
     for (let index = 0; index < 6; index += 1) {
       const motion = reducerRuntime.selectFrame({
@@ -793,7 +793,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       });
       expect(motion.reducerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(reducerRuntime, motion);
+      completePreparedContentFrame(reducerRuntime, motion);
     }
 
     const viewport = reducerRuntime.selectFrame({
@@ -987,7 +987,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCommittedFrame(reducerRuntime, content);
+    completePreparedContentFrame(reducerRuntime, content);
 
     const immediateRetry = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -1073,7 +1073,7 @@ function completeBlockedFrame(
   });
 }
 
-function completeCommittedFrame(
+function completePreparedContentFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisibleFrameReducerDecision,
 ) {
@@ -1081,13 +1081,13 @@ function completeCommittedFrame(
     debtProof: createDebtProofForSelectedLane(decision),
     kind: "present",
     token: createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedFrameForReducerToken(decision),
+      frame: preparedContentFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),
   });
 }
 
-function completeCompatiblePreviousCommittedFrame(
+function completeCompatiblePreviousPreparedContentFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisibleFrameReducerDecision,
 ) {
@@ -1099,7 +1099,7 @@ function completeCompatiblePreviousCommittedFrame(
     },
     kind: "present",
     token: createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedFrameForReducerToken(decision),
+      frame: preparedContentFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),
   });
@@ -1112,7 +1112,7 @@ function completeHeldFrame(
   return reducerRuntime.recordUnpresentedFrame(decision, {
     kind: "hold-previous",
     token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
-      committedFrameId: 41,
+      preparedContentFrameId: 41,
       holdAgeFrames: 1,
       holdAgeMs: 0,
       projectionSample: decision.sample,
@@ -1151,7 +1151,7 @@ function createDebtProofForSelectedLane(
   };
 }
 
-function committedFrameForReducerToken(
+function preparedContentFrameForReducerToken(
   decision: GpuFlowVisibleFrameReducerDecision,
 ): GpuFlowPreparedContentFrame {
   const displayFrameId = decision.sample.id;

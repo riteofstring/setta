@@ -25,7 +25,7 @@ export type GpuFlowPresentationPairProof = {
   readonly batchId: string;
   readonly browserVisualFragmentDigest: string | null;
   readonly canvasGenerationEvidence: {
-    readonly committedFrameId: number;
+    readonly preparedContentFrameId: number;
     readonly exposable: true;
     readonly prepared: true;
     readonly presentationBatchId: string;
@@ -34,14 +34,14 @@ export type GpuFlowPresentationPairProof = {
     readonly source: "deferred-canvas-submission";
   };
   readonly domTransformEvidence: {
-    readonly committedFrameId: number;
+    readonly preparedContentFrameId: number;
     readonly prepared: true;
     readonly projectionSampleId: number;
     readonly projectionTransactionId: string;
     readonly source: "deferred-dom-transform-submission";
   };
   readonly textureEvictionEvidence: {
-    readonly committedFrameId: number;
+    readonly preparedContentFrameId: number;
     readonly prepared: true;
     readonly projectionSampleId: number;
     readonly projectionTransactionId: string;
@@ -302,7 +302,7 @@ function isGpuFlowCanvasPresentationEvidenceValid({
 }): boolean {
   const canvasEvidence = presentationPairProof.canvasGenerationEvidence;
   return (
-    canvasEvidence.committedFrameId === frame.displayFrameId &&
+    canvasEvidence.preparedContentFrameId === frame.displayFrameId &&
     canvasEvidence.exposable === true &&
     canvasEvidence.prepared === true &&
     canvasEvidence.presentationBatchId === frame.presentationProof.batchId &&
@@ -325,7 +325,7 @@ function isGpuFlowDomTransformPresentationEvidenceValid({
 }): boolean {
   const domTransformEvidence = presentationPairProof.domTransformEvidence;
   return (
-    domTransformEvidence.committedFrameId === frame.displayFrameId &&
+    domTransformEvidence.preparedContentFrameId === frame.displayFrameId &&
     domTransformEvidence.prepared === true &&
     domTransformEvidence.projectionSampleId === projectionSampleId &&
     domTransformEvidence.projectionTransactionId === projectionTransactionId &&
@@ -354,7 +354,7 @@ function isGpuFlowTextureEvictionPresentationEvidenceValid({
     return false;
   }
   return (
-    textureEvictionEvidence.committedFrameId === frame.displayFrameId &&
+    textureEvictionEvidence.preparedContentFrameId === frame.displayFrameId &&
     textureEvictionEvidence.prepared === true &&
     textureEvictionEvidence.projectionSampleId === projectionSampleId &&
     textureEvictionEvidence.projectionTransactionId ===

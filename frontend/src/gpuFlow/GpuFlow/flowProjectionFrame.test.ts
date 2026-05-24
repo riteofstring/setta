@@ -4,7 +4,7 @@ import type { GpuFrameReason } from "../gpuRenderer";
 import type { HtmlSurfaceFlatVisual } from "../htmlSurfaces/visualScene";
 import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import {
-  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowProjectionTransactionForPreparedContentFrameId,
   createGpuFlowVisibleFrameReducerRuntime,
   createGpuFlowVisibleProjectionState,
   type GpuFlowLiveProjectionSample,
@@ -52,13 +52,14 @@ type TestProjectionFrameTransaction = {
 
 describe("GPU flow projection frame coverage", () => {
   it("requires committed retained pages to cover the projected scroll sample", () => {
-    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId: 12,
-      kind: "motion-projection",
-      lane: "motion",
-      rawReasons: ["retained-scroll"],
-      sample: liveSample({ id: 2, retainedScrollY: 400 }),
-    });
+    const transaction =
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 12,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["retained-scroll"],
+        sample: liveSample({ id: 2, retainedScrollY: 400 }),
+      });
 
     expect(
       resolveGpuFlowRetainedProjectionFrame({
@@ -81,13 +82,14 @@ describe("GPU flow projection frame coverage", () => {
   });
 
   it("replaces stale retained page visuals for a changed retained scroll surface", () => {
-    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId: 12,
-      kind: "motion-projection",
-      lane: "motion",
-      rawReasons: ["retained-scroll"],
-      sample: liveSample({ id: 2, retainedScrollY: 400 }),
-    });
+    const transaction =
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 12,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["retained-scroll"],
+        sample: liveSample({ id: 2, retainedScrollY: 400 }),
+      });
     const result = resolveGpuFlowRetainedProjectionFrame({
       layer: retainedLayer(),
       retainedDisplayFrame: retainedDisplayFrame({
@@ -115,13 +117,14 @@ describe("GPU flow projection frame coverage", () => {
   });
 
   it("treats retained scroll projection through a newer layer scene as missing coverage", () => {
-    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId: 12,
-      kind: "motion-projection",
-      lane: "motion",
-      rawReasons: ["retained-scroll"],
-      sample: liveSample({ id: 2, retainedScrollY: 400 }),
-    });
+    const transaction =
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 12,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["retained-scroll"],
+        sample: liveSample({ id: 2, retainedScrollY: 400 }),
+      });
     const result = resolveGpuFlowRetainedProjectionFrame({
       layer: retainedLayer({
         scene: {
@@ -153,8 +156,8 @@ describe("GPU flow projection frame coverage", () => {
       retainedScrollY: 400,
     });
     const requestedTransaction =
-      createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: 12,
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 12,
         kind: "motion-projection",
         lane: "motion",
         rawReasons: ["retained-scroll", "paint", "texture-upload"],
@@ -164,7 +167,7 @@ describe("GPU flow projection frame coverage", () => {
     const result = resolveGpuFlowProjectionFrameTransaction({
       frameReasons: ["retained-scroll", "paint", "texture-upload"],
       heldPreviousProjectionState: visibleProjectionState({
-        committedFrameId: 11,
+        preparedContentFrameId: 11,
         sample: previousSample,
       }),
       layer: retainedLayer(),
@@ -173,7 +176,7 @@ describe("GPU flow projection frame coverage", () => {
     });
 
     expect(result.transaction.kind).toBe("held-previous");
-    expect(result.transaction.committedFrameId).toBe(11);
+    expect(result.transaction.preparedContentFrameId).toBe(11);
     expect(result.transaction.sample.id).toBe(2);
     expect(result.heldPreviousProjection).toEqual(
       expect.objectContaining({
@@ -195,8 +198,8 @@ describe("GPU flow projection frame coverage", () => {
       retainedScrollY: 0,
     });
     const requestedTransaction =
-      createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: 12,
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 12,
         kind: "motion-projection",
         lane: "motion",
         rawReasons: ["manual"],
@@ -209,7 +212,7 @@ describe("GPU flow projection frame coverage", () => {
     const result = resolveGpuFlowProjectionFrameTransaction({
       frameReasons: ["manual"],
       heldPreviousProjectionState: visibleProjectionState({
-        committedFrameId: 11,
+        preparedContentFrameId: 11,
         sample: previousSample,
       }),
       layer: retainedLayer(),
@@ -231,16 +234,17 @@ describe("GPU flow projection frame coverage", () => {
 
   it("samples native scrollbar visuals from motion projection scroll offsets", () => {
     const layer = retainedLayer();
-    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId: 12,
-      kind: "motion-projection",
-      lane: "motion",
-      rawReasons: ["retained-scroll"],
-      sample: liveSample({
-        id: 2,
-        retainedScrollY: 400,
-      }),
-    });
+    const transaction =
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 12,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["retained-scroll"],
+        sample: liveSample({
+          id: 2,
+          retainedScrollY: 400,
+        }),
+      });
     const frame = resolveGpuFlowProjectionRetainedRuntimeFrame({
       canvasSize: canvasSize(),
       fallbackRetainedRuntimeFrame: createGpuRetainedRuntimeFrame({
@@ -281,16 +285,17 @@ describe("GPU flow projection frame coverage", () => {
       viewportSize: { height: 100, width: 100 },
       viewportZoomBucket: 1,
     });
-    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId: 12,
-      kind: "motion-projection",
-      lane: "motion",
-      rawReasons: ["retained-scroll"],
-      sample: liveSample({
-        id: 2,
-        retainedScrollY: 400,
-      }),
-    });
+    const transaction =
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 12,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["retained-scroll"],
+        sample: liveSample({
+          id: 2,
+          retainedScrollY: 400,
+        }),
+      });
     const frame = resolveGpuFlowProjectionRetainedRuntimeFrame({
       canvasSize: canvasSize(),
       fallbackRetainedRuntimeFrame,
@@ -316,16 +321,17 @@ describe("GPU flow projection frame coverage", () => {
         surfaceId: "surface-a",
       },
     });
-    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId: 12,
-      kind: "motion-projection",
-      lane: "motion",
-      rawReasons: ["manual"],
-      sample: liveSample({
-        id: 2,
-        retainedScrollY: 0,
-      }),
-    });
+    const transaction =
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 12,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["manual"],
+        sample: liveSample({
+          id: 2,
+          retainedScrollY: 0,
+        }),
+      });
     const fallbackRetainedRuntimeFrame = createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 1,
       frameId: 1,
@@ -362,16 +368,17 @@ describe("GPU flow projection frame coverage", () => {
         surfaceId: "surface-a",
       },
     });
-    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId: 12,
-      kind: "motion-projection",
-      lane: "motion",
-      rawReasons: ["retained-row-hover-visual"],
-      sample: liveSample({
-        id: 2,
-        retainedScrollY: 0,
-      }),
-    });
+    const transaction =
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 12,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["retained-row-hover-visual"],
+        sample: liveSample({
+          id: 2,
+          retainedScrollY: 0,
+        }),
+      });
     const frame = resolveGpuFlowProjectionRetainedRuntimeFrame({
       canvasSize: canvasSize(),
       fallbackRetainedRuntimeFrame: createGpuRetainedRuntimeFrame({
@@ -444,7 +451,7 @@ describe("GPU flow projection frame coverage", () => {
     const firstHeld = resolveGpuFlowProjectionFrameTransaction({
       frameReasons: ["retained-scroll"],
       heldPreviousProjectionState: visibleProjectionState({
-        committedFrameId: 11,
+        preparedContentFrameId: 11,
         sample: previousSample,
       }),
       layer: retainedLayer(),
@@ -458,8 +465,8 @@ describe("GPU flow projection frame coverage", () => {
       },
       retainedDisplayFrame: retainedDisplayFrame(),
       requestedTransaction:
-        createGpuFlowProjectionTransactionForCommittedFrameId({
-          committedFrameId: 12,
+        createGpuFlowProjectionTransactionForPreparedContentFrameId({
+          preparedContentFrameId: 12,
           kind: "motion-projection",
           lane: "motion",
           rawReasons: ["retained-scroll"],
@@ -469,7 +476,7 @@ describe("GPU flow projection frame coverage", () => {
     const secondHeld = resolveGpuFlowProjectionFrameTransaction({
       frameReasons: ["retained-scroll"],
       heldPreviousProjectionState: createGpuFlowVisibleProjectionState({
-        committedFrame: {
+        preparedContentFrame: {
           displayFrameId: 11,
         } as GpuFlowPreparedContentFrame,
         heldPreviousProjection: firstHeld.heldPreviousProjection,
@@ -486,8 +493,8 @@ describe("GPU flow projection frame coverage", () => {
       },
       retainedDisplayFrame: retainedDisplayFrame(),
       requestedTransaction:
-        createGpuFlowProjectionTransactionForCommittedFrameId({
-          committedFrameId: 12,
+        createGpuFlowProjectionTransactionForPreparedContentFrameId({
+          preparedContentFrameId: 12,
           kind: "motion-projection",
           lane: "motion",
           rawReasons: ["retained-scroll"],
@@ -517,7 +524,7 @@ describe("GPU flow projection frame coverage", () => {
     const firstHeld = resolveGpuFlowProjectionFrameTransaction({
       frameReasons: ["retained-scroll"],
       heldPreviousProjectionState: visibleProjectionState({
-        committedFrameId: 11,
+        preparedContentFrameId: 11,
         sample: previousSample,
       }),
       layer: retainedLayer(),
@@ -531,8 +538,8 @@ describe("GPU flow projection frame coverage", () => {
       },
       retainedDisplayFrame: retainedDisplayFrame(),
       requestedTransaction:
-        createGpuFlowProjectionTransactionForCommittedFrameId({
-          committedFrameId: 12,
+        createGpuFlowProjectionTransactionForPreparedContentFrameId({
+          preparedContentFrameId: 12,
           kind: "motion-projection",
           lane: "motion",
           rawReasons: ["retained-scroll"],
@@ -540,8 +547,8 @@ describe("GPU flow projection frame coverage", () => {
         }),
     });
     const requestedTransaction =
-      createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: 12,
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 12,
         kind: "motion-projection",
         lane: "motion",
         rawReasons: ["retained-scroll"],
@@ -551,7 +558,7 @@ describe("GPU flow projection frame coverage", () => {
     const secondHeld = resolveGpuFlowProjectionFrameTransaction({
       frameReasons: ["retained-scroll"],
       heldPreviousProjectionState: createGpuFlowVisibleProjectionState({
-        committedFrame: {
+        preparedContentFrame: {
           displayFrameId: 11,
         } as GpuFlowPreparedContentFrame,
         heldPreviousProjection: firstHeld.heldPreviousProjection,
@@ -732,22 +739,23 @@ function liveSample({
 }
 
 function visibleProjectionState({
-  committedFrameId,
+  preparedContentFrameId,
   sample,
 }: {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleProjectionState {
-  const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-    committedFrameId,
-    kind: "motion-projection",
-    lane: "motion",
-    rawReasons: ["retained-scroll"],
-    sample,
-  });
+  const transaction =
+    createGpuFlowProjectionTransactionForPreparedContentFrameId({
+      preparedContentFrameId,
+      kind: "motion-projection",
+      lane: "motion",
+      rawReasons: ["retained-scroll"],
+      sample,
+    });
   return createGpuFlowVisibleProjectionState({
-    committedFrame: {
-      displayFrameId: committedFrameId,
+    preparedContentFrame: {
+      displayFrameId: preparedContentFrameId,
     } as GpuFlowPreparedContentFrame,
     transaction,
   });
@@ -891,7 +899,7 @@ function retainedDisplayFrame({
     return {
       page: {
         byteSize: 4,
-        committedFrame: 1,
+        preparedContentFrame: 1,
         descriptor,
         key: `page-${index}`,
         lastUsedFrame: 1,

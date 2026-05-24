@@ -308,7 +308,7 @@ class GpuRetainedContentScrollController {
     visibleProjectionState: GpuFlowVisibleProjectionState | null,
   ): GpuRetainedRuntimeFrame | null {
     return (
-      visibleProjectionState?.committedFrame.retainedRuntimeFrame ??
+      visibleProjectionState?.preparedContentFrame.retainedRuntimeFrame ??
       this.options.getRetainedRuntimeFrame?.() ??
       null
     );

@@ -25,40 +25,44 @@ import {
   type GpuFlowVisibleFramePresentableFrameProof,
   type GpuFlowVisibleFramePublicationTransactionProof,
 } from "./visibleFrameTransactionProofs";
+import {
+  createGpuFlowContentFrameId,
+  createGpuFlowPresentationId,
+} from "./visibleFrameTypes";
 
 const createGpuFlowVisibleFramePresentableFrameProofFromFactory =
   createGpuFlowVisibleFramePresentableFrameProofFactory();
 const createGpuFlowVisibleFramePresentableFrameProof = ({
-  committedFrame,
+  preparedContentFrame,
   reducerDecision,
 }: {
-  readonly committedFrame: Parameters<
+  readonly preparedContentFrame: Parameters<
     typeof createGpuFlowVisibleFramePresentableFrameProofFromFactory
-  >[0]["committedFrame"];
+  >[0]["preparedContentFrame"];
   readonly reducerDecision: Parameters<
     typeof createGpuFlowVisibleFramePresentableFrameProofFromFactory
   >[0]["reducerDecision"];
 }) => {
   const projectionTransactionId = "transaction-a";
   return createGpuFlowVisibleFramePresentableFrameProofFromFactory({
-    committedFrame,
+    preparedContentFrame,
     presentationEvidence: {
       canvasGenerationEvidence:
         createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
-          committedFrame,
+          preparedContentFrame,
           projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       domTransformEvidence:
         createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence({
-          committedFrame,
+          preparedContentFrame,
           projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       textureEvictionEvidence:
         createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence(
           {
-            committedFrame,
+            preparedContentFrame,
             projectionSampleId: reducerDecision.sample.id,
             projectionTransactionId,
           },
@@ -74,7 +78,7 @@ describe("GPU Flow visible frame presentation Chrome repro payload", () => {
   it("records presented coverage proof counts with the visible outcome", () => {
     const sample = liveProjectionSample();
     const visibleProjectionState = {
-      committedFrame: {
+      preparedContentFrame: {
         actorGenerations: [
           {
             actorFamily: "text-like-dom-control",
@@ -206,7 +210,7 @@ describe("GPU Flow visible frame presentation Chrome repro payload", () => {
     } as unknown as GpuFlowVisibleProjectionState;
     const presentableFrameProof =
       createGpuFlowVisibleFramePresentableFrameProof({
-        committedFrame: visibleProjectionState.committedFrame,
+        preparedContentFrame: visibleProjectionState.preparedContentFrame,
         reducerDecision: reducerDecision(sample),
       });
     const payload =
@@ -384,7 +388,7 @@ describe("GPU Flow visible frame presentation Chrome repro payload", () => {
           }),
           previousContentFrameId: 6,
           token: expect.objectContaining({
-            committedFrameId: 7,
+            preparedContentFrameId: 7,
             presentationPairProof: expect.objectContaining({
               actorManifestDigest: expect.objectContaining({
                 preview: "manifest-digest",
@@ -404,9 +408,9 @@ describe("GPU Flow visible frame presentation Chrome repro payload", () => {
             transactionId: "transaction-a",
           }),
           transactionId: "transaction-a",
-          visibleCommittedFrameId: 7,
+          visiblePreparedContentFrameId: 7,
         },
-        visibleCommittedFrameId: 7,
+        visiblePreparedContentFrameId: 7,
       }),
     );
   });
@@ -450,8 +454,10 @@ function presentOutcome({
     debtProof,
     kind: "present",
     token: {
-      committedFrameId: frame.displayFrameId,
+      preparedContentFrameId: frame.displayFrameId,
+      contentFrameId: createGpuFlowContentFrameId(String(frame.displayFrameId)),
       expectedActorSetDigest: "actors",
+      presentationId: createGpuFlowPresentationId("presentation-a"),
       presentationPairDigest: "presentation",
       presentationPairProof: {
         ...presentationProof(sample.id),
@@ -461,7 +467,7 @@ function presentOutcome({
       proofDigest: "proof",
       resourceProtectionDigest: "resource",
       transactionId: "transaction-a",
-    } as GpuFlowVisibleFramePresentationToken,
+    } as unknown as GpuFlowVisibleFramePresentationToken,
   };
 }
 
@@ -484,7 +490,7 @@ function presentationProof(projectionSampleId = 10) {
     batchId: presentationBatchId,
     browserVisualFragmentDigest: "browser-visual-fragment-digest",
     canvasGenerationEvidence: {
-      committedFrameId: 7,
+      preparedContentFrameId: 7,
       exposable: true,
       prepared: true,
       presentationBatchId,
@@ -493,14 +499,14 @@ function presentationProof(projectionSampleId = 10) {
       source: "deferred-canvas-submission",
     },
     domTransformEvidence: {
-      committedFrameId: 7,
+      preparedContentFrameId: 7,
       prepared: true,
       projectionSampleId,
       projectionTransactionId: "transaction-a",
       source: "deferred-dom-transform-submission",
     },
     textureEvictionEvidence: {
-      committedFrameId: 7,
+      preparedContentFrameId: 7,
       prepared: true,
       projectionSampleId,
       projectionTransactionId: "transaction-a",
@@ -525,7 +531,7 @@ function presentationProof(projectionSampleId = 10) {
     },
     domGenerationEvidence: {
       browserVisualCandidateId: "browser-visual-candidate:7:7",
-      committedFrameId: 7,
+      preparedContentFrameId: 7,
       domControlMountedCount: 0,
       domControlSnapshotCount: 0,
       domIslandCount: 0,

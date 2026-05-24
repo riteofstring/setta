@@ -909,7 +909,7 @@ async function readActivationDiagnostics(
             actorManifest: {
               blockedActorsByFamily: manifest.blockedActorsByFamily ?? null,
               blockerReasons: summarizeReasons(manifest.blockerReasons),
-              committedFrameId: manifest.committedFrameId ?? null,
+              preparedContentFrameId: manifest.preparedContentFrameId ?? null,
               compatibleActorsByFamily:
                 manifest.compatibleActorsByFamily ?? null,
               missingActorsByFamily: manifest.missingActorsByFamily ?? null,

@@ -6,7 +6,7 @@ import {
   type GpuFlowPreparedContentFrame,
 } from "../preparedContentFrame";
 import {
-  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowProjectionTransactionForPreparedContentFrameId,
   createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionTransaction,
@@ -33,32 +33,32 @@ import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFram
 const createGpuFlowVisibleFramePresentableFrameProofFromFactory =
   createGpuFlowVisibleFramePresentableFrameProofFactory();
 const createGpuFlowVisibleFramePresentableFrameProof = ({
-  committedFrame,
+  preparedContentFrame,
   reducerDecision,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }) => {
   const projectionTransactionId = `transaction:content-publication:${reducerDecision.sample.id}`;
   return createGpuFlowVisibleFramePresentableFrameProofFromFactory({
-    committedFrame,
+    preparedContentFrame,
     presentationEvidence: {
       canvasGenerationEvidence:
         createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
-          committedFrame,
+          preparedContentFrame,
           projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       domTransformEvidence:
         createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence({
-          committedFrame,
+          preparedContentFrame,
           projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       textureEvictionEvidence:
         createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence(
           {
-            committedFrame,
+            preparedContentFrame,
             projectionSampleId: reducerDecision.sample.id,
             projectionTransactionId,
           },
@@ -121,14 +121,15 @@ describe("GPU Flow visible frame coordinator", () => {
           presentationEvidence: {
             canvasGenerationEvidence:
               createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
-                committedFrame: contentVisibleState.committedFrame,
+                preparedContentFrame: contentVisibleState.preparedContentFrame,
                 projectionSampleId: contentVisibleState.sample.id,
                 projectionTransactionId: contentVisibleState.transaction.id,
               }),
             domTransformEvidence:
               createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence(
                 {
-                  committedFrame: contentVisibleState.committedFrame,
+                  preparedContentFrame:
+                    contentVisibleState.preparedContentFrame,
                   projectionSampleId: contentVisibleState.sample.id,
                   projectionTransactionId: contentVisibleState.transaction.id,
                 },
@@ -136,7 +137,8 @@ describe("GPU Flow visible frame coordinator", () => {
             textureEvictionEvidence:
               createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence(
                 {
-                  committedFrame: contentVisibleState.committedFrame,
+                  preparedContentFrame:
+                    contentVisibleState.preparedContentFrame,
                   projectionSampleId: contentVisibleState.sample.id,
                   projectionTransactionId: contentVisibleState.transaction.id,
                 },
@@ -201,7 +203,8 @@ describe("GPU Flow visible frame coordinator", () => {
     }
     expect(result.outcome.token).toEqual(
       expect.objectContaining({
-        committedFrameId: contentVisibleState.committedFrame.displayFrameId,
+        preparedContentFrameId:
+          contentVisibleState.preparedContentFrame.displayFrameId,
         projectionSampleId: sample.id,
       }),
     );
@@ -293,8 +296,8 @@ describe("GPU Flow visible frame coordinator", () => {
     expect(selectedTransaction.kind).toBe("held-previous");
     expect(selectedTransaction.rawReasons).toEqual(["retained-scroll"]);
     expect(selectedTransaction.sample).toBe(sample);
-    expect(selectedTransaction.committedFrameId).toBe(
-      previousVisibleProjectionState.committedFrame.displayFrameId,
+    expect(selectedTransaction.preparedContentFrameId).toBe(
+      previousVisibleProjectionState.preparedContentFrame.displayFrameId,
     );
     expect(result.preparedFrame.visibleFrameStateMachineOutcome?.kind).toBe(
       "held",
@@ -357,7 +360,8 @@ describe("GPU Flow visible frame coordinator", () => {
     });
 
     const proof = createGpuFlowVisibleFramePresentableFrameProof({
-      committedFrame: preparedContentFrameWithCompatiblePreviousCoverage(),
+      preparedContentFrame:
+        preparedContentFrameWithCompatiblePreviousCoverage(),
       reducerDecision,
     });
 
@@ -432,7 +436,7 @@ describe("GPU Flow visible frame coordinator", () => {
         sample: liveProjectionSample({ id: 52, timestamp: 514 }),
       });
       const contentVisibleState = visibleProjectionState({
-        committedFrame:
+        preparedContentFrame:
           preparedContentFrameWithCompatiblePreviousCoverage(frameInput),
         kind: "content-publication",
         sample,
@@ -464,7 +468,7 @@ describe("GPU Flow visible frame coordinator", () => {
         throw new Error("Expected compatible previous proof block.");
       }
       expect(result.outcome.token.frozenFrameId).toBe(
-        previousVisibleProjectionState.committedFrame.displayFrameId,
+        previousVisibleProjectionState.preparedContentFrame.displayFrameId,
       );
       expect(result.outcome.token.blockedReasons).toEqual([reason]);
     },
@@ -474,12 +478,13 @@ describe("GPU Flow visible frame coordinator", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 531, timestamp: 5310 });
     const previousVisibleProjectionState = visibleProjectionState({
-      committedFrame: preparedContentFrameWithCompatiblePreviousCoverage(),
+      preparedContentFrame:
+        preparedContentFrameWithCompatiblePreviousCoverage(),
       kind: "content-publication",
       sample: liveProjectionSample({ id: 530, timestamp: 5294 }),
     });
     const contentVisibleState = visibleProjectionState({
-      committedFrame: preparedContentFrameWithCompatiblePreviousCoverage({
+      preparedContentFrame: preparedContentFrameWithCompatiblePreviousCoverage({
         budgetState: "over-budget",
       }),
       kind: "content-publication",
@@ -621,7 +626,7 @@ describe("GPU Flow visible frame coordinator", () => {
       );
     }
     expect(candidate.blockedPublicationCandidate.frozenFrameId).toBe(
-      previousVisibleProjectionState.committedFrame.displayFrameId,
+      previousVisibleProjectionState.preparedContentFrame.displayFrameId,
     );
     expect(candidate.blockedPublicationCandidate.blockedReasons).toEqual([
       {
@@ -634,13 +639,13 @@ describe("GPU Flow visible frame coordinator", () => {
 });
 
 function visibleProjectionState({
-  committedFrame = preparedContentFrame(),
+  preparedContentFrame = createPreparedContentFrame(),
   heldPreviousProjection,
   kind,
   sample,
   transaction,
 }: {
-  readonly committedFrame?: GpuFlowPreparedContentFrame | undefined;
+  readonly preparedContentFrame?: GpuFlowPreparedContentFrame | undefined;
   readonly heldPreviousProjection?:
     | GpuFlowVisibleProjectionState["heldPreviousProjection"]
     | undefined;
@@ -651,7 +656,7 @@ function visibleProjectionState({
   const selectedTransaction =
     transaction ??
     ({
-      committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrameId: preparedContentFrame.displayFrameId,
       id: `transaction:${kind}:${sample.id}`,
       kind,
       lane: "content",
@@ -660,9 +665,9 @@ function visibleProjectionState({
       startedAtMs: sample.timestamp,
     } satisfies GpuFlowProjectionTransaction);
   return {
-    committedFrame,
+    preparedContentFrame,
     debugState: {
-      committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrameId: preparedContentFrame.displayFrameId,
       gestureOwner: "idle",
       heldPreviousDurationMs: kind === "held-previous" ? 16 : 0,
       heldPreviousFrameCount: kind === "held-previous" ? 1 : 0,
@@ -679,7 +684,7 @@ function visibleProjectionState({
       selectedTransaction.kind === "held-previous"
         ? heldPreviousProjection ??
           ({
-            committedFrameId: committedFrame.displayFrameId,
+            preparedContentFrameId: preparedContentFrame.displayFrameId,
             consecutiveFrameCount: 1,
             heldDurationMs: 16,
             maxHeldPreviousFramesExceeded: false,
@@ -693,7 +698,7 @@ function visibleProjectionState({
   };
 }
 
-function preparedContentFrame(): GpuFlowPreparedContentFrame {
+function createPreparedContentFrame(): GpuFlowPreparedContentFrame {
   const displayFrameId = 7;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
@@ -742,7 +747,7 @@ function preparedContentFrameWithCompatiblePreviousCoverage({
   readonly requiredInteractionProof?: string | undefined;
 } = {}): GpuFlowPreparedContentFrame {
   return {
-    ...preparedContentFrame(),
+    ...createPreparedContentFrame(),
     actorGenerations: [
       {
         actorFamily: "text-like-dom-control",
@@ -914,8 +919,8 @@ function retainedProjectionTransaction({
 }: {
   readonly sample: GpuFlowLiveProjectionSample;
 }) {
-  return createGpuFlowProjectionTransactionForCommittedFrameId({
-    committedFrameId: 12,
+  return createGpuFlowProjectionTransactionForPreparedContentFrameId({
+    preparedContentFrameId: 12,
     kind: "motion-projection",
     lane: "motion",
     rawReasons: ["retained-scroll"],

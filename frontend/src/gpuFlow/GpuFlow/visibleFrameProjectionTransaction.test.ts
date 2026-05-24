@@ -56,7 +56,7 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       id: "projection:12:1",
     });
     const heldTransaction = projectionTransaction({
-      committedFrameId: 11,
+      preparedContentFrameId: 11,
       id: "projection:11:held",
       kind: "held-previous",
     });
@@ -95,14 +95,14 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
     expect(heldSelection.blockedPublicationCandidate).toBeNull();
     expect(heldSelection.renderPlan).toEqual({
       heldPreviousProjection: expect.objectContaining({
-        committedFrameId: 11,
+        preparedContentFrameId: 11,
         reason: "retained-projection-coverage-missing",
         requestedProjectionSampleId: requestedTransaction.sample.id,
       }),
       kind: "render",
       retainedProjectionFrame: missingRequestedFrame,
       transaction: expect.objectContaining({
-        committedFrameId: 11,
+        preparedContentFrameId: 11,
         kind: "held-previous",
         rawReasons: ["retained-scroll"],
         sample: requestedTransaction.sample,
@@ -130,7 +130,7 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       });
     expect(blockedSelection.renderPlan).toEqual({
       heldPreviousProjection: expect.objectContaining({
-        committedFrameId: 11,
+        preparedContentFrameId: 11,
         maxHeldPreviousFramesExceeded: true,
         reason: "retained-projection-coverage-missing",
         requestedProjectionSampleId: requestedTransaction.sample.id,
@@ -138,7 +138,7 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       kind: "render",
       retainedProjectionFrame: missingRequestedFrame,
       transaction: expect.objectContaining({
-        committedFrameId: 11,
+        preparedContentFrameId: 11,
         kind: "held-previous",
         rawReasons: ["retained-scroll"],
         sample: requestedTransaction.sample,
@@ -371,14 +371,14 @@ function visibleProjectionState({
     requestedProjectionSampleId: null,
   };
   return {
-    committedFrame: {
+    preparedContentFrame: {
       coherence: {
         hitGenerationId: "hit:11",
       },
       displayFrameId: 11,
     } as GpuFlowPreparedContentFrame,
     debugState: {
-      committedFrameId: 11,
+      preparedContentFrameId: 11,
       gestureOwner: "idle",
       heldPreviousDurationMs: heldDebugState.heldDurationMs,
       heldPreviousFrameCount: heldDebugState.consecutiveFrameCount,
@@ -400,7 +400,7 @@ function heldProjection(): GpuFlowHeldPreviousProjection {
   return {
     activationMappingId: "activation:11:hit:11",
     canvasDrawStateId: "canvas:11",
-    committedFrameId: 11,
+    preparedContentFrameId: 11,
     consecutiveFrameCount: 1,
     debugStateId: "projection:11:previous",
     domTransformBatchId: "dom-transform:11:sample-2",
@@ -418,16 +418,16 @@ function heldProjection(): GpuFlowHeldPreviousProjection {
 }
 
 function projectionTransaction({
-  committedFrameId = 12,
+  preparedContentFrameId = 12,
   id,
   kind = "motion-projection",
 }: {
-  readonly committedFrameId?: number | undefined;
+  readonly preparedContentFrameId?: number | undefined;
   readonly id: string;
   readonly kind?: GpuFlowProjectionTransaction["kind"] | undefined;
 }): GpuFlowProjectionTransaction {
   return {
-    committedFrameId,
+    preparedContentFrameId,
     id,
     kind,
     lane: "motion",

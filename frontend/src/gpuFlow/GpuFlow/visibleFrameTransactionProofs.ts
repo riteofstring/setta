@@ -56,7 +56,7 @@ export type GpuFlowVisibleFramePresentableFrameProof = ReturnType<
 >;
 
 export type GpuFlowVisibleFramePresentableFrameProofFactory = (input: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
@@ -206,49 +206,51 @@ export function createGpuFlowVisibleFramePresentableFrameProofFactory(): GpuFlow
 }
 
 function createGpuFlowVisibleFramePresentableFrameProof({
-  committedFrame,
+  preparedContentFrame,
   presentationEvidence,
   reducerDecision,
   projectionTransactionKind,
   projectionTransactionId,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly projectionTransactionId: GpuFlowVisibleProjectionState["transaction"]["id"];
 }) {
   const actorProofs = createGpuFlowVisibleFramePresentationActorProofsForFrame({
-    committedFrame,
+    preparedContentFrame,
     projectionSampleId: reducerDecision.sample.id,
   });
   assertGpuFlowVisibleFramePresentationActorProofs(actorProofs);
   const resourceProtection =
     createGpuFlowVisibleFramePresentationResourceProtectionReport(
-      committedFrame,
+      preparedContentFrame,
     );
   assertGpuFlowVisibleFramePresentationResourcesProtected(resourceProtection);
   const browserActorProofs =
     createGpuFlowVisibleFramePresentationBrowserActorProofReportForFrame(
-      committedFrame,
+      preparedContentFrame,
     );
   const compatiblePreviousProofs =
     createGpuFlowVisibleFramePresentationCompatiblePreviousProofReportForFrame({
-      committedFrame,
+      preparedContentFrame,
       projectionSampleId: reducerDecision.sample.id,
     });
   const coverage =
-    createGpuFlowVisibleFramePresentationCoverageReportForFrame(committedFrame);
+    createGpuFlowVisibleFramePresentationCoverageReportForFrame(
+      preparedContentFrame,
+    );
   const presentationProof =
     createGpuFlowVisibleFramePresentationProofReportForFrame({
-      committedFrame,
+      preparedContentFrame,
       presentationEvidence,
       projectionSampleId: reducerDecision.sample.id,
       projectionTransactionKind,
     });
   const hasCompatiblePreviousCoverage =
     hasGpuFlowVisibleFramePresentationCompatiblePreviousCoverage({
-      committedFrame,
+      preparedContentFrame,
       compatiblePreviousProofs,
       coverage,
     });
@@ -269,7 +271,7 @@ function createGpuFlowVisibleFramePresentableFrameProof({
     debtProof,
     hasCompatiblePreviousCoverage,
     presentationAuthorityProof: createGpuFlowPresentationAuthorityProof({
-      frame: committedFrame,
+      frame: preparedContentFrame,
       presentationPairProof: presentationProof,
       projectionSampleId: reducerDecision.sample.id,
       projectionTransactionKind,
@@ -297,7 +299,7 @@ export function createGpuFlowVisibleFramePresentableFrameProofReport(
       compatiblePreviousProofs:
         createGpuFlowVisibleFramePresentationCompatiblePreviousProofReportForFrame(
           {
-            committedFrame: null,
+            preparedContentFrame: null,
             projectionSampleId: null,
           },
         ),
@@ -574,7 +576,7 @@ function resolveGpuFlowVisibleFramePublicationCandidateContentFrame<
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowPreparedContentFrame | null {
   return (
-    candidateVisibleProjectionState?.committedFrame ??
+    candidateVisibleProjectionState?.preparedContentFrame ??
     contentPublicationFrame.preparedContentFrame ??
     contentPublicationFrame.blockedPreparedContentFrame ??
     contentPublicationFrame.heldPreparedContentFrame ??
@@ -675,7 +677,7 @@ function createGpuFlowVisibleFramePublicationMotionWorkBlockedProof({
         },
       ],
       frozenFrameId:
-        previousVisibleProjectionState?.committedFrame.displayFrameId ??
+        previousVisibleProjectionState?.preparedContentFrame.displayFrameId ??
         GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
     }),
     source: "motion-projection",
@@ -760,7 +762,7 @@ function createGpuFlowVisibleFramePublicationPresentationBlockedProof({
     candidate: Object.freeze({
       blockedReasons,
       frozenFrameId:
-        previousVisibleProjectionState?.committedFrame.displayFrameId ??
+        previousVisibleProjectionState?.preparedContentFrame.displayFrameId ??
         GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
     }),
     source: "presentation-pair",
@@ -779,7 +781,7 @@ function createGpuFlowVisibleFramePublicationResourceBlockedProof({
   }
   const blockedReasons =
     createGpuFlowVisibleFramePresentationResourceBlockedReasons(
-      visibleProjectionState.committedFrame,
+      visibleProjectionState.preparedContentFrame,
     );
   if (blockedReasons.length === 0) {
     return null;
@@ -788,7 +790,7 @@ function createGpuFlowVisibleFramePublicationResourceBlockedProof({
     candidate: Object.freeze({
       blockedReasons,
       frozenFrameId:
-        previousVisibleProjectionState?.committedFrame.displayFrameId ??
+        previousVisibleProjectionState?.preparedContentFrame.displayFrameId ??
         GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
     }),
     source: "resource-protection",
@@ -816,7 +818,7 @@ function createGpuFlowVisibleFramePublicationTransactionPresentableFrameProof({
     );
   }
   return createGpuFlowVisibleFramePresentableFrameProof({
-    committedFrame: visibleProjectionState.committedFrame,
+    preparedContentFrame: visibleProjectionState.preparedContentFrame,
     presentationEvidence,
     reducerDecision,
     projectionTransactionKind: visibleProjectionState.transaction.kind,
@@ -825,11 +827,11 @@ function createGpuFlowVisibleFramePublicationTransactionPresentableFrameProof({
 }
 
 function hasGpuFlowVisibleFramePresentationCompatiblePreviousCoverage({
-  committedFrame,
+  preparedContentFrame,
   compatiblePreviousProofs,
   coverage,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly compatiblePreviousProofs: ReturnType<
     typeof createGpuFlowVisibleFramePresentationCompatiblePreviousProofReportForFrame
   >;
@@ -838,7 +840,7 @@ function hasGpuFlowVisibleFramePresentationCompatiblePreviousCoverage({
   >;
 }): boolean {
   return (
-    (committedFrame.projectionHorizon?.textActorCoverage
+    (preparedContentFrame.projectionHorizon?.textActorCoverage
       ?.compatiblePreviousActorIds.length ?? 0) > 0 ||
     compatiblePreviousProofs.actorCount > 0 ||
     (coverage?.compatibleCoverageCount ?? 0) > 0
@@ -914,7 +916,7 @@ function createGpuFlowVisibleFramePublicationActorBlockedProof({
   }
   const blockedReasons =
     createGpuFlowVisibleFramePresentationBlockedActorReasonsForFrame({
-      committedFrame: visibleProjectionState.committedFrame,
+      preparedContentFrame: visibleProjectionState.preparedContentFrame,
       projectionSampleId: visibleProjectionState.sample.id,
     });
   if (blockedReasons.length === 0) {
@@ -924,7 +926,7 @@ function createGpuFlowVisibleFramePublicationActorBlockedProof({
     candidate: Object.freeze({
       blockedReasons,
       frozenFrameId:
-        previousVisibleProjectionState?.committedFrame.displayFrameId ??
+        previousVisibleProjectionState?.preparedContentFrame.displayFrameId ??
         GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
     }),
     source: createGpuFlowVisibleFramePresentationActorBlockedProofSource({

@@ -5,7 +5,7 @@ import {
   type GpuFlowPreparedContentFrame,
 } from "../preparedContentFrame";
 import {
-  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowProjectionTransactionForPreparedContentFrameId,
   createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionTransactionKind,
@@ -97,7 +97,8 @@ describe("GPU Flow visible frame coordinator projection work", () => {
     }
     expect(result.outcome.token.frozenFrame.kind).toBe("committed");
     expect(result.outcome.token.frozenFrame).toEqual({
-      frameId: previousVisibleProjectionState.committedFrame.displayFrameId,
+      frameId:
+        previousVisibleProjectionState.preparedContentFrame.displayFrameId,
       kind: "committed",
     });
     expect(result.outcome.token.blockedReasons).toEqual([
@@ -139,8 +140,8 @@ function retainedProjectionTransaction({
 }: {
   readonly sample: GpuFlowLiveProjectionSample;
 }) {
-  return createGpuFlowProjectionTransactionForCommittedFrameId({
-    committedFrameId: 12,
+  return createGpuFlowProjectionTransactionForPreparedContentFrameId({
+    preparedContentFrameId: 12,
     kind: "motion-projection",
     lane: "motion",
     rawReasons: ["retained-scroll"],
@@ -163,13 +164,13 @@ function visibleProjectionState({
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleProjectionState {
-  const committedFrame = preparedContentFrame();
+  const preparedContentFrame = createPreparedContentFrame();
   return {
-    committedFrame,
+    preparedContentFrame,
     heldPreviousProjection: null,
     sample,
     transaction: {
-      committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrameId: preparedContentFrame.displayFrameId,
       id: `transaction:${kind}:${sample.id}`,
       kind,
       lane: "motion",
@@ -180,7 +181,7 @@ function visibleProjectionState({
   } as unknown as GpuFlowVisibleProjectionState;
 }
 
-function preparedContentFrame(): GpuFlowPreparedContentFrame {
+function createPreparedContentFrame(): GpuFlowPreparedContentFrame {
   const displayFrameId = 7;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,

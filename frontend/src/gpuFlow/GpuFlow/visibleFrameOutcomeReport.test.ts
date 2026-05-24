@@ -149,7 +149,7 @@ function visibleFramePublicationSample({
 
 function previousHeldVisibleProjectionState(): GpuFlowVisibleProjectionState {
   return {
-    committedFrame: { displayFrameId: 7 },
+    preparedContentFrame: { displayFrameId: 7 },
     heldPreviousProjection: {
       consecutiveFrameCount: 1,
       firstHeldAtMs: 0,

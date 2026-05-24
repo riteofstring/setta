@@ -106,8 +106,8 @@ function assertGpuFlowHeldPreviousVisibleProjectionState({
     token,
   });
   if (
-    token.committedFrameId !==
-    visibleProjectionState.committedFrame.displayFrameId
+    token.preparedContentFrameId !==
+    visibleProjectionState.preparedContentFrame.displayFrameId
   ) {
     throw new Error(
       "GPU Flow held-previous visible projection state publication requires a hold-previous token for the same visible frame.",
@@ -127,7 +127,8 @@ function publishPresentedVisibleProjectionState({
   readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
 }): void {
   assertGpuFlowVisibleFramePresentationTokenForFrameId({
-    committedFrameId: visibleProjectionState.committedFrame.displayFrameId,
+    preparedContentFrameId:
+      visibleProjectionState.preparedContentFrame.displayFrameId,
     token,
   });
   assertGpuFlowVisibleFramePresentationTokenForProjectionSample({
@@ -255,7 +256,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
         blockedPreparedContentFrame,
         preparedContentFrame,
         heldPreparedContentFrame,
-        selectedVisibleProjectionState?.committedFrame ?? null,
+        selectedVisibleProjectionState?.preparedContentFrame ?? null,
       ]),
     completion,
     debtFrameRequest: reducerFrameCompletion.debtFrameRequest,

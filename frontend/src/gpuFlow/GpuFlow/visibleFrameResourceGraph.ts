@@ -383,7 +383,7 @@ export class GpuFlowVisibleFrameResourceGraph {
   }): GpuFlowVisibleFrameCandidateResourceEntry {
     const frameId = getGpuFlowPreparedContentFrameId(frame);
     assertGpuFlowVisibleFramePresentationTokenForFrameId({
-      committedFrameId: frameId,
+      preparedContentFrameId: frameId,
       token,
     });
     const entry = this.requirePreparedContentFrame(frame);
@@ -992,7 +992,7 @@ function getGpuFlowPreparedContentFrameId(
 ): number {
   if (!Number.isFinite(frame.displayFrameId)) {
     throw new Error(
-      "GPU Flow visible frame resource graph requires a numeric committed frame id.",
+      "GPU Flow visible frame resource graph requires a numeric prepared content frame id.",
     );
   }
   return frame.displayFrameId;

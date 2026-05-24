@@ -763,7 +763,7 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(
       document.querySelector<HTMLElement>(
         "[data-gpu-flow-dom-control-plane='true']",
-      )?.dataset.gpuFlowDomControlPlaneCommittedFrameId,
+      )?.dataset.gpuFlowDomControlPlanePreparedContentFrameId,
     ).toBe("2");
   });
 

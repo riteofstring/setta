@@ -726,7 +726,7 @@ function pageDrawRegion(
 ): RetainedDrawRegion<RetainedContentTextureResources> {
   const page = {
     byteSize: 1,
-    committedFrame: 1,
+    preparedContentFrame: 1,
     descriptor,
     key: "page",
     lastUsedFrame: 1,

@@ -980,7 +980,7 @@ function browserVisualCandidate({
         islands,
       },
       frameIds: {
-        committedFrameId: frameId,
+        preparedContentFrameId: frameId,
         runtimeFrameId: frameId,
       },
       publicationToken: null,

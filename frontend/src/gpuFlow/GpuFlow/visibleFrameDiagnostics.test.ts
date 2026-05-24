@@ -356,7 +356,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         actorManifest: expect.objectContaining({
           blockedActorsByFamily: { "browser-text-snapshot": 1 },
           blockedDebt: { content: true, maintenance: false, motion: false },
-          committedFrameId: 2,
+          preparedContentFrameId: 2,
           missingActorsByFamily: { "browser-text-snapshot": 2 },
           readyActorsByFamily: {
             "accessibility-exposure": 1,
@@ -655,7 +655,7 @@ function blockedPublicationToken() {
 
 function heldPreviousPublicationToken() {
   return createGpuFlowVisibleFrameHoldPreviousTokenForTest({
-    committedFrameId: 2,
+    preparedContentFrameId: 2,
     holdAgeFrames: 1,
     holdAgeMs: 16,
     projectionSample: {

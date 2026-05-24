@@ -486,7 +486,7 @@ function previousVisibleProjectionState(
   }[],
 ): GpuFlowVisibleProjectionState {
   return {
-    committedFrame: {
+    preparedContentFrame: {
       actorGenerations,
       displayFrameId: 9,
     },

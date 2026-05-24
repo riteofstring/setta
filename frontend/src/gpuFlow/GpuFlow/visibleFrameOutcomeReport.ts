@@ -113,8 +113,8 @@ export function createGpuFlowVisibleFramePresentationTransactionReport({
       getGpuFlowVisibleFramePresentationProjectionTransactionKind(
         visibleProjectionState,
       ),
-    visibleCommittedFrameId:
-      getGpuFlowVisibleFramePresentationOutcomeCommittedFrameId(outcome),
+    visiblePreparedContentFrameId:
+      getGpuFlowVisibleFramePresentationOutcomePreparedContentFrameId(outcome),
     visibleTransaction: createGpuFlowVisibleTransactionReport({
       outcome,
       presentationProof: presentableFrameProofReport.presentationProof,
@@ -131,13 +131,13 @@ function getGpuFlowVisibleFramePresentationProjectionTransactionKind(
   return visibleProjectionState?.transaction.kind ?? null;
 }
 
-function getGpuFlowVisibleFramePresentationOutcomeCommittedFrameId(
+function getGpuFlowVisibleFramePresentationOutcomePreparedContentFrameId(
   outcome: GpuFlowVisibleFramePresentationOutcome,
 ): number | null {
   if (outcome.kind !== "present" && outcome.kind !== "hold-previous") {
     return null;
   }
-  return outcome.token.committedFrameId;
+  return outcome.token.preparedContentFrameId;
 }
 
 function createGpuFlowVisibleTransactionReport({
@@ -178,9 +178,9 @@ function createGpuFlowVisibleTransactionReport({
     token,
     transactionId:
       getGpuFlowVisibleFramePresentationOutcomeTransactionId(outcome),
-    visibleCommittedFrameId:
+    visiblePreparedContentFrameId:
       outcome.kind === "present" || outcome.kind === "hold-previous"
-        ? outcome.token.committedFrameId
+        ? outcome.token.preparedContentFrameId
         : null,
   };
 }
@@ -227,7 +227,7 @@ function createGpuFlowVisibleFramePresentationOutcomeTokenPayload(
   switch (outcome.kind) {
     case "present":
       return {
-        committedFrameId: outcome.token.committedFrameId,
+        preparedContentFrameId: outcome.token.preparedContentFrameId,
         expectedActorSetDigest: outcome.token.expectedActorSetDigest,
         presentationPairDigest: outcome.token.presentationPairDigest,
         presentationPairProof: outcome.token.presentationPairProof,
@@ -238,7 +238,7 @@ function createGpuFlowVisibleFramePresentationOutcomeTokenPayload(
       };
     case "hold-previous":
       return {
-        committedFrameId: outcome.token.committedFrameId,
+        preparedContentFrameId: outcome.token.preparedContentFrameId,
         holdAgeFrames: outcome.token.holdAgeFrames,
         holdAgeMs: outcome.token.holdAgeMs,
         projectionSampleId: outcome.token.projectionSampleId,

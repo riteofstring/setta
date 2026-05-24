@@ -549,7 +549,7 @@ function sectionSceneNode(sectionId: string): GpuSectionSceneNode {
   };
 }
 
-const overlayProjectionCommittedFrame = {
+const overlayProjectionPreparedContentFrame = {
   displayFrameId: 17,
 } as GpuFlowPreparedContentFrame;
 
@@ -568,9 +568,9 @@ function visibleProjectionStateForOverlayKey({
     retainedScrollRevision,
   });
   return createGpuFlowVisibleProjectionState({
-    committedFrame: overlayProjectionCommittedFrame,
+    preparedContentFrame: overlayProjectionPreparedContentFrame,
     transaction: createGpuFlowProjectionTransaction({
-      committedFrame: overlayProjectionCommittedFrame,
+      preparedContentFrame: overlayProjectionPreparedContentFrame,
       kind: "motion-projection",
       lane: "motion",
       rawReasons: ["viewport"],

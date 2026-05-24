@@ -108,9 +108,9 @@ function createGpuFlowSurfaceFrameContentPublicationDiagnostic(
     retainedDisplayHoldReason:
       contentFrame.retainedDisplayFrame?.diagnostics.holdDiagnostics
         ?.holdReason ?? null,
-    visibleProjectionCommittedFrameId:
-      contentFrame.visibleProjectionState?.committedFrame.displayFrameId ??
-      null,
+    visibleProjectionPreparedContentFrameId:
+      contentFrame.visibleProjectionState?.preparedContentFrame
+        .displayFrameId ?? null,
     visibleProjectionTransactionKind:
       contentFrame.visibleProjectionState?.transaction.kind ?? null,
   };

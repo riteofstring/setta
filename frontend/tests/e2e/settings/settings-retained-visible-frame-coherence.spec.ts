@@ -77,7 +77,7 @@ type ColdStartShellFrame = {
 
 type VisibleFrameIdentity = {
   readonly blockedEventCount: number;
-  readonly canvasCommittedFrameId: number | null;
+  readonly canvasPreparedContentFrameId: number | null;
   readonly canvasContentFrameId: string | null;
   readonly canvasHeldPreviousFrameCount: number | null;
   readonly canvasPresentationId: string | null;
@@ -87,7 +87,7 @@ type VisibleFrameIdentity = {
   readonly debugSnapshotContentFrameId: string | null;
   readonly debugSnapshotFrameId: number | null;
   readonly debugSnapshotPresentationId: string | null;
-  readonly domControlPlaneCommittedFrameId: number | null;
+  readonly domControlPlanePreparedContentFrameId: number | null;
   readonly domControlPlaneContentFrameId: string | null;
   readonly domControlPlaneFrameId: number | null;
   readonly domControlPlanePresentationId: string | null;
@@ -339,7 +339,7 @@ test("browser visual cold-start withholding publishes a blocked shell frame", as
   expect(shellBands.nonblankRatio, details).toBeGreaterThan(0.001);
   expect(repairedIdentity.presentedContentFrameId, details).toBeTruthy();
   expect(repairedIdentity.presentedContentFrameId, details).toBe(
-    repairedIdentity.canvasCommittedFrameId,
+    repairedIdentity.canvasPreparedContentFrameId,
   );
   expectVisibleFrameEpochCoherent(repairedIdentity, details);
   expect(
@@ -465,10 +465,10 @@ async function expectBrowserVisualFaultInjectionBlocksVisibleFramePresentation(
   expect(afterIdentity.presentedContentFrameId, details).toBe(
     blockedFrozenFrameId,
   );
-  expect(afterIdentity.canvasCommittedFrameId, details).toBe(
+  expect(afterIdentity.canvasPreparedContentFrameId, details).toBe(
     blockedFrozenFrameId,
   );
-  expect(afterIdentity.domControlPlaneCommittedFrameId, details).toBe(
+  expect(afterIdentity.domControlPlanePreparedContentFrameId, details).toBe(
     blockedFrozenFrameId,
   );
   expect(afterIdentity.domControlPlaneFrameId, details).toBe(
@@ -999,8 +999,8 @@ async function readVisibleFrameIdentity(
       );
     return {
       blockedEventCount: blockedEvents.length,
-      canvasCommittedFrameId: parseOptionalNumber(
-        canvas?.dataset.gpuFlowCommittedFrameId,
+      canvasPreparedContentFrameId: parseOptionalNumber(
+        canvas?.dataset.gpuFlowPreparedContentFrameId,
       ),
       canvasContentFrameId: canvas?.dataset.gpuFlowContentFrameId ?? null,
       canvasHeldPreviousFrameCount: parseOptionalNumber(
@@ -1019,8 +1019,8 @@ async function readVisibleFrameIdentity(
         debugSnapshot?.presentedContentFrame?.debugSnapshotFrameId ?? null,
       debugSnapshotPresentationId:
         debugSnapshot?.presentedContentFrame?.presentationId ?? null,
-      domControlPlaneCommittedFrameId: parseOptionalNumber(
-        domControlPlane?.dataset.gpuFlowDomControlPlaneCommittedFrameId,
+      domControlPlanePreparedContentFrameId: parseOptionalNumber(
+        domControlPlane?.dataset.gpuFlowDomControlPlanePreparedContentFrameId,
       ),
       domControlPlaneContentFrameId:
         domControlPlane?.dataset.gpuFlowContentFrameId ?? null,

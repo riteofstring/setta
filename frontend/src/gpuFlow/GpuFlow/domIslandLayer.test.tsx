@@ -87,7 +87,7 @@ describe("GPU Flow DOM island layer", () => {
     expect(
       document.querySelector<HTMLElement>(
         "[data-gpu-flow-dom-island-layer='viewport']",
-      )?.dataset.gpuFlowDomIslandCommittedFrameId,
+      )?.dataset.gpuFlowDomIslandPreparedContentFrameId,
     ).toBe("2");
     expectDomIslandPresentationIdentity(nextToken);
 

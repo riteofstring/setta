@@ -40,7 +40,7 @@ const GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_STAGE_BATCH_SIZE = 16;
 
 export function createEmptyBrowserVisualActorRuntimeSnapshot(): GpuFlowBrowserVisualActorRuntimeSnapshot {
   const frameIds = Object.freeze({
-    committedFrameId: 0,
+    preparedContentFrameId: 0,
     runtimeFrameId: 0,
   });
   return Object.freeze({
@@ -86,7 +86,7 @@ export function createGpuFlowBrowserVisualCandidatePresentationEvidence({
 }): GpuFlowPreparedContentDomPresentationEvidence {
   return createGpuFlowPreparedContentDomPresentationEvidence({
     browserVisualCandidateId: candidateId,
-    preparedFrameId: frameIds.committedFrameId,
+    preparedFrameId: frameIds.preparedContentFrameId,
     domControlMountedCount: snapshot.domControls.mountedControls.length,
     domControlSnapshotCount: snapshot.domControls.snapshotControls.length,
     domIslandCount: snapshot.domIslands.islands.length,

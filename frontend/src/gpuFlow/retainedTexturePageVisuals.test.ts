@@ -156,7 +156,7 @@ function createCommittedPage(
   };
   return {
     byteSize: descriptor.pixelHeight * descriptor.pixelWidth * 4,
-    committedFrame: 10,
+    preparedContentFrame: 10,
     descriptor,
     key: "surface-a:page",
     lastUsedFrame: 11,

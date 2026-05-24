@@ -67,8 +67,8 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
     if (result.outcome.kind !== "hold-previous") {
       throw new Error("Expected no-frame completion to hold previous.");
     }
-    expect(result.outcome.token.committedFrameId).toBe(
-      previousVisibleProjectionState.committedFrame.displayFrameId,
+    expect(result.outcome.token.preparedContentFrameId).toBe(
+      previousVisibleProjectionState.preparedContentFrame.displayFrameId,
     );
     expect(result.outcome.token.projectionSampleId).toBe(sample.id);
     const heldState = result.heldPreviousVisibleProjectionState;
@@ -166,7 +166,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       throw new Error("Expected over-budget held-previous block.");
     }
     expect(result.outcome.token.frozenFrameId).toBe(
-      heldVisibleProjectionState.committedFrame.displayFrameId,
+      heldVisibleProjectionState.preparedContentFrame.displayFrameId,
     );
     expect(result.outcome.token.blockedReasons).toEqual([
       {
@@ -229,8 +229,8 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
     if (completion.outcome.kind !== "hold-previous") {
       throw new Error("Expected held-previous completion outcome.");
     }
-    expect(completion.outcome.token.committedFrameId).toBe(
-      previousVisibleProjectionState.committedFrame.displayFrameId,
+    expect(completion.outcome.token.preparedContentFrameId).toBe(
+      previousVisibleProjectionState.preparedContentFrame.displayFrameId,
     );
     expect(completion.outcome.token.projectionSampleId).toBe(sample.id);
     expect(
@@ -264,7 +264,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
     }
     expect(candidate.errorMessage).toBeNull();
     expect(candidate.blockedPublicationCandidate.frozenFrameId).toBe(
-      previousVisibleProjectionState.committedFrame.displayFrameId,
+      previousVisibleProjectionState.preparedContentFrame.displayFrameId,
     );
 
     expect(coldCandidate.kind).toBe("nonpublishable");
@@ -278,13 +278,13 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
 });
 
 function visibleProjectionState({
-  committedFrame = preparedContentFrame(),
+  preparedContentFrame = createPreparedContentFrame(),
   heldPreviousProjection,
   kind,
   sample,
   transaction,
 }: {
-  readonly committedFrame?: GpuFlowPreparedContentFrame | undefined;
+  readonly preparedContentFrame?: GpuFlowPreparedContentFrame | undefined;
   readonly heldPreviousProjection?:
     | GpuFlowVisibleProjectionState["heldPreviousProjection"]
     | undefined;
@@ -295,7 +295,7 @@ function visibleProjectionState({
   const selectedTransaction =
     transaction ??
     ({
-      committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrameId: preparedContentFrame.displayFrameId,
       id: `transaction:${kind}:${sample.id}`,
       kind,
       lane: "content",
@@ -304,9 +304,9 @@ function visibleProjectionState({
       startedAtMs: sample.timestamp,
     } satisfies GpuFlowProjectionTransaction);
   return {
-    committedFrame,
+    preparedContentFrame,
     debugState: {
-      committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrameId: preparedContentFrame.displayFrameId,
       gestureOwner: "idle",
       heldPreviousDurationMs: kind === "held-previous" ? 16 : 0,
       heldPreviousFrameCount: kind === "held-previous" ? 1 : 0,
@@ -323,7 +323,7 @@ function visibleProjectionState({
       selectedTransaction.kind === "held-previous"
         ? heldPreviousProjection ??
           ({
-            committedFrameId: committedFrame.displayFrameId,
+            preparedContentFrameId: preparedContentFrame.displayFrameId,
             consecutiveFrameCount: 1,
             heldDurationMs: 16,
             maxHeldPreviousFramesExceeded: false,
@@ -337,7 +337,7 @@ function visibleProjectionState({
   };
 }
 
-function preparedContentFrame(): GpuFlowPreparedContentFrame {
+function createPreparedContentFrame(): GpuFlowPreparedContentFrame {
   const displayFrameId = 7;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,

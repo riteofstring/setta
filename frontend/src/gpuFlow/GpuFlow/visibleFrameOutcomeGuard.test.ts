@@ -70,7 +70,7 @@ function holdOutcome(sampleId: number): GpuFlowVisibleFramePresentationOutcome {
   return {
     kind: "hold-previous",
     token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
-      committedFrameId: 7,
+      preparedContentFrameId: 7,
       holdAgeFrames: 1,
       holdAgeMs: 0,
       projectionSample: liveProjectionSample(sampleId),

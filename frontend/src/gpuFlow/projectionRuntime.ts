@@ -123,7 +123,7 @@ export type GpuFlowProjectionTransactionKind =
   | "motion-projection";
 
 export type GpuFlowProjectionTransaction = {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly id: GpuFlowProjectionTransactionId;
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly lane: GpuFlowProjectionLane;
@@ -133,7 +133,7 @@ export type GpuFlowProjectionTransaction = {
 };
 
 export type GpuFlowProjectionDebugState = {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly gestureOwner: GpuWheelGestureOwner;
   readonly lane: GpuFlowProjectionLane;
   readonly projectionSampleId: number;
@@ -142,7 +142,7 @@ export type GpuFlowProjectionDebugState = {
 } & GpuFlowHeldPreviousProjectionDebugState;
 
 export type GpuFlowVisibleProjectionState = {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly debugState: GpuFlowProjectionDebugState;
   readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
   readonly sample: GpuFlowLiveProjectionSample;
@@ -185,39 +185,44 @@ export function createGpuFlowLiveProjectionSampler(): {
 }
 
 export function createGpuFlowProjectionHorizonObligations({
-  committedFrame,
+  preparedContentFrame,
   sample,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowProjectionHorizonObligationList {
   const actorById = new Map(
-    committedFrame.actorGenerations.map((actor) => [actor.actorId, actor]),
+    preparedContentFrame.actorGenerations.map((actor) => [
+      actor.actorId,
+      actor,
+    ]),
   );
   return Object.freeze({
     activePinned: createProjectionHorizonObligationsForKind({
       actorById,
       actorIds:
-        committedFrame.projectionHorizon.obligations.activePinnedActorIds,
+        preparedContentFrame.projectionHorizon.obligations.activePinnedActorIds,
       kind: "active-pinned",
       sample,
     }),
     maintenance: createProjectionHorizonObligationsForKind({
       actorById,
       actorIds:
-        committedFrame.projectionHorizon.obligations.maintenanceActorIds,
+        preparedContentFrame.projectionHorizon.obligations.maintenanceActorIds,
       kind: "maintenance",
       sample,
     }),
     nearFuture: createProjectionHorizonObligationsForKind({
       actorById,
-      actorIds: committedFrame.projectionHorizon.obligations.nearFutureActorIds,
+      actorIds:
+        preparedContentFrame.projectionHorizon.obligations.nearFutureActorIds,
       kind: "near-future",
       sample,
     }),
     visible: createProjectionHorizonObligationsForKind({
       actorById,
-      actorIds: committedFrame.projectionHorizon.obligations.visibleActorIds,
+      actorIds:
+        preparedContentFrame.projectionHorizon.obligations.visibleActorIds,
       kind: "visible",
       sample,
     }),
@@ -282,20 +287,20 @@ function createFrozenGpuFlowLiveProjectionSample({
 }
 
 export function createGpuFlowProjectionTransaction({
-  committedFrame,
+  preparedContentFrame,
   kind,
   lane,
   rawReasons,
   sample,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly lane: GpuFlowProjectionLane;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowProjectionTransaction {
-  return createGpuFlowProjectionTransactionForCommittedFrameId({
-    committedFrameId: committedFrame.displayFrameId,
+  return createGpuFlowProjectionTransactionForPreparedContentFrameId({
+    preparedContentFrameId: preparedContentFrame.displayFrameId,
     kind,
     lane,
     rawReasons,
@@ -303,23 +308,23 @@ export function createGpuFlowProjectionTransaction({
   });
 }
 
-export function createGpuFlowProjectionTransactionForCommittedFrameId({
-  committedFrameId,
+export function createGpuFlowProjectionTransactionForPreparedContentFrameId({
+  preparedContentFrameId,
   kind,
   lane,
   rawReasons,
   sample,
 }: {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly lane: GpuFlowProjectionLane;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowProjectionTransaction {
   return Object.freeze({
-    committedFrameId,
+    preparedContentFrameId,
     id: createGpuFlowProjectionTransactionId({
-      committedFrameId,
+      preparedContentFrameId,
       kind,
       sampleId: sample.id,
     }),
@@ -340,7 +345,7 @@ export function createGpuFlowProjectionDebugState(
     transactionKind: transaction.kind,
   });
   return Object.freeze({
-    committedFrameId: transaction.committedFrameId,
+    preparedContentFrameId: transaction.preparedContentFrameId,
     gestureOwner: transaction.sample.gestureOwner,
     ...heldPreviousDebugState,
     lane: transaction.lane,
@@ -351,18 +356,18 @@ export function createGpuFlowProjectionDebugState(
 }
 
 export function createGpuFlowVisibleProjectionState({
-  committedFrame,
+  preparedContentFrame,
   heldPreviousProjection = null,
   transaction,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly heldPreviousProjection?: GpuFlowHeldPreviousProjection | null;
   readonly transaction: GpuFlowProjectionTransaction;
 }): GpuFlowVisibleProjectionState {
   const visibleHeldPreviousProjection =
     transaction.kind === "held-previous" ? heldPreviousProjection : null;
   return Object.freeze({
-    committedFrame,
+    preparedContentFrame,
     debugState: createGpuFlowProjectionDebugState(
       transaction,
       visibleHeldPreviousProjection,
@@ -397,7 +402,7 @@ function createProjectionHorizonObligationsForKind({
         actorId,
         blockedReason: actor
           ? getProjectionHorizonBlockedReason({ actor })
-          : "actor-missing-from-committed-frame",
+          : "actor-missing-from-prepared-content-frame",
         deadlineMs: getProjectionHorizonDeadline({ kind, sample }),
         kind,
         surfaceId: actor?.ownerSurfaceId ?? "unknown",
@@ -586,15 +591,15 @@ function divideViewportDelta({
 }
 
 function createGpuFlowProjectionTransactionId({
-  committedFrameId,
+  preparedContentFrameId,
   kind,
   sampleId,
 }: {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly sampleId: number;
 }): GpuFlowProjectionTransactionId {
-  return `${kind}:content-${committedFrameId}:sample-${sampleId}`;
+  return `${kind}:content-${preparedContentFrameId}:sample-${sampleId}`;
 }
 
 function freezeLiveProjectionSample(

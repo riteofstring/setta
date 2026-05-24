@@ -368,7 +368,7 @@ export function renderGpuFlowSurfaceFrame({
           hasPresentedContentFrame,
           previousVisibleProjectionState,
           rawReasons: withGpuFlowContentCatchupReasonForStalePublicationSample({
-            committedFrame: input.presentedContentFrameRef.current,
+            preparedContentFrame: input.presentedContentFrameRef.current,
             previousVisibleProjectionState,
             rawReasons: event.reasons,
             sample,
@@ -480,10 +480,10 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
       kind: "not-rendered",
     };
   }
-  const committedFrame =
+  const preparedContentFrame =
     presentedContentFrameRef.current ?? visiblePresentedContentFrame;
   const projectionTransaction = createGpuFlowProjectionTransaction({
-    committedFrame,
+    preparedContentFrame,
     kind: "motion-projection",
     lane: "motion",
     rawReasons: event.reasons,
@@ -516,7 +516,7 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
     }) =>
       renderGpuFlowSurfaceMotionProjectionFrame({
         ...input,
-        committedFrame,
+        preparedContentFrame,
         event,
         nodeLayerRef,
         previousVisibleProjectionState,
@@ -530,7 +530,7 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
 }
 
 function renderGpuFlowSurfaceMotionProjectionFrame({
-  committedFrame,
+  preparedContentFrame,
   event,
   nodeLayerRef,
   previousVisibleProjectionState,
@@ -547,7 +547,7 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
   | "viewportRuntime"
   | "visiblePresentedContentFrame"
 > & {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly projectionFrameRenderPlan: GpuFlowProjectionFrameRenderablePlan;
   readonly projectionTransaction: ReturnType<
@@ -586,16 +586,17 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
       rendered: false,
     });
   }
-  const visibleCommittedFrame =
+  const visiblePreparedContentFrame =
     rendered.transaction.kind === "held-previous"
-      ? previousVisibleProjectionState?.committedFrame ?? committedFrame
-      : committedFrame;
+      ? previousVisibleProjectionState?.preparedContentFrame ??
+        preparedContentFrame
+      : preparedContentFrame;
   return createGpuFlowMotionProjectionFrameResult({
     nodeLayerFrameStatePublication: rendered.nodeLayerFrameStatePublication,
     projectionOnlyFrameWork: rendered.projectionOnlyFrameWork ?? null,
     rendered: true,
     visibleProjectionState: createGpuFlowVisibleProjectionState({
-      committedFrame: visibleCommittedFrame,
+      preparedContentFrame: visiblePreparedContentFrame,
       heldPreviousProjection: rendered.heldPreviousProjection,
       transaction: rendered.transaction,
     }),
@@ -678,7 +679,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
 }): GpuFlowContentPublicationFrameResult {
   const contentDeferResolutionUpdates =
     shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
-      committedFrame: input.presentedContentFrameRef.current,
+      preparedContentFrame: input.presentedContentFrameRef.current,
       deferResolutionUpdates,
       hasPreviousVisibleProjectionState:
         previousVisibleProjectionState !== null,

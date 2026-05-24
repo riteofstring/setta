@@ -21,7 +21,7 @@ import {
   createGpuFlowHeldPreviousProjection,
   createGpuFlowLiveProjectionSampler,
   createGpuFlowProjectionHorizonObligations,
-  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowProjectionTransactionForPreparedContentFrameId,
   createGpuFlowVisibleFrameReducerRuntime,
   createGpuFlowVisibleProjectionState,
   getGpuFlowVisibleFrameReducerDebtReason,
@@ -49,7 +49,7 @@ describe("GPU Flow projection runtime", () => {
       motion: false,
     });
     expect(getGpuFlowVisibleFrameReducerDebtReason(mixed)).toBe("manual");
-    completeCommittedFrame(reducerRuntime, mixed);
+    completePreparedContentFrame(reducerRuntime, mixed);
     const deferredCatchup = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
       rawReasons: ["manual"],
@@ -72,7 +72,7 @@ describe("GPU Flow projection runtime", () => {
     expect(catchup.reducerState).toBe("content-catchup");
     expect(catchup.lane).toBe("content");
     expect(catchup.debt.maintenance).toBe(true);
-    completeCommittedFrame(reducerRuntime, catchup);
+    completePreparedContentFrame(reducerRuntime, catchup);
 
     const maintenance = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -113,7 +113,7 @@ describe("GPU Flow projection runtime", () => {
       motion: false,
     });
 
-    completeCommittedFrame(reducerRuntime, motion);
+    completePreparedContentFrame(reducerRuntime, motion);
     const deferredCatchup = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
       rawReasons: ["manual"],
@@ -136,7 +136,7 @@ describe("GPU Flow projection runtime", () => {
     expect(catchup.reducerState).toBe("content-catchup");
     expect(catchup.lane).toBe("content");
     expect(catchup.debt.maintenance).toBe(true);
-    completeCommittedFrame(reducerRuntime, catchup);
+    completePreparedContentFrame(reducerRuntime, catchup);
 
     const postContentTextureUpload = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -176,7 +176,7 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 1,
       viewportInteractionActive: true,
     });
-    completeCommittedFrame(reducerRuntime, motion);
+    completePreparedContentFrame(reducerRuntime, motion);
 
     const textureUpload = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -238,7 +238,7 @@ describe("GPU Flow projection runtime", () => {
     expect(catchup.debt.maintenance).toBe(true);
   });
 
-  it("uses content publication for cold motion without a committed frame", () => {
+  it("uses content publication for cold motion without a prepared content frame", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const decision = reducerRuntime.selectFrame({
       hasPresentedContentFrame: false,
@@ -295,7 +295,7 @@ describe("GPU Flow projection runtime", () => {
     const completion = reducerRuntime.recordUnpresentedFrame(decision, {
       kind: "hold-previous",
       token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
-        committedFrameId: 41,
+        preparedContentFrameId: 41,
         holdAgeFrames: 1,
         holdAgeMs: 0,
         projectionSample: decision.sample,
@@ -349,7 +349,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: true,
     });
 
-    const completion = completeCommittedFrame(reducerRuntime, decision, {
+    const completion = completePreparedContentFrame(reducerRuntime, decision, {
       content: false,
       maintenance: false,
       motion: false,
@@ -375,7 +375,7 @@ describe("GPU Flow projection runtime", () => {
 
     expect(decision.lane).toBe("motion");
     expect(() =>
-      completeCommittedFrame(reducerRuntime, decision, {
+      completePreparedContentFrame(reducerRuntime, decision, {
         content: true,
         maintenance: false,
         motion: true,
@@ -398,7 +398,7 @@ describe("GPU Flow projection runtime", () => {
         debtProof: createDebtProofForSelectedLane(decision),
         kind: "present",
         token: createGpuFlowVisibleFramePresentationTokenForTest({
-          frame: committedFrameForReducerToken(decision),
+          frame: preparedContentFrameForReducerToken(decision),
           projectionSample: liveSample(2),
         }),
       }),
@@ -572,18 +572,19 @@ describe("GPU Flow projection runtime", () => {
     });
   });
 
-  it("binds transaction identity to the committed frame and projection sample", () => {
+  it("binds transaction identity to the prepared content frame and projection sample", () => {
     const sample = liveSample(17);
-    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId: 42,
-      kind: "motion-projection",
-      lane: "motion",
-      rawReasons: ["retained-scroll", "paint"],
-      sample,
-    });
+    const transaction =
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 42,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["retained-scroll", "paint"],
+        sample,
+      });
 
     expect(transaction.id).toBe("motion-projection:content-42:sample-17");
-    expect(transaction.committedFrameId).toBe(42);
+    expect(transaction.preparedContentFrameId).toBe(42);
     expect(transaction.sample.id).toBe(17);
   });
 
@@ -607,7 +608,7 @@ describe("GPU Flow projection runtime", () => {
         viewportInteractionActive: true,
       });
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(reducerRuntime, motion);
+      completePreparedContentFrame(reducerRuntime, motion);
     }
 
     const catchup = reducerRuntime.selectFrame({
@@ -642,7 +643,7 @@ describe("GPU Flow projection runtime", () => {
         timestamp: index + 1,
         viewportInteractionActive: true,
       });
-      completeCommittedFrame(reducerRuntime, motion);
+      completePreparedContentFrame(reducerRuntime, motion);
     }
 
     const deferredCatchup = reducerRuntime.selectFrame({
@@ -690,7 +691,7 @@ describe("GPU Flow projection runtime", () => {
         viewportInteractionActive: true,
       });
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(reducerRuntime, motion);
+      completePreparedContentFrame(reducerRuntime, motion);
     }
 
     const motion = reducerRuntime.selectFrame({
@@ -751,7 +752,7 @@ describe("GPU Flow projection runtime", () => {
         timestamp: index + 1,
         viewportInteractionActive: true,
       });
-      completeCommittedFrame(reducerRuntime, motion);
+      completePreparedContentFrame(reducerRuntime, motion);
     }
 
     const activeViewport = reducerRuntime.selectFrame({
@@ -785,7 +786,7 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 1,
       viewportInteractionActive: true,
     });
-    completeCommittedFrame(reducerRuntime, motion);
+    completePreparedContentFrame(reducerRuntime, motion);
 
     const settling = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -839,7 +840,7 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 1,
       viewportInteractionActive: true,
     });
-    completeCommittedFrame(reducerRuntime, motion);
+    completePreparedContentFrame(reducerRuntime, motion);
 
     const settling = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -872,7 +873,7 @@ describe("GPU Flow projection runtime", () => {
 
   it("keeps projection horizon obligations concrete and lane-scoped", () => {
     const obligations = createGpuFlowProjectionHorizonObligations({
-      committedFrame: committedFrameForObligations(),
+      preparedContentFrame: preparedContentFrameForObligations(),
       sample: liveSample(9),
     });
 
@@ -904,15 +905,15 @@ describe("GPU Flow projection runtime", () => {
 
   it("rejects held-previous diagnostics as visible debug attributes", () => {
     const previousTransaction =
-      createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: 42,
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 42,
         kind: "motion-projection",
         lane: "motion",
         rawReasons: ["retained-scroll"],
         sample: liveSample(4),
       });
     const previousState = createGpuFlowVisibleProjectionState({
-      committedFrame: {
+      preparedContentFrame: {
         coherence: {
           hitGenerationId: "hit-42",
         },
@@ -921,8 +922,8 @@ describe("GPU Flow projection runtime", () => {
       transaction: previousTransaction,
     });
     const heldTransaction =
-      createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: 42,
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 42,
         kind: "held-previous",
         lane: "motion",
         rawReasons: ["retained-scroll", "paint"],
@@ -944,7 +945,7 @@ describe("GPU Flow projection runtime", () => {
       requestedSample,
     });
     const heldState = createGpuFlowVisibleProjectionState({
-      committedFrame: previousState.committedFrame,
+      preparedContentFrame: previousState.preparedContentFrame,
       heldPreviousProjection,
       transaction: heldTransaction,
     });
@@ -955,7 +956,7 @@ describe("GPU Flow projection runtime", () => {
         element,
         heldState.debugState,
         createGpuFlowVisibleFrameHoldPreviousTokenForTest({
-          committedFrameId: heldState.committedFrame.displayFrameId,
+          preparedContentFrameId: heldState.preparedContentFrame.displayFrameId,
           holdAgeFrames: heldPreviousProjection.consecutiveFrameCount,
           holdAgeMs: heldPreviousProjection.heldDurationMs,
           projectionSample: requestedSample,
@@ -977,15 +978,16 @@ describe("GPU Flow projection runtime", () => {
         <div id="plane-b" data-gpu-flow-dom-control-plane="true"></div>
       </div>
     `;
-    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId: 7,
-      kind: "motion-projection",
-      lane: "motion",
-      rawReasons: ["retained-scroll"],
-      sample: liveSample(3),
-    });
+    const transaction =
+      createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: 7,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["retained-scroll"],
+        sample: liveSample(3),
+      });
     const visibleState = createGpuFlowVisibleProjectionState({
-      committedFrame: {
+      preparedContentFrame: {
         displayFrameId: 7,
       } as GpuFlowPreparedContentFrame,
       transaction,
@@ -1002,7 +1004,7 @@ describe("GPU Flow projection runtime", () => {
     }
 
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedFrameForDebugToken(7),
+      frame: preparedContentFrameForDebugToken(7),
       projectionSample: visibleState.sample,
     });
 
@@ -1034,7 +1036,7 @@ describe("GPU Flow projection runtime", () => {
   });
 });
 
-function completeCommittedFrame(
+function completePreparedContentFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisibleFrameReducerDecision,
   debtProof = createDebtProofForSelectedLane(decision),
@@ -1043,7 +1045,7 @@ function completeCommittedFrame(
     debtProof,
     kind: "present",
     token: createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedFrameForReducerToken(decision),
+      frame: preparedContentFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),
   });
@@ -1056,7 +1058,7 @@ function completeHeldFrame(
   return reducerRuntime.recordUnpresentedFrame(decision, {
     kind: "hold-previous",
     token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
-      committedFrameId: 41,
+      preparedContentFrameId: 41,
       holdAgeFrames: 1,
       holdAgeMs: 0,
       projectionSample: decision.sample,
@@ -1091,13 +1093,13 @@ function createDebtProofForSelectedLane(
   };
 }
 
-function committedFrameForReducerToken(
+function preparedContentFrameForReducerToken(
   decision: GpuFlowVisibleFrameReducerDecision,
 ): GpuFlowPreparedContentFrame {
-  return committedFrameForDebugToken(decision.sample.id);
+  return preparedContentFrameForDebugToken(decision.sample.id);
 }
 
-function committedFrameForDebugToken(
+function preparedContentFrameForDebugToken(
   displayFrameId: number,
 ): GpuFlowPreparedContentFrame {
   const coherence = {
@@ -1138,7 +1140,7 @@ function committedFrameForDebugToken(
   } as unknown as GpuFlowPreparedContentFrame;
 }
 
-function committedFrameForObligations(): GpuFlowPreparedContentFrame {
+function preparedContentFrameForObligations(): GpuFlowPreparedContentFrame {
   return {
     actorGenerations: [
       {

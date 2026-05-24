@@ -11,7 +11,7 @@ export type GpuFlowVisibleFrameActorManifestDiagnostics = {
   readonly blockedActorsByFamily: Record<string, number>;
   readonly blockedDebt: Record<string, boolean> | null;
   readonly blockerReasons: readonly GpuFlowBlockedVisibleReason[];
-  readonly committedFrameId: number | null;
+  readonly preparedContentFrameId: number | null;
   readonly compatibleActorsByFamily: Record<string, number>;
   readonly missingActorsByFamily: Record<string, number>;
   readonly presentationId: string | null;
@@ -61,7 +61,7 @@ export function createGpuFlowVisibleFrameActorManifestDiagnostics({
     blockedDebt:
       remainingDebt === null ? null : Object.freeze({ ...remainingDebt }),
     blockerReasons: Object.freeze([...blockedReasons]),
-    committedFrameId: frame?.displayFrameId ?? null,
+    preparedContentFrameId: frame?.displayFrameId ?? null,
     compatibleActorsByFamily: actorReadiness.compatibleActorsByFamily,
     missingActorsByFamily: actorReadiness.missingActorsByFamily,
     presentationId,

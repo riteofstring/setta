@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createGpuFlowStartupPreparedContentFrame } from "../preparedContentFrame";
 import {
-  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowProjectionTransactionForPreparedContentFrameId,
   createGpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
@@ -135,7 +135,7 @@ describe("GPU retained content interaction hit testing", () => {
       viewport: [0, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupPreparedContentFrame({
+    const preparedContentFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame,
     });
     const projectionSample = {
@@ -159,9 +159,9 @@ describe("GPU retained content interaction hit testing", () => {
       viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },
     };
     const visibleProjectionState = createGpuFlowVisibleProjectionState({
-      committedFrame,
-      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrame,
+      transaction: createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: preparedContentFrame.displayFrameId,
         kind: "motion-projection",
         lane: "motion",
         rawReasons: ["retained-scroll"],
@@ -245,13 +245,13 @@ describe("GPU retained content interaction hit testing", () => {
       viewport: [0, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupPreparedContentFrame({
+    const preparedContentFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: staleRetainedRuntimeFrame,
     });
     const visibleProjectionState = createGpuFlowVisibleProjectionState({
-      committedFrame,
-      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrame,
+      transaction: createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: preparedContentFrame.displayFrameId,
         kind: "motion-projection",
         lane: "motion",
         rawReasons: ["retained-scroll"],
@@ -308,13 +308,13 @@ describe("GPU retained content interaction hit testing", () => {
       viewport: [0, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupPreparedContentFrame({
+    const preparedContentFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: startupRetainedRuntimeFrame,
     });
     const visibleProjectionState = createGpuFlowVisibleProjectionState({
-      committedFrame,
-      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrame,
+      transaction: createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: preparedContentFrame.displayFrameId,
         kind: "motion-projection",
         lane: "motion",
         rawReasons: ["viewport"],
@@ -407,7 +407,7 @@ describe("GPU retained content interaction hit testing", () => {
       viewport: [0, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupPreparedContentFrame({
+    const preparedContentFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame,
     });
     const staleProjectionSample = {
@@ -431,9 +431,9 @@ describe("GPU retained content interaction hit testing", () => {
       viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },
     };
     const visibleProjectionState = createGpuFlowVisibleProjectionState({
-      committedFrame,
-      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
-        committedFrameId: committedFrame.displayFrameId,
+      preparedContentFrame,
+      transaction: createGpuFlowProjectionTransactionForPreparedContentFrameId({
+        preparedContentFrameId: preparedContentFrame.displayFrameId,
         kind: "motion-projection",
         lane: "motion",
         rawReasons: ["retained-scroll"],

@@ -197,12 +197,12 @@ export function createGpuFlowProjectionSchedulingReasons({
 }
 
 export function withGpuFlowContentCatchupReasonForStalePublicationSample({
-  committedFrame,
+  preparedContentFrame,
   previousVisibleProjectionState = null,
   rawReasons,
   sample,
 }: {
-  readonly committedFrame: {
+  readonly preparedContentFrame: {
     readonly coherence: { readonly retainedScrollRevision: number };
     readonly viewportSample: GpuViewportInput;
   } | null;
@@ -222,9 +222,9 @@ export function withGpuFlowContentCatchupReasonForStalePublicationSample({
     sample,
   });
   if (
-    !committedFrame ||
+    !preparedContentFrame ||
     isGpuFlowPreparedContentFrameSampleCurrent({
-      committedFrame,
+      preparedContentFrame,
       sample,
     }) ||
     projectionRawReasons.includes("manual")
@@ -260,10 +260,10 @@ function withoutGpuFlowUnchangedViewportProjectionReason({
 }
 
 function isGpuFlowPreparedContentFrameSampleCurrent({
-  committedFrame,
+  preparedContentFrame,
   sample,
 }: {
-  readonly committedFrame: {
+  readonly preparedContentFrame: {
     readonly coherence: { readonly retainedScrollRevision: number };
     readonly viewportSample: GpuViewportInput;
   };
@@ -273,10 +273,10 @@ function isGpuFlowPreparedContentFrameSampleCurrent({
   >;
 }): boolean {
   return (
-    committedFrame.coherence.retainedScrollRevision ===
+    preparedContentFrame.coherence.retainedScrollRevision ===
       sample.retainedScrollRevision &&
     areGpuFlowProjectionViewportsEqual(
-      committedFrame.viewportSample,
+      preparedContentFrame.viewportSample,
       sample.viewport,
     )
   );

@@ -414,7 +414,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
-          throw new Error("Unexpected committed frame completion.");
+          throw new Error("Unexpected prepared content frame completion.");
         },
         getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
         recordUnpresentedFrame: () => ({
@@ -500,7 +500,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
-          throw new Error("Unexpected committed frame completion.");
+          throw new Error("Unexpected prepared content frame completion.");
         },
         getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
         recordUnpresentedFrame: () => ({
@@ -591,7 +591,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
-          throw new Error("Unexpected committed frame completion.");
+          throw new Error("Unexpected prepared content frame completion.");
         },
         getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
         recordUnpresentedFrame: () => ({
@@ -730,7 +730,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
             previousPresentation: null,
           }),
         visibleProjectionState: {
-          committedFrame: frame,
+          preparedContentFrame: frame,
           heldPreviousProjection: null,
           sample: projectionSample,
           transaction: {
@@ -771,7 +771,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
-          throw new Error("Unexpected committed frame completion.");
+          throw new Error("Unexpected prepared content frame completion.");
         },
         getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
         recordUnpresentedFrame: () => ({
@@ -918,7 +918,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
           previousPresentation: null,
         }),
       visibleProjectionState: {
-        committedFrame: frame,
+        preparedContentFrame: frame,
         heldPreviousProjection: null,
         sample: projectionSample,
         transaction: {
@@ -942,13 +942,13 @@ function presentationPairProof({
     ...frame.presentationProof,
     canvasGenerationEvidence:
       createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
-        committedFrame: frame,
+        preparedContentFrame: frame,
         projectionSampleId: projectionSample.id,
         projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
       }),
     domTransformEvidence:
       createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence({
-        committedFrame: frame,
+        preparedContentFrame: frame,
         projectionSampleId: projectionSample.id,
         projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
       }),
@@ -956,7 +956,7 @@ function presentationPairProof({
     projectionTransactionKind: "content-publication" as const,
     textureEvictionEvidence:
       createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence({
-        committedFrame: frame,
+        preparedContentFrame: frame,
         projectionSampleId: projectionSample.id,
         projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
       }),

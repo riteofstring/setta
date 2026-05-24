@@ -95,7 +95,7 @@ describe("RetainedTexturePageCache", () => {
     expect(committed).toEqual(
       expect.objectContaining({
         byteSize: 64 * 32 * 4,
-        committedFrame: 5,
+        preparedContentFrame: 5,
         resource: "texture-a",
       }),
     );

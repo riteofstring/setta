@@ -36,7 +36,7 @@ describe("framePerformance", () => {
       frameReasons: ["paint", "texture-upload"],
       interactionDiagnostics: null,
       projectionDiagnostics: {
-        committedFrameId: null,
+        preparedContentFrameId: null,
         gestureOwner: null,
         heldPreviousDurationMs: 0,
         heldPreviousFrameCount: 0,
@@ -298,7 +298,7 @@ describe("framePerformance", () => {
       frameReasons: ["retained-scroll", "paint"],
       layerResult: createLayerResult(),
       projectionDebugState: {
-        committedFrameId: 42,
+        preparedContentFrameId: 42,
         gestureOwner: "ownedByRetainedSectionScroll",
         heldPreviousDurationMs: 18,
         heldPreviousFrameCount: 2,
@@ -316,7 +316,7 @@ describe("framePerformance", () => {
     });
 
     expect(event.projectionDiagnostics).toEqual({
-      committedFrameId: 42,
+      preparedContentFrameId: 42,
       gestureOwner: "ownedByRetainedSectionScroll",
       heldPreviousDurationMs: 18,
       heldPreviousFrameCount: 2,

@@ -26,7 +26,7 @@ describe("GPU Flow retained rows debug", () => {
       projectionSampleId: 11,
     };
     const debugEntry = createGpuFlowPresentedContentFrameDebugEntry({
-      frame: committedFrame(7),
+      frame: preparedContentFrame(7),
       presentationIdentity: identity,
     });
 
@@ -90,7 +90,9 @@ function runtimeState(
   return state;
 }
 
-function committedFrame(displayFrameId: number): GpuFlowPreparedContentFrame {
+function preparedContentFrame(
+  displayFrameId: number,
+): GpuFlowPreparedContentFrame {
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",

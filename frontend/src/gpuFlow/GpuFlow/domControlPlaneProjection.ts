@@ -38,7 +38,7 @@ export type GpuFlowDomControlPlaneMountedHost = {
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly controlId: string;
   readonly element: HTMLElement;
-  readonly registrationCommittedFrameId?: number | undefined;
+  readonly registrationPreparedContentFrameId?: number | undefined;
 };
 
 export type GpuFlowDomControlProjectionAssignment = {
@@ -67,7 +67,7 @@ export type GpuFlowDomControlProjectionAssignment = {
 export type GpuFlowDomControlPlaneDiagnostics = {
   activeControlId: string | null;
   clippedControlCount: number;
-  committedFrameId: number;
+  preparedContentFrameId: number;
   lastProjectionBatchDurationMs: number;
   mountedControlCount: number;
   projectionWriteCount: number;
@@ -89,7 +89,7 @@ type GpuFlowDomControlProjectionManager = {
     readonly viewportSize?: GpuFlowDomControlPlaneViewportSize | undefined;
   }): readonly GpuFlowDomControlProjectionAssignment[];
   project(input: {
-    readonly committedFrameId: number;
+    readonly preparedContentFrameId: number;
     readonly controlById: ReadonlyMap<
       string,
       GpuRetainedDomControlSourceDescriptor
@@ -542,7 +542,7 @@ function compareGpuFlowDomControlPlaneControls(
 }
 
 function syncGpuFlowDomControlPlaneStyles({
-  committedFrameId,
+  preparedContentFrameId,
   controlById,
   diagnosticsRef,
   getRetainedScrollOffset,
@@ -552,7 +552,7 @@ function syncGpuFlowDomControlPlaneStyles({
   viewport,
   viewportSize,
 }: {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly controlById: ReadonlyMap<
     string,
     GpuRetainedDomControlSourceDescriptor
@@ -608,7 +608,7 @@ function syncGpuFlowDomControlPlaneStyles({
   diagnosticsRef.current = {
     activeControlId,
     clippedControlCount,
-    committedFrameId,
+    preparedContentFrameId,
     lastProjectionBatchDurationMs: performance.now() - startedAt,
     mountedControlCount: hostByControlId.size,
     projectionWriteCount,
@@ -977,16 +977,16 @@ function getGpuFlowDomControlPlaneVisibleClip({
 }
 
 export function createEmptyDomControlPlaneDiagnostics({
-  committedFrameId,
+  preparedContentFrameId,
   runtimeFrameId,
 }: {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly runtimeFrameId: number;
 }): GpuFlowDomControlPlaneDiagnostics {
   return {
     activeControlId: null,
     clippedControlCount: 0,
-    committedFrameId,
+    preparedContentFrameId,
     lastProjectionBatchDurationMs: 0,
     mountedControlCount: 0,
     projectionWriteCount: 0,

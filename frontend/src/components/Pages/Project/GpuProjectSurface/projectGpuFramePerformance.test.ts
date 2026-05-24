@@ -173,7 +173,7 @@ function createFramePerformanceEvent(): GpuFlowFramePerformanceEvent {
       schedulingMs: 0,
     },
     projectionDiagnostics: {
-      committedFrameId: null,
+      preparedContentFrameId: null,
       gestureOwner: null,
       heldPreviousDurationMs: 0,
       heldPreviousFrameCount: 0,

@@ -92,7 +92,8 @@ describe("GPU Flow surface publication completion", () => {
           },
           submitDomTransforms,
         }),
-        previousContentFrameId: committedState.committedFrame.displayFrameId,
+        previousContentFrameId:
+          committedState.preparedContentFrame.displayFrameId,
       }),
     );
 
@@ -102,14 +103,16 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("does not complete reducer debt when committed publication fails before visibility advances", () => {
-    const committedFrame = preparedContentFrame({ displayFrameId: 12 });
+    const preparedContentFrame = createPreparedContentFrame({
+      displayFrameId: 12,
+    });
     const selectedState = visibleProjectionState({
-      displayFrameId: committedFrame.displayFrameId,
+      displayFrameId: preparedContentFrame.displayFrameId,
       kind: "content-publication",
       sampleId: 12,
     });
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedFrame,
+      frame: preparedContentFrame,
       projectionSample: selectedState.sample,
     });
     let reducerCompletionCount = 0;
@@ -153,7 +156,7 @@ describe("GPU Flow surface publication completion", () => {
     expect(() =>
       presentationBoundary(
         committedPublicationTransaction({
-          committedFrame,
+          preparedContentFrame,
           nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
             submitCanvas,
           }),
@@ -172,14 +175,16 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("submits prepared visible work only during visible presentation", () => {
-    const committedFrame = preparedContentFrame({ displayFrameId: 21 });
+    const preparedContentFrame = createPreparedContentFrame({
+      displayFrameId: 21,
+    });
     const selectedState = visibleProjectionState({
-      displayFrameId: committedFrame.displayFrameId,
+      displayFrameId: preparedContentFrame.displayFrameId,
       kind: "content-publication",
       sampleId: 21,
     });
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedFrame,
+      frame: preparedContentFrame,
       projectionSample: selectedState.sample,
     });
     const visibleMutationOrder: string[] = [];
@@ -227,7 +232,7 @@ describe("GPU Flow surface publication completion", () => {
 
     presentationBoundary(
       committedPublicationTransaction({
-        committedFrame,
+        preparedContentFrame,
         nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
           submitCanvas,
           submitDomTransforms,
@@ -254,14 +259,16 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("does not promote committed state when prepared canvas submission fails", () => {
-    const committedFrame = preparedContentFrame({ displayFrameId: 22 });
+    const preparedContentFrame = createPreparedContentFrame({
+      displayFrameId: 22,
+    });
     const selectedState = visibleProjectionState({
-      displayFrameId: committedFrame.displayFrameId,
+      displayFrameId: preparedContentFrame.displayFrameId,
       kind: "content-publication",
       sampleId: 22,
     });
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedFrame,
+      frame: preparedContentFrame,
       projectionSample: selectedState.sample,
     });
     const presentPreparedContentFrame = vi.fn(() => true);
@@ -302,7 +309,7 @@ describe("GPU Flow surface publication completion", () => {
     expect(() =>
       presentationBoundary(
         committedPublicationTransaction({
-          committedFrame,
+          preparedContentFrame,
           nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
             submitCanvas: () => {
               throw new Error("canvas submission failed");
@@ -323,14 +330,16 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("lets reducer debt own duplicate retained follow-up frame requests", () => {
-    const committedFrame = preparedContentFrame({ displayFrameId: 31 });
+    const preparedContentFrame = createPreparedContentFrame({
+      displayFrameId: 31,
+    });
     const selectedState = visibleProjectionState({
-      displayFrameId: committedFrame.displayFrameId,
+      displayFrameId: preparedContentFrame.displayFrameId,
       kind: "content-publication",
       sampleId: 31,
     });
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedFrame,
+      frame: preparedContentFrame,
       projectionSample: selectedState.sample,
     });
     const requestFrame = vi.fn();
@@ -360,7 +369,7 @@ describe("GPU Flow surface publication completion", () => {
 
     presentationBoundary(
       committedPublicationTransaction({
-        committedFrame,
+        preparedContentFrame,
         debtFrameRequest: {
           delayMs: null,
           frameReason: "texture-upload",
@@ -377,14 +386,16 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("defers unresolved content debt instead of immediately looping repair frames", () => {
-    const committedFrame = preparedContentFrame({ displayFrameId: 41 });
+    const preparedContentFrame = createPreparedContentFrame({
+      displayFrameId: 41,
+    });
     const selectedState = visibleProjectionState({
-      displayFrameId: committedFrame.displayFrameId,
+      displayFrameId: preparedContentFrame.displayFrameId,
       kind: "content-publication",
       sampleId: 41,
     });
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedFrame,
+      frame: preparedContentFrame,
       projectionSample: selectedState.sample,
     });
     const requestFrame = vi.fn();
@@ -430,7 +441,7 @@ describe("GPU Flow surface publication completion", () => {
 
     presentationBoundary(
       committedPublicationTransaction({
-        committedFrame,
+        preparedContentFrame,
         debtFrameRequest: {
           delayMs: null,
           frameReason: "manual",
@@ -454,24 +465,28 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("keeps the earliest delayed retry when repeated frames request the same debt reason", () => {
-    const firstCommittedFrame = preparedContentFrame({ displayFrameId: 42 });
+    const firstPreparedContentFrame = createPreparedContentFrame({
+      displayFrameId: 42,
+    });
     const firstSelectedState = visibleProjectionState({
-      displayFrameId: firstCommittedFrame.displayFrameId,
+      displayFrameId: firstPreparedContentFrame.displayFrameId,
       kind: "content-publication",
       sampleId: 42,
     });
     const firstToken = createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: firstCommittedFrame,
+      frame: firstPreparedContentFrame,
       projectionSample: firstSelectedState.sample,
     });
-    const secondCommittedFrame = preparedContentFrame({ displayFrameId: 43 });
+    const secondPreparedContentFrame = createPreparedContentFrame({
+      displayFrameId: 43,
+    });
     const secondSelectedState = visibleProjectionState({
-      displayFrameId: secondCommittedFrame.displayFrameId,
+      displayFrameId: secondPreparedContentFrame.displayFrameId,
       kind: "content-publication",
       sampleId: 43,
     });
     const secondToken = createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: secondCommittedFrame,
+      frame: secondPreparedContentFrame,
       projectionSample: secondSelectedState.sample,
     });
     const requestFrame = vi.fn();
@@ -526,7 +541,7 @@ describe("GPU Flow surface publication completion", () => {
 
     presentationBoundary(
       committedPublicationTransaction({
-        committedFrame: firstCommittedFrame,
+        preparedContentFrame: firstPreparedContentFrame,
         debtFrameRequest: {
           delayMs: 160,
           frameReason: "manual",
@@ -539,7 +554,7 @@ describe("GPU Flow surface publication completion", () => {
     );
     presentationBoundary(
       committedPublicationTransaction({
-        committedFrame: secondCommittedFrame,
+        preparedContentFrame: secondPreparedContentFrame,
         debtFrameRequest: {
           delayMs: 160,
           frameReason: "manual",
@@ -557,7 +572,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("requests texture upload debt immediately while content publication is blocked", () => {
-    const blockedFrame = preparedContentFrame({ displayFrameId: 51 });
+    const blockedFrame = createPreparedContentFrame({ displayFrameId: 51 });
     const sample = liveProjectionSample({
       id: 51,
       timestamp: 51,
@@ -651,7 +666,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("stages and wakes budget-selected browser visual resources while blocked", () => {
-    const blockedFrame = preparedContentFrame({ displayFrameId: 61 });
+    const blockedFrame = createPreparedContentFrame({ displayFrameId: 61 });
     const sample = liveProjectionSample({
       id: 61,
       timestamp: 61,
@@ -728,7 +743,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("stages raw browser visual repair resources for blocked proofs without a budget subset", () => {
-    const blockedFrame = preparedContentFrame({ displayFrameId: 62 });
+    const blockedFrame = createPreparedContentFrame({ displayFrameId: 62 });
     const sample = liveProjectionSample({
       id: 62,
       timestamp: 62,
@@ -839,7 +854,7 @@ function heldPreviousPublicationTransaction({
     outcome: {
       kind: "hold-previous",
       token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
-        committedFrameId: previousContentFrameId,
+        preparedContentFrameId: previousContentFrameId,
         holdAgeFrames: 1,
         holdAgeMs: 16,
         projectionSample: heldState.sample,
@@ -873,7 +888,7 @@ function heldPreviousPublicationTransaction({
 }
 
 function committedPublicationTransaction({
-  committedFrame,
+  preparedContentFrame,
   debtFrameRequest = null,
   followUpFrameRequests = [],
   nodeLayerFrameStatePublication = null,
@@ -889,7 +904,7 @@ function committedPublicationTransaction({
   selectedState,
   token,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly debtFrameRequest?: unknown;
   readonly followUpFrameRequests?: readonly string[];
   readonly nodeLayerFrameStatePublication?: unknown;
@@ -928,7 +943,7 @@ function committedPublicationTransaction({
         blockedErrorMessage: null,
         blockedPreparedContentFrame: null,
         blockedPreservePreparationSnapshot: false,
-        preparedContentFrame: committedFrame,
+        preparedContentFrame: preparedContentFrame,
         heldPreparedContentFrame: null,
         nodeLayerFrameStatePublication,
         retainedDisplayFrame: null,
@@ -1111,9 +1126,9 @@ function visibleProjectionState({
   readonly sampleId: number;
 }): GpuFlowVisibleProjectionState {
   return {
-    committedFrame: preparedContentFrame({ displayFrameId }),
+    preparedContentFrame: createPreparedContentFrame({ displayFrameId }),
     debugState: {
-      committedFrameId: displayFrameId,
+      preparedContentFrameId: displayFrameId,
       gestureOwner: "idle",
       heldPreviousDurationMs: 0,
       heldPreviousFrameCount: 0,
@@ -1137,7 +1152,7 @@ function visibleProjectionState({
   } as GpuFlowVisibleProjectionState;
 }
 
-function preparedContentFrame({
+function createPreparedContentFrame({
   displayFrameId,
 }: {
   readonly displayFrameId: number;

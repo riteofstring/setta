@@ -51,14 +51,14 @@ type GpuFlowVisibleFramePresentationActorDebt = {
 };
 
 export function createGpuFlowVisibleFramePresentationActorProofsForFrame({
-  committedFrame,
+  preparedContentFrame,
   projectionSampleId,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly projectionSampleId: number;
 }): readonly GpuFlowVisibleFramePresentationActorProof[] {
   return Object.freeze(
-    committedFrame.actorGenerations
+    preparedContentFrame.actorGenerations
       .filter((actor) => actor.visibleNonempty)
       .map((actor) =>
         createGpuFlowVisibleFramePresentationActorProof({
@@ -90,15 +90,15 @@ export function createGpuFlowVisibleFramePresentationActorProofDigest(
 }
 
 export function createGpuFlowVisibleFramePresentationBlockedActorReasonsForFrame({
-  committedFrame,
+  preparedContentFrame,
   projectionSampleId,
 }: {
-  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly projectionSampleId: number;
 }): readonly GpuFlowBlockedVisibleReason[] {
   return Object.freeze(
     createGpuFlowVisibleFramePresentationActorProofsForFrame({
-      committedFrame,
+      preparedContentFrame,
       projectionSampleId,
     }).flatMap(createGpuFlowVisibleFramePresentationBlockedActorReasons),
   );

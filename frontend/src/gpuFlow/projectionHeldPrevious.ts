@@ -1,17 +1,17 @@
 import { getGpuFlowVisibleFrameHeldPreviousBudgetStatus } from "./GpuFlow/visibleFrameStateMachine";
 import type {
   GpuFlowLiveProjectionSample,
-  GpuFlowVisibleFrameReducerPolicy,
   GpuFlowProjectionTransaction,
   GpuFlowProjectionTransactionId,
   GpuFlowProjectionTransactionKind,
+  GpuFlowVisibleFrameReducerPolicy,
   GpuFlowVisibleProjectionState,
 } from "./projectionRuntime";
 
 export type GpuFlowHeldPreviousProjection = {
   readonly activationMappingId: string;
   readonly canvasDrawStateId: string;
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly consecutiveFrameCount: number;
   readonly debugStateId: string;
   readonly domTransformBatchId: string;
@@ -62,24 +62,24 @@ export function createGpuFlowHeldPreviousProjection({
     previousHeld?.firstHeldAtMs ?? requestedSample.timestamp;
   const consecutiveFrameCount = (previousHeld?.consecutiveFrameCount ?? 0) + 1;
   const heldDurationMs = Math.max(0, requestedSample.timestamp - firstHeldAtMs);
-  const committedFrameId =
-    previousVisibleProjectionState.committedFrame.displayFrameId;
+  const preparedContentFrameId =
+    previousVisibleProjectionState.preparedContentFrame.displayFrameId;
   const previousDebugState = previousVisibleProjectionState.debugState;
   const hitGenerationId =
-    previousVisibleProjectionState.committedFrame.coherence?.hitGenerationId ??
-    `hit:${committedFrameId}`;
+    previousVisibleProjectionState.preparedContentFrame.coherence
+      ?.hitGenerationId ?? `hit:${preparedContentFrameId}`;
   const budgetStatus = getGpuFlowVisibleFrameHeldPreviousBudgetStatus({
     consecutiveFrameCount,
     heldDurationMs,
     policy: knobs,
   });
   return Object.freeze({
-    activationMappingId: `activation:${committedFrameId}:${hitGenerationId}`,
-    canvasDrawStateId: `canvas:${committedFrameId}`,
-    committedFrameId,
+    activationMappingId: `activation:${preparedContentFrameId}:${hitGenerationId}`,
+    canvasDrawStateId: `canvas:${preparedContentFrameId}`,
+    preparedContentFrameId,
     consecutiveFrameCount,
     debugStateId: previousDebugState.projectionTransactionId,
-    domTransformBatchId: `dom-transform:${committedFrameId}:sample-${heldTransaction.sample.id}`,
+    domTransformBatchId: `dom-transform:${preparedContentFrameId}:sample-${heldTransaction.sample.id}`,
     firstHeldAtMs,
     heldAtMs: requestedSample.timestamp,
     heldDurationMs,

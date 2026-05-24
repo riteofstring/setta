@@ -265,7 +265,7 @@ function hitTestGpuRetainedContentInteractionVisibleProjection({
     });
   }
   return hitTestGpuRetainedContentProjectedRuntimeFrame({
-    frame: visibleProjectionState.committedFrame.retainedRuntimeFrame,
+    frame: visibleProjectionState.preparedContentFrame.retainedRuntimeFrame,
     point: flowPoint,
     scrollOffsets: visibleProjectionState.sample.retainedScrollOffsets,
   });
@@ -286,9 +286,9 @@ function shouldHitTestCurrentRetainedScene({
     isStartupCommittedRetainedFrame(visibleProjectionState) ||
     (retainedRuntimeFrame !== undefined &&
       retainedRuntimeFrame !==
-        visibleProjectionState.committedFrame.retainedRuntimeFrame) ||
+        visibleProjectionState.preparedContentFrame.retainedRuntimeFrame) ||
     scene.revision !==
-      visibleProjectionState.committedFrame.retainedRuntimeFrame.input
+      visibleProjectionState.preparedContentFrame.retainedRuntimeFrame.input
         .sceneRevision ||
     (currentScrollOffsets !== undefined &&
       !areRetainedScrollOffsetMapsEqual(
@@ -302,8 +302,8 @@ function isStartupCommittedRetainedFrame(
   visibleProjectionState: GpuFlowVisibleProjectionState,
 ): boolean {
   return (
-    visibleProjectionState.committedFrame.displayFrameId === 0 &&
-    visibleProjectionState.committedFrame.retainedDisplayFrame === null
+    visibleProjectionState.preparedContentFrame.displayFrameId === 0 &&
+    visibleProjectionState.preparedContentFrame.retainedDisplayFrame === null
   );
 }
 

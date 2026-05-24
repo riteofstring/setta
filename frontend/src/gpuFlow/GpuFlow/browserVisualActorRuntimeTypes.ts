@@ -9,7 +9,7 @@ import type { GpuFlowDomControlProjectionAssignment } from "./domControlPlanePro
 import type { GpuFlowVisibleFramePresentationToken } from "./visibleFramePresentationProofs";
 
 export type GpuFlowBrowserVisualActorRuntimeFrameIds = {
-  readonly committedFrameId: number;
+  readonly preparedContentFrameId: number;
   readonly runtimeFrameId: number;
 };
 

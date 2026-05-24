@@ -50,7 +50,9 @@ test("presented content frame debug snapshot keeps passive DOM actor scale bound
   const domControlPlaneVisible =
     (sample.diagnostics?.visibleControlRectCount ?? 0) > 0;
   if (domControlPlaneVisible) {
-    expect(Number.isFinite(sample.planeCommittedFrameId), details).toBe(true);
+    expect(Number.isFinite(sample.planePreparedContentFrameId), details).toBe(
+      true,
+    );
     expect(Number.isFinite(sample.planeRuntimeFrameId), details).toBe(true);
     expect(sample.canvasProjectionTransactionId, details).toBeTruthy();
     expect(sample.planeProjectionTransactionId, details).toBe(
@@ -59,10 +61,10 @@ test("presented content frame debug snapshot keeps passive DOM actor scale bound
     expect(sample.planeProjectionSampleId, details).toBe(
       sample.canvasProjectionSampleId,
     );
-    expect(sample.planeProjectionCommittedFrameId, details).toBe(
-      sample.canvasProjectionCommittedFrameId,
+    expect(sample.planeProjectionPreparedContentFrameId, details).toBe(
+      sample.canvasProjectionPreparedContentFrameId,
     );
-    expect(sample.planeProjectionCommittedFrameId, details).toBe(
+    expect(sample.planeProjectionPreparedContentFrameId, details).toBe(
       sample.presentedContentFrame?.displayFrameId,
     );
   }
@@ -113,17 +115,17 @@ async function readPresentedContentFrameDomActorSample(page: Page): Promise<{
     >["presentedContentFrame"]
   > | null;
   readonly diagnostics: {
-    readonly committedFrameId: number;
+    readonly preparedContentFrameId: number;
     readonly mountedControlCount: number;
     readonly runtimeFrameId: number;
     readonly visibleControlRectCount: number;
   } | null;
-  readonly planeCommittedFrameId: number;
-  readonly planeProjectionCommittedFrameId: number;
+  readonly planePreparedContentFrameId: number;
+  readonly planeProjectionPreparedContentFrameId: number;
   readonly planeProjectionSampleId: number;
   readonly planeProjectionTransactionId: string | null;
   readonly planeRuntimeFrameId: number;
-  readonly canvasProjectionCommittedFrameId: number;
+  readonly canvasProjectionPreparedContentFrameId: number;
   readonly canvasProjectionSampleId: number;
   readonly canvasProjectionTransactionId: string | null;
 }> {
@@ -134,7 +136,7 @@ async function readPresentedContentFrameDomActorSample(page: Page): Promise<{
       (
         window as typeof window & {
           __settaGpuFlowDomControlPlaneDiagnostics?: () => {
-            readonly committedFrameId: number;
+            readonly preparedContentFrameId: number;
             readonly mountedControlCount: number;
             readonly runtimeFrameId: number;
             readonly visibleControlRectCount: number;
@@ -150,19 +152,19 @@ async function readPresentedContentFrameDomActorSample(page: Page): Promise<{
     return {
       presentedContentFrame,
       diagnostics,
-      canvasProjectionCommittedFrameId: Number(
-        canvas?.dataset.gpuFlowCommittedFrameId ?? NaN,
+      canvasProjectionPreparedContentFrameId: Number(
+        canvas?.dataset.gpuFlowPreparedContentFrameId ?? NaN,
       ),
       canvasProjectionSampleId: Number(
         canvas?.dataset.gpuFlowProjectionSampleId ?? NaN,
       ),
       canvasProjectionTransactionId:
         canvas?.dataset.gpuFlowProjectionTransactionId ?? null,
-      planeCommittedFrameId: Number(
-        plane?.dataset.gpuFlowDomControlPlaneCommittedFrameId ?? NaN,
+      planePreparedContentFrameId: Number(
+        plane?.dataset.gpuFlowDomControlPlanePreparedContentFrameId ?? NaN,
       ),
-      planeProjectionCommittedFrameId: Number(
-        plane?.dataset.gpuFlowCommittedFrameId ?? NaN,
+      planeProjectionPreparedContentFrameId: Number(
+        plane?.dataset.gpuFlowPreparedContentFrameId ?? NaN,
       ),
       planeProjectionSampleId: Number(
         plane?.dataset.gpuFlowProjectionSampleId ?? NaN,

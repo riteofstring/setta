@@ -133,7 +133,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(source).not.toContain("createGpuFlowHeldPreviousProjection");
     expect(source).not.toContain(
-      "createGpuFlowProjectionTransactionForCommittedFrameId",
+      "createGpuFlowProjectionTransactionForPreparedContentFrameId",
     );
     expect(source).not.toContain(
       "prepareGpuFlowRetainedProjectionPublicationCandidate",
