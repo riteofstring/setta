@@ -27,7 +27,7 @@ export type GpuFlowFramePerformanceInput = {
 };
 
 export type GpuFlowFramePhaseDiagnostics = {
-  readonly committedContentPublishMs: number;
+  readonly preparedContentPresentationMs: number;
   readonly diagnosticsMs: number;
   readonly domTextActorProjectionMs: number;
   readonly frameMode: "content" | "projection";
@@ -247,8 +247,8 @@ export type GpuFlowFramePerformanceEvent = {
   readonly retainedTexturePageTransactionHoldReason: string | null;
   readonly retainedTexturePageTransactionMaxHeldMotionAgeMs: number;
   readonly retainedTexturePageTransactionOutcome: string;
-  readonly retainedTexturePageTransactionPublishedScrollOffset: number | null;
-  readonly retainedTexturePageTransactionPublishedViewport: {
+  readonly retainedTexturePageTransactionPresentedScrollOffset: number | null;
+  readonly retainedTexturePageTransactionPresentedViewport: {
     readonly x: number;
     readonly y: number;
     readonly zoom: number;
@@ -441,7 +441,7 @@ function createEmptyGpuFlowFramePhaseDiagnostics({
   readonly frameMode: GpuFlowFramePhaseDiagnostics["frameMode"];
 }): GpuFlowFramePhaseDiagnostics {
   return {
-    committedContentPublishMs: 0,
+    preparedContentPresentationMs: 0,
     diagnosticsMs: 0,
     domTextActorProjectionMs: 0,
     frameMode,
@@ -490,8 +490,8 @@ function createRetainedTexturePagePerformanceFields(
   | "retainedTexturePageTransactionHoldReason"
   | "retainedTexturePageTransactionMaxHeldMotionAgeMs"
   | "retainedTexturePageTransactionOutcome"
-  | "retainedTexturePageTransactionPublishedScrollOffset"
-  | "retainedTexturePageTransactionPublishedViewport"
+  | "retainedTexturePageTransactionPresentedScrollOffset"
+  | "retainedTexturePageTransactionPresentedViewport"
   | "retainedTexturePageTrueHoleRectCount"
   | "retainedTexturePageUploadedBytes"
   | "retainedTexturePageUploadedDrawCommandCount"
@@ -532,8 +532,8 @@ function createRetainedTexturePagePerformanceFields(
       retainedTexturePageTransactionHoldReason: null,
       retainedTexturePageTransactionMaxHeldMotionAgeMs: 0,
       retainedTexturePageTransactionOutcome: "none",
-      retainedTexturePageTransactionPublishedScrollOffset: null,
-      retainedTexturePageTransactionPublishedViewport: { x: 0, y: 0, zoom: 1 },
+      retainedTexturePageTransactionPresentedScrollOffset: null,
+      retainedTexturePageTransactionPresentedViewport: { x: 0, y: 0, zoom: 1 },
       retainedTexturePageTrueHoleRectCount: 0,
       retainedTexturePageUploadedBytes: 0,
       retainedTexturePageUploadedDrawCommandCount: 0,
@@ -600,9 +600,9 @@ function createRetainedTexturePagePerformanceFields(
       retainedTexturePages.transactionMaxHeldMotionAgeMs,
     retainedTexturePageTransactionOutcome:
       retainedTexturePages.transactionOutcome,
-    retainedTexturePageTransactionPublishedScrollOffset:
+    retainedTexturePageTransactionPresentedScrollOffset:
       retainedTexturePages.transactionPresentedScrollOffset,
-    retainedTexturePageTransactionPublishedViewport: {
+    retainedTexturePageTransactionPresentedViewport: {
       ...retainedTexturePages.transactionPresentedViewport,
     },
     retainedTexturePageTrueHoleRectCount:

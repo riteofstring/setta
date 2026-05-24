@@ -46,7 +46,7 @@ export function createSurfaceActorSnapshot(
 ): SurfaceActorSnapshot {
   if (input.actor.surfaceId !== input.generation.surfaceId) {
     throw new Error(
-      `Surface actor "${input.actor.surfaceId}" cannot publish generation for "${input.generation.surfaceId}".`,
+      `Surface actor "${input.actor.surfaceId}" cannot snapshot generation for "${input.generation.surfaceId}".`,
     );
   }
   if (

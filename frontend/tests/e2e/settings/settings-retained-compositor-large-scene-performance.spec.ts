@@ -357,11 +357,11 @@ function summarizeRetainedTransactionHoldProbe(probe: unknown): {
       heldCount > 0 &&
       (numericValue(entry.retainedTexturePageTransactionDesiredScrollOffset) !==
         numericValue(
-          entry.retainedTexturePageTransactionPublishedScrollOffset,
+          entry.retainedTexturePageTransactionPresentedScrollOffset,
         ) ||
         !viewportsEqual(
           entry.retainedTexturePageTransactionDesiredViewport,
-          entry.retainedTexturePageTransactionPublishedViewport,
+          entry.retainedTexturePageTransactionPresentedViewport,
         ));
     if (diverged) {
       maxDivergedHeldMotionAgeMs = Math.max(

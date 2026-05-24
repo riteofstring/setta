@@ -79,7 +79,7 @@ export type GpuFlowNodeLayerFrameProbeSummary = {
   readonly missingElementNodeCount: number;
   readonly missingTextureNodeCount: number;
   readonly phaseDiagnostics: {
-    readonly committedContentPublishMs: number;
+    readonly preparedContentPresentationMs: number;
     readonly diagnosticsMs: number;
     readonly domTextActorProjectionMs: number;
     readonly frameMode: string;
@@ -1036,7 +1036,7 @@ function projectionDiagnosticsValue(value: unknown): {
 }
 
 function phaseDiagnosticsValue(value: unknown): {
-  readonly committedContentPublishMs: number;
+  readonly preparedContentPresentationMs: number;
   readonly diagnosticsMs: number;
   readonly domTextActorProjectionMs: number;
   readonly frameMode: string;
@@ -1050,8 +1050,8 @@ function phaseDiagnosticsValue(value: unknown): {
 } {
   const diagnostics = objectValue(value);
   return {
-    committedContentPublishMs: numberValue(
-      diagnostics.committedContentPublishMs,
+    preparedContentPresentationMs: numberValue(
+      diagnostics.preparedContentPresentationMs,
     ),
     diagnosticsMs: numberValue(diagnostics.diagnosticsMs),
     domTextActorProjectionMs: numberValue(diagnostics.domTextActorProjectionMs),

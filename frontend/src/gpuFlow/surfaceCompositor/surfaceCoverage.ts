@@ -133,7 +133,7 @@ export function assertSurfaceCoverageHasNoTrueHoles(
     return;
   }
   throw new Error(
-    `Surface transaction cannot publish ${proof.trueHoleRects.length} true-hole rects.`,
+    `Surface transaction cannot present ${proof.trueHoleRects.length} true-hole rects.`,
   );
 }
 

@@ -346,7 +346,7 @@ function nodeLayerFrame(
     missingElementNodeCount: 0,
     missingTextureNodeCount: 0,
     phaseDiagnostics: {
-      committedContentPublishMs: 0,
+      preparedContentPresentationMs: 0,
       diagnosticsMs: 0,
       domTextActorProjectionMs: 0,
       frameMode: "projection",

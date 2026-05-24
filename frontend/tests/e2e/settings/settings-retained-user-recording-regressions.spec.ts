@@ -381,7 +381,7 @@ function hasProjectionFrameContentWork(
 ): boolean {
   return (
     frame.phaseDiagnostics.frameMode !== "projection" ||
-    frame.phaseDiagnostics.committedContentPublishMs > 0 ||
+    frame.phaseDiagnostics.preparedContentPresentationMs > 0 ||
     frame.phaseDiagnostics.retainedDisplayTransactionMs > 0 ||
     frame.phaseDiagnostics.retainedPageFrameMs > 0 ||
     frame.phaseDiagnostics.retainedPageMaintenanceMs > 0 ||

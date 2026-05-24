@@ -1025,10 +1025,10 @@ export async function readOptionalRetainedCompositorFrameProbe(page: Page) {
             event.retainedTexturePageTransactionMaxHeldMotionAgeMs,
           retainedTexturePageTransactionOutcome:
             event.retainedTexturePageTransactionOutcome,
-          retainedTexturePageTransactionPublishedScrollOffset:
-            event.retainedTexturePageTransactionPublishedScrollOffset,
-          retainedTexturePageTransactionPublishedViewport:
-            event.retainedTexturePageTransactionPublishedViewport,
+          retainedTexturePageTransactionPresentedScrollOffset:
+            event.retainedTexturePageTransactionPresentedScrollOffset,
+          retainedTexturePageTransactionPresentedViewport:
+            event.retainedTexturePageTransactionPresentedViewport,
           retainedTexturePageTrueHoleRectCount:
             event.retainedTexturePageTrueHoleRectCount,
           retainedTexturePageUploadedBytes:

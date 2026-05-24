@@ -270,7 +270,7 @@ export function prepareHtmlSurfaceVisualSceneSubmission({
 }): PreparedHtmlSurfaceRenderSubmission {
   if (!renderer.prepare) {
     throw new Error(
-      "Deferred HTML surface canvas publication requires a renderer with a prepare step.",
+      "Deferred HTML surface canvas submission requires a renderer with a prepare step.",
     );
   }
   return renderer.prepare({

@@ -247,7 +247,7 @@ describe("framePerformance", () => {
         transactionHeldTransactionDurationMs: 12.5,
         transactionHoldReason: "coverage",
         transactionMaxHeldMotionAgeMs: 18.75,
-        transactionOutcome: "published",
+        transactionOutcome: "present-exact",
         transactionPresentedScrollOffset: 12,
         transactionPresentedViewport: { x: 4, y: 5, zoom: 6 },
         trueHoleRectCount: 0,

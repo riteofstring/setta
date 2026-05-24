@@ -601,7 +601,7 @@ export function renderGpuFlowNodeLayerFrame({
   const { canvasSize, layer, nodes, resources } = frameInput;
   const frame = nextFrame(frameRef);
   const renderStartedAt = performance.now();
-  let committedContentPublishMs = 0;
+  let preparedContentPresentationMs = 0;
   let diagnosticsMs = 0;
   let htmlSurfaceFrameMs = 0;
   let retainedDisplayTransactionMs = 0;
@@ -681,7 +681,7 @@ export function renderGpuFlowNodeLayerFrame({
       preparedContentFrame,
       retainedDisplayPresentation,
     }) => {
-      committedContentPublishMs += context.finishPreparedContentFrameMeasure();
+      preparedContentPresentationMs += context.finishPreparedContentFrameMeasure();
       retainedDisplayTransactionMs +=
         retainedDisplayPresentation.retainedDisplayTransactionMs;
       retainedPageMaintenanceMs +=
@@ -867,7 +867,7 @@ export function renderGpuFlowNodeLayerFrame({
           viewportState: viewportStore.getState(),
         }),
         phaseDiagnostics: {
-          committedContentPublishMs,
+          preparedContentPresentationMs,
           diagnosticsMs,
           domTextActorProjectionMs: 0,
           frameMode: "content",
