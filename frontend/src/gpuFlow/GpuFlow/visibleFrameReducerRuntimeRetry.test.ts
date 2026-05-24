@@ -557,7 +557,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     });
   });
 
-  it("lets active DOM control publication preempt motion maintenance", () => {
+  it("lets active DOM control presentation preempt motion maintenance", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const motion = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -730,7 +730,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     });
   });
 
-  it("publishes short non-scroll maintenance content catchup", () => {
+  it("presents short non-scroll maintenance content catchup", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const content = reducerRuntime.selectFrame({
@@ -977,7 +977,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     expect(delayedRetry.debt.maintenance).toBe(true);
   });
 
-  it("defers ordinary manual content catchup immediately after content publishes", () => {
+  it("defers ordinary manual content catchup immediately after content presents", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const content = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,

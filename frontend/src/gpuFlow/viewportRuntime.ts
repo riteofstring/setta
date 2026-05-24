@@ -28,7 +28,7 @@ type GpuFlowViewportRuntimeFrameResult = {
 };
 
 type GpuFlowViewportRuntimeOptions = {
-  readonly observerPublishIntervalMs?: number | undefined;
+  readonly observerSyncIntervalMs?: number | undefined;
   readonly requestFrame?: ((reason: GpuFrameReason) => void) | undefined;
   readonly store: GpuFlowViewportStoreApi;
 };
@@ -78,30 +78,30 @@ type ActiveGpuViewportTransition = {
   readonly to: GpuViewport;
 };
 
-type GpuFlowObserverSnapshotPublishResult = {
+type GpuFlowObserverSnapshotSyncResult = {
   readonly action:
     | "active-interaction-deferred"
     | "not-requested"
-    | "published"
+    | "synced"
     | "throttled";
   readonly elapsedMs: number | null;
-  readonly publishDurationMs: number | null;
+  readonly syncDurationMs: number | null;
 };
 
-const DEFAULT_OBSERVER_PUBLISH_INTERVAL_MS = 500;
-const NO_OBSERVER_SNAPSHOT_PUBLISH: GpuFlowObserverSnapshotPublishResult = {
+const DEFAULT_OBSERVER_SYNC_INTERVAL_MS = 500;
+const NO_OBSERVER_SNAPSHOT_SYNC: GpuFlowObserverSnapshotSyncResult = {
   action: "not-requested",
   elapsedMs: null,
-  publishDurationMs: null,
+  syncDurationMs: null,
 };
 
 export function createGpuFlowViewportRuntime({
-  observerPublishIntervalMs = DEFAULT_OBSERVER_PUBLISH_INTERVAL_MS,
+  observerSyncIntervalMs = DEFAULT_OBSERVER_SYNC_INTERVAL_MS,
   requestFrame,
   store,
 }: GpuFlowViewportRuntimeOptions): GpuFlowViewportRuntime {
   return new DefaultGpuFlowViewportRuntime({
-    observerPublishIntervalMs,
+    observerSyncIntervalMs,
     requestFrame,
     store,
   });
@@ -110,10 +110,10 @@ export function createGpuFlowViewportRuntime({
 class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
   private destroyed = false;
   private frameRequester: ((reason: GpuFrameReason) => void) | undefined;
-  private readonly observerPublishIntervalMs: number;
+  private readonly observerSyncIntervalMs: number;
   private readonly overlayManagers = new Set<GpuFlowViewportOverlayManager>();
   private readonly pendingInputs: PendingGpuViewportInput[] = [];
-  private publishingObserverSnapshot = false;
+  private syncingObserverSnapshot = false;
   private readonly store: GpuFlowViewportStoreApi;
   private transition: ActiveGpuViewportTransition | null = null;
   private transitionCompletionHandle: ReturnType<typeof setTimeout> | null =
@@ -122,19 +122,19 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
   private viewportFramePending = false;
   private viewportFrameRetryHandle: number | null = null;
   private viewport: GpuViewportTuple;
-  private lastObserverPublishMs = Number.NEGATIVE_INFINITY;
+  private lastObserverSyncMs = Number.NEGATIVE_INFINITY;
 
   constructor({
-    observerPublishIntervalMs,
+    observerSyncIntervalMs,
     requestFrame,
     store,
   }: GpuFlowViewportRuntimeOptions & {
-    readonly observerPublishIntervalMs: number;
+    readonly observerSyncIntervalMs: number;
   }) {
     this.frameRequester = requestFrame;
-    this.observerPublishIntervalMs = normalizeFiniteNonNegative(
-      "observer publish interval",
-      observerPublishIntervalMs,
+    this.observerSyncIntervalMs = normalizeFiniteNonNegative(
+      "observer sync interval",
+      observerSyncIntervalMs,
     );
     this.store = store;
     this.viewport = gpuViewportToTuple(store.getState().transform);
@@ -149,7 +149,7 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
     this.unsubscribeStore = this.store.subscribe((state, previousState) => {
       if (
         this.destroyed ||
-        this.publishingObserverSnapshot ||
+        this.syncingObserverSnapshot ||
         state.transform === previousState.transform
       ) {
         return;
@@ -236,7 +236,7 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
         return false;
       }
       this.viewport = nextViewport;
-      this.publishObserverSnapshot({ force: true });
+      this.syncObserverSnapshot({ force: true });
       this.requestViewportFrame();
       return true;
     }
@@ -282,7 +282,7 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
     this.cancelViewportFrameRetry();
     let viewportChanged = false;
     let inputConsumeMs = 0;
-    let observerSnapshotPublish = NO_OBSERVER_SNAPSHOT_PUBLISH;
+    let observerSnapshotSync = NO_OBSERVER_SNAPSHOT_SYNC;
     let overlayMs = 0;
     const inputStats = summarizePendingGpuViewportInputs(
       this.pendingInputs,
@@ -299,7 +299,7 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
       viewportChanged = this.runTransitionFrame(timestampMs) || viewportChanged;
     }
     if (viewportChanged) {
-      observerSnapshotPublish = this.publishObserverSnapshotWhenIdle({
+      observerSnapshotSync = this.syncObserverSnapshotWhenIdle({
         force: false,
         timestampMs,
       });
@@ -308,7 +308,7 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
       inputConsumeMs,
       inputFrame,
       inputStats,
-      observerSnapshotPublish,
+      observerSnapshotSync,
       overlayMs,
       runtimeFrameMs: performanceNow() - frameStartedAtMs,
       transitionFrame,
@@ -321,7 +321,7 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
   }
 
   flushObserverSnapshot(): void {
-    this.publishObserverSnapshot({ force: true });
+    this.syncObserverSnapshot({ force: true });
   }
 
   registerOverlayManager(manager: GpuFlowViewportOverlayManager): () => void {
@@ -404,76 +404,76 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
       this.store
         .getState()
         .setViewportInteractionFlags({ viewportAnimating: false });
-      this.publishObserverSnapshot({ force: true, timestampMs });
+      this.syncObserverSnapshot({ force: true, timestampMs });
       return changed;
     }
     this.requestViewportFrame();
     return changed;
   }
 
-  private publishObserverSnapshot({
+  private syncObserverSnapshot({
     force,
     timestampMs = performanceNow(),
   }: {
     readonly force: boolean;
     readonly timestampMs?: number | undefined;
-  }): GpuFlowObserverSnapshotPublishResult {
-    const elapsedMs = Number.isFinite(this.lastObserverPublishMs)
-      ? timestampMs - this.lastObserverPublishMs
+  }): GpuFlowObserverSnapshotSyncResult {
+    const elapsedMs = Number.isFinite(this.lastObserverSyncMs)
+      ? timestampMs - this.lastObserverSyncMs
       : null;
     if (
       !force &&
       elapsedMs !== null &&
-      elapsedMs < this.observerPublishIntervalMs
+      elapsedMs < this.observerSyncIntervalMs
     ) {
       return {
         action: "throttled",
         elapsedMs: roundChromeReproMs(elapsedMs),
-        publishDurationMs: null,
+        syncDurationMs: null,
       };
     }
-    this.lastObserverPublishMs = timestampMs;
-    this.publishingObserverSnapshot = true;
-    const publishStartedAtMs = performanceNow();
+    this.lastObserverSyncMs = timestampMs;
+    this.syncingObserverSnapshot = true;
+    const syncStartedAtMs = performanceNow();
     try {
       this.store.getState().setTransform(this.viewport);
     } finally {
-      this.publishingObserverSnapshot = false;
+      this.syncingObserverSnapshot = false;
     }
     return {
-      action: "published",
+      action: "synced",
       elapsedMs: elapsedMs === null ? null : roundChromeReproMs(elapsedMs),
-      publishDurationMs: roundChromeReproMs(
-        performanceNow() - publishStartedAtMs,
+      syncDurationMs: roundChromeReproMs(
+        performanceNow() - syncStartedAtMs,
       ),
     };
   }
 
-  private publishObserverSnapshotWhenIdle({
+  private syncObserverSnapshotWhenIdle({
     force,
     timestampMs = performanceNow(),
   }: {
     readonly force: boolean;
     readonly timestampMs?: number | undefined;
-  }): GpuFlowObserverSnapshotPublishResult {
+  }): GpuFlowObserverSnapshotSyncResult {
     if (this.store.getState().viewportInteractionActive) {
-      const elapsedMs = Number.isFinite(this.lastObserverPublishMs)
-        ? timestampMs - this.lastObserverPublishMs
+      const elapsedMs = Number.isFinite(this.lastObserverSyncMs)
+        ? timestampMs - this.lastObserverSyncMs
         : null;
       return {
         action: "active-interaction-deferred",
         elapsedMs: elapsedMs === null ? null : roundChromeReproMs(elapsedMs),
-        publishDurationMs: null,
+        syncDurationMs: null,
       };
     }
-    return this.publishObserverSnapshot({ force, timestampMs });
+    return this.syncObserverSnapshot({ force, timestampMs });
   }
 
   private postViewportRuntimeFrameChromeReproEvent({
     inputConsumeMs,
     inputFrame,
     inputStats,
-    observerSnapshotPublish,
+    observerSnapshotSync,
     overlayMs,
     runtimeFrameMs,
     transitionFrame,
@@ -482,7 +482,7 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
     readonly inputConsumeMs: number;
     readonly inputFrame: boolean;
     readonly inputStats: ReturnType<typeof summarizePendingGpuViewportInputs>;
-    readonly observerSnapshotPublish: GpuFlowObserverSnapshotPublishResult;
+    readonly observerSnapshotSync: GpuFlowObserverSnapshotSyncResult;
     readonly overlayMs: number;
     readonly runtimeFrameMs: number;
     readonly transitionFrame: boolean;
@@ -501,10 +501,10 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
     postChromeReproEvent("gpu-flow-viewport-runtime-frame", {
       inputConsumeMs: roundChromeReproMs(inputConsumeMs),
       inputFrame,
-      observerPublishAction: observerSnapshotPublish.action,
-      observerPublishDurationMs: observerSnapshotPublish.publishDurationMs,
-      observerPublishElapsedMs: observerSnapshotPublish.elapsedMs,
-      observerPublishIntervalMs: this.observerPublishIntervalMs,
+      observerSyncAction: observerSnapshotSync.action,
+      observerSyncDurationMs: observerSnapshotSync.syncDurationMs,
+      observerSyncElapsedMs: observerSnapshotSync.elapsedMs,
+      observerSyncIntervalMs: this.observerSyncIntervalMs,
       overlayMs: roundChromeReproMs(overlayMs),
       publicStoreViewport:
         roundGpuFlowViewportForChromeRepro(publicStoreViewport),
@@ -542,7 +542,7 @@ class DefaultGpuFlowViewportRuntime implements GpuFlowViewportRuntime {
       this.store
         .getState()
         .setViewportInteractionFlags({ viewportAnimating: false });
-      this.publishObserverSnapshot({ force: true });
+      this.syncObserverSnapshot({ force: true });
       this.requestViewportFrame();
     }, transition.durationMs + 50);
   }

@@ -868,7 +868,7 @@ export function GpuFlow({
 
   const handleFrame = useCallback<NonNullable<GpuSurfaceProps["onFrame"]>>(
     (runtime, event) => {
-      const publicationResult = renderGpuFlowSurfaceFrame({
+      const presentationResult = renderGpuFlowSurfaceFrame({
         activeResizeNodeIdRef,
         abortPreparedContentFrame,
         callbacksRef,
@@ -914,7 +914,7 @@ export function GpuFlow({
         viewportRuntime,
         viewportStore,
       });
-      void publicationResult;
+      void presentationResult;
     },
     [
       abortPreparedContentFrame,

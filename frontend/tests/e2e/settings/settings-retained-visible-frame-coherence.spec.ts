@@ -333,7 +333,7 @@ test("browser visual cold-start withholding publishes a blocked shell frame", as
   expect(shellFrame, details).toEqual({
     frameId: BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
     input: "disabled",
-    reason: "browser-visual-publication-blocked-before-first-commit",
+    reason: "browser-visual-presentation-blocked-before-first-presentation",
   });
   expect(identity.visibleDomControlActorIds, details).toEqual([]);
   expect(shellBands.nonblankRatio, details).toBeGreaterThan(0.001);
@@ -380,7 +380,7 @@ async function expectBrowserVisualFaultInjectionBlocksVisibleFramePresentation(
   });
 
   await installBrowserVisualFaultInjection(page, readiness);
-  await triggerBrowserVisualFaultPublication(page);
+  await triggerBrowserVisualFaultPresentation(page);
   const firstBlockedEvent = await waitForBlockedVisibleFramePresentationEvent(
     page,
     {
@@ -758,7 +758,7 @@ async function clearBrowserVisualFaultInjection(page: Page): Promise<void> {
   });
 }
 
-async function triggerBrowserVisualFaultPublication(page: Page): Promise<void> {
+async function triggerBrowserVisualFaultPresentation(page: Page): Promise<void> {
   await setSettingsViewMode(page, "All Settings");
   await requestGpuFlowDebugFrame(page, "resize");
   await page.waitForTimeout(80);
@@ -869,7 +869,7 @@ async function waitForBlockedVisibleFramePresentationEvent(
         eventCount: lastEvents.length,
         eventWindow: lastEvents.slice(eventWindowStart),
         eventWindowStart,
-        browserVisualDebug: await readBrowserVisualPublicationDebug(page),
+        browserVisualDebug: await readBrowserVisualPresentationDebug(page),
         identity: await readVisibleFrameIdentity(page),
         reason,
         retainedFrameProbeWindow: retainedFrameProbe.slice(
@@ -918,7 +918,7 @@ function findBlockedVisibleFramePresentationEvent(
   return null;
 }
 
-async function readBrowserVisualPublicationDebug(page: Page): Promise<unknown> {
+async function readBrowserVisualPresentationDebug(page: Page): Promise<unknown> {
   return await page.evaluate(async () => {
     const faultInjection = (
       await import(

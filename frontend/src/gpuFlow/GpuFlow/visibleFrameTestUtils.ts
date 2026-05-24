@@ -176,7 +176,7 @@ function runGpuFlowVisibleFramePresentationTestTokenKernel({
       frame: createGpuFlowVisibleFramePresentationTestCandidate(),
       kind: "not-rendered",
     }),
-    publish: () => {},
+    onPresentation: () => {},
     sampleVisibleFramePresentation: () =>
       createGpuFlowVisibleFramePresentationTestSample({
         previousVisibleProjectionState,

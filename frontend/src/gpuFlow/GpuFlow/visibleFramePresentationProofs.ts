@@ -660,7 +660,7 @@ function createGpuFlowVisibleFrameReducerCompletionHoldOutcome({
   { readonly kind: "hold-previous" }
 > {
   const heldPreviousProjection =
-    assertGpuFlowHeldPreviousPublicationCompletionMatchesSample({
+    assertGpuFlowHeldPreviousPresentationCompletionMatchesSample({
       reducerDecision,
       visibleProjectionState,
     });
@@ -688,7 +688,7 @@ function createGpuFlowVisibleFrameReducerCompletionHeldPreviousOutcome({
   GpuFlowVisibleFramePresentationOutcome,
   { readonly kind: "blocked" | "hold-previous" }
 > {
-  assertGpuFlowHeldPreviousPublicationCompletionMatchesSample({
+  assertGpuFlowHeldPreviousPresentationCompletionMatchesSample({
     reducerDecision,
     visibleProjectionState,
   });
@@ -722,7 +722,7 @@ function createGpuFlowVisibleFrameReducerCompletionHeldPreviousOutcome({
   };
 }
 
-function assertGpuFlowHeldPreviousPublicationCompletionMatchesSample({
+function assertGpuFlowHeldPreviousPresentationCompletionMatchesSample({
   reducerDecision,
   visibleProjectionState,
 }: {

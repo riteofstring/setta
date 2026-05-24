@@ -469,7 +469,7 @@ export function assertGpuFlowVisibleFramePresentationTokenForFrameId({
     token.preparedContentFrameId !== preparedContentFrameId
   ) {
     throw new Error(
-      `GPU Flow browser visual publication requires a visible frame presentation token for the same visible frame (expected frame ${preparedContentFrameId}, received ${
+      `GPU Flow browser visual presentation requires a visible frame presentation token for the same visible frame (expected frame ${preparedContentFrameId}, received ${
         isGpuFlowVisibleFramePresentationToken(token)
           ? token.preparedContentFrameId
           : "unbranded"

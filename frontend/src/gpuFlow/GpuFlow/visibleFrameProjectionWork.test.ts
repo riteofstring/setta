@@ -36,7 +36,7 @@ describe("GPU Flow visible frame coordinator projection work", () => {
       kind: "motion-projection",
       sample: liveProjectionSample({ id: 30, timestamp: 300 }),
     });
-    let publishedOutcomeKind: string | null = null;
+    let presentedOutcomeKind: string | null = null;
     type TestContentPreparationFrame = {
       readonly blockedPresentationCandidate: null;
       readonly rendered: boolean;
@@ -77,8 +77,8 @@ describe("GPU Flow visible frame coordinator projection work", () => {
           }),
         }),
       }),
-      publish: (transaction) => {
-        publishedOutcomeKind = transaction.outcome.kind;
+      onPresentation: (transaction) => {
+        presentedOutcomeKind = transaction.outcome.kind;
       },
       sampleVisibleFramePresentation: () =>
         visibleFramePresentationSample({
@@ -91,7 +91,7 @@ describe("GPU Flow visible frame coordinator projection work", () => {
     });
 
     expect(result.outcome.kind).toBe("blocked");
-    expect(publishedOutcomeKind).toBe("blocked");
+    expect(presentedOutcomeKind).toBe("blocked");
     if (result.outcome.kind !== "blocked") {
       throw new Error("Expected coordinator blocked outcome.");
     }

@@ -112,7 +112,7 @@ export function reduceGpuFlowVisibleFrameWorkLane({
   readonly reducerPolicy: GpuFlowVisibleFrameStarvationPolicy;
 }): GpuFlowVisibleFrameWorkLane {
   if (
-    shouldPublishGpuFlowBootstrapContentFrame({
+    shouldPresentGpuFlowBootstrapContentFrame({
       hasPresentedContentFrame,
       motionDebt,
     })
@@ -320,7 +320,7 @@ function assertGpuFlowProjectionFrameTransactionRenderable(
   }
 }
 
-function shouldPublishGpuFlowBootstrapContentFrame({
+function shouldPresentGpuFlowBootstrapContentFrame({
   hasPresentedContentFrame,
   motionDebt,
 }: {
@@ -414,7 +414,7 @@ function shouldSelectCurrentGpuFlowMotionWorkLane({
     return false;
   }
   if (
-    hasGpuFlowMotionPublicationCompetingReason({
+    hasGpuFlowMotionPresentationCompetingReason({
       criticalContentDebt,
       hasRetainedMotionReason,
       rawReasons,
@@ -430,7 +430,7 @@ function shouldSelectCurrentGpuFlowMotionWorkLane({
   });
 }
 
-function hasGpuFlowMotionPublicationCompetingReason({
+function hasGpuFlowMotionPresentationCompetingReason({
   criticalContentDebt,
   hasRetainedMotionReason,
   rawReasons,

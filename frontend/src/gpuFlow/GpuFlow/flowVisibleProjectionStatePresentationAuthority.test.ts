@@ -3,14 +3,14 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-const VISIBLE_PROJECTION_PUBLICATION_MODULE_PATH = fileURLToPath(
+const VISIBLE_PROJECTION_PRESENTATION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresentation.ts", import.meta.url),
 );
 
 describe("GPU Flow visible projection state presentation authority", () => {
   it("requires outcome-specific tokens at the visible projection mutator boundary", () => {
     const source = readFileSync(
-      VISIBLE_PROJECTION_PUBLICATION_MODULE_PATH,
+      VISIBLE_PROJECTION_PRESENTATION_MODULE_PATH,
       "utf8",
     );
 
@@ -22,45 +22,45 @@ describe("GPU Flow visible projection state presentation authority", () => {
     expect(source).not.toContain("GpuFlowHoldPreviousToken | null");
   });
 
-  it("guards presented visible projection publication refs and keeps held frames read-only", () => {
+  it("guards presented visible projection presentation refs and keeps held frames read-only", () => {
     const source = readFileSync(
-      VISIBLE_PROJECTION_PUBLICATION_MODULE_PATH,
+      VISIBLE_PROJECTION_PRESENTATION_MODULE_PATH,
       "utf8",
     );
-    const presentedPublisherStart = source.indexOf(
-      "function publishPresentedVisibleProjectionState",
+    const presentedPresenterStart = source.indexOf(
+      "function presentVisibleProjectionState",
     );
-    const heldPublisherStart = source.indexOf(
+    const heldPresenterStart = source.indexOf(
       "function assertGpuFlowHeldPreviousVisibleProjectionState",
     );
-    const presentedPublisherEnd = source.indexOf(
+    const presentedPresenterEnd = source.indexOf(
       "function presentGpuFlowVisibleFramePresentationFrame",
     );
-    const heldPublisherSource = source.slice(
-      heldPublisherStart,
-      presentedPublisherStart,
+    const heldPresenterSource = source.slice(
+      heldPresenterStart,
+      presentedPresenterStart,
     );
-    const presentedPublisherSource = source.slice(
-      presentedPublisherStart,
-      presentedPublisherEnd,
+    const presentedPresenterSource = source.slice(
+      presentedPresenterStart,
+      presentedPresenterEnd,
     );
 
-    expect(presentedPublisherStart).toBeGreaterThanOrEqual(0);
-    expect(heldPublisherStart).toBeGreaterThanOrEqual(0);
-    expect(presentedPublisherEnd).toBeGreaterThan(presentedPublisherStart);
-    expect(presentedPublisherSource).toContain(
+    expect(presentedPresenterStart).toBeGreaterThanOrEqual(0);
+    expect(heldPresenterStart).toBeGreaterThanOrEqual(0);
+    expect(presentedPresenterEnd).toBeGreaterThan(presentedPresenterStart);
+    expect(presentedPresenterSource).toContain(
       "assertGpuFlowVisibleFramePresentationToken",
     );
-    expect(presentedPublisherSource).toContain(
+    expect(presentedPresenterSource).toContain(
       "visibleProjectionStateRef.current = visibleProjectionState",
     );
-    expect(presentedPublisherSource).toContain(
+    expect(presentedPresenterSource).toContain(
       "visibleProjectionPresentationStateRef.current = visibleProjectionState",
     );
-    expect(heldPublisherSource).toContain(
+    expect(heldPresenterSource).toContain(
       "assertGpuFlowHoldPreviousTokenForProjectionSample",
     );
-    expect(heldPublisherSource).not.toContain(
+    expect(heldPresenterSource).not.toContain(
       "visibleProjectionPresentationStateRef.current = visibleProjectionState",
     );
   });

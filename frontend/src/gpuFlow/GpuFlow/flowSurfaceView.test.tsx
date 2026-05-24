@@ -60,7 +60,7 @@ describe("GpuFlowSurfaceView", () => {
     );
     expect(markup).toContain('data-gpu-flow-cold-start-shell-input="disabled"');
     expect(markup).toContain(
-      'data-gpu-flow-cold-start-shell-reason="browser-visual-publication-blocked-before-first-commit"',
+      'data-gpu-flow-cold-start-shell-reason="browser-visual-presentation-blocked-before-first-presentation"',
     );
     expect(markup).toContain("Preparing surface");
     expect(markup).toContain("data-gpu-flow-dom-control-plane");
@@ -74,7 +74,7 @@ function coldStartShellFrame(): GpuFlowColdStartShellFrame {
     id: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
     input: "disabled",
     kind: "cold-start-shell",
-    reason: "browser-visual-publication-blocked-before-first-commit",
+    reason: "browser-visual-presentation-blocked-before-first-presentation",
   };
 }
 

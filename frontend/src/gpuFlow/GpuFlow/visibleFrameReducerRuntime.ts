@@ -44,7 +44,7 @@ import {
   hasCurrentGpuFlowProjectionMotion,
   selectGpuFlowProjectionMotionSettlingState,
   selectGpuFlowProjectionNonMotionReducerState,
-  shouldPublishGpuFlowProjectionContentDebtNow,
+  shouldPresentGpuFlowProjectionContentDebtNow,
 } from "./visibleFrameReducerDebt";
 import {
   createGpuFlowVisibleFrameStarvationPolicy,
@@ -297,7 +297,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       return "maintenance-deferred";
     }
     if (
-      shouldPublishGpuFlowProjectionContentDebtNow({
+      shouldPresentGpuFlowProjectionContentDebtNow({
         contentDebt,
         contentRetryDeferred,
         deferContinuousMotionMaintenance:
@@ -388,7 +388,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
         timestamp,
         viewportInteractionActive,
       }) ||
-      shouldPublishGpuFlowBrowserVisualContentRepairNow({
+      shouldPresentGpuFlowBrowserVisualContentRepairNow({
         browserVisualContentRepairReady,
         contentDebt,
         rawReasons,
@@ -531,7 +531,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     );
   }
 
-  function shouldPublishGpuFlowBrowserVisualContentRepairNow({
+  function shouldPresentGpuFlowBrowserVisualContentRepairNow({
     browserVisualContentRepairReady,
     contentDebt,
     rawReasons,

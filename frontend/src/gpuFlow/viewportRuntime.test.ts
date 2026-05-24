@@ -9,7 +9,7 @@ describe("GpuFlow viewport runtime", () => {
     vi.useRealTimers();
   });
 
-  it("coalesces pan input into one runtime frame before publishing public state", () => {
+  it("coalesces pan input into one runtime frame before syncing public state", () => {
     const store = createGpuFlowViewportStore({
       transform: [0, 0, 1],
     });
@@ -31,7 +31,7 @@ describe("GpuFlow viewport runtime", () => {
     runtime.destroy();
   });
 
-  it("can project overlays through a published sample without mutating the live viewport", () => {
+  it("can project overlays through a synced sample without mutating the live viewport", () => {
     const store = createGpuFlowViewportStore({
       transform: [0, 0, 1],
     });
@@ -56,7 +56,7 @@ describe("GpuFlow viewport runtime", () => {
     runtime.destroy();
   });
 
-  it("does not project overlays before publication applies an explicit sample", () => {
+  it("does not project overlays before observer sync applies an explicit sample", () => {
     const store = createGpuFlowViewportStore({
       transform: [0, 0, 1],
     });
@@ -86,7 +86,7 @@ describe("GpuFlow viewport runtime", () => {
       transform: [0, 0, 1],
     });
     const runtime = createGpuFlowViewportRuntime({
-      observerPublishIntervalMs: 100,
+      observerSyncIntervalMs: 100,
       requestFrame: vi.fn(),
       store,
     });
@@ -111,7 +111,7 @@ describe("GpuFlow viewport runtime", () => {
       transform: [0, 0, 1],
     });
     const runtime = createGpuFlowViewportRuntime({
-      observerPublishIntervalMs: 0,
+      observerSyncIntervalMs: 0,
       requestFrame: vi.fn(),
       store,
     });

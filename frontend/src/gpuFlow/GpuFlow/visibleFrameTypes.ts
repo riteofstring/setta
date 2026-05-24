@@ -47,9 +47,9 @@ function createGpuFlowColdStartShellReason(
 ): string {
   switch (frameId) {
     case GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID:
-      return "browser-visual-publication-blocked-before-first-commit";
+      return "browser-visual-presentation-blocked-before-first-presentation";
     case GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID:
-      return "retained-projection-blocked-before-first-commit";
+      return "retained-projection-blocked-before-first-presentation";
   }
 }
 

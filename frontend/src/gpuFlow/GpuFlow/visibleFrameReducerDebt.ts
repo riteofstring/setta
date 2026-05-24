@@ -95,7 +95,7 @@ export function selectGpuFlowProjectionMotionSettlingState({
     : null;
 }
 
-export function shouldPublishGpuFlowProjectionContentDebtNow({
+export function shouldPresentGpuFlowProjectionContentDebtNow({
   contentDebt,
   contentRetryDeferred,
   deferContinuousMotionMaintenance,

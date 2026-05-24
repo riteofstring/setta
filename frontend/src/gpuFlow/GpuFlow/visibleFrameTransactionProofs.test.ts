@@ -812,7 +812,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     expect(proof.visibleProjectionState).toBe(contentVisibleState);
   });
 
-  it("records motion projection as the visible source when content does not publish", () => {
+  it("records motion projection as the visible source when content does not present", () => {
     const motionVisibleState = visibleProjectionState({
       kind: "motion-projection",
       sample: liveProjectionSample({ id: 41, timestamp: 416 }),
