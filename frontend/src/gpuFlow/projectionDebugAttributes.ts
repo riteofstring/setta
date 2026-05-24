@@ -29,7 +29,7 @@ export function setProjectionDebugAttributes(
   debugState: GpuFlowProjectionDebugState,
   token: GpuFlowVisibleFramePresentationToken,
 ): void {
-  assertGpuFlowProjectionDebugPublicationToken({ debugState, token });
+  assertGpuFlowProjectionDebugPresentationToken({ debugState, token });
   setGpuFlowVisibleFrameIdentityAttributes(element, token);
   element.dataset.gpuFlowPreparedContentFrameId = String(
     debugState.preparedContentFrameId,
@@ -58,7 +58,7 @@ export function setProjectionDebugAttributes(
   element.dataset.gpuFlowProjectionTransactionKind = debugState.transactionKind;
 }
 
-function assertGpuFlowProjectionDebugPublicationToken({
+function assertGpuFlowProjectionDebugPresentationToken({
   debugState,
   token,
 }: {

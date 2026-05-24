@@ -29,8 +29,8 @@ describe("GPU Flow presented surface runtime", () => {
       );
     });
 
-    const token = publicationToken(nextFrame);
-    expect(runtime.publishPresentedContentFrame(token, nextFrame)).toBe(true);
+    const token = presentationToken(nextFrame);
+    expect(runtime.presentContentFrame(token, nextFrame)).toBe(true);
 
     expect(runtime.getPresentedContentFrame()).toBe(nextFrame);
     expect(runtime.getReactSemanticSnapshot().frame).toBe(nextFrame);
@@ -69,16 +69,10 @@ describe("GPU Flow presented surface runtime", () => {
     });
 
     expect(
-      runtime.publishPresentedContentFrame(
-        publicationToken(firstFrame),
-        firstFrame,
-      ),
+      runtime.presentContentFrame(presentationToken(firstFrame), firstFrame),
     ).toBe(true);
     expect(
-      runtime.publishPresentedContentFrame(
-        publicationToken(secondFrame),
-        secondFrame,
-      ),
+      runtime.presentContentFrame(presentationToken(secondFrame), secondFrame),
     ).toBe(true);
 
     expect(runtime.getPresentedContentFrame()).toBe(secondFrame);
@@ -99,10 +93,7 @@ describe("GPU Flow presented surface runtime", () => {
     });
 
     expect(
-      runtime.publishPresentedContentFrame(
-        publicationToken(nextFrame),
-        nextFrame,
-      ),
+      runtime.presentContentFrame(presentationToken(nextFrame), nextFrame),
     ).toBe(true);
     await nextMicrotask();
 
@@ -131,10 +122,8 @@ describe("GPU Flow presented surface runtime", () => {
     });
 
     const transformOnlyFrame = preparedContentFrame({ displayFrameId: 2 });
-    const token = publicationToken(transformOnlyFrame);
-    expect(
-      runtime.publishPresentedContentFrame(token, transformOnlyFrame),
-    ).toBe(false);
+    const token = presentationToken(transformOnlyFrame);
+    expect(runtime.presentContentFrame(token, transformOnlyFrame)).toBe(false);
 
     expect(runtime.getPresentedContentFrame()).toBe(transformOnlyFrame);
     expect(runtime.getReactSemanticSnapshot().frame).toBe(startupFrame);
@@ -150,8 +139,8 @@ describe("GPU Flow presented surface runtime", () => {
   it("advances React semantic presentation metadata for motion-only commits", async () => {
     const frame = preparedContentFrame({ displayFrameId: 1 });
     const runtime = createGpuFlowPresentedSurfaceRuntime(frame);
-    const contentToken = publicationToken(frame);
-    const motionToken = publicationTokenForSample(frame, 2);
+    const contentToken = presentationToken(frame);
+    const motionToken = presentationTokenForSample(frame, 2);
     const presentationIds: string[] = [];
     runtime.subscribeReactSemanticSnapshot(() => {
       const identity = runtime.getReactSemanticSnapshot().presentationIdentity;
@@ -160,10 +149,8 @@ describe("GPU Flow presented surface runtime", () => {
       }
     });
 
-    expect(runtime.publishPresentedContentFrame(contentToken, frame)).toBe(
-      false,
-    );
-    expect(runtime.publishPresentedProjectionIdentity(motionToken)).toBe(true);
+    expect(runtime.presentContentFrame(contentToken, frame)).toBe(false);
+    expect(runtime.presentProjectionIdentity(motionToken)).toBe(true);
 
     expect(runtime.getPresentedContentFrame()).toBe(frame);
     expect(runtime.getReactSemanticSnapshot().presentationIdentity).toEqual({
@@ -183,10 +170,7 @@ describe("GPU Flow presented surface runtime", () => {
     const nextFrame = preparedContentFrame({ displayFrameId: 2 });
 
     expect(() =>
-      runtime.publishPresentedContentFrame(
-        publicationToken(startupFrame),
-        nextFrame,
-      ),
+      runtime.presentContentFrame(presentationToken(startupFrame), nextFrame),
     ).toThrow(/requires a visible frame presentation token/);
   });
 
@@ -208,10 +192,7 @@ describe("GPU Flow presented surface runtime", () => {
     const nextFrame = preparedContentFrame({ displayFrameId: 2 });
 
     expect(() =>
-      runtime.publishPresentedContentFrame(
-        publicationToken(staleFrame),
-        nextFrame,
-      ),
+      runtime.presentContentFrame(presentationToken(staleFrame), nextFrame),
     ).toThrow(/requires a visible frame presentation token/);
   });
 });
@@ -295,11 +276,11 @@ function committedActor(
   } as GpuFlowPreparedContentFrame["actorGenerations"][number];
 }
 
-function publicationToken(frame: GpuFlowPreparedContentFrame) {
-  return publicationTokenForSample(frame, frame.displayFrameId);
+function presentationToken(frame: GpuFlowPreparedContentFrame) {
+  return presentationTokenForSample(frame, frame.displayFrameId);
 }
 
-function publicationTokenForSample(
+function presentationTokenForSample(
   frame: GpuFlowPreparedContentFrame,
   sampleId: number,
 ) {

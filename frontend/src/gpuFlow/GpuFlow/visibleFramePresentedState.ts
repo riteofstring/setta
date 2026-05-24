@@ -111,15 +111,15 @@ export function useGpuFlowPresentedSurfaceFrameState({
               token,
             }),
           frame,
-          publishPresentedContentFrame: ({ frame, token }) =>
-            presentedSurfaceRuntimeRef.current.publishPresentedContentFrame(
+          presentContentFrame: ({ frame, token }) =>
+            presentedSurfaceRuntimeRef.current.presentContentFrame(
               token,
               frame,
             ),
           token,
         });
       presentedContentFrameRef.current = frame;
-      return result.published;
+      return result.presented;
     },
     [],
   );
@@ -145,9 +145,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
         );
       browserVisualRuntime.projectDomControls({ token, viewport });
       browserVisualRuntime.projectDomIslands({ token, viewport });
-      presentedSurfaceRuntimeRef.current.publishPresentedProjectionIdentity(
-        token,
-      );
+      presentedSurfaceRuntimeRef.current.presentProjectionIdentity(token);
     },
     [],
   );

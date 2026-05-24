@@ -134,7 +134,7 @@ export function GpuFlowDomControlPlane({
     browserVisualRuntime.getPreparationSnapshot(),
   );
   const frameIds = snapshot.frameIds;
-  const publicationToken = snapshot.publicationToken;
+  const presentationToken = snapshot.presentationToken;
   const frameIdsRef = useRef(frameIds);
   frameIdsRef.current = frameIds;
   const controlsToMount = snapshot.domControls.mountedControls;
@@ -402,7 +402,7 @@ export function GpuFlowDomControlPlane({
       data-gpu-flow-dom-control-plane-prepared-content-frame-id={
         frameIds.preparedContentFrameId
       }
-      {...getGpuFlowVisibleFrameIdentityDataAttributes(publicationToken)}
+      {...getGpuFlowVisibleFrameIdentityDataAttributes(presentationToken)}
     >
       {controlsToMount.map((control) => {
         const initialStyle = projectGpuFlowDomControlPlaneHost({
@@ -421,7 +421,7 @@ export function GpuFlowDomControlPlane({
             key={control.sourceId}
             onActivate={onActivate}
             presentation="visible"
-            publicationToken={publicationToken}
+            presentationToken={presentationToken}
             renderControl={renderControl}
             setControlCompositionActive={setControlCompositionActive}
             setControlElement={setControlElement}
@@ -449,7 +449,7 @@ export function GpuFlowDomControlPlane({
                 key={control.sourceId}
                 onActivate={undefined}
                 presentation="preparation"
-                publicationToken={null}
+                presentationToken={null}
                 renderControl={renderControl}
                 setControlCompositionActive={setControlCompositionActive}
                 setControlElement={setControlElement}
@@ -624,7 +624,7 @@ function GpuFlowDomControlHost({
   initialStyle,
   onActivate,
   presentation,
-  publicationToken,
+  presentationToken,
   renderControl,
   setControlCompositionActive,
   setControlElement,
@@ -637,7 +637,7 @@ function GpuFlowDomControlHost({
   readonly initialStyle: ReturnType<typeof projectGpuFlowDomControlPlaneHost>;
   readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
   readonly presentation: "preparation" | "visible";
-  readonly publicationToken: GpuFlowVisibleFramePresentationToken | null;
+  readonly presentationToken: GpuFlowVisibleFramePresentationToken | null;
   readonly renderControl: GpuFlowDomControlRenderer;
   readonly setControlCompositionActive: (
     controlId: string,
@@ -670,15 +670,20 @@ function GpuFlowDomControlHost({
       if (element) {
         const nextControl = latestControlRef.current;
         registeredControlRef.current = nextControl;
-        setControlElement(nextControl, element, presentation, publicationToken);
+        setControlElement(
+          nextControl,
+          element,
+          presentation,
+          presentationToken,
+        );
         return;
       }
       const previousControl =
         registeredControlRef.current ?? latestControlRef.current;
       registeredControlRef.current = null;
-      setControlElement(previousControl, null, presentation, publicationToken);
+      setControlElement(previousControl, null, presentation, presentationToken);
     },
-    [presentation, publicationToken, setControlElement],
+    [presentation, presentationToken, setControlElement],
   );
 
   useLayoutEffect(() => {
@@ -687,8 +692,8 @@ function GpuFlowDomControlHost({
       return;
     }
     registeredControlRef.current = control;
-    setControlElement(control, element, presentation, publicationToken);
-  }, [control, presentation, publicationToken, setControlElement]);
+    setControlElement(control, element, presentation, presentationToken);
+  }, [control, presentation, presentationToken, setControlElement]);
 
   useLayoutEffect(() => {
     if (presentation !== "visible" || !control.active) {

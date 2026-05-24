@@ -64,7 +64,7 @@ export function GpuFlowDomIslandLayer({
     browserVisualRuntime.getPreparationSnapshot(),
   );
   const domIslands = snapshot.domIslands.islands;
-  const publicationToken = snapshot.publicationToken;
+  const presentationToken = snapshot.presentationToken;
   const visibleIslandIds = useMemo(
     () => new Set(domIslands.map((island) => island.id)),
     [domIslands],
@@ -133,7 +133,7 @@ export function GpuFlowDomIslandLayer({
         frameIds.preparedContentFrameId
       }
       data-gpu-flow-dom-island-layer="viewport"
-      {...getGpuFlowVisibleFrameIdentityDataAttributes(publicationToken)}
+      {...getGpuFlowVisibleFrameIdentityDataAttributes(presentationToken)}
     >
       {domIslands.map((island) => (
         <div
@@ -143,7 +143,12 @@ export function GpuFlowDomIslandLayer({
           data-gpu-flow-dom-island-kind={island.kind}
           key={island.id}
           ref={(element) =>
-            setDomIslandElement(island.id, element, "visible", publicationToken)
+            setDomIslandElement(
+              island.id,
+              element,
+              "visible",
+              presentationToken,
+            )
           }
           style={getGpuFlowDomIslandInitialStyle({
             island,

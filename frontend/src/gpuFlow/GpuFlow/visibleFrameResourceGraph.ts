@@ -47,7 +47,7 @@ export type GpuFlowVisibleFrameResourceGraphSnapshot = {
 
 type GpuFlowVisibleFramePresentedContentFrameResult = {
   readonly activeEditorPins: readonly string[];
-  readonly published: boolean;
+  readonly presented: boolean;
   readonly releasedCandidateResourceKeys: readonly string[];
   readonly releasedPresentedResourceKeys: readonly string[];
 };
@@ -74,7 +74,7 @@ type GpuFlowVisibleFrameBrowserVisualCandidatePresenter = (input: {
   readonly token: GpuFlowVisibleFramePresentationToken;
 }) => void;
 
-type GpuFlowVisibleFramePresentedContentFramePublisher = (input: {
+type GpuFlowVisibleFramePresentedContentFramePresenter = (input: {
   readonly frame: GpuFlowPreparedContentFrame;
   readonly token: GpuFlowVisibleFramePresentationToken;
 }) => boolean;
@@ -308,12 +308,12 @@ export class GpuFlowVisibleFrameResourceGraph {
   presentPreparedContentFrame({
     presentBrowserVisualCandidate,
     frame,
-    publishPresentedContentFrame,
+    presentContentFrame,
     token,
   }: {
     readonly frame: GpuFlowPreparedContentFrame;
     readonly presentBrowserVisualCandidate: GpuFlowVisibleFrameBrowserVisualCandidatePresenter;
-    readonly publishPresentedContentFrame: GpuFlowVisibleFramePresentedContentFramePublisher;
+    readonly presentContentFrame: GpuFlowVisibleFramePresentedContentFramePresenter;
     readonly token: GpuFlowVisibleFramePresentationToken;
   }): GpuFlowVisibleFramePresentedContentFrameResult {
     const frameId = getGpuFlowPreparedContentFrameId(frame);
@@ -325,7 +325,7 @@ export class GpuFlowVisibleFrameResourceGraph {
       candidate: entry.browserVisualCandidate,
       token,
     });
-    const published = publishPresentedContentFrame({
+    const presented = presentContentFrame({
       frame,
       token,
     });
@@ -364,7 +364,7 @@ export class GpuFlowVisibleFrameResourceGraph {
     this.presentedResourceKeys = nextPresentedResourceKeys;
     return Object.freeze({
       activeEditorPins: entry.activeEditorPins,
-      published,
+      presented,
       releasedCandidateResourceKeys: Object.freeze(
         releasedCandidateResourceKeys,
       ),

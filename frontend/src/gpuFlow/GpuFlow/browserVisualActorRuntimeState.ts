@@ -56,11 +56,11 @@ export function createEmptyBrowserVisualActorRuntimeSnapshot(): GpuFlowBrowserVi
       islands: EMPTY_DOM_ISLANDS,
     }),
     frameIds,
-    publicationToken: null,
+    presentationToken: null,
   });
 }
 
-export function withGpuFlowBrowserVisualSnapshotPublicationToken({
+export function withGpuFlowBrowserVisualSnapshotPresentationToken({
   snapshot,
   token,
 }: {
@@ -69,7 +69,7 @@ export function withGpuFlowBrowserVisualSnapshotPublicationToken({
 }): GpuFlowBrowserVisualActorRuntimeSnapshot {
   return Object.freeze({
     ...snapshot,
-    publicationToken: token,
+    presentationToken: token,
   });
 }
 

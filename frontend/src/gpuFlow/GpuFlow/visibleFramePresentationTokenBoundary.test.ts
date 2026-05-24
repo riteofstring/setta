@@ -32,7 +32,7 @@ const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([
 ]);
 
 describe("GPU Flow visible frame presentation token boundaries", () => {
-  it("keeps raw publication token constructors private to the presentation proof authority", () => {
+  it("keeps raw presentation token constructors private to the presentation proof authority", () => {
     const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
 
     for (const constructorName of TOKEN_CONSTRUCTOR_NAMES) {
@@ -99,7 +99,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
       }
       const relativePath = relativeGpuFlowPath(filePath);
       return [
-        `${relativePath} imports raw publication token constructors ${[
+        `${relativePath} imports raw presentation token constructors ${[
           ...new Set(importedConstructors),
         ].join(", ")}`,
       ];

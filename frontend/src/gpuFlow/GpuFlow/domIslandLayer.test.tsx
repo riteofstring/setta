@@ -51,7 +51,7 @@ describe("GPU Flow DOM island layer", () => {
       transform: [0, 0, 1],
       width: 400,
     });
-    publishBrowserVisualFrame({
+    presentBrowserVisualFrame({
       presentedSurfaceRuntime,
       frame: preparedContentFrame({
         displayFrameId: 1,
@@ -75,7 +75,7 @@ describe("GPU Flow DOM island layer", () => {
     });
     expect(mountedIslandIds()).toEqual(["island-a"]);
 
-    const nextToken = await publishBrowserVisualFrameInAct({
+    const nextToken = await presentBrowserVisualFrameInAct({
       presentedSurfaceRuntime,
       displayFrameId: 2,
       retainedRuntimeFrame: nextRuntimeFrame,
@@ -109,7 +109,7 @@ describe("GPU Flow DOM island layer", () => {
   });
 });
 
-async function publishBrowserVisualFrameInAct({
+async function presentBrowserVisualFrameInAct({
   presentedSurfaceRuntime,
   displayFrameId,
   retainedRuntimeFrame,
@@ -123,14 +123,14 @@ async function publishBrowserVisualFrameInAct({
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly viewportStore: ReturnType<typeof createGpuFlowViewportStore>;
-}): Promise<ReturnType<typeof publicationToken>> {
-  let token: ReturnType<typeof publicationToken> | null = null;
+}): Promise<ReturnType<typeof presentationToken>> {
+  let token: ReturnType<typeof presentationToken> | null = null;
   await act(async () => {
     const frame = preparedContentFrame({
       displayFrameId,
       retainedRuntimeFrame,
     });
-    token = publishBrowserVisualFrame({
+    token = presentBrowserVisualFrame({
       presentedSurfaceRuntime,
       frame,
       viewportRuntime,
@@ -139,13 +139,13 @@ async function publishBrowserVisualFrameInAct({
     await nextMicrotask();
   });
   if (token === null) {
-    throw new Error("Expected DOM island publication token.");
+    throw new Error("Expected DOM island presentation token.");
   }
   return token;
 }
 
 function expectDomIslandPresentationIdentity(
-  token: ReturnType<typeof publicationToken>,
+  token: ReturnType<typeof presentationToken>,
 ): void {
   const layer = document.querySelector<HTMLElement>(
     "[data-gpu-flow-dom-island-layer='viewport']",
@@ -202,7 +202,7 @@ function createMockViewportRuntime(
   } as unknown as GpuFlowViewportRuntime;
 }
 
-function publishBrowserVisualFrame({
+function presentBrowserVisualFrame({
   presentedSurfaceRuntime,
   frame,
   viewportRuntime,
@@ -214,7 +214,7 @@ function publishBrowserVisualFrame({
   readonly frame: GpuFlowPreparedContentFrame;
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly viewportStore: ReturnType<typeof createGpuFlowViewportStore>;
-}): ReturnType<typeof publicationToken> {
+}): ReturnType<typeof presentationToken> {
   const browserVisualRuntime =
     getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
       presentedSurfaceRuntime,
@@ -223,7 +223,7 @@ function publishBrowserVisualFrame({
     viewportRuntime,
     viewportStore,
   });
-  const token = publicationToken(frame);
+  const token = presentationToken(frame);
   const candidate = browserVisualRuntime.prepareContentFrame({
     retainedDisplayFrame: {
       id: frame.displayFrameId,
@@ -231,7 +231,7 @@ function publishBrowserVisualFrame({
     } as RetainedDisplayFrame,
   });
   browserVisualRuntime.commitPreparedBrowserVisualActors({ candidate, token });
-  presentedSurfaceRuntime.publishPresentedContentFrame(token, frame);
+  presentedSurfaceRuntime.presentContentFrame(token, frame);
   return token;
 }
 
@@ -296,7 +296,7 @@ function preparedContentFrame({
   } as unknown as GpuFlowPreparedContentFrame;
 }
 
-function publicationToken(frame: GpuFlowPreparedContentFrame) {
+function presentationToken(frame: GpuFlowPreparedContentFrame) {
   return createGpuFlowVisibleFramePresentationTokenForTest({
     frame,
     projectionSample: {

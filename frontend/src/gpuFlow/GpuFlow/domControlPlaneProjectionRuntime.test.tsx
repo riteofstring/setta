@@ -24,8 +24,8 @@ import {
   mountedRowIds,
   preparationRowIds,
   preparedContentFrame,
-  publicationToken,
-  publishBrowserVisualFrame,
+  presentationToken,
+  presentBrowserVisualFrame,
   retainedDisplayFrame,
   retainedRuntimeFrame,
   stageBrowserVisualCandidate,
@@ -72,7 +72,7 @@ describe("GPU flow DOM control projection runtime", () => {
     applyVisibleGpuFlowDomControlHostPresentation({
       control,
       element,
-      token: publicationToken(frame),
+      token: presentationToken(frame),
     });
 
     expect(element.dataset.gpuFlowDomControl).toBe("true");
@@ -106,7 +106,7 @@ describe("GPU flow DOM control projection runtime", () => {
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrame([control], 1),
     });
-    const token = publicationToken(frame);
+    const token = presentationToken(frame);
     const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: frame.displayFrameId,
@@ -118,7 +118,7 @@ describe("GPU flow DOM control projection runtime", () => {
       token,
     });
 
-    expect(browserVisualRuntime.getSnapshot().publicationToken).toBe(token);
+    expect(browserVisualRuntime.getSnapshot().presentationToken).toBe(token);
     expect(() =>
       browserVisualRuntime.setDomControlElement({
         control,
@@ -156,7 +156,7 @@ describe("GPU flow DOM control projection runtime", () => {
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrame([control], 1),
     });
-    const token = publicationToken(frame);
+    const token = presentationToken(frame);
     const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: frame.displayFrameId,
@@ -223,7 +223,7 @@ describe("GPU flow DOM control projection runtime", () => {
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrame([control], 1),
     });
-    const token = publicationToken(frame);
+    const token = presentationToken(frame);
     const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: frame.displayFrameId,
@@ -253,7 +253,7 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(element.dataset.gpuFlowPresentationId).not.toBe(
       String(token.presentationId),
     );
-    expect(browserVisualRuntime.getSnapshot().publicationToken).toBe(
+    expect(browserVisualRuntime.getSnapshot().presentationToken).toBe(
       projectionToken,
     );
   });
@@ -311,7 +311,7 @@ describe("GPU flow DOM control projection runtime", () => {
     });
 
     act(() => {
-      publishBrowserVisualFrame({
+      presentBrowserVisualFrame({
         presentedSurfaceRuntime,
         frame: preparedContentFrame({
           displayFrameId: 2,
@@ -750,7 +750,7 @@ describe("GPU flow DOM control projection runtime", () => {
         displayFrameId: 2,
         retainedRuntimeFrame: nextRuntimeFrame,
       });
-      publishBrowserVisualFrame({
+      presentBrowserVisualFrame({
         presentedSurfaceRuntime,
         frame,
         viewportRuntime,
@@ -788,7 +788,7 @@ describe("GPU flow DOM control projection runtime", () => {
       transform: [0, 0, 1],
       width: 400,
     });
-    publishBrowserVisualFrame({
+    presentBrowserVisualFrame({
       presentedSurfaceRuntime,
       frame: preparedContentFrame({
         displayFrameId: 1,
@@ -867,7 +867,7 @@ describe("GPU flow DOM control projection runtime", () => {
     await act(async () => {
       browserVisualRuntime.commitPreparedBrowserVisualActors({
         candidate: readyReadiness!,
-        token: publicationToken(
+        token: presentationToken(
           preparedContentFrame({
             displayFrameId: 2,
             retainedRuntimeFrame: nextRuntimeFrame,
@@ -936,7 +936,7 @@ describe("GPU flow DOM control projection runtime", () => {
     ).toBe("blocked-awaiting-snapshot");
     browserVisualRuntime.commitPreparedBrowserVisualActors({
       candidate: firstCandidate,
-      token: publicationToken(
+      token: presentationToken(
         preparedContentFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: firstRuntimeFrame,

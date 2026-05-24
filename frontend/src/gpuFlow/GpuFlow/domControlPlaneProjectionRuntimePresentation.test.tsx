@@ -8,13 +8,13 @@ import {
   createMockViewportRuntime,
   domControl,
   preparedContentFrame,
-  publicationToken,
+  presentationToken,
   retainedDisplayFrame,
   retainedRuntimeFrame,
   stageBrowserVisualCandidate,
 } from "./domControlPlaneProjectionRuntimeTestUtils";
 
-describe("GPU flow DOM control projection runtime publication", () => {
+describe("GPU flow DOM control projection runtime presentation", () => {
   it("marks runtime-projected outside-viewport controls as coverage-required", () => {
     const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
     const controls = Array.from({ length: 80 }, (_, index) =>
@@ -58,7 +58,7 @@ describe("GPU flow DOM control projection runtime publication", () => {
     );
   });
 
-  it("prepares browser visual projection from the publication sample viewport", () => {
+  it("prepares browser visual projection from the presentation sample viewport", () => {
     const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
     const controls = Array.from({ length: 80 }, (_, index) =>
       domControl({ index, value: `value-${index}` }),
@@ -124,7 +124,7 @@ describe("GPU flow DOM control projection runtime publication", () => {
 
     browserVisualRuntime.commitPreparedBrowserVisualActors({
       candidate,
-      token: publicationToken(frame),
+      token: presentationToken(frame),
     });
     await nextMicrotask();
 
@@ -174,7 +174,7 @@ describe("GPU flow DOM control projection runtime publication", () => {
 
     browserVisualRuntime.commitPreparedBrowserVisualActors({
       candidate,
-      token: publicationToken(frame),
+      token: presentationToken(frame),
     });
 
     expect(renderedRuntimeFrameIds).toHaveLength(2);

@@ -14,7 +14,7 @@ type GpuFlowPresentedContentFrame = GpuFlowPreparedContentFrame;
 type GpuFlowReactSemanticSnapshot = {
   readonly frame: GpuFlowPresentedContentFrame;
   readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null;
-  readonly publishCount: number;
+  readonly presentationCount: number;
   readonly renderSignature: string;
 };
 
@@ -23,11 +23,11 @@ type GpuFlowPresentedSurfaceRuntimeListener = () => void;
 export type GpuFlowPresentedSurfaceRuntime = {
   getPresentedContentFrame(): GpuFlowPresentedContentFrame;
   getReactSemanticSnapshot(): GpuFlowReactSemanticSnapshot;
-  publishPresentedContentFrame(
+  presentContentFrame(
     token: GpuFlowVisibleFramePresentationToken,
     frame: GpuFlowPresentedContentFrame,
   ): boolean;
-  publishPresentedProjectionIdentity(
+  presentProjectionIdentity(
     token: GpuFlowVisibleFramePresentationToken,
   ): boolean;
   subscribePresentedContentFrame(
@@ -52,7 +52,7 @@ class DefaultGpuFlowPresentedSurfaceRuntime
     new Set<GpuFlowPresentedSurfaceRuntimeListener>();
   private readonly listeners =
     new Set<GpuFlowPresentedSurfaceRuntimeListener>();
-  private publishCount = 0;
+  private presentationCount = 0;
   private reactSemanticEmitQueued = false;
   private reactSemanticEmitPending = false;
   private semanticSnapshot: GpuFlowReactSemanticSnapshot;
@@ -71,7 +71,7 @@ class DefaultGpuFlowPresentedSurfaceRuntime
     return this.semanticSnapshot;
   }
 
-  publishPresentedContentFrame(
+  presentContentFrame(
     token: GpuFlowVisibleFramePresentationToken,
     frame: GpuFlowPresentedContentFrame,
   ): boolean {
@@ -87,12 +87,12 @@ class DefaultGpuFlowPresentedSurfaceRuntime
       createGpuFlowPresentationIdentityForToken(token);
     this.currentFrame = frame;
     if (renderSignatureChanged) {
-      this.publishCount += 1;
+      this.presentationCount += 1;
     }
     const semanticSnapshotChanged = this.setReactSemanticSnapshot({
       frame: renderSignatureChanged ? frame : this.semanticSnapshot.frame,
       presentationIdentity,
-      publishCount: this.publishCount,
+      presentationCount: this.presentationCount,
       renderSignature,
     });
     this.emitPresentedFrame();
@@ -102,7 +102,7 @@ class DefaultGpuFlowPresentedSurfaceRuntime
     return renderSignatureChanged;
   }
 
-  publishPresentedProjectionIdentity(
+  presentProjectionIdentity(
     token: GpuFlowVisibleFramePresentationToken,
   ): boolean {
     assertGpuFlowVisibleFramePresentationTokenBrand({ token });
@@ -147,7 +147,7 @@ class DefaultGpuFlowPresentedSurfaceRuntime
     return {
       frame,
       presentationIdentity: null,
-      publishCount: this.publishCount,
+      presentationCount: this.presentationCount,
       renderSignature: createGpuFlowPreparedContentFrameRenderSignature(frame),
     };
   }
@@ -213,7 +213,7 @@ function areGpuFlowReactSemanticSnapshotsEqual(
       left.presentationIdentity,
       right.presentationIdentity,
     ) &&
-    left.publishCount === right.publishCount &&
+    left.presentationCount === right.presentationCount &&
     left.renderSignature === right.renderSignature
   );
 }

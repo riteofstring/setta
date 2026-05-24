@@ -88,7 +88,7 @@ export function createPresentedSurfaceRuntimeWithBrowserVisuals({
   readonly viewportStore: ReturnType<typeof createGpuFlowViewportStore>;
 }) {
   const presentedSurfaceRuntime = createGpuFlowPresentedSurfaceRuntime(frame);
-  publishBrowserVisualFrame({
+  presentBrowserVisualFrame({
     presentedSurfaceRuntime,
     frame,
     getRetainedScrollOffset,
@@ -98,7 +98,7 @@ export function createPresentedSurfaceRuntimeWithBrowserVisuals({
   return presentedSurfaceRuntime;
 }
 
-export function publishBrowserVisualFrame({
+export function presentBrowserVisualFrame({
   presentedSurfaceRuntime,
   frame,
   getRetainedScrollOffset,
@@ -124,7 +124,7 @@ export function publishBrowserVisualFrame({
     viewportRuntime,
     viewportStore,
   });
-  const token = publicationToken(frame);
+  const token = presentationToken(frame);
   const candidate = browserVisualRuntime.prepareContentFrame({
     retainedDisplayFrame: retainedDisplayFrame({
       id: frame.displayFrameId,
@@ -132,7 +132,7 @@ export function publishBrowserVisualFrame({
     }),
   });
   browserVisualRuntime.commitPreparedBrowserVisualActors({ candidate, token });
-  presentedSurfaceRuntime.publishPresentedContentFrame(token, frame);
+  presentedSurfaceRuntime.presentContentFrame(token, frame);
 }
 
 export function stageBrowserVisualCandidate({
@@ -212,7 +212,7 @@ export function preparedContentFrame({
   } as unknown as GpuFlowPreparedContentFrame;
 }
 
-export function publicationToken(frame: GpuFlowPreparedContentFrame) {
+export function presentationToken(frame: GpuFlowPreparedContentFrame) {
   return createGpuFlowVisibleFramePresentationTokenForTest({
     frame,
     projectionSample: {

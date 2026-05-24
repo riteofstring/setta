@@ -14,8 +14,8 @@ import {
   domControl,
   mountedRowIds,
   preparedContentFrame,
-  publicationToken,
-  publishBrowserVisualFrame,
+  presentationToken,
+  presentBrowserVisualFrame,
   retainedDisplayFrame,
   retainedRuntimeFrame,
   stageBrowserVisualCandidate,
@@ -117,7 +117,7 @@ describe("GPU flow DOM control projection host publication", () => {
 
     retainedScrollY = 280;
     browserVisualRuntime.projectDomControls({
-      token: publicationToken(
+      token: presentationToken(
         preparedContentFrame({
           displayFrameId: 0,
           retainedRuntimeFrame: retainedRuntimeFrame([]),
@@ -220,7 +220,7 @@ describe("GPU flow DOM control projection host publication", () => {
     });
 
     act(() => {
-      publishBrowserVisualFrame({
+      presentBrowserVisualFrame({
         presentedSurfaceRuntime,
         frame: preparedContentFrame({
           displayFrameId: 2,

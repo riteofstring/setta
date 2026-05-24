@@ -331,14 +331,14 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         presentedCandidates.push(candidate);
       },
       frame: winnerFrame,
-      publishPresentedContentFrame: () => true,
+      presentContentFrame: () => true,
       token,
     });
 
     expect(presentedCandidates).toEqual([winnerCandidate]);
     expect(result).toEqual({
       activeEditorPins: ["winner-control"],
-      published: true,
+      presented: true,
       releasedCandidateResourceKeys: [
         "page:loser-page",
         "dom-control:loser-control",
@@ -403,7 +403,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
           presentedCandidates.push(candidate);
         },
         frame: candidateFrame,
-        publishPresentedContentFrame: () => {
+        presentContentFrame: () => {
           throw new Error("Unexpected presented content preparation.");
         },
         token: createGpuFlowVisibleFramePresentationTokenForTest({
@@ -556,7 +556,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
   });
 
-  it("presents publication-proof resources while retaining optional browser visual debt", () => {
+  it("presents presentation-proof resources while retaining optional browser visual debt", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const frame = preparedContentFrame({
       displayFrameId: 62,
@@ -581,7 +581,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         presentedCandidates.push(candidate);
       },
       frame,
-      publishPresentedContentFrame: () => true,
+      presentContentFrame: () => true,
       token: createGpuFlowVisibleFramePresentationTokenForTest({
         frame,
         projectionSample: liveProjectionSample(62),
@@ -591,7 +591,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     expect(presentedCandidates).toHaveLength(1);
     expect(result).toEqual({
       activeEditorPins: [],
-      published: true,
+      presented: true,
       releasedCandidateResourceKeys: ["dom-control:early-control"],
       releasedPresentedResourceKeys: [],
     });
@@ -983,7 +983,7 @@ function browserVisualCandidate({
         preparedContentFrameId: frameId,
         runtimeFrameId: frameId,
       },
-      publicationToken: null,
+      presentationToken: null,
     },
   } as unknown as GpuFlowBrowserVisualActorCandidate;
 }

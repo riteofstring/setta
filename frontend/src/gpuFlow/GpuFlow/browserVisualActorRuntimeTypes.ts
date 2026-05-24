@@ -29,7 +29,7 @@ export type GpuFlowBrowserVisualActorRuntimeSnapshot = {
     readonly islands: readonly GpuDomIsland[];
   };
   readonly frameIds: GpuFlowBrowserVisualActorRuntimeFrameIds;
-  readonly publicationToken: GpuFlowVisibleFramePresentationToken | null;
+  readonly presentationToken: GpuFlowVisibleFramePresentationToken | null;
 };
 
 export type BrowserVisualActorRuntimeListener = () => void;

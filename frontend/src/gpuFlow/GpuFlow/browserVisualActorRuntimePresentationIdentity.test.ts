@@ -11,7 +11,7 @@ import {
   createMockViewportRuntime,
   domControl,
   preparedContentFrame,
-  publicationToken,
+  presentationToken,
   retainedDisplayFrame,
   retainedRuntimeFrame,
 } from "./domControlPlaneProjectionRuntimeTestUtils";
@@ -45,7 +45,7 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrame([control], 1),
     });
-    const firstToken = publicationToken(firstFrame);
+    const firstToken = presentationToken(firstFrame);
     const firstCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: firstFrame.displayFrameId,
@@ -61,7 +61,7 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
       displayFrameId: 2,
       retainedRuntimeFrame: retainedRuntimeFrame([], 2),
     });
-    const retiredToken = publicationToken(retiredFrame);
+    const retiredToken = presentationToken(retiredFrame);
     const retiredCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: retiredFrame.displayFrameId,
@@ -96,7 +96,7 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrameWithDomIslands([island], 1),
     });
-    const firstToken = publicationToken(firstFrame);
+    const firstToken = presentationToken(firstFrame);
     const firstCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrameInput(firstFrame),
     });
@@ -110,7 +110,7 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
       displayFrameId: 2,
       retainedRuntimeFrame: retainedRuntimeFrameWithDomIslands([], 2),
     });
-    const retiredToken = publicationToken(retiredFrame);
+    const retiredToken = presentationToken(retiredFrame);
     const retiredCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrameInput(retiredFrame),
     });

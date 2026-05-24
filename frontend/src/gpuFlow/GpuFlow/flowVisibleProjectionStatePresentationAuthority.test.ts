@@ -7,7 +7,7 @@ const VISIBLE_PROJECTION_PUBLICATION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresentation.ts", import.meta.url),
 );
 
-describe("GPU Flow visible projection state publication authority", () => {
+describe("GPU Flow visible projection state presentation authority", () => {
   it("requires outcome-specific tokens at the visible projection mutator boundary", () => {
     const source = readFileSync(
       VISIBLE_PROJECTION_PUBLICATION_MODULE_PATH,

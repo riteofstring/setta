@@ -428,7 +428,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     expect(manager.getPreparedContentTexture("node-a")).toBeDefined();
   });
 
-  it("uses outcome-specific publication tokens for transaction-owned release", () => {
+  it("uses outcome-specific presentation tokens for transaction-owned release", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);

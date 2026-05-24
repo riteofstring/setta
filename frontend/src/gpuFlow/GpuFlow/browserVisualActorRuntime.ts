@@ -14,7 +14,7 @@ import {
   isProjectableDomControlAssignment,
   mergeGpuFlowDomControlProjectedControls,
   parkDomControlElement,
-  publishGpuFlowBrowserVisualDomIslandHostPresentation,
+  presentGpuFlowBrowserVisualDomIslandHostPresentation,
   resolveGpuFlowBrowserVisualActorFrameIds,
   resolveGpuFlowBrowserVisualActorProjectionViewport,
   stampGpuFlowVisibleDomControlHostPresentationIdentity,
@@ -37,7 +37,7 @@ import {
   resolveGpuFlowDomControlLiveHostPreparationStage,
   resolveGpuFlowDomControlSnapshotPreparationPool,
   resolveGpuFlowDomControlSnapshotPreparationStage,
-  withGpuFlowBrowserVisualSnapshotPublicationToken,
+  withGpuFlowBrowserVisualSnapshotPresentationToken,
   type GpuFlowDomControlSnapshotTextureManager,
 } from "./browserVisualActorRuntimeState";
 import type {
@@ -144,7 +144,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   private snapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
   private snapshotEmitQueued = false;
   private snapshotEmitPending = false;
-  private snapshotPublicationToken: GpuFlowVisibleFramePresentationToken | null =
+  private snapshotPresentationToken: GpuFlowVisibleFramePresentationToken | null =
     null;
   private suspendPassivePointerActivation = false;
 
@@ -237,7 +237,7 @@ export class GpuFlowBrowserVisualActorRuntime {
         ]),
       }),
       frameIds,
-      publicationToken: null,
+      presentationToken: null,
     });
     const readiness = Object.freeze({
       domControlReadinessByActorId:
@@ -292,11 +292,11 @@ export class GpuFlowBrowserVisualActorRuntime {
     readonly candidate: GpuFlowBrowserVisualActorCandidate;
     readonly token: GpuFlowVisibleFramePresentationToken;
   }): void {
-    const snapshotChanged = this.publishBrowserVisualSnapshot({
+    const snapshotChanged = this.presentBrowserVisualSnapshot({
       nextSnapshot: candidate.snapshot,
       token,
     });
-    this.publishBrowserVisualHostPresentation({
+    this.presentBrowserVisualHostPresentation({
       candidate,
       token,
     });
@@ -503,12 +503,12 @@ export class GpuFlowBrowserVisualActorRuntime {
   }: {
     readonly surface: Pick<GpuSurfaceHandle, "requestFrame"> | null | undefined;
   }): void {
-    if (!surface || !this.snapshotPublicationToken) {
+    if (!surface || !this.snapshotPresentationToken) {
       return;
     }
     assertGpuFlowVisibleFramePresentationTokenForFrameId({
       preparedContentFrameId: this.snapshot.frameIds.preparedContentFrameId,
-      token: this.snapshotPublicationToken,
+      token: this.snapshotPresentationToken,
     });
     surface.requestFrame("texture-upload");
   }
@@ -559,7 +559,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       preparedContentFrameId: this.snapshot.frameIds.preparedContentFrameId,
       projectionInput,
     });
-    this.publishBrowserVisualPresentationIdentity(projectionInput.token);
+    this.presentBrowserVisualPresentationIdentity(projectionInput.token);
     const projectableHostByControlId =
       this.createProjectableDomControlHostMap();
     stampGpuFlowVisibleDomControlHostPresentationIdentity({
@@ -640,7 +640,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       preparedContentFrameId: this.snapshot.frameIds.preparedContentFrameId,
       projectionInput,
     });
-    this.publishBrowserVisualPresentationIdentity(projectionInput.token);
+    this.presentBrowserVisualPresentationIdentity(projectionInput.token);
     stampGpuFlowVisibleDomIslandHostPresentationIdentity({
       elementById: this.domIslandElementById,
       registeredIslandIds:
@@ -658,17 +658,17 @@ export class GpuFlowBrowserVisualActorRuntime {
     });
   }
 
-  private publishBrowserVisualPresentationIdentity(
+  private presentBrowserVisualPresentationIdentity(
     token: GpuFlowVisibleFramePresentationToken,
   ): void {
-    if (this.snapshot.publicationToken === token) {
+    if (this.snapshot.presentationToken === token) {
       return;
     }
-    this.snapshot = withGpuFlowBrowserVisualSnapshotPublicationToken({
+    this.snapshot = withGpuFlowBrowserVisualSnapshotPresentationToken({
       snapshot: this.snapshot,
       token,
     });
-    this.snapshotPublicationToken = token;
+    this.snapshotPresentationToken = token;
     this.scheduleSnapshotEmit();
   }
 
@@ -773,7 +773,7 @@ export class GpuFlowBrowserVisualActorRuntime {
         }),
         domIslands: preparedSnapshot.domIslands,
         frameIds: preparedSnapshot.frameIds,
-        publicationToken: null,
+        presentationToken: null,
       });
     if (
       areBrowserVisualActorRuntimeSnapshotsEqual(
@@ -787,7 +787,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     this.renderBrowserVisualPreparationHosts();
   }
 
-  private publishBrowserVisualSnapshot({
+  private presentBrowserVisualSnapshot({
     nextSnapshot,
     token,
   }: {
@@ -798,18 +798,20 @@ export class GpuFlowBrowserVisualActorRuntime {
       preparedContentFrameId: nextSnapshot.frameIds.preparedContentFrameId,
       token,
     });
-    const publishedSnapshot = withGpuFlowBrowserVisualSnapshotPublicationToken({
-      snapshot: nextSnapshot,
-      token,
-    });
-    this.snapshotPublicationToken = token;
+    const presentedSnapshot = withGpuFlowBrowserVisualSnapshotPresentationToken(
+      {
+        snapshot: nextSnapshot,
+        token,
+      },
+    );
+    this.snapshotPresentationToken = token;
     if (
       areBrowserVisualActorRuntimeSnapshotsEqual(this.snapshot, nextSnapshot)
     ) {
-      this.snapshot = publishedSnapshot;
+      this.snapshot = presentedSnapshot;
       return false;
     }
-    this.snapshot = publishedSnapshot;
+    this.snapshot = presentedSnapshot;
     this.diagnostics = createEmptyDomControlPlaneDiagnostics({
       preparedContentFrameId: nextSnapshot.frameIds.preparedContentFrameId,
       runtimeFrameId: nextSnapshot.frameIds.runtimeFrameId,
@@ -817,7 +819,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     return true;
   }
 
-  private publishBrowserVisualHostPresentation({
+  private presentBrowserVisualHostPresentation({
     candidate,
     token,
   }: {
@@ -829,17 +831,17 @@ export class GpuFlowBrowserVisualActorRuntime {
         candidate.snapshot.frameIds.preparedContentFrameId,
       token,
     });
-    this.publishDomControlHostPresentation({
+    this.presentDomControlHostPresentation({
       snapshot: candidate.snapshot,
       token,
     });
-    this.publishDomIslandHostPresentation({
+    this.presentDomIslandHostPresentation({
       snapshot: candidate.snapshot,
       token,
     });
   }
 
-  private publishDomControlHostPresentation({
+  private presentDomControlHostPresentation({
     snapshot,
     token,
   }: {
@@ -881,14 +883,14 @@ export class GpuFlowBrowserVisualActorRuntime {
     }
   }
 
-  private publishDomIslandHostPresentation({
+  private presentDomIslandHostPresentation({
     snapshot,
     token,
   }: {
     readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
     readonly token: GpuFlowVisibleFramePresentationToken;
   }): void {
-    publishGpuFlowBrowserVisualDomIslandHostPresentation({
+    presentGpuFlowBrowserVisualDomIslandHostPresentation({
       elementById: this.domIslandElementById,
       registrationPreparedContentFrameIdById:
         this.domIslandRegistrationPreparedContentFrameIdById,

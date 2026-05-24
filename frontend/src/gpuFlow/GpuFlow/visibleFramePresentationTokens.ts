@@ -579,7 +579,7 @@ export function assertGpuFlowHoldPreviousTokenBrand({
 }): void {
   if (!isGpuFlowHoldPreviousToken(token)) {
     throw new Error(
-      "GPU Flow held-previous visible frame presentation requires a hold-previous publication token.",
+      "GPU Flow held-previous visible frame presentation requires a hold-previous presentation token.",
     );
   }
 }

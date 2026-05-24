@@ -234,7 +234,7 @@ export function syncGpuFlowBrowserVisualDomIslandLayerStyles({
   }
 }
 
-export function publishGpuFlowBrowserVisualDomIslandHostPresentation({
+export function presentGpuFlowBrowserVisualDomIslandHostPresentation({
   elementById,
   registrationPreparedContentFrameIdById,
   snapshot,
