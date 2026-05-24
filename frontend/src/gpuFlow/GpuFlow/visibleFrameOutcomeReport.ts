@@ -37,7 +37,7 @@ export type GpuFlowVisibleFramePresentationOutcome =
     };
 
 export type GpuFlowVisibleFramePresentationTransactionCompletion = {
-  readonly coldStartShellPublication: GpuFlowColdStartShellPublication;
+  readonly coldStartShellPresentation: GpuFlowColdStartShellPresentation;
   readonly completeReducerFrame: () => GpuFlowVisibleFramePresentationReducerFrameCompletion;
   readonly followUpFrameRequests: readonly GpuFrameReason[];
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -55,7 +55,7 @@ export type GpuFlowVisibleFrameReducerDebtFrameRequest = {
   readonly frameReason: GpuFrameReason;
 };
 
-export type GpuFlowColdStartShellPublication = {
+export type GpuFlowColdStartShellPresentation = {
   readonly frame: GpuFlowColdStartShellFrame | null;
   readonly token: GpuFlowVisibleFramePresentationOutcome["token"];
 };

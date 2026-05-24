@@ -78,10 +78,10 @@ export async function readRetainedSurfaceRowSearchDiagnostics(
           __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: readonly unknown[];
         }
       ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? [];
-    const publicationDebtRequests =
+    const presentationDebtRequests =
       (
         window as typeof window & {
-          __SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__?: readonly {
+          __SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__?: readonly {
             readonly blockedReasons?: readonly {
               readonly actorId?: string | null;
               readonly reason?: string | null;
@@ -112,7 +112,7 @@ export async function readRetainedSurfaceRowSearchDiagnostics(
             readonly reducerState?: string;
           }[];
         }
-      ).__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ ?? [];
+      ).__SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__ ?? [];
     const browserVisualResourceWork =
       (
         window as typeof window & {
@@ -160,7 +160,7 @@ export async function readRetainedSurfaceRowSearchDiagnostics(
       matchingRow: rows.find((row) => row.rowId === target.rowId) ?? null,
       rowCount: rows.length,
       rows: rows.slice(0, 20),
-      publicationDebtRequests: publicationDebtRequests
+      presentationDebtRequests: presentationDebtRequests
         .slice(-8)
         .map((entry) => ({
           blockedReasons: entry.blockedReasons,

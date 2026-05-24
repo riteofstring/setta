@@ -34,7 +34,7 @@ import {
   type GpuFlowRetainedProjectionFrame,
 } from "./visibleFrameProjectionCoverage";
 
-type TestProjectionPublicationFrame = {
+type TestProjectionPresentationFrame = {
   readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly visibleProjectionState: null;
 };
@@ -618,13 +618,13 @@ function resolveGpuFlowProjectionFrameTransaction({
     renderPlan: null,
   };
   const result = runGpuFlowVisibleFrameCoordinator<
-    TestProjectionPublicationFrame,
-    TestProjectionPublicationFrame
+    TestProjectionPresentationFrame,
+    TestProjectionPresentationFrame
   >({
-    prepareContentPreparationFrame: () => testProjectionPublicationFrame(),
+    prepareContentPreparationFrame: () => testProjectionPresentationFrame(),
     prepareMotionProjectionFrame: () => ({
       createBlockedProjectionFrame: ({ blockedPresentationCandidate }) => {
-        return testProjectionPublicationFrame({
+        return testProjectionPresentationFrame({
           blockedPresentationCandidate,
         });
       },
@@ -638,10 +638,10 @@ function resolveGpuFlowProjectionFrameTransaction({
         }),
       renderProjectionFrame: ({ projectionFrameRenderPlan }) => {
         selection.renderPlan = projectionFrameRenderPlan;
-        return testProjectionPublicationFrame();
+        return testProjectionPresentationFrame();
       },
     }),
-    publish: (transaction) => {
+    onPresentation: (transaction) => {
       selection.blockedPresentationCandidate =
         transaction.preparedFrame.motionProjectionFrame.blockedPresentationCandidate;
     },
@@ -679,14 +679,14 @@ function resolveGpuFlowProjectionFrameTransaction({
   };
 }
 
-function testProjectionPublicationFrame({
+function testProjectionPresentationFrame({
   blockedPresentationCandidate = null,
 }: {
   readonly blockedPresentationCandidate?:
     | GpuFlowVisibleFrameBlockedPresentationCandidate
     | null
     | undefined;
-} = {}): TestProjectionPublicationFrame {
+} = {}): TestProjectionPresentationFrame {
   return {
     blockedPresentationCandidate,
     visibleProjectionState: null,

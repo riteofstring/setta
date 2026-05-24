@@ -164,8 +164,8 @@ describe("GPU Flow visible frame coordinator", () => {
           kind: "not-rendered",
         };
       },
-      publish: (transaction) => {
-        phases.push(`publish:${transaction.outcome.kind}`);
+      onPresentation: (transaction) => {
+        phases.push(`onPresentation:${transaction.outcome.kind}`);
       },
       sampleVisibleFramePresentation: () =>
         visibleFramePresentationSample({ sample }),
@@ -175,7 +175,7 @@ describe("GPU Flow visible frame coordinator", () => {
     expect(phases).toEqual([
       "motion:content:viewport=false:defer=false",
       "content:no-motion:viewport=false:defer=false",
-      "publish:present",
+      "onPresentation:present",
     ]);
     expect(result.outcome.kind).toBe("present");
     expect(result.preparedFrame.visibleFrameStateMachineOutcome?.kind).toBe(
@@ -199,7 +199,7 @@ describe("GPU Flow visible frame coordinator", () => {
       }),
     );
     if (result.outcome.kind !== "present") {
-      throw new Error("Expected visible frame publication to present.");
+      throw new Error("Expected visible frame presentation to present.");
     }
     expect(result.outcome.token).toEqual(
       expect.objectContaining({
@@ -276,7 +276,7 @@ describe("GPU Flow visible frame coordinator", () => {
           },
         };
       },
-      publish: () => {},
+      onPresentation: () => {},
       sampleVisibleFramePresentation: () =>
         visibleFramePresentationSample({
           previousVisibleProjectionState,
@@ -341,7 +341,7 @@ describe("GPU Flow visible frame coordinator", () => {
         },
         kind: "not-rendered",
       }),
-      publish: () => {},
+      onPresentation: () => {},
       sampleVisibleFramePresentation: () =>
         visibleFramePresentationSample({ sample }),
       reducerRuntime: scheduler,
@@ -427,7 +427,7 @@ describe("GPU Flow visible frame coordinator", () => {
       },
     },
   ])(
-    "blocks $blockedSource compatible-previous proof before publishing a presentation token",
+    "blocks $blockedSource compatible-previous proof before presenting a presentation token",
     ({ blockedSource, frameInput, reason }) => {
       const scheduler = createGpuFlowVisibleFrameReducerRuntime();
       const sample = liveProjectionSample({ id: 53, timestamp: 530 });
@@ -441,7 +441,7 @@ describe("GPU Flow visible frame coordinator", () => {
         kind: "prepared-content",
         sample,
       });
-      let publishedOutcome: string | null = null;
+      let presentedOutcome: string | null = null;
 
       const result = runPreparedCandidateKernel({
         contentFrame: testPresentationCandidate({
@@ -449,15 +449,15 @@ describe("GPU Flow visible frame coordinator", () => {
           visibleProjectionState: contentVisibleState,
         }),
         previousVisibleProjectionState,
-        publish: (transaction) => {
-          publishedOutcome = transaction.outcome.kind;
+        onPresentation: (transaction) => {
+          presentedOutcome = transaction.outcome.kind;
         },
         sample,
         reducerRuntime: scheduler,
       });
 
       expect(result.outcome.kind).toBe("blocked");
-      expect(publishedOutcome).toBe("blocked");
+      expect(presentedOutcome).toBe("blocked");
       expect(result.preparedFrame.transactionProof.blockedSource).toBe(
         blockedSource,
       );
@@ -949,7 +949,7 @@ function runPreparedCandidateKernel({
   hasPresentedContentFrame = true,
   motionFrame = testPresentationCandidate(),
   previousVisibleProjectionState = null,
-  publish = () => {},
+  onPresentation = () => {},
   rawReasons = ["manual"],
   sample,
   reducerRuntime: scheduler,
@@ -959,12 +959,12 @@ function runPreparedCandidateKernel({
   readonly hasPresentedContentFrame?: boolean;
   readonly motionFrame?: TestPresentationCandidate;
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-  readonly publish?: Parameters<
+  readonly onPresentation?: Parameters<
     typeof runGpuFlowVisibleFrameCoordinator<
       TestPresentationCandidate,
       TestPresentationCandidate
     >
-  >[0]["publish"];
+  >[0]["onPresentation"];
   readonly rawReasons?: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
   readonly reducerRuntime: ReturnType<
@@ -981,7 +981,7 @@ function runPreparedCandidateKernel({
       frame: motionFrame,
       kind: "not-rendered",
     }),
-    publish,
+    onPresentation,
     sampleVisibleFramePresentation: () =>
       visibleFramePresentationSample({
         hasPresentedContentFrame,

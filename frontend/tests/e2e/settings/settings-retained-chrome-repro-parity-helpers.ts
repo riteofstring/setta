@@ -83,14 +83,14 @@ export async function captureRetainedCompositorVisibleClipScreenshot({
   );
 }
 
-export async function waitForRetainedCompositorContentPublicationSettle(
+export async function waitForRetainedCompositorContentPresentationSettle(
   page: Page,
   sampleStartTimeMs: number,
 ): Promise<void> {
   await expect
     .poll(
       () =>
-        readRetainedCompositorContentPublicationSettleState(
+        readRetainedCompositorContentPresentationSettleState(
           page,
           sampleStartTimeMs,
         ),
@@ -100,7 +100,7 @@ export async function waitForRetainedCompositorContentPublicationSettle(
       },
     )
     .toMatchObject({
-      hasSettledContentPublication: true,
+      hasSettledContentPresentation: true,
     });
 }
 
@@ -220,7 +220,7 @@ function isRetainedCompositorClipReady(
   );
 }
 
-async function readRetainedCompositorContentPublicationSettleState(
+async function readRetainedCompositorContentPresentationSettleState(
   page: Page,
   sampleStartTimeMs: number,
 ) {
@@ -229,20 +229,20 @@ async function readRetainedCompositorContentPublicationSettleState(
     .filter((measure) => measure.startTimeMs >= sampleStartTimeMs)
     .map((measure) => measure.detail)
     .filter(isRetainedSurfaceFrameCompletionDetail);
-  const settledContentPublications = surfaceFrameCompletions.filter(
-    isSettledRetainedContentPublicationCompletion,
+  const settledContentPresentations = surfaceFrameCompletions.filter(
+    isSettledRetainedContentPresentationCompletion,
   );
   return {
-    hasSettledContentPublication: settledContentPublications.length > 0,
+    hasSettledContentPresentation: settledContentPresentations.length > 0,
     latestCompletion:
       surfaceFrameCompletions[surfaceFrameCompletions.length - 1] ?? null,
-    settledContentPublicationCount: settledContentPublications.length,
+    settledContentPresentationCount: settledContentPresentations.length,
   };
 }
 
 type RetainedSurfaceFrameCompletionDetail = {
   readonly contentBlocked?: boolean | undefined;
-  readonly contentPresentedSurfacePublished?: boolean | undefined;
+  readonly contentSurfacePresented?: boolean | undefined;
   readonly contentDebt?: boolean | undefined;
   readonly contentRendered?: boolean | undefined;
   readonly frame?: number | undefined;
@@ -263,13 +263,13 @@ function isRetainedSurfaceFrameCompletionDetail(
   );
 }
 
-function isSettledRetainedContentPublicationCompletion(
+function isSettledRetainedContentPresentationCompletion(
   detail: RetainedSurfaceFrameCompletionDetail,
 ): boolean {
   return (
     detail.lane === "content" &&
     detail.contentRendered === true &&
-    detail.contentPresentedSurfacePublished === true &&
+    detail.contentSurfacePresented === true &&
     detail.contentBlocked === false
   );
 }

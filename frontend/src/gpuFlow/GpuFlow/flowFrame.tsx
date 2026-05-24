@@ -66,7 +66,7 @@ import {
 } from "./flowFrameInteractionState";
 import {
   type GpuFlowNodeLayerFramePerformanceReport,
-  type GpuFlowNodeLayerFrameStatePublication,
+  type GpuFlowNodeLayerFrameStatePresentation,
 } from "./flowFrameLifecycle";
 import { combineGpuFlowHtmlSurfaceNativeVisuals } from "./flowFrameVisuals";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
@@ -890,7 +890,7 @@ export function renderGpuFlowNodeLayerFrame({
         viewport: liveProjectionSample.viewport,
         viewportFrame,
       };
-      const nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication =
+      const nodeLayerFrameStatePresentation: GpuFlowNodeLayerFrameStatePresentation =
         {
           callbacksRef,
           layerResult: combinedLayerResult,
@@ -909,7 +909,7 @@ export function renderGpuFlowNodeLayerFrame({
         };
       return createContentPreparationFrameResultForVisibleProjectionState({
         preparedContentFramePresentation,
-        nodeLayerFrameStatePublication,
+        nodeLayerFrameStatePresentation,
         retainedDisplayFrame: context.presentedRetainedFrame,
         retainedRuntimeFrame: context.presentedRetainedRuntimeFrame,
         visibleProjectionState,

@@ -505,7 +505,7 @@ function runPreparedCandidateCoordinator({
   hasPresentedContentFrame = true,
   motionFrame = testPresentationCandidate(),
   previousVisibleProjectionState = null,
-  publish = () => {},
+  onPresentation = () => {},
   rawReasons = ["manual"],
   sample,
   reducerRuntime: scheduler,
@@ -515,12 +515,12 @@ function runPreparedCandidateCoordinator({
   readonly hasPresentedContentFrame?: boolean;
   readonly motionFrame?: TestPresentationCandidate;
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-  readonly publish?: Parameters<
+  readonly onPresentation?: Parameters<
     typeof runGpuFlowVisibleFrameCoordinator<
       TestPresentationCandidate,
       TestPresentationCandidate
     >
-  >[0]["publish"];
+  >[0]["onPresentation"];
   readonly rawReasons?: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
   readonly reducerRuntime: ReturnType<
@@ -537,7 +537,7 @@ function runPreparedCandidateCoordinator({
       frame: motionFrame,
       kind: "not-rendered",
     }),
-    publish,
+    onPresentation,
     sampleVisibleFramePresentation: () =>
       visibleFramePresentationSample({
         hasPresentedContentFrame,

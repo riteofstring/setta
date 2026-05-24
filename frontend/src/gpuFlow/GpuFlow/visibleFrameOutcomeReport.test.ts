@@ -31,7 +31,7 @@ describe("GPU Flow visible frame outcome report", () => {
         frame: noVisibleFramePresentationCandidate(),
         kind: "not-rendered",
       }),
-      publish: () => {},
+      onPresentation: () => {},
       sampleVisibleFramePresentation: () =>
         visibleFramePresentationSample({
           previousVisibleProjectionState: previousHeldVisibleProjectionState(),
@@ -75,7 +75,7 @@ describe("GPU Flow visible frame outcome report", () => {
         frame: noVisibleFramePresentationCandidate(),
         kind: "not-rendered",
       }),
-      publish: () => {},
+      onPresentation: () => {},
       sampleVisibleFramePresentation: () =>
         visibleFramePresentationSample({
           sample: liveProjectionSample({ id: 9, timestamp: 9 }),
@@ -86,7 +86,7 @@ describe("GPU Flow visible frame outcome report", () => {
     expect(result.followUpFrameRequests).toEqual(["texture-upload"]);
   });
 
-  it("returns cold-start shell publication from coordinator completion", () => {
+  it("returns cold-start shell presentation from coordinator completion", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const result = runGpuFlowVisibleFrameCoordinator({
       prepareContentPreparationFrame: () =>
@@ -95,7 +95,7 @@ describe("GPU Flow visible frame outcome report", () => {
         frame: noVisibleFramePresentationCandidate(),
         kind: "not-rendered",
       }),
-      publish: () => {},
+      onPresentation: () => {},
       sampleVisibleFramePresentation: () =>
         visibleFramePresentationSample({
           hasPresentedContentFrame: false,
@@ -104,10 +104,10 @@ describe("GPU Flow visible frame outcome report", () => {
       reducerRuntime: scheduler,
     });
 
-    expect(result.coldStartShellPublication.frame?.kind).toBe(
+    expect(result.coldStartShellPresentation.frame?.kind).toBe(
       "cold-start-shell",
     );
-    expect(result.coldStartShellPublication.token).toBe(result.outcome.token);
+    expect(result.coldStartShellPresentation.token).toBe(result.outcome.token);
   });
 });
 

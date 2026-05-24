@@ -19,7 +19,7 @@ import {
   requireRetainedCompositorViewportSample,
   SECTION_SIZING_SURFACE_ID,
   setRetainedCompositorViewport,
-  waitForRetainedCompositorContentPublicationSettle,
+  waitForRetainedCompositorContentPresentationSettle,
 } from "./settings-retained-chrome-repro-parity-helpers";
 import {
   centerRetainedCompositorSurface,
@@ -572,7 +572,7 @@ async function captureChromeReproParitySample({
     await centerRetainedCompositorSurface(page, SECTION_SIZING_SURFACE_ID);
   }
   await waitForRetainedCompositorVisibleDomPublication(page);
-  await waitForRetainedCompositorContentPublicationSettle(
+  await waitForRetainedCompositorContentPresentationSettle(
     page,
     sampleStartTimeMs,
   );

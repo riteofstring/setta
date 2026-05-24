@@ -168,7 +168,7 @@ type GpuFlowVisibleFramePresentationMotionFramePreparer<
   readonly presentationFrameContext: GpuFlowVisibleFramePresentationFrameContext;
 }) => GpuFlowMotionProjectionFramePreparation<MotionProjectionFrame>;
 
-type GpuFlowVisibleFramePresentationPublisher<
+type GpuFlowVisibleFramePresentationObserver<
   PreparedFrame extends GpuFlowVisibleFramePresentationPreparedFrame,
 > = (transaction: GpuFlowVisibleFrameCoordinatorResult<PreparedFrame>) => void;
 
@@ -193,8 +193,8 @@ type GpuFlowVisibleFrameCoordinatorInput<
   readonly presentationRuntime?:
     | GpuFlowVisibleFramePresentationRuntime
     | undefined;
-  readonly publish?:
-    | GpuFlowVisibleFramePresentationPublisher<
+  readonly onPresentation?:
+    | GpuFlowVisibleFramePresentationObserver<
         GpuFlowVisibleFramePresentationPreparedCandidateSetFrame<
           ContentPreparationFrame,
           MotionProjectionFrame
@@ -224,7 +224,7 @@ export function runGpuFlowVisibleFrameCoordinator<
   prepareVisibleFrameResourcesForBudget,
   budgetBroker,
   presentationRuntime,
-  publish,
+  onPresentation,
   reducerRuntime,
   sampleVisibleFramePresentation,
 }: GpuFlowVisibleFrameCoordinatorInput<
@@ -247,9 +247,9 @@ export function runGpuFlowVisibleFrameCoordinator<
     reducerRuntime,
     sampledPresentation,
   });
-  return publishGpuFlowVisibleFramePresentationOutcome({
+  return presentGpuFlowVisibleFramePresentationOutcome({
     presentationRuntime,
-    publish,
+    onPresentation,
     transaction,
   });
 }
@@ -613,18 +613,18 @@ function shouldDeferGpuFlowResolutionUpdatesForFrame({
   );
 }
 
-function publishGpuFlowVisibleFramePresentationOutcome<
+function presentGpuFlowVisibleFramePresentationOutcome<
   PreparedFrame extends GpuFlowVisibleFramePresentationPreparedFrame,
 >({
   presentationRuntime,
-  publish,
+  onPresentation,
   transaction,
 }: {
   readonly presentationRuntime?:
     | GpuFlowVisibleFramePresentationRuntime
     | undefined;
-  readonly publish?:
-    | GpuFlowVisibleFramePresentationPublisher<PreparedFrame>
+  readonly onPresentation?:
+    | GpuFlowVisibleFramePresentationObserver<PreparedFrame>
     | undefined;
   readonly transaction: GpuFlowVisibleFrameCoordinatorResult<PreparedFrame>;
 }): GpuFlowVisibleFrameCoordinatorResult<PreparedFrame> {
@@ -636,7 +636,7 @@ function publishGpuFlowVisibleFramePresentationOutcome<
       >[0]["presentationTransaction"],
     });
   }
-  publish?.(transaction);
+  onPresentation?.(transaction);
   return transaction;
 }
 

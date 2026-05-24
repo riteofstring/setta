@@ -33,7 +33,7 @@ function createTestVisibleFramePresentationBoundary(
     });
 }
 
-describe("GPU Flow surface publication completion", () => {
+describe("GPU Flow surface presentation completion", () => {
   it("records held-previous diagnostics without advancing presented visible projection state", () => {
     const committedState = visibleProjectionState({
       displayFrameId: 7,
@@ -59,9 +59,9 @@ describe("GPU Flow surface publication completion", () => {
       projectPresentedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
-      publishColdStartShellFrame: () => {
+      presentColdStartShellFrame: () => {
         throw new Error(
-          "Held-previous publication must not mutate shell state.",
+          "Held-previous presentation must not mutate shell state.",
         );
       },
       retainedDisplayFrameRef: { current: null },
@@ -84,10 +84,10 @@ describe("GPU Flow surface publication completion", () => {
     presentationBoundary(
       heldPreviousPresentationTransaction({
         heldState,
-        nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
+        nodeLayerFrameStatePresentation: nodeLayerFrameStatePresentation({
           submitCanvas: () => {
             throw new Error(
-              "Held-previous publication must not submit prepared canvas work.",
+              "Held-previous presentation must not submit prepared canvas work.",
             );
           },
           submitDomTransforms,
@@ -102,7 +102,7 @@ describe("GPU Flow surface publication completion", () => {
     expect(submitDomTransforms).not.toHaveBeenCalled();
   });
 
-  it("does not complete reducer debt when committed publication fails before visibility advances", () => {
+  it("does not complete reducer debt when committed presentation fails before visibility advances", () => {
     const preparedContentFrame = createPreparedContentFrame({
       displayFrameId: 12,
     });
@@ -128,8 +128,8 @@ describe("GPU Flow surface publication completion", () => {
       projectPresentedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
-      publishColdStartShellFrame: () => {
-        throw new Error("Unexpected cold-start shell publication.");
+      presentColdStartShellFrame: () => {
+        throw new Error("Unexpected cold-start shell presentation.");
       },
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
@@ -157,7 +157,7 @@ describe("GPU Flow surface publication completion", () => {
       presentationBoundary(
         committedPresentationTransaction({
           preparedContentFrame,
-          nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
+          nodeLayerFrameStatePresentation: nodeLayerFrameStatePresentation({
             submitCanvas,
           }),
           onCompleteSchedulerFrame: () => {
@@ -194,7 +194,7 @@ describe("GPU Flow surface publication completion", () => {
     const submitDomTransforms = vi.fn(() => {
       visibleMutationOrder.push("dom-transform");
     });
-    const publishColdStartShellFrame = vi.fn();
+    const presentColdStartShellFrame = vi.fn();
     const validatePreparedContentFrame = vi.fn(() => {
       visibleMutationOrder.push("validate");
     });
@@ -213,7 +213,7 @@ describe("GPU Flow surface publication completion", () => {
         return true;
       },
       projectPresentedBrowserVisualActors: () => {},
-      publishColdStartShellFrame,
+      presentColdStartShellFrame,
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
@@ -233,7 +233,7 @@ describe("GPU Flow surface publication completion", () => {
     presentationBoundary(
       committedPresentationTransaction({
         preparedContentFrame,
-        nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
+        nodeLayerFrameStatePresentation: nodeLayerFrameStatePresentation({
           submitCanvas,
           submitDomTransforms,
         }),
@@ -252,7 +252,7 @@ describe("GPU Flow surface publication completion", () => {
       "dom-transform",
       "present",
     ]);
-    expect(publishColdStartShellFrame).toHaveBeenCalledWith({
+    expect(presentColdStartShellFrame).toHaveBeenCalledWith({
       frame: null,
       token,
     });
@@ -287,7 +287,7 @@ describe("GPU Flow surface publication completion", () => {
       },
       presentPreparedContentFrame,
       projectPresentedBrowserVisualActors,
-      publishColdStartShellFrame: () => {},
+      presentColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
@@ -310,7 +310,7 @@ describe("GPU Flow surface publication completion", () => {
       presentationBoundary(
         committedPresentationTransaction({
           preparedContentFrame,
-          nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
+          nodeLayerFrameStatePresentation: nodeLayerFrameStatePresentation({
             submitCanvas: () => {
               throw new Error("canvas submission failed");
             },
@@ -350,7 +350,7 @@ describe("GPU Flow surface publication completion", () => {
       callbacksRef: { current: null },
       presentPreparedContentFrame: () => true,
       projectPresentedBrowserVisualActors: () => {},
-      publishColdStartShellFrame: () => {},
+      presentColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
@@ -408,7 +408,7 @@ describe("GPU Flow surface publication completion", () => {
       callbacksRef: { current: null },
       presentPreparedContentFrame: () => true,
       projectPresentedBrowserVisualActors: () => {},
-      publishColdStartShellFrame: () => {},
+      presentColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
@@ -512,7 +512,7 @@ describe("GPU Flow surface publication completion", () => {
       callbacksRef: { current: null },
       presentPreparedContentFrame: () => true,
       projectPresentedBrowserVisualActors: () => {},
-      publishColdStartShellFrame: () => {},
+      presentColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
@@ -604,8 +604,8 @@ describe("GPU Flow surface publication completion", () => {
       projectPresentedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
-      publishColdStartShellFrame: () => {
-        throw new Error("Blocked publication must not mutate shell state.");
+      presentColdStartShellFrame: () => {
+        throw new Error("Blocked presentation must not mutate shell state.");
       },
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
@@ -688,7 +688,7 @@ describe("GPU Flow surface publication completion", () => {
       projectPresentedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
-      publishColdStartShellFrame: () => {},
+      presentColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
@@ -774,7 +774,7 @@ describe("GPU Flow surface publication completion", () => {
       projectPresentedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
-      publishColdStartShellFrame: () => {},
+      presentColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
@@ -830,15 +830,15 @@ describe("GPU Flow surface publication completion", () => {
 
 function heldPreviousPresentationTransaction({
   heldState,
-  nodeLayerFrameStatePublication = null,
+  nodeLayerFrameStatePresentation = null,
   previousContentFrameId,
 }: {
   readonly heldState: GpuFlowVisibleProjectionState;
-  readonly nodeLayerFrameStatePublication?: unknown;
+  readonly nodeLayerFrameStatePresentation?: unknown;
   readonly previousContentFrameId: number;
 }): GpuFlowSurfacePresentationTransaction {
   return {
-    coldStartShellPublication: null,
+    coldStartShellPresentation: null,
     completeReducerFrame: () => ({
       completion: {
         debt: {
@@ -867,12 +867,12 @@ function heldPreviousPresentationTransaction({
         blockedPreservePreparationSnapshot: false,
         preparedContentFrame: null,
         heldPreparedContentFrame: null,
-        nodeLayerFrameStatePublication: null,
+        nodeLayerFrameStatePresentation: null,
         retainedDisplayFrame: null,
         retainedRuntimeFrame: null,
       },
       motionProjectionFrame: {
-        nodeLayerFrameStatePublication,
+        nodeLayerFrameStatePresentation,
       },
       transactionProof: null,
       visibleProjectionState: heldState,
@@ -891,7 +891,7 @@ function committedPresentationTransaction({
   preparedContentFrame,
   debtFrameRequest = null,
   followUpFrameRequests = [],
-  nodeLayerFrameStatePublication = null,
+  nodeLayerFrameStatePresentation = null,
   onCompleteSchedulerFrame,
   reducerCompletion = {
     debt: {
@@ -907,7 +907,7 @@ function committedPresentationTransaction({
   readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly debtFrameRequest?: unknown;
   readonly followUpFrameRequests?: readonly string[];
-  readonly nodeLayerFrameStatePublication?: unknown;
+  readonly nodeLayerFrameStatePresentation?: unknown;
   readonly onCompleteSchedulerFrame: () => void;
   readonly reducerCompletion?: unknown;
   readonly selectedState: GpuFlowVisibleProjectionState;
@@ -916,7 +916,7 @@ function committedPresentationTransaction({
   >;
 }): GpuFlowSurfacePresentationTransaction {
   return {
-    coldStartShellPublication: {
+    coldStartShellPresentation: {
       frame: null,
       token,
     },
@@ -945,12 +945,12 @@ function committedPresentationTransaction({
         blockedPreservePreparationSnapshot: false,
         preparedContentFrame: preparedContentFrame,
         heldPreparedContentFrame: null,
-        nodeLayerFrameStatePublication,
+        nodeLayerFrameStatePresentation,
         retainedDisplayFrame: null,
         retainedRuntimeFrame: null,
       },
       motionProjectionFrame: {
-        nodeLayerFrameStatePublication: null,
+        nodeLayerFrameStatePresentation: null,
       },
       transactionProof: null,
       visibleProjectionState: selectedState,
@@ -966,7 +966,7 @@ function committedPresentationTransaction({
   } as unknown as GpuFlowSurfacePresentationTransaction;
 }
 
-function nodeLayerFrameStatePublication({
+function nodeLayerFrameStatePresentation({
   submitCanvas,
   submitDomTransforms,
 }: {
@@ -1059,7 +1059,7 @@ function blockedPresentationTransaction({
   >;
 }): GpuFlowSurfacePresentationTransaction {
   return {
-    coldStartShellPublication: null,
+    coldStartShellPresentation: null,
     completeReducerFrame: () => ({
       completion: reducerCompletion,
       debtFrameRequest,
@@ -1078,12 +1078,12 @@ function blockedPresentationTransaction({
         blockedPreservePreparationSnapshot,
         preparedContentFrame: null,
         heldPreparedContentFrame: null,
-        nodeLayerFrameStatePublication: null,
+        nodeLayerFrameStatePresentation: null,
         retainedDisplayFrame: null,
         retainedRuntimeFrame: null,
       },
       motionProjectionFrame: {
-        nodeLayerFrameStatePublication: null,
+        nodeLayerFrameStatePresentation: null,
       },
       transactionProof: null,
       visibleProjectionState: null,

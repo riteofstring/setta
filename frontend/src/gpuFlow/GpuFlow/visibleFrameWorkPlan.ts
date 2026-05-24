@@ -114,7 +114,7 @@ export function shouldSkipGpuFlowDeferredContentPreparationFrame({
 }: {
   readonly canReusePreparedFrame: boolean;
   readonly hasPreparedFrame: boolean;
-  readonly hasUnpublishedPreparedSourceFrame: boolean;
+  readonly hasUnpresentedPreparedSourceFrame: boolean;
   readonly shouldConsiderDeferredPreparation: boolean;
 }): boolean {
   return shouldConsiderDeferredPreparation;

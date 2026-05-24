@@ -1,6 +1,6 @@
 import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
-import type { GpuFlowNodeLayerFrameStatePublication } from "./flowFrameLifecycle";
+import type { GpuFlowNodeLayerFrameStatePresentation } from "./flowFrameLifecycle";
 import type { GpuFlowVisibleFrameBlockedPresentationCandidate } from "./visibleFrameContentPlan";
 import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 
@@ -40,30 +40,30 @@ export type GpuFlowVisibleFramePresentationEvidence = {
 };
 
 export function createGpuFlowVisibleFramePresentationEvidence({
-  nodeLayerFrameStatePublication,
+  nodeLayerFrameStatePresentation,
   visibleProjectionState,
 }: {
-  readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly nodeLayerFrameStatePresentation: GpuFlowNodeLayerFrameStatePresentation | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): GpuFlowVisibleFramePresentationEvidence | null {
   if (
-    nodeLayerFrameStatePublication?.layerResult.canvasSubmission === null ||
-    nodeLayerFrameStatePublication?.layerResult.canvasSubmission === undefined
+    nodeLayerFrameStatePresentation?.layerResult.canvasSubmission === null ||
+    nodeLayerFrameStatePresentation?.layerResult.canvasSubmission === undefined
   ) {
     return null;
   }
   const domTransformSubmission =
-    nodeLayerFrameStatePublication.layerResult.domTransformSubmission ?? null;
+    nodeLayerFrameStatePresentation.layerResult.domTransformSubmission ?? null;
   const textureEvictionSubmission =
-    nodeLayerFrameStatePublication.layerResult.textureEvictionSubmission ??
+    nodeLayerFrameStatePresentation.layerResult.textureEvictionSubmission ??
     null;
   return Object.freeze({
     canvasGenerationEvidence:
       createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
         preparedContentFrame: visibleProjectionState.preparedContentFrame,
-        drawnNodeIds: nodeLayerFrameStatePublication.layerResult.drawnNodeIds,
+        drawnNodeIds: nodeLayerFrameStatePresentation.layerResult.drawnNodeIds,
         missingTextureNodeIds:
-          nodeLayerFrameStatePublication.layerResult.missingTextureNodeIds,
+          nodeLayerFrameStatePresentation.layerResult.missingTextureNodeIds,
         projectionSampleId: visibleProjectionState.sample.id,
         projectionTransactionId: visibleProjectionState.transaction.id,
       }),

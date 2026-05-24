@@ -326,14 +326,14 @@ function emitGpuFlowBrowserVisualStarvationReports({
 
 export function recordGpuFlowBlockedVisibleFramePresentation({
   frame,
-  publicationCompletion,
+  presentationCompletion,
   reducerDecision,
   runtimeCanvas,
   stateMachineOutcome = null,
   token,
 }: {
   readonly frame: GpuFlowPreparedContentFrame | null;
-  readonly publicationCompletion: GpuFlowVisibleFrameReducerCompletion;
+  readonly presentationCompletion: GpuFlowVisibleFrameReducerCompletion;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly stateMachineOutcome?:
@@ -349,7 +349,7 @@ export function recordGpuFlowBlockedVisibleFramePresentation({
     projectionSampleId: reducerDecision.sample.id,
     token,
   });
-  if (publicationCompletion.outcome !== "blocked") {
+  if (presentationCompletion.outcome !== "blocked") {
     throw new Error(
       "GPU Flow blocked visible frame presentation recording requires a blocked reducer completion.",
     );
@@ -358,8 +358,8 @@ export function recordGpuFlowBlockedVisibleFramePresentation({
     actorManifest: createGpuFlowVisibleFrameActorManifestDiagnostics({
       blockedReasons: token.blockedReasons,
       frame,
-      remainingDebt: publicationCompletion.debt,
-      visibleOutcome: publicationCompletion.outcome,
+      remainingDebt: presentationCompletion.debt,
+      visibleOutcome: presentationCompletion.outcome,
     }),
     blockedReasons: token.blockedReasons,
     candidateFrameId: frame?.displayFrameId ?? null,
@@ -367,8 +367,8 @@ export function recordGpuFlowBlockedVisibleFramePresentation({
     frozenFrameId: token.frozenFrameId,
     reducerLane: reducerDecision.lane,
     projectionSampleId: token.projectionSampleId,
-    remainingDebt: publicationCompletion.debt,
-    reducerOutcome: publicationCompletion.outcome,
+    remainingDebt: presentationCompletion.debt,
+    reducerOutcome: presentationCompletion.outcome,
     reducerState: reducerDecision.reducerState,
     stateMachineOutcome,
     tokenTransactionId: token.transactionId,

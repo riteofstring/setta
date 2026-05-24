@@ -101,7 +101,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
             kind: "not-rendered" as const,
           };
         },
-        publish: () => {},
+        onPresentation: () => {},
         sampleVisibleFramePresentation: () =>
           visibleFramePresentationSample({
             rawReasons: testCase.rawReasons,
@@ -109,7 +109,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
             sample: liveProjectionSample({ id: 57, timestamp: 570 }),
             viewportInteractionActive: testCase.viewportInteractionActive,
           }),
-        reducerRuntime: fixedPublicationScheduler({
+        reducerRuntime: fixedPresentationReducerRuntime({
           lane: testCase.lane,
           reducerState: testCase.reducerState,
         }),
@@ -149,7 +149,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
           kind: "not-rendered" as const,
         };
       },
-      publish: () => {},
+      onPresentation: () => {},
       sampleVisibleFramePresentation: () =>
         visibleFramePresentationSample({
           rawReasons: ["manual"],
@@ -157,7 +157,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
           sample: liveProjectionSample({ id: 58, timestamp: 580 }),
           viewportInteractionActive: false,
         }),
-      reducerRuntime: fixedPublicationScheduler({
+      reducerRuntime: fixedPresentationReducerRuntime({
         lane: "content",
         reducerState: "motion-settling",
       }),
@@ -201,8 +201,8 @@ describe("GPU Flow visible frame coordinator budget", () => {
           `resources:${budgetDecision.preparationBudget.selectedDebtIds.join(",")}`,
         );
       },
-      publish: (transaction) => {
-        phases.push(`publish:${transaction.outcome.kind}`);
+      onPresentation: (transaction) => {
+        phases.push(`onPresentation:${transaction.outcome.kind}`);
       },
       sampleVisibleFramePresentation: () =>
         visibleFramePresentationSample({
@@ -236,7 +236,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
             ],
           },
         }),
-      reducerRuntime: fixedPublicationScheduler({
+      reducerRuntime: fixedPresentationReducerRuntime({
         lane: "content",
         reducerState: "content-catchup",
       }),
@@ -246,12 +246,12 @@ describe("GPU Flow visible frame coordinator budget", () => {
       "resources:dom-control:editor",
       "motion",
       "content",
-      "publish:blocked",
+      "onPresentation:blocked",
     ]);
     expect(observedActiveEditorPins).toEqual([["editor"], ["editor"]]);
   });
 
-  it("keeps selected visible resource debt on the scheduled lane while preparing resources before publication", () => {
+  it("keeps selected visible resource debt on the scheduled lane while preparing resources before presentation", () => {
     const phases: string[] = [];
 
     const result = runGpuFlowVisibleFrameCoordinator({
@@ -290,8 +290,8 @@ describe("GPU Flow visible frame coordinator budget", () => {
           `resources:${budgetDecision.preparationBudget.selectedVisibleResourceDebtIds.join(",")}`,
         );
       },
-      publish: (transaction) => {
-        phases.push(`publish:${transaction.reducerDecision.lane}`);
+      onPresentation: (transaction) => {
+        phases.push(`onPresentation:${transaction.reducerDecision.lane}`);
       },
       sampleVisibleFramePresentation: () =>
         visibleFramePresentationSample({
@@ -328,7 +328,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
           },
           viewportInteractionActive: true,
         }),
-      reducerRuntime: fixedPublicationScheduler({
+      reducerRuntime: fixedPresentationReducerRuntime({
         lane: "motion",
         reducerState: "motion-active",
       }),
@@ -346,7 +346,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
       "resources:dom-control:editor",
       "motion:prepare:defer-true",
       "content:skip:defer-true",
-      "publish:motion",
+      "onPresentation:motion",
     ]);
   });
 });
@@ -369,7 +369,7 @@ function observeResolutionDeferralContext(
   };
 }
 
-function fixedPublicationScheduler({
+function fixedPresentationReducerRuntime({
   lane,
   reducerState,
 }: {

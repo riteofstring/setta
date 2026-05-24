@@ -214,7 +214,7 @@ export function GpuFlow({
   const visibleProjectionPresentationStateRef =
     useRef<GpuFlowVisibleProjectionState | null>(null);
   const visibleOverlayProjectionKeyRef = useRef<string | null>(null);
-  const { activeColdStartShellFrame, publishColdStartShellFrame } =
+  const { activeColdStartShellFrame, presentColdStartShellFrame } =
     useGpuFlowColdStartShellFrame();
   const getRetainedDomControlScrollOffset = useCallback(
     (surfaceId: string) => {
@@ -889,7 +889,7 @@ export function GpuFlow({
         prepareContentFrame,
         prepareVisibleFrameResourcesForBudget,
         projectPresentedBrowserVisualActors,
-        publishColdStartShellFrame,
+        presentColdStartShellFrame,
         retainedContentFrameCacheRef,
         retainedContentPageManagerRef,
         retainedContentRuntimeState: activeRetainedContentRuntimeState,
@@ -925,7 +925,7 @@ export function GpuFlow({
       prepareContentFrame,
       prepareVisibleFrameResourcesForBudget,
       projectPresentedBrowserVisualActors,
-      publishColdStartShellFrame,
+      presentColdStartShellFrame,
       validatePreparedContentFrame,
       retainedContentSwitchAnimations,
       visiblePresentedContentFrame,

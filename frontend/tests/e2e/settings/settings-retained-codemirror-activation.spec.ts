@@ -955,7 +955,7 @@ async function readActivationDiagnostics(
             frameReasons: record.frameReasons ?? null,
             frameRequest: record.frameRequest ?? null,
             outcomeKind: record.outcomeKind ?? null,
-            contentPublication: record.contentPublication ?? null,
+            contentPresentation: record.contentPresentation ?? null,
             pendingCandidateFrameIds: record.pendingCandidateFrameIds ?? null,
             reducerLane: record.reducerLane ?? null,
             queuedResourceKeyCount: Array.isArray(record.queuedResourceKeys)
@@ -1009,8 +1009,8 @@ async function readActivationDiagnostics(
         blockedVisibleFramePresentationEvents: summarizeBlockedEvents(
           window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__,
         ),
-        publicationDebtFrameRequests: summarizeDebtRequests(
-          window.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__,
+        presentationDebtFrameRequests: summarizeDebtRequests(
+          window.__SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__,
         ),
         elementAtPoint:
           elementAtPoint instanceof Element

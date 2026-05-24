@@ -8,12 +8,12 @@ import {
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   submitGpuFlowNodeLayerFrameCanvasSubmission,
-  type GpuFlowNodeLayerFrameStatePublication,
+  type GpuFlowNodeLayerFrameStatePresentation,
 } from "./flowFrameLifecycle";
 import { createGpuFlowVisibleFramePresentationTokenForTest } from "./visibleFrameTestUtils";
 
-describe("GPU Flow node-layer frame texture eviction publication", () => {
-  it("submits deferred texture eviction with the presentation-tokened publication", () => {
+describe("GPU Flow node-layer frame texture eviction presentation", () => {
+  it("submits deferred texture eviction with the presentation-tokened submission", () => {
     const frame = preparedContentFrame(42);
     const projectionSample = liveProjectionSample(7);
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
@@ -29,7 +29,7 @@ describe("GPU Flow node-layer frame texture eviction publication", () => {
     );
 
     const submitted = submitGpuFlowNodeLayerFrameCanvasSubmission({
-      nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
+      nodeLayerFrameStatePresentation: nodeLayerFrameStatePresentation({
         submitCanvas,
         submitTextureEviction,
       }),
@@ -48,13 +48,13 @@ describe("GPU Flow node-layer frame texture eviction publication", () => {
   });
 });
 
-function nodeLayerFrameStatePublication({
+function nodeLayerFrameStatePresentation({
   submitCanvas,
   submitTextureEviction,
 }: {
   readonly submitCanvas: () => void;
   readonly submitTextureEviction: () => HtmlSurfaceTextureEvictionResult;
-}): GpuFlowNodeLayerFrameStatePublication {
+}): GpuFlowNodeLayerFrameStatePresentation {
   return {
     callbacksRef: { current: {} },
     layerResult: {
@@ -116,7 +116,7 @@ function nodeLayerFrameStatePublication({
     viewport: [0, 0, 1],
     viewportFrame: false,
     visibleNodeIdsRef: { current: new Set() },
-  } as GpuFlowNodeLayerFrameStatePublication;
+  } as unknown as GpuFlowNodeLayerFrameStatePresentation;
 }
 
 function textureEvictionResult({

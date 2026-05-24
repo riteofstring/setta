@@ -78,7 +78,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     );
   });
 
-  it("runs sample, one reducer, and publish through one transaction authority", () => {
+  it("runs sample, one reducer, and presentation through one transaction authority", () => {
     const source = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
     const tokenAuthoritySource = readFileSync(
@@ -98,7 +98,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expectOrderedPhases(runSource, [
       "sampleGpuFlowVisibleFramePresentationTransaction({",
       "reduceGpuFlowVisibleFramePresentationFrame({",
-      "publishGpuFlowVisibleFramePresentationOutcome({",
+      "presentGpuFlowVisibleFramePresentationOutcome({",
     ]);
     expect(runSource).not.toContain(
       "prepareGpuFlowVisibleFramePresentationCandidateSet({",
@@ -116,18 +116,18 @@ describe("GPU Flow visible frame coordinator phases", () => {
       reducerStart,
     );
     const reducerSource = source.slice(reducerStart, reducerEnd);
-    const publishStart = source.indexOf(
-      "function publishGpuFlowVisibleFramePresentationOutcome",
+    const presentationStart = source.indexOf(
+      "function presentGpuFlowVisibleFramePresentationOutcome",
     );
-    const publishEnd = source.indexOf(
+    const presentationEnd = source.indexOf(
       "function createGpuFlowVisibleFrameRequestFacts",
-      publishStart,
+      presentationStart,
     );
-    const publishSource = source.slice(publishStart, publishEnd);
+    const presentationSource = source.slice(presentationStart, presentationEnd);
     expect(reducerStart).toBeGreaterThan(firstHelperStart);
     expect(reducerEnd).toBeGreaterThan(reducerStart);
-    expect(publishStart).toBeGreaterThan(reducerEnd);
-    expect(publishEnd).toBeGreaterThan(publishStart);
+    expect(presentationStart).toBeGreaterThan(reducerEnd);
+    expect(presentationEnd).toBeGreaterThan(presentationStart);
     expectOrderedPhases(reducerSource, [
       "createGpuFlowVisibleFrameRequestFacts({",
       "reduceGpuFlowVisibleFrameReducerDecision({",
@@ -137,11 +137,11 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "createGpuFlowVisibleFramePresentationPreparedFrame({",
       "proveGpuFlowVisibleFramePresentationProof(",
     ]);
-    expectOrderedPhases(publishSource, [
+    expectOrderedPhases(presentationSource, [
       "presentGpuFlowVisibleFramePresentationFrame({",
-      "publish?.(transaction);",
+      "onPresentation?.(transaction);",
     ]);
-    expect(publishSource).not.toContain(
+    expect(presentationSource).not.toContain(
       "prepareVisibleFrameResourcesForBudget?.(",
     );
     expect(source).toContain(
@@ -182,7 +182,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "visibleFramePresentationTokenIssuer.createPresentationToken",
     );
     expect(source).toContain(
-      "function publishGpuFlowVisibleFramePresentationOutcome",
+      "function presentGpuFlowVisibleFramePresentationOutcome",
     );
     expect(source).not.toContain(
       "export function completeGpuFlowVisibleFramePresentationTransaction",
@@ -361,7 +361,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     );
   });
 
-  it("keeps reducer debt frame requests private to publication completion", () => {
+  it("keeps reducer debt frame requests private to presentation completion", () => {
     const completionSource = readFileSync(
       SURFACE_PUBLICATION_COMPLETION_MODULE_PATH,
       "utf8",

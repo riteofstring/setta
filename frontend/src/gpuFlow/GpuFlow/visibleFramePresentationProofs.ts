@@ -9,7 +9,7 @@ import {
 } from "../projectionRuntime";
 import { isGpuFlowBrowserTextSnapshotPendingBlockedReason } from "../projectionSchedulerPolicy";
 import type {
-  GpuFlowColdStartShellPublication,
+  GpuFlowColdStartShellPresentation,
   GpuFlowVisibleFramePresentationOutcome,
   GpuFlowVisibleFramePresentationReducerFrameCompletion,
   GpuFlowVisibleFramePresentationTransactionCompletion,
@@ -107,8 +107,8 @@ export function proveGpuFlowVisibleFramePresentationProof({
     transactionProof,
   });
   return Object.freeze({
-    coldStartShellPublication:
-      createGpuFlowVisibleFramePresentationColdStartShellPublication({
+    coldStartShellPresentation:
+      createGpuFlowVisibleFramePresentationColdStartShellPresentation({
         outcome,
       }),
     completeReducerFrame:
@@ -175,11 +175,11 @@ function createGpuFlowVisibleFramePresentationReducerFrameCompleter({
   };
 }
 
-function createGpuFlowVisibleFramePresentationColdStartShellPublication({
+function createGpuFlowVisibleFramePresentationColdStartShellPresentation({
   outcome,
 }: {
   readonly outcome: GpuFlowVisibleFramePresentationOutcome;
-}): GpuFlowColdStartShellPublication {
+}): GpuFlowColdStartShellPresentation {
   return Object.freeze({
     frame:
       outcome.kind === "blocked" &&
@@ -738,7 +738,7 @@ function assertGpuFlowHeldPreviousPublicationCompletionMatchesSample({
       reducerDecision.sample.id
   ) {
     throw new Error(
-      "GPU Flow held-previous publication completion requires diagnostics for the selected projection sample.",
+      "GPU Flow held-previous presentation completion requires diagnostics for the selected projection sample.",
     );
   }
   return heldPreviousProjection;

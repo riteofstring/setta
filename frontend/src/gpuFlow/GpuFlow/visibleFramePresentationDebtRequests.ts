@@ -15,7 +15,7 @@ import {
   type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import type {
-  GpuFlowSurfacePublicationPreparedFrame,
+  GpuFlowSurfacePresentationPreparedFrame,
   RenderGpuFlowSurfaceFrameInput,
 } from "./visibleFrameSurfaceFrame";
 
@@ -34,13 +34,13 @@ const deferredResolutionFrameTimers = new WeakMap<
   GpuFlowDelayedReducerDebtFrameTimer
 >();
 
-export function requestGpuFlowSurfacePublicationFollowUpFrames({
+export function requestGpuFlowSurfacePresentationFollowUpFrames({
   debtFrameRequest,
   followUpFrameRequests,
   surfaceRef,
 }: {
   readonly debtFrameRequest: GpuFlowVisibleFrameReducerDebtFrameRequest | null;
-  readonly followUpFrameRequests: GpuFlowVisibleFrameCoordinatorResult<GpuFlowSurfacePublicationPreparedFrame>["followUpFrameRequests"];
+  readonly followUpFrameRequests: GpuFlowVisibleFrameCoordinatorResult<GpuFlowSurfacePresentationPreparedFrame>["followUpFrameRequests"];
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
 }): void {
   for (const frameReason of followUpFrameRequests) {
@@ -140,10 +140,10 @@ function recordGpuFlowSurfaceReducerDebtFrameRequestDiagnostic({
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): void {
   const view = globalThis as typeof globalThis & {
-    __SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__?: unknown[];
+    __SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__?: unknown[];
   };
   const requests =
-    view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ ?? [];
+    view.__SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__ ?? [];
   requests.push({
     completionDebt: completion.debt,
     completionOutcome: completion.outcome,
@@ -153,7 +153,7 @@ function recordGpuFlowSurfaceReducerDebtFrameRequestDiagnostic({
     reducerLane: reducerDecision.lane,
     reducerState: reducerDecision.reducerState,
   });
-  view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ = requests.slice(-20);
+  view.__SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__ = requests.slice(-20);
 }
 
 function shouldDelayGpuFlowSurfaceReducerDebtFrame({

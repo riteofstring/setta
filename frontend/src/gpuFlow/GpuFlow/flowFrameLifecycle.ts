@@ -37,7 +37,7 @@ export type GpuFlowNodeLayerFramePerformanceReport = Omit<
     | undefined;
 };
 
-function publishGpuFlowNodeLayerFramePerformance({
+function reportGpuFlowPresentedNodeLayerFramePerformance({
   callbacksRef,
   layerResult,
   performanceReport,
@@ -71,7 +71,7 @@ function publishGpuFlowNodeLayerFramePerformance({
   );
 }
 
-export type GpuFlowNodeLayerFrameStatePublication = {
+export type GpuFlowNodeLayerFrameStatePresentation = {
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
@@ -87,50 +87,50 @@ export type GpuFlowNodeLayerFrameStatePublication = {
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
 };
 
-export function publishGpuFlowNodeLayerFrameState({
+export function presentGpuFlowNodeLayerFrameState({
   token,
-  ...publication
-}: GpuFlowNodeLayerFrameStatePublication & {
+  ...presentation
+}: GpuFlowNodeLayerFrameStatePresentation & {
   readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   assertGpuFlowVisibleFramePresentationTokenBrand({ token });
-  const layerResult = publishGpuFlowHtmlSurfaceCanvasSubmission({
-    layerResult: publication.layerResult,
+  const layerResult = submitGpuFlowHtmlSurfaceFrameSubmissions({
+    layerResult: presentation.layerResult,
     token,
   });
-  publishGpuFlowNodeLayerFramePerformance({
-    callbacksRef: publication.callbacksRef,
+  reportGpuFlowPresentedNodeLayerFramePerformance({
+    callbacksRef: presentation.callbacksRef,
     layerResult,
-    performanceReport: publication.performanceReport,
+    performanceReport: presentation.performanceReport,
     token,
   });
   updateGpuFlowNodeLayerFrameState({
-    ...publication,
+    ...presentation,
     layerResult,
   });
 }
 
 export function submitGpuFlowNodeLayerFrameCanvasSubmission({
-  nodeLayerFrameStatePublication,
+  nodeLayerFrameStatePresentation,
   token,
 }: {
-  readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly nodeLayerFrameStatePresentation: GpuFlowNodeLayerFrameStatePresentation | null;
   readonly token: GpuFlowVisibleFramePresentationToken;
-}): GpuFlowNodeLayerFrameStatePublication | null {
+}): GpuFlowNodeLayerFrameStatePresentation | null {
   assertGpuFlowVisibleFramePresentationTokenBrand({ token });
-  if (nodeLayerFrameStatePublication === null) {
+  if (nodeLayerFrameStatePresentation === null) {
     return null;
   }
   return {
-    ...nodeLayerFrameStatePublication,
-    layerResult: publishGpuFlowHtmlSurfaceCanvasSubmission({
-      layerResult: nodeLayerFrameStatePublication.layerResult,
+    ...nodeLayerFrameStatePresentation,
+    layerResult: submitGpuFlowHtmlSurfaceFrameSubmissions({
+      layerResult: nodeLayerFrameStatePresentation.layerResult,
       token,
     }),
   };
 }
 
-function publishGpuFlowHtmlSurfaceCanvasSubmission({
+function submitGpuFlowHtmlSurfaceFrameSubmissions({
   layerResult,
   token,
 }: {
@@ -141,14 +141,14 @@ function publishGpuFlowHtmlSurfaceCanvasSubmission({
   const domTransformSubmission = layerResult.domTransformSubmission ?? null;
   const textureEvictionSubmission =
     layerResult.textureEvictionSubmission ?? null;
-  let publishedLayerResult = layerResult;
+  let submittedLayerResult = layerResult;
   if (canvasSubmission) {
     submitGpuFlowHtmlSurfaceCanvasFrame({
       canvasSubmission,
       token,
     });
-    publishedLayerResult = {
-      ...publishedLayerResult,
+    submittedLayerResult = {
+      ...submittedLayerResult,
       canvasSubmission: null,
     };
   }
@@ -157,8 +157,8 @@ function publishGpuFlowHtmlSurfaceCanvasSubmission({
       domTransformSubmission,
       token,
     });
-    publishedLayerResult = {
-      ...publishedLayerResult,
+    submittedLayerResult = {
+      ...submittedLayerResult,
       domTransformSubmission: null,
     };
   }
@@ -167,8 +167,8 @@ function publishGpuFlowHtmlSurfaceCanvasSubmission({
       textureEvictionSubmission,
       token,
     });
-    publishedLayerResult = {
-      ...publishedLayerResult,
+    submittedLayerResult = {
+      ...submittedLayerResult,
       evictedTextureBytes: evictionResult.evictedBytes,
       evictedTextureNodeIds: evictionResult.evictedSurfaceIds,
       textureEvictionSubmission: null,
@@ -176,7 +176,7 @@ function publishGpuFlowHtmlSurfaceCanvasSubmission({
       textureMemoryBeforeEviction: evictionResult.memoryBefore,
     };
   }
-  return publishedLayerResult;
+  return submittedLayerResult;
 }
 
 function submitGpuFlowHtmlSurfaceCanvasFrame({
@@ -234,7 +234,7 @@ function updateGpuFlowNodeLayerFrameState({
   viewport,
   viewportFrame,
   visibleNodeIdsRef,
-}: GpuFlowNodeLayerFrameStatePublication) {
+}: GpuFlowNodeLayerFrameStatePresentation) {
   markTransformOnlyPaintNodesForViewportFrame({
     layerResult,
     transformOnlyPaintNodeIdsRef,

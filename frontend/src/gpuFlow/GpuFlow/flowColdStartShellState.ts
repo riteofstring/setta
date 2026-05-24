@@ -10,9 +10,9 @@ import {
 
 export function useGpuFlowColdStartShellFrame(): {
   readonly activeColdStartShellFrame: GpuFlowColdStartShellFrame | null;
-  readonly publishColdStartShellFrame: Parameters<
+  readonly presentColdStartShellFrame: Parameters<
     typeof renderGpuFlowSurfaceFrame
-  >[0]["publishColdStartShellFrame"];
+  >[0]["presentColdStartShellFrame"];
 } {
   const [initialColdStartShellFrame] = useState(() =>
     createGpuFlowColdStartShellFrame(
@@ -23,15 +23,15 @@ export function useGpuFlowColdStartShellFrame(): {
     useRef<GpuFlowColdStartShellFrame | null>(initialColdStartShellFrame);
   const [activeColdStartShellFrame, setActiveColdStartShellFrame] =
     useState<GpuFlowColdStartShellFrame | null>(initialColdStartShellFrame);
-  const publishColdStartShellFrame = useCallback<
+  const presentColdStartShellFrame = useCallback<
     Parameters<
       typeof renderGpuFlowSurfaceFrame
-    >[0]["publishColdStartShellFrame"]
-  >((publication) => {
+    >[0]["presentColdStartShellFrame"]
+  >((presentation) => {
     assertGpuFlowVisibleFramePresentationTokenBrand({
-      token: publication.token,
+      token: presentation.token,
     });
-    if (publication.frame !== null) {
+    if (presentation.frame !== null) {
       throw new Error(
         "GPU Flow cold-start shell visible frame presentation only clears from committed presentation.",
       );
@@ -44,6 +44,6 @@ export function useGpuFlowColdStartShellFrame(): {
   }, []);
   return {
     activeColdStartShellFrame,
-    publishColdStartShellFrame,
+    presentColdStartShellFrame,
   };
 }

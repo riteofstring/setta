@@ -17,7 +17,7 @@ type GpuFlowSurfaceFrameReducerCompletion = ReturnType<
   GpuFlowSurfaceFrameCoordinatorResult["completeReducerFrame"]
 >;
 type GpuFlowSurfaceFrameLayerResult = NonNullable<
-  GpuFlowContentPreparationFrameResult["nodeLayerFrameStatePublication"]
+  GpuFlowContentPreparationFrameResult["nodeLayerFrameStatePresentation"]
 >["layerResult"];
 type GpuFlowSurfaceFrameDebtRequest =
   GpuFlowSurfaceFrameReducerCompletion["debtFrameRequest"];
@@ -32,7 +32,7 @@ const EMPTY_LAYER_RESULT_DIAGNOSTIC = {
   visibleNodeIds: [],
 } as const;
 
-export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
+export function recordGpuFlowSurfacePresentationFrameOutcomeDiagnostic({
   coordinatorResult,
   frame,
   frameReasons,
@@ -46,13 +46,13 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
   readonly reducerCompletion: GpuFlowSurfaceFrameReducerCompletion;
 }): void {
   const view = globalThis as typeof globalThis & {
-    __SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__?: unknown[];
+    __SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__?: unknown[];
   };
   const requests =
-    view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ ?? [];
+    view.__SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__ ?? [];
   const contentFrame = coordinatorResult.preparedFrame.contentPreparationFrame;
   const layerResult =
-    contentFrame.nodeLayerFrameStatePublication?.layerResult ?? null;
+    contentFrame.nodeLayerFrameStatePresentation?.layerResult ?? null;
   requests.push({
     activeEditorPins:
       coordinatorResult.presentationFrameContext.activeEditorPins,
@@ -66,8 +66,8 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
     blockedReasons: getGpuFlowSurfaceFrameBlockedReasons(contentFrame),
     completionDebt: reducerCompletion.completion.debt,
     completionOutcome: reducerCompletion.completion.outcome,
-    contentPublication:
-      createGpuFlowSurfaceFrameContentPublicationDiagnostic(contentFrame),
+    contentPresentation:
+      createGpuFlowSurfaceFrameContentPresentationDiagnostic(contentFrame),
     frame,
     frameRequest: createGpuFlowSurfaceFrameRequestDiagnostic(
       coordinatorResult.presentationFrameContext.frameRequest,
@@ -88,10 +88,10 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
         coordinatorResult.preparedFrame.transactionProof,
       ),
   });
-  view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ = requests.slice(-20);
+  view.__SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__ = requests.slice(-20);
 }
 
-function createGpuFlowSurfaceFrameContentPublicationDiagnostic(
+function createGpuFlowSurfaceFrameContentPresentationDiagnostic(
   contentFrame: GpuFlowContentPreparationFrameResult,
 ) {
   return {

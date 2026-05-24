@@ -334,7 +334,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
 
     recordGpuFlowBlockedVisibleFramePresentation({
       frame: blockedPreparedContentFrame(),
-      publicationCompletion: {
+      presentationCompletion: {
         debt: { content: true, maintenance: false, motion: false },
         outcome: "blocked",
       },
@@ -425,7 +425,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
 
     recordGpuFlowBlockedVisibleFramePresentation({
       frame: null,
-      publicationCompletion: {
+      presentationCompletion: {
         debt: { content: true, maintenance: false, motion: false },
         outcome: "blocked",
       },
@@ -483,7 +483,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     expect(() =>
       recordGpuFlowBlockedVisibleFramePresentation({
         frame: null,
-        publicationCompletion: {
+        presentationCompletion: {
           debt: { content: true, maintenance: false, motion: false },
           outcome: "blocked",
         },
@@ -509,7 +509,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     expect(() =>
       recordGpuFlowBlockedVisibleFramePresentation({
         frame: null,
-        publicationCompletion: {
+        presentationCompletion: {
           debt: { content: true, maintenance: false, motion: false },
           outcome: "present",
         },

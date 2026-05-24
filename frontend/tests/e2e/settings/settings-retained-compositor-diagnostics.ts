@@ -76,12 +76,12 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
           readonly __SETTA_GPU_FLOW_DIRTY_SURFACE_TEXTURE_UPLOADS__?: readonly unknown[];
         }
       ).__SETTA_GPU_FLOW_DIRTY_SURFACE_TEXTURE_UPLOADS__ ?? [];
-    const publicationDebtFrameRequests =
+    const presentationDebtFrameRequests =
       (
         window as typeof window & {
-          readonly __SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__?: readonly unknown[];
+          readonly __SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__?: readonly unknown[];
         }
-      ).__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ ?? [];
+      ).__SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__ ?? [];
     const paintUnavailableUploads =
       (
         window as typeof window & {
@@ -114,7 +114,7 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
         domControlPlanePreparedContentFrameId:
           domControlPlane?.dataset
             .gpuFlowDomControlPlanePreparedContentFrameId ?? null,
-        publicationDebtFrameRequests,
+        presentationDebtFrameRequests,
         recentGpuFlowFrameMeasures,
         retainedNativeVisuals,
         retainedRowCount:
@@ -141,7 +141,7 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
         domControlPlane?.dataset.gpuFlowDomControlPlaneFrameId ?? null,
       lastBlockedEvent: lastBlockedEvent ?? null,
       paintUnavailableUploads,
-      publicationDebtFrameRequests,
+      presentationDebtFrameRequests,
       lastBlockedSnapshotDiagnostic: lastBlockedActorId
         ? snapshotDiagnostics.find(
             (diagnostic) => diagnostic.sourceId === lastBlockedActorId,

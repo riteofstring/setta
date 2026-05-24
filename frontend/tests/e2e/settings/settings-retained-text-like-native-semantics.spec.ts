@@ -762,17 +762,17 @@ async function readOptionalQueuedBrowserVisualActorId(
   },
 ): Promise<string | null> {
   return await page.evaluate((excludeActorId) => {
-    const publicationDebtRequests =
+    const presentationDebtRequests =
       (
         window as typeof window & {
-          __SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__?: readonly {
+          __SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__?: readonly {
             readonly resourceGraph?: {
               readonly queuedResourceKeys?: readonly string[];
             };
           }[];
         }
-      ).__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ ?? [];
-    for (const entry of [...publicationDebtRequests].reverse()) {
+      ).__SETTA_GPU_FLOW_PRESENTATION_DEBT_FRAME_REQUESTS__ ?? [];
+    for (const entry of [...presentationDebtRequests].reverse()) {
       const queuedResourceKeys = entry.resourceGraph?.queuedResourceKeys ?? [];
       for (const resourceKey of queuedResourceKeys) {
         const actorId = parseBrowserVisualActorId(resourceKey);

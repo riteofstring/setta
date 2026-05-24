@@ -34,7 +34,7 @@ import {
 } from "./flowFrameInteractionState";
 import {
   type GpuFlowNodeLayerFramePerformanceReport,
-  type GpuFlowNodeLayerFrameStatePublication,
+  type GpuFlowNodeLayerFrameStatePresentation,
 } from "./flowFrameLifecycle";
 import { combineGpuFlowHtmlSurfaceNativeVisuals } from "./flowFrameVisuals";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
@@ -54,7 +54,7 @@ type RenderGpuFlowNodeLayerProjectionFrameResult =
   | {
       readonly rendered: true;
       readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
-      readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+      readonly nodeLayerFrameStatePresentation: GpuFlowNodeLayerFrameStatePresentation | null;
       readonly projectionOnlyFrameWork?: GpuFlowMotionProjectionFrameWorkReport | null;
       readonly transaction: GpuFlowProjectionTransaction;
     };
@@ -125,7 +125,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   if (!frameInput) {
     return {
       heldPreviousProjection: null,
-      nodeLayerFrameStatePublication: null,
+      nodeLayerFrameStatePresentation: null,
       rendered: true,
       transaction: requestedProjectionTransaction,
     };
@@ -241,7 +241,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     viewport: projectionViewport,
     viewportFrame,
   };
-  const nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication =
+  const nodeLayerFrameStatePresentation: GpuFlowNodeLayerFrameStatePresentation =
     {
       callbacksRef,
       layerResult,
@@ -265,7 +265,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     };
   return {
     heldPreviousProjection,
-    nodeLayerFrameStatePublication,
+    nodeLayerFrameStatePresentation,
     projectionOnlyFrameWork,
     rendered: true,
     transaction,

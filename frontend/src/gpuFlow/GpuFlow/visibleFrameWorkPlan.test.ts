@@ -16,7 +16,7 @@ import {
   shouldSkipGpuFlowDeferredContentPreparationFrame,
 } from "./visibleFrameCoordinator";
 
-const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
+const SURFACE_FRAME_PRESENTATION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameSurfaceFrame.ts", import.meta.url),
 );
 const COORDINATOR_MODULE_PATH = fileURLToPath(
@@ -75,7 +75,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     ).toEqual({ kind: "skip" });
   });
 
-  it("keeps deferred publication policy in the coordinator without suppressing browser visual repair", () => {
+  it("keeps deferred presentation policy in the coordinator without suppressing browser visual repair", () => {
     expect(
       shouldConsiderGpuFlowDeferredContentPreparation({
         activeEditorActivationPending: true,
@@ -232,7 +232,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       shouldSkipGpuFlowDeferredContentPreparationFrame({
         canReusePreparedFrame: false,
         hasPreparedFrame: false,
-        hasUnpublishedPreparedSourceFrame: false,
+        hasUnpresentedPreparedSourceFrame: false,
         shouldConsiderDeferredPreparation: true,
       }),
     ).toBe(true);
@@ -240,7 +240,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       shouldSkipGpuFlowDeferredContentPreparationFrame({
         canReusePreparedFrame: false,
         hasPreparedFrame: true,
-        hasUnpublishedPreparedSourceFrame: true,
+        hasUnpresentedPreparedSourceFrame: true,
         shouldConsiderDeferredPreparation: true,
       }),
     ).toBe(true);
@@ -248,7 +248,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       shouldSkipGpuFlowDeferredContentPreparationFrame({
         canReusePreparedFrame: true,
         hasPreparedFrame: true,
-        hasUnpublishedPreparedSourceFrame: false,
+        hasUnpresentedPreparedSourceFrame: false,
         shouldConsiderDeferredPreparation: true,
       }),
     ).toBe(true);
@@ -256,7 +256,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       shouldSkipGpuFlowDeferredContentPreparationFrame({
         canReusePreparedFrame: false,
         hasPreparedFrame: true,
-        hasUnpublishedPreparedSourceFrame: false,
+        hasUnpresentedPreparedSourceFrame: false,
         shouldConsiderDeferredPreparation: true,
       }),
     ).toBe(true);
@@ -264,23 +264,23 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       shouldSkipGpuFlowDeferredContentPreparationFrame({
         canReusePreparedFrame: false,
         hasPreparedFrame: false,
-        hasUnpublishedPreparedSourceFrame: false,
+        hasUnpresentedPreparedSourceFrame: false,
         shouldConsiderDeferredPreparation: false,
       }),
     ).toBe(false);
   });
 
-  it("keeps prepare-work lane gates out of surface frame publication", () => {
+  it("keeps prepare-work lane gates out of surface frame presentation", () => {
     const surfaceSource = readFileSync(
-      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
+      SURFACE_FRAME_PRESENTATION_MODULE_PATH,
       "utf8",
     );
     const coordinatorSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
 
     expect(surfaceSource).not.toContain(
-      "function shouldPublishGpuFlowContentFrame",
+      "function shouldPresentGpuFlowContentFrame",
     );
-    expect(surfaceSource).not.toContain("getGpuFlowContentPublicationLane");
+    expect(surfaceSource).not.toContain("getGpuFlowContentPresentationLane");
     expect(surfaceSource).not.toContain('reducerDecision.lane !== "motion"');
     expect(surfaceSource).toContain("contentPreparationWorkPlan");
     expect(surfaceSource).toContain("motionProjectionWorkPlan");
