@@ -9,7 +9,10 @@ import {
   type GpuFlowLiveProjectionSample,
 } from "../projectionRuntime";
 import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTransaction";
-import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
+import {
+  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
+  createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
+} from "./visibleFramePresentationEvidence";
 import {
   assertGpuFlowCommitPublicationToken,
   proveGpuFlowVisibleFramePublicationPresentation,
@@ -904,6 +907,12 @@ function presentationPairProof({
     ...frame.presentationProof,
     canvasGenerationEvidence:
       createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+        committedFrame: frame,
+        projectionSampleId: projectionSample.id,
+        projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
+      }),
+    domTransformEvidence:
+      createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
         committedFrame: frame,
         projectionSampleId: projectionSample.id,
         projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,

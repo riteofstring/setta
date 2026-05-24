@@ -1,6 +1,7 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type {
   GpuFlowVisiblePublicationCanvasPresentationEvidence,
+  GpuFlowVisiblePublicationDomTransformPresentationEvidence,
   GpuFlowVisiblePublicationPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 
@@ -10,6 +11,7 @@ export type GpuFlowVisiblePublicationPresentationProofReport = {
   readonly browserVisualFragmentDigest: string | null;
   readonly canvasGenerationEvidence: GpuFlowVisiblePublicationCanvasPresentationEvidence;
   readonly canvasGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["canvasGeneration"];
+  readonly domTransformEvidence: GpuFlowVisiblePublicationDomTransformPresentationEvidence;
   readonly domGenerationEvidence: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGenerationEvidence"];
   readonly domGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGeneration"];
   readonly projectionSampleId: number;
@@ -156,6 +158,11 @@ export function createGpuFlowVisiblePublicationPresentationProofReportForFrame({
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence;
   readonly projectionSampleId: number;
 }): GpuFlowVisiblePublicationPresentationProofReport {
+  if (presentationEvidence.domTransformEvidence === null) {
+    throw new Error(
+      "GPU Flow visible publication presentation proof requires deferred DOM transform evidence.",
+    );
+  }
   const proof = committedFrame.presentationProof;
   return Object.freeze({
     actorManifestDigest: proof.actorManifestDigest,
@@ -165,6 +172,9 @@ export function createGpuFlowVisiblePublicationPresentationProofReportForFrame({
       ...presentationEvidence.canvasGenerationEvidence,
     }),
     canvasGeneration: Object.freeze({ ...proof.canvasGeneration }),
+    domTransformEvidence: Object.freeze({
+      ...presentationEvidence.domTransformEvidence,
+    }),
     domGenerationEvidence: Object.freeze({ ...proof.domGenerationEvidence }),
     domGeneration: Object.freeze({ ...proof.domGeneration }),
     projectionSampleId,

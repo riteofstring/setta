@@ -15,6 +15,7 @@ import type {
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
+  createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import {
@@ -127,12 +128,14 @@ function withTestGpuFlowVisiblePublicationPresentationEvidence<
 
 function createTestGpuFlowVisiblePublicationPresentationEvidence({
   committedFrame,
+  domTransformPrepared = true,
   drawnNodeIds,
   missingTextureNodeIds,
   publicationDecision,
   projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly domTransformPrepared?: boolean | undefined;
   readonly drawnNodeIds?: readonly string[] | undefined;
   readonly missingTextureNodeIds?: readonly string[] | undefined;
   readonly publicationDecision: Pick<
@@ -150,6 +153,13 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
         projectionSampleId: publicationDecision.sample.id,
         projectionTransactionId,
       }),
+    domTransformEvidence: domTransformPrepared
+      ? createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
+          committedFrame,
+          projectionSampleId: publicationDecision.sample.id,
+          projectionTransactionId,
+        })
+      : null,
   });
 }
 
@@ -178,6 +188,43 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
       actorId: null,
       family: "presentation-pair",
       reason: "canvas-generation-not-prepared",
+    });
+    expect(proof.commitProof).toBeNull();
+    expect(proof.renderedVisibleFrame).toBe(false);
+  });
+
+  it("blocks commit authority when deferred DOM transforms are not prepared", () => {
+    const contentVisibleState = visibleProjectionState({
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 56, timestamp: 560 }),
+    });
+
+    const proof = createGpuFlowVisibleFramePublicationTransactionProof({
+      contentPublicationFrame: {
+        blockedPublicationCandidate: null,
+        presentationEvidence:
+          createTestGpuFlowVisiblePublicationPresentationEvidence({
+            committedFrame: contentVisibleState.committedFrame,
+            domTransformPrepared: false,
+            publicationDecision: publicationDecision(
+              contentVisibleState.sample,
+            ),
+            projectionTransactionId: contentVisibleState.transaction.id,
+          }),
+        visibleProjectionState: contentVisibleState,
+      },
+      motionProjectionFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: null,
+      },
+      publicationDecision: publicationDecision(contentVisibleState.sample),
+    });
+
+    expect(proof.blockedSource).toBe("presentation-pair");
+    expect(proof.blockedPublicationCandidate?.blockedReasons).toContainEqual({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "dom-transform-not-prepared",
     });
     expect(proof.commitProof).toBeNull();
     expect(proof.renderedVisibleFrame).toBe(false);

@@ -6,7 +6,10 @@ import type {
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./visibleFrameOutcomeChromeRepro";
-import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
+import {
+  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
+  createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
+} from "./visibleFramePresentationEvidence";
 import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
 import type {
   GpuFlowVisiblePublicationCompletionOutcome,
@@ -41,6 +44,12 @@ const createGpuFlowVisiblePublicationCommitProof = ({
     presentationEvidence: {
       canvasGenerationEvidence:
         createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+          committedFrame,
+          projectionSampleId: publicationDecision.sample.id,
+          projectionTransactionId,
+        }),
+      domTransformEvidence:
+        createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
           committedFrame,
           projectionSampleId: publicationDecision.sample.id,
           projectionTransactionId,
@@ -470,6 +479,13 @@ function presentationProof(projectionSampleId = 10) {
       projectionSampleId,
       projectionTransactionId: "transaction-a",
       source: "deferred-canvas-submission",
+    },
+    domTransformEvidence: {
+      committedFrameId: 7,
+      prepared: true,
+      projectionSampleId,
+      projectionTransactionId: "transaction-a",
+      source: "deferred-dom-transform-submission",
     },
     canvasGeneration: {
       canvasRetainedFrameId: 7,

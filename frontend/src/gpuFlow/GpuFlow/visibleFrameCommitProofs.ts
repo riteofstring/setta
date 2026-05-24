@@ -30,6 +30,13 @@ export type GpuFlowCommitPresentationPairProof = {
     readonly projectionTransactionId: string;
     readonly source: "deferred-canvas-submission";
   };
+  readonly domTransformEvidence: {
+    readonly committedFrameId: number;
+    readonly prepared: true;
+    readonly projectionSampleId: number;
+    readonly projectionTransactionId: string;
+    readonly source: "deferred-dom-transform-submission";
+  };
   readonly canvasGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["canvasGeneration"];
   readonly domGenerationEvidence: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGenerationEvidence"];
   readonly domGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGeneration"];
@@ -190,6 +197,12 @@ export function assertGpuFlowCommitPresentationPairProof({
       projectionSampleId,
       projectionTransactionId,
     }) ||
+    !isGpuFlowDomTransformPresentationEvidenceValid({
+      frame,
+      presentationPairProof,
+      projectionSampleId,
+      projectionTransactionId,
+    }) ||
     !areGpuFlowPresentationGenerationProofsEqual(
       presentationPairProof.domGeneration,
       expected.domGeneration,
@@ -263,6 +276,28 @@ function isGpuFlowCanvasPresentationEvidenceValid({
     canvasEvidence.projectionSampleId === projectionSampleId &&
     canvasEvidence.projectionTransactionId === projectionTransactionId &&
     canvasEvidence.source === "deferred-canvas-submission"
+  );
+}
+
+function isGpuFlowDomTransformPresentationEvidenceValid({
+  frame,
+  presentationPairProof,
+  projectionSampleId,
+  projectionTransactionId,
+}: {
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
+  readonly projectionSampleId: GpuFlowProjectionSampleId;
+  readonly projectionTransactionId: GpuFlowProjectionTransaction["id"];
+}): boolean {
+  const domTransformEvidence = presentationPairProof.domTransformEvidence;
+  return (
+    domTransformEvidence.committedFrameId === frame.displayFrameId &&
+    domTransformEvidence.prepared === true &&
+    domTransformEvidence.projectionSampleId === projectionSampleId &&
+    domTransformEvidence.projectionTransactionId ===
+      projectionTransactionId &&
+    domTransformEvidence.source === "deferred-dom-transform-submission"
   );
 }
 
@@ -387,6 +422,7 @@ export function createGpuFlowPresentationPairDigest({
       frame.presentationProof.browserVisualFragmentDigest,
     canvasGenerationEvidence: presentationPairProof.canvasGenerationEvidence,
     canvasGeneration: frame.presentationProof.canvasGeneration,
+    domTransformEvidence: presentationPairProof.domTransformEvidence,
     domGenerationEvidence: frame.presentationProof.domGenerationEvidence,
     domGeneration: frame.presentationProof.domGeneration,
     presentationBatchId: frame.presentationProof.batchId,

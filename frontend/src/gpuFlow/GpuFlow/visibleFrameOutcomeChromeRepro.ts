@@ -271,6 +271,9 @@ function summarizeChromeReproPresentationProof(
     canvasGenerationEvidence: summarizeChromeReproScalarRecord(
       proof.canvasGenerationEvidence,
     ),
+    domTransformEvidence: summarizeChromeReproDomTransformEvidence(
+      proof.domTransformEvidence,
+    ),
     domGeneration: summarizeChromeReproScalarRecord(proof.domGeneration),
     domGenerationEvidence: summarizeChromeReproScalarRecord(
       proof.domGenerationEvidence,
@@ -289,6 +292,16 @@ function summarizeChromeReproStringRecord(record: Record<string, unknown>) {
       typeof value === "string" ? summarizeChromeReproDigest(value) : value,
     ]),
   );
+}
+
+function summarizeChromeReproDomTransformEvidence(
+  evidence: GpuFlowCommitPresentationPairProof["domTransformEvidence"],
+) {
+  return {
+    committedFrameId: evidence.committedFrameId,
+    prepared: evidence.prepared,
+    projectionSampleId: evidence.projectionSampleId,
+  };
 }
 
 function summarizeChromeReproStringList(values: readonly string[]) {

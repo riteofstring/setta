@@ -16,8 +16,17 @@ export type GpuFlowVisiblePublicationCanvasPresentationEvidence = {
   readonly source: "deferred-canvas-submission";
 };
 
+export type GpuFlowVisiblePublicationDomTransformPresentationEvidence = {
+  readonly committedFrameId: number;
+  readonly prepared: true;
+  readonly projectionSampleId: number;
+  readonly projectionTransactionId: string;
+  readonly source: "deferred-dom-transform-submission";
+};
+
 export type GpuFlowVisiblePublicationPresentationEvidence = {
   readonly canvasGenerationEvidence: GpuFlowVisiblePublicationCanvasPresentationEvidence;
+  readonly domTransformEvidence: GpuFlowVisiblePublicationDomTransformPresentationEvidence | null;
 };
 
 export function createGpuFlowVisiblePublicationPresentationEvidence({
@@ -33,6 +42,8 @@ export function createGpuFlowVisiblePublicationPresentationEvidence({
   ) {
     return null;
   }
+  const domTransformSubmission =
+    nodeLayerFrameStatePublication.layerResult.domTransformSubmission ?? null;
   return Object.freeze({
     canvasGenerationEvidence:
       createGpuFlowVisiblePublicationCanvasPresentationEvidence({
@@ -43,6 +54,13 @@ export function createGpuFlowVisiblePublicationPresentationEvidence({
         projectionSampleId: visibleProjectionState.sample.id,
         projectionTransactionId: visibleProjectionState.transaction.id,
       }),
+    domTransformEvidence: domTransformSubmission
+      ? createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
+          committedFrame: visibleProjectionState.committedFrame,
+          projectionSampleId: visibleProjectionState.sample.id,
+          projectionTransactionId: visibleProjectionState.transaction.id,
+        })
+      : null,
   });
 }
 
@@ -72,6 +90,24 @@ export function createGpuFlowVisiblePublicationCanvasPresentationEvidence({
   });
 }
 
+export function createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
+  committedFrame,
+  projectionSampleId,
+  projectionTransactionId,
+}: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly projectionSampleId: number;
+  readonly projectionTransactionId: string;
+}): GpuFlowVisiblePublicationDomTransformPresentationEvidence {
+  return Object.freeze({
+    committedFrameId: committedFrame.displayFrameId,
+    prepared: true as const,
+    projectionSampleId,
+    projectionTransactionId,
+    source: "deferred-dom-transform-submission" as const,
+  });
+}
+
 export function createGpuFlowVisiblePublicationPresentationBlockedReasons({
   presentationEvidence,
   publicationDecision,
@@ -86,6 +122,12 @@ export function createGpuFlowVisiblePublicationPresentationBlockedReasons({
     ...createGpuFlowVisiblePublicationDomPresentationBlockedReasons({
       committedFrame,
       domEvidence: committedFrame.presentationProof.domGenerationEvidence,
+    }),
+    ...createGpuFlowVisiblePublicationDomTransformPresentationBlockedReasons({
+      committedFrame,
+      domTransformEvidence: presentationEvidence?.domTransformEvidence ?? null,
+      publicationDecision,
+      visibleProjectionState,
     }),
     ...createGpuFlowVisiblePublicationCanvasPresentationBlockedReasons({
       canvasEvidence: presentationEvidence?.canvasGenerationEvidence ?? null,
@@ -126,6 +168,53 @@ function createGpuFlowVisiblePublicationDomPresentationBlockedReasons({
       actorId: null,
       family: "presentation-pair",
       reason: "dom-generation-frame-mismatch",
+    });
+  }
+  return Object.freeze(reasons);
+}
+
+function createGpuFlowVisiblePublicationDomTransformPresentationBlockedReasons({
+  committedFrame,
+  domTransformEvidence,
+  publicationDecision,
+  visibleProjectionState,
+}: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly domTransformEvidence: GpuFlowVisiblePublicationDomTransformPresentationEvidence | null;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
+}): readonly GpuFlowVisiblePublicationPresentationBlockedReason[] {
+  const reasons: GpuFlowVisiblePublicationPresentationBlockedReason[] = [];
+  if (!domTransformEvidence) {
+    reasons.push({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "dom-transform-not-prepared",
+    });
+    return Object.freeze(reasons);
+  }
+  if (domTransformEvidence.committedFrameId !== committedFrame.displayFrameId) {
+    reasons.push({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "dom-transform-frame-mismatch",
+    });
+  }
+  if (domTransformEvidence.projectionSampleId !== publicationDecision.sample.id) {
+    reasons.push({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "dom-transform-sample-mismatch",
+    });
+  }
+  if (
+    domTransformEvidence.projectionTransactionId !==
+    visibleProjectionState.transaction.id
+  ) {
+    reasons.push({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "dom-transform-transaction-mismatch",
     });
   }
   return Object.freeze(reasons);

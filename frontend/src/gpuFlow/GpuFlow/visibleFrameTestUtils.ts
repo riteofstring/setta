@@ -10,6 +10,7 @@ import {
 } from "./visibleFrameCoordinator";
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
+  createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import type {
@@ -206,6 +207,12 @@ function createGpuFlowVisiblePublicationTestPresentationEvidence({
   return Object.freeze({
     canvasGenerationEvidence:
       createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+        committedFrame: visibleProjectionState.committedFrame,
+        projectionSampleId: visibleProjectionState.sample.id,
+        projectionTransactionId: visibleProjectionState.transaction.id,
+      }),
+    domTransformEvidence:
+      createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
         committedFrame: visibleProjectionState.committedFrame,
         projectionSampleId: visibleProjectionState.sample.id,
         projectionTransactionId: visibleProjectionState.transaction.id,

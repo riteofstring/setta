@@ -22,7 +22,10 @@ import {
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameCoordinator";
-import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
+import {
+  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
+  createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
+} from "./visibleFramePresentationEvidence";
 import { createGpuFlowVisiblePublicationCommitProofFactory } from "./visibleFrameTransactionProofs";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
@@ -41,6 +44,12 @@ const createGpuFlowVisiblePublicationCommitProof = ({
     presentationEvidence: {
       canvasGenerationEvidence:
         createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+          committedFrame,
+          projectionSampleId: publicationDecision.sample.id,
+          projectionTransactionId,
+        }),
+      domTransformEvidence:
+        createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
           committedFrame,
           projectionSampleId: publicationDecision.sample.id,
           projectionTransactionId,
@@ -71,6 +80,9 @@ describe("GPU Flow visible frame coordinator", () => {
         readonly canvasGenerationEvidence: ReturnType<
           typeof createGpuFlowVisiblePublicationCanvasPresentationEvidence
         >;
+        readonly domTransformEvidence: ReturnType<
+          typeof createGpuFlowVisiblePublicationDomTransformPresentationEvidence
+        >;
       };
       readonly rendered: boolean;
       readonly visibleProjectionState: GpuFlowVisibleProjectionState;
@@ -96,6 +108,12 @@ describe("GPU Flow visible frame coordinator", () => {
           presentationEvidence: {
             canvasGenerationEvidence:
               createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+                committedFrame: contentVisibleState.committedFrame,
+                projectionSampleId: contentVisibleState.sample.id,
+                projectionTransactionId: contentVisibleState.transaction.id,
+              }),
+            domTransformEvidence:
+              createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
                 committedFrame: contentVisibleState.committedFrame,
                 projectionSampleId: contentVisibleState.sample.id,
                 projectionTransactionId: contentVisibleState.transaction.id,
@@ -940,63 +958,6 @@ function runPreparedCandidateKernel({
       }),
     scheduler,
   });
-}
-
-function fixedPublicationScheduler({
-  lane,
-  schedulerState,
-}: {
-  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
-  readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
-}): ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator> {
-  const baseScheduler = createGpuFlowVisibleFrameRequestCoordinator();
-  const debt = Object.freeze({
-    content: false,
-    maintenance: false,
-    motion: false,
-  });
-  return {
-    completeFrame: (_decision, outcome) =>
-      Object.freeze({
-        debt,
-        outcome: outcome.kind,
-      }),
-    getKnobs: baseScheduler.getKnobs,
-    recordUncommittedFrame: (_decision, outcome) =>
-      Object.freeze({
-        debt,
-        outcome: outcome.kind,
-      }),
-    selectFrameRequest: ({
-      hasCommittedContentFrame,
-      rawReasons,
-      sample,
-      timestamp,
-      viewportInteractionActive,
-    }) =>
-      Object.freeze({
-        contentDebt: lane === "content",
-        contentRetryDeferred: false,
-        criticalContentDebt: lane === "content",
-        hasCommittedContentFrame,
-        maintenanceDebt: lane === "maintenance",
-        motionDebt: lane === "motion",
-        motionRetryDeferred: false,
-        rawReasons: Object.freeze([...rawReasons]),
-        sample,
-        schedulerState,
-        timestamp,
-        viewportInteractionActive,
-      }),
-    selectFrame: ({ rawReasons, sample }): GpuFlowVisiblePublicationDecision =>
-      Object.freeze({
-        debt,
-        lane,
-        rawReasons: Object.freeze([...rawReasons]),
-        sample,
-        schedulerState,
-      }),
-  };
 }
 
 function testPublicationCandidate({

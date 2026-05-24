@@ -22,6 +22,7 @@ import type {
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
+  createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import {
@@ -174,19 +175,18 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
   projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly publicationDecision: Pick<
-    GpuFlowVisiblePublicationDecision,
-    "sample"
-  >;
+  readonly publicationDecision: Pick<GpuFlowVisiblePublicationDecision, "sample">;
   readonly projectionTransactionId?: string | undefined;
 }): GpuFlowVisiblePublicationPresentationEvidence {
+  const projectionSampleId = publicationDecision.sample.id;
+  const evidenceInput = { committedFrame, projectionSampleId, projectionTransactionId };
   return Object.freeze({
     canvasGenerationEvidence:
-      createGpuFlowVisiblePublicationCanvasPresentationEvidence({
-        committedFrame,
-        projectionSampleId: publicationDecision.sample.id,
-        projectionTransactionId,
-      }),
+      createGpuFlowVisiblePublicationCanvasPresentationEvidence(evidenceInput),
+    domTransformEvidence:
+      createGpuFlowVisiblePublicationDomTransformPresentationEvidence(
+        evidenceInput,
+      ),
   });
 }
 
