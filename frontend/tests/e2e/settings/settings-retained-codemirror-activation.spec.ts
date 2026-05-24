@@ -729,7 +729,7 @@ async function centerGuiRowAtZoom(
             const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
             const live = snapshot?.viewport.transform ?? null;
             const committedContentFrame =
-              snapshot?.committedSurfaceFrame?.viewportSample ?? null;
+              snapshot?.presentedContentFrame?.viewportSample ?? null;
             const visibleProjection =
               snapshot?.visibleProjection?.viewport ?? null;
             const observed = visibleProjection ?? committedContentFrame;

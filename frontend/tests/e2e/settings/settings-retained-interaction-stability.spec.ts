@@ -294,7 +294,7 @@ async function readCoreVisualSceneState(page: Page): Promise<{
     readonly name: string | null;
   };
   readonly allCore: boolean;
-  readonly committedSurfaceFrame: {
+  readonly presentedContentFrame: {
     readonly displayFrameId: number;
     readonly displayCompletenessStatus: string;
     readonly gpuNativeVisualActorCount: number;
@@ -339,10 +339,10 @@ async function readCoreVisualSceneState(page: Page): Promise<{
         allCore:
           retainedSectionIds.size > 0 &&
           [...retainedSectionIds].every((id) => coreSectionIds.includes(id)),
-        committedSurfaceFrame: (() => {
+        presentedContentFrame: (() => {
           const frame =
             window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.()
-              .committedSurfaceFrame ?? null;
+              .presentedContentFrame ?? null;
           return frame
             ? {
                 displayCompletenessStatus: frame.displayCompletenessStatus,

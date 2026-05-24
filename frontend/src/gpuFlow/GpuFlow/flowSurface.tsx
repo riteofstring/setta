@@ -385,7 +385,7 @@ export function GpuFlow({
   useGpuFlowDebugGlobals({
     activeResizeNodeIdRef,
     containerRef,
-    getCommittedSurfaceFrame: () => presentedContentFrameRef.current,
+    getPresentedContentFrame: () => presentedContentFrameRef.current,
     getPresentationIdentity: () =>
       presentedSurfaceRuntime.getReactSemanticSnapshot().presentationIdentity,
     getVisibleProjectionState: () => visibleProjectionStateRef.current,

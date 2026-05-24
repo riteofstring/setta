@@ -929,7 +929,7 @@ async function readVisibleFrameDiagnostics(
 ): Promise<ObservedVisibleFrameDiagnostics> {
   return await page.evaluate(() => {
     const debugSnapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.() ?? null;
-    const committedSurfaceFrame = debugSnapshot?.committedSurfaceFrame ?? null;
+    const presentedContentFrame = debugSnapshot?.presentedContentFrame ?? null;
     const blockedEvents =
       (
         window as typeof window & {
@@ -941,7 +941,7 @@ async function readVisibleFrameDiagnostics(
       ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [];
     const lastBlockedEvent = blockedEvents.at(-1) ?? null;
     const actorManifest =
-      (committedSurfaceFrame?.actorManifest as
+      (presentedContentFrame?.actorManifest as
         | ObservedVisibleFrameActorManifest
         | null
         | undefined) ??
@@ -953,7 +953,7 @@ async function readVisibleFrameDiagnostics(
       blockedReasons: lastBlockedEvent?.blockedReasons ?? [],
       compatibleActorsByFamily: actorManifest?.compatibleActorsByFamily ?? null,
       missingActorsByFamily: actorManifest?.missingActorsByFamily ?? null,
-      presentationId: committedSurfaceFrame?.presentationId ?? null,
+      presentationId: presentedContentFrame?.presentationId ?? null,
       readyActorsByFamily: actorManifest?.readyActorsByFamily ?? null,
       requiredActorsByFamily: actorManifest?.requiredActorsByFamily ?? null,
       scrollHorizonCoverage: actorManifest?.scrollHorizonCoverage ?? null,

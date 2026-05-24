@@ -111,11 +111,11 @@ async function waitForRetainedCompositorViewportCommit(
   await expect
     .poll(
       async () => {
-        const state = await readRetainedCompositorViewportCommitState(
+        const state = await readRetainedCompositorViewportPresentedState(
           page,
           viewport,
         );
-        if (state.runtimeMatches && !state.committedMatches) {
+        if (state.runtimeMatches && !state.presentedMatches) {
           await page.evaluate(() => {
             window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
           });
@@ -128,23 +128,23 @@ async function waitForRetainedCompositorViewportCommit(
       },
     )
     .toMatchObject({
-      committedMatches: true,
+      presentedMatches: true,
       runtimeMatches: true,
     });
 }
 
-async function readRetainedCompositorViewportCommitState(
+async function readRetainedCompositorViewportPresentedState(
   page: Page,
   viewport: RetainedCompositorViewportSample,
 ) {
   return await page.evaluate((expected) => {
     const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
     const runtime = snapshot?.viewport.transform ?? null;
-    const committed = snapshot?.committedSurfaceFrame?.viewportSample ?? null;
+    const presented = snapshot?.presentedContentFrame?.viewportSample ?? null;
     return {
-      committed,
-      committedMatches: viewportMatches(committed, expected),
       expected,
+      presented,
+      presentedMatches: viewportMatches(presented, expected),
       runtime,
       runtimeMatches: viewportMatches(runtime, expected),
     };

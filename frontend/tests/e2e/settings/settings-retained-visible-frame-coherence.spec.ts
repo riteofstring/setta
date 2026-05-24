@@ -82,7 +82,7 @@ type VisibleFrameIdentity = {
   readonly canvasPresentationId: string | null;
   readonly canvasProjectionTransactionId: string | null;
   readonly canvasProjectionTransactionKind: string | null;
-  readonly committedSurfaceFrameId: number | null;
+  readonly presentedContentFrameId: number | null;
   readonly debugSnapshotContentFrameId: string | null;
   readonly debugSnapshotFrameId: number | null;
   readonly debugSnapshotPresentationId: string | null;
@@ -333,8 +333,8 @@ test("browser visual cold-start withholding publishes a blocked shell frame", as
   });
   expect(identity.visibleDomControlActorIds, details).toEqual([]);
   expect(shellBands.nonblankRatio, details).toBeGreaterThan(0.001);
-  expect(repairedIdentity.committedSurfaceFrameId, details).toBeTruthy();
-  expect(repairedIdentity.committedSurfaceFrameId, details).toBe(
+  expect(repairedIdentity.presentedContentFrameId, details).toBeTruthy();
+  expect(repairedIdentity.presentedContentFrameId, details).toBe(
     repairedIdentity.canvasCommittedFrameId,
   );
   expectVisibleFrameEpochCoherent(repairedIdentity, details);
@@ -453,9 +453,9 @@ async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
     throw new Error(details);
   }
   expect(blockedFrozenFrameId, details).toBeGreaterThanOrEqual(
-    beforeIdentity.committedSurfaceFrameId ?? 0,
+    beforeIdentity.presentedContentFrameId ?? 0,
   );
-  expect(afterIdentity.committedSurfaceFrameId, details).toBe(
+  expect(afterIdentity.presentedContentFrameId, details).toBe(
     blockedFrozenFrameId,
   );
   expect(afterIdentity.canvasCommittedFrameId, details).toBe(
@@ -918,7 +918,7 @@ async function readBrowserVisualPublicationDebug(page: Page): Promise<unknown> {
     ).readGpuFlowBrowserVisualFaultInjection();
     const debugSnapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.() ?? null;
     const textActorProofs =
-      debugSnapshot?.committedSurfaceFrame?.textActorProofs ?? [];
+      debugSnapshot?.presentedContentFrame?.textActorProofs ?? [];
     const actorSummaries = textActorProofs
       .slice(0, 12)
       .map(
@@ -942,7 +942,7 @@ async function readBrowserVisualPublicationDebug(page: Page): Promise<unknown> {
         : null;
     return {
       actorManifest:
-        debugSnapshot?.committedSurfaceFrame?.actorManifest ?? null,
+        debugSnapshot?.presentedContentFrame?.actorManifest ?? null,
       actorSummaries,
       faultInjection,
       preparationDiagnostics,
@@ -1002,14 +1002,14 @@ async function readVisibleFrameIdentity(
         canvas?.dataset.gpuFlowProjectionTransactionId ?? null,
       canvasProjectionTransactionKind:
         canvas?.dataset.gpuFlowProjectionTransactionKind ?? null,
-      committedSurfaceFrameId:
-        debugSnapshot?.committedSurfaceFrame?.displayFrameId ?? null,
+      presentedContentFrameId:
+        debugSnapshot?.presentedContentFrame?.displayFrameId ?? null,
       debugSnapshotContentFrameId:
-        debugSnapshot?.committedSurfaceFrame?.contentFrameId ?? null,
+        debugSnapshot?.presentedContentFrame?.contentFrameId ?? null,
       debugSnapshotFrameId:
-        debugSnapshot?.committedSurfaceFrame?.debugSnapshotFrameId ?? null,
+        debugSnapshot?.presentedContentFrame?.debugSnapshotFrameId ?? null,
       debugSnapshotPresentationId:
-        debugSnapshot?.committedSurfaceFrame?.presentationId ?? null,
+        debugSnapshot?.presentedContentFrame?.presentationId ?? null,
       domControlPlaneCommittedFrameId: parseOptionalNumber(
         domControlPlane?.dataset.gpuFlowDomControlPlaneCommittedFrameId,
       ),
@@ -1021,7 +1021,7 @@ async function readVisibleFrameIdentity(
       domControlPlanePresentationId:
         domControlPlane?.dataset.gpuFlowPresentationId ?? null,
       hitGenerationId:
-        debugSnapshot?.committedSurfaceFrame?.hitGenerationId ?? null,
+        debugSnapshot?.presentedContentFrame?.hitGenerationId ?? null,
       visibleDomControlActorIds,
       visibleDomControlIdentities,
     };

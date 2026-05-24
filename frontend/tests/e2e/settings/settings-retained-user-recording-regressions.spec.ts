@@ -22,12 +22,12 @@ import {
   waitForRetainedCompositorContentPublicationSettle,
 } from "./settings-retained-chrome-repro-parity-helpers";
 import {
-  SETTINGS_PARAM_CONTENT_SUFFIX,
   centerRetainedCompositorSurface,
   dispatchRetainedCompositorWheelBurst,
   openAllSettingsForRetainedCompositor,
   recordRetainedCompositorPerfSample,
   resolveRetainedCompositorTarget,
+  SETTINGS_PARAM_CONTENT_SUFFIX,
   type RetainedCompositorViewportSample,
 } from "./settings-retained-compositor-helpers";
 import {
@@ -587,7 +587,7 @@ async function captureChromeReproParitySample({
   });
   const runtime = await page.evaluate(() => {
     const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
-    const committed = snapshot?.committedSurfaceFrame ?? null;
+    const presentedContentFrame = snapshot?.presentedContentFrame ?? null;
     const diagnostics =
       (
         window as typeof window & {
@@ -623,27 +623,29 @@ async function captureChromeReproParitySample({
       chromeReproActive:
         (window as Window & { __SETTA_CHROME_REPRO_ACTIVE__?: boolean })
           .__SETTA_CHROME_REPRO_ACTIVE__ === true,
-      committed: committed
+      presentedContentFrame: presentedContentFrame
         ? {
-            displayCompletenessStatus: committed.displayCompletenessStatus,
-            domControlActorCount: committed.domControlActorCount,
+            displayCompletenessStatus:
+              presentedContentFrame.displayCompletenessStatus,
+            domControlActorCount: presentedContentFrame.domControlActorCount,
             projectedVisibleNonemptyDomControlCount:
-              committed.projectedVisibleNonemptyDomControlCount,
-            publishabilityKind: committed.publishabilityKind,
-            publishabilityReason: committed.publishabilityReason,
+              presentedContentFrame.projectedVisibleNonemptyDomControlCount,
+            publishabilityKind: presentedContentFrame.publishabilityKind,
+            publishabilityReason: presentedContentFrame.publishabilityReason,
             textActorProofSummary: summarizeTextActorProofs(
-              committed.textActorProofs,
+              presentedContentFrame.textActorProofs,
             ),
             textActorBlockedAwaitingBrowserVisualCount:
-              committed.projectionHorizon
+              presentedContentFrame.projectionHorizon
                 .textActorBlockedAwaitingBrowserVisualCount,
             textActorExactCoverageCount:
-              committed.projectionHorizon.textActorExactCoverageCount,
+              presentedContentFrame.projectionHorizon
+                .textActorExactCoverageCount,
             textActorTrueHoleCount:
-              committed.projectionHorizon.textActorTrueHoleCount,
+              presentedContentFrame.projectionHorizon.textActorTrueHoleCount,
             visibleNonemptyDomControlCount:
-              committed.visibleNonemptyDomControlCount,
-            viewportSample: committed.viewportSample,
+              presentedContentFrame.visibleNonemptyDomControlCount,
+            viewportSample: presentedContentFrame.viewportSample,
           }
         : null,
       diagnostics,
@@ -790,7 +792,7 @@ async function waitForRetainedCompositorVisibleDomPublication(
       await readRetainedCompositorVisiblePublicationState(page);
     const details = await page.evaluate(() => {
       const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
-      const committed = snapshot?.committedSurfaceFrame ?? null;
+      const presentedContentFrame = snapshot?.presentedContentFrame ?? null;
       const starvationReports =
         (
           window as typeof window & {
@@ -802,24 +804,26 @@ async function waitForRetainedCompositorVisibleDomPublication(
           | { readonly actorId?: string }
           | undefined) ?? null;
       return {
-        committed: committed
+        presentedContentFrame: presentedContentFrame
           ? {
-              displayCompletenessStatus: committed.displayCompletenessStatus,
-              domControlActorCount: committed.domControlActorCount,
+              displayCompletenessStatus:
+                presentedContentFrame.displayCompletenessStatus,
+              domControlActorCount: presentedContentFrame.domControlActorCount,
               projectedVisibleNonemptyDomControlCount:
-                committed.projectedVisibleNonemptyDomControlCount,
-              publishabilityKind: committed.publishabilityKind,
-              publishabilityReason: committed.publishabilityReason,
+                presentedContentFrame.projectedVisibleNonemptyDomControlCount,
+              publishabilityKind: presentedContentFrame.publishabilityKind,
+              publishabilityReason: presentedContentFrame.publishabilityReason,
               textActorBlockedAwaitingBrowserVisualCount:
-                committed.projectionHorizon
+                presentedContentFrame.projectionHorizon
                   .textActorBlockedAwaitingBrowserVisualCount,
               textActorExactCoverageCount:
-                committed.projectionHorizon.textActorExactCoverageCount,
+                presentedContentFrame.projectionHorizon
+                  .textActorExactCoverageCount,
               textActorTrueHoleCount:
-                committed.projectionHorizon.textActorTrueHoleCount,
+                presentedContentFrame.projectionHorizon.textActorTrueHoleCount,
               visibleNonemptyDomControlCount:
-                committed.visibleNonemptyDomControlCount,
-              viewportSample: committed.viewportSample,
+                presentedContentFrame.visibleNonemptyDomControlCount,
+              viewportSample: presentedContentFrame.viewportSample,
             }
           : null,
         preparationDiagnostics:
@@ -872,7 +876,7 @@ async function readRetainedCompositorVisiblePublicationState(page: Page) {
       "[data-gpu-flow-dom-control-plane='true']",
     );
     const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
-    const committed = snapshot?.committedSurfaceFrame ?? null;
+    const presentedContentFrame = snapshot?.presentedContentFrame ?? null;
     const visibleDomControlIdentities = [
       ...document.querySelectorAll<HTMLElement>(
         "[data-gpu-flow-dom-control='true']",
@@ -885,12 +889,12 @@ async function readRetainedCompositorVisiblePublicationState(page: Page) {
     const surfaceContentFrameIds = [
       canvas?.dataset.gpuFlowContentFrameId ?? null,
       domControlPlane?.dataset.gpuFlowContentFrameId ?? null,
-      committed?.contentFrameId ?? null,
+      presentedContentFrame?.contentFrameId ?? null,
     ];
     const surfacePresentationIds = [
       canvas?.dataset.gpuFlowPresentationId ?? null,
       domControlPlane?.dataset.gpuFlowPresentationId ?? null,
-      committed?.presentationId ?? null,
+      presentedContentFrame?.presentationId ?? null,
     ];
     const surfacesHaveContentFrameIds =
       surfaceContentFrameIds.every(isNonemptyString);
@@ -916,7 +920,7 @@ async function readRetainedCompositorVisiblePublicationState(page: Page) {
           host.presentationId === surfacePresentationId,
       );
     const visibleNonemptyDomControlCount =
-      committed?.visibleNonemptyDomControlCount ?? 0;
+      presentedContentFrame?.visibleNonemptyDomControlCount ?? 0;
     const visibleEpochCoherent =
       surfaceContentFrameCoherent &&
       surfacePresentationCoherent &&
@@ -925,16 +929,19 @@ async function readRetainedCompositorVisiblePublicationState(page: Page) {
     return {
       canvasContentFrameId: canvas?.dataset.gpuFlowContentFrameId ?? null,
       canvasPresentationId: canvas?.dataset.gpuFlowPresentationId ?? null,
-      committedContentFrameId: committed?.contentFrameId ?? null,
-      committedPresentationId: committed?.presentationId ?? null,
-      committedViewportSample: committed?.viewportSample ?? null,
+      presentedContentFrameContentFrameId:
+        presentedContentFrame?.contentFrameId ?? null,
+      presentedContentFramePresentationId:
+        presentedContentFrame?.presentationId ?? null,
+      presentedContentFrameViewportSample:
+        presentedContentFrame?.viewportSample ?? null,
       currentViewport: snapshot?.viewport.transform ?? null,
       domControlPlaneContentFrameId:
         domControlPlane?.dataset.gpuFlowContentFrameId ?? null,
       domControlPlanePresentationId:
         domControlPlane?.dataset.gpuFlowPresentationId ?? null,
       hasVisibleNonemptyDomControls: visibleNonemptyDomControlCount > 0,
-      publishabilityKind: committed?.publishabilityKind ?? null,
+      publishabilityKind: presentedContentFrame?.publishabilityKind ?? null,
       surfaceContentFrameCoherent,
       surfacePresentationCoherent,
       visibleDomControlIdentities,

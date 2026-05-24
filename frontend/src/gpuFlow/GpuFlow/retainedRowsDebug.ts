@@ -5,8 +5,8 @@ import type { GpuFrameReason } from "../gpuRenderer";
 import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 import {
   createGpuFlowInteractionDiagnosticsSnapshot,
-  type GpuFlowCommittedSurfaceDebugEntry,
-  type GpuFlowCommittedSurfaceTextActorProofDebugEntry,
+  type GpuFlowPresentedContentFrameDebugEntry,
+  type GpuFlowPresentedContentFrameTextActorProofDebugEntry,
   type GpuFlowRetainedRowDebugEntry,
   type GpuFlowRetainedSceneDebugSummary,
   type GpuFlowVisualSurfaceDebugEntry,
@@ -92,7 +92,7 @@ export function useGpuFlowDebugGlobals<
   activeResizeNodeIdRef,
   containerRef,
   getViewport,
-  getCommittedSurfaceFrame,
+  getPresentedContentFrame,
   getPresentationIdentity,
   getVisibleProjectionState,
   interactionDiagnosticsRef,
@@ -105,7 +105,7 @@ export function useGpuFlowDebugGlobals<
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly containerRef: RefObject<HTMLElement | null>;
   readonly getViewport: () => GpuViewportTuple;
-  readonly getCommittedSurfaceFrame?:
+  readonly getPresentedContentFrame?:
     | (() => GpuFlowCommittedSurfaceFrame | null)
     | undefined;
   readonly getPresentationIdentity?:
@@ -153,8 +153,8 @@ export function useGpuFlowDebugGlobals<
       );
       return createGpuFlowInteractionDiagnosticsSnapshot({
         activeResizeNodeId: activeResizeNodeIdRef.current,
-        committedSurfaceFrame: createGpuFlowCommittedSurfaceDebugEntry({
-          frame: resolveGpuFlowDebugOptionalValue(getCommittedSurfaceFrame),
+        presentedContentFrame: createGpuFlowPresentedContentFrameDebugEntry({
+          frame: resolveGpuFlowDebugOptionalValue(getPresentedContentFrame),
           presentationIdentity,
         }),
         diagnostics: interactionDiagnosticsRef.current,
@@ -279,7 +279,7 @@ export function useGpuFlowDebugGlobals<
     activeResizeNodeIdRef,
     containerRef,
     getViewport,
-    getCommittedSurfaceFrame,
+    getPresentedContentFrame,
     getPresentationIdentity,
     getVisibleProjectionState,
     interactionDiagnosticsRef,
@@ -449,18 +449,18 @@ function countGpuFlowRetainedSurfaceDebugEntries({
   ).length;
 }
 
-export function createGpuFlowCommittedSurfaceDebugEntry({
+export function createGpuFlowPresentedContentFrameDebugEntry({
   frame,
   presentationIdentity,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
   readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null;
-}): GpuFlowCommittedSurfaceDebugEntry | null {
+}): GpuFlowPresentedContentFrameDebugEntry | null {
   if (!frame) {
     return null;
   }
   const presentationDebug =
-    createCommittedSurfaceDebugPresentationIdentity(presentationIdentity);
+    createPresentedContentFrameDebugPresentationIdentity(presentationIdentity);
   return {
     actorCount: frame.diagnostics.actorCount,
     actorManifest: createGpuFlowVisibleFrameActorManifestDiagnostics({
@@ -489,9 +489,9 @@ export function createGpuFlowCommittedSurfaceDebugEntry({
     presentationProjectionSampleId: presentationDebug.projectionSampleId,
     projectedVisibleNonemptyDomControlCount:
       frame.displayCompleteness.projectedVisibleNonemptyDomControlCount,
-    projectionHorizon: createCommittedSurfaceDebugProjectionHorizon(frame),
+    projectionHorizon: createPresentedContentFrameDebugProjectionHorizon(frame),
     publishabilityKind: frame.publishability.kind,
-    publishabilityReason: getCommittedSurfaceDebugPublishabilityReason(
+    publishabilityReason: getPresentedContentFrameDebugPublishabilityReason(
       frame.publishability,
     ),
     retainedScrollRevision: frame.coherence.retainedScrollRevision,
@@ -499,14 +499,14 @@ export function createGpuFlowCommittedSurfaceDebugEntry({
     sceneRevision: frame.sceneRevision,
     textActorProofs: frame.actorGenerations
       .filter((actor) => actor.textCoverageProof)
-      .map(toCommittedSurfaceTextActorProofDebugEntry),
+      .map(toPresentedContentFrameTextActorProofDebugEntry),
     visibleNonemptyDomControlCount:
       frame.displayCompleteness.visibleNonemptyDomControlCount,
     viewportSample: flowViewportInputToDebugEntry(frame.viewportSample),
   };
 }
 
-function createCommittedSurfaceDebugPresentationIdentity(
+function createPresentedContentFrameDebugPresentationIdentity(
   presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null,
 ): {
   readonly contentFrameId:
@@ -526,9 +526,9 @@ function createCommittedSurfaceDebugPresentationIdentity(
   };
 }
 
-function createCommittedSurfaceDebugProjectionHorizon(
+function createPresentedContentFrameDebugProjectionHorizon(
   frame: GpuFlowCommittedSurfaceFrame,
-): GpuFlowCommittedSurfaceDebugEntry["projectionHorizon"] {
+): GpuFlowPresentedContentFrameDebugEntry["projectionHorizon"] {
   const textCoverage = frame.projectionHorizon.textActorCoverage;
   return {
     retainedScrollSurfaceCount:
@@ -546,7 +546,7 @@ function createCommittedSurfaceDebugProjectionHorizon(
   };
 }
 
-function getCommittedSurfaceDebugPublishabilityReason(
+function getPresentedContentFrameDebugPublishabilityReason(
   publishability: GpuFlowCommittedSurfaceFrame["publishability"],
 ): string | null {
   return "reason" in publishability ? publishability.reason : null;
@@ -565,10 +565,11 @@ function flowViewportInputToDebugEntry(viewport: GpuViewportInput): {
   };
 }
 
-function toCommittedSurfaceTextActorProofDebugEntry(
+function toPresentedContentFrameTextActorProofDebugEntry(
   actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
-): GpuFlowCommittedSurfaceTextActorProofDebugEntry {
-  const browserProof = toCommittedSurfaceBrowserVisualProofDebugEntry(actor);
+): GpuFlowPresentedContentFrameTextActorProofDebugEntry {
+  const browserProof =
+    toPresentedContentFrameBrowserVisualProofDebugEntry(actor);
   return {
     active: actor.active,
     actorId: actor.actorId,
@@ -586,10 +587,10 @@ function toCommittedSurfaceTextActorProofDebugEntry(
   };
 }
 
-function toCommittedSurfaceBrowserVisualProofDebugEntry(
+function toPresentedContentFrameBrowserVisualProofDebugEntry(
   actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
 ): Pick<
-  GpuFlowCommittedSurfaceTextActorProofDebugEntry,
+  GpuFlowPresentedContentFrameTextActorProofDebugEntry,
   | "actualInteraction"
   | "actualVisual"
   | "requiredInteraction"

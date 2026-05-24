@@ -9,7 +9,7 @@ import {
   setGpuRetainedContentRuntimeScrollOffset,
 } from "../retainedContentRuntimeState";
 import {
-  createGpuFlowCommittedSurfaceDebugEntry,
+  createGpuFlowPresentedContentFrameDebugEntry,
   resolveGpuFlowRetainedRowsDebugScrollOffsets,
 } from "./retainedRowsDebug";
 import {
@@ -25,7 +25,7 @@ describe("GPU Flow retained rows debug", () => {
       presentationId: createGpuFlowPresentationId("7:11:projected"),
       projectionSampleId: 11,
     };
-    const debugEntry = createGpuFlowCommittedSurfaceDebugEntry({
+    const debugEntry = createGpuFlowPresentedContentFrameDebugEntry({
       frame: committedFrame(7),
       presentationIdentity: identity,
     });

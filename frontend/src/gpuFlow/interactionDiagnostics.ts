@@ -93,7 +93,7 @@ export type GpuFlowInteractionDiagnostics = {
   readonly activeDomIsland: GpuFlowElementDiagnostics | null;
   readonly activeMode: GpuFlowInteractionMode;
   readonly activeResizeNodeId: string | null;
-  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceDebugEntry | null;
+  readonly presentedContentFrame: GpuFlowPresentedContentFrameDebugEntry | null;
   readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null;
   readonly visibleProjection: GpuFlowVisibleProjectionDebugEntry | null;
   readonly activeRetainedHit: GpuFlowRetainedHitDiagnostics | null;
@@ -139,7 +139,7 @@ export type GpuFlowVisibleProjectionDebugEntry = {
   };
 };
 
-export type GpuFlowCommittedSurfaceDebugEntry = {
+export type GpuFlowPresentedContentFrameDebugEntry = {
   readonly actorCount: number;
   readonly actorManifest: GpuFlowVisibleFrameActorManifestDiagnostics;
   readonly blockingActorIds: readonly string[];
@@ -181,7 +181,7 @@ export type GpuFlowCommittedSurfaceDebugEntry = {
   readonly retainedScrollRevision: number;
   readonly retainedPageActorCount: number;
   readonly sceneRevision: number;
-  readonly textActorProofs: readonly GpuFlowCommittedSurfaceTextActorProofDebugEntry[];
+  readonly textActorProofs: readonly GpuFlowPresentedContentFrameTextActorProofDebugEntry[];
   readonly visibleNonemptyDomControlCount: number;
   readonly viewportSample: {
     readonly x: number;
@@ -190,7 +190,7 @@ export type GpuFlowCommittedSurfaceDebugEntry = {
   };
 };
 
-export type GpuFlowCommittedSurfaceTextActorProofDebugEntry = {
+export type GpuFlowPresentedContentFrameTextActorProofDebugEntry = {
   readonly active: boolean;
   readonly actorId: string;
   readonly actualInteraction: string | null;
@@ -257,7 +257,7 @@ export function createGpuFlowInteractionDiagnosticsState(): MutableGpuFlowIntera
 
 export function createGpuFlowInteractionDiagnosticsSnapshot({
   activeResizeNodeId,
-  committedSurfaceFrame = null,
+  presentedContentFrame = null,
   diagnostics,
   nodeInteractionActiveNodeId,
   ownerDocument,
@@ -266,8 +266,8 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
   viewportState,
 }: {
   readonly activeResizeNodeId: string | null;
-  readonly committedSurfaceFrame?:
-    | GpuFlowCommittedSurfaceDebugEntry
+  readonly presentedContentFrame?:
+    | GpuFlowPresentedContentFrameDebugEntry
     | null
     | undefined;
   readonly diagnostics: MutableGpuFlowInteractionDiagnostics;
@@ -295,7 +295,7 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
       viewportState,
     }),
     activeResizeNodeId,
-    committedSurfaceFrame,
+    presentedContentFrame,
     presentationIdentity,
     visibleProjection: createGpuFlowVisibleProjectionDebugEntry(
       visibleProjectionState,

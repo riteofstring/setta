@@ -20,7 +20,7 @@ test.use({
 
 const MAX_EXPECTED_MOUNTED_DOM_CONTROLS = 32;
 
-test("committed surface debug snapshot keeps passive DOM actor scale bounded", async ({
+test("presented content frame debug snapshot keeps passive DOM actor scale bounded", async ({
   page,
 }) => {
   await openAllSettingsForRetainedCompositor(page);
@@ -32,20 +32,20 @@ test("committed surface debug snapshot keeps passive DOM actor scale bounded", a
   await waitForAnimationFrame(page);
 
   await expect
-    .poll(() => readCommittedSurfaceDomActorSampleReady(page), {
+    .poll(() => readPresentedContentFrameDomActorSampleReady(page), {
       timeout: 5_000,
     })
     .toBe(true);
-  const sample = await readCommittedSurfaceDomActorSample(page);
+  const sample = await readPresentedContentFrameDomActorSample(page);
 
   const details = JSON.stringify(sample, null, 2);
-  expect(sample.committed, details).not.toBeNull();
+  expect(sample.presentedContentFrame, details).not.toBeNull();
   expect(
     sample.diagnostics?.mountedControlCount ?? 0,
     details,
   ).toBeLessThanOrEqual(MAX_EXPECTED_MOUNTED_DOM_CONTROLS);
   expect(sample.diagnostics?.mountedControlCount ?? 0, details).toBeLessThan(
-    sample.committed?.domControlActorCount ?? 0,
+    sample.presentedContentFrame?.domControlActorCount ?? 0,
   );
   const domControlPlaneVisible =
     (sample.diagnostics?.visibleControlRectCount ?? 0) > 0;
@@ -63,42 +63,54 @@ test("committed surface debug snapshot keeps passive DOM actor scale bounded", a
       sample.canvasProjectionCommittedFrameId,
     );
     expect(sample.planeProjectionCommittedFrameId, details).toBe(
-      sample.committed?.displayFrameId,
+      sample.presentedContentFrame?.displayFrameId,
     );
   }
-  expect(sample.committed?.debugSnapshotFrameId, details).toBe(
-    sample.committed?.displayFrameId,
+  expect(sample.presentedContentFrame?.debugSnapshotFrameId, details).toBe(
+    sample.presentedContentFrame?.displayFrameId,
   );
-  expect(sample.committed?.displayCompletenessStatus, details).toBe("complete");
-  expect(sample.committed?.publishabilityKind, details).toBe("publishable");
-  expect(sample.committed?.publishabilityReason, details).toBeNull();
+  expect(sample.presentedContentFrame?.displayCompletenessStatus, details).toBe(
+    "complete",
+  );
+  expect(sample.presentedContentFrame?.publishabilityKind, details).toBe(
+    "publishable",
+  );
   expect(
-    sample.committed?.projectionHorizon.textActorTrueHoleCount,
+    sample.presentedContentFrame?.publishabilityReason,
+    details,
+  ).toBeNull();
+  expect(
+    sample.presentedContentFrame?.projectionHorizon.textActorTrueHoleCount,
     details,
   ).toBe(0);
   expect(
-    sample.committed?.projectionHorizon.textActorExactCoverageCount ?? 0,
+    sample.presentedContentFrame?.projectionHorizon
+      .textActorExactCoverageCount ?? 0,
     details,
   ).toBeGreaterThan(8);
-  expect(sample.committed?.domControlActorCount ?? 0, details).toBeGreaterThan(
-    8,
-  );
   expect(
-    sample.committed?.projectedVisibleNonemptyDomControlCount,
+    sample.presentedContentFrame?.domControlActorCount ?? 0,
     details,
-  ).toBe(sample.committed?.visibleNonemptyDomControlCount);
-  expect(sample.committed?.retainedScrollRevision, details).toBeGreaterThan(0);
+  ).toBeGreaterThan(8);
+  expect(
+    sample.presentedContentFrame?.projectedVisibleNonemptyDomControlCount,
+    details,
+  ).toBe(sample.presentedContentFrame?.visibleNonemptyDomControlCount);
+  expect(
+    sample.presentedContentFrame?.retainedScrollRevision,
+    details,
+  ).toBeGreaterThan(0);
 });
 
-type CommittedSurfaceDomActorSample = Awaited<
-  ReturnType<typeof readCommittedSurfaceDomActorSample>
+type PresentedContentFrameDomActorSample = Awaited<
+  ReturnType<typeof readPresentedContentFrameDomActorSample>
 >;
 
-async function readCommittedSurfaceDomActorSample(page: Page): Promise<{
-  readonly committed: NonNullable<
+async function readPresentedContentFrameDomActorSample(page: Page): Promise<{
+  readonly presentedContentFrame: NonNullable<
     ReturnType<
       NonNullable<Window["__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__"]>
-    >["committedSurfaceFrame"]
+    >["presentedContentFrame"]
   > | null;
   readonly diagnostics: {
     readonly committedFrameId: number;
@@ -117,7 +129,7 @@ async function readCommittedSurfaceDomActorSample(page: Page): Promise<{
 }> {
   return await page.evaluate(() => {
     const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
-    const committed = snapshot?.committedSurfaceFrame ?? null;
+    const presentedContentFrame = snapshot?.presentedContentFrame ?? null;
     const diagnostics =
       (
         window as typeof window & {
@@ -136,7 +148,7 @@ async function readCommittedSurfaceDomActorSample(page: Page): Promise<{
       "[data-gpu-flow-surface='true']",
     );
     return {
-      committed,
+      presentedContentFrame,
       diagnostics,
       canvasProjectionCommittedFrameId: Number(
         canvas?.dataset.gpuFlowCommittedFrameId ?? NaN,
@@ -164,22 +176,22 @@ async function readCommittedSurfaceDomActorSample(page: Page): Promise<{
   });
 }
 
-async function readCommittedSurfaceDomActorSampleReady(
+async function readPresentedContentFrameDomActorSampleReady(
   page: Page,
 ): Promise<boolean> {
-  return isCommittedSurfaceDomActorSampleReady(
-    await readCommittedSurfaceDomActorSample(page),
+  return isPresentedContentFrameDomActorSampleReady(
+    await readPresentedContentFrameDomActorSample(page),
   );
 }
 
-function isCommittedSurfaceDomActorSampleReady(
-  sample: CommittedSurfaceDomActorSample,
+function isPresentedContentFrameDomActorSampleReady(
+  sample: PresentedContentFrameDomActorSample,
 ): boolean {
   return Boolean(
-    sample.committed &&
+    sample.presentedContentFrame &&
       sample.diagnostics &&
-      sample.committed.displayCompletenessStatus === "complete" &&
-      sample.committed.publishabilityKind === "publishable" &&
+      sample.presentedContentFrame.displayCompletenessStatus === "complete" &&
+      sample.presentedContentFrame.publishabilityKind === "publishable" &&
       sample.canvasProjectionTransactionId &&
       sample.planeProjectionTransactionId &&
       sample.diagnostics.mountedControlCount <=

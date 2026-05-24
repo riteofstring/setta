@@ -792,7 +792,7 @@ async function readCommittedTextActorProof(
 ): Promise<CommittedTextActorProof | null> {
   return await page.evaluate((rowId) => {
     const proofs =
-      window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().committedSurfaceFrame
+      window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().presentedContentFrame
         ?.textActorProofs ?? [];
     return (
       proofs.find((proof) => proof.rowId === rowId && proof.active) ??

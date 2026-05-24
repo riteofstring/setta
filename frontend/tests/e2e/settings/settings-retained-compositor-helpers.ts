@@ -310,7 +310,7 @@ async function readRetainedCompositorViewportCommitState(
     const runtime = snapshot?.viewport.transform ?? null;
     const committed =
       snapshot?.visibleProjection?.viewport ??
-      snapshot?.committedSurfaceFrame?.viewportSample ??
+      snapshot?.presentedContentFrame?.viewportSample ??
       null;
     return {
       committed,
