@@ -3,14 +3,14 @@ package mcpx
 import (
 	"context"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
 	"testing"
-	"time"
 
 	"setta/internal/tools"
+
+	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 func TestReadFileRangeHandlerReadsEntireFile(t *testing.T) {

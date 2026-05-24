@@ -219,10 +219,8 @@ export async function getCanvasDomRect(
   page: Page,
 ): Promise<CanvasDomRect | null> {
   return page.evaluate(async () => {
-    const { gpuFlowViewportStore } = await import(
-      "/src/gpuFlow/viewportStore.ts"
-    );
-    const domNode = gpuFlowViewportStore.getState().domNode;
+    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
+    const domNode = useReactFlow.getState().domNode;
     if (!domNode) {
       return null;
     }
@@ -256,7 +254,7 @@ export async function getFlowPositionFromScreenPoint(
 ): Promise<FlowPoint> {
   return page.evaluate(async (point) => {
     const { screenToFlowPosition } = await import(
-      "/src/gpuFlow/viewportActions.ts"
+      "/src/forks/xyflow/core/hooks/useViewportHelper.ts"
     );
     return screenToFlowPosition(point);
   }, screenPoint);

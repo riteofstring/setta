@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,16 +15,11 @@ import (
 
 	"setta/internal/agentruns"
 	"setta/internal/artifacts"
-	"setta/internal/auth"
 	"setta/internal/backendlogs"
-	binarypayload "setta/internal/binary"
 	"setta/internal/config"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/httpapi"
-	"setta/internal/listenersnapshot"
 	"setta/internal/llmconfig"
-	"setta/internal/managedchat"
-	"setta/internal/mcpx"
 	"setta/internal/observability"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
@@ -33,6 +27,8 @@ import (
 	"setta/internal/realtime"
 	"setta/internal/settingsstate"
 	"setta/internal/wsapi"
+
+	"github.com/coder/websocket"
 )
 
 type appRouteEnvelope struct {

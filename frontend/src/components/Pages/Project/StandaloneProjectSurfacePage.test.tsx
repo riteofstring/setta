@@ -30,6 +30,15 @@ describe("StandaloneProjectSurfacePage", () => {
 
   beforeEach(async () => {
     resetStandaloneProjectSurfaceMocks();
+    (
+      globalThis as typeof globalThis & {
+        ResizeObserver?: typeof ResizeObserver;
+      }
+    ).ResizeObserver = class ResizeObserver {
+      disconnect() {}
+      observe() {}
+      unobserve() {}
+    };
     ({ StandaloneProjectSurfacePage } = await import(
       "./StandaloneProjectSurfacePage"
     ));

@@ -43,12 +43,18 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
     quality_scripts_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
 
-    script_dst = sandbox_root / "check_quality.sh"
+    script_dst = sandbox_root / "scripts/quality/check.sh"
     script_dst.write_text(
-        (root / "check_quality.sh").read_text(encoding="utf-8"),
+        (root / "scripts/quality/check.sh").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     script_dst.chmod(0o755)
+    report_file_lengths_dst = sandbox_root / "scripts/quality/report_file_lengths.sh"
+    report_file_lengths_dst.write_text(
+        (root / "scripts/quality/report_file_lengths.sh").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    report_file_lengths_dst.chmod(0o755)
     (scripts_dir / "lib").mkdir(parents=True, exist_ok=True)
     quality_paths_dst = scripts_dir / "lib" / "quality_paths.sh"
     quality_paths_dst.write_text(
@@ -62,6 +68,14 @@ def _build_check_quality_sandbox(tmp_path: Path) -> Path:
         encoding="utf-8",
     )
     quality_list_files_dst.chmod(0o755)
+    quality_file_lengths_dst = quality_scripts_dir / "check_file_lengths.py"
+    quality_file_lengths_dst.write_text(
+        (root / "scripts" / "quality" / "check_file_lengths.py").read_text(
+            encoding="utf-8"
+        ),
+        encoding="utf-8",
+    )
+    quality_file_lengths_dst.chmod(0o755)
     (sandbox_root / "quality.paths.yaml").write_text(
         (root / "quality.paths.yaml").read_text(encoding="utf-8"),
         encoding="utf-8",
@@ -156,6 +170,17 @@ printf '%s\\n' "$@" >> "{sandbox_root / "ruff_calls.txt"}"
 set -euo pipefail
 printf '__CALL__\\n' >> "{sandbox_root / "pnpm_calls.txt"}"
 printf '%s\\n' "$@" >> "{sandbox_root / "pnpm_calls.txt"}"
+emit_json=0
+previous_arg=""
+for arg in "$@"; do
+  if [[ "$previous_arg" == "--format" && "$arg" == "json" ]]; then
+    emit_json=1
+  fi
+  previous_arg="$arg"
+done
+if [[ "$emit_json" == "1" ]]; then
+  printf '[]\\n'
+fi
 """,
     )
     write_stub_executable(
@@ -205,7 +230,7 @@ def test_check_quality_includes_plugin_frontend_and_go_sources(tmp_path: Path) -
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "check_quality.sh"),
+            str(sandbox_root / "scripts/quality/check.sh"),
             "--files",
             "frontend/plugin-sdk/app-subsystem/src/index.ts",
             "frontend/src/app.ts",
@@ -288,7 +313,7 @@ def test_check_quality_runs_standalone_guardrail_suite_for_manifest_and_config_f
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "check_quality.sh"),
+            str(sandbox_root / "scripts/quality/check.sh"),
             "--files",
             "frontend/plugin-sdk/app-subsystem/package.json",
             "frontend/plugin-sdk/app-subsystem/vite.config.mjs",
@@ -329,7 +354,7 @@ def test_check_quality_includes_plugin_boundary_tests_and_sdk_types(
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "check_quality.sh"),
+            str(sandbox_root / "scripts/quality/check.sh"),
             "--files",
             "plugins/demo/frontend/tests/pluginBoundaryFixture.test.ts",
             "frontend/plugin-sdk/app-subsystem/types/index.d.ts",
@@ -347,6 +372,19 @@ def test_check_quality_includes_plugin_boundary_tests_and_sdk_types(
 
     pnpm_calls = _split_calls(sandbox_root / "pnpm_calls.txt")
     assert pnpm_calls == [
+        [
+            "-C",
+            "frontend",
+            "exec",
+            "eslint",
+            "--format",
+            "json",
+            "--no-warn-ignored",
+            "--rule",
+            'complexity:["error",9]',
+            "--",
+            "../plugins/demo/frontend/tests/pluginBoundaryFixture.test.ts",
+        ],
         [
             "-C",
             "frontend",
@@ -407,9 +445,33 @@ def test_check_quality_includes_python_tests_and_test_file_length_sources(
             "tests/test_python_quality.py",
         ],
     ]
-    assert not (sandbox_root / "pnpm_calls.txt").exists()
+    pnpm_calls = _split_calls(sandbox_root / "pnpm_calls.txt")
+    assert pnpm_calls == [
+        [
+            "-C",
+            "frontend",
+            "exec",
+            "eslint",
+            "--format",
+            "json",
+            "--no-warn-ignored",
+            "--rule",
+            'complexity:["error",9]',
+            "--",
+            "tests/e2e/app.spec.ts",
+        ]
+    ]
     assert not (sandbox_root / "node_calls.txt").exists()
-    assert not (sandbox_root / "go_calls.txt").exists()
+    go_calls = _split_calls(sandbox_root / "go_calls.txt")
+    assert go_calls == [
+        [
+            "run",
+            "github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0",
+            "-over",
+            "19",
+            "internal/demo/main_test.go",
+        ]
+    ]
 
 
 def test_check_quality_excludes_generated_outputs(tmp_path: Path) -> None:
@@ -418,7 +480,7 @@ def test_check_quality_excludes_generated_outputs(tmp_path: Path) -> None:
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "check_quality.sh"),
+            str(sandbox_root / "scripts/quality/check.sh"),
             "--files",
             "backend/setta/sdk_contracts/constants.py",
             "plugins/demo/frontend/src/generated/contract.ts",
@@ -546,10 +608,10 @@ def test_report_file_lengths_reports_all_tracked_violations_without_failing(
         in result.stdout
     )
     assert (
-        "TypeScript test frontend/tests/e2e/long.spec.ts: 1801 lines (max 1800)"
+        "TypeScript test frontend/tests/e2e/long.spec.ts: 1801 lines (max 1200)"
         in result.stdout
     )
     assert (
-        "Go test internal/demo/long_test.go: 2001 lines (max 2000)"
+        "Go test internal/demo/long_test.go: 2001 lines (max 1500)"
         in result.stdout
     )

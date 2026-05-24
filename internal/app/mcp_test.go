@@ -2,7 +2,6 @@ package app
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,7 +11,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +18,6 @@ import (
 	"github.com/coder/websocket"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
-	appdefinition "setta/internal/appsubsystem/appdefinition"
 	"setta/internal/appsubsystem/appspec"
 	"setta/internal/config"
 	"setta/internal/mcpx"
