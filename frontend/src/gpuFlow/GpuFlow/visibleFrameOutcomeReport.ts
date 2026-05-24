@@ -7,7 +7,7 @@ import type {
   GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 import type {
-  GpuFlowVisiblePublicationCompletion,
+  GpuFlowVisibleFrameReducerCompletion,
   GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import {
@@ -19,7 +19,7 @@ import {
 } from "./visibleFrameTransactionProofs";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
-export type { GpuFlowVisiblePublicationCompletion } from "./visibleFrameReducerRuntime";
+export type { GpuFlowVisibleFrameReducerCompletion } from "./visibleFrameReducerRuntime";
 
 export type GpuFlowVisiblePublicationOutcome =
   | {
@@ -46,11 +46,11 @@ export type GpuFlowVisiblePublicationTransactionCompletion = {
 };
 
 export type GpuFlowVisiblePublicationReducerFrameCompletion = {
-  readonly completion: GpuFlowVisiblePublicationCompletion;
-  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
+  readonly completion: GpuFlowVisibleFrameReducerCompletion;
+  readonly debtFrameRequest: GpuFlowVisibleFrameReducerDebtFrameRequest | null;
 };
 
-export type GpuFlowVisiblePublicationDebtFrameRequest = {
+export type GpuFlowVisibleFrameReducerDebtFrameRequest = {
   readonly delayMs: number | null;
   readonly frameReason: GpuFrameReason;
 };
@@ -68,7 +68,7 @@ export function createGpuFlowVisiblePublicationTransactionReport({
   transactionProof,
   visibleProjectionState,
 }: {
-  readonly completion: GpuFlowVisiblePublicationCompletion;
+  readonly completion: GpuFlowVisibleFrameReducerCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousContentFrameId: number | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;

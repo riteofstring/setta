@@ -7,14 +7,14 @@ import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
   createGpuFlowVisiblePublicationTransactionReport,
   type GpuFlowVisibleFramePublicationTransactionProof,
-  type GpuFlowVisiblePublicationCompletion,
+  type GpuFlowVisibleFrameReducerCompletion,
   type GpuFlowVisiblePublicationOutcome,
 } from "./visibleFrameCoordinator";
 import type { GpuFlowPresentationPairProof } from "./visibleFramePresentationAuthorityProofs";
 import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 
 type GpuFlowVisiblePublicationReducerCompletion =
-  GpuFlowVisiblePublicationCompletion;
+  GpuFlowVisibleFrameReducerCompletion;
 type GpuFlowVisiblePublicationTransactionReport = ReturnType<
   typeof createGpuFlowVisiblePublicationTransactionReport
 >;

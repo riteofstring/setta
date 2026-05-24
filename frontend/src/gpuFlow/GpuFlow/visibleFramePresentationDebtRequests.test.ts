@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { createGpuFlowSurfacePublicationDebtFrameRequest } from "./visibleFramePresentationDebtRequests";
+import { createGpuFlowSurfaceReducerDebtFrameRequest } from "./visibleFramePresentationDebtRequests";
 import type {
-  GpuFlowVisiblePublicationCompletion,
+  GpuFlowVisibleFrameReducerCompletion,
   GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 
 describe("GPU Flow visible-frame presentation boundary debt requests", () => {
   it("retries active editor content debt as immediate activation work", () => {
-    const request = createGpuFlowSurfacePublicationDebtFrameRequest({
+    const request = createGpuFlowSurfaceReducerDebtFrameRequest({
       activeEditorActivationPending: true,
       completion: completionWithContentDebt(),
       debtFrameRequest: {
@@ -25,7 +25,7 @@ describe("GPU Flow visible-frame presentation boundary debt requests", () => {
   });
 
   it("keeps ordinary content debt on the delayed manual retry path", () => {
-    const request = createGpuFlowSurfacePublicationDebtFrameRequest({
+    const request = createGpuFlowSurfaceReducerDebtFrameRequest({
       completion: completionWithContentDebt(),
       debtFrameRequest: {
         delayMs: null,
@@ -41,7 +41,7 @@ describe("GPU Flow visible-frame presentation boundary debt requests", () => {
   });
 });
 
-function completionWithContentDebt(): GpuFlowVisiblePublicationCompletion {
+function completionWithContentDebt(): GpuFlowVisibleFrameReducerCompletion {
   return {
     debt: {
       content: true,

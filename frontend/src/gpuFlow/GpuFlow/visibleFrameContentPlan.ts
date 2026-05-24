@@ -77,7 +77,7 @@ export type GpuFlowContentPublicationFrameResult = {
   readonly blockedPreservePreparationSnapshot: boolean;
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly forceImmediatePublicationDebtFrame: boolean;
+  readonly forceImmediateReducerDebtFrame: boolean;
   readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
@@ -101,7 +101,7 @@ const EMPTY_GPU_FLOW_CONTENT_PUBLICATION_FRAME_RESULT_FIELDS = Object.freeze({
   blockedPreservePreparationSnapshot: false,
   blockedPublicationCandidate: null,
   preparedContentFrame: null,
-  forceImmediatePublicationDebtFrame: false,
+  forceImmediateReducerDebtFrame: false,
   heldPreparedContentFrame: null,
   nodeLayerFrameStatePublication: null,
   presentationEvidence: null,
@@ -837,7 +837,7 @@ function createGpuFlowVisibleContentPublicationFrameResult({
   return createGpuFlowContentPublicationFrameResult({
     blockedPublicationCandidate,
     preparedContentFrame: preparedContentFramePublication.preparedContentFrame,
-    forceImmediatePublicationDebtFrame: heldPrevious && !deferResolutionUpdates,
+    forceImmediateReducerDebtFrame: heldPrevious && !deferResolutionUpdates,
     heldPreparedContentFrame:
       preparedContentFramePublication.heldPreparedContentFrame,
     nodeLayerFrameStatePublication,

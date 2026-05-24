@@ -38,14 +38,14 @@ import {
   assertGpuFlowHoldPreviousTokenForProjectionSample,
 } from "./visibleFramePresentationTokens";
 import {
-  assertGpuFlowVisiblePublicationPresentationDebtProofMatchesDecision,
-  assertGpuFlowVisiblePublicationPresentationTokenMatchesDecision,
-  createGpuFlowVisiblePublicationCompletion,
+  assertGpuFlowVisibleFramePresentationDebtProofMatchesReducerDecision,
+  assertGpuFlowVisibleFramePresentationTokenMatchesReducerDecision,
+  createGpuFlowVisibleFrameReducerCompletion,
   hasCurrentGpuFlowProjectionMotion,
   selectGpuFlowProjectionMotionSettlingState,
   selectGpuFlowProjectionNonMotionReducerState,
   shouldPublishGpuFlowProjectionContentDebtNow,
-} from "./visibleFramePublicationDebt";
+} from "./visibleFrameReducerDebt";
 import {
   createGpuFlowVisibleFrameStarvationPolicy,
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
@@ -60,7 +60,7 @@ export const DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY: GpuFlowVisibleFrameR
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY;
 
 export type GpuFlowVisibleFrameReducerDecision = {
-  readonly debt: GpuFlowVisiblePublicationDebt;
+  readonly debt: GpuFlowVisibleFrameReducerDebt;
   readonly lane: GpuFlowProjectionLane | "idle";
   readonly rawReasons: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
@@ -74,26 +74,26 @@ export type GpuFlowVisibleFrameRequestFacts =
     readonly timestamp: DOMHighResTimeStamp;
   };
 
-type GpuFlowVisiblePublicationDebt = {
+type GpuFlowVisibleFrameReducerDebt = {
   readonly content: boolean;
   readonly maintenance: boolean;
   readonly motion: boolean;
 };
 
-export type GpuFlowVisiblePublicationDebtProof = GpuFlowVisiblePublicationDebt;
+export type GpuFlowVisibleFrameReducerDebtProof = GpuFlowVisibleFrameReducerDebt;
 
-export type GpuFlowVisiblePublicationCompletion = {
-  readonly debt: GpuFlowVisiblePublicationDebt;
-  readonly outcome: GpuFlowVisiblePublicationCompletionOutcome["kind"];
+export type GpuFlowVisibleFrameReducerCompletion = {
+  readonly debt: GpuFlowVisibleFrameReducerDebt;
+  readonly outcome: GpuFlowVisibleFrameReducerCompletionOutcome["kind"];
 };
 
-export type GpuFlowVisiblePublicationPresentCompletionOutcome = {
-  readonly debtProof: GpuFlowVisiblePublicationDebtProof;
+export type GpuFlowVisibleFrameReducerPresentCompletionOutcome = {
+  readonly debtProof: GpuFlowVisibleFrameReducerDebtProof;
   readonly kind: "present";
   readonly token: GpuFlowVisibleFramePresentationToken;
 };
 
-export type GpuFlowVisiblePublicationUnpresentedCompletionOutcome =
+export type GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome =
   | {
       readonly kind: "hold-previous";
       readonly token: GpuFlowHoldPreviousToken;
@@ -103,20 +103,20 @@ export type GpuFlowVisiblePublicationUnpresentedCompletionOutcome =
       readonly token: GpuFlowBlockedPublicationToken;
     };
 
-export type GpuFlowVisiblePublicationCompletionOutcome =
-  | GpuFlowVisiblePublicationPresentCompletionOutcome
-  | GpuFlowVisiblePublicationUnpresentedCompletionOutcome;
+export type GpuFlowVisibleFrameReducerCompletionOutcome =
+  | GpuFlowVisibleFrameReducerPresentCompletionOutcome
+  | GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome;
 
 export type GpuFlowVisibleFrameReducerRuntime = {
   completeFrame(
     decision: GpuFlowVisibleFrameReducerDecision,
-    outcome: GpuFlowVisiblePublicationPresentCompletionOutcome,
-  ): GpuFlowVisiblePublicationCompletion;
+    outcome: GpuFlowVisibleFrameReducerPresentCompletionOutcome,
+  ): GpuFlowVisibleFrameReducerCompletion;
   getKnobs(): GpuFlowVisibleFrameReducerPolicy;
   recordUnpresentedFrame(
     decision: GpuFlowVisibleFrameReducerDecision,
-    outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
-  ): GpuFlowVisiblePublicationCompletion;
+    outcome: GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome,
+  ): GpuFlowVisibleFrameReducerCompletion;
   selectFrameRequest(input: {
     readonly hasPresentedContentFrame: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
@@ -570,7 +570,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
 
   function assertGpuFlowVisiblePublicationUnpresentedTokenMatchesDecision(
     decision: GpuFlowVisibleFrameReducerDecision,
-    outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
+    outcome: GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome,
   ): void {
     if (outcome.kind === "hold-previous") {
       assertGpuFlowHoldPreviousTokenForProjectionSample({
@@ -587,7 +587,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
 
   function recordGpuFlowContentRetryAfterUnpresentedFrame(
     decision: GpuFlowVisibleFrameReducerDecision,
-    outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
+    outcome: GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome,
   ): void {
     const browserTextSnapshotPendingBlocked =
       decision.lane === "content" &&
@@ -640,7 +640,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
 
   function recordGpuFlowMotionRetryAfterUnpresentedFrame(
     decision: GpuFlowVisibleFrameReducerDecision,
-    outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
+    outcome: GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome,
   ): void {
     const motionRetryDelayMultiplier =
       getGpuFlowMotionRetryDelayMultiplierAfterUnpresentedFrame(
@@ -876,11 +876,11 @@ export function createGpuFlowVisibleFrameReducerRuntime({
 
   return Object.freeze({
     completeFrame(decision, outcome) {
-      assertGpuFlowVisiblePublicationPresentationTokenMatchesDecision({
+      assertGpuFlowVisibleFramePresentationTokenMatchesReducerDecision({
         decision,
         token: outcome.token,
       });
-      assertGpuFlowVisiblePublicationPresentationDebtProofMatchesDecision({
+      assertGpuFlowVisibleFramePresentationDebtProofMatchesReducerDecision({
         debtProof: outcome.debtProof,
         decision,
       });
@@ -924,7 +924,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
         }
         consecutiveMotionFrames = 0;
       }
-      return createGpuFlowVisiblePublicationCompletion({
+      return createGpuFlowVisibleFrameReducerCompletion({
         contentDebt,
         maintenanceDebt,
         motionDebt,
@@ -944,7 +944,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       if (shouldYieldGpuFlowCriticalContentDebtForCoverage(decision, outcome)) {
         criticalContentDebt = false;
       }
-      return createGpuFlowVisiblePublicationCompletion({
+      return createGpuFlowVisibleFrameReducerCompletion({
         contentDebt,
         maintenanceDebt,
         motionDebt,
@@ -976,8 +976,8 @@ export function createGpuFlowVisibleFrameReducerRuntime({
 }
 
 export {
-  getGpuFlowVisiblePublicationDebtReason,
-  hasGpuFlowVisiblePublicationDebt,
+  getGpuFlowVisibleFrameReducerDebtReason,
+  hasGpuFlowVisibleFrameReducerDebt,
   shouldDeferGpuFlowMaintenanceContentCatchup,
-} from "./visibleFramePublicationDebt";
+} from "./visibleFrameReducerDebt";
 export { reduceGpuFlowVisibleFrameReducerDecision } from "./visibleFrameStateMachine";

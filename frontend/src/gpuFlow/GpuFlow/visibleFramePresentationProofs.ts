@@ -10,7 +10,7 @@ import {
 import { isGpuFlowBrowserTextSnapshotPendingBlockedReason } from "../projectionSchedulerPolicy";
 import type {
   GpuFlowColdStartShellPublication,
-  GpuFlowVisiblePublicationDebtFrameRequest,
+  GpuFlowVisibleFrameReducerDebtFrameRequest,
   GpuFlowVisiblePublicationOutcome,
   GpuFlowVisiblePublicationReducerFrameCompletion,
   GpuFlowVisiblePublicationTransactionCompletion,
@@ -18,12 +18,12 @@ import type {
 import {
   createGpuFlowVisibleFrameBlockedPublicationToken,
   createGpuFlowVisibleFrameHoldPreviousToken,
-  createGpuFlowVisiblePublicationCompletionPresentationToken,
+  createGpuFlowVisibleFrameReducerCompletionPresentationToken,
   type GpuFlowBlockedPublicationToken,
 } from "./visibleFramePresentationTokens";
 import {
-  getGpuFlowVisiblePublicationDebtReason,
-  hasGpuFlowVisiblePublicationDebt,
+  getGpuFlowVisibleFrameReducerDebtReason,
+  hasGpuFlowVisibleFrameReducerDebt,
   type GpuFlowVisibleFrameReducerPolicy,
   type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
@@ -80,14 +80,14 @@ type GpuFlowVisibleFramePublicationReducerRuntime = {
 const GPU_FLOW_MOTION_ACTIVE_DEBT_RETRY_DELAY_MS = 160;
 
 export function proveGpuFlowVisibleFramePublicationPresentation({
-  forceImmediatePublicationDebtFrame,
+  forceImmediateReducerDebtFrame,
   followUpFrameReason,
   reducerDecision,
   previousVisibleProjectionState,
   reducerRuntime,
   transactionProof,
 }: {
-  readonly forceImmediatePublicationDebtFrame: boolean;
+  readonly forceImmediateReducerDebtFrame: boolean;
   readonly followUpFrameReason: GpuFrameReason | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -95,7 +95,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 }): GpuFlowVisiblePublicationTransactionCompletion {
   const reducerPolicy = reducerRuntime.getKnobs();
-  const outcome = createGpuFlowVisiblePublicationCompletionOutcome({
+  const outcome = createGpuFlowVisibleFrameReducerCompletionOutcome({
     blockedPublicationToken:
       createGpuFlowVisibleFrameBlockedPublicationTokenForProof({
         proof: transactionProof.blockedProof,
@@ -110,7 +110,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
     coldStartShellPublication:
       createGpuFlowVisiblePublicationColdStartShellPublication({ outcome }),
     completeReducerFrame: createGpuFlowVisiblePublicationReducerFrameCompleter({
-      forceImmediatePublicationDebtFrame,
+      forceImmediateReducerDebtFrame,
       outcome,
       reducerDecision,
       reducerPolicy,
@@ -122,7 +122,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
       },
     ),
     heldPreviousVisibleProjectionState:
-      createGpuFlowVisiblePublicationCompletionHeldPreviousState({
+      createGpuFlowVisibleFrameReducerCompletionHeldPreviousState({
         outcome,
         previousVisibleProjectionState,
         reducerDecision,
@@ -136,13 +136,13 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
 }
 
 function createGpuFlowVisiblePublicationReducerFrameCompleter({
-  forceImmediatePublicationDebtFrame,
+  forceImmediateReducerDebtFrame,
   outcome,
   reducerDecision,
   reducerPolicy,
   reducerRuntime,
 }: {
-  readonly forceImmediatePublicationDebtFrame: boolean;
+  readonly forceImmediateReducerDebtFrame: boolean;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
@@ -160,9 +160,9 @@ function createGpuFlowVisiblePublicationReducerFrameCompleter({
         : reducerRuntime.recordUnpresentedFrame(reducerDecision, outcome);
     reducerFrameCompletion = Object.freeze({
       completion,
-      debtFrameRequest: createGpuFlowVisiblePublicationDebtFrameRequest({
+      debtFrameRequest: createGpuFlowVisibleFrameReducerDebtFrameRequest({
         completion,
-        forceImmediatePublicationDebtFrame,
+        forceImmediateReducerDebtFrame,
         outcome,
         reducerDecision,
         reducerPolicy,
@@ -197,35 +197,35 @@ function createGpuFlowVisiblePublicationFollowUpFrameRequests({
   );
 }
 
-function createGpuFlowVisiblePublicationDebtFrameRequest({
+function createGpuFlowVisibleFrameReducerDebtFrameRequest({
   completion,
-  forceImmediatePublicationDebtFrame,
+  forceImmediateReducerDebtFrame,
   outcome,
   reducerDecision,
   reducerPolicy,
 }: {
   readonly completion: GpuFlowVisiblePublicationReducerFrameCompletion["completion"];
-  readonly forceImmediatePublicationDebtFrame: boolean;
+  readonly forceImmediateReducerDebtFrame: boolean;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
-}): GpuFlowVisiblePublicationDebtFrameRequest | null {
-  if (!hasGpuFlowVisiblePublicationDebt(completion.debt)) {
+}): GpuFlowVisibleFrameReducerDebtFrameRequest | null {
+  if (!hasGpuFlowVisibleFrameReducerDebt(completion.debt)) {
     return null;
   }
   return Object.freeze({
     delayMs:
-      forceImmediatePublicationDebtFrame ||
-      shouldRequestGpuFlowVisiblePublicationDebtFrameImmediately({
+      forceImmediateReducerDebtFrame ||
+      shouldRequestGpuFlowVisibleFrameReducerDebtFrameImmediately({
         outcome,
         reducerDecision,
       })
         ? null
-        : getDelayedGpuFlowVisiblePublicationDebtRequestMs({
+        : getDelayedGpuFlowVisibleFrameReducerDebtRequestMs({
             reducerDecision,
             reducerMotionSettleWindowMs: reducerPolicy.motionSettleWindowMs,
           }),
-    frameReason: getGpuFlowVisiblePublicationDebtFrameReason({
+    frameReason: getGpuFlowVisibleFrameReducerDebtFrameReason({
       completion,
       outcome,
       reducerDecision,
@@ -233,7 +233,7 @@ function createGpuFlowVisiblePublicationDebtFrameRequest({
   });
 }
 
-function getGpuFlowVisiblePublicationDebtFrameReason({
+function getGpuFlowVisibleFrameReducerDebtFrameReason({
   completion,
   outcome,
   reducerDecision,
@@ -265,7 +265,7 @@ function getGpuFlowVisiblePublicationDebtFrameReason({
   if (isGpuFlowRetainedProjectionBlockedOutcome(outcome)) {
     return "texture-upload";
   }
-  return getGpuFlowVisiblePublicationDebtReason(completion.debt);
+  return getGpuFlowVisibleFrameReducerDebtReason(completion.debt);
 }
 
 function shouldRequestGpuFlowManualContentDebtFrame({
@@ -282,7 +282,7 @@ function shouldRequestGpuFlowManualContentDebtFrame({
   );
 }
 
-function shouldRequestGpuFlowVisiblePublicationDebtFrameImmediately({
+function shouldRequestGpuFlowVisibleFrameReducerDebtFrameImmediately({
   outcome,
   reducerDecision,
 }: {
@@ -330,7 +330,7 @@ function isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(
   );
 }
 
-function getDelayedGpuFlowVisiblePublicationDebtRequestMs({
+function getDelayedGpuFlowVisibleFrameReducerDebtRequestMs({
   reducerDecision,
   reducerMotionSettleWindowMs,
 }: {
@@ -349,7 +349,7 @@ function getDelayedGpuFlowVisiblePublicationDebtRequestMs({
   return null;
 }
 
-function createGpuFlowVisiblePublicationCompletionHeldPreviousState({
+function createGpuFlowVisibleFrameReducerCompletionHeldPreviousState({
   outcome,
   previousVisibleProjectionState,
   reducerDecision,
@@ -423,7 +423,7 @@ function createGpuFlowVisibleFrameBlockedPublicationTokenForProof({
   });
 }
 
-function createGpuFlowVisiblePublicationCompletionOutcome({
+function createGpuFlowVisibleFrameReducerCompletionOutcome({
   blockedPublicationToken,
   reducerDecision,
   previousVisibleProjectionState,
@@ -446,12 +446,12 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
   switch (visibleFrameStateMachineOutcome.kind) {
     case "presented":
     case "projected":
-      return createGpuFlowVisiblePublicationCompletionPresentOutcome({
+      return createGpuFlowVisibleFrameReducerCompletionPresentOutcome({
         reducerDecision,
         transactionProof,
       });
     case "held":
-      return createGpuFlowVisiblePublicationCompletionHeldStateMachineOutcome({
+      return createGpuFlowVisibleFrameReducerCompletionHeldStateMachineOutcome({
         blockedPublicationToken,
         reducerDecision,
         previousVisibleProjectionState,
@@ -465,14 +465,14 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
           token: blockedPublicationToken,
         };
       }
-      return createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
+      return createGpuFlowVisibleFrameReducerCompletionNoFrameOutcome({
         blockedPublicationToken: null,
         previousVisibleProjectionState,
         reducerDecision,
         reducerPolicy,
       });
     case "aborted":
-      return createGpuFlowVisiblePublicationCompletionAbortedStateMachineOutcome(
+      return createGpuFlowVisibleFrameReducerCompletionAbortedStateMachineOutcome(
         {
           blockedPublicationToken,
           reducerDecision,
@@ -484,7 +484,7 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
   }
 }
 
-function createGpuFlowVisiblePublicationCompletionHeldStateMachineOutcome({
+function createGpuFlowVisibleFrameReducerCompletionHeldStateMachineOutcome({
   blockedPublicationToken,
   reducerDecision,
   previousVisibleProjectionState,
@@ -502,13 +502,13 @@ function createGpuFlowVisiblePublicationCompletionHeldStateMachineOutcome({
 > {
   const visibleProjectionState = transactionProof.visibleProjectionState;
   if (visibleProjectionState?.transaction.kind === "held-previous") {
-    return createGpuFlowVisiblePublicationCompletionHeldPreviousOutcome({
+    return createGpuFlowVisibleFrameReducerCompletionHeldPreviousOutcome({
       blockedPublicationToken,
       reducerDecision,
       visibleProjectionState,
     });
   }
-  return createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
+  return createGpuFlowVisibleFrameReducerCompletionNoFrameOutcome({
     blockedPublicationToken,
     previousVisibleProjectionState,
     reducerDecision,
@@ -516,7 +516,7 @@ function createGpuFlowVisiblePublicationCompletionHeldStateMachineOutcome({
   });
 }
 
-function createGpuFlowVisiblePublicationCompletionAbortedStateMachineOutcome({
+function createGpuFlowVisibleFrameReducerCompletionAbortedStateMachineOutcome({
   blockedPublicationToken,
   reducerDecision,
   previousVisibleProjectionState,
@@ -534,7 +534,7 @@ function createGpuFlowVisiblePublicationCompletionAbortedStateMachineOutcome({
 > {
   const visibleProjectionState = transactionProof.visibleProjectionState;
   if (visibleProjectionState?.transaction.kind === "held-previous") {
-    return createGpuFlowVisiblePublicationCompletionHeldPreviousOutcome({
+    return createGpuFlowVisibleFrameReducerCompletionHeldPreviousOutcome({
       blockedPublicationToken,
       reducerDecision,
       visibleProjectionState,
@@ -565,7 +565,7 @@ function createGpuFlowVisiblePublicationCompletionAbortedStateMachineOutcome({
       }),
     };
   }
-  return createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
+  return createGpuFlowVisibleFrameReducerCompletionNoFrameOutcome({
     blockedPublicationToken: null,
     previousVisibleProjectionState,
     reducerDecision,
@@ -573,7 +573,7 @@ function createGpuFlowVisiblePublicationCompletionAbortedStateMachineOutcome({
   });
 }
 
-function createGpuFlowVisiblePublicationCompletionPresentOutcome({
+function createGpuFlowVisibleFrameReducerCompletionPresentOutcome({
   reducerDecision,
   transactionProof,
 }: {
@@ -605,7 +605,7 @@ function createGpuFlowVisiblePublicationCompletionPresentOutcome({
   return {
     debtProof: presentableFrameProof.debtProof,
     kind: "present",
-    token: createGpuFlowVisiblePublicationCompletionPresentationToken({
+    token: createGpuFlowVisibleFrameReducerCompletionPresentationToken({
       presentationAuthorityProof:
         presentableFrameProof.presentationAuthorityProof,
       presentationIdentity:
@@ -640,7 +640,7 @@ function createGpuFlowVisibleFramePublicationPresentationIdentity({
   });
 }
 
-function createGpuFlowVisiblePublicationCompletionHoldOutcome({
+function createGpuFlowVisibleFrameReducerCompletionHoldOutcome({
   reducerDecision,
   visibleProjectionState,
 }: {
@@ -668,7 +668,7 @@ function createGpuFlowVisiblePublicationCompletionHoldOutcome({
   };
 }
 
-function createGpuFlowVisiblePublicationCompletionHeldPreviousOutcome({
+function createGpuFlowVisibleFrameReducerCompletionHeldPreviousOutcome({
   blockedPublicationToken,
   reducerDecision,
   visibleProjectionState,
@@ -687,7 +687,7 @@ function createGpuFlowVisiblePublicationCompletionHeldPreviousOutcome({
   if (
     !isGpuFlowVisiblePublicationHeldPreviousOverBudget(visibleProjectionState)
   ) {
-    return createGpuFlowVisiblePublicationCompletionHoldOutcome({
+    return createGpuFlowVisibleFrameReducerCompletionHoldOutcome({
       reducerDecision,
       visibleProjectionState,
     });
@@ -747,7 +747,7 @@ function isGpuFlowVisiblePublicationHeldPreviousOverBudget(
   );
 }
 
-function createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
+function createGpuFlowVisibleFrameReducerCompletionNoFrameOutcome({
   blockedPublicationToken,
   previousVisibleProjectionState,
   reducerDecision,

@@ -23,8 +23,8 @@ import {
 export {
   createGpuFlowVisibleFrameReducerRuntime,
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
-  getGpuFlowVisiblePublicationDebtReason,
-  hasGpuFlowVisiblePublicationDebt,
+  getGpuFlowVisibleFrameReducerDebtReason,
+  hasGpuFlowVisibleFrameReducerDebt,
 } from "./GpuFlow/visibleFrameReducerRuntime";
 export type {
   GpuFlowVisibleFrameReducerPolicy,

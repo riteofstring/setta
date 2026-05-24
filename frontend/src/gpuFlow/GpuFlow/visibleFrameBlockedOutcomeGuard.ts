@@ -6,7 +6,7 @@ import {
 } from "./visibleFramePresentationProofs";
 import {
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
-  type GpuFlowVisiblePublicationCompletionOutcome,
+  type GpuFlowVisibleFrameReducerCompletionOutcome,
   type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 
@@ -26,7 +26,7 @@ export function recordGpuFlowBlockedPublicationGuard({
   reducerDecision,
   surface,
 }: {
-  readonly outcome: GpuFlowVisiblePublicationCompletionOutcome;
+  readonly outcome: GpuFlowVisibleFrameReducerCompletionOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly surface: GpuSurfaceHandle | null;
 }): void {
@@ -82,7 +82,7 @@ function assertGpuFlowBlockedPublicationGuardOutcomeToken({
   outcome,
   reducerDecision,
 }: {
-  readonly outcome: GpuFlowVisiblePublicationCompletionOutcome;
+  readonly outcome: GpuFlowVisibleFrameReducerCompletionOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): void {
   const projectionSampleId = reducerDecision.sample.id;
@@ -110,7 +110,7 @@ function assertGpuFlowBlockedPublicationGuardOutcomeToken({
 
 function createGpuFlowBlockedPublicationDebtKey(
   outcome: Extract<
-    GpuFlowVisiblePublicationCompletionOutcome,
+    GpuFlowVisibleFrameReducerCompletionOutcome,
     { readonly kind: "blocked" }
   >,
 ): string {

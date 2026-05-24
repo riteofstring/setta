@@ -97,7 +97,7 @@ export type GpuFlowVisibleFramePublicationContentCandidate = {
     | GpuFlowCommittedSurfaceFrame
     | null
     | undefined;
-  readonly forceImmediatePublicationDebtFrame?: boolean | undefined;
+  readonly forceImmediateReducerDebtFrame?: boolean | undefined;
   readonly heldPreparedContentFrame?:
     | GpuFlowCommittedSurfaceFrame
     | null

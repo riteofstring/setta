@@ -19,7 +19,7 @@ const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   ),
 );
 const SCHEDULING_REDUCTION_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePublicationDebt.ts", import.meta.url),
+  new URL("./visibleFrameReducerDebt.ts", import.meta.url),
 );
 const AUTHORITY_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresentationProofs.ts", import.meta.url),
@@ -40,7 +40,7 @@ const SURFACE_PUBLICATION_DEBT_REQUESTS_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresentationDebtRequests.ts", import.meta.url),
 );
 const SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH = fileURLToPath(
-  new URL("./flowSurfacePublicationDebtFrame.ts", import.meta.url),
+  new URL("./flowSurfaceReducerDebtFrame.ts", import.meta.url),
 );
 const FORCED_BLOCKED_CANDIDATE_SET_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameForcedBlockedCandidateSet.ts", import.meta.url),
@@ -188,7 +188,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function completeGpuFlowVisibleFramePublicationTransaction",
     );
     expect(source).not.toContain(
-      "export function createGpuFlowVisiblePublicationCompletionOutcome",
+      "export function createGpuFlowVisibleFrameReducerCompletionOutcome",
     );
     expect(source).not.toContain(
       "export function selectGpuFlowVisibleFramePublicationTransaction",
@@ -356,7 +356,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
     );
     expect(authoritySource).toContain(
-      "export function createGpuFlowVisiblePublicationCompletionPresentationToken",
+      "export function createGpuFlowVisibleFrameReducerCompletionPresentationToken",
     );
     expect(authoritySource).not.toContain(
       "visibleFramePublicationBlockedProofToken",
@@ -375,12 +375,12 @@ describe("GPU Flow visible frame coordinator phases", () => {
 
     expect(existsSync(SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH)).toBe(false);
     expect(debtRequestsSource).toContain(
-      "function scheduleDelayedGpuFlowPublicationDebtFrame",
+      "function scheduleDelayedGpuFlowReducerDebtFrame",
     );
     expect(debtRequestsSource).not.toContain(
-      "export function scheduleDelayedGpuFlowPublicationDebtFrame",
+      "export function scheduleDelayedGpuFlowReducerDebtFrame",
     );
-    expect(completionSource).not.toContain("flowSurfacePublicationDebtFrame");
+    expect(completionSource).not.toContain("flowSurfaceReducerDebtFrame");
   });
 });
 

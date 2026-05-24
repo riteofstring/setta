@@ -24,7 +24,7 @@ import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleFrameReducerRuntime,
   createGpuFlowVisibleProjectionState,
-  getGpuFlowVisiblePublicationDebtReason,
+  getGpuFlowVisibleFrameReducerDebtReason,
   setProjectionDebugAttributes,
   type GpuFlowVisibleFrameReducerDecision,
 } from "./projectionRuntime";
@@ -48,7 +48,7 @@ describe("GPU Flow projection runtime", () => {
       maintenance: true,
       motion: false,
     });
-    expect(getGpuFlowVisiblePublicationDebtReason(mixed)).toBe("manual");
+    expect(getGpuFlowVisibleFrameReducerDebtReason(mixed)).toBe("manual");
     completeCommittedFrame(reducerRuntime, mixed);
     const deferredCatchup = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -279,7 +279,7 @@ describe("GPU Flow projection runtime", () => {
       maintenance: true,
       motion: true,
     });
-    expect(getGpuFlowVisiblePublicationDebtReason(completion.debt)).toBe(
+    expect(getGpuFlowVisibleFrameReducerDebtReason(completion.debt)).toBe(
       "retained-scroll",
     );
   });

@@ -11,28 +11,28 @@ import {
   type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationTokens";
 import type {
-  GpuFlowVisiblePublicationCompletion,
-  GpuFlowVisiblePublicationDebtProof,
+  GpuFlowVisibleFrameReducerCompletion,
+  GpuFlowVisibleFrameReducerDebtProof,
   GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 
-type GpuFlowVisiblePublicationDebt = GpuFlowVisibleFrameReducerDecision["debt"];
+type GpuFlowVisibleFrameReducerDebt = GpuFlowVisibleFrameReducerDecision["debt"];
 
-export function hasGpuFlowVisiblePublicationDebt(
+export function hasGpuFlowVisibleFrameReducerDebt(
   debtOrDecision:
-    | GpuFlowVisiblePublicationDebt
+    | GpuFlowVisibleFrameReducerDebt
     | GpuFlowVisibleFrameReducerDecision,
 ): boolean {
-  const debt = getGpuFlowVisiblePublicationDebt(debtOrDecision);
+  const debt = getGpuFlowVisibleFrameReducerDebt(debtOrDecision);
   return debt.content || debt.maintenance || debt.motion;
 }
 
-export function getGpuFlowVisiblePublicationDebtReason(
+export function getGpuFlowVisibleFrameReducerDebtReason(
   debtOrDecision:
-    | GpuFlowVisiblePublicationDebt
+    | GpuFlowVisibleFrameReducerDebt
     | GpuFlowVisibleFrameReducerDecision,
 ): GpuFrameReason {
-  const debt = getGpuFlowVisiblePublicationDebt(debtOrDecision);
+  const debt = getGpuFlowVisibleFrameReducerDebt(debtOrDecision);
   if (debt.motion) {
     return "retained-scroll";
   }
@@ -42,7 +42,7 @@ export function getGpuFlowVisiblePublicationDebtReason(
   return "texture-upload";
 }
 
-export function createGpuFlowVisiblePublicationCompletion({
+export function createGpuFlowVisibleFrameReducerCompletion({
   contentDebt,
   maintenanceDebt,
   motionDebt,
@@ -51,10 +51,10 @@ export function createGpuFlowVisiblePublicationCompletion({
   readonly contentDebt: boolean;
   readonly maintenanceDebt: boolean;
   readonly motionDebt: boolean;
-  readonly outcome: GpuFlowVisiblePublicationCompletion["outcome"];
-}): GpuFlowVisiblePublicationCompletion {
+  readonly outcome: GpuFlowVisibleFrameReducerCompletion["outcome"];
+}): GpuFlowVisibleFrameReducerCompletion {
   return Object.freeze({
-    debt: createGpuFlowVisiblePublicationDebt({
+    debt: createGpuFlowVisibleFrameReducerDebt({
       content: contentDebt,
       maintenance: maintenanceDebt,
       motion: motionDebt,
@@ -141,7 +141,7 @@ export function hasCurrentGpuFlowProjectionMotion({
   );
 }
 
-export function assertGpuFlowVisiblePublicationPresentationTokenMatchesDecision({
+export function assertGpuFlowVisibleFramePresentationTokenMatchesReducerDecision({
   decision,
   token,
 }: {
@@ -154,11 +154,11 @@ export function assertGpuFlowVisiblePublicationPresentationTokenMatchesDecision(
   });
 }
 
-export function assertGpuFlowVisiblePublicationPresentationDebtProofMatchesDecision({
+export function assertGpuFlowVisibleFramePresentationDebtProofMatchesReducerDecision({
   debtProof,
   decision,
 }: {
-  readonly debtProof: GpuFlowVisiblePublicationDebtProof;
+  readonly debtProof: GpuFlowVisibleFrameReducerDebtProof;
   readonly decision: GpuFlowVisibleFrameReducerDecision;
 }): void {
   const illegalDebtKinds = [
@@ -170,7 +170,7 @@ export function assertGpuFlowVisiblePublicationPresentationDebtProofMatchesDecis
   ].filter((kind): kind is string => kind !== null);
   if (illegalDebtKinds.length > 0) {
     throw new Error(
-      `GPU Flow visible publication debt completion can only clear debt for the selected work lane (${decision.lane}); illegal debt proof: ${illegalDebtKinds.join(
+      `GPU Flow visible reducer debt completion can only clear debt for the selected work lane (${decision.lane}); illegal debt proof: ${illegalDebtKinds.join(
         ", ",
       )}.`,
     );
@@ -179,11 +179,11 @@ export function assertGpuFlowVisiblePublicationPresentationDebtProofMatchesDecis
 
 export { shouldDeferGpuFlowMaintenanceContentCatchup };
 
-function createGpuFlowVisiblePublicationDebt({
+function createGpuFlowVisibleFrameReducerDebt({
   content,
   maintenance,
   motion,
-}: GpuFlowVisiblePublicationDebt): GpuFlowVisiblePublicationDebt {
+}: GpuFlowVisibleFrameReducerDebt): GpuFlowVisibleFrameReducerDebt {
   return Object.freeze({
     content,
     maintenance,
@@ -191,10 +191,10 @@ function createGpuFlowVisiblePublicationDebt({
   });
 }
 
-function getGpuFlowVisiblePublicationDebt(
+function getGpuFlowVisibleFrameReducerDebt(
   debtOrDecision:
-    | GpuFlowVisiblePublicationDebt
+    | GpuFlowVisibleFrameReducerDebt
     | GpuFlowVisibleFrameReducerDecision,
-): GpuFlowVisiblePublicationDebt {
+): GpuFlowVisibleFrameReducerDebt {
   return "debt" in debtOrDecision ? debtOrDecision.debt : debtOrDecision;
 }

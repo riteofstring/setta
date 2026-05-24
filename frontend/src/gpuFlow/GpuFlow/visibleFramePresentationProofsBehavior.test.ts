@@ -400,7 +400,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   it("wakes the coordinator for browser visual blocked content debt", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
-      forceImmediatePublicationDebtFrame: false,
+      forceImmediateReducerDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
       reducerDecision: {
@@ -486,7 +486,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   it("requests texture upload after section surface content blocks before manual repair", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
-      forceImmediatePublicationDebtFrame: false,
+      forceImmediateReducerDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
       reducerDecision: {
@@ -577,7 +577,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   it("requests texture upload after pending browser text snapshot blocks content", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
-      forceImmediatePublicationDebtFrame: false,
+      forceImmediateReducerDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
       reducerDecision: {
@@ -676,7 +676,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
-      forceImmediatePublicationDebtFrame: false,
+      forceImmediateReducerDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
       reducerDecision: {
@@ -757,7 +757,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   it("keeps held-previous budget blocked retained follow-up queued behind reducer debt", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
-      forceImmediatePublicationDebtFrame: false,
+      forceImmediateReducerDebtFrame: false,
       followUpFrameReason: "texture-upload",
       previousVisibleProjectionState: null,
       reducerDecision: {
@@ -852,7 +852,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): void {
   proveGpuFlowVisibleFramePublicationPresentation({
-    forceImmediatePublicationDebtFrame: false,
+    forceImmediateReducerDebtFrame: false,
     followUpFrameReason: null,
     previousVisibleProjectionState: null,
     reducerDecision: {

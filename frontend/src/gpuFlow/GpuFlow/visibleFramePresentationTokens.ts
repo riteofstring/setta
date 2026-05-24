@@ -237,7 +237,7 @@ export function createGpuFlowVisibleFrameBlockedPublicationToken({
   });
 }
 
-export function createGpuFlowVisiblePublicationCompletionPresentationToken({
+export function createGpuFlowVisibleFrameReducerCompletionPresentationToken({
   presentationAuthorityProof,
   reducerDecision,
   presentationIdentity,
@@ -489,7 +489,7 @@ export function assertGpuFlowVisibleFramePresentationTokenForProjectionSample({
     token.projectionSampleId !== projectionSampleId
   ) {
     throw new Error(
-      `GPU Flow visible publication debt completion requires a presentation token for the selected projection sample (expected sample ${projectionSampleId}, received sample ${
+      `GPU Flow visible reducer debt completion requires a presentation token for the selected projection sample (expected sample ${projectionSampleId}, received sample ${
         isGpuFlowVisibleFramePresentationToken(token)
           ? token.projectionSampleId
           : "unbranded"
@@ -510,7 +510,7 @@ export function assertGpuFlowHoldPreviousTokenForProjectionSample({
     token.projectionSampleId !== projectionSampleId
   ) {
     throw new Error(
-      "GPU Flow visible publication debt completion requires a hold-previous token for the selected projection sample.",
+      "GPU Flow visible reducer debt completion requires a hold-previous token for the selected projection sample.",
     );
   }
 }
@@ -527,7 +527,7 @@ export function assertGpuFlowBlockedPublicationTokenForProjectionSample({
     token.projectionSampleId !== projectionSampleId
   ) {
     throw new Error(
-      "GPU Flow visible publication debt completion requires a blocked token for the selected projection sample.",
+      "GPU Flow visible reducer debt completion requires a blocked token for the selected projection sample.",
     );
   }
 }

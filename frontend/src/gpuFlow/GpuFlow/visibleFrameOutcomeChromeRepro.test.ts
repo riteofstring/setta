@@ -13,8 +13,8 @@ import {
 } from "./visibleFramePresentationEvidence";
 import type { GpuFlowVisibleFramePresentationToken } from "./visibleFramePresentationProofs";
 import type {
-  GpuFlowVisiblePublicationCompletionOutcome,
-  GpuFlowVisiblePublicationDebtProof,
+  GpuFlowVisibleFrameReducerCompletionOutcome,
+  GpuFlowVisibleFrameReducerDebtProof,
 } from "./visibleFrameReducerRuntime";
 import type {
   GpuFlowVisibleFramePreparedFrame,
@@ -435,9 +435,9 @@ function presentOutcome({
   debtProof,
   sample,
 }: {
-  readonly debtProof: GpuFlowVisiblePublicationDebtProof;
+  readonly debtProof: GpuFlowVisibleFrameReducerDebtProof;
   readonly sample: GpuFlowLiveProjectionSample;
-}): GpuFlowVisiblePublicationCompletionOutcome {
+}): GpuFlowVisibleFrameReducerCompletionOutcome {
   const frame = {
     actorGenerations: [],
     displayFrameId: 7,

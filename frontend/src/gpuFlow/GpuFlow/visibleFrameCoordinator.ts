@@ -72,8 +72,8 @@ export type {
 } from "./visibleFrameContentPlan";
 export { createGpuFlowVisiblePublicationTransactionReport } from "./visibleFrameOutcomeReport";
 export type {
-  GpuFlowVisiblePublicationCompletion,
-  GpuFlowVisiblePublicationDebtFrameRequest,
+  GpuFlowVisibleFrameReducerCompletion,
+  GpuFlowVisibleFrameReducerDebtFrameRequest,
   GpuFlowVisiblePublicationOutcome,
   GpuFlowVisiblePublicationReducerFrameCompletion,
   GpuFlowVisiblePublicationTransactionCompletion,
@@ -343,9 +343,9 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   });
   const transactionCompletion = proveGpuFlowVisibleFramePublicationPresentation(
     {
-      forceImmediatePublicationDebtFrame:
+      forceImmediateReducerDebtFrame:
         preparedFrame.contentPublicationFrame
-          .forceImmediatePublicationDebtFrame ?? false,
+          .forceImmediateReducerDebtFrame ?? false,
       followUpFrameReason:
         preparedFrame.contentPublicationFrame
           .retainedDisplayFollowUpFrameReason ?? null,

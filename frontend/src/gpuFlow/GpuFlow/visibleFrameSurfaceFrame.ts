@@ -326,7 +326,7 @@ export function renderGpuFlowSurfaceFrame({
         frameMeasureDetail.contentBlocked =
           contentPublicationFrame.blockedPublicationCandidate !== null;
         frameMeasureDetail.contentForceImmediateDebtFrame =
-          contentPublicationFrame.forceImmediatePublicationDebtFrame;
+          contentPublicationFrame.forceImmediateReducerDebtFrame;
         finishCompletionMeasure = startGpuFlowPerformanceMeasure(
           "surface-frame-completion",
           frameMeasureDetail,

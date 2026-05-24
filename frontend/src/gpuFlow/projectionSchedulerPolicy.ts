@@ -31,7 +31,7 @@ type GpuFlowBlockedReasonLike = {
   readonly reason: string;
 };
 
-type GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike =
+type GpuFlowVisibleFrameReducerUnpresentedCompletionOutcomeLike =
   | {
       readonly kind: "hold-previous";
     }
@@ -568,7 +568,7 @@ export function shouldSelectGpuFlowMaintenancePriorityWorkLane({
 
 export function shouldThrottleGpuFlowContentRetryAfterUnpresentedFrame(
   decision: GpuFlowVisibleFrameReducerDecisionLike,
-  outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
+  outcome: GpuFlowVisibleFrameReducerUnpresentedCompletionOutcomeLike,
 ): boolean {
   return (
     (decision.lane === "content" && outcome.kind === "hold-previous") ||
@@ -584,7 +584,7 @@ export function shouldThrottleGpuFlowContentRetryAfterUnpresentedFrame(
 }
 
 export function isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(
-  outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
+  outcome: GpuFlowVisibleFrameReducerUnpresentedCompletionOutcomeLike,
 ): boolean {
   return (
     outcome.kind === "blocked" &&
@@ -596,7 +596,7 @@ export function isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(
 
 export function shouldThrottleGpuFlowMotionRetryAfterUnpresentedFrame(
   decision: GpuFlowVisibleFrameReducerDecisionLike,
-  outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
+  outcome: GpuFlowVisibleFrameReducerUnpresentedCompletionOutcomeLike,
 ): boolean {
   return (
     getGpuFlowMotionRetryDelayMultiplierAfterUnpresentedFrame(
@@ -608,7 +608,7 @@ export function shouldThrottleGpuFlowMotionRetryAfterUnpresentedFrame(
 
 export function getGpuFlowMotionRetryDelayMultiplierAfterUnpresentedFrame(
   decision: GpuFlowVisibleFrameReducerDecisionLike,
-  outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
+  outcome: GpuFlowVisibleFrameReducerUnpresentedCompletionOutcomeLike,
 ): number | null {
   if (outcome.kind !== "blocked") {
     return null;
@@ -631,7 +631,7 @@ export function getGpuFlowMotionRetryDelayMultiplierAfterUnpresentedFrame(
 
 export function shouldYieldGpuFlowCriticalContentDebtForCoverage(
   decision: GpuFlowVisibleFrameReducerDecisionLike,
-  outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
+  outcome: GpuFlowVisibleFrameReducerUnpresentedCompletionOutcomeLike,
 ): boolean {
   return (
     decision.lane === "content" &&

@@ -8,7 +8,7 @@ import type {
 import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutcomeGuard";
 import {
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
-  type GpuFlowVisiblePublicationCompletionOutcome,
+  type GpuFlowVisibleFrameReducerCompletionOutcome,
 } from "./visibleFrameReducerRuntime";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
@@ -106,7 +106,7 @@ describe("GPU Flow blocked visible publication guard", () => {
 function blockedOutcome(
   sampleId: number,
   timestamp: number,
-): GpuFlowVisiblePublicationCompletionOutcome {
+): GpuFlowVisibleFrameReducerCompletionOutcome {
   return {
     kind: "blocked",
     token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
@@ -126,7 +126,7 @@ function blockedOutcome(
 function holdOutcome(
   sampleId: number,
   timestamp: number,
-): GpuFlowVisiblePublicationCompletionOutcome {
+): GpuFlowVisibleFrameReducerCompletionOutcome {
   return {
     kind: "hold-previous",
     token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({

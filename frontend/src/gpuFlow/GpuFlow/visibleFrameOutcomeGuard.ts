@@ -1,11 +1,11 @@
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type {
-  GpuFlowVisiblePublicationCompletionOutcome,
+  GpuFlowVisibleFrameReducerCompletionOutcome,
   GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 
 type GpuFlowVisiblePublicationOutcomeRecord = {
-  readonly outcome: GpuFlowVisiblePublicationCompletionOutcome["kind"];
+  readonly outcome: GpuFlowVisibleFrameReducerCompletionOutcome["kind"];
   readonly projectionSampleId: number;
   readonly transactionId: string | null;
 };
@@ -20,7 +20,7 @@ export function assertGpuFlowSingleVisiblePublicationOutcome({
   reducerDecision,
   surface,
 }: {
-  readonly outcome: GpuFlowVisiblePublicationCompletionOutcome;
+  readonly outcome: GpuFlowVisibleFrameReducerCompletionOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly surface: GpuSurfaceHandle | null;
 }): void {
@@ -43,7 +43,7 @@ export function assertGpuFlowSingleVisiblePublicationOutcome({
 }
 
 function getGpuFlowVisiblePublicationOutcomeTransactionId(
-  outcome: GpuFlowVisiblePublicationCompletionOutcome,
+  outcome: GpuFlowVisibleFrameReducerCompletionOutcome,
 ): string {
   switch (outcome.kind) {
     case "blocked":

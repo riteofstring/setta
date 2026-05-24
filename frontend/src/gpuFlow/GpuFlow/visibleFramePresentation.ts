@@ -34,8 +34,8 @@ import {
 import { postGpuFlowVisiblePublicationOutcomeChromeReproEvent } from "./visibleFrameOutcomeChromeRepro";
 import { assertGpuFlowSingleVisiblePublicationOutcome } from "./visibleFrameOutcomeGuard";
 import {
-  createGpuFlowSurfacePublicationDebtFrameRequest,
-  requestGpuFlowSurfacePublicationDebtFrame,
+  createGpuFlowSurfaceReducerDebtFrameRequest,
+  requestGpuFlowSurfaceReducerDebtFrame,
   requestGpuFlowSurfacePublicationFollowUpFrames,
 } from "./visibleFramePresentationDebtRequests";
 import {
@@ -47,7 +47,7 @@ import {
   type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 import type {
-  GpuFlowVisiblePublicationCompletion,
+  GpuFlowVisibleFrameReducerCompletion,
   GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import type {
@@ -249,7 +249,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
   });
   const reducerFrameCompletion = publicationTransaction.completeReducerFrame();
   const { completion } = reducerFrameCompletion;
-  const debtFrameRequest = createGpuFlowSurfacePublicationDebtFrameRequest({
+  const debtFrameRequest = createGpuFlowSurfaceReducerDebtFrameRequest({
     activeEditorActivationPending:
       publicationFrameContext.activeEditorPins.length > 0 ||
       hasGpuFlowActiveEditorActivationPendingFrame([
@@ -291,7 +291,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
     followUpFrameRequests,
     surfaceRef,
   });
-  requestGpuFlowSurfacePublicationDebtFrame({
+  requestGpuFlowSurfaceReducerDebtFrame({
     debtFrameRequest,
     completion,
     outcome,
@@ -326,7 +326,7 @@ function recordGpuFlowBlockedSurfaceVisibleProjectionPublication({
   stateMachineOutcome,
 }: {
   readonly blockedVisiblePublication: GpuFlowBlockedSurfaceVisibleProjectionPublication | null;
-  readonly completion: GpuFlowVisiblePublicationCompletion;
+  readonly completion: GpuFlowVisibleFrameReducerCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly runtimeCanvas: HTMLCanvasElement;
