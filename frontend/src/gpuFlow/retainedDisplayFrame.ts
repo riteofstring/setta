@@ -27,7 +27,11 @@ import type { GpuRect } from "./viewportMath";
 
 type RetainedFrameId = number;
 
-type CoverageReadiness = "cold-placeholder" | "covered" | "held-previous";
+type CoverageReadiness =
+  | "candidate-blocked"
+  | "cold-placeholder"
+  | "covered"
+  | "held-previous";
 
 type RetainedMotionFrame = GpuRetainedRuntimeFrame["input"] & {
   readonly frameId: RetainedFrameId;
@@ -203,6 +207,40 @@ export function publishRetainedDisplayFrame({
   );
 }
 
+export function createRetainedDisplayFrameCandidate({
+  nowMs = 0,
+  prepared,
+  previous,
+}: RetainedFrameTransaction): Extract<
+  RetainedDisplayFrameOutcome,
+  { readonly kind: "publish-compatible" | "publish-exact" }
+> {
+  const compatiblePrevious = getRetainedDisplayHoldCompatiblePrevious({
+    prepared,
+    previous,
+  });
+  const proof = createVisibleCoverageProof({
+    prepared,
+    previous: compatiblePrevious,
+  });
+  const surfaceSnapshot = createRetainedSurfaceTransactionSnapshot({
+    id: `retained:${prepared.id}`,
+    nowMs,
+    pageFrame: prepared.pageFrame,
+    retainedRuntimeFrame: prepared.retainedRuntimeFrame,
+  });
+  return createPublishedRetainedDisplayFrameOutcome({
+    coverageReadiness:
+      proof.trueHoleRects.length === 0 ? "covered" : "candidate-blocked",
+    nowMs,
+    prepared,
+    previous: compatiblePrevious,
+    proof,
+    surfaceActorSnapshots: surfaceSnapshot.actorSnapshots,
+    surfaceTransaction: surfaceSnapshot.transaction,
+  });
+}
+
 export function resolveRetainedDisplayFrameTransaction({
   allowColdPlaceholder = false,
   nowMs = 0,
@@ -357,6 +395,7 @@ function createHeldRetainedDisplayFrameOutcome({
 }
 
 function createPublishedRetainedDisplayFrameOutcome({
+  coverageReadiness = "covered",
   nowMs,
   prepared,
   previous,
@@ -364,6 +403,7 @@ function createPublishedRetainedDisplayFrameOutcome({
   surfaceActorSnapshots,
   surfaceTransaction,
 }: {
+  readonly coverageReadiness?: CoverageReadiness | undefined;
   readonly nowMs: number;
   readonly prepared: RetainedDisplayFrameInput;
   readonly previous: RetainedDisplayFrame | null | undefined;
@@ -380,7 +420,7 @@ function createPublishedRetainedDisplayFrameOutcome({
     ? "publish-compatible"
     : "publish-exact";
   const frame = createComposedRetainedDisplayFrame({
-    coverageReadiness: "covered",
+    coverageReadiness,
     diagnosticsPrevious: previous ?? null,
     holdDiagnostics: null,
     nowMs,

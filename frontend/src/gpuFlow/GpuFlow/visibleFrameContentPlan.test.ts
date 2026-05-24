@@ -9,10 +9,7 @@ import type {
   GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import type { RetainedContentTexturePagePreparedFrame } from "../retainedContentTexturePageManager";
-import type {
-  RetainedDisplayFrame,
-  RetainedDisplayFrameOutcome,
-} from "../retainedDisplayFrame";
+import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFrameAbortPolicy";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
@@ -164,51 +161,26 @@ describe("GPU Flow visible publication content plans", () => {
     expect(() =>
       contentDecisionKernel.createVisibleProjectionStateForRetainedPublication({
         frameReasons: ["manual"],
-        heldPreviousProjectionState: null,
         liveProjectionSample: liveProjectionSample(),
         publicationLane: "content",
         publishedCommittedSurfaceFrame: undefined,
-        retainedDisplayOutcomeKind: "publish-exact",
       }),
     ).toThrow(
       "GPU Flow visible projection requires a prepared committed surface frame.",
     );
   });
 
-  it("lets active editor activation commit candidate frames through retained display holds", () => {
-    const previousVisibleProjectionState =
-      contentDecisionKernel.createVisibleProjectionStateForRetainedPublication({
-        frameReasons: ["manual"],
-        heldPreviousProjectionState: null,
-        liveProjectionSample: liveProjectionSample(),
-        publicationLane: "content",
-        publishedCommittedSurfaceFrame: committedSurfaceFrame(12),
-        retainedDisplayOutcomeKind: "publish-exact",
-      });
-    const heldPublication =
+  it("creates content-publication visible projection state for retained candidates", () => {
+    const publication =
       contentDecisionKernel.createVisibleProjectionStateForRetainedPublication({
         frameReasons: ["texture-upload", "dom-control-activation"],
-        heldPreviousProjectionState: previousVisibleProjectionState,
         liveProjectionSample: liveProjectionSample(),
         publicationLane: "content",
         publishedCommittedSurfaceFrame: committedSurfaceFrame(48),
-        retainedDisplayOutcomeKind: "hold-previous",
-      });
-    const forcedPublication =
-      contentDecisionKernel.createVisibleProjectionStateForRetainedPublication({
-        forceContentPublicationForHeldRetainedDisplay: true,
-        frameReasons: ["texture-upload", "dom-control-activation"],
-        heldPreviousProjectionState: previousVisibleProjectionState,
-        liveProjectionSample: liveProjectionSample(),
-        publicationLane: "content",
-        publishedCommittedSurfaceFrame: committedSurfaceFrame(48),
-        retainedDisplayOutcomeKind: "hold-previous",
       });
 
-    expect(heldPublication.transaction.kind).toBe("held-previous");
-    expect(heldPublication.committedFrame.displayFrameId).toBe(12);
-    expect(forcedPublication.transaction.kind).toBe("content-publication");
-    expect(forcedPublication.committedFrame.displayFrameId).toBe(48);
+    expect(publication.transaction.kind).toBe("content-publication");
+    expect(publication.committedFrame.displayFrameId).toBe(48);
   });
 
   it("keeps content publication selector factories off the coordinator public surface", () => {
@@ -692,7 +664,8 @@ describe("GPU Flow visible publication content plans", () => {
     );
   });
 
-  it("derives retained display follow-up frame reasons in the content plan", () => {
+  it("does not derive retained display follow-up frames from retained candidates", () => {
+    const retainedDisplayFrame = {} as RetainedDisplayFrame;
     const prepareRetainedDisplayPublicationFramePlan =
       createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
         contentDecisionKernel,
@@ -700,12 +673,9 @@ describe("GPU Flow visible publication content plans", () => {
         prepareRetainedDisplayPublicationCandidate: () => ({
           prePublishRetainedPageMaintenance: null,
           retainedDisplayOutcome: {
-            diagnostics: {},
-            frame: {} as RetainedDisplayFrame,
-            kind: "hold-previous",
-            previousFrameId: 1,
-            reason: "coverage-missing",
-          } as RetainedDisplayFrameOutcome,
+            frame: retainedDisplayFrame,
+            kind: "publish-exact",
+          },
           retainedDisplayTransactionMs: 0,
           retainedPageMaintenanceMs: 0,
           retainedPagePreparedFrame:
@@ -718,67 +688,13 @@ describe("GPU Flow visible publication content plans", () => {
         deferResolutionUpdates: false,
       } as Parameters<typeof prepareRetainedDisplayPublicationFramePlan>[0])
         .followUpFrameReason,
-    ).toBe("texture-upload");
+    ).toBeNull();
     expect(
       prepareRetainedDisplayPublicationFramePlan({
         deferResolutionUpdates: true,
       } as Parameters<typeof prepareRetainedDisplayPublicationFramePlan>[0])
         .followUpFrameReason,
     ).toBeNull();
-  });
-
-  it("converts retained publication preparation blocks through the combined content stage", () => {
-    const result = runGpuFlowRetainedCommittedSurfacePublicationContentStage<
-      never,
-      never
-    >({
-      contentDecisionKernel,
-      deferBrowserVisualWakeup: false,
-      deferResolutionUpdates: false,
-      frameReasons: ["texture-upload"],
-      liveProjectionSample: liveProjectionSample(),
-      onCommittedSurfaceCandidateAccepted: () => {
-        throw new Error("Blocked retained stages must not publish committed.");
-      },
-      onRetainedDisplayCandidateAccepted: () => {
-        throw new Error("Blocked retained stages must not publish retained.");
-      },
-      prepareCommittedSurfaceFrame: () => {
-        throw new Error("Blocked retained stages must not prepare committed.");
-      },
-      prepareCommittedSurfacePublicationFramePlan: () => {
-        throw new Error("Blocked retained stages must not plan committed.");
-      },
-      prepareRetainedDisplayPublicationFramePlan:
-        createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
-          contentDecisionKernel,
-          previousVisibleProjectionState: null,
-          prepareRetainedDisplayPublicationCandidate: () => ({
-            prePublishRetainedPageMaintenance: null,
-            retainedDisplayOutcome: {
-              kind: "block-cold-first-coverage",
-              reason: "coverage-missing",
-            } as RetainedDisplayFrameOutcome,
-            retainedDisplayTransactionMs: 0,
-            retainedPageMaintenanceMs: 0,
-            retainedPagePreparedFrame:
-              {} as RetainedContentTexturePagePreparedFrame,
-          }),
-        }),
-      previousVisibleProjectionState: null,
-      publicationLane: "content",
-      retainedDisplayPublicationInput: retainedDisplayPublicationInputFixture(),
-    });
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        blockedPublicationCandidate: expect.objectContaining({
-          frozenFrameId: "cold-start-shell:retained-projection",
-        }),
-        rendered: false,
-        retainedDisplayFollowUpFrameReason: null,
-      }),
-    );
   });
 
   it("converts committed-surface publication blocks through the combined content stage", () => {

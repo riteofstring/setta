@@ -290,7 +290,6 @@ export type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner = <
 ) => GpuFlowContentPublicationFrameResult | Result;
 
 export type GpuFlowRetainedPublicationVisibleProjectionStatePreparer = (input: {
-  readonly forceContentPublicationForHeldRetainedDisplay?: boolean | undefined;
   readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
 }) => GpuFlowVisibleProjectionState;
 
@@ -537,15 +536,10 @@ export function runGpuFlowRetainedCommittedSurfacePublicationContentStage<
               contentDecisionKernel.createVisibleProjectionStateForRetainedPublication(
                 {
                   frameReasons,
-                  forceContentPublicationForHeldRetainedDisplay:
-                    input.forceContentPublicationForHeldRetainedDisplay,
-                  heldPreviousProjectionState: previousVisibleProjectionState,
                   liveProjectionSample,
                   publicationLane,
                   publishedCommittedSurfaceFrame:
                     input.publishedCommittedSurfaceFrame,
-                  retainedDisplayOutcomeKind:
-                    publishedRetainedDisplayOutcomeFrame.outcomeKind,
                 },
               ),
             preparedCommittedSurfaceFrame:

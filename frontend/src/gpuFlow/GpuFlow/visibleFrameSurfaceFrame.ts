@@ -97,7 +97,6 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   | "deferResolutionUpdates"
   | "deferBrowserVisualWakeup"
   | "frameReasons"
-  | "forceContentPublicationForHeldRetainedDisplay"
   | "heldPreviousProjectionState"
   | "liveProjectionSample"
   | "onRetainedDisplayFrame"
@@ -741,8 +740,6 @@ function renderGpuFlowSurfaceContentPublicationFrame({
         deferResolutionUpdates: contentDeferResolutionUpdates,
         publicationDecision,
       }),
-    forceContentPublicationForHeldRetainedDisplay:
-      activeEditorActivationPending,
     frameReasons: event.reasons,
     frameRef: input.frameRef,
     interactionDiagnosticsRef: input.interactionDiagnosticsRef,

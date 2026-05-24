@@ -1,22 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
+import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { RetainedContentTexturePagePreparedFrame } from "../retainedContentTexturePageManager";
-import type {
-  RetainedDisplayFrame,
-  RetainedDisplayFrameOutcome,
-} from "../retainedDisplayFrame";
+import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
+  createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
+  runGpuFlowRetainedCommittedSurfacePublicationContentStage,
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
 } from "./visibleFrameContentPlan";
 
 const contentDecisionKernel =
   createGpuFlowVisiblePublicationContentDecisionKernel();
 
-describe("GPU Flow retained display blocked content plans", () => {
-  it("selects retained display blocked plans outside flowFrame", () => {
+describe("GPU Flow retained display candidate content plans", () => {
+  it("publishes retained display candidates instead of retained projection blockers", () => {
+    const retainedFrame = {} as RetainedDisplayFrame;
     const prepareRetainedDisplayPublicationFramePlan =
       createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
         contentDecisionKernel,
@@ -24,9 +24,9 @@ describe("GPU Flow retained display blocked content plans", () => {
         prepareRetainedDisplayPublicationCandidate: () => ({
           prePublishRetainedPageMaintenance: null,
           retainedDisplayOutcome: {
-            kind: "block-cold-first-coverage",
-            reason: "coverage-missing",
-          } as RetainedDisplayFrameOutcome,
+            frame: retainedFrame,
+            kind: "publish-exact",
+          },
           retainedDisplayTransactionMs: 0,
           retainedPageMaintenanceMs: 0,
           retainedPagePreparedFrame:
@@ -36,70 +36,77 @@ describe("GPU Flow retained display blocked content plans", () => {
     const preparation = prepareRetainedDisplayPublicationFramePlan(
       retainedDisplayPublicationInputFixture(),
     );
-    const plan = preparation.framePlan;
 
-    expect(preparation.framePlanResult.publishedOutcomeFrame).toBeNull();
-    expect(preparation.nodeLayerFrameResult).toEqual(
-      expect.objectContaining({
-        blockedPublicationCandidate: expect.objectContaining({
-          frozenFrameId: "cold-start-shell:retained-projection",
-        }),
-      }),
-    );
-    expect(plan.kind).toBe("blocked");
-    if (plan.kind !== "blocked") {
-      throw new Error("Expected retained display blocked plan.");
-    }
-    expect(plan.blockedPublicationCandidate).toEqual({
-      blockedReasons: [
-        {
-          actorId: null,
-          family: "retained-projection",
-          reason: "coverage-missing",
-        },
-      ],
-      frozenFrameId: "cold-start-shell:retained-projection",
-    });
+    expect(preparation.framePlan.kind).toBe("published");
+    expect(preparation.framePlanResult.blockedPublicationCandidate).toBeNull();
+    expect(preparation.nodeLayerFrameResult).toBeNull();
+    expect(preparation.publishedOutcomeFrame.frame).toBe(retainedFrame);
   });
 
-  it("blocks retained cold placeholders after a visible frame exists", () => {
-    const prepareRetainedDisplayPublicationFramePlan =
-      createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
-        contentDecisionKernel,
-        previousVisibleProjectionState: visibleProjectionState(
-          "content-publication",
-        ),
-        prepareRetainedDisplayPublicationCandidate: () => ({
-          prePublishRetainedPageMaintenance: null,
-          retainedDisplayOutcome: {
-            frame: {} as RetainedDisplayFrame,
-            kind: "publish-cold-placeholder",
-            reason: "coverage-missing",
-          } as RetainedDisplayFrameOutcome,
-          retainedDisplayTransactionMs: 0,
-          retainedPageMaintenanceMs: 0,
-          retainedPagePreparedFrame:
-            {} as RetainedContentTexturePagePreparedFrame,
+  it("reports visible true-hole blockers from committed surface candidates", () => {
+    const retainedFrame = {} as RetainedDisplayFrame;
+    const committedFrame = trueHoleCommittedSurfaceFrame();
+    const result = runGpuFlowRetainedCommittedSurfacePublicationContentStage<
+      Record<string, never>,
+      never
+    >({
+      contentDecisionKernel,
+      deferBrowserVisualWakeup: false,
+      deferResolutionUpdates: false,
+      frameReasons: ["texture-upload"],
+      liveProjectionSample: {
+        id: 17,
+        timestamp: 24,
+      } as Parameters<
+        typeof runGpuFlowRetainedCommittedSurfacePublicationContentStage
+      >[0]["liveProjectionSample"],
+      onCommittedSurfaceCandidateAccepted: () => {
+        throw new Error("Blocked committed candidates must not publish.");
+      },
+      onRetainedDisplayCandidateAccepted: () => ({
+        committedGpuNativeVisuals: undefined,
+        context: {},
+      }),
+      prepareCommittedSurfaceFrame: () => committedFrame,
+      prepareCommittedSurfacePublicationFramePlan:
+        createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
+          contentDecisionKernel,
         }),
-      });
-    const preparation = prepareRetainedDisplayPublicationFramePlan(
-      retainedDisplayPublicationInputFixture(),
-    );
+      prepareRetainedDisplayPublicationFramePlan:
+        createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
+          contentDecisionKernel,
+          previousVisibleProjectionState: null,
+          prepareRetainedDisplayPublicationCandidate: () => ({
+            prePublishRetainedPageMaintenance: null,
+            retainedDisplayOutcome: {
+              frame: retainedFrame,
+              kind: "publish-exact",
+            },
+            retainedDisplayTransactionMs: 0,
+            retainedPageMaintenanceMs: 0,
+            retainedPagePreparedFrame:
+              {} as RetainedContentTexturePagePreparedFrame,
+          }),
+        }),
+      previousVisibleProjectionState: null,
+      publicationLane: "content",
+      retainedDisplayPublicationInput: retainedDisplayPublicationInputFixture(),
+    });
 
-    expect(preparation.framePlan.kind).toBe("blocked");
-    expect(preparation.framePlanResult.publishedOutcomeFrame).toBeNull();
-    expect(preparation.nodeLayerFrameResult).toEqual(
+    expect(result).toEqual(
       expect.objectContaining({
-        blockedPublicationCandidate: expect.objectContaining({
+        blockedPublicationCandidate: {
           blockedReasons: [
             {
-              actorId: null,
-              family: "retained-projection",
-              reason: "coverage-missing",
+              actorId: "text-control-a",
+              family: "text-like-dom-control",
+              reason: "text-actor-true-hole",
             },
           ],
-          frozenFrameId: 12,
-        }),
+          frozenFrameId: "cold-start-shell:browser-visual",
+        },
+        blockedPreparedCommittedSurfaceFrame: committedFrame,
+        rendered: false,
       }),
     );
   });
@@ -123,13 +130,32 @@ function retainedDisplayPublicationInputFixture({
   };
 }
 
-function visibleProjectionState(
-  kind: GpuFlowVisibleProjectionState["transaction"]["kind"],
-): GpuFlowVisibleProjectionState {
+function trueHoleCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
   return {
-    committedFrame: {
-      displayFrameId: 12,
+    actorGenerations: [
+      {
+        actorFamily: "text-like-dom-control",
+        actorId: "text-control-a",
+        generationId: "text-generation-a",
+        kind: "dom-control",
+        textCoverageProof: {
+          projectionCoverage: "true-hole",
+        },
+        visibleNonempty: true,
+      },
+    ],
+    displayFrameId: 12,
+    publishability: {
+      actorFamily: "text-like-dom-control",
+      actorIds: ["text-control-a"],
+      blockingActorIds: ["text-control-a"],
+      kind: "true-hole",
+      reason: "text-actor-true-hole",
+      status: "blocked",
+      textActorCount: 1,
+      textActorExactCoverageCount: 0,
+      transactionOutcome: "publish-exact",
+      visibleNonemptyTextActorCount: 1,
     },
-    transaction: { kind },
-  } as GpuFlowVisibleProjectionState;
+  } as unknown as GpuFlowCommittedSurfaceFrame;
 }
