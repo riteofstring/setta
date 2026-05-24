@@ -216,7 +216,6 @@ export function renderGpuFlowSurfaceFrame({
         runtimeCanvas: runtime.canvas,
         surfaceRef: input.surfaceRef,
         viewportRuntime,
-        visibleFrameBudgetBrokerRef: input.visibleFrameBudgetBrokerRef,
         visibleOverlayProjectionKeyRef: input.visibleOverlayProjectionKeyRef,
         visibleProjectionPublicationStateRef:
           input.visibleProjectionPublicationStateRef,

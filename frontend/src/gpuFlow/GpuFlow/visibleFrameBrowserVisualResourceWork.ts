@@ -14,7 +14,6 @@ export type GpuFlowBrowserVisualResourceReadinessState =
 
 export type GpuFlowBrowserVisualResourceWakeupSource =
   | "blocked-publication"
-  | "deferred-watchdog"
   | "immediate-frame-request";
 
 export type GpuFlowBrowserVisualResourceWorkSnapshot = Omit<

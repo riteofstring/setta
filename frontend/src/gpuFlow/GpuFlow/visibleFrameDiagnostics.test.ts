@@ -10,11 +10,7 @@ import type { GpuSurfaceHandle } from "../GpuSurface";
 import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
-import { createGpuFlowVisibleFrameBudgetBroker } from "./visibleFrameBudgetBroker";
-import {
-  clearGpuFlowBrowserVisualResourcePreparation,
-  scheduleGpuFlowBrowserVisualResourcePreparation,
-} from "./visibleFrameBrowserVisualPreparation";
+import { requestGpuFlowBrowserVisualResourcePreparation } from "./visibleFrameBrowserVisualPreparation";
 import { clearGpuFlowBrowserVisualResourceWork } from "./visibleFrameBrowserVisualResourceWork";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
@@ -117,7 +113,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       throw new Error("Expected nonpublishable publication candidate.");
     }
 
-    scheduleGpuFlowBrowserVisualResourcePreparation({
+    requestGpuFlowBrowserVisualResourcePreparation({
       candidateFrame: result.candidateFrame,
       candidateResourceWork: result.resourceWork,
       outcome: "held-previous",
@@ -141,8 +137,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     ]);
   });
 
-  it("uses a deferred watchdog while waiting for browser visual repair signals during motion-heavy publication", () => {
-    vi.useFakeTimers();
+  it("leaves deferred browser visual work queued until budget selects concrete repair", () => {
     const canvas = document.createElement("canvas");
     const requestFrame = vi.fn();
     const surface = { requestFrame } as unknown as GpuSurfaceHandle;
@@ -159,7 +154,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       throw new Error("Expected nonpublishable publication candidate.");
     }
     applyBlockedCandidate(result.candidateFrame, { canvas });
-    scheduleGpuFlowBrowserVisualResourcePreparation({
+    requestGpuFlowBrowserVisualResourcePreparation({
       candidateFrame: result.candidateFrame,
       candidateResourceWork: result.resourceWork,
       outcome: "blocked",
@@ -167,82 +162,56 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       surfaceRef: { current: surface },
     });
     expect(requestFrame).not.toHaveBeenCalled();
+    expect(readBrowserVisualResourceWork()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        readinessState: "requested",
+        wakeupSource: "blocked-publication",
+      }),
+    ]);
+    expect(requestFrame).not.toHaveBeenCalled();
+  });
+
+  it("wakes browser visual repair immediately when concrete work is budget-selected", () => {
+    const canvas = document.createElement("canvas");
+    const requestFrame = vi.fn();
+    const surface = { requestFrame } as unknown as GpuSurfaceHandle;
+
+    const result = prepareGpuFlowCommittedSurfacePublicationCandidate(
+      publicationCandidateInput({
+        deferBrowserVisualWakeup: true,
+        timestamp: 10,
+      }),
+    );
+
+    expect(result.kind).toBe("nonpublishable");
+    if (result.kind !== "nonpublishable") {
+      throw new Error("Expected nonpublishable publication candidate.");
+    }
+    applyBlockedCandidate(result.candidateFrame, { canvas });
+    requestGpuFlowBrowserVisualResourcePreparation({
+      budgetSelectedResourceKeys: result.resourceWork.workItems.map(
+        (item) => item.candidateResourceKey,
+      ),
+      candidateFrame: result.candidateFrame,
+      candidateResourceWork: result.resourceWork,
+      outcome: "blocked",
+      runtimeCanvas: canvas,
+      surfaceRef: { current: surface },
+    });
+
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     expect(readBrowserVisualResourceWork()).toEqual([
       expect.objectContaining({
         actorId: "actor-a",
         readinessState: "preparing",
-        wakeupSource: "deferred-watchdog",
-      }),
-    ]);
-    vi.advanceTimersByTime(
-      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2 - 1,
-    );
-    expect(requestFrame).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
-    expect(requestFrame).toHaveBeenCalledTimes(1);
-    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
-    expect(readBrowserVisualResourceWork()).toEqual([
-      expect.objectContaining({
-        actorId: "actor-a",
-        readinessState: "ready",
-        wakeupSource: "deferred-watchdog",
-      }),
-    ]);
-  });
-
-  it("wakes browser visual repair immediately when concrete work is budget-selected", () => {
-    vi.useFakeTimers();
-    const canvas = document.createElement("canvas");
-    const requestFrame = vi.fn();
-    const surface = { requestFrame } as unknown as GpuSurfaceHandle;
-
-    const result = prepareGpuFlowCommittedSurfacePublicationCandidate(
-      publicationCandidateInput({
-        deferBrowserVisualWakeup: true,
-        timestamp: 10,
-      }),
-    );
-
-    expect(result.kind).toBe("nonpublishable");
-    if (result.kind !== "nonpublishable") {
-      throw new Error("Expected nonpublishable publication candidate.");
-    }
-    applyBlockedCandidate(result.candidateFrame, { canvas });
-    scheduleGpuFlowBrowserVisualResourcePreparation({
-      budgetBroker: createGpuFlowVisibleFrameBudgetBroker(),
-      candidateFrame: result.candidateFrame,
-      candidateResourceWork: result.resourceWork,
-      outcome: "blocked",
-      publicationDecision: {
-        debt: {
-          content: true,
-          maintenance: false,
-          motion: false,
-        },
-        lane: "content",
-        schedulerState: "content-catchup",
-      },
-      runtimeCanvas: canvas,
-      surfaceRef: { current: surface },
-    });
-
-    expect(requestFrame).toHaveBeenCalledTimes(1);
-    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
-    expect(readBrowserVisualResourceWork()).toEqual([
-      expect.objectContaining({
-        actorId: "actor-a",
-        readinessState: "ready",
         wakeupSource: "immediate-frame-request",
       }),
     ]);
-    vi.advanceTimersByTime(
-      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2,
-    );
-    expect(requestFrame).toHaveBeenCalledTimes(1);
   });
 
   it("keeps browser visual repair work alive across motion-only commits", () => {
-    vi.useFakeTimers();
     const canvas = document.createElement("canvas");
     const requestFrame = vi.fn();
     const surface = { requestFrame } as unknown as GpuSurfaceHandle;
@@ -259,7 +228,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       throw new Error("Expected nonpublishable publication candidate.");
     }
     applyBlockedCandidate(result.candidateFrame, { canvas });
-    scheduleGpuFlowBrowserVisualResourcePreparation({
+    requestGpuFlowBrowserVisualResourcePreparation({
       candidateFrame: result.candidateFrame,
       candidateResourceWork: result.resourceWork,
       outcome: "blocked",
@@ -276,17 +245,13 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     expect(readBrowserVisualResourceWork()).toEqual([
       expect.objectContaining({
         actorId: "actor-a",
-        readinessState: "preparing",
+        readinessState: "requested",
       }),
     ]);
-    vi.advanceTimersByTime(
-      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2,
-    );
-    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
   });
 
   it("clears browser visual repair work after a committed surface frame presents", () => {
-    vi.useFakeTimers();
     const canvas = document.createElement("canvas");
     const requestFrame = vi.fn();
     const surface = { requestFrame } as unknown as GpuSurfaceHandle;
@@ -303,7 +268,10 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       throw new Error("Expected nonpublishable publication candidate.");
     }
     applyBlockedCandidate(result.candidateFrame, { canvas });
-    scheduleGpuFlowBrowserVisualResourcePreparation({
+    requestGpuFlowBrowserVisualResourcePreparation({
+      budgetSelectedResourceKeys: result.resourceWork.workItems.map(
+        (item) => item.candidateResourceKey,
+      ),
       candidateFrame: result.candidateFrame,
       candidateResourceWork: result.resourceWork,
       outcome: "blocked",
@@ -311,10 +279,6 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       surfaceRef: { current: surface },
     });
 
-    clearGpuFlowBrowserVisualResourcePreparation({
-      runtimeCanvas: canvas,
-      surface,
-    });
     recordGpuFlowVisibleFramePresented({
       committedSurfaceFrame: result.candidateFrame,
       runtimeCanvas: canvas,
@@ -323,10 +287,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     clearGpuFlowBrowserVisualResourceWork(canvas);
 
     expect(readBrowserVisualResourceWork()).toEqual([]);
-    vi.advanceTimersByTime(
-      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2,
-    );
-    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
   });
 
   it("rejects unbranded blocked candidate tokens", () => {
@@ -396,7 +357,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           blockedActorsByFamily: { "browser-text-snapshot": 1 },
           blockedDebt: { content: true, maintenance: false, motion: false },
           committedFrameId: 2,
-          missingActorsByFamily: { "browser-text-snapshot": 1 },
+          missingActorsByFamily: { "browser-text-snapshot": 2 },
           readyActorsByFamily: {
             "accessibility-exposure": 1,
             "debug-snapshot": 1,
@@ -409,7 +370,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           },
           requiredActorsByFamily: {
             "accessibility-exposure": 1,
-            "browser-text-snapshot": 1,
+            "browser-text-snapshot": 2,
             "debug-snapshot": 1,
             edges: 1,
             grid: 1,

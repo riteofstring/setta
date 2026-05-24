@@ -48,6 +48,8 @@ describe("GPU Flow visible frame diagnostics boundaries", () => {
     expect(preparationSource).toContain(
       'surface.requestFrame("texture-upload")',
     );
+    expect(preparationSource).not.toContain("setTimeout(");
+    expect(preparationSource).not.toContain("deferred-watchdog");
     expect(resourceWorkSource).toContain(
       "__SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__",
     );
