@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 
-import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
+import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
 import {
   createGpuFlowPreparedContentFrame,
   createGpuFlowStartupPreparedContentFrame,
@@ -10,8 +10,14 @@ import {
 import { createGpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
+import type { BrowserVisualActorRepresentationReadiness } from "../surfaceCompositor/browserVisualActorAdapter";
+import type { SurfaceResourceHandle } from "../surfaceCompositor/surfaceCoverage";
 import type { GpuViewportInput } from "../viewportMath";
-import { getGpuFlowBrowserVisualActorRuntimeForPresentedSurface } from "./browserVisualActorRuntime";
+import {
+  getGpuFlowBrowserVisualActorRuntimeForPresentedSurface,
+  type GpuFlowBrowserVisualActorCandidate,
+} from "./browserVisualActorRuntime";
+import { areBrowserVisualActorRuntimeSnapshotsEqual } from "./browserVisualActorRuntimeHelpers";
 import {
   createGpuFlowVisibleFrameSelectedResourceWorkKeys,
   type GpuFlowVisibleFrameBudgetBrokerDecision,
@@ -23,6 +29,15 @@ import {
   type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 import { createGpuFlowVisibleFrameResourceGraph } from "./visibleFrameResourceGraph";
+
+type GpuFlowPreparedContentFrameReuseEntry = {
+  readonly browserVisualCandidate: GpuFlowBrowserVisualActorCandidate;
+  readonly frame: GpuFlowPreparedContentFrame;
+  readonly gpuNativeVisuals:
+    | readonly HtmlSurfaceSolidRoundedRectVisual[]
+    | undefined;
+  readonly retainedDisplayFrame: RetainedDisplayFrame;
+};
 
 export function useGpuFlowPresentedSurfaceFrameState({
   initialRetainedRuntimeFrame,
@@ -45,6 +60,8 @@ export function useGpuFlowPresentedSurfaceFrameState({
   const visibleFrameResourceGraphRef = useRef(
     createGpuFlowVisibleFrameResourceGraph(),
   );
+  const preparedContentFrameReuseRef =
+    useRef<GpuFlowPreparedContentFrameReuseEntry | null>(null);
   const semanticSnapshot = useSyncExternalStore(
     presentedSurfaceRuntimeRef.current.subscribeReactSemanticSnapshot.bind(
       presentedSurfaceRuntimeRef.current,
@@ -93,13 +110,47 @@ export function useGpuFlowPresentedSurfaceFrameState({
         viewport: options?.viewport,
       });
       finishBrowserVisualCandidateMeasure();
-      const finishPreparedContentBuildMeasure =
-        startGpuFlowPerformanceMeasure("prepared-content-build", {
+      const reusablePreparedContentFrame =
+        selectReusableGpuFlowPreparedContentFrame({
+          browserVisualCandidate,
+          cacheEntry: preparedContentFrameReuseRef.current,
+          gpuNativeVisuals: options?.gpuNativeVisuals,
+          previousPreparedContentFrame,
+          retainedDisplayFrame: nextRetainedDisplayFrame,
+        });
+      if (reusablePreparedContentFrame) {
+        const finishPreparedContentBuildMeasure =
+          startGpuFlowPerformanceMeasure("prepared-content-build", {
+            cacheHit: true,
+            domControlCount:
+              nextRetainedDisplayFrame.retainedRuntimeFrame.descriptors
+                .domControlSources.length,
+            frame: nextRetainedDisplayFrame.id,
+          });
+        finishPreparedContentBuildMeasure();
+        registerGpuFlowPreparedContentFrameCandidate({
+          browserVisualCandidate,
+          frame: reusablePreparedContentFrame,
+          visibleFrameResourceGraph: visibleFrameResourceGraphRef.current,
+        });
+        preparedContentFrameReuseRef.current = {
+          browserVisualCandidate,
+          frame: reusablePreparedContentFrame,
+          gpuNativeVisuals: options?.gpuNativeVisuals,
+          retainedDisplayFrame: nextRetainedDisplayFrame,
+        };
+        return reusablePreparedContentFrame;
+      }
+      const finishPreparedContentBuildMeasure = startGpuFlowPerformanceMeasure(
+        "prepared-content-build",
+        {
+          cacheHit: false,
           domControlCount:
             nextRetainedDisplayFrame.retainedRuntimeFrame.descriptors
               .domControlSources.length,
           frame: nextRetainedDisplayFrame.id,
-        });
+        },
+      );
       const nextPreparedContentFrame = createGpuFlowPreparedContentFrame({
         browserVisualReadiness: browserVisualCandidate.readiness,
         domPresentationEvidence: browserVisualCandidate.presentationEvidence,
@@ -108,18 +159,17 @@ export function useGpuFlowPresentedSurfaceFrameState({
         retainedDisplayFrame: nextRetainedDisplayFrame,
       });
       finishPreparedContentBuildMeasure();
-      const finishResourceGraphMeasure = startGpuFlowPerformanceMeasure(
-        "prepared-content-resource-graph-register",
-        {
-          actorCount: nextPreparedContentFrame.actorGenerations.length,
-          frame: nextPreparedContentFrame.displayFrameId,
-        },
-      );
-      visibleFrameResourceGraphRef.current.registerPreparedContentFrame({
+      registerGpuFlowPreparedContentFrameCandidate({
         browserVisualCandidate,
         frame: nextPreparedContentFrame,
+        visibleFrameResourceGraph: visibleFrameResourceGraphRef.current,
       });
-      finishResourceGraphMeasure();
+      preparedContentFrameReuseRef.current = {
+        browserVisualCandidate,
+        frame: nextPreparedContentFrame,
+        gpuNativeVisuals: options?.gpuNativeVisuals,
+        retainedDisplayFrame: nextRetainedDisplayFrame,
+      };
       return nextPreparedContentFrame;
     },
     [],
@@ -266,4 +316,190 @@ export function useGpuFlowPresentedSurfaceFrameState({
     validatePreparedContentFrame,
     visiblePresentedContentFrame,
   };
+}
+
+function selectReusableGpuFlowPreparedContentFrame({
+  browserVisualCandidate,
+  cacheEntry,
+  gpuNativeVisuals,
+  previousPreparedContentFrame,
+  retainedDisplayFrame,
+}: {
+  readonly browserVisualCandidate: GpuFlowBrowserVisualActorCandidate;
+  readonly cacheEntry: GpuFlowPreparedContentFrameReuseEntry | null;
+  readonly gpuNativeVisuals:
+    | readonly HtmlSurfaceSolidRoundedRectVisual[]
+    | undefined;
+  readonly previousPreparedContentFrame: GpuFlowPreparedContentFrame;
+  readonly retainedDisplayFrame: RetainedDisplayFrame;
+}): GpuFlowPreparedContentFrame | null {
+  if (
+    cacheEntry === null ||
+    cacheEntry.frame !== previousPreparedContentFrame ||
+    cacheEntry.retainedDisplayFrame !== retainedDisplayFrame ||
+    cacheEntry.gpuNativeVisuals !== gpuNativeVisuals
+  ) {
+    return null;
+  }
+  if (
+    !areBrowserVisualActorRuntimeSnapshotsEqual(
+      cacheEntry.browserVisualCandidate.snapshot,
+      browserVisualCandidate.snapshot,
+    )
+  ) {
+    return null;
+  }
+  if (
+    !areGpuFlowBrowserVisualReadinessMapsEqual(
+      cacheEntry.browserVisualCandidate.readiness.domControlReadinessByActorId,
+      browserVisualCandidate.readiness.domControlReadinessByActorId,
+    ) ||
+    !areGpuFlowBrowserVisualReadinessMapsEqual(
+      cacheEntry.browserVisualCandidate.readiness.domIslandReadinessByActorId,
+      browserVisualCandidate.readiness.domIslandReadinessByActorId,
+    )
+  ) {
+    return null;
+  }
+  return cacheEntry.frame;
+}
+
+function registerGpuFlowPreparedContentFrameCandidate({
+  browserVisualCandidate,
+  frame,
+  visibleFrameResourceGraph,
+}: {
+  readonly browserVisualCandidate: GpuFlowBrowserVisualActorCandidate;
+  readonly frame: GpuFlowPreparedContentFrame;
+  readonly visibleFrameResourceGraph: ReturnType<
+    typeof createGpuFlowVisibleFrameResourceGraph
+  >;
+}): void {
+  const finishResourceGraphMeasure = startGpuFlowPerformanceMeasure(
+    "prepared-content-resource-graph-register",
+    {
+      actorCount: frame.actorGenerations.length,
+      frame: frame.displayFrameId,
+    },
+  );
+  visibleFrameResourceGraph.registerPreparedContentFrame({
+    browserVisualCandidate,
+    frame,
+  });
+  finishResourceGraphMeasure();
+}
+
+function areGpuFlowBrowserVisualReadinessMapsEqual(
+  left: ReadonlyMap<string, BrowserVisualActorRepresentationReadiness>,
+  right: ReadonlyMap<string, BrowserVisualActorRepresentationReadiness>,
+): boolean {
+  if (left.size !== right.size) {
+    return false;
+  }
+  for (const [actorId, leftReadiness] of left) {
+    const rightReadiness = right.get(actorId);
+    if (
+      rightReadiness === undefined ||
+      !areGpuFlowBrowserVisualReadinessEqual(leftReadiness, rightReadiness)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function areGpuFlowBrowserVisualReadinessEqual(
+  left: BrowserVisualActorRepresentationReadiness,
+  right: BrowserVisualActorRepresentationReadiness,
+): boolean {
+  return (
+    left.coverageState === right.coverageState &&
+    left.projectionCoverageRequired === right.projectionCoverageRequired &&
+    areGpuFlowBrowserVisualResourceHandlesEqual(
+      left.resourceHandles,
+      right.resourceHandles,
+    ) &&
+    areGpuFlowBrowserVisualCompatibilityProofsEqual(left, right)
+  );
+}
+
+function areGpuFlowBrowserVisualResourceHandlesEqual(
+  left: readonly SurfaceResourceHandle[] | undefined,
+  right: readonly SurfaceResourceHandle[] | undefined,
+): boolean {
+  if (left === right) {
+    return true;
+  }
+  if (!left || !right || left.length !== right.length) {
+    return false;
+  }
+  return left.every(
+    (handle, index) =>
+      handle.id === right[index]?.id && handle.kind === right[index]?.kind,
+  );
+}
+
+function areGpuFlowBrowserVisualCompatibilityProofsEqual(
+  left: BrowserVisualActorRepresentationReadiness,
+  right: BrowserVisualActorRepresentationReadiness,
+): boolean {
+  if (
+    left.coverageState !== "compatible-previous-ready" ||
+    right.coverageState !== "compatible-previous-ready"
+  ) {
+    return left.coverageState === right.coverageState;
+  }
+  return (
+    left.compatibilityProof.activationPolicy ===
+      right.compatibilityProof.activationPolicy &&
+    left.compatibilityProof.actorId === right.compatibilityProof.actorId &&
+    left.compatibilityProof.canonicalActorId ===
+      right.compatibilityProof.canonicalActorId &&
+    left.compatibilityProof.clipChainRevision ===
+      right.compatibilityProof.clipChainRevision &&
+    left.compatibilityProof.controlKind ===
+      right.compatibilityProof.controlKind &&
+    left.compatibilityProof.displayRevision ===
+      right.compatibilityProof.displayRevision &&
+    left.compatibilityProof.focusState ===
+      right.compatibilityProof.focusState &&
+    left.compatibilityProof.hitTargetId ===
+      right.compatibilityProof.hitTargetId &&
+    left.compatibilityProof.reasonCode ===
+      right.compatibilityProof.reasonCode &&
+    left.compatibilityProof.retainedScrollCompatible ===
+      right.compatibilityProof.retainedScrollCompatible &&
+    left.compatibilityProof.retainedSurfaceId ===
+      right.compatibilityProof.retainedSurfaceId &&
+    left.compatibilityProof.semanticGenerationId ===
+      right.compatibilityProof.semanticGenerationId &&
+    left.compatibilityProof.visualGenerationId ===
+      right.compatibilityProof.visualGenerationId &&
+    areGpuFlowRectsEqual(
+      left.compatibilityProof.flowRect,
+      right.compatibilityProof.flowRect,
+    )
+  );
+}
+
+function areGpuFlowRectsEqual(
+  left: {
+    readonly height: number;
+    readonly width: number;
+    readonly x: number;
+    readonly y: number;
+  },
+  right: {
+    readonly height: number;
+    readonly width: number;
+    readonly x: number;
+    readonly y: number;
+  },
+): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  );
 }
