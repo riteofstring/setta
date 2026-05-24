@@ -10,7 +10,7 @@ textures, with DOM control and island layers over the canvas for controls that
 must remain browser-owned. Retained pages, projected DOM controls, DOM islands,
 retained HTML texture actors, retained native visuals, hit testing, debug
 snapshots, retained scroll samples, and clip revisions are sampled from one
-committed surface frame. Interaction projects source DOM under the browser
+presented content frame. Interaction projects source DOM under the browser
 pointer; it does not make the source DOM the visible rendering path.
 
 The project entrypoint is
@@ -51,8 +51,8 @@ The project surface is a WebGPU canvas composed from several owner surfaces:
 For DOM section and overlay sources, the renderer separates source hosts,
 texture snapshots, and visual records:
 
-- Source hosts are React-owned DOM `div` elements created by
-  `HtmlSurfaceSourceLayer` and mounted as direct children of the
+- Source hosts are DOM `div` elements created by `HtmlSurfaceSourceLayer`,
+  populated through React portals, and mounted as direct children of the
   `<canvas layoutsubtree>`.
 - `CommittedHtmlSurfaceTextureSnapshot` and `HtmlSurfaceTextureTileRecord`
   describe one full-surface texture or a tiled texture layout uploaded from the
@@ -85,13 +85,13 @@ Pan and zoom frames whose visible surfaces are already covered by committed
 textures do not call `requestPaint()`, upload HTML source textures with
 `GPUQueue.copyElementImageToTexture()`, force section React renders, or rewrite
 every source transform. Retained display publication is guarded by the
-committed surface transaction model: exact or compatible retained coverage can
-publish, missing coverage holds a compatible previous coherent visible frame
-when one exists, incompatible previous retained scenes publish a current-scene
-cold placeholder instead of showing stale unrelated content, and cold first
-coverage blocks publication in the project path until a `texture-upload` frame
-catches up. Prepared retained frames may queue follow-up work without
-independently advancing visible DOM-control actors.
+retained-display and prepared-content transaction models: exact or compatible
+retained coverage can publish, missing coverage holds a compatible previous
+coherent visible frame when one exists, incompatible previous retained scenes
+publish a current-scene cold placeholder instead of showing stale unrelated
+content, and cold first coverage blocks publication in the project path until a
+`texture-upload` frame catches up. Prepared retained frames may queue follow-up
+work without independently advancing visible DOM-control actors.
 
 ## Scene Model
 
@@ -176,9 +176,9 @@ The reusable runtime is centered on these modules:
 - `GpuFlow/flowFrame.tsx` owns content-publication orchestration for retained
   content pages, HTML surface rendering, performance reporting, and additional
   frame requests.
-- `GpuFlow/flowProjectionFrame.tsx` redraws committed retained/page/HTML
+- `GpuFlow/flowProjectionFrame.tsx` redraws already-presented retained/page/HTML
   surfaces for motion-only projection frames, remaps retained scroll visuals
-  when committed coverage allows it, and holds a previous projection when the
+  when presented coverage allows it, and holds a previous projection when the
   requested projection would expose missing retained coverage.
 - `GpuSurface.tsx` creates the `<canvas layoutsubtree>` element, initializes
   WebGPU/html-in-canvas support, listens to paint and resize events, and
@@ -193,11 +193,12 @@ The reusable runtime is centered on these modules:
   eviction.
 - `htmlSurfaces/renderer.ts` draws grid, edges, normal flat and tiled HTML
   surfaces, mesh surfaces, shader-effect surfaces, late flat retained/page
-  overlays from cached textures, plus GPU-native retained visuals that do not
-  sample HTML textures.
+  overlays, late tiled retained/page overlays from cached textures, plus
+  GPU-native retained visuals that do not sample HTML textures.
 - `htmlSurfaces/visualScene.ts` groups HTML surface visuals into flat, tiled
-  flat, late flat, mesh, effect, and solid rounded-rect buckets for rendering.
-  Hit testing projects flat, tiled flat, late flat, mesh, and effect visuals.
+  flat, late flat, late tiled flat, mesh, effect, and solid rounded-rect
+  buckets for rendering. Hit testing projects flat, tiled flat, late flat, late
+  tiled flat, mesh, and effect visuals.
 - `htmlSurfaces/hitScene.ts` and `htmlSurfaces/interactionProjector.ts` map
   pointer and wheel events through rendered visuals back into source-local DOM
   coordinates.
@@ -205,13 +206,15 @@ The reusable runtime is centered on these modules:
   summary helpers used by focused browser capability tests.
 - `viewportStore.ts`, `viewportActions.ts`, and `viewportMath.ts` provide the
   zustand-backed viewport model and explicit coordinate conversion helpers.
-- `projectionRuntime.ts` and `projectionScheduler.ts` define live projection
-  samples, projection transactions, held-previous projection diagnostics, and
-  the motion/content/maintenance visible-publication scheduler.
-- `committedSurfaceFrame.ts`, `committedSurfaceTextActor.ts`, and
-  `committedSurfaceFrameProjection.ts` define the committed visible frame,
+- `projectionRuntime.ts` and `projectionSchedulerPolicy.ts` define live
+  projection samples, projection transactions, held-previous projection
+  diagnostics, and policy helpers for motion/content/maintenance visible-frame
+  scheduling.
+- `preparedContentFrame.ts`, `preparedContentTextActor.ts`,
+  `preparedContentFrameProjection.ts`, and
+  `preparedContentPresentationProof.ts` define the prepared content frame,
   actor generations, text coverage proofs, DOM-control completeness, content
-  publishability, and projection-horizon obligations.
+  presentability, presentation proof, and projection-horizon obligations.
 - `retainedRuntimeFrame.ts`, `GpuRetainedContentPageFrameSurfaces.ts`,
   `retainedDisplayFrame.ts`, `retainedNativeIslandTransactions.ts`,
   `GpuFlow/flowRetainedPageMaintenance.ts`, and
@@ -246,28 +249,28 @@ The reusable runtime is centered on these modules:
   `GpuFlow/domControlPlaneCompatibility.ts` select live DOM-control hosts,
   compute directional projection horizons, and carry compatible-previous
   coverage.
-- `committedSurfaceRuntime.ts` stores the currently committed content frame and
-  the React semantic snapshot. It still publishes committed-frame updates when
+- `presentedSurfaceRuntime.ts` stores the currently presented content frame and
+  the React semantic snapshot. It still publishes presented-frame updates when
   React semantic rendering is deduped for a transform-only frame.
-- `GpuFlow/browserVisualActorRuntime.ts` and its helper modules stage, commit,
+- `GpuFlow/browserVisualActorRuntime.ts` and its helper modules stage, present,
   abort, repair, and project DOM-control and DOM-island browser visual actors,
   track live-host, snapshot, and island readiness, and expose the snapshots
   consumed by the browser visual layers.
-- `GpuFlow/committedSurfaceFrameState.ts` ties committed-frame creation to
-  browser visual actor preparation, visible-frame presentation tokens,
-  projection, and abort handling.
+- `GpuFlow/visibleFramePresentedState.ts` ties prepared-content frame creation
+  to browser visual actor preparation, the visible-frame resource graph,
+  visible-frame presentation tokens, projection, and abort handling.
 - `GpuFlow/visibleFrameTypes.ts`, `GpuFlow/visibleFrameStateMachine.ts`,
   `GpuFlow/visibleFrameCoordinator.ts`, and `GpuFlow/visibleFrameActorAdapters/*`
   own the visible-frame lifecycle: sample, prepare, reduce actor/resource/
   presentation proofs, and select presented, projected, held,
   blocked-cold-start, or aborted outcomes.
-- `GpuFlow/visibleFramePresenter.ts` is the production presentation barrier.
+- `GpuFlow/visibleFramePresentation.ts` is the production presentation barrier.
   It applies the visible DOM-control, DOM-island, canvas, hit/debug, runtime
-  committed-frame, React semantic snapshot, and debt-accounting mutation batch
+  presented-frame, React semantic snapshot, and debt-accounting mutation batch
   for a selected presentation token.
-- `GpuFlow/visibleFrameResourceGraph.ts` owns committed and candidate
+- `GpuFlow/visibleFrameResourceGraph.ts` owns presented and candidate
   resource lifetime, active-editor pins, loser release, and candidate abort
-  release after the presenter selects the visible outcome.
+  release after visible-frame presentation selects the visible outcome.
 - `surfaceCompositor/browserVisualActorAdapter.ts` adapts retained DOM controls
   and DOM islands into `BrowserVisualActor` surface transaction fragments with
   exact, compatible, blocked, exempt, or true-hole coverage.
@@ -375,12 +378,13 @@ canvas-child shape is required for the browser to paint and upload the source
 through html-in-canvas.
 
 `GpuFlowSurfaceView` renders section source hosts through `HtmlSurfaceNodeLayer`
-with progressive batching: one priority source near the current viewport is
-mounted first when viewport size is known; before viewport size is known, the
-first source is mounted instead. The remaining section sources are added in idle
-batches. This affects initial source availability only; viewport culling later
-controls visibility, texture work, and interaction eligibility without
-unmounting an already-mounted source host.
+with progressive batching. The node-source batch size is 4 with a 120 ms
+progressive delay; when viewport size is known, up to 8 viewport-priority
+sources near the visible area can be included in the initial batch, and before
+viewport size is known the first batch uses the first 4 sources. Remaining
+section sources are added in idle batches. This affects initial source
+availability only; viewport culling later controls visibility, texture work,
+and interaction eligibility without unmounting an already-mounted source host.
 
 The simplified project runtime DOM shape is:
 
@@ -505,10 +509,10 @@ capture-only DOM-control snapshot sources. Those sources are registered with
 descriptors are sampled from retained hit-test surfaces in
 `createGpuRetainedRuntimeFrame()` for DOM-owned text-like controls and mounted
 by `GpuFlowDomControlPlane`, which is a sibling of the canvas rather than a
-canvas layout-subtree child. Visible DOM-control hosts consume the committed
+canvas layout-subtree child. Visible DOM-control hosts consume the presented
 browser visual runtime snapshot. Hidden preparation hosts may be mounted from a
 prepared candidate for readiness checks, but they do not advance the visible
-DOM-control layer until the candidate is committed.
+DOM-control layer until the candidate is presented.
 
 Retained page descriptors are sampled from runtime scroll offsets in
 `GpuFlow/flowFrame.tsx` via `createGpuRetainedRuntimeFrame()`. Retained page
@@ -517,22 +521,24 @@ upload rasterizes the retained scene to a scratch 2D canvas and uploads it with
 coverage publication boundary and records the active native-island transaction
 (`none`, `attach`, `survive`, `commit-detach`, or `replace`) for published
 frames.
-`GpuFlowCommittedSurfaceFrame` is the visible GPU Flow publication boundary
-that ties the published retained display frame, DOM-control actors, DOM
-islands, retained HTML texture actors, retained native visuals, hit generation,
-debug snapshot frame id, retained scroll revision, and clip-chain revision
-together. Prepared retained runtime frames can schedule work and diagnostics,
-but they do not independently update the visible DOM-control or DOM-island
-layers.
-DOM-owned text-like retained controls publish committed text actors for passive
-browser rendering. Readable passive controls are viewport-projected
+`GpuFlowPreparedContentFrame` is the prepared content boundary that ties the
+published retained display frame, DOM-control actors, DOM islands, retained
+HTML texture actors, retained native visuals, hit generation, debug snapshot
+frame id, retained scroll revision, clip-chain revision, and presentation proof
+together before the visible-frame presenter publishes it. Prepared retained
+runtime frames can schedule work and diagnostics, but they do not independently
+update the visible DOM-control or DOM-island layers.
+DOM-owned text-like retained controls publish prepared text-like actor
+generations for passive browser rendering. Readable passive controls are
+viewport-projected
 `DummyCodeMirror` display hosts, while excess visible passive controls enter a
 bounded snapshot source lane rendered by
 `GpuRetainedDomControlSnapshotSourceLayer`. Snapshot sources are priority
-mounted from prepared candidates when available and otherwise use the same
-one-source progressive batching as section sources. Those snapshot sources are
-browser-rendered `DummyCodeMirror` DOM captured through the normal HTML surface
-texture path and composed as `dom-control` page overlays.
+mounted from prepared candidates when available and otherwise use their own
+4-source progressive batching with the same 120 ms delay as section sources.
+Those snapshot sources are browser-rendered `DummyCodeMirror` DOM captured
+through the normal HTML surface texture path and composed as `dom-control` page
+overlays.
 
 The retained runtime first assigns each text-like descriptor a visual policy:
 `live-dom`, `snapshot`, `blocked-awaiting-browser-visual`,
@@ -541,9 +547,9 @@ the live-host projection budget: large scenes can mount up to 24 readable live
 hosts and 8 overscan live hosts, while scenes of 64 controls or fewer mount all
 eligible controls. Compatible-previous coverage can carry a bounded set of
 previous live representations across frames. Browser visual layers subscribe to
-the `GpuFlowBrowserVisualActorRuntime` snapshot associated with the committed
+the `GpuFlowBrowserVisualActorRuntime` snapshot associated with the presented
 surface runtime, so DOM-control and DOM-island projection follows the latest
-committed browser visual snapshot even when React skips a semantic rerender.
+presented browser visual snapshot even when React skips a semantic rerender.
 Chrome repro mode records canvas ink probes and publication diagnostics, but
 those diagnostics are not rendering policy inputs.
 
@@ -553,14 +559,14 @@ the passive value. Activation changes that actor's representation to the live
 browser editor; it does not publish a second visible DOM island for the same
 row/value. Canvas retained row drawing owns the row shell, label, focus
 treatment, hover, and clipping, but it does not draw text-like value pixels for
-DOM-owned controls. Each committed text actor carries separate visual and
-semantic generation ids, a canonical browser-rendered snapshot cache-key
-revision, explicit caret/selection/composition coverage state, and an explicit
-coverage proof (`exact-live-dom`, `exact-snapshot`, `compatible-previous`,
-`blocked-awaiting-browser-visual`, `blocked-awaiting-live-host`, or
-`true-hole`). Passive readable hosts are visual-only DOM (`aria-hidden`, not
-focusable, non-selectable, and activated through retained hit handling); active
-hosts expose the real browser editor.
+DOM-owned controls. Each prepared text-like actor generation carries separate
+visual and semantic generation ids, a canonical browser-rendered snapshot
+cache-key revision, explicit caret/selection/composition coverage state, and an
+explicit coverage proof (`exact-live-dom`, `exact-snapshot`,
+`compatible-previous`, `blocked-awaiting-browser-visual`,
+`blocked-awaiting-live-host`, or `true-hole`). Passive readable hosts are
+visual-only DOM (`aria-hidden`, not focusable, non-selectable, and activated
+through retained hit handling); active hosts expose the real browser editor.
 
 Portal roots are partitioned into three coordinate spaces:
 
@@ -603,36 +609,39 @@ incoherent passive row.
 `GpuFlow`. `GpuFlow` stores the active node-layer state, subscribes to viewport
 changes, attaches interaction controllers, and asks `GpuSurface` for frames.
 
-`GpuSurface` coalesces frame reasons such as `animation`, `init`, `manual`,
-`paint`, `resize`, `retained-scroll`, `texture-upload`, and `viewport`. A
-viewport-store transform change requests a `viewport` frame. A canvas paint
-event resolves changed source elements to owning textures and requests a
-`paint` frame. Retained-content scroll requests a `retained-scroll` frame.
-Exhausted upload budgets request another `texture-upload` frame, while active
-retained switch transitions request another `animation` frame.
+`GpuSurface` coalesces frame reasons: `animation`, `dom-control-activation`,
+`init`, `manual`, `paint`, `resize`, `retained-native-visual`,
+`retained-row-hover-clear`, `retained-row-hover-visual`, `retained-scroll`,
+`texture-upload`, and `viewport`. A viewport-store transform change requests a
+`viewport` frame. A canvas paint event resolves changed source elements to
+owning textures and requests a `paint` frame. Retained-content scroll requests a
+`retained-scroll` frame. Exhausted upload budgets request another
+`texture-upload` frame, while active retained switch transitions request
+another `animation` frame.
 
 `GpuFlow` handles each coalesced `GpuSurface` frame through
 `renderGpuFlowSurfaceFrame()` in `GpuFlow/visibleFrameSurfaceFrame.ts`. That
 entrypoint runs the visible-frame candidate-set kernel, samples the runtime
 viewport and retained-scroll state once, prepares a motion projection candidate
 and/or a content publication candidate according to the scheduler decision, and
-hands the selected transaction to `GpuFlow/visibleFramePresenter.ts`.
+hands the selected transaction to `GpuFlow/visibleFramePresentation.ts`.
 
 Visible publication is lane-owned rather than reason-owned. `GpuSurface` still
 coalesces raw frame reasons for diagnostics, but `GpuFlow` classifies the next
 visible frame as `motion`, `content`, `maintenance`, or idle before publishing.
-When a committed display frame exists and any unpresented `viewport` or
+When a presented content frame exists and any unpresented `viewport` or
 `retained-scroll` sample is pending, the motion lane runs first even if the same
 frame also carries `paint`, `manual`, or `texture-upload` debt.
 `renderGpuFlowNodeLayerProjectionFrame()` uses the already-published retained
-display, committed DOM-control descriptors, and one immutable live
+display, presented DOM-control descriptors, and one immutable live
 viewport/retained-scroll sample. It redraws cached GPU resources and
 imperatively projects mounted DOM controls/islands. It does not sample a new
 retained runtime frame, resolve retained page frames, resolve retained display
-transactions, create a new committed surface frame, publish React semantic
+transactions, prepare a new content frame, publish React semantic
 state, or register/upload passive HTML textures. Retained-scroll projection
-only remaps committed retained page visuals for surfaces whose scroll offset
-changed; other retained page visuals are reused from the committed display.
+only remaps already-presented retained page visuals for surfaces whose scroll
+offset changed; other retained page visuals are reused from the presented
+display.
 Content and maintenance work remain queued as debt and drain after motion has
 settled or through bounded content probes during continuous motion. During the
 motion-settling window, content or maintenance lanes can be selected, but
@@ -666,17 +675,17 @@ Content, paint, upload, and maintenance frames follow this shape:
    native-island `none`, `attach`, `survive`, `commit-detach`, and `replace`
    transitions; held frames keep the previous native-island publication.
    Published retained transactions do not contain true-hole coverage.
-5. `createGpuFlowCommittedSurfaceFrame()` wraps the published retained display
-   in the visible committed surface frame. The committed frame id drives the
-   canvas retained frame, projected DOM controls, DOM islands, retained HTML
-   texture actors, retained native visuals, hit generation, debug snapshots,
-   retained scroll revision, and clip-chain revision. Visible DOM-control
-   completeness, text actor coverage proof, snapshot cache-key revision, and
-   text activation policy are recorded on this boundary. The committed-surface
-   publication gate then publishes the frame only when browser visual actors are
-   ready, holds a compatible previous projection when possible, requests
-   `texture-upload` work for missing browser visuals, and throws on true-hole
-   browser visual coverage.
+5. `createGpuFlowPreparedContentFrame()` wraps the published retained display
+   and prepared browser visual candidate in a prepared content frame. The
+   prepared frame id drives the canvas retained frame, projected DOM controls,
+   DOM islands, retained HTML texture actors, retained native visuals, hit
+   generation, debug snapshots, retained scroll revision, clip-chain revision,
+   and presentation proof. Visible DOM-control completeness, text actor
+   coverage proof, snapshot cache-key revision, and text activation policy are
+   recorded on this boundary. The visible-frame publication gate then publishes
+   the prepared frame only when browser visual actors are ready, holds a
+   compatible previous projection when possible, requests `texture-upload` work
+   for missing browser visuals, and throws on true-hole browser visual coverage.
 6. `renderHtmlSurfaceFrame()` computes visible DOM and overlay quads from node
    layout, viewport, forced visibility, and upload margin. Scene clipping has
    already been applied to the node and content-surface inputs.
@@ -696,10 +705,10 @@ Content, paint, upload, and maintenance frames follow this shape:
     missing first-visible and refinement pages, rasterize and upload retained
     page textures within its own budget, evict retained pages to budget, and
     report whether another frame is needed.
-11. `GpuFlowDomControlPlane` and `GpuFlowDomIslandLayer` project committed
+11. `GpuFlowDomControlPlane` and `GpuFlowDomIslandLayer` project presented
     descriptors through the current viewport as real DOM siblings of the canvas.
-    Pan and zoom use the live viewport transform to move already-committed
-    actors without requiring a new content commit.
+    Pan and zoom use the live viewport transform to move already-presented
+    actors without requiring a new content presentation.
 12. Frame performance reporting records render time, upload work, texture memory,
     retained page metrics, viewport state, and interaction diagnostics.
 
@@ -758,8 +767,10 @@ deferred so wheel and pan bursts stay responsive and viewport-only frames stay
 camera-focused.
 
 Dirty work is ordered by `frontend/src/gpuFlow/dirtyTracking.ts`. Priorities are
-`interactive`, `visible`, and `prefetch`; interactive content is uploaded before
-passive visible content. Content dirtiness wins over resolution-only dirtiness.
+`critical`, `interactive`, `visible`, and `prefetch`; critical first uploads can
+bypass the upload loop's max-upload-count cap, and interactive content is
+uploaded before passive visible content. Content dirtiness wins over
+resolution-only dirtiness.
 
 The project surface uses this HTML upload budget:
 
@@ -785,7 +796,7 @@ uploads those pages with `GPUQueue.copyExternalImageToTexture`, and evicts
 retained pages independently from HTML source textures. Retained page
 rasterization draws retained row commands for row structure, labels, non-text
 controls, and chrome. Text-like value pixels are excluded from retained page
-rasterization: passive readable text is projected by committed DOM-control
+rasterization: passive readable text is projected by presented DOM-control
 actors above the canvas or captured by DOM-control snapshot sources, and active
 editing is represented by the sampled active DOM-control descriptor for the
 same canonical actor.
@@ -802,7 +813,9 @@ single `HtmlSurfaceRenderer.render()` call draws each frame in this order:
 5. mesh HTML surfaces
 6. shader-effect HTML surfaces
 7. late flat surfaces, including retained page visuals and late overlays
-8. solid rounded-rect native visuals, including retained scrollbars, row hover
+8. late tiled flat surfaces, including tiled retained page visuals and tiled
+   late overlays
+9. solid rounded-rect native visuals, including retained scrollbars, row hover
    state, and switch transitions
 
 The camera uniform stores:
@@ -813,22 +826,23 @@ The camera uniform stores:
 - canvas CSS width
 - canvas CSS height
 
-Flat, tiled, and late-flat surfaces are built in flow coordinates. The vertex
-shaders convert each flow position to screen coordinates with the viewport and
-then to clip space. Fragment shaders sample the uploaded full texture, tile
-texture, or retained page texture. Mesh and shader-effect passes use the same
-texture records with specialized vertices, indices, effect uniforms, and hit
-projector contracts.
+Flat, tiled, late-flat, and late-tiled-flat surfaces are built in flow
+coordinates. The vertex shaders convert each flow position to screen
+coordinates with the viewport and then to clip space. Fragment shaders sample
+the uploaded full texture, tile texture, or retained page texture. Mesh and
+shader-effect passes use the same texture records with specialized vertices,
+indices, effect uniforms, and hit projector contracts.
 
 Viewport-only redraws of an unchanged visual scene write only the camera
 uniform. When pan or zoom crosses a culling boundary, the active draw set
 changes; the frame syncs newly entered source hosts and any retained or active
 hosts that must stay live, while inactive exited hosts can keep their previous
 passive DOM state because they are already dropped from visual and hit scenes.
-The renderer rewrites the flat or tiled-flat vertex buffer for changed draw
-geometry. Those bounded updates are separate from content updates: they do not
-call `requestPaint()`, perform HTML texture uploads, or force React renders, and
-transform-only paint records from synced sources are ignored for dirtying.
+The renderer rewrites the flat, tiled-flat, late-flat, or late-tiled-flat vertex
+buffer for changed draw geometry. Those bounded updates are separate from
+content updates: they do not call `requestPaint()`, perform HTML texture
+uploads, or force React renders, and transform-only paint records from synced
+sources are ignored for dirtying.
 Frame and probe reports expose DOM transform counts, texture upload work,
 retained page work, edge vertex counts, and queue write summaries so pan/zoom
 verification can distinguish camera-only frames from draw-set changes.
@@ -848,9 +862,10 @@ when their rect intersects that visible area or when their id is forced visible.
 
 Visible quads are sorted by `zIndex` and then source order before visual
 bucket construction. The renderer draws by bucket: normal flat surfaces,
-tiled flat surfaces, page/late flat overlays, and native rounded-rect visuals
-have fixed relative passes, with `zIndex` and source order preserved inside
-each bucket. The same visibility set drives:
+tiled flat surfaces, mesh surfaces, shader-effect surfaces, page/late flat and
+late tiled overlays, and native rounded-rect visuals have fixed relative
+passes, with `zIndex` and source order preserved inside each bucket. The same
+visibility set drives:
 
 - texture registration and upload eligibility
 - visual scene membership and per-bucket draw order
@@ -946,10 +961,11 @@ The retained renderer uses texture pages:
   actor descriptors for DOM-owned text-like rows, native DOM islands for active
   browser-owned controls and labels, native visuals, and retained page frame
   surfaces for the scene, scroll offsets, and zoom bucket.
-- `committedSurfaceFrame.ts` defines the visible GPU Flow publication boundary:
-  one committed frame id covers retained pages, retained HTML texture actors,
+- `preparedContentFrame.ts` defines the prepared content boundary: one
+  prepared frame id covers retained pages, retained HTML texture actors,
   projected DOM controls, DOM islands, retained native visuals, hit generation,
-  debug snapshots, retained scroll revision, and clip-chain revision.
+  debug snapshots, retained scroll revision, clip-chain revision, and
+  presentation proof.
 - `retainedNativeIslandTransactions.ts` models active native-island
   publication modes used by retained display publication. When the retained
   passive surface would expose true holes, retained display publication keeps
@@ -971,7 +987,7 @@ The retained renderer uses texture pages:
   text-like active editing participates in the browser visual transaction as a
   DOM-control representation rather than a DOM island.
 - Text-like parameter descriptors are DOM-owned readable controls. They publish
-  committed DOM-control actors with explicit text coverage proof, so passive
+  prepared DOM-control actors with explicit text coverage proof, so passive
   text pixels come from browser DOM rather than custom canvas text metrics.
   Active text-like editing uses the same canonical DOM-control actor; native
   date/time, password, dropzone, native color fallback, and label editing use
@@ -1168,7 +1184,7 @@ marks it as retained native content, focuses it, and replays the original
 pointer activation when present.
 `projectGpuRetainedDomControlRenderer.tsx` renders the DOM-plane path for
 DOM-owned text-like descriptors: passive hosts render `DummyCodeMirror`, and
-sampled active descriptors can render `ParamInput` from the committed retained
+sampled active descriptors can render `ParamInput` from the presented retained
 DOM-control descriptor.
 
 `ParamInput` owns the same value semantics used outside the GPU surface for
@@ -1269,11 +1285,12 @@ only the affected tiles. Source-owned finite CSS transitions and animations are
 tracked as bounded animation leases; they request capture frames for the owning
 surface or tile through animation settlement.
 
-HTML texture upload priorities are `interactive`, `visible`, and `prefetch`.
-Content dirtiness outranks resolution-only dirtiness. Active sources and active
-overlay surfaces are protected from eviction. Retained page uploads have their
-own raster/upload/memory budget and request additional frames independently from
-HTML source texture uploads.
+HTML texture upload priorities are `critical`, `interactive`, `visible`, and
+`prefetch`. Content dirtiness outranks resolution-only dirtiness. Critical and
+interactive source textures, active sources, and active overlay surfaces are
+protected from eviction. Retained page uploads have their own raster/upload/
+memory budget and request additional frames independently from HTML source
+texture uploads.
 
 Pure pan and zoom are transform-only. Panning and zooming do not request HTML
 paints, rerender section trees, or upload every texture; transform-only paint
