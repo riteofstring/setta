@@ -55,12 +55,12 @@ import type {
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
 import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
-import { shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame } from "./visibleFrameResolutionDeferral";
-import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import type {
   GpuFlowVisibleFrameReducerRuntime,
   GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameReducerRuntime";
+import { shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame } from "./visibleFrameResolutionDeferral";
+import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import { recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic } from "./visibleFrameSurfaceFrameDiagnostics";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
@@ -101,7 +101,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   | "runRetainedCommittedSurfacePublicationContentStage"
   | "viewportFrame"
 > & {
-  readonly abortPreparedCommittedSurfaceFrame: (
+  readonly abortPreparedContentFrame: (
     token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
     frame: GpuFlowCommittedSurfaceFrame,
     options?:
@@ -120,11 +120,11 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   readonly liveProjectionSamplerRef: MutableRefObject<
     ReturnType<typeof createGpuFlowLiveProjectionSampler>
   >;
-  readonly commitPreparedCommittedSurfaceFrame: (
+  readonly presentPreparedContentFrame: (
     token: GpuFlowCommitPublicationToken,
     frame: GpuFlowCommittedSurfaceFrame,
   ) => boolean;
-  readonly validatePreparedCommittedSurfaceFrame: (
+  readonly validatePreparedContentFrame: (
     token: GpuFlowCommitPublicationToken,
     frame: GpuFlowCommittedSurfaceFrame,
   ) => void;
@@ -194,11 +194,9 @@ export function renderGpuFlowSurfaceFrame({
     const coordinatorResult = runGpuFlowVisibleFrameCoordinator({
       budgetBroker: input.visibleFrameBudgetBrokerRef.current,
       presentationRuntime: {
-        abortPreparedCommittedSurfaceFrame:
-          input.abortPreparedCommittedSurfaceFrame,
+        abortPreparedContentFrame: input.abortPreparedContentFrame,
         callbacksRef: input.callbacksRef,
-        commitPreparedCommittedSurfaceFrame:
-          input.commitPreparedCommittedSurfaceFrame,
+        presentPreparedContentFrame: input.presentPreparedContentFrame,
         projectCommittedBrowserVisualActors:
           input.projectCommittedBrowserVisualActors,
         publishColdStartShellFrame: input.publishColdStartShellFrame,
@@ -209,8 +207,7 @@ export function renderGpuFlowSurfaceFrame({
           input.retainedRuntimeFrameSourceRenderSignatureRef,
         runtimeCanvas: runtime.canvas,
         surfaceRef: input.surfaceRef,
-        validatePreparedCommittedSurfaceFrame:
-          input.validatePreparedCommittedSurfaceFrame,
+        validatePreparedContentFrame: input.validatePreparedContentFrame,
         viewportRuntime,
         visibleOverlayProjectionKeyRef: input.visibleOverlayProjectionKeyRef,
         visibleProjectionPublicationStateRef:

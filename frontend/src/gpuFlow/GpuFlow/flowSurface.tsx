@@ -40,7 +40,6 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { getGpuFlowSceneDomSectionNodes } from "../scene";
 import { registerGpuFlowViewportRuntime } from "../viewportRuntimeRegistry";
 import { gpuFlowViewportStore } from "../viewportStore";
-import { useGpuFlowPresentedSurfaceFrameState } from "./visibleFramePresentedState";
 import {
   resolveGpuFlowEdgeDrawInputs,
   validateGpuFlowEdgeInput,
@@ -87,6 +86,7 @@ import {
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
 import { createGpuFlowVisibleFrameBudgetBroker } from "./visibleFrameBudgetBroker";
+import { useGpuFlowPresentedSurfaceFrameState } from "./visibleFramePresentedState";
 import { createGpuFlowVisibleFrameReducerRuntime } from "./visibleFrameReducerRuntime";
 import { renderGpuFlowSurfaceFrame } from "./visibleFrameSurfaceFrame";
 
@@ -259,15 +259,15 @@ export function GpuFlow({
   retainedPreparationRuntimeFrameScrollRevisionRef.current ??=
     initialRetainedRuntimeFrame.input.scrollRevision;
   const {
-    abortPreparedCommittedSurfaceFrame,
-    commitPreparedCommittedSurfaceFrame,
+    abortPreparedContentFrame,
+    presentPreparedContentFrame,
     presentedContentFrameRef,
     presentedSurfaceRuntime,
     getVisibleFrameResourceGraphSnapshot,
     prepareCommittedSurfaceFrame,
     prepareVisibleFrameResourcesForBudget,
     projectCommittedBrowserVisualActors,
-    validatePreparedCommittedSurfaceFrame,
+    validatePreparedContentFrame,
     visiblePresentedContentFrame,
   } = useGpuFlowPresentedSurfaceFrameState({
     initialRetainedRuntimeFrame,
@@ -870,10 +870,10 @@ export function GpuFlow({
     (runtime, event) => {
       const publicationResult = renderGpuFlowSurfaceFrame({
         activeResizeNodeIdRef,
-        abortPreparedCommittedSurfaceFrame,
+        abortPreparedContentFrame,
         callbacksRef,
         canvasSizeRef,
-        commitPreparedCommittedSurfaceFrame,
+        presentPreparedContentFrame,
         presentedContentFrameRef,
         event,
         frameRef,
@@ -903,7 +903,7 @@ export function GpuFlow({
         surfaceRef,
         textureManagerRef,
         transformOnlyPaintNodeIdsRef,
-        validatePreparedCommittedSurfaceFrame,
+        validatePreparedContentFrame,
         visiblePresentedContentFrame,
         visibleNodeIdsRef,
         visibleOverlayProjectionKeyRef,
@@ -917,16 +917,16 @@ export function GpuFlow({
       void publicationResult;
     },
     [
-      abortPreparedCommittedSurfaceFrame,
+      abortPreparedContentFrame,
       activeRetainedContentRuntimeState,
-      commitPreparedCommittedSurfaceFrame,
+      presentPreparedContentFrame,
       initialRetainedRuntimeFrame,
       getVisibleFrameResourceGraphSnapshot,
       prepareCommittedSurfaceFrame,
       prepareVisibleFrameResourcesForBudget,
       projectCommittedBrowserVisualActors,
       publishColdStartShellFrame,
-      validatePreparedCommittedSurfaceFrame,
+      validatePreparedContentFrame,
       retainedContentSwitchAnimations,
       visiblePresentedContentFrame,
       viewportRuntime,

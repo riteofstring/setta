@@ -5,8 +5,8 @@ import {
   createGpuFlowStartupCommittedSurfaceFrame,
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
-import { createGpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
+import { createGpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuViewportInput } from "../viewportMath";
@@ -99,40 +99,42 @@ export function useGpuFlowPresentedSurfaceFrameState({
     },
     [],
   );
-  const commitPreparedCommittedSurfaceFrame = useCallback(
+  const presentPreparedContentFrame = useCallback(
     (
       token: GpuFlowCommitPublicationToken,
       frame: GpuFlowCommittedSurfaceFrame,
     ): boolean => {
       const result =
-        visibleFrameResourceGraphRef.current.commitPreparedCommittedSurfaceFrame(
-          {
-            commitBrowserVisualCandidate: ({ candidate, token }) =>
-              getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
-                presentedSurfaceRuntimeRef.current,
-              ).commitPreparedBrowserVisualActors({
-                candidate,
-                token,
-              }),
-            frame,
-            publishCommittedSurfaceFrame: ({ frame, token }) =>
-              presentedSurfaceRuntimeRef.current.publishPresentedContentFrame(
-                token,
-                frame,
-              ),
-            token,
-          },
-        );
+        visibleFrameResourceGraphRef.current.presentPreparedContentFrame({
+          presentBrowserVisualCandidate: ({ candidate, token }) =>
+            getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+              presentedSurfaceRuntimeRef.current,
+            ).commitPreparedBrowserVisualActors({
+              candidate,
+              token,
+            }),
+          frame,
+          publishPresentedContentFrame: ({ frame, token }) =>
+            presentedSurfaceRuntimeRef.current.publishPresentedContentFrame(
+              token,
+              frame,
+            ),
+          token,
+        });
       presentedContentFrameRef.current = frame;
       return result.published;
     },
     [],
   );
-  const validatePreparedCommittedSurfaceFrame = useCallback(
-    (token: GpuFlowCommitPublicationToken, frame: GpuFlowCommittedSurfaceFrame) =>
-      visibleFrameResourceGraphRef.current.validatePreparedCommittedSurfaceFrame(
-        { frame, token },
-      ),
+  const validatePreparedContentFrame = useCallback(
+    (
+      token: GpuFlowCommitPublicationToken,
+      frame: GpuFlowCommittedSurfaceFrame,
+    ) =>
+      visibleFrameResourceGraphRef.current.validatePreparedContentFrame({
+        frame,
+        token,
+      }),
     [],
   );
   const projectCommittedBrowserVisualActors = useCallback(
@@ -152,7 +154,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
     },
     [],
   );
-  const abortPreparedCommittedSurfaceFrame = useCallback(
+  const abortPreparedContentFrame = useCallback(
     (
       token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
       frame: GpuFlowCommittedSurfaceFrame,
@@ -170,7 +172,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
         getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
           presentedSurfaceRuntimeRef.current,
         );
-      visibleFrameResourceGraphRef.current.abortPreparedCommittedSurfaceFrame({
+      visibleFrameResourceGraphRef.current.abortPreparedContentFrame({
         abortBrowserVisualCandidate: ({ candidate, token }) =>
           browserVisualRuntime.abortPreparedBrowserVisualActors({
             candidate,
@@ -213,15 +215,15 @@ export function useGpuFlowPresentedSurfaceFrameState({
   );
 
   return {
-    abortPreparedCommittedSurfaceFrame,
-    commitPreparedCommittedSurfaceFrame,
+    abortPreparedContentFrame,
+    presentPreparedContentFrame,
     presentedContentFrameRef,
     presentedSurfaceRuntime: presentedSurfaceRuntimeRef.current,
     getVisibleFrameResourceGraphSnapshot,
     prepareCommittedSurfaceFrame,
     prepareVisibleFrameResourcesForBudget,
     projectCommittedBrowserVisualActors,
-    validatePreparedCommittedSurfaceFrame,
+    validatePreparedContentFrame,
     visiblePresentedContentFrame,
   };
 }

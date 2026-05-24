@@ -19,10 +19,9 @@ import {
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
 } from "./visibleFrameTestUtils";
 
-type GpuFlowSurfacePublicationTransaction =
-  Parameters<
-    typeof presentGpuFlowVisibleFramePublicationFrame
-  >[0]["publicationTransaction"];
+type GpuFlowSurfacePublicationTransaction = Parameters<
+  typeof presentGpuFlowVisibleFramePublicationFrame
+>[0]["publicationTransaction"];
 
 function createTestVisibleFramePresentation(
   runtime: GpuFlowVisibleFramePresentationRuntime,
@@ -50,12 +49,12 @@ describe("GPU Flow surface publication completion", () => {
     const visibleProjectionPublicationStateRef = { current: committedState };
     const submitDomTransforms = vi.fn();
     const presenter = createTestVisibleFramePresentation({
-      abortPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface abort.");
+      abortPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame abort.");
       },
       callbacksRef: { current: null },
-      commitPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface commit.");
+      presentPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame presentation.");
       },
       projectCommittedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
@@ -114,12 +113,12 @@ describe("GPU Flow surface publication completion", () => {
     let reducerCompletionCount = 0;
     const submitCanvas = vi.fn();
     const presenter = createTestVisibleFramePresentation({
-      abortPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface abort.");
+      abortPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame abort.");
       },
       callbacksRef: { current: null },
-      commitPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface commit.");
+      presentPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame presentation.");
       },
       projectCommittedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
@@ -132,8 +131,10 @@ describe("GPU Flow surface publication completion", () => {
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
       runtimeCanvas: testCanvas(),
       surfaceRef: { current: null },
-      validatePreparedCommittedSurfaceFrame: () => {
-        throw new Error("commit failed before visible publication");
+      validatePreparedContentFrame: () => {
+        throw new Error(
+          "presentation validation failed before visible publication",
+        );
       },
       viewportRuntime: {
         applyOverlayTransforms: () => {
@@ -159,12 +160,12 @@ describe("GPU Flow surface publication completion", () => {
           token,
         }),
       ),
-    ).toThrow(/commit failed before visible publication/);
+    ).toThrow(/presentation validation failed before visible publication/);
     expect(submitCanvas).not.toHaveBeenCalled();
     expect(reducerCompletionCount).toBe(0);
   });
 
-  it("submits prepared visible work only during committed publication", () => {
+  it("submits prepared visible work only during visible presentation", () => {
     const committedFrame = committedSurfaceFrame({ displayFrameId: 21 });
     const selectedState = visibleProjectionState({
       displayFrameId: committedFrame.displayFrameId,
@@ -183,12 +184,12 @@ describe("GPU Flow surface publication completion", () => {
       visibleMutationOrder.push("dom-transform");
     });
     const publishColdStartShellFrame = vi.fn();
-    const validatePreparedCommittedSurfaceFrame = vi.fn(() => {
+    const validatePreparedContentFrame = vi.fn(() => {
       visibleMutationOrder.push("validate");
     });
     const presenter = createTestVisibleFramePresentation({
-      abortPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface abort.");
+      abortPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame abort.");
       },
       callbacksRef: {
         current: {
@@ -196,8 +197,8 @@ describe("GPU Flow surface publication completion", () => {
           onNodeLayerFrame: () => {},
         },
       },
-      commitPreparedCommittedSurfaceFrame: () => {
-        visibleMutationOrder.push("commit");
+      presentPreparedContentFrame: () => {
+        visibleMutationOrder.push("present");
         return true;
       },
       projectCommittedBrowserVisualActors: () => {},
@@ -207,7 +208,7 @@ describe("GPU Flow surface publication completion", () => {
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
       runtimeCanvas: testCanvas(),
       surfaceRef: { current: null },
-      validatePreparedCommittedSurfaceFrame,
+      validatePreparedContentFrame,
       viewportRuntime: {
         applyOverlayTransforms: () => {},
       },
@@ -231,12 +232,12 @@ describe("GPU Flow surface publication completion", () => {
 
     expect(submitCanvas).toHaveBeenCalledOnce();
     expect(submitDomTransforms).toHaveBeenCalledOnce();
-    expect(validatePreparedCommittedSurfaceFrame).toHaveBeenCalledOnce();
+    expect(validatePreparedContentFrame).toHaveBeenCalledOnce();
     expect(visibleMutationOrder.slice(0, 4)).toEqual([
       "validate",
       "canvas",
       "dom-transform",
-      "commit",
+      "present",
     ]);
     expect(publishColdStartShellFrame).toHaveBeenCalledWith({
       frame: null,
@@ -255,13 +256,13 @@ describe("GPU Flow surface publication completion", () => {
       frame: committedFrame,
       projectionSample: selectedState.sample,
     });
-    const commitPreparedCommittedSurfaceFrame = vi.fn(() => true);
+    const presentPreparedContentFrame = vi.fn(() => true);
     const projectCommittedBrowserVisualActors = vi.fn();
-    const validatePreparedCommittedSurfaceFrame = vi.fn();
+    const validatePreparedContentFrame = vi.fn();
     let reducerCompletionCount = 0;
     const presenter = createTestVisibleFramePresentation({
-      abortPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface abort.");
+      abortPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame abort.");
       },
       callbacksRef: {
         current: {
@@ -269,7 +270,7 @@ describe("GPU Flow surface publication completion", () => {
           onNodeLayerFrame: () => {},
         },
       },
-      commitPreparedCommittedSurfaceFrame,
+      presentPreparedContentFrame,
       projectCommittedBrowserVisualActors,
       publishColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
@@ -277,7 +278,7 @@ describe("GPU Flow surface publication completion", () => {
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
       runtimeCanvas: testCanvas(),
       surfaceRef: { current: null },
-      validatePreparedCommittedSurfaceFrame,
+      validatePreparedContentFrame,
       viewportRuntime: {
         applyOverlayTransforms: () => {
           throw new Error("Unexpected overlay projection transform.");
@@ -305,8 +306,8 @@ describe("GPU Flow surface publication completion", () => {
         }),
       ),
     ).toThrow(/canvas submission failed/);
-    expect(validatePreparedCommittedSurfaceFrame).toHaveBeenCalledOnce();
-    expect(commitPreparedCommittedSurfaceFrame).not.toHaveBeenCalled();
+    expect(validatePreparedContentFrame).toHaveBeenCalledOnce();
+    expect(presentPreparedContentFrame).not.toHaveBeenCalled();
     expect(projectCommittedBrowserVisualActors).not.toHaveBeenCalled();
     expect(reducerCompletionCount).toBe(0);
   });
@@ -324,11 +325,11 @@ describe("GPU Flow surface publication completion", () => {
     });
     const requestFrame = vi.fn();
     const presenter = createTestVisibleFramePresentation({
-      abortPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface abort.");
+      abortPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame abort.");
       },
       callbacksRef: { current: null },
-      commitPreparedCommittedSurfaceFrame: () => true,
+      presentPreparedContentFrame: () => true,
       projectCommittedBrowserVisualActors: () => {},
       publishColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
@@ -336,7 +337,7 @@ describe("GPU Flow surface publication completion", () => {
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
       runtimeCanvas: testCanvas(),
       surfaceRef: { current: { requestFrame } },
-      validatePreparedCommittedSurfaceFrame: () => {},
+      validatePreparedContentFrame: () => {},
       viewportRuntime: {
         applyOverlayTransforms: () => {},
       },
@@ -378,11 +379,11 @@ describe("GPU Flow surface publication completion", () => {
     const setTimeout = vi.fn(() => 1);
     const clearTimeout = vi.fn();
     const presenter = createTestVisibleFramePresentation({
-      abortPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface abort.");
+      abortPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame abort.");
       },
       callbacksRef: { current: null },
-      commitPreparedCommittedSurfaceFrame: () => true,
+      presentPreparedContentFrame: () => true,
       projectCommittedBrowserVisualActors: () => {},
       publishColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
@@ -404,7 +405,7 @@ describe("GPU Flow surface publication completion", () => {
           requestFrame,
         },
       },
-      validatePreparedCommittedSurfaceFrame: () => {},
+      validatePreparedContentFrame: () => {},
       viewportRuntime: {
         applyOverlayTransforms: () => {},
       },
@@ -476,11 +477,11 @@ describe("GPU Flow surface publication completion", () => {
       requestFrame,
     };
     const presenter = createTestVisibleFramePresentation({
-      abortPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface abort.");
+      abortPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame abort.");
       },
       callbacksRef: { current: null },
-      commitPreparedCommittedSurfaceFrame: () => true,
+      presentPreparedContentFrame: () => true,
       projectCommittedBrowserVisualActors: () => {},
       publishColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
@@ -490,7 +491,7 @@ describe("GPU Flow surface publication completion", () => {
       surfaceRef: {
         current: surface,
       },
-      validatePreparedCommittedSurfaceFrame: () => {},
+      validatePreparedContentFrame: () => {},
       viewportRuntime: {
         applyOverlayTransforms: () => {},
       },
@@ -564,10 +565,10 @@ describe("GPU Flow surface publication completion", () => {
     });
     const clearTimeout = vi.fn();
     const presenter = createTestVisibleFramePresentation({
-      abortPreparedCommittedSurfaceFrame: () => {},
+      abortPreparedContentFrame: () => {},
       callbacksRef: { current: null },
-      commitPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface commit.");
+      presentPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame presentation.");
       },
       projectCommittedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
@@ -643,13 +644,13 @@ describe("GPU Flow surface publication completion", () => {
       projectionSample: sample,
     });
     const requestFrame = vi.fn();
-    const abortPreparedCommittedSurfaceFrame = vi.fn();
+    const abortPreparedContentFrame = vi.fn();
     const selectedResourceKeys = ["dom-control:retained-dom-control:a"];
     const presenter = createTestVisibleFramePresentation({
-      abortPreparedCommittedSurfaceFrame,
+      abortPreparedContentFrame,
       callbacksRef: { current: null },
-      commitPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface commit.");
+      presentPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame presentation.");
       },
       projectCommittedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
@@ -695,7 +696,7 @@ describe("GPU Flow surface publication completion", () => {
       }),
     );
 
-    expect(abortPreparedCommittedSurfaceFrame).toHaveBeenCalledWith(
+    expect(abortPreparedContentFrame).toHaveBeenCalledWith(
       token,
       blockedFrame,
       {
@@ -724,16 +725,16 @@ describe("GPU Flow surface publication completion", () => {
       projectionSample: sample,
     });
     const requestFrame = vi.fn();
-    const abortPreparedCommittedSurfaceFrame = vi.fn();
+    const abortPreparedContentFrame = vi.fn();
     const resourceWork = browserVisualResourceWork([
       "browser-visual:visible-a:browser-text-control:live-dom-budget:generation-a",
       "browser-visual:new-a:browser-text-control:live-dom-budget:generation-b",
     ]);
     const presenter = createTestVisibleFramePresentation({
-      abortPreparedCommittedSurfaceFrame,
+      abortPreparedContentFrame,
       callbacksRef: { current: null },
-      commitPreparedCommittedSurfaceFrame: () => {
-        throw new Error("Unexpected prepared committed surface commit.");
+      presentPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame presentation.");
       },
       projectCommittedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
@@ -777,7 +778,7 @@ describe("GPU Flow surface publication completion", () => {
       }),
     );
 
-    expect(abortPreparedCommittedSurfaceFrame).toHaveBeenCalledWith(
+    expect(abortPreparedContentFrame).toHaveBeenCalledWith(
       token,
       blockedFrame,
       {

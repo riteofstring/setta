@@ -319,21 +319,21 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       frame: winnerFrame,
     });
 
-    const committedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
+    const presentedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
     const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
       frame: winnerFrame,
       projectionSample: liveProjectionSample(52),
     });
-    const result = registry.commitPreparedCommittedSurfaceFrame({
-      commitBrowserVisualCandidate: ({ candidate }) => {
-        committedCandidates.push(candidate);
+    const result = registry.presentPreparedContentFrame({
+      presentBrowserVisualCandidate: ({ candidate }) => {
+        presentedCandidates.push(candidate);
       },
       frame: winnerFrame,
-      publishCommittedSurfaceFrame: () => true,
+      publishPresentedContentFrame: () => true,
       token,
     });
 
-    expect(committedCandidates).toEqual([winnerCandidate]);
+    expect(presentedCandidates).toEqual([winnerCandidate]);
     expect(result).toEqual({
       activeEditorPins: ["winner-control"],
       published: true,
@@ -368,7 +368,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     ]);
   });
 
-  it("validates the presentation proof before committing browser visual hosts", () => {
+  it("validates the presentation proof before presenting browser visual hosts", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const tokenFrame = committedSurfaceFrame({
       displayFrameId: 53,
@@ -393,15 +393,15 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       browserVisualCandidate: candidate,
       frame: candidateFrame,
     });
-    const committedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
+    const presentedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
 
     expect(() =>
-      registry.commitPreparedCommittedSurfaceFrame({
-        commitBrowserVisualCandidate: ({ candidate }) => {
-          committedCandidates.push(candidate);
+      registry.presentPreparedContentFrame({
+        presentBrowserVisualCandidate: ({ candidate }) => {
+          presentedCandidates.push(candidate);
         },
         frame: candidateFrame,
-        publishCommittedSurfaceFrame: () => {
+        publishPresentedContentFrame: () => {
           throw new Error("Unexpected presented content publication.");
         },
         token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
@@ -410,7 +410,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         }),
       }),
     ).toThrow(/commit publication token for the same visible frame/);
-    expect(committedCandidates).toEqual([]);
+    expect(presentedCandidates).toEqual([]);
     expect(registry.getSnapshot()).toMatchObject({
       committedFrameId: null,
       pendingCandidateFrameIds: [53],
@@ -436,7 +436,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
     const abortedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
 
-    const result = registry.abortPreparedCommittedSurfaceFrame({
+    const result = registry.abortPreparedContentFrame({
       abortBrowserVisualCandidate: ({ candidate }) => {
         abortedCandidates.push(candidate);
       },
@@ -508,7 +508,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     const stagedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
     const stagedResourceKeys: (readonly string[] | undefined)[] = [];
 
-    const result = registry.abortPreparedCommittedSurfaceFrame({
+    const result = registry.abortPreparedContentFrame({
       abortBrowserVisualCandidate: () => {
         throw new Error("Preserved preparation must not abort the candidate.");
       },
@@ -573,20 +573,20 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       frame,
     });
 
-    const committedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
-    const result = registry.commitPreparedCommittedSurfaceFrame({
-      commitBrowserVisualCandidate: ({ candidate }) => {
-        committedCandidates.push(candidate);
+    const presentedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
+    const result = registry.presentPreparedContentFrame({
+      presentBrowserVisualCandidate: ({ candidate }) => {
+        presentedCandidates.push(candidate);
       },
       frame,
-      publishCommittedSurfaceFrame: () => true,
+      publishPresentedContentFrame: () => true,
       token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
         frame,
         projectionSample: liveProjectionSample(62),
       }),
     });
 
-    expect(committedCandidates).toHaveLength(1);
+    expect(presentedCandidates).toHaveLength(1);
     expect(result).toEqual({
       activeEditorPins: [],
       published: true,

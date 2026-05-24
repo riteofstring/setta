@@ -32,7 +32,7 @@ const VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH = modulePath(
 const COMMITTED_SURFACE_CANDIDATE_ACTION_MODULE_PATH = modulePath(
   "./visibleFrameActorAdapters/committedSurfaceCandidateAction.ts",
 );
-const COMMITTED_SURFACE_RUNTIME_MODULE_PATH = modulePath(
+const PRESENTED_SURFACE_RUNTIME_MODULE_PATH = modulePath(
   "../presentedSurfaceRuntime.ts",
 );
 const PROJECTION_FRAME_MODULE_PATH = modulePath("./flowProjectionFrame.tsx");
@@ -49,7 +49,7 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = modulePath(
 const VISIBLE_FRAME_PRESENTER_MODULE_PATH = modulePath(
   "./visibleFramePresentation.ts",
 );
-const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
+const PRODUCTION_PRESENTED_CONTENT_STORE_MUTATORS = new Set([
   "presentedSurfaceRuntime.ts",
   "GpuFlow/visibleFramePresentedState.ts",
 ]);
@@ -76,7 +76,7 @@ const PRODUCTION_VISIBLE_PROJECTION_STATE_MUTATORS = new Set([
 const PRODUCTION_VISIBLE_PROJECTION_STATE_PUBLISHERS = new Set([
   "GpuFlow/visibleFramePresentation.ts",
 ]);
-const PRODUCTION_PREPARED_COMMITTED_SURFACE_FRAME_COMMITTERS = new Set([
+const PRODUCTION_PREPARED_CONTENT_FRAME_PRESENTERS = new Set([
   "GpuFlow/visibleFramePresentedState.ts",
   "GpuFlow/visibleFrameResourceGraph.ts",
   "GpuFlow/visibleFramePresentation.ts",
@@ -416,8 +416,8 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(surfaceFrameSource).not.toMatch(/\breadonly\s+holdPreviousToken\b/);
   });
 
-  it("keeps committed content store mutation inside committed-surface publication state", () => {
-    const mutatorPattern = /\bpublishPresentedContentFrame\s*\(/;
+  it("keeps presented content store mutation inside presented-surface publication state", () => {
+    const mutatorPattern = /\.\s*publishPresentedContentFrame\s*\(/;
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
         return [];
@@ -427,20 +427,20 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
         return [];
       }
       const relativePath = relativeGpuFlowPath(filePath);
-      if (PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS.has(relativePath)) {
+      if (PRODUCTION_PRESENTED_CONTENT_STORE_MUTATORS.has(relativePath)) {
         return [];
       }
       return [
-        `${relativePath} mutates the committed content frame store outside the committed-surface publication bridge`,
+        `${relativePath} mutates the presented content frame store outside the presented-surface publication bridge`,
       ];
     });
 
     expect(violations).toEqual([]);
   });
 
-  it("keeps React semantic committed-surface observers downstream of publication", () => {
+  it("keeps React semantic presented-surface observers downstream of publication", () => {
     const presentedSurfaceRuntimeSource = readFileSync(
-      COMMITTED_SURFACE_RUNTIME_MODULE_PATH,
+      PRESENTED_SURFACE_RUNTIME_MODULE_PATH,
       "utf8",
     );
     const publishMethodStart = presentedSurfaceRuntimeSource.indexOf(
@@ -1000,24 +1000,22 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(helperPublicationCallCount).toBe(1);
   });
 
-  it("commits prepared committed surface frames only through the visible-frame presenter and resource graph", () => {
-    const commitPattern = /\bcommitPreparedCommittedSurfaceFrame\s*\(/g;
+  it("presents prepared content frames only through the visible-frame presentation boundary and resource graph", () => {
+    const presentPattern = /\bpresentPreparedContentFrame\s*\(/g;
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
         return [];
       }
       const source = readFileSync(filePath, "utf8");
-      if (![...source.matchAll(commitPattern)].length) {
+      if (![...source.matchAll(presentPattern)].length) {
         return [];
       }
       const relativePath = relativeGpuFlowPath(filePath);
-      if (
-        PRODUCTION_PREPARED_COMMITTED_SURFACE_FRAME_COMMITTERS.has(relativePath)
-      ) {
+      if (PRODUCTION_PREPARED_CONTENT_FRAME_PRESENTERS.has(relativePath)) {
         return [];
       }
       return [
-        `${relativePath} commits prepared committed surface frames outside visible publication completion`,
+        `${relativePath} presents prepared content frames outside visible publication completion`,
       ];
     });
 
