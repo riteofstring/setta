@@ -435,8 +435,10 @@ describe("GPU Flow visible frame transaction proofs", () => {
   it("converts over-budget compatible previous proof into a blocked transaction proof", () => {
     const sample = liveProjectionSample({ id: 53, timestamp: 530 });
     const actor = retainedDomControlActor({
+      active: false,
       actualInteractionProof: "inactive-visual-only",
       compatiblePreviousBudgetState: "over-budget",
+      requiredInteractionProof: "inactive-visual-only",
     });
     const previousVisibleProjectionState = visibleProjectionState({
       kind: "content-publication",
@@ -654,6 +656,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     {
       actor: actorWithBrowserVisualRepresentation(
         retainedDomControlActor({
+          active: false,
           actualInteractionProof: "inactive-visual-only",
           compatiblePreviousBudgetState: "within-budget",
           requiredInteractionProof: "inactive-visual-only",
@@ -884,7 +887,8 @@ function committedSurfaceFrame({
     retainedScrollRevision: 0,
   };
   const surfaceTransaction =
-    exactSurfaceResourceHandles.length > 0 || protectedResourceHandles.length > 0
+    exactSurfaceResourceHandles.length > 0 ||
+    protectedResourceHandles.length > 0
       ? {
           activeDomIslandTransaction: {
             islands: [],
@@ -972,11 +976,13 @@ function committedSurfaceFrame({
 }
 
 function retainedDomControlActor({
+  active = true,
   actualInteractionProof = "blocked",
   actualVisualProof = "compatible-previous",
   compatiblePreviousBudgetState = null,
   requiredInteractionProof = "active-editor-live",
 }: {
+  readonly active?: boolean | undefined;
   readonly actualInteractionProof?: string | undefined;
   readonly actualVisualProof?: string | undefined;
   readonly compatiblePreviousBudgetState?:
@@ -987,7 +993,7 @@ function retainedDomControlActor({
   readonly requiredInteractionProof?: string | undefined;
 } = {}): GpuFlowCommittedSurfaceActorGeneration {
   return freezeActor({
-    active: true,
+    active,
     actorFamily: "text-like-dom-control",
     actorId: "control-a",
     browserVisual: retainedDomControlBrowserVisual({
