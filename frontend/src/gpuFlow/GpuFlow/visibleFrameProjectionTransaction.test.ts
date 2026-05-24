@@ -30,6 +30,9 @@ const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
 const COORDINATOR_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameCoordinator.ts", import.meta.url),
 );
+const STATE_MACHINE_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameStateMachine.ts", import.meta.url),
+);
 const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   new URL(
     "./visibleFrameActorAdapters/contentDecisionKernel.ts",
@@ -142,12 +145,13 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
     expect(blockedSelection.outcomeKind).toBe("blocked");
   });
 
-  it("keeps retained projection transaction candidates in the coordinator-owned proof and out of render planning", () => {
+  it("keeps retained projection transaction candidates in the state-machine-owned proof and out of render planning", () => {
     const projectionPlanSource = readFileSync(
       PROJECTION_PLAN_MODULE_PATH,
       "utf8",
     );
     const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
+    const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
     const contentDecisionKernelSource = readFileSync(
       CONTENT_DECISION_KERNEL_MODULE_PATH,
       "utf8",
@@ -163,7 +167,13 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       "createGpuFlowProjectionFrameTransactionSelector",
     );
     expect(kernelModuleSource).toContain(
+      "reduceGpuFlowVisibleFrameMotionProjectionTransaction({",
+    );
+    expect(kernelModuleSource).not.toContain(
       "function resolveGpuFlowMotionProjectionFrameTransaction",
+    );
+    expect(stateMachineSource).toContain(
+      "export function reduceGpuFlowVisibleFrameMotionProjectionTransaction",
     );
     expect(kernelModuleSource).not.toContain(
       "createGpuFlowVisiblePublicationCandidateDecisionKernel",
@@ -211,7 +221,7 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       "export function createGpuFlowRetainedProjectionPublicationCandidateSelector",
     );
     expect(kernelModuleSource).not.toContain("candidateDecisionKernel");
-    expect(kernelModuleSource).toContain(
+    expect(stateMachineSource).toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
   });
