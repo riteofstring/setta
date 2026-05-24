@@ -50,6 +50,44 @@ resources, eligibility proof, and exactly one visible presentation step.
   `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-dot-dev`
   `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/three-html-render`
 
+## Post-Implementation Status Update
+
+Date: 2026-05-27
+
+The source now has the intended coordinator, actor manifest, resource graph,
+budget broker, and tokened presentation boundary shape. That is not sufficient
+for completion. The latest Chrome recording still fails the observed behavior
+contract:
+
+```text
+/private/var/folders/7t/11607ml14sjf_yx1xt0hg54h0000gn/T/setta-chrome-recordings/setta.go-rewrite-1814143074/recording-20260527-153246
+```
+
+The recording shows the runtime stuck in a motion/hold loop while visible
+repair debt remains active:
+
+- `contentDebt=true` and `continuityDebtActive=true` persist for hundreds of
+  frames;
+- continuity debt age reaches the 900s while the reducer still chooses
+  `lane=motion`;
+- `contentWorkPlanKind=skip` dominates the run;
+- held-previous tokens keep reporting `holdAgeFrames=1` and `holdAgeMs=0`.
+
+The next work on this branch should be a bounded rescue, not another broad
+architecture iteration:
+
+1. Make over-budget safety or continuity debt force content preparation or
+   block loudly. A rendered motion projection must not automatically suppress
+   repair preparation.
+2. Fix held-previous age accounting so consecutive held outcomes accumulate
+   across samples.
+3. Rerun the observed Settings spec and a fresh Chrome recording.
+
+If that bounded rescue does not close the observed browser gates, stop treating
+this branch as the primary implementation path and move primary effort to the
+canvas/WebGPU-only branch. Keep this branch only as diagnostic reference or a
+short validation spike.
+
 ## Constraints
 
 - Keep the GPU Flow direction. Do not return to XYFlow or a DOM graph renderer.
