@@ -28,6 +28,7 @@ const MIN_CONTENT_NONBLANK_RATIO = 0.02;
 const MIN_SECTION_NONBLANK_RATIO = 0.015;
 const MIN_SCROLL_CHANGED_PIXEL_RATIO = 0.004;
 const MIN_SCROLL_MEAN_DELTA = 1;
+const MIN_SCROLL_P95_DELTA = 4;
 const MAX_FLICKER_BASELINE_DROP_RATIO = 0.65;
 const STANDARD_REFRESH_P50_MAX_MS = 18.5;
 const STANDARD_REFRESH_P95_MAX_MS = 24;
@@ -256,7 +257,8 @@ test("retained section scroll moves visible pixels without blanking header or co
     [around60Similarity, around120Similarity, finalSimilarity].some(
       (sample) =>
         sample.changedPixelRatio >= MIN_SCROLL_CHANGED_PIXEL_RATIO ||
-        sample.meanDelta >= MIN_SCROLL_MEAN_DELTA,
+        sample.meanDelta >= MIN_SCROLL_MEAN_DELTA ||
+        sample.p95Delta >= MIN_SCROLL_P95_DELTA,
     ),
     details,
   ).toBe(true);

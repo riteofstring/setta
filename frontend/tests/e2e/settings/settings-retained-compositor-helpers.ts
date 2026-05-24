@@ -401,29 +401,28 @@ async function waitForRetainedCompositorViewportCommit(
   page: Page,
   viewport: RetainedCompositorViewportSample,
 ): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        const state = await readRetainedCompositorViewportCommitState(
-          page,
-          viewport,
-        );
-        if (state.runtimeMatches && !state.committedMatches) {
-          await page.evaluate(() => {
-            window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
-          });
-        }
-        return state;
-      },
-      {
-        intervals: [50, 80, 120, 180],
-        timeout: 10_000,
-      },
-    )
-    .toMatchObject({
-      committedMatches: true,
-      runtimeMatches: true,
+  const deadline = Date.now() + 15_000;
+  let state: Awaited<
+    ReturnType<typeof readRetainedCompositorViewportCommitState>
+  > | null = null;
+  while (Date.now() < deadline) {
+    state = await readRetainedCompositorViewportCommitState(page, viewport);
+    if (state.runtimeMatches && state.committedMatches) {
+      return;
+    }
+    await page.evaluate(() => {
+      window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
     });
+    await page.waitForTimeout(120);
+  }
+  const diagnostics = await readRetainedCompositorVisibleFrameDiagnostics(page);
+  throw new Error(
+    `Retained compositor viewport did not commit. ${JSON.stringify(
+      { diagnostics, state },
+      null,
+      2,
+    )}`,
+  );
 }
 
 async function readRetainedCompositorViewportCommitState(

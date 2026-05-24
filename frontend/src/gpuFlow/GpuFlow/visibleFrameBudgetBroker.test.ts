@@ -293,6 +293,54 @@ describe("GPU Flow visible frame budget broker", () => {
     });
   });
 
+  it("ignores orphaned preparing resource debt until a candidate or queue references it", () => {
+    const requestedDebt =
+      createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph({
+        snapshot: {
+          activeEditorPins: [],
+          candidateResourceKeys: [],
+          committedFrameId: null,
+          committedResourceKeys: [],
+          pendingCandidateFrameIds: [],
+          queuedResourceKeys: ["dom-control-snapshot:current-editor"],
+          resourceDebtByState: {
+            absent: 0,
+            preparing: 1,
+            presented: 0,
+            ready: 0,
+            requested: 1,
+            retired: 0,
+          },
+          resourceStates: [
+            {
+              debtAgeFrames: 132,
+              deadlineFrame: 1,
+              estimatedCostMs: 1.5,
+              ownerFrameId: 3,
+              preparationLane: "browser-visual",
+              priority: "safety",
+              resourceKey: "dom-control-snapshot:orphaned-editor",
+              state: "preparing",
+            },
+            {
+              debtAgeFrames: 0,
+              deadlineFrame: 8,
+              estimatedCostMs: 1.5,
+              ownerFrameId: 42,
+              preparationLane: "browser-visual",
+              priority: "safety",
+              resourceKey: "dom-control-snapshot:current-editor",
+              state: "requested",
+            },
+          ],
+        },
+      });
+
+    expect(requestedDebt.map((debt) => debt.id)).toEqual([
+      "dom-control-snapshot:current-editor",
+    ]);
+  });
+
   it("maps selected synthetic browser-visual repair to newly queued resource work", () => {
     const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
       deferResolutionUpdates: false,

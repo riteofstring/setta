@@ -614,7 +614,7 @@ describe("HTML surface frame helpers", () => {
       devicePixelRatio: 2,
       element: snapshot,
       frame: 7,
-      priority: "visible",
+      priority: "interactive",
       surfaceId: "snapshot-a",
       textureContentKey: "snapshot-key",
       textureSourceRect: { height: 24, width: 120, x: 0, y: 0 },

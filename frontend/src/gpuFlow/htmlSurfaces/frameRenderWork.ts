@@ -333,8 +333,13 @@ function registerVisibleGpuNodeTextures({
       missingElementNodeIds.push(quad.nodeId);
       continue;
     }
+    const priority = resolveGpuVisibleSurfaceTexturePriority({
+      activeSurfaceIds,
+      quad,
+    });
     const deferUploadUntilPaint = shouldDeferHtmlSurfaceUploadUntilPaint({
       element,
+      priority,
       surfaceId: quad.nodeId,
       textureManager,
     });
@@ -350,10 +355,7 @@ function registerVisibleGpuNodeTextures({
       devicePixelRatio,
       element: captureElement,
       frame,
-      priority: resolveGpuVisibleSurfaceTexturePriority({
-        activeSurfaceIds,
-        quad,
-      }),
+      priority,
       surfaceId: quad.nodeId,
       ...(quad.textureContentKey
         ? { textureContentKey: quad.textureContentKey }
@@ -376,6 +378,9 @@ function resolveGpuVisibleSurfaceTexturePriority({
 }): NodeTexturePriority {
   if (quad.actorKind === "dom-section") {
     return "critical";
+  }
+  if (quad.actorKind === "dom-control") {
+    return "interactive";
   }
   return resolveVisibleNodeTexturePriority(quad.nodeId, activeSurfaceIds);
 }
@@ -401,13 +406,18 @@ function cssEscape(value: string): string {
 
 function shouldDeferHtmlSurfaceUploadUntilPaint({
   element,
+  priority,
   surfaceId,
   textureManager,
 }: {
   readonly element: Element;
+  readonly priority: NodeTexturePriority;
   readonly surfaceId: string;
   readonly textureManager: Pick<GpuNodeTextureController, "getCommittedSurfaceTexture">;
 }): boolean {
+  if (priority === "critical" || priority === "interactive") {
+    return false;
+  }
   if (!isCaptureOnlyHtmlSurfaceSource(element)) {
     return false;
   }

@@ -544,9 +544,14 @@ export function createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph({
 }: {
   readonly snapshot: GpuFlowVisibleFrameResourceGraphSnapshot;
 }): readonly GpuFlowVisibleFrameBudgetDebtRequest[] {
+  const activeResourceKeys = new Set([
+    ...snapshot.candidateResourceKeys,
+    ...snapshot.queuedResourceKeys,
+  ]);
   return Object.freeze(
     snapshot.resourceStates
       .filter(isGpuFlowVisibleFrameResourceDebtState)
+      .filter((state) => activeResourceKeys.has(state.resourceKey))
       .map(createGpuFlowVisibleFrameBudgetDebtRequestForResourceState),
   );
 }

@@ -383,11 +383,11 @@ function handleGpuRetainedDomControlSnapshotSourceDraw({
   readonly surfaceId: string;
   readonly textureManager: HtmlSurfaceTextureManager | null;
 }): void {
-  const deferUploadUntilPaint = true;
+  const preparationSnapshot =
+    preparationSnapshotSourceIds?.has(surfaceId) === true;
+  const deferUploadUntilPaint = !preparationSnapshot;
   const priority: NodeTexturePriority =
-    preparationSnapshotSourceIds?.has(surfaceId) === true
-      ? "interactive"
-      : "visible";
+    preparationSnapshot ? "interactive" : "visible";
   const shouldMarkDirty =
     !textureManager ||
     shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty({
