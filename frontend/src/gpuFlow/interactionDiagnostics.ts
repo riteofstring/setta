@@ -1,3 +1,4 @@
+import type { GpuFlowVisibleFrameActorManifestDiagnostics } from "./GpuFlow/visibleFrameActorManifestDiagnostics";
 import type { GpuFlowVisibleFramePresentationIdentity } from "./GpuFlow/visibleFrameTypes";
 import type { GpuFrameReason } from "./gpuRenderer";
 import type { GpuRetainedContentInteractionHit } from "./interactions/retainedContentInteraction";
@@ -122,6 +123,7 @@ export type GpuFlowInteractionDiagnostics = {
 
 export type GpuFlowCommittedSurfaceDebugEntry = {
   readonly actorCount: number;
+  readonly actorManifest: GpuFlowVisibleFrameActorManifestDiagnostics;
   readonly blockingActorIds: readonly string[];
   readonly canvasRetainedFrameId: number;
   readonly clipChainRevision: string;

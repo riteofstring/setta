@@ -26,6 +26,11 @@ import {
   type GpuFlowCommittedSurfacePresentationProof,
 } from "./committedSurfacePresentationProof";
 import {
+  intersectCommittedSurfaceFrameRects,
+  isPositiveCommittedSurfaceRect,
+} from "./committedSurfaceRects";
+import { createSectionStructureActors } from "./committedSurfaceSectionActors";
+import {
   createDomControlActorSet,
   type DomControlActorOptions,
 } from "./committedSurfaceTextActor";
@@ -63,6 +68,16 @@ type GpuFlowCommittedSurfaceActorKind =
   | "dom-island"
   | "html-texture"
   | "gpu-native-visual";
+
+export type GpuFlowCommittedSurfaceSectionActorFamily =
+  | "section-body-clip"
+  | "section-header"
+  | "section-shell";
+
+type GpuFlowCommittedSurfaceActorFamily =
+  | GpuFlowCommittedSurfaceActorKind
+  | GpuFlowCommittedSurfaceSectionActorFamily
+  | "text-like-dom-control";
 
 const committedSurfaceFrameRenderSignatureCache = new WeakMap<
   GpuFlowCommittedSurfaceFrame,
@@ -167,9 +182,7 @@ export type GpuFlowCommittedSurfaceActorGeneration = {
   readonly accessibilityProjection: "browser-dom" | "none";
   readonly activationPolicy: GpuFlowTextActorActivationPolicy | "none";
   readonly actorId: string;
-  readonly actorFamily:
-    | GpuFlowCommittedSurfaceActorKind
-    | "text-like-dom-control";
+  readonly actorFamily: GpuFlowCommittedSurfaceActorFamily;
   readonly browserVisual: GpuFlowCommittedSurfaceBrowserVisualContract | null;
   readonly canonicalActorId: GpuFlowCommittedSurfaceCanonicalActorId;
   readonly clipChainRevision: string;
@@ -403,6 +416,7 @@ export function createGpuFlowCommittedSurfaceFrame({
       ...domIslandActorSet.browserVisualActors,
     ]);
   const actorGenerations = Object.freeze([
+    ...createSectionStructureActors(retainedRuntimeFrame),
     ...createRetainedPageActors(retainedDisplayFrame.surfaceActorSnapshots),
     ...createHtmlTextureActors({
       retainedRuntimeFrame,
@@ -443,6 +457,7 @@ export function createGpuFlowStartupCommittedSurfaceFrame({
       ...domIslandActorSet.browserVisualActors,
     ]);
   const actorGenerations = Object.freeze([
+    ...createSectionStructureActors(retainedRuntimeFrame),
     ...domControlActorSet.actorGenerations,
     ...domIslandActorSet.actorGenerations,
     ...createGpuNativeVisualActors({
@@ -606,8 +621,12 @@ function createRetainedPageActors(
   return Object.freeze(
     snapshots
       .filter(({ actor }) => actor.kind === "retained-parameter-content")
-      .map(({ actor, generation }) =>
-        freezeActor({
+      .map(({ actor, generation }) => {
+        const visibleRect = intersectCommittedSurfaceFrameRects(
+          generation.flowRect,
+          generation.clipRect,
+        );
+        return freezeActor({
           active: false,
           actorId: actor.surfaceId,
           clipChainRevision: generation.generationId,
@@ -638,11 +657,11 @@ function createRetainedPageActors(
           rowId: null,
           sourceRect: generation.sourceWindow.sourceRect,
           valueStyleRevision: null,
-          visibleNonempty: false,
+          visibleNonempty: isPositiveCommittedSurfaceRect(visibleRect),
           wheelPolicy: "none",
           zOrder: generation.zIndex,
-        }),
-      ),
+        });
+      }),
   );
 }
 

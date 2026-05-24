@@ -18,7 +18,7 @@ import type { GpuRetainedContentScrollbarVisualState } from "./retainedContentSc
 import type { RetainedContentTexturePageFrameSurface } from "./retainedContentTexturePageManager";
 import { GPU_RETAINED_DOM_CONTROL_PROJECTION_HORIZON_CSS_PX } from "./retainedDomControlGeometry";
 import type { GpuRetainedDomControlSourceDescriptor } from "./retainedDomControlScene";
-import type { GpuDomIsland, GpuFlowScene } from "./scene";
+import type { GpuDomIsland, GpuFlowScene, GpuSectionSceneNode } from "./scene";
 import type { GpuRect, GpuViewportInput } from "./viewportMath";
 
 type GpuRetainedRuntimeFrameInputSnapshot = {
@@ -41,6 +41,8 @@ type GpuRetainedRuntimeFrameDescriptors = {
   readonly hitTestSurfaces: readonly GpuRetainedContentSurface[];
   readonly htmlSurfaceNativeVisuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
   readonly nativeDomIslands: readonly GpuDomIsland[];
+  readonly renderedSceneNodeIds: readonly string[];
+  readonly sceneSections: readonly GpuSectionSceneNode[];
   readonly sourceSurfaces: readonly GpuRetainedContentSourceSurface[];
   readonly domControlSources: readonly GpuRetainedDomControlSourceDescriptor[];
 };
@@ -63,6 +65,7 @@ type CreateGpuRetainedRuntimeFrameInput = {
   readonly devicePixelRatioBucket: number;
   readonly frameId: number;
   readonly scene: GpuFlowScene | undefined;
+  readonly renderedSceneNodeIds?: readonly string[] | undefined;
   readonly scrollbarVisualState?:
     | GpuRetainedContentScrollbarVisualState
     | undefined;
@@ -86,6 +89,7 @@ export function createGpuRetainedRuntimeFrame({
   scrollRevision,
   scrollRevisions,
   rowHoverTarget = null,
+  renderedSceneNodeIds,
   viewport,
   viewportSize,
   viewportZoomBucket,
@@ -129,35 +133,28 @@ export function createGpuRetainedRuntimeFrame({
     }),
   );
   const htmlSurfaceNativeVisuals = freezeArray(
-    scene
-      ? [
-          ...getGpuRetainedContentScrollbarVisualsFromSourceSurfaces(
-            sourceSurfaces,
-            {
-              scrollOffsets,
-              visualState: scrollbarVisualState,
-            },
-          ),
-          ...(rowHoverTarget
-            ? getGpuRetainedContentRowHoverVisuals({
-                scene,
-                scrollOffsets,
-                target: rowHoverTarget,
-              })
-            : getGpuRetainedContentRowHoverStateVisuals({
-                scene,
-                scrollOffsets,
-              })),
-        ]
-      : [],
+    createGpuRetainedRuntimeFrameNativeVisuals({
+      rowHoverTarget,
+      scene,
+      scrollbarVisualState,
+      scrollOffsets,
+      sourceSurfaces,
+    }),
   );
   const activeNativeIslandIds = nativeDomIslands.map((island) => island.id);
+  const sceneSections = freezeArray(scene?.sections ?? []);
+  const sceneNodeIds = createGpuRetainedRuntimeFrameRenderedSceneNodeIds({
+    renderedSceneNodeIds,
+    sceneSections,
+  });
   return Object.freeze({
     descriptors: Object.freeze({
       contentPageSurfaces,
       hitTestSurfaces,
       htmlSurfaceNativeVisuals,
       nativeDomIslands,
+      renderedSceneNodeIds: sceneNodeIds,
+      sceneSections,
       sourceSurfaces,
       domControlSources,
     }),
@@ -181,6 +178,72 @@ export function createGpuRetainedRuntimeFrame({
       viewportSize: viewportSize ? Object.freeze({ ...viewportSize }) : null,
       viewportZoomBucket,
     }),
+  });
+}
+
+function createGpuRetainedRuntimeFrameRenderedSceneNodeIds({
+  renderedSceneNodeIds,
+  sceneSections,
+}: {
+  readonly renderedSceneNodeIds?: readonly string[] | undefined;
+  readonly sceneSections: readonly GpuSectionSceneNode[];
+}): readonly string[] {
+  if (renderedSceneNodeIds) {
+    return freezeArray(renderedSceneNodeIds);
+  }
+  return freezeArray(sceneSections.map((section) => section.sectionId));
+}
+
+function createGpuRetainedRuntimeFrameNativeVisuals({
+  rowHoverTarget,
+  scene,
+  scrollbarVisualState,
+  scrollOffsets,
+  sourceSurfaces,
+}: {
+  readonly rowHoverTarget: GpuRetainedContentRowHoverTarget | null;
+  readonly scene: GpuFlowScene | undefined;
+  readonly scrollbarVisualState:
+    | GpuRetainedContentScrollbarVisualState
+    | undefined;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
+  readonly sourceSurfaces: readonly GpuRetainedContentSourceSurface[];
+}): readonly HtmlSurfaceSolidRoundedRectVisual[] {
+  if (!scene) {
+    return [];
+  }
+  return [
+    ...getGpuRetainedContentScrollbarVisualsFromSourceSurfaces(sourceSurfaces, {
+      scrollOffsets,
+      visualState: scrollbarVisualState,
+    }),
+    ...createGpuRetainedRuntimeFrameRowHoverVisuals({
+      rowHoverTarget,
+      scene,
+      scrollOffsets,
+    }),
+  ];
+}
+
+function createGpuRetainedRuntimeFrameRowHoverVisuals({
+  rowHoverTarget,
+  scene,
+  scrollOffsets,
+}: {
+  readonly rowHoverTarget: GpuRetainedContentRowHoverTarget | null;
+  readonly scene: GpuFlowScene;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
+}): readonly HtmlSurfaceSolidRoundedRectVisual[] {
+  if (rowHoverTarget) {
+    return getGpuRetainedContentRowHoverVisuals({
+      scene,
+      scrollOffsets,
+      target: rowHoverTarget,
+    });
+  }
+  return getGpuRetainedContentRowHoverStateVisuals({
+    scene,
+    scrollOffsets,
   });
 }
 

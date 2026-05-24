@@ -36,6 +36,7 @@ import {
 } from "../viewportMath";
 import { getRegisteredGpuFlowViewportRuntime } from "../viewportRuntimeRegistry";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
+import { createGpuFlowVisibleFrameActorManifestDiagnostics } from "./visibleFrameActorManifestDiagnostics";
 import type { GpuFlowVisibleFramePresentationIdentity } from "./visibleFrameTypes";
 
 type GpuFlowRetainedRowDebugContext = {
@@ -300,12 +301,18 @@ export function createGpuFlowCommittedSurfaceDebugEntry({
   if (!frame) {
     return null;
   }
+  const presentationDebug =
+    createCommittedSurfaceDebugPresentationIdentity(presentationIdentity);
   return {
     actorCount: frame.diagnostics.actorCount,
+    actorManifest: createGpuFlowVisibleFrameActorManifestDiagnostics({
+      frame,
+      presentationId: presentationDebug.presentationId,
+    }),
     blockingActorIds: frame.displayCompleteness.blockingActorIds,
     canvasRetainedFrameId: frame.coherence.canvasRetainedFrameId,
     clipChainRevision: frame.coherence.clipChainRevision,
-    contentFrameId: presentationIdentity?.contentFrameId ?? null,
+    contentFrameId: presentationDebug.contentFrameId,
     debugSnapshotFrameId: frame.coherence.debugSnapshotFrameId,
     displayFrameId: frame.displayFrameId,
     displayCompletenessStatus: frame.displayCompleteness.status,
@@ -320,32 +327,15 @@ export function createGpuFlowCommittedSurfaceDebugEntry({
     htmlTextureActorCount: frame.diagnostics.htmlTextureActorCount,
     htmlTextureOverlayCommittedFrameId:
       frame.coherence.htmlTextureOverlayCommittedFrameId,
-    presentationId: presentationIdentity?.presentationId ?? null,
-    presentationProjectionSampleId:
-      presentationIdentity?.projectionSampleId ?? null,
+    presentationId: presentationDebug.presentationId,
+    presentationProjectionSampleId: presentationDebug.projectionSampleId,
     projectedVisibleNonemptyDomControlCount:
       frame.displayCompleteness.projectedVisibleNonemptyDomControlCount,
-    projectionHorizon: {
-      retainedScrollSurfaceCount:
-        frame.projectionHorizon.retainedScrollSurfaces.length,
-      textActorBlockedAwaitingBrowserVisualCount:
-        frame.projectionHorizon.textActorCoverage
-          .blockedAwaitingBrowserVisualActorIds.length,
-      textActorCompatiblePreviousCount:
-        frame.projectionHorizon.textActorCoverage.compatiblePreviousActorIds
-          .length,
-      textActorExactCoverageCount:
-        frame.projectionHorizon.textActorCoverage.exactLiveDomActorIds.length +
-        frame.projectionHorizon.textActorCoverage.exactSnapshotActorIds.length,
-      textActorExactSnapshotCount:
-        frame.projectionHorizon.textActorCoverage.exactSnapshotActorIds.length,
-      textActorTrueHoleCount:
-        frame.projectionHorizon.textActorCoverage.trueHoleActorIds.length,
-      viewportOverscanCssPx: frame.projectionHorizon.viewport.overscanCssPx,
-    },
+    projectionHorizon: createCommittedSurfaceDebugProjectionHorizon(frame),
     publishabilityKind: frame.publishability.kind,
-    publishabilityReason:
-      "reason" in frame.publishability ? frame.publishability.reason : null,
+    publishabilityReason: getCommittedSurfaceDebugPublishabilityReason(
+      frame.publishability,
+    ),
     retainedScrollRevision: frame.coherence.retainedScrollRevision,
     retainedPageActorCount: frame.diagnostics.retainedPageActorCount,
     sceneRevision: frame.sceneRevision,
@@ -356,6 +346,52 @@ export function createGpuFlowCommittedSurfaceDebugEntry({
       frame.displayCompleteness.visibleNonemptyDomControlCount,
     viewportSample: flowViewportInputToDebugEntry(frame.viewportSample),
   };
+}
+
+function createCommittedSurfaceDebugPresentationIdentity(
+  presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null,
+): {
+  readonly contentFrameId:
+    | GpuFlowVisibleFramePresentationIdentity["contentFrameId"]
+    | null;
+  readonly presentationId:
+    | GpuFlowVisibleFramePresentationIdentity["presentationId"]
+    | null;
+  readonly projectionSampleId:
+    | GpuFlowVisibleFramePresentationIdentity["projectionSampleId"]
+    | null;
+} {
+  return {
+    contentFrameId: presentationIdentity?.contentFrameId ?? null,
+    presentationId: presentationIdentity?.presentationId ?? null,
+    projectionSampleId: presentationIdentity?.projectionSampleId ?? null,
+  };
+}
+
+function createCommittedSurfaceDebugProjectionHorizon(
+  frame: GpuFlowCommittedSurfaceFrame,
+): GpuFlowCommittedSurfaceDebugEntry["projectionHorizon"] {
+  const textCoverage = frame.projectionHorizon.textActorCoverage;
+  return {
+    retainedScrollSurfaceCount:
+      frame.projectionHorizon.retainedScrollSurfaces.length,
+    textActorBlockedAwaitingBrowserVisualCount:
+      textCoverage.blockedAwaitingBrowserVisualActorIds.length,
+    textActorCompatiblePreviousCount:
+      textCoverage.compatiblePreviousActorIds.length,
+    textActorExactCoverageCount:
+      textCoverage.exactLiveDomActorIds.length +
+      textCoverage.exactSnapshotActorIds.length,
+    textActorExactSnapshotCount: textCoverage.exactSnapshotActorIds.length,
+    textActorTrueHoleCount: textCoverage.trueHoleActorIds.length,
+    viewportOverscanCssPx: frame.projectionHorizon.viewport.overscanCssPx,
+  };
+}
+
+function getCommittedSurfaceDebugPublishabilityReason(
+  publishability: GpuFlowCommittedSurfaceFrame["publishability"],
+): string | null {
+  return "reason" in publishability ? publishability.reason : null;
 }
 
 function flowViewportInputToDebugEntry(viewport: GpuViewportInput): {

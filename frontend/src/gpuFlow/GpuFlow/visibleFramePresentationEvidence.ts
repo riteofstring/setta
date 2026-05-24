@@ -3,12 +3,14 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
 import type { GpuFlowNodeLayerFrameStatePublication } from "./flowFrameLifecycle";
+import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
 
 export type GpuFlowVisiblePublicationCanvasPresentationEvidence = {
+  readonly drawnNodeIds: readonly string[];
   readonly committedFrameId: number;
   readonly exposable: true;
+  readonly missingTextureNodeIds: readonly string[];
   readonly prepared: true;
   readonly presentationBatchId: string;
   readonly projectionSampleId: number;
@@ -37,6 +39,9 @@ export function createGpuFlowVisiblePublicationPresentationEvidence({
     canvasGenerationEvidence:
       createGpuFlowVisiblePublicationCanvasPresentationEvidence({
         committedFrame: visibleProjectionState.committedFrame,
+        drawnNodeIds: nodeLayerFrameStatePublication.layerResult.drawnNodeIds,
+        missingTextureNodeIds:
+          nodeLayerFrameStatePublication.layerResult.missingTextureNodeIds,
         projectionSampleId: visibleProjectionState.sample.id,
         projectionTransactionId: visibleProjectionState.transaction.id,
       }),
@@ -45,16 +50,22 @@ export function createGpuFlowVisiblePublicationPresentationEvidence({
 
 export function createGpuFlowVisiblePublicationCanvasPresentationEvidence({
   committedFrame,
+  drawnNodeIds = [],
+  missingTextureNodeIds = [],
   projectionSampleId,
   projectionTransactionId,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly drawnNodeIds?: readonly string[] | undefined;
+  readonly missingTextureNodeIds?: readonly string[] | undefined;
   readonly projectionSampleId: number;
   readonly projectionTransactionId: string;
 }): GpuFlowVisiblePublicationCanvasPresentationEvidence {
   return Object.freeze({
     committedFrameId: committedFrame.displayFrameId,
+    drawnNodeIds: Object.freeze([...drawnNodeIds]),
     exposable: true as const,
+    missingTextureNodeIds: Object.freeze([...missingTextureNodeIds]),
     prepared: true as const,
     presentationBatchId: committedFrame.presentationProof.batchId,
     projectionSampleId,
@@ -176,5 +187,58 @@ function createGpuFlowVisiblePublicationCanvasPresentationBlockedReasons({
       reason: "canvas-generation-batch-mismatch",
     });
   }
+  reasons.push(
+    ...createGpuFlowVisiblePublicationSectionPresentationBlockedReasons({
+      canvasEvidence,
+      committedFrame,
+    }),
+  );
   return Object.freeze(reasons);
+}
+
+function createGpuFlowVisiblePublicationSectionPresentationBlockedReasons({
+  canvasEvidence,
+  committedFrame,
+}: {
+  readonly canvasEvidence: GpuFlowVisiblePublicationCanvasPresentationEvidence;
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+}): readonly GpuFlowVisiblePublicationPresentationBlockedReason[] {
+  const drawnNodeIds = new Set(canvasEvidence.drawnNodeIds);
+  const missingTextureNodeIds = new Set(canvasEvidence.missingTextureNodeIds);
+  return Object.freeze(
+    committedFrame.actorGenerations
+      .filter(isGpuFlowVisiblePublicationSectionActor)
+      .filter((actor) => actor.visibleNonempty)
+      .flatMap((actor) => {
+        if (missingTextureNodeIds.has(actor.ownerSurfaceId)) {
+          return [
+            {
+              actorId: actor.actorId,
+              family: actor.actorFamily,
+              reason: "section-surface-texture-missing",
+            },
+          ];
+        }
+        if (!drawnNodeIds.has(actor.ownerSurfaceId)) {
+          return [
+            {
+              actorId: actor.actorId,
+              family: actor.actorFamily,
+              reason: "section-surface-not-drawn",
+            },
+          ];
+        }
+        return [];
+      }),
+  );
+}
+
+function isGpuFlowVisiblePublicationSectionActor(
+  actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
+): boolean {
+  return (
+    actor.actorFamily === "section-body-clip" ||
+    actor.actorFamily === "section-header" ||
+    actor.actorFamily === "section-shell"
+  );
 }

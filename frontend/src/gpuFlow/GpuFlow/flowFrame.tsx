@@ -47,7 +47,6 @@ import {
   getGpuRetainedContentRuntimeScrollRevisions,
   type GpuRetainedContentRuntimeState,
 } from "../retainedContentRuntimeState";
-import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
 import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import { getGpuRetainedContentSwitchAnimationVisuals } from "../retainedContentSwitchVisuals";
 import {
@@ -55,10 +54,7 @@ import {
   type RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
 import { type RetainedDisplayFrame } from "../retainedDisplayFrame";
-import {
-  createGpuRetainedRuntimeFrame,
-  type GpuRetainedRuntimeFrame,
-} from "../retainedRuntimeFrame";
+import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
@@ -73,15 +69,19 @@ import {
 } from "./flowFrameLifecycle";
 import {
   combineGpuFlowHtmlSurfaceNativeVisuals,
-  createGpuFlowRetainedContentNativeVisualSignature,
 } from "./flowFrameVisuals";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
+import {
+  createGpuFlowRenderedSceneNodeIds,
+  createGpuFlowRetainedRuntimeFrameSourceSignature,
+} from "./flowMountedSceneNodes";
 import { getGpuFlowCommittedSurfaceProtectedTextureSurfaceIds } from "./flowProtectedTextureSurfaceIds";
 import {
   shouldReuseGpuFlowRetainedContentFrameCache,
   shouldReuseGpuFlowRetainedRuntimeFrameForSample,
   type GpuFlowRetainedContentFrameCache,
 } from "./flowRetainedContentFrameCache";
+import { createGpuFlowRetainedRuntimeFrameForLayer } from "./flowRetainedRuntimeFrame";
 import {
   markGpuFlowRetainedContentFrameFreshnessDirty,
   settleGpuFlowRetainedContentFrameSwitchAnimationSurfaces,
@@ -280,6 +280,7 @@ function resolveGpuFlowRetainedContentFrame({
   retainedContentRuntimeState,
   sceneRevision,
   layer,
+  nodeElementById,
   viewport,
   viewportZoomBucket,
 }: {
@@ -289,6 +290,7 @@ function resolveGpuFlowRetainedContentFrame({
   readonly devicePixelRatio: number;
   readonly frame: number;
   readonly layer: GpuFlowNodeLayerState;
+  readonly nodeElementById: ReadonlyMap<string, HTMLElement>;
   readonly retainedContentFrameCacheRef: MutableRefObject<GpuFlowRetainedContentFrameCache | null>;
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
   readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
@@ -314,7 +316,14 @@ function resolveGpuFlowRetainedContentFrame({
     retainedContentRuntimeState,
   );
   const nativeVisualSignature =
-    createGpuFlowRetainedContentNativeVisualSignature(layer);
+    createGpuFlowRetainedRuntimeFrameSourceSignature({
+      layer,
+      nodeElementById,
+    });
+  const renderedSceneNodeIds = createGpuFlowRenderedSceneNodeIds({
+    layer,
+    nodeElementById,
+  });
   const pageDrawableRevision = retainedContentPageManager.getDrawableRevision();
   if (
     cachedFrame &&
@@ -351,6 +360,7 @@ function resolveGpuFlowRetainedContentFrame({
             devicePixelRatio,
             frame,
             layer,
+            renderedSceneNodeIds,
             scrollOffsets,
             scrollRevision,
             scrollRevisions,
@@ -391,6 +401,7 @@ function resolveGpuFlowRetainedContentFrame({
     devicePixelRatio,
     frame,
     layer,
+    renderedSceneNodeIds,
     scrollOffsets,
     scrollRevision,
     scrollRevisions,
@@ -469,45 +480,6 @@ function getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
     preparedCommittedSurfaceFrame?.retainedRuntimeFrame.descriptors
       .domControlSources ?? controls
   );
-}
-
-function createGpuFlowRetainedRuntimeFrameForLayer({
-  canvasSize,
-  devicePixelRatio,
-  frame,
-  layer,
-  scrollOffsets,
-  scrollRevision,
-  scrollRevisions,
-  viewport,
-  viewportZoomBucket,
-}: {
-  readonly canvasSize: GpuCanvasSize;
-  readonly devicePixelRatio: number;
-  readonly frame: number;
-  readonly layer: GpuFlowNodeLayerState;
-  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
-  readonly scrollRevision: number;
-  readonly scrollRevisions: ReadonlyMap<string, number>;
-  readonly viewport: GpuFlowLiveProjectionSample["viewport"];
-  readonly viewportZoomBucket: number;
-}): GpuRetainedRuntimeFrame {
-  return createGpuRetainedRuntimeFrame({
-    devicePixelRatioBucket: devicePixelRatio,
-    frameId: frame,
-    rowHoverTarget: layer.retainedContentRowHoverTarget ?? null,
-    scene: layer.scene,
-    scrollbarVisualState: layer.retainedContentScrollbarVisualState,
-    scrollOffsets,
-    scrollRevision,
-    scrollRevisions,
-    viewport,
-    viewportSize: {
-      height: canvasSize.cssHeight,
-      width: canvasSize.cssWidth,
-    },
-    viewportZoomBucket,
-  });
 }
 
 export {
@@ -655,6 +627,7 @@ export function renderGpuFlowNodeLayerFrame({
     devicePixelRatio: canvasSize.devicePixelRatio,
     frame,
     layer,
+    nodeElementById: nodeElementByIdRef.current,
     retainedContentFrameCacheRef,
     retainedContentPageManager: resources.retainedContentPageManager,
     retainedContentRuntimeState,

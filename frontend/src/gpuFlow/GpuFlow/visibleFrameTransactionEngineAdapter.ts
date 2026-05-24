@@ -33,22 +33,28 @@ type GpuFlowVisibleFramePublicationEngineBrowserRepresentationKind =
   | "live-dom"
   | "snapshot";
 
-const GPU_FLOW_VISIBLE_FRAME_ENGINE_NATIVE_VISUAL_ACTOR_FAMILIES =
-  new Set<string>(["gpu-native-visual"]);
-const GPU_FLOW_VISIBLE_FRAME_ENGINE_RETAINED_PAGE_ACTOR_FAMILIES =
-  new Set<string>([
-    "retained-page",
-    "retained-projection",
-    "visible-transaction",
-  ]);
-const GPU_FLOW_VISIBLE_FRAME_ENGINE_BROWSER_VISUAL_ACTOR_FAMILIES =
-  new Set<string>([
-    "active-editor",
-    "browser-visual",
-    "compatible-previous",
-    "dom-control",
-    "text-like-dom-control",
-  ]);
+const GPU_FLOW_VISIBLE_FRAME_ENGINE_ACTOR_FAMILY_ALIASES = new Map<
+  string,
+  GpuFlowVisibleFrameActorFamily
+>([
+  ["dom-island", "dom-island"],
+  ["html-texture", "html-texture"],
+  ["presentation-pair", "presentation-pair"],
+  ["resource-maintenance", "resource-maintenance"],
+  ["resource-protection", "resource-protection"],
+  ["section-body-clip", "section-body-clip"],
+  ["section-header", "section-header"],
+  ["section-shell", "section-shell"],
+  ["gpu-native-visual", "native-visual"],
+  ["retained-page", "retained-page"],
+  ["retained-projection", "retained-page"],
+  ["visible-transaction", "retained-page"],
+  ["active-editor", "browser-visual"],
+  ["browser-visual", "browser-visual"],
+  ["compatible-previous", "browser-visual"],
+  ["dom-control", "browser-visual"],
+  ["text-like-dom-control", "browser-visual"],
+]);
 
 export function createGpuFlowVisibleFramePublicationEnginePreparedFrame({
   blockedProof,
@@ -614,9 +620,7 @@ function addGpuFlowVisibleFramePublicationEngineBlockedFrozenCoverage({
       actorId:
         reason.actorId ??
         `blocked:${blockedProof.source}:${reason.family}:${reason.reason}`,
-      family: mapGpuFlowVisibleFramePublicationEngineActorFamily(
-        reason.family,
-      ),
+      family: mapGpuFlowVisibleFramePublicationEngineActorFamily(reason.family),
     });
     coverageByActor.set(
       createGpuFlowVisibleFrameActorKey(actor),
@@ -821,22 +825,14 @@ function createGpuFlowVisibleFramePublicationEngineActorKey(
 function mapGpuFlowVisibleFramePublicationEngineActorFamily(
   family: string,
 ): GpuFlowVisibleFrameActorFamily {
-  if (family === "dom-island" || family === "html-texture") {
-    return family;
+  const mappedFamily =
+    GPU_FLOW_VISIBLE_FRAME_ENGINE_ACTOR_FAMILY_ALIASES.get(family);
+  if (mappedFamily) {
+    return mappedFamily;
   }
-  if (family === "resource-maintenance") {
-    return "resource-maintenance";
-  }
-  if (GPU_FLOW_VISIBLE_FRAME_ENGINE_NATIVE_VISUAL_ACTOR_FAMILIES.has(family)) {
-    return "native-visual";
-  }
-  if (GPU_FLOW_VISIBLE_FRAME_ENGINE_RETAINED_PAGE_ACTOR_FAMILIES.has(family)) {
-    return "retained-page";
-  }
-  if (GPU_FLOW_VISIBLE_FRAME_ENGINE_BROWSER_VISUAL_ACTOR_FAMILIES.has(family)) {
-    return "browser-visual";
-  }
-  return "browser-visual";
+  throw new Error(
+    `Unsupported GPU Flow visible-frame publication actor family "${family}".`,
+  );
 }
 
 function isGpuFlowVisibleFramePublicationEngineBrowserVisualDebtFamily(

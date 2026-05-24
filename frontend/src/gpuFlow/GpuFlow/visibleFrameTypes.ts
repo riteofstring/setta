@@ -35,8 +35,13 @@ export type GpuFlowVisibleFrameActorFamily =
   | "hit-debug"
   | "html-texture"
   | "native-visual"
+  | "presentation-pair"
   | "resource-maintenance"
-  | "retained-page";
+  | "resource-protection"
+  | "retained-page"
+  | "section-body-clip"
+  | "section-header"
+  | "section-shell";
 
 export type GpuFlowVisibleFrameActorKey = {
   readonly actorId: string;

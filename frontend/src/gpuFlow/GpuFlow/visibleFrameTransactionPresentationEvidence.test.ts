@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-
 import { describe, expect, it } from "vitest";
 
 import { freezeActor } from "../committedSurfaceActorFreeze";
@@ -23,22 +20,13 @@ import {
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
   createGpuFlowVisibleFramePublicationTransactionProofFactory,
-  createGpuFlowVisiblePublicationCommitProofFactory,
   type GpuFlowVisibleFramePublicationCandidateSet,
   type GpuFlowVisibleFramePublicationContentCandidate,
   type GpuFlowVisibleFramePublicationMotionCandidate,
 } from "./visibleFrameTransactionProofs";
 
-const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFrameKernel.ts", import.meta.url),
-);
-const PROOF_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFrameTransactionProofs.ts", import.meta.url),
-);
 const createGpuFlowVisibleFramePublicationTransactionProofFromFactory =
   createGpuFlowVisibleFramePublicationTransactionProofFactory();
-const createGpuFlowVisiblePublicationCommitProofFromFactory =
-  createGpuFlowVisiblePublicationCommitProofFactory();
 const createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame =
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory();
 
@@ -68,33 +56,6 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
   });
 }
 
-function createGpuFlowVisiblePublicationCommitProof({
-  committedFrame,
-  presentationEvidence,
-  publicationDecision,
-}: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly presentationEvidence?:
-    | GpuFlowVisiblePublicationPresentationEvidence
-    | undefined;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-}) {
-  const selectedPresentationEvidence =
-    presentationEvidence ??
-    createTestGpuFlowVisiblePublicationPresentationEvidence({
-      committedFrame,
-      publicationDecision,
-    });
-  return createGpuFlowVisiblePublicationCommitProofFromFactory({
-    committedFrame,
-    presentationEvidence: selectedPresentationEvidence,
-    publicationDecision,
-    projectionTransactionId:
-      selectedPresentationEvidence.canvasGenerationEvidence
-        .projectionTransactionId,
-  });
-}
-
 function selectGpuFlowVisibleFramePublicationPreparedFrame<
   ContentPublicationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
@@ -110,8 +71,8 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }) {
-  const transactionProof =
-    createGpuFlowVisibleFramePublicationTransactionProof({
+  const transactionProof = createGpuFlowVisibleFramePublicationTransactionProof(
+    {
       contentPublicationFrame:
         withTestGpuFlowVisiblePublicationPresentationEvidence(
           contentPublicationFrame,
@@ -121,7 +82,8 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
           motionProjectionFrame,
         ),
       ...proofInput,
-    });
+    },
+  );
   const preparedFrame =
     createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame({
       contentPublicationFrame,
@@ -165,10 +127,14 @@ function withTestGpuFlowVisiblePublicationPresentationEvidence<
 
 function createTestGpuFlowVisiblePublicationPresentationEvidence({
   committedFrame,
+  drawnNodeIds,
+  missingTextureNodeIds,
   publicationDecision,
   projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly drawnNodeIds?: readonly string[] | undefined;
+  readonly missingTextureNodeIds?: readonly string[] | undefined;
   readonly publicationDecision: Pick<
     GpuFlowVisiblePublicationDecision,
     "sample"
@@ -179,6 +145,8 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
     canvasGenerationEvidence:
       createGpuFlowVisiblePublicationCanvasPresentationEvidence({
         committedFrame,
+        drawnNodeIds,
+        missingTextureNodeIds,
         projectionSampleId: publicationDecision.sample.id,
         projectionTransactionId,
       }),
@@ -251,6 +219,97 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
       reason: "dom-generation-not-exposable",
     });
     expect(proof.commitProof).toBeNull();
+  });
+
+  it("blocks commit authority when a visible section source node was not drawn", () => {
+    const sectionActor = sectionStructureActor();
+    const committedFrame = committedSurfaceFrame({
+      actorGenerations: [sectionActor],
+    });
+    const contentVisibleState = visibleProjectionState({
+      committedFrame,
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 54, timestamp: 540 }),
+    });
+
+    const proof = createGpuFlowVisibleFramePublicationTransactionProof({
+      contentPublicationFrame: {
+        blockedPublicationCandidate: null,
+        presentationEvidence:
+          createTestGpuFlowVisiblePublicationPresentationEvidence({
+            committedFrame,
+            drawnNodeIds: [],
+            missingTextureNodeIds: [],
+            publicationDecision: publicationDecision(
+              contentVisibleState.sample,
+            ),
+            projectionTransactionId: contentVisibleState.transaction.id,
+          }),
+        visibleProjectionState: contentVisibleState,
+      },
+      motionProjectionFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: null,
+      },
+      publicationDecision: publicationDecision(contentVisibleState.sample),
+    });
+
+    expect(proof.blockedSource).toBe("presentation-pair");
+    expect(proof.blockedPublicationCandidate?.blockedReasons).toContainEqual({
+      actorId: "settings:section-shell",
+      family: "section-shell",
+      reason: "section-surface-not-drawn",
+    });
+    expect(proof.commitProof).toBeNull();
+    expect(proof.renderedVisibleFrame).toBe(false);
+    expect(
+      proof.visibleFrameEnginePreparedFrame.candidate.requiredActors,
+    ).toContainEqual({
+      actorId: "settings:section-shell",
+      family: "section-shell",
+    });
+  });
+
+  it("allows section actors when the canvas evidence drew their source node", () => {
+    const sectionActor = sectionStructureActor();
+    const committedFrame = committedSurfaceFrame({
+      actorGenerations: [sectionActor],
+    });
+    const contentVisibleState = visibleProjectionState({
+      committedFrame,
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 55, timestamp: 550 }),
+    });
+
+    const proof = createGpuFlowVisibleFramePublicationTransactionProof({
+      contentPublicationFrame: {
+        blockedPublicationCandidate: null,
+        presentationEvidence:
+          createTestGpuFlowVisiblePublicationPresentationEvidence({
+            committedFrame,
+            drawnNodeIds: ["settings"],
+            missingTextureNodeIds: [],
+            publicationDecision: publicationDecision(
+              contentVisibleState.sample,
+            ),
+            projectionTransactionId: contentVisibleState.transaction.id,
+          }),
+        visibleProjectionState: contentVisibleState,
+      },
+      motionProjectionFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: null,
+      },
+      publicationDecision: publicationDecision(contentVisibleState.sample),
+    });
+
+    expect(proof.blockedSource).toBeNull();
+    expect(proof.commitProof).toEqual(
+      expect.objectContaining({
+        remainingActorDebt: [],
+      }),
+    );
+    expect(proof.renderedVisibleFrame).toBe(true);
   });
 
   it("assembles prepared candidate-set frames from the transaction proof proof", () => {
@@ -481,210 +540,36 @@ function committedSurfaceFrame({
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
 
-function retainedDomControlActor({
-  actualInteractionProof = "blocked",
-  actualVisualProof = "compatible-previous",
-  compatiblePreviousBudgetState = null,
-  requiredInteractionProof = "active-editor-live",
-}: {
-  readonly actualInteractionProof?: string | undefined;
-  readonly actualVisualProof?: string | undefined;
-  readonly compatiblePreviousBudgetState?:
-    | "over-budget"
-    | "within-budget"
-    | null
-    | undefined;
-  readonly requiredInteractionProof?: string | undefined;
-} = {}): GpuFlowCommittedSurfaceActorGeneration {
+function sectionStructureActor(): GpuFlowCommittedSurfaceActorGeneration {
   return freezeActor({
-    active: true,
-    actorFamily: "text-like-dom-control",
-    actorId: "control-a",
-    browserVisual: retainedDomControlBrowserVisual({
-      actualInteractionProof,
-      actualVisualProof,
-      requiredInteractionProof,
-    }),
-    clipChainRevision: "clip-a",
+    active: false,
+    actorFamily: "section-shell",
+    actorId: "settings:section-shell",
+    clipChainRevision: "section-clip:settings",
     clipRect: rect(),
-    contentGenerationId: "content-a",
-    controlId: "control-a",
-    focusIdentity: "control-a",
+    contentGenerationId: "section-shell-content:settings",
+    controlId: null,
+    focusIdentity: null,
     flowRect: rect(),
-    generationId: "generation-a",
+    generationId: "section-shell-generation:settings",
     islandId: null,
-    kind: "dom-control",
-    layoutProjectionGenerationId: "layout-a",
-    liveMotionSampleId: "sample-a",
-    mountReadiness: "ready",
-    ownerSurfaceId: "surface-a",
-    pointerEvents: "auto",
-    projectionReadiness: "ready",
-    readinessGenerationId: "ready-a",
+    kind: "html-texture",
+    layoutProjectionGenerationId: "section-shell-layout:settings",
+    liveMotionSampleId: "not-sampled",
+    mountReadiness: "not-required",
+    ownerSurfaceId: "settings",
+    pointerEvents: "none",
+    projectionReadiness: "not-required",
+    readinessGenerationId: "section-shell-ready:settings",
     retainedScrollOffset: null,
-    retainedScrollRevision: 1,
-    rowId: "row-a",
+    retainedScrollRevision: 0,
+    rowId: null,
     sourceRect: rect(),
-    textCoverageProof: createRetainedDomControlCompatiblePreviousProof({
-      actualVisualProof,
-      compatiblePreviousBudgetState,
-    }),
-    valueStyleRevision: "value-style-a",
+    valueStyleRevision: null,
     visibleNonempty: true,
-    wheelPolicy: "retained-scroll-or-editor-scroll",
+    wheelPolicy: "none",
     zOrder: 1,
   });
-}
-
-function actorWithBrowserVisualRepresentation(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
-  representation: NonNullable<
-    GpuFlowCommittedSurfaceActorGeneration["browserVisual"]
-  >["representation"],
-): GpuFlowCommittedSurfaceActorGeneration {
-  if (!actor.browserVisual) {
-    throw new Error("Expected browser visual actor.");
-  }
-  return freezeActor({
-    ...actor,
-    browserVisual: {
-      ...actor.browserVisual,
-      representation,
-    },
-  });
-}
-
-function actorWithBrowserVisualResourceHandles(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
-  resourceHandles: NonNullable<
-    GpuFlowCommittedSurfaceActorGeneration["browserVisual"]
-  >["resourceHandles"],
-): GpuFlowCommittedSurfaceActorGeneration {
-  if (!actor.browserVisual) {
-    throw new Error("Expected browser visual actor.");
-  }
-  return freezeActor({
-    ...actor,
-    browserVisual: {
-      ...actor.browserVisual,
-      resourceHandles,
-    },
-  });
-}
-
-function retainedDomControlBrowserVisual({
-  actualInteractionProof,
-  actualVisualProof,
-  requiredInteractionProof,
-}: {
-  readonly actualInteractionProof: string;
-  readonly actualVisualProof: string;
-  readonly requiredInteractionProof: string;
-}): GpuFlowCommittedSurfaceActorGeneration["browserVisual"] {
-  const compatiblePrevious = actualVisualProof === "compatible-previous";
-  return {
-    coverageExemption: null,
-    coverageRequired: {
-      reason:
-        requiredInteractionProof === "active-editor-live"
-          ? "active-editor"
-          : "value-text",
-      required: requiredInteractionProof === "active-editor-live",
-    },
-    coverageState: compatiblePrevious
-      ? "compatible-previous-ready"
-      : "live-host-ready",
-    nonemptyReason: "value-text",
-    proof: {
-      actualInteraction: actualInteractionProof,
-      actualVisual: actualVisualProof,
-      requiredInteraction: requiredInteractionProof,
-      requiredVisual: "browser-visual",
-    },
-    representation: compatiblePrevious
-      ? {
-          actorId: "control-a",
-          kind: "compatible-previous",
-          previousTransactionId: "previous-transaction",
-        }
-      : {
-          actorId: "control-a",
-          hostId: "host-a",
-          islandId: "island-a",
-          kind: "active-editor",
-        },
-    representationKind: compatiblePrevious
-      ? "compatible-previous"
-      : "active-editor",
-    resourceHandles: [],
-    visibilityReason: "visible",
-  } as GpuFlowCommittedSurfaceActorGeneration["browserVisual"];
-}
-
-function createRetainedDomControlCompatiblePreviousProof({
-  actualVisualProof,
-  compatiblePreviousBudgetState,
-}: {
-  readonly actualVisualProof: string;
-  readonly compatiblePreviousBudgetState:
-    | "over-budget"
-    | "within-budget"
-    | null;
-}): GpuFlowCommittedSurfaceActorGeneration["textCoverageProof"] {
-  if (
-    actualVisualProof !== "compatible-previous" ||
-    compatiblePreviousBudgetState === null
-  ) {
-    return null;
-  }
-  const overBudget = compatiblePreviousBudgetState === "over-budget";
-  return {
-    accessibilityProjection: "browser-dom",
-    activationPolicy: "allowed",
-    compatiblePreviousProof: {
-      activationPolicy: "allowed",
-      actorFamily: "text-like-dom-control",
-      actorId: "control-a",
-      budgetState: compatiblePreviousBudgetState,
-      canonicalActorId: "canonical-control-a",
-      clipChainRevision: "clip-a",
-      controlKind: "input",
-      displayRevision: "display-a",
-      flowRect: rect(),
-      focusState: "inactive",
-      hitMappingCompatible: true,
-      hitTargetId: "control-a",
-      maxProofAgeFrames: 2,
-      maxProofAgeMs: 120,
-      previousActorGenerationId: "previous-generation-a",
-      previousCommittedFrameId: 6,
-      previousProjectionSampleRevision: "viewport-previous",
-      previousTransactionId: "previous-transaction",
-      previousVisualGenerationId: "previous-visual-a",
-      proofAgeFrames: overBudget ? 3 : 1,
-      proofAgeMs: overBudget ? 121 : 16,
-      protectedResourceIds: ["source:control-a"],
-      reasonCode: "same-value-and-geometry",
-      requestedActorGenerationId: "generation-a",
-      requestedProjectionSampleRevision: "viewport-current",
-      requestedVisualGenerationId: "generation-a",
-      resourceHandles: [],
-      retainedScrollCompatible: true,
-      retainedSurfaceId: "surface-a",
-      semanticGenerationId: "content-a",
-    },
-    focusable: true,
-    pointerSemantics: "active-browser-editor",
-    previousVisualGenerationId: "previous-visual-a",
-    projectionCoverage: "compatible-previous",
-    rendererFamily: "browser-dom",
-    rendererSource: "browser-dom",
-    role: "text-like",
-    selectable: "browser-editor",
-    semanticGenerationId: "content-a",
-    snapshotCacheKeyRevision: "snapshot-a",
-    visualGenerationId: "generation-a",
-  };
 }
 
 function rect() {

@@ -172,6 +172,43 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     ]);
   });
 
+  it("records required actor-family manifest diagnostics on blocked publication events", () => {
+    const canvas = document.createElement("canvas");
+
+    recordGpuFlowBlockedVisiblePublication({
+      frame: blockedCommittedSurfaceFrame(),
+      publicationCompletion: {
+        debt: { content: true, maintenance: false, motion: false },
+        outcome: "blocked",
+      },
+      publicationDecision: {
+        debt: { content: false, maintenance: false, motion: false },
+        lane: "content",
+        rawReasons: ["texture-upload"],
+        sample: { id: 1 },
+        schedulerState: "content-catchup",
+      } as unknown as Parameters<
+        typeof recordGpuFlowBlockedVisiblePublication
+      >[0]["publicationDecision"],
+      runtimeCanvas: canvas,
+      token: blockedPublicationToken(),
+    });
+
+    expect(readBlockedVisiblePublicationEvents()).toEqual([
+      expect.objectContaining({
+        actorManifest: expect.objectContaining({
+          blockedActorsByFamily: { "browser-visual": 1 },
+          blockedDebt: { content: true, maintenance: false, motion: false },
+          committedFrameId: 2,
+          missingActorsByFamily: { "text-like-dom-control": 1 },
+          readyActorsByFamily: {},
+          requiredActorsByFamily: { "text-like-dom-control": 1 },
+          visibleOutcome: "blocked",
+        }),
+      }),
+    ]);
+  });
+
   it("treats missing blocked candidates as no-op inputs for blocked or held outcomes owned by other proofs", () => {
     const blockedCanvas = document.createElement("canvas");
     const heldCanvas = document.createElement("canvas");
@@ -470,15 +507,19 @@ function blockedCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
   return {
     actorGenerations: [
       {
+        actorFamily: "text-like-dom-control",
         actorId: "actor-a",
         generationId: "generation-a",
         kind: "dom-control",
+        mountReadiness: "not-required",
+        projectionReadiness: "not-required",
         textCoverageProof: {
           projectionCoverage: "blocked-awaiting-browser-visual",
           readinessReason: "snapshot-pending",
           snapshotCacheKeyRevision: "snapshot-key",
           visualGenerationId: "visual-a",
         },
+        visibleNonempty: true,
       },
     ],
     displayFrameId: 2,

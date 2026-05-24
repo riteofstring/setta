@@ -26,7 +26,7 @@ const SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH = fileURLToPath(
 );
 
 describe("GPU Flow visible publication kernel phases", () => {
-  it("runs sample, prepare, prove, decide, completion, and publish through the visible frame engine lifecycle", () => {
+  it("runs sample, prepare, prove, reduce, completion, and publish through one transaction authority", () => {
     const source = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
     const tokenAuthoritySource = readFileSync(
@@ -37,33 +37,23 @@ describe("GPU Flow visible publication kernel phases", () => {
       "export function runGpuFlowVisibleFramePublicationCandidateSetKernel",
     );
     const firstHelperStart = source.indexOf(
-      "function assertGpuFlowVisibleFrameKernelEngineOutcomeMatchesTransaction",
+      "function sampleGpuFlowVisibleFramePublicationTransaction",
     );
     const runSource = source.slice(runStart, firstHelperStart);
 
     expect(runStart).toBeGreaterThanOrEqual(0);
     expect(firstHelperStart).toBeGreaterThan(runStart);
     expectOrderedPhases(runSource, [
-      "createGpuFlowVisibleFrameEngine({",
-      "sampleVisibleFrame: () => {",
       "sampleGpuFlowVisibleFramePublicationTransaction({",
-      "prepareVisibleFrameCandidate: () => {",
       "selectGpuFlowVisibleFramePublicationTransaction({",
       "prepareGpuFlowVisibleFramePublicationCandidateSet({",
       "proveGpuFlowVisibleFramePublicationCandidateSet({",
       "decideGpuFlowVisibleFramePublicationOutcome({",
-      "presentVisibleFrame: ({ outcome })",
-      "holdVisibleFrame: ({ outcome })",
-      "blockColdStartVisibleFrame: ({ outcome })",
-      "abortVisibleFrameCandidate: ({ outcome })",
-      "engine.runFrame();",
-    ]);
-    expect(runSource).toContain(
-      "proveGpuFlowVisibleFramePublicationPresentation({",
-    );
-    expect(runSource).toContain(
+      "proveGpuFlowVisibleFramePublicationPresentation",
       "publishGpuFlowVisibleFramePublicationOutcome({",
-    );
+    ]);
+    expect(runSource).not.toContain("createGpuFlowVisibleFrameEngine({");
+    expect(runSource).not.toContain("engine.runFrame();");
     expect(source).toContain(
       "function sampleGpuFlowVisibleFramePublicationTransaction",
     );
@@ -91,9 +81,7 @@ describe("GPU Flow visible publication kernel phases", () => {
     expect(source).toContain(
       "function decideGpuFlowVisibleFramePublicationOutcome",
     );
-    expect(source).toContain(
-      'from "./visibleFramePresentationProofs"',
-    );
+    expect(source).toContain('from "./visibleFramePresentationProofs"');
     expect(authoritySource).toContain(
       "export function proveGpuFlowVisibleFramePublicationPresentation",
     );
@@ -165,10 +153,7 @@ describe("GPU Flow visible publication kernel phases", () => {
   it("keeps visible outcome token minting in the kernel", () => {
     const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const authoritySource = readFileSync(TOKEN_AUTHORITY_MODULE_PATH, "utf8");
-    const presentationProofSource = readFileSync(
-      AUTHORITY_MODULE_PATH,
-      "utf8",
-    );
+    const presentationProofSource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
     const completionSource = readFileSync(COMPLETION_MODULE_PATH, "utf8");
     const rawTokenConstructors = [
       "createGpuFlowBlockedPublicationToken",

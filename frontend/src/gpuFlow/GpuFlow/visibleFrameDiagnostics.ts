@@ -8,6 +8,10 @@ import {
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import {
+  createGpuFlowVisibleFrameActorManifestDiagnostics,
+  type GpuFlowVisibleFrameActorManifestDiagnostics,
+} from "./visibleFrameActorManifestDiagnostics";
+import {
   getGpuFlowBrowserVisualBlockedReason,
   getGpuFlowCommittedSurfacePublishabilityActorIds,
 } from "./visibleFrameBlockedCandidate";
@@ -43,6 +47,7 @@ type GpuFlowBrowserVisualStarvationReport = {
 };
 
 type GpuFlowBlockedVisiblePublicationEvent = {
+  readonly actorManifest: GpuFlowVisibleFrameActorManifestDiagnostics;
   readonly blockedReasons: readonly {
     readonly actorId: string | null;
     readonly family: string;
@@ -466,6 +471,12 @@ export function recordGpuFlowBlockedVisiblePublication({
     );
   }
   const event = Object.freeze({
+    actorManifest: createGpuFlowVisibleFrameActorManifestDiagnostics({
+      blockedReasons: token.blockedReasons,
+      frame,
+      remainingDebt: publicationCompletion.debt,
+      visibleOutcome: publicationCompletion.outcome,
+    }),
     blockedReasons: token.blockedReasons,
     candidateFrameId: frame?.displayFrameId ?? null,
     frozenFrame: token.frozenFrame,
@@ -482,6 +493,7 @@ export function recordGpuFlowBlockedVisiblePublication({
     runtimeCanvas,
   });
   postChromeReproEvent("gpu-flow-blocked-visible-publication", {
+    actorManifest: event.actorManifest,
     blockedReasons: event.blockedReasons,
     candidateFrameId: event.candidateFrameId,
     frozenFrame: event.frozenFrame,

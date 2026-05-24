@@ -10,10 +10,7 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
 import { createGpuFlowDomControlCompatiblePreviousProof } from "./GpuFlow/domControlPlaneCompatibility";
-import type {
-  HtmlSurfaceFlatVisual,
-  HtmlSurfaceSolidRoundedRectVisual,
-} from "./htmlSurfaces/visualScene";
+import type { HtmlSurfaceSolidRoundedRectVisual } from "./htmlSurfaces/visualScene";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import type { RetainedDisplayFrame } from "./retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
@@ -127,33 +124,6 @@ describe("GPU Flow committed surface frame", () => {
       exactSnapshotActorIds: [],
       trueHoleActorIds: [],
     });
-  });
-
-  it("promotes retained flat HTML textures into committed surface actors", () => {
-    const retainedRuntimeFrame = createRuntimeFrame({ frameId: 11 });
-    const frame = createGpuFlowCommittedSurfaceFrame({
-      retainedDisplayFrame: fakeRetainedDisplayFrame({
-        flatSurfaces: [flatHtmlSurface("dict-a:param-content:unpinned")],
-        id: 11,
-        retainedRuntimeFrame,
-      }),
-    });
-
-    const htmlTextureActors = frame.actorGenerations.filter(
-      (actor) => actor.kind === "html-texture",
-    );
-    expect(htmlTextureActors).toHaveLength(1);
-    expect(htmlTextureActors[0]).toEqual(
-      expect.objectContaining({
-        actorId: "dict-a:param-content:unpinned:html-texture:0",
-        flowRect: { height: 40, width: 120, x: 10, y: 20 },
-        ownerSurfaceId: "dict-a:param-content:unpinned",
-        retainedScrollRevision: 11,
-        sourceRect: { height: 38, width: 118, x: 1, y: 2 },
-        zOrder: 6,
-      }),
-    );
-    expect(frame.diagnostics.htmlTextureActorCount).toBe(1);
   });
 
   it("uses the committed GPU-native visual set when publishing actors", () => {
@@ -525,7 +495,7 @@ describe("GPU Flow committed surface frame", () => {
       createRuntimeFrame({ frameId: 18 }),
       "snapshot-a",
     );
-    const control = retainedRuntimeFrame.descriptors.domControlSources[0]!;
+    const control = requireFirstDomControlSource(retainedRuntimeFrame);
     const snapshotHandle = {
       actorId: control.sourceId,
       contentGenerationId: control.snapshotCacheKeyRevision,
@@ -580,7 +550,7 @@ describe("GPU Flow committed surface frame", () => {
       "outside-viewport",
       "outside-viewport",
     );
-    const control = retainedRuntimeFrame.descriptors.domControlSources[0]!;
+    const control = requireFirstDomControlSource(retainedRuntimeFrame);
     const frame = createGpuFlowCommittedSurfaceFrame({
       browserVisualReadiness: {
         domControlReadinessByActorId: new Map([
@@ -896,6 +866,16 @@ function createBlockedRuntimeFrame({ frameId }: { readonly frameId: number }) {
   });
 }
 
+function requireFirstDomControlSource(
+  retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>,
+) {
+  const control = retainedRuntimeFrame.descriptors.domControlSources[0];
+  if (!control) {
+    throw new Error("Expected a retained DOM-control source.");
+  }
+  return control;
+}
+
 function withDomControlVisualPolicy(
   retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>,
   visualPolicy: GpuFlowCommittedSurfaceDomControlSource["visualPolicy"],
@@ -938,12 +918,10 @@ function withDomControlSnapshotPolicy(
 }
 
 function fakeRetainedDisplayFrame({
-  flatSurfaces = [],
   id,
   publishedAtMs = id,
   retainedRuntimeFrame,
 }: {
-  readonly flatSurfaces?: readonly HtmlSurfaceFlatVisual[] | undefined;
   readonly id: number;
   readonly publishedAtMs?: number | undefined;
   readonly retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>;
@@ -953,7 +931,7 @@ function fakeRetainedDisplayFrame({
       publishedAtMs,
       transactionOutcome: "publish-exact",
     },
-    flatSurfaces,
+    flatSurfaces: [],
     id,
     retainedRuntimeFrame,
     surfaceActorSnapshots: [],
@@ -1067,26 +1045,6 @@ function createCompatiblePreviousBrowserVisualReadiness({
       }),
     ),
     domIslandReadinessByActorId: new Map(),
-  };
-}
-
-function flatHtmlSurface(surfaceId: string): HtmlSurfaceFlatVisual {
-  return {
-    height: 40,
-    kind: "flat",
-    surfaceId,
-    texture: {
-      cssHeight: 40,
-      cssWidth: 120,
-      surfaceId,
-      textureContentKey: "content-a",
-      textureSourceRect: { height: 38, width: 118, x: 1, y: 2 },
-      zoomBucket: 1,
-    } as HtmlSurfaceFlatVisual["texture"],
-    width: 120,
-    x: 10,
-    y: 20,
-    zIndex: 6,
   };
 }
 

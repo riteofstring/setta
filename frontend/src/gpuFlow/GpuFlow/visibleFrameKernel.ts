@@ -21,11 +21,6 @@ import {
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
 } from "./visibleFrameContentPlan";
-import {
-  createGpuFlowVisibleFrameEngine,
-  type GpuFlowVisibleFrameEngineOutcome,
-  type GpuFlowVisibleFrameEngineSample,
-} from "./visibleFrameEngine";
 import { prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet } from "./visibleFrameForcedBlockedCandidateSet";
 import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFrameOutcomeReport";
 import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";
@@ -221,249 +216,78 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
     MotionProjectionFrame
   >
 > {
-  type PreparedFrame = GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
-    ContentPublicationFrame,
-    MotionProjectionFrame
-  >;
-  type KernelResult = GpuFlowVisibleFramePublicationKernelResult<PreparedFrame>;
-
-  let sampledPublication: GpuFlowVisibleFramePublicationSample | null = null;
-  let outcomeDecision: GpuFlowVisibleFramePublicationOutcomeDecision<PreparedFrame> | null =
-    null;
-  let transactionResult: KernelResult | null = null;
-
-  const completeVisibleFramePublication = ({
-    lifecycleOutcome,
-  }: {
-    readonly lifecycleOutcome: GpuFlowVisibleFrameEngineOutcome;
-  }): void => {
-    if (outcomeDecision === null) {
-      throw new Error(
-        "GPU Flow visible frame engine completed before preparing a transaction.",
-      );
-    }
-    assertGpuFlowVisibleFrameKernelEngineOutcomeMatchesTransaction({
-      lifecycleOutcome,
-      transactionOutcome:
-        outcomeDecision.transactionProof.visibleFrameEngineOutcome,
+  const sampledPublication = sampleGpuFlowVisibleFramePublicationTransaction({
+    sampleVisibleFramePublication,
+  });
+  const {
+    hasCommittedContentFrame,
+    previousVisibleProjectionState,
+    rawReasons,
+    runtimeViewportFrame,
+    sample,
+    timestamp,
+    viewportInteractionActive,
+  } = sampledPublication;
+  const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction({
+    hasCommittedContentFrame,
+    rawReasons,
+    sample,
+    scheduler,
+    timestamp,
+    viewportInteractionActive,
+  });
+  const publicationFrameContext =
+    createGpuFlowVisibleFramePublicationFrameContext({
+      publicationDecision,
+      rawReasons,
+      runtimeViewportFrame,
+      viewportInteractionActive,
     });
-    const transactionCompletion =
-      proveGpuFlowVisibleFramePublicationPresentation({
-        blockedPublicationProof: outcomeDecision.blockedPublicationProof,
-        forceImmediatePublicationDebtFrame:
-          outcomeDecision.preparedFrame.contentPublicationFrame
-            .forceImmediatePublicationDebtFrame ?? false,
-        followUpFrameReason:
-          outcomeDecision.preparedFrame.contentPublicationFrame
-            .retainedDisplayFollowUpFrameReason ?? null,
-        previousVisibleProjectionState:
-          outcomeDecision.previousVisibleProjectionState,
-        publicationDecision: outcomeDecision.publicationDecision,
-        scheduler: outcomeDecision.scheduler,
-        transactionProof: outcomeDecision.transactionProof,
-      });
-    const transaction = Object.freeze({
-      ...transactionCompletion,
-      preparedFrame: outcomeDecision.preparedFrame,
+  const candidateSet = prepareGpuFlowVisibleFramePublicationCandidateSet({
+    prepareContentPublicationFrame,
+    prepareMotionProjectionFrame,
+    previousVisibleProjectionState,
+    publicationDecision,
+    publicationFrameContext,
+    projectionSchedulerKnobs: scheduler.getKnobs(),
+    rawReasons,
+  });
+  const preparedFrame = proveGpuFlowVisibleFramePublicationCandidateSet({
+    candidateSet,
+    previousVisibleProjectionState,
+    publicationDecision,
+  });
+  const outcomeDecision = decideGpuFlowVisibleFramePublicationOutcome({
+    preparedFrame,
+    previousVisibleProjectionState,
+    publicationDecision,
+    scheduler,
+  });
+  const transactionCompletion = proveGpuFlowVisibleFramePublicationPresentation(
+    {
+      blockedPublicationProof: outcomeDecision.blockedPublicationProof,
+      forceImmediatePublicationDebtFrame:
+        outcomeDecision.preparedFrame.contentPublicationFrame
+          .forceImmediatePublicationDebtFrame ?? false,
+      followUpFrameReason:
+        outcomeDecision.preparedFrame.contentPublicationFrame
+          .retainedDisplayFollowUpFrameReason ?? null,
+      previousVisibleProjectionState:
+        outcomeDecision.previousVisibleProjectionState,
       publicationDecision: outcomeDecision.publicationDecision,
-    });
-    transactionResult = publishGpuFlowVisibleFramePublicationOutcome({
-      publish,
-      transaction,
-    });
-  };
-
-  const engine = createGpuFlowVisibleFrameEngine({
-    sampleVisibleFrame: () => {
-      sampledPublication = sampleGpuFlowVisibleFramePublicationTransaction({
-        sampleVisibleFramePublication,
-      });
-      return createGpuFlowVisibleFrameKernelEngineSample(sampledPublication);
+      scheduler: outcomeDecision.scheduler,
+      transactionProof: outcomeDecision.transactionProof,
     },
-    prepareVisibleFrameCandidate: () => {
-      if (sampledPublication === null) {
-        throw new Error(
-          "GPU Flow visible frame engine prepared before sampling a transaction.",
-        );
-      }
-      const {
-        hasCommittedContentFrame,
-        previousVisibleProjectionState,
-        rawReasons,
-        runtimeViewportFrame,
-        sample,
-        timestamp,
-        viewportInteractionActive,
-      } = sampledPublication;
-      const publicationDecision =
-        selectGpuFlowVisibleFramePublicationTransaction({
-          hasCommittedContentFrame,
-          rawReasons,
-          sample,
-          scheduler,
-          timestamp,
-          viewportInteractionActive,
-        });
-      const publicationFrameContext =
-        createGpuFlowVisibleFramePublicationFrameContext({
-          publicationDecision,
-          rawReasons,
-          runtimeViewportFrame,
-          viewportInteractionActive,
-        });
-      const candidateSet = prepareGpuFlowVisibleFramePublicationCandidateSet({
-        prepareContentPublicationFrame,
-        prepareMotionProjectionFrame,
-        previousVisibleProjectionState,
-        publicationDecision,
-        publicationFrameContext,
-        projectionSchedulerKnobs: scheduler.getKnobs(),
-        rawReasons,
-      });
-      const preparedFrame = proveGpuFlowVisibleFramePublicationCandidateSet({
-        candidateSet,
-        previousVisibleProjectionState,
-        publicationDecision,
-      });
-      outcomeDecision = decideGpuFlowVisibleFramePublicationOutcome({
-        preparedFrame,
-        previousVisibleProjectionState,
-        publicationDecision,
-        scheduler,
-      });
-      return outcomeDecision.transactionProof.visibleFrameEnginePreparedFrame;
-    },
-    presentVisibleFrame: ({ outcome }) =>
-      completeVisibleFramePublication({ lifecycleOutcome: outcome }),
-    holdVisibleFrame: ({ outcome }) =>
-      completeVisibleFramePublication({ lifecycleOutcome: outcome }),
-    blockColdStartVisibleFrame: ({ outcome }) =>
-      completeVisibleFramePublication({ lifecycleOutcome: outcome }),
-    abortVisibleFrameCandidate: ({ outcome }) =>
-      completeVisibleFramePublication({ lifecycleOutcome: outcome }),
-  });
-
-  engine.runFrame();
-  if (transactionResult === null) {
-    throw new Error(
-      "GPU Flow visible frame engine did not complete a publication transaction.",
-    );
-  }
-  return transactionResult;
-}
-
-function assertGpuFlowVisibleFrameKernelEngineOutcomeMatchesTransaction({
-  lifecycleOutcome,
-  transactionOutcome,
-}: {
-  readonly lifecycleOutcome: GpuFlowVisibleFrameEngineOutcome;
-  readonly transactionOutcome: GpuFlowVisibleFrameEngineOutcome;
-}): void {
-  if (
-    lifecycleOutcome.kind !== transactionOutcome.kind ||
-    !areGpuFlowVisibleFrameKernelEngineOutcomeReasonsEqual(
-      lifecycleOutcome.decidingProof,
-      transactionOutcome.decidingProof,
-    )
-  ) {
-    throw new Error(
-      `GPU Flow visible frame engine lifecycle outcome ${lifecycleOutcome.kind} does not match transaction outcome ${transactionOutcome.kind}.`,
-    );
-  }
-}
-
-function areGpuFlowVisibleFrameKernelEngineOutcomeReasonsEqual(
-  left: GpuFlowVisibleFrameEngineOutcome["decidingProof"],
-  right: GpuFlowVisibleFrameEngineOutcome["decidingProof"],
-): boolean {
-  if (left === null || right === null) {
-    return left === right;
-  }
-  return (
-    left.actorId === right.actorId &&
-    left.family === right.family &&
-    left.proof === right.proof &&
-    left.reason === right.reason
   );
-}
-
-function createGpuFlowVisibleFrameKernelEngineSample(
-  publicationSample: GpuFlowVisibleFramePublicationSample,
-): GpuFlowVisibleFrameEngineSample {
-  const sample = publicationSample.sample;
-  const cssViewport = sample.cssViewport ?? {
-    height: 0,
-    width: 0,
-  };
-  const viewport = normalizeGpuFlowVisibleFrameKernelEngineViewport(
-    sample.viewport,
-  );
-  return Object.freeze({
-    activeGestureOwner:
-      sample.gestureOwner === "idle" || sample.gestureOwner === "cooldown"
-        ? null
-        : sample.gestureOwner,
-    canvasSize: Object.freeze({
-      height: cssViewport.height,
-      width: cssViewport.width,
-    }),
-    currentCommittedFrameId:
-      publicationSample.previousVisibleProjectionState?.committedFrame
-        .displayFrameId ?? null,
-    dpr: sample.devicePixelRatio,
-    projectionSampleId: sample.id,
-    queuedDebt: Object.freeze({
-      browserVisual: false,
-      content: false,
-      maintenance: false,
-      motion: false,
-    }),
-    retainedScrollOffsets: Object.freeze(
-      [...(sample.retainedScrollOffsets ?? new Map()).entries()].map(
-        ([actorId, offset]) =>
-          Object.freeze({
-            actorId,
-            scrollLeft: offset.x,
-            scrollTop: offset.y,
-          }),
-      ),
-    ),
-    sceneGeneration: String(
-      publicationSample.previousVisibleProjectionState?.committedFrame
-        .sceneRevision ?? "cold",
-    ),
-    viewport: Object.freeze({
-      height: cssViewport.height,
-      width: cssViewport.width,
-      x: viewport.x,
-      y: viewport.y,
-    }),
+  const transaction = Object.freeze({
+    ...transactionCompletion,
+    preparedFrame: outcomeDecision.preparedFrame,
+    publicationDecision: outcomeDecision.publicationDecision,
   });
-}
-
-function normalizeGpuFlowVisibleFrameKernelEngineViewport(
-  viewport: GpuFlowLiveProjectionSample["viewport"] | undefined,
-): {
-  readonly x: number;
-  readonly y: number;
-} {
-  if (viewport === undefined) {
-    return {
-      x: 0,
-      y: 0,
-    };
-  }
-  if (Array.isArray(viewport)) {
-    const [x, y] = viewport;
-    return {
-      x,
-      y,
-    };
-  }
-  return {
-    x: viewport.x,
-    y: viewport.y,
-  };
+  return publishGpuFlowVisibleFramePublicationOutcome({
+    publish,
+    transaction,
+  });
 }
 
 function sampleGpuFlowVisibleFramePublicationTransaction({
@@ -503,7 +327,8 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   ContentPublicationFrame,
   MotionProjectionFrame
 > {
-  const candidateDecisionKernel = createGpuFlowVisiblePublicationCandidateDecisionKernel();
+  const candidateDecisionKernel =
+    createGpuFlowVisiblePublicationCandidateDecisionKernel();
   const prepareCommittedSurfacePublicationFramePlan =
     createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
       contentDecisionKernel: candidateDecisionKernel,
@@ -534,11 +359,13 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
     return forcedCandidateSet;
   }
   const selectRetainedProjectionPublicationCandidate =
-    candidateDecisionKernel.createRetainedProjectionPublicationCandidateSelector({
-      previousVisibleProjectionState,
-      projectionSchedulerKnobs,
-      rawReasons,
-    });
+    candidateDecisionKernel.createRetainedProjectionPublicationCandidateSelector(
+      {
+        previousVisibleProjectionState,
+        projectionSchedulerKnobs,
+        rawReasons,
+      },
+    );
   const motionProjectionWorkPlan = createGpuFlowMotionProjectionWorkPlan({
     publicationDecision,
   });
@@ -679,10 +506,12 @@ function resolveGpuFlowMotionProjectionFramePreparation<
   if (projectionFrameTransaction.blockedReason !== null) {
     return preparation.createBlockedProjectionFrame({
       blockedPublicationCandidate:
-        candidateDecisionKernel.createRetainedProjectionBlockedPublicationCandidate({
-          blockedReason: projectionFrameTransaction.blockedReason,
-          heldPreviousProjectionState: previousVisibleProjectionState,
-        }),
+        candidateDecisionKernel.createRetainedProjectionBlockedPublicationCandidate(
+          {
+            blockedReason: projectionFrameTransaction.blockedReason,
+            heldPreviousProjectionState: previousVisibleProjectionState,
+          },
+        ),
     });
   }
   const projectionFrameRenderPlan = selectProjectionFrameRenderPlan({
@@ -699,10 +528,12 @@ function resolveGpuFlowMotionProjectionFramePreparation<
   if (projectionBlockedReason) {
     return preparation.createBlockedProjectionFrame({
       blockedPublicationCandidate:
-        candidateDecisionKernel.createRetainedProjectionBlockedPublicationCandidate({
-          blockedReason: projectionBlockedReason,
-          heldPreviousProjectionState: previousVisibleProjectionState,
-        }),
+        candidateDecisionKernel.createRetainedProjectionBlockedPublicationCandidate(
+          {
+            blockedReason: projectionBlockedReason,
+            heldPreviousProjectionState: previousVisibleProjectionState,
+          },
+        ),
     });
   }
   return projectionFrame;
