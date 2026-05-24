@@ -30,7 +30,7 @@ describe("GPU Flow blocked visible publication guard", () => {
         expect(() =>
           recordGpuFlowBlockedPublicationGuard({
             outcome: blockedOutcome(index, index * 10),
-            publicationDecision: publicationDecision(index, index * 10),
+            reducerDecision: reducerDecision(index, index * 10),
             surface,
           }),
         ).not.toThrow();
@@ -41,7 +41,7 @@ describe("GPU Flow blocked visible publication guard", () => {
       expect(() =>
         recordGpuFlowBlockedPublicationGuard({
           outcome: blockedOutcome(overBudgetFrame, overBudgetFrame * 10),
-          publicationDecision: publicationDecision(
+          reducerDecision: reducerDecision(
             overBudgetFrame,
             overBudgetFrame * 10,
           ),
@@ -62,13 +62,13 @@ describe("GPU Flow blocked visible publication guard", () => {
       ) {
         recordGpuFlowBlockedPublicationGuard({
           outcome: blockedOutcome(index, index),
-          publicationDecision: publicationDecision(index, index),
+          reducerDecision: reducerDecision(index, index),
           surface,
         });
       }
       recordGpuFlowBlockedPublicationGuard({
         outcome: holdOutcome(100, 100),
-        publicationDecision: publicationDecision(100, 100),
+        reducerDecision: reducerDecision(100, 100),
         surface,
       });
 
@@ -82,7 +82,7 @@ describe("GPU Flow blocked visible publication guard", () => {
         ) {
           recordGpuFlowBlockedPublicationGuard({
             outcome: blockedOutcome(index, index),
-            publicationDecision: publicationDecision(index, index),
+            reducerDecision: reducerDecision(index, index),
             surface,
           });
         }
@@ -95,7 +95,7 @@ describe("GPU Flow blocked visible publication guard", () => {
       expect(() =>
         recordGpuFlowBlockedPublicationGuard({
           outcome: blockedOutcome(1, 10),
-          publicationDecision: publicationDecision(2, 20),
+          reducerDecision: reducerDecision(2, 20),
           surface: surfaceHandle(),
         }),
       ).toThrow(/blocked token for the selected projection sample/);
@@ -138,7 +138,7 @@ function holdOutcome(
   };
 }
 
-function publicationDecision(
+function reducerDecision(
   sampleId: number,
   timestamp: number,
 ): GpuFlowVisibleFrameReducerDecision {

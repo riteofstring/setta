@@ -64,14 +64,14 @@ export function createGpuFlowVisiblePublicationTransactionReport({
   completion,
   outcome,
   previousContentFrameId,
-  publicationDecision,
+  reducerDecision,
   transactionProof,
   visibleProjectionState,
 }: {
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousContentFrameId: number | null;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
@@ -90,18 +90,18 @@ export function createGpuFlowVisiblePublicationTransactionReport({
     compatiblePreviousProofs:
       presentableFrameProofReport.compatiblePreviousProofs,
     coverage: presentableFrameProofReport.coverage,
-    decisionDebt: publicationDecision.debt,
-    inputSampleId: publicationDecision.sample.id,
-    lane: publicationDecision.lane,
+    decisionDebt: reducerDecision.debt,
+    inputSampleId: reducerDecision.sample.id,
+    lane: reducerDecision.lane,
     outcome: outcome.kind,
     previousContentFrameId,
-    projectionSampleId: publicationDecision.sample.id,
-    rawReasons: publicationDecision.rawReasons,
+    projectionSampleId: reducerDecision.sample.id,
+    rawReasons: reducerDecision.rawReasons,
     remainingActorDebt: presentableFrameProofReport.remainingActorDebt,
     remainingDebt: completion.debt,
     resourceProtection: presentableFrameProofReport.resourceProtection,
     reducerOutcome: completion.outcome,
-    schedulerState: publicationDecision.schedulerState,
+    schedulerState: reducerDecision.schedulerState,
     token,
     transactionId: getGpuFlowVisiblePublicationOutcomeTransactionId(outcome),
     transactionProof: transactionProofReport,
@@ -114,7 +114,7 @@ export function createGpuFlowVisiblePublicationTransactionReport({
       outcome,
       presentationProof: presentableFrameProofReport.presentationProof,
       previousContentFrameId,
-      publicationDecision,
+      reducerDecision,
       token,
     }),
   };
@@ -139,20 +139,20 @@ function createGpuFlowVisibleTransactionReport({
   outcome,
   presentationProof,
   previousContentFrameId,
-  publicationDecision,
+  reducerDecision,
   token,
 }: {
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly presentationProof: GpuFlowVisiblePublicationPresentationProofReport | null;
   readonly previousContentFrameId: number | null;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly token: ReturnType<
     typeof createGpuFlowVisiblePublicationOutcomeTokenPayload
   >;
 }) {
   const presentationToken = outcome.kind === "present" ? outcome.token : null;
   return {
-    inputSampleId: publicationDecision.sample.id,
+    inputSampleId: reducerDecision.sample.id,
     outcome: outcome.kind,
     presentableFrame:
       presentationToken === null

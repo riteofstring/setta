@@ -30,14 +30,14 @@ const createGpuFlowVisiblePublicationPresentableFrameProofFromFactory =
   createGpuFlowVisiblePublicationPresentableFrameProofFactory();
 const createGpuFlowVisiblePublicationPresentableFrameProof = ({
   committedFrame,
-  publicationDecision,
+  reducerDecision,
 }: {
   readonly committedFrame: Parameters<
     typeof createGpuFlowVisiblePublicationPresentableFrameProofFromFactory
   >[0]["committedFrame"];
-  readonly publicationDecision: Parameters<
+  readonly reducerDecision: Parameters<
     typeof createGpuFlowVisiblePublicationPresentableFrameProofFromFactory
-  >[0]["publicationDecision"];
+  >[0]["reducerDecision"];
 }) => {
   const projectionTransactionId = "transaction-a";
   return createGpuFlowVisiblePublicationPresentableFrameProofFromFactory({
@@ -46,23 +46,23 @@ const createGpuFlowVisiblePublicationPresentableFrameProof = ({
       canvasGenerationEvidence:
         createGpuFlowVisiblePublicationCanvasPresentationEvidence({
           committedFrame,
-          projectionSampleId: publicationDecision.sample.id,
+          projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       domTransformEvidence:
         createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
           committedFrame,
-          projectionSampleId: publicationDecision.sample.id,
+          projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       textureEvictionEvidence:
         createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
           committedFrame,
-          projectionSampleId: publicationDecision.sample.id,
+          projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
     },
-    publicationDecision,
+    reducerDecision,
     projectionTransactionKind: "content-publication",
     projectionTransactionId,
   });
@@ -205,7 +205,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
     const presentableFrameProof =
       createGpuFlowVisiblePublicationPresentableFrameProof({
         committedFrame: visibleProjectionState.committedFrame,
-        publicationDecision: publicationDecision(sample),
+        reducerDecision: reducerDecision(sample),
       });
     const payload = createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
       completion: {
@@ -217,7 +217,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         sample,
       }),
       previousContentFrameId: 6,
-      publicationDecision: publicationDecision(sample),
+      reducerDecision: reducerDecision(sample),
       transactionProof: transactionProof({ presentableFrameProof }),
       visibleProjectionState,
     });
@@ -462,7 +462,7 @@ function presentOutcome({
   };
 }
 
-function publicationDecision(
+function reducerDecision(
   sample: GpuFlowLiveProjectionSample,
 ): GpuFlowVisibleFrameReducerDecision {
   return {

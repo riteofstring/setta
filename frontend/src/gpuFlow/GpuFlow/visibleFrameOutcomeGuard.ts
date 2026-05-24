@@ -17,27 +17,27 @@ const visiblePublicationOutcomeBySurface = new WeakMap<
 
 export function assertGpuFlowSingleVisiblePublicationOutcome({
   outcome,
-  publicationDecision,
+  reducerDecision,
   surface,
 }: {
   readonly outcome: GpuFlowVisiblePublicationCompletionOutcome;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly surface: GpuSurfaceHandle | null;
 }): void {
   if (!surface) {
     return;
   }
   const previousOutcome = visiblePublicationOutcomeBySurface.get(surface);
-  if (previousOutcome?.projectionSampleId === publicationDecision.sample.id) {
+  if (previousOutcome?.projectionSampleId === reducerDecision.sample.id) {
     throw new Error(
-      `GPU Flow visible publication already completed an outcome for projection sample ${publicationDecision.sample.id}: ${JSON.stringify(
+      `GPU Flow visible publication already completed an outcome for projection sample ${reducerDecision.sample.id}: ${JSON.stringify(
         previousOutcome,
       )}`,
     );
   }
   visiblePublicationOutcomeBySurface.set(surface, {
     outcome: outcome.kind,
-    projectionSampleId: publicationDecision.sample.id,
+    projectionSampleId: reducerDecision.sample.id,
     transactionId: getGpuFlowVisiblePublicationOutcomeTransactionId(outcome),
   });
 }

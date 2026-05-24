@@ -274,7 +274,7 @@ export function createGpuFlowCommittedSurfaceActorManifestDigest(
     return cached;
   }
   const digest = createGpuFlowJsonDigest(
-    "committed-surface-actor-manifest",
+    "prepared-content-frame-actor-manifest",
     actorGenerations.map(createGpuFlowCommittedSurfaceActorManifestEntry),
   );
   actorManifestDigestCache.set(actorGenerations, digest);

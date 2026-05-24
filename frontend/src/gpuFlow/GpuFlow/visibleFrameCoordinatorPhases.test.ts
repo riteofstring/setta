@@ -262,7 +262,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expect(stateMachineSource).toContain('"blocked-candidate"');
   });
 
-  it("keeps transaction proof, reducer completion, and publication decision out of the surface frame adapter", () => {
+  it("keeps transaction proof, reducer completion, and reducer decision out of the surface frame adapter", () => {
     const source = readFileSync(SURFACE_FRAME_PUBLICATION_MODULE_PATH, "utf8");
 
     expect(source).not.toContain(
@@ -281,7 +281,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "selectGpuFlowVisibleFramePublicationTransaction",
     );
     expect(source).not.toContain("selectProjectionFrameTransaction");
-    expect(source).not.toContain("selectRetainedProjectionPublicationDecision");
+    expect(source).not.toContain("selectRetainedProjectionReducerDecision");
     expect(source).not.toContain(
       "selectContentPublicationBlockedCandidateForFrameResult",
     );

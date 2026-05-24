@@ -287,7 +287,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         );
       },
       publish: (transaction) => {
-        phases.push(`publish:${transaction.publicationDecision.lane}`);
+        phases.push(`publish:${transaction.reducerDecision.lane}`);
       },
       sampleVisibleFramePublication: () =>
         visibleFramePublicationSample({
@@ -330,8 +330,8 @@ describe("GPU Flow visible frame coordinator budget", () => {
       }),
     });
 
-    expect(result.publicationDecision.lane).toBe("motion");
-    expect(result.publicationDecision.debt.motion).toBe(false);
+    expect(result.reducerDecision.lane).toBe("motion");
+    expect(result.reducerDecision.debt.motion).toBe(false);
     expect(
       result.publicationFrameContext.budgetDecision.preparationBudget,
     ).toMatchObject({

@@ -327,14 +327,14 @@ function emitGpuFlowBrowserVisualStarvationReports({
 export function recordGpuFlowBlockedVisiblePublication({
   frame,
   publicationCompletion,
-  publicationDecision,
+  reducerDecision,
   runtimeCanvas,
   stateMachineOutcome = null,
   token,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
   readonly publicationCompletion: GpuFlowVisiblePublicationCompletion;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly stateMachineOutcome?:
     | {
@@ -346,7 +346,7 @@ export function recordGpuFlowBlockedVisiblePublication({
   readonly token: GpuFlowBlockedPublicationToken;
 }): GpuFlowBlockedPublicationToken {
   assertGpuFlowBlockedPublicationTokenForProjectionSample({
-    projectionSampleId: publicationDecision.sample.id,
+    projectionSampleId: reducerDecision.sample.id,
     token,
   });
   if (publicationCompletion.outcome !== "blocked") {
@@ -365,11 +365,11 @@ export function recordGpuFlowBlockedVisiblePublication({
     candidateFrameId: frame?.displayFrameId ?? null,
     frozenFrame: token.frozenFrame,
     frozenFrameId: token.frozenFrameId,
-    publicationLane: publicationDecision.lane,
+    publicationLane: reducerDecision.lane,
     projectionSampleId: token.projectionSampleId,
     remainingDebt: publicationCompletion.debt,
     reducerOutcome: publicationCompletion.outcome,
-    schedulerState: publicationDecision.schedulerState,
+    schedulerState: reducerDecision.schedulerState,
     stateMachineOutcome,
     tokenTransactionId: token.transactionId,
   } satisfies GpuFlowBlockedVisiblePublicationEvent);

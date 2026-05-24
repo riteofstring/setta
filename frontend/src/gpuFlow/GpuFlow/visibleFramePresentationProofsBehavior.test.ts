@@ -403,7 +403,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       forceImmediatePublicationDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
-      publicationDecision: {
+      reducerDecision: {
         debt: { content: false, maintenance: false, motion: false },
         lane: "content",
         rawReasons: ["manual"],
@@ -411,7 +411,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         schedulerState: "content-catchup",
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["publicationDecision"],
+      >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
           throw new Error("Unexpected committed frame completion.");
@@ -489,7 +489,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       forceImmediatePublicationDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
-      publicationDecision: {
+      reducerDecision: {
         debt: { content: false, maintenance: false, motion: false },
         lane: "content",
         rawReasons: ["manual"],
@@ -497,7 +497,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         schedulerState: "content-catchup",
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["publicationDecision"],
+      >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
           throw new Error("Unexpected committed frame completion.");
@@ -580,7 +580,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       forceImmediatePublicationDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
-      publicationDecision: {
+      reducerDecision: {
         debt: { content: false, maintenance: true, motion: false },
         lane: "content",
         rawReasons: ["manual"],
@@ -588,7 +588,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         schedulerState: "content-catchup",
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["publicationDecision"],
+      >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
           throw new Error("Unexpected committed frame completion.");
@@ -679,7 +679,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       forceImmediatePublicationDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
-      publicationDecision: {
+      reducerDecision: {
         debt: { content: true, maintenance: false, motion: true },
         lane: "maintenance",
         rawReasons: ["texture-upload"],
@@ -687,7 +687,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         schedulerState: "maintenance-drain",
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["publicationDecision"],
+      >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => ({
           debt: { content: true, maintenance: false, motion: true },
@@ -760,7 +760,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       forceImmediatePublicationDebtFrame: false,
       followUpFrameReason: "texture-upload",
       previousVisibleProjectionState: null,
-      publicationDecision: {
+      reducerDecision: {
         debt: { content: false, maintenance: true, motion: true },
         lane: "content",
         rawReasons: ["texture-upload"],
@@ -768,7 +768,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         schedulerState: "content-catchup",
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["publicationDecision"],
+      >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
           throw new Error("Unexpected committed frame completion.");
@@ -855,14 +855,14 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
     forceImmediatePublicationDebtFrame: false,
     followUpFrameReason: null,
     previousVisibleProjectionState: null,
-    publicationDecision: {
+    reducerDecision: {
       lane: "content",
       rawReasons: ["manual"],
       sample: projectionSample,
       schedulerState: "idle",
     } as unknown as Parameters<
       typeof proveGpuFlowVisibleFramePublicationPresentation
-    >[0]["publicationDecision"],
+    >[0]["reducerDecision"],
     reducerRuntime: {
       completeFrame: () => ({
         debt: {

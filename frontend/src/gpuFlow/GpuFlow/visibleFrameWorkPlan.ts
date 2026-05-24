@@ -27,11 +27,11 @@ export type GpuFlowContentPublicationWorkPlan =
     };
 
 export function createGpuFlowMotionProjectionWorkPlan({
-  publicationDecision,
+  reducerDecision,
 }: {
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowMotionProjectionWorkPlan {
-  if (publicationDecision.lane !== "motion") {
+  if (reducerDecision.lane !== "motion") {
     return Object.freeze({
       kind: "skip" as const,
     });
@@ -43,18 +43,18 @@ export function createGpuFlowMotionProjectionWorkPlan({
 
 export function createGpuFlowContentPublicationWorkPlan({
   blockedProjectionOnlyFrame,
-  publicationDecision,
+  reducerDecision,
   renderedProjectionOnlyFrame,
 }: {
   readonly blockedProjectionOnlyFrame: boolean;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly renderedProjectionOnlyFrame: boolean;
 }): GpuFlowContentPublicationWorkPlan {
   if (
     blockedProjectionOnlyFrame ||
     renderedProjectionOnlyFrame ||
-    publicationDecision.lane === "motion" ||
-    publicationDecision.lane === "idle"
+    reducerDecision.lane === "motion" ||
+    reducerDecision.lane === "idle"
   ) {
     return Object.freeze({
       kind: "skip" as const,
@@ -63,23 +63,23 @@ export function createGpuFlowContentPublicationWorkPlan({
   return Object.freeze({
     kind: "prepare" as const,
     publicationLane:
-      publicationDecision.lane === "maintenance" ? "maintenance" : "content",
+      reducerDecision.lane === "maintenance" ? "maintenance" : "content",
   });
 }
 
 export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
   budgetBroker,
   deferResolutionUpdates,
-  publicationDecision,
+  reducerDecision,
 }: {
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly deferResolutionUpdates: boolean;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
   return shouldDeferGpuFlowBrowserVisualRepairForBudget({
     budgetBroker,
     deferResolutionUpdates,
-    publicationDecision,
+    reducerDecision,
   });
 }
 
@@ -88,24 +88,24 @@ export function shouldConsiderGpuFlowDeferredContentPublication({
   deferResolutionUpdates,
   hasPreviousRetainedDisplayFrame,
   hasPreviousVisibleProjectionState,
-  publicationDecision,
+  reducerDecision,
 }: {
   readonly activeEditorActivationPending?: boolean | undefined;
   readonly deferResolutionUpdates: boolean;
   readonly hasPreviousRetainedDisplayFrame: boolean;
   readonly hasPreviousVisibleProjectionState: boolean;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
   return (
     !activeEditorActivationPending &&
     hasPreviousRetainedDisplayFrame &&
     hasPreviousVisibleProjectionState &&
     (deferResolutionUpdates ||
-      publicationDecision.schedulerState === "motion-active" ||
-      publicationDecision.schedulerState === "motion-settling") &&
-    publicationDecision.lane !== "motion" &&
-    !publicationDecision.rawReasons.includes("texture-upload") &&
-    !hasGpuFlowCriticalContentFrameRequest(publicationDecision.rawReasons)
+      reducerDecision.schedulerState === "motion-active" ||
+      reducerDecision.schedulerState === "motion-settling") &&
+    reducerDecision.lane !== "motion" &&
+    !reducerDecision.rawReasons.includes("texture-upload") &&
+    !hasGpuFlowCriticalContentFrameRequest(reducerDecision.rawReasons)
   );
 }
 

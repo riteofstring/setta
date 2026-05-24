@@ -34,35 +34,35 @@ const createGpuFlowVisiblePublicationPresentableFrameProofFromFactory =
   createGpuFlowVisiblePublicationPresentableFrameProofFactory();
 const createGpuFlowVisiblePublicationPresentableFrameProof = ({
   committedFrame,
-  publicationDecision,
+  reducerDecision,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }) => {
-  const projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`;
+  const projectionTransactionId = `transaction:content-publication:${reducerDecision.sample.id}`;
   return createGpuFlowVisiblePublicationPresentableFrameProofFromFactory({
     committedFrame,
     presentationEvidence: {
       canvasGenerationEvidence:
         createGpuFlowVisiblePublicationCanvasPresentationEvidence({
           committedFrame,
-          projectionSampleId: publicationDecision.sample.id,
+          projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       domTransformEvidence:
         createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
           committedFrame,
-          projectionSampleId: publicationDecision.sample.id,
+          projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       textureEvictionEvidence:
         createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
           committedFrame,
-          projectionSampleId: publicationDecision.sample.id,
+          projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
     },
-    publicationDecision,
+    reducerDecision,
     projectionTransactionKind: "content-publication",
     projectionTransactionId,
   });
@@ -143,11 +143,11 @@ describe("GPU Flow visible frame coordinator", () => {
         };
       },
       prepareMotionProjectionFrame: ({
-        publicationDecision,
+        reducerDecision,
         publicationFrameContext,
       }) => {
         phases.push(
-          `motion:${publicationDecision.lane}:viewport=${publicationFrameContext.viewportFrame}:defer=${publicationFrameContext.deferResolutionUpdates}`,
+          `motion:${reducerDecision.lane}:viewport=${publicationFrameContext.viewportFrame}:defer=${publicationFrameContext.deferResolutionUpdates}`,
         );
         return {
           frame: {
@@ -344,7 +344,7 @@ describe("GPU Flow visible frame coordinator", () => {
 
   it("uses one presentable frame proof for compatible-previous proof reports and debt", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
-    const publicationDecision = scheduler.selectFrame({
+    const reducerDecision = scheduler.selectFrame({
       hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveProjectionSample({ id: 51, timestamp: 510 }),
@@ -354,10 +354,10 @@ describe("GPU Flow visible frame coordinator", () => {
 
     const proof = createGpuFlowVisiblePublicationPresentableFrameProof({
       committedFrame: preparedContentFrameWithCompatiblePreviousCoverage(),
-      publicationDecision,
+      reducerDecision,
     });
 
-    expect(publicationDecision.lane).toBe("content");
+    expect(reducerDecision.lane).toBe("content");
     expect(proof.hasCompatiblePreviousCoverage).toBe(true);
     expect(proof.debtProof).toEqual({
       content: false,
@@ -527,7 +527,7 @@ describe("GPU Flow visible frame coordinator", () => {
       reducerRuntime: scheduler,
     });
 
-    expect(result.publicationDecision.lane).toBe("content");
+    expect(result.reducerDecision.lane).toBe("content");
     expect(result.outcome.kind).toBe("blocked");
     if (result.outcome.kind !== "blocked") {
       throw new Error("Expected blocked transaction.");

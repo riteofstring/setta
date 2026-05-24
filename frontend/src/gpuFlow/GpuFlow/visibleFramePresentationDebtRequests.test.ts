@@ -15,7 +15,7 @@ describe("GPU Flow visible-frame presentation boundary debt requests", () => {
         delayMs: null,
         frameReason: "manual",
       },
-      publicationDecision: contentDecision(),
+      reducerDecision: contentDecision(),
     });
 
     expect(request).toEqual({
@@ -31,7 +31,7 @@ describe("GPU Flow visible-frame presentation boundary debt requests", () => {
         delayMs: null,
         frameReason: "manual",
       },
-      publicationDecision: contentDecision(),
+      reducerDecision: contentDecision(),
     });
 
     expect(request).toEqual({

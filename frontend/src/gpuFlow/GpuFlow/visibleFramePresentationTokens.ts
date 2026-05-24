@@ -239,18 +239,18 @@ export function createGpuFlowVisibleFrameBlockedPublicationToken({
 
 export function createGpuFlowVisiblePublicationCompletionPresentationToken({
   presentationAuthorityProof,
-  publicationDecision,
+  reducerDecision,
   presentationIdentity,
   visibleProjectionState,
 }: {
   readonly presentationAuthorityProof: GpuFlowPresentationAuthorityProof;
-  readonly publicationDecision: {
+  readonly reducerDecision: {
     readonly sample: GpuFlowLiveProjectionSample;
   };
   readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): GpuFlowVisibleFramePresentationToken {
-  if (visibleProjectionState.sample.id !== publicationDecision.sample.id) {
+  if (visibleProjectionState.sample.id !== reducerDecision.sample.id) {
     throw new Error(
       "GPU Flow visible presentation completion requires visible projection state for the selected sample.",
     );
@@ -262,7 +262,7 @@ export function createGpuFlowVisiblePublicationCompletionPresentationToken({
     presentationAuthorityProof.projectionTransactionKind !==
       visibleProjectionState.transaction.kind ||
     presentationAuthorityProof.presentationPairProof.projectionSampleId !==
-      publicationDecision.sample.id
+      reducerDecision.sample.id
   ) {
     throw new Error(
       "GPU Flow visible presentation completion requires a presentation authority proof for the selected visible frame and projection sample.",
@@ -272,7 +272,7 @@ export function createGpuFlowVisiblePublicationCompletionPresentationToken({
     presentationAuthorityProof,
     frame: visibleProjectionState.committedFrame,
     presentationIdentity,
-    projectionSample: publicationDecision.sample,
+    projectionSample: reducerDecision.sample,
   });
 }
 

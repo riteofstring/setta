@@ -42,7 +42,7 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
     MotionProjectionFrame
   > & {
     readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-    readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+    readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   },
 ) {
   return createGpuFlowVisibleFramePublicationTransactionProofFromFactory({
@@ -71,7 +71,7 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
   MotionProjectionFrame
 > & {
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }) {
   const transactionProof = createGpuFlowVisibleFramePublicationTransactionProof(
     {
@@ -118,7 +118,7 @@ function withTestGpuFlowVisiblePublicationPresentationEvidence<
     presentationEvidence:
       createTestGpuFlowVisiblePublicationPresentationEvidence({
         committedFrame: candidate.visibleProjectionState.committedFrame,
-        publicationDecision: {
+        reducerDecision: {
           sample: candidate.visibleProjectionState.sample,
         },
         projectionTransactionKind:
@@ -134,16 +134,16 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
   domTransformPrepared = true,
   drawnNodeIds,
   missingTextureNodeIds,
-  publicationDecision,
+  reducerDecision,
   projectionTransactionKind = "content-publication",
-  projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`,
+  projectionTransactionId = `transaction:content-publication:${reducerDecision.sample.id}`,
   textureEvictionPrepared = true,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly domTransformPrepared?: boolean | undefined;
   readonly drawnNodeIds?: readonly string[] | undefined;
   readonly missingTextureNodeIds?: readonly string[] | undefined;
-  readonly publicationDecision: Pick<
+  readonly reducerDecision: Pick<
     GpuFlowVisibleFrameReducerDecision,
     "sample"
   >;
@@ -155,7 +155,7 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
 }): GpuFlowVisiblePublicationPresentationEvidence {
   const evidenceInput = {
     committedFrame,
-    projectionSampleId: publicationDecision.sample.id,
+    projectionSampleId: reducerDecision.sample.id,
     projectionTransactionId,
   };
   return Object.freeze({
@@ -197,7 +197,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
         blockedPublicationCandidate: null,
         visibleProjectionState: null,
       },
-      publicationDecision: publicationDecision(contentVisibleState.sample),
+      reducerDecision: reducerDecision(contentVisibleState.sample),
     });
 
     expect(proof.blockedSource).toBe("presentation-pair");
@@ -223,7 +223,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
           createTestGpuFlowVisiblePublicationPresentationEvidence({
             committedFrame: contentVisibleState.committedFrame,
             domTransformPrepared: false,
-            publicationDecision: publicationDecision(
+            reducerDecision: reducerDecision(
               contentVisibleState.sample,
             ),
             projectionTransactionId: contentVisibleState.transaction.id,
@@ -234,7 +234,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
         blockedPublicationCandidate: null,
         visibleProjectionState: null,
       },
-      publicationDecision: publicationDecision(contentVisibleState.sample),
+      reducerDecision: reducerDecision(contentVisibleState.sample),
     });
 
     expect(proof.blockedSource).toBe("presentation-pair");
@@ -259,7 +259,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
         presentationEvidence:
           createTestGpuFlowVisiblePublicationPresentationEvidence({
             committedFrame: contentVisibleState.committedFrame,
-            publicationDecision: publicationDecision(
+            reducerDecision: reducerDecision(
               contentVisibleState.sample,
             ),
             projectionTransactionId: contentVisibleState.transaction.id,
@@ -271,7 +271,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
         blockedPublicationCandidate: null,
         visibleProjectionState: null,
       },
-      publicationDecision: publicationDecision(contentVisibleState.sample),
+      reducerDecision: reducerDecision(contentVisibleState.sample),
     });
 
     expect(proof.blockedSource).toBe("presentation-pair");
@@ -310,7 +310,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
         blockedPublicationCandidate: null,
         visibleProjectionState: null,
       },
-      publicationDecision: publicationDecision(contentVisibleState.sample),
+      reducerDecision: reducerDecision(contentVisibleState.sample),
     });
 
     expect(proof.blockedSource).toBe("presentation-pair");
@@ -341,7 +341,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
             committedFrame,
             drawnNodeIds: [],
             missingTextureNodeIds: [],
-            publicationDecision: publicationDecision(
+            reducerDecision: reducerDecision(
               contentVisibleState.sample,
             ),
             projectionTransactionId: contentVisibleState.transaction.id,
@@ -352,7 +352,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
         blockedPublicationCandidate: null,
         visibleProjectionState: null,
       },
-      publicationDecision: publicationDecision(contentVisibleState.sample),
+      reducerDecision: reducerDecision(contentVisibleState.sample),
     });
 
     expect(proof.blockedSource).toBe("presentation-pair");
@@ -390,7 +390,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
             committedFrame,
             drawnNodeIds: ["settings"],
             missingTextureNodeIds: [],
-            publicationDecision: publicationDecision(
+            reducerDecision: reducerDecision(
               contentVisibleState.sample,
             ),
             projectionTransactionId: contentVisibleState.transaction.id,
@@ -401,7 +401,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
         blockedPublicationCandidate: null,
         visibleProjectionState: null,
       },
-      publicationDecision: publicationDecision(contentVisibleState.sample),
+      reducerDecision: reducerDecision(contentVisibleState.sample),
     });
 
     expect(proof.blockedSource).toBeNull();
@@ -430,7 +430,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
       createGpuFlowVisibleFramePublicationTransactionProof({
         contentPublicationFrame,
         motionProjectionFrame,
-        publicationDecision: publicationDecision(motionVisibleState.sample),
+        reducerDecision: reducerDecision(motionVisibleState.sample),
       });
 
     const prepared =
@@ -477,7 +477,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
           blockedPublicationCandidate: motionBlockedCandidate,
           visibleProjectionState: null,
         },
-        publicationDecision: publicationDecision(
+        reducerDecision: reducerDecision(
           liveProjectionSample({ id: 46, timestamp: 460 }),
         ),
       }),
@@ -506,7 +506,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
         blockedPublicationCandidate: motionBlockedCandidate,
         visibleProjectionState: null,
       },
-      publicationDecision: publicationDecision(
+      reducerDecision: reducerDecision(
         liveProjectionSample({ id: 47, timestamp: 470 }),
       ),
     });
@@ -542,7 +542,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
         blockedPublicationCandidate: null,
         visibleProjectionState: null,
       },
-      publicationDecision: publicationDecision(
+      reducerDecision: reducerDecision(
         liveProjectionSample({ id: 48, timestamp: 480 }),
       ),
     });
@@ -677,7 +677,7 @@ function rect() {
   return { height: 20, width: 100, x: 0, y: 0 };
 }
 
-function publicationDecision(
+function reducerDecision(
   sample: GpuFlowLiveProjectionSample,
 ): GpuFlowVisibleFrameReducerDecision {
   return {

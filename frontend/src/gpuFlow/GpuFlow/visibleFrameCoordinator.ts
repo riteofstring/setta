@@ -142,7 +142,7 @@ export type GpuFlowVisibleFrameCoordinatorResult<
   PreparedFrame extends GpuFlowVisibleFramePublicationPreparedFrame,
 > = GpuFlowVisiblePublicationTransactionCompletion & {
   readonly preparedFrame: PreparedFrame;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
 };
 
@@ -154,7 +154,7 @@ type GpuFlowVisibleFramePublicationContentFramePreparer<
   readonly contentPublicationWorkPlan: GpuFlowContentPublicationWorkPlan;
   readonly motionProjectionFrame: MotionProjectionFrame;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
   readonly runRetainedPreparedContentFramePublicationContentStage: GpuFlowRetainedPreparedContentFramePublicationContentStageRunner;
 }) => ContentPublicationFrame;
@@ -164,7 +164,7 @@ type GpuFlowVisibleFramePublicationMotionFramePreparer<
 > = (input: {
   readonly motionProjectionWorkPlan: GpuFlowMotionProjectionWorkPlan;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
 }) => GpuFlowMotionProjectionFramePreparation<MotionProjectionFrame>;
 
@@ -211,7 +211,7 @@ type GpuFlowVisibleFrameReducedPublicationTransaction<
   },
 > = GpuFlowVisibleFrameCoordinatorResult<PreparedFrame> & {
   readonly preparedFrame: PreparedFrame;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 };
 
 export function runGpuFlowVisibleFrameCoordinator<
@@ -310,14 +310,14 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     timestamp,
     viewportInteractionActive,
   });
-  const publicationDecision = reduceGpuFlowVisibleFrameReducerDecision({
+  const reducerDecision = reduceGpuFlowVisibleFrameReducerDecision({
     frameRequest,
     reducerPolicy,
   });
   const publicationFrameContext =
     createGpuFlowVisibleFramePublicationFrameContext({
       frameRequest,
-      publicationDecision,
+      reducerDecision,
       budgetBroker,
       rawReasons,
       runtimeViewportFrame,
@@ -331,7 +331,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     prepareContentPublicationFrame,
     prepareMotionProjectionFrame,
     previousVisibleProjectionState,
-    publicationDecision,
+    reducerDecision,
     publicationFrameContext,
     projectionSchedulerKnobs: reducerPolicy,
     rawReasons,
@@ -339,7 +339,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   const preparedFrame = createGpuFlowVisibleFramePublicationPreparedFrame({
     candidateSet,
     previousVisibleProjectionState,
-    publicationDecision,
+    reducerDecision,
   });
   const transactionCompletion = proveGpuFlowVisibleFramePublicationPresentation(
     {
@@ -350,7 +350,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
         preparedFrame.contentPublicationFrame
           .retainedDisplayFollowUpFrameReason ?? null,
       previousVisibleProjectionState,
-      publicationDecision,
+      reducerDecision,
       reducerRuntime,
       transactionProof: preparedFrame.transactionProof,
     },
@@ -358,7 +358,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   return Object.freeze({
     ...transactionCompletion,
     preparedFrame,
-    publicationDecision,
+    reducerDecision,
     publicationFrameContext,
   });
 }
@@ -371,7 +371,7 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   prepareContentPublicationFrame,
   prepareMotionProjectionFrame,
   previousVisibleProjectionState,
-  publicationDecision,
+  reducerDecision,
   publicationFrameContext,
   projectionSchedulerKnobs,
   rawReasons,
@@ -382,7 +382,7 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   >;
   readonly prepareMotionProjectionFrame: GpuFlowVisibleFramePublicationMotionFramePreparer<MotionProjectionFrame>;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
   readonly projectionSchedulerKnobs: ReturnType<
     GpuFlowVisiblePublicationReducerRuntime["getKnobs"]
@@ -412,13 +412,13 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
       prepareRetainedDisplayPublicationFramePlan,
     });
   const motionProjectionWorkPlan = createGpuFlowMotionProjectionWorkPlan({
-    publicationDecision,
+    reducerDecision,
   });
   const motionProjectionFrame = reduceGpuFlowMotionProjectionFramePreparation({
     preparation: prepareMotionProjectionFrame({
       motionProjectionWorkPlan,
       previousVisibleProjectionState,
-      publicationDecision,
+      reducerDecision,
       publicationFrameContext,
     }),
     previousVisibleProjectionState,
@@ -428,7 +428,7 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   const contentPublicationWorkPlan = createGpuFlowContentPublicationWorkPlan({
     blockedProjectionOnlyFrame:
       motionProjectionFrame.blockedPublicationCandidate !== null,
-    publicationDecision,
+    reducerDecision,
     renderedProjectionOnlyFrame:
       motionProjectionFrame.visibleProjectionState !== null,
   });
@@ -436,7 +436,7 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
     contentPublicationWorkPlan,
     motionProjectionFrame,
     previousVisibleProjectionState,
-    publicationDecision,
+    reducerDecision,
     publicationFrameContext,
     runRetainedPreparedContentFramePublicationContentStage,
   });
@@ -453,14 +453,14 @@ function createGpuFlowVisibleFramePublicationPreparedFrame<
 >({
   candidateSet,
   previousVisibleProjectionState,
-  publicationDecision,
+  reducerDecision,
 }: {
   readonly candidateSet: GpuFlowVisibleFramePublicationCandidateSet<
     ContentPublicationFrame,
     MotionProjectionFrame
   >;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
   ContentPublicationFrame,
   MotionProjectionFrame
@@ -472,7 +472,7 @@ function createGpuFlowVisibleFramePublicationPreparedFrame<
         candidateSet.forcedBlockedPublicationCandidate,
       motionProjectionFrame: candidateSet.motionProjectionFrame,
       previousVisibleProjectionState,
-      publicationDecision,
+      reducerDecision,
     });
   const preparedFrame =
     createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory()({
@@ -486,7 +486,7 @@ function createGpuFlowVisibleFramePublicationPreparedFrame<
 function createGpuFlowVisibleFramePublicationFrameContext({
   budgetBroker,
   frameRequest,
-  publicationDecision,
+  reducerDecision,
   rawReasons,
   runtimeViewportFrame,
   visibleFrameResourceGraphSnapshot,
@@ -494,7 +494,7 @@ function createGpuFlowVisibleFramePublicationFrameContext({
 }: {
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly runtimeViewportFrame: boolean;
   readonly visibleFrameResourceGraphSnapshot?:
@@ -505,16 +505,16 @@ function createGpuFlowVisibleFramePublicationFrameContext({
 }): GpuFlowVisibleFramePublicationFrameContext {
   const viewportFrame = rawReasons.includes("viewport") || runtimeViewportFrame;
   const deferResolutionUpdates = shouldDeferGpuFlowResolutionUpdates({
-    lane: publicationDecision.lane,
+    lane: reducerDecision.lane,
     rawReasons,
-    schedulerState: publicationDecision.schedulerState,
+    schedulerState: reducerDecision.schedulerState,
     viewportFrame,
     viewportInteractionActive,
   });
   const budgetDecision = createGpuFlowVisibleFrameBudgetBrokerDecision({
     budgetBroker,
     deferResolutionUpdates,
-    publicationDecision,
+    reducerDecision,
     resourceGraphSnapshot: visibleFrameResourceGraphSnapshot,
   });
   return Object.freeze({

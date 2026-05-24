@@ -338,7 +338,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         debt: { content: true, maintenance: false, motion: false },
         outcome: "blocked",
       },
-      publicationDecision: {
+      reducerDecision: {
         debt: { content: false, maintenance: false, motion: false },
         lane: "content",
         rawReasons: ["texture-upload"],
@@ -346,7 +346,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         schedulerState: "content-catchup",
       } as unknown as Parameters<
         typeof recordGpuFlowBlockedVisiblePublication
-      >[0]["publicationDecision"],
+      >[0]["reducerDecision"],
       runtimeCanvas: canvas,
       token: blockedPublicationToken(),
     });
@@ -429,7 +429,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         debt: { content: true, maintenance: false, motion: false },
         outcome: "blocked",
       },
-      publicationDecision: {
+      reducerDecision: {
         debt: { content: false, maintenance: false, motion: false },
         lane: "content",
         rawReasons: ["texture-upload"],
@@ -437,7 +437,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         schedulerState: "content-catchup",
       } as unknown as Parameters<
         typeof recordGpuFlowBlockedVisiblePublication
-      >[0]["publicationDecision"],
+      >[0]["reducerDecision"],
       runtimeCanvas: canvas,
       token,
     });
@@ -487,7 +487,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           debt: { content: true, maintenance: false, motion: false },
           outcome: "blocked",
         },
-        publicationDecision: {
+        reducerDecision: {
           debt: { content: false, maintenance: false, motion: false },
           lane: "content",
           rawReasons: ["texture-upload"],
@@ -495,7 +495,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           schedulerState: "content-catchup",
         } as unknown as Parameters<
           typeof recordGpuFlowBlockedVisiblePublication
-        >[0]["publicationDecision"],
+        >[0]["reducerDecision"],
         runtimeCanvas: canvas,
         token,
       }),
@@ -513,7 +513,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           debt: { content: true, maintenance: false, motion: false },
           outcome: "present",
         },
-        publicationDecision: {
+        reducerDecision: {
           debt: { content: false, maintenance: false, motion: false },
           lane: "content",
           rawReasons: ["texture-upload"],
@@ -521,7 +521,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           schedulerState: "content-catchup",
         } as unknown as Parameters<
           typeof recordGpuFlowBlockedVisiblePublication
-        >[0]["publicationDecision"],
+        >[0]["reducerDecision"],
         runtimeCanvas: canvas,
         token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
           blockedReasons: [

@@ -27,12 +27,12 @@ describe("GPU Flow visible frame coordinator work plans", () => {
   it("selects motion preparation only for motion publication lanes", () => {
     expect(
       createGpuFlowMotionProjectionWorkPlan({
-        publicationDecision: publicationDecision({ lane: "motion" }),
+        reducerDecision: reducerDecision({ lane: "motion" }),
       }),
     ).toEqual({ kind: "prepare" });
     expect(
       createGpuFlowMotionProjectionWorkPlan({
-        publicationDecision: publicationDecision({ lane: "content" }),
+        reducerDecision: reducerDecision({ lane: "content" }),
       }),
     ).toEqual({ kind: "skip" });
   });
@@ -41,35 +41,35 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     expect(
       createGpuFlowContentPublicationWorkPlan({
         blockedProjectionOnlyFrame: false,
-        publicationDecision: publicationDecision({ lane: "maintenance" }),
+        reducerDecision: reducerDecision({ lane: "maintenance" }),
         renderedProjectionOnlyFrame: false,
       }),
     ).toEqual({ kind: "prepare", publicationLane: "maintenance" });
     expect(
       createGpuFlowContentPublicationWorkPlan({
         blockedProjectionOnlyFrame: false,
-        publicationDecision: publicationDecision({ lane: "motion" }),
+        reducerDecision: reducerDecision({ lane: "motion" }),
         renderedProjectionOnlyFrame: false,
       }),
     ).toEqual({ kind: "skip" });
     expect(
       createGpuFlowContentPublicationWorkPlan({
         blockedProjectionOnlyFrame: false,
-        publicationDecision: publicationDecision({ lane: "content" }),
+        reducerDecision: reducerDecision({ lane: "content" }),
         renderedProjectionOnlyFrame: true,
       }),
     ).toEqual({ kind: "skip" });
     expect(
       createGpuFlowContentPublicationWorkPlan({
         blockedProjectionOnlyFrame: true,
-        publicationDecision: publicationDecision({ lane: "motion" }),
+        reducerDecision: reducerDecision({ lane: "motion" }),
         renderedProjectionOnlyFrame: false,
       }),
     ).toEqual({ kind: "skip" });
     expect(
       createGpuFlowContentPublicationWorkPlan({
         blockedProjectionOnlyFrame: false,
-        publicationDecision: publicationDecision({ lane: "idle" }),
+        reducerDecision: reducerDecision({ lane: "idle" }),
         renderedProjectionOnlyFrame: false,
       }),
     ).toEqual({ kind: "skip" });
@@ -82,7 +82,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["texture-upload"],
           schedulerState: "motion-settling",
@@ -94,7 +94,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: false,
         hasPreviousRetainedDisplayFrame: false,
         hasPreviousVisibleProjectionState: false,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["retained-scroll"],
           schedulerState: "motion-active",
@@ -106,7 +106,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: false,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["retained-scroll"],
           schedulerState: "motion-active",
@@ -118,7 +118,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "content",
           schedulerState: "motion-settling",
         }),
@@ -129,7 +129,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: false,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "maintenance",
           rawReasons: ["texture-upload"],
           schedulerState: "motion-settling",
@@ -141,7 +141,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: false,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "maintenance",
           rawReasons: ["texture-upload", "dom-control-activation"],
           schedulerState: "motion-settling",
@@ -153,7 +153,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "motion",
           schedulerState: "motion-settling",
         }),
@@ -164,7 +164,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["texture-upload", "manual"],
           schedulerState: "content-catchup",
@@ -176,7 +176,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["texture-upload", "dom-control-activation"],
           schedulerState: "content-catchup",
@@ -188,7 +188,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["texture-upload", "retained-native-visual"],
           schedulerState: "content-catchup",
@@ -200,7 +200,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: false,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["texture-upload", "manual"],
           schedulerState: "content-catchup",
@@ -210,7 +210,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     expect(
       shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
         deferResolutionUpdates: false,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "content",
           schedulerState: "motion-active",
         }),
@@ -219,7 +219,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     expect(
       shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
         deferResolutionUpdates: true,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "content",
           schedulerState: "motion-active",
         }),
@@ -282,7 +282,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     );
     expect(surfaceSource).not.toContain("getGpuFlowContentPublicationLane");
     expect(surfaceSource).not.toContain(
-      'publicationDecision.lane !== "motion"',
+      'reducerDecision.lane !== "motion"',
     );
     expect(surfaceSource).toContain("contentPublicationWorkPlan");
     expect(surfaceSource).toContain("motionProjectionWorkPlan");
@@ -304,7 +304,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
   });
 });
 
-function publicationDecision({
+function reducerDecision({
   lane,
   rawReasons = [],
   schedulerState = "idle",

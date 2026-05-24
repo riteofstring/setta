@@ -862,7 +862,7 @@ function heldPreviousPublicationTransaction({
     },
     previousContentFrameId,
     publicationFrameContext: publicationFrameContextForTest(),
-    publicationDecision: {
+    reducerDecision: {
       lane: "content",
       rawReasons: ["manual"],
       sample: heldState.sample,
@@ -940,7 +940,7 @@ function committedPublicationTransaction({
     },
     previousContentFrameId: null,
     publicationFrameContext: publicationFrameContextForTest(),
-    publicationDecision: {
+    reducerDecision: {
       lane: "content",
       rawReasons: ["manual"],
       sample: selectedState.sample,
@@ -1073,7 +1073,7 @@ function blockedPublicationTransaction({
     },
     previousContentFrameId: null,
     publicationFrameContext,
-    publicationDecision: {
+    reducerDecision: {
       lane: "content",
       rawReasons: ["manual"],
       sample,

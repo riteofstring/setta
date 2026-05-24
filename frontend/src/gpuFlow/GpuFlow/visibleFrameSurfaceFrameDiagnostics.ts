@@ -74,14 +74,14 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
     ),
     frameReasons: [...frameReasons],
     outcomeKind: coordinatorResult.outcome.kind,
-    publicationLane: coordinatorResult.publicationDecision.lane,
+    publicationLane: coordinatorResult.reducerDecision.lane,
     recordedAtMs: performance.now(),
     resourceGraph: createGpuFlowSurfaceFrameResourceGraphDiagnostic(
       postFrameResourceGraphSnapshot,
     ),
-    schedulerState: coordinatorResult.publicationDecision.schedulerState,
+    schedulerState: coordinatorResult.reducerDecision.schedulerState,
     sampleRetainedScrollRevision:
-      coordinatorResult.publicationDecision.sample.retainedScrollRevision,
+      coordinatorResult.reducerDecision.sample.retainedScrollRevision,
     source: "surface-frame",
     transactionProof: createGpuFlowVisiblePublicationTransactionProofReport(
       coordinatorResult.preparedFrame.transactionProof,

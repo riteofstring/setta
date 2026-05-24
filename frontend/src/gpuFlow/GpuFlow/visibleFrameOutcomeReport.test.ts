@@ -41,7 +41,7 @@ describe("GPU Flow visible frame outcome report", () => {
       reducerRuntime: scheduler,
     });
 
-    expect(result.publicationDecision.rawReasons).toEqual(rawReasons);
+    expect(result.reducerDecision.rawReasons).toEqual(rawReasons);
     expect(result.outcome.kind).toBe("blocked");
     if (result.outcome.kind !== "blocked") {
       throw new Error("Expected no-frame held-previous over budget to block.");

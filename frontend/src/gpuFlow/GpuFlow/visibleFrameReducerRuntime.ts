@@ -16,7 +16,7 @@ import {
   isGpuFlowMaintenanceFrameReason,
   isGpuFlowMotionFrameReason,
   isGpuFlowRetainedMotionFrameReason,
-  isGpuFlowRetainedScrollPublicationDecision,
+  isGpuFlowRetainedScrollReducerDecision,
   isGpuFlowRetainedScrollSampleInteractionActive,
   resolveGpuFlowProjectionContentRetryBlock,
   resolveGpuFlowProjectionMotionRetryBlock,
@@ -697,7 +697,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       return;
     }
     if (
-      !isGpuFlowRetainedScrollPublicationDecision({
+      !isGpuFlowRetainedScrollReducerDecision({
         lane: "idle",
         rawReasons,
         sample,
@@ -890,7 +890,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
         lastMotionAtMs = decision.sample.timestamp;
         consecutiveMotionFrames += 1;
         if (
-          isGpuFlowRetainedScrollPublicationDecision(decision) &&
+          isGpuFlowRetainedScrollReducerDecision(decision) &&
           !criticalContentOriginDebt
         ) {
           lastRetainedScrollAtMs = decision.sample.timestamp;

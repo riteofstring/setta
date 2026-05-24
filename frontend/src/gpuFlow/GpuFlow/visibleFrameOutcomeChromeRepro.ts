@@ -32,14 +32,14 @@ export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
   completion,
   outcome,
   previousContentFrameId,
-  publicationDecision,
+  reducerDecision,
   transactionProof,
   visibleProjectionState,
 }: {
   readonly completion: GpuFlowVisiblePublicationReducerCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousContentFrameId: number | null;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): void {
@@ -52,7 +52,7 @@ export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
       completion,
       outcome,
       previousContentFrameId,
-      publicationDecision,
+      reducerDecision,
       transactionProof,
       visibleProjectionState,
     }),
@@ -63,14 +63,14 @@ export function createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
   completion,
   outcome,
   previousContentFrameId,
-  publicationDecision,
+  reducerDecision,
   transactionProof,
   visibleProjectionState,
 }: {
   readonly completion: GpuFlowVisiblePublicationReducerCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousContentFrameId: number | null;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
@@ -78,7 +78,7 @@ export function createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
     completion,
     outcome,
     previousContentFrameId,
-    publicationDecision,
+    reducerDecision,
     transactionProof,
     visibleProjectionState,
   });

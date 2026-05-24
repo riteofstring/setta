@@ -122,7 +122,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       reducerRuntime: scheduler,
     });
 
-    expect(result.publicationDecision.lane).toBe("content");
+    expect(result.reducerDecision.lane).toBe("content");
     expect(result.outcome.kind).toBe("hold-previous");
     expect(result.previousContentFrameId).toBe(7);
     expect(result.completeReducerFrame().completion.debt.content).toBe(true);

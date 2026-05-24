@@ -147,11 +147,11 @@ export function createGpuFlowVisiblePublicationTextureEvictionPresentationEviden
 
 export function createGpuFlowVisiblePublicationPresentationBlockedReasons({
   presentationEvidence,
-  publicationDecision,
+  reducerDecision,
   visibleProjectionState,
 }: {
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): readonly GpuFlowVisibleFrameBlockedPublicationCandidate["blockedReasons"][number][] {
   const committedFrame = visibleProjectionState.committedFrame;
@@ -163,13 +163,13 @@ export function createGpuFlowVisiblePublicationPresentationBlockedReasons({
     ...createGpuFlowVisiblePublicationDomTransformPresentationBlockedReasons({
       committedFrame,
       domTransformEvidence: presentationEvidence?.domTransformEvidence ?? null,
-      publicationDecision,
+      reducerDecision,
       visibleProjectionState,
     }),
     ...createGpuFlowVisiblePublicationTextureEvictionPresentationBlockedReasons(
       {
         committedFrame,
-        publicationDecision,
+        reducerDecision,
         textureEvictionEvidence:
           presentationEvidence?.textureEvictionEvidence ?? null,
         visibleProjectionState,
@@ -178,7 +178,7 @@ export function createGpuFlowVisiblePublicationPresentationBlockedReasons({
     ...createGpuFlowVisiblePublicationCanvasPresentationBlockedReasons({
       canvasEvidence: presentationEvidence?.canvasGenerationEvidence ?? null,
       committedFrame,
-      publicationDecision,
+      reducerDecision,
       visibleProjectionState,
     }),
   ]);
@@ -222,12 +222,12 @@ function createGpuFlowVisiblePublicationDomPresentationBlockedReasons({
 function createGpuFlowVisiblePublicationDomTransformPresentationBlockedReasons({
   committedFrame,
   domTransformEvidence,
-  publicationDecision,
+  reducerDecision,
   visibleProjectionState,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly domTransformEvidence: GpuFlowVisiblePublicationDomTransformPresentationEvidence | null;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): readonly GpuFlowVisiblePublicationPresentationBlockedReason[] {
   const reasons: GpuFlowVisiblePublicationPresentationBlockedReason[] = [];
@@ -246,7 +246,7 @@ function createGpuFlowVisiblePublicationDomTransformPresentationBlockedReasons({
       reason: "dom-transform-frame-mismatch",
     });
   }
-  if (domTransformEvidence.projectionSampleId !== publicationDecision.sample.id) {
+  if (domTransformEvidence.projectionSampleId !== reducerDecision.sample.id) {
     reasons.push({
       actorId: null,
       family: "presentation-pair",
@@ -268,12 +268,12 @@ function createGpuFlowVisiblePublicationDomTransformPresentationBlockedReasons({
 
 function createGpuFlowVisiblePublicationTextureEvictionPresentationBlockedReasons({
   committedFrame,
-  publicationDecision,
+  reducerDecision,
   textureEvictionEvidence,
   visibleProjectionState,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly textureEvictionEvidence: GpuFlowVisiblePublicationTextureEvictionPresentationEvidence | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): readonly GpuFlowVisiblePublicationPresentationBlockedReason[] {
@@ -304,7 +304,7 @@ function createGpuFlowVisiblePublicationTextureEvictionPresentationBlockedReason
     });
   }
   if (
-    textureEvictionEvidence.projectionSampleId !== publicationDecision.sample.id
+    textureEvictionEvidence.projectionSampleId !== reducerDecision.sample.id
   ) {
     reasons.push({
       actorId: null,
@@ -328,12 +328,12 @@ function createGpuFlowVisiblePublicationTextureEvictionPresentationBlockedReason
 function createGpuFlowVisiblePublicationCanvasPresentationBlockedReasons({
   canvasEvidence,
   committedFrame,
-  publicationDecision,
+  reducerDecision,
   visibleProjectionState,
 }: {
   readonly canvasEvidence: GpuFlowVisiblePublicationCanvasPresentationEvidence | null;
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): readonly GpuFlowVisiblePublicationPresentationBlockedReason[] {
   const reasons: GpuFlowVisiblePublicationPresentationBlockedReason[] = [];
@@ -352,7 +352,7 @@ function createGpuFlowVisiblePublicationCanvasPresentationBlockedReasons({
       reason: "canvas-generation-frame-mismatch",
     });
   }
-  if (canvasEvidence.projectionSampleId !== publicationDecision.sample.id) {
+  if (canvasEvidence.projectionSampleId !== reducerDecision.sample.id) {
     reasons.push({
       actorId: null,
       family: "presentation-pair",

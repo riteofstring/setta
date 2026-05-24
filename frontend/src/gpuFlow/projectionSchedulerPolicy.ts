@@ -178,7 +178,7 @@ export function isGpuFlowRetainedScrollSampleInteractionActive(
   );
 }
 
-export function isGpuFlowRetainedScrollPublicationDecision(
+export function isGpuFlowRetainedScrollReducerDecision(
   decision: GpuFlowVisibleFrameReducerDecisionLike,
 ): boolean {
   return (

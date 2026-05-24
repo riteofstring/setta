@@ -63,7 +63,7 @@ export type GpuFlowVisibleFrameBudgetBrokerDecision = {
 export type GpuFlowVisibleFrameBudgetBroker = {
   readonly selectFrameBudget: (input: {
     readonly deferResolutionUpdates: boolean;
-    readonly publicationDecision: Pick<
+    readonly reducerDecision: Pick<
       GpuFlowVisibleFrameReducerDecision,
       "debt" | "lane" | "schedulerState"
     >;
@@ -91,10 +91,10 @@ export function createGpuFlowVisibleFrameBudgetBroker({
   return Object.freeze({
     selectFrameBudget({
       deferResolutionUpdates,
-      publicationDecision,
+      reducerDecision,
       requestedDebt = createGpuFlowVisibleFrameBudgetDebtRequests({
         deferResolutionUpdates,
-        publicationDecision,
+        reducerDecision,
       }),
     }) {
       const agedDebt = ageGpuFlowVisibleFrameBudgetDebt({
@@ -102,8 +102,8 @@ export function createGpuFlowVisibleFrameBudgetBroker({
         requestedDebt,
       });
       const availableMs =
-        publicationDecision.schedulerState === "motion-active" ||
-        publicationDecision.lane === "motion"
+        reducerDecision.schedulerState === "motion-active" ||
+        reducerDecision.lane === "motion"
           ? normalizedPolicy.minPreparationBudgetDuringMotionMs
           : normalizedPolicy.perFramePreparationBudgetMs;
       const selected = selectGpuFlowVisibleFrameBudgetDebt({
@@ -177,12 +177,12 @@ export function createGpuFlowVisibleFrameBudgetBroker({
 export function createGpuFlowVisibleFrameBudgetBrokerDecision({
   budgetBroker = createGpuFlowVisibleFrameBudgetBroker(),
   deferResolutionUpdates,
-  publicationDecision,
+  reducerDecision,
   resourceGraphSnapshot = null,
 }: {
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly deferResolutionUpdates: boolean;
-  readonly publicationDecision: Pick<
+  readonly reducerDecision: Pick<
     GpuFlowVisibleFrameReducerDecision,
     "debt" | "lane" | "schedulerState"
   >;
@@ -193,10 +193,10 @@ export function createGpuFlowVisibleFrameBudgetBrokerDecision({
 }): GpuFlowVisibleFrameBudgetBrokerDecision {
   return budgetBroker.selectFrameBudget({
     deferResolutionUpdates,
-    publicationDecision,
+    reducerDecision,
     requestedDebt: createGpuFlowVisibleFrameBudgetDebtRequests({
       deferResolutionUpdates,
-      publicationDecision,
+      reducerDecision,
       resourceGraphSnapshot,
     }),
   });
@@ -266,11 +266,11 @@ type GpuFlowVisibleFrameAgedBudgetDebtRequest =
 
 function createGpuFlowVisibleFrameBudgetDebtRequests({
   deferResolutionUpdates,
-  publicationDecision,
+  reducerDecision,
   resourceGraphSnapshot = null,
 }: {
   readonly deferResolutionUpdates: boolean;
-  readonly publicationDecision: Pick<
+  readonly reducerDecision: Pick<
     GpuFlowVisibleFrameReducerDecision,
     "debt" | "lane" | "schedulerState"
   >;
@@ -287,7 +287,7 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
           snapshot: resourceGraphSnapshot,
         });
   if (
-    publicationDecision.lane === "content" &&
+    reducerDecision.lane === "content" &&
     !resourceGraphDebt.some(isGpuFlowVisibleFrameBrowserVisualRepairDebt)
   ) {
     debt.push({
@@ -299,7 +299,7 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
       source: "synthetic",
     });
   }
-  if (publicationDecision.debt.maintenance) {
+  if (reducerDecision.debt.maintenance) {
     debt.push({
       estimatedCostMs: 2,
       id: "maintenance-refinement",

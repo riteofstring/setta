@@ -13,7 +13,7 @@ describe("GPU Flow visible frame budget broker", () => {
   it("keeps browser visual repair eligible during motion-heavy frames", () => {
     const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
       deferResolutionUpdates: true,
-      publicationDecision: publicationDecision({
+      reducerDecision: reducerDecision({
         lane: "content",
         schedulerState: "motion-active",
       }),
@@ -31,7 +31,7 @@ describe("GPU Flow visible frame budget broker", () => {
     expect(
       shouldDeferGpuFlowBrowserVisualRepairForBudget({
         deferResolutionUpdates: true,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "content",
           schedulerState: "motion-active",
         }),
@@ -42,7 +42,7 @@ describe("GPU Flow visible frame budget broker", () => {
   it("does not synthesize browser visual repair debt for motion projection frames", () => {
     const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
       deferResolutionUpdates: false,
-      publicationDecision: {
+      reducerDecision: {
         debt: {
           content: true,
           maintenance: true,
@@ -75,7 +75,7 @@ describe("GPU Flow visible frame budget broker", () => {
 
     const decision = budgetBroker.selectFrameBudget({
       deferResolutionUpdates: false,
-      publicationDecision: publicationDecision({
+      reducerDecision: reducerDecision({
         lane: "content",
         schedulerState: "content-catchup",
       }),
@@ -127,7 +127,7 @@ describe("GPU Flow visible frame budget broker", () => {
 
     budgetBroker.selectFrameBudget({
       deferResolutionUpdates: false,
-      publicationDecision: publicationDecision({
+      reducerDecision: reducerDecision({
         lane: "content",
         schedulerState: "content-catchup",
       }),
@@ -135,7 +135,7 @@ describe("GPU Flow visible frame budget broker", () => {
     });
     const secondDecision = budgetBroker.selectFrameBudget({
       deferResolutionUpdates: false,
-      publicationDecision: publicationDecision({
+      reducerDecision: reducerDecision({
         lane: "content",
         schedulerState: "content-catchup",
       }),
@@ -162,7 +162,7 @@ describe("GPU Flow visible frame budget broker", () => {
     expect(() =>
       budgetBroker.selectFrameBudget({
         deferResolutionUpdates: false,
-        publicationDecision: publicationDecision({
+        reducerDecision: reducerDecision({
           lane: "motion",
           schedulerState: "motion-active",
         }),
@@ -196,7 +196,7 @@ describe("GPU Flow visible frame budget broker", () => {
 
     const decision = budgetBroker.selectFrameBudget({
       deferResolutionUpdates: false,
-      publicationDecision: publicationDecision({
+      reducerDecision: reducerDecision({
         lane: "content",
         schedulerState: "content-catchup",
       }),
@@ -247,7 +247,7 @@ describe("GPU Flow visible frame budget broker", () => {
 
     const decision = budgetBroker.selectFrameBudget({
       deferResolutionUpdates: false,
-      publicationDecision: publicationDecision({
+      reducerDecision: reducerDecision({
         lane: "content",
         schedulerState: "motion-active",
       }),
@@ -344,7 +344,7 @@ describe("GPU Flow visible frame budget broker", () => {
 
     const decision = budgetBroker.selectFrameBudget({
       deferResolutionUpdates: false,
-      publicationDecision: publicationDecision({
+      reducerDecision: reducerDecision({
         lane: "motion",
         schedulerState: "motion-active",
       }),
@@ -365,7 +365,7 @@ describe("GPU Flow visible frame budget broker", () => {
   it("includes resource graph debt in frame-context budget decisions", () => {
     const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
       deferResolutionUpdates: false,
-      publicationDecision: publicationDecision({
+      reducerDecision: reducerDecision({
         lane: "motion",
         schedulerState: "motion-active",
       }),
@@ -573,7 +573,7 @@ describe("GPU Flow visible frame budget broker", () => {
   it("maps selected synthetic browser-visual repair to newly queued resource work", () => {
     const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
       deferResolutionUpdates: false,
-      publicationDecision: publicationDecision({
+      reducerDecision: reducerDecision({
         lane: "content",
         schedulerState: "content-catchup",
       }),
@@ -621,7 +621,7 @@ describe("GPU Flow visible frame budget broker", () => {
   it("uses concrete browser-visual resource debt instead of synthetic repair placeholders", () => {
     const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
       deferResolutionUpdates: false,
-      publicationDecision: publicationDecision({
+      reducerDecision: reducerDecision({
         lane: "content",
         schedulerState: "content-catchup",
       }),
@@ -678,7 +678,7 @@ describe("GPU Flow visible frame budget broker", () => {
   });
 });
 
-function publicationDecision({
+function reducerDecision({
   lane,
   schedulerState,
 }: {

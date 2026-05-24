@@ -23,16 +23,16 @@ const blockedPublicationDebtBySurface = new WeakMap<
 
 export function recordGpuFlowBlockedPublicationGuard({
   outcome,
-  publicationDecision,
+  reducerDecision,
   surface,
 }: {
   readonly outcome: GpuFlowVisiblePublicationCompletionOutcome;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly surface: GpuSurfaceHandle | null;
 }): void {
   assertGpuFlowBlockedPublicationGuardOutcomeToken({
     outcome,
-    publicationDecision,
+    reducerDecision,
   });
   if (!surface) {
     return;
@@ -51,7 +51,7 @@ export function recordGpuFlowBlockedPublicationGuard({
           key,
         }
       : {
-          firstBlockedAtMs: publicationDecision.sample.timestamp,
+          firstBlockedAtMs: reducerDecision.sample.timestamp,
           frameCount: 1,
           key,
         };
@@ -61,7 +61,7 @@ export function recordGpuFlowBlockedPublicationGuard({
     isGpuFlowBlockedPublicationBudgetExceeded({
       ageMs: Math.max(
         0,
-        publicationDecision.sample.timestamp - debt.firstBlockedAtMs,
+        reducerDecision.sample.timestamp - debt.firstBlockedAtMs,
       ),
       frameCount: debt.frameCount,
     })
@@ -80,12 +80,12 @@ export function recordGpuFlowBlockedPublicationGuard({
 
 function assertGpuFlowBlockedPublicationGuardOutcomeToken({
   outcome,
-  publicationDecision,
+  reducerDecision,
 }: {
   readonly outcome: GpuFlowVisiblePublicationCompletionOutcome;
-  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): void {
-  const projectionSampleId = publicationDecision.sample.id;
+  const projectionSampleId = reducerDecision.sample.id;
   switch (outcome.kind) {
     case "present":
       assertGpuFlowVisibleFramePresentationTokenForProjectionSample({

@@ -14,14 +14,14 @@ describe("GPU Flow visible publication outcome guard", () => {
     const surface = surfaceHandle();
     assertGpuFlowSingleVisiblePublicationOutcome({
       outcome: holdOutcome(1),
-      publicationDecision: publicationDecision(1),
+      reducerDecision: reducerDecision(1),
       surface,
     });
 
     expect(() =>
       assertGpuFlowSingleVisiblePublicationOutcome({
         outcome: holdOutcome(1),
-        publicationDecision: publicationDecision(1),
+        reducerDecision: reducerDecision(1),
         surface,
       }),
     ).toThrow(/already completed an outcome/);
@@ -31,28 +31,28 @@ describe("GPU Flow visible publication outcome guard", () => {
     const surface = surfaceHandle();
     assertGpuFlowSingleVisiblePublicationOutcome({
       outcome: holdOutcome(1),
-      publicationDecision: publicationDecision(1),
+      reducerDecision: reducerDecision(1),
       surface,
     });
 
     expect(() =>
       assertGpuFlowSingleVisiblePublicationOutcome({
         outcome: holdOutcome(1),
-        publicationDecision: publicationDecision(1),
+        reducerDecision: reducerDecision(1),
         surface: surfaceHandle(),
       }),
     ).not.toThrow();
     expect(() =>
       assertGpuFlowSingleVisiblePublicationOutcome({
         outcome: holdOutcome(2),
-        publicationDecision: publicationDecision(2),
+        reducerDecision: reducerDecision(2),
         surface,
       }),
     ).not.toThrow();
   });
 });
 
-function publicationDecision(
+function reducerDecision(
   sampleId: number,
 ): GpuFlowVisibleFrameReducerDecision {
   return {
