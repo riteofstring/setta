@@ -21,6 +21,9 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
 const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresenter.ts", import.meta.url),
 );
+const SURFACE_PUBLICATION_DEBT_REQUESTS_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFramePresenterDebtRequests.ts", import.meta.url),
+);
 const SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfacePublicationDebtFrame.ts", import.meta.url),
 );
@@ -48,8 +51,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "selectGpuFlowVisibleFramePublicationTransaction({",
       "prepareGpuFlowVisibleFramePublicationCandidateSet({",
       "proveGpuFlowVisibleFramePublicationCandidateSet({",
-      "decideGpuFlowVisibleFramePublicationOutcome({",
-      "proveGpuFlowVisibleFramePublicationPresentation",
+      "reduceGpuFlowVisibleFramePublicationTransaction({",
       "publishGpuFlowVisibleFramePublicationOutcome({",
     ]);
     expect(runSource).not.toContain("createGpuFlowVisibleFrameStateMachine({");
@@ -79,7 +81,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationTransactionProofFactory[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
     );
     expect(source).toContain(
-      "function decideGpuFlowVisibleFramePublicationOutcome",
+      "function reduceGpuFlowVisibleFramePublicationTransaction",
     );
     expect(source).toContain('from "./visibleFramePresentationProofs"');
     expect(authoritySource).toContain(
@@ -207,12 +209,16 @@ describe("GPU Flow visible frame coordinator phases", () => {
       SURFACE_PUBLICATION_COMPLETION_MODULE_PATH,
       "utf8",
     );
+    const debtRequestsSource = readFileSync(
+      SURFACE_PUBLICATION_DEBT_REQUESTS_MODULE_PATH,
+      "utf8",
+    );
 
     expect(existsSync(SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH)).toBe(false);
-    expect(completionSource).toContain(
+    expect(debtRequestsSource).toContain(
       "function scheduleDelayedGpuFlowPublicationDebtFrame",
     );
-    expect(completionSource).not.toContain(
+    expect(debtRequestsSource).not.toContain(
       "export function scheduleDelayedGpuFlowPublicationDebtFrame",
     );
     expect(completionSource).not.toContain("flowSurfacePublicationDebtFrame");

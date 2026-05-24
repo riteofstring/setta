@@ -183,17 +183,13 @@ type GpuFlowVisibleFrameCoordinatorInput<
   readonly scheduler: GpuFlowVisiblePublicationScheduler;
 };
 
-type GpuFlowVisibleFramePublicationOutcomeDecision<
+type GpuFlowVisibleFrameReducedPublicationTransaction<
   PreparedFrame extends GpuFlowVisibleFramePublicationPreparedFrame & {
     readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
   },
-> = {
-  readonly blockedPublicationProof: GpuFlowVisiblePublicationBlockedProof | null;
+> = GpuFlowVisibleFrameCoordinatorResult<PreparedFrame> & {
   readonly preparedFrame: PreparedFrame;
-  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly scheduler: GpuFlowVisiblePublicationScheduler;
-  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 };
 
 export function runGpuFlowVisibleFrameCoordinator<
@@ -256,32 +252,11 @@ export function runGpuFlowVisibleFrameCoordinator<
     previousVisibleProjectionState,
     publicationDecision,
   });
-  const outcomeDecision = decideGpuFlowVisibleFramePublicationOutcome({
+  const transaction = reduceGpuFlowVisibleFramePublicationTransaction({
     preparedFrame,
     previousVisibleProjectionState,
     publicationDecision,
     scheduler,
-  });
-  const transactionCompletion = proveGpuFlowVisibleFramePublicationPresentation(
-    {
-      blockedPublicationProof: outcomeDecision.blockedPublicationProof,
-      forceImmediatePublicationDebtFrame:
-        outcomeDecision.preparedFrame.contentPublicationFrame
-          .forceImmediatePublicationDebtFrame ?? false,
-      followUpFrameReason:
-        outcomeDecision.preparedFrame.contentPublicationFrame
-          .retainedDisplayFollowUpFrameReason ?? null,
-      previousVisibleProjectionState:
-        outcomeDecision.previousVisibleProjectionState,
-      publicationDecision: outcomeDecision.publicationDecision,
-      scheduler: outcomeDecision.scheduler,
-      transactionProof: outcomeDecision.transactionProof,
-    },
-  );
-  const transaction = Object.freeze({
-    ...transactionCompletion,
-    preparedFrame: outcomeDecision.preparedFrame,
-    publicationDecision: outcomeDecision.publicationDecision,
   });
   return publishGpuFlowVisibleFramePublicationOutcome({
     publish,
@@ -650,7 +625,7 @@ function shouldDeferGpuFlowResolutionUpdatesForFrame({
   );
 }
 
-function decideGpuFlowVisibleFramePublicationOutcome<
+function reduceGpuFlowVisibleFramePublicationTransaction<
   PreparedFrame extends GpuFlowVisibleFramePublicationPreparedFrame & {
     readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
   },
@@ -664,14 +639,26 @@ function decideGpuFlowVisibleFramePublicationOutcome<
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly scheduler: GpuFlowVisiblePublicationScheduler;
-}): GpuFlowVisibleFramePublicationOutcomeDecision<PreparedFrame> {
+}): GpuFlowVisibleFrameReducedPublicationTransaction<PreparedFrame> {
+  const transactionCompletion = proveGpuFlowVisibleFramePublicationPresentation(
+    {
+      blockedPublicationProof: preparedFrame.transactionProof.blockedProof,
+      forceImmediatePublicationDebtFrame:
+        preparedFrame.contentPublicationFrame
+          .forceImmediatePublicationDebtFrame ?? false,
+      followUpFrameReason:
+        preparedFrame.contentPublicationFrame
+          .retainedDisplayFollowUpFrameReason ?? null,
+      previousVisibleProjectionState,
+      publicationDecision,
+      scheduler,
+      transactionProof: preparedFrame.transactionProof,
+    },
+  );
   return Object.freeze({
-    blockedPublicationProof: preparedFrame.transactionProof.blockedProof,
+    ...transactionCompletion,
     preparedFrame,
-    previousVisibleProjectionState,
     publicationDecision,
-    scheduler,
-    transactionProof: preparedFrame.transactionProof,
   });
 }
 
