@@ -499,6 +499,32 @@ describe("GPU Flow committed surface frame", () => {
     );
   });
 
+  it("blocks committed publication when retained coverage still has true holes", () => {
+    const retainedRuntimeFrame = createRuntimeFrame({ frameId: 19 });
+    const retainedSurfaceId = "dict-a:param-content:unpinned";
+    const frame = createGpuFlowCommittedSurfaceFrame({
+      browserVisualReadiness:
+        createReadyBrowserVisualReadiness(retainedRuntimeFrame),
+      retainedDisplayFrame: fakeRetainedDisplayFrame({
+        id: 19,
+        retainedRuntimeFrame,
+        trueHoleSurfaceIds: [retainedSurfaceId],
+      }),
+    });
+
+    expect(frame.publishability).toEqual(
+      expect.objectContaining({
+        actorFamily: "retained-page",
+        actorIds: [retainedSurfaceId],
+        kind: "true-hole",
+        reason: "retained-surface-true-hole",
+        status: "blocked",
+      }),
+    );
+    expect(frame.surfaceTransaction).toBeNull();
+    expect(frame.presentationProof.surfaceTransactionDigest).toBeNull();
+  });
+
   it("protects exact snapshot DOM-control textures by evictable surface id", () => {
     const retainedRuntimeFrame = withDomControlSnapshotPolicy(
       createRuntimeFrame({ frameId: 18 }),
@@ -789,11 +815,19 @@ function fakeRetainedDisplayFrame({
   id,
   publishedAtMs = id,
   retainedRuntimeFrame,
+  trueHoleSurfaceIds = [],
 }: {
   readonly id: number;
   readonly publishedAtMs?: number | undefined;
   readonly retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>;
+  readonly trueHoleSurfaceIds?: readonly string[] | undefined;
 }): RetainedDisplayFrame {
+  const trueHoleRects = trueHoleSurfaceIds.map((_, index) => ({
+    height: 8,
+    width: 8,
+    x: index * 8,
+    y: 0,
+  }));
   return {
     diagnostics: {
       publishedAtMs,
@@ -809,8 +843,10 @@ function fakeRetainedDisplayFrame({
         mode: "none",
       },
       coverageProof: {
-        blockingGenerationIds: [],
-        blockingSurfaceIds: [],
+        blockingGenerationIds: trueHoleSurfaceIds.map(
+          (surfaceId) => `${surfaceId}:missing-generation`,
+        ),
+        blockingSurfaceIds: trueHoleSurfaceIds,
         compatibilityProof: {
           compatibleForActiveDomIsland: true,
           compatibleForClipChain: true,
@@ -824,7 +860,7 @@ function fakeRetainedDisplayFrame({
         exactCoverage: [],
         protectedResourceHandles: [],
         rendererBuckets: [],
-        trueHoleRects: [],
+        trueHoleRects,
         visibleRects: [],
         zOrder: [],
       },

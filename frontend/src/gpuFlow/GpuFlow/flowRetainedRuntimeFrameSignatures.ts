@@ -4,6 +4,8 @@ export function createGpuFlowRetainedRuntimeFrameSourceRenderSignature(
   frame: GpuRetainedRuntimeFrame,
 ): string {
   return JSON.stringify({
+    // Retained scroll offsets are applied by projection; source render work only
+    // changes when the host identity, geometry, or value styling changes.
     domControlSources: frame.descriptors.domControlSources.map((source) => ({
       active: source.active,
       activation: source.activation
@@ -17,7 +19,6 @@ export function createGpuFlowRetainedRuntimeFrameSourceRenderSignature(
       geometryRevision: source.geometryRevision,
       layerSlot: source.layerSlot,
       lifecycleState: source.lifecycleState,
-      sectionScrollRevision: source.sectionScrollRevision,
       sourceId: source.sourceId,
       sourceKey: source.sourceKey,
       valueStyleRevision: source.valueStyleRevision,

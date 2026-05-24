@@ -19,6 +19,7 @@ import {
   resolvePanZoomCappedMaxFrameBudget,
   resolvePanZoomCappedP95FrameBudget,
 } from "./settings-retained-pan-zoom-budget-helpers";
+import { waitForRetainedCompositorCoherentVisibleFrame } from "./settings-retained-compositor-helpers";
 import {
   activateRetainedEditor,
   readActiveEditorText,
@@ -64,10 +65,10 @@ test("active retained text editor stays aligned and editable during zoom", async
   await centerRetainedSurface(page, TEXT_ROW_TARGET.surfaceId);
   await scrollRetainedSurfaceToTop(page, TEXT_ROW_TARGET.surfaceId);
   const row = await scrollRetainedSurfaceUntilRowVisible(page);
+  await waitForRetainedCompositorCoherentVisibleFrame(page);
   if (!row.controlClientPoint || !row.controlClientRect) {
     throw new Error(`Missing retained control geometry for ${row.rowId}.`);
   }
-
   const beforeGeometry = await activateRetainedEditor(page, row);
   const zoomPoint = await resolveCanvasGesturePoint(page);
   const beforeViewport = await readViewportSample(page);
@@ -526,6 +527,7 @@ async function openAllSettings(page: Page): Promise<void> {
   await expect
     .poll(() => readGpuFlowNodeLayerFrameCount(page), { timeout: 10_000 })
     .toBeGreaterThan(0);
+  await waitForRetainedCompositorCoherentVisibleFrame(page);
   await waitForAnimationFrame(page);
 }
 
@@ -1123,6 +1125,7 @@ async function resolveVisibleTargetRow(
           row.surfaceId === target.surfaceId &&
           row.rowId === target.rowId &&
           row.controlKind === "text-like" &&
+          row.rowState?.disabled !== true &&
           row.controlClientPoint !== null &&
           row.controlClientRect !== null &&
           row.canvasSamplePoint.x >= 0 &&

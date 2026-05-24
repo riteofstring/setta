@@ -4,6 +4,7 @@ import type {
   GpuFlowContentFramePublishability,
   GpuFlowProjectionHorizon,
 } from "./committedSurfaceFrame";
+import type { RetainedDisplayFrame } from "./retainedDisplayFrame";
 
 type GpuFlowProjectionHorizonSurfaceEntry = {
   actorCount: number;
@@ -17,11 +18,13 @@ const GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX = 720;
 export function createGpuFlowContentFramePublishability({
   actorGenerations,
   displayCompleteness,
+  retainedSurfaceTrueHoleActorIds = [],
   startup,
   transactionOutcome,
 }: {
   readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
   readonly displayCompleteness: GpuFlowCommittedSurfaceCompleteness;
+  readonly retainedSurfaceTrueHoleActorIds?: readonly string[] | undefined;
   readonly startup: boolean;
   readonly transactionOutcome: string;
 }): GpuFlowContentFramePublishability {
@@ -34,9 +37,11 @@ export function createGpuFlowContentFramePublishability({
     )
     .map((actor) => actor.actorId)
     .sort();
+  const hasRetainedSurfaceTrueHole =
+    retainedSurfaceTrueHoleActorIds.length > 0;
   const status: GpuFlowContentFramePublishability["status"] = startup
     ? "startup"
-    : displayCompleteness.status === "complete"
+    : displayCompleteness.status === "complete" && !hasRetainedSurfaceTrueHole
       ? "publishable"
       : "blocked";
   const base = {
@@ -60,6 +65,15 @@ export function createGpuFlowContentFramePublishability({
       actorIds: Object.freeze(visibleNonemptyTextTrueHoleActorIds),
       kind: "true-hole",
       reason: "text-actor-true-hole",
+    });
+  }
+  if (retainedSurfaceTrueHoleActorIds.length > 0) {
+    return Object.freeze({
+      ...base,
+      actorFamily: "retained-page",
+      actorIds: Object.freeze([...retainedSurfaceTrueHoleActorIds].sort()),
+      kind: "true-hole",
+      reason: "retained-surface-true-hole",
     });
   }
   if (displayCompleteness.blockingActorIds.length > 0) {
@@ -91,6 +105,26 @@ export function assertGpuFlowContentFramePublishability(
       "GPU Flow committed surface frame has stale content publishability.",
     );
   }
+}
+
+export function createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds(
+  retainedDisplayFrame: RetainedDisplayFrame | null,
+): readonly string[] {
+  if (
+    retainedDisplayFrame === null ||
+    retainedDisplayFrame.surfaceTransaction.coverageProof.trueHoleRects
+      .length === 0
+  ) {
+    return Object.freeze([]);
+  }
+  return Object.freeze(
+    [
+      ...new Set(
+        retainedDisplayFrame.surfaceTransaction.coverageProof
+          .blockingSurfaceIds,
+      ),
+    ].sort(),
+  );
 }
 
 export function createGpuFlowProjectionHorizon({

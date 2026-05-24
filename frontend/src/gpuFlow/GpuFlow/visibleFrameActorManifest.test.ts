@@ -7,7 +7,13 @@ import {
 } from "../committedSurfaceFrame";
 import { createSectionStructureActors } from "../committedSurfaceSectionActors";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
-import { createGpuFlowVisibleFrameActorManifest } from "./visibleFrameActorManifest";
+import {
+  createGpuFlowVisibleFrameActorManifest,
+  createGpuFlowVisibleFrameActorProofsForManifest,
+} from "./visibleFrameActorManifest";
+import {
+  createGpuFlowContentFrameId,
+} from "./visibleFrameTypes";
 
 describe("GPU Flow visible frame actor manifest", () => {
   it("blocks missing section structure actors required by the retained scene", () => {
@@ -90,7 +96,103 @@ describe("GPU Flow visible frame actor manifest", () => {
       },
     ]);
   });
+
+  it("treats passive live DOM budget misses as maintenance beside an active editor", () => {
+    const activeEditor = textActor({
+      active: true,
+      actorId: "active-editor",
+      generationId: "active-generation",
+      projectionCoverage: "exact-live-dom",
+    });
+    const passiveBudgetMiss = textActor({
+      active: false,
+      actorId: "passive-live-dom",
+      generationId: "passive-generation",
+      projectionCoverage: "blocked-awaiting-live-host",
+      readinessReason: "live-dom-budget",
+    });
+    const frame = committedSurfaceFrame({
+      actorGenerations: [activeEditor, passiveBudgetMiss],
+      retainedRuntimeFrame: retainedRuntimeFrame(),
+    });
+
+    const manifest = createGpuFlowVisibleFrameActorManifest({ frame });
+    const proofs = createGpuFlowVisibleFrameActorProofsForManifest({
+      contentFrameId: createGpuFlowContentFrameId("content-a"),
+      frame,
+      manifest,
+      projectionSampleId: "projection-a",
+    });
+
+    expect(
+      manifest.entries.find((entry) => entry.actorId === "passive-live-dom")
+        ?.requirement,
+    ).toBe("maintenance");
+    expect(manifest.requiredActors).toContainEqual({
+      actorId: "active-editor",
+      family: "active-editor",
+    });
+    expect(manifest.requiredActors).not.toContainEqual({
+      actorId: "passive-live-dom",
+      family: "browser-text-control",
+    });
+    expect(
+      proofs.find((proof) => proof.actorId === "passive-live-dom"),
+    ).toMatchObject({
+      family: "browser-text-control",
+      proof: "blocked",
+      reason: "live-dom-budget",
+      requirement: "maintenance",
+    });
+  });
 });
+
+function textActor({
+  active,
+  actorId,
+  generationId,
+  projectionCoverage,
+  readinessReason,
+}: {
+  readonly active: boolean;
+  readonly actorId: string;
+  readonly generationId: string;
+  readonly projectionCoverage:
+    | "blocked-awaiting-live-host"
+    | "exact-live-dom";
+  readonly readinessReason?: "live-dom-budget" | undefined;
+}): GpuFlowCommittedSurfaceActorGeneration {
+  return {
+    active,
+    actorFamily: "text-like-dom-control",
+    actorId,
+    browserVisual: {
+      coverageRequired: {
+        reason: active ? "active-editor" : "visible",
+        required: true,
+      },
+      representationKind: active ? "active-editor" : "live-dom",
+      resourceHandles: [],
+    },
+    clipChainRevision: "clip",
+    clipRect: rect(0, 0, 20, 10),
+    contentGenerationId: `${generationId}:content`,
+    flowRect: rect(0, 0, 20, 10),
+    generationId,
+    kind: "dom-control",
+    layoutProjectionGenerationId: `${generationId}:projection`,
+    mountReadiness:
+      projectionCoverage === "exact-live-dom" ? "ready" : "blocked",
+    readinessGenerationId: `${generationId}:readiness`,
+    sourceRect: rect(0, 0, 20, 10),
+    textCoverageProof:
+      projectionCoverage === "exact-live-dom"
+        ? { projectionCoverage }
+        : { projectionCoverage, readinessReason },
+    visibleNonempty: true,
+    zOrder: 1,
+  } as unknown as GpuFlowCommittedSurfaceActorGeneration;
+}
 
 function committedSurfaceFrame({
   actorGenerations,

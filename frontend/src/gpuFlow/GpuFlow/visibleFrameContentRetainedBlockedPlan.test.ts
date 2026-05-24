@@ -110,6 +110,78 @@ describe("GPU Flow retained display candidate content plans", () => {
       }),
     );
   });
+
+  it("reports retained true-hole blockers without publishing a surface transaction", () => {
+    const retainedFrame = {} as RetainedDisplayFrame;
+    const committedFrame = retainedTrueHoleCommittedSurfaceFrame();
+    const result = runGpuFlowRetainedCommittedSurfacePublicationContentStage<
+      Record<string, never>,
+      never
+    >({
+      contentDecisionKernel,
+      deferBrowserVisualWakeup: false,
+      deferResolutionUpdates: false,
+      frameReasons: ["texture-upload"],
+      liveProjectionSample: {
+        id: 17,
+        timestamp: 24,
+      } as Parameters<
+        typeof runGpuFlowRetainedCommittedSurfacePublicationContentStage
+      >[0]["liveProjectionSample"],
+      onCommittedSurfaceCandidateAccepted: () => {
+        throw new Error("Blocked retained true-hole candidates must not publish.");
+      },
+      onRetainedDisplayCandidateAccepted: () => ({
+        committedGpuNativeVisuals: undefined,
+        context: {},
+      }),
+      prepareCommittedSurfaceFrame: () => committedFrame,
+      prepareCommittedSurfacePublicationFramePlan:
+        createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
+          contentDecisionKernel,
+        }),
+      prepareRetainedDisplayPublicationFramePlan:
+        createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
+          contentDecisionKernel,
+          previousVisibleProjectionState: null,
+          prepareRetainedDisplayPublicationCandidate: () => ({
+            prePublishRetainedPageMaintenance: null,
+            retainedDisplayOutcome: {
+              frame: retainedFrame,
+              kind: "publish-exact",
+            },
+            retainedDisplayTransactionMs: 0,
+            retainedPageMaintenanceMs: 0,
+            retainedPagePreparedFrame:
+              {} as RetainedContentTexturePagePreparedFrame,
+          }),
+        }),
+      previousVisibleProjectionState: null,
+      publicationLane: "content",
+      retainedDisplayPublicationInput: retainedDisplayPublicationInputFixture(),
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        blockedPreparedCommittedSurfaceFrame: committedFrame,
+        blockedPreparedCommittedSurfaceFrameResourceWork:
+          expect.objectContaining({
+            workItems: [],
+          }),
+        blockedPublicationCandidate: {
+          blockedReasons: [
+            {
+              actorId: "retained-surface-a",
+              family: "retained-projection",
+              reason: "retained-surface-true-hole",
+            },
+          ],
+          frozenFrameId: "cold-start-shell:retained-projection",
+        },
+        rendered: false,
+      }),
+    );
+  });
 });
 
 function retainedDisplayPublicationInputFixture({
@@ -156,6 +228,25 @@ function trueHoleCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
       textActorExactCoverageCount: 0,
       transactionOutcome: "publish-exact",
       visibleNonemptyTextActorCount: 1,
+    },
+  } as unknown as GpuFlowCommittedSurfaceFrame;
+}
+
+function retainedTrueHoleCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+  return {
+    actorGenerations: [],
+    displayFrameId: 13,
+    publishability: {
+      actorFamily: "retained-page",
+      actorIds: ["retained-surface-a"],
+      blockingActorIds: [],
+      kind: "true-hole",
+      reason: "retained-surface-true-hole",
+      status: "blocked",
+      textActorCount: 0,
+      textActorExactCoverageCount: 0,
+      transactionOutcome: "publish-exact",
+      visibleNonemptyTextActorCount: 0,
     },
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }

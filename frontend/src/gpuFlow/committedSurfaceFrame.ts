@@ -13,6 +13,7 @@ import {
 } from "./committedSurfaceCompleteness";
 import {
   createGpuFlowContentFramePublishability,
+  createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds,
   createGpuFlowProjectionHorizon,
   isGpuFlowCommittedTextActor,
 } from "./committedSurfaceFrameProjection";
@@ -259,8 +260,8 @@ export type GpuFlowCommittedSurfaceCompleteness = {
   readonly status: "blocked" | "complete" | "startup";
   readonly visibleNonemptyDomControlCount: number;
 };
-
 type GpuFlowCoverageBlockReason =
+  | "retained-surface-true-hole"
   | "text-actor-true-hole"
   | "visible-dom-control-not-projected";
 
@@ -286,10 +287,10 @@ export type GpuFlowContentFramePublishability =
       readonly reason: GpuFlowCoverageBlockReason;
     })
   | (GpuFlowContentFramePublishabilityBase & {
-      readonly actorFamily: "text-like-dom-control";
+      readonly actorFamily: "retained-page" | "text-like-dom-control";
       readonly actorIds: readonly string[];
       readonly kind: "true-hole";
-      readonly reason: "text-actor-true-hole";
+      readonly reason: "retained-surface-true-hole" | "text-actor-true-hole";
     });
 
 export type GpuFlowProjectionHorizon = {
@@ -531,6 +532,8 @@ function freezeCommittedSurfaceFrame({
   const publishability = createGpuFlowContentFramePublishability({
     actorGenerations,
     displayCompleteness,
+    retainedSurfaceTrueHoleActorIds:
+      createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds(retainedDisplayFrame),
     startup: retainedDisplayFrame === null,
     transactionOutcome,
   });

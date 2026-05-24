@@ -114,6 +114,7 @@ export function GpuFlowDomControlPlane({
   const fallbackRuntimeRef = useRef<GpuFlowBrowserVisualActorRuntime | null>(
     null,
   );
+  const preparationFrameRequestKeyRef = useRef<string>("");
   const projectedFrameRequestKeyRef = useRef<string>("");
   const browserVisualRuntime = useMemo(() => {
     if (committedSurfaceRuntime) {
@@ -155,6 +156,10 @@ export function GpuFlowDomControlPlane({
         }),
       ),
     [preparationSnapshot, snapshot.domControls.controlById, visibleControlIds],
+  );
+  const activePreparationControlsToMount = useMemo(
+    () => preparationControlsToMount.filter((control) => control.active),
+    [preparationControlsToMount],
   );
   const assignmentsToMount = snapshot.domControls.assignments;
   const assignmentByControlId = useMemo(
@@ -293,6 +298,35 @@ export function GpuFlowDomControlPlane({
     activeControlsToMount.length,
     frameIds,
     snapshot.domControls.sourceRevision,
+    surfaceRef,
+  ]);
+
+  useLayoutEffect(() => {
+    const preparationFrameIds = preparationSnapshot.frameIds;
+    if (
+      activePreparationControlsToMount.length === 0 ||
+      (preparationFrameIds.committedFrameId === frameIds.committedFrameId &&
+        preparationFrameIds.runtimeFrameId === frameIds.runtimeFrameId)
+    ) {
+      return;
+    }
+    const preparationFrameKey = [
+      preparationFrameIds.committedFrameId,
+      preparationFrameIds.runtimeFrameId,
+      activePreparationControlsToMount.length,
+      preparationSnapshot.domControls.sourceRevision,
+    ].join(":");
+    if (preparationFrameRequestKeyRef.current === preparationFrameKey) {
+      return;
+    }
+    preparationFrameRequestKeyRef.current = preparationFrameKey;
+    surfaceRef?.current?.requestFrame("dom-control-activation");
+  }, [
+    activePreparationControlsToMount.length,
+    frameIds.committedFrameId,
+    frameIds.runtimeFrameId,
+    preparationSnapshot.domControls.sourceRevision,
+    preparationSnapshot.frameIds,
     surfaceRef,
   ]);
 

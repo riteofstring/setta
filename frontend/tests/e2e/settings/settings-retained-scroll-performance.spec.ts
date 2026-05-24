@@ -5,7 +5,10 @@ import {
   readGpuFlowPerformanceSnapshot,
   resetGpuFlowPerformanceProbe,
 } from "../gpuFlowPerformanceProbe";
-import { ensureAppReady } from "../helpers";
+import {
+  centerRetainedCompositorSurface,
+  openAllSettingsForRetainedCompositor,
+} from "./settings-retained-compositor-helpers";
 import { measurePageRafCadence } from "./settings-retained-frame-helpers";
 import {
   formatScrollPerformanceDetails,
@@ -19,9 +22,6 @@ import {
   type ScrollTarget,
 } from "./settings-retained-scroll-performance-helpers";
 
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
-const READY_SELECTOR = ".setta-gpu-flow__pane";
 const SETTINGS_PARAM_CONTENT_SUFFIX = ":param-content:unpinned";
 const SETTINGS_SCROLL_TEST_SURFACE_ID = `settings-section__shortcuts${SETTINGS_PARAM_CONTENT_SUFFIX}`;
 const RETAINED_SCROLLBAR_TEXTURE_SUFFIX = ":scrollbar";
@@ -37,23 +37,8 @@ test("all-settings retained section wheel scrolling does not refill the texture 
   page,
 }, testInfo) => {
   await installGpuFlowPerformanceProbe(page);
-  await ensureAppReady(page);
-  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-
-  const allSettingsTab = page.getByRole("button", {
-    exact: true,
-    name: "All Settings",
-  });
-  await expect(allSettingsTab).toBeVisible();
-  await allSettingsTab.click();
-  await page.waitForFunction(
-    () => document.querySelectorAll(".setta-gpu-flow__node").length > 30,
-  );
-  await expect
-    .poll(() => readRetainedRowCount(page), { timeout: 10_000 })
-    .toBeGreaterThan(50);
-  await centerSettingsRetainedSurfaceForScrollTest(
+  await openAllSettingsForRetainedCompositor(page);
+  await centerRetainedCompositorSurface(
     page,
     SETTINGS_SCROLL_TEST_SURFACE_ID,
   );
@@ -305,81 +290,6 @@ async function drainPendingGpuTextureUploads(page: Page): Promise<void> {
     }
   }
   await waitForGpuTextureUploadQuiet(page);
-}
-
-async function readRetainedRowCount(page: Page): Promise<number> {
-  return await page.evaluate(
-    () => window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
-  );
-}
-
-async function centerSettingsRetainedSurfaceForScrollTest(
-  page: Page,
-  surfaceId: string,
-): Promise<void> {
-  await page.evaluate(async (targetSurfaceId) => {
-    type RetainedRow = {
-      readonly canvasCssSize: {
-        readonly height: number;
-        readonly width: number;
-      };
-      readonly clientRect: {
-        readonly height: number;
-        readonly width: number;
-        readonly x: number;
-        readonly y: number;
-      };
-      readonly surfaceId: string;
-    };
-    const pane = document.querySelector<HTMLElement>(".setta-gpu-flow__pane");
-    const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
-    const transform = snapshot?.viewport.transform;
-    const rows = (
-      window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []
-    ).filter(
-      (row): row is RetainedRow =>
-        (row as RetainedRow).surfaceId === targetSurfaceId,
-    );
-    const firstRow = rows[0];
-    if (!pane || !transform || !firstRow) {
-      throw new Error(
-        `Missing retained scroll setup data for ${targetSurfaceId}.`,
-      );
-    }
-    const paneRect = pane.getBoundingClientRect();
-    const minClientX = Math.min(...rows.map((row) => row.clientRect.x));
-    const minClientY = Math.min(...rows.map((row) => row.clientRect.y));
-    const maxClientY = Math.max(
-      ...rows.map((row) => row.clientRect.y + row.clientRect.height),
-    );
-    const flowLeft =
-      (minClientX - paneRect.left - transform.x) / transform.zoom;
-    const flowTop = (minClientY - paneRect.top - transform.y) / transform.zoom;
-    const visibleFlowHeight = Math.max(
-      firstRow.canvasCssSize.height,
-      (maxClientY - minClientY) / transform.zoom,
-    );
-    const flowCenter = {
-      x: flowLeft + firstRow.canvasCssSize.width / 2,
-      y: flowTop + visibleFlowHeight / 2,
-    };
-    const zoom = 1;
-    const { gpuFlowViewportStore } = await import(
-      "/src/gpuFlow/viewportStore.ts"
-    );
-    const viewportStore = gpuFlowViewportStore.getState();
-    viewportStore.setTransform({
-      x: paneRect.width * 0.5 - flowCenter.x * zoom,
-      y: paneRect.height * 0.48 - flowCenter.y * zoom,
-      zoom,
-    });
-    viewportStore.setFitViewInitializationState({
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-      fitViewOnInitOptions: undefined,
-    });
-    window.settaGpuFlowZoom = zoom;
-  }, surfaceId);
 }
 
 async function readRetainedSurfaceVisibleCssArea(

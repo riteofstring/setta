@@ -11,6 +11,7 @@ import type {
 } from "./committedSurfaceFrame";
 import {
   assertGpuFlowContentFramePublishability,
+  createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds,
   assertGpuFlowProjectionHorizon,
   createGpuFlowContentFramePublishability,
   createGpuFlowProjectionHorizon,
@@ -118,6 +119,10 @@ export function assertGpuFlowCommittedSurfaceFrameCoherent(
     createGpuFlowContentFramePublishability({
       actorGenerations: frame.actorGenerations,
       displayCompleteness: expectedCompleteness,
+      retainedSurfaceTrueHoleActorIds:
+        createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds(
+          frame.retainedDisplayFrame,
+        ),
       startup: frame.retainedDisplayFrame === null,
       transactionOutcome: frame.diagnostics.transactionOutcome,
     }),

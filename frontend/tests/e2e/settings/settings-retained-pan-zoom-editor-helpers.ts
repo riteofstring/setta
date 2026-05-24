@@ -54,12 +54,20 @@ export async function activateRetainedEditor(
   if (!row.controlClientPoint || !row.controlClientRect) {
     throw new Error(`Missing retained control geometry for ${row.rowId}.`);
   }
+  const activationRect =
+    (await waitForRetainedEditorActivationHostRect(page, row, {
+      timeoutMs: 2_000,
+    })) ?? row.controlClientRect;
   const attempts = [
-    row.controlClientPoint,
     {
-      x: row.controlClientRect.x + row.controlClientRect.width / 2,
-      y: row.controlClientRect.y + row.controlClientRect.height / 2,
+      x: activationRect.x + activationRect.width / 2,
+      y: activationRect.y + activationRect.height / 2,
     },
+    {
+      x: activationRect.x + Math.min(48, activationRect.width / 3),
+      y: activationRect.y + activationRect.height / 2,
+    },
+    row.controlClientPoint,
     {
       x:
         row.controlClientRect.x + Math.min(48, row.controlClientRect.width / 3),
@@ -80,9 +88,185 @@ export async function activateRetainedEditor(
       lastError = error;
     }
   }
+  const diagnostics = await readRetainedEditorActivationDiagnostics(
+    page,
+    row,
+    attempts,
+  );
+  const message = `Could not activate retained editor ${row.rowId}. ${JSON.stringify(
+    diagnostics,
+    null,
+    2,
+  )}`;
   throw lastError instanceof Error
-    ? lastError
-    : new Error(`Could not activate retained editor ${row.rowId}.`);
+    ? new Error(message, { cause: lastError })
+    : new Error(message);
+}
+
+async function waitForRetainedEditorActivationHostRect(
+  page: Page,
+  row: RetainedRowDebugEntry,
+  options: { readonly timeoutMs: number },
+): Promise<Rect | null> {
+  const deadline = Date.now() + options.timeoutMs;
+  while (Date.now() < deadline) {
+    const rect = await readRetainedEditorActivationHostRect(page, row);
+    if (rect) {
+      return rect;
+    }
+    await page.evaluate(() => {
+      window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("manual");
+    });
+    await page.waitForTimeout(50);
+  }
+  return null;
+}
+
+async function readRetainedEditorActivationHostRect(
+  page: Page,
+  row: RetainedRowDebugEntry,
+): Promise<Rect | null> {
+  return await page.evaluate((row) => {
+    const selector = [
+      '[data-gpu-flow-dom-control="true"]',
+      `[data-gpu-flow-dom-control-row-id="${CSS.escape(row.rowId)}"]`,
+      `[data-gpu-flow-dom-control-surface-id="${CSS.escape(row.surfaceId)}"]`,
+    ].join("");
+    const host = document.querySelector<HTMLElement>(selector);
+    if (!host || getComputedStyle(host).display === "none") {
+      return null;
+    }
+    const rect = host.getBoundingClientRect();
+    if (
+      rect.width <= 0 ||
+      rect.height <= 0 ||
+      rect.x + rect.width <= 0 ||
+      rect.y + rect.height <= 0 ||
+      rect.x >= window.innerWidth ||
+      rect.y >= window.innerHeight
+    ) {
+      return null;
+    }
+    return {
+      height: rect.height,
+      width: rect.width,
+      x: rect.x,
+      y: rect.y,
+    };
+  }, row);
+}
+
+async function readRetainedEditorActivationDiagnostics(
+  page: Page,
+  row: RetainedRowDebugEntry,
+  attempts: readonly { readonly x: number; readonly y: number }[],
+) {
+  return await page.evaluate(
+    ({ attempts, row }) => {
+      const selector = [
+        '[data-gpu-flow-dom-control="true"]',
+        `[data-gpu-flow-dom-control-row-id="${CSS.escape(row.rowId)}"]`,
+        `[data-gpu-flow-dom-control-surface-id="${CSS.escape(row.surfaceId)}"]`,
+      ].join("");
+      const actorId = `retained-dom-control:${row.surfaceId}:${row.rowId}`;
+      const host = document.querySelector<HTMLElement>(selector);
+      const activeElement = document.activeElement;
+      const retainedRows = (
+        window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []
+      ).filter(
+        (candidate) =>
+          candidate.surfaceId === row.surfaceId &&
+          candidate.rowId === row.rowId,
+      );
+      return {
+        activeElement:
+          activeElement instanceof HTMLElement
+            ? {
+                className: activeElement.className,
+                controlId:
+                  activeElement
+                    .closest("[data-gpu-flow-control]")
+                    ?.getAttribute("data-gpu-flow-control") ?? null,
+                tagName: activeElement.tagName,
+              }
+            : null,
+        attempts: attempts.map((point) => {
+          const target = document.elementFromPoint(point.x, point.y);
+          const element =
+            target instanceof HTMLElement
+              ? target
+              : target?.parentElement ?? null;
+          return {
+            point,
+            target:
+              element instanceof HTMLElement
+                ? {
+                    className: element.className,
+                    domControlActive:
+                      element
+                        .closest("[data-gpu-flow-dom-control]")
+                        ?.getAttribute("data-gpu-flow-dom-control-active") ??
+                      null,
+                    domControlId:
+                      element
+                        .closest("[data-gpu-flow-dom-control]")
+                        ?.getAttribute("data-gpu-flow-dom-control-id") ?? null,
+                    domControlRowId:
+                      element
+                        .closest("[data-gpu-flow-dom-control]")
+                        ?.getAttribute("data-gpu-flow-dom-control-row-id") ??
+                      null,
+                    gpuFlowControl:
+                      element
+                        .closest("[data-gpu-flow-control]")
+                        ?.getAttribute("data-gpu-flow-control") ?? null,
+                    tagName: element.tagName,
+                  }
+                : null,
+          };
+        }),
+        browserVisualPreparation:
+          window.__settaGpuFlowBrowserVisualPreparationDiagnostics?.(
+            actorId,
+          ) ?? null,
+        blockedVisiblePublicationEvents:
+          window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?.slice(
+            -5,
+          ) ?? [],
+        domControlPlaneDiagnostics:
+          window.__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null,
+        host:
+          host instanceof HTMLElement
+            ? {
+                active: host.getAttribute("data-gpu-flow-dom-control-active"),
+                className: host.className,
+                display: getComputedStyle(host).display,
+                id: host.getAttribute("data-gpu-flow-dom-control-id"),
+                pointerEvents: getComputedStyle(host).pointerEvents,
+                rect: rectToObject(host.getBoundingClientRect()),
+                rowId: host.getAttribute("data-gpu-flow-dom-control-row-id"),
+                surfaceId: host.getAttribute(
+                  "data-gpu-flow-dom-control-surface-id",
+                ),
+              }
+            : null,
+        retainedRows,
+        visiblePublication:
+          window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().visiblePublication ??
+          null,
+      };
+
+      function rectToObject(rect: DOMRect): Rect {
+        return {
+          height: rect.height,
+          width: rect.width,
+          x: rect.x,
+          y: rect.y,
+        };
+      }
+    },
+    { attempts, row },
+  );
 }
 
 export async function waitForActiveEditorGeometry(

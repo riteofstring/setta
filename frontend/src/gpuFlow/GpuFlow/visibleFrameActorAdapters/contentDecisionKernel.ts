@@ -384,7 +384,7 @@ function resolveGpuFlowCommittedSurfacePublicationReadiness({
       }),
     errorMessage:
       publishedCommittedSurfaceFrame.publishability.kind === "true-hole"
-        ? `GPU Flow committed surface frame has true-hole browser visual coverage: ${getGpuFlowCommittedSurfacePublishabilityActorIds(
+        ? `GPU Flow committed surface frame has true-hole visible coverage: ${getGpuFlowCommittedSurfacePublishabilityActorIds(
             publishedCommittedSurfaceFrame,
           ).join(", ")}.`
         : null,

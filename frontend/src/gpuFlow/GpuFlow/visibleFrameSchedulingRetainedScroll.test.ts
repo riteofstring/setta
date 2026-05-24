@@ -232,7 +232,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     });
   });
 
-  it("publishes idle retained scroll catch-up content after scroll motion settles", () => {
+  it("keeps idle retained scroll catch-up in the projection lane", () => {
     const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
 
     const content = scheduler.selectFrame({
@@ -264,9 +264,20 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 300,
       viewportInteractionActive: false,
     });
-    expect(idleCatchup.schedulerState).toBe("content-catchup");
-    expect(idleCatchup.lane).toBe("content");
-    expect(idleCatchup.rawReasons).toEqual(["manual"]);
+    expect(idleCatchup.schedulerState).toBe("motion-active");
+    expect(idleCatchup.lane).toBe("motion");
+    expect(idleCatchup.rawReasons).toEqual(["retained-scroll", "manual"]);
+    completeCommittedFrame(scheduler, idleCatchup);
+
+    const contentCatchup = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["texture-upload", "manual"],
+      sample: liveSample(1_100),
+      timestamp: 1_100,
+      viewportInteractionActive: false,
+    });
+    expect(contentCatchup.schedulerState).toBe("content-catchup");
+    expect(contentCatchup.lane).toBe("content");
   });
 
   it("does not keep critical content priority after compatible-previous content commits", () => {

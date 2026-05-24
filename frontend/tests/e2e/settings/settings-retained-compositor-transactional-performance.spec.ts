@@ -232,6 +232,7 @@ test("all-settings retained surface compositor publishes transactional gesture f
     name: "all-settings transactional retained compositor",
     sample: JSON.parse(details),
   });
+  await restoreRetainedSwitchTarget(page, switchTarget);
 
   expect(scene.nodeCount, details).toBeGreaterThan(30);
   expect(scene.retainedRowCount, details).toBeGreaterThan(400);
@@ -305,6 +306,7 @@ test("all-settings retained surface compositor publishes transactional gesture f
 });
 
 type RetainedControlTarget = {
+  readonly ownerSectionId: string;
   readonly point: RetainedCompositorPoint;
   readonly rect: {
     readonly height: number;
@@ -321,11 +323,23 @@ async function resolveVisibleRetainedControl(
   controlKind: string,
 ): Promise<RetainedControlTarget> {
   return await page.evaluate((controlKind) => {
+    const pane = document.querySelector<HTMLElement>(".setta-gpu-flow__pane");
+    const paneRect = pane?.getBoundingClientRect() ?? null;
+    const paneCenter = paneRect
+      ? {
+          x: paneRect.left + paneRect.width / 2,
+          y: paneRect.top + paneRect.height * 0.48,
+        }
+      : {
+          x: window.innerWidth / 2,
+          y: window.innerHeight / 2,
+        };
     const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
-    const row = rows.find((candidate) => {
+    const candidates = rows.filter((candidate) => {
       const rect = candidate.controlClientRect ?? candidate.clientRect;
       return (
         candidate.controlKind === controlKind &&
+        candidate.rowState?.disabled !== true &&
         candidate.controlClientPoint &&
         rect.width > 10 &&
         rect.height > 8 &&
@@ -335,10 +349,19 @@ async function resolveVisibleRetainedControl(
         rect.y < window.innerHeight
       );
     });
+    const row = candidates.sort((left, right) => {
+      const leftPoint = left.controlClientPoint ?? left.labelClientPoint;
+      const rightPoint = right.controlClientPoint ?? right.labelClientPoint;
+      return (
+        Math.hypot(leftPoint.x - paneCenter.x, leftPoint.y - paneCenter.y) -
+        Math.hypot(rightPoint.x - paneCenter.x, rightPoint.y - paneCenter.y)
+      );
+    })[0];
     if (!row?.controlClientPoint) {
       throw new Error(`Missing visible retained ${controlKind} control.`);
     }
     return {
+      ownerSectionId: row.ownerSectionId,
       point: row.controlClientPoint,
       rect: row.controlClientRect ?? row.clientRect,
       rowId: row.rowId,
@@ -356,7 +379,12 @@ async function centerRetainedControlKind(
     const transform =
       window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().viewport.transform;
     const rows = window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
-    const row = rows.find((candidate) => candidate.controlKind === controlKind);
+    const row = rows.find(
+      (candidate) =>
+        candidate.controlKind === controlKind &&
+        candidate.rowState?.disabled !== true &&
+        candidate.controlClientPoint,
+    );
     if (!pane || !transform || !row) {
       throw new Error(`Missing retained ${controlKind} control to center.`);
     }
@@ -464,6 +492,56 @@ async function readActiveDomControlHostRect(
       y: rect.y,
     };
   }, target);
+}
+
+async function restoreRetainedSwitchTarget(
+  page: Page,
+  target: RetainedControlTarget,
+): Promise<void> {
+  const responsePromise = page
+    .waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().includes("/setParamEnteredValue"),
+      { timeout: 5_000 },
+    )
+    .catch(() => null);
+  const restore = await page.evaluate(async (target) => {
+    const [{ commitProjectGpuRetainedSwitchParamClick }, { useProjectState }] =
+      await Promise.all([
+        import(
+          "/src/components/Pages/Project/GpuProjectSurface/projectGpuRetainedParamSwitchAdapter.ts"
+        ),
+        import("/src/state/definitions.ts"),
+      ]);
+    const { getParamInputPreviewState } = await import(
+      "/src/components/Params/ParamItems/paramValueUpdates.ts"
+    );
+    const before = getParamInputPreviewState(
+      useProjectState.getState(),
+      target.ownerSectionId,
+      target.rowId,
+    )?.baseValue;
+    commitProjectGpuRetainedSwitchParamClick({
+      paramInfoId: target.rowId,
+      sectionId: target.ownerSectionId,
+    });
+    const after = getParamInputPreviewState(
+      useProjectState.getState(),
+      target.ownerSectionId,
+      target.rowId,
+    )?.baseValue;
+    return { after, before };
+  }, target);
+  await responsePromise;
+  if (restore.before === restore.after) {
+    throw new Error(
+      `Retained switch cleanup did not restore ${target.rowId}: ${JSON.stringify(
+        restore,
+      )}`,
+    );
+  }
+  await waitForRetainedCompositorGestureIdle(page);
 }
 
 function summarizeRetainedTransactionHoldProbe(probe: unknown): {

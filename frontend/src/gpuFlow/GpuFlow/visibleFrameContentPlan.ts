@@ -970,6 +970,9 @@ export function createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
           : selectGpuFlowRetainedDisplayFollowUpFrameReason({
               deferResolutionUpdates: input.deferResolutionUpdates,
               outcomeKind: framePlanResult.publishedOutcomeFrame.outcomeKind,
+              trueHoleRectCount:
+                framePlanResult.publishedOutcomeFrame.frame.diagnostics
+                  ?.trueHoleRectCount ?? 0,
             }),
       framePlan,
       framePlanResult,

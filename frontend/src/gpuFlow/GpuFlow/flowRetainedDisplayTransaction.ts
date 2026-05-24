@@ -89,10 +89,15 @@ export function resolveGpuFlowRetainedDisplayPublication({
 export function selectGpuFlowRetainedDisplayFollowUpFrameReason({
   deferResolutionUpdates,
   outcomeKind,
+  trueHoleRectCount = 0,
 }: {
   readonly deferResolutionUpdates: boolean;
   readonly outcomeKind: RetainedDisplayFrameOutcome["kind"];
+  readonly trueHoleRectCount?: number | undefined;
 }): GpuFrameReason | null {
+  if (trueHoleRectCount > 0) {
+    return "texture-upload";
+  }
   if (
     shouldRequestGpuFlowRetainedDisplayFollowUpFrame({
       deferResolutionUpdates,

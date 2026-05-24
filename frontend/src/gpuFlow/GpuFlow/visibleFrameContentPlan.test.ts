@@ -697,6 +697,35 @@ describe("GPU Flow visible publication content plans", () => {
     ).toBeNull();
   });
 
+  it("keeps retained true-hole candidate repair scheduled", () => {
+    const retainedDisplayFrame = {
+      diagnostics: { trueHoleRectCount: 1 },
+    } as RetainedDisplayFrame;
+    const prepareRetainedDisplayPublicationFramePlan =
+      createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
+        contentDecisionKernel,
+        previousVisibleProjectionState: null,
+        prepareRetainedDisplayPublicationCandidate: () => ({
+          prePublishRetainedPageMaintenance: null,
+          retainedDisplayOutcome: {
+            frame: retainedDisplayFrame,
+            kind: "publish-exact",
+          },
+          retainedDisplayTransactionMs: 0,
+          retainedPageMaintenanceMs: 0,
+          retainedPagePreparedFrame:
+            {} as RetainedContentTexturePagePreparedFrame,
+        }),
+      });
+
+    expect(
+      prepareRetainedDisplayPublicationFramePlan({
+        deferResolutionUpdates: true,
+      } as Parameters<typeof prepareRetainedDisplayPublicationFramePlan>[0])
+        .followUpFrameReason,
+    ).toBe("texture-upload");
+  });
+
   it("converts committed-surface publication blocks through the combined content stage", () => {
     const candidateFrame = committedSurfaceFrame();
     const publishedRetainedFrame = { id: 11 } as RetainedDisplayFrame;

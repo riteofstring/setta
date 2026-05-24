@@ -583,7 +583,7 @@ function createGpuFlowVisibleFrameCommittedActorManifestEntry(
         : null,
     projectionGeneration: actor.layoutProjectionGenerationId,
     readinessProof: actor.readinessGenerationId,
-    requirement: "required" as const,
+    requirement: getGpuFlowVisibleFrameCommittedActorRequirement(actor),
     resourceState: getGpuFlowVisibleFrameActorResourceState(actor),
     source: "committed-actor" as const,
     zOrder: actor.zOrder,
@@ -663,6 +663,7 @@ function createGpuFlowVisibleFrameActorProof({
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): GpuFlowVisibleFrameActorProof {
   const actorKey = createGpuFlowVisibleFrameActorProofKey(actor);
+  const requirement = getGpuFlowVisibleFrameCommittedActorRequirement(actor);
   const textCoverage = actor.textCoverageProof;
   switch (textCoverage?.projectionCoverage) {
     case "true-hole":
@@ -675,6 +676,7 @@ function createGpuFlowVisibleFrameActorProof({
       return createGpuFlowVisibleFrameBlockedActorProof({
         actorKey,
         reason: textCoverage.readinessReason,
+        requirement,
       });
     case "compatible-previous":
       return createGpuFlowVisibleFrameCompatiblePreviousOrBlockedProof({
@@ -690,9 +692,20 @@ function createGpuFlowVisibleFrameActorProof({
         ...actorKey,
         generationId: actor.generationId,
         proof: "exact" as const,
-        requirement: "required" as const,
+        requirement,
       });
   }
+}
+
+function getGpuFlowVisibleFrameCommittedActorRequirement(
+  actor: GpuFlowCommittedSurfaceActorGeneration,
+): GpuFlowVisibleFrameActorProof["requirement"] {
+  const textCoverage = actor.textCoverageProof;
+  const passiveLiveDomBudgetActor =
+    !isGpuFlowVisibleFrameActiveEditorRepresentation(actor) &&
+    textCoverage?.projectionCoverage === "blocked-awaiting-live-host" &&
+    textCoverage.readinessReason === "live-dom-budget";
+  return passiveLiveDomBudgetActor ? "maintenance" : "required";
 }
 
 function createGpuFlowVisibleFrameTrueHoleProof({
@@ -714,15 +727,17 @@ function createGpuFlowVisibleFrameTrueHoleProof({
 function createGpuFlowVisibleFrameBlockedActorProof({
   actorKey,
   reason,
+  requirement = "required",
 }: {
   readonly actorKey: GpuFlowVisibleFrameActorKey;
   readonly reason: string;
+  readonly requirement?: GpuFlowVisibleFrameActorProof["requirement"];
 }): GpuFlowVisibleFrameActorProof {
   return Object.freeze({
     ...actorKey,
     proof: "blocked" as const,
     reason,
-    requirement: "required" as const,
+    requirement,
   });
 }
 

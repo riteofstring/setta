@@ -188,25 +188,12 @@ export function isGpuFlowRetainedScrollPublicationDecision(
 }
 
 export function createGpuFlowProjectionSchedulingReasons({
-  projectionInteractionActive,
   rawReasons,
 }: {
   readonly projectionInteractionActive: boolean;
   readonly rawReasons: readonly GpuFrameReason[];
 }): readonly GpuFrameReason[] {
-  if (
-    projectionInteractionActive ||
-    !rawReasons.includes("retained-scroll") ||
-    !rawReasons.includes("manual") ||
-    rawReasons.some(
-      (reason) => reason !== "retained-scroll" && reason !== "manual",
-    )
-  ) {
-    return rawReasons;
-  }
-  return Object.freeze(
-    rawReasons.filter((reason) => reason !== "retained-scroll"),
-  );
+  return rawReasons;
 }
 
 export function withGpuFlowContentCatchupReasonForStalePublicationSample({

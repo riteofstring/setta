@@ -48,6 +48,13 @@ export function createGpuFlowCommittedSurfaceTransaction({
     ...retainedSurfaceTransaction.activeDomIslandTransaction.islands,
     ...browserVisualSurfaceFragment.activeIslands,
   ];
+  const trueHoleRects = [
+    ...retainedSurfaceTransaction.coverageProof.trueHoleRects,
+    ...browserVisualTrueHoleRects,
+  ];
+  if (trueHoleRects.length > 0) {
+    return null;
+  }
   return createSurfaceDisplayTransaction({
     ...retainedSurfaceTransaction,
     activeDomIslandTransaction: {
@@ -75,10 +82,7 @@ export function createGpuFlowCommittedSurfaceTransaction({
         ...retainedSurfaceTransaction.coverageProof.rendererBuckets,
         ...browserVisualSurfaceFragment.rendererBuckets,
       ]),
-      trueHoleRects: [
-        ...retainedSurfaceTransaction.coverageProof.trueHoleRects,
-        ...browserVisualTrueHoleRects,
-      ],
+      trueHoleRects,
       visibleRects: [
         ...retainedSurfaceTransaction.coverageProof.visibleRects,
         ...browserVisualSurfaceFragment.visibleRects,

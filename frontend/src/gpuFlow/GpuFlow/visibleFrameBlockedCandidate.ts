@@ -54,12 +54,50 @@ export function createGpuFlowBrowserVisualBlockedPublicationCandidate({
   readonly frame: GpuFlowCommittedSurfaceFrame;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowVisibleFrameBlockedPublicationCandidate {
+  if (isGpuFlowRetainedSurfaceTrueHoleFrame(frame)) {
+    return createGpuFlowRetainedSurfaceTrueHoleBlockedPublicationCandidate({
+      frame,
+      heldPreviousProjectionState,
+    });
+  }
   return Object.freeze({
     blockedReasons: createGpuFlowBlockedVisibleReasons(frame),
     frozenFrameId: resolveGpuFlowBlockedVisibleFrozenFrameId({
       heldPreviousProjectionState,
     }),
   });
+}
+
+function createGpuFlowRetainedSurfaceTrueHoleBlockedPublicationCandidate({
+  frame,
+  heldPreviousProjectionState,
+}: {
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowVisibleFrameBlockedPublicationCandidate {
+  return Object.freeze({
+    blockedReasons: Object.freeze(
+      getGpuFlowCommittedSurfacePublishabilityActorIds(frame).map((actorId) =>
+        Object.freeze({
+          actorId,
+          family: "retained-projection",
+          reason: "retained-surface-true-hole",
+        }),
+      ),
+    ),
+    frozenFrameId:
+      heldPreviousProjectionState?.committedFrame.displayFrameId ??
+      GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+  });
+}
+
+function isGpuFlowRetainedSurfaceTrueHoleFrame(
+  frame: GpuFlowCommittedSurfaceFrame,
+): boolean {
+  return (
+    frame.publishability.kind === "true-hole" &&
+    frame.publishability.reason === "retained-surface-true-hole"
+  );
 }
 
 export function shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair(
@@ -207,13 +245,17 @@ export function createGpuFlowBrowserVisualResourceWorkRequests({
     frame.actorGenerations.map((actor) => [actor.actorId, actor]),
   );
   return Object.freeze(
-    blockedPublicationCandidate.blockedReasons.map((reason) =>
-      createGpuFlowBrowserVisualResourceWorkRequest({
-        actor: reason.actorId ? actorById.get(reason.actorId) : undefined,
-        frame,
-        reason,
-      }),
-    ),
+    blockedPublicationCandidate.blockedReasons
+      .filter((reason) =>
+        isGpuFlowBrowserVisualBlockedReasonFamily(reason.family),
+      )
+      .map((reason) =>
+        createGpuFlowBrowserVisualResourceWorkRequest({
+          actor: reason.actorId ? actorById.get(reason.actorId) : undefined,
+          frame,
+          reason,
+        }),
+      ),
   );
 }
 
@@ -224,12 +266,14 @@ function createGpuFlowBlockedVisibleReasons(
     frame.actorGenerations.map((actor) => [actor.actorId, actor]),
   );
   const actorIds = getGpuFlowCommittedSurfacePublishabilityActorIds(frame);
+  const publishabilityActorFamily =
+    getGpuFlowCommittedSurfacePublishabilityActorFamily(frame);
   return Object.freeze(
     actorIds.map((actorId) => {
       const actor = actorById.get(actorId);
       return Object.freeze({
         actorId,
-        family: actor?.actorFamily ?? actor?.kind ?? "unknown",
+        family: actor?.actorFamily ?? actor?.kind ?? publishabilityActorFamily,
         reason: getGpuFlowBrowserVisualBlockedReason({
           frame,
           textCoverage: actor?.textCoverageProof,
@@ -468,6 +512,14 @@ export function getGpuFlowCommittedSurfacePublishabilityActorIds(
   return frame.publishability.kind === "true-hole"
     ? frame.publishability.actorIds
     : frame.publishability.blockingActorIds;
+}
+
+function getGpuFlowCommittedSurfacePublishabilityActorFamily(
+  frame: GpuFlowCommittedSurfaceFrame,
+): string {
+  return frame.publishability.kind === "true-hole"
+    ? frame.publishability.actorFamily
+    : "unknown";
 }
 
 export function getGpuFlowBrowserVisualBlockedReason({
