@@ -101,6 +101,7 @@ export function shouldConsiderGpuFlowDeferredContentPublication({
     hasPreviousVisibleProjectionState &&
     publicationDecision.lane !== "motion" &&
     hasPreviousRetainedDisplayFrame &&
+    !publicationDecision.rawReasons.includes("retained-native-visual") &&
     (publicationDecision.schedulerState === "motion-settling" ||
       shouldDeferGpuFlowMaintenanceContentCatchup({
         lane: publicationDecision.lane,
