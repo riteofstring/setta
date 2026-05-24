@@ -1,0 +1,792 @@
+/* @vitest-environment jsdom */
+
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import type { GpuSurfaceHandle } from "../GpuSurface";
+import {
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
+import { DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY } from "../projectionRuntime";
+import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
+import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
+import { requestGpuFlowBrowserVisualResourcePreparation } from "./visibleFrameBrowserVisualPreparation";
+import { clearGpuFlowBrowserVisualResourceWork } from "./visibleFrameBrowserVisualResourceWork";
+import {
+  createGpuFlowPreparedContentFramePresentationFramePlanPreparer,
+  type GpuFlowPreparedContentFramePresentationCandidateInput,
+} from "./visibleFrameContentPlan";
+import {
+  recordGpuFlowBlockedVisibleFramePresentation,
+  recordGpuFlowVisibleFrameBlocked,
+  recordGpuFlowVisibleFrameHeld,
+  recordGpuFlowVisibleFramePresented,
+} from "./visibleFrameDiagnostics";
+import {
+  createGpuFlowVisibleFrameBlockedPresentationTokenForTest,
+  createGpuFlowVisibleFrameHoldPreviousTokenForTest,
+  createGpuFlowVisibleFramePresentationTokenForTest,
+} from "./visibleFrameTestUtils";
+import {
+  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+} from "./visibleFrameTypes";
+
+const preparePreparedContentFramePresentationFramePlanForTest =
+  createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
+    contentDecisionKernel:
+      createGpuFlowVisibleFramePresentationContentDecisionKernel(),
+  });
+
+describe("GPU Flow visible frame blocked candidate diagnostics", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+    delete (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__?: unknown;
+      }
+    ).__SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__;
+    delete (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__?: unknown;
+      }
+    ).__SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__;
+    delete (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: unknown;
+      }
+    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__;
+  });
+
+  it("emits browser visual starvation reports for blocked actor coverage", () => {
+    const canvas = document.createElement("canvas");
+    const requestFrame = vi.fn();
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
+        timestamp: 10,
+      }),
+    );
+
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
+    }
+    expect(result.blockedPresentationCandidate.frozenFrameId).toBe(
+      GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+    );
+    expect(result.candidateFrame.displayFrameId).toBe(2);
+    expect(result.preservePreparationSnapshot).toBe(true);
+    expect(requestFrame).not.toHaveBeenCalled();
+    expect(readStarvationReports()).toEqual([]);
+    expect(readBrowserVisualResourceWork()).toEqual([]);
+    applyBlockedCandidate(result.candidateFrame, { canvas });
+    expect(requestFrame).not.toHaveBeenCalled();
+    expect(readStarvationReports()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        actorKind: "dom-control",
+        blockedFrameCount: 1,
+        blockedReason: "snapshot-pending",
+        budget: "browser-visual-coverage",
+        generationId: "generation-a",
+        outcome: "blocked",
+        pendingWorkId: "actor-a|snapshot-key",
+        requiredRepresentation: "blocked-awaiting-browser-visual",
+        visibleActorCount: 1,
+      }),
+    ]);
+    expect(readBrowserVisualResourceWork()).toEqual([]);
+    expect(readBlockedVisibleFramePresentationEvents()).toEqual([]);
+  });
+
+  it("records browser visual resource work when preparation is scheduled", () => {
+    const canvas = document.createElement("canvas");
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
+        timestamp: 10,
+      }),
+    );
+
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
+    }
+
+    requestGpuFlowBrowserVisualResourcePreparation({
+      candidateFrame: result.candidateFrame,
+      candidateResourceWork: result.resourceWork,
+      outcome: "held-previous",
+      runtimeCanvas: canvas,
+      surfaceRef: { current: null },
+    });
+
+    expect(readBrowserVisualResourceWork()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        blockedReason: "snapshot-pending",
+        candidateResourceKey:
+          "browser-visual:actor-a:text-like-dom-control:snapshot-pending:snapshot-key",
+        outcome: "held-previous",
+        ownerFrameId: 2,
+        readinessState: "requested",
+        representationKind: "blocked-awaiting-browser-visual",
+        sourceHostIdentity: "actor-a",
+        wakeupSource: "blocked-presentation",
+      }),
+    ]);
+  });
+
+  it("leaves deferred browser visual work queued until budget selects concrete repair", () => {
+    const canvas = document.createElement("canvas");
+    const requestFrame = vi.fn();
+    const surface = { requestFrame } as unknown as GpuSurfaceHandle;
+
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
+        deferBrowserVisualWakeup: true,
+        timestamp: 10,
+      }),
+    );
+
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
+    }
+    applyBlockedCandidate(result.candidateFrame, { canvas });
+    requestGpuFlowBrowserVisualResourcePreparation({
+      candidateFrame: result.candidateFrame,
+      candidateResourceWork: result.resourceWork,
+      outcome: "blocked",
+      runtimeCanvas: canvas,
+      surfaceRef: { current: surface },
+    });
+    expect(requestFrame).not.toHaveBeenCalled();
+    expect(readBrowserVisualResourceWork()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        readinessState: "requested",
+        wakeupSource: "blocked-presentation",
+      }),
+    ]);
+    expect(requestFrame).not.toHaveBeenCalled();
+  });
+
+  it("wakes browser visual repair immediately when concrete work is budget-selected", () => {
+    const canvas = document.createElement("canvas");
+    const requestFrame = vi.fn();
+    const surface = { requestFrame } as unknown as GpuSurfaceHandle;
+
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
+        deferBrowserVisualWakeup: true,
+        timestamp: 10,
+      }),
+    );
+
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
+    }
+    applyBlockedCandidate(result.candidateFrame, { canvas });
+    requestGpuFlowBrowserVisualResourcePreparation({
+      budgetSelectedResourceKeys: result.resourceWork.workItems.map(
+        (item) => item.candidateResourceKey,
+      ),
+      candidateFrame: result.candidateFrame,
+      candidateResourceWork: result.resourceWork,
+      outcome: "blocked",
+      runtimeCanvas: canvas,
+      surfaceRef: { current: surface },
+    });
+
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+    expect(readBrowserVisualResourceWork()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        readinessState: "preparing",
+        wakeupSource: "immediate-frame-request",
+      }),
+    ]);
+  });
+
+  it("keeps browser visual repair work alive across motion-only commits", () => {
+    const canvas = document.createElement("canvas");
+    const requestFrame = vi.fn();
+    const surface = { requestFrame } as unknown as GpuSurfaceHandle;
+
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
+        deferBrowserVisualWakeup: true,
+        timestamp: 10,
+      }),
+    );
+
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
+    }
+    applyBlockedCandidate(result.candidateFrame, { canvas });
+    requestGpuFlowBrowserVisualResourcePreparation({
+      candidateFrame: result.candidateFrame,
+      candidateResourceWork: result.resourceWork,
+      outcome: "blocked",
+      runtimeCanvas: canvas,
+      surfaceRef: { current: surface },
+    });
+
+    recordGpuFlowVisibleFramePresented({
+      preparedContentFrame: null,
+      runtimeCanvas: canvas,
+      token: presentationToken(),
+    });
+
+    expect(readBrowserVisualResourceWork()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        readinessState: "requested",
+      }),
+    ]);
+    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
+  });
+
+  it("clears browser visual repair work after a prepared content frame frame presents", () => {
+    const canvas = document.createElement("canvas");
+    const requestFrame = vi.fn();
+    const surface = { requestFrame } as unknown as GpuSurfaceHandle;
+
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
+        deferBrowserVisualWakeup: true,
+        timestamp: 10,
+      }),
+    );
+
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
+    }
+    applyBlockedCandidate(result.candidateFrame, { canvas });
+    requestGpuFlowBrowserVisualResourcePreparation({
+      budgetSelectedResourceKeys: result.resourceWork.workItems.map(
+        (item) => item.candidateResourceKey,
+      ),
+      candidateFrame: result.candidateFrame,
+      candidateResourceWork: result.resourceWork,
+      outcome: "blocked",
+      runtimeCanvas: canvas,
+      surfaceRef: { current: surface },
+    });
+
+    recordGpuFlowVisibleFramePresented({
+      preparedContentFrame: result.candidateFrame,
+      runtimeCanvas: canvas,
+      token: presentationToken(),
+    });
+    clearGpuFlowBrowserVisualResourceWork(canvas);
+
+    expect(readBrowserVisualResourceWork()).toEqual([]);
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+  });
+
+  it("rejects unbranded blocked candidate tokens", () => {
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
+        timestamp: 10,
+      }),
+    );
+    const canvas = document.createElement("canvas");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
+    }
+
+    expect(() =>
+      recordGpuFlowVisibleFrameBlocked({
+        candidateFrame: result.candidateFrame,
+        runtimeCanvas: canvas,
+        token: {} as Parameters<
+          typeof recordGpuFlowVisibleFrameBlocked
+        >[0]["token"],
+      }),
+    ).toThrow(/blocked presentation token/);
+  });
+
+  it("records held-prepared candidates as blocked outcomes", () => {
+    const canvas = document.createElement("canvas");
+
+    recordGpuFlowVisibleFrameBlocked({
+      candidateFrame: blockedPreparedContentFrame(),
+      runtimeCanvas: canvas,
+      token: blockedPresentationToken(),
+    });
+
+    expect(readStarvationReports()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        outcome: "blocked",
+      }),
+    ]);
+  });
+
+  it("records required actor-family manifest diagnostics on blocked presentation events", () => {
+    const canvas = document.createElement("canvas");
+
+    recordGpuFlowBlockedVisibleFramePresentation({
+      frame: blockedPreparedContentFrame(),
+      presentationCompletion: {
+        debt: { content: true, maintenance: false, motion: false },
+        outcome: "blocked",
+      },
+      reducerDecision: {
+        debt: { content: false, maintenance: false, motion: false },
+        lane: "content",
+        rawReasons: ["texture-upload"],
+        sample: { id: 1 },
+        reducerState: "content-catchup",
+      } as unknown as Parameters<
+        typeof recordGpuFlowBlockedVisibleFramePresentation
+      >[0]["reducerDecision"],
+      runtimeCanvas: canvas,
+      token: blockedPresentationToken(),
+    });
+
+    expect(readBlockedVisibleFramePresentationEvents()).toEqual([
+      expect.objectContaining({
+        actorManifest: expect.objectContaining({
+          blockedActorsByFamily: { "browser-text-snapshot": 1 },
+          blockedDebt: { content: true, maintenance: false, motion: false },
+          preparedContentFrameId: 2,
+          missingActorsByFamily: { "browser-text-snapshot": 2 },
+          readyActorsByFamily: {
+            "accessibility-exposure": 1,
+            "debug-snapshot": 1,
+            edges: 1,
+            grid: 1,
+            "hit-generation": 1,
+            "public-runtime-state": 1,
+            "scene-background": 1,
+            "viewport-portal": 1,
+          },
+          requiredActorsByFamily: {
+            "accessibility-exposure": 1,
+            "browser-text-snapshot": 2,
+            "debug-snapshot": 1,
+            edges: 1,
+            grid: 1,
+            "hit-generation": 1,
+            "public-runtime-state": 1,
+            "scene-background": 1,
+            "viewport-portal": 1,
+          },
+          visibleOutcome: "blocked",
+        }),
+      }),
+    ]);
+  });
+
+  it("treats missing blocked candidates as no-op inputs for blocked or held outcomes owned by other proofs", () => {
+    const blockedCanvas = document.createElement("canvas");
+    const heldCanvas = document.createElement("canvas");
+    const requestFrame = vi.fn();
+
+    recordGpuFlowVisibleFrameBlocked({
+      candidateFrame: null,
+      runtimeCanvas: blockedCanvas,
+      token: blockedPresentationToken(),
+    });
+    recordGpuFlowVisibleFrameHeld({
+      candidateFrame: null,
+      runtimeCanvas: heldCanvas,
+      token: heldPreviousPresentationToken(),
+    });
+
+    expect(requestFrame).not.toHaveBeenCalled();
+    expect(readStarvationReports()).toEqual([]);
+  });
+
+  it("records cold-start shell blocked presentation without a prepared candidate frame", () => {
+    const canvas = document.createElement("canvas");
+    const token = createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "retained-projection",
+          reason: "coverage-missing",
+        },
+      ],
+      frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+      projectionSample: {
+        id: 9,
+      } as Parameters<
+        typeof createGpuFlowVisibleFrameBlockedPresentationTokenForTest
+      >[0]["projectionSample"],
+    });
+
+    recordGpuFlowBlockedVisibleFramePresentation({
+      frame: null,
+      presentationCompletion: {
+        debt: { content: true, maintenance: false, motion: false },
+        outcome: "blocked",
+      },
+      reducerDecision: {
+        debt: { content: false, maintenance: false, motion: false },
+        lane: "content",
+        rawReasons: ["texture-upload"],
+        sample: { id: 9 },
+        reducerState: "content-catchup",
+      } as unknown as Parameters<
+        typeof recordGpuFlowBlockedVisibleFramePresentation
+      >[0]["reducerDecision"],
+      runtimeCanvas: canvas,
+      token,
+    });
+
+    expect(readBlockedVisibleFramePresentationEvents()).toEqual([
+      expect.objectContaining({
+        blockedReasons: [
+          {
+            actorId: null,
+            family: "retained-projection",
+            reason: "coverage-missing",
+          },
+        ],
+        candidateFrameId: null,
+        frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+        reducerLane: "content",
+        projectionSampleId: 9,
+        remainingDebt: { content: true, maintenance: false, motion: false },
+        reducerOutcome: "blocked",
+        reducerState: "content-catchup",
+      }),
+    ]);
+  });
+
+  it("rejects blocked presentation records for a different selected sample", () => {
+    const canvas = document.createElement("canvas");
+    const token = createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "retained-projection",
+          reason: "coverage-missing",
+        },
+      ],
+      frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+      projectionSample: {
+        id: 9,
+      } as Parameters<
+        typeof createGpuFlowVisibleFrameBlockedPresentationTokenForTest
+      >[0]["projectionSample"],
+    });
+
+    expect(() =>
+      recordGpuFlowBlockedVisibleFramePresentation({
+        frame: null,
+        presentationCompletion: {
+          debt: { content: true, maintenance: false, motion: false },
+          outcome: "blocked",
+        },
+        reducerDecision: {
+          debt: { content: false, maintenance: false, motion: false },
+          lane: "content",
+          rawReasons: ["texture-upload"],
+          sample: { id: 10 },
+          reducerState: "content-catchup",
+        } as unknown as Parameters<
+          typeof recordGpuFlowBlockedVisibleFramePresentation
+        >[0]["reducerDecision"],
+        runtimeCanvas: canvas,
+        token,
+      }),
+    ).toThrow(/blocked token for the selected projection sample/);
+    expect(readBlockedVisibleFramePresentationEvents()).toEqual([]);
+  });
+
+  it("rejects blocked presentation records without a blocked reducer completion", () => {
+    const canvas = document.createElement("canvas");
+
+    expect(() =>
+      recordGpuFlowBlockedVisibleFramePresentation({
+        frame: null,
+        presentationCompletion: {
+          debt: { content: true, maintenance: false, motion: false },
+          outcome: "present",
+        },
+        reducerDecision: {
+          debt: { content: false, maintenance: false, motion: false },
+          lane: "content",
+          rawReasons: ["texture-upload"],
+          sample: { id: 9 },
+          reducerState: "content-catchup",
+        } as unknown as Parameters<
+          typeof recordGpuFlowBlockedVisibleFramePresentation
+        >[0]["reducerDecision"],
+        runtimeCanvas: canvas,
+        token: createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
+          blockedReasons: [
+            {
+              actorId: null,
+              family: "retained-projection",
+              reason: "coverage-missing",
+            },
+          ],
+          frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+          projectionSample: {
+            id: 9,
+          } as Parameters<
+            typeof createGpuFlowVisibleFrameBlockedPresentationTokenForTest
+          >[0]["projectionSample"],
+        }),
+      }),
+    ).toThrow(/blocked reducer completion/);
+    expect(readBlockedVisibleFramePresentationEvents()).toEqual([]);
+  });
+
+  it("fails loudly in test runtime when browser visual coverage starves beyond budget", () => {
+    const canvas = document.createElement("canvas");
+    for (
+      let index = 0;
+      index <
+      DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames;
+      index += 1
+    ) {
+      expect(() =>
+        applyPreparedBlockedCandidate(
+          prepareGpuFlowPreparedContentFramePresentationCandidate(
+            presentationCandidateInput({
+              timestamp: index,
+            }),
+          ),
+          { canvas },
+        ),
+      ).not.toThrow();
+    }
+
+    expect(() =>
+      applyPreparedBlockedCandidate(
+        prepareGpuFlowPreparedContentFramePresentationCandidate(
+          presentationCandidateInput({
+            timestamp:
+              DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames,
+          }),
+        ),
+        { canvas },
+      ),
+    ).toThrow(/browser visual actor starvation exceeded budget/);
+  });
+});
+
+function presentationCandidateInput({
+  deferBrowserVisualWakeup = false,
+  timestamp,
+}: {
+  readonly deferBrowserVisualWakeup?: boolean | undefined;
+  readonly timestamp: number;
+}): GpuFlowPreparedContentFramePresentationCandidateInput {
+  const retainedFrame = {} as RetainedDisplayFrame;
+  return {
+    presentedGpuNativeVisuals: undefined,
+    deferBrowserVisualWakeup,
+    frameReasons: ["manual"],
+    heldPreviousProjectionState: null,
+    liveProjectionSample: { id: 1, timestamp },
+    contentWorkLane: "content",
+    preparedContentFrame: blockedPreparedContentFrame(),
+    presentedRetainedFrame: retainedFrame,
+  } as unknown as GpuFlowPreparedContentFramePresentationCandidateInput;
+}
+
+function prepareGpuFlowPreparedContentFramePresentationCandidate(
+  input: GpuFlowPreparedContentFramePresentationCandidateInput,
+) {
+  return preparePreparedContentFramePresentationFramePlanForTest(input)
+    .candidate;
+}
+
+function applyPreparedBlockedCandidate(
+  candidate: ReturnType<
+    typeof prepareGpuFlowPreparedContentFramePresentationCandidate
+  >,
+  output: {
+    readonly canvas: HTMLCanvasElement;
+  },
+): void {
+  if (candidate.kind !== "blocked") {
+    throw new Error("Expected blocked prepared content frame candidate.");
+  }
+  applyBlockedCandidate(candidate.candidateFrame, output);
+}
+
+function applyBlockedCandidate(
+  candidateFrame: GpuFlowPreparedContentFrame,
+  {
+    canvas,
+  }: {
+    readonly canvas: HTMLCanvasElement;
+  },
+): void {
+  recordGpuFlowVisibleFrameBlocked({
+    candidateFrame,
+    runtimeCanvas: canvas,
+    token: blockedPresentationToken(),
+  });
+}
+
+function blockedPresentationToken() {
+  return createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
+    blockedReasons: [
+      {
+        actorId: "actor-a",
+        family: "browser-visual",
+        reason: "snapshot-pending",
+      },
+    ],
+    frozenFrameId: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+    projectionSample: {
+      id: 1,
+    } as Parameters<
+      typeof createGpuFlowVisibleFrameBlockedPresentationTokenForTest
+    >[0]["projectionSample"],
+  });
+}
+
+function heldPreviousPresentationToken() {
+  return createGpuFlowVisibleFrameHoldPreviousTokenForTest({
+    preparedContentFrameId: 2,
+    holdAgeFrames: 1,
+    holdAgeMs: 16,
+    projectionSample: {
+      id: 1,
+    } as Parameters<
+      typeof createGpuFlowVisibleFrameHoldPreviousTokenForTest
+    >[0]["projectionSample"],
+  });
+}
+
+function presentationToken() {
+  return createGpuFlowVisibleFramePresentationTokenForTest({
+    frame: presentablePreparedContentFrame(3),
+    projectionSample: {
+      id: 1,
+    } as Parameters<
+      typeof createGpuFlowVisibleFramePresentationTokenForTest
+    >[0]["projectionSample"],
+  });
+}
+
+function presentablePreparedContentFrame(
+  displayFrameId: number,
+): GpuFlowPreparedContentFrame {
+  const coherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip",
+    debugSnapshotFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
+    hitGenerationId: `hit:${displayFrameId}`,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+  };
+  return {
+    actorGenerations: [],
+    coherence,
+    displayFrameId,
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
+      coherence,
+      displayFrameId,
+    }),
+    projectionHorizon: {
+      obligations: {
+        visibleActorIds: [],
+      },
+    },
+    presentability: {
+      blockingActorIds: [],
+      kind: "presentable",
+    },
+  } as unknown as GpuFlowPreparedContentFrame;
+}
+
+function blockedPreparedContentFrame(): GpuFlowPreparedContentFrame {
+  const displayFrameId = 2;
+  const coherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip",
+    debugSnapshotFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
+    hitGenerationId: `hit:${displayFrameId}`,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+  };
+  return {
+    actorGenerations: [
+      {
+        actorFamily: "text-like-dom-control",
+        actorId: "actor-a",
+        generationId: "generation-a",
+        kind: "dom-control",
+        mountReadiness: "not-required",
+        projectionReadiness: "not-required",
+        textCoverageProof: {
+          projectionCoverage: "blocked-awaiting-browser-visual",
+          readinessReason: "snapshot-pending",
+          snapshotCacheKeyRevision: "snapshot-key",
+          visualGenerationId: "visual-a",
+        },
+        visibleNonempty: true,
+      },
+    ],
+    coherence,
+    displayFrameId,
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
+      coherence,
+      displayFrameId,
+    }),
+    projectionHorizon: {
+      obligations: {
+        visibleActorIds: ["actor-a"],
+      },
+    },
+    presentability: {
+      blockingActorIds: ["actor-a"],
+      kind: "hold-previous",
+      reason: "visible-dom-control-not-projected",
+      status: "blocked",
+    },
+    retainedDisplayFrame: null,
+  } as unknown as GpuFlowPreparedContentFrame;
+}
+
+function readStarvationReports(): readonly unknown[] {
+  return (
+    (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__?: readonly unknown[];
+      }
+    ).__SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__ ?? []
+  );
+}
+
+function readBrowserVisualResourceWork(): readonly unknown[] {
+  return (
+    (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__?: readonly unknown[];
+      }
+    ).__SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__ ?? []
+  );
+}
+
+function readBlockedVisibleFramePresentationEvents(): readonly unknown[] {
+  return (
+    (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: readonly unknown[];
+      }
+    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? []
+  );
+}

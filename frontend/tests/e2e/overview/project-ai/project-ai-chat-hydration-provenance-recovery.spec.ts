@@ -261,7 +261,7 @@ test("project ai keeps composer usable when post-ready agent-runs refresh fails 
     });
     reloadStarted = true;
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     const overviewPane = await getVisibleProjectChatSurface(page);
     const input = overviewPane.locator("textarea").first();
     const submitButton = overviewPane.locator('button[type="submit"]').first();
@@ -425,7 +425,7 @@ test("project ai retries transient metadata failures and hydrates after authorit
     });
     reloadStarted = true;
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     const overviewPane = await getVisibleProjectChatSurface(page);
     await bindVisibleProjectChatWindowToChatId(page, staleChatId);
 
@@ -541,7 +541,7 @@ test("project ai defers selected-thread hydration when engine config metadata is
       count: 4,
     });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     await ensureProjectChatThreadsPanelVisible(page);
@@ -641,7 +641,7 @@ test("project ai thread history excludes runs from other projects", async ({
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
     await expect(threadsPanel).toBeVisible();

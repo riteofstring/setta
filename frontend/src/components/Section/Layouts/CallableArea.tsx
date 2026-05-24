@@ -11,10 +11,14 @@ function _CallableArea({
   sectionId,
   bgColor,
   isMinimized,
+  renderParamRows = true,
+  syncDomPortGeometry = true,
 }: {
   sectionId: string;
   bgColor: string;
   isMinimized: boolean;
+  renderParamRows?: boolean;
+  syncDomPortGeometry?: boolean;
 }) {
   const { callable, hideParams } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -32,13 +36,21 @@ function _CallableArea({
 
   return (
     <>
-      <SectionSearch sectionId={sectionId} callable={callable} />
+      <SectionSearch
+        sectionId={sectionId}
+        callable={callable}
+        syncDomPortGeometry={syncDomPortGeometry}
+      />
       {!hideParams && !isMinimized && (
         <>
-          <KwargsControls sectionId={sectionId} />
+          <KwargsControls
+            sectionId={sectionId}
+            trackMeasuredHeight={syncDomPortGeometry}
+          />
           <ParamGroupContainer
             sectionId={sectionId}
             bgColor={bgColor}
+            renderParamRows={renderParamRows}
             sectionTypeName={SectionTypeEnum.Callable}
           />
         </>

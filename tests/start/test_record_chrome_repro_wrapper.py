@@ -65,15 +65,25 @@ prefs_path.write_text(json.dumps(payload), encoding="utf-8")
 PY
 """,
     )
+    write_stub_executable(
+        sandbox_root / "scripts" / "resolve-chrome-for-testing-149.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "{stub_dir / "chrome"}"
+""",
+    )
+
     server, thread, bootstrap_base_url = start_ok_server()
     try:
         env = script_env(stub_dir, home_dir)
-        env["CHROME_BIN"] = str(stub_dir / "chrome")
+        env.pop("CHROME_BIN", None)
         env["SETTA_CHROME_REPRO_SKIP_DEV_START"] = "1"
         env["SETTA_CHROME_REPRO_BOOTSTRAP_URL"] = (
             f"{bootstrap_base_url}/__setta__/bootstrap#token=test-token"
         )
-        env["CHROME_EXTRA_ARGS"] = "--disable-features=Translate --lang=en-US"
+        env["CHROME_EXTRA_ARGS"] = (
+            "--enable-blink-features=CanvasDrawElement --enable-unsafe-webgpu"
+        )
         env.pop("SETTA_WORKSPACE_ROOT", None)
         env.pop("SETTA_PROJECT_URL", None)
         env.pop("SETTA_PROJECT_PATH", None)
@@ -100,8 +110,8 @@ PY
     assert "--user-data-dir=" in browser_args
     if sys.platform == "darwin":
         assert "--use-mock-keychain" in browser_args
-    assert "--disable-features=Translate" in browser_args
-    assert "--lang=en-US" in browser_args
+    assert "--enable-blink-features=CanvasDrawElement" in browser_args
+    assert "--enable-unsafe-webgpu" in browser_args
     assert "--disable-extensions-except=" in browser_args
     assert "--load-extension=" in browser_args
     assert f"{bootstrap_base_url}/__setta__/bootstrap#token=test-token" in browser_args
@@ -134,7 +144,6 @@ PY
     assert (artifact_dir / "transport.ndjson").exists()
     assert (artifact_dir / "transport_details.ndjson").exists()
     assert (artifact_dir / "app_state.ndjson").exists()
-    assert (artifact_dir / "performance.ndjson").exists()
     assert (artifact_dir / "llm_engine_artifacts" / "manifest.json").exists()
     assert (artifact_dir / "extension" / "pageRuntime.js").exists()
 

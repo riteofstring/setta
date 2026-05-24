@@ -1,4 +1,4 @@
-import { useReactFlow } from "forks/xyflow/core/store";
+import { getZoom } from "gpuFlow/viewportActions";
 import {
   useCallback,
   useEffect,
@@ -164,7 +164,7 @@ export function useColumnWidthDrag({
           cancelAnimationFrame(rafRef.current);
         }
         rafRef.current = requestAnimationFrame(() => {
-          const scale = useReactFlow.getState().transform[2];
+          const scale = getZoom();
           const delta = (moveEvent.clientX - startX) / scale;
           const newWidth = startWidth + delta;
           const boundedWidth = getBoundedWidth(newWidth, containerWidth);

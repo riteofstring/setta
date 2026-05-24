@@ -468,16 +468,11 @@
           "arguments_delta": "{\"task\":\"Do"
         },
         {
-          "type": "tool_argument_preview_delta",
+          "type": "tool_call_delta",
           "message_id": "assistant-tool-1",
           "tool_call_id": "tool-call-1",
           "tool_name": "Task",
-          "arguments_delta": " work\"}",
-          "preview_kind": "",
-          "preview_value_delta": "",
-          "target_ids_by_type": {
-            "section": ["section-1"]
-          }
+          "arguments_delta": " work\"}"
         }
       ],
       "expectedState": {
@@ -696,14 +691,11 @@
           }
         },
         {
-          "type": "tool_argument_preview_delta",
+          "type": "tool_call_delta",
           "message_id": "assistant-stop-tool-1",
           "tool_call_id": "tool-call-stop-1",
           "tool_name": "Task",
-          "arguments_delta": "{\"task\":\"Interrupt\"}",
-          "preview_kind": "",
-          "preview_value_delta": "",
-          "target_ids_by_type": {}
+          "arguments_delta": "{\"task\":\"Interrupt\"}"
         },
         {
           "type": "message_stop",
@@ -754,14 +746,11 @@
           }
         },
         {
-          "type": "tool_argument_preview_delta",
+          "type": "tool_call_delta",
           "message_id": "assistant-stop-finalize-1",
           "tool_call_id": "tool-call-stop-finalize-1",
           "tool_name": "Task",
-          "arguments_delta": "{\"task\":\"Interrupt\"}",
-          "preview_kind": "",
-          "preview_value_delta": "",
-          "target_ids_by_type": {}
+          "arguments_delta": "{\"task\":\"Interrupt\"}"
         },
         {
           "type": "message_stop",

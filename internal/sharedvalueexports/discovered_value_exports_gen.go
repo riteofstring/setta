@@ -121,6 +121,13 @@ func DiscoveredValueExports() []ValueExport {
 			},
 		},
 		{
+			Name: "ParamUIRendererConfig",
+			Type: reflect.TypeOf(projectview.FrontendValueParamUIRendererConfig()),
+			Value: func() any {
+				return projectview.FrontendValueParamUIRendererConfig()
+			},
+		},
+		{
 			Name: "ProjectChatUIConfig",
 			Type: reflect.TypeOf(projectview.FrontendValueProjectChatUIConfig()),
 			Value: func() any {

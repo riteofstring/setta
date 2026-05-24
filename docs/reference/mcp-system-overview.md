@@ -93,14 +93,14 @@ Tool enforcement details:
 
 ## Go MCP client (`internal/mcpx/client.go`)
 - The active multi-server MCP client runtime is Go-owned under `internal/mcpx/client.go`.
-- It maintains a session per configured MCP server (SSE, Streamable HTTP, or stdio), calls `list_tools`, and caches init/discoverable tool definitions plus runtime status for managed-chat/runtime paths that use outbound MCP client behavior.
+- It maintains a session per configured MCP server (Streamable HTTP, SSE, or stdio), calls `list_tools`, and caches init/discoverable tool definitions plus runtime status for managed-chat/runtime paths that use outbound MCP client behavior.
 - Tool names are always namespaced as `<serverId>__<toolName>`, and the client keeps a routing map so `call_tool` can strip the prefix and send the request to the correct server/session.
 - Retry and reconnect behavior for configured external MCP servers lives in the
   Go client/runtime.
 
 ## Packaged stdio bridge (`internal/settacmd/mcp.go`, `internal/mcpx/stdio_bridge.go`)
 - `setta mcp` (or the explicit `setta mcp bridge`) lets Setta’s Go MCP server look like a local `stdio` transport for third-party MCP orchestrators.
-- The CLI resolves auth from either `--token` / `--bootstrap-url` or the current local session (`SETTA_SESSION_ID`, plus `SETTA_SESSIONS_ROOT` when running outside the session workspace), then forwards raw MCP JSON-RPC messages between stdin/stdout and the Go `/mcp` SSE endpoint.
+- The CLI resolves auth from either `--token` / `--bootstrap-url` or the current local session (`SETTA_SESSION_ID`, plus `SETTA_SESSIONS_ROOT` when running outside the session workspace), then forwards raw MCP JSON-RPC messages between stdin/stdout and the Go `/mcp` Streamable HTTP endpoint.
 - Because the bridge is transport-thin, external clients see the same tool catalog, schemas, and behavior that the Go-owned `/mcp` server already exposes.
 
 ## Managed chat runtime (`internal/httpapi/llm_routes.go`, `internal/managedchat`, and `internal/managedllm`)
@@ -145,7 +145,7 @@ Tool enforcement details:
   `docs/reference/project-chat-windowing.md`.
 
 ## Third-party access
-- Because Setta speaks standard MCP over SSE, any MCP-compatible client can point at `http://<host>:<port>/mcp` and call `initialize`, `list_tools`, and `call_tool` just like it would against Cursor, Claude, or OpenAI’s tool hosts. Authentication is handled upstream (Setta runs behind whatever protections you configure), so the MCP surface itself simply expects the HTTP socket to be authorized. Most tools also require agentic context (see above) so tool calls are scope-enforced.
+- Because Setta speaks standard MCP over Streamable HTTP, any MCP-compatible client can point at `http://<host>:<port>/mcp` and call `initialize`, `list_tools`, and `call_tool` just like it would against Cursor, Claude, or OpenAI’s tool hosts. Authentication is handled upstream (Setta runs behind whatever protections you configure), so the MCP surface itself simply expects the HTTP socket to be authorized. Most tools also require agentic context (see above) so tool calls are scope-enforced.
 - The recommended path for outside applications is to run the stdio bridge:
 
   ```bash
@@ -153,13 +153,13 @@ Tool enforcement details:
   ```
 
   The resulting process behaves like any other MCP server binary on stdin/stdout, meaning you can register Setta inside clients such as the OpenAI Desktop app or Anthropic’s tools without writing glue code.
-- Third parties that already speak SSE can also skip the bridge and connect directly. The server exposes `GET /mcp` for the initial SSE session, then returns an `endpoint` event that names the session message endpoint (the Go SDK uses the same `/mcp` path with a `sessionid` query parameter). Once connected, they receive the same tool list (`list_mcp_tools` and `search_mcp_tools` included), the same doc-enriched schemas, and the same ID translation guarantees that the internal managed chat runtime relies on.
+- Third parties that already speak Streamable HTTP can also skip the bridge and connect directly to `/mcp`. Once connected, they receive the same tool list (`list_mcp_tools` and `search_mcp_tools` included), the same doc-enriched schemas, and the same ID translation guarantees that the internal managed chat runtime relies on.
 - External clients can optionally call `search_mcp_tools` to get shortlists of relevant tools. The server-side search results use un-namespaced tool names, so external clients should call tools by those names.
 
 ## When to touch what
 - Adding or modifying tools → update `internal/mcpx/server.go` or the focused helper files under `internal/mcpx/*_tools.go`, plus `internal/tools/*` when metadata/search behavior changes.
 - Changing how MCP calls are streamed to the UI for managed chats → edit `internal/managedllm`, `internal/managedchat/live_runtime.go`, `internal/httpapi/llm_routes.go`, and the websocket reducers in `frontend/src/state/actions/ai.ts`.
 - Adapting the chat UI → adjust the components in `frontend/src/components/Panes/Overview/ProjectLevelAI/`.
-- Integrating a new external MCP consumer → either script against `setta mcp` or write a native SSE client against `/mcp`.
+- Integrating a new external MCP consumer → either script against `setta mcp` or write a native Streamable HTTP client against `/mcp`.
 
 With these pieces in mind you should be able to trace any MCP request end-to-end, from a user prompt in the UI (or an external orchestrator) through the Go Setta MCP server and back again.

@@ -130,6 +130,7 @@ function TerminalAreaCore({
         <div
           ref={terminalRef}
           className={`${hasScrollbar ? "nowheel" : ""} ${NO_PAN_CLASS_NAME} nodrag`}
+          data-gpu-flow-control={`terminal:${sectionId}`}
           data-section-main-editor
           data-attached-terminal-section-id={
             dataAttachedTerminalId ?? undefined

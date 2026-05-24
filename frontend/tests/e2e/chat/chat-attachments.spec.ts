@@ -322,7 +322,8 @@ test.describe.serial("chat attachments", () => {
     if (!initialAPIKeysSnapshot) {
       throw new Error("Missing managed API keys snapshot.");
     }
-    const providerServer = await startManagedAnthropicAttachmentProviderServer();
+    const providerServer =
+      await startManagedAnthropicAttachmentProviderServer();
     let latestAPIKeysSnapshot = initialAPIKeysSnapshot;
     let createdEngineConfigId: string | null = null;
     const llmConfigId = `e2e-project-chat-anthropic-attachments-${Date.now()}`;

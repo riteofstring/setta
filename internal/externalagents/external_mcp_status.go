@@ -370,8 +370,6 @@ func resolveExternalTransport(server map[string]any) mcpx.Transport {
 	for _, key := range []string{"transport", "type", "protocol"} {
 		value := strings.ToLower(strings.TrimSpace(stringValue(server[key])))
 		switch value {
-		case "sse":
-			return mcpx.TransportSSE
 		case "streamable_http", "streamable-http", "streamablehttp":
 			return mcpx.TransportStreamableHTTP
 		case "stdio":

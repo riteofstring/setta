@@ -13,8 +13,8 @@ import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEdi
 import { buildLspDiagnosticsExtensions } from "components/Utils/CodeMirror/lspDiagnostics";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { useCodeMirrorTooltipParent } from "components/Utils/CodeMirror/useCodeMirrorTooltipParent";
-import { useReactFlow } from "forks/xyflow/core/store";
-import { computeReadyToBeVisible } from "forks/xyflow/core/store/utils";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
+import { computeGpuReadyToBeVisible } from "gpuFlow/viewportStore";
 import _ from "lodash";
 import {
   codeAreaCompletion,
@@ -689,7 +689,7 @@ export function useCodeAreaHeight({ sectionId }) {
   const editorRef = useRef(null);
   const resizeObserverRef = useRef(null);
   const [nowheel, setNoWheel] = useState("");
-  const readyToBeVisible = useReactFlow(computeReadyToBeVisible);
+  const readyToBeVisible = useGpuFlowViewportStore(computeGpuReadyToBeVisible);
   const [didFirstRender, setDidFirstRender] = useState(false);
   const handleCreateEditor = useCallback((view) => {
     editorRef.current = view;

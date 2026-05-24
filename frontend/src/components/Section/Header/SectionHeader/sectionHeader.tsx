@@ -1,0 +1,912 @@
+import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
+
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
+
+import _ from "lodash";
+
+import React, { useLayoutEffect, useRef } from "react";
+
+import { RiFocus2Line } from "react-icons/ri";
+
+import { TbBell, TbBellOff, TbSortDescending2 } from "react-icons/tb";
+
+import {
+  setCodeSectionDiagnosticCodeSuppression,
+  setCodeSectionDiagnosticsMuted,
+} from "state/actions/lspDiagnostics";
+
+import {
+  getCurrEffectiveSectionImpl,
+  getCurrEffectiveSectionImplOfType,
+  isBaseCodeSectionType,
+} from "state/actions/sectionInfos";
+
+import { useIsSectionUIActive } from "state/activeSectionUI";
+
+import {
+  useAIFollow,
+  useLspDiagnostics,
+  useProjectState,
+  useShareSession,
+  useTemporaryMiscState,
+} from "state/definitions";
+
+import { useIsSeriesElement } from "state/hooks/uiTypes";
+
+import { getSectionHeaderHeightKey } from "utils/constants";
+
+import {
+  CodeLanguageEnum,
+  LSPDiagnostic,
+  SectionTypeEnum,
+  type SectionType,
+} from "utils/generatedTypes";
+
+import { Incrementer } from "../../SectionParts/Incrementer";
+
+import { AttachedTerminalControls } from "../AttachedTerminalControls";
+
+import { DeleteOrHideButton } from "../DeleteOrHideButton";
+
+import { LockPositionButton } from "../LockPositionButton";
+
+import MenuButton from "../MenuButton/MenuButton";
+
+import { MinimizeButton } from "../MinimizeButton";
+
+import { RunButton } from "../RunButton";
+
+import { SectionTitle } from "../SectionTitle";
+
+import { ToggleEntryCodeBlockButton } from "../ToggleEntryCodeBlockButton";
+
+import { ToggleTextBlockDisplayModeButton } from "../ToggleTextBlockDisplayModeButton";
+
+import { TextBlockCardTitle, getTitleStyles } from "./textBlockTitle";
+
+type SectionHeaderProps = {
+  sectionId: string;
+  sectionTypeName: SectionType;
+  isInOtherProjectConfigs: boolean;
+  isUserView: boolean;
+  isRoot: boolean;
+  hasSectionStyleTheme: boolean;
+  extraControls?: React.ReactNode;
+  showSectionContainerControls?: boolean;
+  trackMeasuredHeight?: boolean;
+  headerProps?: Omit<
+    React.ComponentPropsWithoutRef<"header">,
+    "children" | "ref"
+  >;
+};
+
+export type TitleStyleOptions = Pick<
+  SectionHeaderProps,
+  "isInOtherProjectConfigs" | "sectionTypeName" | "hasSectionStyleTheme"
+> & {
+  isActiveSection: boolean;
+};
+
+type SectionHeaderFrameProps = {
+  headerRef: React.RefObject<HTMLElement | null>;
+  headerProps?: SectionHeaderProps["headerProps"];
+  hasSectionStyleTheme: boolean;
+  children: React.ReactNode;
+};
+
+type SectionHeaderLeadingProps = Pick<
+  SectionHeaderProps,
+  | "sectionId"
+  | "isInOtherProjectConfigs"
+  | "sectionTypeName"
+  | "hasSectionStyleTheme"
+> & {
+  tagColor: string | null;
+};
+
+type SectionHeaderTrailingProps = Pick<
+  SectionHeaderProps,
+  | "sectionId"
+  | "sectionTypeName"
+  | "isRoot"
+  | "isUserView"
+  | "hasSectionStyleTheme"
+  | "showSectionContainerControls"
+  | "extraControls"
+> & {
+  projectConfigId: string;
+};
+
+const sectionHeaderBaseClassName =
+  "section-title mx-2 flex flex-row items-center";
+
+export const editingTitleBaseClassName =
+  "cursor-text nodrag px-1 py-0 leading-5 -ml-1 bg-setta-100 focus-visible:ring-0 focus-visible:outline-none rounded-md box-border border border-solid border-transparent focus-visible:border-blue-500 dark:bg-setta-800 w-full font-bold text-[.7rem] tracking-tight";
+
+export const editingTitleDefaultClassName = `${editingTitleBaseClassName} dark:text-white`;
+
+export const fixedTitleBaseClassName =
+  "select-none italic focus-visible:ring-0 focus-visible:outline-none box-border border border-solid border-transparent focus-visible:border-blue-500 tracking-tighter text-xs max-w-full truncate pr-0.5";
+
+export const fixedTitleDefaultClassName = `${fixedTitleBaseClassName} text-setta-400`;
+
+export const notEditingTitleBaseClassName =
+  "px-1 py-0 -ml-1 w-full focus-visible:ring-0 focus-visible:outline-none box-border rounded-md border border-solid border-transparent focus-visible:border-blue-500 leading-5 font-bold tracking-tight cursor-pointer max-w-full text-[.7rem] truncate";
+
+export const fixedTitleSectionTypes = new Set<SectionType>([
+  SectionTypeEnum.GlobalVariables,
+  SectionTypeEnum.GenPythonCode,
+  SectionTypeEnum.GenPythonMetadata,
+]);
+
+function _SectionHeader({
+  sectionId,
+  sectionTypeName,
+  isInOtherProjectConfigs,
+  isUserView,
+  isRoot,
+  hasSectionStyleTheme,
+  extraControls = null,
+  showSectionContainerControls = true,
+  trackMeasuredHeight = true,
+  headerProps,
+}: SectionHeaderProps) {
+  const headerRef = useRef<HTMLElement | null>(null);
+  const heightKey = getSectionHeaderHeightKey(sectionId);
+  useTrackMeasuredHeaderHeight({
+    headerRef,
+    heightKey,
+    trackMeasuredHeight,
+  });
+
+  const projectConfigId = useProjectState((x) => x.projectConfig.id);
+  const tagColor = useSectionHeaderTagColor(sectionId);
+
+  return (
+    <SectionHeaderFrame
+      headerRef={headerRef}
+      headerProps={headerProps}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+    >
+      <SectionHeaderLeading
+        sectionId={sectionId}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        sectionTypeName={sectionTypeName}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        tagColor={tagColor}
+      />
+      <SectionHeaderTrailing
+        projectConfigId={projectConfigId}
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        isRoot={isRoot}
+        isUserView={isUserView}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        extraControls={extraControls}
+        showSectionContainerControls={showSectionContainerControls}
+      />
+    </SectionHeaderFrame>
+  );
+}
+
+export const SectionHeader = React.memo(_SectionHeader);
+
+function useSectionHeaderTagColor(sectionId: string) {
+  return useProjectState((x) => {
+    if (!x.sections[sectionId]) {
+      return null;
+    }
+    return getCurrEffectiveSectionImpl(x, sectionId).tagColor ?? null;
+  });
+}
+
+function SectionHeaderFrame({
+  headerRef,
+  headerProps,
+  hasSectionStyleTheme,
+  children,
+}: SectionHeaderFrameProps) {
+  return (
+    <header
+      {...headerProps}
+      className={getSectionHeaderClassName(headerProps?.className)}
+      ref={headerRef}
+      style={getSectionHeaderStyle({
+        hasSectionStyleTheme,
+        style: headerProps?.style,
+      })}
+    >
+      {children}
+    </header>
+  );
+}
+
+function getSectionHeaderClassName(className: string | undefined) {
+  return className
+    ? `${sectionHeaderBaseClassName} ${className}`
+    : sectionHeaderBaseClassName;
+}
+
+function getSectionHeaderStyle({
+  hasSectionStyleTheme,
+  style,
+}: {
+  hasSectionStyleTheme: boolean;
+  style: React.CSSProperties | undefined;
+}) {
+  if (!hasSectionStyleTheme) {
+    return style;
+  }
+  return {
+    color: "var(--setta-section-style-text)",
+    ...style,
+  };
+}
+
+function SectionHeaderLeading({
+  sectionId,
+  isInOtherProjectConfigs,
+  sectionTypeName,
+  hasSectionStyleTheme,
+  tagColor,
+}: SectionHeaderLeadingProps) {
+  return (
+    <>
+      <MenuButton
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+      <SectionTagColorIndicator tagColor={tagColor} />
+      <MaybeCardTitle
+        sectionId={sectionId}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        sectionTypeName={sectionTypeName}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+    </>
+  );
+}
+
+function SectionTagColorIndicator({ tagColor }: { tagColor: string | null }) {
+  if (!tagColor) {
+    return null;
+  }
+
+  return (
+    <span
+      className="nodrag ml-2.5 mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/10"
+      style={{ backgroundColor: tagColor }}
+      title={`Color tag: ${tagColor}`}
+    />
+  );
+}
+
+function SectionHeaderTrailing({
+  projectConfigId,
+  sectionId,
+  sectionTypeName,
+  isRoot,
+  isUserView,
+  hasSectionStyleTheme,
+  extraControls,
+  showSectionContainerControls,
+}: SectionHeaderTrailingProps) {
+  return (
+    <div className="z-10 ml-auto flex items-center">
+      <SectionHeaderDiagnostics
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+      />
+      <SectionTypeControls
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        isRoot={isRoot}
+        isUserView={isUserView}
+      />
+      <ChatFollowButton
+        projectConfigId={projectConfigId}
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+      />
+      {extraControls}
+      <SectionContainerControls
+        sectionId={sectionId}
+        showSectionContainerControls={showSectionContainerControls}
+        isUserView={isUserView}
+        isRoot={isRoot}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+    </div>
+  );
+}
+
+function useTrackMeasuredHeaderHeight({
+  headerRef,
+  heightKey,
+  trackMeasuredHeight,
+}: {
+  headerRef: React.RefObject<HTMLElement | null>;
+  heightKey: string;
+  trackMeasuredHeight: boolean;
+}) {
+  useLayoutEffect(() => {
+    if (!trackMeasuredHeight) {
+      return;
+    }
+    const node = headerRef.current;
+    if (!node) {
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+      return;
+    }
+    let lastMeasuredHeight: number | null = null;
+    const updateHeight = () => {
+      const style = window.getComputedStyle(node);
+      const marginHeight =
+        (Number.parseFloat(style.marginTop) || 0) +
+        (Number.parseFloat(style.marginBottom) || 0);
+      const measuredHeight = node.offsetHeight + marginHeight;
+      const nextHeight = Math.ceil(measuredHeight);
+      if (lastMeasuredHeight === nextHeight) {
+        return;
+      }
+      lastMeasuredHeight = nextHeight;
+      useTemporaryMiscState.setState({
+        [heightKey]: nextHeight > 0 ? nextHeight : 0,
+      });
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+      useTemporaryMiscState.setState({ [heightKey]: 0 });
+    };
+  }, [headerRef, heightKey, trackMeasuredHeight]);
+}
+
+function SectionHeaderDiagnostics({
+  sectionId,
+  sectionTypeName,
+}: {
+  sectionId: string;
+  sectionTypeName: SectionType;
+}) {
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const genCodeDiagnostics = useLspDiagnostics((x) => x.unmappedGenCode);
+
+  if (isDeploymentMode) {
+    return null;
+  }
+
+  return (
+    <>
+      {sectionTypeName === SectionTypeEnum.Code && (
+        <CodeDiagnosticsControls sectionId={sectionId} />
+      )}
+      {sectionTypeName === SectionTypeEnum.GenPythonCode &&
+        genCodeDiagnostics.length > 0 && (
+          <DiagnosticsPopover
+            diagnostics={genCodeDiagnostics}
+            label={`Issues ${genCodeDiagnostics.length}`}
+            title="Generated code issues"
+          />
+        )}
+    </>
+  );
+}
+
+function CodeDiagnosticsControls({ sectionId }: { sectionId: string }) {
+  const {
+    codeSectionDiagnostics,
+    codeDiagnosticsLabel,
+    codeDiagnosticsMuted,
+    inlineSuppressionHint,
+    showCodeDiagnosticsPopover,
+    suppressedCodes,
+  } = useCodeDiagnosticsState(sectionId);
+
+  return (
+    <>
+      <DiagnosticsMuteButton
+        sectionId={sectionId}
+        codeDiagnosticsMuted={codeDiagnosticsMuted}
+      />
+      {showCodeDiagnosticsPopover && (
+        <DiagnosticsPopover
+          diagnostics={codeSectionDiagnostics}
+          label={codeDiagnosticsLabel}
+          title="Problems"
+          suppressedCodes={suppressedCodes}
+          isMuted={codeDiagnosticsMuted}
+          onSetSuppressedCode={(code, suppress) => {
+            void setCodeSectionDiagnosticCodeSuppression(
+              sectionId,
+              code,
+              suppress,
+            );
+          }}
+          inlineSuppressionHint={inlineSuppressionHint}
+        />
+      )}
+    </>
+  );
+}
+
+function DiagnosticsMuteButton({
+  sectionId,
+  codeDiagnosticsMuted,
+}: {
+  sectionId: string;
+  codeDiagnosticsMuted: boolean;
+}) {
+  const buttonTitle = codeDiagnosticsMuted
+    ? "Unmute diagnostics"
+    : "Mute diagnostics";
+
+  return (
+    <button
+      className={`nodrag ml-2 inline-flex items-center rounded-full border px-2 py-1 text-[11px] font-semibold uppercase tracking-wide shadow-sm transition ${codeDiagnosticsMuted ? "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200" : "border-slate-200 bg-white/80 text-slate-600 dark:border-slate-600/40 dark:bg-slate-800/70 dark:text-slate-200"}`}
+      onClick={() =>
+        void setCodeSectionDiagnosticsMuted(sectionId, !codeDiagnosticsMuted)
+      }
+      title={buttonTitle}
+      type="button"
+    >
+      {codeDiagnosticsMuted ? (
+        <TbBellOff className="text-[12px]" />
+      ) : (
+        <TbBell className="text-[12px]" />
+      )}
+    </button>
+  );
+}
+
+function useCodeDiagnosticsState(sectionId: string) {
+  const codeSectionDiagnostics = useLspDiagnostics((x) => {
+    const diagnostics = x.codeSections[sectionId];
+    return diagnostics ?? [];
+  });
+  const codeDiagnosticsInfo = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Code,
+    );
+    return {
+      ignoreState: impl.diagnosticsIgnoreState,
+      language: impl.codeLanguage,
+    };
+  });
+  const codeDiagnosticsIgnoreState = codeDiagnosticsInfo.ignoreState ?? null;
+  const codeDiagnosticsMuted = codeDiagnosticsIgnoreState?.muted ?? false;
+  const suppressedCodes = codeDiagnosticsIgnoreState?.suppressedCodes ?? [];
+
+  return {
+    codeSectionDiagnostics,
+    codeDiagnosticsLabel: getCodeDiagnosticsLabel({
+      codeDiagnosticsMuted,
+      diagnosticsCount: codeSectionDiagnostics.length,
+      suppressedCodesCount: suppressedCodes.length,
+    }),
+    codeDiagnosticsMuted,
+    inlineSuppressionHint: getInlineSuppressionHint(
+      codeDiagnosticsInfo.language,
+    ),
+    showCodeDiagnosticsPopover:
+      codeSectionDiagnostics.length > 0 ||
+      suppressedCodes.length > 0 ||
+      codeDiagnosticsMuted,
+    suppressedCodes,
+  };
+}
+
+function SectionTypeControls({
+  sectionId,
+  sectionTypeName,
+  isRoot,
+  isUserView,
+}: {
+  sectionId: string;
+  sectionTypeName: SectionType;
+  isRoot: boolean;
+  isUserView: boolean;
+}) {
+  const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
+  const showRunControls = useProjectState((state) => {
+    const capabilities = state.sectionCapabilities[sectionId];
+    return Boolean(
+      capabilities?.canRun || capabilities?.canSelectAsEntryCodeBlock,
+    );
+  });
+
+  return (
+    <>
+      {isSeriesElement && (
+        <StandardPopover
+          arrowClasses="fill-white dark:fill-setta-800"
+          contentClasses="z-20"
+          trigger={
+            <button className="nodrag flex inline-flex h-3 w-3 cursor-pointer items-center justify-center rounded-full bg-transparent px-1 py-1 text-setta-500 focus-visible:ring-2 [&_*]:hover:text-setta-500 [&_*]:dark:hover:text-setta-400">
+              <TbSortDescending2 className="text-setta-300 dark:text-setta-700" />
+            </button>
+          }
+        >
+          <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />
+        </StandardPopover>
+      )}
+      {showRunControls && (
+        <>
+          <RunButton sectionId={sectionId} />
+          <ToggleEntryCodeBlockButton sectionId={sectionId} />
+        </>
+      )}
+      {isBaseCodeSectionType(sectionTypeName) && (
+        <AttachedTerminalControls
+          sectionId={sectionId}
+          isUserView={isUserView}
+        />
+      )}
+      {!isUserView && sectionTypeName === SectionTypeEnum.TextBlock && (
+        <ToggleTextBlockDisplayModeButton sectionId={sectionId} />
+      )}
+    </>
+  );
+}
+
+function ChatFollowButton({
+  projectConfigId,
+  sectionId,
+  sectionTypeName,
+}: {
+  projectConfigId: string;
+  sectionId: string;
+  sectionTypeName: SectionType;
+}) {
+  const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const selectedSectionIds = useAIFollow(
+    (state) => state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? [],
+    _.isEqual,
+  );
+  const isFollowSelected = selectedSectionIds.includes(sectionId);
+
+  if (isDeploymentMode || sectionTypeName !== SectionTypeEnum.Chat) {
+    return null;
+  }
+
+  const buttonLabel = isFollowSelected ? "Stop following chat" : "Follow chat";
+  const followButtonClassName = getFollowButtonClassName(isFollowSelected);
+
+  return (
+    <button
+      aria-label={buttonLabel}
+      aria-pressed={isFollowSelected}
+      className={followButtonClassName}
+      onClick={() => {
+        useAIFollow.setState((state) => {
+          const selected =
+            state.selectedSectionIdsByProjectConfigId[projectConfigId] ??
+            (state.selectedSectionIdsByProjectConfigId[projectConfigId] = []);
+          const existingIndex = selected.indexOf(sectionId);
+          if (existingIndex === -1) {
+            selected.push(sectionId);
+          } else {
+            selected.splice(existingIndex, 1);
+          }
+          if (state.mode !== "selected") {
+            state.mode = "selected";
+          }
+        });
+      }}
+      title={buttonLabel}
+      type="button"
+      {...getFloatingBoxHandlers({ content: buttonLabel })}
+    >
+      <RiFocus2Line className="text-[12px]" />
+    </button>
+  );
+}
+
+function SectionContainerControls({
+  sectionId,
+  showSectionContainerControls,
+  isUserView,
+  isRoot,
+  hasSectionStyleTheme,
+}: {
+  sectionId: string;
+  showSectionContainerControls: boolean;
+  isUserView: boolean;
+  isRoot: boolean;
+  hasSectionStyleTheme: boolean;
+}) {
+  if (isUserView || !showSectionContainerControls) {
+    return null;
+  }
+
+  return (
+    <>
+      <LockPositionButton
+        sectionId={sectionId}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+      {!isRoot && (
+        <MinimizeButton
+          sectionId={sectionId}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+        />
+      )}
+      <DeleteOrHideButton
+        sectionId={sectionId}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+      />
+    </>
+  );
+}
+
+function getCodeDiagnosticsLabel({
+  codeDiagnosticsMuted,
+  diagnosticsCount,
+  suppressedCodesCount,
+}: {
+  codeDiagnosticsMuted: boolean;
+  diagnosticsCount: number;
+  suppressedCodesCount: number;
+}) {
+  if (codeDiagnosticsMuted) {
+    return "Diagnostics muted";
+  }
+  if (diagnosticsCount > 0) {
+    return `Issues ${diagnosticsCount}`;
+  }
+  if (suppressedCodesCount > 0) {
+    return `Suppressed ${suppressedCodesCount}`;
+  }
+  return "Diagnostics";
+}
+
+function getInlineSuppressionHint(
+  language: CodeLanguageEnum | null | undefined,
+) {
+  if (language === CodeLanguageEnum.python) {
+    return "Inline suppressions: add a Python ignore comment on the line (for example, # type: ignore).";
+  }
+  return null;
+}
+
+function getFollowButtonClassName(isFollowSelected: boolean) {
+  const baseClassName =
+    "nodrag mr-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full transition focus-visible:ring-2";
+  if (isFollowSelected) {
+    return `${baseClassName} bg-blue-100 text-blue-600 shadow-sm dark:bg-blue-950/60 dark:text-blue-300`;
+  }
+  return `${baseClassName} text-setta-500 hover:bg-blue-100 hover:text-blue-600 dark:text-setta-500 dark:hover:bg-blue-950/60 dark:hover:text-blue-300`;
+}
+
+function DiagnosticsPopover({
+  diagnostics,
+  label,
+  title,
+  suppressedCodes,
+  isMuted,
+  onSetSuppressedCode,
+  inlineSuppressionHint,
+}: {
+  diagnostics: Array<LSPDiagnostic>;
+  label: string;
+  title: string;
+  suppressedCodes?: Array<NonNullable<LSPDiagnostic["code"]>>;
+  isMuted?: boolean;
+  onSetSuppressedCode?: (
+    code: NonNullable<LSPDiagnostic["code"]>,
+    suppress: boolean,
+  ) => void;
+  inlineSuppressionHint?: string | null;
+}) {
+  const badgeClassName = getBadgeClassName(diagnostics);
+  const hasSuppressedCodes = (suppressedCodes ?? []).length > 0;
+  const hasDiagnostics = diagnostics.length > 0;
+  return (
+    <StandardPopover
+      arrowClasses="fill-white/95 stroke-[1px] stroke-slate-200/80 dark:fill-slate-950/90 dark:stroke-slate-700/70"
+      contentClasses="z-30 w-[min(16rem,calc(100vw-0.75rem))] rounded-md border border-slate-200/80 bg-white/95 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.6)] ring-1 ring-white/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-950/90 dark:ring-slate-800/60"
+      repositionOnCanvasTransform
+      trigger={
+        <button
+          className={`nodrag ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide shadow-[0_10px_24px_-16px_rgba(15,23,42,0.45)] ring-1 ring-white/70 backdrop-blur-sm transition dark:ring-slate-800/60 ${badgeClassName}`}
+          type="button"
+        >
+          {label}
+        </button>
+      }
+    >
+      <div className="flex flex-col gap-1.5 p-1.5 text-[9px] text-slate-700 dark:text-slate-100">
+        <div className="flex items-center justify-between rounded-md border border-slate-200/70 bg-slate-50/90 px-1.5 py-1 text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-500 shadow-sm dark:border-slate-700/70 dark:bg-slate-900/70 dark:text-slate-400">
+          <span>{title}</span>
+          <span className="rounded-full bg-white px-1.5 py-0.5 text-[8px] font-bold text-slate-600 shadow-sm dark:bg-slate-800 dark:text-slate-200">
+            {diagnostics.length}
+          </span>
+        </div>
+        {isMuted && (
+          <div className="rounded-md border border-amber-200/80 bg-amber-50/90 px-1.5 py-1 text-[8px] font-semibold uppercase tracking-[0.18em] text-amber-700 shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+            Muted
+          </div>
+        )}
+        {hasDiagnostics ? (
+          <div className="max-h-48 overflow-auto pr-1">
+            <ul className="flex flex-col gap-1">
+              {diagnostics.map((diagnostic, idx) => {
+                const { line, character } = diagnostic.range.start;
+                const {
+                  label: severityLabel,
+                  className: severityClassName,
+                  accentClassName: severityAccentClassName,
+                } = getSeverityMeta(diagnostic.severity);
+                const code = diagnostic.code;
+                const codeLabel =
+                  code === null || code === undefined ? null : String(code);
+                const suppressHandler = onSetSuppressedCode;
+                const canSuppress =
+                  code !== null &&
+                  code !== undefined &&
+                  suppressHandler !== undefined;
+                return (
+                  <li
+                    className={`rounded-md border border-slate-200/70 bg-white/90 p-1.5 text-[9px] shadow-[0_10px_24px_-18px_rgba(15,23,42,0.45)] dark:border-slate-700/70 dark:bg-slate-900/70 ${severityAccentClassName}`}
+                    key={`${diagnostic.message}-${idx}`}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide shadow-sm ${severityClassName}`}
+                      >
+                        {severityLabel}
+                      </span>
+                      <span className="text-[8px] font-medium text-slate-500 dark:text-slate-400">
+                        Line {line + 1}, Col {character + 1}
+                      </span>
+                      {codeLabel && (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[8px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                          {codeLabel}
+                        </span>
+                      )}
+                      {diagnostic.source && (
+                        <span className="text-[8px] text-slate-400 dark:text-slate-500">
+                          {diagnostic.source}
+                        </span>
+                      )}
+                      {canSuppress && (
+                        <button
+                          className="ml-auto rounded-full border border-slate-200/80 bg-white/90 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:border-slate-600"
+                          onClick={() =>
+                            void suppressHandler?.(
+                              code as NonNullable<LSPDiagnostic["code"]>,
+                              true,
+                            )
+                          }
+                          type="button"
+                        >
+                          Suppress code
+                        </button>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[9px] leading-snug text-slate-700 dark:text-slate-100">
+                      {diagnostic.message}
+                    </p>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : (
+          <div className="rounded-md border border-dashed border-slate-200/80 bg-slate-50/70 px-1.5 py-1 text-[9px] text-slate-500 dark:border-slate-700/70 dark:bg-slate-900/40 dark:text-slate-400">
+            No active diagnostics.
+          </div>
+        )}
+        {hasSuppressedCodes && onSetSuppressedCode && (
+          <div className="flex flex-col gap-2 border-t border-slate-200 pt-2 dark:border-slate-700">
+            <div className="text-[8px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+              Suppressed codes
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {(suppressedCodes ?? []).map((code) => (
+                <button
+                  className="inline-flex items-center gap-1 rounded-full border border-slate-200/80 bg-white/90 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:border-slate-600"
+                  key={`suppressed-${String(code)}`}
+                  onClick={() => void onSetSuppressedCode(code, false)}
+                  type="button"
+                >
+                  <span>{String(code)}</span>
+                  <span className="text-[12px] leading-none">x</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {inlineSuppressionHint && (
+          <div className="border-t border-slate-200 pt-2 text-[9px] text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            {inlineSuppressionHint}
+          </div>
+        )}
+      </div>
+    </StandardPopover>
+  );
+}
+
+function getBadgeClassName(diagnostics: Array<LSPDiagnostic>) {
+  let hasError = false;
+  let hasWarning = false;
+  for (const diagnostic of diagnostics) {
+    if (diagnostic.severity === 1) {
+      hasError = true;
+      break;
+    }
+    if (diagnostic.severity === 2) {
+      hasWarning = true;
+    }
+  }
+  if (hasError) {
+    return "border-red-200 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200";
+  }
+  if (hasWarning) {
+    return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200";
+  }
+  return "border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-600/40 dark:bg-slate-700/30 dark:text-slate-200";
+}
+
+function getSeverityMeta(severity: number | null | undefined) {
+  if (severity === 1) {
+    return {
+      label: "Error",
+      className: "bg-red-500 text-white",
+      accentClassName: "border-l-4 border-red-400/80",
+    };
+  }
+  if (severity === 2) {
+    return {
+      label: "Warning",
+      className: "bg-amber-400 text-slate-900",
+      accentClassName: "border-l-4 border-amber-300/80",
+    };
+  }
+  if (severity === 3) {
+    return {
+      label: "Info",
+      className: "bg-sky-500 text-white",
+      accentClassName: "border-l-4 border-sky-400/80",
+    };
+  }
+  return {
+    label: "Hint",
+    className: "bg-slate-300 text-slate-900",
+    accentClassName: "border-l-4 border-slate-300/80",
+  };
+}
+
+function MaybeCardTitle({
+  sectionId,
+  isInOtherProjectConfigs,
+  sectionTypeName,
+  hasSectionStyleTheme,
+}) {
+  const isActiveSection = useIsSectionUIActive(sectionId);
+  return sectionTypeName === SectionTypeEnum.TextBlock ? (
+    <TextBlockCardTitle
+      sectionId={sectionId}
+      isActiveSection={isActiveSection}
+      isInOtherProjectConfigs={isInOtherProjectConfigs}
+      sectionTypeName={sectionTypeName}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+    />
+  ) : (
+    <SectionTitle
+      sectionId={sectionId}
+      titleProps={getTitleStyles({
+        isActiveSection,
+        isInOtherProjectConfigs,
+        sectionTypeName,
+        hasSectionStyleTheme,
+      })}
+    />
+  );
+}

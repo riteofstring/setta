@@ -1,70 +1,7 @@
 import { getSectionChildren } from "state/actions/sectionInfos";
 import { ZustandProjectState } from "state/definitions";
 
-type RootSectionSelection = {
-  rootIds: string[];
-};
-
 type TopLevelSectionSortKey = readonly [number, number, number, number, string];
-
-export function getRootSelectedSectionIds(
-  state: ZustandProjectState,
-  sectionIds: string[],
-): RootSectionSelection {
-  const selectedSet = new Set(sectionIds);
-  const rootIds: string[] = [];
-
-  for (const sectionId of sectionIds) {
-    let parentId = state.parentSectionMap[sectionId] ?? null;
-    let hasSelectedAncestor = false;
-    while (parentId) {
-      if (selectedSet.has(parentId)) {
-        hasSelectedAncestor = true;
-        break;
-      }
-      parentId = state.parentSectionMap[parentId] ?? null;
-    }
-
-    if (!hasSelectedAncestor) {
-      rootIds.push(sectionId);
-    }
-  }
-
-  return { rootIds };
-}
-
-export function getSharedParentId(
-  state: ZustandProjectState,
-  sectionIds: string[],
-): string | null | undefined {
-  if (sectionIds.length === 0) {
-    return undefined;
-  }
-  const parentMap = state.parentSectionMap;
-  const firstParentId = parentMap[sectionIds[0]] ?? null;
-  for (const sectionId of sectionIds) {
-    const parentId = parentMap[sectionId] ?? null;
-    if (parentId !== firstParentId) {
-      return undefined;
-    }
-  }
-  return firstParentId;
-}
-
-export function isDescendantOfSectionSelection(
-  state: ZustandProjectState,
-  candidateId: string,
-  selectedSet: Set<string>,
-): boolean {
-  let currentId: string | null = candidateId;
-  while (currentId) {
-    if (selectedSet.has(currentId)) {
-      return true;
-    }
-    currentId = state.parentSectionMap[currentId] ?? null;
-  }
-  return false;
-}
 
 export function orderSectionIdsByParent(
   state: ZustandProjectState,
