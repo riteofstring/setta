@@ -923,15 +923,18 @@ function getGpuFlowVisibleFrameBrowserRepresentationKind(
 function isGpuFlowVisibleFrameActiveEditorRepresentation(
   actor: GpuFlowCommittedSurfaceActorGeneration,
 ): boolean {
-  return actor.active || actor.browserVisual?.representationKind === "active-editor";
+  return (
+    actor.active || actor.browserVisual?.representationKind === "active-editor"
+  );
 }
 
 function hasGpuFlowVisibleFrameActiveEditorPublication(
   frame: GpuFlowCommittedSurfaceFrame,
 ): boolean {
-  return frame.actorGenerations.some(
+  return (frame.actorGenerations ?? []).some(
     (actor) =>
-      actor.visibleNonempty && isGpuFlowVisibleFrameActiveEditorRepresentation(actor),
+      actor.visibleNonempty &&
+      isGpuFlowVisibleFrameActiveEditorRepresentation(actor),
   );
 }
 
