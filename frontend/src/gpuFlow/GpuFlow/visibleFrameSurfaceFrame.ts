@@ -30,7 +30,7 @@ import {
   createGpuFlowContentPublicationFrameResult,
   runGpuFlowVisibleFrameCoordinator,
   shouldConsiderGpuFlowDeferredContentPublication,
-  shouldDeferGpuFlowBrowserVisualRetryForPublication,
+  shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication,
   type GpuFlowContentPublicationFrameResult,
   type GpuFlowContentPublicationWorkPlan,
   type GpuFlowMotionProjectionFramePreparation,
@@ -83,7 +83,7 @@ export type GpuFlowSurfacePublicationPreparedFrame =
 export type RenderGpuFlowSurfaceFrameInput = Omit<
   GpuFlowNodeLayerFrameInput,
   | "deferResolutionUpdates"
-  | "deferBrowserVisualRetry"
+  | "deferBrowserVisualWakeup"
   | "frameReasons"
   | "heldPreviousProjectionState"
   | "liveProjectionSample"
@@ -704,13 +704,12 @@ function renderGpuFlowSurfaceContentPublicationFrame({
     callbacksRef: input.callbacksRef,
     canvasSizeRef: input.canvasSizeRef,
     deferResolutionUpdates: contentDeferResolutionUpdates,
-    deferBrowserVisualRetry: shouldDeferGpuFlowBrowserVisualRetryForPublication(
-      {
+    deferBrowserVisualWakeup:
+      shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
         budgetBroker: input.visibleFrameBudgetBrokerRef.current,
         deferResolutionUpdates: contentDeferResolutionUpdates,
         publicationDecision,
-      },
-    ),
+      }),
     frameReasons: event.reasons,
     frameRef: input.frameRef,
     interactionDiagnosticsRef: input.interactionDiagnosticsRef,

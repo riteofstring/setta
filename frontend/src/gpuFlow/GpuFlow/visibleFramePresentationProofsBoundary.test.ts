@@ -266,7 +266,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
 
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
     expect(candidateSource).not.toContain(
-      "requestGpuFlowBrowserVisualRetryFrame",
+      "requestGpuFlowBrowserVisualResourceWorkFrame",
     );
     expect(candidateSource).not.toContain(
       "recordGpuFlowBrowserVisualStarvation",

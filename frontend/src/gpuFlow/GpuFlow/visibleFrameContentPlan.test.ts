@@ -167,9 +167,10 @@ describe("GPU Flow visible publication content plans", () => {
           errorMessage: null,
           kind: "nonpublishable",
           preservePreparationSnapshot: true,
-          retry: {
-            deferRetry: false,
+          resourceWork: {
+            deferWakeup: false,
             timestamp: 16,
+            workItems: [],
           },
         }),
       });
@@ -742,7 +743,7 @@ describe("GPU Flow visible publication content plans", () => {
       never
     >({
       contentDecisionKernel,
-      deferBrowserVisualRetry: false,
+      deferBrowserVisualWakeup: false,
       deferResolutionUpdates: false,
       frameReasons: ["texture-upload"],
       liveProjectionSample: liveProjectionSample(),
@@ -812,9 +813,10 @@ describe("GPU Flow visible publication content plans", () => {
           errorMessage: "blocked surface",
           kind: "nonpublishable",
           preservePreparationSnapshot: true,
-          retry: {
-            deferRetry: false,
+          resourceWork: {
+            deferWakeup: false,
             timestamp: 24,
+            workItems: [],
           },
         }),
       });
@@ -823,7 +825,7 @@ describe("GPU Flow visible publication content plans", () => {
       never
     >({
       contentDecisionKernel,
-      deferBrowserVisualRetry: false,
+      deferBrowserVisualWakeup: false,
       deferResolutionUpdates: false,
       frameReasons: ["texture-upload"],
       liveProjectionSample: liveProjectionSample(),
@@ -939,7 +941,7 @@ describe("GPU Flow visible publication content plans", () => {
       string
     >({
       contentDecisionKernel,
-      deferBrowserVisualRetry: true,
+      deferBrowserVisualWakeup: true,
       deferResolutionUpdates: false,
       frameReasons: ["texture-upload"],
       liveProjectionSample: liveProjectionSample(),

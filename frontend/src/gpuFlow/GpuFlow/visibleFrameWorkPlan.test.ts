@@ -12,7 +12,7 @@ import {
   createGpuFlowContentPublicationWorkPlan,
   createGpuFlowMotionProjectionWorkPlan,
   shouldConsiderGpuFlowDeferredContentPublication,
-  shouldDeferGpuFlowBrowserVisualRetryForPublication,
+  shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication,
 } from "./visibleFrameCoordinator";
 
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
@@ -129,7 +129,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldDeferGpuFlowBrowserVisualRetryForPublication({
+      shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
         deferResolutionUpdates: false,
         publicationDecision: publicationDecision({
           lane: "content",
@@ -138,7 +138,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldDeferGpuFlowBrowserVisualRetryForPublication({
+      shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
         deferResolutionUpdates: true,
         publicationDecision: publicationDecision({
           lane: "content",
@@ -174,7 +174,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       "shouldConsiderGpuFlowDeferredContentPublication",
     );
     expect(coordinatorSource).toContain(
-      "shouldDeferGpuFlowBrowserVisualRetryForPublication",
+      "shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication",
     );
   });
 });

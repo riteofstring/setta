@@ -12,9 +12,10 @@ import {
   getGpuFlowCommittedSurfacePublishabilityActorIds,
 } from "./visibleFrameBlockedCandidate";
 import type {
-  GpuFlowCommittedSurfaceBlockedCandidateRetry,
-  GpuFlowVisiblePublicationCompletion,
-} from "./visibleFrameCoordinator";
+  GpuFlowBrowserVisualResourceWorkRequest,
+  GpuFlowCommittedSurfaceBlockedCandidateResourceWork,
+} from "./visibleFrameContentPlan";
+import type { GpuFlowVisiblePublicationCompletion } from "./visibleFrameCoordinator";
 import {
   assertGpuFlowBlockedPublicationTokenBrand,
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
@@ -85,12 +86,42 @@ type GpuFlowBrowserVisualStarvationDebt = {
   readonly frameCount: number;
 };
 
+type GpuFlowBrowserVisualResourceReadinessState =
+  | "preparing"
+  | "ready"
+  | "requested";
+
+type GpuFlowBrowserVisualResourceWakeupSource =
+  | "blocked-publication"
+  | "deferred-watchdog"
+  | "immediate-frame-request";
+
+type GpuFlowBrowserVisualResourceWorkSnapshot = Omit<
+  GpuFlowBrowserVisualResourceWorkRequest,
+  "debtAgeFrames" | "readinessState" | "wakeupSource"
+> & {
+  readonly debtAgeFrames: number;
+  readonly debtAgeMs: number;
+  readonly firstRequestedAtMs: number;
+  readonly lastUpdatedAtMs: number;
+  readonly outcome: GpuFlowBrowserVisualStarvationOutcome;
+  readonly readinessState: GpuFlowBrowserVisualResourceReadinessState;
+  readonly wakeupSource: GpuFlowBrowserVisualResourceWakeupSource;
+};
+
 const browserVisualStarvationDebtByCanvas = new WeakMap<
   HTMLCanvasElement,
   GpuFlowBrowserVisualStarvationDebt
 >();
-const browserVisualRetryFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
-const GPU_FLOW_BROWSER_VISUAL_DEFERRED_RETRY_MS =
+const browserVisualResourceWorkByCanvas = new WeakMap<
+  HTMLCanvasElement,
+  Map<string, GpuFlowBrowserVisualResourceWorkSnapshot>
+>();
+const browserVisualResourceWorkFrameTimers = new WeakMap<
+  GpuSurfaceHandle,
+  number
+>();
+const GPU_FLOW_BROWSER_VISUAL_DEFERRED_WORK_WAKEUP_MS =
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2;
 
 export function recordGpuFlowVisibleFramePresented(application: {
@@ -101,7 +132,8 @@ export function recordGpuFlowVisibleFramePresented(application: {
   const { runtimeCanvas, surfaceRef, token } = application;
   assertGpuFlowCommitPublicationTokenBrand({ token });
   clearGpuFlowBrowserVisualStarvationDebt(runtimeCanvas);
-  clearGpuFlowBrowserVisualRetryFrame({
+  clearGpuFlowBrowserVisualResourceWork(runtimeCanvas);
+  clearGpuFlowBrowserVisualResourceWorkFrame({
     runtimeCanvas,
     surface: surfaceRef.current,
   });
@@ -109,20 +141,25 @@ export function recordGpuFlowVisibleFramePresented(application: {
 
 export function recordGpuFlowVisibleFrameHeld(application: {
   readonly candidateFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly candidateRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry | null;
+  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly token: GpuFlowHoldPreviousToken;
 }): void {
-  const { candidateFrame, candidateRetry, runtimeCanvas, surfaceRef, token } =
-    application;
+  const {
+    candidateFrame,
+    candidateResourceWork,
+    runtimeCanvas,
+    surfaceRef,
+    token,
+  } = application;
   assertGpuFlowHoldPreviousTokenBrand({ token });
-  if (candidateFrame === null || candidateRetry === null) {
+  if (candidateFrame === null || candidateResourceWork === null) {
     return;
   }
   applyGpuFlowBrowserVisualStarvationCandidate({
     candidateFrame,
-    candidateRetry,
+    candidateResourceWork,
     outcome: "held-previous",
     runtimeCanvas,
     surfaceRef,
@@ -131,20 +168,25 @@ export function recordGpuFlowVisibleFrameHeld(application: {
 
 export function recordGpuFlowVisibleFrameBlocked(application: {
   readonly candidateFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly candidateRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry | null;
+  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly token: GpuFlowBlockedPublicationToken;
 }): void {
-  const { candidateFrame, candidateRetry, runtimeCanvas, surfaceRef, token } =
-    application;
+  const {
+    candidateFrame,
+    candidateResourceWork,
+    runtimeCanvas,
+    surfaceRef,
+    token,
+  } = application;
   assertGpuFlowBlockedPublicationTokenBrand({ token });
-  if (candidateFrame === null || candidateRetry === null) {
+  if (candidateFrame === null || candidateResourceWork === null) {
     return;
   }
   applyGpuFlowBrowserVisualStarvationCandidate({
     candidateFrame,
-    candidateRetry,
+    candidateResourceWork,
     outcome: "blocked",
     runtimeCanvas,
     surfaceRef,
@@ -153,26 +195,33 @@ export function recordGpuFlowVisibleFrameBlocked(application: {
 
 function applyGpuFlowBrowserVisualStarvationCandidate({
   candidateFrame,
-  candidateRetry,
+  candidateResourceWork,
   outcome,
   runtimeCanvas,
   surfaceRef,
 }: {
   readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
-  readonly candidateRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry;
+  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork;
   readonly outcome: GpuFlowBrowserVisualStarvationOutcome;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
 }): void {
   recordGpuFlowBrowserVisualStarvation({
     frame: candidateFrame,
-    nowMs: candidateRetry.timestamp,
+    nowMs: candidateResourceWork.timestamp,
     outcome,
     runtimeCanvas,
   });
-  requestGpuFlowBrowserVisualRetryFrame({
-    deferRetry:
-      candidateRetry.deferRetry ||
+  recordGpuFlowBrowserVisualResourceWork({
+    candidateResourceWork,
+    nowMs: candidateResourceWork.timestamp,
+    outcome,
+    runtimeCanvas,
+  });
+  requestGpuFlowBrowserVisualResourceWorkFrame({
+    candidateResourceWork,
+    deferWakeup:
+      candidateResourceWork.deferWakeup ||
       shouldWaitForGpuFlowBrowserVisualRepairSignal(candidateFrame),
     runtimeCanvas,
     surfaceRef,
@@ -208,12 +257,14 @@ function isGpuFlowBrowserVisualRepairableTextCoverageProof(
   );
 }
 
-function requestGpuFlowBrowserVisualRetryFrame({
-  deferRetry,
+function requestGpuFlowBrowserVisualResourceWorkFrame({
+  candidateResourceWork,
+  deferWakeup,
   runtimeCanvas,
   surfaceRef,
 }: {
-  readonly deferRetry: boolean;
+  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork;
+  readonly deferWakeup: boolean;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
 }): void {
@@ -221,30 +272,60 @@ function requestGpuFlowBrowserVisualRetryFrame({
   if (!surface) {
     return;
   }
-  if (!deferRetry) {
-    clearGpuFlowBrowserVisualRetryFrame({
+  if (!deferWakeup) {
+    clearGpuFlowBrowserVisualResourceWorkFrame({
       runtimeCanvas,
       surface,
+    });
+    markGpuFlowBrowserVisualResourceWorkState({
+      candidateResourceWork,
+      nowMs: candidateResourceWork.timestamp,
+      readinessState: "ready",
+      runtimeCanvas,
+      wakeupSource: "immediate-frame-request",
     });
     surface.requestFrame("texture-upload");
     return;
   }
-  if (browserVisualRetryFrameTimers.has(surface)) {
+  markGpuFlowBrowserVisualResourceWorkState({
+    candidateResourceWork,
+    nowMs: candidateResourceWork.timestamp,
+    readinessState: "preparing",
+    runtimeCanvas,
+    wakeupSource: "deferred-watchdog",
+  });
+  if (browserVisualResourceWorkFrameTimers.has(surface)) {
     return;
   }
-  const ownerWindow = runtimeCanvas.ownerDocument.defaultView;
+  const ownerWindow = getGpuFlowRuntimeCanvasWindow(runtimeCanvas);
   if (!ownerWindow) {
+    markGpuFlowBrowserVisualResourceWorkState({
+      candidateResourceWork,
+      nowMs: candidateResourceWork.timestamp,
+      readinessState: "ready",
+      runtimeCanvas,
+      wakeupSource: "immediate-frame-request",
+    });
     surface.requestFrame("texture-upload");
     return;
   }
   const timer = ownerWindow.setTimeout(() => {
-    browserVisualRetryFrameTimers.delete(surface);
+    browserVisualResourceWorkFrameTimers.delete(surface);
+    markGpuFlowBrowserVisualResourceWorkState({
+      candidateResourceWork,
+      nowMs:
+        candidateResourceWork.timestamp +
+        GPU_FLOW_BROWSER_VISUAL_DEFERRED_WORK_WAKEUP_MS,
+      readinessState: "ready",
+      runtimeCanvas,
+      wakeupSource: "deferred-watchdog",
+    });
     surface.requestFrame("texture-upload");
-  }, GPU_FLOW_BROWSER_VISUAL_DEFERRED_RETRY_MS);
-  browserVisualRetryFrameTimers.set(surface, timer);
+  }, GPU_FLOW_BROWSER_VISUAL_DEFERRED_WORK_WAKEUP_MS);
+  browserVisualResourceWorkFrameTimers.set(surface, timer);
 }
 
-function clearGpuFlowBrowserVisualRetryFrame({
+function clearGpuFlowBrowserVisualResourceWorkFrame({
   runtimeCanvas,
   surface,
 }: {
@@ -254,18 +335,110 @@ function clearGpuFlowBrowserVisualRetryFrame({
   if (!surface) {
     return;
   }
-  const timer = browserVisualRetryFrameTimers.get(surface);
+  const timer = browserVisualResourceWorkFrameTimers.get(surface);
   if (timer === undefined) {
     return;
   }
-  runtimeCanvas.ownerDocument.defaultView?.clearTimeout(timer);
-  browserVisualRetryFrameTimers.delete(surface);
+  getGpuFlowRuntimeCanvasWindow(runtimeCanvas)?.clearTimeout(timer);
+  browserVisualResourceWorkFrameTimers.delete(surface);
 }
 
 function clearGpuFlowBrowserVisualStarvationDebt(
   runtimeCanvas: HTMLCanvasElement,
 ): void {
   browserVisualStarvationDebtByCanvas.delete(runtimeCanvas);
+}
+
+function clearGpuFlowBrowserVisualResourceWork(
+  runtimeCanvas: HTMLCanvasElement,
+): void {
+  browserVisualResourceWorkByCanvas.delete(runtimeCanvas);
+  emitGpuFlowBrowserVisualResourceWorkSnapshots({
+    runtimeCanvas,
+    snapshots: [],
+  });
+}
+
+function recordGpuFlowBrowserVisualResourceWork({
+  candidateResourceWork,
+  nowMs,
+  outcome,
+  runtimeCanvas,
+}: {
+  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork;
+  readonly nowMs: number;
+  readonly outcome: GpuFlowBrowserVisualStarvationOutcome;
+  readonly runtimeCanvas: HTMLCanvasElement;
+}): void {
+  const workByKey = getGpuFlowBrowserVisualResourceWorkMap(runtimeCanvas);
+  for (const item of candidateResourceWork.workItems) {
+    const existing = workByKey.get(item.candidateResourceKey);
+    workByKey.set(
+      item.candidateResourceKey,
+      Object.freeze({
+        ...item,
+        debtAgeFrames: (existing?.debtAgeFrames ?? item.debtAgeFrames) + 1,
+        debtAgeMs: Math.max(0, nowMs - (existing?.firstRequestedAtMs ?? nowMs)),
+        firstRequestedAtMs: existing?.firstRequestedAtMs ?? nowMs,
+        lastUpdatedAtMs: nowMs,
+        outcome,
+        readinessState: "requested" as const,
+        wakeupSource: "blocked-publication" as const,
+      }),
+    );
+  }
+  emitGpuFlowBrowserVisualResourceWorkSnapshots({
+    runtimeCanvas,
+    snapshots: [...workByKey.values()],
+  });
+}
+
+function markGpuFlowBrowserVisualResourceWorkState({
+  candidateResourceWork,
+  nowMs,
+  readinessState,
+  runtimeCanvas,
+  wakeupSource,
+}: {
+  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork;
+  readonly nowMs: number;
+  readonly readinessState: GpuFlowBrowserVisualResourceReadinessState;
+  readonly runtimeCanvas: HTMLCanvasElement;
+  readonly wakeupSource: GpuFlowBrowserVisualResourceWakeupSource;
+}): void {
+  const workByKey = getGpuFlowBrowserVisualResourceWorkMap(runtimeCanvas);
+  for (const item of candidateResourceWork.workItems) {
+    const existing = workByKey.get(item.candidateResourceKey);
+    if (!existing) {
+      continue;
+    }
+    workByKey.set(
+      item.candidateResourceKey,
+      Object.freeze({
+        ...existing,
+        debtAgeMs: Math.max(0, nowMs - existing.firstRequestedAtMs),
+        lastUpdatedAtMs: nowMs,
+        readinessState,
+        wakeupSource,
+      }),
+    );
+  }
+  emitGpuFlowBrowserVisualResourceWorkSnapshots({
+    runtimeCanvas,
+    snapshots: [...workByKey.values()],
+  });
+}
+
+function getGpuFlowBrowserVisualResourceWorkMap(
+  runtimeCanvas: HTMLCanvasElement,
+): Map<string, GpuFlowBrowserVisualResourceWorkSnapshot> {
+  const existing = browserVisualResourceWorkByCanvas.get(runtimeCanvas);
+  if (existing) {
+    return existing;
+  }
+  const workByKey = new Map<string, GpuFlowBrowserVisualResourceWorkSnapshot>();
+  browserVisualResourceWorkByCanvas.set(runtimeCanvas, workByKey);
+  return workByKey;
 }
 
 function recordGpuFlowBrowserVisualStarvation({
@@ -430,7 +603,7 @@ function emitGpuFlowBrowserVisualStarvationReports({
   readonly reports: readonly GpuFlowBrowserVisualStarvationReport[];
   readonly runtimeCanvas: HTMLCanvasElement;
 }): void {
-  const ownerWindow = runtimeCanvas.ownerDocument.defaultView;
+  const ownerWindow = getGpuFlowRuntimeCanvasWindow(runtimeCanvas);
   if (!ownerWindow) {
     return;
   }
@@ -450,6 +623,28 @@ function emitGpuFlowBrowserVisualStarvationReports({
       }),
     );
   }
+}
+
+function emitGpuFlowBrowserVisualResourceWorkSnapshots({
+  runtimeCanvas,
+  snapshots,
+}: {
+  readonly runtimeCanvas: HTMLCanvasElement;
+  readonly snapshots: readonly GpuFlowBrowserVisualResourceWorkSnapshot[];
+}): void {
+  const ownerWindow = getGpuFlowRuntimeCanvasWindow(runtimeCanvas);
+  if (!ownerWindow) {
+    return;
+  }
+  const view = ownerWindow as typeof ownerWindow & {
+    __SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__?: GpuFlowBrowserVisualResourceWorkSnapshot[];
+  };
+  view.__SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__ = [...snapshots];
+  runtimeCanvas.dispatchEvent(
+    new CustomEvent("setta-gpu-flow-browser-visual-resource-work", {
+      detail: snapshots,
+    }),
+  );
 }
 
 export function recordGpuFlowBlockedVisiblePublication({
@@ -529,7 +724,7 @@ function emitGpuFlowBlockedVisiblePublicationEvent({
   readonly event: GpuFlowBlockedVisiblePublicationEvent;
   readonly runtimeCanvas: HTMLCanvasElement;
 }): void {
-  const ownerWindow = runtimeCanvas.ownerDocument.defaultView;
+  const ownerWindow = getGpuFlowRuntimeCanvasWindow(runtimeCanvas);
   if (!ownerWindow) {
     return;
   }
@@ -547,6 +742,12 @@ function emitGpuFlowBlockedVisiblePublicationEvent({
       detail: event,
     }),
   );
+}
+
+function getGpuFlowRuntimeCanvasWindow(
+  runtimeCanvas: HTMLCanvasElement,
+): (Window & typeof globalThis) | null {
+  return runtimeCanvas.ownerDocument?.defaultView ?? null;
 }
 
 function isGpuFlowBrowserVisualStarvationBudgetExceeded({

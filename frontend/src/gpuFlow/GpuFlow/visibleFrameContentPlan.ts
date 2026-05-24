@@ -37,9 +37,32 @@ import type {
   GpuFlowBlockedVisibleReason,
 } from "./visibleFramePresentationProofs";
 
-export type GpuFlowCommittedSurfaceBlockedCandidateRetry = {
-  readonly deferRetry: boolean;
+export type GpuFlowCommittedSurfaceBlockedCandidateResourceWork = {
+  readonly deferWakeup: boolean;
   readonly timestamp: number;
+  readonly workItems: readonly GpuFlowBrowserVisualResourceWorkRequest[];
+};
+
+export type GpuFlowBrowserVisualResourceWorkRequest = {
+  readonly actorId: string | null;
+  readonly blockedReason: string;
+  readonly candidateResourceKey: string;
+  readonly clipRect: GpuFlowBrowserVisualResourceWorkRect | null;
+  readonly debtAgeFrames: number;
+  readonly lastReadyResourceKey: string | null;
+  readonly ownerFrameId: number;
+  readonly readinessState: "requested";
+  readonly representationKind: string;
+  readonly sourceHostIdentity: string;
+  readonly sourceRect: GpuFlowBrowserVisualResourceWorkRect | null;
+  readonly wakeupSource: "blocked-publication";
+};
+
+export type GpuFlowBrowserVisualResourceWorkRect = {
+  readonly height: number;
+  readonly width: number;
+  readonly x: number;
+  readonly y: number;
 };
 
 export type GpuFlowVisibleFrameBlockedPublicationCandidate = {
@@ -50,7 +73,7 @@ export type GpuFlowVisibleFrameBlockedPublicationCandidate = {
 export type GpuFlowContentPublicationFrameResult = {
   readonly blockedErrorMessage: string | null;
   readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly blockedPreparedCommittedSurfaceFrameRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry | null;
+  readonly blockedPreparedCommittedSurfaceFrameResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
   readonly blockedPreservePreparationSnapshot: boolean;
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
@@ -74,7 +97,7 @@ type GpuFlowContentPublicationFrameResultInput = Pick<
 const EMPTY_GPU_FLOW_CONTENT_PUBLICATION_FRAME_RESULT_FIELDS = Object.freeze({
   blockedErrorMessage: null,
   blockedPreparedCommittedSurfaceFrame: null,
-  blockedPreparedCommittedSurfaceFrameRetry: null,
+  blockedPreparedCommittedSurfaceFrameResourceWork: null,
   blockedPreservePreparationSnapshot: false,
   blockedPublicationCandidate: null,
   committedSurfaceFrame: null,
@@ -98,14 +121,14 @@ export type GpuFlowCommittedSurfacePublicationCandidate =
       readonly errorMessage: string | null;
       readonly kind: "nonpublishable";
       readonly preservePreparationSnapshot: boolean;
-      readonly retry: GpuFlowCommittedSurfaceBlockedCandidateRetry;
+      readonly resourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork;
     };
 
 export type GpuFlowCommittedSurfacePublicationCandidateInput = {
   readonly committedGpuNativeVisuals:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
     | undefined;
-  readonly deferBrowserVisualRetry?: boolean | undefined;
+  readonly deferBrowserVisualWakeup?: boolean | undefined;
   readonly frameReasons: readonly GpuFrameReason[];
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
@@ -204,7 +227,7 @@ export type GpuFlowRetainedCommittedSurfacePublicationContentStageInput<
   Result,
 > = {
   readonly contentDecisionKernel: GpuFlowVisiblePublicationContentDecisionKernel;
-  readonly deferBrowserVisualRetry: boolean;
+  readonly deferBrowserVisualWakeup: boolean;
   readonly deferResolutionUpdates: boolean;
   readonly frameReasons: readonly GpuFrameReason[];
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
@@ -381,7 +404,7 @@ function runGpuFlowCommittedSurfacePublicationContentStage<Result>({
 
 function prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay({
   committedGpuNativeVisuals,
-  deferBrowserVisualRetry,
+  deferBrowserVisualWakeup,
   frameReasons,
   heldPreviousProjectionState,
   liveProjectionSample,
@@ -393,7 +416,7 @@ function prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay({
   readonly committedGpuNativeVisuals:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
     | undefined;
-  readonly deferBrowserVisualRetry: boolean;
+  readonly deferBrowserVisualWakeup: boolean;
   readonly frameReasons: readonly GpuFrameReason[];
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
@@ -418,7 +441,7 @@ function prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay({
     preparedCommittedSurfaceFrame,
     publicationPreparation: prepareCommittedSurfacePublicationFramePlan({
       committedGpuNativeVisuals,
-      deferBrowserVisualRetry,
+      deferBrowserVisualWakeup,
       frameReasons,
       heldPreviousProjectionState,
       liveProjectionSample,
@@ -434,7 +457,7 @@ export function runGpuFlowRetainedCommittedSurfacePublicationContentStage<
   Result,
 >({
   contentDecisionKernel,
-  deferBrowserVisualRetry,
+  deferBrowserVisualWakeup,
   deferResolutionUpdates,
   frameReasons,
   liveProjectionSample,
@@ -471,7 +494,7 @@ export function runGpuFlowRetainedCommittedSurfacePublicationContentStage<
         prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay({
           committedGpuNativeVisuals:
             retainedDisplayContent.committedGpuNativeVisuals,
-          deferBrowserVisualRetry,
+          deferBrowserVisualWakeup,
           frameReasons,
           heldPreviousProjectionState: previousVisibleProjectionState,
           liveProjectionSample,
@@ -855,8 +878,8 @@ function createGpuFlowNotVisibleContentPublicationFrameResult({
     blockedErrorMessage: blockedSurfacePublication?.errorMessage ?? null,
     blockedPreparedCommittedSurfaceFrame:
       blockedSurfacePublication?.candidateFrame ?? null,
-    blockedPreparedCommittedSurfaceFrameRetry:
-      blockedSurfacePublication?.retry ?? null,
+    blockedPreparedCommittedSurfaceFrameResourceWork:
+      blockedSurfacePublication?.resourceWork ?? null,
     blockedPreservePreparationSnapshot:
       blockedSurfacePublication?.preservePreparationSnapshot ?? false,
     blockedPublicationCandidate,

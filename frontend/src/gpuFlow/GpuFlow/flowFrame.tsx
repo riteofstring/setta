@@ -513,7 +513,7 @@ export function renderGpuFlowNodeLayerFrame({
   activeResizeNodeIdRef,
   callbacksRef,
   canvasSizeRef,
-  deferBrowserVisualRetry,
+  deferBrowserVisualWakeup,
   deferResolutionUpdates,
   frameReasons,
   frameRef,
@@ -545,7 +545,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
   readonly canvasSizeRef: MutableRefObject<GpuCanvasSize | null>;
-  readonly deferBrowserVisualRetry: boolean;
+  readonly deferBrowserVisualWakeup: boolean;
   readonly deferResolutionUpdates: boolean;
   readonly frameReasons: readonly GpuFrameReason[];
   readonly frameRef: MutableRefObject<number>;
@@ -651,7 +651,7 @@ export function renderGpuFlowNodeLayerFrame({
     GpuFlowRetainedCommittedSurfacePublicationRenderContext,
     GpuFlowContentPublicationFrameResult
   >({
-    deferBrowserVisualRetry,
+    deferBrowserVisualWakeup,
     deferResolutionUpdates,
     frameReasons,
     liveProjectionSample,

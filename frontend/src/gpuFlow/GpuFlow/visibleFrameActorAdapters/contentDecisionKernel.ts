@@ -16,6 +16,7 @@ import type { GpuFlowRetainedDisplayPublicationResult } from "../flowRetainedDis
 import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "../flowVisibleProjectionState";
 import {
   createGpuFlowBrowserVisualBlockedPublicationCandidate,
+  createGpuFlowBrowserVisualResourceWorkRequests,
   createGpuFlowRetainedProjectionBlockedPublicationCandidate,
   getGpuFlowCommittedSurfacePublishabilityActorIds,
   shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair,
@@ -223,7 +224,7 @@ export type GpuFlowRetainedDisplayPublicationOutcomeFrame =
     };
 
 export function prepareGpuFlowCommittedSurfacePublicationCandidate({
-  deferBrowserVisualRetry,
+  deferBrowserVisualWakeup,
   heldPreviousProjectionState,
   liveProjectionSample,
   publishedCommittedSurfaceFrame,
@@ -253,9 +254,14 @@ export function prepareGpuFlowCommittedSurfacePublicationCandidate({
       shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair(
         publicationReadiness.blockedPublicationCandidate,
       ),
-    retry: {
-      deferRetry: deferBrowserVisualRetry === true,
+    resourceWork: {
+      deferWakeup: deferBrowserVisualWakeup === true,
       timestamp: liveProjectionSample.timestamp,
+      workItems: createGpuFlowBrowserVisualResourceWorkRequests({
+        blockedPublicationCandidate:
+          publicationReadiness.blockedPublicationCandidate,
+        frame: publishedCommittedSurfaceFrame,
+      }),
     },
   };
 }

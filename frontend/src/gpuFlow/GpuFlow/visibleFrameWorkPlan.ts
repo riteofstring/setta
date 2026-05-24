@@ -68,7 +68,7 @@ export function createGpuFlowContentPublicationWorkPlan({
   });
 }
 
-export function shouldDeferGpuFlowBrowserVisualRetryForPublication({
+export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
   budgetBroker,
   deferResolutionUpdates,
   publicationDecision,

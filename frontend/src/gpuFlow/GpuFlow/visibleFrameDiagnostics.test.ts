@@ -10,7 +10,7 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
   createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
-  type GpuFlowCommittedSurfaceBlockedCandidateRetry,
+  type GpuFlowCommittedSurfaceBlockedCandidateResourceWork,
   type GpuFlowCommittedSurfacePublicationCandidateInput,
 } from "./visibleFrameContentPlan";
 import {
@@ -44,6 +44,11 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     ).__SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__;
     delete (
       window as typeof window & {
+        __SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__?: unknown;
+      }
+    ).__SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__;
+    delete (
+      window as typeof window & {
         __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: unknown;
       }
     ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__;
@@ -69,7 +74,8 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     expect(result.preservePreparationSnapshot).toBe(true);
     expect(requestFrame).not.toHaveBeenCalled();
     expect(readStarvationReports()).toEqual([]);
-    applyBlockedCandidate(result.candidateFrame, result.retry, {
+    expect(readBrowserVisualResourceWork()).toEqual([]);
+    applyBlockedCandidate(result.candidateFrame, result.resourceWork, {
       canvas,
       requestFrame,
     });
@@ -88,6 +94,19 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         visibleActorCount: 1,
       }),
     ]);
+    expect(readBrowserVisualResourceWork()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        blockedReason: "snapshot-pending",
+        candidateResourceKey:
+          "browser-visual:actor-a:text-like-dom-control:snapshot-pending:snapshot-key",
+        ownerFrameId: 2,
+        readinessState: "preparing",
+        representationKind: "blocked-awaiting-browser-visual",
+        sourceHostIdentity: "actor-a",
+        wakeupSource: "deferred-watchdog",
+      }),
+    ]);
     expect(readBlockedVisiblePublicationEvents()).toEqual([]);
   });
 
@@ -98,7 +117,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
 
     const result = prepareGpuFlowCommittedSurfacePublicationCandidate(
       publicationCandidateInput({
-        deferBrowserVisualRetry: true,
+        deferBrowserVisualWakeup: true,
         timestamp: 10,
       }),
     );
@@ -107,11 +126,18 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     if (result.kind !== "nonpublishable") {
       throw new Error("Expected nonpublishable publication candidate.");
     }
-    applyBlockedCandidate(result.candidateFrame, result.retry, {
+    applyBlockedCandidate(result.candidateFrame, result.resourceWork, {
       canvas,
       requestFrame,
     });
     expect(requestFrame).not.toHaveBeenCalled();
+    expect(readBrowserVisualResourceWork()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        readinessState: "preparing",
+        wakeupSource: "deferred-watchdog",
+      }),
+    ]);
     vi.advanceTimersByTime(
       DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2 - 1,
     );
@@ -119,6 +145,13 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     vi.advanceTimersByTime(1);
     expect(requestFrame).toHaveBeenCalledTimes(1);
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+    expect(readBrowserVisualResourceWork()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        readinessState: "ready",
+        wakeupSource: "deferred-watchdog",
+      }),
+    ]);
   });
 
   it("rejects unbranded blocked candidate tokens", () => {
@@ -135,7 +168,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     expect(() =>
       recordGpuFlowVisibleFrameBlocked({
         candidateFrame: result.candidateFrame,
-        candidateRetry: result.retry,
+        candidateResourceWork: result.resourceWork,
         runtimeCanvas: canvas,
         surfaceRef: {
           current: { requestFrame: vi.fn() } as unknown as GpuSurfaceHandle,
@@ -153,9 +186,10 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
 
     recordGpuFlowVisibleFrameBlocked({
       candidateFrame: blockedCommittedSurfaceFrame(),
-      candidateRetry: {
-        deferRetry: false,
+      candidateResourceWork: {
+        deferWakeup: false,
         timestamp: 12,
+        workItems: [],
       },
       runtimeCanvas: canvas,
       surfaceRef: {
@@ -235,7 +269,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
 
     recordGpuFlowVisibleFrameBlocked({
       candidateFrame: null,
-      candidateRetry: null,
+      candidateResourceWork: null,
       runtimeCanvas: blockedCanvas,
       surfaceRef: {
         current: { requestFrame } as unknown as GpuSurfaceHandle,
@@ -244,7 +278,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     });
     recordGpuFlowVisibleFrameHeld({
       candidateFrame: null,
-      candidateRetry: null,
+      candidateResourceWork: null,
       runtimeCanvas: heldCanvas,
       surfaceRef: {
         current: { requestFrame } as unknown as GpuSurfaceHandle,
@@ -429,16 +463,16 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
 });
 
 function publicationCandidateInput({
-  deferBrowserVisualRetry = false,
+  deferBrowserVisualWakeup = false,
   timestamp,
 }: {
-  readonly deferBrowserVisualRetry?: boolean | undefined;
+  readonly deferBrowserVisualWakeup?: boolean | undefined;
   readonly timestamp: number;
 }): GpuFlowCommittedSurfacePublicationCandidateInput {
   const retainedFrame = {} as RetainedDisplayFrame;
   return {
     committedGpuNativeVisuals: undefined,
-    deferBrowserVisualRetry,
+    deferBrowserVisualWakeup,
     frameReasons: ["manual"],
     heldPreviousProjectionState: null,
     liveProjectionSample: { id: 1, timestamp },
@@ -466,12 +500,16 @@ function applyPreparedBlockedCandidate(
   if (candidate.kind !== "nonpublishable") {
     throw new Error("Expected nonpublishable committed surface candidate.");
   }
-  applyBlockedCandidate(candidate.candidateFrame, candidate.retry, output);
+  applyBlockedCandidate(
+    candidate.candidateFrame,
+    candidate.resourceWork,
+    output,
+  );
 }
 
 function applyBlockedCandidate(
   candidateFrame: GpuFlowCommittedSurfaceFrame,
-  candidateRetry: GpuFlowCommittedSurfaceBlockedCandidateRetry,
+  candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork,
   {
     canvas,
     requestFrame,
@@ -482,7 +520,7 @@ function applyBlockedCandidate(
 ): void {
   recordGpuFlowVisibleFrameBlocked({
     candidateFrame,
-    candidateRetry,
+    candidateResourceWork,
     runtimeCanvas: canvas,
     surfaceRef: {
       current: { requestFrame } as unknown as GpuSurfaceHandle,
@@ -563,6 +601,16 @@ function readStarvationReports(): readonly unknown[] {
         __SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__?: readonly unknown[];
       }
     ).__SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__ ?? []
+  );
+}
+
+function readBrowserVisualResourceWork(): readonly unknown[] {
+  return (
+    (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__?: readonly unknown[];
+      }
+    ).__SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__ ?? []
   );
 }
 

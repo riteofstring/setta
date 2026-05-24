@@ -1,6 +1,10 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
-import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
+import type {
+  GpuFlowBrowserVisualResourceWorkRect,
+  GpuFlowBrowserVisualResourceWorkRequest,
+  GpuFlowVisibleFrameBlockedPublicationCandidate,
+} from "./visibleFrameContentPlan";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,
@@ -71,6 +75,27 @@ export function shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepai
   );
 }
 
+export function createGpuFlowBrowserVisualResourceWorkRequests({
+  blockedPublicationCandidate,
+  frame,
+}: {
+  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+}): readonly GpuFlowBrowserVisualResourceWorkRequest[] {
+  const actorById = new Map(
+    frame.actorGenerations.map((actor) => [actor.actorId, actor]),
+  );
+  return Object.freeze(
+    blockedPublicationCandidate.blockedReasons.map((reason) =>
+      createGpuFlowBrowserVisualResourceWorkRequest({
+        actor: reason.actorId ? actorById.get(reason.actorId) : undefined,
+        frame,
+        reason,
+      }),
+    ),
+  );
+}
+
 function createGpuFlowBlockedVisibleReasons(
   frame: GpuFlowCommittedSurfaceFrame,
 ): readonly GpuFlowBlockedVisibleReason[] {
@@ -91,6 +116,182 @@ function createGpuFlowBlockedVisibleReasons(
       });
     }),
   );
+}
+
+function createGpuFlowBrowserVisualResourceWorkRequest({
+  actor,
+  frame,
+  reason,
+}: {
+  readonly actor: GpuFlowBrowserVisualActorGeneration | undefined;
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly reason: GpuFlowBlockedVisibleReason;
+}): GpuFlowBrowserVisualResourceWorkRequest {
+  const actorId = reason.actorId ?? null;
+  const resourceKey = createGpuFlowBrowserVisualResourceKey({
+    actor,
+    actorId,
+    frame,
+    reason,
+  });
+  return Object.freeze({
+    actorId,
+    blockedReason: reason.reason,
+    candidateResourceKey: resourceKey,
+    clipRect: createGpuFlowBrowserVisualResourceWorkRect(actor?.clipRect),
+    debtAgeFrames: 0,
+    lastReadyResourceKey: getGpuFlowBrowserVisualLastReadyResourceKey(actor),
+    ownerFrameId: frame.displayFrameId,
+    readinessState: "requested" as const,
+    representationKind: getGpuFlowBrowserVisualResourceRepresentationKind({
+      actor,
+      frame,
+      reason,
+    }),
+    sourceHostIdentity: getGpuFlowBrowserVisualSourceHostIdentity({
+      actor,
+      actorId,
+      frame,
+      reason,
+    }),
+    sourceRect: createGpuFlowBrowserVisualResourceWorkRect(actor?.sourceRect),
+    wakeupSource: "blocked-publication" as const,
+  });
+}
+
+function createGpuFlowBrowserVisualResourceKey({
+  actor,
+  actorId,
+  frame,
+  reason,
+}: {
+  readonly actor: GpuFlowBrowserVisualActorGeneration | undefined;
+  readonly actorId: string | null;
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly reason: GpuFlowBlockedVisibleReason;
+}): string {
+  const generation = getGpuFlowBrowserVisualResourceGeneration({
+    actor,
+    frame,
+  });
+  return [
+    "browser-visual",
+    actorId ?? "frame",
+    reason.family,
+    reason.reason,
+    generation,
+  ].join(":");
+}
+
+function getGpuFlowBrowserVisualLastReadyResourceKey(
+  actor: GpuFlowBrowserVisualActorGeneration | undefined,
+): string | null {
+  if (!actor) {
+    return null;
+  }
+  const compatiblePreviousProof =
+    actor.textCoverageProof?.projectionCoverage === "compatible-previous"
+      ? actor.textCoverageProof.compatiblePreviousProof
+      : null;
+  if (compatiblePreviousProof === null) {
+    return null;
+  }
+  return `browser-visual:${actor.actorId}:compatible-previous:${compatiblePreviousProof.previousCommittedFrameId}`;
+}
+
+function getGpuFlowBrowserVisualResourceGeneration({
+  actor,
+  frame,
+}: {
+  readonly actor: GpuFlowBrowserVisualActorGeneration | undefined;
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+}): string {
+  const textCoverage = actor?.textCoverageProof;
+  return (
+    readGpuFlowBrowserVisualStringProperty(
+      textCoverage,
+      "snapshotCacheKeyRevision",
+    ) ??
+    readGpuFlowBrowserVisualStringProperty(
+      textCoverage,
+      "visualGenerationId",
+    ) ??
+    actor?.generationId ??
+    `frame-${frame.displayFrameId}`
+  );
+}
+
+function getGpuFlowBrowserVisualResourceRepresentationKind({
+  actor,
+  frame,
+  reason,
+}: {
+  readonly actor: GpuFlowBrowserVisualActorGeneration | undefined;
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly reason: GpuFlowBlockedVisibleReason;
+}): string {
+  return (
+    actor?.browserVisual?.representationKind ??
+    actor?.textCoverageProof?.projectionCoverage ??
+    reason.family ??
+    frame.publishability.kind
+  );
+}
+
+function getGpuFlowBrowserVisualSourceHostIdentity({
+  actor,
+  actorId,
+  frame,
+  reason,
+}: {
+  readonly actor: GpuFlowBrowserVisualActorGeneration | undefined;
+  readonly actorId: string | null;
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly reason: GpuFlowBlockedVisibleReason;
+}): string {
+  return (
+    actor?.ownerSurfaceId ??
+    actor?.canonicalActorId ??
+    actor?.actorId ??
+    actorId ??
+    `${reason.family}:${frame.displayFrameId}`
+  );
+}
+
+function createGpuFlowBrowserVisualResourceWorkRect(
+  rect: unknown,
+): GpuFlowBrowserVisualResourceWorkRect | null {
+  if (typeof rect !== "object" || rect === null) {
+    return null;
+  }
+  const candidate = rect as Partial<
+    Record<"height" | "width" | "x" | "y", unknown>
+  >;
+  if (
+    typeof candidate.height !== "number" ||
+    typeof candidate.width !== "number" ||
+    typeof candidate.x !== "number" ||
+    typeof candidate.y !== "number"
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    height: candidate.height,
+    width: candidate.width,
+    x: candidate.x,
+    y: candidate.y,
+  });
+}
+
+function readGpuFlowBrowserVisualStringProperty(
+  value: unknown,
+  property: string,
+): string | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const propertyValue = (value as Record<string, unknown>)[property];
+  return typeof propertyValue === "string" ? propertyValue : null;
 }
 
 export function getGpuFlowCommittedSurfacePublishabilityActorIds(

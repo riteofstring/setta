@@ -52,7 +52,7 @@ import {
 
 export { createGpuFlowContentPublicationFrameResult } from "./visibleFrameContentPlan";
 export type {
-  GpuFlowCommittedSurfaceBlockedCandidateRetry,
+  GpuFlowCommittedSurfaceBlockedCandidateResourceWork,
   GpuFlowCommittedSurfacePublicationCandidate,
   GpuFlowCommittedSurfacePublicationCandidateInput,
   GpuFlowCommittedSurfacePublicationCandidatePreparer,
@@ -103,7 +103,7 @@ export {
   createGpuFlowContentPublicationWorkPlan,
   createGpuFlowMotionProjectionWorkPlan,
   shouldConsiderGpuFlowDeferredContentPublication,
-  shouldDeferGpuFlowBrowserVisualRetryForPublication,
+  shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication,
 } from "./visibleFrameWorkPlan";
 export type {
   GpuFlowContentPublicationWorkPlan,
