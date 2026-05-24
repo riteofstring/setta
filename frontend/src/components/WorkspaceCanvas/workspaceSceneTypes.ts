@@ -10,6 +10,7 @@ import {
 } from "utils/generatedTypes";
 import type {
   WorkspaceCanvasControllerState,
+  WorkspaceCommitMode,
   WorkspaceSceneTarget,
 } from "./workspaceController";
 import type {
@@ -183,26 +184,20 @@ export type WorkspaceSectionScene = {
   };
 };
 
-export type CanvasParamSupportLevel =
-  | "passive-preview"
-  | "canvas-native"
-  | "overlay-backed"
-  | "unsupported";
-
 export type ActiveInputStrategy =
-  | "none"
   | "canvas-immediate"
   | "canvas-popup"
   | "canvas-drag"
-  | "dom-overlay"
-  | "right-pane";
+  | "dom-native-overlay"
+  | "dom-rich-overlay"
+  | "right-pane"
+  | "unsupported";
 
-export type ParamCommitMode =
-  | "none"
-  | "immediate"
-  | "on-release"
-  | "on-explicit-commit"
-  | "on-blur-or-enter";
+export type CanvasParamSupport =
+  | { passive: "preview"; active: ActiveInputStrategy }
+  | { passive: "unsupported-placeholder"; active: "unsupported" };
+
+export type ParamCommitMode = WorkspaceCommitMode;
 
 export type CanvasControlKind =
   | "none"
@@ -216,7 +211,7 @@ export type CanvasControlKind =
   | "unsupported";
 
 export type WorkspaceParamSupportDeclaration = {
-  canvasSupport: CanvasParamSupportLevel;
+  canvasSupport: CanvasParamSupport;
   activeInputStrategy: ActiveInputStrategy;
   commitMode: ParamCommitMode;
   controlKind: CanvasControlKind;
@@ -262,6 +257,7 @@ export type WorkspaceDictRowScene = {
   labelRect: WorkspaceRect;
   valueRect: WorkspaceRect;
   controlRect: WorkspaceRect;
+  visibleRect: WorkspaceRect | null;
   nestingRails: Array<WorkspaceRect>;
   visible: boolean;
   passiveValue: WorkspacePassiveValuePreview;
@@ -403,106 +399,112 @@ export const DEFAULT_WORKSPACE_SCENE_REVISIONS: WorkspaceSceneRevisionKeys = {
 
 export const WORKSPACE_PARAM_SUPPORT = {
   [CodeObjTypeEnum.CodeCallable]: {
-    canvasSupport: "unsupported",
-    activeInputStrategy: "none",
+    canvasSupport: {
+      passive: "unsupported-placeholder",
+      active: "unsupported",
+    },
+    activeInputStrategy: "unsupported",
     commitMode: "none",
     controlKind: "unsupported",
     primaryHitIntent: "unsupported",
   },
   [CodeObjTypeEnum.CodeParam]: {
-    canvasSupport: "overlay-backed",
-    activeInputStrategy: "dom-overlay",
-    commitMode: "on-blur-or-enter",
+    canvasSupport: { passive: "preview", active: "dom-rich-overlay" },
+    activeInputStrategy: "dom-rich-overlay",
+    commitMode: "onBlurOrEnter",
     controlKind: "value-cell",
     primaryHitIntent: "activate-editor",
   },
   [CodeObjTypeEnum.TextParam]: {
-    canvasSupport: "overlay-backed",
-    activeInputStrategy: "dom-overlay",
-    commitMode: "on-blur-or-enter",
+    canvasSupport: { passive: "preview", active: "dom-native-overlay" },
+    activeInputStrategy: "dom-native-overlay",
+    commitMode: "onBlurOrEnter",
     controlKind: "value-cell",
     primaryHitIntent: "activate-editor",
   },
   [CodeObjTypeEnum.DateParam]: {
-    canvasSupport: "overlay-backed",
-    activeInputStrategy: "dom-overlay",
-    commitMode: "on-explicit-commit",
+    canvasSupport: { passive: "preview", active: "dom-native-overlay" },
+    activeInputStrategy: "dom-native-overlay",
+    commitMode: "onExplicitApply",
     controlKind: "value-cell",
     primaryHitIntent: "open-dom-overlay",
   },
   [CodeObjTypeEnum.TimeParam]: {
-    canvasSupport: "overlay-backed",
-    activeInputStrategy: "dom-overlay",
-    commitMode: "on-explicit-commit",
+    canvasSupport: { passive: "preview", active: "dom-native-overlay" },
+    activeInputStrategy: "dom-native-overlay",
+    commitMode: "onExplicitApply",
     controlKind: "value-cell",
     primaryHitIntent: "open-dom-overlay",
   },
   [CodeObjTypeEnum.ButtonParam]: {
-    canvasSupport: "canvas-native",
+    canvasSupport: { passive: "preview", active: "canvas-immediate" },
     activeInputStrategy: "canvas-immediate",
     commitMode: "immediate",
     controlKind: "button",
     primaryHitIntent: "toggle-immediate",
   },
   [CodeObjTypeEnum.SliderParam]: {
-    canvasSupport: "canvas-native",
+    canvasSupport: { passive: "preview", active: "canvas-drag" },
     activeInputStrategy: "canvas-drag",
-    commitMode: "on-release",
+    commitMode: "onRelease",
     controlKind: "slider",
     primaryHitIntent: "activate-editor",
   },
   [CodeObjTypeEnum.RotaryParam]: {
-    canvasSupport: "canvas-native",
+    canvasSupport: { passive: "preview", active: "canvas-drag" },
     activeInputStrategy: "canvas-drag",
-    commitMode: "on-release",
+    commitMode: "onRelease",
     controlKind: "slider",
     primaryHitIntent: "activate-editor",
   },
   [CodeObjTypeEnum.SwitchParam]: {
-    canvasSupport: "canvas-native",
+    canvasSupport: { passive: "preview", active: "canvas-immediate" },
     activeInputStrategy: "canvas-immediate",
     commitMode: "immediate",
     controlKind: "toggle",
     primaryHitIntent: "toggle-immediate",
   },
   [CodeObjTypeEnum.ColorPickerParam]: {
-    canvasSupport: "canvas-native",
+    canvasSupport: { passive: "preview", active: "canvas-popup" },
     activeInputStrategy: "canvas-popup",
-    commitMode: "on-explicit-commit",
+    commitMode: "onExplicitApply",
     controlKind: "color-swatch",
     primaryHitIntent: "open-canvas-popup",
   },
   [CodeObjTypeEnum.DropdownParam]: {
-    canvasSupport: "canvas-native",
+    canvasSupport: { passive: "preview", active: "canvas-popup" },
     activeInputStrategy: "canvas-popup",
-    commitMode: "on-explicit-commit",
+    commitMode: "onExplicitApply",
     controlKind: "dropdown",
     primaryHitIntent: "open-canvas-popup",
   },
   [CodeObjTypeEnum.PasswordParam]: {
-    canvasSupport: "overlay-backed",
-    activeInputStrategy: "dom-overlay",
-    commitMode: "on-blur-or-enter",
+    canvasSupport: { passive: "preview", active: "dom-native-overlay" },
+    activeInputStrategy: "dom-native-overlay",
+    commitMode: "onBlurOrEnter",
     controlKind: "value-cell",
     primaryHitIntent: "activate-editor",
   },
   [CodeObjTypeEnum.TextAreaParam]: {
-    canvasSupport: "overlay-backed",
-    activeInputStrategy: "dom-overlay",
-    commitMode: "on-blur-or-enter",
+    canvasSupport: { passive: "preview", active: "dom-native-overlay" },
+    activeInputStrategy: "dom-native-overlay",
+    commitMode: "onBlurOrEnter",
     controlKind: "value-cell",
     primaryHitIntent: "activate-editor",
   },
   [CodeObjTypeEnum.DropzoneParam]: {
-    canvasSupport: "unsupported",
-    activeInputStrategy: "right-pane",
+    canvasSupport: {
+      passive: "unsupported-placeholder",
+      active: "unsupported",
+    },
+    activeInputStrategy: "unsupported",
     commitMode: "none",
     controlKind: "unsupported",
     primaryHitIntent: "unsupported",
   },
   [CodeObjTypeEnum.NestedParam]: {
-    canvasSupport: "passive-preview",
-    activeInputStrategy: "none",
+    canvasSupport: { passive: "preview", active: "unsupported" },
+    activeInputStrategy: "unsupported",
     commitMode: "none",
     controlKind: "disclosure",
     primaryHitIntent: "select-row",

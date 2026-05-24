@@ -20,6 +20,7 @@ import {
   clamp,
   deriveScrollbar,
   getSectionHitZIndex,
+  intersectRects,
 } from "./workspaceSceneGeometry";
 import {
   filterEdgeInputParams,
@@ -83,17 +84,20 @@ export function getWorkspaceParamSupportDeclaration(
     !hasColorChoices(impl)
   ) {
     return {
-      canvasSupport: "overlay-backed",
-      activeInputStrategy: "dom-overlay",
-      commitMode: "on-explicit-commit",
+      canvasSupport: { passive: "preview", active: "dom-native-overlay" },
+      activeInputStrategy: "dom-native-overlay",
+      commitMode: "onExplicitApply",
       controlKind: "color-swatch",
       primaryHitIntent: "open-dom-overlay",
     };
   }
   return (
     WORKSPACE_PARAM_SUPPORT[impl.type] ?? {
-      canvasSupport: "unsupported",
-      activeInputStrategy: "none",
+      canvasSupport: {
+        passive: "unsupported-placeholder",
+        active: "unsupported",
+      },
+      activeInputStrategy: "unsupported",
       commitMode: "none",
       controlKind: "unsupported",
       primaryHitIntent: "unsupported",
@@ -147,6 +151,7 @@ export function deriveDictScene({
       typeErrors,
       flatRows: pinnedFlat,
       region: layout.pinnedRegion,
+      clipRegion: layout.pinnedRegion,
       scrollOffset: 0,
       isVisible: () => true,
     }),
@@ -159,6 +164,7 @@ export function deriveDictScene({
       typeErrors,
       flatRows: unpinnedFlat,
       region: layout.unpinnedRegion,
+      clipRegion: layout.unpinnedRegion,
       scrollOffset: layout.scrollOffset,
       isVisible: (index) =>
         index >= visibleRowRange.start && index < visibleRowRange.end,
@@ -334,6 +340,7 @@ function materializeRows({
   typeErrors: WorkspaceTypeErrorState;
   flatRows: Array<FlatDictParamRow>;
   region: WorkspaceRect;
+  clipRegion: WorkspaceRect;
   scrollOffset: number;
   isVisible: (index: number) => boolean;
 }) {
@@ -357,6 +364,7 @@ function materializeDictRow({
   flat,
   listIndex,
   region,
+  clipRegion,
   scrollOffset,
   visible,
 }: {
@@ -369,6 +377,7 @@ function materializeDictRow({
   flat: FlatDictParamRow;
   listIndex: number;
   region: WorkspaceRect;
+  clipRegion: WorkspaceRect;
   scrollOffset: number;
   visible: boolean;
 }): WorkspaceDictRowScene {
@@ -386,6 +395,7 @@ function materializeDictRow({
   const labelColumnWidth = deriveLabelColumnWidth(sectionImpl, rect.width);
   const labelRect = deriveLabelRect(rect, labelColumnWidth, flat.depth);
   const valueRect = deriveValueRect(rect, labelColumnWidth);
+  const visibleRect = visible ? intersectRects(rect, clipRegion) : null;
   const support = getWorkspaceParamSupportDeclaration(codeObj.effectiveImpl);
   const passiveValue = derivePassiveValuePreview(codeObj.effectiveImpl);
   const row = {
@@ -401,6 +411,7 @@ function materializeDictRow({
     labelRect,
     valueRect,
     controlRect: deriveControlRect(valueRect, support.controlKind),
+    visibleRect,
     nestingRails: deriveNestingRails(rect, flat.depth),
     visible,
     passiveValue,
@@ -632,6 +643,9 @@ function buildRowHitRegions(
   section: WorkspaceSectionScene,
   row: WorkspaceDictRowScene,
 ): Array<WorkspaceHitRegion> {
+  if (!row.visibleRect) {
+    return [];
+  }
   const zIndexBase = getSectionRowHitZIndexBase(section);
   const rowTarget: WorkspaceSceneTarget = {
     kind: "dict-row",
@@ -644,17 +658,18 @@ function buildRowHitRegions(
     {
       id: `${row.id}:row`,
       coordinateSpace: "workspace",
-      rect: row.rect,
+      rect: row.visibleRect,
       intent: "select-row",
       target: rowTarget,
       zIndex: zIndexBase + 100 + row.index,
     },
   ];
-  if (row.support.primaryHitIntent !== "unsupported") {
+  const controlHitRect = intersectRects(row.controlRect, row.visibleRect);
+  if (row.support.primaryHitIntent !== "unsupported" && controlHitRect) {
     regions.push({
       id: `${row.id}:control`,
       coordinateSpace: "workspace",
-      rect: row.controlRect,
+      rect: controlHitRect,
       intent: row.support.primaryHitIntent,
       target: {
         kind: "control",

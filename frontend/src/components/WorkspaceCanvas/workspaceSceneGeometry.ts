@@ -95,6 +95,25 @@ export function rectContainsPoint(rect: WorkspaceRect, point: WorkspacePoint) {
   );
 }
 
+export function intersectRects(
+  first: WorkspaceRect,
+  second: WorkspaceRect,
+): WorkspaceRect | null {
+  const x = Math.max(first.x, second.x);
+  const y = Math.max(first.y, second.y);
+  const right = Math.min(first.x + first.width, second.x + second.width);
+  const bottom = Math.min(first.y + first.height, second.y + second.height);
+  if (right <= x || bottom <= y) {
+    return null;
+  }
+  return {
+    x,
+    y,
+    width: right - x,
+    height: bottom - y,
+  };
+}
+
 export function unionRects(
   rects: Array<WorkspaceRect | undefined>,
 ): WorkspaceRect | null {
@@ -588,20 +607,25 @@ function insetRect(rect: WorkspaceRect, inset: number): WorkspaceRect {
 }
 
 function resolveSectionSize(impl: BaseSectionImplUnion): WorkspaceSize {
+  const size = impl.size as { width?: unknown; height?: unknown } | undefined;
   return {
-    width: resolveSectionDimension(impl.size.width, 250),
-    height: resolveSectionDimension(impl.size.height, 150),
+    width: resolveSectionDimension(size?.width, 250),
+    height: resolveSectionDimension(size?.height, 150),
   };
 }
 
-function resolveSectionDimension(
-  value: { Auto: boolean; Value: number } | number,
-  fallback: number,
-) {
+function resolveSectionDimension(value: unknown, fallback: number) {
   if (typeof value === "number") {
     return value;
   }
-  return value.Auto ? fallback : value.Value;
+  if (!value || typeof value !== "object") {
+    return fallback;
+  }
+  const record = value as { Auto?: unknown; Value?: unknown };
+  if (record.Auto === true) {
+    return fallback;
+  }
+  return typeof record.Value === "number" ? record.Value : fallback;
 }
 
 function getBooleanSectionField(impl: BaseSectionImplUnion, key: string) {

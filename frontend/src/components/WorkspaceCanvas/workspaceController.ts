@@ -5,6 +5,16 @@ export type WorkspaceSceneItemKind =
   | "control"
   | "minimap";
 
+export type WorkspaceCommitMode =
+  | "none"
+  | "immediate"
+  | "onBlur"
+  | "onEnter"
+  | "onBlurOrEnter"
+  | "onExplicitApply"
+  | "onRelease"
+  | "continuousDraft";
+
 export type WorkspaceSceneTarget =
   | { kind: "workspace" }
   | {
@@ -43,8 +53,10 @@ export type ActiveEditorSession = {
   id: string;
   kind: ActiveEditorSessionKind;
   target: Extract<WorkspaceSceneTarget, { kind: "dict-row" | "control" }>;
+  rectKey: string;
   initialValue: string;
   draftValue: string;
+  commitMode: WorkspaceCommitMode;
   openedAtSceneRevision: string;
 };
 

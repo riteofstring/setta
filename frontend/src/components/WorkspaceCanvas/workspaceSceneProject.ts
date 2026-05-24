@@ -3,7 +3,9 @@ import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   type BaseSectionImplUnion,
+  type Core,
   type TopLevelSectionLayout,
+  type Variant,
   type Viewport,
 } from "utils/generatedTypes";
 import type {
@@ -103,7 +105,7 @@ export function getEffectiveSectionSnapshot(
     core,
     variant,
     impl,
-    effectiveImpl: getEffectiveImpl(impl, core, variant),
+    effectiveImpl: getWorkspaceEffectiveImpl(impl, core, variant),
   };
 }
 
@@ -132,7 +134,7 @@ export function getEffectiveCodeObjSnapshot(
     core,
     variant,
     impl,
-    effectiveImpl: getEffectiveImpl(impl, core, variant),
+    effectiveImpl: getWorkspaceEffectiveImpl(impl, core, variant),
   };
 }
 
@@ -256,9 +258,21 @@ function compareTopLevelSectionIds(
     return left.localeCompare(right);
   }
   return (
-    leftLayout.zIndex - rightLayout.zIndex ||
+    (leftLayout.zIndex ?? 0) - (rightLayout.zIndex ?? 0) ||
     leftLayout.y - rightLayout.y ||
     leftLayout.x - rightLayout.x ||
     left.localeCompare(right)
   );
+}
+
+function getWorkspaceEffectiveImpl<T extends object>(
+  impl: T,
+  core: Core,
+  variant: Variant,
+): T {
+  return getEffectiveImpl(
+    impl as Parameters<typeof getEffectiveImpl>[0],
+    core as unknown as Parameters<typeof getEffectiveImpl>[1],
+    variant as unknown as Parameters<typeof getEffectiveImpl>[2],
+  ) as T;
 }

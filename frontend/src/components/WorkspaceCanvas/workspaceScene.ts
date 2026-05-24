@@ -363,11 +363,18 @@ function buildResizeHitRegions(
   context: SectionDerivationContext,
   resizeHandles: WorkspaceSectionScene["resizeHandles"],
 ): Array<WorkspaceHitRegion> {
-  return [
+  const handles: Array<
+    [
+      string,
+      WorkspaceSectionScene["resizeHandles"][keyof WorkspaceSectionScene["resizeHandles"]],
+      number,
+    ]
+  > = [
     ["right", resizeHandles.right, 30],
     ["bottom", resizeHandles.bottom, 30],
     ["corner", resizeHandles.corner, 40],
-  ].map(([kind, rect, layer]) => ({
+  ];
+  return handles.map(([kind, rect, layer]) => ({
     id: `section:${context.sectionId}:resize-${kind}`,
     coordinateSpace: "workspace",
     rect,

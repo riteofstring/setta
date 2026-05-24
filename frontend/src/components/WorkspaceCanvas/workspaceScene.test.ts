@@ -23,6 +23,7 @@ import {
   buildWorkspaceCodeHighlightCacheKey,
   completeWorkspaceCodeHighlightRequest,
   createWorkspaceCodeHighlightCacheState,
+  getWorkspaceCodeHighlightTokenRuns,
   hashWorkspaceCodePreviewValue,
 } from "./workspaceHighlightCache";
 import {
@@ -101,6 +102,13 @@ function resolveTestLayout(
     w: layout.w,
     h: layout.h,
     zIndex: layout.zIndex ?? 0,
+  };
+}
+
+function sectionSize(width: number, height: number) {
+  return {
+    width: { Auto: false, Value: width },
+    height: { Auto: false, Value: height },
   };
 }
 
@@ -222,7 +230,7 @@ function buildDictFixture() {
       name: "Generic Dict",
       topLevelParamId: "root",
       edgeOutputPorts: [{ id: "dict-out", accessor: "value" }],
-      size: { width: 360, height: 240 },
+      size: sectionSize(360, 240),
     }),
     { layout: { x: 100, y: 50, w: 360, h: 240 } },
   );
@@ -276,7 +284,7 @@ function addNestedParentSection(state: SingleConfig) {
     "group",
     createGroupSectionImpl({
       children: ["child-a", "child-b"],
-      size: { width: 500, height: 420 },
+      size: sectionSize(500, 420),
     }),
     { layout: { x: 40, y: 60, w: 500, h: 420 } },
   );
@@ -287,9 +295,16 @@ function addNestedChildSection(
   sectionId: string,
   size: { width: number; height: number },
 ) {
-  addSection(state, sectionId, createTextBlockSectionImpl({ size }), {
-    parentId: "group",
-  });
+  addSection(
+    state,
+    sectionId,
+    createTextBlockSectionImpl({
+      size: sectionSize(size.width, size.height),
+    }),
+    {
+      parentId: "group",
+    },
+  );
 }
 
 function assertNestedSectionScene(scene: WorkspaceScene) {
@@ -307,6 +322,23 @@ function assertNestedSectionScene(scene: WorkspaceScene) {
     "before-child",
     "after-child",
   ]);
+}
+
+function buildEmptyNestedSectionScene() {
+  const state = createSingleConfig();
+  addSection(
+    state,
+    "empty-group",
+    createGroupSectionImpl({
+      children: [],
+      size: sectionSize(420, 260),
+    }),
+    { layout: { x: 25, y: 35, w: 420, h: 260 } },
+  );
+  return deriveWorkspaceScene({
+    projectState: state,
+    viewportSize: { width: 900, height: 700 },
+  });
 }
 
 function buildScrollableDictScene() {
@@ -340,7 +372,7 @@ function addScrollableDictSection(state: SingleConfig) {
     "dict-scroll",
     createDictSectionImpl({
       topLevelParamId: "root",
-      size: { width: 320, height: 150 },
+      size: sectionSize(320, 150),
     }),
     { layout: { x: 0, y: 0, w: 320, h: 150 } },
   );
@@ -361,7 +393,7 @@ function addScrollableParams(
 }
 
 function createScrollableParam(index: number): BaseCodeObjImplUnion {
-  if (index === 0) {
+  if (index === 8) {
     return valueParam("SwitchParam", "false");
   }
   return valueParam("TextParam", `value-${index}`, { uiType: "TEXT" });
@@ -384,18 +416,33 @@ function getRequiredDictScene(
 function assertScrollableDictScene(scene: WorkspaceScene) {
   const dict = getRequiredDictScene(scene, "dict-scroll");
   const firstRow = must(dict.rows[0], "first scroll row");
+  const visibleSwitchRow = must(
+    dict.rows.find((row) => row.paramId === "param-8"),
+    "visible switch row",
+  );
 
   expect(dict.visibleRowRange.start).toBeGreaterThan(0);
   expect(dict.visibleRowRange.end).toBeLessThan(18);
   expect(dict.scrollbar).not.toBeNull();
-  expect(firstRow.controlRect.width).toBe(48);
-  expect(hitFirstRowControl(scene, firstRow)?.intent).toBe("toggle-immediate");
+  expect(firstRow.visible).toBe(false);
+  expect(firstRow.visibleRect).toBeNull();
+  expect(firstRow.hitRegions).toHaveLength(0);
+  expect(
+    scene.hitRegions.some((region) => region.id.startsWith(firstRow.id)),
+  ).toBe(false);
+  expect(hitRowControl(scene, firstRow)?.target.kind).not.toBe("control");
+  expect(visibleSwitchRow.visible).toBe(true);
+  expect(visibleSwitchRow.visibleRect).not.toBeNull();
+  expect(visibleSwitchRow.controlRect.width).toBe(48);
+  expect(hitRowControl(scene, visibleSwitchRow)?.intent).toBe(
+    "toggle-immediate",
+  );
   expect(getHitRegionIntent(scene, "section:dict-scroll:header")).toBe(
     "drag-section",
   );
 }
 
-function hitFirstRowControl(
+function hitRowControl(
   scene: WorkspaceScene,
   row: WorkspaceDictScene["rows"][number],
 ) {
@@ -470,6 +517,22 @@ describe("workspace scene model", () => {
 
   it("derives nested section paths, local bounds, parent clips, and drop zones", () => {
     assertNestedSectionScene(buildNestedSectionScene());
+
+    const emptyScene = buildEmptyNestedSectionScene();
+    const emptyGroup = must(
+      emptyScene.sectionsById["empty-group"],
+      "empty group section",
+    );
+    expect(emptyGroup.nestedDropZones).toEqual([
+      {
+        id: "drop-zone:empty-group:inside",
+        parentSectionId: "empty-group",
+        index: 0,
+        kind: "inside-parent",
+        childSectionId: null,
+        rect: emptyGroup.geometry.childContentRegion,
+      },
+    ]);
   });
 
   it("flattens non-Settings Dict params with stable nested rows and code previews", () => {
@@ -500,11 +563,58 @@ describe("workspace scene model", () => {
     assertScrollableDictScene(buildScrollableDictScene());
   });
 
+  it("keys scene, row, and visible-range caches from explicit revision inputs", () => {
+    const { state } = buildDictFixture();
+    const scene = deriveWorkspaceScene({
+      projectState: state,
+      viewportSize: { width: 800, height: 600 },
+      revisionKeys: {
+        projectRevision: "project-1",
+        viewportRevision: "viewport-1",
+        sectionScrollRevision: "scroll-1",
+        themeRevision: "theme-1",
+        fontRevision: "font-1",
+        devicePixelRatioRevision: "dpr-1",
+        textMeasurementRevision: "measure-1",
+        highlighterRevision: "highlight-1",
+      },
+    });
+    const nextScrollScene = deriveWorkspaceScene({
+      projectState: state,
+      viewportSize: { width: 800, height: 600 },
+      revisionKeys: {
+        projectRevision: "project-1",
+        viewportRevision: "viewport-1",
+        sectionScrollRevision: "scroll-2",
+        themeRevision: "theme-1",
+        fontRevision: "font-1",
+        devicePixelRatioRevision: "dpr-1",
+        textMeasurementRevision: "measure-1",
+        highlighterRevision: "highlight-1",
+      },
+    });
+    const dict = getRequiredDictScene(scene, "dict-a");
+    const titleRow = must(
+      dict.rows.find((row) => row.paramId === "title"),
+      "title row",
+    );
+
+    expect(scene.cacheKeys.scene).toContain(
+      "project-1:viewport-1:scroll-1:theme-1:font-1:dpr-1:measure-1:highlight-1",
+    );
+    expect(titleRow.cacheKeys.textMeasurement).toContain("measure-1");
+    expect(titleRow.cacheKeys.valuePreview).toContain("hello");
+    expect(nextScrollScene.cacheKeys.scene).not.toBe(scene.cacheKeys.scene);
+  });
+
   it("defines Param support declarations for first Dict Param kinds", () => {
     expect(
       getWorkspaceParamSupportDeclaration(valueParam("SwitchParam", "true")),
     ).toMatchObject({
-      canvasSupport: "canvas-native",
+      canvasSupport: {
+        passive: "preview",
+        active: "canvas-immediate",
+      },
       activeInputStrategy: "canvas-immediate",
       commitMode: "immediate",
       controlKind: "toggle",
@@ -523,7 +633,12 @@ describe("workspace scene model", () => {
         valueParam("ColorPickerParam", "#ff0000", { colorChoices: [] }),
       ),
     ).toMatchObject({
-      activeInputStrategy: "dom-overlay",
+      canvasSupport: {
+        passive: "preview",
+        active: "dom-native-overlay",
+      },
+      activeInputStrategy: "dom-native-overlay",
+      commitMode: "onExplicitApply",
       primaryHitIntent: "open-dom-overlay",
     });
     expect(
@@ -545,8 +660,10 @@ describe("workspace scene model", () => {
         rowId: "dict-row:dict-a:unpinned:title",
         paramId: "title",
       },
+      rectKey: "100,100,240,28",
       initialValue: "old",
       draftValue: "old",
+      commitMode: "onBlurOrEnter",
       openedAtSceneRevision: "scene:1",
     };
 
@@ -568,10 +685,73 @@ describe("workspace scene model", () => {
       kind: "commit",
       value: "new",
     });
+    const cancelled = reduceActiveEditorSession(session, { type: "cancel" });
+    expect(cancelled.session).toBeNull();
+    expect(cancelled.outcome).toMatchObject({
+      kind: "cancel",
+      session,
+    });
+
+    const controlTarget = {
+      kind: "control" as const,
+      sectionId: "dict-a",
+      sectionPath: ["dict-a"],
+      rowId: "dict-row:dict-a:unpinned:enabled",
+      paramId: "enabled",
+      controlId: "dict-row:dict-a:unpinned:enabled:control",
+    };
+    const controller = createWorkspaceCanvasControllerState({
+      activeControlState: {
+        id: "control-1",
+        target: controlTarget,
+        phase: "pressed",
+        draftValue: true,
+      },
+      keyboardFocusedTarget: controlTarget,
+    });
+    expect(controller.activeControlState?.target).toEqual(controlTarget);
+    expect(controller.keyboardFocusedTarget).toEqual(controlTarget);
   });
 
   it("keys passive code highlighting and discards stale async results", () => {
-    const key = buildWorkspaceCodeHighlightCacheKey({
+    const revisions = {
+      themeRevision: "dark",
+      fontRevision: "font",
+      highlighterRevision: "highlighter",
+    };
+    const { state } = buildDictFixture();
+    const initialScene = deriveWorkspaceScene({
+      projectState: state,
+      viewportSize: { width: 800, height: 600 },
+      revisionKeys: revisions,
+    });
+    const initialDict = getRequiredDictScene(initialScene, "dict-a");
+    const initialCodeRow = must(
+      initialDict.rows.find((row) => row.paramId === "script"),
+      "initial code row",
+    );
+    const key = must(
+      initialCodeRow.codePreview?.cacheKey,
+      "code preview cache key",
+    );
+
+    expect(key).toBe(
+      buildWorkspaceCodeHighlightCacheKey({
+        sectionId: "dict-a",
+        paramId: "script",
+        codeHash: hashWorkspaceCodePreviewValue("print(1)"),
+        language: "python",
+        themeRevision: "dark",
+        fontRevision: "font",
+        highlighterRevision: "highlighter",
+        previewWidth: initialCodeRow.valueRect.width,
+        previewLineLimit: 6,
+      }),
+    );
+    expect(key).toContain(
+      hashWorkspaceCodePreviewValue(initialCodeRow.passiveValue.text),
+    );
+    const mismatchedWidthKey = buildWorkspaceCodeHighlightCacheKey({
       sectionId: "dict-a",
       paramId: "script",
       codeHash: hashWorkspaceCodePreviewValue("print(1)"),
@@ -582,46 +762,76 @@ describe("workspace scene model", () => {
       previewWidth: 120,
       previewLineLimit: 6,
     });
+    expect(mismatchedWidthKey).not.toBe(key);
+
     const pending = beginWorkspaceCodeHighlightRequest(
       createWorkspaceCodeHighlightCacheState(),
       key,
       "request-1",
     );
     const stale = completeWorkspaceCodeHighlightRequest(pending, key, "old", [
-      { text: "print", tokenType: "function" },
+      {
+        line: 0,
+        fromColumn: 0,
+        toColumn: 5,
+        text: "print",
+        color: "#c678dd",
+        fontWeight: "bold",
+      },
     ]);
     const complete = completeWorkspaceCodeHighlightRequest(
       stale.cache,
       key,
       "request-1",
-      [{ text: "print", tokenType: "function" }],
+      [
+        {
+          line: 0,
+          fromColumn: 0,
+          toColumn: 5,
+          text: "print",
+          color: "#c678dd",
+          fontWeight: "bold",
+        },
+      ],
     );
 
     expect(stale.applied).toBe(false);
     expect(complete.applied).toBe(true);
+    expect(
+      getWorkspaceCodeHighlightTokenRuns(complete.cache, key)?.[0],
+    ).toMatchObject({
+      line: 0,
+      fromColumn: 0,
+      toColumn: 5,
+      text: "print",
+      color: "#c678dd",
+      fontWeight: "bold",
+    });
 
-    const { state } = buildDictFixture();
     const scene = deriveWorkspaceScene({
       projectState: state,
       viewportSize: { width: 800, height: 600 },
-      revisionKeys: {
-        themeRevision: "dark",
-        fontRevision: "font",
-        highlighterRevision: "highlighter",
-      },
+      revisionKeys: revisions,
       highlightCache: complete.cache,
     });
-    const dict = scene.sectionsById["dict-a"]?.renderModel;
-    if (dict?.kind !== "dict") {
-      throw new Error("expected dict render model");
-    }
-    const codeRow = dict.dict.rows.find((row) => row.paramId === "script");
+    const dict = getRequiredDictScene(scene, "dict-a");
+    const codeRow = dict.rows.find((row) => row.paramId === "script");
     expect(codeRow?.codePreview?.cacheKey).toContain("script");
+    expect(codeRow?.codePreview?.tokenRuns?.[0]).toMatchObject({
+      line: 0,
+      fromColumn: 0,
+      toColumn: 5,
+      color: "#c678dd",
+    });
   });
 
   it("keeps the scene model free of xyflow, dnd-kit, and section DOM imports", () => {
     const files = [
+      new URL("./workspaceSceneTypes.ts", import.meta.url),
       new URL("./workspaceScene.ts", import.meta.url),
+      new URL("./workspaceSceneProject.ts", import.meta.url),
+      new URL("./workspaceSceneGeometry.ts", import.meta.url),
+      new URL("./workspaceDictScene.ts", import.meta.url),
       new URL("./workspaceController.ts", import.meta.url),
       new URL("./workspaceHighlightCache.ts", import.meta.url),
     ];

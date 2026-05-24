@@ -1,6 +1,11 @@
 export type WorkspaceCodeTokenRun = {
+  line: number;
+  fromColumn: number;
+  toColumn: number;
   text: string;
-  tokenType: string;
+  color: string;
+  fontStyle?: "normal" | "italic";
+  fontWeight?: "normal" | "bold";
 };
 
 export type WorkspaceCodeHighlightKeyParts = {
