@@ -54,7 +54,7 @@ export function createGpuFlowNodeLayerPreparedContentFramePublicationResult({
         ...EMPTY_GPU_FLOW_NODE_LAYER_PREPARED_CONTENT_FRAME_PUBLICATION,
         blockedSurfacePublication: action.blockedSurfacePublication,
       };
-    case "publish":
+    case "present":
       return {
         ...EMPTY_GPU_FLOW_NODE_LAYER_PREPARED_CONTENT_FRAME_PUBLICATION,
         preparedContentFrame: action.preparedContentFrame,

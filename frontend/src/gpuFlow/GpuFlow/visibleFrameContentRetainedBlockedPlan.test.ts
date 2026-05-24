@@ -21,7 +21,7 @@ describe("GPU Flow retained display candidate content plans", () => {
       createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
         contentDecisionKernel,
         previousVisibleProjectionState: null,
-        prepareRetainedDisplayPublicationCandidate: () => ({
+        prepareRetainedDisplayPresentationCandidate: () => ({
           prePublishRetainedPageMaintenance: null,
           retainedDisplayOutcome: {
             frame: retainedFrame,
@@ -77,7 +77,7 @@ describe("GPU Flow retained display candidate content plans", () => {
           createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
             contentDecisionKernel,
             previousVisibleProjectionState: null,
-            prepareRetainedDisplayPublicationCandidate: () => ({
+            prepareRetainedDisplayPresentationCandidate: () => ({
               prePublishRetainedPageMaintenance: null,
               retainedDisplayOutcome: {
                 frame: retainedFrame,
@@ -149,7 +149,7 @@ describe("GPU Flow retained display candidate content plans", () => {
           createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
             contentDecisionKernel,
             previousVisibleProjectionState: null,
-            prepareRetainedDisplayPublicationCandidate: () => ({
+            prepareRetainedDisplayPresentationCandidate: () => ({
               prePublishRetainedPageMaintenance: null,
               retainedDisplayOutcome: {
                 frame: retainedFrame,

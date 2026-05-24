@@ -106,7 +106,7 @@ import {
   type GpuFlowCallbacks,
 } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
-import { prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate } from "./visibleFrameContentPreparation";
+import { prepareGpuFlowPreparedContentFrameOverlayTexturesForPresentationCandidate } from "./visibleFrameContentPreparation";
 import {
   createGpuFlowContentPreparationFrameResult,
   type GpuFlowContentPreparationFrameResult,
@@ -720,7 +720,7 @@ export function renderGpuFlowNodeLayerFrame({
             ),
         });
       const overlayTextureWork =
-        prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate(
+        prepareGpuFlowPreparedContentFrameOverlayTexturesForPresentationCandidate(
           {
             input: {
               canvasSize,

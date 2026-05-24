@@ -39,7 +39,7 @@ import { reduceGpuFlowMotionProjectionFramePreparation } from "./visibleFrameSta
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
   createGpuFlowVisibleFramePublicationTransactionProofFactory,
-  type GpuFlowVisibleFramePublicationCandidateSet,
+  type GpuFlowVisibleFramePresentationCandidateSet,
   type GpuFlowVisibleFramePublicationContentCandidate,
   type GpuFlowVisibleFramePublicationMotionCandidate,
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
@@ -57,9 +57,9 @@ export { createGpuFlowContentPreparationFrameResult } from "./visibleFrameConten
 export type {
   GpuFlowContentPreparationFrameResult,
   GpuFlowPreparedContentBlockedCandidateResourceWork,
-  GpuFlowPreparedContentFramePublicationCandidate,
-  GpuFlowPreparedContentFramePublicationCandidateInput,
-  GpuFlowPreparedContentFramePublicationCandidatePreparer,
+  GpuFlowPreparedContentFramePresentationCandidate,
+  GpuFlowPreparedContentFramePresentationCandidateInput,
+  GpuFlowPreparedContentFramePresentationCandidatePreparer,
   GpuFlowPreparedContentFramePublicationFramePlanPreparation,
   GpuFlowPreparedContentFramePublicationFramePlanPreparer,
   GpuFlowRetainedDisplayPreparedContentFramePreparer,
@@ -91,8 +91,8 @@ export type {
 } from "./visibleFrameProjectionWorkTypes";
 export type {
   GpuFlowVisibleFramePresentationBlockedProof,
+  GpuFlowVisibleFramePresentationCandidateSet,
   GpuFlowVisibleFramePresentationDebtProof,
-  GpuFlowVisibleFramePublicationCandidateSet,
   GpuFlowVisibleFramePublicationContentCandidate,
   GpuFlowVisibleFramePublicationMotionCandidate,
   GpuFlowVisibleFramePublicationPreparedCandidateSet,
@@ -327,7 +327,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   prepareVisibleFrameResourcesForBudget?.(
     publicationFrameContext.budgetDecision,
   );
-  const candidateSet = prepareGpuFlowVisibleFramePublicationCandidateSet({
+  const candidateSet = prepareGpuFlowVisibleFramePresentationCandidateSet({
     prepareContentPreparationFrame,
     prepareMotionProjectionFrame,
     previousVisibleProjectionState,
@@ -363,7 +363,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   });
 }
 
-function prepareGpuFlowVisibleFramePublicationCandidateSet<
+function prepareGpuFlowVisibleFramePresentationCandidateSet<
   ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
@@ -388,7 +388,7 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
     GpuFlowVisibleFramePresentationReducerRuntime["getKnobs"]
   >;
   readonly rawReasons: readonly GpuFrameReason[];
-}): GpuFlowVisibleFramePublicationCandidateSet<
+}): GpuFlowVisibleFramePresentationCandidateSet<
   ContentPreparationFrame,
   MotionProjectionFrame
 > {
@@ -402,8 +402,8 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
     createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
       contentDecisionKernel,
       previousVisibleProjectionState,
-      prepareRetainedDisplayPublicationCandidate:
-        prepareGpuFlowRetainedDisplayPublicationCandidate,
+      prepareRetainedDisplayPresentationCandidate:
+        prepareGpuFlowRetainedDisplayPresentationCandidate,
     });
   const runRetainedPreparedContentFramePublicationContentStage =
     createGpuFlowRetainedPreparedContentFramePublicationContentStageRunner({
@@ -455,7 +455,7 @@ function createGpuFlowVisibleFramePublicationPreparedFrame<
   previousVisibleProjectionState,
   reducerDecision,
 }: {
-  readonly candidateSet: GpuFlowVisibleFramePublicationCandidateSet<
+  readonly candidateSet: GpuFlowVisibleFramePresentationCandidateSet<
     ContentPreparationFrame,
     MotionProjectionFrame
   >;
@@ -669,7 +669,7 @@ function createGpuFlowVisibleFrameRequestFacts({
   });
 }
 
-function prepareGpuFlowRetainedDisplayPublicationCandidate(
+function prepareGpuFlowRetainedDisplayPresentationCandidate(
   input: GpuFlowRetainedDisplayPublicationInput,
 ): GpuFlowRetainedDisplayPublicationResult {
   return resolveGpuFlowRetainedDisplayPublication(input);

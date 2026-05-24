@@ -14,7 +14,7 @@ import { requestGpuFlowBrowserVisualResourcePreparation } from "./visibleFrameBr
 import { clearGpuFlowBrowserVisualResourceWork } from "./visibleFrameBrowserVisualResourceWork";
 import {
   createGpuFlowPreparedContentFramePublicationFramePlanPreparer,
-  type GpuFlowPreparedContentFramePublicationCandidateInput,
+  type GpuFlowPreparedContentFramePresentationCandidateInput,
 } from "./visibleFrameContentPlan";
 import {
   recordGpuFlowBlockedVisibleFramePresentation,
@@ -62,15 +62,15 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
   it("emits browser visual starvation reports for blocked actor coverage", () => {
     const canvas = document.createElement("canvas");
     const requestFrame = vi.fn();
-    const result = prepareGpuFlowPreparedContentFramePublicationCandidate(
-      publicationCandidateInput({
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
         timestamp: 10,
       }),
     );
 
-    expect(result.kind).toBe("nonpublishable");
-    if (result.kind !== "nonpublishable") {
-      throw new Error("Expected nonpublishable publication candidate.");
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
     }
     expect(result.blockedPresentationCandidate.frozenFrameId).toBe(
       GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
@@ -102,15 +102,15 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
 
   it("records browser visual resource work when preparation is scheduled", () => {
     const canvas = document.createElement("canvas");
-    const result = prepareGpuFlowPreparedContentFramePublicationCandidate(
-      publicationCandidateInput({
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
         timestamp: 10,
       }),
     );
 
-    expect(result.kind).toBe("nonpublishable");
-    if (result.kind !== "nonpublishable") {
-      throw new Error("Expected nonpublishable publication candidate.");
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
     }
 
     requestGpuFlowBrowserVisualResourcePreparation({
@@ -142,16 +142,16 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     const requestFrame = vi.fn();
     const surface = { requestFrame } as unknown as GpuSurfaceHandle;
 
-    const result = prepareGpuFlowPreparedContentFramePublicationCandidate(
-      publicationCandidateInput({
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
         deferBrowserVisualWakeup: true,
         timestamp: 10,
       }),
     );
 
-    expect(result.kind).toBe("nonpublishable");
-    if (result.kind !== "nonpublishable") {
-      throw new Error("Expected nonpublishable publication candidate.");
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
     }
     applyBlockedCandidate(result.candidateFrame, { canvas });
     requestGpuFlowBrowserVisualResourcePreparation({
@@ -177,16 +177,16 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     const requestFrame = vi.fn();
     const surface = { requestFrame } as unknown as GpuSurfaceHandle;
 
-    const result = prepareGpuFlowPreparedContentFramePublicationCandidate(
-      publicationCandidateInput({
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
         deferBrowserVisualWakeup: true,
         timestamp: 10,
       }),
     );
 
-    expect(result.kind).toBe("nonpublishable");
-    if (result.kind !== "nonpublishable") {
-      throw new Error("Expected nonpublishable publication candidate.");
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
     }
     applyBlockedCandidate(result.candidateFrame, { canvas });
     requestGpuFlowBrowserVisualResourcePreparation({
@@ -216,16 +216,16 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     const requestFrame = vi.fn();
     const surface = { requestFrame } as unknown as GpuSurfaceHandle;
 
-    const result = prepareGpuFlowPreparedContentFramePublicationCandidate(
-      publicationCandidateInput({
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
         deferBrowserVisualWakeup: true,
         timestamp: 10,
       }),
     );
 
-    expect(result.kind).toBe("nonpublishable");
-    if (result.kind !== "nonpublishable") {
-      throw new Error("Expected nonpublishable publication candidate.");
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
     }
     applyBlockedCandidate(result.candidateFrame, { canvas });
     requestGpuFlowBrowserVisualResourcePreparation({
@@ -256,16 +256,16 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     const requestFrame = vi.fn();
     const surface = { requestFrame } as unknown as GpuSurfaceHandle;
 
-    const result = prepareGpuFlowPreparedContentFramePublicationCandidate(
-      publicationCandidateInput({
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
         deferBrowserVisualWakeup: true,
         timestamp: 10,
       }),
     );
 
-    expect(result.kind).toBe("nonpublishable");
-    if (result.kind !== "nonpublishable") {
-      throw new Error("Expected nonpublishable publication candidate.");
+    expect(result.kind).toBe("blocked");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
     }
     applyBlockedCandidate(result.candidateFrame, { canvas });
     requestGpuFlowBrowserVisualResourcePreparation({
@@ -291,14 +291,14 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
   });
 
   it("rejects unbranded blocked candidate tokens", () => {
-    const result = prepareGpuFlowPreparedContentFramePublicationCandidate(
-      publicationCandidateInput({
+    const result = prepareGpuFlowPreparedContentFramePresentationCandidate(
+      presentationCandidateInput({
         timestamp: 10,
       }),
     );
     const canvas = document.createElement("canvas");
-    if (result.kind !== "nonpublishable") {
-      throw new Error("Expected nonpublishable publication candidate.");
+    if (result.kind !== "blocked") {
+      throw new Error("Expected blocked presentation candidate.");
     }
 
     expect(() =>
@@ -553,8 +553,8 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     ) {
       expect(() =>
         applyPreparedBlockedCandidate(
-          prepareGpuFlowPreparedContentFramePublicationCandidate(
-            publicationCandidateInput({
+          prepareGpuFlowPreparedContentFramePresentationCandidate(
+            presentationCandidateInput({
               timestamp: index,
             }),
           ),
@@ -565,8 +565,8 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
 
     expect(() =>
       applyPreparedBlockedCandidate(
-        prepareGpuFlowPreparedContentFramePublicationCandidate(
-          publicationCandidateInput({
+        prepareGpuFlowPreparedContentFramePresentationCandidate(
+          presentationCandidateInput({
             timestamp:
               DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames,
           }),
@@ -577,13 +577,13 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
   });
 });
 
-function publicationCandidateInput({
+function presentationCandidateInput({
   deferBrowserVisualWakeup = false,
   timestamp,
 }: {
   readonly deferBrowserVisualWakeup?: boolean | undefined;
   readonly timestamp: number;
-}): GpuFlowPreparedContentFramePublicationCandidateInput {
+}): GpuFlowPreparedContentFramePresentationCandidateInput {
   const retainedFrame = {} as RetainedDisplayFrame;
   return {
     committedGpuNativeVisuals: undefined,
@@ -594,11 +594,11 @@ function publicationCandidateInput({
     contentWorkLane: "content",
     preparedContentFrame: blockedPreparedContentFrame(),
     publishedRetainedFrame: retainedFrame,
-  } as unknown as GpuFlowPreparedContentFramePublicationCandidateInput;
+  } as unknown as GpuFlowPreparedContentFramePresentationCandidateInput;
 }
 
-function prepareGpuFlowPreparedContentFramePublicationCandidate(
-  input: GpuFlowPreparedContentFramePublicationCandidateInput,
+function prepareGpuFlowPreparedContentFramePresentationCandidate(
+  input: GpuFlowPreparedContentFramePresentationCandidateInput,
 ) {
   return preparePreparedContentFramePublicationFramePlanForTest(input)
     .candidate;
@@ -606,16 +606,14 @@ function prepareGpuFlowPreparedContentFramePublicationCandidate(
 
 function applyPreparedBlockedCandidate(
   candidate: ReturnType<
-    typeof prepareGpuFlowPreparedContentFramePublicationCandidate
+    typeof prepareGpuFlowPreparedContentFramePresentationCandidate
   >,
   output: {
     readonly canvas: HTMLCanvasElement;
   },
 ): void {
-  if (candidate.kind !== "nonpublishable") {
-    throw new Error(
-      "Expected nonpublishable prepared content frame candidate.",
-    );
+  if (candidate.kind !== "blocked") {
+    throw new Error("Expected blocked prepared content frame candidate.");
   }
   applyBlockedCandidate(candidate.candidateFrame, output);
 }

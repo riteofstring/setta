@@ -7,12 +7,12 @@ import type {
 import type { GpuFlowRetainedDisplayPublicationResult } from "../flowRetainedDisplayTransaction";
 import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "../flowVisibleProjectionState";
 import type {
-  GpuFlowPreparedContentFramePublicationCandidate,
-  GpuFlowPreparedContentFramePublicationCandidateInput,
+  GpuFlowPreparedContentFramePresentationCandidate,
+  GpuFlowPreparedContentFramePresentationCandidateInput,
   GpuFlowVisibleFrameBlockedPresentationCandidate,
 } from "../visibleFrameContentPlan";
 import {
-  reduceGpuFlowPreparedContentFramePublicationCandidate,
+  reduceGpuFlowPreparedContentFramePresentationCandidate,
   resolveGpuFlowPreparedContentFramePublicationFramePlanResult,
   resolveGpuFlowRetainedDisplayPublicationFramePlanResult,
   selectGpuFlowContentPreparationBlockedCandidateForFrameResult,
@@ -33,7 +33,7 @@ export type GpuFlowPreparedContentFramePublicationFramePlan =
   | {
       readonly blockedPresentationCandidate: null;
       readonly preparedContentFramePublication: GpuFlowNodeLayerPreparedContentFramePublicationResult;
-      readonly kind: "publish";
+      readonly kind: "present";
       readonly visibleProjectionState: null;
     }
   | {
@@ -51,7 +51,7 @@ type GpuFlowPreparedContentFramePublicationFramePlanResultResolver = (input: {
 }) => GpuFlowPreparedContentFramePublicationFramePlanResult;
 
 type GpuFlowPreparedContentFramePublicationFramePlanSelector = (input: {
-  readonly candidate: GpuFlowPreparedContentFramePublicationCandidate;
+  readonly candidate: GpuFlowPreparedContentFramePresentationCandidate;
   readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }) => GpuFlowPreparedContentFramePublicationFramePlan;
 
@@ -78,9 +78,9 @@ export type GpuFlowVisibleFramePresentationContentDecisionKernel = {
   readonly createVisibleProjectionStateForRetainedPublication: (
     input: GpuFlowRetainedPublicationVisibleProjectionStateInput,
   ) => GpuFlowVisibleProjectionState;
-  readonly preparePreparedContentFramePublicationCandidate: (
-    input: GpuFlowPreparedContentFramePublicationCandidateInput,
-  ) => GpuFlowPreparedContentFramePublicationCandidate;
+  readonly preparePreparedContentFramePresentationCandidate: (
+    input: GpuFlowPreparedContentFramePresentationCandidateInput,
+  ) => GpuFlowPreparedContentFramePresentationCandidate;
   readonly resolvePreparedContentFramePublicationFramePlanResult: GpuFlowPreparedContentFramePublicationFramePlanResultResolver;
   readonly resolveRetainedDisplayPublicationFramePlanResult: GpuFlowRetainedDisplayPublicationFramePlanResultResolver;
   readonly selectPreparedContentFramePublicationFramePlan: GpuFlowPreparedContentFramePublicationFramePlanSelector;
@@ -92,7 +92,7 @@ export type GpuFlowVisibleFramePresentationContentDecisionKernel = {
 };
 
 type GpuFlowRetainedPublicationVisibleProjectionStateInput = Pick<
-  GpuFlowPreparedContentFramePublicationCandidateInput,
+  GpuFlowPreparedContentFramePresentationCandidateInput,
   | "frameReasons"
   | "liveProjectionSample"
   | "contentWorkLane"
@@ -114,8 +114,8 @@ function createGpuFlowVisibleFramePresentationContentDecisionKernelMethods(): Gp
   return Object.freeze({
     createVisibleProjectionStateForRetainedPublication:
       createGpuFlowVisibleProjectionStateForRetainedPublication,
-    preparePreparedContentFramePublicationCandidate:
-      reduceGpuFlowPreparedContentFramePublicationCandidate,
+    preparePreparedContentFramePresentationCandidate:
+      reduceGpuFlowPreparedContentFramePresentationCandidate,
     resolvePreparedContentFramePublicationFramePlanResult:
       resolveGpuFlowPreparedContentFramePublicationFramePlanResult,
     resolveRetainedDisplayPublicationFramePlanResult:

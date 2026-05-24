@@ -50,7 +50,7 @@ export function createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
       previousVisibleProjectionState,
       proof: blockingProof,
     }) ??
-    createGpuFlowVisibleFramePublicationCandidateActorBlockedProof({
+    createGpuFlowVisibleFramePresentationCandidateActorBlockedProof({
       candidate,
       decidingProof,
       previousVisibleProjectionState,
@@ -72,7 +72,7 @@ function isGpuFlowVisibleFrameStateMachineBlockedOutcome(
   );
 }
 
-function createGpuFlowVisibleFramePublicationCandidateActorBlockedProof({
+function createGpuFlowVisibleFramePresentationCandidateActorBlockedProof({
   candidate,
   decidingProof,
   previousVisibleProjectionState,

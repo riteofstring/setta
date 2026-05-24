@@ -20,8 +20,8 @@ import {
   shouldPreservePreparedContentFrameForBrowserVisualRepair,
 } from "./visibleFrameBlockedCandidate";
 import type {
-  GpuFlowPreparedContentFramePublicationCandidate,
-  GpuFlowPreparedContentFramePublicationCandidateInput,
+  GpuFlowPreparedContentFramePresentationCandidate,
+  GpuFlowPreparedContentFramePresentationCandidateInput,
   GpuFlowVisibleFrameBlockedPresentationCandidate,
 } from "./visibleFrameContentPlan";
 import {
@@ -60,19 +60,19 @@ const GPU_FLOW_VISIBLE_FRAME_STATE_MACHINE_OUTCOME = Symbol(
 
 type GpuFlowPreparedContentFramePublicationReadiness =
   | {
-      readonly kind: "publish";
+      readonly kind: "present";
     }
   | {
       readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate;
       readonly errorMessage: string | null;
-      readonly kind: "nonpublishable";
+      readonly kind: "blocked";
     };
 
 type GpuFlowRetainedDisplayPublicationOutcome =
   GpuFlowRetainedDisplayPublicationResult["retainedDisplayOutcome"];
 
 type GpuFlowContentPreparationBlockedCandidateSelector = (input: {
-  readonly blockedPreparedContentFramePublicationCandidate?:
+  readonly blockedPreparedContentFramePresentationCandidate?:
     | GpuFlowVisibleFrameBlockedPresentationCandidate
     | null
     | undefined;
@@ -82,20 +82,20 @@ type GpuFlowContentPreparationBlockedCandidateSelector = (input: {
     | undefined;
 }) => GpuFlowVisibleFrameBlockedPresentationCandidate | null;
 
-export function reduceGpuFlowPreparedContentFramePublicationCandidate({
+export function reduceGpuFlowPreparedContentFramePresentationCandidate({
   deferBrowserVisualWakeup,
   heldPreviousProjectionState,
   liveProjectionSample,
   preparedContentFrame,
-}: GpuFlowPreparedContentFramePublicationCandidateInput): GpuFlowPreparedContentFramePublicationCandidate {
+}: GpuFlowPreparedContentFramePresentationCandidateInput): GpuFlowPreparedContentFramePresentationCandidate {
   const publicationReadiness =
     resolveGpuFlowPreparedContentFramePublicationReadiness({
       heldPreviousProjectionState,
       preparedContentFrame,
     });
-  if (publicationReadiness.kind === "publish") {
+  if (publicationReadiness.kind === "present") {
     return {
-      kind: "publish",
+      kind: "present",
     };
   }
   if (!preparedContentFrame) {
@@ -108,7 +108,7 @@ export function reduceGpuFlowPreparedContentFramePublicationCandidate({
       publicationReadiness.blockedPresentationCandidate,
     candidateFrame: preparedContentFrame,
     errorMessage: publicationReadiness.errorMessage,
-    kind: "nonpublishable",
+    kind: "blocked",
     preservePreparationSnapshot:
       shouldPreservePreparedContentFrameForBrowserVisualRepair(
         publicationReadiness.blockedPresentationCandidate,
@@ -129,7 +129,7 @@ export function selectGpuFlowPreparedContentFramePublicationFramePlan({
   candidate,
   preparedContentFrame,
 }: {
-  readonly candidate: GpuFlowPreparedContentFramePublicationCandidate;
+  readonly candidate: GpuFlowPreparedContentFramePresentationCandidate;
   readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }): GpuFlowPreparedContentFramePublicationFramePlan {
   const action = resolveGpuFlowPreparedContentFrameCandidateAction({
@@ -141,7 +141,7 @@ export function selectGpuFlowPreparedContentFramePublicationFramePlan({
       action,
     },
   );
-  if (action.kind !== "publish") {
+  if (action.kind !== "present") {
     return {
       blockedPresentationCandidate: result.blockedPresentationCandidate,
       preparedContentFramePublication: result.preparedContentFramePublication,
@@ -152,7 +152,7 @@ export function selectGpuFlowPreparedContentFramePublicationFramePlan({
   return {
     blockedPresentationCandidate: null,
     preparedContentFramePublication: result.preparedContentFramePublication,
-    kind: "publish" as const,
+    kind: "present" as const,
     visibleProjectionState: null,
   };
 }
@@ -209,7 +209,7 @@ export function selectGpuFlowContentPreparationBlockedCandidateForFrameResult({
       previousVisibleProjectionState,
     });
   return selectContentPreparationBlockedCandidate({
-    blockedPreparedContentFramePublicationCandidate:
+    blockedPreparedContentFramePresentationCandidate:
       preparedContentFramePublication.blockedSurfacePublication
         ?.blockedPresentationCandidate ?? null,
     retainedDisplayBlockedPresentationCandidate:
@@ -221,20 +221,20 @@ function resolveGpuFlowPreparedContentFrameCandidateAction({
   candidate,
   preparedContentFrame,
 }: {
-  readonly candidate: GpuFlowPreparedContentFramePublicationCandidate;
+  readonly candidate: GpuFlowPreparedContentFramePresentationCandidate;
   readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }): GpuFlowPreparedContentFrameCandidateAction {
   switch (candidate.kind) {
-    case "nonpublishable":
+    case "blocked":
       return {
         blockedSurfacePublication: candidate,
         kind: "blocked-candidate",
         visibleProjectionState: null,
       };
-    case "publish":
+    case "present":
       return {
         preparedContentFrame: preparedContentFrame ?? null,
-        kind: "publish",
+        kind: "present",
       };
   }
 }
@@ -248,7 +248,7 @@ function resolveGpuFlowPreparedContentFramePublicationActionFrameResult({
     createGpuFlowNodeLayerPreparedContentFramePublicationResult({
       action,
     });
-  if (action.kind === "publish") {
+  if (action.kind === "present") {
     return {
       blockedPresentationCandidate: null,
       preparedContentFramePublication,
@@ -275,11 +275,11 @@ function selectGpuFlowContentPreparationBlockedCandidate({
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowContentPreparationBlockedCandidateSelector {
   return ({
-    blockedPreparedContentFramePublicationCandidate,
+    blockedPreparedContentFramePresentationCandidate,
     retainedDisplayBlockedPresentationCandidate,
   }) => {
-    if (blockedPreparedContentFramePublicationCandidate) {
-      return blockedPreparedContentFramePublicationCandidate;
+    if (blockedPreparedContentFramePresentationCandidate) {
+      return blockedPreparedContentFramePresentationCandidate;
     }
     if (retainedDisplayBlockedPresentationCandidate) {
       return retainedDisplayBlockedPresentationCandidate;
@@ -305,14 +305,14 @@ function resolveGpuFlowPreparedContentFramePublicationReadiness({
   preparedContentFrame,
 }: {
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly preparedContentFrame: GpuFlowPreparedContentFramePublicationCandidateInput["preparedContentFrame"];
+  readonly preparedContentFrame: GpuFlowPreparedContentFramePresentationCandidateInput["preparedContentFrame"];
 }): GpuFlowPreparedContentFramePublicationReadiness {
   if (
     !preparedContentFrame ||
     preparedContentFrame.publishability.kind === "publishable"
   ) {
     return {
-      kind: "publish",
+      kind: "present",
     };
   }
   return {
@@ -322,7 +322,7 @@ function resolveGpuFlowPreparedContentFramePublicationReadiness({
         heldPreviousProjectionState,
       }),
     errorMessage: null,
-    kind: "nonpublishable",
+    kind: "blocked",
   };
 }
 

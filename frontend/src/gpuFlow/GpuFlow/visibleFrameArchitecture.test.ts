@@ -22,7 +22,7 @@ const REMOVED_VISIBLE_FRAME_PRESENTATION_AUTHORITY_MODULES = [
   "./visibleFramePublicationActorOracle",
   "./visibleFramePublicationBlockedCandidate",
   "./visibleFramePublicationOracle",
-  "./visibleFramePublicationCandidateOracle",
+  "./visibleFramePresentationCandidateOracle",
   "./visibleFramePublicationCompletion",
   "./visibleFramePublicationContentAbort",
   "./visibleFramePublicationContentPlan",

@@ -165,10 +165,10 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
     );
 
     expect(projectionPlanSource).not.toContain(
-      "GpuFlowRetainedProjectionPublicationCandidate",
+      "GpuFlowRetainedProjectionPresentationCandidate",
     );
     expect(projectionPlanSource).not.toContain(
-      "selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
+      "selectGpuFlowProjectionFrameTransactionFromPresentationCandidate",
     );
     expect(projectionPlanSource).not.toContain(
       "createGpuFlowProjectionFrameTransactionSelector",
@@ -195,46 +195,46 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       "createGpuFlowVisibleFramePresentationCandidateDecisionKernel",
     );
     expect(kernelModuleSource).not.toContain(
-      "function selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
+      "function selectGpuFlowProjectionFrameTransactionFromPresentationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
-      "export function selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
+      "export function selectGpuFlowProjectionFrameTransactionFromPresentationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
-      "function prepareGpuFlowRetainedProjectionPublicationCandidate",
+      "function prepareGpuFlowRetainedProjectionPresentationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
-      "export function prepareGpuFlowRetainedProjectionPublicationCandidate",
+      "export function prepareGpuFlowRetainedProjectionPresentationCandidate",
     );
     expect(kernelModuleSource).toContain(
       "createGpuFlowVisibleFramePresentationContentDecisionKernel",
     );
     expect(kernelModuleSource).not.toContain(
-      "createGpuFlowRetainedProjectionPublicationCandidateSelector",
+      "createGpuFlowRetainedProjectionPresentationCandidateSelector",
     );
     expect(kernelModuleSource).not.toContain(
       "export function createGpuFlowProjectionFrameTransactionSelector",
     );
     expect(kernelModuleSource).not.toContain(
-      "export function createGpuFlowRetainedProjectionPublicationCandidateSelector",
+      "export function createGpuFlowRetainedProjectionPresentationCandidateSelector",
     );
     expect(contentDecisionKernelSource).not.toContain(
       "createGpuFlowVisibleFramePresentationCandidateDecisionKernel",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "GpuFlowRetainedProjectionPublicationCandidate",
+      "GpuFlowRetainedProjectionPresentationCandidate",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
+      "selectGpuFlowProjectionFrameTransactionFromPresentationCandidate",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function prepareGpuFlowRetainedProjectionPublicationCandidate",
+      "function prepareGpuFlowRetainedProjectionPresentationCandidate",
     );
     expect(contentDecisionKernelSource).not.toContain(
       "export function createGpuFlowProjectionFrameTransactionSelector",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "export function createGpuFlowRetainedProjectionPublicationCandidateSelector",
+      "export function createGpuFlowRetainedProjectionPresentationCandidateSelector",
     );
     expect(kernelModuleSource).not.toContain("candidateDecisionKernel");
     expect(stateMachineReductionSource).toContain(

@@ -22,7 +22,7 @@ import {
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
   createGpuFlowVisibleFramePublicationTransactionProofFactory,
-  type GpuFlowVisibleFramePublicationCandidateSet,
+  type GpuFlowVisibleFramePresentationCandidateSet,
   type GpuFlowVisibleFramePublicationContentCandidate,
   type GpuFlowVisibleFramePublicationMotionCandidate,
 } from "./visibleFrameTransactionProofs";
@@ -37,7 +37,7 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >(
-  input: GpuFlowVisibleFramePublicationCandidateSet<
+  input: GpuFlowVisibleFramePresentationCandidateSet<
     ContentPreparationFrame,
     MotionProjectionFrame
   > & {
@@ -64,7 +64,7 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
   contentPreparationFrame,
   motionProjectionFrame,
   ...proofInput
-}: GpuFlowVisibleFramePublicationCandidateSet<
+}: GpuFlowVisibleFramePresentationCandidateSet<
   ContentPreparationFrame,
   MotionProjectionFrame
 > & {

@@ -110,7 +110,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       sample,
     });
     const result = runPreparedCandidateCoordinator({
-      contentFrame: testPublicationCandidate({
+      contentFrame: testPresentationCandidate({
         rendered: true,
         visibleProjectionState: heldVisibleProjectionState,
       }),
@@ -140,7 +140,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
     }
 
     const result = runPreparedCandidateCoordinator({
-      contentFrame: testPublicationCandidate({
+      contentFrame: testPresentationCandidate({
         rendered: true,
         visibleProjectionState: {
           ...heldVisibleProjectionState,
@@ -188,7 +188,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
     expect(result.completeReducerFrame().completion.debt.content).toBe(true);
   });
 
-  it("turns a nonpublishable prepared-content-frame candidate into a held outcome at completion", () => {
+  it("turns a blocked prepared-content-frame candidate into a held outcome at completion", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 4, timestamp: 64 });
     const previousVisibleProjectionState = visibleProjectionState({
@@ -196,7 +196,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       sample: liveProjectionSample({ id: 3, timestamp: 48 }),
     });
 
-    const candidate = preparePreparedContentFramePublicationCandidateForTest({
+    const candidate = preparePreparedContentFramePresentationCandidateForTest({
       heldPreviousProjectionState: previousVisibleProjectionState,
       liveSample: sample,
       preparedContentFrame: blockedPreparedContentFrame({
@@ -206,16 +206,14 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       }),
     });
 
-    expect(candidate.kind).toBe("nonpublishable");
-    if (candidate.kind !== "nonpublishable") {
-      throw new Error(
-        "Expected nonpublishable prepared-content-frame candidate.",
-      );
+    expect(candidate.kind).toBe("blocked");
+    if (candidate.kind !== "blocked") {
+      throw new Error("Expected blocked prepared-content-frame candidate.");
     }
     expect("token" in candidate).toBe(false);
 
     const completion = runPreparedCandidateCoordinator({
-      contentFrame: testPublicationCandidate({
+      contentFrame: testPresentationCandidate({
         blockedPresentationCandidate: candidate.blockedPresentationCandidate,
         rendered: false,
         visibleProjectionState: null,
@@ -246,31 +244,29 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       kind: "prepared-content",
       sample: liveProjectionSample({ id: 13, timestamp: 208 }),
     });
-    const candidate = preparePreparedContentFramePublicationCandidateForTest({
+    const candidate = preparePreparedContentFramePresentationCandidateForTest({
       heldPreviousProjectionState: previousVisibleProjectionState,
       preparedContentFrame: trueHolePreparedContentFrame(),
     });
     const coldCandidate =
-      preparePreparedContentFramePublicationCandidateForTest({
+      preparePreparedContentFramePresentationCandidateForTest({
         heldPreviousProjectionState: null,
         preparedContentFrame: trueHolePreparedContentFrame(),
       });
 
-    expect(candidate.kind).toBe("nonpublishable");
-    if (candidate.kind !== "nonpublishable") {
-      throw new Error(
-        "Expected nonpublishable prepared-content-frame candidate.",
-      );
+    expect(candidate.kind).toBe("blocked");
+    if (candidate.kind !== "blocked") {
+      throw new Error("Expected blocked prepared-content-frame candidate.");
     }
     expect(candidate.errorMessage).toBeNull();
     expect(candidate.blockedPresentationCandidate.frozenFrameId).toBe(
       previousVisibleProjectionState.preparedContentFrame.displayFrameId,
     );
 
-    expect(coldCandidate.kind).toBe("nonpublishable");
-    if (coldCandidate.kind !== "nonpublishable") {
+    expect(coldCandidate.kind).toBe("blocked");
+    if (coldCandidate.kind !== "blocked") {
       throw new Error(
-        "Expected cold nonpublishable prepared-content-frame candidate.",
+        "Expected cold blocked prepared-content-frame candidate.",
       );
     }
     expect(coldCandidate.errorMessage).toBeNull();
@@ -376,7 +372,7 @@ function createPreparedContentFrame(): GpuFlowPreparedContentFrame {
   } as unknown as GpuFlowPreparedContentFrame;
 }
 
-function preparePreparedContentFramePublicationCandidateForTest({
+function preparePreparedContentFramePresentationCandidateForTest({
   heldPreviousProjectionState,
   liveSample = liveProjectionSample({ id: 21, timestamp: 216 }),
   preparedContentFrame,
@@ -498,16 +494,16 @@ function retainedDisplayFrame(): RetainedDisplayFrame {
   } as unknown as RetainedDisplayFrame;
 }
 
-type TestPublicationCandidate = {
+type TestPresentationCandidate = {
   readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly rendered: boolean;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
 
 function runPreparedCandidateCoordinator({
-  contentFrame = testPublicationCandidate(),
+  contentFrame = testPresentationCandidate(),
   hasPresentedContentFrame = true,
-  motionFrame = testPublicationCandidate(),
+  motionFrame = testPresentationCandidate(),
   previousVisibleProjectionState = null,
   publish = () => {},
   rawReasons = ["manual"],
@@ -515,14 +511,14 @@ function runPreparedCandidateCoordinator({
   reducerRuntime: scheduler,
   viewportInteractionActive = false,
 }: {
-  readonly contentFrame?: TestPublicationCandidate;
+  readonly contentFrame?: TestPresentationCandidate;
   readonly hasPresentedContentFrame?: boolean;
-  readonly motionFrame?: TestPublicationCandidate;
+  readonly motionFrame?: TestPresentationCandidate;
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
   readonly publish?: Parameters<
     typeof runGpuFlowVisibleFrameCoordinator<
-      TestPublicationCandidate,
-      TestPublicationCandidate
+      TestPresentationCandidate,
+      TestPresentationCandidate
     >
   >[0]["publish"];
   readonly rawReasons?: readonly GpuFrameReason[];
@@ -533,8 +529,8 @@ function runPreparedCandidateCoordinator({
   readonly viewportInteractionActive?: boolean;
 }) {
   return runGpuFlowVisibleFrameCoordinator<
-    TestPublicationCandidate,
-    TestPublicationCandidate
+    TestPresentationCandidate,
+    TestPresentationCandidate
   >({
     prepareContentPreparationFrame: () => contentFrame,
     prepareMotionProjectionFrame: () => ({
@@ -554,11 +550,11 @@ function runPreparedCandidateCoordinator({
   });
 }
 
-function testPublicationCandidate({
+function testPresentationCandidate({
   blockedPresentationCandidate = null,
   rendered = false,
   visibleProjectionState = null,
-}: Partial<TestPublicationCandidate> = {}): TestPublicationCandidate {
+}: Partial<TestPresentationCandidate> = {}): TestPresentationCandidate {
   return {
     blockedPresentationCandidate,
     rendered,

@@ -90,14 +90,14 @@ describe("GPU Flow visible frame coordinator budget", () => {
           observed.push(
             observeResolutionDeferralContext(publicationFrameContext),
           );
-          return testPublicationCandidate();
+          return testPresentationCandidate();
         },
         prepareMotionProjectionFrame: ({ publicationFrameContext }) => {
           observed.push(
             observeResolutionDeferralContext(publicationFrameContext),
           );
           return {
-            frame: testPublicationCandidate(),
+            frame: testPresentationCandidate(),
             kind: "not-rendered" as const,
           };
         },
@@ -140,12 +140,12 @@ describe("GPU Flow visible frame coordinator budget", () => {
       }),
       prepareContentPreparationFrame: ({ publicationFrameContext }) => {
         starvedObserved.push(publicationFrameContext.deferResolutionUpdates);
-        return testPublicationCandidate();
+        return testPresentationCandidate();
       },
       prepareMotionProjectionFrame: ({ publicationFrameContext }) => {
         starvedObserved.push(publicationFrameContext.deferResolutionUpdates);
         return {
-          frame: testPublicationCandidate(),
+          frame: testPresentationCandidate(),
           kind: "not-rendered" as const,
         };
       },
@@ -182,13 +182,13 @@ describe("GPU Flow visible frame coordinator budget", () => {
       prepareContentPreparationFrame: ({ publicationFrameContext }) => {
         phases.push("content");
         observedActiveEditorPins.push(publicationFrameContext.activeEditorPins);
-        return testPublicationCandidate();
+        return testPresentationCandidate();
       },
       prepareMotionProjectionFrame: ({ publicationFrameContext }) => {
         phases.push("motion");
         observedActiveEditorPins.push(publicationFrameContext.activeEditorPins);
         return {
-          frame: testPublicationCandidate(),
+          frame: testPresentationCandidate(),
           kind: "not-rendered" as const,
         };
       },
@@ -267,7 +267,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         phases.push(
           `content:${contentPreparationWorkPlan.kind}:defer-${publicationFrameContext.deferResolutionUpdates}`,
         );
-        return testPublicationCandidate();
+        return testPresentationCandidate();
       },
       prepareMotionProjectionFrame: ({
         motionProjectionWorkPlan,
@@ -277,7 +277,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
           `motion:${motionProjectionWorkPlan.kind}:defer-${publicationFrameContext.deferResolutionUpdates}`,
         );
         return {
-          frame: testPublicationCandidate(),
+          frame: testPresentationCandidate(),
           kind: "not-rendered" as const,
         };
       },
@@ -422,7 +422,7 @@ function fixedPublicationScheduler({
   };
 }
 
-function testPublicationCandidate(): {
+function testPresentationCandidate(): {
   readonly blockedPresentationCandidate: null;
   readonly rendered: boolean;
   readonly visibleProjectionState: null;

@@ -1,15 +1,15 @@
 import type { GpuFlowPreparedContentFrame } from "../../preparedContentFrame";
-import type { GpuFlowPreparedContentFramePublicationCandidate } from "../visibleFrameContentPlan";
+import type { GpuFlowPreparedContentFramePresentationCandidate } from "../visibleFrameContentPlan";
 
 export type GpuFlowBlockedPreparedContentFrameCandidate = Extract<
-  GpuFlowPreparedContentFramePublicationCandidate,
-  { readonly kind: "nonpublishable" }
+  GpuFlowPreparedContentFramePresentationCandidate,
+  { readonly kind: "blocked" }
 >;
 
 export type GpuFlowPreparedContentFrameCandidateAction =
   | {
       readonly preparedContentFrame: GpuFlowPreparedContentFrame | null;
-      readonly kind: "publish";
+      readonly kind: "present";
     }
   | {
       readonly blockedSurfacePublication: GpuFlowBlockedPreparedContentFrameCandidate;

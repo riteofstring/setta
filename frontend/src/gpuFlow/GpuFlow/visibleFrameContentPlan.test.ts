@@ -16,12 +16,12 @@ import {
   createGpuFlowPreparedContentFramePublicationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
   runGpuFlowRetainedPreparedContentFramePublicationContentStage,
-  type GpuFlowPreparedContentFramePublicationCandidateInput,
+  type GpuFlowPreparedContentFramePresentationCandidateInput,
   type GpuFlowPreparedContentFramePublicationFramePlanPreparer,
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
 } from "./visibleFrameContentPlan";
-import { prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate } from "./visibleFrameContentPreparation";
+import { prepareGpuFlowPreparedContentFrameOverlayTexturesForPresentationCandidate } from "./visibleFrameContentPreparation";
 
 const FLOW_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowFrame.tsx", import.meta.url),
@@ -98,19 +98,19 @@ describe("GPU Flow visible frame presentation content plans", () => {
     );
   });
 
-  it("selects prepared-content-frame publish and nonpublishable candidate plans outside flowFrame", () => {
+  it("selects prepared-content-frame present and blocked candidate plans outside flowFrame", () => {
     const preparedContentFrame = createPreparedContentFrame();
     const preparePublishPlan =
       createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
         contentDecisionKernel,
-        preparePreparedContentFramePublicationCandidate: () => ({
-          kind: "publish",
+        preparePreparedContentFramePresentationCandidate: () => ({
+          kind: "present",
         }),
       });
     const prepareNonpublishablePlan =
       createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
         contentDecisionKernel,
-        preparePreparedContentFramePublicationCandidate: () => ({
+        preparePreparedContentFramePresentationCandidate: () => ({
           blockedPresentationCandidate: {
             blockedReasons: [
               {
@@ -123,7 +123,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
           },
           candidateFrame: preparedContentFrame,
           errorMessage: null,
-          kind: "nonpublishable",
+          kind: "blocked",
           preservePreparationSnapshot: true,
           resourceWork: {
             deferWakeup: false,
@@ -133,31 +133,31 @@ describe("GPU Flow visible frame presentation content plans", () => {
         }),
       });
     const publishPlan = preparePublishPlan(
-      preparedContentFramePublicationCandidateInput({
+      preparedContentFramePresentationCandidateInput({
         preparedContentFrame: preparedContentFrame,
       }),
     ).framePlan;
-    const nonpublishablePlan = prepareNonpublishablePlan(
-      preparedContentFramePublicationCandidateInput({
+    const blockedPlan = prepareNonpublishablePlan(
+      preparedContentFramePresentationCandidateInput({
         preparedContentFrame: preparedContentFrame,
       }),
     ).framePlan;
 
-    expect(publishPlan.kind).toBe("publish");
-    if (publishPlan.kind !== "publish") {
+    expect(publishPlan.kind).toBe("present");
+    if (publishPlan.kind !== "present") {
       throw new Error("Expected prepared-content-frame publish plan.");
     }
     expect(
       publishPlan.preparedContentFramePublication.preparedContentFrame,
     ).toBe(preparedContentFrame);
-    expect(nonpublishablePlan.kind).toBe("candidate");
-    if (nonpublishablePlan.kind !== "candidate") {
+    expect(blockedPlan.kind).toBe("candidate");
+    if (blockedPlan.kind !== "candidate") {
       throw new Error(
-        "Expected prepared-content-frame nonpublishable candidate plan.",
+        "Expected prepared-content-frame blocked candidate plan.",
       );
     }
-    expect(nonpublishablePlan.visibleProjectionState).toBeNull();
-    expect(nonpublishablePlan.blockedPresentationCandidate).toEqual(
+    expect(blockedPlan.visibleProjectionState).toBeNull();
+    expect(blockedPlan.blockedPresentationCandidate).toEqual(
       expect.objectContaining({
         frozenFrameId: "cold-start-shell:browser-visual",
       }),
@@ -200,7 +200,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       /export \{[\s\S]*createGpuFlow(?:PreparedContentFramePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPreparationBlockedCandidateSelector)[\s\S]*\} from "\.\/visibleFrameActorAdapters\/contentDecisionKernel";/,
     );
     expect(kernelModuleSource).not.toContain(
-      "export { prepareGpuFlowPreparedContentFramePublicationCandidate",
+      "export { prepareGpuFlowPreparedContentFramePresentationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
       "createGpuFlowPreparedContentFramePublicationFramePlanSelector();",
@@ -261,10 +261,10 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "preparedContentFramePublicationActionResult",
     );
     expect(flowFrameSource).not.toContain(
-      "preparedContentFramePublicationCandidateAction",
+      "preparedContentFramePresentationCandidateAction",
     );
     expect(flowFrameSource).not.toContain(
-      "assertGpuFlowPreparedContentFramePublicationCandidatePublished",
+      "assertGpuFlowPreparedContentFramePresentationCandidatePublished",
     );
     expect(flowFrameSource).not.toContain(
       "selectRetainedDisplayPublicationFramePlan",
@@ -279,7 +279,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "preparedContentFramePublicationFramePlan.kind",
     );
     expect(flowFrameSource).not.toContain(
-      "preparedContentFramePublicationCandidate.kind",
+      "preparedContentFramePresentationCandidate.kind",
     );
     expect(flowFrameSource).not.toContain("publicationKind");
     expect(flowFrameSource).not.toContain(
@@ -490,7 +490,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
     const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
 
     expect(contentPlanSource).not.toContain(
-      "export function prepareGpuFlowPreparedContentFramePublicationCandidate",
+      "export function prepareGpuFlowPreparedContentFramePresentationCandidate",
     );
     expect(contentPlanSource).not.toContain(
       "resolveGpuFlowPreparedContentFramePublicationReadiness",
@@ -499,13 +499,13 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
     );
     expect(stateMachineSource).toContain(
-      "export function reduceGpuFlowPreparedContentFramePublicationCandidate",
+      "export function reduceGpuFlowPreparedContentFramePresentationCandidate",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function prepareGpuFlowPreparedContentFramePublicationCandidate",
+      "function prepareGpuFlowPreparedContentFramePresentationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
-      "prepareGpuFlowPreparedContentFramePublicationCandidate",
+      "prepareGpuFlowPreparedContentFramePresentationCandidate",
     );
     expect(stateMachineSource).toContain(
       "resolveGpuFlowPreparedContentFramePublicationReadiness",
@@ -513,9 +513,9 @@ describe("GPU Flow visible frame presentation content plans", () => {
     expect(stateMachineSource).not.toContain(
       "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
     );
-    expect(stateMachineSource).toContain('"nonpublishable"');
+    expect(stateMachineSource).toContain('"blocked"');
     expect(stateMachineSource).toContain('"blocked-candidate"');
-    expect(contentDecisionKernelSource).not.toContain('"nonpublishable"');
+    expect(contentDecisionKernelSource).not.toContain('"blocked"');
     expect(contentDecisionKernelSource).not.toContain('"blocked-candidate"');
   });
 
@@ -714,7 +714,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
         contentDecisionKernel,
         previousVisibleProjectionState: null,
-        prepareRetainedDisplayPublicationCandidate: () => ({
+        prepareRetainedDisplayPresentationCandidate: () => ({
           prePublishRetainedPageMaintenance: null,
           retainedDisplayOutcome: {
             frame: retainedDisplayFrame,
@@ -749,7 +749,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
         contentDecisionKernel,
         previousVisibleProjectionState: null,
-        prepareRetainedDisplayPublicationCandidate: () => ({
+        prepareRetainedDisplayPresentationCandidate: () => ({
           prePublishRetainedPageMaintenance: null,
           retainedDisplayOutcome: {
             frame: retainedDisplayFrame,
@@ -786,11 +786,11 @@ describe("GPU Flow visible frame presentation content plans", () => {
     const preparePreparedContentFramePublicationFramePlan =
       createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
         contentDecisionKernel,
-        preparePreparedContentFramePublicationCandidate: () => ({
+        preparePreparedContentFramePresentationCandidate: () => ({
           blockedPresentationCandidate,
           candidateFrame,
           errorMessage: "blocked surface",
-          kind: "nonpublishable",
+          kind: "blocked",
           preservePreparationSnapshot: true,
           resourceWork: {
             deferWakeup: false,
@@ -898,12 +898,12 @@ describe("GPU Flow visible frame presentation content plans", () => {
         expect(input.preparedContentFrame).toBe(preparedFrameForPublication);
         expect(input.publishedRetainedFrame).toBe(publishedRetainedFrame);
         return {
-          candidate: { kind: "publish" },
+          candidate: { kind: "present" },
           preparedContentFramePublication,
           framePlan: {
             blockedPresentationCandidate: null,
             preparedContentFramePublication,
-            kind: "publish",
+            kind: "present",
             visibleProjectionState: null,
           },
           framePlanResult: {
@@ -996,24 +996,28 @@ describe("GPU Flow visible frame presentation content plans", () => {
     const preparedInputs: number[] = [];
 
     const skipped =
-      prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate({
-        input: 1,
-        prepareOverlayTextures: (input) => preparedInputs.push(input),
-        publicationPreparation: {
-          shouldPrepareHtmlSurfaceOverlayTextures: false,
+      prepareGpuFlowPreparedContentFrameOverlayTexturesForPresentationCandidate(
+        {
+          input: 1,
+          prepareOverlayTextures: (input) => preparedInputs.push(input),
+          publicationPreparation: {
+            shouldPrepareHtmlSurfaceOverlayTextures: false,
+          },
         },
-      });
+      );
     const prepared =
-      prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate({
-        input: 2,
-        prepareOverlayTextures: (input) => {
-          preparedInputs.push(input);
-          return input * 2;
+      prepareGpuFlowPreparedContentFrameOverlayTexturesForPresentationCandidate(
+        {
+          input: 2,
+          prepareOverlayTextures: (input) => {
+            preparedInputs.push(input);
+            return input * 2;
+          },
+          publicationPreparation: {
+            shouldPrepareHtmlSurfaceOverlayTextures: true,
+          },
         },
-        publicationPreparation: {
-          shouldPrepareHtmlSurfaceOverlayTextures: true,
-        },
-      });
+      );
 
     expect(preparedInputs).toEqual([2]);
     expect(skipped).toBeUndefined();
@@ -1089,11 +1093,11 @@ function liveProjectionSample(): GpuFlowLiveProjectionSample {
   } as GpuFlowLiveProjectionSample;
 }
 
-function preparedContentFramePublicationCandidateInput({
+function preparedContentFramePresentationCandidateInput({
   preparedContentFrame,
 }: {
   readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
-}): GpuFlowPreparedContentFramePublicationCandidateInput {
+}): GpuFlowPreparedContentFramePresentationCandidateInput {
   return {
     committedGpuNativeVisuals: undefined,
     frameReasons: ["manual"],
