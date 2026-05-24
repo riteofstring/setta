@@ -827,7 +827,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
   });
 
-  it("lets retained native visuals publish content when no motion reason is current", () => {
+  it("projects retained native visuals while carrying content repair debt", () => {
     const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
 
     const nativeVisual = scheduler.selectFrame({
@@ -837,10 +837,10 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(nativeVisual.schedulerState).toBe("content-catchup");
-    expect(nativeVisual.lane).toBe("content");
+    expect(nativeVisual.schedulerState).toBe("motion-active");
+    expect(nativeVisual.lane).toBe("motion");
     expect(nativeVisual.debt).toEqual({
-      content: false,
+      content: true,
       maintenance: true,
       motion: false,
     });

@@ -278,6 +278,6 @@ function requestRemainingGpuFlowFrame({
   if (layerResult.budgetExhausted || retainedTexturePageFollowUpFrame) {
     surfaceRef.current?.requestFrame("texture-upload");
   } else if (switchAnimationFollowUpFrame) {
-    surfaceRef.current?.requestFrame("animation");
+    surfaceRef.current?.requestFrame("retained-native-visual");
   }
 }

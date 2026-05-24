@@ -149,6 +149,7 @@ export function shouldDeferGpuFlowProjectionNonCriticalContentCatchupFrame({
 
 export function isGpuFlowMotionFrameReason(reason: GpuFrameReason): boolean {
   return (
+    reason === "retained-native-visual" ||
     reason === "retained-row-hover-clear" ||
     reason === "retained-row-hover-visual" ||
     reason === "retained-scroll" ||
@@ -160,6 +161,7 @@ export function isGpuFlowRetainedMotionFrameReason(
   reason: GpuFrameReason,
 ): boolean {
   return (
+    reason === "retained-native-visual" ||
     reason === "retained-row-hover-clear" ||
     reason === "retained-row-hover-visual" ||
     reason === "retained-scroll"
@@ -678,11 +680,12 @@ function isGpuFlowSectionSurfaceRepairBlockedReason(
   );
 }
 
-function isGpuFlowBrowserTextSnapshotPendingBlockedReason(
+export function isGpuFlowBrowserTextSnapshotPendingBlockedReason(
   reason: GpuFlowBlockedReasonLike,
 ): boolean {
   return (
-    reason.family === "browser-text-snapshot" &&
+    (reason.family === "browser-text-snapshot" ||
+      reason.family === "browser-visual") &&
     reason.reason === "snapshot-pending"
   );
 }

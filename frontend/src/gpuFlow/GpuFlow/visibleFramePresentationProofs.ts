@@ -1,4 +1,5 @@
 import type { GpuFrameReason } from "../gpuRenderer";
+import { isGpuFlowBrowserTextSnapshotPendingBlockedReason } from "../projectionSchedulerPolicy";
 import {
   createGpuFlowHeldPreviousProjection,
   createGpuFlowProjectionTransactionForCommittedFrameId,
@@ -325,9 +326,7 @@ function isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(
   return (
     outcome.kind === "blocked" &&
     outcome.token.blockedReasons.some(
-      (reason) =>
-        reason.family === "browser-text-snapshot" &&
-        reason.reason === "snapshot-pending",
+      isGpuFlowBrowserTextSnapshotPendingBlockedReason,
     )
   );
 }

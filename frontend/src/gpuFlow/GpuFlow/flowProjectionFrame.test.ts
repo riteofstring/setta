@@ -12,13 +12,17 @@ import {
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import { createRetainedCommittedPageLifecycle } from "../retainedContentLifecycle";
+import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import { createGpuRetainedRowContentScene } from "../retainedContentScene";
 import type { HtmlSurfaceFlatVisual } from "../htmlSurfaces/visualScene";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
-import { resolveGpuFlowProjectionRetainedRuntimeFrame } from "./flowProjectionFrame";
+import {
+  resolveGpuFlowProjectionHtmlSurfaceNativeVisuals,
+  resolveGpuFlowProjectionRetainedRuntimeFrame,
+} from "./flowProjectionFrame";
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowProjectionFrameRenderablePlan,
@@ -394,6 +398,44 @@ describe("GPU flow projection frame coverage", () => {
     ).toContain("surface-a:row-hover:row-2");
   });
 
+  it("projects active retained switch native visuals during motion projection", () => {
+    const scene = retainedSwitchScene(true);
+    const switchAnimations = createGpuRetainedContentSwitchAnimationStore({
+      durationMs: 100,
+      prefersReducedMotion: () => false,
+    });
+    switchAnimations.beginTransition({
+      fromChecked: true,
+      nowMs: 0,
+      rowId: "switch-row",
+      surfaceId: "surface-a",
+      toChecked: false,
+    });
+    const projectionRetainedRuntimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 1,
+      scene,
+      scrollOffsets: new Map([["surface-a", { x: 0, y: 0 }]]),
+      scrollRevision: 1,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportSize: { height: 100, width: 100 },
+      viewportZoomBucket: 1,
+    });
+
+    const visuals = resolveGpuFlowProjectionHtmlSurfaceNativeVisuals({
+      darkMode: true,
+      nowMs: 50,
+      projectionRetainedRuntimeFrame,
+      scene,
+      switchAnimations,
+    });
+
+    expect(visuals?.map((visual) => visual.surfaceId)).toEqual([
+      "surface-a:switch-animation:switch-row:track",
+      "surface-a:switch-animation:switch-row:thumb",
+    ]);
+  });
+
   it("blocks held-previous projection after the scheduler budget is exceeded", () => {
     const previousSample = liveSample({
       id: 1,
@@ -735,6 +777,16 @@ function retainedScene(): GpuFlowScene {
   };
 }
 
+function retainedSwitchScene(checked: boolean): GpuFlowScene {
+  return {
+    contentSurfaces: [retainedSwitchContentSurface(checked)],
+    domIslands: [],
+    edges: [],
+    revision: 1,
+    sections: [],
+  };
+}
+
 function retainedContentSurface(): GpuContentSurface {
   const rect = { height: 100, width: 100, x: 0, y: 0 };
   return {
@@ -756,6 +808,44 @@ function retainedContentSurface(): GpuContentSurface {
         id: `row-${index}`,
         label: `Row ${index}`,
       })),
+      scrollOffset: { x: 0, y: 0 },
+      viewportRect: rect,
+    }),
+    zIndex: 1,
+  };
+}
+
+function retainedSwitchContentSurface(checked: boolean): GpuContentSurface {
+  const rect = { height: 100, width: 100, x: 0, y: 0 };
+  return {
+    clipRect: rect,
+    id: "surface-a",
+    ownerSectionId: "section-a",
+    rect,
+    renderer: {
+      kind: "canvas-content",
+      surfaceId: "surface-a",
+    },
+    retainedScene: createGpuRetainedRowContentScene({
+      id: "surface-a",
+      ownerSectionId: "section-a",
+      rowHeight: 28,
+      rows: [
+        {
+          control: {
+            checked,
+            commitPolicy: "immediate",
+            defaultDisplayValue: String(checked),
+            displayValue: String(checked),
+            kind: "switch",
+            rendererFamily: "switch",
+          },
+          controlKind: "switch",
+          depth: 0,
+          id: "switch-row",
+          label: "Switch Row",
+        },
+      ],
       scrollOffset: { x: 0, y: 0 },
       viewportRect: rect,
     }),

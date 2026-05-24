@@ -37,8 +37,8 @@ const GUI_CONTENT_SURFACE_ID = `${GUI_SECTION_ID}:param-content:unpinned`;
 const LEFT_PANE_SHIFT_LABEL = "Left Side Pane Shifts Map";
 const BUNDLE_SWITCH_LABEL = LEFT_PANE_SHIFT_LABEL;
 const BUNDLE_SWITCH_SETTING_KEY = "leftSidePaneShiftsMap";
-const SWITCH_ANIMATION_LABEL = LEFT_PANE_SHIFT_LABEL;
-const SWITCH_ANIMATION_SETTING_KEY = "leftSidePaneShiftsMap";
+const SWITCH_ANIMATION_LABEL = "Pan On Drag";
+const SWITCH_ANIMATION_SETTING_KEY = "panOnDrag";
 const GUI_SCROLL_LABEL_ORDER = [
   "Default Zoom Level",
   "Grid Color",
@@ -74,7 +74,7 @@ type ScrollFrame = {
   }[];
 };
 
-type GuiSettingKey = "leftSidePaneShiftsMap" | "panOnScroll";
+type GuiSettingKey = "leftSidePaneShiftsMap" | "panOnDrag" | "panOnScroll";
 
 test("retained gui hover switch and scroll stay visually coherent", async ({
   page,

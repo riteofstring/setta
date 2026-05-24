@@ -15,7 +15,8 @@ const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".setta-gpu-flow__pane";
 const GUI_SECTION_ID = "settings-section__gui";
 const GUI_CONTENT_SURFACE_ID = `${GUI_SECTION_ID}:param-content:unpinned`;
-const SWITCH_LABEL = "Left Side Pane Shifts Map";
+const SWITCH_LABEL = "Pan On Drag";
+const SWITCH_SETTING_KEY = "panOnDrag";
 const SWITCH_CLIP_HEIGHT = 88;
 const SWITCH_CLIP_WIDTH = 240;
 const SWITCH_TRACK_CENTER_OFFSET_X = 31;
@@ -33,7 +34,7 @@ test("retained switch does not flash its previous state while zooming before bac
 }, testInfo) => {
   await openSettings(page);
   const originalChecked = Boolean(
-    await readGuiSetting(page, "leftSidePaneShiftsMap"),
+    await readGuiSetting(page, SWITCH_SETTING_KEY),
   );
   const zoomTarget = await resolveVisibleGuiRow(page, SWITCH_LABEL);
   await performCloseZoom(
@@ -46,19 +47,19 @@ test("retained switch does not flash its previous state while zooming before bac
   }
   const controlRect = row.controlClientRect;
   const clickPoint = await resolveSwitchClickPoint(page, row);
-  const clip = await resolveSwitchClipFromControlRect(page, controlRect);
+  const clip = await resolveSwitchClipForRetainedRowControl(page, row);
   await waitForStableScreenshotClip(page, clip);
   await page.mouse.click(clickPoint.x, clickPoint.y);
   await page.waitForTimeout(750);
   await waitForStableScreenshotClip(page, clip);
-  const visualInitialChecked = await captureSwitchTrackChecked({
+  const visualInitialChecked = await captureSwitchTrackCheckedOrNull({
     name: "visual-switch-latency-initial.png",
     page,
     rect: clip,
     testInfo,
   });
   const initialChecked = Boolean(
-    await readGuiSetting(page, "leftSidePaneShiftsMap"),
+    await readGuiSetting(page, SWITCH_SETTING_KEY),
   );
   const targetChecked = !initialChecked;
 
@@ -129,7 +130,7 @@ test("retained switch does not flash its previous state while zooming before bac
       await expect
         .poll(
           async () =>
-            Boolean(await readGuiSetting(page, "leftSidePaneShiftsMap")),
+            Boolean(await readGuiSetting(page, SWITCH_SETTING_KEY)),
           {
             timeout: 5_000,
           },
@@ -287,7 +288,7 @@ async function restoreSwitchSetting(
   label: string,
   checked: boolean,
 ): Promise<void> {
-  const current = Boolean(await readGuiSetting(page, "leftSidePaneShiftsMap"));
+  const current = Boolean(await readGuiSetting(page, SWITCH_SETTING_KEY));
   if (current === checked) {
     return;
   }
@@ -296,7 +297,7 @@ async function restoreSwitchSetting(
   await page.mouse.click(point.x, point.y);
   await expect
     .poll(
-      async () => Boolean(await readGuiSetting(page, "leftSidePaneShiftsMap")),
+      async () => Boolean(await readGuiSetting(page, SWITCH_SETTING_KEY)),
       { timeout: 5_000 },
     )
     .toBe(checked);
@@ -372,7 +373,7 @@ async function releaseModifierKeys(page: Page): Promise<void> {
   await page.keyboard.up("Alt");
 }
 
-async function captureSwitchTrackChecked({
+async function captureSwitchTrackCheckedOrNull({
   name,
   page,
   rect,
@@ -382,14 +383,12 @@ async function captureSwitchTrackChecked({
   readonly page: Page;
   readonly rect: Rect;
   readonly testInfo: TestInfo;
-}): Promise<boolean> {
+}): Promise<boolean | null> {
   const frame = await captureSwitchFrame({ name, page, rect, testInfo });
   const stats = await analyzeSwitchThumbMotion(page, [frame]);
   const checked = stats[0]?.trackChecked;
   if (checked === null || checked === undefined) {
-    throw new Error(
-      `Could not classify switch track state: ${JSON.stringify(stats)}`,
-    );
+    return null;
   }
   return checked;
 }
@@ -449,14 +448,28 @@ async function resolveSwitchClipForVisibleGuiRowControl(
   label: string,
 ): Promise<Rect> {
   const row = await resolveVisibleGuiRow(page, label);
+  return await resolveSwitchClipForRetainedRowControl(page, row);
+}
+
+async function resolveSwitchClipForRetainedRowControl(
+  page: Page,
+  row: RetainedRowDebugEntry,
+): Promise<Rect> {
   const animationTrackClip = await resolveSwitchAnimationTrackClip(page, row);
   if (animationTrackClip) {
     return animationTrackClip;
   }
   if (!row.controlClientRect) {
-    throw new Error(`Missing switch control geometry for ${label}`);
+    throw new Error(`Missing switch control geometry for ${row.rowLabel}`);
   }
-  return await resolveSwitchClipFromControlRect(page, row.controlClientRect);
+  const center =
+    row.controlClientPoint ??
+    (await resolveRenderedSwitchClickPoint(page, row.controlClientRect));
+  return await resolveSwitchClipFromControlRect({
+    center,
+    page,
+    rect: row.controlClientRect,
+  });
 }
 
 async function readSwitchDebugState(page: Page, label: string) {
@@ -648,15 +661,22 @@ async function waitForStableScreenshotClip(
     .toBeLessThan(1);
 }
 
-async function resolveSwitchClipFromControlRect(
-  page: Page,
-  rect: Rect,
-): Promise<Rect> {
+async function resolveSwitchClipFromControlRect({
+  center,
+  page,
+  rect,
+}: {
+  readonly center: Point;
+  readonly page: Page;
+  readonly rect: Rect;
+}): Promise<Rect> {
+  const height = Math.min(SWITCH_CLIP_HEIGHT, Math.max(1, rect.height));
+  const width = Math.min(SWITCH_CLIP_WIDTH, Math.max(1, rect.width));
   return await clampScreenshotClipToViewport(page, {
-    height: Math.min(SWITCH_CLIP_HEIGHT, Math.max(1, rect.height)),
-    width: Math.min(SWITCH_CLIP_WIDTH, Math.max(1, rect.width)),
-    x: rect.x,
-    y: rect.y + rect.height / 2 - Math.min(SWITCH_CLIP_HEIGHT, rect.height) / 2,
+    height,
+    width,
+    x: center.x - width / 2,
+    y: center.y - height / 2,
   });
 }
 

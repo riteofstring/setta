@@ -1,6 +1,9 @@
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceHandle } from "../GpuSurface";
-import { GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER } from "../projectionSchedulerPolicy";
+import {
+  GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER,
+  isGpuFlowBrowserTextSnapshotPendingBlockedReason,
+} from "../projectionSchedulerPolicy";
 import type {
   GpuFlowVisibleFrameCoordinatorResult,
   GpuFlowVisiblePublicationCompletion,
@@ -262,10 +265,7 @@ function shouldRetryGpuFlowContentAfterBrowserVisualTextureUpload({
 function isGpuFlowSnapshotPendingBlockedReason(
   reason: GpuFlowBlockedVisibleReason,
 ): boolean {
-  return (
-    reason.family === "browser-text-snapshot" &&
-    reason.reason === "snapshot-pending"
-  );
+  return isGpuFlowBrowserTextSnapshotPendingBlockedReason(reason);
 }
 
 function scheduleDelayedGpuFlowPublicationDebtFrame({

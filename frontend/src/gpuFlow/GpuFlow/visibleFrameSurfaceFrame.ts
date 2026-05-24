@@ -593,6 +593,7 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
     heldPreviousProjectionState: previousVisibleProjectionState,
     htmlSurfaceRendererRef: input.htmlSurfaceRendererRef,
     retainedContentPageManagerRef: input.retainedContentPageManagerRef,
+    retainedContentSwitchAnimations: input.retainedContentSwitchAnimations,
     retainedDisplayFrameRef: input.retainedDisplayFrameRef,
     runtime,
     surfaceRef: input.surfaceRef,

@@ -21,6 +21,8 @@ import {
 } from "../projectionRuntime";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
+import { getGpuRetainedContentSwitchAnimationVisuals } from "../retainedContentSwitchVisuals";
+import type { GpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import {
   nextFrame,
@@ -35,6 +37,8 @@ import {
   type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
+import { combineGpuFlowHtmlSurfaceNativeVisuals } from "./flowFrameVisuals";
+import { hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces } from "./flowRetainedSwitchAnimationFrame";
 import { createGpuFlowRetainedRuntimeFrameForLayer } from "./flowRetainedRuntimeFrame";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
@@ -71,6 +75,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   heldPreviousProjectionState,
   htmlSurfaceRendererRef,
   retainedContentPageManagerRef,
+  retainedContentSwitchAnimations,
   retainedDisplayFrameRef,
   runtime,
   surfaceRef,
@@ -95,6 +100,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
+  readonly retainedContentSwitchAnimations: GpuRetainedContentSwitchAnimationStore;
   readonly retainedDisplayFrameRef: MutableRefObject<RetainedDisplayFrame | null>;
   readonly runtime: GpuFlowRuntime;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
@@ -148,6 +154,13 @@ export function renderGpuFlowNodeLayerProjectionFrame({
       layer,
       transaction,
     });
+  const htmlSurfaceNativeVisuals = resolveGpuFlowProjectionHtmlSurfaceNativeVisuals({
+    darkMode: isGpuFlowProjectionFrameDarkMode(runtime.canvas),
+    nowMs: renderStartedAt,
+    projectionRetainedRuntimeFrame,
+    scene: layer.scene,
+    switchAnimations: retainedContentSwitchAnimations,
+  });
   const retainedPageVisuals = retainedProjectionFrame.flatSurfaces;
   const htmlSurfaceOverlays =
     projectGpuRetainedDomControlSnapshotSurfaceLayouts({
@@ -175,8 +188,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     frame,
     grid: layer.grid,
     htmlSurfaceOverlays,
-    htmlSurfaceNativeVisuals:
-      projectionRetainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals,
+    htmlSurfaceNativeVisuals,
     htmlSurfacePageVisuals: retainedPageVisuals,
     marginCssPx: layer.marginCssPx,
     nodes,
@@ -239,7 +251,12 @@ export function renderGpuFlowNodeLayerProjectionFrame({
       retainedTexturePageFollowUpFrame:
         retainedProjectionFrame.needsRetainedPageMaintenance,
       surfaceRef,
-      switchAnimationFollowUpFrame: false,
+      switchAnimationFollowUpFrame:
+        hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces({
+          nowMs: renderStartedAt,
+          scene: layer.scene,
+          switchAnimations: retainedContentSwitchAnimations,
+        }),
       transformOnlyPaintNodeIdsRef,
       viewport: projectionViewport,
       viewportFrame,
@@ -252,6 +269,33 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     rendered: true,
     transaction,
   };
+}
+
+export function resolveGpuFlowProjectionHtmlSurfaceNativeVisuals({
+  darkMode,
+  nowMs,
+  projectionRetainedRuntimeFrame,
+  scene,
+  switchAnimations,
+}: {
+  readonly darkMode: boolean;
+  readonly nowMs: number;
+  readonly projectionRetainedRuntimeFrame: RetainedDisplayFrame["retainedRuntimeFrame"];
+  readonly scene: GpuFlowNodeLayerState["scene"];
+  readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
+}): NonNullable<GpuFlowNodeLayerState["htmlSurfaceNativeVisuals"]> | undefined {
+  const switchAnimationNativeVisuals =
+    getGpuRetainedContentSwitchAnimationVisuals({
+      darkMode,
+      nowMs,
+      scene,
+      scrollOffsets: projectionRetainedRuntimeFrame.input.scrollOffsets,
+      switchAnimations,
+    });
+  return combineGpuFlowHtmlSurfaceNativeVisuals(
+    projectionRetainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals,
+    switchAnimationNativeVisuals,
+  );
 }
 
 export function resolveGpuFlowProjectionRetainedRuntimeFrame({
@@ -343,9 +387,15 @@ function isGpuFlowNativeVisualProjectionFrameReason(
   reason: GpuFrameReason,
 ): boolean {
   return (
+    reason === "retained-native-visual" ||
     reason === "retained-row-hover-clear" ||
     reason === "retained-row-hover-visual"
   );
+}
+
+function isGpuFlowProjectionFrameDarkMode(canvas: HTMLCanvasElement): boolean {
+  const root = canvas.ownerDocument.documentElement;
+  return Boolean(canvas.closest(".dark") ?? root.closest(".dark"));
 }
 
 function retainedRuntimeFrameRowHoverVisualsDifferFromLayer({
