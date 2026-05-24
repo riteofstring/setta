@@ -13,7 +13,7 @@ import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./vi
 import { requestGpuFlowBrowserVisualResourcePreparation } from "./visibleFrameBrowserVisualPreparation";
 import { clearGpuFlowBrowserVisualResourceWork } from "./visibleFrameBrowserVisualResourceWork";
 import {
-  createGpuFlowPreparedContentFramePublicationFramePlanPreparer,
+  createGpuFlowPreparedContentFramePresentationFramePlanPreparer,
   type GpuFlowPreparedContentFramePresentationCandidateInput,
 } from "./visibleFrameContentPlan";
 import {
@@ -32,8 +32,8 @@ import {
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
 } from "./visibleFrameTypes";
 
-const preparePreparedContentFramePublicationFramePlanForTest =
-  createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
+const preparePreparedContentFramePresentationFramePlanForTest =
+  createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
     contentDecisionKernel:
       createGpuFlowVisibleFramePresentationContentDecisionKernel(),
   });
@@ -600,7 +600,7 @@ function presentationCandidateInput({
 function prepareGpuFlowPreparedContentFramePresentationCandidate(
   input: GpuFlowPreparedContentFramePresentationCandidateInput,
 ) {
-  return preparePreparedContentFramePublicationFramePlanForTest(input)
+  return preparePreparedContentFramePresentationFramePlanForTest(input)
     .candidate;
 }
 

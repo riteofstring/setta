@@ -1,14 +1,14 @@
 import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
-  createGpuFlowNodeLayerPreparedContentFramePublicationResult,
+  createGpuFlowNodeLayerPreparedContentFramePresentationResult,
   type GpuFlowNodeLayerFrameResult,
 } from "./flowFrameResult";
 import type { GpuFlowRetainedDisplayPublicationResult } from "./flowRetainedDisplayTransaction";
 import type {
-  GpuFlowPreparedContentFramePublicationActionFrameResult,
-  GpuFlowPreparedContentFramePublicationFramePlan,
-  GpuFlowPreparedContentFramePublicationFramePlanResult,
+  GpuFlowPreparedContentFramePresentationActionFrameResult,
+  GpuFlowPreparedContentFramePresentationFramePlan,
+  GpuFlowPreparedContentFramePresentationFramePlanResult,
   GpuFlowRetainedDisplayOutcomeFrameResult,
   GpuFlowRetainedDisplayPublicationFramePlan,
   GpuFlowRetainedDisplayPublicationOutcomeFrame,
@@ -58,7 +58,7 @@ const GPU_FLOW_VISIBLE_FRAME_STATE_MACHINE_OUTCOME = Symbol(
   "GpuFlowVisibleFrameStateMachineOutcome",
 );
 
-type GpuFlowPreparedContentFramePublicationReadiness =
+type GpuFlowPreparedContentFramePresentationReadiness =
   | {
       readonly kind: "present";
     }
@@ -89,7 +89,7 @@ export function reduceGpuFlowPreparedContentFramePresentationCandidate({
   preparedContentFrame,
 }: GpuFlowPreparedContentFramePresentationCandidateInput): GpuFlowPreparedContentFramePresentationCandidate {
   const publicationReadiness =
-    resolveGpuFlowPreparedContentFramePublicationReadiness({
+    resolveGpuFlowPreparedContentFramePresentationReadiness({
       heldPreviousProjectionState,
       preparedContentFrame,
     });
@@ -125,46 +125,46 @@ export function reduceGpuFlowPreparedContentFramePresentationCandidate({
   };
 }
 
-export function selectGpuFlowPreparedContentFramePublicationFramePlan({
+export function selectGpuFlowPreparedContentFramePresentationFramePlan({
   candidate,
   preparedContentFrame,
 }: {
   readonly candidate: GpuFlowPreparedContentFramePresentationCandidate;
   readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
-}): GpuFlowPreparedContentFramePublicationFramePlan {
+}): GpuFlowPreparedContentFramePresentationFramePlan {
   const action = resolveGpuFlowPreparedContentFrameCandidateAction({
     candidate,
     preparedContentFrame,
   });
-  const result = resolveGpuFlowPreparedContentFramePublicationActionFrameResult(
-    {
+  const result =
+    resolveGpuFlowPreparedContentFramePresentationActionFrameResult({
       action,
-    },
-  );
+    });
   if (action.kind !== "present") {
     return {
       blockedPresentationCandidate: result.blockedPresentationCandidate,
-      preparedContentFramePublication: result.preparedContentFramePublication,
+      preparedContentFramePresentation: result.preparedContentFramePresentation,
       kind: "candidate" as const,
       visibleProjectionState: result.visibleProjectionState,
     };
   }
   return {
     blockedPresentationCandidate: null,
-    preparedContentFramePublication: result.preparedContentFramePublication,
+    preparedContentFramePresentation: result.preparedContentFramePresentation,
     kind: "present" as const,
     visibleProjectionState: null,
   };
 }
 
-export function resolveGpuFlowPreparedContentFramePublicationFramePlanResult({
+export function resolveGpuFlowPreparedContentFramePresentationFramePlanResult({
   framePlan,
 }: {
-  readonly framePlan: GpuFlowPreparedContentFramePublicationFramePlan;
-}): GpuFlowPreparedContentFramePublicationFramePlanResult {
+  readonly framePlan: GpuFlowPreparedContentFramePresentationFramePlan;
+}): GpuFlowPreparedContentFramePresentationFramePlanResult {
   return {
     blockedPresentationCandidate: framePlan.blockedPresentationCandidate,
-    preparedContentFramePublication: framePlan.preparedContentFramePublication,
+    preparedContentFramePresentation:
+      framePlan.preparedContentFramePresentation,
     visibleProjectionState: framePlan.visibleProjectionState,
   };
 }
@@ -202,15 +202,15 @@ export function selectGpuFlowContentPreparationBlockedCandidateForFrameResult({
   readonly nodeLayerFrameResult: GpuFlowNodeLayerFrameResult;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowVisibleFrameBlockedPresentationCandidate | null {
-  const preparedContentFramePublication =
-    nodeLayerFrameResult.preparedContentFramePublication;
+  const preparedContentFramePresentation =
+    nodeLayerFrameResult.preparedContentFramePresentation;
   const selectContentPreparationBlockedCandidate =
     selectGpuFlowContentPreparationBlockedCandidate({
       previousVisibleProjectionState,
     });
   return selectContentPreparationBlockedCandidate({
     blockedPreparedContentFramePresentationCandidate:
-      preparedContentFramePublication.blockedSurfacePublication
+      preparedContentFramePresentation.blockedSurfacePresentation
         ?.blockedPresentationCandidate ?? null,
     retainedDisplayBlockedPresentationCandidate:
       nodeLayerFrameResult.blockedPresentationCandidate,
@@ -227,7 +227,7 @@ function resolveGpuFlowPreparedContentFrameCandidateAction({
   switch (candidate.kind) {
     case "blocked":
       return {
-        blockedSurfacePublication: candidate,
+        blockedSurfacePresentation: candidate,
         kind: "blocked-candidate",
         visibleProjectionState: null,
       };
@@ -239,27 +239,27 @@ function resolveGpuFlowPreparedContentFrameCandidateAction({
   }
 }
 
-function resolveGpuFlowPreparedContentFramePublicationActionFrameResult({
+function resolveGpuFlowPreparedContentFramePresentationActionFrameResult({
   action,
 }: {
   readonly action: GpuFlowPreparedContentFrameCandidateAction;
-}): GpuFlowPreparedContentFramePublicationActionFrameResult {
-  const preparedContentFramePublication =
-    createGpuFlowNodeLayerPreparedContentFramePublicationResult({
+}): GpuFlowPreparedContentFramePresentationActionFrameResult {
+  const preparedContentFramePresentation =
+    createGpuFlowNodeLayerPreparedContentFramePresentationResult({
       action,
     });
   if (action.kind === "present") {
     return {
       blockedPresentationCandidate: null,
-      preparedContentFramePublication,
+      preparedContentFramePresentation,
       visibleProjectionState: null,
     };
   }
   if (action.kind === "blocked-candidate") {
     return {
       blockedPresentationCandidate:
-        action.blockedSurfacePublication.blockedPresentationCandidate,
-      preparedContentFramePublication,
+        action.blockedSurfacePresentation.blockedPresentationCandidate,
+      preparedContentFramePresentation,
       visibleProjectionState: null,
     };
   }
@@ -300,13 +300,13 @@ function resolveGpuFlowRetainedDisplayPublicationOutcomeFrame(
   };
 }
 
-function resolveGpuFlowPreparedContentFramePublicationReadiness({
+function resolveGpuFlowPreparedContentFramePresentationReadiness({
   heldPreviousProjectionState,
   preparedContentFrame,
 }: {
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly preparedContentFrame: GpuFlowPreparedContentFramePresentationCandidateInput["preparedContentFrame"];
-}): GpuFlowPreparedContentFramePublicationReadiness {
+}): GpuFlowPreparedContentFramePresentationReadiness {
   if (
     !preparedContentFrame ||
     preparedContentFrame.publishability.kind === "publishable"

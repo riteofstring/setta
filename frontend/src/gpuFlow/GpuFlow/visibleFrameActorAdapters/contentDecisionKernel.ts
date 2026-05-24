@@ -2,7 +2,7 @@ import type { GpuFlowPreparedContentFrame } from "../../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../../projectionRuntime";
 import type {
   GpuFlowNodeLayerFrameResult,
-  GpuFlowNodeLayerPreparedContentFramePublicationResult,
+  GpuFlowNodeLayerPreparedContentFramePresentationResult,
 } from "../flowFrameResult";
 import type { GpuFlowRetainedDisplayPublicationResult } from "../flowRetainedDisplayTransaction";
 import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "../flowVisibleProjectionState";
@@ -13,47 +13,47 @@ import type {
 } from "../visibleFrameContentPlan";
 import {
   reduceGpuFlowPreparedContentFramePresentationCandidate,
-  resolveGpuFlowPreparedContentFramePublicationFramePlanResult,
+  resolveGpuFlowPreparedContentFramePresentationFramePlanResult,
   resolveGpuFlowRetainedDisplayPublicationFramePlanResult,
   selectGpuFlowContentPreparationBlockedCandidateForFrameResult,
-  selectGpuFlowPreparedContentFramePublicationFramePlan,
+  selectGpuFlowPreparedContentFramePresentationFramePlan,
   selectGpuFlowRetainedDisplayPublicationFramePlan,
 } from "../visibleFrameStateMachine";
 
 type GpuFlowRetainedDisplayPublicationOutcome =
   GpuFlowRetainedDisplayPublicationResult["retainedDisplayOutcome"];
 
-export type GpuFlowPreparedContentFramePublicationActionFrameResult = {
+export type GpuFlowPreparedContentFramePresentationActionFrameResult = {
   readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
-  readonly preparedContentFramePublication: GpuFlowNodeLayerPreparedContentFramePublicationResult;
+  readonly preparedContentFramePresentation: GpuFlowNodeLayerPreparedContentFramePresentationResult;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
 
-export type GpuFlowPreparedContentFramePublicationFramePlan =
+export type GpuFlowPreparedContentFramePresentationFramePlan =
   | {
       readonly blockedPresentationCandidate: null;
-      readonly preparedContentFramePublication: GpuFlowNodeLayerPreparedContentFramePublicationResult;
+      readonly preparedContentFramePresentation: GpuFlowNodeLayerPreparedContentFramePresentationResult;
       readonly kind: "present";
       readonly visibleProjectionState: null;
     }
   | {
       readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
-      readonly preparedContentFramePublication: GpuFlowNodeLayerPreparedContentFramePublicationResult;
+      readonly preparedContentFramePresentation: GpuFlowNodeLayerPreparedContentFramePresentationResult;
       readonly kind: "candidate";
       readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
     };
 
-export type GpuFlowPreparedContentFramePublicationFramePlanResult =
-  GpuFlowPreparedContentFramePublicationActionFrameResult;
+export type GpuFlowPreparedContentFramePresentationFramePlanResult =
+  GpuFlowPreparedContentFramePresentationActionFrameResult;
 
-type GpuFlowPreparedContentFramePublicationFramePlanResultResolver = (input: {
-  readonly framePlan: GpuFlowPreparedContentFramePublicationFramePlan;
-}) => GpuFlowPreparedContentFramePublicationFramePlanResult;
+type GpuFlowPreparedContentFramePresentationFramePlanResultResolver = (input: {
+  readonly framePlan: GpuFlowPreparedContentFramePresentationFramePlan;
+}) => GpuFlowPreparedContentFramePresentationFramePlanResult;
 
-type GpuFlowPreparedContentFramePublicationFramePlanSelector = (input: {
+type GpuFlowPreparedContentFramePresentationFramePlanSelector = (input: {
   readonly candidate: GpuFlowPreparedContentFramePresentationCandidate;
   readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
-}) => GpuFlowPreparedContentFramePublicationFramePlan;
+}) => GpuFlowPreparedContentFramePresentationFramePlan;
 
 export type GpuFlowRetainedDisplayOutcomeFrameResult = {
   readonly blockedPresentationCandidate: null;
@@ -81,9 +81,9 @@ export type GpuFlowVisibleFramePresentationContentDecisionKernel = {
   readonly preparePreparedContentFramePresentationCandidate: (
     input: GpuFlowPreparedContentFramePresentationCandidateInput,
   ) => GpuFlowPreparedContentFramePresentationCandidate;
-  readonly resolvePreparedContentFramePublicationFramePlanResult: GpuFlowPreparedContentFramePublicationFramePlanResultResolver;
+  readonly resolvePreparedContentFramePresentationFramePlanResult: GpuFlowPreparedContentFramePresentationFramePlanResultResolver;
   readonly resolveRetainedDisplayPublicationFramePlanResult: GpuFlowRetainedDisplayPublicationFramePlanResultResolver;
-  readonly selectPreparedContentFramePublicationFramePlan: GpuFlowPreparedContentFramePublicationFramePlanSelector;
+  readonly selectPreparedContentFramePresentationFramePlan: GpuFlowPreparedContentFramePresentationFramePlanSelector;
   readonly selectContentPreparationBlockedCandidateForFrameResult: (input: {
     readonly nodeLayerFrameResult: GpuFlowNodeLayerFrameResult;
     readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -116,12 +116,12 @@ function createGpuFlowVisibleFramePresentationContentDecisionKernelMethods(): Gp
       createGpuFlowVisibleProjectionStateForRetainedPublication,
     preparePreparedContentFramePresentationCandidate:
       reduceGpuFlowPreparedContentFramePresentationCandidate,
-    resolvePreparedContentFramePublicationFramePlanResult:
-      resolveGpuFlowPreparedContentFramePublicationFramePlanResult,
+    resolvePreparedContentFramePresentationFramePlanResult:
+      resolveGpuFlowPreparedContentFramePresentationFramePlanResult,
     resolveRetainedDisplayPublicationFramePlanResult:
       resolveGpuFlowRetainedDisplayPublicationFramePlanResult,
-    selectPreparedContentFramePublicationFramePlan:
-      selectGpuFlowPreparedContentFramePublicationFramePlan,
+    selectPreparedContentFramePresentationFramePlan:
+      selectGpuFlowPreparedContentFramePresentationFramePlan,
     selectContentPreparationBlockedCandidateForFrameResult:
       selectGpuFlowContentPreparationBlockedCandidateForFrameResult,
     selectRetainedDisplayPublicationFramePlan:

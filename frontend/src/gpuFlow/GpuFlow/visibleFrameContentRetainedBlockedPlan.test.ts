@@ -5,9 +5,9 @@ import type { RetainedContentTexturePagePreparedFrame } from "../retainedContent
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
-  createGpuFlowPreparedContentFramePublicationFramePlanPreparer,
+  createGpuFlowPreparedContentFramePresentationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
-  runGpuFlowRetainedPreparedContentFramePublicationContentStage,
+  runGpuFlowRetainedPreparedContentFramePresentationContentStage,
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
 } from "./visibleFrameContentPlan";
 
@@ -47,7 +47,7 @@ describe("GPU Flow retained display candidate content plans", () => {
     const retainedFrame = {} as RetainedDisplayFrame;
     const preparedContentFrame = trueHolePreparedContentFrame();
     const result =
-      runGpuFlowRetainedPreparedContentFramePublicationContentStage<
+      runGpuFlowRetainedPreparedContentFramePresentationContentStage<
         Record<string, never>,
         never
       >({
@@ -59,7 +59,7 @@ describe("GPU Flow retained display candidate content plans", () => {
           id: 17,
           timestamp: 24,
         } as Parameters<
-          typeof runGpuFlowRetainedPreparedContentFramePublicationContentStage
+          typeof runGpuFlowRetainedPreparedContentFramePresentationContentStage
         >[0]["liveProjectionSample"],
         onPreparedContentFrameCandidateAccepted: () => {
           throw new Error("Blocked committed candidates must not publish.");
@@ -69,8 +69,8 @@ describe("GPU Flow retained display candidate content plans", () => {
           context: {},
         }),
         prepareContentFrame: () => preparedContentFrame,
-        preparePreparedContentFramePublicationFramePlan:
-          createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
+        preparePreparedContentFramePresentationFramePlan:
+          createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
             contentDecisionKernel,
           }),
         prepareRetainedDisplayPublicationFramePlan:
@@ -117,7 +117,7 @@ describe("GPU Flow retained display candidate content plans", () => {
     const retainedFrame = {} as RetainedDisplayFrame;
     const preparedContentFrame = retainedTrueHolePreparedContentFrame();
     const result =
-      runGpuFlowRetainedPreparedContentFramePublicationContentStage<
+      runGpuFlowRetainedPreparedContentFramePresentationContentStage<
         Record<string, never>,
         never
       >({
@@ -129,7 +129,7 @@ describe("GPU Flow retained display candidate content plans", () => {
           id: 17,
           timestamp: 24,
         } as Parameters<
-          typeof runGpuFlowRetainedPreparedContentFramePublicationContentStage
+          typeof runGpuFlowRetainedPreparedContentFramePresentationContentStage
         >[0]["liveProjectionSample"],
         onPreparedContentFrameCandidateAccepted: () => {
           throw new Error(
@@ -141,8 +141,8 @@ describe("GPU Flow retained display candidate content plans", () => {
           context: {},
         }),
         prepareContentFrame: () => preparedContentFrame,
-        preparePreparedContentFramePublicationFramePlan:
-          createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
+        preparePreparedContentFramePresentationFramePlan:
+          createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
             contentDecisionKernel,
           }),
         prepareRetainedDisplayPublicationFramePlan:

@@ -16,7 +16,7 @@ import {
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
-import { createGpuFlowPreparedContentFramePublicationFramePlanPreparer } from "./visibleFrameContentPlan";
+import { createGpuFlowPreparedContentFramePresentationFramePlanPreparer } from "./visibleFrameContentPlan";
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
@@ -69,8 +69,8 @@ const createGpuFlowVisibleFramePresentableFrameProof = ({
     projectionTransactionId,
   });
 };
-const preparePreparedContentFramePublicationFramePlanForTest =
-  createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
+const preparePreparedContentFramePresentationFramePlanForTest =
+  createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
     contentDecisionKernel:
       createGpuFlowVisibleFramePresentationContentDecisionKernel(),
   });
@@ -319,10 +319,10 @@ describe("GPU Flow visible frame coordinator", () => {
       prepareContentPreparationFrame: (input) => {
         suppliedRunner = true;
         expect(
-          typeof input.runRetainedPreparedContentFramePublicationContentStage,
+          typeof input.runRetainedPreparedContentFramePresentationContentStage,
         ).toBe("function");
         expect(input).not.toHaveProperty(
-          "preparePreparedContentFramePublicationFramePlan",
+          "preparePreparedContentFramePresentationFramePlan",
         );
         expect(input).not.toHaveProperty(
           "prepareRetainedDisplayPublicationFramePlan",
@@ -828,7 +828,7 @@ function preparePreparedContentFramePresentationCandidateForTest({
   readonly liveSample?: GpuFlowLiveProjectionSample | undefined;
   readonly preparedContentFrame: GpuFlowPreparedContentFrame;
 }) {
-  return preparePreparedContentFramePublicationFramePlanForTest({
+  return preparePreparedContentFramePresentationFramePlanForTest({
     committedGpuNativeVisuals: undefined,
     frameReasons: ["manual"],
     heldPreviousProjectionState,

@@ -16,7 +16,7 @@ import {
   createGpuFlowRetainedRuntimeFrameSourceRenderSignature,
 } from "./flowRetainedRuntimeFrameSignatures";
 import { createGpuFlowVisibleOverlayProjectionKey } from "./flowVisibleOverlayProjectionKey";
-import { resolveGpuFlowBlockedPreparedContentFramePublicationAbort } from "./visibleFrameAbortPolicy";
+import { resolveGpuFlowBlockedPreparedContentFramePresentationAbort } from "./visibleFrameAbortPolicy";
 import { recordGpuFlowBlockedPresentationGuard } from "./visibleFrameBlockedOutcomeGuard";
 import { requestGpuFlowBrowserVisualResourcePreparation } from "./visibleFrameBrowserVisualPreparation";
 import { clearGpuFlowBrowserVisualResourceWork } from "./visibleFrameBrowserVisualResourceWork";
@@ -575,7 +575,7 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionOutcome({
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
 }): GpuFlowBlockedSurfaceVisibleProjectionPublication {
   const blockedPreparedContentAbort =
-    resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
+    resolveGpuFlowBlockedPreparedContentFramePresentationAbort({
       blockedPreparedContentFrame,
       blockedPreservePreparationSnapshot,
       preparedContentFrame,

@@ -1,12 +1,12 @@
 import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 
-type GpuFlowBlockedPreparedContentFramePublicationAbort = {
+type GpuFlowBlockedPreparedContentFramePresentationAbort = {
   readonly frame: GpuFlowPreparedContentFrame | null;
   readonly preservePreparationSnapshot: boolean;
 };
 
-export function resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
+export function resolveGpuFlowBlockedPreparedContentFramePresentationAbort({
   blockedPreparedContentFrame,
   blockedPreservePreparationSnapshot,
   preparedContentFrame,
@@ -18,7 +18,7 @@ export function resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
   readonly preparedContentFrame: GpuFlowPreparedContentFrame | null;
   readonly heldPreparedContentFrame: GpuFlowPreparedContentFrame | null;
   readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowBlockedPreparedContentFramePublicationAbort {
+}): GpuFlowBlockedPreparedContentFramePresentationAbort {
   if (blockedPreparedContentFrame) {
     return Object.freeze({
       frame: blockedPreparedContentFrame,

@@ -10,14 +10,14 @@ import type {
 } from "../projectionRuntime";
 import type { RetainedContentTexturePagePreparedFrame } from "../retainedContentTexturePageManager";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import { resolveGpuFlowBlockedPreparedContentFramePublicationAbort } from "./visibleFrameAbortPolicy";
+import { resolveGpuFlowBlockedPreparedContentFramePresentationAbort } from "./visibleFrameAbortPolicy";
 import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
-  createGpuFlowPreparedContentFramePublicationFramePlanPreparer,
+  createGpuFlowPreparedContentFramePresentationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
-  runGpuFlowRetainedPreparedContentFramePublicationContentStage,
+  runGpuFlowRetainedPreparedContentFramePresentationContentStage,
   type GpuFlowPreparedContentFramePresentationCandidateInput,
-  type GpuFlowPreparedContentFramePublicationFramePlanPreparer,
+  type GpuFlowPreparedContentFramePresentationFramePlanPreparer,
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
 } from "./visibleFrameContentPlan";
@@ -79,19 +79,19 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "runGpuFlowRetainedDisplayPublicationContentStage",
     );
     expect(contentPlanReExport).not.toContain(
-      "runGpuFlowPreparedContentFramePublicationContentStage",
+      "runGpuFlowPreparedContentFramePresentationContentStage",
     );
     expect(contentPlanReExport).not.toContain(
-      "prepareGpuFlowPreparedContentFramePublicationFramePlanForRetainedDisplay",
+      "prepareGpuFlowPreparedContentFramePresentationFramePlanForRetainedDisplay",
     );
     expect(contentPlanReExport).not.toContain(
-      "resolveGpuFlowPreparedContentFramePublicationFramePlanNodeLayerResult",
+      "resolveGpuFlowPreparedContentFramePresentationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).not.toMatch(
       /\bexport function (?:create|apply|run)GpuFlow(?:RetainedDisplay|PreparedContent)PublicationContentStage\b/,
     );
     expect(contentPlanSource).not.toContain(
-      "export function prepareGpuFlowPreparedContentFramePublicationFramePlanForRetainedDisplay",
+      "export function prepareGpuFlowPreparedContentFramePresentationFramePlanForRetainedDisplay",
     );
     expect(contentPlanSource).not.toMatch(
       /\bexport function resolveGpuFlow(?:RetainedDisplay|PreparedContent)PublicationFramePlanNodeLayerResult\b/,
@@ -101,14 +101,14 @@ describe("GPU Flow visible frame presentation content plans", () => {
   it("selects prepared-content-frame present and blocked candidate plans outside flowFrame", () => {
     const preparedContentFrame = createPreparedContentFrame();
     const preparePublishPlan =
-      createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
+      createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
         contentDecisionKernel,
         preparePreparedContentFramePresentationCandidate: () => ({
           kind: "present",
         }),
       });
     const prepareNonpublishablePlan =
-      createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
+      createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
         contentDecisionKernel,
         preparePreparedContentFramePresentationCandidate: () => ({
           blockedPresentationCandidate: {
@@ -148,7 +148,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       throw new Error("Expected prepared-content-frame publish plan.");
     }
     expect(
-      publishPlan.preparedContentFramePublication.preparedContentFrame,
+      publishPlan.preparedContentFramePresentation.preparedContentFrame,
     ).toBe(preparedContentFrame);
     expect(blockedPlan.kind).toBe("candidate");
     if (blockedPlan.kind !== "candidate") {
@@ -197,13 +197,13 @@ describe("GPU Flow visible frame presentation content plans", () => {
     );
 
     expect(kernelModuleSource).not.toMatch(
-      /export \{[\s\S]*createGpuFlow(?:PreparedContentFramePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPreparationBlockedCandidateSelector)[\s\S]*\} from "\.\/visibleFrameActorAdapters\/contentDecisionKernel";/,
+      /export \{[\s\S]*createGpuFlow(?:PreparedContentFramePresentationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPreparationBlockedCandidateSelector)[\s\S]*\} from "\.\/visibleFrameActorAdapters\/contentDecisionKernel";/,
     );
     expect(kernelModuleSource).not.toContain(
       "export { prepareGpuFlowPreparedContentFramePresentationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
-      "createGpuFlowPreparedContentFramePublicationFramePlanSelector();",
+      "createGpuFlowPreparedContentFramePresentationFramePlanSelector();",
     );
     expect(kernelModuleSource).not.toContain(
       "createGpuFlowRetainedDisplayPublicationFramePlanSelector();",
@@ -224,7 +224,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "export function createGpuFlowVisibleFramePresentationContentDecisionKernel",
     );
     expect(contentDecisionKernelSource).not.toMatch(
-      /export function createGpuFlow(?:PreparedContentFramePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPreparationBlockedCandidateSelector|PreparedContentFramePublicationFramePlanResultResolver|RetainedDisplayPublicationFramePlanResultResolver)/,
+      /export function createGpuFlow(?:PreparedContentFramePresentationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPreparationBlockedCandidateSelector|PreparedContentFramePresentationFramePlanResultResolver|RetainedDisplayPublicationFramePlanResultResolver)/,
     );
   });
 
@@ -251,14 +251,14 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "retainedDisplayPublicationFramePlanResult.blockedPresentationCandidate",
     );
     expect(flowFrameSource).not.toContain(
-      "preparedContentFramePublicationFramePlanResult.blockedPresentationCandidate",
+      "preparedContentFramePresentationFramePlanResult.blockedPresentationCandidate",
     );
     expect(flowFrameSource).not.toContain(
-      "preparedContentFramePublicationFramePlanResult.visibleProjectionState",
+      "preparedContentFramePresentationFramePlanResult.visibleProjectionState",
     );
     expect(flowFrameSource).not.toContain("retainedDisplayOutcomeFrameResult");
     expect(flowFrameSource).not.toContain(
-      "preparedContentFramePublicationActionResult",
+      "preparedContentFramePresentationActionResult",
     );
     expect(flowFrameSource).not.toContain(
       "preparedContentFramePresentationCandidateAction",
@@ -270,13 +270,13 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "selectRetainedDisplayPublicationFramePlan",
     );
     expect(flowFrameSource).not.toContain(
-      "selectPreparedContentFramePublicationFramePlan",
+      "selectPreparedContentFramePresentationFramePlan",
     );
     expect(flowFrameSource).not.toContain(
       "retainedDisplayPublicationFramePlan.kind",
     );
     expect(flowFrameSource).not.toContain(
-      "preparedContentFramePublicationFramePlan.kind",
+      "preparedContentFramePresentationFramePlan.kind",
     );
     expect(flowFrameSource).not.toContain(
       "preparedContentFramePresentationCandidate.kind",
@@ -286,7 +286,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "retainedDisplayPublicationPreparation.nodeLayerFrameResult",
     );
     expect(flowFrameSource).not.toContain(
-      "preparedContentFramePublicationPreparation.nodeLayerFrameResult",
+      "preparedContentFramePresentationPreparation.nodeLayerFrameResult",
     );
     expect(flowFrameSource).not.toContain(
       "retainedDisplayPublicationPreparation.publishedOutcomeFrame",
@@ -296,7 +296,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "createGpuFlowContentPreparationFrameResultForRetainedDisplayPublicationPreparation",
     );
     expect(flowFrameSource).not.toContain(
-      "createGpuFlowContentPreparationFrameResultForPreparedContentFramePublicationPreparation",
+      "createGpuFlowContentPreparationFrameResultForPreparedContentFramePresentationPreparation",
     );
     expect(flowFrameSource).not.toContain(
       "requireGpuFlowRetainedDisplayPublishedOutcomeFrame",
@@ -305,7 +305,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       /export function createGpuFlowContentPreparationFrameResultForRetainedDisplayPublicationPreparation/,
     );
     expect(contentPlanSource).not.toMatch(
-      /export function createGpuFlowContentPreparationFrameResultForPreparedContentFramePublicationPreparation/,
+      /export function createGpuFlowContentPreparationFrameResultForPreparedContentFramePresentationPreparation/,
     );
     expect(contentPlanSource).not.toMatch(
       /export function requireGpuFlowRetainedDisplayPublishedOutcomeFrame/,
@@ -315,7 +315,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
     );
     expect(flowFrameSource).not.toContain("onRetainedDisplayFrame?.");
     expect(flowFrameSource).not.toContain(
-      "preparedContentFramePublicationPreparation.shouldPrepareHtmlSurfaceOverlayTextures",
+      "preparedContentFramePresentationPreparation.shouldPrepareHtmlSurfaceOverlayTextures",
     );
     expect(flowFrameSource).not.toContain(
       "function prepareHtmlSurfaceOverlayTexturesForPreparedContentFrameCandidate",
@@ -346,35 +346,35 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "retainedDisplayContentStep.publishedOutcomeFrame",
     );
     expect(flowFrameSource).not.toContain(
-      "createGpuFlowPreparedContentFramePublicationContentStep",
+      "createGpuFlowPreparedContentFramePresentationContentStep",
     );
     expect(flowFrameSource).not.toContain(
-      "createGpuFlowPreparedContentFramePublicationContentStage",
+      "createGpuFlowPreparedContentFramePresentationContentStage",
     );
     expect(flowFrameSource).not.toContain(
-      "applyGpuFlowPreparedContentFramePublicationContentStage",
+      "applyGpuFlowPreparedContentFramePresentationContentStage",
     );
     expect(flowFrameSource).not.toContain(
-      "runGpuFlowPreparedContentFramePublicationContentStage",
+      "runGpuFlowPreparedContentFramePresentationContentStage",
     );
     expect(flowFrameSource).not.toContain("preparedContentContentStage.kind");
     expect(flowFrameSource).not.toContain(
       "preparedContentContentStage.blockedFrameResult",
     );
     expect(flowFrameSource).not.toContain(
-      "preparedContentContentStage.preparedContentFramePublication",
+      "preparedContentContentStage.preparedContentFramePresentation",
     );
     expect(flowFrameSource).not.toContain(
       "preparedContentContentStep.frameResult",
     );
     expect(flowFrameSource).not.toContain(
-      "preparedContentContentStep.preparedContentFramePublication",
+      "preparedContentContentStep.preparedContentFramePresentation",
     );
     expect(flowFrameSource).not.toContain(
       "resolveGpuFlowRetainedDisplayPublicationContentResolution",
     );
     expect(flowFrameSource).not.toContain(
-      "resolveGpuFlowPreparedContentFramePublicationContentResolution",
+      "resolveGpuFlowPreparedContentFramePresentationContentResolution",
     );
     expect(flowFrameSource).not.toContain("content-frame-result");
     expect(flowFrameSource).not.toContain("published-outcome-frame");
@@ -383,34 +383,34 @@ describe("GPU Flow visible frame presentation content plans", () => {
     expect(flowFrameSource).not.toContain("onPreparedContentPublished");
     expect(flowFrameSource).not.toContain("onRetainedDisplayPublished");
     expect(flowFrameSource).toContain(
-      "runRetainedPreparedContentFramePublicationContentStage",
+      "runRetainedPreparedContentFramePresentationContentStage",
     );
     expect(flowFrameSource).not.toContain(
       "prepareRetainedDisplayPublicationFramePlan",
     );
     expect(flowFrameSource).not.toContain(
-      "preparePreparedContentFramePublicationFramePlan",
+      "preparePreparedContentFramePresentationFramePlan",
     );
     expect(surfaceFrameSource).toContain(
-      "runRetainedPreparedContentFramePublicationContentStage",
+      "runRetainedPreparedContentFramePresentationContentStage",
     );
     expect(surfaceFrameSource).not.toContain(
       "prepareRetainedDisplayPublicationFramePlan",
     );
     expect(surfaceFrameSource).not.toContain(
-      "preparePreparedContentFramePublicationFramePlan",
+      "preparePreparedContentFramePresentationFramePlan",
     );
     expect(contentPlanSource).not.toContain(
       "export function resolveGpuFlowRetainedDisplayOutcomeFrameResult",
     );
     expect(contentPlanSource).not.toContain(
-      "export function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
+      "export function resolveGpuFlowPreparedContentFramePresentationActionFrameResult",
     );
     expect(contentPlanSource).not.toContain(
       "export function resolveGpuFlowRetainedDisplayPublicationFramePlanResult",
     );
     expect(contentPlanSource).not.toContain(
-      "export function resolveGpuFlowPreparedContentFramePublicationFramePlanResult",
+      "export function resolveGpuFlowPreparedContentFramePresentationFramePlanResult",
     );
     expect(contentPlanSource).toContain(
       "resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
@@ -437,31 +437,31 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "function selectGpuFlowRetainedDisplayPublicationFramePlan",
     );
     expect(stateMachineSource).toContain(
-      "function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
+      "function resolveGpuFlowPreparedContentFramePresentationActionFrameResult",
     );
     expect(stateMachineSource).not.toContain(
-      "export function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
+      "export function resolveGpuFlowPreparedContentFramePresentationActionFrameResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
+      "function resolveGpuFlowPreparedContentFramePresentationActionFrameResult",
     );
     expect(stateMachineSource).toContain(
-      "export function resolveGpuFlowPreparedContentFramePublicationFramePlanResult",
+      "export function resolveGpuFlowPreparedContentFramePresentationFramePlanResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function resolveGpuFlowPreparedContentFramePublicationFramePlanResult",
+      "function resolveGpuFlowPreparedContentFramePresentationFramePlanResult",
     );
     expect(stateMachineSource).toContain(
-      "export function selectGpuFlowPreparedContentFramePublicationFramePlan",
+      "export function selectGpuFlowPreparedContentFramePresentationFramePlan",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function selectGpuFlowPreparedContentFramePublicationFramePlan",
+      "function selectGpuFlowPreparedContentFramePresentationFramePlan",
     );
     expect(contentPlanSource).toContain(
-      "resolveGpuFlowPreparedContentFramePublicationFramePlanNodeLayerResult",
+      "resolveGpuFlowPreparedContentFramePresentationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).not.toContain(
-      "resolveGpuFlowPreparedContentFramePublicationReadiness",
+      "resolveGpuFlowPreparedContentFramePresentationReadiness",
     );
     expect(contentPlanSource).not.toContain(
       "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
@@ -493,7 +493,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "export function prepareGpuFlowPreparedContentFramePresentationCandidate",
     );
     expect(contentPlanSource).not.toContain(
-      "resolveGpuFlowPreparedContentFramePublicationReadiness",
+      "resolveGpuFlowPreparedContentFramePresentationReadiness",
     );
     expect(contentPlanSource).not.toContain(
       "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
@@ -508,7 +508,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "prepareGpuFlowPreparedContentFramePresentationCandidate",
     );
     expect(stateMachineSource).toContain(
-      "resolveGpuFlowPreparedContentFramePublicationReadiness",
+      "resolveGpuFlowPreparedContentFramePresentationReadiness",
     );
     expect(stateMachineSource).not.toContain(
       "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
@@ -528,40 +528,40 @@ describe("GPU Flow visible frame presentation content plans", () => {
     const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
 
     expect(contentPlanSource).not.toContain(
-      "export function selectGpuFlowPreparedContentFramePublicationFramePlan",
+      "export function selectGpuFlowPreparedContentFramePresentationFramePlan",
     );
     expect(contentPlanSource).not.toContain(
-      "export function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
+      "export function resolveGpuFlowPreparedContentFramePresentationActionFrameResult",
     );
     expect(contentPlanSource).not.toContain(
-      "createGpuFlowNodeLayerPreparedContentFramePublicationResult",
+      "createGpuFlowNodeLayerPreparedContentFramePresentationResult",
     );
     expect(stateMachineSource).toContain(
-      "export function selectGpuFlowPreparedContentFramePublicationFramePlan",
+      "export function selectGpuFlowPreparedContentFramePresentationFramePlan",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function selectGpuFlowPreparedContentFramePublicationFramePlan",
+      "function selectGpuFlowPreparedContentFramePresentationFramePlan",
     );
     expect(stateMachineSource).toContain(
-      "function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
+      "function resolveGpuFlowPreparedContentFramePresentationActionFrameResult",
     );
     expect(stateMachineSource).not.toContain(
-      "export function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
+      "export function resolveGpuFlowPreparedContentFramePresentationActionFrameResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
+      "function resolveGpuFlowPreparedContentFramePresentationActionFrameResult",
     );
     expect(stateMachineSource).toContain(
-      "export function resolveGpuFlowPreparedContentFramePublicationFramePlanResult",
+      "export function resolveGpuFlowPreparedContentFramePresentationFramePlanResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function resolveGpuFlowPreparedContentFramePublicationFramePlanResult",
+      "function resolveGpuFlowPreparedContentFramePresentationFramePlanResult",
     );
     expect(stateMachineSource).toContain(
-      "createGpuFlowNodeLayerPreparedContentFramePublicationResult",
+      "createGpuFlowNodeLayerPreparedContentFramePresentationResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "createGpuFlowNodeLayerPreparedContentFramePublicationResult",
+      "createGpuFlowNodeLayerPreparedContentFramePresentationResult",
     );
   });
 
@@ -641,7 +641,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
     );
     expect(flowFrameSource).not.toContain(
-      "resolveGpuFlowPreparedContentFramePublicationFramePlanNodeLayerResult",
+      "resolveGpuFlowPreparedContentFramePresentationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).toContain(
       "function resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
@@ -650,10 +650,10 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "export function resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).toContain(
-      "function resolveGpuFlowPreparedContentFramePublicationFramePlanNodeLayerResult",
+      "function resolveGpuFlowPreparedContentFramePresentationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).not.toContain(
-      "export function resolveGpuFlowPreparedContentFramePublicationFramePlanNodeLayerResult",
+      "export function resolveGpuFlowPreparedContentFramePresentationFramePlanNodeLayerResult",
     );
   });
 
@@ -662,7 +662,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
     const heldPreparedFrame = createPreparedContentFrame(9);
     const preparedContentFrame = createPreparedContentFrame(10);
     const explicitBlockedAbort =
-      resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
+      resolveGpuFlowBlockedPreparedContentFramePresentationAbort({
         blockedPreparedContentFrame: blockedPreparedFrame,
         blockedPreservePreparationSnapshot: true,
         preparedContentFrame: preparedContentFrame,
@@ -671,7 +671,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
           visibleProjectionState("prepared-content"),
       });
     const heldPreviousBlockedAbort =
-      resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
+      resolveGpuFlowBlockedPreparedContentFramePresentationAbort({
         blockedPreparedContentFrame: null,
         blockedPreservePreparationSnapshot: false,
         preparedContentFrame: preparedContentFrame,
@@ -679,7 +679,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
         selectedVisibleProjectionState: visibleProjectionState("held-previous"),
       });
     const blockedProofHeldCandidateAbort =
-      resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
+      resolveGpuFlowBlockedPreparedContentFramePresentationAbort({
         blockedPreparedContentFrame: null,
         blockedPreservePreparationSnapshot: false,
         preparedContentFrame: preparedContentFrame,
@@ -704,7 +704,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       preservePreparationSnapshot: true,
     });
     expect(completionSource).toContain(
-      "resolveGpuFlowBlockedPreparedContentFramePublicationAbort",
+      "resolveGpuFlowBlockedPreparedContentFramePresentationAbort",
     );
   });
 
@@ -783,8 +783,8 @@ describe("GPU Flow visible frame presentation content plans", () => {
       ],
       frozenFrameId: 9,
     } satisfies GpuFlowVisibleFrameBlockedPresentationCandidate;
-    const preparePreparedContentFramePublicationFramePlan =
-      createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
+    const preparePreparedContentFramePresentationFramePlan =
+      createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
         contentDecisionKernel,
         preparePreparedContentFramePresentationCandidate: () => ({
           blockedPresentationCandidate,
@@ -800,7 +800,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
         }),
       });
     const result =
-      runGpuFlowRetainedPreparedContentFramePublicationContentStage<
+      runGpuFlowRetainedPreparedContentFramePresentationContentStage<
         { readonly marker: string },
         never
       >({
@@ -824,7 +824,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
           };
         },
         prepareContentFrame: () => candidateFrame,
-        preparePreparedContentFramePublicationFramePlan,
+        preparePreparedContentFramePresentationFramePlan,
         prepareRetainedDisplayPublicationFramePlan:
           createPublishedRetainedDisplayPublicationFramePlan({
             publishedRetainedFrame,
@@ -868,8 +868,8 @@ describe("GPU Flow visible frame presentation content plans", () => {
       retainedPageMaintenanceMs: 2,
       retainedPagePreparedFrame: {} as RetainedContentTexturePagePreparedFrame,
     } as ReturnType<GpuFlowRetainedDisplayPublicationFramePlanPreparer>["publication"];
-    const preparedContentFramePublication = {
-      blockedSurfacePublication: null,
+    const preparedContentFramePresentation = {
+      blockedSurfacePresentation: null,
       preparedContentFrame: preparedFrameForPublication,
       heldPreparedContentFrame: null,
     } as const;
@@ -892,23 +892,23 @@ describe("GPU Flow visible frame presentation content plans", () => {
           publishedOutcomeFrame,
         };
       };
-    const preparePreparedContentFramePublicationFramePlan: GpuFlowPreparedContentFramePublicationFramePlanPreparer =
+    const preparePreparedContentFramePresentationFramePlan: GpuFlowPreparedContentFramePresentationFramePlanPreparer =
       (input) => {
         calls.push("committed-plan");
         expect(input.preparedContentFrame).toBe(preparedFrameForPublication);
         expect(input.publishedRetainedFrame).toBe(publishedRetainedFrame);
         return {
           candidate: { kind: "present" },
-          preparedContentFramePublication,
+          preparedContentFramePresentation,
           framePlan: {
             blockedPresentationCandidate: null,
-            preparedContentFramePublication,
+            preparedContentFramePresentation,
             kind: "present",
             visibleProjectionState: null,
           },
           framePlanResult: {
             blockedPresentationCandidate: null,
-            preparedContentFramePublication,
+            preparedContentFramePresentation,
             visibleProjectionState: null,
           },
           nodeLayerFrameResult: null,
@@ -916,7 +916,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
         };
       };
     const result =
-      runGpuFlowRetainedPreparedContentFramePublicationContentStage<
+      runGpuFlowRetainedPreparedContentFramePresentationContentStage<
         { readonly marker: string },
         string
       >({
@@ -936,12 +936,12 @@ describe("GPU Flow visible frame presentation content plans", () => {
           expect(retainedDisplayFollowUpFrameReason).toBe("texture-upload");
         },
         onPreparedContentFrameCandidateAccepted: ({
-          preparedContentFramePublication: publication,
+          preparedContentFramePresentation: publication,
           context,
         }) => {
           calls.push("committed-published");
           expect(context.marker).toBe("retained-published");
-          expect(publication).toBe(preparedContentFramePublication);
+          expect(publication).toBe(preparedContentFramePresentation);
           return "published";
         },
         onRetainedDisplayCandidateAccepted: ({
@@ -964,7 +964,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
           expect(options).toEqual({ gpuNativeVisuals: undefined });
           return preparedFrameForPublication;
         },
-        preparePreparedContentFramePublicationFramePlan,
+        preparePreparedContentFramePresentationFramePlan,
         prepareRetainedDisplayPublicationFramePlan,
         previousVisibleProjectionState: null,
         contentWorkLane: "content",
@@ -1000,7 +1000,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
         {
           input: 1,
           prepareOverlayTextures: (input) => preparedInputs.push(input),
-          publicationPreparation: {
+          presentationPreparation: {
             shouldPrepareHtmlSurfaceOverlayTextures: false,
           },
         },
@@ -1013,7 +1013,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
             preparedInputs.push(input);
             return input * 2;
           },
-          publicationPreparation: {
+          presentationPreparation: {
             shouldPrepareHtmlSurfaceOverlayTextures: true,
           },
         },

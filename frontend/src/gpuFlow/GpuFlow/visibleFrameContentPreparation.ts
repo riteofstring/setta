@@ -1,4 +1,4 @@
-import type { GpuFlowPreparedContentFramePublicationFramePlanPreparation } from "./visibleFrameContentPlan";
+import type { GpuFlowPreparedContentFramePresentationFramePlanPreparation } from "./visibleFrameContentPlan";
 
 export function prepareGpuFlowPreparedContentFrameOverlayTexturesForPresentationCandidate<
   OverlayTextureInput,
@@ -6,18 +6,18 @@ export function prepareGpuFlowPreparedContentFrameOverlayTexturesForPresentation
 >({
   input,
   prepareOverlayTextures,
-  publicationPreparation,
+  presentationPreparation,
 }: {
   readonly input: OverlayTextureInput;
   readonly prepareOverlayTextures: (
     input: OverlayTextureInput,
   ) => OverlayTextureResult;
-  readonly publicationPreparation: Pick<
-    GpuFlowPreparedContentFramePublicationFramePlanPreparation,
+  readonly presentationPreparation: Pick<
+    GpuFlowPreparedContentFramePresentationFramePlanPreparation,
     "shouldPrepareHtmlSurfaceOverlayTextures"
   >;
 }): OverlayTextureResult | undefined {
-  if (!publicationPreparation.shouldPrepareHtmlSurfaceOverlayTextures) {
+  if (!presentationPreparation.shouldPrepareHtmlSurfaceOverlayTextures) {
     return;
   }
   return prepareOverlayTextures(input);

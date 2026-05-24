@@ -15,15 +15,15 @@ import {
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import { createGpuFlowRetainedProjectionBlockedPresentationCandidate } from "./visibleFrameBlockedCandidate";
-import { createGpuFlowPreparedContentFramePublicationFramePlanPreparer } from "./visibleFrameContentPlan";
+import { createGpuFlowPreparedContentFramePresentationFramePlanPreparer } from "./visibleFrameContentPlan";
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameCoordinator";
 
-const preparePreparedContentFramePublicationFramePlanForTest =
-  createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
+const preparePreparedContentFramePresentationFramePlanForTest =
+  createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
     contentDecisionKernel:
       createGpuFlowVisibleFramePresentationContentDecisionKernel(),
   });
@@ -381,7 +381,7 @@ function preparePreparedContentFramePresentationCandidateForTest({
   readonly liveSample?: GpuFlowLiveProjectionSample | undefined;
   readonly preparedContentFrame: GpuFlowPreparedContentFrame;
 }) {
-  return preparePreparedContentFramePublicationFramePlanForTest({
+  return preparePreparedContentFramePresentationFramePlanForTest({
     committedGpuNativeVisuals: undefined,
     frameReasons: ["manual"],
     heldPreviousProjectionState,

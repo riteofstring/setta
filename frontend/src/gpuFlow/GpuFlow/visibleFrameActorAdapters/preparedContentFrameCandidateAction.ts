@@ -12,7 +12,7 @@ export type GpuFlowPreparedContentFrameCandidateAction =
       readonly kind: "present";
     }
   | {
-      readonly blockedSurfacePublication: GpuFlowBlockedPreparedContentFrameCandidate;
+      readonly blockedSurfacePresentation: GpuFlowBlockedPreparedContentFrameCandidate;
       readonly kind: "blocked-candidate";
       readonly visibleProjectionState: null;
     };

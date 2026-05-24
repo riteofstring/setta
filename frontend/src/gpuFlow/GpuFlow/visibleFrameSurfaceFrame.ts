@@ -41,7 +41,7 @@ import {
   type GpuFlowMotionProjectionFrameWorkReport,
   type GpuFlowMotionProjectionWorkPlan,
   type GpuFlowProjectionFrameRenderablePlan,
-  type GpuFlowRetainedPreparedContentFramePublicationContentStageRunner,
+  type GpuFlowRetainedPreparedContentFramePresentationContentStageRunner,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
 } from "./visibleFrameCoordinator";
@@ -98,7 +98,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   | "onRetainedDisplayFrame"
   | "onRetainedPreparedRuntimeFrame"
   | "contentWorkLane"
-  | "runRetainedPreparedContentFramePublicationContentStage"
+  | "runRetainedPreparedContentFramePresentationContentStage"
   | "viewportFrame"
 > & {
   readonly abortPreparedContentFrame: (
@@ -290,7 +290,7 @@ export function renderGpuFlowSurfaceFrame({
         previousVisibleProjectionState,
         reducerDecision,
         publicationFrameContext,
-        runRetainedPreparedContentFramePublicationContentStage,
+        runRetainedPreparedContentFramePresentationContentStage,
       }) => {
         const finishContentMeasure = startGpuFlowPerformanceMeasure(
           "surface-frame-prepared-content",
@@ -311,7 +311,7 @@ export function renderGpuFlowSurfaceFrame({
             reducerDecision,
             retainedContentRuntimeState,
             runtime,
-            runRetainedPreparedContentFramePublicationContentStage,
+            runRetainedPreparedContentFramePresentationContentStage,
             viewportFrame: publicationFrameContext.viewportFrame,
             viewportStore,
           });
@@ -664,7 +664,7 @@ function renderGpuFlowSurfaceContentPreparationFrame({
   retainedPreparationRuntimeFrameRenderSignatureRef,
   retainedPreparationRuntimeFrameScrollRevisionRef,
   runtime,
-  runRetainedPreparedContentFramePublicationContentStage,
+  runRetainedPreparedContentFramePresentationContentStage,
   viewportFrame,
   viewportStore,
   ...input
@@ -675,7 +675,7 @@ function renderGpuFlowSurfaceContentPreparationFrame({
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
-  readonly runRetainedPreparedContentFramePublicationContentStage: GpuFlowRetainedPreparedContentFramePublicationContentStageRunner;
+  readonly runRetainedPreparedContentFramePresentationContentStage: GpuFlowRetainedPreparedContentFramePresentationContentStageRunner;
   readonly viewportFrame: boolean;
 }): GpuFlowContentPreparationFrameResult {
   const contentDeferResolutionUpdates =
@@ -739,7 +739,7 @@ function renderGpuFlowSurfaceContentPreparationFrame({
     visibleNodeIdsRef: input.visibleNodeIdsRef,
     viewportStore,
     viewportFrame,
-    runRetainedPreparedContentFramePublicationContentStage,
+    runRetainedPreparedContentFramePresentationContentStage,
     onRetainedPreparedRuntimeFrame: (nextRetainedRuntimeFrame) => {
       const nextSignature =
         createGpuFlowRetainedRuntimeFrameSourceRenderSignature(

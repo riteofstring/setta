@@ -104,7 +104,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
     );
     expect(coordinatorSource).toContain(
-      "resolveGpuFlowPreparedContentFramePublicationReadiness",
+      "resolveGpuFlowPreparedContentFramePresentationReadiness",
     );
     expect(coordinatorSource).toContain('"blocked"');
     expect(coordinatorSource).toContain('"blocked-candidate"');
@@ -223,7 +223,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "resolveGpuFlowPreparedContentFrameCandidateAction",
     );
     expect(flowFrameSource).not.toContain(
-      "createGpuFlowNodeLayerPreparedContentFramePublicationResult",
+      "createGpuFlowNodeLayerPreparedContentFramePresentationResult",
     );
     expect(flowFrameSource).not.toContain(
       "createGpuFlowNodeLayerFrameResultForVisibleProjectionState",
@@ -246,7 +246,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "createGpuFlowPreparedContentFrameCandidateActionResolver",
     );
     expect(coordinatorSource).not.toContain(
-      "createGpuFlowPreparedContentFramePublicationActionFrameResultResolver",
+      "createGpuFlowPreparedContentFramePresentationActionFrameResultResolver",
     );
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
     expect(candidateSource).not.toMatch(
@@ -294,7 +294,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       readVisibleFramePublicationCoordinatorAuthoritySource();
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const branchStart = source.indexOf(
-      "runRetainedPreparedContentFramePublicationContentStage",
+      "runRetainedPreparedContentFramePresentationContentStage",
     );
 
     expect(branchStart).toBeGreaterThanOrEqual(0);
@@ -330,7 +330,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(source).not.toContain("selectRetainedDisplayPublicationFramePlan");
     expect(source).not.toContain(
-      "selectPreparedContentFramePublicationFramePlan",
+      "selectPreparedContentFramePresentationFramePlan",
     );
     expect(coordinatorSource).toContain(
       "prepareGpuFlowRetainedDisplayPresentationCandidate",

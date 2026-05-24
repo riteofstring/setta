@@ -15,10 +15,10 @@ import {
   type GpuFlowVisibleFrameBudgetBrokerDecision,
 } from "./visibleFrameBudgetBroker";
 import {
-  createGpuFlowPreparedContentFramePublicationFramePlanPreparer,
+  createGpuFlowPreparedContentFramePresentationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
-  createGpuFlowRetainedPreparedContentFramePublicationContentStageRunner,
-  type GpuFlowRetainedPreparedContentFramePublicationContentStageRunner,
+  createGpuFlowRetainedPreparedContentFramePresentationContentStageRunner,
+  type GpuFlowRetainedPreparedContentFramePresentationContentStageRunner,
 } from "./visibleFrameContentPlan";
 import type { GpuFlowVisibleFramePresentationTransactionCompletion } from "./visibleFrameOutcomeReport";
 import {
@@ -60,14 +60,14 @@ export type {
   GpuFlowPreparedContentFramePresentationCandidate,
   GpuFlowPreparedContentFramePresentationCandidateInput,
   GpuFlowPreparedContentFramePresentationCandidatePreparer,
-  GpuFlowPreparedContentFramePublicationFramePlanPreparation,
-  GpuFlowPreparedContentFramePublicationFramePlanPreparer,
+  GpuFlowPreparedContentFramePresentationFramePlanPreparation,
+  GpuFlowPreparedContentFramePresentationFramePlanPreparer,
   GpuFlowRetainedDisplayPreparedContentFramePreparer,
   GpuFlowRetainedDisplayPublicationFramePlanPreparer,
   GpuFlowRetainedDisplayPublicationPreparer,
-  GpuFlowRetainedPreparedContentFramePublicationContentPublishedRetainedDisplay,
-  GpuFlowRetainedPreparedContentFramePublicationContentStageInput,
-  GpuFlowRetainedPreparedContentFramePublicationContentStageRunner,
+  GpuFlowRetainedPreparedContentFramePresentationContentPublishedRetainedDisplay,
+  GpuFlowRetainedPreparedContentFramePresentationContentStageInput,
+  GpuFlowRetainedPreparedContentFramePresentationContentStageRunner,
   GpuFlowVisibleFrameBlockedPresentationCandidate,
 } from "./visibleFrameContentPlan";
 export { createGpuFlowVisibleFramePresentationTransactionReport } from "./visibleFrameOutcomeReport";
@@ -156,7 +156,7 @@ type GpuFlowVisibleFramePublicationContentFramePreparer<
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
-  readonly runRetainedPreparedContentFramePublicationContentStage: GpuFlowRetainedPreparedContentFramePublicationContentStageRunner;
+  readonly runRetainedPreparedContentFramePresentationContentStage: GpuFlowRetainedPreparedContentFramePresentationContentStageRunner;
 }) => ContentPreparationFrame;
 
 type GpuFlowVisibleFramePublicationMotionFramePreparer<
@@ -394,8 +394,8 @@ function prepareGpuFlowVisibleFramePresentationCandidateSet<
 > {
   const contentDecisionKernel =
     createGpuFlowVisibleFramePresentationContentDecisionKernel();
-  const preparePreparedContentFramePublicationFramePlan =
-    createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
+  const preparePreparedContentFramePresentationFramePlan =
+    createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
       contentDecisionKernel,
     });
   const prepareRetainedDisplayPublicationFramePlan =
@@ -405,10 +405,10 @@ function prepareGpuFlowVisibleFramePresentationCandidateSet<
       prepareRetainedDisplayPresentationCandidate:
         prepareGpuFlowRetainedDisplayPresentationCandidate,
     });
-  const runRetainedPreparedContentFramePublicationContentStage =
-    createGpuFlowRetainedPreparedContentFramePublicationContentStageRunner({
+  const runRetainedPreparedContentFramePresentationContentStage =
+    createGpuFlowRetainedPreparedContentFramePresentationContentStageRunner({
       contentDecisionKernel,
-      preparePreparedContentFramePublicationFramePlan,
+      preparePreparedContentFramePresentationFramePlan,
       prepareRetainedDisplayPublicationFramePlan,
     });
   const motionProjectionWorkPlan = createGpuFlowMotionProjectionWorkPlan({
@@ -438,7 +438,7 @@ function prepareGpuFlowVisibleFramePresentationCandidateSet<
     previousVisibleProjectionState,
     reducerDecision,
     publicationFrameContext,
-    runRetainedPreparedContentFramePublicationContentStage,
+    runRetainedPreparedContentFramePresentationContentStage,
   });
   return Object.freeze({
     contentPreparationFrame,
