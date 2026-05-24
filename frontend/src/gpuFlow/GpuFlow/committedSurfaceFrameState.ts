@@ -12,15 +12,15 @@ import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuViewportInput } from "../viewportMath";
 import { getGpuFlowBrowserVisualActorRuntimeForCommittedSurface } from "./browserVisualActorRuntime";
 import {
+  createGpuFlowVisibleFrameSelectedResourceWorkKeys,
+  type GpuFlowVisibleFrameBudgetBrokerDecision,
+} from "./visibleFrameBudgetBroker";
+import {
   assertGpuFlowPreparedCandidateAbortToken,
   type GpuFlowBlockedPublicationToken,
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
-import {
-  createGpuFlowVisibleFrameSelectedResourceWorkKeys,
-  type GpuFlowVisibleFrameBudgetBrokerDecision,
-} from "./visibleFrameBudgetBroker";
 import { createGpuFlowVisibleFrameResourceGraph } from "./visibleFrameResourceGraph";
 
 export function useGpuFlowCommittedSurfaceFrameState({
@@ -151,6 +151,9 @@ export function useGpuFlowCommittedSurfaceFrameState({
       frame: GpuFlowCommittedSurfaceFrame,
       options?:
         | {
+            readonly browserVisualPreparationResourceKeys?:
+              | readonly string[]
+              | undefined;
             readonly preservePreparationSnapshot?: boolean | undefined;
           }
         | undefined,
@@ -166,12 +169,19 @@ export function useGpuFlowCommittedSurfaceFrameState({
             candidate,
             token,
           }),
+        browserVisualPreparationResourceKeys:
+          options?.browserVisualPreparationResourceKeys,
         frame,
         preservePreparationSnapshot:
           options?.preservePreparationSnapshot === true,
-        stageBrowserVisualCandidate: ({ candidate, token }) =>
+        stageBrowserVisualCandidate: ({
+          candidate,
+          selectedResourceKeys,
+          token,
+        }) =>
           browserVisualRuntime.stagePreparedBrowserVisualActors({
             candidate,
+            selectedResourceKeys,
             token,
           }),
         token,

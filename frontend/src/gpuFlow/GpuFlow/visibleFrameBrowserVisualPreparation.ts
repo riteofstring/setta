@@ -3,6 +3,7 @@ import type { MutableRefObject } from "react";
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import { getGpuFlowCommittedSurfacePublishabilityActorIds } from "./visibleFrameBlockedCandidate";
+import { isGpuFlowBrowserVisualPreparationResourceKey } from "./visibleFrameBrowserVisualResourceKeys";
 import {
   recordGpuFlowBrowserVisualResourceWorkPreparationState,
   recordGpuFlowBrowserVisualResourceWorkRequested,
@@ -42,6 +43,7 @@ const GPU_FLOW_BROWSER_VISUAL_DEFERRED_WORK_WAKEUP_MS =
 
 export function scheduleGpuFlowBrowserVisualResourcePreparation({
   budgetBroker,
+  budgetSelectedResourceKeys = [],
   candidateFrame,
   candidateResourceWork,
   deferResolutionUpdates = false,
@@ -51,6 +53,7 @@ export function scheduleGpuFlowBrowserVisualResourcePreparation({
   surfaceRef,
 }: {
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
+  readonly budgetSelectedResourceKeys?: readonly string[] | undefined;
   readonly candidateFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
   readonly deferResolutionUpdates?: boolean | undefined;
@@ -64,7 +67,22 @@ export function scheduleGpuFlowBrowserVisualResourcePreparation({
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
 }): void {
-  if (candidateFrame === null || candidateResourceWork === null) {
+  const hasBudgetSelectedBrowserVisualResource =
+    budgetSelectedResourceKeys.some(
+      isGpuFlowBrowserVisualPreparationResourceKey,
+    );
+  if (candidateFrame === null) {
+    return;
+  }
+  if (candidateResourceWork === null) {
+    if (hasBudgetSelectedBrowserVisualResource) {
+      requestGpuFlowBrowserVisualResourceWorkFrame({
+        candidateResourceWork: null,
+        deferWakeup: false,
+        runtimeCanvas,
+        surfaceRef,
+      });
+    }
     return;
   }
   recordGpuFlowBrowserVisualResourceWorkRequested({
@@ -73,14 +91,14 @@ export function scheduleGpuFlowBrowserVisualResourcePreparation({
     outcome,
     runtimeCanvas,
   });
-  const budgetState =
-    selectGpuFlowBrowserVisualResourcePreparationBudgetState({
-      budgetBroker,
-      candidateResourceWork,
-      deferResolutionUpdates,
-      publicationDecision,
-    });
-  const budgetSelected = budgetState === "selected";
+  const budgetState = selectGpuFlowBrowserVisualResourcePreparationBudgetState({
+    budgetBroker,
+    candidateResourceWork,
+    deferResolutionUpdates,
+    publicationDecision,
+  });
+  const budgetSelected =
+    budgetState === "selected" || hasBudgetSelectedBrowserVisualResource;
   requestGpuFlowBrowserVisualResourceWorkFrame({
     candidateResourceWork,
     deferWakeup:
@@ -139,7 +157,7 @@ function requestGpuFlowBrowserVisualResourceWorkFrame({
   runtimeCanvas,
   surfaceRef,
 }: {
-  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork;
+  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
   readonly deferWakeup: boolean;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
@@ -153,14 +171,19 @@ function requestGpuFlowBrowserVisualResourceWorkFrame({
       runtimeCanvas,
       surface,
     });
-    recordGpuFlowBrowserVisualResourceWorkPreparationState({
-      candidateResourceWork,
-      nowMs: candidateResourceWork.timestamp,
-      readinessState: "ready",
-      runtimeCanvas,
-      wakeupSource: "immediate-frame-request",
-    });
+    if (candidateResourceWork !== null) {
+      recordGpuFlowBrowserVisualResourceWorkPreparationState({
+        candidateResourceWork,
+        nowMs: candidateResourceWork.timestamp,
+        readinessState: "ready",
+        runtimeCanvas,
+        wakeupSource: "immediate-frame-request",
+      });
+    }
     surface.requestFrame("texture-upload");
+    return;
+  }
+  if (candidateResourceWork === null) {
     return;
   }
   recordGpuFlowBrowserVisualResourceWorkPreparationState({

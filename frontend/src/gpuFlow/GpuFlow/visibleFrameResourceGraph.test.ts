@@ -400,15 +400,18 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       frame,
     });
     const stagedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
+    const stagedResourceKeys: (readonly string[] | undefined)[] = [];
 
     const result = registry.abortPreparedCommittedSurfaceFrame({
       abortBrowserVisualCandidate: () => {
         throw new Error("Preserved preparation must not abort the candidate.");
       },
       frame,
+      browserVisualPreparationResourceKeys: ["dom-control:active-control"],
       preservePreparationSnapshot: true,
-      stageBrowserVisualCandidate: ({ candidate }) => {
+      stageBrowserVisualCandidate: ({ candidate, selectedResourceKeys }) => {
         stagedCandidates.push(candidate);
+        stagedResourceKeys.push(selectedResourceKeys);
       },
       token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
         blockedReasons: [
@@ -424,6 +427,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
 
     expect(stagedCandidates).toEqual([candidate]);
+    expect(stagedResourceKeys).toEqual([["dom-control:active-control"]]);
     expect(result).toEqual({
       activeEditorPins: ["active-control"],
       releasedCandidateResourceKeys: [],

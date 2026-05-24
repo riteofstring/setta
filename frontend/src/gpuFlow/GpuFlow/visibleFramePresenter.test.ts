@@ -571,6 +571,85 @@ describe("GPU Flow surface publication completion", () => {
     (delayedContentRetry as (() => void) | null)?.();
     expect(requestFrame).toHaveBeenLastCalledWith("manual");
   });
+
+  it("stages and wakes budget-selected browser visual resources while blocked", () => {
+    const blockedFrame = committedSurfaceFrame({ displayFrameId: 61 });
+    const sample = liveProjectionSample({
+      id: 61,
+      timestamp: 61,
+    });
+    const token = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+      blockedReasons: [],
+      frozenFrameId: blockedFrame.displayFrameId,
+      projectionSample: sample,
+    });
+    const requestFrame = vi.fn();
+    const abortPreparedCommittedSurfaceFrame = vi.fn();
+    const selectedResourceKeys = ["dom-control:retained-dom-control:a"];
+    const presenter = createGpuFlowVisibleFramePresenter({
+      abortPreparedCommittedSurfaceFrame,
+      callbacksRef: { current: null },
+      commitPreparedCommittedSurfaceFrame: () => {
+        throw new Error("Unexpected prepared committed surface commit.");
+      },
+      projectCommittedBrowserVisualActors: () => {
+        throw new Error("Unexpected browser visual actor projection.");
+      },
+      publishColdStartShellFrame: () => {},
+      retainedDisplayFrameRef: { current: null },
+      retainedRuntimeFrameRenderSignatureRef: { current: null },
+      retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
+      runtimeCanvas: testCanvas(),
+      surfaceRef: {
+        current: {
+          requestFrame,
+        },
+      },
+      viewportRuntime: {
+        applyOverlayTransforms: () => {
+          throw new Error("Unexpected overlay projection transform.");
+        },
+      },
+      visibleOverlayProjectionKeyRef: { current: null },
+      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionStateRef: { current: null },
+    } as unknown as Parameters<typeof createGpuFlowVisibleFramePresenter>[0]);
+
+    presenter(
+      blockedPublicationTransaction({
+        blockedFrame,
+        blockedPreservePreparationSnapshot: true,
+        debtFrameRequest: null,
+        publicationFrameContext: {
+          budgetDecision: {
+            preparationBudget: {
+              selectedResourceDebtIds: selectedResourceKeys,
+            },
+          },
+        },
+        sample,
+        schedulerCompletion: {
+          debt: {
+            content: true,
+            maintenance: false,
+            motion: false,
+          },
+          outcome: "blocked",
+        },
+        token,
+      }),
+    );
+
+    expect(abortPreparedCommittedSurfaceFrame).toHaveBeenCalledWith(
+      token,
+      blockedFrame,
+      {
+        browserVisualPreparationResourceKeys: selectedResourceKeys,
+        preservePreparationSnapshot: true,
+      },
+    );
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+  });
 });
 
 function heldPreviousPublicationTransaction({
@@ -756,13 +835,17 @@ function nodeLayerFrameStatePublication({
 
 function blockedPublicationTransaction({
   blockedFrame,
+  blockedPreservePreparationSnapshot = false,
   debtFrameRequest,
+  publicationFrameContext = null,
   sample,
   schedulerCompletion,
   token,
 }: {
   readonly blockedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly blockedPreservePreparationSnapshot?: boolean | undefined;
   readonly debtFrameRequest: unknown;
+  readonly publicationFrameContext?: unknown;
   readonly sample: GpuFlowLiveProjectionSample;
   readonly schedulerCompletion: unknown;
   readonly token: ReturnType<
@@ -786,7 +869,7 @@ function blockedPublicationTransaction({
         blockedErrorMessage: null,
         blockedPreparedCommittedSurfaceFrame: blockedFrame,
         blockedPreparedCommittedSurfaceFrameResourceWork: null,
-        blockedPreservePreparationSnapshot: false,
+        blockedPreservePreparationSnapshot,
         committedSurfaceFrame: null,
         heldPreparedCommittedSurfaceFrame: null,
         nodeLayerFrameStatePublication: null,
@@ -800,6 +883,7 @@ function blockedPublicationTransaction({
       visibleProjectionState: null,
     },
     previousCommittedFrameId: null,
+    publicationFrameContext,
     publicationDecision: {
       lane: "content",
       rawReasons: ["manual"],

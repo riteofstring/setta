@@ -57,12 +57,12 @@ import type {
 } from "./visibleFramePresentationProofs";
 import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
 import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
-import { recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic } from "./visibleFrameSurfaceFrameDiagnostics";
+import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import type {
   GpuFlowVisibleFrameRequestCoordinator,
   GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameScheduling";
-import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
+import { recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic } from "./visibleFrameSurfaceFrameDiagnostics";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
 type GpuFlowNodeLayerFrameInput = Parameters<
@@ -105,6 +105,9 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
     frame: GpuFlowCommittedSurfaceFrame,
     options?:
       | {
+          readonly browserVisualPreparationResourceKeys?:
+            | readonly string[]
+            | undefined;
           readonly preservePreparationSnapshot?: boolean | undefined;
         }
       | undefined,
@@ -385,7 +388,8 @@ export function renderGpuFlowSurfaceFrame({
       coordinatorResult,
       frame: input.frameRef.current,
       frameReasons: event.reasons,
-      postFrameResourceGraphSnapshot: input.getVisibleFrameResourceGraphSnapshot(),
+      postFrameResourceGraphSnapshot:
+        input.getVisibleFrameResourceGraphSnapshot(),
       schedulerCompletion,
     });
     frameMeasureDetail.publicationDebtFrameReason =
@@ -875,7 +879,8 @@ function shouldSkipDeferredGpuFlowContentPublication({
     !shouldConsiderGpuFlowDeferredContentPublication({
       deferResolutionUpdates,
       hasPreviousRetainedDisplayFrame: retainedDisplayFrameRef.current !== null,
-      hasPreviousVisibleProjectionState: previousVisibleProjectionState !== null,
+      hasPreviousVisibleProjectionState:
+        previousVisibleProjectionState !== null,
       publicationDecision,
     })
   ) {

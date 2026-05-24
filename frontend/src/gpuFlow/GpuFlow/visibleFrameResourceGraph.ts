@@ -79,6 +79,7 @@ type GpuFlowVisibleFrameCommittedSurfaceFramePublisher = (input: {
 
 type GpuFlowVisibleFrameBrowserVisualCandidateAborter = (input: {
   readonly candidate: GpuFlowBrowserVisualActorCandidate;
+  readonly selectedResourceKeys?: readonly string[] | undefined;
   readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
 }) => void;
 
@@ -375,12 +376,16 @@ export class GpuFlowVisibleFrameResourceGraph {
 
   abortPreparedCommittedSurfaceFrame({
     abortBrowserVisualCandidate,
+    browserVisualPreparationResourceKeys,
     frame,
     preservePreparationSnapshot,
     stageBrowserVisualCandidate,
     token,
   }: {
     readonly abortBrowserVisualCandidate: GpuFlowVisibleFrameBrowserVisualCandidateAborter;
+    readonly browserVisualPreparationResourceKeys?:
+      | readonly string[]
+      | undefined;
     readonly frame: GpuFlowCommittedSurfaceFrame;
     readonly preservePreparationSnapshot: boolean;
     readonly stageBrowserVisualCandidate: GpuFlowVisibleFrameBrowserVisualCandidateAborter;
@@ -395,6 +400,7 @@ export class GpuFlowVisibleFrameResourceGraph {
     if (preservePreparationSnapshot) {
       stageBrowserVisualCandidate({
         candidate: entry.browserVisualCandidate,
+        selectedResourceKeys: browserVisualPreparationResourceKeys,
         token,
       });
       return Object.freeze({
