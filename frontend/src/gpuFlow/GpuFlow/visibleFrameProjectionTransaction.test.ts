@@ -122,17 +122,23 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
           throw new Error("blocked must not resolve held frame");
         },
       });
-    expect(blockedSelection.renderPlan).toBeNull();
-    expect(blockedSelection.blockedPublicationCandidate).toEqual({
-      blockedReasons: [
-        {
-          actorId: null,
-          family: "retained-projection",
-          reason: "retained-projection-coverage-missing",
-        },
-      ],
-      frozenFrameId: 11,
+    expect(blockedSelection.renderPlan).toEqual({
+      heldPreviousProjection: expect.objectContaining({
+        committedFrameId: 11,
+        maxHeldPreviousFramesExceeded: true,
+        reason: "retained-projection-coverage-missing",
+        requestedProjectionSampleId: requestedTransaction.sample.id,
+      }),
+      kind: "render",
+      retainedProjectionFrame: missingRequestedFrame,
+      transaction: expect.objectContaining({
+        committedFrameId: 11,
+        kind: "held-previous",
+        rawReasons: ["retained-scroll"],
+        sample: requestedTransaction.sample,
+      }),
     });
+    expect(blockedSelection.blockedPublicationCandidate).toBeNull();
     expect(blockedSelection.outcomeKind).toBe("blocked");
   });
 

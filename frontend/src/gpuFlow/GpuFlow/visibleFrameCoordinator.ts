@@ -57,7 +57,6 @@ import {
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
   type GpuFlowVisibleFramePublicationPreparedFrame,
   type GpuFlowVisibleFramePublicationTransactionProof,
-  type GpuFlowVisiblePublicationBlockedProof,
 } from "./visibleFrameTransactionProofs";
 import {
   createGpuFlowContentPublicationWorkPlan,
@@ -648,17 +647,6 @@ function resolveGpuFlowMotionProjectionFrameTransaction({
       reason: "retained-projection-coverage-missing",
       requestedSample: requestedTransaction.sample,
     });
-    if (
-      heldPreviousProjection.maxHeldPreviousFramesExceeded ||
-      heldPreviousProjection.maxHeldPreviousMsExceeded
-    ) {
-      return {
-        blockedReason: "retained-projection-coverage-missing",
-        heldPreviousProjection: null,
-        retainedProjectionFrame: requestedRetainedProjectionFrame,
-        transaction: requestedTransaction,
-      };
-    }
     return {
       blockedReason: null,
       heldPreviousProjection,
