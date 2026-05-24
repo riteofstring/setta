@@ -1199,6 +1199,27 @@ function fixedPublicationScheduler({
         debt,
         outcome: outcome.kind,
       }),
+    selectFrameRequest: ({
+      hasCommittedContentFrame,
+      rawReasons,
+      sample,
+      timestamp,
+      viewportInteractionActive,
+    }) =>
+      Object.freeze({
+        contentDebt: lane === "content",
+        contentRetryDeferred: false,
+        criticalContentDebt: lane === "content",
+        hasCommittedContentFrame,
+        maintenanceDebt: lane === "maintenance",
+        motionDebt: lane === "motion",
+        motionRetryDeferred: false,
+        rawReasons: Object.freeze([...rawReasons]),
+        sample,
+        schedulerState,
+        timestamp,
+        viewportInteractionActive,
+      }),
     selectFrame: ({ rawReasons, sample }): GpuFlowVisiblePublicationDecision =>
       Object.freeze({
         debt,

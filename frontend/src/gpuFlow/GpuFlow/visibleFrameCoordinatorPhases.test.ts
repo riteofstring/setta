@@ -70,7 +70,8 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expect(reducerStart).toBeGreaterThan(firstHelperStart);
     expect(reducerEnd).toBeGreaterThan(reducerStart);
     expectOrderedPhases(reducerSource, [
-      "selectGpuFlowVisibleFramePublicationTransaction({",
+      "createGpuFlowVisibleFrameRequestFacts({",
+      "reduceGpuFlowVisibleFramePublicationDecision({",
       "createGpuFlowVisibleFramePublicationFrameContext({",
       "prepareGpuFlowVisibleFramePublicationCandidateSet({",
       "createGpuFlowVisibleFramePublicationPreparedFrame({",
@@ -125,6 +126,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expect(source).not.toContain(
       "export function selectGpuFlowVisibleFramePublicationTransaction",
     );
+    expect(source).not.toContain("scheduler.selectFrame({");
   });
 
   it("keeps transaction proof, scheduler completion, and publication decision out of the surface frame adapter", () => {

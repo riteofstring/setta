@@ -42,8 +42,10 @@ import type {
 } from "./visibleFrameProjectionWorkTypes";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import {
+  reduceGpuFlowVisibleFramePublicationDecision,
   shouldDeferGpuFlowMaintenanceContentCatchup,
   type GpuFlowVisibleFrameRequestCoordinator,
+  type GpuFlowVisibleFrameRequestFacts,
   type GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameScheduling";
 import {
@@ -304,13 +306,18 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     visibleFrameResourceGraphSnapshot,
     viewportInteractionActive,
   } = sampledPublication;
-  const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction({
+  const schedulerKnobs = scheduler.getKnobs();
+  const frameRequest = createGpuFlowVisibleFrameRequestFacts({
     hasCommittedContentFrame,
     rawReasons,
     sample,
     scheduler,
     timestamp,
     viewportInteractionActive,
+  });
+  const publicationDecision = reduceGpuFlowVisibleFramePublicationDecision({
+    frameRequest,
+    schedulerKnobs,
   });
   const publicationFrameContext =
     createGpuFlowVisibleFramePublicationFrameContext({
@@ -328,7 +335,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     previousVisibleProjectionState,
     publicationDecision,
     publicationFrameContext,
-    projectionSchedulerKnobs: scheduler.getKnobs(),
+    projectionSchedulerKnobs: schedulerKnobs,
     rawReasons,
   });
   const preparedFrame = createGpuFlowVisibleFramePublicationPreparedFrame({
@@ -857,7 +864,7 @@ function publishGpuFlowVisibleFramePublicationOutcome<
   return transaction;
 }
 
-function selectGpuFlowVisibleFramePublicationTransaction({
+function createGpuFlowVisibleFrameRequestFacts({
   hasCommittedContentFrame,
   rawReasons,
   sample,
@@ -868,11 +875,14 @@ function selectGpuFlowVisibleFramePublicationTransaction({
   readonly hasCommittedContentFrame: boolean;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
-  readonly scheduler: Pick<GpuFlowVisiblePublicationScheduler, "selectFrame">;
+  readonly scheduler: Pick<
+    GpuFlowVisiblePublicationScheduler,
+    "selectFrameRequest"
+  >;
   readonly timestamp: DOMHighResTimeStamp;
   readonly viewportInteractionActive: boolean;
-}): GpuFlowVisiblePublicationDecision {
-  return scheduler.selectFrame({
+}): GpuFlowVisibleFrameRequestFacts {
+  return scheduler.selectFrameRequest({
     hasCommittedContentFrame,
     rawReasons,
     sample,
