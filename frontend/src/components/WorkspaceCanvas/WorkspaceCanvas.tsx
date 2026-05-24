@@ -37,6 +37,16 @@ import {
 } from "./workspacePassiveCodeHighlighter";
 import { deriveWorkspaceScene, type WorkspaceSize } from "./workspaceScene";
 import type { WorkspaceDictRowScene } from "./workspaceSceneTypes";
+import {
+  beginWorkspaceTextMeasurementRequest,
+  completeWorkspaceTextMeasurementRequest,
+  createWorkspaceTextMeasurementCacheState,
+  getWorkspaceTextMeasurementCacheEntry,
+  measureWorkspaceTextPreview,
+  type WorkspaceTextMeasurementCacheState,
+  type WorkspaceTextMeasurementRequest,
+  type WorkspaceTextPreview,
+} from "./workspaceTextMeasurementCache";
 
 type WorkspaceCanvasEnvironment = {
   devicePixelRatio: number;
@@ -61,6 +71,10 @@ export function WorkspaceCanvas() {
   const [highlightCache, setHighlightCache] =
     useState<WorkspaceCodeHighlightCacheState>(() =>
       createWorkspaceCodeHighlightCacheState(),
+    );
+  const [textMeasurementCache, setTextMeasurementCache] =
+    useState<WorkspaceTextMeasurementCacheState>(() =>
+      createWorkspaceTextMeasurementCacheState(),
     );
   const [controllerState, setControllerState] =
     useState<WorkspaceCanvasControllerState>(() =>
@@ -108,6 +122,7 @@ export function WorkspaceCanvas() {
           highlighterRevision: WORKSPACE_PASSIVE_CODE_HIGHLIGHTER_REVISION,
         },
         highlightCache,
+        textMeasurementCache,
       }),
     [
       controllerState,
@@ -119,6 +134,7 @@ export function WorkspaceCanvas() {
       projectRevision,
       projectState,
       sectionScrollRevision,
+      textMeasurementCache,
       typeErrors,
       viewportSize,
     ],
@@ -129,6 +145,11 @@ export function WorkspaceCanvas() {
     highlightCache,
     setHighlightCache,
     isDarkMode: environment.isDarkMode,
+  });
+  useWorkspaceTextMeasurement({
+    scene,
+    textMeasurementCache,
+    setTextMeasurementCache,
   });
   useWorkspaceCanvasDraw({
     canvasRef,
@@ -292,6 +313,148 @@ function shouldRequestWorkspacePassiveCodeHighlight(
     highlightCache,
     codePreview.cacheKey,
   );
+}
+
+function useWorkspaceTextMeasurement({
+  scene,
+  textMeasurementCache,
+  setTextMeasurementCache,
+}: {
+  scene: ReturnType<typeof deriveWorkspaceScene>;
+  textMeasurementCache: WorkspaceTextMeasurementCacheState;
+  setTextMeasurementCache: Dispatch<
+    SetStateAction<WorkspaceTextMeasurementCacheState>
+  >;
+}) {
+  const mountedRef = useRef(true);
+  const requestCounterRef = useRef(0);
+  const measurementContextRef = useRef<CanvasRenderingContext2D | null>(null);
+
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const context = getWorkspaceTextMeasurementContext(measurementContextRef);
+    if (!context) {
+      return;
+    }
+    const requests = collectWorkspaceTextMeasurementRequests({
+      scene,
+      textMeasurementCache,
+    });
+    if (requests.length === 0) {
+      return;
+    }
+
+    const requestsWithIds = requests.map((request) => {
+      requestCounterRef.current += 1;
+      return {
+        request,
+        requestId: `${request.cacheKey}:${requestCounterRef.current}`,
+      };
+    });
+
+    setTextMeasurementCache((current) => {
+      let next = current;
+      for (const { request, requestId } of requestsWithIds) {
+        if (getWorkspaceTextMeasurementCacheEntry(next, request.cacheKey)) {
+          continue;
+        }
+        next = beginWorkspaceTextMeasurementRequest(
+          next,
+          request.cacheKey,
+          requestId,
+        );
+      }
+      return next;
+    });
+
+    for (const { request, requestId } of requestsWithIds) {
+      void Promise.resolve()
+        .then(() => measureWorkspaceTextPreview(context, request))
+        .then((result) => {
+          if (!mountedRef.current) {
+            return;
+          }
+          setTextMeasurementCache((current) => {
+            const completion = completeWorkspaceTextMeasurementRequest(
+              current,
+              request.cacheKey,
+              requestId,
+              result,
+            );
+            return completion.cache;
+          });
+        });
+    }
+  }, [scene, setTextMeasurementCache, textMeasurementCache]);
+}
+
+function collectWorkspaceTextMeasurementRequests({
+  scene,
+  textMeasurementCache,
+}: {
+  scene: ReturnType<typeof deriveWorkspaceScene>;
+  textMeasurementCache: WorkspaceTextMeasurementCacheState;
+}): Array<WorkspaceTextMeasurementRequest> {
+  const requests: Array<WorkspaceTextMeasurementRequest> = [];
+  const addPreview = (preview: WorkspaceTextPreview | null) => {
+    if (
+      !preview ||
+      preview.ready ||
+      preview.text.length === 0 ||
+      getWorkspaceTextMeasurementCacheEntry(
+        textMeasurementCache,
+        preview.cacheKey,
+      )
+    ) {
+      return;
+    }
+    requests.push({
+      cacheKey: preview.cacheKey,
+      text: preview.text,
+      font: preview.font,
+      maxWidth: preview.maxWidth,
+    });
+  };
+
+  for (const sectionId of scene.sectionOrder) {
+    const section = scene.sectionsById[sectionId];
+    if (!section) {
+      continue;
+    }
+    addPreview(section.titleTextPreview);
+    if (section.renderModel.kind !== "dict") {
+      continue;
+    }
+    for (const row of section.renderModel.dict.rows) {
+      if (!row.visible) {
+        continue;
+      }
+      addPreview(row.textPreviews.label);
+      addPreview(row.textPreviews.value);
+      addPreview(row.textPreviews.control);
+    }
+  }
+  return requests;
+}
+
+function getWorkspaceTextMeasurementContext(
+  contextRef: MutableRefObject<CanvasRenderingContext2D | null>,
+) {
+  if (contextRef.current) {
+    return contextRef.current;
+  }
+  if (typeof document === "undefined") {
+    return null;
+  }
+  const canvas = document.createElement("canvas");
+  contextRef.current = canvas.getContext("2d");
+  return contextRef.current;
 }
 
 function WorkspaceCanvasOverlayHost() {

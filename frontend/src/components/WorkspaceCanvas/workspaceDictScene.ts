@@ -10,6 +10,10 @@ import type {
   WorkspaceSceneTarget,
 } from "./workspaceController";
 import {
+  derivePassiveValuePreview,
+  getWorkspaceParamSupportDeclaration,
+} from "./workspaceDictParamPreview";
+import {
   buildWorkspaceCodeHighlightCacheKey,
   getWorkspaceCodeHighlightTokenRuns,
   hashWorkspaceCodePreviewValue,
@@ -29,14 +33,12 @@ import {
   normalizeShownParamDetails,
 } from "./workspaceSceneProject";
 import {
-  WORKSPACE_PARAM_SUPPORT,
   WORKSPACE_SCENE_GEOMETRY,
   type CanvasControlKind,
   type NormalizedShownParamDetails,
   type WorkspaceDictRowScene,
   type WorkspaceDictScene,
   type WorkspaceHitRegion,
-  type WorkspaceParamSupportDeclaration,
   type WorkspacePassiveCodePreview,
   type WorkspacePassiveValuePreview,
   type WorkspaceRect,
@@ -45,6 +47,14 @@ import {
   type WorkspaceSectionScene,
   type WorkspaceTypeErrorState,
 } from "./workspaceSceneTypes";
+import {
+  buildWorkspaceTextMeasurementCacheKey,
+  resolveWorkspaceTextPreview,
+  WORKSPACE_TEXT_STYLES,
+  type WorkspaceTextMeasurementCacheState,
+  type WorkspaceTextStyleKey,
+} from "./workspaceTextMeasurementCache";
+export { getWorkspaceParamSupportDeclaration } from "./workspaceDictParamPreview";
 
 type FlatDictParamRow = {
   id: string;
@@ -56,55 +66,6 @@ type FlatDictParamRow = {
   path: Array<string>;
 };
 
-type PassivePreviewBuilder = (
-  impl: BaseCodeObjImplUnion,
-) => WorkspacePassiveValuePreview;
-
-const PASSIVE_PREVIEW_BUILDERS: Record<string, PassivePreviewBuilder> = {
-  [CodeObjTypeEnum.PasswordParam]: buildPasswordPreview,
-  [CodeObjTypeEnum.SwitchParam]: buildSwitchPreview,
-  [CodeObjTypeEnum.ColorPickerParam]: buildColorPreview,
-  [CodeObjTypeEnum.DropdownParam]: buildDropdownPreview,
-  [CodeObjTypeEnum.SliderParam]: buildNumberPreview,
-  [CodeObjTypeEnum.RotaryParam]: buildNumberPreview,
-  [CodeObjTypeEnum.ButtonParam]: buildButtonPreview,
-  [CodeObjTypeEnum.NestedParam]: buildNestedPreview,
-  [CodeObjTypeEnum.CodeParam]: buildCodePreviewValue,
-  [CodeObjTypeEnum.TextParam]: buildTextPreview,
-  [CodeObjTypeEnum.DateParam]: buildTextPreview,
-  [CodeObjTypeEnum.TimeParam]: buildTextPreview,
-  [CodeObjTypeEnum.TextAreaParam]: buildTextPreview,
-};
-
-export function getWorkspaceParamSupportDeclaration(
-  impl: BaseCodeObjImplUnion,
-): WorkspaceParamSupportDeclaration {
-  if (
-    impl.type === CodeObjTypeEnum.ColorPickerParam &&
-    !hasColorChoices(impl)
-  ) {
-    return {
-      canvasSupport: { passive: "preview", active: "dom-native-overlay" },
-      activeInputStrategy: "dom-native-overlay",
-      commitMode: "onExplicitApply",
-      controlKind: "color-swatch",
-      primaryHitIntent: "open-dom-overlay",
-    };
-  }
-  return (
-    WORKSPACE_PARAM_SUPPORT[impl.type] ?? {
-      canvasSupport: {
-        passive: "unsupported-placeholder",
-        active: "unsupported",
-      },
-      activeInputStrategy: "unsupported",
-      commitMode: "none",
-      controlKind: "unsupported",
-      primaryHitIntent: "unsupported",
-    }
-  );
-}
-
 export function deriveDictScene({
   projectState,
   section,
@@ -113,6 +74,7 @@ export function deriveDictScene({
   controllerState,
   typeErrors,
   highlightCache,
+  textMeasurementCache,
 }: {
   projectState: WorkspaceSceneProjectState;
   section: WorkspaceSectionScene;
@@ -121,6 +83,7 @@ export function deriveDictScene({
   controllerState: WorkspaceCanvasControllerState;
   typeErrors: WorkspaceTypeErrorState;
   highlightCache: WorkspaceCodeHighlightCacheState | undefined;
+  textMeasurementCache: WorkspaceTextMeasurementCacheState | undefined;
 }): WorkspaceDictScene {
   const { pinnedFlat, unpinnedFlat } = flattenVisibleDictRows(
     projectState,
@@ -149,6 +112,7 @@ export function deriveDictScene({
       revisionKeys,
       controllerState,
       highlightCache,
+      textMeasurementCache,
       typeErrors,
       flatRows: pinnedFlat,
       region: layout.pinnedRegion,
@@ -163,6 +127,7 @@ export function deriveDictScene({
       revisionKeys,
       controllerState,
       highlightCache,
+      textMeasurementCache,
       typeErrors,
       flatRows: unpinnedFlat,
       region: layout.unpinnedRegion,
@@ -340,6 +305,7 @@ function materializeRows({
   revisionKeys: WorkspaceSceneRevisionKeys;
   controllerState: WorkspaceCanvasControllerState;
   highlightCache: WorkspaceCodeHighlightCacheState | undefined;
+  textMeasurementCache: WorkspaceTextMeasurementCacheState | undefined;
   typeErrors: WorkspaceTypeErrorState;
   flatRows: Array<FlatDictParamRow>;
   region: WorkspaceRect;
@@ -364,6 +330,7 @@ function materializeDictRow({
   revisionKeys,
   controllerState,
   highlightCache,
+  textMeasurementCache,
   typeErrors,
   flat,
   listIndex,
@@ -378,6 +345,7 @@ function materializeDictRow({
   revisionKeys: WorkspaceSceneRevisionKeys;
   controllerState: WorkspaceCanvasControllerState;
   highlightCache: WorkspaceCodeHighlightCacheState | undefined;
+  textMeasurementCache: WorkspaceTextMeasurementCacheState | undefined;
   typeErrors: WorkspaceTypeErrorState;
   flat: FlatDictParamRow;
   listIndex: number;
@@ -402,7 +370,17 @@ function materializeDictRow({
   const valueRect = deriveValueRect(rect, labelColumnWidth);
   const visibleRect = visible ? intersectRects(rect, clipRegion) : null;
   const support = getWorkspaceParamSupportDeclaration(codeObj.effectiveImpl);
+  const controlRect = deriveControlRect(valueRect, support.controlKind);
   const passiveValue = derivePassiveValuePreview(codeObj.effectiveImpl);
+  const cacheKeys = deriveRowCacheKeys(revisionKeys, section.id, flat.paramId, {
+    valueWidth: valueRect.width,
+    valueText: passiveValue.text,
+  });
+  const label = resolveParamLabel({
+    core: codeObj.core,
+    impl: codeObj.effectiveImpl,
+    showParamDisplayNames: projectState.projectConfig.showParamDisplayNames,
+  });
   const interactionState = deriveDictRowInteractionState(
     controllerState,
     section.id,
@@ -412,15 +390,11 @@ function materializeDictRow({
     ...flat,
     index: listIndex,
     paramType: codeObj.effectiveImpl.type,
-    label: resolveParamLabel({
-      core: codeObj.core,
-      impl: codeObj.effectiveImpl,
-      showParamDisplayNames: projectState.projectConfig.showParamDisplayNames,
-    }),
+    label,
     rect,
     labelRect,
     valueRect,
-    controlRect: deriveControlRect(valueRect, support.controlKind),
+    controlRect,
     visibleRect,
     nestingRails: deriveNestingRails(rect, flat.depth),
     visible,
@@ -436,18 +410,89 @@ function materializeDictRow({
       previewWidth: valueRect.width,
       highlightCache,
     }),
+    textPreviews: {
+      label: deriveRowTextPreview(
+        textMeasurementCache,
+        cacheKeys.textMeasurement,
+        {
+          role: "dict-label",
+          text: label,
+          maxWidth: Math.max(0, labelRect.width - 12),
+        },
+      ),
+      value: deriveRowTextPreview(
+        textMeasurementCache,
+        cacheKeys.textMeasurement,
+        {
+          role: "dict-value",
+          text: passiveValue.text,
+          maxWidth: Math.max(0, valueRect.width - 12),
+        },
+      ),
+      control: shouldMeasureControlText(support.controlKind)
+        ? deriveRowTextPreview(
+            textMeasurementCache,
+            cacheKeys.textMeasurement,
+            {
+              role: "dict-control",
+              text: passiveValue.text,
+              maxWidth: Math.max(
+                0,
+                deriveControlTextWidth(support.controlKind, controlRect),
+              ),
+            },
+          )
+        : null,
+    },
     errors: typeErrors[section.id]?.params?.[flat.paramId] ?? [],
     support,
     hitRegions: [] as Array<WorkspaceHitRegion>,
-    cacheKeys: deriveRowCacheKeys(revisionKeys, section.id, flat.paramId, {
-      valueWidth: valueRect.width,
-      valueText: passiveValue.text,
-    }),
+    cacheKeys,
   };
   return {
     ...row,
     hitRegions: buildRowHitRegions(section, row),
   };
+}
+
+function deriveRowTextPreview(
+  textMeasurementCache: WorkspaceTextMeasurementCacheState | undefined,
+  baseKey: string,
+  {
+    role,
+    text,
+    maxWidth,
+  }: {
+    role: WorkspaceTextStyleKey;
+    text: string;
+    maxWidth: number;
+  },
+) {
+  const font = WORKSPACE_TEXT_STYLES[role];
+  return resolveWorkspaceTextPreview(textMeasurementCache, {
+    cacheKey: buildWorkspaceTextMeasurementCacheKey({
+      baseKey,
+      role,
+      text,
+      font,
+      maxWidth,
+    }),
+    text,
+    font,
+    maxWidth,
+  });
+}
+
+function shouldMeasureControlText(controlKind: CanvasControlKind) {
+  return controlKind === "dropdown" || controlKind === "button";
+}
+
+function deriveControlTextWidth(
+  controlKind: CanvasControlKind,
+  controlRect: WorkspaceRect,
+) {
+  const chevronAllowance = controlKind === "dropdown" ? 20 : 0;
+  return Math.max(0, controlRect.width - 10 - chevronAllowance);
 }
 
 function deriveDictRowInteractionState(
@@ -547,20 +592,6 @@ function deriveCodePreview({
       ? getWorkspaceCodeHighlightTokenRuns(highlightCache, cacheKey)
       : null,
   };
-}
-
-function derivePassiveValuePreview(
-  impl: BaseCodeObjImplUnion,
-): WorkspacePassiveValuePreview {
-  return (
-    PASSIVE_PREVIEW_BUILDERS[impl.type]?.(impl) ?? {
-      kind: "unsupported",
-      text: "",
-      swatchColor: null,
-      choices: [],
-      masked: false,
-    }
-  );
 }
 
 function deriveVisibleRowRange({
@@ -820,132 +851,6 @@ function resolveParamLabel({
   return core.name || getStringField(impl, "name") || core.id;
 }
 
-function buildPasswordPreview(
-  impl: BaseCodeObjImplUnion,
-): WorkspacePassiveValuePreview {
-  return {
-    kind: "password",
-    text:
-      getStringValue(impl).length > 0 || getBooleanField(impl, "hasSecret")
-        ? "********"
-        : "",
-    swatchColor: null,
-    choices: [],
-    masked: true,
-  };
-}
-
-function buildSwitchPreview(
-  impl: BaseCodeObjImplUnion,
-): WorkspacePassiveValuePreview {
-  const value = getStringValue(impl).toLowerCase();
-  return {
-    kind: "boolean",
-    text: value === "true" || value === "1" ? "On" : "Off",
-    swatchColor: null,
-    choices: [],
-    masked: false,
-  };
-}
-
-function buildColorPreview(
-  impl: BaseCodeObjImplUnion,
-): WorkspacePassiveValuePreview {
-  const color = getStringValue(impl);
-  return {
-    kind: "color",
-    text: color,
-    swatchColor: color.trim().length > 0 ? color : null,
-    choices: getColorChoiceValues(impl),
-    masked: false,
-  };
-}
-
-function buildDropdownPreview(
-  impl: BaseCodeObjImplUnion,
-): WorkspacePassiveValuePreview {
-  return {
-    kind: "choice",
-    text: getStringValue(impl),
-    swatchColor: null,
-    choices: getStringArrayField(impl, "choices"),
-    masked: false,
-  };
-}
-
-function buildNumberPreview(
-  impl: BaseCodeObjImplUnion,
-): WorkspacePassiveValuePreview {
-  return {
-    kind: "number",
-    text: getStringValue(impl),
-    swatchColor: null,
-    choices: [],
-    masked: false,
-  };
-}
-
-function buildButtonPreview(
-  impl: BaseCodeObjImplUnion,
-): WorkspacePassiveValuePreview {
-  return {
-    kind: "button",
-    text: getStringField(impl, "label") || getStringField(impl, "name"),
-    swatchColor: null,
-    choices: [],
-    masked: false,
-  };
-}
-
-function buildNestedPreview(
-  impl: BaseCodeObjImplUnion,
-): WorkspacePassiveValuePreview {
-  const children = isBaseParentCodeObjImpl(impl) ? impl.children ?? [] : [];
-  return {
-    kind: "nested",
-    text: `${children.length} fields`,
-    swatchColor: null,
-    choices: [],
-    masked: false,
-  };
-}
-
-function buildCodePreviewValue(
-  impl: BaseCodeObjImplUnion,
-): WorkspacePassiveValuePreview {
-  return {
-    kind: "code",
-    text: getStringValue(impl),
-    swatchColor: null,
-    choices: [],
-    masked: false,
-  };
-}
-
-function buildTextPreview(
-  impl: BaseCodeObjImplUnion,
-): WorkspacePassiveValuePreview {
-  return {
-    kind: "text",
-    text: getStringValue(impl),
-    swatchColor: null,
-    choices: [],
-    masked: false,
-  };
-}
-
-function hasStringValue(
-  impl: BaseCodeObjImplUnion,
-): impl is BaseCodeObjImplUnion & {
-  value: string;
-} {
-  return typeof (impl as { value?: unknown }).value === "string";
-}
-
-function getStringValue(impl: BaseCodeObjImplUnion) {
-  return hasStringValue(impl) ? impl.value : getStringField(impl, "defaultVal");
-}
-
 function getStringField(impl: BaseCodeObjImplUnion, key: string) {
   const value = (impl as Record<string, unknown>)[key];
   return typeof value === "string" ? value : "";
@@ -956,38 +861,4 @@ function hasBooleanField<T extends string>(
   key: T,
 ): impl is BaseCodeObjImplUnion & Record<T, boolean> {
   return typeof (impl as Record<string, unknown>)[key] === "boolean";
-}
-
-function getBooleanField(impl: BaseCodeObjImplUnion, key: string) {
-  const value = (impl as Record<string, unknown>)[key];
-  return typeof value === "boolean" ? value : false;
-}
-
-function getStringArrayField(impl: BaseCodeObjImplUnion, key: string) {
-  const value = (impl as Record<string, unknown>)[key];
-  return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
-    : [];
-}
-
-function hasColorChoices(impl: BaseCodeObjImplUnion) {
-  const value = (impl as { colorChoices?: unknown }).colorChoices;
-  return Array.isArray(value) && value.length > 0;
-}
-
-function getColorChoiceValues(impl: BaseCodeObjImplUnion) {
-  const value = (impl as { colorChoices?: unknown }).colorChoices;
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .map((entry) => {
-      if (!entry || typeof entry !== "object") {
-        return null;
-      }
-      const record = entry as Record<string, unknown>;
-      const color = record.color ?? record.value;
-      return typeof color === "string" ? color : null;
-    })
-    .filter((entry): entry is string => entry !== null);
 }

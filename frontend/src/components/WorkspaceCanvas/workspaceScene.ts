@@ -45,6 +45,13 @@ import {
   type WorkspaceSectionScene,
   type WorkspaceTypeErrorState,
 } from "./workspaceSceneTypes";
+import {
+  buildWorkspaceTextMeasurementCacheKey,
+  resolveWorkspaceTextPreview,
+  WORKSPACE_TEXT_STYLES,
+  type WorkspaceTextMeasurementCacheState,
+  type WorkspaceTextStyleKey,
+} from "./workspaceTextMeasurementCache";
 
 export * from "./workspaceDictScene";
 export * from "./workspaceSceneGeometry";
@@ -56,6 +63,7 @@ type SectionDerivationArgs = {
   revisionKeys: WorkspaceSceneRevisionKeys;
   typeErrors: WorkspaceTypeErrorState;
   highlightCache: WorkspaceCodeHighlightCacheState | undefined;
+  textMeasurementCache: WorkspaceTextMeasurementCacheState | undefined;
   topLevelSections: ReturnType<typeof getActiveViewModeTopLevelSections>;
   sectionsById: Record<string, WorkspaceSectionScene>;
   sectionOrder: Array<string>;
@@ -87,6 +95,7 @@ export function deriveWorkspaceScene({
   revisionKeys: revisionOverrides = {},
   typeErrors = {},
   highlightCache,
+  textMeasurementCache,
 }: WorkspaceSceneOptions): WorkspaceScene {
   const revisionKeys = createWorkspaceSceneRevisionKeys(revisionOverrides);
   const viewport = getWorkspaceControllerViewport(
@@ -123,6 +132,7 @@ export function deriveWorkspaceScene({
       revisionKeys,
       typeErrors,
       highlightCache,
+      textMeasurementCache,
       topLevelSections,
       sectionsById,
       sectionOrder,
@@ -245,6 +255,7 @@ function buildInitialSectionRecord(
   const { localBounds, worldBounds } = deriveSectionBounds(context);
   const geometry = deriveSectionGeometry(worldBounds);
   const resizeHandles = deriveResizeHandles(worldBounds);
+  const sectionName = context.effectiveImpl.name || context.sectionId;
   const edgePortRegions = deriveEdgePortRegions({
     sectionId: context.sectionId,
     impl: context.effectiveImpl,
@@ -256,7 +267,7 @@ function buildInitialSectionRecord(
   return {
     id: context.sectionId,
     type: context.effectiveImpl.type,
-    name: context.effectiveImpl.name || context.sectionId,
+    name: sectionName,
     parentId: context.parent?.id ?? null,
     childIds: getSectionChildIds(
       context.projectState,
@@ -277,6 +288,17 @@ function buildInitialSectionRecord(
     scrollOffset: getSectionScrollOffset(context),
     geometry,
     resizeHandles,
+    titleTextPreview: deriveWorkspaceTextPreview(context, {
+      baseKey: buildCacheKey(
+        context.revisionKeys,
+        "section-title-text",
+        context.sectionId,
+        rectKey(geometry.header),
+      ),
+      role: "section-title",
+      text: sectionName,
+      maxWidth: Math.max(0, geometry.header.width - 36),
+    }),
     nestedDropZones: [],
     edgePortRegions,
     renderModel: null,
@@ -408,8 +430,38 @@ function deriveSectionRenderModel(
       controllerState: context.controllerState,
       typeErrors: context.typeErrors,
       highlightCache: context.highlightCache,
+      textMeasurementCache: context.textMeasurementCache,
     }),
   };
+}
+
+function deriveWorkspaceTextPreview(
+  context: SectionDerivationContext,
+  {
+    baseKey,
+    role,
+    text,
+    maxWidth,
+  }: {
+    baseKey: string;
+    role: WorkspaceTextStyleKey;
+    text: string;
+    maxWidth: number;
+  },
+) {
+  const font = WORKSPACE_TEXT_STYLES[role];
+  return resolveWorkspaceTextPreview(context.textMeasurementCache, {
+    cacheKey: buildWorkspaceTextMeasurementCacheKey({
+      baseKey,
+      role,
+      text,
+      font,
+      maxWidth,
+    }),
+    text,
+    font,
+    maxWidth,
+  });
 }
 
 function deriveChildSections(

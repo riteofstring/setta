@@ -5,6 +5,7 @@ import type {
   WorkspaceScrollbarScene,
   WorkspaceSectionScene,
 } from "./workspaceScene";
+import { WORKSPACE_TEXT_STYLES } from "./workspaceTextMeasurementCache";
 
 export type WorkspaceCanvasRenderOptions = {
   width: number;
@@ -231,9 +232,8 @@ function drawSectionTitle(
   palette: WorkspaceCanvasPalette,
 ) {
   context.fillStyle = palette.sectionHeaderText;
-  context.font =
-    "600 13px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  fillClippedText(context, section.name, {
+  context.font = WORKSPACE_TEXT_STYLES["section-title"];
+  fillClippedText(context, section.titleTextPreview.displayText, {
     x: section.geometry.header.x + 12,
     y: section.geometry.header.y,
     width: Math.max(0, section.geometry.header.width - 24),
@@ -272,15 +272,15 @@ function drawDictRow(
   for (const rail of row.nestingRails) {
     drawRect(context, rail, palette.rail, null);
   }
-  context.font =
-    "12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  context.font = WORKSPACE_TEXT_STYLES["dict-label"];
   context.fillStyle = row.errors.length > 0 ? palette.error : palette.labelText;
-  fillClippedText(context, row.label, row.labelRect);
+  fillClippedText(context, row.textPreviews.label.displayText, row.labelRect);
   if (row.codePreview) {
     drawCodePreview(context, row, palette);
   } else {
+    context.font = WORKSPACE_TEXT_STYLES["dict-value"];
     context.fillStyle = palette.valueText;
-    fillClippedText(context, row.passiveValue.text, row.valueRect);
+    fillClippedText(context, row.textPreviews.value.displayText, row.valueRect);
   }
   drawControlPreview(context, row, palette);
   if (row.errors.length > 0) {
@@ -330,8 +330,9 @@ function drawCodePreview(
 ) {
   const tokenRuns = row.codePreview?.tokenRuns;
   if (!tokenRuns || tokenRuns.length === 0) {
+    context.font = WORKSPACE_TEXT_STYLES["dict-value"];
     context.fillStyle = palette.valueText;
-    fillClippedText(context, row.passiveValue.text, row.valueRect);
+    fillClippedText(context, row.textPreviews.value.displayText, row.valueRect);
     return;
   }
 
@@ -418,8 +419,12 @@ function drawDropdownOrButtonControlPreview(
   const rect = insetRect(row.controlRect, 3);
   drawRoundedRect(context, rect, 4, palette.controlFill, palette.controlStroke);
   context.fillStyle = palette.controlText;
-  context.font = "11px system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  fillClippedText(context, row.passiveValue.text, insetRect(rect, 2));
+  context.font = WORKSPACE_TEXT_STYLES["dict-control"];
+  fillClippedText(
+    context,
+    row.textPreviews.control?.displayText ?? row.passiveValue.text,
+    insetRect(rect, 2),
+  );
   if (row.support.controlKind === "dropdown") {
     drawChevronDown(context, rect, palette);
   }

@@ -39,6 +39,11 @@ import {
   type WorkspaceDictScene,
   type WorkspaceScene,
 } from "./workspaceScene";
+import {
+  beginWorkspaceTextMeasurementRequest,
+  completeWorkspaceTextMeasurementRequest,
+  createWorkspaceTextMeasurementCacheState,
+} from "./workspaceTextMeasurementCache";
 
 type AddedSection<T extends BaseSectionImplUnion> = {
   variantId: string;
@@ -687,6 +692,87 @@ describe("workspace scene model", () => {
     expect(nextScrollScene.cacheKeys.scene).not.toBe(scene.cacheKeys.scene);
   });
 
+  it("threads ready text measurements through section and Dict text previews", () => {
+    const { state } = buildDictFixture();
+    const initialScene = deriveWorkspaceScene({
+      projectState: state,
+      viewportSize: { width: 800, height: 600 },
+      revisionKeys: {
+        textMeasurementRevision: "measure-1",
+      },
+    });
+    const initialDict = getRequiredDictScene(initialScene, "dict-a");
+    const titleRow = must(
+      initialDict.rows.find((row) => row.paramId === "title"),
+      "title row",
+    );
+    const valuePreview = titleRow.textPreviews.value;
+    const sectionTitlePreview =
+      initialScene.sectionsById["dict-a"]?.titleTextPreview;
+    if (!sectionTitlePreview) {
+      throw new Error("missing section title text preview");
+    }
+
+    const pending = beginWorkspaceTextMeasurementRequest(
+      beginWorkspaceTextMeasurementRequest(
+        createWorkspaceTextMeasurementCacheState(),
+        valuePreview.cacheKey,
+        "value-request",
+      ),
+      sectionTitlePreview.cacheKey,
+      "title-request",
+    );
+    const completedValue = completeWorkspaceTextMeasurementRequest(
+      pending,
+      valuePreview.cacheKey,
+      "value-request",
+      {
+        measuredWidth: 80,
+        displayText: "hel...",
+        displayWidth: 42,
+        truncated: true,
+      },
+    );
+    const completedTitle = completeWorkspaceTextMeasurementRequest(
+      completedValue.cache,
+      sectionTitlePreview.cacheKey,
+      "title-request",
+      {
+        measuredWidth: 88,
+        displayText: "Generic...",
+        displayWidth: 56,
+        truncated: true,
+      },
+    );
+
+    const measuredScene = deriveWorkspaceScene({
+      projectState: state,
+      viewportSize: { width: 800, height: 600 },
+      revisionKeys: {
+        textMeasurementRevision: "measure-1",
+      },
+      textMeasurementCache: completedTitle.cache,
+    });
+    const measuredDict = getRequiredDictScene(measuredScene, "dict-a");
+    const measuredTitleRow = must(
+      measuredDict.rows.find((row) => row.paramId === "title"),
+      "measured title row",
+    );
+
+    expect(valuePreview.ready).toBe(false);
+    expect(measuredTitleRow.textPreviews.value).toMatchObject({
+      ready: true,
+      displayText: "hel...",
+      truncated: true,
+    });
+    expect(
+      measuredScene.sectionsById["dict-a"]?.titleTextPreview,
+    ).toMatchObject({
+      ready: true,
+      displayText: "Generic...",
+    });
+  });
+
   it("defines Param support declarations for first Dict Param kinds", () => {
     expect(
       getWorkspaceParamSupportDeclaration(valueParam("SwitchParam", "true")),
@@ -912,8 +998,10 @@ describe("workspace scene model", () => {
       new URL("./workspaceSceneProject.ts", import.meta.url),
       new URL("./workspaceSceneGeometry.ts", import.meta.url),
       new URL("./workspaceDictScene.ts", import.meta.url),
+      new URL("./workspaceDictParamPreview.ts", import.meta.url),
       new URL("./workspaceController.ts", import.meta.url),
       new URL("./workspaceHighlightCache.ts", import.meta.url),
+      new URL("./workspaceTextMeasurementCache.ts", import.meta.url),
     ];
     const source = files.map((file) => readFileSync(file, "utf8")).join("\n");
 

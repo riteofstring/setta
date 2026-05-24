@@ -5,6 +5,7 @@ import type {
   WorkspaceScene,
   WorkspaceSectionScene,
 } from "./workspaceScene";
+import type { WorkspaceTextPreview } from "./workspaceTextMeasurementCache";
 
 type CanvasOperation =
   | {
@@ -224,6 +225,79 @@ describe("workspace canvas renderer", () => {
       ),
     ).toBe(false);
   });
+
+  it("draws ready measured text previews instead of full overflowing text", () => {
+    const row = createDictRow({
+      label: "Extremely verbose setting label",
+      passiveValue: {
+        kind: "choice",
+        text: "Long selected option",
+        swatchColor: null,
+        choices: ["Long selected option"],
+        masked: false,
+      },
+      support: {
+        canvasSupport: { passive: "preview", active: "canvas-popup" },
+        activeInputStrategy: "canvas-popup",
+        commitMode: "onExplicitApply",
+        controlKind: "dropdown",
+        primaryHitIntent: "open-canvas-popup",
+      },
+      textPreviews: {
+        label: createTextPreview("Extremely verbose setting label", {
+          displayText: "Extremely...",
+          truncated: true,
+        }),
+        value: createTextPreview("Long selected option", {
+          displayText: "Long...",
+          truncated: true,
+        }),
+        control: createTextPreview("Long selected option", {
+          displayText: "Long...",
+          truncated: true,
+        }),
+      },
+    });
+    const section = createSection({
+      id: "dict",
+      name: "Dict",
+      worldBounds: { x: 20, y: 30, width: 320, height: 160 },
+      renderModel: {
+        kind: "dict",
+        dict: {
+          sectionId: "dict",
+          pinnedRegion: { x: 20, y: 66, width: 320, height: 0 },
+          unpinnedRegion: { x: 20, y: 66, width: 320, height: 124 },
+          scrollOffset: 0,
+          visibleRowRange: { start: 0, end: 1, overscan: 3 },
+          contentHeight: 28,
+          rows: [row],
+          scrollbar: null,
+          hitRegions: [],
+        },
+      },
+    });
+    const context = new MockCanvasContext();
+
+    renderWorkspaceCanvas(
+      context as unknown as CanvasRenderingContext2D,
+      createRendererScene({
+        rootSectionIds: ["dict"],
+        sectionOrder: ["dict"],
+        sectionsById: { dict: section },
+      }),
+      createRenderOptions(),
+    );
+
+    const drawnText = context.operations
+      .filter(isFillTextOperation)
+      .map((operation) => operation.text);
+
+    expect(drawnText).toContain("Extremely...");
+    expect(drawnText).toContain("Long...");
+    expect(drawnText).not.toContain("Extremely verbose setting label");
+    expect(drawnText).not.toContain("Long selected option");
+  });
 });
 
 function isFillTextOperation(
@@ -331,6 +405,7 @@ function createSection(
       bottom: { x: 0, y: 0, width: 0, height: 0 },
       corner: { x: 0, y: 0, width: 0, height: 0 },
     },
+    titleTextPreview: createTextPreview(overrides.name),
     nestedDropZones: [],
     edgePortRegions: [],
     renderModel: {
@@ -378,6 +453,11 @@ function createDictRow(
       masked: false,
     },
     codePreview: null,
+    textPreviews: {
+      label: createTextPreview("Code"),
+      value: createTextPreview("value"),
+      control: null,
+    },
     errors: [],
     support: {
       canvasSupport: { passive: "preview", active: "dom-rich-overlay" },
@@ -392,6 +472,24 @@ function createDictRow(
       textMeasurement: "text",
       valuePreview: "value",
     },
+    ...overrides,
+  };
+}
+
+function createTextPreview(
+  text: string,
+  overrides: Partial<WorkspaceTextPreview> = {},
+): WorkspaceTextPreview {
+  return {
+    cacheKey: `text-measure:test:${text}`,
+    text,
+    font: "12px sans-serif",
+    maxWidth: 200,
+    measuredWidth: text.length * 7,
+    displayText: text,
+    displayWidth: text.length * 7,
+    truncated: false,
+    ready: true,
     ...overrides,
   };
 }

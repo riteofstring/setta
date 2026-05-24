@@ -17,6 +17,10 @@ import type {
   WorkspaceCodeHighlightCacheState,
   WorkspaceCodeTokenRun,
 } from "./workspaceHighlightCache";
+import type {
+  WorkspaceTextMeasurementCacheState,
+  WorkspaceTextPreview,
+} from "./workspaceTextMeasurementCache";
 
 export type WorkspacePoint = {
   x: number;
@@ -76,6 +80,7 @@ export type WorkspaceSceneOptions = {
   revisionKeys?: Partial<WorkspaceSceneRevisionKeys>;
   typeErrors?: WorkspaceTypeErrorState;
   highlightCache?: WorkspaceCodeHighlightCacheState;
+  textMeasurementCache?: WorkspaceTextMeasurementCacheState;
 };
 
 export type WorkspaceHitCoordinateSpace = "workspace" | "screen";
@@ -174,6 +179,7 @@ export type WorkspaceSectionScene = {
   scrollOffset: number;
   geometry: WorkspaceSectionGeometry;
   resizeHandles: WorkspaceResizeHandleRegions;
+  titleTextPreview: WorkspaceTextPreview;
   nestedDropZones: Array<WorkspaceNestedDropZone>;
   edgePortRegions: Array<WorkspaceHitRegion>;
   renderModel: WorkspaceSectionRenderModel;
@@ -266,6 +272,11 @@ export type WorkspaceDictRowScene = {
   focused: boolean;
   passiveValue: WorkspacePassiveValuePreview;
   codePreview: WorkspacePassiveCodePreview | null;
+  textPreviews: {
+    label: WorkspaceTextPreview;
+    value: WorkspaceTextPreview;
+    control: WorkspaceTextPreview | null;
+  };
   errors: Array<string>;
   support: WorkspaceParamSupportDeclaration;
   hitRegions: Array<WorkspaceHitRegion>;
