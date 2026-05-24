@@ -1,3 +1,9 @@
+import type {
+  WorkspaceSceneProjectState,
+  WorkspaceSize,
+  WorkspaceViewport,
+} from "./workspaceSceneTypes";
+
 export type WorkspaceSceneItemKind =
   | "workspace"
   | "section"
@@ -78,7 +84,13 @@ export type CanvasActiveControlState = {
   draftValue: string | number | boolean | null;
 };
 
+export type WorkspaceControllerViewportState = {
+  sourceKey: string;
+  viewport: WorkspaceViewport;
+};
+
 export type WorkspaceCanvasControllerState = {
+  viewport: WorkspaceControllerViewportState | null;
   hoveredTarget: WorkspaceSceneTarget | null;
   selectedTarget: WorkspaceSceneTarget | null;
   keyboardFocusedTarget: WorkspaceSceneTarget | null;
@@ -91,6 +103,7 @@ export function createWorkspaceCanvasControllerState(
   overrides: Partial<WorkspaceCanvasControllerState> = {},
 ): WorkspaceCanvasControllerState {
   return {
+    viewport: null,
     hoveredTarget: null,
     selectedTarget: null,
     keyboardFocusedTarget: null,
@@ -98,6 +111,68 @@ export function createWorkspaceCanvasControllerState(
     activeControlState: null,
     sectionScrollOffsets: {},
     ...overrides,
+  };
+}
+
+export function createWorkspaceControllerViewportState(
+  projectState: WorkspaceSceneProjectState,
+  viewportSize: WorkspaceSize,
+): WorkspaceControllerViewportState {
+  const source = resolveCanonicalWorkspaceViewportSource(projectState);
+  const viewport = normalizeWorkspaceViewport(source.viewport, viewportSize);
+  return {
+    sourceKey: buildWorkspaceViewportSourceKey(
+      source.kind,
+      source.viewport,
+      viewport,
+      viewportSize,
+    ),
+    viewport,
+  };
+}
+
+export function getWorkspaceControllerViewport(
+  state: WorkspaceCanvasControllerState,
+  projectState: WorkspaceSceneProjectState,
+  viewportSize: WorkspaceSize,
+): WorkspaceViewport {
+  return (
+    state.viewport ??
+    createWorkspaceControllerViewportState(projectState, viewportSize)
+  ).viewport;
+}
+
+export function syncWorkspaceControllerViewport(
+  state: WorkspaceCanvasControllerState,
+  projectState: WorkspaceSceneProjectState,
+  viewportSize: WorkspaceSize,
+): WorkspaceCanvasControllerState {
+  const next = createWorkspaceControllerViewportState(
+    projectState,
+    viewportSize,
+  );
+  if (state.viewport?.sourceKey === next.sourceKey) {
+    return state;
+  }
+  return {
+    ...state,
+    viewport: next,
+  };
+}
+
+export function setWorkspaceControllerViewport(
+  state: WorkspaceCanvasControllerState,
+  viewport: WorkspaceViewport,
+): WorkspaceCanvasControllerState {
+  return {
+    ...state,
+    viewport: {
+      sourceKey: state.viewport?.sourceKey ?? "local",
+      viewport: normalizeWorkspaceViewport(viewport, {
+        width: 1,
+        height: 1,
+      }),
+    },
   };
 }
 
@@ -137,6 +212,64 @@ export function reduceActiveEditorSession(
       session: current,
     },
   };
+}
+
+type CanonicalWorkspaceViewportSource = {
+  kind: string;
+  viewport: WorkspaceViewport | null | undefined;
+};
+
+function resolveCanonicalWorkspaceViewportSource(
+  projectState: WorkspaceSceneProjectState,
+): CanonicalWorkspaceViewportSource {
+  const { activeViewModeId, viewModes } = projectState.projectConfig;
+  const activeViewMode =
+    activeViewModeId && viewModes[activeViewModeId]
+      ? viewModes[activeViewModeId]
+      : null;
+  if (activeViewMode?.viewportInitialized && activeViewMode.viewport) {
+    return {
+      kind: `view-mode:${activeViewModeId}`,
+      viewport: activeViewMode.viewport,
+    };
+  }
+  return {
+    kind: `project:${
+      projectState.projectConfig.viewportInitialized ? "initialized" : "pending"
+    }`,
+    viewport: projectState.projectConfig.viewport,
+  };
+}
+
+function normalizeWorkspaceViewport(
+  viewport: WorkspaceViewport | null | undefined,
+  viewportSize: WorkspaceSize,
+): WorkspaceViewport {
+  if (!viewport) {
+    return {
+      x: viewportSize.width / 2,
+      y: viewportSize.height / 2,
+      zoom: 1,
+    };
+  }
+  return {
+    x: viewport.x,
+    y: viewport.y,
+    zoom: Math.max(0.01, viewport.zoom),
+  };
+}
+
+function buildWorkspaceViewportSourceKey(
+  kind: string,
+  canonicalViewport: WorkspaceViewport | null | undefined,
+  viewport: WorkspaceViewport,
+  viewportSize: WorkspaceSize,
+) {
+  const keyParts = [kind, viewport.x, viewport.y, viewport.zoom];
+  if (!canonicalViewport) {
+    keyParts.push(viewportSize.width, viewportSize.height);
+  }
+  return keyParts.join(":");
 }
 
 export function setWorkspaceSectionScrollOffset(

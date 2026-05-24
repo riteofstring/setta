@@ -6,32 +6,13 @@ import {
   type Core,
   type TopLevelSectionLayout,
   type Variant,
-  type Viewport,
 } from "utils/generatedTypes";
 import type {
   EffectiveCodeObjSnapshot,
   EffectiveSectionSnapshot,
   NormalizedShownParamDetails,
   WorkspaceSceneProjectState,
-  WorkspaceSize,
-  WorkspaceViewport,
 } from "./workspaceSceneTypes";
-
-export function resolveViewport(
-  projectState: WorkspaceSceneProjectState,
-  viewportSize: WorkspaceSize,
-): WorkspaceViewport {
-  const { activeViewModeId, viewModes } = projectState.projectConfig;
-  const activeViewMode =
-    activeViewModeId && viewModes[activeViewModeId]
-      ? viewModes[activeViewModeId]
-      : null;
-  const viewport =
-    activeViewMode?.viewportInitialized && activeViewMode.viewport
-      ? activeViewMode.viewport
-      : projectState.projectConfig.viewport;
-  return normalizeViewport(viewport, viewportSize);
-}
 
 export function getActiveViewModeTopLevelSections(
   projectState: WorkspaceSceneProjectState,
@@ -196,24 +177,6 @@ export function filterEdgeInputParams(
     topLevelParamIds: details.topLevelParamIds.filter(
       (paramId) => !edgeInputParams.has(paramId),
     ),
-  };
-}
-
-function normalizeViewport(
-  viewport: Viewport | null,
-  viewportSize: WorkspaceSize,
-): WorkspaceViewport {
-  if (!viewport) {
-    return {
-      x: viewportSize.width / 2,
-      y: viewportSize.height / 2,
-      zoom: 1,
-    };
-  }
-  return {
-    x: viewport.x,
-    y: viewport.y,
-    zoom: Math.max(0.01, viewport.zoom),
   };
 }
 

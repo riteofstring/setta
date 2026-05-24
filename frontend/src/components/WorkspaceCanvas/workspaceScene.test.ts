@@ -6,6 +6,7 @@ import {
   createSingleConfig,
   createTextBlockSectionImpl,
   createVariant,
+  createViewMode,
   type BaseCodeObjImplUnion,
   type BaseSectionImplUnion,
   type DictSectionImpl,
@@ -15,7 +16,9 @@ import { describe, expect, it } from "vitest";
 import {
   createWorkspaceCanvasControllerState,
   reduceActiveEditorSession,
+  setWorkspaceControllerViewport,
   setWorkspaceSectionScrollOffset,
+  syncWorkspaceControllerViewport,
   type ActiveEditorSession,
 } from "./workspaceController";
 import {
@@ -464,21 +467,98 @@ function getHitRegionIntent(scene: WorkspaceScene, id: string) {
 }
 
 describe("workspace scene model", () => {
-  it("derives viewport transforms and coordinate conversion", () => {
+  it("derives viewport transforms from canvas controller state", () => {
     const { state } = buildDictFixture();
+    const syncedController = syncWorkspaceControllerViewport(
+      createWorkspaceCanvasControllerState(),
+      state,
+      { width: 800, height: 600 },
+    );
+    const controller = setWorkspaceControllerViewport(syncedController, {
+      x: 30,
+      y: 40,
+      zoom: 0.5,
+    });
     const scene = deriveWorkspaceScene({
       projectState: state,
       viewportSize: { width: 800, height: 600 },
+      controllerState: controller,
     });
 
-    expect(scene.viewport).toEqual({ x: 10, y: 20, zoom: 2 });
-    expect(screenToWorkspace({ x: 30, y: 60 }, scene.viewport)).toEqual({
+    expect(syncedController.viewport?.viewport).toEqual({
       x: 10,
       y: 20,
+      zoom: 2,
     });
-    expect(workspaceToScreen({ x: 10, y: 20 }, scene.viewport)).toEqual({
+    expect(scene.viewport).toEqual({ x: 30, y: 40, zoom: 0.5 });
+    expect(screenToWorkspace({ x: 45, y: 60 }, scene.viewport)).toEqual({
       x: 30,
+      y: 40,
+    });
+    expect(workspaceToScreen({ x: 30, y: 40 }, scene.viewport)).toEqual({
+      x: 45,
       y: 60,
+    });
+  });
+
+  it("syncs controller viewport from active view mode source changes", () => {
+    const { state } = buildDictFixture();
+    state.projectConfig.viewport = { x: 1, y: 2, zoom: 3 };
+    state.projectConfig.activeViewModeId = "view-a";
+    state.projectConfig.viewModes["view-a"] = createViewMode({
+      id: "view-a",
+      viewport: { x: 70, y: 80, zoom: 0.25 },
+      viewportInitialized: true,
+    });
+
+    const syncedController = syncWorkspaceControllerViewport(
+      createWorkspaceCanvasControllerState(),
+      state,
+      { width: 800, height: 600 },
+    );
+    const transientController = setWorkspaceControllerViewport(
+      syncedController,
+      {
+        x: 90,
+        y: 100,
+        zoom: 0.75,
+      },
+    );
+    const unchangedSourceController = syncWorkspaceControllerViewport(
+      transientController,
+      state,
+      { width: 800, height: 600 },
+    );
+
+    expect(syncedController.viewport?.sourceKey).toContain("view-mode:view-a");
+    expect(syncedController.viewport?.viewport).toEqual({
+      x: 70,
+      y: 80,
+      zoom: 0.25,
+    });
+    expect(unchangedSourceController).toBe(transientController);
+    expect(unchangedSourceController.viewport?.viewport).toEqual({
+      x: 90,
+      y: 100,
+      zoom: 0.75,
+    });
+
+    state.projectConfig.viewModes["view-a"] = createViewMode({
+      id: "view-a",
+      viewport: { x: 110, y: 120, zoom: 0.4 },
+      viewportInitialized: true,
+    });
+    const changedSourceController = syncWorkspaceControllerViewport(
+      unchangedSourceController,
+      state,
+      { width: 800, height: 600 },
+    );
+
+    expect(changedSourceController).not.toBe(unchangedSourceController);
+    expect(changedSourceController.viewport?.viewport).toEqual({
+      x: 110,
+      y: 120,
+      zoom: 0.4,
     });
   });
 

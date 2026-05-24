@@ -18,6 +18,7 @@ import {
 import { renderWorkspaceCanvas } from "./workspaceCanvasRenderer";
 import {
   createWorkspaceCanvasControllerState,
+  syncWorkspaceControllerViewport,
   type WorkspaceCanvasControllerState,
 } from "./workspaceController";
 import { deriveWorkspaceScene, type WorkspaceSize } from "./workspaceScene";
@@ -38,9 +39,19 @@ export function WorkspaceCanvas() {
   const projectState = useProjectState();
   const typeErrors = useTypeErrors((state) => state.errors);
   const showMinimap = useLocalStorage((state) => state.showMinimap);
-  const [controllerState] = useState<WorkspaceCanvasControllerState>(() =>
-    createWorkspaceCanvasControllerState(),
-  );
+  const [controllerState, setControllerState] =
+    useState<WorkspaceCanvasControllerState>(() =>
+      syncWorkspaceControllerViewport(
+        createWorkspaceCanvasControllerState(),
+        projectState,
+        viewportSize,
+      ),
+    );
+  useEffect(() => {
+    setControllerState((current) =>
+      syncWorkspaceControllerViewport(current, projectState, viewportSize),
+    );
+  }, [projectState, viewportSize]);
   const projectRevision = useMonotonicRevisionToken(projectState);
   const sectionScrollRevision = useMemo(
     () => serializeSectionScrollRevision(controllerState.sectionScrollOffsets),
@@ -56,7 +67,7 @@ export function WorkspaceCanvas() {
         revisionKeys: {
           projectRevision,
           viewportRevision: [
-            projectRevision,
+            serializeWorkspaceViewportRevision(controllerState),
             viewportSize.width,
             viewportSize.height,
           ].join(":"),
@@ -410,4 +421,17 @@ function serializeSectionScrollRevision(offsets: Record<string, number>) {
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([sectionId, offset]) => `${sectionId}:${offset}`)
     .join("|");
+}
+
+function serializeWorkspaceViewportRevision(
+  controllerState: WorkspaceCanvasControllerState,
+) {
+  const viewportState = controllerState.viewport;
+  if (!viewportState) {
+    return "viewport:unsynced";
+  }
+  const { viewport } = viewportState;
+  return [viewportState.sourceKey, viewport.x, viewport.y, viewport.zoom].join(
+    ":",
+  );
 }

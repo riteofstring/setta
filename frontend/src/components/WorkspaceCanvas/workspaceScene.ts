@@ -1,6 +1,7 @@
 import { SectionTypeEnum, type DictSectionImpl } from "utils/generatedTypes";
 import {
   createWorkspaceCanvasControllerState,
+  getWorkspaceControllerViewport,
   type WorkspaceCanvasControllerState,
   type WorkspaceSceneTarget,
 } from "./workspaceController";
@@ -30,7 +31,6 @@ import {
   getEffectiveSectionSnapshot,
   getRootSectionIdsForScene,
   getSectionChildIds,
-  resolveViewport,
 } from "./workspaceSceneProject";
 import {
   DEFAULT_WORKSPACE_SCENE_REVISIONS,
@@ -89,7 +89,11 @@ export function deriveWorkspaceScene({
   highlightCache,
 }: WorkspaceSceneOptions): WorkspaceScene {
   const revisionKeys = createWorkspaceSceneRevisionKeys(revisionOverrides);
-  const viewport = resolveViewport(projectState, viewportSize);
+  const viewport = getWorkspaceControllerViewport(
+    controllerState,
+    projectState,
+    viewportSize,
+  );
   const visibleWorkspaceRect = screenRectToWorkspaceRect(
     { x: 0, y: 0, ...viewportSize },
     viewport,
