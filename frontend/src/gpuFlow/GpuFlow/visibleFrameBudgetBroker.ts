@@ -153,6 +153,7 @@ export function createGpuFlowVisibleFrameBudgetBrokerDecision({
   budgetBroker = createGpuFlowVisibleFrameBudgetBroker(),
   deferResolutionUpdates,
   publicationDecision,
+  resourceGraphSnapshot = null,
 }: {
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly deferResolutionUpdates: boolean;
@@ -160,10 +161,19 @@ export function createGpuFlowVisibleFrameBudgetBrokerDecision({
     GpuFlowVisiblePublicationDecision,
     "debt" | "lane" | "schedulerState"
   >;
+  readonly resourceGraphSnapshot?:
+    | GpuFlowVisibleFrameResourceGraphSnapshot
+    | null
+    | undefined;
 }): GpuFlowVisibleFrameBudgetBrokerDecision {
   return budgetBroker.selectFrameBudget({
     deferResolutionUpdates,
     publicationDecision,
+    requestedDebt: createGpuFlowVisibleFrameBudgetDebtRequests({
+      deferResolutionUpdates,
+      publicationDecision,
+      resourceGraphSnapshot,
+    }),
   });
 }
 
@@ -182,12 +192,17 @@ type GpuFlowVisibleFrameAgedBudgetDebtRequest =
 function createGpuFlowVisibleFrameBudgetDebtRequests({
   deferResolutionUpdates,
   publicationDecision,
+  resourceGraphSnapshot = null,
 }: {
   readonly deferResolutionUpdates: boolean;
   readonly publicationDecision: Pick<
     GpuFlowVisiblePublicationDecision,
     "debt" | "lane" | "schedulerState"
   >;
+  readonly resourceGraphSnapshot?:
+    | GpuFlowVisibleFrameResourceGraphSnapshot
+    | null
+    | undefined;
 }): readonly GpuFlowVisibleFrameBudgetDebtRequest[] {
   const debt: GpuFlowVisibleFrameBudgetDebtRequest[] = [];
   if (
@@ -219,6 +234,13 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
       priority: "quality",
       resourceState: "requested",
     });
+  }
+  if (resourceGraphSnapshot !== null) {
+    debt.push(
+      ...createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph({
+        snapshot: resourceGraphSnapshot,
+      }),
+    );
   }
   return Object.freeze(debt);
 }

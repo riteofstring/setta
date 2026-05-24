@@ -32,6 +32,7 @@ import type {
   GpuFlowProjectionFrameRenderPlan,
   GpuFlowProjectionFrameTransaction,
 } from "./visibleFrameProjectionPlan";
+import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import {
   shouldDeferGpuFlowMaintenanceContentCatchup,
   type GpuFlowVisibleFrameRequestCoordinator,
@@ -133,6 +134,10 @@ export type GpuFlowVisibleFramePublicationSample = {
   readonly runtimeViewportFrame: boolean;
   readonly sample: GpuFlowLiveProjectionSample;
   readonly timestamp: DOMHighResTimeStamp;
+  readonly visibleFrameResourceGraphSnapshot?:
+    | GpuFlowVisibleFrameResourceGraphSnapshot
+    | null
+    | undefined;
   readonly viewportInteractionActive: boolean;
 };
 
@@ -275,6 +280,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     runtimeViewportFrame,
     sample,
     timestamp,
+    visibleFrameResourceGraphSnapshot,
     viewportInteractionActive,
   } = sampledPublication;
   const publicationDecision = selectGpuFlowVisibleFramePublicationTransaction({
@@ -291,6 +297,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
       budgetBroker,
       rawReasons,
       runtimeViewportFrame,
+      visibleFrameResourceGraphSnapshot,
       viewportInteractionActive,
     });
   const candidateSet = prepareGpuFlowVisibleFramePublicationCandidateSet({
@@ -473,12 +480,17 @@ function createGpuFlowVisibleFramePublicationFrameContext({
   publicationDecision,
   rawReasons,
   runtimeViewportFrame,
+  visibleFrameResourceGraphSnapshot,
   viewportInteractionActive,
 }: {
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly runtimeViewportFrame: boolean;
+  readonly visibleFrameResourceGraphSnapshot?:
+    | GpuFlowVisibleFrameResourceGraphSnapshot
+    | null
+    | undefined;
   readonly viewportInteractionActive: boolean;
 }): GpuFlowVisibleFramePublicationFrameContext {
   const viewportFrame = rawReasons.includes("viewport") || runtimeViewportFrame;
@@ -493,6 +505,7 @@ function createGpuFlowVisibleFramePublicationFrameContext({
     budgetBroker,
     deferResolutionUpdates,
     publicationDecision,
+    resourceGraphSnapshot: visibleFrameResourceGraphSnapshot,
   });
   return Object.freeze({
     budgetDecision,

@@ -199,6 +199,64 @@ describe("GPU Flow visible frame budget broker", () => {
       "dom-control:active-editor",
     ]);
   });
+
+  it("includes resource graph debt in frame-context budget decisions", () => {
+    const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
+      deferResolutionUpdates: false,
+      publicationDecision: publicationDecision({
+        lane: "motion",
+        schedulerState: "motion-active",
+      }),
+      resourceGraphSnapshot: {
+        activeEditorPins: [],
+        candidateResourceKeys: [],
+        committedFrameId: null,
+        committedResourceKeys: [],
+        pendingCandidateFrameIds: [9],
+        queuedResourceKeys: [
+          "dom-control:active-editor",
+          "page:quality-prefetch",
+        ],
+        resourceDebtByState: {
+          absent: 0,
+          preparing: 1,
+          presented: 0,
+          ready: 0,
+          requested: 1,
+          retired: 0,
+        },
+        resourceStates: [
+          {
+            debtAgeFrames: 0,
+            deadlineFrame: 1,
+            estimatedCostMs: 0.5,
+            ownerFrameId: 9,
+            preparationLane: "browser-visual",
+            priority: "safety",
+            resourceKey: "dom-control:active-editor",
+            state: "requested",
+          },
+          {
+            debtAgeFrames: 0,
+            deadlineFrame: 9,
+            estimatedCostMs: 2,
+            ownerFrameId: 9,
+            preparationLane: "retained-page",
+            priority: "quality",
+            resourceKey: "page:quality-prefetch",
+            state: "preparing",
+          },
+        ],
+      },
+    });
+
+    expect(decision.preparationBudget.selectedDebtByLane).toEqual({
+      "browser-visual": ["dom-control:active-editor"],
+    });
+    expect(decision.preparationBudget.deferredDebtByLane).toEqual({
+      "retained-page": ["page:quality-prefetch"],
+    });
+  });
 });
 
 function publicationDecision({

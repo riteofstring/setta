@@ -175,12 +175,17 @@ export function useGpuFlowCommittedSurfaceFrameState({
     },
     [],
   );
+  const getVisibleFrameResourceGraphSnapshot = useCallback(
+    () => visibleFrameResourceGraphRef.current.getSnapshot(),
+    [],
+  );
 
   return {
     abortPreparedCommittedSurfaceFrame,
     commitPreparedCommittedSurfaceFrame,
     committedSurfaceFrameRef,
     committedSurfaceRuntime: committedSurfaceRuntimeRef.current,
+    getVisibleFrameResourceGraphSnapshot,
     prepareCommittedSurfaceFrame,
     projectCommittedBrowserVisualActors,
     visibleCommittedSurfaceFrame,

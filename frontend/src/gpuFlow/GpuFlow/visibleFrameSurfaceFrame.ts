@@ -56,6 +56,7 @@ import type {
   GpuFlowVisibleFrameRequestCoordinator,
   GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameScheduling";
+import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
 type GpuFlowNodeLayerFrameInput = Parameters<
@@ -104,6 +105,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   ) => void;
   readonly committedSurfaceFrameRef: MutableRefObject<GpuFlowCommittedSurfaceFrame | null>;
   readonly event: GpuFlowSurfaceFrameEvent;
+  readonly getVisibleFrameResourceGraphSnapshot: () => GpuFlowVisibleFrameResourceGraphSnapshot;
   readonly initialRetainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly liveProjectionSamplerRef: MutableRefObject<
     ReturnType<typeof createGpuFlowLiveProjectionSampler>
@@ -346,6 +348,8 @@ export function renderGpuFlowSurfaceFrame({
           runtimeViewportFrame: runtimeFrame.viewportFrame,
           sample,
           timestamp: event.timestamp,
+          visibleFrameResourceGraphSnapshot:
+            input.getVisibleFrameResourceGraphSnapshot(),
           viewportInteractionActive:
             viewportStore.getState().viewportInteractionActive,
         };
