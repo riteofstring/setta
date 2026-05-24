@@ -93,6 +93,14 @@
   min-width: 0;
 }
 
+.setta-gpu-flow__dom-control[data-gpu-flow-dom-control-active="true"] {
+  box-shadow: 0 0 0 1px rgba(226, 232, 240, 0.5);
+}
+
+html.dark .setta-gpu-flow__dom-control[data-gpu-flow-dom-control-active="true"] {
+  box-shadow: 0 0 0 1px rgba(23, 37, 84, 0.3);
+}
+
 .setta-gpu-flow__cold-start-shell {
   position: absolute;
   inset: 0;

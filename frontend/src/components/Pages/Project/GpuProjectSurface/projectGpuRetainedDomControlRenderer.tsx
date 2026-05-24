@@ -12,6 +12,9 @@ import { useTypeErrors } from "state/definitions";
 import { useProjectGpuDomIslandActivation } from "./projectGpuDomIslandActivation";
 import { PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID } from "./projectGpuPortalAdapter";
 
+const PROJECT_GPU_RETAINED_TEXT_LIKE_DOM_CONTROL_ACTIVE_CLASS =
+  "relative h-full min-w-0 bg-setta-100/50 dark:bg-blue-950/30";
+
 export function renderProjectGpuRetainedDomControl(
   source: GpuRetainedDomControlSourceDescriptor,
   context?: Parameters<GpuFlowDomControlRenderer>[1],
@@ -88,7 +91,7 @@ function ProjectGpuActiveRetainedDomControl({
 
   return (
     <div
-      className="relative h-full min-w-0"
+      className={PROJECT_GPU_RETAINED_TEXT_LIKE_DOM_CONTROL_ACTIVE_CLASS}
       data-gpu-flow-retained-content-native="true"
       data-gpu-flow-retained-dom-control-content="true"
       data-gpu-project-param-dom-control="true"

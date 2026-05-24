@@ -28,6 +28,7 @@ export function realCodeClass(hasError: boolean): string {
     "self-end peer/textinput",
     hasError ? "[&_*]:!text-red-500" : "",
     "[&_*]:!outline-0 cursor-text select-text",
+    "[&_.cm-editor]:!bg-transparent [&_.cm-scroller]:!bg-transparent",
     "[&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10",
     "[&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs",
     "section-value py-[.125rem]",

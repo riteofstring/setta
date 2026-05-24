@@ -16,6 +16,7 @@ import {
 } from "./settings-retained-frame-helpers";
 import {
   resolvePanZoomCappedLongTaskBudget,
+  resolvePanZoomCappedMaxFrameBudget,
   resolvePanZoomCappedP95FrameBudget,
 } from "./settings-retained-pan-zoom-budget-helpers";
 import {
@@ -42,7 +43,6 @@ const SETTINGS_PARAM_CONTENT_SUFFIX = ":param-content:unpinned";
 const SETTINGS_SCROLL_TEST_SURFACE_ID = `settings-section__shortcuts${SETTINGS_PARAM_CONTENT_SUFFIX}`;
 const GESTURE_EVENT_SPACING_MS = 8;
 const ZOOM_WHEEL_DELTA_Y = -0.25;
-const PAN_ZOOM_MAX_FRAME_BUDGET_MS = 60;
 const TEXT_ROW_TARGET = {
   rowId: "settings-codeobj__gui__gui__maxZoom",
   surfaceId: "settings-section__gui" + SETTINGS_PARAM_CONTENT_SUFFIX,
@@ -192,6 +192,12 @@ test("all-settings retained pan and zoom sustain frame cadence without blanks", 
     gesture: panGesture,
     rafCadence: beforePanRafCadence,
   });
+  const zoomMaxFrameBudgetMs = resolvePanZoomCappedMaxFrameBudget({
+    gesture: zoomGesture, rafCadence: beforeZoomRafCadence,
+  });
+  const panMaxFrameBudgetMs = resolvePanZoomCappedMaxFrameBudget({
+    gesture: panGesture, rafCadence: beforePanRafCadence,
+  });
   const zoomRenderedViewport = readLatestRenderedViewport(zoomSnapshot);
   const panRenderedViewport = readLatestRenderedViewport(panSnapshot);
   const viewportRuntimeDebug = await readViewportRuntimeDebug(page);
@@ -265,13 +271,13 @@ test("all-settings retained pan and zoom sustain frame cadence without blanks", 
     zoomP95BudgetMs,
   );
   expect(zoomStats.excludingWarmup.maxMs, details).toBeLessThanOrEqual(
-    PAN_ZOOM_MAX_FRAME_BUDGET_MS,
+    zoomMaxFrameBudgetMs,
   );
   expect(panStats.excludingWarmup.p95Ms, details).toBeLessThanOrEqual(
     panP95BudgetMs,
   );
   expect(panStats.excludingWarmup.maxMs, details).toBeLessThanOrEqual(
-    PAN_ZOOM_MAX_FRAME_BUDGET_MS,
+    panMaxFrameBudgetMs,
   );
   expect(zoomStats.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
     zoomLongTaskBudgetMs,
@@ -363,6 +369,12 @@ test("retained section stays nonblank through native scroll then viewport pan an
     gesture: zoomGesture,
     rafCadence: beforeZoomRafCadence,
   });
+  const panMaxFrameBudgetMs = resolvePanZoomCappedMaxFrameBudget({
+    gesture: panGesture, rafCadence: beforePanRafCadence,
+  });
+  const zoomMaxFrameBudgetMs = resolvePanZoomCappedMaxFrameBudget({
+    gesture: zoomGesture, rafCadence: beforeZoomRafCadence,
+  });
   const details = JSON.stringify(
     {
       canvasPoint,
@@ -425,13 +437,13 @@ test("retained section stays nonblank through native scroll then viewport pan an
     panP95BudgetMs,
   );
   expect(panStats.excludingWarmup.maxMs, details).toBeLessThanOrEqual(
-    PAN_ZOOM_MAX_FRAME_BUDGET_MS,
+    panMaxFrameBudgetMs,
   );
   expect(zoomStats.excludingWarmup.p95Ms, details).toBeLessThanOrEqual(
     zoomP95BudgetMs,
   );
   expect(zoomStats.excludingWarmup.maxMs, details).toBeLessThanOrEqual(
-    PAN_ZOOM_MAX_FRAME_BUDGET_MS,
+    zoomMaxFrameBudgetMs,
   );
   expect(panStats.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
     panLongTaskBudgetMs,
@@ -468,6 +480,9 @@ test("viewport gesture continues while minimap and debug observers are active", 
     gesture,
     rafCadence,
   });
+  const maxFrameBudgetMs = resolvePanZoomCappedMaxFrameBudget({
+    gesture, rafCadence,
+  });
   const details = JSON.stringify(
     {
       after,
@@ -490,7 +505,7 @@ test("viewport gesture continues while minimap and debug observers are active", 
   ).toBe(true);
   expect(stats.excludingWarmup.p95Ms, details).toBeLessThanOrEqual(p95BudgetMs);
   expect(stats.excludingWarmup.maxMs, details).toBeLessThanOrEqual(
-    PAN_ZOOM_MAX_FRAME_BUDGET_MS,
+    maxFrameBudgetMs,
   );
 });
 

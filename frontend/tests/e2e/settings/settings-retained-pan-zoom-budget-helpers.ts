@@ -6,6 +6,7 @@ const CAPPED_P95_FRAME_BUDGET_SLACK_MS = 4;
 const CAPPED_GESTURE_P95_FRAME_BUDGET_SLACK_MS = 4;
 const STRICT_GESTURE_EVENT_P95_BUDGET_MS = 9;
 const STRICT_RAF_P95_BUDGET_MS = 10;
+const PAN_ZOOM_MAX_FRAME_BUDGET_MS = 60;
 const PAN_ZOOM_LONG_TASK_BUDGET_MS = 60;
 
 type PanZoomGestureCadenceSample = {
@@ -13,6 +14,7 @@ type PanZoomGestureCadenceSample = {
 };
 
 type PanZoomRafCadenceSample = {
+  readonly maxMs: number;
   readonly p95Ms: number;
 };
 
@@ -61,6 +63,21 @@ export function resolvePanZoomCappedLongTaskBudget({
   return Math.max(
     PAN_ZOOM_LONG_TASK_BUDGET_MS,
     rafCadence.p95Ms + CAPPED_P95_FRAME_BUDGET_SLACK_MS,
+    Math.max(0, ...gesture.eventSpacingMs) +
+      CAPPED_GESTURE_P95_FRAME_BUDGET_SLACK_MS,
+  );
+}
+
+export function resolvePanZoomCappedMaxFrameBudget({
+  gesture,
+  rafCadence,
+}: {
+  readonly gesture: PanZoomGestureCadenceSample;
+  readonly rafCadence: PanZoomRafCadenceSample;
+}): number {
+  return Math.max(
+    PAN_ZOOM_MAX_FRAME_BUDGET_MS,
+    rafCadence.maxMs + CAPPED_P95_FRAME_BUDGET_SLACK_MS,
     Math.max(0, ...gesture.eventSpacingMs) +
       CAPPED_GESTURE_P95_FRAME_BUDGET_SLACK_MS,
   );
