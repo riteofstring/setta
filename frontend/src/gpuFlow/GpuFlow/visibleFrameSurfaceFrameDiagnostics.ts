@@ -1,6 +1,8 @@
 import type { GpuFrameReason } from "../gpuRenderer";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowContentPreparationFrameResult } from "./visibleFrameContentPlan";
 import type { runGpuFlowVisibleFrameCoordinator } from "./visibleFrameCoordinator";
+import { createGpuFlowVisibleFrameActorManifestDiagnostics } from "./visibleFrameActorManifestDiagnostics";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import { createGpuFlowVisibleFramePresentationTransactionProofReport } from "./visibleFrameTransactionProofs";
 
@@ -53,9 +55,16 @@ export function recordGpuFlowSurfacePresentationFrameOutcomeDiagnostic({
   const contentFrame = coordinatorResult.preparedFrame.contentPreparationFrame;
   const layerResult =
     contentFrame.nodeLayerFrameStatePresentation?.layerResult ?? null;
+  const blockedReasons = getGpuFlowSurfaceFrameBlockedReasons(contentFrame);
   requests.push({
     activeEditorPins:
       coordinatorResult.presentationFrameContext.activeEditorPins,
+    actorManifest: createGpuFlowSurfaceFrameActorManifestDiagnostic({
+      blockedReasons,
+      contentFrame,
+      coordinatorResult,
+      reducerCompletion,
+    }),
     ...createGpuFlowSurfaceFrameDebtRequestDiagnostic(
       reducerCompletion.debtFrameRequest,
     ),
@@ -63,7 +72,7 @@ export function recordGpuFlowSurfacePresentationFrameOutcomeDiagnostic({
     budgetDecision: createGpuFlowSurfaceFrameBudgetDecisionDiagnostic(
       coordinatorResult.presentationFrameContext.budgetDecision,
     ),
-    blockedReasons: getGpuFlowSurfaceFrameBlockedReasons(contentFrame),
+    blockedReasons,
     completionDebt: reducerCompletion.completion.debt,
     completionOutcome: reducerCompletion.completion.outcome,
     contentPresentation:
@@ -173,6 +182,7 @@ function createGpuFlowSurfaceFrameRequestDiagnostic(
   frameRequest: GpuFlowSurfaceFrameCoordinatorResult["presentationFrameContext"]["frameRequest"],
 ) {
   return {
+    classifiedDebt: frameRequest.classifiedDebt ?? null,
     contentDebt: frameRequest.contentDebt,
     contentRetryDeferred: frameRequest.contentRetryDeferred,
     criticalContentDebt: frameRequest.criticalContentDebt,
@@ -181,8 +191,59 @@ function createGpuFlowSurfaceFrameRequestDiagnostic(
     motionRetryDeferred: frameRequest.motionRetryDeferred,
     rawReasons: frameRequest.rawReasons,
     reducerState: frameRequest.reducerState,
+    retainedScrollInteractionActive:
+      frameRequest.retainedScrollInteractionActive ?? null,
     viewportInteractionActive: frameRequest.viewportInteractionActive,
   };
+}
+
+function createGpuFlowSurfaceFrameActorManifestDiagnostic({
+  blockedReasons,
+  contentFrame,
+  coordinatorResult,
+  reducerCompletion,
+}: {
+  readonly blockedReasons: ReturnType<typeof getGpuFlowSurfaceFrameBlockedReasons>;
+  readonly contentFrame: GpuFlowContentPreparationFrameResult;
+  readonly coordinatorResult: GpuFlowSurfaceFrameCoordinatorResult;
+  readonly reducerCompletion: GpuFlowSurfaceFrameReducerCompletion;
+}) {
+  return createGpuFlowVisibleFrameActorManifestDiagnostics({
+    blockedReasons,
+    frame: selectGpuFlowSurfaceFrameActorManifestFrame({
+      contentFrame,
+      coordinatorResult,
+    }),
+    presentationId: getGpuFlowSurfaceFrameOutcomeTransactionId(
+      coordinatorResult.outcome,
+    ),
+    remainingDebt: reducerCompletion.completion.debt,
+    visibleOutcome: coordinatorResult.outcome.kind,
+  });
+}
+
+function selectGpuFlowSurfaceFrameActorManifestFrame({
+  contentFrame,
+  coordinatorResult,
+}: {
+  readonly contentFrame: GpuFlowContentPreparationFrameResult;
+  readonly coordinatorResult: GpuFlowSurfaceFrameCoordinatorResult;
+}): GpuFlowPreparedContentFrame | null {
+  return (
+    coordinatorResult.preparedFrame.transactionProof?.visibleProjectionState
+      ?.preparedContentFrame ??
+    contentFrame.visibleProjectionState?.preparedContentFrame ??
+    contentFrame.preparedContentFrame ??
+    contentFrame.heldPreparedContentFrame ??
+    contentFrame.blockedPreparedContentFrame ??
+    null
+  );
+}
+
+function getGpuFlowSurfaceFrameOutcomeTransactionId(
+  outcome: GpuFlowSurfaceFrameCoordinatorResult["outcome"],
+): string | null {
+  return outcome.token.transactionId ?? null;
 }
 
 function createGpuFlowSurfaceFrameResourceGraphDiagnostic(
