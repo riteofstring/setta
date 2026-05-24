@@ -169,7 +169,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       contentDecisionKernel.createVisibleProjectionStateForRetainedPublication({
         frameReasons: ["manual"],
         liveProjectionSample: liveProjectionSample(),
-        publicationLane: "content",
+        contentWorkLane: "content",
         preparedContentFrame: undefined,
       }),
     ).toThrow("GPU Flow visible projection requires a prepared content frame.");
@@ -180,7 +180,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       contentDecisionKernel.createVisibleProjectionStateForRetainedPublication({
         frameReasons: ["texture-upload", "dom-control-activation"],
         liveProjectionSample: liveProjectionSample(),
-        publicationLane: "content",
+        contentWorkLane: "content",
         preparedContentFrame: preparedContentFrame(48),
       });
 
@@ -831,7 +831,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
             publishedRetainedFrame,
           }),
         previousVisibleProjectionState: null,
-        publicationLane: "content",
+        contentWorkLane: "content",
         retainedDisplayPublicationInput:
           retainedDisplayPublicationInputFixture(),
       });
@@ -968,7 +968,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
         preparePreparedContentFramePublicationFramePlan,
         prepareRetainedDisplayPublicationFramePlan,
         previousVisibleProjectionState: null,
-        publicationLane: "content",
+        contentWorkLane: "content",
         retainedDisplayPublicationInput: {
           darkMode: false,
           deferResolutionUpdates: false,
@@ -1100,7 +1100,7 @@ function preparedContentFramePublicationCandidateInput({
     frameReasons: ["manual"],
     heldPreviousProjectionState: null,
     liveProjectionSample: liveProjectionSample(),
-    publicationLane: "content",
+    contentWorkLane: "content",
     preparedContentFrame,
     publishedRetainedFrame: {} as RetainedDisplayFrame,
   };

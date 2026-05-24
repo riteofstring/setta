@@ -141,19 +141,19 @@ describe("GPU flow maintenance texture upload", () => {
     expect(
       shouldUploadGpuFlowMaintenanceDirtySurfaceTexturesEarly({
         frameReasons: ["manual", "texture-upload"],
-        publicationLane: "content",
+        contentWorkLane: "content",
       }),
     ).toBe(true);
     expect(
       shouldUploadGpuFlowMaintenanceDirtySurfaceTexturesEarly({
         frameReasons: ["manual"],
-        publicationLane: "content",
+        contentWorkLane: "content",
       }),
     ).toBe(false);
     expect(
       shouldUploadGpuFlowMaintenanceDirtySurfaceTexturesEarly({
         frameReasons: [],
-        publicationLane: "maintenance",
+        contentWorkLane: "maintenance",
       }),
     ).toBe(true);
   });
@@ -179,7 +179,7 @@ function textureUploadResult({
     skippedUploadBytes: 0,
     uploaded: Array.from({ length: uploadedCount }, (_, index) => ({
       surfaceId: `uploaded-${index}`,
-    })) as UploadDirtyHtmlSurfaceTexturesResult["uploaded"],
+    })) as unknown as UploadDirtyHtmlSurfaceTexturesResult["uploaded"],
     uploadedBytes: 0,
     workSummary: {
       deferredSurfaceCount: deferredSurfaceIds.length,

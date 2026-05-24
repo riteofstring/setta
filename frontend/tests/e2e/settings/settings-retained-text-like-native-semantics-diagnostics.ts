@@ -102,7 +102,7 @@ export async function readRetainedSurfaceRowSearchDiagnostics(
             readonly frame?: number;
             readonly frameReason?: string | null;
             readonly outcomeKind?: string;
-            readonly publicationLane?: string;
+            readonly reducerLane?: string;
             readonly resourceGraph?: {
               readonly debtAgeByResourceKey?: Record<string, unknown>;
               readonly pendingCandidateFrameIds?: readonly number[];
@@ -192,7 +192,7 @@ export async function readRetainedSurfaceRowSearchDiagnostics(
           frame: entry.frame,
           frameReason: entry.frameReason,
           outcomeKind: entry.outcomeKind,
-          publicationLane: entry.publicationLane,
+          reducerLane: entry.reducerLane,
           resourceGraph: entry.resourceGraph
             ? {
                 debtAgeByResourceKey: Object.fromEntries(

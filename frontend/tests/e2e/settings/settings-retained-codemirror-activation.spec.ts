@@ -957,7 +957,7 @@ async function readActivationDiagnostics(
             outcomeKind: record.outcomeKind ?? null,
             contentPublication: record.contentPublication ?? null,
             pendingCandidateFrameIds: record.pendingCandidateFrameIds ?? null,
-            publicationLane: record.publicationLane ?? null,
+            reducerLane: record.reducerLane ?? null,
             queuedResourceKeyCount: Array.isArray(record.queuedResourceKeys)
               ? record.queuedResourceKeys.length
               : null,

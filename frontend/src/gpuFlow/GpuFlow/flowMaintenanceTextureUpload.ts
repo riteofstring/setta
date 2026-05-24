@@ -142,16 +142,16 @@ function requestGpuFlowSurfaceFrames(
 
 export function shouldUploadGpuFlowMaintenanceDirtySurfaceTexturesEarly({
   frameReasons,
-  publicationLane,
+  contentWorkLane,
 }: {
   readonly frameReasons: readonly GpuFrameReason[];
-  readonly publicationLane: Extract<
+  readonly contentWorkLane: Extract<
     GpuFlowProjectionLane,
     "content" | "maintenance"
   >;
 }): boolean {
   return (
-    publicationLane === "maintenance" || frameReasons.includes("texture-upload")
+    contentWorkLane === "maintenance" || frameReasons.includes("texture-upload")
   );
 }
 

@@ -132,7 +132,7 @@ export type GpuFlowPreparedContentFramePublicationCandidateInput = {
   readonly frameReasons: readonly GpuFrameReason[];
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
-  readonly publicationLane: Extract<
+  readonly contentWorkLane: Extract<
     GpuFlowProjectionLane,
     "content" | "maintenance"
   >;
@@ -270,7 +270,7 @@ export type GpuFlowRetainedPreparedContentFramePublicationContentStageInput<
   readonly preparePreparedContentFramePublicationFramePlan: GpuFlowPreparedContentFramePublicationFramePlanPreparer;
   readonly prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationLane: Extract<
+  readonly contentWorkLane: Extract<
     GpuFlowProjectionLane,
     "content" | "maintenance"
   >;
@@ -410,7 +410,7 @@ function prepareGpuFlowPreparedContentFramePublicationFramePlanForRetainedDispla
   liveProjectionSample,
   prepareContentFrame,
   preparePreparedContentFramePublicationFramePlan,
-  publicationLane,
+  contentWorkLane,
   publishedRetainedFrame,
 }: {
   readonly committedGpuNativeVisuals:
@@ -424,7 +424,7 @@ function prepareGpuFlowPreparedContentFramePublicationFramePlanForRetainedDispla
     | GpuFlowRetainedDisplayPreparedContentFramePreparer
     | undefined;
   readonly preparePreparedContentFramePublicationFramePlan: GpuFlowPreparedContentFramePublicationFramePlanPreparer;
-  readonly publicationLane: Extract<
+  readonly contentWorkLane: Extract<
     GpuFlowProjectionLane,
     "content" | "maintenance"
   >;
@@ -442,7 +442,7 @@ function prepareGpuFlowPreparedContentFramePublicationFramePlanForRetainedDispla
       frameReasons,
       heldPreviousProjectionState,
       liveProjectionSample,
-      publicationLane,
+      contentWorkLane,
       preparedContentFrame,
       publishedRetainedFrame,
     }),
@@ -465,7 +465,7 @@ export function runGpuFlowRetainedPreparedContentFramePublicationContentStage<
   preparePreparedContentFramePublicationFramePlan,
   prepareRetainedDisplayPublicationFramePlan,
   previousVisibleProjectionState,
-  publicationLane,
+  contentWorkLane,
   retainedDisplayPublicationInput,
 }: GpuFlowRetainedPreparedContentFramePublicationContentStageInput<
   RetainedContext,
@@ -498,7 +498,7 @@ export function runGpuFlowRetainedPreparedContentFramePublicationContentStage<
             liveProjectionSample,
             prepareContentFrame,
             preparePreparedContentFramePublicationFramePlan,
-            publicationLane,
+            contentWorkLane,
             publishedRetainedFrame: publishedRetainedDisplayOutcomeFrame.frame,
           },
         );
@@ -539,7 +539,7 @@ export function runGpuFlowRetainedPreparedContentFramePublicationContentStage<
                 {
                   frameReasons,
                   liveProjectionSample,
-                  publicationLane,
+                  contentWorkLane,
                   preparedContentFrame: input.preparedContentFrame,
                 },
               ),

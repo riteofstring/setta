@@ -17,7 +17,7 @@ export type GpuFlowMotionProjectionWorkPlan =
 export type GpuFlowContentPublicationWorkPlan =
   | {
       readonly kind: "prepare";
-      readonly publicationLane: Extract<
+      readonly contentWorkLane: Extract<
         GpuFlowProjectionLane,
         "content" | "maintenance"
       >;
@@ -62,7 +62,7 @@ export function createGpuFlowContentPublicationWorkPlan({
   }
   return Object.freeze({
     kind: "prepare" as const,
-    publicationLane:
+    contentWorkLane:
       reducerDecision.lane === "maintenance" ? "maintenance" : "content",
   });
 }

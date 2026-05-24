@@ -537,7 +537,7 @@ export function renderGpuFlowNodeLayerFrame({
   retainedContentFrameCacheRef,
   heldPreviousProjectionState,
   liveProjectionSample,
-  publicationLane,
+  contentWorkLane,
   surfaceRef,
   textureManagerRef,
   transformOnlyPaintNodeIdsRef,
@@ -569,7 +569,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly retainedContentFrameCacheRef: MutableRefObject<GpuFlowRetainedContentFrameCache | null>;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
-  readonly publicationLane: Extract<
+  readonly contentWorkLane: Extract<
     GpuFlowProjectionLane,
     "content" | "maintenance"
   >;
@@ -655,7 +655,7 @@ export function renderGpuFlowNodeLayerFrame({
   if (
     shouldUploadGpuFlowMaintenanceDirtySurfaceTexturesEarly({
       frameReasons,
-      publicationLane,
+      contentWorkLane,
     })
   ) {
     uploadGpuFlowMaintenanceDirtySurfaceTextures({
@@ -956,7 +956,7 @@ export function renderGpuFlowNodeLayerFrame({
     },
     prepareContentFrame: onRetainedDisplayFrame,
     previousVisibleProjectionState: heldPreviousProjectionState,
-    publicationLane,
+    contentWorkLane,
     retainedDisplayPublicationInput: {
       darkMode,
       deferResolutionUpdates,

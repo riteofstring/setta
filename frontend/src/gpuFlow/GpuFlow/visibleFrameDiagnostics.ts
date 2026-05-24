@@ -51,7 +51,7 @@ type GpuFlowBlockedVisibleFramePresentationEvent = {
   readonly candidateFrameId: number | null;
   readonly frozenFrame: GpuFlowBlockedFrozenFrame;
   readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
-  readonly publicationLane: GpuFlowVisibleFrameReducerDecision["lane"];
+  readonly reducerLane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly projectionSampleId: number;
   readonly remainingDebt: GpuFlowVisibleFrameReducerCompletion["debt"];
   readonly reducerOutcome: GpuFlowVisibleFrameReducerCompletion["outcome"];
@@ -365,7 +365,7 @@ export function recordGpuFlowBlockedVisibleFramePresentation({
     candidateFrameId: frame?.displayFrameId ?? null,
     frozenFrame: token.frozenFrame,
     frozenFrameId: token.frozenFrameId,
-    publicationLane: reducerDecision.lane,
+    reducerLane: reducerDecision.lane,
     projectionSampleId: token.projectionSampleId,
     remainingDebt: publicationCompletion.debt,
     reducerOutcome: publicationCompletion.outcome,
@@ -383,7 +383,7 @@ export function recordGpuFlowBlockedVisibleFramePresentation({
     candidateFrameId: event.candidateFrameId,
     frozenFrame: event.frozenFrame,
     frozenFrameId: event.frozenFrameId,
-    publicationLane: event.publicationLane,
+    reducerLane: event.reducerLane,
     projectionSampleId: event.projectionSampleId,
     remainingDebt: event.remainingDebt,
     reducerOutcome: event.reducerOutcome,

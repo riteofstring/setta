@@ -44,7 +44,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({ lane: "maintenance" }),
         renderedProjectionOnlyFrame: false,
       }),
-    ).toEqual({ kind: "prepare", publicationLane: "maintenance" });
+    ).toEqual({ kind: "prepare", contentWorkLane: "maintenance" });
     expect(
       createGpuFlowContentPublicationWorkPlan({
         blockedProjectionOnlyFrame: false,
@@ -281,9 +281,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       "function shouldPublishGpuFlowContentFrame",
     );
     expect(surfaceSource).not.toContain("getGpuFlowContentPublicationLane");
-    expect(surfaceSource).not.toContain(
-      'reducerDecision.lane !== "motion"',
-    );
+    expect(surfaceSource).not.toContain('reducerDecision.lane !== "motion"');
     expect(surfaceSource).toContain("contentPublicationWorkPlan");
     expect(surfaceSource).toContain("motionProjectionWorkPlan");
     expect(coordinatorSource).toContain(

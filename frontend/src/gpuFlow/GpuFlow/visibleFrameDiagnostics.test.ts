@@ -453,7 +453,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         ],
         candidateFrameId: null,
         frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
-        publicationLane: "content",
+        reducerLane: "content",
         projectionSampleId: 9,
         remainingDebt: { content: true, maintenance: false, motion: false },
         reducerOutcome: "blocked",
@@ -591,7 +591,7 @@ function publicationCandidateInput({
     frameReasons: ["manual"],
     heldPreviousProjectionState: null,
     liveProjectionSample: { id: 1, timestamp },
-    publicationLane: "content",
+    contentWorkLane: "content",
     preparedContentFrame: blockedCommittedSurfaceFrame(),
     publishedRetainedFrame: retainedFrame,
   } as unknown as GpuFlowPreparedContentFramePublicationCandidateInput;

@@ -97,7 +97,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   | "liveProjectionSample"
   | "onRetainedDisplayFrame"
   | "onRetainedPreparedRuntimeFrame"
-  | "publicationLane"
+  | "contentWorkLane"
   | "runRetainedPreparedContentFramePublicationContentStage"
   | "viewportFrame"
 > & {
@@ -729,7 +729,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
     retainedContentSwitchAnimations: input.retainedContentSwitchAnimations,
     heldPreviousProjectionState: previousVisibleProjectionState,
     liveProjectionSample,
-    publicationLane: contentPublicationWorkPlan.publicationLane,
+    contentWorkLane: contentPublicationWorkPlan.contentWorkLane,
     runtime,
     surfaceRef: input.surfaceRef,
     textureManagerRef: input.textureManagerRef,

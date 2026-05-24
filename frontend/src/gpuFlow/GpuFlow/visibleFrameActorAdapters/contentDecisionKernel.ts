@@ -95,7 +95,7 @@ type GpuFlowRetainedPublicationVisibleProjectionStateInput = Pick<
   GpuFlowPreparedContentFramePublicationCandidateInput,
   | "frameReasons"
   | "liveProjectionSample"
-  | "publicationLane"
+  | "contentWorkLane"
   | "preparedContentFrame"
 >;
 

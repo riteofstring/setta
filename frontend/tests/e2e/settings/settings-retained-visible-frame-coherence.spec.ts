@@ -46,7 +46,7 @@ type BlockedVisibleFramePresentationEvent = {
   }[];
   readonly candidateFrameId?: number | null;
   readonly frozenFrameId?: number | string | null;
-  readonly publicationLane?: string | null;
+  readonly reducerLane?: string | null;
   readonly projectionSampleId?: number | null;
   readonly remainingDebt?: {
     readonly content?: boolean;
@@ -516,11 +516,11 @@ function expectBlockedEventRetainsSchedulerDebt(
     details,
   ).toBe(true);
   if (
-    event.publicationLane === "content" ||
-    event.publicationLane === "maintenance" ||
-    event.publicationLane === "motion"
+    event.reducerLane === "content" ||
+    event.reducerLane === "maintenance" ||
+    event.reducerLane === "motion"
   ) {
-    expect(remainingDebt[event.publicationLane], details).toBe(true);
+    expect(remainingDebt[event.reducerLane], details).toBe(true);
   }
 }
 

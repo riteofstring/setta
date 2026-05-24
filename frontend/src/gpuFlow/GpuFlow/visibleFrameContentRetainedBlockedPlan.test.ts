@@ -90,7 +90,7 @@ describe("GPU Flow retained display candidate content plans", () => {
             }),
           }),
         previousVisibleProjectionState: null,
-        publicationLane: "content",
+        contentWorkLane: "content",
         retainedDisplayPublicationInput:
           retainedDisplayPublicationInputFixture(),
       });
@@ -162,7 +162,7 @@ describe("GPU Flow retained display candidate content plans", () => {
             }),
           }),
         previousVisibleProjectionState: null,
-        publicationLane: "content",
+        contentWorkLane: "content",
         retainedDisplayPublicationInput:
           retainedDisplayPublicationInputFixture(),
       });

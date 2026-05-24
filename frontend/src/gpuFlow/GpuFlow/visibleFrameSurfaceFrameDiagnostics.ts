@@ -74,7 +74,7 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
     ),
     frameReasons: [...frameReasons],
     outcomeKind: coordinatorResult.outcome.kind,
-    publicationLane: coordinatorResult.reducerDecision.lane,
+    reducerLane: coordinatorResult.reducerDecision.lane,
     recordedAtMs: performance.now(),
     resourceGraph: createGpuFlowSurfaceFrameResourceGraphDiagnostic(
       postFrameResourceGraphSnapshot,

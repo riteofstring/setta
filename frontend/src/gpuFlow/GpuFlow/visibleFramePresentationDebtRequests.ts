@@ -150,7 +150,7 @@ function recordGpuFlowSurfaceReducerDebtFrameRequestDiagnostic({
     delayMs: debtFrameRequest?.delayMs ?? null,
     frameReason: debtFrameRequest?.frameReason ?? null,
     outcomeKind: outcome.kind,
-    publicationLane: reducerDecision.lane,
+    reducerLane: reducerDecision.lane,
     reducerState: reducerDecision.reducerState,
   });
   view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ = requests.slice(-20);

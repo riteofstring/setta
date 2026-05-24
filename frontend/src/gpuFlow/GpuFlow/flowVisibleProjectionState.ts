@@ -11,12 +11,12 @@ import {
 export function createGpuFlowVisibleProjectionStateForRetainedPublication({
   frameReasons,
   liveProjectionSample,
-  publicationLane,
+  contentWorkLane,
   preparedContentFrame,
 }: {
   readonly frameReasons: readonly GpuFrameReason[];
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
-  readonly publicationLane: Extract<
+  readonly contentWorkLane: Extract<
     GpuFlowProjectionLane,
     "content" | "maintenance"
   >;
@@ -28,7 +28,7 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
   const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
     committedFrameId: visibleCommittedFrame.displayFrameId,
     kind: "content-publication",
-    lane: publicationLane,
+    lane: contentWorkLane,
     rawReasons: frameReasons,
     sample: liveProjectionSample,
   });

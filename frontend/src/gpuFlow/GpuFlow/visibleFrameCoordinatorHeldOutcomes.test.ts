@@ -390,7 +390,7 @@ function preparePreparedContentFramePublicationCandidateForTest({
     frameReasons: ["manual"],
     heldPreviousProjectionState,
     liveProjectionSample: liveSample,
-    publicationLane: "content",
+    contentWorkLane: "content",
     preparedContentFrame,
     publishedRetainedFrame: retainedDisplayFrame(),
   }).candidate;
