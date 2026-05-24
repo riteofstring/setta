@@ -44,18 +44,6 @@ func TestStorePersistsPluginStateFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load plugins state: %v", err)
 	}
-	assertLoadedPluginsStateOrdering(t, state)
-
-	globalState, err := store.LoadPluginsGlobalState()
-	if err != nil {
-		t.Fatalf("load global plugins state: %v", err)
-	}
-	assertLoadedPluginsGlobalStateOrdering(t, globalState)
-}
-
-func assertLoadedPluginsStateOrdering(t *testing.T, state PluginsStateFile) {
-	t.Helper()
-
 	if len(state.EnabledPluginIDs) != 2 || state.EnabledPluginIDs[0] != "alpha" || state.EnabledPluginIDs[1] != "beta" {
 		t.Fatalf("unexpected enabled ids: %#v", state.EnabledPluginIDs)
 	}
@@ -68,11 +56,11 @@ func assertLoadedPluginsStateOrdering(t *testing.T, state PluginsStateFile) {
 	if len(state.PendingRestartLanguageServerOnlyPluginIDs) != 1 || state.PendingRestartLanguageServerOnlyPluginIDs[0] != "backend-b" {
 		t.Fatalf("unexpected pending LSP-only restart ids: %#v", state.PendingRestartLanguageServerOnlyPluginIDs)
 	}
-}
 
-func assertLoadedPluginsGlobalStateOrdering(t *testing.T, globalState PluginsGlobalStateFile) {
-	t.Helper()
-
+	globalState, err := store.LoadPluginsGlobalState()
+	if err != nil {
+		t.Fatalf("load global plugins state: %v", err)
+	}
 	if len(globalState.AutoEnabledPluginIDs) != 2 || globalState.AutoEnabledPluginIDs[0] != "alpha" || globalState.AutoEnabledPluginIDs[1] != "gamma" {
 		t.Fatalf("unexpected auto-enabled ids: %#v", globalState.AutoEnabledPluginIDs)
 	}

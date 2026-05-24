@@ -16,45 +16,21 @@ func TestProjectDeleteSelectedParamsRemovesSharedDictParamAndSectionState(t *tes
 	if err != nil {
 		t.Fatalf("add kwarg to dict-a: %v", err)
 	}
-	seedDictParamDeletionState(t, &project, added.CodeObjID)
-
-	result, err := project.DeleteSelectedParams(DeleteSelectedParamsInput{
-		SectionID:    "dict-a",
-		ParamInfoIDs: []string{added.CodeObjID, added.CodeObjID},
-	})
-	if err != nil {
-		t.Fatalf("DeleteSelectedParams returned error: %v", err)
-	}
-	assertDeletedParamIDs(t, result, []string{added.CodeObjID})
-
-	rootPayload, _, _, _, err := project.ResolveSectionCodeObject("dict-a", "shared-root")
-	if err != nil {
-		t.Fatalf("resolve shared-root after delete: %v", err)
-	}
-	assertCodeObjectChildrenDropParam(t, rootPayload, "shared-root", added.CodeObjID)
-	assertSectionPayloadClearedAfterParamDelete(t, project, "dict-a", added.CodeObjID)
-	assertSectionCodeObjVariantMapMissing(t, project, "dict-b", added.CodeObjID)
-	assertDictParamDeletionStateCleared(t, project, added.CodeObjID)
-}
-
-func seedDictParamDeletionState(t *testing.T, project *Project, paramID string) {
-	t.Helper()
-
-	if err := project.setCurrentSectionField("dict-a", "pinnedParams", []string{paramID}); err != nil {
+	if err := project.setCurrentSectionField("dict-a", "pinnedParams", []string{added.CodeObjID}); err != nil {
 		t.Fatalf("set pinned params: %v", err)
 	}
-	if err := project.setCurrentSectionField("dict-a", "selectedParams", []string{paramID}); err != nil {
+	if err := project.setCurrentSectionField("dict-a", "selectedParams", []string{added.CodeObjID}); err != nil {
 		t.Fatalf("set selected params: %v", err)
 	}
 	if err := project.setCurrentTypeErrorIgnoreState("dict-a", TypeErrorIgnoreState{
-		Params: map[string]bool{paramID: true},
+		Params: map[string]bool{added.CodeObjID: true},
 	}); err != nil {
 		t.Fatalf("set ignoreTypeErrors params: %v", err)
 	}
-	if err := project.setCurrentSectionField("dict-a", "edgeInputParams", []string{paramID}); err != nil {
+	if err := project.setCurrentSectionField("dict-a", "edgeInputParams", []string{added.CodeObjID}); err != nil {
 		t.Fatalf("set edgeInputParams: %v", err)
 	}
-	if err := project.SetSectionCodeObjectValue("dict-a", paramID, "connected"); err != nil {
+	if err := project.SetSectionCodeObjectValue("dict-a", added.CodeObjID, "connected"); err != nil {
 		t.Fatalf("set param value before deletion: %v", err)
 	}
 	project.Edges = []Edge{{
@@ -63,83 +39,73 @@ func seedDictParamDeletionState(t *testing.T, project *Project, paramID string) 
 		SourceVariantID: "meta-variant",
 		TargetSectionID: "dict-a",
 		TargetVariantID: "dict-a-variant",
-		TargetPortID:    paramID,
+		TargetPortID:    added.CodeObjID,
 	}}
-}
 
-func assertDeletedParamIDs(t *testing.T, result DeleteSelectedParamsResult, want []string) {
-	t.Helper()
-
-	if !reflect.DeepEqual(result.ParamInfoIDs, want) {
-		t.Fatalf("expected deleted ids %#v, got %#v", want, result.ParamInfoIDs)
-	}
-}
-
-func assertCodeObjectChildrenDropParam(t *testing.T, payload map[string]any, codeObjID string, paramID string) {
-	t.Helper()
-
-	if children := payloadStringArrayField(payload, "children"); containsString(children, paramID) {
-		t.Fatalf("expected %s children to drop %q, got %#v", codeObjID, paramID, children)
-	}
-}
-
-func assertSectionPayloadClearedAfterParamDelete(t *testing.T, project Project, sectionID string, paramID string) {
-	t.Helper()
-
-	payload := effectivePayloadForSection(t, project, sectionID, "after delete")
-	for _, field := range []string{"pinnedParams", "selectedParams", "edgeInputParams"} {
-		if got := payloadStringArrayField(payload, field); len(got) != 0 {
-			t.Fatalf("expected %s cleared for %s, got %#v", field, sectionID, got)
-		}
-	}
-	assertPayloadCodeObjVariantMapMissing(t, payload, sectionID, paramID)
-}
-
-func assertSectionCodeObjVariantMapMissing(t *testing.T, project Project, sectionID string, paramID string) {
-	t.Helper()
-
-	payload := effectivePayloadForSection(t, project, sectionID, "after delete")
-	assertPayloadCodeObjVariantMapMissing(t, payload, sectionID, paramID)
-}
-
-func effectivePayloadForSection(t *testing.T, project Project, sectionID string, contextLabel string) map[string]any {
-	t.Helper()
-
-	section, variant, _, err := project.ResolveSection(sectionID)
+	result, err := project.DeleteSelectedParams(DeleteSelectedParamsInput{
+		SectionID:    "dict-a",
+		ParamInfoIDs: []string{added.CodeObjID, added.CodeObjID},
+	})
 	if err != nil {
-		t.Fatalf("resolve %s %s: %v", sectionID, contextLabel, err)
+		t.Fatalf("DeleteSelectedParams returned error: %v", err)
 	}
-	payload, err := effectiveSectionPayload(project, section.ID, variant.ID)
+	if !reflect.DeepEqual(result.ParamInfoIDs, []string{added.CodeObjID}) {
+		t.Fatalf("expected deleted ids [%s], got %#v", added.CodeObjID, result.ParamInfoIDs)
+	}
+
+	rootPayload, _, _, _, err := project.ResolveSectionCodeObject("dict-a", "shared-root")
 	if err != nil {
-		t.Fatalf("effective payload %s %s: %v", sectionID, contextLabel, err)
+		t.Fatalf("resolve shared-root after delete: %v", err)
 	}
-	return payload
-}
-
-func assertPayloadCodeObjVariantMapMissing(t *testing.T, payload map[string]any, sectionID string, paramID string) {
-	t.Helper()
-
-	codeObjVariantMap := payloadStringMapField(payload, "codeObjVariantMap")
-	if _, ok := codeObjVariantMap[paramID]; ok {
-		t.Fatalf("did not expect deleted param in %s codeObjVariantMap, got %#v", sectionID, codeObjVariantMap)
+	if children := payloadStringArrayField(rootPayload, "children"); containsString(children, added.CodeObjID) {
+		t.Fatalf("expected shared-root children to drop %q, got %#v", added.CodeObjID, children)
 	}
-}
 
-func assertDictParamDeletionStateCleared(t *testing.T, project Project, paramID string) {
-	t.Helper()
+	dictASection, dictAVariant, _, err := project.ResolveSection("dict-a")
+	if err != nil {
+		t.Fatalf("resolve dict-a after delete: %v", err)
+	}
+	dictAPayload, err := effectiveSectionPayload(project, dictASection.ID, dictAVariant.ID)
+	if err != nil {
+		t.Fatalf("effective payload dict-a after delete: %v", err)
+	}
+	if got := payloadStringArrayField(dictAPayload, "pinnedParams"); len(got) != 0 {
+		t.Fatalf("expected pinnedParams cleared, got %#v", got)
+	}
+	if got := payloadStringArrayField(dictAPayload, "selectedParams"); len(got) != 0 {
+		t.Fatalf("expected selectedParams cleared, got %#v", got)
+	}
+	if got := payloadStringArrayField(dictAPayload, "edgeInputParams"); len(got) != 0 {
+		t.Fatalf("expected edgeInputParams cleared, got %#v", got)
+	}
+	if _, ok := payloadStringMapField(dictAPayload, "codeObjVariantMap")[added.CodeObjID]; ok {
+		t.Fatalf("did not expect deleted param in dict-a codeObjVariantMap, got %#v", payloadStringMapField(dictAPayload, "codeObjVariantMap"))
+	}
+
+	dictBSection, dictBVariant, _, err := project.ResolveSection("dict-b")
+	if err != nil {
+		t.Fatalf("resolve dict-b after delete: %v", err)
+	}
+	dictBPayload, err := effectiveSectionPayload(project, dictBSection.ID, dictBVariant.ID)
+	if err != nil {
+		t.Fatalf("effective payload dict-b after delete: %v", err)
+	}
+	if _, ok := payloadStringMapField(dictBPayload, "codeObjVariantMap")[added.CodeObjID]; ok {
+		t.Fatalf("did not expect deleted param in dict-b codeObjVariantMap, got %#v", payloadStringMapField(dictBPayload, "codeObjVariantMap"))
+	}
 
 	ignoreState, err := project.TypeErrorIgnoreStateForSection("dict-a")
 	if err != nil {
 		t.Fatalf("type error ignore state for dict-a: %v", err)
 	}
-	if ignoreState.Params[paramID] {
-		t.Fatalf("expected ignoreTypeErrors params to drop %q, got %#v", paramID, ignoreState.Params)
+	if ignoreState.Params[added.CodeObjID] {
+		t.Fatalf("expected ignoreTypeErrors params to drop %q, got %#v", added.CodeObjID, ignoreState.Params)
 	}
 	if len(project.Edges) != 0 {
 		t.Fatalf("expected edges to removed edge-input param to be deleted, got %#v", project.Edges)
 	}
-	if _, ok := project.CodeObjs[paramID]; ok {
-		t.Fatalf("expected deleted param code object to be pruned, got %#v", project.CodeObjs[paramID])
+	if _, ok := project.CodeObjs[added.CodeObjID]; ok {
+		t.Fatalf("expected deleted param code object to be pruned, got %#v", project.CodeObjs[added.CodeObjID])
 	}
 }
 

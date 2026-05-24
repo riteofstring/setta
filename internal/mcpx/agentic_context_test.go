@@ -147,25 +147,6 @@ func TestResolveAgenticScopeFollowsOutgoingEdgesOnly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve scoped agentic scope: %v", err)
 	}
-	assertOutgoingOnlyAgenticScope(t, scope)
-
-	projectScope, err := resolveAgenticScope(view, "", true)
-	if err != nil {
-		t.Fatalf("resolve unscoped project scope: %v", err)
-	}
-	assertUnscopedProjectAgenticScope(t, projectScope)
-
-	deniedProjectScope, err := resolveAgenticScope(view, "", false)
-	if err != nil {
-		t.Fatalf("resolve denied project scope: %v", err)
-	}
-	if deniedProjectScope.StructuralAllowed || len(deniedProjectScope.ReadSectionIDs) != 0 || len(deniedProjectScope.WriteSectionIDs) != 0 || len(deniedProjectScope.ContextSectionIDs) != 0 || len(deniedProjectScope.PeerChatSectionIDs) != 0 {
-		t.Fatalf("expected denied project scope to be empty, got %#v", deniedProjectScope)
-	}
-}
-
-func assertOutgoingOnlyAgenticScope(t *testing.T, scope AgenticScope) {
-	t.Helper()
 
 	if len(scope.ReadSectionIDs) != 1 || !containsStringSet(scope.ReadSectionIDs, "allowed-section") {
 		t.Fatalf("expected only outgoing writable section in read scope, got %#v", scope.ReadSectionIDs)
@@ -185,11 +166,11 @@ func assertOutgoingOnlyAgenticScope(t *testing.T, scope AgenticScope) {
 	if containsStringSet(scope.PeerChatSectionIDs, "incoming-chat-section") {
 		t.Fatalf("did not expect incoming peer chat edge to grant peer scope, got %#v", scope.PeerChatSectionIDs)
 	}
-}
 
-func assertUnscopedProjectAgenticScope(t *testing.T, projectScope AgenticScope) {
-	t.Helper()
-
+	projectScope, err := resolveAgenticScope(view, "", true)
+	if err != nil {
+		t.Fatalf("resolve unscoped project scope: %v", err)
+	}
 	if !projectScope.StructuralAllowed {
 		t.Fatal("expected unscoped project scope to allow structural access")
 	}
@@ -198,6 +179,14 @@ func assertUnscopedProjectAgenticScope(t *testing.T, projectScope AgenticScope) 
 	}
 	if len(projectScope.PeerChatSectionIDs) != 0 {
 		t.Fatalf("expected unscoped project scope to keep peer chat scope empty, got %#v", projectScope.PeerChatSectionIDs)
+	}
+
+	deniedProjectScope, err := resolveAgenticScope(view, "", false)
+	if err != nil {
+		t.Fatalf("resolve denied project scope: %v", err)
+	}
+	if deniedProjectScope.StructuralAllowed || len(deniedProjectScope.ReadSectionIDs) != 0 || len(deniedProjectScope.WriteSectionIDs) != 0 || len(deniedProjectScope.ContextSectionIDs) != 0 || len(deniedProjectScope.PeerChatSectionIDs) != 0 {
+		t.Fatalf("expected denied project scope to be empty, got %#v", deniedProjectScope)
 	}
 }
 
@@ -389,27 +378,6 @@ func TestBuildScopeViolationErrorSortsPayloadAndProvidesActionableMissingContext
 	if !ok {
 		t.Fatalf("expected *toolError, got %T", sortedErr)
 	}
-	assertScopeViolationSortedPayload(t, typed)
-	assertScopeViolationMissingEdgesAndMessage(t, typed)
-
-	missingContextErr := buildScopeViolationError(
-		"get_latest_project_state_summary",
-		"missing_context",
-		nil,
-		nil,
-		nil,
-		nil,
-	)
-	missingContextTyped, ok := missingContextErr.(*toolError)
-	if !ok {
-		t.Fatalf("expected *toolError, got %T", missingContextErr)
-	}
-	assertMissingContextScopeViolationMessage(t, missingContextTyped)
-}
-
-func assertScopeViolationSortedPayload(t *testing.T, typed *toolError) {
-	t.Helper()
-
 	if values, ok := typed.data["blockedSectionIds"].([]string); !ok || len(values) != 2 || values[0] != "a" || values[1] != "b" {
 		t.Fatalf("expected sorted blockedSectionIds, got %#v", typed.data["blockedSectionIds"])
 	}
@@ -419,11 +387,6 @@ func assertScopeViolationSortedPayload(t *testing.T, typed *toolError) {
 	if values, ok := typed.data["unmappedCodeObjIds"].([]string); !ok || len(values) != 2 || values[0] != "c" || values[1] != "d" {
 		t.Fatalf("expected sorted unmappedCodeObjIds, got %#v", typed.data["unmappedCodeObjIds"])
 	}
-}
-
-func assertScopeViolationMissingEdgesAndMessage(t *testing.T, typed *toolError) {
-	t.Helper()
-
 	var missingEdges []scopeViolationMissingEdge
 	encodedMissingEdges, err := json.Marshal(typed.data["missingEdgesCanonical"])
 	if err != nil {
@@ -445,11 +408,19 @@ func assertScopeViolationMissingEdgesAndMessage(t *testing.T, typed *toolError) 
 	if strings.Contains(typed.message, "blocked=[") {
 		t.Fatalf("expected structured payload message without raw blocked list, got %q", typed.message)
 	}
-}
 
-func assertMissingContextScopeViolationMessage(t *testing.T, missingContextTyped *toolError) {
-	t.Helper()
-
+	missingContextErr := buildScopeViolationError(
+		"get_latest_project_state_summary",
+		"missing_context",
+		nil,
+		nil,
+		nil,
+		nil,
+	)
+	missingContextTyped, ok := missingContextErr.(*toolError)
+	if !ok {
+		t.Fatalf("expected *toolError, got %T", missingContextErr)
+	}
 	if !strings.Contains(missingContextTyped.message, "missing agentic context") {
 		t.Fatalf("expected missing agentic context message, got %q", missingContextTyped.message)
 	}

@@ -524,22 +524,6 @@ func TestStructuralMutationSettingsForDocumentReadsDefaultsAndOverrides(t *testi
 	if err != nil {
 		t.Fatalf("StructuralMutationSettingsForDocument defaults returned error: %v", err)
 	}
-	assertDefaultStructuralMutationSettings(t, settings)
-
-	document["sectionSizingPolicy"].(map[string]any)["byType"].(map[string]any)["Chart"].(map[string]any)["minWidth"] = 150.0
-	document["terminalSectionDefault"].(map[string]any)["size"].(map[string]any)["height"] = 222.0
-	document["textBlockSectionDefault"].(map[string]any)["headingAsSectionName"] = true
-
-	settings, err = StructuralMutationSettingsForDocument(document)
-	if err != nil {
-		t.Fatalf("StructuralMutationSettingsForDocument overrides returned error: %v", err)
-	}
-	assertOverriddenStructuralMutationSettings(t, settings)
-}
-
-func assertDefaultStructuralMutationSettings(t *testing.T, settings projectstate.StructuralMutationSettings) {
-	t.Helper()
-
 	if got := settings.SectionSizingPolicy.ByType["TextBlock"]; got.MinWidth != 100 || got.MinHeight != 49 {
 		t.Fatalf("expected default TextBlock dimensions, got %#v", got)
 	}
@@ -567,11 +551,15 @@ func assertDefaultStructuralMutationSettings(t *testing.T, settings projectstate
 	if got := settings.SectionDefaultsByType["TextBlock"]["headingAsSectionName"]; got != false {
 		t.Fatalf("expected default text block headingAsSectionName false, got %#v", got)
 	}
-}
 
-func assertOverriddenStructuralMutationSettings(t *testing.T, settings projectstate.StructuralMutationSettings) {
-	t.Helper()
+	document["sectionSizingPolicy"].(map[string]any)["byType"].(map[string]any)["Chart"].(map[string]any)["minWidth"] = 150.0
+	document["terminalSectionDefault"].(map[string]any)["size"].(map[string]any)["height"] = 222.0
+	document["textBlockSectionDefault"].(map[string]any)["headingAsSectionName"] = true
 
+	settings, err = StructuralMutationSettingsForDocument(document)
+	if err != nil {
+		t.Fatalf("StructuralMutationSettingsForDocument overrides returned error: %v", err)
+	}
 	if got := settings.SectionSizingPolicy.ByType["Chart"].MinWidth; got != 150 {
 		t.Fatalf("expected overridden Chart min width 150, got %v", got)
 	}

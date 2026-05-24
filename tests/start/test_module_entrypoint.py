@@ -120,7 +120,6 @@ def test_python_module_entrypoint_preserves_explicit_server_override(
         env: dict[str, str],
     ) -> SimpleNamespace:
         captured["args"] = list(args)
-        captured["check"] = check
         captured["cwd"] = cwd
         captured["env"] = dict(env)
         return SimpleNamespace(returncode=0)
@@ -139,7 +138,6 @@ def test_python_module_entrypoint_preserves_explicit_server_override(
         "launch",
         "--json",
     ]
-    assert captured["check"] is False
     assert captured["cwd"] == _repo_root()
     env = captured["env"]
     assert isinstance(env, dict)
@@ -156,10 +154,6 @@ def test_python_module_entrypoint_exits_cleanly_on_keyboard_interrupt(
         cwd: Path | None,
         env: dict[str, str],
     ) -> SimpleNamespace:
-        assert args
-        assert check is False
-        assert cwd == _repo_root()
-        assert isinstance(env, dict)
         raise KeyboardInterrupt()
 
     monkeypatch.delenv("SETTA_GO_CLI_BIN", raising=False)

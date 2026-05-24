@@ -106,7 +106,7 @@ func connectAuthenticatedAppMCPSession(t *testing.T, app *App, serverURL string)
 	t.Helper()
 
 	sessionClient := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := sessionClient.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
+	session, err := sessionClient.Connect(context.Background(), &sdkmcp.SSEClientTransport{
 		Endpoint:   serverURL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, serverURL),
 	}, nil)

@@ -11,7 +11,7 @@ export function IdNameCombobox<T>({
   allItems,
   value,
   onSelectedItemChange,
-  small = false,
+  small,
   outerDivClasses = "",
   inputOuterClasses,
   inputThemeClassName,
@@ -20,7 +20,6 @@ export function IdNameCombobox<T>({
   groupHeaderThemeClassName,
   itemThemeClassName,
   itemHighlightedThemeClassName,
-  listPortalContainerId,
   placeholder,
   bg,
   isDisabled,
@@ -28,29 +27,26 @@ export function IdNameCombobox<T>({
   variant = "pill",
   selectedItemCanBeNull = false,
   clearInputAfterSelection = false,
-  repositionListOnCanvasTransform = false,
 }: {
   allItems: AllItemsType<T>;
   value: string | null;
   onSelectedItemChange: OnSelectedItemChangeFnType<T>;
-  small?: boolean | undefined;
-  outerDivClasses?: string | undefined;
-  inputOuterClasses?: string | undefined;
-  inputThemeClassName?: string | undefined;
-  rightButtonThemeClassName?: string | undefined;
-  listThemeClassName?: string | undefined;
-  groupHeaderThemeClassName?: string | undefined;
-  itemThemeClassName?: string | undefined;
-  itemHighlightedThemeClassName?: string | undefined;
-  listPortalContainerId?: string | undefined;
-  placeholder?: string | undefined;
-  bg?: string | undefined;
-  isDisabled?: boolean | undefined;
-  inputDivId?: string | undefined;
-  variant?: "pill" | "pane" | undefined;
-  selectedItemCanBeNull?: boolean | undefined;
-  clearInputAfterSelection?: boolean | undefined;
-  repositionListOnCanvasTransform?: boolean | undefined;
+  small?: boolean;
+  outerDivClasses?: string;
+  inputOuterClasses?: string;
+  inputThemeClassName?: string;
+  rightButtonThemeClassName?: string;
+  listThemeClassName?: string;
+  groupHeaderThemeClassName?: string;
+  itemThemeClassName?: string;
+  itemHighlightedThemeClassName?: string;
+  placeholder?: string;
+  bg?: string;
+  isDisabled?: boolean;
+  inputDivId?: string;
+  variant?: "pill" | "pane";
+  selectedItemCanBeNull?: boolean;
+  clearInputAfterSelection?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -100,8 +96,6 @@ export function IdNameCombobox<T>({
         getMenuProps={getMenuProps}
         inputRef={inputRef}
         listThemeClassName={listThemeClassName}
-        portalContainerId={listPortalContainerId}
-        repositionOnCanvasTransform={repositionListOnCanvasTransform}
       >
         <ComboboxItems
           filteredItems={filteredItems}

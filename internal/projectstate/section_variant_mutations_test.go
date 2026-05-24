@@ -218,13 +218,6 @@ func TestDocumentRefreshVariantJSONSourceLiveTreeReplacesLiveSubtreeWithoutChang
 	if err != nil {
 		t.Fatalf("effective section payload after refresh: %v", err)
 	}
-	codeObjVariantMap := assertJSONSourceLiveRefreshSectionPayload(t, project, sectionPayload)
-	assertJSONSourceLiveRefreshChildren(t, project, codeObjVariantMap)
-}
-
-func assertJSONSourceLiveRefreshSectionPayload(t *testing.T, project Project, sectionPayload map[string]any) map[string]string {
-	t.Helper()
-
 	if got := payloadStringArrayField(sectionPayload, "jsonSourceKeys"); len(got) != 1 || got[0] != "alpha" {
 		t.Fatalf("expected persisted jsonSourceKeys to remain [alpha], got %#v", got)
 	}
@@ -238,11 +231,6 @@ func assertJSONSourceLiveRefreshSectionPayload(t *testing.T, project Project, se
 	if _, ok := project.CodeObjs["old-leaf"]; ok {
 		t.Fatalf("expected old-leaf code object to be pruned, got %#v", project.CodeObjs["old-leaf"])
 	}
-	return codeObjVariantMap
-}
-
-func assertJSONSourceLiveRefreshChildren(t *testing.T, project Project, codeObjVariantMap map[string]string) {
-	t.Helper()
 
 	rootPayload, _, _, _, err := project.EffectiveCodeObjectPayload(codeObjVariantMap, "old-root")
 	if err != nil {

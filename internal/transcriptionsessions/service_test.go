@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -23,15 +24,6 @@ type blockingAppendEngine struct {
 
 type closableEngine struct {
 	closeCalls int
-}
-
-type fileTranscriptionProviderRequest struct {
-	Path          string
-	Authorization string
-	Model         string
-	Language      string
-	FileName      string
-	FileBytes     []byte
 }
 
 func (e *blockingAppendEngine) AppendAudio(context.Context, []byte, int, int) (Delta, error) {
@@ -93,7 +85,42 @@ func TestResolveAPIKeyTrimsValues(t *testing.T) {
 func TestServiceStartAppendStopUploadsBufferedFileTranscription(t *testing.T) {
 	t.Parallel()
 
-	server, providerRequests := startFileTranscriptionProvider(t)
+	type providerRequest struct {
+		Path          string
+		Authorization string
+		Model         string
+		Language      string
+		FileName      string
+		FileBytes     []byte
+	}
+	providerRequests := make(chan providerRequest, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseMultipartForm(2 << 20); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		defer file.Close()
+		fileBytes, err := io.ReadAll(file)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		providerRequests <- providerRequest{
+			Path:          r.URL.Path,
+			Authorization: r.Header.Get("Authorization"),
+			Model:         r.FormValue("model"),
+			Language:      r.FormValue("language"),
+			FileName:      header.Filename,
+			FileBytes:     fileBytes,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"text": "hello from provider"})
+	}))
 	defer server.Close()
 
 	runtime := newTranscriptionSessionRuntime(t, map[string]llmconfig.Config{
@@ -126,7 +153,9 @@ func TestServiceStartAppendStopUploadsBufferedFileTranscription(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start session: %v", err)
 	}
-	assertFileTranscriptionStartResult(t, started)
+	if started.ResolvedTransportMode != ResolvedTransportModeFile || started.ChunkMs != 0 {
+		t.Fatalf("unexpected start result %#v", started)
+	}
 
 	appendResult, err := service.AppendAudio(context.Background(), AppendRequest{
 		ScopeID:      "scope-1",
@@ -138,7 +167,9 @@ func TestServiceStartAppendStopUploadsBufferedFileTranscription(t *testing.T) {
 	if err != nil {
 		t.Fatalf("append audio: %v", err)
 	}
-	assertBufferedFileAppendResult(t, appendResult)
+	if appendResult.IsFinal || appendResult.AppendText != "" || appendResult.FullText != "" {
+		t.Fatalf("unexpected append result %#v", appendResult)
+	}
 
 	stopped, err := service.StopSession(context.Background(), StopRequest{
 		ScopeID:   "scope-1",
@@ -147,70 +178,9 @@ func TestServiceStartAppendStopUploadsBufferedFileTranscription(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stop session: %v", err)
 	}
-	assertBufferedFileStopResult(t, stopped)
-	assertFileTranscriptionProviderRequest(t, providerRequests)
-}
-
-func startFileTranscriptionProvider(t *testing.T) (*httptest.Server, <-chan fileTranscriptionProviderRequest) {
-	t.Helper()
-
-	providerRequests := make(chan fileTranscriptionProviderRequest, 1)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseMultipartForm(2 << 20); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		file, header, err := r.FormFile("file")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		defer file.Close()
-		fileBytes, err := io.ReadAll(file)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		providerRequests <- fileTranscriptionProviderRequest{
-			Path:          r.URL.Path,
-			Authorization: r.Header.Get("Authorization"),
-			Model:         r.FormValue("model"),
-			Language:      r.FormValue("language"),
-			FileName:      header.Filename,
-			FileBytes:     fileBytes,
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{"text": "hello from provider"})
-	}))
-	return server, providerRequests
-}
-
-func assertFileTranscriptionStartResult(t *testing.T, result StartResult) {
-	t.Helper()
-
-	if result.ResolvedTransportMode != ResolvedTransportModeFile || result.ChunkMs != 0 {
-		t.Fatalf("unexpected start result %#v", result)
+	if !stopped.IsFinal || stopped.AppendText != "hello from provider" || stopped.FullText != "hello from provider" {
+		t.Fatalf("unexpected stop result %#v", stopped)
 	}
-}
-
-func assertBufferedFileAppendResult(t *testing.T, result Delta) {
-	t.Helper()
-
-	if result.IsFinal || result.AppendText != "" || result.FullText != "" {
-		t.Fatalf("unexpected append result %#v", result)
-	}
-}
-
-func assertBufferedFileStopResult(t *testing.T, result Delta) {
-	t.Helper()
-
-	if !result.IsFinal || result.AppendText != "hello from provider" || result.FullText != "hello from provider" {
-		t.Fatalf("unexpected stop result %#v", result)
-	}
-}
-
-func assertFileTranscriptionProviderRequest(t *testing.T, providerRequests <-chan fileTranscriptionProviderRequest) {
-	t.Helper()
 
 	select {
 	case captured := <-providerRequests:
@@ -1153,4 +1123,23 @@ func resolvedProfile(profileID string, mode transcriptionprofiles.TransportMode,
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+func readMultipartFile(t *testing.T, form *multipart.Form, field string) []byte {
+	t.Helper()
+
+	files := form.File[field]
+	if len(files) == 0 {
+		t.Fatalf("missing multipart file field %q", field)
+	}
+	file, err := files[0].Open()
+	if err != nil {
+		t.Fatalf("open multipart file %q: %v", field, err)
+	}
+	defer file.Close()
+	content, err := io.ReadAll(file)
+	if err != nil {
+		t.Fatalf("read multipart file %q: %v", field, err)
+	}
+	return content
 }

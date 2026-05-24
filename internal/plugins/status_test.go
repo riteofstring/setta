@@ -42,15 +42,6 @@ func TestServiceStatusIncludesOrderedEntriesAndManualRestartCapability(t *testin
 		t.Fatalf("load status: %v", err)
 	}
 
-	assertPluginStatusHeader(t, status)
-	assertPluginStatusInvalidEntry(t, status)
-	assertPluginStatusPendingRestartEntry(t, status, backendRoot)
-	assertPluginStatusActiveAndShadowedEntries(t, status, workspaceFrontendRoot)
-}
-
-func assertPluginStatusHeader(t *testing.T, status PluginStatusResponse) {
-	t.Helper()
-
 	if status.SchemaVersion != pluginStatusSchemaVersion {
 		t.Fatalf("expected schema version %d, got %d", pluginStatusSchemaVersion, status.SchemaVersion)
 	}
@@ -69,19 +60,11 @@ func assertPluginStatusHeader(t *testing.T, status PluginStatusResponse) {
 	if len(status.Plugins) != 4 {
 		t.Fatalf("expected 4 status entries, got %d", len(status.Plugins))
 	}
-}
-
-func assertPluginStatusInvalidEntry(t *testing.T, status PluginStatusResponse) {
-	t.Helper()
 
 	broken := mustFindStatusEntry(t, status.Plugins, "broken-plugin", PluginRuntimeStateInvalid)
 	if len(broken.Errors) != 1 || broken.Errors[0].Code != "PLUGIN_MANIFEST_INVALID" {
 		t.Fatalf("expected invalid-manifest error, got %#v", broken.Errors)
 	}
-}
-
-func assertPluginStatusPendingRestartEntry(t *testing.T, status PluginStatusResponse, backendRoot string) {
-	t.Helper()
 
 	pending := mustFindStatusEntry(t, status.Plugins, "setta-fixture-backend", PluginRuntimeStatePendingRestart)
 	if pending.SourceScopeLabel != "setta_files" {
@@ -99,14 +82,6 @@ func assertPluginStatusPendingRestartEntry(t *testing.T, status PluginStatusResp
 	if pending.SourcePath != backendRoot {
 		t.Fatalf("expected backend source path %q, got %q", backendRoot, pending.SourcePath)
 	}
-}
-
-func assertPluginStatusActiveAndShadowedEntries(
-	t *testing.T,
-	status PluginStatusResponse,
-	workspaceFrontendRoot string,
-) {
-	t.Helper()
 
 	active := mustFindStatusEntry(t, status.Plugins, "setta-fixture-frontend", PluginRuntimeStateActive)
 	if active.SourceScopeLabel != "workspace" {

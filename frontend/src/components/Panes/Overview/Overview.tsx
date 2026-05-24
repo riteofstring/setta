@@ -1,10 +1,9 @@
 import * as Menubar from "@radix-ui/react-menubar";
-import { useProjectGpuLayoutStore } from "components/Pages/Project/GpuProjectSurface/projectGpuLayoutAdapter";
 import { NavbarMenuDropdown } from "components/Utils/atoms/menubar/menudropdown";
 import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
 import { PaneContainer } from "components/Utils/PaneContainer";
-import type { GpuFlowLayoutStoreApi } from "gpuFlow/layoutStore";
+import Controls from "forks/xyflow/controls/Controls";
 import { useAppSubsystemOverviewTab } from "plugins/appSubsystem";
 import { createRuntimeAppSubsystemFrontendHost } from "plugins/appSubsystemFrontendHost";
 import {
@@ -61,7 +60,6 @@ import { GitPane } from "./Git/GitPane";
 import { NotificationsArea } from "./NotificationsArea";
 import { PluginOverviewPane } from "./Plugins/PluginOverviewPane";
 import { PluginsPane } from "./Plugins/PluginsPane";
-import { ProjectGpuControls } from "./ProjectGpuControls";
 import { ProjectAISettings } from "./ProjectLevelAI/ProjectAISettings";
 import { ProjectChat } from "./ProjectLevelAI/ProjectChat";
 import { ProjectOverview } from "./ProjectOverview/ProjectOverview";
@@ -160,7 +158,6 @@ type OverviewTabButtonCommonProps = {
 
 export function Overview() {
   const overviewRef = useRef<HTMLDivElement>(null);
-  const layoutStore = useProjectGpuLayoutStore();
   useTabScope({
     scopeId: "overview",
     order: 10,
@@ -220,7 +217,6 @@ export function Overview() {
     >
       <OverviewRail
         commonProps={commonProps}
-        layoutStore={layoutStore}
         pluginPaneTabs={pluginPaneTabs}
         appOverviewTab={appOverviewTab}
         availability={availability}
@@ -340,7 +336,7 @@ function buildOverviewRailTabs(
   tabs.push(
     ...pluginPaneTabs.map((pluginPaneTab) => ({
       key: pluginPaneTab.tabKey,
-      tabName: pluginPaneTab.tabKey as OverviewTabKey,
+      tabName: pluginPaneTab.tabKey,
       id: `overview-plugin-pane-tab-${encodeURIComponent(pluginPaneTab.pluginId)}-${encodeURIComponent(pluginPaneTab.paneId)}`,
       floatingContent: `${pluginPaneTab.title} (${pluginPaneTab.pluginId})`,
       icon: renderPluginPaneTabIcon(pluginPaneTab.icon),
@@ -445,7 +441,6 @@ function getMoreMenuButtonClasses(
 
 function OverviewRail({
   commonProps,
-  layoutStore,
   pluginPaneTabs,
   appOverviewTab,
   availability,
@@ -455,7 +450,6 @@ function OverviewRail({
   hasViewModeTabs,
 }: {
   commonProps: OverviewTabButtonCommonProps;
-  layoutStore: GpuFlowLayoutStoreApi;
   pluginPaneTabs: PluginPaneTabEntry[];
   appOverviewTab: ReturnType<typeof useAppSubsystemOverviewTab> | null;
   availability: OverviewAvailability;
@@ -493,11 +487,9 @@ function OverviewRail({
         <TabButton<OverviewTabKey>
           key={tab.key}
           tabName={tab.tabName}
+          id={tab.id}
+          data-testid={tab.dataTestId}
           {...commonProps}
-          {...(tab.id === undefined ? {} : { id: tab.id })}
-          {...(tab.dataTestId === undefined
-            ? {}
-            : { "data-testid": tab.dataTestId })}
           {...getFloatingBoxHandlers({ content: tab.floatingContent })}
           icon={tab.icon}
         />
@@ -531,7 +523,7 @@ function OverviewRail({
           ))}
         </NavbarMenuDropdown>
       </Menubar.Root>
-      <ProjectGpuControls layoutStore={layoutStore} />
+      <Controls />
       <Link
         to={SETTINGS_ROUTER_PATH}
         state={{ pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG }}

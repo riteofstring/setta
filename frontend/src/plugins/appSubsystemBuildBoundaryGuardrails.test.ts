@@ -45,29 +45,6 @@ const deletedHostAppSubsystemShimReferenceSnippets =
     relativePath,
     relativePath.replace(/\.ts$/, ""),
   ]);
-const sourceSdkScopedExportedValueNames = new Set([
-  "BootstrapProtocol",
-  "EndpointOriginPolicyByRoute",
-  "ModeScopedLauncherRoutesList",
-  "TransportRouteConstants",
-]);
-
-type AppSubsystemSidecarContract = {
-  frontendSDKScopes?: string[];
-  kind?: string;
-  name?: string;
-};
-
-type AppSubsystemSidecarExportedValue = {
-  frontendSDKScopes?: unknown;
-  name?: string;
-  value?: unknown;
-};
-
-type AppSubsystemSidecar = {
-  contracts?: AppSubsystemSidecarContract[];
-  exportedValues?: AppSubsystemSidecarExportedValue[];
-};
 
 function readPluginFrontendFile(relativePath: string): string {
   return readFileSync(resolve(pluginFrontendRoot, relativePath), "utf8");
@@ -119,122 +96,6 @@ function strictDeclarationDiagnostics(filePath: string): string[] {
       : "typescript";
     return `${prefix} ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`;
   });
-}
-
-function sidecarContractsByName(sidecar: AppSubsystemSidecar) {
-  return new Map((sidecar.contracts ?? []).map((entry) => [entry.name, entry]));
-}
-
-function sidecarValuesByName(sidecar: AppSubsystemSidecar) {
-  return new Map(
-    (sidecar.exportedValues ?? []).map((entry) => [entry.name, entry]),
-  );
-}
-
-function assertSourceSidecarContractsMatchHost(
-  sourceSidecar: AppSubsystemSidecar,
-  hostContractsByName: Map<string | undefined, AppSubsystemSidecarContract>,
-) {
-  for (const contract of sourceSidecar.contracts ?? []) {
-    expect(contract).toEqual(hostContractsByName.get(contract.name));
-  }
-}
-
-function assertSourceSidecarExportedValuesMatchHost(
-  sourceSidecar: AppSubsystemSidecar,
-  hostValuesByName: Map<string | undefined, AppSubsystemSidecarExportedValue>,
-) {
-  for (const exportedValue of sourceSidecar.exportedValues ?? []) {
-    if (sourceSdkScopedExportedValueNames.has(exportedValue.name ?? "")) {
-      continue;
-    }
-    expect(exportedValue).toEqual(hostValuesByName.get(exportedValue.name));
-  }
-}
-
-function assertSourceSdkScopedExportedValues(
-  sourceValuesByName: Map<string | undefined, AppSubsystemSidecarExportedValue>,
-  hostValuesByName: Map<string | undefined, AppSubsystemSidecarExportedValue>,
-) {
-  expect(sourceValuesByName.get("BootstrapProtocol")?.value).toEqual({
-    launcherOriginStorageKey: (
-      hostValuesByName.get("BootstrapProtocol")?.value as {
-        launcherOriginStorageKey?: unknown;
-      }
-    ).launcherOriginStorageKey,
-  });
-  expect(sourceValuesByName.get("EndpointOriginPolicyByRoute")?.value).toEqual({
-    "/__setta__/tools/call": (
-      hostValuesByName.get("EndpointOriginPolicyByRoute")?.value as Record<
-        string,
-        unknown
-      >
-    )["/__setta__/tools/call"],
-  });
-  expect(sourceValuesByName.get("ModeScopedLauncherRoutesList")?.value).toEqual(
-    [],
-  );
-  assertSourceSdkTransportRoutesValue(sourceValuesByName, hostValuesByName);
-}
-
-function assertSourceSdkTransportRoutesValue(
-  sourceValuesByName: Map<string | undefined, AppSubsystemSidecarExportedValue>,
-  hostValuesByName: Map<string | undefined, AppSubsystemSidecarExportedValue>,
-) {
-  const hostTransportRoutes = hostValuesByName.get("TransportRouteConstants")
-    ?.value as {
-    apiPrefix?: unknown;
-    binary?: Record<string, unknown>;
-    root?: Record<string, unknown>;
-    websocket?: Record<string, unknown>;
-  };
-  const binaryRoutes = hostTransportRoutes.binary ?? {};
-  const rootRoutes = hostTransportRoutes.root ?? {};
-  const websocketRoutes = hostTransportRoutes.websocket ?? {};
-
-  expect(sourceValuesByName.get("TransportRouteConstants")?.value).toEqual({
-    apiPrefix: hostTransportRoutes.apiPrefix,
-    binary: {
-      download: binaryRoutes.download,
-      upload: binaryRoutes.upload,
-    },
-    root: {
-      bootstrapPage: rootRoutes.bootstrapPage,
-      toolsCall: rootRoutes.toolsCall,
-    },
-    websocket: {
-      frontend: websocketRoutes.frontend,
-      listenerById: websocketRoutes.listenerById,
-      terminalBySection: websocketRoutes.terminalBySection,
-    },
-  });
-}
-
-function assertSourceSdkNonHTTPSidecarSurface(
-  sourceSidecar: AppSubsystemSidecar,
-) {
-  expect(sourceSidecar.contracts?.map((entry) => entry.name)).toEqual(
-    expect.arrayContaining([
-      "EndpointOrigin",
-      "SectionType",
-      "WorkspaceLaunchRouteKind",
-    ]),
-  );
-  expect(sourceSidecar.exportedValues?.map((entry) => entry.name)).toEqual(
-    expect.arrayContaining([
-      "ServerModeBoundaryPolicyByMode",
-      "TransportRouteConstants",
-    ]),
-  );
-  expect(sourceSidecar.contracts?.map((entry) => entry.name)).not.toContain(
-    "AddKwargResult",
-  );
-  expect(sourceSidecar.exportedValues?.map((entry) => entry.name)).not.toContain(
-    "PluginFrontendBuildManifest",
-  );
-  expect(JSON.stringify(sourceSidecar)).not.toContain(
-    "addLauncherRecentWorkspace",
-  );
 }
 
 describe("app plugin frontend build boundary guardrails", () => {
@@ -492,19 +353,20 @@ describe("app plugin frontend build boundary guardrails", () => {
     };
     const sourceSdkViteConfig = readSourceSdkFile("vite.config.mjs");
     const sourceSdkTsconfig = readSourceSdkFile("tsconfig.json");
-    const sourceSdkScripts = sourceSdkPackageJson.scripts ?? {};
-    const sourceSdkRootExport = sourceSdkPackageJson.exports?.["."] ?? {};
-    const sourceSdkOverrides = sourceSdkPackageJson.pnpm?.overrides ?? {};
 
     expect(sourceSdkPackageJson.types).toBe("./types/index.d.ts");
-    expect(sourceSdkScripts.build).toBe("vite build --config vite.config.mjs");
-    expect(sourceSdkScripts.typecheck).toBe(
+    expect(sourceSdkPackageJson.scripts?.build).toBe(
+      "vite build --config vite.config.mjs",
+    );
+    expect(sourceSdkPackageJson.scripts?.typecheck).toBe(
       "tsc --noEmit -p tsconfig.typecheck.json",
     );
-    expect(sourceSdkRootExport.types).toBe("./types/index.d.ts");
-    expect(sourceSdkRootExport.default).toBe("./src/index.ts");
-    expect(sourceSdkOverrides.esbuild).toBe("0.25.12");
-    expect(sourceSdkOverrides.rollup).toBe("4.59.1");
+    expect(sourceSdkPackageJson.exports?.["."]?.types).toBe(
+      "./types/index.d.ts",
+    );
+    expect(sourceSdkPackageJson.exports?.["."]?.default).toBe("./src/index.ts");
+    expect(sourceSdkPackageJson.pnpm?.overrides?.esbuild).toBe("0.25.12");
+    expect(sourceSdkPackageJson.pnpm?.overrides?.rollup).toBe("4.59.1");
     expect(sourceSdkViteConfig).not.toContain("frontendSrcDir");
     expect(sourceSdkViteConfig).not.toContain("openapi:");
     expect(sourceSdkViteConfig).not.toContain("utils:");
@@ -514,10 +376,32 @@ describe("app plugin frontend build boundary guardrails", () => {
   it("keeps source SDK generated non-HTTP surfaces aligned with the host owner", () => {
     const hostSidecar = JSON.parse(
       readHostFrontendFile("generation/non_http_shared/sidecar.json"),
-    ) as AppSubsystemSidecar;
+    ) as {
+      contracts?: Array<{
+        frontendSDKScopes?: string[];
+        kind?: string;
+        name?: string;
+      }>;
+      exportedValues?: Array<{
+        frontendSDKScopes?: unknown;
+        name?: string;
+        value?: unknown;
+      }>;
+    };
     const sourceSdkSidecar = JSON.parse(
       readSourceSdkFile("src/generated/sidecar.json"),
-    ) as AppSubsystemSidecar;
+    ) as {
+      contracts?: Array<{
+        frontendSDKScopes?: string[];
+        kind?: string;
+        name?: string;
+      }>;
+      exportedValues?: Array<{
+        frontendSDKScopes?: unknown;
+        name?: string;
+        value?: unknown;
+      }>;
+    };
     const sourceSdkGeneratedTypes = readSourceSdkFile("src/generatedTypes.ts");
     const sourceNonHTTPGeneratedRoot = resolve(
       repoRoot,
@@ -526,9 +410,18 @@ describe("app plugin frontend build boundary guardrails", () => {
       "app-subsystem",
       "src/openapi/non_http/generated",
     );
-    const hostContractsByName = sidecarContractsByName(hostSidecar);
-    const hostValuesByName = sidecarValuesByName(hostSidecar);
-    const sourceValuesByName = sidecarValuesByName(sourceSdkSidecar);
+    const hostContractsByName = new Map(
+      (hostSidecar.contracts ?? []).map((entry) => [entry.name, entry]),
+    );
+    const hostValuesByName = new Map(
+      (hostSidecar.exportedValues ?? []).map((entry) => [entry.name, entry]),
+    );
+    const sourceValuesByName = new Map(
+      (sourceSdkSidecar.exportedValues ?? []).map((entry) => [
+        entry.name,
+        entry,
+      ]),
+    );
 
     expect(existsSync(sourceNonHTTPGeneratedRoot)).toBe(false);
     expect(sourceSdkGeneratedTypes).not.toContain("openapi/non_http/generated");
@@ -545,13 +438,88 @@ describe("app plugin frontend build boundary guardrails", () => {
       hostContractsByName.get("AddKwargResult")?.frontendSDKScopes ?? [],
     ).not.toContain("app-subsystem");
 
-    assertSourceSidecarContractsMatchHost(sourceSdkSidecar, hostContractsByName);
-    assertSourceSidecarExportedValuesMatchHost(
-      sourceSdkSidecar,
-      hostValuesByName,
+    for (const contract of sourceSdkSidecar.contracts ?? []) {
+      expect(contract).toEqual(hostContractsByName.get(contract.name));
+    }
+    for (const exportedValue of sourceSdkSidecar.exportedValues ?? []) {
+      if (
+        [
+          "BootstrapProtocol",
+          "EndpointOriginPolicyByRoute",
+          "ModeScopedLauncherRoutesList",
+          "TransportRouteConstants",
+        ].includes(exportedValue.name ?? "")
+      ) {
+        continue;
+      }
+      expect(exportedValue).toEqual(hostValuesByName.get(exportedValue.name));
+    }
+    expect(sourceValuesByName.get("BootstrapProtocol")?.value).toEqual({
+      launcherOriginStorageKey: (
+        hostValuesByName.get("BootstrapProtocol")?.value as {
+          launcherOriginStorageKey?: unknown;
+        }
+      ).launcherOriginStorageKey,
+    });
+    expect(
+      sourceValuesByName.get("EndpointOriginPolicyByRoute")?.value,
+    ).toEqual({
+      "/__setta__/tools/call": (
+        hostValuesByName.get("EndpointOriginPolicyByRoute")?.value as Record<
+          string,
+          unknown
+        >
+      )["/__setta__/tools/call"],
+    });
+    expect(
+      sourceValuesByName.get("ModeScopedLauncherRoutesList")?.value,
+    ).toEqual([]);
+    const hostTransportRoutes = hostValuesByName.get("TransportRouteConstants")
+      ?.value as {
+      apiPrefix?: unknown;
+      binary?: Record<string, unknown>;
+      root?: Record<string, unknown>;
+      websocket?: Record<string, unknown>;
+    };
+    expect(sourceValuesByName.get("TransportRouteConstants")?.value).toEqual({
+      apiPrefix: hostTransportRoutes.apiPrefix,
+      binary: {
+        download: hostTransportRoutes.binary?.download,
+        upload: hostTransportRoutes.binary?.upload,
+      },
+      root: {
+        bootstrapPage: hostTransportRoutes.root?.bootstrapPage,
+        toolsCall: hostTransportRoutes.root?.toolsCall,
+      },
+      websocket: {
+        frontend: hostTransportRoutes.websocket?.frontend,
+        listenerById: hostTransportRoutes.websocket?.listenerById,
+        terminalBySection: hostTransportRoutes.websocket?.terminalBySection,
+      },
+    });
+
+    expect(sourceSdkSidecar.contracts?.map((entry) => entry.name)).toEqual(
+      expect.arrayContaining([
+        "EndpointOrigin",
+        "SectionType",
+        "WorkspaceLaunchRouteKind",
+      ]),
     );
-    assertSourceSdkScopedExportedValues(sourceValuesByName, hostValuesByName);
-    assertSourceSdkNonHTTPSidecarSurface(sourceSdkSidecar);
+    expect(sourceSdkSidecar.exportedValues?.map((entry) => entry.name)).toEqual(
+      expect.arrayContaining([
+        "ServerModeBoundaryPolicyByMode",
+        "TransportRouteConstants",
+      ]),
+    );
+    expect(
+      sourceSdkSidecar.contracts?.map((entry) => entry.name),
+    ).not.toContain("AddKwargResult");
+    expect(
+      sourceSdkSidecar.exportedValues?.map((entry) => entry.name),
+    ).not.toContain("PluginFrontendBuildManifest");
+    expect(JSON.stringify(sourceSdkSidecar)).not.toContain(
+      "addLauncherRecentWorkspace",
+    );
   });
 
   it("prunes source SDK sidecar from owner metadata instead of SDK source reads", () => {

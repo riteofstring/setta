@@ -361,15 +361,6 @@ func TestRuntimeCreateTemporaryTerminalCreatesTopLevelTerminal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("resolve temporary terminal section: %v", err)
 	}
-	assertTemporaryTerminalTopLevelState(t, project, terminalSection, terminalID)
-	assertTemporaryTerminalVariantAndImpl(t, terminalVariant, terminalImpl)
-	assertSectionFixedSizeValue(t, project, terminalID, terminalVariant.ID, "width", 720, "temporary terminal")
-	assertSectionFixedSizeValue(t, project, terminalID, terminalVariant.ID, "height", 220, "temporary terminal")
-}
-
-func assertTemporaryTerminalTopLevelState(t *testing.T, project Project, terminalSection Section, terminalID string) {
-	t.Helper()
-
 	if terminalSection.ParentSectionID != "" {
 		t.Fatalf("expected top-level temporary terminal to have no parent, got %q", terminalSection.ParentSectionID)
 	}
@@ -386,11 +377,6 @@ func assertTemporaryTerminalTopLevelState(t *testing.T, project Project, termina
 	if _, ok := activeViewMode.TopLevelSections[terminalID]; !ok {
 		t.Fatalf("expected temporary terminal layout in active view mode, got %#v", activeViewMode.TopLevelSections)
 	}
-}
-
-func assertTemporaryTerminalVariantAndImpl(t *testing.T, terminalVariant SectionVariant, terminalImpl SectionImpl) {
-	t.Helper()
-
 	if terminalVariant.ID != "temporary-terminal-variant" {
 		t.Fatalf("expected temporary variant id, got %q", terminalVariant.ID)
 	}
@@ -399,6 +385,20 @@ func assertTemporaryTerminalVariantAndImpl(t *testing.T, terminalVariant Section
 	}
 	if terminalImpl.Terminal == nil || terminalImpl.Terminal.SessionMode != TerminalSessionModeManagedConsole {
 		t.Fatalf("expected temporary terminal to use managed console mode, got %#v", terminalImpl.Terminal)
+	}
+	terminalPayload, err := effectiveSectionPayload(project, terminalID, terminalVariant.ID)
+	if err != nil {
+		t.Fatalf("effective temporary terminal payload: %v", err)
+	}
+	terminalSize, ok := payloadObjectField(terminalPayload, "size")
+	if !ok {
+		t.Fatalf("expected temporary terminal size payload, got %#v", terminalPayload)
+	}
+	if width, ok := terminalSize["width"].(float64); !ok || width != 720 {
+		t.Fatalf("expected temporary terminal width 720, got %#v", terminalSize["width"])
+	}
+	if height, ok := terminalSize["height"].(float64); !ok || height != 220 {
+		t.Fatalf("expected temporary terminal height 220, got %#v", terminalSize["height"])
 	}
 }
 

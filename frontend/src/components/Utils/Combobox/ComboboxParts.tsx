@@ -1,6 +1,5 @@
 import { StandardSearch } from "components/Utils/atoms/search/StandardSearch";
-import { autoUpdateGpuFloatingPosition } from "gpuFlow/portals/floatingPosition";
-import React, { useLayoutEffect, useRef, useState } from "react";
+import React, { useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { HiChevronDown, HiChevronUp } from "react-icons/hi2";
 import { StandardSearchRightBtn } from "../atoms/search/StandardSearchRightBtn";
@@ -73,17 +72,14 @@ function joinClasses(...classNames: Array<string | undefined>) {
   return classNames.filter(Boolean).join(" ");
 }
 
-function getResolvedComboboxBg(
-  bg: string | undefined,
-  variant: ComboboxVariant,
-) {
-  return bg?.trim().length ? bg : DEFAULT_BG_BY_VARIANT[variant];
+function getResolvedComboboxBg(bg: string, variant: ComboboxVariant) {
+  return bg.trim().length > 0 ? bg : DEFAULT_BG_BY_VARIANT[variant];
 }
 
 function getComboboxInputStyles(
   variant: ComboboxVariant,
   small: boolean,
-  bg: string | undefined,
+  bg: string,
   inputThemeClassName: string,
 ) {
   const sizeKey = getComboboxSizeKey(small);
@@ -131,7 +127,7 @@ export function ComboboxInput({
   inputThemeClassName = "",
   rightButtonThemeClassName = "",
   variant = "pill",
-}: ComboboxInputProps) {
+}) {
   const sizeKey = getComboboxSizeKey(small);
   const isPaneVariant = variant === "pane";
   const resolvedOuterClasses = joinClasses(
@@ -164,7 +160,7 @@ export function ComboboxInput({
             disabled: isDisabled,
           })}
           icon={toggleIcon}
-          {...(isPaneVariant ? { rounded: "rounded-md" } : {})}
+          rounded={isPaneVariant ? "rounded-md" : undefined}
           className={joinClasses(
             RIGHT_BUTTON_CLASS_BY_VARIANT[variant],
             rightButtonThemeClassName,
@@ -176,99 +172,50 @@ export function ComboboxInput({
   );
 }
 
-type ComboboxInputProps = {
-  readonly bg?: string | undefined;
-  readonly divId?: string | undefined;
-  readonly getInputProps: (options?: object, otherOptions?: object) => object;
-  readonly getToggleButtonProps: (options?: object) => object;
-  readonly inputOuterClasses?: string | undefined;
-  readonly inputRef: React.RefObject<HTMLInputElement | null>;
-  readonly inputThemeClassName?: string | undefined;
-  readonly isDisabled?: boolean | undefined;
-  readonly isOpen: boolean;
-  readonly onKeyDown: React.KeyboardEventHandler<HTMLInputElement>;
-  readonly placeholder?: string | undefined;
-  readonly rightButtonThemeClassName?: string | undefined;
-  readonly small: boolean;
-  readonly variant?: ComboboxVariant | undefined;
-};
-
 export function ComboboxList({
   isOpen,
   children,
   getMenuProps,
   inputRef,
   listThemeClassName = "",
-  portalContainerId,
-  repositionOnCanvasTransform = false,
 }: {
   isOpen: boolean;
   children: React.ReactNode;
-  getMenuProps: (options?: object, otherOptions?: object) => object;
+  getMenuProps: () => React.InputHTMLAttributes<HTMLInputElement>;
   inputRef: React.RefObject<HTMLInputElement | null>;
-  listThemeClassName?: string | undefined;
-  portalContainerId?: string | undefined;
-  repositionOnCanvasTransform?: boolean | undefined;
+  listThemeClassName?: string;
 }) {
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const [listStyle, setListStyle] = useState<React.CSSProperties>({
-    left: "-9999px",
-    opacity: 0,
-    position: "fixed",
-    top: "-9999px",
-  });
+  const [listDims, setListDims] = useState({ x: 0, y: 0, width: 0 });
   const display = isOpen ? "flex" : "hidden";
   const resolvedListThemeClassName = listThemeClassName
     ? ` ${listThemeClassName}`
     : "";
 
   useLayoutEffect(() => {
-    if (!isOpen) {
-      setListStyle({
-        left: "-9999px",
-        opacity: 0,
-        position: "fixed",
-        top: "-9999px",
+    if (isOpen && inputRef.current) {
+      const rect = inputRef.current.getBoundingClientRect();
+      const yMargin = -30;
+      setListDims({
+        x: rect.left,
+        y: rect.bottom + yMargin,
+        width: rect.width,
       });
-      return;
     }
-    if (!inputRef.current || !listRef.current) {
-      return;
-    }
-    return autoUpdateGpuFloatingPosition({
-      floating: listRef.current,
-      matchReferenceWidth: true,
-      maxHeight: 384,
-      offsetPx: 2,
-      onPosition: setListStyle,
-      placement: "bottom-start",
-      reference: inputRef.current,
-      repositionOnGpuViewportTransform: repositionOnCanvasTransform,
-    });
-  }, [inputRef, isOpen, repositionOnCanvasTransform]);
-
-  if (typeof document === "undefined") {
-    return null;
-  }
-  const portalContainer =
-    portalContainerId === undefined
-      ? document.body
-      : document.getElementById(portalContainerId) ?? document.body;
+  }, [isOpen, inputRef]);
 
   return createPortal(
     <div
-      className={`nowheel nodrag w-fit pb-2 ${display} z-[80] rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50${resolvedListThemeClassName}`}
+      className={`nowheel nodrag absolute w-fit pb-2 ${display} z-[80] mt-8 max-h-96 rounded-md border bg-white shadow-xl dark:border-setta-700/70 dark:bg-setta-800 dark:text-setta-200 dark:shadow-setta-900/50${resolvedListThemeClassName}`}
       {...getMenuProps()}
-      ref={listRef}
       style={{
-        ...listStyle,
+        left: `${listDims.x}px`,
+        top: `${listDims.y}px`,
+        minWidth: listDims.width,
       }}
     >
-      <div className="w-full overflow-y-scroll" role="presentation">
-        {children}
-      </div>
+      <div className="w-full overflow-y-scroll">{children}</div>
     </div>,
-    portalContainer,
+    document.body,
   );
 }
 
@@ -285,12 +232,12 @@ function _ComboboxItem({
     ? highlightedItemStyle || "bg-setta-300/50 dark:bg-setta-900/50"
     : "";
   return (
-    <div
+    <dd
       className={`mx-1 cursor-pointer truncate rounded-lg px-2 py-[.125rem] text-xs ${bg} ${itemStyle}`}
       {...getItemProps({ item, index })}
     >
       {itemString}
-    </div>
+    </dd>
   );
 }
 
@@ -311,13 +258,12 @@ export function ComboboxItems({
   return filteredItems.reduce(
     (result, group, groupIndex) => {
       result.groups.push(
-        <div aria-label={group.group} key={groupIndex} role="group">
-          <div
-            className={`mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-600 first:pt-2 dark:text-setta-300${resolvedGroupHeaderThemeClassName}`}
-            role="presentation"
+        <dl key={groupIndex}>
+          <dt
+            className={`mx-3 mb-1 truncate border-b border-solid border-setta-300/50 pt-3 text-[0.6rem] font-bold uppercase text-setta-400 first:pt-2${resolvedGroupHeaderThemeClassName}`}
           >
             {group.group}
-          </div>
+          </dt>
           {group.items.map((item, itemIndex) => {
             const globalIndex = result.itemIndex++;
             return (
@@ -333,7 +279,7 @@ export function ComboboxItems({
               />
             );
           })}
-        </div>,
+        </dl>,
       );
 
       return result;

@@ -130,24 +130,16 @@ func TestProjectCreateNewSectionVariantDuplicatesParamVariantStateAndEdges(t *te
 	if result.VariantID == "" || result.VariantID == "source-variant" {
 		t.Fatalf("expected a distinct created section variant id, got %q", result.VariantID)
 	}
-	assertCreatedSectionVariantState(t, project, result.VariantID)
-	newCodeObjVariantMap := assertCreatedSectionVariantPayload(t, project, result.VariantID)
-	assertCreatedCodeObjectVariantCopy(t, project, newCodeObjVariantMap)
-	assertCreatedSectionVariantEdges(t, project, result.VariantID)
-}
-
-func assertCreatedSectionVariantState(t *testing.T, project Project, variantID string) {
-	t.Helper()
 
 	section := project.Sections["source-section"]
-	if !reflect.DeepEqual(section.VariantIDs, []string{"source-variant", variantID}) {
-		t.Fatalf("expected source-section variants [source-variant %s], got %#v", variantID, section.VariantIDs)
+	if !reflect.DeepEqual(section.VariantIDs, []string{"source-variant", result.VariantID}) {
+		t.Fatalf("expected source-section variants [source-variant %s], got %#v", result.VariantID, section.VariantIDs)
 	}
-	if got := project.SectionVariantMap["source-section"]; got != variantID {
-		t.Fatalf("expected active source-section variant %q, got %q", variantID, got)
+	if got := project.SectionVariantMap["source-section"]; got != result.VariantID {
+		t.Fatalf("expected active source-section variant %q, got %q", result.VariantID, got)
 	}
 
-	newVariant := project.SectionVariants[variantID]
+	newVariant := project.SectionVariants[result.VariantID]
 	if newVariant.Name == "" {
 		t.Fatal("expected created section variant name")
 	}
@@ -164,16 +156,12 @@ func assertCreatedSectionVariantState(t *testing.T, project Project, variantID s
 	} else if newVariant.Name == sourceVariantName+"_2" {
 		t.Fatalf("expected created variant name not to reuse suffixed source naming, got %q", newVariant.Name)
 	}
-}
-
-func assertCreatedSectionVariantPayload(t *testing.T, project Project, variantID string) map[string]string {
-	t.Helper()
 
 	originalPayload, err := effectiveSectionPayload(project, "source-section", "source-variant")
 	if err != nil {
 		t.Fatalf("original effectiveSectionPayload: %v", err)
 	}
-	newPayload, err := effectiveSectionPayload(project, "source-section", variantID)
+	newPayload, err := effectiveSectionPayload(project, "source-section", result.VariantID)
 	if err != nil {
 		t.Fatalf("new effectiveSectionPayload: %v", err)
 	}
@@ -196,11 +184,6 @@ func assertCreatedSectionVariantPayload(t *testing.T, project Project, variantID
 	if newCodeObjVariantMap["source-param"] == "" || newCodeObjVariantMap["source-param"] == originalCodeObjVariantMap["source-param"] {
 		t.Fatalf("expected a distinct code object variant id for source-param, got %#v", newCodeObjVariantMap)
 	}
-	return newCodeObjVariantMap
-}
-
-func assertCreatedCodeObjectVariantCopy(t *testing.T, project Project, newCodeObjVariantMap map[string]string) {
-	t.Helper()
 
 	sourceCodeObj := project.CodeObjs["source-param"]
 	if len(sourceCodeObj.VariantIDs) != 2 {
@@ -218,10 +201,6 @@ func assertCreatedCodeObjectVariantCopy(t *testing.T, project Project, newCodeOb
 	if got := payloadStringField(newCodeObjPayload, "value"); got != "source" {
 		t.Fatalf("expected cloned code object value source, got %q", got)
 	}
-}
-
-func assertCreatedSectionVariantEdges(t *testing.T, project Project, variantID string) {
-	t.Helper()
 
 	if len(project.Edges) != 5 {
 		t.Fatalf("expected 5 edges after variant copy, got %#v", project.Edges)
@@ -233,7 +212,7 @@ func assertCreatedSectionVariantEdges(t *testing.T, project Project, variantID s
 		switch {
 		case edge.ID != "edge-out" &&
 			edge.SourceSectionID == "source-section" &&
-			edge.SourceVariantID == variantID &&
+			edge.SourceVariantID == result.VariantID &&
 			edge.SourcePortID == "source-port" &&
 			edge.TargetSectionID == "target-section" &&
 			edge.TargetVariantID == "target-variant" &&
@@ -244,16 +223,16 @@ func assertCreatedSectionVariantEdges(t *testing.T, project Project, variantID s
 			edge.SourceVariantID == "target-variant" &&
 			edge.SourcePortID == "target-port" &&
 			edge.TargetSectionID == "source-section" &&
-			edge.TargetVariantID == variantID &&
+			edge.TargetVariantID == result.VariantID &&
 			edge.TargetPortID == "source-param":
 			copiedIncoming = &edge
 		}
 	}
 	if copiedOutgoing == nil {
-		t.Fatalf("expected an outgoing edge copy for %q, got %#v", variantID, project.Edges)
+		t.Fatalf("expected an outgoing edge copy for %q, got %#v", result.VariantID, project.Edges)
 	}
 	if copiedIncoming == nil {
-		t.Fatalf("expected an incoming edge copy for %q, got %#v", variantID, project.Edges)
+		t.Fatalf("expected an incoming edge copy for %q, got %#v", result.VariantID, project.Edges)
 	}
 }
 

@@ -1,9 +1,6 @@
-/* @vitest-environment jsdom */
-
 import { renderToStaticMarkup } from "react-dom/server";
 import { useChartData, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   ChartTypeEnum,
   createChartDataArtifact,
@@ -112,72 +109,5 @@ describe("ChartArea", () => {
 
     expect(markup).toContain("<figure");
     expect(markup).toContain("<canvas");
-  });
-
-  it("marks the chart section and canvas as GPU flow interactive nodrag regions", () => {
-    const sectionId = "chart-section";
-    const variantId = "chart-variant";
-    const implId = "chart-impl";
-    const dataPath = "artifacts/chart.csv";
-
-    useProjectState.setState((state) => {
-      state.projectConfig = createProjectConfig({
-        id: "project-1",
-        sectionVariantMap: { [sectionId]: variantId },
-        topLevelSections: {
-          [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
-        },
-      });
-      state.sections = {
-        [sectionId]: createCore({
-          id: sectionId,
-          name: "Chart",
-          variants: [variantId],
-          defaultVariant: variantId,
-        }),
-      };
-      state.sectionVariants = {
-        [variantId]: createVariant({
-          id: variantId,
-          name: "Variant",
-          impl: implId,
-          nonPresetImpls: [],
-        }),
-      };
-      state.sectionImpls = {
-        [implId]: createChartSectionImpl({
-          id: implId,
-          dataPath,
-          chartSettings: {
-            type: ChartTypeEnum.line,
-            xAxisColumn: "time",
-            yAxisColumn: "value",
-          },
-        }),
-      };
-      state.parentSectionMap = { [sectionId]: null };
-      state.previewSectionVariantMap = {};
-      state.shownParamIds = {
-        [variantId]: {
-          pinned: [],
-          unpinned: [],
-        },
-      };
-    });
-    syncStoreInitialState(useProjectState);
-
-    const markup = renderToStaticMarkup(<ChartArea sectionId={sectionId} />);
-    const container = document.createElement("div");
-    container.innerHTML = markup;
-
-    for (const selector of [
-      `[data-gpu-flow-control="chart:${sectionId}"]`,
-      `[data-gpu-flow-control="chart:canvas:${sectionId}"]`,
-    ]) {
-      const element = container.querySelector(selector);
-      expect(element?.getAttribute("data-gpu-flow-interactive")).toBe("true");
-      expect(element?.classList.contains(NO_DRAG_CLASS_NAME)).toBe(true);
-      expect(element?.classList.contains(NO_PAN_CLASS_NAME)).toBe(true);
-    }
   });
 });
