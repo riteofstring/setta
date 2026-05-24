@@ -325,7 +325,18 @@ function reduceGpuFlowVisibleFramePublicationFrame<
       frameRequest,
       publicationDecision,
     });
-  const publicationFrameContext = initialPublicationFrameContext;
+  const publicationFrameContext =
+    finalPublicationDecision === publicationDecision
+      ? initialPublicationFrameContext
+      : createGpuFlowVisibleFramePublicationFrameContext({
+          frameRequest,
+          publicationDecision: finalPublicationDecision,
+          budgetBroker,
+          rawReasons,
+          runtimeViewportFrame,
+          visibleFrameResourceGraphSnapshot,
+          viewportInteractionActive,
+        });
   const candidateSet = prepareGpuFlowVisibleFramePublicationCandidateSet({
     prepareContentPublicationFrame,
     prepareMotionProjectionFrame,

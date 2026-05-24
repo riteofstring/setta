@@ -256,12 +256,22 @@ describe("GPU Flow visible frame coordinator budget", () => {
           reservedMotionProjectionBudgetMs: 2,
         },
       }),
-      prepareContentPublicationFrame: ({ contentPublicationWorkPlan }) => {
-        phases.push(`content:${contentPublicationWorkPlan.kind}`);
+      prepareContentPublicationFrame: ({
+        contentPublicationWorkPlan,
+        publicationFrameContext,
+      }) => {
+        phases.push(
+          `content:${contentPublicationWorkPlan.kind}:defer-${publicationFrameContext.deferResolutionUpdates}`,
+        );
         return testPublicationCandidate();
       },
-      prepareMotionProjectionFrame: ({ motionProjectionWorkPlan }) => {
-        phases.push(`motion:${motionProjectionWorkPlan.kind}`);
+      prepareMotionProjectionFrame: ({
+        motionProjectionWorkPlan,
+        publicationFrameContext,
+      }) => {
+        phases.push(
+          `motion:${motionProjectionWorkPlan.kind}:defer-${publicationFrameContext.deferResolutionUpdates}`,
+        );
         return {
           frame: testPublicationCandidate(),
           kind: "not-rendered" as const,
@@ -320,8 +330,8 @@ describe("GPU Flow visible frame coordinator budget", () => {
       selectedVisibleResourceDebtIds: ["dom-control:editor"],
     });
     expect(phases).toEqual([
-      "motion:skip",
-      "content:prepare",
+      "motion:skip:defer-false",
+      "content:prepare:defer-false",
       "publish:content",
     ]);
   });
