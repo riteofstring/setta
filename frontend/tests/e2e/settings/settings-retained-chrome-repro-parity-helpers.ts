@@ -109,21 +109,24 @@ async function waitForRetainedCompositorViewportCommit(
   viewport: RetainedCompositorViewportSample,
 ): Promise<void> {
   await expect
-    .poll(async () => {
-      const state = await readRetainedCompositorViewportCommitState(
-        page,
-        viewport,
-      );
-      if (state.runtimeMatches && !state.committedMatches) {
-        await page.evaluate(() => {
-          window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
-        });
-      }
-      return state;
-    }, {
-      intervals: [50, 80, 120, 180],
-      timeout: 10_000,
-    })
+    .poll(
+      async () => {
+        const state = await readRetainedCompositorViewportCommitState(
+          page,
+          viewport,
+        );
+        if (state.runtimeMatches && !state.committedMatches) {
+          await page.evaluate(() => {
+            window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
+          });
+        }
+        return state;
+      },
+      {
+        intervals: [50, 80, 120, 180],
+        timeout: 10_000,
+      },
+    )
     .toMatchObject({
       committedMatches: true,
       runtimeMatches: true,
@@ -239,7 +242,7 @@ async function readRetainedCompositorContentPublicationSettleState(
 
 type RetainedSurfaceFrameCompletionDetail = {
   readonly contentBlocked?: boolean | undefined;
-  readonly contentCommittedSurfacePublished?: boolean | undefined;
+  readonly contentPresentedSurfacePublished?: boolean | undefined;
   readonly contentDebt?: boolean | undefined;
   readonly contentRendered?: boolean | undefined;
   readonly frame?: number | undefined;
@@ -256,8 +259,7 @@ function isRetainedSurfaceFrameCompletionDetail(
   return (
     value !== null &&
     typeof value === "object" &&
-    (value as { readonly phase?: unknown }).phase ===
-      "surface-frame-completion"
+    (value as { readonly phase?: unknown }).phase === "surface-frame-completion"
   );
 }
 
@@ -267,7 +269,7 @@ function isSettledRetainedContentPublicationCompletion(
   return (
     detail.lane === "content" &&
     detail.contentRendered === true &&
-    detail.contentCommittedSurfacePublished === true &&
+    detail.contentPresentedSurfacePublished === true &&
     detail.contentBlocked === false
   );
 }
