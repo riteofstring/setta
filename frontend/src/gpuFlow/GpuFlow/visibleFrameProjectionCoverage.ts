@@ -118,6 +118,21 @@ function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
       needsRetainedPageMaintenance: false,
     };
   }
+  if (
+    hasGpuFlowRetainedProjectionSceneRevisionChanged({
+      layer,
+      retainedDisplayFrame,
+    })
+  ) {
+    return {
+      flatSurfaces: retainedDisplayFrame.flatSurfaces,
+      missingCoverageSurfaceIds:
+        createGpuFlowRetainedProjectionCommittedSurfaceIds(
+          retainedDisplayFrame,
+        ),
+      needsRetainedPageMaintenance: true,
+    };
+  }
   const { missingCoverageSurfaceIds, projectedVisualsBySurfaceId } =
     createGpuFlowRetainedProjectionVisualsBySurfaceId({
       changedSurfaceIds,
@@ -325,6 +340,35 @@ function mergeGpuFlowRetainedProjectionFlatSurfaces({
     visuals.push(...projectedVisuals);
   }
   return visuals.length > 0 ? visuals : retainedDisplayFrame.flatSurfaces;
+}
+
+function hasGpuFlowRetainedProjectionSceneRevisionChanged({
+  layer,
+  retainedDisplayFrame,
+}: {
+  readonly layer: GpuFlowNodeLayerState;
+  readonly retainedDisplayFrame: RetainedDisplayFrame;
+}): boolean {
+  const committedSceneRevision =
+    retainedDisplayFrame.retainedRuntimeFrame.input.sceneRevision;
+  return (
+    typeof committedSceneRevision === "number" &&
+    layer.scene?.revision !== committedSceneRevision
+  );
+}
+
+function createGpuFlowRetainedProjectionCommittedSurfaceIds(
+  retainedDisplayFrame: RetainedDisplayFrame,
+): ReadonlySet<string> {
+  const surfaceIds = new Set(
+    retainedDisplayFrame.retainedRuntimeFrame.descriptors.sourceSurfaces.map(
+      (surface) => surface.id,
+    ),
+  );
+  for (const region of retainedDisplayFrame.drawRegions) {
+    surfaceIds.add(region.page.descriptor.surfaceId);
+  }
+  return surfaceIds;
 }
 
 function collectGpuFlowRetainedProjectionFlatVisualsByTextureHandle(

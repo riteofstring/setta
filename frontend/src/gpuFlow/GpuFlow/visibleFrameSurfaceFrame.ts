@@ -5,7 +5,6 @@ import { nowChromeReproPerformanceMs } from "state/actions/chromeRepro";
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowRuntime } from "../gpuDevice";
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
-import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceProps } from "../GpuSurface";
 import { getGpuWheelGestureOwnershipArbiter } from "../interactions/wheelOwnership";
 import {
@@ -15,6 +14,7 @@ import {
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
+import { withGpuFlowContentCatchupReasonForStalePublicationSample } from "../projectionSchedulerPolicy";
 import type { GpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
@@ -66,6 +66,8 @@ import type {
 } from "./visibleFrameScheduling";
 import { recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic } from "./visibleFrameSurfaceFrameDiagnostics";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
+
+export { withGpuFlowContentCatchupReasonForStalePublicationSample };
 
 type GpuFlowNodeLayerFrameInput = Parameters<
   typeof renderGpuFlowNodeLayerFrame
@@ -340,6 +342,9 @@ export function renderGpuFlowSurfaceFrame({
         const hasCommittedContentFrame = hasGpuFlowCommittedContentFrame(
           input.committedSurfaceFrameRef.current,
         );
+        const previousVisibleProjectionState =
+          input.visibleProjectionPublicationStateRef.current ??
+          input.visibleProjectionStateRef.current;
         frameMeasureDetail.hasCommittedContentFrame = hasCommittedContentFrame;
         nodeLayerRef.current = {
           ...nodeLayerRef.current,
@@ -366,11 +371,10 @@ export function renderGpuFlowSurfaceFrame({
         frameMeasureDetail.sampleViewportZoom = sampleViewport.zoom;
         return {
           hasCommittedContentFrame,
-          previousVisibleProjectionState:
-            input.visibleProjectionPublicationStateRef.current ??
-            input.visibleProjectionStateRef.current,
+          previousVisibleProjectionState,
           rawReasons: withGpuFlowContentCatchupReasonForStalePublicationSample({
             committedFrame: input.committedSurfaceFrameRef.current,
+            previousVisibleProjectionState,
             rawReasons: event.reasons,
             sample,
           }),
@@ -446,34 +450,6 @@ function requestGpuFlowRetainedScrollCatchupFrameForStaleVisibleState({
     return;
   }
   surface?.requestFrame("retained-scroll");
-}
-
-export function withGpuFlowContentCatchupReasonForStalePublicationSample({
-  committedFrame,
-  rawReasons,
-  sample,
-}: {
-  readonly committedFrame: Pick<
-    GpuFlowCommittedSurfaceFrame,
-    "coherence" | "viewportSample"
-  > | null;
-  readonly rawReasons: readonly GpuFrameReason[];
-  readonly sample: Pick<
-    GpuFlowLiveProjectionSample,
-    "retainedScrollRevision" | "viewport"
-  >;
-}): readonly GpuFrameReason[] {
-  if (
-    !committedFrame ||
-    isGpuFlowCommittedSurfaceFrameSampleCurrent({
-      committedFrame,
-      sample,
-    }) ||
-    rawReasons.includes("manual")
-  ) {
-    return rawReasons;
-  }
-  return Object.freeze([...rawReasons, "manual" as const]);
 }
 
 export function hasGpuFlowCommittedContentFrame(

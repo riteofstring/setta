@@ -8,6 +8,7 @@ import {
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
+import type { GpuFlowCommittedSurfaceBlockedCandidateResourceWork } from "./visibleFrameContentPlan";
 import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
@@ -694,6 +695,89 @@ describe("GPU Flow surface publication completion", () => {
     );
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
   });
+
+  it("stages raw browser visual repair resources for blocked proofs without a budget subset", () => {
+    const blockedFrame = committedSurfaceFrame({ displayFrameId: 62 });
+    const sample = liveProjectionSample({
+      id: 62,
+      timestamp: 62,
+    });
+    const token = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "browser-visual",
+          reason: "live-dom-budget",
+        },
+      ],
+      frozenFrameId: blockedFrame.displayFrameId,
+      projectionSample: sample,
+    });
+    const requestFrame = vi.fn();
+    const abortPreparedCommittedSurfaceFrame = vi.fn();
+    const resourceWork = browserVisualResourceWork([
+      "browser-visual:visible-a:browser-text-control:live-dom-budget:generation-a",
+      "browser-visual:new-a:browser-text-control:live-dom-budget:generation-b",
+    ]);
+    const presenter = createGpuFlowVisibleFramePresenter({
+      abortPreparedCommittedSurfaceFrame,
+      callbacksRef: { current: null },
+      commitPreparedCommittedSurfaceFrame: () => {
+        throw new Error("Unexpected prepared committed surface commit.");
+      },
+      projectCommittedBrowserVisualActors: () => {
+        throw new Error("Unexpected browser visual actor projection.");
+      },
+      publishColdStartShellFrame: () => {},
+      retainedDisplayFrameRef: { current: null },
+      retainedRuntimeFrameRenderSignatureRef: { current: null },
+      retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
+      runtimeCanvas: testCanvas(),
+      surfaceRef: {
+        current: {
+          requestFrame,
+        },
+      },
+      viewportRuntime: {
+        applyOverlayTransforms: () => {
+          throw new Error("Unexpected overlay projection transform.");
+        },
+      },
+      visibleOverlayProjectionKeyRef: { current: null },
+      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionStateRef: { current: null },
+    } as unknown as Parameters<typeof createGpuFlowVisibleFramePresenter>[0]);
+
+    presenter(
+      blockedPublicationTransaction({
+        blockedFrame,
+        blockedPreservePreparationSnapshot: true,
+        blockedResourceWork: resourceWork,
+        debtFrameRequest: null,
+        sample,
+        schedulerCompletion: {
+          debt: {
+            content: true,
+            maintenance: false,
+            motion: false,
+          },
+          outcome: "blocked",
+        },
+        token,
+      }),
+    );
+
+    expect(abortPreparedCommittedSurfaceFrame).toHaveBeenCalledWith(
+      token,
+      blockedFrame,
+      {
+        browserVisualPreparationResourceKeys: resourceWork.workItems.map(
+          (item) => item.candidateResourceKey,
+        ),
+        preservePreparationSnapshot: true,
+      },
+    );
+  });
 });
 
 function heldPreviousPublicationTransaction({
@@ -877,9 +961,33 @@ function nodeLayerFrameStatePublication({
   };
 }
 
+function browserVisualResourceWork(
+  candidateResourceKeys: readonly string[],
+): GpuFlowCommittedSurfaceBlockedCandidateResourceWork {
+  return {
+    deferWakeup: false,
+    timestamp: 62,
+    workItems: candidateResourceKeys.map((candidateResourceKey, index) => ({
+      actorId: `actor-${index}`,
+      blockedReason: "live-dom-budget",
+      candidateResourceKey,
+      clipRect: null,
+      debtAgeFrames: 0,
+      lastReadyResourceKey: null,
+      ownerFrameId: 62,
+      readinessState: "requested" as const,
+      representationKind: "blocked-awaiting-live-host",
+      sourceHostIdentity: `actor-${index}`,
+      sourceRect: null,
+      wakeupSource: "blocked-publication" as const,
+    })),
+  };
+}
+
 function blockedPublicationTransaction({
   blockedFrame,
   blockedPreservePreparationSnapshot = false,
+  blockedResourceWork = null,
   debtFrameRequest,
   publicationFrameContext = null,
   sample,
@@ -888,6 +996,10 @@ function blockedPublicationTransaction({
 }: {
   readonly blockedFrame: GpuFlowCommittedSurfaceFrame;
   readonly blockedPreservePreparationSnapshot?: boolean | undefined;
+  readonly blockedResourceWork?:
+    | GpuFlowCommittedSurfaceBlockedCandidateResourceWork
+    | null
+    | undefined;
   readonly debtFrameRequest: unknown;
   readonly publicationFrameContext?: unknown;
   readonly sample: GpuFlowLiveProjectionSample;
@@ -912,7 +1024,7 @@ function blockedPublicationTransaction({
       contentPublicationFrame: {
         blockedErrorMessage: null,
         blockedPreparedCommittedSurfaceFrame: blockedFrame,
-        blockedPreparedCommittedSurfaceFrameResourceWork: null,
+        blockedPreparedCommittedSurfaceFrameResourceWork: blockedResourceWork,
         blockedPreservePreparationSnapshot,
         committedSurfaceFrame: null,
         heldPreparedCommittedSurfaceFrame: null,

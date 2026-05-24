@@ -110,6 +110,35 @@ describe("GPU flow projection frame coverage", () => {
     );
   });
 
+  it("treats retained scroll projection through a newer layer scene as missing coverage", () => {
+    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
+      committedFrameId: 12,
+      kind: "motion-projection",
+      lane: "motion",
+      rawReasons: ["retained-scroll"],
+      sample: liveSample({ id: 2, retainedScrollY: 400 }),
+    });
+    const result = resolveGpuFlowRetainedProjectionFrame({
+      layer: retainedLayer({
+        scene: {
+          ...retainedScene(),
+          revision: 2,
+        },
+      }),
+      retainedDisplayFrame: retainedDisplayFrame({
+        flatSurfaces: [flatSurface("page-0")],
+        pageRects: [{ height: 100, width: 100, x: 0, y: 0 }],
+      }),
+      transaction,
+    });
+
+    expect(result.flatSurfaces.map((surface) => surface.surfaceId)).toEqual([
+      "page-0",
+    ]);
+    expect(result.missingCoverageSurfaceIds).toEqual(new Set(["surface-a"]));
+    expect(result.needsRetainedPageMaintenance).toBe(true);
+  });
+
   it("holds the previous frame for the requested projection sample when retained projection coverage is missing", () => {
     const previousSample = liveSample({
       id: 1,
@@ -234,6 +263,92 @@ describe("GPU flow projection frame coverage", () => {
       y: 400,
     });
     expect(thumbVisual?.rect.y).toBeGreaterThan(2);
+  });
+
+  it("keeps the committed retained runtime frame when the live layer scene changed", () => {
+    const committedLayer = retainedLayer();
+    const fallbackRetainedRuntimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 1,
+      scene: committedLayer.scene,
+      scrollOffsets: new Map([["surface-a", { x: 0, y: 0 }]]),
+      scrollRevision: 1,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportSize: { height: 100, width: 100 },
+      viewportZoomBucket: 1,
+    });
+    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
+      committedFrameId: 12,
+      kind: "motion-projection",
+      lane: "motion",
+      rawReasons: ["retained-scroll"],
+      sample: liveSample({
+        id: 2,
+        retainedScrollY: 400,
+      }),
+    });
+    const frame = resolveGpuFlowProjectionRetainedRuntimeFrame({
+      canvasSize: canvasSize(),
+      fallbackRetainedRuntimeFrame,
+      frame: 2,
+      heldPreviousProjectionState: null,
+      layer: retainedLayer({
+        scene: {
+          ...retainedScene(),
+          revision: 2,
+        },
+      }),
+      transaction,
+    });
+
+    expect(frame).toBe(fallbackRetainedRuntimeFrame);
+    expect(frame.input.scrollOffsets.get("surface-a")).toEqual({ x: 0, y: 0 });
+  });
+
+  it("keeps the committed retained runtime frame when row hover differs without a native visual reason", () => {
+    const layer = retainedLayer({
+      retainedContentRowHoverTarget: {
+        rowId: "row-2",
+        surfaceId: "surface-a",
+      },
+    });
+    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
+      committedFrameId: 12,
+      kind: "motion-projection",
+      lane: "motion",
+      rawReasons: ["manual"],
+      sample: liveSample({
+        id: 2,
+        retainedScrollY: 0,
+      }),
+    });
+    const fallbackRetainedRuntimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 1,
+      scene: layer.scene,
+      scrollOffsets: new Map([["surface-a", { x: 0, y: 0 }]]),
+      scrollRevision: 2,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportSize: { height: 100, width: 100 },
+      viewportZoomBucket: 1,
+    });
+
+    const frame = resolveGpuFlowProjectionRetainedRuntimeFrame({
+      canvasSize: canvasSize(),
+      fallbackRetainedRuntimeFrame,
+      frame: 2,
+      frameReasons: ["manual"],
+      heldPreviousProjectionState: null,
+      layer,
+      transaction,
+    });
+
+    expect(frame).toBe(fallbackRetainedRuntimeFrame);
+    expect(
+      frame.descriptors.htmlSurfaceNativeVisuals.map(
+        (visual) => visual.surfaceId,
+      ),
+    ).not.toContain("surface-a:row-hover:row-2");
   });
 
   it("samples retained row hover visuals during motion projection", () => {
@@ -720,8 +835,10 @@ function retainedDisplayFrame({
     retainedRuntimeFrame: {
       descriptors: {
         domControlSources: activeDomControl ? [{ active: true }] : [],
+        sourceSurfaces: [{ id: "surface-a" }],
       },
       input: {
+        sceneRevision: 1,
         scrollOffsets: new Map([["surface-a", { x: 0, y: 0 }]]),
         viewportZoomBucket: 1,
       },

@@ -236,60 +236,6 @@ export class HtmlSurfaceRenderer {
       tiledFlatSurfaceTiles,
     });
 
-    const commandEncoder = this.runtime.device.createCommandEncoder({
-      label: "setta-html-surface-renderer-encoder",
-    });
-    const currentTexture = this.runtime.context.getCurrentTexture();
-    const pass = commandEncoder.beginRenderPass({
-      colorAttachments: [
-        {
-          clearValue: clearColor,
-          loadOp: "clear",
-          storeOp: "store",
-          view: currentTexture.createView({
-            label: "setta-html-surface-current-texture-view",
-          }),
-        },
-      ],
-      label: "setta-html-surface-render-pass",
-    });
-
-    this.drawGrid(pass, cameraBindGroup, gridDraw);
-    this.drawEdges(pass, cameraBindGroup, edgeDraw, edgeBufferData);
-    this.flatLayerPasses.drawFlat({
-      cameraBindGroup,
-      flatSurfaceDraw,
-      flatSurfaces,
-      pass,
-    });
-    this.drawTiledFlatSurfaces(
-      pass,
-      cameraBindGroup,
-      tiledFlatSurfaceDraw,
-      tiledFlatSurfaceTiles,
-    );
-    this.drawMeshSurfaces(pass, cameraBindGroup, meshSurfaceDraw, meshSurfaces);
-    this.drawEffectSurfaces(
-      pass,
-      cameraBindGroup,
-      effectSurfaceDraw,
-      effectSurfaces,
-    );
-    this.flatLayerPasses.drawLateFlat({
-      cameraBindGroup,
-      flatSurfaceDraw: lateFlatSurfaceDraw,
-      flatSurfaces: lateFlatSurfaces,
-      pass,
-    });
-    this.drawSolidRoundedRectSurfaces(
-      pass,
-      cameraBindGroup,
-      solidRoundedRectSurfaceDraw,
-      solidRoundedRectSurfaces,
-    );
-    pass.end();
-
-    const commandBuffer = commandEncoder.finish();
     const result = createHtmlSurfaceRenderResult({
       edgeBufferData,
       effectSurfaces,
@@ -322,6 +268,64 @@ export class HtmlSurfaceRenderer {
           );
         }
         submitted = true;
+        const commandEncoder = this.runtime.device.createCommandEncoder({
+          label: "setta-html-surface-renderer-encoder",
+        });
+        const currentTexture = this.runtime.context.getCurrentTexture();
+        const pass = commandEncoder.beginRenderPass({
+          colorAttachments: [
+            {
+              clearValue: clearColor,
+              loadOp: "clear",
+              storeOp: "store",
+              view: currentTexture.createView({
+                label: "setta-html-surface-current-texture-view",
+              }),
+            },
+          ],
+          label: "setta-html-surface-render-pass",
+        });
+
+        this.drawGrid(pass, cameraBindGroup, gridDraw);
+        this.drawEdges(pass, cameraBindGroup, edgeDraw, edgeBufferData);
+        this.flatLayerPasses.drawFlat({
+          cameraBindGroup,
+          flatSurfaceDraw,
+          flatSurfaces,
+          pass,
+        });
+        this.drawTiledFlatSurfaces(
+          pass,
+          cameraBindGroup,
+          tiledFlatSurfaceDraw,
+          tiledFlatSurfaceTiles,
+        );
+        this.drawMeshSurfaces(
+          pass,
+          cameraBindGroup,
+          meshSurfaceDraw,
+          meshSurfaces,
+        );
+        this.drawEffectSurfaces(
+          pass,
+          cameraBindGroup,
+          effectSurfaceDraw,
+          effectSurfaces,
+        );
+        this.flatLayerPasses.drawLateFlat({
+          cameraBindGroup,
+          flatSurfaceDraw: lateFlatSurfaceDraw,
+          flatSurfaces: lateFlatSurfaces,
+          pass,
+        });
+        this.drawSolidRoundedRectSurfaces(
+          pass,
+          cameraBindGroup,
+          solidRoundedRectSurfaceDraw,
+          solidRoundedRectSurfaces,
+        );
+        pass.end();
+        const commandBuffer = commandEncoder.finish();
         this.runtime.device.queue.submit([commandBuffer]);
       },
     });

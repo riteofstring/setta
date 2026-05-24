@@ -916,12 +916,17 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionState({
     | RenderGpuFlowSurfaceFrameInput["visibleFrameBudgetBrokerRef"]
     | undefined;
 }): void {
+  const browserVisualStagingResourceKeys =
+    createGpuFlowBrowserVisualStagingResourceKeys({
+      budgetSelectedResourceKeys: browserVisualPreparationResourceKeys,
+      candidateResourceWork: blockedPreparedCommittedSurfaceFrameResourceWork,
+    });
   if (blockedPreparedCommittedSurfaceFrame) {
     abortPreparedCommittedSurfaceFrame(
       outcome.token,
       blockedPreparedCommittedSurfaceFrame,
       {
-        browserVisualPreparationResourceKeys,
+        browserVisualPreparationResourceKeys: browserVisualStagingResourceKeys,
         preservePreparationSnapshot: blockedPreservePreparationSnapshot,
       },
     );
@@ -941,6 +946,21 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionState({
     runtimeCanvas,
     surfaceRef,
   });
+}
+
+function createGpuFlowBrowserVisualStagingResourceKeys({
+  budgetSelectedResourceKeys,
+  candidateResourceWork,
+}: {
+  readonly budgetSelectedResourceKeys: readonly string[];
+  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
+}): readonly string[] {
+  if (budgetSelectedResourceKeys.length > 0 || candidateResourceWork === null) {
+    return budgetSelectedResourceKeys;
+  }
+  return Object.freeze(
+    candidateResourceWork.workItems.map((item) => item.candidateResourceKey),
+  );
 }
 
 function publishGpuFlowRetainedRuntimeFrame({

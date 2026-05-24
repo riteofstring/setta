@@ -39,6 +39,9 @@ const FLOW_FRAME_MODULE_PATH = modulePath("./flowFrame.tsx");
 const INTERACTION_PROJECTOR_MODULE_PATH = modulePath(
   "../htmlSurfaces/interactionProjector.ts",
 );
+const HTML_SURFACE_RENDERER_MODULE_PATH = modulePath(
+  "../htmlSurfaces/renderer.ts",
+);
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = modulePath(
   "./visibleFrameSurfaceFrame.ts",
 );
@@ -594,6 +597,24 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "assertGpuFlowCommitPublicationTokenBrand",
     );
     expect(submitterSource).toContain("canvasSubmission.submit()");
+  });
+
+  it("defers canvas current-texture acquisition until deferred submission", () => {
+    const rendererSource = readFileSync(
+      HTML_SURFACE_RENDERER_MODULE_PATH,
+      "utf8",
+    );
+    const prepareStart = rendererSource.indexOf("  prepare({");
+    const submitStart = rendererSource.indexOf("submit: () =>", prepareStart);
+
+    expect(prepareStart).toBeGreaterThanOrEqual(0);
+    expect(submitStart).toBeGreaterThan(prepareStart);
+    expect(rendererSource.slice(prepareStart, submitStart)).not.toContain(
+      "getCurrentTexture()",
+    );
+    expect(rendererSource.slice(submitStart)).toContain(
+      "this.runtime.context.getCurrentTexture()",
+    );
   });
 
   it("defers DOM transform submission until commit-tokened node-layer publication", () => {

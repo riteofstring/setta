@@ -485,6 +485,7 @@ describe("getGpuRetainedDomControlSources", () => {
     expect(
       host.getAttribute(HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE),
     ).toBe("true");
+    expect(host.style.zIndex).toBe("-1");
   });
 
   it("uses texture upload and content retry frames for preparation snapshot sources", () => {

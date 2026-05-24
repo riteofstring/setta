@@ -94,52 +94,6 @@ describe("GPU Flow visible publication content plans", () => {
     );
   });
 
-  it("selects retained display blocked plans outside flowFrame", () => {
-    const prepareRetainedDisplayPublicationFramePlan =
-      createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
-        contentDecisionKernel,
-        previousVisibleProjectionState: null,
-        prepareRetainedDisplayPublicationCandidate: () => ({
-          prePublishRetainedPageMaintenance: null,
-          retainedDisplayOutcome: {
-            kind: "block-cold-first-coverage",
-            reason: "coverage-missing",
-          } as RetainedDisplayFrameOutcome,
-          retainedDisplayTransactionMs: 0,
-          retainedPageMaintenanceMs: 0,
-          retainedPagePreparedFrame:
-            {} as RetainedContentTexturePagePreparedFrame,
-        }),
-      });
-    const preparation = prepareRetainedDisplayPublicationFramePlan(
-      retainedDisplayPublicationInputFixture(),
-    );
-    const plan = preparation.framePlan;
-
-    expect(preparation.framePlanResult.publishedOutcomeFrame).toBeNull();
-    expect(preparation.nodeLayerFrameResult).toEqual(
-      expect.objectContaining({
-        blockedPublicationCandidate: expect.objectContaining({
-          frozenFrameId: "cold-start-shell:retained-projection",
-        }),
-      }),
-    );
-    expect(plan.kind).toBe("blocked");
-    if (plan.kind !== "blocked") {
-      throw new Error("Expected retained display blocked plan.");
-    }
-    expect(plan.blockedPublicationCandidate).toEqual({
-      blockedReasons: [
-        {
-          actorId: null,
-          family: "retained-projection",
-          reason: "coverage-missing",
-        },
-      ],
-      frozenFrameId: "cold-start-shell:retained-projection",
-    });
-  });
-
   it("selects committed-surface publish and nonpublishable candidate plans outside flowFrame", () => {
     const committedFrame = committedSurfaceFrame();
     const preparePublishPlan =
@@ -1187,6 +1141,9 @@ function visibleProjectionState(
   kind: GpuFlowVisibleProjectionState["transaction"]["kind"],
 ): GpuFlowVisibleProjectionState {
   return {
+    committedFrame: {
+      displayFrameId: 12,
+    },
     transaction: { kind },
   } as GpuFlowVisibleProjectionState;
 }

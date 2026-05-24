@@ -959,5 +959,5 @@ export function configureGpuRetainedDomControlSnapshotSourceElement({
   host.style.height = `${source.sourceRectCssPx.height}px`;
   host.style.pointerEvents = "none";
   host.style.width = `${source.sourceRectCssPx.width}px`;
-  host.style.removeProperty("z-index");
+  host.style.zIndex = "-1";
 }

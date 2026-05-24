@@ -50,6 +50,44 @@ describe("GPU Flow surface frame publication", () => {
     ).toEqual(["viewport", "manual"]);
   });
 
+  it("strips unchanged viewport motion while keeping content catch-up debt", () => {
+    expect(
+      withGpuFlowContentCatchupReasonForStalePublicationSample({
+        committedFrame: committedFrameSample({
+          retainedScrollRevision: 3,
+          viewportSample: [0, 0, 1],
+        }),
+        previousVisibleProjectionState: visibleProjectionStateSample({
+          viewport: [10, 20, 1],
+        }),
+        rawReasons: ["viewport"],
+        sample: {
+          retainedScrollRevision: 3,
+          viewport: { x: 10, y: 20, zoom: 1 },
+        },
+      }),
+    ).toEqual(["manual"]);
+  });
+
+  it("keeps viewport motion when the visible sample changes", () => {
+    expect(
+      withGpuFlowContentCatchupReasonForStalePublicationSample({
+        committedFrame: committedFrameSample({
+          retainedScrollRevision: 3,
+          viewportSample: [0, 0, 1],
+        }),
+        previousVisibleProjectionState: visibleProjectionStateSample({
+          viewport: [0, 0, 1],
+        }),
+        rawReasons: ["viewport"],
+        sample: {
+          retainedScrollRevision: 3,
+          viewport: { x: 10, y: 20, zoom: 1 },
+        },
+      }),
+    ).toEqual(["viewport", "manual"]);
+  });
+
   it("adds content catch-up debt for stale retained-scroll samples", () => {
     expect(
       withGpuFlowContentCatchupReasonForStalePublicationSample({
@@ -203,4 +241,12 @@ function committedContentFrame({
   return {
     retainedDisplayFrame,
   };
+}
+
+function visibleProjectionStateSample({
+  viewport,
+}: {
+  readonly viewport: GpuViewportInput;
+}) {
+  return { sample: { viewport } } as never;
 }

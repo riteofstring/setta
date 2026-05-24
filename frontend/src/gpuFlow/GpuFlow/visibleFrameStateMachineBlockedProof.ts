@@ -1,5 +1,6 @@
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import { createGpuFlowVisibleFrameActorKeyForBlockedReason } from "./visibleFrameActorManifest";
+import { createGpuFlowFrozenPreviousSafeBlockedReasons } from "./visibleFrameBlockedCandidate";
 import type { GpuFlowVisibleFrameStateMachineOutcome } from "./visibleFrameStateMachine";
 import type { GpuFlowVisiblePublicationBlockedProof } from "./visibleFrameTransactionProofs";
 import {
@@ -45,7 +46,10 @@ export function createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
     decidingProof,
   });
   return (
-    blockingProof ??
+    createGpuFlowFrozenPreviousSafeBlockedProof({
+      previousVisibleProjectionState,
+      proof: blockingProof,
+    }) ??
     createGpuFlowVisibleFramePublicationCandidateActorBlockedProof({
       candidate,
       decidingProof,
@@ -109,8 +113,12 @@ function createGpuFlowVisibleFramePublicationCandidateActorBlockedProof({
   ) {
     return null;
   }
-  const blockedCandidate = Object.freeze({
+  const visibleBlockedReasons = createGpuFlowFrozenPreviousSafeBlockedReasons({
     blockedReasons,
+    previousVisibleProjectionState,
+  });
+  const blockedCandidate = Object.freeze({
+    blockedReasons: visibleBlockedReasons,
     frozenFrameId:
       previousVisibleProjectionState?.committedFrame.displayFrameId ??
       GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
@@ -130,7 +138,7 @@ function createGpuFlowVisibleFramePublicationActorBlockedProof({
   readonly decidingProof: GpuFlowVisibleFrameStateMachineDecidingProof;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowVisiblePublicationBlockedProof {
-  const candidate = Object.freeze({
+  const blockedReasons = createGpuFlowFrozenPreviousSafeBlockedReasons({
     blockedReasons: Object.freeze([
       Object.freeze({
         actorId: decidingProof.actorId,
@@ -139,6 +147,10 @@ function createGpuFlowVisibleFramePublicationActorBlockedProof({
         reason: decidingProof.reason,
       }),
     ]),
+    previousVisibleProjectionState,
+  });
+  const candidate = Object.freeze({
+    blockedReasons,
     frozenFrameId:
       previousVisibleProjectionState?.committedFrame.displayFrameId ??
       GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
@@ -149,6 +161,34 @@ function createGpuFlowVisibleFramePublicationActorBlockedProof({
     frozenFrameId: candidate.frozenFrameId,
     source:
       resolveGpuFlowVisibleFrameStateMachineBlockedProofSource(decidingProof),
+  });
+}
+
+function createGpuFlowFrozenPreviousSafeBlockedProof({
+  previousVisibleProjectionState,
+  proof,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly proof: GpuFlowVisiblePublicationBlockedProof | null;
+}): GpuFlowVisiblePublicationBlockedProof | null {
+  if (proof === null) {
+    return null;
+  }
+  const blockedReasons = createGpuFlowFrozenPreviousSafeBlockedReasons({
+    blockedReasons: proof.blockedReasons,
+    previousVisibleProjectionState,
+  });
+  if (blockedReasons === proof.blockedReasons) {
+    return proof;
+  }
+  const candidate = Object.freeze({
+    ...proof.candidate,
+    blockedReasons,
+  });
+  return Object.freeze({
+    ...proof,
+    blockedReasons,
+    candidate,
   });
 }
 

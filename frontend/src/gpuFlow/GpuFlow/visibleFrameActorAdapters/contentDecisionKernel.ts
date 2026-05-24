@@ -218,6 +218,20 @@ export function selectGpuFlowRetainedDisplayPublicationFramePlan({
   const outcomeFrame = resolveGpuFlowRetainedDisplayPublicationOutcomeFrame(
     retainedDisplayOutcome,
   );
+  if (
+    outcomeFrame.kind === "published" &&
+    outcomeFrame.outcomeKind === "publish-cold-placeholder" &&
+    previousVisibleProjectionState !== null
+  ) {
+    return {
+      blockedPublicationCandidate:
+        createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+          blockedReason: outcomeFrame.outcome.reason,
+          heldPreviousProjectionState: previousVisibleProjectionState,
+        }),
+      kind: "blocked" as const,
+    };
+  }
   if (outcomeFrame.kind !== "blocked") {
     return {
       kind: "published" as const,

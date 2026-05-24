@@ -233,7 +233,7 @@ function getBlockedDomControlCoverageState(
   return "blocked-awaiting-snapshot";
 }
 
-function canUseDomControlCompatiblePreviousCoverage(
+export function canUseDomControlCompatiblePreviousCoverage(
   control: GpuRetainedDomControlSourceDescriptor,
   representationReadiness: BrowserVisualActorRepresentationReadiness | null,
 ): boolean {

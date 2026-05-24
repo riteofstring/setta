@@ -75,6 +75,91 @@ export function shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepai
   );
 }
 
+export function createGpuFlowFrozenPreviousSafeBlockedReasons({
+  blockedReasons,
+  previousVisibleProjectionState,
+}: {
+  readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): readonly GpuFlowBlockedVisibleReason[] {
+  if (previousVisibleProjectionState === null || blockedReasons.length === 0) {
+    return blockedReasons;
+  }
+  const previousPassiveVisibleActorIds =
+    createGpuFlowPassiveBrowserVisualActorIdSet(
+      previousVisibleProjectionState.committedFrame,
+    );
+  if (previousPassiveVisibleActorIds.size === 0) {
+    return blockedReasons;
+  }
+  const { hiddenReasons, retainedReasons } =
+    partitionGpuFlowFrozenPreviousBlockedReasons({
+      blockedReasons,
+      previousPassiveVisibleActorIds,
+    });
+  if (hiddenReasons.length === 0) {
+    return blockedReasons;
+  }
+  if (retainedReasons.length > 0) {
+    return Object.freeze(
+      retainedReasons.map((reason) => freezeBlockedReason(reason)),
+    );
+  }
+  return Object.freeze(
+    [...new Set(hiddenReasons.map((reason) => reason.reason))].map((reason) =>
+      Object.freeze({
+        actorId: null,
+        family: "browser-visual",
+        reason,
+      }),
+    ),
+  );
+}
+
+function partitionGpuFlowFrozenPreviousBlockedReasons({
+  blockedReasons,
+  previousPassiveVisibleActorIds,
+}: {
+  readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
+  readonly previousPassiveVisibleActorIds: ReadonlySet<string>;
+}): {
+  readonly hiddenReasons: readonly GpuFlowBlockedVisibleReason[];
+  readonly retainedReasons: readonly GpuFlowBlockedVisibleReason[];
+} {
+  const retainedReasons: GpuFlowBlockedVisibleReason[] = [];
+  const hiddenReasons: GpuFlowBlockedVisibleReason[] = [];
+  for (const reason of blockedReasons) {
+    if (
+      isGpuFlowFrozenPreviousHiddenBlockedReason({
+        previousPassiveVisibleActorIds,
+        reason,
+      })
+    ) {
+      hiddenReasons.push(reason);
+    } else {
+      retainedReasons.push(reason);
+    }
+  }
+  return Object.freeze({
+    hiddenReasons: Object.freeze(hiddenReasons),
+    retainedReasons: Object.freeze(retainedReasons),
+  });
+}
+
+function isGpuFlowFrozenPreviousHiddenBlockedReason({
+  previousPassiveVisibleActorIds,
+  reason,
+}: {
+  readonly previousPassiveVisibleActorIds: ReadonlySet<string>;
+  readonly reason: GpuFlowBlockedVisibleReason;
+}): boolean {
+  return (
+    reason.actorId !== null &&
+    isGpuFlowBrowserVisualBlockedReasonFamily(reason.family) &&
+    previousPassiveVisibleActorIds.has(reason.actorId)
+  );
+}
+
 export function createGpuFlowBrowserVisualResourceWorkRequests({
   blockedPublicationCandidate,
   frame,
@@ -116,6 +201,37 @@ function createGpuFlowBlockedVisibleReasons(
       });
     }),
   );
+}
+
+function createGpuFlowPassiveBrowserVisualActorIdSet(
+  frame: GpuFlowCommittedSurfaceFrame,
+): ReadonlySet<string> {
+  return new Set(
+    frame.actorGenerations
+      .filter(
+        (actor) =>
+          actor.visibleNonempty &&
+          !actor.active &&
+          isGpuFlowBrowserVisualBlockedReasonFamily(actor.actorFamily),
+      )
+      .map((actor) => actor.actorId),
+  );
+}
+
+function isGpuFlowBrowserVisualBlockedReasonFamily(family: string): boolean {
+  return (
+    family === "browser-text-control" ||
+    family === "browser-text-snapshot" ||
+    family === "browser-visual" ||
+    family === "dom-control" ||
+    family === "text-like-dom-control"
+  );
+}
+
+function freezeBlockedReason(
+  reason: GpuFlowBlockedVisibleReason,
+): GpuFlowBlockedVisibleReason {
+  return Object.freeze({ ...reason });
 }
 
 function createGpuFlowBrowserVisualResourceWorkRequest({

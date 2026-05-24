@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuFlowVisibleFrameStateMachineOutcome } from "./visibleFrameStateMachine";
 import { createGpuFlowVisibleFramePublicationStateMachineBlockedProof } from "./visibleFrameStateMachineBlockedProof";
+import type { GpuFlowVisiblePublicationBlockedProof } from "./visibleFrameTransactionProofs";
 import {
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
   createGpuFlowContentFrameId,
@@ -81,6 +83,181 @@ describe("GPU Flow visible frame state machine blocked proof", () => {
       },
       frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
       source: "actor-proof",
+    });
+  });
+
+  it("omits passive browser visual blockers already visible in the frozen frame", () => {
+    const proof = createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
+      blockingProofs: [],
+      candidate: candidateWithActorProofs([
+        blockedActorProof({
+          actorId: "visible-a",
+          family: "browser-text-control",
+          reason: "live-dom-budget",
+        }),
+        blockedActorProof({
+          actorId: "new-a",
+          family: "browser-text-control",
+          reason: "live-dom-budget",
+        }),
+      ]),
+      previousVisibleProjectionState: previousVisibleProjectionState([
+        previousDomControlActor({ actorId: "visible-a" }),
+      ]),
+      visibleFrameStateMachineOutcome: blockedOutcome({
+        actorId: "visible-a",
+        family: "browser-text-control",
+        proof: "blocked",
+        reason: "live-dom-budget",
+      }),
+    });
+
+    expect(proof?.blockedReasons).toEqual([
+      {
+        actorId: "new-a",
+        family: "browser-text-control",
+        reason: "live-dom-budget",
+      },
+    ]);
+    expect(proof?.frozenFrameId).toBe(9);
+  });
+
+  it("collapses fully frozen passive browser visual blockers to a frame-level reason", () => {
+    const proof = createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
+      blockingProofs: [],
+      candidate: candidateWithActorProofs([
+        blockedActorProof({
+          actorId: "visible-a",
+          family: "browser-text-snapshot",
+          reason: "snapshot-pending",
+        }),
+      ]),
+      previousVisibleProjectionState: previousVisibleProjectionState([
+        previousDomControlActor({ actorId: "visible-a" }),
+      ]),
+      visibleFrameStateMachineOutcome: blockedOutcome({
+        actorId: "visible-a",
+        family: "browser-text-snapshot",
+        proof: "blocked",
+        reason: "snapshot-pending",
+      }),
+    });
+
+    expect(proof?.blockedReasons).toEqual([
+      {
+        actorId: null,
+        family: "browser-visual",
+        reason: "snapshot-pending",
+      },
+    ]);
+  });
+
+  it("preserves active browser visual blockers even when they are visible in the frozen frame", () => {
+    const proof = createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
+      blockingProofs: [],
+      candidate: candidateWithActorProofs([
+        blockedActorProof({
+          actorId: "active-a",
+          family: "active-editor",
+          reason: "live-dom-budget",
+        }),
+      ]),
+      previousVisibleProjectionState: previousVisibleProjectionState([
+        previousDomControlActor({ active: true, actorId: "active-a" }),
+      ]),
+      visibleFrameStateMachineOutcome: blockedOutcome({
+        actorId: "active-a",
+        family: "active-editor",
+        proof: "blocked",
+        reason: "live-dom-budget",
+      }),
+    });
+
+    expect(proof?.blockedReasons).toEqual([
+      {
+        actorId: "active-a",
+        family: "active-editor",
+        reason: "live-dom-budget",
+      },
+    ]);
+  });
+
+  it("normalizes selected blocking proofs against the frozen visible frame", () => {
+    const blockingProof = {
+      blockedReasons: [
+        {
+          actorId: "visible-a",
+          family: "browser-text-control",
+          reason: "live-dom-budget",
+        },
+        {
+          actorId: "new-a",
+          family: "browser-text-control",
+          reason: "live-dom-budget",
+        },
+      ],
+      candidate: {
+        blockedReasons: [
+          {
+            actorId: "visible-a",
+            family: "browser-text-control",
+            reason: "live-dom-budget",
+          },
+          {
+            actorId: "new-a",
+            family: "browser-text-control",
+            reason: "live-dom-budget",
+          },
+        ],
+        frozenFrameId: 9,
+      },
+      frozenFrameId: 9,
+      source: "content-publication",
+    } satisfies GpuFlowVisiblePublicationBlockedProof;
+    const proof = createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
+      blockingProofs: [blockingProof],
+      candidate: candidateWithActorProofs([
+        blockedActorProof({
+          actorId: "visible-a",
+          family: "browser-text-control",
+          reason: "live-dom-budget",
+        }),
+        blockedActorProof({
+          actorId: "new-a",
+          family: "browser-text-control",
+          reason: "live-dom-budget",
+        }),
+      ]),
+      previousVisibleProjectionState: previousVisibleProjectionState([
+        previousDomControlActor({ actorId: "visible-a" }),
+      ]),
+      visibleFrameStateMachineOutcome: blockedOutcome({
+        actorId: "visible-a",
+        family: "browser-text-control",
+        proof: "blocked",
+        reason: "live-dom-budget",
+      }),
+    });
+
+    expect(proof).toEqual({
+      ...blockingProof,
+      blockedReasons: [
+        {
+          actorId: "new-a",
+          family: "browser-text-control",
+          reason: "live-dom-budget",
+        },
+      ],
+      candidate: {
+        ...blockingProof.candidate,
+        blockedReasons: [
+          {
+            actorId: "new-a",
+            family: "browser-text-control",
+            reason: "live-dom-budget",
+          },
+        ],
+      },
     });
   });
 
@@ -167,6 +344,37 @@ function exactActorProof({
     proof: "exact",
     requirement: "required",
   });
+}
+
+function previousVisibleProjectionState(
+  actorGenerations: readonly {
+    readonly active: boolean;
+    readonly actorFamily: string;
+    readonly actorId: string;
+    readonly visibleNonempty: boolean;
+  }[],
+): GpuFlowVisibleProjectionState {
+  return {
+    committedFrame: {
+      actorGenerations,
+      displayFrameId: 9,
+    },
+  } as GpuFlowVisibleProjectionState;
+}
+
+function previousDomControlActor({
+  active = false,
+  actorId,
+}: {
+  readonly active?: boolean | undefined;
+  readonly actorId: string;
+}) {
+  return {
+    active,
+    actorFamily: active ? "active-editor" : "text-like-dom-control",
+    actorId,
+    visibleNonempty: true,
+  };
 }
 
 function blockedOutcome(

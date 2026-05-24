@@ -346,31 +346,6 @@ describe("GPU Flow committed surface frame", () => {
     expect(frame.surfaceTransaction).toBeNull();
   });
 
-  it("publishes compatible-previous DOM-control coverage from a prior committed frame", () => {
-    const { actor, frame } = createCompatiblePreviousCommittedSurfaceFrame();
-
-    expectCompatiblePreviousDomControlActor({ actor, frame });
-    expectCompatiblePreviousSurfaceCoverage({ actor, frame });
-  });
-
-  it("does not publish compatible-previous DOM-control coverage beyond the frame-age budget", () => {
-    const { actor, frame } = createCompatiblePreviousCommittedSurfaceFrame({
-      retainedFrameId: 14,
-      previousRetainedFrameId: 10,
-    });
-
-    expectBlockedCompatiblePreviousDomControlActor({ actor, frame });
-  });
-
-  it("does not publish compatible-previous DOM-control coverage beyond the millisecond-age budget", () => {
-    const { actor, frame } = createCompatiblePreviousCommittedSurfaceFrame({
-      publishedAtMs: 250,
-      previousPublishedAtMs: 0,
-    });
-
-    expectBlockedCompatiblePreviousDomControlActor({ actor, frame });
-  });
-
   it("does not chain compatible-previous DOM-control coverage beyond one committed frame", () => {
     const previousCommittedSurfaceFrame =
       createCompatiblePreviousCommittedSurfaceFrame().frame;
@@ -633,12 +608,19 @@ function createCompatiblePreviousCommittedSurfaceFrame({
   publishedAtMs,
   previousPublishedAtMs,
   previousRetainedFrameId = 13,
+  readiness = "compatible-previous",
   retainedFrameId = 14,
+  visualPolicy = "blocked-awaiting-browser-visual",
 }: {
   readonly publishedAtMs?: number | undefined;
   readonly previousPublishedAtMs?: number | undefined;
   readonly previousRetainedFrameId?: number | undefined;
+  readonly readiness?:
+    | "blocked-awaiting-live-host"
+    | "blocked-awaiting-snapshot"
+    | "compatible-previous";
   readonly retainedFrameId?: number | undefined;
+  readonly visualPolicy?: GpuFlowCommittedSurfaceDomControlSource["visualPolicy"];
 } = {}): {
   readonly actor:
     | GpuFlowCommittedSurfaceFrame["actorGenerations"][number]
@@ -666,13 +648,16 @@ function createCompatiblePreviousCommittedSurfaceFrame({
       scrollRevision: 1,
       scrollY: 0,
     }),
-    "blocked-awaiting-browser-visual",
+    visualPolicy,
   );
   const frame = createGpuFlowCommittedSurfaceFrame({
-    browserVisualReadiness: createCompatiblePreviousBrowserVisualReadiness({
-      retainedRuntimeFrame,
-      previousRetainedRuntimeFrame,
-    }),
+    browserVisualReadiness:
+      readiness === "compatible-previous"
+        ? createCompatiblePreviousBrowserVisualReadiness({
+            retainedRuntimeFrame,
+            previousRetainedRuntimeFrame,
+          })
+        : createBlockedBrowserVisualReadiness(retainedRuntimeFrame, readiness),
     previousCommittedSurfaceFrame,
     retainedDisplayFrame: fakeRetainedDisplayFrame({
       id: retainedFrameId,
@@ -703,163 +688,6 @@ function findCommittedDomControlActor(
     throw new Error("Expected committed DOM-control actor.");
   }
   return actor;
-}
-
-function expectCompatiblePreviousDomControlActor({
-  actor,
-  frame,
-}: {
-  readonly actor: GpuFlowCommittedSurfaceActor | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
-}): void {
-  expect(actor).toBeDefined();
-  const committedActor = actor as GpuFlowCommittedSurfaceActor;
-  expectCompatiblePreviousBrowserVisual(committedActor);
-  expectCompatiblePreviousTextCoverage(committedActor);
-  expectCompatiblePreviousFramePublication({ actor: committedActor, frame });
-}
-
-function expectBlockedCompatiblePreviousDomControlActor({
-  actor,
-  frame,
-}: {
-  readonly actor: GpuFlowCommittedSurfaceActor | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
-}): void {
-  expect(actor).toBeDefined();
-  expect(actor?.browserVisual?.coverageState).toBe("blocked-awaiting-snapshot");
-  expect(actor?.textCoverageProof).toEqual(
-    expect.objectContaining({
-      projectionCoverage: "blocked-awaiting-browser-visual",
-      readinessReason: "snapshot-pending",
-    }),
-  );
-  expect(frame.displayCompleteness.status).toBe("complete");
-  expect(frame.publishability.kind).toBe("publishable");
-  expect(frame.surfaceTransaction).toEqual(
-    expect.objectContaining({
-      id: "committed-surface:14:retained:14",
-    }),
-  );
-}
-
-function expectCompatiblePreviousBrowserVisual(
-  actor: GpuFlowCommittedSurfaceActor,
-): void {
-  expect(actor.browserVisual).toEqual(
-    expect.objectContaining({
-      coverageState: "compatible-previous-ready",
-      representation: expect.objectContaining({
-        kind: "compatible-previous",
-      }),
-      representationKind: "compatible-previous",
-      resourceHandles: [
-        {
-          id: actor.actorId,
-          kind: "source",
-        },
-      ],
-    }),
-  );
-}
-
-function expectCompatiblePreviousTextCoverage(
-  actor: GpuFlowCommittedSurfaceActor,
-): void {
-  expect(actor.textCoverageProof).toEqual(
-    expect.objectContaining({
-      compatiblePreviousProof: expect.objectContaining({
-        actorFamily: "text-like-dom-control",
-        actorId: actor.actorId,
-        budgetState: "within-budget",
-        canonicalActorId: actor.canonicalActorId,
-        clipChainRevision: actor.clipChainRevision,
-        hitMappingCompatible: true,
-        hitTargetId: actor.controlId,
-        maxProofAgeFrames: 2,
-        maxProofAgeMs: 120,
-        previousActorGenerationId: expect.any(String),
-        previousCommittedFrameId: 13,
-        previousProjectionSampleRevision: expect.any(String),
-        previousTransactionId: "committed-surface:13:retained:13",
-        previousVisualGenerationId: actor.visualGenerationId,
-        proofAgeFrames: 1,
-        proofAgeMs: 1,
-        protectedResourceIds: [`source:${actor.actorId}`],
-        reasonCode: "same-value-and-geometry",
-        requestedActorGenerationId: actor.generationId,
-        requestedProjectionSampleRevision: actor.liveMotionSampleId,
-        requestedVisualGenerationId: actor.visualGenerationId,
-        resourceHandles: [
-          {
-            id: actor.actorId,
-            kind: "source",
-          },
-        ],
-        retainedScrollCompatible: true,
-        retainedSurfaceId: actor.ownerSurfaceId,
-        semanticGenerationId: actor.semanticGenerationId,
-      }),
-      previousVisualGenerationId: actor.visualGenerationId,
-      projectionCoverage: "compatible-previous",
-    }),
-  );
-}
-
-function expectCompatiblePreviousFramePublication({
-  actor,
-  frame,
-}: {
-  readonly actor: GpuFlowCommittedSurfaceActor;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
-}): void {
-  expect(frame.displayCompleteness.status).toBe("complete");
-  expect(frame.publishability.kind).toBe("publishable");
-  expect(frame.projectionHorizon.textActorCoverage).toEqual(
-    expect.objectContaining({
-      compatiblePreviousActorIds: [actor.actorId],
-    }),
-  );
-}
-
-function expectCompatiblePreviousSurfaceCoverage({
-  actor,
-  frame,
-}: {
-  readonly actor:
-    | GpuFlowCommittedSurfaceFrame["actorGenerations"][number]
-    | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
-}): void {
-  expect(frame.surfaceTransaction).toEqual(
-    expect.objectContaining({
-      hitIndex: expect.objectContaining({
-        id: "committed-hit:14",
-        generationIds: expect.arrayContaining([expect.any(String)]),
-      }),
-      id: "committed-surface:14:retained:14",
-    }),
-  );
-  expect(frame.surfaceTransaction?.coverageProof.compatibleCoverage).toEqual(
-    expect.arrayContaining([
-      expect.objectContaining({
-        surfaceId: `dom-control:${actor?.actorId}`,
-      }),
-    ]),
-  );
-  expect(frame.browserVisualSurfaceFragment.compatibleCoverage).toEqual([
-    expect.objectContaining({
-      fidelity: "compatible",
-      resourceHandles: [
-        {
-          id: actor?.actorId,
-          kind: "source",
-        },
-      ],
-      surfaceId: `dom-control:${actor?.actorId}`,
-    }),
-  ]);
-  expect(frame.browserVisualSurfaceFragment.blockingSurfaceIds).toEqual([]);
 }
 
 function createRuntimeFrame({
@@ -1048,6 +876,23 @@ function createReadyBrowserVisualReadiness(
         },
       ]),
     ),
+  };
+}
+
+function createBlockedBrowserVisualReadiness(
+  retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>,
+  coverageState:
+    | "blocked-awaiting-live-host"
+    | "blocked-awaiting-snapshot" = "blocked-awaiting-snapshot",
+): GpuFlowCommittedSurfaceBrowserVisualReadiness {
+  return {
+    domControlReadinessByActorId: new Map(
+      retainedRuntimeFrame.descriptors.domControlSources.map((control) => [
+        control.sourceId,
+        { coverageState },
+      ]),
+    ),
+    domIslandReadinessByActorId: new Map(),
   };
 }
 

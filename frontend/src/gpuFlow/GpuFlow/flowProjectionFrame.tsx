@@ -315,16 +315,27 @@ function shouldRebuildGpuFlowProjectionRetainedRuntimeFrame({
   readonly retainedRuntimeFrame: RetainedDisplayFrame["retainedRuntimeFrame"];
   readonly transaction: GpuFlowProjectionTransaction;
 }): boolean {
+  if (
+    retainedRuntimeFrameSceneRevisionDiffersFromLayer({
+      layer,
+      retainedRuntimeFrame,
+    })
+  ) {
+    return false;
+  }
+  const nativeVisualProjectionFrame = frameReasons.some(
+    isGpuFlowNativeVisualProjectionFrameReason,
+  );
   return (
     retainedRuntimeFrameScrollOffsetsDifferFromSample({
       retainedRuntimeFrame,
       sample: transaction.sample,
     }) ||
-    frameReasons.some(isGpuFlowNativeVisualProjectionFrameReason) ||
-    retainedRuntimeFrameRowHoverVisualsDifferFromLayer({
-      layer,
-      retainedRuntimeFrame,
-    })
+    (nativeVisualProjectionFrame &&
+      retainedRuntimeFrameRowHoverVisualsDifferFromLayer({
+        layer,
+        retainedRuntimeFrame,
+      }))
   );
 }
 
@@ -355,6 +366,20 @@ function retainedRuntimeFrameRowHoverVisualsDifferFromLayer({
   }
   return !rowHoverSurfaceIds.includes(
     `${target.surfaceId}:row-hover:${target.rowId}`,
+  );
+}
+
+function retainedRuntimeFrameSceneRevisionDiffersFromLayer({
+  layer,
+  retainedRuntimeFrame,
+}: {
+  readonly layer: GpuFlowNodeLayerState;
+  readonly retainedRuntimeFrame: RetainedDisplayFrame["retainedRuntimeFrame"];
+}): boolean {
+  const committedSceneRevision = retainedRuntimeFrame.input.sceneRevision;
+  return (
+    typeof committedSceneRevision === "number" &&
+    layer.scene?.revision !== committedSceneRevision
   );
 }
 

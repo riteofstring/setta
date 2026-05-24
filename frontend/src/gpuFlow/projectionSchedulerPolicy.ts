@@ -2,7 +2,9 @@ import type { GpuFrameReason } from "./gpuRenderer";
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionLane,
+  GpuFlowVisibleProjectionState,
 } from "./projectionRuntime";
+import { normalizeGpuViewport, type GpuViewportInput } from "./viewportMath";
 
 export type GpuFlowProjectionSchedulerState =
   | "content-catchup"
@@ -183,6 +185,124 @@ export function isGpuFlowRetainedScrollPublicationDecision(
   );
 }
 
+export function createGpuFlowProjectionSchedulingReasons({
+  projectionInteractionActive,
+  rawReasons,
+}: {
+  readonly projectionInteractionActive: boolean;
+  readonly rawReasons: readonly GpuFrameReason[];
+}): readonly GpuFrameReason[] {
+  if (
+    projectionInteractionActive ||
+    !rawReasons.includes("retained-scroll") ||
+    !rawReasons.includes("manual")
+  ) {
+    return rawReasons;
+  }
+  return Object.freeze(
+    rawReasons.filter((reason) => reason !== "retained-scroll"),
+  );
+}
+
+export function withGpuFlowContentCatchupReasonForStalePublicationSample({
+  committedFrame,
+  previousVisibleProjectionState = null,
+  rawReasons,
+  sample,
+}: {
+  readonly committedFrame: {
+    readonly coherence: { readonly retainedScrollRevision: number };
+    readonly viewportSample: GpuViewportInput;
+  } | null;
+  readonly previousVisibleProjectionState?:
+    | Pick<GpuFlowVisibleProjectionState, "sample">
+    | null
+    | undefined;
+  readonly rawReasons: readonly GpuFrameReason[];
+  readonly sample: Pick<
+    GpuFlowLiveProjectionSample,
+    "retainedScrollRevision" | "viewport"
+  >;
+}): readonly GpuFrameReason[] {
+  const projectionRawReasons =
+    withoutGpuFlowUnchangedViewportProjectionReason({
+      previousVisibleProjectionState,
+      rawReasons,
+      sample,
+    });
+  if (
+    !committedFrame ||
+    isGpuFlowCommittedSurfaceFrameSampleCurrent({
+      committedFrame,
+      sample,
+    }) ||
+    projectionRawReasons.includes("manual")
+  ) {
+    return projectionRawReasons;
+  }
+  return Object.freeze([...projectionRawReasons, "manual" as const]);
+}
+
+function withoutGpuFlowUnchangedViewportProjectionReason({
+  previousVisibleProjectionState,
+  rawReasons,
+  sample,
+}: {
+  readonly previousVisibleProjectionState:
+    | Pick<GpuFlowVisibleProjectionState, "sample">
+    | null;
+  readonly rawReasons: readonly GpuFrameReason[];
+  readonly sample: Pick<GpuFlowLiveProjectionSample, "viewport">;
+}): readonly GpuFrameReason[] {
+  if (
+    !previousVisibleProjectionState ||
+    !rawReasons.includes("viewport") ||
+    !areGpuFlowProjectionViewportsEqual(
+      previousVisibleProjectionState.sample.viewport,
+      sample.viewport,
+    )
+  ) {
+    return rawReasons;
+  }
+  return Object.freeze(rawReasons.filter((reason) => reason !== "viewport"));
+}
+
+function isGpuFlowCommittedSurfaceFrameSampleCurrent({
+  committedFrame,
+  sample,
+}: {
+  readonly committedFrame: {
+    readonly coherence: { readonly retainedScrollRevision: number };
+    readonly viewportSample: GpuViewportInput;
+  };
+  readonly sample: Pick<
+    GpuFlowLiveProjectionSample,
+    "retainedScrollRevision" | "viewport"
+  >;
+}): boolean {
+  return (
+    committedFrame.coherence.retainedScrollRevision ===
+      sample.retainedScrollRevision &&
+    areGpuFlowProjectionViewportsEqual(
+      committedFrame.viewportSample,
+      sample.viewport,
+    )
+  );
+}
+
+function areGpuFlowProjectionViewportsEqual(
+  left: GpuViewportInput,
+  right: GpuViewportInput,
+): boolean {
+  const normalizedLeft = normalizeGpuViewport(left);
+  const normalizedRight = normalizeGpuViewport(right);
+  return (
+    normalizedLeft.x === normalizedRight.x &&
+    normalizedLeft.y === normalizedRight.y &&
+    normalizedLeft.zoom === normalizedRight.zoom
+  );
+}
+
 function hasGpuFlowRetainedScrollSampleDelta(
   offsets: GpuFlowLiveProjectionSample["retainedScrollDelta"] | undefined,
 ): boolean {
@@ -199,18 +319,14 @@ function hasGpuFlowRetainedScrollSampleDelta(
 
 export function shouldPrioritizeGpuFlowProjectionMotionDebt({
   contentDebt,
-  contentRetryDeferred,
   motionDebt,
   motionRetryDeferred,
 }: {
   readonly contentDebt: boolean;
-  readonly contentRetryDeferred: boolean;
   readonly motionDebt: boolean;
   readonly motionRetryDeferred: boolean;
 }): boolean {
-  return (
-    motionDebt && !motionRetryDeferred && (!contentDebt || contentRetryDeferred)
-  );
+  return motionDebt && !contentDebt && !motionRetryDeferred;
 }
 
 export function isGpuFlowContentFrameReason(reason: GpuFrameReason): boolean {
