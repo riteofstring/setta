@@ -134,6 +134,7 @@ type GpuFlowProjectionFrameRenderPlanSelector = (input: {
 export type GpuFlowVisibleFramePublicationFrameContext = {
   readonly budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision;
   readonly deferResolutionUpdates: boolean;
+  readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
   readonly viewportFrame: boolean;
 };
 
@@ -321,6 +322,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   });
   const publicationFrameContext =
     createGpuFlowVisibleFramePublicationFrameContext({
+      frameRequest,
       publicationDecision,
       budgetBroker,
       rawReasons,
@@ -497,6 +499,7 @@ function createGpuFlowVisibleFramePublicationPreparedFrame<
 
 function createGpuFlowVisibleFramePublicationFrameContext({
   budgetBroker,
+  frameRequest,
   publicationDecision,
   rawReasons,
   runtimeViewportFrame,
@@ -504,6 +507,7 @@ function createGpuFlowVisibleFramePublicationFrameContext({
   viewportInteractionActive,
 }: {
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
+  readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly runtimeViewportFrame: boolean;
@@ -530,6 +534,7 @@ function createGpuFlowVisibleFramePublicationFrameContext({
   return Object.freeze({
     budgetDecision,
     deferResolutionUpdates: budgetDecision.resolutionUpdates.deferred,
+    frameRequest,
     viewportFrame,
   });
 }

@@ -62,6 +62,101 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     expect(delayedRetry.debt.motion).toBe(true);
   });
 
+  it("keeps current retained scroll motion ahead of motion retry backoff", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const motion = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll", "manual"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: true,
+    });
+    expect(motion.lane).toBe("motion");
+    completeBlockedFrame(scheduler, motion, [
+      {
+        actorId: null,
+        family: "retained-projection",
+        reason: "held-previous-budget-exceeded",
+      },
+    ]);
+
+    const retainedScroll = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+    expect(retainedScroll.schedulerState).toBe("content-catchup");
+    expect(retainedScroll.lane).toBe("motion");
+
+    const nonMotionRepair = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "texture-upload"],
+      sample: liveSample(3),
+      timestamp: 3,
+      viewportInteractionActive: false,
+    });
+    expect(nonMotionRepair.schedulerState).toBe("content-catchup");
+    expect(nonMotionRepair.lane).toBe("content");
+  });
+
+  it("keeps current retained scroll motion ahead of stale critical content debt", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const activation = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["dom-control-activation"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(activation.lane).toBe("content");
+    completeBlockedFrame(scheduler, activation);
+
+    const retainedScroll = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+    expect(retainedScroll.schedulerState).toBe("motion-active");
+    expect(retainedScroll.lane).toBe("motion");
+    expect(retainedScroll.debt).toEqual({
+      content: true,
+      maintenance: false,
+      motion: false,
+    });
+  });
+
+  it("keeps current viewport motion ahead of stale critical content debt", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const activation = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["dom-control-activation"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(activation.lane).toBe("content");
+    completeBlockedFrame(scheduler, activation);
+
+    const viewport = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["viewport", "manual"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+    expect(viewport.schedulerState).toBe("motion-active");
+    expect(viewport.lane).toBe("motion");
+    expect(viewport.debt).toEqual({
+      content: true,
+      maintenance: false,
+      motion: false,
+    });
+  });
+
   it("defers immediate content retries after held-previous budget blocks", () => {
     const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const motion = scheduler.selectFrame({

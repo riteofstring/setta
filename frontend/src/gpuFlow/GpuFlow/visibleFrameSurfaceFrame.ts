@@ -222,6 +222,16 @@ export function renderGpuFlowSurfaceFrame({
         frameMeasureDetail.maintenanceDebt =
           publicationDecision.debt.maintenance;
         frameMeasureDetail.motionDebt = publicationDecision.debt.motion;
+        frameMeasureDetail.requestContentDebt =
+          publicationFrameContext.frameRequest.contentDebt;
+        frameMeasureDetail.requestCriticalContentDebt =
+          publicationFrameContext.frameRequest.criticalContentDebt;
+        frameMeasureDetail.requestMaintenanceDebt =
+          publicationFrameContext.frameRequest.maintenanceDebt;
+        frameMeasureDetail.requestMotionDebt =
+          publicationFrameContext.frameRequest.motionDebt;
+        frameMeasureDetail.requestMotionRetryDeferred =
+          publicationFrameContext.frameRequest.motionRetryDeferred;
         frameMeasureDetail.viewportFrame =
           publicationFrameContext.viewportFrame;
         frameMeasureDetail.deferResolutionUpdates =
@@ -319,7 +329,7 @@ export function renderGpuFlowSurfaceFrame({
       sampleVisibleFramePublication: () => {
         const runtimeFrame = viewportRuntime.runFrame(event.timestamp);
         const hasCommittedContentFrame =
-          input.retainedDisplayFrameRef.current !== null;
+          input.committedSurfaceFrameRef.current !== null;
         frameMeasureDetail.hasCommittedContentFrame = hasCommittedContentFrame;
         nodeLayerRef.current = {
           ...nodeLayerRef.current,

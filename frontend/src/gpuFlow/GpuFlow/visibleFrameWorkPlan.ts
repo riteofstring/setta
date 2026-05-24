@@ -55,6 +55,7 @@ export function createGpuFlowContentPublicationWorkPlan({
   if (
     blockedProjectionOnlyFrame ||
     renderedProjectionOnlyFrame ||
+    publicationDecision.lane === "motion" ||
     publicationDecision.lane === "idle"
   ) {
     return Object.freeze({

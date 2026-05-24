@@ -1,6 +1,10 @@
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuFlowProjectionLane } from "../projectionRuntime";
 import {
+  hasGpuFlowCriticalContentFrameRequest,
+  isGpuFlowContentFrameReason,
+  isGpuFlowMaintenanceFrameReason,
+  isGpuFlowRetainedMotionFrameReason,
   shouldSelectGpuFlowContentPriorityPublicationLane,
   shouldSelectGpuFlowMaintenancePriorityPublicationLane,
   shouldSelectGpuFlowMotionPriorityPublicationLane,
@@ -89,6 +93,19 @@ export function reduceGpuFlowVisibleFramePublicationLane({
     })
   ) {
     return "content";
+  }
+  if (
+    shouldSelectCurrentGpuFlowMotionPublicationLane({
+      criticalContentDebt,
+      hasCommittedContentFrame,
+      motionDebt,
+      motionRetryDeferred,
+      rawReasons,
+      schedulerState,
+      viewportInteractionActive,
+    })
+  ) {
+    return "motion";
   }
   switch (schedulerState) {
     case "motion-active":
@@ -186,6 +203,54 @@ function selectMotionPriorityVisiblePublicationLane({
       : "idle";
   }
   return "idle";
+}
+
+function shouldSelectCurrentGpuFlowMotionPublicationLane({
+  criticalContentDebt,
+  hasCommittedContentFrame,
+  motionDebt,
+  motionRetryDeferred,
+  rawReasons,
+  schedulerState,
+  viewportInteractionActive,
+}: {
+  readonly criticalContentDebt: boolean;
+  readonly hasCommittedContentFrame: boolean;
+  readonly motionDebt: boolean;
+  readonly motionRetryDeferred: boolean;
+  readonly rawReasons: readonly GpuFrameReason[];
+  readonly schedulerState: GpuFlowProjectionSchedulerState;
+  readonly viewportInteractionActive: boolean;
+}): boolean {
+  const hasRetainedMotionReason = rawReasons.some(
+    isGpuFlowRetainedMotionFrameReason,
+  );
+  const hasCurrentMotionReason =
+    viewportInteractionActive ||
+    hasRetainedMotionReason ||
+    rawReasons.includes("viewport");
+  const hasContentReason = rawReasons.some(isGpuFlowContentFrameReason);
+  const hasMaintenanceReason = rawReasons.some(
+    isGpuFlowMaintenanceFrameReason,
+  );
+  const hasTextureUploadReason = rawReasons.includes("texture-upload");
+  const bypassMotionRetryBackoff =
+    hasRetainedMotionReason && !hasTextureUploadReason;
+  return (
+    !hasTextureUploadReason &&
+    hasCurrentMotionReason &&
+    (!hasContentReason || hasRetainedMotionReason || criticalContentDebt) &&
+    (!hasMaintenanceReason || hasRetainedMotionReason || criticalContentDebt) &&
+    !hasGpuFlowCriticalContentFrameRequest(rawReasons) &&
+    shouldSelectGpuFlowMotionPriorityPublicationLane({
+      hasCommittedContentFrame,
+      motionDebt,
+      motionRetryDeferred: bypassMotionRetryBackoff
+        ? false
+        : motionRetryDeferred,
+      schedulerState,
+    })
+  );
 }
 
 function selectContentCatchupVisiblePublicationLane({

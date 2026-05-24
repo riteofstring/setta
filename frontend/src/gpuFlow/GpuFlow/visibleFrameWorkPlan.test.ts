@@ -50,7 +50,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         publicationDecision: publicationDecision({ lane: "motion" }),
         renderedProjectionOnlyFrame: false,
       }),
-    ).toEqual({ kind: "prepare", publicationLane: "content" });
+    ).toEqual({ kind: "skip" });
     expect(
       createGpuFlowContentPublicationWorkPlan({
         blockedProjectionOnlyFrame: false,
