@@ -64,7 +64,6 @@ describe("GPU Flow visible frame coordinator projection work", () => {
           rendered: false,
           visibleProjectionState: null,
         }),
-        hasActiveRetainedDomControl: false,
         kind: "render",
         requestedTransaction: retainedProjectionTransaction({ sample }),
         resolveRetainedProjectionFrame: () => retainedProjectionFrame(),

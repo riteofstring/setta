@@ -509,7 +509,7 @@ describe("GPU flow projection frame coverage", () => {
     expect(secondHeld.outcomeKind).toBe("blocked");
   });
 
-  it("publishes the requested projection after the held-previous budget when an active DOM control is waiting", () => {
+  it("keeps holding the previous complete projection when an active DOM control lacks retained coverage", () => {
     const previousSample = liveSample({
       id: 1,
       retainedScrollY: 0,
@@ -571,8 +571,14 @@ describe("GPU flow projection frame coverage", () => {
     });
 
     expect(secondHeld.blockedReason).toBeNull();
-    expect(secondHeld.heldPreviousProjection).toBeNull();
-    expect(secondHeld.transaction).toBe(requestedTransaction);
+    expect(secondHeld.heldPreviousProjection).toEqual(
+      expect.objectContaining({
+        maxHeldPreviousFramesExceeded: true,
+        reason: "retained-projection-coverage-missing",
+        requestedProjectionSampleId: 10,
+      }),
+    );
+    expect(secondHeld.transaction.kind).toBe("held-previous");
     expect(
       secondHeld.retainedProjectionFrame.needsRetainedPageMaintenance,
     ).toBe(true);
@@ -615,8 +621,6 @@ function resolveGpuFlowProjectionFrameTransaction({
           blockedPublicationCandidate,
         });
       },
-      hasActiveRetainedDomControl:
-        hasActiveGpuFlowRetainedDomControlCandidate(retainedDisplayFrame),
       kind: "render",
       requestedTransaction,
       resolveRetainedProjectionFrame: ({ transaction }) =>
@@ -700,14 +704,6 @@ function visibleFramePublicationSample({
     timestamp: sample.timestamp,
     viewportInteractionActive: frameReasons.includes("viewport"),
   };
-}
-
-function hasActiveGpuFlowRetainedDomControlCandidate(
-  retainedDisplayFrame: RetainedDisplayFrame,
-): boolean {
-  return retainedDisplayFrame.retainedRuntimeFrame.descriptors.domControlSources.some(
-    (control) => control.active,
-  );
 }
 
 function liveSample({

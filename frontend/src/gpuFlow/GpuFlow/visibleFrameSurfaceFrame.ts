@@ -510,8 +510,6 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
         blockedPublicationCandidate,
         rendered: false,
       }),
-    hasActiveRetainedDomControl:
-      hasActiveGpuFlowRetainedDomControlCandidate(retainedDisplayFrame),
     kind: "render",
     requestedTransaction: projectionTransaction,
     resolveRetainedProjectionFrame: ({ transaction }) =>
@@ -537,14 +535,6 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
         viewportStore,
       }),
   };
-}
-
-function hasActiveGpuFlowRetainedDomControlCandidate(
-  retainedDisplayFrame: RetainedDisplayFrame,
-): boolean {
-  return retainedDisplayFrame.retainedRuntimeFrame.descriptors.domControlSources.some(
-    (control) => control.active,
-  );
 }
 
 function renderGpuFlowSurfaceMotionProjectionFrame({

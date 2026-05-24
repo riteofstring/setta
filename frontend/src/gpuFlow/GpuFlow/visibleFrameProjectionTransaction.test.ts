@@ -293,7 +293,6 @@ function resolveProjectionFrameTransactionThroughCoordinator({
           blockedPublicationCandidate,
         });
       },
-      hasActiveRetainedDomControl: false,
       kind: "render",
       requestedTransaction,
       resolveRetainedProjectionFrame: ({ transaction }) => {

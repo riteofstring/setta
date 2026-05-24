@@ -248,7 +248,6 @@ describe("GPU Flow visible frame coordinator", () => {
               visibleProjectionState: null,
             };
           },
-          hasActiveRetainedDomControl: false,
           kind: "render",
           requestedTransaction,
           resolveRetainedProjectionFrame: () =>

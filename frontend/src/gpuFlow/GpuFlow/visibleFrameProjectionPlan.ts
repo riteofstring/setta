@@ -41,7 +41,6 @@ export type GpuFlowMotionProjectionFramePreparation<
       readonly createBlockedProjectionFrame: (input: {
         readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
       }) => MotionProjectionFrame;
-      readonly hasActiveRetainedDomControl: boolean;
       readonly kind: "render";
       readonly requestedTransaction: GpuFlowProjectionTransaction;
       readonly resolveRetainedProjectionFrame: GpuFlowRetainedProjectionFrameResolver;

@@ -164,7 +164,6 @@ export function reduceGpuFlowVisibleFramePublicationLane({
 }
 
 export function reduceGpuFlowVisibleFrameMotionProjectionTransaction({
-  hasActiveRetainedDomControl,
   previousVisibleProjectionState,
   projectionSchedulerKnobs,
   rawReasons,
@@ -172,7 +171,6 @@ export function reduceGpuFlowVisibleFrameMotionProjectionTransaction({
   requestedRetainedProjectionFrame,
   requestedTransaction,
 }: {
-  readonly hasActiveRetainedDomControl: boolean;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly projectionSchedulerKnobs: GpuFlowVisibleFrameStarvationPolicy;
   readonly rawReasons: readonly GpuFrameReason[];
@@ -180,7 +178,7 @@ export function reduceGpuFlowVisibleFrameMotionProjectionTransaction({
   readonly requestedRetainedProjectionFrame: GpuFlowRetainedProjectionFrame;
   readonly requestedTransaction: GpuFlowProjectionTransaction;
 }): GpuFlowProjectionFrameTransaction {
-  if (!requestedProjectionCoverageMissing || hasActiveRetainedDomControl) {
+  if (!requestedProjectionCoverageMissing) {
     return {
       blockedPublicationCandidate: null,
       blockedReason: null,
@@ -250,7 +248,6 @@ export function reduceGpuFlowMotionProjectionFramePreparation<
     });
   const projectionFrameTransaction =
     reduceGpuFlowVisibleFrameMotionProjectionTransaction({
-      hasActiveRetainedDomControl: preparation.hasActiveRetainedDomControl,
       previousVisibleProjectionState,
       projectionSchedulerKnobs,
       rawReasons,
