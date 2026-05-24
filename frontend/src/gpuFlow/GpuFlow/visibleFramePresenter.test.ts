@@ -168,39 +168,9 @@ describe("GPU Flow surface publication completion", () => {
     presenter(
       committedPublicationTransaction({
         committedFrame,
-        nodeLayerFrameStatePublication: {
-          callbacksRef: {
-            current: {
-              framePerformanceReporter: undefined,
-              onNodeLayerFrame: () => {},
-            },
-          },
-          layerResult: {
-            budgetExhausted: false,
-            canvasSubmission: { submit: submitCanvas },
-            domTransformParkedNodeIds: [],
-            domTransformUpdatedNodeIds: [],
-            visibleNodeIds: [],
-            visualScene: {
-              effectSurfaces: [],
-              flatSurfaces: [],
-              lateFlatSurfaces: [],
-              meshSurfaces: [],
-              solidRoundedRectSurfaces: [],
-              tiledFlatSurfaces: [],
-            },
-          },
-          nodeInteractionRef: { current: null },
-          nodeLayerRef: { current: {} },
-          retainedRuntimeFrame: {},
-          retainedTexturePageFollowUpFrame: false,
-          surfaceRef: { current: null },
-          switchAnimationFollowUpFrame: false,
-          transformOnlyPaintNodeIdsRef: { current: new Set() },
-          viewport: [0, 0, 1],
-          viewportFrame: false,
-          visibleNodeIdsRef: { current: new Set() },
-        },
+        nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
+          submitCanvas,
+        }),
         onCompleteSchedulerFrame: () => {},
         selectedState,
         token,
@@ -208,6 +178,70 @@ describe("GPU Flow surface publication completion", () => {
     );
 
     expect(submitCanvas).toHaveBeenCalledOnce();
+  });
+
+  it("does not promote committed state when prepared canvas submission fails", () => {
+    const committedFrame = committedSurfaceFrame({ displayFrameId: 22 });
+    const selectedState = visibleProjectionState({
+      displayFrameId: committedFrame.displayFrameId,
+      kind: "content-publication",
+      sampleId: 22,
+    });
+    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      frame: committedFrame,
+      projectionSample: selectedState.sample,
+    });
+    const commitPreparedCommittedSurfaceFrame = vi.fn(() => true);
+    const projectCommittedBrowserVisualActors = vi.fn();
+    let schedulerCompletionCount = 0;
+    const presenter = createGpuFlowVisibleFramePresenter({
+      abortPreparedCommittedSurfaceFrame: () => {
+        throw new Error("Unexpected prepared committed surface abort.");
+      },
+      callbacksRef: {
+        current: {
+          framePerformanceReporter: undefined,
+          onNodeLayerFrame: () => {},
+        },
+      },
+      commitPreparedCommittedSurfaceFrame,
+      projectCommittedBrowserVisualActors,
+      publishColdStartShellFrame: () => {},
+      retainedDisplayFrameRef: { current: null },
+      retainedRuntimeFrameRenderSignatureRef: { current: null },
+      retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
+      runtimeCanvas: testCanvas(),
+      surfaceRef: { current: null },
+      viewportRuntime: {
+        applyOverlayTransforms: () => {
+          throw new Error("Unexpected overlay projection transform.");
+        },
+      },
+      visibleOverlayProjectionKeyRef: { current: null },
+      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionStateRef: { current: null },
+    } as unknown as Parameters<typeof createGpuFlowVisibleFramePresenter>[0]);
+
+    expect(() =>
+      presenter(
+        committedPublicationTransaction({
+          committedFrame,
+          nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
+            submitCanvas: () => {
+              throw new Error("canvas submission failed");
+            },
+          }),
+          onCompleteSchedulerFrame: () => {
+            schedulerCompletionCount += 1;
+          },
+          selectedState,
+          token,
+        }),
+      ),
+    ).toThrow(/canvas submission failed/);
+    expect(commitPreparedCommittedSurfaceFrame).not.toHaveBeenCalled();
+    expect(projectCommittedBrowserVisualActors).not.toHaveBeenCalled();
+    expect(schedulerCompletionCount).toBe(0);
   });
 
   it("lets scheduler debt own duplicate retained follow-up frame requests", () => {
@@ -658,6 +692,46 @@ function committedPublicationTransaction({
       schedulerState: "content-catchup",
     },
   } as unknown as GpuFlowSurfacePublicationTransaction;
+}
+
+function nodeLayerFrameStatePublication({
+  submitCanvas,
+}: {
+  readonly submitCanvas: () => void;
+}) {
+  return {
+    callbacksRef: {
+      current: {
+        framePerformanceReporter: undefined,
+        onNodeLayerFrame: () => {},
+      },
+    },
+    layerResult: {
+      budgetExhausted: false,
+      canvasSubmission: { submit: submitCanvas },
+      domTransformParkedNodeIds: [],
+      domTransformUpdatedNodeIds: [],
+      visibleNodeIds: [],
+      visualScene: {
+        effectSurfaces: [],
+        flatSurfaces: [],
+        lateFlatSurfaces: [],
+        meshSurfaces: [],
+        solidRoundedRectSurfaces: [],
+        tiledFlatSurfaces: [],
+      },
+    },
+    nodeInteractionRef: { current: null },
+    nodeLayerRef: { current: {} },
+    retainedRuntimeFrame: {},
+    retainedTexturePageFollowUpFrame: false,
+    surfaceRef: { current: null },
+    switchAnimationFollowUpFrame: false,
+    transformOnlyPaintNodeIdsRef: { current: new Set() },
+    viewport: [0, 0, 1],
+    viewportFrame: false,
+    visibleNodeIdsRef: { current: new Set() },
+  };
 }
 
 function blockedPublicationTransaction({

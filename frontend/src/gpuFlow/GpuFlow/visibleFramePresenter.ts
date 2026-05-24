@@ -8,6 +8,7 @@ import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import {
   publishGpuFlowNodeLayerFrameState,
+  submitGpuFlowNodeLayerFrameCanvasSubmission,
   type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
 import {
@@ -673,6 +674,11 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
       "GPU Flow content publication commit requires the prepared committed surface frame.",
     );
   }
+  const submittedNodeLayerFrameStatePublication =
+    submitGpuFlowNodeLayerFrameCanvasSubmission({
+      nodeLayerFrameStatePublication,
+      token: outcome.token,
+    });
   if (committedSurfaceFrame) {
     commitPreparedCommittedSurfaceFrame(outcome.token, committedSurfaceFrame);
   }
@@ -715,7 +721,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
     visibleProjectionState: selectedVisibleProjectionState,
   });
   publishPreparedGpuFlowNodeLayerFrameState({
-    nodeLayerFrameStatePublication,
+    nodeLayerFrameStatePublication: submittedNodeLayerFrameStatePublication,
     token: outcome.token,
   });
   publishGpuFlowRetainedRuntimeFrame({

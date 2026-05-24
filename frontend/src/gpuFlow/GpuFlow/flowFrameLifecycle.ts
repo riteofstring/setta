@@ -111,6 +111,26 @@ export function publishGpuFlowNodeLayerFrameState({
   });
 }
 
+export function submitGpuFlowNodeLayerFrameCanvasSubmission({
+  nodeLayerFrameStatePublication,
+  token,
+}: {
+  readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
+  readonly token: GpuFlowCommitPublicationToken;
+}): GpuFlowNodeLayerFrameStatePublication | null {
+  assertGpuFlowCommitPublicationTokenBrand({ token });
+  if (nodeLayerFrameStatePublication === null) {
+    return null;
+  }
+  return {
+    ...nodeLayerFrameStatePublication,
+    layerResult: publishGpuFlowHtmlSurfaceCanvasSubmission({
+      layerResult: nodeLayerFrameStatePublication.layerResult,
+      token,
+    }),
+  };
+}
+
 function publishGpuFlowHtmlSurfaceCanvasSubmission({
   layerResult,
   token,
