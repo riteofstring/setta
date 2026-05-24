@@ -1,12 +1,12 @@
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import { createGpuFlowVisibleFrameActorKeyForBlockedReason } from "./visibleFrameActorManifest";
-import { createGpuFlowFrozenPreviousSafeBlockedReasons } from "./visibleFrameBlockedCandidate";
+import {
+  createGpuFlowFrozenPreviousSafeBlockedReasons,
+  resolveGpuFlowColdStartBlockedFrozenFrameId,
+} from "./visibleFrameBlockedCandidate";
 import type { GpuFlowVisibleFrameStateMachineOutcome } from "./visibleFrameStateMachine";
 import type { GpuFlowVisiblePublicationBlockedProof } from "./visibleFrameTransactionProofs";
-import {
-  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
-  type GpuFlowVisibleFrameCandidate,
-} from "./visibleFrameTypes";
+import type { GpuFlowVisibleFrameCandidate } from "./visibleFrameTypes";
 
 type GpuFlowVisibleFrameStateMachineDecidingProof = NonNullable<
   GpuFlowVisibleFrameStateMachineOutcome["decidingProof"]
@@ -121,7 +121,9 @@ function createGpuFlowVisibleFramePublicationCandidateActorBlockedProof({
     blockedReasons: visibleBlockedReasons,
     frozenFrameId:
       previousVisibleProjectionState?.committedFrame.displayFrameId ??
-      GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+      resolveGpuFlowColdStartBlockedFrozenFrameId({
+        blockedReasons: visibleBlockedReasons,
+      }),
   });
   return Object.freeze({
     blockedReasons: blockedCandidate.blockedReasons,
@@ -153,7 +155,7 @@ function createGpuFlowVisibleFramePublicationActorBlockedProof({
     blockedReasons,
     frozenFrameId:
       previousVisibleProjectionState?.committedFrame.displayFrameId ??
-      GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+      resolveGpuFlowColdStartBlockedFrozenFrameId({ blockedReasons }),
   });
   return Object.freeze({
     blockedReasons: candidate.blockedReasons,
@@ -178,17 +180,26 @@ function createGpuFlowFrozenPreviousSafeBlockedProof({
     blockedReasons: proof.blockedReasons,
     previousVisibleProjectionState,
   });
-  if (blockedReasons === proof.blockedReasons) {
+  const frozenFrameId =
+    previousVisibleProjectionState === null
+      ? resolveGpuFlowColdStartBlockedFrozenFrameId({ blockedReasons })
+      : proof.frozenFrameId;
+  if (
+    blockedReasons === proof.blockedReasons &&
+    frozenFrameId === proof.frozenFrameId
+  ) {
     return proof;
   }
   const candidate = Object.freeze({
     ...proof.candidate,
     blockedReasons,
+    frozenFrameId,
   });
   return Object.freeze({
     ...proof,
     blockedReasons,
     candidate,
+    frozenFrameId,
   });
 }
 

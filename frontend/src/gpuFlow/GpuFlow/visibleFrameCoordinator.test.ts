@@ -533,11 +533,14 @@ describe("GPU Flow visible frame coordinator", () => {
     }
     expect(result.outcome.token.blockedReasons).toEqual([
       {
-        actorId: "actor-a",
-        family: "dom-control",
+        actorId: null,
+        family: "browser-visual",
         reason: "snapshot-pending",
       },
     ]);
+    expect(result.outcome.token.frozenFrameId).toBe(
+      GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
+    );
     expect(result.completeSchedulerFrame().completion.debt.content).toBe(true);
   });
 

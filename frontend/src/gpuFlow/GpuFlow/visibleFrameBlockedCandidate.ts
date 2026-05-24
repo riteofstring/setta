@@ -82,8 +82,11 @@ export function createGpuFlowFrozenPreviousSafeBlockedReasons({
   readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): readonly GpuFlowBlockedVisibleReason[] {
-  if (previousVisibleProjectionState === null || blockedReasons.length === 0) {
+  if (blockedReasons.length === 0) {
     return blockedReasons;
+  }
+  if (previousVisibleProjectionState === null) {
+    return createGpuFlowColdStartSafeBlockedReasons({ blockedReasons });
   }
   const previousPassiveVisibleActorIds =
     createGpuFlowPassiveBrowserVisualActorIdSet(
@@ -114,6 +117,39 @@ export function createGpuFlowFrozenPreviousSafeBlockedReasons({
       }),
     ),
   );
+}
+
+export function createGpuFlowColdStartSafeBlockedReasons({
+  blockedReasons,
+}: {
+  readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
+}): readonly GpuFlowBlockedVisibleReason[] {
+  if (
+    !shouldCollapseGpuFlowColdStartBrowserVisualBlockedReasons(blockedReasons)
+  ) {
+    return blockedReasons;
+  }
+  return Object.freeze(
+    [...new Set(blockedReasons.map((reason) => reason.reason))].map((reason) =>
+      Object.freeze({
+        actorId: null,
+        family: "browser-visual",
+        reason,
+      }),
+    ),
+  );
+}
+
+export function resolveGpuFlowColdStartBlockedFrozenFrameId({
+  blockedReasons,
+}: {
+  readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
+}): GpuFlowBlockedPublicationToken["frozenFrameId"] {
+  return shouldCollapseGpuFlowColdStartBrowserVisualBlockedReasons(
+    blockedReasons,
+  )
+    ? GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID
+    : GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID;
 }
 
 function partitionGpuFlowFrozenPreviousBlockedReasons({
@@ -208,13 +244,18 @@ function createGpuFlowPassiveBrowserVisualActorIdSet(
 ): ReadonlySet<string> {
   return new Set(
     frame.actorGenerations
-      .filter(
-        (actor) =>
-          actor.visibleNonempty &&
-          !actor.active &&
-          isGpuFlowBrowserVisualBlockedReasonFamily(actor.actorFamily),
-      )
+      .filter(isGpuFlowFrozenPreviousPassiveBrowserVisualActor)
       .map((actor) => actor.actorId),
+  );
+}
+
+function isGpuFlowFrozenPreviousPassiveBrowserVisualActor(
+  actor: GpuFlowBrowserVisualActorGeneration,
+): boolean {
+  return (
+    !actor.active &&
+    isGpuFlowBrowserVisualBlockedReasonFamily(actor.actorFamily) &&
+    (actor.visibleNonempty || actor.kind === "dom-control")
   );
 }
 
@@ -225,6 +266,17 @@ function isGpuFlowBrowserVisualBlockedReasonFamily(family: string): boolean {
     family === "browser-visual" ||
     family === "dom-control" ||
     family === "text-like-dom-control"
+  );
+}
+
+function shouldCollapseGpuFlowColdStartBrowserVisualBlockedReasons(
+  blockedReasons: readonly GpuFlowBlockedVisibleReason[],
+): boolean {
+  return (
+    blockedReasons.length > 0 &&
+    blockedReasons.every((reason) =>
+      isGpuFlowBrowserVisualBlockedReasonFamily(reason.family),
+    )
   );
 }
 

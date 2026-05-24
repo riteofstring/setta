@@ -5,6 +5,7 @@ import type { GpuFlowVisibleFrameStateMachineOutcome } from "./visibleFrameState
 import { createGpuFlowVisibleFramePublicationStateMachineBlockedProof } from "./visibleFrameStateMachineBlockedProof";
 import type { GpuFlowVisiblePublicationBlockedProof } from "./visibleFrameTransactionProofs";
 import {
+  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
   createGpuFlowContentFrameId,
   type GpuFlowVisibleFrameActorProof,
@@ -24,19 +25,19 @@ describe("GPU Flow visible frame state machine blocked proof", () => {
       blockingProofs: [],
       candidate: candidateWithActorProofs([
         blockedActorProof({
-          actorId: "snapshot-a",
-          family: "browser-text-snapshot",
-          reason: "snapshot-pending",
+          actorId: "debug-a",
+          family: "debug-snapshot",
+          reason: "debug-snapshot-pending",
         }),
         blockedActorProof({
-          actorId: "snapshot-b",
-          family: "browser-text-snapshot",
-          reason: "snapshot-pending",
+          actorId: "debug-b",
+          family: "debug-snapshot",
+          reason: "debug-snapshot-pending",
         }),
         blockedActorProof({
           actorId: "maintenance-a",
-          family: "debug-snapshot",
-          reason: "debug-snapshot-pending",
+          family: "public-runtime-state",
+          reason: "runtime-state-pending",
           requirement: "maintenance",
         }),
         exactActorProof({
@@ -46,7 +47,64 @@ describe("GPU Flow visible frame state machine blocked proof", () => {
       ]),
       previousVisibleProjectionState: null,
       visibleFrameStateMachineOutcome: blockedOutcome({
-        actorId: "snapshot-b",
+        actorId: "debug-b",
+        family: "debug-snapshot",
+        proof: "blocked",
+        reason: "debug-snapshot-pending",
+      }),
+    });
+
+    expect(proof).toEqual({
+      blockedReasons: [
+        {
+          actorId: "debug-a",
+          family: "debug-snapshot",
+          reason: "debug-snapshot-pending",
+        },
+        {
+          actorId: "debug-b",
+          family: "debug-snapshot",
+          reason: "debug-snapshot-pending",
+        },
+      ],
+      candidate: {
+        blockedReasons: [
+          {
+            actorId: "debug-a",
+            family: "debug-snapshot",
+            reason: "debug-snapshot-pending",
+          },
+          {
+            actorId: "debug-b",
+            family: "debug-snapshot",
+            reason: "debug-snapshot-pending",
+          },
+        ],
+        frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+      },
+      frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+      source: "actor-proof",
+    });
+  });
+
+  it("collapses browser visual cold-start blockers to a browser visual shell reason", () => {
+    const proof = createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
+      blockingProofs: [],
+      candidate: candidateWithActorProofs([
+        blockedActorProof({
+          actorId: "snapshot-a",
+          family: "browser-text-snapshot",
+          reason: "snapshot-pending",
+        }),
+        blockedActorProof({
+          actorId: "snapshot-b",
+          family: "browser-text-snapshot",
+          reason: "snapshot-pending",
+        }),
+      ]),
+      previousVisibleProjectionState: null,
+      visibleFrameStateMachineOutcome: blockedOutcome({
+        actorId: "snapshot-a",
         family: "browser-text-snapshot",
         proof: "blocked",
         reason: "snapshot-pending",
@@ -56,32 +114,22 @@ describe("GPU Flow visible frame state machine blocked proof", () => {
     expect(proof).toEqual({
       blockedReasons: [
         {
-          actorId: "snapshot-a",
-          family: "browser-text-snapshot",
-          reason: "snapshot-pending",
-        },
-        {
-          actorId: "snapshot-b",
-          family: "browser-text-snapshot",
+          actorId: null,
+          family: "browser-visual",
           reason: "snapshot-pending",
         },
       ],
       candidate: {
         blockedReasons: [
           {
-            actorId: "snapshot-a",
-            family: "browser-text-snapshot",
-            reason: "snapshot-pending",
-          },
-          {
-            actorId: "snapshot-b",
-            family: "browser-text-snapshot",
+            actorId: null,
+            family: "browser-visual",
             reason: "snapshot-pending",
           },
         ],
-        frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+        frozenFrameId: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
       },
-      frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+      frozenFrameId: GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
       source: "actor-proof",
     });
   });
@@ -120,6 +168,44 @@ describe("GPU Flow visible frame state machine blocked proof", () => {
       },
     ]);
     expect(proof?.frozenFrameId).toBe(9);
+  });
+
+  it("omits passive DOM-control blockers retained by the frozen frame even when visually empty", () => {
+    const proof = createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
+      blockingProofs: [],
+      candidate: candidateWithActorProofs([
+        blockedActorProof({
+          actorId: "mounted-empty-control",
+          family: "browser-text-control",
+          reason: "live-dom-budget",
+        }),
+        blockedActorProof({
+          actorId: "new-a",
+          family: "browser-text-control",
+          reason: "live-dom-budget",
+        }),
+      ]),
+      previousVisibleProjectionState: previousVisibleProjectionState([
+        previousDomControlActor({
+          actorId: "mounted-empty-control",
+          visibleNonempty: false,
+        }),
+      ]),
+      visibleFrameStateMachineOutcome: blockedOutcome({
+        actorId: "mounted-empty-control",
+        family: "browser-text-control",
+        proof: "blocked",
+        reason: "live-dom-budget",
+      }),
+    });
+
+    expect(proof?.blockedReasons).toEqual([
+      {
+        actorId: "new-a",
+        family: "browser-text-control",
+        reason: "live-dom-budget",
+      },
+    ]);
   });
 
   it("collapses fully frozen passive browser visual blockers to a frame-level reason", () => {
@@ -266,25 +352,25 @@ describe("GPU Flow visible frame state machine blocked proof", () => {
       blockingProofs: [],
       candidate: candidateWithActorProofs([
         blockedActorProof({
-          actorId: "snapshot-a",
-          family: "browser-text-snapshot",
-          reason: "snapshot-pending",
+          actorId: "debug-a",
+          family: "debug-snapshot",
+          reason: "debug-snapshot-pending",
         }),
       ]),
       previousVisibleProjectionState: null,
       visibleFrameStateMachineOutcome: blockedOutcome({
-        actorId: "snapshot-b",
-        family: "browser-text-snapshot",
+        actorId: "debug-b",
+        family: "debug-snapshot",
         proof: "blocked",
-        reason: "snapshot-pending",
+        reason: "debug-snapshot-pending",
       }),
     });
 
     expect(proof?.blockedReasons).toEqual([
       {
-        actorId: "snapshot-b",
-        family: "browser-text-snapshot",
-        reason: "snapshot-pending",
+        actorId: "debug-b",
+        family: "debug-snapshot",
+        reason: "debug-snapshot-pending",
       },
     ]);
   });
@@ -365,15 +451,18 @@ function previousVisibleProjectionState(
 function previousDomControlActor({
   active = false,
   actorId,
+  visibleNonempty = true,
 }: {
   readonly active?: boolean | undefined;
   readonly actorId: string;
+  readonly visibleNonempty?: boolean | undefined;
 }) {
   return {
     active,
     actorFamily: active ? "active-editor" : "text-like-dom-control",
     actorId,
-    visibleNonempty: true,
+    kind: "dom-control",
+    visibleNonempty,
   };
 }
 
