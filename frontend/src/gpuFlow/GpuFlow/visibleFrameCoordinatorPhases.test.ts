@@ -47,7 +47,7 @@ const FORCED_BLOCKED_CANDIDATE_SET_MODULE_PATH = fileURLToPath(
 );
 
 describe("GPU Flow visible frame coordinator phases", () => {
-  it("keeps publication lane selection inside the visible-frame reducer", () => {
+  it("keeps work lane selection inside the visible-frame reducer", () => {
     const schedulingReductionSource = readFileSync(
       SCHEDULING_REDUCTION_MODULE_PATH,
       "utf8",
@@ -59,7 +59,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     );
 
     expect(schedulingReductionSource).not.toContain(
-      "reduceGpuFlowVisibleFramePublicationLane({",
+      "reduceGpuFlowVisibleFrameWorkLane({",
     );
     expect(schedulingReductionSource).not.toContain(
       "createGpuFlowVisibleFrameReducerDecisionForLane",
@@ -68,7 +68,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function reduceGpuFlowVisibleFrameReducerDecision",
     );
     expect(stateMachineReductionSource).toContain(
-      "reduceGpuFlowVisibleFramePublicationLane({",
+      "reduceGpuFlowVisibleFrameWorkLane({",
     );
     expect(stateMachineReductionSource).toContain(
       "createGpuFlowVisibleFrameReducerDecisionForLane",

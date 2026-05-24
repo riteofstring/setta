@@ -170,7 +170,7 @@ export function assertGpuFlowVisiblePublicationPresentationDebtProofMatchesDecis
   ].filter((kind): kind is string => kind !== null);
   if (illegalDebtKinds.length > 0) {
     throw new Error(
-      `GPU Flow visible publication debt completion can only clear debt for the selected publication lane (${decision.lane}); illegal debt proof: ${illegalDebtKinds.join(
+      `GPU Flow visible publication debt completion can only clear debt for the selected work lane (${decision.lane}); illegal debt proof: ${illegalDebtKinds.join(
         ", ",
       )}.`,
     );

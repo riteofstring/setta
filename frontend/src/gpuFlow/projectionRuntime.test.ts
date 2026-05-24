@@ -382,7 +382,7 @@ describe("GPU Flow projection runtime", () => {
         maintenance: false,
         motion: true,
       }),
-    ).toThrow(/selected publication lane/);
+    ).toThrow(/selected work lane/);
   });
 
   it("rejects committed debt completion for a different projection sample", () => {

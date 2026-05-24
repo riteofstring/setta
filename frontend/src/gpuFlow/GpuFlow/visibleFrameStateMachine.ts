@@ -46,11 +46,11 @@ export {
   reduceGpuFlowMotionProjectionFramePreparation,
   reduceGpuFlowVisibleFrameMotionProjectionTransaction,
   reduceGpuFlowVisibleFrameReducerDecision,
-  reduceGpuFlowVisibleFramePublicationLane,
+  reduceGpuFlowVisibleFrameWorkLane,
 } from "./visibleFrameStateMachineReduction";
 export type {
   GpuFlowVisibleFrameLaneReductionFacts,
-  GpuFlowVisibleFramePublicationLane,
+  GpuFlowVisibleFrameWorkLane,
   GpuFlowVisibleFrameStarvationPolicy,
 } from "./visibleFrameStateMachineReduction";
 

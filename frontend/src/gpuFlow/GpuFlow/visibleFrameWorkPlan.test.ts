@@ -24,7 +24,7 @@ const COORDINATOR_MODULE_PATH = fileURLToPath(
 );
 
 describe("GPU Flow visible frame coordinator work plans", () => {
-  it("selects motion preparation only for motion publication lanes", () => {
+  it("selects motion preparation only for motion work lanes", () => {
     expect(
       createGpuFlowMotionProjectionWorkPlan({
         reducerDecision: reducerDecision({ lane: "motion" }),

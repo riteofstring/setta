@@ -11,9 +11,9 @@ import {
   isGpuFlowContentFrameReason,
   isGpuFlowMaintenanceFrameReason,
   isGpuFlowRetainedMotionFrameReason,
-  shouldSelectGpuFlowContentPriorityPublicationLane,
-  shouldSelectGpuFlowMaintenancePriorityPublicationLane,
-  shouldSelectGpuFlowMotionPriorityPublicationLane,
+  shouldSelectGpuFlowContentPriorityWorkLane,
+  shouldSelectGpuFlowMaintenancePriorityWorkLane,
+  shouldSelectGpuFlowMotionPriorityWorkLane,
   shouldSelectGpuFlowSettledExplicitContentRepairLane,
   type GpuFlowProjectionSchedulerState,
 } from "../projectionSchedulerPolicy";
@@ -55,7 +55,7 @@ export const DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY: GpuFlowVisibleFra
     motionSettleWindowMs: 120,
   });
 
-export type GpuFlowVisibleFramePublicationLane = GpuFlowProjectionLane | "idle";
+export type GpuFlowVisibleFrameWorkLane = GpuFlowProjectionLane | "idle";
 
 export type GpuFlowVisibleFrameLaneReductionFacts = {
   readonly contentDebt: boolean;
@@ -77,7 +77,7 @@ export function reduceGpuFlowVisibleFrameReducerDecision({
   readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
   readonly reducerPolicy: GpuFlowVisibleFrameStarvationPolicy;
 }): GpuFlowVisibleFrameReducerDecision {
-  const lane = reduceGpuFlowVisibleFramePublicationLane({
+  const lane = reduceGpuFlowVisibleFrameWorkLane({
     contentDebt: frameRequest.contentDebt,
     contentRetryDeferred: frameRequest.contentRetryDeferred,
     criticalContentDebt: frameRequest.criticalContentDebt,
@@ -96,7 +96,7 @@ export function reduceGpuFlowVisibleFrameReducerDecision({
   });
 }
 
-export function reduceGpuFlowVisibleFramePublicationLane({
+export function reduceGpuFlowVisibleFrameWorkLane({
   contentDebt,
   contentRetryDeferred,
   criticalContentDebt,
@@ -110,7 +110,7 @@ export function reduceGpuFlowVisibleFramePublicationLane({
   viewportInteractionActive,
 }: GpuFlowVisibleFrameLaneReductionFacts & {
   readonly reducerPolicy: GpuFlowVisibleFrameStarvationPolicy;
-}): GpuFlowVisibleFramePublicationLane {
+}): GpuFlowVisibleFrameWorkLane {
   if (
     shouldPublishGpuFlowBootstrapContentFrame({
       hasPresentedContentFrame,
@@ -120,7 +120,7 @@ export function reduceGpuFlowVisibleFramePublicationLane({
     return "content";
   }
   if (
-    shouldSelectCurrentGpuFlowMotionPublicationLane({
+    shouldSelectCurrentGpuFlowMotionWorkLane({
       criticalContentDebt,
       hasPresentedContentFrame,
       motionDebt,
@@ -135,7 +135,7 @@ export function reduceGpuFlowVisibleFramePublicationLane({
   switch (schedulerState) {
     case "motion-active":
     case "motion-settling":
-      return selectMotionPriorityVisiblePublicationLane({
+      return selectMotionPriorityVisibleFrameWorkLane({
         contentDebt,
         contentRetryDeferred,
         criticalContentDebt,
@@ -149,14 +149,14 @@ export function reduceGpuFlowVisibleFramePublicationLane({
         viewportInteractionActive,
       });
     case "content-catchup":
-      return selectContentCatchupVisiblePublicationLane({
+      return selectContentCatchupVisibleFrameWorkLane({
         contentDebt,
         hasPresentedContentFrame,
         maintenanceDebt,
         motionDebt,
       });
     case "maintenance-drain":
-      return selectMaintenanceDrainVisiblePublicationLane({ maintenanceDebt });
+      return selectMaintenanceDrainVisibleFrameWorkLane({ maintenanceDebt });
     case "maintenance-deferred":
     case "idle":
       return "idle";
@@ -330,7 +330,7 @@ function shouldPublishGpuFlowBootstrapContentFrame({
   return motionDebt && !hasPresentedContentFrame;
 }
 
-function selectMotionPriorityVisiblePublicationLane({
+function selectMotionPriorityVisibleFrameWorkLane({
   contentDebt,
   contentRetryDeferred,
   criticalContentDebt,
@@ -344,7 +344,7 @@ function selectMotionPriorityVisiblePublicationLane({
   viewportInteractionActive,
 }: GpuFlowVisibleFrameLaneReductionFacts & {
   readonly reducerPolicy: GpuFlowVisibleFrameStarvationPolicy;
-}): GpuFlowVisibleFramePublicationLane {
+}): GpuFlowVisibleFrameWorkLane {
   if (
     shouldSelectGpuFlowSettledExplicitContentRepairLane({
       contentDebt,
@@ -357,7 +357,7 @@ function selectMotionPriorityVisiblePublicationLane({
     return reducerPolicy.maxContentInterleaveMs > 0 ? "content" : "idle";
   }
   if (
-    shouldSelectGpuFlowMotionPriorityPublicationLane({
+    shouldSelectGpuFlowMotionPriorityWorkLane({
       hasPresentedContentFrame,
       motionDebt,
       motionRetryDeferred,
@@ -367,7 +367,7 @@ function selectMotionPriorityVisiblePublicationLane({
     return "motion";
   }
   if (
-    shouldSelectGpuFlowContentPriorityPublicationLane({
+    shouldSelectGpuFlowContentPriorityWorkLane({
       contentDebt,
       contentRetryDeferred,
     })
@@ -375,7 +375,7 @@ function selectMotionPriorityVisiblePublicationLane({
     return reducerPolicy.maxContentInterleaveMs > 0 ? "content" : "idle";
   }
   if (
-    shouldSelectGpuFlowMaintenancePriorityPublicationLane({
+    shouldSelectGpuFlowMaintenancePriorityWorkLane({
       contentRetryDeferred,
       maintenanceDebt,
     })
@@ -387,7 +387,7 @@ function selectMotionPriorityVisiblePublicationLane({
   return "idle";
 }
 
-function shouldSelectCurrentGpuFlowMotionPublicationLane({
+function shouldSelectCurrentGpuFlowMotionWorkLane({
   criticalContentDebt,
   hasPresentedContentFrame,
   motionDebt,
@@ -422,7 +422,7 @@ function shouldSelectCurrentGpuFlowMotionPublicationLane({
   ) {
     return false;
   }
-  return shouldSelectGpuFlowMotionPriorityPublicationLane({
+  return shouldSelectGpuFlowMotionPriorityWorkLane({
     hasPresentedContentFrame,
     motionDebt,
     motionRetryDeferred: hasRetainedMotionReason ? false : motionRetryDeferred,
@@ -449,7 +449,7 @@ function hasGpuFlowMotionPublicationCompetingReason({
   );
 }
 
-function selectContentCatchupVisiblePublicationLane({
+function selectContentCatchupVisibleFrameWorkLane({
   contentDebt,
   hasPresentedContentFrame,
   maintenanceDebt,
@@ -459,21 +459,21 @@ function selectContentCatchupVisiblePublicationLane({
   readonly hasPresentedContentFrame: boolean;
   readonly maintenanceDebt: boolean;
   readonly motionDebt: boolean;
-}): GpuFlowVisibleFramePublicationLane {
+}): GpuFlowVisibleFrameWorkLane {
   if (contentDebt) {
     return "content";
   }
   if (motionDebt && hasPresentedContentFrame) {
     return "motion";
   }
-  return selectMaintenanceDrainVisiblePublicationLane({ maintenanceDebt });
+  return selectMaintenanceDrainVisibleFrameWorkLane({ maintenanceDebt });
 }
 
-function selectMaintenanceDrainVisiblePublicationLane({
+function selectMaintenanceDrainVisibleFrameWorkLane({
   maintenanceDebt,
 }: {
   readonly maintenanceDebt: boolean;
-}): GpuFlowVisibleFramePublicationLane {
+}): GpuFlowVisibleFrameWorkLane {
   return maintenanceDebt ? "maintenance" : "idle";
 }
 

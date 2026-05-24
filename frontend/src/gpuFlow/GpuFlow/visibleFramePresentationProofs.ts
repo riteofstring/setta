@@ -373,7 +373,7 @@ function createGpuFlowVisiblePublicationCompletionHeldPreviousState({
     committedFrameId:
       previousVisibleProjectionState.committedFrame.displayFrameId,
     kind: "held-previous",
-    lane: resolveGpuFlowHeldPreviousPublicationLane({
+    lane: resolveGpuFlowHeldPreviousWorkLane({
       previousVisibleProjectionState,
       reducerDecision,
     }),
@@ -393,7 +393,7 @@ function createGpuFlowVisiblePublicationCompletionHeldPreviousState({
   });
 }
 
-function resolveGpuFlowHeldPreviousPublicationLane({
+function resolveGpuFlowHeldPreviousWorkLane({
   previousVisibleProjectionState,
   reducerDecision,
 }: {

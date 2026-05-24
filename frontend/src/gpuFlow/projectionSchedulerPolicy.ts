@@ -521,14 +521,14 @@ export function shouldSelectGpuFlowSettledExplicitContentRepairLane({
     (!viewportInteractionActive || criticalContentDebt) &&
     (criticalContentDebt || rawReasons.some(isGpuFlowContentFrameReason)) &&
     (criticalContentDebt || hasCriticalContentReason || !hasMotionReason) &&
-    shouldSelectGpuFlowContentPriorityPublicationLane({
+    shouldSelectGpuFlowContentPriorityWorkLane({
       contentDebt,
       contentRetryDeferred,
     })
   );
 }
 
-export function shouldSelectGpuFlowMotionPriorityPublicationLane({
+export function shouldSelectGpuFlowMotionPriorityWorkLane({
   hasPresentedContentFrame,
   motionDebt,
   motionRetryDeferred,
@@ -546,7 +546,7 @@ export function shouldSelectGpuFlowMotionPriorityPublicationLane({
   );
 }
 
-export function shouldSelectGpuFlowContentPriorityPublicationLane({
+export function shouldSelectGpuFlowContentPriorityWorkLane({
   contentDebt,
   contentRetryDeferred,
 }: {
@@ -556,7 +556,7 @@ export function shouldSelectGpuFlowContentPriorityPublicationLane({
   return contentDebt && !contentRetryDeferred;
 }
 
-export function shouldSelectGpuFlowMaintenancePriorityPublicationLane({
+export function shouldSelectGpuFlowMaintenancePriorityWorkLane({
   contentRetryDeferred,
   maintenanceDebt,
 }: {
