@@ -234,6 +234,35 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     ).toThrow(/DOM\/canvas presentation pair proof/);
   });
 
+  it("rejects commit token issuance when the proof transaction kind differs from the selected visible state", async () => {
+    const { createGpuFlowCommitAuthorityProof } = await import(
+      "./visibleFramePresentationProofs"
+    );
+    const frame = committedSurfaceFrame();
+    const projectionSample = liveProjectionSample();
+    const pairProof = {
+      ...presentationPairProof({ frame, projectionSample }),
+      projectionTransactionKind: "motion-projection" as const,
+      textureEvictionEvidence: null,
+    };
+    const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
+      frame,
+      presentationPairProof: pairProof,
+      projectionSampleId: projectionSample.id,
+      projectionTransactionKind: "motion-projection",
+      projectionTransactionId:
+        pairProof.canvasGenerationEvidence.projectionTransactionId,
+    });
+
+    expect(() =>
+      proveGpuFlowVisibleFramePublicationPresentationForCommit({
+        commitAuthorityProof,
+        frame,
+        projectionSample,
+      }),
+    ).toThrow(/selected visible frame and projection sample/);
+  });
+
   it("rejects commit token issuance without the proof resource protection proof", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
       "./visibleFramePresentationProofs"

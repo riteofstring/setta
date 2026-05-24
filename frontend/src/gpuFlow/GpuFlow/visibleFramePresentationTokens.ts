@@ -258,6 +258,8 @@ export function createGpuFlowVisiblePublicationCompletionCommitToken({
     commitAuthorityProof.expectedActorSetDigest !==
       visibleProjectionState.committedFrame.presentationProof
         .actorManifestDigest ||
+    commitAuthorityProof.projectionTransactionKind !==
+      visibleProjectionState.transaction.kind ||
     commitAuthorityProof.presentationPairProof.projectionSampleId !==
       publicationDecision.sample.id
   ) {
