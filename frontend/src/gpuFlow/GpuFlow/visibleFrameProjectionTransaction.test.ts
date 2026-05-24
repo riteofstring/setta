@@ -55,16 +55,17 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       kind: "held-previous",
     });
 
-    const requestedSelection = selectProjectionFrameTransactionThroughKernel({
-      previousVisibleProjectionState: null,
-      requestedTransaction,
-      resolveRetainedProjectionFrame: ({ transaction }) => {
-        if (transaction === requestedTransaction) {
-          return requestedFrame;
-        }
-        throw new Error("project-requested must not resolve held frame");
-      },
-    });
+    const requestedSelection =
+      resolveProjectionFrameTransactionThroughCoordinator({
+        previousVisibleProjectionState: null,
+        requestedTransaction,
+        resolveRetainedProjectionFrame: ({ transaction }) => {
+          if (transaction === requestedTransaction) {
+            return requestedFrame;
+          }
+          throw new Error("project-requested must not resolve held frame");
+        },
+      });
     expect(requestedSelection.blockedPublicationCandidate).toBeNull();
     expect(requestedSelection.renderPlan).toEqual({
       heldPreviousProjection: null,
@@ -73,7 +74,7 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       transaction: requestedTransaction,
     });
 
-    const heldSelection = selectProjectionFrameTransactionThroughKernel({
+    const heldSelection = resolveProjectionFrameTransactionThroughCoordinator({
       previousVisibleProjectionState: visibleProjectionState({
         transaction: heldTransaction,
       }),
@@ -104,22 +105,23 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
     expect(heldSelection.resolvedHeldTransaction).toBeNull();
     expect(heldSelection.outcomeKind).toBe("hold-previous");
 
-    const blockedSelection = selectProjectionFrameTransactionThroughKernel({
-      previousVisibleProjectionState: visibleProjectionState({
-        heldPreviousProjection: {
-          ...heldProjection(),
-          consecutiveFrameCount: 6,
+    const blockedSelection =
+      resolveProjectionFrameTransactionThroughCoordinator({
+        previousVisibleProjectionState: visibleProjectionState({
+          heldPreviousProjection: {
+            ...heldProjection(),
+            consecutiveFrameCount: 6,
+          },
+          transaction: heldTransaction,
+        }),
+        requestedTransaction,
+        resolveRetainedProjectionFrame: ({ transaction }) => {
+          if (transaction === requestedTransaction) {
+            return missingRequestedFrame;
+          }
+          throw new Error("blocked must not resolve held frame");
         },
-        transaction: heldTransaction,
-      }),
-      requestedTransaction,
-      resolveRetainedProjectionFrame: ({ transaction }) => {
-        if (transaction === requestedTransaction) {
-          return missingRequestedFrame;
-        }
-        throw new Error("blocked must not resolve held frame");
-      },
-    });
+      });
     expect(blockedSelection.renderPlan).toBeNull();
     expect(blockedSelection.blockedPublicationCandidate).toEqual({
       blockedReasons: [
@@ -140,14 +142,10 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       "utf8",
     );
     const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
-    const candidateDecisionKernelSource = readFileSync(
+    const contentDecisionKernelSource = readFileSync(
       CONTENT_DECISION_KERNEL_MODULE_PATH,
       "utf8",
     );
-    const kernelAuthoritySource = [
-      kernelModuleSource,
-      candidateDecisionKernelSource,
-    ].join("\n");
 
     expect(projectionPlanSource).not.toContain(
       "GpuFlowRetainedProjectionPublicationCandidate",
@@ -158,11 +156,11 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
     expect(projectionPlanSource).not.toContain(
       "createGpuFlowProjectionFrameTransactionSelector",
     );
-    expect(kernelAuthoritySource).toContain(
-      "GpuFlowRetainedProjectionPublicationCandidate",
+    expect(kernelModuleSource).toContain(
+      "function resolveGpuFlowMotionProjectionFrameTransaction",
     );
-    expect(candidateDecisionKernelSource).toContain(
-      "selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
+    expect(kernelModuleSource).not.toContain(
+      "createGpuFlowVisiblePublicationCandidateDecisionKernel",
     );
     expect(kernelModuleSource).not.toContain(
       "function selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
@@ -177,7 +175,7 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       "export function prepareGpuFlowRetainedProjectionPublicationCandidate",
     );
     expect(kernelModuleSource).toContain(
-      "createGpuFlowVisiblePublicationCandidateDecisionKernel",
+      "createGpuFlowVisiblePublicationContentDecisionKernel",
     );
     expect(kernelModuleSource).not.toContain(
       "createGpuFlowRetainedProjectionPublicationCandidateSelector",
@@ -188,19 +186,26 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
     expect(kernelModuleSource).not.toContain(
       "export function createGpuFlowRetainedProjectionPublicationCandidateSelector",
     );
-    expect(candidateDecisionKernelSource).not.toContain(
-      "export function createGpuFlowProjectionFrameTransactionSelector",
+    expect(contentDecisionKernelSource).not.toContain(
+      "createGpuFlowVisiblePublicationCandidateDecisionKernel",
     );
-    expect(candidateDecisionKernelSource).not.toContain(
-      "export function createGpuFlowRetainedProjectionPublicationCandidateSelector",
+    expect(contentDecisionKernelSource).not.toContain(
+      "GpuFlowRetainedProjectionPublicationCandidate",
     );
-    expect(candidateDecisionKernelSource).toContain(
+    expect(contentDecisionKernelSource).not.toContain(
+      "selectGpuFlowProjectionFrameTransactionFromPublicationCandidate",
+    );
+    expect(contentDecisionKernelSource).not.toContain(
       "function prepareGpuFlowRetainedProjectionPublicationCandidate",
     );
-    expect(kernelModuleSource).not.toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
+    expect(contentDecisionKernelSource).not.toContain(
+      "export function createGpuFlowProjectionFrameTransactionSelector",
     );
-    expect(candidateDecisionKernelSource).toContain(
+    expect(contentDecisionKernelSource).not.toContain(
+      "export function createGpuFlowRetainedProjectionPublicationCandidateSelector",
+    );
+    expect(kernelModuleSource).not.toContain("candidateDecisionKernel");
+    expect(kernelModuleSource).toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
   });
@@ -220,7 +225,7 @@ function projectionFrame({
   };
 }
 
-function selectProjectionFrameTransactionThroughKernel({
+function resolveProjectionFrameTransactionThroughCoordinator({
   previousVisibleProjectionState,
   requestedTransaction,
   resolveRetainedProjectionFrame,

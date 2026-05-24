@@ -29,7 +29,7 @@ describe("GPU Flow visible frame coordinator projection work", () => {
       "utf8",
     );
     const coordinatorSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
-    const candidateDecisionKernelSource = readFileSync(
+    const contentDecisionKernelSource = readFileSync(
       CONTENT_DECISION_KERNEL_MODULE_PATH,
       "utf8",
     );
@@ -56,16 +56,16 @@ describe("GPU Flow visible frame coordinator projection work", () => {
     expect(projectionFrameSource).not.toContain(
       "isGpuFlowRetainedProjectionSurfaceCovered",
     );
-    expect(candidateDecisionKernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
-    expect(coordinatorSource).not.toContain(
+    expect(contentDecisionKernelSource).not.toContain(
       "function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
     expect(coordinatorSource).not.toContain(
       "export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
-    expect(candidateDecisionKernelSource).not.toContain(
+    expect(contentDecisionKernelSource).not.toContain(
       "export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
     expect(coordinatorSource).not.toContain(
@@ -77,7 +77,7 @@ describe("GPU Flow visible frame coordinator projection work", () => {
     expect(coordinatorSource).not.toContain(
       "createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector",
     );
-    expect(candidateDecisionKernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function selectGpuFlowMotionProjectionFrameWorkBlockedReason",
     );
     expect(coordinatorSource).not.toContain(
