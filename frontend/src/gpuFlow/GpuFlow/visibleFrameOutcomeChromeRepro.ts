@@ -4,7 +4,7 @@ import {
 } from "state/actions/chromeRepro";
 
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
-import type { GpuFlowCommitPresentationPairProof } from "./visibleFrameCommitProofs";
+import type { GpuFlowPresentationPairProof } from "./visibleFramePresentationAuthorityProofs";
 import {
   createGpuFlowVisiblePublicationTransactionReport,
   type GpuFlowVisibleFramePublicationTransactionProof,
@@ -258,7 +258,7 @@ function summarizeChromeReproPresentableFrame(
 
 function summarizeChromeReproPresentationProof(
   proof:
-    | GpuFlowCommitPresentationPairProof
+    | GpuFlowPresentationPairProof
     | NonNullable<GpuFlowVisibleTransactionReport["presentationProof"]>,
 ) {
   return {
@@ -296,7 +296,7 @@ function summarizeChromeReproStringRecord(record: Record<string, unknown>) {
 }
 
 function summarizeChromeReproDomTransformEvidence(
-  evidence: GpuFlowCommitPresentationPairProof["domTransformEvidence"],
+  evidence: GpuFlowPresentationPairProof["domTransformEvidence"],
 ) {
   return {
     committedFrameId: evidence.committedFrameId,

@@ -4,15 +4,15 @@ import type {
   GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
-  assertGpuFlowCommitPresentationPairProof,
+  assertGpuFlowPresentationPairProof,
   assertGpuFlowPresentationAuthorityFrame,
   createGpuFlowActorManifestDigest,
-  createGpuFlowCommitResourceProtectionDigestForFrame,
+  createGpuFlowPresentationResourceProtectionDigestForFrame,
   createGpuFlowPresentationPairDigest,
   createGpuFlowVisibleProofDigest,
-  type GpuFlowCommitAuthorityProof,
-  type GpuFlowCommitPresentationPairProof,
-} from "./visibleFrameCommitProofs";
+  type GpuFlowPresentationAuthorityProof,
+  type GpuFlowPresentationPairProof,
+} from "./visibleFramePresentationAuthorityProofs";
 import {
   createGpuFlowColdStartShellFrame,
   type GpuFlowColdStartShellFrame,
@@ -73,7 +73,7 @@ export type GpuFlowVisibleFramePresentationToken =
     readonly expectedActorSetDigest: GpuFlowActorManifestDigest;
     readonly presentationId: GpuFlowVisibleFramePresentationIdentity["presentationId"];
     readonly presentationPairDigest: GpuFlowPresentationPairDigest;
-    readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
+    readonly presentationPairProof: GpuFlowPresentationPairProof;
     readonly projectionSampleId: GpuFlowProjectionSampleId;
     readonly proofDigest: GpuFlowVisibleProofDigest;
     readonly resourceProtectionDigest: GpuFlowResourceProtectionDigest;
@@ -86,7 +86,7 @@ type GpuFlowPresentableFrame = PresentableFrameBrand & {
   readonly expectedActorSetDigest: GpuFlowActorManifestDigest;
   readonly presentationId: GpuFlowVisibleFramePresentationIdentity["presentationId"];
   readonly presentationPairDigest: GpuFlowPresentationPairDigest;
-  readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
+  readonly presentationPairProof: GpuFlowPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly proofDigest: GpuFlowVisibleProofDigest;
   readonly resourceProtectionDigest: GpuFlowResourceProtectionDigest;
@@ -126,7 +126,7 @@ type GpuFlowVisiblePublicationTokenIssuer = {
     readonly projectionSample: GpuFlowLiveProjectionSample;
   }) => GpuFlowBlockedPublicationToken;
   readonly createPresentationToken: (input: {
-    readonly commitAuthorityProof: GpuFlowCommitAuthorityProof;
+    readonly presentationAuthorityProof: GpuFlowPresentationAuthorityProof;
     readonly frame: GpuFlowCommittedSurfaceFrame;
     readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity;
     readonly projectionSample: GpuFlowLiveProjectionSample;
@@ -143,14 +143,14 @@ function createGpuFlowVisiblePublicationTokenIssuer(): GpuFlowVisiblePublication
   return Object.freeze({
     createBlockedPublicationToken: createGpuFlowBlockedPublicationToken,
     createPresentationToken: ({
-      commitAuthorityProof,
+      presentationAuthorityProof,
       frame,
       presentationIdentity,
       projectionSample,
     }) =>
       createGpuFlowVisibleFramePresentationToken({
         presentableFrame: createGpuFlowPresentableFrame({
-          commitAuthorityProof,
+          presentationAuthorityProof,
           frame,
           presentationIdentity,
           projectionSample,
@@ -165,18 +165,18 @@ const visiblePublicationTokenIssuer =
 
 function createGpuFlowPresentableFrame({
   frame,
-  commitAuthorityProof,
+  presentationAuthorityProof,
   presentationIdentity,
   projectionSample,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
-  readonly commitAuthorityProof: GpuFlowCommitAuthorityProof;
+  readonly presentationAuthorityProof: GpuFlowPresentationAuthorityProof;
   readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowPresentableFrame {
   assertGpuFlowPresentationAuthorityFrame({
     frame,
-    commitAuthorityProof,
+    presentationAuthorityProof,
     projectionSampleId: projectionSample.id,
   });
   assertGpuFlowVisibleFramePresentationIdentity({
@@ -188,13 +188,13 @@ function createGpuFlowPresentableFrame({
     [GPU_FLOW_PRESENTABLE_FRAME]: true as const,
     committedFrameId: frame.displayFrameId,
     contentFrameId: presentationIdentity.contentFrameId,
-    expectedActorSetDigest: commitAuthorityProof.expectedActorSetDigest,
+    expectedActorSetDigest: presentationAuthorityProof.expectedActorSetDigest,
     presentationId: presentationIdentity.presentationId,
-    presentationPairDigest: commitAuthorityProof.presentationPairDigest,
-    presentationPairProof: commitAuthorityProof.presentationPairProof,
+    presentationPairDigest: presentationAuthorityProof.presentationPairDigest,
+    presentationPairProof: presentationAuthorityProof.presentationPairProof,
     projectionSampleId: projectionSample.id,
-    proofDigest: commitAuthorityProof.proofDigest,
-    resourceProtectionDigest: commitAuthorityProof.resourceProtectionDigest,
+    proofDigest: presentationAuthorityProof.proofDigest,
+    resourceProtectionDigest: presentationAuthorityProof.resourceProtectionDigest,
     transactionId: createGpuFlowVisibleTransactionId({
       frame,
       projectionSample,
@@ -238,12 +238,12 @@ export function createGpuFlowVisibleFrameBlockedPublicationToken({
 }
 
 export function createGpuFlowVisiblePublicationCompletionPresentationToken({
-  commitAuthorityProof,
+  presentationAuthorityProof,
   publicationDecision,
   presentationIdentity,
   visibleProjectionState,
 }: {
-  readonly commitAuthorityProof: GpuFlowCommitAuthorityProof;
+  readonly presentationAuthorityProof: GpuFlowPresentationAuthorityProof;
   readonly publicationDecision: {
     readonly sample: GpuFlowLiveProjectionSample;
   };
@@ -256,20 +256,20 @@ export function createGpuFlowVisiblePublicationCompletionPresentationToken({
     );
   }
   if (
-    commitAuthorityProof.expectedActorSetDigest !==
+    presentationAuthorityProof.expectedActorSetDigest !==
       visibleProjectionState.committedFrame.presentationProof
         .actorManifestDigest ||
-    commitAuthorityProof.projectionTransactionKind !==
+    presentationAuthorityProof.projectionTransactionKind !==
       visibleProjectionState.transaction.kind ||
-    commitAuthorityProof.presentationPairProof.projectionSampleId !==
+    presentationAuthorityProof.presentationPairProof.projectionSampleId !==
       publicationDecision.sample.id
   ) {
     throw new Error(
-      "GPU Flow visible presentation completion requires a commit authority proof for the selected visible frame and projection sample.",
+      "GPU Flow visible presentation completion requires a presentation authority proof for the selected visible frame and projection sample.",
     );
   }
   return visiblePublicationTokenIssuer.createPresentationToken({
-    commitAuthorityProof,
+    presentationAuthorityProof,
     frame: visibleProjectionState.committedFrame,
     presentationIdentity,
     projectionSample: publicationDecision.sample,
@@ -392,7 +392,7 @@ export function assertGpuFlowVisibleFramePresentationToken({
     token.expectedActorSetDigest !== createGpuFlowActorManifestDigest(frame) ||
     token.proofDigest !== createGpuFlowVisibleProofDigest(frame) ||
     token.resourceProtectionDigest !==
-      createGpuFlowCommitResourceProtectionDigestForFrame({ frame }) ||
+      createGpuFlowPresentationResourceProtectionDigestForFrame({ frame }) ||
     !token.presentationPairProof ||
     token.presentationPairDigest !==
       createGpuFlowPresentationPairDigest({
@@ -405,7 +405,7 @@ export function assertGpuFlowVisibleFramePresentationToken({
       "GPU Flow presented content publication requires a visible frame presentation token for the same visible frame.",
     );
   }
-  assertGpuFlowCommitPresentationPairProof({
+  assertGpuFlowPresentationPairProof({
     frame,
     presentationPairProof: token.presentationPairProof,
     projectionSampleId: token.projectionSampleId,
@@ -443,7 +443,7 @@ export function assertGpuFlowVisibleFramePresentationTokenForPresentationProof({
       "GPU Flow presented content publication requires a visible frame presentation token for the same visible frame.",
     );
   }
-  assertGpuFlowCommitPresentationPairProof({
+  assertGpuFlowPresentationPairProof({
     frame,
     presentationPairProof: token.presentationPairProof,
     projectionSampleId: token.projectionSampleId,

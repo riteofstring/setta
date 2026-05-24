@@ -346,7 +346,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       );
     }
     expect(presentationProofSource).toContain(
-      "commitAuthorityProof: commitProof.commitAuthorityProof",
+      "presentationAuthorityProof: commitProof.presentationAuthorityProof",
     );
     expect(presentationProofSource).toContain(
       "function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",

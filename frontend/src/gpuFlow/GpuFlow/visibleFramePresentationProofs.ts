@@ -38,9 +38,9 @@ import {
 } from "./visibleFrameTypes";
 
 export {
-  createGpuFlowCommitAuthorityProof,
-  type GpuFlowCommitAuthorityProof,
-} from "./visibleFrameCommitProofs";
+  createGpuFlowPresentationAuthorityProof,
+  type GpuFlowPresentationAuthorityProof,
+} from "./visibleFramePresentationAuthorityProofs";
 export {
   assertGpuFlowBlockedPublicationTokenBrand,
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
@@ -606,7 +606,7 @@ function createGpuFlowVisiblePublicationCompletionPresentOutcome({
     debtProof: commitProof.debtProof,
     kind: "present",
     token: createGpuFlowVisiblePublicationCompletionPresentationToken({
-      commitAuthorityProof: commitProof.commitAuthorityProof,
+      presentationAuthorityProof: commitProof.presentationAuthorityProof,
       presentationIdentity:
         createGpuFlowVisibleFramePublicationPresentationIdentity({
           transactionProof,

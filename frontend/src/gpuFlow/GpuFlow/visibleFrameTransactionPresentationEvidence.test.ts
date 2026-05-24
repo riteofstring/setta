@@ -179,7 +179,7 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
 }
 
 describe("GPU Flow visible frame transaction presentation evidence", () => {
-  it("blocks commit authority when the deferred canvas generation is not prepared", () => {
+  it("blocks presentation authority when the deferred canvas generation is not prepared", () => {
     const contentVisibleState = visibleProjectionState({
       kind: "content-publication",
       sample: liveProjectionSample({ id: 52, timestamp: 520 }),
@@ -208,7 +208,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     expect(proof.renderedVisibleFrame).toBe(false);
   });
 
-  it("blocks commit authority when deferred DOM transforms are not prepared", () => {
+  it("blocks presentation authority when deferred DOM transforms are not prepared", () => {
     const contentVisibleState = visibleProjectionState({
       kind: "content-publication",
       sample: liveProjectionSample({ id: 56, timestamp: 560 }),
@@ -245,7 +245,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     expect(proof.renderedVisibleFrame).toBe(false);
   });
 
-  it("blocks commit authority when deferred texture eviction is not prepared", () => {
+  it("blocks presentation authority when deferred texture eviction is not prepared", () => {
     const contentVisibleState = visibleProjectionState({
       kind: "content-publication",
       sample: liveProjectionSample({ id: 57, timestamp: 570 }),
@@ -282,7 +282,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     expect(proof.renderedVisibleFrame).toBe(false);
   });
 
-  it("blocks commit authority when DOM runtime evidence is not exposable", () => {
+  it("blocks presentation authority when DOM runtime evidence is not exposable", () => {
     const committedFrame = committedSurfaceFrame();
     const contentVisibleState = visibleProjectionState({
       committedFrame: {
@@ -320,7 +320,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     expect(proof.commitProof).toBeNull();
   });
 
-  it("blocks commit authority when a visible section source node was not drawn", () => {
+  it("blocks presentation authority when a visible section source node was not drawn", () => {
     const sectionActor = sectionStructureActor();
     const committedFrame = committedSurfaceFrame({
       actorGenerations: [sectionActor],

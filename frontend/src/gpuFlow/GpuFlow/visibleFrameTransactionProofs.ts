@@ -18,7 +18,7 @@ import {
   type GpuFlowVisiblePublicationPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
-import { createGpuFlowCommitAuthorityProof } from "./visibleFramePresentationProofs";
+import { createGpuFlowPresentationAuthorityProof } from "./visibleFramePresentationProofs";
 import { selectGpuFlowMotionProjectionFrameBlockedPublicationReason } from "./visibleFrameProjectionWorkProof";
 import type { GpuFlowMotionProjectionFrameWorkReport } from "./visibleFrameProjectionWorkTypes";
 import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
@@ -267,7 +267,7 @@ function createGpuFlowVisiblePublicationCommitProof({
     coverage,
     debtProof,
     hasCompatiblePreviousCoverage,
-    commitAuthorityProof: createGpuFlowCommitAuthorityProof({
+    presentationAuthorityProof: createGpuFlowPresentationAuthorityProof({
       frame: committedFrame,
       presentationPairProof: presentationProof,
       projectionSampleId: publicationDecision.sample.id,
@@ -311,7 +311,7 @@ export function createGpuFlowVisiblePublicationCommitProofReport(
       debtProof: commitProof.debtProof,
       hasCompatiblePreviousCoverage: commitProof.hasCompatiblePreviousCoverage,
       resourceProtectionDigest:
-        commitProof.commitAuthorityProof.resourceProtectionDigest,
+        commitProof.presentationAuthorityProof.resourceProtectionDigest,
     },
     compatiblePreviousProofs: commitProof.compatiblePreviousProofs,
     coverage: commitProof.coverage,

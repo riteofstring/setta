@@ -7,7 +7,9 @@ const modulePath = (path: string): string =>
   fileURLToPath(new URL(path, import.meta.url));
 const GPU_FLOW_ROOT = modulePath("../");
 const AUTHORITY_MODULE_PATH = modulePath("./visibleFramePresentationTokens.ts");
-const COMMIT_PROOF_MODULE_PATH = modulePath("./visibleFrameCommitProofs.ts");
+const PRESENTATION_AUTHORITY_PROOF_MODULE_PATH = modulePath(
+  "./visibleFramePresentationAuthorityProofs.ts",
+);
 const KERNEL_MODULE_PATH = modulePath("./visibleFrameCoordinator.ts");
 const CHROME_REPRO_MODULE_PATH = modulePath(
   "./visibleFrameOutcomeChromeRepro.ts",
@@ -213,8 +215,8 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
     ).toEqual([]);
   });
 
-  it("binds commit presentation digests to actor manifests and browser visual resources", () => {
-    const source = readFileSync(COMMIT_PROOF_MODULE_PATH, "utf8");
+  it("binds presentation authority digests to actor manifests and browser visual resources", () => {
+    const source = readFileSync(PRESENTATION_AUTHORITY_PROOF_MODULE_PATH, "utf8");
     const digestStart = source.indexOf(
       "function createGpuFlowPresentationPairDigest",
     );
