@@ -369,6 +369,10 @@ function shouldSelectGpuFlowImmediateContentRepairLane({
       hasPresentedContentFrame,
       motionDebt,
     }) ||
+    shouldForceGpuFlowSafetyRepairLane({
+      classifiedDebt,
+      contentDebt,
+    }) ||
     shouldForceGpuFlowRetainedScrollContinuityRepairLane({
       classifiedDebt,
       contentDebt,
@@ -378,6 +382,16 @@ function shouldSelectGpuFlowImmediateContentRepairLane({
       retainedScrollInteractionActive,
     })
   );
+}
+
+function shouldForceGpuFlowSafetyRepairLane({
+  classifiedDebt,
+  contentDebt,
+}: Pick<
+  GpuFlowVisibleFrameLaneReductionFacts,
+  "classifiedDebt" | "contentDebt"
+>): boolean {
+  return contentDebt && classifiedDebt?.safety.active === true;
 }
 
 function shouldForceGpuFlowRetainedScrollContinuityRepairLane({

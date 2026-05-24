@@ -101,7 +101,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     expect(nonMotionRepair.lane).toBe("content");
   });
 
-  it("keeps current retained scroll motion ahead of stale critical content debt", () => {
+  it("forces retained scroll motion to yield to stale critical content debt", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const activation = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -121,15 +121,20 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       viewportInteractionActive: false,
     });
     expect(retainedScroll.reducerState).toBe("motion-active");
-    expect(retainedScroll.lane).toBe("motion");
+    expect(retainedScroll.lane).toBe("content");
+    expect(retainedScroll.classifiedDebt?.safety).toEqual({
+      active: true,
+      ageFrames: 1,
+      ageMs: 1,
+    });
     expect(retainedScroll.debt).toEqual({
-      content: true,
+      content: false,
       maintenance: false,
-      motion: false,
+      motion: true,
     });
   });
 
-  it("keeps current viewport motion ahead of stale critical content debt", () => {
+  it("forces current viewport motion to yield to stale critical content debt", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const activation = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,
@@ -149,11 +154,16 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       viewportInteractionActive: true,
     });
     expect(viewport.reducerState).toBe("motion-active");
-    expect(viewport.lane).toBe("motion");
+    expect(viewport.lane).toBe("content");
+    expect(viewport.classifiedDebt?.safety).toEqual({
+      active: true,
+      ageFrames: 1,
+      ageMs: 1,
+    });
     expect(viewport.debt).toEqual({
-      content: true,
+      content: false,
       maintenance: false,
-      motion: false,
+      motion: true,
     });
   });
 
