@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuFlowVisibleFrameStateMachineOutcome } from "./visibleFrameStateMachine";
 import { createGpuFlowVisibleFramePublicationStateMachineBlockedProof } from "./visibleFrameStateMachineBlockedProof";
-import type { GpuFlowVisiblePublicationBlockedProof } from "./visibleFrameTransactionProofs";
+import type { GpuFlowVisibleFramePresentationBlockedProof } from "./visibleFrameTransactionProofs";
 import {
   GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
@@ -299,7 +299,7 @@ describe("GPU Flow visible frame state machine blocked proof", () => {
       },
       frozenFrameId: 9,
       source: "content-publication",
-    } satisfies GpuFlowVisiblePublicationBlockedProof;
+    } satisfies GpuFlowVisibleFramePresentationBlockedProof;
     const proof = createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
       blockingProofs: [blockingProof],
       candidate: candidateWithActorProofs([
@@ -368,7 +368,7 @@ describe("GPU Flow visible frame state machine blocked proof", () => {
       },
       frozenFrameId: 9,
       source: "motion-projection",
-    } satisfies GpuFlowVisiblePublicationBlockedProof;
+    } satisfies GpuFlowVisibleFramePresentationBlockedProof;
     const proof = createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
       blockingProofs: [blockingProof],
       candidate: candidateWithActorProofs([

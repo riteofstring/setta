@@ -16,7 +16,7 @@ import {
 } from "./visibleFrameTestUtils";
 import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
-describe("GPU Flow blocked visible publication guard", () => {
+describe("GPU Flow blocked visible frame presentation guard", () => {
   it("fails loudly when repeated blocked outcomes exceed the frame budget", () => {
     withTestRuntime(() => {
       const surface = surfaceHandle();
@@ -47,7 +47,7 @@ describe("GPU Flow blocked visible publication guard", () => {
           ),
           surface,
         }),
-      ).toThrow(/blocked visible publication exceeded budget/);
+      ).toThrow(/blocked visible frame presentation exceeded budget/);
     });
   });
 

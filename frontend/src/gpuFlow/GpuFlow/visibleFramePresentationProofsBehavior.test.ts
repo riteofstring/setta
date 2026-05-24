@@ -10,9 +10,9 @@ import {
 } from "../projectionRuntime";
 import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTransaction";
 import {
-  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
-  createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
-  createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
+  createGpuFlowVisibleFramePresentationCanvasPresentationEvidence,
+  createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence,
+  createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import {
   assertGpuFlowVisibleFramePresentationToken,
@@ -168,7 +168,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       /^setta-gpu-flow-digest:v1:visible-presentation-pair:/,
     );
     expect(token.proofDigest).toMatch(
-      /^setta-gpu-flow-digest:v1:visible-publication-proof:/,
+      /^setta-gpu-flow-digest:v1:visible-frame-presentation-proof:/,
     );
     expect(token.expectedActorSetDigest.length).toBeLessThan(120);
     expect(token.presentationPairDigest.length).toBeLessThan(120);
@@ -941,13 +941,13 @@ function presentationPairProof({
   return {
     ...frame.presentationProof,
     canvasGenerationEvidence:
-      createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+      createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
         committedFrame: frame,
         projectionSampleId: projectionSample.id,
         projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
       }),
     domTransformEvidence:
-      createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
+      createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence({
         committedFrame: frame,
         projectionSampleId: projectionSample.id,
         projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
@@ -955,7 +955,7 @@ function presentationPairProof({
     projectionSampleId: projectionSample.id,
     projectionTransactionKind: "content-publication" as const,
     textureEvictionEvidence:
-      createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
+      createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence({
         committedFrame: frame,
         projectionSampleId: projectionSample.id,
         projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,

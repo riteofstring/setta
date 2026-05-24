@@ -413,7 +413,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(candidateHandlingSource).not.toContain("GpuFlowHoldPreviousToken");
     expect(surfaceFrameSource).not.toContain(
-      "selectGpuFlowVisiblePublicationTokens",
+      "selectGpuFlowVisibleFramePresentationTokens",
     );
     expect(surfaceFrameSource).not.toContain(
       "selectGpuFlowVisibleHoldPreviousToken",
@@ -498,7 +498,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(scheduleMethodSource).toContain("reactSemanticEmitQueued");
   });
 
-  it("applies viewport overlay transforms only from visible publication completion", () => {
+  it("applies viewport overlay transforms only from visible frame presentation completion", () => {
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
         return [];
@@ -512,7 +512,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
         return [];
       }
       return [
-        `${relativePath} applies viewport overlay transforms outside visible publication completion`,
+        `${relativePath} applies viewport overlay transforms outside visible frame presentation completion`,
       ];
     });
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
@@ -534,7 +534,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(overlayPublisherSource).toContain(".applyOverlayTransforms(");
   });
 
-  it("publishes node-layer frame state only from visible publication completion", () => {
+  it("publishes node-layer frame state only from visible frame presentation completion", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const projectionFrameSource = readFileSync(
       PROJECTION_FRAME_MODULE_PATH,
@@ -859,7 +859,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(scheduleMethodSource).toContain("snapshotEmitQueued");
   });
 
-  it("publishes projection debug frame ids only from visible publication paths", () => {
+  it("publishes projection debug frame ids only from visible frame presentation paths", () => {
     const debugAttributePattern =
       /\b(?:applyGpuFlowProjectionDebugAttributes|setProjectionDebugAttributes)\s*\(/;
     const projectionDebugSource = readFileSync(
@@ -882,7 +882,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
         return [];
       }
       return [
-        `${relativePath} publishes projection debug frame ids outside visible publication paths`,
+        `${relativePath} publishes projection debug frame ids outside visible frame presentation paths`,
       ];
     });
 
@@ -1021,14 +1021,14 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
         return [];
       }
       return [
-        `${relativePath} presents prepared content frames outside visible publication completion`,
+        `${relativePath} presents prepared content frames outside visible frame presentation completion`,
       ];
     });
 
     expect(violations).toEqual([]);
   });
 
-  it("publishes retained display frames only from visible publication completion", () => {
+  it("publishes retained display frames only from visible frame presentation completion", () => {
     const assignmentPattern = /retainedDisplayFrameRef\.current\s*=(?!=)/g;
     const productionAssignmentModules = new Set([
       "GpuFlow/flowSurface.tsx",
@@ -1047,7 +1047,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
         return [];
       }
       return [
-        `${relativePath} publishes retained display frames outside visible publication completion`,
+        `${relativePath} publishes retained display frames outside visible frame presentation completion`,
       ];
     });
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
@@ -1070,7 +1070,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
   });
 
-  it("publishes retained runtime callbacks only from visible publication completion", () => {
+  it("publishes retained runtime callbacks only from visible frame presentation completion", () => {
     const source = readSurfaceFramePublicationAuthoritySource();
     const contentFrameStart = source.indexOf(
       "function renderGpuFlowSurfaceContentPublicationFrame",
@@ -1102,7 +1102,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
   });
 
-  it("clears the cold-start shell only from committed visible publication", () => {
+  it("clears the cold-start shell only from committed visible frame presentation", () => {
     const flowSurfaceSource = readFileSync(
       join(GPU_FLOW_ROOT, "GpuFlow/flowSurface.tsx"),
       "utf8",

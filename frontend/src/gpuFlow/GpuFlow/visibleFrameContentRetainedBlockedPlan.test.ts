@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { RetainedContentTexturePagePreparedFrame } from "../retainedContentTexturePageManager";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
+import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
   createGpuFlowPreparedContentFramePublicationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
@@ -12,7 +12,7 @@ import {
 } from "./visibleFrameContentPlan";
 
 const contentDecisionKernel =
-  createGpuFlowVisiblePublicationContentDecisionKernel();
+  createGpuFlowVisibleFramePresentationContentDecisionKernel();
 
 describe("GPU Flow retained display candidate content plans", () => {
   it("publishes retained display candidates instead of retained projection blockers", () => {

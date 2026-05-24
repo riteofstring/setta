@@ -38,7 +38,7 @@ const BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID =
 const BLOCKED_PUBLICATION_SURFACE_ID =
   "settings-section__sectionSizingPolicy" + SETTINGS_PARAM_CONTENT_SUFFIX;
 
-type BlockedVisiblePublicationEvent = {
+type BlockedVisibleFramePresentationEvent = {
   readonly blockedReasons?: readonly {
     readonly actorId?: string | null;
     readonly family?: string | null;
@@ -58,9 +58,10 @@ type BlockedVisiblePublicationEvent = {
   readonly tokenTransactionId?: string | null;
 };
 
-type ObservedBlockedVisiblePublicationEvent = BlockedVisiblePublicationEvent & {
-  readonly eventCount: number;
-};
+type ObservedBlockedVisibleFramePresentationEvent =
+  BlockedVisibleFramePresentationEvent & {
+    readonly eventCount: number;
+  };
 
 type BrowserVisualFaultReadiness =
   | "blocked-awaiting-live-host"
@@ -206,7 +207,7 @@ test("retained scroll and hover zoom make visible progress within the held-frame
   });
   const retainedFrameProbe =
     await readOptionalRetainedCompositorFrameProbe(page);
-  const blockedEvents = await readBlockedVisiblePublicationEvents(page);
+  const blockedEvents = await readBlockedVisibleFramePresentationEvents(page);
   const details = JSON.stringify(
     {
       around60Similarity,
@@ -254,7 +255,7 @@ test("retained scroll and hover zoom make visible progress within the held-frame
 test("browser visual snapshot withholding blocks while preserving the coherent visible frame", async ({
   page,
 }, testInfo) => {
-  await expectBrowserVisualFaultInjectionBlocksVisiblePublication(page, {
+  await expectBrowserVisualFaultInjectionBlocksVisibleFramePresentation(page, {
     outputPrefix: "blocked-visible-snapshot",
     readiness: "blocked-awaiting-snapshot",
     reason: "snapshot-pending",
@@ -265,7 +266,7 @@ test("browser visual snapshot withholding blocks while preserving the coherent v
 test("browser visual live-host withholding blocks while preserving the coherent visible frame", async ({
   page,
 }, testInfo) => {
-  await expectBrowserVisualFaultInjectionBlocksVisiblePublication(page, {
+  await expectBrowserVisualFaultInjectionBlocksVisibleFramePresentation(page, {
     outputPrefix: "blocked-visible-live-host",
     readiness: "blocked-awaiting-live-host",
     reason: "live-dom-budget",
@@ -285,11 +286,14 @@ test("browser visual cold-start withholding publishes a blocked shell frame", as
   await page.waitForSelector(GPU_FLOW_READY_SELECTOR);
   await page.getByRole("button", { name: "fit view" }).click();
   await requestGpuFlowDebugFrame(page, "texture-upload");
-  const firstBlockedEvent = await waitForBlockedVisiblePublicationEvent(page, {
-    afterCount: 0,
-    frameReason: "texture-upload",
-    reason: "snapshot-pending",
-  });
+  const firstBlockedEvent = await waitForBlockedVisibleFramePresentationEvent(
+    page,
+    {
+      afterCount: 0,
+      frameReason: "texture-upload",
+      reason: "snapshot-pending",
+    },
+  );
   const shellFrame = await waitForColdStartShellFrame(page);
   const shellScreenshot = await page.screenshot({
     path: testInfo.outputPath("blocked-visible-cold-start-shell.png"),
@@ -344,7 +348,7 @@ test("browser visual cold-start withholding publishes a blocked shell frame", as
   ).toBeGreaterThan(0);
 });
 
-async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
+async function expectBrowserVisualFaultInjectionBlocksVisibleFramePresentation(
   page: Page,
   {
     outputPrefix,
@@ -368,7 +372,7 @@ async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
     page,
     BLOCKED_PUBLICATION_SURFACE_ID,
   );
-  await clearBlockedVisiblePublicationEvents(page);
+  await clearBlockedVisibleFramePresentationEvents(page);
   const beforeIdentity = await readVisibleFrameIdentity(page);
   const before = await page.screenshot({
     clip: target.clip,
@@ -377,15 +381,18 @@ async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
 
   await installBrowserVisualFaultInjection(page, readiness);
   await triggerBrowserVisualFaultPublication(page);
-  const firstBlockedEvent = await waitForBlockedVisiblePublicationEvent(page, {
-    afterCount: beforeIdentity.blockedEventCount,
-    frameReason: "resize",
-    reason,
-  });
+  const firstBlockedEvent = await waitForBlockedVisibleFramePresentationEvent(
+    page,
+    {
+      afterCount: beforeIdentity.blockedEventCount,
+      frameReason: "resize",
+      reason,
+    },
+  );
   await requestGpuFlowDebugFrame(page, "texture-upload");
   await page.waitForTimeout(120);
-  const retryBlockedEvent = findBlockedVisiblePublicationEvent(
-    await readBlockedVisiblePublicationEvents(page),
+  const retryBlockedEvent = findBlockedVisibleFramePresentationEvent(
+    await readBlockedVisibleFramePresentationEvents(page),
     {
       actorId: undefined,
       afterCount: firstBlockedEvent.eventCount,
@@ -495,7 +502,7 @@ async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
 }
 
 function expectBlockedEventRetainsSchedulerDebt(
-  event: BlockedVisiblePublicationEvent,
+  event: BlockedVisibleFramePresentationEvent,
   details: string,
 ): void {
   expect(event.reducerOutcome, details).toBe("blocked");
@@ -664,26 +671,28 @@ function hasVisibleProgress(
   );
 }
 
-async function readBlockedVisiblePublicationEvents(
+async function readBlockedVisibleFramePresentationEvents(
   page: Page,
-): Promise<readonly BlockedVisiblePublicationEvent[]> {
+): Promise<readonly BlockedVisibleFramePresentationEvent[]> {
   return await page.evaluate(
     () =>
       (
         window as typeof window & {
-          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly BlockedVisiblePublicationEvent[];
+          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: readonly BlockedVisibleFramePresentationEvent[];
         }
-      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [],
+      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? [],
   );
 }
 
-async function clearBlockedVisiblePublicationEvents(page: Page): Promise<void> {
+async function clearBlockedVisibleFramePresentationEvents(
+  page: Page,
+): Promise<void> {
   await page.evaluate(() => {
     (
       window as typeof window & {
-        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: BlockedVisiblePublicationEvent[];
+        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: BlockedVisibleFramePresentationEvent[];
       }
-    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ = [];
+    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ = [];
   });
 }
 
@@ -797,7 +806,7 @@ async function waitForColdStartShellFrame(
   });
 }
 
-async function waitForBlockedVisiblePublicationEvent(
+async function waitForBlockedVisibleFramePresentationEvent(
   page: Page,
   {
     actorId,
@@ -810,18 +819,18 @@ async function waitForBlockedVisiblePublicationEvent(
     readonly frameReason?: GpuFlowDebugFrameReason | undefined;
     readonly reason: string;
   },
-): Promise<ObservedBlockedVisiblePublicationEvent> {
+): Promise<ObservedBlockedVisibleFramePresentationEvent> {
   const deadline = Date.now() + BLOCKED_PUBLICATION_OBSERVATION_TIMEOUT_MS;
-  let lastEvents: readonly BlockedVisiblePublicationEvent[] = [];
+  let lastEvents: readonly BlockedVisibleFramePresentationEvent[] = [];
   while (Date.now() < deadline) {
-    lastEvents = await readBlockedVisiblePublicationEvents(page);
+    lastEvents = await readBlockedVisibleFramePresentationEvents(page);
     const observedEvent =
-      findBlockedVisiblePublicationEvent(lastEvents, {
+      findBlockedVisibleFramePresentationEvent(lastEvents, {
         actorId,
         afterCount,
         reason,
       }) ??
-      findBlockedVisiblePublicationEvent(lastEvents, {
+      findBlockedVisibleFramePresentationEvent(lastEvents, {
         afterCount,
         requireCommittedFrozenFrame: true,
       });
@@ -831,14 +840,14 @@ async function waitForBlockedVisiblePublicationEvent(
     await requestGpuFlowDebugFrame(page, frameReason);
     await page.waitForTimeout(50);
   }
-  lastEvents = await readBlockedVisiblePublicationEvents(page);
+  lastEvents = await readBlockedVisibleFramePresentationEvents(page);
   const observedEvent =
-    findBlockedVisiblePublicationEvent(lastEvents, {
+    findBlockedVisibleFramePresentationEvent(lastEvents, {
       actorId,
       afterCount,
       reason,
     }) ??
-    findBlockedVisiblePublicationEvent(lastEvents, {
+    findBlockedVisibleFramePresentationEvent(lastEvents, {
       afterCount,
       requireCommittedFrozenFrame: true,
     });
@@ -853,7 +862,7 @@ async function waitForBlockedVisiblePublicationEvent(
     retainedFrameProbe.length - 8,
   );
   throw new Error(
-    `Timed out waiting for blocked visible publication. ${JSON.stringify(
+    `Timed out waiting for blocked visible frame presentation. ${JSON.stringify(
       {
         actorId,
         afterCount,
@@ -874,8 +883,8 @@ async function waitForBlockedVisiblePublicationEvent(
   );
 }
 
-function findBlockedVisiblePublicationEvent(
-  events: readonly BlockedVisiblePublicationEvent[],
+function findBlockedVisibleFramePresentationEvent(
+  events: readonly BlockedVisibleFramePresentationEvent[],
   {
     actorId,
     afterCount,
@@ -887,7 +896,7 @@ function findBlockedVisiblePublicationEvent(
     readonly requireCommittedFrozenFrame?: boolean | undefined;
     readonly reason?: string | undefined;
   },
-): ObservedBlockedVisiblePublicationEvent | null {
+): ObservedBlockedVisibleFramePresentationEvent | null {
   for (let index = afterCount; index < events.length; index += 1) {
     const event = events[index];
     if (
@@ -964,9 +973,9 @@ async function readVisibleFrameIdentity(
     const blockedEvents =
       (
         window as typeof window & {
-          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly unknown[];
+          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: readonly unknown[];
         }
-      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [];
+      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? [];
     const visibleDomControlActorIds = [
       ...document.querySelectorAll<HTMLElement>(
         "[data-gpu-flow-dom-control='true']",

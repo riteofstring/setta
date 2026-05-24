@@ -9,7 +9,7 @@ import {
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import { DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
+import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import { requestGpuFlowBrowserVisualResourcePreparation } from "./visibleFrameBrowserVisualPreparation";
 import { clearGpuFlowBrowserVisualResourceWork } from "./visibleFrameBrowserVisualResourceWork";
 import {
@@ -17,7 +17,7 @@ import {
   type GpuFlowPreparedContentFramePublicationCandidateInput,
 } from "./visibleFrameContentPlan";
 import {
-  recordGpuFlowBlockedVisiblePublication,
+  recordGpuFlowBlockedVisibleFramePresentation,
   recordGpuFlowVisibleFrameBlocked,
   recordGpuFlowVisibleFrameHeld,
   recordGpuFlowVisibleFramePresented,
@@ -35,7 +35,7 @@ import {
 const preparePreparedContentFramePublicationFramePlanForTest =
   createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
     contentDecisionKernel:
-      createGpuFlowVisiblePublicationContentDecisionKernel(),
+      createGpuFlowVisibleFramePresentationContentDecisionKernel(),
   });
 
 describe("GPU Flow visible frame blocked candidate diagnostics", () => {
@@ -54,9 +54,9 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     ).__SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__;
     delete (
       window as typeof window & {
-        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: unknown;
+        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: unknown;
       }
-    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__;
+    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__;
   });
 
   it("emits browser visual starvation reports for blocked actor coverage", () => {
@@ -97,7 +97,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       }),
     ]);
     expect(readBrowserVisualResourceWork()).toEqual([]);
-    expect(readBlockedVisiblePublicationEvents()).toEqual([]);
+    expect(readBlockedVisibleFramePresentationEvents()).toEqual([]);
   });
 
   it("records browser visual resource work when preparation is scheduled", () => {
@@ -332,7 +332,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
   it("records required actor-family manifest diagnostics on blocked publication events", () => {
     const canvas = document.createElement("canvas");
 
-    recordGpuFlowBlockedVisiblePublication({
+    recordGpuFlowBlockedVisibleFramePresentation({
       frame: blockedCommittedSurfaceFrame(),
       publicationCompletion: {
         debt: { content: true, maintenance: false, motion: false },
@@ -345,13 +345,13 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         sample: { id: 1 },
         reducerState: "content-catchup",
       } as unknown as Parameters<
-        typeof recordGpuFlowBlockedVisiblePublication
+        typeof recordGpuFlowBlockedVisibleFramePresentation
       >[0]["reducerDecision"],
       runtimeCanvas: canvas,
       token: blockedPublicationToken(),
     });
 
-    expect(readBlockedVisiblePublicationEvents()).toEqual([
+    expect(readBlockedVisibleFramePresentationEvents()).toEqual([
       expect.objectContaining({
         actorManifest: expect.objectContaining({
           blockedActorsByFamily: { "browser-text-snapshot": 1 },
@@ -423,7 +423,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       >[0]["projectionSample"],
     });
 
-    recordGpuFlowBlockedVisiblePublication({
+    recordGpuFlowBlockedVisibleFramePresentation({
       frame: null,
       publicationCompletion: {
         debt: { content: true, maintenance: false, motion: false },
@@ -436,13 +436,13 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         sample: { id: 9 },
         reducerState: "content-catchup",
       } as unknown as Parameters<
-        typeof recordGpuFlowBlockedVisiblePublication
+        typeof recordGpuFlowBlockedVisibleFramePresentation
       >[0]["reducerDecision"],
       runtimeCanvas: canvas,
       token,
     });
 
-    expect(readBlockedVisiblePublicationEvents()).toEqual([
+    expect(readBlockedVisibleFramePresentationEvents()).toEqual([
       expect.objectContaining({
         blockedReasons: [
           {
@@ -481,7 +481,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     });
 
     expect(() =>
-      recordGpuFlowBlockedVisiblePublication({
+      recordGpuFlowBlockedVisibleFramePresentation({
         frame: null,
         publicationCompletion: {
           debt: { content: true, maintenance: false, motion: false },
@@ -494,20 +494,20 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           sample: { id: 10 },
           reducerState: "content-catchup",
         } as unknown as Parameters<
-          typeof recordGpuFlowBlockedVisiblePublication
+          typeof recordGpuFlowBlockedVisibleFramePresentation
         >[0]["reducerDecision"],
         runtimeCanvas: canvas,
         token,
       }),
     ).toThrow(/blocked token for the selected projection sample/);
-    expect(readBlockedVisiblePublicationEvents()).toEqual([]);
+    expect(readBlockedVisibleFramePresentationEvents()).toEqual([]);
   });
 
   it("rejects blocked publication records without a blocked reducer completion", () => {
     const canvas = document.createElement("canvas");
 
     expect(() =>
-      recordGpuFlowBlockedVisiblePublication({
+      recordGpuFlowBlockedVisibleFramePresentation({
         frame: null,
         publicationCompletion: {
           debt: { content: true, maintenance: false, motion: false },
@@ -520,7 +520,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           sample: { id: 9 },
           reducerState: "content-catchup",
         } as unknown as Parameters<
-          typeof recordGpuFlowBlockedVisiblePublication
+          typeof recordGpuFlowBlockedVisibleFramePresentation
         >[0]["reducerDecision"],
         runtimeCanvas: canvas,
         token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
@@ -540,7 +540,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         }),
       }),
     ).toThrow(/blocked reducer completion/);
-    expect(readBlockedVisiblePublicationEvents()).toEqual([]);
+    expect(readBlockedVisibleFramePresentationEvents()).toEqual([]);
   });
 
   it("fails loudly in test runtime when browser visual coverage starves beyond budget", () => {
@@ -783,12 +783,12 @@ function readBrowserVisualResourceWork(): readonly unknown[] {
   );
 }
 
-function readBlockedVisiblePublicationEvents(): readonly unknown[] {
+function readBlockedVisibleFramePresentationEvents(): readonly unknown[] {
   return (
     (
       window as typeof window & {
-        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly unknown[];
+        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: readonly unknown[];
       }
-    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? []
+    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? []
   );
 }

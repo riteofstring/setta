@@ -23,20 +23,20 @@ import { clearGpuFlowBrowserVisualResourceWork } from "./visibleFrameBrowserVisu
 import type {
   GpuFlowCommittedSurfaceBlockedCandidateResourceWork,
   GpuFlowVisibleFrameCoordinatorResult,
-  GpuFlowVisiblePublicationOutcome,
+  GpuFlowVisibleFramePresentationOutcome,
 } from "./visibleFrameCoordinator";
 import {
-  recordGpuFlowBlockedVisiblePublication,
+  recordGpuFlowBlockedVisibleFramePresentation,
   recordGpuFlowVisibleFrameBlocked,
   recordGpuFlowVisibleFrameHeld,
   recordGpuFlowVisibleFramePresented,
 } from "./visibleFrameDiagnostics";
-import { postGpuFlowVisiblePublicationOutcomeChromeReproEvent } from "./visibleFrameOutcomeChromeRepro";
-import { assertGpuFlowSingleVisiblePublicationOutcome } from "./visibleFrameOutcomeGuard";
+import { postGpuFlowVisibleFramePresentationOutcomeChromeReproEvent } from "./visibleFrameOutcomeChromeRepro";
+import { assertGpuFlowSingleVisibleFramePresentationOutcome } from "./visibleFrameOutcomeGuard";
 import {
   createGpuFlowSurfaceReducerDebtFrameRequest,
-  requestGpuFlowSurfaceReducerDebtFrame,
   requestGpuFlowSurfacePublicationFollowUpFrames,
+  requestGpuFlowSurfaceReducerDebtFrame,
 } from "./visibleFramePresentationDebtRequests";
 import {
   assertGpuFlowHoldPreviousTokenForProjectionSample,
@@ -206,13 +206,13 @@ export function presentGpuFlowVisibleFramePublicationFrame({
   const nodeLayerFrameStatePublication =
     contentNodeLayerFrameStatePublication ??
     motionNodeLayerFrameStatePublication;
-  assertGpuFlowSingleVisiblePublicationOutcome({
+  assertGpuFlowSingleVisibleFramePresentationOutcome({
     outcome,
     reducerDecision,
     surface: surfaceRef.current,
   });
-  const blockedVisiblePublication = publishGpuFlowSurfaceVisibleProjectionState(
-    {
+  const blockedVisibleFramePresentation =
+    publishGpuFlowSurfaceVisibleProjectionState({
       abortPreparedContentFrame,
       callbacksRef,
       preparedContentFrame,
@@ -241,8 +241,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
       visibleOverlayProjectionKeyRef,
       visibleProjectionPublicationStateRef,
       visibleProjectionStateRef,
-    },
-  );
+    });
   publishGpuFlowColdStartShellFrame({
     outcome,
     publishColdStartShellFrame,
@@ -263,7 +262,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
     reducerDecision,
   });
   recordGpuFlowBlockedSurfaceVisibleProjectionPublication({
-    blockedVisiblePublication,
+    blockedVisibleFramePresentation,
     completion,
     outcome,
     reducerDecision,
@@ -272,7 +271,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
       publicationTransaction.preparedFrame.transactionProof
         ?.visibleFrameStateMachineOutcome ?? null,
   });
-  postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
+  postGpuFlowVisibleFramePresentationOutcomeChromeReproEvent({
     completion,
     outcome,
     reducerDecision,
@@ -298,8 +297,8 @@ export function presentGpuFlowVisibleFramePublicationFrame({
     reducerDecision,
     surfaceRef,
   });
-  if (blockedVisiblePublication?.blockedErrorMessage) {
-    throw new Error(blockedVisiblePublication.blockedErrorMessage);
+  if (blockedVisibleFramePresentation?.blockedErrorMessage) {
+    throw new Error(blockedVisibleFramePresentation.blockedErrorMessage);
   }
 }
 
@@ -318,32 +317,32 @@ function hasGpuFlowActiveEditorActivationPendingFrame(
 }
 
 function recordGpuFlowBlockedSurfaceVisibleProjectionPublication({
-  blockedVisiblePublication,
+  blockedVisibleFramePresentation,
   completion,
   outcome,
   reducerDecision,
   runtimeCanvas,
   stateMachineOutcome,
 }: {
-  readonly blockedVisiblePublication: GpuFlowBlockedSurfaceVisibleProjectionPublication | null;
+  readonly blockedVisibleFramePresentation: GpuFlowBlockedSurfaceVisibleProjectionPublication | null;
   readonly completion: GpuFlowVisibleFrameReducerCompletion;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly stateMachineOutcome:
     | GpuFlowSurfacePublicationPreparedFrame["transactionProof"]["visibleFrameStateMachineOutcome"]
     | null;
 }): void {
-  if (blockedVisiblePublication === null) {
+  if (blockedVisibleFramePresentation === null) {
     return;
   }
   if (outcome.kind !== "blocked") {
     throw new Error(
-      "GPU Flow blocked visible publication recording requires a blocked visible publication outcome.",
+      "GPU Flow blocked visible frame presentation recording requires a blocked visible frame presentation outcome.",
     );
   }
-  recordGpuFlowBlockedVisiblePublication({
-    frame: blockedVisiblePublication.frame,
+  recordGpuFlowBlockedVisibleFramePresentation({
+    frame: blockedVisibleFramePresentation.frame,
     publicationCompletion: completion,
     reducerDecision,
     runtimeCanvas,
@@ -362,7 +361,7 @@ function publishGpuFlowColdStartShellFrame({
   outcome,
   publishColdStartShellFrame,
 }: {
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly publishColdStartShellFrame: RenderGpuFlowSurfaceFrameInput["publishColdStartShellFrame"];
 }): void {
   if (outcome.kind !== "present") {
@@ -417,7 +416,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
   readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly projectPresentedBrowserVisualActors: RenderGpuFlowSurfaceFrameInput["projectPresentedBrowserVisualActors"];
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
@@ -514,7 +513,7 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionOutcome({
   readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly outcome: Extract<
-    GpuFlowVisiblePublicationOutcome,
+    GpuFlowVisibleFramePresentationOutcome,
     { readonly kind: "hold-previous" }
   >;
   readonly runtimeCanvas: HTMLCanvasElement;
@@ -567,7 +566,7 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionOutcome({
   readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly outcome: Extract<
-    GpuFlowVisiblePublicationOutcome,
+    GpuFlowVisibleFramePresentationOutcome,
     { readonly kind: "blocked" }
   >;
   readonly runtimeCanvas: HTMLCanvasElement;
@@ -629,7 +628,7 @@ function publishGpuFlowPresentedSurfaceVisibleProjectionState({
   readonly presentPreparedContentFrame: RenderGpuFlowSurfaceFrameInput["presentPreparedContentFrame"];
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly outcome: Extract<
-    GpuFlowVisiblePublicationOutcome,
+    GpuFlowVisibleFramePresentationOutcome,
     { readonly kind: "present" }
   >;
   readonly projectPresentedBrowserVisualActors: RenderGpuFlowSurfaceFrameInput["projectPresentedBrowserVisualActors"];
@@ -736,7 +735,7 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
   readonly heldPreparedContentFrameResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly outcome: Extract<
-    GpuFlowVisiblePublicationOutcome,
+    GpuFlowVisibleFramePresentationOutcome,
     { readonly kind: "hold-previous" }
   >;
   readonly runtimeCanvas: HTMLCanvasElement;
@@ -845,7 +844,7 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionState({
   readonly browserVisualPreparationResourceKeys: readonly string[];
   readonly browserVisualRepairSelected: boolean;
   readonly outcome: Extract<
-    GpuFlowVisiblePublicationOutcome,
+    GpuFlowVisibleFramePresentationOutcome,
     { readonly kind: "blocked" }
   >;
   readonly runtimeCanvas: HTMLCanvasElement;

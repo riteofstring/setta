@@ -25,9 +25,10 @@ describe("GPU Flow visible frame outcome report", () => {
     const rawReasons = ["retained-scroll"] as const;
 
     const result = runGpuFlowVisibleFrameCoordinator({
-      prepareContentPublicationFrame: () => noVisiblePublicationCandidate(),
+      prepareContentPublicationFrame: () =>
+        noVisibleFramePresentationCandidate(),
       prepareMotionProjectionFrame: () => ({
-        frame: noVisiblePublicationCandidate(),
+        frame: noVisibleFramePresentationCandidate(),
         kind: "not-rendered",
       }),
       publish: () => {},
@@ -67,11 +68,11 @@ describe("GPU Flow visible frame outcome report", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const result = runGpuFlowVisibleFrameCoordinator({
       prepareContentPublicationFrame: () =>
-        noVisiblePublicationCandidate({
+        noVisibleFramePresentationCandidate({
           retainedDisplayFollowUpFrameReason: "texture-upload",
         }),
       prepareMotionProjectionFrame: () => ({
-        frame: noVisiblePublicationCandidate(),
+        frame: noVisibleFramePresentationCandidate(),
         kind: "not-rendered",
       }),
       publish: () => {},
@@ -88,9 +89,10 @@ describe("GPU Flow visible frame outcome report", () => {
   it("returns cold-start shell publication from coordinator completion", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const result = runGpuFlowVisibleFrameCoordinator({
-      prepareContentPublicationFrame: () => noVisiblePublicationCandidate(),
+      prepareContentPublicationFrame: () =>
+        noVisibleFramePresentationCandidate(),
       prepareMotionProjectionFrame: () => ({
-        frame: noVisiblePublicationCandidate(),
+        frame: noVisibleFramePresentationCandidate(),
         kind: "not-rendered",
       }),
       publish: () => {},
@@ -109,7 +111,7 @@ describe("GPU Flow visible frame outcome report", () => {
   });
 });
 
-function noVisiblePublicationCandidate({
+function noVisibleFramePresentationCandidate({
   retainedDisplayFollowUpFrameReason = null,
 }: {
   readonly retainedDisplayFollowUpFrameReason?:

@@ -22,7 +22,7 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameSurfaceFrame.ts", import.meta.url),
 );
 
-describe("GPU Flow visible publication projection plans", () => {
+describe("GPU Flow visible frame presentation projection plans", () => {
   it("keeps raw projection blocked-field inspection out of the renderer", () => {
     const projectionFrameSource = readFileSync(
       PROJECTION_FRAME_MODULE_PATH,

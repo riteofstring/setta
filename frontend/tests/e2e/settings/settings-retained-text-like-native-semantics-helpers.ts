@@ -271,14 +271,15 @@ async function readNativeTextActivationDiagnostics(
     const lastBlockedEvent =
       (
         window as typeof window & {
-          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly {
+          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: readonly {
             readonly blockedReasons?: readonly {
               readonly actorId?: string | null;
               readonly reason?: string | null;
             }[];
           }[];
         }
-      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?.at(-1) ?? null;
+      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?.at(-1) ??
+      null;
     const readBrowserVisualPreparation = (
       window as typeof window & {
         __settaGpuFlowBrowserVisualPreparationDiagnostics?: (

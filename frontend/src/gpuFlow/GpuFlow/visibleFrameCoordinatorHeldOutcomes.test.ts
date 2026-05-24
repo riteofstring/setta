@@ -13,7 +13,7 @@ import {
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
+import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
 import { createGpuFlowPreparedContentFramePublicationFramePlanPreparer } from "./visibleFrameContentPlan";
 import {
@@ -25,7 +25,7 @@ import {
 const preparePreparedContentFramePublicationFramePlanForTest =
   createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
     contentDecisionKernel:
-      createGpuFlowVisiblePublicationContentDecisionKernel(),
+      createGpuFlowVisibleFramePresentationContentDecisionKernel(),
   });
 
 describe("GPU Flow visible frame coordinator held outcomes", () => {

@@ -5,21 +5,21 @@ import type {
   GpuFlowLiveProjectionSample,
   GpuFlowVisibleFrameReducerDecision,
 } from "../projectionRuntime";
-import type { GpuFlowVisiblePublicationOutcome } from "./visibleFrameCoordinator";
-import { assertGpuFlowSingleVisiblePublicationOutcome } from "./visibleFrameOutcomeGuard";
+import type { GpuFlowVisibleFramePresentationOutcome } from "./visibleFrameCoordinator";
+import { assertGpuFlowSingleVisibleFramePresentationOutcome } from "./visibleFrameOutcomeGuard";
 import { createGpuFlowVisibleFrameHoldPreviousTokenForTest } from "./visibleFrameTestUtils";
 
-describe("GPU Flow visible publication outcome guard", () => {
+describe("GPU Flow visible frame presentation outcome guard", () => {
   it("rejects multiple outcomes for the same surface and projection sample", () => {
     const surface = surfaceHandle();
-    assertGpuFlowSingleVisiblePublicationOutcome({
+    assertGpuFlowSingleVisibleFramePresentationOutcome({
       outcome: holdOutcome(1),
       reducerDecision: reducerDecision(1),
       surface,
     });
 
     expect(() =>
-      assertGpuFlowSingleVisiblePublicationOutcome({
+      assertGpuFlowSingleVisibleFramePresentationOutcome({
         outcome: holdOutcome(1),
         reducerDecision: reducerDecision(1),
         surface,
@@ -29,21 +29,21 @@ describe("GPU Flow visible publication outcome guard", () => {
 
   it("allows independent surfaces and later projection samples", () => {
     const surface = surfaceHandle();
-    assertGpuFlowSingleVisiblePublicationOutcome({
+    assertGpuFlowSingleVisibleFramePresentationOutcome({
       outcome: holdOutcome(1),
       reducerDecision: reducerDecision(1),
       surface,
     });
 
     expect(() =>
-      assertGpuFlowSingleVisiblePublicationOutcome({
+      assertGpuFlowSingleVisibleFramePresentationOutcome({
         outcome: holdOutcome(1),
         reducerDecision: reducerDecision(1),
         surface: surfaceHandle(),
       }),
     ).not.toThrow();
     expect(() =>
-      assertGpuFlowSingleVisiblePublicationOutcome({
+      assertGpuFlowSingleVisibleFramePresentationOutcome({
         outcome: holdOutcome(2),
         reducerDecision: reducerDecision(2),
         surface,
@@ -52,9 +52,7 @@ describe("GPU Flow visible publication outcome guard", () => {
   });
 });
 
-function reducerDecision(
-  sampleId: number,
-): GpuFlowVisibleFrameReducerDecision {
+function reducerDecision(sampleId: number): GpuFlowVisibleFrameReducerDecision {
   return {
     debt: {
       content: false,
@@ -68,7 +66,7 @@ function reducerDecision(
   };
 }
 
-function holdOutcome(sampleId: number): GpuFlowVisiblePublicationOutcome {
+function holdOutcome(sampleId: number): GpuFlowVisibleFramePresentationOutcome {
   return {
     kind: "hold-previous",
     token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({

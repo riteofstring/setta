@@ -5,14 +5,14 @@ import {
   resolveGpuFlowColdStartBlockedFrozenFrameId,
 } from "./visibleFrameBlockedCandidate";
 import type { GpuFlowVisibleFrameStateMachineOutcome } from "./visibleFrameStateMachine";
-import type { GpuFlowVisiblePublicationBlockedProof } from "./visibleFrameTransactionProofs";
+import type { GpuFlowVisibleFramePresentationBlockedProof } from "./visibleFrameTransactionProofs";
 import type { GpuFlowVisibleFrameCandidate } from "./visibleFrameTypes";
 
 type GpuFlowVisibleFrameStateMachineDecidingProof = NonNullable<
   GpuFlowVisibleFrameStateMachineOutcome["decidingProof"]
 >;
 type GpuFlowVisibleFramePublicationBlockedReason =
-  GpuFlowVisiblePublicationBlockedProof["blockedReasons"][number];
+  GpuFlowVisibleFramePresentationBlockedProof["blockedReasons"][number];
 
 export function createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
   blockingProofs,
@@ -20,11 +20,11 @@ export function createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
   previousVisibleProjectionState,
   visibleFrameStateMachineOutcome,
 }: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
+  readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly candidate: GpuFlowVisibleFrameCandidate;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly visibleFrameStateMachineOutcome: GpuFlowVisibleFrameStateMachineOutcome;
-}): GpuFlowVisiblePublicationBlockedProof | null {
+}): GpuFlowVisibleFramePresentationBlockedProof | null {
   if (
     !isGpuFlowVisibleFrameStateMachineBlockedOutcome(
       visibleFrameStateMachineOutcome,
@@ -80,7 +80,7 @@ function createGpuFlowVisibleFramePublicationCandidateActorBlockedProof({
   readonly candidate: GpuFlowVisibleFrameCandidate;
   readonly decidingProof: GpuFlowVisibleFrameStateMachineDecidingProof;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowVisiblePublicationBlockedProof | null {
+}): GpuFlowVisibleFramePresentationBlockedProof | null {
   if (decidingProof.proof !== "blocked") {
     return null;
   }
@@ -139,7 +139,7 @@ function createGpuFlowVisibleFramePublicationActorBlockedProof({
 }: {
   readonly decidingProof: GpuFlowVisibleFrameStateMachineDecidingProof;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowVisiblePublicationBlockedProof {
+}): GpuFlowVisibleFramePresentationBlockedProof {
   const blockedReasons = createGpuFlowFrozenPreviousSafeBlockedReasons({
     blockedReasons: Object.freeze([
       Object.freeze({
@@ -171,8 +171,8 @@ function createGpuFlowFrozenPreviousSafeBlockedProof({
   proof,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly proof: GpuFlowVisiblePublicationBlockedProof | null;
-}): GpuFlowVisiblePublicationBlockedProof | null {
+  readonly proof: GpuFlowVisibleFramePresentationBlockedProof | null;
+}): GpuFlowVisibleFramePresentationBlockedProof | null {
   if (proof === null) {
     return null;
   }
@@ -217,7 +217,7 @@ function resolveGpuFlowVisibleFrameStateMachineBlockedFamily(
 
 function resolveGpuFlowVisibleFrameStateMachineBlockedProofSource(
   decidingProof: GpuFlowVisibleFrameStateMachineDecidingProof,
-): GpuFlowVisiblePublicationBlockedProof["source"] {
+): GpuFlowVisibleFramePresentationBlockedProof["source"] {
   return decidingProof.proof === "compatible-previous" ||
     decidingProof.reason === "compatible-previous-budget-exceeded"
     ? "compatible-previous-proof"
@@ -228,9 +228,9 @@ function selectGpuFlowVisibleFramePublicationBlockingProof({
   blockingProofs,
   decidingProof,
 }: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
+  readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly decidingProof: GpuFlowVisibleFrameStateMachineDecidingProof;
-}): GpuFlowVisiblePublicationBlockedProof | null {
+}): GpuFlowVisibleFramePresentationBlockedProof | null {
   let blockedReasonIndex = 0;
   for (const blockingProof of blockingProofs) {
     for (const reason of blockingProof.blockedReasons) {
@@ -256,7 +256,7 @@ function isGpuFlowVisibleFrameBlockingReasonForDecidingProof({
 }: {
   readonly decidingProof: GpuFlowVisibleFrameStateMachineDecidingProof;
   readonly index: number;
-  readonly reason: GpuFlowVisiblePublicationBlockedProof["blockedReasons"][number];
+  readonly reason: GpuFlowVisibleFramePresentationBlockedProof["blockedReasons"][number];
 }): boolean {
   const actor = createGpuFlowVisibleFrameActorKeyForBlockedReason({
     index,

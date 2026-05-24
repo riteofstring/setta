@@ -11,11 +11,11 @@ import type {
 } from "../surfaceCompositor/surfaceCoverage";
 import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
 import {
-  assertGpuFlowVisiblePublicationResourcesProtected,
+  assertGpuFlowVisibleFramePresentationResourcesProtected,
+  createGpuFlowVisibleFramePresentationResourceBlockedReasons,
+  createGpuFlowVisibleFramePresentationResourceProtectionDigest,
+  createGpuFlowVisibleFramePresentationResourceProtectionReport,
   createGpuFlowVisibleFrameResourceGraph,
-  createGpuFlowVisiblePublicationResourceBlockedReasons,
-  createGpuFlowVisiblePublicationResourceProtectionDigest,
-  createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFrameResourceGraph";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
@@ -25,7 +25,7 @@ import {
 describe("GPU Flow visible frame resource graph proofs", () => {
   it("reports null frames as protected empty resource sets", () => {
     expect(
-      createGpuFlowVisiblePublicationResourceProtectionReport(null),
+      createGpuFlowVisibleFramePresentationResourceProtectionReport(null),
     ).toEqual({
       missingResourceKeys: [],
       protected: true,
@@ -44,7 +44,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
 
     expect(
-      createGpuFlowVisiblePublicationResourceProtectionReport(frame),
+      createGpuFlowVisibleFramePresentationResourceProtectionReport(frame),
     ).toEqual({
       missingResourceKeys: ["page:compatible-page"],
       protected: false,
@@ -60,7 +60,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
 
     expect(
-      createGpuFlowVisiblePublicationResourceBlockedReasons(frame),
+      createGpuFlowVisibleFramePresentationResourceBlockedReasons(frame),
     ).toEqual([
       {
         actorId: null,
@@ -71,31 +71,33 @@ describe("GPU Flow visible frame resource graph proofs", () => {
   });
 
   it("rejects presentation protection reports with missing resources", () => {
-    const report = createGpuFlowVisiblePublicationResourceProtectionReport(
-      preparedContentFrame({
-        exactSurfaceResourceHandles: [resourceHandle("source", "source-a")],
-        protectedResourceHandles: [],
-      }),
-    );
+    const report =
+      createGpuFlowVisibleFramePresentationResourceProtectionReport(
+        preparedContentFrame({
+          exactSurfaceResourceHandles: [resourceHandle("source", "source-a")],
+          protectedResourceHandles: [],
+        }),
+      );
 
     expect(() =>
-      assertGpuFlowVisiblePublicationResourcesProtected(report),
+      assertGpuFlowVisibleFramePresentationResourcesProtected(report),
     ).toThrow(/requires protected resources.*source:source-a/);
   });
 
   it("creates stable resource protection digests for presentation proofs", () => {
-    const report = createGpuFlowVisiblePublicationResourceProtectionReport(
-      preparedContentFrame({
-        exactSurfaceResourceHandles: [resourceHandle("source", "source-b")],
-        protectedResourceHandles: [
-          protectedResource(resourceHandle("source", "source-b")),
-          protectedResource(resourceHandle("texture", "extra-texture")),
-        ],
-      }),
-    );
+    const report =
+      createGpuFlowVisibleFramePresentationResourceProtectionReport(
+        preparedContentFrame({
+          exactSurfaceResourceHandles: [resourceHandle("source", "source-b")],
+          protectedResourceHandles: [
+            protectedResource(resourceHandle("source", "source-b")),
+            protectedResource(resourceHandle("texture", "extra-texture")),
+          ],
+        }),
+      );
 
     expect(
-      createGpuFlowVisiblePublicationResourceProtectionDigest(report),
+      createGpuFlowVisibleFramePresentationResourceProtectionDigest(report),
     ).toBe(
       JSON.stringify({
         missingResourceKeys: [],

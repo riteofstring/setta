@@ -80,7 +80,8 @@ type GpuFlowVisibleFrameReducerDebt = {
   readonly motion: boolean;
 };
 
-export type GpuFlowVisibleFrameReducerDebtProof = GpuFlowVisibleFrameReducerDebt;
+export type GpuFlowVisibleFrameReducerDebtProof =
+  GpuFlowVisibleFrameReducerDebt;
 
 export type GpuFlowVisibleFrameReducerCompletion = {
   readonly debt: GpuFlowVisibleFrameReducerDebt;
@@ -568,7 +569,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     );
   }
 
-  function assertGpuFlowVisiblePublicationUnpresentedTokenMatchesDecision(
+  function assertGpuFlowVisibleFramePresentationUnpresentedTokenMatchesDecision(
     decision: GpuFlowVisibleFrameReducerDecision,
     outcome: GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome,
   ): void {
@@ -657,7 +658,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     );
   }
 
-  function recordGpuFlowVisiblePublicationRawReasonDebt(
+  function recordGpuFlowVisibleFramePresentationRawReasonDebt(
     rawReasons: readonly GpuFrameReason[],
   ): void {
     if (rawReasons.some(isGpuFlowMotionFrameReason)) {
@@ -812,7 +813,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       projectionInteractionActive,
       rawReasons,
     });
-    recordGpuFlowVisiblePublicationRawReasonDebt(schedulingRawReasons);
+    recordGpuFlowVisibleFramePresentationRawReasonDebt(schedulingRawReasons);
     recordGpuFlowRetainedScrollContentRetryBlockForSelection({
       hasPresentedContentFrame,
       rawReasons: schedulingRawReasons,
@@ -935,7 +936,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       return reducerPolicy;
     },
     recordUnpresentedFrame(decision, outcome) {
-      assertGpuFlowVisiblePublicationUnpresentedTokenMatchesDecision(
+      assertGpuFlowVisibleFramePresentationUnpresentedTokenMatchesDecision(
         decision,
         outcome,
       );

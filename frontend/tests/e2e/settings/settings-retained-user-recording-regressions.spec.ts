@@ -207,7 +207,7 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
   }
 });
 
-test("Chrome repro capture flag does not change retained Settings visible publication", async ({
+test("Chrome repro capture flag does not change retained Settings visible frame presentation", async ({
   page,
 }, testInfo) => {
   await installGpuFlowPerformanceProbe(page);
@@ -777,7 +777,7 @@ async function waitForRetainedCompositorVisibleDomPublication(
 ): Promise<void> {
   try {
     await expect
-      .poll(() => readRetainedCompositorVisiblePublicationState(page), {
+      .poll(() => readRetainedCompositorVisibleFramePresentationState(page), {
         timeout: 10_000,
       })
       .toEqual(
@@ -788,8 +788,8 @@ async function waitForRetainedCompositorVisibleDomPublication(
         }),
       );
   } catch (error) {
-    const visiblePublication =
-      await readRetainedCompositorVisiblePublicationState(page);
+    const visibleFramePresentation =
+      await readRetainedCompositorVisibleFramePresentationState(page);
     const details = await page.evaluate(() => {
       const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
       const presentedContentFrame = snapshot?.presentedContentFrame ?? null;
@@ -861,13 +861,13 @@ async function waitForRetainedCompositorVisibleDomPublication(
       };
     });
     throw new Error(
-      JSON.stringify({ ...details, visiblePublication }, null, 2),
+      JSON.stringify({ ...details, visibleFramePresentation }, null, 2),
       { cause: error },
     );
   }
 }
 
-async function readRetainedCompositorVisiblePublicationState(page: Page) {
+async function readRetainedCompositorVisibleFramePresentationState(page: Page) {
   return await page.evaluate(() => {
     const canvas = document.querySelector<HTMLElement>(
       ".setta-gpu-flow__canvas",

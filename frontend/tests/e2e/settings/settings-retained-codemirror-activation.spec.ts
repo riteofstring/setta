@@ -360,7 +360,9 @@ async function readDomControlDiagnosticsForRow(
       const content = host.querySelector<HTMLElement>(
         ".setta-gpu-flow__dom-control-content",
       );
-      const codeMirror = host.querySelector<HTMLElement>("[data-gpu-flow-control]");
+      const codeMirror = host.querySelector<HTMLElement>(
+        "[data-gpu-flow-control]",
+      );
       const line = host.querySelector<HTMLElement>(".cm-line");
       const hostStyle = window.getComputedStyle(host);
       const contentStyle = content ? window.getComputedStyle(content) : null;
@@ -382,10 +384,8 @@ async function readDomControlDiagnosticsForRow(
               visibility: contentStyle.visibility,
             }
           : null,
-        coverageReason:
-          host.dataset.gpuFlowDomControlCoverageReason ?? null,
-        coverageState:
-          host.dataset.gpuFlowDomControlCoverageState ?? null,
+        coverageReason: host.dataset.gpuFlowDomControlCoverageReason ?? null,
+        coverageState: host.dataset.gpuFlowDomControlCoverageState ?? null,
         hostRect: {
           height: rect.height,
           width: rect.width,
@@ -493,22 +493,26 @@ async function readRetainedRowsDiagnosticsForRow(
   page: Page,
   rowId: string,
 ): Promise<unknown> {
-  return await page.evaluate((rowId) =>
-    (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).filter(
-      (row) => row.rowId === rowId,
-    ),
-  rowId);
+  return await page.evaluate(
+    (rowId) =>
+      (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).filter(
+        (row) => row.rowId === rowId,
+      ),
+    rowId,
+  );
 }
 
 async function readVisualSurfaceDiagnosticsForRow(
   page: Page,
   rowId: string,
 ): Promise<unknown> {
-  return await page.evaluate((rowId) =>
-    (window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? []).filter(
-      (surface) => surface.surfaceId.includes(rowId),
-    ),
-  rowId);
+  return await page.evaluate(
+    (rowId) =>
+      (window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? []).filter(
+        (surface) => surface.surfaceId.includes(rowId),
+      ),
+    rowId,
+  );
 }
 
 async function openSettings(page: Page): Promise<void> {
@@ -734,7 +738,7 @@ async function centerGuiRowAtZoom(
               snapshot?.visibleProjection?.viewport ?? null;
             const observed = visibleProjection ?? committedContentFrame;
             const blockedEvents =
-              window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ??
+              window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ??
               [];
             const starvationReports =
               window.__SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__ ?? [];
@@ -807,240 +811,239 @@ async function readActivationDiagnostics(
   page: Page,
   row: RetainedRowDebugEntry,
 ): Promise<unknown> {
-  return await page.evaluate(({ point, row, rowId }) => {
-    const activeElement = document.activeElement;
-    const elementAtPoint =
-      point === null ? null : document.elementFromPoint(point.x, point.y);
-    const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
-    const controlHosts = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        `[data-gpu-flow-dom-control-row-id="${CSS.escape(rowId)}"]`,
-      ),
-    ).map((element) => {
-      const rect = element.getBoundingClientRect();
-      return {
-        active: element.dataset.gpuFlowDomControlActive ?? null,
-        coverageReason:
-          element.dataset.gpuFlowDomControlCoverageReason ?? null,
-        coverageState:
-          element.dataset.gpuFlowDomControlCoverageState ?? null,
-        focusable: element.dataset.gpuFlowDomControlFocusable ?? null,
-        id: element.dataset.gpuFlowDomControlId ?? null,
-        pointerSemantics:
-          element.dataset.gpuFlowDomControlPointerSemantics ?? null,
-        rect: {
-          height: rect.height,
-          width: rect.width,
-          x: rect.x,
-          y: rect.y,
-        },
-      };
-    });
-    const controlSourceId = controlHosts[0]?.id ?? null;
-    const summarizeReasons = (reasons: unknown) => {
-      if (!Array.isArray(reasons)) {
+  return await page.evaluate(
+    ({ point, row, rowId }) => {
+      const activeElement = document.activeElement;
+      const elementAtPoint =
+        point === null ? null : document.elementFromPoint(point.x, point.y);
+      const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
+      const controlHosts = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          `[data-gpu-flow-dom-control-row-id="${CSS.escape(rowId)}"]`,
+        ),
+      ).map((element) => {
+        const rect = element.getBoundingClientRect();
         return {
-          count: 0,
-          byFamily: {},
-          rowReasons: [],
-          sample: [],
-        };
-      }
-      const reasonRecords = reasons.filter(
-        (reason): reason is {
-          actorId?: unknown;
-          family?: unknown;
-          reason?: unknown;
-        } => typeof reason === "object" && reason !== null,
-      );
-      const byFamily = reasonRecords.reduce<Record<string, number>>(
-        (counts, reason) => {
-          const family = String(reason.family ?? "unknown");
-          counts[family] = (counts[family] ?? 0) + 1;
-          return counts;
-        },
-        {},
-      );
-      const rowReasons = reasonRecords
-        .filter((reason) => {
-          const actorId = String(reason.actorId ?? "");
-          return (
-            (controlSourceId !== null && actorId === controlSourceId) ||
-            actorId.includes(rowId)
-          );
-        })
-        .map((reason) => ({
-          actorId: reason.actorId ?? null,
-          family: reason.family ?? null,
-          reason: reason.reason ?? null,
-        }));
-      return {
-        count: reasonRecords.length,
-        byFamily,
-        rowReasons,
-        sample: reasonRecords.slice(0, 8).map((reason) => ({
-          actorId: reason.actorId ?? null,
-          family: reason.family ?? null,
-          reason: reason.reason ?? null,
-        })),
-      };
-    };
-    const summarizeBlockedEvents = (events: unknown) => {
-      if (!Array.isArray(events)) {
-        return [];
-      }
-      return events.slice(-6).map((event) => {
-        const record =
-          typeof event === "object" && event !== null
-            ? (event as Record<string, unknown>)
-            : {};
-        const manifest =
-          typeof record.actorManifest === "object" &&
-          record.actorManifest !== null
-            ? (record.actorManifest as Record<string, unknown>)
-            : {};
-        return {
-          actorManifest: {
-            blockedActorsByFamily:
-              manifest.blockedActorsByFamily ?? null,
-            blockerReasons: summarizeReasons(manifest.blockerReasons),
-            committedFrameId: manifest.committedFrameId ?? null,
-            compatibleActorsByFamily:
-              manifest.compatibleActorsByFamily ?? null,
-            missingActorsByFamily:
-              manifest.missingActorsByFamily ?? null,
-            readyActorsByFamily: manifest.readyActorsByFamily ?? null,
-            requiredActorsByFamily:
-              manifest.requiredActorsByFamily ?? null,
-            visibleOutcome: manifest.visibleOutcome ?? null,
+          active: element.dataset.gpuFlowDomControlActive ?? null,
+          coverageReason:
+            element.dataset.gpuFlowDomControlCoverageReason ?? null,
+          coverageState: element.dataset.gpuFlowDomControlCoverageState ?? null,
+          focusable: element.dataset.gpuFlowDomControlFocusable ?? null,
+          id: element.dataset.gpuFlowDomControlId ?? null,
+          pointerSemantics:
+            element.dataset.gpuFlowDomControlPointerSemantics ?? null,
+          rect: {
+            height: rect.height,
+            width: rect.width,
+            x: rect.x,
+            y: rect.y,
           },
-          blockedReasons: summarizeReasons(record.blockedReasons),
-          outcome: record.outcome ?? null,
-          reducerState: record.reducerState ?? null,
-          source: record.source ?? null,
         };
       });
-    };
-    const summarizeDebtRequests = (requests: unknown) => {
-      if (!Array.isArray(requests)) {
-        return [];
-      }
-      return requests.slice(-6).map((request) => {
-        const record =
-          typeof request === "object" && request !== null
-            ? (request as Record<string, unknown>)
-            : {};
-        const resourceStates = Array.isArray(record.resourceStates)
-          ? record.resourceStates
-          : [];
-        const resourceKeys = resourceStates
-          .map((state) =>
-            typeof state === "object" && state !== null
-              ? String((state as Record<string, unknown>).resourceKey ?? "")
-              : "",
-          )
-          .filter(Boolean);
+      const controlSourceId = controlHosts[0]?.id ?? null;
+      const summarizeReasons = (reasons: unknown) => {
+        if (!Array.isArray(reasons)) {
+          return {
+            count: 0,
+            byFamily: {},
+            rowReasons: [],
+            sample: [],
+          };
+        }
+        const reasonRecords = reasons.filter(
+          (
+            reason,
+          ): reason is {
+            actorId?: unknown;
+            family?: unknown;
+            reason?: unknown;
+          } => typeof reason === "object" && reason !== null,
+        );
+        const byFamily = reasonRecords.reduce<Record<string, number>>(
+          (counts, reason) => {
+            const family = String(reason.family ?? "unknown");
+            counts[family] = (counts[family] ?? 0) + 1;
+            return counts;
+          },
+          {},
+        );
+        const rowReasons = reasonRecords
+          .filter((reason) => {
+            const actorId = String(reason.actorId ?? "");
+            return (
+              (controlSourceId !== null && actorId === controlSourceId) ||
+              actorId.includes(rowId)
+            );
+          })
+          .map((reason) => ({
+            actorId: reason.actorId ?? null,
+            family: reason.family ?? null,
+            reason: reason.reason ?? null,
+          }));
         return {
-          activeEditorPins: record.activeEditorPins ?? null,
-          activeEditorResourceKeys: resourceKeys.filter((resourceKey) =>
-            controlSourceId === null
-              ? false
-              : resourceKey.includes(controlSourceId),
-          ),
-          frame: record.frame ?? null,
-          frameReason: record.frameReason ?? null,
-          frameReasons: record.frameReasons ?? null,
-          frameRequest: record.frameRequest ?? null,
-          outcomeKind: record.outcomeKind ?? null,
-          contentPublication: record.contentPublication ?? null,
-          pendingCandidateFrameIds: record.pendingCandidateFrameIds ?? null,
-          publicationLane: record.publicationLane ?? null,
-          queuedResourceKeyCount: Array.isArray(record.queuedResourceKeys)
-            ? record.queuedResourceKeys.length
-            : null,
-          resourceGraph:
-            typeof record.resourceGraph === "object" &&
-            record.resourceGraph !== null
-              ? {
-                  pendingCandidateFrameIds:
-                    (record.resourceGraph as Record<string, unknown>)
-                      .pendingCandidateFrameIds ?? null,
-                  queuedResourceKeyCount: Array.isArray(
-                    (record.resourceGraph as Record<string, unknown>)
-                      .queuedResourceKeys,
-                  )
-                    ? (
-                        (record.resourceGraph as Record<string, unknown>)
-                          .queuedResourceKeys as unknown[]
-                      ).length
-                    : null,
-                  resourceDebtByState:
-                    (record.resourceGraph as Record<string, unknown>)
-                      .resourceDebtByState ?? null,
-                }
-              : null,
-          resourceDebtByState: record.resourceDebtByState ?? null,
-          rowResourceKeys: resourceKeys.filter((resourceKey) =>
-            resourceKey.includes(rowId),
-          ),
-          reducerState: record.reducerState ?? null,
-          source: record.source ?? null,
-          transactionProof: record.transactionProof ?? null,
+          count: reasonRecords.length,
+          byFamily,
+          rowReasons,
+          sample: reasonRecords.slice(0, 8).map((reason) => ({
+            actorId: reason.actorId ?? null,
+            family: reason.family ?? null,
+            reason: reason.reason ?? null,
+          })),
         };
-      });
-    };
-    return {
-      activeElement: activeElement
-        ? {
-            className: String(activeElement.className),
-            controlId:
-              activeElement
-                .closest("[data-gpu-flow-control]")
-                ?.getAttribute("data-gpu-flow-control") ?? null,
-            tagName: activeElement.tagName,
-          }
-        : null,
-      domControlPlane:
-        window.__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null,
-      activeRetainedHit: snapshot?.activeRetainedHit ?? null,
-      blockedVisiblePublicationEvents:
-        summarizeBlockedEvents(
-          window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__,
-        ),
-      publicationDebtFrameRequests:
-        summarizeDebtRequests(
-          window.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__,
-        ),
-      elementAtPoint:
-        elementAtPoint instanceof Element
+      };
+      const summarizeBlockedEvents = (events: unknown) => {
+        if (!Array.isArray(events)) {
+          return [];
+        }
+        return events.slice(-6).map((event) => {
+          const record =
+            typeof event === "object" && event !== null
+              ? (event as Record<string, unknown>)
+              : {};
+          const manifest =
+            typeof record.actorManifest === "object" &&
+            record.actorManifest !== null
+              ? (record.actorManifest as Record<string, unknown>)
+              : {};
+          return {
+            actorManifest: {
+              blockedActorsByFamily: manifest.blockedActorsByFamily ?? null,
+              blockerReasons: summarizeReasons(manifest.blockerReasons),
+              committedFrameId: manifest.committedFrameId ?? null,
+              compatibleActorsByFamily:
+                manifest.compatibleActorsByFamily ?? null,
+              missingActorsByFamily: manifest.missingActorsByFamily ?? null,
+              readyActorsByFamily: manifest.readyActorsByFamily ?? null,
+              requiredActorsByFamily: manifest.requiredActorsByFamily ?? null,
+              visibleOutcome: manifest.visibleOutcome ?? null,
+            },
+            blockedReasons: summarizeReasons(record.blockedReasons),
+            outcome: record.outcome ?? null,
+            reducerState: record.reducerState ?? null,
+            source: record.source ?? null,
+          };
+        });
+      };
+      const summarizeDebtRequests = (requests: unknown) => {
+        if (!Array.isArray(requests)) {
+          return [];
+        }
+        return requests.slice(-6).map((request) => {
+          const record =
+            typeof request === "object" && request !== null
+              ? (request as Record<string, unknown>)
+              : {};
+          const resourceStates = Array.isArray(record.resourceStates)
+            ? record.resourceStates
+            : [];
+          const resourceKeys = resourceStates
+            .map((state) =>
+              typeof state === "object" && state !== null
+                ? String((state as Record<string, unknown>).resourceKey ?? "")
+                : "",
+            )
+            .filter(Boolean);
+          return {
+            activeEditorPins: record.activeEditorPins ?? null,
+            activeEditorResourceKeys: resourceKeys.filter((resourceKey) =>
+              controlSourceId === null
+                ? false
+                : resourceKey.includes(controlSourceId),
+            ),
+            frame: record.frame ?? null,
+            frameReason: record.frameReason ?? null,
+            frameReasons: record.frameReasons ?? null,
+            frameRequest: record.frameRequest ?? null,
+            outcomeKind: record.outcomeKind ?? null,
+            contentPublication: record.contentPublication ?? null,
+            pendingCandidateFrameIds: record.pendingCandidateFrameIds ?? null,
+            publicationLane: record.publicationLane ?? null,
+            queuedResourceKeyCount: Array.isArray(record.queuedResourceKeys)
+              ? record.queuedResourceKeys.length
+              : null,
+            resourceGraph:
+              typeof record.resourceGraph === "object" &&
+              record.resourceGraph !== null
+                ? {
+                    pendingCandidateFrameIds:
+                      (record.resourceGraph as Record<string, unknown>)
+                        .pendingCandidateFrameIds ?? null,
+                    queuedResourceKeyCount: Array.isArray(
+                      (record.resourceGraph as Record<string, unknown>)
+                        .queuedResourceKeys,
+                    )
+                      ? (
+                          (record.resourceGraph as Record<string, unknown>)
+                            .queuedResourceKeys as unknown[]
+                        ).length
+                      : null,
+                    resourceDebtByState:
+                      (record.resourceGraph as Record<string, unknown>)
+                        .resourceDebtByState ?? null,
+                  }
+                : null,
+            resourceDebtByState: record.resourceDebtByState ?? null,
+            rowResourceKeys: resourceKeys.filter((resourceKey) =>
+              resourceKey.includes(rowId),
+            ),
+            reducerState: record.reducerState ?? null,
+            source: record.source ?? null,
+            transactionProof: record.transactionProof ?? null,
+          };
+        });
+      };
+      return {
+        activeElement: activeElement
           ? {
-              className: String(elementAtPoint.className),
-              controlHostRowId:
-                elementAtPoint
-                  .closest("[data-gpu-flow-dom-control-row-id]")
-                  ?.getAttribute("data-gpu-flow-dom-control-row-id") ?? null,
-              tagName: elementAtPoint.tagName,
+              className: String(activeElement.className),
+              controlId:
+                activeElement
+                  .closest("[data-gpu-flow-control]")
+                  ?.getAttribute("data-gpu-flow-control") ?? null,
+              tagName: activeElement.tagName,
             }
           : null,
-      point,
-      pointer: snapshot?.lastPointer ?? null,
-      hoveredRetainedHit: snapshot?.hoveredRetainedHit ?? null,
-      lastRetainedClickHit: snapshot?.lastRetainedClickHit ?? null,
-      lastRetainedPointerDownHit:
-        snapshot?.lastRetainedPointerDownHit ?? null,
-      preparation:
-        window.__settaGpuFlowBrowserVisualPreparationDiagnostics?.(
-          controlHosts[0]?.id ?? null,
-        ) ?? null,
+        domControlPlane:
+          window.__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null,
+        activeRetainedHit: snapshot?.activeRetainedHit ?? null,
+        blockedVisibleFramePresentationEvents: summarizeBlockedEvents(
+          window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__,
+        ),
+        publicationDebtFrameRequests: summarizeDebtRequests(
+          window.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__,
+        ),
+        elementAtPoint:
+          elementAtPoint instanceof Element
+            ? {
+                className: String(elementAtPoint.className),
+                controlHostRowId:
+                  elementAtPoint
+                    .closest("[data-gpu-flow-dom-control-row-id]")
+                    ?.getAttribute("data-gpu-flow-dom-control-row-id") ?? null,
+                tagName: elementAtPoint.tagName,
+              }
+            : null,
+        point,
+        pointer: snapshot?.lastPointer ?? null,
+        hoveredRetainedHit: snapshot?.hoveredRetainedHit ?? null,
+        lastRetainedClickHit: snapshot?.lastRetainedClickHit ?? null,
+        lastRetainedPointerDownHit:
+          snapshot?.lastRetainedPointerDownHit ?? null,
+        preparation:
+          window.__settaGpuFlowBrowserVisualPreparationDiagnostics?.(
+            controlHosts[0]?.id ?? null,
+          ) ?? null,
+        row,
+        rowId,
+        controlHosts,
+      };
+    },
+    {
+      point: row.controlClientPoint,
       row,
-      rowId,
-      controlHosts,
-    };
-  }, {
-    point: row.controlClientPoint,
-    row,
-    rowId: row.rowId,
-  });
+      rowId: row.rowId,
+    },
+  );
 }
 
 async function clickRetainedRowUntilActiveEditor(

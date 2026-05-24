@@ -135,7 +135,7 @@ describe("GPU Flow surface publication completion", () => {
       surfaceRef: { current: null },
       validatePreparedContentFrame: () => {
         throw new Error(
-          "presentation validation failed before visible publication",
+          "presentation validation failed before visible frame presentation",
         );
       },
       viewportRuntime: {
@@ -164,7 +164,9 @@ describe("GPU Flow surface publication completion", () => {
           token,
         }),
       ),
-    ).toThrow(/presentation validation failed before visible publication/);
+    ).toThrow(
+      /presentation validation failed before visible frame presentation/,
+    );
     expect(submitCanvas).not.toHaveBeenCalled();
     expect(reducerCompletionCount).toBe(0);
   });

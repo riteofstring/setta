@@ -74,7 +74,7 @@ type GpuFlowRetainedDisplayPublicationFramePlanResultResolver = (input: {
   readonly framePlan: GpuFlowRetainedDisplayPublicationFramePlan;
 }) => GpuFlowRetainedDisplayOutcomeFrameResult;
 
-export type GpuFlowVisiblePublicationContentDecisionKernel = {
+export type GpuFlowVisibleFramePresentationContentDecisionKernel = {
   readonly createVisibleProjectionStateForRetainedPublication: (
     input: GpuFlowRetainedPublicationVisibleProjectionStateInput,
   ) => GpuFlowVisibleProjectionState;
@@ -106,11 +106,11 @@ export type GpuFlowRetainedDisplayPublicationOutcomeFrame = {
   readonly outcomeKind: GpuFlowRetainedDisplayPublicationOutcome["kind"];
 };
 
-export function createGpuFlowVisiblePublicationContentDecisionKernel(): GpuFlowVisiblePublicationContentDecisionKernel {
-  return createGpuFlowVisiblePublicationContentDecisionKernelMethods();
+export function createGpuFlowVisibleFramePresentationContentDecisionKernel(): GpuFlowVisibleFramePresentationContentDecisionKernel {
+  return createGpuFlowVisibleFramePresentationContentDecisionKernelMethods();
 }
 
-function createGpuFlowVisiblePublicationContentDecisionKernelMethods(): GpuFlowVisiblePublicationContentDecisionKernel {
+function createGpuFlowVisibleFramePresentationContentDecisionKernelMethods(): GpuFlowVisibleFramePresentationContentDecisionKernel {
   return Object.freeze({
     createVisibleProjectionStateForRetainedPublication:
       createGpuFlowVisibleProjectionStateForRetainedPublication,

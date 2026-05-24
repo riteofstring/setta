@@ -46,8 +46,8 @@ import {
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
 } from "./visibleFrameCoordinator";
 import {
-  createGpuFlowVisiblePublicationPresentationEvidence,
-  type GpuFlowVisiblePublicationPresentationEvidence,
+  createGpuFlowVisibleFramePresentationEvidence,
+  type GpuFlowVisibleFramePresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import type {
   GpuFlowBlockedPublicationToken,
@@ -56,8 +56,8 @@ import type {
 } from "./visibleFramePresentationProofs";
 import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 import type {
-  GpuFlowVisibleFrameReducerRuntime,
   GpuFlowVisibleFrameReducerDecision,
+  GpuFlowVisibleFrameReducerRuntime,
 } from "./visibleFrameReducerRuntime";
 import { shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame } from "./visibleFrameResolutionDeferral";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
@@ -76,7 +76,7 @@ type GpuFlowSurfaceFrameEvent = Parameters<
 type GpuFlowMotionProjectionFrameResult = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
-  readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
+  readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence | null;
   readonly projectionOnlyFrameWork: GpuFlowMotionProjectionFrameWorkReport | null;
   readonly rendered: boolean;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -225,8 +225,7 @@ export function renderGpuFlowSurfaceFrame({
         frameMeasureDetail.lane = reducerDecision.lane;
         frameMeasureDetail.reducerState = reducerDecision.reducerState;
         frameMeasureDetail.contentDebt = reducerDecision.debt.content;
-        frameMeasureDetail.maintenanceDebt =
-          reducerDecision.debt.maintenance;
+        frameMeasureDetail.maintenanceDebt = reducerDecision.debt.maintenance;
         frameMeasureDetail.motionDebt = reducerDecision.debt.motion;
         frameMeasureDetail.requestContentDebt =
           publicationFrameContext.frameRequest.contentDebt;
@@ -620,7 +619,7 @@ function createGpuFlowMotionProjectionFrameResult({
     | null
     | undefined;
   readonly presentationEvidence?:
-    | GpuFlowVisiblePublicationPresentationEvidence
+    | GpuFlowVisibleFramePresentationEvidence
     | null
     | undefined;
   readonly projectionOnlyFrameWork?:
@@ -639,7 +638,7 @@ function createGpuFlowMotionProjectionFrameResult({
     presentationEvidence:
       presentationEvidence ??
       (visibleProjectionState
-        ? createGpuFlowVisiblePublicationPresentationEvidence({
+        ? createGpuFlowVisibleFramePresentationEvidence({
             nodeLayerFrameStatePublication,
             visibleProjectionState,
           })

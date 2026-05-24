@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import type {
   GpuFlowLiveProjectionSample,
-  GpuFlowVisibleProjectionState,
   GpuFlowVisibleFrameReducerDecision,
+  GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./visibleFrameOutcomeChromeRepro";
+import { createGpuFlowVisibleFramePresentationOutcomeChromeReproPayload } from "./visibleFrameOutcomeChromeRepro";
 import {
-  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
-  createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
-  createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
+  createGpuFlowVisibleFramePresentationCanvasPresentationEvidence,
+  createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence,
+  createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import type { GpuFlowVisibleFramePresentationToken } from "./visibleFramePresentationProofs";
 import type {
@@ -21,46 +21,48 @@ import type {
   GpuFlowVisibleFrameStateMachineOutcome,
 } from "./visibleFrameStateMachine";
 import {
-  createGpuFlowVisiblePublicationPresentableFrameProofFactory,
+  createGpuFlowVisibleFramePresentableFrameProofFactory,
+  type GpuFlowVisibleFramePresentableFrameProof,
   type GpuFlowVisibleFramePublicationTransactionProof,
-  type GpuFlowVisiblePublicationPresentableFrameProof,
 } from "./visibleFrameTransactionProofs";
 
-const createGpuFlowVisiblePublicationPresentableFrameProofFromFactory =
-  createGpuFlowVisiblePublicationPresentableFrameProofFactory();
-const createGpuFlowVisiblePublicationPresentableFrameProof = ({
+const createGpuFlowVisibleFramePresentableFrameProofFromFactory =
+  createGpuFlowVisibleFramePresentableFrameProofFactory();
+const createGpuFlowVisibleFramePresentableFrameProof = ({
   committedFrame,
   reducerDecision,
 }: {
   readonly committedFrame: Parameters<
-    typeof createGpuFlowVisiblePublicationPresentableFrameProofFromFactory
+    typeof createGpuFlowVisibleFramePresentableFrameProofFromFactory
   >[0]["committedFrame"];
   readonly reducerDecision: Parameters<
-    typeof createGpuFlowVisiblePublicationPresentableFrameProofFromFactory
+    typeof createGpuFlowVisibleFramePresentableFrameProofFromFactory
   >[0]["reducerDecision"];
 }) => {
   const projectionTransactionId = "transaction-a";
-  return createGpuFlowVisiblePublicationPresentableFrameProofFromFactory({
+  return createGpuFlowVisibleFramePresentableFrameProofFromFactory({
     committedFrame,
     presentationEvidence: {
       canvasGenerationEvidence:
-        createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+        createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
           committedFrame,
           projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       domTransformEvidence:
-        createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
+        createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence({
           committedFrame,
           projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       textureEvictionEvidence:
-        createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
-          committedFrame,
-          projectionSampleId: reducerDecision.sample.id,
-          projectionTransactionId,
-        }),
+        createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence(
+          {
+            committedFrame,
+            projectionSampleId: reducerDecision.sample.id,
+            projectionTransactionId,
+          },
+        ),
     },
     reducerDecision,
     projectionTransactionKind: "content-publication",
@@ -68,7 +70,7 @@ const createGpuFlowVisiblePublicationPresentableFrameProof = ({
   });
 };
 
-describe("GPU Flow visible publication Chrome repro payload", () => {
+describe("GPU Flow visible frame presentation Chrome repro payload", () => {
   it("records presented coverage proof counts with the visible outcome", () => {
     const sample = liveProjectionSample();
     const visibleProjectionState = {
@@ -203,24 +205,25 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
       },
     } as unknown as GpuFlowVisibleProjectionState;
     const presentableFrameProof =
-      createGpuFlowVisiblePublicationPresentableFrameProof({
+      createGpuFlowVisibleFramePresentableFrameProof({
         committedFrame: visibleProjectionState.committedFrame,
         reducerDecision: reducerDecision(sample),
       });
-    const payload = createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
-      completion: {
-        debt: { content: false, maintenance: true, motion: false },
-        outcome: "present",
-      },
-      outcome: presentOutcome({
-        debtProof: { content: true, maintenance: false, motion: false },
-        sample,
-      }),
-      previousContentFrameId: 6,
-      reducerDecision: reducerDecision(sample),
-      transactionProof: transactionProof({ presentableFrameProof }),
-      visibleProjectionState,
-    });
+    const payload =
+      createGpuFlowVisibleFramePresentationOutcomeChromeReproPayload({
+        completion: {
+          debt: { content: false, maintenance: true, motion: false },
+          outcome: "present",
+        },
+        outcome: presentOutcome({
+          debtProof: { content: true, maintenance: false, motion: false },
+          sample,
+        }),
+        previousContentFrameId: 6,
+        reducerDecision: reducerDecision(sample),
+        transactionProof: transactionProof({ presentableFrameProof }),
+        visibleProjectionState,
+      });
 
     expect(JSON.stringify(payload).length).toBeLessThan(12100);
     expect(payload).toEqual(
@@ -412,7 +415,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
 function transactionProof({
   presentableFrameProof,
 }: {
-  readonly presentableFrameProof: GpuFlowVisiblePublicationPresentableFrameProof;
+  readonly presentableFrameProof: GpuFlowVisibleFramePresentableFrameProof;
 }): GpuFlowVisibleFramePublicationTransactionProof {
   return {
     blockedPublicationCandidate: null,

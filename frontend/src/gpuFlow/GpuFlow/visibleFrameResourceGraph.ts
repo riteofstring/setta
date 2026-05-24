@@ -20,14 +20,14 @@ import {
 } from "./visibleFrameResourceGraphResources";
 
 export {
-  assertGpuFlowVisiblePublicationResourcesProtected,
-  createGpuFlowVisiblePublicationResourceBlockedReasons,
-  createGpuFlowVisiblePublicationResourceProtectionDigest,
-  createGpuFlowVisiblePublicationResourceProtectionReport,
+  assertGpuFlowVisibleFramePresentationResourcesProtected,
+  createGpuFlowVisibleFramePresentationResourceBlockedReasons,
+  createGpuFlowVisibleFramePresentationResourceProtectionDigest,
+  createGpuFlowVisibleFramePresentationResourceProtectionReport,
 } from "./visibleFrameResourceGraphResources";
 export type {
-  GpuFlowVisiblePublicationResourceProtectionDigest,
-  GpuFlowVisiblePublicationResourceProtectionReport,
+  GpuFlowVisibleFramePresentationResourceProtectionDigest,
+  GpuFlowVisibleFramePresentationResourceProtectionReport,
 } from "./visibleFrameResourceGraphResources";
 
 export type GpuFlowVisibleFrameResourceGraphSnapshot = {

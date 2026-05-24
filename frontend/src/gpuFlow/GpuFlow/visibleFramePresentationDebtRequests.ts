@@ -6,9 +6,9 @@ import {
 } from "../projectionSchedulerPolicy";
 import type {
   GpuFlowVisibleFrameCoordinatorResult,
+  GpuFlowVisibleFramePresentationOutcome,
   GpuFlowVisibleFrameReducerCompletion,
   GpuFlowVisibleFrameReducerDebtFrameRequest,
-  GpuFlowVisiblePublicationOutcome,
 } from "./visibleFrameCoordinator";
 import {
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
@@ -20,7 +20,7 @@ import type {
 } from "./visibleFrameSurfaceFrame";
 
 type GpuFlowBlockedVisibleReason = Extract<
-  GpuFlowVisiblePublicationOutcome,
+  GpuFlowVisibleFramePresentationOutcome,
   { readonly kind: "blocked" }
 >["token"]["blockedReasons"][number];
 
@@ -97,7 +97,7 @@ export function requestGpuFlowSurfaceReducerDebtFrame({
 }: {
   readonly debtFrameRequest: GpuFlowVisibleFrameReducerDebtFrameRequest | null;
   readonly completion: GpuFlowVisibleFrameReducerCompletion;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
 }): void {
@@ -136,7 +136,7 @@ function recordGpuFlowSurfaceReducerDebtFrameRequestDiagnostic({
 }: {
   readonly completion: GpuFlowVisibleFrameReducerCompletion;
   readonly debtFrameRequest: GpuFlowVisibleFrameReducerDebtFrameRequest | null;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): void {
   const view = globalThis as typeof globalThis & {
@@ -153,8 +153,7 @@ function recordGpuFlowSurfaceReducerDebtFrameRequestDiagnostic({
     publicationLane: reducerDecision.lane,
     reducerState: reducerDecision.reducerState,
   });
-  view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ =
-    requests.slice(-20);
+  view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ = requests.slice(-20);
 }
 
 function shouldDelayGpuFlowSurfaceReducerDebtFrame({
@@ -219,7 +218,7 @@ function scheduleGpuFlowContentRetryAfterBrowserVisualTextureUpload({
 }: {
   readonly completion: GpuFlowVisibleFrameReducerCompletion;
   readonly debtFrameRequest: GpuFlowVisibleFrameReducerDebtFrameRequest;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
 }): void {
@@ -250,7 +249,7 @@ function shouldRetryGpuFlowContentAfterBrowserVisualTextureUpload({
 }: {
   readonly completion: GpuFlowVisibleFrameReducerCompletion;
   readonly debtFrameRequest: GpuFlowVisibleFrameReducerDebtFrameRequest;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
   return (

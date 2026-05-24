@@ -13,7 +13,7 @@ import type {
   GpuFlowVisibleFramePreparedFrame,
   GpuFlowVisibleFrameStateMachineSample,
 } from "./visibleFrameStateMachine";
-import type { GpuFlowVisiblePublicationBlockedProof } from "./visibleFrameTransactionProofs";
+import type { GpuFlowVisibleFramePresentationBlockedProof } from "./visibleFrameTransactionProofs";
 import {
   createGpuFlowContentFrameId,
   createGpuFlowPresentationId,
@@ -32,7 +32,7 @@ export function createGpuFlowVisibleFramePublicationStateMachinePreparedFrame({
   previousVisibleProjectionState,
   reducerDecision,
 }: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
+  readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly candidateContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -75,7 +75,7 @@ function createGpuFlowVisibleFramePublicationStateMachineCandidate({
   previousVisibleProjectionState,
   reducerDecision,
 }: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
+  readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly candidateContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly manifestFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -127,7 +127,7 @@ function createGpuFlowVisibleFramePublicationStateMachineManifestBlockedReasons(
   blockingProofs,
   candidateVisibleProjectionState,
 }: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
+  readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
   const blockedReasons = blockingProofs.flatMap(
@@ -156,7 +156,7 @@ function createGpuFlowVisibleFramePublicationStateMachineContentFrameId({
   previousVisibleProjectionState,
   reducerDecision,
 }: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
+  readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly candidateContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -202,7 +202,7 @@ function createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
   candidateVisibleProjectionState,
   previousVisibleProjectionState,
 }: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
+  readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly candidate: ReturnType<
     typeof createGpuFlowVisibleFramePublicationStateMachineCandidate
   >;
@@ -301,7 +301,7 @@ function addGpuFlowVisibleFramePublicationStateMachineBlockedFrozenCoverage({
   previousContentFrameId,
   previousProjectionState,
 }: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
+  readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly candidate: ReturnType<
     typeof createGpuFlowVisibleFramePublicationStateMachineCandidate
   >;
@@ -367,7 +367,7 @@ function addGpuFlowVisibleFramePublicationStateMachineHeldPreviousSyntheticCover
   presentationId,
   previousContentFrameId,
 }: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
+  readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly candidate: ReturnType<
     typeof createGpuFlowVisibleFramePublicationStateMachineCandidate
   >;
@@ -437,7 +437,7 @@ function shouldGpuFlowVisibleFramePublicationStateMachineUseBlockedFrozenFrameCo
   blockedProof,
   previousVisibleProjectionState,
 }: {
-  readonly blockedProof: GpuFlowVisiblePublicationBlockedProof;
+  readonly blockedProof: GpuFlowVisibleFramePresentationBlockedProof;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState;
 }): boolean {
   if (
@@ -476,7 +476,7 @@ function createGpuFlowVisibleFramePublicationStateMachineDebt({
   blockingProofs,
   reducerDecision,
 }: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
+  readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowVisibleFrameDebt {
   const blockedFamilies = new Set(

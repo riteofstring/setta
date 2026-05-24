@@ -10,9 +10,9 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
     const blockedEvents =
       (
         window as typeof window & {
-          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly unknown[];
+          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: readonly unknown[];
         }
-      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [];
+      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? [];
     const domControlPlane = document.querySelector<HTMLElement>(
       '[data-gpu-flow-dom-control-plane="true"]',
     );
@@ -120,7 +120,7 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
         retainedRowCount:
           window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
         retainedSceneSummary,
-        visiblePublication: debugSnapshot?.visiblePublication ?? null,
+        visibleProjection: debugSnapshot?.visibleProjection ?? null,
       };
     }
     return {
@@ -209,7 +209,7 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
       snapshotSourceCount: document.querySelectorAll(
         '[data-gpu-flow-dom-control-snapshot-source="true"]',
       ).length,
-      visiblePublication: debugSnapshot?.visiblePublication ?? null,
+      visibleProjection: debugSnapshot?.visibleProjection ?? null,
     };
   });
 }

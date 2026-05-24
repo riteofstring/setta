@@ -179,7 +179,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function proveGpuFlowVisibleFramePublicationPresentation",
     );
     expect(tokenAuthoritySource).toContain(
-      "visiblePublicationTokenIssuer.createPresentationToken",
+      "visibleFramePresentationTokenIssuer.createPresentationToken",
     );
     expect(source).toContain(
       "function publishGpuFlowVisibleFramePublicationOutcome",
@@ -323,19 +323,19 @@ describe("GPU Flow visible frame coordinator phases", () => {
     ] as const;
 
     expect(authoritySource).toContain(
-      "createGpuFlowVisiblePublicationTokenIssuer",
+      "createGpuFlowVisibleFramePresentationTokenIssuer",
     );
     expect(authoritySource).not.toContain(
-      "export function createGpuFlowVisiblePublicationTokenIssuer",
+      "export function createGpuFlowVisibleFramePresentationTokenIssuer",
     );
     expect(authoritySource).toContain(
-      "visiblePublicationTokenIssuer.createPresentationToken",
+      "visibleFramePresentationTokenIssuer.createPresentationToken",
     );
     expect(authoritySource).toContain(
-      "visiblePublicationTokenIssuer.createBlockedPublicationToken",
+      "visibleFramePresentationTokenIssuer.createBlockedPublicationToken",
     );
     expect(authoritySource).toContain(
-      "visiblePublicationTokenIssuer.createHoldPreviousToken",
+      "visibleFramePresentationTokenIssuer.createHoldPreviousToken",
     );
     for (const constructorName of rawTokenConstructors) {
       expect(coordinatorSource).not.toContain(constructorName);

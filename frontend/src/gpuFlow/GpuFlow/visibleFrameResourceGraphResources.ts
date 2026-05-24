@@ -16,14 +16,14 @@ import type {
   GpuFlowVisibleFrameResourcePriority,
 } from "./visibleFrameResourceGraph";
 
-export type GpuFlowVisiblePublicationResourceProtectionReport = {
+export type GpuFlowVisibleFramePresentationResourceProtectionReport = {
   readonly missingResourceKeys: readonly string[];
   readonly protected: boolean;
   readonly protectedResourceKeys: readonly string[];
   readonly requiredResourceKeys: readonly string[];
 };
 
-export type GpuFlowVisiblePublicationResourceProtectionDigest = string;
+export type GpuFlowVisibleFramePresentationResourceProtectionDigest = string;
 
 export type GpuFlowVisibleFrameCandidateResourceEntry = {
   readonly activeEditorPins: readonly string[];
@@ -44,28 +44,32 @@ export type GpuFlowVisibleFrameCandidateResourceRequest = {
   readonly resourceKey: string;
 };
 
-export function createGpuFlowVisiblePublicationResourceProtectionReport(
+export function createGpuFlowVisibleFramePresentationResourceProtectionReport(
   committedFrame: GpuFlowCommittedSurfaceFrame | null,
-): GpuFlowVisiblePublicationResourceProtectionReport {
+): GpuFlowVisibleFramePresentationResourceProtectionReport {
   if (committedFrame === null) {
-    return createGpuFlowVisiblePublicationResourceProtectionReportFromKeys({
-      protectedResourceKeys: [],
-      requiredResourceKeys: [],
-    });
+    return createGpuFlowVisibleFramePresentationResourceProtectionReportFromKeys(
+      {
+        protectedResourceKeys: [],
+        requiredResourceKeys: [],
+      },
+    );
   }
-  return createGpuFlowVisiblePublicationResourceProtectionReportFromKeys({
+  return createGpuFlowVisibleFramePresentationResourceProtectionReportFromKeys({
     protectedResourceKeys:
-      createGpuFlowVisiblePublicationProtectedResourceKeys(committedFrame),
+      createGpuFlowVisibleFramePresentationProtectedResourceKeys(
+        committedFrame,
+      ),
     requiredResourceKeys:
-      createGpuFlowVisiblePublicationRequiredResourceKeys(committedFrame),
+      createGpuFlowVisibleFramePresentationRequiredResourceKeys(committedFrame),
   });
 }
 
-export function createGpuFlowVisiblePublicationResourceBlockedReasons(
+export function createGpuFlowVisibleFramePresentationResourceBlockedReasons(
   committedFrame: GpuFlowCommittedSurfaceFrame,
 ): readonly GpuFlowBlockedVisibleReason[] {
   return Object.freeze(
-    createGpuFlowVisiblePublicationResourceProtectionReport(
+    createGpuFlowVisibleFramePresentationResourceProtectionReport(
       committedFrame,
     ).missingResourceKeys.map((resourceKey) =>
       Object.freeze({
@@ -77,9 +81,9 @@ export function createGpuFlowVisiblePublicationResourceBlockedReasons(
   );
 }
 
-export function createGpuFlowVisiblePublicationResourceProtectionDigest(
-  report: GpuFlowVisiblePublicationResourceProtectionReport,
-): GpuFlowVisiblePublicationResourceProtectionDigest {
+export function createGpuFlowVisibleFramePresentationResourceProtectionDigest(
+  report: GpuFlowVisibleFramePresentationResourceProtectionReport,
+): GpuFlowVisibleFramePresentationResourceProtectionDigest {
   return JSON.stringify({
     missingResourceKeys: [...report.missingResourceKeys].sort(),
     protected: report.protected,
@@ -88,14 +92,14 @@ export function createGpuFlowVisiblePublicationResourceProtectionDigest(
   });
 }
 
-export function assertGpuFlowVisiblePublicationResourcesProtected(
-  report: GpuFlowVisiblePublicationResourceProtectionReport,
+export function assertGpuFlowVisibleFramePresentationResourcesProtected(
+  report: GpuFlowVisibleFramePresentationResourceProtectionReport,
 ): void {
   if (report.protected) {
     return;
   }
   throw new Error(
-    `GPU Flow visible publication proof requires protected resources for all actor proofs: ${report.missingResourceKeys.join(
+    `GPU Flow visible frame presentation proof requires protected resources for all actor proofs: ${report.missingResourceKeys.join(
       ", ",
     )}.`,
   );
@@ -289,7 +293,7 @@ export function createGpuFlowVisibleFrameCandidateResourceEntry({
   readonly frame: GpuFlowCommittedSurfaceFrame;
 }): GpuFlowVisibleFrameCandidateResourceEntry {
   const requiredResourceKeys =
-    createGpuFlowVisiblePublicationRequiredResourceKeys(frame);
+    createGpuFlowVisibleFramePresentationRequiredResourceKeys(frame);
   return Object.freeze({
     activeEditorPins: Object.freeze(
       createGpuFlowVisibleFrameCandidateActiveEditorPins(
@@ -313,13 +317,13 @@ export function createGpuFlowVisibleFrameCandidateResourceEntry({
   });
 }
 
-function createGpuFlowVisiblePublicationResourceProtectionReportFromKeys({
+function createGpuFlowVisibleFramePresentationResourceProtectionReportFromKeys({
   protectedResourceKeys,
   requiredResourceKeys,
 }: {
   readonly protectedResourceKeys: readonly string[];
   readonly requiredResourceKeys: readonly string[];
-}): GpuFlowVisiblePublicationResourceProtectionReport {
+}): GpuFlowVisibleFramePresentationResourceProtectionReport {
   const protectedResourceKeySet = new Set(protectedResourceKeys);
   const missingResourceKeys = [
     ...new Set(
@@ -336,30 +340,30 @@ function createGpuFlowVisiblePublicationResourceProtectionReportFromKeys({
   });
 }
 
-function createGpuFlowVisiblePublicationRequiredResourceKeys(
+function createGpuFlowVisibleFramePresentationRequiredResourceKeys(
   committedFrame: GpuFlowCommittedSurfaceFrame,
 ): readonly string[] {
-  return createGpuFlowVisiblePublicationResourceKeys(
-    getGpuFlowVisiblePublicationRequiredResourceHandles(committedFrame),
+  return createGpuFlowVisibleFramePresentationResourceKeys(
+    getGpuFlowVisibleFramePresentationRequiredResourceHandles(committedFrame),
   );
 }
 
-function createGpuFlowVisiblePublicationProtectedResourceKeys(
+function createGpuFlowVisibleFramePresentationProtectedResourceKeys(
   committedFrame: GpuFlowCommittedSurfaceFrame,
 ): readonly string[] {
-  return createGpuFlowVisiblePublicationResourceKeys([
+  return createGpuFlowVisibleFramePresentationResourceKeys([
     ...(committedFrame.surfaceTransaction?.protectedResourceHandles ?? []),
     ...(committedFrame.surfaceTransaction?.coverageProof
       .protectedResourceHandles ?? []),
   ]);
 }
 
-function getGpuFlowVisiblePublicationRequiredResourceHandles(
+function getGpuFlowVisibleFramePresentationRequiredResourceHandles(
   committedFrame: GpuFlowCommittedSurfaceFrame,
 ): readonly SurfaceResourceHandle[] {
   return [
     ...committedFrame.actorGenerations.flatMap((actor) =>
-      getGpuFlowVisiblePublicationActorRequiredResourceHandles({
+      getGpuFlowVisibleFramePresentationActorRequiredResourceHandles({
         actor,
         startup: committedFrame.retainedDisplayFrame === null,
       }),
@@ -373,7 +377,7 @@ function getGpuFlowVisiblePublicationRequiredResourceHandles(
   ];
 }
 
-function getGpuFlowVisiblePublicationActorRequiredResourceHandles({
+function getGpuFlowVisibleFramePresentationActorRequiredResourceHandles({
   actor,
   startup,
 }: {
@@ -399,13 +403,13 @@ function getGpuFlowVisiblePublicationActorRequiredResourceHandles({
   ];
 }
 
-function createGpuFlowVisiblePublicationResourceKeys(
+function createGpuFlowVisibleFramePresentationResourceKeys(
   resourceHandles: readonly SurfaceResourceHandle[],
 ): readonly string[] {
-  return resourceHandles.map(createGpuFlowVisiblePublicationResourceKey);
+  return resourceHandles.map(createGpuFlowVisibleFramePresentationResourceKey);
 }
 
-function createGpuFlowVisiblePublicationResourceKey(
+function createGpuFlowVisibleFramePresentationResourceKey(
   handle: SurfaceResourceHandle,
 ): string {
   return `${handle.kind}:${handle.id}`;

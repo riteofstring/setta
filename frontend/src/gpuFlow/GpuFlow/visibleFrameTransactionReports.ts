@@ -1,28 +1,28 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowProjectionTransactionKind } from "../projectionRuntime";
 import type {
-  GpuFlowVisiblePublicationCanvasPresentationEvidence,
-  GpuFlowVisiblePublicationDomTransformPresentationEvidence,
-  GpuFlowVisiblePublicationPresentationEvidence,
-  GpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
+  GpuFlowVisibleFramePresentationCanvasPresentationEvidence,
+  GpuFlowVisibleFramePresentationDomTransformPresentationEvidence,
+  GpuFlowVisibleFramePresentationEvidence,
+  GpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 
-export type GpuFlowVisiblePublicationPresentationProofReport = {
+export type GpuFlowVisibleFramePresentationProofReport = {
   readonly actorManifestDigest: string;
   readonly batchId: string;
   readonly browserVisualFragmentDigest: string | null;
-  readonly canvasGenerationEvidence: GpuFlowVisiblePublicationCanvasPresentationEvidence;
+  readonly canvasGenerationEvidence: GpuFlowVisibleFramePresentationCanvasPresentationEvidence;
   readonly canvasGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["canvasGeneration"];
-  readonly domTransformEvidence: GpuFlowVisiblePublicationDomTransformPresentationEvidence;
+  readonly domTransformEvidence: GpuFlowVisibleFramePresentationDomTransformPresentationEvidence;
   readonly domGenerationEvidence: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGenerationEvidence"];
   readonly domGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGeneration"];
   readonly projectionSampleId: number;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly surfaceTransactionDigest: string | null;
-  readonly textureEvictionEvidence: GpuFlowVisiblePublicationTextureEvictionPresentationEvidence | null;
+  readonly textureEvictionEvidence: GpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence | null;
 };
 
-export function createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame({
+export function createGpuFlowVisibleFramePresentationCompatiblePreviousProofReportForFrame({
   committedFrame,
   projectionSampleId,
 }: {
@@ -84,7 +84,7 @@ export function createGpuFlowVisiblePublicationCompatiblePreviousProofReportForF
   };
 }
 
-export function createGpuFlowVisiblePublicationBrowserActorProofReportForFrame(
+export function createGpuFlowVisibleFramePresentationBrowserActorProofReportForFrame(
   committedFrame: GpuFlowCommittedSurfaceFrame | null,
 ) {
   const actorGenerations = committedFrame?.actorGenerations ?? [];
@@ -104,23 +104,23 @@ export function createGpuFlowVisiblePublicationBrowserActorProofReportForFrame(
     }
     actorCount += 1;
     canonicalActorIds.add(actor.canonicalActorId);
-    incrementGpuFlowVisiblePublicationProofCount(
+    incrementGpuFlowVisibleFramePresentationProofCount(
       proofCounts.actualInteraction,
       proof.actualInteraction,
     );
-    incrementGpuFlowVisiblePublicationProofCount(
+    incrementGpuFlowVisibleFramePresentationProofCount(
       proofCounts.actualVisual,
       proof.actualVisual,
     );
-    incrementGpuFlowVisiblePublicationProofCount(
+    incrementGpuFlowVisibleFramePresentationProofCount(
       proofCounts.actorFamily,
       actor.actorFamily,
     );
-    incrementGpuFlowVisiblePublicationProofCount(
+    incrementGpuFlowVisibleFramePresentationProofCount(
       proofCounts.requiredInteraction,
       proof.requiredInteraction,
     );
-    incrementGpuFlowVisiblePublicationProofCount(
+    incrementGpuFlowVisibleFramePresentationProofCount(
       proofCounts.requiredVisual,
       proof.requiredVisual,
     );
@@ -132,7 +132,7 @@ export function createGpuFlowVisiblePublicationBrowserActorProofReportForFrame(
   };
 }
 
-export function createGpuFlowVisiblePublicationCoverageReportForFrame(
+export function createGpuFlowVisibleFramePresentationCoverageReportForFrame(
   committedFrame: GpuFlowCommittedSurfaceFrame | null,
 ) {
   const coverageProof =
@@ -153,20 +153,20 @@ export function createGpuFlowVisiblePublicationCoverageReportForFrame(
   };
 }
 
-export function createGpuFlowVisiblePublicationPresentationProofReportForFrame({
+export function createGpuFlowVisibleFramePresentationProofReportForFrame({
   committedFrame,
   presentationEvidence,
   projectionSampleId,
   projectionTransactionKind,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence;
+  readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence;
   readonly projectionSampleId: number;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
-}): GpuFlowVisiblePublicationPresentationProofReport {
+}): GpuFlowVisibleFramePresentationProofReport {
   if (presentationEvidence.domTransformEvidence === null) {
     throw new Error(
-      "GPU Flow visible publication presentation proof requires deferred DOM transform evidence.",
+      "GPU Flow visible frame presentation proof requires deferred DOM transform evidence.",
     );
   }
   if (
@@ -174,7 +174,7 @@ export function createGpuFlowVisiblePublicationPresentationProofReportForFrame({
     presentationEvidence.textureEvictionEvidence === null
   ) {
     throw new Error(
-      "GPU Flow visible publication presentation proof requires deferred texture eviction evidence.",
+      "GPU Flow visible frame presentation proof requires deferred texture eviction evidence.",
     );
   }
   if (
@@ -182,7 +182,7 @@ export function createGpuFlowVisiblePublicationPresentationProofReportForFrame({
     presentationEvidence.textureEvictionEvidence !== null
   ) {
     throw new Error(
-      "GPU Flow visible publication presentation proof forbids texture eviction evidence during motion projection.",
+      "GPU Flow visible frame presentation proof forbids texture eviction evidence during motion projection.",
     );
   }
   const proof = committedFrame.presentationProof;
@@ -209,7 +209,7 @@ export function createGpuFlowVisiblePublicationPresentationProofReportForFrame({
   });
 }
 
-function incrementGpuFlowVisiblePublicationProofCount(
+function incrementGpuFlowVisibleFramePresentationProofCount(
   counts: Record<string, number>,
   key: string,
 ): void {

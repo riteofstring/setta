@@ -9,15 +9,15 @@ const modulePath = (path: string): string =>
 const GPU_FLOW_ROOT = modulePath("../");
 const AUTHORITY_MODULE_PATH = modulePath("./visibleFramePresentationTokens.ts");
 
-describe("GPU Flow visible publication token issuer boundary", () => {
-  it("keeps the visible publication token issuer module-private", () => {
+describe("GPU Flow visible frame presentation token issuer boundary", () => {
+  it("keeps the visible frame presentation token issuer module-private", () => {
     const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
 
     expect(authoritySource).toContain(
-      "function createGpuFlowVisiblePublicationTokenIssuer",
+      "function createGpuFlowVisibleFramePresentationTokenIssuer",
     );
     expect(authoritySource).not.toContain(
-      "export function createGpuFlowVisiblePublicationTokenIssuer",
+      "export function createGpuFlowVisibleFramePresentationTokenIssuer",
     );
 
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
@@ -29,14 +29,14 @@ describe("GPU Flow visible publication token issuer boundary", () => {
         moduleName: "visibleFramePresentationTokens",
         source,
       }).some((bindings) =>
-        bindings.includes("createGpuFlowVisiblePublicationTokenIssuer"),
+        bindings.includes("createGpuFlowVisibleFramePresentationTokenIssuer"),
       );
       if (!importsTokenIssuer) {
         return [];
       }
       const relativePath = relativeGpuFlowPath(filePath);
       return [
-        `${relativePath} imports the module-private visible publication token issuer`,
+        `${relativePath} imports the module-private visible frame presentation token issuer`,
       ];
     });
 

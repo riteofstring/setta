@@ -41,10 +41,10 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
       );
     }
     expect(authoritySource).toContain(
-      "function createGpuFlowVisiblePublicationTokenIssuer",
+      "function createGpuFlowVisibleFramePresentationTokenIssuer",
     );
     expect(authoritySource).not.toContain(
-      "export function createGpuFlowVisiblePublicationTokenIssuer",
+      "export function createGpuFlowVisibleFramePresentationTokenIssuer",
     );
   });
 
@@ -107,7 +107,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
     expect(violations).toEqual([]);
   });
 
-  it("keeps direct visible publication proof helpers out of production callers", () => {
+  it("keeps direct visible frame presentation proof helpers out of production callers", () => {
     const forbiddenImports: readonly {
       readonly moduleName: string;
       readonly names: readonly string[];
@@ -119,8 +119,8 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
       {
         moduleName: "visibleFrameTransactionProofs",
         names: [
-          "createGpuFlowVisiblePublicationPresentationDebtProof",
-          "createGpuFlowVisiblePublicationPresentableFrameProofFactory",
+          "createGpuFlowVisibleFramePresentationDebtProof",
+          "createGpuFlowVisibleFramePresentableFrameProofFactory",
         ],
       },
     ];
@@ -141,7 +141,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
         return [];
       }
       return [
-        `${relativeGpuFlowPath(filePath)} imports direct visible publication proof helpers ${[
+        `${relativeGpuFlowPath(filePath)} imports direct visible frame presentation proof helpers ${[
           ...new Set(importedHelpers),
         ].join(", ")}`,
       ];
@@ -150,7 +150,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
     expect(violations).toEqual([]);
   });
 
-  it("keeps visible publication reducer selection and completion inside the transaction coordinator", () => {
+  it("keeps visible frame presentation reducer selection and completion inside the transaction coordinator", () => {
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
         return [];
@@ -168,14 +168,14 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
         return [];
       }
       return [
-        `${relativePath} selects, completes, or observes visible publication reducer debt outside the transaction coordinator`,
+        `${relativePath} selects, completes, or observes visible frame presentation reducer debt outside the transaction coordinator`,
       ];
     });
 
     expect(violations).toEqual([]);
   });
 
-  it("keeps visible publication transaction report assembly inside the transaction coordinator", () => {
+  it("keeps visible frame presentation transaction report assembly inside the transaction coordinator", () => {
     const source = readFileSync(CHROME_REPRO_MODULE_PATH, "utf8");
     const forbiddenReportAssembly = [
       {
@@ -206,7 +206,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
     ] as const;
 
     expect(source).toContain(
-      "createGpuFlowVisiblePublicationTransactionReport",
+      "createGpuFlowVisibleFramePresentationTransactionReport",
     );
     expect(
       forbiddenReportAssembly.flatMap(({ label, pattern }) =>

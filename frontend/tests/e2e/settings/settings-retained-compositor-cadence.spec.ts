@@ -376,7 +376,7 @@ type RetainedCompositorProjectionProgress = {
   readonly committedFrameId: number | null;
   readonly projectionSampleId: number | null;
   readonly projectionTransactionId: string | null;
-  readonly visiblePublication: unknown;
+  readonly visibleProjection: unknown;
 };
 
 async function captureRetainedCompositorTimelineFrame(
@@ -479,9 +479,9 @@ async function readRetainedCompositorProjectionProgress(
     const blockedEvents =
       (
         window as typeof window & {
-          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly unknown[];
+          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: readonly unknown[];
         }
-      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [];
+      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? [];
     return {
       blockedPublicationEventCount: blockedEvents.length,
       committedFrameId: parseOptionalNumber(
@@ -492,8 +492,8 @@ async function readRetainedCompositorProjectionProgress(
       ),
       projectionTransactionId:
         canvas?.dataset.gpuFlowProjectionTransactionId ?? null,
-      visiblePublication:
-        window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().visiblePublication ?? null,
+      visibleProjection:
+        window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().visibleProjection ?? null,
     };
 
     function parseOptionalNumber(value: string | undefined): number | null {

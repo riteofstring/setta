@@ -11,24 +11,24 @@ import type {
   GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import {
-  createGpuFlowVisiblePublicationPresentableFrameProofReport,
-  createGpuFlowVisiblePublicationTransactionProofReport,
+  createGpuFlowVisibleFramePresentableFrameProofReport,
+  createGpuFlowVisibleFramePresentationTransactionProofReport,
+  type GpuFlowVisibleFramePresentationDebtProof,
+  type GpuFlowVisibleFramePresentationProofReport,
   type GpuFlowVisibleFramePublicationTransactionProof,
-  type GpuFlowVisiblePublicationPresentationDebtProof,
-  type GpuFlowVisiblePublicationPresentationProofReport,
 } from "./visibleFrameTransactionProofs";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
 export type { GpuFlowVisibleFrameReducerCompletion } from "./visibleFrameReducerRuntime";
 
-export type GpuFlowVisiblePublicationOutcome =
+export type GpuFlowVisibleFramePresentationOutcome =
   | {
       readonly kind: "blocked";
       readonly token: GpuFlowBlockedPublicationToken;
     }
   | {
       readonly kind: "present";
-      readonly debtProof: GpuFlowVisiblePublicationPresentationDebtProof;
+      readonly debtProof: GpuFlowVisibleFramePresentationDebtProof;
       readonly token: GpuFlowVisibleFramePresentationToken;
     }
   | {
@@ -36,16 +36,16 @@ export type GpuFlowVisiblePublicationOutcome =
       readonly token: GpuFlowHoldPreviousToken;
     };
 
-export type GpuFlowVisiblePublicationTransactionCompletion = {
+export type GpuFlowVisibleFramePresentationTransactionCompletion = {
   readonly coldStartShellPublication: GpuFlowColdStartShellPublication;
-  readonly completeReducerFrame: () => GpuFlowVisiblePublicationReducerFrameCompletion;
+  readonly completeReducerFrame: () => GpuFlowVisibleFramePresentationReducerFrameCompletion;
   readonly followUpFrameRequests: readonly GpuFrameReason[];
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly previousContentFrameId: number | null;
 };
 
-export type GpuFlowVisiblePublicationReducerFrameCompletion = {
+export type GpuFlowVisibleFramePresentationReducerFrameCompletion = {
   readonly completion: GpuFlowVisibleFrameReducerCompletion;
   readonly debtFrameRequest: GpuFlowVisibleFrameReducerDebtFrameRequest | null;
 };
@@ -57,10 +57,10 @@ export type GpuFlowVisibleFrameReducerDebtFrameRequest = {
 
 export type GpuFlowColdStartShellPublication = {
   readonly frame: GpuFlowColdStartShellFrame | null;
-  readonly token: GpuFlowVisiblePublicationOutcome["token"];
+  readonly token: GpuFlowVisibleFramePresentationOutcome["token"];
 };
 
-export function createGpuFlowVisiblePublicationTransactionReport({
+export function createGpuFlowVisibleFramePresentationTransactionReport({
   completion,
   outcome,
   previousContentFrameId,
@@ -69,19 +69,22 @@ export function createGpuFlowVisiblePublicationTransactionReport({
   visibleProjectionState,
 }: {
   readonly completion: GpuFlowVisibleFrameReducerCompletion;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly previousContentFrameId: number | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
-  const token = createGpuFlowVisiblePublicationOutcomeTokenPayload(outcome);
+  const token =
+    createGpuFlowVisibleFramePresentationOutcomeTokenPayload(outcome);
   const presentableFrameProofReport =
-    createGpuFlowVisiblePublicationPresentableFrameProofReport(
+    createGpuFlowVisibleFramePresentableFrameProofReport(
       transactionProof?.presentableFrameProof ?? null,
     );
   const transactionProofReport =
-    createGpuFlowVisiblePublicationTransactionProofReport(transactionProof);
+    createGpuFlowVisibleFramePresentationTransactionProofReport(
+      transactionProof,
+    );
   return {
     actorProofDigest: presentableFrameProofReport.actorProofDigest,
     actorProofs: presentableFrameProofReport.actorProofs,
@@ -103,13 +106,15 @@ export function createGpuFlowVisiblePublicationTransactionReport({
     reducerOutcome: completion.outcome,
     reducerState: reducerDecision.reducerState,
     token,
-    transactionId: getGpuFlowVisiblePublicationOutcomeTransactionId(outcome),
+    transactionId:
+      getGpuFlowVisibleFramePresentationOutcomeTransactionId(outcome),
     transactionProof: transactionProofReport,
-    transactionKind: getGpuFlowVisiblePublicationProjectionTransactionKind(
-      visibleProjectionState,
-    ),
+    transactionKind:
+      getGpuFlowVisibleFramePresentationProjectionTransactionKind(
+        visibleProjectionState,
+      ),
     visibleCommittedFrameId:
-      getGpuFlowVisiblePublicationOutcomeCommittedFrameId(outcome),
+      getGpuFlowVisibleFramePresentationOutcomeCommittedFrameId(outcome),
     visibleTransaction: createGpuFlowVisibleTransactionReport({
       outcome,
       presentationProof: presentableFrameProofReport.presentationProof,
@@ -120,14 +125,14 @@ export function createGpuFlowVisiblePublicationTransactionReport({
   };
 }
 
-function getGpuFlowVisiblePublicationProjectionTransactionKind(
+function getGpuFlowVisibleFramePresentationProjectionTransactionKind(
   visibleProjectionState: GpuFlowVisibleProjectionState | null,
 ): GpuFlowVisibleProjectionState["transaction"]["kind"] | null {
   return visibleProjectionState?.transaction.kind ?? null;
 }
 
-function getGpuFlowVisiblePublicationOutcomeCommittedFrameId(
-  outcome: GpuFlowVisiblePublicationOutcome,
+function getGpuFlowVisibleFramePresentationOutcomeCommittedFrameId(
+  outcome: GpuFlowVisibleFramePresentationOutcome,
 ): number | null {
   if (outcome.kind !== "present" && outcome.kind !== "hold-previous") {
     return null;
@@ -142,12 +147,12 @@ function createGpuFlowVisibleTransactionReport({
   reducerDecision,
   token,
 }: {
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly presentationProof: GpuFlowVisiblePublicationPresentationProofReport | null;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
+  readonly presentationProof: GpuFlowVisibleFramePresentationProofReport | null;
   readonly previousContentFrameId: number | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly token: ReturnType<
-    typeof createGpuFlowVisiblePublicationOutcomeTokenPayload
+    typeof createGpuFlowVisibleFramePresentationOutcomeTokenPayload
   >;
 }) {
   const presentationToken = outcome.kind === "present" ? outcome.token : null;
@@ -171,7 +176,8 @@ function createGpuFlowVisibleTransactionReport({
     }),
     previousContentFrameId,
     token,
-    transactionId: getGpuFlowVisiblePublicationOutcomeTransactionId(outcome),
+    transactionId:
+      getGpuFlowVisibleFramePresentationOutcomeTransactionId(outcome),
     visibleCommittedFrameId:
       outcome.kind === "present" || outcome.kind === "hold-previous"
         ? outcome.token.committedFrameId
@@ -183,29 +189,29 @@ function selectGpuFlowVisiblePresentationProofReport({
   outcome,
   presentationProof,
 }: {
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly presentationProof: GpuFlowVisiblePublicationPresentationProofReport | null;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
+  readonly presentationProof: GpuFlowVisibleFramePresentationProofReport | null;
 }) {
   if (outcome.kind !== "present") {
     return null;
   }
   if (presentationProof === null) {
     throw new Error(
-      "GPU Flow visible publication report requires transaction-proof DOM/canvas presentation proof evidence for present outcomes.",
+      "GPU Flow visible frame presentation report requires transaction-proof DOM/canvas presentation proof evidence for present outcomes.",
     );
   }
   if (
     presentationProof.projectionSampleId !== outcome.token.projectionSampleId
   ) {
     throw new Error(
-      "GPU Flow visible publication report requires presentation proof evidence for the presented outcome sample.",
+      "GPU Flow visible frame presentation report requires presentation proof evidence for the presented outcome sample.",
     );
   }
   return presentationProof;
 }
 
-function getGpuFlowVisiblePublicationOutcomeTransactionId(
-  outcome: GpuFlowVisiblePublicationOutcome,
+function getGpuFlowVisibleFramePresentationOutcomeTransactionId(
+  outcome: GpuFlowVisibleFramePresentationOutcome,
 ): string {
   switch (outcome.kind) {
     case "present":
@@ -215,8 +221,8 @@ function getGpuFlowVisiblePublicationOutcomeTransactionId(
   }
 }
 
-function createGpuFlowVisiblePublicationOutcomeTokenPayload(
-  outcome: GpuFlowVisiblePublicationOutcome,
+function createGpuFlowVisibleFramePresentationOutcomeTokenPayload(
+  outcome: GpuFlowVisibleFramePresentationOutcome,
 ) {
   switch (outcome.kind) {
     case "present":

@@ -335,7 +335,7 @@ test("active editor remains selectable after drag through held or drained candid
     { rowId: row.rowId },
   );
   await installNativePointerProbe(page, row.rowId);
-  await clearBlockedVisiblePublicationEvents(page);
+  await clearBlockedVisibleFramePresentationEvents(page);
 
   const dragStart = {
     x:
@@ -384,7 +384,7 @@ test("active editor remains selectable after drag through held or drained candid
   const blockedEvent =
     faultActorId === null
       ? null
-      : await waitForBlockedVisiblePublicationEvent(page, {
+      : await waitForBlockedVisibleFramePresentationEvent(page, {
           actorId: committedProofBefore.actorId,
           reason: "live-dom-budget",
         });
@@ -536,7 +536,7 @@ type BrowserVisualFaultReadiness =
   | "blocked-awaiting-live-host"
   | "blocked-awaiting-snapshot";
 
-type BlockedVisiblePublicationEvent = {
+type BlockedVisibleFramePresentationEvent = {
   readonly blockedReasons?: readonly {
     readonly actorId?: string | null;
     readonly family?: string | null;
@@ -805,13 +805,15 @@ async function clearBrowserVisualFaultInjection(page: Page): Promise<void> {
   });
 }
 
-async function clearBlockedVisiblePublicationEvents(page: Page): Promise<void> {
+async function clearBlockedVisibleFramePresentationEvents(
+  page: Page,
+): Promise<void> {
   await page.evaluate(() => {
     (
       window as typeof window & {
-        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: unknown[];
+        __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: unknown[];
       }
-    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ = [];
+    ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ = [];
   });
 }
 
@@ -836,13 +838,13 @@ async function requestGpuFlowDebugFrame(
 
 async function waitForActiveEditorMotionFrame(
   page: Page,
-): Promise<BlockedVisiblePublicationEvent | null> {
+): Promise<BlockedVisibleFramePresentationEvent | null> {
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
   return null;
 }
 
-async function waitForBlockedVisiblePublicationEvent(
+async function waitForBlockedVisibleFramePresentationEvent(
   page: Page,
   {
     actorId,
@@ -851,12 +853,12 @@ async function waitForBlockedVisiblePublicationEvent(
     readonly actorId: string;
     readonly reason: string;
   },
-): Promise<BlockedVisiblePublicationEvent> {
+): Promise<BlockedVisibleFramePresentationEvent> {
   const deadline = Date.now() + 5_000;
-  let latestEvents: readonly BlockedVisiblePublicationEvent[] = [];
+  let latestEvents: readonly BlockedVisibleFramePresentationEvent[] = [];
   while (Date.now() < deadline) {
-    latestEvents = await readBlockedVisiblePublicationEvents(page);
-    const event = findBlockedVisiblePublicationEvent(latestEvents, {
+    latestEvents = await readBlockedVisibleFramePresentationEvents(page);
+    const event = findBlockedVisibleFramePresentationEvent(latestEvents, {
       actorId,
       reason,
     });
@@ -867,7 +869,7 @@ async function waitForBlockedVisiblePublicationEvent(
     await page.waitForTimeout(50);
   }
   throw new Error(
-    `Timed out waiting for blocked visible publication. ${JSON.stringify(
+    `Timed out waiting for blocked visible frame presentation. ${JSON.stringify(
       {
         actorId,
         events: latestEvents.slice(-6),
@@ -879,21 +881,21 @@ async function waitForBlockedVisiblePublicationEvent(
   );
 }
 
-async function readBlockedVisiblePublicationEvents(
+async function readBlockedVisibleFramePresentationEvents(
   page: Page,
-): Promise<readonly BlockedVisiblePublicationEvent[]> {
+): Promise<readonly BlockedVisibleFramePresentationEvent[]> {
   return await page.evaluate(
     () =>
       (
         window as typeof window & {
-          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly BlockedVisiblePublicationEvent[];
+          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: readonly BlockedVisibleFramePresentationEvent[];
         }
-      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [],
+      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? [],
   );
 }
 
-function findBlockedVisiblePublicationEvent(
-  events: readonly BlockedVisiblePublicationEvent[],
+function findBlockedVisibleFramePresentationEvent(
+  events: readonly BlockedVisibleFramePresentationEvent[],
   {
     actorId,
     reason,
@@ -901,8 +903,9 @@ function findBlockedVisiblePublicationEvent(
     readonly actorId: string;
     readonly reason: string;
   },
-): BlockedVisiblePublicationEvent | null {
-  let committedFrozenFallback: BlockedVisiblePublicationEvent | null = null;
+): BlockedVisibleFramePresentationEvent | null {
+  let committedFrozenFallback: BlockedVisibleFramePresentationEvent | null =
+    null;
   for (const [index, event] of events.entries()) {
     if (
       event.blockedReasons?.some(

@@ -381,7 +381,7 @@ describe("GpuFlow", () => {
     expect(markup).not.toContain('data-gpu-flow-source-id="stale-node-a"');
   });
 
-  it("does not server-render DOM island content before visible publication", () => {
+  it("does not server-render DOM island content before visible frame presentation", () => {
     const markup = renderToStaticMarkup(
       <GpuFlow
         renderDomIsland={(island) => (

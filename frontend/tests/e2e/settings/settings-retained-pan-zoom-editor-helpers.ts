@@ -226,11 +226,10 @@ async function readRetainedEditorActivationDiagnostics(
           };
         }),
         browserVisualPreparation:
-          window.__settaGpuFlowBrowserVisualPreparationDiagnostics?.(
-            actorId,
-          ) ?? null,
-        blockedVisiblePublicationEvents:
-          window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?.slice(
+          window.__settaGpuFlowBrowserVisualPreparationDiagnostics?.(actorId) ??
+          null,
+        blockedVisibleFramePresentationEvents:
+          window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?.slice(
             -5,
           ) ?? [],
         domControlPlaneDiagnostics:
@@ -251,8 +250,8 @@ async function readRetainedEditorActivationDiagnostics(
               }
             : null,
         retainedRows,
-        visiblePublication:
-          window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().visiblePublication ??
+        visibleProjection:
+          window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().visibleProjection ??
           null,
       };
 
@@ -276,8 +275,9 @@ export async function waitForActiveEditorGeometry(
 ): ReturnType<typeof readActiveEditorGeometry> {
   const deadline = Date.now() + (options.timeoutMs ?? 5_000);
   let lastError: unknown = null;
-  let lastGeometry: Awaited<ReturnType<typeof readActiveEditorGeometry>> | null =
-    null;
+  let lastGeometry: Awaited<
+    ReturnType<typeof readActiveEditorGeometry>
+  > | null = null;
   while (Date.now() < deadline) {
     try {
       lastGeometry = await readActiveEditorGeometry(page, expectedRect);

@@ -9,15 +9,15 @@ const modulePath = (path: string): string =>
 const GPU_FLOW_ROOT = modulePath("../");
 
 // Removal milestone: docs/plans/gpu-flow-coherent-visible-frame-engine-plan.md step 3.
-const REMOVED_VISIBLE_PUBLICATION_AUTHORITY_MODULES = [
+const REMOVED_VISIBLE_FRAME_PRESENTATION_AUTHORITY_MODULES = [
   "./browserVisualFaultInjectionPublication",
   "./flowPreparedContentFramePublication",
   "./flowColdStartShellFramePublication",
   "./flowSurfaceFramePublication",
   "./flowSurfacePublicationCompletion",
-  "./flowVisiblePublicationBlockedGuard",
-  "./flowVisiblePublicationOutcomeChromeRepro",
-  "./flowVisiblePublicationOutcomeGuard",
+  "./flowVisibleFramePresentationBlockedGuard",
+  "./flowVisibleFramePresentationOutcomeChromeRepro",
+  "./flowVisibleFramePresentationOutcomeGuard",
   "./visibleFramePublicationAuthority",
   "./visibleFramePublicationActorOracle",
   "./visibleFramePublicationBlockedCandidate",
@@ -44,9 +44,9 @@ const REMOVED_VISIBLE_PUBLICATION_AUTHORITY_MODULES = [
 ] as const;
 
 describe("GPU Flow visible frame architecture", () => {
-  it("keeps removed visible-publication authority paths out of production", () => {
+  it("keeps removed visible-frame-presentation authority paths out of production", () => {
     const existingRemovedFiles =
-      REMOVED_VISIBLE_PUBLICATION_AUTHORITY_MODULES.map(
+      REMOVED_VISIBLE_FRAME_PRESENTATION_AUTHORITY_MODULES.map(
         (moduleName) => `${moduleName}.ts`,
       ).filter((path) => existsSync(modulePath(path)));
 
@@ -57,7 +57,7 @@ describe("GPU Flow visible frame architecture", () => {
         }
         const source = readFileSync(filePath, "utf8");
         const importedRemovedModules =
-          REMOVED_VISIBLE_PUBLICATION_AUTHORITY_MODULES.filter(
+          REMOVED_VISIBLE_FRAME_PRESENTATION_AUTHORITY_MODULES.filter(
             (moduleName) =>
               source.includes(`from "${moduleName}"`) ||
               source.includes(`from "${moduleName}.ts"`) ||

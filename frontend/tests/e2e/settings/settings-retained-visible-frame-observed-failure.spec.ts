@@ -933,12 +933,12 @@ async function readVisibleFrameDiagnostics(
     const blockedEvents =
       (
         window as typeof window & {
-          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly {
+          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: readonly {
             readonly actorManifest?: ObservedVisibleFrameActorManifest | null;
             readonly blockedReasons?: readonly unknown[];
           }[];
         }
-      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [];
+      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? [];
     const lastBlockedEvent = blockedEvents.at(-1) ?? null;
     const actorManifest =
       (presentedContentFrame?.actorManifest as

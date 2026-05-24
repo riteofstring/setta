@@ -4,11 +4,11 @@ import type {
   GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
-  assertGpuFlowPresentationPairProof,
   assertGpuFlowPresentationAuthorityFrame,
+  assertGpuFlowPresentationPairProof,
   createGpuFlowActorManifestDigest,
-  createGpuFlowPresentationResourceProtectionDigestForFrame,
   createGpuFlowPresentationPairDigest,
+  createGpuFlowPresentationResourceProtectionDigestForFrame,
   createGpuFlowVisibleProofDigest,
   type GpuFlowPresentationAuthorityProof,
   type GpuFlowPresentationPairProof,
@@ -117,7 +117,7 @@ export type GpuFlowBlockedPublicationToken = BlockedPublicationTokenBrand & {
   readonly transactionId: GpuFlowVisibleTransactionId;
 };
 
-type GpuFlowVisiblePublicationTokenIssuer = {
+type GpuFlowVisibleFramePresentationTokenIssuer = {
   readonly createBlockedPublicationToken: (input: {
     readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
     readonly frozenFrameId:
@@ -139,7 +139,7 @@ type GpuFlowVisiblePublicationTokenIssuer = {
   }) => GpuFlowHoldPreviousToken;
 };
 
-function createGpuFlowVisiblePublicationTokenIssuer(): GpuFlowVisiblePublicationTokenIssuer {
+function createGpuFlowVisibleFramePresentationTokenIssuer(): GpuFlowVisibleFramePresentationTokenIssuer {
   return Object.freeze({
     createBlockedPublicationToken: createGpuFlowBlockedPublicationToken,
     createPresentationToken: ({
@@ -160,8 +160,8 @@ function createGpuFlowVisiblePublicationTokenIssuer(): GpuFlowVisiblePublication
   });
 }
 
-const visiblePublicationTokenIssuer =
-  createGpuFlowVisiblePublicationTokenIssuer();
+const visibleFramePresentationTokenIssuer =
+  createGpuFlowVisibleFramePresentationTokenIssuer();
 
 function createGpuFlowPresentableFrame({
   frame,
@@ -194,7 +194,8 @@ function createGpuFlowPresentableFrame({
     presentationPairProof: presentationAuthorityProof.presentationPairProof,
     projectionSampleId: projectionSample.id,
     proofDigest: presentationAuthorityProof.proofDigest,
-    resourceProtectionDigest: presentationAuthorityProof.resourceProtectionDigest,
+    resourceProtectionDigest:
+      presentationAuthorityProof.resourceProtectionDigest,
     transactionId: createGpuFlowVisibleTransactionId({
       frame,
       projectionSample,
@@ -213,7 +214,7 @@ export function createGpuFlowVisibleFrameHoldPreviousToken({
   readonly holdAgeMs: number;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowHoldPreviousToken {
-  return visiblePublicationTokenIssuer.createHoldPreviousToken({
+  return visibleFramePresentationTokenIssuer.createHoldPreviousToken({
     committedFrameId,
     holdAgeFrames,
     holdAgeMs,
@@ -230,7 +231,7 @@ export function createGpuFlowVisibleFrameBlockedPublicationToken({
   readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowBlockedPublicationToken {
-  return visiblePublicationTokenIssuer.createBlockedPublicationToken({
+  return visibleFramePresentationTokenIssuer.createBlockedPublicationToken({
     blockedReasons,
     frozenFrameId,
     projectionSample,
@@ -268,7 +269,7 @@ export function createGpuFlowVisibleFrameReducerCompletionPresentationToken({
       "GPU Flow visible presentation completion requires a presentation authority proof for the selected visible frame and projection sample.",
     );
   }
-  return visiblePublicationTokenIssuer.createPresentationToken({
+  return visibleFramePresentationTokenIssuer.createPresentationToken({
     presentationAuthorityProof,
     frame: visibleProjectionState.committedFrame,
     presentationIdentity,
@@ -578,7 +579,7 @@ export function assertGpuFlowHoldPreviousTokenBrand({
 }): void {
   if (!isGpuFlowHoldPreviousToken(token)) {
     throw new Error(
-      "GPU Flow held-previous visible publication requires a hold-previous publication token.",
+      "GPU Flow held-previous visible frame presentation requires a hold-previous publication token.",
     );
   }
 }

@@ -41,7 +41,7 @@ type GpuFlowBrowserVisualStarvationReport = {
   readonly visibleActorCount: number;
 };
 
-type GpuFlowBlockedVisiblePublicationEvent = {
+type GpuFlowBlockedVisibleFramePresentationEvent = {
   readonly actorManifest: GpuFlowVisibleFrameActorManifestDiagnostics;
   readonly blockedReasons: readonly {
     readonly actorId: string | null;
@@ -324,7 +324,7 @@ function emitGpuFlowBrowserVisualStarvationReports({
   }
 }
 
-export function recordGpuFlowBlockedVisiblePublication({
+export function recordGpuFlowBlockedVisibleFramePresentation({
   frame,
   publicationCompletion,
   reducerDecision,
@@ -351,7 +351,7 @@ export function recordGpuFlowBlockedVisiblePublication({
   });
   if (publicationCompletion.outcome !== "blocked") {
     throw new Error(
-      "GPU Flow blocked visible publication recording requires a blocked reducer completion.",
+      "GPU Flow blocked visible frame presentation recording requires a blocked reducer completion.",
     );
   }
   const event = Object.freeze({
@@ -372,12 +372,12 @@ export function recordGpuFlowBlockedVisiblePublication({
     reducerState: reducerDecision.reducerState,
     stateMachineOutcome,
     tokenTransactionId: token.transactionId,
-  } satisfies GpuFlowBlockedVisiblePublicationEvent);
-  emitGpuFlowBlockedVisiblePublicationEvent({
+  } satisfies GpuFlowBlockedVisibleFramePresentationEvent);
+  emitGpuFlowBlockedVisibleFramePresentationEvent({
     event,
     runtimeCanvas,
   });
-  postChromeReproEvent("gpu-flow-blocked-visible-publication", {
+  postChromeReproEvent("gpu-flow-blocked-visible-frame-presentation", {
     actorManifest: event.actorManifest,
     blockedReasons: event.blockedReasons,
     candidateFrameId: event.candidateFrameId,
@@ -394,11 +394,11 @@ export function recordGpuFlowBlockedVisiblePublication({
   return token;
 }
 
-function emitGpuFlowBlockedVisiblePublicationEvent({
+function emitGpuFlowBlockedVisibleFramePresentationEvent({
   event,
   runtimeCanvas,
 }: {
-  readonly event: GpuFlowBlockedVisiblePublicationEvent;
+  readonly event: GpuFlowBlockedVisibleFramePresentationEvent;
   readonly runtimeCanvas: HTMLCanvasElement;
 }): void {
   const ownerWindow = getGpuFlowRuntimeCanvasWindow(runtimeCanvas);
@@ -406,16 +406,16 @@ function emitGpuFlowBlockedVisiblePublicationEvent({
     return;
   }
   const view = ownerWindow as typeof ownerWindow & {
-    __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: GpuFlowBlockedVisiblePublicationEvent[];
+    __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: GpuFlowBlockedVisibleFramePresentationEvent[];
   };
   const existingEvents =
-    view.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [];
-  view.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ = [
+    view.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? [];
+  view.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ = [
     ...existingEvents,
     event,
   ];
   runtimeCanvas.dispatchEvent(
-    new CustomEvent("setta-gpu-flow-blocked-visible-publication", {
+    new CustomEvent("setta-gpu-flow-blocked-visible-frame-presentation", {
       detail: event,
     }),
   );

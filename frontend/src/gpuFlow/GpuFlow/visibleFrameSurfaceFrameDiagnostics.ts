@@ -2,7 +2,7 @@ import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuFlowContentPublicationFrameResult } from "./visibleFrameContentPlan";
 import type { runGpuFlowVisibleFrameCoordinator } from "./visibleFrameCoordinator";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
-import { createGpuFlowVisiblePublicationTransactionProofReport } from "./visibleFrameTransactionProofs";
+import { createGpuFlowVisibleFramePresentationTransactionProofReport } from "./visibleFrameTransactionProofs";
 
 type GpuFlowSurfaceFrameCoordinatorBaseResult = ReturnType<
   typeof runGpuFlowVisibleFrameCoordinator
@@ -83,9 +83,10 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
     sampleRetainedScrollRevision:
       coordinatorResult.reducerDecision.sample.retainedScrollRevision,
     source: "surface-frame",
-    transactionProof: createGpuFlowVisiblePublicationTransactionProofReport(
-      coordinatorResult.preparedFrame.transactionProof,
-    ),
+    transactionProof:
+      createGpuFlowVisibleFramePresentationTransactionProofReport(
+        coordinatorResult.preparedFrame.transactionProof,
+      ),
   });
   view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ = requests.slice(-20);
 }

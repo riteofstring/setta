@@ -75,9 +75,9 @@ export async function readRetainedSurfaceRowSearchDiagnostics(
     const blockedEvents =
       (
         window as typeof window & {
-          __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly unknown[];
+          __SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__?: readonly unknown[];
         }
-      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [];
+      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ?? [];
     const publicationDebtRequests =
       (
         window as typeof window & {
@@ -219,9 +219,7 @@ export async function readRetainedSurfaceRowSearchDiagnostics(
           textureReady: entry.texture?.textureContentKey ? true : false,
         })),
       target,
-      visiblePublication:
-        (snapshot as { readonly visiblePublication?: unknown } | null)
-          ?.visiblePublication ?? null,
+      visibleProjection: snapshot?.visibleProjection ?? null,
       visibleSurface:
         visualSurfaces.find((surface) => surface.id === target.surfaceId) ??
         null,

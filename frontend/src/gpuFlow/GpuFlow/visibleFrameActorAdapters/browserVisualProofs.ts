@@ -10,7 +10,7 @@ type GpuFlowCompatiblePreviousBudgetState =
   | "within-budget"
   | null;
 
-type GpuFlowVisiblePublicationActorProof = {
+type GpuFlowVisibleFramePresentationActorProof = {
   readonly actorId: string;
   readonly actualInteractionProof: string;
   readonly actualVisualProof: string;
@@ -43,25 +43,25 @@ type GpuFlowVisiblePublicationActorProof = {
     | "same-live-host-compatible-projection";
 };
 
-type GpuFlowVisiblePublicationActorDebt = {
+type GpuFlowVisibleFramePresentationActorDebt = {
   readonly actorId: string;
   readonly canonicalActorId: string;
   readonly ownerFamily: string;
   readonly remainingDebt: readonly string[];
 };
 
-export function createGpuFlowVisiblePublicationActorProofsForFrame({
+export function createGpuFlowVisibleFramePresentationActorProofsForFrame({
   committedFrame,
   projectionSampleId,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly projectionSampleId: number;
-}): readonly GpuFlowVisiblePublicationActorProof[] {
+}): readonly GpuFlowVisibleFramePresentationActorProof[] {
   return Object.freeze(
     committedFrame.actorGenerations
       .filter((actor) => actor.visibleNonempty)
       .map((actor) =>
-        createGpuFlowVisiblePublicationActorProof({
+        createGpuFlowVisibleFramePresentationActorProof({
           actor,
           projectionSampleId,
         }),
@@ -69,8 +69,8 @@ export function createGpuFlowVisiblePublicationActorProofsForFrame({
   );
 }
 
-export function createGpuFlowVisiblePublicationActorProofDigest(
-  actorProofs: readonly GpuFlowVisiblePublicationActorProof[],
+export function createGpuFlowVisibleFramePresentationActorProofDigest(
+  actorProofs: readonly GpuFlowVisibleFramePresentationActorProof[],
 ): string {
   return JSON.stringify(
     actorProofs.map((proof) => [
@@ -89,7 +89,7 @@ export function createGpuFlowVisiblePublicationActorProofDigest(
   );
 }
 
-export function createGpuFlowVisiblePublicationBlockedActorReasonsForFrame({
+export function createGpuFlowVisibleFramePresentationBlockedActorReasonsForFrame({
   committedFrame,
   projectionSampleId,
 }: {
@@ -97,16 +97,16 @@ export function createGpuFlowVisiblePublicationBlockedActorReasonsForFrame({
   readonly projectionSampleId: number;
 }): readonly GpuFlowBlockedVisibleReason[] {
   return Object.freeze(
-    createGpuFlowVisiblePublicationActorProofsForFrame({
+    createGpuFlowVisibleFramePresentationActorProofsForFrame({
       committedFrame,
       projectionSampleId,
-    }).flatMap(createGpuFlowVisiblePublicationBlockedActorReasons),
+    }).flatMap(createGpuFlowVisibleFramePresentationBlockedActorReasons),
   );
 }
 
-export function createGpuFlowVisiblePublicationRemainingActorDebt(
-  actorProofs: readonly GpuFlowVisiblePublicationActorProof[],
-): readonly GpuFlowVisiblePublicationActorDebt[] {
+export function createGpuFlowVisibleFramePresentationRemainingActorDebt(
+  actorProofs: readonly GpuFlowVisibleFramePresentationActorProof[],
+): readonly GpuFlowVisibleFramePresentationActorDebt[] {
   return Object.freeze(
     actorProofs
       .filter((proof) => proof.remainingDebt.length > 0)
@@ -121,15 +121,15 @@ export function createGpuFlowVisiblePublicationRemainingActorDebt(
   );
 }
 
-export function assertGpuFlowVisiblePublicationPresentationActorProofs(
-  actorProofs: readonly GpuFlowVisiblePublicationActorProof[],
+export function assertGpuFlowVisibleFramePresentationActorProofs(
+  actorProofs: readonly GpuFlowVisibleFramePresentationActorProof[],
 ): void {
   const blockedProofs = actorProofs.filter(
     (proof) => proof.proofState === "blocked",
   );
   if (blockedProofs.length > 0) {
     throw new Error(
-      `GPU Flow visible publication proof cannot present blocked actor proofs: ${blockedProofs
+      `GPU Flow visible frame presentation proof cannot present blocked actor proofs: ${blockedProofs
         .map((proof) =>
           [
             proof.actorId,
@@ -142,49 +142,51 @@ export function assertGpuFlowVisiblePublicationPresentationActorProofs(
   }
   const representationMismatches = actorProofs.flatMap((proof) => {
     const mismatch =
-      getGpuFlowVisiblePublicationActorRepresentationMismatch(proof);
+      getGpuFlowVisibleFramePresentationActorRepresentationMismatch(proof);
     return mismatch === null ? [] : [mismatch];
   });
   if (representationMismatches.length === 0) {
     return;
   }
   throw new Error(
-    `GPU Flow visible publication proof cannot present actor proofs with mismatched browser visual representation: ${representationMismatches.join(
+    `GPU Flow visible frame presentation proof cannot present actor proofs with mismatched browser visual representation: ${representationMismatches.join(
       ", ",
     )}.`,
   );
 }
 
-function createGpuFlowVisiblePublicationActorProof({
+function createGpuFlowVisibleFramePresentationActorProof({
   actor,
   projectionSampleId,
 }: {
   readonly actor: GpuFlowCommittedSurfaceActorGeneration;
   readonly projectionSampleId: number;
-}): GpuFlowVisiblePublicationActorProof {
+}): GpuFlowVisibleFramePresentationActorProof {
   const requiredVisualRepresentation =
-    getGpuFlowVisiblePublicationRequiredVisualRepresentation(actor);
+    getGpuFlowVisibleFramePresentationRequiredVisualRepresentation(actor);
   const actualVisualProof =
-    getGpuFlowVisiblePublicationActualVisualProof(actor);
+    getGpuFlowVisibleFramePresentationActualVisualProof(actor);
   const requiredInteractionRepresentation =
-    getGpuFlowVisiblePublicationRequiredInteractionRepresentation(actor);
+    getGpuFlowVisibleFramePresentationRequiredInteractionRepresentation(actor);
   const actualInteractionProof =
-    getGpuFlowVisiblePublicationActualInteractionProof(actor);
+    getGpuFlowVisibleFramePresentationActualInteractionProof(actor);
   const compatiblePreviousBudgetState =
-    getGpuFlowVisiblePublicationCompatiblePreviousBudgetState(actor);
-  const remainingDebt = createGpuFlowVisiblePublicationActorRemainingDebt({
-    actualInteractionProof,
-    actualVisualProof,
-    compatiblePreviousBudgetState,
-    requiredInteractionRepresentation,
-    requiredVisualRepresentation,
-  });
+    getGpuFlowVisibleFramePresentationCompatiblePreviousBudgetState(actor);
+  const remainingDebt = createGpuFlowVisibleFramePresentationActorRemainingDebt(
+    {
+      actualInteractionProof,
+      actualVisualProof,
+      compatiblePreviousBudgetState,
+      requiredInteractionRepresentation,
+      requiredVisualRepresentation,
+    },
+  );
   return Object.freeze({
     actorId: actor.actorId,
     actualInteractionProof,
     actualVisualProof,
     browserVisualRepresentation:
-      createGpuFlowVisiblePublicationBrowserVisualRepresentation(actor),
+      createGpuFlowVisibleFramePresentationBrowserVisualRepresentation(actor),
     canonicalActorId: actor.canonicalActorId,
     clipChainRevision: actor.clipChainRevision,
     compatiblePreviousBudgetState,
@@ -194,7 +196,7 @@ function createGpuFlowVisiblePublicationActorProof({
     ownerSurfaceId: actor.ownerSurfaceId,
     projectionGenerationId: actor.layoutProjectionGenerationId,
     projectionSampleId,
-    proofState: createGpuFlowVisiblePublicationActorProofState({
+    proofState: createGpuFlowVisibleFramePresentationActorProofState({
       actualInteractionProof,
       actualVisualProof,
       compatiblePreviousBudgetState,
@@ -204,31 +206,34 @@ function createGpuFlowVisiblePublicationActorProof({
     remainingDebt,
     requiredInteractionRepresentation,
     requiredVisualRepresentation,
-    sampledVisualEvidence: createGpuFlowVisiblePublicationActorEvidenceState({
-      actualVisualProof,
-    }),
+    sampledVisualEvidence:
+      createGpuFlowVisibleFramePresentationActorEvidenceState({
+        actualVisualProof,
+      }),
   });
 }
 
-function createGpuFlowVisiblePublicationBrowserVisualRepresentation(
+function createGpuFlowVisibleFramePresentationBrowserVisualRepresentation(
   actor: GpuFlowCommittedSurfaceActorGeneration,
 ): BrowserTextActorRepresentation | null {
   const representation = actor.browserVisual?.representation ?? null;
   return representation === null ? null : Object.freeze({ ...representation });
 }
 
-function getGpuFlowVisiblePublicationActorRepresentationMismatch(
-  proof: GpuFlowVisiblePublicationActorProof,
+function getGpuFlowVisibleFramePresentationActorRepresentationMismatch(
+  proof: GpuFlowVisibleFramePresentationActorProof,
 ): string | null {
   const representation = proof.browserVisualRepresentation;
   if (representation && representation.actorId !== proof.actorId) {
     return `${proof.actorId}:${proof.actualVisualProof}:actor-id-mismatch`;
   }
-  return getGpuFlowVisiblePublicationActorVisualRepresentationMismatch(proof);
+  return getGpuFlowVisibleFramePresentationActorVisualRepresentationMismatch(
+    proof,
+  );
 }
 
-function getGpuFlowVisiblePublicationActorVisualRepresentationMismatch(
-  proof: GpuFlowVisiblePublicationActorProof,
+function getGpuFlowVisibleFramePresentationActorVisualRepresentationMismatch(
+  proof: GpuFlowVisibleFramePresentationActorProof,
 ): string | null {
   switch (proof.actualVisualProof) {
     case "compatible-previous":
@@ -247,7 +252,7 @@ function getGpuFlowVisiblePublicationActorVisualRepresentationMismatch(
 }
 
 function getGpuFlowCompatiblePreviousRepresentationMismatch(
-  proof: GpuFlowVisiblePublicationActorProof,
+  proof: GpuFlowVisibleFramePresentationActorProof,
 ): string | null {
   return proof.browserVisualRepresentation?.kind === "compatible-previous"
     ? null
@@ -255,7 +260,7 @@ function getGpuFlowCompatiblePreviousRepresentationMismatch(
 }
 
 function getGpuFlowExactSnapshotRepresentationMismatch(
-  proof: GpuFlowVisiblePublicationActorProof,
+  proof: GpuFlowVisibleFramePresentationActorProof,
 ): string | null {
   if (proof.ownerFamily !== "text-like-dom-control") {
     return null;
@@ -266,9 +271,9 @@ function getGpuFlowExactSnapshotRepresentationMismatch(
 }
 
 function getGpuFlowSameLiveHostRepresentationMismatch(
-  proof: GpuFlowVisiblePublicationActorProof,
+  proof: GpuFlowVisibleFramePresentationActorProof,
 ): string | null {
-  return isGpuFlowVisiblePublicationLiveHostRepresentation(
+  return isGpuFlowVisibleFramePresentationLiveHostRepresentation(
     proof.browserVisualRepresentation,
   )
     ? null
@@ -276,7 +281,7 @@ function getGpuFlowSameLiveHostRepresentationMismatch(
 }
 
 function getGpuFlowExactLiveHostRepresentationMismatch(
-  proof: GpuFlowVisiblePublicationActorProof,
+  proof: GpuFlowVisibleFramePresentationActorProof,
 ): string | null {
   if (proof.requiredInteractionRepresentation !== "active-editor-live") {
     return null;
@@ -286,7 +291,7 @@ function getGpuFlowExactLiveHostRepresentationMismatch(
     : `${proof.actorId}:exact-live-host:active-editor-host-identity-required`;
 }
 
-function isGpuFlowVisiblePublicationLiveHostRepresentation(
+function isGpuFlowVisibleFramePresentationLiveHostRepresentation(
   representation: BrowserTextActorRepresentation | null,
 ): boolean {
   return (
@@ -295,37 +300,37 @@ function isGpuFlowVisiblePublicationLiveHostRepresentation(
   );
 }
 
-function getGpuFlowVisiblePublicationRequiredVisualRepresentation(
+function getGpuFlowVisibleFramePresentationRequiredVisualRepresentation(
   actor: GpuFlowCommittedSurfaceActorGeneration,
 ): string {
   return actor.browserVisual?.proof.requiredVisual ?? "canvas-visible";
 }
 
-function getGpuFlowVisiblePublicationActualVisualProof(
+function getGpuFlowVisibleFramePresentationActualVisualProof(
   actor: GpuFlowCommittedSurfaceActorGeneration,
 ): string {
   return actor.browserVisual?.proof.actualVisual ?? "exact-canvas";
 }
 
-function getGpuFlowVisiblePublicationRequiredInteractionRepresentation(
+function getGpuFlowVisibleFramePresentationRequiredInteractionRepresentation(
   actor: GpuFlowCommittedSurfaceActorGeneration,
 ): string {
   return (
     actor.browserVisual?.proof.requiredInteraction ??
-    getGpuFlowVisiblePublicationCanvasInteractionRequirement(actor)
+    getGpuFlowVisibleFramePresentationCanvasInteractionRequirement(actor)
   );
 }
 
-function getGpuFlowVisiblePublicationActualInteractionProof(
+function getGpuFlowVisibleFramePresentationActualInteractionProof(
   actor: GpuFlowCommittedSurfaceActorGeneration,
 ): string {
   return (
     actor.browserVisual?.proof.actualInteraction ??
-    getGpuFlowVisiblePublicationCanvasInteractionProof(actor)
+    getGpuFlowVisibleFramePresentationCanvasInteractionProof(actor)
   );
 }
 
-function getGpuFlowVisiblePublicationCompatiblePreviousBudgetState(
+function getGpuFlowVisibleFramePresentationCompatiblePreviousBudgetState(
   actor: GpuFlowCommittedSurfaceActorGeneration,
 ): GpuFlowCompatiblePreviousBudgetState {
   const textCoverageProof = actor.textCoverageProof;
@@ -335,19 +340,19 @@ function getGpuFlowVisiblePublicationCompatiblePreviousBudgetState(
   return textCoverageProof.compatiblePreviousProof.budgetState;
 }
 
-function getGpuFlowVisiblePublicationCanvasInteractionRequirement(
+function getGpuFlowVisibleFramePresentationCanvasInteractionRequirement(
   actor: GpuFlowCommittedSurfaceActorGeneration,
 ): string {
   return actor.pointerEvents === "auto" ? "canvas-hit" : "none";
 }
 
-function getGpuFlowVisiblePublicationCanvasInteractionProof(
+function getGpuFlowVisibleFramePresentationCanvasInteractionProof(
   actor: GpuFlowCommittedSurfaceActorGeneration,
 ): string {
   return actor.pointerEvents === "auto" ? "canvas-hit" : "not-required";
 }
 
-function createGpuFlowVisiblePublicationActorProofState({
+function createGpuFlowVisibleFramePresentationActorProofState({
   actualInteractionProof,
   actualVisualProof,
   compatiblePreviousBudgetState,
@@ -359,7 +364,7 @@ function createGpuFlowVisiblePublicationActorProofState({
   readonly compatiblePreviousBudgetState: GpuFlowCompatiblePreviousBudgetState;
   readonly requiredInteractionRepresentation: string;
   readonly requiredVisualRepresentation: string;
-}): GpuFlowVisiblePublicationActorProof["proofState"] {
+}): GpuFlowVisibleFramePresentationActorProof["proofState"] {
   if (
     isGpuFlowBlockingRequiredBrowserVisualProof({
       actualVisualProof,
@@ -428,7 +433,7 @@ function isGpuFlowActiveEditorCompatiblePreviousProofBlocked({
   );
 }
 
-function createGpuFlowVisiblePublicationActorRemainingDebt({
+function createGpuFlowVisibleFramePresentationActorRemainingDebt({
   actualInteractionProof,
   actualVisualProof,
   compatiblePreviousBudgetState,
@@ -475,14 +480,14 @@ function createGpuFlowVisiblePublicationActorRemainingDebt({
   return Object.freeze([...debt]);
 }
 
-function createGpuFlowVisiblePublicationBlockedActorReasons(
-  proof: GpuFlowVisiblePublicationActorProof,
+function createGpuFlowVisibleFramePresentationBlockedActorReasons(
+  proof: GpuFlowVisibleFramePresentationActorProof,
 ): readonly GpuFlowBlockedVisibleReason[] {
   if (proof.proofState === "blocked") {
-    return [createGpuFlowVisiblePublicationBlockedActorReason(proof)];
+    return [createGpuFlowVisibleFramePresentationBlockedActorReason(proof)];
   }
   const representationMismatch =
-    getGpuFlowVisiblePublicationActorRepresentationMismatch(proof);
+    getGpuFlowVisibleFramePresentationActorRepresentationMismatch(proof);
   return representationMismatch === null
     ? []
     : [
@@ -497,8 +502,8 @@ function createGpuFlowVisiblePublicationBlockedActorReasons(
       ];
 }
 
-function createGpuFlowVisiblePublicationBlockedActorReason(
-  proof: GpuFlowVisiblePublicationActorProof,
+function createGpuFlowVisibleFramePresentationBlockedActorReason(
+  proof: GpuFlowVisibleFramePresentationActorProof,
 ): GpuFlowBlockedVisibleReason {
   if (proof.compatiblePreviousBudgetState === "over-budget") {
     return Object.freeze({
@@ -537,11 +542,11 @@ function createGpuFlowVisiblePublicationBlockedActorReason(
   });
 }
 
-function createGpuFlowVisiblePublicationActorEvidenceState({
+function createGpuFlowVisibleFramePresentationActorEvidenceState({
   actualVisualProof,
 }: {
   readonly actualVisualProof: string;
-}): GpuFlowVisiblePublicationActorProof["sampledVisualEvidence"] {
+}): GpuFlowVisibleFramePresentationActorProof["sampledVisualEvidence"] {
   switch (actualVisualProof) {
     case "blocked":
       return "blocked";

@@ -9,15 +9,15 @@ import {
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionTransactionKind,
-  GpuFlowVisibleProjectionState,
   GpuFlowVisibleFrameReducerDecision,
+  GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
 import {
-  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
-  createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
-  createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
-  type GpuFlowVisiblePublicationPresentationEvidence,
+  createGpuFlowVisibleFramePresentationCanvasPresentationEvidence,
+  createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence,
+  createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence,
+  type GpuFlowVisibleFramePresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
@@ -47,14 +47,12 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
 ) {
   return createGpuFlowVisibleFramePublicationTransactionProofFromFactory({
     ...input,
-    contentPublicationFrame:
-      withTestGpuFlowVisiblePublicationPresentationEvidence(
-        input.contentPublicationFrame,
-      ),
-    motionProjectionFrame:
-      withTestGpuFlowVisiblePublicationPresentationEvidence(
-        input.motionProjectionFrame,
-      ),
+    contentPublicationFrame: withTestGpuFlowVisibleFramePresentationEvidence(
+      input.contentPublicationFrame,
+    ),
+    motionProjectionFrame: withTestGpuFlowVisibleFramePresentationEvidence(
+      input.motionProjectionFrame,
+    ),
   });
 }
 
@@ -75,14 +73,12 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
 }) {
   const transactionProof = createGpuFlowVisibleFramePublicationTransactionProof(
     {
-      contentPublicationFrame:
-        withTestGpuFlowVisiblePublicationPresentationEvidence(
-          contentPublicationFrame,
-        ),
-      motionProjectionFrame:
-        withTestGpuFlowVisiblePublicationPresentationEvidence(
-          motionProjectionFrame,
-        ),
+      contentPublicationFrame: withTestGpuFlowVisibleFramePresentationEvidence(
+        contentPublicationFrame,
+      ),
+      motionProjectionFrame: withTestGpuFlowVisibleFramePresentationEvidence(
+        motionProjectionFrame,
+      ),
       ...proofInput,
     },
   );
@@ -101,7 +97,7 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
   };
 }
 
-function withTestGpuFlowVisiblePublicationPresentationEvidence<
+function withTestGpuFlowVisibleFramePresentationEvidence<
   Candidate extends
     | GpuFlowVisibleFramePublicationContentCandidate
     | GpuFlowVisibleFramePublicationMotionCandidate,
@@ -115,21 +111,19 @@ function withTestGpuFlowVisiblePublicationPresentationEvidence<
   }
   return {
     ...candidate,
-    presentationEvidence:
-      createTestGpuFlowVisiblePublicationPresentationEvidence({
-        committedFrame: candidate.visibleProjectionState.committedFrame,
-        reducerDecision: {
-          sample: candidate.visibleProjectionState.sample,
-        },
-        projectionTransactionKind:
-          candidate.visibleProjectionState.transaction.kind,
-        projectionTransactionId:
-          candidate.visibleProjectionState.transaction.id,
-      }),
+    presentationEvidence: createTestGpuFlowVisibleFramePresentationEvidence({
+      committedFrame: candidate.visibleProjectionState.committedFrame,
+      reducerDecision: {
+        sample: candidate.visibleProjectionState.sample,
+      },
+      projectionTransactionKind:
+        candidate.visibleProjectionState.transaction.kind,
+      projectionTransactionId: candidate.visibleProjectionState.transaction.id,
+    }),
   };
 }
 
-function createTestGpuFlowVisiblePublicationPresentationEvidence({
+function createTestGpuFlowVisibleFramePresentationEvidence({
   committedFrame,
   domTransformPrepared = true,
   drawnNodeIds,
@@ -143,16 +137,13 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
   readonly domTransformPrepared?: boolean | undefined;
   readonly drawnNodeIds?: readonly string[] | undefined;
   readonly missingTextureNodeIds?: readonly string[] | undefined;
-  readonly reducerDecision: Pick<
-    GpuFlowVisibleFrameReducerDecision,
-    "sample"
-  >;
+  readonly reducerDecision: Pick<GpuFlowVisibleFrameReducerDecision, "sample">;
   readonly projectionTransactionKind?:
     | GpuFlowProjectionTransactionKind
     | undefined;
   readonly projectionTransactionId?: string | undefined;
   readonly textureEvictionPrepared?: boolean | undefined;
-}): GpuFlowVisiblePublicationPresentationEvidence {
+}): GpuFlowVisibleFramePresentationEvidence {
   const evidenceInput = {
     committedFrame,
     projectionSampleId: reducerDecision.sample.id,
@@ -160,20 +151,20 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
   };
   return Object.freeze({
     canvasGenerationEvidence:
-      createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+      createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
         ...evidenceInput,
         drawnNodeIds,
         missingTextureNodeIds,
       }),
     domTransformEvidence: domTransformPrepared
-      ? createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
+      ? createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence({
           ...evidenceInput,
         })
       : null,
     textureEvictionEvidence:
       textureEvictionPrepared &&
       projectionTransactionKind !== "motion-projection"
-        ? createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence(
+        ? createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence(
             evidenceInput,
           )
         : null,
@@ -219,15 +210,14 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
       contentPublicationFrame: {
         blockedPublicationCandidate: null,
-        presentationEvidence:
-          createTestGpuFlowVisiblePublicationPresentationEvidence({
+        presentationEvidence: createTestGpuFlowVisibleFramePresentationEvidence(
+          {
             committedFrame: contentVisibleState.committedFrame,
             domTransformPrepared: false,
-            reducerDecision: reducerDecision(
-              contentVisibleState.sample,
-            ),
+            reducerDecision: reducerDecision(contentVisibleState.sample),
             projectionTransactionId: contentVisibleState.transaction.id,
-          }),
+          },
+        ),
         visibleProjectionState: contentVisibleState,
       },
       motionProjectionFrame: {
@@ -256,15 +246,14 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
       contentPublicationFrame: {
         blockedPublicationCandidate: null,
-        presentationEvidence:
-          createTestGpuFlowVisiblePublicationPresentationEvidence({
+        presentationEvidence: createTestGpuFlowVisibleFramePresentationEvidence(
+          {
             committedFrame: contentVisibleState.committedFrame,
-            reducerDecision: reducerDecision(
-              contentVisibleState.sample,
-            ),
+            reducerDecision: reducerDecision(contentVisibleState.sample),
             projectionTransactionId: contentVisibleState.transaction.id,
             textureEvictionPrepared: false,
-          }),
+          },
+        ),
         visibleProjectionState: contentVisibleState,
       },
       motionProjectionFrame: {
@@ -336,16 +325,15 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
       contentPublicationFrame: {
         blockedPublicationCandidate: null,
-        presentationEvidence:
-          createTestGpuFlowVisiblePublicationPresentationEvidence({
+        presentationEvidence: createTestGpuFlowVisibleFramePresentationEvidence(
+          {
             committedFrame,
             drawnNodeIds: [],
             missingTextureNodeIds: [],
-            reducerDecision: reducerDecision(
-              contentVisibleState.sample,
-            ),
+            reducerDecision: reducerDecision(contentVisibleState.sample),
             projectionTransactionId: contentVisibleState.transaction.id,
-          }),
+          },
+        ),
         visibleProjectionState: contentVisibleState,
       },
       motionProjectionFrame: {
@@ -385,16 +373,15 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
       contentPublicationFrame: {
         blockedPublicationCandidate: null,
-        presentationEvidence:
-          createTestGpuFlowVisiblePublicationPresentationEvidence({
+        presentationEvidence: createTestGpuFlowVisibleFramePresentationEvidence(
+          {
             committedFrame,
             drawnNodeIds: ["settings"],
             missingTextureNodeIds: [],
-            reducerDecision: reducerDecision(
-              contentVisibleState.sample,
-            ),
+            reducerDecision: reducerDecision(contentVisibleState.sample),
             projectionTransactionId: contentVisibleState.transaction.id,
-          }),
+          },
+        ),
         visibleProjectionState: contentVisibleState,
       },
       motionProjectionFrame: {
@@ -482,7 +469,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
         ),
       }),
     ).toThrow(
-      "GPU Flow visible publication proof received competing content and motion blocked publication candidates for one transaction.",
+      "GPU Flow visible frame presentation proof received competing content and motion blocked publication candidates for one transaction.",
     );
   });
 

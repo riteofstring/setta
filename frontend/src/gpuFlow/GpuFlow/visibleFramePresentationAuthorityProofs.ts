@@ -9,9 +9,9 @@ import type {
   GpuFlowProjectionTransactionKind,
 } from "../projectionRuntime";
 import {
-  assertGpuFlowVisiblePublicationResourcesProtected,
-  createGpuFlowVisiblePublicationResourceProtectionDigest,
-  createGpuFlowVisiblePublicationResourceProtectionReport,
+  assertGpuFlowVisibleFramePresentationResourcesProtected,
+  createGpuFlowVisibleFramePresentationResourceProtectionDigest,
+  createGpuFlowVisibleFramePresentationResourceProtectionReport,
 } from "./visibleFrameResourceGraph";
 
 type GpuFlowProjectionSampleId = number;
@@ -437,9 +437,10 @@ export function createGpuFlowPresentationResourceProtectionDigestForFrame({
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
 }): GpuFlowResourceProtectionDigest {
-  const report = createGpuFlowVisiblePublicationResourceProtectionReport(frame);
-  assertGpuFlowVisiblePublicationResourcesProtected(report);
-  return createGpuFlowVisiblePublicationResourceProtectionDigest(report);
+  const report =
+    createGpuFlowVisibleFramePresentationResourceProtectionReport(frame);
+  assertGpuFlowVisibleFramePresentationResourcesProtected(report);
+  return createGpuFlowVisibleFramePresentationResourceProtectionDigest(report);
 }
 
 export function createGpuFlowActorManifestDigest(
@@ -454,7 +455,7 @@ export function createGpuFlowVisibleProofDigest(
   frame: GpuFlowCommittedSurfaceFrame,
 ): GpuFlowVisibleProofDigest {
   const transaction = frame.surfaceTransaction;
-  return createGpuFlowJsonDigest("visible-publication-proof", {
+  return createGpuFlowJsonDigest("visible-frame-presentation-proof", {
     blockingActorIds: frame.publishability.blockingActorIds,
     browserVisualCoverage: frame.projectionHorizon.textActorCoverage,
     kind: frame.publishability.kind,

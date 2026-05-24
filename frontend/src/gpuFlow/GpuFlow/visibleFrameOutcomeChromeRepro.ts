@@ -5,30 +5,30 @@ import {
 
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
-  createGpuFlowVisiblePublicationTransactionReport,
+  createGpuFlowVisibleFramePresentationTransactionReport,
+  type GpuFlowVisibleFramePresentationOutcome,
   type GpuFlowVisibleFramePublicationTransactionProof,
   type GpuFlowVisibleFrameReducerCompletion,
-  type GpuFlowVisiblePublicationOutcome,
 } from "./visibleFrameCoordinator";
 import type { GpuFlowPresentationPairProof } from "./visibleFramePresentationAuthorityProofs";
 import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 
-type GpuFlowVisiblePublicationReducerCompletion =
+type GpuFlowVisibleFramePresentationReducerCompletion =
   GpuFlowVisibleFrameReducerCompletion;
-type GpuFlowVisiblePublicationTransactionReport = ReturnType<
-  typeof createGpuFlowVisiblePublicationTransactionReport
+type GpuFlowVisibleFramePresentationTransactionReport = ReturnType<
+  typeof createGpuFlowVisibleFramePresentationTransactionReport
 >;
-type GpuFlowVisiblePublicationTransactionReportToken =
-  GpuFlowVisiblePublicationTransactionReport["token"];
+type GpuFlowVisibleFramePresentationTransactionReportToken =
+  GpuFlowVisibleFramePresentationTransactionReport["token"];
 type GpuFlowVisibleTransactionReport =
-  GpuFlowVisiblePublicationTransactionReport["visibleTransaction"];
-type GpuFlowVisiblePublicationActorProof =
-  GpuFlowVisiblePublicationTransactionReport["actorProofs"][number];
+  GpuFlowVisibleFramePresentationTransactionReport["visibleTransaction"];
+type GpuFlowVisibleFramePresentationActorProof =
+  GpuFlowVisibleFramePresentationTransactionReport["actorProofs"][number];
 
 const CHROME_REPRO_DIGEST_PREVIEW_LENGTH = 64;
 const CHROME_REPRO_ACTOR_PROOF_SAMPLE_LIMIT = 8;
 
-export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
+export function postGpuFlowVisibleFramePresentationOutcomeChromeReproEvent({
   completion,
   outcome,
   previousContentFrameId,
@@ -36,8 +36,8 @@ export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
   transactionProof,
   visibleProjectionState,
 }: {
-  readonly completion: GpuFlowVisiblePublicationReducerCompletion;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly completion: GpuFlowVisibleFramePresentationReducerCompletion;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly previousContentFrameId: number | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
@@ -47,8 +47,8 @@ export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
     return;
   }
   postChromeReproEvent(
-    "gpu-flow-visible-publication-outcome",
-    createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
+    "gpu-flow-visible-frame-presentation-outcome",
+    createGpuFlowVisibleFramePresentationOutcomeChromeReproPayload({
       completion,
       outcome,
       previousContentFrameId,
@@ -59,7 +59,7 @@ export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
   );
 }
 
-export function createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
+export function createGpuFlowVisibleFramePresentationOutcomeChromeReproPayload({
   completion,
   outcome,
   previousContentFrameId,
@@ -67,14 +67,14 @@ export function createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
   transactionProof,
   visibleProjectionState,
 }: {
-  readonly completion: GpuFlowVisiblePublicationReducerCompletion;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly completion: GpuFlowVisibleFramePresentationReducerCompletion;
+  readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly previousContentFrameId: number | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
-  const report = createGpuFlowVisiblePublicationTransactionReport({
+  const report = createGpuFlowVisibleFramePresentationTransactionReport({
     completion,
     outcome,
     previousContentFrameId,
@@ -82,13 +82,13 @@ export function createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
     transactionProof,
     visibleProjectionState,
   });
-  return createBoundedGpuFlowVisiblePublicationOutcomeChromeReproPayload(
+  return createBoundedGpuFlowVisibleFramePresentationOutcomeChromeReproPayload(
     report,
   );
 }
 
-function createBoundedGpuFlowVisiblePublicationOutcomeChromeReproPayload(
-  report: GpuFlowVisiblePublicationTransactionReport,
+function createBoundedGpuFlowVisibleFramePresentationOutcomeChromeReproPayload(
+  report: GpuFlowVisibleFramePresentationTransactionReport,
 ) {
   const {
     actorProofDigest,
@@ -129,7 +129,7 @@ function summarizeChromeReproDigest(value: string | null) {
 }
 
 function summarizeChromeReproActorProof(
-  proof: GpuFlowVisiblePublicationActorProof,
+  proof: GpuFlowVisibleFramePresentationActorProof,
 ) {
   return {
     actorId: proof.actorId,
@@ -163,7 +163,7 @@ function summarizeChromeReproActorProof(
 }
 
 function summarizeChromeReproResourceProtection(
-  resourceProtection: GpuFlowVisiblePublicationTransactionReport["resourceProtection"],
+  resourceProtection: GpuFlowVisibleFramePresentationTransactionReport["resourceProtection"],
 ) {
   return {
     ...resourceProtection,
@@ -183,7 +183,7 @@ function summarizeChromeReproResourceProtection(
 }
 
 function summarizeChromeReproPresentableFrameProof(
-  presentableFrameProof: GpuFlowVisiblePublicationTransactionReport["presentableFrameProof"],
+  presentableFrameProof: GpuFlowVisibleFramePresentationTransactionReport["presentableFrameProof"],
 ) {
   if (presentableFrameProof === null) {
     return null;
@@ -197,8 +197,10 @@ function summarizeChromeReproPresentableFrameProof(
 }
 
 function summarizeChromeReproOutcomeToken(
-  token: GpuFlowVisiblePublicationTransactionReportToken,
-): GpuFlowVisiblePublicationTransactionReportToken | Record<string, unknown> {
+  token: GpuFlowVisibleFramePresentationTransactionReportToken,
+):
+  | GpuFlowVisibleFramePresentationTransactionReportToken
+  | Record<string, unknown> {
   if ("presentationPairProof" in token) {
     return {
       committedFrameId: token.committedFrameId,

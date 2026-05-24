@@ -11,7 +11,7 @@ import type {
 import type { RetainedContentTexturePagePreparedFrame } from "../retainedContentTexturePageManager";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { resolveGpuFlowBlockedPreparedContentFramePublicationAbort } from "./visibleFrameAbortPolicy";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
+import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
   createGpuFlowPreparedContentFramePublicationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
@@ -51,9 +51,9 @@ const CONTENT_PREPARATION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameContentPreparation.ts", import.meta.url),
 );
 const contentDecisionKernel =
-  createGpuFlowVisiblePublicationContentDecisionKernel();
+  createGpuFlowVisibleFramePresentationContentDecisionKernel();
 
-function readGpuFlowVisiblePublicationCoordinatorSource(): string {
+function readGpuFlowVisibleFramePresentationCoordinatorSource(): string {
   return [
     COORDINATOR_MODULE_PATH,
     CONTENT_DECISION_KERNEL_MODULE_PATH,
@@ -63,7 +63,7 @@ function readGpuFlowVisiblePublicationCoordinatorSource(): string {
     .join("\n");
 }
 
-describe("GPU Flow visible publication content plans", () => {
+describe("GPU Flow visible frame presentation content plans", () => {
   it("keeps single-stage content publication gates off the public surfaces", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
     const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
@@ -209,19 +209,19 @@ describe("GPU Flow visible publication content plans", () => {
       "createGpuFlowRetainedDisplayPublicationFramePlanSelector();",
     );
     expect(kernelModuleSource).toContain(
-      "createGpuFlowVisiblePublicationContentDecisionKernel",
+      "createGpuFlowVisibleFramePresentationContentDecisionKernel",
     );
     expect(kernelModuleSource).not.toContain(
-      "createGpuFlowVisiblePublicationCandidateDecisionKernel",
+      "createGpuFlowVisibleFramePresentationCandidateDecisionKernel",
     );
     expect(contentPlanSource).not.toContain(
-      "createGpuFlowVisiblePublicationContentDecisionKernel",
+      "createGpuFlowVisibleFramePresentationContentDecisionKernel",
     );
     expect(contentPlanSource).not.toContain(
-      "const visiblePublicationContentDecisionKernel",
+      "const visibleFramePresentationContentDecisionKernel",
     );
     expect(contentDecisionKernelSource).toContain(
-      "export function createGpuFlowVisiblePublicationContentDecisionKernel",
+      "export function createGpuFlowVisibleFramePresentationContentDecisionKernel",
     );
     expect(contentDecisionKernelSource).not.toMatch(
       /export function createGpuFlow(?:PreparedContentFramePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector|PreparedContentFramePublicationFramePlanResultResolver|RetainedDisplayPublicationFramePlanResultResolver)/,
@@ -235,7 +235,8 @@ describe("GPU Flow visible publication content plans", () => {
       "utf8",
     );
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
-    const coordinatorSource = readGpuFlowVisiblePublicationCoordinatorSource();
+    const coordinatorSource =
+      readGpuFlowVisibleFramePresentationCoordinatorSource();
     const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
     const contentDecisionKernelSource = readFileSync(
       CONTENT_DECISION_KERNEL_MODULE_PATH,

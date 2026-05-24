@@ -67,13 +67,15 @@ export function recordGpuFlowBlockedPublicationGuard({
     })
   ) {
     throw new Error(
-      `GPU Flow blocked visible publication exceeded budget: ${JSON.stringify({
-        blockedReasons: outcome.token.blockedReasons,
-        frameCount: debt.frameCount,
-        frozenFrameId: outcome.token.frozenFrameId,
-        projectionSampleId: outcome.token.projectionSampleId,
-        transactionId: outcome.token.transactionId,
-      })}`,
+      `GPU Flow blocked visible frame presentation exceeded budget: ${JSON.stringify(
+        {
+          blockedReasons: outcome.token.blockedReasons,
+          frameCount: debt.frameCount,
+          frozenFrameId: outcome.token.frozenFrameId,
+          projectionSampleId: outcome.token.projectionSampleId,
+          transactionId: outcome.token.transactionId,
+        },
+      )}`,
     );
   }
 }

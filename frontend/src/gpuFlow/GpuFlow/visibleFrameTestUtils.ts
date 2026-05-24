@@ -9,10 +9,10 @@ import {
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameCoordinator";
 import {
-  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
-  createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
-  createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
-  type GpuFlowVisiblePublicationPresentationEvidence,
+  createGpuFlowVisibleFramePresentationCanvasPresentationEvidence,
+  createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence,
+  createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence,
+  type GpuFlowVisibleFramePresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import type {
   GpuFlowBlockedPublicationToken,
@@ -24,7 +24,7 @@ import { createGpuFlowVisibleFrameReducerRuntime } from "./visibleFrameReducerRu
 
 type GpuFlowVisibleFramePublicationTestCandidate = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
-  readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
+  readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence | null;
   readonly rendered: boolean;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
@@ -50,7 +50,7 @@ export function createGpuFlowVisibleFramePresentationTokenForTest({
   const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
     contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
       presentationEvidence:
-        createGpuFlowVisiblePublicationTestPresentationEvidence({
+        createGpuFlowVisibleFramePresentationTestPresentationEvidence({
           visibleProjectionState,
         }),
       rendered: true,
@@ -200,26 +200,26 @@ function createGpuFlowVisibleFramePublicationTestCandidate({
   };
 }
 
-function createGpuFlowVisiblePublicationTestPresentationEvidence({
+function createGpuFlowVisibleFramePresentationTestPresentationEvidence({
   visibleProjectionState,
 }: {
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}): GpuFlowVisiblePublicationPresentationEvidence {
+}): GpuFlowVisibleFramePresentationEvidence {
   return Object.freeze({
     canvasGenerationEvidence:
-      createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+      createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
         committedFrame: visibleProjectionState.committedFrame,
         projectionSampleId: visibleProjectionState.sample.id,
         projectionTransactionId: visibleProjectionState.transaction.id,
       }),
     domTransformEvidence:
-      createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
+      createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence({
         committedFrame: visibleProjectionState.committedFrame,
         projectionSampleId: visibleProjectionState.sample.id,
         projectionTransactionId: visibleProjectionState.transaction.id,
       }),
     textureEvictionEvidence:
-      createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
+      createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence({
         committedFrame: visibleProjectionState.committedFrame,
         projectionSampleId: visibleProjectionState.sample.id,
         projectionTransactionId: visibleProjectionState.transaction.id,

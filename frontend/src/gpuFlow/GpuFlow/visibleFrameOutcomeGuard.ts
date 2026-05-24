@@ -4,18 +4,18 @@ import type {
   GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 
-type GpuFlowVisiblePublicationOutcomeRecord = {
+type GpuFlowVisibleFramePresentationOutcomeRecord = {
   readonly outcome: GpuFlowVisibleFrameReducerCompletionOutcome["kind"];
   readonly projectionSampleId: number;
   readonly transactionId: string | null;
 };
 
-const visiblePublicationOutcomeBySurface = new WeakMap<
+const visibleFramePresentationOutcomeBySurface = new WeakMap<
   GpuSurfaceHandle,
-  GpuFlowVisiblePublicationOutcomeRecord
+  GpuFlowVisibleFramePresentationOutcomeRecord
 >();
 
-export function assertGpuFlowSingleVisiblePublicationOutcome({
+export function assertGpuFlowSingleVisibleFramePresentationOutcome({
   outcome,
   reducerDecision,
   surface,
@@ -27,22 +27,23 @@ export function assertGpuFlowSingleVisiblePublicationOutcome({
   if (!surface) {
     return;
   }
-  const previousOutcome = visiblePublicationOutcomeBySurface.get(surface);
+  const previousOutcome = visibleFramePresentationOutcomeBySurface.get(surface);
   if (previousOutcome?.projectionSampleId === reducerDecision.sample.id) {
     throw new Error(
-      `GPU Flow visible publication already completed an outcome for projection sample ${reducerDecision.sample.id}: ${JSON.stringify(
+      `GPU Flow visible frame presentation already completed an outcome for projection sample ${reducerDecision.sample.id}: ${JSON.stringify(
         previousOutcome,
       )}`,
     );
   }
-  visiblePublicationOutcomeBySurface.set(surface, {
+  visibleFramePresentationOutcomeBySurface.set(surface, {
     outcome: outcome.kind,
     projectionSampleId: reducerDecision.sample.id,
-    transactionId: getGpuFlowVisiblePublicationOutcomeTransactionId(outcome),
+    transactionId:
+      getGpuFlowVisibleFramePresentationOutcomeTransactionId(outcome),
   });
 }
 
-function getGpuFlowVisiblePublicationOutcomeTransactionId(
+function getGpuFlowVisibleFramePresentationOutcomeTransactionId(
   outcome: GpuFlowVisibleFrameReducerCompletionOutcome,
 ): string {
   switch (outcome.kind) {

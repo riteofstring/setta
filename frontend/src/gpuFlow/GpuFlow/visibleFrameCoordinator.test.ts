@@ -11,11 +11,11 @@ import {
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionTransaction,
   type GpuFlowProjectionTransactionKind,
-  type GpuFlowVisibleProjectionState,
   type GpuFlowVisibleFrameReducerDecision,
+  type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
+import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import { createGpuFlowPreparedContentFramePublicationFramePlanPreparer } from "./visibleFrameContentPlan";
 import {
   runGpuFlowVisibleFrameCoordinator,
@@ -23,16 +23,16 @@ import {
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameCoordinator";
 import {
-  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
-  createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
-  createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
+  createGpuFlowVisibleFramePresentationCanvasPresentationEvidence,
+  createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence,
+  createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
-import { createGpuFlowVisiblePublicationPresentableFrameProofFactory } from "./visibleFrameTransactionProofs";
+import { createGpuFlowVisibleFramePresentableFrameProofFactory } from "./visibleFrameTransactionProofs";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
-const createGpuFlowVisiblePublicationPresentableFrameProofFromFactory =
-  createGpuFlowVisiblePublicationPresentableFrameProofFactory();
-const createGpuFlowVisiblePublicationPresentableFrameProof = ({
+const createGpuFlowVisibleFramePresentableFrameProofFromFactory =
+  createGpuFlowVisibleFramePresentableFrameProofFactory();
+const createGpuFlowVisibleFramePresentableFrameProof = ({
   committedFrame,
   reducerDecision,
 }: {
@@ -40,27 +40,29 @@ const createGpuFlowVisiblePublicationPresentableFrameProof = ({
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }) => {
   const projectionTransactionId = `transaction:content-publication:${reducerDecision.sample.id}`;
-  return createGpuFlowVisiblePublicationPresentableFrameProofFromFactory({
+  return createGpuFlowVisibleFramePresentableFrameProofFromFactory({
     committedFrame,
     presentationEvidence: {
       canvasGenerationEvidence:
-        createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+        createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
           committedFrame,
           projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       domTransformEvidence:
-        createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
+        createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence({
           committedFrame,
           projectionSampleId: reducerDecision.sample.id,
           projectionTransactionId,
         }),
       textureEvictionEvidence:
-        createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
-          committedFrame,
-          projectionSampleId: reducerDecision.sample.id,
-          projectionTransactionId,
-        }),
+        createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence(
+          {
+            committedFrame,
+            projectionSampleId: reducerDecision.sample.id,
+            projectionTransactionId,
+          },
+        ),
     },
     reducerDecision,
     projectionTransactionKind: "content-publication",
@@ -70,7 +72,7 @@ const createGpuFlowVisiblePublicationPresentableFrameProof = ({
 const preparePreparedContentFramePublicationFramePlanForTest =
   createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
     contentDecisionKernel:
-      createGpuFlowVisiblePublicationContentDecisionKernel(),
+      createGpuFlowVisibleFramePresentationContentDecisionKernel(),
   });
 
 describe("GPU Flow visible frame coordinator", () => {
@@ -86,13 +88,13 @@ describe("GPU Flow visible frame coordinator", () => {
       readonly blockedPublicationCandidate: null;
       readonly presentationEvidence: {
         readonly canvasGenerationEvidence: ReturnType<
-          typeof createGpuFlowVisiblePublicationCanvasPresentationEvidence
+          typeof createGpuFlowVisibleFramePresentationCanvasPresentationEvidence
         >;
         readonly domTransformEvidence: ReturnType<
-          typeof createGpuFlowVisiblePublicationDomTransformPresentationEvidence
+          typeof createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence
         >;
         readonly textureEvictionEvidence: ReturnType<
-          typeof createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence
+          typeof createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence
         >;
       };
       readonly rendered: boolean;
@@ -118,19 +120,21 @@ describe("GPU Flow visible frame coordinator", () => {
           blockedPublicationCandidate: null,
           presentationEvidence: {
             canvasGenerationEvidence:
-              createGpuFlowVisiblePublicationCanvasPresentationEvidence({
+              createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
                 committedFrame: contentVisibleState.committedFrame,
                 projectionSampleId: contentVisibleState.sample.id,
                 projectionTransactionId: contentVisibleState.transaction.id,
               }),
             domTransformEvidence:
-              createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
-                committedFrame: contentVisibleState.committedFrame,
-                projectionSampleId: contentVisibleState.sample.id,
-                projectionTransactionId: contentVisibleState.transaction.id,
-              }),
+              createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence(
+                {
+                  committedFrame: contentVisibleState.committedFrame,
+                  projectionSampleId: contentVisibleState.sample.id,
+                  projectionTransactionId: contentVisibleState.transaction.id,
+                },
+              ),
             textureEvictionEvidence:
-              createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence(
+              createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence(
                 {
                   committedFrame: contentVisibleState.committedFrame,
                   projectionSampleId: contentVisibleState.sample.id,
@@ -352,7 +356,7 @@ describe("GPU Flow visible frame coordinator", () => {
       viewportInteractionActive: false,
     });
 
-    const proof = createGpuFlowVisiblePublicationPresentableFrameProof({
+    const proof = createGpuFlowVisibleFramePresentableFrameProof({
       committedFrame: preparedContentFrameWithCompatiblePreviousCoverage(),
       reducerDecision,
     });
