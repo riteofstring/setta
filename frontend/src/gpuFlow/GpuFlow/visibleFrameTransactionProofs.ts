@@ -9,7 +9,6 @@ import {
   createGpuFlowVisiblePublicationBlockedActorReasonsForFrame,
   createGpuFlowVisiblePublicationRemainingActorDebt,
 } from "./visibleFrameActorAdapters/browserVisualProofs";
-import { createGpuFlowVisibleFrameActorKeyForBlockedReason } from "./visibleFrameActorManifest";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
 import {
   createGpuFlowVisiblePublicationPresentationBlockedReasons,
@@ -28,6 +27,7 @@ import {
   type GpuFlowVisibleFramePreparedFrame,
   type GpuFlowVisibleFrameStateMachineOutcome,
 } from "./visibleFrameStateMachine";
+import { createGpuFlowVisibleFramePublicationStateMachineBlockedProof } from "./visibleFrameStateMachineBlockedProof";
 import {
   createGpuFlowVisiblePublicationBrowserActorProofReportForFrame,
   createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame,
@@ -528,125 +528,6 @@ function selectGpuFlowVisibleFramePublicationFinalVisibleProjectionState({
   return candidateVisibleProjectionState?.transaction.kind === "held-previous"
     ? candidateVisibleProjectionState
     : null;
-}
-
-function createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
-  blockingProofs,
-  previousVisibleProjectionState,
-  visibleFrameStateMachineOutcome,
-}: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
-  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly visibleFrameStateMachineOutcome: GpuFlowVisibleFrameStateMachineOutcome;
-}): GpuFlowVisiblePublicationBlockedProof | null {
-  if (
-    visibleFrameStateMachineOutcome.kind !== "blocked-cold-start" &&
-    visibleFrameStateMachineOutcome.kind !== "held" &&
-    visibleFrameStateMachineOutcome.kind !== "aborted"
-  ) {
-    return null;
-  }
-  const decidingProof = visibleFrameStateMachineOutcome.decidingProof;
-  if (
-    isGpuFlowVisibleFrameStateMachineSyntheticVisibilityBlock(decidingProof)
-  ) {
-    return null;
-  }
-  const blockingProof = selectGpuFlowVisibleFramePublicationBlockingProof({
-    blockingProofs,
-    decidingProof,
-  });
-  if (blockingProof !== null) {
-    return blockingProof;
-  }
-  return createGpuFlowVisiblePublicationBlockedProof({
-    candidate: Object.freeze({
-      blockedReasons: Object.freeze([
-        Object.freeze({
-          actorId: decidingProof.actorId,
-          family:
-            decidingProof.reason === "compatible-previous-budget-exceeded"
-              ? "compatible-previous"
-              : decidingProof.family === "frame"
-                ? "visible-transaction"
-                : decidingProof.family,
-          reason: decidingProof.reason,
-        }),
-      ]),
-      frozenFrameId:
-        previousVisibleProjectionState?.committedFrame.displayFrameId ??
-        GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
-    }),
-    source:
-      decidingProof.proof === "compatible-previous" ||
-      decidingProof.reason === "compatible-previous-budget-exceeded"
-        ? "compatible-previous-proof"
-        : "actor-proof",
-  });
-}
-
-function selectGpuFlowVisibleFramePublicationBlockingProof({
-  blockingProofs,
-  decidingProof,
-}: {
-  readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
-  readonly decidingProof: NonNullable<
-    GpuFlowVisibleFrameStateMachineOutcome["decidingProof"]
-  >;
-}): GpuFlowVisiblePublicationBlockedProof | null {
-  let blockedReasonIndex = 0;
-  for (const blockingProof of blockingProofs) {
-    for (const reason of blockingProof.blockedReasons) {
-      if (
-        isGpuFlowVisibleFrameBlockingReasonForDecidingProof({
-          decidingProof,
-          index: blockedReasonIndex,
-          reason,
-        })
-      ) {
-        return blockingProof;
-      }
-      blockedReasonIndex += 1;
-    }
-  }
-  return null;
-}
-
-function isGpuFlowVisibleFrameBlockingReasonForDecidingProof({
-  decidingProof,
-  index,
-  reason,
-}: {
-  readonly decidingProof: NonNullable<
-    GpuFlowVisibleFrameStateMachineOutcome["decidingProof"]
-  >;
-  readonly index: number;
-  readonly reason: GpuFlowVisiblePublicationBlockedProof["blockedReasons"][number];
-}): boolean {
-  const actor = createGpuFlowVisibleFrameActorKeyForBlockedReason({
-    index,
-    reason,
-  });
-  return (
-    actor.actorId === decidingProof.actorId &&
-    (actor.family === decidingProof.family ||
-      reason.actorId === decidingProof.actorId) &&
-    reason.reason === decidingProof.reason
-  );
-}
-
-function isGpuFlowVisibleFrameStateMachineSyntheticVisibilityBlock({
-  actorId,
-  reason,
-}: NonNullable<
-  GpuFlowVisibleFrameStateMachineOutcome["decidingProof"]
->): boolean {
-  return (
-    actorId === "visible-frame" &&
-    (reason === "held-previous" ||
-      reason === "held-previous-budget-exceeded" ||
-      reason === "no-visible-frame")
-  );
 }
 
 function isGpuFlowVisibleFrameStateMachinePresentationOutcome(

@@ -32,10 +32,7 @@ import {
   createGpuFlowVisiblePublicationPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
-import type {
-  GpuFlowBlockedPublicationToken,
-  GpuFlowBlockedVisibleReason,
-} from "./visibleFramePresentationProofs";
+import type { GpuFlowBlockedPublicationToken, GpuFlowBlockedVisibleReason } from "./visibleFramePresentationProofs";
 
 export type GpuFlowCommittedSurfaceBlockedCandidateResourceWork = {
   readonly deferWakeup: boolean;

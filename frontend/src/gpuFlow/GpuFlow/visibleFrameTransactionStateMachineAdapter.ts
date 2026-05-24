@@ -57,7 +57,6 @@ export function createGpuFlowVisibleFramePublicationStateMachinePreparedFrame({
       createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
         blockingProofs,
         candidate,
-        candidateManifestFrame: manifestFrame,
         candidateVisibleProjectionState,
         previousVisibleProjectionState,
       }),
@@ -200,7 +199,6 @@ function resolveGpuFlowVisibleFramePublicationStateMachineManifestFrame({
 function createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
   blockingProofs,
   candidate,
-  candidateManifestFrame,
   candidateVisibleProjectionState,
   previousVisibleProjectionState,
 }: {
@@ -208,7 +206,6 @@ function createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
   readonly candidate: ReturnType<
     typeof createGpuFlowVisibleFramePublicationStateMachineCandidate
   >;
-  readonly candidateManifestFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowVisibleFrameCommittedPresentation | null {

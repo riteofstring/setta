@@ -1169,9 +1169,7 @@ function rect() {
   return { height: 20, width: 100, x: 0, y: 0 };
 }
 
-function publicationDecision(
-  sample: GpuFlowLiveProjectionSample,
-): GpuFlowVisiblePublicationDecision {
+function publicationDecision(sample: GpuFlowLiveProjectionSample): GpuFlowVisiblePublicationDecision {
   return {
     debt: { content: true, maintenance: false, motion: false },
     lane: "content",
@@ -1181,10 +1179,7 @@ function publicationDecision(
   };
 }
 
-function liveProjectionSample({
-  id,
-  timestamp,
-}: {
+function liveProjectionSample(input: {
   readonly id: number;
   readonly timestamp: number;
 }): GpuFlowLiveProjectionSample {
@@ -1192,12 +1187,12 @@ function liveProjectionSample({
     cssViewport: { height: 600, width: 800 },
     devicePixelRatio: 1,
     gestureOwner: "idle",
-    id,
+    id: input.id,
     retainedScrollDelta: new Map(),
     retainedScrollOffsets: new Map(),
     retainedScrollRevision: 0,
     retainedScrollVelocityCssPxPerMs: new Map(),
-    timestamp,
+    timestamp: input.timestamp,
     viewport: [0, 0, 1],
     viewportDelta: { x: 0, y: 0, zoom: 0 },
     viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },

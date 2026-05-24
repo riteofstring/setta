@@ -1,11 +1,8 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import type { GpuFrameReason } from "../gpuRenderer";
-import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
   applyGpuFlowProjectionDebugAttributes,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import { GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER } from "../projectionSchedulerPolicy";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
@@ -23,8 +20,6 @@ import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutco
 import type {
   GpuFlowCommittedSurfaceBlockedCandidateResourceWork,
   GpuFlowVisibleFrameCoordinatorResult,
-  GpuFlowVisiblePublicationCompletion,
-  GpuFlowVisiblePublicationDebtFrameRequest,
   GpuFlowVisiblePublicationOutcome,
 } from "./visibleFrameCoordinator";
 import {
@@ -43,10 +38,12 @@ import {
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
 import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
-  type GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+  createGpuFlowSurfacePublicationDebtFrameRequest,
+  requestGpuFlowSurfacePublicationDebtFrame,
+  requestGpuFlowSurfacePublicationFollowUpFrames,
+} from "./visibleFramePresenterDebtRequests";
 import type {
   GpuFlowSurfacePublicationPreparedFrame,
   RenderGpuFlowSurfaceFrameInput,
@@ -60,16 +57,6 @@ type GpuFlowBlockedSurfaceVisibleProjectionPublication = {
   readonly blockedErrorMessage: string | null;
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
 };
-
-type GpuFlowDelayedPublicationDebtFrameTimer = {
-  readonly frameReason: GpuFrameReason;
-  readonly timer: number;
-};
-
-const deferredResolutionFrameTimers = new WeakMap<
-  GpuSurfaceHandle,
-  GpuFlowDelayedPublicationDebtFrameTimer
->();
 
 type GpuFlowVisibleFramePresenterInput = Omit<
   Parameters<typeof presentGpuFlowVisibleFramePublicationFrame>[0],
@@ -390,188 +377,6 @@ export function createGpuFlowVisibleFramePresenter({
       visibleProjectionPublicationStateRef,
       visibleProjectionStateRef,
     });
-}
-
-function requestGpuFlowSurfacePublicationFollowUpFrames({
-  debtFrameRequest,
-  followUpFrameRequests,
-  surfaceRef,
-}: {
-  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
-  readonly followUpFrameRequests: GpuFlowVisibleFrameCoordinatorResult<GpuFlowSurfacePublicationPreparedFrame>["followUpFrameRequests"];
-  readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
-}): void {
-  for (const frameReason of followUpFrameRequests) {
-    if (debtFrameRequest?.frameReason === frameReason) {
-      continue;
-    }
-    surfaceRef.current?.requestFrame(frameReason);
-  }
-}
-
-function createGpuFlowSurfacePublicationDebtFrameRequest({
-  completion,
-  debtFrameRequest,
-  publicationDecision,
-}: {
-  readonly completion: GpuFlowVisiblePublicationCompletion;
-  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-}): GpuFlowVisiblePublicationDebtFrameRequest | null {
-  if (debtFrameRequest === null) {
-    return null;
-  }
-  if (
-    !shouldDelayGpuFlowSurfacePublicationDebtFrame({
-      completion,
-      debtFrameRequest,
-      publicationDecision,
-    })
-  ) {
-    return debtFrameRequest;
-  }
-  return Object.freeze({
-    ...debtFrameRequest,
-    delayMs:
-      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2,
-  });
-}
-
-function shouldDelayGpuFlowSurfacePublicationDebtFrame({
-  completion,
-  debtFrameRequest,
-  publicationDecision,
-}: {
-  readonly completion: GpuFlowVisiblePublicationCompletion;
-  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-}): boolean {
-  if (publicationDecision.schedulerState === "maintenance-deferred") {
-    return true;
-  }
-  if (
-    publicationDecision.schedulerState === "motion-active" &&
-    debtFrameRequest.delayMs !== null
-  ) {
-    return true;
-  }
-  if (debtFrameRequest.frameReason === "texture-upload") {
-    return false;
-  }
-  if (publicationDecision.lane === "content" && completion.debt.content) {
-    return true;
-  }
-  return (
-    publicationDecision.lane === "content" &&
-    !completion.debt.content &&
-    completion.debt.maintenance &&
-    !completion.debt.motion
-  );
-}
-
-function requestGpuFlowSurfacePublicationDebtFrame({
-  debtFrameRequest,
-  completion,
-  outcome,
-  publicationDecision,
-  surfaceRef,
-}: {
-  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
-  readonly completion: GpuFlowVisiblePublicationCompletion;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
-}): void {
-  if (debtFrameRequest === null) {
-    return;
-  }
-  if (debtFrameRequest.delayMs !== null) {
-    scheduleDelayedGpuFlowPublicationDebtFrame({
-      delayMs: debtFrameRequest.delayMs,
-      frameReason: debtFrameRequest.frameReason,
-      surfaceRef,
-    });
-    return;
-  }
-  surfaceRef.current?.requestFrame(debtFrameRequest.frameReason);
-  scheduleGpuFlowContentRetryAfterBrowserVisualTextureUpload({
-    completion,
-    debtFrameRequest,
-    outcome,
-    publicationDecision,
-    surfaceRef,
-  });
-}
-
-function scheduleGpuFlowContentRetryAfterBrowserVisualTextureUpload({
-  completion,
-  debtFrameRequest,
-  outcome,
-  publicationDecision,
-  surfaceRef,
-}: {
-  readonly completion: GpuFlowVisiblePublicationCompletion;
-  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest;
-  readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
-}): void {
-  if (
-    debtFrameRequest.frameReason !== "texture-upload" ||
-    !completion.debt.content ||
-    publicationDecision.lane !== "content" ||
-    outcome.kind !== "blocked" ||
-    !outcome.token.blockedReasons.some(
-      (reason) =>
-        reason.family === "browser-text-snapshot" &&
-        reason.reason === "snapshot-pending",
-    )
-  ) {
-    return;
-  }
-  scheduleDelayedGpuFlowPublicationDebtFrame({
-    delayMs:
-      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs *
-      GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER,
-    frameReason: "manual",
-    surfaceRef,
-  });
-}
-
-function scheduleDelayedGpuFlowPublicationDebtFrame({
-  delayMs,
-  frameReason,
-  surfaceRef,
-}: {
-  readonly delayMs: number;
-  readonly frameReason: GpuFrameReason;
-  readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
-}): boolean {
-  const surface = surfaceRef.current;
-  const ownerWindow =
-    surface?.getRuntime()?.canvas.ownerDocument.defaultView ??
-    (typeof window === "undefined" ? null : window);
-  if (!surface || !ownerWindow) {
-    return false;
-  }
-  const existingTimer = deferredResolutionFrameTimers.get(surface);
-  if (existingTimer !== undefined) {
-    if (existingTimer.frameReason === frameReason) {
-      return true;
-    }
-    ownerWindow.clearTimeout(existingTimer.timer);
-  }
-  const timer = ownerWindow.setTimeout(
-    () => {
-      if (deferredResolutionFrameTimers.get(surface)?.timer === timer) {
-        deferredResolutionFrameTimers.delete(surface);
-      }
-      surface.requestFrame(frameReason);
-    },
-    Math.max(0, delayMs),
-  );
-  deferredResolutionFrameTimers.set(surface, { frameReason, timer });
-  return true;
 }
 
 function publishGpuFlowColdStartShellFrame({

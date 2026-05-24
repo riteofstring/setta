@@ -65,11 +65,7 @@ import {
   useGpuFlowSurfaceResourceCleanup,
   useGpuFlowViewportRuntime,
 } from "./flowSurfaceRuntimeHooks";
-import {
-  EMPTY_GPU_NODE_LAYOUTS,
-  type GpuFlowCallbacks,
-  type GpuFlowProps,
-} from "./flowSurfaceTypes";
+import { EMPTY_GPU_NODE_LAYOUTS, type GpuFlowCallbacks, type GpuFlowProps } from "./flowSurfaceTypes";
 import { GpuFlowSurfaceView } from "./flowSurfaceView";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
@@ -979,9 +975,7 @@ export function GpuFlow({
       nodeClassName={nodeClassName}
       nodeDragPreviewSourceElement={nodeDragPreviewSourceElement}
       nodeResizeOverlaySourceElement={nodeResizeOverlaySourceElement}
-      retainedDomControlSnapshotSourceElement={
-        retainedDomControlSnapshotSourceElement
-      }
+      retainedDomControlSnapshotSourceElement={retainedDomControlSnapshotSourceElement}
       nodes={nodes ?? EMPTY_GPU_NODE_LAYOUTS}
       onNodeElementChange={handleNodeElementChange}
       onDomControlActivation={onDomControlActivation}

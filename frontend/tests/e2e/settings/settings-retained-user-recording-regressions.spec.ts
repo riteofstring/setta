@@ -14,6 +14,14 @@ import {
 } from "../gpuFlowPerformanceProbe";
 import { ensureAppReady } from "../helpers";
 import {
+  captureRetainedCompositorVisibleClipScreenshot,
+  MIN_RETAINED_CONTENT_NONBLANK_RATIO,
+  requireRetainedCompositorViewportSample,
+  SECTION_SIZING_SURFACE_ID,
+  setRetainedCompositorViewport,
+  waitForRetainedCompositorContentPublicationSettle,
+} from "./settings-retained-chrome-repro-parity-helpers";
+import {
   SETTINGS_PARAM_CONTENT_SUFFIX,
   centerRetainedCompositorSurface,
   dispatchRetainedCompositorWheelBurst,
@@ -37,11 +45,8 @@ import {
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".setta-gpu-flow__pane";
-const SECTION_SIZING_SURFACE_ID =
-  "settings-section__sectionSizingPolicy" + SETTINGS_PARAM_CONTENT_SUFFIX;
 const SHORTCUTS_SURFACE_ID =
   "settings-section__shortcuts" + SETTINGS_PARAM_CONTENT_SUFFIX;
-const MIN_RETAINED_CONTENT_NONBLANK_RATIO = 0.02;
 const MAX_CHROME_REPRO_PARITY_CHANGED_PIXEL_RATIO = 0.12;
 const MAX_CHROME_REPRO_PARITY_MEAN_DELTA = 18;
 const MAX_CHROME_REPRO_PARITY_P95_DELTA = 54;
@@ -552,20 +557,25 @@ async function captureChromeReproParitySample({
   const runtimeHealth = capturePageRuntimeHealth(page);
   await openAllSettingsForRetainedCompositor(page);
   await resetGpuFlowPerformanceProbe(page);
+  const sampleStartTimeMs = await page.evaluate(() => performance.now());
   if (viewport) {
     await setRetainedCompositorViewport(page, viewport);
   } else {
     await centerRetainedCompositorSurface(page, SECTION_SIZING_SURFACE_ID);
   }
   await waitForRetainedCompositorVisibleDomPublication(page);
+  await waitForRetainedCompositorContentPublicationSettle(
+    page,
+    sampleStartTimeMs,
+  );
   await waitForAnimationFrame(page);
   const target = await resolveRetainedCompositorTarget(
     page,
     SECTION_SIZING_SURFACE_ID,
   );
-  await waitForRetainedCompositorNonblankClip(page, target.clip);
-  const screenshot = await page.screenshot({
+  const screenshot = await captureRetainedCompositorVisibleClipScreenshot({
     clip: target.clip,
+    page,
     path: testInfo.outputPath(`chrome-repro-parity-${label}.png`),
   });
   const placeholderStats = await analyzeHorizontalPlaceholderBands(page, {
@@ -721,96 +731,6 @@ async function captureChromeReproParitySample({
   };
 }
 
-async function setRetainedCompositorViewport(
-  page: Page,
-  viewport: RetainedCompositorViewportSample,
-): Promise<void> {
-  await page.evaluate((nextViewport) => {
-    const setViewport = window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__;
-    if (!setViewport) {
-      throw new Error("Missing retained compositor viewport setter.");
-    }
-    setViewport(nextViewport);
-    window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("viewport");
-    window.settaGpuFlowZoom = nextViewport.zoom;
-  }, viewport);
-  await waitForAnimationFrame(page);
-  await waitForAnimationFrame(page);
-  await waitForRetainedCompositorViewportCommit(page, viewport);
-}
-
-async function waitForRetainedCompositorViewportCommit(
-  page: Page,
-  viewport: RetainedCompositorViewportSample,
-): Promise<void> {
-  await expect
-    .poll(() => readRetainedCompositorViewportCommitState(page, viewport), {
-      intervals: [50, 80, 120, 180],
-      timeout: 10_000,
-    })
-    .toMatchObject({
-      committedMatches: true,
-      runtimeMatches: true,
-    });
-}
-
-async function readRetainedCompositorViewportCommitState(
-  page: Page,
-  viewport: RetainedCompositorViewportSample,
-) {
-  return await page.evaluate((expected) => {
-    const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
-    const runtime = snapshot?.viewport.transform ?? null;
-    const committed = snapshot?.committedSurfaceFrame?.viewportSample ?? null;
-    return {
-      committed,
-      committedMatches: viewportMatches(committed, expected),
-      expected,
-      runtime,
-      runtimeMatches: viewportMatches(runtime, expected),
-    };
-
-    function viewportMatches(
-      actual:
-        | { readonly x: number; readonly y: number; readonly zoom: number }
-        | null
-        | undefined,
-      target: {
-        readonly x: number;
-        readonly y: number;
-        readonly zoom: number;
-      },
-    ): boolean {
-      return (
-        actual !== null &&
-        actual !== undefined &&
-        closeEnough(actual.x, target.x) &&
-        closeEnough(actual.y, target.y) &&
-        closeEnough(actual.zoom, target.zoom)
-      );
-    }
-
-    function closeEnough(actual: number, expectedValue: number): boolean {
-      return Math.abs(actual - expectedValue) <= 0.5;
-    }
-  }, viewport);
-}
-
-function requireRetainedCompositorViewportSample(
-  value: unknown,
-): RetainedCompositorViewportSample {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    typeof (value as { readonly x?: unknown }).x !== "number" ||
-    typeof (value as { readonly y?: unknown }).y !== "number" ||
-    typeof (value as { readonly zoom?: unknown }).zoom !== "number"
-  ) {
-    throw new Error("Missing retained compositor viewport sample.");
-  }
-  return value as RetainedCompositorViewportSample;
-}
-
 function summarizeChromeReproParitySample(
   sample: Awaited<ReturnType<typeof captureChromeReproParitySample>>,
 ) {
@@ -844,27 +764,6 @@ function summarizeChromeReproPerformanceSnapshot(
         durationMs: measure.durationMs,
       })),
   };
-}
-
-async function waitForRetainedCompositorNonblankClip(
-  page: Page,
-  clip: Rect,
-): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        const screenshot = await page.screenshot({ clip });
-        const placeholderStats = await analyzeHorizontalPlaceholderBands(page, {
-          screenshot,
-        });
-        return placeholderStats.nonblankRatio;
-      },
-      {
-        intervals: [50, 80, 120, 180],
-        timeout: 10_000,
-      },
-    )
-    .toBeGreaterThan(MIN_RETAINED_CONTENT_NONBLANK_RATIO);
 }
 
 async function waitForRetainedCompositorVisibleDomPublication(

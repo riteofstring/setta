@@ -248,9 +248,10 @@ function getGpuFlowVisiblePublicationDebtFrameReason({
     return "texture-upload";
   }
   if (
-    publicationDecision.lane === "content" &&
-    completion.debt.content &&
-    !completion.debt.motion
+    shouldRequestGpuFlowManualContentDebtFrame({
+      completion,
+      publicationDecision,
+    })
   ) {
     return "manual";
   }
@@ -267,6 +268,20 @@ function getGpuFlowVisiblePublicationDebtFrameReason({
     return "texture-upload";
   }
   return getGpuFlowVisiblePublicationDebtReason(completion.debt);
+}
+
+function shouldRequestGpuFlowManualContentDebtFrame({
+  completion,
+  publicationDecision,
+}: {
+  readonly completion: GpuFlowVisiblePublicationSchedulerFrameCompletion["completion"];
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}): boolean {
+  return (
+    publicationDecision.lane === "content" &&
+    completion.debt.content &&
+    !completion.debt.motion
+  );
 }
 
 function shouldRequestGpuFlowVisiblePublicationDebtFrameImmediately({

@@ -576,11 +576,46 @@ function shouldDeferGpuFlowResolutionUpdates({
   readonly viewportFrame: boolean;
   readonly viewportInteractionActive: boolean;
 }): boolean {
-  if (lane === "content" && schedulerState === "motion-active") {
+  if (
+    shouldRunGpuFlowResolutionUpdatesForContentCatchup({
+      lane,
+      rawReasons,
+      schedulerState,
+      viewportFrame,
+      viewportInteractionActive,
+    })
+  ) {
     return false;
   }
-  if (
-    lane === "content" &&
+  return shouldDeferGpuFlowResolutionUpdatesForFrame({
+    lane,
+    rawReasons,
+    schedulerState,
+    viewportFrame,
+    viewportInteractionActive,
+  });
+}
+
+function shouldRunGpuFlowResolutionUpdatesForContentCatchup({
+  lane,
+  rawReasons,
+  schedulerState,
+  viewportFrame,
+  viewportInteractionActive,
+}: {
+  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
+  readonly rawReasons: readonly GpuFrameReason[];
+  readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
+  readonly viewportFrame: boolean;
+  readonly viewportInteractionActive: boolean;
+}): boolean {
+  if (lane !== "content") {
+    return false;
+  }
+  if (schedulerState === "motion-active") {
+    return true;
+  }
+  return (
     schedulerState === "content-catchup" &&
     viewportFrame &&
     !viewportInteractionActive &&
@@ -588,9 +623,22 @@ function shouldDeferGpuFlowResolutionUpdates({
       lane,
       rawReasons,
     })
-  ) {
-    return false;
-  }
+  );
+}
+
+function shouldDeferGpuFlowResolutionUpdatesForFrame({
+  lane,
+  rawReasons,
+  schedulerState,
+  viewportFrame,
+  viewportInteractionActive,
+}: {
+  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
+  readonly rawReasons: readonly GpuFrameReason[];
+  readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
+  readonly viewportFrame: boolean;
+  readonly viewportInteractionActive: boolean;
+}): boolean {
   return (
     viewportInteractionActive ||
     viewportFrame ||
