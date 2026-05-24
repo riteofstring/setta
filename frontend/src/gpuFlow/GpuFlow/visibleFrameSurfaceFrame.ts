@@ -385,6 +385,7 @@ export function renderGpuFlowSurfaceFrame({
       coordinatorResult,
       frame: input.frameRef.current,
       frameReasons: event.reasons,
+      postFrameResourceGraphSnapshot: input.getVisibleFrameResourceGraphSnapshot(),
       schedulerCompletion,
     });
     frameMeasureDetail.publicationDebtFrameReason =
