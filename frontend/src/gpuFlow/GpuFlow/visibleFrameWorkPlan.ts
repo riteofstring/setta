@@ -115,6 +115,9 @@ export function shouldConsiderGpuFlowDeferredContentPreparation({
   readonly hasPreviousVisibleProjectionState: boolean;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
+  if (hasGpuFlowSafetyOrContinuityDebt(reducerDecision)) {
+    return false;
+  }
   return (
     !activeEditorActivationPending &&
     hasPreviousRetainedDisplayFrame &&
@@ -125,6 +128,15 @@ export function shouldConsiderGpuFlowDeferredContentPreparation({
     reducerDecision.lane !== "motion" &&
     !reducerDecision.rawReasons.includes("texture-upload") &&
     !hasGpuFlowCriticalContentFrameRequest(reducerDecision.rawReasons)
+  );
+}
+
+function hasGpuFlowSafetyOrContinuityDebt(
+  reducerDecision: GpuFlowVisibleFrameReducerDecision,
+): boolean {
+  return (
+    reducerDecision.classifiedDebt?.safety.active === true ||
+    reducerDecision.classifiedDebt?.continuity.active === true
   );
 }
 

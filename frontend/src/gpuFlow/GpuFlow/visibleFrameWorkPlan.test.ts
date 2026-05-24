@@ -287,6 +287,57 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     ).toBe(false);
   });
 
+  it("does not defer safety or continuity repair preparation", () => {
+    const deferredRepairInput = {
+      deferResolutionUpdates: true,
+      hasPreviousRetainedDisplayFrame: true,
+      hasPreviousVisibleProjectionState: true,
+    } as const;
+
+    expect(
+      shouldConsiderGpuFlowDeferredContentPreparation({
+        ...deferredRepairInput,
+        reducerDecision: reducerDecision({
+          classifiedDebt: {
+            continuity: { active: true, ageFrames: 2, ageMs: 32 },
+            quality: { active: false, ageFrames: 0, ageMs: 0 },
+            safety: { active: false, ageFrames: 0, ageMs: 0 },
+          },
+          lane: "content",
+          reducerState: "motion-active",
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPreparation({
+        ...deferredRepairInput,
+        reducerDecision: reducerDecision({
+          classifiedDebt: {
+            continuity: { active: false, ageFrames: 0, ageMs: 0 },
+            quality: { active: false, ageFrames: 0, ageMs: 0 },
+            safety: { active: true, ageFrames: 1, ageMs: 16 },
+          },
+          lane: "content",
+          reducerState: "motion-active",
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPreparation({
+        ...deferredRepairInput,
+        reducerDecision: reducerDecision({
+          classifiedDebt: {
+            continuity: { active: false, ageFrames: 0, ageMs: 0 },
+            quality: { active: true, ageFrames: 5, ageMs: 80 },
+            safety: { active: false, ageFrames: 0, ageMs: 0 },
+          },
+          lane: "maintenance",
+          reducerState: "motion-active",
+        }),
+      }),
+    ).toBe(true);
+  });
+
   it("keeps prepare-work lane gates out of surface frame presentation", () => {
     const surfaceSource = readFileSync(
       SURFACE_FRAME_PRESENTATION_MODULE_PATH,
@@ -320,15 +371,20 @@ describe("GPU Flow visible frame coordinator work plans", () => {
 });
 
 function reducerDecision({
+  classifiedDebt,
   lane,
   rawReasons = [],
   reducerState = "idle",
 }: {
+  readonly classifiedDebt?:
+    | GpuFlowVisibleFrameReducerDecision["classifiedDebt"]
+    | undefined;
   readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly rawReasons?: readonly GpuFrameReason[] | undefined;
   readonly reducerState?: GpuFlowVisibleFrameReducerDecision["reducerState"];
 }): GpuFlowVisibleFrameReducerDecision {
   return {
+    classifiedDebt,
     debt: {
       content: false,
       maintenance: false,
