@@ -4,7 +4,7 @@ import {
   shouldDeferGpuFlowBrowserVisualRepairForBudget,
   type GpuFlowVisibleFrameBudgetBroker,
 } from "./visibleFrameBudgetBroker";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
+import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 
 export type GpuFlowMotionProjectionWorkPlan =
   | {
@@ -29,7 +29,7 @@ export type GpuFlowContentPublicationWorkPlan =
 export function createGpuFlowMotionProjectionWorkPlan({
   publicationDecision,
 }: {
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowMotionProjectionWorkPlan {
   if (publicationDecision.lane !== "motion") {
     return Object.freeze({
@@ -47,7 +47,7 @@ export function createGpuFlowContentPublicationWorkPlan({
   renderedProjectionOnlyFrame,
 }: {
   readonly blockedProjectionOnlyFrame: boolean;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly renderedProjectionOnlyFrame: boolean;
 }): GpuFlowContentPublicationWorkPlan {
   if (
@@ -74,7 +74,7 @@ export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
 }: {
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly deferResolutionUpdates: boolean;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
   return shouldDeferGpuFlowBrowserVisualRepairForBudget({
     budgetBroker,
@@ -94,7 +94,7 @@ export function shouldConsiderGpuFlowDeferredContentPublication({
   readonly deferResolutionUpdates: boolean;
   readonly hasPreviousRetainedDisplayFrame: boolean;
   readonly hasPreviousVisibleProjectionState: boolean;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
   return (
     !activeEditorActivationPending &&

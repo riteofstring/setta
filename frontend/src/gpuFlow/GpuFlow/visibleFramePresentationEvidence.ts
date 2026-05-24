@@ -2,7 +2,7 @@ import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuFlowNodeLayerFrameStatePublication } from "./flowFrameLifecycle";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
+import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 
 export type GpuFlowVisiblePublicationCanvasPresentationEvidence = {
   readonly drawnNodeIds: readonly string[];
@@ -151,7 +151,7 @@ export function createGpuFlowVisiblePublicationPresentationBlockedReasons({
   visibleProjectionState,
 }: {
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): readonly GpuFlowVisibleFrameBlockedPublicationCandidate["blockedReasons"][number][] {
   const committedFrame = visibleProjectionState.committedFrame;
@@ -227,7 +227,7 @@ function createGpuFlowVisiblePublicationDomTransformPresentationBlockedReasons({
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly domTransformEvidence: GpuFlowVisiblePublicationDomTransformPresentationEvidence | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): readonly GpuFlowVisiblePublicationPresentationBlockedReason[] {
   const reasons: GpuFlowVisiblePublicationPresentationBlockedReason[] = [];
@@ -273,7 +273,7 @@ function createGpuFlowVisiblePublicationTextureEvictionPresentationBlockedReason
   visibleProjectionState,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly textureEvictionEvidence: GpuFlowVisiblePublicationTextureEvictionPresentationEvidence | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): readonly GpuFlowVisiblePublicationPresentationBlockedReason[] {
@@ -333,7 +333,7 @@ function createGpuFlowVisiblePublicationCanvasPresentationBlockedReasons({
 }: {
   readonly canvasEvidence: GpuFlowVisiblePublicationCanvasPresentationEvidence | null;
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): readonly GpuFlowVisiblePublicationPresentationBlockedReason[] {
   const reasons: GpuFlowVisiblePublicationPresentationBlockedReason[] = [];

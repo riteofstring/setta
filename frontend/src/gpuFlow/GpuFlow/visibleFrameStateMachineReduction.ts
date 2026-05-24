@@ -24,10 +24,10 @@ import type {
   GpuFlowProjectionFrameRenderPlan,
   GpuFlowProjectionFrameTransaction,
 } from "./visibleFrameProjectionPlan";
-import { createGpuFlowVisiblePublicationDecisionForLane } from "./visibleFramePublicationDecision";
+import { createGpuFlowVisibleFrameReducerDecisionForLane } from "./visibleFrameReducerDecision";
 import type {
   GpuFlowVisibleFrameRequestFacts,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import type { GpuFlowVisibleFramePublicationMotionCandidate } from "./visibleFrameTransactionProofs";
 
@@ -70,13 +70,13 @@ export type GpuFlowVisibleFrameLaneReductionFacts = {
   readonly viewportInteractionActive: boolean;
 };
 
-export function reduceGpuFlowVisibleFramePublicationDecision({
+export function reduceGpuFlowVisibleFrameReducerDecision({
   frameRequest,
   reducerPolicy,
 }: {
   readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
   readonly reducerPolicy: GpuFlowVisibleFrameStarvationPolicy;
-}): GpuFlowVisiblePublicationDecision {
+}): GpuFlowVisibleFrameReducerDecision {
   const lane = reduceGpuFlowVisibleFramePublicationLane({
     contentDebt: frameRequest.contentDebt,
     contentRetryDeferred: frameRequest.contentRetryDeferred,
@@ -90,7 +90,7 @@ export function reduceGpuFlowVisibleFramePublicationDecision({
     schedulerState: frameRequest.schedulerState,
     viewportInteractionActive: frameRequest.viewportInteractionActive,
   });
-  return createGpuFlowVisiblePublicationDecisionForLane({
+  return createGpuFlowVisibleFrameReducerDecisionForLane({
     frameRequest,
     lane,
   });

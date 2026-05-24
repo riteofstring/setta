@@ -8,7 +8,7 @@ import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
 import {
   createGpuFlowVisibleFrameReducerRuntime,
-  type GpuFlowVisiblePublicationDecision,
+  type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
@@ -1058,7 +1058,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
 
 function completeBlockedFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
   blockedReasons: GpuFlowBlockedPublicationToken["blockedReasons"] = [
     { actorId: null, family: "visible-transaction", reason: "blocked" },
   ],
@@ -1075,7 +1075,7 @@ function completeBlockedFrame(
 
 function completeCommittedFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
 ) {
   return reducerRuntime.completeFrame(decision, {
     debtProof: createDebtProofForSelectedLane(decision),
@@ -1089,7 +1089,7 @@ function completeCommittedFrame(
 
 function completeCompatiblePreviousCommittedFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
 ) {
   return reducerRuntime.completeFrame(decision, {
     debtProof: {
@@ -1107,7 +1107,7 @@ function completeCompatiblePreviousCommittedFrame(
 
 function completeHeldFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
 ) {
   return reducerRuntime.recordUnpresentedFrame(decision, {
     kind: "hold-previous",
@@ -1142,7 +1142,7 @@ function liveSample(
 }
 
 function createDebtProofForSelectedLane(
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
 ) {
   return {
     content: decision.lane === "content",
@@ -1152,7 +1152,7 @@ function createDebtProofForSelectedLane(
 }
 
 function committedFrameForReducerToken(
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
 ): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = decision.sample.id;
   const coherence = {

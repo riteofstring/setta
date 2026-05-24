@@ -1,7 +1,7 @@
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type {
   GpuFlowVisiblePublicationCompletionOutcome,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 
 type GpuFlowVisiblePublicationOutcomeRecord = {
@@ -21,7 +21,7 @@ export function assertGpuFlowSingleVisiblePublicationOutcome({
   surface,
 }: {
   readonly outcome: GpuFlowVisiblePublicationCompletionOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly surface: GpuSurfaceHandle | null;
 }): void {
   if (!surface) {

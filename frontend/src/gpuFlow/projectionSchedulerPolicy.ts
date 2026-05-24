@@ -20,7 +20,7 @@ export const GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER = 4;
 export const GPU_FLOW_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER = 2;
 export const GPU_FLOW_RETAINED_SCROLL_CONTENT_SETTLE_DELAY_MULTIPLIER = 2;
 
-type GpuFlowVisiblePublicationDecisionLike = {
+type GpuFlowVisibleFrameReducerDecisionLike = {
   readonly lane: GpuFlowProjectionLane | "idle";
   readonly rawReasons: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
@@ -179,7 +179,7 @@ export function isGpuFlowRetainedScrollSampleInteractionActive(
 }
 
 export function isGpuFlowRetainedScrollPublicationDecision(
-  decision: GpuFlowVisiblePublicationDecisionLike,
+  decision: GpuFlowVisibleFrameReducerDecisionLike,
 ): boolean {
   return (
     decision.rawReasons.includes("retained-scroll") ||
@@ -567,7 +567,7 @@ export function shouldSelectGpuFlowMaintenancePriorityPublicationLane({
 }
 
 export function shouldThrottleGpuFlowContentRetryAfterUnpresentedFrame(
-  decision: GpuFlowVisiblePublicationDecisionLike,
+  decision: GpuFlowVisibleFrameReducerDecisionLike,
   outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
 ): boolean {
   return (
@@ -595,7 +595,7 @@ export function isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(
 }
 
 export function shouldThrottleGpuFlowMotionRetryAfterUnpresentedFrame(
-  decision: GpuFlowVisiblePublicationDecisionLike,
+  decision: GpuFlowVisibleFrameReducerDecisionLike,
   outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
 ): boolean {
   return (
@@ -607,7 +607,7 @@ export function shouldThrottleGpuFlowMotionRetryAfterUnpresentedFrame(
 }
 
 export function getGpuFlowMotionRetryDelayMultiplierAfterUnpresentedFrame(
-  decision: GpuFlowVisiblePublicationDecisionLike,
+  decision: GpuFlowVisibleFrameReducerDecisionLike,
   outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
 ): number | null {
   if (outcome.kind !== "blocked") {
@@ -630,7 +630,7 @@ export function getGpuFlowMotionRetryDelayMultiplierAfterUnpresentedFrame(
 }
 
 export function shouldYieldGpuFlowCriticalContentDebtForCoverage(
-  decision: GpuFlowVisiblePublicationDecisionLike,
+  decision: GpuFlowVisibleFrameReducerDecisionLike,
   outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
 ): boolean {
   return (

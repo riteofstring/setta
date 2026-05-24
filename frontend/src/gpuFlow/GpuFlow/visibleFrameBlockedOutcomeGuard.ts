@@ -7,7 +7,7 @@ import {
 import {
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
   type GpuFlowVisiblePublicationCompletionOutcome,
-  type GpuFlowVisiblePublicationDecision,
+  type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 
 type GpuFlowBlockedPublicationDebt = {
@@ -27,7 +27,7 @@ export function recordGpuFlowBlockedPublicationGuard({
   surface,
 }: {
   readonly outcome: GpuFlowVisiblePublicationCompletionOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly surface: GpuSurfaceHandle | null;
 }): void {
   assertGpuFlowBlockedPublicationGuardOutcomeToken({
@@ -83,7 +83,7 @@ function assertGpuFlowBlockedPublicationGuardOutcomeToken({
   publicationDecision,
 }: {
   readonly outcome: GpuFlowVisiblePublicationCompletionOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): void {
   const projectionSampleId = publicationDecision.sample.id;
   switch (outcome.kind) {

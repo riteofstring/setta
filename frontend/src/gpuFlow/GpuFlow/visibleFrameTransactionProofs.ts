@@ -21,7 +21,7 @@ import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationP
 import { createGpuFlowPresentationAuthorityProof } from "./visibleFramePresentationProofs";
 import { selectGpuFlowMotionProjectionFrameBlockedPublicationReason } from "./visibleFrameProjectionWorkProof";
 import type { GpuFlowMotionProjectionFrameWorkReport } from "./visibleFrameProjectionWorkTypes";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
+import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
   createGpuFlowVisiblePublicationResourceBlockedReasons,
@@ -58,7 +58,7 @@ export type GpuFlowVisiblePublicationPresentableFrameProof = ReturnType<
 export type GpuFlowVisiblePublicationPresentableFrameProofFactory = (input: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly projectionTransactionId: GpuFlowVisibleProjectionState["transaction"]["id"];
 }) => GpuFlowVisiblePublicationPresentableFrameProof;
@@ -184,7 +184,7 @@ export type GpuFlowVisibleFramePublicationTransactionProofFactory = <
     MotionProjectionFrame
   > & {
     readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-    readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+    readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   },
 ) => GpuFlowVisibleFramePublicationTransactionProof;
 
@@ -214,7 +214,7 @@ function createGpuFlowVisiblePublicationPresentableFrameProof({
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly projectionTransactionId: GpuFlowVisibleProjectionState["transaction"]["id"];
 }) {
@@ -422,7 +422,7 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
   MotionProjectionFrame
 > & {
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowVisibleFramePublicationTransactionProof {
   const candidateVisibleProjectionState =
     resolveGpuFlowVisibleFramePublicationVisibleProjectionState({
@@ -610,7 +610,7 @@ function createGpuFlowVisibleFramePublicationBlockingProofs({
   readonly motionProjectionFrame: GpuFlowVisibleFramePublicationMotionCandidate;
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): readonly GpuFlowVisiblePublicationBlockedProof[] {
   return Object.freeze(
     [
@@ -733,7 +733,7 @@ function createGpuFlowVisibleFramePublicationPresentationBlockedProof({
 }: {
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowVisiblePublicationBlockedProof | null {
   if (
@@ -795,7 +795,7 @@ function createGpuFlowVisibleFramePublicationTransactionPresentableFrameProof({
   visibleProjectionState,
 }: {
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowVisiblePublicationPresentableFrameProof | null {
   if (

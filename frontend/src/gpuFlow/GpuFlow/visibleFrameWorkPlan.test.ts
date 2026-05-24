@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type {
   GpuFlowLiveProjectionSample,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "../projectionRuntime";
 import {
   createGpuFlowContentPublicationWorkPlan,
@@ -309,10 +309,10 @@ function publicationDecision({
   rawReasons = [],
   schedulerState = "idle",
 }: {
-  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
+  readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly rawReasons?: readonly GpuFrameReason[] | undefined;
-  readonly schedulerState?: GpuFlowVisiblePublicationDecision["schedulerState"];
-}): GpuFlowVisiblePublicationDecision {
+  readonly schedulerState?: GpuFlowVisibleFrameReducerDecision["schedulerState"];
+}): GpuFlowVisibleFrameReducerDecision {
   return {
     debt: {
       content: false,

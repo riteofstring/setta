@@ -4,7 +4,7 @@ import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
 import {
   createGpuFlowVisibleFrameReducerRuntime,
-  type GpuFlowVisiblePublicationDecision,
+  type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFrameTestUtils";
 
@@ -48,7 +48,7 @@ describe("GPU Flow cold-start maintenance retry", () => {
 
 function completeBlockedFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
   blockedReasons: GpuFlowBlockedPublicationToken["blockedReasons"],
 ) {
   return reducerRuntime.recordUnpresentedFrame(decision, {

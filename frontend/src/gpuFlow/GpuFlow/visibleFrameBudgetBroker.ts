@@ -5,7 +5,7 @@ import type {
   GpuFlowVisibleFrameResourceStateKind,
   GpuFlowVisibleFrameResourceStateSnapshot,
 } from "./visibleFrameResourceGraph";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
+import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 
 export type GpuFlowVisibleFrameBudgetPriority =
   GpuFlowVisibleFrameResourcePriority;
@@ -64,7 +64,7 @@ export type GpuFlowVisibleFrameBudgetBroker = {
   readonly selectFrameBudget: (input: {
     readonly deferResolutionUpdates: boolean;
     readonly publicationDecision: Pick<
-      GpuFlowVisiblePublicationDecision,
+      GpuFlowVisibleFrameReducerDecision,
       "debt" | "lane" | "schedulerState"
     >;
     readonly requestedDebt?: readonly GpuFlowVisibleFrameBudgetDebtRequest[];
@@ -183,7 +183,7 @@ export function createGpuFlowVisibleFrameBudgetBrokerDecision({
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly deferResolutionUpdates: boolean;
   readonly publicationDecision: Pick<
-    GpuFlowVisiblePublicationDecision,
+    GpuFlowVisibleFrameReducerDecision,
     "debt" | "lane" | "schedulerState"
   >;
   readonly resourceGraphSnapshot?:
@@ -271,7 +271,7 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
 }: {
   readonly deferResolutionUpdates: boolean;
   readonly publicationDecision: Pick<
-    GpuFlowVisiblePublicationDecision,
+    GpuFlowVisibleFrameReducerDecision,
     "debt" | "lane" | "schedulerState"
   >;
   readonly resourceGraphSnapshot?:

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type {
   GpuFlowLiveProjectionSample,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "../projectionRuntime";
 import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutcomeGuard";
 import {
@@ -141,7 +141,7 @@ function holdOutcome(
 function publicationDecision(
   sampleId: number,
   timestamp: number,
-): GpuFlowVisiblePublicationDecision {
+): GpuFlowVisibleFrameReducerDecision {
   return {
     debt: {
       content: false,

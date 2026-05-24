@@ -25,7 +25,7 @@ import {
   getGpuFlowVisiblePublicationDebtReason,
   hasGpuFlowVisiblePublicationDebt,
   type GpuFlowVisibleFrameReducerPolicy,
-  type GpuFlowVisiblePublicationDecision,
+  type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import { getGpuFlowVisibleFrameHeldPreviousBudgetStatus } from "./visibleFrameStateMachine";
 import type {
@@ -61,7 +61,7 @@ export {
 
 type GpuFlowVisibleFramePublicationReducerRuntime = {
   readonly completeFrame: (
-    publicationDecision: GpuFlowVisiblePublicationDecision,
+    publicationDecision: GpuFlowVisibleFrameReducerDecision,
     outcome: Extract<
       GpuFlowVisiblePublicationOutcome,
       { readonly kind: "present" }
@@ -69,7 +69,7 @@ type GpuFlowVisibleFramePublicationReducerRuntime = {
   ) => GpuFlowVisiblePublicationReducerFrameCompletion["completion"];
   readonly getKnobs: () => GpuFlowVisibleFrameReducerPolicy;
   readonly recordUnpresentedFrame: (
-    publicationDecision: GpuFlowVisiblePublicationDecision,
+    publicationDecision: GpuFlowVisibleFrameReducerDecision,
     outcome: Extract<
       GpuFlowVisiblePublicationOutcome,
       { readonly kind: "blocked" | "hold-previous" }
@@ -89,7 +89,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
 }: {
   readonly forceImmediatePublicationDebtFrame: boolean;
   readonly followUpFrameReason: GpuFrameReason | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerRuntime: GpuFlowVisibleFramePublicationReducerRuntime;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
@@ -144,7 +144,7 @@ function createGpuFlowVisiblePublicationReducerFrameCompleter({
 }: {
   readonly forceImmediatePublicationDebtFrame: boolean;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
   readonly reducerRuntime: GpuFlowVisibleFramePublicationReducerRuntime;
 }): () => GpuFlowVisiblePublicationReducerFrameCompletion {
@@ -207,7 +207,7 @@ function createGpuFlowVisiblePublicationDebtFrameRequest({
   readonly completion: GpuFlowVisiblePublicationReducerFrameCompletion["completion"];
   readonly forceImmediatePublicationDebtFrame: boolean;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
 }): GpuFlowVisiblePublicationDebtFrameRequest | null {
   if (!hasGpuFlowVisiblePublicationDebt(completion.debt)) {
@@ -240,7 +240,7 @@ function getGpuFlowVisiblePublicationDebtFrameReason({
 }: {
   readonly completion: GpuFlowVisiblePublicationReducerFrameCompletion["completion"];
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFrameReason {
   if (isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(outcome)) {
     return "texture-upload";
@@ -273,7 +273,7 @@ function shouldRequestGpuFlowManualContentDebtFrame({
   publicationDecision,
 }: {
   readonly completion: GpuFlowVisiblePublicationReducerFrameCompletion["completion"];
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
   return (
     publicationDecision.lane === "content" &&
@@ -287,7 +287,7 @@ function shouldRequestGpuFlowVisiblePublicationDebtFrameImmediately({
   publicationDecision,
 }: {
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
   return (
     isGpuFlowRetainedProjectionBlockedOutcome(outcome) &&
@@ -334,7 +334,7 @@ function getDelayedGpuFlowVisiblePublicationDebtRequestMs({
   publicationDecision,
   reducerMotionSettleWindowMs,
 }: {
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly reducerMotionSettleWindowMs: number;
 }): number | null {
   if (publicationDecision.schedulerState === "motion-active") {
@@ -358,7 +358,7 @@ function createGpuFlowVisiblePublicationCompletionHeldPreviousState({
 }: {
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly renderedVisibleFrame: boolean;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
 }): GpuFlowVisibleProjectionState | null {
@@ -398,7 +398,7 @@ function resolveGpuFlowHeldPreviousPublicationLane({
   publicationDecision,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowProjectionLane {
   if (publicationDecision.lane !== "idle") {
     return publicationDecision.lane;
@@ -411,7 +411,7 @@ function createGpuFlowVisibleFrameBlockedPublicationTokenForProof({
   publicationDecision,
 }: {
   readonly proof: GpuFlowVisiblePublicationBlockedProof | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowBlockedPublicationToken | null {
   if (!proof) {
     return null;
@@ -431,7 +431,7 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
   transactionProof,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
@@ -492,7 +492,7 @@ function createGpuFlowVisiblePublicationCompletionHeldStateMachineOutcome({
   transactionProof,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
@@ -524,7 +524,7 @@ function createGpuFlowVisiblePublicationCompletionAbortedStateMachineOutcome({
   transactionProof,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
@@ -577,7 +577,7 @@ function createGpuFlowVisiblePublicationCompletionPresentOutcome({
   publicationDecision,
   transactionProof,
 }: {
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 }): Extract<GpuFlowVisiblePublicationOutcome, { readonly kind: "present" }> {
   if (!transactionProof.renderedVisibleFrame) {
@@ -674,7 +674,7 @@ function createGpuFlowVisiblePublicationCompletionHeldPreviousOutcome({
   visibleProjectionState,
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): Extract<
   GpuFlowVisiblePublicationOutcome,
@@ -755,7 +755,7 @@ function createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
 }: {
   readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
 }): Extract<
   GpuFlowVisiblePublicationOutcome,

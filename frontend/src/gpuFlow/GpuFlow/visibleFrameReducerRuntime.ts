@@ -49,7 +49,7 @@ import {
 import {
   createGpuFlowVisibleFrameStarvationPolicy,
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
-  reduceGpuFlowVisibleFramePublicationDecision,
+  reduceGpuFlowVisibleFrameReducerDecision,
   type GpuFlowVisibleFrameLaneReductionFacts,
   type GpuFlowVisibleFrameStarvationPolicy,
 } from "./visibleFrameStateMachine";
@@ -59,7 +59,7 @@ export type GpuFlowVisibleFrameReducerPolicy =
 export const DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY: GpuFlowVisibleFrameReducerPolicy =
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY;
 
-export type GpuFlowVisiblePublicationDecision = {
+export type GpuFlowVisibleFrameReducerDecision = {
   readonly debt: GpuFlowVisiblePublicationDebt;
   readonly lane: GpuFlowProjectionLane | "idle";
   readonly rawReasons: readonly GpuFrameReason[];
@@ -109,12 +109,12 @@ export type GpuFlowVisiblePublicationCompletionOutcome =
 
 export type GpuFlowVisibleFrameReducerRuntime = {
   completeFrame(
-    decision: GpuFlowVisiblePublicationDecision,
+    decision: GpuFlowVisibleFrameReducerDecision,
     outcome: GpuFlowVisiblePublicationPresentCompletionOutcome,
   ): GpuFlowVisiblePublicationCompletion;
   getKnobs(): GpuFlowVisibleFrameReducerPolicy;
   recordUnpresentedFrame(
-    decision: GpuFlowVisiblePublicationDecision,
+    decision: GpuFlowVisibleFrameReducerDecision,
     outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
   ): GpuFlowVisiblePublicationCompletion;
   selectFrameRequest(input: {
@@ -130,7 +130,7 @@ export type GpuFlowVisibleFrameReducerRuntime = {
     readonly sample: GpuFlowLiveProjectionSample;
     readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
-  }): GpuFlowVisiblePublicationDecision;
+  }): GpuFlowVisibleFrameReducerDecision;
 };
 
 export function createGpuFlowVisibleFrameReducerRuntime({
@@ -569,7 +569,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
   }
 
   function assertGpuFlowVisiblePublicationUnpresentedTokenMatchesDecision(
-    decision: GpuFlowVisiblePublicationDecision,
+    decision: GpuFlowVisibleFrameReducerDecision,
     outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
   ): void {
     if (outcome.kind === "hold-previous") {
@@ -586,7 +586,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
   }
 
   function recordGpuFlowContentRetryAfterUnpresentedFrame(
-    decision: GpuFlowVisiblePublicationDecision,
+    decision: GpuFlowVisibleFrameReducerDecision,
     outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
   ): void {
     const browserTextSnapshotPendingBlocked =
@@ -639,7 +639,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
   }
 
   function recordGpuFlowMotionRetryAfterUnpresentedFrame(
-    decision: GpuFlowVisiblePublicationDecision,
+    decision: GpuFlowVisibleFrameReducerDecision,
     outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
   ): void {
     const motionRetryDelayMultiplier =
@@ -961,7 +961,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       timestamp,
       viewportInteractionActive,
     }) {
-      return reduceGpuFlowVisibleFramePublicationDecision({
+      return reduceGpuFlowVisibleFrameReducerDecision({
         frameRequest: selectGpuFlowVisibleFrameRequestFacts({
           hasPresentedContentFrame,
           rawReasons,
@@ -980,4 +980,4 @@ export {
   hasGpuFlowVisiblePublicationDebt,
   shouldDeferGpuFlowMaintenanceContentCatchup,
 } from "./visibleFramePublicationDebt";
-export { reduceGpuFlowVisibleFramePublicationDecision } from "./visibleFrameStateMachine";
+export { reduceGpuFlowVisibleFrameReducerDecision } from "./visibleFrameStateMachine";

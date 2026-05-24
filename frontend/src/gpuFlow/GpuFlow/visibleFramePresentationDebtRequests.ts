@@ -12,7 +12,7 @@ import type {
 } from "./visibleFrameCoordinator";
 import {
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
-  type GpuFlowVisiblePublicationDecision,
+  type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import type {
   GpuFlowSurfacePublicationPreparedFrame,
@@ -60,7 +60,7 @@ export function createGpuFlowSurfacePublicationDebtFrameRequest({
   readonly activeEditorActivationPending?: boolean | undefined;
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowVisiblePublicationDebtFrameRequest | null {
   if (debtFrameRequest === null) {
     return null;
@@ -98,7 +98,7 @@ export function requestGpuFlowSurfacePublicationDebtFrame({
   readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
 }): void {
   recordGpuFlowSurfacePublicationDebtFrameRequestDiagnostic({
@@ -137,7 +137,7 @@ function recordGpuFlowSurfacePublicationDebtFrameRequestDiagnostic({
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): void {
   const view = globalThis as typeof globalThis & {
     __SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__?: unknown[];
@@ -164,7 +164,7 @@ function shouldDelayGpuFlowSurfacePublicationDebtFrame({
 }: {
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
   if (publicationDecision.schedulerState === "maintenance-deferred") {
     return true;
@@ -186,7 +186,7 @@ function shouldDelayGpuFlowSurfacePublicationDebtFrame({
 
 function isGpuFlowDelayedMotionDebtFrame(
   debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest,
-  publicationDecision: GpuFlowVisiblePublicationDecision,
+  publicationDecision: GpuFlowVisibleFrameReducerDecision,
 ): boolean {
   return (
     publicationDecision.schedulerState === "motion-active" &&
@@ -199,7 +199,7 @@ function shouldDelayGpuFlowContentDebtFrame({
   publicationDecision,
 }: {
   readonly completion: GpuFlowVisiblePublicationCompletion;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
   if (publicationDecision.lane !== "content") {
     return false;
@@ -220,7 +220,7 @@ function scheduleGpuFlowContentRetryAfterBrowserVisualTextureUpload({
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
 }): void {
   if (
@@ -251,7 +251,7 @@ function shouldRetryGpuFlowContentAfterBrowserVisualTextureUpload({
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
   return (
     debtFrameRequest.frameReason === "texture-upload" &&

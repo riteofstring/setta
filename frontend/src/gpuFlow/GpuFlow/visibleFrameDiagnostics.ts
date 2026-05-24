@@ -22,7 +22,7 @@ import {
 } from "./visibleFramePresentationProofs";
 import {
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
-  type GpuFlowVisiblePublicationDecision,
+  type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 
 type GpuFlowBrowserVisualStarvationOutcome = "blocked" | "held-previous";
@@ -51,11 +51,11 @@ type GpuFlowBlockedVisiblePublicationEvent = {
   readonly candidateFrameId: number | null;
   readonly frozenFrame: GpuFlowBlockedFrozenFrame;
   readonly frozenFrameId: GpuFlowBlockedPublicationToken["frozenFrameId"];
-  readonly publicationLane: GpuFlowVisiblePublicationDecision["lane"];
+  readonly publicationLane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly projectionSampleId: number;
   readonly remainingDebt: GpuFlowVisiblePublicationCompletion["debt"];
   readonly reducerOutcome: GpuFlowVisiblePublicationCompletion["outcome"];
-  readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
+  readonly schedulerState: GpuFlowVisibleFrameReducerDecision["schedulerState"];
   readonly stateMachineOutcome: {
     readonly decidingProof: unknown;
     readonly kind: string;
@@ -334,7 +334,7 @@ export function recordGpuFlowBlockedVisiblePublication({
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
   readonly publicationCompletion: GpuFlowVisiblePublicationCompletion;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly stateMachineOutcome?:
     | {

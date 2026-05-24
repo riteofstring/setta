@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createGpuFlowSurfacePublicationDebtFrameRequest } from "./visibleFramePresentationDebtRequests";
 import type {
   GpuFlowVisiblePublicationCompletion,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 
 describe("GPU Flow visible-frame presentation boundary debt requests", () => {
@@ -52,7 +52,7 @@ function completionWithContentDebt(): GpuFlowVisiblePublicationCompletion {
   };
 }
 
-function contentDecision(): GpuFlowVisiblePublicationDecision {
+function contentDecision(): GpuFlowVisibleFrameReducerDecision {
   return {
     debt: {
       content: true,
@@ -63,5 +63,5 @@ function contentDecision(): GpuFlowVisiblePublicationDecision {
     rawReasons: ["manual"],
     sample: { id: 1, timestamp: 1 },
     schedulerState: "content-catchup",
-  } as unknown as GpuFlowVisiblePublicationDecision;
+  } as unknown as GpuFlowVisibleFrameReducerDecision;
 }

@@ -26,7 +26,7 @@ import {
   createGpuFlowVisibleProjectionState,
   getGpuFlowVisiblePublicationDebtReason,
   setProjectionDebugAttributes,
-  type GpuFlowVisiblePublicationDecision,
+  type GpuFlowVisibleFrameReducerDecision,
 } from "./projectionRuntime";
 import { createGpuRetainedContentRuntimeState } from "./retainedContentRuntimeState";
 
@@ -1038,7 +1038,7 @@ describe("GPU Flow projection runtime", () => {
 
 function completeCommittedFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
   debtProof = createDebtProofForSelectedLane(decision),
 ) {
   return reducerRuntime.completeFrame(decision, {
@@ -1053,7 +1053,7 @@ function completeCommittedFrame(
 
 function completeHeldFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
 ) {
   return reducerRuntime.recordUnpresentedFrame(decision, {
     kind: "hold-previous",
@@ -1068,7 +1068,7 @@ function completeHeldFrame(
 
 function completeBlockedFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
   blockedReasons: GpuFlowBlockedPublicationToken["blockedReasons"] = [
     { actorId: null, family: "visible-transaction", reason: "blocked" },
   ],
@@ -1084,7 +1084,7 @@ function completeBlockedFrame(
 }
 
 function createDebtProofForSelectedLane(
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
 ) {
   return {
     content: decision.lane === "content",
@@ -1094,7 +1094,7 @@ function createDebtProofForSelectedLane(
 }
 
 function committedFrameForReducerToken(
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
 ): GpuFlowCommittedSurfaceFrame {
   return committedFrameForDebugToken(decision.sample.id);
 }

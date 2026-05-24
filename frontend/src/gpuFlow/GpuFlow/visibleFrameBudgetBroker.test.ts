@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowVisiblePublicationDecision } from "../projectionRuntime";
+import type { GpuFlowVisibleFrameReducerDecision } from "../projectionRuntime";
 import {
   createGpuFlowVisibleFrameBudgetBroker,
   createGpuFlowVisibleFrameBudgetBrokerDecision,
@@ -682,10 +682,10 @@ function publicationDecision({
   lane,
   schedulerState,
 }: {
-  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
-  readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
+  readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
+  readonly schedulerState: GpuFlowVisibleFrameReducerDecision["schedulerState"];
 }): Pick<
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
   "debt" | "lane" | "schedulerState"
 > {
   return {

@@ -8,7 +8,7 @@ import {
   createGpuFlowVisibleFrameActorProofsForManifest,
   createGpuFlowVisibleFramePresentedActorCoverageForManifest,
 } from "./visibleFrameActorManifest";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
+import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 import type {
   GpuFlowVisibleFramePreparedFrame,
   GpuFlowVisibleFrameStateMachineSample,
@@ -36,7 +36,7 @@ export function createGpuFlowVisibleFramePublicationStateMachinePreparedFrame({
   readonly candidateContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowVisibleFramePreparedFrame {
   const manifestFrame =
     resolveGpuFlowVisibleFramePublicationStateMachineManifestFrame({
@@ -80,7 +80,7 @@ function createGpuFlowVisibleFramePublicationStateMachineCandidate({
   readonly manifestFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }) {
   const contentFrameId =
     createGpuFlowVisibleFramePublicationStateMachineContentFrameId({
@@ -160,7 +160,7 @@ function createGpuFlowVisibleFramePublicationStateMachineContentFrameId({
   readonly candidateContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowContentFrameId {
   if (candidateVisibleProjectionState !== null) {
     return createGpuFlowContentFrameId(
@@ -477,7 +477,7 @@ function createGpuFlowVisibleFramePublicationStateMachineDebt({
   publicationDecision,
 }: {
   readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowVisibleFrameDebt {
   const blockedFamilies = new Set(
     blockingProofs.flatMap((proof) =>
@@ -502,7 +502,7 @@ function createGpuFlowVisibleFramePublicationStateMachineSample({
   publicationDecision,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowVisibleFrameStateMachineSample {
   const sample = publicationDecision.sample;
   const viewport = normalizeGpuViewport(sample.viewport ?? [0, 0, 1]);
@@ -539,7 +539,7 @@ function createGpuFlowVisibleFramePublicationStateMachineSample({
 }
 
 function createGpuFlowVisibleFramePublicationStateMachineCanvasSize(
-  sample: GpuFlowVisiblePublicationDecision["sample"],
+  sample: GpuFlowVisibleFrameReducerDecision["sample"],
 ): GpuFlowVisibleFrameStateMachineSample["canvasSize"] {
   return Object.freeze({
     height: sample.cssViewport?.height ?? 0,
@@ -563,7 +563,7 @@ function getGpuFlowVisibleFramePublicationStateMachineSceneGeneration(
 }
 
 function createGpuFlowVisibleFramePublicationStateMachineRetainedScrollOffsets(
-  sample: GpuFlowVisiblePublicationDecision["sample"],
+  sample: GpuFlowVisibleFrameReducerDecision["sample"],
 ): GpuFlowVisibleFrameStateMachineSample["retainedScrollOffsets"] {
   return Object.freeze(
     [...(sample.retainedScrollOffsets ?? new Map()).entries()].map(

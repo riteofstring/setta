@@ -10,7 +10,7 @@ import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionTransactionKind,
   GpuFlowVisibleProjectionState,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "../projectionRuntime";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
 import {
@@ -42,7 +42,7 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
     MotionProjectionFrame
   > & {
     readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-    readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+    readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   },
 ) {
   return createGpuFlowVisibleFramePublicationTransactionProofFromFactory({
@@ -71,7 +71,7 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
   MotionProjectionFrame
 > & {
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }) {
   const transactionProof = createGpuFlowVisibleFramePublicationTransactionProof(
     {
@@ -144,7 +144,7 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
   readonly drawnNodeIds?: readonly string[] | undefined;
   readonly missingTextureNodeIds?: readonly string[] | undefined;
   readonly publicationDecision: Pick<
-    GpuFlowVisiblePublicationDecision,
+    GpuFlowVisibleFrameReducerDecision,
     "sample"
   >;
   readonly projectionTransactionKind?:
@@ -679,7 +679,7 @@ function rect() {
 
 function publicationDecision(
   sample: GpuFlowLiveProjectionSample,
-): GpuFlowVisiblePublicationDecision {
+): GpuFlowVisibleFrameReducerDecision {
   return {
     debt: { content: true, maintenance: false, motion: false },
     lane: "content",

@@ -28,11 +28,11 @@ import {
 import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";
 import type { GpuFlowMotionProjectionFramePreparation } from "./visibleFrameProjectionPlan";
 import {
-  reduceGpuFlowVisibleFramePublicationDecision,
+  reduceGpuFlowVisibleFrameReducerDecision,
   shouldDeferGpuFlowMaintenanceContentCatchup,
   type GpuFlowVisibleFrameReducerRuntime,
   type GpuFlowVisibleFrameRequestFacts,
-  type GpuFlowVisiblePublicationDecision,
+  type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import { reduceGpuFlowMotionProjectionFramePreparation } from "./visibleFrameStateMachine";
@@ -142,7 +142,7 @@ export type GpuFlowVisibleFrameCoordinatorResult<
   PreparedFrame extends GpuFlowVisibleFramePublicationPreparedFrame,
 > = GpuFlowVisiblePublicationTransactionCompletion & {
   readonly preparedFrame: PreparedFrame;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
 };
 
@@ -154,7 +154,7 @@ type GpuFlowVisibleFramePublicationContentFramePreparer<
   readonly contentPublicationWorkPlan: GpuFlowContentPublicationWorkPlan;
   readonly motionProjectionFrame: MotionProjectionFrame;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
   readonly runRetainedPreparedContentFramePublicationContentStage: GpuFlowRetainedPreparedContentFramePublicationContentStageRunner;
 }) => ContentPublicationFrame;
@@ -164,7 +164,7 @@ type GpuFlowVisibleFramePublicationMotionFramePreparer<
 > = (input: {
   readonly motionProjectionWorkPlan: GpuFlowMotionProjectionWorkPlan;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
 }) => GpuFlowMotionProjectionFramePreparation<MotionProjectionFrame>;
 
@@ -211,7 +211,7 @@ type GpuFlowVisibleFrameReducedPublicationTransaction<
   },
 > = GpuFlowVisibleFrameCoordinatorResult<PreparedFrame> & {
   readonly preparedFrame: PreparedFrame;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 };
 
 export function runGpuFlowVisibleFrameCoordinator<
@@ -310,7 +310,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     timestamp,
     viewportInteractionActive,
   });
-  const publicationDecision = reduceGpuFlowVisibleFramePublicationDecision({
+  const publicationDecision = reduceGpuFlowVisibleFrameReducerDecision({
     frameRequest,
     reducerPolicy,
   });
@@ -382,7 +382,7 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   >;
   readonly prepareMotionProjectionFrame: GpuFlowVisibleFramePublicationMotionFramePreparer<MotionProjectionFrame>;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
   readonly projectionSchedulerKnobs: ReturnType<
     GpuFlowVisiblePublicationReducerRuntime["getKnobs"]
@@ -460,7 +460,7 @@ function createGpuFlowVisibleFramePublicationPreparedFrame<
     MotionProjectionFrame
   >;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
   ContentPublicationFrame,
   MotionProjectionFrame
@@ -494,7 +494,7 @@ function createGpuFlowVisibleFramePublicationFrameContext({
 }: {
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly runtimeViewportFrame: boolean;
   readonly visibleFrameResourceGraphSnapshot?:
@@ -535,9 +535,9 @@ function shouldDeferGpuFlowResolutionUpdates({
   viewportFrame,
   viewportInteractionActive,
 }: {
-  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
+  readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly rawReasons: readonly GpuFrameReason[];
-  readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
+  readonly schedulerState: GpuFlowVisibleFrameReducerDecision["schedulerState"];
   readonly viewportFrame: boolean;
   readonly viewportInteractionActive: boolean;
 }): boolean {
@@ -568,9 +568,9 @@ function shouldRunGpuFlowResolutionUpdatesForContentCatchup({
   viewportFrame,
   viewportInteractionActive,
 }: {
-  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
+  readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly rawReasons: readonly GpuFrameReason[];
-  readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
+  readonly schedulerState: GpuFlowVisibleFrameReducerDecision["schedulerState"];
   readonly viewportFrame: boolean;
   readonly viewportInteractionActive: boolean;
 }): boolean {
@@ -598,9 +598,9 @@ function shouldDeferGpuFlowResolutionUpdatesForFrame({
   viewportFrame,
   viewportInteractionActive,
 }: {
-  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
+  readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly rawReasons: readonly GpuFrameReason[];
-  readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
+  readonly schedulerState: GpuFlowVisibleFrameReducerDecision["schedulerState"];
   readonly viewportFrame: boolean;
   readonly viewportInteractionActive: boolean;
 }): boolean {

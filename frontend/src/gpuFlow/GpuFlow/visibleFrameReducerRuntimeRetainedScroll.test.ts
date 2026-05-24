@@ -7,7 +7,7 @@ import {
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   createGpuFlowVisibleFrameReducerRuntime,
-  type GpuFlowVisiblePublicationDecision,
+  type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import { createGpuFlowVisibleFramePresentationTokenForTest } from "./visibleFrameTestUtils";
 
@@ -319,7 +319,7 @@ describe("GPU Flow retained scroll scheduling", () => {
 
 function completeCommittedFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
 ) {
   return reducerRuntime.completeFrame(decision, {
     debtProof: {
@@ -337,7 +337,7 @@ function completeCommittedFrame(
 
 function completeCompatiblePreviousCommittedFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
 ) {
   return reducerRuntime.completeFrame(decision, {
     debtProof: {
@@ -375,7 +375,7 @@ function liveSample(
 }
 
 function committedFrameForReducerToken(
-  decision: GpuFlowVisiblePublicationDecision,
+  decision: GpuFlowVisibleFrameReducerDecision,
 ): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = decision.sample.id;
   const coherence = {

@@ -13,7 +13,7 @@ import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionTransactionKind,
   GpuFlowVisibleProjectionState,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "../projectionRuntime";
 import type {
   ProtectedSurfaceResourceHandle,
@@ -58,7 +58,7 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
     MotionProjectionFrame
   > & {
     readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-    readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+    readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   },
 ) {
   return createGpuFlowVisibleFramePublicationTransactionProofFromFactory({
@@ -83,7 +83,7 @@ function createGpuFlowVisiblePublicationPresentableFrameProof({
   readonly presentationEvidence?:
     | GpuFlowVisiblePublicationPresentationEvidence
     | undefined;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }) {
   const selectedPresentationEvidence =
     presentationEvidence ??
@@ -115,7 +115,7 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
   MotionProjectionFrame
 > & {
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }) {
   const transactionProof = createGpuFlowVisibleFramePublicationTransactionProof(
     {
@@ -181,7 +181,7 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly publicationDecision: Pick<
-    GpuFlowVisiblePublicationDecision,
+    GpuFlowVisibleFrameReducerDecision,
     "sample"
   >;
   readonly projectionTransactionKind?: GpuFlowProjectionTransactionKind;
@@ -1188,7 +1188,7 @@ function rect() {
 }
 function publicationDecision(
   sample: GpuFlowLiveProjectionSample,
-): GpuFlowVisiblePublicationDecision {
+): GpuFlowVisibleFrameReducerDecision {
   const debt = { content: true, maintenance: false, motion: false };
   return {
     debt,

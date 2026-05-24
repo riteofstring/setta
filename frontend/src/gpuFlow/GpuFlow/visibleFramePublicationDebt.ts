@@ -13,15 +13,15 @@ import {
 import type {
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDebtProof,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 
-type GpuFlowVisiblePublicationDebt = GpuFlowVisiblePublicationDecision["debt"];
+type GpuFlowVisiblePublicationDebt = GpuFlowVisibleFrameReducerDecision["debt"];
 
 export function hasGpuFlowVisiblePublicationDebt(
   debtOrDecision:
     | GpuFlowVisiblePublicationDebt
-    | GpuFlowVisiblePublicationDecision,
+    | GpuFlowVisibleFrameReducerDecision,
 ): boolean {
   const debt = getGpuFlowVisiblePublicationDebt(debtOrDecision);
   return debt.content || debt.maintenance || debt.motion;
@@ -30,7 +30,7 @@ export function hasGpuFlowVisiblePublicationDebt(
 export function getGpuFlowVisiblePublicationDebtReason(
   debtOrDecision:
     | GpuFlowVisiblePublicationDebt
-    | GpuFlowVisiblePublicationDecision,
+    | GpuFlowVisibleFrameReducerDecision,
 ): GpuFrameReason {
   const debt = getGpuFlowVisiblePublicationDebt(debtOrDecision);
   if (debt.motion) {
@@ -145,7 +145,7 @@ export function assertGpuFlowVisiblePublicationPresentationTokenMatchesDecision(
   decision,
   token,
 }: {
-  readonly decision: GpuFlowVisiblePublicationDecision;
+  readonly decision: GpuFlowVisibleFrameReducerDecision;
   readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   assertGpuFlowVisibleFramePresentationTokenForProjectionSample({
@@ -159,7 +159,7 @@ export function assertGpuFlowVisiblePublicationPresentationDebtProofMatchesDecis
   decision,
 }: {
   readonly debtProof: GpuFlowVisiblePublicationDebtProof;
-  readonly decision: GpuFlowVisiblePublicationDecision;
+  readonly decision: GpuFlowVisibleFrameReducerDecision;
 }): void {
   const illegalDebtKinds = [
     debtProof.content && decision.lane !== "content" ? "content" : null,
@@ -194,7 +194,7 @@ function createGpuFlowVisiblePublicationDebt({
 function getGpuFlowVisiblePublicationDebt(
   debtOrDecision:
     | GpuFlowVisiblePublicationDebt
-    | GpuFlowVisiblePublicationDecision,
+    | GpuFlowVisibleFrameReducerDecision,
 ): GpuFlowVisiblePublicationDebt {
   return "debt" in debtOrDecision ? debtOrDecision.debt : debtOrDecision;
 }

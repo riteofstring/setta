@@ -45,7 +45,7 @@ export {
   getGpuFlowVisibleFrameHeldPreviousBudgetStatus,
   reduceGpuFlowMotionProjectionFramePreparation,
   reduceGpuFlowVisibleFrameMotionProjectionTransaction,
-  reduceGpuFlowVisibleFramePublicationDecision,
+  reduceGpuFlowVisibleFrameReducerDecision,
   reduceGpuFlowVisibleFramePublicationLane,
 } from "./visibleFrameStateMachineReduction";
 export type {

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowVisibleProjectionState,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "../projectionRuntime";
 import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./visibleFrameOutcomeChromeRepro";
 import {
@@ -464,7 +464,7 @@ function presentOutcome({
 
 function publicationDecision(
   sample: GpuFlowLiveProjectionSample,
-): GpuFlowVisiblePublicationDecision {
+): GpuFlowVisibleFrameReducerDecision {
   return {
     debt: { content: false, maintenance: true, motion: false },
     lane: "content",

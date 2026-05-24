@@ -28,7 +28,7 @@ export {
 } from "./GpuFlow/visibleFrameReducerRuntime";
 export type {
   GpuFlowVisibleFrameReducerPolicy,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "./GpuFlow/visibleFrameReducerRuntime";
 export {
   applyGpuFlowProjectionDebugAttributes,

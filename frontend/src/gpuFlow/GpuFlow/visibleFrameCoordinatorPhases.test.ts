@@ -62,16 +62,16 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "reduceGpuFlowVisibleFramePublicationLane({",
     );
     expect(schedulingReductionSource).not.toContain(
-      "createGpuFlowVisiblePublicationDecisionForLane",
+      "createGpuFlowVisibleFrameReducerDecisionForLane",
     );
     expect(stateMachineReductionSource).toContain(
-      "export function reduceGpuFlowVisibleFramePublicationDecision",
+      "export function reduceGpuFlowVisibleFrameReducerDecision",
     );
     expect(stateMachineReductionSource).toContain(
       "reduceGpuFlowVisibleFramePublicationLane({",
     );
     expect(stateMachineReductionSource).toContain(
-      "createGpuFlowVisiblePublicationDecisionForLane",
+      "createGpuFlowVisibleFrameReducerDecisionForLane",
     );
     expect(stateMachineSource).toContain(
       'from "./visibleFrameStateMachineReduction"',
@@ -130,7 +130,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expect(publishEnd).toBeGreaterThan(publishStart);
     expectOrderedPhases(reducerSource, [
       "createGpuFlowVisibleFrameRequestFacts({",
-      "reduceGpuFlowVisibleFramePublicationDecision({",
+      "reduceGpuFlowVisibleFrameReducerDecision({",
       "createGpuFlowVisibleFramePublicationFrameContext({",
       "prepareVisibleFrameResourcesForBudget?.(",
       "prepareGpuFlowVisibleFramePublicationCandidateSet({",

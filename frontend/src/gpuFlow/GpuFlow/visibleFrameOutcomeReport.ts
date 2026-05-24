@@ -8,7 +8,7 @@ import type {
 } from "./visibleFramePresentationProofs";
 import type {
   GpuFlowVisiblePublicationCompletion,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import {
   createGpuFlowVisiblePublicationPresentableFrameProofReport,
@@ -71,7 +71,7 @@ export function createGpuFlowVisiblePublicationTransactionReport({
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousContentFrameId: number | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
@@ -145,7 +145,7 @@ function createGpuFlowVisibleTransactionReport({
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly presentationProof: GpuFlowVisiblePublicationPresentationProofReport | null;
   readonly previousContentFrameId: number | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly token: ReturnType<
     typeof createGpuFlowVisiblePublicationOutcomeTokenPayload
   >;

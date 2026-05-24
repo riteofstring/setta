@@ -12,7 +12,7 @@ import {
   type GpuFlowProjectionTransaction,
   type GpuFlowProjectionTransactionKind,
   type GpuFlowVisibleProjectionState,
-  type GpuFlowVisiblePublicationDecision,
+  type GpuFlowVisibleFrameReducerDecision,
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
@@ -37,7 +37,7 @@ const createGpuFlowVisiblePublicationPresentableFrameProof = ({
   publicationDecision,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
 }) => {
   const projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`;
   return createGpuFlowVisiblePublicationPresentableFrameProofFromFactory({

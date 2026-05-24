@@ -48,7 +48,7 @@ import {
 } from "./visibleFramePresentationProofs";
 import type {
   GpuFlowVisiblePublicationCompletion,
-  GpuFlowVisiblePublicationDecision,
+  GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import type {
   GpuFlowSurfacePublicationPreparedFrame,
@@ -328,7 +328,7 @@ function recordGpuFlowBlockedSurfaceVisibleProjectionPublication({
   readonly blockedVisiblePublication: GpuFlowBlockedSurfaceVisibleProjectionPublication | null;
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly stateMachineOutcome:
     | GpuFlowSurfacePublicationPreparedFrame["transactionProof"]["visibleFrameStateMachineOutcome"]

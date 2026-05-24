@@ -11,7 +11,7 @@ import {
   type GpuFlowVisiblePublicationOutcome,
 } from "./visibleFrameCoordinator";
 import type { GpuFlowPresentationPairProof } from "./visibleFramePresentationAuthorityProofs";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
+import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 
 type GpuFlowVisiblePublicationReducerCompletion =
   GpuFlowVisiblePublicationCompletion;
@@ -39,7 +39,7 @@ export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
   readonly completion: GpuFlowVisiblePublicationReducerCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousContentFrameId: number | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): void {
@@ -70,7 +70,7 @@ export function createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
   readonly completion: GpuFlowVisiblePublicationReducerCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousContentFrameId: number | null;
-  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly publicationDecision: GpuFlowVisibleFrameReducerDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {

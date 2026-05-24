@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowLiveProjectionSample,
-  type GpuFlowVisiblePublicationDecision,
+  type GpuFlowVisibleFrameReducerDecision,
 } from "../projectionRuntime";
 import { createGpuFlowVisibleFrameBudgetBroker } from "./visibleFrameBudgetBroker";
 import {
@@ -369,8 +369,8 @@ function fixedPublicationScheduler({
   lane,
   schedulerState,
 }: {
-  readonly lane: GpuFlowVisiblePublicationDecision["lane"];
-  readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
+  readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
+  readonly schedulerState: GpuFlowVisibleFrameReducerDecision["schedulerState"];
 }): ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime> {
   const baseScheduler = createGpuFlowVisibleFrameReducerRuntime();
   const debt = Object.freeze({
@@ -411,7 +411,7 @@ function fixedPublicationScheduler({
         timestamp,
         viewportInteractionActive,
       }),
-    selectFrame: ({ rawReasons, sample }): GpuFlowVisiblePublicationDecision =>
+    selectFrame: ({ rawReasons, sample }): GpuFlowVisibleFrameReducerDecision =>
       Object.freeze({
         debt,
         lane,
