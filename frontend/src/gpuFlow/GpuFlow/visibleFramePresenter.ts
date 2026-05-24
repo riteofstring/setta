@@ -44,14 +44,9 @@ import {
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
-import type {
-  GpuFlowSurfacePublicationPreparedFrame,
-  RenderGpuFlowSurfaceFrameInput,
-} from "./visibleFrameSurfaceFrame";
+import type { GpuFlowSurfacePublicationPreparedFrame, RenderGpuFlowSurfaceFrameInput } from "./visibleFrameSurfaceFrame";
 
-type GpuFlowVisibleFramePresenter = (
-  publicationTransaction: GpuFlowVisibleFrameCoordinatorResult<GpuFlowSurfacePublicationPreparedFrame>,
-) => void;
+type GpuFlowVisibleFramePresenter = (publicationTransaction: GpuFlowVisibleFrameCoordinatorResult<GpuFlowSurfacePublicationPreparedFrame>) => void;
 
 type GpuFlowBlockedSurfaceVisibleProjectionPublication = {
   readonly blockedErrorMessage: string | null;
@@ -60,10 +55,7 @@ type GpuFlowBlockedSurfaceVisibleProjectionPublication = {
 
 const deferredResolutionFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
 
-type GpuFlowVisibleFramePresenterInput = Omit<
-  Parameters<typeof presentGpuFlowVisibleFramePublicationFrame>[0],
-  "publicationTransaction"
->;
+type GpuFlowVisibleFramePresenterInput = Omit<Parameters<typeof presentGpuFlowVisibleFramePublicationFrame>[0], "publicationTransaction">;
 
 function publishGpuFlowVisibleProjectionState({
   commitPublicationToken,
@@ -269,6 +261,9 @@ function presentGpuFlowVisibleFramePublicationFrame({
     outcome,
     publicationDecision,
     runtimeCanvas,
+    stateMachineOutcome:
+      publicationTransaction.preparedFrame.transactionProof
+        ?.visibleFrameStateMachineOutcome ?? null,
   });
   postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
     completion,
@@ -304,12 +299,14 @@ function recordGpuFlowBlockedSurfaceVisibleProjectionPublication({
   outcome,
   publicationDecision,
   runtimeCanvas,
+  stateMachineOutcome,
 }: {
   readonly blockedVisiblePublication: GpuFlowBlockedSurfaceVisibleProjectionPublication | null;
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly runtimeCanvas: HTMLCanvasElement;
+  readonly stateMachineOutcome: GpuFlowSurfacePublicationPreparedFrame["transactionProof"]["visibleFrameStateMachineOutcome"] | null;
 }): void {
   if (blockedVisiblePublication === null) {
     return;
@@ -324,6 +321,13 @@ function recordGpuFlowBlockedSurfaceVisibleProjectionPublication({
     publicationCompletion: completion,
     publicationDecision,
     runtimeCanvas,
+    stateMachineOutcome:
+      stateMachineOutcome === null
+        ? null
+        : {
+            decidingProof: stateMachineOutcome.decidingProof,
+            kind: stateMachineOutcome.kind,
+          },
     token: outcome.token,
   });
 }

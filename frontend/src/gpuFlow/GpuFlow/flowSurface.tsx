@@ -66,11 +66,7 @@ import {
   useGpuFlowSurfaceResourceCleanup,
   useGpuFlowViewportRuntime,
 } from "./flowSurfaceRuntimeHooks";
-import {
-  EMPTY_GPU_NODE_LAYOUTS,
-  type GpuFlowCallbacks,
-  type GpuFlowProps,
-} from "./flowSurfaceTypes";
+import { EMPTY_GPU_NODE_LAYOUTS, type GpuFlowCallbacks, type GpuFlowProps } from "./flowSurfaceTypes";
 import { GpuFlowSurfaceView } from "./flowSurfaceView";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
@@ -85,6 +81,7 @@ import {
   projectGpuFlowNodeHoverSourceForPointerEvent,
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
+import { createGpuFlowVisibleFrameBudgetBroker } from "./visibleFrameBudgetBroker";
 import { assertGpuFlowColdStartShellToken } from "./visibleFrameColdStartShell";
 import { renderGpuFlowSurfaceFrame } from "./visibleFrameSurfaceFrame";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
@@ -204,6 +201,9 @@ export function GpuFlow({
   const liveProjectionSamplerRef = useRef(createGpuFlowLiveProjectionSampler());
   const visiblePublicationSchedulerRef = useRef(
     createGpuFlowVisiblePublicationScheduler(),
+  );
+  const visibleFrameBudgetBrokerRef = useRef(
+    createGpuFlowVisibleFrameBudgetBroker(),
   );
   const visibleProjectionStateRef =
     useRef<GpuFlowVisibleProjectionState | null>(null);
@@ -928,6 +928,7 @@ export function GpuFlow({
         visibleCommittedSurfaceFrame,
         visibleNodeIdsRef,
         visibleOverlayProjectionKeyRef,
+        visibleFrameBudgetBrokerRef,
         visibleProjectionPublicationStateRef,
         visibleProjectionStateRef,
         visiblePublicationSchedulerRef,

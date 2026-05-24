@@ -27,6 +27,7 @@ import { renderGpuFlowNodeLayerProjectionFrame } from "./flowProjectionFrame";
 import { shouldReuseGpuFlowDeferredRetainedContentPublicationFrame } from "./flowRetainedContentFrameCache";
 import { createGpuFlowRetainedRuntimeFrameSourceRenderSignature } from "./flowRetainedRuntimeFrameSignatures";
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
+import type { GpuFlowVisibleFrameBudgetBroker } from "./visibleFrameBudgetBroker";
 import {
   createGpuFlowContentPublicationFrameResult,
   runGpuFlowVisibleFrameCoordinator,
@@ -138,6 +139,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   readonly runtime: GpuFlowRuntime;
   readonly visibleCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame;
   readonly visibleOverlayProjectionKeyRef: MutableRefObject<string | null>;
+  readonly visibleFrameBudgetBrokerRef: MutableRefObject<GpuFlowVisibleFrameBudgetBroker>;
   readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visibleProjectionStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visiblePublicationSchedulerRef: MutableRefObject<
@@ -704,6 +706,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
     deferResolutionUpdates: contentDeferResolutionUpdates,
     deferBrowserVisualRetry: shouldDeferGpuFlowBrowserVisualRetryForPublication(
       {
+        budgetBroker: input.visibleFrameBudgetBrokerRef.current,
         deferResolutionUpdates: contentDeferResolutionUpdates,
         publicationDecision,
       },

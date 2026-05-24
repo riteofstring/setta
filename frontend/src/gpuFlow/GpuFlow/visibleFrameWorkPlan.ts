@@ -3,7 +3,10 @@ import type {
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import { shouldDeferGpuFlowMaintenanceContentCatchup } from "../projectionScheduler";
-import { shouldDeferGpuFlowBrowserVisualRepairForBudget } from "./visibleFrameBudgetBroker";
+import {
+  shouldDeferGpuFlowBrowserVisualRepairForBudget,
+  type GpuFlowVisibleFrameBudgetBroker,
+} from "./visibleFrameBudgetBroker";
 
 export type GpuFlowMotionProjectionWorkPlan =
   | {
@@ -66,13 +69,16 @@ export function createGpuFlowContentPublicationWorkPlan({
 }
 
 export function shouldDeferGpuFlowBrowserVisualRetryForPublication({
+  budgetBroker,
   deferResolutionUpdates,
   publicationDecision,
 }: {
+  readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly deferResolutionUpdates: boolean;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }): boolean {
   return shouldDeferGpuFlowBrowserVisualRepairForBudget({
+    budgetBroker,
     deferResolutionUpdates,
     publicationDecision,
   });

@@ -1,9 +1,11 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
-  getGpuFlowBrowserStyleBlockedReasonFamily,
-  getGpuFlowBrowserStyleVisibleFrameActorFamily,
-} from "./visibleFrameActorRegistry";
+  createGpuFlowVisibleFrameActorManifest,
+  createGpuFlowVisibleFrameActorProofsForManifest,
+} from "./visibleFrameActorManifest";
+import { getGpuFlowBrowserStyleBlockedReasonFamily } from "./visibleFrameActorRegistry";
 import type { GpuFlowBlockedVisibleReason } from "./visibleFramePresentationProofs";
+import { createGpuFlowContentFrameId } from "./visibleFrameTypes";
 
 export type GpuFlowVisibleFrameActorManifestDiagnostics = {
   readonly blockedActorsByFamily: Record<string, number>;
@@ -36,12 +38,6 @@ type GpuFlowVisibleFrameActorFamilyReadiness = Pick<
   | "requiredActorsByFamily"
 >;
 
-const GPU_FLOW_BLOCKED_TEXT_PROJECTION_COVERAGE = new Set([
-  "blocked-awaiting-browser-visual",
-  "blocked-awaiting-live-host",
-  "true-hole",
-]);
-
 export function createGpuFlowVisibleFrameActorManifestDiagnostics({
   blockedReasons = [],
   frame,
@@ -55,13 +51,8 @@ export function createGpuFlowVisibleFrameActorManifestDiagnostics({
   readonly remainingDebt?: Record<string, boolean> | null | undefined;
   readonly visibleOutcome?: string | null | undefined;
 }): GpuFlowVisibleFrameActorManifestDiagnostics {
-  const blockedActorIds = new Set(
-    blockedReasons.flatMap((reason) =>
-      reason.actorId === null ? [] : [reason.actorId],
-    ),
-  );
   const actorReadiness = createGpuFlowVisibleFrameActorFamilyReadiness({
-    blockedActorIds,
+    blockedReasons,
     frame,
   });
   return Object.freeze({
@@ -83,25 +74,35 @@ export function createGpuFlowVisibleFrameActorManifestDiagnostics({
 }
 
 function createGpuFlowVisibleFrameActorFamilyReadiness({
-  blockedActorIds,
   frame,
+  blockedReasons,
 }: {
-  readonly blockedActorIds: ReadonlySet<string>;
+  readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
 }): GpuFlowVisibleFrameActorFamilyReadiness {
   const requiredActorsByFamily: Record<string, number> = {};
   const readyActorsByFamily: Record<string, number> = {};
   const compatibleActorsByFamily: Record<string, number> = {};
   const missingActorsByFamily: Record<string, number> = {};
-  for (const actor of frame?.actorGenerations ?? []) {
-    if (!actor.visibleNonempty) {
-      continue;
-    }
-    const family = getGpuFlowVisibleFrameManifestActorFamily(actor);
+  const manifest = createGpuFlowVisibleFrameActorManifest({
+    blockedReasons,
+    frame,
+  });
+  const proofByActor = new Map(
+    createGpuFlowVisibleFrameActorProofsForManifest({
+      contentFrameId: createGpuFlowContentFrameId(
+        frame === null ? "diagnostic:no-frame" : String(frame.displayFrameId),
+      ),
+      frame,
+      manifest,
+      projectionSampleId: "diagnostic",
+    }).map((proof) => [`${proof.family}:${proof.actorId}`, proof]),
+  );
+  for (const actor of manifest.requiredActors) {
+    const family = actor.family;
     incrementGpuFlowVisibleFrameActorFamily(requiredActorsByFamily, family);
     const status = getGpuFlowVisibleFrameManifestActorStatus({
-      actor,
-      blockedActorIds,
+      proof: proofByActor.get(`${actor.family}:${actor.actorId}`),
     });
     switch (status) {
       case "ready":
@@ -134,43 +135,21 @@ function createGpuFlowVisibleFrameActorFamilyReadiness({
 }
 
 function getGpuFlowVisibleFrameManifestActorStatus({
-  actor,
-  blockedActorIds,
+  proof,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
-  readonly blockedActorIds: ReadonlySet<string>;
+  readonly proof:
+    | ReturnType<typeof createGpuFlowVisibleFrameActorProofsForManifest>[number]
+    | undefined;
 }): GpuFlowVisibleFrameActorManifestActorStatus {
-  if (isGpuFlowVisibleFrameManifestActorBlocked({ actor, blockedActorIds })) {
+  if (proof === undefined) {
     return "blocked";
   }
-  const projectionCoverage = actor.textCoverageProof?.projectionCoverage;
-  if (projectionCoverage === "compatible-previous") {
+  if (proof.proof === "compatible-previous") {
     return "compatible";
   }
-  return projectionCoverage &&
-    GPU_FLOW_BLOCKED_TEXT_PROJECTION_COVERAGE.has(projectionCoverage)
+  return proof.proof === "blocked" || proof.proof === "true-hole"
     ? "blocked"
     : "ready";
-}
-
-function isGpuFlowVisibleFrameManifestActorBlocked({
-  actor,
-  blockedActorIds,
-}: {
-  readonly actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
-  readonly blockedActorIds: ReadonlySet<string>;
-}): boolean {
-  return (
-    blockedActorIds.has(actor.actorId) ||
-    !isGpuFlowVisibleFrameManifestReadinessSatisfied(actor.mountReadiness) ||
-    !isGpuFlowVisibleFrameManifestReadinessSatisfied(actor.projectionReadiness)
-  );
-}
-
-function isGpuFlowVisibleFrameManifestReadinessSatisfied(
-  readiness: "not-required" | "ready",
-): boolean {
-  return readiness === "ready" || readiness === "not-required";
 }
 
 function createGpuFlowVisibleFrameBlockedActorsByFamily(
@@ -200,12 +179,6 @@ function createGpuFlowVisibleFrameScrollHorizonCoverage(
       (surface) => surface.visibleNonemptyTextActorCount > 0,
     ).length,
   });
-}
-
-function getGpuFlowVisibleFrameManifestActorFamily(
-  actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
-): string {
-  return getGpuFlowBrowserStyleVisibleFrameActorFamily(actor);
 }
 
 function incrementGpuFlowVisibleFrameActorFamily(

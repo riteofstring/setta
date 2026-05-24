@@ -315,12 +315,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
               truncated: false,
             }),
           ],
-          requiredResourceKeys: [
-            expect.objectContaining({
-              preview: "source:source-a",
-              truncated: false,
-            }),
-          ],
+          requiredResourceKeys: [],
         }),
         transactionId: "transaction-a",
         transactionProof: {

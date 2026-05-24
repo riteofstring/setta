@@ -219,6 +219,24 @@ async function readRetainedCompositorVisibleFrameDiagnostics(
         lastBlockedActorId,
       ) ?? null;
     const debugSnapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.() ?? null;
+    const retainedSceneSummary =
+      window.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__?.() ?? null;
+    const retainedNativeVisuals =
+      window.__SETTA_GPU_FLOW_DEBUG_RETAINED_NATIVE_VISUALS__?.() ?? null;
+    const recentGpuFlowFrameMeasures = performance
+      .getEntriesByType("measure")
+      .filter((entry) => entry.name.startsWith("setta.gpuFlow.surface-frame"))
+      .slice(-8)
+      .map((entry) => ({
+        detail:
+          entry instanceof PerformanceMeasure &&
+          entry.detail &&
+          typeof entry.detail === "object"
+            ? entry.detail
+            : null,
+        duration: entry.duration,
+        name: entry.name,
+      }));
     if (!coldStartShell) {
       return {
         blockedEventCount: blockedEvents.length,
@@ -229,8 +247,11 @@ async function readRetainedCompositorVisibleFrameDiagnostics(
         domControlPlaneCommittedFrameId:
           domControlPlane?.dataset.gpuFlowDomControlPlaneCommittedFrameId ??
           null,
+        recentGpuFlowFrameMeasures,
+        retainedNativeVisuals,
         retainedRowCount:
           window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
+        retainedSceneSummary,
         visiblePublication: debugSnapshot?.visiblePublication ?? null,
       };
     }
@@ -264,8 +285,11 @@ async function readRetainedCompositorVisibleFrameDiagnostics(
       preparationControlCount: document.querySelectorAll(
         '[data-gpu-flow-dom-control-preparation="true"]',
       ).length,
+      recentGpuFlowFrameMeasures,
+      retainedNativeVisuals,
       retainedRowCount:
         window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
+      retainedSceneSummary,
       snapshotContentCount: document.querySelectorAll(
         '[data-gpu-flow-retained-dom-control-snapshot-content="true"]',
       ).length,

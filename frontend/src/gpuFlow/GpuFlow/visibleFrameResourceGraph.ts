@@ -1,8 +1,8 @@
+import { isGpuFlowCommittedSurfaceCompletenessBlockingActor } from "../committedSurfaceCompleteness";
 import type {
   GpuFlowCommittedSurfaceActorGeneration,
   GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
-import { isGpuFlowCommittedSurfaceCompletenessBlockingActor } from "../committedSurfaceCompleteness";
 import type { SurfaceResourceHandle } from "../surfaceCompositor/surfaceCoverage";
 import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
 import {
@@ -37,6 +37,11 @@ type GpuFlowVisibleFrameResourceGraphSnapshot = {
   readonly committedFrameId: number | null;
   readonly committedResourceKeys: readonly string[];
   readonly pendingCandidateFrameIds: readonly number[];
+  readonly resourceDebtByState: Record<
+    GpuFlowVisibleFrameResourceStateKind,
+    number
+  >;
+  readonly resourceStates: readonly GpuFlowVisibleFrameResourceStateSnapshot[];
 };
 
 type GpuFlowVisibleFrameCommittedSurfaceCommitResult = {
@@ -66,6 +71,27 @@ type GpuFlowVisibleFrameBrowserVisualCandidateAborter = (input: {
   readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
 }) => void;
 
+export type GpuFlowVisibleFrameResourceStateKind =
+  | "absent"
+  | "preparing"
+  | "presented"
+  | "ready"
+  | "requested"
+  | "retired";
+
+type GpuFlowVisibleFrameResourceStateSnapshot = {
+  readonly debtAgeFrames: number;
+  readonly ownerFrameId: number | null;
+  readonly resourceKey: string;
+  readonly state: GpuFlowVisibleFrameResourceStateKind;
+};
+
+type GpuFlowVisibleFrameResourceStateEntry =
+  GpuFlowVisibleFrameResourceStateSnapshot & {
+    readonly requestedAtFrame: number;
+    readonly transitionFrame: number;
+  };
+
 export class GpuFlowVisibleFrameResourceGraph {
   private committedFrameId: number | null = null;
   private committedResourceKeys = new Set<string>();
@@ -73,6 +99,67 @@ export class GpuFlowVisibleFrameResourceGraph {
     number,
     GpuFlowVisibleFrameCandidateResourceEntry
   >();
+  private readonly resourceStateByKey = new Map<
+    string,
+    GpuFlowVisibleFrameResourceStateEntry
+  >();
+  private transitionFrame = 0;
+
+  requestVisibleFrameResource({
+    ownerFrameId = null,
+    resourceKey,
+  }: {
+    readonly ownerFrameId?: number | null | undefined;
+    readonly resourceKey: string;
+  }): void {
+    this.transitionResource({
+      ownerFrameId,
+      resourceKey,
+      state: "requested",
+    });
+  }
+
+  markVisibleFrameResourcePreparing({
+    ownerFrameId = null,
+    resourceKey,
+  }: {
+    readonly ownerFrameId?: number | null | undefined;
+    readonly resourceKey: string;
+  }): void {
+    this.transitionResource({
+      ownerFrameId,
+      resourceKey,
+      state: "preparing",
+    });
+  }
+
+  markVisibleFrameResourceReady({
+    ownerFrameId = null,
+    resourceKey,
+  }: {
+    readonly ownerFrameId?: number | null | undefined;
+    readonly resourceKey: string;
+  }): void {
+    this.transitionResource({
+      ownerFrameId,
+      resourceKey,
+      state: "ready",
+    });
+  }
+
+  retireVisibleFrameResource({
+    ownerFrameId = null,
+    resourceKey,
+  }: {
+    readonly ownerFrameId?: number | null | undefined;
+    readonly resourceKey: string;
+  }): void {
+    this.transitionResource({
+      ownerFrameId,
+      resourceKey,
+      state: "retired",
+    });
+  }
 
   registerPreparedCommittedSurfaceFrame({
     browserVisualCandidate,
@@ -82,13 +169,17 @@ export class GpuFlowVisibleFrameResourceGraph {
     readonly frame: GpuFlowCommittedSurfaceFrame;
   }): void {
     const frameId = getGpuFlowCommittedSurfaceFrameId(frame);
-    this.pendingCandidateByFrameId.set(
-      frameId,
-      createGpuFlowVisibleFrameCandidateResourceEntry({
-        browserVisualCandidate,
-        frame,
-      }),
-    );
+    const entry = createGpuFlowVisibleFrameCandidateResourceEntry({
+      browserVisualCandidate,
+      frame,
+    });
+    this.pendingCandidateByFrameId.set(frameId, entry);
+    for (const resourceKey of entry.candidateResourceKeys) {
+      this.prepareCandidateResource({
+        ownerFrameId: frameId,
+        resourceKey,
+      });
+    }
   }
 
   commitPreparedCommittedSurfaceFrame({
@@ -119,10 +210,23 @@ export class GpuFlowVisibleFrameResourceGraph {
     this.pendingCandidateByFrameId.delete(frameId);
     const releasedCandidateResourceKeys =
       this.releaseLoserCandidateResourceEntries(frameId);
-    const nextCommittedResourceKeys = new Set(entry.requiredResourceKeys);
+    const nextCommittedResourceKeys = new Set(entry.candidateResourceKeys);
     const releasedCommittedResourceKeys = [
       ...this.committedResourceKeys,
     ].filter((resourceKey) => !nextCommittedResourceKeys.has(resourceKey));
+    for (const resourceKey of releasedCommittedResourceKeys) {
+      this.retireVisibleFrameResource({
+        ownerFrameId: this.committedFrameId,
+        resourceKey,
+      });
+    }
+    for (const resourceKey of nextCommittedResourceKeys) {
+      this.transitionResource({
+        ownerFrameId: frameId,
+        resourceKey,
+        state: "presented",
+      });
+    }
     this.committedFrameId = frameId;
     this.committedResourceKeys = nextCommittedResourceKeys;
     return Object.freeze({
@@ -166,6 +270,12 @@ export class GpuFlowVisibleFrameResourceGraph {
         candidate: entry.browserVisualCandidate,
         token,
       });
+      for (const resourceKey of entry.candidateResourceKeys) {
+        this.retireVisibleFrameResource({
+          ownerFrameId: frameId,
+          resourceKey,
+        });
+      }
     }
     this.pendingCandidateByFrameId.delete(frameId);
     return Object.freeze({
@@ -192,6 +302,23 @@ export class GpuFlowVisibleFrameResourceGraph {
       pendingCandidateFrameIds: Object.freeze([
         ...this.pendingCandidateByFrameId.keys(),
       ]),
+      resourceDebtByState: createGpuFlowVisibleFrameResourceDebtByStateSnapshot(
+        this.resourceStateByKey,
+      ),
+      resourceStates: Object.freeze(
+        [...this.resourceStateByKey.values()]
+          .map((entry) =>
+            Object.freeze({
+              debtAgeFrames: entry.debtAgeFrames,
+              ownerFrameId: entry.ownerFrameId,
+              resourceKey: entry.resourceKey,
+              state: entry.state,
+            }),
+          )
+          .sort((left, right) =>
+            left.resourceKey.localeCompare(right.resourceKey),
+          ),
+      ),
     });
   }
 
@@ -217,15 +344,124 @@ export class GpuFlowVisibleFrameResourceGraph {
         continue;
       }
       releasedResourceKeys.push(...entry.candidateResourceKeys);
+      for (const resourceKey of entry.candidateResourceKeys) {
+        this.retireVisibleFrameResource({
+          ownerFrameId: frameId,
+          resourceKey,
+        });
+      }
       this.pendingCandidateByFrameId.delete(frameId);
     }
     return uniqueStrings(releasedResourceKeys);
+  }
+
+  private prepareCandidateResource({
+    ownerFrameId,
+    resourceKey,
+  }: {
+    readonly ownerFrameId: number;
+    readonly resourceKey: string;
+  }): void {
+    const currentState = this.resourceStateByKey.get(resourceKey)?.state;
+    if (currentState === "presented" || currentState === "ready") {
+      return;
+    }
+    this.requestVisibleFrameResource({ ownerFrameId, resourceKey });
+    this.markVisibleFrameResourcePreparing({ ownerFrameId, resourceKey });
+    this.markVisibleFrameResourceReady({ ownerFrameId, resourceKey });
+  }
+
+  private transitionResource({
+    ownerFrameId,
+    resourceKey,
+    state,
+  }: {
+    readonly ownerFrameId: number | null;
+    readonly resourceKey: string;
+    readonly state: GpuFlowVisibleFrameResourceStateKind;
+  }): void {
+    const current = this.resourceStateByKey.get(resourceKey);
+    assertGpuFlowVisibleFrameResourceTransition({
+      currentState: current?.state ?? "absent",
+      nextState: state,
+      resourceKey,
+    });
+    this.transitionFrame += 1;
+    const requestedAtFrame =
+      state === "requested"
+        ? this.transitionFrame
+        : current?.requestedAtFrame ?? this.transitionFrame;
+    this.resourceStateByKey.set(
+      resourceKey,
+      Object.freeze({
+        debtAgeFrames:
+          state === "requested" || state === "preparing"
+            ? this.transitionFrame - requestedAtFrame
+            : 0,
+        ownerFrameId,
+        requestedAtFrame,
+        resourceKey,
+        state,
+        transitionFrame: this.transitionFrame,
+      }),
+    );
   }
 }
 
 export function createGpuFlowVisibleFrameResourceGraph(): GpuFlowVisibleFrameResourceGraph {
   return new GpuFlowVisibleFrameResourceGraph();
 }
+
+function createGpuFlowVisibleFrameResourceDebtByStateSnapshot(
+  resourceStateByKey: ReadonlyMap<
+    string,
+    GpuFlowVisibleFrameResourceStateEntry
+  >,
+): Record<GpuFlowVisibleFrameResourceStateKind, number> {
+  const counts = {
+    absent: 0,
+    preparing: 0,
+    presented: 0,
+    ready: 0,
+    requested: 0,
+    retired: 0,
+  } satisfies Record<GpuFlowVisibleFrameResourceStateKind, number>;
+  for (const entry of resourceStateByKey.values()) {
+    counts[entry.state] += 1;
+  }
+  return Object.freeze(counts);
+}
+
+function assertGpuFlowVisibleFrameResourceTransition({
+  currentState,
+  nextState,
+  resourceKey,
+}: {
+  readonly currentState: GpuFlowVisibleFrameResourceStateKind;
+  readonly nextState: GpuFlowVisibleFrameResourceStateKind;
+  readonly resourceKey: string;
+}): void {
+  const allowedNextStates =
+    GPU_FLOW_VISIBLE_FRAME_RESOURCE_ALLOWED_TRANSITIONS[currentState];
+  if (allowedNextStates.includes(nextState)) {
+    return;
+  }
+  throw new Error(
+    `GPU Flow visible frame resource ${resourceKey} cannot transition from ${currentState} to ${nextState}.`,
+  );
+}
+
+const GPU_FLOW_VISIBLE_FRAME_RESOURCE_ALLOWED_TRANSITIONS = Object.freeze({
+  absent: Object.freeze(["requested", "retired"]),
+  preparing: Object.freeze(["ready", "retired"]),
+  presented: Object.freeze(["presented", "retired"]),
+  ready: Object.freeze(["presented", "ready", "retired"]),
+  requested: Object.freeze(["preparing", "retired"]),
+  retired: Object.freeze(["requested", "retired"]),
+} satisfies Record<
+  GpuFlowVisibleFrameResourceStateKind,
+  readonly GpuFlowVisibleFrameResourceStateKind[]
+>);
 
 export function createGpuFlowVisiblePublicationResourceProtectionReport(
   committedFrame: GpuFlowCommittedSurfaceFrame | null,

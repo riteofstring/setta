@@ -297,63 +297,6 @@ export function GpuFlowDomControlPlane({
   ]);
 
   useLayoutEffect(() => {
-    if (!publicationToken || activeControlsToMount.length === 0) {
-      return;
-    }
-    let disposed = false;
-    let frameHandle: number | null = null;
-    const clearFrame = () => {
-      if (frameHandle === null) {
-        return;
-      }
-      window.cancelAnimationFrame(frameHandle);
-      frameHandle = null;
-    };
-    const projectActiveControls = () => {
-      frameHandle = null;
-      if (disposed) {
-        return;
-      }
-      if (!viewportStore.getState().retainedContentScrolling) {
-        return;
-      }
-      browserVisualRuntime.projectDomControls({
-        token: publicationToken,
-      });
-      frameHandle = window.requestAnimationFrame(projectActiveControls);
-    };
-    const scheduleProjection = () => {
-      if (frameHandle !== null) {
-        return;
-      }
-      frameHandle = window.requestAnimationFrame(projectActiveControls);
-    };
-    if (viewportStore.getState().retainedContentScrolling) {
-      scheduleProjection();
-    }
-    const unsubscribe = viewportStore.subscribe((state, previousState) => {
-      if (
-        state.retainedContentScrolling ===
-          previousState.retainedContentScrolling ||
-        !state.retainedContentScrolling
-      ) {
-        return;
-      }
-      scheduleProjection();
-    });
-    return () => {
-      disposed = true;
-      clearFrame();
-      unsubscribe();
-    };
-  }, [
-    activeControlsToMount.length,
-    browserVisualRuntime,
-    publicationToken,
-    viewportStore,
-  ]);
-
-  useLayoutEffect(() => {
     const view = window as typeof window & {
       __settaGpuFlowBrowserVisualPreparationDiagnostics?: (
         actorId?: string | null,

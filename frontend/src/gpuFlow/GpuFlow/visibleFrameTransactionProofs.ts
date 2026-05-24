@@ -83,8 +83,20 @@ export type GpuFlowVisibleFramePublicationPreparedFrame = {
 };
 
 export type GpuFlowVisibleFramePublicationContentCandidate = {
+  readonly blockedPreparedCommittedSurfaceFrame?:
+    | GpuFlowCommittedSurfaceFrame
+    | null
+    | undefined;
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
+  readonly committedSurfaceFrame?:
+    | GpuFlowCommittedSurfaceFrame
+    | null
+    | undefined;
   readonly forceImmediatePublicationDebtFrame?: boolean | undefined;
+  readonly heldPreparedCommittedSurfaceFrame?:
+    | GpuFlowCommittedSurfaceFrame
+    | null
+    | undefined;
   readonly presentationEvidence?:
     | GpuFlowVisiblePublicationPresentationEvidence
     | null
@@ -440,15 +452,14 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
   const selectedBlockedProof = blockedProof ?? presentationBlockedProof;
   const selectedVisibleProjectionState =
     selectedBlockedProof === null ? visibleProjectionState : null;
-  const commitProof =
-    createGpuFlowVisibleFramePublicationTransactionCommitProof({
-      presentationEvidence,
-      publicationDecision,
-      visibleProjectionState: selectedVisibleProjectionState,
-    });
   const visibleFrameStateMachinePreparedFrame =
     createGpuFlowVisibleFramePublicationStateMachinePreparedFrame({
       blockedProof: selectedBlockedProof,
+      candidateCommittedSurfaceFrame:
+        resolveGpuFlowVisibleFramePublicationCandidateCommittedSurfaceFrame({
+          contentPublicationFrame,
+          candidateVisibleProjectionState,
+        }),
       candidateVisibleProjectionState,
       previousVisibleProjectionState,
       publicationDecision,
@@ -460,22 +471,161 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
       previousPresentation:
         visibleFrameStateMachinePreparedFrame.previousPresentation,
     });
+  const finalBlockedProof =
+    createGpuFlowVisibleFramePublicationFinalBlockedProof({
+      previousVisibleProjectionState,
+      selectedBlockedProof,
+      visibleFrameStateMachineOutcome,
+    });
+  const finalVisibleProjectionState =
+    selectGpuFlowVisibleFramePublicationFinalVisibleProjectionState({
+      blockedProof: finalBlockedProof,
+      selectedVisibleProjectionState,
+      visibleFrameStateMachineOutcome,
+    });
+  const commitProof =
+    createGpuFlowVisibleFramePublicationTransactionCommitProof({
+      presentationEvidence,
+      publicationDecision,
+      visibleProjectionState: finalVisibleProjectionState,
+    });
   return Object.freeze({
-    blockedPublicationCandidate: selectedBlockedProof?.candidate ?? null,
-    blockedProof: selectedBlockedProof,
-    blockedSource: selectedBlockedProof?.source ?? null,
+    blockedPublicationCandidate: finalBlockedProof?.candidate ?? null,
+    blockedProof: finalBlockedProof,
+    blockedSource: finalBlockedProof?.source ?? null,
     commitProof,
-    renderedVisibleFrame: selectedVisibleProjectionState !== null,
+    renderedVisibleFrame: finalVisibleProjectionState !== null,
     visibleFrameStateMachineOutcome,
     visibleFrameStateMachinePreparedFrame,
     visibleProjectionSource:
       selectGpuFlowVisibleFramePublicationProjectionSource({
         contentPublicationFrame,
         motionProjectionFrame,
-        visibleProjectionState: selectedVisibleProjectionState,
+        visibleProjectionState: finalVisibleProjectionState,
       }),
-    visibleProjectionState: selectedVisibleProjectionState,
+    visibleProjectionState: finalVisibleProjectionState,
   });
+}
+
+function createGpuFlowVisibleFramePublicationFinalBlockedProof({
+  previousVisibleProjectionState,
+  selectedBlockedProof,
+  visibleFrameStateMachineOutcome,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly selectedBlockedProof: GpuFlowVisiblePublicationBlockedProof | null;
+  readonly visibleFrameStateMachineOutcome: GpuFlowVisibleFrameStateMachineOutcome;
+}): GpuFlowVisiblePublicationBlockedProof | null {
+  if (selectedBlockedProof !== null) {
+    return selectedBlockedProof;
+  }
+  return createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
+    previousVisibleProjectionState,
+    visibleFrameStateMachineOutcome,
+  });
+}
+
+function selectGpuFlowVisibleFramePublicationFinalVisibleProjectionState({
+  blockedProof,
+  selectedVisibleProjectionState,
+  visibleFrameStateMachineOutcome,
+}: {
+  readonly blockedProof: GpuFlowVisiblePublicationBlockedProof | null;
+  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly visibleFrameStateMachineOutcome: GpuFlowVisibleFrameStateMachineOutcome;
+}): GpuFlowVisibleProjectionState | null {
+  if (blockedProof !== null) {
+    return null;
+  }
+  if (
+    isGpuFlowVisibleFrameStateMachinePresentationOutcome(
+      visibleFrameStateMachineOutcome,
+    )
+  ) {
+    return selectedVisibleProjectionState;
+  }
+  return selectedVisibleProjectionState?.transaction.kind === "held-previous"
+    ? selectedVisibleProjectionState
+    : null;
+}
+
+function createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
+  previousVisibleProjectionState,
+  visibleFrameStateMachineOutcome,
+}: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly visibleFrameStateMachineOutcome: GpuFlowVisibleFrameStateMachineOutcome;
+}): GpuFlowVisiblePublicationBlockedProof | null {
+  if (
+    visibleFrameStateMachineOutcome.kind !== "blocked-cold-start" &&
+    visibleFrameStateMachineOutcome.kind !== "aborted"
+  ) {
+    return null;
+  }
+  const decidingProof = visibleFrameStateMachineOutcome.decidingProof;
+  if (isGpuFlowVisibleFrameStateMachineSyntheticVisibilityBlock(decidingProof)) {
+    return null;
+  }
+  return createGpuFlowVisiblePublicationBlockedProof({
+    candidate: Object.freeze({
+      blockedReasons: Object.freeze([
+        Object.freeze({
+          actorId: decidingProof.actorId,
+          family:
+            decidingProof.family === "frame"
+              ? "visible-transaction"
+              : decidingProof.family,
+          reason: decidingProof.reason,
+        }),
+      ]),
+      frozenFrameId:
+        previousVisibleProjectionState?.committedFrame.displayFrameId ??
+        GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+    }),
+    source:
+      decidingProof.proof === "compatible-previous"
+        ? "compatible-previous-proof"
+        : "actor-proof",
+  });
+}
+
+function isGpuFlowVisibleFrameStateMachineSyntheticVisibilityBlock({
+  actorId,
+  reason,
+}: NonNullable<
+  GpuFlowVisibleFrameStateMachineOutcome["decidingProof"]
+>): boolean {
+  return (
+    actorId === "visible-frame" &&
+    (reason === "held-previous" ||
+      reason === "held-previous-budget-exceeded" ||
+      reason === "no-visible-frame")
+  );
+}
+
+function isGpuFlowVisibleFrameStateMachinePresentationOutcome(
+  outcome: GpuFlowVisibleFrameStateMachineOutcome,
+): boolean {
+  return outcome.kind === "presented" || outcome.kind === "projected";
+}
+
+function resolveGpuFlowVisibleFramePublicationCandidateCommittedSurfaceFrame<
+  ContentPublicationFrame extends
+    GpuFlowVisibleFramePublicationContentCandidate,
+>({
+  contentPublicationFrame,
+  candidateVisibleProjectionState,
+}: {
+  readonly contentPublicationFrame: ContentPublicationFrame;
+  readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowCommittedSurfaceFrame | null {
+  return (
+    candidateVisibleProjectionState?.committedFrame ??
+    contentPublicationFrame.committedSurfaceFrame ??
+    contentPublicationFrame.blockedPreparedCommittedSurfaceFrame ??
+    contentPublicationFrame.heldPreparedCommittedSurfaceFrame ??
+    null
+  );
 }
 
 function resolveGpuFlowVisibleFramePublicationCandidateBlockedProof({

@@ -14,7 +14,7 @@ export type GpuFlowProjectionSchedulerState =
 
 export const GPU_FLOW_CONTENT_BLOCKED_RETRY_DELAY_MULTIPLIER = 2;
 export const GPU_FLOW_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER = 2;
-export const GPU_FLOW_RETAINED_SCROLL_CONTENT_SETTLE_DELAY_MULTIPLIER = 12;
+export const GPU_FLOW_RETAINED_SCROLL_CONTENT_SETTLE_DELAY_MULTIPLIER = 1;
 
 type GpuFlowVisiblePublicationDecisionLike = {
   readonly lane: GpuFlowProjectionLane | "idle";
@@ -242,9 +242,7 @@ function shouldDeferGpuFlowProjectionContentRetry({
   );
 }
 
-function isGpuFlowCriticalContentFrameReason(
-  reason: GpuFrameReason,
-): boolean {
+function isGpuFlowCriticalContentFrameReason(reason: GpuFrameReason): boolean {
   return (
     reason === "dom-control-activation" ||
     reason === "init" ||
@@ -337,6 +335,7 @@ function shouldDeferGpuFlowRetainedScrollContentRetry({
     hasCommittedContentFrame &&
     retainedScrollContentBlockedUntilMs !== null &&
     timestamp < retainedScrollContentBlockedUntilMs &&
+    !rawReasons.some(isGpuFlowContentFrameReason) &&
     !hasGpuFlowCriticalContentFrameRequest(rawReasons)
   );
 }

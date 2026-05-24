@@ -132,7 +132,8 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       frame,
     });
 
-    expect(registry.getSnapshot()).toEqual({
+    const snapshot = registry.getSnapshot();
+    expect(snapshot).toMatchObject({
       activeEditorPins: ["row-a"],
       candidateResourceKeys: [
         "texture:surface-texture",
@@ -144,6 +145,20 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       committedResourceKeys: [],
       pendingCandidateFrameIds: [41],
     });
+    expect(snapshot.resourceDebtByState).toEqual({
+      absent: 0,
+      preparing: 0,
+      presented: 0,
+      ready: 4,
+      requested: 0,
+      retired: 0,
+    });
+    expect(snapshot.resourceStates).toEqual([
+      resourceState("dom-control-snapshot:snapshot-row-b", "ready", 41),
+      resourceState("dom-control:row-a", "ready", 41),
+      resourceState("dom-island:island-a", "ready", 41),
+      resourceState("texture:surface-texture", "ready", 41),
+    ]);
   });
 
   it("commits one candidate, records committed resources, and releases loser candidates", () => {
@@ -203,13 +218,28 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       ],
       releasedCommittedResourceKeys: [],
     });
-    expect(registry.getSnapshot()).toEqual({
+    const snapshot = registry.getSnapshot();
+    expect(snapshot).toMatchObject({
       activeEditorPins: [],
       candidateResourceKeys: [],
       committedFrameId: 52,
-      committedResourceKeys: ["page:winner-page"],
+      committedResourceKeys: ["page:winner-page", "dom-control:winner-control"],
       pendingCandidateFrameIds: [],
     });
+    expect(snapshot.resourceDebtByState).toEqual({
+      absent: 0,
+      preparing: 0,
+      presented: 2,
+      ready: 0,
+      requested: 0,
+      retired: 2,
+    });
+    expect(snapshot.resourceStates).toEqual([
+      resourceState("dom-control:loser-control", "retired", 51),
+      resourceState("dom-control:winner-control", "presented", 52),
+      resourceState("page:loser-page", "retired", 51),
+      resourceState("page:winner-page", "presented", 52),
+    ]);
   });
 
   it("releases candidate resources on abort without changing the committed owner", () => {
@@ -261,15 +291,76 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         "dom-control:candidate-control",
       ],
     });
-    expect(registry.getSnapshot()).toEqual({
+    const snapshot = registry.getSnapshot();
+    expect(snapshot).toMatchObject({
       activeEditorPins: [],
       candidateResourceKeys: [],
       committedFrameId: null,
       committedResourceKeys: [],
       pendingCandidateFrameIds: [],
     });
+    expect(snapshot.resourceDebtByState).toEqual({
+      absent: 0,
+      preparing: 0,
+      presented: 0,
+      ready: 0,
+      requested: 0,
+      retired: 2,
+    });
+    expect(snapshot.resourceStates).toEqual([
+      resourceState("dom-control:candidate-control", "retired", 61),
+      resourceState("texture:candidate-texture", "retired", 61),
+    ]);
+  });
+
+  it("tracks explicit resource lifecycle debt from requested through retired", () => {
+    const registry = createGpuFlowVisibleFrameResourceGraph();
+
+    registry.requestVisibleFrameResource({
+      ownerFrameId: 71,
+      resourceKey: "texture:pending-a",
+    });
+    expect(registry.getSnapshot().resourceStates).toEqual([
+      resourceState("texture:pending-a", "requested", 71),
+    ]);
+
+    registry.markVisibleFrameResourcePreparing({
+      ownerFrameId: 71,
+      resourceKey: "texture:pending-a",
+    });
+    registry.markVisibleFrameResourceReady({
+      ownerFrameId: 71,
+      resourceKey: "texture:pending-a",
+    });
+    registry.retireVisibleFrameResource({
+      ownerFrameId: 71,
+      resourceKey: "texture:pending-a",
+    });
+
+    expect(registry.getSnapshot().resourceStates).toEqual([
+      resourceState("texture:pending-a", "retired", 71),
+    ]);
+    expect(() =>
+      registry.markVisibleFrameResourceReady({
+        ownerFrameId: 71,
+        resourceKey: "texture:illegal",
+      }),
+    ).toThrow(/cannot transition from absent to ready/);
   });
 });
+
+function resourceState(
+  resourceKey: string,
+  state: string,
+  ownerFrameId: number,
+) {
+  return {
+    debtAgeFrames: expect.any(Number),
+    ownerFrameId,
+    resourceKey,
+    state,
+  };
+}
 
 function committedSurfaceFrame({
   actorResourceHandles = [],

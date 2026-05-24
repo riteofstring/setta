@@ -61,6 +61,10 @@ type GpuFlowBlockedVisiblePublicationEvent = {
   readonly remainingDebt: GpuFlowVisiblePublicationCompletion["debt"];
   readonly schedulerOutcome: GpuFlowVisiblePublicationCompletion["outcome"];
   readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
+  readonly stateMachineOutcome: {
+    readonly decidingProof: unknown;
+    readonly kind: string;
+  } | null;
   readonly tokenTransactionId: string;
 };
 
@@ -453,12 +457,20 @@ export function recordGpuFlowBlockedVisiblePublication({
   publicationCompletion,
   publicationDecision,
   runtimeCanvas,
+  stateMachineOutcome = null,
   token,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
   readonly publicationCompletion: GpuFlowVisiblePublicationCompletion;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly runtimeCanvas: HTMLCanvasElement;
+  readonly stateMachineOutcome?:
+    | {
+        readonly decidingProof: unknown;
+        readonly kind: string;
+      }
+    | null
+    | undefined;
   readonly token: GpuFlowBlockedPublicationToken;
 }): GpuFlowBlockedPublicationToken {
   assertGpuFlowBlockedPublicationTokenForProjectionSample({
@@ -486,6 +498,7 @@ export function recordGpuFlowBlockedVisiblePublication({
     remainingDebt: publicationCompletion.debt,
     schedulerOutcome: publicationCompletion.outcome,
     schedulerState: publicationDecision.schedulerState,
+    stateMachineOutcome,
     tokenTransactionId: token.transactionId,
   } satisfies GpuFlowBlockedVisiblePublicationEvent);
   emitGpuFlowBlockedVisiblePublicationEvent({
@@ -503,6 +516,7 @@ export function recordGpuFlowBlockedVisiblePublication({
     remainingDebt: event.remainingDebt,
     schedulerOutcome: event.schedulerOutcome,
     schedulerState: event.schedulerState,
+    stateMachineOutcome: event.stateMachineOutcome,
     transactionId: event.tokenTransactionId,
   });
   return token;

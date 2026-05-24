@@ -401,6 +401,7 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
       });
     case "held":
       return createGpuFlowVisiblePublicationCompletionHeldStateMachineOutcome({
+        blockedPublicationToken,
         publicationDecision,
         previousVisibleProjectionState,
         schedulerKnobs,
@@ -414,6 +415,7 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
         };
       }
       return createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
+        blockedPublicationToken: null,
         previousVisibleProjectionState,
         publicationDecision,
         schedulerKnobs,
@@ -432,11 +434,13 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
 }
 
 function createGpuFlowVisiblePublicationCompletionHeldStateMachineOutcome({
+  blockedPublicationToken,
   publicationDecision,
   previousVisibleProjectionState,
   schedulerKnobs,
   transactionProof,
 }: {
+  readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
@@ -448,12 +452,13 @@ function createGpuFlowVisiblePublicationCompletionHeldStateMachineOutcome({
   const visibleProjectionState = transactionProof.visibleProjectionState;
   if (visibleProjectionState?.transaction.kind === "held-previous") {
     return createGpuFlowVisiblePublicationCompletionHeldPreviousOutcome({
-      blockedPublicationToken: null,
+      blockedPublicationToken,
       publicationDecision,
       visibleProjectionState,
     });
   }
   return createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
+    blockedPublicationToken,
     previousVisibleProjectionState,
     publicationDecision,
     schedulerKnobs,
@@ -510,6 +515,7 @@ function createGpuFlowVisiblePublicationCompletionAbortedStateMachineOutcome({
     };
   }
   return createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
+    blockedPublicationToken: null,
     previousVisibleProjectionState,
     publicationDecision,
     schedulerKnobs,
@@ -690,10 +696,12 @@ function isGpuFlowVisiblePublicationHeldPreviousOverBudget(
 }
 
 function createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
+  blockedPublicationToken,
   previousVisibleProjectionState,
   publicationDecision,
   schedulerKnobs,
 }: {
+  readonly blockedPublicationToken: GpuFlowBlockedPublicationToken | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
@@ -733,6 +741,12 @@ function createGpuFlowVisiblePublicationCompletionNoFrameOutcome({
       schedulerKnobs,
     })
   ) {
+    if (blockedPublicationToken !== null) {
+      return {
+        kind: "blocked",
+        token: blockedPublicationToken,
+      };
+    }
     return {
       kind: "blocked",
       token: createGpuFlowVisibleFrameBlockedPublicationToken({

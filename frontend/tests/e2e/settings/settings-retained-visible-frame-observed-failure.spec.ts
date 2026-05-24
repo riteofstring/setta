@@ -333,6 +333,184 @@ test("pan, zoom, and retained scroll keep cadence and avoid content disappearanc
   }
 });
 
+test("consecutive interaction frames do not flicker between present and absent content", async ({
+  page,
+}, testInfo) => {
+  await openAllSettingsForRetainedCompositor(page);
+  await centerRetainedCompositorSurface(
+    page,
+    SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
+  );
+  const target = await resolveRetainedCompositorTarget(page);
+  await warmRetainedCompositorNativeWheelTarget(page, target.point);
+  const baseline = await captureRetainedCompositorEvidenceScreenshot(page, {
+    clip: target.clip,
+    path: testInfo.outputPath("flicker-baseline-content.png"),
+  });
+  const baselineBands = await analyzeHorizontalPlaceholderBands(page, {
+    screenshot: baseline,
+  });
+
+  await dispatchRetainedCompositorWheelBurst(page, {
+    deltaX: 20,
+    deltaY: 14,
+    eventCount: 3,
+    point: target.point,
+  });
+  await dispatchRetainedCompositorWheelBurst(page, {
+    ctrlKey: true,
+    deltaY: -0.28,
+    eventCount: 3,
+    point: target.point,
+  });
+  await runNativeRetainedCompositorWheelBurst(page, {
+    deltaY: 34,
+    eventCount: 3,
+    point: target.point,
+  });
+  const frameScreenshots = await captureConsecutiveFrameScreenshots(page, {
+    clip: target.clip,
+    count: 6,
+    outputPrefix: "flicker-frame",
+    testInfo,
+  });
+  const frameBands = await Promise.all(
+    frameScreenshots.map((screenshot) =>
+      analyzeHorizontalPlaceholderBands(page, { screenshot }),
+    ),
+  );
+  const diagnostics = await attachVisibleFrameDiagnostics(
+    page,
+    testInfo,
+    "flicker-visible-frame-diagnostics.json",
+  );
+  const presenceFloor = Math.max(
+    MIN_CONTENT_NONBLANK_RATIO,
+    baselineBands.nonblankRatio * MAX_FLICKER_BASELINE_DROP_RATIO,
+  );
+  const presence = frameBands.map(
+    (bands) =>
+      !bands.highConfidencePlaceholder && bands.nonblankRatio >= presenceFloor,
+  );
+  const details = JSON.stringify(
+    { baselineBands, diagnostics, frameBands, presence, target },
+    null,
+    2,
+  );
+
+  expect(presence.every(Boolean), details).toBe(true);
+  expect(hasPresenceOscillation(presence), details).toBe(false);
+});
+
+test("latest Chrome recording parity sequence keeps pixels, diagnostics, and cadence coherent", async ({
+  page,
+}, testInfo) => {
+  await openAllSettingsForRetainedCompositor(page);
+  await centerRetainedCompositorSurface(
+    page,
+    SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
+  );
+  const target = await resolveRetainedCompositorTarget(page);
+  await warmRetainedCompositorNativeWheelTarget(page, target.point);
+  const controlCadence = await measureRetainedCompositorControlCadence(page);
+  const screenshots: Buffer[] = [];
+  const gesture = await measureRetainedCompositorGesture(
+    page,
+    async () => {
+      const eventSpacing = [
+        ...(await dispatchRetainedCompositorWheelBurst(page, {
+          deltaX: 30,
+          deltaY: 20,
+          eventCount: 5,
+          point: target.point,
+        })),
+        ...(await dispatchRetainedCompositorWheelBurst(page, {
+          deltaX: -18,
+          deltaY: 16,
+          eventCount: 3,
+          point: target.point,
+        })),
+        ...(await dispatchRetainedCompositorWheelBurst(page, {
+          ctrlKey: true,
+          deltaY: -0.42,
+          eventCount: 5,
+          point: target.point,
+        })),
+        ...(await runNativeRetainedCompositorWheelBurst(page, {
+          deltaY: 42,
+          eventCount: 5,
+          point: target.point,
+        })),
+      ];
+      screenshots.push(
+        await captureRetainedCompositorEvidenceScreenshot(page, {
+          clip: target.clip,
+          path: testInfo.outputPath("latest-parity-immediate.png"),
+        }),
+      );
+      await page.waitForTimeout(60);
+      screenshots.push(
+        await captureRetainedCompositorEvidenceScreenshot(page, {
+          clip: target.clip,
+          path: testInfo.outputPath("latest-parity-60ms.png"),
+        }),
+      );
+      await page.waitForTimeout(60);
+      screenshots.push(
+        await captureRetainedCompositorEvidenceScreenshot(page, {
+          clip: target.clip,
+          path: testInfo.outputPath("latest-parity-120ms.png"),
+        }),
+      );
+      return eventSpacing;
+    },
+    { settleMs: 220 },
+  );
+  screenshots.push(
+    await captureRetainedCompositorEvidenceScreenshot(page, {
+      clip: target.clip,
+      path: testInfo.outputPath("latest-parity-final.png"),
+    }),
+  );
+  const sampleBands = await Promise.all(
+    screenshots.map((screenshot) =>
+      analyzeHorizontalPlaceholderBands(page, { screenshot }),
+    ),
+  );
+  const budget = resolveRetainedCompositorCadenceBudget({
+    controlCadence,
+    eventSpacing: gesture.eventSpacing,
+  });
+  const diagnostics = await attachVisibleFrameDiagnostics(
+    page,
+    testInfo,
+    "latest-parity-visible-frame-diagnostics.json",
+  );
+  await testInfo.attach("latest-parity-performance.json", {
+    body: JSON.stringify({ budget, controlCadence, gesture }, null, 2),
+    contentType: "application/json",
+  });
+  const details = JSON.stringify(
+    { budget, controlCadence, diagnostics, gesture, sampleBands, target },
+    null,
+    2,
+  );
+
+  expectRetainedCompositorGestureWithinBudget({
+    budget,
+    details,
+    gesture,
+  });
+  for (const bands of sampleBands) {
+    expect(bands.highConfidencePlaceholder, details).toBe(false);
+    expect(bands.nonblankRatio, details).toBeGreaterThan(
+      MIN_CONTENT_NONBLANK_RATIO,
+    );
+  }
+  expect(diagnostics.requiredActorsByFamily, details).not.toBeNull();
+  expect(diagnostics.visibleOutcome, details).not.toBe("blocked");
+});
+
 async function resolveRetainedSectionHeaderClip(
   page: Page,
   surfaceId: string,
@@ -374,6 +552,45 @@ async function resolveRetainedSectionHeaderClip(
       );
     }
   }, surfaceId);
+}
+
+async function captureConsecutiveFrameScreenshots(
+  page: Page,
+  {
+    clip,
+    count,
+    outputPrefix,
+    testInfo,
+  }: {
+    readonly clip: Rect;
+    readonly count: number;
+    readonly outputPrefix: string;
+    readonly testInfo: TestInfo;
+  },
+): Promise<Buffer[]> {
+  const screenshots: Buffer[] = [];
+  for (let index = 0; index < count; index += 1) {
+    await page.evaluate(
+      () => new Promise((resolve) => requestAnimationFrame(resolve)),
+    );
+    screenshots.push(
+      await captureRetainedCompositorEvidenceScreenshot(page, {
+        clip,
+        path: testInfo.outputPath(`${outputPrefix}-${index}.png`),
+      }),
+    );
+  }
+  return screenshots;
+}
+
+function hasPresenceOscillation(presence: readonly boolean[]): boolean {
+  let transitions = 0;
+  for (let index = 1; index < presence.length; index += 1) {
+    if (presence[index] !== presence[index - 1]) {
+      transitions += 1;
+    }
+  }
+  return transitions > 1;
 }
 
 async function attachVisibleFrameDiagnostics(
