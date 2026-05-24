@@ -240,6 +240,7 @@ export class GpuFlowVisibleFrameResourceGraph {
     readonly ownerFrameId?: number | null | undefined;
     readonly resourceKey: string;
   }): void {
+    this.dequeueVisibleFrameResourceWork(resourceKey);
     this.transitionResource({
       ownerFrameId,
       resourceKey,
@@ -328,12 +329,20 @@ export class GpuFlowVisibleFrameResourceGraph {
       token,
     });
     this.pendingCandidateByFrameId.delete(frameId);
-    const nextCommittedResourceKeys = new Set(entry.candidateResourceKeys);
-    const releasedCandidateResourceKeys =
-      this.releaseLoserCandidateResourceEntries(
+    const nextCommittedResourceKeys = new Set(
+      this.getPresentableCandidateResourceKeys(entry),
+    );
+    const releasedCandidateResourceKeys = uniqueStrings([
+      ...this.releaseUnpresentedCandidateResourceEntries(
+        frameId,
+        entry,
+        nextCommittedResourceKeys,
+      ),
+      ...this.releaseLoserCandidateResourceEntries(
         frameId,
         nextCommittedResourceKeys,
-      );
+      ),
+    ]);
     const releasedCommittedResourceKeys = [
       ...this.committedResourceKeys,
     ].filter((resourceKey) => !nextCommittedResourceKeys.has(resourceKey));
@@ -343,7 +352,7 @@ export class GpuFlowVisibleFrameResourceGraph {
         resourceKey,
       });
     }
-    for (const resourceKey of this.getPresentableCandidateResourceKeys(entry)) {
+    for (const resourceKey of nextCommittedResourceKeys) {
       this.transitionResource({
         ownerFrameId: frameId,
         resourceKey,
@@ -461,6 +470,25 @@ export class GpuFlowVisibleFrameResourceGraph {
       );
     }
     return entry;
+  }
+
+  private releaseUnpresentedCandidateResourceEntries(
+    frameId: number,
+    entry: GpuFlowVisibleFrameCandidateResourceEntry,
+    presentedResourceKeys: ReadonlySet<string>,
+  ): readonly string[] {
+    const releasedResourceKeys: string[] = [];
+    for (const resourceKey of entry.candidateResourceKeys) {
+      if (presentedResourceKeys.has(resourceKey)) {
+        continue;
+      }
+      releasedResourceKeys.push(resourceKey);
+      this.retireVisibleFrameResource({
+        ownerFrameId: frameId,
+        resourceKey,
+      });
+    }
+    return Object.freeze(releasedResourceKeys);
   }
 
   private releaseLoserCandidateResourceEntries(

@@ -283,6 +283,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     return (
       shouldProbeGpuFlowProjectionContentDebt({
         contentRetryDeferred,
+        maintenanceDebt,
         rawReasons,
         viewportInteractionActive,
       }) ||
@@ -342,16 +343,19 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
 
   function shouldProbeGpuFlowProjectionContentDebt({
     contentRetryDeferred,
+    maintenanceDebt,
     rawReasons,
     viewportInteractionActive,
   }: {
     readonly contentRetryDeferred: boolean;
+    readonly maintenanceDebt: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
     readonly viewportInteractionActive: boolean;
   }): boolean {
     return (
       contentDebt &&
       !contentRetryDeferred &&
+      !maintenanceDebt &&
       !viewportInteractionActive &&
       rawReasons.some(isGpuFlowContentFrameReason) &&
       !rawReasons.some(isGpuFlowRetainedMotionFrameReason) &&
@@ -516,6 +520,41 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     }
   }
 
+  function recordGpuFlowRetainedScrollContentRetryBlockForSelection({
+    hasCommittedContentFrame,
+    rawReasons,
+    sample,
+    timestamp,
+  }: {
+    readonly hasCommittedContentFrame: boolean;
+    readonly rawReasons: readonly GpuFrameReason[];
+    readonly sample: GpuFlowLiveProjectionSample;
+    readonly timestamp: DOMHighResTimeStamp;
+  }): void {
+    if (
+      !hasCommittedContentFrame ||
+      lastMotionAtMs === null ||
+      criticalContentOriginDebt
+    ) {
+      return;
+    }
+    if (
+      !isGpuFlowRetainedScrollPublicationDecision({
+        lane: "idle",
+        rawReasons,
+        sample,
+      })
+    ) {
+      return;
+    }
+    retainedScrollContentBlockedUntilMs = Math.max(
+      retainedScrollContentBlockedUntilMs ?? 0,
+      timestamp +
+        schedulerKnobs.motionSettleWindowMs *
+          GPU_FLOW_RETAINED_SCROLL_CONTENT_SETTLE_DELAY_MULTIPLIER,
+    );
+  }
+
   function resolveGpuFlowProjectionContentRetryBlockForSelection({
     hasCommittedContentFrame,
     rawReasons,
@@ -574,6 +613,12 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
       viewportInteractionActive ||
       isGpuFlowRetainedScrollSampleInteractionActive(sample);
     recordGpuFlowVisiblePublicationRawReasonDebt(rawReasons);
+    recordGpuFlowRetainedScrollContentRetryBlockForSelection({
+      hasCommittedContentFrame,
+      rawReasons,
+      sample,
+      timestamp,
+    });
     const contentRetryBlock =
       resolveGpuFlowProjectionContentRetryBlockForSelection({
         hasCommittedContentFrame,

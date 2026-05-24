@@ -628,6 +628,48 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     expect(contentProbe.lane).toBe("content");
   });
 
+  it("does not probe queued content debt while motion maintenance is still pending", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+
+    const content = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(content.lane).toBe("content");
+    completeCompatiblePreviousCommittedFrame(scheduler, content);
+
+    for (let index = 0; index < 6; index += 1) {
+      const motion = scheduler.selectFrame({
+        hasCommittedContentFrame: true,
+        rawReasons: ["retained-scroll", "paint", "viewport"],
+        sample: liveSample(2 + index),
+        timestamp: 2 + index,
+        viewportInteractionActive: false,
+      });
+      expect(motion.schedulerState).toBe("motion-active");
+      expect(motion.lane).toBe("motion");
+      completeCommittedFrame(scheduler, motion);
+    }
+
+    const contentProbe = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["viewport", "manual"],
+      sample: liveSample(8),
+      timestamp: 8,
+      viewportInteractionActive: false,
+    });
+    expect(contentProbe.schedulerState).toBe("motion-active");
+    expect(contentProbe.lane).toBe("motion");
+    expect(contentProbe.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: false,
+    });
+  });
+
   it("does not probe queued content debt during pure viewport motion", () => {
     const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
 
@@ -766,6 +808,21 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     expect(retainedScroll.lane).toBe("motion");
     completeCommittedFrame(scheduler, retainedScroll);
 
+    const postScrollManual = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(100),
+      timestamp: 100,
+      viewportInteractionActive: false,
+    });
+    expect(postScrollManual.schedulerState).toBe("motion-settling");
+    expect(postScrollManual.lane).toBe("idle");
+    expect(postScrollManual.debt).toEqual({
+      content: true,
+      maintenance: false,
+      motion: false,
+    });
+
     const postScrollPaint = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["paint"],
@@ -800,6 +857,68 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
     expect(settledContent.schedulerState).toBe("content-catchup");
     expect(settledContent.lane).toBe("content");
+  });
+
+  it("refreshes retained scroll content cooldown before selecting scroll pulse frames", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+
+    const content = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(content.lane).toBe("content");
+    completeCompatiblePreviousCommittedFrame(scheduler, content);
+
+    const retainedScroll = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll"],
+      sample: liveSample(10, {
+        gestureOwner: "ownedByRetainedSectionScroll",
+      }),
+      timestamp: 10,
+      viewportInteractionActive: false,
+    });
+    expect(retainedScroll.lane).toBe("motion");
+    completeCommittedFrame(scheduler, retainedScroll);
+
+    const deferredManual = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(100),
+      timestamp: 100,
+      viewportInteractionActive: false,
+    });
+    expect(deferredManual.schedulerState).toBe("motion-settling");
+    expect(deferredManual.lane).toBe("idle");
+
+    const retainedScrollPulse = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["paint", "retained-scroll", "manual", "viewport"],
+      sample: liveSample(250),
+      timestamp: 250,
+      viewportInteractionActive: false,
+    });
+    expect(retainedScrollPulse.schedulerState).toBe("motion-active");
+    expect(retainedScrollPulse.lane).toBe("motion");
+    completeCommittedFrame(scheduler, retainedScrollPulse);
+
+    const manualViewportDuringCooldown = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "viewport"],
+      sample: liveSample(360),
+      timestamp: 360,
+      viewportInteractionActive: false,
+    });
+    expect(manualViewportDuringCooldown.schedulerState).toBe("motion-active");
+    expect(manualViewportDuringCooldown.lane).toBe("motion");
+    expect(manualViewportDuringCooldown.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: false,
+    });
   });
 
   it("does not keep critical content priority after compatible-previous content commits", () => {

@@ -402,27 +402,24 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     expect(result).toEqual({
       activeEditorPins: [],
       published: true,
-      releasedCandidateResourceKeys: [],
+      releasedCandidateResourceKeys: ["dom-control:early-control"],
       releasedCommittedResourceKeys: [],
     });
     expect(registry.getSnapshot()).toMatchObject({
       committedFrameId: 62,
-      committedResourceKeys: [
-        "texture:early-texture",
-        "dom-control:early-control",
-      ],
-      queuedResourceKeys: ["dom-control:early-control"],
+      committedResourceKeys: ["texture:early-texture"],
+      queuedResourceKeys: [],
       resourceDebtByState: {
         absent: 0,
         preparing: 0,
         presented: 1,
         ready: 0,
-        requested: 1,
-        retired: 0,
+        requested: 0,
+        retired: 1,
       },
     });
     expect(registry.getSnapshot().resourceStates).toEqual([
-      resourceState("dom-control:early-control", "requested", 62),
+      resourceState("dom-control:early-control", "retired", 62),
       resourceState("texture:early-texture", "presented", 62),
     ]);
   });
