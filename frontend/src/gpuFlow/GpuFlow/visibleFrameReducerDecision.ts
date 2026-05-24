@@ -1,6 +1,6 @@
 import type {
-  GpuFlowVisibleFrameRequestFacts,
   GpuFlowVisibleFrameReducerDecision,
+  GpuFlowVisibleFrameRequestFacts,
 } from "./visibleFrameReducerRuntime";
 import type { GpuFlowVisibleFrameWorkLane } from "./visibleFrameStateMachine";
 
@@ -12,6 +12,7 @@ export function createGpuFlowVisibleFrameReducerDecisionForLane({
   readonly lane: GpuFlowVisibleFrameWorkLane;
 }): GpuFlowVisibleFrameReducerDecision {
   return Object.freeze({
+    classifiedDebt: frameRequest.classifiedDebt,
     debt: Object.freeze({
       content: lane === "content" ? false : frameRequest.contentDebt,
       maintenance:

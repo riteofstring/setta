@@ -60,6 +60,7 @@ export const DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY: GpuFlowVisibleFrameR
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY;
 
 export type GpuFlowVisibleFrameReducerDecision = {
+  readonly classifiedDebt?: GpuFlowVisibleFrameClassifiedDebt | undefined;
   readonly debt: GpuFlowVisibleFrameReducerDebt;
   readonly lane: GpuFlowProjectionLane | "idle";
   readonly rawReasons: readonly GpuFrameReason[];
@@ -69,6 +70,7 @@ export type GpuFlowVisibleFrameReducerDecision = {
 
 export type GpuFlowVisibleFrameRequestFacts =
   GpuFlowVisibleFrameLaneReductionFacts & {
+    readonly classifiedDebt?: GpuFlowVisibleFrameClassifiedDebt | undefined;
     readonly rawReasons: readonly GpuFrameReason[];
     readonly sample: GpuFlowLiveProjectionSample;
     readonly timestamp: DOMHighResTimeStamp;
@@ -86,6 +88,18 @@ export type GpuFlowVisibleFrameReducerDebtProof =
 export type GpuFlowVisibleFrameReducerCompletion = {
   readonly debt: GpuFlowVisibleFrameReducerDebt;
   readonly outcome: GpuFlowVisibleFrameReducerCompletionOutcome["kind"];
+};
+
+export type GpuFlowVisibleFrameClassifiedDebtEntry = {
+  readonly active: boolean;
+  readonly ageFrames: number;
+  readonly ageMs: number;
+};
+
+export type GpuFlowVisibleFrameClassifiedDebt = {
+  readonly continuity: GpuFlowVisibleFrameClassifiedDebtEntry;
+  readonly quality: GpuFlowVisibleFrameClassifiedDebtEntry;
+  readonly safety: GpuFlowVisibleFrameClassifiedDebtEntry;
 };
 
 export type GpuFlowVisibleFrameReducerPresentCompletionOutcome = {
@@ -155,6 +169,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
   let lastRetainedScrollAtMs: number | null = null;
   let retainedScrollContentBlockedUntilMs: number | null = null;
   let consecutiveMotionFrames = 0;
+  const classifiedDebtTrackers = createGpuFlowClassifiedDebtTrackers();
 
   function currentState({
     browserVisualContentRepairBlocked,
@@ -859,7 +874,16 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       timestamp,
       viewportInteractionActive: projectionInteractionActive,
     });
+    const classifiedDebt = updateGpuFlowVisibleFrameClassifiedDebt({
+      contentDebt,
+      criticalContentDebt,
+      maintenanceDebt,
+      motionDebt,
+      timestamp,
+      trackers: classifiedDebtTrackers,
+    });
     return Object.freeze({
+      classifiedDebt,
       contentDebt,
       contentRetryDeferred,
       criticalContentDebt,
@@ -973,6 +997,101 @@ export function createGpuFlowVisibleFrameReducerRuntime({
         reducerPolicy,
       });
     },
+  });
+}
+
+type GpuFlowVisibleFrameClassifiedDebtTracker = {
+  active: boolean;
+  ageFrames: number;
+  firstActiveAtMs: number | null;
+};
+
+function createGpuFlowClassifiedDebtTrackers(): Record<
+  keyof GpuFlowVisibleFrameClassifiedDebt,
+  GpuFlowVisibleFrameClassifiedDebtTracker
+> {
+  return {
+    continuity: createGpuFlowClassifiedDebtTracker(),
+    quality: createGpuFlowClassifiedDebtTracker(),
+    safety: createGpuFlowClassifiedDebtTracker(),
+  };
+}
+
+function createGpuFlowClassifiedDebtTracker(): GpuFlowVisibleFrameClassifiedDebtTracker {
+  return {
+    active: false,
+    ageFrames: 0,
+    firstActiveAtMs: null,
+  };
+}
+
+function updateGpuFlowVisibleFrameClassifiedDebt({
+  contentDebt,
+  criticalContentDebt,
+  maintenanceDebt,
+  motionDebt,
+  timestamp,
+  trackers,
+}: {
+  readonly contentDebt: boolean;
+  readonly criticalContentDebt: boolean;
+  readonly maintenanceDebt: boolean;
+  readonly motionDebt: boolean;
+  readonly timestamp: DOMHighResTimeStamp;
+  readonly trackers: Record<
+    keyof GpuFlowVisibleFrameClassifiedDebt,
+    GpuFlowVisibleFrameClassifiedDebtTracker
+  >;
+}): GpuFlowVisibleFrameClassifiedDebt {
+  return Object.freeze({
+    continuity: updateGpuFlowVisibleFrameClassifiedDebtEntry({
+      active: contentDebt || motionDebt,
+      timestamp,
+      tracker: trackers.continuity,
+    }),
+    quality: updateGpuFlowVisibleFrameClassifiedDebtEntry({
+      active: maintenanceDebt,
+      timestamp,
+      tracker: trackers.quality,
+    }),
+    safety: updateGpuFlowVisibleFrameClassifiedDebtEntry({
+      active: criticalContentDebt,
+      timestamp,
+      tracker: trackers.safety,
+    }),
+  });
+}
+
+function updateGpuFlowVisibleFrameClassifiedDebtEntry({
+  active,
+  timestamp,
+  tracker,
+}: {
+  readonly active: boolean;
+  readonly timestamp: DOMHighResTimeStamp;
+  readonly tracker: GpuFlowVisibleFrameClassifiedDebtTracker;
+}): GpuFlowVisibleFrameClassifiedDebtEntry {
+  if (!active) {
+    tracker.active = false;
+    tracker.ageFrames = 0;
+    tracker.firstActiveAtMs = null;
+    return Object.freeze({
+      active: false,
+      ageFrames: 0,
+      ageMs: 0,
+    });
+  }
+  if (!tracker.active) {
+    tracker.active = true;
+    tracker.ageFrames = 0;
+    tracker.firstActiveAtMs = timestamp;
+  } else {
+    tracker.ageFrames += 1;
+  }
+  return Object.freeze({
+    active: true,
+    ageFrames: tracker.ageFrames,
+    ageMs: Math.max(0, timestamp - (tracker.firstActiveAtMs ?? timestamp)),
   });
 }
 

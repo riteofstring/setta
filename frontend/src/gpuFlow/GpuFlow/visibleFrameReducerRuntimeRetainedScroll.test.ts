@@ -315,6 +315,39 @@ describe("GPU Flow retained scroll scheduling", () => {
       motion: false,
     });
   });
+
+  it("exposes safety, continuity, and quality debt age in reducer decisions", () => {
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+
+    const activation = reducerRuntime.selectFrame({
+      hasPresentedContentFrame: true,
+      rawReasons: ["dom-control-activation", "texture-upload"],
+      sample: liveSample(1),
+      timestamp: 10,
+      viewportInteractionActive: false,
+    });
+    expect(activation.classifiedDebt).toEqual({
+      continuity: { active: true, ageFrames: 0, ageMs: 0 },
+      quality: { active: true, ageFrames: 0, ageMs: 0 },
+      safety: { active: true, ageFrames: 0, ageMs: 0 },
+    });
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, activation);
+
+    const retainedScroll = reducerRuntime.selectFrame({
+      hasPresentedContentFrame: true,
+      rawReasons: ["retained-scroll", "manual"],
+      sample: liveSample(2, {
+        gestureOwner: "ownedByRetainedSectionScroll",
+      }),
+      timestamp: 42,
+      viewportInteractionActive: false,
+    });
+    expect(retainedScroll.classifiedDebt).toEqual({
+      continuity: { active: true, ageFrames: 1, ageMs: 32 },
+      quality: { active: true, ageFrames: 1, ageMs: 32 },
+      safety: { active: false, ageFrames: 0, ageMs: 0 },
+    });
+  });
 });
 
 function completePreparedContentFrame(

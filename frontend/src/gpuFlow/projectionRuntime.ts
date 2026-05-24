@@ -27,6 +27,8 @@ export {
   hasGpuFlowVisibleFrameReducerDebt,
 } from "./GpuFlow/visibleFrameReducerRuntime";
 export type {
+  GpuFlowVisibleFrameClassifiedDebt,
+  GpuFlowVisibleFrameClassifiedDebtEntry,
   GpuFlowVisibleFrameReducerDecision,
   GpuFlowVisibleFrameReducerPolicy,
 } from "./GpuFlow/visibleFrameReducerRuntime";
