@@ -33,6 +33,9 @@ const COORDINATOR_MODULE_PATH = fileURLToPath(
 const STATE_MACHINE_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameStateMachine.ts", import.meta.url),
 );
+const STATE_MACHINE_REDUCTION_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameStateMachineReduction.ts", import.meta.url),
+);
 const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   new URL(
     "./visibleFrameActorAdapters/contentDecisionKernel.ts",
@@ -152,6 +155,10 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
     );
     const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
+    const stateMachineReductionSource = readFileSync(
+      STATE_MACHINE_REDUCTION_MODULE_PATH,
+      "utf8",
+    );
     const contentDecisionKernelSource = readFileSync(
       CONTENT_DECISION_KERNEL_MODULE_PATH,
       "utf8",
@@ -176,9 +183,12 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       "function resolveGpuFlowMotionProjectionFrameTransaction",
     );
     expect(stateMachineSource).toContain(
+      'from "./visibleFrameStateMachineReduction"',
+    );
+    expect(stateMachineReductionSource).toContain(
       "export function reduceGpuFlowVisibleFrameMotionProjectionTransaction",
     );
-    expect(stateMachineSource).toContain(
+    expect(stateMachineReductionSource).toContain(
       "export function reduceGpuFlowMotionProjectionFramePreparation",
     );
     expect(kernelModuleSource).not.toContain(
@@ -227,7 +237,7 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       "export function createGpuFlowRetainedProjectionPublicationCandidateSelector",
     );
     expect(kernelModuleSource).not.toContain("candidateDecisionKernel");
-    expect(stateMachineSource).toContain(
+    expect(stateMachineReductionSource).toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
   });

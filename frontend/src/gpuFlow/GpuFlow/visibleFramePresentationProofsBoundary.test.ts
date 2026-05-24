@@ -1143,6 +1143,7 @@ function readVisibleFramePublicationCoordinatorAuthoritySource(): string {
   return [
     COORDINATOR_MODULE_PATH,
     STATE_MACHINE_MODULE_PATH,
+    modulePath("./visibleFrameStateMachineReduction.ts"),
     CONTENT_DECISION_KERNEL_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
     CONTENT_PLAN_MODULE_PATH,

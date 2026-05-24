@@ -9,6 +9,9 @@ const COORDINATOR_MODULE_PATH = fileURLToPath(
 const STATE_MACHINE_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameStateMachine.ts", import.meta.url),
 );
+const STATE_MACHINE_REDUCTION_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameStateMachineReduction.ts", import.meta.url),
+);
 const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   new URL(
     "./visibleFrameActorAdapters/contentDecisionKernel.ts",
@@ -50,6 +53,10 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "utf8",
     );
     const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
+    const stateMachineReductionSource = readFileSync(
+      STATE_MACHINE_REDUCTION_MODULE_PATH,
+      "utf8",
+    );
 
     expect(schedulingReductionSource).not.toContain(
       "reduceGpuFlowVisibleFramePublicationLane({",
@@ -57,14 +64,17 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expect(schedulingReductionSource).not.toContain(
       "createGpuFlowVisiblePublicationDecisionForLane",
     );
-    expect(stateMachineSource).toContain(
+    expect(stateMachineReductionSource).toContain(
       "export function reduceGpuFlowVisibleFramePublicationDecision",
     );
-    expect(stateMachineSource).toContain(
+    expect(stateMachineReductionSource).toContain(
       "reduceGpuFlowVisibleFramePublicationLane({",
     );
-    expect(stateMachineSource).toContain(
+    expect(stateMachineReductionSource).toContain(
       "createGpuFlowVisiblePublicationDecisionForLane",
+    );
+    expect(stateMachineSource).toContain(
+      'from "./visibleFrameStateMachineReduction"',
     );
   });
 
@@ -194,6 +204,10 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "utf8",
     );
     const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
+    const stateMachineReductionSource = readFileSync(
+      STATE_MACHINE_REDUCTION_MODULE_PATH,
+      "utf8",
+    );
 
     expect(coordinatorSource).toContain(
       "reduceGpuFlowMotionProjectionFramePreparation({",
@@ -206,15 +220,20 @@ describe("GPU Flow visible frame coordinator phases", () => {
     );
     expect(coordinatorSource).not.toContain("createBlockedProjectionFrame({");
     expect(stateMachineSource).toContain(
+      'from "./visibleFrameStateMachineReduction"',
+    );
+    expect(stateMachineReductionSource).toContain(
       "export function reduceGpuFlowMotionProjectionFramePreparation",
     );
-    expect(stateMachineSource).toContain(
+    expect(stateMachineReductionSource).toContain(
       "export function reduceGpuFlowVisibleFrameMotionProjectionTransaction",
     );
-    expect(stateMachineSource).toContain(
+    expect(stateMachineReductionSource).toContain(
       "projectionFrameTransaction.blockedPublicationCandidate",
     );
-    expect(stateMachineSource).toContain("createBlockedProjectionFrame({");
+    expect(stateMachineReductionSource).toContain(
+      "createBlockedProjectionFrame({",
+    );
 
     expect(contentDecisionKernelSource).not.toContain('"nonpublishable"');
     expect(contentDecisionKernelSource).not.toContain('"blocked-candidate"');

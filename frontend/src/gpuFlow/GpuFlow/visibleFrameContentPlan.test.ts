@@ -597,9 +597,6 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentDecisionKernelSource).not.toContain(
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
     );
-    expect(stateMachineSource).toContain(
-      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
-    );
   });
 
   it("keeps content blocked-candidate selection in the state machine authority", () => {
