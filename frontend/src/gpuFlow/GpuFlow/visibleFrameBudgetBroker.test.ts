@@ -257,6 +257,59 @@ describe("GPU Flow visible frame budget broker", () => {
       "retained-page": ["page:quality-prefetch"],
     });
   });
+
+  it("uses concrete browser-visual resource debt instead of synthetic repair placeholders", () => {
+    const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
+      deferResolutionUpdates: false,
+      publicationDecision: publicationDecision({
+        lane: "content",
+        schedulerState: "content-catchup",
+      }),
+      resourceGraphSnapshot: {
+        activeEditorPins: ["active-editor"],
+        candidateResourceKeys: ["dom-control:active-editor"],
+        committedFrameId: null,
+        committedResourceKeys: [],
+        pendingCandidateFrameIds: [10],
+        queuedResourceKeys: ["dom-control:active-editor"],
+        resourceDebtByState: {
+          absent: 0,
+          preparing: 0,
+          presented: 0,
+          ready: 0,
+          requested: 1,
+          retired: 0,
+        },
+        resourceStates: [
+          {
+            debtAgeFrames: 1,
+            deadlineFrame: 2,
+            estimatedCostMs: 0.5,
+            ownerFrameId: 10,
+            preparationLane: "browser-visual",
+            priority: "safety",
+            resourceKey: "dom-control:active-editor",
+            state: "requested",
+          },
+        ],
+      },
+    });
+
+    expect(decision.browserVisualRepair).toEqual({
+      debtAgeFrames: 1,
+      eligible: true,
+      priority: "safety",
+    });
+    expect(decision.preparationBudget.selectedDebtIds).toContain(
+      "dom-control:active-editor",
+    );
+    expect(decision.preparationBudget.selectedDebtIds).not.toContain(
+      "browser-visual-repair",
+    );
+    expect(decision.preparationBudget.selectedResourceDebtIds).toEqual([
+      "dom-control:active-editor",
+    ]);
+  });
 });
 
 function publicationDecision({

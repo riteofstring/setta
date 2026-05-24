@@ -183,7 +183,7 @@ export function useGpuFlowCommittedSurfaceFrameState({
   const prepareVisibleFrameResourcesForBudget = useCallback(
     (budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision) =>
       visibleFrameResourceGraphRef.current.advanceVisibleFrameResourceWork({
-        resourceKeys: budgetDecision.preparationBudget.selectedDebtIds,
+        resourceKeys: budgetDecision.preparationBudget.selectedResourceDebtIds,
       }),
     [],
   );

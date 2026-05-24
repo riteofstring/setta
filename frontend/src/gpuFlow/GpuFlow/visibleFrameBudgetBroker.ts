@@ -21,6 +21,7 @@ export type GpuFlowVisibleFrameBudgetDebtRequest = {
     | undefined;
   readonly priority: GpuFlowVisibleFrameBudgetPriority;
   readonly resourceState?: GpuFlowVisibleFrameResourceStateKind | undefined;
+  readonly source?: "resource-graph" | "synthetic" | undefined;
 };
 
 export type GpuFlowVisibleFrameBudgetBrokerPolicy = {
@@ -49,6 +50,7 @@ export type GpuFlowVisibleFrameBudgetBrokerDecision = {
       Record<GpuFlowVisibleFrameResourcePreparationLane, readonly string[]>
     >;
     readonly selectedDebtIds: readonly string[];
+    readonly selectedResourceDebtIds: readonly string[];
     readonly usedMs: number;
   };
   readonly resolutionUpdates: {
@@ -110,20 +112,25 @@ export function createGpuFlowVisibleFrameBudgetBroker({
       });
       const selectedDebtIds = selected.selectedDebt.map((debt) => debt.id);
       const deferredDebtIds = selected.deferredDebt.map((debt) => debt.id);
+      const selectedResourceDebtIds = selected.selectedDebt
+        .filter(isGpuFlowVisibleFrameResourceGraphBudgetDebt)
+        .map((debt) => debt.id);
       const overBudgetDebtIds = selectGpuFlowVisibleFrameOverBudgetDebtIds({
         maxContinuityDebtAgeFrames: normalizedPolicy.maxContinuityDebtAgeFrames,
         maxSafetyDebtAgeFrames: normalizedPolicy.maxSafetyDebtAgeFrames,
         requestedDebt: agedDebt,
       });
-      const browserVisualDebt = agedDebt.find(
-        (debt) => debt.id === "browser-visual-repair",
+      const browserVisualDebt = selectGpuFlowVisibleFrameBrowserVisualDebt(
+        agedDebt,
       );
       const resolutionDebtSelected =
         selectedDebtIds.includes("resolution-update");
       return Object.freeze({
         browserVisualRepair: Object.freeze({
           debtAgeFrames: browserVisualDebt?.debtAgeFrames ?? 0,
-          eligible: selectedDebtIds.includes("browser-visual-repair"),
+          eligible: selected.selectedDebt.some(
+            isGpuFlowVisibleFrameBrowserVisualRepairDebt,
+          ),
           priority: browserVisualDebt?.priority ?? "safety",
         }),
         preparationBudget: Object.freeze({
@@ -139,6 +146,7 @@ export function createGpuFlowVisibleFrameBudgetBroker({
             selected.selectedDebt,
           ),
           selectedDebtIds: Object.freeze(selectedDebtIds),
+          selectedResourceDebtIds: Object.freeze(selectedResourceDebtIds),
           usedMs: selected.usedMs,
         }),
         resolutionUpdates: Object.freeze({
@@ -205,9 +213,16 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
     | undefined;
 }): readonly GpuFlowVisibleFrameBudgetDebtRequest[] {
   const debt: GpuFlowVisibleFrameBudgetDebtRequest[] = [];
+  const resourceGraphDebt =
+    resourceGraphSnapshot === null
+      ? []
+      : createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph({
+          snapshot: resourceGraphSnapshot,
+        });
   if (
-    publicationDecision.debt.content ||
-    publicationDecision.lane === "content"
+    (publicationDecision.debt.content ||
+      publicationDecision.lane === "content") &&
+    !resourceGraphDebt.some(isGpuFlowVisibleFrameBrowserVisualRepairDebt)
   ) {
     debt.push({
       estimatedCostMs: 1.5,
@@ -215,6 +230,7 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
       preparationLane: "browser-visual",
       priority: "safety",
       resourceState: "requested",
+      source: "synthetic",
     });
   }
   if (publicationDecision.debt.maintenance) {
@@ -224,6 +240,7 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
       preparationLane: "maintenance-refinement",
       priority: "quality",
       resourceState: "requested",
+      source: "synthetic",
     });
   }
   if (deferResolutionUpdates) {
@@ -233,15 +250,10 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
       preparationLane: "retained-page",
       priority: "quality",
       resourceState: "requested",
+      source: "synthetic",
     });
   }
-  if (resourceGraphSnapshot !== null) {
-    debt.push(
-      ...createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph({
-        snapshot: resourceGraphSnapshot,
-      }),
-    );
-  }
+  debt.push(...resourceGraphDebt);
   return Object.freeze(debt);
 }
 
@@ -470,7 +482,33 @@ function createGpuFlowVisibleFrameBudgetDebtRequestForResourceState(
     preparationLane: state.preparationLane,
     priority: state.priority,
     resourceState: state.state,
+    source: "resource-graph",
   });
+}
+
+function selectGpuFlowVisibleFrameBrowserVisualDebt(
+  requestedDebt: readonly GpuFlowVisibleFrameAgedBudgetDebtRequest[],
+): GpuFlowVisibleFrameAgedBudgetDebtRequest | undefined {
+  return requestedDebt.find((debt) => debt.id === "browser-visual-repair")
+    ?? requestedDebt.find(isGpuFlowVisibleFrameBrowserVisualRepairDebt);
+}
+
+function isGpuFlowVisibleFrameBrowserVisualRepairDebt(
+  debt: Pick<
+    GpuFlowVisibleFrameBudgetDebtRequest,
+    "id" | "preparationLane" | "priority"
+  >,
+): boolean {
+  return (
+    debt.id === "browser-visual-repair" ||
+    (debt.preparationLane === "browser-visual" && debt.priority === "safety")
+  );
+}
+
+function isGpuFlowVisibleFrameResourceGraphBudgetDebt(
+  debt: Pick<GpuFlowVisibleFrameBudgetDebtRequest, "source">,
+): boolean {
+  return debt.source === "resource-graph";
 }
 
 function assertGpuFlowVisibleFrameBudgetBrokerPolicy(
