@@ -167,7 +167,19 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       resourceState("texture:surface-texture", "ready", 41),
     ]);
 
-    expect(registry.advanceVisibleFrameResourceWork()).toEqual({
+    expect(() => registry.advanceVisibleFrameResourceWork()).toThrow(
+      /requires budget-selected resource keys/,
+    );
+
+    expect(
+      registry.advanceVisibleFrameResourceWork({
+        resourceKeys: [
+          "dom-control:row-a",
+          "dom-control-snapshot:snapshot-row-b",
+          "dom-island:island-a",
+        ],
+      }),
+    ).toEqual({
       remainingQueuedResourceKeys: [],
       transitions: [
         resourceTransition("dom-control:row-a", "requested", "preparing", 41),
@@ -189,7 +201,11 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       retired: 0,
     });
 
-    expect(registry.advanceVisibleFrameResourceWork()).toEqual({
+    expect(
+      registry.advanceVisibleFrameResourceWork({
+        resourceKeys: [],
+      }),
+    ).toEqual({
       remainingQueuedResourceKeys: [],
       transitions: [],
     });
