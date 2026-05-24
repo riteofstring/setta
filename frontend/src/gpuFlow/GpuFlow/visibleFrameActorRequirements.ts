@@ -10,11 +10,11 @@ export type GpuFlowVisibleFrameCommittedActorRequirement =
   | "required";
 
 export function getGpuFlowVisibleFrameCommittedActorRequirement({
-  activeEditorPublicationPending,
+  activeEditorPresentationPending,
   actor,
   startup,
 }: {
-  readonly activeEditorPublicationPending: boolean;
+  readonly activeEditorPresentationPending: boolean;
   readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly startup: boolean;
 }): GpuFlowVisibleFrameCommittedActorRequirement {
@@ -22,7 +22,7 @@ export function getGpuFlowVisibleFrameCommittedActorRequirement({
     isGpuFlowVisibleFramePassiveLiveDomBudgetActor(actor) ||
     isGpuFlowVisibleFramePassiveSnapshotPendingActor({ actor, startup }) ||
     isGpuFlowVisibleFramePassiveSnapshotPendingDuringActiveEditor({
-      activeEditorPublicationPending,
+      activeEditorPresentationPending,
       actor,
     })
   ) {
@@ -31,7 +31,7 @@ export function getGpuFlowVisibleFrameCommittedActorRequirement({
   return "required";
 }
 
-export function hasGpuFlowVisibleFrameActiveEditorPublication(
+export function hasGpuFlowVisibleFrameActiveEditorPresentation(
   frame: GpuFlowPreparedContentFrame,
 ): boolean {
   return (frame.actorGenerations ?? []).some(
@@ -83,14 +83,14 @@ function isGpuFlowVisibleFramePassiveSnapshotPendingActor({
 }
 
 function isGpuFlowVisibleFramePassiveSnapshotPendingDuringActiveEditor({
-  activeEditorPublicationPending,
+  activeEditorPresentationPending,
   actor,
 }: {
-  readonly activeEditorPublicationPending: boolean;
+  readonly activeEditorPresentationPending: boolean;
   readonly actor: GpuFlowPreparedContentActorGeneration;
 }): boolean {
   return (
-    activeEditorPublicationPending &&
+    activeEditorPresentationPending &&
     !hasGpuFlowBrowserVisualReadinessFaultInjection(actor) &&
     !isGpuFlowVisibleFrameActiveEditorRepresentation(actor) &&
     hasGpuFlowVisibleFrameTextCoverage({
