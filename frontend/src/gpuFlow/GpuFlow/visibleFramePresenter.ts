@@ -17,6 +17,10 @@ import {
 import { createGpuFlowVisibleOverlayProjectionKey } from "./flowVisibleOverlayProjectionKey";
 import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFrameAbortPolicy";
 import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutcomeGuard";
+import {
+  clearGpuFlowBrowserVisualResourcePreparation,
+  scheduleGpuFlowBrowserVisualResourcePreparation,
+} from "./visibleFrameBrowserVisualPreparation";
 import type {
   GpuFlowCommittedSurfaceBlockedCandidateResourceWork,
   GpuFlowVisibleFrameCoordinatorResult,
@@ -671,6 +675,12 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
     surfaceRef,
     token: outcome.token,
   });
+  if (committedSurfaceFrame !== null) {
+    clearGpuFlowBrowserVisualResourcePreparation({
+      runtimeCanvas,
+      surface: surfaceRef.current,
+    });
+  }
   applyGpuFlowProjectionDebugAttributes({
     canvas: runtimeCanvas,
     debugState: selectedVisibleProjectionState.debugState,
@@ -735,6 +745,12 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
     runtimeCanvas,
     surfaceRef,
     token: outcome.token,
+  });
+  scheduleGpuFlowBrowserVisualResourcePreparation({
+    candidateFrame: heldPreparedCommittedSurfaceFrame,
+    candidateResourceWork: heldPreparedCommittedSurfaceFrameResourceWork,
+    runtimeCanvas,
+    surfaceRef,
   });
   if (heldPreparedCommittedSurfaceFrame) {
     abortPreparedCommittedSurfaceFrame(
@@ -845,6 +861,12 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionState({
     runtimeCanvas,
     surfaceRef,
     token: outcome.token,
+  });
+  scheduleGpuFlowBrowserVisualResourcePreparation({
+    candidateFrame: blockedPreparedCommittedSurfaceFrame,
+    candidateResourceWork: blockedPreparedCommittedSurfaceFrameResourceWork,
+    runtimeCanvas,
+    surfaceRef,
   });
 }
 

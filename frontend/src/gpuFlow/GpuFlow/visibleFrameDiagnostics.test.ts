@@ -17,6 +17,10 @@ import {
   type GpuFlowCommittedSurfacePublicationCandidateInput,
 } from "./visibleFrameContentPlan";
 import {
+  clearGpuFlowBrowserVisualResourcePreparation,
+  scheduleGpuFlowBrowserVisualResourcePreparation,
+} from "./visibleFrameBrowserVisualPreparation";
+import {
   recordGpuFlowBlockedVisiblePublication,
   recordGpuFlowVisibleFrameBlocked,
   recordGpuFlowVisibleFrameHeld,
@@ -106,10 +110,10 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         candidateResourceKey:
           "browser-visual:actor-a:text-like-dom-control:snapshot-pending:snapshot-key",
         ownerFrameId: 2,
-        readinessState: "preparing",
+        readinessState: "requested",
         representationKind: "blocked-awaiting-browser-visual",
         sourceHostIdentity: "actor-a",
-        wakeupSource: "deferred-watchdog",
+        wakeupSource: "blocked-publication",
       }),
     ]);
     expect(readBlockedVisiblePublicationEvents()).toEqual([]);
@@ -135,6 +139,13 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     applyBlockedCandidate(result.candidateFrame, result.resourceWork, {
       canvas,
       requestFrame,
+      surface,
+    });
+    scheduleGpuFlowBrowserVisualResourcePreparation({
+      candidateFrame: result.candidateFrame,
+      candidateResourceWork: result.resourceWork,
+      runtimeCanvas: canvas,
+      surfaceRef: { current: surface },
     });
     expect(requestFrame).not.toHaveBeenCalled();
     expect(readBrowserVisualResourceWork()).toEqual([
@@ -182,6 +193,12 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       requestFrame,
       surface,
     });
+    scheduleGpuFlowBrowserVisualResourcePreparation({
+      candidateFrame: result.candidateFrame,
+      candidateResourceWork: result.resourceWork,
+      runtimeCanvas: canvas,
+      surfaceRef: { current: surface },
+    });
 
     recordGpuFlowVisibleFramePresented({
       committedSurfaceFrame: null,
@@ -224,7 +241,17 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
       requestFrame,
       surface,
     });
+    scheduleGpuFlowBrowserVisualResourcePreparation({
+      candidateFrame: result.candidateFrame,
+      candidateResourceWork: result.resourceWork,
+      runtimeCanvas: canvas,
+      surfaceRef: { current: surface },
+    });
 
+    clearGpuFlowBrowserVisualResourcePreparation({
+      runtimeCanvas: canvas,
+      surface,
+    });
     recordGpuFlowVisibleFramePresented({
       committedSurfaceFrame: result.candidateFrame,
       runtimeCanvas: canvas,
