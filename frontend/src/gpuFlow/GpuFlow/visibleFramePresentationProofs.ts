@@ -130,7 +130,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
         reducerPolicy,
       }),
     outcome,
-    previousCommittedFrameId:
+    previousContentFrameId:
       previousVisibleProjectionState?.committedFrame.displayFrameId ?? null,
   });
 }

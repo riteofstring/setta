@@ -31,14 +31,14 @@ const CHROME_REPRO_ACTOR_PROOF_SAMPLE_LIMIT = 8;
 export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
   completion,
   outcome,
-  previousCommittedFrameId,
+  previousContentFrameId,
   publicationDecision,
   transactionProof,
   visibleProjectionState,
 }: {
   readonly completion: GpuFlowVisiblePublicationReducerCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly previousCommittedFrameId: number | null;
+  readonly previousContentFrameId: number | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -51,7 +51,7 @@ export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
     createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
       completion,
       outcome,
-      previousCommittedFrameId,
+      previousContentFrameId,
       publicationDecision,
       transactionProof,
       visibleProjectionState,
@@ -62,14 +62,14 @@ export function postGpuFlowVisiblePublicationOutcomeChromeReproEvent({
 export function createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
   completion,
   outcome,
-  previousCommittedFrameId,
+  previousContentFrameId,
   publicationDecision,
   transactionProof,
   visibleProjectionState,
 }: {
   readonly completion: GpuFlowVisiblePublicationReducerCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly previousCommittedFrameId: number | null;
+  readonly previousContentFrameId: number | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -77,7 +77,7 @@ export function createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
   const report = createGpuFlowVisiblePublicationTransactionReport({
     completion,
     outcome,
-    previousCommittedFrameId,
+    previousContentFrameId,
     publicationDecision,
     transactionProof,
     visibleProjectionState,

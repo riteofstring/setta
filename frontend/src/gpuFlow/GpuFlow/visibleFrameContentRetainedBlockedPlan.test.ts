@@ -105,7 +105,7 @@ describe("GPU Flow retained display candidate content plans", () => {
           ],
           frozenFrameId: "cold-start-shell:browser-visual",
         },
-        blockedPreparedCommittedSurfaceFrame: committedFrame,
+        blockedPreparedContentFrame: committedFrame,
         rendered: false,
       }),
     );
@@ -129,7 +129,9 @@ describe("GPU Flow retained display candidate content plans", () => {
         typeof runGpuFlowRetainedCommittedSurfacePublicationContentStage
       >[0]["liveProjectionSample"],
       onCommittedSurfaceCandidateAccepted: () => {
-        throw new Error("Blocked retained true-hole candidates must not publish.");
+        throw new Error(
+          "Blocked retained true-hole candidates must not publish.",
+        );
       },
       onRetainedDisplayCandidateAccepted: () => ({
         committedGpuNativeVisuals: undefined,
@@ -163,11 +165,10 @@ describe("GPU Flow retained display candidate content plans", () => {
 
     expect(result).toEqual(
       expect.objectContaining({
-        blockedPreparedCommittedSurfaceFrame: committedFrame,
-        blockedPreparedCommittedSurfaceFrameResourceWork:
-          expect.objectContaining({
-            workItems: [],
-          }),
+        blockedPreparedContentFrame: committedFrame,
+        blockedPreparedContentFrameResourceWork: expect.objectContaining({
+          workItems: [],
+        }),
         blockedPublicationCandidate: {
           blockedReasons: [
             {

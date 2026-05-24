@@ -54,7 +54,8 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
   const layerResult =
     contentFrame.nodeLayerFrameStatePublication?.layerResult ?? null;
   requests.push({
-    activeEditorPins: coordinatorResult.publicationFrameContext.activeEditorPins,
+    activeEditorPins:
+      coordinatorResult.publicationFrameContext.activeEditorPins,
     ...createGpuFlowSurfaceFrameDebtRequestDiagnostic(
       reducerCompletion.debtFrameRequest,
     ),
@@ -65,9 +66,8 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
     blockedReasons: getGpuFlowSurfaceFrameBlockedReasons(contentFrame),
     completionDebt: reducerCompletion.completion.debt,
     completionOutcome: reducerCompletion.completion.outcome,
-    contentPublication: createGpuFlowSurfaceFrameContentPublicationDiagnostic(
-      contentFrame,
-    ),
+    contentPublication:
+      createGpuFlowSurfaceFrameContentPublicationDiagnostic(contentFrame),
     frame,
     frameRequest: createGpuFlowSurfaceFrameRequestDiagnostic(
       coordinatorResult.publicationFrameContext.frameRequest,
@@ -94,12 +94,12 @@ function createGpuFlowSurfaceFrameContentPublicationDiagnostic(
   contentFrame: GpuFlowContentPublicationFrameResult,
 ) {
   return {
-    blockedPreparedCommittedSurfaceFrameId:
-      contentFrame.blockedPreparedCommittedSurfaceFrame?.displayFrameId ?? null,
+    blockedPreparedContentFrameId:
+      contentFrame.blockedPreparedContentFrame?.displayFrameId ?? null,
     committedSurfaceFrameId:
       contentFrame.committedSurfaceFrame?.displayFrameId ?? null,
-    heldPreparedCommittedSurfaceFrameId:
-      contentFrame.heldPreparedCommittedSurfaceFrame?.displayFrameId ?? null,
+    heldPreparedContentFrameId:
+      contentFrame.heldPreparedContentFrame?.displayFrameId ?? null,
     rendered: contentFrame.rendered,
     retainedDisplayFrameId: contentFrame.retainedDisplayFrame?.id ?? null,
     retainedDisplayOutcome:

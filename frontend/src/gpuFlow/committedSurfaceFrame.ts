@@ -127,7 +127,7 @@ export type GpuFlowCommittedSurfaceCompatiblePreviousProof = {
   readonly maxProofAgeFrames: number;
   readonly maxProofAgeMs: number | null;
   readonly previousActorGenerationId: string;
-  readonly previousCommittedFrameId: number;
+  readonly previousContentFrameId: number;
   readonly previousProjectionSampleRevision: string;
   readonly previousTransactionId: string;
   readonly previousVisualGenerationId: string;
@@ -962,7 +962,7 @@ function createCommittedSurfaceDomControlActorOptions({
   }
   return {
     ...options,
-    previousCommittedFrameId: previousCommittedSurfaceFrame.displayFrameId,
+    previousContentFrameId: previousCommittedSurfaceFrame.displayFrameId,
     previousCommittedSurfaceActors:
       previousCommittedSurfaceFrame.actorGenerations,
     previousRetainedRuntimeFrame:

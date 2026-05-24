@@ -592,7 +592,7 @@ function publicationCandidateInput({
     heldPreviousProjectionState: null,
     liveProjectionSample: { id: 1, timestamp },
     publicationLane: "content",
-    publishedCommittedSurfaceFrame: blockedCommittedSurfaceFrame(),
+    preparedContentFrame: blockedCommittedSurfaceFrame(),
     publishedRetainedFrame: retainedFrame,
   } as unknown as GpuFlowCommittedSurfacePublicationCandidateInput;
 }

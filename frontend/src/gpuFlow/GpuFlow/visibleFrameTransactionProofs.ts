@@ -1,4 +1,4 @@
-// Builds immutable transaction proof records; visible mutation stays in the presenter.
+// Builds immutable transaction proof records; visible mutation stays in the presentation step.
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type {
@@ -88,7 +88,7 @@ export type GpuFlowVisibleFramePublicationPreparedFrame = {
 };
 
 export type GpuFlowVisibleFramePublicationContentCandidate = {
-  readonly blockedPreparedCommittedSurfaceFrame?:
+  readonly blockedPreparedContentFrame?:
     | GpuFlowCommittedSurfaceFrame
     | null
     | undefined;
@@ -98,7 +98,7 @@ export type GpuFlowVisibleFramePublicationContentCandidate = {
     | null
     | undefined;
   readonly forceImmediatePublicationDebtFrame?: boolean | undefined;
-  readonly heldPreparedCommittedSurfaceFrame?:
+  readonly heldPreparedContentFrame?:
     | GpuFlowCommittedSurfaceFrame
     | null
     | undefined;
@@ -463,8 +463,8 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
   const visibleFrameStateMachinePreparedFrame =
     createGpuFlowVisibleFramePublicationStateMachinePreparedFrame({
       blockingProofs,
-      candidateCommittedSurfaceFrame:
-        resolveGpuFlowVisibleFramePublicationCandidateCommittedSurfaceFrame({
+      candidateContentFrame:
+        resolveGpuFlowVisibleFramePublicationCandidateContentFrame({
           contentPublicationFrame,
           candidateVisibleProjectionState,
         }),
@@ -558,7 +558,7 @@ function isGpuFlowVisibleFrameStateMachinePresentationOutcome(
   return outcome.kind === "presented" || outcome.kind === "projected";
 }
 
-function resolveGpuFlowVisibleFramePublicationCandidateCommittedSurfaceFrame<
+function resolveGpuFlowVisibleFramePublicationCandidateContentFrame<
   ContentPublicationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
 >({
@@ -571,8 +571,8 @@ function resolveGpuFlowVisibleFramePublicationCandidateCommittedSurfaceFrame<
   return (
     candidateVisibleProjectionState?.committedFrame ??
     contentPublicationFrame.committedSurfaceFrame ??
-    contentPublicationFrame.blockedPreparedCommittedSurfaceFrame ??
-    contentPublicationFrame.heldPreparedCommittedSurfaceFrame ??
+    contentPublicationFrame.blockedPreparedContentFrame ??
+    contentPublicationFrame.heldPreparedContentFrame ??
     null
   );
 }

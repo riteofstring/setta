@@ -408,7 +408,7 @@ function getGpuFlowBrowserVisualLastReadyResourceKey(
   if (compatiblePreviousProof === null) {
     return null;
   }
-  return `browser-visual:${actor.actorId}:compatible-previous:${compatiblePreviousProof.previousCommittedFrameId}`;
+  return `browser-visual:${actor.actorId}:compatible-previous:${compatiblePreviousProof.previousContentFrameId}`;
 }
 
 function getGpuFlowBrowserVisualResourceGeneration({

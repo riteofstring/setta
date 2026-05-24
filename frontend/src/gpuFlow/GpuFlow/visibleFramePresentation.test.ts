@@ -90,7 +90,7 @@ describe("GPU Flow surface publication completion", () => {
           },
           submitDomTransforms,
         }),
-        previousCommittedFrameId: committedState.committedFrame.displayFrameId,
+        previousContentFrameId: committedState.committedFrame.displayFrameId,
       }),
     );
 
@@ -794,11 +794,11 @@ describe("GPU Flow surface publication completion", () => {
 function heldPreviousPublicationTransaction({
   heldState,
   nodeLayerFrameStatePublication = null,
-  previousCommittedFrameId,
+  previousContentFrameId,
 }: {
   readonly heldState: GpuFlowVisibleProjectionState;
   readonly nodeLayerFrameStatePublication?: unknown;
-  readonly previousCommittedFrameId: number;
+  readonly previousContentFrameId: number;
 }): GpuFlowSurfacePublicationTransaction {
   return {
     coldStartShellPublication: null,
@@ -817,7 +817,7 @@ function heldPreviousPublicationTransaction({
     outcome: {
       kind: "hold-previous",
       token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
-        committedFrameId: previousCommittedFrameId,
+        committedFrameId: previousContentFrameId,
         holdAgeFrames: 1,
         holdAgeMs: 16,
         projectionSample: heldState.sample,
@@ -826,10 +826,10 @@ function heldPreviousPublicationTransaction({
     preparedFrame: {
       contentPublicationFrame: {
         blockedErrorMessage: null,
-        blockedPreparedCommittedSurfaceFrame: null,
+        blockedPreparedContentFrame: null,
         blockedPreservePreparationSnapshot: false,
         committedSurfaceFrame: null,
-        heldPreparedCommittedSurfaceFrame: null,
+        heldPreparedContentFrame: null,
         nodeLayerFrameStatePublication: null,
         retainedDisplayFrame: null,
         retainedRuntimeFrame: null,
@@ -840,7 +840,7 @@ function heldPreviousPublicationTransaction({
       transactionProof: null,
       visibleProjectionState: heldState,
     },
-    previousCommittedFrameId,
+    previousContentFrameId,
     publicationFrameContext: publicationFrameContextForTest(),
     publicationDecision: {
       lane: "content",
@@ -904,10 +904,10 @@ function committedPublicationTransaction({
     preparedFrame: {
       contentPublicationFrame: {
         blockedErrorMessage: null,
-        blockedPreparedCommittedSurfaceFrame: null,
+        blockedPreparedContentFrame: null,
         blockedPreservePreparationSnapshot: false,
         committedSurfaceFrame: committedFrame,
-        heldPreparedCommittedSurfaceFrame: null,
+        heldPreparedContentFrame: null,
         nodeLayerFrameStatePublication,
         retainedDisplayFrame: null,
         retainedRuntimeFrame: null,
@@ -918,7 +918,7 @@ function committedPublicationTransaction({
       transactionProof: null,
       visibleProjectionState: selectedState,
     },
-    previousCommittedFrameId: null,
+    previousContentFrameId: null,
     publicationFrameContext: publicationFrameContextForTest(),
     publicationDecision: {
       lane: "content",
@@ -1036,11 +1036,11 @@ function blockedPublicationTransaction({
     preparedFrame: {
       contentPublicationFrame: {
         blockedErrorMessage: null,
-        blockedPreparedCommittedSurfaceFrame: blockedFrame,
-        blockedPreparedCommittedSurfaceFrameResourceWork: blockedResourceWork,
+        blockedPreparedContentFrame: blockedFrame,
+        blockedPreparedContentFrameResourceWork: blockedResourceWork,
         blockedPreservePreparationSnapshot,
         committedSurfaceFrame: null,
-        heldPreparedCommittedSurfaceFrame: null,
+        heldPreparedContentFrame: null,
         nodeLayerFrameStatePublication: null,
         retainedDisplayFrame: null,
         retainedRuntimeFrame: null,
@@ -1051,7 +1051,7 @@ function blockedPublicationTransaction({
       transactionProof: null,
       visibleProjectionState: null,
     },
-    previousCommittedFrameId: null,
+    previousContentFrameId: null,
     publicationFrameContext,
     publicationDecision: {
       lane: "content",

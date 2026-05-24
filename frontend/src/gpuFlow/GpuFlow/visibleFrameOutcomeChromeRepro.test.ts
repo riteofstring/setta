@@ -100,7 +100,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
                 maxProofAgeFrames: 2,
                 maxProofAgeMs: 120,
                 previousActorGenerationId: "previous-generation-a",
-                previousCommittedFrameId: 6,
+                previousContentFrameId: 6,
                 previousProjectionSampleRevision: "viewport-previous",
                 previousTransactionId: "previous-transaction",
                 previousVisualGenerationId: "previous-visual-a",
@@ -216,7 +216,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         debtProof: { content: true, maintenance: false, motion: false },
         sample,
       }),
-      previousCommittedFrameId: 6,
+      previousContentFrameId: 6,
       publicationDecision: publicationDecision(sample),
       transactionProof: transactionProof({ presentableFrameProof }),
       visibleProjectionState,
@@ -287,7 +287,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
               maxProofAgeFrames: 2,
               maxProofAgeMs: 120,
               previousActorGenerationId: "previous-generation-a",
-              previousCommittedFrameId: 6,
+              previousContentFrameId: 6,
               previousTransactionId: "previous-transaction",
               previousVisualGenerationId: "previous-visual-a",
               proofAgeFrames: 1,
@@ -315,7 +315,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
           zOrderCount: 3,
         },
         outcome: "present",
-        previousCommittedFrameId: 6,
+        previousContentFrameId: 6,
         remainingActorDebt: [
           {
             actorId: "actor-a",
@@ -379,7 +379,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
             }),
             projectionSampleId: 11,
           }),
-          previousCommittedFrameId: 6,
+          previousContentFrameId: 6,
           token: expect.objectContaining({
             committedFrameId: 7,
             presentationPairProof: expect.objectContaining({

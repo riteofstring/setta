@@ -42,7 +42,7 @@ export type GpuFlowVisiblePublicationTransactionCompletion = {
   readonly followUpFrameRequests: readonly GpuFrameReason[];
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly previousCommittedFrameId: number | null;
+  readonly previousContentFrameId: number | null;
 };
 
 export type GpuFlowVisiblePublicationReducerFrameCompletion = {
@@ -63,14 +63,14 @@ export type GpuFlowColdStartShellPublication = {
 export function createGpuFlowVisiblePublicationTransactionReport({
   completion,
   outcome,
-  previousCommittedFrameId,
+  previousContentFrameId,
   publicationDecision,
   transactionProof,
   visibleProjectionState,
 }: {
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
-  readonly previousCommittedFrameId: number | null;
+  readonly previousContentFrameId: number | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -94,7 +94,7 @@ export function createGpuFlowVisiblePublicationTransactionReport({
     inputSampleId: publicationDecision.sample.id,
     lane: publicationDecision.lane,
     outcome: outcome.kind,
-    previousCommittedFrameId,
+    previousContentFrameId,
     projectionSampleId: publicationDecision.sample.id,
     rawReasons: publicationDecision.rawReasons,
     remainingActorDebt: presentableFrameProofReport.remainingActorDebt,
@@ -113,7 +113,7 @@ export function createGpuFlowVisiblePublicationTransactionReport({
     visibleTransaction: createGpuFlowVisibleTransactionReport({
       outcome,
       presentationProof: presentableFrameProofReport.presentationProof,
-      previousCommittedFrameId,
+      previousContentFrameId,
       publicationDecision,
       token,
     }),
@@ -138,13 +138,13 @@ function getGpuFlowVisiblePublicationOutcomeCommittedFrameId(
 function createGpuFlowVisibleTransactionReport({
   outcome,
   presentationProof,
-  previousCommittedFrameId,
+  previousContentFrameId,
   publicationDecision,
   token,
 }: {
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly presentationProof: GpuFlowVisiblePublicationPresentationProofReport | null;
-  readonly previousCommittedFrameId: number | null;
+  readonly previousContentFrameId: number | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly token: ReturnType<
     typeof createGpuFlowVisiblePublicationOutcomeTokenPayload
@@ -169,7 +169,7 @@ function createGpuFlowVisibleTransactionReport({
       outcome,
       presentationProof,
     }),
-    previousCommittedFrameId,
+    previousContentFrameId,
     token,
     transactionId: getGpuFlowVisiblePublicationOutcomeTransactionId(outcome),
     visibleCommittedFrameId:

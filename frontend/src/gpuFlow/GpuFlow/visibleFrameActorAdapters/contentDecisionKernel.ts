@@ -25,20 +25,20 @@ type GpuFlowRetainedDisplayPublicationOutcome =
 
 export type GpuFlowCommittedSurfacePublicationActionFrameResult = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
-  readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
+  readonly preparedContentFramePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
 
 export type GpuFlowCommittedSurfacePublicationFramePlan =
   | {
       readonly blockedPublicationCandidate: null;
-      readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
+      readonly preparedContentFramePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
       readonly kind: "publish";
       readonly visibleProjectionState: null;
     }
   | {
       readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
-      readonly committedSurfacePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
+      readonly preparedContentFramePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
       readonly kind: "candidate";
       readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
     };
@@ -52,7 +52,7 @@ type GpuFlowCommittedSurfacePublicationFramePlanResultResolver = (input: {
 
 type GpuFlowCommittedSurfacePublicationFramePlanSelector = (input: {
   readonly candidate: GpuFlowCommittedSurfacePublicationCandidate;
-  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
 }) => GpuFlowCommittedSurfacePublicationFramePlan;
 
 export type GpuFlowRetainedDisplayOutcomeFrameResult = {
@@ -96,7 +96,7 @@ type GpuFlowRetainedPublicationVisibleProjectionStateInput = Pick<
   | "frameReasons"
   | "liveProjectionSample"
   | "publicationLane"
-  | "publishedCommittedSurfaceFrame"
+  | "preparedContentFrame"
 >;
 
 export type GpuFlowRetainedDisplayPublicationOutcomeFrame = {

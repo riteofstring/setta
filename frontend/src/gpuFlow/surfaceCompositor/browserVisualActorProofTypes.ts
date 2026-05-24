@@ -17,7 +17,7 @@ export type BrowserVisualActorCompatiblePreviousProof = {
   readonly maxProofAgeFrames: number;
   readonly maxProofAgeMs: number | null;
   readonly previousActorGenerationId: string;
-  readonly previousCommittedFrameId: number;
+  readonly previousContentFrameId: number;
   readonly previousProjectionSampleRevision: string;
   readonly previousTransactionId: string;
   readonly previousVisualGenerationId: string;

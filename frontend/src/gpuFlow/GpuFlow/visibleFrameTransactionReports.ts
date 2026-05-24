@@ -47,7 +47,7 @@ export function createGpuFlowVisiblePublicationCompatiblePreviousProofReportForF
         maxProofAgeFrames: proof.maxProofAgeFrames,
         maxProofAgeMs: proof.maxProofAgeMs,
         previousActorGenerationId: proof.previousActorGenerationId,
-        previousCommittedFrameId: proof.previousCommittedFrameId,
+        previousContentFrameId: proof.previousContentFrameId,
         previousProjectionSampleRevision:
           proof.previousProjectionSampleRevision,
         previousTransactionId: proof.previousTransactionId,

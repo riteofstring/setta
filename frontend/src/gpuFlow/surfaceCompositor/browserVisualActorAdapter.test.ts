@@ -568,7 +568,7 @@ function compatiblePreviousProof(
     maxProofAgeFrames: 2,
     maxProofAgeMs: 120,
     previousActorGenerationId: "actor-generation-a",
-    previousCommittedFrameId: 12,
+    previousContentFrameId: 12,
     previousProjectionSampleRevision: "viewport-a",
     previousTransactionId: "transaction-a",
     previousVisualGenerationId: "visual-a",

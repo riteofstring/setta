@@ -12,7 +12,7 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
   frameReasons,
   liveProjectionSample,
   publicationLane,
-  publishedCommittedSurfaceFrame,
+  preparedContentFrame,
 }: {
   readonly frameReasons: readonly GpuFrameReason[];
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
@@ -20,19 +20,18 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
     GpuFlowProjectionLane,
     "content" | "maintenance"
   >;
-  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
 }): GpuFlowVisibleProjectionState {
   const visibleCommittedFrame = getGpuFlowVisibleCommittedSurfaceFrame({
-    publishedCommittedSurfaceFrame,
+    preparedContentFrame,
   });
-  const transaction =
-    createGpuFlowProjectionTransactionForCommittedFrameId({
-      committedFrameId: visibleCommittedFrame.displayFrameId,
-      kind: "content-publication",
-      lane: publicationLane,
-      rawReasons: frameReasons,
-      sample: liveProjectionSample,
-    });
+  const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
+    committedFrameId: visibleCommittedFrame.displayFrameId,
+    kind: "content-publication",
+    lane: publicationLane,
+    rawReasons: frameReasons,
+    sample: liveProjectionSample,
+  });
   return createGpuFlowVisibleProjectionState({
     committedFrame: visibleCommittedFrame,
     heldPreviousProjection: null,
@@ -41,12 +40,12 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
 }
 
 function getGpuFlowVisibleCommittedSurfaceFrame({
-  publishedCommittedSurfaceFrame,
+  preparedContentFrame,
 }: {
-  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
 }): GpuFlowCommittedSurfaceFrame {
-  if (publishedCommittedSurfaceFrame) {
-    return publishedCommittedSurfaceFrame;
+  if (preparedContentFrame) {
+    return preparedContentFrame;
   }
   throw new Error(
     "GPU Flow visible projection requires a prepared committed surface frame.",

@@ -596,7 +596,7 @@ function createGpuFlowVisibleFrameCompatiblePreviousProof({
         candidateProjectionSampleId: projectionSampleId,
         clipChainGeneration: actor.clipChainRevision,
         previousContentFrameId: createGpuFlowContentFrameId(
-          String(compatiblePreviousProof.previousCommittedFrameId),
+          String(compatiblePreviousProof.previousContentFrameId),
         ),
         previousPresentationId: createGpuFlowPresentationId(
           compatiblePreviousProof.previousTransactionId,

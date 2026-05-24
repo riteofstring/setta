@@ -7,27 +7,27 @@ type GpuFlowBlockedCommittedSurfacePublicationAbort = {
 };
 
 export function resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
-  blockedPreparedCommittedSurfaceFrame,
+  blockedPreparedContentFrame,
   blockedPreservePreparationSnapshot,
   committedSurfaceFrame,
-  heldPreparedCommittedSurfaceFrame,
+  heldPreparedContentFrame,
   selectedVisibleProjectionState,
 }: {
-  readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly blockedPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly blockedPreservePreparationSnapshot: boolean;
   readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowBlockedCommittedSurfacePublicationAbort {
-  if (blockedPreparedCommittedSurfaceFrame) {
+  if (blockedPreparedContentFrame) {
     return Object.freeze({
-      frame: blockedPreparedCommittedSurfaceFrame,
+      frame: blockedPreparedContentFrame,
       preservePreparationSnapshot: blockedPreservePreparationSnapshot,
     });
   }
-  if (heldPreparedCommittedSurfaceFrame) {
+  if (heldPreparedContentFrame) {
     return Object.freeze({
-      frame: heldPreparedCommittedSurfaceFrame,
+      frame: heldPreparedContentFrame,
       preservePreparationSnapshot: true,
     });
   }

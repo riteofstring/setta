@@ -676,7 +676,7 @@ export function renderGpuFlowNodeLayerFrame({
     frameReasons,
     liveProjectionSample,
     onCommittedSurfaceCandidatePrepared: ({
-      committedSurfacePublicationPreparation,
+      preparedContentFramePublicationPreparation,
       context,
       preparedCommittedSurfaceFrame,
       retainedDisplayPublication,
@@ -733,7 +733,7 @@ export function renderGpuFlowNodeLayerFrame({
             viewport: liveProjectionSample.viewport,
           },
           prepareOverlayTextures: prepareHtmlSurfaceOverlayTextures,
-          publicationPreparation: committedSurfacePublicationPreparation,
+          publicationPreparation: preparedContentFramePublicationPreparation,
         });
       requestGpuFlowDirtySurfaceTextureUploadFollowUp({
         retryDeferredUploads: frameReasons.includes("texture-upload"),
@@ -743,7 +743,7 @@ export function renderGpuFlowNodeLayerFrame({
       });
     },
     onCommittedSurfaceCandidateAccepted: ({
-      committedSurfacePublication,
+      preparedContentFramePublication,
       context,
       createContentPublicationFrameResultForVisibleProjectionState,
       createVisibleProjectionStateForRetainedPublication,
@@ -849,7 +849,7 @@ export function renderGpuFlowNodeLayerFrame({
       };
       const visibleProjectionState =
         createVisibleProjectionStateForRetainedPublication({
-          publishedCommittedSurfaceFrame: preparedCommittedSurfaceFrame,
+          preparedContentFrame: preparedCommittedSurfaceFrame,
         });
       const performanceReport: GpuFlowNodeLayerFramePerformanceReport = {
         deferResolutionUpdates,
@@ -905,7 +905,7 @@ export function renderGpuFlowNodeLayerFrame({
           visibleNodeIdsRef,
         };
       return createContentPublicationFrameResultForVisibleProjectionState({
-        committedSurfacePublication,
+        preparedContentFramePublication,
         nodeLayerFrameStatePublication,
         retainedDisplayFrame: context.publishedRetainedFrame,
         retainedRuntimeFrame: context.publishedRetainedRuntimeFrame,

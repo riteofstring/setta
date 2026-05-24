@@ -1,3 +1,4 @@
+import { freezeActor } from "./committedSurfaceActorFreeze";
 import type {
   GpuFlowCommittedSurfaceActorGeneration,
   GpuFlowCommittedSurfaceActorGenerationInput,
@@ -5,7 +6,6 @@ import type {
   GpuFlowCommittedSurfaceTextCoverageProof,
   GpuFlowTextActorActivationPolicy,
 } from "./committedSurfaceFrame";
-import { freezeActor } from "./committedSurfaceActorFreeze";
 import { createGpuFlowDomControlCompatiblePreviousProof } from "./GpuFlow/domControlPlaneCompatibility";
 import { DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS } from "./GpuFlow/domControlProjectionHorizon";
 import type { GpuFlowTextControlCompatibilityProof } from "./projectionRuntime";
@@ -26,7 +26,7 @@ export type DomControlActorOptions = {
     | null;
   readonly previousPublishedAtMs?: number | null;
   readonly previousRetainedRuntimeFrame?: GpuRetainedRuntimeFrame | null;
-  readonly previousCommittedFrameId?: number | null;
+  readonly previousContentFrameId?: number | null;
   readonly previousTransactionId?: string | null;
   readonly browserVisualReadinessByActorId?: ReadonlyMap<
     string,
@@ -64,7 +64,7 @@ export function createDomControlActorSet(
       return domControlToActorRecord({
         control,
         previousActor: previousActorById.get(control.sourceId),
-        previousCommittedFrameId: options.previousCommittedFrameId ?? null,
+        previousContentFrameId: options.previousContentFrameId ?? null,
         previousControl: previousControlById.get(control.sourceId),
         previousPublishedAtMs: options.previousPublishedAtMs ?? null,
         previousTransactionId: options.previousTransactionId ?? null,
@@ -87,7 +87,7 @@ export function createDomControlActorSet(
 function domControlToActorRecord({
   control,
   previousActor,
-  previousCommittedFrameId,
+  previousContentFrameId,
   previousControl,
   previousPublishedAtMs,
   previousTransactionId,
@@ -97,7 +97,7 @@ function domControlToActorRecord({
 }: {
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly previousActor: GpuFlowCommittedSurfaceActorGeneration | undefined;
-  readonly previousCommittedFrameId: number | null;
+  readonly previousContentFrameId: number | null;
   readonly previousControl: GpuRetainedDomControlSourceDescriptor | undefined;
   readonly previousPublishedAtMs: number | null;
   readonly previousTransactionId: string | null;
@@ -136,7 +136,7 @@ function domControlToActorRecord({
   const compatiblePreviousProof = createDomControlCompatiblePreviousCoverage({
     control,
     previousActor,
-    previousCommittedFrameId,
+    previousContentFrameId,
     previousControl,
     previousPublishedAtMs,
     previousTransactionId,
@@ -223,7 +223,7 @@ function createDomControlCompatiblePreviousCoverage({
   control,
   representationReadiness,
   previousActor,
-  previousCommittedFrameId,
+  previousContentFrameId,
   previousControl,
   previousPublishedAtMs,
   previousTransactionId,
@@ -234,7 +234,7 @@ function createDomControlCompatiblePreviousCoverage({
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly representationReadiness: BrowserVisualActorRepresentationReadiness | null;
   readonly previousActor: GpuFlowCommittedSurfaceActorGeneration | undefined;
-  readonly previousCommittedFrameId: number | null;
+  readonly previousContentFrameId: number | null;
   readonly previousControl: GpuRetainedDomControlSourceDescriptor | undefined;
   readonly previousPublishedAtMs: number | null;
   readonly previousTransactionId: string | null;
@@ -245,9 +245,12 @@ function createDomControlCompatiblePreviousCoverage({
   if (
     !previousControl ||
     !isCommittedDomControlCompatiblePreviousSourceReady(previousActor) ||
-    previousCommittedFrameId === null ||
+    previousContentFrameId === null ||
     !previousTransactionId ||
-    !canUseDomControlCompatiblePreviousCoverage(control, representationReadiness)
+    !canUseDomControlCompatiblePreviousCoverage(
+      control,
+      representationReadiness,
+    )
   ) {
     return null;
   }
@@ -265,7 +268,7 @@ function createDomControlCompatiblePreviousCoverage({
     ),
   );
   const proofBudget = createDomControlCompatiblePreviousProofBudget({
-    previousCommittedFrameId,
+    previousContentFrameId,
     previousPublishedAtMs,
     requestedPublishedAtMs,
     retainedRuntimeFrameId,
@@ -289,7 +292,7 @@ function createDomControlCompatiblePreviousCoverage({
     maxProofAgeFrames: proofBudget.maxProofAgeFrames,
     maxProofAgeMs: proofBudget.maxProofAgeMs,
     previousActorGenerationId: previousActor.generationId,
-    previousCommittedFrameId,
+    previousContentFrameId,
     previousProjectionSampleRevision: previousActor.liveMotionSampleId,
     previousTransactionId,
     previousVisualGenerationId:
@@ -328,12 +331,15 @@ function createDomControlCompatiblePreviousProof({
   readonly previousControl: GpuRetainedDomControlSourceDescriptor;
   readonly representationReadiness: BrowserVisualActorRepresentationReadiness | null;
 }): GpuFlowTextControlCompatibilityProof | null {
-  const readinessProof =
-    getDomControlCompatiblePreviousReadinessProof(representationReadiness);
+  const readinessProof = getDomControlCompatiblePreviousReadinessProof(
+    representationReadiness,
+  );
   if (readinessProof) {
     return readinessProof;
   }
-  if (!isDomControlCompatiblePreviousPendingReadiness(representationReadiness)) {
+  if (
+    !isDomControlCompatiblePreviousPendingReadiness(representationReadiness)
+  ) {
     return null;
   }
   return createGpuFlowDomControlCompatiblePreviousProof({
@@ -343,12 +349,12 @@ function createDomControlCompatiblePreviousProof({
 }
 
 function createDomControlCompatiblePreviousProofBudget({
-  previousCommittedFrameId,
+  previousContentFrameId,
   previousPublishedAtMs,
   requestedPublishedAtMs,
   retainedRuntimeFrameId,
 }: {
-  readonly previousCommittedFrameId: number;
+  readonly previousContentFrameId: number;
   readonly previousPublishedAtMs: number | null;
   readonly requestedPublishedAtMs: number | null;
   readonly retainedRuntimeFrameId: number;
@@ -361,7 +367,7 @@ function createDomControlCompatiblePreviousProofBudget({
 } {
   const proofAgeFrames = Math.max(
     0,
-    retainedRuntimeFrameId - previousCommittedFrameId,
+    retainedRuntimeFrameId - previousContentFrameId,
   );
   const proofAgeMs = createDomControlCompatiblePreviousProofAgeMs({
     previousPublishedAtMs,
@@ -765,7 +771,7 @@ function createCommittedSurfaceCompatiblePreviousProof(
     maxProofAgeFrames: proof.maxProofAgeFrames,
     maxProofAgeMs: proof.maxProofAgeMs,
     previousActorGenerationId: proof.previousActorGenerationId,
-    previousCommittedFrameId: proof.previousCommittedFrameId,
+    previousContentFrameId: proof.previousContentFrameId,
     previousProjectionSampleRevision: proof.previousProjectionSampleRevision,
     previousTransactionId: proof.previousTransactionId,
     previousVisualGenerationId: proof.previousVisualGenerationId,

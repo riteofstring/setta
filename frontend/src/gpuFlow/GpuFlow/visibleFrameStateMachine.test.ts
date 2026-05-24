@@ -19,9 +19,9 @@ import {
   type GpuFlowVisibleFrameActorKey,
   type GpuFlowVisibleFrameActorProof,
   type GpuFlowVisibleFrameCandidate,
+  type GpuFlowVisibleFrameDebt,
   type GpuFlowVisibleFramePresentedActorCoverage,
   type GpuFlowVisibleFramePresentedFrame,
-  type GpuFlowVisibleFrameDebt,
   type GpuFlowVisibleFrameRect,
 } from "./visibleFrameTypes";
 
@@ -610,7 +610,7 @@ function engineSample({
       height: 600,
       width: 800,
     },
-    currentCommittedFrameId: null,
+    currentContentFrameId: null,
     dpr: 2,
     projectionSampleId,
     queuedDebt: EMPTY_DEBT,

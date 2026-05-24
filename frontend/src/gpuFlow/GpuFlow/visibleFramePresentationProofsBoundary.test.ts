@@ -199,7 +199,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       'if (publicationReadiness.kind === "publish")',
     );
     const publishBranchEnd = coordinatorSource.indexOf(
-      "if (!publishedCommittedSurfaceFrame)",
+      "if (!preparedContentFrame)",
       publishBranchStart,
     );
     const publishBranchSource = coordinatorSource.slice(
@@ -227,7 +227,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "createGpuFlowNodeLayerFrameResultForVisibleProjectionState",
     );
     expect(flowFrameSource).not.toContain(
-      "committedSurfacePublicationCandidateAction.kind",
+      "preparedContentFramePublicationCandidateAction.kind",
     );
     expect(flowFrameSource).not.toContain("onBlockedSurfacePublication");
     expect(flowFrameSource).not.toContain("onCommittedSurfaceFramePublishable");

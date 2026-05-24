@@ -565,7 +565,7 @@ describe("GPU Flow visible frame coordinator", () => {
       });
       const candidate = prepareCommittedSurfacePublicationCandidateForTest({
         heldPreviousProjectionState: previousVisibleProjectionState,
-        publishedCommittedSurfaceFrame: blockedCommittedSurfaceFrame({
+        preparedContentFrame: blockedCommittedSurfaceFrame({
           actorFamily,
           projectionCoverage,
           readinessReason,
@@ -601,7 +601,7 @@ describe("GPU Flow visible frame coordinator", () => {
           maxHeldPreviousMsExceeded: true,
         } as GpuFlowVisibleProjectionState["heldPreviousProjection"],
       },
-      publishedCommittedSurfaceFrame: blockedCommittedSurfaceFrame({
+      preparedContentFrame: blockedCommittedSurfaceFrame({
         actorFamily: "dom-control",
         projectionCoverage: "blocked-awaiting-browser-visual",
         readinessReason: "snapshot-pending",
@@ -762,7 +762,7 @@ function committedSurfaceFrameWithCompatiblePreviousCoverage({
             maxProofAgeFrames: 2,
             maxProofAgeMs: 120,
             previousActorGenerationId: "previous-generation-a",
-            previousCommittedFrameId: 6,
+            previousContentFrameId: 6,
             previousProjectionSampleRevision: "viewport-previous",
             previousTransactionId: "previous-transaction",
             previousVisualGenerationId: "previous-visual-a",
@@ -811,11 +811,11 @@ function committedSurfaceFrameWithCompatiblePreviousCoverage({
 function prepareCommittedSurfacePublicationCandidateForTest({
   heldPreviousProjectionState,
   liveSample = liveProjectionSample({ id: 21, timestamp: 216 }),
-  publishedCommittedSurfaceFrame,
+  preparedContentFrame,
 }: {
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly liveSample?: GpuFlowLiveProjectionSample | undefined;
-  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame;
 }) {
   return prepareCommittedSurfacePublicationFramePlanForTest({
     committedGpuNativeVisuals: undefined,
@@ -823,7 +823,7 @@ function prepareCommittedSurfacePublicationCandidateForTest({
     heldPreviousProjectionState,
     liveProjectionSample: liveSample,
     publicationLane: "content",
-    publishedCommittedSurfaceFrame,
+    preparedContentFrame,
     publishedRetainedFrame: retainedDisplayFrame(),
   }).candidate;
 }

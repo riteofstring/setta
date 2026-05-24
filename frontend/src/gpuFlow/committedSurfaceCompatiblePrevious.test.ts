@@ -204,7 +204,7 @@ function expectCompatiblePreviousTextCoverage(
         maxProofAgeFrames: 2,
         maxProofAgeMs: 120,
         previousActorGenerationId: expect.any(String),
-        previousCommittedFrameId: 13,
+        previousContentFrameId: 13,
         previousProjectionSampleRevision: expect.any(String),
         previousTransactionId: "committed-surface:13:retained:13",
         previousVisualGenerationId: actor.visualGenerationId,
