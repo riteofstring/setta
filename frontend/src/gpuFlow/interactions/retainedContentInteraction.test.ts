@@ -945,6 +945,48 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
+  it("routes passive retained activation model controls through retained hits", () => {
+    const element = createHostElement();
+    const domControl = document.createElement("div");
+    domControl.dataset.gpuFlowDomControl = "true";
+    domControl.dataset.gpuFlowDomControlActive = "false";
+    domControl.dataset.gpuFlowDomControlPointerSemantics =
+      "retained-activation-model";
+    const passiveEditorContent = document.createElement("div");
+    domControl.append(passiveEditorContent);
+    element.append(domControl);
+    const onHitPointerDown = vi.fn();
+    const onPointerDownMiss = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitPointerDown,
+      onPointerDownMiss,
+      store: createGpuFlowViewportStore(),
+    });
+
+    const pointerDown = createPointerEvent("pointerdown", {
+      clientX: 140,
+      clientY: 14,
+      pointerId: 1,
+    });
+    passiveEditorContent.dispatchEvent(pointerDown);
+
+    expect(pointerDown.defaultPrevented).toBe(true);
+    expect(onHitPointerDown).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hit: expect.objectContaining({
+          id: "control:param-0",
+          kind: "control",
+          ownerRowId: "param-0",
+        }),
+      }),
+    );
+    expect(onPointerDownMiss).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
   it("does not preserve generic source-surface interactive targets", () => {
     const element = createHostElement();
     const interactiveControl = document.createElement("div");

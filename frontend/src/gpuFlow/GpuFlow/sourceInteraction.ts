@@ -381,6 +381,9 @@ function hasVisualSceneSurfaceForNode(
         visualScene.tiledFlatSurfaces.some(
           (surface) => surface.surfaceId === nodeId,
         ) ||
+        visualScene.lateTiledFlatSurfaces.some(
+          (surface) => surface.surfaceId === nodeId,
+        ) ||
         visualScene.meshSurfaces.some(
           (surface) => surface.surfaceId === nodeId,
         ) ||

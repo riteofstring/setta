@@ -130,9 +130,10 @@ describe("handleGpuFlowSurfacePaint", () => {
     expect(followUpCallbacks).toHaveLength(1);
   });
 
-  it("uploads queued dirty surfaces during the paint event when supported", () => {
+  it("defers queued dirty uploads to the frame scheduler", () => {
     const nodeElement = createGpuPaintNodeElement("node-a");
     const requestFrame = vi.fn();
+    const followUpCallbacks: Array<() => void> = [];
     const textureManager = {
       getDirtySurfaces: vi.fn(() => [
         {
@@ -150,13 +151,6 @@ describe("handleGpuFlowSurfacePaint", () => {
       ]),
       markSurfaceTextureDirty: vi.fn(() => true),
       markSurfacesPainted: vi.fn(),
-      uploadDirtySurfaceTextures: vi.fn(() => ({
-        budgetExhausted: false,
-        uploaded: [{}],
-        workSummary: {
-          paintUnavailableSurfaceCount: 0,
-        },
-      })),
     };
 
     handleGpuFlowSurfacePaint({
@@ -165,15 +159,15 @@ describe("handleGpuFlowSurfacePaint", () => {
       getFrame: () => 10,
       nodeElementById: new Map([["node-a", nodeElement]]),
       runtime: {} as GpuFlowSurfacePaintRuntime,
+      scheduleFollowUpFrame: (callback) => followUpCallbacks.push(callback),
       surface: { requestFrame },
       textureManager: textureManager as unknown as TestTextureManager,
       transformOnlyPaintNodeIds: new Set(),
     });
 
-    expect(textureManager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
-      frame: 10,
-    });
-    expect(requestFrame.mock.calls).toEqual([["manual"], ["texture-upload"]]);
+    expect(requestFrame).toHaveBeenCalledWith("manual");
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+    expect(followUpCallbacks).toHaveLength(1);
   });
 });
 

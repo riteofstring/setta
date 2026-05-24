@@ -456,6 +456,41 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
   });
 
+  it("keeps projection-only viewport frames ahead of browser visual maintenance", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const content = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "texture-upload"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(content.schedulerState).toBe("content-catchup");
+    expect(content.lane).toBe("content");
+    completeBlockedFrame(scheduler, content, [
+      {
+        actorId: "retained-dom-control:a",
+        family: "browser-text-snapshot",
+        reason: "snapshot-pending",
+      },
+    ]);
+
+    const viewport = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["viewport", "texture-upload"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+    expect(viewport.schedulerState).toBe("motion-active");
+    expect(viewport.lane).toBe("motion");
+    expect(viewport.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: false,
+    });
+  });
+
   it("lets browser text snapshot content repair preempt noninteractive viewport motion after retry delay", () => {
     const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const content = scheduler.selectFrame({

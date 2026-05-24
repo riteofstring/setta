@@ -11,6 +11,9 @@ export const HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE =
 export const HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE =
   "data-gpu-flow-capture-only-source";
 
+export const HTML_SURFACE_BROWSER_VISUAL_PREPARATION_SOURCE_ATTRIBUTE =
+  "data-gpu-flow-browser-visual-preparation-source";
+
 export const HTML_SURFACE_CAPTURE_TARGET_FOR_ATTRIBUTE =
   "data-gpu-flow-capture-target-for";
 

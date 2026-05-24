@@ -107,6 +107,7 @@ export class HtmlSurfaceRenderer {
     }
   >();
   private tiledFlatSurfacePass: HtmlSurfaceTiledFlatPass | null = null;
+  private lateTiledFlatSurfacePass: HtmlSurfaceTiledFlatPass | null = null;
 
   constructor(runtime: HtmlSurfaceRenderRuntime) {
     this.runtime = runtime;
@@ -130,6 +131,7 @@ export class HtmlSurfaceRenderer {
     this.meshSurfacePass?.destroy();
     this.solidRoundedRectSurfacePass?.destroy();
     this.tiledFlatSurfacePass?.destroy();
+    this.lateTiledFlatSurfacePass?.destroy();
     this.cameraBuffer = null;
     this.edgeBufferCache = null;
     this.edgePaletteBindGroup = null;
@@ -146,6 +148,7 @@ export class HtmlSurfaceRenderer {
     this.meshSurfacePass = null;
     this.solidRoundedRectSurfacePass = null;
     this.tiledFlatSurfacePass = null;
+    this.lateTiledFlatSurfacePass = null;
     this.cameraBindGroup = null;
     this.textureBindGroupLayout = null;
     this.cameraBindGroupLayout = null;
@@ -192,6 +195,9 @@ export class HtmlSurfaceRenderer {
     const tiledFlatSurfaceTiles = createTiledFlatSurfaceDrawTiles(
       scene.tiledFlatSurfaces,
     );
+    const lateTiledFlatSurfaceTiles = createTiledFlatSurfaceDrawTiles(
+      scene.lateTiledFlatSurfaces,
+    );
     const meshSurfaces = scene.meshSurfaces;
     const effectSurfaces = scene.effectSurfaces;
     const solidRoundedRectSurfaces = scene.solidRoundedRectSurfaces;
@@ -210,6 +216,8 @@ export class HtmlSurfaceRenderer {
     const tiledFlatSurfaceDraw = this.prepareTiledFlatSurfaceDraw(
       tiledFlatSurfaceTiles,
     );
+    const lateTiledFlatSurfaceDraw =
+      this.prepareLateTiledFlatSurfaceDraw(lateTiledFlatSurfaceTiles);
     const meshSurfaceDraw = this.prepareMeshSurfaceDraw(meshSurfaces);
     const effectSurfaceDraw = this.prepareEffectSurfaceDraw(effectSurfaces);
     const solidRoundedRectSurfaceDraw = this.prepareSolidRoundedRectSurfaceDraw(
@@ -228,6 +236,8 @@ export class HtmlSurfaceRenderer {
       flatSurfaces,
       lateFlatSurfaceDraw,
       lateFlatSurfaces,
+      lateTiledFlatSurfaceDraw,
+      lateTiledFlatSurfaceTiles,
       meshSurfaceDraw,
       meshSurfaces,
       solidRoundedRectSurfaceDraw,
@@ -256,6 +266,8 @@ export class HtmlSurfaceRenderer {
         solidRoundedRectSurfaces,
         tiledFlatSurfacePass: this.tiledFlatSurfacePass,
         tiledFlatSurfaceTiles,
+        lateTiledFlatSurfacePass: this.lateTiledFlatSurfacePass,
+        lateTiledFlatSurfaceTiles,
       }),
     });
     let submitted = false;
@@ -318,6 +330,12 @@ export class HtmlSurfaceRenderer {
           flatSurfaces: lateFlatSurfaces,
           pass,
         });
+        this.drawLateTiledFlatSurfaces(
+          pass,
+          cameraBindGroup,
+          lateTiledFlatSurfaceDraw,
+          lateTiledFlatSurfaceTiles,
+        );
         this.drawSolidRoundedRectSurfaces(
           pass,
           cameraBindGroup,
@@ -428,6 +446,18 @@ export class HtmlSurfaceRenderer {
       runtime: this.runtime,
     });
     return this.tiledFlatSurfacePass;
+  }
+
+  private ensureLateTiledFlatSurfacePass(): HtmlSurfaceTiledFlatPass {
+    if (this.lateTiledFlatSurfacePass) {
+      return this.lateTiledFlatSurfacePass;
+    }
+    this.lateTiledFlatSurfacePass = new HtmlSurfaceTiledFlatPass({
+      getFlatSurfacePipeline: () => this.flatLayerPasses.getFlatPipeline(),
+      getTextureBindGroup: (tile) => this.getTextureBindGroup(tile),
+      runtime: this.runtime,
+    });
+    return this.lateTiledFlatSurfacePass;
   }
 
   private ensureEffectSurfacePass(): HtmlSurfaceEffectPass {
@@ -623,6 +653,14 @@ export class HtmlSurfaceRenderer {
     return this.ensureTiledFlatSurfacePass().prepare(tiledFlatSurfaceTiles);
   }
 
+  private prepareLateTiledFlatSurfaceDraw(
+    tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[],
+  ): PreparedFlatSurfaceDraw {
+    return this.ensureLateTiledFlatSurfacePass().prepare(
+      tiledFlatSurfaceTiles,
+    );
+  }
+
   private prepareSolidRoundedRectSurfaceDraw(
     solidRoundedRectSurfaces: HtmlSurfaceVisualScene["solidRoundedRectSurfaces"],
   ): PreparedSolidRoundedRectSurfaceDraw {
@@ -684,6 +722,8 @@ export class HtmlSurfaceRenderer {
     flatSurfaces,
     lateFlatSurfaceDraw,
     lateFlatSurfaces,
+    lateTiledFlatSurfaceDraw,
+    lateTiledFlatSurfaceTiles,
     meshSurfaceDraw,
     meshSurfaces,
     solidRoundedRectSurfaceDraw,
@@ -703,6 +743,8 @@ export class HtmlSurfaceRenderer {
     readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
     readonly lateFlatSurfaceDraw: PreparedFlatSurfaceDraw;
     readonly lateFlatSurfaces: readonly HtmlSurfaceFlatVisual[];
+    readonly lateTiledFlatSurfaceDraw: PreparedFlatSurfaceDraw;
+    readonly lateTiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[];
     readonly meshSurfaceDraw: PreparedMeshSurfaceDraw | null;
     readonly meshSurfaces: HtmlSurfaceVisualScene["meshSurfaces"];
     readonly solidRoundedRectSurfaceDraw: PreparedSolidRoundedRectSurfaceDraw;
@@ -719,6 +761,10 @@ export class HtmlSurfaceRenderer {
     this.writeTiledFlatSurfaceBuffer(
       tiledFlatSurfaceDraw,
       tiledFlatSurfaceTiles,
+    );
+    this.writeLateTiledFlatSurfaceBuffer(
+      lateTiledFlatSurfaceDraw,
+      lateTiledFlatSurfaceTiles,
     );
     meshSurfaceDraw?.pass.write(meshSurfaceDraw.draw, meshSurfaces);
     effectSurfaceDraw?.pass.write(effectSurfaceDraw.draw, effectSurfaces);
@@ -801,6 +847,16 @@ export class HtmlSurfaceRenderer {
     );
   }
 
+  private writeLateTiledFlatSurfaceBuffer(
+    tiledFlatSurfaceDraw: PreparedFlatSurfaceDraw,
+    tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[],
+  ) {
+    this.ensureLateTiledFlatSurfacePass().write(
+      tiledFlatSurfaceDraw,
+      tiledFlatSurfaceTiles,
+    );
+  }
+
   private drawGrid(
     pass: GPURenderPassEncoder,
     cameraBindGroup: GPUBindGroup,
@@ -838,6 +894,20 @@ export class HtmlSurfaceRenderer {
     tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[],
   ) {
     this.ensureTiledFlatSurfacePass().draw({
+      cameraBindGroup,
+      pass,
+      tiledFlatSurfaceDraw,
+      tiledFlatSurfaceTiles,
+    });
+  }
+
+  private drawLateTiledFlatSurfaces(
+    pass: GPURenderPassEncoder,
+    cameraBindGroup: GPUBindGroup,
+    tiledFlatSurfaceDraw: PreparedFlatSurfaceDraw,
+    tiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[],
+  ) {
+    this.ensureLateTiledFlatSurfacePass().draw({
       cameraBindGroup,
       pass,
       tiledFlatSurfaceDraw,

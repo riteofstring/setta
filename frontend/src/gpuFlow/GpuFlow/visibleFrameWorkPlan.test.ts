@@ -91,6 +91,30 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     ).toBe(false);
     expect(
       shouldConsiderGpuFlowDeferredContentPublication({
+        deferResolutionUpdates: false,
+        hasPreviousRetainedDisplayFrame: false,
+        hasPreviousVisibleProjectionState: false,
+        publicationDecision: publicationDecision({
+          lane: "content",
+          rawReasons: ["retained-scroll"],
+          schedulerState: "motion-active",
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPublication({
+        deferResolutionUpdates: false,
+        hasPreviousRetainedDisplayFrame: true,
+        hasPreviousVisibleProjectionState: true,
+        publicationDecision: publicationDecision({
+          lane: "content",
+          rawReasons: ["retained-scroll"],
+          schedulerState: "motion-active",
+        }),
+      }),
+    ).toBe(true);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
@@ -111,7 +135,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
           schedulerState: "motion-settling",
         }),
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: false,
@@ -146,7 +170,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
           schedulerState: "content-catchup",
         }),
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: true,
@@ -170,7 +194,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
           schedulerState: "content-catchup",
         }),
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: true,
@@ -182,7 +206,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
           schedulerState: "content-catchup",
         }),
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
         deferResolutionUpdates: false,

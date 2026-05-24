@@ -21,7 +21,6 @@ import {
   createGpuFlowBrowserVisualBlockedPublicationCandidate,
   createGpuFlowBrowserVisualResourceWorkRequests,
   createGpuFlowRetainedProjectionBlockedPublicationCandidate,
-  getGpuFlowCommittedSurfacePublishabilityActorIds,
   shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair,
 } from "./visibleFrameBlockedCandidate";
 import type {
@@ -327,12 +326,7 @@ function resolveGpuFlowCommittedSurfacePublicationReadiness({
         frame: publishedCommittedSurfaceFrame,
         heldPreviousProjectionState,
       }),
-    errorMessage:
-      publishedCommittedSurfaceFrame.publishability.kind === "true-hole"
-        ? `GPU Flow committed surface frame has true-hole visible coverage: ${getGpuFlowCommittedSurfacePublishabilityActorIds(
-            publishedCommittedSurfaceFrame,
-          ).join(", ")}.`
-        : null,
+    errorMessage: null,
     kind: "nonpublishable",
   };
 }

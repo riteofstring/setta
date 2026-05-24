@@ -145,6 +145,55 @@ describe("GPU Flow visible frame actor manifest", () => {
       requirement: "maintenance",
     });
   });
+
+  it("treats passive snapshot-pending actors as maintenance beside an active editor", () => {
+    const activeEditor = textActor({
+      active: true,
+      actorId: "active-editor",
+      generationId: "active-generation",
+      projectionCoverage: "exact-live-dom",
+    });
+    const passiveSnapshotPending = textActor({
+      active: false,
+      actorId: "passive-snapshot",
+      generationId: "passive-generation",
+      projectionCoverage: "blocked-awaiting-browser-visual",
+      readinessReason: "snapshot-pending",
+    });
+    const frame = committedSurfaceFrame({
+      actorGenerations: [activeEditor, passiveSnapshotPending],
+      retainedRuntimeFrame: retainedRuntimeFrame(),
+    });
+
+    const manifest = createGpuFlowVisibleFrameActorManifest({ frame });
+    const proofs = createGpuFlowVisibleFrameActorProofsForManifest({
+      contentFrameId: createGpuFlowContentFrameId("content-a"),
+      frame,
+      manifest,
+      projectionSampleId: "projection-a",
+    });
+
+    expect(
+      manifest.entries.find((entry) => entry.actorId === "passive-snapshot")
+        ?.requirement,
+    ).toBe("maintenance");
+    expect(manifest.requiredActors).toContainEqual({
+      actorId: "active-editor",
+      family: "active-editor",
+    });
+    expect(manifest.requiredActors).not.toContainEqual({
+      actorId: "passive-snapshot",
+      family: "browser-text-snapshot",
+    });
+    expect(
+      proofs.find((proof) => proof.actorId === "passive-snapshot"),
+    ).toMatchObject({
+      family: "browser-text-snapshot",
+      proof: "blocked",
+      reason: "snapshot-pending",
+      requirement: "maintenance",
+    });
+  });
 });
 
 function textActor({
@@ -158,10 +207,17 @@ function textActor({
   readonly actorId: string;
   readonly generationId: string;
   readonly projectionCoverage:
+    | "blocked-awaiting-browser-visual"
     | "blocked-awaiting-live-host"
     | "exact-live-dom";
-  readonly readinessReason?: "live-dom-budget" | undefined;
+  readonly readinessReason?: "live-dom-budget" | "snapshot-pending" | undefined;
 }): GpuFlowCommittedSurfaceActorGeneration {
+  const representationKind =
+    projectionCoverage === "blocked-awaiting-browser-visual"
+      ? "passive-snapshot"
+      : active
+        ? "active-editor"
+        : "live-dom";
   return {
     active,
     actorFamily: "text-like-dom-control",
@@ -171,7 +227,7 @@ function textActor({
         reason: active ? "active-editor" : "visible",
         required: true,
       },
-      representationKind: active ? "active-editor" : "live-dom",
+      representationKind,
       resourceHandles: [],
     },
     clipChainRevision: "clip",

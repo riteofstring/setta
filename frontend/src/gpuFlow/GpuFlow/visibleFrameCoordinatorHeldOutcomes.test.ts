@@ -238,6 +238,38 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       "held",
     );
   });
+
+  it("does not surface retained true-hole candidates as page errors", () => {
+    const previousVisibleProjectionState = visibleProjectionState({
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 13, timestamp: 208 }),
+    });
+    const candidate = prepareCommittedSurfacePublicationCandidateForTest({
+      heldPreviousProjectionState: previousVisibleProjectionState,
+      publishedCommittedSurfaceFrame: trueHoleCommittedSurfaceFrame(),
+    });
+    const coldCandidate = prepareCommittedSurfacePublicationCandidateForTest({
+      heldPreviousProjectionState: null,
+      publishedCommittedSurfaceFrame: trueHoleCommittedSurfaceFrame(),
+    });
+
+    expect(candidate.kind).toBe("nonpublishable");
+    if (candidate.kind !== "nonpublishable") {
+      throw new Error("Expected nonpublishable committed-surface candidate.");
+    }
+    expect(candidate.errorMessage).toBeNull();
+    expect(candidate.blockedPublicationCandidate.frozenFrameId).toBe(
+      previousVisibleProjectionState.committedFrame.displayFrameId,
+    );
+
+    expect(coldCandidate.kind).toBe("nonpublishable");
+    if (coldCandidate.kind !== "nonpublishable") {
+      throw new Error(
+        "Expected cold nonpublishable committed-surface candidate.",
+      );
+    }
+    expect(coldCandidate.errorMessage).toBeNull();
+  });
 });
 
 function visibleProjectionState({
@@ -406,6 +438,34 @@ function blockedCommittedSurfaceFrame({
       blockingActorIds: ["actor-a"],
       kind: "hold-previous",
       reason: "visible-dom-control-not-projected",
+    },
+  } as unknown as GpuFlowCommittedSurfaceFrame;
+}
+
+function trueHoleCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+  const actorId = "settings-section__sectionSizingPolicy:param-content:unpinned";
+  return {
+    actorGenerations: [],
+    displayFrameId: 9,
+    projectionHorizon: {
+      obligations: {
+        visibleActorIds: [actorId],
+      },
+      textActorCoverage: {
+        blockedAwaitingBrowserVisualActorIds: [],
+        blockedAwaitingLiveHostActorIds: [],
+        compatiblePreviousActorIds: [],
+        exactLiveDomActorIds: [],
+        exactSnapshotActorIds: [],
+        trueHoleActorIds: [],
+      },
+    },
+    publishability: {
+      actorFamily: "retained-page",
+      actorIds: [actorId],
+      blockingActorIds: [],
+      kind: "true-hole",
+      reason: "retained-surface-true-hole",
     },
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }

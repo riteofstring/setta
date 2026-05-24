@@ -24,6 +24,8 @@ export function getHtmlSurfaceRenderVertexCount({
   flatLayerPasses,
   flatSurfaces,
   lateFlatSurfaces,
+  lateTiledFlatSurfacePass,
+  lateTiledFlatSurfaceTiles,
   meshSurfaceDraw,
   meshSurfaces,
   solidRoundedRectSurfacePass,
@@ -36,6 +38,8 @@ export function getHtmlSurfaceRenderVertexCount({
   readonly flatLayerPasses: HtmlSurfaceFlatLayerPasses;
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
   readonly lateFlatSurfaces: readonly HtmlSurfaceFlatVisual[];
+  readonly lateTiledFlatSurfacePass: HtmlSurfaceTiledFlatPass | null;
+  readonly lateTiledFlatSurfaceTiles: readonly TiledFlatSurfaceDrawTile[];
   readonly meshSurfaceDraw: PreparedMeshSurfaceDraw;
   readonly meshSurfaces: HtmlSurfaceVisualScene["meshSurfaces"];
   readonly solidRoundedRectSurfacePass: HtmlSurfaceSolidRoundedRectPass | null;
@@ -47,6 +51,8 @@ export function getHtmlSurfaceRenderVertexCount({
     flatLayerPasses.getFlatVertexCount(flatSurfaces) +
     flatLayerPasses.getLateFlatVertexCount(lateFlatSurfaces) +
     (tiledFlatSurfacePass?.getVertexCount(tiledFlatSurfaceTiles) ?? 0) +
+    (lateTiledFlatSurfacePass?.getVertexCount(lateTiledFlatSurfaceTiles) ??
+      0) +
     (meshSurfaceDraw?.pass.getVertexCount(meshSurfaces) ?? 0) +
     (effectSurfaceDraw?.pass.getVertexCount(effectSurfaces) ?? 0) +
     (solidRoundedRectSurfacePass?.getVertexCount(solidRoundedRectSurfaces) ?? 0)

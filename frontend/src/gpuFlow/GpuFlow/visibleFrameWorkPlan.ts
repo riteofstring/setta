@@ -86,6 +86,8 @@ export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
 export function shouldConsiderGpuFlowDeferredContentPublication({
   activeEditorActivationPending = false,
   deferResolutionUpdates,
+  hasPreviousRetainedDisplayFrame,
+  hasPreviousVisibleProjectionState,
   publicationDecision,
 }: {
   readonly activeEditorActivationPending?: boolean | undefined;
@@ -96,9 +98,13 @@ export function shouldConsiderGpuFlowDeferredContentPublication({
 }): boolean {
   return (
     !activeEditorActivationPending &&
+    hasPreviousRetainedDisplayFrame &&
+    hasPreviousVisibleProjectionState &&
     (deferResolutionUpdates ||
+      publicationDecision.schedulerState === "motion-active" ||
       publicationDecision.schedulerState === "motion-settling") &&
     publicationDecision.lane !== "motion" &&
+    !publicationDecision.rawReasons.includes("texture-upload") &&
     !hasGpuFlowCriticalContentFrameRequest(publicationDecision.rawReasons)
   );
 }

@@ -18,6 +18,7 @@ import {
   type GpuNodeDomTransformSyncCache,
 } from "../htmlSurfaces/frame";
 import {
+  HTML_SURFACE_BROWSER_VISUAL_PREPARATION_SOURCE_ATTRIBUTE,
   HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
 } from "../htmlSurfaces/sourceDom";
@@ -777,14 +778,24 @@ function GpuRetainedDomControlSnapshotSourceLayer({
   readonly renderControl: GpuFlowDomControlRenderer | undefined;
   readonly sources: readonly GpuRetainedDomControlSourceDescriptor[];
 }) {
+  const configureSnapshotSourceElement = useCallback(
+    (
+      config: HtmlSurfaceSourceElementConfig<GpuRetainedDomControlSourceDescriptor>,
+    ) => {
+      configureGpuRetainedDomControlSnapshotSourceElement(config);
+      config.host.setAttribute(
+        HTML_SURFACE_BROWSER_VISUAL_PREPARATION_SOURCE_ATTRIBUTE,
+        prioritySourceIds?.has(config.sourceId) === true ? "true" : "false",
+      );
+    },
+    [prioritySourceIds],
+  );
   if (!renderControl || sources.length === 0) {
     return null;
   }
   return (
     <HtmlSurfaceSourceLayer
-      configureSourceElement={
-        configureGpuRetainedDomControlSnapshotSourceElement
-      }
+      configureSourceElement={configureSnapshotSourceElement}
       getSourceId={getGpuRetainedDomControlSnapshotSourceId}
       onSourceElementChange={onSnapshotElementChange}
       prioritySourceIds={prioritySourceIds}

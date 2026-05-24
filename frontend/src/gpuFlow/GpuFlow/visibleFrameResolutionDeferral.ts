@@ -43,7 +43,11 @@ export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
   >;
   readonly viewportFrame: boolean;
 }): boolean {
-  if (viewportFrame && hasPreviousVisibleProjectionState) {
+  if (
+    deferResolutionUpdates &&
+    viewportFrame &&
+    hasPreviousVisibleProjectionState
+  ) {
     return true;
   }
   return shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({

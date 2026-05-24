@@ -4,7 +4,6 @@ import type { GpuSurfaceHandle, GpuSurfaceProps } from "../GpuSurface";
 import { markHtmlSurfaceFramePaintDirty } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import { nextFrame } from "./flowFrame";
-import { requestGpuFlowDirtySurfaceTextureUploadFollowUp } from "./flowMaintenanceTextureUpload";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 
 type GpuFlowSurfacePaintHandler = NonNullable<GpuSurfaceProps["onPaint"]>;
@@ -23,8 +22,7 @@ type GpuFlowSurfacePaintHandlerRefs = {
 type GpuFlowSurfacePaintTextureManager = Pick<
   HtmlSurfaceTextureManager,
   "getDirtySurfaces" | "markSurfaceTextureDirty" | "markSurfacesPainted"
-> &
-  Partial<Pick<HtmlSurfaceTextureManager, "uploadDirtySurfaceTextures">>;
+>;
 
 export type GpuFlowSurfacePaintInput = {
   readonly callbacks: GpuFlowCallbacks;
@@ -91,7 +89,6 @@ export function handleGpuFlowSurfacePaint({
   }
   handleGpuFlowSurfacePaintTextureUpload({
     dirtyPaintSurfaceCount,
-    frame,
     scheduleFollowUpFrame,
     surface,
     textureManager,
@@ -100,13 +97,11 @@ export function handleGpuFlowSurfacePaint({
 
 function handleGpuFlowSurfacePaintTextureUpload({
   dirtyPaintSurfaceCount,
-  frame,
   scheduleFollowUpFrame,
   surface,
   textureManager,
 }: {
   readonly dirtyPaintSurfaceCount: number;
-  readonly frame: number;
   readonly scheduleFollowUpFrame: (callback: () => void) => void;
   readonly surface: Pick<GpuSurfaceHandle, "requestFrame"> | null;
   readonly textureManager: GpuFlowSurfacePaintTextureManager | null;
@@ -115,25 +110,10 @@ function handleGpuFlowSurfacePaintTextureUpload({
     textureManager &&
     (dirtyPaintSurfaceCount > 0 || textureManager.getDirtySurfaces().length > 0)
   ) {
-    if (!textureManager.uploadDirtySurfaceTextures) {
-      requestGpuFlowSurfacePaintDirtyTextureUploadFrame({
-        scheduleFollowUpFrame,
-        surface,
-      });
-      return;
-    }
-    const uploadResult = textureManager.uploadDirtySurfaceTextures({
-      frame,
+    requestGpuFlowSurfacePaintDirtyTextureUploadFrame({
+      scheduleFollowUpFrame,
+      surface,
     });
-    requestGpuFlowDirtySurfaceTextureUploadFollowUp({
-      retryDeferredUploads: true,
-      source: "paint-event",
-      surfaceRef: { current: surface },
-      uploadResult,
-    });
-    if (uploadResult.uploaded.length > 0) {
-      surface?.requestFrame("texture-upload");
-    }
   }
 }
 

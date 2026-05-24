@@ -2,7 +2,7 @@ import type { GpuFrameReason } from "../gpuRenderer";
 import {
   hasGpuFlowCriticalContentFrameRequest,
   isGpuFlowMaintenanceFrameReason,
-  isGpuFlowRetainedMotionFrameReason,
+  isGpuFlowMotionFrameReason,
 } from "../projectionSchedulerPolicy";
 
 export function shouldDrainGpuFlowBrowserVisualMaintenanceNow({
@@ -24,7 +24,7 @@ export function shouldDrainGpuFlowBrowserVisualMaintenanceNow({
     maintenanceDebt &&
     !viewportInteractionActive &&
     rawReasons.some(isGpuFlowMaintenanceFrameReason) &&
-    !rawReasons.some(isGpuFlowRetainedMotionFrameReason) &&
+    !rawReasons.some(isGpuFlowMotionFrameReason) &&
     !hasGpuFlowCriticalContentFrameRequest(rawReasons)
   );
 }

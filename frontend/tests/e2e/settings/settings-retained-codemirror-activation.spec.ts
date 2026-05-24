@@ -223,14 +223,10 @@ test("retained settings text editor activation keeps text ink aligned with the p
     expandRect(row.controlClientRect, 12),
   );
   const searchRect = resolveValueInkSearchRect(row.controlClientRect);
-  await waitForStableScreenshotClip(page, clip);
-  const passiveFrame = await page.screenshot({
+  const { ink: passiveInk } = await waitForCodeMirrorTextInk(page, {
     clip,
     path: testInfo.outputPath("codemirror-passive-ink-frame.png"),
-  });
-  const passiveInk = await analyzeCodeMirrorTextInkBounds(page, {
-    clip,
-    screenshot: passiveFrame,
+    rowId: row.rowId,
     searchRect,
   });
 
@@ -286,6 +282,234 @@ test("retained settings text editor activation keeps text ink aligned with the p
     failureDetails,
   ).toBeLessThanOrEqual(1.5);
 });
+
+async function waitForCodeMirrorTextInk(
+  page: Page,
+  {
+    clip,
+    path,
+    rowId,
+    searchRect,
+  }: {
+    readonly clip: Rect;
+    readonly path: string;
+    readonly rowId: string;
+    readonly searchRect: Rect;
+  },
+): Promise<{
+  readonly ink: NonNullable<
+    Awaited<ReturnType<typeof analyzeCodeMirrorTextInkBounds>>
+  >;
+}> {
+  const deadline = Date.now() + 5_000;
+  let latestInk: Awaited<ReturnType<typeof analyzeCodeMirrorTextInkBounds>> =
+    null;
+  while (Date.now() < deadline) {
+    const screenshot = await page.screenshot({ clip });
+    latestInk = await analyzeCodeMirrorTextInkBounds(page, {
+      clip,
+      screenshot,
+      searchRect,
+    });
+    if (latestInk !== null) {
+      await page.screenshot({ clip, path });
+      return { ink: latestInk };
+    }
+    await page.evaluate(() => {
+      window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("manual");
+      window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("texture-upload");
+    });
+    await waitForAnimationFrame(page);
+  }
+  await page.screenshot({ clip, path });
+  throw new Error(
+    `Timed out waiting for passive CodeMirror ink: ${JSON.stringify(
+      {
+        clip,
+        latestInk,
+        searchRect,
+        domControl: await readDomControlDiagnosticsForRow(page, rowId),
+        retainedRows: await readRetainedRowsDiagnosticsForRow(page, rowId),
+        snapshotSource: await readDomControlSnapshotSourceDiagnosticsForRow(
+          page,
+          rowId,
+        ),
+        snapshot: await page.evaluate(
+          () => window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.() ?? null,
+        ),
+        visualSurfaces: await readVisualSurfaceDiagnosticsForRow(page, rowId),
+      },
+      null,
+      2,
+    )}`,
+  );
+}
+
+async function readDomControlDiagnosticsForRow(
+  page: Page,
+  rowId: string,
+): Promise<unknown> {
+  return await page.evaluate((rowId) => {
+    const hosts = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        `[data-gpu-flow-dom-control-row-id="${CSS.escape(rowId)}"]`,
+      ),
+    );
+    return hosts.map((host) => {
+      const rect = host.getBoundingClientRect();
+      const content = host.querySelector<HTMLElement>(
+        ".setta-gpu-flow__dom-control-content",
+      );
+      const codeMirror = host.querySelector<HTMLElement>("[data-gpu-flow-control]");
+      const line = host.querySelector<HTMLElement>(".cm-line");
+      const hostStyle = window.getComputedStyle(host);
+      const contentStyle = content ? window.getComputedStyle(content) : null;
+      return {
+        active: host.dataset.gpuFlowDomControlActive ?? null,
+        contentRect: content
+          ? {
+              height: content.getBoundingClientRect().height,
+              width: content.getBoundingClientRect().width,
+              x: content.getBoundingClientRect().x,
+              y: content.getBoundingClientRect().y,
+            }
+          : null,
+        contentStyle: contentStyle
+          ? {
+              display: contentStyle.display,
+              opacity: contentStyle.opacity,
+              transform: contentStyle.transform,
+              visibility: contentStyle.visibility,
+            }
+          : null,
+        coverageReason:
+          host.dataset.gpuFlowDomControlCoverageReason ?? null,
+        coverageState:
+          host.dataset.gpuFlowDomControlCoverageState ?? null,
+        hostRect: {
+          height: rect.height,
+          width: rect.width,
+          x: rect.x,
+          y: rect.y,
+        },
+        hostStyle: {
+          display: hostStyle.display,
+          opacity: hostStyle.opacity,
+          pointerEvents: hostStyle.pointerEvents,
+          transform: hostStyle.transform,
+          visibility: hostStyle.visibility,
+        },
+        id: host.dataset.gpuFlowDomControlId ?? null,
+        lineText: line?.textContent ?? null,
+        lineRect: line
+          ? {
+              height: line.getBoundingClientRect().height,
+              width: line.getBoundingClientRect().width,
+              x: line.getBoundingClientRect().x,
+              y: line.getBoundingClientRect().y,
+            }
+          : null,
+        text: codeMirror?.textContent ?? null,
+      };
+    });
+  }, rowId);
+}
+
+async function readDomControlSnapshotSourceDiagnosticsForRow(
+  page: Page,
+  rowId: string,
+): Promise<unknown> {
+  return await page.evaluate((rowId) => {
+    const snapshotDiagnostics =
+      window.__settaGpuFlowDomControlSnapshotSourceDiagnostics?.() ?? [];
+    const actorIdSuffix = `:${rowId}`;
+    const diagnostics = snapshotDiagnostics.filter((diagnostic) => {
+      if (
+        typeof diagnostic !== "object" ||
+        diagnostic === null ||
+        !("sourceId" in diagnostic)
+      ) {
+        return false;
+      }
+      return String(diagnostic.sourceId).endsWith(actorIdSuffix);
+    });
+    const sourceHosts = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-gpu-flow-dom-control-snapshot-source='true']",
+      ),
+    )
+      .filter((host) =>
+        (host.dataset.gpuFlowDomControlId ?? "").endsWith(actorIdSuffix),
+      )
+      .map((host) => {
+        const rect = host.getBoundingClientRect();
+        const style = window.getComputedStyle(host);
+        const content = host.querySelector<HTMLElement>(
+          "[data-gpu-flow-retained-dom-control-snapshot-content='true']",
+        );
+        const codeMirror = host.querySelector<HTMLElement>(".cm-line");
+        const codeMirrorRect = codeMirror?.getBoundingClientRect();
+        return {
+          browserVisualPreparation:
+            host.getAttribute(
+              "data-gpu-flow-browser-visual-preparation-source",
+            ) ?? null,
+          contentText: content?.textContent ?? null,
+          hostRect: {
+            height: rect.height,
+            width: rect.width,
+            x: rect.x,
+            y: rect.y,
+          },
+          hostStyle: {
+            display: style.display,
+            opacity: style.opacity,
+            pointerEvents: style.pointerEvents,
+            position: style.position,
+            transform: style.transform,
+            visibility: style.visibility,
+            zIndex: style.zIndex,
+          },
+          lineRect: codeMirrorRect
+            ? {
+                height: codeMirrorRect.height,
+                width: codeMirrorRect.width,
+                x: codeMirrorRect.x,
+                y: codeMirrorRect.y,
+              }
+            : null,
+          lineText: codeMirror?.textContent ?? null,
+          sourceId: host.dataset.gpuFlowDomControlId ?? null,
+        };
+      });
+    return {
+      diagnostics,
+      sourceHosts,
+    };
+  }, rowId);
+}
+
+async function readRetainedRowsDiagnosticsForRow(
+  page: Page,
+  rowId: string,
+): Promise<unknown> {
+  return await page.evaluate((rowId) =>
+    (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []).filter(
+      (row) => row.rowId === rowId,
+    ),
+  rowId);
+}
+
+async function readVisualSurfaceDiagnosticsForRow(
+  page: Page,
+  rowId: string,
+): Promise<unknown> {
+  return await page.evaluate((rowId) =>
+    (window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? []).filter(
+      (surface) => surface.surfaceId.includes(rowId),
+    ),
+  rowId);
+}
 
 async function openSettings(page: Page): Promise<void> {
   if (page.url() !== "about:blank") {
@@ -487,12 +711,14 @@ async function centerGuiRowAtZoom(
   await waitForAnimationFrame(page);
   let latestViewportMatch: {
     readonly blockedEventCount?: number;
-    readonly committed: unknown;
+    readonly committedContentFrame: unknown;
     readonly lastBlockedEvent?: unknown;
     readonly lastStarvationReport?: unknown;
     readonly live: unknown;
+    readonly observed: unknown;
     readonly ready: boolean;
     readonly starvationReportCount?: number;
+    readonly visibleProjection: unknown;
   } | null = null;
   try {
     await expect
@@ -502,8 +728,11 @@ async function centerGuiRowAtZoom(
             window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("viewport");
             const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
             const live = snapshot?.viewport.transform ?? null;
-            const committed =
+            const committedContentFrame =
               snapshot?.committedSurfaceFrame?.viewportSample ?? null;
+            const visibleProjection =
+              snapshot?.visibleProjection?.viewport ?? null;
+            const observed = visibleProjection ?? committedContentFrame;
             const blockedEvents =
               window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ??
               [];
@@ -517,29 +746,33 @@ async function centerGuiRowAtZoom(
               starvationReports.length > 0
                 ? starvationReports[starvationReports.length - 1]
                 : null;
-            if (!live || !committed) {
+            if (!live || !observed) {
               return {
                 blockedEventCount: blockedEvents.length,
-                committed,
+                committedContentFrame,
                 lastBlockedEvent,
                 lastStarvationReport,
                 live,
+                observed,
                 ready: false,
                 starvationReportCount: starvationReports.length,
+                visibleProjection,
               };
             }
             return {
               blockedEventCount: blockedEvents.length,
-              committed,
+              committedContentFrame,
               lastBlockedEvent,
               lastStarvationReport,
               live,
+              observed,
               ready:
                 Math.abs(live.zoom - expectedZoom) < 0.001 &&
-                Math.abs(committed.zoom - live.zoom) < 0.001 &&
-                Math.abs(committed.x - live.x) < 0.5 &&
-                Math.abs(committed.y - live.y) < 0.5,
+                Math.abs(observed.zoom - live.zoom) < 0.001 &&
+                Math.abs(observed.x - live.x) < 0.5 &&
+                Math.abs(observed.y - live.y) < 0.5,
               starvationReportCount: starvationReports.length,
+              visibleProjection,
             };
           }, zoom);
           return latestViewportMatch.ready;

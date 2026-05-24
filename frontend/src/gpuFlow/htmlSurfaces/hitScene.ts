@@ -138,11 +138,14 @@ export function createHtmlSurfaceHitSceneFromVisualScene(
   const lateFlatSurfaces = scene.lateFlatSurfaces.map((surface) =>
     toFlatHitSurface(surface, stackOrder++),
   );
+  const lateTiledFlatSurfaces = scene.lateTiledFlatSurfaces.map((surface) =>
+    toTiledFlatHitSurface(surface, stackOrder++),
+  );
   return createHtmlSurfaceHitScene({
     effectSurfaces,
     flatSurfaces: [...flatSurfaces, ...lateFlatSurfaces],
     meshSurfaces,
-    tiledFlatSurfaces,
+    tiledFlatSurfaces: [...tiledFlatSurfaces, ...lateTiledFlatSurfaces],
   });
 }
 

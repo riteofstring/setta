@@ -359,12 +359,16 @@ export function createFrameRenderer() {
       drawnSurfaceIds: [
         ...scene.flatSurfaces.map((surface) => surface.surfaceId),
         ...scene.tiledFlatSurfaces.map((surface) => surface.surfaceId),
+        ...scene.lateFlatSurfaces.map((surface) => surface.surfaceId),
+        ...scene.lateTiledFlatSurfaces.map((surface) => surface.surfaceId),
         ...scene.solidRoundedRectSurfaces.map((surface) => surface.surfaceId),
       ],
       edgeVertexCount: (edges?.length ?? 0) * 2,
       vertexCount:
         (scene.flatSurfaces.length +
           scene.tiledFlatSurfaces.length +
+          scene.lateFlatSurfaces.length +
+          scene.lateTiledFlatSurfaces.length +
           scene.solidRoundedRectSurfaces.length) *
         6,
     })),

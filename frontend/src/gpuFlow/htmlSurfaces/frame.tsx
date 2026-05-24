@@ -528,7 +528,9 @@ export function renderHtmlSurfaceFrame({
       ...(htmlSurfacePageVisuals ?? []),
       ...pageOverlayVisualSurfaces.flatSurfaces,
     ],
+    htmlSurfacePageTiledVisuals: pageOverlayVisualSurfaces.tiledFlatSurfaces,
     htmlSurfaceLateVisuals: lateOverlayVisualSurfaces.flatSurfaces,
+    htmlSurfaceLateTiledVisuals: lateOverlayVisualSurfaces.tiledFlatSurfaces,
     visualSurfaces,
   });
   const { canvasSubmission, renderResult } =

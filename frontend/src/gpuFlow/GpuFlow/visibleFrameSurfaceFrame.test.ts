@@ -201,7 +201,7 @@ describe("GPU Flow surface frame publication", () => {
     ).toBe(true);
   });
 
-  it("defers viewport-frame content resolution when a previous presentation can be projected", () => {
+  it("uses coordinator resolution deferral for viewport-frame content catchup", () => {
     expect(
       shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
         committedFrame: committedFrameSample({
@@ -209,6 +209,21 @@ describe("GPU Flow surface frame publication", () => {
           viewportSample: [0, 0, 1],
         }),
         deferResolutionUpdates: false,
+        hasPreviousVisibleProjectionState: true,
+        sample: {
+          retainedScrollRevision: 2,
+          viewport: { x: 10, y: 20, zoom: 1 },
+        },
+        viewportFrame: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
+        committedFrame: committedFrameSample({
+          retainedScrollRevision: 2,
+          viewportSample: [0, 0, 1],
+        }),
+        deferResolutionUpdates: true,
         hasPreviousVisibleProjectionState: true,
         sample: {
           retainedScrollRevision: 2,

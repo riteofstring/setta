@@ -24,6 +24,7 @@ import type {
   RenderHtmlSurfacesResult,
 } from "./renderer";
 import {
+  HTML_SURFACE_BROWSER_VISUAL_PREPARATION_SOURCE_ATTRIBUTE,
   HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_CAPTURE_TARGET_FOR_ATTRIBUTE,
 } from "./sourceDom";
@@ -531,7 +532,8 @@ function resolveGpuVisibleSurfaceTexturePriority({
   }
   if (
     quad.actorKind === "dom-control" &&
-    isCaptureOnlyHtmlSurfaceSource(element)
+    isCaptureOnlyHtmlSurfaceSource(element) &&
+    isBrowserVisualPreparationHtmlSurfaceSource(element)
   ) {
     return "interactive";
   }
@@ -585,6 +587,14 @@ function shouldDeferHtmlSurfaceUploadUntilPaint({
 function isCaptureOnlyHtmlSurfaceSource(element: Element): boolean {
   return (
     element.getAttribute(HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE) === "true"
+  );
+}
+
+function isBrowserVisualPreparationHtmlSurfaceSource(element: Element): boolean {
+  return (
+    element.getAttribute(
+      HTML_SURFACE_BROWSER_VISUAL_PREPARATION_SOURCE_ATTRIBUTE,
+    ) === "true"
   );
 }
 

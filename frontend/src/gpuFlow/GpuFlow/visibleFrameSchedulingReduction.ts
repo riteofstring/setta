@@ -1,6 +1,7 @@
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   isGpuFlowContentFrameReason,
+  isGpuFlowMotionFrameReason,
   isGpuFlowRetainedMotionFrameReason,
   shouldDeferGpuFlowMaintenanceContentCatchup,
   type GpuFlowProjectionSchedulerState,
@@ -128,9 +129,14 @@ export function hasCurrentGpuFlowProjectionMotion({
   readonly rawReasons: readonly GpuFrameReason[];
   readonly viewportInteractionActive: boolean;
 }): boolean {
+  const hasProjectionOnlyViewportReason =
+    rawReasons.some(isGpuFlowMotionFrameReason) &&
+    rawReasons.includes("viewport") &&
+    !rawReasons.some(isGpuFlowContentFrameReason);
   return (
     !motionRetryDeferred &&
     (viewportInteractionActive ||
+      hasProjectionOnlyViewportReason ||
       rawReasons.some(isGpuFlowRetainedMotionFrameReason))
   );
 }

@@ -945,7 +945,10 @@ function getEventPointRelativeToElement(
 export function shouldPreserveGpuRetainedContentNativeTarget(
   event: Pick<PointerEvent, "target">,
 ): boolean {
-  return isGpuRetainedContentNativeTarget(event.target);
+  return (
+    !isPassiveGpuRetainedActivationModelDomControlTarget(event.target) &&
+    isGpuRetainedContentNativeTarget(event.target)
+  );
 }
 
 export function isGpuRetainedContentNativeTarget(
@@ -956,6 +959,20 @@ export function isGpuRetainedContentNativeTarget(
     return false;
   }
   return Boolean(target.closest(selectors.join(", ")));
+}
+
+function isPassiveGpuRetainedActivationModelDomControlTarget(
+  target: EventTarget | null,
+): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  const control = target.closest<HTMLElement>("[data-gpu-flow-dom-control]");
+  return (
+    control?.dataset.gpuFlowDomControlPointerSemantics ===
+      "retained-activation-model" &&
+    control.dataset.gpuFlowDomControlActive !== "true"
+  );
 }
 
 function preventRetainedContentEvent(event: PointerEvent) {

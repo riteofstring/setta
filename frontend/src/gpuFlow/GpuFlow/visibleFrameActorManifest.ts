@@ -161,6 +161,8 @@ export function createGpuFlowVisibleFrameActorManifest({
       });
     }
   } else {
+    const activeEditorPublicationPending =
+      hasGpuFlowVisibleFrameActiveEditorPublication(frame);
     for (const entry of createGpuFlowVisibleFramePresentationManifestEntries({
       frame,
       sample,
@@ -172,7 +174,10 @@ export function createGpuFlowVisibleFrameActorManifest({
         continue;
       }
       setGpuFlowVisibleFrameActorManifestEntry({
-        entry: createGpuFlowVisibleFrameCommittedActorManifestEntry(actor),
+        entry: createGpuFlowVisibleFrameCommittedActorManifestEntry({
+          activeEditorPublicationPending,
+          actor,
+        }),
         entryByKey,
       });
     }
@@ -246,12 +251,15 @@ export function createGpuFlowVisibleFrameActorProofsForManifest({
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): readonly GpuFlowVisibleFrameActorProof[] {
   const proofByActor = new Map<string, GpuFlowVisibleFrameActorProof>();
+  const activeEditorPublicationPending =
+    frame === null ? false : hasGpuFlowVisibleFrameActiveEditorPublication(frame);
   for (const actor of frame?.actorGenerations ?? []) {
     if (!actor.visibleNonempty) {
       continue;
     }
     setGpuFlowVisibleFrameActorProof({
       proof: createGpuFlowVisibleFrameActorProof({
+        activeEditorPublicationPending,
         actor,
         contentFrameId,
         projectionSampleId,
@@ -559,9 +567,13 @@ function getGpuFlowVisibleFramePresentationActorZOrder(
   );
 }
 
-function createGpuFlowVisibleFrameCommittedActorManifestEntry(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
-): GpuFlowVisibleFrameActorManifestEntry {
+function createGpuFlowVisibleFrameCommittedActorManifestEntry({
+  activeEditorPublicationPending,
+  actor,
+}: {
+  readonly activeEditorPublicationPending: boolean;
+  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+}): GpuFlowVisibleFrameActorManifestEntry {
   const family = getGpuFlowBrowserStyleVisibleFrameActorFamily(actor);
   return Object.freeze({
     absentReason: null,
@@ -583,7 +595,10 @@ function createGpuFlowVisibleFrameCommittedActorManifestEntry(
         : null,
     projectionGeneration: actor.layoutProjectionGenerationId,
     readinessProof: actor.readinessGenerationId,
-    requirement: getGpuFlowVisibleFrameCommittedActorRequirement(actor),
+    requirement: getGpuFlowVisibleFrameCommittedActorRequirement({
+      activeEditorPublicationPending,
+      actor,
+    }),
     resourceState: getGpuFlowVisibleFrameActorResourceState(actor),
     source: "committed-actor" as const,
     zOrder: actor.zOrder,
@@ -654,16 +669,21 @@ function createGpuFlowVisibleFrameSyntheticBlockedManifestEntry({
 }
 
 function createGpuFlowVisibleFrameActorProof({
+  activeEditorPublicationPending,
   actor,
   contentFrameId,
   projectionSampleId,
 }: {
+  readonly activeEditorPublicationPending: boolean;
   readonly actor: GpuFlowCommittedSurfaceActorGeneration;
   readonly contentFrameId: GpuFlowContentFrameId;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): GpuFlowVisibleFrameActorProof {
   const actorKey = createGpuFlowVisibleFrameActorProofKey(actor);
-  const requirement = getGpuFlowVisibleFrameCommittedActorRequirement(actor);
+  const requirement = getGpuFlowVisibleFrameCommittedActorRequirement({
+    activeEditorPublicationPending,
+    actor,
+  });
   const textCoverage = actor.textCoverageProof;
   switch (textCoverage?.projectionCoverage) {
     case "true-hole":
@@ -697,15 +717,26 @@ function createGpuFlowVisibleFrameActorProof({
   }
 }
 
-function getGpuFlowVisibleFrameCommittedActorRequirement(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
-): GpuFlowVisibleFrameActorProof["requirement"] {
+function getGpuFlowVisibleFrameCommittedActorRequirement({
+  activeEditorPublicationPending,
+  actor,
+}: {
+  readonly activeEditorPublicationPending: boolean;
+  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+}): GpuFlowVisibleFrameActorProof["requirement"] {
   const textCoverage = actor.textCoverageProof;
   const passiveLiveDomBudgetActor =
     !isGpuFlowVisibleFrameActiveEditorRepresentation(actor) &&
     textCoverage?.projectionCoverage === "blocked-awaiting-live-host" &&
     textCoverage.readinessReason === "live-dom-budget";
-  return passiveLiveDomBudgetActor ? "maintenance" : "required";
+  const passiveSnapshotPendingDuringActiveEditor =
+    activeEditorPublicationPending &&
+    !isGpuFlowVisibleFrameActiveEditorRepresentation(actor) &&
+    textCoverage?.projectionCoverage === "blocked-awaiting-browser-visual" &&
+    textCoverage.readinessReason === "snapshot-pending";
+  return passiveLiveDomBudgetActor || passiveSnapshotPendingDuringActiveEditor
+    ? "maintenance"
+    : "required";
 }
 
 function createGpuFlowVisibleFrameTrueHoleProof({
@@ -893,6 +924,15 @@ function isGpuFlowVisibleFrameActiveEditorRepresentation(
   actor: GpuFlowCommittedSurfaceActorGeneration,
 ): boolean {
   return actor.active || actor.browserVisual?.representationKind === "active-editor";
+}
+
+function hasGpuFlowVisibleFrameActiveEditorPublication(
+  frame: GpuFlowCommittedSurfaceFrame,
+): boolean {
+  return frame.actorGenerations.some(
+    (actor) =>
+      actor.visibleNonempty && isGpuFlowVisibleFrameActiveEditorRepresentation(actor),
+  );
 }
 
 function isGpuFlowVisibleFrameSnapshotRepresentation(

@@ -667,6 +667,14 @@ function createGpuFlowVisualSurfacesDebugSnapshot({
     ...visualScene.lateFlatSurfaces.map((surface) =>
       toVisualSurfaceDebugEntry({ context, kind: "late-flat", surface }),
     ),
+    ...visualScene.lateTiledFlatSurfaces.map((surface) =>
+      toVisualSurfaceDebugEntry({
+        context,
+        flowRect: surface.rect,
+        kind: "late-tiled-flat",
+        surface,
+      }),
+    ),
   ];
 }
 
