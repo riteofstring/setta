@@ -39,8 +39,9 @@ track.
   `ParamContainer`, `ParamUI`, CodeMirror, or resize-handle DOM for sections
   owned by the canvas renderer.
 - DOM is allowed only for active overlays that require native/browser behavior,
-  such as one CodeMirror editor, one searchable combobox, one native color
-  input, popovers, context menus, or app chrome outside the workspace.
+  such as an active CodeMirror editor session, searchable combobox session,
+  native color input session, popovers, context menus, or app chrome outside the
+  workspace.
 - DOM overlays are positioned from scene geometry. They must not own pan/zoom,
   section placement, row layout, scrolling, minimap geometry, or passive
   rendering.
@@ -48,6 +49,27 @@ track.
   canvas workspace. During development, comparison can use git history,
   separate worktrees, benchmark artifacts, or explicitly named debug-only
   harnesses, but not a production dual renderer.
+
+## Compatibility Policy
+
+This branch does not need backward compatibility, legacy support, migrations,
+transitional adapters, compatibility shims, dual-read/write paths, old-field
+aliases, or silent compatibility fallbacks.
+
+Rules:
+
+- Replace the active workspace path. Do not bridge the old xyflow/dnd-kit
+  workspace into the new renderer.
+- Unsupported workspace content must show an explicit unsupported canvas
+  placeholder or fail loudly during development. It must not silently route to
+  the old React/xyflow/HTML workspace.
+- Legacy Param UI components may be used as reference material, but they must
+  not be mounted as passive workspace content or hidden compatibility surfaces.
+- Dependency changes are allowed when a dependency is the right technical fit.
+  Dependency count should not be used as a reason to avoid Lezer, Shiki, or
+  another appropriate parser/highlighter/editor support library. Direct
+  dependency versions still need to be pinned exactly and lockfiles updated
+  through the repo tooling.
 
 ## Scope
 
@@ -74,7 +96,8 @@ In scope for the workspace replacement:
   - per-section scrollbars and clipped section bodies
 - Canvas-owned interaction handling for Param Dict rows and controls.
 - Canvas-owned section and Param drag/drop for in-workspace interactions.
-- One active DOM overlay host above the canvas for editors and native inputs.
+- One active editor overlay host above the canvas for DOM-backed editors,
+  native inputs, and app popups. Canvas-native popups render in the scene.
 - Performance reports under `perf/` before and after meaningful milestones.
 
 Out of scope for the first benchmark milestone:
@@ -94,6 +117,46 @@ Important scope clarification:
   considered incomplete until their section renderer exists. They must not keep
   xyflow as a hidden compatibility path in the workspace.
 
+## Milestone Boundaries
+
+Architecture rules apply to every milestone. Milestone boundaries only define
+what must be complete before landing the first benchmark path.
+
+### Benchmark Milestone: Settings `All Settings`
+
+Required:
+
+- The active workspace root uses the canvas workspace.
+- No xyflow, xyflow minimap, dnd-kit, passive section DOM, passive Param row
+  DOM, or inactive CodeMirror instances in the active workspace.
+- Generic Dict scene derivation, row layout, visible-row rendering, clipped
+  section scrolling, hit testing, minimap rendering, and basic interactions.
+- Active editor overlay host for initial text, code, combobox, and color cases.
+- Canvas-native controls for supported switches, fixed dropdowns, fixed
+  palettes, sliders, buttons, and disclosures.
+- Unsupported non-Dict sections show explicit canvas placeholders.
+- Before/after performance report under `perf/`.
+- Browser visual verification against clean `go-rewrite` references.
+
+Not required for this milestone unless the Settings benchmark fixture depends on
+it:
+
+- Full nested section interaction parity.
+- Every non-Dict section renderer.
+- Every complex custom Param editor.
+- Broader accessibility parity for inactive canvas-rendered content.
+
+### Full Workspace Acceptance
+
+Required after the benchmark milestone:
+
+- Nested section rendering and interaction parity.
+- Section reorder/reparent across supported parent/child regions.
+- Non-Dict section renderers.
+- Broader accessibility parity.
+- Full custom Param coverage through canvas preview, canvas-native interaction,
+  overlay-backed editing, or right-pane editing.
+
 ## Source Of Truth
 
 - Go remains the owner for canonical project behavior, validation, endpoint
@@ -107,6 +170,47 @@ Important scope clarification:
   project state, not stored as duplicated truth.
 - Any downstream Python or TypeScript surfaces needed from Go-owned contracts
   should be generated, not hand-maintained.
+
+## Workspace Mutation Contract
+
+Before implementing each interaction, define its canonical mutation path.
+
+For each operation, record:
+
+- operation name
+- authoritative owner: existing frontend action, Go endpoint, generated
+  contract, or new required endpoint
+- draft state location
+- preview behavior before commit
+- commit trigger
+- cancel behavior
+- validation behavior
+- optimistic update and rollback behavior
+- undo/redo grouping behavior
+- affected scene invalidation keys
+- whether the operation is supported in the first benchmark milestone
+
+Continuous interactions must use explicit begin/update/commit/cancel semantics.
+They must not emit many independent canonical mutations unless that is the
+declared product behavior.
+
+Initial operations that need an explicit contract before their implementation
+lands:
+
+| Operation | Contract requirement |
+| --- | --- |
+| viewport persistence | Define when pan/zoom becomes canonical project viewport state and how transient viewport movement is coalesced. |
+| section scroll state | Define frontend UI-state ownership and invalidation; section scroll must not mutate canonical project state unless product behavior requires it. |
+| section drag | Define drag draft state, preview bounds, commit trigger, cancel behavior, validation, and undo grouping. |
+| section resize | Define resize draft state, minimum/maximum validation, preview behavior, commit trigger, cancel behavior, and undo grouping. |
+| section reorder/reparent | Define supported parent/child drop zones, validation, commit mutation, cancel behavior, and undo grouping. |
+| Param reorder | Define row drag draft state, nested drop target validation, commit mutation, cancel behavior, and undo grouping. |
+| switch/button/disclosure | Define immediate commit path, validation behavior, and scene invalidation keys. |
+| fixed dropdown/palette | Define canvas popup state, selected draft, commit trigger, cancel behavior, and validation. |
+| slider/range | Define drag draft state, preview behavior, commit-on-release or continuous commit policy, and undo grouping. |
+| text/code draft | Define active editor session state, commit trigger, cancel behavior, validation, and scene invalidation keys. |
+| combobox selection | Define query/draft state, selection commit trigger, cancel behavior, and validation. |
+| arbitrary color | Define live draft preview policy, commit trigger, cancel behavior, and validation. |
 
 ## Existing Systems To Replace
 
@@ -152,11 +256,16 @@ The scene model must include:
   - section id
   - section type
   - section name
-  - bounds
-  - z/order
+  - parent section id, or `null` for root workspace sections
+  - child section ids in deterministic order
+  - local bounds relative to the parent section or root workspace
+  - derived world bounds in workspace coordinates
+  - z/order within the parent
   - selected/hover/active states
   - chrome/header geometry
   - body geometry
+  - child/content region geometry where nested sections can render
+  - clip region and scroll offset where the section owns nested content
   - resize handle regions
   - edge/port regions where applicable
   - section-specific render model or placeholder model
@@ -171,11 +280,15 @@ The scene model must include:
   - Param id
   - Param type
   - label
-  - passive value preview
+  - passive value-cell preview model
+  - optional code preview token runs
   - validation/error state
+  - canvas support declaration
+  - active input strategy
+  - commit/cancel policy
   - control kind
   - control rects
-  - hit regions for rows and controls
+  - hit regions and hit-region intents for rows and controls
 
 Rendering and interaction must use the same scene records. If the renderer draws
 a row or control at a rectangle, hit testing must use that same rectangle.
@@ -184,6 +297,39 @@ Scene derivation must not rely on DOM layout. It can use deterministic geometry
 constants, project layout metadata, generated contract data, and cached text
 measurement results. Canvas-only constants should live in a small mapping table
 with comments tying them to the existing UI visual anchors.
+
+## Nested Sections
+
+Nested sections are part of the same retained scene model and the same
+canvas/WebGPU workspace surface. They must not introduce nested React section
+trees, nested xyflow instances, nested dnd-kit contexts, or one canvas per
+parent section.
+
+Rules:
+
+- Model sections as a scene graph with stable section ids, optional parent ids,
+  local bounds, derived world bounds, child ordering, and z/order within each
+  parent.
+- Parent/child relationships must come from authoritative project state or a
+  Go-owned contract/update path. Do not infer nesting from frontend geometry
+  heuristics.
+- Coordinate conversion walks the scene graph:
+  screen -> workspace -> parent section -> child section -> row/control.
+- Hit testing returns the full scene path, for example:
+  workspace -> parent section -> child section -> Dict row -> value cell.
+- Rendering uses a deterministic traversal of the scene graph with clip stacks
+  for parent content regions and section bodies.
+- Parent sections define child/content regions, clipping, scroll state, and
+  allowed child drop zones when the product supports nested placement.
+- Child section drag, resize, reorder, and reparent operations are owned by the
+  workspace interaction controller and scene hit testing, not dnd-kit.
+- Nested section drop targets must be explicit scene records. Invalid targets
+  should fail visibly during development, not fall back to legacy behavior.
+- Minimap geometry is derived from each section's world bounds in the same scene
+  graph. Nested sections can be summarized, drawn at reduced detail, or omitted
+  by an explicit minimap policy, but the policy must not depend on DOM.
+- Selection, hover, keyboard focus, and active editor sessions store scene item
+  ids or scene paths so parent/child ambiguity cannot leak into interactions.
 
 ## Renderer
 
@@ -194,6 +340,7 @@ It must draw:
 
 - viewport background and grid if enabled
 - section placement
+- nested section traversal with parent clip stacks
 - section chrome/header visuals
 - section bodies and clipping regions
 - visible Dict rows only, with overscan
@@ -203,7 +350,9 @@ It must draw:
   - switches as canvas toggles
   - color params as swatches and passive value text
   - dropdown/combobox params as selected value plus affordance
-  - text/code/textarea params as passive text previews
+  - text/textarea params as passive text previews
+  - code params as passive previews with syntax-highlighted token runs when
+    available
 - Dict errors, hover, active, focus, and selected visuals
 - per-section scrollbars
 - minimap section previews and viewport mask from the same scene model
@@ -217,31 +366,412 @@ place quickly. WebGPU can replace the draw backend behind the same scene model
 when needed. The architecture is the retained scene and single workspace
 surface, not the first drawing API.
 
-## Inactive Inputs
+## Canvas Platform Lifecycle
 
-Inactive inputs are not DOM controls. They are passive scene records rendered by
-the canvas/WebGPU renderer.
+The workspace renderer must handle:
 
-Rules:
+- devicePixelRatio changes
+- canvas CSS size versus backing-store size
+- `ResizeObserver`-driven viewport resize
+- font loading and font fallback invalidation
+- theme changes
+- browser zoom changes
+- WebGPU device/context loss when using WebGPU
+- renderer cleanup on unmount
+- pointer capture release on cancel, blur, Escape, lost pointer, or unmount
+
+The scene coordinate system is CSS-pixel based. Renderer backends are
+responsible for mapping CSS pixels to device pixels without changing scene
+geometry, layout, hit testing, or interaction math.
+
+## Canvas Value Cells And Editor Sessions
+
+Passive Param rows are not DOM controls. They are canvas-rendered value cells:
+scene records with preview content, visual state, hit regions, and declared
+interaction intents.
+
+Core invariants:
+
+- No passive per-row DOM.
+- No hidden legacy Param UI.
+- No inactive editors.
+- No DOM-owned layout.
+- No DOM-owned pan/zoom.
+- No duplicated local truth for committed values.
+- At most one active editor session per workspace.
+
+"One active editor session" does not mean one literal DOM node. A session may
+mount the DOM nodes it needs internally, such as an input plus popup list, a
+CodeMirror wrapper, a native picker trigger, or an accessibility live region.
+The invariant is that only one active editing workflow exists at a time.
+
+The active editing lifecycle is:
+
+1. Scene derivation creates passive rows, value cells, and hit regions from
+   authoritative project state.
+2. The user points, clicks, presses a key, drags, or scrolls over a hit region.
+3. The interaction controller decides whether the gesture is selection,
+   navigation, drag, resize, immediate commit, canvas popup, DOM overlay, or
+   right-pane editing.
+4. Canvas-native controls use transient interaction state rendered by the canvas
+   scene.
+5. Overlay-backed editors create one `ActiveEditorSession`.
+6. Overlay geometry comes from the scene model, not DOM measurement.
+7. Draft values live in the active editor session.
+8. Commit/cancel flows through canonical project update paths.
+9. The scene is regenerated from authoritative project state.
+10. Passive previews update from project state, not from editor-local state.
+
+Inactive value-cell rules:
 
 - Do not mount inactive `input`, `select`, `textarea`, CodeMirror,
   Radix/downshift combobox DOM, native color input, or Param UI component DOM in
   the workspace.
-- Text, code, password, date, time, and textarea Params render as canvas text
-  previews. Password previews should preserve current masking semantics.
-- Switch Params render as canvas toggles.
+- Text, code, password, date, time, number, and textarea Params render as
+  canvas previews. Password previews must preserve current masking semantics.
+- Switch and checkbox Params render as canvas toggles.
 - Color Params render as canvas swatches plus passive value text.
 - Dropdown and combobox Params render as canvas selected-value previews plus an
   affordance.
-- Button-like passive controls render as canvas controls if they are supported
-  in the canvas workspace. Unsupported controls must fail visibly during
-  development or use an explicit active overlay/right-pane path; they must not
-  silently mount legacy DOM inside the workspace.
-- Inactive input hover, selected, focus, disabled, readonly, and error states
-  are canvas-rendered states derived from the scene model.
-- Activating an input may create one DOM overlay positioned from scene geometry.
-  Closing, committing, or cancelling the overlay returns the row to passive
-  canvas rendering from authoritative project state.
+- Button-like controls render as canvas controls if supported by the workspace.
+- Inactive hover, selected, focus, disabled, readonly, and error states are
+  canvas-rendered states derived from the scene model.
+- Unsupported controls must fail visibly during development or use an explicit
+  active overlay/right-pane path. They must not silently mount legacy DOM inside
+  the workspace.
+
+## Input Taxonomy
+
+Each Param kind belongs to one of four categories.
+
+### Pure Passive Canvas Preview
+
+These are not controls while inactive:
+
+- text preview
+- code preview
+- textarea preview
+- password preview
+- date/time preview
+- number preview
+- dropdown selected value
+- color swatch
+- readonly value
+- error state
+- disabled state
+
+### Canvas-Native Active Controls
+
+These stay fully canvas/WebGPU even while active:
+
+- boolean switch
+- checkbox-like toggle
+- button/action control
+- disclosure and expand/collapse control
+- radio group or small fixed enum
+- simple fixed dropdown
+- fixed color palette
+- slider/range
+- row selection
+- row drag handle
+- section resize handle
+- section scrollbar
+
+Canvas-native active state is transient interaction state, such as pressed,
+focused, highlighted option, color-palette draft, or slider drag value. It is
+rendered by the same canvas/WebGPU renderer and does not mount DOM.
+
+### Overlay-Backed Editors
+
+These use browser/native/editor behavior while active:
+
+- short text input
+- password input
+- number input when arbitrary typed entry is needed
+- textarea
+- CodeMirror code editor
+- searchable combobox
+- arbitrary native color input
+- native date/time input where typed or platform picker behavior is needed
+- file/path picker where browser/native behavior is required
+
+Use the lightest active editor that preserves behavior. Do not use CodeMirror
+for every text-like value if a native input or textarea is enough.
+
+### Complex Active Surfaces
+
+Large structured values, long code, nested objects, and awkward custom widgets
+should use an explicit right-pane editor or modal-like active surface when a row
+overlay would be cramped or hard to operate. The passive canvas row should show
+a summary and edit affordance.
+
+Suggested mapping:
+
+| Param kind | Passive render | Active strategy |
+| --- | --- | --- |
+| short text | canvas text preview | native `input` overlay |
+| number | canvas formatted value | native/text numeric overlay, stepper, or slider |
+| password | masked canvas preview | native password input overlay |
+| textarea | clipped multiline canvas preview | `textarea` overlay, or CodeMirror only if needed |
+| code | canvas code preview with token runs | CodeMirror overlay |
+| boolean | canvas switch | canvas-immediate commit |
+| fixed small enum | canvas selected value | canvas popup or direct cycling |
+| searchable enum | canvas selected value | DOM combobox overlay |
+| fixed color palette | canvas swatch | canvas palette |
+| arbitrary color | canvas swatch | native color input overlay or custom canvas picker |
+| slider/range | canvas value/track | canvas drag |
+| complex custom widget | canvas summary | right-pane editor |
+
+## Input Activation Contract
+
+Every editable Param kind must declare its workspace behavior explicitly:
+
+- passive renderer kind
+- passive value preview model
+- hit regions
+- activation gesture
+- active input strategy
+- commit mode
+- cancel behavior
+- keyboard behavior
+- validation timing
+- close/reposition policy during pan, zoom, section scroll, and project updates
+- unsupported behavior
+
+Allowed active input strategies:
+
+```ts
+type ActiveInputStrategy =
+  | "canvas-immediate"
+  | "canvas-popup"
+  | "canvas-drag"
+  | "dom-native-overlay"
+  | "dom-rich-overlay"
+  | "right-pane"
+  | "unsupported";
+```
+
+Each Param renderer must also declare its canvas support level:
+
+```ts
+type CanvasParamSupport =
+  | { passive: "preview"; active: ActiveInputStrategy }
+  | { passive: "unsupported-placeholder"; active: "unsupported" };
+```
+
+Adapter code may use DOM for an active editor, but it may not own row layout,
+passive rendering, section placement, scrolling, pan/zoom, or minimap geometry.
+
+## Editor Adapter Contract
+
+Active editors should use a small adapter interface so text inputs, CodeMirror,
+comboboxes, color pickers, and right-pane editors share the same lifecycle.
+
+Example shape:
+
+```ts
+interface WorkspaceEditorAdapter<TValue, TDraft = TValue> {
+  kind: ActiveEditorKind;
+
+  canEdit(param: SceneParamRecord): boolean;
+
+  open(args: {
+    param: SceneParamRecord;
+    rect: SceneRect;
+    viewport: WorkspaceViewport;
+    initialValue: TValue;
+  }): ActiveEditorSession<TDraft>;
+
+  renderOverlay(args: {
+    session: ActiveEditorSession<TDraft>;
+    rect: SceneRect;
+    onDraftChange: (draft: TDraft) => void;
+    onCommit: () => void;
+    onCancel: () => void;
+  }): React.ReactNode;
+
+  commit(args: {
+    session: ActiveEditorSession<TDraft>;
+    projectState: ProjectState;
+  }): ProjectMutation;
+
+  shouldCloseOnViewportChange(change: ViewportChange): boolean;
+}
+```
+
+The adapter is lifecycle glue only. It may render the active DOM editor, but it
+must not render passive rows, compute row geometry, own committed project state,
+or import legacy Param UI as a compatibility path.
+
+## Active Editor Sessions
+
+Overlay-backed editing uses a formal session model instead of ad hoc local
+component state.
+
+Example shape:
+
+```ts
+type ActiveEditorSession =
+  | {
+      kind: "text";
+      paramId: ParamId;
+      sectionId: SectionId;
+      rectKey: SceneRectKey;
+      initialValue: string;
+      draftValue: string;
+      commitMode: CommitMode;
+    }
+  | {
+      kind: "code";
+      paramId: ParamId;
+      sectionId: SectionId;
+      rectKey: SceneRectKey;
+      initialValue: string;
+      draftValue: string;
+      commitMode: CommitMode;
+    }
+  | {
+      kind: "combobox";
+      paramId: ParamId;
+      sectionId: SectionId;
+      rectKey: SceneRectKey;
+      query: string;
+      selectedValue: string | null;
+      commitMode: CommitMode;
+    }
+  | {
+      kind: "color";
+      paramId: ParamId;
+      sectionId: SectionId;
+      rectKey: SceneRectKey;
+      initialValue: string;
+      draftValue: string;
+      commitMode: CommitMode;
+    };
+```
+
+Commit modes:
+
+```ts
+type CommitMode =
+  | "immediate"
+  | "onBlur"
+  | "onEnter"
+  | "onExplicitApply"
+  | "continuousDraft";
+```
+
+Commit examples:
+
+- Switch, checkbox, button, and disclosure: immediate commit.
+- Short text: draft locally, commit on Enter or blur, cancel on Escape.
+- Number: draft locally, validate before commit, support Enter/blur where
+  product behavior requires it.
+- CodeMirror: draft locally, commit on explicit save or blur according to the
+  current product behavior.
+- Combobox: commit on option selection, cancel on Escape.
+- Color picker: optionally show live draft feedback, but canonical commit must
+  follow the declared policy.
+- Fixed dropdown, fixed palette, and slider: prefer canvas-native interaction
+  with explicit immediate, release, or apply commit behavior.
+
+## Passive Code Highlighting
+
+Inactive code previews can use syntax-highlighted token runs in canvas/WebGPU.
+Do not reimplement CodeMirror's highlighting from scratch.
+
+Recommended approach:
+
+- Use the CodeMirror/Lezer highlighting stack first when active editing also
+  uses CodeMirror and parity is valuable.
+- Use Shiki if static preview quality and broad theme/language support matter
+  more than exact active-editor parity.
+- Use Tree-sitter only if the project already needs that parser stack or has a
+  language requirement not covered by Lezer/Shiki.
+- Do not start with highlight.js because its primary output is highlighted HTML,
+  which is the wrong shape for a canvas renderer.
+
+The highlighter should produce scene-ready token runs:
+
+```ts
+type CodePreviewTokenRun = {
+  line: number;
+  fromColumn: number;
+  toColumn: number;
+  text: string;
+  color: string;
+  fontStyle?: "normal" | "italic";
+  fontWeight?: "normal" | "bold";
+};
+```
+
+The passive highlighter service should be explicit and cacheable:
+
+```ts
+interface PassiveCodeHighlighter {
+  highlight(args: {
+    code: string;
+    languageId: string;
+    themeId: string;
+    maxLines: number;
+    maxColumns: number;
+  }): Promise<CodePreviewTokenRun[]>;
+}
+```
+
+Highlighting rules:
+
+- Never run syntax highlighting in the per-frame draw loop.
+- Highlight only visible rows plus overscan.
+- Limit passive previews to bounded lines and columns.
+- Render plain text first while async highlighting is pending.
+- Cache by code hash, language, theme, preview limits, font, and preview width.
+- Move expensive highlighting to a worker if measurements require it.
+- Use one token palette for active CodeMirror themes and passive canvas drawing
+  where possible.
+
+## Scene And Cache Invalidation
+
+Every derived scene and async cache result must be tied to explicit revision
+keys.
+
+Suggested revision keys:
+
+- `projectRevision`
+- `viewportRevision`
+- `sectionScrollRevision`
+- `themeRevision`
+- `fontRevision`
+- `devicePixelRatioRevision`
+- `textMeasurementRevision`
+- `highlighterRevision`
+
+Async work may update the render cache only if its input key still matches the
+current scene requirements. Stale highlighter, measurement, or derivation
+results must be discarded.
+
+Scene records should include enough stable ids and revision keys to avoid
+applying cached token runs, text measurements, draw commands, or hit regions to
+the wrong Param, section, theme, font, preview width, device pixel ratio, or
+viewport state.
+
+Invalidation rules:
+
+- Project changes invalidate affected section records, Param rows, hit regions,
+  minimap bounds, and project bounds.
+- Viewport changes invalidate screen-space draw transforms and overlay
+  placement, but should not force row layout recomputation unless scale-specific
+  caches require it.
+- Section scroll changes invalidate visible row ranges, overscan, scrollbars,
+  row hit regions, and overlay placement for that section.
+- Theme changes invalidate colors, code token palette mapping, text
+  measurements where fonts change, and all cached draw commands.
+- Font loading, font fallback changes, browser zoom changes, and device pixel
+  ratio changes invalidate text measurements and backing-store dependent draw
+  resources.
+- Highlighter cache entries are keyed by code hash, language, theme, preview
+  limits, font, and preview width. Stale async token runs must not be attached
+  to a newer row value.
 
 ## Interaction Controller
 
@@ -251,43 +781,150 @@ It must:
 
 - Convert pointer coordinates between screen, viewport, scene, section, row,
   and minimap spaces.
+- Resolve nested scene paths for parent sections, child sections, rows, and
+  controls.
 - Handle pan and zoom directly, without xyflow/d3-zoom.
 - Persist viewport changes through the existing project state/update path.
 - Hit test sections, chrome, resize handles, Dict rows, Dict controls,
   scrollbars, minimap, and empty canvas.
+- Track `hoveredHitRegion`, `selectedSceneItem`, `keyboardFocusedSceneItem`,
+  transient canvas-active control state, and `activeEditorSession` separately.
 - Handle section selection and multi-selection.
-- Handle section drag and resize without dnd-kit.
+- Handle section drag, resize, nested reorder, and reparent without dnd-kit.
 - Handle Param row selection and Param drag/reorder without dnd-kit.
 - Handle section body wheel scrolling and maintain per-section scroll offsets.
-- Handle simple controls directly where appropriate.
-- Open a DOM overlay only for workflows that need native editing/search/input.
+- Handle canvas-native controls directly where appropriate.
+- Open a DOM overlay only for workflows that need native editing/search/input
+  behavior.
 - Commit changes through existing project update actions or new Go-owned
   endpoint contracts where required.
+
+Every hit region must declare exactly one primary intent:
+
+```ts
+type HitRegionIntent =
+  | WorkspaceHitIntent
+  | SectionHitIntent
+  | DictRowHitIntent
+  | ControlHitIntent
+  | MinimapHitIntent
+  | EdgePortHitIntent
+  | "unsupported";
+
+type WorkspaceHitIntent =
+  | "pan-viewport"
+  | "open-context-menu";
+
+type SectionHitIntent =
+  | "select-section"
+  | "drag-section"
+  | "resize-section"
+  | "scroll-section"
+  | "scrollbar"
+  | "open-context-menu";
+
+type DictRowHitIntent =
+  | "select-row"
+  | "drag-row"
+  | "activate-editor"
+  | "open-context-menu";
+
+type ControlHitIntent =
+  | "activate-editor"
+  | "toggle-immediate"
+  | "open-canvas-popup"
+  | "open-dom-overlay"
+  | "open-context-menu";
+
+type MinimapHitIntent =
+  | "minimap-pan"
+  | "minimap-zoom"
+  | "minimap-jump";
+
+type EdgePortHitIntent =
+  | "edge-or-port";
+```
+
+Hit region records should carry both a scene target/path and an intent. This
+prevents accidental behavior where one click both selects and edits, where a
+drag begins when the user meant to activate a value cell, or where minimap,
+section chrome, viewport, and row interactions compete for the same gesture.
+
+Keyboard behavior:
+
+- The workspace canvas can hold DOM focus while inactive rows are focused at the
+  scene level.
+- `Tab` and `Shift+Tab` move canvas focus between focusable scene items.
+- `Enter` activates the focused row/control.
+- `Escape` cancels the active editor or clears focus/selection.
+- `Space` toggles focused switches, buttons, and disclosure controls.
+- Arrow keys navigate rows or delegate to the active editor when an editor owns
+  focus.
+- Typing on a focused text-like row may open its active text editor when that
+  behavior is intentionally declared for the Param kind.
+- When an overlay closes, DOM focus returns to the workspace canvas and the
+  corresponding scene item remains the keyboard focus target when valid.
 
 The interaction controller must fail loudly for unsupported interactions during
 development. It must not silently fall back to old xyflow or dnd-kit behavior.
 
-## Active DOM Overlay Strategy
+## Active Editor Overlay Strategy
 
-DOM overlays are allowed only while actively editing or choosing a value.
+DOM-backed editor overlays are allowed only while actively editing or choosing a
+value that needs native/browser/editor behavior.
 
-Allowed overlays:
+Allowed active editor sessions:
 
-- One CodeMirror overlay for active text/code/textarea editing.
-- One DOM combobox overlay for search/typeahead selection when a canvas popup is
+- CodeMirror overlay for active code editing.
+- Native `input` or `textarea` overlay for text, password, number, and
+  multiline text where appropriate.
+- DOM combobox overlay for search/typeahead selection when a canvas popup is
   insufficient.
-- One native color input overlay for arbitrary color selection.
+- Native color input overlay for arbitrary color selection.
+- Native date/time input overlay where platform picker behavior is needed.
+
+Allowed non-editor transient surfaces:
+
 - Context menus and app-level popovers.
 
 Overlay rules:
 
 - Overlay placement is derived from scene geometry.
-- Overlay count should normally be one active editor/input at a time.
+- At most one active editor session exists per workspace.
+- A session may mount multiple DOM nodes internally when required.
 - Inactive rows must never mount CodeMirror, native inputs, DOM comboboxes, or
   Param UI DOM.
-- During pan/zoom, the overlay should either reposition cheaply or commit/close.
-- Overlays must not become the passive row renderer or the pan/zoom
-  implementation.
+- Overlays must not become the passive row renderer, layout engine, scroll
+  owner, minimap owner, or pan/zoom implementation.
+- Do not CSS-scale active text editors during zoom. Text metrics will diverge
+  from the canvas and editing will feel wrong.
+
+Context menus, canvas popups, and non-editor app popovers are transient
+workspace surfaces, not active editor sessions.
+
+Example shape:
+
+```ts
+type WorkspaceTransientSurface =
+  | { kind: "active-editor"; session: ActiveEditorSession }
+  | { kind: "context-menu"; target: ScenePath; rect: SceneRect }
+  | { kind: "canvas-popup"; popup: CanvasPopupSession }
+  | { kind: "app-popover"; target: ScenePath; rect: SceneRect };
+```
+
+The invariant is at most one active editor session. Other transient surfaces are
+explicit and must not become passive row renderers, hidden legacy UI, or
+DOM-owned workspace layout.
+
+Viewport and invalidation policy must be deterministic per editor kind:
+
+| Event | Text/input overlay | CodeMirror overlay | Combobox overlay | Color picker |
+| --- | --- | --- | --- | --- |
+| workspace pan | reposition if cheap | reposition or close | close | close |
+| workspace zoom | commit/close or cancel by policy | commit/close | close | close |
+| section scroll | reposition if row remains visible | close if clipped | close | close |
+| row becomes invisible | commit or cancel by policy | commit or cancel by policy | cancel | cancel |
+| project state invalidates row | close | close | close | close |
 
 ## Minimap
 
@@ -313,8 +950,10 @@ Section drag, reorder, grouping, reparenting, Param drag, Param reorder, nested
 Param drag, and drop indicators must be implemented by:
 
 - scene hit testing
+- nested scene paths
 - explicit drag state
-- deterministic drop target calculation
+- explicit section and Param drop target records
+- deterministic drop target calculation for root and nested sections
 - existing project mutation paths or new Go-owned mutation endpoints where
   needed
 
@@ -331,6 +970,7 @@ workspace that Settings `All Settings` feels like the same product.
 Required anchors:
 
 - section density, spacing, header height, and corner radius
+- nested section placement, clipping, and parent/child spacing
 - section chrome colors in light and dark mode
 - Dict row heights and spacing
 - label/value alignment
@@ -361,10 +1001,13 @@ Primary rules:
 - No per-frame React reconciliation for section or row contents.
 - No per-frame DOM layout measurement for canvas geometry.
 - No CodeMirror instances for inactive rows.
+- No syntax highlighting in the per-frame draw loop.
 - Draw only visible Dict rows plus overscan.
 - Cache deterministic geometry until project state, viewport, section scroll, or
   relevant theme/text inputs change.
 - Cache text measurements by text, font, width, and theme.
+- Cache passive code token runs by code hash, language, theme, preview limits,
+  font, and preview width.
 - Keep active DOM overlays minimal and explicit.
 - No Settings-specific fast paths.
 
@@ -379,6 +1022,10 @@ Important metrics:
 - Active editor open latency.
 - Typing latency inside active editor.
 - Commit latency from editor/control to updated canvas preview.
+
+After baseline measurement, define concrete benchmark targets for average and
+p95 pan/zoom frame time, DOM node count reduction, editor activation latency,
+section wheel-scroll frame time, and passive code highlighting cache hit rate.
 
 ## Implementation Plan
 
@@ -406,21 +1053,41 @@ Important metrics:
 - Add a frontend retained workspace scene derivation module.
 - Derive viewport, project bounds, section bounds, section chrome/body
   geometry, minimap geometry, and interaction hit regions without DOM layout.
+- Derive the section scene graph, including parent ids, child ordering, local
+  bounds, world bounds, clip regions, and nested drop zones.
 - Derive generic Dict section row records from existing project state and
   generated types.
 - Flatten nested Dict Params into stable row records.
 - Compute row rectangles, labels, passive values, control rectangles, nesting
   rails, errors, visible row range, and scrollbars.
+- Define Param support declarations, active input strategies, commit modes, and
+  hit-region intents for the first Dict Param kinds.
+- Add active editor session state and transient canvas-active control state to
+  the workspace controller model.
+- Add passive code preview token-run fields and async highlight cache plumbing
+  to the scene model.
+- Add scene revision keys and cache invalidation keys for project, viewport,
+  section scroll, theme, font, device pixel ratio, text measurement, and
+  highlighter work.
 - Keep section scroll offsets in frontend UI state.
 - Add tests for:
   - viewport transform and coordinate conversion
   - section geometry
+  - nested section scene paths
+  - local-to-world section bounds
+  - parent clip regions
+  - nested drop zone derivation
   - minimap geometry
   - Dict flattening
   - non-Settings Dict fixtures
   - row geometry
   - visible row ranges and overscan
   - hit regions
+  - hit-region intents
+  - Param support declarations
+  - active editor session transitions
+  - passive code highlight cache keys
+  - stale async result discard
 - Do not import xyflow or dnd-kit from the scene model.
 
 ### 3. Single Canvas Workspace Shell
@@ -431,6 +1098,9 @@ Important metrics:
 - Remove `ResponsiveMiniMap` and xyflow minimap from the workspace root.
 - Add one full-workspace canvas/WebGPU surface.
 - Add one overlay host above the canvas for active editors/popups.
+- Handle CSS-pixel scene geometry, backing-store scaling, devicePixelRatio
+  changes, ResizeObserver viewport resize, theme/font invalidation, and unmount
+  cleanup.
 - Wire viewport state to the new workspace controller, not xyflow.
 - Add tests proving the active workspace no longer mounts xyflow, xyflow
   minimap, `SectionDndContext`, section DOM nodes for canvas-owned sections, or
@@ -440,10 +1110,18 @@ Important metrics:
 
 - Render the full workspace scene onto the single canvas/WebGPU surface.
 - Render section placement, section chrome, section bodies, and clipping.
+- Render nested sections through the scene graph with parent clip stacks.
 - Render Settings/Dict sections passively from scene data.
 - Render visible Dict rows plus overscan.
 - Render labels, passive values, errors, selected state, hover state, simple
   controls, and per-section scrollbars.
+- Render inactive code previews from cached token runs when available, with a
+  plain text fallback while async highlighting is pending.
+- Add a passive code highlighter service using Lezer/CodeMirror highlighting or
+  Shiki, depending on which best matches active-editor parity and preview
+  quality needs.
+- Discard stale async highlighter and text-measurement results using explicit
+  revision/cache keys.
 - Render minimap from the same scene model.
 - Show explicit canvas placeholders for unsupported non-Dict section types until
   their renderers exist. Do not use xyflow as their fallback.
@@ -455,22 +1133,43 @@ Important metrics:
 - Implement direct pan and zoom.
 - Implement minimap pan/zoom interactions.
 - Implement section selection, multi-selection, drag, and resize.
+- Implement nested section hit testing, selection, drag, resize, reorder, and
+  reparent where supported by project mutations.
 - Implement section body wheel scrolling and per-section scroll offsets.
+- Define and implement mutation contracts for viewport persistence, section
+  scroll, section drag/resize, section reorder/reparent, Param reorder,
+  canvas-native controls, sliders, color edits, combobox selection, and
+  text/code drafts before each interaction lands.
 - Implement Dict row hit testing and hover/focus/selected state.
+- Implement scene-level keyboard focus and navigation.
+- Route all pointer/key behavior through declared hit-region intents.
 - Implement simple canvas-native control interactions:
   - switch toggle
   - simple dropdown option selection
   - color swatch/choice selection where choices are fixed
+  - slider/range drag where applicable
+  - disclosure/button activation where applicable
+- Keep canvas-native active controls entirely in the scene/controller, without
+  mounting DOM.
 - Commit through existing update paths or new Go-owned endpoints where needed.
 - Re-render from project state, not local duplicated truth.
 
 ### 6. Active Editors And Popups
 
 - Implement one overlay host above the canvas.
-- Add CodeMirror overlay for text/code/textarea rows.
+- Implement active editor session creation, draft state, commit, cancel, and
+  close behavior.
+- Implement explicit `WorkspaceTransientSurface` state for active editors,
+  context menus, canvas popups, and app popovers.
+- Add editor adapters for the initial overlay-backed Param kinds.
+- Add native input overlay for short text, password, and typed number values.
+- Add textarea overlay for multiline values where CodeMirror is unnecessary.
+- Add CodeMirror overlay for code rows.
 - Add DOM combobox overlay where typeahead is needed.
 - Add native color input overlay where arbitrary color editing is needed.
 - Add right-pane editing path for large or awkward values if needed.
+- Enforce deterministic pan/zoom/scroll/project-invalidation policies per
+  editor kind.
 - Ensure inactive canvas rows do not mount editors.
 
 ### 7. Remove Workspace xyflow/dnd-kit Dependencies
@@ -495,6 +1194,11 @@ Important metrics:
 - Add regression checks that the Settings workspace does not mount xyflow,
   xyflow minimap, section DOM, passive Param rows, or inactive CodeMirror
   editors.
+- Add regression checks for at most one active editor session per workspace.
+- Add performance checks for passive code highlighting cache behavior when code
+  previews are visible.
+- Add checks for devicePixelRatio/backing-store resize behavior and stale async
+  result discard where practical.
 - Verify large DOM counts do not reappear.
 
 ## Testing Plan
@@ -505,14 +1209,35 @@ Unit tests:
 - viewport transform and coordinate conversion
 - minimap transform and hit testing
 - section geometry and z/order
+- nested section scene graph derivation
+- nested local/world coordinate conversion
+- parent clip stack behavior
+- nested section drop target derivation
 - Dict flattening from nested Param data
 - non-Settings Dict fixtures
 - row geometry and visible ranges
 - row/control hit testing
+- hit-region intent dispatch for viewport, sections, Dict rows, controls,
+  minimap, and edge/port regions
+- Param support declarations and activation contracts
+- active input strategy selection
+- commit/cancel mode behavior
+- active editor session lifecycle
+- scene-level keyboard focus/navigation
 - section scroll state
+- passive code highlighter cache keys and async fallback behavior
+- stale async highlighter, measurement, and derivation result discard
+- scene/cache revision key invalidation
+- canvas CSS-pixel to backing-store scaling
+- devicePixelRatio, ResizeObserver, theme, and font invalidation handling
+- pointer capture release on cancel, blur, lost pointer, and unmount
+- mutation contract begin/update/commit/cancel behavior
 - canvas renderer draw command coverage with mocked canvas context
 - interaction reducer/controller tests for pan, zoom, selection, drag, resize,
-  row hover, section scroll, and simple controls
+  row hover, section scroll, canvas-native controls, editor activation, and
+  editor invalidation
+- interaction reducer/controller tests for nested section selection, drag,
+  resize, reorder, and reparent when those mutations are supported
 
 Integration tests:
 
@@ -523,8 +1248,14 @@ Integration tests:
 - Wheel over a Dict section scrolls that section without moving the whole
   viewport unexpectedly.
 - Switch changes persist and redraw.
+- Canvas-native dropdown, fixed palette, slider, and disclosure interactions
+  persist and redraw where those Param kinds exist.
 - Dropdown/color changes persist and redraw.
-- Text Param opens one editor overlay and commits back to project state.
+- Text Param opens one active editor session and commits back to project state.
+- Code Param opens one CodeMirror session and does not create inactive
+  CodeMirror instances.
+- Overlay-backed editors receive geometry from the scene model.
+- Focus returns to the workspace canvas after an editor session closes.
 
 E2E/browser verification:
 
@@ -532,8 +1263,12 @@ E2E/browser verification:
 - Visual parity check against `go-rewrite` references.
 - Minimap visual and interaction check.
 - Section selection, drag, and resize check.
+- Nested section selection, drag, resize, and reparent check when nested section
+  fixtures are available.
 - Dict section scroll visual check.
 - Active CodeMirror overlay visual and interaction check.
+- Inactive code preview syntax highlighting visual check when code Params are
+  visible.
 - Combobox/color overlay check.
 - Right-pane edit surface check if implemented.
 
@@ -541,10 +1276,12 @@ Performance verification:
 
 - Capture before/after reports under `perf/`.
 - Include FPS, DOM node count, canvas/WebGPU frame time, editor activation
-  latency, and typing latency.
+  latency, typing latency, and passive code highlighting cache behavior.
 - Use chrome-devtools profiling when frame-time regressions are unclear.
 
 ## Acceptance Criteria
+
+### Benchmark Milestone: Settings `All Settings`
 
 - The active workspace no longer mounts xyflow.
 - The active workspace no longer mounts the xyflow minimap.
@@ -562,8 +1299,28 @@ Performance verification:
   native input controls, DOM comboboxes, or Param UI component DOM.
 - Inactive text/code/textarea, switch, color, dropdown, and combobox Params are
   rendered as canvas/WebGPU passive previews until activated.
+- Inactive code previews can render syntax-highlighted token runs from a cached
+  passive highlighter, with plain text fallback while highlighting is pending.
+- Each editable Param kind in the benchmark has an explicit activation contract,
+  active input strategy, commit mode, cancel behavior, keyboard behavior, and
+  unsupported behavior.
+- Supported benchmark interactions have explicit mutation contracts with
+  begin/update/commit/cancel behavior where the interaction is continuous.
+- Canvas-native active controls such as switches, fixed dropdowns, fixed
+  palettes, sliders, buttons, and disclosures do not mount DOM.
+- Overlay-backed text/code/combobox/color editors use one active editor session
+  per workspace and keep draft state inside that session.
+- Context menus, canvas popups, and app popovers are explicit transient
+  workspace surfaces, not hidden passive renderers.
 - Section placement, chrome, bodies, row layout, controls, scrollbars, hit
   testing, pan, and zoom use the retained scene model.
+- Hit testing dispatches through declared hit-region intents.
+- Hover, selection, scene keyboard focus, and active editor session state are
+  represented as separate states.
+- Scene geometry and hit testing use CSS pixels. Renderer backends handle
+  backing-store/device-pixel scaling internally.
+- Async highlighter, text measurement, and scene derivation results are
+  discarded when their revision/cache keys are stale.
 - No Settings-specific renderer code paths, hard-coded Settings ids, or
   benchmark-only fast paths are introduced.
 - Settings `All Settings` remains visually close to `go-rewrite` in the
@@ -573,20 +1330,44 @@ Performance verification:
 - Section-level scrolling works inside canvas-rendered Dict sections.
 - Switches, color pickers, dropdowns/comboboxes, and text/code Params remain
   editable through canvas-native interaction, DOM overlay, or right-pane editing.
-- Active CodeMirror editing uses one overlay and does not reintroduce hundreds
-  of editors.
+- Active CodeMirror editing uses one active editor session and does not
+  reintroduce hundreds of editors.
+- Pan, zoom, section scroll, row invisibility, and project invalidation follow
+  deterministic editor close/reposition/commit/cancel policies.
 - Focused tests pass.
 - Browser visual verification is completed for the Settings benchmark.
 - Before/after performance notes are recorded under `perf/`.
 
+### Full Workspace Acceptance
+
+- Nested sections render through the same retained scene graph and canvas
+  surface, with local/world bounds, clip stacks, and scene-path hit testing.
+- Nested section selection, drag, resize, reorder, and reparent use canvas scene
+  paths and explicit drop targets, not dnd-kit or nested DOM.
+- Non-Dict section renderers replace placeholders through the retained scene
+  model and single workspace surface.
+- Complex custom Param editors are covered through canvas preview,
+  canvas-native interaction, overlay-backed editing, or right-pane editing.
+- Section reorder/reparent across supported parent/child regions has explicit
+  mutation contracts, validation, cancel behavior, and undo grouping.
+- Broader accessibility parity is implemented for canvas-rendered workspace
+  content.
+- WebGPU backend implementation, if added, preserves the same scene model,
+  CSS-pixel geometry, hit testing, mutation contracts, and cache invalidation
+  rules.
+
 ## Explicit Non-Goals
 
 - Do not create one canvas per section.
+- Do not create nested canvases or nested React section trees for nested
+  sections.
 - Do not keep xyflow alive under the canvas.
 - Do not keep xyflow minimap alive under a new wrapper.
 - Do not keep dnd-kit for workspace drag/drop.
 - Do not use hidden DOM sections for passive rendering.
 - Do not mount inactive input DOM in the workspace.
+- Do not add backward-compatibility shims, legacy workspace support paths,
+  migrations, transitional adapters, or silent compatibility fallbacks.
 - Do not render existing HTML into textures.
 - Do not hydrate DOM bodies on activation as the normal editing path.
 - Do not add a Settings-only fast path.
