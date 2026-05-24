@@ -84,6 +84,13 @@ export function beginWorkspaceCodeHighlightRequest(
   };
 }
 
+export function getWorkspaceCodeHighlightCacheEntry(
+  cache: WorkspaceCodeHighlightCacheState,
+  key: string,
+): WorkspaceCodeHighlightCacheEntry | null {
+  return cache.entriesByKey[key] ?? null;
+}
+
 export function completeWorkspaceCodeHighlightRequest(
   cache: WorkspaceCodeHighlightCacheState,
   key: string,

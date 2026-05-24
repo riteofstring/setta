@@ -3,8 +3,10 @@ import {
   useMemo,
   useRef,
   useState,
+  type Dispatch,
   type MutableRefObject,
   type RefObject,
+  type SetStateAction,
 } from "react";
 import {
   useLocalStorage,
@@ -21,13 +23,30 @@ import {
   syncWorkspaceControllerViewport,
   type WorkspaceCanvasControllerState,
 } from "./workspaceController";
+import {
+  beginWorkspaceCodeHighlightRequest,
+  completeWorkspaceCodeHighlightRequest,
+  createWorkspaceCodeHighlightCacheState,
+  getWorkspaceCodeHighlightCacheEntry,
+  type WorkspaceCodeHighlightCacheState,
+} from "./workspaceHighlightCache";
+import {
+  highlightWorkspaceCodePreview,
+  WORKSPACE_PASSIVE_CODE_HIGHLIGHTER_REVISION,
+  type WorkspacePassiveCodeHighlightRequest,
+} from "./workspacePassiveCodeHighlighter";
 import { deriveWorkspaceScene, type WorkspaceSize } from "./workspaceScene";
+import type { WorkspaceDictRowScene } from "./workspaceSceneTypes";
 
 type WorkspaceCanvasEnvironment = {
   devicePixelRatio: number;
   isDarkMode: boolean;
   themeRevision: number;
   fontRevision: number;
+};
+
+type WorkspaceDictRowWithCodePreview = WorkspaceDictRowScene & {
+  codePreview: NonNullable<WorkspaceDictRowScene["codePreview"]>;
 };
 
 export function WorkspaceCanvas() {
@@ -39,6 +58,10 @@ export function WorkspaceCanvas() {
   const projectState = useProjectState();
   const typeErrors = useTypeErrors((state) => state.errors);
   const showMinimap = useLocalStorage((state) => state.showMinimap);
+  const [highlightCache, setHighlightCache] =
+    useState<WorkspaceCodeHighlightCacheState>(() =>
+      createWorkspaceCodeHighlightCacheState(),
+    );
   const [controllerState, setControllerState] =
     useState<WorkspaceCanvasControllerState>(() =>
       syncWorkspaceControllerViewport(
@@ -72,21 +95,27 @@ export function WorkspaceCanvas() {
             viewportSize.height,
           ].join(":"),
           sectionScrollRevision,
-          themeRevision: String(environment.themeRevision),
+          themeRevision: [
+            environment.isDarkMode ? "dark" : "light",
+            environment.themeRevision,
+          ].join(":"),
           fontRevision: String(environment.fontRevision),
           devicePixelRatioRevision: String(environment.devicePixelRatio),
           textMeasurementRevision: [
             environment.fontRevision,
             environment.devicePixelRatio,
           ].join(":"),
-          highlighterRevision: "0",
+          highlighterRevision: WORKSPACE_PASSIVE_CODE_HIGHLIGHTER_REVISION,
         },
+        highlightCache,
       }),
     [
       controllerState,
       environment.devicePixelRatio,
       environment.fontRevision,
+      environment.isDarkMode,
       environment.themeRevision,
+      highlightCache,
       projectRevision,
       projectState,
       sectionScrollRevision,
@@ -95,6 +124,12 @@ export function WorkspaceCanvas() {
     ],
   );
 
+  useWorkspacePassiveCodeHighlighting({
+    scene,
+    highlightCache,
+    setHighlightCache,
+    isDarkMode: environment.isDarkMode,
+  });
   useWorkspaceCanvasDraw({
     canvasRef,
     scene,
@@ -134,6 +169,128 @@ export function WorkspaceCanvas() {
       />
       <WorkspaceCanvasOverlayHost />
     </div>
+  );
+}
+
+function useWorkspacePassiveCodeHighlighting({
+  scene,
+  highlightCache,
+  setHighlightCache,
+  isDarkMode,
+}: {
+  scene: ReturnType<typeof deriveWorkspaceScene>;
+  highlightCache: WorkspaceCodeHighlightCacheState;
+  setHighlightCache: Dispatch<SetStateAction<WorkspaceCodeHighlightCacheState>>;
+  isDarkMode: boolean;
+}) {
+  const mountedRef = useRef(true);
+  const requestCounterRef = useRef(0);
+
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const requests = collectWorkspacePassiveCodeHighlightRequests({
+      scene,
+      highlightCache,
+      isDarkMode,
+    });
+    if (requests.length === 0) {
+      return;
+    }
+
+    const requestsWithIds = requests.map((request) => {
+      requestCounterRef.current += 1;
+      return {
+        request,
+        requestId: `${request.cacheKey}:${requestCounterRef.current}`,
+      };
+    });
+
+    setHighlightCache((current) => {
+      let next = current;
+      for (const { request, requestId } of requestsWithIds) {
+        if (getWorkspaceCodeHighlightCacheEntry(next, request.cacheKey)) {
+          continue;
+        }
+        next = beginWorkspaceCodeHighlightRequest(
+          next,
+          request.cacheKey,
+          requestId,
+        );
+      }
+      return next;
+    });
+
+    for (const { request, requestId } of requestsWithIds) {
+      void Promise.resolve()
+        .then(() => highlightWorkspaceCodePreview(request))
+        .then((tokenRuns) => {
+          if (!mountedRef.current) {
+            return;
+          }
+          setHighlightCache((current) => {
+            const result = completeWorkspaceCodeHighlightRequest(
+              current,
+              request.cacheKey,
+              requestId,
+              tokenRuns,
+            );
+            return result.cache;
+          });
+        });
+    }
+  }, [highlightCache, isDarkMode, scene, setHighlightCache]);
+}
+
+function collectWorkspacePassiveCodeHighlightRequests({
+  scene,
+  highlightCache,
+  isDarkMode,
+}: {
+  scene: ReturnType<typeof deriveWorkspaceScene>;
+  highlightCache: WorkspaceCodeHighlightCacheState;
+  isDarkMode: boolean;
+}): Array<WorkspacePassiveCodeHighlightRequest> {
+  const requests: Array<WorkspacePassiveCodeHighlightRequest> = [];
+  for (const sectionId of scene.sectionOrder) {
+    const section = scene.sectionsById[sectionId];
+    if (!section || section.renderModel.kind !== "dict") {
+      continue;
+    }
+    for (const row of section.renderModel.dict.rows) {
+      if (!shouldRequestWorkspacePassiveCodeHighlight(row, highlightCache)) {
+        continue;
+      }
+      const codePreview = row.codePreview;
+      requests.push({
+        cacheKey: codePreview.cacheKey,
+        code: row.passiveValue.text,
+        language: codePreview.language,
+        themeId: isDarkMode ? "dark" : "light",
+        maxLines: 6,
+        maxColumns: 160,
+      });
+    }
+  }
+  return requests;
+}
+
+function shouldRequestWorkspacePassiveCodeHighlight(
+  row: WorkspaceDictRowScene,
+  highlightCache: WorkspaceCodeHighlightCacheState,
+): row is WorkspaceDictRowWithCodePreview {
+  const codePreview = row.codePreview;
+  if (!row.visible || !codePreview || codePreview.tokenRuns) {
+    return false;
+  }
+  return !getWorkspaceCodeHighlightCacheEntry(
+    highlightCache,
+    codePreview.cacheKey,
   );
 }
 
@@ -201,73 +358,104 @@ function useWorkspaceCanvasEnvironment(): WorkspaceCanvasEnvironment {
   );
 
   useEffect(() => {
-    if (typeof window === "undefined" || typeof document === "undefined") {
-      return undefined;
-    }
-
-    let disposePixelRatioWatcher = watchDevicePixelRatio((devicePixelRatio) => {
-      setEnvironment((current) =>
-        current.devicePixelRatio === devicePixelRatio
-          ? current
-          : { ...current, devicePixelRatio },
-      );
-    });
-    const updateDevicePixelRatio = () => {
-      disposePixelRatioWatcher();
-      disposePixelRatioWatcher = watchDevicePixelRatio((devicePixelRatio) => {
-        setEnvironment((current) =>
-          current.devicePixelRatio === devicePixelRatio
-            ? current
-            : { ...current, devicePixelRatio },
-        );
-      });
-    };
-
-    const updateTheme = () => {
-      const isDarkMode = readIsDarkMode();
-      setEnvironment((current) =>
-        current.isDarkMode === isDarkMode
-          ? current
-          : {
-              ...current,
-              isDarkMode,
-              themeRevision: current.themeRevision + 1,
-            },
-      );
-    };
-
-    const updateFontRevision = () => {
-      setEnvironment((current) => ({
-        ...current,
-        fontRevision: current.fontRevision + 1,
-      }));
-    };
-
-    window.addEventListener("resize", updateDevicePixelRatio);
-    const themeObserver =
-      typeof MutationObserver === "undefined"
-        ? null
-        : new MutationObserver(updateTheme);
-    themeObserver?.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class", "style"],
-    });
-
-    const fonts = document.fonts;
-    fonts?.addEventListener?.("loadingdone", updateFontRevision);
-    fonts?.addEventListener?.("loadingerror", updateFontRevision);
-    void fonts?.ready?.then(updateFontRevision);
-
-    return () => {
-      disposePixelRatioWatcher();
-      window.removeEventListener("resize", updateDevicePixelRatio);
-      themeObserver?.disconnect();
-      fonts?.removeEventListener?.("loadingdone", updateFontRevision);
-      fonts?.removeEventListener?.("loadingerror", updateFontRevision);
-    };
+    return watchWorkspaceCanvasEnvironment(setEnvironment);
   }, []);
 
   return environment;
+}
+
+function watchWorkspaceCanvasEnvironment(
+  setEnvironment: Dispatch<SetStateAction<WorkspaceCanvasEnvironment>>,
+) {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return undefined;
+  }
+
+  const pixelRatioWatcher = createPixelRatioWatcher(setEnvironment);
+  const themeObserver = observeWorkspaceCanvasTheme(setEnvironment);
+  const disposeFontObserver = observeWorkspaceCanvasFonts(setEnvironment);
+
+  return () => {
+    pixelRatioWatcher.dispose();
+    themeObserver?.disconnect();
+    disposeFontObserver();
+  };
+}
+
+function createPixelRatioWatcher(
+  setEnvironment: Dispatch<SetStateAction<WorkspaceCanvasEnvironment>>,
+) {
+  let dispose = watchDevicePixelRatio((devicePixelRatio) => {
+    updateWorkspaceCanvasDevicePixelRatio(setEnvironment, devicePixelRatio);
+  });
+  const handleResize = () => {
+    dispose();
+    dispose = watchDevicePixelRatio((devicePixelRatio) => {
+      updateWorkspaceCanvasDevicePixelRatio(setEnvironment, devicePixelRatio);
+    });
+  };
+  window.addEventListener("resize", handleResize);
+  return {
+    dispose: () => {
+      dispose();
+      window.removeEventListener("resize", handleResize);
+    },
+  };
+}
+
+function updateWorkspaceCanvasDevicePixelRatio(
+  setEnvironment: Dispatch<SetStateAction<WorkspaceCanvasEnvironment>>,
+  devicePixelRatio: number,
+) {
+  setEnvironment((current) =>
+    current.devicePixelRatio === devicePixelRatio
+      ? current
+      : { ...current, devicePixelRatio },
+  );
+}
+
+function observeWorkspaceCanvasTheme(
+  setEnvironment: Dispatch<SetStateAction<WorkspaceCanvasEnvironment>>,
+) {
+  if (typeof MutationObserver === "undefined") {
+    return null;
+  }
+  const observer = new MutationObserver(() => {
+    const isDarkMode = readIsDarkMode();
+    setEnvironment((current) =>
+      current.isDarkMode === isDarkMode
+        ? current
+        : {
+            ...current,
+            isDarkMode,
+            themeRevision: current.themeRevision + 1,
+          },
+    );
+  });
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class", "style"],
+  });
+  return observer;
+}
+
+function observeWorkspaceCanvasFonts(
+  setEnvironment: Dispatch<SetStateAction<WorkspaceCanvasEnvironment>>,
+) {
+  const updateFontRevision = () => {
+    setEnvironment((current) => ({
+      ...current,
+      fontRevision: current.fontRevision + 1,
+    }));
+  };
+  const fonts = document.fonts;
+  fonts?.addEventListener?.("loadingdone", updateFontRevision);
+  fonts?.addEventListener?.("loadingerror", updateFontRevision);
+  void fonts?.ready?.then(updateFontRevision);
+  return () => {
+    fonts?.removeEventListener?.("loadingdone", updateFontRevision);
+    fonts?.removeEventListener?.("loadingerror", updateFontRevision);
+  };
 }
 
 function useWorkspaceCanvasDraw({

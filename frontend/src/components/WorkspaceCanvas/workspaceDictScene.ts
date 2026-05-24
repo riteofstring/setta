@@ -147,6 +147,7 @@ export function deriveDictScene({
       section,
       sectionImpl,
       revisionKeys,
+      controllerState,
       highlightCache,
       typeErrors,
       flatRows: pinnedFlat,
@@ -160,6 +161,7 @@ export function deriveDictScene({
       section,
       sectionImpl,
       revisionKeys,
+      controllerState,
       highlightCache,
       typeErrors,
       flatRows: unpinnedFlat,
@@ -336,6 +338,7 @@ function materializeRows({
   section: WorkspaceSectionScene;
   sectionImpl: DictSectionImpl;
   revisionKeys: WorkspaceSceneRevisionKeys;
+  controllerState: WorkspaceCanvasControllerState;
   highlightCache: WorkspaceCodeHighlightCacheState | undefined;
   typeErrors: WorkspaceTypeErrorState;
   flatRows: Array<FlatDictParamRow>;
@@ -359,6 +362,7 @@ function materializeDictRow({
   section,
   sectionImpl,
   revisionKeys,
+  controllerState,
   highlightCache,
   typeErrors,
   flat,
@@ -372,6 +376,7 @@ function materializeDictRow({
   section: WorkspaceSectionScene;
   sectionImpl: DictSectionImpl;
   revisionKeys: WorkspaceSceneRevisionKeys;
+  controllerState: WorkspaceCanvasControllerState;
   highlightCache: WorkspaceCodeHighlightCacheState | undefined;
   typeErrors: WorkspaceTypeErrorState;
   flat: FlatDictParamRow;
@@ -398,6 +403,11 @@ function materializeDictRow({
   const visibleRect = visible ? intersectRects(rect, clipRegion) : null;
   const support = getWorkspaceParamSupportDeclaration(codeObj.effectiveImpl);
   const passiveValue = derivePassiveValuePreview(codeObj.effectiveImpl);
+  const interactionState = deriveDictRowInteractionState(
+    controllerState,
+    section.id,
+    flat.id,
+  );
   const row = {
     ...flat,
     index: listIndex,
@@ -414,6 +424,7 @@ function materializeDictRow({
     visibleRect,
     nestingRails: deriveNestingRails(rect, flat.depth),
     visible,
+    ...interactionState,
     passiveValue,
     codePreview: deriveCodePreview({
       section,
@@ -437,6 +448,62 @@ function materializeDictRow({
     ...row,
     hitRegions: buildRowHitRegions(section, row),
   };
+}
+
+function deriveDictRowInteractionState(
+  controllerState: WorkspaceCanvasControllerState,
+  sectionId: string,
+  rowId: string,
+) {
+  return {
+    selected: targetReferencesDictRow(
+      controllerState.selectedTarget,
+      sectionId,
+      rowId,
+    ),
+    hovered: targetReferencesDictRow(
+      controllerState.hoveredTarget,
+      sectionId,
+      rowId,
+    ),
+    active: activeTargetReferencesDictRow(controllerState, sectionId, rowId),
+    focused: targetReferencesDictRow(
+      controllerState.keyboardFocusedTarget,
+      sectionId,
+      rowId,
+    ),
+  };
+}
+
+function activeTargetReferencesDictRow(
+  controllerState: WorkspaceCanvasControllerState,
+  sectionId: string,
+  rowId: string,
+) {
+  return (
+    targetReferencesDictRow(
+      controllerState.activeEditorSession?.target ?? null,
+      sectionId,
+      rowId,
+    ) ||
+    targetReferencesDictRow(
+      controllerState.activeControlState?.target ?? null,
+      sectionId,
+      rowId,
+    )
+  );
+}
+
+function targetReferencesDictRow(
+  target: WorkspaceSceneTarget | null,
+  sectionId: string,
+  rowId: string,
+) {
+  return (
+    (target?.kind === "dict-row" || target?.kind === "control") &&
+    target.sectionId === sectionId &&
+    target.rowId === rowId
+  );
 }
 
 function deriveCodePreview({

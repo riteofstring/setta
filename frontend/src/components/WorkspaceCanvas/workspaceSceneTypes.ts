@@ -260,6 +260,10 @@ export type WorkspaceDictRowScene = {
   visibleRect: WorkspaceRect | null;
   nestingRails: Array<WorkspaceRect>;
   visible: boolean;
+  selected: boolean;
+  hovered: boolean;
+  active: boolean;
+  focused: boolean;
   passiveValue: WorkspacePassiveValuePreview;
   codePreview: WorkspacePassiveCodePreview | null;
   errors: Array<string>;
