@@ -199,7 +199,7 @@ test("terminal startup stays clean while preserving input readiness", async ({
   }
 });
 
-test("terminal text selection stays aligned at GPU flow zoom", async ({
+test("terminal text selection stays aligned at React Flow zoom", async ({
   page,
 }) => {
   test.setTimeout(90000);
@@ -270,7 +270,7 @@ test("terminal text selection stays aligned at GPU flow zoom", async ({
     await zoomOutButton.click();
     await page.waitForTimeout(150);
 
-    const zoomOut = await page.evaluate(() => window.settaGpuFlowZoom ?? 1);
+    const zoomOut = await page.evaluate(() => window.reactFlowZoom ?? 1);
     expect(zoomOut).toBeLessThan(0.8);
     const boxAfterZoomOut = await terminalNode.boundingBox();
     if (!boxAfterZoomOut) {
@@ -297,7 +297,7 @@ test("terminal text selection stays aligned at GPU flow zoom", async ({
     await zoomInButton.click();
     await page.waitForTimeout(150);
 
-    const zoomIn = await page.evaluate(() => window.settaGpuFlowZoom ?? 1);
+    const zoomIn = await page.evaluate(() => window.reactFlowZoom ?? 1);
     expect(zoomIn).toBeGreaterThan(1.1);
     const boxAfterZoomIn = await terminalNode.boundingBox();
     if (!boxAfterZoomIn) {
