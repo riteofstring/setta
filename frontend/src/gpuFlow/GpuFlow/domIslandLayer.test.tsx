@@ -214,7 +214,7 @@ function publishBrowserVisualFrame({
   readonly frame: GpuFlowCommittedSurfaceFrame;
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly viewportStore: ReturnType<typeof createGpuFlowViewportStore>;
-}): void {
+}): ReturnType<typeof publicationToken> {
   const browserVisualRuntime =
     getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
       committedSurfaceRuntime,
@@ -243,6 +243,8 @@ function retainedRuntimeFrame(
     descriptors: {
       domControlSources: [],
       nativeDomIslands: islands,
+      sceneSections: [],
+      sourceSurfaces: [],
     },
     frameId,
   } as unknown as GpuRetainedRuntimeFrame;

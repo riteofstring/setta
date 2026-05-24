@@ -15,7 +15,6 @@ import type {
 import type { GpuFlowDomControlProjectionAssignment } from "./domControlPlaneProjection";
 import { DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS } from "./domControlProjectionHorizon";
 import {
-  clearGpuFlowVisibleFrameIdentityAttributes,
   setGpuFlowVisibleFrameIdentityAttributes,
 } from "./visibleFrameIdentityAttributes";
 import {
@@ -268,10 +267,10 @@ export function publishGpuFlowBrowserVisualDomIslandHostPresentation({
     }
     const element = elementById.get(islandId);
     if (element) {
+      setGpuFlowVisibleFrameIdentityAttributes(element, token);
       element.style.display = "none";
       element.style.pointerEvents = "none";
       delete element.dataset.gpuFlowDomIsland;
-      clearGpuFlowVisibleFrameIdentityAttributes(element);
     }
     registrationCommittedFrameIdById.delete(islandId);
   }

@@ -52,7 +52,6 @@ import {
   getLiveGpuFlowDomControlPlaneViewport,
 } from "./domControlPlaneViewport";
 import {
-  clearGpuFlowVisibleFrameIdentityAttributes,
   setGpuFlowVisibleFrameIdentityAttributes,
 } from "./visibleFrameIdentityAttributes";
 import {
@@ -875,7 +874,7 @@ export class GpuFlowBrowserVisualActorRuntime {
         continue;
       }
       blurFocusedDescendantBeforeUnmount(host.element);
-      clearGpuFlowVisibleFrameIdentityAttributes(host.element);
+      setGpuFlowVisibleFrameIdentityAttributes(host.element, token);
       parkDomControlElement(host.element);
       this.visibleDomControlHostById.delete(controlId);
       this.composingDomControlIds.delete(controlId);

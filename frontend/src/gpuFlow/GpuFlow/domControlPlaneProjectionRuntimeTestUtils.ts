@@ -67,9 +67,11 @@ export function retainedRuntimeFrame(
   return {
     descriptors: {
       domControlSources: controls,
+      sceneSections: [],
+      sourceSurfaces: [],
     },
     frameId,
-  } as GpuRetainedRuntimeFrame;
+  } as unknown as GpuRetainedRuntimeFrame;
 }
 
 export function createCommittedSurfaceRuntimeWithBrowserVisuals({
