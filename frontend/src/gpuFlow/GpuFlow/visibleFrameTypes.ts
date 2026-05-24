@@ -31,6 +31,28 @@ export type GpuFlowColdStartShellFrame = {
   readonly reason: string;
 };
 
+export function createGpuFlowColdStartShellFrame(
+  frameId: GpuFlowColdStartShellFrameId,
+): GpuFlowColdStartShellFrame {
+  return Object.freeze({
+    id: frameId,
+    input: "disabled" as const,
+    kind: "cold-start-shell" as const,
+    reason: createGpuFlowColdStartShellReason(frameId),
+  });
+}
+
+function createGpuFlowColdStartShellReason(
+  frameId: GpuFlowColdStartShellFrameId,
+): string {
+  switch (frameId) {
+    case GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID:
+      return "browser-visual-publication-blocked-before-first-commit";
+    case GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID:
+      return "retained-projection-blocked-before-first-commit";
+  }
+}
+
 export type GpuFlowVisibleFrameActorFamily =
   GpuFlowBrowserStyleVisibleFrameActorFamily;
 

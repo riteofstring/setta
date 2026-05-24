@@ -137,10 +137,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   ) => void;
   readonly publishColdStartShellFrame: (publication: {
     readonly frame: GpuFlowColdStartShellFrame | null;
-    readonly token:
-      | GpuFlowBlockedPublicationToken
-      | GpuFlowCommitPublicationToken
-      | GpuFlowHoldPreviousToken;
+    readonly token: GpuFlowCommitPublicationToken;
   }) => void;
   readonly retainedPreparationRuntimeFrameRenderSignatureRef: MutableRefObject<
     string | null

@@ -45,7 +45,11 @@ describe("GPU Flow surface publication completion", () => {
       projectCommittedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
-      publishColdStartShellFrame: () => {},
+      publishColdStartShellFrame: () => {
+        throw new Error(
+          "Held-previous publication must not mutate shell state.",
+        );
+      },
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
@@ -150,6 +154,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     const submitCanvas = vi.fn();
     const submitDomTransforms = vi.fn();
+    const publishColdStartShellFrame = vi.fn();
     const presenter = createGpuFlowVisibleFramePresenter({
       abortPreparedCommittedSurfaceFrame: () => {
         throw new Error("Unexpected prepared committed surface abort.");
@@ -162,7 +167,7 @@ describe("GPU Flow surface publication completion", () => {
       },
       commitPreparedCommittedSurfaceFrame: () => true,
       projectCommittedBrowserVisualActors: () => {},
-      publishColdStartShellFrame: () => {},
+      publishColdStartShellFrame,
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
@@ -191,6 +196,10 @@ describe("GPU Flow surface publication completion", () => {
 
     expect(submitCanvas).toHaveBeenCalledOnce();
     expect(submitDomTransforms).toHaveBeenCalledOnce();
+    expect(publishColdStartShellFrame).toHaveBeenCalledWith({
+      frame: null,
+      token,
+    });
   });
 
   it("does not promote committed state when prepared canvas submission fails", () => {
@@ -515,7 +524,9 @@ describe("GPU Flow surface publication completion", () => {
       projectCommittedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
-      publishColdStartShellFrame: () => {},
+      publishColdStartShellFrame: () => {
+        throw new Error("Blocked publication must not mutate shell state.");
+      },
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },

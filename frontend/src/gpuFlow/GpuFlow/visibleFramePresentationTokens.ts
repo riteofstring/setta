@@ -14,8 +14,7 @@ import {
   type GpuFlowCommitPresentationPairProof,
 } from "./visibleFrameCommitProofs";
 import {
-  GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
-  GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+  createGpuFlowColdStartShellFrame,
   type GpuFlowColdStartShellFrame,
   type GpuFlowColdStartShellFrameId,
   type GpuFlowVisibleFramePresentationIdentity,
@@ -370,26 +369,10 @@ function createGpuFlowBlockedFrozenFrame(
     });
   }
   return Object.freeze({
-    frame: Object.freeze({
-      id: frozenFrameId,
-      input: "disabled" as const,
-      kind: "cold-start-shell" as const,
-      reason: createGpuFlowColdStartShellReason(frozenFrameId),
-    }),
+    frame: createGpuFlowColdStartShellFrame(frozenFrameId),
     frameId: frozenFrameId,
     kind: "cold-start-shell" as const,
   });
-}
-
-function createGpuFlowColdStartShellReason(
-  frameId: GpuFlowColdStartShellFrameId,
-): string {
-  switch (frameId) {
-    case GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID:
-      return "browser-visual-publication-blocked-before-first-commit";
-    case GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID:
-      return "retained-projection-blocked-before-first-commit";
-  }
 }
 
 export function assertGpuFlowCommitPublicationToken({

@@ -1076,13 +1076,16 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
   });
 
-  it("publishes cold-start shell frames only from visible publication completion", () => {
-    const flowSurfaceSource =
-      readFileSync(join(GPU_FLOW_ROOT, "GpuFlow/flowSurface.tsx"), "utf8") +
-      readFileSync(
-        join(GPU_FLOW_ROOT, "GpuFlow/visibleFrameColdStartShell.ts"),
-        "utf8",
-      );
+  it("clears the cold-start shell only from committed visible publication", () => {
+    const flowSurfaceSource = readFileSync(
+      join(GPU_FLOW_ROOT, "GpuFlow/flowSurface.tsx"),
+      "utf8",
+    );
+    const shellStateSource = readFileSync(
+      join(GPU_FLOW_ROOT, "GpuFlow/flowColdStartShellState.ts"),
+      "utf8",
+    );
+    const shellPublicationSource = flowSurfaceSource + shellStateSource;
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const completionPublisherStart = surfaceFrameSource.indexOf(
       "function publishGpuFlowColdStartShellFrame",
@@ -1091,24 +1094,26 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       completionPublisherStart,
     );
 
-    expect(flowSurfaceSource).not.toContain(
+    expect(shellPublicationSource).not.toContain(
       "publicationResult.coldStartShellFrame",
     );
-    expect(flowSurfaceSource).not.toContain("void publication.token");
-    expect(flowSurfaceSource).toContain("publishColdStartShellFrame");
-    expect(flowSurfaceSource).toContain("assertGpuFlowColdStartShellToken");
-    expect(flowSurfaceSource).toContain(
-      "assertGpuFlowBlockedPublicationTokenBrand",
-    );
-    expect(flowSurfaceSource).toContain(
+    expect(shellPublicationSource).not.toContain("void publication.token");
+    expect(shellPublicationSource).toContain("publishColdStartShellFrame");
+    expect(shellPublicationSource).toContain(
       "assertGpuFlowCommitPublicationTokenBrand",
     );
-    expect(flowSurfaceSource).toContain("assertGpuFlowHoldPreviousTokenBrand");
-    expect(completionPublisherStart).toBeGreaterThanOrEqual(0);
-    expect(completionPublisherSource).toContain("coldStartShellPublication");
-    expect(completionPublisherSource).toContain(
-      "publishColdStartShellFrame(coldStartShellPublication)",
+    expect(shellPublicationSource).toContain(
+      "createGpuFlowColdStartShellFrame",
     );
+    expect(shellPublicationSource).toContain(
+      "GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID",
+    );
+    expect(completionPublisherStart).toBeGreaterThanOrEqual(0);
+    expect(completionPublisherSource).toContain(
+      'if (outcome.kind !== "commit")',
+    );
+    expect(completionPublisherSource).toContain("frame: null");
+    expect(completionPublisherSource).toContain("token: outcome.token");
   });
 });
 

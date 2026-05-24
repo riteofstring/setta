@@ -46,6 +46,7 @@ import {
   validateGpuFlowEdgeInput,
 } from "./edgeInput";
 import { resolveGpuFlowCanvasCursor } from "./flowCanvasCursor";
+import { useGpuFlowColdStartShellFrame } from "./flowColdStartShellState";
 import {
   destroyNodeInteractionResources,
   destroyNodeLayerResources,
@@ -86,10 +87,8 @@ import {
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
 import { createGpuFlowVisibleFrameBudgetBroker } from "./visibleFrameBudgetBroker";
-import { assertGpuFlowColdStartShellToken } from "./visibleFrameColdStartShell";
 import { createGpuFlowVisibleFrameRequestCoordinator } from "./visibleFrameScheduling";
 import { renderGpuFlowSurfaceFrame } from "./visibleFrameSurfaceFrame";
-import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
 export function GpuFlow({
   children,
@@ -215,29 +214,8 @@ export function GpuFlow({
   const visibleProjectionPublicationStateRef =
     useRef<GpuFlowVisibleProjectionState | null>(null);
   const visibleOverlayProjectionKeyRef = useRef<string | null>(null);
-  const activeColdStartShellFrameRef =
-    useRef<GpuFlowColdStartShellFrame | null>(null);
-  const [activeColdStartShellFrame, setActiveColdStartShellFrame] =
-    useState<GpuFlowColdStartShellFrame | null>(null);
-  const publishColdStartShellFrame = useCallback<
-    Parameters<
-      typeof renderGpuFlowSurfaceFrame
-    >[0]["publishColdStartShellFrame"]
-  >((publication) => {
-    assertGpuFlowColdStartShellToken({
-      token: publication.token,
-    });
-    const nextColdStartShellFrame = publication.frame;
-    const currentColdStartShellFrame = activeColdStartShellFrameRef.current;
-    if (
-      currentColdStartShellFrame?.id === nextColdStartShellFrame?.id &&
-      currentColdStartShellFrame?.reason === nextColdStartShellFrame?.reason
-    ) {
-      return;
-    }
-    activeColdStartShellFrameRef.current = nextColdStartShellFrame;
-    setActiveColdStartShellFrame(nextColdStartShellFrame);
-  }, []);
+  const { activeColdStartShellFrame, publishColdStartShellFrame } =
+    useGpuFlowColdStartShellFrame();
   const getRetainedDomControlScrollOffset = useCallback(
     (surfaceId: string) => {
       const visibleProjectionState = visibleProjectionStateRef.current;

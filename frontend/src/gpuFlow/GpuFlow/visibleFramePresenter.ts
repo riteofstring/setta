@@ -206,7 +206,6 @@ function presentGpuFlowVisibleFramePublicationFrame({
     publicationDecision,
     publicationFrameContext,
   } = publicationTransaction;
-  const { coldStartShellPublication } = publicationTransaction;
   const browserVisualPreparationResourceKeys =
     publicationFrameContext?.budgetDecision.preparationBudget
       .selectedResourceDebtIds ?? [];
@@ -251,7 +250,7 @@ function presentGpuFlowVisibleFramePublicationFrame({
     },
   );
   publishGpuFlowColdStartShellFrame({
-    coldStartShellPublication,
+    outcome,
     publishColdStartShellFrame,
   });
   const schedulerFrameCompletion =
@@ -383,13 +382,19 @@ export function createGpuFlowVisibleFramePresenter({
 }
 
 function publishGpuFlowColdStartShellFrame({
-  coldStartShellPublication,
+  outcome,
   publishColdStartShellFrame,
 }: {
-  readonly coldStartShellPublication: GpuFlowVisibleFrameCoordinatorResult<GpuFlowSurfacePublicationPreparedFrame>["coldStartShellPublication"];
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly publishColdStartShellFrame: RenderGpuFlowSurfaceFrameInput["publishColdStartShellFrame"];
 }): void {
-  publishColdStartShellFrame(coldStartShellPublication);
+  if (outcome.kind !== "commit") {
+    return;
+  }
+  publishColdStartShellFrame({
+    frame: null,
+    token: outcome.token,
+  });
 }
 
 function publishGpuFlowSurfaceVisibleProjectionState({
