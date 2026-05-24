@@ -4,10 +4,10 @@
 Make Param Dict projects smooth by moving the in-scope pan/zoom interface to a
 canvas/WebGPU-rendered surface.
 
-The first benchmark is the Settings project because it is a real dense project
-made from Dict sections. It gives us a constrained surface with nested params,
-text-like inputs, color pickers, dropdowns, combobox-style choices, and switches
-without taking on every section type at once.
+The first benchmark is the Settings project's `All Settings` view because it is
+a real dense view made from Dict sections. It gives us a constrained surface
+with nested params, text-like inputs, color pickers, dropdowns, combobox-style
+choices, and switches without taking on every section type at once.
 
 Settings is only the benchmark fixture. The renderer must operate over generic
 Param Dict project state, not hard-coded Settings section names, values, param
@@ -52,7 +52,7 @@ owned path in this branch.
 
 ## Scope
 In scope:
-- Settings project as the initial benchmark only.
+- Settings project's `All Settings` view as the initial benchmark only.
 - Generic Param Dict sections, not Settings-specific sections.
 - Canvas/WebGPU-owned pan/zoom viewport for in-scope Param Dict sections.
 - Minimap rendering derived from the same retained scene model, with a canvas
@@ -292,7 +292,8 @@ Important metrics:
 
 ## Implementation Plan
 1. Baseline
-- Run the existing Settings All Settings benchmark on the current branch.
+- Run the existing Settings project `All Settings` view benchmark on the current
+  branch.
 - Record DOM node count, pan/zoom FPS, and current interaction behavior.
 - Append the report under `perf/`.
 - Capture `go-rewrite` visual references for Settings Param Dict sections in the
