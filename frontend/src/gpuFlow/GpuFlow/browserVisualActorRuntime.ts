@@ -1,12 +1,7 @@
-import type {
-  GpuFlowCommittedSurfaceBrowserVisualReadiness,
-  GpuFlowCommittedSurfaceDomPresentationEvidence,
-} from "../committedSurfaceFrame";
 import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
-import type { GpuDomIsland } from "../scene";
 import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
@@ -50,7 +45,6 @@ import {
   createGpuFlowDomControlProjectionManager,
   type GpuFlowDomControlPlaneDiagnostics,
   type GpuFlowDomControlPlaneMountedHost,
-  type GpuFlowDomControlProjectionAssignment,
   type GpuFlowRetainedScrollOffsetGetter,
 } from "./domControlPlaneProjection";
 import {
@@ -68,46 +62,19 @@ import {
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
+import type {
+  BrowserVisualActorPreparationHostRenderer,
+  BrowserVisualActorRuntimeListener,
+  GpuFlowBrowserVisualActorCandidate,
+  GpuFlowBrowserVisualActorProjectionInput,
+  GpuFlowBrowserVisualActorRuntimeSnapshot,
+} from "./browserVisualActorRuntimeTypes";
 
-export type GpuFlowBrowserVisualActorRuntimeFrameIds = {
-  readonly committedFrameId: number;
-  readonly runtimeFrameId: number;
-};
-
-export type GpuFlowBrowserVisualActorRuntimeSnapshot = {
-  readonly domControls: {
-    readonly assignments: readonly GpuFlowDomControlProjectionAssignment[];
-    readonly controlById: ReadonlyMap<
-      string,
-      GpuRetainedDomControlSourceDescriptor
-    >;
-    readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
-    readonly mountedControls: readonly GpuRetainedDomControlSourceDescriptor[];
-    readonly snapshotControls: readonly GpuRetainedDomControlSourceDescriptor[];
-    readonly sourceRevision: string;
-  };
-  readonly domIslands: {
-    readonly islands: readonly GpuDomIsland[];
-  };
-  readonly frameIds: GpuFlowBrowserVisualActorRuntimeFrameIds;
-  readonly publicationToken: GpuFlowCommitPublicationToken | null;
-};
-
-type BrowserVisualActorRuntimeListener = () => void;
-type BrowserVisualActorPreparationHostRenderer = (
-  snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot,
-) => void;
-type GpuFlowBrowserVisualActorProjectionInput = {
-  readonly token: GpuFlowCommitPublicationToken;
-  readonly viewport?: GpuViewportInput | undefined;
-};
-
-export type GpuFlowBrowserVisualActorCandidate = {
-  readonly id: string;
-  readonly presentationEvidence: GpuFlowCommittedSurfaceDomPresentationEvidence;
-  readonly readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness;
-  readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
-};
+export type {
+  GpuFlowBrowserVisualActorCandidate,
+  GpuFlowBrowserVisualActorRuntimeFrameIds,
+  GpuFlowBrowserVisualActorRuntimeSnapshot,
+} from "./browserVisualActorRuntimeTypes";
 
 const browserVisualActorRuntimeByCommittedSurfaceRuntime = new WeakMap<
   GpuFlowCommittedSurfaceRuntime,

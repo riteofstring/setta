@@ -97,18 +97,41 @@ export function scheduleGpuFlowBrowserVisualResourcePreparation({
     deferResolutionUpdates,
     publicationDecision,
   });
-  const budgetSelected =
-    budgetState === "selected" || hasBudgetSelectedBrowserVisualResource;
   requestGpuFlowBrowserVisualResourceWorkFrame({
     candidateResourceWork,
-    deferWakeup:
-      !budgetSelected &&
-      (candidateResourceWork.deferWakeup ||
-        budgetState === "deferred" ||
-        shouldWaitForGpuFlowBrowserVisualRepairSignal(candidateFrame)),
+    deferWakeup: shouldDeferGpuFlowBrowserVisualResourcePreparationWakeup({
+      budgetState,
+      candidateFrame,
+      candidateResourceWork,
+      hasBudgetSelectedBrowserVisualResource,
+    }),
     runtimeCanvas,
     surfaceRef,
   });
+}
+
+function shouldDeferGpuFlowBrowserVisualResourcePreparationWakeup({
+  budgetState,
+  candidateFrame,
+  candidateResourceWork,
+  hasBudgetSelectedBrowserVisualResource,
+}: {
+  readonly budgetState: GpuFlowBrowserVisualResourcePreparationBudgetState;
+  readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
+  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork;
+  readonly hasBudgetSelectedBrowserVisualResource: boolean;
+}): boolean {
+  if (
+    budgetState === "selected" ||
+    hasBudgetSelectedBrowserVisualResource
+  ) {
+    return false;
+  }
+  return (
+    candidateResourceWork.deferWakeup ||
+    budgetState === "deferred" ||
+    shouldWaitForGpuFlowBrowserVisualRepairSignal(candidateFrame)
+  );
 }
 
 export function createGpuFlowBrowserVisualResourcePreparationDebtRequests({
