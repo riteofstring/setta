@@ -59,21 +59,30 @@ describe("GPU Flow visible publication projection plans", () => {
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
     expect(coordinatorSource).toContain(
+      "reduceGpuFlowMotionProjectionFramePreparation",
+    );
+    expect(coordinatorSource).not.toContain(
       "reduceGpuFlowVisibleFrameMotionProjectionTransaction",
     );
     expect(stateMachineSource).toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
-    expect(coordinatorSource).toContain(
+    expect(stateMachineSource).toContain(
+      "reduceGpuFlowVisibleFrameMotionProjectionTransaction",
+    );
+    expect(coordinatorSource).not.toContain(
       "projectionFrameTransaction.blockedPublicationCandidate",
     );
     expect(coordinatorSource).not.toContain(
       "projectionFrameTransaction.blockedReason",
     );
-    expect(coordinatorSource).toContain(
+    expect(stateMachineSource).toContain(
       "function selectGpuFlowProjectionFrameRenderPlan",
     );
     expect(coordinatorSource).not.toContain(
+      "function selectGpuFlowProjectionFrameRenderPlan",
+    );
+    expect(stateMachineSource).not.toContain(
       "export function selectGpuFlowProjectionFrameRenderPlan",
     );
     expect(projectionPlanSource).not.toContain(
@@ -90,8 +99,9 @@ describe("GPU Flow visible publication projection plans", () => {
     );
   });
 
-  it("keeps requested retained projection coverage derivation inside the coordinator", () => {
+  it("keeps requested retained projection coverage derivation inside the state machine authority", () => {
     const coordinatorSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
+    const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
     const projectionPlanSource = readFileSync(
       PROJECTION_PLAN_MODULE_PATH,
       "utf8",
@@ -114,10 +124,16 @@ describe("GPU Flow visible publication projection plans", () => {
     );
     expect(projectionPlanSource).not.toContain("requestedProjectionFrame");
     expect(projectionPlanSource).toContain("resolveRetainedProjectionFrame");
-    expect(coordinatorSource).toContain(
+    expect(coordinatorSource).not.toContain(
       "const requestedRetainedProjectionFrame",
     );
-    expect(coordinatorSource).toContain(
+    expect(coordinatorSource).not.toContain(
+      "requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0",
+    );
+    expect(stateMachineSource).toContain(
+      "const requestedRetainedProjectionFrame",
+    );
+    expect(stateMachineSource).toContain(
       "requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0",
     );
   });

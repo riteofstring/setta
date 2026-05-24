@@ -167,6 +167,9 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
       "createGpuFlowProjectionFrameTransactionSelector",
     );
     expect(kernelModuleSource).toContain(
+      "reduceGpuFlowMotionProjectionFramePreparation({",
+    );
+    expect(kernelModuleSource).not.toContain(
       "reduceGpuFlowVisibleFrameMotionProjectionTransaction({",
     );
     expect(kernelModuleSource).not.toContain(
@@ -174,6 +177,9 @@ describe("GPU Flow visible frame coordinator projection transactions", () => {
     );
     expect(stateMachineSource).toContain(
       "export function reduceGpuFlowVisibleFrameMotionProjectionTransaction",
+    );
+    expect(stateMachineSource).toContain(
+      "export function reduceGpuFlowMotionProjectionFramePreparation",
     );
     expect(kernelModuleSource).not.toContain(
       "createGpuFlowVisiblePublicationCandidateDecisionKernel",

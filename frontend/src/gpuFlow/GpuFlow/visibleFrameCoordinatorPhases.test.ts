@@ -9,6 +9,12 @@ const COORDINATOR_MODULE_PATH = fileURLToPath(
 const STATE_MACHINE_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameStateMachine.ts", import.meta.url),
 );
+const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
+  new URL(
+    "./visibleFrameActorAdapters/contentDecisionKernel.ts",
+    import.meta.url,
+  ),
+);
 const SCHEDULING_REDUCTION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameSchedulingReduction.ts", import.meta.url),
 );
@@ -179,6 +185,59 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet",
     );
     expect(existsSync(FORCED_BLOCKED_CANDIDATE_SET_MODULE_PATH)).toBe(false);
+  });
+
+  it("keeps content and motion outcome branches inside the visible-frame reducer", () => {
+    const coordinatorSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
+    const contentDecisionKernelSource = readFileSync(
+      CONTENT_DECISION_KERNEL_MODULE_PATH,
+      "utf8",
+    );
+    const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
+
+    expect(coordinatorSource).toContain(
+      "reduceGpuFlowMotionProjectionFramePreparation({",
+    );
+    expect(coordinatorSource).not.toContain(
+      "reduceGpuFlowVisibleFrameMotionProjectionTransaction({",
+    );
+    expect(coordinatorSource).not.toContain(
+      "projectionFrameTransaction.blockedPublicationCandidate",
+    );
+    expect(coordinatorSource).not.toContain("createBlockedProjectionFrame({");
+    expect(stateMachineSource).toContain(
+      "export function reduceGpuFlowMotionProjectionFramePreparation",
+    );
+    expect(stateMachineSource).toContain(
+      "export function reduceGpuFlowVisibleFrameMotionProjectionTransaction",
+    );
+    expect(stateMachineSource).toContain(
+      "projectionFrameTransaction.blockedPublicationCandidate",
+    );
+    expect(stateMachineSource).toContain("createBlockedProjectionFrame({");
+
+    expect(contentDecisionKernelSource).not.toContain('"nonpublishable"');
+    expect(contentDecisionKernelSource).not.toContain('"blocked-candidate"');
+    expect(contentDecisionKernelSource).not.toContain(
+      "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
+    );
+    expect(contentDecisionKernelSource).not.toContain(
+      "function selectGpuFlowCommittedSurfacePublicationFramePlan",
+    );
+    expect(contentDecisionKernelSource).not.toContain(
+      "function selectGpuFlowContentPublicationBlockedCandidate",
+    );
+    expect(stateMachineSource).toContain(
+      "export function selectGpuFlowCommittedSurfacePublicationFramePlan",
+    );
+    expect(stateMachineSource).toContain(
+      "export function selectGpuFlowContentPublicationBlockedCandidateForFrameResult",
+    );
+    expect(stateMachineSource).toContain(
+      "export function selectGpuFlowRetainedDisplayPublicationFramePlan",
+    );
+    expect(stateMachineSource).toContain('"nonpublishable"');
+    expect(stateMachineSource).toContain('"blocked-candidate"');
   });
 
   it("keeps transaction proof, scheduler completion, and publication decision out of the surface frame adapter", () => {

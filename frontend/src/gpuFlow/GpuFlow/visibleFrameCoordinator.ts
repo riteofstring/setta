@@ -22,11 +22,7 @@ import {
 } from "./visibleFrameContentPlan";
 import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFrameOutcomeReport";
 import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";
-import type {
-  GpuFlowMotionProjectionFramePreparation,
-  GpuFlowProjectionFrameRenderPlan,
-  GpuFlowProjectionFrameTransaction,
-} from "./visibleFrameProjectionPlan";
+import type { GpuFlowMotionProjectionFramePreparation } from "./visibleFrameProjectionPlan";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import {
   reduceGpuFlowVisibleFramePublicationDecision,
@@ -35,7 +31,7 @@ import {
   type GpuFlowVisibleFrameRequestFacts,
   type GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameScheduling";
-import { reduceGpuFlowVisibleFrameMotionProjectionTransaction } from "./visibleFrameStateMachine";
+import { reduceGpuFlowMotionProjectionFramePreparation } from "./visibleFrameStateMachine";
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
   createGpuFlowVisibleFramePublicationTransactionProofFactory,
@@ -114,10 +110,6 @@ export type {
   GpuFlowMotionProjectionWorkPlan,
 } from "./visibleFrameWorkPlan";
 type GpuFlowVisiblePublicationScheduler = GpuFlowVisibleFrameRequestCoordinator;
-
-type GpuFlowProjectionFrameRenderPlanSelector = (input: {
-  readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
-}) => GpuFlowProjectionFrameRenderPlan;
 
 export type GpuFlowVisibleFramePublicationFrameContext = {
   readonly activeEditorPins: readonly string[];
@@ -410,7 +402,7 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   const motionProjectionWorkPlan = createGpuFlowMotionProjectionWorkPlan({
     publicationDecision,
   });
-  const motionProjectionFrame = resolveGpuFlowMotionProjectionFramePreparation({
+  const motionProjectionFrame = reduceGpuFlowMotionProjectionFramePreparation({
     preparation: prepareMotionProjectionFrame({
       motionProjectionWorkPlan,
       previousVisibleProjectionState,
@@ -420,7 +412,6 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
     previousVisibleProjectionState,
     projectionSchedulerKnobs,
     rawReasons,
-    selectProjectionFrameRenderPlan: selectGpuFlowProjectionFrameRenderPlan,
   });
   const contentPublicationWorkPlan = createGpuFlowContentPublicationWorkPlan({
     blockedProjectionOnlyFrame:
@@ -523,81 +514,6 @@ function createGpuFlowVisibleFramePublicationFrameContext({
     frameRequest,
     viewportFrame,
   });
-}
-
-function resolveGpuFlowMotionProjectionFramePreparation<
-  MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
->({
-  preparation,
-  previousVisibleProjectionState,
-  projectionSchedulerKnobs,
-  rawReasons,
-  selectProjectionFrameRenderPlan,
-}: {
-  readonly preparation: GpuFlowMotionProjectionFramePreparation<MotionProjectionFrame>;
-  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly projectionSchedulerKnobs: ReturnType<
-    GpuFlowVisiblePublicationScheduler["getKnobs"]
-  >;
-  readonly rawReasons: readonly GpuFrameReason[];
-  readonly selectProjectionFrameRenderPlan: GpuFlowProjectionFrameRenderPlanSelector;
-}): MotionProjectionFrame {
-  if (preparation.kind === "not-rendered") {
-    return preparation.frame;
-  }
-  const requestedRetainedProjectionFrame =
-    preparation.resolveRetainedProjectionFrame({
-      transaction: preparation.requestedTransaction,
-    });
-  const projectionFrameTransaction =
-    reduceGpuFlowVisibleFrameMotionProjectionTransaction({
-      hasActiveRetainedDomControl: preparation.hasActiveRetainedDomControl,
-      previousVisibleProjectionState,
-      projectionSchedulerKnobs,
-      rawReasons,
-      requestedProjectionCoverageMissing:
-        requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0,
-      requestedRetainedProjectionFrame,
-      requestedTransaction: preparation.requestedTransaction,
-    });
-  if (projectionFrameTransaction.blockedPublicationCandidate !== null) {
-    return preparation.createBlockedProjectionFrame({
-      blockedPublicationCandidate:
-        projectionFrameTransaction.blockedPublicationCandidate,
-    });
-  }
-  const projectionFrameRenderPlan = selectProjectionFrameRenderPlan({
-    projectionFrameTransaction,
-  });
-  const projectionFrame = preparation.renderProjectionFrame({
-    projectionFrameRenderPlan,
-    requestedProjectionTransaction: preparation.requestedTransaction,
-  });
-  return projectionFrame;
-}
-
-function selectGpuFlowProjectionFrameRenderPlan({
-  projectionFrameTransaction,
-}: {
-  readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;
-}): GpuFlowProjectionFrameRenderPlan {
-  assertGpuFlowProjectionFrameTransactionRenderable(projectionFrameTransaction);
-  return {
-    heldPreviousProjection: projectionFrameTransaction.heldPreviousProjection,
-    kind: "render" as const,
-    retainedProjectionFrame: projectionFrameTransaction.retainedProjectionFrame,
-    transaction: projectionFrameTransaction.transaction,
-  };
-}
-
-function assertGpuFlowProjectionFrameTransactionRenderable(
-  projectionFrameTransaction: GpuFlowProjectionFrameTransaction,
-): void {
-  if (projectionFrameTransaction.blockedPublicationCandidate !== null) {
-    throw new Error(
-      "GPU Flow projection frame render plans require a nonblocked projection transaction.",
-    );
-  }
 }
 
 function shouldDeferGpuFlowResolutionUpdates({
