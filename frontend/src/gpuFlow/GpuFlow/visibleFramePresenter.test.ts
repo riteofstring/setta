@@ -776,6 +776,9 @@ function committedSurfaceFrame({
       displayFrameId,
     }),
     projectionHorizon: {
+      obligations: {
+        visibleActorIds: [],
+      },
       textActorCoverage: {
         blockedAwaitingBrowserVisualActorIds: [],
         blockedAwaitingLiveHostActorIds: [],

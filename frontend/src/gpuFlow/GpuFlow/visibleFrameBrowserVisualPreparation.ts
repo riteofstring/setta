@@ -3,12 +3,16 @@ import type { MutableRefObject } from "react";
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import { getGpuFlowCommittedSurfacePublishabilityActorIds } from "./visibleFrameBlockedCandidate";
+import {
+  recordGpuFlowBrowserVisualResourceWorkPreparationState,
+  recordGpuFlowBrowserVisualResourceWorkRequested,
+  type GpuFlowBrowserVisualResourceWorkOutcome,
+} from "./visibleFrameBrowserVisualResourceWork";
 import type {
   GpuFlowVisibleFrameBudgetBroker,
   GpuFlowVisibleFrameBudgetDebtRequest,
 } from "./visibleFrameBudgetBroker";
 import type { GpuFlowCommittedSurfaceBlockedCandidateResourceWork } from "./visibleFrameContentPlan";
-import { recordGpuFlowBrowserVisualResourceWorkPreparationState } from "./visibleFrameDiagnostics";
 import {
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
   type GpuFlowVisiblePublicationDecision,
@@ -37,6 +41,7 @@ export function scheduleGpuFlowBrowserVisualResourcePreparation({
   candidateFrame,
   candidateResourceWork,
   deferResolutionUpdates = false,
+  outcome,
   publicationDecision,
   runtimeCanvas,
   surfaceRef,
@@ -45,8 +50,12 @@ export function scheduleGpuFlowBrowserVisualResourcePreparation({
   readonly candidateFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
   readonly deferResolutionUpdates?: boolean | undefined;
+  readonly outcome: GpuFlowBrowserVisualResourceWorkOutcome;
   readonly publicationDecision?:
-    | Pick<GpuFlowVisiblePublicationDecision, "debt" | "lane" | "schedulerState">
+    | Pick<
+        GpuFlowVisiblePublicationDecision,
+        "debt" | "lane" | "schedulerState"
+      >
     | undefined;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
@@ -54,14 +63,19 @@ export function scheduleGpuFlowBrowserVisualResourcePreparation({
   if (candidateFrame === null || candidateResourceWork === null) {
     return;
   }
-  const budgetDeferred = shouldDeferGpuFlowBrowserVisualResourcePreparationForBudget(
-    {
+  recordGpuFlowBrowserVisualResourceWorkRequested({
+    candidateResourceWork,
+    nowMs: candidateResourceWork.timestamp,
+    outcome,
+    runtimeCanvas,
+  });
+  const budgetDeferred =
+    shouldDeferGpuFlowBrowserVisualResourcePreparationForBudget({
       budgetBroker,
       candidateResourceWork,
       deferResolutionUpdates,
       publicationDecision,
-    },
-  );
+    });
   requestGpuFlowBrowserVisualResourceWorkFrame({
     candidateResourceWork,
     deferWakeup:
@@ -191,17 +205,19 @@ function shouldDeferGpuFlowBrowserVisualResourcePreparationForBudget({
   readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork;
   readonly deferResolutionUpdates: boolean;
   readonly publicationDecision:
-    | Pick<GpuFlowVisiblePublicationDecision, "debt" | "lane" | "schedulerState">
+    | Pick<
+        GpuFlowVisiblePublicationDecision,
+        "debt" | "lane" | "schedulerState"
+      >
     | undefined;
 }): boolean {
   if (!budgetBroker || !publicationDecision) {
     return false;
   }
-  const requestedDebt = createGpuFlowBrowserVisualResourcePreparationDebtRequests(
-    {
+  const requestedDebt =
+    createGpuFlowBrowserVisualResourcePreparationDebtRequests({
       candidateResourceWork,
-    },
-  );
+    });
   if (requestedDebt.length === 0) {
     return false;
   }
