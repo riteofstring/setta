@@ -49,7 +49,7 @@ import {
 import type {
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import type {
   GpuFlowSurfacePublicationPreparedFrame,
   RenderGpuFlowSurfaceFrameInput,
@@ -247,9 +247,9 @@ export function presentGpuFlowVisibleFramePublicationFrame({
     outcome,
     publishColdStartShellFrame,
   });
-  const schedulerFrameCompletion =
-    publicationTransaction.completeSchedulerFrame();
-  const { completion } = schedulerFrameCompletion;
+  const reducerFrameCompletion =
+    publicationTransaction.completeReducerFrame();
+  const { completion } = reducerFrameCompletion;
   const debtFrameRequest = createGpuFlowSurfacePublicationDebtFrameRequest({
     activeEditorActivationPending:
       publicationFrameContext.activeEditorPins.length > 0 ||
@@ -260,7 +260,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
         selectedVisibleProjectionState?.committedFrame ?? null,
       ]),
     completion,
-    debtFrameRequest: schedulerFrameCompletion.debtFrameRequest,
+    debtFrameRequest: reducerFrameCompletion.debtFrameRequest,
     publicationDecision,
   });
   recordGpuFlowBlockedSurfaceVisibleProjectionPublication({

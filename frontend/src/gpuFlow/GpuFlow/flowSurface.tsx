@@ -87,7 +87,7 @@ import {
   projectGpuFlowNodeSourceForPointerEvent,
 } from "./sourceInteraction";
 import { createGpuFlowVisibleFrameBudgetBroker } from "./visibleFrameBudgetBroker";
-import { createGpuFlowVisibleFrameRequestCoordinator } from "./visibleFrameScheduling";
+import { createGpuFlowVisibleFrameReducerRuntime } from "./visibleFrameReducerRuntime";
 import { renderGpuFlowSurfaceFrame } from "./visibleFrameSurfaceFrame";
 
 export function GpuFlow({
@@ -203,8 +203,8 @@ export function GpuFlow({
   const activeRetainedContentRuntimeState =
     retainedContentRuntimeState ?? defaultRetainedContentRuntimeState;
   const liveProjectionSamplerRef = useRef(createGpuFlowLiveProjectionSampler());
-  const visibleFrameCoordinatorRef = useRef(
-    createGpuFlowVisibleFrameRequestCoordinator(),
+  const visibleFrameReducerRuntimeRef = useRef(
+    createGpuFlowVisibleFrameReducerRuntime(),
   );
   const visibleFrameBudgetBrokerRef = useRef(
     createGpuFlowVisibleFrameBudgetBroker(),
@@ -910,7 +910,7 @@ export function GpuFlow({
         visibleFrameBudgetBrokerRef,
         visibleProjectionPublicationStateRef,
         visibleProjectionStateRef,
-        visibleFrameCoordinatorRef,
+        visibleFrameReducerRuntimeRef,
         viewportRuntime,
         viewportStore,
       });

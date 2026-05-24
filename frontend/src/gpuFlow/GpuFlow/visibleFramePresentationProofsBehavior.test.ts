@@ -5,7 +5,7 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
 import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
   type GpuFlowLiveProjectionSample,
 } from "../projectionRuntime";
 import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTransaction";
@@ -412,18 +412,18 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["publicationDecision"],
-      scheduler: {
+      reducerRuntime: {
         completeFrame: () => {
           throw new Error("Unexpected committed frame completion.");
         },
-        getKnobs: () => DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+        getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
         recordUncommittedFrame: () => ({
           debt: { content: true, maintenance: false, motion: false },
           outcome: "blocked",
         }),
       } as unknown as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["scheduler"],
+      >[0]["reducerRuntime"],
       transactionProof: {
         blockedProof: {
           blockedReasons: [
@@ -471,7 +471,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(completion.outcome.kind).toBe("blocked");
-    expect(completion.completeSchedulerFrame()).toEqual({
+    expect(completion.completeReducerFrame()).toEqual({
       completion: {
         debt: { content: true, maintenance: false, motion: false },
         outcome: "blocked",
@@ -498,18 +498,18 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["publicationDecision"],
-      scheduler: {
+      reducerRuntime: {
         completeFrame: () => {
           throw new Error("Unexpected committed frame completion.");
         },
-        getKnobs: () => DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+        getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
         recordUncommittedFrame: () => ({
           debt: { content: true, maintenance: false, motion: false },
           outcome: "blocked",
         }),
       } as unknown as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["scheduler"],
+      >[0]["reducerRuntime"],
       transactionProof: {
         blockedProof: {
           blockedReasons: [
@@ -562,7 +562,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(completion.outcome.kind).toBe("blocked");
-    expect(completion.completeSchedulerFrame()).toEqual({
+    expect(completion.completeReducerFrame()).toEqual({
       completion: {
         debt: { content: true, maintenance: false, motion: false },
         outcome: "blocked",
@@ -589,18 +589,18 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["publicationDecision"],
-      scheduler: {
+      reducerRuntime: {
         completeFrame: () => {
           throw new Error("Unexpected committed frame completion.");
         },
-        getKnobs: () => DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+        getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
         recordUncommittedFrame: () => ({
           debt: { content: true, maintenance: true, motion: false },
           outcome: "blocked",
         }),
       } as unknown as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["scheduler"],
+      >[0]["reducerRuntime"],
       transactionProof: {
         blockedProof: {
           blockedReasons: [
@@ -648,7 +648,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(completion.outcome.kind).toBe("blocked");
-    expect(completion.completeSchedulerFrame()).toEqual({
+    expect(completion.completeReducerFrame()).toEqual({
       completion: {
         debt: { content: true, maintenance: true, motion: false },
         outcome: "blocked",
@@ -688,18 +688,18 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["publicationDecision"],
-      scheduler: {
+      reducerRuntime: {
         completeFrame: () => ({
           debt: { content: true, maintenance: false, motion: true },
           outcome: "commit",
         }),
-        getKnobs: () => DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+        getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
         recordUncommittedFrame: () => {
           throw new Error("Unexpected uncommitted frame completion.");
         },
       } as unknown as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["scheduler"],
+      >[0]["reducerRuntime"],
       transactionProof: {
         commitProof: {
           commitAuthorityProof,
@@ -742,7 +742,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       >[0]["transactionProof"],
     });
 
-    expect(completion.completeSchedulerFrame()).toEqual({
+    expect(completion.completeReducerFrame()).toEqual({
       completion: {
         debt: { content: true, maintenance: false, motion: true },
         outcome: "commit",
@@ -754,7 +754,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
   });
 
-  it("keeps held-previous budget blocked retained follow-up queued behind scheduler debt", () => {
+  it("keeps held-previous budget blocked retained follow-up queued behind reducer debt", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
       forceImmediatePublicationDebtFrame: false,
@@ -769,18 +769,18 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["publicationDecision"],
-      scheduler: {
+      reducerRuntime: {
         completeFrame: () => {
           throw new Error("Unexpected committed frame completion.");
         },
-        getKnobs: () => DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+        getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
         recordUncommittedFrame: () => ({
           debt: { content: true, maintenance: true, motion: true },
           outcome: "blocked",
         }),
       } as unknown as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
-      >[0]["scheduler"],
+      >[0]["reducerRuntime"],
       transactionProof: {
         blockedProof: {
           blockedReasons: [
@@ -829,7 +829,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
 
     expect(completion.outcome.kind).toBe("blocked");
     expect(completion.followUpFrameRequests).toEqual(["texture-upload"]);
-    expect(completion.completeSchedulerFrame()).toEqual({
+    expect(completion.completeReducerFrame()).toEqual({
       completion: {
         debt: { content: true, maintenance: true, motion: true },
         outcome: "blocked",
@@ -863,7 +863,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
     } as unknown as Parameters<
       typeof proveGpuFlowVisibleFramePublicationPresentation
     >[0]["publicationDecision"],
-    scheduler: {
+    reducerRuntime: {
       completeFrame: () => ({
         debt: {
           content: false,
@@ -887,7 +887,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
       }),
     } as unknown as Parameters<
       typeof proveGpuFlowVisibleFramePublicationPresentation
-    >[0]["scheduler"],
+    >[0]["reducerRuntime"],
     transactionProof: {
       commitProof: {
         commitAuthorityProof,

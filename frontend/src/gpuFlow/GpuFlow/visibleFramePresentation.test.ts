@@ -100,7 +100,7 @@ describe("GPU Flow surface publication completion", () => {
     expect(submitDomTransforms).not.toHaveBeenCalled();
   });
 
-  it("does not complete scheduler debt when committed publication fails before visibility advances", () => {
+  it("does not complete reducer debt when committed publication fails before visibility advances", () => {
     const committedFrame = committedSurfaceFrame({ displayFrameId: 12 });
     const selectedState = visibleProjectionState({
       displayFrameId: committedFrame.displayFrameId,
@@ -111,7 +111,7 @@ describe("GPU Flow surface publication completion", () => {
       frame: committedFrame,
       projectionSample: selectedState.sample,
     });
-    let schedulerCompletionCount = 0;
+    let reducerCompletionCount = 0;
     const submitCanvas = vi.fn();
     const presenter = createTestVisibleFramePresentation({
       abortPreparedCommittedSurfaceFrame: () => {
@@ -153,7 +153,7 @@ describe("GPU Flow surface publication completion", () => {
             submitCanvas,
           }),
           onCompleteSchedulerFrame: () => {
-            schedulerCompletionCount += 1;
+            reducerCompletionCount += 1;
           },
           selectedState,
           token,
@@ -161,7 +161,7 @@ describe("GPU Flow surface publication completion", () => {
       ),
     ).toThrow(/commit failed before visible publication/);
     expect(submitCanvas).not.toHaveBeenCalled();
-    expect(schedulerCompletionCount).toBe(0);
+    expect(reducerCompletionCount).toBe(0);
   });
 
   it("submits prepared visible work only during committed publication", () => {
@@ -258,7 +258,7 @@ describe("GPU Flow surface publication completion", () => {
     const commitPreparedCommittedSurfaceFrame = vi.fn(() => true);
     const projectCommittedBrowserVisualActors = vi.fn();
     const validatePreparedCommittedSurfaceFrame = vi.fn();
-    let schedulerCompletionCount = 0;
+    let reducerCompletionCount = 0;
     const presenter = createTestVisibleFramePresentation({
       abortPreparedCommittedSurfaceFrame: () => {
         throw new Error("Unexpected prepared committed surface abort.");
@@ -298,7 +298,7 @@ describe("GPU Flow surface publication completion", () => {
             },
           }),
           onCompleteSchedulerFrame: () => {
-            schedulerCompletionCount += 1;
+            reducerCompletionCount += 1;
           },
           selectedState,
           token,
@@ -308,10 +308,10 @@ describe("GPU Flow surface publication completion", () => {
     expect(validatePreparedCommittedSurfaceFrame).toHaveBeenCalledOnce();
     expect(commitPreparedCommittedSurfaceFrame).not.toHaveBeenCalled();
     expect(projectCommittedBrowserVisualActors).not.toHaveBeenCalled();
-    expect(schedulerCompletionCount).toBe(0);
+    expect(reducerCompletionCount).toBe(0);
   });
 
-  it("lets scheduler debt own duplicate retained follow-up frame requests", () => {
+  it("lets reducer debt own duplicate retained follow-up frame requests", () => {
     const committedFrame = committedSurfaceFrame({ displayFrameId: 31 });
     const selectedState = visibleProjectionState({
       displayFrameId: committedFrame.displayFrameId,
@@ -421,7 +421,7 @@ describe("GPU Flow surface publication completion", () => {
           frameReason: "manual",
         },
         onCompleteSchedulerFrame: () => {},
-        schedulerCompletion: {
+        reducerCompletion: {
           debt: {
             content: true,
             maintenance: false,
@@ -498,7 +498,7 @@ describe("GPU Flow surface publication completion", () => {
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
     } as unknown as Parameters<typeof createTestVisibleFramePresentation>[0]);
-    const schedulerCompletion = {
+    const reducerCompletion = {
       debt: {
         content: true,
         maintenance: false,
@@ -515,7 +515,7 @@ describe("GPU Flow surface publication completion", () => {
           frameReason: "manual",
         },
         onCompleteSchedulerFrame: () => {},
-        schedulerCompletion,
+        reducerCompletion,
         selectedState: firstSelectedState,
         token: firstToken,
       }),
@@ -528,7 +528,7 @@ describe("GPU Flow surface publication completion", () => {
           frameReason: "manual",
         },
         onCompleteSchedulerFrame: () => {},
-        schedulerCompletion,
+        reducerCompletion,
         selectedState: secondSelectedState,
         token: secondToken,
       }),
@@ -612,7 +612,7 @@ describe("GPU Flow surface publication completion", () => {
           frameReason: "texture-upload",
         },
         sample,
-        schedulerCompletion: {
+        reducerCompletion: {
           debt: {
             content: true,
             maintenance: true,
@@ -683,7 +683,7 @@ describe("GPU Flow surface publication completion", () => {
           selectedResourceDebtIds: selectedResourceKeys,
         }),
         sample,
-        schedulerCompletion: {
+        reducerCompletion: {
           debt: {
             content: true,
             maintenance: false,
@@ -765,7 +765,7 @@ describe("GPU Flow surface publication completion", () => {
         blockedResourceWork: resourceWork,
         debtFrameRequest: null,
         sample,
-        schedulerCompletion: {
+        reducerCompletion: {
           debt: {
             content: true,
             maintenance: false,
@@ -801,7 +801,7 @@ function heldPreviousPublicationTransaction({
 }): GpuFlowSurfacePublicationTransaction {
   return {
     coldStartShellPublication: null,
-    completeSchedulerFrame: () => ({
+    completeReducerFrame: () => ({
       completion: {
         debt: {
           content: false,
@@ -855,7 +855,7 @@ function committedPublicationTransaction({
   followUpFrameRequests = [],
   nodeLayerFrameStatePublication = null,
   onCompleteSchedulerFrame,
-  schedulerCompletion = {
+  reducerCompletion = {
     debt: {
       content: false,
       maintenance: false,
@@ -871,7 +871,7 @@ function committedPublicationTransaction({
   readonly followUpFrameRequests?: readonly string[];
   readonly nodeLayerFrameStatePublication?: unknown;
   readonly onCompleteSchedulerFrame: () => void;
-  readonly schedulerCompletion?: unknown;
+  readonly reducerCompletion?: unknown;
   readonly selectedState: GpuFlowVisibleProjectionState;
   readonly token: ReturnType<
     typeof createGpuFlowVisibleFrameCommitPublicationTokenForTest
@@ -882,10 +882,10 @@ function committedPublicationTransaction({
       frame: null,
       token,
     },
-    completeSchedulerFrame: () => {
+    completeReducerFrame: () => {
       onCompleteSchedulerFrame();
       return {
-        completion: schedulerCompletion,
+        completion: reducerCompletion,
         debtFrameRequest,
       };
     },
@@ -1003,7 +1003,7 @@ function blockedPublicationTransaction({
   debtFrameRequest,
   publicationFrameContext = publicationFrameContextForTest(),
   sample,
-  schedulerCompletion,
+  reducerCompletion,
   token,
 }: {
   readonly blockedFrame: GpuFlowCommittedSurfaceFrame;
@@ -1015,15 +1015,15 @@ function blockedPublicationTransaction({
   readonly debtFrameRequest: unknown;
   readonly publicationFrameContext?: unknown;
   readonly sample: GpuFlowLiveProjectionSample;
-  readonly schedulerCompletion: unknown;
+  readonly reducerCompletion: unknown;
   readonly token: ReturnType<
     typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
   >;
 }): GpuFlowSurfacePublicationTransaction {
   return {
     coldStartShellPublication: null,
-    completeSchedulerFrame: () => ({
-      completion: schedulerCompletion,
+    completeReducerFrame: () => ({
+      completion: reducerCompletion,
       debtFrameRequest,
     }),
     followUpFrameRequests: [],

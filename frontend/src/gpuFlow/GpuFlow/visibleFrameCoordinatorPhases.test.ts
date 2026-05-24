@@ -19,7 +19,7 @@ const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   ),
 );
 const SCHEDULING_REDUCTION_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFrameSchedulingReduction.ts", import.meta.url),
+  new URL("./visibleFramePublicationDebt.ts", import.meta.url),
 );
 const AUTHORITY_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresentationProofs.ts", import.meta.url),
@@ -193,7 +193,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expect(source).not.toContain(
       "export function selectGpuFlowVisibleFramePublicationTransaction",
     );
-    expect(source).not.toContain("scheduler.selectFrame({");
+    expect(source).not.toContain("reducerRuntime.selectFrame({");
     expect(source).not.toContain(
       "prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet",
     );
@@ -262,7 +262,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expect(stateMachineSource).toContain('"blocked-candidate"');
   });
 
-  it("keeps transaction proof, scheduler completion, and publication decision out of the surface frame adapter", () => {
+  it("keeps transaction proof, reducer completion, and publication decision out of the surface frame adapter", () => {
     const source = readFileSync(SURFACE_FRAME_PUBLICATION_MODULE_PATH, "utf8");
 
     expect(source).not.toContain(
@@ -286,7 +286,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "selectContentPublicationBlockedCandidateForFrameResult",
     );
     expect(source).not.toContain(
-      "visiblePublicationSchedulerRef.current.getKnobs",
+      "visibleFrameReducerRuntimeRef.current.getKnobs",
     );
     expect(source).not.toMatch(
       /\.(?:selectFrame|completeFrame|recordUncommittedFrame)\s*\(/,
@@ -362,7 +362,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     );
   });
 
-  it("keeps scheduler debt frame requests private to publication completion", () => {
+  it("keeps reducer debt frame requests private to publication completion", () => {
     const completionSource = readFileSync(
       SURFACE_PUBLICATION_COMPLETION_MODULE_PATH,
       "utf8",

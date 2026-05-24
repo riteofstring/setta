@@ -4,7 +4,7 @@ import {
   shouldDeferGpuFlowBrowserVisualRepairForBudget,
   type GpuFlowVisibleFrameBudgetBroker,
 } from "./visibleFrameBudgetBroker";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
 
 export type GpuFlowMotionProjectionWorkPlan =
   | {

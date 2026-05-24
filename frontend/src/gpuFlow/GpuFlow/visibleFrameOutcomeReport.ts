@@ -1,4 +1,4 @@
-// Builds outcome reports and scheduler completion records after a frame is proved.
+// Builds outcome reports and reducer completion records after a frame is proved.
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type {
@@ -9,7 +9,7 @@ import type {
 import type {
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import {
   createGpuFlowVisiblePublicationCommitProofReport,
   createGpuFlowVisiblePublicationTransactionProofReport,
@@ -19,7 +19,7 @@ import {
 } from "./visibleFrameTransactionProofs";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
-export type { GpuFlowVisiblePublicationCompletion } from "./visibleFrameScheduling";
+export type { GpuFlowVisiblePublicationCompletion } from "./visibleFrameReducerRuntime";
 
 export type GpuFlowVisiblePublicationOutcome =
   | {
@@ -38,14 +38,14 @@ export type GpuFlowVisiblePublicationOutcome =
 
 export type GpuFlowVisiblePublicationTransactionCompletion = {
   readonly coldStartShellPublication: GpuFlowColdStartShellPublication;
-  readonly completeSchedulerFrame: () => GpuFlowVisiblePublicationSchedulerFrameCompletion;
+  readonly completeReducerFrame: () => GpuFlowVisiblePublicationReducerFrameCompletion;
   readonly followUpFrameRequests: readonly GpuFrameReason[];
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly previousCommittedFrameId: number | null;
 };
 
-export type GpuFlowVisiblePublicationSchedulerFrameCompletion = {
+export type GpuFlowVisiblePublicationReducerFrameCompletion = {
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
 };
@@ -98,7 +98,7 @@ export function createGpuFlowVisiblePublicationTransactionReport({
     remainingActorDebt: commitProofReport.remainingActorDebt,
     remainingDebt: completion.debt,
     resourceProtection: commitProofReport.resourceProtection,
-    schedulerOutcome: completion.outcome,
+    reducerOutcome: completion.outcome,
     schedulerState: publicationDecision.schedulerState,
     token,
     transactionId: getGpuFlowVisiblePublicationOutcomeTransactionId(outcome),

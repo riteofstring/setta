@@ -3,15 +3,15 @@ import { describe, expect, it } from "vitest";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
 import {
-  createGpuFlowVisibleFrameRequestCoordinator,
+  createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFrameTestUtils";
 
 describe("GPU Flow cold-start maintenance retry", () => {
   it("lets maintenance upload run after browser text snapshots block first content", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const content = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: false,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(1),
@@ -21,7 +21,7 @@ describe("GPU Flow cold-start maintenance retry", () => {
     expect(content.schedulerState).toBe("content-catchup");
     expect(content.lane).toBe("content");
 
-    completeBlockedFrame(scheduler, content, [
+    completeBlockedFrame(reducerRuntime, content, [
       {
         actorId: "retained-dom-control:a",
         family: "browser-text-snapshot",
@@ -29,7 +29,7 @@ describe("GPU Flow cold-start maintenance retry", () => {
       },
     ]);
 
-    const upload = scheduler.selectFrame({
+    const upload = reducerRuntime.selectFrame({
       hasCommittedContentFrame: false,
       rawReasons: ["manual", "texture-upload", "paint"],
       sample: liveSample(250),
@@ -47,11 +47,11 @@ describe("GPU Flow cold-start maintenance retry", () => {
 });
 
 function completeBlockedFrame(
-  scheduler: ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator>,
+  reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisiblePublicationDecision,
   blockedReasons: GpuFlowBlockedPublicationToken["blockedReasons"],
 ) {
-  return scheduler.recordUncommittedFrame(decision, {
+  return reducerRuntime.recordUncommittedFrame(decision, {
     kind: "blocked",
     token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
       blockedReasons,

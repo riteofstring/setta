@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createGpuFlowVisibleFrameRequestCoordinator,
+  createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
@@ -109,7 +109,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
             sample: liveProjectionSample({ id: 57, timestamp: 570 }),
             viewportInteractionActive: testCase.viewportInteractionActive,
           }),
-        scheduler: fixedPublicationScheduler({
+        reducerRuntime: fixedPublicationScheduler({
           lane: testCase.lane,
           schedulerState: testCase.schedulerState,
         }),
@@ -157,7 +157,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
           sample: liveProjectionSample({ id: 58, timestamp: 580 }),
           viewportInteractionActive: false,
         }),
-      scheduler: fixedPublicationScheduler({
+      reducerRuntime: fixedPublicationScheduler({
         lane: "content",
         schedulerState: "motion-settling",
       }),
@@ -232,7 +232,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
             ],
           },
         }),
-      scheduler: fixedPublicationScheduler({
+      reducerRuntime: fixedPublicationScheduler({
         lane: "content",
         schedulerState: "content-catchup",
       }),
@@ -324,7 +324,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
           },
           viewportInteractionActive: true,
         }),
-      scheduler: fixedPublicationScheduler({
+      reducerRuntime: fixedPublicationScheduler({
         lane: "motion",
         schedulerState: "motion-active",
       }),
@@ -371,8 +371,8 @@ function fixedPublicationScheduler({
 }: {
   readonly lane: GpuFlowVisiblePublicationDecision["lane"];
   readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
-}): ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator> {
-  const baseScheduler = createGpuFlowVisibleFrameRequestCoordinator();
+}): ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime> {
+  const baseScheduler = createGpuFlowVisibleFrameReducerRuntime();
   const debt = Object.freeze({
     content: false,
     maintenance: false,

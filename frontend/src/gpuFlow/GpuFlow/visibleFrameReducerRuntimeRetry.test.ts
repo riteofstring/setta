@@ -7,19 +7,19 @@ import {
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
 import {
-  createGpuFlowVisibleFrameRequestCoordinator,
+  createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameCommitPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
 } from "./visibleFrameTestUtils";
 
-describe("GPU Flow projection scheduler content retry throttling", () => {
+describe("GPU Flow visible frame reducer runtime content retry throttling", () => {
   it("defers motion retries after motion hits held-previous budget", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const motion = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const motion = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual"],
       sample: liveSample(1),
@@ -27,7 +27,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: true,
     });
     expect(motion.lane).toBe("motion");
-    completeBlockedFrame(scheduler, motion, [
+    completeBlockedFrame(reducerRuntime, motion, [
       {
         actorId: null,
         family: "retained-projection",
@@ -35,7 +35,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       },
     ]);
 
-    const immediateRetry = scheduler.selectFrame({
+    const immediateRetry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(2),
@@ -50,7 +50,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       motion: true,
     });
 
-    const delayedRetry = scheduler.selectFrame({
+    const delayedRetry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(250),
@@ -63,8 +63,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("keeps current retained scroll motion ahead of motion retry backoff", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const motion = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const motion = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual"],
       sample: liveSample(1),
@@ -72,7 +72,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: true,
     });
     expect(motion.lane).toBe("motion");
-    completeBlockedFrame(scheduler, motion, [
+    completeBlockedFrame(reducerRuntime, motion, [
       {
         actorId: null,
         family: "retained-projection",
@@ -80,7 +80,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       },
     ]);
 
-    const retainedScroll = scheduler.selectFrame({
+    const retainedScroll = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(2),
@@ -90,7 +90,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     expect(retainedScroll.schedulerState).toBe("content-catchup");
     expect(retainedScroll.lane).toBe("motion");
 
-    const nonMotionRepair = scheduler.selectFrame({
+    const nonMotionRepair = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(3),
@@ -102,8 +102,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("keeps current retained scroll motion ahead of stale critical content debt", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const activation = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const activation = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["dom-control-activation"],
       sample: liveSample(1),
@@ -111,9 +111,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: false,
     });
     expect(activation.lane).toBe("content");
-    completeBlockedFrame(scheduler, activation);
+    completeBlockedFrame(reducerRuntime, activation);
 
-    const retainedScroll = scheduler.selectFrame({
+    const retainedScroll = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(2),
@@ -130,8 +130,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("keeps current viewport motion ahead of stale critical content debt", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const activation = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const activation = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["dom-control-activation"],
       sample: liveSample(1),
@@ -139,9 +139,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: false,
     });
     expect(activation.lane).toBe("content");
-    completeBlockedFrame(scheduler, activation);
+    completeBlockedFrame(reducerRuntime, activation);
 
-    const viewport = scheduler.selectFrame({
+    const viewport = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["viewport", "manual"],
       sample: liveSample(2),
@@ -158,8 +158,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("defers immediate content retries after held-previous budget blocks", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const motion = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const motion = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual"],
       sample: liveSample(1),
@@ -167,9 +167,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: true,
     });
     expect(motion.lane).toBe("motion");
-    completeBlockedFrame(scheduler, motion);
+    completeBlockedFrame(reducerRuntime, motion);
 
-    const blockedContent = scheduler.selectFrame({
+    const blockedContent = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(2),
@@ -177,7 +177,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: false,
     });
     expect(blockedContent.lane).toBe("content");
-    completeBlockedFrame(scheduler, blockedContent, [
+    completeBlockedFrame(reducerRuntime, blockedContent, [
       {
         actorId: null,
         family: "visible-transaction",
@@ -185,7 +185,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       },
     ]);
 
-    const immediateRetry = scheduler.selectFrame({
+    const immediateRetry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(3),
@@ -200,7 +200,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       motion: true,
     });
 
-    const delayedRetry = scheduler.selectFrame({
+    const delayedRetry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(250),
@@ -213,8 +213,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("keeps motion ahead of ordinary manual content repair while a motion reason is current", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const motion = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const motion = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["viewport"],
       sample: liveSample(1),
@@ -222,9 +222,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: true,
     });
     expect(motion.lane).toBe("motion");
-    completeBlockedFrame(scheduler, motion);
+    completeBlockedFrame(reducerRuntime, motion);
 
-    const repair = scheduler.selectFrame({
+    const repair = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(250),
@@ -241,8 +241,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("keeps motion ahead of explicit content repair while motion maintenance is current", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const motion = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const motion = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["viewport"],
       sample: liveSample(1),
@@ -250,9 +250,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: true,
     });
     expect(motion.lane).toBe("motion");
-    completeBlockedFrame(scheduler, motion);
+    completeBlockedFrame(reducerRuntime, motion);
 
-    const repair = scheduler.selectFrame({
+    const repair = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "viewport", "texture-upload"],
       sample: liveSample(2),
@@ -267,9 +267,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       motion: false,
     });
 
-    completeBlockedFrame(scheduler, repair);
+    completeBlockedFrame(reducerRuntime, repair);
 
-    const settledRepair = scheduler.selectFrame({
+    const settledRepair = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(3),
@@ -286,8 +286,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("lets content repair run after motion is blocked by missing section surface actors", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const motion = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const motion = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(1),
@@ -296,7 +296,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
     expect(motion.schedulerState).toBe("motion-active");
     expect(motion.lane).toBe("motion");
-    completeBlockedFrame(scheduler, motion, [
+    completeBlockedFrame(reducerRuntime, motion, [
       {
         actorId: "section-a:section-shell",
         family: "section-shell",
@@ -309,7 +309,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       },
     ]);
 
-    const repair = scheduler.selectFrame({
+    const repair = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(2),
@@ -326,8 +326,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("keeps content repair ahead of motion after content is blocked by missing section surface actors", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const content = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -341,7 +341,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       maintenance: false,
       motion: false,
     });
-    completeBlockedFrame(scheduler, content, [
+    completeBlockedFrame(reducerRuntime, content, [
       {
         actorId: "section-a:section-shell",
         family: "section-shell",
@@ -354,7 +354,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       },
     ]);
 
-    const repair = scheduler.selectFrame({
+    const repair = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "texture-upload"],
       sample: liveSample(250),
@@ -371,8 +371,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("lets maintenance upload run after content is blocked by pending browser text snapshots", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const content = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(1),
@@ -386,7 +386,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       maintenance: true,
       motion: false,
     });
-    completeBlockedFrame(scheduler, content, [
+    completeBlockedFrame(reducerRuntime, content, [
       {
         actorId: "retained-dom-control:a",
         family: "browser-text-snapshot",
@@ -394,7 +394,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       },
     ]);
 
-    const upload = scheduler.selectFrame({
+    const upload = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["texture-upload"],
       sample: liveSample(2),
@@ -411,8 +411,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("retries content immediately after browser text snapshot maintenance uploads", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const content = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(1),
@@ -421,7 +421,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
     expect(content.schedulerState).toBe("content-catchup");
     expect(content.lane).toBe("content");
-    completeBlockedFrame(scheduler, content, [
+    completeBlockedFrame(reducerRuntime, content, [
       {
         actorId: "retained-dom-control:a",
         family: "browser-text-snapshot",
@@ -429,7 +429,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       },
     ]);
 
-    const upload = scheduler.selectFrame({
+    const upload = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["texture-upload"],
       sample: liveSample(2),
@@ -438,9 +438,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
     expect(upload.schedulerState).toBe("maintenance-drain");
     expect(upload.lane).toBe("maintenance");
-    completeCommittedFrame(scheduler, upload);
+    completeCommittedFrame(reducerRuntime, upload);
 
-    const retry = scheduler.selectFrame({
+    const retry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(3),
@@ -457,8 +457,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("keeps projection-only viewport frames ahead of browser visual maintenance", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const content = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(1),
@@ -467,7 +467,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
     expect(content.schedulerState).toBe("content-catchup");
     expect(content.lane).toBe("content");
-    completeBlockedFrame(scheduler, content, [
+    completeBlockedFrame(reducerRuntime, content, [
       {
         actorId: "retained-dom-control:a",
         family: "browser-text-snapshot",
@@ -475,7 +475,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       },
     ]);
 
-    const viewport = scheduler.selectFrame({
+    const viewport = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["viewport", "texture-upload"],
       sample: liveSample(2),
@@ -492,8 +492,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("lets browser text snapshot content repair preempt noninteractive viewport motion after retry delay", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const content = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(1),
@@ -502,7 +502,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
     expect(content.schedulerState).toBe("content-catchup");
     expect(content.lane).toBe("content");
-    completeBlockedFrame(scheduler, content, [
+    completeBlockedFrame(reducerRuntime, content, [
       {
         actorId: "retained-dom-control:a",
         family: "browser-text-snapshot",
@@ -510,7 +510,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       },
     ]);
 
-    const immediateViewportRepair = scheduler.selectFrame({
+    const immediateViewportRepair = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(2),
@@ -524,9 +524,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       maintenance: true,
       motion: false,
     });
-    completeCommittedFrame(scheduler, immediateViewportRepair);
+    completeCommittedFrame(reducerRuntime, immediateViewportRepair);
 
-    const deferredViewportRepair = scheduler.selectFrame({
+    const deferredViewportRepair = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(250),
@@ -541,7 +541,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       motion: true,
     });
 
-    const delayedViewportRepair = scheduler.selectFrame({
+    const delayedViewportRepair = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(600),
@@ -558,8 +558,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("lets active DOM control publication preempt motion maintenance", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const motion = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const motion = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(1),
@@ -567,9 +567,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: true,
     });
     expect(motion.lane).toBe("motion");
-    completeBlockedFrame(scheduler, motion);
+    completeBlockedFrame(reducerRuntime, motion);
 
-    const activation = scheduler.selectFrame({
+    const activation = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: [
         "dom-control-activation",
@@ -590,9 +590,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("lets retained projection coverage recover before retrying blocked active DOM control debt", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const activation = scheduler.selectFrame({
+    const activation = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: [
         "dom-control-activation",
@@ -605,7 +605,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
     expect(activation.schedulerState).toBe("motion-active");
     expect(activation.lane).toBe("content");
-    completeBlockedFrame(scheduler, activation, [
+    completeBlockedFrame(reducerRuntime, activation, [
       {
         actorId: null,
         family: "retained-projection",
@@ -613,7 +613,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       },
     ]);
 
-    const retry = scheduler.selectFrame({
+    const retry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "texture-upload"],
       sample: liveSample(2),
@@ -628,9 +628,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       motion: false,
     });
 
-    completeCommittedFrame(scheduler, retry);
+    completeCommittedFrame(reducerRuntime, retry);
 
-    const deferredContentRetry = scheduler.selectFrame({
+    const deferredContentRetry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(3),
@@ -640,7 +640,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     expect(deferredContentRetry.schedulerState).toBe("maintenance-deferred");
     expect(deferredContentRetry.lane).toBe("idle");
 
-    const contentRetry = scheduler.selectFrame({
+    const contentRetry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(4),
@@ -652,9 +652,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("probes explicit queued content repair during noninteractive viewport motion", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const content = scheduler.selectFrame({
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -662,10 +662,10 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(scheduler, content);
+    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
     for (let index = 0; index < 6; index += 1) {
-      const motion = scheduler.selectFrame({
+      const motion = reducerRuntime.selectFrame({
         hasCommittedContentFrame: true,
         rawReasons: ["viewport"],
         sample: liveSample(2 + index),
@@ -674,10 +674,10 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       });
       expect(motion.schedulerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(scheduler, motion);
+      completeCommittedFrame(reducerRuntime, motion);
     }
 
-    const contentProbe = scheduler.selectFrame({
+    const contentProbe = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["viewport", "manual"],
       sample: liveSample(8),
@@ -689,9 +689,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("does not probe queued content debt while motion maintenance is still pending", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const content = scheduler.selectFrame({
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -699,10 +699,10 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(scheduler, content);
+    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
     for (let index = 0; index < 6; index += 1) {
-      const motion = scheduler.selectFrame({
+      const motion = reducerRuntime.selectFrame({
         hasCommittedContentFrame: true,
         rawReasons: ["retained-scroll", "paint", "viewport"],
         sample: liveSample(2 + index),
@@ -711,10 +711,10 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       });
       expect(motion.schedulerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(scheduler, motion);
+      completeCommittedFrame(reducerRuntime, motion);
     }
 
-    const contentProbe = scheduler.selectFrame({
+    const contentProbe = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["viewport", "manual"],
       sample: liveSample(8),
@@ -731,9 +731,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("publishes short non-scroll maintenance content catchup", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const content = scheduler.selectFrame({
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -741,9 +741,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(scheduler, content);
+    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
-    const motion = scheduler.selectFrame({
+    const motion = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["paint", "viewport"],
       sample: liveSample(2),
@@ -752,9 +752,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
     expect(motion.schedulerState).toBe("motion-active");
     expect(motion.lane).toBe("motion");
-    completeCommittedFrame(scheduler, motion);
+    completeCommittedFrame(reducerRuntime, motion);
 
-    const contentCatchup = scheduler.selectFrame({
+    const contentCatchup = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(3),
@@ -771,9 +771,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("does not probe queued content debt during pure viewport motion", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const content = scheduler.selectFrame({
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -781,10 +781,10 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(scheduler, content);
+    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
     for (let index = 0; index < 6; index += 1) {
-      const motion = scheduler.selectFrame({
+      const motion = reducerRuntime.selectFrame({
         hasCommittedContentFrame: true,
         rawReasons: ["viewport"],
         sample: liveSample(2 + index),
@@ -793,10 +793,10 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       });
       expect(motion.schedulerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(scheduler, motion);
+      completeCommittedFrame(reducerRuntime, motion);
     }
 
-    const viewport = scheduler.selectFrame({
+    const viewport = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["viewport"],
       sample: liveSample(8),
@@ -808,8 +808,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("keeps motion ahead of retained native visual repair while motion maintenance is current", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const motion = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const motion = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(1),
@@ -817,9 +817,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: true,
     });
     expect(motion.lane).toBe("motion");
-    completeBlockedFrame(scheduler, motion);
+    completeBlockedFrame(reducerRuntime, motion);
 
-    const nativeVisual = scheduler.selectFrame({
+    const nativeVisual = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: [
         "retained-native-visual",
@@ -844,9 +844,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("keeps viewport frames ahead of retained native visual repair", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const nativeVisual = scheduler.selectFrame({
+    const nativeVisual = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-native-visual", "viewport", "texture-upload"],
       sample: liveSample(1),
@@ -863,9 +863,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("projects retained native visuals while carrying content repair debt", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const nativeVisual = scheduler.selectFrame({
+    const nativeVisual = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-native-visual", "texture-upload"],
       sample: liveSample(1),
@@ -882,9 +882,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("projects retained row hover visuals without content publication", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const rowHover = scheduler.selectFrame({
+    const rowHover = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-row-hover-visual", "texture-upload"],
       sample: liveSample(1),
@@ -901,9 +901,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("keeps viewport frames ahead of retained row hover visuals", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const rowHover = scheduler.selectFrame({
+    const rowHover = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-row-hover-visual", "texture-upload", "viewport"],
       sample: liveSample(1),
@@ -920,9 +920,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("lets retained row hover clear preempt viewport maintenance", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const rowHoverClear = scheduler.selectFrame({
+    const rowHoverClear = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-row-hover-clear", "viewport"],
       sample: liveSample(1),
@@ -939,8 +939,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("defers immediate content retries after content holds previous", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const content = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -948,9 +948,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeHeldFrame(scheduler, content);
+    completeHeldFrame(reducerRuntime, content);
 
-    const immediateRetry = scheduler.selectFrame({
+    const immediateRetry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(2),
@@ -965,7 +965,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       motion: false,
     });
 
-    const delayedRetry = scheduler.selectFrame({
+    const delayedRetry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(250),
@@ -978,8 +978,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("defers ordinary manual content catchup immediately after content publishes", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const content = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -987,9 +987,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCommittedFrame(scheduler, content);
+    completeCommittedFrame(reducerRuntime, content);
 
-    const immediateRetry = scheduler.selectFrame({
+    const immediateRetry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(2),
@@ -1004,7 +1004,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       motion: false,
     });
 
-    const delayedRetry = scheduler.selectFrame({
+    const delayedRetry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(250),
@@ -1016,8 +1016,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
   });
 
   it("does not extend content retry cooldown after idle held-previous budget blocks", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
-    const content = scheduler.selectFrame({
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -1025,9 +1025,9 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeHeldFrame(scheduler, content);
+    completeHeldFrame(reducerRuntime, content);
 
-    const idle = scheduler.selectFrame({
+    const idle = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(2),
@@ -1036,7 +1036,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
     expect(idle.schedulerState).toBe("idle");
     expect(idle.lane).toBe("idle");
-    completeBlockedFrame(scheduler, idle, [
+    completeBlockedFrame(reducerRuntime, idle, [
       {
         actorId: null,
         family: "visible-transaction",
@@ -1044,7 +1044,7 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
       },
     ]);
 
-    const delayedRetry = scheduler.selectFrame({
+    const delayedRetry = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(250),
@@ -1057,13 +1057,13 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
 });
 
 function completeBlockedFrame(
-  scheduler: ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator>,
+  reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisiblePublicationDecision,
   blockedReasons: GpuFlowBlockedPublicationToken["blockedReasons"] = [
     { actorId: null, family: "visible-transaction", reason: "blocked" },
   ],
 ) {
-  return scheduler.recordUncommittedFrame(decision, {
+  return reducerRuntime.recordUncommittedFrame(decision, {
     kind: "blocked",
     token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
       blockedReasons,
@@ -1074,24 +1074,24 @@ function completeBlockedFrame(
 }
 
 function completeCommittedFrame(
-  scheduler: ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator>,
+  reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisiblePublicationDecision,
 ) {
-  return scheduler.completeFrame(decision, {
+  return reducerRuntime.completeFrame(decision, {
     debtProof: createDebtProofForSelectedLane(decision),
     kind: "commit",
     token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
-      frame: committedFrameForSchedulerToken(decision),
+      frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),
   });
 }
 
 function completeCompatiblePreviousCommittedFrame(
-  scheduler: ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator>,
+  reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisiblePublicationDecision,
 ) {
-  return scheduler.completeFrame(decision, {
+  return reducerRuntime.completeFrame(decision, {
     debtProof: {
       content: false,
       maintenance: false,
@@ -1099,17 +1099,17 @@ function completeCompatiblePreviousCommittedFrame(
     },
     kind: "commit",
     token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
-      frame: committedFrameForSchedulerToken(decision),
+      frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),
   });
 }
 
 function completeHeldFrame(
-  scheduler: ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator>,
+  reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisiblePublicationDecision,
 ) {
-  return scheduler.recordUncommittedFrame(decision, {
+  return reducerRuntime.recordUncommittedFrame(decision, {
     kind: "hold-previous",
     token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
       committedFrameId: 41,
@@ -1151,7 +1151,7 @@ function createDebtProofForSelectedLane(
   };
 }
 
-function committedFrameForSchedulerToken(
+function committedFrameForReducerToken(
   decision: GpuFlowVisiblePublicationDecision,
 ): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = decision.sample.id;

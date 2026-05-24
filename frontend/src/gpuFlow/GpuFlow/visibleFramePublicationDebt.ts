@@ -14,7 +14,7 @@ import type {
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDebtProof,
   GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 
 type GpuFlowVisiblePublicationDebt = GpuFlowVisiblePublicationDecision["debt"];
 

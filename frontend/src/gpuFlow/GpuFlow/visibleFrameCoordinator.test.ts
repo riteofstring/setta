@@ -7,7 +7,7 @@ import {
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
-  createGpuFlowVisibleFrameRequestCoordinator,
+  createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionTransaction,
   type GpuFlowProjectionTransactionKind,
@@ -75,7 +75,7 @@ const prepareCommittedSurfacePublicationFramePlanForTest =
 
 describe("GPU Flow visible frame coordinator", () => {
   it("prepares motion and content candidate sets inside the coordinator before completion", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 50, timestamp: 500 });
     const contentVisibleState = visibleProjectionState({
       kind: "content-publication",
@@ -163,7 +163,7 @@ describe("GPU Flow visible frame coordinator", () => {
       },
       sampleVisibleFramePublication: () =>
         visibleFramePublicationSample({ sample }),
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(phases).toEqual([
@@ -204,7 +204,7 @@ describe("GPU Flow visible frame coordinator", () => {
   });
 
   it("binds retained projection decisions to the coordinator sample, reasons, and previous frame", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 54, timestamp: 540 });
     const previousVisibleProjectionState = visibleProjectionState({
       kind: "motion-projection",
@@ -276,7 +276,7 @@ describe("GPU Flow visible frame coordinator", () => {
           rawReasons: ["retained-scroll"],
           sample,
         }),
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(blockedCandidates).toEqual([]);
@@ -305,7 +305,7 @@ describe("GPU Flow visible frame coordinator", () => {
   });
 
   it("supplies a content publication stage runner from the coordinator", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 55, timestamp: 550 });
     let suppliedRunner = false;
     runGpuFlowVisibleFrameCoordinator({
@@ -337,13 +337,13 @@ describe("GPU Flow visible frame coordinator", () => {
       publish: () => {},
       sampleVisibleFramePublication: () =>
         visibleFramePublicationSample({ sample }),
-      scheduler,
+      reducerRuntime: scheduler,
     });
     expect(suppliedRunner).toBe(true);
   });
 
   it("uses one commit proof for compatible-previous proof reports and debt", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const publicationDecision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
@@ -421,7 +421,7 @@ describe("GPU Flow visible frame coordinator", () => {
   ])(
     "blocks $blockedSource compatible-previous proof before publishing a commit token",
     ({ blockedSource, frameInput, reason }) => {
-      const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+      const scheduler = createGpuFlowVisibleFrameReducerRuntime();
       const sample = liveProjectionSample({ id: 53, timestamp: 530 });
       const previousVisibleProjectionState = visibleProjectionState({
         kind: "content-publication",
@@ -445,7 +445,7 @@ describe("GPU Flow visible frame coordinator", () => {
           publishedOutcome = transaction.outcome.kind;
         },
         sample,
-        scheduler,
+        reducerRuntime: scheduler,
       });
 
       expect(result.outcome.kind).toBe("blocked");
@@ -465,7 +465,7 @@ describe("GPU Flow visible frame coordinator", () => {
   );
 
   it("lets the state machine hold a proof-blocked candidate when the previous frame covers the actors", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 531, timestamp: 5310 });
     const previousVisibleProjectionState = visibleProjectionState({
       committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage(),
@@ -487,7 +487,7 @@ describe("GPU Flow visible frame coordinator", () => {
       }),
       previousVisibleProjectionState,
       sample,
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(result.preparedFrame.transactionProof.blockedSource).toBe(
@@ -507,7 +507,7 @@ describe("GPU Flow visible frame coordinator", () => {
   });
 
   it("keeps selected content debt queued for blocked transactions", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const result = runPreparedCandidateKernel({
       contentFrame: testPublicationCandidate({
         blockedPublicationCandidate: {
@@ -522,7 +522,7 @@ describe("GPU Flow visible frame coordinator", () => {
         },
       }),
       sample: liveProjectionSample({ id: 2, timestamp: 20 }),
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(result.publicationDecision.lane).toBe("content");
@@ -540,7 +540,7 @@ describe("GPU Flow visible frame coordinator", () => {
     expect(result.outcome.token.frozenFrameId).toBe(
       GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
     );
-    expect(result.completeSchedulerFrame().completion.debt.content).toBe(true);
+    expect(result.completeReducerFrame().completion.debt.content).toBe(true);
   });
 
   it.each([
@@ -939,7 +939,7 @@ function runPreparedCandidateKernel({
   publish = () => {},
   rawReasons = ["manual"],
   sample,
-  scheduler,
+  reducerRuntime: scheduler,
   viewportInteractionActive = false,
 }: {
   readonly contentFrame?: TestPublicationCandidate;
@@ -954,8 +954,8 @@ function runPreparedCandidateKernel({
   >[0]["publish"];
   readonly rawReasons?: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
-  readonly scheduler: ReturnType<
-    typeof createGpuFlowVisibleFrameRequestCoordinator
+  readonly reducerRuntime: ReturnType<
+    typeof createGpuFlowVisibleFrameReducerRuntime
   >;
   readonly viewportInteractionActive?: boolean;
 }) {
@@ -977,7 +977,7 @@ function runPreparedCandidateKernel({
         sample,
         viewportInteractionActive,
       }),
-    scheduler,
+    reducerRuntime: scheduler,
   });
 }
 

@@ -2,7 +2,7 @@ import type { GpuSurfaceHandle } from "../GpuSurface";
 import type {
   GpuFlowVisiblePublicationCompletionOutcome,
   GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 
 type GpuFlowVisiblePublicationOutcomeRecord = {
   readonly outcome: GpuFlowVisiblePublicationCompletionOutcome["kind"];

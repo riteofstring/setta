@@ -45,7 +45,7 @@ import {
   selectGpuFlowProjectionMotionSettlingState,
   selectGpuFlowProjectionNonMotionSchedulerState,
   shouldPublishGpuFlowProjectionContentDebtNow,
-} from "./visibleFrameSchedulingReduction";
+} from "./visibleFramePublicationDebt";
 import {
   createGpuFlowVisibleFrameStarvationPolicy,
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
@@ -54,9 +54,9 @@ import {
   type GpuFlowVisibleFrameStarvationPolicy,
 } from "./visibleFrameStateMachine";
 
-export type GpuFlowProjectionSchedulerKnobs =
+export type GpuFlowVisibleFrameReducerPolicy =
   GpuFlowVisibleFrameStarvationPolicy;
-export const DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS: GpuFlowProjectionSchedulerKnobs =
+export const DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY: GpuFlowVisibleFrameReducerPolicy =
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY;
 
 export type GpuFlowVisiblePublicationDecision = {
@@ -107,12 +107,12 @@ export type GpuFlowVisiblePublicationCompletionOutcome =
   | GpuFlowVisiblePublicationCommitCompletionOutcome
   | GpuFlowVisiblePublicationUncommittedCompletionOutcome;
 
-export type GpuFlowVisibleFrameRequestCoordinator = {
+export type GpuFlowVisibleFrameReducerRuntime = {
   completeFrame(
     decision: GpuFlowVisiblePublicationDecision,
     outcome: GpuFlowVisiblePublicationCommitCompletionOutcome,
   ): GpuFlowVisiblePublicationCompletion;
-  getKnobs(): GpuFlowProjectionSchedulerKnobs;
+  getKnobs(): GpuFlowVisibleFrameReducerPolicy;
   recordUncommittedFrame(
     decision: GpuFlowVisiblePublicationDecision,
     outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcome,
@@ -133,12 +133,12 @@ export type GpuFlowVisibleFrameRequestCoordinator = {
   }): GpuFlowVisiblePublicationDecision;
 };
 
-export function createGpuFlowVisibleFrameRequestCoordinator({
-  knobs = DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+export function createGpuFlowVisibleFrameReducerRuntime({
+  knobs = DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
 }: {
-  readonly knobs?: GpuFlowProjectionSchedulerKnobs | undefined;
-} = {}): GpuFlowVisibleFrameRequestCoordinator {
-  const schedulerKnobs = createGpuFlowVisibleFrameStarvationPolicy(knobs);
+  readonly knobs?: GpuFlowVisibleFrameReducerPolicy | undefined;
+} = {}): GpuFlowVisibleFrameReducerRuntime {
+  const reducerPolicy = createGpuFlowVisibleFrameStarvationPolicy(knobs);
   let contentDebt = false;
   let maintenanceDebt = false;
   let motionDebt = false;
@@ -305,7 +305,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
             motionDebt,
             rawReasons,
           }),
-        maxContentInterleaveMs: schedulerKnobs.maxContentInterleaveMs,
+        maxContentInterleaveMs: reducerPolicy.maxContentInterleaveMs,
         rawReasons,
         viewportInteractionActive,
       })
@@ -471,9 +471,9 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
       !viewportInteractionActive &&
       rawReasons.some(isGpuFlowContentFrameReason) &&
       !rawReasons.some(isGpuFlowRetainedMotionFrameReason) &&
-      schedulerKnobs.maxContentInterleaveMs > 0 &&
+      reducerPolicy.maxContentInterleaveMs > 0 &&
       consecutiveMotionFrames >=
-        schedulerKnobs.maxConsecutiveMotionFramesBeforeContentProbe
+        reducerPolicy.maxConsecutiveMotionFramesBeforeContentProbe
     );
   }
 
@@ -490,7 +490,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
       maintenanceDebt &&
       motionDebt &&
       consecutiveMotionFrames >=
-        schedulerKnobs.maxConsecutiveMotionFramesBeforeContentProbe &&
+        reducerPolicy.maxConsecutiveMotionFramesBeforeContentProbe &&
       !hasGpuFlowCriticalContentFrameRequest(rawReasons)
     );
   }
@@ -506,7 +506,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
       maintenanceDebt &&
       lastRetainedScrollAtMs !== null &&
       timestamp - lastRetainedScrollAtMs <=
-        schedulerKnobs.motionSettleWindowMs *
+        reducerPolicy.motionSettleWindowMs *
           GPU_FLOW_RETAINED_SCROLL_CONTENT_SETTLE_DELAY_MULTIPLIER
     );
   }
@@ -555,7 +555,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
   ): boolean {
     return (
       lastMotionAtMs !== null &&
-      timestamp - lastMotionAtMs <= schedulerKnobs.motionSettleWindowMs
+      timestamp - lastMotionAtMs <= reducerPolicy.motionSettleWindowMs
     );
   }
 
@@ -564,7 +564,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
   ): boolean {
     return (
       lastContentAtMs !== null &&
-      timestamp - lastContentAtMs < schedulerKnobs.motionSettleWindowMs * 2
+      timestamp - lastContentAtMs < reducerPolicy.motionSettleWindowMs * 2
     );
   }
 
@@ -600,7 +600,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
         : GPU_FLOW_CONTENT_BLOCKED_RETRY_DELAY_MULTIPLIER;
       const contentRetryBlockedUntil =
         decision.sample.timestamp +
-        schedulerKnobs.motionSettleWindowMs * contentRetryDelayMultiplier;
+        reducerPolicy.motionSettleWindowMs * contentRetryDelayMultiplier;
       contentRetryBlockedUntilMs = Math.max(
         contentRetryBlockedUntilMs ?? 0,
         contentRetryBlockedUntil,
@@ -616,7 +616,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
         browserVisualContentRepairMotionCooldownUntilMs = Math.max(
           browserVisualContentRepairMotionCooldownUntilMs ?? 0,
           decision.sample.timestamp +
-            schedulerKnobs.motionSettleWindowMs *
+            reducerPolicy.motionSettleWindowMs *
               GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER,
         );
       }
@@ -633,7 +633,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     return (
       lastMotionAtMs !== null &&
       timestamp - lastMotionAtMs <=
-        schedulerKnobs.motionSettleWindowMs *
+        reducerPolicy.motionSettleWindowMs *
           GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER
     );
   }
@@ -653,7 +653,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     motionRetryBlockedUntilMs = Math.max(
       motionRetryBlockedUntilMs ?? 0,
       decision.sample.timestamp +
-        schedulerKnobs.motionSettleWindowMs * motionRetryDelayMultiplier,
+        reducerPolicy.motionSettleWindowMs * motionRetryDelayMultiplier,
     );
   }
 
@@ -709,7 +709,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     retainedScrollContentBlockedUntilMs = Math.max(
       retainedScrollContentBlockedUntilMs ?? 0,
       timestamp +
-        schedulerKnobs.motionSettleWindowMs *
+        reducerPolicy.motionSettleWindowMs *
           GPU_FLOW_RETAINED_SCROLL_CONTENT_SETTLE_DELAY_MULTIPLIER,
     );
   }
@@ -786,7 +786,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
       textureUploadMaintenanceDebt &&
       lastMotionAtMs !== null &&
       timestamp - lastMotionAtMs <=
-        schedulerKnobs.motionSettleWindowMs *
+        reducerPolicy.motionSettleWindowMs *
           GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER &&
       !hasGpuFlowCriticalContentFrameRequest(rawReasons)
     );
@@ -897,7 +897,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
           retainedScrollContentBlockedUntilMs = Math.max(
             retainedScrollContentBlockedUntilMs ?? 0,
             decision.sample.timestamp +
-              schedulerKnobs.motionSettleWindowMs *
+              reducerPolicy.motionSettleWindowMs *
                 GPU_FLOW_RETAINED_SCROLL_CONTENT_SETTLE_DELAY_MULTIPLIER,
           );
         }
@@ -932,7 +932,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
       });
     },
     getKnobs() {
-      return schedulerKnobs;
+      return reducerPolicy;
     },
     recordUncommittedFrame(decision, outcome) {
       assertGpuFlowVisiblePublicationUncommittedTokenMatchesDecision(
@@ -969,7 +969,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
           timestamp,
           viewportInteractionActive,
         }),
-        schedulerKnobs,
+        reducerPolicy,
       });
     },
   });
@@ -979,5 +979,5 @@ export {
   getGpuFlowVisiblePublicationDebtReason,
   hasGpuFlowVisiblePublicationDebt,
   shouldDeferGpuFlowMaintenanceContentCatchup,
-} from "./visibleFrameSchedulingReduction";
+} from "./visibleFramePublicationDebt";
 export { reduceGpuFlowVisibleFramePublicationDecision } from "./visibleFrameStateMachine";

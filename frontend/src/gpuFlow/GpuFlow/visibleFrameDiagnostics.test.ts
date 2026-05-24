@@ -7,7 +7,7 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
 import type { GpuSurfaceHandle } from "../GpuSurface";
-import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntime";
+import { DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import { requestGpuFlowBrowserVisualResourcePreparation } from "./visibleFrameBrowserVisualPreparation";
@@ -456,7 +456,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         publicationLane: "content",
         projectionSampleId: 9,
         remainingDebt: { content: true, maintenance: false, motion: false },
-        schedulerOutcome: "blocked",
+        reducerOutcome: "blocked",
         schedulerState: "content-catchup",
       }),
     ]);
@@ -503,7 +503,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     expect(readBlockedVisiblePublicationEvents()).toEqual([]);
   });
 
-  it("rejects blocked publication records without a blocked scheduler completion", () => {
+  it("rejects blocked publication records without a blocked reducer completion", () => {
     const canvas = document.createElement("canvas");
 
     expect(() =>
@@ -539,7 +539,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           >[0]["projectionSample"],
         }),
       }),
-    ).toThrow(/blocked scheduler completion/);
+    ).toThrow(/blocked reducer completion/);
     expect(readBlockedVisiblePublicationEvents()).toEqual([]);
   });
 
@@ -547,7 +547,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     const canvas = document.createElement("canvas");
     for (
       let index = 0;
-      index < DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames;
+      index < DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames;
       index += 1
     ) {
       expect(() =>
@@ -567,7 +567,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         prepareGpuFlowCommittedSurfacePublicationCandidate(
           publicationCandidateInput({
             timestamp:
-              DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames,
+              DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames,
           }),
         ),
         { canvas },

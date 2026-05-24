@@ -5,10 +5,10 @@ import {
   assertGpuFlowHoldPreviousTokenForProjectionSample,
 } from "./visibleFramePresentationProofs";
 import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
   type GpuFlowVisiblePublicationCompletionOutcome,
   type GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 
 type GpuFlowBlockedPublicationDebt = {
   readonly firstBlockedAtMs: number;
@@ -129,8 +129,8 @@ function isGpuFlowBlockedPublicationBudgetExceeded({
 }): boolean {
   return (
     frameCount >
-      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames ||
-    ageMs > DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousMs
+      DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames ||
+    ageMs > DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousMs
   );
 }
 

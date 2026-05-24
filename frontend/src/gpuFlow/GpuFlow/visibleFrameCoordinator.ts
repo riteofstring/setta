@@ -31,10 +31,10 @@ import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameRes
 import {
   reduceGpuFlowVisibleFramePublicationDecision,
   shouldDeferGpuFlowMaintenanceContentCatchup,
-  type GpuFlowVisibleFrameRequestCoordinator,
+  type GpuFlowVisibleFrameReducerRuntime,
   type GpuFlowVisibleFrameRequestFacts,
   type GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import { reduceGpuFlowMotionProjectionFramePreparation } from "./visibleFrameStateMachine";
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
@@ -75,7 +75,7 @@ export type {
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDebtFrameRequest,
   GpuFlowVisiblePublicationOutcome,
-  GpuFlowVisiblePublicationSchedulerFrameCompletion,
+  GpuFlowVisiblePublicationReducerFrameCompletion,
   GpuFlowVisiblePublicationTransactionCompletion,
 } from "./visibleFrameOutcomeReport";
 export type {
@@ -113,7 +113,7 @@ export type {
   GpuFlowContentPublicationWorkPlan,
   GpuFlowMotionProjectionWorkPlan,
 } from "./visibleFrameWorkPlan";
-type GpuFlowVisiblePublicationScheduler = GpuFlowVisibleFrameRequestCoordinator;
+type GpuFlowVisiblePublicationReducerRuntime = GpuFlowVisibleFrameReducerRuntime;
 
 export type GpuFlowVisibleFramePublicationFrameContext = {
   readonly activeEditorPins: readonly string[];
@@ -201,7 +201,7 @@ type GpuFlowVisibleFrameCoordinatorInput<
       >
     | undefined;
   readonly sampleVisibleFramePublication: () => GpuFlowVisibleFramePublicationSample;
-  readonly scheduler: GpuFlowVisiblePublicationScheduler;
+  readonly reducerRuntime: GpuFlowVisiblePublicationReducerRuntime;
 };
 
 type GpuFlowVisibleFrameReducedPublicationTransaction<
@@ -224,8 +224,8 @@ export function runGpuFlowVisibleFrameCoordinator<
   budgetBroker,
   presentationRuntime,
   publish,
+  reducerRuntime,
   sampleVisibleFramePublication,
-  scheduler,
 }: GpuFlowVisibleFrameCoordinatorInput<
   ContentPublicationFrame,
   MotionProjectionFrame
@@ -243,8 +243,8 @@ export function runGpuFlowVisibleFrameCoordinator<
     prepareContentPublicationFrame,
     prepareMotionProjectionFrame,
     prepareVisibleFrameResourcesForBudget,
+    reducerRuntime,
     sampledPublication,
-    scheduler,
   });
   return publishGpuFlowVisibleFramePublicationOutcome({
     presentationRuntime,
@@ -270,8 +270,8 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   prepareContentPublicationFrame,
   prepareMotionProjectionFrame,
   prepareVisibleFrameResourcesForBudget,
+  reducerRuntime,
   sampledPublication,
-  scheduler,
 }: {
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly prepareContentPublicationFrame: GpuFlowVisibleFramePublicationContentFramePreparer<
@@ -283,7 +283,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     | GpuFlowVisibleFrameResourceBudgetPreparer
     | undefined;
   readonly sampledPublication: GpuFlowVisibleFramePublicationSample;
-  readonly scheduler: GpuFlowVisiblePublicationScheduler;
+  readonly reducerRuntime: GpuFlowVisiblePublicationReducerRuntime;
 }): GpuFlowVisibleFrameReducedPublicationTransaction<
   GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
     ContentPublicationFrame,
@@ -300,18 +300,18 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     visibleFrameResourceGraphSnapshot,
     viewportInteractionActive,
   } = sampledPublication;
-  const schedulerKnobs = scheduler.getKnobs();
+  const reducerPolicy = reducerRuntime.getKnobs();
   const frameRequest = createGpuFlowVisibleFrameRequestFacts({
     hasCommittedContentFrame,
     rawReasons,
+    reducerRuntime,
     sample,
-    scheduler,
     timestamp,
     viewportInteractionActive,
   });
   const publicationDecision = reduceGpuFlowVisibleFramePublicationDecision({
     frameRequest,
-    schedulerKnobs,
+    reducerPolicy,
   });
   const publicationFrameContext =
     createGpuFlowVisibleFramePublicationFrameContext({
@@ -332,7 +332,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     previousVisibleProjectionState,
     publicationDecision,
     publicationFrameContext,
-    projectionSchedulerKnobs: schedulerKnobs,
+    projectionSchedulerKnobs: reducerPolicy,
     rawReasons,
   });
   const preparedFrame = createGpuFlowVisibleFramePublicationPreparedFrame({
@@ -350,7 +350,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
           .retainedDisplayFollowUpFrameReason ?? null,
       previousVisibleProjectionState,
       publicationDecision,
-      scheduler,
+      reducerRuntime,
       transactionProof: preparedFrame.transactionProof,
     },
   );
@@ -384,7 +384,7 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext;
   readonly projectionSchedulerKnobs: ReturnType<
-    GpuFlowVisiblePublicationScheduler["getKnobs"]
+    GpuFlowVisiblePublicationReducerRuntime["getKnobs"]
   >;
   readonly rawReasons: readonly GpuFrameReason[];
 }): GpuFlowVisibleFramePublicationCandidateSet<
@@ -645,22 +645,22 @@ function publishGpuFlowVisibleFramePublicationOutcome<
 function createGpuFlowVisibleFrameRequestFacts({
   hasCommittedContentFrame,
   rawReasons,
+  reducerRuntime,
   sample,
-  scheduler,
   timestamp,
   viewportInteractionActive,
 }: {
   readonly hasCommittedContentFrame: boolean;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
-  readonly scheduler: Pick<
-    GpuFlowVisiblePublicationScheduler,
+  readonly reducerRuntime: Pick<
+    GpuFlowVisiblePublicationReducerRuntime,
     "selectFrameRequest"
   >;
   readonly timestamp: DOMHighResTimeStamp;
   readonly viewportInteractionActive: boolean;
 }): GpuFlowVisibleFrameRequestFacts {
-  return scheduler.selectFrameRequest({
+  return reducerRuntime.selectFrameRequest({
     hasCommittedContentFrame,
     rawReasons,
     sample,

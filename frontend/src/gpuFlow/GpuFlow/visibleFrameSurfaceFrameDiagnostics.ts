@@ -13,14 +13,14 @@ type GpuFlowSurfaceFrameCoordinatorResult =
       readonly contentPublicationFrame: GpuFlowContentPublicationFrameResult;
     };
   };
-type GpuFlowSurfaceFrameSchedulerCompletion = ReturnType<
-  GpuFlowSurfaceFrameCoordinatorResult["completeSchedulerFrame"]
+type GpuFlowSurfaceFrameReducerCompletion = ReturnType<
+  GpuFlowSurfaceFrameCoordinatorResult["completeReducerFrame"]
 >;
 type GpuFlowSurfaceFrameLayerResult = NonNullable<
   GpuFlowContentPublicationFrameResult["nodeLayerFrameStatePublication"]
 >["layerResult"];
 type GpuFlowSurfaceFrameDebtRequest =
-  GpuFlowSurfaceFrameSchedulerCompletion["debtFrameRequest"];
+  GpuFlowSurfaceFrameReducerCompletion["debtFrameRequest"];
 
 const EMPTY_LAYER_RESULT_DIAGNOSTIC = {
   drawnNodeIds: [],
@@ -37,13 +37,13 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
   frame,
   frameReasons,
   postFrameResourceGraphSnapshot,
-  schedulerCompletion,
+  reducerCompletion,
 }: {
   readonly coordinatorResult: GpuFlowSurfaceFrameCoordinatorResult;
   readonly frame: number;
   readonly frameReasons: readonly GpuFrameReason[];
   readonly postFrameResourceGraphSnapshot: GpuFlowVisibleFrameResourceGraphSnapshot;
-  readonly schedulerCompletion: GpuFlowSurfaceFrameSchedulerCompletion;
+  readonly reducerCompletion: GpuFlowSurfaceFrameReducerCompletion;
 }): void {
   const view = globalThis as typeof globalThis & {
     __SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__?: unknown[];
@@ -56,15 +56,15 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
   requests.push({
     activeEditorPins: coordinatorResult.publicationFrameContext.activeEditorPins,
     ...createGpuFlowSurfaceFrameDebtRequestDiagnostic(
-      schedulerCompletion.debtFrameRequest,
+      reducerCompletion.debtFrameRequest,
     ),
     ...createGpuFlowSurfaceFrameLayerResultDiagnostic(layerResult),
     budgetDecision: createGpuFlowSurfaceFrameBudgetDecisionDiagnostic(
       coordinatorResult.publicationFrameContext.budgetDecision,
     ),
     blockedReasons: getGpuFlowSurfaceFrameBlockedReasons(contentFrame),
-    completionDebt: schedulerCompletion.completion.debt,
-    completionOutcome: schedulerCompletion.completion.outcome,
+    completionDebt: reducerCompletion.completion.debt,
+    completionOutcome: reducerCompletion.completion.outcome,
     contentPublication: createGpuFlowSurfaceFrameContentPublicationDiagnostic(
       contentFrame,
     ),

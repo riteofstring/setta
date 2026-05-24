@@ -1,7 +1,7 @@
 import { getGpuFlowVisibleFrameHeldPreviousBudgetStatus } from "./GpuFlow/visibleFrameStateMachine";
 import type {
   GpuFlowLiveProjectionSample,
-  GpuFlowProjectionSchedulerKnobs,
+  GpuFlowVisibleFrameReducerPolicy,
   GpuFlowProjectionTransaction,
   GpuFlowProjectionTransactionId,
   GpuFlowProjectionTransactionKind,
@@ -52,7 +52,7 @@ export function createGpuFlowHeldPreviousProjection({
   requestedSample,
 }: {
   readonly heldTransaction: GpuFlowProjectionTransaction;
-  readonly knobs: GpuFlowProjectionSchedulerKnobs;
+  readonly knobs: GpuFlowVisibleFrameReducerPolicy;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState;
   readonly reason: string;
   readonly requestedSample: GpuFlowLiveProjectionSample;

@@ -148,14 +148,14 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
     expect(violations).toEqual([]);
   });
 
-  it("keeps visible publication scheduler selection and completion inside the transaction coordinator", () => {
+  it("keeps visible publication reducer selection and completion inside the transaction coordinator", () => {
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
         return [];
       }
       const source = readFileSync(filePath, "utf8");
       if (
-        !/\b(?:visiblePublicationSchedulerRef\.current|scheduler)\.(?:selectFrame|completeFrame|recordUncommittedFrame)\s*\(/.test(
+        !/\b(?:visibleFrameReducerRuntimeRef\.current|reducerRuntime)\.(?:selectFrame|completeFrame|recordUncommittedFrame)\s*\(/.test(
           source,
         )
       ) {
@@ -166,7 +166,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
         return [];
       }
       return [
-        `${relativePath} selects, completes, or observes visible publication scheduler debt outside the transaction coordinator`,
+        `${relativePath} selects, completes, or observes visible publication reducer debt outside the transaction coordinator`,
       ];
     });
 

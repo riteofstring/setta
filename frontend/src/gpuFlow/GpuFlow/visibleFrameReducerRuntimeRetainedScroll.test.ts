@@ -6,16 +6,16 @@ import {
 } from "../committedSurfaceFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
-  createGpuFlowVisibleFrameRequestCoordinator,
+  createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFrameTestUtils";
 
 describe("GPU Flow retained scroll scheduling", () => {
   it("keeps retained scroll sample interaction ahead of explicit content repair", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const content = scheduler.selectFrame({
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -23,10 +23,10 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(scheduler, content);
+    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
     for (let index = 0; index < 6; index += 1) {
-      const motion = scheduler.selectFrame({
+      const motion = reducerRuntime.selectFrame({
         hasCommittedContentFrame: true,
         rawReasons: ["viewport"],
         sample: liveSample(2 + index),
@@ -35,10 +35,10 @@ describe("GPU Flow retained scroll scheduling", () => {
       });
       expect(motion.schedulerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(scheduler, motion);
+      completeCommittedFrame(reducerRuntime, motion);
     }
 
-    const retainedScroll = scheduler.selectFrame({
+    const retainedScroll = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["viewport", "manual"],
       sample: liveSample(8, {
@@ -52,9 +52,9 @@ describe("GPU Flow retained scroll scheduling", () => {
   });
 
   it("does not probe queued content debt during retained scroll motion", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const content = scheduler.selectFrame({
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -62,10 +62,10 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(scheduler, content);
+    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
     for (let index = 0; index < 6; index += 1) {
-      const motion = scheduler.selectFrame({
+      const motion = reducerRuntime.selectFrame({
         hasCommittedContentFrame: true,
         rawReasons: ["retained-scroll", "viewport"],
         sample: liveSample(2 + index, {
@@ -76,10 +76,10 @@ describe("GPU Flow retained scroll scheduling", () => {
       });
       expect(motion.schedulerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
-      completeCommittedFrame(scheduler, motion);
+      completeCommittedFrame(reducerRuntime, motion);
     }
 
-    const retainedScroll = scheduler.selectFrame({
+    const retainedScroll = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "viewport", "manual"],
       sample: liveSample(8, {
@@ -93,9 +93,9 @@ describe("GPU Flow retained scroll scheduling", () => {
   });
 
   it("defers noncritical content catchup after retained scroll motion settles", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const content = scheduler.selectFrame({
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -103,9 +103,9 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(scheduler, content);
+    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
-    const retainedScroll = scheduler.selectFrame({
+    const retainedScroll = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(10, {
@@ -115,9 +115,9 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(retainedScroll.lane).toBe("motion");
-    completeCommittedFrame(scheduler, retainedScroll);
+    completeCommittedFrame(reducerRuntime, retainedScroll);
 
-    const postScrollManual = scheduler.selectFrame({
+    const postScrollManual = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(100),
@@ -132,7 +132,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       motion: false,
     });
 
-    const postScrollPaint = scheduler.selectFrame({
+    const postScrollPaint = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["paint"],
       sample: liveSample(500),
@@ -147,7 +147,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       motion: false,
     });
 
-    const criticalContent = scheduler.selectFrame({
+    const criticalContent = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["dom-control-activation"],
       sample: liveSample(600),
@@ -157,7 +157,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     expect(criticalContent.schedulerState).toBe("content-catchup");
     expect(criticalContent.lane).toBe("content");
 
-    const settledContent = scheduler.selectFrame({
+    const settledContent = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1_600),
@@ -169,9 +169,9 @@ describe("GPU Flow retained scroll scheduling", () => {
   });
 
   it("refreshes retained scroll content cooldown before selecting scroll pulse frames", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const content = scheduler.selectFrame({
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -179,9 +179,9 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(scheduler, content);
+    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
-    const retainedScroll = scheduler.selectFrame({
+    const retainedScroll = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(10, {
@@ -191,9 +191,9 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(retainedScroll.lane).toBe("motion");
-    completeCommittedFrame(scheduler, retainedScroll);
+    completeCommittedFrame(reducerRuntime, retainedScroll);
 
-    const deferredManual = scheduler.selectFrame({
+    const deferredManual = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(100),
@@ -203,7 +203,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     expect(deferredManual.schedulerState).toBe("motion-settling");
     expect(deferredManual.lane).toBe("idle");
 
-    const retainedScrollPulse = scheduler.selectFrame({
+    const retainedScrollPulse = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["paint", "retained-scroll", "manual", "viewport"],
       sample: liveSample(250, {
@@ -214,9 +214,9 @@ describe("GPU Flow retained scroll scheduling", () => {
     });
     expect(retainedScrollPulse.schedulerState).toBe("motion-active");
     expect(retainedScrollPulse.lane).toBe("motion");
-    completeCommittedFrame(scheduler, retainedScrollPulse);
+    completeCommittedFrame(reducerRuntime, retainedScrollPulse);
 
-    const manualViewportDuringCooldown = scheduler.selectFrame({
+    const manualViewportDuringCooldown = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(360),
@@ -233,9 +233,9 @@ describe("GPU Flow retained scroll scheduling", () => {
   });
 
   it("keeps idle retained scroll catch-up in the projection lane", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const content = scheduler.selectFrame({
+    const content = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
@@ -243,9 +243,9 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(content.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(scheduler, content);
+    completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
-    const retainedScroll = scheduler.selectFrame({
+    const retainedScroll = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(10, {
@@ -255,9 +255,9 @@ describe("GPU Flow retained scroll scheduling", () => {
       viewportInteractionActive: false,
     });
     expect(retainedScroll.lane).toBe("motion");
-    completeCommittedFrame(scheduler, retainedScroll);
+    completeCommittedFrame(reducerRuntime, retainedScroll);
 
-    const idleCatchup = scheduler.selectFrame({
+    const idleCatchup = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual"],
       sample: liveSample(300),
@@ -267,9 +267,9 @@ describe("GPU Flow retained scroll scheduling", () => {
     expect(idleCatchup.schedulerState).toBe("motion-active");
     expect(idleCatchup.lane).toBe("motion");
     expect(idleCatchup.rawReasons).toEqual(["retained-scroll", "manual"]);
-    completeCommittedFrame(scheduler, idleCatchup);
+    completeCommittedFrame(reducerRuntime, idleCatchup);
 
-    const contentCatchup = scheduler.selectFrame({
+    const contentCatchup = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["texture-upload", "manual"],
       sample: liveSample(1_100),
@@ -281,9 +281,9 @@ describe("GPU Flow retained scroll scheduling", () => {
   });
 
   it("does not keep critical content priority after compatible-previous content commits", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
-    const activation = scheduler.selectFrame({
+    const activation = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: [
         "dom-control-activation",
@@ -296,9 +296,9 @@ describe("GPU Flow retained scroll scheduling", () => {
     });
     expect(activation.schedulerState).toBe("motion-active");
     expect(activation.lane).toBe("content");
-    completeCompatiblePreviousCommittedFrame(scheduler, activation);
+    completeCompatiblePreviousCommittedFrame(reducerRuntime, activation);
 
-    const motion = scheduler.selectFrame({
+    const motion = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["paint", "retained-scroll", "viewport"],
       sample: liveSample(2, {
@@ -318,10 +318,10 @@ describe("GPU Flow retained scroll scheduling", () => {
 });
 
 function completeCommittedFrame(
-  scheduler: ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator>,
+  reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisiblePublicationDecision,
 ) {
-  return scheduler.completeFrame(decision, {
+  return reducerRuntime.completeFrame(decision, {
     debtProof: {
       content: decision.lane === "content",
       maintenance: decision.lane === "maintenance",
@@ -329,17 +329,17 @@ function completeCommittedFrame(
     },
     kind: "commit",
     token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
-      frame: committedFrameForSchedulerToken(decision),
+      frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),
   });
 }
 
 function completeCompatiblePreviousCommittedFrame(
-  scheduler: ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator>,
+  reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisiblePublicationDecision,
 ) {
-  return scheduler.completeFrame(decision, {
+  return reducerRuntime.completeFrame(decision, {
     debtProof: {
       content: false,
       maintenance: false,
@@ -347,7 +347,7 @@ function completeCompatiblePreviousCommittedFrame(
     },
     kind: "commit",
     token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
-      frame: committedFrameForSchedulerToken(decision),
+      frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),
   });
@@ -374,7 +374,7 @@ function liveSample(
   };
 }
 
-function committedFrameForSchedulerToken(
+function committedFrameForReducerToken(
   decision: GpuFlowVisiblePublicationDecision,
 ): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = decision.sample.id;

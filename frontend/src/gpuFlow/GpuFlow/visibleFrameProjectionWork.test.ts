@@ -6,7 +6,7 @@ import {
 } from "../committedSurfaceFrame";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
-  createGpuFlowVisibleFrameRequestCoordinator,
+  createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionTransactionKind,
   type GpuFlowVisibleProjectionState,
@@ -21,7 +21,7 @@ import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCov
 
 describe("GPU Flow visible frame coordinator projection work", () => {
   it("mints retained projection blocked tokens from projection work reports inside the transaction proof", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 6,
         maxContentInterleaveMs: 2,
@@ -87,7 +87,7 @@ describe("GPU Flow visible frame coordinator projection work", () => {
           sample,
           viewportInteractionActive: true,
         }),
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(result.outcome.kind).toBe("blocked");
@@ -108,9 +108,9 @@ describe("GPU Flow visible frame coordinator projection work", () => {
       },
     ]);
     expect(result.outcome.token.projectionSampleId).toBe(sample.id);
-    const schedulerCompletion = result.completeSchedulerFrame();
-    expect(schedulerCompletion.completion.debt.motion).toBe(true);
-    expect(schedulerCompletion.debtFrameRequest).toEqual({
+    const reducerCompletion = result.completeReducerFrame();
+    expect(reducerCompletion.completion.debt.motion).toBe(true);
+    expect(reducerCompletion.debtFrameRequest).toEqual({
       delayMs: 160,
       frameReason: "texture-upload",
     });

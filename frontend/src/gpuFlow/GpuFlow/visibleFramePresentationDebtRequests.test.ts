@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type {
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import { createGpuFlowSurfacePublicationDebtFrameRequest } from "./visibleFramePresentationDebtRequests";
 
 describe("GPU Flow visible frame presenter debt requests", () => {

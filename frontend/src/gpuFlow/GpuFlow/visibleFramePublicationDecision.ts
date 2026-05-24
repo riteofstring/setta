@@ -1,7 +1,7 @@
 import type {
   GpuFlowVisibleFrameRequestFacts,
   GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import type { GpuFlowVisibleFramePublicationLane } from "./visibleFrameStateMachine";
 
 export function createGpuFlowVisiblePublicationDecisionForLane({

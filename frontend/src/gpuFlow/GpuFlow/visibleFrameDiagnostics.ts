@@ -21,9 +21,9 @@ import {
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
 import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
   type GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 
 type GpuFlowBrowserVisualStarvationOutcome = "blocked" | "held-previous";
 
@@ -54,7 +54,7 @@ type GpuFlowBlockedVisiblePublicationEvent = {
   readonly publicationLane: GpuFlowVisiblePublicationDecision["lane"];
   readonly projectionSampleId: number;
   readonly remainingDebt: GpuFlowVisiblePublicationCompletion["debt"];
-  readonly schedulerOutcome: GpuFlowVisiblePublicationCompletion["outcome"];
+  readonly reducerOutcome: GpuFlowVisiblePublicationCompletion["outcome"];
   readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
   readonly stateMachineOutcome: {
     readonly decidingProof: unknown;
@@ -351,7 +351,7 @@ export function recordGpuFlowBlockedVisiblePublication({
   });
   if (publicationCompletion.outcome !== "blocked") {
     throw new Error(
-      "GPU Flow blocked visible publication recording requires a blocked scheduler completion.",
+      "GPU Flow blocked visible publication recording requires a blocked reducer completion.",
     );
   }
   const event = Object.freeze({
@@ -368,7 +368,7 @@ export function recordGpuFlowBlockedVisiblePublication({
     publicationLane: publicationDecision.lane,
     projectionSampleId: token.projectionSampleId,
     remainingDebt: publicationCompletion.debt,
-    schedulerOutcome: publicationCompletion.outcome,
+    reducerOutcome: publicationCompletion.outcome,
     schedulerState: publicationDecision.schedulerState,
     stateMachineOutcome,
     tokenTransactionId: token.transactionId,
@@ -386,7 +386,7 @@ export function recordGpuFlowBlockedVisiblePublication({
     publicationLane: event.publicationLane,
     projectionSampleId: event.projectionSampleId,
     remainingDebt: event.remainingDebt,
-    schedulerOutcome: event.schedulerOutcome,
+    reducerOutcome: event.reducerOutcome,
     schedulerState: event.schedulerState,
     stateMachineOutcome: event.stateMachineOutcome,
     transactionId: event.tokenTransactionId,
@@ -436,8 +436,8 @@ function isGpuFlowBrowserVisualStarvationBudgetExceeded({
 }): boolean {
   return (
     frameCount >
-      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames ||
-    ageMs > DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousMs
+      DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames ||
+    ageMs > DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousMs
   );
 }
 

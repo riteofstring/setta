@@ -7,9 +7,9 @@ import type {
 } from "../projectionRuntime";
 import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutcomeGuard";
 import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
   type GpuFlowVisiblePublicationCompletionOutcome,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
@@ -24,7 +24,7 @@ describe("GPU Flow blocked visible publication guard", () => {
       for (
         let index = 1;
         index <=
-        DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames;
+        DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames;
         index += 1
       ) {
         expect(() =>
@@ -37,7 +37,7 @@ describe("GPU Flow blocked visible publication guard", () => {
       }
 
       const overBudgetFrame =
-        DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames + 1;
+        DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames + 1;
       expect(() =>
         recordGpuFlowBlockedPublicationGuard({
           outcome: blockedOutcome(overBudgetFrame, overBudgetFrame * 10),
@@ -57,7 +57,7 @@ describe("GPU Flow blocked visible publication guard", () => {
       for (
         let index = 1;
         index <=
-        DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames;
+        DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames;
         index += 1
       ) {
         recordGpuFlowBlockedPublicationGuard({
@@ -77,7 +77,7 @@ describe("GPU Flow blocked visible publication guard", () => {
           let index = 101;
           index <=
           100 +
-            DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.maxHeldPreviousFrames;
+            DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames;
           index += 1
         ) {
           recordGpuFlowBlockedPublicationGuard({

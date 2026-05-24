@@ -1,5 +1,5 @@
 import type { GpuFlowCommittedSurfaceFrame } from "./committedSurfaceFrame";
-import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "./GpuFlow/visibleFrameScheduling";
+import { DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY } from "./GpuFlow/visibleFrameReducerRuntime";
 import type { GpuCanvasSize, GpuFrameReason } from "./gpuRenderer";
 import type { GpuWheelGestureOwner } from "./interactions/wheelOwnership";
 import type {
@@ -21,15 +21,15 @@ import {
 } from "./viewportMath";
 
 export {
-  createGpuFlowVisibleFrameRequestCoordinator,
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  createGpuFlowVisibleFrameReducerRuntime,
+  DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
   getGpuFlowVisiblePublicationDebtReason,
   hasGpuFlowVisiblePublicationDebt,
-} from "./GpuFlow/visibleFrameScheduling";
+} from "./GpuFlow/visibleFrameReducerRuntime";
 export type {
-  GpuFlowProjectionSchedulerKnobs,
+  GpuFlowVisibleFrameReducerPolicy,
   GpuFlowVisiblePublicationDecision,
-} from "./GpuFlow/visibleFrameScheduling";
+} from "./GpuFlow/visibleFrameReducerRuntime";
 export {
   applyGpuFlowProjectionDebugAttributes,
   setProjectionDebugAttributes,
@@ -478,7 +478,7 @@ function getProjectionHorizonDeadline({
     case "near-future":
       return (
         sample.timestamp +
-        DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs
+        DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.motionSettleWindowMs
       );
     case "maintenance":
       return null;

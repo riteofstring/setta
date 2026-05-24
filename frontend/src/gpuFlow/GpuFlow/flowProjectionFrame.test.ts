@@ -4,10 +4,10 @@ import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
-  createGpuFlowVisibleFrameRequestCoordinator,
+  createGpuFlowVisibleFrameReducerRuntime,
   createGpuFlowVisibleProjectionState,
   type GpuFlowLiveProjectionSample,
-  type GpuFlowProjectionSchedulerKnobs,
+  type GpuFlowVisibleFrameReducerPolicy,
   type GpuFlowProjectionTransaction,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
@@ -596,11 +596,11 @@ function resolveGpuFlowProjectionFrameTransaction({
   readonly frameReasons: readonly GpuFrameReason[];
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly layer: GpuFlowNodeLayerState;
-  readonly projectionSchedulerKnobs?: GpuFlowProjectionSchedulerKnobs;
+  readonly projectionSchedulerKnobs?: GpuFlowVisibleFrameReducerPolicy;
   readonly retainedDisplayFrame: RetainedDisplayFrame;
   readonly requestedTransaction: GpuFlowProjectionTransaction;
 }): TestProjectionFrameTransaction {
-  const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
+  const scheduler = createGpuFlowVisibleFrameReducerRuntime({
     knobs: projectionSchedulerKnobs,
   });
   const selection: {
@@ -644,7 +644,7 @@ function resolveGpuFlowProjectionFrameTransaction({
         previousVisibleProjectionState: heldPreviousProjectionState,
         sample: requestedTransaction.sample,
       }),
-    scheduler,
+    reducerRuntime: scheduler,
   });
   const renderPlan = selection.renderPlan;
   if (renderPlan) {

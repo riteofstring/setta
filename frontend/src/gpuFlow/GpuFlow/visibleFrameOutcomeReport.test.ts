@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
-  createGpuFlowVisibleFrameRequestCoordinator,
+  DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
+  createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
@@ -14,9 +14,9 @@ import {
 
 describe("GPU Flow visible frame outcome report", () => {
   it("blocks no-frame held-previous outcomes after the coordinator hold budget", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime({
       knobs: {
-        ...DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+        ...DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
         maxHeldPreviousFrames: 1,
         maxHeldPreviousMs: 5,
       },
@@ -38,7 +38,7 @@ describe("GPU Flow visible frame outcome report", () => {
           sample,
           viewportInteractionActive: true,
         }),
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(result.publicationDecision.rawReasons).toEqual(rawReasons);
@@ -54,9 +54,9 @@ describe("GPU Flow visible frame outcome report", () => {
         reason: "no-visible-frame",
       },
     ]);
-    const schedulerCompletion = result.completeSchedulerFrame();
-    expect(schedulerCompletion.completion.debt.motion).toBe(true);
-    expect(schedulerCompletion.debtFrameRequest).toEqual({
+    const reducerCompletion = result.completeReducerFrame();
+    expect(reducerCompletion.completion.debt.motion).toBe(true);
+    expect(reducerCompletion.debtFrameRequest).toEqual({
       delayMs: 160,
       frameReason: "retained-scroll",
     });
@@ -64,7 +64,7 @@ describe("GPU Flow visible frame outcome report", () => {
   });
 
   it("returns retained follow-up frame requests from coordinator completion", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const result = runGpuFlowVisibleFrameCoordinator({
       prepareContentPublicationFrame: () =>
         noVisiblePublicationCandidate({
@@ -79,14 +79,14 @@ describe("GPU Flow visible frame outcome report", () => {
         visibleFramePublicationSample({
           sample: liveProjectionSample({ id: 9, timestamp: 9 }),
         }),
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(result.followUpFrameRequests).toEqual(["texture-upload"]);
   });
 
   it("returns cold-start shell publication from coordinator completion", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const result = runGpuFlowVisibleFrameCoordinator({
       prepareContentPublicationFrame: () => noVisiblePublicationCandidate(),
       prepareMotionProjectionFrame: () => ({
@@ -99,7 +99,7 @@ describe("GPU Flow visible frame outcome report", () => {
           hasCommittedContentFrame: false,
           sample: liveProjectionSample({ id: 10, timestamp: 10 }),
         }),
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(result.coldStartShellPublication.frame?.kind).toBe(

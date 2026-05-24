@@ -15,7 +15,7 @@ import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationPr
 import type {
   GpuFlowVisiblePublicationCompletionOutcome,
   GpuFlowVisiblePublicationDebtProof,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import type {
   GpuFlowVisibleFramePreparedFrame,
   GpuFlowVisibleFrameStateMachineOutcome,

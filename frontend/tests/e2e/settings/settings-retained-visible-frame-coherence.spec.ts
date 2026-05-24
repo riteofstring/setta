@@ -53,7 +53,7 @@ type BlockedVisiblePublicationEvent = {
     readonly maintenance?: boolean;
     readonly motion?: boolean;
   } | null;
-  readonly schedulerOutcome?: string | null;
+  readonly reducerOutcome?: string | null;
   readonly schedulerState?: string | null;
   readonly tokenTransactionId?: string | null;
 };
@@ -498,7 +498,7 @@ function expectBlockedEventRetainsSchedulerDebt(
   event: BlockedVisiblePublicationEvent,
   details: string,
 ): void {
-  expect(event.schedulerOutcome, details).toBe("blocked");
+  expect(event.reducerOutcome, details).toBe("blocked");
   expect(event.remainingDebt, details).toBeTruthy();
   const remainingDebt = event.remainingDebt;
   if (!remainingDebt) {

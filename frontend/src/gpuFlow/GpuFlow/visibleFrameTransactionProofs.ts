@@ -26,7 +26,7 @@ import {
   createGpuFlowVisiblePublicationResourceBlockedReasons,
   createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFrameResourceGraph";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
 import {
   proveGpuFlowVisibleFrameStateMachineFrame,
   type GpuFlowVisibleFramePreparedFrame,

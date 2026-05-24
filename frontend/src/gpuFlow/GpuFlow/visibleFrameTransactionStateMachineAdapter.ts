@@ -8,7 +8,7 @@ import {
   createGpuFlowVisibleFrameActorProofsForManifest,
   createGpuFlowVisibleFrameCommittedActorCoverageForManifest,
 } from "./visibleFrameActorManifest";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
 import type {
   GpuFlowVisibleFramePreparedFrame,
   GpuFlowVisibleFrameStateMachineSample,

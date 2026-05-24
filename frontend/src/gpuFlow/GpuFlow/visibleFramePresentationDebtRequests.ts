@@ -11,9 +11,9 @@ import type {
   GpuFlowVisiblePublicationOutcome,
 } from "./visibleFrameCoordinator";
 import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
   type GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import type {
   GpuFlowSurfacePublicationPreparedFrame,
   RenderGpuFlowSurfaceFrameInput,
@@ -84,7 +84,7 @@ export function createGpuFlowSurfacePublicationDebtFrameRequest({
   return Object.freeze({
     ...debtFrameRequest,
     delayMs:
-      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2,
+      DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.motionSettleWindowMs * 2,
   });
 }
 
@@ -235,7 +235,7 @@ function scheduleGpuFlowContentRetryAfterBrowserVisualTextureUpload({
   }
   scheduleDelayedGpuFlowPublicationDebtFrame({
     delayMs:
-      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs *
+      DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.motionSettleWindowMs *
       GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER,
     frameReason: "manual",
     surfaceRef,

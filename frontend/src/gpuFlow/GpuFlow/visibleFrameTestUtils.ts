@@ -20,7 +20,7 @@ import type {
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
-import { createGpuFlowVisibleFrameRequestCoordinator } from "./visibleFrameScheduling";
+import { createGpuFlowVisibleFrameReducerRuntime } from "./visibleFrameReducerRuntime";
 
 type GpuFlowVisibleFramePublicationTestCandidate = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
@@ -182,7 +182,7 @@ function runGpuFlowVisibleFramePublicationTestTokenKernel({
         previousVisibleProjectionState,
         projectionSample,
       }),
-    scheduler: createGpuFlowVisibleFrameRequestCoordinator(),
+    reducerRuntime: createGpuFlowVisibleFrameReducerRuntime(),
   });
 }
 

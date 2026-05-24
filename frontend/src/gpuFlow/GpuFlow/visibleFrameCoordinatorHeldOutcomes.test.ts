@@ -6,7 +6,7 @@ import {
 } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
-  createGpuFlowVisibleFrameRequestCoordinator,
+  createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionTransaction,
   type GpuFlowProjectionTransactionKind,
@@ -49,7 +49,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
   });
 
   it("turns a no-frame attempt into a tokenized hold when a previous frame exists", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const previousVisibleProjectionState = visibleProjectionState({
       kind: "content-publication",
       sample: liveProjectionSample({ id: 4, timestamp: 40 }),
@@ -59,7 +59,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       previousVisibleProjectionState,
       rawReasons: ["retained-scroll"],
       sample,
-      scheduler,
+      reducerRuntime: scheduler,
       viewportInteractionActive: true,
     });
 
@@ -74,16 +74,16 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
     const heldState = result.heldPreviousVisibleProjectionState;
     expect(heldState?.transaction.kind).toBe("held-previous");
     expect(heldState?.heldPreviousProjection?.reason).toBe("no-visible-frame");
-    expect(result.completeSchedulerFrame().completion.debt.motion).toBe(true);
+    expect(result.completeReducerFrame().completion.debt.motion).toBe(true);
   });
 
   it("turns a no-frame cold start into a blocked shell", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const result = runPreparedCandidateCoordinator({
       hasCommittedContentFrame: false,
       rawReasons: ["manual"],
       sample: liveProjectionSample({ id: 6, timestamp: 72 }),
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(result.outcome.kind).toBe("blocked");
@@ -98,11 +98,11 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
         reason: "no-visible-frame-before-first-commit",
       },
     ]);
-    expect(result.completeSchedulerFrame().completion.debt.content).toBe(true);
+    expect(result.completeReducerFrame().completion.debt.content).toBe(true);
   });
 
   it("keeps selected content debt queued for held-previous transactions", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 3, timestamp: 30 });
 
     const heldVisibleProjectionState = visibleProjectionState({
@@ -119,17 +119,17 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
         sample: liveProjectionSample({ id: 99, timestamp: 1 }),
       }),
       sample,
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(result.publicationDecision.lane).toBe("content");
     expect(result.outcome.kind).toBe("hold-previous");
     expect(result.previousCommittedFrameId).toBe(7);
-    expect(result.completeSchedulerFrame().completion.debt.content).toBe(true);
+    expect(result.completeReducerFrame().completion.debt.content).toBe(true);
   });
 
   it("blocks rendered held-previous transactions that exceed the coordinator budget", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 33, timestamp: 330 });
     const heldVisibleProjectionState = visibleProjectionState({
       kind: "held-previous",
@@ -158,7 +158,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
         sample: liveProjectionSample({ id: 32, timestamp: 316 }),
       }),
       sample,
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(result.outcome.kind).toBe("blocked");
@@ -185,11 +185,11 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
         reason: "held-previous-budget-exceeded",
       }),
     );
-    expect(result.completeSchedulerFrame().completion.debt.content).toBe(true);
+    expect(result.completeReducerFrame().completion.debt.content).toBe(true);
   });
 
   it("turns a nonpublishable committed-surface candidate into a held outcome at completion", () => {
-    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 4, timestamp: 64 });
     const previousVisibleProjectionState = visibleProjectionState({
       kind: "content-publication",
@@ -220,7 +220,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       }),
       previousVisibleProjectionState,
       sample,
-      scheduler,
+      reducerRuntime: scheduler,
     });
 
     expect(completion.outcome.kind).toBe("hold-previous");
@@ -506,7 +506,7 @@ function runPreparedCandidateCoordinator({
   publish = () => {},
   rawReasons = ["manual"],
   sample,
-  scheduler,
+  reducerRuntime: scheduler,
   viewportInteractionActive = false,
 }: {
   readonly contentFrame?: TestPublicationCandidate;
@@ -521,8 +521,8 @@ function runPreparedCandidateCoordinator({
   >[0]["publish"];
   readonly rawReasons?: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
-  readonly scheduler: ReturnType<
-    typeof createGpuFlowVisibleFrameRequestCoordinator
+  readonly reducerRuntime: ReturnType<
+    typeof createGpuFlowVisibleFrameReducerRuntime
   >;
   readonly viewportInteractionActive?: boolean;
 }) {
@@ -544,7 +544,7 @@ function runPreparedCandidateCoordinator({
         sample,
         viewportInteractionActive,
       }),
-    scheduler,
+    reducerRuntime: scheduler,
   });
 }
 

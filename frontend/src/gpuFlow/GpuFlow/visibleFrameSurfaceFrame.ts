@@ -58,9 +58,9 @@ import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionC
 import { shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame } from "./visibleFrameResolutionDeferral";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import type {
-  GpuFlowVisibleFrameRequestCoordinator,
+  GpuFlowVisibleFrameReducerRuntime,
   GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import { recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic } from "./visibleFrameSurfaceFrameDiagnostics";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
@@ -160,7 +160,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   readonly visibleFrameBudgetBrokerRef: MutableRefObject<GpuFlowVisibleFrameBudgetBroker>;
   readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visibleProjectionStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
-  readonly visibleFrameCoordinatorRef: MutableRefObject<GpuFlowVisibleFrameRequestCoordinator>;
+  readonly visibleFrameReducerRuntimeRef: MutableRefObject<GpuFlowVisibleFrameReducerRuntime>;
   readonly viewportRuntime: GpuFlowViewportRuntime;
 };
 
@@ -386,19 +386,19 @@ export function renderGpuFlowSurfaceFrame({
             viewportStore.getState().viewportInteractionActive,
         };
       },
-      scheduler: input.visibleFrameCoordinatorRef.current,
+      reducerRuntime: input.visibleFrameReducerRuntimeRef.current,
     });
-    const schedulerCompletion = coordinatorResult.completeSchedulerFrame();
+    const reducerCompletion = coordinatorResult.completeReducerFrame();
     recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
       coordinatorResult,
       frame: input.frameRef.current,
       frameReasons: event.reasons,
       postFrameResourceGraphSnapshot:
         input.getVisibleFrameResourceGraphSnapshot(),
-      schedulerCompletion,
+      reducerCompletion,
     });
     frameMeasureDetail.publicationDebtFrameReason =
-      schedulerCompletion.debtFrameRequest?.frameReason ?? null;
+      reducerCompletion.debtFrameRequest?.frameReason ?? null;
     finishCompletionMeasure();
     const visibleProjectionState = input.visibleProjectionStateRef.current;
     requestGpuFlowRetainedScrollCatchupFrameForStaleVisibleState({

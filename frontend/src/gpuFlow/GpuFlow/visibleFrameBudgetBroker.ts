@@ -5,7 +5,7 @@ import type {
   GpuFlowVisibleFrameResourceStateKind,
   GpuFlowVisibleFrameResourceStateSnapshot,
 } from "./visibleFrameResourceGraph";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
 
 export type GpuFlowVisibleFrameBudgetPriority =
   GpuFlowVisibleFrameResourcePriority;

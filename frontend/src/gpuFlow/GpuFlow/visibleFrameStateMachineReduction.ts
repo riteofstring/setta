@@ -28,7 +28,7 @@ import { createGpuFlowVisiblePublicationDecisionForLane } from "./visibleFramePu
 import type {
   GpuFlowVisibleFrameRequestFacts,
   GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+} from "./visibleFrameReducerRuntime";
 import type { GpuFlowVisibleFramePublicationMotionCandidate } from "./visibleFrameTransactionProofs";
 
 export type GpuFlowVisibleFrameStarvationPolicy = {
@@ -72,10 +72,10 @@ export type GpuFlowVisibleFrameLaneReductionFacts = {
 
 export function reduceGpuFlowVisibleFramePublicationDecision({
   frameRequest,
-  schedulerKnobs,
+  reducerPolicy,
 }: {
   readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
-  readonly schedulerKnobs: GpuFlowVisibleFrameStarvationPolicy;
+  readonly reducerPolicy: GpuFlowVisibleFrameStarvationPolicy;
 }): GpuFlowVisiblePublicationDecision {
   const lane = reduceGpuFlowVisibleFramePublicationLane({
     contentDebt: frameRequest.contentDebt,
@@ -86,7 +86,7 @@ export function reduceGpuFlowVisibleFramePublicationDecision({
     motionDebt: frameRequest.motionDebt,
     motionRetryDeferred: frameRequest.motionRetryDeferred,
     rawReasons: frameRequest.rawReasons,
-    schedulerKnobs,
+    reducerPolicy,
     schedulerState: frameRequest.schedulerState,
     viewportInteractionActive: frameRequest.viewportInteractionActive,
   });
@@ -105,11 +105,11 @@ export function reduceGpuFlowVisibleFramePublicationLane({
   motionDebt,
   motionRetryDeferred,
   rawReasons,
-  schedulerKnobs,
+  reducerPolicy,
   schedulerState,
   viewportInteractionActive,
 }: GpuFlowVisibleFrameLaneReductionFacts & {
-  readonly schedulerKnobs: GpuFlowVisibleFrameStarvationPolicy;
+  readonly reducerPolicy: GpuFlowVisibleFrameStarvationPolicy;
 }): GpuFlowVisibleFramePublicationLane {
   if (
     shouldPublishGpuFlowBootstrapContentFrame({
@@ -144,7 +144,7 @@ export function reduceGpuFlowVisibleFramePublicationLane({
         motionDebt,
         motionRetryDeferred,
         rawReasons,
-        schedulerKnobs,
+        reducerPolicy,
         schedulerState,
         viewportInteractionActive,
       });
@@ -340,10 +340,10 @@ function selectMotionPriorityVisiblePublicationLane({
   motionRetryDeferred,
   rawReasons,
   schedulerState,
-  schedulerKnobs,
+  reducerPolicy,
   viewportInteractionActive,
 }: GpuFlowVisibleFrameLaneReductionFacts & {
-  readonly schedulerKnobs: GpuFlowVisibleFrameStarvationPolicy;
+  readonly reducerPolicy: GpuFlowVisibleFrameStarvationPolicy;
 }): GpuFlowVisibleFramePublicationLane {
   if (
     shouldSelectGpuFlowSettledExplicitContentRepairLane({
@@ -354,7 +354,7 @@ function selectMotionPriorityVisiblePublicationLane({
       viewportInteractionActive,
     })
   ) {
-    return schedulerKnobs.maxContentInterleaveMs > 0 ? "content" : "idle";
+    return reducerPolicy.maxContentInterleaveMs > 0 ? "content" : "idle";
   }
   if (
     shouldSelectGpuFlowMotionPriorityPublicationLane({
@@ -372,7 +372,7 @@ function selectMotionPriorityVisiblePublicationLane({
       contentRetryDeferred,
     })
   ) {
-    return schedulerKnobs.maxContentInterleaveMs > 0 ? "content" : "idle";
+    return reducerPolicy.maxContentInterleaveMs > 0 ? "content" : "idle";
   }
   if (
     shouldSelectGpuFlowMaintenancePriorityPublicationLane({
@@ -380,7 +380,7 @@ function selectMotionPriorityVisiblePublicationLane({
       maintenanceDebt,
     })
   ) {
-    return schedulerKnobs.maxMaintenanceInterleaveMs > 0
+    return reducerPolicy.maxMaintenanceInterleaveMs > 0
       ? "maintenance"
       : "idle";
   }

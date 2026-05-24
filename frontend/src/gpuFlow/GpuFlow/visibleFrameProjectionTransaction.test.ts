@@ -10,7 +10,7 @@ import type {
   GpuFlowProjectionTransaction,
   GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import { createGpuFlowVisibleFrameRequestCoordinator } from "../projectionRuntime";
+import { createGpuFlowVisibleFrameReducerRuntime } from "../projectionRuntime";
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowProjectionFrameRenderablePlan,
@@ -273,7 +273,7 @@ function resolveProjectionFrameTransactionThroughCoordinator({
   readonly renderPlan: GpuFlowProjectionFrameRenderablePlan | null;
   readonly resolvedHeldTransaction: GpuFlowProjectionTransaction | null;
 } {
-  const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+  const scheduler = createGpuFlowVisibleFrameReducerRuntime();
   const selection: {
     blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
     renderPlan: GpuFlowProjectionFrameRenderablePlan | null;
@@ -315,7 +315,7 @@ function resolveProjectionFrameTransactionThroughCoordinator({
         previousVisibleProjectionState,
         sample: requestedTransaction.sample,
       }),
-    scheduler,
+    reducerRuntime: scheduler,
   });
   return {
     blockedPublicationCandidate: selection.blockedPublicationCandidate,
