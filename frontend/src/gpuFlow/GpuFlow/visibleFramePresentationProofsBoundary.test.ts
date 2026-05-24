@@ -36,6 +36,9 @@ const COMMITTED_SURFACE_RUNTIME_MODULE_PATH = modulePath(
 );
 const PROJECTION_FRAME_MODULE_PATH = modulePath("./flowProjectionFrame.tsx");
 const FLOW_FRAME_MODULE_PATH = modulePath("./flowFrame.tsx");
+const INTERACTION_PROJECTOR_MODULE_PATH = modulePath(
+  "../htmlSurfaces/interactionProjector.ts",
+);
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = modulePath(
   "./visibleFrameSurfaceFrame.ts",
 );
@@ -618,6 +621,24 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(submitterSource).toContain("domTransformSubmission.submit({");
     expect(submitterSource).toContain("presentationId");
+  });
+
+  it("stamps event-time source projection writes from the presented DOM transform identity", () => {
+    const interactionProjectorSource = readFileSync(
+      INTERACTION_PROJECTOR_MODULE_PATH,
+      "utf8",
+    );
+
+    expect(interactionProjectorSource).toContain("presentationMetadata");
+    expect(interactionProjectorSource).toContain(
+      "gpuFlowInteractionProjectionPresentationId",
+    );
+    expect(interactionProjectorSource).toContain(
+      "getHtmlSurfaceInteractionPresentationMetadata",
+    );
+    expect(interactionProjectorSource).toContain(
+      "gpuFlowDomTransformPresentationId",
+    );
   });
 
   it("publishes frame performance only from commit-tokened node-layer publication", () => {

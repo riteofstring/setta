@@ -8,6 +8,9 @@ import { HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE } from "./sourceDom";
 
 type HtmlSurfaceInteractionProjectionInput = {
   readonly localX: number;
+  readonly presentationMetadata?:
+    | HtmlSurfaceInteractionPresentationMetadata
+    | undefined;
   readonly localY: number;
   readonly sourceElement: HTMLElement;
   readonly sourceId: string;
@@ -15,8 +18,17 @@ type HtmlSurfaceInteractionProjectionInput = {
   readonly surfaceY: number;
 };
 
+export type HtmlSurfaceInteractionPresentationMetadata = {
+  readonly contentFrameId: string;
+  readonly presentationId: string;
+  readonly projectionSampleId: string;
+};
+
 type HtmlSurfaceInteractionTarget = {
   readonly localX: number;
+  readonly presentationMetadata?:
+    | HtmlSurfaceInteractionPresentationMetadata
+    | undefined;
   readonly localY: number;
   readonly sourceElement: HTMLElement;
   readonly sourceId: string;
@@ -66,6 +78,7 @@ export function createHtmlSurfaceInteractionProjector(): HtmlSurfaceInteractionP
     setStyleValue(sourceElement, "pointerEvents", "none");
     setStyleValue(sourceElement, "transform", HTML_SURFACE_PASSIVE_TRANSFORM);
     sourceElement.removeAttribute(HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE);
+    clearHtmlSurfaceInteractionPresentationMetadata(sourceElement);
     projectedState = null;
   }
 
@@ -87,6 +100,17 @@ export function createHtmlSurfaceInteractionProjector(): HtmlSurfaceInteractionP
         HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE,
         "true",
       );
+      const presentationMetadata =
+        input.presentationMetadata ??
+        getHtmlSurfaceInteractionPresentationMetadata(input.sourceElement);
+      if (presentationMetadata) {
+        setHtmlSurfaceInteractionPresentationMetadata({
+          element: input.sourceElement,
+          metadata: presentationMetadata,
+        });
+      } else {
+        clearHtmlSurfaceInteractionPresentationMetadata(input.sourceElement);
+      }
       projectedState = {
         sourceElement: input.sourceElement,
         sourceId: input.sourceId,
@@ -140,7 +164,55 @@ export function projectHtmlSurfaceInteractionTarget({
     sourceId: target.sourceId,
     surfaceX: target.surfaceX,
     surfaceY: target.surfaceY,
+    ...(target.presentationMetadata
+      ? { presentationMetadata: target.presentationMetadata }
+      : {}),
   });
+}
+
+function setHtmlSurfaceInteractionPresentationMetadata({
+  element,
+  metadata,
+}: {
+  readonly element: HTMLElement;
+  readonly metadata: HtmlSurfaceInteractionPresentationMetadata;
+}): void {
+  element.dataset.gpuFlowInteractionProjectionContentFrameId =
+    metadata.contentFrameId;
+  element.dataset.gpuFlowInteractionProjectionPresentationId =
+    metadata.presentationId;
+  element.dataset.gpuFlowInteractionProjectionSampleId =
+    metadata.projectionSampleId;
+}
+
+function clearHtmlSurfaceInteractionPresentationMetadata(
+  element: HTMLElement,
+): void {
+  delete element.dataset.gpuFlowInteractionProjectionContentFrameId;
+  delete element.dataset.gpuFlowInteractionProjectionPresentationId;
+  delete element.dataset.gpuFlowInteractionProjectionSampleId;
+}
+
+function getHtmlSurfaceInteractionPresentationMetadata(
+  element: HTMLElement,
+): HtmlSurfaceInteractionPresentationMetadata | null {
+  const {
+    gpuFlowDomTransformContentFrameId,
+    gpuFlowDomTransformPresentationId,
+    gpuFlowDomTransformProjectionSampleId,
+  } = element.dataset;
+  if (
+    !gpuFlowDomTransformContentFrameId ||
+    !gpuFlowDomTransformPresentationId ||
+    !gpuFlowDomTransformProjectionSampleId
+  ) {
+    return null;
+  }
+  return {
+    contentFrameId: gpuFlowDomTransformContentFrameId,
+    presentationId: gpuFlowDomTransformPresentationId,
+    projectionSampleId: gpuFlowDomTransformProjectionSampleId,
+  };
 }
 
 export function projectHtmlSurfaceActiveDomIsland({

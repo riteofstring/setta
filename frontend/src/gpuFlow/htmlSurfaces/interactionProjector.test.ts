@@ -109,6 +109,72 @@ describe("HtmlSurfaceInteractionProjector", () => {
     expect(lower.style.pointerEvents).toBe("");
   });
 
+  it("stamps projected interaction sources with presentation metadata", () => {
+    const source = document.createElement("div");
+    const projector = createHtmlSurfaceInteractionProjector();
+
+    projector.alignSourceToClientPoint({
+      localX: 10,
+      localY: 20,
+      presentationMetadata: {
+        contentFrameId: "content-7",
+        presentationId: "presentation-11",
+        projectionSampleId: "sample-13",
+      },
+      sourceElement: source,
+      sourceId: "source-a",
+      surfaceX: 40,
+      surfaceY: 80,
+    });
+
+    expect(source.dataset.gpuFlowInteractionProjectionContentFrameId).toBe(
+      "content-7",
+    );
+    expect(source.dataset.gpuFlowInteractionProjectionPresentationId).toBe(
+      "presentation-11",
+    );
+    expect(source.dataset.gpuFlowInteractionProjectionSampleId).toBe(
+      "sample-13",
+    );
+
+    projector.clearSource("source-a");
+
+    expect(
+      source.dataset.gpuFlowInteractionProjectionContentFrameId,
+    ).toBeUndefined();
+    expect(
+      source.dataset.gpuFlowInteractionProjectionPresentationId,
+    ).toBeUndefined();
+    expect(source.dataset.gpuFlowInteractionProjectionSampleId).toBeUndefined();
+  });
+
+  it("derives projected interaction metadata from the presented DOM transform stamp", () => {
+    const source = document.createElement("div");
+    const projector = createHtmlSurfaceInteractionProjector();
+    source.dataset.gpuFlowDomTransformContentFrameId = "content-21";
+    source.dataset.gpuFlowDomTransformPresentationId = "presentation-34";
+    source.dataset.gpuFlowDomTransformProjectionSampleId = "sample-55";
+
+    projector.alignSourceToClientPoint({
+      localX: 0,
+      localY: 0,
+      sourceElement: source,
+      sourceId: "source-a",
+      surfaceX: 10,
+      surfaceY: 20,
+    });
+
+    expect(source.dataset.gpuFlowInteractionProjectionContentFrameId).toBe(
+      "content-21",
+    );
+    expect(source.dataset.gpuFlowInteractionProjectionPresentationId).toBe(
+      "presentation-34",
+    );
+    expect(source.dataset.gpuFlowInteractionProjectionSampleId).toBe(
+      "sample-55",
+    );
+  });
+
   it("projects active DOM island geometry through the compositor projector", () => {
     const element = document.createElement("div");
     const projection = projectHtmlSurfaceActiveDomIsland({
