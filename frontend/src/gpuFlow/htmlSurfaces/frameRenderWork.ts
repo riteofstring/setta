@@ -482,6 +482,7 @@ function registerVisibleGpuNodeTextures({
     }
     const priority = resolveGpuVisibleSurfaceTexturePriority({
       activeSurfaceIds,
+      element,
       quad,
     });
     const deferUploadUntilPaint = shouldDeferHtmlSurfaceUploadUntilPaint({
@@ -518,15 +519,20 @@ function registerVisibleGpuNodeTextures({
 
 function resolveGpuVisibleSurfaceTexturePriority({
   activeSurfaceIds,
+  element,
   quad,
 }: {
   readonly activeSurfaceIds: ReadonlySet<string>;
+  readonly element: Element;
   readonly quad: Pick<GpuVisibleNodeQuad, "actorKind" | "nodeId">;
 }): NodeTexturePriority {
   if (quad.actorKind === "dom-section") {
     return "critical";
   }
-  if (quad.actorKind === "dom-control") {
+  if (
+    quad.actorKind === "dom-control" &&
+    isCaptureOnlyHtmlSurfaceSource(element)
+  ) {
     return "interactive";
   }
   return resolveVisibleNodeTexturePriority(quad.nodeId, activeSurfaceIds);

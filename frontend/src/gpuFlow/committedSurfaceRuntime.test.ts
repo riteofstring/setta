@@ -246,6 +246,9 @@ function committedFrame({
         domControlSources: [],
         htmlSurfaceNativeVisuals: [],
         nativeDomIslands: [],
+        renderedSceneNodeIds: [],
+        sceneSections: [],
+        sourceSurfaces: [],
       },
       frameId: displayFrameId,
       input: {
