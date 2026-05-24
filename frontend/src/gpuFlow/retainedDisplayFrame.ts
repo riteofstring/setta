@@ -419,6 +419,18 @@ function createPresentedRetainedDisplayFrameOutcome({
   )
     ? "present-compatible"
     : "present-exact";
+  const reusablePrevious = selectReusablePresentedRetainedDisplayFrame({
+    coverageReadiness,
+    prepared,
+    previous,
+    surfaceTransaction,
+    transactionOutcome,
+  });
+  if (reusablePrevious) {
+    return transactionOutcome === "present-compatible"
+      ? { frame: reusablePrevious, kind: "present-compatible" }
+      : { frame: reusablePrevious, kind: "present-exact" };
+  }
   const frame = createComposedRetainedDisplayFrame({
     coverageReadiness,
     diagnosticsPrevious: previous ?? null,
@@ -433,6 +445,63 @@ function createPresentedRetainedDisplayFrameOutcome({
   return transactionOutcome === "present-compatible"
     ? { frame, kind: "present-compatible" }
     : { frame, kind: "present-exact" };
+}
+
+function selectReusablePresentedRetainedDisplayFrame({
+  coverageReadiness,
+  prepared,
+  previous,
+  surfaceTransaction,
+  transactionOutcome,
+}: {
+  readonly coverageReadiness: CoverageReadiness;
+  readonly prepared: RetainedDisplayFrameInput;
+  readonly previous: RetainedDisplayFrame | null | undefined;
+  readonly surfaceTransaction: SurfaceDisplayTransaction;
+  readonly transactionOutcome: PresentedFrameDiagnostics["transactionOutcome"];
+}): RetainedDisplayFrame | null {
+  if (!previous) {
+    return null;
+  }
+  if (
+    previous.id !== prepared.id ||
+    previous.retainedRuntimeFrame !== prepared.retainedRuntimeFrame ||
+    previous.pageFrame !== prepared.pageFrame
+  ) {
+    return null;
+  }
+  if (
+    previous.diagnostics.coverageReadiness !== coverageReadiness ||
+    previous.diagnostics.holdDiagnostics !== null ||
+    previous.diagnostics.transactionOutcome !== transactionOutcome
+  ) {
+    return null;
+  }
+  if (
+    previous.surfaceTransaction.id !== surfaceTransaction.id ||
+    previous.surfaceTransaction.hitIndex.id !== surfaceTransaction.hitIndex.id
+  ) {
+    return null;
+  }
+  if (
+    !surfaceGenerationIdsEqual(
+      previous.surfaceTransaction.hitIndex.generationIds,
+      surfaceTransaction.hitIndex.generationIds,
+    )
+  ) {
+    return null;
+  }
+  return previous;
+}
+
+function surfaceGenerationIdsEqual(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((generationId, index) => generationId === right[index])
+  );
 }
 
 function createComposedRetainedDisplayFrame({

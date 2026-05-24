@@ -322,6 +322,27 @@ describe("retained display frame presenter", () => {
     expect(next.diagnostics.coverageReadiness).toBe("covered");
   });
 
+  it("reuses the previous display frame for repeated identical prepared input", () => {
+    const descriptor = pageDescriptor();
+    const prepared = preparedFrame({
+      drawRegions: [pageDrawRegion(descriptor)],
+      frame: 1,
+      visibleRegionTargets: [descriptor],
+    });
+    const previous = presentRetainedDisplayFrame({
+      nowMs: 10,
+      prepared,
+      previous: null,
+    });
+    const next = presentRetainedDisplayFrame({
+      nowMs: 20,
+      prepared,
+      previous,
+    });
+
+    expect(next).toBe(previous);
+  });
+
   it("rejects an initial frame that has no committed visual epoch coverage", () => {
     const descriptor = pageDescriptor();
     const missingRect = { height: 64, width: 64, x: 0, y: 0 };
