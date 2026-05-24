@@ -1,15 +1,22 @@
 import type { GpuFrameReason } from "../gpuRenderer";
+import type { GpuFlowContentPublicationFrameResult } from "./visibleFrameContentPlan";
 import type { runGpuFlowVisibleFrameCoordinator } from "./visibleFrameCoordinator";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 
-type GpuFlowSurfaceFrameCoordinatorResult = ReturnType<
+type GpuFlowSurfaceFrameCoordinatorBaseResult = ReturnType<
   typeof runGpuFlowVisibleFrameCoordinator
 >;
+type GpuFlowSurfaceFrameCoordinatorResult =
+  GpuFlowSurfaceFrameCoordinatorBaseResult & {
+    readonly preparedFrame: GpuFlowSurfaceFrameCoordinatorBaseResult["preparedFrame"] & {
+      readonly contentPublicationFrame: GpuFlowContentPublicationFrameResult;
+    };
+  };
 type GpuFlowSurfaceFrameSchedulerCompletion = ReturnType<
   GpuFlowSurfaceFrameCoordinatorResult["completeSchedulerFrame"]
 >;
 type GpuFlowSurfaceFrameLayerResult = NonNullable<
-  GpuFlowSurfaceFrameCoordinatorResult["preparedFrame"]["contentPublicationFrame"]["nodeLayerFrameStatePublication"]
+  GpuFlowContentPublicationFrameResult["nodeLayerFrameStatePublication"]
 >["layerResult"];
 type GpuFlowSurfaceFrameDebtRequest =
   GpuFlowSurfaceFrameSchedulerCompletion["debtFrameRequest"];
@@ -63,14 +70,16 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
     frameReasons: [...frameReasons],
     outcomeKind: coordinatorResult.outcome.kind,
     publicationLane: coordinatorResult.publicationDecision.lane,
+    recordedAtMs: performance.now(),
     resourceGraph: createGpuFlowSurfaceFrameResourceGraphDiagnostic(
       postFrameResourceGraphSnapshot,
     ),
     schedulerState: coordinatorResult.publicationDecision.schedulerState,
+    sampleRetainedScrollRevision:
+      coordinatorResult.publicationDecision.sample.retainedScrollRevision,
     source: "surface-frame",
   });
-  view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ =
-    requests.slice(-20);
+  view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ = requests.slice(-20);
 }
 
 function createGpuFlowSurfaceFrameLayerResultDiagnostic(

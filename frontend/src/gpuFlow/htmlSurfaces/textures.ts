@@ -677,6 +677,10 @@ export class HtmlSurfaceTextureManager {
           error,
           surfaceId: dirtySurface.nodeId,
         });
+        this.paintDeferral.markDirty({
+          deferUploadUntilPaint: true,
+          surfaceId: dirtySurface.nodeId,
+        });
         this.canvas?.requestPaint();
         return "paint-unavailable";
       }

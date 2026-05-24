@@ -2,6 +2,7 @@ import type { GpuFlowVisibleFrameActorManifestDiagnostics } from "./GpuFlow/visi
 import type { GpuFlowVisibleFramePresentationIdentity } from "./GpuFlow/visibleFrameTypes";
 import type { GpuFrameReason } from "./gpuRenderer";
 import type { GpuRetainedContentInteractionHit } from "./interactions/retainedContentInteraction";
+import type { GpuFlowVisibleProjectionState } from "./projectionRuntime";
 import type { GpuRetainedContentHitTarget } from "./retainedContentHitTest";
 import type {
   GpuRetainedContentRow,
@@ -94,6 +95,7 @@ export type GpuFlowInteractionDiagnostics = {
   readonly activeResizeNodeId: string | null;
   readonly committedSurfaceFrame: GpuFlowCommittedSurfaceDebugEntry | null;
   readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null;
+  readonly visibleProjection: GpuFlowVisibleProjectionDebugEntry | null;
   readonly activeRetainedHit: GpuFlowRetainedHitDiagnostics | null;
   readonly hoveredRetainedHit: GpuFlowRetainedHitDiagnostics | null;
   readonly lastRetainedClickHit: GpuFlowRetainedHitDiagnostics | null;
@@ -122,6 +124,18 @@ export type GpuFlowInteractionDiagnostics = {
     readonly viewportAnimating: boolean;
     readonly viewportInteractionActive: boolean;
     readonly wheelZooming: boolean;
+  };
+};
+
+export type GpuFlowVisibleProjectionDebugEntry = {
+  readonly committedFrameId: number;
+  readonly retainedScrollRevision: number;
+  readonly sampleId: number;
+  readonly transactionKind: string;
+  readonly viewport: {
+    readonly x: number;
+    readonly y: number;
+    readonly zoom: number;
   };
 };
 
@@ -248,6 +262,7 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
   nodeInteractionActiveNodeId,
   ownerDocument,
   presentationIdentity = null,
+  visibleProjectionState = null,
   viewportState,
 }: {
   readonly activeResizeNodeId: string | null;
@@ -260,6 +275,10 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
   readonly ownerDocument: Document | null;
   readonly presentationIdentity?:
     | GpuFlowVisibleFramePresentationIdentity
+    | null
+    | undefined;
+  readonly visibleProjectionState?:
+    | GpuFlowVisibleProjectionState
     | null
     | undefined;
   readonly viewportState: GpuFlowViewportStore;
@@ -278,6 +297,9 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
     activeResizeNodeId,
     committedSurfaceFrame,
     presentationIdentity,
+    visibleProjection: createGpuFlowVisibleProjectionDebugEntry(
+      visibleProjectionState,
+    ),
     activeRetainedHit: diagnostics.activeRetainedHit,
     hoveredRetainedHit: diagnostics.hoveredRetainedHit,
     lastRetainedClickHit: diagnostics.lastRetainedClickHit,
@@ -307,6 +329,27 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
       viewportAnimating: viewportState.viewportAnimating,
       viewportInteractionActive: viewportState.viewportInteractionActive,
       wheelZooming: viewportState.wheelZooming,
+    },
+  };
+}
+
+function createGpuFlowVisibleProjectionDebugEntry(
+  visibleProjectionState: GpuFlowVisibleProjectionState | null,
+): GpuFlowVisibleProjectionDebugEntry | null {
+  if (!visibleProjectionState) {
+    return null;
+  }
+  const viewport = normalizeGpuViewport(visibleProjectionState.sample.viewport);
+  return {
+    committedFrameId: visibleProjectionState.committedFrame.displayFrameId,
+    retainedScrollRevision:
+      visibleProjectionState.sample.retainedScrollRevision,
+    sampleId: visibleProjectionState.sample.id,
+    transactionKind: visibleProjectionState.transaction.kind,
+    viewport: {
+      x: roundGpuFlowDiagnosticsNumber(viewport.x),
+      y: roundGpuFlowDiagnosticsNumber(viewport.y),
+      zoom: roundGpuFlowDiagnosticsNumber(viewport.zoom),
     },
   };
 }

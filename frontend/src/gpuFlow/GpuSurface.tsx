@@ -152,6 +152,10 @@ export const GpuSurface = forwardRef<GpuSurfaceHandle, GpuSurfaceProps>(
               event as HtmlInCanvasPaintEvent,
             );
             scheduler.requestFrame("paint");
+            scheduler.requestFrame("texture-upload");
+            requestAnimationFrame(() => {
+              scheduler.requestFrame("texture-upload");
+            });
           };
 
           callbacksRef.current.onReady?.(nextRuntime);

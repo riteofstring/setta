@@ -10,6 +10,9 @@ import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 type GpuFlowSurfacePaintHandler = NonNullable<GpuSurfaceProps["onPaint"]>;
 type GpuFlowSurfacePaintRuntime = Parameters<GpuFlowSurfacePaintHandler>[0];
 type GpuFlowSurfacePaintEvent = Parameters<GpuFlowSurfacePaintHandler>[1];
+type TestTextureManager = NonNullable<
+  Parameters<typeof handleGpuFlowSurfacePaint>[0]["textureManager"]
+>;
 
 describe("handleGpuFlowSurfacePaint", () => {
   it("requests a texture upload frame when paint dirties a surface", () => {
@@ -28,13 +31,13 @@ describe("handleGpuFlowSurfacePaint", () => {
 
     handleGpuFlowSurfacePaint({
       callbacks: callbacks({ onPaint }),
-      event: { changedElements: [input] } as GpuFlowSurfacePaintEvent,
+      event: { changedElements: [input] } as unknown as GpuFlowSurfacePaintEvent,
       getFrame: () => 7,
       nodeElementById: new Map([["node-a", nodeElement]]),
       runtime: {} as GpuFlowSurfacePaintRuntime,
       scheduleFollowUpFrame: (callback) => followUpCallbacks.push(callback),
       surface: { requestFrame },
-      textureManager,
+      textureManager: textureManager as unknown as TestTextureManager,
       transformOnlyPaintNodeIds,
     });
 
@@ -75,7 +78,7 @@ describe("handleGpuFlowSurfacePaint", () => {
       nodeElementById: new Map([["node-a", nodeElement]]),
       runtime: {} as GpuFlowSurfacePaintRuntime,
       surface: { requestFrame },
-      textureManager,
+      textureManager: textureManager as unknown as TestTextureManager,
       transformOnlyPaintNodeIds: new Set(),
     });
 
@@ -117,7 +120,7 @@ describe("handleGpuFlowSurfacePaint", () => {
       runtime: {} as GpuFlowSurfacePaintRuntime,
       scheduleFollowUpFrame: (callback) => followUpCallbacks.push(callback),
       surface: { requestFrame },
-      textureManager,
+      textureManager: textureManager as unknown as TestTextureManager,
       transformOnlyPaintNodeIds: new Set(),
     });
 
@@ -125,6 +128,52 @@ describe("handleGpuFlowSurfacePaint", () => {
     expect(requestFrame).toHaveBeenCalledWith("manual");
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     expect(followUpCallbacks).toHaveLength(1);
+  });
+
+  it("uploads queued dirty surfaces during the paint event when supported", () => {
+    const nodeElement = createGpuPaintNodeElement("node-a");
+    const requestFrame = vi.fn();
+    const textureManager = {
+      getDirtySurfaces: vi.fn(() => [
+        {
+          dirtyContent: true,
+          dirtyResolution: false,
+          dirtyTileBytes: 4,
+          dirtyTileIds: ["node-a:0:0"],
+          lastDirtyFrame: 1,
+          priority: "interactive",
+          reasons: ["content"],
+          sequence: 1,
+          surfaceId: "node-a",
+          workKinds: ["content"],
+        },
+      ]),
+      markSurfaceTextureDirty: vi.fn(() => true),
+      markSurfacesPainted: vi.fn(),
+      uploadDirtySurfaceTextures: vi.fn(() => ({
+        budgetExhausted: false,
+        uploaded: [{}],
+        workSummary: {
+          paintUnavailableSurfaceCount: 0,
+        },
+      })),
+    };
+
+    handleGpuFlowSurfacePaint({
+      callbacks: callbacks(),
+      event: { changedElements: [] } as unknown as GpuFlowSurfacePaintEvent,
+      getFrame: () => 10,
+      nodeElementById: new Map([["node-a", nodeElement]]),
+      runtime: {} as GpuFlowSurfacePaintRuntime,
+      surface: { requestFrame },
+      textureManager: textureManager as unknown as TestTextureManager,
+      transformOnlyPaintNodeIds: new Set(),
+    });
+
+    expect(textureManager.uploadDirtySurfaceTextures).toHaveBeenCalledWith({
+      frame: 10,
+    });
+    expect(requestFrame.mock.calls).toEqual([["manual"], ["texture-upload"]]);
   });
 });
 

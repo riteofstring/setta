@@ -4,8 +4,14 @@ import {
   createGpuFlowCommittedSurfacePresentationProof,
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
-import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
-import { createGpuFlowCommittedSurfaceDebugEntry } from "./retainedRowsDebug";
+import {
+  createGpuRetainedContentRuntimeState,
+  setGpuRetainedContentRuntimeScrollOffset,
+} from "../retainedContentRuntimeState";
+import {
+  createGpuFlowCommittedSurfaceDebugEntry,
+  resolveGpuFlowRetainedRowsDebugScrollOffsets,
+} from "./retainedRowsDebug";
 import {
   createGpuFlowContentFrameId,
   createGpuFlowPresentationId,
@@ -32,7 +38,57 @@ describe("GPU Flow retained rows debug", () => {
       presentationProjectionSampleId: 11,
     });
   });
+
+  it("uses presented retained scroll offsets for retained row debug snapshots", () => {
+    const presentedOffsets = new Map([["surface-a", { x: 0, y: 0 }]]);
+    const selectedOffsets = resolveGpuFlowRetainedRowsDebugScrollOffsets({
+      retainedContentRuntimeState: runtimeState([
+        ["surface-a", { x: 0, y: 0 }],
+      ]),
+      visibleProjectionState: {
+        sample: {
+          retainedScrollOffsets: presentedOffsets,
+          retainedScrollRevision: 1,
+        },
+      } as never,
+    });
+
+    expect(selectedOffsets.get("surface-a")).toEqual({ x: 0, y: 0 });
+  });
+
+  it("uses runtime retained scroll offsets when the visible sample is stale", () => {
+    const presentedOffsets = new Map([["surface-b", { x: 0, y: 0 }]]);
+    const selectedOffsets = resolveGpuFlowRetainedRowsDebugScrollOffsets({
+      retainedContentRuntimeState: runtimeState([
+        ["surface-a", { x: 0, y: 48 }],
+        ["surface-b", { x: 0, y: 96 }],
+      ]),
+      visibleProjectionState: {
+        sample: {
+          retainedScrollOffsets: presentedOffsets,
+          retainedScrollRevision: 2,
+        },
+      } as never,
+    });
+
+    expect(selectedOffsets.get("surface-a")).toEqual({ x: 0, y: 48 });
+    expect(selectedOffsets.get("surface-b")).toEqual({ x: 0, y: 96 });
+  });
 });
+
+function runtimeState(
+  offsets: readonly [string, { readonly x: number; readonly y: number }][],
+) {
+  const state = createGpuRetainedContentRuntimeState();
+  for (const [surfaceId, scrollOffset] of offsets) {
+    setGpuRetainedContentRuntimeScrollOffset({
+      scrollOffset,
+      state,
+      surfaceId,
+    });
+  }
+  return state;
+}
 
 function committedFrame(displayFrameId: number): GpuFlowCommittedSurfaceFrame {
   const coherence = {
@@ -85,9 +141,7 @@ function committedFrame(displayFrameId: number): GpuFlowCommittedSurfaceFrame {
     publishability: {
       kind: "publishable",
     },
-    retainedRuntimeFrame: {
-      frameId: displayFrameId,
-    } as GpuRetainedRuntimeFrame,
+    retainedRuntimeFrame: null,
     sceneRevision: 1,
     viewportSample: [0, 0, 1],
   } as unknown as GpuFlowCommittedSurfaceFrame;

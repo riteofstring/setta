@@ -12,8 +12,9 @@ import type {
 } from "./browserVisualActorRuntime";
 import { isGpuFlowDomControlSnapshotReady } from "./browserVisualActorRuntimeReadiness";
 import type { GpuFlowDomControlProjectionAssignment } from "./domControlPlaneProjection";
-import { getGpuRetainedDomControlResolvedSnapshotSurfaceId } from "./retainedDomControlSources";
 import {
+  createGpuFlowDomControlLiveHostPreparationResourceKey,
+  createGpuFlowDomControlSnapshotPreparationResourceKey,
   hasGpuFlowBrowserVisualCandidateResourceKeyForActor,
   isGpuFlowBrowserVisualPreparationResourceKey,
 } from "./visibleFrameBrowserVisualResourceKeys";
@@ -425,7 +426,9 @@ function hasGpuFlowBrowserVisualSelectedResourceKeyForControl({
   }
   if (resourcePrefix === "dom-control") {
     return (
-      resourceKeys.has(`dom-control:${control.sourceId}`) ||
+      resourceKeys.has(
+        createGpuFlowDomControlLiveHostPreparationResourceKey(control),
+      ) ||
       hasGpuFlowBrowserVisualCandidateResourceKeyForActor({
         actorId: control.sourceId,
         resourceKeys,
@@ -434,9 +437,7 @@ function hasGpuFlowBrowserVisualSelectedResourceKeyForControl({
   }
   return (
     resourceKeys.has(
-      `dom-control-snapshot:${getGpuRetainedDomControlResolvedSnapshotSurfaceId(
-        control,
-      )}`,
+      createGpuFlowDomControlSnapshotPreparationResourceKey(control),
     ) ||
     hasGpuFlowBrowserVisualCandidateResourceKeyForActor({
       actorId: control.sourceId,

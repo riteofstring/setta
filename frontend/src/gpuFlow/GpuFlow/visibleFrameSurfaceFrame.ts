@@ -15,6 +15,7 @@ import {
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
+import type { GpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import { chooseZoomBucket } from "../textureResolution";
@@ -27,6 +28,7 @@ import { renderGpuFlowNodeLayerProjectionFrame } from "./flowProjectionFrame";
 import { shouldReuseGpuFlowDeferredRetainedContentPublicationFrame } from "./flowRetainedContentFrameCache";
 import { createGpuFlowRetainedRuntimeFrameSourceRenderSignature } from "./flowRetainedRuntimeFrameSignatures";
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
+import { isGpuFlowVisibleProjectionStateRetainedScrollCurrent } from "./retainedScrollProjectionState";
 import type {
   GpuFlowVisibleFrameBudgetBroker,
   GpuFlowVisibleFrameBudgetBrokerDecision,
@@ -396,6 +398,11 @@ export function renderGpuFlowSurfaceFrame({
       schedulerCompletion.debtFrameRequest?.frameReason ?? null;
     finishCompletionMeasure();
     const visibleProjectionState = input.visibleProjectionStateRef.current;
+    requestGpuFlowRetainedScrollCatchupFrameForStaleVisibleState({
+      retainedContentRuntimeState,
+      surface: input.surfaceRef.current,
+      visibleProjectionState,
+    });
     input.callbacksRef.current.onFrame?.(runtime, event);
     return {
       visibleProjectionState,
@@ -403,6 +410,42 @@ export function renderGpuFlowSurfaceFrame({
   } finally {
     finishFrameMeasure();
   }
+}
+
+export function shouldRequestGpuFlowRetainedScrollCatchupFrame({
+  retainedContentRuntimeState,
+  visibleProjectionState,
+}: {
+  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): boolean {
+  return (
+    visibleProjectionState !== null &&
+    !isGpuFlowVisibleProjectionStateRetainedScrollCurrent({
+      retainedContentRuntimeState,
+      visibleProjectionState,
+    })
+  );
+}
+
+function requestGpuFlowRetainedScrollCatchupFrameForStaleVisibleState({
+  retainedContentRuntimeState,
+  surface,
+  visibleProjectionState,
+}: {
+  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly surface: RenderGpuFlowSurfaceFrameInput["surfaceRef"]["current"];
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): void {
+  if (
+    !shouldRequestGpuFlowRetainedScrollCatchupFrame({
+      retainedContentRuntimeState,
+      visibleProjectionState,
+    })
+  ) {
+    return;
+  }
+  surface?.requestFrame("retained-scroll");
 }
 
 export function withGpuFlowContentCatchupReasonForStalePublicationSample({

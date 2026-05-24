@@ -540,6 +540,7 @@ export class GpuFlowVisibleFrameResourceGraph {
         this.markCandidateResourceReadyFromOwner({ request });
         return;
       }
+      this.refreshCandidateResourceRequest({ request });
       this.enqueueVisibleFrameResourceWork(resourceKey);
       return;
     }
@@ -565,6 +566,35 @@ export class GpuFlowVisibleFrameResourceGraph {
     }
     this.markVisibleFrameResourceReady(request);
     this.dequeueVisibleFrameResourceWork(request.resourceKey);
+  }
+
+  private refreshCandidateResourceRequest({
+    request,
+  }: {
+    readonly request: GpuFlowVisibleFrameCandidateResourceRequest;
+  }): void {
+    const current = this.resourceStateByKey.get(request.resourceKey);
+    if (current?.state !== "requested" && current?.state !== "preparing") {
+      return;
+    }
+    this.transitionFrame += 1;
+    this.resourceStateByKey.set(
+      request.resourceKey,
+      Object.freeze({
+        ...current,
+        debtAgeFrames: calculateGpuFlowVisibleFrameResourceDebtAgeFrames({
+          requestedAtFrame: current.requestedAtFrame,
+          state: current.state,
+          transitionFrame: this.transitionFrame,
+        }),
+        deadlineFrame: request.deadlineFrame,
+        estimatedCostMs: request.estimatedCostMs,
+        ownerFrameId: request.ownerFrameId,
+        preparationLane: request.preparationLane,
+        priority: request.priority,
+        transitionFrame: this.transitionFrame,
+      }),
+    );
   }
 
   private advanceQueuedVisibleFrameResource(

@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { expect, type Page } from "@playwright/test";
 
 import { ensureAppReady, postBackend } from "../helpers";
+import { readRetainedCompositorVisibleFrameDiagnostics } from "./settings-retained-compositor-diagnostics";
 import {
   measurePageRafCadence,
   percentile,
@@ -159,188 +160,6 @@ export async function waitForRetainedCompositorCoherentVisibleFrame(
   );
 }
 
-async function readRetainedCompositorVisibleFrameDiagnostics(
-  page: Page,
-): Promise<unknown> {
-  return await page.evaluate(() => {
-    const coldStartShell = document.querySelector<HTMLElement>(
-      '[data-gpu-flow-cold-start-shell="true"]',
-    );
-    const blockedEvents =
-      (
-        window as typeof window & {
-          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly unknown[];
-        }
-      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [];
-    const domControlPlane = document.querySelector<HTMLElement>(
-      '[data-gpu-flow-dom-control-plane="true"]',
-    );
-    const snapshotDiagnostics =
-      (
-        window as typeof window & {
-          readonly __settaGpuFlowDomControlSnapshotSourceDiagnostics?: () => readonly {
-            readonly expectedTextureContentKey: string;
-            readonly inPreparation: boolean;
-            readonly sourceId: string;
-            readonly surfaceId: string;
-            readonly texture: unknown;
-          }[];
-        }
-      ).__settaGpuFlowDomControlSnapshotSourceDiagnostics?.() ?? [];
-    const lastBlockedEvent = blockedEvents.at(-1) as
-      | {
-          readonly blockedReasons?: readonly {
-            readonly actorId?: string | null;
-          }[];
-        }
-      | null
-      | undefined;
-    const lastBlockedActorId =
-      lastBlockedEvent?.blockedReasons?.find((reason) => reason.actorId)
-        ?.actorId ?? null;
-    const lastBlockedSnapshotSourceElement = lastBlockedActorId
-      ? [
-          ...document.querySelectorAll<HTMLElement>(
-            '[data-gpu-flow-dom-control-snapshot-source="true"]',
-          ),
-        ].find(
-          (element) =>
-            element.dataset.gpuFlowDomControlId === lastBlockedActorId,
-        ) ?? null
-      : null;
-    const browserVisualPreparationDiagnostics =
-      (
-        window as typeof window & {
-          readonly __settaGpuFlowBrowserVisualPreparationDiagnostics?: (
-            actorId?: string | null,
-          ) => unknown;
-        }
-      ).__settaGpuFlowBrowserVisualPreparationDiagnostics?.(
-        lastBlockedActorId,
-      ) ?? null;
-    const debugSnapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.() ?? null;
-    const retainedSceneSummary =
-      window.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__?.() ?? null;
-    const retainedNativeVisuals =
-      window.__SETTA_GPU_FLOW_DEBUG_RETAINED_NATIVE_VISUALS__?.() ?? null;
-    const browserVisualResourceWork =
-      (
-        window as typeof window & {
-          readonly __SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__?: readonly unknown[];
-        }
-      ).__SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__ ?? [];
-    const dirtySurfaceTextureUploads =
-      (
-        window as typeof window & {
-          readonly __SETTA_GPU_FLOW_DIRTY_SURFACE_TEXTURE_UPLOADS__?: readonly unknown[];
-        }
-      ).__SETTA_GPU_FLOW_DIRTY_SURFACE_TEXTURE_UPLOADS__ ?? [];
-    const publicationDebtFrameRequests =
-      (
-        window as typeof window & {
-          readonly __SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__?: readonly unknown[];
-        }
-      ).__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ ?? [];
-    const paintUnavailableUploads =
-      (
-        window as typeof window & {
-          readonly __SETTA_GPU_FLOW_HTML_SURFACE_PAINT_UNAVAILABLE_UPLOADS__?: readonly unknown[];
-        }
-      ).__SETTA_GPU_FLOW_HTML_SURFACE_PAINT_UNAVAILABLE_UPLOADS__ ?? [];
-    const recentGpuFlowFrameMeasures = performance
-      .getEntriesByType("measure")
-      .filter((entry) => entry.name.startsWith("setta.gpuFlow.surface-frame"))
-      .slice(-8)
-      .map((entry) => ({
-        detail:
-          entry instanceof PerformanceMeasure &&
-          entry.detail &&
-          typeof entry.detail === "object"
-            ? entry.detail
-            : null,
-        duration: entry.duration,
-        name: entry.name,
-      }));
-    if (!coldStartShell) {
-      return {
-        blockedEventCount: blockedEvents.length,
-        browserVisualResourceWork,
-        coldStartShell: null,
-        dirtySurfaceTextureUploads,
-        domControlCount: document.querySelectorAll(
-          '[data-gpu-flow-dom-control="true"]',
-        ).length,
-        domControlPlaneCommittedFrameId:
-          domControlPlane?.dataset.gpuFlowDomControlPlaneCommittedFrameId ??
-          null,
-        publicationDebtFrameRequests,
-        recentGpuFlowFrameMeasures,
-        retainedNativeVisuals,
-        retainedRowCount:
-          window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
-        retainedSceneSummary,
-        visiblePublication: debugSnapshot?.visiblePublication ?? null,
-      };
-    }
-    return {
-      blockedEventCount: blockedEvents.length,
-      browserVisualResourceWork,
-      coldStartShell: {
-        frameId: coldStartShell.dataset.gpuFlowColdStartShellFrameId ?? null,
-        reason: coldStartShell.dataset.gpuFlowColdStartShellReason ?? null,
-      },
-      dirtySurfaceTextureUploads,
-      domControlCount: document.querySelectorAll(
-        '[data-gpu-flow-dom-control="true"]',
-      ).length,
-      domControlPlaneCommittedFrameId:
-        domControlPlane?.dataset.gpuFlowDomControlPlaneCommittedFrameId ?? null,
-      domControlPlaneRuntimeFrameId:
-        domControlPlane?.dataset.gpuFlowDomControlPlaneFrameId ?? null,
-      lastBlockedEvent: lastBlockedEvent ?? null,
-      paintUnavailableUploads,
-      publicationDebtFrameRequests,
-      lastBlockedSnapshotDiagnostic: lastBlockedActorId
-        ? snapshotDiagnostics.find(
-            (diagnostic) => diagnostic.sourceId === lastBlockedActorId,
-          ) ?? null
-        : null,
-      lastBlockedSnapshotSourceElement: lastBlockedSnapshotSourceElement
-        ? {
-            captureOnly:
-              lastBlockedSnapshotSourceElement.getAttribute(
-                "data-gpu-flow-capture-only-source",
-              ) ?? null,
-            connected: lastBlockedSnapshotSourceElement.isConnected,
-            explicitDirty:
-              lastBlockedSnapshotSourceElement.getAttribute(
-                "data-gpu-flow-explicit-dirty-source",
-              ) ?? null,
-            sourceId:
-              lastBlockedSnapshotSourceElement.dataset.gpuFlowSourceId ?? null,
-          }
-        : null,
-      lastBlockedBrowserVisualPreparation: browserVisualPreparationDiagnostics,
-      preparationControlCount: document.querySelectorAll(
-        '[data-gpu-flow-dom-control-preparation="true"]',
-      ).length,
-      recentGpuFlowFrameMeasures,
-      retainedNativeVisuals,
-      retainedRowCount:
-        window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
-      retainedSceneSummary,
-      snapshotContentCount: document.querySelectorAll(
-        '[data-gpu-flow-retained-dom-control-snapshot-content="true"]',
-      ).length,
-      snapshotDiagnosticCount: snapshotDiagnostics.length,
-      snapshotSourceCount: document.querySelectorAll(
-        '[data-gpu-flow-dom-control-snapshot-source="true"]',
-      ).length,
-      visiblePublication: debugSnapshot?.visiblePublication ?? null,
-    };
-  });
-}
-
 export async function markGpuFlowRetainedSettingsFinishLineStart(
   page: Page,
 ): Promise<void> {
@@ -355,6 +174,11 @@ export async function markGpuFlowRetainedSettingsFinishLineStart(
 export async function centerRetainedCompositorSurface(
   page: Page,
   surfaceId = SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
+  {
+    waitForCommittedViewport = true,
+  }: {
+    readonly waitForCommittedViewport?: boolean | undefined;
+  } = {},
 ): Promise<void> {
   const viewport = await page.evaluate(async (targetSurfaceId) => {
     const pane = document.querySelector<HTMLElement>(".setta-gpu-flow__pane");
@@ -394,7 +218,38 @@ export async function centerRetainedCompositorSurface(
   }, surfaceId);
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
+  if (!waitForCommittedViewport) {
+    await waitForRetainedCompositorRuntimeViewport(page, viewport);
+    return;
+  }
   await waitForRetainedCompositorViewportCommit(page, viewport);
+}
+
+async function waitForRetainedCompositorRuntimeViewport(
+  page: Page,
+  viewport: RetainedCompositorViewportSample,
+): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  let state: Awaited<
+    ReturnType<typeof readRetainedCompositorViewportCommitState>
+  > | null = null;
+  while (Date.now() < deadline) {
+    state = await readRetainedCompositorViewportCommitState(page, viewport);
+    if (state.runtimeMatches) {
+      return;
+    }
+    await page.evaluate(() => {
+      window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
+    });
+    await page.waitForTimeout(80);
+  }
+  throw new Error(
+    `Retained compositor runtime viewport did not update. ${JSON.stringify(
+      { state },
+      null,
+      2,
+    )}`,
+  );
 }
 
 async function waitForRetainedCompositorViewportCommit(
@@ -410,9 +265,12 @@ async function waitForRetainedCompositorViewportCommit(
     if (state.runtimeMatches && state.committedMatches) {
       return;
     }
-    await page.evaluate(() => {
-      window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
-    });
+    await page.evaluate(
+      (requestReason) => {
+        window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.(requestReason);
+      },
+      state?.runtimeMatches && !state.committedMatches ? "manual" : "resize",
+    );
     await page.waitForTimeout(120);
   }
   const diagnostics = await readRetainedCompositorVisibleFrameDiagnostics(page);
@@ -432,7 +290,10 @@ async function readRetainedCompositorViewportCommitState(
   return await page.evaluate((expected) => {
     const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
     const runtime = snapshot?.viewport.transform ?? null;
-    const committed = snapshot?.committedSurfaceFrame?.viewportSample ?? null;
+    const committed =
+      snapshot?.visibleProjection?.viewport ??
+      snapshot?.committedSurfaceFrame?.viewportSample ??
+      null;
     return {
       committed,
       committedMatches: viewportMatches(committed, expected),

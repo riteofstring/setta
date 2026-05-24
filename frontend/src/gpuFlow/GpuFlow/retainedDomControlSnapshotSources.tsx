@@ -31,6 +31,7 @@ import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomContro
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import { releaseGpuFlowUnmountedSourceSurfaceTexture } from "../surfaceTextureReleaseAuthority";
 import { getGpuFlowBrowserVisualActorRuntimeForCommittedSurface } from "./browserVisualActorRuntime";
+import type { GpuFlowDomControlSnapshotTextureManager } from "./browserVisualActorRuntimeState";
 import type { GpuFlowDomControlRenderer } from "./domControlPlane";
 import { projectGpuFlowDomControlPlaneGeometry } from "./domControlPlaneProjection";
 import { getGpuRetainedDomControlSnapshotSurfaceId } from "./retainedDomControlSources";
@@ -374,7 +375,7 @@ function handleGpuRetainedDomControlSnapshotSourceDraw({
   surfaceId,
   textureManager,
 }: {
-  readonly browserVisualTextureManager: HtmlSurfaceTextureManager | null;
+  readonly browserVisualTextureManager: GpuFlowDomControlSnapshotTextureManager | null;
   readonly committedSurfaceRuntime: GpuFlowCommittedSurfaceRuntime | undefined;
   readonly element: HTMLElement | undefined;
   readonly preparationSnapshotSourceIds: ReadonlySet<string> | undefined;
@@ -386,8 +387,10 @@ function handleGpuRetainedDomControlSnapshotSourceDraw({
   const preparationSnapshot =
     preparationSnapshotSourceIds?.has(surfaceId) === true;
   const deferUploadUntilPaint = !preparationSnapshot;
-  const priority: NodeTexturePriority =
-    preparationSnapshot ? "interactive" : "visible";
+  const priority = resolveGpuRetainedDomControlSnapshotSourceTexturePriority({
+    preparationSnapshotSourceIds,
+    surfaceId,
+  });
   const shouldMarkDirty =
     !textureManager ||
     shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty({
@@ -519,6 +522,18 @@ export function shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty({
     texture.lastUploadFrame < 0 ||
     texture.textureContentKey !== source.snapshotCacheKeyRevision
   );
+}
+
+export function resolveGpuRetainedDomControlSnapshotSourceTexturePriority({
+  preparationSnapshotSourceIds,
+  surfaceId,
+}: {
+  readonly preparationSnapshotSourceIds: ReadonlySet<string> | undefined;
+  readonly surfaceId: string;
+}): NodeTexturePriority {
+  return preparationSnapshotSourceIds?.has(surfaceId) === true
+    ? "critical"
+    : "visible";
 }
 
 export function requestGpuFlowRetainedDomControlSnapshotSourceFrame({

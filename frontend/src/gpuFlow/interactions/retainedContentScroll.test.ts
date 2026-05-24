@@ -2,11 +2,17 @@
 
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createGpuFlowStartupCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import {
+  createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowVisibleProjectionState,
+} from "../projectionRuntime";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentControlDescriptor,
 } from "../retainedContentScene";
 import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
+import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { createGpuFlowViewportRuntime } from "../viewportRuntime";
 import { createGpuFlowViewportStore } from "../viewportStore";
@@ -67,6 +73,131 @@ describe("GPU retained content scroll controller", () => {
       y: 36,
     });
     expect(requestFrame).toHaveBeenCalledWith("retained-scroll");
+
+    cleanup();
+  });
+
+  it("maps wheel hit testing through the visible projection sample", () => {
+    const animationFrames = installAnimationFrameStub();
+    const element = document.createElement("div");
+    document.body.append(element);
+    const scene = retainedContentScene();
+    const retainedRuntimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 1,
+      scene,
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1],
+      viewportZoomBucket: 1,
+    });
+    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+      retainedRuntimeFrame,
+    });
+    const visibleProjectionState = createGpuFlowVisibleProjectionState({
+      committedFrame,
+      transaction: createGpuFlowProjectionTransactionForCommittedFrameId({
+        committedFrameId: committedFrame.displayFrameId,
+        kind: "motion-projection",
+        lane: "motion",
+        rawReasons: ["viewport"],
+        sample: {
+          cssViewport: { height: 120, width: 240 },
+          devicePixelRatio: 1,
+          gestureOwner: "idle",
+          id: 4,
+          retainedScrollDelta: new Map(),
+          retainedScrollOffsets: new Map(),
+          retainedScrollRevision: 0,
+          retainedScrollVelocityCssPxPerMs: new Map(),
+          timestamp: 4,
+          viewport: { x: 0, y: 0, zoom: 1 },
+          viewportDelta: { x: 0, y: 0, zoom: 0 },
+          viewportVelocityCssPxPerMs: { x: 0, y: 0, zoom: 0 },
+        },
+      }),
+    });
+    const store = createGpuFlowViewportStore({
+      transform: [100, 0, 1],
+    });
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getRetainedRuntimeFrame: () => retainedRuntimeFrame,
+      getScene: () => scene,
+      getScrollOffsets: () => scrollOffsets,
+      getVisibleProjectionState: () => visibleProjectionState,
+      onScrollOffsetsChange: (nextOffsets) => {
+        scrollOffsets = nextOffsets;
+      },
+      store,
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    animationFrames.flush();
+    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
+      x: 0,
+      y: 36,
+    });
+
+    cleanup();
+  });
+
+  it("falls back to the current scene when the retained runtime frame is stale", () => {
+    const animationFrames = installAnimationFrameStub();
+    const element = document.createElement("div");
+    document.body.append(element);
+    const currentScene = retainedContentScene();
+    const staleRetainedRuntimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 1,
+      frameId: 1,
+      scene: {
+        contentSurfaces: [],
+        domIslands: [],
+        edges: [],
+        revision: 0,
+        sections: [],
+      },
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1],
+      viewportZoomBucket: 1,
+    });
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getRetainedRuntimeFrame: () => staleRetainedRuntimeFrame,
+      getScene: () => currentScene,
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange: (nextOffsets) => {
+        scrollOffsets = nextOffsets;
+      },
+    });
+
+    const event = new WheelEvent("wheel", {
+      bubbles: true,
+      cancelable: true,
+      clientX: 20,
+      clientY: 20,
+      deltaY: 36,
+    });
+    element.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    animationFrames.flush();
+    expect(scrollOffsets.get("dict-a:param-content:unpinned")).toEqual({
+      x: 0,
+      y: 36,
+    });
 
     cleanup();
   });
@@ -159,6 +290,43 @@ describe("GPU retained content scroll controller", () => {
     });
     expect(requestFrame).toHaveBeenCalledTimes(1);
     expect(requestFrame).toHaveBeenCalledWith("retained-scroll");
+
+    cleanup();
+  });
+
+  it("requests a retained-scroll follow-up after the scroll offset flush", () => {
+    const animationFrames = installAnimationFrameStub();
+    const element = document.createElement("div");
+    document.body.append(element);
+    let scrollOffsets: GpuRetainedContentScrollOffsetMap = new Map();
+    const requestFrame = vi.fn();
+    const cleanup = attachGpuRetainedContentScrollController({
+      element,
+      getScene: () => retainedContentScene(),
+      getScrollOffsets: () => scrollOffsets,
+      onScrollOffsetsChange: (nextOffsets) => {
+        scrollOffsets = nextOffsets;
+      },
+      requestFrame,
+    });
+
+    element.dispatchEvent(
+      new WheelEvent("wheel", {
+        bubbles: true,
+        cancelable: true,
+        clientX: 20,
+        clientY: 20,
+        deltaY: 10,
+      }),
+    );
+
+    animationFrames.flush();
+    expect(requestFrame).toHaveBeenCalledTimes(1);
+    expect(requestFrame).toHaveBeenLastCalledWith("retained-scroll");
+
+    animationFrames.flush();
+    expect(requestFrame).toHaveBeenCalledTimes(2);
+    expect(requestFrame).toHaveBeenLastCalledWith("retained-scroll");
 
     cleanup();
   });
@@ -898,7 +1066,7 @@ const viewportWheelFlags = {
 
 function createMarkedWheelTarget(
   attribute: string,
-  tagName: "button" | "input" | "span" = "span",
+  tagName: "button" | "div" | "input" | "span" = "span",
 ): PreservedWheelTargetFixture {
   const root = document.createElement("div");
   root.setAttribute(attribute, "true");

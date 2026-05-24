@@ -66,6 +66,27 @@ describe("GPU Flow browser visual actor runtime state", () => {
 
     expect(staged.map((control) => control.sourceId)).toEqual(["b"]);
   });
+
+  it("stages budget-selected snapshot controls by fallback snapshot resource key", () => {
+    const controls = [
+      domControl({ sourceId: "a" }),
+      domControl({ sourceId: "b" }),
+    ];
+
+    const staged = resolveGpuFlowDomControlSnapshotPreparationStage({
+      domControlSnapshotElementBySurfaceId: new Map(),
+      domControlSnapshotTextureManager: null,
+      preparedDomControls: {
+        snapshotControls: controls,
+      } as unknown as Parameters<
+        typeof resolveGpuFlowDomControlSnapshotPreparationStage
+      >[0]["preparedDomControls"],
+      selectedResourceKeys: ["dom-control-snapshot:b"],
+      token: blockedToken(),
+    });
+
+    expect(staged.map((control) => control.sourceId)).toEqual(["b"]);
+  });
 });
 
 function domControl({

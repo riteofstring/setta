@@ -58,19 +58,24 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { attachGpuFlowNodeResizeController } from "./flowNodeResizeController";
 import { useGpuFlowOverlaySources } from "./flowOverlays";
 import { syncGpuFlowNodeLayerSceneState } from "./flowSceneStateSync";
+import { useGpuFlowSurfacePaintHandler } from "./flowSurfacePaintHandler";
 import {
   useGpuFlowNodeElementChangeHandler,
   useGpuFlowNodeScreenRectDebug,
   useGpuFlowSurfaceResourceCleanup,
   useGpuFlowViewportRuntime,
 } from "./flowSurfaceRuntimeHooks";
-import { EMPTY_GPU_NODE_LAYOUTS, type GpuFlowCallbacks, type GpuFlowProps } from "./flowSurfaceTypes";
-import { useGpuFlowSurfacePaintHandler } from "./flowSurfacePaintHandler";
+import {
+  EMPTY_GPU_NODE_LAYOUTS,
+  type GpuFlowCallbacks,
+  type GpuFlowProps,
+} from "./flowSurfaceTypes";
 import { GpuFlowSurfaceView } from "./flowSurfaceView";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
 import { useGpuFlowRetainedContentControllers } from "./retainedContentControllers";
 import { useGpuFlowDebugGlobals } from "./retainedRowsDebug";
+import { isGpuFlowVisibleProjectionStateRetainedScrollCurrent } from "./retainedScrollProjectionState";
 import {
   getGpuFlowSelectionDragPrimaryNodeId,
   useGpuFlowSelectionDragLayer,
@@ -234,12 +239,24 @@ export function GpuFlow({
     setActiveColdStartShellFrame(nextColdStartShellFrame);
   }, []);
   const getRetainedDomControlScrollOffset = useCallback(
-    (surfaceId: string) =>
-      activeRetainedContentRuntimeState.scrollOffsets.get(surfaceId) ??
-      visibleProjectionStateRef.current?.sample.retainedScrollOffsets.get(
-        surfaceId,
-      ) ??
-      null,
+    (surfaceId: string) => {
+      const visibleProjectionState = visibleProjectionStateRef.current;
+      if (
+        visibleProjectionState &&
+        isGpuFlowVisibleProjectionStateRetainedScrollCurrent({
+          retainedContentRuntimeState: activeRetainedContentRuntimeState,
+          visibleProjectionState,
+        })
+      ) {
+        return (
+          visibleProjectionState.sample.retainedScrollOffsets.get(surfaceId) ??
+          null
+        );
+      }
+      return (
+        activeRetainedContentRuntimeState.scrollOffsets.get(surfaceId) ?? null
+      );
+    },
     [activeRetainedContentRuntimeState],
   );
   const retainedRuntimeFrameRenderSignatureRef = useRef<string | null>(null);
@@ -350,7 +367,6 @@ export function GpuFlow({
       viewportRuntime.disconnectStore();
     };
   }, [viewportRuntime, viewportStore]);
-
   useEffect(() => {
     callbacksRef.current = {
       onFrame,
@@ -393,6 +409,7 @@ export function GpuFlow({
     getCommittedSurfaceFrame: () => committedSurfaceFrameRef.current,
     getPresentationIdentity: () =>
       committedSurfaceRuntime.getReactSemanticSnapshot().presentationIdentity,
+    getVisibleProjectionState: () => visibleProjectionStateRef.current,
     getViewport: () => viewportRuntime.getViewportTuple(),
     interactionDiagnosticsRef,
     nodeInteractionRef,
@@ -481,7 +498,6 @@ export function GpuFlow({
     retainedRuntimeFrameSourceRenderSignatureRef.current = null;
     retainedRuntimeFrameRenderSignatureRef.current = null;
   }, [scene]);
-
   useEffect(() => {
     if (!nodeResizeEnabled) {
       return;
@@ -512,7 +528,6 @@ export function GpuFlow({
     sourceInteractionProjector,
     viewportStore,
   ]);
-
   useGpuFlowRetainedContentControllers({
     containerRef,
     interactionDiagnosticsRef,
@@ -533,7 +548,6 @@ export function GpuFlow({
     viewportRuntime,
     viewportStore,
   });
-
   useEffect(() => {
     if (sceneScroll === false) {
       return;
@@ -570,7 +584,6 @@ export function GpuFlow({
       viewportRuntime,
     });
   }, [panZoom, viewportRuntime, viewportStore]);
-
   useEffect(() => {
     if (selection === false) {
       return;
@@ -586,7 +599,6 @@ export function GpuFlow({
       store: viewportStore,
     });
   }, [selection, viewportStore]);
-
   useEffect(() => {
     if (nodeDrag === false) {
       return;
@@ -608,9 +620,7 @@ export function GpuFlow({
       store: viewportStore,
     });
   }, [layoutStore, nodeDrag, viewportStore]);
-
   useGpuFlowPortLocalRectSync(layoutStore, { enabled: scene === undefined });
-
   useEffect(() => {
     if (!edgeReconnect) {
       return;
@@ -634,7 +644,6 @@ export function GpuFlow({
       store: edgeReconnect.store ?? viewportStore,
     });
   }, [edgeReconnect, edgeScene, layoutStore, viewportStore]);
-
   useEffect(() => {
     if (!edgeInteraction) {
       return;
@@ -655,7 +664,6 @@ export function GpuFlow({
       store: viewportStore,
     });
   }, [edgeInteraction, edgeScene, viewportStore]);
-
   useGpuFlowSurfaceResourceCleanup({
     htmlSurfaceRendererRef,
     nodeDomTransformSyncCacheRef,
@@ -667,7 +675,6 @@ export function GpuFlow({
     textureManagerRef,
     viewportRuntime,
   });
-
   const handleNodeElementChange = useGpuFlowNodeElementChangeHandler({
     callbacksRef,
     nodeDomTransformSyncCacheRef,
@@ -678,7 +685,6 @@ export function GpuFlow({
     textureManagerRef,
     transformOnlyPaintNodeIdsRef,
   });
-
   const handleReady = useCallback<NonNullable<GpuSurfaceProps["onReady"]>>(
     (runtime) => {
       clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
@@ -970,7 +976,9 @@ export function GpuFlow({
       nodeClassName={nodeClassName}
       nodeDragPreviewSourceElement={nodeDragPreviewSourceElement}
       nodeResizeOverlaySourceElement={nodeResizeOverlaySourceElement}
-      retainedDomControlSnapshotSourceElement={retainedDomControlSnapshotSourceElement}
+      retainedDomControlSnapshotSourceElement={
+        retainedDomControlSnapshotSourceElement
+      }
       nodes={nodes ?? EMPTY_GPU_NODE_LAYOUTS}
       onNodeElementChange={handleNodeElementChange}
       onDomControlActivation={onDomControlActivation}

@@ -7,6 +7,10 @@ import {
   waitForRetainedCompositorCoherentVisibleFrame,
 } from "./settings-retained-compositor-helpers";
 import { waitForAnimationFrame } from "./settings-retained-frame-helpers";
+import {
+  installRetainedSurfaceWheelProbe,
+  readRetainedSurfaceRowSearchDiagnostics,
+} from "./settings-retained-text-like-native-semantics-diagnostics";
 import type {
   Point,
   Rect,
@@ -391,6 +395,7 @@ async function scrollRetainedSurfaceUntilTargetRowVisible(
   page: Page,
   target: TextLikeNativeSemanticsTarget,
 ): Promise<RetainedRowDebugEntry> {
+  await installRetainedSurfaceWheelProbe(page);
   for (let step = 0; step < RETAINED_SURFACE_SCROLL_SEARCH_STEPS; step += 1) {
     const row = await resolveVisibleTargetRow(page, target);
     if (row) {
@@ -527,7 +532,7 @@ async function resolveOptionalRetainedSurfaceWheelPoint(
     return {
       x: Math.min(
         window.innerWidth - 4,
-        Math.max(4, row.clientRect.x + row.clientRect.width * 0.65),
+        Math.max(4, row.clientRect.x + row.clientRect.width * 0.32),
       ),
       y: Math.min(
         window.innerHeight - 4,
@@ -535,33 +540,6 @@ async function resolveOptionalRetainedSurfaceWheelPoint(
       ),
     };
   }, surfaceId);
-}
-
-async function readRetainedSurfaceRowSearchDiagnostics(
-  page: Page,
-  target: TextLikeNativeSemanticsTarget,
-): Promise<unknown> {
-  return await page.evaluate((target) => {
-    const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
-      .filter(
-        (row): row is RetainedRowDebugEntry =>
-          row.surfaceId === target.surfaceId,
-      )
-      .map((row) => ({
-        canvasSamplePoint: row.canvasSamplePoint,
-        clientRect: row.clientRect,
-        controlClientRect: row.controlClientRect,
-        controlKind: row.controlKind,
-        rowId: row.rowId,
-      }));
-    return {
-      matchingRow: rows.find((row) => row.rowId === target.rowId) ?? null,
-      rowCount: rows.length,
-      rows: rows.slice(0, 20),
-      target,
-      window: { height: window.innerHeight, width: window.innerWidth },
-    };
-  }, target);
 }
 
 async function readActiveCodeMirrorId(page: Page): Promise<string | null> {

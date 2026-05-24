@@ -49,6 +49,22 @@ describe("HtmlSurfaceTextureManager paint availability", () => {
     );
     expect(deferred.uploaded).toEqual([]);
     expect(canvas.requestPaint).toHaveBeenCalledTimes(2);
+
+    const waitingForPaint = manager.uploadDirtySurfaceTextures({ frame: 3 });
+    expect(waitingForPaint.workSummary).toEqual(
+      expect.objectContaining({
+        noUploadReason: "all-work-deferred",
+      }),
+    );
+    expect(waitingForPaint.uploaded).toEqual([]);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
+
+    manager.markSurfacesPainted(["node-a"]);
+    const uploaded = manager.uploadDirtySurfaceTextures({ frame: 4 });
+    expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "node-a",
+    ]);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
   });
 
   it("recognizes cross-realm Chromium paint-record errors", () => {

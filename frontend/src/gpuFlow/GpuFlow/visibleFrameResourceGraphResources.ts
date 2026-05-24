@@ -5,6 +5,10 @@ import type {
 } from "../committedSurfaceFrame";
 import type { SurfaceResourceHandle } from "../surfaceCompositor/surfaceCoverage";
 import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
+import {
+  createGpuFlowDomControlLiveHostPreparationResourceKey,
+  createGpuFlowDomControlSnapshotPreparationResourceKey,
+} from "./visibleFrameBrowserVisualResourceKeys";
 import type { GpuFlowBlockedVisibleReason } from "./visibleFramePresentationProofs";
 import type {
   GpuFlowVisibleFrameResourcePreparationLane,
@@ -124,7 +128,8 @@ export function createGpuFlowVisibleFrameCandidateResourceRequests({
   }
   for (const control of entry.browserVisualCandidate.snapshot.domControls
     .mountedControls) {
-    const resourceKey = `dom-control:${control.sourceId}`;
+    const resourceKey =
+      createGpuFlowDomControlLiveHostPreparationResourceKey(control);
     setGpuFlowVisibleFrameCandidateResourceRequest({
       request: createGpuFlowVisibleFrameCandidateResourceRequest({
         frameId,
@@ -144,9 +149,8 @@ export function createGpuFlowVisibleFrameCandidateResourceRequests({
   }
   for (const control of entry.browserVisualCandidate.snapshot.domControls
     .snapshotControls) {
-    const resourceKey = `dom-control-snapshot:${
-      control.snapshotSurfaceId ?? control.sourceId
-    }`;
+    const resourceKey =
+      createGpuFlowDomControlSnapshotPreparationResourceKey(control);
     setGpuFlowVisibleFrameCandidateResourceRequest({
       request: createGpuFlowVisibleFrameCandidateResourceRequest({
         frameId,
@@ -502,11 +506,10 @@ function createGpuFlowBrowserVisualCandidateResourceKeys(
 ): readonly string[] {
   return uniqueStrings([
     ...candidate.snapshot.domControls.mountedControls.map(
-      (control) => `dom-control:${control.sourceId}`,
+      createGpuFlowDomControlLiveHostPreparationResourceKey,
     ),
     ...candidate.snapshot.domControls.snapshotControls.map(
-      (control) =>
-        `dom-control-snapshot:${control.snapshotSurfaceId ?? control.sourceId}`,
+      createGpuFlowDomControlSnapshotPreparationResourceKey,
     ),
     ...candidate.snapshot.domIslands.islands.map(
       (island) => `dom-island:${island.id}`,

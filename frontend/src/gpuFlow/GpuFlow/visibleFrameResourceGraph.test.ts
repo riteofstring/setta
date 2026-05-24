@@ -229,6 +229,24 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     ]);
   });
 
+  it("uses source fallback snapshot resource keys for snapshot controls", () => {
+    const registry = createGpuFlowVisibleFrameResourceGraph();
+    const frame = committedSurfaceFrame({ displayFrameId: 42 });
+
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: browserVisualCandidate({
+        controls: [domControl({ sourceId: "row-a" })],
+        frameId: frame.displayFrameId,
+        snapshotControlIds: ["row-a"],
+      }),
+      frame,
+    });
+
+    expect(registry.getSnapshot().candidateResourceKeys).toContain(
+      "dom-control-snapshot:row-a",
+    );
+  });
+
   it("commits one candidate, records committed resources, and releases loser candidates", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const loserResource = resourceHandle("page", "loser-page");
@@ -558,6 +576,54 @@ describe("GPU Flow visible frame resource graph proofs", () => {
 
     expect(registry.getSnapshot().resourceStates).toEqual([
       resourceState("dom-control:repair-control", "ready", 63),
+    ]);
+  });
+
+  it("moves repeated pending resource ownership to the newest candidate", () => {
+    const registry = createGpuFlowVisibleFrameResourceGraph();
+    const firstFrame = committedSurfaceFrame({
+      displayFrameId: 631,
+      exactSurfaceResourceHandles: [],
+      protectedResourceHandles: [],
+    });
+    const secondFrame = committedSurfaceFrame({
+      displayFrameId: 632,
+      exactSurfaceResourceHandles: [],
+      protectedResourceHandles: [],
+    });
+    const control = domControl({ sourceId: "shared-control" });
+
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: browserVisualCandidate({
+        blockedControlIds: ["shared-control"],
+        controls: [control],
+        frameId: firstFrame.displayFrameId,
+        mountedControlIds: ["shared-control"],
+      }),
+      frame: firstFrame,
+    });
+    registry.advanceVisibleFrameResourceWork({
+      resourceKeys: ["dom-control:shared-control"],
+    });
+    expect(registry.getSnapshot().resourceStates).toEqual([
+      resourceState("dom-control:shared-control", "preparing", 631),
+    ]);
+
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: browserVisualCandidate({
+        blockedControlIds: ["shared-control"],
+        controls: [control],
+        frameId: secondFrame.displayFrameId,
+        mountedControlIds: ["shared-control"],
+      }),
+      frame: secondFrame,
+    });
+
+    expect(registry.getSnapshot().resourceStates).toEqual([
+      resourceState("dom-control:shared-control", "preparing", 632),
+    ]);
+    expect(registry.getSnapshot().queuedResourceKeys).toEqual([
+      "dom-control:shared-control",
     ]);
   });
 

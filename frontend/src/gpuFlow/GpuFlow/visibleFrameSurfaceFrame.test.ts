@@ -2,11 +2,16 @@ import { describe, expect, it } from "vitest";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
+import {
+  createGpuRetainedContentRuntimeState,
+  setGpuRetainedContentRuntimeScrollOffset,
+} from "../retainedContentRuntimeState";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuViewportInput } from "../viewportMath";
 import {
   hasGpuFlowCommittedContentFrame,
   shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample,
+  shouldRequestGpuFlowRetainedScrollCatchupFrame,
   withGpuFlowContentCatchupReasonForStalePublicationSample,
 } from "./visibleFrameSurfaceFrame";
 
@@ -75,6 +80,55 @@ describe("GPU Flow surface frame publication", () => {
         },
       }),
     ).toEqual(["viewport", "manual"]);
+  });
+
+  it("requests retained-scroll catch-up when the visible sample is stale", () => {
+    const retainedContentRuntimeState = createGpuRetainedContentRuntimeState();
+    setGpuRetainedContentRuntimeScrollOffset({
+      scrollOffset: { x: 0, y: 120 },
+      state: retainedContentRuntimeState,
+      surfaceId: "surface-a",
+    });
+
+    expect(
+      shouldRequestGpuFlowRetainedScrollCatchupFrame({
+        retainedContentRuntimeState,
+        visibleProjectionState: {
+          sample: {
+            retainedScrollOffsets: new Map([["surface-a", { x: 0, y: 120 }]]),
+            retainedScrollRevision: 0,
+          },
+        } as never,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRequestGpuFlowRetainedScrollCatchupFrame({
+        retainedContentRuntimeState,
+        visibleProjectionState: {
+          sample: {
+            retainedScrollOffsets: new Map([["surface-a", { x: 0, y: 0 }]]),
+            retainedScrollRevision: 1,
+          },
+        } as never,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRequestGpuFlowRetainedScrollCatchupFrame({
+        retainedContentRuntimeState,
+        visibleProjectionState: {
+          sample: {
+            retainedScrollOffsets: new Map([["surface-a", { x: 0, y: 120 }]]),
+            retainedScrollRevision: 1,
+          },
+        } as never,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRequestGpuFlowRetainedScrollCatchupFrame({
+        retainedContentRuntimeState,
+        visibleProjectionState: null,
+      }),
+    ).toBe(false);
   });
 
   it("does not defer resolution updates for stale committed samples", () => {

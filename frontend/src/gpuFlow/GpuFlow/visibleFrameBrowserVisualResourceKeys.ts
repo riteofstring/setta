@@ -1,3 +1,27 @@
+import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
+
+type GpuFlowDomControlLiveHostResourceKeyDescriptor = Pick<
+  GpuRetainedDomControlSourceDescriptor,
+  "sourceId"
+>;
+
+type GpuFlowDomControlSnapshotResourceKeyDescriptor = Pick<
+  GpuRetainedDomControlSourceDescriptor,
+  "snapshotSurfaceId" | "sourceId"
+>;
+
+export function createGpuFlowDomControlLiveHostPreparationResourceKey(
+  control: GpuFlowDomControlLiveHostResourceKeyDescriptor,
+): string {
+  return `dom-control:${control.sourceId}`;
+}
+
+export function createGpuFlowDomControlSnapshotPreparationResourceKey(
+  control: GpuFlowDomControlSnapshotResourceKeyDescriptor,
+): string {
+  return `dom-control-snapshot:${control.snapshotSurfaceId ?? control.sourceId}`;
+}
+
 export function hasGpuFlowBrowserVisualCandidateResourceKeyForActor({
   actorId,
   resourceKeys,

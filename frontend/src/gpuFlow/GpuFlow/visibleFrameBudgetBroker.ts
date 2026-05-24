@@ -131,6 +131,7 @@ export function createGpuFlowVisibleFrameBudgetBroker({
       });
       assertGpuFlowVisibleFrameBudgetDebtNotStarved({
         overBudgetDebtIds,
+        requestedDebt: agedDebt,
         selectedDebtIds,
       });
       const browserVisualDebt =
@@ -286,8 +287,7 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
           snapshot: resourceGraphSnapshot,
         });
   if (
-    (publicationDecision.debt.content ||
-      publicationDecision.lane === "content") &&
+    publicationDecision.lane === "content" &&
     !resourceGraphDebt.some(isGpuFlowVisibleFrameBrowserVisualRepairDebt)
   ) {
     debt.push({
@@ -495,14 +495,33 @@ function isGpuFlowVisibleFrameBudgetDebtOverBudget({
 
 function assertGpuFlowVisibleFrameBudgetDebtNotStarved({
   overBudgetDebtIds,
+  requestedDebt,
   selectedDebtIds,
 }: {
   readonly overBudgetDebtIds: readonly string[];
+  readonly requestedDebt: readonly GpuFlowVisibleFrameAgedBudgetDebtRequest[];
   readonly selectedDebtIds: readonly string[];
 }): void {
+  const debtById = new Map(requestedDebt.map((debt) => [debt.id, debt]));
   const selectedDebtIdSet = new Set(selectedDebtIds);
+  const selectedPreparationLanes = new Set(
+    selectedDebtIds.flatMap((debtId) => {
+      const lane = debtById.get(debtId)?.preparationLane;
+      return lane === undefined ? [] : [lane];
+    }),
+  );
   const starvedDebtIds = overBudgetDebtIds.filter(
-    (debtId) => !selectedDebtIdSet.has(debtId),
+    (debtId) => {
+      const debt = debtById.get(debtId);
+      return (
+        !selectedDebtIdSet.has(debtId) &&
+        !isGpuFlowSyntheticBrowserVisualRepairDebt(debt) &&
+        !isGpuFlowVisibleFrameBudgetDebtLaneProgressing({
+          debt,
+          selectedPreparationLanes,
+        })
+      );
+    },
   );
   if (starvedDebtIds.length === 0) {
     return;
@@ -512,6 +531,26 @@ function assertGpuFlowVisibleFrameBudgetDebtNotStarved({
       ", ",
     )}.`,
   );
+}
+
+function isGpuFlowVisibleFrameBudgetDebtLaneProgressing({
+  debt,
+  selectedPreparationLanes,
+}: {
+  readonly debt: GpuFlowVisibleFrameBudgetDebtRequest | undefined;
+  readonly selectedPreparationLanes: ReadonlySet<GpuFlowVisibleFrameResourcePreparationLane>;
+}): boolean {
+  return (
+    debt?.source === "resource-graph" &&
+    debt.preparationLane !== undefined &&
+    selectedPreparationLanes.has(debt.preparationLane)
+  );
+}
+
+function isGpuFlowSyntheticBrowserVisualRepairDebt(
+  debt: Pick<GpuFlowVisibleFrameBudgetDebtRequest, "id" | "source"> | undefined,
+): boolean {
+  return debt?.id === "browser-visual-repair" && debt.source === "synthetic";
 }
 
 function createGpuFlowVisibleFrameBudgetDebtIdsByLane(
@@ -551,15 +590,36 @@ export function createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph({
   return Object.freeze(
     snapshot.resourceStates
       .filter(isGpuFlowVisibleFrameResourceDebtState)
+      .filter((state) =>
+        isGpuFlowVisibleFrameResourceDebtCurrentForBudget({
+          latestPendingCandidateFrameId:
+            snapshot.pendingCandidateFrameIds.at(-1) ?? null,
+          state,
+        }),
+      )
       .filter((state) => activeResourceKeys.has(state.resourceKey))
       .map(createGpuFlowVisibleFrameBudgetDebtRequestForResourceState),
+  );
+}
+
+function isGpuFlowVisibleFrameResourceDebtCurrentForBudget({
+  latestPendingCandidateFrameId,
+  state,
+}: {
+  readonly latestPendingCandidateFrameId: number | null;
+  readonly state: GpuFlowVisibleFrameResourceStateSnapshot;
+}): boolean {
+  return (
+    latestPendingCandidateFrameId === null ||
+    state.ownerFrameId === null ||
+    state.ownerFrameId === latestPendingCandidateFrameId
   );
 }
 
 function isGpuFlowVisibleFrameResourceDebtState(
   state: GpuFlowVisibleFrameResourceStateSnapshot,
 ): boolean {
-  return state.state === "requested" || state.state === "preparing";
+  return state.state === "requested";
 }
 
 function createGpuFlowVisibleFrameBudgetDebtRequestForResourceState(

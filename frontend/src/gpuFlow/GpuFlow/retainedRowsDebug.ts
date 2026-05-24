@@ -13,18 +13,21 @@ import {
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
 import type { GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
   createGpuRetainedContentSampledSceneForSurface,
   isGpuRetainedContentSurfaceWithScene,
 } from "../retainedContentRuntimeSampling";
 import {
   getGpuRetainedContentRuntimeScrollOffsets,
+  getGpuRetainedContentRuntimeScrollRevision,
   type GpuRetainedContentRuntimeState,
 } from "../retainedContentRuntimeState";
 import type {
   GpuRetainedContentHitRecord,
   GpuRetainedContentRow,
 } from "../retainedContentScene";
+import type { GpuRetainedContentScrollOffsetMap } from "../retainedContentScroll";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import {
   flowToScreenPosition,
@@ -36,6 +39,13 @@ import {
 } from "../viewportMath";
 import { getRegisteredGpuFlowViewportRuntime } from "../viewportRuntimeRegistry";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
+import {
+  clearGpuFlowDebugWindowHook,
+  getGpuFlowDebugNodeInteractionActiveNodeId,
+  getGpuFlowDebugOwnerDocument,
+  resolveGpuFlowDebugOptionalValue,
+} from "./retainedRowsDebugGlobals";
+import { isGpuFlowVisibleProjectionStateRetainedScrollCurrent } from "./retainedScrollProjectionState";
 import { createGpuFlowVisibleFrameActorManifestDiagnostics } from "./visibleFrameActorManifestDiagnostics";
 import type { GpuFlowVisibleFramePresentationIdentity } from "./visibleFrameTypes";
 
@@ -84,6 +94,7 @@ export function useGpuFlowDebugGlobals<
   getViewport,
   getCommittedSurfaceFrame,
   getPresentationIdentity,
+  getVisibleProjectionState,
   interactionDiagnosticsRef,
   nodeInteractionRef,
   nodeLayerRef,
@@ -99,6 +110,9 @@ export function useGpuFlowDebugGlobals<
     | undefined;
   readonly getPresentationIdentity?:
     | (() => GpuFlowVisibleFramePresentationIdentity | null)
+    | undefined;
+  readonly getVisibleProjectionState?:
+    | (() => GpuFlowVisibleProjectionState | null)
     | undefined;
   readonly interactionDiagnosticsRef: MutableRefObject<MutableGpuFlowInteractionDiagnostics>;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
@@ -134,18 +148,26 @@ export function useGpuFlowDebugGlobals<
       viewportStore.getState().setTransform(viewport);
     };
     const getSnapshot = () => {
-      const presentationIdentity = getPresentationIdentity?.() ?? null;
+      const presentationIdentity = resolveGpuFlowDebugOptionalValue(
+        getPresentationIdentity,
+      );
       return createGpuFlowInteractionDiagnosticsSnapshot({
         activeResizeNodeId: activeResizeNodeIdRef.current,
         committedSurfaceFrame: createGpuFlowCommittedSurfaceDebugEntry({
-          frame: getCommittedSurfaceFrame?.() ?? null,
+          frame: resolveGpuFlowDebugOptionalValue(getCommittedSurfaceFrame),
           presentationIdentity,
         }),
         diagnostics: interactionDiagnosticsRef.current,
         nodeInteractionActiveNodeId:
-          nodeInteractionRef.current?.getActiveNodeId() ?? null,
-        ownerDocument: containerRef.current?.ownerDocument ?? window.document,
+          getGpuFlowDebugNodeInteractionActiveNodeId(nodeInteractionRef),
+        ownerDocument: getGpuFlowDebugOwnerDocument({
+          containerRef,
+          ownerWindow: window,
+        }),
         presentationIdentity,
+        visibleProjectionState: resolveGpuFlowDebugOptionalValue(
+          getVisibleProjectionState,
+        ),
         viewportState: {
           ...viewportStore.getState(),
           transform: getLiveViewport(),
@@ -155,14 +177,25 @@ export function useGpuFlowDebugGlobals<
     const getRetainedRows = () =>
       createGpuFlowRetainedRowsDebugSnapshot({
         container: containerRef.current,
-        retainedContentRuntimeState,
+        scrollOffsets: resolveGpuFlowRetainedRowsDebugScrollOffsets({
+          retainedContentRuntimeState,
+          visibleProjectionState: getVisibleProjectionState?.() ?? null,
+        }),
         scene: nodeLayerRef.current.scene,
         viewport: getVisualSceneViewport(),
       });
     const getRetainedRowCount = () =>
       countGpuFlowRetainedRowsDebugSnapshot({
-        retainedContentRuntimeState,
+        scrollOffsets: resolveGpuFlowRetainedRowsDebugScrollOffsets({
+          retainedContentRuntimeState,
+          visibleProjectionState: getVisibleProjectionState?.() ?? null,
+        }),
         scene: nodeLayerRef.current.scene,
+      });
+    const getRetainedScrollState = () =>
+      createGpuFlowRetainedRowsDebugScrollState({
+        retainedContentRuntimeState,
+        visibleProjectionState: getVisibleProjectionState?.() ?? null,
       });
     const getRetainedSceneSummary = () =>
       createGpuFlowRetainedSceneDebugSummary(nodeLayerRef.current.scene);
@@ -180,6 +213,13 @@ export function useGpuFlowDebugGlobals<
     window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ = getSnapshot;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__ = getRetainedRows;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__ = getRetainedRowCount;
+    (
+      window as typeof window & {
+        __SETTA_GPU_FLOW_DEBUG_RETAINED_SCROLL_STATE__?:
+          | typeof getRetainedScrollState
+          | undefined;
+      }
+    ).__SETTA_GPU_FLOW_DEBUG_RETAINED_SCROLL_STATE__ = getRetainedScrollState;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__ =
       getRetainedSceneSummary;
     window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__ = requestDebugFrame;
@@ -188,41 +228,52 @@ export function useGpuFlowDebugGlobals<
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_NATIVE_VISUALS__ =
       getRetainedNativeVisuals;
     return () => {
-      if (window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ === getSnapshot) {
-        delete window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__;
-      }
-      if (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__ === getRetainedRows) {
-        delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__;
-      }
-      if (
-        window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__ ===
-        getRetainedRowCount
-      ) {
-        delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__;
-      }
-      if (
-        window.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__ ===
-        getRetainedSceneSummary
-      ) {
-        delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__;
-      }
-      if (window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__ === requestDebugFrame) {
-        delete window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__;
-      }
-      if (window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__ === setViewport) {
-        delete window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__;
-      }
-      if (
-        window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__ === getVisualSurfaces
-      ) {
-        delete window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__;
-      }
-      if (
-        window.__SETTA_GPU_FLOW_DEBUG_RETAINED_NATIVE_VISUALS__ ===
-        getRetainedNativeVisuals
-      ) {
-        delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_NATIVE_VISUALS__;
-      }
+      const debugWindow = window as unknown as Record<string, unknown>;
+      clearGpuFlowDebugWindowHook(
+        debugWindow,
+        "__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__",
+        getSnapshot,
+      );
+      clearGpuFlowDebugWindowHook(
+        debugWindow,
+        "__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__",
+        getRetainedRows,
+      );
+      clearGpuFlowDebugWindowHook(
+        debugWindow,
+        "__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__",
+        getRetainedRowCount,
+      );
+      clearGpuFlowDebugWindowHook(
+        debugWindow,
+        "__SETTA_GPU_FLOW_DEBUG_RETAINED_SCROLL_STATE__",
+        getRetainedScrollState,
+      );
+      clearGpuFlowDebugWindowHook(
+        debugWindow,
+        "__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__",
+        getRetainedSceneSummary,
+      );
+      clearGpuFlowDebugWindowHook(
+        debugWindow,
+        "__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__",
+        requestDebugFrame,
+      );
+      clearGpuFlowDebugWindowHook(
+        debugWindow,
+        "__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__",
+        setViewport,
+      );
+      clearGpuFlowDebugWindowHook(
+        debugWindow,
+        "__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__",
+        getVisualSurfaces,
+      );
+      clearGpuFlowDebugWindowHook(
+        debugWindow,
+        "__SETTA_GPU_FLOW_DEBUG_RETAINED_NATIVE_VISUALS__",
+        getRetainedNativeVisuals,
+      );
     };
   }, [
     activeResizeNodeIdRef,
@@ -230,6 +281,7 @@ export function useGpuFlowDebugGlobals<
     getViewport,
     getCommittedSurfaceFrame,
     getPresentationIdentity,
+    getVisibleProjectionState,
     interactionDiagnosticsRef,
     nodeInteractionRef,
     nodeLayerRef,
@@ -237,6 +289,62 @@ export function useGpuFlowDebugGlobals<
     retainedContentRuntimeState,
     viewportStore,
   ]);
+}
+
+function createGpuFlowRetainedRowsDebugScrollState({
+  retainedContentRuntimeState,
+  visibleProjectionState,
+}: {
+  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
+}) {
+  const runtimeOffsets = getGpuRetainedContentRuntimeScrollOffsets(
+    retainedContentRuntimeState,
+  );
+  const visibleOffsets =
+    visibleProjectionState?.sample.retainedScrollOffsets ?? new Map();
+  return {
+    runtimeOffsets: [...runtimeOffsets.entries()],
+    runtimeRevision: getGpuRetainedContentRuntimeScrollRevision(
+      retainedContentRuntimeState,
+    ),
+    selectedOffsets: [
+      ...resolveGpuFlowRetainedRowsDebugScrollOffsets({
+        retainedContentRuntimeState,
+        visibleProjectionState,
+      }).entries(),
+    ],
+    visibleOffsets: [...visibleOffsets.entries()],
+    visibleProjectionSampleId: visibleProjectionState?.sample.id ?? null,
+    visibleRevision:
+      visibleProjectionState?.sample.retainedScrollRevision ?? null,
+    visibleTransactionKind: visibleProjectionState?.transaction.kind ?? null,
+  };
+}
+
+export function resolveGpuFlowRetainedRowsDebugScrollOffsets({
+  retainedContentRuntimeState,
+  visibleProjectionState,
+}: {
+  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuRetainedContentScrollOffsetMap {
+  const runtimeOffsets = getGpuRetainedContentRuntimeScrollOffsets(
+    retainedContentRuntimeState,
+  );
+  const visibleOffsets = visibleProjectionState?.sample.retainedScrollOffsets;
+  if (!visibleOffsets) {
+    return runtimeOffsets;
+  }
+  if (
+    isGpuFlowVisibleProjectionStateRetainedScrollCurrent({
+      retainedContentRuntimeState,
+      visibleProjectionState,
+    })
+  ) {
+    return visibleOffsets;
+  }
+  return runtimeOffsets;
 }
 
 function createGpuFlowRetainedNativeVisualDebugSnapshot(
@@ -301,10 +409,10 @@ function createGpuFlowRetainedSceneDebugSummary(
 }
 
 function countGpuFlowRetainedRowsDebugSnapshot({
-  retainedContentRuntimeState,
+  scrollOffsets,
   scene,
 }: {
-  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly scene: GpuFlowScene | undefined;
 }): number {
   if (!scene) {
@@ -313,7 +421,7 @@ function countGpuFlowRetainedRowsDebugSnapshot({
   let count = 0;
   for (const surface of scene.contentSurfaces) {
     count += countGpuFlowRetainedSurfaceDebugEntries({
-      retainedContentRuntimeState,
+      scrollOffsets,
       surface,
     });
   }
@@ -321,10 +429,10 @@ function countGpuFlowRetainedRowsDebugSnapshot({
 }
 
 function countGpuFlowRetainedSurfaceDebugEntries({
-  retainedContentRuntimeState,
+  scrollOffsets,
   surface,
 }: {
-  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly surface: GpuContentSurface;
 }): number {
   const retainedScene = surface.retainedScene;
@@ -332,9 +440,7 @@ function countGpuFlowRetainedSurfaceDebugEntries({
     return 0;
   }
   const sampledRetainedScene = createGpuRetainedContentSampledSceneForSurface({
-    scrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
-      retainedContentRuntimeState,
-    ),
+    scrollOffsets,
     surface,
   });
   const clipBounds = getGpuFlowSurfaceClipBounds(surface);
@@ -615,12 +721,12 @@ function toVisualSurfaceDebugEntry({
 
 function createGpuFlowRetainedRowsDebugSnapshot({
   container,
-  retainedContentRuntimeState,
+  scrollOffsets,
   scene,
   viewport,
 }: {
   readonly container: HTMLElement | null;
-  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly scene: GpuFlowScene | undefined;
   readonly viewport: GpuViewportInput;
 }): readonly GpuFlowRetainedRowDebugEntry[] {
@@ -634,7 +740,7 @@ function createGpuFlowRetainedRowsDebugSnapshot({
   return scene.contentSurfaces.flatMap((surface) =>
     createGpuFlowRetainedSurfaceDebugEntries({
       context,
-      retainedContentRuntimeState,
+      scrollOffsets,
       surface,
     }),
   );
@@ -642,11 +748,11 @@ function createGpuFlowRetainedRowsDebugSnapshot({
 
 function createGpuFlowRetainedSurfaceDebugEntries({
   context,
-  retainedContentRuntimeState,
+  scrollOffsets,
   surface,
 }: {
   readonly context: GpuFlowRetainedRowDebugContext;
-  readonly retainedContentRuntimeState: GpuRetainedContentRuntimeState;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
   readonly surface: GpuContentSurface;
 }): readonly GpuFlowRetainedRowDebugEntry[] {
   const retainedScene = surface.retainedScene;
@@ -654,9 +760,7 @@ function createGpuFlowRetainedSurfaceDebugEntries({
     return [];
   }
   const sampledRetainedScene = createGpuRetainedContentSampledSceneForSurface({
-    scrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
-      retainedContentRuntimeState,
-    ),
+    scrollOffsets,
     surface,
   });
   const clipBounds = getGpuFlowSurfaceClipBounds(surface);

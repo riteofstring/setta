@@ -25,6 +25,9 @@ export type RetainedRowDebugEntry = {
   readonly labelClientPoint: Point;
   readonly rowId: string;
   readonly rowLabel: string;
+  readonly rowState?: {
+    readonly disabled?: boolean | undefined;
+  };
   readonly surfaceContentHeight: number;
   readonly surfaceId: string;
   readonly surfaceLogicalRowCount: number;
@@ -904,8 +907,7 @@ export async function assertSwitchTransitionFrames({
       stats.progress !== null,
   );
   const firstTargetTrackIndex = detectedStats.findIndex(
-    (stats, index) =>
-      index > 0 && stats.trackChecked === !initialChecked,
+    (stats, index) => index > 0 && stats.trackChecked === !initialChecked,
   );
   const monotonicStats =
     firstTargetTrackIndex >= 0

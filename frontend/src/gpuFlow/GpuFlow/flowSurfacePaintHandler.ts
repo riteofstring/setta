@@ -4,6 +4,7 @@ import type { GpuSurfaceHandle, GpuSurfaceProps } from "../GpuSurface";
 import { markHtmlSurfaceFramePaintDirty } from "../htmlSurfaces/frame";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
 import { nextFrame } from "./flowFrame";
+import { requestGpuFlowDirtySurfaceTextureUploadFollowUp } from "./flowMaintenanceTextureUpload";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 
 type GpuFlowSurfacePaintHandler = NonNullable<GpuSurfaceProps["onPaint"]>;
@@ -19,6 +20,12 @@ type GpuFlowSurfacePaintHandlerRefs = {
   readonly transformOnlyPaintNodeIdsRef: MutableRefObject<Set<string>>;
 };
 
+type GpuFlowSurfacePaintTextureManager = Pick<
+  HtmlSurfaceTextureManager,
+  "getDirtySurfaces" | "markSurfaceTextureDirty" | "markSurfacesPainted"
+> &
+  Partial<Pick<HtmlSurfaceTextureManager, "uploadDirtySurfaceTextures">>;
+
 export type GpuFlowSurfacePaintInput = {
   readonly callbacks: GpuFlowCallbacks;
   readonly event: GpuFlowSurfacePaintEvent;
@@ -27,10 +34,7 @@ export type GpuFlowSurfacePaintInput = {
   readonly runtime: GpuFlowSurfacePaintRuntime;
   readonly scheduleFollowUpFrame?: ((callback: () => void) => void) | undefined;
   readonly surface: Pick<GpuSurfaceHandle, "requestFrame"> | null;
-  readonly textureManager: Pick<
-    HtmlSurfaceTextureManager,
-    "getDirtySurfaces" | "markSurfaceTextureDirty" | "markSurfacesPainted"
-  > | null;
+  readonly textureManager: GpuFlowSurfacePaintTextureManager | null;
   readonly transformOnlyPaintNodeIds: Set<string>;
 };
 
@@ -70,11 +74,12 @@ export function handleGpuFlowSurfacePaint({
   transformOnlyPaintNodeIds,
 }: GpuFlowSurfacePaintInput) {
   let dirtyPaintSurfaceCount = 0;
+  const frame = getFrame();
   if (textureManager) {
     const dirtySurfaceIds = markHtmlSurfaceFramePaintDirty({
       changedElements: event.changedElements,
       elementByNodeId: nodeElementById,
-      frame: getFrame(),
+      frame,
       ignoreDirectNodeIds: transformOnlyPaintNodeIds,
       textureManager,
     });
@@ -84,14 +89,51 @@ export function handleGpuFlowSurfacePaint({
   if (event.changedElements?.length) {
     transformOnlyPaintNodeIds.clear();
   }
+  handleGpuFlowSurfacePaintTextureUpload({
+    dirtyPaintSurfaceCount,
+    frame,
+    scheduleFollowUpFrame,
+    surface,
+    textureManager,
+  });
+}
+
+function handleGpuFlowSurfacePaintTextureUpload({
+  dirtyPaintSurfaceCount,
+  frame,
+  scheduleFollowUpFrame,
+  surface,
+  textureManager,
+}: {
+  readonly dirtyPaintSurfaceCount: number;
+  readonly frame: number;
+  readonly scheduleFollowUpFrame: (callback: () => void) => void;
+  readonly surface: Pick<GpuSurfaceHandle, "requestFrame"> | null;
+  readonly textureManager: GpuFlowSurfacePaintTextureManager | null;
+}): void {
   if (
     textureManager &&
     (dirtyPaintSurfaceCount > 0 || textureManager.getDirtySurfaces().length > 0)
   ) {
-    requestGpuFlowSurfacePaintDirtyTextureUploadFrame({
-      scheduleFollowUpFrame,
-      surface,
+    if (!textureManager.uploadDirtySurfaceTextures) {
+      requestGpuFlowSurfacePaintDirtyTextureUploadFrame({
+        scheduleFollowUpFrame,
+        surface,
+      });
+      return;
+    }
+    const uploadResult = textureManager.uploadDirtySurfaceTextures({
+      frame,
     });
+    requestGpuFlowDirtySurfaceTextureUploadFollowUp({
+      retryDeferredUploads: true,
+      source: "paint-event",
+      surfaceRef: { current: surface },
+      uploadResult,
+    });
+    if (uploadResult.uploaded.length > 0) {
+      surface?.requestFrame("texture-upload");
+    }
   }
 }
 

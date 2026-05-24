@@ -1,5 +1,4 @@
 /* @vitest-environment jsdom */
-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HtmlSurfaceTextureManager } from "./textures";
 import {
@@ -1132,7 +1131,19 @@ describe("HtmlSurfaceTextureManager", () => {
       lastUploadFrame: -1,
     });
 
-    const uploaded = manager.uploadDirtySurfaceTextures({ frame: 3 });
+    const waitingForPaint = manager.uploadDirtySurfaceTextures({ frame: 3 });
+    expect(waitingForPaint).toMatchObject({
+      remainingDirtySurfaceIds: ["node-a"],
+      uploaded: [],
+      workSummary: {
+        noUploadReason: "all-work-deferred",
+      },
+    });
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(1);
+
+    manager.markSurfacesPainted(["node-a"]);
+
+    const uploaded = manager.uploadDirtySurfaceTextures({ frame: 4 });
 
     expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
       "node-a",
@@ -1140,7 +1151,7 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(manager.getCommittedSurfaceTexture("node-a")).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
-      lastUploadFrame: 3,
+      lastUploadFrame: 4,
     });
   });
 

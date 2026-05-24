@@ -471,6 +471,7 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
   const finalBlockedProof =
     createGpuFlowVisibleFramePublicationFinalBlockedProof({
       blockingProofs,
+      candidate: visibleFrameStateMachinePreparedFrame.candidate,
       previousVisibleProjectionState,
       visibleFrameStateMachineOutcome,
     });
@@ -505,15 +506,18 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
 
 function createGpuFlowVisibleFramePublicationFinalBlockedProof({
   blockingProofs,
+  candidate,
   previousVisibleProjectionState,
   visibleFrameStateMachineOutcome,
 }: {
   readonly blockingProofs: readonly GpuFlowVisiblePublicationBlockedProof[];
+  readonly candidate: GpuFlowVisibleFramePreparedFrame["candidate"];
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly visibleFrameStateMachineOutcome: GpuFlowVisibleFrameStateMachineOutcome;
 }): GpuFlowVisiblePublicationBlockedProof | null {
   return createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
     blockingProofs,
+    candidate,
     previousVisibleProjectionState,
     visibleFrameStateMachineOutcome,
   });

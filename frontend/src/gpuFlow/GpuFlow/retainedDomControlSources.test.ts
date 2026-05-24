@@ -21,6 +21,7 @@ import {
   projectGpuRetainedDomControlSnapshotSurfaceLayouts,
   registerGpuFlowRetainedDomControlSnapshotSourceTexture,
   requestGpuFlowRetainedDomControlSnapshotSourceFrame,
+  resolveGpuRetainedDomControlSnapshotSourceTexturePriority,
   shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty,
 } from "./retainedDomControlSnapshotSources";
 import {
@@ -471,8 +472,11 @@ describe("getGpuRetainedDomControlSources", () => {
     const host = document.createElement("div");
 
     configureGpuRetainedDomControlSnapshotSourceElement({
+      anchor: host,
+      className: "",
       host,
       source: snapshotSource,
+      sourceId: snapshotSource.sourceId,
     });
 
     expect(host.getAttribute(HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE)).toBe(
@@ -504,6 +508,22 @@ describe("getGpuRetainedDomControlSources", () => {
       ["manual"],
       ["texture-upload"],
     ]);
+  });
+
+  it("promotes preparation snapshot sources to critical texture priority", () => {
+    expect(
+      resolveGpuRetainedDomControlSnapshotSourceTexturePriority({
+        preparationSnapshotSourceIds: new Set(["snapshot-a"]),
+        surfaceId: "snapshot-a",
+      }),
+    ).toBe("critical");
+
+    expect(
+      resolveGpuRetainedDomControlSnapshotSourceTexturePriority({
+        preparationSnapshotSourceIds: new Set(["snapshot-a"]),
+        surfaceId: "snapshot-b",
+      }),
+    ).toBe("visible");
   });
 
   it("does not re-dirty completed snapshot source textures with matching content keys", () => {

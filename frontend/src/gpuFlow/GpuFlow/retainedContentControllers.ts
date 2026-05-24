@@ -88,6 +88,7 @@ export type GpuFlowRetainedContentScrollOptions =
       | "getRetainedRuntimeFrame"
       | "getScene"
       | "getScrollOffsets"
+      | "getVisibleProjectionState"
       | "onScrollOffsetsChange"
       | "requestFrame"
       | "store"
@@ -142,6 +143,10 @@ type GpuFlowRetainedContentControllerOptions = {
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly viewportStore: GpuFlowViewportStoreApi;
 };
+
+type GpuRetainedContentClickEvent = Parameters<
+  NonNullable<GpuRetainedContentInteractionControllerOptions["onHitClick"]>
+>[0];
 
 export function useGpuFlowRetainedContentControllers({
   containerRef,
@@ -362,6 +367,39 @@ export function useGpuFlowRetainedContentControllers({
         surfaceRef,
       });
     };
+    const handleRetainedContentScrollbarClick = (
+      event: GpuRetainedContentClickEvent,
+    ): boolean => {
+      const retainedContentScrollbarScroll =
+        getRetainedContentScrollbarScroll();
+      if (
+        !retainedContentScrollbarScroll ||
+        !isGpuRetainedContentScrollbarHit(event)
+      ) {
+        return false;
+      }
+      const scene = nodeLayerRef.current.scene;
+      if (!scene) {
+        return true;
+      }
+      const result = resolveGpuRetainedContentScrollbarTrackClick({
+        hit: event,
+        scene,
+        scrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
+          retainedContentRuntimeState,
+        ),
+      });
+      if (result.changed) {
+        commitRetainedContentScrollbarScrollResult(result);
+      }
+      setRetainedContentScrollbarVisualState({
+        activeTarget: null,
+        hoveredTarget:
+          getGpuRetainedContentScrollbarVisualTarget(event) ??
+          retainedContentScrollbarVisualState.hoveredTarget,
+      });
+      return true;
+    };
     const detachRetainedContentInteractionController =
       attachGpuRetainedContentInteractionController({
         disabled: () =>
@@ -380,32 +418,7 @@ export function useGpuFlowRetainedContentControllers({
         interactionDiagnostics: interactionDiagnosticsRef,
         onHitClick: (event) => {
           const retainedContentInteraction = getRetainedContentInteraction();
-          const retainedContentScrollbarScroll =
-            getRetainedContentScrollbarScroll();
-          if (
-            retainedContentScrollbarScroll &&
-            isGpuRetainedContentScrollbarHit(event)
-          ) {
-            const scene = nodeLayerRef.current.scene;
-            if (!scene) {
-              return;
-            }
-            const result = resolveGpuRetainedContentScrollbarTrackClick({
-              hit: event,
-              scene,
-              scrollOffsets: getGpuRetainedContentRuntimeScrollOffsets(
-                retainedContentRuntimeState,
-              ),
-            });
-            if (result.changed) {
-              commitRetainedContentScrollbarScrollResult(result);
-            }
-            setRetainedContentScrollbarVisualState({
-              activeTarget: null,
-              hoveredTarget:
-                getGpuRetainedContentScrollbarVisualTarget(event) ??
-                retainedContentScrollbarVisualState.hoveredTarget,
-            });
+          if (handleRetainedContentScrollbarClick(event)) {
             return;
           }
           const switchAnimationStarted =
@@ -644,6 +657,7 @@ export function useGpuFlowRetainedContentControllers({
     retainedContentSwitchAnimations,
     surfaceRef,
     textureManagerRef,
+    visibleProjectionStateRef,
     viewportRuntime,
     viewportStore,
   ]);
@@ -664,6 +678,7 @@ export function useGpuFlowRetainedContentControllers({
       getScene: () => nodeLayerRef.current.scene,
       getScrollOffsets: () =>
         getGpuRetainedContentRuntimeScrollOffsets(retainedContentRuntimeState),
+      getVisibleProjectionState: () => visibleProjectionStateRef.current,
       onScrollOffsetsChange: (scrollOffsets, result) => {
         commitGpuRetainedContentRuntimeScrollResult({
           result,

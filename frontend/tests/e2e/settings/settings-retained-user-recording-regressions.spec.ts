@@ -310,7 +310,9 @@ test("viewport and retained-scroll gestures do not perform content work on proje
 }) => {
   await installGpuFlowPerformanceProbe(page);
   await openAllSettingsForRetainedCompositor(page);
-  await centerRetainedCompositorSurface(page, SHORTCUTS_SURFACE_ID);
+  await centerRetainedCompositorSurface(page, SHORTCUTS_SURFACE_ID, {
+    waitForCommittedViewport: false,
+  });
   await resetGpuFlowPerformanceProbe(page);
 
   const viewportPoint = await resolveCanvasGesturePoint(page);
@@ -320,7 +322,9 @@ test("viewport and retained-scroll gestures do not perform content work on proje
   }
   await waitForAnimationFrame(page);
 
-  await centerRetainedCompositorSurface(page, SECTION_SIZING_SURFACE_ID);
+  await centerRetainedCompositorSurface(page, SECTION_SIZING_SURFACE_ID, {
+    waitForCommittedViewport: false,
+  });
   const retainedTarget = await resolveRetainedCompositorTarget(
     page,
     SECTION_SIZING_SURFACE_ID,

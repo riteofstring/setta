@@ -6,7 +6,9 @@ import {
 } from "state/actions/chromeRepro";
 import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import type { GpuFrameReason } from "../gpuRenderer";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
+  getGpuRetainedContentMaxScrollOffset,
   resolveGpuRetainedContentWheelScrollOffset,
   type GpuRetainedContentScrollOffsetMap,
   type GpuRetainedContentScrollResult,
@@ -43,6 +45,9 @@ export type GpuRetainedContentScrollControllerOptions = {
     | (() => GpuRetainedRuntimeFrame | null | undefined)
     | undefined;
   readonly getScrollOffsets: () => GpuRetainedContentScrollOffsetMap;
+  readonly getVisibleProjectionState?:
+    | (() => GpuFlowVisibleProjectionState | null | undefined)
+    | undefined;
   readonly onScrollOffsetsChange: (
     scrollOffsets: GpuRetainedContentScrollOffsetMap,
     result: GpuRetainedContentScrollResult,
@@ -63,6 +68,8 @@ class GpuRetainedContentScrollController {
   private readonly element: HTMLElement;
   private readonly options: GpuRetainedContentScrollControllerOptions;
   private pendingAnimationFrame: GpuRetainedContentScrollAnimationFrame | null =
+    null;
+  private pendingRetainedScrollFrameRequest: GpuRetainedContentScrollAnimationFrame | null =
     null;
   private readonly pendingScrollDiagnosticsBySurfaceId = new Map<
     string,
@@ -94,6 +101,7 @@ class GpuRetainedContentScrollController {
       capture: true,
     });
     this.cancelPendingScrollFlush();
+    this.cancelPendingRetainedScrollFrameRequest();
     this.cancelScrollIdleFrame();
     this.wheelOwnership.releaseOwner(
       "ownedByRetainedSectionScroll",
@@ -107,39 +115,178 @@ class GpuRetainedContentScrollController {
 
   private readonly onWheel = (event: WheelEvent) => {
     if (this.shouldSkipWheelEvent(event)) {
+      this.recordSkippedWheelEvent(event);
       return;
     }
     const scene = this.options.getScene();
     if (!scene) {
+      this.recordMissingSceneWheelEvent(event);
       return;
     }
     const scrollOffsets =
       this.pendingScrollOffsets ?? this.options.getScrollOffsets();
+    const visibleProjectionState =
+      this.options.getVisibleProjectionState?.() ?? null;
+    const point = getWheelFlowPoint(
+      event,
+      this.element,
+      this.store,
+      visibleProjectionState,
+    );
     const resolveStartedAtMs = nowChromeReproPerformanceMs();
     const result = resolveGpuRetainedContentWheelScrollOffset({
       event,
-      point: getWheelFlowPoint(event, this.element, this.store),
-      retainedRuntimeFrame: this.resolveRetainedRuntimeFrame(),
+      point,
+      retainedRuntimeFrame: this.resolveRetainedRuntimeFrame(
+        visibleProjectionState,
+      ),
       scene,
       scrollOffsets,
     });
     const resolveDurationMs =
       nowChromeReproPerformanceMs() - resolveStartedAtMs;
     if (!result.handled) {
+      this.recordUnhandledWheelEvent({ event, point, scene });
       return;
     }
-    const ownership = this.wheelOwnership.resolveOwner({
-      candidateOwner: "ownedByRetainedSectionScroll",
-      reason: "retained-section-wheel",
-    });
-    if (ownership.owner !== "ownedByRetainedSectionScroll") {
+    if (!this.claimRetainedWheelOwnership({ event, result })) {
       return;
     }
     event.preventDefault();
     event.stopImmediatePropagation();
     if (!result.changed) {
+      this.recordUnchangedWheelEvent({ event, result, scene, scrollOffsets });
       return;
     }
+    this.scheduleChangedWheelScroll({
+      event,
+      resolveDurationMs,
+      result,
+      scene,
+      scrollOffsets,
+    });
+  };
+
+  private recordSkippedWheelEvent(event: WheelEvent) {
+    recordGpuRetainedContentScrollWheelDebugEvent({
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      handled: false,
+      reason: "skipped",
+    });
+  }
+
+  private recordMissingSceneWheelEvent(event: WheelEvent) {
+    recordGpuRetainedContentScrollWheelDebugEvent({
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      handled: false,
+      reason: "missing-scene",
+    });
+  }
+
+  private recordUnhandledWheelEvent({
+    event,
+    point,
+    scene,
+  }: {
+    readonly event: WheelEvent;
+    readonly point: GpuPoint;
+    readonly scene: GpuFlowScene;
+  }) {
+    recordGpuRetainedContentScrollWheelDebugEvent({
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      handled: false,
+      point,
+      reason: "no-retained-surface",
+      sceneRevision: scene.revision,
+    });
+  }
+
+  private claimRetainedWheelOwnership({
+    event,
+    result,
+  }: {
+    readonly event: WheelEvent;
+    readonly result: Extract<
+      GpuRetainedContentWheelScrollOffsetResult,
+      { readonly handled: true }
+    >;
+  }): boolean {
+    const ownership = this.wheelOwnership.resolveOwner({
+      candidateOwner: "ownedByRetainedSectionScroll",
+      reason: "retained-section-wheel",
+    });
+    if (ownership.owner === "ownedByRetainedSectionScroll") {
+      return true;
+    }
+    recordGpuRetainedContentScrollWheelDebugEvent({
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      handled: true,
+      reason: "wheel-owned-by-other-controller",
+      surfaceId: result.surfaceId,
+    });
+    return false;
+  }
+
+  private recordUnchangedWheelEvent({
+    event,
+    result,
+    scene,
+    scrollOffsets,
+  }: {
+    readonly event: WheelEvent;
+    readonly result: Extract<
+      GpuRetainedContentWheelScrollOffsetResult,
+      { readonly changed: false; readonly handled: true }
+    >;
+    readonly scene: GpuFlowScene;
+    readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
+  }) {
+    const surfaceScrollState = getRetainedContentSurfaceDebugScrollState({
+      scene,
+      scrollOffsets,
+      surfaceId: result.surfaceId,
+    });
+    recordGpuRetainedContentScrollWheelDebugEvent({
+      changed: false,
+      currentOffset: surfaceScrollState.currentOffset,
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      handled: true,
+      maxOffset: surfaceScrollState.maxOffset,
+      reason: "unchanged",
+      surfaceId: result.surfaceId,
+    });
+  }
+
+  private scheduleChangedWheelScroll({
+    event,
+    resolveDurationMs,
+    result,
+    scene,
+    scrollOffsets,
+  }: {
+    readonly event: WheelEvent;
+    readonly resolveDurationMs: number;
+    readonly result: Extract<
+      GpuRetainedContentWheelScrollOffsetResult,
+      { readonly changed: true }
+    >;
+    readonly scene: GpuFlowScene;
+    readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
+  }) {
+    recordGpuRetainedContentScrollWheelDebugEvent({
+      changed: true,
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      handled: true,
+      reason: "scheduled-retained-scroll",
+      scrollOffset: result.scrollOffset,
+      surfaceId: result.surfaceId,
+    });
     this.recordPendingScrollDiagnostics({
       event,
       previousOffset:
@@ -155,10 +302,16 @@ class GpuRetainedContentScrollController {
     this.pendingScrollOffsets.set(result.surfaceId, result.scrollOffset);
     this.pendingSurfaceIds.add(result.surfaceId);
     this.schedulePendingScrollFlush();
-  };
+  }
 
-  private resolveRetainedRuntimeFrame(): GpuRetainedRuntimeFrame | null {
-    return this.options.getRetainedRuntimeFrame?.() ?? null;
+  private resolveRetainedRuntimeFrame(
+    visibleProjectionState: GpuFlowVisibleProjectionState | null,
+  ): GpuRetainedRuntimeFrame | null {
+    return (
+      visibleProjectionState?.committedFrame.retainedRuntimeFrame ??
+      this.options.getRetainedRuntimeFrame?.() ??
+      null
+    );
   }
 
   private shouldSkipWheelEvent(event: WheelEvent): boolean {
@@ -210,7 +363,7 @@ class GpuRetainedContentScrollController {
       });
     }
     const commitDurationMs = nowChromeReproPerformanceMs() - commitStartedAtMs;
-    this.options.requestFrame?.("retained-scroll");
+    this.requestRetainedScrollFrame();
     this.scheduleScrollIdleFrame();
     this.postPendingScrollFlushChromeReproEvent({
       commitDurationMs,
@@ -225,6 +378,29 @@ class GpuRetainedContentScrollController {
     }
     cancelGpuRetainedContentScrollFrame(this.pendingAnimationFrame);
     this.pendingAnimationFrame = null;
+  }
+
+  private requestRetainedScrollFrame() {
+    if (!this.options.requestFrame) {
+      return;
+    }
+    this.options.requestFrame("retained-scroll");
+    if (this.pendingRetainedScrollFrameRequest) {
+      return;
+    }
+    this.pendingRetainedScrollFrameRequest =
+      requestGpuRetainedContentScrollFrame(() => {
+        this.pendingRetainedScrollFrameRequest = null;
+        this.options.requestFrame?.("retained-scroll");
+      });
+  }
+
+  private cancelPendingRetainedScrollFrameRequest() {
+    if (!this.pendingRetainedScrollFrameRequest) {
+      return;
+    }
+    cancelGpuRetainedContentScrollFrame(this.pendingRetainedScrollFrameRequest);
+    this.pendingRetainedScrollFrameRequest = null;
   }
 
   private scheduleScrollIdleFrame() {
@@ -428,6 +604,7 @@ function getWheelFlowPoint(
   event: Pick<WheelEvent, "clientX" | "clientY">,
   element: HTMLElement,
   store: GpuFlowViewportStoreApi,
+  visibleProjectionState?: GpuFlowVisibleProjectionState | null,
 ) {
   const rect = element.getBoundingClientRect();
   return screenToFlowPosition(
@@ -435,7 +612,7 @@ function getWheelFlowPoint(
       x: event.clientX - rect.left,
       y: event.clientY - rect.top,
     },
-    store.getState().transform,
+    visibleProjectionState?.sample.viewport ?? store.getState().transform,
   );
 }
 
@@ -447,6 +624,69 @@ function getRetainedContentSurfaceScrollOffset(
     (candidate) => candidate.id === surfaceId,
   );
   return surface?.retainedScene?.scrollOffset ?? { x: 0, y: 0 };
+}
+
+function getRetainedContentSurfaceDebugScrollState({
+  scene,
+  scrollOffsets,
+  surfaceId,
+}: {
+  readonly scene: GpuFlowScene;
+  readonly scrollOffsets: GpuRetainedContentScrollOffsetMap;
+  readonly surfaceId: string | null;
+}): {
+  readonly currentOffset: GpuPoint | null;
+  readonly maxOffset: GpuPoint | null;
+} {
+  if (!surfaceId) {
+    return { currentOffset: null, maxOffset: null };
+  }
+  const surface = scene.contentSurfaces.find(
+    (candidate) => candidate.id === surfaceId,
+  );
+  if (!surface?.retainedScene) {
+    return { currentOffset: null, maxOffset: null };
+  }
+  return {
+    currentOffset:
+      scrollOffsets.get(surfaceId) ?? surface.retainedScene.scrollOffset,
+    maxOffset: getGpuRetainedContentMaxScrollOffset({
+      contentRect: surface.retainedScene.contentRect,
+      viewportRect: surface.retainedScene.viewportRect,
+    }),
+  };
+}
+
+function recordGpuRetainedContentScrollWheelDebugEvent(event: {
+  readonly changed?: boolean | undefined;
+  readonly currentOffset?: GpuPoint | null | undefined;
+  readonly deltaX: number;
+  readonly deltaY: number;
+  readonly handled: boolean;
+  readonly maxOffset?: GpuPoint | null | undefined;
+  readonly point?: GpuPoint | undefined;
+  readonly reason: string;
+  readonly sceneRevision?: number | undefined;
+  readonly scrollOffset?: GpuPoint | null | undefined;
+  readonly surfaceId?: string | null | undefined;
+}) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const view = window as typeof window & {
+    __SETTA_GPU_FLOW_DEBUG_RETAINED_SCROLL_EVENTS__?: unknown[];
+  };
+  const events = view.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCROLL_EVENTS__;
+  if (!events) {
+    return;
+  }
+  events.push({
+    ...event,
+    timestamp: nowChromeReproPerformanceMs(),
+  });
+  if (events.length > 24) {
+    events.splice(0, events.length - 24);
+  }
 }
 
 function roundGpuPointForChromeRepro(point: GpuPoint): GpuPoint {

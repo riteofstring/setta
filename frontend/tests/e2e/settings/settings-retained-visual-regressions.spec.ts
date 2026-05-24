@@ -5,6 +5,12 @@ import { ensureAppReady, postBackend } from "../helpers";
 import { waitForGuiRowHoverState } from "./settings-retained-row-hover-helpers";
 import { readVisibleRetainedContentScrollMarker } from "./settings-retained-scroll-marker";
 import {
+  captureSwitchFrame,
+  resolveRenderedSwitchClickPoint,
+  resolveSwitchClipFromControlRect,
+  waitForRenderedSwitchThumb,
+} from "./settings-retained-switch-visual-helpers";
+import {
   analyzeHoverBands,
   analyzeHoverContrast,
   analyzeVerticalScrollbar,
@@ -18,7 +24,6 @@ import {
 } from "./settings-retained-visual-analysis";
 import {
   clampScreenshotClip,
-  clampScreenshotClipToViewport,
   screenshotClip,
   waitForAnimationFrame,
   waitForStableScreenshotClip,
@@ -34,10 +39,6 @@ const BUNDLE_SWITCH_LABEL = LEFT_PANE_SHIFT_LABEL;
 const BUNDLE_SWITCH_SETTING_KEY = "leftSidePaneShiftsMap";
 const SWITCH_ANIMATION_LABEL = LEFT_PANE_SHIFT_LABEL;
 const SWITCH_ANIMATION_SETTING_KEY = "leftSidePaneShiftsMap";
-const SWITCH_ANIMATION_CLIP_HEIGHT = 88;
-const SWITCH_ANIMATION_CLIP_WIDTH = 240;
-const SWITCH_RENDERED_TRACK_CENTER_OFFSET_X = 31;
-const SWITCH_RENDERED_TRACK_CENTER_OFFSET_Y = 14;
 const GUI_SCROLL_LABEL_ORDER = [
   "Default Zoom Level",
   "Grid Color",
@@ -277,6 +278,7 @@ test("retained switch click animates the thumb monotonically", async ({
   }
   const clip = await resolveSwitchClipFromControlRect(page, controlRect);
   await waitForStableScreenshotClip(page, clip);
+  await waitForRenderedSwitchThumb(page, clip);
   const before = await captureSwitchFrame({
     name: "visual-switch-before.png",
     page,
@@ -1126,24 +1128,6 @@ async function waitForViewportIdle(page: Page): Promise<void> {
     .toBe(true);
 }
 
-async function captureSwitchFrame({
-  name,
-  page,
-  rect,
-  testInfo,
-}: {
-  readonly name: string;
-  readonly page: Page;
-  readonly rect: Rect;
-  readonly testInfo: TestInfo;
-}): Promise<SwitchFrame> {
-  const screenshot = await screenshotClip({ name, page, rect, testInfo });
-  return {
-    name,
-    screenshot,
-  };
-}
-
 async function captureScrollContentFrame({
   name,
   page,
@@ -1202,37 +1186,5 @@ function resolveHoverContrastLabelSampleRect(row: RetainedRowDebugEntry): Rect {
     width: Math.max(48, labelRight - labelLeft),
     x: labelLeft,
     y: row.clientRect.y,
-  };
-}
-
-async function resolveSwitchClipFromControlRect(
-  page: Page,
-  rect: Rect,
-): Promise<Rect> {
-  const height = Math.min(
-    SWITCH_ANIMATION_CLIP_HEIGHT,
-    Math.max(1, rect.height),
-  );
-  const width = Math.min(SWITCH_ANIMATION_CLIP_WIDTH, Math.max(1, rect.width));
-  return await clampScreenshotClipToViewport(page, {
-    height,
-    width,
-    x: rect.x,
-    y: rect.y + rect.height / 2 - height / 2,
-  });
-}
-
-async function resolveRenderedSwitchClickPoint(
-  page: Page,
-  rect: Rect,
-): Promise<Point> {
-  const zoom = await readViewportZoom(page);
-  return {
-    x:
-      rect.x +
-      Math.min(rect.width / 2, SWITCH_RENDERED_TRACK_CENTER_OFFSET_X * zoom),
-    y:
-      rect.y +
-      Math.min(rect.height / 2, SWITCH_RENDERED_TRACK_CENTER_OFFSET_Y * zoom),
   };
 }

@@ -738,6 +738,7 @@ async function findVisibleTextLikeRow(
             row.surfaceId === surfaceId &&
             (!rowId || row.rowId === rowId) &&
             row.controlKind === "text-like" &&
+            row.rowState?.disabled !== true &&
             row.controlClientPoint !== null &&
             row.controlClientRect !== null &&
             row.controlClientRect.width > 8 &&

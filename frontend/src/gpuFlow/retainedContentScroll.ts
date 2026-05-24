@@ -280,15 +280,20 @@ function getGpuRetainedContentWheelScrollContext({
     readonly retainedScene: NonNullable<GpuContentSurface["retainedScene"]>;
   };
 } | null {
-  const surface = retainedRuntimeFrame
-    ? retainedRuntimeFrame.descriptors.hitTestSurfaces.find((candidate) =>
-        isGpuRetainedContentWheelScrollCandidate({
-          point,
-          surface: candidate,
-        }),
-      )
-    : getGpuRetainedContentWheelScrollSceneCandidates({ point, scene })[0]
-        ?.surface;
+  const runtimeFrameSurface =
+    retainedRuntimeFrame &&
+    retainedRuntimeFrame.input.sceneRevision === scene.revision
+      ? retainedRuntimeFrame.descriptors.hitTestSurfaces.find((candidate) =>
+          isGpuRetainedContentWheelScrollCandidate({
+            point,
+            surface: candidate,
+          }),
+        )
+      : undefined;
+  const surface =
+    runtimeFrameSurface ??
+    getGpuRetainedContentWheelScrollSceneCandidates({ point, scene })[0]
+      ?.surface;
   if (!surface) {
     return null;
   }
