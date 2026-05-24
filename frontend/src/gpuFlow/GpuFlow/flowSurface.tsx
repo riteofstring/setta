@@ -267,6 +267,7 @@ export function GpuFlow({
     prepareCommittedSurfaceFrame,
     prepareVisibleFrameResourcesForBudget,
     projectCommittedBrowserVisualActors,
+    validatePreparedCommittedSurfaceFrame,
     visibleCommittedSurfaceFrame,
   } = useGpuFlowCommittedSurfaceFrameState({
     initialRetainedRuntimeFrame,
@@ -902,6 +903,7 @@ export function GpuFlow({
         surfaceRef,
         textureManagerRef,
         transformOnlyPaintNodeIdsRef,
+        validatePreparedCommittedSurfaceFrame,
         visibleCommittedSurfaceFrame,
         visibleNodeIdsRef,
         visibleOverlayProjectionKeyRef,
@@ -924,6 +926,7 @@ export function GpuFlow({
       prepareVisibleFrameResourcesForBudget,
       projectCommittedBrowserVisualActors,
       publishColdStartShellFrame,
+      validatePreparedCommittedSurfaceFrame,
       retainedContentSwitchAnimations,
       visibleCommittedSurfaceFrame,
       viewportRuntime,

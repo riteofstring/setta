@@ -157,6 +157,7 @@ function presentGpuFlowVisibleFramePublicationFrame({
   retainedRuntimeFrameSourceRenderSignatureRef,
   runtimeCanvas,
   surfaceRef,
+  validatePreparedCommittedSurfaceFrame,
   viewportRuntime,
   visibleFrameBudgetBrokerRef,
   visibleOverlayProjectionKeyRef,
@@ -174,6 +175,7 @@ function presentGpuFlowVisibleFramePublicationFrame({
   readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
+  readonly validatePreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["validatePreparedCommittedSurfaceFrame"];
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly visibleFrameBudgetBrokerRef?:
     | RenderGpuFlowSurfaceFrameInput["visibleFrameBudgetBrokerRef"]
@@ -242,6 +244,7 @@ function presentGpuFlowVisibleFramePublicationFrame({
       runtimeCanvas,
       selectedVisibleProjectionState,
       surfaceRef,
+      validatePreparedCommittedSurfaceFrame,
       viewportRuntime,
       visibleFrameBudgetBrokerRef,
       visibleOverlayProjectionKeyRef,
@@ -354,6 +357,7 @@ export function createGpuFlowVisibleFramePresenter({
   retainedRuntimeFrameSourceRenderSignatureRef,
   runtimeCanvas,
   surfaceRef,
+  validatePreparedCommittedSurfaceFrame,
   viewportRuntime,
   visibleFrameBudgetBrokerRef,
   visibleOverlayProjectionKeyRef,
@@ -373,6 +377,7 @@ export function createGpuFlowVisibleFramePresenter({
       retainedRuntimeFrameSourceRenderSignatureRef,
       runtimeCanvas,
       surfaceRef,
+      validatePreparedCommittedSurfaceFrame,
       viewportRuntime,
       visibleFrameBudgetBrokerRef,
       visibleOverlayProjectionKeyRef,
@@ -421,6 +426,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
   runtimeCanvas,
   selectedVisibleProjectionState,
   surfaceRef,
+  validatePreparedCommittedSurfaceFrame,
   viewportRuntime,
   visibleFrameBudgetBrokerRef,
   visibleOverlayProjectionKeyRef,
@@ -450,6 +456,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
+  readonly validatePreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["validatePreparedCommittedSurfaceFrame"];
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly visibleFrameBudgetBrokerRef?:
     | RenderGpuFlowSurfaceFrameInput["visibleFrameBudgetBrokerRef"]
@@ -475,6 +482,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
         runtimeCanvas,
         selectedVisibleProjectionState,
         surfaceRef,
+        validatePreparedCommittedSurfaceFrame,
         viewportRuntime,
         visibleOverlayProjectionKeyRef,
         visibleProjectionPublicationStateRef,
@@ -657,6 +665,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
   runtimeCanvas,
   selectedVisibleProjectionState,
   surfaceRef,
+  validatePreparedCommittedSurfaceFrame,
   viewportRuntime,
   visibleOverlayProjectionKeyRef,
   visibleProjectionPublicationStateRef,
@@ -679,6 +688,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
+  readonly validatePreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["validatePreparedCommittedSurfaceFrame"];
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly visibleOverlayProjectionKeyRef: RenderGpuFlowSurfaceFrameInput["visibleOverlayProjectionKeyRef"];
   readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
@@ -696,6 +706,9 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
     throw new Error(
       "GPU Flow content publication commit requires the prepared committed surface frame.",
     );
+  }
+  if (committedSurfaceFrame) {
+    validatePreparedCommittedSurfaceFrame(outcome.token, committedSurfaceFrame);
   }
   const submittedNodeLayerFrameStatePublication =
     submitGpuFlowNodeLayerFrameCanvasSubmission({

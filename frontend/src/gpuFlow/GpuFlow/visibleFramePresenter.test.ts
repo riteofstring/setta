@@ -97,13 +97,14 @@ describe("GPU Flow surface publication completion", () => {
       projectionSample: selectedState.sample,
     });
     let schedulerCompletionCount = 0;
+    const submitCanvas = vi.fn();
     const presenter = createGpuFlowVisibleFramePresenter({
       abortPreparedCommittedSurfaceFrame: () => {
         throw new Error("Unexpected prepared committed surface abort.");
       },
       callbacksRef: { current: null },
       commitPreparedCommittedSurfaceFrame: () => {
-        throw new Error("commit failed before visible publication");
+        throw new Error("Unexpected prepared committed surface commit.");
       },
       projectCommittedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
@@ -116,6 +117,9 @@ describe("GPU Flow surface publication completion", () => {
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
       runtimeCanvas: testCanvas(),
       surfaceRef: { current: null },
+      validatePreparedCommittedSurfaceFrame: () => {
+        throw new Error("commit failed before visible publication");
+      },
       viewportRuntime: {
         applyOverlayTransforms: () => {
           throw new Error("Unexpected overlay projection transform.");
@@ -130,6 +134,9 @@ describe("GPU Flow surface publication completion", () => {
       presenter(
         committedPublicationTransaction({
           committedFrame,
+          nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
+            submitCanvas,
+          }),
           onCompleteSchedulerFrame: () => {
             schedulerCompletionCount += 1;
           },
@@ -138,6 +145,7 @@ describe("GPU Flow surface publication completion", () => {
         }),
       ),
     ).toThrow(/commit failed before visible publication/);
+    expect(submitCanvas).not.toHaveBeenCalled();
     expect(schedulerCompletionCount).toBe(0);
   });
 
@@ -152,9 +160,17 @@ describe("GPU Flow surface publication completion", () => {
       frame: committedFrame,
       projectionSample: selectedState.sample,
     });
-    const submitCanvas = vi.fn();
-    const submitDomTransforms = vi.fn();
+    const visibleMutationOrder: string[] = [];
+    const submitCanvas = vi.fn(() => {
+      visibleMutationOrder.push("canvas");
+    });
+    const submitDomTransforms = vi.fn(() => {
+      visibleMutationOrder.push("dom-transform");
+    });
     const publishColdStartShellFrame = vi.fn();
+    const validatePreparedCommittedSurfaceFrame = vi.fn(() => {
+      visibleMutationOrder.push("validate");
+    });
     const presenter = createGpuFlowVisibleFramePresenter({
       abortPreparedCommittedSurfaceFrame: () => {
         throw new Error("Unexpected prepared committed surface abort.");
@@ -165,7 +181,10 @@ describe("GPU Flow surface publication completion", () => {
           onNodeLayerFrame: () => {},
         },
       },
-      commitPreparedCommittedSurfaceFrame: () => true,
+      commitPreparedCommittedSurfaceFrame: () => {
+        visibleMutationOrder.push("commit");
+        return true;
+      },
       projectCommittedBrowserVisualActors: () => {},
       publishColdStartShellFrame,
       retainedDisplayFrameRef: { current: null },
@@ -173,6 +192,7 @@ describe("GPU Flow surface publication completion", () => {
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
       runtimeCanvas: testCanvas(),
       surfaceRef: { current: null },
+      validatePreparedCommittedSurfaceFrame,
       viewportRuntime: {
         applyOverlayTransforms: () => {},
       },
@@ -196,6 +216,13 @@ describe("GPU Flow surface publication completion", () => {
 
     expect(submitCanvas).toHaveBeenCalledOnce();
     expect(submitDomTransforms).toHaveBeenCalledOnce();
+    expect(validatePreparedCommittedSurfaceFrame).toHaveBeenCalledOnce();
+    expect(visibleMutationOrder.slice(0, 4)).toEqual([
+      "validate",
+      "canvas",
+      "dom-transform",
+      "commit",
+    ]);
     expect(publishColdStartShellFrame).toHaveBeenCalledWith({
       frame: null,
       token,
@@ -215,6 +242,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     const commitPreparedCommittedSurfaceFrame = vi.fn(() => true);
     const projectCommittedBrowserVisualActors = vi.fn();
+    const validatePreparedCommittedSurfaceFrame = vi.fn();
     let schedulerCompletionCount = 0;
     const presenter = createGpuFlowVisibleFramePresenter({
       abortPreparedCommittedSurfaceFrame: () => {
@@ -234,6 +262,7 @@ describe("GPU Flow surface publication completion", () => {
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
       runtimeCanvas: testCanvas(),
       surfaceRef: { current: null },
+      validatePreparedCommittedSurfaceFrame,
       viewportRuntime: {
         applyOverlayTransforms: () => {
           throw new Error("Unexpected overlay projection transform.");
@@ -261,6 +290,7 @@ describe("GPU Flow surface publication completion", () => {
         }),
       ),
     ).toThrow(/canvas submission failed/);
+    expect(validatePreparedCommittedSurfaceFrame).toHaveBeenCalledOnce();
     expect(commitPreparedCommittedSurfaceFrame).not.toHaveBeenCalled();
     expect(projectCommittedBrowserVisualActors).not.toHaveBeenCalled();
     expect(schedulerCompletionCount).toBe(0);
@@ -291,6 +321,7 @@ describe("GPU Flow surface publication completion", () => {
       retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
       runtimeCanvas: testCanvas(),
       surfaceRef: { current: { requestFrame } },
+      validatePreparedCommittedSurfaceFrame: () => {},
       viewportRuntime: {
         applyOverlayTransforms: () => {},
       },
@@ -358,6 +389,7 @@ describe("GPU Flow surface publication completion", () => {
           requestFrame,
         },
       },
+      validatePreparedCommittedSurfaceFrame: () => {},
       viewportRuntime: {
         applyOverlayTransforms: () => {},
       },
@@ -443,6 +475,7 @@ describe("GPU Flow surface publication completion", () => {
       surfaceRef: {
         current: surface,
       },
+      validatePreparedCommittedSurfaceFrame: () => {},
       viewportRuntime: {
         applyOverlayTransforms: () => {},
       },

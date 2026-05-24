@@ -317,16 +317,10 @@ export class GpuFlowVisibleFrameResourceGraph {
     readonly token: GpuFlowCommitPublicationToken;
   }): GpuFlowVisibleFrameCommittedSurfaceCommitResult {
     const frameId = getGpuFlowCommittedSurfaceFrameId(frame);
-    assertGpuFlowCommitPublicationTokenForFrameId({
-      committedFrameId: frameId,
-      token,
-    });
-    const entry = this.requirePreparedCommittedSurfaceFrame(frame);
-    assertGpuFlowCommitPublicationTokenForPresentationProof({
+    const entry = this.validatePreparedCommittedSurfaceFrame({
       frame,
       token,
     });
-    this.assertPreparedCandidateRequiredResourcesReady(entry);
     commitBrowserVisualCandidate({
       candidate: entry.browserVisualCandidate,
       token,
@@ -378,6 +372,27 @@ export class GpuFlowVisibleFrameResourceGraph {
         releasedCommittedResourceKeys,
       ),
     });
+  }
+
+  validatePreparedCommittedSurfaceFrame({
+    frame,
+    token,
+  }: {
+    readonly frame: GpuFlowCommittedSurfaceFrame;
+    readonly token: GpuFlowCommitPublicationToken;
+  }): GpuFlowVisibleFrameCandidateResourceEntry {
+    const frameId = getGpuFlowCommittedSurfaceFrameId(frame);
+    assertGpuFlowCommitPublicationTokenForFrameId({
+      committedFrameId: frameId,
+      token,
+    });
+    const entry = this.requirePreparedCommittedSurfaceFrame(frame);
+    assertGpuFlowCommitPublicationTokenForPresentationProof({
+      frame,
+      token,
+    });
+    this.assertPreparedCandidateRequiredResourcesReady(entry);
+    return entry;
   }
 
   abortPreparedCommittedSurfaceFrame({

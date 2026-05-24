@@ -128,6 +128,13 @@ export function useGpuFlowCommittedSurfaceFrameState({
     },
     [],
   );
+  const validatePreparedCommittedSurfaceFrame = useCallback(
+    (token: GpuFlowCommitPublicationToken, frame: GpuFlowCommittedSurfaceFrame) =>
+      visibleFrameResourceGraphRef.current.validatePreparedCommittedSurfaceFrame(
+        { frame, token },
+      ),
+    [],
+  );
   const projectCommittedBrowserVisualActors = useCallback(
     (
       token: GpuFlowCommitPublicationToken,
@@ -214,6 +221,7 @@ export function useGpuFlowCommittedSurfaceFrameState({
     prepareCommittedSurfaceFrame,
     prepareVisibleFrameResourcesForBudget,
     projectCommittedBrowserVisualActors,
+    validatePreparedCommittedSurfaceFrame,
     visibleCommittedSurfaceFrame,
   };
 }

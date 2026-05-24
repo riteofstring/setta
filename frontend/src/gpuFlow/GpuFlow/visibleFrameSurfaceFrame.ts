@@ -125,6 +125,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
     token: GpuFlowCommitPublicationToken,
     frame: GpuFlowCommittedSurfaceFrame,
   ) => boolean;
+  readonly validatePreparedCommittedSurfaceFrame: (token: GpuFlowCommitPublicationToken, frame: GpuFlowCommittedSurfaceFrame) => void;
   readonly prepareCommittedSurfaceFrame: NonNullable<
     GpuFlowNodeLayerFrameInput["onRetainedDisplayFrame"]
   >;
@@ -195,6 +196,8 @@ export function renderGpuFlowSurfaceFrame({
         callbacksRef: input.callbacksRef,
         commitPreparedCommittedSurfaceFrame:
           input.commitPreparedCommittedSurfaceFrame,
+        validatePreparedCommittedSurfaceFrame:
+          input.validatePreparedCommittedSurfaceFrame,
         projectCommittedBrowserVisualActors:
           input.projectCommittedBrowserVisualActors,
         publishColdStartShellFrame: input.publishColdStartShellFrame,
