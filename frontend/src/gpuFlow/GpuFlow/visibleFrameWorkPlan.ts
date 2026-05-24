@@ -49,7 +49,6 @@ export function createGpuFlowMotionProjectionWorkPlan({
 }
 
 export function createGpuFlowContentPreparationWorkPlan({
-  budgetDecision,
   blockedProjectionOnlyFrame,
   reducerDecision,
   renderedProjectionOnlyFrame,
@@ -59,22 +58,14 @@ export function createGpuFlowContentPreparationWorkPlan({
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly renderedProjectionOnlyFrame: boolean;
 }): GpuFlowContentPreparationWorkPlan {
-  const budgetedVisibleRepair =
-    hasGpuFlowBudgetedVisibleContentRepair(budgetDecision);
   if (
-    (blockedProjectionOnlyFrame && !budgetedVisibleRepair) ||
-    (renderedProjectionOnlyFrame && !budgetedVisibleRepair) ||
+    blockedProjectionOnlyFrame ||
+    renderedProjectionOnlyFrame ||
     reducerDecision.lane === "motion" ||
     reducerDecision.lane === "idle"
   ) {
-    if (!budgetedVisibleRepair) {
-      return Object.freeze({
-        kind: "skip" as const,
-      });
-    }
     return Object.freeze({
-      kind: "prepare" as const,
-      contentWorkLane: "content" as const,
+      kind: "skip" as const,
     });
   }
   return Object.freeze({
@@ -82,14 +73,6 @@ export function createGpuFlowContentPreparationWorkPlan({
     contentWorkLane:
       reducerDecision.lane === "maintenance" ? "maintenance" : "content",
   });
-}
-
-function hasGpuFlowBudgetedVisibleContentRepair(
-  budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision | undefined,
-): boolean {
-  return (
-    (budgetDecision?.preparationBudget.selectedVisibleDebtIds.length ?? 0) > 0
-  );
 }
 
 export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPreparation({

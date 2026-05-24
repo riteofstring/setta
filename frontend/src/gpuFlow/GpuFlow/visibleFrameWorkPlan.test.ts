@@ -74,7 +74,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({ lane: "motion" }),
         renderedProjectionOnlyFrame: true,
       }),
-    ).toEqual({ kind: "prepare", contentWorkLane: "content" });
+    ).toEqual({ kind: "skip" });
     expect(
       createGpuFlowContentPreparationWorkPlan({
         blockedProjectionOnlyFrame: true,
@@ -82,7 +82,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({ lane: "idle" }),
         renderedProjectionOnlyFrame: false,
       }),
-    ).toEqual({ kind: "prepare", contentWorkLane: "content" });
+    ).toEqual({ kind: "skip" });
     expect(
       createGpuFlowContentPreparationWorkPlan({
         blockedProjectionOnlyFrame: false,

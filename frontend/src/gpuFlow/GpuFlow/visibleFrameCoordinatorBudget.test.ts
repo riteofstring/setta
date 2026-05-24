@@ -345,7 +345,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
     expect(phases).toEqual([
       "resources:dom-control:editor",
       "motion:prepare:defer-true",
-      "content:prepare:defer-true",
+      "content:skip:defer-true",
       "onPresentation:motion",
     ]);
   });
