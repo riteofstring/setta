@@ -27,6 +27,9 @@ const SURFACE_PUBLICATION_DEBT_REQUESTS_MODULE_PATH = fileURLToPath(
 const SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfacePublicationDebtFrame.ts", import.meta.url),
 );
+const FORCED_BLOCKED_CANDIDATE_SET_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameForcedBlockedCandidateSet.ts", import.meta.url),
+);
 
 describe("GPU Flow visible frame coordinator phases", () => {
   it("runs sample, one reducer, and publish through one transaction authority", () => {
@@ -144,6 +147,10 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function selectGpuFlowVisibleFramePublicationTransaction",
     );
     expect(source).not.toContain("scheduler.selectFrame({");
+    expect(source).not.toContain(
+      "prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet",
+    );
+    expect(existsSync(FORCED_BLOCKED_CANDIDATE_SET_MODULE_PATH)).toBe(false);
   });
 
   it("keeps transaction proof, scheduler completion, and publication decision out of the surface frame adapter", () => {

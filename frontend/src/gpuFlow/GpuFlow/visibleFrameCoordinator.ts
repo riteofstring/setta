@@ -24,7 +24,6 @@ import {
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
 } from "./visibleFrameContentPlan";
-import { prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet } from "./visibleFrameForcedBlockedCandidateSet";
 import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFrameOutcomeReport";
 import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
@@ -432,18 +431,6 @@ function prepareGpuFlowVisibleFramePublicationCandidateSet<
       prepareCommittedSurfacePublicationFramePlan,
       prepareRetainedDisplayPublicationFramePlan,
     });
-  const forcedCandidateSet =
-    prepareGpuFlowForcedBlockedVisibleFramePublicationCandidateSet({
-      prepareContentPublicationFrame,
-      prepareMotionProjectionFrame,
-      previousVisibleProjectionState,
-      publicationDecision,
-      publicationFrameContext,
-      runRetainedCommittedSurfacePublicationContentStage,
-    });
-  if (forcedCandidateSet) {
-    return forcedCandidateSet;
-  }
   const motionProjectionWorkPlan = createGpuFlowMotionProjectionWorkPlan({
     publicationDecision,
   });
