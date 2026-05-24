@@ -363,27 +363,6 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   it("wakes the coordinator for browser visual blocked content debt", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
-      blockedPublicationProof: {
-        blockedReasons: [
-          {
-            actorId: "actor-a",
-            family: "browser-visual",
-            reason: "live-dom-budget",
-          },
-        ],
-        candidate: {
-          blockedReasons: [
-            {
-              actorId: "actor-a",
-              family: "browser-visual",
-              reason: "live-dom-budget",
-            },
-          ],
-          frozenFrameId: 7,
-        },
-        frozenFrameId: 7,
-        source: "content-publication",
-      },
       forceImmediatePublicationDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
@@ -409,6 +388,27 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["scheduler"],
       transactionProof: {
+        blockedProof: {
+          blockedReasons: [
+            {
+              actorId: "actor-a",
+              family: "browser-visual",
+              reason: "live-dom-budget",
+            },
+          ],
+          candidate: {
+            blockedReasons: [
+              {
+                actorId: "actor-a",
+                family: "browser-visual",
+                reason: "live-dom-budget",
+              },
+            ],
+            frozenFrameId: 7,
+          },
+          frozenFrameId: 7,
+          source: "content-publication",
+        },
         renderedVisibleFrame: false,
         visibleFrameStateMachineOutcome: {
           debt: {
@@ -449,32 +449,6 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   it("requests manual repair after section surface content blocks even when motion debt remains", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
-      blockedPublicationProof: {
-        blockedReasons: [
-          {
-            actorId: "section-a:section-shell",
-            family: "section-shell",
-            reason: "section-surface-not-drawn",
-          },
-          {
-            actorId: "section-a:section-body-clip",
-            family: "section-body-clip",
-            reason: "section-surface-not-drawn",
-          },
-        ],
-        candidate: {
-          blockedReasons: [
-            {
-              actorId: "section-a:section-shell",
-              family: "section-shell",
-              reason: "section-surface-not-drawn",
-            },
-          ],
-          frozenFrameId: 7,
-        },
-        frozenFrameId: 7,
-        source: "content-publication",
-      },
       forceImmediatePublicationDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
@@ -500,6 +474,32 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["scheduler"],
       transactionProof: {
+        blockedProof: {
+          blockedReasons: [
+            {
+              actorId: "section-a:section-shell",
+              family: "section-shell",
+              reason: "section-surface-not-drawn",
+            },
+            {
+              actorId: "section-a:section-body-clip",
+              family: "section-body-clip",
+              reason: "section-surface-not-drawn",
+            },
+          ],
+          candidate: {
+            blockedReasons: [
+              {
+                actorId: "section-a:section-shell",
+                family: "section-shell",
+                reason: "section-surface-not-drawn",
+              },
+            ],
+            frozenFrameId: 7,
+          },
+          frozenFrameId: 7,
+          source: "content-publication",
+        },
         renderedVisibleFrame: false,
         visibleFrameStateMachineOutcome: {
           debt: {
@@ -540,27 +540,6 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   it("requests texture upload after pending browser text snapshot blocks content", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
-      blockedPublicationProof: {
-        blockedReasons: [
-          {
-            actorId: "retained-dom-control:a",
-            family: "browser-text-snapshot",
-            reason: "snapshot-pending",
-          },
-        ],
-        candidate: {
-          blockedReasons: [
-            {
-              actorId: "retained-dom-control:a",
-              family: "browser-text-snapshot",
-              reason: "snapshot-pending",
-            },
-          ],
-          frozenFrameId: 7,
-        },
-        frozenFrameId: 7,
-        source: "content-publication",
-      },
       forceImmediatePublicationDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
@@ -586,6 +565,27 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["scheduler"],
       transactionProof: {
+        blockedProof: {
+          blockedReasons: [
+            {
+              actorId: "retained-dom-control:a",
+              family: "browser-text-snapshot",
+              reason: "snapshot-pending",
+            },
+          ],
+          candidate: {
+            blockedReasons: [
+              {
+                actorId: "retained-dom-control:a",
+                family: "browser-text-snapshot",
+                reason: "snapshot-pending",
+              },
+            ],
+            frozenFrameId: 7,
+          },
+          frozenFrameId: 7,
+          source: "content-publication",
+        },
         renderedVisibleFrame: false,
         visibleFrameStateMachineOutcome: {
           debt: {
@@ -638,7 +638,6 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
-      blockedPublicationProof: null,
       forceImmediatePublicationDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
@@ -720,27 +719,6 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   it("keeps held-previous budget blocked retained follow-up queued behind scheduler debt", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
-      blockedPublicationProof: {
-        blockedReasons: [
-          {
-            actorId: null,
-            family: "visible-transaction",
-            reason: "held-previous-budget-exceeded",
-          },
-        ],
-        candidate: {
-          blockedReasons: [
-            {
-              actorId: null,
-              family: "visible-transaction",
-              reason: "held-previous-budget-exceeded",
-            },
-          ],
-          frozenFrameId: 7,
-        },
-        frozenFrameId: 7,
-        source: "presentation-pair",
-      },
       forceImmediatePublicationDebtFrame: false,
       followUpFrameReason: "texture-upload",
       previousVisibleProjectionState: null,
@@ -766,6 +744,27 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["scheduler"],
       transactionProof: {
+        blockedProof: {
+          blockedReasons: [
+            {
+              actorId: null,
+              family: "visible-transaction",
+              reason: "held-previous-budget-exceeded",
+            },
+          ],
+          candidate: {
+            blockedReasons: [
+              {
+                actorId: null,
+                family: "visible-transaction",
+                reason: "held-previous-budget-exceeded",
+              },
+            ],
+            frozenFrameId: 7,
+          },
+          frozenFrameId: 7,
+          source: "presentation-pair",
+        },
         renderedVisibleFrame: false,
         visibleFrameStateMachineOutcome: {
           debt: {
@@ -815,7 +814,6 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): void {
   proveGpuFlowVisibleFramePublicationPresentation({
-    blockedPublicationProof: null,
     forceImmediatePublicationDebtFrame: false,
     followUpFrameReason: null,
     previousVisibleProjectionState: null,

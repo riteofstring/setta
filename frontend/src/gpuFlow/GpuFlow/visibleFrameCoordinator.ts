@@ -315,7 +315,6 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     publicationDecision,
   });
   const transactionCompletion = proveGpuFlowVisibleFramePublicationPresentation({
-    blockedPublicationProof: preparedFrame.transactionProof.blockedProof,
     forceImmediatePublicationDebtFrame:
       preparedFrame.contentPublicationFrame.forceImmediatePublicationDebtFrame ??
       false,

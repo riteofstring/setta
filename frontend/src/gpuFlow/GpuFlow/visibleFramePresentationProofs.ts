@@ -79,7 +79,6 @@ type GpuFlowVisibleFramePublicationPresentationScheduler = {
 const GPU_FLOW_MOTION_ACTIVE_DEBT_RETRY_DELAY_MS = 160;
 
 export function proveGpuFlowVisibleFramePublicationPresentation({
-  blockedPublicationProof,
   forceImmediatePublicationDebtFrame,
   followUpFrameReason,
   publicationDecision,
@@ -87,7 +86,6 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
   scheduler,
   transactionProof,
 }: {
-  readonly blockedPublicationProof: GpuFlowVisiblePublicationBlockedProof | null;
   readonly forceImmediatePublicationDebtFrame: boolean;
   readonly followUpFrameReason: GpuFrameReason | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
@@ -99,7 +97,7 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
   const outcome = createGpuFlowVisiblePublicationCompletionOutcome({
     blockedPublicationToken:
       createGpuFlowVisibleFrameBlockedPublicationTokenForProof({
-        proof: blockedPublicationProof,
+        proof: transactionProof.blockedProof,
         publicationDecision,
       }),
     publicationDecision,
