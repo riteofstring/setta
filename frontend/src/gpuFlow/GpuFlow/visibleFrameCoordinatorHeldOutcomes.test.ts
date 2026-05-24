@@ -80,7 +80,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
   it("turns a no-frame cold start into a blocked shell", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const result = runPreparedCandidateCoordinator({
-      hasCommittedContentFrame: false,
+      hasPresentedContentFrame: false,
       rawReasons: ["manual"],
       sample: liveProjectionSample({ id: 6, timestamp: 72 }),
       reducerRuntime: scheduler,
@@ -443,7 +443,8 @@ function blockedCommittedSurfaceFrame({
 }
 
 function trueHoleCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
-  const actorId = "settings-section__sectionSizingPolicy:param-content:unpinned";
+  const actorId =
+    "settings-section__sectionSizingPolicy:param-content:unpinned";
   return {
     actorGenerations: [],
     displayFrameId: 9,
@@ -500,7 +501,7 @@ type TestPublicationCandidate = {
 
 function runPreparedCandidateCoordinator({
   contentFrame = testPublicationCandidate(),
-  hasCommittedContentFrame = true,
+  hasPresentedContentFrame = true,
   motionFrame = testPublicationCandidate(),
   previousVisibleProjectionState = null,
   publish = () => {},
@@ -510,7 +511,7 @@ function runPreparedCandidateCoordinator({
   viewportInteractionActive = false,
 }: {
   readonly contentFrame?: TestPublicationCandidate;
-  readonly hasCommittedContentFrame?: boolean;
+  readonly hasPresentedContentFrame?: boolean;
   readonly motionFrame?: TestPublicationCandidate;
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
   readonly publish?: Parameters<
@@ -538,7 +539,7 @@ function runPreparedCandidateCoordinator({
     publish,
     sampleVisibleFramePublication: () =>
       visibleFramePublicationSample({
-        hasCommittedContentFrame,
+        hasPresentedContentFrame,
         previousVisibleProjectionState,
         rawReasons,
         sample,
@@ -565,7 +566,7 @@ type VisibleFramePublicationSampleInput = Partial<
 > & { readonly sample: GpuFlowLiveProjectionSample };
 
 function visibleFramePublicationSample({
-  hasCommittedContentFrame = true,
+  hasPresentedContentFrame = true,
   previousVisibleProjectionState = null,
   rawReasons = ["manual"],
   runtimeViewportFrame = false,
@@ -574,7 +575,7 @@ function visibleFramePublicationSample({
   viewportInteractionActive = false,
 }: VisibleFramePublicationSampleInput): GpuFlowVisibleFramePublicationSample {
   return {
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     previousVisibleProjectionState,
     rawReasons,
     runtimeViewportFrame,

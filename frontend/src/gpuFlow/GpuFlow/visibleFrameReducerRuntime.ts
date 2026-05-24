@@ -118,14 +118,14 @@ export type GpuFlowVisibleFrameReducerRuntime = {
     outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcome,
   ): GpuFlowVisiblePublicationCompletion;
   selectFrameRequest(input: {
-    readonly hasCommittedContentFrame: boolean;
+    readonly hasPresentedContentFrame: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
     readonly sample: GpuFlowLiveProjectionSample;
     readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
   }): GpuFlowVisibleFrameRequestFacts;
   selectFrame(input: {
-    readonly hasCommittedContentFrame: boolean;
+    readonly hasPresentedContentFrame: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
     readonly sample: GpuFlowLiveProjectionSample;
     readonly timestamp: DOMHighResTimeStamp;
@@ -679,18 +679,18 @@ export function createGpuFlowVisibleFrameReducerRuntime({
   }
 
   function recordGpuFlowRetainedScrollContentRetryBlockForSelection({
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     rawReasons,
     sample,
     timestamp,
   }: {
-    readonly hasCommittedContentFrame: boolean;
+    readonly hasPresentedContentFrame: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
     readonly sample: GpuFlowLiveProjectionSample;
     readonly timestamp: DOMHighResTimeStamp;
   }): void {
     if (
-      !hasCommittedContentFrame ||
+      !hasPresentedContentFrame ||
       lastMotionAtMs === null ||
       criticalContentOriginDebt
     ) {
@@ -715,17 +715,17 @@ export function createGpuFlowVisibleFrameReducerRuntime({
   }
 
   function resolveGpuFlowProjectionContentRetryBlockForSelection({
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     rawReasons,
     timestamp,
   }: {
-    readonly hasCommittedContentFrame: boolean;
+    readonly hasPresentedContentFrame: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
     readonly timestamp: DOMHighResTimeStamp;
   }): ReturnType<typeof resolveGpuFlowProjectionContentRetryBlock> {
     const contentRetryBlock = resolveGpuFlowProjectionContentRetryBlock({
       contentRetryBlockedUntilMs,
-      hasCommittedContentFrame,
+      hasPresentedContentFrame,
       rawReasons,
       retainedScrollContentBlockedUntilMs,
       timestamp,
@@ -740,14 +740,14 @@ export function createGpuFlowVisibleFrameReducerRuntime({
   }
 
   function resolveGpuFlowProjectionMotionRetryBlockForSelection({
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     timestamp,
   }: {
-    readonly hasCommittedContentFrame: boolean;
+    readonly hasPresentedContentFrame: boolean;
     readonly timestamp: DOMHighResTimeStamp;
   }): ReturnType<typeof resolveGpuFlowProjectionMotionRetryBlock> {
     const motionRetryBlock = resolveGpuFlowProjectionMotionRetryBlock({
-      hasCommittedContentFrame,
+      hasPresentedContentFrame,
       motionRetryBlockedUntilMs,
       timestamp,
     });
@@ -793,13 +793,13 @@ export function createGpuFlowVisibleFrameReducerRuntime({
   }
 
   function selectGpuFlowVisibleFrameRequestFacts({
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     rawReasons,
     sample,
     timestamp,
     viewportInteractionActive,
   }: {
-    readonly hasCommittedContentFrame: boolean;
+    readonly hasPresentedContentFrame: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
     readonly sample: GpuFlowLiveProjectionSample;
     readonly timestamp: DOMHighResTimeStamp;
@@ -814,20 +814,20 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     });
     recordGpuFlowVisiblePublicationRawReasonDebt(schedulingRawReasons);
     recordGpuFlowRetainedScrollContentRetryBlockForSelection({
-      hasCommittedContentFrame,
+      hasPresentedContentFrame,
       rawReasons: schedulingRawReasons,
       sample,
       timestamp,
     });
     const contentRetryBlock =
       resolveGpuFlowProjectionContentRetryBlockForSelection({
-        hasCommittedContentFrame,
+        hasPresentedContentFrame,
         rawReasons: schedulingRawReasons,
         timestamp,
       });
     const motionRetryBlock =
       resolveGpuFlowProjectionMotionRetryBlockForSelection({
-        hasCommittedContentFrame,
+        hasPresentedContentFrame,
         timestamp,
       });
     const browserVisualContentRepairMotionDeferred =
@@ -862,7 +862,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       contentDebt,
       contentRetryDeferred,
       criticalContentDebt,
-      hasCommittedContentFrame,
+      hasPresentedContentFrame,
       maintenanceDebt,
       motionDebt,
       motionRetryDeferred,
@@ -955,7 +955,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       return selectGpuFlowVisibleFrameRequestFacts(input);
     },
     selectFrame({
-      hasCommittedContentFrame,
+      hasPresentedContentFrame,
       rawReasons,
       sample,
       timestamp,
@@ -963,7 +963,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     }) {
       return reduceGpuFlowVisibleFramePublicationDecision({
         frameRequest: selectGpuFlowVisibleFrameRequestFacts({
-          hasCommittedContentFrame,
+          hasPresentedContentFrame,
           rawReasons,
           sample,
           timestamp,

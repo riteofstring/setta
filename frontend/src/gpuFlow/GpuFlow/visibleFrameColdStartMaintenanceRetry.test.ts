@@ -12,7 +12,7 @@ describe("GPU Flow cold-start maintenance retry", () => {
   it("lets maintenance upload run after browser text snapshots block first content", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: false,
+      hasPresentedContentFrame: false,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
@@ -30,7 +30,7 @@ describe("GPU Flow cold-start maintenance retry", () => {
     ]);
 
     const upload = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: false,
+      hasPresentedContentFrame: false,
       rawReasons: ["manual", "texture-upload", "paint"],
       sample: liveSample(250),
       timestamp: 250,

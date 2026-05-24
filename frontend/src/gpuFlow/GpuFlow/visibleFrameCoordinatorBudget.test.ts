@@ -391,7 +391,7 @@ function fixedPublicationScheduler({
         outcome: outcome.kind,
       }),
     selectFrameRequest: ({
-      hasCommittedContentFrame,
+      hasPresentedContentFrame,
       rawReasons,
       sample,
       timestamp,
@@ -401,7 +401,7 @@ function fixedPublicationScheduler({
         contentDebt: lane === "content",
         contentRetryDeferred: false,
         criticalContentDebt: lane === "content",
-        hasCommittedContentFrame,
+        hasPresentedContentFrame,
         maintenanceDebt: lane === "maintenance",
         motionDebt: lane === "motion",
         motionRetryDeferred: false,
@@ -439,7 +439,7 @@ type VisibleFramePublicationSampleInput = Partial<
 > & { readonly sample: GpuFlowLiveProjectionSample };
 
 function visibleFramePublicationSample({
-  hasCommittedContentFrame = true,
+  hasPresentedContentFrame = true,
   previousVisibleProjectionState = null,
   rawReasons = ["manual"],
   runtimeViewportFrame = false,
@@ -449,7 +449,7 @@ function visibleFramePublicationSample({
   viewportInteractionActive = false,
 }: VisibleFramePublicationSampleInput): GpuFlowVisibleFramePublicationSample {
   return {
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     previousVisibleProjectionState,
     rawReasons,
     runtimeViewportFrame,

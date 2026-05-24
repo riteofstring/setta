@@ -347,7 +347,7 @@ function visibleFramePublicationSample({
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleFramePublicationSample {
   return {
-    hasCommittedContentFrame: true,
+    hasPresentedContentFrame: true,
     previousVisibleProjectionState,
     rawReasons: ["retained-scroll"],
     runtimeViewportFrame: false,

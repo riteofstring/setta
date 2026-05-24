@@ -20,7 +20,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("defers motion retries after motion hits held-previous budget", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const motion = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll", "manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -36,7 +36,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     ]);
 
     const immediateRetry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(2),
       timestamp: 2,
@@ -51,7 +51,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     });
 
     const delayedRetry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(250),
       timestamp: 250,
@@ -65,7 +65,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("keeps current retained scroll motion ahead of motion retry backoff", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const motion = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll", "manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -81,7 +81,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     ]);
 
     const retainedScroll = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(2),
       timestamp: 2,
@@ -91,7 +91,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     expect(retainedScroll.lane).toBe("motion");
 
     const nonMotionRepair = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(3),
       timestamp: 3,
@@ -104,7 +104,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("keeps current retained scroll motion ahead of stale critical content debt", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const activation = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["dom-control-activation"],
       sample: liveSample(1),
       timestamp: 1,
@@ -114,7 +114,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeBlockedFrame(reducerRuntime, activation);
 
     const retainedScroll = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(2),
       timestamp: 2,
@@ -132,7 +132,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("keeps current viewport motion ahead of stale critical content debt", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const activation = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["dom-control-activation"],
       sample: liveSample(1),
       timestamp: 1,
@@ -142,7 +142,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeBlockedFrame(reducerRuntime, activation);
 
     const viewport = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["viewport", "manual"],
       sample: liveSample(2),
       timestamp: 2,
@@ -160,7 +160,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("defers immediate content retries after held-previous budget blocks", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const motion = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll", "manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -170,7 +170,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeBlockedFrame(reducerRuntime, motion);
 
     const blockedContent = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(2),
       timestamp: 2,
@@ -186,7 +186,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     ]);
 
     const immediateRetry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(3),
       timestamp: 3,
@@ -201,7 +201,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     });
 
     const delayedRetry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(250),
       timestamp: 250,
@@ -215,7 +215,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("keeps motion ahead of ordinary manual content repair while a motion reason is current", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const motion = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["viewport"],
       sample: liveSample(1),
       timestamp: 1,
@@ -225,7 +225,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeBlockedFrame(reducerRuntime, motion);
 
     const repair = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(250),
       timestamp: 250,
@@ -243,7 +243,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("keeps motion ahead of explicit content repair while motion maintenance is current", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const motion = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["viewport"],
       sample: liveSample(1),
       timestamp: 1,
@@ -253,7 +253,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeBlockedFrame(reducerRuntime, motion);
 
     const repair = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "viewport", "texture-upload"],
       sample: liveSample(2),
       timestamp: 2,
@@ -270,7 +270,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeBlockedFrame(reducerRuntime, repair);
 
     const settledRepair = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(3),
       timestamp: 3,
@@ -288,7 +288,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("lets content repair run after motion is blocked by missing section surface actors", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const motion = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(1),
       timestamp: 1,
@@ -310,7 +310,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     ]);
 
     const repair = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(2),
       timestamp: 2,
@@ -328,7 +328,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("keeps content repair ahead of motion after content is blocked by missing section surface actors", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -355,7 +355,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     ]);
 
     const repair = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll", "texture-upload"],
       sample: liveSample(250),
       timestamp: 250,
@@ -373,7 +373,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("lets maintenance upload run after content is blocked by pending browser text snapshots", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
@@ -395,7 +395,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     ]);
 
     const upload = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["texture-upload"],
       sample: liveSample(2),
       timestamp: 2,
@@ -413,7 +413,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("retries content immediately after browser text snapshot maintenance uploads", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
@@ -430,7 +430,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     ]);
 
     const upload = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["texture-upload"],
       sample: liveSample(2),
       timestamp: 2,
@@ -441,7 +441,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeCommittedFrame(reducerRuntime, upload);
 
     const retry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(3),
       timestamp: 3,
@@ -459,7 +459,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("keeps projection-only viewport frames ahead of browser visual maintenance", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
@@ -476,7 +476,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     ]);
 
     const viewport = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["viewport", "texture-upload"],
       sample: liveSample(2),
       timestamp: 2,
@@ -494,7 +494,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("lets browser text snapshot content repair preempt noninteractive viewport motion after retry delay", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
@@ -511,7 +511,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     ]);
 
     const immediateViewportRepair = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(2),
       timestamp: 2,
@@ -527,7 +527,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeCommittedFrame(reducerRuntime, immediateViewportRepair);
 
     const deferredViewportRepair = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(250),
       timestamp: 250,
@@ -542,7 +542,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     });
 
     const delayedViewportRepair = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(600),
       timestamp: 600,
@@ -560,7 +560,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("lets active DOM control publication preempt motion maintenance", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const motion = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(1),
       timestamp: 1,
@@ -570,7 +570,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeBlockedFrame(reducerRuntime, motion);
 
     const activation = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: [
         "dom-control-activation",
         "retained-scroll",
@@ -593,7 +593,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const activation = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: [
         "dom-control-activation",
         "retained-scroll",
@@ -614,7 +614,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     ]);
 
     const retry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll", "texture-upload"],
       sample: liveSample(2),
       timestamp: 2,
@@ -631,7 +631,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeCommittedFrame(reducerRuntime, retry);
 
     const deferredContentRetry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(3),
       timestamp: 250,
@@ -641,7 +641,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     expect(deferredContentRetry.lane).toBe("idle");
 
     const contentRetry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(4),
       timestamp: 600,
@@ -655,7 +655,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -666,7 +666,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
 
     for (let index = 0; index < 6; index += 1) {
       const motion = reducerRuntime.selectFrame({
-        hasCommittedContentFrame: true,
+        hasPresentedContentFrame: true,
         rawReasons: ["viewport"],
         sample: liveSample(2 + index),
         timestamp: 2 + index,
@@ -678,7 +678,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     }
 
     const contentProbe = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["viewport", "manual"],
       sample: liveSample(8),
       timestamp: 8,
@@ -692,7 +692,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -703,7 +703,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
 
     for (let index = 0; index < 6; index += 1) {
       const motion = reducerRuntime.selectFrame({
-        hasCommittedContentFrame: true,
+        hasPresentedContentFrame: true,
         rawReasons: ["retained-scroll", "paint", "viewport"],
         sample: liveSample(2 + index),
         timestamp: 2 + index,
@@ -715,7 +715,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     }
 
     const contentProbe = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["viewport", "manual"],
       sample: liveSample(8),
       timestamp: 8,
@@ -734,7 +734,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -744,7 +744,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
     const motion = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["paint", "viewport"],
       sample: liveSample(2),
       timestamp: 2,
@@ -755,7 +755,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeCommittedFrame(reducerRuntime, motion);
 
     const contentCatchup = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(3),
       timestamp: 3,
@@ -774,7 +774,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -785,7 +785,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
 
     for (let index = 0; index < 6; index += 1) {
       const motion = reducerRuntime.selectFrame({
-        hasCommittedContentFrame: true,
+        hasPresentedContentFrame: true,
         rawReasons: ["viewport"],
         sample: liveSample(2 + index),
         timestamp: 2 + index,
@@ -797,7 +797,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     }
 
     const viewport = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["viewport"],
       sample: liveSample(8),
       timestamp: 8,
@@ -810,7 +810,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("keeps motion ahead of retained native visual repair while motion maintenance is current", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const motion = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(1),
       timestamp: 1,
@@ -820,7 +820,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeBlockedFrame(reducerRuntime, motion);
 
     const nativeVisual = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: [
         "retained-native-visual",
         "retained-scroll",
@@ -847,7 +847,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const nativeVisual = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-native-visual", "viewport", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
@@ -866,7 +866,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const nativeVisual = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-native-visual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
@@ -885,7 +885,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const rowHover = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-row-hover-visual", "texture-upload"],
       sample: liveSample(1),
       timestamp: 1,
@@ -904,7 +904,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const rowHover = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-row-hover-visual", "texture-upload", "viewport"],
       sample: liveSample(1),
       timestamp: 1,
@@ -923,7 +923,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const rowHoverClear = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-row-hover-clear", "viewport"],
       sample: liveSample(1),
       timestamp: 1,
@@ -941,7 +941,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("defers immediate content retries after content holds previous", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -951,7 +951,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeHeldFrame(reducerRuntime, content);
 
     const immediateRetry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "texture-upload"],
       sample: liveSample(2),
       timestamp: 2,
@@ -966,7 +966,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     });
 
     const delayedRetry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(250),
       timestamp: 250,
@@ -980,7 +980,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("defers ordinary manual content catchup immediately after content publishes", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -990,7 +990,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeCommittedFrame(reducerRuntime, content);
 
     const immediateRetry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(2),
       timestamp: 2,
@@ -1005,7 +1005,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     });
 
     const delayedRetry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(250),
       timestamp: 250,
@@ -1018,7 +1018,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
   it("does not extend content retry cooldown after idle held-previous budget blocks", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -1028,7 +1028,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     completeHeldFrame(reducerRuntime, content);
 
     const idle = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(2),
       timestamp: 2,
@@ -1045,7 +1045,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     ]);
 
     const delayedRetry = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(250),
       timestamp: 250,

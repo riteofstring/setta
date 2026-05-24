@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
+import type { HtmlSurfaceFlatVisual } from "../htmlSurfaces/visualScene";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleFrameReducerRuntime,
   createGpuFlowVisibleProjectionState,
   type GpuFlowLiveProjectionSample,
-  type GpuFlowVisibleFrameReducerPolicy,
   type GpuFlowProjectionTransaction,
+  type GpuFlowVisibleFrameReducerPolicy,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import { createRetainedCommittedPageLifecycle } from "../retainedContentLifecycle";
-import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import { createGpuRetainedRowContentScene } from "../retainedContentScene";
-import type { HtmlSurfaceFlatVisual } from "../htmlSurfaces/visualScene";
+import { createGpuRetainedContentSwitchAnimationStore } from "../retainedContentSwitchAnimation";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
@@ -696,7 +696,7 @@ function visibleFramePublicationSample({
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleFramePublicationSample {
   return {
-    hasCommittedContentFrame: true,
+    hasPresentedContentFrame: true,
     previousVisibleProjectionState,
     rawReasons: frameReasons,
     runtimeViewportFrame: false,

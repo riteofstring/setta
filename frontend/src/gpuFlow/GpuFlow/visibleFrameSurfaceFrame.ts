@@ -321,7 +321,7 @@ export function renderGpuFlowSurfaceFrame({
         frameMeasureDetail.contentVisibleTransaction =
           contentPublicationFrame.visibleProjectionState?.transaction.kind ??
           null;
-        frameMeasureDetail.contentCommittedSurfacePublished =
+        frameMeasureDetail.contentPresentedSurfacePublished =
           contentPublicationFrame.committedSurfaceFrame !== null;
         frameMeasureDetail.contentBlocked =
           contentPublicationFrame.blockedPublicationCandidate !== null;
@@ -335,13 +335,13 @@ export function renderGpuFlowSurfaceFrame({
       },
       sampleVisibleFramePublication: () => {
         const runtimeFrame = viewportRuntime.runFrame(frameStartedAtMs);
-        const hasCommittedContentFrame = hasGpuFlowPresentedContentFrame(
+        const hasPresentedContentFrame = hasGpuFlowPresentedContentFrame(
           input.presentedContentFrameRef.current,
         );
         const previousVisibleProjectionState =
           input.visibleProjectionPublicationStateRef.current ??
           input.visibleProjectionStateRef.current;
-        frameMeasureDetail.hasCommittedContentFrame = hasCommittedContentFrame;
+        frameMeasureDetail.hasPresentedContentFrame = hasPresentedContentFrame;
         nodeLayerRef.current = {
           ...nodeLayerRef.current,
           viewport: viewportRuntime.getViewportTuple(),
@@ -366,7 +366,7 @@ export function renderGpuFlowSurfaceFrame({
         frameMeasureDetail.sampleViewportY = sampleViewport.y;
         frameMeasureDetail.sampleViewportZoom = sampleViewport.zoom;
         return {
-          hasCommittedContentFrame,
+          hasPresentedContentFrame,
           previousVisibleProjectionState,
           rawReasons: withGpuFlowContentCatchupReasonForStalePublicationSample({
             committedFrame: input.presentedContentFrameRef.current,

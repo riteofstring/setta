@@ -340,19 +340,19 @@ export function isGpuFlowMaintenanceFrameReason(
 
 function shouldDeferGpuFlowProjectionContentRetry({
   contentRetryBlockedUntilMs,
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   rawReasons,
   timestamp,
 }: {
   readonly contentRetryBlockedUntilMs: number | null;
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly timestamp: DOMHighResTimeStamp;
 }): boolean {
   return (
     contentRetryBlockedUntilMs !== null &&
     timestamp < contentRetryBlockedUntilMs &&
-    (hasCommittedContentFrame ||
+    (hasPresentedContentFrame ||
       rawReasons.some(isGpuFlowMaintenanceFrameReason)) &&
     !hasGpuFlowCriticalContentFrameRequest(rawReasons)
   );
@@ -392,13 +392,13 @@ export function shouldDeferGpuFlowMaintenanceContentCatchup({
 
 export function resolveGpuFlowProjectionContentRetryBlock({
   contentRetryBlockedUntilMs,
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   rawReasons,
   retainedScrollContentBlockedUntilMs,
   timestamp,
 }: {
   readonly contentRetryBlockedUntilMs: number | null;
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly retainedScrollContentBlockedUntilMs: number | null;
   readonly timestamp: DOMHighResTimeStamp;
@@ -410,12 +410,12 @@ export function resolveGpuFlowProjectionContentRetryBlock({
 } {
   const retryDeferred = shouldDeferGpuFlowProjectionContentRetry({
     contentRetryBlockedUntilMs,
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     rawReasons,
     timestamp,
   });
   const retainedScrollDeferred = shouldDeferGpuFlowRetainedScrollContentRetry({
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     rawReasons,
     retainedScrollContentBlockedUntilMs,
     timestamp,
@@ -439,18 +439,18 @@ export function resolveGpuFlowProjectionContentRetryBlock({
 }
 
 function shouldDeferGpuFlowRetainedScrollContentRetry({
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   rawReasons,
   retainedScrollContentBlockedUntilMs,
   timestamp,
 }: {
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly retainedScrollContentBlockedUntilMs: number | null;
   readonly timestamp: DOMHighResTimeStamp;
 }): boolean {
   return (
-    hasCommittedContentFrame &&
+    hasPresentedContentFrame &&
     retainedScrollContentBlockedUntilMs !== null &&
     timestamp < retainedScrollContentBlockedUntilMs &&
     !hasGpuFlowCriticalContentFrameRequest(rawReasons)
@@ -458,27 +458,27 @@ function shouldDeferGpuFlowRetainedScrollContentRetry({
 }
 
 function shouldDeferGpuFlowProjectionMotionRetry({
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   motionRetryBlockedUntilMs,
   timestamp,
 }: {
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly motionRetryBlockedUntilMs: number | null;
   readonly timestamp: DOMHighResTimeStamp;
 }): boolean {
   return (
-    hasCommittedContentFrame &&
+    hasPresentedContentFrame &&
     motionRetryBlockedUntilMs !== null &&
     timestamp < motionRetryBlockedUntilMs
   );
 }
 
 export function resolveGpuFlowProjectionMotionRetryBlock({
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   motionRetryBlockedUntilMs,
   timestamp,
 }: {
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly motionRetryBlockedUntilMs: number | null;
   readonly timestamp: DOMHighResTimeStamp;
 }): {
@@ -486,7 +486,7 @@ export function resolveGpuFlowProjectionMotionRetryBlock({
   readonly motionRetryDeferred: boolean;
 } {
   const motionRetryDeferred = shouldDeferGpuFlowProjectionMotionRetry({
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     motionRetryBlockedUntilMs,
     timestamp,
   });
@@ -529,18 +529,18 @@ export function shouldSelectGpuFlowSettledExplicitContentRepairLane({
 }
 
 export function shouldSelectGpuFlowMotionPriorityPublicationLane({
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   motionDebt,
   motionRetryDeferred,
   schedulerState,
 }: {
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly motionDebt: boolean;
   readonly motionRetryDeferred: boolean;
   readonly schedulerState: GpuFlowProjectionSchedulerState;
 }): boolean {
   return (
-    hasCommittedContentFrame &&
+    hasPresentedContentFrame &&
     !motionRetryDeferred &&
     (motionDebt || schedulerState === "motion-active")
   );

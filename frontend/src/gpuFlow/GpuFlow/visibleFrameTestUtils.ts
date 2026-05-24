@@ -235,7 +235,7 @@ function createGpuFlowVisibleFramePublicationTestSample({
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleFramePublicationSample {
   return {
-    hasCommittedContentFrame: true,
+    hasPresentedContentFrame: true,
     previousVisibleProjectionState,
     rawReasons: ["manual"],
     runtimeViewportFrame: false,

@@ -21,13 +21,12 @@ import {
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
 } from "./visibleFrameContentPlan";
 import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFrameOutcomeReport";
-import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";
 import {
   presentGpuFlowVisibleFramePublicationFrame,
   type GpuFlowVisibleFramePresentationRuntime,
 } from "./visibleFramePresentation";
+import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";
 import type { GpuFlowMotionProjectionFramePreparation } from "./visibleFrameProjectionPlan";
-import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import {
   reduceGpuFlowVisibleFramePublicationDecision,
   shouldDeferGpuFlowMaintenanceContentCatchup,
@@ -35,6 +34,7 @@ import {
   type GpuFlowVisibleFrameRequestFacts,
   type GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameReducerRuntime";
+import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import { reduceGpuFlowMotionProjectionFramePreparation } from "./visibleFrameStateMachine";
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
@@ -113,7 +113,8 @@ export type {
   GpuFlowContentPublicationWorkPlan,
   GpuFlowMotionProjectionWorkPlan,
 } from "./visibleFrameWorkPlan";
-type GpuFlowVisiblePublicationReducerRuntime = GpuFlowVisibleFrameReducerRuntime;
+type GpuFlowVisiblePublicationReducerRuntime =
+  GpuFlowVisibleFrameReducerRuntime;
 
 export type GpuFlowVisibleFramePublicationFrameContext = {
   readonly activeEditorPins: readonly string[];
@@ -124,7 +125,7 @@ export type GpuFlowVisibleFramePublicationFrameContext = {
 };
 
 export type GpuFlowVisibleFramePublicationSample = {
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly runtimeViewportFrame: boolean;
@@ -291,7 +292,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   >
 > {
   const {
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     previousVisibleProjectionState,
     rawReasons,
     runtimeViewportFrame,
@@ -302,7 +303,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   } = sampledPublication;
   const reducerPolicy = reducerRuntime.getKnobs();
   const frameRequest = createGpuFlowVisibleFrameRequestFacts({
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     rawReasons,
     reducerRuntime,
     sample,
@@ -632,10 +633,9 @@ function publishGpuFlowVisibleFramePublicationOutcome<
   if (presentationRuntime) {
     presentGpuFlowVisibleFramePublicationFrame({
       ...presentationRuntime,
-      publicationTransaction:
-        transaction as unknown as Parameters<
-          typeof presentGpuFlowVisibleFramePublicationFrame
-        >[0]["publicationTransaction"],
+      publicationTransaction: transaction as unknown as Parameters<
+        typeof presentGpuFlowVisibleFramePublicationFrame
+      >[0]["publicationTransaction"],
     });
   }
   publish?.(transaction);
@@ -643,14 +643,14 @@ function publishGpuFlowVisibleFramePublicationOutcome<
 }
 
 function createGpuFlowVisibleFrameRequestFacts({
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   rawReasons,
   reducerRuntime,
   sample,
   timestamp,
   viewportInteractionActive,
 }: {
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
   readonly reducerRuntime: Pick<
@@ -661,7 +661,7 @@ function createGpuFlowVisibleFrameRequestFacts({
   readonly viewportInteractionActive: boolean;
 }): GpuFlowVisibleFrameRequestFacts {
   return reducerRuntime.selectFrameRequest({
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     rawReasons,
     sample,
     timestamp,

@@ -16,7 +16,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -27,7 +27,7 @@ describe("GPU Flow retained scroll scheduling", () => {
 
     for (let index = 0; index < 6; index += 1) {
       const motion = reducerRuntime.selectFrame({
-        hasCommittedContentFrame: true,
+        hasPresentedContentFrame: true,
         rawReasons: ["viewport"],
         sample: liveSample(2 + index),
         timestamp: 2 + index,
@@ -39,7 +39,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     }
 
     const retainedScroll = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["viewport", "manual"],
       sample: liveSample(8, {
         gestureOwner: "ownedByRetainedSectionScroll",
@@ -55,7 +55,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -66,7 +66,7 @@ describe("GPU Flow retained scroll scheduling", () => {
 
     for (let index = 0; index < 6; index += 1) {
       const motion = reducerRuntime.selectFrame({
-        hasCommittedContentFrame: true,
+        hasPresentedContentFrame: true,
         rawReasons: ["retained-scroll", "viewport"],
         sample: liveSample(2 + index, {
           gestureOwner: "ownedByRetainedSectionScroll",
@@ -80,7 +80,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     }
 
     const retainedScroll = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll", "viewport", "manual"],
       sample: liveSample(8, {
         gestureOwner: "ownedByRetainedSectionScroll",
@@ -96,7 +96,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -106,7 +106,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
     const retainedScroll = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(10, {
         gestureOwner: "ownedByRetainedSectionScroll",
@@ -118,7 +118,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     completeCommittedFrame(reducerRuntime, retainedScroll);
 
     const postScrollManual = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(100),
       timestamp: 100,
@@ -133,7 +133,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     });
 
     const postScrollPaint = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["paint"],
       sample: liveSample(500),
       timestamp: 500,
@@ -148,7 +148,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     });
 
     const criticalContent = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["dom-control-activation"],
       sample: liveSample(600),
       timestamp: 600,
@@ -158,7 +158,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     expect(criticalContent.lane).toBe("content");
 
     const settledContent = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1_600),
       timestamp: 1_600,
@@ -172,7 +172,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -182,7 +182,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
     const retainedScroll = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(10, {
         gestureOwner: "ownedByRetainedSectionScroll",
@@ -194,7 +194,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     completeCommittedFrame(reducerRuntime, retainedScroll);
 
     const deferredManual = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(100),
       timestamp: 100,
@@ -204,7 +204,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     expect(deferredManual.lane).toBe("idle");
 
     const retainedScrollPulse = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["paint", "retained-scroll", "manual", "viewport"],
       sample: liveSample(250, {
         gestureOwner: "ownedByRetainedSectionScroll",
@@ -217,7 +217,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     completeCommittedFrame(reducerRuntime, retainedScrollPulse);
 
     const manualViewportDuringCooldown = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(360),
       timestamp: 360,
@@ -236,7 +236,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const content = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(1),
       timestamp: 1,
@@ -246,7 +246,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     completeCompatiblePreviousCommittedFrame(reducerRuntime, content);
 
     const retainedScroll = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll"],
       sample: liveSample(10, {
         gestureOwner: "ownedByRetainedSectionScroll",
@@ -258,7 +258,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     completeCommittedFrame(reducerRuntime, retainedScroll);
 
     const idleCatchup = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["retained-scroll", "manual"],
       sample: liveSample(300),
       timestamp: 300,
@@ -270,7 +270,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     completeCommittedFrame(reducerRuntime, idleCatchup);
 
     const contentCatchup = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["texture-upload", "manual"],
       sample: liveSample(1_100),
       timestamp: 1_100,
@@ -284,7 +284,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const activation = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: [
         "dom-control-activation",
         "retained-scroll",
@@ -299,7 +299,7 @@ describe("GPU Flow retained scroll scheduling", () => {
     completeCompatiblePreviousCommittedFrame(reducerRuntime, activation);
 
     const motion = reducerRuntime.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["paint", "retained-scroll", "viewport"],
       sample: liveSample(2, {
         gestureOwner: "ownedByRetainedSectionScroll",

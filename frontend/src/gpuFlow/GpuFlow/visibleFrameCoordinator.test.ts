@@ -345,7 +345,7 @@ describe("GPU Flow visible frame coordinator", () => {
   it("uses one presentable frame proof for compatible-previous proof reports and debt", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const publicationDecision = scheduler.selectFrame({
-      hasCommittedContentFrame: true,
+      hasPresentedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveProjectionSample({ id: 51, timestamp: 510 }),
       timestamp: 510,
@@ -935,7 +935,7 @@ type TestPublicationCandidate = {
 
 function runPreparedCandidateKernel({
   contentFrame = testPublicationCandidate(),
-  hasCommittedContentFrame = true,
+  hasPresentedContentFrame = true,
   motionFrame = testPublicationCandidate(),
   previousVisibleProjectionState = null,
   publish = () => {},
@@ -945,7 +945,7 @@ function runPreparedCandidateKernel({
   viewportInteractionActive = false,
 }: {
   readonly contentFrame?: TestPublicationCandidate;
-  readonly hasCommittedContentFrame?: boolean;
+  readonly hasPresentedContentFrame?: boolean;
   readonly motionFrame?: TestPublicationCandidate;
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
   readonly publish?: Parameters<
@@ -973,7 +973,7 @@ function runPreparedCandidateKernel({
     publish,
     sampleVisibleFramePublication: () =>
       visibleFramePublicationSample({
-        hasCommittedContentFrame,
+        hasPresentedContentFrame,
         previousVisibleProjectionState,
         rawReasons,
         sample,
@@ -1000,7 +1000,7 @@ type VisibleFramePublicationSampleInput = Partial<
 > & { readonly sample: GpuFlowLiveProjectionSample };
 
 function visibleFramePublicationSample({
-  hasCommittedContentFrame = true,
+  hasPresentedContentFrame = true,
   previousVisibleProjectionState = null,
   rawReasons = ["manual"],
   runtimeViewportFrame = false,
@@ -1010,7 +1010,7 @@ function visibleFramePublicationSample({
   viewportInteractionActive = false,
 }: VisibleFramePublicationSampleInput): GpuFlowVisibleFramePublicationSample {
   return {
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     previousVisibleProjectionState,
     rawReasons,
     runtimeViewportFrame,

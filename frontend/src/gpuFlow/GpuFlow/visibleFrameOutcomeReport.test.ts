@@ -96,7 +96,7 @@ describe("GPU Flow visible frame outcome report", () => {
       publish: () => {},
       sampleVisibleFramePublication: () =>
         visibleFramePublicationSample({
-          hasCommittedContentFrame: false,
+          hasPresentedContentFrame: false,
           sample: liveProjectionSample({ id: 10, timestamp: 10 }),
         }),
       reducerRuntime: scheduler,
@@ -135,7 +135,7 @@ function visibleFramePublicationSample({
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleFramePublicationSample {
   return {
-    hasCommittedContentFrame: true,
+    hasPresentedContentFrame: true,
     previousVisibleProjectionState,
     rawReasons,
     runtimeViewportFrame: false,

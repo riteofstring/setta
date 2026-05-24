@@ -214,7 +214,7 @@ type VisibleFramePublicationSampleInput = Partial<
 > & { readonly sample: GpuFlowLiveProjectionSample };
 
 function visibleFramePublicationSample({
-  hasCommittedContentFrame = true,
+  hasPresentedContentFrame = true,
   previousVisibleProjectionState = null,
   rawReasons = ["manual"],
   runtimeViewportFrame = false,
@@ -223,7 +223,7 @@ function visibleFramePublicationSample({
   viewportInteractionActive = false,
 }: VisibleFramePublicationSampleInput): GpuFlowVisibleFramePublicationSample {
   return {
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     previousVisibleProjectionState,
     rawReasons,
     runtimeViewportFrame,

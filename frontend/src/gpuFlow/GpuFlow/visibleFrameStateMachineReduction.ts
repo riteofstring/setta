@@ -61,7 +61,7 @@ export type GpuFlowVisibleFrameLaneReductionFacts = {
   readonly contentDebt: boolean;
   readonly contentRetryDeferred: boolean;
   readonly criticalContentDebt: boolean;
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly maintenanceDebt: boolean;
   readonly motionDebt: boolean;
   readonly motionRetryDeferred: boolean;
@@ -81,7 +81,7 @@ export function reduceGpuFlowVisibleFramePublicationDecision({
     contentDebt: frameRequest.contentDebt,
     contentRetryDeferred: frameRequest.contentRetryDeferred,
     criticalContentDebt: frameRequest.criticalContentDebt,
-    hasCommittedContentFrame: frameRequest.hasCommittedContentFrame,
+    hasPresentedContentFrame: frameRequest.hasPresentedContentFrame,
     maintenanceDebt: frameRequest.maintenanceDebt,
     motionDebt: frameRequest.motionDebt,
     motionRetryDeferred: frameRequest.motionRetryDeferred,
@@ -100,7 +100,7 @@ export function reduceGpuFlowVisibleFramePublicationLane({
   contentDebt,
   contentRetryDeferred,
   criticalContentDebt,
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   maintenanceDebt,
   motionDebt,
   motionRetryDeferred,
@@ -113,7 +113,7 @@ export function reduceGpuFlowVisibleFramePublicationLane({
 }): GpuFlowVisibleFramePublicationLane {
   if (
     shouldPublishGpuFlowBootstrapContentFrame({
-      hasCommittedContentFrame,
+      hasPresentedContentFrame,
       motionDebt,
     })
   ) {
@@ -122,7 +122,7 @@ export function reduceGpuFlowVisibleFramePublicationLane({
   if (
     shouldSelectCurrentGpuFlowMotionPublicationLane({
       criticalContentDebt,
-      hasCommittedContentFrame,
+      hasPresentedContentFrame,
       motionDebt,
       motionRetryDeferred,
       rawReasons,
@@ -139,7 +139,7 @@ export function reduceGpuFlowVisibleFramePublicationLane({
         contentDebt,
         contentRetryDeferred,
         criticalContentDebt,
-        hasCommittedContentFrame,
+        hasPresentedContentFrame,
         maintenanceDebt,
         motionDebt,
         motionRetryDeferred,
@@ -151,7 +151,7 @@ export function reduceGpuFlowVisibleFramePublicationLane({
     case "content-catchup":
       return selectContentCatchupVisiblePublicationLane({
         contentDebt,
-        hasCommittedContentFrame,
+        hasPresentedContentFrame,
         maintenanceDebt,
         motionDebt,
       });
@@ -321,20 +321,20 @@ function assertGpuFlowProjectionFrameTransactionRenderable(
 }
 
 function shouldPublishGpuFlowBootstrapContentFrame({
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   motionDebt,
 }: {
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly motionDebt: boolean;
 }): boolean {
-  return motionDebt && !hasCommittedContentFrame;
+  return motionDebt && !hasPresentedContentFrame;
 }
 
 function selectMotionPriorityVisiblePublicationLane({
   contentDebt,
   contentRetryDeferred,
   criticalContentDebt,
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   maintenanceDebt,
   motionDebt,
   motionRetryDeferred,
@@ -358,7 +358,7 @@ function selectMotionPriorityVisiblePublicationLane({
   }
   if (
     shouldSelectGpuFlowMotionPriorityPublicationLane({
-      hasCommittedContentFrame,
+      hasPresentedContentFrame,
       motionDebt,
       motionRetryDeferred,
       schedulerState,
@@ -389,7 +389,7 @@ function selectMotionPriorityVisiblePublicationLane({
 
 function shouldSelectCurrentGpuFlowMotionPublicationLane({
   criticalContentDebt,
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   motionDebt,
   motionRetryDeferred,
   rawReasons,
@@ -397,7 +397,7 @@ function shouldSelectCurrentGpuFlowMotionPublicationLane({
   viewportInteractionActive,
 }: {
   readonly criticalContentDebt: boolean;
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly motionDebt: boolean;
   readonly motionRetryDeferred: boolean;
   readonly rawReasons: readonly GpuFrameReason[];
@@ -423,7 +423,7 @@ function shouldSelectCurrentGpuFlowMotionPublicationLane({
     return false;
   }
   return shouldSelectGpuFlowMotionPriorityPublicationLane({
-    hasCommittedContentFrame,
+    hasPresentedContentFrame,
     motionDebt,
     motionRetryDeferred: hasRetainedMotionReason ? false : motionRetryDeferred,
     schedulerState,
@@ -451,19 +451,19 @@ function hasGpuFlowMotionPublicationCompetingReason({
 
 function selectContentCatchupVisiblePublicationLane({
   contentDebt,
-  hasCommittedContentFrame,
+  hasPresentedContentFrame,
   maintenanceDebt,
   motionDebt,
 }: {
   readonly contentDebt: boolean;
-  readonly hasCommittedContentFrame: boolean;
+  readonly hasPresentedContentFrame: boolean;
   readonly maintenanceDebt: boolean;
   readonly motionDebt: boolean;
 }): GpuFlowVisibleFramePublicationLane {
   if (contentDebt) {
     return "content";
   }
-  if (motionDebt && hasCommittedContentFrame) {
+  if (motionDebt && hasPresentedContentFrame) {
     return "motion";
   }
   return selectMaintenanceDrainVisiblePublicationLane({ maintenanceDebt });
