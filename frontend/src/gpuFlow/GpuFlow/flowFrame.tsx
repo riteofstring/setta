@@ -59,6 +59,7 @@ import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
+import { getGpuFlowCommittedSurfaceForceVisibleNodeIds } from "./flowForcedVisibleNodeIds";
 import {
   resolveActiveGpuFlowNodeId,
   resolveGpuFlowNodeInteractionActiveNodeId,
@@ -67,7 +68,6 @@ import {
   reportGpuFlowNodeLayerFramePerformance,
   type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
-import { getGpuFlowCommittedSurfaceForceVisibleNodeIds } from "./flowForcedVisibleNodeIds";
 import { combineGpuFlowHtmlSurfaceNativeVisuals } from "./flowFrameVisuals";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
@@ -786,6 +786,7 @@ export function renderGpuFlowNodeLayerFrame({
         canvasSubmissionMode: "deferred",
         deferResolutionUpdates,
         domTransformCache: nodeDomTransformSyncCacheRef.current,
+        domTransformSubmissionMode: "deferred",
         edges: layer.edges,
         edgePalette: layer.edgePalette,
         elementByNodeId: nodeElementByIdRef.current,

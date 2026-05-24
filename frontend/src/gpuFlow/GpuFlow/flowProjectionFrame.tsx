@@ -167,6 +167,7 @@ export function renderGpuFlowNodeLayerProjectionFrame({
     canvasSubmissionMode: "deferred",
     deferResolutionUpdates: true,
     domTransformCache: nodeDomTransformSyncCacheRef.current,
+    domTransformSubmissionMode: "deferred",
     edges: layer.edges,
     edgePalette: layer.edgePalette,
     elementByNodeId: nodeElementByIdRef.current,
@@ -347,7 +348,8 @@ function retainedRuntimeFrameRowHoverVisualsDifferFromLayer({
   const target = layer.retainedContentRowHoverTarget ?? null;
   const rowHoverSurfaceIds =
     retainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals.flatMap(
-      (visual) => (visual.surfaceId.includes(":row-hover:") ? [visual.surfaceId] : []),
+      (visual) =>
+        visual.surfaceId.includes(":row-hover:") ? [visual.surfaceId] : [],
     );
   if (!target) {
     return rowHoverSurfaceIds.length > 0;

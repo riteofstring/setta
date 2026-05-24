@@ -593,6 +593,32 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(submitterSource).toContain("canvasSubmission.submit()");
   });
 
+  it("defers DOM transform submission until commit-tokened node-layer publication", () => {
+    const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
+    const projectionFrameSource = readFileSync(
+      PROJECTION_FRAME_MODULE_PATH,
+      "utf8",
+    );
+    const lifecycleSource = readFileSync(
+      modulePath("./flowFrameLifecycle.ts"),
+      "utf8",
+    );
+    const submitterStart = lifecycleSource.indexOf(
+      "function submitGpuFlowHtmlSurfaceDomTransformFrame",
+    );
+    const submitterSource = lifecycleSource.slice(submitterStart);
+
+    expect(flowFrameSource).toContain('domTransformSubmissionMode: "deferred"');
+    expect(projectionFrameSource).toContain(
+      'domTransformSubmissionMode: "deferred"',
+    );
+    expect(submitterStart).toBeGreaterThanOrEqual(0);
+    expect(submitterSource).toContain(
+      "assertGpuFlowCommitPublicationTokenBrand",
+    );
+    expect(submitterSource).toContain("domTransformSubmission.submit()");
+  });
+
   it("keeps browser visual projection on tokenized publication paths", () => {
     const currentProjectionPattern =
       /\.(?:projectDomControls|projectDomIslands)\s*\((?<args>[^)]*)\)/g;
