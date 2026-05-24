@@ -126,70 +126,6 @@ def _build_chat_action_dependency_event(
     )
 
 
-class _ToolRunRouter:
-    def __init__(
-        self,
-        *,
-        chats: dict[ID, Chat],
-        section_states: dict[ID, ChatSectionState],
-        emitted_chunks: list[object],
-        tool_result_message: ToolChatMessage,
-        section_id: ID,
-    ) -> None:
-        self.chats = chats
-        self.section_states = section_states
-        self.emitted_chunks = emitted_chunks
-        self.tool_result_message = tool_result_message
-        self.section_id = section_id
-
-    async def __call__(self, endpoint_name: str, payload: object) -> object:
-        if not isinstance(payload, dict):
-            raise TypeError("payload must be a dict")
-        handlers = {
-            "route_get_chat": self._get_chat,
-            "route_append_chat_messages": self._append_messages,
-            "route_emit_chat_stream_delta": self._emit_chunk,
-            "route_set_chat_section_state": self._set_section_state,
-            "route_run_mcp_tools": self._run_tools,
-        }
-        handler = handlers.get(endpoint_name)
-        if handler is None:
-            raise KeyError(f"Unknown endpoint {endpoint_name}")
-        return handler(payload)
-
-    def _get_chat(self, payload: dict[str, object]) -> dict[str, object]:
-        return self.chats[payload["chatId"]].model_dump(mode="json")
-
-    def _append_messages(self, payload: dict[str, object]) -> dict[str, object]:
-        chat_entry = _append_chat_messages(
-            self.chats[payload["chatId"]], payload["messages"]
-        )
-        self.chats[chat_entry.id] = chat_entry
-        return chat_entry.model_dump(mode="json")
-
-    def _emit_chunk(self, payload: dict[str, object]) -> None:
-        chunk = payload["chunk"]
-        self.emitted_chunks.append(chunk)
-        target_section_id = payload["sectionId"]
-        current = self.section_states.get(target_section_id)
-        if current is None:
-            current = build_chat_section_state(messages=[])
-        self.section_states[target_section_id] = apply_stream_delta(
-            state=current,
-            chunk=chunk,
-        )
-
-    def _set_section_state(self, payload: dict[str, object]) -> None:
-        target_section_id = payload["sectionId"]
-        self.section_states[target_section_id] = ChatSectionState.model_validate(
-            payload["state"]
-        )
-
-    def _run_tools(self, payload: dict[str, object]) -> list[dict[str, object]]:
-        assert payload["sectionId"] == self.section_id
-        return [self.tool_result_message.model_dump(mode="json")]
-
-
 class TestChatActionEvents:
     def test_on_chat_action_event_returns_send_for_matching_section(self) -> None:
         project_config_id = ID("proj-chat-send")
@@ -520,15 +456,41 @@ class TestChatSessionErrors:
             result={"tools": []},
         )
 
-        api = RouterEndpointAPI(
-            _ToolRunRouter(
-                chats=chats,
-                section_states=section_states,
-                emitted_chunks=emitted_chunks,
-                tool_result_message=tool_result_message,
-                section_id=section_id,
-            )
-        )
+        async def router_caller(endpoint_name: str, payload: object) -> object:
+            if not isinstance(payload, dict):
+                raise TypeError("payload must be a dict")
+            if endpoint_name == "route_get_chat":
+                return chats[payload["chatId"]].model_dump(mode="json")
+            if endpoint_name == "route_append_chat_messages":
+                chat_entry = _append_chat_messages(
+                    chats[payload["chatId"]], payload["messages"]
+                )
+                chats[chat_entry.id] = chat_entry
+                return chat_entry.model_dump(mode="json")
+            if endpoint_name == "route_emit_chat_stream_delta":
+                chunk = payload["chunk"]
+                emitted_chunks.append(chunk)
+                target_section_id = payload["sectionId"]
+                current = section_states.get(target_section_id)
+                if current is None:
+                    current = build_chat_section_state(messages=[])
+                section_states[target_section_id] = apply_stream_delta(
+                    state=current,
+                    chunk=chunk,
+                )
+                return None
+            if endpoint_name == "route_set_chat_section_state":
+                target_section_id = payload["sectionId"]
+                section_states[target_section_id] = ChatSectionState.model_validate(
+                    payload["state"]
+                )
+                return None
+            if endpoint_name == "route_run_mcp_tools":
+                assert payload["sectionId"] == section_id
+                return [tool_result_message.model_dump(mode="json")]
+            raise KeyError(f"Unknown endpoint {endpoint_name}")
+
+        api = RouterEndpointAPI(router_caller)
         history_client = ChatHistoryClient(api)
         stream_client = ChatStreamEmitterClient(api)
         tools_client = ChatToolRunnerClient(api)

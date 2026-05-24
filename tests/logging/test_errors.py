@@ -166,7 +166,6 @@ async def test_spawn_background_task_can_mark_failures_handled(caplog) -> None:
 def test_spawn_background_task_closes_runner_when_loop_create_task_fails() -> None:
     class _FakeLoop:
         def create_task(self, _coro, *, name: str | None = None):  # noqa: ANN001
-            assert name == "bg-test"
             raise RuntimeError("loop closed")
 
     async def noop() -> None:
@@ -187,7 +186,6 @@ def test_spawn_background_task_closes_runner_when_loop_create_task_fails() -> No
 def test_spawn_background_task_closes_input_coroutine_when_loop_create_task_fails() -> None:
     class _FakeLoop:
         def create_task(self, _coro, *, name: str | None = None):  # noqa: ANN001
-            assert name == "bg-test"
             raise RuntimeError("loop closed")
 
     async def noop() -> None:

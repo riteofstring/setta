@@ -84,24 +84,9 @@ vi.mock("utils/generatedTypes", async () => {
   };
 });
 
-import { ButtonInput, ButtonInputConfigForParam } from "./ButtonInput";
+import { ButtonInputConfigForParam } from "./ButtonInput";
 
 describe("ButtonInputConfigForParam", () => {
-  it("marks action button surfaces as GPU flow interactive nodrag regions", () => {
-    const markup = renderToStaticMarkup(
-      <ButtonInput
-        label="Run"
-        onClick={() => undefined}
-        wrapperClassName="fixture-wrapper"
-        buttonClassName="fixture-button"
-      />,
-    );
-
-    expect(markup).toContain('data-gpu-flow-interactive="true"');
-    expect(markup).toContain("nodrag nopan fixture-wrapper");
-    expect(markup).toContain("nodrag nopan fixture-button");
-  });
-
   it("renders button mode and method options from the generated Go-owned config", () => {
     const markup = renderToStaticMarkup(
       <ButtonInputConfigForParam sectionId="section-1" paramInfoId="param-1" />,

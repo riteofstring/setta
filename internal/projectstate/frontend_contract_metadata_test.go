@@ -8,15 +8,6 @@ import (
 )
 
 func TestFrontendDefaultsMaterializeGeneratorValues(t *testing.T) {
-	assertFrontendDefaultViewMode(t)
-	assertFrontendDefaultSectionsClipboardData(t)
-	assertFrontendDefaultWindowSpaceWindow(t)
-	assertFrontendDefaultStateMachineTargetAction(t)
-}
-
-func assertFrontendDefaultViewMode(t *testing.T) {
-	t.Helper()
-
 	viewMode := FrontendDefaultViewMode()
 	if viewMode.SortIndex != 0 || viewMode.IsUserFacing || viewMode.IsTab {
 		t.Fatalf("unexpected view mode defaults: %#v", viewMode)
@@ -30,10 +21,6 @@ func assertFrontendDefaultViewMode(t *testing.T) {
 	if viewMode.Viewport != nil {
 		t.Fatalf("expected view mode viewport to default to nil, got %#v", viewMode.Viewport)
 	}
-}
-
-func assertFrontendDefaultSectionsClipboardData(t *testing.T) {
-	t.Helper()
 
 	clipboard := FrontendDefaultSectionsClipboardData()
 	if clipboard.Type != ClipboardDataTypeSections {
@@ -42,10 +29,6 @@ func assertFrontendDefaultSectionsClipboardData(t *testing.T) {
 	if clipboard.Data.Core.Sections == nil || clipboard.Data.Core.SectionImpls == nil || clipboard.Data.SectionVariantMap == nil {
 		t.Fatalf("expected clipboard defaults to initialize maps, got %#v", clipboard)
 	}
-}
-
-func assertFrontendDefaultWindowSpaceWindow(t *testing.T) {
-	t.Helper()
 
 	window := FrontendDefaultWindowSpaceWindow()
 	if window.SurfaceKind != WindowSpaceSurfaceKindProjectChat || window.Mode != ChatWindowModeProjectAI {
@@ -63,10 +46,6 @@ func assertFrontendDefaultWindowSpaceWindow(t *testing.T) {
 	if !reflect.DeepEqual(FrontendDefaultProjectChatWindowingState(), DefaultProjectChatWindowingState()) {
 		t.Fatalf("expected project chat windowing defaults to mirror owner defaults")
 	}
-}
-
-func assertFrontendDefaultStateMachineTargetAction(t *testing.T) {
-	t.Helper()
 
 	action := FrontendDefaultStateMachineTargetAction()
 	if action.Type != StateMachineTargetActionTypeSendPrompt {

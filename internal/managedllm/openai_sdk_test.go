@@ -4,8 +4,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-
-	"github.com/openai/openai-go/v3/responses"
 )
 
 func TestBuildOpenAIResponseInputItemsBuildsMixedTranscript(t *testing.T) {
@@ -56,28 +54,13 @@ func TestBuildOpenAIResponseInputItemsBuildsMixedTranscript(t *testing.T) {
 		t.Fatalf("expected 5 input items, got %d", len(items))
 	}
 
-	assertOpenAISystemInputMessage(t, items[0])
-	assertOpenAIReasoningItem(t, items[1])
-	assertOpenAIOutputMessage(t, items[2])
-	assertOpenAIFunctionCall(t, items[3])
-	assertOpenAIFunctionCallOutput(t, items[4])
-}
-
-func assertOpenAISystemInputMessage(t *testing.T, item responses.ResponseInputItemUnionParam) {
-	t.Helper()
-
-	message := item.OfInputMessage
-	if message == nil || message.Role != "system" || len(message.Content) != 1 || message.Content[0].OfInputText == nil || message.Content[0].OfInputText.Text != "System prompt" {
-		t.Fatalf("expected system input message, got %#v", item)
+	if message := items[0].OfInputMessage; message == nil || message.Role != "system" || len(message.Content) != 1 || message.Content[0].OfInputText == nil || message.Content[0].OfInputText.Text != "System prompt" {
+		t.Fatalf("expected system input message, got %#v", items[0])
 	}
-}
 
-func assertOpenAIReasoningItem(t *testing.T, item responses.ResponseInputItemUnionParam) {
-	t.Helper()
-
-	reasoning := item.OfReasoning
+	reasoning := items[1].OfReasoning
 	if reasoning == nil {
-		t.Fatalf("expected assistant reasoning item, got %#v", item)
+		t.Fatalf("expected assistant reasoning item, got %#v", items[1])
 	}
 	if reasoning.ID != "reasoning-provider-1" {
 		t.Fatalf("expected provider reasoning id, got %q", reasoning.ID)
@@ -91,14 +74,10 @@ func assertOpenAIReasoningItem(t *testing.T, item responses.ResponseInputItemUni
 	if !reasoning.EncryptedContent.Valid() || reasoning.EncryptedContent.Value != "enc-thinking" {
 		t.Fatalf("expected encrypted reasoning content, got %#v", reasoning.EncryptedContent)
 	}
-}
 
-func assertOpenAIOutputMessage(t *testing.T, item responses.ResponseInputItemUnionParam) {
-	t.Helper()
-
-	outputMessage := item.OfOutputMessage
+	outputMessage := items[2].OfOutputMessage
 	if outputMessage == nil {
-		t.Fatalf("expected assistant output message, got %#v", item)
+		t.Fatalf("expected assistant output message, got %#v", items[2])
 	}
 	if outputMessage.ID != "provider-message-1" {
 		t.Fatalf("expected provider message id, got %q", outputMessage.ID)
@@ -106,14 +85,10 @@ func assertOpenAIOutputMessage(t *testing.T, item responses.ResponseInputItemUni
 	if len(outputMessage.Content) != 1 || outputMessage.Content[0].OfOutputText == nil || outputMessage.Content[0].OfOutputText.Text != "Assistant answer" {
 		t.Fatalf("expected assistant output text, got %#v", outputMessage.Content)
 	}
-}
 
-func assertOpenAIFunctionCall(t *testing.T, item responses.ResponseInputItemUnionParam) {
-	t.Helper()
-
-	functionCall := item.OfFunctionCall
+	functionCall := items[3].OfFunctionCall
 	if functionCall == nil {
-		t.Fatalf("expected assistant function call item, got %#v", item)
+		t.Fatalf("expected assistant function call item, got %#v", items[3])
 	}
 	if functionCall.CallID != "tool-call-1" || functionCall.Name != "setta__lookup" {
 		t.Fatalf("unexpected function call payload %#v", functionCall)
@@ -124,14 +99,10 @@ func assertOpenAIFunctionCall(t *testing.T, item responses.ResponseInputItemUnio
 	if functionCall.Arguments != "{\"query\":\"status\"}" {
 		t.Fatalf("expected encoded function call arguments, got %q", functionCall.Arguments)
 	}
-}
 
-func assertOpenAIFunctionCallOutput(t *testing.T, item responses.ResponseInputItemUnionParam) {
-	t.Helper()
-
-	functionOutput := item.OfFunctionCallOutput
+	functionOutput := items[4].OfFunctionCallOutput
 	if functionOutput == nil || functionOutput.CallID != "tool-call-1" || !functionOutput.Output.OfString.Valid() || functionOutput.Output.OfString.Value != "lookup-result" {
-		t.Fatalf("expected function call output item, got %#v", item)
+		t.Fatalf("expected function call output item, got %#v", items[4])
 	}
 }
 

@@ -1,13 +1,20 @@
 import type { DropzoneStatelessAttachment } from "@setta/app-subsystem-frontend-sdk";
 import { callOpenAPI, res200 } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
-import { getPasswordParamValue } from "openapi/http";
+import { getPasswordParamValue, setParamEnteredValue } from "openapi/http";
 import React from "react";
 import {
+  dispatchOptimisticProjectStateUpdate,
+  getCurrCodeObjVariantIfPresent,
+  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrProjectConfigId,
+  getCurrSectionVariantId,
   setCodeObjVariantImplValue,
 } from "state/actions/sectionInfos";
-import { sendRealtimeDependencyEvent } from "state/actions/websocketReceive";
+import {
+  sendRealtimeDependencyEvent,
+  sendRealtimeSectionParamLiteral,
+} from "state/actions/websocketReceive";
 import { useProjectState, useToolArgumentPreview } from "state/definitions";
 import { useLocalPendingValue } from "state/hooks/utils";
 import {
@@ -17,31 +24,35 @@ import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   LiteralDependencyValue,
+  isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
+import { shouldEmitRealtimeValue } from "utils/paramValue";
 import type { ParamValueChangeOptions } from "../ParamUIs/ConfiguredParamInputs";
-import {
-  ParamUI,
-  type ParamUITextInputInitialActivationEvent,
-} from "../ParamUIs/ParamUI";
-import {
-  commitParamInputValueChange,
-  flushPendingParamInputValueChange,
-  getParamInputPreviewState,
-  touchPendingParamInputValueChange,
-  type ParamInputPreviewState,
-} from "./paramValueUpdates";
+import { ParamUI } from "../ParamUIs/ParamUI";
 
 type ParamInputProps = {
   sectionId: string;
   paramInfoId: string;
-  focusActiveSectionOnTextInput?: boolean;
   maybeErrorMessage?: string;
-  textInputInitialActivationEvent?:
-    | ParamUITextInputInitialActivationEvent
-    | null
-    | undefined;
-  tooltipParentDivId?: string | null | undefined;
 };
+
+type PreviewParamState = {
+  baseValue: string;
+  codeObjType: CodeObjTypeEnum;
+  codeObjVariantId: string | null;
+  sectionVariantId: string | null;
+};
+
+type ParamBackendUpdate =
+  | {
+      kind: "password";
+      sectionVariantId: string;
+    }
+  | {
+      kind: "standard";
+      codeObjVariantId: string;
+      sectionVariantId: string;
+    };
 
 type StatelessDependencyEvent =
   | {
@@ -52,7 +63,7 @@ type StatelessDependencyEvent =
       payload: BinaryDependencyValue;
     };
 
-const DEFAULT_PREVIEW_PARAM_STATE: ParamInputPreviewState = {
+const DEFAULT_PREVIEW_PARAM_STATE: PreviewParamState = {
   baseValue: "",
   codeObjType: CodeObjTypeEnum.TextParam,
   codeObjVariantId: null,
@@ -62,11 +73,36 @@ const DEFAULT_PREVIEW_PARAM_STATE: ParamInputPreviewState = {
 function usePreviewParamState(
   sectionId: string,
   paramInfoId: string,
-): ParamInputPreviewState | null {
-  return useProjectState(
-    (state) => getParamInputPreviewState(state, sectionId, paramInfoId),
-    _.isEqual,
-  );
+): PreviewParamState | null {
+  return useProjectState((state) => {
+    const impl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+      state,
+      sectionId,
+      paramInfoId,
+      isBaseChildlessCodeObjImpl,
+      true,
+    );
+    if (!impl) {
+      return null;
+    }
+
+    const codeObjVariant = getCurrCodeObjVariantIfPresent(
+      state,
+      sectionId,
+      paramInfoId,
+      true,
+    );
+    if (!codeObjVariant) {
+      return null;
+    }
+
+    return {
+      baseValue: impl.value,
+      codeObjType: impl.type,
+      codeObjVariantId: codeObjVariant.id,
+      sectionVariantId: getCurrSectionVariantId(state, sectionId, true),
+    };
+  }, _.isEqual);
 }
 
 function usePreviewValue(
@@ -116,6 +152,66 @@ function syncLocalPreviewParamValue({
       },
     );
   });
+}
+
+function resolveBackendUpdate({
+  codeObjVariantId,
+  isPasswordParam,
+  sectionVariantId,
+}: {
+  codeObjVariantId: string | null;
+  isPasswordParam: boolean;
+  sectionVariantId: string | null;
+}): ParamBackendUpdate | null {
+  if (!sectionVariantId) {
+    return null;
+  }
+  if (isPasswordParam) {
+    return {
+      kind: "password",
+      sectionVariantId,
+    };
+  }
+  if (!codeObjVariantId) {
+    return null;
+  }
+  return {
+    kind: "standard",
+    codeObjVariantId,
+    sectionVariantId,
+  };
+}
+
+function queueBackendParamUpdate({
+  nextValue,
+  paramInfoId,
+  sectionId,
+  update,
+}: {
+  nextValue: string;
+  paramInfoId: string;
+  sectionId: string;
+  update: ParamBackendUpdate | null;
+}) {
+  if (!update) {
+    return;
+  }
+  if (update.kind === "password") {
+    debouncedSetPasswordParamValue(
+      sectionId,
+      update.sectionVariantId,
+      paramInfoId,
+      nextValue,
+    );
+    return;
+  }
+  debouncedSetParamEnteredValue(
+    sectionId,
+    update.sectionVariantId,
+    paramInfoId,
+    update.codeObjVariantId,
+    nextValue,
+  );
 }
 
 function toStatelessAttachmentMetadata(
@@ -223,21 +319,23 @@ async function revealPasswordValue({
 function _ParamInput({
   sectionId,
   paramInfoId,
-  focusActiveSectionOnTextInput,
   maybeErrorMessage,
-  textInputInitialActivationEvent,
-  tooltipParentDivId,
 }: ParamInputProps) {
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const previewParamState = usePreviewParamState(sectionId, paramInfoId);
   const hasPreviewParamState = previewParamState !== null;
-  const { baseValue, codeObjType, codeObjVariantId } =
+  const { baseValue, codeObjType, codeObjVariantId, sectionVariantId } =
     previewParamState ?? DEFAULT_PREVIEW_PARAM_STATE;
   const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;
   const previewValue = usePreviewValue(projectConfigId, sectionId, paramInfoId);
   const globalValue = previewValue ?? baseValue;
   const canSyncPreviewValue =
     hasPreviewParamState && !isPasswordParam && codeObjVariantId !== null;
+  const backendUpdate = resolveBackendUpdate({
+    codeObjVariantId,
+    isPasswordParam,
+    sectionVariantId,
+  });
   const [value, setPendingValue] = useLocalPendingValue(
     globalValue,
     (pendingValue) => {
@@ -256,38 +354,25 @@ function _ParamInput({
     if (!hasPreviewParamState) {
       return;
     }
-    const nextValue = commitParamInputValueChange({
-      nextValue: v,
-      options,
-      paramInfoId,
-      previousValue: value,
-      previewState: previewParamState,
-      sectionId,
-    });
-    setPendingValue(nextValue);
-  }
-  function onTextInputBlur() {
-    if (!hasPreviewParamState || isPasswordParam) {
+    const vStr = _.toString(v);
+    setPendingValue(vStr);
+    if (
+      shouldEmitRealtimeValue({
+        previousValue: value,
+        nextValue: vStr,
+        codeObjType,
+      })
+    ) {
+      sendRealtimeSectionParamLiteral(sectionId, paramInfoId, vStr);
+    }
+    if (options?.skipBackendUpdate) {
       return;
     }
-    flushPendingParamInputValueChange({
-      codeObjVariantId,
+    queueBackendParamUpdate({
+      nextValue: vStr,
       paramInfoId,
-      projectConfigId,
       sectionId,
-      sectionVariantId: previewParamState.sectionVariantId,
-    });
-  }
-  function onTextInputActivity() {
-    if (!hasPreviewParamState || isPasswordParam) {
-      return;
-    }
-    touchPendingParamInputValueChange({
-      codeObjVariantId,
-      paramInfoId,
-      projectConfigId,
-      sectionId,
-      sectionVariantId: previewParamState.sectionVariantId,
+      update: backendUpdate,
     });
   }
   function onRevealPassword() {
@@ -325,16 +410,57 @@ function _ParamInput({
       paramInfoId={paramInfoId}
       value={value}
       onChange={onChange}
-      onTextInputActivity={onTextInputActivity}
-      onTextInputBlur={onTextInputBlur}
       onDropzoneStateless={onDropzoneStateless}
       onRevealPassword={onRevealPassword}
       isPasswordRevealPending={isRevealing}
-      focusActiveSectionOnTextInput={focusActiveSectionOnTextInput}
-      textInputInitialActivationEvent={textInputInitialActivationEvent}
       maybeErrorMessage={maybeErrorMessage}
-      tooltipParentDivId={tooltipParentDivId}
     />
   );
 }
+const debouncedSetParamEnteredValue = _.debounce(
+  (sectionId, sectionVariantId, paramInfoId, codeObjVariantId, value) => {
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
+          state,
+          paramInfoId,
+          codeObjVariantId,
+          {
+            value,
+          },
+        );
+      },
+      send: (frontendOpId) =>
+        callOpenAPI(
+          setParamEnteredValue({
+            body: {
+              projectConfigId: getCurrProjectConfigId(),
+              sectionId,
+              sectionVariantId,
+              paramInfoId,
+              value,
+              frontendOpId,
+            },
+          } as Parameters<typeof setParamEnteredValue>[0]),
+        ),
+    });
+  },
+  50,
+);
+const debouncedSetPasswordParamValue = _.debounce(
+  (sectionId, sectionVariantId, paramInfoId, value) => {
+    callOpenAPI(
+      setParamEnteredValue({
+        body: {
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          sectionVariantId,
+          paramInfoId,
+          value,
+        },
+      } as Parameters<typeof setParamEnteredValue>[0]),
+    );
+  },
+  50,
+);
 export const ParamInput = React.memo(_ParamInput);

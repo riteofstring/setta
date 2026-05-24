@@ -5,34 +5,6 @@ import {
   renderConversationSearchHighlightedText,
 } from "./chatSearchHighlight";
 
-type SearchHighlightTestTree = {
-  children: Array<{
-    children: unknown[];
-  }>;
-};
-
-function applySearchHighlightTransform(
-  normalizedSearchTerms: string[],
-  tree: SearchHighlightTestTree,
-) {
-  const plugin = getConversationSearchRehypePlugins(normalizedSearchTerms)?.[0];
-  if (!plugin) {
-    throw new Error("Expected search highlight plugin.");
-  }
-  plugin()(tree as never);
-}
-
-function serializedChildNodes(
-  tree: SearchHighlightTestTree,
-  childIndex: number,
-): string {
-  const child = tree.children[childIndex];
-  if (!child) {
-    throw new Error(`Expected child node ${childIndex}.`);
-  }
-  return JSON.stringify(child.children);
-}
-
 describe("chatSearchHighlight", () => {
   it("renders highlighted inline transcript text", () => {
     const markup = renderToStaticMarkup(
@@ -48,6 +20,8 @@ describe("chatSearchHighlight", () => {
   });
 
   it("highlights plain text nodes but skips code blocks", () => {
+    const plugins = getConversationSearchRehypePlugins(["alpha"]);
+    const transform = plugins?.[0]?.();
     const tree = {
       type: "root",
       children: [
@@ -64,18 +38,22 @@ describe("chatSearchHighlight", () => {
       ],
     };
 
-    applySearchHighlightTransform(["alpha"], tree);
+    transform?.(tree);
 
-    expect(serializedChildNodes(tree, 0)).toContain(
+    expect(JSON.stringify(tree.children?.[0]?.children ?? [])).toContain(
       '"data-chat-search-highlight":"true"',
     );
-    expect(serializedChildNodes(tree, 1)).toContain("alpha inside code");
-    expect(serializedChildNodes(tree, 1)).not.toContain(
+    expect(JSON.stringify(tree.children?.[1]?.children ?? [])).toContain(
+      "alpha inside code",
+    );
+    expect(JSON.stringify(tree.children?.[1]?.children ?? [])).not.toContain(
       '"data-chat-search-highlight":"true"',
     );
   });
 
   it("recurses through nested elements but still skips nested pre blocks", () => {
+    const plugins = getConversationSearchRehypePlugins(["alpha"]);
+    const transform = plugins?.[0]?.();
     const tree = {
       type: "root",
       children: [
@@ -104,13 +82,15 @@ describe("chatSearchHighlight", () => {
       ],
     };
 
-    applySearchHighlightTransform(["alpha"], tree);
+    transform?.(tree);
 
-    expect(serializedChildNodes(tree, 0)).toContain(
+    expect(JSON.stringify(tree.children?.[0]?.children ?? [])).toContain(
       '"data-chat-search-highlight":"true"',
     );
-    expect(serializedChildNodes(tree, 1)).toContain("alpha hidden");
-    expect(serializedChildNodes(tree, 1)).not.toContain(
+    expect(JSON.stringify(tree.children?.[1]?.children ?? [])).toContain(
+      "alpha hidden",
+    );
+    expect(JSON.stringify(tree.children?.[1]?.children ?? [])).not.toContain(
       '"data-chat-search-highlight":"true"',
     );
   });

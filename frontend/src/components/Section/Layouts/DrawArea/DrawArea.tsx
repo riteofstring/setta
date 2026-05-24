@@ -19,11 +19,6 @@ import {
 } from "state/hooks/artifacts";
 import { removeRevisionEntries } from "state/utils/revisions";
 import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
-} from "utils/constants";
-import {
   ArtifactTypeEnum,
   BrushStroke,
   BrushStrokeArtifact,
@@ -382,14 +377,9 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
         canvasMode={canvasMode}
         clearStrokes={clearStrokes}
       />
-      <section
-        className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} single-cell-container section-row-main section-key-value relative max-h-full min-w-0`}
-        data-gpu-flow-control={`draw-canvas:${sectionId}`}
-        data-gpu-flow-interactive="true"
-      >
+      <section className="nodrag single-cell-container section-row-main section-key-value relative max-h-full min-w-0">
         <div className="single-cell-child single-cell-container">
           <LayerCanvases
-            sectionId={sectionId}
             numLayers={layers.length}
             activeLayerIdx={activeLayerIdx}
             layerCanvasRefs={layerCanvasRefs}
@@ -408,7 +398,6 @@ export function DrawArea({ sectionId }: { sectionId: string }) {
 }
 
 function LayerCanvases({
-  sectionId,
   numLayers,
   activeLayerIdx,
   layerCanvasRefs,
@@ -420,7 +409,6 @@ function LayerCanvases({
   onMouseUp,
   onMouseEnter,
 }: {
-  sectionId: string;
   numLayers: number;
   activeLayerIdx: number;
   layerCanvasRefs: React.RefObject<LayerCanvasesType>;
@@ -434,17 +422,6 @@ function LayerCanvases({
 }) {
   const canvases: Array<React.ReactElement<HTMLCanvasElement>> = [];
   for (let i = 0; i < numLayers; i++) {
-    const isActiveLayer = i === activeLayerIdx;
-    const layerCanvasEventHandlers = getLayerCanvasEventHandlers(
-      isActiveLayer,
-      {
-        onMouseDown,
-        onMouseEnter,
-        onMouseLeave: onMouseUp,
-        onMouseMove,
-        onMouseUp,
-      },
-    );
     canvases.push(
       <canvas
         key={i}
@@ -453,17 +430,12 @@ function LayerCanvases({
             layerCanvasRefs.current[i] = el;
           }
         }}
-        className={getLayerCanvasClassName({
-          canvasClassName,
-          cursorIcon,
-          isActiveLayer,
-        })}
-        {...getLayerCanvasOwnershipProps({
-          isActiveLayer,
-          layerIndex: i,
-          sectionId,
-        })}
-        {...layerCanvasEventHandlers}
+        className={`${cursorIcon} ${canvasClassName} ${i !== activeLayerIdx ? "pointer-events-none" : ""}`}
+        onMouseDown={i === activeLayerIdx ? onMouseDown : undefined}
+        onMouseMove={i === activeLayerIdx ? onMouseMove : undefined}
+        onMouseUp={i === activeLayerIdx ? onMouseUp : undefined}
+        onMouseLeave={i === activeLayerIdx ? onMouseUp : undefined}
+        onMouseEnter={i === activeLayerIdx ? onMouseEnter : undefined}
       />,
     );
     if (i === activeLayerIdx) {
@@ -477,54 +449,6 @@ function LayerCanvases({
     }
   }
   return canvases;
-}
-
-type LayerCanvasEventHandlers = Pick<
-  React.CanvasHTMLAttributes<HTMLCanvasElement>,
-  "onMouseDown" | "onMouseEnter" | "onMouseLeave" | "onMouseMove" | "onMouseUp"
->;
-
-function getLayerCanvasEventHandlers(
-  isActiveLayer: boolean,
-  handlers: LayerCanvasEventHandlers,
-): Partial<LayerCanvasEventHandlers> {
-  if (!isActiveLayer) {
-    return {};
-  }
-  return handlers;
-}
-
-function getLayerCanvasClassName({
-  canvasClassName,
-  cursorIcon,
-  isActiveLayer,
-}: {
-  canvasClassName: string;
-  cursorIcon: string;
-  isActiveLayer: boolean;
-}) {
-  if (!isActiveLayer) {
-    return `${cursorIcon} ${canvasClassName} pointer-events-none`;
-  }
-  return `${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME} ${cursorIcon} ${canvasClassName}`;
-}
-
-function getLayerCanvasOwnershipProps({
-  isActiveLayer,
-  layerIndex,
-  sectionId,
-}: {
-  isActiveLayer: boolean;
-  layerIndex: number;
-  sectionId: string;
-}) {
-  if (!isActiveLayer) {
-    return {};
-  }
-  return {
-    "data-gpu-flow-control": `draw-canvas-layer:${sectionId}:${layerIndex}`,
-    "data-gpu-flow-interactive": "true",
-  };
 }
 
 function getCursorIcon(canvasMode: DrawAreaMode) {

@@ -9,21 +9,6 @@ import (
 func TestRuntimeTextBlockMutationsUpdateEffectivePayload(t *testing.T) {
 	t.Parallel()
 
-	runtime := openTextBlockMutationRuntime(t)
-	assertTextBlockDisplayModeMutations(t, runtime)
-	assertTextBlockFormatMutations(t, runtime)
-	applyTextBlockHeadingAndStyleMutations(t, runtime)
-
-	project := runtime.Snapshot().Document.Projects["project-alpha"]
-	if got := project.Sections["text-section"].Name; got != "Updated Heading" {
-		t.Fatalf("expected section name Updated Heading, got %q", got)
-	}
-	assertTextBlockFinalPayload(t, textBlockPayloadFromRuntime(t, runtime))
-}
-
-func openTextBlockMutationRuntime(t *testing.T) *Runtime {
-	t.Helper()
-
 	runtime, err := OpenOverlayRuntime(Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -39,22 +24,17 @@ func openTextBlockMutationRuntime(t *testing.T) *Runtime {
 			t.Fatalf("close overlay runtime: %v", err)
 		}
 	})
-	return runtime
-}
 
-func textBlockPayloadFromRuntime(t *testing.T, runtime *Runtime) map[string]any {
-	t.Helper()
+	textPayload := func() map[string]any {
+		t.Helper()
 
-	project := runtime.Snapshot().Document.Projects["project-alpha"]
-	payload, err := effectiveSectionPayload(project, "text-section", "text-variant")
-	if err != nil {
-		t.Fatalf("effectiveSectionPayload text-section: %v", err)
+		project := runtime.Snapshot().Document.Projects["project-alpha"]
+		payload, err := effectiveSectionPayload(project, "text-section", "text-variant")
+		if err != nil {
+			t.Fatalf("effectiveSectionPayload text-section: %v", err)
+		}
+		return payload
 	}
-	return payload
-}
-
-func assertTextBlockDisplayModeMutations(t *testing.T, runtime *Runtime) {
-	t.Helper()
 
 	for _, displayMode := range []TextBlockDisplayMode{
 		TextBlockDisplayModeRender,
@@ -63,15 +43,10 @@ func assertTextBlockDisplayModeMutations(t *testing.T, runtime *Runtime) {
 		if _, err := runtime.SetTextBlockDisplayMode(context.Background(), "project-alpha", "text-section", displayMode); err != nil {
 			t.Fatalf("SetTextBlockDisplayMode(%s) returned error: %v", displayMode, err)
 		}
-		if got := payloadRawStringField(textBlockPayloadFromRuntime(t, runtime), "textDisplayMode"); got != string(displayMode) {
+		if got := payloadRawStringField(textPayload(), "textDisplayMode"); got != string(displayMode) {
 			t.Fatalf("expected textDisplayMode %q, got %q", displayMode, got)
 		}
 	}
-}
-
-func assertTextBlockFormatMutations(t *testing.T, runtime *Runtime) {
-	t.Helper()
-
 	for _, format := range []TextBlockFormat{
 		TextBlockFormatPlaintext,
 		TextBlockFormatMarkdown,
@@ -79,15 +54,10 @@ func assertTextBlockFormatMutations(t *testing.T, runtime *Runtime) {
 		if _, err := runtime.SetTextBlockFormat(context.Background(), "project-alpha", "text-section", format); err != nil {
 			t.Fatalf("SetTextBlockFormat(%s) returned error: %v", format, err)
 		}
-		if got := payloadRawStringField(textBlockPayloadFromRuntime(t, runtime), "format"); got != string(format) {
+		if got := payloadRawStringField(textPayload(), "format"); got != string(format) {
 			t.Fatalf("expected format %q, got %q", format, got)
 		}
 	}
-}
-
-func applyTextBlockHeadingAndStyleMutations(t *testing.T, runtime *Runtime) {
-	t.Helper()
-
 	if _, err := runtime.SetTextBlockHeadingAsSectionName(context.Background(), "project-alpha", "text-section", true); err != nil {
 		t.Fatalf("SetTextBlockHeadingAsSectionName returned error: %v", err)
 	}
@@ -100,11 +70,13 @@ func applyTextBlockHeadingAndStyleMutations(t *testing.T, runtime *Runtime) {
 	if _, err := runtime.SetTextBlockMasterFontSize(context.Background(), "project-alpha", "text-section", 64); err != nil {
 		t.Fatalf("SetTextBlockMasterFontSize returned error: %v", err)
 	}
-}
 
-func assertTextBlockFinalPayload(t *testing.T, payload map[string]any) {
-	t.Helper()
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
+	if got := project.Sections["text-section"].Name; got != "Updated Heading" {
+		t.Fatalf("expected section name Updated Heading, got %q", got)
+	}
 
+	payload := textPayload()
 	if got := payloadRawStringField(payload, "textDisplayMode"); got != string(TextBlockDisplayModeEdit) {
 		t.Fatalf("expected textDisplayMode %q, got %q", TextBlockDisplayModeEdit, got)
 	}

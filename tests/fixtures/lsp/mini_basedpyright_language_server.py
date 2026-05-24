@@ -64,98 +64,88 @@ def signature_help_for_content(content):
     }
 
 
-def initialize_response(message_id):
-    return {
-        "jsonrpc": "2.0",
-        "id": message_id,
-        "result": {
-            "capabilities": {
-                "textDocumentSync": 2,
-                "completionProvider": {"triggerCharacters": ["."]},
-                "signatureHelpProvider": {"triggerCharacters": ["("]},
-            }
-        },
-    }
-
-
-def completion_response(message_id):
-    return {
-        "jsonrpc": "2.0",
-        "id": message_id,
-        "result": {
-            "isIncomplete": False,
-            "items": [{"label": "upper", "kind": 2, "insertText": "upper"}],
-        },
-    }
-
-
-def update_document(documents, params):
-    text_document = params.get("textDocument") or {}
-    uri = text_document.get("uri", "")
-    changes = params.get("contentChanges") or []
-    current = documents.get(uri, {"text": "", "version": None})
-    if changes:
-        current["text"] = changes[-1].get("text", "")
-    current["version"] = text_document.get("version", current.get("version"))
-    documents[uri] = current
-    publish_diagnostics(uri, current["text"], current["version"])
-
-
-def open_document(documents, params):
-    text_document = params.get("textDocument") or {}
-    uri = text_document.get("uri", "")
-    documents[uri] = {
-        "text": text_document.get("text", ""),
-        "version": text_document.get("version"),
-    }
-    publish_diagnostics(uri, documents[uri]["text"], documents[uri]["version"])
-
-
-def signature_help_response(message_id, documents, params):
-    uri = (params.get("textDocument") or {}).get("uri", "")
-    return {
-        "jsonrpc": "2.0",
-        "id": message_id,
-        "result": signature_help_for_content((documents.get(uri) or {}).get("text", "")),
-    }
-
-
-def handle_message(documents, message):
-    method = message.get("method")
-    message_id = message.get("id")
-    params = message.get("params") or {}
-
-    if method == "initialize" and message_id is not None:
-        send(initialize_response(message_id))
-        return
-    if method == "workspace/didChangeConfiguration":
-        return
-    if method == "textDocument/didOpen":
-        open_document(documents, params)
-        return
-    if method == "textDocument/didChange":
-        update_document(documents, params)
-        return
-    if method == "textDocument/completion" and message_id is not None:
-        send(completion_response(message_id))
-        return
-    if method == "textDocument/signatureHelp" and message_id is not None:
-        send(signature_help_response(message_id, documents, params))
-        return
-    if method == "shutdown" and message_id is not None:
-        send({"jsonrpc": "2.0", "id": message_id, "result": None})
-        return
-    if method == "exit":
-        raise SystemExit(0)
-
-
 def main():
     documents = {}
     while True:
         message = read_message()
         if message is None:
             raise SystemExit(0)
-        handle_message(documents, message)
+
+        method = message.get("method")
+        message_id = message.get("id")
+        params = message.get("params") or {}
+
+        if method == "initialize" and message_id is not None:
+            send(
+                {
+                    "jsonrpc": "2.0",
+                    "id": message_id,
+                    "result": {
+                        "capabilities": {
+                            "textDocumentSync": 2,
+                            "completionProvider": {"triggerCharacters": ["."]},
+                            "signatureHelpProvider": {"triggerCharacters": ["("]},
+                        }
+                    },
+                }
+            )
+            continue
+
+        if method == "workspace/didChangeConfiguration":
+            continue
+
+        if method == "textDocument/didOpen":
+            text_document = params.get("textDocument") or {}
+            uri = text_document.get("uri", "")
+            documents[uri] = {
+                "text": text_document.get("text", ""),
+                "version": text_document.get("version"),
+            }
+            publish_diagnostics(uri, documents[uri]["text"], documents[uri]["version"])
+            continue
+
+        if method == "textDocument/didChange":
+            text_document = params.get("textDocument") or {}
+            uri = text_document.get("uri", "")
+            changes = params.get("contentChanges") or []
+            current = documents.get(uri, {"text": "", "version": None})
+            if changes:
+                current["text"] = changes[-1].get("text", "")
+            current["version"] = text_document.get("version", current.get("version"))
+            documents[uri] = current
+            publish_diagnostics(uri, current["text"], current["version"])
+            continue
+
+        if method == "textDocument/completion" and message_id is not None:
+            send(
+                {
+                    "jsonrpc": "2.0",
+                    "id": message_id,
+                    "result": {
+                        "isIncomplete": False,
+                        "items": [{"label": "upper", "kind": 2, "insertText": "upper"}],
+                    },
+                }
+            )
+            continue
+
+        if method == "textDocument/signatureHelp" and message_id is not None:
+            uri = (params.get("textDocument") or {}).get("uri", "")
+            send(
+                {
+                    "jsonrpc": "2.0",
+                    "id": message_id,
+                    "result": signature_help_for_content((documents.get(uri) or {}).get("text", "")),
+                }
+            )
+            continue
+
+        if method == "shutdown" and message_id is not None:
+            send({"jsonrpc": "2.0", "id": message_id, "result": None})
+            continue
+
+        if method == "exit":
+            raise SystemExit(0)
 
 
 if __name__ == "__main__":

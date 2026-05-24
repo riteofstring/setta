@@ -133,53 +133,37 @@ func TestSystemCheckerClassifiesNonClaudeToolRunModeSupportAndAvailability(t *te
 			if err != nil {
 				t.Fatalf("check config: %v", err)
 			}
-			assertNonClaudeToolStatus(t, status, testCase.wantSupported, testCase.wantAvailable, testCase.wantBaseURL, testCase.wantCommandPath, testCase.wantIssues)
+			if status.Supported != testCase.wantSupported {
+				t.Fatalf("expected supported=%t, got %#v", testCase.wantSupported, status)
+			}
+			if status.Available != testCase.wantAvailable {
+				t.Fatalf("expected available=%t, got %#v", testCase.wantAvailable, status)
+			}
+			if testCase.wantBaseURL == nil {
+				if status.BaseURL != nil {
+					t.Fatalf("expected no base url, got %#v", status.BaseURL)
+				}
+			} else if status.BaseURL == nil || *status.BaseURL != *testCase.wantBaseURL {
+				t.Fatalf("expected base url %q, got %#v", *testCase.wantBaseURL, status.BaseURL)
+			}
+			if testCase.wantCommandPath == nil {
+				if status.CommandPath != nil {
+					t.Fatalf("expected no command path, got %#v", status.CommandPath)
+				}
+			} else if status.CommandPath == nil || *status.CommandPath != *testCase.wantCommandPath {
+				t.Fatalf("expected command path %q, got %#v", *testCase.wantCommandPath, status.CommandPath)
+			}
+			if testCase.wantCommandPath != nil && strings.HasSuffix(*testCase.wantCommandPath, "codex") {
+				if status.CLIVersion == nil || *status.CLIVersion != "codex 0.25.1" {
+					t.Fatalf("expected codex cli version, got %#v", status.CLIVersion)
+				}
+			}
+			for _, issueFragment := range testCase.wantIssues {
+				if !containsIssue(status.Issues, issueFragment) {
+					t.Fatalf("expected issue %q, got %#v", issueFragment, status.Issues)
+				}
+			}
 		})
-	}
-}
-
-func assertNonClaudeToolStatus(
-	t *testing.T,
-	status Status,
-	wantSupported bool,
-	wantAvailable bool,
-	wantBaseURL *string,
-	wantCommandPath *string,
-	wantIssues []string,
-) {
-	t.Helper()
-
-	if status.Supported != wantSupported {
-		t.Fatalf("expected supported=%t, got %#v", wantSupported, status)
-	}
-	if status.Available != wantAvailable {
-		t.Fatalf("expected available=%t, got %#v", wantAvailable, status)
-	}
-	assertOptionalString(t, status.BaseURL, wantBaseURL, "base url")
-	assertOptionalString(t, status.CommandPath, wantCommandPath, "command path")
-	if wantCommandPath != nil && strings.HasSuffix(*wantCommandPath, "codex") {
-		if status.CLIVersion == nil || *status.CLIVersion != "codex 0.25.1" {
-			t.Fatalf("expected codex cli version, got %#v", status.CLIVersion)
-		}
-	}
-	for _, issueFragment := range wantIssues {
-		if !containsIssue(status.Issues, issueFragment) {
-			t.Fatalf("expected issue %q, got %#v", issueFragment, status.Issues)
-		}
-	}
-}
-
-func assertOptionalString(t *testing.T, got *string, want *string, label string) {
-	t.Helper()
-
-	if want == nil {
-		if got != nil {
-			t.Fatalf("expected no %s, got %#v", label, got)
-		}
-		return
-	}
-	if got == nil || *got != *want {
-		t.Fatalf("expected %s %q, got %#v", label, *want, got)
 	}
 }
 

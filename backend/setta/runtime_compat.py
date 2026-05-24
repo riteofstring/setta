@@ -8,7 +8,11 @@ _SDK_RUNTIME_HANDSHAKE_PATH = "/api/sdkRuntimeHandshake"
 
 
 class _RequestsSessionLike(Protocol):
-    def get(self, url: str, **kwargs: Any) -> Any: ...
+    def get(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+    ) -> Any: ...
 
 
 @dataclass(slots=True)

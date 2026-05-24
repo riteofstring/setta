@@ -450,33 +450,6 @@ func TestCleanupExpiredDeploymentSessionsDropsTerminalAndRealtimeState(t *testin
 	t.Parallel()
 	skipIfAppTerminalPTYUnsupported(t)
 
-	fixture := newCleanupExpiredDeploymentSessionFixture(t)
-	fixture.createSessions(t)
-	fixture.openSessionTerminals(t)
-	fixture.seedOverlayAndSequences(t)
-	fixture.advanceToCleanupWindow(t)
-
-	expiredIDs := fixture.cleanup(t)
-	assertCleanupExpiredDeploymentSessionIDs(t, expiredIDs)
-	assertCleanupExpiredDeploymentRuntimeState(t, fixture.deploymentRuntime)
-	assertCleanupExpiredDeploymentTerminalState(t, fixture.terminalService)
-	assertCleanupExpiredDeploymentSequencerState(t, fixture.sequencer)
-	assertCleanupExpiredDeploymentOverlayState(t, fixture.shareArtifactService, fixture.overlayPath)
-}
-
-type cleanupExpiredDeploymentSessionFixture struct {
-	deploymentRuntime    *deployments.Runtime
-	terminalService      *terminals.Service
-	listenerBroadcaster  *realtime.ListenerBroadcaster
-	shareArtifactService *shareartifacts.Service
-	sequencer            *realtime.Sequencer
-	overlayPath          string
-	now                  *time.Time
-}
-
-func newCleanupExpiredDeploymentSessionFixture(t *testing.T) cleanupExpiredDeploymentSessionFixture {
-	t.Helper()
-
 	deploymentRoot := t.TempDir()
 	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
 	writeAppDeploymentFixture(t, deploymentRoot, deployments.TypeShare)
@@ -511,6 +484,32 @@ func newCleanupExpiredDeploymentSessionFixture(t *testing.T) cleanupExpiredDeplo
 		}
 	})
 
+	if _, err := deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
+		t.Fatalf("create expired session: %v", err)
+	}
+	if _, err := deploymentRuntime.CreateSessionWithID("share-b"); err != nil {
+		t.Fatalf("create active session: %v", err)
+	}
+
+	if _, _, err := terminalService.Open(terminals.OpenOptions{
+		ID:             terminals.BuildTerminalID("section-a", "share-a"),
+		ProjectID:      "project-alpha",
+		ShareSessionID: "share-a",
+		AllowInput:     false,
+		Command:        quietAppTestCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open expired-session terminal: %v", err)
+	}
+	if _, _, err := terminalService.Open(terminals.OpenOptions{
+		ID:             terminals.BuildTerminalID("section-b", "share-b"),
+		ProjectID:      "project-alpha",
+		ShareSessionID: "share-b",
+		AllowInput:     false,
+		Command:        quietAppTestCatCommand(t),
+	}); err != nil {
+		t.Fatalf("open active-session terminal: %v", err)
+	}
+
 	sequencer := realtime.NewSequencer()
 	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
 		WebsocketHub: realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}),
@@ -534,140 +533,58 @@ func newCleanupExpiredDeploymentSessionFixture(t *testing.T) cleanupExpiredDeplo
 	if err := os.WriteFile(overlayPath, []byte("{\n  \"strokeStyle\": \"#111111\"\n}\n"), 0o644); err != nil {
 		t.Fatalf("write overlay disk artifact: %v", err)
 	}
-
-	return cleanupExpiredDeploymentSessionFixture{
-		deploymentRuntime:    deploymentRuntime,
-		terminalService:      terminalService,
-		listenerBroadcaster:  listenerBroadcaster,
-		shareArtifactService: shareArtifactService,
-		sequencer:            sequencer,
-		overlayPath:          overlayPath,
-		now:                  &now,
-	}
-}
-
-func (f cleanupExpiredDeploymentSessionFixture) createSessions(t *testing.T) {
-	t.Helper()
-
-	if _, err := f.deploymentRuntime.CreateSessionWithID("share-a"); err != nil {
-		t.Fatalf("create expired session: %v", err)
-	}
-	if _, err := f.deploymentRuntime.CreateSessionWithID("share-b"); err != nil {
-		t.Fatalf("create active session: %v", err)
-	}
-}
-
-func (f cleanupExpiredDeploymentSessionFixture) openSessionTerminals(t *testing.T) {
-	t.Helper()
-
-	if _, _, err := f.terminalService.Open(terminals.OpenOptions{
-		ID:             terminals.BuildTerminalID("section-a", "share-a"),
-		ProjectID:      "project-alpha",
-		ShareSessionID: "share-a",
-		AllowInput:     false,
-		Command:        quietAppTestCatCommand(t),
-	}); err != nil {
-		t.Fatalf("open expired-session terminal: %v", err)
-	}
-	if _, _, err := f.terminalService.Open(terminals.OpenOptions{
-		ID:             terminals.BuildTerminalID("section-b", "share-b"),
-		ProjectID:      "project-alpha",
-		ShareSessionID: "share-b",
-		AllowInput:     false,
-		Command:        quietAppTestCatCommand(t),
-	}); err != nil {
-		t.Fatalf("open active-session terminal: %v", err)
-	}
-}
-
-func (f cleanupExpiredDeploymentSessionFixture) seedOverlayAndSequences(t *testing.T) {
-	t.Helper()
-
 	overlayValue := json.RawMessage(`{"strokeStyle":"#000000","lineWidth":2,"lineCap":"butt"}`)
-	if _, err := f.shareArtifactService.Update(context.Background(), "share-a", artifacts.UpdateRequest{
+	if _, err := shareArtifactService.Update(context.Background(), "share-a", artifacts.UpdateRequest{
 		Artifacts: []artifacts.RawArtifact{{
 			Type:  artifacts.ArtifactTypeBrushStroke,
-			ID:    f.overlayPath,
+			ID:    overlayPath,
 			Value: &overlayValue,
 		}},
 		UploadScope: artifacts.UploadScopeGeneric,
 	}); err != nil {
 		t.Fatalf("seed share overlay: %v", err)
 	}
-	if _, err := f.sequencer.Next(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-a"}); err != nil {
+	if _, err := sequencer.Next(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-a"}); err != nil {
 		t.Fatalf("seed expired-session sequence: %v", err)
 	}
-	if _, err := f.sequencer.Next(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-b"}); err != nil {
+	if _, err := sequencer.Next(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-b"}); err != nil {
 		t.Fatalf("seed active-session sequence: %v", err)
 	}
-}
 
-func (f cleanupExpiredDeploymentSessionFixture) advanceToCleanupWindow(t *testing.T) {
-	t.Helper()
-
-	*f.now = f.now.Add(45 * time.Second)
-	if err := f.deploymentRuntime.TouchSession("share-b"); err != nil {
+	now = now.Add(45 * time.Second)
+	if err := deploymentRuntime.TouchSession("share-b"); err != nil {
 		t.Fatalf("touch active session: %v", err)
 	}
-	*f.now = f.now.Add(29 * time.Second)
-}
-
-func (f cleanupExpiredDeploymentSessionFixture) cleanup(t *testing.T) []string {
-	t.Helper()
+	now = now.Add(29 * time.Second)
 
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	expiredIDs, err := cleanupExpiredDeploymentSessions(cleanupCtx, f.deploymentRuntime, f.terminalService, f.listenerBroadcaster, f.shareArtifactService)
+	expiredIDs, err := cleanupExpiredDeploymentSessions(cleanupCtx, deploymentRuntime, terminalService, listenerBroadcaster, shareArtifactService)
 	if err != nil {
 		t.Fatalf("cleanup expired deployment sessions: %v", err)
 	}
-	return expiredIDs
-}
-
-func assertCleanupExpiredDeploymentSessionIDs(t *testing.T, expiredIDs []string) {
-	t.Helper()
-
 	if len(expiredIDs) != 1 || expiredIDs[0] != "share-a" {
 		t.Fatalf("expected only share-a to expire, got %#v", expiredIDs)
 	}
-}
-
-func assertCleanupExpiredDeploymentRuntimeState(t *testing.T, deploymentRuntime *deployments.Runtime) {
-	t.Helper()
-
 	if deploymentRuntime.HasSession("share-a") {
 		t.Fatal("did not expect expired share session to remain")
 	}
 	if !deploymentRuntime.HasSession("share-b") {
 		t.Fatal("expected active share session to remain")
 	}
-}
-
-func assertCleanupExpiredDeploymentTerminalState(t *testing.T, terminalService *terminals.Service) {
-	t.Helper()
-
 	if _, ok := terminalService.Session(terminals.BuildTerminalID("section-a", "share-a")); ok {
 		t.Fatal("did not expect expired share-session terminal to remain")
 	}
 	if _, ok := terminalService.Session(terminals.BuildTerminalID("section-b", "share-b")); !ok {
 		t.Fatal("expected active share-session terminal to remain")
 	}
-}
-
-func assertCleanupExpiredDeploymentSequencerState(t *testing.T, sequencer *realtime.Sequencer) {
-	t.Helper()
-
 	if next, err := sequencer.Next(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-a"}); err != nil || next != 1 {
 		t.Fatalf("expected expired share-session sequence to restart at 1, got %d err=%v", next, err)
 	}
 	if next, err := sequencer.Next(realtime.Scope{ProjectID: "project-alpha", ShareSessionID: "share-b"}); err != nil || next != 2 {
 		t.Fatalf("expected active share-session sequence next value to be 2, got %d err=%v", next, err)
 	}
-}
-
-func assertCleanupExpiredDeploymentOverlayState(t *testing.T, shareArtifactService *shareartifacts.Service, overlayPath string) {
-	t.Helper()
 
 	loaded, err := shareArtifactService.LoadCachedBrushStrokes(context.Background(), "share-a", artifacts.LoadCachedPathsRequest{
 		Paths: []string{overlayPath},

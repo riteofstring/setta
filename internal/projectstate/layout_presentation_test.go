@@ -122,17 +122,6 @@ func TestRuntimeTogglePositionLocksValidatesBeforeApplying(t *testing.T) {
 func TestRuntimeLayoutPresentationMutationsUpdateProjectAndEffectivePayload(t *testing.T) {
 	t.Parallel()
 
-	runtime := openLayoutPresentationRuntime(t)
-	applyLayoutPresentationMutations(t, runtime)
-
-	project := runtime.Snapshot().Document.Projects["project-alpha"]
-	assertLayoutPresentationProjectState(t, project)
-	assertLayoutPresentationPayload(t, project)
-}
-
-func openLayoutPresentationRuntime(t *testing.T) *Runtime {
-	t.Helper()
-
 	runtime, err := OpenOverlayRuntime(Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -148,11 +137,6 @@ func openLayoutPresentationRuntime(t *testing.T) *Runtime {
 			t.Fatalf("close overlay runtime: %v", err)
 		}
 	})
-	return runtime
-}
-
-func applyLayoutPresentationMutations(t *testing.T, runtime *Runtime) {
-	t.Helper()
 
 	if _, err := runtime.SetShowParamDisplayNames(context.Background(), "project-alpha", true); err != nil {
 		t.Fatalf("SetShowParamDisplayNames returned error: %v", err)
@@ -185,21 +169,14 @@ func applyLayoutPresentationMutations(t *testing.T, runtime *Runtime) {
 	if _, err := runtime.SetSectionPinnedParams(context.Background(), "project-alpha", "callable-section", []string{"param-b", "param-c"}); err != nil {
 		t.Fatalf("SetSectionPinnedParams returned error: %v", err)
 	}
-}
 
-func assertLayoutPresentationProjectState(t *testing.T, project Project) {
-	t.Helper()
-
+	project := runtime.Snapshot().Document.Projects["project-alpha"]
 	if !project.ShowParamDisplayNames {
 		t.Fatal("expected ShowParamDisplayNames=true")
 	}
 	if !reflect.DeepEqual(project.ActiveIDs, []string{"callable-section", "plain-section"}) {
 		t.Fatalf("expected active ids to persist, got %#v", project.ActiveIDs)
 	}
-}
-
-func assertLayoutPresentationPayload(t *testing.T, project Project) {
-	t.Helper()
 
 	payload, err := effectiveSectionPayload(project, "callable-section", "callable-variant")
 	if err != nil {

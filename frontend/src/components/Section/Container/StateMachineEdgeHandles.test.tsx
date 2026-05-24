@@ -1,9 +1,8 @@
-import { NodeIdContext } from "gpuFlow/NodeIdContext";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { NodeIdContext } from "forks/xyflow/core/contexts/NodeIdContext";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 import {
   SectionTypeEnum,
   createChatSectionImpl,
@@ -42,8 +41,7 @@ function syncStoreInitialState(store: {
 
 type WorkflowEdge = ReturnType<
   typeof useProjectState.getState
->["projectConfig"]["stateMachineEdges"];
-type WorkflowEdgeItem = NonNullable<WorkflowEdge>[number];
+>["projectConfig"]["stateMachineEdges"][number];
 
 function seedWorkflowSection({
   sectionId,
@@ -54,7 +52,7 @@ function seedWorkflowSection({
   sectionId: string;
   variantId: string;
   impl: BaseSectionImplUnion;
-  edges?: WorkflowEdgeItem[];
+  edges?: WorkflowEdge[];
 }): void {
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
@@ -97,7 +95,7 @@ function seedWorkflowSectionWithoutImpl({
   sectionId: string;
   variantId: string;
   implId: string;
-  edges?: WorkflowEdgeItem[];
+  edges?: WorkflowEdge[];
 }): void {
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({
@@ -129,21 +127,13 @@ function seedWorkflowSectionWithoutImpl({
   syncStoreInitialState(useProjectState);
 }
 
-function renderEdgeHandles({
-  isUserView = false,
-  scenePortGeometry = false,
-  sectionId,
-}: {
-  sectionId: string;
-  isUserView?: boolean;
-  scenePortGeometry?: boolean;
-}): string {
+function renderEdgeHandles(
+  sectionId: string,
+  isUserView: boolean = false,
+): string {
   return renderToStaticMarkup(
     <NodeIdContext.Provider value={sectionId}>
-      <StateMachineEdgeHandles
-        isUserView={isUserView}
-        scenePortGeometry={scenePortGeometry}
-      />
+      <StateMachineEdgeHandles isUserView={isUserView} />
     </NodeIdContext.Provider>,
   );
 }
@@ -151,12 +141,20 @@ function renderEdgeHandles({
 describe("StateMachineEdgeHandles", () => {
   beforeEach(() => {
     resetProjectStores();
-    gpuFlowViewportStore.getState().cancelConnection();
+    useReactFlow.setState({
+      connectionStartHandle: null,
+      connectionEndHandle: null,
+      connectionStatus: null,
+    });
   });
 
   afterEach(() => {
     resetProjectStores();
-    gpuFlowViewportStore.getState().cancelConnection();
+    useReactFlow.setState({
+      connectionStartHandle: null,
+      connectionEndHandle: null,
+      connectionStatus: null,
+    });
   });
 
   it("renders only a source handle on workflow start nodes", () => {
@@ -174,7 +172,7 @@ describe("StateMachineEdgeHandles", () => {
       },
     });
 
-    const markup = renderEdgeHandles({ sectionId: "section-start" });
+    const markup = renderEdgeHandles("section-start");
 
     expect(markup).toContain(
       'data-testid="workflow-source-handle-section-start"',
@@ -198,7 +196,7 @@ describe("StateMachineEdgeHandles", () => {
       },
     });
 
-    const markup = renderEdgeHandles({ sectionId: "section-end" });
+    const markup = renderEdgeHandles("section-end");
 
     expect(markup).toContain(
       'data-testid="workflow-target-handle-section-end"',
@@ -249,7 +247,7 @@ describe("StateMachineEdgeHandles", () => {
       ],
     });
 
-    const markup = renderEdgeHandles({ sectionId: "section-chat" });
+    const markup = renderEdgeHandles("section-chat");
 
     expect(markup).toContain(
       'data-testid="workflow-source-handle-section-chat"',
@@ -262,37 +260,6 @@ describe("StateMachineEdgeHandles", () => {
     );
     expect(markup).toContain("agentic-handle--connected");
     expect(markup).toContain("workflow-handle-scope--chat");
-    expect(markup).toMatch(
-      new RegExp(
-        `class="[^"]*${NO_DRAG_CLASS_NAME}[^"]*${NO_PAN_CLASS_NAME}[^"]*workflow-handle-safe-zone`,
-      ),
-    );
-  });
-
-  it("leaves scene-owned workflow handles out of DOM gesture-start ownership", () => {
-    seedWorkflowSection({
-      sectionId: "section-start",
-      variantId: "variant-start",
-      impl: {
-        id: "impl-start",
-        type: SectionTypeEnum.StateMachineStart,
-        name: "Start Node",
-        size: createSectionSize({ width: 240, height: 96 }),
-        machineGroupId: "workflow-main",
-        label: "Kickoff",
-        ...COMMON_MACHINE_IMPL_FIELDS,
-      },
-    });
-
-    const standaloneMarkup = renderEdgeHandles({ sectionId: "section-start" });
-    const sceneMarkup = renderEdgeHandles({
-      scenePortGeometry: true,
-      sectionId: "section-start",
-    });
-
-    expect(standaloneMarkup).toContain("connectablestart");
-    expect(sceneMarkup).not.toContain("connectablestart");
-    expect(sceneMarkup).toContain("connectableend");
   });
 
   it("suppresses workflow handles in user view", () => {
@@ -312,10 +279,7 @@ describe("StateMachineEdgeHandles", () => {
       },
     });
 
-    const markup = renderEdgeHandles({
-      isUserView: true,
-      sectionId: "section-gate",
-    });
+    const markup = renderEdgeHandles("section-gate", true);
 
     expect(markup).toBe("");
   });
@@ -343,7 +307,7 @@ describe("StateMachineEdgeHandles", () => {
       ],
     });
 
-    const markup = renderEdgeHandles({ sectionId: "section-missing-impl" });
+    const markup = renderEdgeHandles("section-missing-impl");
 
     expect(markup).toBe("");
   });

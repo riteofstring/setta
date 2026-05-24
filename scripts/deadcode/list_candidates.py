@@ -22,7 +22,6 @@ def main() -> int:
     parser.add_argument("--language", help="Filter by language.")
     parser.add_argument("--lane", help="Filter by lane.")
     parser.add_argument("--bucket", help="Filter by bucket.")
-    parser.add_argument("--root-scope", help="Filter by root scope.")
     parser.add_argument("--tool", help="Filter by tool.")
     parser.add_argument("--confidence", help="Filter by confidence.")
     parser.add_argument(
@@ -51,7 +50,6 @@ def main() -> int:
         if matches_filter(finding, "language", args.language)
         and matches_filter(finding, "lane", args.lane)
         and matches_filter(finding, "bucket", args.bucket)
-        and matches_filter(finding, "root_scope", args.root_scope)
         and matches_filter(finding, "tool", args.tool)
         and matches_filter(finding, "confidence", args.confidence)
         and matches_contains(finding.get("path"), args.path_contains)

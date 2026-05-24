@@ -314,14 +314,6 @@ func TestApplyBackendProbeRegistrationsHonorsEffectiveCapabilities(t *testing.T)
 	resetBackendRegistrations(entry)
 	applyBackendProbeRegistrations(entry, probe)
 
-	assertBackendProbeEffectiveCapabilityRegistrations(t, entry)
-	assertBackendProbeRegistrationsAreCloned(t, entry, probe)
-	assertBackendProbeUISettingsRequireCapability(t)
-}
-
-func assertBackendProbeEffectiveCapabilityRegistrations(t *testing.T, entry *DiscoveredPlugin) {
-	t.Helper()
-
 	if len(entry.RegisteredCodegenTargets) != 0 {
 		t.Fatalf("expected codegen targets to stay empty without effective capability, got %#v", entry.RegisteredCodegenTargets)
 	}
@@ -349,14 +341,6 @@ func assertBackendProbeEffectiveCapabilityRegistrations(t *testing.T, entry *Dis
 	if len(entry.appSubsystemListenerEndpoints) != 1 || entry.appSubsystemListenerEndpoints[0].Name != "appsubsystem_get_app_definition" {
 		t.Fatalf("expected app subsystem listener endpoint to be copied privately, got %#v", entry.appSubsystemListenerEndpoints)
 	}
-}
-
-func assertBackendProbeRegistrationsAreCloned(
-	t *testing.T,
-	entry *DiscoveredPlugin,
-	probe backendProbeResponse,
-) {
-	t.Helper()
 
 	probe.UISettings[0].LocalSettingID = "mutated"
 	if entry.RegisteredUISettings[0].LocalSettingID != "fixture-setting" {
@@ -374,10 +358,6 @@ func assertBackendProbeRegistrationsAreCloned(
 	if entry.watchCodeBackend.Languages[0] != "python" {
 		t.Fatalf("expected watch code backend registration to be cloned, got %#v", entry.watchCodeBackend)
 	}
-}
-
-func assertBackendProbeUISettingsRequireCapability(t *testing.T) {
-	t.Helper()
 
 	withoutUISettingsCapability := &DiscoveredPlugin{
 		EffectiveCapabilities: []string{"registerRouter"},

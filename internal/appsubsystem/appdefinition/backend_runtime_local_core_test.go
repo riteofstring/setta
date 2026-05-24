@@ -29,61 +29,6 @@ func TestBackendRuntimeProviderCompareAndSetPlansAgainstQueuedLocalCoreDocument(
 	releaseV3Save := make(chan struct{})
 	var releaseBlockedV3Save sync.Once
 	defer releaseBlockedV3Save.Do(func() { close(releaseV3Save) })
-	store, runtime := openBackendRuntimeLocalCoreRuntimeWithBlockedV3Save(
-		t,
-		settaFilesRoot,
-		storage,
-		blockV3Save,
-		releaseV3Save,
-	)
-
-	owner := appdefinition.NewAppDefinitionService(runtime, pluginID)
-	catalogID := appspec.DefaultCatalogID
-	seedBackendRuntimeLocalCoreAppDefinition(t, owner, appSpecPath, catalogID)
-
-	setV3Done := startBackendRuntimeLocalCoreV3Set(t, owner, appSpecPath, catalogID)
-
-	waitForClosed(t, blockV3Save, "v3 save to block")
-
-	invoker := &backendRuntimeLocalCoreInvoker{
-		settaFilesRoot: settaFilesRoot,
-		invoked:        make(chan projectstate.Document, 1),
-	}
-	providerRuntime := appdefinition.NewBackendRuntime(runtime, pluginID, invoker)
-	casDone := startBackendRuntimeLocalCoreCAS(t, providerRuntime)
-
-	assertBackendRuntimeLocalCorePlanningWaits(t, invoker.invoked)
-
-	releaseBlockedV3Save.Do(func() { close(releaseV3Save) })
-	if err := waitForError(t, setV3Done, "v3 set"); err != nil {
-		t.Fatalf("v3 set failed: %v", err)
-	}
-	providerDocument := waitForDocument(t, invoker.invoked, "provider planning")
-	assertBackendRuntimeLocalCoreProviderSawVersion(t, storage, providerDocument, "v3")
-
-	casResult := waitForCASResult(t, casDone)
-	assertBackendRuntimeLocalCoreCASResult(t, casResult)
-	assertBackendRuntimeLocalCorePersistedVersion(t, store, storage, casResult.snapshot)
-
-	storedSpec, err := appSpecStore.Read(settaFilesRoot, appSpecPath)
-	if err != nil {
-		t.Fatalf("read app spec: %v", err)
-	}
-	if label := backendRuntimeLocalCoreTestAppSpecLabel(storedSpec); label != "queued" {
-		t.Fatalf("expected app spec file to match queued snapshot, got %q", label)
-	}
-	assertBackendRuntimeLocalCoreCompletedFrontendOps(t, runtime)
-}
-
-func openBackendRuntimeLocalCoreRuntimeWithBlockedV3Save(
-	t *testing.T,
-	settaFilesRoot string,
-	storage appdefinition.DocumentStorage,
-	blockV3Save chan<- struct{},
-	releaseV3Save <-chan struct{},
-) (*projectstate.Store, *projectstate.Runtime) {
-	t.Helper()
-
 	store, err := projectstate.NewStore(
 		filepath.Join(settaFilesRoot, projectstate.MainFileName),
 		projectstate.StoreOptions{},
@@ -120,18 +65,10 @@ func openBackendRuntimeLocalCoreRuntimeWithBlockedV3Save(
 			t.Fatalf("close runtime: %v", err)
 		}
 	})
-	return store, runtime
-}
 
-func seedBackendRuntimeLocalCoreAppDefinition(
-	t *testing.T,
-	owner appdefinition.Runtime,
-	appSpecPath string,
-	catalogID string,
-) {
-	t.Helper()
-
+	owner := appdefinition.NewAppDefinitionService(runtime, pluginID)
 	seedVersion := "v1"
+	catalogID := appspec.DefaultCatalogID
 	if _, _, err := owner.SetAppDefinition(context.Background(), appdefinition.SetInput{
 		AppSpec:        backendRuntimeLocalCoreTestAppSpec("seed"),
 		AppSpecPath:    &appSpecPath,
@@ -140,15 +77,6 @@ func seedBackendRuntimeLocalCoreAppDefinition(
 	}); err != nil {
 		t.Fatalf("seed app definition: %v", err)
 	}
-}
-
-func startBackendRuntimeLocalCoreV3Set(
-	t *testing.T,
-	owner appdefinition.Runtime,
-	appSpecPath string,
-	catalogID string,
-) <-chan error {
-	t.Helper()
 
 	setV3Done := make(chan error, 1)
 	go func() {
@@ -161,15 +89,14 @@ func startBackendRuntimeLocalCoreV3Set(
 		})
 		setV3Done <- err
 	}()
-	return setV3Done
-}
 
-func startBackendRuntimeLocalCoreCAS(
-	t *testing.T,
-	providerRuntime appdefinition.Runtime,
-) <-chan backendRuntimeCASTestResult {
-	t.Helper()
+	waitForClosed(t, blockV3Save, "v3 save to block")
 
+	invoker := &backendRuntimeLocalCoreInvoker{
+		settaFilesRoot: settaFilesRoot,
+		invoked:        make(chan projectstate.Document, 1),
+	}
+	providerRuntime := appdefinition.NewBackendRuntime(runtime, pluginID, invoker)
 	casDone := make(chan backendRuntimeCASTestResult, 1)
 	go func() {
 		expected := "v3"
@@ -184,54 +111,33 @@ func startBackendRuntimeLocalCoreCAS(
 			err:      err,
 		}
 	}()
-	return casDone
-}
-
-func assertBackendRuntimeLocalCorePlanningWaits(t *testing.T, invoked <-chan projectstate.Document) {
-	t.Helper()
 
 	select {
-	case <-invoked:
+	case <-invoker.invoked:
 		t.Fatal("provider local-core planning ran before the queued owner document committed")
 	case <-time.After(50 * time.Millisecond):
 	}
-}
 
-func assertBackendRuntimeLocalCoreProviderSawVersion(
-	t *testing.T,
-	storage appdefinition.DocumentStorage,
-	providerDocument projectstate.Document,
-	expectedVersion string,
-) {
-	t.Helper()
-
+	releaseBlockedV3Save.Do(func() { close(releaseV3Save) })
+	if err := waitForError(t, setV3Done, "v3 set"); err != nil {
+		t.Fatalf("v3 set failed: %v", err)
+	}
+	providerDocument := waitForDocument(t, invoker.invoked, "provider planning")
 	providerDefinition := mustDecodeStoredDefinition(
 		t,
 		storage.StoredDocumentAppDefinitionRaw(providerDocument),
 	)
-	if providerDefinition.AppSpecVersion != expectedVersion {
+	if providerDefinition.AppSpecVersion != "v3" {
 		t.Fatalf("expected provider to plan against queued v3 document, got %#v", providerDefinition)
 	}
-}
 
-func assertBackendRuntimeLocalCoreCASResult(t *testing.T, casResult backendRuntimeCASTestResult) {
-	t.Helper()
-
+	casResult := waitForCASResult(t, casDone)
 	if casResult.err != nil {
 		t.Fatalf("provider-backed compare-and-set failed: %v", casResult.err)
 	}
 	if casResult.result.OldValue != "v3" || casResult.result.NewValue != "v4" {
 		t.Fatalf("unexpected compare-and-set result %#v", casResult.result)
 	}
-}
-
-func assertBackendRuntimeLocalCorePersistedVersion(
-	t *testing.T,
-	store *projectstate.Store,
-	storage appdefinition.DocumentStorage,
-	snapshot projectstate.Snapshot,
-) {
-	t.Helper()
 
 	persisted, err := store.Load(context.Background())
 	if err != nil {
@@ -240,14 +146,16 @@ func assertBackendRuntimeLocalCorePersistedVersion(
 	if got := mustDecodeStoredDefinition(t, storage.StoredDocumentAppDefinitionRaw(persisted)); got.AppSpecVersion != "v4" {
 		t.Fatalf("expected persisted app definition v4, got %#v", got)
 	}
-	if got := mustDecodeStoredDefinition(t, storage.StoredDocumentAppDefinitionRaw(snapshot.Document)); got.AppSpecVersion != "v4" {
+	if got := mustDecodeStoredDefinition(t, storage.StoredDocumentAppDefinitionRaw(casResult.snapshot.Document)); got.AppSpecVersion != "v4" {
 		t.Fatalf("expected snapshot app definition v4, got %#v", got)
 	}
-}
-
-func assertBackendRuntimeLocalCoreCompletedFrontendOps(t *testing.T, runtime *projectstate.Runtime) {
-	t.Helper()
-
+	storedSpec, err := appSpecStore.Read(settaFilesRoot, appSpecPath)
+	if err != nil {
+		t.Fatalf("read app spec: %v", err)
+	}
+	if label := backendRuntimeLocalCoreTestAppSpecLabel(storedSpec); label != "queued" {
+		t.Fatalf("expected app spec file to match queued snapshot, got %q", label)
+	}
 	_, ops, err := runtime.SnapshotAndConsumeFrontendOps()
 	if err != nil {
 		t.Fatalf("consume frontend ops: %v", err)

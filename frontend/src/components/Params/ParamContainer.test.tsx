@@ -231,28 +231,4 @@ describe("ParamContainer", () => {
       await unmountRenderedParamContainer(rendered);
     }
   });
-
-  it("marks every param row layout as a GPU flow interactive nodrag region", async () => {
-    const cases = [
-      { isNestedParam: false, paramChildren: [] },
-      { isNestedParam: false, paramChildren: ["param-child"] },
-      { isNestedParam: true, paramChildren: ["param-child"] },
-    ];
-
-    for (const rowCase of cases) {
-      const rendered = await renderParamContainer(rowCase);
-      try {
-        expect(rendered.row.getAttribute("data-gpu-flow-control")).toBe(
-          `param-row:${sectionId}:${paramInfoId}`,
-        );
-        expect(rendered.row.getAttribute("data-gpu-flow-interactive")).toBe(
-          "true",
-        );
-        expect(rendered.row.classList.contains("nodrag")).toBe(true);
-        expect(rendered.row.classList.contains("nopan")).toBe(true);
-      } finally {
-        await unmountRenderedParamContainer(rendered);
-      }
-    }
-  });
 });

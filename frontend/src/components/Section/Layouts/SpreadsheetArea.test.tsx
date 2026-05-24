@@ -31,8 +31,10 @@ const mockSectionImpl = vi.hoisted(() => ({
   showRowNumbers: true,
 }));
 
-vi.mock("gpuFlow/viewportHooks", () => ({
-  useGpuFlowZoom: () => 1,
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: (
+    selector: (state: { transform: [number, number, number] }) => unknown,
+  ) => selector({ transform: [0, 0, 1] }),
 }));
 
 vi.mock("openapi/http", () => ({
@@ -132,10 +134,8 @@ describe("SpreadsheetArea", () => {
 
   function getDropZone(): HTMLDivElement {
     const zone = host.querySelector(".section-main") as HTMLDivElement | null;
-    if (!zone) {
-      throw new Error("Expected spreadsheet drop zone to be rendered.");
-    }
-    return zone;
+    expect(zone).not.toBeNull();
+    return zone!;
   }
 
   function createDropEvent(type: string, file: File | null): Event {

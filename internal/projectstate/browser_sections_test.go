@@ -9,19 +9,6 @@ import (
 func TestRuntimeBrowserSectionMutationsUpdateEffectivePayload(t *testing.T) {
 	t.Parallel()
 
-	runtime := newBrowserSectionMutationRuntime(t)
-	setBrowserSectionColumnWidths(t, runtime)
-	assertBrowserAreaViewModesUpdatePayload(t, runtime)
-	seedBrowserSectionSavedSearches(t, runtime)
-
-	payload := browserSectionMutationPayload(t, runtime)
-	assertBrowserSectionSettingsPayload(t, payload)
-	assertBrowserSectionSavedSearchesPayload(t, payload)
-}
-
-func newBrowserSectionMutationRuntime(t *testing.T) *Runtime {
-	t.Helper()
-
 	runtime, err := OpenOverlayRuntime(Document{
 		SchemaVersion:    CurrentSchemaVersion,
 		DefaultProjectID: "project-alpha",
@@ -37,32 +24,23 @@ func newBrowserSectionMutationRuntime(t *testing.T) *Runtime {
 			t.Fatalf("close overlay runtime: %v", err)
 		}
 	})
-	return runtime
-}
-
-func setBrowserSectionColumnWidths(t *testing.T, runtime *Runtime) {
-	t.Helper()
 
 	columnWidth := 240.5
 	typesColumnWidth := 160.0
 	if _, err := runtime.SetBrowserColumnWidths(context.Background(), "project-alpha", "browser-section", &columnWidth, &typesColumnWidth); err != nil {
 		t.Fatalf("SetBrowserColumnWidths returned error: %v", err)
 	}
-}
 
-func browserSectionMutationPayload(t *testing.T, runtime *Runtime) map[string]any {
-	t.Helper()
+	browserPayload := func() map[string]any {
+		t.Helper()
 
-	project := runtime.Snapshot().Document.Projects["project-alpha"]
-	payload, err := effectiveSectionPayload(project, "browser-section", "browser-variant")
-	if err != nil {
-		t.Fatalf("effectiveSectionPayload browser-section: %v", err)
+		project := runtime.Snapshot().Document.Projects["project-alpha"]
+		payload, err := effectiveSectionPayload(project, "browser-section", "browser-variant")
+		if err != nil {
+			t.Fatalf("effectiveSectionPayload browser-section: %v", err)
+		}
+		return payload
 	}
-	return payload
-}
-
-func assertBrowserAreaViewModesUpdatePayload(t *testing.T, runtime *Runtime) {
-	t.Helper()
 
 	for _, viewMode := range []BrowserAreaViewMode{
 		BrowserAreaViewModeList,
@@ -72,15 +50,10 @@ func assertBrowserAreaViewModesUpdatePayload(t *testing.T, runtime *Runtime) {
 		if _, err := runtime.SetBrowserAreaViewMode(context.Background(), "project-alpha", "browser-section", viewMode); err != nil {
 			t.Fatalf("SetBrowserAreaViewMode(%s) returned error: %v", viewMode, err)
 		}
-		if got := payloadRawStringField(browserSectionMutationPayload(t, runtime), "viewMode"); got != string(viewMode) {
+		if got := payloadRawStringField(browserPayload(), "viewMode"); got != string(viewMode) {
 			t.Fatalf("expected viewMode %q, got %q", viewMode, got)
 		}
 	}
-}
-
-func seedBrowserSectionSavedSearches(t *testing.T, runtime *Runtime) {
-	t.Helper()
-
 	if _, err := runtime.SetBrowserHideColumn(context.Background(), "project-alpha", "browser-section", true); err != nil {
 		t.Fatalf("SetBrowserHideColumn returned error: %v", err)
 	}
@@ -114,23 +87,20 @@ func seedBrowserSectionSavedSearches(t *testing.T, runtime *Runtime) {
 	}); err != nil {
 		t.Fatalf("SetBrowserSavedSearches returned error: %v", err)
 	}
-}
 
-func assertBrowserSectionSettingsPayload(t *testing.T, payload map[string]any) {
-	t.Helper()
-
+	payload := browserPayload()
 	if got, ok := payload["columnWidth"].(float64); !ok || got != 240.5 {
 		t.Fatalf("expected columnWidth 240.5, got %#v", payload["columnWidth"])
 	}
 	if got, ok := payload["typesColumnWidth"].(float64); !ok || got != 160.0 {
 		t.Fatalf("expected typesColumnWidth 160.0, got %#v", payload["typesColumnWidth"])
 	}
-	assertPayloadStringFields(t, payload, map[string]string{"viewMode": string(BrowserAreaViewModeCarousel)})
-	assertPayloadBoolFields(t, payload, []string{"hideColumn"})
-}
-
-func assertBrowserSectionSavedSearchesPayload(t *testing.T, payload map[string]any) {
-	t.Helper()
+	if got := payloadRawStringField(payload, "viewMode"); got != string(BrowserAreaViewModeCarousel) {
+		t.Fatalf("expected final viewMode %q, got %q", BrowserAreaViewModeCarousel, got)
+	}
+	if !payloadBoolField(payload, "hideColumn") {
+		t.Fatal("expected hideColumn=true")
+	}
 
 	rawSavedSearches, ok := payload["savedSearches"].([]any)
 	if !ok || len(rawSavedSearches) != 3 {
