@@ -13,6 +13,7 @@ import {
 } from "../projectionRuntime";
 import { createRetainedCommittedPageLifecycle } from "../retainedContentLifecycle";
 import { createGpuRetainedRowContentScene } from "../retainedContentScene";
+import type { HtmlSurfaceFlatVisual } from "../htmlSurfaces/visualScene";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
@@ -73,6 +74,40 @@ describe("GPU flow projection frame coverage", () => {
         transaction,
       }).missingCoverageSurfaceIds,
     ).toEqual(new Set(["surface-a"]));
+  });
+
+  it("replaces stale retained page visuals for a changed retained scroll surface", () => {
+    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
+      committedFrameId: 12,
+      kind: "motion-projection",
+      lane: "motion",
+      rawReasons: ["retained-scroll"],
+      sample: liveSample({ id: 2, retainedScrollY: 400 }),
+    });
+    const result = resolveGpuFlowRetainedProjectionFrame({
+      layer: retainedLayer(),
+      retainedDisplayFrame: retainedDisplayFrame({
+        flatSurfaces: [flatSurface("page-0")],
+        pageRects: [
+          { height: 100, width: 100, x: 0, y: 0 },
+          { height: 100, width: 100, x: 0, y: 400 },
+        ],
+      }),
+      transaction,
+    });
+
+    expect(result.missingCoverageSurfaceIds.size).toBe(0);
+    expect(result.flatSurfaces.map((surface) => surface.surfaceId)).toEqual([
+      "page-1",
+    ]);
+    expect(result.flatSurfaces[0]).toEqual(
+      expect.objectContaining({
+        height: 100,
+        width: 100,
+        x: 0,
+        y: 0,
+      }),
+    );
   });
 
   it("holds the previous frame for the requested projection sample when retained projection coverage is missing", () => {
@@ -303,18 +338,17 @@ describe("GPU flow projection frame coverage", () => {
         }),
     });
 
-    expect(secondHeld.blockedReason).toBe(
-      "retained-projection-coverage-missing",
-    );
-    expect(secondHeld.transaction.kind).toBe("motion-projection");
+    expect(secondHeld.blockedReason).toBeNull();
+    expect(secondHeld.transaction.kind).toBe("held-previous");
     expect(secondHeld.transaction.sample.id).toBe(10);
-    expect(secondHeld.blockedPublicationCandidate?.blockedReasons).toEqual([
-      {
-        actorId: null,
-        family: "retained-projection",
+    expect(secondHeld.heldPreviousProjection).toEqual(
+      expect.objectContaining({
+        maxHeldPreviousFramesExceeded: true,
         reason: "retained-projection-coverage-missing",
-      },
-    ]);
+        requestedProjectionSampleId: 10,
+      }),
+    );
+    expect(secondHeld.blockedPublicationCandidate).toBeNull();
     expect(secondHeld.outcomeKind).toBe("blocked");
   });
 
@@ -626,59 +660,63 @@ function canvasSize() {
 
 function retainedDisplayFrame({
   activeDomControl = false,
+  flatSurfaces = [],
   pageRects = [{ height: 100, width: 100, x: 0, y: 0 }],
 }: {
   readonly activeDomControl?: boolean | undefined;
+  readonly flatSurfaces?: readonly HtmlSurfaceFlatVisual[] | undefined;
   readonly pageRects?:
     | readonly RetainedDisplayFrame["drawRegions"][number]["page"]["descriptor"]["sourceRectCss"][]
     | undefined;
 } = {}): RetainedDisplayFrame {
-  return {
-    drawRegions: pageRects.map((sourceRectCss, index) => {
-      const descriptor = {
-        contentVersion: 1,
-        devicePixelRatioBucket: 1,
-        lodLevel: 0,
-        lodScale: 1,
-        pixelHeight: sourceRectCss.height,
-        pixelWidth: sourceRectCss.width,
-        scaleKey: "1",
-        sourceKey: `surface-a:${index}`,
-        sourceRectCss,
-        sourceVersion: 1,
-        sourceWindowCss: sourceRectCss,
-        surfaceId: "surface-a",
-        tileColumn: 0,
-        tileRow: index,
-        viewportZoomBucket: 1,
-      };
-      return {
-        page: {
-          byteSize: 4,
-          committedFrame: 1,
-          descriptor,
-          key: `page-${index}`,
-          lastUsedFrame: 1,
-          resource: {
-            retainedContentTextureRegion: {
-              atlasId: `page-${index}`,
-              pixelHeight: sourceRectCss.height,
-              pixelWidth: sourceRectCss.width,
-              texturePixelHeight: sourceRectCss.height,
-              texturePixelWidth: sourceRectCss.width,
-              x: 0,
-              y: 0,
-            },
-            sampler: {},
-            texture: {},
-            textureView: {},
+  const drawRegions = pageRects.map((sourceRectCss, index) => {
+    const descriptor = {
+      contentVersion: 1,
+      devicePixelRatioBucket: 1,
+      lodLevel: 0,
+      lodScale: 1,
+      pixelHeight: sourceRectCss.height,
+      pixelWidth: sourceRectCss.width,
+      scaleKey: "1",
+      sourceKey: `surface-a:${index}`,
+      sourceRectCss,
+      sourceVersion: 1,
+      sourceWindowCss: sourceRectCss,
+      surfaceId: "surface-a",
+      tileColumn: 0,
+      tileRow: index,
+      viewportZoomBucket: 1,
+    };
+    return {
+      page: {
+        byteSize: 4,
+        committedFrame: 1,
+        descriptor,
+        key: `page-${index}`,
+        lastUsedFrame: 1,
+        resource: {
+          retainedContentTextureRegion: {
+            atlasId: `page-${index}`,
+            pixelHeight: sourceRectCss.height,
+            pixelWidth: sourceRectCss.width,
+            texturePixelHeight: sourceRectCss.height,
+            texturePixelWidth: sourceRectCss.width,
+            x: 0,
+            y: 0,
           },
-          ...createRetainedCommittedPageLifecycle(descriptor),
+          sampler: {},
+          texture: {},
+          textureView: {},
         },
-        sampleRectCss: sourceRectCss,
-      };
-    }),
-    flatSurfaces: [],
+        ...createRetainedCommittedPageLifecycle(descriptor),
+      },
+      sampleRectCss: sourceRectCss,
+      textureHandle: `page-${index}`,
+    };
+  });
+  return {
+    drawRegions,
+    flatSurfaces,
     retainedRuntimeFrame: {
       descriptors: {
         domControlSources: activeDomControl ? [{ active: true }] : [],
@@ -689,4 +727,17 @@ function retainedDisplayFrame({
       },
     },
   } as unknown as RetainedDisplayFrame;
+}
+
+function flatSurface(surfaceId: string): HtmlSurfaceFlatVisual {
+  return {
+    height: 100,
+    kind: "flat",
+    surfaceId,
+    texture: {} as HtmlSurfaceFlatVisual["texture"],
+    width: 100,
+    x: 0,
+    y: 0,
+    zIndex: 1,
+  };
 }

@@ -284,24 +284,83 @@ function mergeGpuFlowRetainedProjectionFlatSurfaces({
   readonly retainedDisplayFrame: RetainedDisplayFrame;
 }): readonly HtmlSurfaceFlatVisual[] {
   const projectedSurfaceIds = new Set<string>();
+  const retainedVisualsByTextureHandle =
+    collectGpuFlowRetainedProjectionFlatVisualsByTextureHandle(
+      retainedDisplayFrame.flatSurfaces,
+    );
+  const appendedRetainedTextureHandles = new Set<string>();
   const visuals: HtmlSurfaceFlatVisual[] = [];
-  for (const visual of retainedDisplayFrame.flatSurfaces) {
-    if (!changedSurfaceIds.has(visual.surfaceId)) {
-      visuals.push(visual);
+  for (const region of retainedDisplayFrame.drawRegions) {
+    const surfaceId = region.page.descriptor.surfaceId;
+    if (!changedSurfaceIds.has(surfaceId)) {
+      appendGpuFlowRetainedProjectionTextureHandleVisuals({
+        appendedRetainedTextureHandles,
+        retainedVisualsByTextureHandle,
+        textureHandle: region.textureHandle,
+        visuals,
+      });
       continue;
     }
-    const projectedVisuals = projectedVisualsBySurfaceId.get(visual.surfaceId);
+    const projectedVisuals = projectedVisualsBySurfaceId.get(surfaceId);
     if (!projectedVisuals) {
-      visuals.push(visual);
+      appendGpuFlowRetainedProjectionTextureHandleVisuals({
+        appendedRetainedTextureHandles,
+        retainedVisualsByTextureHandle,
+        textureHandle: region.textureHandle,
+        visuals,
+      });
       continue;
     }
-    if (projectedSurfaceIds.has(visual.surfaceId)) {
+    if (projectedSurfaceIds.has(surfaceId)) {
       continue;
     }
-    projectedSurfaceIds.add(visual.surfaceId);
+    projectedSurfaceIds.add(surfaceId);
+    visuals.push(...projectedVisuals);
+  }
+  for (const [surfaceId, projectedVisuals] of projectedVisualsBySurfaceId) {
+    if (projectedSurfaceIds.has(surfaceId)) {
+      continue;
+    }
+    projectedSurfaceIds.add(surfaceId);
     visuals.push(...projectedVisuals);
   }
   return visuals.length > 0 ? visuals : retainedDisplayFrame.flatSurfaces;
+}
+
+function collectGpuFlowRetainedProjectionFlatVisualsByTextureHandle(
+  flatSurfaces: readonly HtmlSurfaceFlatVisual[],
+): ReadonlyMap<string, readonly HtmlSurfaceFlatVisual[]> {
+  const visualsByTextureHandle = new Map<string, HtmlSurfaceFlatVisual[]>();
+  for (const visual of flatSurfaces) {
+    const textureVisuals = visualsByTextureHandle.get(visual.surfaceId) ?? [];
+    textureVisuals.push(visual);
+    visualsByTextureHandle.set(visual.surfaceId, textureVisuals);
+  }
+  return visualsByTextureHandle;
+}
+
+function appendGpuFlowRetainedProjectionTextureHandleVisuals({
+  appendedRetainedTextureHandles,
+  retainedVisualsByTextureHandle,
+  textureHandle,
+  visuals,
+}: {
+  readonly appendedRetainedTextureHandles: Set<string>;
+  readonly retainedVisualsByTextureHandle: ReadonlyMap<
+    string,
+    readonly HtmlSurfaceFlatVisual[]
+  >;
+  readonly textureHandle: string;
+  readonly visuals: HtmlSurfaceFlatVisual[];
+}): void {
+  if (appendedRetainedTextureHandles.has(textureHandle)) {
+    return;
+  }
+  appendedRetainedTextureHandles.add(textureHandle);
+  const retainedVisuals = retainedVisualsByTextureHandle.get(textureHandle);
+  if (retainedVisuals) {
+    visuals.push(...retainedVisuals);
+  }
 }
 
 function subtractGpuFlowProjectionRect(
