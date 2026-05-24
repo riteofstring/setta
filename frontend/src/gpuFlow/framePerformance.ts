@@ -76,8 +76,8 @@ export type GpuFlowRetainedTexturePageFrameMetrics = {
   readonly transactionHoldReason: string | null;
   readonly transactionMaxHeldMotionAgeMs: number;
   readonly transactionOutcome: string;
-  readonly transactionPublishedScrollOffset: number | null;
-  readonly transactionPublishedViewport: {
+  readonly transactionPresentedScrollOffset: number | null;
+  readonly transactionPresentedViewport: {
     readonly x: number;
     readonly y: number;
     readonly zoom: number;
@@ -601,9 +601,9 @@ function createRetainedTexturePagePerformanceFields(
     retainedTexturePageTransactionOutcome:
       retainedTexturePages.transactionOutcome,
     retainedTexturePageTransactionPublishedScrollOffset:
-      retainedTexturePages.transactionPublishedScrollOffset,
+      retainedTexturePages.transactionPresentedScrollOffset,
     retainedTexturePageTransactionPublishedViewport: {
-      ...retainedTexturePages.transactionPublishedViewport,
+      ...retainedTexturePages.transactionPresentedViewport,
     },
     retainedTexturePageTrueHoleRectCount:
       retainedTexturePages.trueHoleRectCount,

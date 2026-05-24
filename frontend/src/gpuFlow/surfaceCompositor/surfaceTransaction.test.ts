@@ -19,12 +19,12 @@ import {
   createSurfaceDisplayTransaction,
   protectedSurfaceResourcesForTransaction,
   resolveSurfaceTransaction,
-  selectPublishedSurfaceTransaction,
+  selectPresentedSurfaceTransaction,
   type SurfaceDisplayTransaction,
 } from "./surfaceTransaction";
 
 describe("surface compositor transaction contracts", () => {
-  it("does not publish transactions with true-hole coverage", () => {
+  it("does not present transactions with true-hole coverage", () => {
     const desired = transaction({
       coverageProof: proof({
         blockingGenerationIds: ["surface-a:generation-2"],
@@ -43,7 +43,7 @@ describe("surface compositor transaction contracts", () => {
     expect(() => createSurfaceDisplayTransaction(desired)).toThrow(/true-hole/);
   });
 
-  it("publishes compatible coverage while exact coverage is pending", () => {
+  it("presents compatible coverage while exact coverage is pending", () => {
     const compatible = coverageEntry({ fidelity: "compatible" });
     const outcome = resolveSurfaceTransaction({
       desired: transaction({
@@ -53,15 +53,15 @@ describe("surface compositor transaction contracts", () => {
       previous: null,
     });
 
-    expect(outcome.kind).toBe("publish-compatible");
+    expect(outcome.kind).toBe("present-compatible");
     expect(
-      outcome.kind === "publish-compatible"
+      outcome.kind === "present-compatible"
         ? outcome.compatibilityProof.compatibleCoverage
         : [],
     ).toEqual([compatible]);
   });
 
-  it("blocks active DOM island publication when visual coverage is incoherent", () => {
+  it("blocks active DOM island presentation when visual coverage is incoherent", () => {
     const island = activeIsland();
     const generation = surfaceGeneration({ activeDomIsland: island });
     const previous = createSurfaceDisplayTransaction(
@@ -120,7 +120,7 @@ describe("surface compositor transaction contracts", () => {
       nowMs: 20,
       previous,
     });
-    const selected = selectPublishedSurfaceTransaction({ outcome, previous });
+    const selected = selectPresentedSurfaceTransaction({ outcome, previous });
 
     expect(outcome.kind).toBe("hold-previous");
     expect(selected?.id).toBe("previous");
@@ -152,7 +152,7 @@ describe("surface compositor transaction contracts", () => {
     ).toThrow(/multiple generation ids/);
   });
 
-  it("keeps publish-compatible and hold-previous as distinct outcomes", () => {
+  it("keeps present-compatible and hold-previous as distinct outcomes", () => {
     const previous = createSurfaceDisplayTransaction(transaction());
     const compatibleOutcome = resolveSurfaceTransaction({
       desired: transaction({
@@ -173,7 +173,7 @@ describe("surface compositor transaction contracts", () => {
       previous,
     });
 
-    expect(compatibleOutcome.kind).toBe("publish-compatible");
+    expect(compatibleOutcome.kind).toBe("present-compatible");
     expect(heldOutcome.kind).toBe("hold-previous");
   });
 
@@ -196,7 +196,7 @@ describe("surface compositor transaction contracts", () => {
         previous: null,
       }),
     ).toEqual({
-      kind: "publish-cold-placeholder",
+      kind: "present-cold-placeholder",
       reason: "coverage-missing",
     });
   });
@@ -240,7 +240,7 @@ describe("surface compositor transaction contracts", () => {
   it("protects required transaction resources from eviction", () => {
     const protectedHandles = protectedSurfaceResourcesForTransaction({
       handles: [{ id: "texture-a", kind: "texture" }],
-      reason: "published-transaction",
+      reason: "presented-transaction",
     });
 
     expect(() =>
@@ -317,7 +317,7 @@ function transaction(
     },
     coverageProof: transactionCoverageProof(options.coverageProof),
     desiredSurfaceGenerations: generations,
-    diagnostics: { hold: null, publishedAtMs: 0 },
+    diagnostics: { hold: null, presentedAtMs: 0 },
     drawCommands: transactionDrawCommands(options.drawCommands),
     followUpWorkRequests: [],
     hitIndex: {
@@ -337,9 +337,7 @@ function transaction(
 }
 
 function transactionActiveIslands(
-  activeIslands:
-    | readonly SurfaceActiveDomIslandGeneration[]
-    | undefined,
+  activeIslands: readonly SurfaceActiveDomIslandGeneration[] | undefined,
 ): readonly SurfaceActiveDomIslandGeneration[] {
   return activeIslands ?? [];
 }

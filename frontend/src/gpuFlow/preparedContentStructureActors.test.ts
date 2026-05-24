@@ -275,8 +275,8 @@ function fakeRetainedDisplayFrame({
 }): RetainedDisplayFrame {
   return {
     diagnostics: {
-      publishedAtMs: id,
-      transactionOutcome: "publish-exact",
+      presentedAtMs: id,
+      transactionOutcome: "present-exact",
     },
     flatSurfaces,
     id,
@@ -310,7 +310,7 @@ function fakeRetainedDisplayFrame({
       desiredSurfaceGenerations: [],
       diagnostics: {
         hold: null,
-        publishedAtMs: id,
+        presentedAtMs: id,
       },
       drawCommands: [],
       followUpWorkRequests: [],

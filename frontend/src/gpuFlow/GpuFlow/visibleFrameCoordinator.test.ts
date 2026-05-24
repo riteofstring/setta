@@ -325,7 +325,7 @@ describe("GPU Flow visible frame coordinator", () => {
           "preparePreparedContentFramePresentationFramePlan",
         );
         expect(input).not.toHaveProperty(
-          "prepareRetainedDisplayPublicationFramePlan",
+          "prepareRetainedDisplayPresentationFramePlan",
         );
         return {
           blockedPresentationCandidate: null,
@@ -835,7 +835,7 @@ function preparePreparedContentFramePresentationCandidateForTest({
     liveProjectionSample: liveSample,
     contentWorkLane: "content",
     preparedContentFrame,
-    publishedRetainedFrame: retainedDisplayFrame(),
+    presentedRetainedFrame: retainedDisplayFrame(),
   }).candidate;
 }
 

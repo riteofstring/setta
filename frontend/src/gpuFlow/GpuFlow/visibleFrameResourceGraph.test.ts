@@ -1041,6 +1041,6 @@ function protectedResource(
 ): ProtectedSurfaceResourceHandle {
   return {
     ...handle,
-    reason: "published-transaction",
+    reason: "presented-transaction",
   };
 }

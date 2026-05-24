@@ -8,8 +8,8 @@ type GpuFlowRetainedPageMaintenanceRun = ReturnType<
   typeof runGpuFlowRetainedPageMaintenance
 >;
 
-const MAX_PRE_PUBLISH_REPAIR_PASSES = 4;
-const PRE_PUBLISH_VISIBLE_EDGE_MAX_UPLOADS = 6;
+const MAX_PRE_PRESENT_REPAIR_PASSES = 4;
+const PRE_PRESENT_VISIBLE_EDGE_MAX_UPLOADS = 6;
 
 export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
   deferResolutionUpdates,
@@ -24,7 +24,7 @@ export function shouldDeferGpuFlowRetainedContentPostSubmitMaintenance({
   return deferResolutionUpdates && preparedFrame.trueHoleRectCount === 0;
 }
 
-export function hasGpuFlowRetainedPreparedFramePrePublishRepairDebt(
+export function hasGpuFlowRetainedPreparedFramePrePresentRepairDebt(
   preparedFrame: Pick<
     RetainedContentTexturePagePreparedFrame,
     "refinementPageCount" | "replacementDescriptors" | "trueHoleRectCount"
@@ -43,7 +43,7 @@ function runGpuFlowRetainedPageMaintenance({
   forceDeferPostSubmitMaintenance = false,
   forceRunPostSubmitMaintenance = false,
   preparedFrame,
-  publishedProtectedPageKeys,
+  presentedProtectedPageKeys,
   retainedContentPageManager,
   refreshFirstVisiblePages = false,
   preserveFirstVisibleSourceRects = false,
@@ -54,7 +54,7 @@ function runGpuFlowRetainedPageMaintenance({
   readonly forceDeferPostSubmitMaintenance?: boolean | undefined;
   readonly forceRunPostSubmitMaintenance?: boolean | undefined;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly publishedProtectedPageKeys?: readonly string[] | undefined;
+  readonly presentedProtectedPageKeys?: readonly string[] | undefined;
   readonly preserveFirstVisibleSourceRects?: boolean | undefined;
   readonly refreshFirstVisiblePages?: boolean | undefined;
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
@@ -76,7 +76,7 @@ function runGpuFlowRetainedPageMaintenance({
         darkMode,
         preparedFrame,
         preserveFirstVisibleSourceRects,
-        publishedProtectedPageKeys,
+        presentedProtectedPageKeys,
         refreshFirstVisiblePages,
         // Switch transitions are composited as native visuals, so texture
         // pages cache only the static retained scene state.
@@ -86,10 +86,10 @@ function runGpuFlowRetainedPageMaintenance({
   return { deferred, result };
 }
 
-export function resolveGpuFlowRetainedPageMaintenanceBeforePublish({
+export function resolveGpuFlowRetainedPageMaintenanceBeforePresent({
   darkMode,
   deferResolutionUpdates,
-  maxPasses = MAX_PRE_PUBLISH_REPAIR_PASSES,
+  maxPasses = MAX_PRE_PRESENT_REPAIR_PASSES,
   preparedFrame,
   previousProtectedPageKeys,
   retainedContentPageManager,
@@ -107,7 +107,7 @@ export function resolveGpuFlowRetainedPageMaintenanceBeforePublish({
   for (
     let pass = 0;
     pass < repairPassCount &&
-    shouldRepairGpuFlowRetainedPreparedFrameBeforePublish(currentFrame);
+    shouldRepairGpuFlowRetainedPreparedFrameBeforePresent(currentFrame);
     pass += 1
   ) {
     const nextMaintenance = runGpuFlowRetainedPageMaintenance({
@@ -115,9 +115,9 @@ export function resolveGpuFlowRetainedPageMaintenanceBeforePublish({
       deferResolutionUpdates,
       forceRunPostSubmitMaintenance: true,
       preparedFrame: currentFrame,
-      publishedProtectedPageKeys: previousProtectedPageKeys,
+      presentedProtectedPageKeys: previousProtectedPageKeys,
       retainedContentPageManager,
-      visibleEdgeMaxUploads: PRE_PUBLISH_VISIBLE_EDGE_MAX_UPLOADS,
+      visibleEdgeMaxUploads: PRE_PRESENT_VISIBLE_EDGE_MAX_UPLOADS,
     });
     maintenance = nextMaintenance;
     currentFrame = nextMaintenance.result.repairedPreparedFrame;
@@ -128,22 +128,22 @@ export function resolveGpuFlowRetainedPageMaintenanceBeforePublish({
   return maintenance;
 }
 
-function shouldRepairGpuFlowRetainedPreparedFrameBeforePublish(
+function shouldRepairGpuFlowRetainedPreparedFrameBeforePresent(
   preparedFrame: Pick<
     RetainedContentTexturePagePreparedFrame,
     "refinementPageCount" | "replacementDescriptors" | "trueHoleRectCount"
   >,
 ): boolean {
-  return hasGpuFlowRetainedPreparedFramePrePublishRepairDebt(preparedFrame);
+  return hasGpuFlowRetainedPreparedFramePrePresentRepairDebt(preparedFrame);
 }
 
-export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
+export function resolveGpuFlowRetainedPageMaintenanceAfterPresent({
   darkMode,
   deferResolutionUpdates,
   existingMaintenance,
   forceDeferPostSubmitMaintenance = false,
   preparedFrame,
-  publishedProtectedPageKeys,
+  presentedProtectedPageKeys,
   retainedContentPageManager,
 }: {
   readonly darkMode: boolean;
@@ -151,7 +151,7 @@ export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
   readonly existingMaintenance: GpuFlowRetainedPageMaintenanceRun | null;
   readonly forceDeferPostSubmitMaintenance?: boolean | undefined;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly publishedProtectedPageKeys: readonly string[];
+  readonly presentedProtectedPageKeys: readonly string[];
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
 }): GpuFlowRetainedPageMaintenanceRun {
   return (
@@ -161,7 +161,7 @@ export function resolveGpuFlowRetainedPageMaintenanceAfterPublish({
       deferResolutionUpdates,
       forceDeferPostSubmitMaintenance,
       preparedFrame,
-      publishedProtectedPageKeys,
+      presentedProtectedPageKeys,
       retainedContentPageManager,
     })
   );

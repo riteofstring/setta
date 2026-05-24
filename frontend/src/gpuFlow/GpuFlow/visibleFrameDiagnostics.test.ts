@@ -593,7 +593,7 @@ function presentationCandidateInput({
     liveProjectionSample: { id: 1, timestamp },
     contentWorkLane: "content",
     preparedContentFrame: blockedPreparedContentFrame(),
-    publishedRetainedFrame: retainedFrame,
+    presentedRetainedFrame: retainedFrame,
   } as unknown as GpuFlowPreparedContentFramePresentationCandidateInput;
 }
 

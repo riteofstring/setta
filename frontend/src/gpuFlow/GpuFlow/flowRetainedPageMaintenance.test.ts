@@ -6,8 +6,8 @@ import type {
   RetainedContentTexturePagePreparedFrame,
 } from "../retainedContentTexturePageManager";
 import {
-  resolveGpuFlowRetainedPageMaintenanceAfterPublish,
-  resolveGpuFlowRetainedPageMaintenanceBeforePublish,
+  resolveGpuFlowRetainedPageMaintenanceAfterPresent,
+  resolveGpuFlowRetainedPageMaintenanceBeforePresent,
 } from "./flowRetainedPageMaintenance";
 
 describe("GPU flow retained page maintenance", () => {
@@ -22,9 +22,9 @@ describe("GPU flow retained page maintenance", () => {
     const manager = retainedPageManager({
       runPostSubmitMaintenance: ({
         preparedFrame,
-        publishedProtectedPageKeys,
+        presentedProtectedPageKeys,
       }) => {
-        protectedKeysByCall.push([...(publishedProtectedPageKeys ?? [])]);
+        protectedKeysByCall.push([...(presentedProtectedPageKeys ?? [])]);
         callCount += 1;
         return retainedMaintenanceResult({
           preparedFrame,
@@ -33,10 +33,10 @@ describe("GPU flow retained page maintenance", () => {
       },
     });
 
-    const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePublish({
+    const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePresent({
       darkMode: false,
       deferResolutionUpdates: true,
-      preparedFrame: frames[0],
+      preparedFrame: frames[0]!,
       previousProtectedPageKeys: ["previous-page"],
       retainedContentPageManager: manager,
     });
@@ -64,7 +64,7 @@ describe("GPU flow retained page maintenance", () => {
       },
     });
 
-    const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePublish({
+    const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePresent({
       darkMode: false,
       deferResolutionUpdates: true,
       preparedFrame: frame,
@@ -76,7 +76,7 @@ describe("GPU flow retained page maintenance", () => {
     expect(maintenance?.result.repairedPreparedFrame).toBe(repairedFrame);
   });
 
-  it("honors the configured pre-publish repair pass limit", () => {
+  it("honors the configured pre-present repair pass limit", () => {
     const frames = [
       retainedPreparedFrame({ trueHoleRectCount: 1 }),
       retainedPreparedFrame({ trueHoleRectCount: 1 }),
@@ -93,11 +93,11 @@ describe("GPU flow retained page maintenance", () => {
       },
     });
 
-    const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePublish({
+    const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePresent({
       darkMode: false,
       deferResolutionUpdates: true,
       maxPasses: 1,
-      preparedFrame: frames[0],
+      preparedFrame: frames[0]!,
       previousProtectedPageKeys: [],
       retainedContentPageManager: manager,
     });
@@ -106,7 +106,7 @@ describe("GPU flow retained page maintenance", () => {
     expect(maintenance?.result.repairedPreparedFrame.trueHoleRectCount).toBe(1);
   });
 
-  it("stops pre-publish repair when maintenance cannot advance", () => {
+  it("stops pre-present repair when maintenance cannot advance", () => {
     const frame = retainedPreparedFrame({ trueHoleRectCount: 1 });
     let callCount = 0;
     const manager = retainedPageManager({
@@ -121,7 +121,7 @@ describe("GPU flow retained page maintenance", () => {
       },
     });
 
-    const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePublish({
+    const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePresent({
       darkMode: false,
       deferResolutionUpdates: true,
       preparedFrame: frame,
@@ -164,13 +164,13 @@ describe("GPU flow retained page maintenance", () => {
       },
     } as RetainedContentTexturePageManager;
 
-    const maintenance = resolveGpuFlowRetainedPageMaintenanceAfterPublish({
+    const maintenance = resolveGpuFlowRetainedPageMaintenanceAfterPresent({
       darkMode: false,
       deferResolutionUpdates: true,
       existingMaintenance: null,
       forceDeferPostSubmitMaintenance: true,
       preparedFrame: frame,
-      publishedProtectedPageKeys: [],
+      presentedProtectedPageKeys: [],
       retainedContentPageManager: manager,
     });
 
@@ -205,7 +205,7 @@ function retainedPreparedFrame({
     replacementDescriptors: Array.from(
       { length: replacementDescriptorCount },
       () => ({}),
-    ) as RetainedContentTexturePagePreparedFrame["replacementDescriptors"],
+    ) as unknown as RetainedContentTexturePagePreparedFrame["replacementDescriptors"],
     trueHoleRectCount,
   } as RetainedContentTexturePagePreparedFrame;
 }

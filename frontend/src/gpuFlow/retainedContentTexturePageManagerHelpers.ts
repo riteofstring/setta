@@ -122,7 +122,7 @@ export function rectsIntersect(left: GpuRect, right: GpuRect): boolean {
 export function resolveRetainedPageEvictionProtectedKeys({
   postMaintenancePageVisualResult,
   preparedFrame,
-  publishedProtectedPageKeys = [],
+  presentedProtectedPageKeys = [],
 }: {
   readonly postMaintenancePageVisualResult: {
     readonly protectedPageKeys: readonly string[];
@@ -131,10 +131,10 @@ export function resolveRetainedPageEvictionProtectedKeys({
     RetainedContentTexturePagePreparedFrame,
     "protectedPageKeys"
   >;
-  readonly publishedProtectedPageKeys?: readonly string[] | undefined;
+  readonly presentedProtectedPageKeys?: readonly string[] | undefined;
 }): readonly string[] {
   return [
-    ...publishedProtectedPageKeys,
+    ...presentedProtectedPageKeys,
     ...preparedFrame.protectedPageKeys,
     ...postMaintenancePageVisualResult.protectedPageKeys,
   ];

@@ -51,7 +51,7 @@ type SurfaceActiveDomIslandTransaction = {
 
 type SurfaceDisplayTransactionDiagnostics = {
   readonly hold: SurfaceTransactionHoldDiagnostics | null;
-  readonly publishedAtMs: number;
+  readonly presentedAtMs: number;
 };
 
 export type SurfaceDisplayTransaction = {
@@ -82,12 +82,12 @@ type SurfaceFirstCoverageReason =
 
 type SurfaceTransactionOutcome =
   | {
-      readonly kind: "publish-exact";
+      readonly kind: "present-exact";
       readonly transaction: SurfaceDisplayTransaction;
     }
   | {
       readonly compatibilityProof: SurfaceCoverageProof;
-      readonly kind: "publish-compatible";
+      readonly kind: "present-compatible";
       readonly transaction: SurfaceDisplayTransaction;
     }
   | {
@@ -101,7 +101,7 @@ type SurfaceTransactionOutcome =
       readonly reason: SurfaceFirstCoverageReason;
     }
   | {
-      readonly kind: "publish-cold-placeholder";
+      readonly kind: "present-cold-placeholder";
       readonly reason: SurfaceFirstCoverageReason;
     };
 
@@ -109,7 +109,7 @@ export function createSurfaceDisplayTransaction(
   input: SurfaceDisplayTransaction,
 ): SurfaceDisplayTransaction {
   assertSurfaceGenerationIdsStable(input.desiredSurfaceGenerations);
-  assertSurfaceDisplayTransactionPublishable(input);
+  assertSurfaceDisplayTransactionPresentable(input);
   assertSurfaceTransactionRenderOrder(input);
   assertActiveDomIslandCoherent(input);
   return Object.freeze({
@@ -123,7 +123,7 @@ export function createSurfaceDisplayTransaction(
     ]),
     diagnostics: Object.freeze({
       hold: input.diagnostics.hold,
-      publishedAtMs: input.diagnostics.publishedAtMs,
+      presentedAtMs: input.diagnostics.presentedAtMs,
     }),
     drawCommands: Object.freeze(
       input.drawCommands.map((command) =>
@@ -173,7 +173,7 @@ export function resolveSurfaceTransaction({
       });
     }
     return coldPlaceholderAllowed
-      ? { kind: "publish-cold-placeholder", reason: "coverage-missing" }
+      ? { kind: "present-cold-placeholder", reason: "coverage-missing" }
       : { kind: "block-cold-first-coverage", reason: "coverage-missing" };
   }
 
@@ -181,13 +181,13 @@ export function resolveSurfaceTransaction({
   return hasCompatibleSurfaceCoverage(transaction.coverageProof)
     ? {
         compatibilityProof: transaction.coverageProof,
-        kind: "publish-compatible",
+        kind: "present-compatible",
         transaction,
       }
-    : { kind: "publish-exact", transaction };
+    : { kind: "present-exact", transaction };
 }
 
-export function selectPublishedSurfaceTransaction({
+export function selectPresentedSurfaceTransaction({
   outcome,
   previous,
 }: {
@@ -195,8 +195,8 @@ export function selectPublishedSurfaceTransaction({
   readonly previous: SurfaceDisplayTransaction | null;
 }): SurfaceDisplayTransaction | null {
   if (
-    outcome.kind === "publish-exact" ||
-    outcome.kind === "publish-compatible"
+    outcome.kind === "present-exact" ||
+    outcome.kind === "present-compatible"
   ) {
     return outcome.transaction;
   }
@@ -206,7 +206,7 @@ export function selectPublishedSurfaceTransaction({
   return null;
 }
 
-function assertSurfaceDisplayTransactionPublishable(
+function assertSurfaceDisplayTransactionPresentable(
   transaction: Pick<SurfaceDisplayTransaction, "coverageProof">,
 ): void {
   assertSurfaceCoverageHasNoTrueHoles(transaction.coverageProof);
@@ -389,9 +389,9 @@ function holdPreviousSurfaceTransaction({
       previousHeldTransactionCount: previousHold?.heldTransactionCount ?? 0,
       previousHeldTransactionDurationMs:
         previousHold?.heldTransactionDurationMs ?? 0,
-      previousPublishedAtMs: previous.diagnostics.publishedAtMs,
-      publishedScrollOffset: previous.motionFrame.retainedScrollOffset,
-      publishedViewport: previous.motionFrame.viewport,
+      previousPresentedAtMs: previous.diagnostics.presentedAtMs,
+      presentedScrollOffset: previous.motionFrame.retainedScrollOffset,
+      presentedViewport: previous.motionFrame.viewport,
     }),
     kind: "hold-previous",
     previousTransactionId: previous.id,
@@ -422,7 +422,7 @@ function assertActiveDomIslandCoherent(
       !generationKeys.has(`${island.ownerSurfaceId}:${island.generationId}`)
     ) {
       throw new Error(
-        `Active DOM island "${island.islandId}" does not match a published visual generation.`,
+        `Active DOM island "${island.islandId}" does not match a presented visual generation.`,
       );
     }
   }

@@ -187,7 +187,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(fixture.queue.copyExternalImageToTexture).toHaveBeenCalledTimes(2);
   });
 
-  it("can raise visible edge uploads for pre-publish repair", () => {
+  it("can raise visible edge uploads for pre-present repair", () => {
     const fixture = createManagerFixture({ maxPagePixelSize: 50 });
     const preparedFrame = fixture.manager.prepareFrame({
       devicePixelRatio: 1,
@@ -403,7 +403,7 @@ describe("RetainedContentTexturePageManager", () => {
       surfaces: [surface],
       viewportZoomBucket: 1,
     });
-    const publishedFrame = fixture.manager.prepareFrame({
+    const presentedFrame = fixture.manager.prepareFrame({
       devicePixelRatio: 1,
       frame: 2,
       surfaces: [surface],
@@ -417,10 +417,10 @@ describe("RetainedContentTexturePageManager", () => {
     });
     const maintenance = fixture.manager.runPostSubmitMaintenance({
       preparedFrame: replacementFrame,
-      publishedProtectedPageKeys: publishedFrame.protectedPageKeys,
+      presentedProtectedPageKeys: presentedFrame.protectedPageKeys,
     });
 
-    expect(publishedFrame.protectedPageKeys).toHaveLength(1);
+    expect(presentedFrame.protectedPageKeys).toHaveLength(1);
     expect(replacementFrame.refinementPageCount).toBe(1);
     expect(maintenance.uploadCount).toBe(1);
     expect(maintenance.evicted.evictedKeys).toHaveLength(0);
@@ -782,5 +782,4 @@ describe("RetainedContentTexturePageManager", () => {
       expect.objectContaining({ kind: "base" }),
     ]);
   });
-
 });

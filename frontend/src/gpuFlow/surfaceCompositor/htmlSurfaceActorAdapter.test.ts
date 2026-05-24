@@ -42,7 +42,7 @@ describe("html surface actor adapter", () => {
     expect(snapshot.coverageProof.protectedResourceHandles).toEqual([
       expect.objectContaining({
         kind: "texture",
-        reason: "published-transaction",
+        reason: "presented-transaction",
       }),
     ]);
   });

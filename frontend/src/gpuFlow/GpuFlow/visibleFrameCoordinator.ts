@@ -4,9 +4,9 @@ import {
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
-  resolveGpuFlowRetainedDisplayPublication,
-  type GpuFlowRetainedDisplayPublicationInput,
-  type GpuFlowRetainedDisplayPublicationResult,
+  resolveGpuFlowRetainedDisplayPresentation,
+  type GpuFlowRetainedDisplayPresentationInput,
+  type GpuFlowRetainedDisplayPresentationResult,
 } from "./flowRetainedDisplayTransaction";
 import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
@@ -16,7 +16,7 @@ import {
 } from "./visibleFrameBudgetBroker";
 import {
   createGpuFlowPreparedContentFramePresentationFramePlanPreparer,
-  createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
+  createGpuFlowRetainedDisplayPresentationFramePlanPreparer,
   createGpuFlowRetainedPreparedContentFramePresentationContentStageRunner,
   type GpuFlowRetainedPreparedContentFramePresentationContentStageRunner,
 } from "./visibleFrameContentPlan";
@@ -63,9 +63,9 @@ export type {
   GpuFlowPreparedContentFramePresentationFramePlanPreparation,
   GpuFlowPreparedContentFramePresentationFramePlanPreparer,
   GpuFlowRetainedDisplayPreparedContentFramePreparer,
-  GpuFlowRetainedDisplayPublicationFramePlanPreparer,
-  GpuFlowRetainedDisplayPublicationPreparer,
-  GpuFlowRetainedPreparedContentFramePresentationContentPublishedRetainedDisplay,
+  GpuFlowRetainedDisplayPresentationFramePlanPreparer,
+  GpuFlowRetainedDisplayPresentationPreparer,
+  GpuFlowRetainedPreparedContentFramePresentationContentPresentedRetainedDisplay,
   GpuFlowRetainedPreparedContentFramePresentationContentStageInput,
   GpuFlowRetainedPreparedContentFramePresentationContentStageRunner,
   GpuFlowVisibleFrameBlockedPresentationCandidate,
@@ -396,8 +396,8 @@ function prepareGpuFlowVisibleFramePresentationCandidateSet<
     createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
       contentDecisionKernel,
     });
-  const prepareRetainedDisplayPublicationFramePlan =
-    createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
+  const prepareRetainedDisplayPresentationFramePlan =
+    createGpuFlowRetainedDisplayPresentationFramePlanPreparer({
       contentDecisionKernel,
       previousVisibleProjectionState,
       prepareRetainedDisplayPresentationCandidate:
@@ -407,7 +407,7 @@ function prepareGpuFlowVisibleFramePresentationCandidateSet<
     createGpuFlowRetainedPreparedContentFramePresentationContentStageRunner({
       contentDecisionKernel,
       preparePreparedContentFramePresentationFramePlan,
-      prepareRetainedDisplayPublicationFramePlan,
+      prepareRetainedDisplayPresentationFramePlan,
     });
   const motionProjectionWorkPlan = createGpuFlowMotionProjectionWorkPlan({
     reducerDecision,
@@ -668,7 +668,7 @@ function createGpuFlowVisibleFrameRequestFacts({
 }
 
 function prepareGpuFlowRetainedDisplayPresentationCandidate(
-  input: GpuFlowRetainedDisplayPublicationInput,
-): GpuFlowRetainedDisplayPublicationResult {
-  return resolveGpuFlowRetainedDisplayPublication(input);
+  input: GpuFlowRetainedDisplayPresentationInput,
+): GpuFlowRetainedDisplayPresentationResult {
+  return resolveGpuFlowRetainedDisplayPresentation(input);
 }

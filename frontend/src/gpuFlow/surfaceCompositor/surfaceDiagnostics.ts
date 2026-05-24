@@ -4,13 +4,13 @@ export type SurfaceTransactionHoldDiagnostics = {
   readonly heldMotionFrameCount: number;
   readonly maxHeldMotionAgeMs: number;
   readonly desiredScrollOffset: number | null;
-  readonly publishedScrollOffset: number | null;
+  readonly presentedScrollOffset: number | null;
   readonly desiredViewport: {
     readonly x: number;
     readonly y: number;
     readonly zoom: number;
   };
-  readonly publishedViewport: {
+  readonly presentedViewport: {
     readonly x: number;
     readonly y: number;
     readonly zoom: number;
@@ -30,9 +30,9 @@ export function createSurfaceTransactionHoldDiagnostics({
   previousHeldTransactionCount = 0,
   previousHeldTransactionDurationMs = 0,
   previousHeldMotionFrameCount = 0,
-  previousPublishedAtMs,
-  publishedScrollOffset,
-  publishedViewport,
+  previousPresentedAtMs,
+  presentedScrollOffset,
+  presentedViewport,
 }: {
   readonly blockingGenerationIds: readonly string[];
   readonly blockingSurfaceIds: readonly string[];
@@ -47,15 +47,15 @@ export function createSurfaceTransactionHoldDiagnostics({
   readonly previousHeldMotionFrameCount?: number | undefined;
   readonly previousHeldTransactionCount?: number | undefined;
   readonly previousHeldTransactionDurationMs?: number | undefined;
-  readonly previousPublishedAtMs: number;
-  readonly publishedScrollOffset: number | null;
-  readonly publishedViewport: {
+  readonly previousPresentedAtMs: number;
+  readonly presentedScrollOffset: number | null;
+  readonly presentedViewport: {
     readonly x: number;
     readonly y: number;
     readonly zoom: number;
   };
 }): SurfaceTransactionHoldDiagnostics {
-  const heldDurationMs = Math.max(0, nowMs - previousPublishedAtMs);
+  const heldDurationMs = Math.max(0, nowMs - previousPresentedAtMs);
   return Object.freeze({
     blockingGenerationIds: Object.freeze([...blockingGenerationIds]),
     blockingSurfaceIds: Object.freeze([...blockingSurfaceIds]),
@@ -67,7 +67,7 @@ export function createSurfaceTransactionHoldDiagnostics({
       previousHeldTransactionDurationMs + heldDurationMs,
     holdReason,
     maxHeldMotionAgeMs: heldDurationMs,
-    publishedScrollOffset,
-    publishedViewport: Object.freeze({ ...publishedViewport }),
+    presentedScrollOffset,
+    presentedViewport: Object.freeze({ ...presentedViewport }),
   });
 }

@@ -20,11 +20,11 @@ import { canUseDomControlCompatiblePreviousCoverage } from "./surfaceCompositor/
 import type { BrowserVisualActorCompatiblePreviousProof } from "./surfaceCompositor/browserVisualActorProofTypes";
 
 export type DomControlActorOptions = {
-  readonly currentPublishedAtMs?: number | null;
+  readonly currentPresentedAtMs?: number | null;
   readonly previousPreparedContentActors?:
     | readonly GpuFlowPreparedContentActorGeneration[]
     | null;
-  readonly previousPublishedAtMs?: number | null;
+  readonly previousPresentedAtMs?: number | null;
   readonly previousRetainedRuntimeFrame?: GpuRetainedRuntimeFrame | null;
   readonly previousContentFrameId?: number | null;
   readonly previousTransactionId?: string | null;
@@ -66,10 +66,10 @@ export function createDomControlActorSet(
         previousActor: previousActorById.get(control.sourceId),
         previousContentFrameId: options.previousContentFrameId ?? null,
         previousControl: previousControlById.get(control.sourceId),
-        previousPublishedAtMs: options.previousPublishedAtMs ?? null,
+        previousPresentedAtMs: options.previousPresentedAtMs ?? null,
         previousTransactionId: options.previousTransactionId ?? null,
         representationReadiness,
-        requestedPublishedAtMs: options.currentPublishedAtMs ?? null,
+        requestedPresentedAtMs: options.currentPresentedAtMs ?? null,
         retainedRuntimeFrameId: retainedRuntimeFrame.frameId,
       });
     },
@@ -89,9 +89,9 @@ function domControlToActorRecord({
   previousActor,
   previousContentFrameId,
   previousControl,
-  previousPublishedAtMs,
+  previousPresentedAtMs,
   previousTransactionId,
-  requestedPublishedAtMs,
+  requestedPresentedAtMs,
   representationReadiness,
   retainedRuntimeFrameId,
 }: {
@@ -99,9 +99,9 @@ function domControlToActorRecord({
   readonly previousActor: GpuFlowPreparedContentActorGeneration | undefined;
   readonly previousContentFrameId: number | null;
   readonly previousControl: GpuRetainedDomControlSourceDescriptor | undefined;
-  readonly previousPublishedAtMs: number | null;
+  readonly previousPresentedAtMs: number | null;
   readonly previousTransactionId: string | null;
-  readonly requestedPublishedAtMs: number | null;
+  readonly requestedPresentedAtMs: number | null;
   readonly representationReadiness: BrowserVisualActorRepresentationReadiness | null;
   readonly retainedRuntimeFrameId: number;
 }): {
@@ -138,10 +138,10 @@ function domControlToActorRecord({
     previousActor,
     previousContentFrameId,
     previousControl,
-    previousPublishedAtMs,
+    previousPresentedAtMs,
     previousTransactionId,
     representationReadiness,
-    requestedPublishedAtMs,
+    requestedPresentedAtMs,
     requestedActorGenerationId: generationId,
     retainedRuntimeFrameId,
   });
@@ -225,9 +225,9 @@ function createDomControlCompatiblePreviousCoverage({
   previousActor,
   previousContentFrameId,
   previousControl,
-  previousPublishedAtMs,
+  previousPresentedAtMs,
   previousTransactionId,
-  requestedPublishedAtMs,
+  requestedPresentedAtMs,
   requestedActorGenerationId,
   retainedRuntimeFrameId,
 }: {
@@ -236,9 +236,9 @@ function createDomControlCompatiblePreviousCoverage({
   readonly previousActor: GpuFlowPreparedContentActorGeneration | undefined;
   readonly previousContentFrameId: number | null;
   readonly previousControl: GpuRetainedDomControlSourceDescriptor | undefined;
-  readonly previousPublishedAtMs: number | null;
+  readonly previousPresentedAtMs: number | null;
   readonly previousTransactionId: string | null;
-  readonly requestedPublishedAtMs: number | null;
+  readonly requestedPresentedAtMs: number | null;
   readonly requestedActorGenerationId: string;
   readonly retainedRuntimeFrameId: number;
 }): BrowserVisualActorCompatiblePreviousProof | null {
@@ -269,8 +269,8 @@ function createDomControlCompatiblePreviousCoverage({
   );
   const proofBudget = createDomControlCompatiblePreviousProofBudget({
     previousContentFrameId,
-    previousPublishedAtMs,
-    requestedPublishedAtMs,
+    previousPresentedAtMs,
+    requestedPresentedAtMs,
     retainedRuntimeFrameId,
   });
   if (proofBudget.budgetState === "over-budget") {
@@ -350,13 +350,13 @@ function createDomControlCompatiblePreviousProof({
 
 function createDomControlCompatiblePreviousProofBudget({
   previousContentFrameId,
-  previousPublishedAtMs,
-  requestedPublishedAtMs,
+  previousPresentedAtMs,
+  requestedPresentedAtMs,
   retainedRuntimeFrameId,
 }: {
   readonly previousContentFrameId: number;
-  readonly previousPublishedAtMs: number | null;
-  readonly requestedPublishedAtMs: number | null;
+  readonly previousPresentedAtMs: number | null;
+  readonly requestedPresentedAtMs: number | null;
   readonly retainedRuntimeFrameId: number;
 }): {
   readonly budgetState: "over-budget" | "within-budget";
@@ -370,8 +370,8 @@ function createDomControlCompatiblePreviousProofBudget({
     retainedRuntimeFrameId - previousContentFrameId,
   );
   const proofAgeMs = createDomControlCompatiblePreviousProofAgeMs({
-    previousPublishedAtMs,
-    requestedPublishedAtMs,
+    previousPresentedAtMs,
+    requestedPresentedAtMs,
   });
   const maxProofAgeFrames =
     DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.maxCompatiblePreviousFrames;
@@ -395,16 +395,16 @@ function createDomControlCompatiblePreviousProofBudget({
 }
 
 function createDomControlCompatiblePreviousProofAgeMs({
-  previousPublishedAtMs,
-  requestedPublishedAtMs,
+  previousPresentedAtMs,
+  requestedPresentedAtMs,
 }: {
-  readonly previousPublishedAtMs: number | null;
-  readonly requestedPublishedAtMs: number | null;
+  readonly previousPresentedAtMs: number | null;
+  readonly requestedPresentedAtMs: number | null;
 }): number | null {
-  if (requestedPublishedAtMs === null || previousPublishedAtMs === null) {
+  if (requestedPresentedAtMs === null || previousPresentedAtMs === null) {
     return null;
   }
-  return Math.max(0, requestedPublishedAtMs - previousPublishedAtMs);
+  return Math.max(0, requestedPresentedAtMs - previousPresentedAtMs);
 }
 
 function isDomControlCompatiblePreviousProofWithinBudget({

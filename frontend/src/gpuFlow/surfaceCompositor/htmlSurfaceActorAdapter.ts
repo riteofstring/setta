@@ -213,7 +213,7 @@ function createHtmlSurfaceActorCoverageProof({
     exactCoverage,
     protectedResourceHandles: protectedResourceHandles.map((handle) => ({
       ...handle,
-      reason: "published-transaction",
+      reason: "presented-transaction",
     })),
     rendererBuckets: uniqueOrdered(
       actorSnapshots.map(({ generation }) => generation.rendererBucket),

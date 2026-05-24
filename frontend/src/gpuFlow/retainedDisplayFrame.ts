@@ -6,10 +6,10 @@ import type {
 import type { RetainedContentTexturePagePreparedFrame } from "./retainedContentTexturePageManager";
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
-  createPublishedNativeIslandRects,
+  createPresentedNativeIslandRects,
   resolveNativeIslandPresentationTransaction,
   type NativeIslandPresentationTransaction,
-  type PublishedNativeIslandRect,
+  type PresentedNativeIslandRect,
 } from "./retainedNativeIslandTransactions";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { RetainedDrawRegion } from "./retainedVisibleCoveragePlanner";
@@ -49,14 +49,14 @@ type RetainedDisplayFrameInput = RetainedContentSnapshotFrame & {
   readonly pageFrame: RetainedPageFrame;
 };
 
-type PublishedRetainedDrawRegion =
+type PresentedRetainedDrawRegion =
   RetainedDrawRegion<RetainedContentTextureResources>;
 
-type PublishedRetainedCompatibleDrawRegion = PublishedRetainedDrawRegion & {
+type PresentedRetainedCompatibleDrawRegion = PresentedRetainedDrawRegion & {
   readonly coverageKind: "compatible";
 };
 
-type PublishedRetainedHitIndex = {
+type PresentedRetainedHitIndex = {
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 };
 
@@ -88,7 +88,7 @@ type RetainedVisibleCoverageProof = {
   readonly visibleContentRects: readonly GpuRect[];
 };
 
-type PublishedFrameDiagnostics = {
+type PresentedFrameDiagnostics = {
   readonly activeIslandTransaction: NativeIslandPresentationTransaction;
   readonly compatiblePageCount: number;
   readonly continuityProof: RetainedMotionContinuityProof;
@@ -99,15 +99,15 @@ type PublishedFrameDiagnostics = {
   readonly fidelityReadiness: RetainedFidelityState;
   readonly holdDiagnostics: SurfaceTransactionHoldDiagnostics | null;
   readonly lastRejectedPreparedFrameId: RetainedFrameId | null;
-  readonly publishedAtMs: number;
-  readonly publishedPreparedFrameId: RetainedFrameId;
+  readonly presentedAtMs: number;
+  readonly presentedPreparedFrameId: RetainedFrameId;
   readonly rejectedFrameCount: number;
   readonly refinementPageCount: number;
   readonly transactionOutcome:
     | "hold-previous"
-    | "publish-cold-placeholder"
-    | "publish-compatible"
-    | "publish-exact";
+    | "present-cold-placeholder"
+    | "present-compatible"
+    | "present-exact";
   readonly trueHoleRectCount: number;
 };
 
@@ -122,13 +122,13 @@ type RetainedDomControlPlaneCompletenessState = {
 };
 
 export type RetainedDisplayFrame = {
-  readonly activeIslandRects: readonly PublishedNativeIslandRect[];
+  readonly activeIslandRects: readonly PresentedNativeIslandRect[];
   readonly coverageProof: RetainedVisibleCoverageProof;
-  readonly diagnostics: PublishedFrameDiagnostics;
-  readonly compatibleDrawRegions: readonly PublishedRetainedCompatibleDrawRegion[];
-  readonly drawRegions: readonly PublishedRetainedDrawRegion[];
+  readonly diagnostics: PresentedFrameDiagnostics;
+  readonly compatibleDrawRegions: readonly PresentedRetainedCompatibleDrawRegion[];
+  readonly drawRegions: readonly PresentedRetainedDrawRegion[];
   readonly flatSurfaces: readonly HtmlSurfaceFlatVisual[];
-  readonly hitIndex: PublishedRetainedHitIndex;
+  readonly hitIndex: PresentedRetainedHitIndex;
   readonly id: RetainedFrameId;
   readonly pageFrame: RetainedPageFrame;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
@@ -144,10 +144,10 @@ type RetainedFrameTransaction = {
 };
 
 export type RetainedDisplayFrameOutcome =
-  | { readonly frame: RetainedDisplayFrame; readonly kind: "publish-exact" }
+  | { readonly frame: RetainedDisplayFrame; readonly kind: "present-exact" }
   | {
       readonly frame: RetainedDisplayFrame;
-      readonly kind: "publish-compatible";
+      readonly kind: "present-compatible";
     }
   | {
       readonly diagnostics: SurfaceTransactionHoldDiagnostics;
@@ -162,7 +162,7 @@ export type RetainedDisplayFrameOutcome =
     }
   | {
       readonly frame: RetainedDisplayFrame;
-      readonly kind: "publish-cold-placeholder";
+      readonly kind: "present-cold-placeholder";
       readonly reason: "coverage-missing";
     };
 
@@ -184,7 +184,7 @@ export function createRetainedDisplayFrameInput({
   });
 }
 
-export function publishRetainedDisplayFrame({
+export function presentRetainedDisplayFrame({
   nowMs = 0,
   prepared,
   previous,
@@ -195,15 +195,15 @@ export function publishRetainedDisplayFrame({
     previous,
   });
   if (
-    outcome.kind === "publish-exact" ||
-    outcome.kind === "publish-compatible" ||
-    outcome.kind === "publish-cold-placeholder" ||
+    outcome.kind === "present-exact" ||
+    outcome.kind === "present-compatible" ||
+    outcome.kind === "present-cold-placeholder" ||
     outcome.kind === "hold-previous"
   ) {
     return outcome.frame;
   }
   throw new Error(
-    "Retained display frame publication requires committed visual epoch coverage.",
+    "Retained display frame presentation requires committed visual epoch coverage.",
   );
 }
 
@@ -213,7 +213,7 @@ export function createRetainedDisplayFrameCandidate({
   previous,
 }: RetainedFrameTransaction): Extract<
   RetainedDisplayFrameOutcome,
-  { readonly kind: "publish-compatible" | "publish-exact" }
+  { readonly kind: "present-compatible" | "present-exact" }
 > {
   const compatiblePrevious = getRetainedDisplayHoldCompatiblePrevious({
     prepared,
@@ -229,7 +229,7 @@ export function createRetainedDisplayFrameCandidate({
     pageFrame: prepared.pageFrame,
     retainedRuntimeFrame: prepared.retainedRuntimeFrame,
   });
-  return createPublishedRetainedDisplayFrameOutcome({
+  return createPresentedRetainedDisplayFrameOutcome({
     coverageReadiness:
       proof.trueHoleRects.length === 0 ? "covered" : "candidate-blocked",
     nowMs,
@@ -339,14 +339,14 @@ function resolveRetainedSurfaceTransactionOutcome({
         prepared,
         previous,
       });
-    case "publish-cold-placeholder":
+    case "present-cold-placeholder":
       return {
         frame: createColdPlaceholderRetainedDisplayFrame({
           nowMs,
           prepared,
           proof,
         }),
-        kind: "publish-cold-placeholder",
+        kind: "present-cold-placeholder",
         reason: "coverage-missing",
       };
     case "block-cold-first-coverage":
@@ -354,9 +354,9 @@ function resolveRetainedSurfaceTransactionOutcome({
         kind: "block-cold-first-coverage",
         reason: "coverage-missing",
       };
-    case "publish-compatible":
-    case "publish-exact":
-      return createPublishedRetainedDisplayFrameOutcome({
+    case "present-compatible":
+    case "present-exact":
+      return createPresentedRetainedDisplayFrameOutcome({
         nowMs,
         prepared,
         previous,
@@ -394,7 +394,7 @@ function createHeldRetainedDisplayFrameOutcome({
   };
 }
 
-function createPublishedRetainedDisplayFrameOutcome({
+function createPresentedRetainedDisplayFrameOutcome({
   coverageReadiness = "covered",
   nowMs,
   prepared,
@@ -412,13 +412,13 @@ function createPublishedRetainedDisplayFrameOutcome({
   readonly surfaceTransaction: SurfaceDisplayTransaction;
 }): Extract<
   RetainedDisplayFrameOutcome,
-  { readonly kind: "publish-compatible" | "publish-exact" }
+  { readonly kind: "present-compatible" | "present-exact" }
 > {
   const transactionOutcome = hasCompatibleRetainedDrawRegions(
     prepared.pageFrame,
   )
-    ? "publish-compatible"
-    : "publish-exact";
+    ? "present-compatible"
+    : "present-exact";
   const frame = createComposedRetainedDisplayFrame({
     coverageReadiness,
     diagnosticsPrevious: previous ?? null,
@@ -430,9 +430,9 @@ function createPublishedRetainedDisplayFrameOutcome({
     surfaceTransaction,
     transactionOutcome,
   });
-  return transactionOutcome === "publish-compatible"
-    ? { frame, kind: "publish-compatible" }
-    : { frame, kind: "publish-exact" };
+  return transactionOutcome === "present-compatible"
+    ? { frame, kind: "present-compatible" }
+    : { frame, kind: "present-exact" };
 }
 
 function createComposedRetainedDisplayFrame({
@@ -454,24 +454,24 @@ function createComposedRetainedDisplayFrame({
   readonly proof: RetainedVisibleCoverageProof;
   readonly surfaceActorSnapshots: readonly SurfaceActorSnapshot[];
   readonly surfaceTransaction: SurfaceDisplayTransaction;
-  readonly transactionOutcome: PublishedFrameDiagnostics["transactionOutcome"];
+  readonly transactionOutcome: PresentedFrameDiagnostics["transactionOutcome"];
 }): RetainedDisplayFrame {
   const compatibleDrawRegions = prepared.pageFrame.drawRegions.filter(
-    (region): region is PublishedRetainedCompatibleDrawRegion =>
+    (region): region is PresentedRetainedCompatibleDrawRegion =>
       region.coverageKind === "compatible",
   );
   const exactPageCount = prepared.pageFrame.drawRegions.filter(
     (region) => region.coverageKind === "exact",
   ).length;
-  const desiredActiveIslandRects = createPublishedNativeIslandRects(
+  const desiredActiveIslandRects = createPresentedNativeIslandRects(
     prepared.retainedRuntimeFrame,
   );
   const activeIslandRects = desiredActiveIslandRects;
   const activeIslandTransaction = resolveNativeIslandPresentationTransaction({
     blockedByCoverage: false,
     desiredIslandIds: prepared.retainedRuntimeFrame.input.activeNativeIslandIds,
-    previousIslandIds: getPublishedNativeIslandIds(diagnosticsPrevious),
-    publishedIslandIds: activeIslandRects.map((island) => island.id),
+    previousIslandIds: getPresentedNativeIslandIds(diagnosticsPrevious),
+    presentedIslandIds: activeIslandRects.map((island) => island.id),
   });
   const domControlPlaneCompleteness = createDomControlPlaneCompleteness({
     prepared,
@@ -494,8 +494,8 @@ function createComposedRetainedDisplayFrame({
       fidelityReadiness: proof.fidelityState,
       holdDiagnostics,
       lastRejectedPreparedFrameId: null,
-      publishedAtMs: nowMs,
-      publishedPreparedFrameId: prepared.id,
+      presentedAtMs: nowMs,
+      presentedPreparedFrameId: prepared.id,
       rejectedFrameCount:
         diagnosticsPrevious?.diagnostics.rejectedFrameCount ?? 0,
       refinementPageCount: prepared.pageFrame.refinementPageCount,
@@ -584,11 +584,11 @@ function createColdPlaceholderRetainedDisplayFrame({
     }),
     surfaceActorSnapshots: surfaceSnapshot.actorSnapshots,
     surfaceTransaction: surfaceSnapshot.transaction,
-    transactionOutcome: "publish-cold-placeholder",
+    transactionOutcome: "present-cold-placeholder",
   });
 }
 
-function getPublishedNativeIslandIds(
+function getPresentedNativeIslandIds(
   frame: RetainedDisplayFrame | null,
 ): readonly string[] {
   return frame?.activeIslandRects.map((island) => island.id) ?? [];
@@ -825,12 +825,12 @@ function hasCompatibleRetainedContentIdentity(
 ): boolean {
   return prepared.pageFrame.visibleRegionTargets.some((current) =>
     previous.pageFrame.visibleRegionTargets.some(
-      (published) =>
-        published.manifest.surfaceId === current.manifest.surfaceId &&
-        published.manifest.documentId === current.manifest.documentId &&
-        published.manifest.themeGeneration ===
+      (presented) =>
+        presented.manifest.surfaceId === current.manifest.surfaceId &&
+        presented.manifest.documentId === current.manifest.documentId &&
+        presented.manifest.themeGeneration ===
           current.manifest.themeGeneration &&
-        published.manifest.contentVersion === current.manifest.contentVersion,
+        presented.manifest.contentVersion === current.manifest.contentVersion,
     ),
   );
 }

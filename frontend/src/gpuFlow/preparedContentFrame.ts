@@ -954,9 +954,9 @@ function createPreparedContentDomControlActorOptions({
   const options: DomControlActorOptions = browserVisualReadinessByActorId
     ? {
         browserVisualReadinessByActorId,
-        currentPublishedAtMs: retainedDisplayFrame.diagnostics.publishedAtMs,
+        currentPresentedAtMs: retainedDisplayFrame.diagnostics.presentedAtMs,
       }
-    : { currentPublishedAtMs: retainedDisplayFrame.diagnostics.publishedAtMs };
+    : { currentPresentedAtMs: retainedDisplayFrame.diagnostics.presentedAtMs };
   if (!previousPreparedContentFrame) {
     return options;
   }
@@ -967,9 +967,9 @@ function createPreparedContentDomControlActorOptions({
       previousPreparedContentFrame.actorGenerations,
     previousRetainedRuntimeFrame:
       previousPreparedContentFrame.retainedRuntimeFrame,
-    previousPublishedAtMs:
+    previousPresentedAtMs:
       previousPreparedContentFrame.retainedDisplayFrame?.diagnostics
-        .publishedAtMs ?? null,
+        .presentedAtMs ?? null,
     previousTransactionId: createGpuFlowPreparedContentPreviousTransactionId(
       previousPreparedContentFrame,
     ),

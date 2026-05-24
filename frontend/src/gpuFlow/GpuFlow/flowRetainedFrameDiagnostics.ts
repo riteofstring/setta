@@ -82,12 +82,12 @@ export function postGpuFlowRetainedContentVisualStateChromeReproEvent({
 export function postGpuFlowRetainedDisplayFrameChromeReproEvent({
   frame,
   preparedFrame,
-  publishedFrame,
+  presentedFrame,
   viewportInteractionActive,
 }: {
   readonly frame: number;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly publishedFrame: RetainedDisplayFrame;
+  readonly presentedFrame: RetainedDisplayFrame;
   readonly viewportInteractionActive: boolean;
 }) {
   if (!isChromeReproActive()) {
@@ -95,8 +95,8 @@ export function postGpuFlowRetainedDisplayFrameChromeReproEvent({
   }
   const buildStartedAtMs = nowChromeReproPerformanceMs();
   const verbose = isChromeReproVerboseGpuFlowActive();
-  const proof = publishedFrame.coverageProof;
-  const diagnostics = publishedFrame.diagnostics;
+  const proof = presentedFrame.coverageProof;
+  const diagnostics = presentedFrame.diagnostics;
   const continuityProof = diagnostics.continuityProof;
   const holdDiagnostics = diagnostics.holdDiagnostics;
   const holdSummary =
@@ -119,8 +119,8 @@ export function postGpuFlowRetainedDisplayFrameChromeReproEvent({
       continuityProof.overlapCoveredAreaCssPx,
     ),
     preparedFrameId: preparedFrame.frame,
-    publishedFrameId: publishedFrame.id,
-    publishedPreparedFrameId: diagnostics.publishedPreparedFrameId,
+    presentedFrameId: presentedFrame.id,
+    presentedPreparedFrameId: diagnostics.presentedPreparedFrameId,
     rejectedFrameCount: diagnostics.rejectedFrameCount,
     refinementPageCount: diagnostics.refinementPageCount,
     transactionOutcome: diagnostics.transactionOutcome,

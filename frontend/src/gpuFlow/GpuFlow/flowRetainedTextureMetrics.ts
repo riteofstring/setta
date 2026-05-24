@@ -19,16 +19,16 @@ export function combineGpuFlowRetainedTexturePageMetrics({
   readonly retainedDisplayFrame: RetainedDisplayFrame;
   readonly retainedPageResult: RetainedContentTexturePageMaintenanceResult;
 }): GpuFlowRetainedTexturePageFrameMetrics {
-  const publishedViewport = normalizeGpuViewport(
+  const presentedViewport = normalizeGpuViewport(
     retainedDisplayFrame.retainedRuntimeFrame.input.viewport,
   );
-  const publishedScrollOffset = firstRetainedScrollOffset(
+  const presentedScrollOffset = firstRetainedScrollOffset(
     retainedDisplayFrame.retainedRuntimeFrame.input.scrollOffsets,
   );
   const transactionMetrics = createRetainedTextureTransactionMetrics({
     retainedDisplayFrame,
-    publishedScrollOffset,
-    publishedViewport,
+    presentedScrollOffset,
+    presentedViewport,
   });
   return {
     budgetExhausted: retainedPageResult.budgetExhausted,
@@ -128,12 +128,12 @@ function createRetainedTexturePageExecutedWorkItemMetrics(
 }
 
 function createRetainedTextureTransactionMetrics({
-  publishedScrollOffset,
-  publishedViewport,
+  presentedScrollOffset,
+  presentedViewport,
   retainedDisplayFrame,
 }: {
-  readonly publishedScrollOffset: number | null;
-  readonly publishedViewport: ReturnType<typeof normalizeGpuViewport>;
+  readonly presentedScrollOffset: number | null;
+  readonly presentedViewport: ReturnType<typeof normalizeGpuViewport>;
   readonly retainedDisplayFrame: RetainedDisplayFrame;
 }): Pick<
   GpuFlowRetainedTexturePageFrameMetrics,
@@ -146,23 +146,23 @@ function createRetainedTextureTransactionMetrics({
   | "transactionHeldTransactionDurationMs"
   | "transactionHoldReason"
   | "transactionMaxHeldMotionAgeMs"
-  | "transactionPublishedScrollOffset"
-  | "transactionPublishedViewport"
+  | "transactionPresentedScrollOffset"
+  | "transactionPresentedViewport"
 > {
   const holdDiagnostics = retainedDisplayFrame.diagnostics.holdDiagnostics;
   if (!holdDiagnostics) {
     return {
       transactionBlockingGenerationIds: [],
       transactionBlockingSurfaceIds: [],
-      transactionDesiredScrollOffset: publishedScrollOffset,
-      transactionDesiredViewport: publishedViewport,
+      transactionDesiredScrollOffset: presentedScrollOffset,
+      transactionDesiredViewport: presentedViewport,
       transactionHeldMotionFrameCount: 0,
       transactionHeldTransactionCount: 0,
       transactionHeldTransactionDurationMs: 0,
       transactionHoldReason: null,
       transactionMaxHeldMotionAgeMs: 0,
-      transactionPublishedScrollOffset: publishedScrollOffset,
-      transactionPublishedViewport: publishedViewport,
+      transactionPresentedScrollOffset: presentedScrollOffset,
+      transactionPresentedViewport: presentedViewport,
     };
   }
   return {
@@ -178,8 +178,8 @@ function createRetainedTextureTransactionMetrics({
       holdDiagnostics.heldTransactionDurationMs,
     transactionHoldReason: holdDiagnostics.holdReason,
     transactionMaxHeldMotionAgeMs: holdDiagnostics.maxHeldMotionAgeMs,
-    transactionPublishedScrollOffset: holdDiagnostics.publishedScrollOffset,
-    transactionPublishedViewport: holdDiagnostics.publishedViewport,
+    transactionPresentedScrollOffset: holdDiagnostics.presentedScrollOffset,
+    transactionPresentedViewport: holdDiagnostics.presentedViewport,
   };
 }
 

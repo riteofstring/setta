@@ -572,7 +572,7 @@ describe("GPU Flow prepared content frame", () => {
           id: "snapshot-a",
           kind: "texture",
           projectionGenerationId: "projection:snapshot-a",
-          reason: "published-transaction",
+          reason: "presented-transaction",
           resourceGenerationId: "snapshot-a:content-revision",
         },
       ]),
@@ -631,15 +631,15 @@ describe("GPU Flow prepared content frame", () => {
 });
 
 function createCompatiblePreviousPreparedContentFrame({
-  publishedAtMs,
-  previousPublishedAtMs,
+  presentedAtMs,
+  previousPresentedAtMs,
   previousRetainedFrameId = 13,
   readiness = "compatible-previous",
   retainedFrameId = 14,
   visualPolicy = "blocked-awaiting-browser-visual",
 }: {
-  readonly publishedAtMs?: number | undefined;
-  readonly previousPublishedAtMs?: number | undefined;
+  readonly presentedAtMs?: number | undefined;
+  readonly previousPresentedAtMs?: number | undefined;
   readonly previousRetainedFrameId?: number | undefined;
   readonly readiness?:
     | "blocked-awaiting-live-host"
@@ -664,7 +664,7 @@ function createCompatiblePreviousPreparedContentFrame({
     ),
     retainedDisplayFrame: fakeRetainedDisplayFrame({
       id: previousRetainedFrameId,
-      publishedAtMs: previousPublishedAtMs,
+      presentedAtMs: previousPresentedAtMs,
       retainedRuntimeFrame: previousRetainedRuntimeFrame,
     }),
   });
@@ -687,7 +687,7 @@ function createCompatiblePreviousPreparedContentFrame({
     previousPreparedContentFrame,
     retainedDisplayFrame: fakeRetainedDisplayFrame({
       id: retainedFrameId,
-      publishedAtMs,
+      presentedAtMs,
       retainedRuntimeFrame,
     }),
   });
@@ -813,12 +813,12 @@ function withDomControlSnapshotPolicy(
 
 function fakeRetainedDisplayFrame({
   id,
-  publishedAtMs = id,
+  presentedAtMs = id,
   retainedRuntimeFrame,
   trueHoleSurfaceIds = [],
 }: {
   readonly id: number;
-  readonly publishedAtMs?: number | undefined;
+  readonly presentedAtMs?: number | undefined;
   readonly retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>;
   readonly trueHoleSurfaceIds?: readonly string[] | undefined;
 }): RetainedDisplayFrame {
@@ -830,8 +830,8 @@ function fakeRetainedDisplayFrame({
   }));
   return {
     diagnostics: {
-      publishedAtMs,
-      transactionOutcome: "publish-exact",
+      presentedAtMs,
+      transactionOutcome: "present-exact",
     },
     flatSurfaces: [],
     id,
@@ -867,7 +867,7 @@ function fakeRetainedDisplayFrame({
       desiredSurfaceGenerations: [],
       diagnostics: {
         hold: null,
-        publishedAtMs,
+        presentedAtMs,
       },
       drawCommands: [],
       followUpWorkRequests: [],

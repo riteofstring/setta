@@ -13,17 +13,17 @@ import {
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 
 import {
-  hasGpuFlowRetainedPreparedFramePrePublishRepairDebt,
-  resolveGpuFlowRetainedPageMaintenanceBeforePublish,
+  hasGpuFlowRetainedPreparedFramePrePresentRepairDebt,
+  resolveGpuFlowRetainedPageMaintenanceBeforePresent,
 } from "./flowRetainedPageMaintenance";
 
-const MAX_RETAINED_DISPLAY_PRE_PUBLISH_REPAIR_PASSES = 2;
+const MAX_RETAINED_DISPLAY_PRE_PRESENT_REPAIR_PASSES = 2;
 
 type RetainedDisplayOutcome = ReturnType<
   typeof createRetainedDisplayFrameCandidate
 >;
-type RetainedPrePublishMaintenance = ReturnType<
-  typeof resolveGpuFlowRetainedPageMaintenanceBeforePublish
+type RetainedPrePresentMaintenance = ReturnType<
+  typeof resolveGpuFlowRetainedPageMaintenanceBeforePresent
 >;
 
 type RetainedDisplayTransactionTiming = {
@@ -33,19 +33,19 @@ type RetainedDisplayTransactionTiming = {
 
 type RetainedPageMaintenanceTiming = {
   readonly elapsedMs: number;
-  readonly maintenance: RetainedPrePublishMaintenance;
+  readonly maintenance: RetainedPrePresentMaintenance;
   readonly preparedFrame: RetainedContentTexturePagePreparedFrame;
 };
 
-export type GpuFlowRetainedDisplayPublicationResult = {
+export type GpuFlowRetainedDisplayPresentationResult = {
   readonly retainedDisplayOutcome: RetainedDisplayOutcome;
   readonly retainedDisplayTransactionMs: number;
   readonly retainedPageMaintenanceMs: number;
   readonly retainedPagePreparedFrame: RetainedContentTexturePagePreparedFrame;
-  readonly prePublishRetainedPageMaintenance: RetainedPrePublishMaintenance;
+  readonly prePresentRetainedPageMaintenance: RetainedPrePresentMaintenance;
 };
 
-export type GpuFlowRetainedDisplayPublicationInput = {
+export type GpuFlowRetainedDisplayPresentationInput = {
   readonly darkMode: boolean;
   readonly deferResolutionUpdates: boolean;
   readonly nowMs: number;
@@ -55,7 +55,7 @@ export type GpuFlowRetainedDisplayPublicationInput = {
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
 };
 
-export function resolveGpuFlowRetainedDisplayPublication({
+export function resolveGpuFlowRetainedDisplayPresentation({
   darkMode,
   deferResolutionUpdates,
   nowMs,
@@ -63,8 +63,8 @@ export function resolveGpuFlowRetainedDisplayPublication({
   previousRetainedDisplayFrame,
   retainedContentPageManager,
   retainedRuntimeFrame,
-}: GpuFlowRetainedDisplayPublicationInput): GpuFlowRetainedDisplayPublicationResult {
-  const initialMaintenance = resolveInitialPrePublishRetainedPageMaintenance({
+}: GpuFlowRetainedDisplayPresentationInput): GpuFlowRetainedDisplayPresentationResult {
+  const initialMaintenance = resolveInitialPrePresentRetainedPageMaintenance({
     darkMode,
     deferResolutionUpdates,
     preparedFrame,
@@ -82,7 +82,7 @@ export function resolveGpuFlowRetainedDisplayPublication({
     retainedDisplayTransactionMs: candidateTransaction.elapsedMs,
     retainedPageMaintenanceMs: initialMaintenance.elapsedMs,
     retainedPagePreparedFrame: initialMaintenance.preparedFrame,
-    prePublishRetainedPageMaintenance: initialMaintenance.maintenance,
+    prePresentRetainedPageMaintenance: initialMaintenance.maintenance,
   };
 }
 
@@ -119,7 +119,7 @@ function shouldRequestGpuFlowRetainedDisplayFollowUpFrame({
   return outcomeKind === "hold-previous" && !deferResolutionUpdates;
 }
 
-function resolveInitialPrePublishRetainedPageMaintenance({
+function resolveInitialPrePresentRetainedPageMaintenance({
   darkMode,
   deferResolutionUpdates,
   preparedFrame,
@@ -132,19 +132,19 @@ function resolveInitialPrePublishRetainedPageMaintenance({
   readonly previousRetainedDisplayFrame: RetainedDisplayFrame | null;
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
 }): RetainedPageMaintenanceTiming {
-  const hasPrePublishRepairDebt =
-    hasGpuFlowRetainedPreparedFramePrePublishRepairDebt(preparedFrame);
-  if (!hasPrePublishRepairDebt || deferResolutionUpdates) {
+  const hasPrePresentRepairDebt =
+    hasGpuFlowRetainedPreparedFramePrePresentRepairDebt(preparedFrame);
+  if (!hasPrePresentRepairDebt || deferResolutionUpdates) {
     return {
       elapsedMs: 0,
       maintenance: null,
       preparedFrame,
     };
   }
-  return resolveRetainedPageMaintenanceBeforePublishWithTiming({
+  return resolveRetainedPageMaintenanceBeforePresentWithTiming({
     darkMode,
     deferResolutionUpdates,
-    maxPasses: MAX_RETAINED_DISPLAY_PRE_PUBLISH_REPAIR_PASSES,
+    maxPasses: MAX_RETAINED_DISPLAY_PRE_PRESENT_REPAIR_PASSES,
     preparedFrame,
     previousRetainedDisplayFrame,
     previousProtectedPageKeys:
@@ -153,7 +153,7 @@ function resolveInitialPrePublishRetainedPageMaintenance({
   });
 }
 
-function resolveRetainedPageMaintenanceBeforePublishWithTiming({
+function resolveRetainedPageMaintenanceBeforePresentWithTiming({
   darkMode,
   deferResolutionUpdates,
   maxPasses,
@@ -171,13 +171,13 @@ function resolveRetainedPageMaintenanceBeforePublishWithTiming({
   readonly retainedContentPageManager: RetainedContentTexturePageManager;
 }): RetainedPageMaintenanceTiming {
   const finishMeasure = startGpuFlowPerformanceMeasure(
-    "retained-prepublish-maintenance",
+    "retained-prepresent-maintenance",
     {
       frame: preparedFrame.frame,
       previousDisplayFrameId: previousRetainedDisplayFrame?.id ?? null,
     },
   );
-  const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePublish({
+  const maintenance = resolveGpuFlowRetainedPageMaintenanceBeforePresent({
     darkMode,
     deferResolutionUpdates,
     maxPasses,

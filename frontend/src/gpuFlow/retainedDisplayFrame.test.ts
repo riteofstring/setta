@@ -11,7 +11,7 @@ import type { RetainedContentTexturePagePreparedFrame } from "./retainedContentT
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
   createRetainedDisplayFrameInput,
-  publishRetainedDisplayFrame,
+  presentRetainedDisplayFrame,
   resolveRetainedDisplayFrameTransaction,
 } from "./retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
@@ -28,11 +28,11 @@ import type {
 import type { GpuDomIsland, GpuFlowScene } from "./scene";
 import type { GpuRect } from "./viewportMath";
 
-describe("retained display frame publisher", () => {
-  it("publishes prepared frames with complete visible coverage", () => {
+describe("retained display frame presenter", () => {
+  it("presents prepared frames with complete visible coverage", () => {
     const descriptor = pageDescriptor();
     const drawRegion = pageDrawRegion(descriptor);
-    const frame = publishRetainedDisplayFrame({
+    const frame = presentRetainedDisplayFrame({
       prepared: preparedFrame({
         drawRegions: [drawRegion],
         visibleRegionTargets: [descriptor],
@@ -64,14 +64,14 @@ describe("retained display frame publisher", () => {
       expect.objectContaining({
         id: "page",
         kind: "page",
-        reason: "published-transaction",
+        reason: "presented-transaction",
       }),
     ]);
   });
 
   it("holds previous visuals when current motion coverage is missing", () => {
     const descriptor = pageDescriptor();
-    const previous = publishRetainedDisplayFrame({
+    const previous = presentRetainedDisplayFrame({
       prepared: preparedFrame({
         drawRegions: [pageDrawRegion(descriptor)],
         frame: 1,
@@ -117,10 +117,10 @@ describe("retained display frame publisher", () => {
     ).toEqual(["surface"]);
   });
 
-  it("publishes a current-scene cold placeholder instead of holding an incompatible previous scene", () => {
+  it("presents a current-scene cold placeholder instead of holding an incompatible previous scene", () => {
     const previousDescriptor = pageDescriptor({ surfaceId: "surface-a" });
     const nextDescriptor = pageDescriptor({ surfaceId: "surface-b" });
-    const previous = publishRetainedDisplayFrame({
+    const previous = presentRetainedDisplayFrame({
       prepared: preparedFrame({
         drawRegions: [pageDrawRegion(previousDescriptor)],
         frame: 1,
@@ -141,21 +141,21 @@ describe("retained display frame publisher", () => {
       previous,
     });
 
-    expect(outcome.kind).toBe("publish-cold-placeholder");
+    expect(outcome.kind).toBe("present-cold-placeholder");
     expect(
-      outcome.kind === "publish-cold-placeholder"
+      outcome.kind === "present-cold-placeholder"
         ? outcome.frame.retainedRuntimeFrame.descriptors.sourceSurfaces.map(
             (surface) => surface.id,
           )
         : null,
     ).toEqual(["surface-b"]);
     expect(
-      outcome.kind === "publish-cold-placeholder"
+      outcome.kind === "present-cold-placeholder"
         ? outcome.frame.flatSurfaces
         : [],
     ).toEqual([]);
     expect(
-      outcome.kind === "publish-cold-placeholder"
+      outcome.kind === "present-cold-placeholder"
         ? outcome.frame.diagnostics.coverageReadiness
         : null,
     ).toBe("cold-placeholder");
@@ -163,7 +163,7 @@ describe("retained display frame publisher", () => {
 
   it("holds scroll frames that would expose true-hole coverage", () => {
     const descriptor = pageDescriptor();
-    const previous = publishRetainedDisplayFrame({
+    const previous = presentRetainedDisplayFrame({
       nowMs: 10,
       prepared: preparedFrame({
         drawRegions: [pageDrawRegion(descriptor)],
@@ -199,14 +199,14 @@ describe("retained display frame publisher", () => {
     ).toBe(24);
     expect(
       outcome.kind === "hold-previous"
-        ? outcome.diagnostics.publishedScrollOffset
+        ? outcome.diagnostics.presentedScrollOffset
         : null,
     ).toBe(0);
   });
 
   it("holds native-island detach frames that would expose passive true holes", () => {
     const descriptor = pageDescriptor();
-    const previous = publishRetainedDisplayFrame({
+    const previous = presentRetainedDisplayFrame({
       prepared: preparedFrame({
         drawRegions: [pageDrawRegion(descriptor)],
         frame: 1,
@@ -247,9 +247,9 @@ describe("retained display frame publisher", () => {
     ).toBe("attach");
   });
 
-  it("publishRetainedDisplayFrame returns the held frame for missing covered motion", () => {
+  it("presentRetainedDisplayFrame returns the held frame for missing covered motion", () => {
     const descriptor = pageDescriptor();
-    const previous = publishRetainedDisplayFrame({
+    const previous = presentRetainedDisplayFrame({
       prepared: preparedFrame({
         drawRegions: [pageDrawRegion(descriptor)],
         frame: 1,
@@ -258,7 +258,7 @@ describe("retained display frame publisher", () => {
       previous: null,
     });
     const missingRect = { height: 32, width: 32, x: 16, y: 16 };
-    const frame = publishRetainedDisplayFrame({
+    const frame = presentRetainedDisplayFrame({
       nowMs: 20,
       prepared: preparedFrame({
         drawRegions: [
@@ -279,7 +279,7 @@ describe("retained display frame publisher", () => {
 
   it("records compatible coverage without treating it as true-hole coverage", () => {
     const descriptor = pageDescriptor();
-    const frame = publishRetainedDisplayFrame({
+    const frame = presentRetainedDisplayFrame({
       prepared: preparedFrame({
         drawRegions: [
           pageDrawRegion(descriptor, { coverageKind: "compatible" }),
@@ -300,7 +300,7 @@ describe("retained display frame publisher", () => {
 
   it("marks compatible covered scroll frames as covered motion frames", () => {
     const descriptor = pageDescriptor();
-    const previous = publishRetainedDisplayFrame({
+    const previous = presentRetainedDisplayFrame({
       prepared: preparedFrame({
         drawRegions: [pageDrawRegion(descriptor)],
         frame: 1,
@@ -308,7 +308,7 @@ describe("retained display frame publisher", () => {
       }),
       previous: null,
     });
-    const next = publishRetainedDisplayFrame({
+    const next = presentRetainedDisplayFrame({
       prepared: preparedFrame({
         drawRegions: [
           pageDrawRegion(descriptor, { coverageKind: "compatible" }),
@@ -335,7 +335,7 @@ describe("retained display frame publisher", () => {
 
     expect(outcome.kind).toBe("block-cold-first-coverage");
     expect(() =>
-      publishRetainedDisplayFrame({
+      presentRetainedDisplayFrame({
         prepared: preparedFrame({
           visibleRegionTargets: [descriptor],
           trueHoleRectsCss: [missingRect],
@@ -354,11 +354,11 @@ describe("retained display frame publisher", () => {
       previous: null,
     });
 
-    expect(outcome.kind).toBe("publish-exact");
+    expect(outcome.kind).toBe("present-exact");
   });
 
-  it("does not hold retained page publication for browser text actor coverage", () => {
-    const previous = publishRetainedDisplayFrame({
+  it("does not hold retained page presentation for browser text actor coverage", () => {
+    const previous = presentRetainedDisplayFrame({
       prepared: preparedFrame({
         frame: 1,
         scene: sceneWithTextRows(12),
@@ -377,8 +377,8 @@ describe("retained display frame publisher", () => {
     });
 
     expect(
-      outcome.kind === "publish-exact" ? outcome.frame.diagnostics : null,
-    ).toEqual(expect.objectContaining({ transactionOutcome: "publish-exact" }));
+      outcome.kind === "present-exact" ? outcome.frame.diagnostics : null,
+    ).toEqual(expect.objectContaining({ transactionOutcome: "present-exact" }));
   });
 });
 

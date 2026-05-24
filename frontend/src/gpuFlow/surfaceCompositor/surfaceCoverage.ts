@@ -10,7 +10,7 @@ import {
 type SurfaceCoverageFidelity = "exact" | "compatible";
 
 export type SurfaceResourceProtectionReason =
-  | "published-transaction"
+  | "presented-transaction"
   | "held-previous-transaction"
   | "active-dom-island"
   | "pending-exact-coverage"

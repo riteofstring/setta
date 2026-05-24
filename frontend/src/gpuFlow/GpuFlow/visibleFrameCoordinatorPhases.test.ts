@@ -256,7 +256,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function selectGpuFlowContentPreparationBlockedCandidateForFrameResult",
     );
     expect(stateMachineSource).toContain(
-      "export function selectGpuFlowRetainedDisplayPublicationFramePlan",
+      "export function selectGpuFlowRetainedDisplayPresentationFramePlan",
     );
     expect(stateMachineSource).toContain('"blocked"');
     expect(stateMachineSource).toContain('"blocked-candidate"');

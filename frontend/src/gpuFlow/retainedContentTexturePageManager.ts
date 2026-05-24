@@ -304,7 +304,7 @@ export class RetainedContentTexturePageManager {
     darkMode = false,
     preparedFrame,
     preserveFirstVisibleSourceRects = false,
-    publishedProtectedPageKeys,
+    presentedProtectedPageKeys,
     refreshFirstVisiblePages = false,
     switchAnimations,
     visibleEdgeMaxUploads,
@@ -356,8 +356,7 @@ export class RetainedContentTexturePageManager {
         prefetchMaxBytes: this.textureBudget.offscreenPrefetchMaxBytes,
         refinementMaxBytes: this.textureBudget.nearViewportReserveBytes,
         visibleCoverageReserveBytes: this.textureBudget.visibleReserveBytes,
-        visibleEdgeMaxUploads:
-          visibleEdgeMaxUploads ?? this.budget.maxUploads,
+        visibleEdgeMaxUploads: visibleEdgeMaxUploads ?? this.budget.maxUploads,
       },
       queue: this.workQueue,
       textureBudget: this.textureBudget,
@@ -382,7 +381,7 @@ export class RetainedContentTexturePageManager {
       protectedPageKeys: resolveRetainedPageEvictionProtectedKeys({
         postMaintenancePageVisualResult,
         preparedFrame,
-        publishedProtectedPageKeys,
+        presentedProtectedPageKeys,
       }),
     });
     finishEvictionMeasure();

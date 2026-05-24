@@ -88,7 +88,7 @@ export function createRetainedSurfaceTransactionSnapshot({
       ),
       diagnostics: Object.freeze({
         hold: null,
-        publishedAtMs: nowMs,
+        presentedAtMs: nowMs,
       }),
       drawCommands: createRetainedSurfaceDrawCommands(coverageProof),
       followUpWorkRequests: Object.freeze(
@@ -157,7 +157,7 @@ export function createRetainedColdPlaceholderSurfaceTransaction({
       desiredSurfaceGenerations: Object.freeze([]),
       diagnostics: Object.freeze({
         hold: null,
-        publishedAtMs: nowMs,
+        presentedAtMs: nowMs,
       }),
       drawCommands: Object.freeze([]),
       followUpWorkRequests: Object.freeze([]),
@@ -435,7 +435,7 @@ function createRetainedProtectedResourceHandles({
               ? "interactive-source"
               : handle.kind === "native-dom-island"
                 ? "active-dom-island"
-                : "published-transaction",
+                : "presented-transaction",
       }),
     ),
   );

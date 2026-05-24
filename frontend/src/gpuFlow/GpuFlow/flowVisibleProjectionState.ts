@@ -8,7 +8,7 @@ import {
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 
-export function createGpuFlowVisibleProjectionStateForRetainedPublication({
+export function createGpuFlowVisibleProjectionStateForRetainedPresentation({
   frameReasons,
   liveProjectionSample,
   contentWorkLane,

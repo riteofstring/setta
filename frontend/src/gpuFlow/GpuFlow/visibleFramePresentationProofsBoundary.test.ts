@@ -92,7 +92,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       readVisibleFramePresentationCoordinatorAuthoritySource();
 
     expect(visibleFrameDiagnosticsSource).not.toContain(
-      "createGpuFlowVisibleProjectionStateForRetainedPublication",
+      "createGpuFlowVisibleProjectionStateForRetainedPresentation",
     );
     expect(visibleFrameDiagnosticsSource).not.toContain(
       "createGpuFlowVisibleFrameHoldPreviousTokenForProjectionState",
@@ -196,7 +196,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       readVisibleFramePresentationCoordinatorAuthoritySource();
     const candidateSource = readPreparedContentAuthorityCandidateSource();
     const publishBranchStart = coordinatorSource.indexOf(
-      'if (publicationReadiness.kind === "present")',
+      'if (presentationReadiness.kind === "present")',
     );
     const publishBranchEnd = coordinatorSource.indexOf(
       "if (!preparedContentFrame)",
@@ -302,16 +302,16 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(source).not.toContain(
       'retainedDisplayOutcomeFrame.kind === "blocked"',
     );
-    expect(source).not.toMatch(/\bresolveGpuFlowRetainedDisplayPublication\(/);
+    expect(source).not.toMatch(/\bresolveGpuFlowRetainedDisplayPresentation\(/);
     expect(source).not.toContain(
-      "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
+      "resolveGpuFlowRetainedDisplayPresentationOutcomeFrame",
     );
     expect(source).not.toContain(
       "notifyGpuFlowRetainedDisplayFollowUpFrameNeeded",
     );
     expect(source).not.toContain("notifyRetainedDisplayFollowUpFrameNeeded");
     expect(surfaceFrameSource).not.toContain(
-      "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
+      "resolveGpuFlowRetainedDisplayPresentationOutcomeFrame",
     );
     expect(surfaceFrameSource).not.toContain(
       "notifyRetainedDisplayFollowUpFrameNeeded",
@@ -328,7 +328,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(surfaceFrameSource).not.toContain(
       "prepareGpuFlowRetainedDisplayPresentationCandidate",
     );
-    expect(source).not.toContain("selectRetainedDisplayPublicationFramePlan");
+    expect(source).not.toContain("selectRetainedDisplayPresentationFramePlan");
     expect(source).not.toContain(
       "selectPreparedContentFramePresentationFramePlan",
     );
@@ -336,10 +336,10 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "prepareGpuFlowRetainedDisplayPresentationCandidate",
     );
     expect(coordinatorSource).toContain(
-      "createGpuFlowRetainedDisplayPublicationFramePlanPreparer",
+      "createGpuFlowRetainedDisplayPresentationFramePlanPreparer",
     );
     expect(coordinatorSource).toContain(
-      "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
+      "resolveGpuFlowRetainedDisplayPresentationOutcomeFrame",
     );
     expect(coordinatorSource).toContain(
       "selectGpuFlowRetainedDisplayFollowUpFrameReason",

@@ -55,8 +55,8 @@ describe("GPU Flow prepared content compatible-previous coverage", () => {
 
   it("does not publish compatible-previous DOM-control coverage beyond the millisecond-age budget", () => {
     const { actor, frame } = createCompatiblePreviousPreparedContentFrame({
-      publishedAtMs: 250,
-      previousPublishedAtMs: 0,
+      presentedAtMs: 250,
+      previousPresentedAtMs: 0,
     });
 
     expectBlockedCompatiblePreviousDomControlActor({ actor, frame });
@@ -64,15 +64,15 @@ describe("GPU Flow prepared content compatible-previous coverage", () => {
 });
 
 function createCompatiblePreviousPreparedContentFrame({
-  publishedAtMs,
-  previousPublishedAtMs,
+  presentedAtMs,
+  previousPresentedAtMs,
   previousRetainedFrameId = 13,
   readiness = "compatible-previous",
   retainedFrameId = 14,
   visualPolicy = "blocked-awaiting-browser-visual",
 }: {
-  readonly publishedAtMs?: number | undefined;
-  readonly previousPublishedAtMs?: number | undefined;
+  readonly presentedAtMs?: number | undefined;
+  readonly previousPresentedAtMs?: number | undefined;
   readonly previousRetainedFrameId?: number | undefined;
   readonly readiness?:
     | "blocked-awaiting-live-host"
@@ -95,7 +95,7 @@ function createCompatiblePreviousPreparedContentFrame({
     ),
     retainedDisplayFrame: fakeRetainedDisplayFrame({
       id: previousRetainedFrameId,
-      publishedAtMs: previousPublishedAtMs,
+      presentedAtMs: previousPresentedAtMs,
       retainedRuntimeFrame: previousRetainedRuntimeFrame,
     }),
   });
@@ -118,7 +118,7 @@ function createCompatiblePreviousPreparedContentFrame({
     previousPreparedContentFrame,
     retainedDisplayFrame: fakeRetainedDisplayFrame({
       id: retainedFrameId,
-      publishedAtMs,
+      presentedAtMs,
       retainedRuntimeFrame,
     }),
   });
@@ -338,17 +338,17 @@ function withDomControlVisualPolicy(
 
 function fakeRetainedDisplayFrame({
   id,
-  publishedAtMs = id,
+  presentedAtMs = id,
   retainedRuntimeFrame,
 }: {
   readonly id: number;
-  readonly publishedAtMs?: number | undefined;
+  readonly presentedAtMs?: number | undefined;
   readonly retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>;
 }): RetainedDisplayFrame {
   return {
     diagnostics: {
-      publishedAtMs,
-      transactionOutcome: "publish-exact",
+      presentedAtMs,
+      transactionOutcome: "present-exact",
     },
     flatSurfaces: [],
     id,
@@ -382,7 +382,7 @@ function fakeRetainedDisplayFrame({
       desiredSurfaceGenerations: [],
       diagnostics: {
         hold: null,
-        publishedAtMs,
+        presentedAtMs,
       },
       drawCommands: [],
       followUpWorkRequests: [],

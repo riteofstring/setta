@@ -700,7 +700,7 @@ function protectBrowserVisualActorResources({
           ? "active-dom-island"
           : handle.kind === "source"
             ? "interactive-source"
-            : "published-transaction",
+            : "presented-transaction",
     });
   }
 }

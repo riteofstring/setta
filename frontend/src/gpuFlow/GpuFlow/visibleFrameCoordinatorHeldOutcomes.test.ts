@@ -388,7 +388,7 @@ function preparePreparedContentFramePresentationCandidateForTest({
     liveProjectionSample: liveSample,
     contentWorkLane: "content",
     preparedContentFrame,
-    publishedRetainedFrame: retainedDisplayFrame(),
+    presentedRetainedFrame: retainedDisplayFrame(),
   }).candidate;
 }
 

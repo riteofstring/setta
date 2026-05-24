@@ -6,26 +6,26 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
   createGpuFlowPreparedContentFramePresentationFramePlanPreparer,
-  createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
+  createGpuFlowRetainedDisplayPresentationFramePlanPreparer,
   runGpuFlowRetainedPreparedContentFramePresentationContentStage,
-  type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
+  type GpuFlowRetainedDisplayPresentationFramePlanPreparer,
 } from "./visibleFrameContentPlan";
 
 const contentDecisionKernel =
   createGpuFlowVisibleFramePresentationContentDecisionKernel();
 
 describe("GPU Flow retained display candidate content plans", () => {
-  it("publishes retained display candidates instead of retained projection blockers", () => {
+  it("presents retained display candidates instead of retained projection blockers", () => {
     const retainedFrame = {} as RetainedDisplayFrame;
-    const prepareRetainedDisplayPublicationFramePlan =
-      createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
+    const prepareRetainedDisplayPresentationFramePlan =
+      createGpuFlowRetainedDisplayPresentationFramePlanPreparer({
         contentDecisionKernel,
         previousVisibleProjectionState: null,
         prepareRetainedDisplayPresentationCandidate: () => ({
-          prePublishRetainedPageMaintenance: null,
+          prePresentRetainedPageMaintenance: null,
           retainedDisplayOutcome: {
             frame: retainedFrame,
-            kind: "publish-exact",
+            kind: "present-exact",
           },
           retainedDisplayTransactionMs: 0,
           retainedPageMaintenanceMs: 0,
@@ -33,14 +33,14 @@ describe("GPU Flow retained display candidate content plans", () => {
             {} as RetainedContentTexturePagePreparedFrame,
         }),
       });
-    const preparation = prepareRetainedDisplayPublicationFramePlan(
-      retainedDisplayPublicationInputFixture(),
+    const preparation = prepareRetainedDisplayPresentationFramePlan(
+      retainedDisplayPresentationInputFixture(),
     );
 
-    expect(preparation.framePlan.kind).toBe("published");
+    expect(preparation.framePlan.kind).toBe("presented");
     expect(preparation.framePlanResult.blockedPresentationCandidate).toBeNull();
     expect(preparation.nodeLayerFrameResult).toBeNull();
-    expect(preparation.publishedOutcomeFrame.frame).toBe(retainedFrame);
+    expect(preparation.presentedOutcomeFrame.frame).toBe(retainedFrame);
   });
 
   it("reports visible true-hole blockers from prepared content frame candidates", () => {
@@ -62,7 +62,7 @@ describe("GPU Flow retained display candidate content plans", () => {
           typeof runGpuFlowRetainedPreparedContentFramePresentationContentStage
         >[0]["liveProjectionSample"],
         onPreparedContentFrameCandidateAccepted: () => {
-          throw new Error("Blocked committed candidates must not publish.");
+          throw new Error("Blocked committed candidates must not present.");
         },
         onRetainedDisplayCandidateAccepted: () => ({
           committedGpuNativeVisuals: undefined,
@@ -73,15 +73,15 @@ describe("GPU Flow retained display candidate content plans", () => {
           createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
             contentDecisionKernel,
           }),
-        prepareRetainedDisplayPublicationFramePlan:
-          createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
+        prepareRetainedDisplayPresentationFramePlan:
+          createGpuFlowRetainedDisplayPresentationFramePlanPreparer({
             contentDecisionKernel,
             previousVisibleProjectionState: null,
             prepareRetainedDisplayPresentationCandidate: () => ({
-              prePublishRetainedPageMaintenance: null,
+              prePresentRetainedPageMaintenance: null,
               retainedDisplayOutcome: {
                 frame: retainedFrame,
-                kind: "publish-exact",
+                kind: "present-exact",
               },
               retainedDisplayTransactionMs: 0,
               retainedPageMaintenanceMs: 0,
@@ -91,8 +91,8 @@ describe("GPU Flow retained display candidate content plans", () => {
           }),
         previousVisibleProjectionState: null,
         contentWorkLane: "content",
-        retainedDisplayPublicationInput:
-          retainedDisplayPublicationInputFixture(),
+        retainedDisplayPresentationInput:
+          retainedDisplayPresentationInputFixture(),
       });
 
     expect(result).toEqual(
@@ -113,7 +113,7 @@ describe("GPU Flow retained display candidate content plans", () => {
     );
   });
 
-  it("reports retained true-hole blockers without publishing a surface transaction", () => {
+  it("reports retained true-hole blockers without presenting a surface transaction", () => {
     const retainedFrame = {} as RetainedDisplayFrame;
     const preparedContentFrame = retainedTrueHolePreparedContentFrame();
     const result =
@@ -133,7 +133,7 @@ describe("GPU Flow retained display candidate content plans", () => {
         >[0]["liveProjectionSample"],
         onPreparedContentFrameCandidateAccepted: () => {
           throw new Error(
-            "Blocked retained true-hole candidates must not publish.",
+            "Blocked retained true-hole candidates must not present.",
           );
         },
         onRetainedDisplayCandidateAccepted: () => ({
@@ -145,15 +145,15 @@ describe("GPU Flow retained display candidate content plans", () => {
           createGpuFlowPreparedContentFramePresentationFramePlanPreparer({
             contentDecisionKernel,
           }),
-        prepareRetainedDisplayPublicationFramePlan:
-          createGpuFlowRetainedDisplayPublicationFramePlanPreparer({
+        prepareRetainedDisplayPresentationFramePlan:
+          createGpuFlowRetainedDisplayPresentationFramePlanPreparer({
             contentDecisionKernel,
             previousVisibleProjectionState: null,
             prepareRetainedDisplayPresentationCandidate: () => ({
-              prePublishRetainedPageMaintenance: null,
+              prePresentRetainedPageMaintenance: null,
               retainedDisplayOutcome: {
                 frame: retainedFrame,
-                kind: "publish-exact",
+                kind: "present-exact",
               },
               retainedDisplayTransactionMs: 0,
               retainedPageMaintenanceMs: 0,
@@ -163,8 +163,8 @@ describe("GPU Flow retained display candidate content plans", () => {
           }),
         previousVisibleProjectionState: null,
         contentWorkLane: "content",
-        retainedDisplayPublicationInput:
-          retainedDisplayPublicationInputFixture(),
+        retainedDisplayPresentationInput:
+          retainedDisplayPresentationInputFixture(),
       });
 
     expect(result).toEqual(
@@ -189,11 +189,11 @@ describe("GPU Flow retained display candidate content plans", () => {
   });
 });
 
-function retainedDisplayPublicationInputFixture({
+function retainedDisplayPresentationInputFixture({
   previousRetainedDisplayFrame = null,
 }: {
   readonly previousRetainedDisplayFrame?: RetainedDisplayFrame | null;
-} = {}): Parameters<GpuFlowRetainedDisplayPublicationFramePlanPreparer>[0] {
+} = {}): Parameters<GpuFlowRetainedDisplayPresentationFramePlanPreparer>[0] {
   return {
     darkMode: false,
     deferResolutionUpdates: false,
@@ -201,9 +201,9 @@ function retainedDisplayPublicationInputFixture({
     preparedFrame: {} as RetainedContentTexturePagePreparedFrame,
     previousRetainedDisplayFrame,
     retainedContentPageManager:
-      {} as Parameters<GpuFlowRetainedDisplayPublicationFramePlanPreparer>[0]["retainedContentPageManager"],
+      {} as Parameters<GpuFlowRetainedDisplayPresentationFramePlanPreparer>[0]["retainedContentPageManager"],
     retainedRuntimeFrame:
-      {} as Parameters<GpuFlowRetainedDisplayPublicationFramePlanPreparer>[0]["retainedRuntimeFrame"],
+      {} as Parameters<GpuFlowRetainedDisplayPresentationFramePlanPreparer>[0]["retainedRuntimeFrame"],
   };
 }
 
@@ -231,7 +231,7 @@ function trueHolePreparedContentFrame(): GpuFlowPreparedContentFrame {
       status: "blocked",
       textActorCount: 1,
       textActorExactCoverageCount: 0,
-      transactionOutcome: "publish-exact",
+      transactionOutcome: "present-exact",
       visibleNonemptyTextActorCount: 1,
     },
   } as unknown as GpuFlowPreparedContentFrame;
@@ -250,7 +250,7 @@ function retainedTrueHolePreparedContentFrame(): GpuFlowPreparedContentFrame {
       status: "blocked",
       textActorCount: 0,
       textActorExactCoverageCount: 0,
-      transactionOutcome: "publish-exact",
+      transactionOutcome: "present-exact",
       visibleNonemptyTextActorCount: 0,
     },
   } as unknown as GpuFlowPreparedContentFrame;

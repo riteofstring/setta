@@ -960,7 +960,7 @@ function createPreparedContentFrame({
           desiredSurfaceGenerations: [],
           diagnostics: {
             hold: null,
-            publishedAtMs: 0,
+            presentedAtMs: 0,
           },
           drawCommands: [],
           followUpWorkRequests: [],

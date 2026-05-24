@@ -1,12 +1,12 @@
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuRect } from "./viewportMath";
 
-export type PublishedNativeIslandRect = {
+export type PresentedNativeIslandRect = {
   readonly id: string;
   readonly rect: GpuRect;
 };
 
-type NativeIslandPublicationMode =
+type NativeIslandPresentationMode =
   | "none"
   | "attach"
   | "survive"
@@ -21,16 +21,16 @@ export type NativeIslandPresentationTransaction = {
   readonly blockedByCoverage: boolean;
   readonly desiredIslandIds: readonly string[];
   readonly detachedIslandIds: readonly string[];
-  readonly mode: NativeIslandPublicationMode;
+  readonly mode: NativeIslandPresentationMode;
   readonly previousIslandIds: readonly string[];
-  readonly publishedIslandIds: readonly string[];
+  readonly presentedIslandIds: readonly string[];
   readonly stalePassiveRevealBlocked: boolean;
   readonly survivedIslandIds: readonly string[];
 };
 
-export function createPublishedNativeIslandRects(
+export function createPresentedNativeIslandRects(
   frame: GpuRetainedRuntimeFrame,
-): readonly PublishedNativeIslandRect[] {
+): readonly PresentedNativeIslandRect[] {
   return Object.freeze(
     frame.descriptors.nativeDomIslands.map((island) =>
       Object.freeze({
@@ -45,20 +45,20 @@ export function resolveNativeIslandPresentationTransaction({
   blockedByCoverage,
   desiredIslandIds,
   previousIslandIds = [],
-  publishedIslandIds,
+  presentedIslandIds,
 }: {
   readonly blockedByCoverage: boolean;
   readonly desiredIslandIds: readonly string[];
   readonly previousIslandIds?: readonly string[] | undefined;
-  readonly publishedIslandIds: readonly string[];
+  readonly presentedIslandIds: readonly string[];
 }): NativeIslandPresentationTransaction {
-  const attachedIslandIds = difference(publishedIslandIds, previousIslandIds);
-  const detachedIslandIds = difference(previousIslandIds, publishedIslandIds);
-  const survivedIslandIds = intersection(publishedIslandIds, previousIslandIds);
-  const mode = resolveNativeIslandPublicationMode({
+  const attachedIslandIds = difference(presentedIslandIds, previousIslandIds);
+  const detachedIslandIds = difference(previousIslandIds, presentedIslandIds);
+  const survivedIslandIds = intersection(presentedIslandIds, previousIslandIds);
+  const mode = resolveNativeIslandPresentationMode({
     blockedByCoverage,
     desiredIslandIds,
-    publishedIslandIds,
+    presentedIslandIds,
     previousIslandIds,
   });
   return Object.freeze({
@@ -68,43 +68,43 @@ export function resolveNativeIslandPresentationTransaction({
     detachedIslandIds: freezeArray(detachedIslandIds),
     mode,
     previousIslandIds: freezeArray(previousIslandIds),
-    publishedIslandIds: freezeArray(publishedIslandIds),
+    presentedIslandIds: freezeArray(presentedIslandIds),
     stalePassiveRevealBlocked:
       mode === "blocked-commit-detach" || mode === "blocked-replace",
     survivedIslandIds: freezeArray(survivedIslandIds),
   });
 }
 
-function resolveNativeIslandPublicationMode({
+function resolveNativeIslandPresentationMode({
   blockedByCoverage,
   desiredIslandIds,
   previousIslandIds,
-  publishedIslandIds,
+  presentedIslandIds,
 }: {
   readonly blockedByCoverage: boolean;
   readonly desiredIslandIds: readonly string[];
   readonly previousIslandIds: readonly string[];
-  readonly publishedIslandIds: readonly string[];
-}): NativeIslandPublicationMode {
+  readonly presentedIslandIds: readonly string[];
+}): NativeIslandPresentationMode {
   if (blockedByCoverage) {
-    return resolveBlockedNativeIslandPublicationMode({
+    return resolveBlockedNativeIslandPresentationMode({
       desiredIslandIds,
       previousIslandIds,
     });
   }
-  return resolvePublishedNativeIslandPublicationMode({
+  return resolvePresentedNativeIslandPresentationMode({
     previousIslandIds,
-    publishedIslandIds,
+    presentedIslandIds,
   });
 }
 
-function resolveBlockedNativeIslandPublicationMode({
+function resolveBlockedNativeIslandPresentationMode({
   desiredIslandIds,
   previousIslandIds,
 }: {
   readonly desiredIslandIds: readonly string[];
   readonly previousIslandIds: readonly string[];
-}): NativeIslandPublicationMode {
+}): NativeIslandPresentationMode {
   if (setsEqual(desiredIslandIds, previousIslandIds)) {
     return previousIslandIds.length > 0 ? "survive" : "none";
   }
@@ -117,23 +117,23 @@ function resolveBlockedNativeIslandPublicationMode({
   return "blocked-replace";
 }
 
-function resolvePublishedNativeIslandPublicationMode({
+function resolvePresentedNativeIslandPresentationMode({
   previousIslandIds,
-  publishedIslandIds,
+  presentedIslandIds,
 }: {
   readonly previousIslandIds: readonly string[];
-  readonly publishedIslandIds: readonly string[];
-}): NativeIslandPublicationMode {
-  if (previousIslandIds.length === 0 && publishedIslandIds.length === 0) {
+  readonly presentedIslandIds: readonly string[];
+}): NativeIslandPresentationMode {
+  if (previousIslandIds.length === 0 && presentedIslandIds.length === 0) {
     return "none";
   }
-  if (previousIslandIds.length === 0 && publishedIslandIds.length > 0) {
+  if (previousIslandIds.length === 0 && presentedIslandIds.length > 0) {
     return "attach";
   }
-  if (previousIslandIds.length > 0 && publishedIslandIds.length === 0) {
+  if (previousIslandIds.length > 0 && presentedIslandIds.length === 0) {
     return "commit-detach";
   }
-  if (setsEqual(previousIslandIds, publishedIslandIds)) {
+  if (setsEqual(previousIslandIds, presentedIslandIds)) {
     return "survive";
   }
   return "replace";
