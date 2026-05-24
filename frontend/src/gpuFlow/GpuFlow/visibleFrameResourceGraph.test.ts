@@ -22,6 +22,17 @@ import {
   createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
 
+const PRESENTATION_ACTOR_RESOURCE_KEYS = [
+  "actor:scene-background:scene-background",
+  "actor:grid:grid",
+  "actor:edges:edges",
+  "actor:viewport-portal:viewport-portal",
+  "actor:hit-generation:hit-generation",
+  "actor:accessibility-exposure:accessibility-exposure",
+  "actor:debug-snapshot:debug-snapshot",
+  "actor:public-runtime-state:public-runtime-state",
+] as const;
+
 describe("GPU Flow visible frame resource graph proofs", () => {
   it("reports null frames as protected empty resource sets", () => {
     expect(
@@ -141,6 +152,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       activeEditorPins: ["row-a"],
       candidateResourceKeys: [
         "texture:surface-texture",
+        ...PRESENTATION_ACTOR_RESOURCE_KEYS,
         "dom-control:row-a",
         "dom-control-snapshot:snapshot-row-b",
         "dom-island:island-a",
@@ -158,11 +170,12 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       absent: 0,
       preparing: 0,
       presented: 0,
-      ready: 1,
+      ready: 9,
       requested: 3,
       retired: 0,
     });
     expect(snapshot.resourceStates).toEqual([
+      ...presentationActorResourceStates(41),
       resourceState("dom-control-snapshot:snapshot-row-b", "requested", 41),
       resourceState("dom-control:row-a", "requested", 41),
       resourceState("dom-island:island-a", "requested", 41),
@@ -198,7 +211,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       absent: 0,
       preparing: 3,
       presented: 0,
-      ready: 1,
+      ready: 9,
       requested: 0,
       retired: 0,
     });
@@ -224,6 +237,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       resourceKey: "dom-island:island-a",
     });
     expect(registry.getSnapshot().resourceStates).toEqual([
+      ...presentationActorResourceStates(41),
       resourceState("dom-control-snapshot:snapshot-row-b", "ready", 41),
       resourceState("dom-control:row-a", "ready", 41),
       resourceState("dom-island:island-a", "ready", 41),
@@ -249,7 +263,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     );
   });
 
-  it("exposes actor-level presentation obligations separately from queued resources", () => {
+  it("exposes actor-level presentation obligations as graph-managed ready resources", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const frame = {
       ...preparedContentFrame({ displayFrameId: 43 }),
@@ -270,22 +284,26 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
 
     const snapshot = registry.getSnapshot();
+    const sectionHeaderResourceKey =
+      "actor:section-header:settings:section-header";
     expect(snapshot.actorResourceKeys).toEqual(
       expect.arrayContaining([
-        "actor:scene-background:scene-background",
-        "actor:grid:grid",
-        "actor:edges:edges",
-        "actor:viewport-portal:viewport-portal",
-        "actor:hit-generation:hit-generation",
-        "actor:accessibility-exposure:accessibility-exposure",
-        "actor:debug-snapshot:debug-snapshot",
-        "actor:public-runtime-state:public-runtime-state",
-        "actor:section-header:settings:section-header",
+        ...PRESENTATION_ACTOR_RESOURCE_KEYS,
+        sectionHeaderResourceKey,
       ]),
     );
-    expect(snapshot.candidateResourceKeys).toEqual([]);
+    expect(snapshot.candidateResourceKeys).toEqual([
+      ...PRESENTATION_ACTOR_RESOURCE_KEYS,
+      sectionHeaderResourceKey,
+    ]);
     expect(snapshot.queuedResourceKeys).toEqual([]);
-    expect(snapshot.resourceStates).toEqual([]);
+    expect(snapshot.resourceStates).toEqual(
+      expect.arrayContaining([
+        ...presentationActorResourceStates(43),
+        resourceState(sectionHeaderResourceKey, "ready", 43),
+      ]),
+    );
+    expect(snapshot.resourceStates).toHaveLength(9);
   });
 
   it("presents one candidate, records presented resources, and releases loser candidates", () => {
@@ -350,19 +368,24 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       activeEditorPins: [],
       candidateResourceKeys: [],
       presentedFrameId: 52,
-      presentedResourceKeys: ["page:winner-page", "dom-control:winner-control"],
+      presentedResourceKeys: [
+        "page:winner-page",
+        ...PRESENTATION_ACTOR_RESOURCE_KEYS,
+        "dom-control:winner-control",
+      ],
       pendingCandidateFrameIds: [],
       queuedResourceKeys: [],
     });
     expect(snapshot.resourceDebtByState).toEqual({
       absent: 0,
       preparing: 0,
-      presented: 2,
+      presented: 10,
       ready: 0,
       requested: 0,
       retired: 2,
     });
     expect(snapshot.resourceStates).toEqual([
+      ...presentationActorResourceStates(52, "presented"),
       resourceState("dom-control:loser-control", "retired", 51),
       resourceState("dom-control:winner-control", "presented", 52),
       resourceState("page:loser-page", "retired", 51),
@@ -465,6 +488,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       activeEditorPins: ["candidate-control"],
       releasedCandidateResourceKeys: [
         "texture:candidate-texture",
+        ...PRESENTATION_ACTOR_RESOURCE_KEYS,
         "dom-control:candidate-control",
       ],
     });
@@ -482,9 +506,10 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       presented: 0,
       ready: 0,
       requested: 0,
-      retired: 2,
+      retired: 10,
     });
     expect(snapshot.resourceStates).toEqual([
+      ...presentationActorResourceStates(61, "retired"),
       resourceState("dom-control:candidate-control", "retired", 61),
       resourceState("texture:candidate-texture", "retired", 61),
     ]);
@@ -542,14 +567,17 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
     expect(registry.getSnapshot()).toMatchObject({
       activeEditorPins: ["active-control"],
-      candidateResourceKeys: ["dom-control:active-control"],
+      candidateResourceKeys: [
+        ...PRESENTATION_ACTOR_RESOURCE_KEYS,
+        "dom-control:active-control",
+      ],
       pendingCandidateFrameIds: [611],
       queuedResourceKeys: ["dom-control:active-control"],
       resourceDebtByState: {
         absent: 0,
         preparing: 0,
         presented: 0,
-        ready: 0,
+        ready: 8,
         requested: 1,
         retired: 0,
       },
@@ -669,18 +697,22 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
     expect(registry.getSnapshot()).toMatchObject({
       presentedFrameId: 62,
-      presentedResourceKeys: ["texture:early-texture"],
+      presentedResourceKeys: [
+        "texture:early-texture",
+        ...PRESENTATION_ACTOR_RESOURCE_KEYS,
+      ],
       queuedResourceKeys: [],
       resourceDebtByState: {
         absent: 0,
         preparing: 0,
-        presented: 1,
+        presented: 9,
         ready: 0,
         requested: 0,
         retired: 1,
       },
     });
     expect(registry.getSnapshot().resourceStates).toEqual([
+      ...presentationActorResourceStates(62, "presented"),
       resourceState("dom-control:early-control", "retired", 62),
       resourceState("texture:early-texture", "presented", 62),
     ]);
@@ -704,9 +736,12 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       }),
       frame,
     });
-    expect(registry.getSnapshot().resourceStates).toEqual([
-      resourceState("dom-control:repair-control", "requested", 63),
-    ]);
+    expect(registry.getSnapshot().resourceStates).toEqual(
+      expect.arrayContaining([
+        ...presentationActorResourceStates(63),
+        resourceState("dom-control:repair-control", "requested", 63),
+      ]),
+    );
 
     expect(
       registry.advanceVisibleFrameResourceWork({
@@ -723,9 +758,12 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         ),
       ],
     });
-    expect(registry.getSnapshot().resourceStates).toEqual([
-      resourceState("dom-control:repair-control", "preparing", 63),
-    ]);
+    expect(registry.getSnapshot().resourceStates).toEqual(
+      expect.arrayContaining([
+        ...presentationActorResourceStates(63),
+        resourceState("dom-control:repair-control", "preparing", 63),
+      ]),
+    );
     expect(
       registry.advanceVisibleFrameResourceWork({
         resourceKeys: ["dom-control:repair-control"],
@@ -751,9 +789,12 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       frame,
     });
 
-    expect(registry.getSnapshot().resourceStates).toEqual([
-      resourceState("dom-control:repair-control", "ready", 63),
-    ]);
+    expect(registry.getSnapshot().resourceStates).toEqual(
+      expect.arrayContaining([
+        ...presentationActorResourceStates(63),
+        resourceState("dom-control:repair-control", "ready", 63),
+      ]),
+    );
   });
 
   it("moves repeated pending resource ownership to the newest candidate", () => {
@@ -782,9 +823,12 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     registry.advanceVisibleFrameResourceWork({
       resourceKeys: ["dom-control:shared-control"],
     });
-    expect(registry.getSnapshot().resourceStates).toEqual([
-      resourceState("dom-control:shared-control", "preparing", 631),
-    ]);
+    expect(registry.getSnapshot().resourceStates).toEqual(
+      expect.arrayContaining([
+        ...presentationActorResourceStates(631),
+        resourceState("dom-control:shared-control", "preparing", 631),
+      ]),
+    );
 
     registry.registerPreparedContentFrame({
       browserVisualCandidate: browserVisualCandidate({
@@ -796,9 +840,12 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       frame: secondFrame,
     });
 
-    expect(registry.getSnapshot().resourceStates).toEqual([
-      resourceState("dom-control:shared-control", "preparing", 632),
-    ]);
+    expect(registry.getSnapshot().resourceStates).toEqual(
+      expect.arrayContaining([
+        ...presentationActorResourceStates(631),
+        resourceState("dom-control:shared-control", "preparing", 632),
+      ]),
+    );
     expect(registry.getSnapshot().queuedResourceKeys).toEqual([
       "dom-control:shared-control",
     ]);
@@ -855,6 +902,15 @@ function resourceState(
     resourceKey,
     state,
   });
+}
+
+function presentationActorResourceStates(
+  ownerFrameId: number,
+  state = "ready",
+) {
+  return [...PRESENTATION_ACTOR_RESOURCE_KEYS]
+    .sort((left, right) => left.localeCompare(right))
+    .map((resourceKey) => resourceState(resourceKey, state, ownerFrameId));
 }
 
 function resourceTransition(

@@ -48,14 +48,14 @@ Code audit update, 2026-05-27:
 - observed-behavior Settings coverage exists as an E2E spec;
 - safety, continuity, and quality debt classification and budgeted preparation
   exist in reducer and budget-broker code;
-- actor resource keys are still not fully lifecycle-managed resources in the
-  resource graph. They are reported as `actorResourceKeys`, while
-  `candidateResourceKeys` and `resourceStates` remain focused on protected
-  surface resources plus browser visual resources.
+- actor resource keys are now lifecycle-managed resources in the resource
+  graph. They remain reported as `actorResourceKeys`, and are also promoted
+  into `candidateResourceKeys` and `resourceStates` with family-specific
+  preparation lanes.
 
 Therefore the refactor is substantially implemented in code, but it is not
-strictly complete by the original plan's success criteria until the actor
-resource lifecycle decision is closed and a fresh observed-browser verification
+strictly complete by the original plan's success criteria until the remaining
+retained-scroll debt rules are closed and a fresh observed-browser verification
 passes.
 
 ## Invariants Still Open Or Requiring Verification
@@ -67,7 +67,7 @@ passes.
 | Section shell/header/chrome must be explicit actor families. | Implemented in code; runtime proof still required. `section-shell`, `section-header`, and `section-body-clip` are registered actor families and produced from retained runtime section data. | Keep these actors required in manifest eligibility and verify the E2E diagnostics include ready/blocked/missing counts by family. |
 | Preparation budget must exist during active gestures. | Implemented in code; browser verification still required. The budget broker reserves preparation budget during motion and selects visible resource debt. | Confirm the fresh recording shows repair work making bounded progress during pan, zoom, and retained scroll. |
 | A motion-rendered frame must not suppress repair preparation. | Implemented in code shape; browser verification still required. The coordinator prepares budget-selected resources before candidate preparation and can prepare repair resources while presenting/projecting motion. | Confirm no motion path or work-plan skip prevents safety or continuity resource preparation in the fresh recording. |
-| All user-visible actor resources must be represented by the resource lifecycle or by an explicitly justified manifest authority. | Still open. Actor resource keys are generated, but they are not part of `candidateResourceKeys` / `resourceStates`. | Decide and implement the authority: either promote actor resources into lifecycle-managed graph entries, or document why manifest eligibility, not resource lifecycle, is the authority for actor families. |
+| All user-visible actor resources must be represented by the resource lifecycle or by an explicitly justified manifest authority. | Implemented in code; browser verification still required. Actor resource keys are graph-managed candidate resources and receive lifecycle states with actor-family preparation lanes. | Confirm fresh diagnostics show actor resource keys in `candidateResourceKeys`, `resourceStates`, and presented/retired lifecycle transitions. |
 | Debt may clear only after the chosen visible outcome actually presents. | Substantially code-proven; runtime verification still required. Boundary tests cover visible canvas, DOM projection, browser visual projection, retained display state, and public projection state. | Keep the presentation-token boundary tests and confirm diagnostics do not show partial publication or stale debt clearing in the fresh recording. |
 | Observed behavior, not frame-internal invariants alone, defines completion. | Test coverage exists; completion is unverified. The Settings observed-failure spec now covers first render, retained scroll, pan/zoom cadence, flicker, and latest-recording parity. | Run the observed E2E spec and capture a fresh Chrome recording as the final pass/fail oracle. |
 
@@ -123,7 +123,7 @@ passes.
   in diagnostics.
 - [ ] Ensure section/header/body clip transforms are all derived from the same
   presentation matrix as canvas and browser-owned DOM actors.
-- [ ] Close the actor-resource lifecycle gap: promote actor resource keys into
+- [x] Close the actor-resource lifecycle gap: promote actor resource keys into
   graph-managed candidate resources, or explicitly define manifest eligibility
   as the actor-family authority.
 

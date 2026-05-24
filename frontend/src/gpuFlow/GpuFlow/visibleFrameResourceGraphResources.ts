@@ -247,6 +247,9 @@ export function estimateGpuFlowVisibleFrameResourceCostMs(
   if (resourceKey.startsWith("source:")) {
     return 0.75;
   }
+  if (resourceKey.startsWith("actor:")) {
+    return 0.25;
+  }
   return 1;
 }
 
@@ -261,6 +264,9 @@ export function inferGpuFlowVisibleFrameResourcePreparationLane(
   }
   if (resourceKey.startsWith("dom-island:")) {
     return "dom-island";
+  }
+  if (resourceKey.startsWith("actor:")) {
+    return inferGpuFlowVisibleFrameActorResourcePreparationLane(resourceKey);
   }
   if (resourceKey.startsWith("page:") || resourceKey.startsWith("source:")) {
     return "retained-page";
@@ -278,6 +284,7 @@ export function inferGpuFlowVisibleFrameResourcePriority(
     resourceKey.startsWith("dom-control:") ||
     resourceKey.startsWith("dom-control-snapshot:") ||
     resourceKey.startsWith("dom-island:") ||
+    resourceKey.startsWith("actor:") ||
     resourceKey.startsWith("page:") ||
     resourceKey.startsWith("source:") ||
     resourceKey.startsWith("texture:")
@@ -296,19 +303,20 @@ export function createGpuFlowVisibleFrameCandidateResourceEntry({
 }): GpuFlowVisibleFrameCandidateResourceEntry {
   const requiredResourceKeys =
     createGpuFlowVisibleFramePresentationRequiredResourceKeys(frame);
+  const actorResourceKeys =
+    createGpuFlowVisibleFrameCandidateActorResourceKeys(frame);
   return Object.freeze({
     activeEditorPins: Object.freeze(
       createGpuFlowVisibleFrameCandidateActiveEditorPins(
         browserVisualCandidate,
       ),
     ),
-    actorResourceKeys: Object.freeze(
-      createGpuFlowVisibleFrameCandidateActorResourceKeys(frame),
-    ),
+    actorResourceKeys: Object.freeze(actorResourceKeys),
     browserVisualCandidate,
     candidateResourceKeys: Object.freeze(
       uniqueStrings([
         ...requiredResourceKeys,
+        ...actorResourceKeys,
         ...createGpuFlowBrowserVisualCandidateResourceKeys(
           browserVisualCandidate,
         ),
@@ -563,6 +571,53 @@ function createGpuFlowVisibleFrameActorResourceKey({
   readonly family: string;
 }): string {
   return `actor:${family}:${actorId}`;
+}
+
+function inferGpuFlowVisibleFrameActorResourcePreparationLane(
+  resourceKey: string,
+): GpuFlowVisibleFrameResourcePreparationLane {
+  const family = parseGpuFlowVisibleFrameActorResourceFamily(resourceKey);
+  switch (family) {
+    case "active-editor":
+    case "browser-text-control":
+    case "browser-text-snapshot":
+      return "browser-visual";
+    case "debug-snapshot":
+    case "hit-generation":
+      return "debug-hit";
+    case "dom-island":
+      return "dom-island";
+    case "retained-native-visual":
+    case "retained-page":
+      return "retained-page";
+    case "section-body-clip":
+    case "section-header":
+    case "section-shell":
+      return "section-structure";
+    case "accessibility-exposure":
+    case "edges":
+    case "grid":
+    case "public-runtime-state":
+    case "scene-background":
+    case "viewport-portal":
+      return "presentation-state";
+    default:
+      throw new Error(
+        `GPU Flow visible frame actor resource has unsupported family "${family}".`,
+      );
+  }
+}
+
+function parseGpuFlowVisibleFrameActorResourceFamily(
+  resourceKey: string,
+): (typeof GPU_FLOW_PRESENTATION_ACTOR_FAMILIES)[number] | string {
+  const [, family] = resourceKey.split(":", 3);
+  if (!family) {
+    throw new Error(
+      `GPU Flow visible frame actor resource key is missing a family: ${resourceKey}.`,
+    );
+  }
+  return family;
 }
 
 function createGpuFlowVisibleFrameCandidateActiveEditorPins(
