@@ -206,9 +206,9 @@ export function describeGpuFlowDomControlHostReadiness({
     : null;
   const matches = createGpuFlowDomControlHostReadinessMatches(host, control);
   const elementConnected = Boolean(host?.element.isConnected);
-  // Geometry and clip revisions are applied by the commit-token projection;
+  // Geometry and clip revisions are applied by the presentation-token projection;
   // snapshot cache keys are texture-only; requiring either here would deadlock
-  // already-mounted live hosts before commit.
+  // already-mounted live hosts before presentation.
   const ready = isGpuFlowDomControlHostReadyForDescriptor({
     control,
     elementConnected,

@@ -140,7 +140,7 @@ describe("GPU flow DOM control projection runtime publication", () => {
     expect(emittedFrameIds).toEqual([1]);
   });
 
-  it("does not render preparation hosts again during visible commit", () => {
+  it("does not render preparation hosts again during visible presentation", () => {
     const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
     const control = domControl({ index: 0 });
     const viewportRuntime = createMockViewportRuntime([0, 0, 1]);

@@ -365,7 +365,7 @@ function publishGpuFlowColdStartShellFrame({
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly publishColdStartShellFrame: RenderGpuFlowSurfaceFrameInput["publishColdStartShellFrame"];
 }): void {
-  if (outcome.kind !== "commit") {
+  if (outcome.kind !== "present") {
     return;
   }
   publishColdStartShellFrame({
@@ -434,7 +434,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
   readonly visibleProjectionStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionStateRef"];
 }): GpuFlowBlockedSurfaceVisibleProjectionPublication | null {
   switch (outcome.kind) {
-    case "commit":
+    case "present":
       publishGpuFlowCommittedSurfaceVisibleProjectionState({
         callbacksRef,
         committedSurfaceFrame,
@@ -631,7 +631,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly outcome: Extract<
     GpuFlowVisiblePublicationOutcome,
-    { readonly kind: "commit" }
+    { readonly kind: "present" }
   >;
   readonly projectCommittedBrowserVisualActors: RenderGpuFlowSurfaceFrameInput["projectCommittedBrowserVisualActors"];
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
@@ -649,7 +649,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
 }): void {
   if (!selectedVisibleProjectionState) {
     throw new Error(
-      "GPU Flow visible publication commit requires selected visible projection state.",
+      "GPU Flow visible presentation requires selected visible projection state.",
     );
   }
   if (
@@ -657,7 +657,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
     !committedSurfaceFrame
   ) {
     throw new Error(
-      "GPU Flow content publication commit requires the prepared committed surface frame.",
+      "GPU Flow content presentation requires the prepared committed surface frame.",
     );
   }
   if (committedSurfaceFrame) {

@@ -505,7 +505,7 @@ describe("GPU Flow surface publication completion", () => {
         maintenance: false,
         motion: false,
       },
-      outcome: "commit",
+      outcome: "present",
     };
 
     presenter(
@@ -862,7 +862,7 @@ function committedPublicationTransaction({
       maintenance: false,
       motion: false,
     },
-    outcome: "commit",
+    outcome: "present",
   },
   selectedState,
   token,
@@ -898,7 +898,7 @@ function committedPublicationTransaction({
         maintenance: false,
         motion: false,
       },
-      kind: "commit",
+      kind: "present",
       token,
     },
     preparedFrame: {

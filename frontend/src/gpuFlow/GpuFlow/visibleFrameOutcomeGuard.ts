@@ -47,7 +47,7 @@ function getGpuFlowVisiblePublicationOutcomeTransactionId(
 ): string {
   switch (outcome.kind) {
     case "blocked":
-    case "commit":
+    case "present":
     case "hold-previous":
       return outcome.token.transactionId;
   }

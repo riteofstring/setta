@@ -357,7 +357,7 @@ describe("GPU Flow projection runtime", () => {
       motion: false,
     });
 
-    expect(completion.outcome).toBe("commit");
+    expect(completion.outcome).toBe("present");
     expect(completion.debt).toEqual({
       content: true,
       maintenance: true,
@@ -398,7 +398,7 @@ describe("GPU Flow projection runtime", () => {
     expect(() =>
       reducerRuntime.completeFrame(decision, {
         debtProof: createDebtProofForSelectedLane(decision),
-        kind: "commit",
+        kind: "present",
         token: createGpuFlowVisibleFramePresentationTokenForTest({
           frame: committedFrameForReducerToken(decision),
           projectionSample: liveSample(2),
@@ -420,7 +420,7 @@ describe("GPU Flow projection runtime", () => {
     expect(() =>
       reducerRuntime.completeFrame(decision, {
         debtProof: createDebtProofForSelectedLane(decision),
-        kind: "commit",
+        kind: "present",
         token: {
           projectionSampleId: decision.sample.id,
         } as unknown as GpuFlowVisibleFramePresentationToken,
@@ -1043,7 +1043,7 @@ function completeCommittedFrame(
 ) {
   return reducerRuntime.completeFrame(decision, {
     debtProof,
-    kind: "commit",
+    kind: "present",
     token: createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,

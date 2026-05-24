@@ -209,7 +209,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
     const payload = createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
       completion: {
         debt: { content: false, maintenance: true, motion: false },
-        outcome: "commit",
+        outcome: "present",
       },
       outcome: commitOutcome({
         debtProof: { content: true, maintenance: false, motion: false },
@@ -313,7 +313,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
           visibleRectCount: 2,
           zOrderCount: 3,
         },
-        outcome: "commit",
+        outcome: "present",
         previousCommittedFrameId: 6,
         remainingActorDebt: [
           {
@@ -349,7 +349,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         },
         visibleTransaction: {
           inputSampleId: 11,
-          outcome: "commit",
+          outcome: "present",
           presentableFrame: expect.objectContaining({
             presentationPairProof: expect.objectContaining({
               actorManifestDigest: expect.objectContaining({
@@ -444,7 +444,7 @@ function commitOutcome({
   };
   return {
     debtProof,
-    kind: "commit",
+    kind: "present",
     token: {
       committedFrameId: frame.displayFrameId,
       expectedActorSetDigest: "actors",

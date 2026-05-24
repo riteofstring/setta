@@ -804,7 +804,7 @@ function createGpuFlowVisibleFramePublicationTransactionCommitProof({
   }
   if (presentationEvidence === null) {
     throw new Error(
-      "GPU Flow visible publication commit proof requires DOM/canvas presentation evidence.",
+      "GPU Flow visible presentation proof requires DOM/canvas presentation evidence.",
     );
   }
   return createGpuFlowVisiblePublicationCommitProof({

@@ -87,7 +87,7 @@ function assertGpuFlowBlockedPublicationGuardOutcomeToken({
 }): void {
   const projectionSampleId = publicationDecision.sample.id;
   switch (outcome.kind) {
-    case "commit":
+    case "present":
       assertGpuFlowVisibleFramePresentationTokenForProjectionSample({
         projectionSampleId,
         token: outcome.token,

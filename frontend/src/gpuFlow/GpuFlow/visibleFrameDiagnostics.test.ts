@@ -511,7 +511,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         frame: null,
         publicationCompletion: {
           debt: { content: true, maintenance: false, motion: false },
-          outcome: "commit",
+          outcome: "present",
         },
         publicationDecision: {
           debt: { content: false, maintenance: false, motion: false },

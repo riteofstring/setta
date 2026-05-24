@@ -59,8 +59,8 @@ export function createGpuFlowVisibleFramePresentationTokenForTest({
     projectionSample,
   });
 
-  if (result.outcome.kind !== "commit") {
-    throw new Error("Expected GPU Flow test token coordinator to commit.");
+  if (result.outcome.kind !== "present") {
+    throw new Error("Expected GPU Flow test token coordinator to present.");
   }
   return result.outcome.token;
 }

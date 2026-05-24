@@ -169,9 +169,9 @@ describe("GPU Flow visible frame coordinator", () => {
     expect(phases).toEqual([
       "motion:content:viewport=false:defer=false",
       "content:no-motion:viewport=false:defer=false",
-      "publish:commit",
+      "publish:present",
     ]);
-    expect(result.outcome.kind).toBe("commit");
+    expect(result.outcome.kind).toBe("present");
     expect(result.preparedFrame.visibleFrameStateMachineOutcome?.kind).toBe(
       "presented",
     );
@@ -192,8 +192,8 @@ describe("GPU Flow visible frame coordinator", () => {
         debtProof: { content: true, maintenance: false, motion: false },
       }),
     );
-    if (result.outcome.kind !== "commit") {
-      throw new Error("Expected visible frame publication to commit.");
+    if (result.outcome.kind !== "present") {
+      throw new Error("Expected visible frame publication to present.");
     }
     expect(result.outcome.token).toEqual(
       expect.objectContaining({

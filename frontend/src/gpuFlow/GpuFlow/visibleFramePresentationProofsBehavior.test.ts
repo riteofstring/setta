@@ -691,7 +691,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       reducerRuntime: {
         completeFrame: () => ({
           debt: { content: true, maintenance: false, motion: true },
-          outcome: "commit",
+          outcome: "present",
         }),
         getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
         recordUncommittedFrame: () => {
@@ -745,7 +745,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     expect(completion.completeReducerFrame()).toEqual({
       completion: {
         debt: { content: true, maintenance: false, motion: true },
-        outcome: "commit",
+        outcome: "present",
       },
       debtFrameRequest: {
         delayMs: null,

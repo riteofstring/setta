@@ -327,7 +327,7 @@ function completeCommittedFrame(
       maintenance: decision.lane === "maintenance",
       motion: decision.lane === "motion",
     },
-    kind: "commit",
+    kind: "present",
     token: createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,
@@ -345,7 +345,7 @@ function completeCompatiblePreviousCommittedFrame(
       maintenance: false,
       motion: false,
     },
-    kind: "commit",
+    kind: "present",
     token: createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,

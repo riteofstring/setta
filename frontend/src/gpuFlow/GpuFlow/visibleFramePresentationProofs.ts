@@ -64,7 +64,7 @@ type GpuFlowVisibleFramePublicationReducerRuntime = {
     publicationDecision: GpuFlowVisiblePublicationDecision,
     outcome: Extract<
       GpuFlowVisiblePublicationOutcome,
-      { readonly kind: "commit" }
+      { readonly kind: "present" }
     >,
   ) => GpuFlowVisiblePublicationReducerFrameCompletion["completion"];
   readonly getKnobs: () => GpuFlowVisibleFrameReducerPolicy;
@@ -155,7 +155,7 @@ function createGpuFlowVisiblePublicationReducerFrameCompleter({
       return reducerFrameCompletion;
     }
     const completion =
-      outcome.kind === "commit"
+      outcome.kind === "present"
         ? reducerRuntime.completeFrame(publicationDecision, outcome)
         : reducerRuntime.recordUncommittedFrame(publicationDecision, outcome);
     reducerFrameCompletion = Object.freeze({
@@ -446,7 +446,7 @@ function createGpuFlowVisiblePublicationCompletionOutcome({
   switch (visibleFrameStateMachineOutcome.kind) {
     case "presented":
     case "projected":
-      return createGpuFlowVisiblePublicationCompletionCommitOutcome({
+      return createGpuFlowVisiblePublicationCompletionPresentOutcome({
         publicationDecision,
         transactionProof,
       });
@@ -573,27 +573,27 @@ function createGpuFlowVisiblePublicationCompletionAbortedStateMachineOutcome({
   });
 }
 
-function createGpuFlowVisiblePublicationCompletionCommitOutcome({
+function createGpuFlowVisiblePublicationCompletionPresentOutcome({
   publicationDecision,
   transactionProof,
 }: {
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
-}): Extract<GpuFlowVisiblePublicationOutcome, { readonly kind: "commit" }> {
+}): Extract<GpuFlowVisiblePublicationOutcome, { readonly kind: "present" }> {
   if (!transactionProof.renderedVisibleFrame) {
     throw new Error(
-      "GPU Flow visible publication completion cannot commit without a rendered state machine outcome.",
+      "GPU Flow visible publication completion cannot present without a rendered state machine outcome.",
     );
   }
   const visibleProjectionState = transactionProof.visibleProjectionState;
   if (visibleProjectionState === null) {
     throw new Error(
-      "GPU Flow visible publication completion cannot commit a rendered frame without visible projection state.",
+      "GPU Flow visible publication completion cannot present a rendered frame without visible projection state.",
     );
   }
   if (visibleProjectionState.transaction.kind === "held-previous") {
     throw new Error(
-      "GPU Flow visible publication completion cannot commit a held-previous state machine outcome.",
+      "GPU Flow visible publication completion cannot present a held-previous state machine outcome.",
     );
   }
   const commitProof = transactionProof.commitProof;
@@ -604,7 +604,7 @@ function createGpuFlowVisiblePublicationCompletionCommitOutcome({
   }
   return {
     debtProof: commitProof.debtProof,
-    kind: "commit",
+    kind: "present",
     token: createGpuFlowVisiblePublicationCompletionPresentationToken({
       commitAuthorityProof: commitProof.commitAuthorityProof,
       presentationIdentity:

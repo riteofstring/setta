@@ -87,9 +87,9 @@ export type GpuFlowVisiblePublicationCompletion = {
   readonly outcome: GpuFlowVisiblePublicationCompletionOutcome["kind"];
 };
 
-export type GpuFlowVisiblePublicationCommitCompletionOutcome = {
+export type GpuFlowVisiblePublicationPresentCompletionOutcome = {
   readonly debtProof: GpuFlowVisiblePublicationDebtProof;
-  readonly kind: "commit";
+  readonly kind: "present";
   readonly token: GpuFlowVisibleFramePresentationToken;
 };
 
@@ -104,13 +104,13 @@ export type GpuFlowVisiblePublicationUncommittedCompletionOutcome =
     };
 
 export type GpuFlowVisiblePublicationCompletionOutcome =
-  | GpuFlowVisiblePublicationCommitCompletionOutcome
+  | GpuFlowVisiblePublicationPresentCompletionOutcome
   | GpuFlowVisiblePublicationUncommittedCompletionOutcome;
 
 export type GpuFlowVisibleFrameReducerRuntime = {
   completeFrame(
     decision: GpuFlowVisiblePublicationDecision,
-    outcome: GpuFlowVisiblePublicationCommitCompletionOutcome,
+    outcome: GpuFlowVisiblePublicationPresentCompletionOutcome,
   ): GpuFlowVisiblePublicationCompletion;
   getKnobs(): GpuFlowVisibleFrameReducerPolicy;
   recordUncommittedFrame(

@@ -1079,7 +1079,7 @@ function completeCommittedFrame(
 ) {
   return reducerRuntime.completeFrame(decision, {
     debtProof: createDebtProofForSelectedLane(decision),
-    kind: "commit",
+    kind: "present",
     token: createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,
@@ -1097,7 +1097,7 @@ function completeCompatiblePreviousCommittedFrame(
       maintenance: false,
       motion: false,
     },
-    kind: "commit",
+    kind: "present",
     token: createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,

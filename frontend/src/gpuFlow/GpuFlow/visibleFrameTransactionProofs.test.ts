@@ -180,12 +180,19 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
   projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly publicationDecision: Pick<GpuFlowVisiblePublicationDecision, "sample">;
+  readonly publicationDecision: Pick<
+    GpuFlowVisiblePublicationDecision,
+    "sample"
+  >;
   readonly projectionTransactionKind?: GpuFlowProjectionTransactionKind;
   readonly projectionTransactionId?: string;
 }): GpuFlowVisiblePublicationPresentationEvidence {
   const projectionSampleId = publicationDecision.sample.id;
-  const evidenceInput = { committedFrame, projectionSampleId, projectionTransactionId };
+  const evidenceInput = {
+    committedFrame,
+    projectionSampleId,
+    projectionTransactionId,
+  };
   return Object.freeze({
     canvasGenerationEvidence:
       createGpuFlowVisiblePublicationCanvasPresentationEvidence(evidenceInput),
@@ -396,7 +403,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     });
   });
 
-  it("rejects blocked actor proofs as commit candidates", () => {
+  it("rejects blocked actor proofs as presentation candidates", () => {
     const sample = liveProjectionSample({ id: 50, timestamp: 500 });
     const actor = retainedDomControlActor();
 
@@ -406,7 +413,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
         publicationDecision: publicationDecision(sample),
       }),
     ).toThrow(
-      "GPU Flow visible publication proof cannot commit blocked actor proofs: control-a:compatible-previous:blocked.",
+      "GPU Flow visible publication proof cannot present blocked actor proofs: control-a:compatible-previous:blocked.",
     );
   });
 
@@ -422,11 +429,11 @@ describe("GPU Flow visible frame transaction proofs", () => {
         publicationDecision: publicationDecision(sample),
       }),
     ).toThrow(
-      "GPU Flow visible publication proof cannot commit blocked actor proofs: control-a:compatible-previous:active-editor-live.",
+      "GPU Flow visible publication proof cannot present blocked actor proofs: control-a:compatible-previous:active-editor-live.",
     );
   });
 
-  it("rejects over-budget compatible previous proofs as commit candidates", () => {
+  it("rejects over-budget compatible previous proofs as presentation candidates", () => {
     const sample = liveProjectionSample({ id: 52, timestamp: 520 });
     const actor = retainedDomControlActor({
       actualInteractionProof: "inactive-visual-only",
@@ -439,7 +446,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
         publicationDecision: publicationDecision(sample),
       }),
     ).toThrow(
-      "GPU Flow visible publication proof cannot commit blocked actor proofs: control-a:compatible-previous:inactive-visual-only.",
+      "GPU Flow visible publication proof cannot present blocked actor proofs: control-a:compatible-previous:inactive-visual-only.",
     );
   });
 
@@ -1176,13 +1183,26 @@ function createRetainedDomControlCompatiblePreviousProof({
   };
 }
 
-function rect() { return { height: 20, width: 100, x: 0, y: 0 }; }
-function publicationDecision(sample: GpuFlowLiveProjectionSample): GpuFlowVisiblePublicationDecision {
+function rect() {
+  return { height: 20, width: 100, x: 0, y: 0 };
+}
+function publicationDecision(
+  sample: GpuFlowLiveProjectionSample,
+): GpuFlowVisiblePublicationDecision {
   const debt = { content: true, maintenance: false, motion: false };
-  return { debt, lane: "content", rawReasons: ["manual"], sample, schedulerState: "idle" };
+  return {
+    debt,
+    lane: "content",
+    rawReasons: ["manual"],
+    sample,
+    schedulerState: "idle",
+  };
 }
 
-function liveProjectionSample(input: { readonly id: number; readonly timestamp: number }): GpuFlowLiveProjectionSample {
+function liveProjectionSample(input: {
+  readonly id: number;
+  readonly timestamp: number;
+}): GpuFlowLiveProjectionSample {
   return {
     cssViewport: { height: 600, width: 800 },
     devicePixelRatio: 1,

@@ -27,7 +27,7 @@ export type GpuFlowVisiblePublicationOutcome =
       readonly token: GpuFlowBlockedPublicationToken;
     }
   | {
-      readonly kind: "commit";
+      readonly kind: "present";
       readonly debtProof: GpuFlowVisiblePublicationCommitDebtProof;
       readonly token: GpuFlowVisibleFramePresentationToken;
     }
@@ -127,7 +127,7 @@ function getGpuFlowVisiblePublicationProjectionTransactionKind(
 function getGpuFlowVisiblePublicationOutcomeCommittedFrameId(
   outcome: GpuFlowVisiblePublicationOutcome,
 ): number | null {
-  if (outcome.kind !== "commit" && outcome.kind !== "hold-previous") {
+  if (outcome.kind !== "present" && outcome.kind !== "hold-previous") {
     return null;
   }
   return outcome.token.committedFrameId;
@@ -148,19 +148,20 @@ function createGpuFlowVisibleTransactionReport({
     typeof createGpuFlowVisiblePublicationOutcomeTokenPayload
   >;
 }) {
-  const commitToken = outcome.kind === "commit" ? outcome.token : null;
+  const presentationToken = outcome.kind === "present" ? outcome.token : null;
   return {
     inputSampleId: publicationDecision.sample.id,
     outcome: outcome.kind,
     presentableFrame:
-      commitToken === null
+      presentationToken === null
         ? null
         : {
-            expectedActorSetDigest: commitToken.expectedActorSetDigest,
-            presentationPairDigest: commitToken.presentationPairDigest,
-            presentationPairProof: commitToken.presentationPairProof,
-            proofDigest: commitToken.proofDigest,
-            resourceProtectionDigest: commitToken.resourceProtectionDigest,
+            expectedActorSetDigest: presentationToken.expectedActorSetDigest,
+            presentationPairDigest: presentationToken.presentationPairDigest,
+            presentationPairProof: presentationToken.presentationPairProof,
+            proofDigest: presentationToken.proofDigest,
+            resourceProtectionDigest:
+              presentationToken.resourceProtectionDigest,
           },
     presentationProof: selectGpuFlowVisiblePresentationProofReport({
       outcome,
@@ -170,7 +171,7 @@ function createGpuFlowVisibleTransactionReport({
     token,
     transactionId: getGpuFlowVisiblePublicationOutcomeTransactionId(outcome),
     visibleCommittedFrameId:
-      outcome.kind === "commit" || outcome.kind === "hold-previous"
+      outcome.kind === "present" || outcome.kind === "hold-previous"
         ? outcome.token.committedFrameId
         : null,
   };
@@ -183,19 +184,19 @@ function selectGpuFlowVisiblePresentationProofReport({
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly presentationProof: GpuFlowVisiblePublicationPresentationProofReport | null;
 }) {
-  if (outcome.kind !== "commit") {
+  if (outcome.kind !== "present") {
     return null;
   }
   if (presentationProof === null) {
     throw new Error(
-      "GPU Flow visible publication report requires transaction-proof DOM/canvas presentation proof evidence for commit outcomes.",
+      "GPU Flow visible publication report requires transaction-proof DOM/canvas presentation proof evidence for present outcomes.",
     );
   }
   if (
     presentationProof.projectionSampleId !== outcome.token.projectionSampleId
   ) {
     throw new Error(
-      "GPU Flow visible publication report requires presentation proof evidence for the committed outcome sample.",
+      "GPU Flow visible publication report requires presentation proof evidence for the presented outcome sample.",
     );
   }
   return presentationProof;
@@ -205,7 +206,7 @@ function getGpuFlowVisiblePublicationOutcomeTransactionId(
   outcome: GpuFlowVisiblePublicationOutcome,
 ): string {
   switch (outcome.kind) {
-    case "commit":
+    case "present":
     case "hold-previous":
     case "blocked":
       return outcome.token.transactionId;
@@ -216,7 +217,7 @@ function createGpuFlowVisiblePublicationOutcomeTokenPayload(
   outcome: GpuFlowVisiblePublicationOutcome,
 ) {
   switch (outcome.kind) {
-    case "commit":
+    case "present":
       return {
         committedFrameId: outcome.token.committedFrameId,
         expectedActorSetDigest: outcome.token.expectedActorSetDigest,

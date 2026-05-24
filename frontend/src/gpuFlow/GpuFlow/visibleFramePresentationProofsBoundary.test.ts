@@ -128,7 +128,9 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(coordinatorSource).not.toContain(
       "createGpuFlowVisibleFrameHoldPreviousTokenForProjectionState",
     );
-    expect(coordinatorSource).not.toContain("presentationToken");
+    expect(coordinatorSource).not.toContain(
+      "createGpuFlowVisibleFramePresentationToken",
+    );
     expect(source).not.toContain("createGpuFlowHeldPreviousProjection");
     expect(source).not.toContain(
       "createGpuFlowProjectionTransactionForCommittedFrameId",
@@ -728,7 +730,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(violations).toEqual([]);
   });
 
-  it("keeps browser visual projection out of prepared candidate commit", () => {
+  it("keeps browser visual projection out of prepared candidate presentation", () => {
     const source = readFileSync(BROWSER_VISUAL_RUNTIME_MODULE_PATH, "utf8");
     const commitMethodStart = source.indexOf(
       "commitPreparedBrowserVisualActors",
@@ -1132,7 +1134,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(completionPublisherStart).toBeGreaterThanOrEqual(0);
     expect(completionPublisherSource).toContain(
-      'if (outcome.kind !== "commit")',
+      'if (outcome.kind !== "present")',
     );
     expect(completionPublisherSource).toContain("frame: null");
     expect(completionPublisherSource).toContain("token: outcome.token");
