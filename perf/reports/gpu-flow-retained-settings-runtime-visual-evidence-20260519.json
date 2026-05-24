@@ -1,0 +1,1720 @@
+{
+  "evidence": [
+    {
+      "name": "before-motion",
+      "frameCount": 49,
+      "lastFrames": [
+        {
+          "frame": 42,
+          "frameMode": "content",
+          "frameReasons": [
+            "texture-upload",
+            "manual"
+          ],
+          "projectionLane": "content",
+          "retainedTransactionOutcome": "publish-exact",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 43,
+          "frameMode": "content",
+          "frameReasons": [
+            "texture-upload",
+            "manual"
+          ],
+          "projectionLane": "content",
+          "retainedTransactionOutcome": "publish-exact",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 44,
+          "frameMode": "content",
+          "frameReasons": [
+            "texture-upload",
+            "manual"
+          ],
+          "projectionLane": "content",
+          "retainedTransactionOutcome": "publish-exact",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 45,
+          "frameMode": "content",
+          "frameReasons": [
+            "texture-upload"
+          ],
+          "projectionLane": "maintenance",
+          "retainedTransactionOutcome": "publish-exact",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 46,
+          "frameMode": "content",
+          "frameReasons": [
+            "texture-upload"
+          ],
+          "projectionLane": "maintenance",
+          "retainedTransactionOutcome": "publish-exact",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 47,
+          "frameMode": "content",
+          "frameReasons": [
+            "manual"
+          ],
+          "projectionLane": "content",
+          "retainedTransactionOutcome": "publish-exact",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 48,
+          "frameMode": "content",
+          "frameReasons": [
+            "manual"
+          ],
+          "projectionLane": "content",
+          "retainedTransactionOutcome": "publish-exact",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 49,
+          "frameMode": "content",
+          "frameReasons": [
+            "manual"
+          ],
+          "projectionLane": "content",
+          "retainedTransactionOutcome": "publish-exact",
+          "retainedUploadCount": 0
+        }
+      ],
+      "retainedRowCount": 441,
+      "sampleRows": [
+        {
+          "controlKind": "text-like",
+          "label": "Advanced Search Shortcut",
+          "rect": {
+            "height": 24,
+            "width": 552,
+            "x": 324.5,
+            "y": 165.5256849315069
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Command Palette Shortcut",
+          "rect": {
+            "height": 24,
+            "width": 552,
+            "x": 324.5,
+            "y": 189.5256849315069
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Copy Shortcut",
+          "rect": {
+            "height": 24,
+            "width": 552,
+            "x": 324.5,
+            "y": 213.5256849315069
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Copy Tooltip Text Shortcut",
+          "rect": {
+            "height": 24.00000000000003,
+            "width": 552,
+            "x": 324.5,
+            "y": 237.5256849315069
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Decrement Tooltip Page Shortcut",
+          "rect": {
+            "height": 24,
+            "width": 552,
+            "x": 324.5,
+            "y": 261.52568493150693
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        }
+      ],
+      "surfaceRowCount": 12,
+      "transform": {
+        "x": 324.5,
+        "y": 68.5,
+        "zoom": 1
+      },
+      "viewport": {
+        "connectionStartHandlePresent": false,
+        "multiSelectionActive": false,
+        "nodeDragging": false,
+        "nodeResizing": false,
+        "nodesSelectionBounds": null,
+        "panScrolling": false,
+        "paneDragging": false,
+        "pointerPanning": false,
+        "retainedContentScrolling": false,
+        "selectionKeyPressed": false,
+        "transform": {
+          "x": 324.5,
+          "y": 68.5,
+          "zoom": 1
+        },
+        "userSelectionActive": false,
+        "userSelectionRect": null,
+        "viewportAnimating": false,
+        "viewportInteractionActive": false,
+        "wheelZooming": false
+      },
+      "visibleSurfaceRowCount": 12
+    },
+    {
+      "name": "during-zoom",
+      "frameCount": 12,
+      "lastFrames": [
+        {
+          "frame": 54,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 55,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 56,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 57,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 58,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 59,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 60,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 61,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        }
+      ],
+      "retainedRowCount": 441,
+      "sampleRows": [
+        {
+          "controlKind": "text-like",
+          "label": "Advanced Search Shortcut",
+          "rect": {
+            "height": 25.01917826018692,
+            "width": 575.4410999842992,
+            "x": 334.2034263521964,
+            "y": 147.58499170629165
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Command Palette Shortcut",
+          "rect": {
+            "height": 25.01917826018692,
+            "width": 575.4410999842992,
+            "x": 334.2034263521964,
+            "y": 172.60416996647857
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Copy Shortcut",
+          "rect": {
+            "height": 25.01917826018692,
+            "width": 575.4410999842992,
+            "x": 334.2034263521964,
+            "y": 197.62334822666548
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Copy Tooltip Text Shortcut",
+          "rect": {
+            "height": 25.01917826018692,
+            "width": 575.4410999842992,
+            "x": 334.2034263521964,
+            "y": 222.6425264868524
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Decrement Tooltip Page Shortcut",
+          "rect": {
+            "height": 25.019178260186948,
+            "width": 575.4410999842992,
+            "x": 334.2034263521964,
+            "y": 247.66170474703932
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        }
+      ],
+      "surfaceRowCount": 12,
+      "transform": {
+        "x": 334.2,
+        "y": 48,
+        "zoom": 1
+      },
+      "viewport": {
+        "connectionStartHandlePresent": false,
+        "multiSelectionActive": false,
+        "nodeDragging": false,
+        "nodeResizing": false,
+        "nodesSelectionBounds": null,
+        "panScrolling": false,
+        "paneDragging": false,
+        "pointerPanning": false,
+        "retainedContentScrolling": false,
+        "selectionKeyPressed": false,
+        "transform": {
+          "x": 334.2,
+          "y": 48,
+          "zoom": 1
+        },
+        "userSelectionActive": false,
+        "userSelectionRect": null,
+        "viewportAnimating": false,
+        "viewportInteractionActive": true,
+        "wheelZooming": true
+      },
+      "visibleSurfaceRowCount": 12
+    },
+    {
+      "name": "after-zoom",
+      "frameCount": 48,
+      "lastFrames": [
+        {
+          "frame": 90,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 91,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 92,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 93,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 94,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 95,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 96,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 97,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        }
+      ],
+      "retainedRowCount": 441,
+      "sampleRows": [
+        {
+          "controlKind": "text-like",
+          "label": "Advanced Search Shortcut",
+          "rect": {
+            "height": 28.343823874308768,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 89.06093426164156
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Command Palette Shortcut",
+          "rect": {
+            "height": 28.343823874308768,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 117.40475813595033
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Copy Shortcut",
+          "rect": {
+            "height": 28.343823874308754,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 145.7485820102591
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Copy Tooltip Text Shortcut",
+          "rect": {
+            "height": 28.343823874308782,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 174.09240588456785
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Decrement Tooltip Page Shortcut",
+          "rect": {
+            "height": 28.343823874308754,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 202.43622975887664
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 0
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        }
+      ],
+      "surfaceRowCount": 12,
+      "transform": {
+        "x": 365.9,
+        "y": -19,
+        "zoom": 1.2
+      },
+      "viewport": {
+        "connectionStartHandlePresent": false,
+        "multiSelectionActive": false,
+        "nodeDragging": false,
+        "nodeResizing": false,
+        "nodesSelectionBounds": null,
+        "panScrolling": false,
+        "paneDragging": false,
+        "pointerPanning": false,
+        "retainedContentScrolling": false,
+        "selectionKeyPressed": false,
+        "transform": {
+          "x": 365.9,
+          "y": -19,
+          "zoom": 1.2
+        },
+        "userSelectionActive": false,
+        "userSelectionRect": null,
+        "viewportAnimating": false,
+        "viewportInteractionActive": true,
+        "wheelZooming": true
+      },
+      "visibleSurfaceRowCount": 12
+    },
+    {
+      "name": "during-retained-scroll",
+      "frameCount": 55,
+      "lastFrames": [
+        {
+          "frame": 97,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 98,
+          "frameMode": "projection",
+          "frameReasons": [
+            "texture-upload",
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 99,
+          "frameMode": "content",
+          "frameReasons": [
+            "texture-upload"
+          ],
+          "projectionLane": "maintenance",
+          "retainedTransactionOutcome": "publish-exact",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 100,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 101,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 102,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 103,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 104,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        }
+      ],
+      "retainedRowCount": 441,
+      "sampleRows": [
+        {
+          "controlKind": "text-like",
+          "label": "Focus Overview Shortcut",
+          "rect": {
+            "height": 28.343823874308768,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 84.33696361592344
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 220
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Focus UI Editor Shortcut",
+          "rect": {
+            "height": 28.343823874308782,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 112.6807874902322
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 220
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Format Code",
+          "rect": {
+            "height": 28.343823874308754,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 141.024611364541
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 220
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Freeze Tooltip Shortcut",
+          "rect": {
+            "height": 28.343823874308754,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 169.36843523884974
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 220
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Frozen Tooltip Copy Shortcut",
+          "rect": {
+            "height": 28.343823874308754,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 197.7122591131585
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 220
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        }
+      ],
+      "surfaceRowCount": 12,
+      "transform": {
+        "x": 365.9,
+        "y": -19,
+        "zoom": 1.2
+      },
+      "viewport": {
+        "connectionStartHandlePresent": false,
+        "multiSelectionActive": false,
+        "nodeDragging": false,
+        "nodeResizing": false,
+        "nodesSelectionBounds": null,
+        "panScrolling": false,
+        "paneDragging": false,
+        "pointerPanning": false,
+        "retainedContentScrolling": true,
+        "selectionKeyPressed": false,
+        "transform": {
+          "x": 365.9,
+          "y": -19,
+          "zoom": 1.2
+        },
+        "userSelectionActive": false,
+        "userSelectionRect": null,
+        "viewportAnimating": false,
+        "viewportInteractionActive": true,
+        "wheelZooming": false
+      },
+      "visibleSurfaceRowCount": 12
+    },
+    {
+      "name": "after-retained-scroll",
+      "frameCount": 68,
+      "lastFrames": [
+        {
+          "frame": 110,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 111,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 112,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 113,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 114,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 115,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 116,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 117,
+          "frameMode": "projection",
+          "frameReasons": [
+            "retained-scroll"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        }
+      ],
+      "retainedRowCount": 441,
+      "sampleRows": [
+        {
+          "controlKind": "text-like",
+          "label": "Param Unindent Shortcut",
+          "rect": {
+            "height": 28.343823874308768,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 89.06093426164156
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 792
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Paste As Ref Shortcut",
+          "rect": {
+            "height": 28.343823874308768,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 117.40475813595033
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 792
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Paste Shortcut",
+          "rect": {
+            "height": 28.343823874308754,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 145.7485820102591
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 792
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Prev Top Level Section Shortcut",
+          "rect": {
+            "height": 28.343823874308782,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 174.09240588456785
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 792
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Redo Shortcut",
+          "rect": {
+            "height": 28.343823874308754,
+            "width": 651.9079491091015,
+            "x": 365.8568231366484,
+            "y": 202.43622975887664
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 792
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        }
+      ],
+      "surfaceRowCount": 12,
+      "transform": {
+        "x": 365.9,
+        "y": -19,
+        "zoom": 1.2
+      },
+      "viewport": {
+        "connectionStartHandlePresent": false,
+        "multiSelectionActive": false,
+        "nodeDragging": false,
+        "nodeResizing": false,
+        "nodesSelectionBounds": null,
+        "panScrolling": false,
+        "paneDragging": false,
+        "pointerPanning": false,
+        "retainedContentScrolling": true,
+        "selectionKeyPressed": false,
+        "transform": {
+          "x": 365.9,
+          "y": -19,
+          "zoom": 1.2
+        },
+        "userSelectionActive": false,
+        "userSelectionRect": null,
+        "viewportAnimating": false,
+        "viewportInteractionActive": true,
+        "wheelZooming": false
+      },
+      "visibleSurfaceRowCount": 12
+    },
+    {
+      "name": "after-settle",
+      "frameCount": 123,
+      "lastFrames": [
+        {
+          "frame": 165,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 166,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 167,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 168,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 169,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 170,
+          "frameMode": "projection",
+          "frameReasons": [
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 171,
+          "frameMode": "projection",
+          "frameReasons": [
+            "texture-upload",
+            "viewport"
+          ],
+          "projectionLane": "motion",
+          "retainedTransactionOutcome": "none",
+          "retainedUploadCount": 0
+        },
+        {
+          "frame": 172,
+          "frameMode": "content",
+          "frameReasons": [
+            "texture-upload"
+          ],
+          "projectionLane": "maintenance",
+          "retainedTransactionOutcome": "publish-exact",
+          "retainedUploadCount": 0
+        }
+      ],
+      "retainedRowCount": 441,
+      "sampleRows": [
+        {
+          "controlKind": "text-like",
+          "label": "Param Unindent Shortcut",
+          "rect": {
+            "height": 33.47384799240983,
+            "width": 769.8985038254264,
+            "x": 292.70987395756407,
+            "y": 55.7693132127944
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 792
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Paste As Ref Shortcut",
+          "rect": {
+            "height": 33.47384799240983,
+            "width": 769.8985038254264,
+            "x": 292.70987395756407,
+            "y": 89.24316120520423
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 792
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Paste Shortcut",
+          "rect": {
+            "height": 33.473847992409844,
+            "width": 769.8985038254264,
+            "x": 292.70987395756407,
+            "y": 122.71700919761406
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 792
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Prev Top Level Section Shortcut",
+          "rect": {
+            "height": 33.473847992409844,
+            "width": 769.8985038254264,
+            "x": 292.70987395756407,
+            "y": 156.1908571900239
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 792
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        },
+        {
+          "controlKind": "text-like",
+          "label": "Redo Shortcut",
+          "rect": {
+            "height": 33.473847992409816,
+            "width": 769.8985038254264,
+            "x": 292.70987395756407,
+            "y": 189.66470518243375
+          },
+          "scrollOffset": {
+            "x": 0,
+            "y": 792
+          },
+          "state": {
+            "controlFocused": false,
+            "disabled": false,
+            "domControlActivation": null,
+            "dragging": false,
+            "error": false,
+            "focused": false,
+            "hovered": false,
+            "nativeControlActive": false,
+            "nativeLabelActive": false,
+            "searchFocused": false,
+            "searchMatched": false,
+            "selected": false
+          }
+        }
+      ],
+      "surfaceRowCount": 12,
+      "transform": {
+        "x": 292.7,
+        "y": -65.3,
+        "zoom": 1.4
+      },
+      "viewport": {
+        "connectionStartHandlePresent": false,
+        "multiSelectionActive": false,
+        "nodeDragging": false,
+        "nodeResizing": false,
+        "nodesSelectionBounds": null,
+        "panScrolling": false,
+        "paneDragging": false,
+        "pointerPanning": false,
+        "retainedContentScrolling": false,
+        "selectionKeyPressed": false,
+        "transform": {
+          "x": 292.7,
+          "y": -65.3,
+          "zoom": 1.4
+        },
+        "userSelectionActive": false,
+        "userSelectionRect": null,
+        "viewportAnimating": false,
+        "viewportInteractionActive": false,
+        "wheelZooming": false
+      },
+      "visibleSurfaceRowCount": 12
+    }
+  ],
+  "gestures": {
+    "retainedHoverZoom": {
+      "count": 47,
+      "maxMs": 12.799999982118607,
+      "p95Ms": 11
+    },
+    "retainedScroll": {
+      "count": 16,
+      "maxMs": 12.900000005960464,
+      "p95Ms": 12.900000005960464
+    },
+    "viewportZoom": {
+      "count": 46,
+      "maxMs": 12.5,
+      "p95Ms": 10.900000005960464
+    }
+  },
+  "summary": {
+    "lastFrames": [
+      {
+        "frame": 161,
+        "frameMode": "projection",
+        "frameReasons": [
+          "viewport"
+        ],
+        "projectionLane": "motion",
+        "retainedTransactionOutcome": "none",
+        "retainedUploadCount": 0
+      },
+      {
+        "frame": 162,
+        "frameMode": "projection",
+        "frameReasons": [
+          "viewport"
+        ],
+        "projectionLane": "motion",
+        "retainedTransactionOutcome": "none",
+        "retainedUploadCount": 0
+      },
+      {
+        "frame": 163,
+        "frameMode": "projection",
+        "frameReasons": [
+          "viewport"
+        ],
+        "projectionLane": "motion",
+        "retainedTransactionOutcome": "none",
+        "retainedUploadCount": 0
+      },
+      {
+        "frame": 164,
+        "frameMode": "projection",
+        "frameReasons": [
+          "viewport"
+        ],
+        "projectionLane": "motion",
+        "retainedTransactionOutcome": "none",
+        "retainedUploadCount": 0
+      },
+      {
+        "frame": 165,
+        "frameMode": "projection",
+        "frameReasons": [
+          "viewport"
+        ],
+        "projectionLane": "motion",
+        "retainedTransactionOutcome": "none",
+        "retainedUploadCount": 0
+      },
+      {
+        "frame": 166,
+        "frameMode": "projection",
+        "frameReasons": [
+          "viewport"
+        ],
+        "projectionLane": "motion",
+        "retainedTransactionOutcome": "none",
+        "retainedUploadCount": 0
+      },
+      {
+        "frame": 167,
+        "frameMode": "projection",
+        "frameReasons": [
+          "viewport"
+        ],
+        "projectionLane": "motion",
+        "retainedTransactionOutcome": "none",
+        "retainedUploadCount": 0
+      },
+      {
+        "frame": 168,
+        "frameMode": "projection",
+        "frameReasons": [
+          "viewport"
+        ],
+        "projectionLane": "motion",
+        "retainedTransactionOutcome": "none",
+        "retainedUploadCount": 0
+      },
+      {
+        "frame": 169,
+        "frameMode": "projection",
+        "frameReasons": [
+          "viewport"
+        ],
+        "projectionLane": "motion",
+        "retainedTransactionOutcome": "none",
+        "retainedUploadCount": 0
+      },
+      {
+        "frame": 170,
+        "frameMode": "projection",
+        "frameReasons": [
+          "viewport"
+        ],
+        "projectionLane": "motion",
+        "retainedTransactionOutcome": "none",
+        "retainedUploadCount": 0
+      },
+      {
+        "frame": 171,
+        "frameMode": "projection",
+        "frameReasons": [
+          "texture-upload",
+          "viewport"
+        ],
+        "projectionLane": "motion",
+        "retainedTransactionOutcome": "none",
+        "retainedUploadCount": 0
+      },
+      {
+        "frame": 172,
+        "frameMode": "content",
+        "frameReasons": [
+          "texture-upload"
+        ],
+        "projectionLane": "maintenance",
+        "retainedTransactionOutcome": "publish-exact",
+        "retainedUploadCount": 0
+      }
+    ],
+    "probeFrameCount": 123,
+    "retainedRowCount": 441,
+    "surfaceRowCount": 12,
+    "transform": {
+      "x": 292.7,
+      "y": -65.3,
+      "zoom": 1.4
+    },
+    "url": "http://127.0.0.1:3019/settings"
+  },
+  "target": {
+    "point": {
+      "x": 770.0397515842914,
+      "y": 273.29578944464856
+    },
+    "rowCount": 12,
+    "visibleRowCount": 12,
+    "viewportPoint": {
+      "x": 96,
+      "y": 588
+    }
+  }
+}

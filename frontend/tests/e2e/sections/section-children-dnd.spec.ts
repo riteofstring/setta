@@ -4,7 +4,7 @@ import { ensureAppReady, postBackend } from "../helpers";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const HOME_URL = new URL("/home", BASE_URL).toString();
 const PROJECT_URL = resolveProjectUrl();
-const READY_SELECTOR = ".react-flow__pane";
+const READY_SELECTOR = ".setta-gpu-flow__pane";
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {
@@ -294,10 +294,7 @@ async function createNewProjectConfig(
   if (!projectConfigName) {
     throw new Error("Unable to resolve new project config name.");
   }
-  const projectConfigId = await resolveProjectConfigId(
-    page,
-    projectConfigName,
-  );
+  const projectConfigId = await resolveProjectConfigId(page, projectConfigName);
   return { projectConfigId, projectConfigName };
 }
 
@@ -317,7 +314,9 @@ async function resolveProjectConfigId(
     (entry) => entry.name === projectConfigName,
   );
   if (!match) {
-    throw new Error(`Unable to resolve project config id for ${projectConfigName}.`);
+    throw new Error(
+      `Unable to resolve project config id for ${projectConfigName}.`,
+    );
   }
   return match.id;
 }

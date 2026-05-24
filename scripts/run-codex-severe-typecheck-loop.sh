@@ -278,7 +278,7 @@ Rules:
 - Prefer owner-side fixes and regeneration.
 - Missing export/import diagnostics only count when the symbol survives emitted JS. Unbound names only count when the missing identifier survives emitted JS. Type-only churn is not a runtime bug.
 - Reuse authoritative generated or owner-defined types and helpers directly. Do not add local shadow types, ReturnType aliases for existing named types, type-only re-export shims, handwritten compatibility helpers, hard-coded generator inventories, or duplicated logic when an authoritative owner surface already exists.
-- Run focused verification plus ./gcf.sh and ./check_quality.sh before every commit.
+- Run focused verification plus ./gcf.sh and ./scripts/quality/check.sh before every commit.
 - Every non-stop iteration ends with a clean worktree and a commit whose message starts with codex-typefix:.
 EOF
 fi
@@ -303,7 +303,7 @@ Rules:
 - Prefer owner-side fixes and regeneration over local compatibility patches.
 - Reuse authoritative generated or owner-defined types and helpers directly. Do not add local shadow types, ReturnType aliases for existing named types, structural shadow types, type-only re-export shims, handwritten compatibility helpers, or hard-coded generator inventories when an owner surface already exists.
 - Do not hand-edit generated files.
-- Run focused verification for the bug you changed. Before any commit, run the relevant type checks for touched code, then run ./gcf.sh, then run ./check_quality.sh.
+- Run focused verification for the bug you changed. Before any commit, run the relevant type checks for touched code, then run ./gcf.sh, then run ./scripts/quality/check.sh.
 - If you make repo changes, end with a clean worktree and a commit message starting with codex-typefix:.
 - Do not declare the loop complete yourself. The loop stops when the refreshed shortlist is empty.
 - Do not ask for follow-up.

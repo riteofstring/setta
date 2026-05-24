@@ -140,7 +140,7 @@
     "completionGuardEnabled": false
   },
   "chatWindowing": {
-    "autoCreateInitialChat": true,
+    "autoCreateInitialChat": false,
     "restorePriorStateOnUnmaximize": true,
     "shortcuts": {
       "canvasToggle": "Shift + Esc",

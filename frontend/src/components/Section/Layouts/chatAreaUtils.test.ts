@@ -389,7 +389,6 @@ describe("chatAreaUtils history helpers", () => {
       ],
       "project-a",
       "section-1",
-      null,
     );
 
     expect(entries.map((entry) => entry.chatId)).toEqual(["chat-2", "chat-1"]);
@@ -398,7 +397,13 @@ describe("chatAreaUtils history helpers", () => {
   it("maps managed engine types to the correct run type", () => {
     expect(resolveManagedChatRunType("external_agent")).toBe("external_agent");
     expect(resolveManagedChatRunType("setta_llm")).toBe("llm_chat");
-    expect(resolveManagedChatRunType("browser_only")).toBeNull();
+    expect(
+      resolveManagedChatRunType(
+        "browser_only" as unknown as Parameters<
+          typeof resolveManagedChatRunType
+        >[0],
+      ),
+    ).toBeNull();
     expect(resolveManagedChatRunType(null)).toBeNull();
   });
 });

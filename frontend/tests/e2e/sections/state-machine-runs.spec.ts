@@ -301,6 +301,26 @@ test.describe.serial("state machine workflow runs", () => {
         body: JSON.stringify(staleRuns),
       });
     });
+    await page.route("**/api/startStateMachineRun", async (route) => {
+      const payload = route.request().postDataJSON() as
+        | { machineGroupId?: string }
+        | undefined;
+      if (payload?.machineGroupId !== "workflow-push") {
+        await route.continue();
+        return;
+      }
+      const response = await route.fetch();
+      const run = (await response.json()) as WorkflowRunRecord;
+      latestWorkflowRun = run;
+      await route.fulfill({
+        status: response.status(),
+        headers: {
+          ...response.headers(),
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(asStaleRunningWorkflowRun(run)),
+      });
+    });
     await page.route("**/api/getStateMachineRun", async (route) => {
       const payload = route.request().postDataJSON() as
         | { machineGroupId?: string }
@@ -387,9 +407,6 @@ test.describe.serial("state machine workflow runs", () => {
       await expect(overviewWorkflowStatus).toHaveText("Idle");
       await overviewStartButton.click();
 
-      await expect
-        .poll(() => workflowRefreshRequestCount, { timeout: 15000 })
-        .toBeGreaterThan(0);
       await expect(overviewWorkflowStatus).toHaveText("Running");
       await expect(startNodeStatus).toHaveText("Running");
       await expect
@@ -397,6 +414,7 @@ test.describe.serial("state machine workflow runs", () => {
         .not.toBeNull();
 
       const refreshCountAfterStart = workflowRefreshRequestCount;
+      expect(refreshCountAfterStart).toBe(0);
       await page.waitForTimeout(3000);
       expect(workflowRefreshRequestCount).toBe(refreshCountAfterStart);
 

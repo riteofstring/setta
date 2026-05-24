@@ -1,5 +1,13 @@
 import { defineConfig } from "@playwright/test";
 
+import {
+  resolveBrowserLaunchArgs,
+  resolveChromeExecutablePath,
+} from "./tests/e2e/browserLaunch";
+
+const chromeExecutablePath = resolveChromeExecutablePath();
+const browserLaunchArgs = resolveBrowserLaunchArgs();
+
 export default defineConfig({
   testDir: "./tests/e2e",
   workers: 1,
@@ -13,5 +21,9 @@ export default defineConfig({
     headless: true,
     viewport: { width: 1400, height: 900 },
     storageState: "./tests/e2e/.storageState.json",
+    launchOptions: {
+      ...(chromeExecutablePath ? { executablePath: chromeExecutablePath } : {}),
+      args: browserLaunchArgs,
+    },
   },
 });

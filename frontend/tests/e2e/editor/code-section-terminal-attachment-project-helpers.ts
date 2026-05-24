@@ -5,7 +5,7 @@ export const BASE_URL =
   process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 export const HOME_URL = new URL("/home", BASE_URL).toString();
 export const PROJECT_URL = resolveProjectUrl();
-export const READY_SELECTOR = ".react-flow__pane";
+export const READY_SELECTOR = ".setta-gpu-flow__pane";
 
 type ProjectMetadataEntry = { id: string; name: string };
 type ProjectMetadataResponse = {

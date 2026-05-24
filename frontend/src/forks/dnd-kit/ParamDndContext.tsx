@@ -16,7 +16,10 @@ import { useParamDndChildren } from "./paramDndChildren";
 import { useParamDndState } from "./paramDndState";
 import { useParamDndSensors } from "./useDNDSensors";
 
-function debugParamDnd(_message: string, _details?: Record<string, unknown>) {}
+function debugParamDnd(message: string, details?: Record<string, unknown>) {
+  void message;
+  void details;
+}
 
 export function ParamDndContext({ children }: { children: ReactNode }) {
   const { canEditStructure } = useShareCapabilities();

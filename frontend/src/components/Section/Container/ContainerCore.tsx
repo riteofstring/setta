@@ -6,8 +6,6 @@ import { useIsSectionUIActive } from "state/activeSectionUI";
 import { useProjectState } from "state/definitions";
 import { useShouldDisablePointerEvents } from "state/hooks/keyActivations";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { useIsScrollable } from "state/hooks/sectionSizes";
-import { NO_WHEEL_CLASS_NAME } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { ChangeOrientationButton } from "../Header/ChangeOrientationButton";
@@ -15,7 +13,7 @@ import { DeleteOrHideButton } from "../Header/DeleteOrHideButton";
 import { LockPositionButton } from "../Header/LockPositionButton";
 import MenuButton from "../Header/MenuButton/MenuButton";
 import { SectionTitle } from "../Header/SectionTitle";
-import { getOnSectionClick, getOutlineColor, useHasTempNested } from "./utils";
+import { getOnSectionClick, getOutlineColor } from "./utils";
 
 function _Container({
   isGroup,
@@ -27,9 +25,10 @@ function _Container({
   trueDragListeners,
   isEditingViewMode,
   isUserView,
+  sectionRefMode = "withNested",
   children,
 }) {
-  const refForPosition = useSectionRefAndInit(sectionId, "withNested");
+  const refForPosition = useSectionRefAndInit(sectionId, sectionRefMode);
 
   function totalRef(element: HTMLDivElement | null) {
     refForPosition.current = element;
@@ -77,26 +76,29 @@ function ContainerGroup({
   style,
   children,
 }) {
-  const hasNested = useHasTempNested(sectionId);
-  const { positionAndSizeLocked, isInOtherProjectConfigs, overflowMode, size } =
-    useProjectState((x) => {
-      const impl = getCurrEffectiveSectionImplOfType(
-        x,
-        sectionId,
-        SectionTypeEnum.Group,
-      );
-      return {
-        positionAndSizeLocked: impl.positionAndSizeLocked,
-        isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
-        overflowMode: impl.overflowMode ?? false,
-        size: impl.size,
-      };
-    }, shallow);
+  const {
+    hasNested,
+    positionAndSizeLocked,
+    isInOtherProjectConfigs,
+    overflowMode,
+    size,
+  } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplOfType(
+      x,
+      sectionId,
+      SectionTypeEnum.Group,
+    );
+    return {
+      hasNested: impl.children.length > 0,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
+      isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
+      overflowMode: impl.overflowMode ?? false,
+      size: impl.size,
+    };
+  }, shallow);
   const isActiveSection = useIsSectionUIActive(sectionId);
 
   const disablePointerEvents = useShouldDisablePointerEvents();
-  const { ref: overflowRef, isScrollable } = useIsScrollable();
-
   const outlineColor = getOutlineColor({
     isActiveSection,
     isInOtherProjectConfigs,
@@ -104,7 +106,7 @@ function ContainerGroup({
   const pointerSelectClassName =
     getPointerSelectClassName(disablePointerEvents);
   const groupStyle = getGroupStyle(style, overflowMode, size);
-  const contentClassName = getContentClassName(overflowMode, isScrollable);
+  const contentClassName = getContentClassName(overflowMode);
   const rootClassName = getGroupRootClassName(overflowMode, className);
   const outlineClassName = getGroupOutlineClassName(
     positionAndSizeLocked,
@@ -128,7 +130,7 @@ function ContainerGroup({
         isEditingViewMode={isEditingViewMode}
       />
 
-      <div className={contentClassName} ref={overflowRef}>
+      <div className={contentClassName}>
         <EmptyGroupDropHint hasNested={hasNested} />
         {children}
       </div>
@@ -161,13 +163,11 @@ function getGroupStyle(
   return groupStyle;
 }
 
-function getContentClassName(overflowMode: boolean, isScrollable: boolean) {
+function getContentClassName(overflowMode: boolean) {
   if (!overflowMode) {
     return "z-10";
   }
-  const className =
-    "z-10 mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-auto";
-  return isScrollable ? `${className} ${NO_WHEEL_CLASS_NAME}` : className;
+  return "z-10 mt-2 flex min-h-0 min-w-0 flex-1 flex-col";
 }
 
 function getGroupRootClassName(
