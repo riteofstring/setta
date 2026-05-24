@@ -399,6 +399,61 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     ).toThrow(/before resource dom-control:early-control is ready/);
   });
 
+  it("requires budgeted preparation and later owner readiness before ready", () => {
+    const registry = createGpuFlowVisibleFrameResourceGraph();
+    const frame = committedSurfaceFrame({
+      displayFrameId: 63,
+      exactSurfaceResourceHandles: [],
+      protectedResourceHandles: [],
+    });
+    const control = domControl({ sourceId: "repair-control" });
+
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: browserVisualCandidate({
+        blockedControlIds: ["repair-control"],
+        controls: [control],
+        frameId: frame.displayFrameId,
+        mountedControlIds: ["repair-control"],
+      }),
+      frame,
+    });
+    expect(registry.getSnapshot().resourceStates).toEqual([
+      resourceState("dom-control:repair-control", "requested", 63),
+    ]);
+
+    expect(
+      registry.advanceVisibleFrameResourceWork({
+        resourceKeys: ["dom-control:repair-control"],
+      }),
+    ).toEqual({
+      remainingQueuedResourceKeys: [],
+      transitions: [
+        resourceTransition(
+          "dom-control:repair-control",
+          "requested",
+          "preparing",
+          63,
+        ),
+      ],
+    });
+    expect(registry.getSnapshot().resourceStates).toEqual([
+      resourceState("dom-control:repair-control", "preparing", 63),
+    ]);
+
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: browserVisualCandidate({
+        controls: [control],
+        frameId: frame.displayFrameId,
+        mountedControlIds: ["repair-control"],
+      }),
+      frame,
+    });
+
+    expect(registry.getSnapshot().resourceStates).toEqual([
+      resourceState("dom-control:repair-control", "ready", 63),
+    ]);
+  });
+
   it("tracks explicit resource lifecycle debt from requested through retired", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
 

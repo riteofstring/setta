@@ -460,6 +460,84 @@ describe("GPU Flow visible frame coordinator", () => {
     expect(starvedObserved).toEqual([true, true]);
   });
 
+  it("starts budget-selected resource preparation before building frame candidates", () => {
+    const phases: string[] = [];
+
+    runGpuFlowVisibleFrameCoordinator({
+      budgetBroker: createGpuFlowVisibleFrameBudgetBroker({
+        policy: {
+          maxContinuityDebtAgeFrames: 2,
+          maxSafetyDebtAgeFrames: 1,
+          minPreparationBudgetDuringMotionMs: 0.5,
+          perFramePreparationBudgetMs: 0.5,
+          reservedMotionProjectionBudgetMs: 2,
+        },
+      }),
+      prepareContentPublicationFrame: () => {
+        phases.push("content");
+        return testPublicationCandidate();
+      },
+      prepareMotionProjectionFrame: () => {
+        phases.push("motion");
+        return {
+          frame: testPublicationCandidate(),
+          kind: "not-rendered" as const,
+        };
+      },
+      prepareVisibleFrameResourcesForBudget: (budgetDecision) => {
+        phases.push(
+          `resources:${budgetDecision.preparationBudget.selectedDebtIds.join(",")}`,
+        );
+      },
+      publish: (transaction) => {
+        phases.push(`publish:${transaction.outcome.kind}`);
+      },
+      sampleVisibleFramePublication: () =>
+        visibleFramePublicationSample({
+          sample: liveProjectionSample({ id: 59, timestamp: 590 }),
+          visibleFrameResourceGraphSnapshot: {
+            activeEditorPins: ["editor"],
+            candidateResourceKeys: ["dom-control:editor"],
+            committedFrameId: null,
+            committedResourceKeys: [],
+            pendingCandidateFrameIds: [88],
+            queuedResourceKeys: ["dom-control:editor"],
+            resourceDebtByState: {
+              absent: 0,
+              preparing: 0,
+              presented: 0,
+              ready: 0,
+              requested: 1,
+              retired: 0,
+            },
+            resourceStates: [
+              {
+                debtAgeFrames: 0,
+                deadlineFrame: 1,
+                estimatedCostMs: 0.5,
+                ownerFrameId: 88,
+                preparationLane: "browser-visual",
+                priority: "safety",
+                resourceKey: "dom-control:editor",
+                state: "requested",
+              },
+            ],
+          },
+        }),
+      scheduler: fixedPublicationScheduler({
+        lane: "content",
+        schedulerState: "content-catchup",
+      }),
+    });
+
+    expect(phases).toEqual([
+      "resources:dom-control:editor",
+      "motion",
+      "content",
+      "publish:blocked",
+    ]);
+  });
+
   it("uses one commit proof for compatible-previous proof reports and debt", () => {
     const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const publicationDecision = scheduler.selectFrame({
@@ -1173,6 +1251,7 @@ function visibleFramePublicationSample({
   runtimeViewportFrame = false,
   sample,
   timestamp = sample.timestamp,
+  visibleFrameResourceGraphSnapshot,
   viewportInteractionActive = false,
 }: VisibleFramePublicationSampleInput): GpuFlowVisibleFramePublicationSample {
   return {
@@ -1182,6 +1261,7 @@ function visibleFramePublicationSample({
     runtimeViewportFrame,
     sample,
     timestamp,
+    visibleFrameResourceGraphSnapshot,
     viewportInteractionActive,
   };
 }

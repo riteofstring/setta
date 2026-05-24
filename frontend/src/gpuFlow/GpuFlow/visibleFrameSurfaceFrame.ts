@@ -25,7 +25,10 @@ import { renderGpuFlowNodeLayerProjectionFrame } from "./flowProjectionFrame";
 import { shouldReuseGpuFlowDeferredRetainedContentPublicationFrame } from "./flowRetainedContentFrameCache";
 import { createGpuFlowRetainedRuntimeFrameSourceRenderSignature } from "./flowRetainedRuntimeFrameSignatures";
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
-import type { GpuFlowVisibleFrameBudgetBroker } from "./visibleFrameBudgetBroker";
+import type {
+  GpuFlowVisibleFrameBudgetBroker,
+  GpuFlowVisibleFrameBudgetBrokerDecision,
+} from "./visibleFrameBudgetBroker";
 import {
   createGpuFlowContentPublicationFrameResult,
   runGpuFlowVisibleFrameCoordinator,
@@ -117,6 +120,9 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   readonly prepareCommittedSurfaceFrame: NonNullable<
     GpuFlowNodeLayerFrameInput["onRetainedDisplayFrame"]
   >;
+  readonly prepareVisibleFrameResourcesForBudget: (
+    budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision,
+  ) => void;
   readonly projectCommittedBrowserVisualActors: (
     token: GpuFlowCommitPublicationToken,
     viewport?: GpuViewportInput | undefined,
@@ -202,6 +208,8 @@ export function renderGpuFlowSurfaceFrame({
       });
     runGpuFlowVisibleFrameCoordinator({
       budgetBroker: input.visibleFrameBudgetBrokerRef.current,
+      prepareVisibleFrameResourcesForBudget:
+        input.prepareVisibleFrameResourcesForBudget,
       prepareMotionProjectionFrame: ({
         motionProjectionWorkPlan,
         previousVisibleProjectionState,

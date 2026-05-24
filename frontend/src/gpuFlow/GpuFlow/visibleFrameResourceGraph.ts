@@ -67,14 +67,14 @@ type GpuFlowVisibleFrameCommittedSurfaceAbortResult = {
   readonly releasedCandidateResourceKeys: readonly string[];
 };
 
-type GpuFlowVisibleFrameResourceWorkTransition = {
+export type GpuFlowVisibleFrameResourceWorkTransition = {
   readonly fromState: GpuFlowVisibleFrameResourceStateKind;
   readonly ownerFrameId: number | null;
   readonly resourceKey: string;
   readonly toState: GpuFlowVisibleFrameResourceStateKind;
 };
 
-type GpuFlowVisibleFrameResourceWorkResult = {
+export type GpuFlowVisibleFrameResourceWorkResult = {
   readonly remainingQueuedResourceKeys: readonly string[];
   readonly transitions: readonly GpuFlowVisibleFrameResourceWorkTransition[];
 };
@@ -273,8 +273,10 @@ export class GpuFlowVisibleFrameResourceGraph {
 
   advanceVisibleFrameResourceWork({
     maxTransitions = Number.POSITIVE_INFINITY,
+    resourceKeys,
   }: {
     readonly maxTransitions?: number | undefined;
+    readonly resourceKeys?: readonly string[] | undefined;
   } = {}): GpuFlowVisibleFrameResourceWorkResult {
     if (!Number.isFinite(maxTransitions) && maxTransitions !== Infinity) {
       throw new Error(
@@ -285,13 +287,12 @@ export class GpuFlowVisibleFrameResourceGraph {
       return this.createVisibleFrameResourceWorkResult([]);
     }
     const transitions: GpuFlowVisibleFrameResourceWorkTransition[] = [];
-    const batchSize = Math.min(maxTransitions, this.queuedResourceKeys.length);
-    for (let index = 0; index < batchSize; index += 1) {
-      const resourceKey = this.queuedResourceKeys.shift();
-      if (resourceKey === undefined) {
-        break;
-      }
-      this.queuedResourceKeySet.delete(resourceKey);
+    const resourceWorkKeys =
+      resourceKeys === undefined
+        ? this.shiftQueuedVisibleFrameResourceWorkKeys(maxTransitions)
+        : resourceKeys.slice(0, maxTransitions);
+    for (const resourceKey of resourceWorkKeys) {
+      this.dequeueVisibleFrameResourceWork(resourceKey);
       const transition = this.advanceQueuedVisibleFrameResource(resourceKey);
       if (transition !== null) {
         transitions.push(transition);
@@ -502,6 +503,10 @@ export class GpuFlowVisibleFrameResourceGraph {
       return;
     }
     if (currentState === "requested" || currentState === "preparing") {
+      if (request.readinessState === "ready") {
+        this.markCandidateResourceReadyFromOwner({ request });
+        return;
+      }
       this.enqueueVisibleFrameResourceWork(resourceKey);
       return;
     }
@@ -512,6 +517,19 @@ export class GpuFlowVisibleFrameResourceGraph {
       return;
     }
     this.enqueueVisibleFrameResourceWork(resourceKey);
+  }
+
+  private markCandidateResourceReadyFromOwner({
+    request,
+  }: {
+    readonly request: GpuFlowVisibleFrameCandidateResourceRequest;
+  }): void {
+    const currentState = this.resourceStateByKey.get(request.resourceKey)?.state;
+    if (currentState === "requested") {
+      this.markVisibleFrameResourcePreparing(request);
+    }
+    this.markVisibleFrameResourceReady(request);
+    this.dequeueVisibleFrameResourceWork(request.resourceKey);
   }
 
   private advanceQueuedVisibleFrameResource(
@@ -552,6 +570,26 @@ export class GpuFlowVisibleFrameResourceGraph {
     }
     this.queuedResourceKeySet.add(resourceKey);
     this.queuedResourceKeys.push(resourceKey);
+  }
+
+  private dequeueVisibleFrameResourceWork(resourceKey: string): void {
+    if (!this.queuedResourceKeySet.delete(resourceKey)) {
+      return;
+    }
+    this.queuedResourceKeys = this.queuedResourceKeys.filter(
+      (queuedResourceKey) => queuedResourceKey !== resourceKey,
+    );
+  }
+
+  private shiftQueuedVisibleFrameResourceWorkKeys(
+    maxTransitions: number,
+  ): readonly string[] {
+    const batchSize = Math.min(maxTransitions, this.queuedResourceKeys.length);
+    const resourceKeys = this.queuedResourceKeys.splice(0, batchSize);
+    for (const resourceKey of resourceKeys) {
+      this.queuedResourceKeySet.delete(resourceKey);
+    }
+    return Object.freeze(resourceKeys);
   }
 
   private createVisibleFrameResourceWorkResult(

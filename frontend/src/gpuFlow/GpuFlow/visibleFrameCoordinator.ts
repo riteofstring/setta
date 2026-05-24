@@ -182,6 +182,10 @@ type GpuFlowVisibleFramePublicationPublisher<
   PreparedFrame extends GpuFlowVisibleFramePublicationPreparedFrame,
 > = (transaction: GpuFlowVisibleFrameCoordinatorResult<PreparedFrame>) => void;
 
+type GpuFlowVisibleFrameResourceBudgetPreparer = (
+  budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision,
+) => void;
+
 type GpuFlowVisibleFrameCoordinatorInput<
   ContentPublicationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
@@ -192,6 +196,9 @@ type GpuFlowVisibleFrameCoordinatorInput<
     MotionProjectionFrame
   >;
   readonly prepareMotionProjectionFrame: GpuFlowVisibleFramePublicationMotionFramePreparer<MotionProjectionFrame>;
+  readonly prepareVisibleFrameResourcesForBudget?:
+    | GpuFlowVisibleFrameResourceBudgetPreparer
+    | undefined;
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly publish: GpuFlowVisibleFramePublicationPublisher<
     GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
@@ -219,6 +226,7 @@ export function runGpuFlowVisibleFrameCoordinator<
 >({
   prepareContentPublicationFrame,
   prepareMotionProjectionFrame,
+  prepareVisibleFrameResourcesForBudget,
   budgetBroker,
   publish,
   sampleVisibleFramePublication,
@@ -239,6 +247,7 @@ export function runGpuFlowVisibleFrameCoordinator<
     budgetBroker,
     prepareContentPublicationFrame,
     prepareMotionProjectionFrame,
+    prepareVisibleFrameResourcesForBudget,
     sampledPublication,
     scheduler,
   });
@@ -264,6 +273,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   budgetBroker,
   prepareContentPublicationFrame,
   prepareMotionProjectionFrame,
+  prepareVisibleFrameResourcesForBudget,
   sampledPublication,
   scheduler,
 }: {
@@ -273,6 +283,9 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     MotionProjectionFrame
   >;
   readonly prepareMotionProjectionFrame: GpuFlowVisibleFramePublicationMotionFramePreparer<MotionProjectionFrame>;
+  readonly prepareVisibleFrameResourcesForBudget?:
+    | GpuFlowVisibleFrameResourceBudgetPreparer
+    | undefined;
   readonly sampledPublication: GpuFlowVisibleFramePublicationSample;
   readonly scheduler: GpuFlowVisiblePublicationScheduler;
 }): GpuFlowVisibleFrameReducedPublicationTransaction<
@@ -308,6 +321,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
       visibleFrameResourceGraphSnapshot,
       viewportInteractionActive,
     });
+  prepareVisibleFrameResourcesForBudget?.(publicationFrameContext.budgetDecision);
   const candidateSet = prepareGpuFlowVisibleFramePublicationCandidateSet({
     prepareContentPublicationFrame,
     prepareMotionProjectionFrame,

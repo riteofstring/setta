@@ -17,6 +17,7 @@ import {
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
+import type { GpuFlowVisibleFrameBudgetBrokerDecision } from "./visibleFrameBudgetBroker";
 import { createGpuFlowVisibleFrameResourceGraph } from "./visibleFrameResourceGraph";
 
 export function useGpuFlowCommittedSurfaceFrameState({
@@ -179,6 +180,13 @@ export function useGpuFlowCommittedSurfaceFrameState({
     () => visibleFrameResourceGraphRef.current.getSnapshot(),
     [],
   );
+  const prepareVisibleFrameResourcesForBudget = useCallback(
+    (budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision) =>
+      visibleFrameResourceGraphRef.current.advanceVisibleFrameResourceWork({
+        resourceKeys: budgetDecision.preparationBudget.selectedDebtIds,
+      }),
+    [],
+  );
 
   return {
     abortPreparedCommittedSurfaceFrame,
@@ -187,6 +195,7 @@ export function useGpuFlowCommittedSurfaceFrameState({
     committedSurfaceRuntime: committedSurfaceRuntimeRef.current,
     getVisibleFrameResourceGraphSnapshot,
     prepareCommittedSurfaceFrame,
+    prepareVisibleFrameResourcesForBudget,
     projectCommittedBrowserVisualActors,
     visibleCommittedSurfaceFrame,
   };

@@ -270,6 +270,7 @@ export function GpuFlow({
     committedSurfaceRuntime,
     getVisibleFrameResourceGraphSnapshot,
     prepareCommittedSurfaceFrame,
+    prepareVisibleFrameResourcesForBudget,
     projectCommittedBrowserVisualActors,
     visibleCommittedSurfaceFrame,
   } = useGpuFlowCommittedSurfaceFrameState({
@@ -912,6 +913,7 @@ export function GpuFlow({
         nodeInteractionRef,
         nodeLayerRef,
         prepareCommittedSurfaceFrame,
+        prepareVisibleFrameResourcesForBudget,
         projectCommittedBrowserVisualActors,
         publishColdStartShellFrame,
         retainedContentFrameCacheRef,
@@ -946,6 +948,7 @@ export function GpuFlow({
       initialRetainedRuntimeFrame,
       getVisibleFrameResourceGraphSnapshot,
       prepareCommittedSurfaceFrame,
+      prepareVisibleFrameResourcesForBudget,
       projectCommittedBrowserVisualActors,
       publishColdStartShellFrame,
       retainedContentSwitchAnimations,
