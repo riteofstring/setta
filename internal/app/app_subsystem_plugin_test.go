@@ -519,24 +519,6 @@ func enableAppSubsystemPluginForTest(t *testing.T, cfg config.Config) {
 	writeEnabledAppPluginState(t, cfg, firstpartyplugin.AppSubsystemPluginID)
 }
 
-func installAppRepoPluginAsID(
-	t *testing.T,
-	cfg config.Config,
-	sourcePluginID string,
-	targetPluginID string,
-) {
-	t.Helper()
-
-	repoRoot := appTestRepoRoot(t)
-	sourceRoot := filepath.Join(repoRoot, "plugins", sourcePluginID)
-	targetRoot := filepath.Join(cfg.Paths.WorkspaceRoot, ".setta_plugins", targetPluginID)
-	copyAppTestDir(t, sourceRoot, targetRoot)
-	rewriteAppPluginManifest(t, targetRoot, func(payload map[string]any) {
-		payload["id"] = targetPluginID
-	})
-	materializeAppRuntimeManagedPluginFrontendAssets(t, targetRoot)
-}
-
 func installAppFixturePlugin(t *testing.T, cfg config.Config, fixtureName string) {
 	t.Helper()
 

@@ -19,6 +19,7 @@ function openContextMenu(
   }
   e.preventDefault();
   const val = { isOpen: true, x: e.clientX, y: e.clientY, ...props };
+  useContextMenus.getState().reset();
   useContextMenus.setState((state) => ({ [name]: { ...state[name], ...val } }));
 }
 

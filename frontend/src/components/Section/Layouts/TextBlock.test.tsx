@@ -1,6 +1,13 @@
+/* @vitest-environment jsdom */
+
 import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+} from "utils/constants";
 import {
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
@@ -9,8 +16,24 @@ import {
   createTextBlockSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CodeBlock, TextBlock } from "./TextBlock";
+
+const mocked = vi.hoisted(() => ({
+  isScrollable: false,
+}));
+
+vi.mock("state/hooks/sectionSizes", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("state/hooks/sectionSizes")>();
+  return {
+    ...actual,
+    useIsScrollable: () => ({
+      ref: { current: null },
+      isScrollable: mocked.isScrollable,
+    }),
+  };
+});
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -77,6 +100,7 @@ function seedTextBlockSection({
 describe("TextBlock typography scale", () => {
   beforeEach(() => {
     resetProjectStores();
+    mocked.isScrollable = false;
   });
 
   afterEach(() => {
@@ -128,5 +152,41 @@ describe("TextBlock typography scale", () => {
     expect(blockMarkup).toContain('data-setta-code-block="true"');
     expect(blockMarkup).toContain("extra-class");
     expect(blockMarkup).not.toContain("language-ts");
+  });
+
+  it("marks rendered text surfaces as stable GPU flow interactive regions", () => {
+    const sectionId = seedTextBlockSection({
+      format: TextBlockFormatEnum.Markdown,
+      text: "# Heading\n\nBody",
+      masterFontSizePx: 18,
+    });
+    const markup = renderToStaticMarkup(<TextBlock sectionId={sectionId} />);
+    const container = document.createElement("div");
+    container.innerHTML = markup;
+    const surface = container.querySelector(
+      `[data-gpu-flow-control="text-block:render:${sectionId}"]`,
+    );
+
+    expect(surface?.getAttribute("data-gpu-flow-interactive")).toBe("true");
+    expect(surface?.classList.contains(NO_DRAG_CLASS_NAME)).toBe(true);
+    expect(surface?.classList.contains(NO_PAN_CLASS_NAME)).toBe(true);
+  });
+
+  it("marks scrollable rendered text surfaces as native wheel handoff targets", () => {
+    mocked.isScrollable = true;
+    const sectionId = seedTextBlockSection({
+      format: TextBlockFormatEnum.Plaintext,
+      text: "plain output",
+      masterFontSizePx: 18,
+    });
+    const markup = renderToStaticMarkup(<TextBlock sectionId={sectionId} />);
+    const container = document.createElement("div");
+    container.innerHTML = markup;
+    const surface = container.querySelector(
+      `[data-gpu-flow-control="text-block:render:${sectionId}"]`,
+    );
+
+    expect(surface?.classList.contains(NO_WHEEL_CLASS_NAME)).toBe(true);
+    expect(surface?.getAttribute("data-gpu-flow-wheel-target")).toBe("true");
   });
 });

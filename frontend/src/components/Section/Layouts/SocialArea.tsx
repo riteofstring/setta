@@ -14,7 +14,17 @@ import {
   useYouTubeSectionSize,
 } from "state/hooks/sectionSizes";
 import { linkIsTwitter, linkIsYouTube } from "state/hooks/social";
+import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
+  NO_WHEEL_CLASS_NAME,
+  SETTA_PREVENT_SECTION_ACTIVE_CSS,
+} from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
+
+const SOCIAL_GPU_CONTROL_PREFIX = "social";
+const SOCIAL_GPU_GUARD_CLASS_NAME = `${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
+const SOCIAL_GPU_WHEEL_GUARD_CLASS_NAME = `${SOCIAL_GPU_GUARD_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`;
 
 function _SocialArea({ sectionId }) {
   const url = useProjectState((p) => {
@@ -50,17 +60,24 @@ function YoutubeEmbed({ sectionId, url }) {
 
   return (
     <div
-      className={`section-w-full section-row-left-bottom flex ${pointerCSS}`}
+      className={`${SOCIAL_GPU_WHEEL_GUARD_CLASS_NAME} section-w-full section-row-left-bottom flex ${pointerCSS}`}
+      data-gpu-flow-control={`${SOCIAL_GPU_CONTROL_PREFIX}:youtube:${sectionId}`}
+      data-gpu-flow-interactive="true"
+      data-gpu-flow-wheel-target="true"
     >
       {!showVideo ? (
         <div
-          className="relative w-full cursor-pointer"
+          className={`${SOCIAL_GPU_GUARD_CLASS_NAME} relative w-full cursor-pointer`}
+          data-gpu-flow-control={`${SOCIAL_GPU_CONTROL_PREFIX}:youtube-thumbnail:${sectionId}`}
+          data-gpu-flow-interactive="true"
           onClick={handleThumbnailClick}
         >
           <img
             src={thumbnailUrl}
             alt="YouTube video thumbnail"
-            className="h-full w-full object-cover"
+            className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} h-full w-full object-cover`}
+            data-gpu-flow-control={`${SOCIAL_GPU_CONTROL_PREFIX}:youtube-thumbnail-image:${sectionId}`}
+            data-gpu-flow-interactive="true"
           />
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             {/* <svg
@@ -89,7 +106,10 @@ function TwitterEmbed({ sectionId, url }) {
     id && (
       <div
         data-theme={darkMode ? "dark" : "light"} // needed by react-tweet
-        className="section-key-value section-row-main flex items-start justify-center overflow-auto [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:h-full [&_.twitter-tweet]:w-full [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-none [&_.twitter-tweet]:pt-2 [&_div:has(.twitter-tweet)]:contents"
+        className={`${SOCIAL_GPU_WHEEL_GUARD_CLASS_NAME} section-key-value section-row-main flex items-start justify-center overflow-auto [&>div]:contents [&_.twitter-tweet]:!m-0 [&_.twitter-tweet]:h-full [&_.twitter-tweet]:w-full [&_.twitter-tweet]:overflow-hidden [&_.twitter-tweet]:rounded-xl [&_.twitter-tweet]:border [&_.twitter-tweet]:border-none [&_.twitter-tweet]:pt-2 [&_div:has(.twitter-tweet)]:contents`}
+        data-gpu-flow-control={`${SOCIAL_GPU_CONTROL_PREFIX}:twitter:${sectionId}`}
+        data-gpu-flow-interactive="true"
+        data-gpu-flow-wheel-target="true"
       >
         <Tweet id={id} />
       </div>
