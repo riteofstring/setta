@@ -30,6 +30,8 @@ const READY_SELECTOR = ".setta-gpu-flow__pane";
 const GUI_SECTION_ID = "settings-section__gui";
 const GUI_CONTENT_SURFACE_ID = `${GUI_SECTION_ID}:param-content:unpinned`;
 const LEFT_PANE_SHIFT_LABEL = "Left Side Pane Shifts Map";
+const BUNDLE_SWITCH_LABEL = LEFT_PANE_SHIFT_LABEL;
+const BUNDLE_SWITCH_SETTING_KEY = "leftSidePaneShiftsMap";
 const SWITCH_ANIMATION_LABEL = LEFT_PANE_SHIFT_LABEL;
 const SWITCH_ANIMATION_SETTING_KEY = "leftSidePaneShiftsMap";
 const SWITCH_ANIMATION_CLIP_HEIGHT = 88;
@@ -72,6 +74,280 @@ type ScrollFrame = {
 };
 
 type GuiSettingKey = "leftSidePaneShiftsMap" | "panOnScroll";
+
+test("retained gui hover switch and scroll stay visually coherent", async ({
+  page,
+}, testInfo) => {
+  await openSettings(page);
+  await resetGuiContentScrollToTop(page);
+  const hoverRow = await resolveVisibleGuiRow(page, "Max Zoom");
+  await moveAwayFromRetainedRows(page);
+  await waitForGuiRowHoverState(page, GUI_CONTENT_SURFACE_ID, null);
+  const hoverClip = rowsToClip([hoverRow]);
+  await waitForStableScreenshotClip(page, hoverClip);
+  const beforeHover = await screenshotClip({
+    name: "visual-bundle-before-hover.png",
+    page,
+    rect: hoverClip,
+    testInfo,
+  });
+
+  await page.mouse.move(
+    hoverRow.labelClientPoint.x,
+    hoverRow.labelClientPoint.y,
+    { steps: 4 },
+  );
+  await waitForGuiRowHoverState(
+    page,
+    GUI_CONTENT_SURFACE_ID,
+    hoverRow.rowLabel,
+  );
+  await waitForAnimationFrame(page);
+  await waitForAnimationFrame(page);
+  const afterHover = await screenshotClip({
+    name: "visual-bundle-after-hover.png",
+    page,
+    rect: hoverClip,
+    testInfo,
+  });
+  const hoverStats = await analyzeHoverBands(page, {
+    after: afterHover,
+    before: beforeHover,
+    clip: hoverClip,
+    rows: [{ label: hoverRow.rowLabel, rect: hoverRow.clientRect }],
+  });
+
+  const switchRow = await resolveVisibleGuiRow(page, BUNDLE_SWITCH_LABEL);
+  if (!switchRow.controlClientPoint) {
+    throw new Error(`Missing switch control point for ${BUNDLE_SWITCH_LABEL}`);
+  }
+  if (!switchRow.controlClientRect) {
+    throw new Error(`Missing switch control rect for ${BUNDLE_SWITCH_LABEL}`);
+  }
+  const switchClip = await resolveSwitchClipFromControlRect(
+    page,
+    switchRow.controlClientRect,
+  );
+  const beforeSwitch = await screenshotClip({
+    name: "visual-bundle-before-switch.png",
+    page,
+    rect: switchClip,
+    testInfo,
+  });
+  const switchInitialChecked = Boolean(
+    await readGuiSetting(page, BUNDLE_SWITCH_SETTING_KEY),
+  );
+  const switchClickPoint = await resolveVisibleGuiRowSwitchInteractionPoint(
+    page,
+    switchRow,
+  );
+  if (!switchClickPoint) {
+    throw new Error(`Missing switch click point for ${BUNDLE_SWITCH_LABEL}`);
+  }
+  await page.mouse.click(switchClickPoint.x, switchClickPoint.y);
+  await expect
+    .poll(async () =>
+      Boolean(await readGuiSetting(page, BUNDLE_SWITCH_SETTING_KEY)),
+    )
+    .toBe(!switchInitialChecked);
+  await expect
+    .poll(
+      async () => {
+        await waitForAnimationFrame(page);
+        const current = await page.screenshot({ clip: switchClip });
+        return (await compareScreenshots(page, beforeSwitch, current))
+          .meanDelta;
+      },
+      {
+        intervals: [80, 120, 180, 240, 320],
+        timeout: 2_000,
+      },
+    )
+    .toBeGreaterThan(0.4);
+  const afterSwitch = await screenshotClip({
+    name: "visual-bundle-after-switch.png",
+    page,
+    rect: switchClip,
+    testInfo,
+  });
+  const switchDelta = await compareScreenshots(page, beforeSwitch, afterSwitch);
+
+  const scrollRow = await resolveVisibleGuiRow(page, "Grid Pattern Size");
+  await page.mouse.move(
+    scrollRow.labelClientPoint.x,
+    scrollRow.labelClientPoint.y,
+  );
+  const surfaceClip = await resolveVisibleGuiSurfaceClip(page);
+  const contentClip = clampScreenshotClip({
+    height: surfaceClip.height,
+    width: Math.max(160, surfaceClip.width - 36),
+    x: surfaceClip.x,
+    y: surfaceClip.y,
+  });
+  const firstScrollFrame = await captureScrollContentFrame({
+    name: "bundle-scroll-initial",
+    page,
+    rect: contentClip,
+    testInfo,
+  });
+  for (let index = 0; index < 4; index += 1) {
+    await page.mouse.wheel(0, 48);
+    await page.waitForTimeout(18);
+  }
+  const finalScrollFrame = await captureScrollContentFrame({
+    name: "bundle-scroll-final",
+    page,
+    rect: contentClip,
+    testInfo,
+  });
+  const forwardTravel = finalScrollFrame.marker - firstScrollFrame.marker;
+  const failureDetails = JSON.stringify(
+    {
+      finalScrollFrame: {
+        marker: finalScrollFrame.marker,
+        visibleRows: finalScrollFrame.visibleRows,
+      },
+      firstScrollFrame: {
+        marker: firstScrollFrame.marker,
+        visibleRows: firstScrollFrame.visibleRows,
+      },
+      forwardTravel,
+      hoverStats,
+      switchDelta,
+    },
+    null,
+    2,
+  );
+  expect(hoverStats[0]?.changedPixelRatio ?? 0, failureDetails).toBeGreaterThan(
+    0.08,
+  );
+  expect(switchDelta.meanDelta, failureDetails).toBeGreaterThan(0.4);
+  expect(forwardTravel, failureDetails).toBeGreaterThan(20);
+});
+
+test("retained switch click animates the thumb monotonically", async ({
+  page,
+}, testInfo) => {
+  await openSettings(page);
+  const zoomTarget = await resolveVisibleGuiRow(page, SWITCH_ANIMATION_LABEL);
+  await performCloseZoom(
+    page,
+    zoomTarget.controlClientPoint ?? zoomTarget.labelClientPoint,
+  );
+  const row = await bringVisibleGuiRowControlIntoView(
+    page,
+    SWITCH_ANIMATION_LABEL,
+  );
+  if (!row.controlClientPoint) {
+    throw new Error(
+      `Missing switch control point for ${SWITCH_ANIMATION_LABEL}`,
+    );
+  }
+  let initialChecked = Boolean(
+    await readGuiSetting(page, SWITCH_ANIMATION_SETTING_KEY),
+  );
+  const originalChecked = initialChecked;
+  let controlRect = row.controlClientRect;
+  if (!controlRect) {
+    throw new Error(
+      `Missing switch control rect for ${SWITCH_ANIMATION_LABEL}`,
+    );
+  }
+  let clickPoint = await resolveRenderedSwitchClickPoint(page, controlRect);
+  if (initialChecked) {
+    await page.mouse.click(clickPoint.x, clickPoint.y);
+    await page.waitForTimeout(320);
+    const uncheckedRow = await bringVisibleGuiRowControlIntoView(
+      page,
+      SWITCH_ANIMATION_LABEL,
+    );
+    if (!uncheckedRow.controlClientPoint) {
+      throw new Error(
+        `Missing switch control point for ${SWITCH_ANIMATION_LABEL}`,
+      );
+    }
+    controlRect = uncheckedRow.controlClientRect;
+    if (!controlRect) {
+      throw new Error(
+        `Missing unchecked switch control rect for ${SWITCH_ANIMATION_LABEL}`,
+      );
+    }
+    clickPoint = await resolveRenderedSwitchClickPoint(page, controlRect);
+    initialChecked = false;
+  }
+  const clip = await resolveSwitchClipFromControlRect(page, controlRect);
+  await waitForStableScreenshotClip(page, clip);
+  const before = await captureSwitchFrame({
+    name: "visual-switch-before.png",
+    page,
+    rect: clip,
+    testInfo,
+  });
+
+  await page.mouse.move(clickPoint.x, clickPoint.y);
+  await page.mouse.down();
+  await page.mouse.up();
+  const samples: SwitchFrame[] = [
+    await captureSwitchFrame({
+      name: "visual-switch-immediate.png",
+      page,
+      rect: clip,
+      testInfo,
+    }),
+  ];
+  for (let frameIndex = 0; frameIndex < 14; frameIndex += 1) {
+    await waitForAnimationFrame(page);
+    samples.push(
+      await captureSwitchFrame({
+        name: `visual-switch-raf-${frameIndex}.png`,
+        page,
+        rect: clip,
+        testInfo,
+      }),
+    );
+  }
+  await page.waitForTimeout(180);
+  const settled = await captureSwitchFrame({
+    name: "visual-switch-settled.png",
+    page,
+    rect: clip,
+    testInfo,
+  });
+
+  await assertSwitchTransitionFrames({
+    frames: [before, ...samples, settled],
+    initialChecked,
+    page,
+  });
+
+  if (
+    Boolean(await readGuiSetting(page, SWITCH_ANIMATION_SETTING_KEY)) !==
+    originalChecked
+  ) {
+    const restoreRow = await bringVisibleGuiRowControlIntoView(
+      page,
+      SWITCH_ANIMATION_LABEL,
+    );
+    const restorePoint = await resolveVisibleGuiRowSwitchInteractionPoint(
+      page,
+      restoreRow,
+    );
+    if (!restorePoint) {
+      throw new Error(
+        `Missing switch restore point for ${SWITCH_ANIMATION_LABEL}`,
+      );
+    }
+    await page.mouse.click(restorePoint.x, restorePoint.y);
+    await expect
+      .poll(async () =>
+        Boolean(await readGuiSetting(page, SWITCH_ANIMATION_SETTING_KEY)),
+      )
+      .toBe(originalChecked);
+    await page.waitForTimeout(180);
+  }
+  await page.getByRole("button", { name: "fit view" }).click();
+  await waitForViewportIdle(page);
+});
 
 test("rapid row hover shows exactly one retained row highlight", async ({
   page,
@@ -211,101 +487,6 @@ test("retained row hover highlight remains subtle and readable in dark mode", as
   expect(stats.afterContrast, failureDetails).toBeGreaterThanOrEqual(
     stats.beforeContrast * 0.65,
   );
-});
-
-test("retained switch click animates the thumb monotonically", async ({
-  page,
-}, testInfo) => {
-  await openSettings(page);
-  const zoomTarget = await resolveVisibleGuiRow(page, SWITCH_ANIMATION_LABEL);
-  await performCloseZoom(
-    page,
-    zoomTarget.controlClientPoint ?? zoomTarget.labelClientPoint,
-  );
-  const row = await bringVisibleGuiRowControlIntoView(
-    page,
-    SWITCH_ANIMATION_LABEL,
-  );
-  if (!row.controlClientPoint) {
-    throw new Error(
-      `Missing switch control point for ${SWITCH_ANIMATION_LABEL}`,
-    );
-  }
-  let initialChecked = Boolean(
-    await readGuiSetting(page, SWITCH_ANIMATION_SETTING_KEY),
-  );
-  let controlRect = row.controlClientRect;
-  if (!controlRect) {
-    throw new Error(
-      `Missing switch control rect for ${SWITCH_ANIMATION_LABEL}`,
-    );
-  }
-  let clickPoint = await resolveRenderedSwitchClickPoint(page, controlRect);
-  if (initialChecked) {
-    await page.mouse.click(clickPoint.x, clickPoint.y);
-    await page.waitForTimeout(320);
-    const uncheckedRow = await bringVisibleGuiRowControlIntoView(
-      page,
-      SWITCH_ANIMATION_LABEL,
-    );
-    if (!uncheckedRow.controlClientPoint) {
-      throw new Error(
-        `Missing switch control point for ${SWITCH_ANIMATION_LABEL}`,
-      );
-    }
-    controlRect = uncheckedRow.controlClientRect;
-    if (!controlRect) {
-      throw new Error(
-        `Missing unchecked switch control rect for ${SWITCH_ANIMATION_LABEL}`,
-      );
-    }
-    clickPoint = await resolveRenderedSwitchClickPoint(page, controlRect);
-    initialChecked = false;
-  }
-  const clip = await resolveSwitchClipFromControlRect(page, controlRect);
-  await waitForStableScreenshotClip(page, clip);
-  const before = await captureSwitchFrame({
-    name: "visual-switch-before.png",
-    page,
-    rect: clip,
-    testInfo,
-  });
-
-  await page.mouse.move(clickPoint.x, clickPoint.y);
-  await page.mouse.down();
-  await page.mouse.up();
-  const samples: SwitchFrame[] = [
-    await captureSwitchFrame({
-      name: "visual-switch-immediate.png",
-      page,
-      rect: clip,
-      testInfo,
-    }),
-  ];
-  for (let frameIndex = 0; frameIndex < 14; frameIndex += 1) {
-    await waitForAnimationFrame(page);
-    samples.push(
-      await captureSwitchFrame({
-        name: `visual-switch-raf-${frameIndex}.png`,
-        page,
-        rect: clip,
-        testInfo,
-      }),
-    );
-  }
-  await page.waitForTimeout(180);
-  const settled = await captureSwitchFrame({
-    name: "visual-switch-settled.png",
-    page,
-    rect: clip,
-    testInfo,
-  });
-
-  await assertSwitchTransitionFrames({
-    frames: [before, ...samples, settled],
-    initialChecked,
-    page,
-  });
 });
 
 test("retained section scroll position survives viewport pan and zoom", async ({
@@ -452,118 +633,6 @@ test("retained section wheel scrolling moves visibly in one direction", async ({
   expect(activeDeltas.length, failureDetails).toBeGreaterThanOrEqual(4);
   expect(forwardTravel, failureDetails).toBeGreaterThan(30);
   expect(reversals, failureDetails).toHaveLength(0);
-});
-
-test("retained gui hover switch and scroll stay visually coherent", async ({
-  page,
-}, testInfo) => {
-  await openSettings(page);
-  await resetGuiContentScrollToTop(page);
-  const hoverRow = await resolveVisibleGuiRow(page, "Max Zoom");
-  const switchRow = await resolveVisibleGuiRow(page, LEFT_PANE_SHIFT_LABEL);
-  if (!switchRow.controlClientPoint) {
-    throw new Error(
-      `Missing switch control point for ${LEFT_PANE_SHIFT_LABEL}`,
-    );
-  }
-  const hoverClip = rowsToClip([hoverRow]);
-  await waitForStableScreenshotClip(page, hoverClip);
-  const beforeHover = await screenshotClip({
-    name: "visual-bundle-before-hover.png",
-    page,
-    rect: hoverClip,
-    testInfo,
-  });
-
-  await page.mouse.move(
-    hoverRow.labelClientPoint.x,
-    hoverRow.labelClientPoint.y,
-  );
-  await page.waitForTimeout(80);
-  const afterHover = await screenshotClip({
-    name: "visual-bundle-after-hover.png",
-    page,
-    rect: hoverClip,
-    testInfo,
-  });
-  const hoverStats = await analyzeHoverBands(page, {
-    after: afterHover,
-    before: beforeHover,
-    clip: hoverClip,
-    rows: [{ label: hoverRow.rowLabel, rect: hoverRow.clientRect }],
-  });
-
-  const switchClip = rowsToClip([switchRow]);
-  const beforeSwitch = await screenshotClip({
-    name: "visual-bundle-before-switch.png",
-    page,
-    rect: switchClip,
-    testInfo,
-  });
-  await page.mouse.click(
-    switchRow.controlClientPoint.x,
-    switchRow.controlClientPoint.y,
-  );
-  await page.waitForTimeout(180);
-  const afterSwitch = await screenshotClip({
-    name: "visual-bundle-after-switch.png",
-    page,
-    rect: switchClip,
-    testInfo,
-  });
-  const switchDelta = await compareScreenshots(page, beforeSwitch, afterSwitch);
-
-  const scrollRow = await resolveVisibleGuiRow(page, "Grid Pattern Size");
-  await page.mouse.move(
-    scrollRow.labelClientPoint.x,
-    scrollRow.labelClientPoint.y,
-  );
-  const surfaceClip = await resolveVisibleGuiSurfaceClip(page);
-  const contentClip = clampScreenshotClip({
-    height: surfaceClip.height,
-    width: Math.max(160, surfaceClip.width - 36),
-    x: surfaceClip.x,
-    y: surfaceClip.y,
-  });
-  const firstScrollFrame = await captureScrollContentFrame({
-    name: "bundle-scroll-initial",
-    page,
-    rect: contentClip,
-    testInfo,
-  });
-  for (let index = 0; index < 4; index += 1) {
-    await page.mouse.wheel(0, 48);
-    await page.waitForTimeout(18);
-  }
-  const finalScrollFrame = await captureScrollContentFrame({
-    name: "bundle-scroll-final",
-    page,
-    rect: contentClip,
-    testInfo,
-  });
-  const forwardTravel = finalScrollFrame.marker - firstScrollFrame.marker;
-  const failureDetails = JSON.stringify(
-    {
-      finalScrollFrame: {
-        marker: finalScrollFrame.marker,
-        visibleRows: finalScrollFrame.visibleRows,
-      },
-      firstScrollFrame: {
-        marker: firstScrollFrame.marker,
-        visibleRows: firstScrollFrame.visibleRows,
-      },
-      forwardTravel,
-      hoverStats,
-      switchDelta,
-    },
-    null,
-    2,
-  );
-  expect(hoverStats[0]?.changedPixelRatio ?? 0, failureDetails).toBeGreaterThan(
-    0.08,
-  );
-  expect(switchDelta.meanDelta, failureDetails).toBeGreaterThan(0.4);
-  expect(forwardTravel, failureDetails).toBeGreaterThan(20);
 });
 
 test("retained scrollbar renders as one coherent vertical control", async ({
@@ -741,7 +810,22 @@ async function moveAwayFromRetainedRows(page: Page): Promise<void> {
 }
 
 async function resolveVisibleGuiScrollbarClip(page: Page): Promise<Rect> {
-  const rect = await page.evaluate((surfaceId) => {
+  const deadline = Date.now() + 3_000;
+  while (Date.now() < deadline) {
+    const rect = await readVisibleGuiScrollbarClip(page);
+    if (rect) {
+      return clampScreenshotClip(rect);
+    }
+    await page.evaluate(() => {
+      window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("manual");
+    });
+    await page.waitForTimeout(50);
+  }
+  throw new Error("Missing visible GUI retained scrollbar track.");
+}
+
+async function readVisibleGuiScrollbarClip(page: Page): Promise<Rect | null> {
+  return await page.evaluate((surfaceId) => {
     const scrollbarSurfaces = (
       window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? []
     )
@@ -764,11 +848,7 @@ async function resolveVisibleGuiScrollbarClip(page: Page): Promise<Rect> {
       (surface) => surface.surfaceId === `${surfaceId}:scrollbar:y:track`,
     );
     if (!track) {
-      throw new Error(
-        `Missing visible GUI retained scrollbar track. ${JSON.stringify({
-          scrollbarSurfaces,
-        })}`,
-      );
+      return null;
     }
     const x = track.clientRect.x - 5;
     return {
@@ -778,7 +858,6 @@ async function resolveVisibleGuiScrollbarClip(page: Page): Promise<Rect> {
       y: track.clientRect.y,
     };
   }, GUI_CONTENT_SURFACE_ID);
-  return clampScreenshotClip(rect);
 }
 
 async function wheelGuiContentDown(page: Page): Promise<void> {

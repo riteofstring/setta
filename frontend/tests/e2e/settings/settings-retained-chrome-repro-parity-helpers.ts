@@ -28,7 +28,7 @@ export async function setRetainedCompositorViewport(
       throw new Error("Missing retained compositor viewport setter.");
     }
     setViewport(nextViewport);
-    window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("viewport");
+    window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
     window.settaGpuFlowZoom = nextViewport.zoom;
   }, viewport);
   await waitForAnimationFrame(page);
@@ -109,7 +109,18 @@ async function waitForRetainedCompositorViewportCommit(
   viewport: RetainedCompositorViewportSample,
 ): Promise<void> {
   await expect
-    .poll(() => readRetainedCompositorViewportCommitState(page, viewport), {
+    .poll(async () => {
+      const state = await readRetainedCompositorViewportCommitState(
+        page,
+        viewport,
+      );
+      if (state.runtimeMatches && !state.committedMatches) {
+        await page.evaluate(() => {
+          window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
+        });
+      }
+      return state;
+    }, {
       intervals: [50, 80, 120, 180],
       timeout: 10_000,
     })

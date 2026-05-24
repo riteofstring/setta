@@ -670,6 +670,46 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
   });
 
+  it("publishes short non-scroll maintenance content catchup", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+
+    const content = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(content.lane).toBe("content");
+    completeCompatiblePreviousCommittedFrame(scheduler, content);
+
+    const motion = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["paint", "viewport"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+    expect(motion.schedulerState).toBe("motion-active");
+    expect(motion.lane).toBe("motion");
+    completeCommittedFrame(scheduler, motion);
+
+    const contentCatchup = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(3),
+      timestamp: 3,
+      viewportInteractionActive: false,
+    });
+    expect(contentCatchup.schedulerState).toBe("content-catchup");
+    expect(contentCatchup.lane).toBe("content");
+    expect(contentCatchup.debt).toEqual({
+      content: false,
+      maintenance: true,
+      motion: false,
+    });
+  });
+
   it("does not probe queued content debt during pure viewport motion", () => {
     const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
 

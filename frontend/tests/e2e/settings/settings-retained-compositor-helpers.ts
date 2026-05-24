@@ -341,7 +341,7 @@ export async function centerRetainedCompositorSurface(
       y: paneRect.height * 0.48 - flowCenter.y * zoom,
       zoom,
     });
-    window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("viewport");
+    window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
     window.settaGpuFlowZoom = zoom;
     return {
       x: paneRect.width * 0.5 - flowCenter.x * zoom,
@@ -363,7 +363,18 @@ async function waitForRetainedCompositorViewportCommit(
   viewport: RetainedCompositorViewportSample,
 ): Promise<void> {
   await expect
-    .poll(() => readRetainedCompositorViewportCommitState(page, viewport), {
+    .poll(async () => {
+      const state = await readRetainedCompositorViewportCommitState(
+        page,
+        viewport,
+      );
+      if (state.runtimeMatches && !state.committedMatches) {
+        await page.evaluate(() => {
+          window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
+        });
+      }
+      return state;
+    }, {
       intervals: [50, 80, 120, 180],
       timeout: 10_000,
     })

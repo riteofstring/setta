@@ -256,6 +256,15 @@ export function useGpuFlowRetainedContentControllers({
           ) ||
           viewportStore.getState().retainedContentScrolling
         ) {
+          if (
+            areGpuRetainedContentRowHoverTargetsEqual(
+              retainedContentRowHoverTargetRef.current,
+              target,
+            ) &&
+            viewportStore.getState().retainedContentScrolling
+          ) {
+            requestRetainedContentRowHoverFrame(target);
+          }
           return;
         }
         surfaceRef.current?.requestFrame("retained-row-hover-visual");
@@ -399,10 +408,14 @@ export function useGpuFlowRetainedContentControllers({
             });
             return;
           }
-          beginGpuFlowRetainedContentSwitchClickAnimation({
-            event,
-            switchAnimations: retainedContentSwitchAnimations,
-          });
+          const switchAnimationStarted =
+            beginGpuFlowRetainedContentSwitchClickAnimation({
+              event,
+              switchAnimations: retainedContentSwitchAnimations,
+            });
+          if (switchAnimationStarted) {
+            surfaceRef.current?.requestFrame("retained-native-visual");
+          }
           retainedContentInteraction?.onHitClick?.(event);
         },
         onHitDragCancel: (event) => {
@@ -797,15 +810,15 @@ function beginGpuFlowRetainedContentSwitchClickAnimation({
 }: {
   readonly event: GpuRetainedContentInteractionHit;
   readonly switchAnimations: GpuRetainedContentSwitchAnimationStore;
-}) {
+}): boolean {
   if (event.hit.kind !== "control") {
-    return;
+    return false;
   }
   const row = event.retainedScene.rows.find(
     (candidate) => candidate.id === event.hit.ownerRowId,
   );
   if (row?.control?.kind !== "switch") {
-    return;
+    return false;
   }
   switchAnimations.beginTransition({
     fromChecked: row.control.checked,
@@ -813,6 +826,7 @@ function beginGpuFlowRetainedContentSwitchClickAnimation({
     surfaceId: event.surfaceId,
     toChecked: !row.control.checked,
   });
+  return true;
 }
 
 function shouldHandleGpuFlowRetainedContentDragMoveHit(

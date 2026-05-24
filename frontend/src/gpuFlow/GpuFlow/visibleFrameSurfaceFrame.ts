@@ -1,5 +1,7 @@
 import type { MutableRefObject } from "react";
 
+import { nowChromeReproPerformanceMs } from "state/actions/chromeRepro";
+
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowRuntime } from "../gpuDevice";
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
@@ -172,6 +174,7 @@ export function renderGpuFlowSurfaceFrame({
     frame: input.frameRef.current,
     reasons: event.reasons.join("+") || "none",
   };
+  const frameStartedAtMs = nowChromeReproPerformanceMs();
   const finishFrameMeasure = startGpuFlowPerformanceMeasure(
     "surface-frame",
     frameMeasureDetail,
@@ -327,7 +330,7 @@ export function renderGpuFlowSurfaceFrame({
       },
       publish: publishGpuFlowSurfacePublicationFrame,
       sampleVisibleFramePublication: () => {
-        const runtimeFrame = viewportRuntime.runFrame(event.timestamp);
+        const runtimeFrame = viewportRuntime.runFrame(frameStartedAtMs);
         const hasCommittedContentFrame = hasGpuFlowCommittedContentFrame(
           input.committedSurfaceFrameRef.current,
         );
@@ -345,11 +348,12 @@ export function renderGpuFlowSurfaceFrame({
           gestureOwner:
             getGpuWheelGestureOwnershipArbiter(viewportStore).getState().owner,
           retainedContentRuntimeState,
-          timestamp: event.timestamp,
+          timestamp: frameStartedAtMs,
           viewport: nodeLayerRef.current.viewport,
         });
         const sampleViewport = normalizeGpuViewport(sample.viewport);
         frameMeasureDetail.eventTimestamp = event.timestamp;
+        frameMeasureDetail.frameStartedAtMs = frameStartedAtMs;
         frameMeasureDetail.sampleTimestamp = sample.timestamp;
         frameMeasureDetail.sampleViewportX = sampleViewport.x;
         frameMeasureDetail.sampleViewportY = sampleViewport.y;
@@ -366,7 +370,7 @@ export function renderGpuFlowSurfaceFrame({
           }),
           runtimeViewportFrame: runtimeFrame.viewportFrame,
           sample,
-          timestamp: event.timestamp,
+          timestamp: frameStartedAtMs,
           visibleFrameResourceGraphSnapshot:
             input.getVisibleFrameResourceGraphSnapshot(),
           viewportInteractionActive:

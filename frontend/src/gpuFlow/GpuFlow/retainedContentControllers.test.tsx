@@ -107,6 +107,62 @@ describe("GpuFlow retained content controllers", () => {
     expect(click.defaultPrevented).toBe(true);
   });
 
+  it("requests retained native visual frames for retained switch click animation", () => {
+    const onHitClick = vi.fn();
+    const requestedFrames: string[] = [];
+    let host: HTMLDivElement | null = null;
+
+    act(() => {
+      root = createRoot(
+        document.body.appendChild(document.createElement("div")),
+      );
+      root.render(
+        <RetainedContentInteractionHarness
+          controlDescriptor={switchControlDescriptor(false)}
+          onHostChange={(element) => {
+            host = element;
+          }}
+          onHitClick={onHitClick}
+          onRequestFrame={(reason) => {
+            requestedFrames.push(reason);
+          }}
+        />,
+      );
+    });
+
+    if (!host) {
+      throw new Error("Expected retained content interaction host to mount.");
+    }
+
+    act(() => {
+      host?.dispatchEvent(
+        createPointerEvent("pointerdown", {
+          clientX: 140,
+          clientY: 14,
+          pointerId: 1,
+        }),
+      );
+      host?.dispatchEvent(
+        createPointerEvent("pointerup", {
+          clientX: 140,
+          clientY: 14,
+          pointerId: 1,
+        }),
+      );
+    });
+
+    expect(onHitClick).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hit: expect.objectContaining({
+          id: "control:param-0",
+          kind: "control",
+          ownerRowId: "param-0",
+        }),
+      }),
+    );
+    expect(requestedFrames).toEqual(["retained-native-visual", "manual"]);
+  });
+
   it("keeps unrelated retained surfaces clean when one section scrolls", () => {
     const animationFrames = installAnimationFrameStub();
     const dirtySurfaceIds: string[] = [];
@@ -333,14 +389,18 @@ describe("GpuFlow retained content controllers", () => {
 });
 
 function RetainedContentInteractionHarness({
+  controlDescriptor = textLikeControlDescriptor(),
   onHitClick,
   onHostChange,
+  onRequestFrame,
 }: {
+  readonly controlDescriptor?: GpuRetainedContentControlDescriptor | undefined;
   readonly onHitClick: ReturnType<typeof vi.fn>;
   readonly onHostChange: (element: HTMLDivElement | null) => void;
+  readonly onRequestFrame?: ((reason: string) => void) | undefined;
 }) {
   const [revision, setRevision] = useState(1);
-  const scene = retainedContentScene(revision);
+  const scene = retainedContentScene(revision, 1, controlDescriptor);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const nodeLayerRef = useRef<GpuFlowRetainedContentNodeLayerState>({
     retainedRuntimeFrame: createTestRetainedRuntimeFrame({ scene }),
@@ -354,7 +414,11 @@ function RetainedContentInteractionHarness({
   const nodeElementByIdRef = useRef(new Map<string, HTMLElement>());
   const surfaceRef = useRef<GpuSurfaceHandle | null>({
     getRuntime: () => null,
-    requestFrame: vi.fn(),
+    requestFrame: (reason) => {
+      if (reason) {
+        onRequestFrame?.(reason);
+      }
+    },
     requestPaint: vi.fn(),
   });
   const retainedContentPageManagerRef =
@@ -685,9 +749,13 @@ function getHoverNativeVisuals(
   return visuals.filter((visual) => visual.surfaceId.includes(":row-hover:"));
 }
 
-function retainedContentScene(revision: number, rowCount = 1): GpuFlowScene {
+function retainedContentScene(
+  revision: number,
+  rowCount = 1,
+  control: GpuRetainedContentControlDescriptor = textLikeControlDescriptor(),
+): GpuFlowScene {
   return {
-    contentSurfaces: [retainedSurface(rowCount)],
+    contentSurfaces: [retainedSurface(rowCount, control)],
     domIslands: [],
     edges: [],
     revision,
@@ -781,7 +849,10 @@ function scrollableRetainedSurface({
   };
 }
 
-function retainedSurface(rowCount = 1): GpuContentSurface {
+function retainedSurface(
+  rowCount = 1,
+  control: GpuRetainedContentControlDescriptor = textLikeControlDescriptor(),
+): GpuContentSurface {
   const rect = { height: 80, width: 160, x: 0, y: 0 };
   return {
     clipRect: rect,
@@ -798,8 +869,8 @@ function retainedSurface(rowCount = 1): GpuContentSurface {
       ownerSectionId: "dict-a",
       rowHeight: 28,
       rows: Array.from({ length: rowCount }, (_, index) => ({
-        control: textLikeControlDescriptor(),
-        controlKind: "text-like",
+        control,
+        controlKind: control.kind,
         depth: 0,
         id: `param-${index}`,
         label: `Param ${index}`,
@@ -820,6 +891,19 @@ function textLikeControlDescriptor(): GpuRetainedContentControlDescriptor {
     kind: "text-like",
     policy: TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY,
     rendererFamily: "text-like",
+  };
+}
+
+function switchControlDescriptor(
+  checked: boolean,
+): Extract<GpuRetainedContentControlDescriptor, { kind: "switch" }> {
+  return {
+    checked,
+    commitPolicy: "immediate",
+    defaultDisplayValue: "false",
+    displayValue: checked ? "true" : "false",
+    kind: "switch",
+    rendererFamily: "switch",
   };
 }
 

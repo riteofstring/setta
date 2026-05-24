@@ -140,6 +140,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
   let criticalContentDebt = false;
   let criticalContentOriginDebt = false;
   let motionRetryBlockedUntilMs: number | null = null;
+  let lastRetainedScrollAtMs: number | null = null;
   let retainedScrollContentBlockedUntilMs: number | null = null;
   let consecutiveMotionFrames = 0;
 
@@ -208,6 +209,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
         browserVisualContentRepairReady,
         contentRetryDeferred,
         rawReasons,
+        timestamp,
         viewportInteractionActive,
       })
     ) {
@@ -260,6 +262,8 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     if (
       shouldPublishGpuFlowProjectionContentDebtNow({
         contentRetryDeferred,
+        maintenanceDebt,
+        motionDebt,
         rawReasons,
         viewportInteractionActive,
       })
@@ -273,11 +277,13 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     browserVisualContentRepairReady,
     contentRetryDeferred,
     rawReasons,
+    timestamp,
     viewportInteractionActive,
   }: {
     readonly browserVisualContentRepairReady: boolean;
     readonly contentRetryDeferred: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
+    readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
   }): boolean {
     return (
@@ -285,6 +291,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
         contentRetryDeferred,
         maintenanceDebt,
         rawReasons,
+        timestamp,
         viewportInteractionActive,
       }) ||
       shouldPublishGpuFlowBrowserVisualContentRepairNow({
@@ -345,23 +352,67 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     contentRetryDeferred,
     maintenanceDebt,
     rawReasons,
+    timestamp,
     viewportInteractionActive,
   }: {
     readonly contentRetryDeferred: boolean;
     readonly maintenanceDebt: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
+    readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
   }): boolean {
     return (
       contentDebt &&
       !contentRetryDeferred &&
-      !maintenanceDebt &&
+      !shouldDeferGpuFlowContentForContinuousMotionMaintenance({
+        maintenanceDebt,
+        motionDebt,
+        rawReasons,
+      }) &&
+      !shouldDeferGpuFlowContentProbeForRetainedScrollMaintenance({
+        maintenanceDebt,
+        timestamp,
+      }) &&
       !viewportInteractionActive &&
       rawReasons.some(isGpuFlowContentFrameReason) &&
       !rawReasons.some(isGpuFlowRetainedMotionFrameReason) &&
       schedulerKnobs.maxContentInterleaveMs > 0 &&
       consecutiveMotionFrames >=
         schedulerKnobs.maxConsecutiveMotionFramesBeforeContentProbe
+    );
+  }
+
+  function shouldDeferGpuFlowContentForContinuousMotionMaintenance({
+    maintenanceDebt,
+    motionDebt,
+    rawReasons,
+  }: {
+    readonly maintenanceDebt: boolean;
+    readonly motionDebt: boolean;
+    readonly rawReasons: readonly GpuFrameReason[];
+  }): boolean {
+    return (
+      maintenanceDebt &&
+      motionDebt &&
+      consecutiveMotionFrames >=
+        schedulerKnobs.maxConsecutiveMotionFramesBeforeContentProbe &&
+      !hasGpuFlowCriticalContentFrameRequest(rawReasons)
+    );
+  }
+
+  function shouldDeferGpuFlowContentProbeForRetainedScrollMaintenance({
+    maintenanceDebt,
+    timestamp,
+  }: {
+    readonly maintenanceDebt: boolean;
+    readonly timestamp: DOMHighResTimeStamp;
+  }): boolean {
+    return (
+      maintenanceDebt &&
+      lastRetainedScrollAtMs !== null &&
+      timestamp - lastRetainedScrollAtMs <=
+        schedulerKnobs.motionSettleWindowMs *
+          GPU_FLOW_RETAINED_SCROLL_CONTENT_SETTLE_DELAY_MULTIPLIER
     );
   }
 
@@ -387,16 +438,25 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
 
   function shouldPublishGpuFlowProjectionContentDebtNow({
     contentRetryDeferred,
+    maintenanceDebt,
+    motionDebt,
     rawReasons,
     viewportInteractionActive,
   }: {
     readonly contentRetryDeferred: boolean;
+    readonly maintenanceDebt: boolean;
+    readonly motionDebt: boolean;
     readonly rawReasons: readonly GpuFrameReason[];
     readonly viewportInteractionActive: boolean;
   }): boolean {
     return (
       contentDebt &&
       !contentRetryDeferred &&
+      !shouldDeferGpuFlowContentForContinuousMotionMaintenance({
+        maintenanceDebt,
+        motionDebt,
+        rawReasons,
+      }) &&
       !viewportInteractionActive &&
       schedulerKnobs.maxContentInterleaveMs > 0 &&
       rawReasons.some(isGpuFlowContentFrameReason)
@@ -547,6 +607,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     ) {
       return;
     }
+    lastRetainedScrollAtMs = timestamp;
     retainedScrollContentBlockedUntilMs = Math.max(
       retainedScrollContentBlockedUntilMs ?? 0,
       timestamp +
@@ -678,6 +739,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
           isGpuFlowRetainedScrollPublicationDecision(decision) &&
           !criticalContentOriginDebt
         ) {
+          lastRetainedScrollAtMs = decision.sample.timestamp;
           retainedScrollContentBlockedUntilMs = Math.max(
             retainedScrollContentBlockedUntilMs ?? 0,
             decision.sample.timestamp +
