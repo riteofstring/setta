@@ -32,7 +32,6 @@ import {
 } from "../nodeInteractionDirty";
 import {
   createGpuFlowLiveProjectionSampler,
-  createGpuFlowVisiblePublicationScheduler,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import { createGpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
@@ -66,7 +65,11 @@ import {
   useGpuFlowSurfaceResourceCleanup,
   useGpuFlowViewportRuntime,
 } from "./flowSurfaceRuntimeHooks";
-import { EMPTY_GPU_NODE_LAYOUTS, type GpuFlowCallbacks, type GpuFlowProps } from "./flowSurfaceTypes";
+import {
+  EMPTY_GPU_NODE_LAYOUTS,
+  type GpuFlowCallbacks,
+  type GpuFlowProps,
+} from "./flowSurfaceTypes";
 import { GpuFlowSurfaceView } from "./flowSurfaceView";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
@@ -83,6 +86,7 @@ import {
 } from "./sourceInteraction";
 import { createGpuFlowVisibleFrameBudgetBroker } from "./visibleFrameBudgetBroker";
 import { assertGpuFlowColdStartShellToken } from "./visibleFrameColdStartShell";
+import { createGpuFlowVisibleFrameRequestCoordinator } from "./visibleFrameScheduling";
 import { renderGpuFlowSurfaceFrame } from "./visibleFrameSurfaceFrame";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
@@ -199,8 +203,8 @@ export function GpuFlow({
   const activeRetainedContentRuntimeState =
     retainedContentRuntimeState ?? defaultRetainedContentRuntimeState;
   const liveProjectionSamplerRef = useRef(createGpuFlowLiveProjectionSampler());
-  const visiblePublicationSchedulerRef = useRef(
-    createGpuFlowVisiblePublicationScheduler(),
+  const visibleFrameCoordinatorRef = useRef(
+    createGpuFlowVisibleFrameRequestCoordinator(),
   );
   const visibleFrameBudgetBrokerRef = useRef(
     createGpuFlowVisibleFrameBudgetBroker(),
@@ -931,7 +935,7 @@ export function GpuFlow({
         visibleFrameBudgetBrokerRef,
         visibleProjectionPublicationStateRef,
         visibleProjectionStateRef,
-        visiblePublicationSchedulerRef,
+        visibleFrameCoordinatorRef,
         viewportRuntime,
         viewportStore,
       });

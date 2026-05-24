@@ -1,6 +1,5 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
-  createGpuFlowVisiblePublicationScheduler,
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
@@ -19,6 +18,7 @@ import type {
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
+import { createGpuFlowVisibleFrameRequestCoordinator } from "./visibleFrameScheduling";
 
 type GpuFlowVisibleFramePublicationTestCandidate = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
@@ -154,7 +154,7 @@ function runGpuFlowVisibleFramePublicationTestTokenKernel({
     publish: () => {},
     sampleVisibleFramePublication: () =>
       createGpuFlowVisibleFramePublicationTestSample({ projectionSample }),
-    scheduler: createGpuFlowVisiblePublicationScheduler(),
+    scheduler: createGpuFlowVisibleFrameRequestCoordinator(),
   });
 }
 

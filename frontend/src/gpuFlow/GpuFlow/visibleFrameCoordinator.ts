@@ -1,11 +1,8 @@
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
-  createGpuFlowVisiblePublicationScheduler,
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
-  type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import { shouldDeferGpuFlowMaintenanceContentCatchup } from "../projectionScheduler";
 import {
   resolveGpuFlowRetainedDisplayPublication,
   type GpuFlowRetainedDisplayPublicationInput,
@@ -30,6 +27,11 @@ import type {
   GpuFlowProjectionFrameRenderPlan,
   GpuFlowProjectionFrameTransaction,
 } from "./visibleFrameProjectionPlan";
+import {
+  shouldDeferGpuFlowMaintenanceContentCatchup,
+  type GpuFlowVisibleFrameRequestCoordinator,
+  type GpuFlowVisiblePublicationDecision,
+} from "./visibleFrameScheduling";
 import {
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory,
   createGpuFlowVisibleFramePublicationTransactionProofFactory,
@@ -107,9 +109,7 @@ export type {
   GpuFlowContentPublicationWorkPlan,
   GpuFlowMotionProjectionWorkPlan,
 } from "./visibleFrameWorkPlan";
-type GpuFlowVisiblePublicationScheduler = ReturnType<
-  typeof createGpuFlowVisiblePublicationScheduler
->;
+type GpuFlowVisiblePublicationScheduler = GpuFlowVisibleFrameRequestCoordinator;
 
 type GpuFlowProjectionFrameRenderPlanSelector = (input: {
   readonly projectionFrameTransaction: GpuFlowProjectionFrameTransaction;

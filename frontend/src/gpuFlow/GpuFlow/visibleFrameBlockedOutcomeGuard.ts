@@ -1,14 +1,14 @@
 import type { GpuSurfaceHandle } from "../GpuSurface";
-import type { GpuFlowVisiblePublicationDecision } from "../projectionRuntime";
-import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
-  type GpuFlowVisiblePublicationCompletionOutcome,
-} from "../projectionScheduler";
 import {
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
   assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
 } from "./visibleFramePresentationProofs";
+import {
+  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  type GpuFlowVisiblePublicationCompletionOutcome,
+  type GpuFlowVisiblePublicationDecision,
+} from "./visibleFrameScheduling";
 
 type GpuFlowBlockedPublicationDebt = {
   readonly firstBlockedAtMs: number;

@@ -1,12 +1,12 @@
-import type {
-  GpuFlowProjectionLane,
-  GpuFlowVisiblePublicationDecision,
-} from "../projectionRuntime";
-import { shouldDeferGpuFlowMaintenanceContentCatchup } from "../projectionScheduler";
+import type { GpuFlowProjectionLane } from "../projectionRuntime";
 import {
   shouldDeferGpuFlowBrowserVisualRepairForBudget,
   type GpuFlowVisibleFrameBudgetBroker,
 } from "./visibleFrameBudgetBroker";
+import {
+  shouldDeferGpuFlowMaintenanceContentCatchup,
+  type GpuFlowVisiblePublicationDecision,
+} from "./visibleFrameScheduling";
 
 export type GpuFlowMotionProjectionWorkPlan =
   | {

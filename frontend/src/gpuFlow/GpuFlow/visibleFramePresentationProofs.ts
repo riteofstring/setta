@@ -3,13 +3,9 @@ import {
   createGpuFlowHeldPreviousProjection,
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleProjectionState,
-  getGpuFlowVisiblePublicationDebtReason,
-  hasGpuFlowVisiblePublicationDebt,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionLane,
-  type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowVisibleProjectionState,
-  type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import type {
   GpuFlowColdStartShellPublication,
@@ -24,6 +20,12 @@ import {
   createGpuFlowVisiblePublicationCompletionCommitToken,
   type GpuFlowBlockedPublicationToken,
 } from "./visibleFramePresentationTokens";
+import {
+  getGpuFlowVisiblePublicationDebtReason,
+  hasGpuFlowVisiblePublicationDebt,
+  type GpuFlowProjectionSchedulerKnobs,
+  type GpuFlowVisiblePublicationDecision,
+} from "./visibleFrameScheduling";
 import { getGpuFlowVisibleFrameHeldPreviousBudgetStatus } from "./visibleFrameStateMachine";
 import type {
   GpuFlowVisibleFramePublicationTransactionProof,

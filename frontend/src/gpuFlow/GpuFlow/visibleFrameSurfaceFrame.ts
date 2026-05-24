@@ -10,10 +10,8 @@ import {
   createGpuFlowLiveProjectionSampler,
   createGpuFlowProjectionTransaction,
   createGpuFlowVisibleProjectionState,
-  createGpuFlowVisiblePublicationScheduler,
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
-  type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
@@ -54,6 +52,10 @@ import type {
 } from "./visibleFramePresentationProofs";
 import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
 import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
+import type {
+  GpuFlowVisibleFrameRequestCoordinator,
+  GpuFlowVisiblePublicationDecision,
+} from "./visibleFrameScheduling";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
 type GpuFlowNodeLayerFrameInput = Parameters<
@@ -142,9 +144,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   readonly visibleFrameBudgetBrokerRef: MutableRefObject<GpuFlowVisibleFrameBudgetBroker>;
   readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visibleProjectionStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
-  readonly visiblePublicationSchedulerRef: MutableRefObject<
-    ReturnType<typeof createGpuFlowVisiblePublicationScheduler>
-  >;
+  readonly visibleFrameCoordinatorRef: MutableRefObject<GpuFlowVisibleFrameRequestCoordinator>;
   readonly viewportRuntime: GpuFlowViewportRuntime;
 };
 
@@ -342,7 +342,7 @@ export function renderGpuFlowSurfaceFrame({
             viewportStore.getState().viewportInteractionActive,
         };
       },
-      scheduler: input.visiblePublicationSchedulerRef.current,
+      scheduler: input.visibleFrameCoordinatorRef.current,
     });
     finishCompletionMeasure();
     const visibleProjectionState = input.visibleProjectionStateRef.current;

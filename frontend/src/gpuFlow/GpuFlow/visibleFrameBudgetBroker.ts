@@ -1,4 +1,4 @@
-import type { GpuFlowVisiblePublicationDecision } from "../projectionRuntime";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
 
 type GpuFlowVisibleFrameBudgetPriority = "continuity" | "quality" | "safety";
 

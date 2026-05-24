@@ -1,13 +1,11 @@
-import type {
-  GpuFlowVisibleProjectionState,
-  GpuFlowVisiblePublicationDecision,
-} from "../projectionRuntime";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import { createGpuFlowBrowserVisualFaultInjectedBlockedCandidate } from "./visibleFrameActorAdapters/browserVisualFaultInjection";
 import type { GpuFlowRetainedCommittedSurfacePublicationContentStageRunner } from "./visibleFrameContentPlan";
 import type {
   GpuFlowMotionProjectionFramePreparation,
   GpuFlowVisibleFramePublicationFrameContext,
 } from "./visibleFrameCoordinator";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
 import type {
   GpuFlowVisibleFramePublicationCandidateSet,
   GpuFlowVisibleFramePublicationContentCandidate,

@@ -3,10 +3,7 @@ import {
   postChromeReproEvent,
 } from "state/actions/chromeRepro";
 
-import type {
-  GpuFlowVisibleProjectionState,
-  GpuFlowVisiblePublicationDecision,
-} from "../projectionRuntime";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuFlowCommitPresentationPairProof } from "./visibleFrameCommitProofs";
 import {
   createGpuFlowVisiblePublicationTransactionReport,
@@ -14,6 +11,7 @@ import {
   type GpuFlowVisiblePublicationCompletion,
   type GpuFlowVisiblePublicationOutcome,
 } from "./visibleFrameCoordinator";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
 
 type GpuFlowVisiblePublicationSchedulerCompletion =
   GpuFlowVisiblePublicationCompletion;

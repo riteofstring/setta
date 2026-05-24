@@ -1,6 +1,8 @@
 import type { GpuSurfaceHandle } from "../GpuSurface";
-import type { GpuFlowVisiblePublicationDecision } from "../projectionRuntime";
-import type { GpuFlowVisiblePublicationCompletionOutcome } from "../projectionScheduler";
+import type {
+  GpuFlowVisiblePublicationCompletionOutcome,
+  GpuFlowVisiblePublicationDecision,
+} from "./visibleFrameScheduling";
 
 type GpuFlowVisiblePublicationOutcomeRecord = {
   readonly outcome: GpuFlowVisiblePublicationCompletionOutcome["kind"];
@@ -26,9 +28,7 @@ export function assertGpuFlowSingleVisiblePublicationOutcome({
     return;
   }
   const previousOutcome = visiblePublicationOutcomeBySurface.get(surface);
-  if (
-    previousOutcome?.projectionSampleId === publicationDecision.sample.id
-  ) {
+  if (previousOutcome?.projectionSampleId === publicationDecision.sample.id) {
     throw new Error(
       `GPU Flow visible publication already completed an outcome for projection sample ${publicationDecision.sample.id}: ${JSON.stringify(
         previousOutcome,

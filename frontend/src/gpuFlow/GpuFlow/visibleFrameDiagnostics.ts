@@ -4,10 +4,6 @@ import { postChromeReproEvent } from "state/actions/chromeRepro";
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
-  type GpuFlowVisiblePublicationDecision,
-} from "../projectionRuntime";
-import {
   createGpuFlowVisibleFrameActorManifestDiagnostics,
   type GpuFlowVisibleFrameActorManifestDiagnostics,
 } from "./visibleFrameActorManifestDiagnostics";
@@ -29,6 +25,10 @@ import {
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
+import {
+  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  type GpuFlowVisiblePublicationDecision,
+} from "./visibleFrameScheduling";
 
 type GpuFlowBrowserVisualStarvationOutcome = "blocked" | "held-previous";
 

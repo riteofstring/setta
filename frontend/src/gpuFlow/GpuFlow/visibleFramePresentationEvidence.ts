@@ -1,10 +1,8 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import type {
-  GpuFlowVisibleProjectionState,
-  GpuFlowVisiblePublicationDecision,
-} from "../projectionRuntime";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuFlowNodeLayerFrameStatePublication } from "./flowFrameLifecycle";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
 
 export type GpuFlowVisiblePublicationCanvasPresentationEvidence = {
   readonly drawnNodeIds: readonly string[];

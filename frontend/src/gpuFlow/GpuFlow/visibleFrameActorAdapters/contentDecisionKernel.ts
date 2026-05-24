@@ -4,7 +4,6 @@ import {
   createGpuFlowHeldPreviousProjection,
   createGpuFlowProjectionTransactionForCommittedFrameId,
   type GpuFlowHeldPreviousProjection,
-  type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowProjectionTransaction,
   type GpuFlowVisibleProjectionState,
 } from "../../projectionRuntime";
@@ -36,6 +35,7 @@ import type {
   GpuFlowMotionProjectionFrameWorkReport,
   GpuFlowMotionProjectionFrameWorkResult,
 } from "../visibleFrameProjectionWorkTypes";
+import type { GpuFlowProjectionSchedulerKnobs } from "../visibleFrameScheduling";
 import type { GpuFlowCommittedSurfaceCandidateAction } from "./committedSurfaceCandidateAction";
 
 type GpuFlowCommittedSurfacePublicationReadiness =

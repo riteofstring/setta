@@ -1,15 +1,16 @@
 // Builds outcome reports and scheduler completion records after a frame is proved.
 import type { GpuFrameReason } from "../gpuRenderer";
-import {
-  createGpuFlowVisiblePublicationScheduler,
-  type GpuFlowVisibleProjectionState,
-  type GpuFlowVisiblePublicationDecision,
-} from "../projectionRuntime";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
+import type {
+  GpuFlowVisibleFrameRequestCoordinator,
+  GpuFlowVisiblePublicationCompletion,
+  GpuFlowVisiblePublicationDecision,
+} from "./visibleFrameScheduling";
 import {
   createGpuFlowVisiblePublicationCommitProofReport,
   createGpuFlowVisiblePublicationTransactionProofReport,
@@ -19,13 +20,9 @@ import {
 } from "./visibleFrameTransactionProofs";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
-type GpuFlowVisiblePublicationScheduler = ReturnType<
-  typeof createGpuFlowVisiblePublicationScheduler
->;
+type GpuFlowVisiblePublicationScheduler = GpuFlowVisibleFrameRequestCoordinator;
 
-export type GpuFlowVisiblePublicationCompletion = ReturnType<
-  GpuFlowVisiblePublicationScheduler["completeFrame"]
->;
+export type { GpuFlowVisiblePublicationCompletion } from "./visibleFrameScheduling";
 
 export type GpuFlowVisiblePublicationOutcome =
   | {

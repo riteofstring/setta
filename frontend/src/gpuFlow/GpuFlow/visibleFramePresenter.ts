@@ -2,10 +2,8 @@ import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
   applyGpuFlowProjectionDebugAttributes,
   type GpuFlowVisibleProjectionState,
-  type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
@@ -44,9 +42,18 @@ import {
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
-import type { GpuFlowSurfacePublicationPreparedFrame, RenderGpuFlowSurfaceFrameInput } from "./visibleFrameSurfaceFrame";
+import {
+  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  type GpuFlowVisiblePublicationDecision,
+} from "./visibleFrameScheduling";
+import type {
+  GpuFlowSurfacePublicationPreparedFrame,
+  RenderGpuFlowSurfaceFrameInput,
+} from "./visibleFrameSurfaceFrame";
 
-type GpuFlowVisibleFramePresenter = (publicationTransaction: GpuFlowVisibleFrameCoordinatorResult<GpuFlowSurfacePublicationPreparedFrame>) => void;
+type GpuFlowVisibleFramePresenter = (
+  publicationTransaction: GpuFlowVisibleFrameCoordinatorResult<GpuFlowSurfacePublicationPreparedFrame>,
+) => void;
 
 type GpuFlowBlockedSurfaceVisibleProjectionPublication = {
   readonly blockedErrorMessage: string | null;
@@ -55,7 +62,10 @@ type GpuFlowBlockedSurfaceVisibleProjectionPublication = {
 
 const deferredResolutionFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
 
-type GpuFlowVisibleFramePresenterInput = Omit<Parameters<typeof presentGpuFlowVisibleFramePublicationFrame>[0], "publicationTransaction">;
+type GpuFlowVisibleFramePresenterInput = Omit<
+  Parameters<typeof presentGpuFlowVisibleFramePublicationFrame>[0],
+  "publicationTransaction"
+>;
 
 function publishGpuFlowVisibleProjectionState({
   commitPublicationToken,
@@ -306,7 +316,9 @@ function recordGpuFlowBlockedSurfaceVisibleProjectionPublication({
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly runtimeCanvas: HTMLCanvasElement;
-  readonly stateMachineOutcome: GpuFlowSurfacePublicationPreparedFrame["transactionProof"]["visibleFrameStateMachineOutcome"] | null;
+  readonly stateMachineOutcome:
+    | GpuFlowSurfacePublicationPreparedFrame["transactionProof"]["visibleFrameStateMachineOutcome"]
+    | null;
 }): void {
   if (blockedVisiblePublication === null) {
     return;
@@ -431,10 +443,7 @@ function shouldDelayGpuFlowSurfacePublicationDebtFrame({
   ) {
     return true;
   }
-  if (
-    publicationDecision.lane === "content" &&
-    completion.debt.content
-  ) {
+  if (publicationDecision.lane === "content" && completion.debt.content) {
     return true;
   }
   return (

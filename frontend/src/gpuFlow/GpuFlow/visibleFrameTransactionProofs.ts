@@ -1,10 +1,7 @@
 // Builds immutable transaction proof records; visible mutation stays in the presenter.
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
-import type {
-  GpuFlowVisibleProjectionState,
-  GpuFlowVisiblePublicationDecision,
-} from "../projectionRuntime";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
   assertGpuFlowVisiblePublicationCommitActorProofs,
   createGpuFlowVisiblePublicationActorProofDigest,
@@ -24,6 +21,7 @@ import {
   createGpuFlowVisiblePublicationResourceBlockedReasons,
   createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFrameResourceGraph";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
 import {
   proveGpuFlowVisibleFrameStateMachineFrame,
   type GpuFlowVisibleFramePreparedFrame,
@@ -563,7 +561,9 @@ function createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
     return null;
   }
   const decidingProof = visibleFrameStateMachineOutcome.decidingProof;
-  if (isGpuFlowVisibleFrameStateMachineSyntheticVisibilityBlock(decidingProof)) {
+  if (
+    isGpuFlowVisibleFrameStateMachineSyntheticVisibilityBlock(decidingProof)
+  ) {
     return null;
   }
   return createGpuFlowVisiblePublicationBlockedProof({

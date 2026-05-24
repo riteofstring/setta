@@ -1,9 +1,6 @@
 // Adapts transaction proof state into the visible frame state machine's manifest model.
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import type {
-  GpuFlowVisibleProjectionState,
-  GpuFlowVisiblePublicationDecision,
-} from "../projectionRuntime";
+import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import { normalizeGpuViewport } from "../viewportMath";
 import {
   createGpuFlowVisibleFrameActorKeyForBlockedReason,
@@ -11,6 +8,7 @@ import {
   createGpuFlowVisibleFrameActorProofsForManifest,
   createGpuFlowVisibleFrameCommittedActorCoverageForManifest,
 } from "./visibleFrameActorManifest";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
 import type {
   GpuFlowVisibleFramePreparedFrame,
   GpuFlowVisibleFrameStateMachineSample,
@@ -513,27 +511,29 @@ function createGpuFlowVisibleFramePublicationStateMachineSample({
 }): GpuFlowVisibleFrameStateMachineSample {
   const sample = publicationDecision.sample;
   const viewport = normalizeGpuViewport(sample.viewport ?? [0, 0, 1]);
-  const canvasSize = createGpuFlowVisibleFramePublicationStateMachineCanvasSize(
-    sample,
-  );
+  const canvasSize =
+    createGpuFlowVisibleFramePublicationStateMachineCanvasSize(sample);
   return Object.freeze({
     activeGestureOwner: sample.gestureOwner ?? null,
     canvasSize,
-    currentCommittedFrameId: getGpuFlowVisibleFramePublicationStateMachineCurrentFrameId(
-      previousVisibleProjectionState,
-    ),
+    currentCommittedFrameId:
+      getGpuFlowVisibleFramePublicationStateMachineCurrentFrameId(
+        previousVisibleProjectionState,
+      ),
     dpr: sample.devicePixelRatio ?? 1,
     projectionSampleId: sample.id,
     queuedDebt: createGpuFlowVisibleFramePublicationStateMachineDebt({
       blockedProof: null,
       publicationDecision,
     }),
-    retainedScrollOffsets: createGpuFlowVisibleFramePublicationStateMachineRetainedScrollOffsets(
-      sample,
-    ),
-    sceneGeneration: getGpuFlowVisibleFramePublicationStateMachineSceneGeneration(
-      previousVisibleProjectionState,
-    ),
+    retainedScrollOffsets:
+      createGpuFlowVisibleFramePublicationStateMachineRetainedScrollOffsets(
+        sample,
+      ),
+    sceneGeneration:
+      getGpuFlowVisibleFramePublicationStateMachineSceneGeneration(
+        previousVisibleProjectionState,
+      ),
     viewport: createGpuFlowVisibleFramePublicationStateMachineRect({
       height: canvasSize.height,
       width: canvasSize.width,
