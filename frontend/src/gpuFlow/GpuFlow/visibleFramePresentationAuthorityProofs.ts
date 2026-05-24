@@ -116,7 +116,7 @@ export function assertGpuFlowPresentationAuthorityFrame({
     frame.publishability.blockingActorIds.length > 0
   ) {
     throw new Error(
-      "GPU Flow visible presentation authority requires a publishable committed surface frame.",
+      "GPU Flow visible presentation authority requires a publishable prepared content frame frame.",
     );
   }
   assertGpuFlowPresentationPairFeasible({
@@ -156,13 +156,15 @@ function assertGpuFlowPresentationAuthorityProofMatchesFrame({
     frame,
     presentationPairProof: presentationAuthorityProof.presentationPairProof,
     projectionSampleId,
-    projectionTransactionKind: presentationAuthorityProof.projectionTransactionKind,
+    projectionTransactionKind:
+      presentationAuthorityProof.projectionTransactionKind,
     projectionTransactionId: presentationAuthorityProof.projectionTransactionId,
   });
   const resourceProtectionDigest =
     createGpuFlowPresentationResourceProtectionDigestForFrame({ frame });
   if (
-    presentationAuthorityProof.resourceProtectionDigest !== resourceProtectionDigest
+    presentationAuthorityProof.resourceProtectionDigest !==
+    resourceProtectionDigest
   ) {
     throw new Error(
       "GPU Flow visible presentation authority requires the transaction proof resource protection proof for the selected frame.",

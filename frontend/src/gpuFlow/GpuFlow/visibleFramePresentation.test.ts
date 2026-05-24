@@ -100,7 +100,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("does not complete reducer debt when committed publication fails before visibility advances", () => {
-    const committedFrame = committedSurfaceFrame({ displayFrameId: 12 });
+    const committedFrame = preparedContentFrame({ displayFrameId: 12 });
     const selectedState = visibleProjectionState({
       displayFrameId: committedFrame.displayFrameId,
       kind: "content-publication",
@@ -166,7 +166,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("submits prepared visible work only during visible presentation", () => {
-    const committedFrame = committedSurfaceFrame({ displayFrameId: 21 });
+    const committedFrame = preparedContentFrame({ displayFrameId: 21 });
     const selectedState = visibleProjectionState({
       displayFrameId: committedFrame.displayFrameId,
       kind: "content-publication",
@@ -246,7 +246,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("does not promote committed state when prepared canvas submission fails", () => {
-    const committedFrame = committedSurfaceFrame({ displayFrameId: 22 });
+    const committedFrame = preparedContentFrame({ displayFrameId: 22 });
     const selectedState = visibleProjectionState({
       displayFrameId: committedFrame.displayFrameId,
       kind: "content-publication",
@@ -313,7 +313,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("lets reducer debt own duplicate retained follow-up frame requests", () => {
-    const committedFrame = committedSurfaceFrame({ displayFrameId: 31 });
+    const committedFrame = preparedContentFrame({ displayFrameId: 31 });
     const selectedState = visibleProjectionState({
       displayFrameId: committedFrame.displayFrameId,
       kind: "content-publication",
@@ -365,7 +365,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("defers unresolved content debt instead of immediately looping repair frames", () => {
-    const committedFrame = committedSurfaceFrame({ displayFrameId: 41 });
+    const committedFrame = preparedContentFrame({ displayFrameId: 41 });
     const selectedState = visibleProjectionState({
       displayFrameId: committedFrame.displayFrameId,
       kind: "content-publication",
@@ -440,7 +440,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("keeps the earliest delayed retry when repeated frames request the same debt reason", () => {
-    const firstCommittedFrame = committedSurfaceFrame({ displayFrameId: 42 });
+    const firstCommittedFrame = preparedContentFrame({ displayFrameId: 42 });
     const firstSelectedState = visibleProjectionState({
       displayFrameId: firstCommittedFrame.displayFrameId,
       kind: "content-publication",
@@ -450,7 +450,7 @@ describe("GPU Flow surface publication completion", () => {
       frame: firstCommittedFrame,
       projectionSample: firstSelectedState.sample,
     });
-    const secondCommittedFrame = committedSurfaceFrame({ displayFrameId: 43 });
+    const secondCommittedFrame = preparedContentFrame({ displayFrameId: 43 });
     const secondSelectedState = visibleProjectionState({
       displayFrameId: secondCommittedFrame.displayFrameId,
       kind: "content-publication",
@@ -541,7 +541,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("requests texture upload debt immediately while content publication is blocked", () => {
-    const blockedFrame = committedSurfaceFrame({ displayFrameId: 51 });
+    const blockedFrame = preparedContentFrame({ displayFrameId: 51 });
     const sample = liveProjectionSample({
       id: 51,
       timestamp: 51,
@@ -633,7 +633,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("stages and wakes budget-selected browser visual resources while blocked", () => {
-    const blockedFrame = committedSurfaceFrame({ displayFrameId: 61 });
+    const blockedFrame = preparedContentFrame({ displayFrameId: 61 });
     const sample = liveProjectionSample({
       id: 61,
       timestamp: 61,
@@ -708,7 +708,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 
   it("stages raw browser visual repair resources for blocked proofs without a budget subset", () => {
-    const blockedFrame = committedSurfaceFrame({ displayFrameId: 62 });
+    const blockedFrame = preparedContentFrame({ displayFrameId: 62 });
     const sample = liveProjectionSample({
       id: 62,
       timestamp: 62,
@@ -828,7 +828,7 @@ function heldPreviousPublicationTransaction({
         blockedErrorMessage: null,
         blockedPreparedContentFrame: null,
         blockedPreservePreparationSnapshot: false,
-        committedSurfaceFrame: null,
+        preparedContentFrame: null,
         heldPreparedContentFrame: null,
         nodeLayerFrameStatePublication: null,
         retainedDisplayFrame: null,
@@ -906,7 +906,7 @@ function committedPublicationTransaction({
         blockedErrorMessage: null,
         blockedPreparedContentFrame: null,
         blockedPreservePreparationSnapshot: false,
-        committedSurfaceFrame: committedFrame,
+        preparedContentFrame: committedFrame,
         heldPreparedContentFrame: null,
         nodeLayerFrameStatePublication,
         retainedDisplayFrame: null,
@@ -1039,7 +1039,7 @@ function blockedPublicationTransaction({
         blockedPreparedContentFrame: blockedFrame,
         blockedPreparedContentFrameResourceWork: blockedResourceWork,
         blockedPreservePreparationSnapshot,
-        committedSurfaceFrame: null,
+        preparedContentFrame: null,
         heldPreparedContentFrame: null,
         nodeLayerFrameStatePublication: null,
         retainedDisplayFrame: null,
@@ -1089,7 +1089,7 @@ function visibleProjectionState({
   readonly sampleId: number;
 }): GpuFlowVisibleProjectionState {
   return {
-    committedFrame: committedSurfaceFrame({ displayFrameId }),
+    committedFrame: preparedContentFrame({ displayFrameId }),
     debugState: {
       committedFrameId: displayFrameId,
       gestureOwner: "idle",
@@ -1115,7 +1115,7 @@ function visibleProjectionState({
   } as GpuFlowVisibleProjectionState;
 }
 
-function committedSurfaceFrame({
+function preparedContentFrame({
   displayFrameId,
 }: {
   readonly displayFrameId: number;

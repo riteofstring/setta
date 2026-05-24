@@ -10,14 +10,14 @@ import type {
 } from "../projectionRuntime";
 import type { RetainedContentTexturePagePreparedFrame } from "../retainedContentTexturePageManager";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
-import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFrameAbortPolicy";
+import { resolveGpuFlowBlockedPreparedContentFramePublicationAbort } from "./visibleFrameAbortPolicy";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import {
-  createGpuFlowCommittedSurfacePublicationFramePlanPreparer,
+  createGpuFlowPreparedContentFramePublicationFramePlanPreparer,
   createGpuFlowRetainedDisplayPublicationFramePlanPreparer,
-  runGpuFlowRetainedCommittedSurfacePublicationContentStage,
-  type GpuFlowCommittedSurfacePublicationCandidateInput,
-  type GpuFlowCommittedSurfacePublicationFramePlanPreparer,
+  runGpuFlowRetainedPreparedContentFramePublicationContentStage,
+  type GpuFlowPreparedContentFramePublicationCandidateInput,
+  type GpuFlowPreparedContentFramePublicationFramePlanPreparer,
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
 } from "./visibleFrameContentPlan";
@@ -79,38 +79,38 @@ describe("GPU Flow visible publication content plans", () => {
       "runGpuFlowRetainedDisplayPublicationContentStage",
     );
     expect(contentPlanReExport).not.toContain(
-      "runGpuFlowCommittedSurfacePublicationContentStage",
+      "runGpuFlowPreparedContentFramePublicationContentStage",
     );
     expect(contentPlanReExport).not.toContain(
-      "prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay",
+      "prepareGpuFlowPreparedContentFramePublicationFramePlanForRetainedDisplay",
     );
     expect(contentPlanReExport).not.toContain(
-      "resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult",
+      "resolveGpuFlowPreparedContentFramePublicationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).not.toMatch(
       /\bexport function (?:create|apply|run)GpuFlow(?:RetainedDisplay|CommittedSurface)PublicationContentStage\b/,
     );
     expect(contentPlanSource).not.toContain(
-      "export function prepareGpuFlowCommittedSurfacePublicationFramePlanForRetainedDisplay",
+      "export function prepareGpuFlowPreparedContentFramePublicationFramePlanForRetainedDisplay",
     );
     expect(contentPlanSource).not.toMatch(
       /\bexport function resolveGpuFlow(?:RetainedDisplay|CommittedSurface)PublicationFramePlanNodeLayerResult\b/,
     );
   });
 
-  it("selects committed-surface publish and nonpublishable candidate plans outside flowFrame", () => {
-    const committedFrame = committedSurfaceFrame();
+  it("selects prepared-content-frame publish and nonpublishable candidate plans outside flowFrame", () => {
+    const committedFrame = preparedContentFrame();
     const preparePublishPlan =
-      createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
+      createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
         contentDecisionKernel,
-        prepareCommittedSurfacePublicationCandidate: () => ({
+        preparePreparedContentFramePublicationCandidate: () => ({
           kind: "publish",
         }),
       });
     const prepareNonpublishablePlan =
-      createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
+      createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
         contentDecisionKernel,
-        prepareCommittedSurfacePublicationCandidate: () => ({
+        preparePreparedContentFramePublicationCandidate: () => ({
           blockedPublicationCandidate: {
             blockedReasons: [
               {
@@ -145,15 +145,15 @@ describe("GPU Flow visible publication content plans", () => {
 
     expect(publishPlan.kind).toBe("publish");
     if (publishPlan.kind !== "publish") {
-      throw new Error("Expected committed-surface publish plan.");
+      throw new Error("Expected prepared-content-frame publish plan.");
     }
     expect(
-      publishPlan.preparedContentFramePublication.committedSurfaceFrame,
+      publishPlan.preparedContentFramePublication.preparedContentFrame,
     ).toBe(committedFrame);
     expect(nonpublishablePlan.kind).toBe("candidate");
     if (nonpublishablePlan.kind !== "candidate") {
       throw new Error(
-        "Expected committed-surface nonpublishable candidate plan.",
+        "Expected prepared-content-frame nonpublishable candidate plan.",
       );
     }
     expect(nonpublishablePlan.visibleProjectionState).toBeNull();
@@ -172,9 +172,7 @@ describe("GPU Flow visible publication content plans", () => {
         publicationLane: "content",
         preparedContentFrame: undefined,
       }),
-    ).toThrow(
-      "GPU Flow visible projection requires a prepared committed surface frame.",
-    );
+    ).toThrow("GPU Flow visible projection requires a prepared content frame.");
   });
 
   it("creates content-publication visible projection state for retained candidates", () => {
@@ -183,7 +181,7 @@ describe("GPU Flow visible publication content plans", () => {
         frameReasons: ["texture-upload", "dom-control-activation"],
         liveProjectionSample: liveProjectionSample(),
         publicationLane: "content",
-        preparedContentFrame: committedSurfaceFrame(48),
+        preparedContentFrame: preparedContentFrame(48),
       });
 
     expect(publication.transaction.kind).toBe("content-publication");
@@ -199,13 +197,13 @@ describe("GPU Flow visible publication content plans", () => {
     );
 
     expect(kernelModuleSource).not.toMatch(
-      /export \{[\s\S]*createGpuFlow(?:CommittedSurfacePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector)[\s\S]*\} from "\.\/visibleFrameActorAdapters\/contentDecisionKernel";/,
+      /export \{[\s\S]*createGpuFlow(?:PreparedContentFramePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector)[\s\S]*\} from "\.\/visibleFrameActorAdapters\/contentDecisionKernel";/,
     );
     expect(kernelModuleSource).not.toContain(
-      "export { prepareGpuFlowCommittedSurfacePublicationCandidate",
+      "export { prepareGpuFlowPreparedContentFramePublicationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
-      "createGpuFlowCommittedSurfacePublicationFramePlanSelector();",
+      "createGpuFlowPreparedContentFramePublicationFramePlanSelector();",
     );
     expect(kernelModuleSource).not.toContain(
       "createGpuFlowRetainedDisplayPublicationFramePlanSelector();",
@@ -226,7 +224,7 @@ describe("GPU Flow visible publication content plans", () => {
       "export function createGpuFlowVisiblePublicationContentDecisionKernel",
     );
     expect(contentDecisionKernelSource).not.toMatch(
-      /export function createGpuFlow(?:CommittedSurfacePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector|CommittedSurfacePublicationFramePlanResultResolver|RetainedDisplayPublicationFramePlanResultResolver)/,
+      /export function createGpuFlow(?:PreparedContentFramePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector|PreparedContentFramePublicationFramePlanResultResolver|RetainedDisplayPublicationFramePlanResultResolver)/,
     );
   });
 
@@ -265,13 +263,13 @@ describe("GPU Flow visible publication content plans", () => {
       "preparedContentFramePublicationCandidateAction",
     );
     expect(flowFrameSource).not.toContain(
-      "assertGpuFlowCommittedSurfacePublicationCandidatePublished",
+      "assertGpuFlowPreparedContentFramePublicationCandidatePublished",
     );
     expect(flowFrameSource).not.toContain(
       "selectRetainedDisplayPublicationFramePlan",
     );
     expect(flowFrameSource).not.toContain(
-      "selectCommittedSurfacePublicationFramePlan",
+      "selectPreparedContentFramePublicationFramePlan",
     );
     expect(flowFrameSource).not.toContain(
       "retainedDisplayPublicationFramePlan.kind",
@@ -297,7 +295,7 @@ describe("GPU Flow visible publication content plans", () => {
       "createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation",
     );
     expect(flowFrameSource).not.toContain(
-      "createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation",
+      "createGpuFlowContentPublicationFrameResultForPreparedContentFramePublicationPreparation",
     );
     expect(flowFrameSource).not.toContain(
       "requireGpuFlowRetainedDisplayPublishedOutcomeFrame",
@@ -306,7 +304,7 @@ describe("GPU Flow visible publication content plans", () => {
       /export function createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation/,
     );
     expect(contentPlanSource).not.toMatch(
-      /export function createGpuFlowContentPublicationFrameResultForCommittedSurfacePublicationPreparation/,
+      /export function createGpuFlowContentPublicationFrameResultForPreparedContentFramePublicationPreparation/,
     );
     expect(contentPlanSource).not.toMatch(
       /export function requireGpuFlowRetainedDisplayPublishedOutcomeFrame/,
@@ -319,7 +317,7 @@ describe("GPU Flow visible publication content plans", () => {
       "preparedContentFramePublicationPreparation.shouldPrepareHtmlSurfaceOverlayTextures",
     );
     expect(flowFrameSource).not.toContain(
-      "function prepareHtmlSurfaceOverlayTexturesForCommittedSurfaceCandidate",
+      "function prepareHtmlSurfaceOverlayTexturesForPreparedContentFrameCandidate",
     );
     expect(flowFrameSource).not.toContain(
       "createGpuFlowRetainedDisplayPublicationContentStep",
@@ -347,16 +345,16 @@ describe("GPU Flow visible publication content plans", () => {
       "retainedDisplayContentStep.publishedOutcomeFrame",
     );
     expect(flowFrameSource).not.toContain(
-      "createGpuFlowCommittedSurfacePublicationContentStep",
+      "createGpuFlowPreparedContentFramePublicationContentStep",
     );
     expect(flowFrameSource).not.toContain(
-      "createGpuFlowCommittedSurfacePublicationContentStage",
+      "createGpuFlowPreparedContentFramePublicationContentStage",
     );
     expect(flowFrameSource).not.toContain(
-      "applyGpuFlowCommittedSurfacePublicationContentStage",
+      "applyGpuFlowPreparedContentFramePublicationContentStage",
     );
     expect(flowFrameSource).not.toContain(
-      "runGpuFlowCommittedSurfacePublicationContentStage",
+      "runGpuFlowPreparedContentFramePublicationContentStage",
     );
     expect(flowFrameSource).not.toContain("committedSurfaceContentStage.kind");
     expect(flowFrameSource).not.toContain(
@@ -375,43 +373,43 @@ describe("GPU Flow visible publication content plans", () => {
       "resolveGpuFlowRetainedDisplayPublicationContentResolution",
     );
     expect(flowFrameSource).not.toContain(
-      "resolveGpuFlowCommittedSurfacePublicationContentResolution",
+      "resolveGpuFlowPreparedContentFramePublicationContentResolution",
     );
     expect(flowFrameSource).not.toContain("content-frame-result");
     expect(flowFrameSource).not.toContain("published-outcome-frame");
-    expect(flowFrameSource).not.toContain("committed-surface-publication");
+    expect(flowFrameSource).not.toContain("prepared-content-frame-publication");
     expect(flowFrameSource).not.toContain("onCommittedSurfacePrepared");
     expect(flowFrameSource).not.toContain("onCommittedSurfacePublished");
     expect(flowFrameSource).not.toContain("onRetainedDisplayPublished");
     expect(flowFrameSource).toContain(
-      "runRetainedCommittedSurfacePublicationContentStage",
+      "runRetainedPreparedContentFramePublicationContentStage",
     );
     expect(flowFrameSource).not.toContain(
       "prepareRetainedDisplayPublicationFramePlan",
     );
     expect(flowFrameSource).not.toContain(
-      "prepareCommittedSurfacePublicationFramePlan",
+      "preparePreparedContentFramePublicationFramePlan",
     );
     expect(surfaceFrameSource).toContain(
-      "runRetainedCommittedSurfacePublicationContentStage",
+      "runRetainedPreparedContentFramePublicationContentStage",
     );
     expect(surfaceFrameSource).not.toContain(
       "prepareRetainedDisplayPublicationFramePlan",
     );
     expect(surfaceFrameSource).not.toContain(
-      "prepareCommittedSurfacePublicationFramePlan",
+      "preparePreparedContentFramePublicationFramePlan",
     );
     expect(contentPlanSource).not.toContain(
       "export function resolveGpuFlowRetainedDisplayOutcomeFrameResult",
     );
     expect(contentPlanSource).not.toContain(
-      "export function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+      "export function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
     );
     expect(contentPlanSource).not.toContain(
       "export function resolveGpuFlowRetainedDisplayPublicationFramePlanResult",
     );
     expect(contentPlanSource).not.toContain(
-      "export function resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
+      "export function resolveGpuFlowPreparedContentFramePublicationFramePlanResult",
     );
     expect(contentPlanSource).toContain(
       "resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
@@ -438,31 +436,31 @@ describe("GPU Flow visible publication content plans", () => {
       "function selectGpuFlowRetainedDisplayPublicationFramePlan",
     );
     expect(stateMachineSource).toContain(
-      "function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+      "function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
     );
     expect(stateMachineSource).not.toContain(
-      "export function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+      "export function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+      "function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
     );
     expect(stateMachineSource).toContain(
-      "export function resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
+      "export function resolveGpuFlowPreparedContentFramePublicationFramePlanResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
+      "function resolveGpuFlowPreparedContentFramePublicationFramePlanResult",
     );
     expect(stateMachineSource).toContain(
-      "export function selectGpuFlowCommittedSurfacePublicationFramePlan",
+      "export function selectGpuFlowPreparedContentFramePublicationFramePlan",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function selectGpuFlowCommittedSurfacePublicationFramePlan",
+      "function selectGpuFlowPreparedContentFramePublicationFramePlan",
     );
     expect(contentPlanSource).toContain(
-      "resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult",
+      "resolveGpuFlowPreparedContentFramePublicationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).not.toContain(
-      "resolveGpuFlowCommittedSurfacePublicationReadiness",
+      "resolveGpuFlowPreparedContentFramePublicationReadiness",
     );
     expect(contentPlanSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
@@ -474,16 +472,14 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentPlanSource).toContain(
       "publishedOutcomeFrame: framePlanResult.publishedOutcomeFrame",
     );
-    expect(contentPlanSource).toContain("prepareCommittedSurfaceFrame?.(");
-    expect(contentPreparationSource).not.toContain(
-      "prepareCommittedSurfaceFrame?.(",
-    );
+    expect(contentPlanSource).toContain("prepareContentFrame?.(");
+    expect(contentPreparationSource).not.toContain("prepareContentFrame?.(");
     expect(contentPreparationSource).toContain(
       "shouldPrepareHtmlSurfaceOverlayTextures",
     );
   });
 
-  it("keeps committed-surface transaction candidate reduction in the state machine authority", () => {
+  it("keeps prepared-content-frame transaction candidate reduction in the state machine authority", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
     const contentDecisionKernelSource = readFileSync(
       CONTENT_DECISION_KERNEL_MODULE_PATH,
@@ -493,25 +489,25 @@ describe("GPU Flow visible publication content plans", () => {
     const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
 
     expect(contentPlanSource).not.toContain(
-      "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
+      "export function prepareGpuFlowPreparedContentFramePublicationCandidate",
     );
     expect(contentPlanSource).not.toContain(
-      "resolveGpuFlowCommittedSurfacePublicationReadiness",
+      "resolveGpuFlowPreparedContentFramePublicationReadiness",
     );
     expect(contentPlanSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
     expect(stateMachineSource).toContain(
-      "export function reduceGpuFlowCommittedSurfacePublicationCandidate",
+      "export function reduceGpuFlowPreparedContentFramePublicationCandidate",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function prepareGpuFlowCommittedSurfacePublicationCandidate",
+      "function prepareGpuFlowPreparedContentFramePublicationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
-      "prepareGpuFlowCommittedSurfacePublicationCandidate",
+      "prepareGpuFlowPreparedContentFramePublicationCandidate",
     );
     expect(stateMachineSource).toContain(
-      "resolveGpuFlowCommittedSurfacePublicationReadiness",
+      "resolveGpuFlowPreparedContentFramePublicationReadiness",
     );
     expect(stateMachineSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
@@ -522,7 +518,7 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentDecisionKernelSource).not.toContain('"blocked-candidate"');
   });
 
-  it("keeps committed-surface frame-plan selection in the state machine authority", () => {
+  it("keeps prepared-content-frame frame-plan selection in the state machine authority", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
     const contentDecisionKernelSource = readFileSync(
       CONTENT_DECISION_KERNEL_MODULE_PATH,
@@ -531,40 +527,40 @@ describe("GPU Flow visible publication content plans", () => {
     const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
 
     expect(contentPlanSource).not.toContain(
-      "export function selectGpuFlowCommittedSurfacePublicationFramePlan",
+      "export function selectGpuFlowPreparedContentFramePublicationFramePlan",
     );
     expect(contentPlanSource).not.toContain(
-      "export function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+      "export function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
     );
     expect(contentPlanSource).not.toContain(
-      "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
+      "createGpuFlowNodeLayerPreparedContentFramePublicationResult",
     );
     expect(stateMachineSource).toContain(
-      "export function selectGpuFlowCommittedSurfacePublicationFramePlan",
+      "export function selectGpuFlowPreparedContentFramePublicationFramePlan",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function selectGpuFlowCommittedSurfacePublicationFramePlan",
+      "function selectGpuFlowPreparedContentFramePublicationFramePlan",
     );
     expect(stateMachineSource).toContain(
-      "function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+      "function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
     );
     expect(stateMachineSource).not.toContain(
-      "export function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+      "export function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
+      "function resolveGpuFlowPreparedContentFramePublicationActionFrameResult",
     );
     expect(stateMachineSource).toContain(
-      "export function resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
+      "export function resolveGpuFlowPreparedContentFramePublicationFramePlanResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
+      "function resolveGpuFlowPreparedContentFramePublicationFramePlanResult",
     );
     expect(stateMachineSource).toContain(
-      "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
+      "createGpuFlowNodeLayerPreparedContentFramePublicationResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
+      "createGpuFlowNodeLayerPreparedContentFramePublicationResult",
     );
   });
 
@@ -644,7 +640,7 @@ describe("GPU Flow visible publication content plans", () => {
       "resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
     );
     expect(flowFrameSource).not.toContain(
-      "resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult",
+      "resolveGpuFlowPreparedContentFramePublicationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).toContain(
       "function resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
@@ -653,40 +649,40 @@ describe("GPU Flow visible publication content plans", () => {
       "export function resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).toContain(
-      "function resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult",
+      "function resolveGpuFlowPreparedContentFramePublicationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).not.toContain(
-      "export function resolveGpuFlowCommittedSurfacePublicationFramePlanNodeLayerResult",
+      "export function resolveGpuFlowPreparedContentFramePublicationFramePlanNodeLayerResult",
     );
   });
 
-  it("resolves blocked committed-surface abort instructions outside completion", () => {
-    const blockedPreparedFrame = committedSurfaceFrame(8);
-    const heldPreparedFrame = committedSurfaceFrame(9);
-    const committedFrame = committedSurfaceFrame(10);
+  it("resolves blocked prepared-content-frame abort instructions outside completion", () => {
+    const blockedPreparedFrame = preparedContentFrame(8);
+    const heldPreparedFrame = preparedContentFrame(9);
+    const committedFrame = preparedContentFrame(10);
     const explicitBlockedAbort =
-      resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
+      resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
         blockedPreparedContentFrame: blockedPreparedFrame,
         blockedPreservePreparationSnapshot: true,
-        committedSurfaceFrame: committedFrame,
+        preparedContentFrame: committedFrame,
         heldPreparedContentFrame: heldPreparedFrame,
         selectedVisibleProjectionState: visibleProjectionState(
           "content-publication",
         ),
       });
     const heldPreviousBlockedAbort =
-      resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
+      resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
         blockedPreparedContentFrame: null,
         blockedPreservePreparationSnapshot: false,
-        committedSurfaceFrame: committedFrame,
+        preparedContentFrame: committedFrame,
         heldPreparedContentFrame: heldPreparedFrame,
         selectedVisibleProjectionState: visibleProjectionState("held-previous"),
       });
     const blockedProofHeldCandidateAbort =
-      resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
+      resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
         blockedPreparedContentFrame: null,
         blockedPreservePreparationSnapshot: false,
-        committedSurfaceFrame: committedFrame,
+        preparedContentFrame: committedFrame,
         heldPreparedContentFrame: heldPreparedFrame,
         selectedVisibleProjectionState: null,
       });
@@ -714,7 +710,7 @@ describe("GPU Flow visible publication content plans", () => {
       "function resolveGpuFlowBlockedPreparedCommittedSurfaceFramePreservation",
     );
     expect(completionSource).toContain(
-      "resolveGpuFlowBlockedCommittedSurfacePublicationAbort",
+      "resolveGpuFlowBlockedPreparedContentFramePublicationAbort",
     );
   });
 
@@ -780,8 +776,8 @@ describe("GPU Flow visible publication content plans", () => {
     ).toBe("texture-upload");
   });
 
-  it("converts committed-surface publication blocks through the combined content stage", () => {
-    const candidateFrame = committedSurfaceFrame();
+  it("converts prepared-content-frame publication blocks through the combined content stage", () => {
+    const candidateFrame = preparedContentFrame();
     const publishedRetainedFrame = { id: 11 } as RetainedDisplayFrame;
     const blockedPublicationCandidate = {
       blockedReasons: [
@@ -793,10 +789,10 @@ describe("GPU Flow visible publication content plans", () => {
       ],
       frozenFrameId: 9,
     } satisfies GpuFlowVisibleFrameBlockedPublicationCandidate;
-    const prepareCommittedSurfacePublicationFramePlan =
-      createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
+    const preparePreparedContentFramePublicationFramePlan =
+      createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
         contentDecisionKernel,
-        prepareCommittedSurfacePublicationCandidate: () => ({
+        preparePreparedContentFramePublicationCandidate: () => ({
           blockedPublicationCandidate,
           candidateFrame,
           errorMessage: "blocked surface",
@@ -809,39 +805,41 @@ describe("GPU Flow visible publication content plans", () => {
           },
         }),
       });
-    const result = runGpuFlowRetainedCommittedSurfacePublicationContentStage<
-      { readonly marker: string },
-      never
-    >({
-      contentDecisionKernel,
-      deferBrowserVisualWakeup: false,
-      deferResolutionUpdates: false,
-      frameReasons: ["texture-upload"],
-      liveProjectionSample: liveProjectionSample(),
-      onCommittedSurfaceCandidateAccepted: () => {
-        throw new Error("Blocked committed stages must not publish.");
-      },
-      onRetainedDisplayCandidateAccepted: ({
-        publishedRetainedDisplayOutcomeFrame,
-      }) => {
-        expect(publishedRetainedDisplayOutcomeFrame.frame).toBe(
-          publishedRetainedFrame,
-        );
-        return {
-          committedGpuNativeVisuals: undefined,
-          context: { marker: "retained-published" },
-        };
-      },
-      prepareCommittedSurfaceFrame: () => candidateFrame,
-      prepareCommittedSurfacePublicationFramePlan,
-      prepareRetainedDisplayPublicationFramePlan:
-        createPublishedRetainedDisplayPublicationFramePlan({
-          publishedRetainedFrame,
-        }),
-      previousVisibleProjectionState: null,
-      publicationLane: "content",
-      retainedDisplayPublicationInput: retainedDisplayPublicationInputFixture(),
-    });
+    const result =
+      runGpuFlowRetainedPreparedContentFramePublicationContentStage<
+        { readonly marker: string },
+        never
+      >({
+        contentDecisionKernel,
+        deferBrowserVisualWakeup: false,
+        deferResolutionUpdates: false,
+        frameReasons: ["texture-upload"],
+        liveProjectionSample: liveProjectionSample(),
+        onPreparedContentFrameCandidateAccepted: () => {
+          throw new Error("Blocked committed stages must not publish.");
+        },
+        onRetainedDisplayCandidateAccepted: ({
+          publishedRetainedDisplayOutcomeFrame,
+        }) => {
+          expect(publishedRetainedDisplayOutcomeFrame.frame).toBe(
+            publishedRetainedFrame,
+          );
+          return {
+            committedGpuNativeVisuals: undefined,
+            context: { marker: "retained-published" },
+          };
+        },
+        prepareContentFrame: () => candidateFrame,
+        preparePreparedContentFramePublicationFramePlan,
+        prepareRetainedDisplayPublicationFramePlan:
+          createPublishedRetainedDisplayPublicationFramePlan({
+            publishedRetainedFrame,
+          }),
+        previousVisibleProjectionState: null,
+        publicationLane: "content",
+        retainedDisplayPublicationInput:
+          retainedDisplayPublicationInputFixture(),
+      });
 
     expect(result).toEqual(
       expect.objectContaining({
@@ -859,7 +857,7 @@ describe("GPU Flow visible publication content plans", () => {
     const calls: string[] = [];
     const previousRetainedFrame = { id: 10 } as RetainedDisplayFrame;
     const publishedRetainedFrame = { id: 11 } as RetainedDisplayFrame;
-    const preparedCommittedSurfaceFrame = committedSurfaceFrame(12);
+    const preparedFrameForPublication = preparedContentFrame(12);
     const publishedOutcomeFrame = {
       frame: publishedRetainedFrame,
       kind: "published",
@@ -878,7 +876,7 @@ describe("GPU Flow visible publication content plans", () => {
     } as ReturnType<GpuFlowRetainedDisplayPublicationFramePlanPreparer>["publication"];
     const preparedContentFramePublication = {
       blockedSurfacePublication: null,
-      committedSurfaceFrame: preparedCommittedSurfaceFrame,
+      preparedContentFrame: preparedFrameForPublication,
       heldPreparedContentFrame: null,
     } as const;
     const prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer =
@@ -900,10 +898,10 @@ describe("GPU Flow visible publication content plans", () => {
           publishedOutcomeFrame,
         };
       };
-    const prepareCommittedSurfacePublicationFramePlan: GpuFlowCommittedSurfacePublicationFramePlanPreparer =
+    const preparePreparedContentFramePublicationFramePlan: GpuFlowPreparedContentFramePublicationFramePlanPreparer =
       (input) => {
         calls.push("committed-plan");
-        expect(input.preparedContentFrame).toBe(preparedCommittedSurfaceFrame);
+        expect(input.preparedContentFrame).toBe(preparedFrameForPublication);
         expect(input.publishedRetainedFrame).toBe(publishedRetainedFrame);
         return {
           candidate: { kind: "publish" },
@@ -923,70 +921,71 @@ describe("GPU Flow visible publication content plans", () => {
           shouldPrepareHtmlSurfaceOverlayTextures: false,
         };
       };
-    const result = runGpuFlowRetainedCommittedSurfacePublicationContentStage<
-      { readonly marker: string },
-      string
-    >({
-      contentDecisionKernel,
-      deferBrowserVisualWakeup: true,
-      deferResolutionUpdates: false,
-      frameReasons: ["texture-upload"],
-      liveProjectionSample: liveProjectionSample(),
-      onCommittedSurfaceCandidatePrepared: ({
-        context,
-        preparedCommittedSurfaceFrame: preparedFrame,
-        retainedDisplayFollowUpFrameReason,
-      }) => {
-        calls.push("committed-prepared");
-        expect(context.marker).toBe("retained-published");
-        expect(preparedFrame).toBe(preparedCommittedSurfaceFrame);
-        expect(retainedDisplayFollowUpFrameReason).toBe("texture-upload");
-      },
-      onCommittedSurfaceCandidateAccepted: ({
-        preparedContentFramePublication: publication,
-        context,
-      }) => {
-        calls.push("committed-published");
-        expect(context.marker).toBe("retained-published");
-        expect(publication).toBe(preparedContentFramePublication);
-        return "published";
-      },
-      onRetainedDisplayCandidateAccepted: ({
-        publishedRetainedDisplayOutcomeFrame,
-        retainedDisplayPublication: publication,
-      }) => {
-        calls.push("retained-published");
-        expect(publishedRetainedDisplayOutcomeFrame).toBe(
-          publishedOutcomeFrame,
-        );
-        expect(publication).toBe(retainedDisplayPublication);
-        return {
-          committedGpuNativeVisuals: undefined,
-          context: { marker: "retained-published" },
-        };
-      },
-      prepareCommittedSurfaceFrame: (frame, options) => {
-        calls.push("committed-frame");
-        expect(frame).toBe(publishedRetainedFrame);
-        expect(options).toEqual({ gpuNativeVisuals: undefined });
-        return preparedCommittedSurfaceFrame;
-      },
-      prepareCommittedSurfacePublicationFramePlan,
-      prepareRetainedDisplayPublicationFramePlan,
-      previousVisibleProjectionState: null,
-      publicationLane: "content",
-      retainedDisplayPublicationInput: {
-        darkMode: false,
+    const result =
+      runGpuFlowRetainedPreparedContentFramePublicationContentStage<
+        { readonly marker: string },
+        string
+      >({
+        contentDecisionKernel,
+        deferBrowserVisualWakeup: true,
         deferResolutionUpdates: false,
-        nowMs: 24,
-        preparedFrame: {} as RetainedContentTexturePagePreparedFrame,
-        previousRetainedDisplayFrame: previousRetainedFrame,
-        retainedContentPageManager:
-          {} as Parameters<GpuFlowRetainedDisplayPublicationFramePlanPreparer>[0]["retainedContentPageManager"],
-        retainedRuntimeFrame:
-          {} as Parameters<GpuFlowRetainedDisplayPublicationFramePlanPreparer>[0]["retainedRuntimeFrame"],
-      },
-    });
+        frameReasons: ["texture-upload"],
+        liveProjectionSample: liveProjectionSample(),
+        onPreparedContentFrameCandidatePrepared: ({
+          context,
+          preparedContentFrame: preparedFrame,
+          retainedDisplayFollowUpFrameReason,
+        }) => {
+          calls.push("committed-prepared");
+          expect(context.marker).toBe("retained-published");
+          expect(preparedFrame).toBe(preparedFrameForPublication);
+          expect(retainedDisplayFollowUpFrameReason).toBe("texture-upload");
+        },
+        onPreparedContentFrameCandidateAccepted: ({
+          preparedContentFramePublication: publication,
+          context,
+        }) => {
+          calls.push("committed-published");
+          expect(context.marker).toBe("retained-published");
+          expect(publication).toBe(preparedContentFramePublication);
+          return "published";
+        },
+        onRetainedDisplayCandidateAccepted: ({
+          publishedRetainedDisplayOutcomeFrame,
+          retainedDisplayPublication: publication,
+        }) => {
+          calls.push("retained-published");
+          expect(publishedRetainedDisplayOutcomeFrame).toBe(
+            publishedOutcomeFrame,
+          );
+          expect(publication).toBe(retainedDisplayPublication);
+          return {
+            committedGpuNativeVisuals: undefined,
+            context: { marker: "retained-published" },
+          };
+        },
+        prepareContentFrame: (frame, options) => {
+          calls.push("committed-frame");
+          expect(frame).toBe(publishedRetainedFrame);
+          expect(options).toEqual({ gpuNativeVisuals: undefined });
+          return preparedFrameForPublication;
+        },
+        preparePreparedContentFramePublicationFramePlan,
+        prepareRetainedDisplayPublicationFramePlan,
+        previousVisibleProjectionState: null,
+        publicationLane: "content",
+        retainedDisplayPublicationInput: {
+          darkMode: false,
+          deferResolutionUpdates: false,
+          nowMs: 24,
+          preparedFrame: {} as RetainedContentTexturePagePreparedFrame,
+          previousRetainedDisplayFrame: previousRetainedFrame,
+          retainedContentPageManager:
+            {} as Parameters<GpuFlowRetainedDisplayPublicationFramePlanPreparer>[0]["retainedContentPageManager"],
+          retainedRuntimeFrame:
+            {} as Parameters<GpuFlowRetainedDisplayPublicationFramePlanPreparer>[0]["retainedRuntimeFrame"],
+        },
+      });
 
     expect(result).toBe("published");
     expect(calls).toEqual([
@@ -999,7 +998,7 @@ describe("GPU Flow visible publication content plans", () => {
     ]);
   });
 
-  it("gates committed-surface overlay texture preparation outside flowFrame", () => {
+  it("gates prepared-content-frame overlay texture preparation outside flowFrame", () => {
     const preparedInputs: number[] = [];
 
     const skipped =
@@ -1081,7 +1080,7 @@ describe("GPU Flow visible publication content plans", () => {
   });
 });
 
-function committedSurfaceFrame(
+function preparedContentFrame(
   displayFrameId = 7,
 ): GpuFlowCommittedSurfaceFrame {
   return {
@@ -1100,7 +1099,7 @@ function preparedContentFramePublicationCandidateInput({
   preparedContentFrame,
 }: {
   readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
-}): GpuFlowCommittedSurfacePublicationCandidateInput {
+}): GpuFlowPreparedContentFramePublicationCandidateInput {
   return {
     committedGpuNativeVisuals: undefined,
     frameReasons: ["manual"],

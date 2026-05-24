@@ -15,15 +15,15 @@ import {
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
-import { createGpuFlowCommittedSurfacePublicationFramePlanPreparer } from "./visibleFrameContentPlan";
+import { createGpuFlowPreparedContentFramePublicationFramePlanPreparer } from "./visibleFrameContentPlan";
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
 } from "./visibleFrameCoordinator";
 
-const prepareCommittedSurfacePublicationFramePlanForTest =
-  createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
+const preparePreparedContentFramePublicationFramePlanForTest =
+  createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
     contentDecisionKernel:
       createGpuFlowVisiblePublicationContentDecisionKernel(),
   });
@@ -188,7 +188,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
     expect(result.completeReducerFrame().completion.debt.content).toBe(true);
   });
 
-  it("turns a nonpublishable committed-surface candidate into a held outcome at completion", () => {
+  it("turns a nonpublishable prepared-content-frame candidate into a held outcome at completion", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 4, timestamp: 64 });
     const previousVisibleProjectionState = visibleProjectionState({
@@ -196,7 +196,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       sample: liveProjectionSample({ id: 3, timestamp: 48 }),
     });
 
-    const candidate = prepareCommittedSurfacePublicationCandidateForTest({
+    const candidate = preparePreparedContentFramePublicationCandidateForTest({
       heldPreviousProjectionState: previousVisibleProjectionState,
       liveSample: sample,
       preparedContentFrame: blockedCommittedSurfaceFrame({
@@ -208,7 +208,9 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
 
     expect(candidate.kind).toBe("nonpublishable");
     if (candidate.kind !== "nonpublishable") {
-      throw new Error("Expected nonpublishable committed-surface candidate.");
+      throw new Error(
+        "Expected nonpublishable prepared-content-frame candidate.",
+      );
     }
     expect("token" in candidate).toBe(false);
 
@@ -244,18 +246,21 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       kind: "content-publication",
       sample: liveProjectionSample({ id: 13, timestamp: 208 }),
     });
-    const candidate = prepareCommittedSurfacePublicationCandidateForTest({
+    const candidate = preparePreparedContentFramePublicationCandidateForTest({
       heldPreviousProjectionState: previousVisibleProjectionState,
       preparedContentFrame: trueHoleCommittedSurfaceFrame(),
     });
-    const coldCandidate = prepareCommittedSurfacePublicationCandidateForTest({
-      heldPreviousProjectionState: null,
-      preparedContentFrame: trueHoleCommittedSurfaceFrame(),
-    });
+    const coldCandidate =
+      preparePreparedContentFramePublicationCandidateForTest({
+        heldPreviousProjectionState: null,
+        preparedContentFrame: trueHoleCommittedSurfaceFrame(),
+      });
 
     expect(candidate.kind).toBe("nonpublishable");
     if (candidate.kind !== "nonpublishable") {
-      throw new Error("Expected nonpublishable committed-surface candidate.");
+      throw new Error(
+        "Expected nonpublishable prepared-content-frame candidate.",
+      );
     }
     expect(candidate.errorMessage).toBeNull();
     expect(candidate.blockedPublicationCandidate.frozenFrameId).toBe(
@@ -265,7 +270,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
     expect(coldCandidate.kind).toBe("nonpublishable");
     if (coldCandidate.kind !== "nonpublishable") {
       throw new Error(
-        "Expected cold nonpublishable committed-surface candidate.",
+        "Expected cold nonpublishable prepared-content-frame candidate.",
       );
     }
     expect(coldCandidate.errorMessage).toBeNull();
@@ -273,7 +278,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
 });
 
 function visibleProjectionState({
-  committedFrame = committedSurfaceFrame(),
+  committedFrame = preparedContentFrame(),
   heldPreviousProjection,
   kind,
   sample,
@@ -332,7 +337,7 @@ function visibleProjectionState({
   };
 }
 
-function committedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+function preparedContentFrame(): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = 7;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
@@ -371,7 +376,7 @@ function committedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
 
-function prepareCommittedSurfacePublicationCandidateForTest({
+function preparePreparedContentFramePublicationCandidateForTest({
   heldPreviousProjectionState,
   liveSample = liveProjectionSample({ id: 21, timestamp: 216 }),
   preparedContentFrame,
@@ -380,7 +385,7 @@ function prepareCommittedSurfacePublicationCandidateForTest({
   readonly liveSample?: GpuFlowLiveProjectionSample | undefined;
   readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame;
 }) {
-  return prepareCommittedSurfacePublicationFramePlanForTest({
+  return preparePreparedContentFramePublicationFramePlanForTest({
     committedGpuNativeVisuals: undefined,
     frameReasons: ["manual"],
     heldPreviousProjectionState,

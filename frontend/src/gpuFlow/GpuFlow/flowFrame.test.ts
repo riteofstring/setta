@@ -2,9 +2,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
+import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface } from "../scene";
 import type { GpuRect } from "../viewportMath";
 import {
@@ -263,7 +263,7 @@ describe("GPU flow frame helpers", () => {
     expect(
       getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
         controls: [staleControl],
-        preparedCommittedSurfaceFrame: committedSurfaceFrame({
+        preparedContentFrame: preparedContentFrame({
           controls: [preparedControl],
           coverageState: "blocked-awaiting-snapshot",
         }),
@@ -272,7 +272,7 @@ describe("GPU flow frame helpers", () => {
     expect(
       getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
         controls: [staleControl],
-        preparedCommittedSurfaceFrame: committedSurfaceFrame({
+        preparedContentFrame: preparedContentFrame({
           controls: [preparedControl],
           coverageState: "live-host-ready",
         }),
@@ -291,7 +291,7 @@ function retainedDomControl(
   } as GpuRetainedDomControlSourceDescriptor;
 }
 
-function committedSurfaceFrame({
+function preparedContentFrame({
   controls,
   coverageState,
 }: {

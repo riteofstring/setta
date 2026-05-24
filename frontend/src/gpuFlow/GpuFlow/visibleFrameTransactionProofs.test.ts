@@ -299,7 +299,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
       requiredInteractionProof: "inactive-visual-only",
     });
     const proof = createGpuFlowVisiblePublicationPresentableFrameProof({
-      committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+      committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
       publicationDecision: publicationDecision(sample),
     });
 
@@ -379,7 +379,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(
       createGpuFlowVisiblePublicationPresentableFrameProof({
-        committedFrame: committedSurfaceFrame({
+        committedFrame: preparedContentFrame({
           compatiblePreviousActorIds: ["actor-a"],
         }),
         publicationDecision: publicationDecisionWithContentDebt,
@@ -391,7 +391,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     });
     expect(
       createGpuFlowVisiblePublicationPresentableFrameProof({
-        committedFrame: committedSurfaceFrame({
+        committedFrame: preparedContentFrame({
           compatiblePreviousActorIds: [],
         }),
         publicationDecision: publicationDecisionWithContentDebt,
@@ -409,7 +409,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisiblePublicationPresentableFrameProof({
-        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
         publicationDecision: publicationDecision(sample),
       }),
     ).toThrow(
@@ -425,7 +425,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisiblePublicationPresentableFrameProof({
-        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
         publicationDecision: publicationDecision(sample),
       }),
     ).toThrow(
@@ -442,7 +442,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisiblePublicationPresentableFrameProof({
-        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
         publicationDecision: publicationDecision(sample),
       }),
     ).toThrow(
@@ -463,7 +463,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
       sample: liveProjectionSample({ id: 52, timestamp: 514 }),
     });
     const overBudgetVisibleProjectionState = visibleProjectionState({
-      committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+      committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
       kind: "content-publication",
       sample,
     });
@@ -508,7 +508,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
       sample: liveProjectionSample({ id: 53, timestamp: 524 }),
     });
     const activeEditorVisibleProjectionState = visibleProjectionState({
-      committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+      committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
       kind: "motion-projection",
       sample,
     });
@@ -551,7 +551,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
         actualVisualProof,
       });
       const proof = createGpuFlowVisiblePublicationPresentableFrameProof({
-        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
         publicationDecision: publicationDecision(sample),
       });
 
@@ -591,7 +591,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisiblePublicationPresentableFrameProof({
-        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
         publicationDecision: publicationDecision(sample),
       }),
     ).toThrow(/compatible-previous:previous-transaction-identity-required/);
@@ -609,7 +609,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisiblePublicationPresentableFrameProof({
-        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
         publicationDecision: publicationDecision(sample),
       }),
     ).toThrow(/exact-live-host:active-editor-host-identity-required/);
@@ -620,7 +620,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       createGpuFlowVisiblePublicationPresentableFrameProof({
-        committedFrame: committedSurfaceFrame({
+        committedFrame: preparedContentFrame({
           exactSurfaceResourceHandles: [{ id: "source-a", kind: "source" }],
         }),
         publicationDecision: publicationDecision(sample),
@@ -635,7 +635,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
       sample: liveProjectionSample({ id: 57, timestamp: 564 }),
     });
     const visibleProjectionStateWithMissingResource = visibleProjectionState({
-      committedFrame: committedSurfaceFrame({
+      committedFrame: preparedContentFrame({
         exactSurfaceResourceHandles: [{ id: "source-a", kind: "source" }],
       }),
       kind: "content-publication",
@@ -709,7 +709,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
         sample: liveProjectionSample({ id: 56, timestamp: 554 }),
       });
       const visibleProjectionStateWithMismatch = visibleProjectionState({
-        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        committedFrame: preparedContentFrame({ actorGenerations: [actor] }),
         kind: "content-publication",
         sample,
       });
@@ -840,7 +840,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 });
 
 function visibleProjectionState({
-  committedFrame = committedSurfaceFrame(),
+  committedFrame = preparedContentFrame(),
   kind,
   sample,
 }: {
@@ -877,7 +877,7 @@ function visibleProjectionState({
   };
 }
 
-function committedSurfaceFrame({
+function preparedContentFrame({
   actorGenerations = [],
   compatiblePreviousActorIds = [],
   exactSurfaceResourceHandles = [],

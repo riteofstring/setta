@@ -96,8 +96,8 @@ function createGpuFlowSurfaceFrameContentPublicationDiagnostic(
   return {
     blockedPreparedContentFrameId:
       contentFrame.blockedPreparedContentFrame?.displayFrameId ?? null,
-    committedSurfaceFrameId:
-      contentFrame.committedSurfaceFrame?.displayFrameId ?? null,
+    preparedContentFrameId:
+      contentFrame.preparedContentFrame?.displayFrameId ?? null,
     heldPreparedContentFrameId:
       contentFrame.heldPreparedContentFrame?.displayFrameId ?? null,
     rendered: contentFrame.rendered,

@@ -48,6 +48,6 @@ function getGpuFlowVisibleCommittedSurfaceFrame({
     return preparedContentFrame;
   }
   throw new Error(
-    "GPU Flow visible projection requires a prepared committed surface frame.",
+    "GPU Flow visible projection requires a prepared content frame.",
   );
 }

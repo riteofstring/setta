@@ -8,9 +8,9 @@ import type { GpuDomIsland } from "../scene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { createGpuFlowBrowserVisualActorRuntime } from "./browserVisualActorRuntime";
 import {
-  committedSurfaceFrame,
   createMockViewportRuntime,
   domControl,
+  preparedContentFrame,
   publicationToken,
   retainedDisplayFrame,
   retainedRuntimeFrame,
@@ -41,12 +41,12 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
       element,
       presentation: "preparation",
     });
-    const firstFrame = committedSurfaceFrame({
+    const firstFrame = preparedContentFrame({
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrame([control], 1),
     });
     const firstToken = publicationToken(firstFrame);
-    const firstCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const firstCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: firstFrame.displayFrameId,
         retainedRuntimeFrame: firstFrame.retainedRuntimeFrame,
@@ -57,12 +57,12 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
       token: firstToken,
     });
 
-    const retiredFrame = committedSurfaceFrame({
+    const retiredFrame = preparedContentFrame({
       displayFrameId: 2,
       retainedRuntimeFrame: retainedRuntimeFrame([], 2),
     });
     const retiredToken = publicationToken(retiredFrame);
-    const retiredCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const retiredCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: retiredFrame.displayFrameId,
         retainedRuntimeFrame: retiredFrame.retainedRuntimeFrame,
@@ -92,12 +92,12 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
       islandId: island.id,
       presentation: "preparation",
     });
-    const firstFrame = committedSurfaceFrame({
+    const firstFrame = preparedContentFrame({
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrameWithDomIslands([island], 1),
     });
     const firstToken = publicationToken(firstFrame);
-    const firstCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const firstCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrameInput(firstFrame),
     });
     browserVisualRuntime.commitPreparedBrowserVisualActors({
@@ -106,12 +106,12 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
     });
     expect(element.dataset.gpuFlowDomIsland).toBe("true");
 
-    const retiredFrame = committedSurfaceFrame({
+    const retiredFrame = preparedContentFrame({
       displayFrameId: 2,
       retainedRuntimeFrame: retainedRuntimeFrameWithDomIslands([], 2),
     });
     const retiredToken = publicationToken(retiredFrame);
-    const retiredCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const retiredCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrameInput(retiredFrame),
     });
     browserVisualRuntime.commitPreparedBrowserVisualActors({
@@ -132,7 +132,7 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
 });
 
 function retainedDisplayFrameInput(
-  frame: ReturnType<typeof committedSurfaceFrame>,
+  frame: ReturnType<typeof preparedContentFrame>,
 ): RetainedDisplayFrame {
   return {
     id: frame.displayFrameId,

@@ -86,13 +86,13 @@ const browserVisualStarvationDebtByCanvas = new WeakMap<
 >();
 
 export function recordGpuFlowVisibleFramePresented(application: {
-  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
-  const { committedSurfaceFrame, runtimeCanvas, token } = application;
+  const { preparedContentFrame, runtimeCanvas, token } = application;
   assertGpuFlowVisibleFramePresentationTokenBrand({ token });
-  if (committedSurfaceFrame === null) {
+  if (preparedContentFrame === null) {
     return;
   }
   clearGpuFlowBrowserVisualStarvationDebt(runtimeCanvas);

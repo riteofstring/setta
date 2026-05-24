@@ -241,16 +241,16 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expect(contentDecisionKernelSource).not.toContain('"nonpublishable"');
     expect(contentDecisionKernelSource).not.toContain('"blocked-candidate"');
     expect(contentDecisionKernelSource).not.toContain(
-      "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
+      "createGpuFlowNodeLayerPreparedContentFramePublicationResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function selectGpuFlowCommittedSurfacePublicationFramePlan",
+      "function selectGpuFlowPreparedContentFramePublicationFramePlan",
     );
     expect(contentDecisionKernelSource).not.toContain(
       "function selectGpuFlowContentPublicationBlockedCandidate",
     );
     expect(stateMachineSource).toContain(
-      "export function selectGpuFlowCommittedSurfacePublicationFramePlan",
+      "export function selectGpuFlowPreparedContentFramePublicationFramePlan",
     );
     expect(stateMachineSource).toContain(
       "export function selectGpuFlowContentPublicationBlockedCandidateForFrameResult",

@@ -14,7 +14,7 @@ import { createGpuFlowVisibleFramePresentationTokenForTest } from "./visibleFram
 
 describe("GPU Flow node-layer frame texture eviction publication", () => {
   it("submits deferred texture eviction with the presentation-tokened publication", () => {
-    const frame = committedSurfaceFrame(42);
+    const frame = preparedContentFrame(42);
     const projectionSample = liveProjectionSample(7);
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame,
@@ -165,7 +165,7 @@ function dirtyWorkCounts() {
   };
 }
 
-function committedSurfaceFrame(
+function preparedContentFrame(
   displayFrameId: number,
 ): GpuFlowCommittedSurfaceFrame {
   const coherence = {

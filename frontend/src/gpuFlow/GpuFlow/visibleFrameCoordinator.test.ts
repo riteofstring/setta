@@ -16,7 +16,7 @@ import {
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
-import { createGpuFlowCommittedSurfacePublicationFramePlanPreparer } from "./visibleFrameContentPlan";
+import { createGpuFlowPreparedContentFramePublicationFramePlanPreparer } from "./visibleFrameContentPlan";
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
@@ -67,8 +67,8 @@ const createGpuFlowVisiblePublicationPresentableFrameProof = ({
     projectionTransactionId,
   });
 };
-const prepareCommittedSurfacePublicationFramePlanForTest =
-  createGpuFlowCommittedSurfacePublicationFramePlanPreparer({
+const preparePreparedContentFramePublicationFramePlanForTest =
+  createGpuFlowPreparedContentFramePublicationFramePlanPreparer({
     contentDecisionKernel:
       createGpuFlowVisiblePublicationContentDecisionKernel(),
   });
@@ -312,10 +312,10 @@ describe("GPU Flow visible frame coordinator", () => {
       prepareContentPublicationFrame: (input) => {
         suppliedRunner = true;
         expect(
-          typeof input.runRetainedCommittedSurfacePublicationContentStage,
+          typeof input.runRetainedPreparedContentFramePublicationContentStage,
         ).toBe("function");
         expect(input).not.toHaveProperty(
-          "prepareCommittedSurfacePublicationFramePlan",
+          "preparePreparedContentFramePublicationFramePlan",
         );
         expect(input).not.toHaveProperty(
           "prepareRetainedDisplayPublicationFramePlan",
@@ -353,7 +353,7 @@ describe("GPU Flow visible frame coordinator", () => {
     });
 
     const proof = createGpuFlowVisiblePublicationPresentableFrameProof({
-      committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage(),
+      committedFrame: preparedContentFrameWithCompatiblePreviousCoverage(),
       publicationDecision,
     });
 
@@ -429,7 +429,7 @@ describe("GPU Flow visible frame coordinator", () => {
       });
       const contentVisibleState = visibleProjectionState({
         committedFrame:
-          committedSurfaceFrameWithCompatiblePreviousCoverage(frameInput),
+          preparedContentFrameWithCompatiblePreviousCoverage(frameInput),
         kind: "content-publication",
         sample,
       });
@@ -470,12 +470,12 @@ describe("GPU Flow visible frame coordinator", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 531, timestamp: 5310 });
     const previousVisibleProjectionState = visibleProjectionState({
-      committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage(),
+      committedFrame: preparedContentFrameWithCompatiblePreviousCoverage(),
       kind: "content-publication",
       sample: liveProjectionSample({ id: 530, timestamp: 5294 }),
     });
     const contentVisibleState = visibleProjectionState({
-      committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage({
+      committedFrame: preparedContentFrameWithCompatiblePreviousCoverage({
         budgetState: "over-budget",
       }),
       kind: "content-publication",
@@ -563,7 +563,7 @@ describe("GPU Flow visible frame coordinator", () => {
         kind: "content-publication",
         sample: liveProjectionSample({ id: 20, timestamp: 200 }),
       });
-      const candidate = prepareCommittedSurfacePublicationCandidateForTest({
+      const candidate = preparePreparedContentFramePublicationCandidateForTest({
         heldPreviousProjectionState: previousVisibleProjectionState,
         preparedContentFrame: blockedCommittedSurfaceFrame({
           actorFamily,
@@ -574,7 +574,9 @@ describe("GPU Flow visible frame coordinator", () => {
 
       expect(candidate.kind).toBe("nonpublishable");
       if (candidate.kind !== "nonpublishable") {
-        throw new Error("Expected nonpublishable committed-surface candidate.");
+        throw new Error(
+          "Expected nonpublishable prepared-content-frame candidate.",
+        );
       }
       expect(candidate.blockedPublicationCandidate.blockedReasons).toEqual([
         {
@@ -592,7 +594,7 @@ describe("GPU Flow visible frame coordinator", () => {
       kind: "held-previous",
       sample: liveProjectionSample({ id: 22, timestamp: 220 }),
     });
-    const candidate = prepareCommittedSurfacePublicationCandidateForTest({
+    const candidate = preparePreparedContentFramePublicationCandidateForTest({
       heldPreviousProjectionState: {
         ...previousVisibleProjectionState,
         heldPreviousProjection: {
@@ -610,7 +612,9 @@ describe("GPU Flow visible frame coordinator", () => {
 
     expect(candidate.kind).toBe("nonpublishable");
     if (candidate.kind !== "nonpublishable") {
-      throw new Error("Expected nonpublishable committed-surface candidate.");
+      throw new Error(
+        "Expected nonpublishable prepared-content-frame candidate.",
+      );
     }
     expect(candidate.blockedPublicationCandidate.frozenFrameId).toBe(
       previousVisibleProjectionState.committedFrame.displayFrameId,
@@ -626,7 +630,7 @@ describe("GPU Flow visible frame coordinator", () => {
 });
 
 function visibleProjectionState({
-  committedFrame = committedSurfaceFrame(),
+  committedFrame = preparedContentFrame(),
   heldPreviousProjection,
   kind,
   sample,
@@ -685,7 +689,7 @@ function visibleProjectionState({
   };
 }
 
-function committedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+function preparedContentFrame(): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = 7;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
@@ -724,7 +728,7 @@ function committedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
 
-function committedSurfaceFrameWithCompatiblePreviousCoverage({
+function preparedContentFrameWithCompatiblePreviousCoverage({
   actualInteractionProof = "inactive-visual-only",
   budgetState = "within-budget",
   requiredInteractionProof = "inactive-visual-only",
@@ -734,7 +738,7 @@ function committedSurfaceFrameWithCompatiblePreviousCoverage({
   readonly requiredInteractionProof?: string | undefined;
 } = {}): GpuFlowCommittedSurfaceFrame {
   return {
-    ...committedSurfaceFrame(),
+    ...preparedContentFrame(),
     actorGenerations: [
       {
         actorFamily: "text-like-dom-control",
@@ -808,7 +812,7 @@ function committedSurfaceFrameWithCompatiblePreviousCoverage({
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
 
-function prepareCommittedSurfacePublicationCandidateForTest({
+function preparePreparedContentFramePublicationCandidateForTest({
   heldPreviousProjectionState,
   liveSample = liveProjectionSample({ id: 21, timestamp: 216 }),
   preparedContentFrame,
@@ -817,7 +821,7 @@ function prepareCommittedSurfacePublicationCandidateForTest({
   readonly liveSample?: GpuFlowLiveProjectionSample | undefined;
   readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame;
 }) {
-  return prepareCommittedSurfacePublicationFramePlanForTest({
+  return preparePreparedContentFramePublicationFramePlanForTest({
     committedGpuNativeVisuals: undefined,
     frameReasons: ["manual"],
     heldPreviousProjectionState,

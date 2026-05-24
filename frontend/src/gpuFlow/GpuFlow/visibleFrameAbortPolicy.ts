@@ -1,24 +1,24 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 
-type GpuFlowBlockedCommittedSurfacePublicationAbort = {
+type GpuFlowBlockedPreparedContentFramePublicationAbort = {
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
   readonly preservePreparationSnapshot: boolean;
 };
 
-export function resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
+export function resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
   blockedPreparedContentFrame,
   blockedPreservePreparationSnapshot,
-  committedSurfaceFrame,
+  preparedContentFrame,
   heldPreparedContentFrame,
   selectedVisibleProjectionState,
 }: {
   readonly blockedPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly blockedPreservePreparationSnapshot: boolean;
-  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowBlockedCommittedSurfacePublicationAbort {
+}): GpuFlowBlockedPreparedContentFramePublicationAbort {
   if (blockedPreparedContentFrame) {
     return Object.freeze({
       frame: blockedPreparedContentFrame,
@@ -31,9 +31,9 @@ export function resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
       preservePreparationSnapshot: true,
     });
   }
-  if (committedSurfaceFrame && selectedVisibleProjectionState === null) {
+  if (preparedContentFrame && selectedVisibleProjectionState === null) {
     return Object.freeze({
-      frame: committedSurfaceFrame,
+      frame: preparedContentFrame,
       preservePreparationSnapshot: true,
     });
   }
@@ -44,7 +44,7 @@ export function resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
     });
   }
   return Object.freeze({
-    frame: committedSurfaceFrame,
+    frame: preparedContentFrame,
     preservePreparationSnapshot: false,
   });
 }

@@ -17,13 +17,13 @@ import {
 import { applyVisibleGpuFlowDomControlHostPresentation } from "./browserVisualActorRuntimeState";
 import { GpuFlowDomControlPlane } from "./domControlPlane";
 import {
-  committedSurfaceFrame,
   createMockViewportRuntime,
   createPresentedSurfaceRuntimeWithBrowserVisuals,
   domControl,
   domControlCoverageState,
   mountedRowIds,
   preparationRowIds,
+  preparedContentFrame,
   publicationToken,
   publishBrowserVisualFrame,
   retainedDisplayFrame,
@@ -59,7 +59,7 @@ describe("GPU flow DOM control projection runtime", () => {
 
   it("clears preparation-only inert styles when promoting a host to visible", () => {
     const control = domControl({ active: true, index: 0 });
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrame([control]),
     });
@@ -102,12 +102,12 @@ describe("GPU flow DOM control projection runtime", () => {
       }),
     ).toThrow(/visible browser visual host registration requires/);
 
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrame([control], 1),
     });
     const token = publicationToken(frame);
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: frame.displayFrameId,
         retainedRuntimeFrame: frame.retainedRuntimeFrame,
@@ -152,12 +152,12 @@ describe("GPU flow DOM control projection runtime", () => {
       element,
       presentation: "preparation",
     });
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrame([control], 1),
     });
     const token = publicationToken(frame);
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: frame.displayFrameId,
         retainedRuntimeFrame: frame.retainedRuntimeFrame,
@@ -219,12 +219,12 @@ describe("GPU flow DOM control projection runtime", () => {
       element,
       presentation: "preparation",
     });
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrame([control], 1),
     });
     const token = publicationToken(frame);
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: frame.displayFrameId,
         retainedRuntimeFrame: frame.retainedRuntimeFrame,
@@ -274,7 +274,7 @@ describe("GPU flow DOM control projection runtime", () => {
     });
     const presentedSurfaceRuntime =
       createPresentedSurfaceRuntimeWithBrowserVisuals({
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: runtimeFrame,
         }),
@@ -313,7 +313,7 @@ describe("GPU flow DOM control projection runtime", () => {
     act(() => {
       publishBrowserVisualFrame({
         presentedSurfaceRuntime,
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           displayFrameId: 2,
           retainedRuntimeFrame: runtimeFrame,
         }),
@@ -341,7 +341,7 @@ describe("GPU flow DOM control projection runtime", () => {
     });
     const presentedSurfaceRuntime =
       createPresentedSurfaceRuntimeWithBrowserVisuals({
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame(controls),
         }),
@@ -403,7 +403,7 @@ describe("GPU flow DOM control projection runtime", () => {
     });
     const presentedSurfaceRuntime =
       createPresentedSurfaceRuntimeWithBrowserVisuals({
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame([control]),
         }),
@@ -432,7 +432,7 @@ describe("GPU flow DOM control projection runtime", () => {
       );
     });
 
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 2,
         retainedRuntimeFrame: retainedRuntimeFrame([nextControl], 2),
@@ -455,7 +455,7 @@ describe("GPU flow DOM control projection runtime", () => {
     });
     const presentedSurfaceRuntime =
       createPresentedSurfaceRuntimeWithBrowserVisuals({
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame([passiveControl]),
         }),
@@ -491,7 +491,7 @@ describe("GPU flow DOM control projection runtime", () => {
     });
     expect(mountedRowIds()).toEqual(["row-0"]);
 
-    const blockedCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const blockedCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 2,
         retainedRuntimeFrame: retainedRuntimeFrame([activeControl], 2),
@@ -514,7 +514,7 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(mountedRowIds()).toEqual(["row-0"]);
     expect(preparationRowIds()).toEqual(["row-0"]);
 
-    const readyCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const readyCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 3,
         retainedRuntimeFrame: retainedRuntimeFrame([activeControl], 3),
@@ -550,7 +550,7 @@ describe("GPU flow DOM control projection runtime", () => {
     };
     const presentedSurfaceRuntime =
       createPresentedSurfaceRuntimeWithBrowserVisuals({
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame([passiveControl]),
         }),
@@ -580,7 +580,7 @@ describe("GPU flow DOM control projection runtime", () => {
     act(() => {
       root?.render(renderPlane());
     });
-    const blockedCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const blockedCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 2,
         retainedRuntimeFrame: retainedRuntimeFrame([activeControl], 2),
@@ -626,7 +626,7 @@ describe("GPU flow DOM control projection runtime", () => {
     };
     const presentedSurfaceRuntime =
       createPresentedSurfaceRuntimeWithBrowserVisuals({
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame([visibleControl]),
         }),
@@ -657,7 +657,7 @@ describe("GPU flow DOM control projection runtime", () => {
       root?.render(renderPlane());
     });
     requestFrame.mockClear();
-    const blockedCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const blockedCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 2,
         retainedRuntimeFrame: retainedRuntimeFrame(
@@ -710,7 +710,7 @@ describe("GPU flow DOM control projection runtime", () => {
     const nextControls = [domControl({ index: 1 })];
     const firstRuntimeFrame = retainedRuntimeFrame(firstControls, 1);
     const nextRuntimeFrame = retainedRuntimeFrame(nextControls, 2);
-    const firstFrame = committedSurfaceFrame({
+    const firstFrame = preparedContentFrame({
       displayFrameId: 1,
       retainedRuntimeFrame: firstRuntimeFrame,
     });
@@ -746,7 +746,7 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(mountedRowIds()).toEqual(["row-0"]);
 
     await act(async () => {
-      const frame = committedSurfaceFrame({
+      const frame = preparedContentFrame({
         displayFrameId: 2,
         retainedRuntimeFrame: nextRuntimeFrame,
       });
@@ -773,7 +773,7 @@ describe("GPU flow DOM control projection runtime", () => {
     const firstRuntimeFrame = retainedRuntimeFrame([firstControl]);
     const nextRuntimeFrame = retainedRuntimeFrame([nextControl], 2);
     const presentedSurfaceRuntime = createGpuFlowPresentedSurfaceRuntime(
-      committedSurfaceFrame({
+      preparedContentFrame({
         displayFrameId: 1,
         retainedRuntimeFrame: firstRuntimeFrame,
       }),
@@ -790,7 +790,7 @@ describe("GPU flow DOM control projection runtime", () => {
     });
     publishBrowserVisualFrame({
       presentedSurfaceRuntime,
-      frame: committedSurfaceFrame({
+      frame: preparedContentFrame({
         displayFrameId: 1,
         retainedRuntimeFrame: firstRuntimeFrame,
       }),
@@ -817,7 +817,7 @@ describe("GPU flow DOM control projection runtime", () => {
 
     let firstReadiness: GpuFlowBrowserVisualActorCandidate | undefined;
     act(() => {
-      firstReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      firstReadiness = browserVisualRuntime.prepareContentFrame({
         retainedDisplayFrame: retainedDisplayFrame({
           id: 1,
           retainedRuntimeFrame: firstRuntimeFrame,
@@ -830,7 +830,7 @@ describe("GPU flow DOM control projection runtime", () => {
 
     let blockedReadiness: GpuFlowBrowserVisualActorCandidate | undefined;
     act(() => {
-      blockedReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      blockedReadiness = browserVisualRuntime.prepareContentFrame({
         retainedDisplayFrame: retainedDisplayFrame({
           id: 2,
           retainedRuntimeFrame: nextRuntimeFrame,
@@ -851,7 +851,7 @@ describe("GPU flow DOM control projection runtime", () => {
 
     let readyReadiness: GpuFlowBrowserVisualActorCandidate | undefined;
     act(() => {
-      readyReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      readyReadiness = browserVisualRuntime.prepareContentFrame({
         retainedDisplayFrame: retainedDisplayFrame({
           id: 2,
           retainedRuntimeFrame: nextRuntimeFrame,
@@ -868,7 +868,7 @@ describe("GPU flow DOM control projection runtime", () => {
       browserVisualRuntime.commitPreparedBrowserVisualActors({
         candidate: readyReadiness!,
         token: publicationToken(
-          committedSurfaceFrame({
+          preparedContentFrame({
             displayFrameId: 2,
             retainedRuntimeFrame: nextRuntimeFrame,
           }),
@@ -914,7 +914,7 @@ describe("GPU flow DOM control projection runtime", () => {
       presentation: "preparation",
     });
 
-    const firstCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const firstCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 1,
         retainedRuntimeFrame: firstRuntimeFrame,
@@ -925,7 +925,7 @@ describe("GPU flow DOM control projection runtime", () => {
     );
 
     const unpresentedCompatibleCandidate =
-      browserVisualRuntime.prepareCommittedSurfaceFrame({
+      browserVisualRuntime.prepareContentFrame({
         retainedDisplayFrame: retainedDisplayFrame({
           id: 2,
           retainedRuntimeFrame: nextRuntimeFrame,
@@ -937,20 +937,19 @@ describe("GPU flow DOM control projection runtime", () => {
     browserVisualRuntime.commitPreparedBrowserVisualActors({
       candidate: firstCandidate,
       token: publicationToken(
-        committedSurfaceFrame({
+        preparedContentFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: firstRuntimeFrame,
         }),
       ),
     });
 
-    const compatibleCandidate =
-      browserVisualRuntime.prepareCommittedSurfaceFrame({
-        retainedDisplayFrame: retainedDisplayFrame({
-          id: 2,
-          retainedRuntimeFrame: nextRuntimeFrame,
-        }),
-      });
+    const compatibleCandidate = browserVisualRuntime.prepareContentFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: nextRuntimeFrame,
+      }),
+    });
     const readiness =
       compatibleCandidate.readiness.domControlReadinessByActorId.get(
         nextControl.sourceId,
@@ -984,7 +983,7 @@ describe("GPU flow DOM control projection runtime", () => {
     });
     expect("subscribePreparation" in browserVisualRuntime).toBe(false);
 
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 2,
         retainedRuntimeFrame: nextRuntimeFrame,
@@ -1024,7 +1023,7 @@ describe("GPU flow DOM control projection runtime", () => {
       viewportStore,
     });
 
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 2,
         retainedRuntimeFrame: nextRuntimeFrame,
@@ -1060,7 +1059,7 @@ describe("GPU flow DOM control projection runtime", () => {
       viewportStore,
     });
 
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 2,
         retainedRuntimeFrame: nextRuntimeFrame,
@@ -1116,7 +1115,7 @@ describe("GPU flow DOM control projection runtime", () => {
       viewportStore,
     });
 
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 2,
         retainedRuntimeFrame: nextRuntimeFrame,
@@ -1152,7 +1151,7 @@ function renderMountedRowIds({
   });
   const presentedSurfaceRuntime =
     createPresentedSurfaceRuntimeWithBrowserVisuals({
-      frame: committedSurfaceFrame({
+      frame: preparedContentFrame({
         displayFrameId: 1,
         retainedRuntimeFrame: retainedRuntimeFrame(controls),
       }),

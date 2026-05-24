@@ -37,7 +37,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
   it("derives required and protected resources from one transaction proof surface", () => {
     const exactPage = resourceHandle("page", "exact-page");
     const compatiblePage = resourceHandle("page", "compatible-page");
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       compatibleSurfaceResourceHandles: [compatiblePage],
       exactSurfaceResourceHandles: [exactPage],
       protectedResourceHandles: [protectedResource(exactPage)],
@@ -54,7 +54,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
   });
 
   it("turns missing protected resources into blocked visible reasons", () => {
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       exactSurfaceResourceHandles: [resourceHandle("texture", "actor-texture")],
       protectedResourceHandles: [],
     });
@@ -72,7 +72,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
 
   it("rejects presentation protection reports with missing resources", () => {
     const report = createGpuFlowVisiblePublicationResourceProtectionReport(
-      committedSurfaceFrame({
+      preparedContentFrame({
         exactSurfaceResourceHandles: [resourceHandle("source", "source-a")],
         protectedResourceHandles: [],
       }),
@@ -85,7 +85,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
 
   it("creates stable resource protection digests for presentation proofs", () => {
     const report = createGpuFlowVisiblePublicationResourceProtectionReport(
-      committedSurfaceFrame({
+      preparedContentFrame({
         exactSurfaceResourceHandles: [resourceHandle("source", "source-b")],
         protectedResourceHandles: [
           protectedResource(resourceHandle("source", "source-b")),
@@ -109,7 +109,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
   it("owns prepared candidate resources and active editor pins", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const surfaceTexture = resourceHandle("texture", "surface-texture");
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       displayFrameId: 41,
       exactSurfaceResourceHandles: [surfaceTexture],
       protectedResourceHandles: [protectedResource(surfaceTexture)],
@@ -231,7 +231,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
 
   it("uses source fallback snapshot resource keys for snapshot controls", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
-    const frame = committedSurfaceFrame({ displayFrameId: 42 });
+    const frame = preparedContentFrame({ displayFrameId: 42 });
 
     registry.registerPreparedContentFrame({
       browserVisualCandidate: browserVisualCandidate({
@@ -250,7 +250,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
   it("exposes actor-level presentation obligations separately from queued resources", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const frame = {
-      ...committedSurfaceFrame({ displayFrameId: 43 }),
+      ...preparedContentFrame({ displayFrameId: 43 }),
       actorGenerations: [
         {
           actorFamily: "section-header",
@@ -290,12 +290,12 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const loserResource = resourceHandle("page", "loser-page");
     const winnerResource = resourceHandle("page", "winner-page");
-    const loserFrame = committedSurfaceFrame({
+    const loserFrame = preparedContentFrame({
       displayFrameId: 51,
       exactSurfaceResourceHandles: [loserResource],
       protectedResourceHandles: [protectedResource(loserResource)],
     });
-    const winnerFrame = committedSurfaceFrame({
+    const winnerFrame = preparedContentFrame({
       displayFrameId: 52,
       exactSurfaceResourceHandles: [winnerResource],
       protectedResourceHandles: [protectedResource(winnerResource)],
@@ -370,14 +370,14 @@ describe("GPU Flow visible frame resource graph proofs", () => {
 
   it("validates the presentation proof before presenting browser visual hosts", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
-    const tokenFrame = committedSurfaceFrame({
+    const tokenFrame = preparedContentFrame({
       displayFrameId: 53,
       exactSurfaceResourceHandles: [resourceHandle("page", "token-page")],
       protectedResourceHandles: [
         protectedResource(resourceHandle("page", "token-page")),
       ],
     });
-    const candidateFrame = committedSurfaceFrame({
+    const candidateFrame = preparedContentFrame({
       displayFrameId: 53,
       exactSurfaceResourceHandles: [resourceHandle("page", "candidate-page")],
       protectedResourceHandles: [
@@ -420,7 +420,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
   it("releases candidate resources on abort without changing the presented owner", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const candidateResource = resourceHandle("texture", "candidate-texture");
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       displayFrameId: 61,
       exactSurfaceResourceHandles: [candidateResource],
       protectedResourceHandles: [protectedResource(candidateResource)],
@@ -490,7 +490,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
 
   it("keeps preserved preparation candidates queued until replacement or release", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       displayFrameId: 611,
       exactSurfaceResourceHandles: [],
       protectedResourceHandles: [],
@@ -556,7 +556,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
 
   it("presents publication-proof resources while retaining optional browser visual debt", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       displayFrameId: 62,
       exactSurfaceResourceHandles: [resourceHandle("texture", "early-texture")],
       protectedResourceHandles: [
@@ -614,7 +614,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
 
   it("requires budgeted preparation and later owner readiness before ready", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       displayFrameId: 63,
       exactSurfaceResourceHandles: [],
       protectedResourceHandles: [],
@@ -684,12 +684,12 @@ describe("GPU Flow visible frame resource graph proofs", () => {
 
   it("moves repeated pending resource ownership to the newest candidate", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
-    const firstFrame = committedSurfaceFrame({
+    const firstFrame = preparedContentFrame({
       displayFrameId: 631,
       exactSurfaceResourceHandles: [],
       protectedResourceHandles: [],
     });
-    const secondFrame = committedSurfaceFrame({
+    const secondFrame = preparedContentFrame({
       displayFrameId: 632,
       exactSurfaceResourceHandles: [],
       protectedResourceHandles: [],
@@ -797,7 +797,7 @@ function resourceTransition(
   };
 }
 
-function committedSurfaceFrame({
+function preparedContentFrame({
   actorResourceHandles = [],
   compatiblePreviousResourceHandles = [],
   compatibleSurfaceResourceHandles = [],

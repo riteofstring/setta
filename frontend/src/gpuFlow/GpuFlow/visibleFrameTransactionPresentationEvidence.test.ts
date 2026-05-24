@@ -285,7 +285,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
   });
 
   it("blocks presentation authority when DOM runtime evidence is not exposable", () => {
-    const committedFrame = committedSurfaceFrame();
+    const committedFrame = preparedContentFrame();
     const contentVisibleState = visibleProjectionState({
       committedFrame: {
         ...committedFrame,
@@ -324,7 +324,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
 
   it("blocks presentation authority when a visible section source node was not drawn", () => {
     const sectionActor = sectionStructureActor();
-    const committedFrame = committedSurfaceFrame({
+    const committedFrame = preparedContentFrame({
       actorGenerations: [sectionActor],
     });
     const contentVisibleState = visibleProjectionState({
@@ -373,7 +373,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
 
   it("allows section actors when the canvas evidence drew their source node", () => {
     const sectionActor = sectionStructureActor();
-    const committedFrame = committedSurfaceFrame({
+    const committedFrame = preparedContentFrame({
       actorGenerations: [sectionActor],
     });
     const contentVisibleState = visibleProjectionState({
@@ -558,7 +558,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
 });
 
 function visibleProjectionState({
-  committedFrame = committedSurfaceFrame(),
+  committedFrame = preparedContentFrame(),
   kind,
   sample,
 }: {
@@ -595,7 +595,7 @@ function visibleProjectionState({
   };
 }
 
-function committedSurfaceFrame({
+function preparedContentFrame({
   actorGenerations = [],
   compatiblePreviousActorIds = [],
 }: {

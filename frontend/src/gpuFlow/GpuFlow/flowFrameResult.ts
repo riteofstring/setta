@@ -1,33 +1,34 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type {
-  GpuFlowBlockedCommittedSurfaceCandidate,
-  GpuFlowCommittedSurfaceCandidateAction,
-} from "./visibleFrameActorAdapters/committedSurfaceCandidateAction";
+  GpuFlowBlockedPreparedContentFrameCandidate,
+  GpuFlowPreparedContentFrameCandidateAction,
+} from "./visibleFrameActorAdapters/preparedContentFrameCandidateAction";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
 
-export type GpuFlowNodeLayerCommittedSurfacePublicationResult = {
-  readonly blockedSurfacePublication: GpuFlowBlockedCommittedSurfaceCandidate | null;
-  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+export type GpuFlowNodeLayerPreparedContentFramePublicationResult = {
+  readonly blockedSurfacePublication: GpuFlowBlockedPreparedContentFrameCandidate | null;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
 };
 
-const EMPTY_GPU_FLOW_NODE_LAYER_COMMITTED_SURFACE_PUBLICATION = Object.freeze({
-  blockedSurfacePublication: null,
-  committedSurfaceFrame: null,
-  heldPreparedContentFrame: null,
-} satisfies GpuFlowNodeLayerCommittedSurfacePublicationResult);
+const EMPTY_GPU_FLOW_NODE_LAYER_PREPARED_CONTENT_FRAME_PUBLICATION =
+  Object.freeze({
+    blockedSurfacePublication: null,
+    preparedContentFrame: null,
+    heldPreparedContentFrame: null,
+  } satisfies GpuFlowNodeLayerPreparedContentFramePublicationResult);
 
 export type GpuFlowNodeLayerFrameResult =
   | {
       readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
-      readonly preparedContentFramePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
+      readonly preparedContentFramePublication: GpuFlowNodeLayerPreparedContentFramePublicationResult;
       readonly kind: "not-rendered";
       readonly visibleProjectionState: null;
     }
   | {
       readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
-      readonly preparedContentFramePublication: GpuFlowNodeLayerCommittedSurfacePublicationResult;
+      readonly preparedContentFramePublication: GpuFlowNodeLayerPreparedContentFramePublicationResult;
       readonly kind: "visible-projection-state";
       readonly visibleProjectionState: GpuFlowVisibleProjectionState;
     };
@@ -38,25 +39,25 @@ type GpuFlowNodeLayerFrameResultOptions = {
     | null
     | undefined;
   readonly preparedContentFramePublication?:
-    | GpuFlowNodeLayerCommittedSurfacePublicationResult
+    | GpuFlowNodeLayerPreparedContentFramePublicationResult
     | undefined;
 };
 
-export function createGpuFlowNodeLayerCommittedSurfacePublicationResult({
+export function createGpuFlowNodeLayerPreparedContentFramePublicationResult({
   action,
 }: {
-  readonly action: GpuFlowCommittedSurfaceCandidateAction;
-}): GpuFlowNodeLayerCommittedSurfacePublicationResult {
+  readonly action: GpuFlowPreparedContentFrameCandidateAction;
+}): GpuFlowNodeLayerPreparedContentFramePublicationResult {
   switch (action.kind) {
     case "blocked-candidate":
       return {
-        ...EMPTY_GPU_FLOW_NODE_LAYER_COMMITTED_SURFACE_PUBLICATION,
+        ...EMPTY_GPU_FLOW_NODE_LAYER_PREPARED_CONTENT_FRAME_PUBLICATION,
         blockedSurfacePublication: action.blockedSurfacePublication,
       };
     case "publish":
       return {
-        ...EMPTY_GPU_FLOW_NODE_LAYER_COMMITTED_SURFACE_PUBLICATION,
-        committedSurfaceFrame: action.committedSurfaceFrame,
+        ...EMPTY_GPU_FLOW_NODE_LAYER_PREPARED_CONTENT_FRAME_PUBLICATION,
+        preparedContentFrame: action.preparedContentFrame,
       };
   }
 }
@@ -68,7 +69,7 @@ export function createGpuFlowNodeLayerFrameNotRenderedResult(
     blockedPublicationCandidate: options.blockedPublicationCandidate ?? null,
     preparedContentFramePublication:
       options.preparedContentFramePublication ??
-      EMPTY_GPU_FLOW_NODE_LAYER_COMMITTED_SURFACE_PUBLICATION,
+      EMPTY_GPU_FLOW_NODE_LAYER_PREPARED_CONTENT_FRAME_PUBLICATION,
     kind: "not-rendered",
     visibleProjectionState: null,
   };
@@ -82,7 +83,7 @@ export function createGpuFlowNodeLayerFrameVisibleProjectionStateResult(
     blockedPublicationCandidate: options.blockedPublicationCandidate ?? null,
     preparedContentFramePublication:
       options.preparedContentFramePublication ??
-      EMPTY_GPU_FLOW_NODE_LAYER_COMMITTED_SURFACE_PUBLICATION,
+      EMPTY_GPU_FLOW_NODE_LAYER_PREPARED_CONTENT_FRAME_PUBLICATION,
     kind: "visible-projection-state",
     visibleProjectionState,
   };

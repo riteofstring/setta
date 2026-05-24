@@ -59,7 +59,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
   presentedContentFrameRef.current =
     presentedSurfaceRuntimeRef.current.getPresentedContentFrame();
 
-  const prepareCommittedSurfaceFrame = useCallback(
+  const prepareContentFrame = useCallback(
     (
       nextRetainedDisplayFrame: RetainedDisplayFrame,
       options?:
@@ -77,11 +77,10 @@ export function useGpuFlowPresentedSurfaceFrameState({
         getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
           presentedSurfaceRuntimeRef.current,
         );
-      const browserVisualCandidate =
-        browserVisualRuntime.prepareCommittedSurfaceFrame({
-          retainedDisplayFrame: nextRetainedDisplayFrame,
-          viewport: options?.viewport,
-        });
+      const browserVisualCandidate = browserVisualRuntime.prepareContentFrame({
+        retainedDisplayFrame: nextRetainedDisplayFrame,
+        viewport: options?.viewport,
+      });
       const nextCommittedSurfaceFrame = createGpuFlowCommittedSurfaceFrame({
         browserVisualReadiness: browserVisualCandidate.readiness,
         domPresentationEvidence: browserVisualCandidate.presentationEvidence,
@@ -89,12 +88,10 @@ export function useGpuFlowPresentedSurfaceFrameState({
         previousCommittedSurfaceFrame,
         retainedDisplayFrame: nextRetainedDisplayFrame,
       });
-      visibleFrameResourceGraphRef.current.registerPreparedContentFrame(
-        {
-          browserVisualCandidate,
-          frame: nextCommittedSurfaceFrame,
-        },
-      );
+      visibleFrameResourceGraphRef.current.registerPreparedContentFrame({
+        browserVisualCandidate,
+        frame: nextCommittedSurfaceFrame,
+      });
       return nextCommittedSurfaceFrame;
     },
     [],
@@ -220,7 +217,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
     presentedContentFrameRef,
     presentedSurfaceRuntime: presentedSurfaceRuntimeRef.current,
     getVisibleFrameResourceGraphSnapshot,
-    prepareCommittedSurfaceFrame,
+    prepareContentFrame,
     prepareVisibleFrameResourcesForBudget,
     projectPresentedBrowserVisualActors,
     validatePreparedContentFrame,

@@ -163,7 +163,7 @@ function visibleProjectionState({
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleProjectionState {
-  const committedFrame = committedSurfaceFrame();
+  const committedFrame = preparedContentFrame();
   return {
     committedFrame,
     heldPreviousProjection: null,
@@ -180,7 +180,7 @@ function visibleProjectionState({
   } as unknown as GpuFlowVisibleProjectionState;
 }
 
-function committedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+function preparedContentFrame(): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = 7;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,

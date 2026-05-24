@@ -7,10 +7,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { GpuFlowDomControlPlane } from "./domControlPlane";
 import {
-  committedSurfaceFrame,
-  createPresentedSurfaceRuntimeWithBrowserVisuals,
   createMockViewportRuntime,
+  createPresentedSurfaceRuntimeWithBrowserVisuals,
   domControl,
+  preparedContentFrame,
   retainedRuntimeFrame,
 } from "./domControlPlaneProjectionRuntimeTestUtils";
 
@@ -35,7 +35,7 @@ describe("GPU flow DOM control activation", () => {
     });
     const presentedSurfaceRuntime =
       createPresentedSurfaceRuntimeWithBrowserVisuals({
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame(controls),
         }),

@@ -93,7 +93,7 @@ export type GpuFlowVisibleFramePublicationContentCandidate = {
     | null
     | undefined;
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
-  readonly committedSurfaceFrame?:
+  readonly preparedContentFrame?:
     | GpuFlowCommittedSurfaceFrame
     | null
     | undefined;
@@ -570,7 +570,7 @@ function resolveGpuFlowVisibleFramePublicationCandidateContentFrame<
 }): GpuFlowCommittedSurfaceFrame | null {
   return (
     candidateVisibleProjectionState?.committedFrame ??
-    contentPublicationFrame.committedSurfaceFrame ??
+    contentPublicationFrame.preparedContentFrame ??
     contentPublicationFrame.blockedPreparedContentFrame ??
     contentPublicationFrame.heldPreparedContentFrame ??
     null

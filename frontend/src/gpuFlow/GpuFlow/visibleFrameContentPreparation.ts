@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfacePublicationFramePlanPreparation } from "./visibleFrameContentPlan";
+import type { GpuFlowPreparedContentFramePublicationFramePlanPreparation } from "./visibleFrameContentPlan";
 
 export function prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate<
   OverlayTextureInput,
@@ -13,7 +13,7 @@ export function prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandi
     input: OverlayTextureInput,
   ) => OverlayTextureResult;
   readonly publicationPreparation: Pick<
-    GpuFlowCommittedSurfacePublicationFramePlanPreparation,
+    GpuFlowPreparedContentFramePublicationFramePlanPreparation,
     "shouldPrepareHtmlSurfaceOverlayTextures"
   >;
 }): OverlayTextureResult | undefined {

@@ -30,7 +30,7 @@ const VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH = modulePath(
   "./visibleFrameDiagnostics.ts",
 );
 const COMMITTED_SURFACE_CANDIDATE_ACTION_MODULE_PATH = modulePath(
-  "./visibleFrameActorAdapters/committedSurfaceCandidateAction.ts",
+  "./visibleFrameActorAdapters/preparedContentFrameCandidateAction.ts",
 );
 const PRESENTED_SURFACE_RUNTIME_MODULE_PATH = modulePath(
   "../presentedSurfaceRuntime.ts",
@@ -83,7 +83,7 @@ const PRODUCTION_PREPARED_CONTENT_FRAME_PRESENTERS = new Set([
 ]);
 
 describe("GPU Flow visible frame presentation proof boundaries", () => {
-  it("keeps committed-surface nonpublishable candidate preparation inside the coordinator", () => {
+  it("keeps prepared-content-frame nonpublishable candidate preparation inside the coordinator", () => {
     const visibleFrameDiagnosticsSource = readFileSync(
       VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH,
       "utf8",
@@ -104,7 +104,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
     expect(coordinatorSource).toContain(
-      "resolveGpuFlowCommittedSurfacePublicationReadiness",
+      "resolveGpuFlowPreparedContentFramePublicationReadiness",
     );
     expect(coordinatorSource).toContain('"nonpublishable"');
     expect(coordinatorSource).toContain('"blocked-candidate"');
@@ -181,7 +181,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
   });
 
-  it("keeps committed-surface publication candidates tokenless until completion", () => {
+  it("keeps prepared-content-frame publication candidates tokenless until completion", () => {
     const visibleFrameDiagnosticsSource = readFileSync(
       VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH,
       "utf8",
@@ -211,17 +211,19 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
 
     expect(visibleFrameDiagnosticsSource).not.toContain(
-      "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
+      "export function prepareGpuFlowPreparedContentFramePublicationCandidate",
     );
     expect(flowFrameSource).not.toContain(
-      "prepareGpuFlowCommittedSurfacePublicationCandidate",
-    );
-    expect(flowFrameSource).not.toContain("committedSurfaceCandidateAction");
-    expect(flowFrameSource).not.toContain(
-      "resolveGpuFlowCommittedSurfaceCandidateAction",
+      "prepareGpuFlowPreparedContentFramePublicationCandidate",
     );
     expect(flowFrameSource).not.toContain(
-      "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
+      "preparedContentFrameCandidateAction",
+    );
+    expect(flowFrameSource).not.toContain(
+      "resolveGpuFlowPreparedContentFrameCandidateAction",
+    );
+    expect(flowFrameSource).not.toContain(
+      "createGpuFlowNodeLayerPreparedContentFramePublicationResult",
     );
     expect(flowFrameSource).not.toContain(
       "createGpuFlowNodeLayerFrameResultForVisibleProjectionState",
@@ -235,19 +237,19 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "onPreparedCommittedSurfaceFrameHeld",
     );
     expect(surfaceFrameSource).not.toContain(
-      "prepareGpuFlowCommittedSurfacePublicationCandidate",
+      "prepareGpuFlowPreparedContentFramePublicationCandidate",
     );
     expect(surfaceFrameSource).not.toContain(
-      "resolveGpuFlowCommittedSurfaceCandidateAction",
+      "resolveGpuFlowPreparedContentFrameCandidateAction",
     );
     expect(candidateHandlingSource).not.toContain(
-      "export function resolveGpuFlowCommittedSurfaceCandidateAction",
+      "export function resolveGpuFlowPreparedContentFrameCandidateAction",
     );
     expect(coordinatorSource).not.toContain(
-      "createGpuFlowCommittedSurfaceCandidateActionResolver",
+      "createGpuFlowPreparedContentFrameCandidateActionResolver",
     );
     expect(coordinatorSource).not.toContain(
-      "createGpuFlowCommittedSurfacePublicationActionFrameResultResolver",
+      "createGpuFlowPreparedContentFramePublicationActionFrameResultResolver",
     );
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
     expect(candidateSource).not.toMatch(
@@ -264,7 +266,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
   });
 
-  it("keeps committed-surface repair diagnostics behind the visible frame presenter", () => {
+  it("keeps prepared-content-frame repair diagnostics behind the visible frame presenter", () => {
     const visibleFrameDiagnosticsSource = readFileSync(
       VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH,
       "utf8",
@@ -295,7 +297,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       readVisibleFramePublicationCoordinatorAuthoritySource();
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const branchStart = source.indexOf(
-      "runRetainedCommittedSurfacePublicationContentStage",
+      "runRetainedPreparedContentFramePublicationContentStage",
     );
 
     expect(branchStart).toBeGreaterThanOrEqual(0);
@@ -330,7 +332,9 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "prepareGpuFlowRetainedDisplayPublicationCandidate",
     );
     expect(source).not.toContain("selectRetainedDisplayPublicationFramePlan");
-    expect(source).not.toContain("selectCommittedSurfacePublicationFramePlan");
+    expect(source).not.toContain(
+      "selectPreparedContentFramePublicationFramePlan",
+    );
     expect(coordinatorSource).toContain(
       "prepareGpuFlowRetainedDisplayPublicationCandidate",
     );
@@ -386,7 +390,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(presenterSource).toContain("followUpFrameRequests");
   });
 
-  it("keeps held-previous committed-surface candidates tokenless until completion", () => {
+  it("keeps held-previous prepared-content-frame candidates tokenless until completion", () => {
     const visibleFrameDiagnosticsSource = readFileSync(
       VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH,
       "utf8",
@@ -1158,7 +1162,7 @@ function readVisibleFramePublicationCoordinatorAuthoritySource(): string {
 function readCommittedSurfaceAuthorityCandidateSource(): string {
   const source = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
   const candidateStart = source.indexOf(
-    "export function reduceGpuFlowCommittedSurfacePublicationCandidate",
+    "export function reduceGpuFlowPreparedContentFramePublicationCandidate",
   );
   expect(candidateStart).toBeGreaterThanOrEqual(0);
   return source.slice(candidateStart);

@@ -125,7 +125,7 @@ export function publishBrowserVisualFrame({
     viewportStore,
   });
   const token = publicationToken(frame);
-  const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+  const candidate = browserVisualRuntime.prepareContentFrame({
     retainedDisplayFrame: retainedDisplayFrame({
       id: frame.displayFrameId,
       retainedRuntimeFrame: frame.retainedRuntimeFrame,
@@ -166,7 +166,7 @@ export function stageBrowserVisualCandidate({
   });
 }
 
-export function committedSurfaceFrame({
+export function preparedContentFrame({
   displayFrameId,
   retainedRuntimeFrame,
 }: {

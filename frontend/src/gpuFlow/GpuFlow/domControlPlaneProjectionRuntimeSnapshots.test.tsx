@@ -51,7 +51,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
         surfaceId === "snapshot-0" ? committedTexture : undefined,
     });
 
-    const firstReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const firstReadiness = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 1,
         retainedRuntimeFrame: runtimeFrame,
@@ -78,13 +78,12 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
       element,
       surfaceId: "snapshot-0",
     });
-    const missingTextureReadiness =
-      browserVisualRuntime.prepareCommittedSurfaceFrame({
-        retainedDisplayFrame: retainedDisplayFrame({
-          id: 2,
-          retainedRuntimeFrame: runtimeFrame,
-        }),
-      });
+    const missingTextureReadiness = browserVisualRuntime.prepareContentFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: runtimeFrame,
+      }),
+    });
     expect(domControlCoverageState(missingTextureReadiness, control)).toBe(
       "blocked-awaiting-snapshot",
     );
@@ -93,7 +92,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
       dirtyContent: true,
       textureContentKey: control.snapshotCacheKeyRevision,
     });
-    const dirtyReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const dirtyReadiness = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 3,
         retainedRuntimeFrame: runtimeFrame,
@@ -107,13 +106,12 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
       dirtyResolution: true,
       textureContentKey: control.snapshotCacheKeyRevision,
     });
-    const dirtyResolutionReadiness =
-      browserVisualRuntime.prepareCommittedSurfaceFrame({
-        retainedDisplayFrame: retainedDisplayFrame({
-          id: 4,
-          retainedRuntimeFrame: runtimeFrame,
-        }),
-      });
+    const dirtyResolutionReadiness = browserVisualRuntime.prepareContentFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 4,
+        retainedRuntimeFrame: runtimeFrame,
+      }),
+    });
     expect(domControlCoverageState(dirtyResolutionReadiness, control)).toBe(
       "blocked-awaiting-snapshot",
     );
@@ -121,7 +119,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
     committedTexture = committedSnapshotTexture({
       textureContentKey: "stale-cache-key",
     });
-    const staleReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const staleReadiness = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 5,
         retainedRuntimeFrame: runtimeFrame,
@@ -135,7 +133,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
       lastUploadFrame: 2,
       textureContentKey: control.snapshotCacheKeyRevision,
     });
-    const readyReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const readyReadiness = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 6,
         retainedRuntimeFrame: runtimeFrame,
@@ -192,7 +190,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
         committedTextureBySurfaceId.get(surfaceId),
     });
 
-    const firstReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const firstReadiness = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 1,
         retainedRuntimeFrame: runtimeFrame,
@@ -217,14 +215,12 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
     if (!targetedControl) {
       throw new Error("Expected a targeted snapshot control.");
     }
-    const targetedReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame(
-      {
-        retainedDisplayFrame: retainedDisplayFrame({
-          id: 2,
-          retainedRuntimeFrame: runtimeFrame,
-        }),
-      },
-    );
+    const targetedReadiness = browserVisualRuntime.prepareContentFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: runtimeFrame,
+      }),
+    });
     stageBrowserVisualCandidate({
       actorId: targetedControl.sourceId,
       browserVisualRuntime,
@@ -254,7 +250,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
         }),
       );
     }
-    const nextReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const nextReadiness = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 3,
         retainedRuntimeFrame: runtimeFrame,
@@ -296,7 +292,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
       getCommittedSurfaceTexture: () => undefined,
     });
 
-    const readiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const readiness = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 1,
         retainedRuntimeFrame: runtimeFrame,
@@ -346,7 +342,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
         committedTextureBySurfaceId.get(surfaceId),
     });
 
-    const firstReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const firstReadiness = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 1,
         retainedRuntimeFrame: runtimeFrame,
@@ -383,7 +379,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
       }),
     );
 
-    const readyReadiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const readyReadiness = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 2,
         retainedRuntimeFrame: runtimeFrame,

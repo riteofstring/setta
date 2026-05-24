@@ -110,8 +110,8 @@ import { prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate } 
 import {
   createGpuFlowContentPublicationFrameResult,
   type GpuFlowContentPublicationFrameResult,
-  type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
   type GpuFlowRetainedDisplayCommittedSurfaceFramePreparer,
+  type GpuFlowRetainedPreparedContentFramePublicationContentStageRunner,
 } from "./visibleFrameCoordinator";
 
 export function resolveRenderableGpuFlowLayerFrameInput({
@@ -475,21 +475,21 @@ function getGpuFlowCommittedSurfaceBrowserVisualSnapshotSourceIds(
 
 function getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
   controls,
-  preparedCommittedSurfaceFrame,
+  preparedContentFrame,
 }: {
   readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
-  readonly preparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
 }): readonly GpuRetainedDomControlSourceDescriptor[] {
   const snapshotSourceIds =
     getGpuFlowCommittedSurfaceBrowserVisualSnapshotSourceIds(
-      preparedCommittedSurfaceFrame,
+      preparedContentFrame,
     );
   if (snapshotSourceIds.size === 0) {
     return controls;
   }
   return (
-    preparedCommittedSurfaceFrame?.retainedRuntimeFrame.descriptors
-      .domControlSources ?? controls
+    preparedContentFrame?.retainedRuntimeFrame.descriptors.domControlSources ??
+    controls
   );
 }
 
@@ -502,11 +502,11 @@ export {
 export { shouldDeferGpuFlowRetainedContentPostSubmitMaintenance } from "./flowRetainedPageMaintenance";
 export { getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls };
 
-type GpuFlowRetainedCommittedSurfacePublicationRenderContext = {
+type GpuFlowRetainedPreparedContentFramePublicationRenderContext = {
   readonly committedGpuNativeVisuals: ReturnType<
     typeof combineGpuFlowHtmlSurfaceNativeVisuals
   >;
-  readonly finishCommittedPreparationMeasure: () => number;
+  readonly finishPreparedContentFrameMeasure: () => number;
   readonly getRetainedDomControlRuntimeScrollOffset: (
     surfaceId: string,
   ) => { readonly x: number; readonly y: number } | null;
@@ -546,7 +546,7 @@ export function renderGpuFlowNodeLayerFrame({
   viewportFrame,
   onRetainedPreparedRuntimeFrame,
   onRetainedDisplayFrame,
-  runRetainedCommittedSurfacePublicationContentStage,
+  runRetainedPreparedContentFramePublicationContentStage,
 }: {
   readonly activeResizeNodeIdRef: MutableRefObject<string | null>;
   readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
@@ -576,7 +576,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly onRetainedDisplayFrame?:
     | GpuFlowRetainedDisplayCommittedSurfaceFramePreparer
     | undefined;
-  readonly runRetainedCommittedSurfacePublicationContentStage: GpuFlowRetainedCommittedSurfacePublicationContentStageRunner;
+  readonly runRetainedPreparedContentFramePublicationContentStage: GpuFlowRetainedPreparedContentFramePublicationContentStageRunner;
   readonly onRetainedPreparedRuntimeFrame?:
     | ((frame: GpuRetainedRuntimeFrame) => void)
     | undefined;
@@ -667,21 +667,21 @@ export function renderGpuFlowNodeLayerFrame({
     });
   }
   const previousRetainedDisplayFrame = retainedDisplayFrameRef.current;
-  return runRetainedCommittedSurfacePublicationContentStage<
-    GpuFlowRetainedCommittedSurfacePublicationRenderContext,
+  return runRetainedPreparedContentFramePublicationContentStage<
+    GpuFlowRetainedPreparedContentFramePublicationRenderContext,
     GpuFlowContentPublicationFrameResult
   >({
     deferBrowserVisualWakeup,
     deferResolutionUpdates,
     frameReasons,
     liveProjectionSample,
-    onCommittedSurfaceCandidatePrepared: ({
+    onPreparedContentFrameCandidatePrepared: ({
       preparedContentFramePublicationPreparation,
       context,
-      preparedCommittedSurfaceFrame,
+      preparedContentFrame,
       retainedDisplayPublication,
     }) => {
-      committedContentPublishMs += context.finishCommittedPreparationMeasure();
+      committedContentPublishMs += context.finishPreparedContentFrameMeasure();
       retainedDisplayTransactionMs +=
         retainedDisplayPublication.retainedDisplayTransactionMs;
       retainedPageMaintenanceMs +=
@@ -708,7 +708,7 @@ export function renderGpuFlowNodeLayerFrame({
               controls:
                 context.publishedRetainedRuntimeFrame.descriptors
                   .domControlSources,
-              preparedCommittedSurfaceFrame,
+              preparedContentFrame,
             }),
           getRetainedScrollOffset:
             context.getRetainedDomControlRuntimeScrollOffset,
@@ -716,7 +716,7 @@ export function renderGpuFlowNodeLayerFrame({
           preserveUnmatchedSnapshotOverlays: true,
           snapshotSourceIds:
             getGpuFlowCommittedSurfaceBrowserVisualSnapshotSourceIds(
-              preparedCommittedSurfaceFrame,
+              preparedContentFrame,
             ),
         });
       const overlayTextureWork =
@@ -742,12 +742,12 @@ export function renderGpuFlowNodeLayerFrame({
         uploadResult: overlayTextureWork?.uploadResult,
       });
     },
-    onCommittedSurfaceCandidateAccepted: ({
+    onPreparedContentFrameCandidateAccepted: ({
       preparedContentFramePublication,
       context,
       createContentPublicationFrameResultForVisibleProjectionState,
       createVisibleProjectionStateForRetainedPublication,
-      preparedCommittedSurfaceFrame,
+      preparedContentFrame,
       retainedDisplayPublication,
     }) => {
       markGpuFlowRetainedContentFrameFreshnessDirty({
@@ -766,14 +766,14 @@ export function renderGpuFlowNodeLayerFrame({
               controls:
                 context.publishedRetainedRuntimeFrame.descriptors
                   .domControlSources,
-              preparedCommittedSurfaceFrame,
+              preparedContentFrame,
             }),
           getRetainedScrollOffset:
             context.getRetainedDomControlRuntimeScrollOffset,
           overlays: layer.edgeLabelSurfaces,
           snapshotSourceIds:
             getGpuFlowCommittedSurfaceBrowserVisualSnapshotSourceIds(
-              preparedCommittedSurfaceFrame,
+              preparedContentFrame,
             ),
         });
       const htmlSurfaceFrameStart = performance.now();
@@ -792,7 +792,7 @@ export function renderGpuFlowNodeLayerFrame({
         elementByNodeId: nodeElementByIdRef.current,
         forceVisibleNodeIds: getGpuFlowCommittedSurfaceForceVisibleNodeIds(
           layer.forceVisibleNodeIds,
-          preparedCommittedSurfaceFrame,
+          preparedContentFrame,
         ),
         frame,
         grid: layer.grid,
@@ -804,7 +804,7 @@ export function renderGpuFlowNodeLayerFrame({
         nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
         protectedTextureSurfaceIds:
           getGpuFlowCommittedSurfaceProtectedTextureSurfaceIds(
-            preparedCommittedSurfaceFrame,
+            preparedContentFrame,
           ),
         renderer: resources.htmlSurfaceRenderer,
         textureManager: resources.textureManager,
@@ -849,7 +849,7 @@ export function renderGpuFlowNodeLayerFrame({
       };
       const visibleProjectionState =
         createVisibleProjectionStateForRetainedPublication({
-          preparedContentFrame: preparedCommittedSurfaceFrame,
+          preparedContentFrame,
         });
       const performanceReport: GpuFlowNodeLayerFramePerformanceReport = {
         deferResolutionUpdates,
@@ -933,8 +933,8 @@ export function renderGpuFlowNodeLayerFrame({
         retainedRuntimeNativeVisuals,
         switchAnimationNativeVisuals,
       );
-      const finishCommittedPreparationMeasure = startFrameMeasure(
-        "committed-surface-frame-publication",
+      const finishPreparedContentFrameMeasure = startFrameMeasure(
+        "prepared-content-frame",
         frame,
         { retainedDisplayFrameId: publishedRetainedFrame.id },
       );
@@ -944,7 +944,7 @@ export function renderGpuFlowNodeLayerFrame({
         committedGpuNativeVisuals,
         context: {
           committedGpuNativeVisuals,
-          finishCommittedPreparationMeasure,
+          finishPreparedContentFrameMeasure,
           getRetainedDomControlRuntimeScrollOffset,
           publishedRetainedFrame,
           publishedRetainedPageFrame,
@@ -952,7 +952,7 @@ export function renderGpuFlowNodeLayerFrame({
         },
       };
     },
-    prepareCommittedSurfaceFrame: onRetainedDisplayFrame,
+    prepareContentFrame: onRetainedDisplayFrame,
     previousVisibleProjectionState: heldPreviousProjectionState,
     publicationLane,
     retainedDisplayPublicationInput: {

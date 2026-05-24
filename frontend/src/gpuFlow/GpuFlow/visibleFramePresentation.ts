@@ -16,7 +16,7 @@ import {
   createGpuFlowRetainedRuntimeFrameSourceRenderSignature,
 } from "./flowRetainedRuntimeFrameSignatures";
 import { createGpuFlowVisibleOverlayProjectionKey } from "./flowVisibleOverlayProjectionKey";
-import { resolveGpuFlowBlockedCommittedSurfacePublicationAbort } from "./visibleFrameAbortPolicy";
+import { resolveGpuFlowBlockedPreparedContentFramePublicationAbort } from "./visibleFrameAbortPolicy";
 import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutcomeGuard";
 import { requestGpuFlowBrowserVisualResourcePreparation } from "./visibleFrameBrowserVisualPreparation";
 import { clearGpuFlowBrowserVisualResourceWork } from "./visibleFrameBrowserVisualResourceWork";
@@ -183,7 +183,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
         blockedPreparedContentFrame,
         blockedPreparedContentFrameResourceWork,
         blockedPreservePreparationSnapshot,
-        committedSurfaceFrame,
+        preparedContentFrame,
         heldPreparedContentFrame,
         nodeLayerFrameStatePublication: contentNodeLayerFrameStatePublication,
         retainedDisplayFrame,
@@ -215,7 +215,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
     {
       abortPreparedContentFrame,
       callbacksRef,
-      committedSurfaceFrame,
+      preparedContentFrame,
       presentPreparedContentFrame,
       blockedErrorMessage,
       blockedPreparedContentFrame,
@@ -254,7 +254,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
       publicationFrameContext.activeEditorPins.length > 0 ||
       hasGpuFlowActiveEditorActivationPendingFrame([
         blockedPreparedContentFrame,
-        committedSurfaceFrame,
+        preparedContentFrame,
         heldPreparedContentFrame,
         selectedVisibleProjectionState?.committedFrame ?? null,
       ]),
@@ -383,7 +383,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
   browserVisualPreparationResourceKeys,
   browserVisualRepairSelected,
   callbacksRef,
-  committedSurfaceFrame,
+  preparedContentFrame,
   presentPreparedContentFrame,
   heldPreparedContentFrame,
   heldPreviousVisibleProjectionState,
@@ -406,7 +406,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
 }: {
   readonly abortPreparedContentFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedContentFrame"];
   readonly callbacksRef: RenderGpuFlowSurfaceFrameInput["callbacksRef"];
-  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly presentPreparedContentFrame: RenderGpuFlowSurfaceFrameInput["presentPreparedContentFrame"];
   readonly blockedErrorMessage: string | null;
   readonly blockedPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
@@ -437,7 +437,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
     case "present":
       publishGpuFlowPresentedSurfaceVisibleProjectionState({
         callbacksRef,
-        committedSurfaceFrame,
+        preparedContentFrame,
         presentPreparedContentFrame,
         nodeLayerFrameStatePublication,
         outcome,
@@ -463,7 +463,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
         blockedPreparedContentFrameResourceWork,
         browserVisualPreparationResourceKeys,
         browserVisualRepairSelected,
-        committedSurfaceFrame,
+        preparedContentFrame,
         heldPreparedContentFrame,
         heldPreviousVisibleProjectionState,
         outcome,
@@ -481,7 +481,7 @@ function publishGpuFlowSurfaceVisibleProjectionState({
         blockedPreservePreparationSnapshot,
         browserVisualPreparationResourceKeys,
         browserVisualRepairSelected,
-        committedSurfaceFrame,
+        preparedContentFrame,
         heldPreparedContentFrame,
         outcome,
         runtimeCanvas,
@@ -497,7 +497,7 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionOutcome({
   blockedPreparedContentFrameResourceWork,
   browserVisualPreparationResourceKeys,
   browserVisualRepairSelected,
-  committedSurfaceFrame,
+  preparedContentFrame,
   heldPreparedContentFrame,
   heldPreviousVisibleProjectionState,
   outcome,
@@ -510,7 +510,7 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionOutcome({
   readonly blockedPreparedContentFrameResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
   readonly browserVisualPreparationResourceKeys: readonly string[];
   readonly browserVisualRepairSelected: boolean;
-  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly heldPreviousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly outcome: Extract<
@@ -524,7 +524,7 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionOutcome({
   const heldFrame =
     heldPreparedContentFrame ??
     blockedPreparedContentFrame ??
-    committedSurfaceFrame;
+    preparedContentFrame;
   publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
     abortPreparedContentFrame,
     heldPreparedContentFrame: heldFrame,
@@ -550,7 +550,7 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionOutcome({
   blockedPreservePreparationSnapshot,
   browserVisualPreparationResourceKeys,
   browserVisualRepairSelected,
-  committedSurfaceFrame,
+  preparedContentFrame,
   heldPreparedContentFrame,
   outcome,
   runtimeCanvas,
@@ -564,7 +564,7 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionOutcome({
   readonly blockedPreservePreparationSnapshot: boolean;
   readonly browserVisualPreparationResourceKeys: readonly string[];
   readonly browserVisualRepairSelected: boolean;
-  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly outcome: Extract<
     GpuFlowVisiblePublicationOutcome,
@@ -575,10 +575,10 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionOutcome({
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
 }): GpuFlowBlockedSurfaceVisibleProjectionPublication {
   const blockedCommittedSurfaceAbort =
-    resolveGpuFlowBlockedCommittedSurfacePublicationAbort({
+    resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
       blockedPreparedContentFrame,
       blockedPreservePreparationSnapshot,
-      committedSurfaceFrame,
+      preparedContentFrame,
       heldPreparedContentFrame,
       selectedVisibleProjectionState,
     });
@@ -606,7 +606,7 @@ function publishGpuFlowBlockedSurfaceVisibleProjectionOutcome({
 
 function publishGpuFlowPresentedSurfaceVisibleProjectionState({
   callbacksRef,
-  committedSurfaceFrame,
+  preparedContentFrame,
   presentPreparedContentFrame,
   nodeLayerFrameStatePublication,
   outcome,
@@ -625,7 +625,7 @@ function publishGpuFlowPresentedSurfaceVisibleProjectionState({
   visibleProjectionStateRef,
 }: {
   readonly callbacksRef: RenderGpuFlowSurfaceFrameInput["callbacksRef"];
-  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly presentPreparedContentFrame: RenderGpuFlowSurfaceFrameInput["presentPreparedContentFrame"];
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly outcome: Extract<
@@ -653,22 +653,22 @@ function publishGpuFlowPresentedSurfaceVisibleProjectionState({
   }
   if (
     selectedVisibleProjectionState.transaction.kind === "content-publication" &&
-    !committedSurfaceFrame
+    !preparedContentFrame
   ) {
     throw new Error(
-      "GPU Flow content presentation requires the prepared committed surface frame.",
+      "GPU Flow content presentation requires the prepared content frame.",
     );
   }
-  if (committedSurfaceFrame) {
-    validatePreparedContentFrame(outcome.token, committedSurfaceFrame);
+  if (preparedContentFrame) {
+    validatePreparedContentFrame(outcome.token, preparedContentFrame);
   }
   const submittedNodeLayerFrameStatePublication =
     submitGpuFlowNodeLayerFrameCanvasSubmission({
       nodeLayerFrameStatePublication,
       token: outcome.token,
     });
-  if (committedSurfaceFrame) {
-    presentPreparedContentFrame(outcome.token, committedSurfaceFrame);
+  if (preparedContentFrame) {
+    presentPreparedContentFrame(outcome.token, preparedContentFrame);
   }
   publishGpuFlowRetainedDisplayFrame({
     retainedDisplayFrame,
@@ -676,11 +676,11 @@ function publishGpuFlowPresentedSurfaceVisibleProjectionState({
     token: outcome.token,
   });
   recordGpuFlowVisibleFramePresented({
-    committedSurfaceFrame,
+    preparedContentFrame,
     runtimeCanvas,
     token: outcome.token,
   });
-  if (committedSurfaceFrame !== null) {
+  if (preparedContentFrame !== null) {
     clearGpuFlowBrowserVisualResourceWork(runtimeCanvas);
   }
   applyGpuFlowProjectionDebugAttributes({

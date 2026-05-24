@@ -15,7 +15,7 @@ import { createGpuFlowContentFrameId } from "./visibleFrameTypes";
 
 describe("GPU Flow visible frame actor manifest", () => {
   it("blocks missing section structure actors required by the retained scene", () => {
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       actorGenerations: [],
       retainedRuntimeFrame: retainedRuntimeFrame(),
     });
@@ -58,7 +58,7 @@ describe("GPU Flow visible frame actor manifest", () => {
 
   it("uses committed section structure actors when they are present", () => {
     const runtimeFrame = retainedRuntimeFrame();
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       actorGenerations: createSectionStructureActors(runtimeFrame),
       retainedRuntimeFrame: runtimeFrame,
     });
@@ -109,7 +109,7 @@ describe("GPU Flow visible frame actor manifest", () => {
       projectionCoverage: "blocked-awaiting-live-host",
       readinessReason: "live-dom-budget",
     });
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       actorGenerations: [activeEditor, passiveBudgetMiss],
       retainedRuntimeFrame: retainedRuntimeFrame(),
     });
@@ -158,7 +158,7 @@ describe("GPU Flow visible frame actor manifest", () => {
       projectionCoverage: "blocked-awaiting-browser-visual",
       readinessReason: "snapshot-pending",
     });
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       actorGenerations: [activeEditor, passiveSnapshotPending],
       retainedRuntimeFrame: retainedRuntimeFrame(),
     });
@@ -201,7 +201,7 @@ describe("GPU Flow visible frame actor manifest", () => {
       projectionCoverage: "blocked-awaiting-browser-visual",
       readinessReason: "snapshot-pending",
     });
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       actorGenerations: [passiveSnapshotPending],
       retainedRuntimeFrame: retainedRuntimeFrame(),
     });
@@ -240,7 +240,7 @@ describe("GPU Flow visible frame actor manifest", () => {
       projectionCoverage: "blocked-awaiting-browser-visual",
       readinessReason: "snapshot-pending",
     });
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       actorGenerations: [passiveSnapshotPending],
       retainedRuntimeFrame: retainedRuntimeFrame(),
       startup: true,
@@ -267,7 +267,7 @@ describe("GPU Flow visible frame actor manifest", () => {
       readinessFaultInjected: true,
       readinessReason: "snapshot-pending",
     });
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       actorGenerations: [passiveSnapshotPending],
       retainedRuntimeFrame: retainedRuntimeFrame(),
     });
@@ -293,7 +293,7 @@ describe("GPU Flow visible frame actor manifest", () => {
       readinessFaultInjected: true,
       readinessReason: "live-dom-budget",
     });
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       actorGenerations: [passiveBudgetMiss],
       retainedRuntimeFrame: retainedRuntimeFrame(),
     });
@@ -368,7 +368,7 @@ function textActor({
   } as unknown as GpuFlowCommittedSurfaceActorGeneration;
 }
 
-function committedSurfaceFrame({
+function preparedContentFrame({
   actorGenerations,
   retainedRuntimeFrame,
   startup = false,

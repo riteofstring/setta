@@ -198,7 +198,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     };
   }
 
-  prepareCommittedSurfaceFrame({
+  prepareContentFrame({
     retainedDisplayFrame,
     viewport,
   }: {

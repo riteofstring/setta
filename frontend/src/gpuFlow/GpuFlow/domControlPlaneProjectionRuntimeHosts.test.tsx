@@ -9,11 +9,11 @@ import { createGpuFlowViewportStore } from "../viewportStore";
 import { createGpuFlowBrowserVisualActorRuntime } from "./browserVisualActorRuntime";
 import { GpuFlowDomControlPlane } from "./domControlPlane";
 import {
-  committedSurfaceFrame,
   createMockViewportRuntime,
   createPresentedSurfaceRuntimeWithBrowserVisuals,
   domControl,
   mountedRowIds,
+  preparedContentFrame,
   publicationToken,
   publishBrowserVisualFrame,
   retainedDisplayFrame,
@@ -47,7 +47,7 @@ describe("GPU flow DOM control projection host publication", () => {
     });
     const presentedSurfaceRuntime =
       createPresentedSurfaceRuntimeWithBrowserVisuals({
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame(controls),
         }),
@@ -98,7 +98,7 @@ describe("GPU flow DOM control projection host publication", () => {
       viewportRuntime,
       viewportStore,
     });
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 1,
         retainedRuntimeFrame: retainedRuntimeFrame(controls),
@@ -118,7 +118,7 @@ describe("GPU flow DOM control projection host publication", () => {
     retainedScrollY = 280;
     browserVisualRuntime.projectDomControls({
       token: publicationToken(
-        committedSurfaceFrame({
+        preparedContentFrame({
           displayFrameId: 0,
           retainedRuntimeFrame: retainedRuntimeFrame([]),
         }),
@@ -178,7 +178,7 @@ describe("GPU flow DOM control projection host publication", () => {
     });
     const presentedSurfaceRuntime =
       createPresentedSurfaceRuntimeWithBrowserVisuals({
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame(activeControls),
         }),
@@ -222,7 +222,7 @@ describe("GPU flow DOM control projection host publication", () => {
     act(() => {
       publishBrowserVisualFrame({
         presentedSurfaceRuntime,
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           displayFrameId: 2,
           retainedRuntimeFrame: retainedRuntimeFrame(passiveControls, 2),
         }),

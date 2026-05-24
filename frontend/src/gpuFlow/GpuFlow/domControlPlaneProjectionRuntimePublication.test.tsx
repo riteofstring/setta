@@ -5,9 +5,9 @@ import { describe, expect, it } from "vitest";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { createGpuFlowBrowserVisualActorRuntime } from "./browserVisualActorRuntime";
 import {
-  committedSurfaceFrame,
   createMockViewportRuntime,
   domControl,
+  preparedContentFrame,
   publicationToken,
   retainedDisplayFrame,
   retainedRuntimeFrame,
@@ -41,7 +41,7 @@ describe("GPU flow DOM control projection runtime publication", () => {
       viewportStore,
     });
 
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 1,
         retainedRuntimeFrame: retainedRuntimeFrame(controls),
@@ -75,7 +75,7 @@ describe("GPU flow DOM control projection runtime publication", () => {
       viewportStore,
     });
 
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: 1,
         retainedRuntimeFrame: retainedRuntimeFrame(controls),
@@ -106,7 +106,7 @@ describe("GPU flow DOM control projection runtime publication", () => {
       transform: [0, 0, 1],
       width: 400,
     });
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrame([control]),
     });
@@ -115,7 +115,7 @@ describe("GPU flow DOM control projection runtime publication", () => {
       viewportRuntime,
       viewportStore,
     });
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: frame.displayFrameId,
         retainedRuntimeFrame: frame.retainedRuntimeFrame,
@@ -149,7 +149,7 @@ describe("GPU flow DOM control projection runtime publication", () => {
       transform: [0, 0, 1],
       width: 400,
     });
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       displayFrameId: 1,
       retainedRuntimeFrame: retainedRuntimeFrame([control]),
     });
@@ -162,7 +162,7 @@ describe("GPU flow DOM control projection runtime publication", () => {
       viewportRuntime,
       viewportStore,
     });
-    const candidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+    const candidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrame({
         id: frame.displayFrameId,
         retainedRuntimeFrame: frame.retainedRuntimeFrame,

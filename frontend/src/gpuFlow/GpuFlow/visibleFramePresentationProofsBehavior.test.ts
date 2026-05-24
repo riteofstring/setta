@@ -27,7 +27,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   it("rejects presentation authority for non-publishable frames", () => {
     expect(() =>
       createGpuFlowVisibleFramePresentationTokenForTest({
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           publishability: {
             blockingActorIds: ["actor-a"],
             kind: "hold-previous",
@@ -36,13 +36,13 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         }),
         projectionSample: liveProjectionSample(),
       }),
-    ).toThrow(/publishable committed surface frame/);
+    ).toThrow(/publishable prepared content frame frame/);
   });
 
   it("rejects presentation authority for incoherent DOM/canvas presentation pairs", () => {
     expect(() =>
       createGpuFlowVisibleFramePresentationTokenForTest({
-        frame: committedSurfaceFrame({
+        frame: preparedContentFrame({
           coherence: {
             domControlCommittedFrameId: 42,
           },
@@ -53,7 +53,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   });
 
   it("rejects presentation authority when the DOM generation is not staged and exposable", () => {
-    const frame = committedSurfaceFrame();
+    const frame = preparedContentFrame();
 
     expect(() =>
       createGpuFlowVisibleFramePresentationTokenForTest({
@@ -73,7 +73,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   });
 
   it("rejects presentation authority when the canvas generation is not prepared and exposable", () => {
-    const frame = committedSurfaceFrame();
+    const frame = preparedContentFrame();
 
     expect(() =>
       createGpuFlowVisibleFramePresentationTokenForTest({
@@ -93,7 +93,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   });
 
   it("rejects presentation authority when DOM and canvas generations are not in the same presentation batch", () => {
-    const frame = committedSurfaceFrame();
+    const frame = preparedContentFrame();
 
     expect(() =>
       createGpuFlowVisibleFramePresentationTokenForTest({
@@ -113,7 +113,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   });
 
   it("carries DOM/canvas presentation pair proof on presentation tokens", () => {
-    const frame = committedSurfaceFrame();
+    const frame = preparedContentFrame();
     const projectionSample = liveProjectionSample();
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame,
@@ -148,7 +148,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   });
 
   it("keeps presentable frame proof digests compact for large actor manifests", () => {
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       actorGenerations: Array.from({ length: 80 }, (_, index) =>
         committedActorGeneration({
           actorId: `actor-${index}`,
@@ -162,7 +162,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(token.expectedActorSetDigest).toMatch(
-      /^setta-gpu-flow-digest:v1:committed-surface-actor-manifest:/,
+      /^setta-gpu-flow-digest:v1:prepared-content-frame-actor-manifest:/,
     );
     expect(token.presentationPairDigest).toMatch(
       /^setta-gpu-flow-digest:v1:visible-presentation-pair:/,
@@ -179,7 +179,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     const { createGpuFlowPresentationAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
-    const frame = committedSurfaceFrame();
+    const frame = preparedContentFrame();
     const projectionSample = liveProjectionSample();
     const pairProof = presentationPairProof({ frame, projectionSample });
     const presentationAuthorityProof = createGpuFlowPresentationAuthorityProof({
@@ -207,7 +207,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     const { createGpuFlowPresentationAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
-    const frame = committedSurfaceFrame();
+    const frame = preparedContentFrame();
     const projectionSample = liveProjectionSample();
     const pairProof = presentationPairProof({ frame, projectionSample });
     const presentationAuthorityProof = createGpuFlowPresentationAuthorityProof({
@@ -238,7 +238,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     const { createGpuFlowPresentationAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
-    const frame = committedSurfaceFrame();
+    const frame = preparedContentFrame();
     const projectionSample = liveProjectionSample();
     const pairProof = {
       ...presentationPairProof({ frame, projectionSample }),
@@ -267,7 +267,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     const { createGpuFlowPresentationAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
-    const frame = committedSurfaceFrame();
+    const frame = preparedContentFrame();
     const projectionSample = liveProjectionSample();
     const pairProof = presentationPairProof({ frame, projectionSample });
     const presentationAuthorityProof = createGpuFlowPresentationAuthorityProof({
@@ -299,7 +299,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       id: "snapshot-a",
       kind: "texture" as const,
     };
-    const frame = committedSurfaceFrame({
+    const frame = preparedContentFrame({
       actorGenerations: [
         committedActorGeneration({
           actorId: "actor-a",
@@ -342,7 +342,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         proof: browserVisualProof(),
         resourceHandles: [],
       });
-      const frame = committedSurfaceFrame({
+      const frame = preparedContentFrame({
         actorGenerations: [actor],
       });
       if (actor.browserVisual === null) {
@@ -374,7 +374,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   );
 
   it("rejects presentation tokens when the DOM/canvas presentation proof changes after minting", () => {
-    const frame = committedSurfaceFrame();
+    const frame = preparedContentFrame();
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame,
       projectionSample: liveProjectionSample(),
@@ -664,7 +664,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     const { createGpuFlowPresentationAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
-    const frame = committedSurfaceFrame();
+    const frame = preparedContentFrame();
     const projectionSample = liveProjectionSample();
     const pairProof = presentationPairProof({ frame, projectionSample });
     const presentationAuthorityProof = createGpuFlowPresentationAuthorityProof({
@@ -963,7 +963,7 @@ function presentationPairProof({
   };
 }
 
-function committedSurfaceFrame({
+function preparedContentFrame({
   actorGenerations = [],
   coherence = {},
   publishability = {

@@ -3,30 +3,29 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 
 export function getGpuFlowCommittedSurfaceForceVisibleNodeIds(
   baseForceVisibleNodeIds: GpuFlowNodeLayerState["forceVisibleNodeIds"],
-  committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void,
+  preparedContentFrame: GpuFlowCommittedSurfaceFrame | void,
 ): GpuFlowNodeLayerState["forceVisibleNodeIds"] {
-  const sectionSurfaceIds = getGpuFlowCommittedSurfaceSectionSurfaceIds(
-    committedSurfaceFrame,
-  );
+  const sectionSurfaceIds =
+    getGpuFlowCommittedSurfaceSectionSurfaceIds(preparedContentFrame);
   if (sectionSurfaceIds.length === 0) {
     return baseForceVisibleNodeIds;
   }
   if (baseForceVisibleNodeIds === undefined) {
     return sectionSurfaceIds;
   }
-  return Object.freeze(
-    [...new Set([...baseForceVisibleNodeIds, ...sectionSurfaceIds])],
-  );
+  return Object.freeze([
+    ...new Set([...baseForceVisibleNodeIds, ...sectionSurfaceIds]),
+  ]);
 }
 
 function getGpuFlowCommittedSurfaceSectionSurfaceIds(
-  committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void,
+  preparedContentFrame: GpuFlowCommittedSurfaceFrame | void,
 ): readonly string[] {
-  if (!committedSurfaceFrame) {
+  if (!preparedContentFrame) {
     return [];
   }
   const sectionSurfaceIds = new Set<string>();
-  for (const actor of committedSurfaceFrame.actorGenerations) {
+  for (const actor of preparedContentFrame.actorGenerations) {
     if (
       actor.visibleNonempty &&
       (actor.actorFamily === "section-body-clip" ||

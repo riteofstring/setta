@@ -41,7 +41,7 @@ import {
   type GpuFlowMotionProjectionFrameWorkReport,
   type GpuFlowMotionProjectionWorkPlan,
   type GpuFlowProjectionFrameRenderablePlan,
-  type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
+  type GpuFlowRetainedPreparedContentFramePublicationContentStageRunner,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
 } from "./visibleFrameCoordinator";
@@ -98,7 +98,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   | "onRetainedDisplayFrame"
   | "onRetainedPreparedRuntimeFrame"
   | "publicationLane"
-  | "runRetainedCommittedSurfacePublicationContentStage"
+  | "runRetainedPreparedContentFramePublicationContentStage"
   | "viewportFrame"
 > & {
   readonly abortPreparedContentFrame: (
@@ -128,7 +128,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
     token: GpuFlowVisibleFramePresentationToken,
     frame: GpuFlowCommittedSurfaceFrame,
   ) => void;
-  readonly prepareCommittedSurfaceFrame: NonNullable<
+  readonly prepareContentFrame: NonNullable<
     GpuFlowNodeLayerFrameInput["onRetainedDisplayFrame"]
   >;
   readonly prepareVisibleFrameResourcesForBudget: (
@@ -291,7 +291,7 @@ export function renderGpuFlowSurfaceFrame({
         previousVisibleProjectionState,
         publicationDecision,
         publicationFrameContext,
-        runRetainedCommittedSurfacePublicationContentStage,
+        runRetainedPreparedContentFramePublicationContentStage,
       }) => {
         const finishContentMeasure = startGpuFlowPerformanceMeasure(
           "surface-frame-content-publication",
@@ -312,7 +312,7 @@ export function renderGpuFlowSurfaceFrame({
             publicationDecision,
             retainedContentRuntimeState,
             runtime,
-            runRetainedCommittedSurfacePublicationContentStage,
+            runRetainedPreparedContentFramePublicationContentStage,
             viewportFrame: publicationFrameContext.viewportFrame,
             viewportStore,
           });
@@ -322,7 +322,7 @@ export function renderGpuFlowSurfaceFrame({
           contentPublicationFrame.visibleProjectionState?.transaction.kind ??
           null;
         frameMeasureDetail.contentPresentedSurfacePublished =
-          contentPublicationFrame.committedSurfaceFrame !== null;
+          contentPublicationFrame.preparedContentFrame !== null;
         frameMeasureDetail.contentBlocked =
           contentPublicationFrame.blockedPublicationCandidate !== null;
         frameMeasureDetail.contentForceImmediateDebtFrame =
@@ -663,7 +663,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   retainedPreparationRuntimeFrameRenderSignatureRef,
   retainedPreparationRuntimeFrameScrollRevisionRef,
   runtime,
-  runRetainedCommittedSurfacePublicationContentStage,
+  runRetainedPreparedContentFramePublicationContentStage,
   viewportFrame,
   viewportStore,
   ...input
@@ -674,7 +674,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
-  readonly runRetainedCommittedSurfacePublicationContentStage: GpuFlowRetainedCommittedSurfacePublicationContentStageRunner;
+  readonly runRetainedPreparedContentFramePublicationContentStage: GpuFlowRetainedPreparedContentFramePublicationContentStageRunner;
   readonly viewportFrame: boolean;
 }): GpuFlowContentPublicationFrameResult {
   const contentDeferResolutionUpdates =
@@ -738,7 +738,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
     visibleNodeIdsRef: input.visibleNodeIdsRef,
     viewportStore,
     viewportFrame,
-    runRetainedCommittedSurfacePublicationContentStage,
+    runRetainedPreparedContentFramePublicationContentStage,
     onRetainedPreparedRuntimeFrame: (nextRetainedRuntimeFrame) => {
       const nextSignature =
         createGpuFlowRetainedRuntimeFrameSourceRenderSignature(
@@ -754,7 +754,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
       retainedPreparationRuntimeFrameScrollRevisionRef.current =
         nextRetainedRuntimeFrame.input.scrollRevision;
     },
-    onRetainedDisplayFrame: input.prepareCommittedSurfaceFrame,
+    onRetainedDisplayFrame: input.prepareContentFrame,
   });
 }
 
