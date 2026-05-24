@@ -117,6 +117,8 @@ describe("GPU Flow visible frame resource graph proofs", () => {
 
     registry.registerPreparedCommittedSurfaceFrame({
       browserVisualCandidate: browserVisualCandidate({
+        blockedControlIds: ["row-a", "row-b"],
+        blockedIslandIds: ["island-a"],
         controls: [
           domControl({ active: true, sourceId: "row-a" }),
           domControl({
@@ -145,7 +147,6 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       committedResourceKeys: [],
       pendingCandidateFrameIds: [41],
       queuedResourceKeys: [
-        "texture:surface-texture",
         "dom-control:row-a",
         "dom-control-snapshot:snapshot-row-b",
         "dom-island:island-a",
@@ -155,31 +156,20 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       absent: 0,
       preparing: 0,
       presented: 0,
-      ready: 0,
-      requested: 4,
+      ready: 1,
+      requested: 3,
       retired: 0,
     });
     expect(snapshot.resourceStates).toEqual([
       resourceState("dom-control-snapshot:snapshot-row-b", "requested", 41),
       resourceState("dom-control:row-a", "requested", 41),
       resourceState("dom-island:island-a", "requested", 41),
-      resourceState("texture:surface-texture", "requested", 41),
+      resourceState("texture:surface-texture", "ready", 41),
     ]);
 
     expect(registry.advanceVisibleFrameResourceWork()).toEqual({
-      remainingQueuedResourceKeys: [
-        "texture:surface-texture",
-        "dom-control:row-a",
-        "dom-control-snapshot:snapshot-row-b",
-        "dom-island:island-a",
-      ],
+      remainingQueuedResourceKeys: [],
       transitions: [
-        resourceTransition(
-          "texture:surface-texture",
-          "requested",
-          "preparing",
-          41,
-        ),
         resourceTransition("dom-control:row-a", "requested", "preparing", 41),
         resourceTransition(
           "dom-control-snapshot:snapshot-row-b",
@@ -192,26 +182,28 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
     expect(registry.getSnapshot().resourceDebtByState).toEqual({
       absent: 0,
-      preparing: 4,
+      preparing: 3,
       presented: 0,
-      ready: 0,
+      ready: 1,
       requested: 0,
       retired: 0,
     });
 
     expect(registry.advanceVisibleFrameResourceWork()).toEqual({
       remainingQueuedResourceKeys: [],
-      transitions: [
-        resourceTransition("texture:surface-texture", "preparing", "ready", 41),
-        resourceTransition("dom-control:row-a", "preparing", "ready", 41),
-        resourceTransition(
-          "dom-control-snapshot:snapshot-row-b",
-          "preparing",
-          "ready",
-          41,
-        ),
-        resourceTransition("dom-island:island-a", "preparing", "ready", 41),
-      ],
+      transitions: [],
+    });
+    registry.markVisibleFrameResourceReady({
+      ownerFrameId: 41,
+      resourceKey: "dom-control:row-a",
+    });
+    registry.markVisibleFrameResourceReady({
+      ownerFrameId: 41,
+      resourceKey: "dom-control-snapshot:snapshot-row-b",
+    });
+    registry.markVisibleFrameResourceReady({
+      ownerFrameId: 41,
+      resourceKey: "dom-island:island-a",
     });
     expect(registry.getSnapshot().resourceStates).toEqual([
       resourceState("dom-control-snapshot:snapshot-row-b", "ready", 41),
@@ -386,7 +378,10 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
     registry.registerPreparedCommittedSurfaceFrame({
       browserVisualCandidate: browserVisualCandidate({
+        blockedControlIds: ["early-control"],
+        controls: [domControl({ sourceId: "early-control" })],
         frameId: frame.displayFrameId,
+        mountedControlIds: ["early-control"],
       }),
       frame,
     });
@@ -401,7 +396,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
           projectionSample: liveProjectionSample(62),
         }),
       }),
-    ).toThrow(/before resource texture:early-texture is ready/);
+    ).toThrow(/before resource dom-control:early-control is ready/);
   });
 
   it("tracks explicit resource lifecycle debt from requested through retired", () => {
@@ -445,12 +440,16 @@ function resourceState(
   state: string,
   ownerFrameId: number,
 ) {
-  return {
+  return expect.objectContaining({
     debtAgeFrames: expect.any(Number),
+    deadlineFrame: expect.any(Number),
+    estimatedCostMs: expect.any(Number),
     ownerFrameId,
+    preparationLane: expect.any(String),
+    priority: expect.any(String),
     resourceKey,
     state,
-  };
+  });
 }
 
 function resourceTransition(
@@ -587,12 +586,16 @@ function committedSurfaceFrame({
 }
 
 function browserVisualCandidate({
+  blockedControlIds = [],
+  blockedIslandIds = [],
   controls = [],
   frameId,
   islands = [],
   mountedControlIds = [],
   snapshotControlIds = [],
 }: {
+  readonly blockedControlIds?: readonly string[] | undefined;
+  readonly blockedIslandIds?: readonly string[] | undefined;
   readonly controls?: readonly ReturnType<typeof domControl>[] | undefined;
   readonly frameId: number;
   readonly islands?: readonly { readonly id: string }[] | undefined;
@@ -606,8 +609,26 @@ function browserVisualCandidate({
     id: `candidate:${frameId}`,
     presentationEvidence: {},
     readiness: {
-      domControlReadinessByActorId: new Map(),
-      domIslandReadinessByActorId: new Map(),
+      domControlReadinessByActorId: new Map(
+        controls.map((control) => [
+          control.sourceId,
+          {
+            coverageState: blockedControlIds.includes(control.sourceId)
+              ? "blocked-awaiting-browser-visual"
+              : "live-host-ready",
+          },
+        ]),
+      ),
+      domIslandReadinessByActorId: new Map(
+        islands.map((island) => [
+          island.id,
+          {
+            coverageState: blockedIslandIds.includes(island.id)
+              ? "blocked-awaiting-live-host"
+              : "live-host-ready",
+          },
+        ]),
+      ),
     },
     snapshot: {
       domControls: {

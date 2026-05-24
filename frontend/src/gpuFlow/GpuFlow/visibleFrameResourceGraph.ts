@@ -31,7 +31,17 @@ type GpuFlowVisibleFrameCandidateResourceEntry = {
   readonly requiredResourceKeys: readonly string[];
 };
 
-type GpuFlowVisibleFrameResourceGraphSnapshot = {
+type GpuFlowVisibleFrameCandidateResourceRequest = {
+  readonly deadlineFrame: number | null;
+  readonly estimatedCostMs: number;
+  readonly ownerFrameId: number;
+  readonly preparationLane: GpuFlowVisibleFrameResourcePreparationLane;
+  readonly priority: GpuFlowVisibleFrameResourcePriority;
+  readonly readinessState: "ready" | "requested";
+  readonly resourceKey: string;
+};
+
+export type GpuFlowVisibleFrameResourceGraphSnapshot = {
   readonly activeEditorPins: readonly string[];
   readonly candidateResourceKeys: readonly string[];
   readonly committedFrameId: number | null;
@@ -92,9 +102,13 @@ export type GpuFlowVisibleFrameResourceStateKind =
   | "requested"
   | "retired";
 
-type GpuFlowVisibleFrameResourceStateSnapshot = {
+export type GpuFlowVisibleFrameResourceStateSnapshot = {
   readonly debtAgeFrames: number;
+  readonly deadlineFrame: number | null;
+  readonly estimatedCostMs: number;
   readonly ownerFrameId: number | null;
+  readonly preparationLane: GpuFlowVisibleFrameResourcePreparationLane;
+  readonly priority: GpuFlowVisibleFrameResourcePriority;
   readonly resourceKey: string;
   readonly state: GpuFlowVisibleFrameResourceStateKind;
 };
@@ -104,6 +118,21 @@ type GpuFlowVisibleFrameResourceStateEntry =
     readonly requestedAtFrame: number;
     readonly transitionFrame: number;
   };
+
+export type GpuFlowVisibleFrameResourcePreparationLane =
+  | "browser-visual"
+  | "debug-hit"
+  | "dom-island"
+  | "maintenance-refinement"
+  | "presentation-state"
+  | "retained-page"
+  | "section-structure"
+  | "texture-upload";
+
+export type GpuFlowVisibleFrameResourcePriority =
+  | "continuity"
+  | "quality"
+  | "safety";
 
 export class GpuFlowVisibleFrameResourceGraph {
   private committedFrameId: number | null = null;
@@ -121,42 +150,84 @@ export class GpuFlowVisibleFrameResourceGraph {
   private transitionFrame = 0;
 
   requestVisibleFrameResource({
+    deadlineFrame,
+    estimatedCostMs = 1,
     ownerFrameId = null,
+    preparationLane = "texture-upload",
+    priority = "safety",
     resourceKey,
   }: {
+    readonly deadlineFrame?: number | null | undefined;
+    readonly estimatedCostMs?: number | undefined;
     readonly ownerFrameId?: number | null | undefined;
+    readonly preparationLane?:
+      | GpuFlowVisibleFrameResourcePreparationLane
+      | undefined;
+    readonly priority?: GpuFlowVisibleFrameResourcePriority | undefined;
     readonly resourceKey: string;
   }): void {
     this.transitionResource({
+      deadlineFrame,
+      estimatedCostMs,
       ownerFrameId,
+      preparationLane,
+      priority,
       resourceKey,
       state: "requested",
     });
   }
 
   markVisibleFrameResourcePreparing({
+    deadlineFrame,
+    estimatedCostMs,
     ownerFrameId = null,
+    preparationLane,
+    priority,
     resourceKey,
   }: {
+    readonly deadlineFrame?: number | null | undefined;
+    readonly estimatedCostMs?: number | undefined;
     readonly ownerFrameId?: number | null | undefined;
+    readonly preparationLane?:
+      | GpuFlowVisibleFrameResourcePreparationLane
+      | undefined;
+    readonly priority?: GpuFlowVisibleFrameResourcePriority | undefined;
     readonly resourceKey: string;
   }): void {
     this.transitionResource({
+      deadlineFrame,
+      estimatedCostMs,
       ownerFrameId,
+      preparationLane,
+      priority,
       resourceKey,
       state: "preparing",
     });
   }
 
   markVisibleFrameResourceReady({
+    deadlineFrame,
+    estimatedCostMs,
     ownerFrameId = null,
+    preparationLane,
+    priority,
     resourceKey,
   }: {
+    readonly deadlineFrame?: number | null | undefined;
+    readonly estimatedCostMs?: number | undefined;
     readonly ownerFrameId?: number | null | undefined;
+    readonly preparationLane?:
+      | GpuFlowVisibleFrameResourcePreparationLane
+      | undefined;
+    readonly priority?: GpuFlowVisibleFrameResourcePriority | undefined;
     readonly resourceKey: string;
   }): void {
     this.transitionResource({
+      deadlineFrame,
+      estimatedCostMs,
       ownerFrameId,
+      preparationLane,
+      priority,
       resourceKey,
       state: "ready",
     });
@@ -189,10 +260,13 @@ export class GpuFlowVisibleFrameResourceGraph {
       frame,
     });
     this.pendingCandidateByFrameId.set(frameId, entry);
-    for (const resourceKey of entry.candidateResourceKeys) {
+    for (const request of createGpuFlowVisibleFrameCandidateResourceRequests({
+      entry,
+      frameId,
+      transitionFrame: this.transitionFrame,
+    })) {
       this.requestCandidateResource({
-        ownerFrameId: frameId,
-        resourceKey,
+        request,
       });
     }
   }
@@ -368,7 +442,11 @@ export class GpuFlowVisibleFrameResourceGraph {
           .map((entry) =>
             Object.freeze({
               debtAgeFrames: entry.debtAgeFrames,
+              deadlineFrame: entry.deadlineFrame,
+              estimatedCostMs: entry.estimatedCostMs,
               ownerFrameId: entry.ownerFrameId,
+              preparationLane: entry.preparationLane,
+              priority: entry.priority,
               resourceKey: entry.resourceKey,
               state: entry.state,
             }),
@@ -414,12 +492,11 @@ export class GpuFlowVisibleFrameResourceGraph {
   }
 
   private requestCandidateResource({
-    ownerFrameId,
-    resourceKey,
+    request,
   }: {
-    readonly ownerFrameId: number;
-    readonly resourceKey: string;
+    readonly request: GpuFlowVisibleFrameCandidateResourceRequest;
   }): void {
+    const { resourceKey } = request;
     const currentState = this.resourceStateByKey.get(resourceKey)?.state;
     if (currentState === "presented" || currentState === "ready") {
       return;
@@ -428,7 +505,12 @@ export class GpuFlowVisibleFrameResourceGraph {
       this.enqueueVisibleFrameResourceWork(resourceKey);
       return;
     }
-    this.requestVisibleFrameResource({ ownerFrameId, resourceKey });
+    this.requestVisibleFrameResource(request);
+    if (request.readinessState === "ready") {
+      this.markVisibleFrameResourcePreparing(request);
+      this.markVisibleFrameResourceReady(request);
+      return;
+    }
     this.enqueueVisibleFrameResourceWork(resourceKey);
   }
 
@@ -442,10 +524,13 @@ export class GpuFlowVisibleFrameResourceGraph {
     switch (current.state) {
       case "requested":
         this.markVisibleFrameResourcePreparing({
+          deadlineFrame: current.deadlineFrame,
+          estimatedCostMs: current.estimatedCostMs,
           ownerFrameId: current.ownerFrameId,
+          preparationLane: current.preparationLane,
+          priority: current.priority,
           resourceKey,
         });
-        this.enqueueVisibleFrameResourceWork(resourceKey);
         return Object.freeze({
           fromState: "requested" as const,
           ownerFrameId: current.ownerFrameId,
@@ -453,16 +538,6 @@ export class GpuFlowVisibleFrameResourceGraph {
           toState: "preparing" as const,
         });
       case "preparing":
-        this.markVisibleFrameResourceReady({
-          ownerFrameId: current.ownerFrameId,
-          resourceKey,
-        });
-        return Object.freeze({
-          fromState: "preparing" as const,
-          ownerFrameId: current.ownerFrameId,
-          resourceKey,
-          toState: "ready" as const,
-        });
       case "absent":
       case "presented":
       case "ready":
@@ -511,11 +586,21 @@ export class GpuFlowVisibleFrameResourceGraph {
   }
 
   private transitionResource({
+    deadlineFrame,
+    estimatedCostMs,
     ownerFrameId,
+    preparationLane,
+    priority,
     resourceKey,
     state,
   }: {
+    readonly deadlineFrame?: number | null | undefined;
+    readonly estimatedCostMs?: number | undefined;
     readonly ownerFrameId: number | null;
+    readonly preparationLane?:
+      | GpuFlowVisibleFrameResourcePreparationLane
+      | undefined;
+    readonly priority?: GpuFlowVisibleFrameResourcePriority | undefined;
     readonly resourceKey: string;
     readonly state: GpuFlowVisibleFrameResourceStateKind;
   }): void {
@@ -530,6 +615,22 @@ export class GpuFlowVisibleFrameResourceGraph {
       state === "requested"
         ? this.transitionFrame
         : current?.requestedAtFrame ?? this.transitionFrame;
+    const resolvedPreparationLane =
+      preparationLane ??
+      current?.preparationLane ??
+      inferGpuFlowVisibleFrameResourcePreparationLane(resourceKey);
+    const resolvedPriority =
+      priority ??
+      current?.priority ??
+      inferGpuFlowVisibleFrameResourcePriority(resourceKey);
+    const resolvedDeadlineFrame =
+      deadlineFrame === undefined
+        ? (current?.deadlineFrame ??
+          createGpuFlowVisibleFrameResourceDeadlineFrame({
+            priority: resolvedPriority,
+            transitionFrame: this.transitionFrame,
+          }))
+        : deadlineFrame;
     this.resourceStateByKey.set(
       resourceKey,
       Object.freeze({
@@ -537,7 +638,12 @@ export class GpuFlowVisibleFrameResourceGraph {
           state === "requested" || state === "preparing"
             ? this.transitionFrame - requestedAtFrame
             : 0,
+        deadlineFrame: resolvedDeadlineFrame,
+        estimatedCostMs:
+          estimatedCostMs ?? current?.estimatedCostMs ?? estimateGpuFlowVisibleFrameResourceCostMs(resourceKey),
         ownerFrameId,
+        preparationLane: resolvedPreparationLane,
+        priority: resolvedPriority,
         requestedAtFrame,
         resourceKey,
         state,
@@ -755,6 +861,280 @@ function createGpuFlowVisiblePublicationResourceKey(
   handle: SurfaceResourceHandle,
 ): string {
   return `${handle.kind}:${handle.id}`;
+}
+
+function createGpuFlowVisibleFrameCandidateResourceRequests({
+  entry,
+  frameId,
+  transitionFrame,
+}: {
+  readonly entry: GpuFlowVisibleFrameCandidateResourceEntry;
+  readonly frameId: number;
+  readonly transitionFrame: number;
+}): readonly GpuFlowVisibleFrameCandidateResourceRequest[] {
+  const requestByKey = new Map<
+    string,
+    GpuFlowVisibleFrameCandidateResourceRequest
+  >();
+  for (const resourceKey of entry.requiredResourceKeys) {
+    setGpuFlowVisibleFrameCandidateResourceRequest({
+      request: createGpuFlowVisibleFrameCandidateResourceRequest({
+        frameId,
+        preparationLane: inferGpuFlowVisibleFrameResourcePreparationLane(
+          resourceKey,
+        ),
+        priority: "safety",
+        readinessState: "ready",
+        resourceKey,
+        transitionFrame,
+      }),
+      requestByKey,
+    });
+  }
+  for (const control of entry.browserVisualCandidate.snapshot.domControls
+    .mountedControls) {
+    const resourceKey = `dom-control:${control.sourceId}`;
+    setGpuFlowVisibleFrameCandidateResourceRequest({
+      request: createGpuFlowVisibleFrameCandidateResourceRequest({
+        frameId,
+        preparationLane: "browser-visual",
+        priority: "safety",
+        readinessState: getGpuFlowBrowserVisualResourceReadinessState({
+          actorId: control.sourceId,
+          readinessByActorId:
+            entry.browserVisualCandidate.readiness
+              .domControlReadinessByActorId,
+          resourceKey,
+        }),
+        resourceKey,
+        transitionFrame,
+      }),
+      requestByKey,
+    });
+  }
+  for (const control of entry.browserVisualCandidate.snapshot.domControls
+    .snapshotControls) {
+    const resourceKey = `dom-control-snapshot:${
+      control.snapshotSurfaceId ?? control.sourceId
+    }`;
+    setGpuFlowVisibleFrameCandidateResourceRequest({
+      request: createGpuFlowVisibleFrameCandidateResourceRequest({
+        frameId,
+        preparationLane: "browser-visual",
+        priority: "safety",
+        readinessState: getGpuFlowBrowserVisualResourceReadinessState({
+          actorId: control.sourceId,
+          readinessByActorId:
+            entry.browserVisualCandidate.readiness
+              .domControlReadinessByActorId,
+          resourceKey,
+        }),
+        resourceKey,
+        transitionFrame,
+      }),
+      requestByKey,
+    });
+  }
+  for (const island of entry.browserVisualCandidate.snapshot.domIslands
+    .islands) {
+    const resourceKey = `dom-island:${island.id}`;
+    setGpuFlowVisibleFrameCandidateResourceRequest({
+      request: createGpuFlowVisibleFrameCandidateResourceRequest({
+        frameId,
+        preparationLane: "dom-island",
+        priority: "safety",
+        readinessState: getGpuFlowBrowserVisualResourceReadinessState({
+          actorId: island.id,
+          readinessByActorId:
+            entry.browserVisualCandidate.readiness.domIslandReadinessByActorId,
+          resourceKey,
+        }),
+        resourceKey,
+        transitionFrame,
+      }),
+      requestByKey,
+    });
+  }
+  for (const resourceKey of entry.candidateResourceKeys) {
+    if (requestByKey.has(resourceKey)) {
+      continue;
+    }
+    setGpuFlowVisibleFrameCandidateResourceRequest({
+      request: createGpuFlowVisibleFrameCandidateResourceRequest({
+        frameId,
+        preparationLane: inferGpuFlowVisibleFrameResourcePreparationLane(
+          resourceKey,
+        ),
+        priority: inferGpuFlowVisibleFrameResourcePriority(resourceKey),
+        readinessState: "ready",
+        resourceKey,
+        transitionFrame,
+      }),
+      requestByKey,
+    });
+  }
+  return Object.freeze(
+    entry.candidateResourceKeys.map((resourceKey) => {
+      const request = requestByKey.get(resourceKey);
+      if (!request) {
+        throw new Error(
+          `GPU Flow visible frame resource graph missing resource request metadata for ${resourceKey}.`,
+        );
+      }
+      return request;
+    }),
+  );
+}
+
+function createGpuFlowVisibleFrameCandidateResourceRequest({
+  frameId,
+  preparationLane,
+  priority,
+  readinessState,
+  resourceKey,
+  transitionFrame,
+}: {
+  readonly frameId: number;
+  readonly preparationLane: GpuFlowVisibleFrameResourcePreparationLane;
+  readonly priority: GpuFlowVisibleFrameResourcePriority;
+  readonly readinessState: "ready" | "requested";
+  readonly resourceKey: string;
+  readonly transitionFrame: number;
+}): GpuFlowVisibleFrameCandidateResourceRequest {
+  return Object.freeze({
+    deadlineFrame: createGpuFlowVisibleFrameResourceDeadlineFrame({
+      priority,
+      transitionFrame,
+    }),
+    estimatedCostMs: estimateGpuFlowVisibleFrameResourceCostMs(resourceKey),
+    ownerFrameId: frameId,
+    preparationLane,
+    priority,
+    readinessState,
+    resourceKey,
+  });
+}
+
+function setGpuFlowVisibleFrameCandidateResourceRequest({
+  request,
+  requestByKey,
+}: {
+  readonly request: GpuFlowVisibleFrameCandidateResourceRequest;
+  readonly requestByKey: Map<string, GpuFlowVisibleFrameCandidateResourceRequest>;
+}): void {
+  if (requestByKey.has(request.resourceKey)) {
+    throw new Error(
+      `GPU Flow visible frame resource graph received duplicate resource request metadata for ${request.resourceKey}.`,
+    );
+  }
+  requestByKey.set(request.resourceKey, request);
+}
+
+function getGpuFlowBrowserVisualResourceReadinessState({
+  actorId,
+  readinessByActorId,
+  resourceKey,
+}: {
+  readonly actorId: string;
+  readonly readinessByActorId: ReadonlyMap<
+    string,
+    { readonly coverageState: string }
+  >;
+  readonly resourceKey: string;
+}): GpuFlowVisibleFrameCandidateResourceRequest["readinessState"] {
+  const readiness = readinessByActorId.get(actorId);
+  if (!readiness) {
+    throw new Error(
+      `GPU Flow visible frame resource graph missing browser visual readiness for ${resourceKey}.`,
+    );
+  }
+  return GPU_FLOW_BLOCKED_BROWSER_VISUAL_RESOURCE_COVERAGE_STATES.has(
+    readiness.coverageState,
+  )
+    ? "requested"
+    : "ready";
+}
+
+const GPU_FLOW_BLOCKED_BROWSER_VISUAL_RESOURCE_COVERAGE_STATES = new Set([
+  "blocked-awaiting-browser-visual",
+  "blocked-awaiting-live-host",
+  "blocked-awaiting-snapshot",
+]);
+
+function createGpuFlowVisibleFrameResourceDeadlineFrame({
+  priority,
+  transitionFrame,
+}: {
+  readonly priority: GpuFlowVisibleFrameResourcePriority;
+  readonly transitionFrame: number;
+}): number {
+  switch (priority) {
+    case "safety":
+      return transitionFrame + 1;
+    case "continuity":
+      return transitionFrame + 2;
+    case "quality":
+      return transitionFrame + 6;
+  }
+}
+
+function estimateGpuFlowVisibleFrameResourceCostMs(resourceKey: string): number {
+  if (resourceKey.startsWith("dom-control-snapshot:")) {
+    return 1.5;
+  }
+  if (resourceKey.startsWith("dom-control:")) {
+    return 0.5;
+  }
+  if (resourceKey.startsWith("dom-island:")) {
+    return 1;
+  }
+  if (resourceKey.startsWith("page:")) {
+    return 2;
+  }
+  if (resourceKey.startsWith("texture:")) {
+    return 1.5;
+  }
+  if (resourceKey.startsWith("source:")) {
+    return 0.75;
+  }
+  return 1;
+}
+
+function inferGpuFlowVisibleFrameResourcePreparationLane(
+  resourceKey: string,
+): GpuFlowVisibleFrameResourcePreparationLane {
+  if (
+    resourceKey.startsWith("dom-control:") ||
+    resourceKey.startsWith("dom-control-snapshot:")
+  ) {
+    return "browser-visual";
+  }
+  if (resourceKey.startsWith("dom-island:")) {
+    return "dom-island";
+  }
+  if (resourceKey.startsWith("page:") || resourceKey.startsWith("source:")) {
+    return "retained-page";
+  }
+  if (resourceKey.startsWith("texture:")) {
+    return "texture-upload";
+  }
+  return "maintenance-refinement";
+}
+
+function inferGpuFlowVisibleFrameResourcePriority(
+  resourceKey: string,
+): GpuFlowVisibleFrameResourcePriority {
+  if (
+    resourceKey.startsWith("dom-control:") ||
+    resourceKey.startsWith("dom-control-snapshot:") ||
+    resourceKey.startsWith("dom-island:") ||
+    resourceKey.startsWith("page:") ||
+    resourceKey.startsWith("source:") ||
+    resourceKey.startsWith("texture:")
+  ) {
+    return "safety";
+  }
+  return "quality";
 }
 
 function createGpuFlowVisibleFrameCandidateResourceEntry({

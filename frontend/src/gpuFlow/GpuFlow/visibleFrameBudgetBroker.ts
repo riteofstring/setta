@@ -1,21 +1,37 @@
 import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
+import type {
+  GpuFlowVisibleFrameResourceGraphSnapshot,
+  GpuFlowVisibleFrameResourcePreparationLane,
+  GpuFlowVisibleFrameResourcePriority,
+  GpuFlowVisibleFrameResourceStateKind,
+  GpuFlowVisibleFrameResourceStateSnapshot,
+} from "./visibleFrameResourceGraph";
 
-type GpuFlowVisibleFrameBudgetPriority = "continuity" | "quality" | "safety";
+export type GpuFlowVisibleFrameBudgetPriority =
+  GpuFlowVisibleFrameResourcePriority;
 
-type GpuFlowVisibleFrameBudgetDebtRequest = {
+export type GpuFlowVisibleFrameBudgetDebtRequest = {
+  readonly debtAgeFrames?: number | undefined;
+  readonly deadlineFrame?: number | null | undefined;
   readonly estimatedCostMs: number;
   readonly id: string;
+  readonly ownerFrameId?: number | null | undefined;
+  readonly preparationLane?:
+    | GpuFlowVisibleFrameResourcePreparationLane
+    | undefined;
   readonly priority: GpuFlowVisibleFrameBudgetPriority;
+  readonly resourceState?: GpuFlowVisibleFrameResourceStateKind | undefined;
 };
 
-type GpuFlowVisibleFrameBudgetBrokerPolicy = {
+export type GpuFlowVisibleFrameBudgetBrokerPolicy = {
+  readonly maxSafetyDebtAgeFrames: number;
   readonly maxContinuityDebtAgeFrames: number;
   readonly minPreparationBudgetDuringMotionMs: number;
   readonly perFramePreparationBudgetMs: number;
   readonly reservedMotionProjectionBudgetMs: number;
 };
 
-type GpuFlowVisibleFrameBudgetBrokerDecision = {
+export type GpuFlowVisibleFrameBudgetBrokerDecision = {
   readonly browserVisualRepair: {
     readonly debtAgeFrames: number;
     readonly eligible: boolean;
@@ -24,7 +40,14 @@ type GpuFlowVisibleFrameBudgetBrokerDecision = {
   readonly preparationBudget: {
     readonly availableMs: number;
     readonly deferredDebtIds: readonly string[];
+    readonly deferredDebtByLane: Partial<
+      Record<GpuFlowVisibleFrameResourcePreparationLane, readonly string[]>
+    >;
+    readonly overBudgetDebtIds: readonly string[];
     readonly reservedMotionProjectionMs: number;
+    readonly selectedDebtByLane: Partial<
+      Record<GpuFlowVisibleFrameResourcePreparationLane, readonly string[]>
+    >;
     readonly selectedDebtIds: readonly string[];
     readonly usedMs: number;
   };
@@ -46,6 +69,7 @@ export type GpuFlowVisibleFrameBudgetBroker = {
 
 export const DEFAULT_GPU_FLOW_VISIBLE_FRAME_BUDGET_BROKER_POLICY: GpuFlowVisibleFrameBudgetBrokerPolicy =
   Object.freeze({
+    maxSafetyDebtAgeFrames: 1,
     maxContinuityDebtAgeFrames: 2,
     minPreparationBudgetDuringMotionMs: 2,
     perFramePreparationBudgetMs: 4,
@@ -81,10 +105,16 @@ export function createGpuFlowVisibleFrameBudgetBroker({
       const selected = selectGpuFlowVisibleFrameBudgetDebt({
         availableMs,
         maxContinuityDebtAgeFrames: normalizedPolicy.maxContinuityDebtAgeFrames,
+        maxSafetyDebtAgeFrames: normalizedPolicy.maxSafetyDebtAgeFrames,
         requestedDebt: agedDebt,
       });
       const selectedDebtIds = selected.selectedDebt.map((debt) => debt.id);
       const deferredDebtIds = selected.deferredDebt.map((debt) => debt.id);
+      const overBudgetDebtIds = selectGpuFlowVisibleFrameOverBudgetDebtIds({
+        maxContinuityDebtAgeFrames: normalizedPolicy.maxContinuityDebtAgeFrames,
+        maxSafetyDebtAgeFrames: normalizedPolicy.maxSafetyDebtAgeFrames,
+        requestedDebt: agedDebt,
+      });
       const browserVisualDebt = agedDebt.find(
         (debt) => debt.id === "browser-visual-repair",
       );
@@ -99,8 +129,15 @@ export function createGpuFlowVisibleFrameBudgetBroker({
         preparationBudget: Object.freeze({
           availableMs,
           deferredDebtIds: Object.freeze(deferredDebtIds),
+          deferredDebtByLane: createGpuFlowVisibleFrameBudgetDebtIdsByLane(
+            selected.deferredDebt,
+          ),
+          overBudgetDebtIds: Object.freeze(overBudgetDebtIds),
           reservedMotionProjectionMs:
             normalizedPolicy.reservedMotionProjectionBudgetMs,
+          selectedDebtByLane: createGpuFlowVisibleFrameBudgetDebtIdsByLane(
+            selected.selectedDebt,
+          ),
           selectedDebtIds: Object.freeze(selectedDebtIds),
           usedMs: selected.usedMs,
         }),
@@ -158,23 +195,29 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
     publicationDecision.lane === "content"
   ) {
     debt.push({
-      estimatedCostMs: 1,
+      estimatedCostMs: 1.5,
       id: "browser-visual-repair",
+      preparationLane: "browser-visual",
       priority: "safety",
+      resourceState: "requested",
     });
   }
   if (publicationDecision.debt.maintenance) {
     debt.push({
-      estimatedCostMs: 1,
+      estimatedCostMs: 2,
       id: "maintenance-refinement",
+      preparationLane: "maintenance-refinement",
       priority: "quality",
+      resourceState: "requested",
     });
   }
   if (deferResolutionUpdates) {
     debt.push({
-      estimatedCostMs: 1,
+      estimatedCostMs: 1.25,
       id: "resolution-update",
+      preparationLane: "retained-page",
       priority: "quality",
+      resourceState: "requested",
     });
   }
   return Object.freeze(debt);
@@ -195,7 +238,10 @@ function ageGpuFlowVisibleFrameBudgetDebt({
   }
   return Object.freeze(
     requestedDebt.map((debt) => {
-      const debtAgeFrames = (debtAgeById.get(debt.id) ?? -1) + 1;
+      const debtAgeFrames = Math.max(
+        debt.debtAgeFrames ?? 0,
+        (debtAgeById.get(debt.id) ?? -1) + 1,
+      );
       debtAgeById.set(debt.id, debtAgeFrames);
       return Object.freeze({
         ...debt,
@@ -208,10 +254,12 @@ function ageGpuFlowVisibleFrameBudgetDebt({
 function selectGpuFlowVisibleFrameBudgetDebt({
   availableMs,
   maxContinuityDebtAgeFrames,
+  maxSafetyDebtAgeFrames,
   requestedDebt,
 }: {
   readonly availableMs: number;
   readonly maxContinuityDebtAgeFrames: number;
+  readonly maxSafetyDebtAgeFrames: number;
   readonly requestedDebt: readonly GpuFlowVisibleFrameAgedBudgetDebtRequest[];
 }): {
   readonly deferredDebt: readonly GpuFlowVisibleFrameAgedBudgetDebtRequest[];
@@ -222,6 +270,7 @@ function selectGpuFlowVisibleFrameBudgetDebt({
     compareGpuFlowVisibleFrameBudgetDebt({
       left,
       maxContinuityDebtAgeFrames,
+      maxSafetyDebtAgeFrames,
       right,
     }),
   );
@@ -246,21 +295,26 @@ function selectGpuFlowVisibleFrameBudgetDebt({
 function compareGpuFlowVisibleFrameBudgetDebt({
   left,
   maxContinuityDebtAgeFrames,
+  maxSafetyDebtAgeFrames,
   right,
 }: {
   readonly left: GpuFlowVisibleFrameAgedBudgetDebtRequest;
   readonly maxContinuityDebtAgeFrames: number;
+  readonly maxSafetyDebtAgeFrames: number;
   readonly right: GpuFlowVisibleFrameAgedBudgetDebtRequest;
 }): number {
   return (
     getGpuFlowVisibleFrameBudgetDebtRank({
       debt: left,
       maxContinuityDebtAgeFrames,
+      maxSafetyDebtAgeFrames,
     }) -
       getGpuFlowVisibleFrameBudgetDebtRank({
         debt: right,
         maxContinuityDebtAgeFrames,
+        maxSafetyDebtAgeFrames,
       }) ||
+    compareGpuFlowVisibleFrameBudgetDebtDeadline(left, right) ||
     right.debtAgeFrames - left.debtAgeFrames ||
     left.id.localeCompare(right.id)
   );
@@ -269,11 +323,16 @@ function compareGpuFlowVisibleFrameBudgetDebt({
 function getGpuFlowVisibleFrameBudgetDebtRank({
   debt,
   maxContinuityDebtAgeFrames,
+  maxSafetyDebtAgeFrames,
 }: {
   readonly debt: GpuFlowVisibleFrameAgedBudgetDebtRequest;
   readonly maxContinuityDebtAgeFrames: number;
+  readonly maxSafetyDebtAgeFrames: number;
 }): number {
-  if (debt.priority === "safety") {
+  if (
+    debt.priority === "safety" ||
+    debt.debtAgeFrames >= maxSafetyDebtAgeFrames
+  ) {
     return 0;
   }
   if (
@@ -283,6 +342,113 @@ function getGpuFlowVisibleFrameBudgetDebtRank({
     return 1;
   }
   return 2;
+}
+
+function compareGpuFlowVisibleFrameBudgetDebtDeadline(
+  left: GpuFlowVisibleFrameAgedBudgetDebtRequest,
+  right: GpuFlowVisibleFrameAgedBudgetDebtRequest,
+): number {
+  const leftDeadline = left.deadlineFrame ?? Number.POSITIVE_INFINITY;
+  const rightDeadline = right.deadlineFrame ?? Number.POSITIVE_INFINITY;
+  return leftDeadline - rightDeadline;
+}
+
+function selectGpuFlowVisibleFrameOverBudgetDebtIds({
+  maxContinuityDebtAgeFrames,
+  maxSafetyDebtAgeFrames,
+  requestedDebt,
+}: {
+  readonly maxContinuityDebtAgeFrames: number;
+  readonly maxSafetyDebtAgeFrames: number;
+  readonly requestedDebt: readonly GpuFlowVisibleFrameAgedBudgetDebtRequest[];
+}): readonly string[] {
+  return Object.freeze(
+    requestedDebt
+      .filter((debt) =>
+        isGpuFlowVisibleFrameBudgetDebtOverBudget({
+          debt,
+          maxContinuityDebtAgeFrames,
+          maxSafetyDebtAgeFrames,
+        }),
+      )
+      .map((debt) => debt.id),
+  );
+}
+
+function isGpuFlowVisibleFrameBudgetDebtOverBudget({
+  debt,
+  maxContinuityDebtAgeFrames,
+  maxSafetyDebtAgeFrames,
+}: {
+  readonly debt: GpuFlowVisibleFrameAgedBudgetDebtRequest;
+  readonly maxContinuityDebtAgeFrames: number;
+  readonly maxSafetyDebtAgeFrames: number;
+}): boolean {
+  if (debt.priority === "safety") {
+    return debt.debtAgeFrames > maxSafetyDebtAgeFrames;
+  }
+  if (debt.priority === "continuity") {
+    return debt.debtAgeFrames > maxContinuityDebtAgeFrames;
+  }
+  return false;
+}
+
+function createGpuFlowVisibleFrameBudgetDebtIdsByLane(
+  debt: readonly GpuFlowVisibleFrameAgedBudgetDebtRequest[],
+): Partial<
+  Record<GpuFlowVisibleFrameResourcePreparationLane, readonly string[]>
+> {
+  const idsByLane = new Map<
+    GpuFlowVisibleFrameResourcePreparationLane,
+    string[]
+  >();
+  for (const item of debt) {
+    const lane = item.preparationLane;
+    if (!lane) {
+      continue;
+    }
+    const ids = idsByLane.get(lane) ?? [];
+    ids.push(item.id);
+    idsByLane.set(lane, ids);
+  }
+  return Object.freeze(
+    Object.fromEntries(
+      [...idsByLane].map(([lane, ids]) => [lane, Object.freeze(ids)]),
+    ),
+  );
+}
+
+export function createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph({
+  snapshot,
+}: {
+  readonly snapshot: GpuFlowVisibleFrameResourceGraphSnapshot;
+}): readonly GpuFlowVisibleFrameBudgetDebtRequest[] {
+  return Object.freeze(
+    snapshot.resourceStates
+      .filter(isGpuFlowVisibleFrameResourceDebtState)
+      .map(createGpuFlowVisibleFrameBudgetDebtRequestForResourceState),
+  );
+}
+
+function isGpuFlowVisibleFrameResourceDebtState(
+  state: GpuFlowVisibleFrameResourceStateSnapshot,
+): boolean {
+  return state.state === "requested" || state.state === "preparing";
+}
+
+function createGpuFlowVisibleFrameBudgetDebtRequestForResourceState(
+  state: GpuFlowVisibleFrameResourceStateSnapshot,
+): GpuFlowVisibleFrameBudgetDebtRequest {
+  return Object.freeze({
+    debtAgeFrames: state.debtAgeFrames,
+    deadlineFrame: state.deadlineFrame,
+    estimatedCostMs: state.estimatedCostMs,
+    id: state.resourceKey,
+    ownerFrameId: state.ownerFrameId,
+    preparationLane: state.preparationLane,
+    priority: state.priority,
+    resourceState: state.state,
+  });
 }
 
 function assertGpuFlowVisibleFrameBudgetBrokerPolicy(
