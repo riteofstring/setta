@@ -7,6 +7,7 @@ import {
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   createGpuFlowVisibleFrameReducerRuntime,
+  DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
   type GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
 import { createGpuFlowVisibleFramePresentationTokenForTest } from "./visibleFrameTestUtils";
@@ -347,6 +348,43 @@ describe("GPU Flow retained scroll scheduling", () => {
       quality: { active: true, ageFrames: 1, ageMs: 32 },
       safety: { active: false, ageFrames: 0, ageMs: 0 },
     });
+  });
+
+  it("forces retained-scroll content repair when continuity debt exceeds the probe budget", () => {
+    const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime({
+      knobs: {
+        ...DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
+        maxConsecutiveMotionFramesBeforeContentProbe: 1,
+      },
+    });
+
+    const content = reducerRuntime.selectFrame({
+      hasPresentedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(content.lane).toBe("content");
+    completeCompatiblePreviousPreparedContentFrame(reducerRuntime, content);
+
+    const retainedScrollRepair = reducerRuntime.selectFrame({
+      hasPresentedContentFrame: true,
+      rawReasons: ["retained-scroll", "manual"],
+      sample: liveSample(2, {
+        gestureOwner: "ownedByRetainedSectionScroll",
+      }),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+
+    expect(retainedScrollRepair.classifiedDebt?.continuity).toEqual({
+      active: true,
+      ageFrames: 1,
+      ageMs: 1,
+    });
+    expect(retainedScrollRepair.reducerState).toBe("motion-active");
+    expect(retainedScrollRepair.lane).toBe("content");
   });
 });
 

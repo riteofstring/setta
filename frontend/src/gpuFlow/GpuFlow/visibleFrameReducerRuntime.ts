@@ -72,6 +72,7 @@ export type GpuFlowVisibleFrameRequestFacts =
   GpuFlowVisibleFrameLaneReductionFacts & {
     readonly classifiedDebt?: GpuFlowVisibleFrameClassifiedDebt | undefined;
     readonly rawReasons: readonly GpuFrameReason[];
+    readonly retainedScrollInteractionActive?: boolean | undefined;
     readonly sample: GpuFlowLiveProjectionSample;
     readonly timestamp: DOMHighResTimeStamp;
   };
@@ -892,6 +893,11 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       motionDebt,
       motionRetryDeferred,
       rawReasons: Object.freeze([...schedulingRawReasons]),
+      retainedScrollInteractionActive: isGpuFlowRetainedScrollReducerDecision({
+        lane: "idle",
+        rawReasons: schedulingRawReasons,
+        sample,
+      }),
       sample,
       reducerState,
       timestamp,
