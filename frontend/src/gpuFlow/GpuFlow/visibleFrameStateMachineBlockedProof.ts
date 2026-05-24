@@ -181,7 +181,8 @@ function createGpuFlowFrozenPreviousSafeBlockedProof({
     previousVisibleProjectionState,
   });
   const frozenFrameId =
-    previousVisibleProjectionState === null
+    previousVisibleProjectionState === null &&
+    typeof proof.frozenFrameId !== "number"
       ? resolveGpuFlowColdStartBlockedFrozenFrameId({ blockedReasons })
       : proof.frozenFrameId;
   if (

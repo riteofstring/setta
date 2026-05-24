@@ -347,6 +347,51 @@ describe("GPU Flow visible frame state machine blocked proof", () => {
     });
   });
 
+  it("preserves explicit concrete frozen frame ids from selected blocking proofs", () => {
+    const blockingProof = {
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "retained-projection",
+          reason: "retained-projection-coverage-missing",
+        },
+      ],
+      candidate: {
+        blockedReasons: [
+          {
+            actorId: null,
+            family: "retained-projection",
+            reason: "retained-projection-coverage-missing",
+          },
+        ],
+        frozenFrameId: 9,
+      },
+      frozenFrameId: 9,
+      source: "motion-projection",
+    } satisfies GpuFlowVisiblePublicationBlockedProof;
+    const proof = createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
+      blockingProofs: [blockingProof],
+      candidate: candidateWithActorProofs([
+        blockedActorProof({
+          actorId:
+            "blocked:retained-projection:retained-projection-coverage-missing:0",
+          family: "retained-page",
+          reason: "retained-projection-coverage-missing",
+        }),
+      ]),
+      previousVisibleProjectionState: null,
+      visibleFrameStateMachineOutcome: blockedOutcome({
+        actorId:
+          "blocked:retained-projection:retained-projection-coverage-missing:0",
+        family: "retained-page",
+        proof: "blocked",
+        reason: "retained-projection-coverage-missing",
+      }),
+    });
+
+    expect(proof).toBe(blockingProof);
+  });
+
   it("falls back to the deciding proof when the candidate does not contain that blocker", () => {
     const proof = createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
       blockingProofs: [],
