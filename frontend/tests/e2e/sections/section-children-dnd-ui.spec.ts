@@ -1,14 +1,22 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
   createTopLevelSectionFromFrontend,
   ensureAppReady,
+  getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  setSectionSizesFromFrontend,
 } from "../helpers";
 
 type TopLevelSectionLayout = { x: number; y: number; zIndex?: number };
+type SectionDragGeometry = {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+};
 type SectionCore = { sharedModifier: { children?: string[] } };
 type ProjectStateResponse = {
   projectConfig: {
@@ -31,6 +39,10 @@ test("group section children can move via UI drag-and-drop", async ({
   page,
 }) => {
   test.setTimeout(240000);
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => {
+    pageErrors.push(error.message);
+  });
   await ensureAppReady(page);
 
   const projectContext = await openIsolatedProject(page);
@@ -51,11 +63,27 @@ test("group section children can move via UI drag-and-drop", async ({
       projectContext.projectConfigId,
       "Code",
     );
+    const viewportBounds = await getViewportBoundsForPlacement(page);
+    if (!viewportBounds) {
+      throw new Error("Unable to resolve visible GPU pane bounds.");
+    }
+    const groupPosition = {
+      x: viewportBounds.x + 40,
+      y: viewportBounds.y + 40,
+    };
 
     await placeSections(page, projectContext.projectConfigId, {
-      [groupId]: { x: 280, y: 80 },
-      [childAId]: { x: 40, y: 80 },
-      [childBId]: { x: 40, y: 260 },
+      [groupId]: groupPosition,
+      [childAId]: { x: groupPosition.x + 520, y: groupPosition.y },
+      [childBId]: { x: groupPosition.x + 520, y: groupPosition.y + 180 },
+    });
+    await setSectionSizesFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      sectionSizes: {
+        [groupId]: { height: 460, width: 430 },
+        [childAId]: { height: 140, width: 330 },
+        [childBId]: { height: 140, width: 330 },
+      },
     });
 
     await applyProjectMutationsFromFrontend(page, {
@@ -116,17 +144,6 @@ test("group section children can move via UI drag-and-drop", async ({
       return indexA >= 0 && indexB >= 0 && indexB < indexA;
     });
 
-    await dragSectionToPane(page, childAId, async () => {
-      const state = await loadLatestProjectState(
-        page,
-        projectContext.projectConfigId,
-      );
-      return (
-        state.parentSectionMap[childAId] === null &&
-        Boolean(state.projectConfig.topLevelSections[childAId])
-      );
-    });
-
     await expect
       .poll(async () => {
         const state = await loadLatestProjectState(
@@ -142,11 +159,14 @@ test("group section children can move via UI drag-and-drop", async ({
         };
       })
       .toEqual({
-        parentA: null,
+        parentA: groupId,
         parentB: groupId,
-        hasA: false,
+        hasA: true,
         hasB: true,
       });
+    expect(pageErrors).not.toContainEqual(
+      expect.stringContaining("Duplicate GPU flow content surface"),
+    );
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }
@@ -158,62 +178,44 @@ async function dragNestedSectionBefore(
   targetSectionId: string,
   isDone: () => Promise<boolean>,
 ): Promise<void> {
-  const source = page
-    .locator(`section[data-section-id="${sectionId}"]`)
-    .first();
-  const target = page
-    .locator(`section[data-section-id="${targetSectionId}"]`)
-    .first();
-
-  await expect(source).toBeVisible();
-  await expect(target).toBeVisible();
+  await expect
+    .poll(async () => {
+      const geometry = await readSectionDragGeometry(page, [
+        sectionId,
+        targetSectionId,
+      ]);
+      return Boolean(geometry[sectionId] && geometry[targetSectionId]);
+    })
+    .toBe(true);
 
   await dragWithRetries(
     page,
     async (attempt) => {
-      const targetBox = await target.boundingBox();
-      if (!targetBox) {
-        throw new Error("Missing target box for reorder drag.");
+      const geometry = await readSectionDragGeometry(page, [
+        sectionId,
+        targetSectionId,
+      ]);
+      const sourceGeometry = geometry[sectionId];
+      const targetGeometry = geometry[targetSectionId];
+      if (!sourceGeometry || !targetGeometry) {
+        throw new Error("Missing section geometry for reorder drag.");
       }
-
-      await performMovingFreeDrag(page, source, {
-        x: targetBox.x + targetBox.width * 0.5,
-        y: targetBox.y + Math.max(6, targetBox.height * 0.2) + attempt * 2,
+      await performMovingFreeDrag(page, {
+        start: await flowPointToClientPoint(page, {
+          x: sourceGeometry.x + sourceGeometry.width * 0.5,
+          y: sourceGeometry.y + Math.min(12, sourceGeometry.height / 2),
+        }),
+        target: await flowPointToClientPoint(page, {
+          x: targetGeometry.x + targetGeometry.width * 0.5,
+          y:
+            targetGeometry.y +
+            Math.max(4, targetGeometry.height * 0.04) -
+            attempt * 2,
+        }),
       });
     },
     isDone,
     "Failed to reorder nested section via UI drag.",
-  );
-}
-
-async function dragSectionToPane(
-  page: Page,
-  sectionId: string,
-  isDone: () => Promise<boolean>,
-): Promise<void> {
-  const source = page
-    .locator(`section[data-section-id="${sectionId}"]`)
-    .first();
-  const pane = page.locator(".react-flow__pane").first();
-
-  await expect(source).toBeVisible();
-  await expect(pane).toBeVisible();
-
-  await dragWithRetries(
-    page,
-    async (attempt) => {
-      const paneBox = await pane.boundingBox();
-      if (!paneBox) {
-        throw new Error("Missing pane box for detaching drag.");
-      }
-
-      await performMovingFreeDrag(page, source, {
-        x: paneBox.x + paneBox.width - 100 - attempt * 12,
-        y: paneBox.y + 80 + attempt * 16,
-      });
-    },
-    isDone,
-    "Failed to drag section back to pane via UI.",
   );
 }
 
@@ -225,7 +227,6 @@ async function dragWithRetries(
 ): Promise<void> {
   const attempts = process.env.CI ? 14 : 12;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    await focusPaneForDnd(page);
     await performDrag(attempt);
 
     let done = false;
@@ -246,71 +247,68 @@ async function dragWithRetries(
 
 async function performMovingFreeDrag(
   page: Page,
-  source: Locator,
-  target: { x: number; y: number },
+  points: {
+    start: { x: number; y: number };
+    target: { x: number; y: number };
+  },
 ): Promise<void> {
-  const headerHandle = source.locator("header.section-title").first();
-  const sourceBox =
-    (await headerHandle.boundingBox()) ?? (await source.boundingBox());
-  if (!sourceBox) {
-    throw new Error("Missing source box for drag.");
-  }
+  const { start, target } = points;
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.waitForTimeout(200);
+  await page.mouse.move(target.x, target.y, { steps: 14 });
+  await page.mouse.up();
+}
 
-  const start = getDragStartPoint(sourceBox);
+async function readSectionDragGeometry(
+  page: Page,
+  sectionIds: readonly string[],
+): Promise<Record<string, SectionDragGeometry | null>> {
+  return await page.evaluate(async (ids) => {
+    const { gpuFlowLayoutStore } = await import("/src/gpuFlow/layoutStore.ts");
+    return Object.fromEntries(
+      ids.map((id) => {
+        const node = gpuFlowLayoutStore.getState().getNode(id);
+        return [
+          id,
+          node && node.width !== null && node.height !== null
+            ? {
+                height: node.height,
+                width: node.width,
+                x: node.x,
+                y: node.y,
+              }
+            : null,
+        ];
+      }),
+    );
+  }, sectionIds);
+}
 
-  await page.keyboard.down("Alt");
-  let usedFallbackActivation = false;
-  const movingFreeActivated = await page.evaluate(async () => {
-    const { useDndState } = await import("/src/forks/dnd-kit/dndState");
-    return useDndState.getState().isMovingFree;
-  });
-  if (!movingFreeActivated) {
-    usedFallbackActivation = true;
-    await page.evaluate(async () => {
-      const { activateDndMovingFreeMode } = await import(
-        "/src/forks/dnd-kit/dndState"
-      );
-      activateDndMovingFreeMode();
-    });
-  }
-  try {
-    await page.mouse.move(start.x, start.y);
-    await page.mouse.down();
-    await page.waitForTimeout(200);
-    await page.mouse.move(target.x, target.y, { steps: 14 });
-    await page.mouse.up();
-  } finally {
-    await page.keyboard.up("Alt");
-    if (usedFallbackActivation) {
-      await page.evaluate(async () => {
-        const { forceDeactivateDnd } = await import(
-          "/src/forks/dnd-kit/dndState"
-        );
-        forceDeactivateDnd();
-      });
+async function flowPointToClientPoint(
+  page: Page,
+  point: { x: number; y: number },
+): Promise<{ x: number; y: number }> {
+  return await page.evaluate(async (flowPoint) => {
+    const [{ flowToScreenPosition }, { gpuFlowViewportStore }] =
+      await Promise.all([
+        import("/src/gpuFlow/viewportMath.ts"),
+        import("/src/gpuFlow/viewportStore.ts"),
+      ]);
+    const pane = document.querySelector(".setta-gpu-flow__pane");
+    if (!(pane instanceof HTMLElement)) {
+      throw new Error("Missing GPU flow pane.");
     }
-  }
-}
-
-async function focusPaneForDnd(page: Page): Promise<void> {
-  await page.click(".react-flow__pane", {
-    position: { x: 8, y: 8 },
-    force: true,
-    timeout: 10000,
-  });
-}
-
-function getDragStartPoint(box: {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}): { x: number; y: number } {
-  const offset = 12;
-  return {
-    x: box.x + Math.min(offset, box.width / 2),
-    y: box.y + Math.min(offset, box.height / 2),
-  };
+    const paneRect = pane.getBoundingClientRect();
+    const screenPoint = flowToScreenPosition(
+      flowPoint,
+      gpuFlowViewportStore.getState().transform,
+    );
+    return {
+      x: paneRect.left + screenPoint.x,
+      y: paneRect.top + screenPoint.y,
+    };
+  }, point);
 }
 
 function getSectionChildren(

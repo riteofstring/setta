@@ -46,10 +46,10 @@ test("window controls expose q quick info via the shared floating tooltip", asyn
       "window-tooltip-section",
     );
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const sectionCard = page
-      .locator(".react-flow__node")
+      .locator(".setta-gpu-flow__node")
       .filter({ hasText: createdSection.sectionName })
       .last();
     await expect(sectionCard).toBeVisible();
@@ -77,14 +77,16 @@ test("window controls expose q quick info via the shared floating tooltip", asyn
     await expectQuickInfoMatchesAriaLabel(page, undockButton);
 
     await undockButton.click();
-    const floatingWindow = page.getByTestId("project-chat-floating-window").last();
+    const floatingWindow = page
+      .getByTestId("project-chat-floating-window")
+      .last();
     await expect(floatingWindow).toBeVisible();
     await expect(
       floatingWindow.getByTestId("project-chat-window-show-in-canvas"),
     ).toHaveCount(1);
-    await expect(floatingWindow.getByTestId("section-window-toggle")).toHaveCount(
-      0,
-    );
+    await expect(
+      floatingWindow.getByTestId("section-window-toggle"),
+    ).toHaveCount(0);
 
     await expectQuickInfoMatchesAriaLabel(
       page,

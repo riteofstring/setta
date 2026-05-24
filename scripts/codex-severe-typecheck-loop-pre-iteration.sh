@@ -117,9 +117,9 @@ run_capture() {
   --progress-file "${runtime_break_shortlist_file}" \
   --allow-clean-failures "${allow_clean_failures}"
 
-run_capture "${frontend_typecheck_file}" ./check_types.sh --frontend
-run_capture "${python_typecheck_file}" ./check_types.sh --python
-run_capture "${go_typecheck_file}" ./check_types.sh --go
+run_capture "${frontend_typecheck_file}" ./scripts/typecheck/report.sh --frontend
+run_capture "${python_typecheck_file}" ./scripts/typecheck/report.sh --python
+run_capture "${go_typecheck_file}" ./scripts/typecheck/report.sh --go
 
 python3 \
   "${root_dir}/scripts/build-runtime-break-shortlist.py" \

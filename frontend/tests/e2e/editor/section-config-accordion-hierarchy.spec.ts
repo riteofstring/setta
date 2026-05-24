@@ -1,9 +1,9 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   clearProjectChatWindows,
-  createTopLevelSectionFromFrontend,
   createTextBlockSection,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   openIsolatedProject,
   seedLocalStorage,
@@ -30,9 +30,11 @@ test.describe.serial("section config accordion hierarchy", () => {
         "__pw_section_config_accordion__",
       );
 
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
-      await node.click();
+      await activateSectionForEditor(page, sectionId);
 
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
@@ -104,10 +106,10 @@ test.describe.serial("section config accordion hierarchy", () => {
       }
 
       const node = page.locator(
-        `.react-flow__node[data-id="${created.sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${created.sectionId}"]`,
       );
       await expect(node).toBeVisible();
-      await node.click();
+      await activateSectionForEditor(page, created.sectionId);
 
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
@@ -161,15 +163,15 @@ test.describe.serial("section config accordion hierarchy", () => {
       }
 
       const textBlockNode = page.locator(
-        `.react-flow__node[data-id="${textBlock.sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${textBlock.sectionId}"]`,
       );
       const terminalNode = page.locator(
-        `.react-flow__node[data-id="${terminal.sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${terminal.sectionId}"]`,
       );
       await expect(textBlockNode).toBeVisible();
       await expect(terminalNode).toBeVisible();
 
-      await textBlockNode.click();
+      await activateSectionForEditor(page, textBlock.sectionId);
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
 
@@ -189,7 +191,7 @@ test.describe.serial("section config accordion hierarchy", () => {
         "true",
       );
 
-      await terminalNode.click();
+      await activateSectionForEditor(page, terminal.sectionId);
       await expect(mainAccordionTrigger).toBeDisabled();
       await expect(mainAccordionTrigger).toHaveAttribute(
         "aria-expanded",
@@ -209,3 +211,25 @@ test.describe.serial("section config accordion hierarchy", () => {
     }
   });
 });
+
+async function activateSectionForEditor(
+  page: Page,
+  sectionId: string,
+): Promise<void> {
+  await page.evaluate(async (id) => {
+    const { setActiveSectionIds } = await import(
+      "/src/state/actions/activeSections"
+    );
+    setActiveSectionIds([id], { syncMode: "ui-only" });
+  }, sectionId);
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const { getActiveSectionUIIds } = await import(
+          "/src/state/activeSectionUI"
+        );
+        return getActiveSectionUIIds();
+      }),
+    )
+    .toEqual([sectionId]);
+}

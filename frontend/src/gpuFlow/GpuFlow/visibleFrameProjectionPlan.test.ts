@@ -1,0 +1,157 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+import { describe, expect, it } from "vitest";
+
+const PROJECTION_FRAME_MODULE_PATH = fileURLToPath(
+  new URL("./flowProjectionFrame.tsx", import.meta.url),
+);
+const COORDINATOR_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameCoordinator.ts", import.meta.url),
+);
+const STATE_MACHINE_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameStateMachine.ts", import.meta.url),
+);
+const STATE_MACHINE_REDUCTION_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameStateMachineReduction.ts", import.meta.url),
+);
+const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameProjectionPlan.ts", import.meta.url),
+);
+const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameSurfaceFrame.ts", import.meta.url),
+);
+
+describe("GPU Flow visible frame presentation projection plans", () => {
+  it("keeps raw projection blocked-field inspection out of the renderer", () => {
+    const projectionFrameSource = readFileSync(
+      PROJECTION_FRAME_MODULE_PATH,
+      "utf8",
+    );
+    const coordinatorSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
+    const projectionPlanSource = readFileSync(
+      PROJECTION_PLAN_MODULE_PATH,
+      "utf8",
+    );
+    const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
+    const stateMachineReductionSource = readFileSync(
+      STATE_MACHINE_REDUCTION_MODULE_PATH,
+      "utf8",
+    );
+    const surfaceFrameSource = readFileSync(
+      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
+      "utf8",
+    );
+
+    expect(projectionFrameSource).not.toContain(
+      "projectionFrameTransaction.blockedReason",
+    );
+    expect(projectionFrameSource).not.toContain(
+      'projectionFrameRenderPlan.kind === "blocked"',
+    );
+    expect(projectionFrameSource).not.toContain(
+      "projectionFrameRenderPlan.blockedPresentationCandidate",
+    );
+    expect(projectionFrameSource).not.toContain(
+      "selectProjectionFrameRenderPlan",
+    );
+    expect(projectionFrameSource).toContain("projectionFrameRenderPlan");
+    expect(surfaceFrameSource).not.toContain(
+      'projectionFrameRenderPlan.kind === "blocked"',
+    );
+    expect(coordinatorSource).not.toContain(
+      'projectionFrameRenderPlan.kind === "blocked"',
+    );
+    expect(coordinatorSource).not.toContain(
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
+    );
+    expect(coordinatorSource).toContain(
+      "reduceGpuFlowMotionProjectionFramePreparation",
+    );
+    expect(coordinatorSource).not.toContain(
+      "reduceGpuFlowVisibleFrameMotionProjectionTransaction",
+    );
+    expect(stateMachineReductionSource).toContain(
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
+    );
+    expect(stateMachineReductionSource).toContain(
+      "reduceGpuFlowVisibleFrameMotionProjectionTransaction",
+    );
+    expect(stateMachineSource).toContain(
+      'from "./visibleFrameStateMachineReduction"',
+    );
+    expect(coordinatorSource).not.toContain(
+      "projectionFrameTransaction.blockedPresentationCandidate",
+    );
+    expect(coordinatorSource).not.toContain(
+      "projectionFrameTransaction.blockedReason",
+    );
+    expect(stateMachineReductionSource).toContain(
+      "function selectGpuFlowProjectionFrameRenderPlan",
+    );
+    expect(coordinatorSource).not.toContain(
+      "function selectGpuFlowProjectionFrameRenderPlan",
+    );
+    expect(stateMachineReductionSource).not.toContain(
+      "export function selectGpuFlowProjectionFrameRenderPlan",
+    );
+    expect(projectionPlanSource).not.toContain(
+      "createGpuFlowProjectionFrameRenderPlanSelector",
+    );
+    expect(projectionPlanSource).not.toContain(
+      "function selectGpuFlowProjectionFrameRenderPlan",
+    );
+    expect(projectionPlanSource).toContain(
+      "export type GpuFlowProjectionFrameRenderPlan",
+    );
+    expect(projectionPlanSource).not.toContain(
+      "export function selectGpuFlowProjectionFrameRenderPlan",
+    );
+  });
+
+  it("keeps requested retained projection coverage derivation inside the state machine authority", () => {
+    const coordinatorSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
+    const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
+    const stateMachineReductionSource = readFileSync(
+      STATE_MACHINE_REDUCTION_MODULE_PATH,
+      "utf8",
+    );
+    const projectionPlanSource = readFileSync(
+      PROJECTION_PLAN_MODULE_PATH,
+      "utf8",
+    );
+    const surfaceFrameSource = readFileSync(
+      SURFACE_FRAME_PUBLICATION_MODULE_PATH,
+      "utf8",
+    );
+
+    expect(surfaceFrameSource).not.toContain(
+      "requestedProjectionCoverageMissing",
+    );
+    expect(surfaceFrameSource).not.toContain("requestedProjectionFrame");
+    expect(surfaceFrameSource).not.toContain(
+      "resolveHeldRetainedProjectionFrame",
+    );
+    expect(surfaceFrameSource).toContain("resolveRetainedProjectionFrame");
+    expect(projectionPlanSource).not.toContain(
+      "requestedProjectionCoverageMissing",
+    );
+    expect(projectionPlanSource).not.toContain("requestedProjectionFrame");
+    expect(projectionPlanSource).toContain("resolveRetainedProjectionFrame");
+    expect(coordinatorSource).not.toContain(
+      "const requestedRetainedProjectionFrame",
+    );
+    expect(coordinatorSource).not.toContain(
+      "requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0",
+    );
+    expect(stateMachineSource).toContain(
+      'from "./visibleFrameStateMachineReduction"',
+    );
+    expect(stateMachineReductionSource).toContain(
+      "const requestedRetainedProjectionFrame",
+    );
+    expect(stateMachineReductionSource).toContain(
+      "requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0",
+    );
+  });
+});

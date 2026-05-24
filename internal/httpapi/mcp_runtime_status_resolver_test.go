@@ -18,7 +18,7 @@ func TestResolveMCPRuntimeDisplayServersMergesSharedServerMetadata(t *testing.T)
 		[]mcpx.ServerRuntimeStatus{
 			{
 				ServerID:        "setta",
-				Transport:       mcpx.TransportSSE,
+				Transport:       mcpx.TransportStreamableHTTP,
 				Endpoint:        " http://127.0.0.1:8000/mcp ",
 				State:           mcpx.RuntimeStateConnected,
 				LastConnectedAt: &lastConnectedAt,
@@ -39,7 +39,7 @@ func TestResolveMCPRuntimeDisplayServersMergesSharedServerMetadata(t *testing.T)
 	if len(resolved) != 1 {
 		t.Fatalf("expected one resolved status, got %#v", resolved)
 	}
-	if resolved[0].Transport != mcpx.TransportSSE {
+	if resolved[0].Transport != mcpx.TransportStreamableHTTP {
 		t.Fatalf("expected setta transport fallback, got %#v", resolved[0].Transport)
 	}
 	if resolved[0].Endpoint != "http://127.0.0.1:8000/mcp" {

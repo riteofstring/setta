@@ -1,7 +1,6 @@
 import * as Popover from "@radix-ui/react-popover";
+import { subscribeToGpuViewportReposition } from "gpuFlow/viewportReposition";
 import { useEffect, useState } from "react";
-
-import { useReactFlow } from "forks/xyflow/core/store";
 
 export function StandardPopover({
   trigger,
@@ -41,36 +40,7 @@ export function StandardPopover({
     if (!repositionOnCanvasTransform || !resolvedOpen) {
       return;
     }
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    // ReactFlow pans and zooms via CSS transforms, so Radix popovers portaled
-    // to document.body need an explicit reposition signal to stay attached.
-    let rafId: number | null = null;
-    const scheduleReposition = () => {
-      if (rafId !== null) {
-        return;
-      }
-      rafId = window.requestAnimationFrame(() => {
-        rafId = null;
-        window.dispatchEvent(new Event("scroll"));
-        window.dispatchEvent(new Event("resize"));
-      });
-    };
-
-    scheduleReposition();
-    const unsubscribe = useReactFlow.subscribe(
-      (state) => state.transform,
-      () => scheduleReposition(),
-    );
-
-    return () => {
-      unsubscribe();
-      if (rafId !== null) {
-        window.cancelAnimationFrame(rafId);
-      }
-    };
+    return subscribeToGpuViewportReposition();
   }, [repositionOnCanvasTransform, resolvedOpen]);
 
   return (

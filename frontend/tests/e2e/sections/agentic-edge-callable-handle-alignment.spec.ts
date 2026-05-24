@@ -2,7 +2,9 @@ import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   createCallableSection,
+  disableCanvasSidePanePointerInterception,
   ensureAppReady,
+  hoverGpuFlowNode,
   openIsolatedProject,
 } from "../helpers";
 
@@ -10,6 +12,7 @@ test.describe.serial("agentic handles", () => {
   test("aligns callable handles with the callable input", async ({ page }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
+    await disableCanvasSidePanePointerInterception(page);
 
     try {
       const sectionId = await createCallableSection(
@@ -17,24 +20,24 @@ test.describe.serial("agentic handles", () => {
         projectContext.projectConfigId,
       );
 
-      const node = page
-        .locator(".react-flow__nodes")
-        .getByTestId(`rf__node-${sectionId}`);
+      const node = page.getByTestId(`rf__node-${sectionId}`);
       await expect(node).toBeVisible();
 
-      await page.getByRole("button", { name: "fit view" }).click();
+      await page
+        .getByRole("button", { name: "fit view" })
+        .click({ force: true });
 
       const sourceHandle = page.locator(
-        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
+        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
       );
       const targetHandle = page.locator(
-        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
+        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
       );
       const search = node.locator("search.section-search");
 
       await expect(search).toBeVisible();
 
-      await node.hover();
+      await hoverGpuFlowNode(page, node);
       await expect(sourceHandle).toBeVisible();
       await expect(targetHandle).toBeVisible();
 

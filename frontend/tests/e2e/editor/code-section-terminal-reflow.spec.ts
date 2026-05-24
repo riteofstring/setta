@@ -4,6 +4,7 @@ import {
   activateMovingFreeDragMode,
   addTerminalOutputInstrumentation,
   addTerminalResizeInstrumentation,
+  clickGpuSourceControl,
   countLongLineWrapRows,
   createCodeSection,
   createNewProjectConfig,
@@ -13,11 +14,13 @@ import {
   expectDetachedTerminalHeaderLayout,
   focusPaneForDnd,
   focusTerminalAndType,
+  getEmbeddedTerminalHost,
   getDragStartPoint,
   getTerminalLastResize,
   getTerminalRowsSnapshot,
   loadProjectState,
   moveSectionsViaBackend,
+  resolveSectionImpl,
   setSectionSize,
   syncEmbeddedTerminalSectionSize,
   waitForAttachedTerminalId,
@@ -55,9 +58,7 @@ test("attached terminal text reflows when width increases", async ({
       codeSectionId,
     );
     expect(attachedId).toBe(terminalId);
-    const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
+    const embeddedTerminalHost = getEmbeddedTerminalHost(page, terminalId);
     await expect(embeddedTerminalHost).toBeVisible();
 
     await waitForTerminalReady(page, terminalId, {
@@ -375,9 +376,7 @@ test("attaching a narrow terminal to a wider code section expands terminal cols"
       codeSectionId,
     );
     expect(attachedId).toBe(terminalId);
-    const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
+    const embeddedTerminalHost = getEmbeddedTerminalHost(page, terminalId);
     await expect(embeddedTerminalHost).toBeVisible();
 
     await expect
@@ -412,20 +411,18 @@ test("terminal created as attached reflows while attached and after detach", asy
   try {
     const codeSectionId = await createCodeSection(page);
     const codeNode = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${codeSectionId}"]`,
     );
     const toggleButton = codeNode.locator("[data-attached-terminal-toggle]");
     await expect(toggleButton).toHaveCount(1);
-    await toggleButton.click({ force: true });
+    await clickGpuSourceControl(toggleButton);
 
     const terminalId = await waitForAttachedTerminalId(
       page,
       projectConfigName,
       codeSectionId,
     );
-    const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
+    const embeddedTerminalHost = getEmbeddedTerminalHost(page, terminalId);
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
       required: !process.env.CI,
@@ -528,7 +525,7 @@ test("terminal created as attached reflows while attached and after detach", asy
       },
     });
     const detachedTerminalNode = page.locator(
-      `.react-flow__node[data-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${terminalId}"]`,
     );
     await expect(detachedTerminalNode).toBeVisible();
     await expect(
@@ -639,9 +636,7 @@ test("terminal resize messages are throttled during drag detach", async ({
     );
     expect(attachedId).toBe(terminalId);
 
-    const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
+    const embeddedTerminalHost = getEmbeddedTerminalHost(page, terminalId);
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
       timeoutMs: process.env.CI ? 60000 : 40000,
@@ -699,10 +694,10 @@ test("terminal resize messages are throttled during drag detach", async ({
     const releaseMovingFreeMode = await activateMovingFreeDragMode(page);
     altPressed = true;
 
-    const pane = page.locator(".react-flow__pane");
+    const pane = page.locator(".setta-gpu-flow__pane");
     const paneBox = await pane.boundingBox();
     const codeBox = await page
-      .locator(`.react-flow__node[data-id="${codeSectionId}"]`)
+      .locator(`.setta-gpu-flow__node[data-id="${codeSectionId}"]`)
       .boundingBox();
 
     if (!paneBox || !codeBox) {

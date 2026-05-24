@@ -1,0 +1,115 @@
+import { describe, expect, it } from "vitest";
+
+import type { GpuSurfaceHandle } from "../GpuSurface";
+import type {
+  GpuFlowLiveProjectionSample,
+  GpuFlowVisibleFrameReducerDecision,
+} from "../projectionRuntime";
+import type { GpuFlowVisibleFramePresentationOutcome } from "./visibleFrameCoordinator";
+import { assertGpuFlowSingleVisibleFramePresentationOutcome } from "./visibleFrameOutcomeGuard";
+import { createGpuFlowVisibleFrameHoldPreviousTokenForTest } from "./visibleFrameTestUtils";
+
+describe("GPU Flow visible frame presentation outcome guard", () => {
+  it("rejects multiple outcomes for the same surface and projection sample", () => {
+    const surface = surfaceHandle();
+    assertGpuFlowSingleVisibleFramePresentationOutcome({
+      outcome: holdOutcome(1),
+      reducerDecision: reducerDecision(1),
+      surface,
+    });
+
+    expect(() =>
+      assertGpuFlowSingleVisibleFramePresentationOutcome({
+        outcome: holdOutcome(1),
+        reducerDecision: reducerDecision(1),
+        surface,
+      }),
+    ).toThrow(/already completed an outcome/);
+  });
+
+  it("allows independent surfaces and later projection samples", () => {
+    const surface = surfaceHandle();
+    assertGpuFlowSingleVisibleFramePresentationOutcome({
+      outcome: holdOutcome(1),
+      reducerDecision: reducerDecision(1),
+      surface,
+    });
+
+    expect(() =>
+      assertGpuFlowSingleVisibleFramePresentationOutcome({
+        outcome: holdOutcome(1),
+        reducerDecision: reducerDecision(1),
+        surface: surfaceHandle(),
+      }),
+    ).not.toThrow();
+    expect(() =>
+      assertGpuFlowSingleVisibleFramePresentationOutcome({
+        outcome: holdOutcome(2),
+        reducerDecision: reducerDecision(2),
+        surface,
+      }),
+    ).not.toThrow();
+  });
+});
+
+function reducerDecision(sampleId: number): GpuFlowVisibleFrameReducerDecision {
+  return {
+    debt: {
+      content: false,
+      maintenance: false,
+      motion: false,
+    },
+    lane: "idle",
+    rawReasons: [],
+    sample: liveProjectionSample(sampleId),
+    reducerState: "idle",
+  };
+}
+
+function holdOutcome(sampleId: number): GpuFlowVisibleFramePresentationOutcome {
+  return {
+    kind: "hold-previous",
+    token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
+      preparedContentFrameId: 7,
+      holdAgeFrames: 1,
+      holdAgeMs: 0,
+      projectionSample: liveProjectionSample(sampleId),
+    }),
+  };
+}
+
+function liveProjectionSample(id: number): GpuFlowLiveProjectionSample {
+  return {
+    cssViewport: {
+      height: 600,
+      width: 800,
+    },
+    devicePixelRatio: 1,
+    gestureOwner: "idle",
+    id,
+    retainedScrollDelta: new Map(),
+    retainedScrollOffsets: new Map(),
+    retainedScrollRevision: 0,
+    retainedScrollVelocityCssPxPerMs: new Map(),
+    timestamp: id,
+    viewport: [0, 0, 1],
+    viewportDelta: {
+      x: 0,
+      y: 0,
+      zoom: 0,
+    },
+    viewportVelocityCssPxPerMs: {
+      x: 0,
+      y: 0,
+      zoom: 0,
+    },
+  };
+}
+
+function surfaceHandle(): GpuSurfaceHandle {
+  return {
+    getRuntime: () => null,
+    requestFrame: () => undefined,
+    requestPaint: () => undefined,
+  };
+}

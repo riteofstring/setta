@@ -74,6 +74,13 @@ set -euo pipefail
 exit 0
 """,
     )
+    write_stub_executable(
+        sandbox_root / ".venv" / "bin" / "python",
+        """#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+""",
+    )
     (sandbox_root / "frontend" / "node_modules").mkdir(parents=True, exist_ok=True)
 
     return sandbox_root

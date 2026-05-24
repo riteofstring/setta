@@ -191,7 +191,7 @@ test("project ai chat ignores stale native slash local storage from other projec
       },
     );
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const projectChatSurface = await openSlashCommandsViewer(page);
     const externalEngineTab = page
@@ -353,7 +353,7 @@ test("project ai chat blocks custom slash creation until native command authorit
       agentRunsLoadError: "Failed to load agent runs",
     });
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const projectChatSurface = await openSlashCommandsViewer(page);
     const externalEngineTab = page
@@ -518,7 +518,7 @@ test("project ai chat reloads unresolved native slash commands once authority be
     });
 
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const projectChatSurface = await getVisibleProjectChatSurface(page);
     const input = projectChatSurface.getByTestId("chat-input-textarea");
@@ -625,7 +625,7 @@ test("project ai chat retries slash-command authority for mixed-engine projects 
     agentRunsLoadError: "Failed to load agent runs",
   });
   await page.reload();
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
 
   const projectContext = await openIsolatedProject(page);
   currentProjectConfigId = projectContext.projectConfigId;

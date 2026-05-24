@@ -1,4 +1,4 @@
-import { updateMapPosition } from "forks/xyflow/core/hooks/useViewportHelper";
+import { updateMapPosition } from "gpuFlow/viewportActions";
 import React from "react";
 import { getSectionType } from "state/actions/sectionInfos";
 import { getActiveSectionUIIds } from "state/activeSectionUI";

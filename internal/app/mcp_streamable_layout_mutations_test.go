@@ -15,7 +15,7 @@ import (
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func TestAppIDEMCPServerSupportsToggleGroupOrientationOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsToggleGroupOrientationOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -46,7 +46,7 @@ func TestAppIDEMCPServerSupportsToggleGroupOrientationOverAuthenticatedSSE(t *te
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -83,7 +83,7 @@ func TestAppIDEMCPServerSupportsToggleGroupOrientationOverAuthenticatedSSE(t *te
 	}
 }
 
-func TestAppIDEMCPServerSupportsTemporaryIDsForToggleGroupOrientationOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsTemporaryIDsForToggleGroupOrientationOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -109,7 +109,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForToggleGroupOrientationOverAuthent
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -146,7 +146,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForToggleGroupOrientationOverAuthent
 	}
 }
 
-func TestAppIDEMCPServerSupportsSetGroupOverflowModeOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsSetGroupOverflowModeOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -168,7 +168,7 @@ func TestAppIDEMCPServerSupportsSetGroupOverflowModeOverAuthenticatedSSE(t *test
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -206,7 +206,7 @@ func TestAppIDEMCPServerSupportsSetGroupOverflowModeOverAuthenticatedSSE(t *test
 	}
 }
 
-func TestAppIDEMCPServerSupportsTemporaryIDsForSetGroupOverflowModeOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetGroupOverflowModeOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -232,7 +232,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetGroupOverflowModeOverAuthentic
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -270,7 +270,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetGroupOverflowModeOverAuthentic
 	}
 }
 
-func TestAppIDEMCPServerSupportsSetSectionVariantOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsSetSectionVariantOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -292,7 +292,7 @@ func TestAppIDEMCPServerSupportsSetSectionVariantOverAuthenticatedSSE(t *testing
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -329,7 +329,7 @@ func TestAppIDEMCPServerSupportsSetSectionVariantOverAuthenticatedSSE(t *testing
 	}
 }
 
-func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionVariantOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionVariantOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -356,7 +356,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionVariantOverAuthenticate
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -393,7 +393,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionVariantOverAuthenticate
 	}
 }
 
-func TestAppIDEMCPServerSupportsSetDefaultSectionVariantOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsSetDefaultSectionVariantOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -415,7 +415,7 @@ func TestAppIDEMCPServerSupportsSetDefaultSectionVariantOverAuthenticatedSSE(t *
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -452,7 +452,7 @@ func TestAppIDEMCPServerSupportsSetDefaultSectionVariantOverAuthenticatedSSE(t *
 	}
 }
 
-func TestAppIDEMCPServerSupportsTemporaryIDsForSetDefaultSectionVariantOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetDefaultSectionVariantOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -479,7 +479,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetDefaultSectionVariantOverAuthe
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -516,7 +516,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetDefaultSectionVariantOverAuthe
 	}
 }
 
-func TestAppIDEMCPServerSupportsSetSectionVariantSortOrderOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsSetSectionVariantSortOrderOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -538,7 +538,7 @@ func TestAppIDEMCPServerSupportsSetSectionVariantSortOrderOverAuthenticatedSSE(t
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -575,7 +575,7 @@ func TestAppIDEMCPServerSupportsSetSectionVariantSortOrderOverAuthenticatedSSE(t
 	}
 }
 
-func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionVariantSortOrderOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionVariantSortOrderOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -603,7 +603,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionVariantSortOrderOverAut
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -640,7 +640,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionVariantSortOrderOverAut
 	}
 }
 
-func TestAppIDEMCPServerSupportsStructuralCreateOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsStructuralCreateOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -661,7 +661,7 @@ func TestAppIDEMCPServerSupportsStructuralCreateOverAuthenticatedSSE(t *testing.
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -735,7 +735,7 @@ func TestAppIDEMCPServerSupportsStructuralCreateOverAuthenticatedSSE(t *testing.
 	}
 }
 
-func TestAppIDEMCPServerSupportsStructuralChildCreateOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsStructuralChildCreateOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -756,7 +756,7 @@ func TestAppIDEMCPServerSupportsStructuralChildCreateOverAuthenticatedSSE(t *tes
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -836,7 +836,7 @@ func TestAppIDEMCPServerSupportsStructuralChildCreateOverAuthenticatedSSE(t *tes
 	}
 }
 
-func TestAppIDEMCPServerSupportsSetCodeSectionAttachedTerminalOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsSetCodeSectionAttachedTerminalOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -859,7 +859,7 @@ func TestAppIDEMCPServerSupportsSetCodeSectionAttachedTerminalOverAuthenticatedS
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -910,7 +910,7 @@ func TestAppIDEMCPServerSupportsSetCodeSectionAttachedTerminalOverAuthenticatedS
 	}
 }
 
-func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeSectionAttachedTerminalOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeSectionAttachedTerminalOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -938,7 +938,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeSectionAttachedTerminalOve
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -979,7 +979,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetCodeSectionAttachedTerminalOve
 	}
 }
 
-func TestAppIDEMCPServerSupportsSetSectionSizesOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsSetSectionSizesOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -1000,7 +1000,7 @@ func TestAppIDEMCPServerSupportsSetSectionSizesOverAuthenticatedSSE(t *testing.T
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -1050,7 +1050,7 @@ func TestAppIDEMCPServerSupportsSetSectionSizesOverAuthenticatedSSE(t *testing.T
 	}
 }
 
-func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionSizesOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionSizesOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -1076,7 +1076,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionSizesOverAuthenticatedS
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -1116,7 +1116,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForSetSectionSizesOverAuthenticatedS
 	}
 }
 
-func TestAppIDEMCPServerSupportsIncrementerStructuralChildCreateOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsIncrementerStructuralChildCreateOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -1137,7 +1137,7 @@ func TestAppIDEMCPServerSupportsIncrementerStructuralChildCreateOverAuthenticate
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -1217,7 +1217,7 @@ func TestAppIDEMCPServerSupportsIncrementerStructuralChildCreateOverAuthenticate
 	}
 }
 
-func TestAppIDEMCPServerSupportsSectionVariantCreateOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsSectionVariantCreateOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -1308,7 +1308,7 @@ func assertAppMCPSectionVariantCreateResult(
 	}
 }
 
-func TestAppIDEMCPServerSupportsStructuralDeleteOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsStructuralDeleteOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -1329,7 +1329,7 @@ func TestAppIDEMCPServerSupportsStructuralDeleteOverAuthenticatedSSE(t *testing.
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -1387,7 +1387,7 @@ func TestAppIDEMCPServerSupportsStructuralDeleteOverAuthenticatedSSE(t *testing.
 	}
 }
 
-func TestAppIDEMCPServerSupportsDecrementerStructuralDeleteOverAuthenticatedSSE(t *testing.T) {
+func TestAppIDEMCPServerSupportsDecrementerStructuralDeleteOverAuthenticatedStreamableHTTP(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -1410,7 +1410,7 @@ func TestAppIDEMCPServerSupportsDecrementerStructuralDeleteOverAuthenticatedSSE(
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)

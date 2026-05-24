@@ -647,7 +647,7 @@ export async function openIsolatedProject(
   }
   const url = new URL(name, BASE_URL).toString();
   await page.goto(url);
-  await page.waitForSelector(".react-flow__pane");
+  await page.waitForSelector(".setta-gpu-flow__pane");
   const projectConfigId = await getCurrentProjectConfigId(page, request);
   return {
     projectConfigId,

@@ -587,7 +587,7 @@ test.describe.serial("chat composer controls", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".setta-gpu-flow__pane");
       await page.evaluate(async () => {
         const { useAIStore, useLocalStorage, useProjectState } = await import(
           "/src/state/definitions.ts"
@@ -808,7 +808,7 @@ test.describe.serial("chat composer controls", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".setta-gpu-flow__pane");
 
       const overviewPane = page.locator("#OverviewPane");
       await expect(

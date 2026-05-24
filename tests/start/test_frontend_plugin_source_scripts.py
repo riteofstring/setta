@@ -167,7 +167,14 @@ def test_frontend_source_scripts_include_plugin_frontend_roots(
 
     pnpm_calls = _split_calls(sandbox_root / "pnpm_calls.txt")
     assert pnpm_calls == [
-        ["exec", "prettier", "--write", "src", "../plugins/demo/frontend/src"],
+        [
+            "exec",
+            "prettier",
+            "--write",
+            "src",
+            "plugin-sdk/app-subsystem/src",
+            "../plugins/demo/frontend/src",
+        ],
         [
             "exec",
             "eslint",
@@ -176,6 +183,7 @@ def test_frontend_source_scripts_include_plugin_frontend_roots(
             "--fix",
             "--",
             "src",
+            "plugin-sdk/app-subsystem/src",
             "../plugins/demo/frontend/src",
         ],
     ]

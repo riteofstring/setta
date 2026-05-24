@@ -28,9 +28,9 @@ def _build_report_quality_hotspots_sandbox(tmp_path: Path) -> Path:
     lib_dir.mkdir(parents=True, exist_ok=True)
     bin_dir.mkdir(parents=True, exist_ok=True)
 
-    script_dst = sandbox_root / "report_quality_hotspots.sh"
+    script_dst = sandbox_root / "scripts/quality/report_complexity.sh"
     script_dst.write_text(
-        (root / "report_quality_hotspots.sh").read_text(encoding="utf-8"),
+        (root / "scripts/quality/report_complexity.sh").read_text(encoding="utf-8"),
         encoding="utf-8",
     )
     script_dst.chmod(0o755)
@@ -175,7 +175,7 @@ def test_report_quality_hotspots_uses_shared_plugin_filters(tmp_path: Path) -> N
     result = subprocess.run(
         [
             "bash",
-            str(sandbox_root / "report_quality_hotspots.sh"),
+            str(sandbox_root / "scripts/quality/report_complexity.sh"),
             "--top",
             "10",
             "--python-min",
@@ -216,7 +216,7 @@ def test_report_quality_hotspots_defaults_match_check_quality_thresholds(
     sandbox_root = _build_report_quality_hotspots_sandbox(tmp_path)
 
     result = subprocess.run(
-        ["bash", str(sandbox_root / "report_quality_hotspots.sh")],
+        ["bash", str(sandbox_root / "scripts/quality/report_complexity.sh")],
         cwd=sandbox_root,
         env=_script_env(sandbox_root),
         check=False,

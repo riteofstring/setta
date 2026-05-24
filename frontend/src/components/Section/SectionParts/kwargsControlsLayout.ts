@@ -1,0 +1,11 @@
+export const KWARGS_CONTROLS_SCENE_HEIGHT_PX = 34;
+const KWARGS_CONTROLS_CALLABLE_CONTAINER_HEIGHT_PX = 34;
+const KWARGS_CONTROLS_DEFAULT_CONTAINER_HEIGHT_PX = 30;
+
+export function getKwargsControlsContainerHeightPx(
+  isCallableSection: boolean,
+): number {
+  return isCallableSection
+    ? KWARGS_CONTROLS_CALLABLE_CONTAINER_HEIGHT_PX
+    : KWARGS_CONTROLS_DEFAULT_CONTAINER_HEIGHT_PX;
+}

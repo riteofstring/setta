@@ -80,6 +80,8 @@ class TestListenerRouterEndpointCall:
                     callId=parsed_message.content.callId,
                     ok=True,
                     result={"status": "ok"},
+                    error="",
+                    details={},
                 ),
             )
         )
@@ -120,6 +122,7 @@ class TestListenerRouterEndpointCall:
                     projectConfigId=project_config_id,
                     callId=parsed_message.content.callId,
                     ok=False,
+                    result=None,
                     error="listener_call_failed",
                     details={"message": "boom"},
                 ),
@@ -168,6 +171,8 @@ class TestListenerRouterEndpointCall:
                     callId=parsed_message.content.callId,
                     ok=True,
                     result=None,
+                    error="",
+                    details={},
                 ),
             )
         )
@@ -225,6 +230,8 @@ class TestListenerRouterEndpointCall:
                     callId=parsed_message.content.callId,
                     ok=True,
                     result=None,
+                    error="",
+                    details={},
                 ),
             )
         )
