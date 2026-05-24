@@ -86,17 +86,15 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "createGpuFlowVisibleFrameRequestFacts({",
       "reduceGpuFlowVisibleFramePublicationDecision({",
       "createGpuFlowVisibleFramePublicationFrameContext({",
+      "prepareVisibleFrameResourcesForBudget?.(",
       "prepareGpuFlowVisibleFramePublicationCandidateSet({",
       "createGpuFlowVisibleFramePublicationPreparedFrame({",
       "proveGpuFlowVisibleFramePublicationPresentation(",
     ]);
-    expect(reducerSource).not.toContain(
-      "prepareVisibleFrameResourcesForBudget?.",
-    );
-    expectOrderedPhases(publishSource, [
-      "publish(transaction);",
+    expect(publishSource).toContain("publish(transaction);");
+    expect(publishSource).not.toContain(
       "prepareVisibleFrameResourcesForBudget?.(",
-    ]);
+    );
     expect(source).toContain(
       "function sampleGpuFlowVisibleFramePublicationTransaction",
     );

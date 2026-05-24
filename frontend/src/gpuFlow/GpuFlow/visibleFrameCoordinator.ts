@@ -243,11 +243,11 @@ export function runGpuFlowVisibleFrameCoordinator<
     budgetBroker,
     prepareContentPublicationFrame,
     prepareMotionProjectionFrame,
+    prepareVisibleFrameResourcesForBudget,
     sampledPublication,
     scheduler,
   });
   return publishGpuFlowVisibleFramePublicationOutcome({
-    prepareVisibleFrameResourcesForBudget,
     publish,
     transaction,
   });
@@ -269,6 +269,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   budgetBroker,
   prepareContentPublicationFrame,
   prepareMotionProjectionFrame,
+  prepareVisibleFrameResourcesForBudget,
   sampledPublication,
   scheduler,
 }: {
@@ -278,6 +279,9 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     MotionProjectionFrame
   >;
   readonly prepareMotionProjectionFrame: GpuFlowVisibleFramePublicationMotionFramePreparer<MotionProjectionFrame>;
+  readonly prepareVisibleFrameResourcesForBudget?:
+    | GpuFlowVisibleFrameResourceBudgetPreparer
+    | undefined;
   readonly sampledPublication: GpuFlowVisibleFramePublicationSample;
   readonly scheduler: GpuFlowVisiblePublicationScheduler;
 }): GpuFlowVisibleFrameReducedPublicationTransaction<
@@ -319,6 +323,9 @@ function reduceGpuFlowVisibleFramePublicationFrame<
       visibleFrameResourceGraphSnapshot,
       viewportInteractionActive,
     });
+  prepareVisibleFrameResourcesForBudget?.(
+    publicationFrameContext.budgetDecision,
+  );
   const candidateSet = prepareGpuFlowVisibleFramePublicationCandidateSet({
     prepareContentPublicationFrame,
     prepareMotionProjectionFrame,
@@ -748,20 +755,13 @@ function shouldDeferGpuFlowResolutionUpdatesForFrame({
 function publishGpuFlowVisibleFramePublicationOutcome<
   PreparedFrame extends GpuFlowVisibleFramePublicationPreparedFrame,
 >({
-  prepareVisibleFrameResourcesForBudget,
   publish,
   transaction,
 }: {
-  readonly prepareVisibleFrameResourcesForBudget?:
-    | GpuFlowVisibleFrameResourceBudgetPreparer
-    | undefined;
   readonly publish: GpuFlowVisibleFramePublicationPublisher<PreparedFrame>;
   readonly transaction: GpuFlowVisibleFrameCoordinatorResult<PreparedFrame>;
 }): GpuFlowVisibleFrameCoordinatorResult<PreparedFrame> {
   publish(transaction);
-  prepareVisibleFrameResourcesForBudget?.(
-    transaction.publicationFrameContext.budgetDecision,
-  );
   return transaction;
 }
 

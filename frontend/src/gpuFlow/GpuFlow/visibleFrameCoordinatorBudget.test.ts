@@ -165,7 +165,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
     expect(starvedObserved).toEqual([true, true]);
   });
 
-  it("starts budget-selected resource preparation after proofed publication", () => {
+  it("starts budget-selected resource preparation before candidate preparation", () => {
     const phases: string[] = [];
     const observedActiveEditorPins: readonly string[][] = [];
 
@@ -239,15 +239,15 @@ describe("GPU Flow visible frame coordinator budget", () => {
     });
 
     expect(phases).toEqual([
+      "resources:dom-control:editor",
       "motion",
       "content",
       "publish:blocked",
-      "resources:dom-control:editor",
     ]);
     expect(observedActiveEditorPins).toEqual([["editor"], ["editor"]]);
   });
 
-  it("keeps selected visible resource debt on the scheduled lane while preparing resources after publication", () => {
+  it("keeps selected visible resource debt on the scheduled lane while preparing resources before publication", () => {
     const phases: string[] = [];
 
     const result = runGpuFlowVisibleFrameCoordinator({
@@ -339,10 +339,10 @@ describe("GPU Flow visible frame coordinator budget", () => {
       selectedVisibleResourceDebtIds: ["dom-control:editor"],
     });
     expect(phases).toEqual([
+      "resources:dom-control:editor",
       "motion:prepare:defer-true",
       "content:skip:defer-true",
       "publish:motion",
-      "resources:dom-control:editor",
     ]);
   });
 });
