@@ -144,16 +144,76 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       committedFrameId: null,
       committedResourceKeys: [],
       pendingCandidateFrameIds: [41],
+      queuedResourceKeys: [
+        "texture:surface-texture",
+        "dom-control:row-a",
+        "dom-control-snapshot:snapshot-row-b",
+        "dom-island:island-a",
+      ],
     });
     expect(snapshot.resourceDebtByState).toEqual({
       absent: 0,
       preparing: 0,
       presented: 0,
-      ready: 4,
-      requested: 0,
+      ready: 0,
+      requested: 4,
       retired: 0,
     });
     expect(snapshot.resourceStates).toEqual([
+      resourceState("dom-control-snapshot:snapshot-row-b", "requested", 41),
+      resourceState("dom-control:row-a", "requested", 41),
+      resourceState("dom-island:island-a", "requested", 41),
+      resourceState("texture:surface-texture", "requested", 41),
+    ]);
+
+    expect(registry.advanceVisibleFrameResourceWork()).toEqual({
+      remainingQueuedResourceKeys: [
+        "texture:surface-texture",
+        "dom-control:row-a",
+        "dom-control-snapshot:snapshot-row-b",
+        "dom-island:island-a",
+      ],
+      transitions: [
+        resourceTransition(
+          "texture:surface-texture",
+          "requested",
+          "preparing",
+          41,
+        ),
+        resourceTransition("dom-control:row-a", "requested", "preparing", 41),
+        resourceTransition(
+          "dom-control-snapshot:snapshot-row-b",
+          "requested",
+          "preparing",
+          41,
+        ),
+        resourceTransition("dom-island:island-a", "requested", "preparing", 41),
+      ],
+    });
+    expect(registry.getSnapshot().resourceDebtByState).toEqual({
+      absent: 0,
+      preparing: 4,
+      presented: 0,
+      ready: 0,
+      requested: 0,
+      retired: 0,
+    });
+
+    expect(registry.advanceVisibleFrameResourceWork()).toEqual({
+      remainingQueuedResourceKeys: [],
+      transitions: [
+        resourceTransition("texture:surface-texture", "preparing", "ready", 41),
+        resourceTransition("dom-control:row-a", "preparing", "ready", 41),
+        resourceTransition(
+          "dom-control-snapshot:snapshot-row-b",
+          "preparing",
+          "ready",
+          41,
+        ),
+        resourceTransition("dom-island:island-a", "preparing", "ready", 41),
+      ],
+    });
+    expect(registry.getSnapshot().resourceStates).toEqual([
       resourceState("dom-control-snapshot:snapshot-row-b", "ready", 41),
       resourceState("dom-control:row-a", "ready", 41),
       resourceState("dom-island:island-a", "ready", 41),
@@ -193,6 +253,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       browserVisualCandidate: winnerCandidate,
       frame: winnerFrame,
     });
+    registry.drainVisibleFrameResourceWork();
 
     const committedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
     const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
@@ -225,6 +286,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       committedFrameId: 52,
       committedResourceKeys: ["page:winner-page", "dom-control:winner-control"],
       pendingCandidateFrameIds: [],
+      queuedResourceKeys: [],
     });
     expect(snapshot.resourceDebtByState).toEqual({
       absent: 0,
@@ -313,6 +375,35 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     ]);
   });
 
+  it("rejects commits before queued candidate resource work is ready", () => {
+    const registry = createGpuFlowVisibleFrameResourceGraph();
+    const frame = committedSurfaceFrame({
+      displayFrameId: 62,
+      exactSurfaceResourceHandles: [resourceHandle("texture", "early-texture")],
+      protectedResourceHandles: [
+        protectedResource(resourceHandle("texture", "early-texture")),
+      ],
+    });
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: browserVisualCandidate({
+        frameId: frame.displayFrameId,
+      }),
+      frame,
+    });
+
+    expect(() =>
+      registry.commitPreparedCommittedSurfaceFrame({
+        commitBrowserVisualCandidate: () => undefined,
+        frame,
+        publishCommittedSurfaceFrame: () => true,
+        token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+          frame,
+          projectionSample: liveProjectionSample(62),
+        }),
+      }),
+    ).toThrow(/before resource texture:early-texture is ready/);
+  });
+
   it("tracks explicit resource lifecycle debt from requested through retired", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
 
@@ -359,6 +450,20 @@ function resourceState(
     ownerFrameId,
     resourceKey,
     state,
+  };
+}
+
+function resourceTransition(
+  resourceKey: string,
+  fromState: string,
+  toState: string,
+  ownerFrameId: number,
+) {
+  return {
+    fromState,
+    ownerFrameId,
+    resourceKey,
+    toState,
   };
 }
 

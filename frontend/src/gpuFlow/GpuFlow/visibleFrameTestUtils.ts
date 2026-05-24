@@ -94,11 +94,29 @@ export function createGpuFlowVisibleFrameHoldPreviousTokenForTest({
       sample: projectionSample,
     },
   } as unknown as GpuFlowVisibleProjectionState;
+  const previousVisibleProjectionState = {
+    committedFrame: visibleProjectionState.committedFrame,
+    heldPreviousProjection: null,
+    sample: {
+      ...projectionSample,
+      id: projectionSample.id - 1,
+    },
+    transaction: {
+      committedFrameId,
+      id: `test-content-publication:${committedFrameId}:${projectionSample.id - 1}`,
+      kind: "content-publication",
+      sample: {
+        ...projectionSample,
+        id: projectionSample.id - 1,
+      },
+    },
+  } as unknown as GpuFlowVisibleProjectionState;
   const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
     contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
       rendered: true,
       visibleProjectionState,
     }),
+    previousVisibleProjectionState,
     projectionSample,
   });
 
@@ -137,9 +155,14 @@ export function createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
 
 function runGpuFlowVisibleFramePublicationTestTokenKernel({
   contentFrame = createGpuFlowVisibleFramePublicationTestCandidate(),
+  previousVisibleProjectionState = null,
   projectionSample,
 }: {
   readonly contentFrame?: GpuFlowVisibleFramePublicationTestCandidate;
+  readonly previousVisibleProjectionState?:
+    | GpuFlowVisibleProjectionState
+    | null
+    | undefined;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }) {
   return runGpuFlowVisibleFrameCoordinator<
@@ -153,7 +176,10 @@ function runGpuFlowVisibleFramePublicationTestTokenKernel({
     }),
     publish: () => {},
     sampleVisibleFramePublication: () =>
-      createGpuFlowVisibleFramePublicationTestSample({ projectionSample }),
+      createGpuFlowVisibleFramePublicationTestSample({
+        previousVisibleProjectionState,
+        projectionSample,
+      }),
     scheduler: createGpuFlowVisibleFrameRequestCoordinator(),
   });
 }
@@ -188,13 +214,15 @@ function createGpuFlowVisiblePublicationTestPresentationEvidence({
 }
 
 function createGpuFlowVisibleFramePublicationTestSample({
+  previousVisibleProjectionState,
   projectionSample,
 }: {
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleFramePublicationSample {
   return {
     hasCommittedContentFrame: true,
-    previousVisibleProjectionState: null,
+    previousVisibleProjectionState,
     rawReasons: ["manual"],
     runtimeViewportFrame: false,
     sample: projectionSample,

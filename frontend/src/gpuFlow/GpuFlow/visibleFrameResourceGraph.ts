@@ -37,6 +37,7 @@ type GpuFlowVisibleFrameResourceGraphSnapshot = {
   readonly committedFrameId: number | null;
   readonly committedResourceKeys: readonly string[];
   readonly pendingCandidateFrameIds: readonly number[];
+  readonly queuedResourceKeys: readonly string[];
   readonly resourceDebtByState: Record<
     GpuFlowVisibleFrameResourceStateKind,
     number
@@ -54,6 +55,18 @@ type GpuFlowVisibleFrameCommittedSurfaceCommitResult = {
 type GpuFlowVisibleFrameCommittedSurfaceAbortResult = {
   readonly activeEditorPins: readonly string[];
   readonly releasedCandidateResourceKeys: readonly string[];
+};
+
+type GpuFlowVisibleFrameResourceWorkTransition = {
+  readonly fromState: GpuFlowVisibleFrameResourceStateKind;
+  readonly ownerFrameId: number | null;
+  readonly resourceKey: string;
+  readonly toState: GpuFlowVisibleFrameResourceStateKind;
+};
+
+type GpuFlowVisibleFrameResourceWorkResult = {
+  readonly remainingQueuedResourceKeys: readonly string[];
+  readonly transitions: readonly GpuFlowVisibleFrameResourceWorkTransition[];
 };
 
 type GpuFlowVisibleFrameBrowserVisualCandidateCommitter = (input: {
@@ -99,6 +112,8 @@ export class GpuFlowVisibleFrameResourceGraph {
     number,
     GpuFlowVisibleFrameCandidateResourceEntry
   >();
+  private readonly queuedResourceKeySet = new Set<string>();
+  private queuedResourceKeys: string[] = [];
   private readonly resourceStateByKey = new Map<
     string,
     GpuFlowVisibleFrameResourceStateEntry
@@ -175,11 +190,52 @@ export class GpuFlowVisibleFrameResourceGraph {
     });
     this.pendingCandidateByFrameId.set(frameId, entry);
     for (const resourceKey of entry.candidateResourceKeys) {
-      this.prepareCandidateResource({
+      this.requestCandidateResource({
         ownerFrameId: frameId,
         resourceKey,
       });
     }
+  }
+
+  advanceVisibleFrameResourceWork({
+    maxTransitions = Number.POSITIVE_INFINITY,
+  }: {
+    readonly maxTransitions?: number | undefined;
+  } = {}): GpuFlowVisibleFrameResourceWorkResult {
+    if (!Number.isFinite(maxTransitions) && maxTransitions !== Infinity) {
+      throw new Error(
+        "GPU Flow visible frame resource work requires a finite transition budget or Infinity.",
+      );
+    }
+    if (maxTransitions <= 0) {
+      return this.createVisibleFrameResourceWorkResult([]);
+    }
+    const transitions: GpuFlowVisibleFrameResourceWorkTransition[] = [];
+    const batchSize = Math.min(maxTransitions, this.queuedResourceKeys.length);
+    for (let index = 0; index < batchSize; index += 1) {
+      const resourceKey = this.queuedResourceKeys.shift();
+      if (resourceKey === undefined) {
+        break;
+      }
+      this.queuedResourceKeySet.delete(resourceKey);
+      const transition = this.advanceQueuedVisibleFrameResource(resourceKey);
+      if (transition !== null) {
+        transitions.push(transition);
+      }
+    }
+    return this.createVisibleFrameResourceWorkResult(transitions);
+  }
+
+  drainVisibleFrameResourceWork(): GpuFlowVisibleFrameResourceWorkResult {
+    const transitions: GpuFlowVisibleFrameResourceWorkTransition[] = [];
+    while (this.queuedResourceKeys.length > 0) {
+      const result = this.advanceVisibleFrameResourceWork();
+      transitions.push(...result.transitions);
+      if (result.transitions.length === 0) {
+        break;
+      }
+    }
+    return this.createVisibleFrameResourceWorkResult(transitions);
   }
 
   commitPreparedCommittedSurfaceFrame({
@@ -199,6 +255,7 @@ export class GpuFlowVisibleFrameResourceGraph {
       token,
     });
     const entry = this.requirePreparedCommittedSurfaceFrame(frame);
+    this.assertPreparedCandidateResourcesReady(entry);
     commitBrowserVisualCandidate({
       candidate: entry.browserVisualCandidate,
       token,
@@ -302,6 +359,7 @@ export class GpuFlowVisibleFrameResourceGraph {
       pendingCandidateFrameIds: Object.freeze([
         ...this.pendingCandidateByFrameId.keys(),
       ]),
+      queuedResourceKeys: Object.freeze([...this.queuedResourceKeys]),
       resourceDebtByState: createGpuFlowVisibleFrameResourceDebtByStateSnapshot(
         this.resourceStateByKey,
       ),
@@ -355,7 +413,7 @@ export class GpuFlowVisibleFrameResourceGraph {
     return uniqueStrings(releasedResourceKeys);
   }
 
-  private prepareCandidateResource({
+  private requestCandidateResource({
     ownerFrameId,
     resourceKey,
   }: {
@@ -366,9 +424,90 @@ export class GpuFlowVisibleFrameResourceGraph {
     if (currentState === "presented" || currentState === "ready") {
       return;
     }
+    if (currentState === "requested" || currentState === "preparing") {
+      this.enqueueVisibleFrameResourceWork(resourceKey);
+      return;
+    }
     this.requestVisibleFrameResource({ ownerFrameId, resourceKey });
-    this.markVisibleFrameResourcePreparing({ ownerFrameId, resourceKey });
-    this.markVisibleFrameResourceReady({ ownerFrameId, resourceKey });
+    this.enqueueVisibleFrameResourceWork(resourceKey);
+  }
+
+  private advanceQueuedVisibleFrameResource(
+    resourceKey: string,
+  ): GpuFlowVisibleFrameResourceWorkTransition | null {
+    const current = this.resourceStateByKey.get(resourceKey);
+    if (!current) {
+      return null;
+    }
+    switch (current.state) {
+      case "requested":
+        this.markVisibleFrameResourcePreparing({
+          ownerFrameId: current.ownerFrameId,
+          resourceKey,
+        });
+        this.enqueueVisibleFrameResourceWork(resourceKey);
+        return Object.freeze({
+          fromState: "requested" as const,
+          ownerFrameId: current.ownerFrameId,
+          resourceKey,
+          toState: "preparing" as const,
+        });
+      case "preparing":
+        this.markVisibleFrameResourceReady({
+          ownerFrameId: current.ownerFrameId,
+          resourceKey,
+        });
+        return Object.freeze({
+          fromState: "preparing" as const,
+          ownerFrameId: current.ownerFrameId,
+          resourceKey,
+          toState: "ready" as const,
+        });
+      case "absent":
+      case "presented":
+      case "ready":
+      case "retired":
+        return null;
+    }
+  }
+
+  private enqueueVisibleFrameResourceWork(resourceKey: string): void {
+    if (this.queuedResourceKeySet.has(resourceKey)) {
+      return;
+    }
+    this.queuedResourceKeySet.add(resourceKey);
+    this.queuedResourceKeys.push(resourceKey);
+  }
+
+  private createVisibleFrameResourceWorkResult(
+    transitions: readonly GpuFlowVisibleFrameResourceWorkTransition[],
+  ): GpuFlowVisibleFrameResourceWorkResult {
+    return Object.freeze({
+      remainingQueuedResourceKeys: Object.freeze([...this.queuedResourceKeys]),
+      transitions: Object.freeze([...transitions]),
+    });
+  }
+
+  private assertPreparedCandidateResourcesReady(
+    entry: GpuFlowVisibleFrameCandidateResourceEntry,
+  ): void {
+    const unpreparedResource = entry.candidateResourceKeys.find(
+      (resourceKey) => {
+        const state = this.resourceStateByKey.get(resourceKey)?.state;
+        return state !== "ready" && state !== "presented";
+      },
+    );
+    if (unpreparedResource === undefined) {
+      return;
+    }
+    const state = this.resourceStateByKey.get(unpreparedResource)?.state;
+    throw new Error(
+      `GPU Flow visible frame resource graph cannot commit frame ${getGpuFlowCommittedSurfaceFrameId(
+        entry.frame,
+      )} before resource ${unpreparedResource} is ready; current state is ${
+        state ?? "absent"
+      }.`,
+    );
   }
 
   private transitionResource({

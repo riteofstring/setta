@@ -91,6 +91,7 @@ export function useGpuFlowCommittedSurfaceFrameState({
           frame: nextCommittedSurfaceFrame,
         },
       );
+      visibleFrameResourceGraphRef.current.drainVisibleFrameResourceWork();
       return nextCommittedSurfaceFrame;
     },
     [],
