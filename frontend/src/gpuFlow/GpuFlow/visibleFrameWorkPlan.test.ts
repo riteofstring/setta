@@ -334,6 +334,21 @@ describe("GPU Flow visible frame coordinator work plans", () => {
             safety: { active: false, ageFrames: 0, ageMs: 0 },
           },
           lane: "content",
+          rawReasons: ["viewport"],
+          reducerState: "content-catchup",
+        }),
+      }),
+    ).toBe(true);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPreparation({
+        ...deferredRepairInput,
+        reducerDecision: reducerDecision({
+          classifiedDebt: {
+            continuity: { active: true, ageFrames: 12, ageMs: 192 },
+            quality: { active: false, ageFrames: 0, ageMs: 0 },
+            safety: { active: false, ageFrames: 0, ageMs: 0 },
+          },
+          lane: "content",
           rawReasons: ["paint", "texture-upload"],
           reducerState: "motion-active",
         }),

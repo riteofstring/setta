@@ -4,6 +4,7 @@ import {
   hasGpuFlowCriticalContentFrameRequest,
   isGpuFlowContentFrameReason,
   isGpuFlowMaintenanceFrameReason,
+  isGpuFlowMotionFrameReason,
 } from "../projectionSchedulerPolicy";
 import {
   shouldDeferGpuFlowBrowserVisualRepairForBudget,
@@ -214,6 +215,12 @@ function shouldKeepGpuFlowContinuityRepairPreparationOnVisiblePath({
   }
   if (hasGpuFlowCriticalContentFrameRequest(reducerDecision.rawReasons)) {
     return true;
+  }
+  if (
+    sourceReasons.some(isGpuFlowMotionFrameReason) &&
+    !sourceReasons.some(isGpuFlowContentFrameReason)
+  ) {
+    return false;
   }
   if (sourceReasons.some(isGpuFlowContentFrameReason)) {
     return true;
