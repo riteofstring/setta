@@ -5,11 +5,11 @@ import type {
 } from "../preparedContentFrame";
 import { readGpuFlowBrowserVisualFaultInjection } from "./visibleFrameActorAdapters/browserVisualFaultInjection";
 
-export type GpuFlowVisibleFrameCommittedActorRequirement =
+export type GpuFlowVisibleFramePreparedActorRequirement =
   | "maintenance"
   | "required";
 
-export function getGpuFlowVisibleFrameCommittedActorRequirement({
+export function getGpuFlowVisibleFramePreparedActorRequirement({
   activeEditorPresentationPending,
   actor,
   startup,
@@ -17,7 +17,7 @@ export function getGpuFlowVisibleFrameCommittedActorRequirement({
   readonly activeEditorPresentationPending: boolean;
   readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly startup: boolean;
-}): GpuFlowVisibleFrameCommittedActorRequirement {
+}): GpuFlowVisibleFramePreparedActorRequirement {
   if (
     isGpuFlowVisibleFramePassiveLiveDomBudgetActor(actor) ||
     isGpuFlowVisibleFramePassiveSnapshotPendingActor({ actor, startup }) ||

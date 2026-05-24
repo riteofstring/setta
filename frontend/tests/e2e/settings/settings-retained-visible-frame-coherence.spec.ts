@@ -274,7 +274,7 @@ test("browser visual live-host withholding blocks while preserving the coherent 
   });
 });
 
-test("browser visual cold-start withholding publishes a blocked shell frame", async ({
+test("browser visual cold-start withholding presents a blocked shell frame", async ({
   page,
 }, testInfo) => {
   await installOptionalRetainedCompositorFrameProbe(page);
@@ -758,7 +758,9 @@ async function clearBrowserVisualFaultInjection(page: Page): Promise<void> {
   });
 }
 
-async function triggerBrowserVisualFaultPresentation(page: Page): Promise<void> {
+async function triggerBrowserVisualFaultPresentation(
+  page: Page,
+): Promise<void> {
   await setSettingsViewMode(page, "All Settings");
   await requestGpuFlowDebugFrame(page, "resize");
   await page.waitForTimeout(80);
@@ -832,7 +834,7 @@ async function waitForBlockedVisibleFramePresentationEvent(
       }) ??
       findBlockedVisibleFramePresentationEvent(lastEvents, {
         afterCount,
-        requireCommittedFrozenFrame: true,
+        requirePresentedFrozenFrame: true,
       });
     if (observedEvent) {
       return observedEvent;
@@ -849,7 +851,7 @@ async function waitForBlockedVisibleFramePresentationEvent(
     }) ??
     findBlockedVisibleFramePresentationEvent(lastEvents, {
       afterCount,
-      requireCommittedFrozenFrame: true,
+      requirePresentedFrozenFrame: true,
     });
   if (observedEvent) {
     return observedEvent;
@@ -888,19 +890,19 @@ function findBlockedVisibleFramePresentationEvent(
   {
     actorId,
     afterCount,
-    requireCommittedFrozenFrame = false,
+    requirePresentedFrozenFrame = false,
     reason,
   }: {
     readonly actorId?: string | undefined;
     readonly afterCount: number;
-    readonly requireCommittedFrozenFrame?: boolean | undefined;
+    readonly requirePresentedFrozenFrame?: boolean | undefined;
     readonly reason?: string | undefined;
   },
 ): ObservedBlockedVisibleFramePresentationEvent | null {
   for (let index = afterCount; index < events.length; index += 1) {
     const event = events[index];
     if (
-      requireCommittedFrozenFrame &&
+      requirePresentedFrozenFrame &&
       typeof event?.frozenFrameId !== "number"
     ) {
       continue;
@@ -918,7 +920,9 @@ function findBlockedVisibleFramePresentationEvent(
   return null;
 }
 
-async function readBrowserVisualPresentationDebug(page: Page): Promise<unknown> {
+async function readBrowserVisualPresentationDebug(
+  page: Page,
+): Promise<unknown> {
   return await page.evaluate(async () => {
     const faultInjection = (
       await import(

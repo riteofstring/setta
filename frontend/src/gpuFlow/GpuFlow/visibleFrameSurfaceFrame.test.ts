@@ -18,8 +18,8 @@ import {
   withGpuFlowContentCatchupReasonForStalePreparedContentSample,
 } from "./visibleFrameSurfaceFrame";
 
-describe("GPU Flow surface frame publication", () => {
-  it("keeps raw reasons unchanged when the committed sample is current", () => {
+describe("GPU Flow surface frame presentation", () => {
+  it("keeps raw reasons unchanged when the presented sample is current", () => {
     const rawReasons: readonly GpuFrameReason[] = ["viewport"];
 
     expect(
@@ -37,7 +37,7 @@ describe("GPU Flow surface frame publication", () => {
     ).toBe(rawReasons);
   });
 
-  it("adds content catch-up debt for stale committed viewport samples", () => {
+  it("adds content catch-up debt for stale presented viewport samples", () => {
     expect(
       withGpuFlowContentCatchupReasonForStalePreparedContentSample({
         preparedContentFrame: preparedContentFrameSample({
@@ -172,7 +172,7 @@ describe("GPU Flow surface frame publication", () => {
     ).toBe(false);
   });
 
-  it("does not defer resolution updates for stale committed samples", () => {
+  it("does not defer resolution updates for stale presented samples", () => {
     expect(
       shouldDeferGpuFlowContentPreparationResolutionUpdatesForSample({
         preparedContentFrame: preparedContentFrameSample({
@@ -249,19 +249,19 @@ describe("GPU Flow surface frame publication", () => {
     ).toBe(false);
   });
 
-  it("does not treat the startup prepared content frame as published content", () => {
+  it("does not treat the startup prepared content frame as presented content", () => {
     expect(hasGpuFlowPresentedContentFrame(null)).toBe(false);
     expect(
       hasGpuFlowPresentedContentFrame(
-        committedContentFrame({ retainedDisplayFrame: null }),
+        presentedContentFrame({ retainedDisplayFrame: null }),
       ),
     ).toBe(false);
   });
 
-  it("treats committed retained-display frames as content", () => {
+  it("treats presented retained-display frames as content", () => {
     expect(
       hasGpuFlowPresentedContentFrame(
-        committedContentFrame({
+        presentedContentFrame({
           retainedDisplayFrame: {} as RetainedDisplayFrame,
         }),
       ),
@@ -284,7 +284,7 @@ function preparedContentFrameSample({
   };
 }
 
-function committedContentFrame({
+function presentedContentFrame({
   retainedDisplayFrame,
 }: {
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;

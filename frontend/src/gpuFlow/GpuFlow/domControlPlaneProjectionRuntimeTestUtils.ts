@@ -131,7 +131,7 @@ export function presentBrowserVisualFrame({
       retainedRuntimeFrame: frame.retainedRuntimeFrame,
     }),
   });
-  browserVisualRuntime.commitPreparedBrowserVisualActors({ candidate, token });
+  browserVisualRuntime.presentPreparedBrowserVisualActors({ candidate, token });
   presentedSurfaceRuntime.presentContentFrame(token, frame);
 }
 

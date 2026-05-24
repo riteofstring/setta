@@ -6,13 +6,13 @@ import {
   getGpuFlowBrowserStyleVisibleFrameActorFamily,
 } from "./visibleFrameActorRegistry";
 
-type CommittedActor = GpuFlowPreparedContentFrame["actorGenerations"][number];
+type PreparedActor = GpuFlowPreparedContentFrame["actorGenerations"][number];
 
 describe("GPU Flow browser-style visible frame actor registry", () => {
   it("classifies text-like controls by their browser-owned presentation", () => {
     expect(
       getGpuFlowBrowserStyleVisibleFrameActorFamily(
-        committedActor({
+        preparedActor({
           actorFamily: "text-like-dom-control",
           kind: "dom-control",
           projectionCoverage: "exact-live-dom",
@@ -21,7 +21,7 @@ describe("GPU Flow browser-style visible frame actor registry", () => {
     ).toBe("browser-text-control");
     expect(
       getGpuFlowBrowserStyleVisibleFrameActorFamily(
-        committedActor({
+        preparedActor({
           actorFamily: "text-like-dom-control",
           kind: "dom-control",
           projectionCoverage: "exact-snapshot",
@@ -30,7 +30,7 @@ describe("GPU Flow browser-style visible frame actor registry", () => {
     ).toBe("browser-text-snapshot");
     expect(
       getGpuFlowBrowserStyleVisibleFrameActorFamily(
-        committedActor({
+        preparedActor({
           active: true,
           actorFamily: "text-like-dom-control",
           kind: "dom-control",
@@ -43,7 +43,7 @@ describe("GPU Flow browser-style visible frame actor registry", () => {
   it("classifies structural and retained resource actors with coordinator families", () => {
     expect(
       getGpuFlowBrowserStyleVisibleFrameActorFamily(
-        committedActor({
+        preparedActor({
           actorFamily: "section-header",
           kind: "html-texture",
         }),
@@ -51,7 +51,7 @@ describe("GPU Flow browser-style visible frame actor registry", () => {
     ).toBe("section-header");
     expect(
       getGpuFlowBrowserStyleVisibleFrameActorFamily(
-        committedActor({
+        preparedActor({
           actorFamily: "gpu-native-visual",
           kind: "gpu-native-visual",
         }),
@@ -59,7 +59,7 @@ describe("GPU Flow browser-style visible frame actor registry", () => {
     ).toBe("retained-native-visual");
     expect(
       getGpuFlowBrowserStyleVisibleFrameActorFamily(
-        committedActor({
+        preparedActor({
           actorFamily: "retained-page",
           kind: "retained-page",
         }),
@@ -95,7 +95,7 @@ describe("GPU Flow browser-style visible frame actor registry", () => {
   });
 });
 
-function committedActor({
+function preparedActor({
   active = false,
   actorFamily,
   kind,
@@ -110,12 +110,12 @@ function committedActor({
     | "exact-live-dom"
     | "exact-snapshot"
     | undefined;
-}): CommittedActor {
+}): PreparedActor {
   return {
     active,
     actorFamily,
     browserVisual: null,
     kind,
     textCoverageProof: projectionCoverage ? { projectionCoverage } : null,
-  } as unknown as CommittedActor;
+  } as unknown as PreparedActor;
 }

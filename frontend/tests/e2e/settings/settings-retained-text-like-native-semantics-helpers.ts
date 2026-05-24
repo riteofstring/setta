@@ -58,7 +58,7 @@ type NativeCompositionState = {
   readonly rowId: string;
 };
 
-type CommittedTextActorProof = {
+type PresentedTextActorProof = {
   readonly active: boolean;
   readonly actorId: string;
   readonly actualInteraction: string | null;
@@ -765,21 +765,21 @@ async function readActiveNativeTextValue(page: Page): Promise<{
   });
 }
 
-export async function waitForCommittedActiveEditorTextProof(
+export async function waitForPresentedActiveEditorTextProof(
   page: Page,
   { rowId }: { readonly rowId: string },
-): Promise<CommittedTextActorProof> {
+): Promise<PresentedTextActorProof> {
   const deadline = Date.now() + 5_000;
-  let latestProof: CommittedTextActorProof | null = null;
+  let latestProof: PresentedTextActorProof | null = null;
   while (Date.now() < deadline) {
-    latestProof = await readCommittedTextActorProof(page, rowId);
-    if (isActiveEditorCommittedTextProof(latestProof)) {
+    latestProof = await readPresentedTextActorProof(page, rowId);
+    if (isActiveEditorPresentedTextProof(latestProof)) {
       return latestProof;
     }
     await page.waitForTimeout(80);
   }
   throw new Error(
-    `Committed text actor proof did not become active-editor capable. ${JSON.stringify(
+    `Presented text actor proof did not become active-editor capable. ${JSON.stringify(
       { latestProof, rowId },
       null,
       2,
@@ -787,10 +787,10 @@ export async function waitForCommittedActiveEditorTextProof(
   );
 }
 
-async function readCommittedTextActorProof(
+async function readPresentedTextActorProof(
   page: Page,
   rowId: string,
-): Promise<CommittedTextActorProof | null> {
+): Promise<PresentedTextActorProof | null> {
   return await page.evaluate((rowId) => {
     const proofs =
       window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().presentedContentFrame
@@ -803,9 +803,9 @@ async function readCommittedTextActorProof(
   }, rowId);
 }
 
-function isActiveEditorCommittedTextProof(
-  proof: CommittedTextActorProof | null,
-): proof is CommittedTextActorProof {
+function isActiveEditorPresentedTextProof(
+  proof: PresentedTextActorProof | null,
+): proof is PresentedTextActorProof {
   return Boolean(
     proof?.active &&
       proof.requiredVisual === "browser-visual" &&

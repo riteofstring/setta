@@ -125,7 +125,7 @@ export type GpuFlowPreparedContentFramePresentationCandidate =
     };
 
 export type GpuFlowPreparedContentFramePresentationCandidateInput = {
-  readonly committedGpuNativeVisuals:
+  readonly presentedGpuNativeVisuals:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
     | undefined;
   readonly deferBrowserVisualWakeup?: boolean | undefined;
@@ -216,7 +216,7 @@ export type GpuFlowPreparedContentFramePresentationContentStage =
 export type GpuFlowRetainedPreparedContentFramePresentationContentPresentedRetainedDisplay<
   Context,
 > = {
-  readonly committedGpuNativeVisuals:
+  readonly presentedGpuNativeVisuals:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
     | undefined;
   readonly context: Context;
@@ -402,7 +402,7 @@ function runGpuFlowPreparedContentFramePresentationContentStage<Result>({
 }
 
 function prepareGpuFlowPreparedContentFramePresentationFramePlanForRetainedDisplay({
-  committedGpuNativeVisuals,
+  presentedGpuNativeVisuals,
   deferBrowserVisualWakeup,
   frameReasons,
   heldPreviousProjectionState,
@@ -412,7 +412,7 @@ function prepareGpuFlowPreparedContentFramePresentationFramePlanForRetainedDispl
   contentWorkLane,
   presentedRetainedFrame,
 }: {
-  readonly committedGpuNativeVisuals:
+  readonly presentedGpuNativeVisuals:
     | readonly HtmlSurfaceSolidRoundedRectVisual[]
     | undefined;
   readonly deferBrowserVisualWakeup: boolean;
@@ -430,13 +430,13 @@ function prepareGpuFlowPreparedContentFramePresentationFramePlanForRetainedDispl
   readonly presentedRetainedFrame: RetainedDisplayFrame;
 }): GpuFlowRetainedDisplayPreparedContentFramePresentationPreparation {
   const preparedContentFrame = prepareContentFrame?.(presentedRetainedFrame, {
-    gpuNativeVisuals: committedGpuNativeVisuals,
+    gpuNativeVisuals: presentedGpuNativeVisuals,
     viewport: liveProjectionSample.viewport,
   });
   return Object.freeze({
     preparedContentFrame,
     presentationPreparation: preparePreparedContentFramePresentationFramePlan({
-      committedGpuNativeVisuals,
+      presentedGpuNativeVisuals,
       deferBrowserVisualWakeup,
       frameReasons,
       heldPreviousProjectionState,
@@ -491,8 +491,8 @@ export function runGpuFlowRetainedPreparedContentFramePresentationContentStage<
       const preparedContentFramePreparation =
         prepareGpuFlowPreparedContentFramePresentationFramePlanForRetainedDisplay(
           {
-            committedGpuNativeVisuals:
-              retainedDisplayContent.committedGpuNativeVisuals,
+            presentedGpuNativeVisuals:
+              retainedDisplayContent.presentedGpuNativeVisuals,
             deferBrowserVisualWakeup,
             frameReasons,
             heldPreviousProjectionState: previousVisibleProjectionState,

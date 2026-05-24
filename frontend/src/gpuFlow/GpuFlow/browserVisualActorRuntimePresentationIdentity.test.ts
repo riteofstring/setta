@@ -52,7 +52,7 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
         retainedRuntimeFrame: firstFrame.retainedRuntimeFrame,
       }),
     });
-    browserVisualRuntime.commitPreparedBrowserVisualActors({
+    browserVisualRuntime.presentPreparedBrowserVisualActors({
       candidate: firstCandidate,
       token: firstToken,
     });
@@ -68,7 +68,7 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
         retainedRuntimeFrame: retiredFrame.retainedRuntimeFrame,
       }),
     });
-    browserVisualRuntime.commitPreparedBrowserVisualActors({
+    browserVisualRuntime.presentPreparedBrowserVisualActors({
       candidate: retiredCandidate,
       token: retiredToken,
     });
@@ -100,7 +100,7 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
     const firstCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrameInput(firstFrame),
     });
-    browserVisualRuntime.commitPreparedBrowserVisualActors({
+    browserVisualRuntime.presentPreparedBrowserVisualActors({
       candidate: firstCandidate,
       token: firstToken,
     });
@@ -114,7 +114,7 @@ describe("GPU Flow browser visual actor runtime presentation identity", () => {
     const retiredCandidate = browserVisualRuntime.prepareContentFrame({
       retainedDisplayFrame: retainedDisplayFrameInput(retiredFrame),
     });
-    browserVisualRuntime.commitPreparedBrowserVisualActors({
+    browserVisualRuntime.presentPreparedBrowserVisualActors({
       candidate: retiredCandidate,
       token: retiredToken,
     });

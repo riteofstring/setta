@@ -779,7 +779,7 @@ function createGpuFlowVisibleFrameReducerCompletionNoFrameOutcome({
           {
             actorId: null,
             family: "visible-transaction",
-            reason: "no-visible-frame-before-first-commit",
+            reason: "no-visible-frame-before-first-presentation",
           },
         ],
         frozenFrameId: GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,

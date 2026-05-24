@@ -113,7 +113,7 @@ function blockedToken(
     })),
     frozenFrame: {
       frameId: 1,
-      kind: "committed",
+      kind: "presented",
     },
     frozenFrameId: 1,
     projectionSampleId: 1,

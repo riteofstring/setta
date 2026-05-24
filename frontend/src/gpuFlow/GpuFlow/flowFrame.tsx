@@ -503,7 +503,7 @@ export { shouldDeferGpuFlowRetainedContentPostSubmitMaintenance } from "./flowRe
 export { getGpuFlowPreparedContentFrameBrowserVisualSnapshotLayoutControls };
 
 type GpuFlowRetainedPreparedContentFramePresentationRenderContext = {
-  readonly committedGpuNativeVisuals: ReturnType<
+  readonly presentedGpuNativeVisuals: ReturnType<
     typeof combineGpuFlowHtmlSurfaceNativeVisuals
   >;
   readonly finishPreparedContentFrameMeasure: () => number;
@@ -681,7 +681,8 @@ export function renderGpuFlowNodeLayerFrame({
       preparedContentFrame,
       retainedDisplayPresentation,
     }) => {
-      preparedContentPresentationMs += context.finishPreparedContentFrameMeasure();
+      preparedContentPresentationMs +=
+        context.finishPreparedContentFrameMeasure();
       retainedDisplayTransactionMs +=
         retainedDisplayPresentation.retainedDisplayTransactionMs;
       retainedPageMaintenanceMs +=
@@ -800,7 +801,7 @@ export function renderGpuFlowNodeLayerFrame({
         frame,
         grid: layer.grid,
         htmlSurfaceOverlays,
-        htmlSurfaceNativeVisuals: context.committedGpuNativeVisuals,
+        htmlSurfaceNativeVisuals: context.presentedGpuNativeVisuals,
         htmlSurfacePageVisuals: context.presentedRetainedPageFrame.flatSurfaces,
         marginCssPx: layer.marginCssPx,
         nodes,
@@ -932,7 +933,7 @@ export function renderGpuFlowNodeLayerFrame({
         });
       const retainedRuntimeNativeVisuals =
         presentedRetainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals;
-      const committedGpuNativeVisuals = combineGpuFlowHtmlSurfaceNativeVisuals(
+      const presentedGpuNativeVisuals = combineGpuFlowHtmlSurfaceNativeVisuals(
         retainedRuntimeNativeVisuals,
         switchAnimationNativeVisuals,
       );
@@ -944,9 +945,9 @@ export function renderGpuFlowNodeLayerFrame({
       const getRetainedDomControlRuntimeScrollOffset = (surfaceId: string) =>
         runtimeScrollOffsets.get(surfaceId) ?? null;
       return {
-        committedGpuNativeVisuals,
+        presentedGpuNativeVisuals,
         context: {
-          committedGpuNativeVisuals,
+          presentedGpuNativeVisuals,
           finishPreparedContentFrameMeasure,
           getRetainedDomControlRuntimeScrollOffset,
           presentedRetainedFrame,

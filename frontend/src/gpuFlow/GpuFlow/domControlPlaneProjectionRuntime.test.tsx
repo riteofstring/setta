@@ -113,7 +113,7 @@ describe("GPU flow DOM control projection runtime", () => {
         retainedRuntimeFrame: frame.retainedRuntimeFrame,
       }),
     });
-    browserVisualRuntime.commitPreparedBrowserVisualActors({
+    browserVisualRuntime.presentPreparedBrowserVisualActors({
       candidate,
       token,
     });
@@ -170,7 +170,7 @@ describe("GPU flow DOM control projection runtime", () => {
         element.dataset.gpuFlowDomControlPreparation === undefined;
     });
 
-    browserVisualRuntime.commitPreparedBrowserVisualActors({
+    browserVisualRuntime.presentPreparedBrowserVisualActors({
       candidate,
       token,
     });
@@ -230,7 +230,7 @@ describe("GPU flow DOM control projection runtime", () => {
         retainedRuntimeFrame: frame.retainedRuntimeFrame,
       }),
     });
-    browserVisualRuntime.commitPreparedBrowserVisualActors({
+    browserVisualRuntime.presentPreparedBrowserVisualActors({
       candidate,
       token,
     });
@@ -865,7 +865,7 @@ describe("GPU flow DOM control projection runtime", () => {
       "live-host-ready",
     );
     await act(async () => {
-      browserVisualRuntime.commitPreparedBrowserVisualActors({
+      browserVisualRuntime.presentPreparedBrowserVisualActors({
         candidate: readyReadiness!,
         token: presentationToken(
           preparedContentFrame({
@@ -934,7 +934,7 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(
       domControlCoverageState(unpresentedCompatibleCandidate, nextControl),
     ).toBe("blocked-awaiting-snapshot");
-    browserVisualRuntime.commitPreparedBrowserVisualActors({
+    browserVisualRuntime.presentPreparedBrowserVisualActors({
       candidate: firstCandidate,
       token: presentationToken(
         preparedContentFrame({
@@ -966,7 +966,7 @@ describe("GPU flow DOM control projection runtime", () => {
     );
   });
 
-  it("stages preparation snapshots without a React external-store publisher", () => {
+  it("stages preparation snapshots without a React external-store presenter", () => {
     const nextControl = domControl({ index: 1 });
     const nextRuntimeFrame = retainedRuntimeFrame([nextControl], 2);
     const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
@@ -1043,7 +1043,7 @@ describe("GPU flow DOM control projection runtime", () => {
     ).toEqual([]);
   });
 
-  it("aborts prepared candidate hosts without publishing the visible snapshot", () => {
+  it("aborts prepared candidate hosts without presenting the visible snapshot", () => {
     const nextControl = domControl({ index: 1 });
     const nextRuntimeFrame = retainedRuntimeFrame([nextControl], 2);
     const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();

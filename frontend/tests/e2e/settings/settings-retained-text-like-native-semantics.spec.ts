@@ -9,8 +9,8 @@ import {
   resolveRetainedSurfaceWheelPoint,
   selectAllShortcut,
   waitForActiveNativeTextValue,
-  waitForCommittedActiveEditorTextProof,
   waitForNativeTextSelectionState,
+  waitForPresentedActiveEditorTextProof,
 } from "./settings-retained-text-like-native-semantics-helpers";
 import {
   analyzeCodeMirrorTextInkBounds,
@@ -152,14 +152,14 @@ test("typing before and after retained motion stays in the same active editor", 
     expectedText: "motion-before-after",
     rowId: row.rowId,
   });
-  const committedProof = await waitForCommittedActiveEditorTextProof(page, {
+  const presentedProof = await waitForPresentedActiveEditorTextProof(page, {
     rowId: row.rowId,
   });
   const details = JSON.stringify(
     {
       caretAfterMotion,
       caretBeforeMotion,
-      committedProof,
+      presentedProof,
       row,
       target,
       typedAfter,
@@ -172,19 +172,19 @@ test("typing before and after retained motion stays in the same active editor", 
   expect(typedBefore.activeEditorId, details).toContain(row.rowId);
   expect(typedAfter.activeEditorId, details).toBe(typedBefore.activeEditorId);
   expect(typedAfter.text, details).toContain("motion-before-after");
-  expect(committedProof.active, details).toBe(true);
-  expect(committedProof.requiredVisual, details).toBe("browser-visual");
-  expect(committedProof.requiredInteraction, details).toBe(
+  expect(presentedProof.active, details).toBe(true);
+  expect(presentedProof.requiredVisual, details).toBe("browser-visual");
+  expect(presentedProof.requiredInteraction, details).toBe(
     "active-editor-live",
   );
-  expect(committedProof.actualInteraction, details).toBe("active-editor-live");
+  expect(presentedProof.actualInteraction, details).toBe("active-editor-live");
   expect(
     ["exact-live-host", "same-live-host-compatible-projection"].includes(
-      committedProof.actualVisual ?? "",
+      presentedProof.actualVisual ?? "",
     ),
     details,
   ).toBe(true);
-  expect(committedProof.projectionCoverage, details).toBe("exact-live-dom");
+  expect(presentedProof.projectionCoverage, details).toBe("exact-live-dom");
   expectNativeTextStateAlignedToRow(caretAfterMotion, details);
 });
 
@@ -208,7 +208,7 @@ test("retained motion preserves active editor visual ink and runtime health", as
     expectedCollapsed: true,
     rowId: row.rowId,
   });
-  const committedProofBefore = await waitForCommittedActiveEditorTextProof(
+  const presentedProofBefore = await waitForPresentedActiveEditorTextProof(
     page,
     { rowId: row.rowId },
   );
@@ -263,7 +263,7 @@ test("retained motion preserves active editor visual ink and runtime health", as
     expectedText: "visible-motion-before-after",
     rowId: row.rowId,
   });
-  const committedProofAfter = await waitForCommittedActiveEditorTextProof(
+  const presentedProofAfter = await waitForPresentedActiveEditorTextProof(
     page,
     { rowId: row.rowId },
   );
@@ -282,8 +282,8 @@ test("retained motion preserves active editor visual ink and runtime health", as
       beforeInk,
       caretAfterMotion,
       caretBeforeMotion,
-      committedProofAfter,
-      committedProofBefore,
+      presentedProofAfter,
+      presentedProofBefore,
       row,
       runtimeHealth: runtimeHealthSnapshot,
       target,
@@ -301,14 +301,14 @@ test("retained motion preserves active editor visual ink and runtime health", as
   expect(typedAfter.text, details).toContain("visible-motion-before-after");
   expect(beforeInk?.pixelCount ?? 0, details).toBeGreaterThan(0);
   expect(afterInk?.pixelCount ?? 0, details).toBeGreaterThan(0);
-  expect(committedProofAfter.actorId, details).toBe(
-    committedProofBefore.actorId,
+  expect(presentedProofAfter.actorId, details).toBe(
+    presentedProofBefore.actorId,
   );
-  expect(committedProofAfter.active, details).toBe(true);
-  expect(committedProofAfter.requiredInteraction, details).toBe(
+  expect(presentedProofAfter.active, details).toBe(true);
+  expect(presentedProofAfter.requiredInteraction, details).toBe(
     "active-editor-live",
   );
-  expect(committedProofAfter.actualInteraction, details).toBe(
+  expect(presentedProofAfter.actualInteraction, details).toBe(
     "active-editor-live",
   );
   expectSingleNativeTextAccessibilityExposure(accessibilityBefore, details);
@@ -330,7 +330,7 @@ test("active editor remains selectable after drag through held or drained candid
     expectedCollapsed: true,
     rowId: row.rowId,
   });
-  const committedProofBefore = await waitForCommittedActiveEditorTextProof(
+  const presentedProofBefore = await waitForPresentedActiveEditorTextProof(
     page,
     { rowId: row.rowId },
   );
@@ -363,7 +363,7 @@ test("active editor remains selectable after drag through held or drained candid
   await page.mouse.move(dragMid.x, dragMid.y, { steps: 12 });
 
   const faultActorId = await readOptionalQueuedBrowserVisualActorId(page, {
-    excludeActorId: committedProofBefore.actorId,
+    excludeActorId: presentedProofBefore.actorId,
   });
   if (faultActorId !== null) {
     await installBrowserVisualFaultInjectionForDomControls(page, {
@@ -385,7 +385,7 @@ test("active editor remains selectable after drag through held or drained candid
     faultActorId === null
       ? null
       : await waitForBlockedVisibleFramePresentationEvent(page, {
-          actorId: committedProofBefore.actorId,
+          actorId: presentedProofBefore.actorId,
           reason: "live-dom-budget",
         });
   if (faultActorId !== null) {
@@ -398,7 +398,7 @@ test("active editor remains selectable after drag through held or drained candid
     expectedCollapsed: false,
     rowId: row.rowId,
   });
-  const committedProofAfter = await waitForCommittedActiveEditorTextProof(
+  const presentedProofAfter = await waitForPresentedActiveEditorTextProof(
     page,
     {
       rowId: row.rowId,
@@ -415,8 +415,8 @@ test("active editor remains selectable after drag through held or drained candid
       accessibilityAfter,
       blockedEvent,
       caretBeforeDrag,
-      committedProofAfter,
-      committedProofBefore,
+      presentedProofAfter,
+      presentedProofBefore,
       faultActorId,
       pointerProbe,
       row,
@@ -447,10 +447,10 @@ test("active editor remains selectable after drag through held or drained candid
   expect(pointerProbe.pointerCancelCount, details).toBe(0);
   expect(pointerProbe.activeEditorMoveCount, details).toBeGreaterThanOrEqual(1);
   expect(selectedAfterAbort.selectedText.length, details).toBeGreaterThan(4);
-  expect(committedProofAfter.actorId, details).toBe(
-    committedProofBefore.actorId,
+  expect(presentedProofAfter.actorId, details).toBe(
+    presentedProofBefore.actorId,
   );
-  expect(committedProofAfter.active, details).toBe(true);
+  expect(presentedProofAfter.active, details).toBe(true);
   expectSingleNativeTextAccessibilityExposure(accessibilityAfter, details);
   expectNativeTextStateAlignedToRow(selectedAfterAbort, details);
 });
@@ -468,7 +468,7 @@ test("active editor crossing viewport clip boundary keeps one exposed live host"
     expectedCollapsed: true,
     rowId: row.rowId,
   });
-  const committedProofBefore = await waitForCommittedActiveEditorTextProof(
+  const presentedProofBefore = await waitForPresentedActiveEditorTextProof(
     page,
     { rowId: row.rowId },
   );
@@ -485,7 +485,7 @@ test("active editor crossing viewport clip boundary keeps one exposed live host"
     expectedCollapsed: true,
     rowId: row.rowId,
   });
-  const committedProofAtClip = await waitForCommittedActiveEditorTextProof(
+  const presentedProofAtClip = await waitForPresentedActiveEditorTextProof(
     page,
     { rowId: row.rowId },
   );
@@ -500,8 +500,8 @@ test("active editor crossing viewport clip boundary keeps one exposed live host"
       accessibilityBefore,
       caretAtClipBoundary,
       caretBeforeClip,
-      committedProofAtClip,
-      committedProofBefore,
+      presentedProofAtClip,
+      presentedProofBefore,
       row,
       runtimeHealth: runtimeHealthSnapshot,
     },
@@ -517,10 +517,10 @@ test("active editor crossing viewport clip boundary keeps one exposed live host"
       caretAtClipBoundary.rowControlRect.height,
     details,
   ).toBeGreaterThan(4);
-  expect(committedProofAtClip.actorId, details).toBe(
-    committedProofBefore.actorId,
+  expect(presentedProofAtClip.actorId, details).toBe(
+    presentedProofBefore.actorId,
   );
-  expect(committedProofAtClip.active, details).toBe(true);
+  expect(presentedProofAtClip.active, details).toBe(true);
   expectSingleNativeTextAccessibilityExposure(accessibilityBefore, details);
   expectSingleNativeTextAccessibilityExposure(accessibilityAtClip, details);
   expectNativeTextStateAlignedToRow(caretBeforeClip, details);
@@ -904,7 +904,7 @@ function findBlockedVisibleFramePresentationEvent(
     readonly reason: string;
   },
 ): BlockedVisibleFramePresentationEvent | null {
-  let committedFrozenFallback: BlockedVisibleFramePresentationEvent | null =
+  let presentedFrozenFallback: BlockedVisibleFramePresentationEvent | null =
     null;
   for (const [index, event] of events.entries()) {
     if (
@@ -916,13 +916,13 @@ function findBlockedVisibleFramePresentationEvent(
       return { ...event, eventCount: index + 1 };
     }
     if (
-      committedFrozenFallback === null &&
+      presentedFrozenFallback === null &&
       typeof event.frozenFrameId === "number"
     ) {
-      committedFrozenFallback = { ...event, eventCount: index + 1 };
+      presentedFrozenFallback = { ...event, eventCount: index + 1 };
     }
   }
-  return committedFrozenFallback;
+  return presentedFrozenFallback;
 }
 
 async function clampScreenshotClipToViewport(

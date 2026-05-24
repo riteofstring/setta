@@ -381,7 +381,7 @@ describe("RetainedContentTexturePageManager", () => {
     expect(replacementFrame.repairedPreparedFrame.flatSurfaces).toHaveLength(1);
   });
 
-  it("protects the last published pages while a replacement frame is prepared", () => {
+  it("protects the last presented pages while a replacement frame is prepared", () => {
     const fixture = createManagerFixture({
       budget: {
         maxFrameUploadedBytes: 1_000_000,

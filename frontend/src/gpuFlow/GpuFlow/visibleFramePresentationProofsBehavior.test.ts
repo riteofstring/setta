@@ -150,7 +150,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   it("keeps presentable frame proof digests compact for large actor manifests", () => {
     const frame = preparedContentFrame({
       actorGenerations: Array.from({ length: 80 }, (_, index) =>
-        committedActorGeneration({
+        preparedActorGeneration({
           actorId: `actor-${index}`,
           resourceHandles: [],
         }),
@@ -192,7 +192,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(() =>
-      proveGpuFlowVisibleFramePresentationProofForCommit({
+      proveGpuFlowVisibleFramePresentationProofForPresentation({
         presentationAuthorityProof: {
           ...presentationAuthorityProof,
           proofDigest: "stale-visible-proof",
@@ -220,7 +220,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(() =>
-      proveGpuFlowVisibleFramePresentationProofForCommit({
+      proveGpuFlowVisibleFramePresentationProofForPresentation({
         presentationAuthorityProof: {
           ...presentationAuthorityProof,
           presentationPairProof: {
@@ -255,7 +255,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(() =>
-      proveGpuFlowVisibleFramePresentationProofForCommit({
+      proveGpuFlowVisibleFramePresentationProofForPresentation({
         presentationAuthorityProof,
         frame,
         projectionSample,
@@ -280,7 +280,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(() =>
-      proveGpuFlowVisibleFramePresentationProofForCommit({
+      proveGpuFlowVisibleFramePresentationProofForPresentation({
         presentationAuthorityProof: {
           ...presentationAuthorityProof,
           resourceProtectionDigest: "stale-resource-protection-proof",
@@ -301,7 +301,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     };
     const frame = preparedContentFrame({
       actorGenerations: [
-        committedActorGeneration({
+        preparedActorGeneration({
           actorId: "actor-a",
           resourceHandles: [resourceHandle],
         }),
@@ -337,7 +337,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   ])(
     "rejects presentation authority when active-editor proof changes after presentation staging",
     ({ actualInteraction, actualVisual }) => {
-      const actor = committedActorGeneration({
+      const actor = preparedActorGeneration({
         actorId: "actor-a",
         proof: browserVisualProof(),
         resourceHandles: [],
@@ -346,9 +346,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         actorGenerations: [actor],
       });
       if (actor.browserVisual === null) {
-        throw new Error(
-          "Expected committed test actor to carry browser proof.",
-        );
+        throw new Error("Expected prepared test actor to carry browser proof.");
       }
       const changedActor = {
         ...actor,
@@ -842,7 +840,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   });
 });
 
-function proveGpuFlowVisibleFramePresentationProofForCommit({
+function proveGpuFlowVisibleFramePresentationProofForPresentation({
   presentationAuthorityProof,
   frame,
   projectionSample,
@@ -870,7 +868,7 @@ function proveGpuFlowVisibleFramePresentationProofForCommit({
           maintenance: false,
           motion: false,
         },
-        kind: "committed",
+        kind: "presented",
       }),
       getKnobs: () => ({
         maxHeldPreviousFrames: 6,
@@ -984,7 +982,7 @@ function preparedContentFrame({
   readonly surfaceTransaction?: SurfaceDisplayTransaction | null | undefined;
 } = {}): GpuFlowPreparedContentFrame {
   const displayFrameId = 7;
-  const committedCoherence = {
+  const presentedCoherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
@@ -998,11 +996,11 @@ function preparedContentFrame({
   };
   return {
     actorGenerations,
-    coherence: committedCoherence,
+    coherence: presentedCoherence,
     displayFrameId,
     presentationProof: createGpuFlowPreparedContentPresentationProof({
       actorGenerations,
-      coherence: committedCoherence,
+      coherence: presentedCoherence,
       displayFrameId,
       surfaceTransaction,
     }),
@@ -1025,17 +1023,17 @@ function preparedContentFrame({
   } as unknown as GpuFlowPreparedContentFrame;
 }
 
-type CommittedBrowserVisualProof = NonNullable<
+type PreparedBrowserVisualProof = NonNullable<
   GpuFlowPreparedContentFrame["actorGenerations"][number]["browserVisual"]
 >["proof"];
 
-function committedActorGeneration({
+function preparedActorGeneration({
   actorId,
   proof = null,
   resourceHandles,
 }: {
   readonly actorId: string;
-  readonly proof?: CommittedBrowserVisualProof | null | undefined;
+  readonly proof?: PreparedBrowserVisualProof | null | undefined;
   readonly resourceHandles: NonNullable<
     GpuFlowPreparedContentFrame["actorGenerations"][number]["browserVisual"]
   >["resourceHandles"];
@@ -1064,12 +1062,12 @@ function browserVisualProof({
   actualVisual = "exact-live-host",
 }: {
   readonly actualInteraction?:
-    | CommittedBrowserVisualProof["actualInteraction"]
+    | PreparedBrowserVisualProof["actualInteraction"]
     | undefined;
   readonly actualVisual?:
-    | CommittedBrowserVisualProof["actualVisual"]
+    | PreparedBrowserVisualProof["actualVisual"]
     | undefined;
-} = {}): CommittedBrowserVisualProof {
+} = {}): PreparedBrowserVisualProof {
   return {
     actualInteraction,
     actualVisual,

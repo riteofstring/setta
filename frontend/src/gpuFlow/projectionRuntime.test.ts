@@ -31,7 +31,7 @@ import {
 import { createGpuRetainedContentRuntimeState } from "./retainedContentRuntimeState";
 
 describe("GPU Flow projection runtime", () => {
-  it("publishes motion before mixed content and maintenance debt", () => {
+  it("presents motion before mixed content and maintenance debt", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveSample(1);
     expect(Object.isFrozen(reducerRuntime.getKnobs())).toBe(true);
@@ -363,7 +363,7 @@ describe("GPU Flow projection runtime", () => {
     });
   });
 
-  it("rejects committed debt proof for lanes outside the selected publication outcome", () => {
+  it("rejects committed debt proof for lanes outside the selected presentation outcome", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const decision = reducerRuntime.selectFrame({
       hasPresentedContentFrame: true,

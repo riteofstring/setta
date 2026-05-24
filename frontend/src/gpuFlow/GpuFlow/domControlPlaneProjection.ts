@@ -110,7 +110,7 @@ type GpuFlowDomControlProjectionManager = {
   promote(
     assignments: readonly GpuFlowDomControlProjectionAssignment[],
   ): readonly GpuRetainedDomControlSourceDescriptor[];
-  commitPromotedRepresentations(
+  presentPromotedRepresentations(
     assignments: readonly GpuFlowDomControlProjectionAssignment[],
   ): void;
 };
@@ -133,7 +133,7 @@ export function createGpuFlowDomControlProjectionManager(): GpuFlowDomControlPro
     promote(assignments) {
       return selectGpuFlowDomControlPromotedControls(assignments);
     },
-    commitPromotedRepresentations(assignments) {
+    presentPromotedRepresentations(assignments) {
       promotedRepresentationByControlId =
         createGpuFlowDomControlPromotedRepresentationMap({
           assignments,

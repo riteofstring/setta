@@ -829,7 +829,7 @@ function preparePreparedContentFramePresentationCandidateForTest({
   readonly preparedContentFrame: GpuFlowPreparedContentFrame;
 }) {
   return preparePreparedContentFramePresentationFramePlanForTest({
-    committedGpuNativeVisuals: undefined,
+    presentedGpuNativeVisuals: undefined,
     frameReasons: ["manual"],
     heldPreviousProjectionState,
     liveProjectionSample: liveSample,

@@ -9,7 +9,7 @@ import {
 import type { BrowserVisualActorCompatiblePreviousProof } from "./browserVisualActorProofTypes";
 
 describe("browser visual actor adapter", () => {
-  it("publishes live DOM-control coverage through shared surface entries", () => {
+  it("presents live DOM-control coverage through shared surface entries", () => {
     const actor = createDomControlBrowserVisualActor(
       domControl({ value: "hello" }),
       {
@@ -145,7 +145,7 @@ describe("browser visual actor adapter", () => {
     expect(fragment.trueHoleRects).toEqual([actor.flowRect]);
   });
 
-  it("publishes snapshot DOM-control coverage as exact texture coverage", () => {
+  it("presents snapshot DOM-control coverage as exact texture coverage", () => {
     const actor = createDomControlBrowserVisualActor(
       domControl({
         snapshotSurfaceId: "snapshot-a",
@@ -170,7 +170,7 @@ describe("browser visual actor adapter", () => {
     ]);
   });
 
-  it("publishes promoted snapshot DOM-control coverage from exact live hosts", () => {
+  it("presents promoted snapshot DOM-control coverage from exact live hosts", () => {
     const control = domControl({
       snapshotSurfaceId: "snapshot-a",
       value: "hello",
@@ -342,7 +342,7 @@ describe("browser visual actor adapter", () => {
     expect(fragment.exactCoverage).toEqual([]);
   });
 
-  it("publishes compatible previous DOM-control coverage through shared compatible entries", () => {
+  it("presents compatible previous DOM-control coverage through shared compatible entries", () => {
     const actor = createDomControlBrowserVisualActor(
       domControl({
         value: "hello",
@@ -379,7 +379,7 @@ describe("browser visual actor adapter", () => {
     expect(fragment.trueHoleRects).toEqual([]);
   });
 
-  it("does not publish compatible previous coverage for fault-injected readiness", () => {
+  it("does not present compatible previous coverage for fault-injected readiness", () => {
     const actor = createDomControlBrowserVisualActor(
       domControl({
         value: "hello",
@@ -445,7 +445,7 @@ describe("browser visual actor adapter", () => {
     expect(fragment.blockingSurfaceIds).toEqual([actor.surfaceId]);
   });
 
-  it("does not publish active DOM-control editors from snapshot readiness", () => {
+  it("does not present active DOM-control editors from snapshot readiness", () => {
     const actor = createDomControlBrowserVisualActor(
       domControl({
         active: true,

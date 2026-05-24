@@ -192,9 +192,9 @@ describe("retained content scroll", () => {
     });
   });
 
-  it("uses the published retained runtime frame for wheel ownership when supplied", () => {
-    const publishedSurface = retainedSurface({
-      id: "published",
+  it("uses the presented retained runtime frame for wheel ownership when supplied", () => {
+    const presentedSurface = retainedSurface({
+      id: "presented",
       rect: { height: 80, width: 160, x: 0, y: 0 },
       zIndex: 1,
     });
@@ -206,7 +206,7 @@ describe("retained content scroll", () => {
     const retainedRuntimeFrame = createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 1,
       frameId: 1,
-      scene: sceneWithSurfaces([publishedSurface]),
+      scene: sceneWithSurfaces([presentedSurface]),
       scrollOffsets: new Map(),
       scrollRevision: 1,
       viewport: [0, 0, 1],
@@ -225,7 +225,7 @@ describe("retained content scroll", () => {
       changed: true,
       handled: true,
       scrollOffset: { x: 0, y: 24 },
-      surfaceId: "published",
+      surfaceId: "presented",
     });
   });
 

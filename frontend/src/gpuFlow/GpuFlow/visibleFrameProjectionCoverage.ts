@@ -347,11 +347,11 @@ function hasGpuFlowRetainedProjectionSceneRevisionChanged({
   readonly layer: GpuFlowNodeLayerState;
   readonly retainedDisplayFrame: RetainedDisplayFrame;
 }): boolean {
-  const committedSceneRevision =
+  const presentedSceneRevision =
     retainedDisplayFrame.retainedRuntimeFrame.input.sceneRevision;
   return (
-    typeof committedSceneRevision === "number" &&
-    layer.scene?.revision !== committedSceneRevision
+    typeof presentedSceneRevision === "number" &&
+    layer.scene?.revision !== presentedSceneRevision
   );
 }
 

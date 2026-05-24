@@ -230,7 +230,7 @@ function presentBrowserVisualFrame({
       retainedRuntimeFrame: frame.retainedRuntimeFrame,
     } as RetainedDisplayFrame,
   });
-  browserVisualRuntime.commitPreparedBrowserVisualActors({ candidate, token });
+  browserVisualRuntime.presentPreparedBrowserVisualActors({ candidate, token });
   presentedSurfaceRuntime.presentContentFrame(token, frame);
   return token;
 }

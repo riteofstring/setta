@@ -86,7 +86,7 @@ describe("GPU Flow visible frame state machine reducer", () => {
     });
   });
 
-  it("blocks cold start instead of publishing partial current-scene content", () => {
+  it("blocks cold start instead of presenting partial current-scene content", () => {
     const outcome = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [blockedProof(ACTOR_A, "coverage-missing")],

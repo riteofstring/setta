@@ -268,7 +268,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "preparedContentFramePresentationCandidateAction",
     );
     expect(flowFrameSource).not.toContain(
-      "assertGpuFlowPreparedContentFramePresentationCandidatePublished",
+      "assertGpuFlowPreparedContentFramePresentationCandidatePresented",
     );
     expect(flowFrameSource).not.toContain(
       "selectRetainedDisplayPresentationFramePlan",
@@ -285,7 +285,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
     expect(flowFrameSource).not.toContain(
       "preparedContentFramePresentationCandidate.kind",
     );
-    expect(flowFrameSource).not.toContain("publicationKind");
+    expect(flowFrameSource).not.toContain("presentationKind");
     expect(flowFrameSource).not.toContain(
       "retainedDisplayPresentationPreparation.nodeLayerFrameResult",
     );
@@ -382,10 +382,12 @@ describe("GPU Flow visible frame presentation content plans", () => {
     );
     expect(flowFrameSource).not.toContain("content-frame-result");
     expect(flowFrameSource).not.toContain("presented-outcome-frame");
-    expect(flowFrameSource).not.toContain("prepared-content-frame-publication");
+    expect(flowFrameSource).not.toContain(
+      "prepared-content-frame-presentation",
+    );
     expect(flowFrameSource).not.toContain("onPreparedContentPrepared");
-    expect(flowFrameSource).not.toContain("onPreparedContentPublished");
-    expect(flowFrameSource).not.toContain("onRetainedDisplayPublished");
+    expect(flowFrameSource).not.toContain("onPreparedContentPresented");
+    expect(flowFrameSource).not.toContain("onRetainedDisplayPresented");
     expect(flowFrameSource).toContain(
       "runRetainedPreparedContentFramePresentationContentStage",
     );
@@ -823,7 +825,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
             presentedRetainedFrame,
           );
           return {
-            committedGpuNativeVisuals: undefined,
+            presentedGpuNativeVisuals: undefined,
             context: { marker: "retained-presented" },
           };
         },
@@ -958,7 +960,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
           );
           expect(presentation).toBe(retainedDisplayPresentation);
           return {
-            committedGpuNativeVisuals: undefined,
+            presentedGpuNativeVisuals: undefined,
             context: { marker: "retained-presented" },
           };
         },
@@ -1061,7 +1063,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "createVisibleProjectionStateForRetainedPresentation",
     );
     expect(surfaceFrameSource).not.toContain(
-      "onRetainedDisplayFramePublishable",
+      "onRetainedDisplayFramePresentable",
     );
     expect(surfaceFrameSource).not.toContain(
       "onRetainedDisplayFollowUpFrameNeeded",
@@ -1103,7 +1105,7 @@ function preparedContentFramePresentationCandidateInput({
   readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }): GpuFlowPreparedContentFramePresentationCandidateInput {
   return {
-    committedGpuNativeVisuals: undefined,
+    presentedGpuNativeVisuals: undefined,
     frameReasons: ["manual"],
     heldPreviousProjectionState: null,
     liveProjectionSample: liveProjectionSample(),

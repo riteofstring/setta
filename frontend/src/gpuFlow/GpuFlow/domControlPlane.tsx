@@ -289,7 +289,7 @@ export function GpuFlowDomControlPlane({
       projectedFrameRequestKeyRef.current !== projectionFrameKey
     ) {
       projectedFrameRequestKeyRef.current = projectionFrameKey;
-      browserVisualRuntime.requestCommittedBrowserVisualRepairFrame({
+      browserVisualRuntime.requestPresentedBrowserVisualRepairFrame({
         surface: surfaceRef?.current,
       });
     }
@@ -483,7 +483,7 @@ function requestGpuFlowDomControlHostFrameIfNeeded({
     return;
   }
   if (shouldRequestGpuFlowDomControlHostRepairFrame({ control })) {
-    browserVisualRuntime.requestCommittedBrowserVisualRepairFrame({
+    browserVisualRuntime.requestPresentedBrowserVisualRepairFrame({
       surface: surfaceRef?.current,
     });
   }

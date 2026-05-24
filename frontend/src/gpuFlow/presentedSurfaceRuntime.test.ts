@@ -14,7 +14,7 @@ describe("GPU Flow presented surface runtime", () => {
     const startupFrame = preparedContentFrame({ displayFrameId: 1 });
     const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
     const nextFrame = preparedContentFrame({
-      actorGenerations: [committedActor("actor-next")],
+      actorGenerations: [preparedActor("actor-next")],
       displayFrameId: 2,
     });
     const notifications: string[] = [];
@@ -50,11 +50,11 @@ describe("GPU Flow presented surface runtime", () => {
     const startupFrame = preparedContentFrame({ displayFrameId: 1 });
     const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
     const firstFrame = preparedContentFrame({
-      actorGenerations: [committedActor("actor-first")],
+      actorGenerations: [preparedActor("actor-first")],
       displayFrameId: 2,
     });
     const secondFrame = preparedContentFrame({
-      actorGenerations: [committedActor("actor-second")],
+      actorGenerations: [preparedActor("actor-second")],
       displayFrameId: 3,
     });
     const presentedFrameIds: number[] = [];
@@ -88,7 +88,7 @@ describe("GPU Flow presented surface runtime", () => {
     const startupFrame = preparedContentFrame({ displayFrameId: 1 });
     const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
     const nextFrame = preparedContentFrame({
-      actorGenerations: [committedActor("actor-next")],
+      actorGenerations: [preparedActor("actor-next")],
       displayFrameId: 2,
     });
 
@@ -186,7 +186,7 @@ describe("GPU Flow presented surface runtime", () => {
     const startupFrame = preparedContentFrame({ displayFrameId: 1 });
     const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
     const staleFrame = preparedContentFrame({
-      actorGenerations: [committedActor("actor-stale")],
+      actorGenerations: [preparedActor("actor-stale")],
       displayFrameId: 2,
     });
     const nextFrame = preparedContentFrame({ displayFrameId: 2 });
@@ -261,7 +261,7 @@ function preparedContentFrame({
   } as unknown as GpuFlowPreparedContentFrame;
 }
 
-function committedActor(
+function preparedActor(
   actorId: string,
 ): GpuFlowPreparedContentFrame["actorGenerations"][number] {
   return {

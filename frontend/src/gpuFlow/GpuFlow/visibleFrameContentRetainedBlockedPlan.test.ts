@@ -65,7 +65,7 @@ describe("GPU Flow retained display candidate content plans", () => {
           throw new Error("Blocked committed candidates must not present.");
         },
         onRetainedDisplayCandidateAccepted: () => ({
-          committedGpuNativeVisuals: undefined,
+          presentedGpuNativeVisuals: undefined,
           context: {},
         }),
         prepareContentFrame: () => preparedContentFrame,
@@ -137,7 +137,7 @@ describe("GPU Flow retained display candidate content plans", () => {
           );
         },
         onRetainedDisplayCandidateAccepted: () => ({
-          committedGpuNativeVisuals: undefined,
+          presentedGpuNativeVisuals: undefined,
           context: {},
         }),
         prepareContentFrame: () => preparedContentFrame,

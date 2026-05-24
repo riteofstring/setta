@@ -35,7 +35,7 @@ function createTestVisibleFramePresentationBoundary(
 
 describe("GPU Flow surface presentation completion", () => {
   it("records held-previous diagnostics without advancing presented visible projection state", () => {
-    const committedState = visibleProjectionState({
+    const presentedState = visibleProjectionState({
       displayFrameId: 7,
       kind: "prepared-content",
       sampleId: 1,
@@ -45,8 +45,8 @@ describe("GPU Flow surface presentation completion", () => {
       kind: "held-previous",
       sampleId: 2,
     });
-    const visibleProjectionStateRef = { current: committedState };
-    const visibleProjectionPresentationStateRef = { current: committedState };
+    const visibleProjectionStateRef = { current: presentedState };
+    const visibleProjectionPresentationStateRef = { current: presentedState };
     const submitDomTransforms = vi.fn();
     const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame: () => {
@@ -93,16 +93,16 @@ describe("GPU Flow surface presentation completion", () => {
           submitDomTransforms,
         }),
         previousContentFrameId:
-          committedState.preparedContentFrame.displayFrameId,
+          presentedState.preparedContentFrame.displayFrameId,
       }),
     );
 
-    expect(visibleProjectionStateRef.current).toBe(committedState);
-    expect(visibleProjectionPresentationStateRef.current).toBe(committedState);
+    expect(visibleProjectionStateRef.current).toBe(presentedState);
+    expect(visibleProjectionPresentationStateRef.current).toBe(presentedState);
     expect(submitDomTransforms).not.toHaveBeenCalled();
   });
 
-  it("does not complete reducer debt when committed presentation fails before visibility advances", () => {
+  it("does not complete reducer debt when visible presentation fails before visibility advances", () => {
     const preparedContentFrame = createPreparedContentFrame({
       displayFrameId: 12,
     });
@@ -155,7 +155,7 @@ describe("GPU Flow surface presentation completion", () => {
 
     expect(() =>
       presentationBoundary(
-        committedPresentationTransaction({
+        presentOutcomeTransaction({
           preparedContentFrame,
           nodeLayerFrameStatePresentation: nodeLayerFrameStatePresentation({
             submitCanvas,
@@ -231,7 +231,7 @@ describe("GPU Flow surface presentation completion", () => {
     >[0]);
 
     presentationBoundary(
-      committedPresentationTransaction({
+      presentOutcomeTransaction({
         preparedContentFrame,
         nodeLayerFrameStatePresentation: nodeLayerFrameStatePresentation({
           submitCanvas,
@@ -258,7 +258,7 @@ describe("GPU Flow surface presentation completion", () => {
     });
   });
 
-  it("does not promote committed state when prepared canvas submission fails", () => {
+  it("does not promote visible state when prepared canvas submission fails", () => {
     const preparedContentFrame = createPreparedContentFrame({
       displayFrameId: 22,
     });
@@ -308,7 +308,7 @@ describe("GPU Flow surface presentation completion", () => {
 
     expect(() =>
       presentationBoundary(
-        committedPresentationTransaction({
+        presentOutcomeTransaction({
           preparedContentFrame,
           nodeLayerFrameStatePresentation: nodeLayerFrameStatePresentation({
             submitCanvas: () => {
@@ -368,7 +368,7 @@ describe("GPU Flow surface presentation completion", () => {
     >[0]);
 
     presentationBoundary(
-      committedPresentationTransaction({
+      presentOutcomeTransaction({
         preparedContentFrame,
         debtFrameRequest: {
           delayMs: null,
@@ -440,7 +440,7 @@ describe("GPU Flow surface presentation completion", () => {
     >[0]);
 
     presentationBoundary(
-      committedPresentationTransaction({
+      presentOutcomeTransaction({
         preparedContentFrame,
         debtFrameRequest: {
           delayMs: null,
@@ -540,7 +540,7 @@ describe("GPU Flow surface presentation completion", () => {
     };
 
     presentationBoundary(
-      committedPresentationTransaction({
+      presentOutcomeTransaction({
         preparedContentFrame: firstPreparedContentFrame,
         debtFrameRequest: {
           delayMs: 160,
@@ -553,7 +553,7 @@ describe("GPU Flow surface presentation completion", () => {
       }),
     );
     presentationBoundary(
-      committedPresentationTransaction({
+      presentOutcomeTransaction({
         preparedContentFrame: secondPreparedContentFrame,
         debtFrameRequest: {
           delayMs: 160,
@@ -887,7 +887,7 @@ function heldPreviousPresentationTransaction({
   } as unknown as GpuFlowSurfacePresentationTransaction;
 }
 
-function committedPresentationTransaction({
+function presentOutcomeTransaction({
   preparedContentFrame,
   debtFrameRequest = null,
   followUpFrameRequests = [],

@@ -6,7 +6,7 @@ const modulePath = (path: string): string =>
   fileURLToPath(new URL(path, import.meta.url));
 
 describe("GPU Flow visible frame texture eviction boundary", () => {
-  it("defers texture eviction until presentation-tokened node-layer publication", () => {
+  it("defers texture eviction until presentation-tokened node-layer presentation", () => {
     const flowFrameSource = readFileSync(modulePath("./flowFrame.tsx"), "utf8");
     const projectionFrameSource = readFileSync(
       modulePath("./flowProjectionFrame.tsx"),

@@ -715,7 +715,7 @@ async function centerGuiRowAtZoom(
   await waitForAnimationFrame(page);
   let latestViewportMatch: {
     readonly blockedEventCount?: number;
-    readonly committedContentFrame: unknown;
+    readonly presentedContentFrame: unknown;
     readonly lastBlockedEvent?: unknown;
     readonly lastStarvationReport?: unknown;
     readonly live: unknown;
@@ -732,11 +732,11 @@ async function centerGuiRowAtZoom(
             window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("viewport");
             const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
             const live = snapshot?.viewport.transform ?? null;
-            const committedContentFrame =
+            const presentedContentFrame =
               snapshot?.presentedContentFrame?.viewportSample ?? null;
             const visibleProjection =
               snapshot?.visibleProjection?.viewport ?? null;
-            const observed = visibleProjection ?? committedContentFrame;
+            const observed = visibleProjection ?? presentedContentFrame;
             const blockedEvents =
               window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_FRAME_PRESENTATION_EVENTS__ ??
               [];
@@ -753,7 +753,7 @@ async function centerGuiRowAtZoom(
             if (!live || !observed) {
               return {
                 blockedEventCount: blockedEvents.length,
-                committedContentFrame,
+                presentedContentFrame,
                 lastBlockedEvent,
                 lastStarvationReport,
                 live,
@@ -765,7 +765,7 @@ async function centerGuiRowAtZoom(
             }
             return {
               blockedEventCount: blockedEvents.length,
-              committedContentFrame,
+              presentedContentFrame,
               lastBlockedEvent,
               lastStarvationReport,
               live,
@@ -787,7 +787,7 @@ async function centerGuiRowAtZoom(
   } catch (error) {
     const causeMessage = error instanceof Error ? error.message : String(error);
     throw new Error(
-      `Timed out waiting for committed viewport: ${JSON.stringify(latestViewportMatch)} (${causeMessage})`,
+      `Timed out waiting for presented viewport: ${JSON.stringify(latestViewportMatch)} (${causeMessage})`,
     );
   }
   await waitForViewportIdle(page);

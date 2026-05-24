@@ -18,14 +18,14 @@ type GpuFlowPreparedContentDomControlSource =
   GpuFlowPreparedContentFrame["retainedRuntimeFrame"]["descriptors"]["domControlSources"][number];
 
 describe("GPU Flow prepared content compatible-previous coverage", () => {
-  it("publishes compatible-previous DOM-control coverage from a prior prepared frame", () => {
+  it("presents compatible-previous DOM-control coverage from a prior prepared frame", () => {
     const { actor, frame } = createCompatiblePreviousPreparedContentFrame();
 
     expectCompatiblePreviousDomControlActor({ actor, frame });
     expectCompatiblePreviousSurfaceCoverage({ actor, frame });
   });
 
-  it("publishes compatible-previous DOM-control coverage while the current snapshot is pending", () => {
+  it("presents compatible-previous DOM-control coverage while the current snapshot is pending", () => {
     const { actor, frame } = createCompatiblePreviousPreparedContentFrame({
       readiness: "blocked-awaiting-snapshot",
     });
@@ -34,7 +34,7 @@ describe("GPU Flow prepared content compatible-previous coverage", () => {
     expectCompatiblePreviousSurfaceCoverage({ actor, frame });
   });
 
-  it("publishes compatible-previous DOM-control coverage while the current live host is pending", () => {
+  it("presents compatible-previous DOM-control coverage while the current live host is pending", () => {
     const { actor, frame } = createCompatiblePreviousPreparedContentFrame({
       readiness: "blocked-awaiting-live-host",
       visualPolicy: "live-dom",
@@ -44,7 +44,7 @@ describe("GPU Flow prepared content compatible-previous coverage", () => {
     expectCompatiblePreviousSurfaceCoverage({ actor, frame });
   });
 
-  it("does not publish compatible-previous DOM-control coverage beyond the frame-age budget", () => {
+  it("does not present compatible-previous DOM-control coverage beyond the frame-age budget", () => {
     const { actor, frame } = createCompatiblePreviousPreparedContentFrame({
       retainedFrameId: 14,
       previousRetainedFrameId: 10,
@@ -53,7 +53,7 @@ describe("GPU Flow prepared content compatible-previous coverage", () => {
     expectBlockedCompatiblePreviousDomControlActor({ actor, frame });
   });
 
-  it("does not publish compatible-previous DOM-control coverage beyond the millisecond-age budget", () => {
+  it("does not present compatible-previous DOM-control coverage beyond the millisecond-age budget", () => {
     const { actor, frame } = createCompatiblePreviousPreparedContentFrame({
       presentedAtMs: 250,
       previousPresentedAtMs: 0,
@@ -141,7 +141,7 @@ function expectCompatiblePreviousDomControlActor({
   const preparedActor = actor as GpuFlowPreparedContentActor;
   expectCompatiblePreviousBrowserVisual(preparedActor);
   expectCompatiblePreviousTextCoverage(preparedActor);
-  expectCompatiblePreviousFramePublication({ actor: preparedActor, frame });
+  expectCompatiblePreviousFramePresentation({ actor: preparedActor, frame });
 }
 
 function expectBlockedCompatiblePreviousDomControlActor({
@@ -231,7 +231,7 @@ function expectCompatiblePreviousTextCoverage(
   );
 }
 
-function expectCompatiblePreviousFramePublication({
+function expectCompatiblePreviousFramePresentation({
   actor,
   frame,
 }: {

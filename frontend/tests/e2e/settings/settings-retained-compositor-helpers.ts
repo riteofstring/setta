@@ -190,9 +190,9 @@ export async function centerRetainedCompositorSurface(
   page: Page,
   surfaceId = SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
   {
-    waitForCommittedViewport = true,
+    waitForPresentedViewport = true,
   }: {
-    readonly waitForCommittedViewport?: boolean | undefined;
+    readonly waitForPresentedViewport?: boolean | undefined;
   } = {},
 ): Promise<void> {
   const viewport = await page.evaluate(async (targetSurfaceId) => {
@@ -233,11 +233,11 @@ export async function centerRetainedCompositorSurface(
   }, surfaceId);
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
-  if (!waitForCommittedViewport) {
+  if (!waitForPresentedViewport) {
     await waitForRetainedCompositorRuntimeViewport(page, viewport);
     return;
   }
-  await waitForRetainedCompositorViewportCommit(page, viewport);
+  await waitForRetainedCompositorViewportPresentation(page, viewport);
   await waitForRetainedCompositorCoherentVisibleFrame(page);
 }
 
@@ -247,10 +247,13 @@ async function waitForRetainedCompositorRuntimeViewport(
 ): Promise<void> {
   const deadline = Date.now() + 5_000;
   let state: Awaited<
-    ReturnType<typeof readRetainedCompositorViewportCommitState>
+    ReturnType<typeof readRetainedCompositorViewportPresentationState>
   > | null = null;
   while (Date.now() < deadline) {
-    state = await readRetainedCompositorViewportCommitState(page, viewport);
+    state = await readRetainedCompositorViewportPresentationState(
+      page,
+      viewport,
+    );
     if (state.runtimeMatches) {
       return;
     }
@@ -268,24 +271,27 @@ async function waitForRetainedCompositorRuntimeViewport(
   );
 }
 
-async function waitForRetainedCompositorViewportCommit(
+async function waitForRetainedCompositorViewportPresentation(
   page: Page,
   viewport: RetainedCompositorViewportSample,
 ): Promise<void> {
   const deadline = Date.now() + 15_000;
   let state: Awaited<
-    ReturnType<typeof readRetainedCompositorViewportCommitState>
+    ReturnType<typeof readRetainedCompositorViewportPresentationState>
   > | null = null;
   while (Date.now() < deadline) {
-    state = await readRetainedCompositorViewportCommitState(page, viewport);
-    if (state.runtimeMatches && state.committedMatches) {
+    state = await readRetainedCompositorViewportPresentationState(
+      page,
+      viewport,
+    );
+    if (state.runtimeMatches && state.presentedMatches) {
       return;
     }
     await page.evaluate(
       (requestReason) => {
         window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.(requestReason);
       },
-      state?.runtimeMatches && !state.committedMatches
+      state?.runtimeMatches && !state.presentedMatches
         ? "texture-upload"
         : "resize",
     );
@@ -293,7 +299,7 @@ async function waitForRetainedCompositorViewportCommit(
   }
   const diagnostics = await readRetainedCompositorVisibleFrameDiagnostics(page);
   throw new Error(
-    `Retained compositor viewport did not commit. ${JSON.stringify(
+    `Retained compositor viewport did not present. ${JSON.stringify(
       { diagnostics, state },
       null,
       2,
@@ -301,20 +307,20 @@ async function waitForRetainedCompositorViewportCommit(
   );
 }
 
-async function readRetainedCompositorViewportCommitState(
+async function readRetainedCompositorViewportPresentationState(
   page: Page,
   viewport: RetainedCompositorViewportSample,
 ) {
   return await page.evaluate((expected) => {
     const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
     const runtime = snapshot?.viewport.transform ?? null;
-    const committed =
+    const presented =
       snapshot?.visibleProjection?.viewport ??
       snapshot?.presentedContentFrame?.viewportSample ??
       null;
     return {
-      committed,
-      committedMatches: viewportMatches(committed, expected),
+      presented,
+      presentedMatches: viewportMatches(presented, expected),
       expected,
       runtime,
       runtimeMatches: viewportMatches(runtime, expected),

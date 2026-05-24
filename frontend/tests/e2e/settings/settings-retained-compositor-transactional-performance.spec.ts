@@ -32,7 +32,7 @@ test.use({
   viewport: { height: 672, width: 1200 },
 });
 
-test("all-settings retained surface compositor publishes transactional gesture frames", async ({
+test("all-settings retained surface compositor presents transactional gesture frames", async ({
   page,
 }) => {
   await installOptionalRetainedCompositorFrameProbe(page);

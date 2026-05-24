@@ -80,17 +80,17 @@ describe("GPU Flow visible frame actor manifest", () => {
       {
         actorId: "settings:section-shell",
         family: "section-shell",
-        source: "committed-actor",
+        source: "prepared-actor",
       },
       {
         actorId: "settings:section-header",
         family: "section-header",
-        source: "committed-actor",
+        source: "prepared-actor",
       },
       {
         actorId: "settings:section-body-clip",
         family: "section-body-clip",
-        source: "committed-actor",
+        source: "prepared-actor",
       },
     ]);
   });

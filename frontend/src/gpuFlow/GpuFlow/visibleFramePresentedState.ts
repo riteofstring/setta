@@ -106,7 +106,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
           presentBrowserVisualCandidate: ({ candidate, token }) =>
             getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
               presentedSurfaceRuntimeRef.current,
-            ).commitPreparedBrowserVisualActors({
+            ).presentPreparedBrowserVisualActors({
               candidate,
               token,
             }),

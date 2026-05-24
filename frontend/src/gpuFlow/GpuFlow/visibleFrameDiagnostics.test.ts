@@ -405,7 +405,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     expect(readStarvationReports()).toEqual([]);
   });
 
-  it("records cold-start shell blocked presentation without a committed candidate frame", () => {
+  it("records cold-start shell blocked presentation without a prepared candidate frame", () => {
     const canvas = document.createElement("canvas");
     const token = createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
       blockedReasons: [
@@ -586,7 +586,7 @@ function presentationCandidateInput({
 }): GpuFlowPreparedContentFramePresentationCandidateInput {
   const retainedFrame = {} as RetainedDisplayFrame;
   return {
-    committedGpuNativeVisuals: undefined,
+    presentedGpuNativeVisuals: undefined,
     deferBrowserVisualWakeup,
     frameReasons: ["manual"],
     heldPreviousProjectionState: null,

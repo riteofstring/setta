@@ -23,7 +23,7 @@ import {
 
 let root: Root | null = null;
 
-describe("GPU flow DOM control projection host publication", () => {
+describe("GPU flow DOM control projection host presentation", () => {
   afterEach(() => {
     if (root) {
       act(() => root?.unmount());

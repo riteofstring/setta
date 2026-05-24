@@ -13,7 +13,7 @@ const PRODUCTION_HTML_SURFACE_FRAME_RENDERERS = new Set([
 ]);
 
 describe("GPU Flow visible frame deferred render boundary", () => {
-  it("keeps production HTML surface frame renders in deferred publication mode", () => {
+  it("keeps production HTML surface frame renders in deferred presentation mode", () => {
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
         return [];
@@ -36,7 +36,7 @@ describe("GPU Flow visible frame deferred render boundary", () => {
         return [];
       }
       return [
-        `${relativePath} renders HTML surfaces without deferred presentation publication`,
+        `${relativePath} renders HTML surfaces without deferred presentation presentation`,
       ];
     });
 

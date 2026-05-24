@@ -90,7 +90,7 @@ describe("GPU Flow blocked visible frame presentation guard", () => {
     });
   });
 
-  it("rejects blocked guard updates for a different publication sample", () => {
+  it("rejects blocked guard updates for a different presentation sample", () => {
     withTestRuntime(() => {
       expect(() =>
         recordGpuFlowBlockedPresentationGuard({

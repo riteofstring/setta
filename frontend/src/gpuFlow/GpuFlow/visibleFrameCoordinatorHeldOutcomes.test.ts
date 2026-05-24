@@ -95,7 +95,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
       {
         actorId: null,
         family: "visible-transaction",
-        reason: "no-visible-frame-before-first-commit",
+        reason: "no-visible-frame-before-first-presentation",
       },
     ]);
     expect(result.completeReducerFrame().completion.debt.content).toBe(true);
@@ -382,7 +382,7 @@ function preparePreparedContentFramePresentationCandidateForTest({
   readonly preparedContentFrame: GpuFlowPreparedContentFrame;
 }) {
   return preparePreparedContentFramePresentationFramePlanForTest({
-    committedGpuNativeVisuals: undefined,
+    presentedGpuNativeVisuals: undefined,
     frameReasons: ["manual"],
     heldPreviousProjectionState,
     liveProjectionSample: liveSample,

@@ -23,7 +23,7 @@ const GPU_FLOW_VISIBLE_FRAME_ACTOR_FAMILIES = Object.freeze([
 export type GpuFlowBrowserStyleVisibleFrameActorFamily =
   (typeof GPU_FLOW_VISIBLE_FRAME_ACTOR_FAMILIES)[number];
 
-type GpuFlowCommittedVisibleFrameActor =
+type GpuFlowPreparedVisibleFrameActor =
   GpuFlowPreparedContentFrame["actorGenerations"][number];
 
 const GPU_FLOW_DIRECT_VISIBLE_FRAME_ACTOR_FAMILY = Object.freeze({
@@ -76,7 +76,7 @@ const GPU_FLOW_BROWSER_TEXT_BLOCKED_REASON_FAMILIES = new Set([
 ]);
 
 export function getGpuFlowBrowserStyleVisibleFrameActorFamily(
-  actor: GpuFlowCommittedVisibleFrameActor,
+  actor: GpuFlowPreparedVisibleFrameActor,
 ): GpuFlowBrowserStyleVisibleFrameActorFamily {
   if (isGpuFlowTextActorFamily(actor.actorFamily)) {
     return getGpuFlowBrowserStyleTextActorFamily(actor);
@@ -86,7 +86,7 @@ export function getGpuFlowBrowserStyleVisibleFrameActorFamily(
     return family;
   }
   throw new Error(
-    `Unsupported GPU Flow committed visible actor family "${actor.actorFamily}".`,
+    `Unsupported GPU Flow prepared visible actor family "${actor.actorFamily}".`,
   );
 }
 
@@ -112,7 +112,7 @@ export function getGpuFlowBrowserStyleBlockedReasonFamily({
 }
 
 function getGpuFlowBrowserStyleTextActorFamily(
-  actor: GpuFlowCommittedVisibleFrameActor,
+  actor: GpuFlowPreparedVisibleFrameActor,
 ): GpuFlowBrowserStyleVisibleFrameActorFamily {
   if (isGpuFlowActiveTextActor(actor)) {
     return "active-editor";
@@ -130,7 +130,7 @@ function isGpuFlowTextActorFamily(actorFamily: string): boolean {
 }
 
 function isGpuFlowActiveTextActor(
-  actor: GpuFlowCommittedVisibleFrameActor,
+  actor: GpuFlowPreparedVisibleFrameActor,
 ): boolean {
   return (
     actor.active || actor.browserVisual?.representationKind === "active-editor"
@@ -138,7 +138,7 @@ function isGpuFlowActiveTextActor(
 }
 
 function isGpuFlowSnapshotTextActor(
-  actor: GpuFlowCommittedVisibleFrameActor,
+  actor: GpuFlowPreparedVisibleFrameActor,
 ): boolean {
   const projectionCoverage = actor.textCoverageProof?.projectionCoverage;
   return (

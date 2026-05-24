@@ -33,7 +33,7 @@ export async function setRetainedCompositorViewport(
   }, viewport);
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
-  await waitForRetainedCompositorViewportCommit(page, viewport);
+  await waitForRetainedCompositorViewportPresentation(page, viewport);
 }
 
 export function requireRetainedCompositorViewportSample(
@@ -104,7 +104,7 @@ export async function waitForRetainedCompositorContentPresentationSettle(
     });
 }
 
-async function waitForRetainedCompositorViewportCommit(
+async function waitForRetainedCompositorViewportPresentation(
   page: Page,
   viewport: RetainedCompositorViewportSample,
 ): Promise<void> {

@@ -122,7 +122,7 @@ describe("GPU flow DOM control projection runtime presentation", () => {
       }),
     });
 
-    browserVisualRuntime.commitPreparedBrowserVisualActors({
+    browserVisualRuntime.presentPreparedBrowserVisualActors({
       candidate,
       token: presentationToken(frame),
     });
@@ -172,7 +172,7 @@ describe("GPU flow DOM control projection runtime presentation", () => {
     stageBrowserVisualCandidate({ browserVisualRuntime, candidate });
     expect(renderedRuntimeFrameIds).toHaveLength(2);
 
-    browserVisualRuntime.commitPreparedBrowserVisualActors({
+    browserVisualRuntime.presentPreparedBrowserVisualActors({
       candidate,
       token: presentationToken(frame),
     });

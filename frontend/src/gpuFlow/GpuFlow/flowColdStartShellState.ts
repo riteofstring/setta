@@ -33,7 +33,7 @@ export function useGpuFlowColdStartShellFrame(): {
     });
     if (presentation.frame !== null) {
       throw new Error(
-        "GPU Flow cold-start shell visible frame presentation only clears from committed presentation.",
+        "GPU Flow cold-start shell visible frame presentation only clears from visible presentation.",
       );
     }
     if (activeColdStartShellFrameRef.current === null) {

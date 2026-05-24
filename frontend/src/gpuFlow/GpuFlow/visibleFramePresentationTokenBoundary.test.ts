@@ -48,7 +48,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
     );
   });
 
-  it("imports raw token constructors only from the publication authority module", () => {
+  it("imports raw token constructors only from the presentation authority module", () => {
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (filePath === AUTHORITY_MODULE_PATH) {
         return [];

@@ -209,7 +209,9 @@ describe("GPU flow DOM control plane", () => {
 
     expect(liveAssignments).toHaveLength(24);
     expect(
-      liveAssignments.every((assignment) => assignment.coverageState === "live"),
+      liveAssignments.every(
+        (assignment) => assignment.coverageState === "live",
+      ),
     ).toBe(true);
     expect(assignmentForRow(assignments, "row-0")).toMatchObject({
       coverageState: "snapshot",
@@ -248,7 +250,7 @@ describe("GPU flow DOM control plane", () => {
       viewport: { x: 0, y: 0, zoom: 1 },
       viewportSize: { height: 60, width: 400 },
     });
-    manager.commitPromotedRepresentations(initialAssignments);
+    manager.presentPromotedRepresentations(initialAssignments);
 
     const firstCarry = manager.prepare({
       controls,
@@ -266,7 +268,7 @@ describe("GPU flow DOM control plane", () => {
     expect(row0FirstCarry?.compatibilityProof?.reasonCode).toBe(
       "same-value-and-geometry",
     );
-    manager.commitPromotedRepresentations(firstCarry);
+    manager.presentPromotedRepresentations(firstCarry);
 
     const secondCarry = manager.prepare({
       controls,
@@ -277,7 +279,7 @@ describe("GPU flow DOM control plane", () => {
     expect(assignmentForRow(secondCarry, "row-0")?.coverageState).toBe(
       "compatible-previous",
     );
-    manager.commitPromotedRepresentations(secondCarry);
+    manager.presentPromotedRepresentations(secondCarry);
 
     const exhaustedCarry = manager.prepare({
       controls,
@@ -301,7 +303,7 @@ describe("GPU flow DOM control plane", () => {
       control.rowId === "row-0" ? { ...control, value: "changed" } : control,
     );
     const manager = createGpuFlowDomControlProjectionManager();
-    manager.commitPromotedRepresentations(
+    manager.presentPromotedRepresentations(
       manager.prepare({
         controls,
         getRetainedScrollOffset: undefined,
@@ -328,7 +330,7 @@ describe("GPU flow DOM control plane", () => {
       domControl({ index }),
     );
     const manager = createGpuFlowDomControlProjectionManager();
-    manager.commitPromotedRepresentations(
+    manager.presentPromotedRepresentations(
       manager.prepare({
         controls,
         getRetainedScrollOffset: undefined,

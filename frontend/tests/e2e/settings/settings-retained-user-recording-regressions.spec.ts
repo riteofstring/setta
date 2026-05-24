@@ -189,7 +189,7 @@ test("all-settings transition preserves RAF cadence and avoids long tasks", asyn
     2,
   );
   recordRetainedCompositorPerfSample({
-    name: "all-settings transition content publish",
+    name: "all-settings transition content present",
     sample: JSON.parse(details),
   });
 
@@ -264,20 +264,29 @@ test("Chrome repro capture flag does not change retained Settings visible frame 
   expect(recorder.placeholderStats.highConfidencePlaceholder, details).toBe(
     false,
   );
-  expect(normal.committed?.displayCompletenessStatus, details).toBe("complete");
-  expect(recorder.committed?.displayCompletenessStatus, details).toBe(
+  expect(normal.presentedContentFrame?.displayCompletenessStatus, details).toBe(
     "complete",
   );
-  expect(normal.committed?.presentabilityKind, details).toBe("presentable");
-  expect(recorder.committed?.presentabilityKind, details).toBe("presentable");
-  expect(normal.committed?.textActorTrueHoleCount, details).toBe(0);
-  expect(recorder.committed?.textActorTrueHoleCount, details).toBe(0);
   expect(
-    normal.committed?.visibleNonemptyDomControlCount ?? 0,
+    recorder.presentedContentFrame?.displayCompletenessStatus,
+    details,
+  ).toBe("complete");
+  expect(normal.presentedContentFrame?.presentabilityKind, details).toBe(
+    "presentable",
+  );
+  expect(recorder.presentedContentFrame?.presentabilityKind, details).toBe(
+    "presentable",
+  );
+  expect(normal.presentedContentFrame?.textActorTrueHoleCount, details).toBe(0);
+  expect(recorder.presentedContentFrame?.textActorTrueHoleCount, details).toBe(
+    0,
+  );
+  expect(
+    normal.presentedContentFrame?.visibleNonemptyDomControlCount ?? 0,
     details,
   ).toBeGreaterThan(0);
   expect(
-    recorder.committed?.visibleNonemptyDomControlCount ?? 0,
+    recorder.presentedContentFrame?.visibleNonemptyDomControlCount ?? 0,
     details,
   ).toBeGreaterThan(0);
   expect(visualSimilarity.changedPixelRatio, details).toBeLessThanOrEqual(
@@ -315,7 +324,7 @@ test("viewport and retained-scroll gestures do not perform content work on proje
   await installGpuFlowPerformanceProbe(page);
   await openAllSettingsForRetainedCompositor(page);
   await centerRetainedCompositorSurface(page, SHORTCUTS_SURFACE_ID, {
-    waitForCommittedViewport: false,
+    waitForPresentedViewport: false,
   });
   await resetGpuFlowPerformanceProbe(page);
 
@@ -327,7 +336,7 @@ test("viewport and retained-scroll gestures do not perform content work on proje
   await waitForAnimationFrame(page);
 
   await centerRetainedCompositorSurface(page, SECTION_SIZING_SURFACE_ID, {
-    waitForCommittedViewport: false,
+    waitForPresentedViewport: false,
   });
   const retainedTarget = await resolveRetainedCompositorTarget(
     page,
@@ -571,7 +580,7 @@ async function captureChromeReproParitySample({
   } else {
     await centerRetainedCompositorSurface(page, SECTION_SIZING_SURFACE_ID);
   }
-  await waitForRetainedCompositorVisibleDomPublication(page);
+  await waitForRetainedCompositorVisibleDomPresentation(page);
   await waitForRetainedCompositorContentPresentationSettle(
     page,
     sampleStartTimeMs,
@@ -776,7 +785,7 @@ function summarizeChromeReproPerformanceSnapshot(
   };
 }
 
-async function waitForRetainedCompositorVisibleDomPublication(
+async function waitForRetainedCompositorVisibleDomPresentation(
   page: Page,
 ): Promise<void> {
   try {

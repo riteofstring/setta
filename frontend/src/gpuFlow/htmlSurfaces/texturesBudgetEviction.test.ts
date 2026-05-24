@@ -521,7 +521,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
   });
 
-  it("defers source texture release while a published frame protects the surface", () => {
+  it("defers source texture release while a presented frame protects the surface", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);

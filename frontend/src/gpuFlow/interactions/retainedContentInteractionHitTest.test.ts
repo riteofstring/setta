@@ -45,7 +45,7 @@ describe("GPU retained content interaction hit testing", () => {
     });
   });
 
-  it("does not fall back to scene-only hit testing when the runtime frame provider has no published frame", () => {
+  it("does not fall back to scene-only hit testing when the runtime frame provider has no presented frame", () => {
     const element = createHostElement();
     const hit = hitTestGpuRetainedContentInteraction({
       element,
@@ -62,7 +62,7 @@ describe("GPU retained content interaction hit testing", () => {
     expect(hit).toBeNull();
   });
 
-  it("honors explicit current-scene hit testing before a runtime frame is published", () => {
+  it("honors explicit current-scene hit testing before a runtime frame is presented", () => {
     const element = createHostElement();
     const hit = hitTestGpuRetainedContentInteraction({
       element,
@@ -88,7 +88,7 @@ describe("GPU retained content interaction hit testing", () => {
     });
   });
 
-  it("hit tests the current retained scene after a runtime frame has been published", () => {
+  it("hit tests the current retained scene after a runtime frame has been presented", () => {
     const element = createHostElement();
     const scene = retainedContentScene();
     const hit = hitTestGpuRetainedContentInteraction({
@@ -296,7 +296,7 @@ describe("GPU retained content interaction hit testing", () => {
     });
   });
 
-  it("uses the current viewport while the startup frame is unpublished", () => {
+  it("uses the current viewport while the startup frame is unpresented", () => {
     const element = createHostElement();
     const scene = retainedContentScene();
     const startupRetainedRuntimeFrame = createGpuRetainedRuntimeFrame({

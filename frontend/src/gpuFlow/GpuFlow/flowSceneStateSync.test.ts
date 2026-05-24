@@ -44,7 +44,7 @@ describe("GPU flow scene state sync", () => {
     ).toBe("viewport");
   });
 
-  it("preserves published visual scene during matching-viewport scene state sync", () => {
+  it("preserves presented visual scene during matching-viewport scene state sync", () => {
     const currentScene = retainedDomControlScene(false);
     const rowHoverTarget = {
       rowId: "param-a",
@@ -94,7 +94,7 @@ describe("GPU flow scene state sync", () => {
     expect(frameReasons).toEqual(["viewport"]);
   });
 
-  it("drops published visual scene during changed-viewport scene state sync", () => {
+  it("drops presented visual scene during changed-viewport scene state sync", () => {
     const currentScene = retainedDomControlScene(false);
     const retainedRuntimeFrame = createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 1,

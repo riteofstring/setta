@@ -285,7 +285,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     });
   }
 
-  commitPreparedBrowserVisualActors({
+  presentPreparedBrowserVisualActors({
     candidate,
     token,
   }: {
@@ -300,7 +300,7 @@ export class GpuFlowBrowserVisualActorRuntime {
       candidate,
       token,
     });
-    this.projectionManager.commitPromotedRepresentations(
+    this.projectionManager.presentPromotedRepresentations(
       candidate.snapshot.domControls.assignments,
     );
     if (snapshotChanged) {
@@ -498,7 +498,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     }
   }
 
-  requestCommittedBrowserVisualRepairFrame({
+  requestPresentedBrowserVisualRepairFrame({
     surface,
   }: {
     readonly surface: Pick<GpuSurfaceHandle, "requestFrame"> | null | undefined;

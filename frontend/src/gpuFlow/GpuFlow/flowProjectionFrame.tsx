@@ -427,10 +427,10 @@ function retainedRuntimeFrameSceneRevisionDiffersFromLayer({
   readonly layer: GpuFlowNodeLayerState;
   readonly retainedRuntimeFrame: RetainedDisplayFrame["retainedRuntimeFrame"];
 }): boolean {
-  const committedSceneRevision = retainedRuntimeFrame.input.sceneRevision;
+  const presentedSceneRevision = retainedRuntimeFrame.input.sceneRevision;
   return (
-    typeof committedSceneRevision === "number" &&
-    layer.scene?.revision !== committedSceneRevision
+    typeof presentedSceneRevision === "number" &&
+    layer.scene?.revision !== presentedSceneRevision
   );
 }
 

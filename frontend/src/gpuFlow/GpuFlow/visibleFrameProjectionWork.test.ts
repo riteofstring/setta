@@ -95,11 +95,11 @@ describe("GPU Flow visible frame coordinator projection work", () => {
     if (result.outcome.kind !== "blocked") {
       throw new Error("Expected coordinator blocked outcome.");
     }
-    expect(result.outcome.token.frozenFrame.kind).toBe("committed");
+    expect(result.outcome.token.frozenFrame.kind).toBe("presented");
     expect(result.outcome.token.frozenFrame).toEqual({
       frameId:
         previousVisibleProjectionState.preparedContentFrame.displayFrameId,
-      kind: "committed",
+      kind: "presented",
     });
     expect(result.outcome.token.blockedReasons).toEqual([
       {

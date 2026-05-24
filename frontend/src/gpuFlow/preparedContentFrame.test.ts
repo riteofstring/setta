@@ -126,7 +126,7 @@ describe("GPU Flow prepared content frame", () => {
     });
   });
 
-  it("uses the prepared GPU-native visual set when publishing actors", () => {
+  it("uses the prepared GPU-native visual set when presenting actors", () => {
     const retainedRuntimeFrame = createRuntimeFrame({ frameId: 12 });
     const frame = createGpuFlowPreparedContentFrame({
       gpuNativeVisuals: [nativeVisual("switch-animation")],
@@ -152,7 +152,7 @@ describe("GPU Flow prepared content frame", () => {
     expect(frame.diagnostics.gpuNativeVisualActorCount).toBe(1);
   });
 
-  it("uses the published display frame id for every visible prepared content family", () => {
+  it("uses the presented display frame id for every visible prepared content family", () => {
     const retainedRuntimeFrame = createRuntimeFrame({ frameId: 7 });
     const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
@@ -386,7 +386,7 @@ describe("GPU Flow prepared content frame", () => {
     );
   });
 
-  it("does not publish compatible-previous coverage from a previously blocked actor", () => {
+  it("does not present compatible-previous coverage from a previously blocked actor", () => {
     const previousRetainedRuntimeFrame = withDomControlVisualPolicy(
       createRuntimeFrame({
         frameId: 15,
@@ -499,7 +499,7 @@ describe("GPU Flow prepared content frame", () => {
     );
   });
 
-  it("blocks prepared publication when retained coverage still has true holes", () => {
+  it("blocks prepared presentation when retained coverage still has true holes", () => {
     const retainedRuntimeFrame = createRuntimeFrame({ frameId: 19 });
     const retainedSurfaceId = "dict-a:param-content:unpinned";
     const frame = createGpuFlowPreparedContentFrame({

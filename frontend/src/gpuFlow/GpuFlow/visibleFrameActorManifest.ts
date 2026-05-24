@@ -9,7 +9,7 @@ import {
   type GpuFlowBrowserStyleVisibleFrameActorFamily,
 } from "./visibleFrameActorRegistry";
 import {
-  getGpuFlowVisibleFrameCommittedActorRequirement,
+  getGpuFlowVisibleFramePreparedActorRequirement,
   hasGpuFlowVisibleFrameActiveEditorPresentation,
   isGpuFlowVisibleFrameActiveEditorRepresentation,
 } from "./visibleFrameActorRequirements";
@@ -45,7 +45,7 @@ type GpuFlowVisibleFrameManifestActorRequirement =
 
 type GpuFlowVisibleFrameManifestActorSource =
   | "blocked-reason"
-  | "committed-actor"
+  | "prepared-actor"
   | "presentation";
 
 export type GpuFlowVisibleFrameActorManifestEntry =
@@ -131,7 +131,7 @@ export function createGpuFlowVisibleFrameActorManifest({
         continue;
       }
       setGpuFlowVisibleFrameActorManifestEntry({
-        entry: createGpuFlowVisibleFrameCommittedActorManifestEntry({
+        entry: createGpuFlowVisibleFramePreparedActorManifestEntry({
           activeEditorPresentationPending,
           actor,
           startup: frame.retainedDisplayFrame === null,
@@ -208,7 +208,7 @@ export function createGpuFlowVisibleFrameActorProofsForManifest({
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): readonly GpuFlowVisibleFrameActorProof[] {
   const proofByActor = new Map<string, GpuFlowVisibleFrameActorProof>();
-  addGpuFlowVisibleFrameCommittedActorProofs({
+  addGpuFlowVisibleFramePreparedActorProofs({
     contentFrameId,
     frame,
     projectionSampleId,
@@ -229,7 +229,7 @@ export function createGpuFlowVisibleFrameActorProofsForManifest({
   return Object.freeze([...proofByActor.values()]);
 }
 
-function addGpuFlowVisibleFrameCommittedActorProofs({
+function addGpuFlowVisibleFramePreparedActorProofs({
   contentFrameId,
   frame,
   projectionSampleId,
@@ -350,7 +350,7 @@ export function createGpuFlowVisibleFramePresentedActorCoverageForManifest({
   );
 }
 
-function createGpuFlowVisibleFrameCommittedActorManifestEntry({
+function createGpuFlowVisibleFramePreparedActorManifestEntry({
   activeEditorPresentationPending,
   actor,
   startup,
@@ -380,13 +380,13 @@ function createGpuFlowVisibleFrameCommittedActorManifestEntry({
         : null,
     projectionGeneration: actor.layoutProjectionGenerationId,
     readinessProof: actor.readinessGenerationId,
-    requirement: getGpuFlowVisibleFrameCommittedActorRequirement({
+    requirement: getGpuFlowVisibleFramePreparedActorRequirement({
       activeEditorPresentationPending,
       actor,
       startup,
     }),
     resourceState: getGpuFlowVisibleFrameActorResourceState(actor),
-    source: "committed-actor" as const,
+    source: "prepared-actor" as const,
     zOrder: actor.zOrder,
   });
 }
@@ -468,7 +468,7 @@ function createGpuFlowVisibleFrameActorProof({
   readonly startup: boolean;
 }): GpuFlowVisibleFrameActorProof {
   const actorKey = createGpuFlowVisibleFrameActorProofKey(actor);
-  const requirement = getGpuFlowVisibleFrameCommittedActorRequirement({
+  const requirement = getGpuFlowVisibleFramePreparedActorRequirement({
     activeEditorPresentationPending,
     actor,
     startup,

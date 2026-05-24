@@ -32,7 +32,7 @@ const GPU_FLOW_BLOCKED_PRESENTATION_TOKEN = Symbol(
 );
 
 type GpuFlowVisibleTransactionId = string;
-type GpuFlowCommittedVisibleFrameId = number;
+type GpuFlowPreparedVisibleFrameId = number;
 type GpuFlowProjectionSampleId = number;
 type GpuFlowActorManifestDigest = string;
 type GpuFlowVisibleProofDigest = string;
@@ -41,8 +41,8 @@ type GpuFlowResourceProtectionDigest = string;
 
 export type GpuFlowBlockedFrozenFrame =
   | {
-      readonly frameId: GpuFlowCommittedVisibleFrameId;
-      readonly kind: "committed";
+      readonly frameId: GpuFlowPreparedVisibleFrameId;
+      readonly kind: "presented";
     }
   | {
       readonly frame: GpuFlowColdStartShellFrame;
@@ -68,7 +68,7 @@ type BlockedPresentationTokenBrand = {
 
 export type GpuFlowVisibleFramePresentationToken =
   VisibleFramePresentationTokenBrand & {
-    readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
+    readonly preparedContentFrameId: GpuFlowPreparedVisibleFrameId;
     readonly contentFrameId: GpuFlowVisibleFramePresentationIdentity["contentFrameId"];
     readonly expectedActorSetDigest: GpuFlowActorManifestDigest;
     readonly presentationId: GpuFlowVisibleFramePresentationIdentity["presentationId"];
@@ -81,7 +81,7 @@ export type GpuFlowVisibleFramePresentationToken =
   };
 
 type GpuFlowPresentableFrame = PresentableFrameBrand & {
-  readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
+  readonly preparedContentFrameId: GpuFlowPreparedVisibleFrameId;
   readonly contentFrameId: GpuFlowVisibleFramePresentationIdentity["contentFrameId"];
   readonly expectedActorSetDigest: GpuFlowActorManifestDigest;
   readonly presentationId: GpuFlowVisibleFramePresentationIdentity["presentationId"];
@@ -94,7 +94,7 @@ type GpuFlowPresentableFrame = PresentableFrameBrand & {
 };
 
 export type GpuFlowHoldPreviousToken = HoldPreviousTokenBrand & {
-  readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
+  readonly preparedContentFrameId: GpuFlowPreparedVisibleFrameId;
   readonly holdAgeFrames: number;
   readonly holdAgeMs: number;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
@@ -111,7 +111,7 @@ export type GpuFlowBlockedPresentationToken = BlockedPresentationTokenBrand & {
   readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
   readonly frozenFrame: GpuFlowBlockedFrozenFrame;
   readonly frozenFrameId:
-    | GpuFlowCommittedVisibleFrameId
+    | GpuFlowPreparedVisibleFrameId
     | GpuFlowColdStartShellFrameId;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly transactionId: GpuFlowVisibleTransactionId;
@@ -121,7 +121,7 @@ type GpuFlowVisibleFramePresentationTokenIssuer = {
   readonly createBlockedPresentationToken: (input: {
     readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
     readonly frozenFrameId:
-      | GpuFlowCommittedVisibleFrameId
+      | GpuFlowPreparedVisibleFrameId
       | GpuFlowColdStartShellFrameId;
     readonly projectionSample: GpuFlowLiveProjectionSample;
   }) => GpuFlowBlockedPresentationToken;
@@ -132,7 +132,7 @@ type GpuFlowVisibleFramePresentationTokenIssuer = {
     readonly projectionSample: GpuFlowLiveProjectionSample;
   }) => GpuFlowVisibleFramePresentationToken;
   readonly createHoldPreviousToken: (input: {
-    readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
+    readonly preparedContentFrameId: GpuFlowPreparedVisibleFrameId;
     readonly holdAgeFrames: number;
     readonly holdAgeMs: number;
     readonly projectionSample: GpuFlowLiveProjectionSample;
@@ -324,7 +324,7 @@ function createGpuFlowHoldPreviousToken({
   holdAgeMs,
   projectionSample,
 }: {
-  readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
+  readonly preparedContentFrameId: GpuFlowPreparedVisibleFrameId;
   readonly holdAgeFrames: number;
   readonly holdAgeMs: number;
   readonly projectionSample: GpuFlowLiveProjectionSample;
@@ -346,7 +346,7 @@ function createGpuFlowBlockedPresentationToken({
 }: {
   readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
   readonly frozenFrameId:
-    | GpuFlowCommittedVisibleFrameId
+    | GpuFlowPreparedVisibleFrameId
     | GpuFlowColdStartShellFrameId;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowBlockedPresentationToken {
@@ -364,12 +364,12 @@ function createGpuFlowBlockedPresentationToken({
 }
 
 function createGpuFlowBlockedFrozenFrame(
-  frozenFrameId: GpuFlowCommittedVisibleFrameId | GpuFlowColdStartShellFrameId,
+  frozenFrameId: GpuFlowPreparedVisibleFrameId | GpuFlowColdStartShellFrameId,
 ): GpuFlowBlockedFrozenFrame {
   if (typeof frozenFrameId === "number") {
     return Object.freeze({
       frameId: frozenFrameId,
-      kind: "committed" as const,
+      kind: "presented" as const,
     });
   }
   return Object.freeze({
@@ -460,7 +460,7 @@ export function assertGpuFlowVisibleFramePresentationTokenForFrameId({
   preparedContentFrameId,
   token,
 }: {
-  readonly preparedContentFrameId: GpuFlowCommittedVisibleFrameId;
+  readonly preparedContentFrameId: GpuFlowPreparedVisibleFrameId;
   readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   if (
