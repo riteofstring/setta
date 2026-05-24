@@ -9,6 +9,7 @@ import {
   type GpuFlowBrowserStyleVisibleFrameActorFamily,
 } from "./visibleFrameActorRegistry";
 import type { GpuFlowBlockedVisibleReason } from "./visibleFramePresentationProofs";
+import { createGpuFlowMissingSectionStructureActorManifestEntries } from "./visibleFrameSectionActorManifest";
 import {
   createGpuFlowContentFrameId,
   createGpuFlowPresentationId,
@@ -175,6 +176,10 @@ export function createGpuFlowVisibleFrameActorManifest({
         entryByKey,
       });
     }
+    addGpuFlowMissingSectionStructureActorManifestEntries({
+      entryByKey,
+      frame,
+    });
   }
   blockedReasons.forEach((reason, index) => {
     const actor = createGpuFlowVisibleFrameActorKeyForBlockedReason({
@@ -208,6 +213,25 @@ export function createGpuFlowVisibleFrameActorManifest({
         ),
     ),
   });
+}
+
+function addGpuFlowMissingSectionStructureActorManifestEntries({
+  entryByKey,
+  frame,
+}: {
+  readonly entryByKey: Map<string, GpuFlowVisibleFrameActorManifestEntry>;
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+}): void {
+  for (const missingActor of createGpuFlowMissingSectionStructureActorManifestEntries(
+    frame,
+  )) {
+    setGpuFlowVisibleFrameActorManifestEntry({
+      entry: createGpuFlowVisibleFrameSyntheticBlockedManifestEntry(
+        missingActor,
+      ),
+      entryByKey,
+    });
+  }
 }
 
 export function createGpuFlowVisibleFrameActorProofsForManifest({
