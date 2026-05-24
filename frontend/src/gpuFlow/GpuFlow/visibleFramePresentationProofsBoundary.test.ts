@@ -120,7 +120,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
 
     expect(source).not.toMatch(
-      /\bcreateGpuFlow(?:ProjectionFrameDebugPublicationToken|RetainedProjectionBlockedPublicationToken|VisibleFrameBlockedPublicationToken|VisibleFrameCommitPublicationToken|VisibleFrameHoldPreviousToken)\b/,
+      /\bcreateGpuFlow(?:ProjectionFrameDebugPublicationToken|RetainedProjectionBlockedPublicationToken|VisibleFrameBlockedPublicationToken|VisibleFramePresentationToken|VisibleFrameHoldPreviousToken)\b/,
     );
     expect(coordinatorSource).not.toContain(
       "createGpuFlowProjectionFrameDebugPublicationToken",
@@ -128,7 +128,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(coordinatorSource).not.toContain(
       "createGpuFlowVisibleFrameHoldPreviousTokenForProjectionState",
     );
-    expect(coordinatorSource).not.toContain("commitPublicationToken");
+    expect(coordinatorSource).not.toContain("presentationToken");
     expect(source).not.toContain("createGpuFlowHeldPreviousProjection");
     expect(source).not.toContain(
       "createGpuFlowProjectionTransactionForCommittedFrameId",
@@ -248,12 +248,14 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "createGpuFlowCommittedSurfacePublicationActionFrameResultResolver",
     );
     expect(effectApplierStart).toBeGreaterThanOrEqual(0);
-    expect(candidateSource).not.toMatch(/\bGpuFlowCommitPublicationToken\b/);
+    expect(candidateSource).not.toMatch(
+      /\bGpuFlowVisibleFramePresentationToken\b/,
+    );
     expect(publishBranchStart).toBeGreaterThanOrEqual(0);
     expect(publishBranchEnd).toBeGreaterThan(publishBranchStart);
     expect(publishBranchSource).not.toContain("token");
     expect(candidateHandlingSource).not.toContain(
-      "GpuFlowCommitPublicationToken",
+      "GpuFlowVisibleFramePresentationToken",
     );
     expect(candidateHandlingSource).not.toMatch(
       /onCommittedSurfaceFramePublishable\?\.\([\s\S]{0,80}token/,
@@ -446,7 +448,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     const publishMethodStart = presentedSurfaceRuntimeSource.indexOf(
       [
         "  publishPresentedContentFrame(",
-        "    token: GpuFlowCommitPublicationToken,",
+        "    token: GpuFlowVisibleFramePresentationToken,",
         "    frame: GpuFlowPresentedContentFrame,",
         "  ): boolean {",
       ].join("\n"),
@@ -523,7 +525,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       [...surfaceFrameSource.matchAll(/\.applyOverlayTransforms\s*\(/g)].length,
     ).toBe(1);
     expect(overlayPublisherSource).toContain(
-      "assertGpuFlowCommitPublicationTokenBrand",
+      "assertGpuFlowVisibleFramePresentationTokenBrand",
     );
     expect(overlayPublisherSource).toContain(".applyOverlayTransforms(");
   });
@@ -561,10 +563,10 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "export function updateGpuFlowNodeLayerFrameState",
     );
     expect(nodeLayerPublisherSource).toContain(
-      "assertGpuFlowCommitPublicationTokenBrand",
+      "assertGpuFlowVisibleFramePresentationTokenBrand",
     );
     expect(nodeLayerPublisherSource).toContain(
-      "readonly token: GpuFlowCommitPublicationToken",
+      "readonly token: GpuFlowVisibleFramePresentationToken",
     );
     expect(
       [
@@ -576,7 +578,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(surfaceFrameSource).toContain("publishGpuFlowNodeLayerFrameState({");
   });
 
-  it("defers canvas submission until commit-tokened node-layer publication", () => {
+  it("defers canvas submission until presentation-tokened node-layer publication", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const projectionFrameSource = readFileSync(
       PROJECTION_FRAME_MODULE_PATH,
@@ -595,7 +597,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(projectionFrameSource).toContain('canvasSubmissionMode: "deferred"');
     expect(submitterStart).toBeGreaterThanOrEqual(0);
     expect(submitterSource).toContain(
-      "assertGpuFlowCommitPublicationTokenBrand",
+      "assertGpuFlowVisibleFramePresentationTokenBrand",
     );
     expect(submitterSource).toContain("canvasSubmission.submit()");
   });
@@ -618,7 +620,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
   });
 
-  it("defers DOM transform submission until commit-tokened node-layer publication", () => {
+  it("defers DOM transform submission until presentation-tokened node-layer publication", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const projectionFrameSource = readFileSync(
       PROJECTION_FRAME_MODULE_PATH,
@@ -639,7 +641,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(submitterStart).toBeGreaterThanOrEqual(0);
     expect(submitterSource).toContain(
-      "assertGpuFlowCommitPublicationTokenBrand",
+      "assertGpuFlowVisibleFramePresentationTokenBrand",
     );
     expect(submitterSource).toContain("domTransformSubmission.submit({");
     expect(submitterSource).toContain("presentationId");
@@ -663,7 +665,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
   });
 
-  it("publishes frame performance only from commit-tokened node-layer publication", () => {
+  it("publishes frame performance only from presentation-tokened node-layer publication", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const projectionFrameSource = readFileSync(
       PROJECTION_FRAME_MODULE_PATH,
@@ -692,7 +694,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(projectionFrameSource).toContain("performanceReport");
     expect(reporterStart).toBeGreaterThanOrEqual(0);
     expect(reporterSource).toContain(
-      "assertGpuFlowCommitPublicationTokenBrand",
+      "assertGpuFlowVisibleFramePresentationTokenBrand",
     );
     expect(reporterSource).toContain("framePerformanceReporter.onFrame");
   });
@@ -762,7 +764,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(browserVisualRuntimeSource).toContain("snapshotPublicationToken");
     expect(browserVisualRuntimeSource).toContain(
-      "assertGpuFlowCommitPublicationTokenForFrameId",
+      "assertGpuFlowVisibleFramePresentationTokenForFrameId",
     );
     expect(browserVisualRuntimeSource).toContain(
       'surface.requestFrame("texture-upload")',
@@ -790,7 +792,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "assertBrowserVisualHostRegistrationToken",
     );
     expect(browserVisualRuntimeSource).toContain(
-      "visible browser visual host registration requires a committed publication token",
+      "visible browser visual host registration requires a visible frame presentation token",
     );
   });
 
@@ -835,7 +837,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     ).toBeLessThan(commitMethodSource.indexOf("this.scheduleSnapshotEmit()"));
     expect(commitMethodSource).not.toContain("this.emitSnapshot()");
     expect(browserVisualRuntimeSource).toContain(
-      "assertGpuFlowCommitPublicationTokenForFrameId",
+      "assertGpuFlowVisibleFramePresentationTokenForFrameId",
     );
     const scheduleMethodStart = browserVisualRuntimeSource.indexOf(
       "private scheduleSnapshotEmit",
@@ -882,7 +884,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
 
     expect(violations).toEqual([]);
     expect(projectionDebugSource).toContain(
-      "readonly token: GpuFlowCommitPublicationToken",
+      "readonly token: GpuFlowVisibleFramePresentationToken",
     );
     expect(projectionDebugSource).not.toContain("GpuFlowHoldPreviousToken");
   });
@@ -1054,10 +1056,10 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(publisherStart).toBeGreaterThanOrEqual(0);
     expect([...surfaceFrameSource.matchAll(assignmentPattern)].length).toBe(1);
     expect(publisherSource).toContain(
-      "assertGpuFlowCommitPublicationTokenBrand",
+      "assertGpuFlowVisibleFramePresentationTokenBrand",
     );
     expect(publisherSource).toContain(
-      "readonly token: GpuFlowCommitPublicationToken",
+      "readonly token: GpuFlowVisibleFramePresentationToken",
     );
     expect(publisherSource).toContain(
       "retainedDisplayFrameRef.current = retainedDisplayFrame",
@@ -1086,10 +1088,10 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(completionPublisherStart).toBeGreaterThanOrEqual(0);
     expect(completionPublisherSource).toContain(
-      "assertGpuFlowCommitPublicationTokenBrand",
+      "assertGpuFlowVisibleFramePresentationTokenBrand",
     );
     expect(completionPublisherSource).toContain(
-      "readonly token: GpuFlowCommitPublicationToken",
+      "readonly token: GpuFlowVisibleFramePresentationToken",
     );
     expect(completionPublisherSource).toContain(
       "callbacksRef.current.onRetainedRuntimeFrame",
@@ -1120,7 +1122,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(shellPublicationSource).not.toContain("void publication.token");
     expect(shellPublicationSource).toContain("publishColdStartShellFrame");
     expect(shellPublicationSource).toContain(
-      "assertGpuFlowCommitPublicationTokenBrand",
+      "assertGpuFlowVisibleFramePresentationTokenBrand",
     );
     expect(shellPublicationSource).toContain(
       "createGpuFlowColdStartShellFrame",

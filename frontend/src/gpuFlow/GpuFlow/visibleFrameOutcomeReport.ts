@@ -3,8 +3,8 @@ import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type {
   GpuFlowBlockedPublicationToken,
-  GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
+  GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 import type {
   GpuFlowVisiblePublicationCompletion,
@@ -29,7 +29,7 @@ export type GpuFlowVisiblePublicationOutcome =
   | {
       readonly kind: "commit";
       readonly debtProof: GpuFlowVisiblePublicationCommitDebtProof;
-      readonly token: GpuFlowCommitPublicationToken;
+      readonly token: GpuFlowVisibleFramePresentationToken;
     }
   | {
       readonly kind: "hold-previous";

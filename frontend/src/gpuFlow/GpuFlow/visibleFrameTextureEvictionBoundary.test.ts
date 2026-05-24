@@ -6,7 +6,7 @@ const modulePath = (path: string): string =>
   fileURLToPath(new URL(path, import.meta.url));
 
 describe("GPU Flow visible frame texture eviction boundary", () => {
-  it("defers texture eviction until commit-tokened node-layer publication", () => {
+  it("defers texture eviction until presentation-tokened node-layer publication", () => {
     const flowFrameSource = readFileSync(modulePath("./flowFrame.tsx"), "utf8");
     const projectionFrameSource = readFileSync(
       modulePath("./flowProjectionFrame.tsx"),
@@ -29,10 +29,12 @@ describe("GPU Flow visible frame texture eviction boundary", () => {
     expect(projectionFrameSource).toContain('canvasSubmissionMode: "deferred"');
     expect(renderWorkSource).toContain("textureEvictionSubmissionMode");
     expect(renderWorkSource).toContain("prepareDeferredTextureEvictionResult");
-    expect(renderWorkSource).toContain("createDeferredTextureEvictionSubmission");
+    expect(renderWorkSource).toContain(
+      "createDeferredTextureEvictionSubmission",
+    );
     expect(submitterStart).toBeGreaterThanOrEqual(0);
     expect(submitterSource).toContain(
-      "assertGpuFlowCommitPublicationTokenBrand",
+      "assertGpuFlowVisibleFramePresentationTokenBrand",
     );
     expect(submitterSource).toContain("textureEvictionSubmission.submit()");
   });

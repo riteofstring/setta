@@ -18,8 +18,8 @@ import { applyVisibleGpuFlowDomControlHostPresentation } from "./browserVisualAc
 import { GpuFlowDomControlPlane } from "./domControlPlane";
 import {
   committedSurfaceFrame,
-  createPresentedSurfaceRuntimeWithBrowserVisuals,
   createMockViewportRuntime,
+  createPresentedSurfaceRuntimeWithBrowserVisuals,
   domControl,
   domControlCoverageState,
   mountedRowIds,
@@ -33,7 +33,7 @@ import {
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
-  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
+  createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
@@ -82,7 +82,7 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(element.style.visibility).toBe("");
   });
 
-  it("requires a committed publication token before visible host registration", () => {
+  it("requires a visible frame presentation token before visible host registration", () => {
     const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
     const control = domControl({ index: 0 });
     const element = document.body.appendChild(document.createElement("input"));
@@ -129,7 +129,7 @@ describe("GPU flow DOM control projection runtime", () => {
     ).not.toThrow();
   });
 
-  it("promotes prepared DOM-control hosts during committed publication", async () => {
+  it("promotes prepared DOM-control hosts during visible presentation", async () => {
     const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
     const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
     const viewportStore = createGpuFlowViewportStore({
@@ -235,11 +235,10 @@ describe("GPU flow DOM control projection runtime", () => {
       token,
     });
 
-    const projectionToken =
-      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
-        frame,
-        projectionSample: { id: 42 } as GpuFlowLiveProjectionSample,
-      });
+    const projectionToken = createGpuFlowVisibleFramePresentationTokenForTest({
+      frame,
+      projectionSample: { id: 42 } as GpuFlowLiveProjectionSample,
+    });
     browserVisualRuntime.projectDomControls({
       token: projectionToken,
       viewport: [12, 8, 1],

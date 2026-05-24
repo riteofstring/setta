@@ -7,7 +7,7 @@ import {
 } from "../committedSurfaceFrame";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
-  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
+  createGpuFlowVisibleFramePresentationTokenForTest,
 } from "../GpuFlow/visibleFrameTestUtils";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "../GpuFlow/visibleFrameTypes";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
@@ -432,7 +432,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
-    const commitToken = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const commitToken = createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedSurfaceFrame(4),
       projectionSample: projectionSample(9),
     });
@@ -478,7 +478,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
         textureManager: manager,
         token: blockedToken as never,
       }),
-    ).toThrow(/commit publication token/);
+    ).toThrow(/visible frame presentation token/);
   });
 
   it("preserves previous-frame textures when blocked publication releases blocked candidates", () => {

@@ -419,7 +419,7 @@ describe("GPU Flow visible frame coordinator", () => {
       },
     },
   ])(
-    "blocks $blockedSource compatible-previous proof before publishing a commit token",
+    "blocks $blockedSource compatible-previous proof before publishing a presentation token",
     ({ blockedSource, frameInput, reason }) => {
       const scheduler = createGpuFlowVisibleFrameReducerRuntime();
       const sample = liveProjectionSample({ id: 53, timestamp: 530 });

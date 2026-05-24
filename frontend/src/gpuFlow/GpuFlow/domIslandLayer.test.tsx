@@ -23,7 +23,7 @@ import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { getGpuFlowBrowserVisualActorRuntimeForPresentedSurface } from "./browserVisualActorRuntime";
 import { GpuFlowDomIslandLayer } from "./domIslandLayer";
-import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFrameTestUtils";
+import { createGpuFlowVisibleFramePresentationTokenForTest } from "./visibleFrameTestUtils";
 
 let root: Root | null = null;
 
@@ -91,7 +91,7 @@ describe("GPU Flow DOM island layer", () => {
     ).toBe("2");
     expectDomIslandPresentationIdentity(nextToken);
 
-    const projectionToken = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const projectionToken = createGpuFlowVisibleFramePresentationTokenForTest({
       frame: presentedSurfaceRuntime.getPresentedContentFrame(),
       projectionSample: { id: 42 } as GpuFlowLiveProjectionSample,
     });
@@ -297,7 +297,7 @@ function committedSurfaceFrame({
 }
 
 function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
-  return createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+  return createGpuFlowVisibleFramePresentationTokenForTest({
     frame,
     projectionSample: {
       id: frame.displayFrameId,

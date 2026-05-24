@@ -8,13 +8,13 @@ import {
 } from "./committedSurfaceFrame";
 import type {
   GpuFlowBlockedPublicationToken,
-  GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
+  GpuFlowVisibleFramePresentationToken,
 } from "./GpuFlow/visibleFramePresentationProofs";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
-  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
+  createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./GpuFlow/visibleFrameTestUtils";
 import {
   applyGpuFlowProjectionDebugAttributes,
@@ -399,7 +399,7 @@ describe("GPU Flow projection runtime", () => {
       reducerRuntime.completeFrame(decision, {
         debtProof: createDebtProofForSelectedLane(decision),
         kind: "commit",
-        token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+        token: createGpuFlowVisibleFramePresentationTokenForTest({
           frame: committedFrameForReducerToken(decision),
           projectionSample: liveSample(2),
         }),
@@ -407,7 +407,7 @@ describe("GPU Flow projection runtime", () => {
     ).toThrow(/selected projection sample/);
   });
 
-  it("rejects unbranded committed publication tokens", () => {
+  it("rejects unbranded visible frame presentation tokens", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const decision = reducerRuntime.selectFrame({
       hasCommittedContentFrame: true,
@@ -423,9 +423,9 @@ describe("GPU Flow projection runtime", () => {
         kind: "commit",
         token: {
           projectionSampleId: decision.sample.id,
-        } as unknown as GpuFlowCommitPublicationToken,
+        } as unknown as GpuFlowVisibleFramePresentationToken,
       }),
-    ).toThrow(/commit token for the selected projection sample/);
+    ).toThrow(/presentation token for the selected projection sample/);
   });
 
   it("rejects blocked debt completion for a different projection sample", () => {
@@ -961,9 +961,9 @@ describe("GPU Flow projection runtime", () => {
           holdAgeFrames: heldPreviousProjection.consecutiveFrameCount,
           holdAgeMs: heldPreviousProjection.heldDurationMs,
           projectionSample: requestedSample,
-        }) as unknown as GpuFlowCommitPublicationToken,
+        }) as unknown as GpuFlowVisibleFramePresentationToken,
       ),
-    ).toThrow(/commit publication token/);
+    ).toThrow(/visible frame presentation token/);
     expect(element.dataset.gpuFlowHeldPreviousFrameCount).toBeUndefined();
     expect(element.dataset.gpuFlowProjectionTransactionKind).toBeUndefined();
   });
@@ -1003,7 +1003,7 @@ describe("GPU Flow projection runtime", () => {
       throw new Error("Expected projection debug test elements.");
     }
 
-    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrameForDebugToken(7),
       projectionSample: visibleState.sample,
     });
@@ -1044,7 +1044,7 @@ function completeCommittedFrame(
   return reducerRuntime.completeFrame(decision, {
     debtProof,
     kind: "commit",
-    token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    token: createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),

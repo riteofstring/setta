@@ -18,8 +18,8 @@ import {
 import {
   assertGpuFlowPreparedCandidateAbortToken,
   type GpuFlowBlockedPublicationToken,
-  type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
+  type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 import { createGpuFlowVisibleFrameResourceGraph } from "./visibleFrameResourceGraph";
 
@@ -101,7 +101,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
   );
   const presentPreparedContentFrame = useCallback(
     (
-      token: GpuFlowCommitPublicationToken,
+      token: GpuFlowVisibleFramePresentationToken,
       frame: GpuFlowCommittedSurfaceFrame,
     ): boolean => {
       const result =
@@ -128,7 +128,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
   );
   const validatePreparedContentFrame = useCallback(
     (
-      token: GpuFlowCommitPublicationToken,
+      token: GpuFlowVisibleFramePresentationToken,
       frame: GpuFlowCommittedSurfaceFrame,
     ) =>
       visibleFrameResourceGraphRef.current.validatePreparedContentFrame({
@@ -139,7 +139,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
   );
   const projectCommittedBrowserVisualActors = useCallback(
     (
-      token: GpuFlowCommitPublicationToken,
+      token: GpuFlowVisibleFramePresentationToken,
       viewport?: GpuViewportInput | undefined,
     ): void => {
       const browserVisualRuntime =

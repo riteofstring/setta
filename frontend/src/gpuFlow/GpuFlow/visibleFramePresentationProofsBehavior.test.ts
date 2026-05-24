@@ -15,18 +15,18 @@ import {
   createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import {
-  assertGpuFlowCommitPublicationToken,
+  assertGpuFlowVisibleFramePresentationToken,
   proveGpuFlowVisibleFramePublicationPresentation,
   type GpuFlowCommitAuthorityProof,
 } from "./visibleFramePresentationProofs";
 import { proveGpuFlowVisibleFrameStateMachineFrame } from "./visibleFrameStateMachine";
-import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFrameTestUtils";
+import { createGpuFlowVisibleFramePresentationTokenForTest } from "./visibleFrameTestUtils";
 import { createGpuFlowContentFrameId } from "./visibleFrameTypes";
 
 describe("GPU Flow visible frame presentation proof behavior", () => {
   it("rejects commit authority for non-publishable frames", () => {
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      createGpuFlowVisibleFramePresentationTokenForTest({
         frame: committedSurfaceFrame({
           publishability: {
             blockingActorIds: ["actor-a"],
@@ -41,7 +41,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
 
   it("rejects commit authority for incoherent DOM/canvas presentation pairs", () => {
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      createGpuFlowVisibleFramePresentationTokenForTest({
         frame: committedSurfaceFrame({
           coherence: {
             domControlCommittedFrameId: 42,
@@ -56,7 +56,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     const frame = committedSurfaceFrame();
 
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      createGpuFlowVisibleFramePresentationTokenForTest({
         frame: {
           ...frame,
           presentationProof: {
@@ -76,7 +76,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     const frame = committedSurfaceFrame();
 
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      createGpuFlowVisibleFramePresentationTokenForTest({
         frame: {
           ...frame,
           presentationProof: {
@@ -96,7 +96,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     const frame = committedSurfaceFrame();
 
     expect(() =>
-      createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      createGpuFlowVisibleFramePresentationTokenForTest({
         frame: {
           ...frame,
           presentationProof: {
@@ -112,10 +112,10 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     ).toThrow(/same presentation batch/);
   });
 
-  it("carries DOM/canvas presentation pair proof on commit tokens", () => {
+  it("carries DOM/canvas presentation pair proof on presentation tokens", () => {
     const frame = committedSurfaceFrame();
     const projectionSample = liveProjectionSample();
-    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame,
       projectionSample,
     });
@@ -156,7 +156,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         }),
       ),
     });
-    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame,
       projectionSample: liveProjectionSample(),
     });
@@ -175,7 +175,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     expect(token.proofDigest.length).toBeLessThan(120);
   });
 
-  it("rejects commit token issuance without the proof proof digest for the selected frame", async () => {
+  it("rejects presentation token issuance without the proof proof digest for the selected frame", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
@@ -200,10 +200,10 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         frame,
         projectionSample,
       }),
-    ).toThrow(/transaction proof presentable commit proof/);
+    ).toThrow(/transaction proof presentable frame proof/);
   });
 
-  it("rejects commit token issuance without the proof DOM/canvas pair proof for the projection sample", async () => {
+  it("rejects presentation token issuance without the proof DOM/canvas pair proof for the projection sample", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
@@ -234,7 +234,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     ).toThrow(/DOM\/canvas presentation pair proof/);
   });
 
-  it("rejects commit token issuance when the proof transaction kind differs from the selected visible state", async () => {
+  it("rejects presentation token issuance when the proof transaction kind differs from the selected visible state", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
@@ -263,7 +263,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     ).toThrow(/selected visible frame and projection sample/);
   });
 
-  it("rejects commit token issuance without the proof resource protection proof", async () => {
+  it("rejects presentation token issuance without the proof resource protection proof", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );
@@ -362,7 +362,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       } as unknown as GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
 
       expect(() =>
-        createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+        createGpuFlowVisibleFramePresentationTokenForTest({
           frame: {
             ...frame,
             actorGenerations: [changedActor],
@@ -373,15 +373,15 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     },
   );
 
-  it("rejects commit tokens when the DOM/canvas presentation proof changes after minting", () => {
+  it("rejects presentation tokens when the DOM/canvas presentation proof changes after minting", () => {
     const frame = committedSurfaceFrame();
-    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame,
       projectionSample: liveProjectionSample(),
     });
 
     expect(() =>
-      assertGpuFlowCommitPublicationToken({
+      assertGpuFlowVisibleFramePresentationToken({
         frame: {
           ...frame,
           presentationProof: {
@@ -394,7 +394,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         } as unknown as GpuFlowCommittedSurfaceFrame,
         token,
       }),
-    ).toThrow(/commit publication token for the same visible frame/);
+    ).toThrow(/visible frame presentation token for the same visible frame/);
   });
 
   it("wakes the coordinator for browser visual blocked content debt", () => {

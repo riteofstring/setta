@@ -11,7 +11,7 @@ import {
   createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
   createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
+import type { GpuFlowVisibleFramePresentationToken } from "./visibleFramePresentationProofs";
 import type {
   GpuFlowVisiblePublicationCompletionOutcome,
   GpuFlowVisiblePublicationDebtProof,
@@ -457,7 +457,7 @@ function commitOutcome({
       proofDigest: "proof",
       resourceProtectionDigest: "resource",
       transactionId: "transaction-a",
-    } as GpuFlowCommitPublicationToken,
+    } as GpuFlowVisibleFramePresentationToken,
   };
 }
 

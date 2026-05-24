@@ -4,8 +4,8 @@ import {
   createGpuFlowCommittedSurfacePresentationProof,
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
+import { createGpuFlowVisibleFramePresentationTokenForTest } from "./GpuFlow/visibleFrameTestUtils";
 import { createGpuFlowPresentedSurfaceRuntime } from "./presentedSurfaceRuntime";
-import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./GpuFlow/visibleFrameTestUtils";
 import type { GpuFlowLiveProjectionSample } from "./projectionRuntime";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 
@@ -163,9 +163,7 @@ describe("GPU Flow presented surface runtime", () => {
     expect(runtime.publishPresentedContentFrame(contentToken, frame)).toBe(
       false,
     );
-    expect(runtime.publishPresentedProjectionIdentity(motionToken)).toBe(
-      true,
-    );
+    expect(runtime.publishPresentedProjectionIdentity(motionToken)).toBe(true);
 
     expect(runtime.getPresentedContentFrame()).toBe(frame);
     expect(runtime.getReactSemanticSnapshot().presentationIdentity).toEqual({
@@ -189,7 +187,7 @@ describe("GPU Flow presented surface runtime", () => {
         publicationToken(startupFrame),
         nextFrame,
       ),
-    ).toThrow(/requires a commit publication token/);
+    ).toThrow(/requires a visible frame presentation token/);
   });
 
   it("does not expose reset or startup lifecycle mutators", () => {
@@ -214,7 +212,7 @@ describe("GPU Flow presented surface runtime", () => {
         publicationToken(staleFrame),
         nextFrame,
       ),
-    ).toThrow(/requires a commit publication token/);
+    ).toThrow(/requires a visible frame presentation token/);
   });
 });
 
@@ -305,7 +303,7 @@ function publicationTokenForSample(
   frame: GpuFlowCommittedSurfaceFrame,
   sampleId: number,
 ) {
-  return createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+  return createGpuFlowVisibleFramePresentationTokenForTest({
     frame,
     projectionSample: {
       id: sampleId,

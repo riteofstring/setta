@@ -10,8 +10,8 @@ import { createGpuFlowBrowserVisualActorRuntime } from "./browserVisualActorRunt
 import { GpuFlowDomControlPlane } from "./domControlPlane";
 import {
   committedSurfaceFrame,
-  createPresentedSurfaceRuntimeWithBrowserVisuals,
   createMockViewportRuntime,
+  createPresentedSurfaceRuntimeWithBrowserVisuals,
   domControl,
   mountedRowIds,
   publicationToken,
@@ -133,7 +133,7 @@ describe("GPU flow DOM control projection host publication", () => {
     ).toEqual(mountedBefore);
   });
 
-  it("requires a commit token for current-viewport browser visual projection", () => {
+  it("requires a presentation token for current-viewport browser visual projection", () => {
     const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
     browserVisualRuntime.setDomControlProjectionEnvironment({
       getRetainedScrollOffset: undefined,
@@ -147,14 +147,14 @@ describe("GPU flow DOM control projection host publication", () => {
 
     expect(() =>
       browserVisualRuntime.projectDomControls(undefined as never),
-    ).toThrow(/commit publication token/);
+    ).toThrow(/visible frame presentation token/);
     expect(() =>
       browserVisualRuntime.projectDomControls({
         x: 0,
         y: 0,
         zoom: 1,
       } as never),
-    ).toThrow(/commit publication token/);
+    ).toThrow(/visible frame presentation token/);
   });
 
   it("pins focused DOM-control hosts while retained active state catches up", () => {

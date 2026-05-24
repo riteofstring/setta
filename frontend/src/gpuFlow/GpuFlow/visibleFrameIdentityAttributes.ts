@@ -1,4 +1,4 @@
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
+import type { GpuFlowVisibleFramePresentationToken } from "./visibleFramePresentationProofs";
 
 type GpuFlowVisibleFrameIdentityDataAttributes = {
   readonly "data-gpu-flow-content-frame-id"?: string | undefined;
@@ -6,7 +6,7 @@ type GpuFlowVisibleFrameIdentityDataAttributes = {
 };
 
 export function getGpuFlowVisibleFrameIdentityDataAttributes(
-  token: GpuFlowCommitPublicationToken | null,
+  token: GpuFlowVisibleFramePresentationToken | null,
 ): GpuFlowVisibleFrameIdentityDataAttributes {
   if (token === null) {
     return Object.freeze({});
@@ -19,7 +19,7 @@ export function getGpuFlowVisibleFrameIdentityDataAttributes(
 
 export function setGpuFlowVisibleFrameIdentityAttributes(
   element: HTMLElement,
-  token: GpuFlowCommitPublicationToken,
+  token: GpuFlowVisibleFramePresentationToken,
 ): void {
   element.dataset.gpuFlowContentFrameId = String(token.contentFrameId);
   element.dataset.gpuFlowPresentationId = String(token.presentationId);

@@ -30,8 +30,8 @@ import {
 import { shouldDrainGpuFlowBrowserVisualMaintenanceNow } from "./visibleFrameMaintenanceScheduling";
 import type {
   GpuFlowBlockedPublicationToken,
-  GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
+  GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationTokens";
 import {
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
@@ -90,7 +90,7 @@ export type GpuFlowVisiblePublicationCompletion = {
 export type GpuFlowVisiblePublicationCommitCompletionOutcome = {
   readonly debtProof: GpuFlowVisiblePublicationDebtProof;
   readonly kind: "commit";
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 };
 
 export type GpuFlowVisiblePublicationUncommittedCompletionOutcome =

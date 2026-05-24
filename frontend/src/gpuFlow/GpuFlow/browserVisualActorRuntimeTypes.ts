@@ -6,7 +6,7 @@ import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomContro
 import type { GpuDomIsland } from "../scene";
 import type { GpuViewportInput } from "../viewportMath";
 import type { GpuFlowDomControlProjectionAssignment } from "./domControlPlaneProjection";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
+import type { GpuFlowVisibleFramePresentationToken } from "./visibleFramePresentationProofs";
 
 export type GpuFlowBrowserVisualActorRuntimeFrameIds = {
   readonly committedFrameId: number;
@@ -29,7 +29,7 @@ export type GpuFlowBrowserVisualActorRuntimeSnapshot = {
     readonly islands: readonly GpuDomIsland[];
   };
   readonly frameIds: GpuFlowBrowserVisualActorRuntimeFrameIds;
-  readonly publicationToken: GpuFlowCommitPublicationToken | null;
+  readonly publicationToken: GpuFlowVisibleFramePresentationToken | null;
 };
 
 export type BrowserVisualActorRuntimeListener = () => void;
@@ -39,7 +39,7 @@ export type BrowserVisualActorPreparationHostRenderer = (
 ) => void;
 
 export type GpuFlowBrowserVisualActorProjectionInput = {
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
   readonly viewport?: GpuViewportInput | undefined;
 };
 

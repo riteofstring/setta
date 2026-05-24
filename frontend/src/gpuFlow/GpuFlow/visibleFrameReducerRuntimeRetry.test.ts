@@ -12,8 +12,8 @@ import {
 } from "./visibleFrameReducerRuntime";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
-  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
+  createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
 
 describe("GPU Flow visible frame reducer runtime content retry throttling", () => {
@@ -1080,7 +1080,7 @@ function completeCommittedFrame(
   return reducerRuntime.completeFrame(decision, {
     debtProof: createDebtProofForSelectedLane(decision),
     kind: "commit",
-    token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    token: createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),
@@ -1098,7 +1098,7 @@ function completeCompatiblePreviousCommittedFrame(
       motion: false,
     },
     kind: "commit",
-    token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    token: createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),

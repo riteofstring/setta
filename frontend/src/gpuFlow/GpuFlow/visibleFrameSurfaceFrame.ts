@@ -51,8 +51,8 @@ import {
 } from "./visibleFramePresentationEvidence";
 import type {
   GpuFlowBlockedPublicationToken,
-  GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
+  GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 import type {
@@ -121,11 +121,11 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
     ReturnType<typeof createGpuFlowLiveProjectionSampler>
   >;
   readonly presentPreparedContentFrame: (
-    token: GpuFlowCommitPublicationToken,
+    token: GpuFlowVisibleFramePresentationToken,
     frame: GpuFlowCommittedSurfaceFrame,
   ) => boolean;
   readonly validatePreparedContentFrame: (
-    token: GpuFlowCommitPublicationToken,
+    token: GpuFlowVisibleFramePresentationToken,
     frame: GpuFlowCommittedSurfaceFrame,
   ) => void;
   readonly prepareCommittedSurfaceFrame: NonNullable<
@@ -135,12 +135,12 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
     budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision,
   ) => void;
   readonly projectCommittedBrowserVisualActors: (
-    token: GpuFlowCommitPublicationToken,
+    token: GpuFlowVisibleFramePresentationToken,
     viewport?: GpuViewportInput | undefined,
   ) => void;
   readonly publishColdStartShellFrame: (publication: {
     readonly frame: GpuFlowColdStartShellFrame | null;
-    readonly token: GpuFlowCommitPublicationToken;
+    readonly token: GpuFlowVisibleFramePresentationToken;
   }) => void;
   readonly retainedPreparationRuntimeFrameRenderSignatureRef: MutableRefObject<
     string | null

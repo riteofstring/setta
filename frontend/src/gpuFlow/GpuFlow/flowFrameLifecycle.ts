@@ -20,8 +20,8 @@ import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import { type GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { markTransformOnlyPaintNodesForViewportFrame } from "./flowTransformOnlyPaintNodes";
 import {
-  assertGpuFlowCommitPublicationTokenBrand,
-  type GpuFlowCommitPublicationToken,
+  assertGpuFlowVisibleFramePresentationTokenBrand,
+  type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 
 export type GpuFlowNodeLayerFramePerformanceReport = Omit<
@@ -49,9 +49,9 @@ function publishGpuFlowNodeLayerFramePerformance({
     | GpuFlowNodeLayerFramePerformanceReport
     | null
     | undefined;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }) {
-  assertGpuFlowCommitPublicationTokenBrand({ token });
+  assertGpuFlowVisibleFramePresentationTokenBrand({ token });
   if (!performanceReport) {
     return;
   }
@@ -91,9 +91,9 @@ export function publishGpuFlowNodeLayerFrameState({
   token,
   ...publication
 }: GpuFlowNodeLayerFrameStatePublication & {
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
-  assertGpuFlowCommitPublicationTokenBrand({ token });
+  assertGpuFlowVisibleFramePresentationTokenBrand({ token });
   const layerResult = publishGpuFlowHtmlSurfaceCanvasSubmission({
     layerResult: publication.layerResult,
     token,
@@ -115,9 +115,9 @@ export function submitGpuFlowNodeLayerFrameCanvasSubmission({
   token,
 }: {
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): GpuFlowNodeLayerFrameStatePublication | null {
-  assertGpuFlowCommitPublicationTokenBrand({ token });
+  assertGpuFlowVisibleFramePresentationTokenBrand({ token });
   if (nodeLayerFrameStatePublication === null) {
     return null;
   }
@@ -135,7 +135,7 @@ function publishGpuFlowHtmlSurfaceCanvasSubmission({
   token,
 }: {
   readonly layerResult: RenderHtmlSurfaceFrameResult;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): RenderHtmlSurfaceFrameResult {
   const canvasSubmission = layerResult.canvasSubmission ?? null;
   const domTransformSubmission = layerResult.domTransformSubmission ?? null;
@@ -184,9 +184,9 @@ function submitGpuFlowHtmlSurfaceCanvasFrame({
   token,
 }: {
   readonly canvasSubmission: HtmlSurfaceFrameCanvasSubmission;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
-  assertGpuFlowCommitPublicationTokenBrand({ token });
+  assertGpuFlowVisibleFramePresentationTokenBrand({ token });
   canvasSubmission.submit();
 }
 
@@ -197,9 +197,9 @@ function submitGpuFlowHtmlSurfaceDomTransformFrame({
   readonly domTransformSubmission: NonNullable<
     RenderHtmlSurfaceFrameResult["domTransformSubmission"]
   >;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
-  assertGpuFlowCommitPublicationTokenBrand({ token });
+  assertGpuFlowVisibleFramePresentationTokenBrand({ token });
   domTransformSubmission.submit({
     contentFrameId: String(token.contentFrameId),
     presentationId: String(token.presentationId),
@@ -215,9 +215,9 @@ function submitGpuFlowHtmlSurfaceTextureEvictionFrame({
   readonly textureEvictionSubmission: NonNullable<
     RenderHtmlSurfaceFrameResult["textureEvictionSubmission"]
   >;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): HtmlSurfaceTextureEvictionResult {
-  assertGpuFlowCommitPublicationTokenBrand({ token });
+  assertGpuFlowVisibleFramePresentationTokenBrand({ token });
   return textureEvictionSubmission.submit();
 }
 

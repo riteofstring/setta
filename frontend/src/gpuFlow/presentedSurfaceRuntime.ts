@@ -3,9 +3,9 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
 import {
-  assertGpuFlowCommitPublicationTokenBrand,
-  assertGpuFlowCommitPublicationTokenForPresentationProof,
-  type GpuFlowCommitPublicationToken,
+  assertGpuFlowVisibleFramePresentationTokenBrand,
+  assertGpuFlowVisibleFramePresentationTokenForPresentationProof,
+  type GpuFlowVisibleFramePresentationToken,
 } from "./GpuFlow/visibleFramePresentationProofs";
 import type { GpuFlowVisibleFramePresentationIdentity } from "./GpuFlow/visibleFrameTypes";
 
@@ -24,11 +24,11 @@ export type GpuFlowPresentedSurfaceRuntime = {
   getPresentedContentFrame(): GpuFlowPresentedContentFrame;
   getReactSemanticSnapshot(): GpuFlowReactSemanticSnapshot;
   publishPresentedContentFrame(
-    token: GpuFlowCommitPublicationToken,
+    token: GpuFlowVisibleFramePresentationToken,
     frame: GpuFlowPresentedContentFrame,
   ): boolean;
   publishPresentedProjectionIdentity(
-    token: GpuFlowCommitPublicationToken,
+    token: GpuFlowVisibleFramePresentationToken,
   ): boolean;
   subscribePresentedContentFrame(
     listener: GpuFlowPresentedSurfaceRuntimeListener,
@@ -72,10 +72,10 @@ class DefaultGpuFlowPresentedSurfaceRuntime
   }
 
   publishPresentedContentFrame(
-    token: GpuFlowCommitPublicationToken,
+    token: GpuFlowVisibleFramePresentationToken,
     frame: GpuFlowPresentedContentFrame,
   ): boolean {
-    assertGpuFlowCommitPublicationTokenForPresentationProof({
+    assertGpuFlowVisibleFramePresentationTokenForPresentationProof({
       frame,
       token,
     });
@@ -103,10 +103,10 @@ class DefaultGpuFlowPresentedSurfaceRuntime
   }
 
   publishPresentedProjectionIdentity(
-    token: GpuFlowCommitPublicationToken,
+    token: GpuFlowVisibleFramePresentationToken,
   ): boolean {
-    assertGpuFlowCommitPublicationTokenBrand({ token });
-    assertGpuFlowCommitPublicationTokenForPresentationProof({
+    assertGpuFlowVisibleFramePresentationTokenBrand({ token });
+    assertGpuFlowVisibleFramePresentationTokenForPresentationProof({
       frame: this.getPresentedContentFrame(),
       token,
     });
@@ -194,7 +194,7 @@ class DefaultGpuFlowPresentedSurfaceRuntime
 }
 
 function createGpuFlowPresentationIdentityForToken(
-  token: GpuFlowCommitPublicationToken,
+  token: GpuFlowVisibleFramePresentationToken,
 ): GpuFlowVisibleFramePresentationIdentity {
   return Object.freeze({
     contentFrameId: token.contentFrameId,

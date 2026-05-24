@@ -15,8 +15,8 @@ import {
 } from "./visibleFramePresentation";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
-  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
+  createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
 
 type GpuFlowSurfacePublicationTransaction = Parameters<
@@ -106,7 +106,7 @@ describe("GPU Flow surface publication completion", () => {
       kind: "content-publication",
       sampleId: 12,
     });
-    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrame,
       projectionSample: selectedState.sample,
     });
@@ -172,7 +172,7 @@ describe("GPU Flow surface publication completion", () => {
       kind: "content-publication",
       sampleId: 21,
     });
-    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrame,
       projectionSample: selectedState.sample,
     });
@@ -252,7 +252,7 @@ describe("GPU Flow surface publication completion", () => {
       kind: "content-publication",
       sampleId: 22,
     });
-    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrame,
       projectionSample: selectedState.sample,
     });
@@ -319,7 +319,7 @@ describe("GPU Flow surface publication completion", () => {
       kind: "content-publication",
       sampleId: 31,
     });
-    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrame,
       projectionSample: selectedState.sample,
     });
@@ -371,7 +371,7 @@ describe("GPU Flow surface publication completion", () => {
       kind: "content-publication",
       sampleId: 41,
     });
-    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrame,
       projectionSample: selectedState.sample,
     });
@@ -446,7 +446,7 @@ describe("GPU Flow surface publication completion", () => {
       kind: "content-publication",
       sampleId: 42,
     });
-    const firstToken = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const firstToken = createGpuFlowVisibleFramePresentationTokenForTest({
       frame: firstCommittedFrame,
       projectionSample: firstSelectedState.sample,
     });
@@ -456,7 +456,7 @@ describe("GPU Flow surface publication completion", () => {
       kind: "content-publication",
       sampleId: 43,
     });
-    const secondToken = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const secondToken = createGpuFlowVisibleFramePresentationTokenForTest({
       frame: secondCommittedFrame,
       projectionSample: secondSelectedState.sample,
     });
@@ -875,7 +875,7 @@ function committedPublicationTransaction({
   readonly reducerCompletion?: unknown;
   readonly selectedState: GpuFlowVisibleProjectionState;
   readonly token: ReturnType<
-    typeof createGpuFlowVisibleFrameCommitPublicationTokenForTest
+    typeof createGpuFlowVisibleFramePresentationTokenForTest
   >;
 }): GpuFlowSurfacePublicationTransaction {
   return {

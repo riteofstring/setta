@@ -1,8 +1,8 @@
 import { setGpuFlowVisibleFrameIdentityAttributes } from "./GpuFlow/visibleFrameIdentityAttributes";
 import {
-  assertGpuFlowCommitPublicationTokenForFrameId,
-  assertGpuFlowCommitPublicationTokenForProjectionSample,
-  type GpuFlowCommitPublicationToken,
+  assertGpuFlowVisibleFramePresentationTokenForFrameId,
+  assertGpuFlowVisibleFramePresentationTokenForProjectionSample,
+  type GpuFlowVisibleFramePresentationToken,
 } from "./GpuFlow/visibleFramePresentationProofs";
 import type { GpuFlowProjectionDebugState } from "./projectionRuntime";
 
@@ -13,7 +13,7 @@ export function applyGpuFlowProjectionDebugAttributes({
 }: {
   readonly canvas: HTMLCanvasElement;
   readonly debugState: GpuFlowProjectionDebugState;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   setProjectionDebugAttributes(canvas, debugState, token);
   const root = canvas
@@ -27,7 +27,7 @@ export function applyGpuFlowProjectionDebugAttributes({
 export function setProjectionDebugAttributes(
   element: HTMLElement,
   debugState: GpuFlowProjectionDebugState,
-  token: GpuFlowCommitPublicationToken,
+  token: GpuFlowVisibleFramePresentationToken,
 ): void {
   assertGpuFlowProjectionDebugPublicationToken({ debugState, token });
   setGpuFlowVisibleFrameIdentityAttributes(element, token);
@@ -61,13 +61,13 @@ function assertGpuFlowProjectionDebugPublicationToken({
   token,
 }: {
   readonly debugState: GpuFlowProjectionDebugState;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
-  assertGpuFlowCommitPublicationTokenForFrameId({
+  assertGpuFlowVisibleFramePresentationTokenForFrameId({
     committedFrameId: debugState.committedFrameId,
     token,
   });
-  assertGpuFlowCommitPublicationTokenForProjectionSample({
+  assertGpuFlowVisibleFramePresentationTokenForProjectionSample({
     projectionSampleId: debugState.projectionSampleId,
     token,
   });

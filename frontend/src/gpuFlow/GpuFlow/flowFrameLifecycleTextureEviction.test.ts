@@ -10,13 +10,13 @@ import {
   submitGpuFlowNodeLayerFrameCanvasSubmission,
   type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
-import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFrameTestUtils";
+import { createGpuFlowVisibleFramePresentationTokenForTest } from "./visibleFrameTestUtils";
 
 describe("GPU Flow node-layer frame texture eviction publication", () => {
-  it("submits deferred texture eviction with the commit-tokened publication", () => {
+  it("submits deferred texture eviction with the presentation-tokened publication", () => {
     const frame = committedSurfaceFrame(42);
     const projectionSample = liveProjectionSample(7);
-    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame,
       projectionSample,
     });

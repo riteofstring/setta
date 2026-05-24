@@ -14,12 +14,10 @@ import type {
 } from "./browserVisualActorRuntime";
 import type { GpuFlowDomControlProjectionAssignment } from "./domControlPlaneProjection";
 import { DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS } from "./domControlProjectionHorizon";
+import { setGpuFlowVisibleFrameIdentityAttributes } from "./visibleFrameIdentityAttributes";
 import {
-  setGpuFlowVisibleFrameIdentityAttributes,
-} from "./visibleFrameIdentityAttributes";
-import {
-  assertGpuFlowCommitPublicationTokenForFrameId,
-  type GpuFlowCommitPublicationToken,
+  assertGpuFlowVisibleFramePresentationTokenForFrameId,
+  type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 
 const GPU_FLOW_DOM_CONTROL_HOST_RETAINED_PREVIOUS_LIMIT =
@@ -47,17 +45,17 @@ export function resolveGpuFlowBrowserVisualActorProjectionViewport({
   readonly committedFrameId: number;
   readonly projectionInput:
     | {
-        readonly token: GpuFlowCommitPublicationToken;
+        readonly token: GpuFlowVisibleFramePresentationToken;
         readonly viewport?: GpuViewportInput | undefined;
       }
     | undefined;
 }): GpuViewportInput | undefined {
   if (!projectionInput) {
     throw new Error(
-      "GPU Flow current browser visual projection requires a commit publication token.",
+      "GPU Flow current browser visual projection requires a visible frame presentation token.",
     );
   }
-  assertGpuFlowCommitPublicationTokenForFrameId({
+  assertGpuFlowVisibleFramePresentationTokenForFrameId({
     committedFrameId,
     token: projectionInput.token,
   });
@@ -244,7 +242,7 @@ export function publishGpuFlowBrowserVisualDomIslandHostPresentation({
   readonly elementById: ReadonlyMap<string, HTMLElement>;
   readonly registrationCommittedFrameIdById: Map<string, number>;
   readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   const visibleIslandIds = new Set(
     snapshot.domIslands.islands.map((island) => island.id),
@@ -284,7 +282,7 @@ export function stampGpuFlowVisibleDomControlHostPresentationIdentity({
     string,
     { readonly element: HTMLElement }
   >;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   for (const host of hostByControlId.values()) {
     setGpuFlowVisibleFrameIdentityAttributes(host.element, token);
@@ -298,7 +296,7 @@ export function stampGpuFlowVisibleDomIslandHostPresentationIdentity({
 }: {
   readonly elementById: ReadonlyMap<string, HTMLElement>;
   readonly registeredIslandIds: Iterable<string>;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   for (const islandId of registeredIslandIds) {
     const element = elementById.get(islandId);

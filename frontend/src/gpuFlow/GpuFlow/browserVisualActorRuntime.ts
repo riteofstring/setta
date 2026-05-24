@@ -1,5 +1,5 @@
-import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { GpuSurfaceHandle } from "../GpuSurface";
+import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuViewportInput } from "../viewportMath";
@@ -40,6 +40,13 @@ import {
   withGpuFlowBrowserVisualSnapshotPublicationToken,
   type GpuFlowDomControlSnapshotTextureManager,
 } from "./browserVisualActorRuntimeState";
+import type {
+  BrowserVisualActorPreparationHostRenderer,
+  BrowserVisualActorRuntimeListener,
+  GpuFlowBrowserVisualActorCandidate,
+  GpuFlowBrowserVisualActorProjectionInput,
+  GpuFlowBrowserVisualActorRuntimeSnapshot,
+} from "./browserVisualActorRuntimeTypes";
 import {
   createEmptyDomControlPlaneDiagnostics,
   createGpuFlowDomControlProjectionManager,
@@ -51,23 +58,14 @@ import {
   getGpuFlowDomControlPlaneViewportSize,
   getLiveGpuFlowDomControlPlaneViewport,
 } from "./domControlPlaneViewport";
+import { setGpuFlowVisibleFrameIdentityAttributes } from "./visibleFrameIdentityAttributes";
 import {
-  setGpuFlowVisibleFrameIdentityAttributes,
-} from "./visibleFrameIdentityAttributes";
-import {
-  assertGpuFlowCommitPublicationTokenForFrameId,
   assertGpuFlowPreparedCandidateAbortToken,
+  assertGpuFlowVisibleFramePresentationTokenForFrameId,
   type GpuFlowBlockedPublicationToken,
-  type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
+  type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
-import type {
-  BrowserVisualActorPreparationHostRenderer,
-  BrowserVisualActorRuntimeListener,
-  GpuFlowBrowserVisualActorCandidate,
-  GpuFlowBrowserVisualActorProjectionInput,
-  GpuFlowBrowserVisualActorRuntimeSnapshot,
-} from "./browserVisualActorRuntimeTypes";
 
 export type {
   GpuFlowBrowserVisualActorCandidate,
@@ -146,7 +144,8 @@ export class GpuFlowBrowserVisualActorRuntime {
   private snapshot = createEmptyBrowserVisualActorRuntimeSnapshot();
   private snapshotEmitQueued = false;
   private snapshotEmitPending = false;
-  private snapshotPublicationToken: GpuFlowCommitPublicationToken | null = null;
+  private snapshotPublicationToken: GpuFlowVisibleFramePresentationToken | null =
+    null;
   private suspendPassivePointerActivation = false;
 
   getSnapshot(): GpuFlowBrowserVisualActorRuntimeSnapshot {
@@ -291,7 +290,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     token,
   }: {
     readonly candidate: GpuFlowBrowserVisualActorCandidate;
-    readonly token: GpuFlowCommitPublicationToken;
+    readonly token: GpuFlowVisibleFramePresentationToken;
   }): void {
     const snapshotChanged = this.publishBrowserVisualSnapshot({
       nextSnapshot: candidate.snapshot,
@@ -393,7 +392,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     readonly control: GpuRetainedDomControlSourceDescriptor;
     readonly element: HTMLElement | null;
     readonly presentation: "preparation" | "visible";
-    readonly token?: GpuFlowCommitPublicationToken | undefined;
+    readonly token?: GpuFlowVisibleFramePresentationToken | undefined;
   }): void {
     const hostMap = this.getDomControlHostMap(presentation);
     const mounted = hostMap.get(control.sourceId);
@@ -463,7 +462,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     readonly control: GpuRetainedDomControlSourceDescriptor;
     readonly element: HTMLElement;
     readonly presentation: "preparation" | "visible";
-    readonly token?: GpuFlowCommitPublicationToken | undefined;
+    readonly token?: GpuFlowVisibleFramePresentationToken | undefined;
   }): void {
     if (presentation === "visible" && token) {
       setGpuFlowVisibleFrameIdentityAttributes(element, token);
@@ -507,7 +506,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     if (!surface || !this.snapshotPublicationToken) {
       return;
     }
-    assertGpuFlowCommitPublicationTokenForFrameId({
+    assertGpuFlowVisibleFramePresentationTokenForFrameId({
       committedFrameId: this.snapshot.frameIds.committedFrameId,
       token: this.snapshotPublicationToken,
     });
@@ -523,7 +522,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     readonly element: HTMLElement | null;
     readonly islandId: string;
     readonly presentation: "preparation" | "visible";
-    readonly token?: GpuFlowCommitPublicationToken | undefined;
+    readonly token?: GpuFlowVisibleFramePresentationToken | undefined;
   }): void {
     this.assertBrowserVisualHostRegistrationToken({
       committedFrameId:
@@ -660,7 +659,7 @@ export class GpuFlowBrowserVisualActorRuntime {
   }
 
   private publishBrowserVisualPresentationIdentity(
-    token: GpuFlowCommitPublicationToken,
+    token: GpuFlowVisibleFramePresentationToken,
   ): void {
     if (this.snapshot.publicationToken === token) {
       return;
@@ -793,9 +792,9 @@ export class GpuFlowBrowserVisualActorRuntime {
     token,
   }: {
     readonly nextSnapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
-    readonly token: GpuFlowCommitPublicationToken;
+    readonly token: GpuFlowVisibleFramePresentationToken;
   }): boolean {
-    assertGpuFlowCommitPublicationTokenForFrameId({
+    assertGpuFlowVisibleFramePresentationTokenForFrameId({
       committedFrameId: nextSnapshot.frameIds.committedFrameId,
       token,
     });
@@ -823,9 +822,9 @@ export class GpuFlowBrowserVisualActorRuntime {
     token,
   }: {
     readonly candidate: GpuFlowBrowserVisualActorCandidate;
-    readonly token: GpuFlowCommitPublicationToken;
+    readonly token: GpuFlowVisibleFramePresentationToken;
   }): void {
-    assertGpuFlowCommitPublicationTokenForFrameId({
+    assertGpuFlowVisibleFramePresentationTokenForFrameId({
       committedFrameId: candidate.snapshot.frameIds.committedFrameId,
       token,
     });
@@ -844,7 +843,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     token,
   }: {
     readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
-    readonly token: GpuFlowCommitPublicationToken;
+    readonly token: GpuFlowVisibleFramePresentationToken;
   }): void {
     const visibleControlIds = new Set(
       snapshot.domControls.mountedControls.map((control) => control.sourceId),
@@ -886,7 +885,7 @@ export class GpuFlowBrowserVisualActorRuntime {
     token,
   }: {
     readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
-    readonly token: GpuFlowCommitPublicationToken;
+    readonly token: GpuFlowVisibleFramePresentationToken;
   }): void {
     publishGpuFlowBrowserVisualDomIslandHostPresentation({
       elementById: this.domIslandElementById,
@@ -904,17 +903,17 @@ export class GpuFlowBrowserVisualActorRuntime {
   }: {
     readonly committedFrameId?: number | undefined;
     readonly presentation: "preparation" | "visible";
-    readonly token?: GpuFlowCommitPublicationToken | undefined;
+    readonly token?: GpuFlowVisibleFramePresentationToken | undefined;
   }): void {
     if (presentation !== "visible") {
       return;
     }
     if (!token) {
       throw new Error(
-        "GPU Flow visible browser visual host registration requires a committed publication token.",
+        "GPU Flow visible browser visual host registration requires a visible frame presentation token.",
       );
     }
-    assertGpuFlowCommitPublicationTokenForFrameId({
+    assertGpuFlowVisibleFramePresentationTokenForFrameId({
       committedFrameId:
         committedFrameId ?? this.snapshot.frameIds.committedFrameId,
       token,

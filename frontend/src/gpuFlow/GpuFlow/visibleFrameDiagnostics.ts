@@ -13,12 +13,12 @@ import type { GpuFlowVisiblePublicationCompletion } from "./visibleFrameCoordina
 import {
   assertGpuFlowBlockedPublicationTokenBrand,
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
-  assertGpuFlowCommitPublicationTokenBrand,
   assertGpuFlowHoldPreviousTokenBrand,
+  assertGpuFlowVisibleFramePresentationTokenBrand,
   type GpuFlowBlockedFrozenFrame,
   type GpuFlowBlockedPublicationToken,
-  type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
+  type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 import {
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
@@ -88,10 +88,10 @@ const browserVisualStarvationDebtByCanvas = new WeakMap<
 export function recordGpuFlowVisibleFramePresented(application: {
   readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly runtimeCanvas: HTMLCanvasElement;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   const { committedSurfaceFrame, runtimeCanvas, token } = application;
-  assertGpuFlowCommitPublicationTokenBrand({ token });
+  assertGpuFlowVisibleFramePresentationTokenBrand({ token });
   if (committedSurfaceFrame === null) {
     return;
   }

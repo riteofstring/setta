@@ -15,10 +15,10 @@ describe("GPU Flow visible projection state publication authority", () => {
     );
 
     expect(source).toContain(
-      "readonly commitPublicationToken: GpuFlowCommitPublicationToken;",
+      "readonly presentationToken: GpuFlowVisibleFramePresentationToken;",
     );
     expect(source).toContain("readonly token: GpuFlowHoldPreviousToken;");
-    expect(source).not.toContain("GpuFlowCommitPublicationToken | null");
+    expect(source).not.toContain("GpuFlowVisibleFramePresentationToken | null");
     expect(source).not.toContain("GpuFlowHoldPreviousToken | null");
   });
 
@@ -49,7 +49,7 @@ describe("GPU Flow visible projection state publication authority", () => {
     expect(heldPublisherStart).toBeGreaterThanOrEqual(0);
     expect(committedPublisherEnd).toBeGreaterThan(committedPublisherStart);
     expect(committedPublisherSource).toContain(
-      "assertGpuFlowCommitPublicationToken",
+      "assertGpuFlowVisibleFramePresentationToken",
     );
     expect(committedPublisherSource).toContain(
       "visibleProjectionStateRef.current = visibleProjectionState",

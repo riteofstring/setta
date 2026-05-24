@@ -7,8 +7,8 @@ import {
   type GpuFlowProjectionSchedulerState,
 } from "../projectionSchedulerPolicy";
 import {
-  assertGpuFlowCommitPublicationTokenForProjectionSample,
-  type GpuFlowCommitPublicationToken,
+  assertGpuFlowVisibleFramePresentationTokenForProjectionSample,
+  type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationTokens";
 import type {
   GpuFlowVisiblePublicationCompletion,
@@ -146,9 +146,9 @@ export function assertGpuFlowVisiblePublicationCommitTokenMatchesDecision({
   token,
 }: {
   readonly decision: GpuFlowVisiblePublicationDecision;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
-  assertGpuFlowCommitPublicationTokenForProjectionSample({
+  assertGpuFlowVisibleFramePresentationTokenForProjectionSample({
     projectionSampleId: decision.sample.id,
     token,
   });

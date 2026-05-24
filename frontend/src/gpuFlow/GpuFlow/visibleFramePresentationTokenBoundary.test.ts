@@ -14,14 +14,14 @@ const CHROME_REPRO_MODULE_PATH = modulePath(
 );
 const TOKEN_CONSTRUCTOR_NAMES = [
   "createGpuFlowBlockedPublicationToken",
-  "createGpuFlowCommitPublicationToken",
+  "createGpuFlowVisibleFramePresentationToken",
   "createGpuFlowHoldPreviousToken",
-  "createGpuFlowPresentableCommit",
+  "createGpuFlowPresentableFrame",
 ] as const;
 const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
   "createGpuFlowVisibleFrameBlockedPublicationToken",
   "createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
-  "createGpuFlowVisibleFrameCommitPublicationToken",
+  "createGpuFlowVisibleFramePresentationToken",
   "createGpuFlowVisibleFrameHoldPreviousToken",
 ] as const;
 const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([

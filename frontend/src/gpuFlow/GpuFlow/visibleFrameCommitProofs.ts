@@ -102,7 +102,7 @@ export function createGpuFlowCommitAuthorityProof({
   });
 }
 
-export function assertGpuFlowPresentableCommitFrame({
+export function assertGpuFlowPresentationAuthorityFrame({
   frame,
   commitAuthorityProof,
   projectionSampleId,
@@ -116,7 +116,7 @@ export function assertGpuFlowPresentableCommitFrame({
     frame.publishability.blockingActorIds.length > 0
   ) {
     throw new Error(
-      "GPU Flow commit publication authority requires a publishable committed surface frame.",
+      "GPU Flow visible presentation authority requires a publishable committed surface frame.",
     );
   }
   assertGpuFlowPresentationPairFeasible({
@@ -165,7 +165,7 @@ function assertGpuFlowCommitAuthorityProofMatchesFrame({
     commitAuthorityProof.resourceProtectionDigest !== resourceProtectionDigest
   ) {
     throw new Error(
-      "GPU Flow commit publication authority requires the transaction proof resource protection proof for the selected frame.",
+      "GPU Flow visible presentation authority requires the transaction proof resource protection proof for the selected frame.",
     );
   }
   if (
@@ -181,7 +181,7 @@ function assertGpuFlowCommitAuthorityProofMatchesFrame({
       })
   ) {
     throw new Error(
-      "GPU Flow commit publication authority requires the transaction proof presentable commit proof for the selected frame.",
+      "GPU Flow visible presentation authority requires the transaction proof presentable frame proof for the selected frame.",
     );
   }
 }
@@ -240,7 +240,7 @@ export function assertGpuFlowCommitPresentationPairProof({
     )
   ) {
     throw new Error(
-      "GPU Flow commit publication authority requires the transaction proof DOM/canvas presentation pair proof for the selected frame and projection sample.",
+      "GPU Flow visible presentation authority requires the transaction proof DOM/canvas presentation pair proof for the selected frame and projection sample.",
     );
   }
 }
@@ -326,8 +326,7 @@ function isGpuFlowDomTransformPresentationEvidenceValid({
     domTransformEvidence.committedFrameId === frame.displayFrameId &&
     domTransformEvidence.prepared === true &&
     domTransformEvidence.projectionSampleId === projectionSampleId &&
-    domTransformEvidence.projectionTransactionId ===
-      projectionTransactionId &&
+    domTransformEvidence.projectionTransactionId === projectionTransactionId &&
     domTransformEvidence.source === "deferred-dom-transform-submission"
   );
 }
@@ -345,8 +344,7 @@ function isGpuFlowTextureEvictionPresentationEvidenceValid({
   readonly projectionTransactionId: GpuFlowProjectionTransaction["id"];
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
 }): boolean {
-  const textureEvictionEvidence =
-    presentationPairProof.textureEvictionEvidence;
+  const textureEvictionEvidence = presentationPairProof.textureEvictionEvidence;
   if (projectionTransactionKind === "motion-projection") {
     return textureEvictionEvidence === null;
   }

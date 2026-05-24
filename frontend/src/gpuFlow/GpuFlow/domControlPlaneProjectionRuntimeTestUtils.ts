@@ -3,8 +3,8 @@ import type {
   GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
 import { createGpuFlowCommittedSurfacePresentationProof } from "../committedSurfaceFrame";
-import { createGpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { CommittedHtmlSurfaceTextureSnapshot } from "../htmlSurfaces/textures";
+import { createGpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import {
@@ -26,7 +26,7 @@ import {
 import type { GpuFlowRetainedScrollOffsetGetter } from "./domControlPlane";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
-  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
+  createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
@@ -213,7 +213,7 @@ export function committedSurfaceFrame({
 }
 
 export function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
-  return createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+  return createGpuFlowVisibleFramePresentationTokenForTest({
     frame,
     projectionSample: {
       id: frame.displayFrameId,

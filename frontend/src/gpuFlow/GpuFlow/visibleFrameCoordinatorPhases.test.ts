@@ -179,7 +179,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function proveGpuFlowVisibleFramePublicationPresentation",
     );
     expect(tokenAuthoritySource).toContain(
-      "visiblePublicationTokenIssuer.createCommitPublicationToken",
+      "visiblePublicationTokenIssuer.createPresentationToken",
     );
     expect(source).toContain(
       "function publishGpuFlowVisibleFramePublicationOutcome",
@@ -317,9 +317,9 @@ describe("GPU Flow visible frame coordinator phases", () => {
     const completionSource = readFileSync(COMPLETION_MODULE_PATH, "utf8");
     const rawTokenConstructors = [
       "createGpuFlowBlockedPublicationToken",
-      "createGpuFlowCommitPublicationToken",
+      "createGpuFlowVisibleFramePresentationToken",
       "createGpuFlowHoldPreviousToken",
-      "createGpuFlowPresentableCommit",
+      "createGpuFlowPresentableFrame",
     ] as const;
 
     expect(authoritySource).toContain(
@@ -329,7 +329,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function createGpuFlowVisiblePublicationTokenIssuer",
     );
     expect(authoritySource).toContain(
-      "visiblePublicationTokenIssuer.createCommitPublicationToken",
+      "visiblePublicationTokenIssuer.createPresentationToken",
     );
     expect(authoritySource).toContain(
       "visiblePublicationTokenIssuer.createBlockedPublicationToken",
@@ -355,7 +355,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",
     );
     expect(authoritySource).toContain(
-      "export function createGpuFlowVisiblePublicationCompletionCommitToken",
+      "export function createGpuFlowVisiblePublicationCompletionPresentationToken",
     );
     expect(authoritySource).not.toContain(
       "visibleFramePublicationBlockedProofToken",

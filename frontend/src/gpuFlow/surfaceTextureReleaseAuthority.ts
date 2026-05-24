@@ -1,8 +1,8 @@
 import {
   assertGpuFlowBlockedPublicationTokenBrand,
-  assertGpuFlowCommitPublicationTokenBrand,
+  assertGpuFlowVisibleFramePresentationTokenBrand,
   type GpuFlowBlockedPublicationToken,
-  type GpuFlowCommitPublicationToken,
+  type GpuFlowVisibleFramePresentationToken,
 } from "./GpuFlow/visibleFramePresentationProofs";
 
 const GPU_FLOW_SURFACE_TEXTURE_RELEASE_TOKEN = Symbol(
@@ -109,9 +109,9 @@ export function releaseGpuFlowSupersededSurfaceTexture({
     | GpuFlowSurfaceTextureReleaseTarget
     | null
     | undefined;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): GpuFlowSurfaceTextureReleaseResult {
-  assertGpuFlowCommitPublicationTokenBrand({ token });
+  assertGpuFlowVisibleFramePresentationTokenBrand({ token });
   return releaseGpuFlowPublicationOutcomeSurfaceTexture({
     publicationOutcome: "commit",
     reason: "commit-superseded",

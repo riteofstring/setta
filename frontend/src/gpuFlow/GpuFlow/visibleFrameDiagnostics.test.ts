@@ -24,8 +24,8 @@ import {
 } from "./visibleFrameDiagnostics";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
-  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
+  createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
 import {
   GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
@@ -239,7 +239,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     recordGpuFlowVisibleFramePresented({
       committedSurfaceFrame: null,
       runtimeCanvas: canvas,
-      token: commitPublicationToken(),
+      token: presentationToken(),
     });
 
     expect(readBrowserVisualResourceWork()).toEqual([
@@ -282,7 +282,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     recordGpuFlowVisibleFramePresented({
       committedSurfaceFrame: result.candidateFrame,
       runtimeCanvas: canvas,
-      token: commitPublicationToken(),
+      token: presentationToken(),
     });
     clearGpuFlowBrowserVisualResourceWork(canvas);
 
@@ -547,7 +547,8 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     const canvas = document.createElement("canvas");
     for (
       let index = 0;
-      index < DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames;
+      index <
+      DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY.maxHeldPreviousFrames;
       index += 1
     ) {
       expect(() =>
@@ -662,13 +663,13 @@ function heldPreviousPublicationToken() {
   });
 }
 
-function commitPublicationToken() {
-  return createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+function presentationToken() {
+  return createGpuFlowVisibleFramePresentationTokenForTest({
     frame: publishableCommittedSurfaceFrame(3),
     projectionSample: {
       id: 1,
     } as Parameters<
-      typeof createGpuFlowVisibleFrameCommitPublicationTokenForTest
+      typeof createGpuFlowVisibleFramePresentationTokenForTest
     >[0]["projectionSample"],
   });
 }

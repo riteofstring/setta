@@ -19,7 +19,7 @@ import {
 } from "./visibleFrameResourceGraph";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
-  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
+  createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
 
 describe("GPU Flow visible frame resource graph proofs", () => {
@@ -320,7 +320,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
 
     const presentedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
-    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
       frame: winnerFrame,
       projectionSample: liveProjectionSample(52),
     });
@@ -404,12 +404,12 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         publishPresentedContentFrame: () => {
           throw new Error("Unexpected presented content publication.");
         },
-        token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+        token: createGpuFlowVisibleFramePresentationTokenForTest({
           frame: tokenFrame,
           projectionSample: liveProjectionSample(53),
         }),
       }),
-    ).toThrow(/commit publication token for the same visible frame/);
+    ).toThrow(/visible frame presentation token for the same visible frame/);
     expect(presentedCandidates).toEqual([]);
     expect(registry.getSnapshot()).toMatchObject({
       committedFrameId: null,
@@ -580,7 +580,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       },
       frame,
       publishPresentedContentFrame: () => true,
-      token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      token: createGpuFlowVisibleFramePresentationTokenForTest({
         frame,
         projectionSample: liveProjectionSample(62),
       }),

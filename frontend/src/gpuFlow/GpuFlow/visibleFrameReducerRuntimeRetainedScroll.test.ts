@@ -9,7 +9,7 @@ import {
   createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameReducerRuntime";
-import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFrameTestUtils";
+import { createGpuFlowVisibleFramePresentationTokenForTest } from "./visibleFrameTestUtils";
 
 describe("GPU Flow retained scroll scheduling", () => {
   it("keeps retained scroll sample interaction ahead of explicit content repair", () => {
@@ -328,7 +328,7 @@ function completeCommittedFrame(
       motion: decision.lane === "motion",
     },
     kind: "commit",
-    token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    token: createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),
@@ -346,7 +346,7 @@ function completeCompatiblePreviousCommittedFrame(
       motion: false,
     },
     kind: "commit",
-    token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    token: createGpuFlowVisibleFramePresentationTokenForTest({
       frame: committedFrameForReducerToken(decision),
       projectionSample: decision.sample,
     }),

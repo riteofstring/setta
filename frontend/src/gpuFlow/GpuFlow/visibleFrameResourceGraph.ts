@@ -1,12 +1,12 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
 import {
-  assertGpuFlowCommitPublicationTokenForFrameId,
-  assertGpuFlowCommitPublicationTokenForPresentationProof,
   assertGpuFlowPreparedCandidateAbortToken,
+  assertGpuFlowVisibleFramePresentationTokenForFrameId,
+  assertGpuFlowVisibleFramePresentationTokenForPresentationProof,
   type GpuFlowBlockedPublicationToken,
-  type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
+  type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 import {
   createGpuFlowVisibleFrameCandidateResourceEntry,
@@ -71,12 +71,12 @@ export type GpuFlowVisibleFrameResourceWorkResult = {
 
 type GpuFlowVisibleFrameBrowserVisualCandidatePresenter = (input: {
   readonly candidate: GpuFlowBrowserVisualActorCandidate;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }) => void;
 
 type GpuFlowVisibleFramePresentedContentFramePublisher = (input: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }) => boolean;
 
 type GpuFlowVisibleFrameBrowserVisualCandidateAborter = (input: {
@@ -314,7 +314,7 @@ export class GpuFlowVisibleFrameResourceGraph {
     readonly frame: GpuFlowCommittedSurfaceFrame;
     readonly presentBrowserVisualCandidate: GpuFlowVisibleFrameBrowserVisualCandidatePresenter;
     readonly publishPresentedContentFrame: GpuFlowVisibleFramePresentedContentFramePublisher;
-    readonly token: GpuFlowCommitPublicationToken;
+    readonly token: GpuFlowVisibleFramePresentationToken;
   }): GpuFlowVisibleFramePresentedContentFrameResult {
     const frameId = getGpuFlowCommittedSurfaceFrameId(frame);
     const entry = this.validatePreparedContentFrame({
@@ -379,15 +379,15 @@ export class GpuFlowVisibleFrameResourceGraph {
     token,
   }: {
     readonly frame: GpuFlowCommittedSurfaceFrame;
-    readonly token: GpuFlowCommitPublicationToken;
+    readonly token: GpuFlowVisibleFramePresentationToken;
   }): GpuFlowVisibleFrameCandidateResourceEntry {
     const frameId = getGpuFlowCommittedSurfaceFrameId(frame);
-    assertGpuFlowCommitPublicationTokenForFrameId({
+    assertGpuFlowVisibleFramePresentationTokenForFrameId({
       committedFrameId: frameId,
       token,
     });
     const entry = this.requirePreparedCommittedSurfaceFrame(frame);
-    assertGpuFlowCommitPublicationTokenForPresentationProof({
+    assertGpuFlowVisibleFramePresentationTokenForPresentationProof({
       frame,
       token,
     });

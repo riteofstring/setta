@@ -9,8 +9,8 @@ import {
 } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
-import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import { projectHtmlSurfaceActiveDomIsland } from "../htmlSurfaces/interactionProjector";
+import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { GpuDomIsland } from "../scene";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
@@ -21,7 +21,7 @@ import {
   type GpuFlowBrowserVisualActorRuntime,
 } from "./browserVisualActorRuntime";
 import { getGpuFlowVisibleFrameIdentityDataAttributes } from "./visibleFrameIdentityAttributes";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
+import type { GpuFlowVisibleFramePresentationToken } from "./visibleFramePresentationProofs";
 
 export type GpuFlowDomIslandRenderer = (island: GpuDomIsland) => ReactNode;
 
@@ -83,7 +83,7 @@ export function GpuFlowDomIslandLayer({
       islandId: string,
       element: HTMLElement | null,
       presentation: "preparation" | "visible",
-      token: GpuFlowCommitPublicationToken | null,
+      token: GpuFlowVisibleFramePresentationToken | null,
     ) => {
       browserVisualRuntime.setDomIslandElement({
         element,

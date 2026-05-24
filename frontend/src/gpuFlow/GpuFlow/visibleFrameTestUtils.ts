@@ -17,8 +17,8 @@ import {
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,
-  GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
+  GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 import { createGpuFlowVisibleFrameReducerRuntime } from "./visibleFrameReducerRuntime";
 
@@ -29,13 +29,13 @@ type GpuFlowVisibleFramePublicationTestCandidate = {
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
 
-export function createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+export function createGpuFlowVisibleFramePresentationTokenForTest({
   frame,
   projectionSample,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
   readonly projectionSample: GpuFlowLiveProjectionSample;
-}): GpuFlowCommitPublicationToken {
+}): GpuFlowVisibleFramePresentationToken {
   const visibleProjectionState = {
     committedFrame: frame,
     heldPreviousProjection: null,

@@ -1,8 +1,8 @@
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
-  assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
+  assertGpuFlowVisibleFramePresentationTokenForProjectionSample,
 } from "./visibleFramePresentationProofs";
 import {
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
@@ -88,7 +88,7 @@ function assertGpuFlowBlockedPublicationGuardOutcomeToken({
   const projectionSampleId = publicationDecision.sample.id;
   switch (outcome.kind) {
     case "commit":
-      assertGpuFlowCommitPublicationTokenForProjectionSample({
+      assertGpuFlowVisibleFramePresentationTokenForProjectionSample({
         projectionSampleId,
         token: outcome.token,
       });

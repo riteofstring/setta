@@ -10,9 +10,9 @@ import {
 } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
-import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import type { GpuSurfaceHandle } from "../GpuSurface";
+import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type {
   GpuRetainedDomControlActivation,
   GpuRetainedDomControlSourceDescriptor,
@@ -34,7 +34,7 @@ import {
 } from "./domControlPlaneProjection";
 import { getLiveGpuFlowDomControlPlaneViewport } from "./domControlPlaneViewport";
 import { getGpuFlowVisibleFrameIdentityDataAttributes } from "./visibleFrameIdentityAttributes";
-import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
+import type { GpuFlowVisibleFramePresentationToken } from "./visibleFramePresentationProofs";
 export {
   filterGpuFlowDomControlPlaneMountedControls,
   resolveGpuFlowDomControlPlaneProjectionAssignments,
@@ -178,7 +178,7 @@ export function GpuFlowDomControlPlane({
       control: GpuRetainedDomControlSourceDescriptor,
       element: HTMLElement | null,
       presentation: "preparation" | "visible",
-      token: GpuFlowCommitPublicationToken | null,
+      token: GpuFlowVisibleFramePresentationToken | null,
     ) => {
       const currentFrameIds = frameIdsRef.current;
       const finishMeasure = startGpuFlowPerformanceMeasure(
@@ -636,7 +636,7 @@ function GpuFlowDomControlHost({
   readonly initialStyle: ReturnType<typeof projectGpuFlowDomControlPlaneHost>;
   readonly onActivate: GpuFlowDomControlActivationHandler | undefined;
   readonly presentation: "preparation" | "visible";
-  readonly publicationToken: GpuFlowCommitPublicationToken | null;
+  readonly publicationToken: GpuFlowVisibleFramePresentationToken | null;
   readonly renderControl: GpuFlowDomControlRenderer;
   readonly setControlCompositionActive: (
     controlId: string,
@@ -646,7 +646,7 @@ function GpuFlowDomControlHost({
     control: GpuRetainedDomControlSourceDescriptor,
     element: HTMLElement | null,
     presentation: "preparation" | "visible",
-    token: GpuFlowCommitPublicationToken | null,
+    token: GpuFlowVisibleFramePresentationToken | null,
   ) => void;
 }) {
   const hostElementRef = useRef<HTMLDivElement | null>(null);

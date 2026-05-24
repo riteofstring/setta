@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 
-import { assertGpuFlowCommitPublicationTokenBrand } from "./visibleFramePresentationProofs";
+import { assertGpuFlowVisibleFramePresentationTokenBrand } from "./visibleFramePresentationProofs";
 import type { renderGpuFlowSurfaceFrame } from "./visibleFrameSurfaceFrame";
 import {
   GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID,
@@ -28,7 +28,7 @@ export function useGpuFlowColdStartShellFrame(): {
       typeof renderGpuFlowSurfaceFrame
     >[0]["publishColdStartShellFrame"]
   >((publication) => {
-    assertGpuFlowCommitPublicationTokenBrand({
+    assertGpuFlowVisibleFramePresentationTokenBrand({
       token: publication.token,
     });
     if (publication.frame !== null) {

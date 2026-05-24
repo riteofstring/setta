@@ -21,8 +21,8 @@ import {
 import { setGpuFlowVisibleFrameIdentityAttributes } from "./visibleFrameIdentityAttributes";
 import type {
   GpuFlowBlockedPublicationToken,
-  GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
+  GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationProofs";
 
 export type GpuFlowDomControlSnapshotTextureManager = Pick<
@@ -65,7 +65,7 @@ export function withGpuFlowBrowserVisualSnapshotPublicationToken({
   token,
 }: {
   readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): GpuFlowBrowserVisualActorRuntimeSnapshot {
   return Object.freeze({
     ...snapshot,
@@ -453,7 +453,7 @@ export function applyVisibleGpuFlowDomControlHostPresentation({
 }: {
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly element: HTMLElement;
-  readonly token: GpuFlowCommitPublicationToken;
+  readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   setGpuFlowVisibleFrameIdentityAttributes(element, token);
   element.dataset.gpuFlowDomControl = "true";

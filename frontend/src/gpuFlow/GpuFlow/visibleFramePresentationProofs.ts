@@ -1,5 +1,4 @@
 import type { GpuFrameReason } from "../gpuRenderer";
-import { isGpuFlowBrowserTextSnapshotPendingBlockedReason } from "../projectionSchedulerPolicy";
 import {
   createGpuFlowHeldPreviousProjection,
   createGpuFlowProjectionTransactionForCommittedFrameId,
@@ -8,6 +7,7 @@ import {
   type GpuFlowProjectionLane,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
+import { isGpuFlowBrowserTextSnapshotPendingBlockedReason } from "../projectionSchedulerPolicy";
 import type {
   GpuFlowColdStartShellPublication,
   GpuFlowVisiblePublicationDebtFrameRequest,
@@ -18,7 +18,7 @@ import type {
 import {
   createGpuFlowVisibleFrameBlockedPublicationToken,
   createGpuFlowVisibleFrameHoldPreviousToken,
-  createGpuFlowVisiblePublicationCompletionCommitToken,
+  createGpuFlowVisiblePublicationCompletionPresentationToken,
   type GpuFlowBlockedPublicationToken,
 } from "./visibleFramePresentationTokens";
 import {
@@ -44,19 +44,19 @@ export {
 export {
   assertGpuFlowBlockedPublicationTokenBrand,
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
-  assertGpuFlowCommitPublicationToken,
-  assertGpuFlowCommitPublicationTokenBrand,
-  assertGpuFlowCommitPublicationTokenForFrameId,
-  assertGpuFlowCommitPublicationTokenForPresentationProof,
-  assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenBrand,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
   assertGpuFlowPreparedCandidateAbortToken,
+  assertGpuFlowVisibleFramePresentationToken,
+  assertGpuFlowVisibleFramePresentationTokenBrand,
+  assertGpuFlowVisibleFramePresentationTokenForFrameId,
+  assertGpuFlowVisibleFramePresentationTokenForPresentationProof,
+  assertGpuFlowVisibleFramePresentationTokenForProjectionSample,
   type GpuFlowBlockedFrozenFrame,
   type GpuFlowBlockedPublicationToken,
   type GpuFlowBlockedVisibleReason,
-  type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
+  type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationTokens";
 
 type GpuFlowVisibleFramePublicationReducerRuntime = {
@@ -109,14 +109,13 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
   return Object.freeze({
     coldStartShellPublication:
       createGpuFlowVisiblePublicationColdStartShellPublication({ outcome }),
-    completeReducerFrame:
-      createGpuFlowVisiblePublicationReducerFrameCompleter({
-        forceImmediatePublicationDebtFrame,
-        outcome,
-        publicationDecision,
-        reducerPolicy,
-        reducerRuntime,
-      }),
+    completeReducerFrame: createGpuFlowVisiblePublicationReducerFrameCompleter({
+      forceImmediatePublicationDebtFrame,
+      outcome,
+      publicationDecision,
+      reducerPolicy,
+      reducerRuntime,
+    }),
     followUpFrameRequests: createGpuFlowVisiblePublicationFollowUpFrameRequests(
       {
         followUpFrameReason,
@@ -600,13 +599,13 @@ function createGpuFlowVisiblePublicationCompletionCommitOutcome({
   const commitProof = transactionProof.commitProof;
   if (commitProof === null) {
     throw new Error(
-      "GPU Flow committed publication completion requires the transaction proof commit proof.",
+      "GPU Flow visible presentation completion requires the transaction proof commit proof.",
     );
   }
   return {
     debtProof: commitProof.debtProof,
     kind: "commit",
-    token: createGpuFlowVisiblePublicationCompletionCommitToken({
+    token: createGpuFlowVisiblePublicationCompletionPresentationToken({
       commitAuthorityProof: commitProof.commitAuthorityProof,
       presentationIdentity:
         createGpuFlowVisibleFramePublicationPresentationIdentity({
@@ -630,7 +629,7 @@ function createGpuFlowVisibleFramePublicationPresentationIdentity({
     visibleFrameStateMachineOutcome?.kind !== "projected"
   ) {
     throw new Error(
-      "GPU Flow committed publication completion requires a presented visible frame state machine identity.",
+      "GPU Flow visible presentation completion requires a presented visible frame state machine identity.",
     );
   }
   return Object.freeze({
