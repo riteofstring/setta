@@ -120,6 +120,46 @@ describe("GPU flow scene resize preview", () => {
       worldRect: rect(20, 30, 180, 90),
     });
   });
+
+  it("grows an inset child viewport with the resized parent", () => {
+    const scene = resolveGpuFlowSceneLayout(
+      sceneWithSections([
+        sectionNode({
+          bodyRect: rect(0, 20, 120, 60),
+          childIds: ["row-a"],
+          childViewportRect: rect(0, 20, 120, 60),
+          id: "parent",
+          layoutMode: "vertical",
+          worldRect: rect(0, 0, 120, 80),
+        }),
+        sectionNode({
+          id: "row-a",
+          localRect: rect(0, 0, 100, 50),
+          parentId: "parent",
+        }),
+      ]),
+    );
+
+    const sections = sectionById({
+      ...scene,
+      sections: resolveGpuSectionSceneResizePreviewSections({
+        resizedWorldRect: rect(0, 0, 120, 120),
+        scene,
+        sectionId: "parent",
+      }),
+    });
+
+    expect(sections.get("parent")).toMatchObject({
+      bodyRect: rect(0, 20, 120, 100),
+      childViewportRect: rect(0, 20, 120, 100),
+      chromeRect: rect(0, 0, 120, 120),
+      worldRect: rect(0, 0, 120, 120),
+    });
+    expect(sections.get("row-a")).toMatchObject({
+      clipRect: rect(0, 20, 100, 50),
+      worldRect: rect(0, 20, 100, 50),
+    });
+  });
 });
 
 function sceneWithSections(
@@ -141,8 +181,11 @@ function sectionById(
 }
 
 function sectionNode({
+  bodyRect,
   childIds = [],
+  childViewportRect,
   childLayoutGap = { x: 0, y: 0 },
+  chromeRect,
   id,
   layoutMode = "none",
   localRect,
@@ -150,8 +193,11 @@ function sectionNode({
   scrollOffset = { x: 0, y: 0 },
   worldRect = rect(0, 0, 100, 80),
 }: {
+  readonly bodyRect?: GpuRect | undefined;
   readonly childIds?: readonly string[] | undefined;
+  readonly childViewportRect?: GpuRect | null | undefined;
   readonly childLayoutGap?: GpuPoint | undefined;
+  readonly chromeRect?: GpuRect | undefined;
   readonly id: string;
   readonly layoutMode?: GpuSectionSceneLayoutMode | undefined;
   readonly localRect?: GpuRect | undefined;
@@ -159,14 +205,22 @@ function sectionNode({
   readonly scrollOffset?: GpuPoint | undefined;
   readonly worldRect?: GpuRect | undefined;
 }): GpuSectionSceneNode {
-  const resolvedLocalRect =
-    localRect ?? rect(0, 0, worldRect.width, worldRect.height);
+  const resolvedLocalRect = resolveSectionNodeLocalRect({
+    localRect,
+    worldRect,
+  });
+  const resolvedBodyRect = bodyRect ?? worldRect;
+  const resolvedChildViewportRect = resolveSectionNodeChildViewportRect({
+    bodyRect: resolvedBodyRect,
+    childIds,
+    childViewportRect,
+  });
   return {
-    bodyRect: worldRect,
+    bodyRect: resolvedBodyRect,
     childLayout: { gap: childLayoutGap },
     childSectionIds: childIds,
-    childViewportRect: childIds.length > 0 ? worldRect : null,
-    chromeRect: worldRect,
+    childViewportRect: resolvedChildViewportRect,
+    chromeRect: chromeRect ?? worldRect,
     clipRect: worldRect,
     contentRenderer: { kind: "dom-section", surfaceId: id },
     dirty: [],
@@ -196,6 +250,31 @@ function sectionNode({
     y: worldRect.y,
     zIndex: 0,
   };
+}
+
+function resolveSectionNodeLocalRect({
+  localRect,
+  worldRect,
+}: {
+  readonly localRect: GpuRect | undefined;
+  readonly worldRect: GpuRect;
+}): GpuRect {
+  return localRect ?? rect(0, 0, worldRect.width, worldRect.height);
+}
+
+function resolveSectionNodeChildViewportRect({
+  bodyRect,
+  childIds,
+  childViewportRect,
+}: {
+  readonly bodyRect: GpuRect;
+  readonly childIds: readonly string[];
+  readonly childViewportRect: GpuRect | null | undefined;
+}): GpuRect | null {
+  if (childViewportRect !== undefined) {
+    return childViewportRect;
+  }
+  return childIds.length > 0 ? bodyRect : null;
 }
 
 function rect(x: number, y: number, width: number, height: number): GpuRect {

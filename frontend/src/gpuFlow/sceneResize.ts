@@ -87,14 +87,26 @@ function resizeGpuRectRelativeToReference({
   readonly previousReference: GpuRect;
   readonly rect: GpuRect;
 }): GpuRect {
+  const xOffset = rect.x - previousReference.x;
+  const yOffset = rect.y - previousReference.y;
+  const rightInset =
+    previousReference.x + previousReference.width - (rect.x + rect.width);
+  const bottomInset =
+    previousReference.y + previousReference.height - (rect.y + rect.height);
   return {
     height:
-      rect.height === previousReference.height
-        ? nextReference.height
-        : rect.height,
+      bottomInset === 0
+        ? Math.max(0, nextReference.height - yOffset)
+        : rect.height === previousReference.height
+          ? nextReference.height
+          : rect.height,
     width:
-      rect.width === previousReference.width ? nextReference.width : rect.width,
-    x: nextReference.x + (rect.x - previousReference.x),
-    y: nextReference.y + (rect.y - previousReference.y),
+      rightInset === 0
+        ? Math.max(0, nextReference.width - xOffset)
+        : rect.width === previousReference.width
+          ? nextReference.width
+          : rect.width,
+    x: nextReference.x + xOffset,
+    y: nextReference.y + yOffset,
   };
 }

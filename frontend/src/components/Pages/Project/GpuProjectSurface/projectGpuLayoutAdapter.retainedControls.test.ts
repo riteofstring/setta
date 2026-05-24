@@ -984,13 +984,13 @@ describe("project GPU layout adapter retained controls", () => {
     expect(
       scene.sections.find((section) => section.sectionId === "child-a"),
     ).toMatchObject({
-      clipRect: { height: 10, width: 80, x: 10, y: 20 },
-      worldRect: { height: 50, width: 80, x: 10, y: -20 },
+      clipRect: { height: 10, width: 80, x: 10, y: 42 },
+      worldRect: { height: 50, width: 80, x: 10, y: 2 },
     });
     expect(
       scene.sections.find((section) => section.sectionId === "child-c"),
     ).toMatchObject({
-      worldRect: { height: 50, width: 80, x: 10, y: 96 },
+      worldRect: { height: 50, width: 80, x: 10, y: 118 },
     });
 
     const store = createGpuFlowLayoutStore();
@@ -1002,9 +1002,9 @@ describe("project GPU layout adapter retained controls", () => {
         .map((node) => [node.nodeId, node.y]),
     ).toEqual([
       ["group-a", 20],
-      ["child-a", -20],
-      ["child-b", 38],
-      ["child-c", 96],
+      ["child-a", 2],
+      ["child-b", 60],
+      ["child-c", 118],
     ]);
   });
 });

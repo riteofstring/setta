@@ -135,7 +135,14 @@ describe("project GPU layout adapter", () => {
 
     const [group, childA, childB] = scene.sections;
     expect(group).toMatchObject({
+      bodyRect: {
+        height: 200 - PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX,
+        width: 320,
+        x: 10,
+        y: 20 + PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX,
+      },
       childSectionIds: ["child-a", "child-b"],
+      chromeRect: { height: 200, width: 320, x: 10, y: 20 },
       contentRenderer: { kind: "dom-section", surfaceId: "group-a" },
       layoutMode: "horizontal",
       parentSectionId: null,
@@ -153,7 +160,12 @@ describe("project GPU layout adapter", () => {
         directions: ["right", "bottom", "bottomRight"],
         locked: false,
       }),
-      worldRect: { height: 50, width: 100, x: 10, y: 20 },
+      worldRect: {
+        height: 50,
+        width: 100,
+        x: 10,
+        y: 20 + PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX,
+      },
       zIndex: 4,
     });
     expect(childB).toMatchObject({
@@ -164,7 +176,12 @@ describe("project GPU layout adapter", () => {
         directions: [],
         locked: true,
       }),
-      worldRect: { height: 60, width: 120, x: 118, y: 20 },
+      worldRect: {
+        height: 60,
+        width: 120,
+        x: 118,
+        y: 20 + PROJECT_SECTION_SCENE_HEADER_HEIGHT_PX,
+      },
       zIndex: 4,
     });
 

@@ -68,7 +68,6 @@ import {
 } from "./projectGpuParamRowAdapter";
 import { isProjectGpuRetainedParamControlDomIslandActive } from "./projectGpuRetainedParamActiveControlPolicy";
 import type { ProjectGpuRetainedPasswordRevealStateMap as PasswordRevealStates } from "./projectGpuRetainedParamPasswordRevealState";
-import { getProjectSectionSceneHeaderHeight } from "./projectSectionSceneHeaderLayout";
 import { getProjectSectionSceneKwargsControlsHeight } from "./projectSectionSceneKwargsControlsLayout";
 import { getProjectSectionSceneSearchHeight } from "./projectSectionSceneSearchLayout";
 
@@ -694,9 +693,7 @@ function createProjectGpuParamListContentSurfaces({
     getProjectGpuParamContentEdgeStripPortCounts(sectionImpl);
   const metrics = getProjectGpuParamContentMetrics({
     ...edgeStripPortCounts,
-    headerHeight:
-      getProjectSectionSceneHeaderHeight() +
-      getProjectSectionSceneSearchHeight(sectionImpl),
+    headerHeight: getProjectSectionSceneSearchHeight(sectionImpl),
     kwargsControlsHeight:
       getProjectSectionSceneKwargsControlsHeight(sectionImpl),
     pinnedContentHeight: getProjectGpuParamListContentHeight(

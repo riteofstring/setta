@@ -69,7 +69,7 @@ describe("project GPU layout adapter reveal", () => {
     });
     expect(result.scrollOffsets.get("group-a")).toEqual({
       x: 0,
-      y: 66,
+      y: 88,
     });
   });
 });

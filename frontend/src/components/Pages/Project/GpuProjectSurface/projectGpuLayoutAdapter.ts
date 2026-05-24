@@ -592,7 +592,7 @@ function createProjectSectionSceneNode({
   readonly scrollOffsets?: GpuSectionSceneScrollOffsetMap | undefined;
   readonly worldRect: GpuRect;
 }): GpuSectionSceneNode {
-  const bodyRect = worldRect;
+  const bodyRect = createProjectSectionSceneBodyRect(worldRect);
   const childViewportRect = childSectionIds.length > 0 ? bodyRect : null;
   const layoutMode = getProjectSectionSceneLayoutMode(sectionImpl);
   return {
@@ -624,6 +624,19 @@ function createProjectSectionSceneNode({
     scrollOffset: scrollOffsets?.get(sectionId) ?? { x: 0, y: 0 },
     sectionId,
     worldRect,
+  };
+}
+
+function createProjectSectionSceneBodyRect(worldRect: GpuRect): GpuRect {
+  const headerHeight = Math.min(
+    getProjectSectionSceneHeaderHeight(),
+    worldRect.height,
+  );
+  return {
+    height: Math.max(0, worldRect.height - headerHeight),
+    width: worldRect.width,
+    x: worldRect.x,
+    y: worldRect.y + headerHeight,
   };
 }
 

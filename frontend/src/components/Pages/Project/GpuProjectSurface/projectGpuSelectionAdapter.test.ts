@@ -418,15 +418,15 @@ describe("GPU project selection adapter", () => {
 
     expect(layoutStore.getState().getNode("child-a")).toMatchObject({
       x: 0,
-      y: 0,
+      y: 22,
     });
     expect(layoutStore.getState().getNode("child-b")).toMatchObject({
       x: 0,
-      y: 0,
+      y: 22,
     });
     expect(layoutStore.getState().getNode("child-c")).toMatchObject({
       x: 0,
-      y: 158,
+      y: 180,
     });
     expect(layoutStore.getState().dragPreview).toMatchObject({
       draggedNodeIds: ["child-a"],
@@ -463,11 +463,11 @@ describe("GPU project selection adapter", () => {
 
     expect(layoutStore.getState().getNode("child-b")).toMatchObject({
       x: 0,
-      y: 158,
+      y: 180,
     });
     expect(layoutStore.getState().getNode("child-c")).toMatchObject({
       x: 0,
-      y: 316,
+      y: 338,
     });
     expect(layoutStore.getState().dragPreview).toMatchObject({
       draggedNodeIds: ["child-a"],
@@ -542,11 +542,11 @@ describe("GPU project selection adapter", () => {
     });
     expect(layoutStore.getState().getNode("child-c")).toMatchObject({
       x: 0,
-      y: 0,
+      y: 22,
     });
     expect(layoutStore.getState().getNode("child-d")).toMatchObject({
       x: 0,
-      y: 158,
+      y: 180,
     });
     expect(layoutStore.getState().dragPreview).toMatchObject({
       draggedNodeIds: ["child-b", "child-a"],
@@ -619,19 +619,19 @@ describe("GPU project selection adapter", () => {
 
     expect(layoutStore.getState().getNode("child-c")).toMatchObject({
       x: 0,
-      y: 0,
+      y: 22,
     });
     expect(layoutStore.getState().getNode("child-d")).toMatchObject({
       x: 0,
-      y: 158,
+      y: 180,
     });
     expect(layoutStore.getState().getNode("child-a")).toMatchObject({
       x: 0,
-      y: 0,
+      y: 22,
     });
     expect(layoutStore.getState().getNode("child-b")).toMatchObject({
       x: 0,
-      y: 158,
+      y: 180,
     });
     expect(layoutStore.getState().dragPreview).toMatchObject({
       draggedNodeIds: ["child-b", "child-a"],
@@ -675,7 +675,7 @@ describe("GPU project selection adapter", () => {
           distance: { x: 0, y: 0 },
           height: 150,
           nodeId: "child-a",
-          position: { x: 0, y: 260 },
+          position: { x: 0, y: 282 },
           width: 250,
         },
       ],
@@ -688,24 +688,24 @@ describe("GPU project selection adapter", () => {
         {
           nodeId: "child-a",
           x: 0,
-          y: 260,
+          y: 282,
         },
       ],
       { phase: "change", reason: "drag" },
     );
 
-    for (let frame = 0; frame < 8; frame += 1) {
+    for (let frame = 0; frame < 9; frame += 1) {
       expect(handleProjectNodeDragFrame(layoutStore, change, scene)).toBe(true);
     }
 
     expect(layoutStore.getState().getNode("child-d")).toMatchObject({
       x: 0,
-      y: 314,
+      y: 316,
     });
     expect(layoutStore.getState().getNode("child-b")).toBeNull();
     expect(layoutStore.getState().getNode("child-c")).toMatchObject({
       x: 0,
-      y: -2,
+      y: 0,
     });
     expect(layoutStore.getState().dragPreview).toMatchObject({
       draggedNodeIds: ["child-a"],
@@ -726,11 +726,11 @@ describe("GPU project selection adapter", () => {
 
     expect(layoutStore.getState().getNode("child-a")).toMatchObject({
       x: 0,
-      y: 0,
+      y: 22,
     });
     expect(layoutStore.getState().getNode("child-b")).toMatchObject({
       x: 0,
-      y: 158,
+      y: 180,
     });
     expect(layoutStore.getState().getNode("child-d")).toBeNull();
   });
@@ -780,7 +780,7 @@ describe("GPU project selection adapter", () => {
     expect(getSectionImplChildren("parent")).toEqual(["child-a", "child-b"]);
     expect(layoutStore.getState().getNode("child-a")).toMatchObject({
       x: 0,
-      y: 0,
+      y: 22,
     });
     expect(layoutStore.getState().dragPreview).toBeNull();
     expect(callOpenAPIMock).not.toHaveBeenCalled();
@@ -815,7 +815,7 @@ describe("GPU project selection adapter", () => {
     expect(getSectionImplChildren("parent")).toEqual(["child-a", "child-b"]);
     expect(layoutStore.getState().getNode("child-a")).toMatchObject({
       x: 0,
-      y: 0,
+      y: 22,
     });
     expect(layoutStore.getState().dragPreview).toBeNull();
     expect(callOpenAPIMock).not.toHaveBeenCalled();
