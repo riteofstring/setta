@@ -198,14 +198,31 @@ export function useGpuFlowPresentedSurfaceFrameState({
     [],
   );
   const prepareVisibleFrameResourcesForBudget = useCallback(
-    (budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision) =>
-      visibleFrameResourceGraphRef.current.advanceVisibleFrameResourceWork({
-        resourceKeys: createGpuFlowVisibleFrameSelectedResourceWorkKeys({
-          budgetDecision,
-          resourceGraphSnapshot:
-            visibleFrameResourceGraphRef.current.getSnapshot(),
-        }),
-      }),
+    (budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision) => {
+      const browserVisualRuntime =
+        getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+          presentedSurfaceRuntimeRef.current,
+        );
+      return visibleFrameResourceGraphRef.current.advanceVisibleFrameResourceWork(
+        {
+          resourceKeys: createGpuFlowVisibleFrameSelectedResourceWorkKeys({
+            budgetDecision,
+            resourceGraphSnapshot:
+              visibleFrameResourceGraphRef.current.getSnapshot(),
+          }),
+          stageBrowserVisualCandidate: ({
+            candidate,
+            selectedResourceKeys,
+            token,
+          }) =>
+            browserVisualRuntime.stagePreparedBrowserVisualActors({
+              candidate,
+              selectedResourceKeys,
+              token,
+            }),
+        },
+      );
+    },
     [],
   );
 

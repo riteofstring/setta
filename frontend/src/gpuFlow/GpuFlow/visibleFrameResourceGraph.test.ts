@@ -556,6 +556,78 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
   });
 
+  it("stages preserved browser visual candidates from budgeted resource work", () => {
+    const registry = createGpuFlowVisibleFrameResourceGraph();
+    const frame = preparedContentFrame({
+      displayFrameId: 612,
+      exactSurfaceResourceHandles: [],
+      protectedResourceHandles: [],
+    });
+    const candidate = browserVisualCandidate({
+      blockedControlIds: ["active-control"],
+      controls: [domControl({ active: true, sourceId: "active-control" })],
+      frameId: frame.displayFrameId,
+      mountedControlIds: ["active-control"],
+    });
+    registry.registerPreparedContentFrame({
+      browserVisualCandidate: candidate,
+      frame,
+    });
+    const token = createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
+      blockedReasons: [
+        {
+          actorId: "active-control",
+          family: "browser-visual",
+          reason: "live-dom-budget",
+        },
+      ],
+      frozenFrameId: frame.displayFrameId,
+      projectionSample: liveProjectionSample(612),
+    });
+    registry.abortPreparedContentFrame({
+      abortBrowserVisualCandidate: () => {
+        throw new Error("Preserved preparation must not abort the candidate.");
+      },
+      frame,
+      browserVisualPreparationResourceKeys: [],
+      preservePreparationSnapshot: true,
+      stageBrowserVisualCandidate: () => {},
+      token,
+    });
+
+    const stagedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
+    const stagedResourceKeys: (readonly string[] | undefined)[] = [];
+    const stagedTokens: unknown[] = [];
+    expect(
+      registry.advanceVisibleFrameResourceWork({
+        resourceKeys: ["dom-control:active-control"],
+        stageBrowserVisualCandidate: ({
+          candidate,
+          selectedResourceKeys,
+          token,
+        }) => {
+          stagedCandidates.push(candidate);
+          stagedResourceKeys.push(selectedResourceKeys);
+          stagedTokens.push(token);
+        },
+      }),
+    ).toEqual({
+      remainingQueuedResourceKeys: [],
+      transitions: [
+        resourceTransition(
+          "dom-control:active-control",
+          "requested",
+          "preparing",
+          612,
+        ),
+      ],
+    });
+
+    expect(stagedCandidates).toEqual([candidate]);
+    expect(stagedResourceKeys).toEqual([["dom-control:active-control"]]);
+    expect(stagedTokens).toEqual([token]);
+  });
+
   it("presents presentation-proof resources while retaining optional browser visual debt", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const frame = preparedContentFrame({
