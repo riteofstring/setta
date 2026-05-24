@@ -8,7 +8,6 @@ import { type GpuSurfaceHandle, type GpuSurfaceProps } from "../GpuSurface";
 import {
   clearGpuNodeDomTransformSyncCache,
   createGpuNodeDomTransformSyncCache,
-  markHtmlSurfaceFramePaintDirty,
   type GpuNodeDomTransformSyncCache,
 } from "../htmlSurfaces/frame";
 import { createHtmlSurfaceInteractionProjector } from "../htmlSurfaces/interactionProjector";
@@ -66,6 +65,7 @@ import {
   useGpuFlowViewportRuntime,
 } from "./flowSurfaceRuntimeHooks";
 import { EMPTY_GPU_NODE_LAYOUTS, type GpuFlowCallbacks, type GpuFlowProps } from "./flowSurfaceTypes";
+import { useGpuFlowSurfacePaintHandler } from "./flowSurfacePaintHandler";
 import { GpuFlowSurfaceView } from "./flowSurfaceView";
 import { useGpuFlowPortLocalRectSync } from "./portLocalRectSync";
 import { resolveGpuFlowRenderableNodes } from "./renderableNodes";
@@ -872,25 +872,14 @@ export function GpuFlow({
     [viewportStore],
   );
 
-  const handlePaint = useCallback<NonNullable<GpuSurfaceProps["onPaint"]>>(
-    (runtime, event) => {
-      const textureManager = textureManagerRef.current;
-      if (textureManager) {
-        markHtmlSurfaceFramePaintDirty({
-          changedElements: event.changedElements,
-          elementByNodeId: nodeElementByIdRef.current,
-          frame: nextFrame(frameRef),
-          ignoreDirectNodeIds: transformOnlyPaintNodeIdsRef.current,
-          textureManager,
-        });
-      }
-      callbacksRef.current.onPaint?.(runtime, event);
-      if (event.changedElements?.length) {
-        transformOnlyPaintNodeIdsRef.current.clear();
-      }
-    },
-    [],
-  );
+  const handlePaint = useGpuFlowSurfacePaintHandler({
+    callbacksRef,
+    frameRef,
+    nodeElementByIdRef,
+    surfaceRef,
+    textureManagerRef,
+    transformOnlyPaintNodeIdsRef,
+  });
 
   const handleFrame = useCallback<NonNullable<GpuSurfaceProps["onFrame"]>>(
     (runtime, event) => {

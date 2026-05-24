@@ -328,6 +328,7 @@ export function GpuFlowDomControlPlane({
         readonly preparationSnapshotControl: string | null;
         readonly preparationSnapshotControlCount: number;
         readonly readiness: unknown;
+        readonly representationReadiness: unknown;
       };
       __settaGpuFlowDomControlPlaneDiagnostics?: () => GpuFlowDomControlPlaneDiagnostics;
     };
@@ -530,6 +531,11 @@ function createGpuFlowBrowserVisualPreparationDiagnostics({
       preparation.domControls.snapshotControls.length,
     readiness: actorId
       ? browserVisualRuntime.getDomControlHostReadinessDiagnostics(actorId)
+      : null,
+    representationReadiness: actorId
+      ? browserVisualRuntime.getDomControlRepresentationReadinessDiagnostics(
+          actorId,
+        )
       : null,
   };
 }

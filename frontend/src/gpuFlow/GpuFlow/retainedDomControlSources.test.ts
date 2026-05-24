@@ -6,15 +6,22 @@ import { describe, expect, it, vi } from "vitest";
 import { createGpuFlowStartupCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import { createDomControlActors } from "../committedSurfaceTextActor";
 import {
+  HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE,
+  HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
+} from "../htmlSurfaces/sourceDom";
+import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentRowInput,
 } from "../retainedContentScene";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
 import {
+  configureGpuRetainedDomControlSnapshotSourceElement,
   getGpuRetainedDomControlSnapshotSurfaceLayouts,
   projectGpuRetainedDomControlSnapshotSurfaceLayouts,
   registerGpuFlowRetainedDomControlSnapshotSourceTexture,
+  requestGpuFlowRetainedDomControlSnapshotSourceFrame,
+  shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty,
 } from "./retainedDomControlSnapshotSources";
 import {
   getGpuRetainedDomControlSnapshotSurfaceId,
@@ -337,8 +344,9 @@ describe("getGpuRetainedDomControlSources", () => {
     if (!stagedSource || !candidateSource) {
       throw new Error("Expected at least two snapshot-backed DOM controls.");
     }
-    const stagedOverlay =
-      getGpuRetainedDomControlSnapshotSurfaceLayouts([stagedSource])[0];
+    const stagedOverlay = getGpuRetainedDomControlSnapshotSurfaceLayouts([
+      stagedSource,
+    ])[0];
     if (!stagedOverlay) {
       throw new Error("Expected a staged snapshot overlay.");
     }
@@ -357,7 +365,10 @@ describe("getGpuRetainedDomControlSources", () => {
         overlays: [stagedOverlay],
         preserveUnmatchedSnapshotOverlays: true,
       })?.map((overlay) => overlay.surfaceId),
-    ).toEqual([stagedSource.snapshotSurfaceId, candidateSource.snapshotSurfaceId]);
+    ).toEqual([
+      stagedSource.snapshotSurfaceId,
+      candidateSource.snapshotSurfaceId,
+    ]);
   });
 
   it("registers staged snapshot textures with the source cache key", () => {
@@ -426,6 +437,7 @@ describe("getGpuRetainedDomControlSources", () => {
     registerGpuFlowRetainedDomControlSnapshotSourceTexture({
       deferUploadUntilPaint: false,
       element,
+      priority: "interactive",
       source: snapshotSource,
       surfaceId: snapshotSource.snapshotSurfaceId,
       textureManager,
@@ -434,8 +446,134 @@ describe("getGpuRetainedDomControlSources", () => {
     expect(textureManager.registerSurfaceTexture).toHaveBeenCalledWith(
       expect.objectContaining({
         deferUploadUntilPaint: false,
+        priority: "interactive",
       }),
     );
+  });
+
+  it("marks snapshot source hosts as explicit dirty capture-only sources", () => {
+    const runtimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 2,
+      frameId: 4,
+      scene: scene({ rowCount: 80, surfaceHeight: 80 * 24 }),
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1.5],
+      viewportSize: { height: 2_200, width: 320 },
+      viewportZoomBucket: 1.5,
+    });
+    const snapshotSource = runtimeFrame.descriptors.domControlSources.find(
+      (source) => source.visualPolicy === "snapshot",
+    );
+    if (!snapshotSource?.snapshotSurfaceId) {
+      throw new Error("Expected a snapshot-backed DOM control source.");
+    }
+    const host = document.createElement("div");
+
+    configureGpuRetainedDomControlSnapshotSourceElement({
+      host,
+      source: snapshotSource,
+    });
+
+    expect(host.getAttribute(HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE)).toBe(
+      "true",
+    );
+    expect(
+      host.getAttribute(HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE),
+    ).toBe("true");
+  });
+
+  it("uses texture upload and content retry frames for preparation snapshot sources", () => {
+    const requestFrame = vi.fn();
+    const followUpCallbacks: Array<() => void> = [];
+
+    requestGpuFlowRetainedDomControlSnapshotSourceFrame({
+      preparationSnapshotSourceIds: new Set(["snapshot-a"]),
+      scheduleFollowUpFrame: (callback) => {
+        followUpCallbacks.push(callback);
+      },
+      surface: { requestFrame },
+      surfaceId: "snapshot-a",
+    });
+
+    expect(requestFrame.mock.calls).toEqual([["texture-upload"]]);
+    expect(followUpCallbacks).toHaveLength(1);
+    followUpCallbacks[0]?.();
+    expect(requestFrame.mock.calls).toEqual([
+      ["texture-upload"],
+      ["manual"],
+      ["texture-upload"],
+    ]);
+  });
+
+  it("does not re-dirty completed snapshot source textures with matching content keys", () => {
+    expect(
+      shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty({
+        source: { snapshotCacheKeyRevision: "snapshot-key" },
+        surfaceId: "snapshot-a",
+        textureManager: textureManagerWithCommittedSnapshot({
+          lastUploadFrame: 3,
+          textureContentKey: "snapshot-key",
+        }),
+      }),
+    ).toBe(false);
+
+    expect(
+      shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty({
+        source: { snapshotCacheKeyRevision: "snapshot-key-next" },
+        surfaceId: "snapshot-a",
+        textureManager: textureManagerWithCommittedSnapshot({
+          lastUploadFrame: 3,
+          textureContentKey: "snapshot-key",
+        }),
+      }),
+    ).toBe(true);
+  });
+
+  it("schedules preparation snapshot follow-up frames after animation frames", () => {
+    const requestFrame = vi.fn();
+    const animationCallbacks: FrameRequestCallback[] = [];
+
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback: FrameRequestCallback) => {
+        animationCallbacks.push(callback);
+        return 1;
+      }),
+    );
+    try {
+      requestGpuFlowRetainedDomControlSnapshotSourceFrame({
+        preparationSnapshotSourceIds: new Set(["snapshot-a"]),
+        surface: { requestFrame },
+        surfaceId: "snapshot-a",
+      });
+
+      expect(requestFrame.mock.calls).toEqual([["texture-upload"]]);
+      expect(animationCallbacks).toHaveLength(1);
+      animationCallbacks[0]?.(16);
+      expect(requestFrame.mock.calls).toEqual([["texture-upload"]]);
+      expect(animationCallbacks).toHaveLength(2);
+      animationCallbacks[1]?.(32);
+      expect(requestFrame.mock.calls).toEqual([
+        ["texture-upload"],
+        ["manual"],
+        ["texture-upload"],
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps content refresh frames for visible snapshot source changes", () => {
+    const requestFrame = vi.fn();
+
+    requestGpuFlowRetainedDomControlSnapshotSourceFrame({
+      preparationSnapshotSourceIds: new Set(["snapshot-a"]),
+      surface: { requestFrame },
+      surfaceId: "snapshot-b",
+    });
+
+    expect(requestFrame.mock.calls).toEqual([["manual"], ["texture-upload"]]);
   });
 
   it("recreates DOM-control snapshot texture content when a snapshot-backed value changes", () => {
@@ -622,5 +760,26 @@ function row(
     id,
     label: id,
     state: nativeControlActive ? { nativeControlActive: true } : {},
+  };
+}
+
+function textureManagerWithCommittedSnapshot({
+  lastUploadFrame,
+  textureContentKey,
+}: {
+  readonly lastUploadFrame: number;
+  readonly textureContentKey: string;
+}): Parameters<
+  typeof shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty
+>[0]["textureManager"] {
+  return {
+    getCommittedSurfaceTexture: () =>
+      ({ lastUploadFrame, textureContentKey }) as NonNullable<
+        ReturnType<
+          Parameters<
+            typeof shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty
+          >[0]["textureManager"]["getCommittedSurfaceTexture"]
+        >
+      >,
   };
 }

@@ -179,16 +179,35 @@ export function shouldDeferDirtySurfaceUpload(
   if (!record) {
     return false;
   }
-  if (record.lastUploadFrame >= 0 && deferResolutionOnly) {
+  if (shouldDeferResolutionOnlyDirtySurface(dirtySurface, record, {
+    deferResolutionOnly,
+  })) {
     return true;
   }
-  if (dirtySurface.priority === "interactive") {
+  if (isImmediateUploadPriority(dirtySurface.priority)) {
     return false;
   }
-  if (deferPassiveUploads) {
-    return true;
-  }
-  return false;
+  return deferPassiveUploads;
+}
+
+function shouldDeferResolutionOnlyDirtySurface(
+  dirtySurface: Pick<DirtyNodeState, "dirtyContent" | "dirtyResolution">,
+  record: Pick<CommittedHtmlSurfaceTextureSnapshot, "lastUploadFrame">,
+  {
+    deferResolutionOnly,
+  }: {
+    readonly deferResolutionOnly: boolean;
+  },
+): boolean {
+  return (
+    record.lastUploadFrame >= 0 &&
+    deferResolutionOnly &&
+    isResolutionOnlyDirtySurface(dirtySurface)
+  );
+}
+
+function isImmediateUploadPriority(priority: DirtyNodeState["priority"]) {
+  return priority === "critical" || priority === "interactive";
 }
 
 export function normalizeSurfaceIdSet(

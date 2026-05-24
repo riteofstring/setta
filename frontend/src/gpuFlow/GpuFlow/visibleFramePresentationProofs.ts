@@ -246,6 +246,12 @@ function getGpuFlowVisiblePublicationDebtFrameReason({
     return "texture-upload";
   }
   if (
+    completion.debt.content &&
+    isGpuFlowSectionSurfaceRepairBlockedOutcome(outcome)
+  ) {
+    return "texture-upload";
+  }
+  if (
     shouldRequestGpuFlowManualContentDebtFrame({
       completion,
       publicationDecision,
@@ -254,12 +260,6 @@ function getGpuFlowVisiblePublicationDebtFrameReason({
     return "manual";
   }
   if (publicationDecision.lane === "maintenance" && completion.debt.content) {
-    return "manual";
-  }
-  if (
-    completion.debt.content &&
-    isGpuFlowSectionSurfaceRepairBlockedOutcome(outcome)
-  ) {
     return "manual";
   }
   if (isGpuFlowRetainedProjectionBlockedOutcome(outcome)) {

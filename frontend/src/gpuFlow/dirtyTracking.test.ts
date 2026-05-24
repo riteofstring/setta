@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 import { DirtyNodeQueue } from "./dirtyTracking";
 
 describe("DirtyNodeQueue", () => {
-  it("orders interactive nodes first, then content dirtiness, then FIFO", () => {
+  it("orders critical nodes before interactive nodes, then content dirtiness and FIFO", () => {
     const queue = new DirtyNodeQueue();
 
+    queue.markDirty({
+      nodeId: "critical-resolution",
+      priority: "critical",
+      resolution: true,
+    });
     queue.markDirty({
       nodeId: "visible-resolution",
       priority: "visible",
@@ -26,6 +31,7 @@ describe("DirtyNodeQueue", () => {
     });
 
     expect(queue.orderedDirtyNodes().map((node) => node.nodeId)).toEqual([
+      "critical-resolution",
       "interactive-resolution",
       "visible-content",
       "visible-resolution",

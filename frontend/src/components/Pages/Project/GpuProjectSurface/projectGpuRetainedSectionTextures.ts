@@ -24,24 +24,42 @@ export function createProjectGpuRetainedSectionTextureScene(
     if (!retainedContentSectionIds.has(section.sectionId)) {
       return section;
     }
+    const textureContentKey = createProjectGpuRetainedSectionTextureKey({
+      scene,
+      sectionId: section.sectionId,
+    });
     if (
-      section.textureCssHeight === PROJECT_GPU_RETAINED_SECTION_TEXTURE_SIZE &&
-      section.textureCssWidth === PROJECT_GPU_RETAINED_SECTION_TEXTURE_SIZE &&
-      section.textureContentKey === PROJECT_GPU_RETAINED_SECTION_TEXTURE_KEY
+      section.textureCssHeight === undefined &&
+      section.textureCssWidth === undefined &&
+      section.textureContentKey === textureContentKey
     ) {
       return section;
     }
+    const baseSection = omitProjectGpuRetainedSectionTextureDimensions(section);
     changed = true;
     return {
-      ...section,
-      textureContentKey: PROJECT_GPU_RETAINED_SECTION_TEXTURE_KEY,
-      textureCssHeight: PROJECT_GPU_RETAINED_SECTION_TEXTURE_SIZE,
-      textureCssWidth: PROJECT_GPU_RETAINED_SECTION_TEXTURE_SIZE,
+      ...baseSection,
+      textureContentKey,
     };
   });
   return changed ? { ...scene, sections } : scene;
 }
 
-const PROJECT_GPU_RETAINED_SECTION_TEXTURE_KEY =
-  "project-retained-section-shell:v1";
-const PROJECT_GPU_RETAINED_SECTION_TEXTURE_SIZE = 1;
+function omitProjectGpuRetainedSectionTextureDimensions(
+  section: GpuFlowScene["sections"][number],
+) {
+  const { textureCssHeight, textureCssWidth, ...baseSection } = section;
+  void textureCssHeight;
+  void textureCssWidth;
+  return baseSection;
+}
+
+function createProjectGpuRetainedSectionTextureKey({
+  scene,
+  sectionId,
+}: {
+  readonly scene: GpuFlowScene;
+  readonly sectionId: string;
+}): string {
+  return `project-retained-section-shell:v2:${sectionId}:${scene.revision}`;
+}

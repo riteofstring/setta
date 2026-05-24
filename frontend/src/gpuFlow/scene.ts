@@ -140,11 +140,18 @@ export type GpuFlowScene = {
 export function getGpuFlowSceneDomSectionNodes(
   scene: GpuFlowScene,
 ): readonly GpuSectionSceneNode[] {
-  return scene.sections.filter(
-    (section) =>
+  return scene.sections
+    .filter(
+      (section) =>
+        section.contentRenderer.kind === "dom-section" &&
+        isGpuSectionSceneNodeInsideClip(section),
+    )
+    .map((section) =>
       section.contentRenderer.kind === "dom-section" &&
-      isGpuSectionSceneNodeInsideClip(section),
-  );
+      section.actorKind !== "dom-section"
+        ? { ...section, actorKind: "dom-section" }
+        : section,
+    );
 }
 
 export function createGpuFlowContentSurfacesFromSections(

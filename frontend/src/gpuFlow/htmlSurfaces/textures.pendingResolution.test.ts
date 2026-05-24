@@ -309,4 +309,47 @@ describe("HtmlSurfaceTextureManager pending resolution uploads", () => {
       remainingDirtySurfaceIds: [],
     });
   });
+
+  it("continues uploading dirty content when resolution-only work is deferred", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureTileDimension2D: 128,
+    });
+    const element = document.createElement("div");
+
+    manager.registerSurfaceTexture({
+      cssHeight: 100,
+      cssWidth: 100,
+      devicePixelRatio: 1,
+      element,
+      frame: 1,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+
+    manager.markSurfaceTextureDirty({
+      content: true,
+      frame: 3,
+      reason: "content",
+      surfaceId: "node-a",
+    });
+
+    const upload = manager.uploadDirtySurfaceTextures({
+      deferResolutionOnly: true,
+      frame: 4,
+    });
+
+    expect(upload).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtySurfaceIds: [],
+      uploaded: [expect.objectContaining({ surfaceId: "node-a" })],
+    });
+    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
+      dirtyContent: false,
+      dirtyResolution: false,
+      lastUploadFrame: 4,
+    });
+  });
 });

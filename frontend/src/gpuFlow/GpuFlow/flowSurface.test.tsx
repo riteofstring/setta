@@ -343,6 +343,7 @@ describe("GpuFlow", () => {
     })?.[0];
 
     expect(node).toMatchObject({
+      actorKind: "dom-section",
       height: 80,
       nodeId: "section-a",
       textureContentKey: "section-shell",

@@ -97,7 +97,6 @@ import {
 } from "./projectGpuRetainedParamPasswordRevealState";
 import {
   createProjectGpuRetainedSectionTextureScene,
-  getProjectRetainedContentSectionIds,
 } from "./projectGpuRetainedSectionTextures";
 import { useProjectGpuSearchReveal } from "./projectGpuSearchReveal";
 import { useProjectSurfaceDimensions } from "./projectGpuSurfaceDimensionsHook";
@@ -493,14 +492,9 @@ function ProjectGpuFlowLayer({
     () => getProjectSceneSectionById(gpuFlowScene),
     [gpuFlowScene],
   );
-  const retainedContentSectionIds = useMemo(
-    () => getProjectRetainedContentSectionIds(gpuFlowScene),
-    [gpuFlowScene],
-  );
   const renderNode = useCallback(
-    (node: GpuNodeLayout) =>
-      renderProjectGpuNode(node, sceneSectionById, retainedContentSectionIds),
-    [retainedContentSectionIds, sceneSectionById],
+    (node: GpuNodeLayout) => renderProjectGpuNode(node, sceneSectionById),
+    [sceneSectionById],
   );
   const edgeScene = useProjectGpuEdgeScene({
     layoutNodes: nodeLayouts,

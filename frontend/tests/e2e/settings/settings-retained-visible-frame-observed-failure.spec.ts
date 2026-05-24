@@ -4,27 +4,35 @@ import {
   SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
   captureRetainedCompositorEvidenceScreenshot,
   centerRetainedCompositorSurface,
-  dispatchRetainedCompositorWheelBurst,
   expectRetainedCompositorGestureWithinBudget,
   measureRetainedCompositorControlCadence,
   measureRetainedCompositorGesture,
   openAllSettingsForRetainedCompositor,
+  readRetainedCompositorScrollSignature,
   resolveRetainedCompositorCadenceBudget,
   resolveRetainedCompositorTarget,
   runNativeRetainedCompositorWheelBurst,
   warmRetainedCompositorNativeWheelTarget,
+  type RetainedCompositorGestureResult,
 } from "./settings-retained-compositor-helpers";
 import {
   analyzeHorizontalPlaceholderBands,
+  analyzeRetainedLabelTextInkBounds,
   compareScreenshotSimilarity,
   type Rect,
 } from "./settings-retained-visual-analysis";
 
 const MIN_HEADER_NONBLANK_RATIO = 0.002;
+const MIN_HEADER_TEXT_INK_PIXELS = 12;
 const MIN_CONTENT_NONBLANK_RATIO = 0.02;
+const MIN_SECTION_NONBLANK_RATIO = 0.015;
 const MIN_SCROLL_CHANGED_PIXEL_RATIO = 0.004;
 const MIN_SCROLL_MEAN_DELTA = 1;
 const MAX_FLICKER_BASELINE_DROP_RATIO = 0.65;
+const STANDARD_REFRESH_P50_MAX_MS = 18.5;
+const STANDARD_REFRESH_P95_MAX_MS = 24;
+const STANDARD_REFRESH_MAX_FRAME_GAP_MS = 50;
+const STANDARD_REFRESH_MAX_LONG_TASK_MS = 50;
 
 test.use({
   userAgent:
@@ -46,6 +54,7 @@ test("All Settings first render keeps section header and retained content visibl
     page,
     target.surfaceId,
   );
+  const sectionClip = mergeScreenshotClips(headerClip, target.clip);
 
   const headerScreenshot = await captureRetainedCompositorEvidenceScreenshot(
     page,
@@ -61,11 +70,26 @@ test("All Settings first render keeps section header and retained content visibl
       path: testInfo.outputPath("first-render-retained-content.png"),
     },
   );
+  const sectionScreenshot = await captureRetainedCompositorEvidenceScreenshot(
+    page,
+    {
+      clip: sectionClip,
+      path: testInfo.outputPath("first-render-visible-section.png"),
+    },
+  );
+  const headerInk = await analyzeRetainedLabelTextInkBounds(page, {
+    clip: headerClip,
+    screenshot: headerScreenshot,
+    searchRect: headerClip,
+  });
   const headerBands = await analyzeHorizontalPlaceholderBands(page, {
     screenshot: headerScreenshot,
   });
   const contentBands = await analyzeHorizontalPlaceholderBands(page, {
     screenshot: contentScreenshot,
+  });
+  const sectionBands = await analyzeHorizontalPlaceholderBands(page, {
+    screenshot: sectionScreenshot,
   });
   const diagnostics = await attachVisibleFrameDiagnostics(
     page,
@@ -73,16 +97,32 @@ test("All Settings first render keeps section header and retained content visibl
     "first-render-visible-frame-diagnostics.json",
   );
   const details = JSON.stringify(
-    { contentBands, diagnostics, headerBands, headerClip, target },
+    {
+      contentBands,
+      diagnostics,
+      headerBands,
+      headerClip,
+      headerInk,
+      sectionBands,
+      sectionClip,
+      target,
+    },
     null,
     2,
   );
 
+  expect(headerInk, details).not.toBeNull();
+  expect(headerInk?.pixelCount ?? 0, details).toBeGreaterThan(
+    MIN_HEADER_TEXT_INK_PIXELS,
+  );
   expect(headerBands.nonblankRatio, details).toBeGreaterThan(
     MIN_HEADER_NONBLANK_RATIO,
   );
   expect(contentBands.nonblankRatio, details).toBeGreaterThan(
     MIN_CONTENT_NONBLANK_RATIO,
+  );
+  expect(sectionBands.nonblankRatio, details).toBeGreaterThan(
+    MIN_SECTION_NONBLANK_RATIO,
   );
   expect(contentBands.highConfidencePlaceholder, details).toBe(false);
 });
@@ -101,6 +141,10 @@ test("retained section scroll moves visible pixels without blanking header or co
     target.surfaceId,
   );
   await warmRetainedCompositorNativeWheelTarget(page, target.point);
+  const beforeScrollSignature = await readRetainedCompositorScrollSignature(
+    page,
+    target.surfaceId,
+  );
   const before = await captureRetainedCompositorEvidenceScreenshot(page, {
     clip: target.clip,
     path: testInfo.outputPath("scroll-before-content.png"),
@@ -132,6 +176,13 @@ test("retained section scroll moves visible pixels without blanking header or co
     clip: target.clip,
     path: testInfo.outputPath("scroll-around-120ms-content.png"),
   });
+  const headerAround120 = await captureRetainedCompositorEvidenceScreenshot(
+    page,
+    {
+      clip: headerClip,
+      path: testInfo.outputPath("scroll-around-120ms-header.png"),
+    },
+  );
   await page.waitForTimeout(180);
   const final = await captureRetainedCompositorEvidenceScreenshot(page, {
     clip: target.clip,
@@ -141,6 +192,10 @@ test("retained section scroll moves visible pixels without blanking header or co
     clip: headerClip,
     path: testInfo.outputPath("scroll-final-header.png"),
   });
+  const afterScrollSignature = await readRetainedCompositorScrollSignature(
+    page,
+    target.surfaceId,
+  );
 
   const around60Similarity = await compareScreenshotSimilarity(page, {
     actual: around60,
@@ -160,6 +215,9 @@ test("retained section scroll moves visible pixels without blanking header or co
   const headerDuring = await analyzeHorizontalPlaceholderBands(page, {
     screenshot: headerAround60,
   });
+  const headerAt120 = await analyzeHorizontalPlaceholderBands(page, {
+    screenshot: headerAround120,
+  });
   const headerSettled = await analyzeHorizontalPlaceholderBands(page, {
     screenshot: headerFinal,
   });
@@ -178,10 +236,13 @@ test("retained section scroll moves visible pixels without blanking header or co
     {
       around60Similarity,
       around120Similarity,
+      afterScrollSignature,
+      beforeScrollSignature,
       contentDuring,
       contentSettled,
       diagnostics,
       finalSimilarity,
+      headerAt120,
       headerBaseline,
       headerDuring,
       headerSettled,
@@ -199,7 +260,11 @@ test("retained section scroll moves visible pixels without blanking header or co
     ),
     details,
   ).toBe(true);
+  expect(afterScrollSignature, details).not.toEqual(beforeScrollSignature);
   expect(headerDuring.nonblankRatio, details).toBeGreaterThan(
+    MIN_HEADER_NONBLANK_RATIO,
+  );
+  expect(headerAt120.nonblankRatio, details).toBeGreaterThan(
     MIN_HEADER_NONBLANK_RATIO,
   );
   expect(headerSettled.nonblankRatio, details).toBeGreaterThan(
@@ -224,11 +289,16 @@ test("pan, zoom, and retained scroll keep cadence and avoid content disappearanc
     SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
   );
   const target = await resolveRetainedCompositorTarget(page);
+  const headerClip = await resolveRetainedSectionHeaderClip(
+    page,
+    target.surfaceId,
+  );
+  const sectionClip = mergeScreenshotClips(headerClip, target.clip);
   await warmRetainedCompositorNativeWheelTarget(page, target.point);
   const controlCadence = await measureRetainedCompositorControlCadence(page);
   const baseline = await captureRetainedCompositorEvidenceScreenshot(page, {
-    clip: target.clip,
-    path: testInfo.outputPath("motion-baseline-content.png"),
+    clip: sectionClip,
+    path: testInfo.outputPath("motion-baseline-section.png"),
   });
   const baselineBands = await analyzeHorizontalPlaceholderBands(page, {
     screenshot: baseline,
@@ -238,13 +308,13 @@ test("pan, zoom, and retained scroll keep cadence and avoid content disappearanc
     page,
     async () => {
       const eventSpacing = [
-        ...(await dispatchRetainedCompositorWheelBurst(page, {
+        ...(await runNativeRetainedCompositorWheelBurst(page, {
           deltaX: 26,
           deltaY: 18,
           eventCount: 4,
           point: target.point,
         })),
-        ...(await dispatchRetainedCompositorWheelBurst(page, {
+        ...(await runNativeRetainedCompositorWheelBurst(page, {
           ctrlKey: true,
           deltaY: -0.34,
           eventCount: 4,
@@ -258,21 +328,21 @@ test("pan, zoom, and retained scroll keep cadence and avoid content disappearanc
       ];
       motionSamples.push(
         await captureRetainedCompositorEvidenceScreenshot(page, {
-          clip: target.clip,
+          clip: sectionClip,
           path: testInfo.outputPath("motion-sample-immediate.png"),
         }),
       );
       await page.waitForTimeout(60);
       motionSamples.push(
         await captureRetainedCompositorEvidenceScreenshot(page, {
-          clip: target.clip,
+          clip: sectionClip,
           path: testInfo.outputPath("motion-sample-60ms.png"),
         }),
       );
       await page.waitForTimeout(60);
       motionSamples.push(
         await captureRetainedCompositorEvidenceScreenshot(page, {
-          clip: target.clip,
+          clip: sectionClip,
           path: testInfo.outputPath("motion-sample-120ms.png"),
         }),
       );
@@ -282,7 +352,7 @@ test("pan, zoom, and retained scroll keep cadence and avoid content disappearanc
   );
   motionSamples.push(
     await captureRetainedCompositorEvidenceScreenshot(page, {
-      clip: target.clip,
+      clip: sectionClip,
       path: testInfo.outputPath("motion-sample-final.png"),
     }),
   );
@@ -307,6 +377,7 @@ test("pan, zoom, and retained scroll keep cadence and avoid content disappearanc
       controlCadence,
       diagnostics,
       gesture,
+      sectionClip,
       sampleBands,
       target,
     },
@@ -319,14 +390,19 @@ test("pan, zoom, and retained scroll keep cadence and avoid content disappearanc
     details,
     gesture,
   });
+  expectStandardRefreshGestureWithinFixedBudget({
+    controlCadence,
+    details,
+    gesture,
+  });
   expect(baselineBands.nonblankRatio, details).toBeGreaterThan(
-    MIN_CONTENT_NONBLANK_RATIO,
+    MIN_SECTION_NONBLANK_RATIO,
   );
   for (const bands of sampleBands) {
     expect(bands.highConfidencePlaceholder, details).toBe(false);
     expect(bands.nonblankRatio, details).toBeGreaterThan(
       Math.max(
-        MIN_CONTENT_NONBLANK_RATIO,
+        MIN_SECTION_NONBLANK_RATIO,
         baselineBands.nonblankRatio * MAX_FLICKER_BASELINE_DROP_RATIO,
       ),
     );
@@ -342,22 +418,27 @@ test("consecutive interaction frames do not flicker between present and absent c
     SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
   );
   const target = await resolveRetainedCompositorTarget(page);
+  const headerClip = await resolveRetainedSectionHeaderClip(
+    page,
+    target.surfaceId,
+  );
+  const sectionClip = mergeScreenshotClips(headerClip, target.clip);
   await warmRetainedCompositorNativeWheelTarget(page, target.point);
   const baseline = await captureRetainedCompositorEvidenceScreenshot(page, {
-    clip: target.clip,
-    path: testInfo.outputPath("flicker-baseline-content.png"),
+    clip: sectionClip,
+    path: testInfo.outputPath("flicker-baseline-section.png"),
   });
   const baselineBands = await analyzeHorizontalPlaceholderBands(page, {
     screenshot: baseline,
   });
 
-  await dispatchRetainedCompositorWheelBurst(page, {
+  await runNativeRetainedCompositorWheelBurst(page, {
     deltaX: 20,
     deltaY: 14,
     eventCount: 3,
     point: target.point,
   });
-  await dispatchRetainedCompositorWheelBurst(page, {
+  await runNativeRetainedCompositorWheelBurst(page, {
     ctrlKey: true,
     deltaY: -0.28,
     eventCount: 3,
@@ -369,7 +450,7 @@ test("consecutive interaction frames do not flicker between present and absent c
     point: target.point,
   });
   const frameScreenshots = await captureConsecutiveFrameScreenshots(page, {
-    clip: target.clip,
+    clip: sectionClip,
     count: 6,
     outputPrefix: "flicker-frame",
     testInfo,
@@ -385,7 +466,7 @@ test("consecutive interaction frames do not flicker between present and absent c
     "flicker-visible-frame-diagnostics.json",
   );
   const presenceFloor = Math.max(
-    MIN_CONTENT_NONBLANK_RATIO,
+    MIN_SECTION_NONBLANK_RATIO,
     baselineBands.nonblankRatio * MAX_FLICKER_BASELINE_DROP_RATIO,
   );
   const presence = frameBands.map(
@@ -393,7 +474,7 @@ test("consecutive interaction frames do not flicker between present and absent c
       !bands.highConfidencePlaceholder && bands.nonblankRatio >= presenceFloor,
   );
   const details = JSON.stringify(
-    { baselineBands, diagnostics, frameBands, presence, target },
+    { baselineBands, diagnostics, frameBands, presence, sectionClip, target },
     null,
     2,
   );
@@ -411,6 +492,11 @@ test("latest Chrome recording parity sequence keeps pixels, diagnostics, and cad
     SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
   );
   const target = await resolveRetainedCompositorTarget(page);
+  const headerClip = await resolveRetainedSectionHeaderClip(
+    page,
+    target.surfaceId,
+  );
+  const sectionClip = mergeScreenshotClips(headerClip, target.clip);
   await warmRetainedCompositorNativeWheelTarget(page, target.point);
   const controlCadence = await measureRetainedCompositorControlCadence(page);
   const screenshots: Buffer[] = [];
@@ -418,19 +504,19 @@ test("latest Chrome recording parity sequence keeps pixels, diagnostics, and cad
     page,
     async () => {
       const eventSpacing = [
-        ...(await dispatchRetainedCompositorWheelBurst(page, {
+        ...(await runNativeRetainedCompositorWheelBurst(page, {
           deltaX: 30,
           deltaY: 20,
           eventCount: 5,
           point: target.point,
         })),
-        ...(await dispatchRetainedCompositorWheelBurst(page, {
+        ...(await runNativeRetainedCompositorWheelBurst(page, {
           deltaX: -18,
           deltaY: 16,
           eventCount: 3,
           point: target.point,
         })),
-        ...(await dispatchRetainedCompositorWheelBurst(page, {
+        ...(await runNativeRetainedCompositorWheelBurst(page, {
           ctrlKey: true,
           deltaY: -0.42,
           eventCount: 5,
@@ -444,21 +530,21 @@ test("latest Chrome recording parity sequence keeps pixels, diagnostics, and cad
       ];
       screenshots.push(
         await captureRetainedCompositorEvidenceScreenshot(page, {
-          clip: target.clip,
+          clip: sectionClip,
           path: testInfo.outputPath("latest-parity-immediate.png"),
         }),
       );
       await page.waitForTimeout(60);
       screenshots.push(
         await captureRetainedCompositorEvidenceScreenshot(page, {
-          clip: target.clip,
+          clip: sectionClip,
           path: testInfo.outputPath("latest-parity-60ms.png"),
         }),
       );
       await page.waitForTimeout(60);
       screenshots.push(
         await captureRetainedCompositorEvidenceScreenshot(page, {
-          clip: target.clip,
+          clip: sectionClip,
           path: testInfo.outputPath("latest-parity-120ms.png"),
         }),
       );
@@ -468,7 +554,7 @@ test("latest Chrome recording parity sequence keeps pixels, diagnostics, and cad
   );
   screenshots.push(
     await captureRetainedCompositorEvidenceScreenshot(page, {
-      clip: target.clip,
+      clip: sectionClip,
       path: testInfo.outputPath("latest-parity-final.png"),
     }),
   );
@@ -491,7 +577,15 @@ test("latest Chrome recording parity sequence keeps pixels, diagnostics, and cad
     contentType: "application/json",
   });
   const details = JSON.stringify(
-    { budget, controlCadence, diagnostics, gesture, sampleBands, target },
+    {
+      budget,
+      controlCadence,
+      diagnostics,
+      gesture,
+      sampleBands,
+      sectionClip,
+      target,
+    },
     null,
     2,
   );
@@ -501,15 +595,63 @@ test("latest Chrome recording parity sequence keeps pixels, diagnostics, and cad
     details,
     gesture,
   });
+  expectStandardRefreshGestureWithinFixedBudget({
+    controlCadence,
+    details,
+    gesture,
+  });
   for (const bands of sampleBands) {
     expect(bands.highConfidencePlaceholder, details).toBe(false);
     expect(bands.nonblankRatio, details).toBeGreaterThan(
-      MIN_CONTENT_NONBLANK_RATIO,
+      MIN_SECTION_NONBLANK_RATIO,
     );
   }
   expect(diagnostics.requiredActorsByFamily, details).not.toBeNull();
+  expect(diagnostics.readyActorsByFamily, details).not.toBeNull();
+  expect(diagnostics.compatibleActorsByFamily, details).not.toBeNull();
+  expect(diagnostics.missingActorsByFamily, details).not.toBeNull();
+  expect(diagnostics.scrollHorizonCoverage, details).not.toBeNull();
   expect(diagnostics.visibleOutcome, details).not.toBe("blocked");
 });
+
+function mergeScreenshotClips(first: Rect, second: Rect): Rect {
+  const left = Math.min(first.x, second.x);
+  const top = Math.min(first.y, second.y);
+  const right = Math.max(first.x + first.width, second.x + second.width);
+  const bottom = Math.max(first.y + first.height, second.y + second.height);
+  return {
+    height: Math.max(1, bottom - top),
+    width: Math.max(1, right - left),
+    x: left,
+    y: top,
+  };
+}
+
+function expectStandardRefreshGestureWithinFixedBudget({
+  controlCadence,
+  details,
+  gesture,
+}: {
+  readonly controlCadence: {
+    readonly p50Ms: number;
+    readonly p95Ms: number;
+  };
+  readonly details: string;
+  readonly gesture: RetainedCompositorGestureResult;
+}) {
+  if (
+    controlCadence.p50Ms > STANDARD_REFRESH_P50_MAX_MS ||
+    controlCadence.p95Ms > STANDARD_REFRESH_P95_MAX_MS
+  ) {
+    return;
+  }
+  expect(gesture.frame.maxMs, details).toBeLessThanOrEqual(
+    STANDARD_REFRESH_MAX_FRAME_GAP_MS,
+  );
+  expect(gesture.longTasks.maxDurationMs, details).toBeLessThanOrEqual(
+    STANDARD_REFRESH_MAX_LONG_TASK_MS,
+  );
+}
 
 async function resolveRetainedSectionHeaderClip(
   page: Page,

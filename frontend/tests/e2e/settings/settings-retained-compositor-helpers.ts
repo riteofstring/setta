@@ -223,6 +223,30 @@ async function readRetainedCompositorVisibleFrameDiagnostics(
       window.__SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__?.() ?? null;
     const retainedNativeVisuals =
       window.__SETTA_GPU_FLOW_DEBUG_RETAINED_NATIVE_VISUALS__?.() ?? null;
+    const browserVisualResourceWork =
+      (
+        window as typeof window & {
+          readonly __SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__?: readonly unknown[];
+        }
+      ).__SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__ ?? [];
+    const dirtySurfaceTextureUploads =
+      (
+        window as typeof window & {
+          readonly __SETTA_GPU_FLOW_DIRTY_SURFACE_TEXTURE_UPLOADS__?: readonly unknown[];
+        }
+      ).__SETTA_GPU_FLOW_DIRTY_SURFACE_TEXTURE_UPLOADS__ ?? [];
+    const publicationDebtFrameRequests =
+      (
+        window as typeof window & {
+          readonly __SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__?: readonly unknown[];
+        }
+      ).__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ ?? [];
+    const paintUnavailableUploads =
+      (
+        window as typeof window & {
+          readonly __SETTA_GPU_FLOW_HTML_SURFACE_PAINT_UNAVAILABLE_UPLOADS__?: readonly unknown[];
+        }
+      ).__SETTA_GPU_FLOW_HTML_SURFACE_PAINT_UNAVAILABLE_UPLOADS__ ?? [];
     const recentGpuFlowFrameMeasures = performance
       .getEntriesByType("measure")
       .filter((entry) => entry.name.startsWith("setta.gpuFlow.surface-frame"))
@@ -240,13 +264,16 @@ async function readRetainedCompositorVisibleFrameDiagnostics(
     if (!coldStartShell) {
       return {
         blockedEventCount: blockedEvents.length,
+        browserVisualResourceWork,
         coldStartShell: null,
+        dirtySurfaceTextureUploads,
         domControlCount: document.querySelectorAll(
           '[data-gpu-flow-dom-control="true"]',
         ).length,
         domControlPlaneCommittedFrameId:
           domControlPlane?.dataset.gpuFlowDomControlPlaneCommittedFrameId ??
           null,
+        publicationDebtFrameRequests,
         recentGpuFlowFrameMeasures,
         retainedNativeVisuals,
         retainedRowCount:
@@ -257,10 +284,12 @@ async function readRetainedCompositorVisibleFrameDiagnostics(
     }
     return {
       blockedEventCount: blockedEvents.length,
+      browserVisualResourceWork,
       coldStartShell: {
         frameId: coldStartShell.dataset.gpuFlowColdStartShellFrameId ?? null,
         reason: coldStartShell.dataset.gpuFlowColdStartShellReason ?? null,
       },
+      dirtySurfaceTextureUploads,
       domControlCount: document.querySelectorAll(
         '[data-gpu-flow-dom-control="true"]',
       ).length,
@@ -269,6 +298,8 @@ async function readRetainedCompositorVisibleFrameDiagnostics(
       domControlPlaneRuntimeFrameId:
         domControlPlane?.dataset.gpuFlowDomControlPlaneFrameId ?? null,
       lastBlockedEvent: lastBlockedEvent ?? null,
+      paintUnavailableUploads,
+      publicationDebtFrameRequests,
       lastBlockedSnapshotDiagnostic: lastBlockedActorId
         ? snapshotDiagnostics.find(
             (diagnostic) => diagnostic.sourceId === lastBlockedActorId,
@@ -276,7 +307,15 @@ async function readRetainedCompositorVisibleFrameDiagnostics(
         : null,
       lastBlockedSnapshotSourceElement: lastBlockedSnapshotSourceElement
         ? {
+            captureOnly:
+              lastBlockedSnapshotSourceElement.getAttribute(
+                "data-gpu-flow-capture-only-source",
+              ) ?? null,
             connected: lastBlockedSnapshotSourceElement.isConnected,
+            explicitDirty:
+              lastBlockedSnapshotSourceElement.getAttribute(
+                "data-gpu-flow-explicit-dirty-source",
+              ) ?? null,
             sourceId:
               lastBlockedSnapshotSourceElement.dataset.gpuFlowSourceId ?? null,
           }
@@ -363,21 +402,24 @@ async function waitForRetainedCompositorViewportCommit(
   viewport: RetainedCompositorViewportSample,
 ): Promise<void> {
   await expect
-    .poll(async () => {
-      const state = await readRetainedCompositorViewportCommitState(
-        page,
-        viewport,
-      );
-      if (state.runtimeMatches && !state.committedMatches) {
-        await page.evaluate(() => {
-          window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
-        });
-      }
-      return state;
-    }, {
-      intervals: [50, 80, 120, 180],
-      timeout: 10_000,
-    })
+    .poll(
+      async () => {
+        const state = await readRetainedCompositorViewportCommitState(
+          page,
+          viewport,
+        );
+        if (state.runtimeMatches && !state.committedMatches) {
+          await page.evaluate(() => {
+            window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("resize");
+          });
+        }
+        return state;
+      },
+      {
+        intervals: [50, 80, 120, 180],
+        timeout: 10_000,
+      },
+    )
     .toMatchObject({
       committedMatches: true,
       runtimeMatches: true,

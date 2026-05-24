@@ -3,7 +3,7 @@ import type { GpuFlowScene, GpuSectionSceneNode } from "gpuFlow/scene";
 import { createProjectGpuRetainedSectionTextureScene } from "./projectGpuRetainedSectionTextures";
 
 describe("createProjectGpuRetainedSectionTextureScene", () => {
-  it("uses compact shell textures for retained content sections", () => {
+  it("uses full section shell textures for retained content sections", () => {
     const scene = sceneWithSections([
       section("retained-section"),
       section("plain-section"),
@@ -38,10 +38,10 @@ describe("createProjectGpuRetainedSectionTextureScene", () => {
     });
 
     expect(retainedScene.sections[0]).toMatchObject({
-      textureContentKey: "project-retained-section-shell:v1",
-      textureCssHeight: 1,
-      textureCssWidth: 1,
+      textureContentKey: "project-retained-section-shell:v2:retained-section:1",
     });
+    expect(retainedScene.sections[0]).not.toHaveProperty("textureCssHeight");
+    expect(retainedScene.sections[0]).not.toHaveProperty("textureCssWidth");
     expect(retainedScene.sections[1]).not.toHaveProperty("textureCssHeight");
     expect(retainedScene.sections[1]).not.toHaveProperty("textureCssWidth");
   });

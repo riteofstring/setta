@@ -1015,22 +1015,29 @@ describe("GPU Flow visible publication content plans", () => {
   it("gates committed-surface overlay texture preparation outside flowFrame", () => {
     const preparedInputs: number[] = [];
 
-    prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
-      input: 1,
-      prepareOverlayTextures: (input) => preparedInputs.push(input),
-      publicationPreparation: {
-        shouldPrepareHtmlSurfaceOverlayTextures: false,
-      },
-    });
-    prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
-      input: 2,
-      prepareOverlayTextures: (input) => preparedInputs.push(input),
-      publicationPreparation: {
-        shouldPrepareHtmlSurfaceOverlayTextures: true,
-      },
-    });
+    const skipped =
+      prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
+        input: 1,
+        prepareOverlayTextures: (input) => preparedInputs.push(input),
+        publicationPreparation: {
+          shouldPrepareHtmlSurfaceOverlayTextures: false,
+        },
+      });
+    const prepared =
+      prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
+        input: 2,
+        prepareOverlayTextures: (input) => {
+          preparedInputs.push(input);
+          return input * 2;
+        },
+        publicationPreparation: {
+          shouldPrepareHtmlSurfaceOverlayTextures: true,
+        },
+      });
 
     expect(preparedInputs).toEqual([2]);
+    expect(skipped).toBeUndefined();
+    expect(prepared).toBe(4);
   });
 
   it("keeps content publication frame-result derivation out of the surface frame", () => {

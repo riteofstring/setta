@@ -207,7 +207,17 @@ export class GpuFlowBrowserVisualActorRuntime {
       control,
     });
   }
-
+  getDomControlRepresentationReadinessDiagnostics(controlId: string) {
+    const readiness = createGpuFlowBrowserVisualDomControlReadinessByActorId({
+      context: this.getDomControlReadinessContext(),
+      preparedDomControls: this.preparationSnapshot.domControls,
+    }).get(controlId) ?? null;
+    return readiness ? {
+      coverageState: readiness.coverageState,
+      projectionCoverageRequired: readiness.projectionCoverageRequired === true,
+      resourceHandles: readiness.resourceHandles?.map((handle) => ({ ...handle })) ?? [],
+    } : null;
+  }
   subscribe(listener: BrowserVisualActorRuntimeListener): () => void {
     this.listeners.add(listener);
     if (this.snapshotEmitPending && !this.snapshotEmitQueued) {

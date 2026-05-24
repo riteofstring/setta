@@ -17,7 +17,10 @@ import {
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
-import type { GpuFlowVisibleFrameBudgetBrokerDecision } from "./visibleFrameBudgetBroker";
+import {
+  createGpuFlowVisibleFrameSelectedResourceWorkKeys,
+  type GpuFlowVisibleFrameBudgetBrokerDecision,
+} from "./visibleFrameBudgetBroker";
 import { createGpuFlowVisibleFrameResourceGraph } from "./visibleFrameResourceGraph";
 
 export function useGpuFlowCommittedSurfaceFrameState({
@@ -183,7 +186,11 @@ export function useGpuFlowCommittedSurfaceFrameState({
   const prepareVisibleFrameResourcesForBudget = useCallback(
     (budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision) =>
       visibleFrameResourceGraphRef.current.advanceVisibleFrameResourceWork({
-        resourceKeys: budgetDecision.preparationBudget.selectedResourceDebtIds,
+        resourceKeys: createGpuFlowVisibleFrameSelectedResourceWorkKeys({
+          budgetDecision,
+          resourceGraphSnapshot:
+            visibleFrameResourceGraphRef.current.getSnapshot(),
+        }),
       }),
     [],
   );

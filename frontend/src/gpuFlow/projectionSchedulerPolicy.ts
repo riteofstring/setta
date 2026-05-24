@@ -242,9 +242,10 @@ function shouldDeferGpuFlowProjectionContentRetry({
   readonly timestamp: DOMHighResTimeStamp;
 }): boolean {
   return (
-    hasCommittedContentFrame &&
     contentRetryBlockedUntilMs !== null &&
     timestamp < contentRetryBlockedUntilMs &&
+    (hasCommittedContentFrame ||
+      rawReasons.some(isGpuFlowMaintenanceFrameReason)) &&
     !hasGpuFlowCriticalContentFrameRequest(rawReasons)
   );
 }

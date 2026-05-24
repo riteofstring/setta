@@ -205,7 +205,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
     const stagedSnapshotControlIds = browserVisualRuntime
       .getPreparationSnapshot()
       .domControls.snapshotControls.map((control) => control.sourceId);
-    expect(stagedSnapshotControlIds.length).toBeLessThanOrEqual(4);
+    expect(stagedSnapshotControlIds.length).toBeLessThanOrEqual(16);
     expect(
       stagedSnapshotControlIds.every((sourceId) =>
         snapshotControls.some((control) => control.sourceId === sourceId),
@@ -265,6 +265,59 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
         "exact-snapshot-ready",
       );
     }
+  });
+
+  it("keeps cold-start snapshot preparation batched when the visible proof reports one blocker", () => {
+    const snapshotControls = Array.from({ length: 12 }, (_, offset) =>
+      domControl({
+        index: 70 + offset,
+        snapshotSurfaceId: `snapshot-${offset}`,
+        value: `snapshot value ${offset}`,
+        visualPolicy: "snapshot",
+      }),
+    );
+    const runtimeFrame = retainedRuntimeFrame([
+      ...Array.from({ length: 70 }, (_, index) => domControl({ index })),
+      ...snapshotControls,
+    ]);
+    const browserVisualRuntime = createGpuFlowBrowserVisualActorRuntime();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    browserVisualRuntime.setDomControlProjectionEnvironment({
+      getRetainedScrollOffset: undefined,
+      viewportRuntime,
+      viewportStore,
+    });
+    browserVisualRuntime.setDomControlSnapshotTextureManager({
+      getCommittedSurfaceTexture: () => undefined,
+    });
+
+    const readiness = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 1,
+        retainedRuntimeFrame: runtimeFrame,
+      }),
+    });
+    const blockedControl = snapshotControls[8];
+    if (!blockedControl) {
+      throw new Error("Expected a blocked snapshot control.");
+    }
+    stageBrowserVisualCandidate({
+      actorId: blockedControl.sourceId,
+      browserVisualRuntime,
+      candidate: readiness,
+    });
+
+    const stagedSnapshotControlIds = browserVisualRuntime
+      .getPreparationSnapshot()
+      .domControls.snapshotControls.map((control) => control.sourceId);
+    expect(stagedSnapshotControlIds).toContain(blockedControl.sourceId);
+    expect(stagedSnapshotControlIds.length).toBeGreaterThan(1);
+    expect(stagedSnapshotControlIds.length).toBeLessThanOrEqual(16);
   });
 
   it("falls back to exact snapshots for visible live DOM controls beyond the live-host budget", () => {

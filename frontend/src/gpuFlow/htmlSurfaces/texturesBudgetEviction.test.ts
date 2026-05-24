@@ -28,7 +28,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uploads dirty surfaces by interactive priority within the upload budget", () => {
+  it("uploads dirty surfaces by critical and interactive priority within the upload budget", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
@@ -36,6 +36,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     registerNode(manager, "prefetch", "prefetch");
     registerNode(manager, "visible", "visible");
     registerNode(manager, "interactive", "interactive");
+    registerNode(manager, "critical", "critical");
 
     const result = manager.uploadDirtySurfaceTextures({
       frame: 4,
@@ -43,18 +44,107 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     });
 
     expect(result.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "critical",
       "interactive",
-      "visible",
     ]);
-    expect(result.remainingDirtySurfaceIds).toEqual(["prefetch"]);
+    expect(result.remainingDirtySurfaceIds).toEqual(["visible", "prefetch"]);
     expect(result.budgetExhausted).toBe(true);
     expect(result.workSummary).toMatchObject({
-      initialDirtySurfaceCount: 3,
+      initialDirtySurfaceCount: 4,
       noUploadReason: null,
-      remainingDirtySurfaceCount: 1,
-      uploadableRemainingDirtySurfaceCount: 1,
+      remainingDirtySurfaceCount: 2,
+      uploadableRemainingDirtySurfaceCount: 2,
       uploadedSurfaceCount: 2,
     });
+  });
+
+  it("uploads never-drawn critical surfaces before repainting drawable critical surfaces", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+
+    registerNode(manager, "drawable-section", "critical");
+    manager.uploadDirtySurfaceTextures({ frame: 1, maxUploads: 1 });
+    manager.markSurfaceTextureDirty({
+      content: true,
+      frame: 2,
+      priority: "critical",
+      reason: "paint",
+      surfaceId: "drawable-section",
+    });
+    registerNode(manager, "cold-start-section", "critical");
+
+    const result = manager.uploadDirtySurfaceTextures({
+      frame: 3,
+      maxUploads: 1,
+    });
+
+    expect(result.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "cold-start-section",
+    ]);
+    expect(result.remainingDirtySurfaceIds).toEqual(["drawable-section"]);
+    expect(result.budgetExhausted).toBe(true);
+  });
+
+  it("completes critical tiled first uploads across the per-frame upload count cap", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureTileDimension2D: 128,
+    });
+
+    registerNode(manager, "cold-start-section", "critical", {
+      cssHeight: 200,
+      cssWidth: 300,
+    });
+
+    const result = manager.uploadDirtySurfaceTextures({
+      frame: 2,
+      maxUploads: 2,
+    });
+
+    expect(result).toMatchObject({
+      budgetExhausted: false,
+      remainingDirtySurfaceIds: [],
+      uploadedBytes: 300 * 200 * 4,
+    });
+    expect(result.diagnostics[0]).toMatchObject({
+      priority: "critical",
+      surfaceId: "cold-start-section",
+      uploadedTextureCount: 6,
+    });
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(6);
+  });
+
+  it("continues through critical first uploads after the upload loop count cap", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device, {
+      maxTextureTileDimension2D: 128,
+    });
+
+    registerNode(manager, "first-section", "critical", {
+      cssHeight: 200,
+      cssWidth: 300,
+    });
+    registerNode(manager, "second-section", "critical", {
+      cssHeight: 200,
+      cssWidth: 300,
+    });
+    registerNode(manager, "passive-section", "visible");
+
+    const result = manager.uploadDirtySurfaceTextures({
+      frame: 2,
+      maxUploads: 2,
+    });
+
+    expect(result.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "first-section",
+      "second-section",
+    ]);
+    expect(result.remainingDirtySurfaceIds).toEqual(["passive-section"]);
+    expect(result.budgetExhausted).toBe(true);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(12);
   });
 
   it("reports no dirty work when upload is requested with an empty queue", () => {
@@ -232,7 +322,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
   });
 
-  it("protects visible, explicit, interactive, and dirty-interactive records while evicting", () => {
+  it("protects visible, explicit, critical, interactive, and dirty high-priority records while evicting", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device, {
@@ -242,8 +332,16 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     registerNode(manager, "visible", "visible", { frame: 1 });
     registerNode(manager, "explicit", "visible", { frame: 2 });
     registerNode(manager, "interactive", "interactive", { frame: 3 });
-    registerNode(manager, "dirty-interactive", "visible", { frame: 4 });
+    registerNode(manager, "critical", "critical", { frame: 4 });
+    registerNode(manager, "dirty-critical", "visible", { frame: 5 });
+    registerNode(manager, "dirty-interactive", "visible", { frame: 6 });
     registerNode(manager, "candidate", "visible", { frame: 5 });
+    manager.markSurfaceTextureDirty({
+      content: true,
+      surfaceId: "dirty-critical",
+      priority: "critical",
+      reason: "paint",
+    });
     manager.markSurfaceTextureDirty({
       content: true,
       surfaceId: "dirty-interactive",
@@ -258,13 +356,15 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
 
     expect(result.evictedSurfaceIds).toEqual(["candidate"]);
     expect(result.memory).toMatchObject({
-      allocatedBytes: 1_600,
-      textureCount: 4,
+      allocatedBytes: 2_400,
+      textureCount: 6,
       visibleBytes: 400,
       visibleTextureCount: 1,
     });
-    expect(result.overBudgetBytes).toBe(1_200);
+    expect(result.overBudgetBytes).toBe(2_000);
     expect(result.protectedSurfaceIds).toEqual([
+      "critical",
+      "dirty-critical",
       "dirty-interactive",
       "explicit",
       "interactive",
@@ -273,7 +373,9 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     expect(manager.getCommittedSurfaceTexture("candidate")).toBeUndefined();
     expect(manager.getCommittedSurfaceTexture("visible")).toBeDefined();
     expect(manager.getCommittedSurfaceTexture("explicit")).toBeDefined();
+    expect(manager.getCommittedSurfaceTexture("critical")).toBeDefined();
     expect(manager.getCommittedSurfaceTexture("interactive")).toBeDefined();
+    expect(manager.getCommittedSurfaceTexture("dirty-critical")).toBeDefined();
     expect(
       manager.getCommittedSurfaceTexture("dirty-interactive"),
     ).toBeDefined();

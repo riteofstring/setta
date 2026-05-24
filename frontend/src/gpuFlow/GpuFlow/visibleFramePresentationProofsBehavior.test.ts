@@ -446,14 +446,14 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
   });
 
-  it("requests manual repair after section surface content blocks even when motion debt remains", () => {
+  it("requests texture upload after section surface content blocks before manual repair", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
       forceImmediatePublicationDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
       publicationDecision: {
-        debt: { content: false, maintenance: true, motion: true },
+        debt: { content: false, maintenance: false, motion: false },
         lane: "content",
         rawReasons: ["manual"],
         sample: projectionSample,
@@ -467,7 +467,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         },
         getKnobs: () => DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
         recordUncommittedFrame: () => ({
-          debt: { content: true, maintenance: true, motion: true },
+          debt: { content: true, maintenance: false, motion: false },
           outcome: "blocked",
         }),
       } as unknown as Parameters<
@@ -505,8 +505,8 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           debt: {
             browserVisual: false,
             content: true,
-            maintenance: true,
-            motion: true,
+            maintenance: false,
+            motion: false,
           },
           decidingProof: {
             actorId: "section-a:section-shell",
@@ -527,12 +527,12 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     expect(completion.outcome.kind).toBe("blocked");
     expect(completion.completeSchedulerFrame()).toEqual({
       completion: {
-        debt: { content: true, maintenance: true, motion: true },
+        debt: { content: true, maintenance: false, motion: false },
         outcome: "blocked",
       },
       debtFrameRequest: {
         delayMs: null,
-        frameReason: "manual",
+        frameReason: "texture-upload",
       },
     });
   });

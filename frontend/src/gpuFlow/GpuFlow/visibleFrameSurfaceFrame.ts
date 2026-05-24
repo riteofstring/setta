@@ -57,6 +57,7 @@ import type {
 } from "./visibleFramePresentationProofs";
 import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
 import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
+import { recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic } from "./visibleFrameSurfaceFrameDiagnostics";
 import type {
   GpuFlowVisibleFrameRequestCoordinator,
   GpuFlowVisiblePublicationDecision,
@@ -209,7 +210,7 @@ export function renderGpuFlowSurfaceFrame({
           input.visibleProjectionPublicationStateRef,
         visibleProjectionStateRef: input.visibleProjectionStateRef,
       });
-    runGpuFlowVisibleFrameCoordinator({
+    const coordinatorResult = runGpuFlowVisibleFrameCoordinator({
       budgetBroker: input.visibleFrameBudgetBrokerRef.current,
       prepareVisibleFrameResourcesForBudget:
         input.prepareVisibleFrameResourcesForBudget,
@@ -379,6 +380,15 @@ export function renderGpuFlowSurfaceFrame({
       },
       scheduler: input.visibleFrameCoordinatorRef.current,
     });
+    const schedulerCompletion = coordinatorResult.completeSchedulerFrame();
+    recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
+      coordinatorResult,
+      frame: input.frameRef.current,
+      frameReasons: event.reasons,
+      schedulerCompletion,
+    });
+    frameMeasureDetail.publicationDebtFrameReason =
+      schedulerCompletion.debtFrameRequest?.frameReason ?? null;
     finishCompletionMeasure();
     const visibleProjectionState = input.visibleProjectionStateRef.current;
     input.callbacksRef.current.onFrame?.(runtime, event);
@@ -725,6 +735,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
       liveProjectionSample,
       nodeElementByIdRef: input.nodeElementByIdRef,
       nodeLayerRef,
+      previousVisibleProjectionState,
       publicationDecision,
       retainedContentFrameCacheRef: input.retainedContentFrameCacheRef,
       retainedDisplayFrameRef: input.retainedDisplayFrameRef,
@@ -800,6 +811,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
   liveProjectionSample,
   nodeElementByIdRef,
   nodeLayerRef,
+  previousVisibleProjectionState,
   publicationDecision,
   retainedContentFrameCacheRef,
   retainedDisplayFrameRef,
@@ -811,6 +823,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
   readonly nodeElementByIdRef: RenderGpuFlowSurfaceFrameInput["nodeElementByIdRef"];
   readonly nodeLayerRef: RenderGpuFlowSurfaceFrameInput["nodeLayerRef"];
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly retainedContentFrameCacheRef: RenderGpuFlowSurfaceFrameInput["retainedContentFrameCacheRef"];
   readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
@@ -825,6 +838,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
     liveProjectionSample,
     nodeElementByIdRef,
     nodeLayerRef,
+    previousVisibleProjectionState,
     publicationDecision,
     retainedContentFrameCacheRef,
     retainedDisplayFrameRef,
@@ -838,6 +852,7 @@ function shouldSkipDeferredGpuFlowContentPublication({
   liveProjectionSample,
   nodeElementByIdRef,
   nodeLayerRef,
+  previousVisibleProjectionState,
   publicationDecision,
   retainedContentFrameCacheRef,
   retainedDisplayFrameRef,
@@ -848,6 +863,7 @@ function shouldSkipDeferredGpuFlowContentPublication({
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
   readonly nodeElementByIdRef: RenderGpuFlowSurfaceFrameInput["nodeElementByIdRef"];
   readonly nodeLayerRef: RenderGpuFlowSurfaceFrameInput["nodeLayerRef"];
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly retainedContentFrameCacheRef: RenderGpuFlowSurfaceFrameInput["retainedContentFrameCacheRef"];
   readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
@@ -858,6 +874,7 @@ function shouldSkipDeferredGpuFlowContentPublication({
     !shouldConsiderGpuFlowDeferredContentPublication({
       deferResolutionUpdates,
       hasPreviousRetainedDisplayFrame: retainedDisplayFrameRef.current !== null,
+      hasPreviousVisibleProjectionState: previousVisibleProjectionState !== null,
       publicationDecision,
     })
   ) {

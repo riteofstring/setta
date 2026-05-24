@@ -1,4 +1,5 @@
 import { expect, vi } from "vitest";
+import type { NodeTexturePriority } from "../dirtyTracking";
 import type { HtmlInCanvasCanvas } from "../htmlInCanvasTypes";
 import { HtmlSurfaceTextureManager } from "./textures";
 
@@ -79,7 +80,7 @@ export function installTextureUsage() {
 export function registerNode(
   manager: HtmlSurfaceTextureManager,
   surfaceId: string,
-  priority: "interactive" | "visible" | "prefetch",
+  priority: NodeTexturePriority,
   overrides: Partial<{
     readonly cssHeight: number;
     readonly cssWidth: number;

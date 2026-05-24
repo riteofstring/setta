@@ -11,12 +11,16 @@ import {
 
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
+import type { NodeTexturePriority } from "../dirtyTracking";
 import {
   clearGpuNodeDomTransformSyncCacheNode,
   type GpuHtmlSurfaceOverlayLayout,
   type GpuNodeDomTransformSyncCache,
 } from "../htmlSurfaces/frame";
-import { HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE } from "../htmlSurfaces/sourceDom";
+import {
+  HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE,
+  HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
+} from "../htmlSurfaces/sourceDom";
 import {
   HTML_SURFACE_SOURCE_CLASS_NAME,
   HtmlSurfaceSourceLayer,
@@ -39,6 +43,7 @@ const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_SIZE = 4;
 const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_DELAY_MS = 120;
 const noop = () => {};
 type GpuRetainedDomControlSnapshotSourceDiagnostic = {
+  readonly dirtySurface: unknown;
   readonly expectedTextureContentKey: string;
   readonly inPreparation: boolean;
   readonly lifecycle: unknown;
@@ -178,33 +183,13 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
         | undefined;
     };
     view.__settaGpuFlowDomControlSnapshotSourceDiagnostics = () =>
-      snapshotSources.map((source) => {
-        const surfaceId = getGpuRetainedDomControlSnapshotSourceId(source);
-        const textureManager = textureManagerRef.current;
-        const texture =
-          textureManager?.getCommittedSurfaceTexture(surfaceId) ?? null;
-        const lifecycle =
-          textureManager?.getSurfaceTextureLifecycleDiagnostics([
-            surfaceId,
-          ])?.[0] ?? null;
-        return {
-          expectedTextureContentKey: source.snapshotCacheKeyRevision,
-          inPreparation: preparationSnapshotSourceIds?.has(surfaceId) === true,
-          lifecycle,
-          sourceId: source.sourceId,
-          surfaceId,
-          texture: texture
-            ? {
-                dirtyContent: texture.dirtyContent,
-                dirtyResolution: texture.dirtyResolution,
-                lastUploadFrame: texture.lastUploadFrame,
-                textureContentKey: texture.textureContentKey,
-                textureContentKeyMatches:
-                  texture.textureContentKey === source.snapshotCacheKeyRevision,
-              }
-            : null,
-        };
-      });
+      snapshotSources.map((source) =>
+        createGpuRetainedDomControlSnapshotSourceDiagnostic({
+          preparationSnapshotSourceIds,
+          source,
+          textureManager: textureManagerRef.current,
+        }),
+      );
     return () => {
       if (view.__settaGpuFlowDomControlSnapshotSourceDiagnostics) {
         delete view.__settaGpuFlowDomControlSnapshotSourceDiagnostics;
@@ -236,6 +221,10 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
         return;
       }
       element.setAttribute(HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE, "true");
+      element.setAttribute(
+        HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
+        "true",
+      );
       nodeElementByIdRef.current.set(surfaceId, element);
       registerGpuFlowRetainedDomControlSnapshotTextureManager({
         committedSurfaceRuntime,
@@ -247,13 +236,18 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
         surfaceId,
       });
       surfaceRef.current?.requestPaint();
-      surfaceRef.current?.requestFrame("manual");
+      requestGpuFlowRetainedDomControlSnapshotSourceFrame({
+        preparationSnapshotSourceIds,
+        surface: surfaceRef.current,
+        surfaceId,
+      });
     },
     [
       browserVisualTextureManager,
       committedSurfaceRuntime,
       nodeDomTransformSyncCacheRef,
       nodeElementByIdRef,
+      preparationSnapshotSourceIds,
       surfaceRef,
       textureManagerRef,
       transformOnlyPaintNodeIdsRef,
@@ -261,36 +255,22 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
   );
   const handleSnapshotDraw = useCallback(
     (surfaceId: string, source: GpuRetainedDomControlSourceDescriptor) => {
-      const textureManager = textureManagerRef.current;
-      const element = nodeElementByIdRef.current.get(surfaceId);
-      const deferUploadUntilPaint = false;
-      if (textureManager && element) {
-        registerGpuFlowRetainedDomControlSnapshotSourceTexture({
-          deferUploadUntilPaint,
-          element,
-          source,
-          surfaceId,
-          textureManager,
-        });
-      }
-      textureManager?.markSurfaceTextureDirty({
-        content: true,
-        deferUploadUntilPaint,
-        reason: "content",
-        requestPaint: false,
-        surfaceId,
-      });
-      registerGpuFlowRetainedDomControlSnapshotTextureManager({
+      handleGpuRetainedDomControlSnapshotSourceDraw({
+        browserVisualTextureManager,
         committedSurfaceRuntime,
-        textureManager: browserVisualTextureManager,
+        element: nodeElementByIdRef.current.get(surfaceId),
+        preparationSnapshotSourceIds,
+        source,
+        surface: surfaceRef.current,
+        surfaceId,
+        textureManager: textureManagerRef.current,
       });
-      surfaceRef.current?.requestPaint();
-      surfaceRef.current?.requestFrame("manual");
     },
     [
       browserVisualTextureManager,
       committedSurfaceRuntime,
       nodeElementByIdRef,
+      preparationSnapshotSourceIds,
       surfaceRef,
       textureManagerRef,
     ],
@@ -308,6 +288,275 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
     ),
     retainedDomControlSnapshotSurfaces,
   };
+}
+
+function createGpuRetainedDomControlSnapshotSourceDiagnostic({
+  preparationSnapshotSourceIds,
+  source,
+  textureManager,
+}: {
+  readonly preparationSnapshotSourceIds: ReadonlySet<string> | undefined;
+  readonly source: GpuRetainedDomControlSourceDescriptor;
+  readonly textureManager: HtmlSurfaceTextureManager | null;
+}): GpuRetainedDomControlSnapshotSourceDiagnostic {
+  const surfaceId = getGpuRetainedDomControlSnapshotSourceId(source);
+  const managerDiagnostic =
+    createGpuRetainedDomControlSnapshotSourceManagerDiagnostic({
+      source,
+      surfaceId,
+      textureManager,
+    });
+  return {
+    ...managerDiagnostic,
+    expectedTextureContentKey: source.snapshotCacheKeyRevision,
+    inPreparation: preparationSnapshotSourceIds?.has(surfaceId) === true,
+    sourceId: source.sourceId,
+    surfaceId,
+  };
+}
+
+function createGpuRetainedDomControlSnapshotSourceManagerDiagnostic({
+  source,
+  surfaceId,
+  textureManager,
+}: {
+  readonly source: GpuRetainedDomControlSourceDescriptor;
+  readonly surfaceId: string;
+  readonly textureManager: HtmlSurfaceTextureManager | null;
+}) {
+  if (!textureManager) {
+    return { dirtySurface: null, lifecycle: null, texture: null };
+  }
+  const texture = textureManager.getCommittedSurfaceTexture(surfaceId) ?? null;
+  return {
+    dirtySurface:
+      textureManager
+        .getDirtySurfaces()
+        .find((surface) => surface.surfaceId === surfaceId) ?? null,
+    lifecycle:
+      textureManager.getSurfaceTextureLifecycleDiagnostics([surfaceId])?.[0] ??
+      null,
+    texture: texture
+      ? createGpuRetainedDomControlSnapshotTextureDiagnostic({
+          source,
+          texture,
+        })
+      : null,
+  };
+}
+
+function createGpuRetainedDomControlSnapshotTextureDiagnostic({
+  source,
+  texture,
+}: {
+  readonly source: GpuRetainedDomControlSourceDescriptor;
+  readonly texture: NonNullable<
+    ReturnType<HtmlSurfaceTextureManager["getCommittedSurfaceTexture"]>
+  >;
+}) {
+  return {
+    dirtyContent: texture.dirtyContent,
+    dirtyResolution: texture.dirtyResolution,
+    lastUploadFrame: texture.lastUploadFrame,
+    textureContentKey: texture.textureContentKey,
+    textureContentKeyMatches:
+      texture.textureContentKey === source.snapshotCacheKeyRevision,
+  };
+}
+
+function handleGpuRetainedDomControlSnapshotSourceDraw({
+  browserVisualTextureManager,
+  committedSurfaceRuntime,
+  element,
+  preparationSnapshotSourceIds,
+  source,
+  surface,
+  surfaceId,
+  textureManager,
+}: {
+  readonly browserVisualTextureManager: HtmlSurfaceTextureManager | null;
+  readonly committedSurfaceRuntime: GpuFlowCommittedSurfaceRuntime | undefined;
+  readonly element: HTMLElement | undefined;
+  readonly preparationSnapshotSourceIds: ReadonlySet<string> | undefined;
+  readonly source: GpuRetainedDomControlSourceDescriptor;
+  readonly surface: GpuSurfaceHandle | null;
+  readonly surfaceId: string;
+  readonly textureManager: HtmlSurfaceTextureManager | null;
+}): void {
+  const deferUploadUntilPaint = true;
+  const priority: NodeTexturePriority =
+    preparationSnapshotSourceIds?.has(surfaceId) === true
+      ? "interactive"
+      : "visible";
+  const shouldMarkDirty =
+    !textureManager ||
+    shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty({
+      source,
+      surfaceId,
+      textureManager,
+    });
+  registerGpuFlowRetainedDomControlSnapshotDrawTexture({
+    deferUploadUntilPaint,
+    element,
+    priority,
+    source,
+    surfaceId,
+    textureManager,
+  });
+  markGpuFlowRetainedDomControlSnapshotDrawTextureDirty({
+    deferUploadUntilPaint,
+    priority,
+    shouldMarkDirty,
+    surfaceId,
+    textureManager,
+  });
+  registerGpuFlowRetainedDomControlSnapshotTextureManager({
+    committedSurfaceRuntime,
+    textureManager: browserVisualTextureManager,
+  });
+  requestGpuFlowRetainedDomControlSnapshotDrawFollowUp({
+    preparationSnapshotSourceIds,
+    shouldMarkDirty,
+    surface,
+    surfaceId,
+  });
+}
+
+function registerGpuFlowRetainedDomControlSnapshotDrawTexture({
+  deferUploadUntilPaint,
+  element,
+  priority,
+  source,
+  surfaceId,
+  textureManager,
+}: {
+  readonly deferUploadUntilPaint: boolean;
+  readonly element: HTMLElement | undefined;
+  readonly priority: NodeTexturePriority;
+  readonly source: GpuRetainedDomControlSourceDescriptor;
+  readonly surfaceId: string;
+  readonly textureManager: HtmlSurfaceTextureManager | null;
+}): void {
+  if (!textureManager || !element) {
+    return;
+  }
+  registerGpuFlowRetainedDomControlSnapshotSourceTexture({
+    deferUploadUntilPaint,
+    element,
+    priority,
+    source,
+    surfaceId,
+    textureManager,
+  });
+}
+
+function markGpuFlowRetainedDomControlSnapshotDrawTextureDirty({
+  deferUploadUntilPaint,
+  priority,
+  shouldMarkDirty,
+  surfaceId,
+  textureManager,
+}: {
+  readonly deferUploadUntilPaint: boolean;
+  readonly priority: NodeTexturePriority;
+  readonly shouldMarkDirty: boolean;
+  readonly surfaceId: string;
+  readonly textureManager: HtmlSurfaceTextureManager | null;
+}): void {
+  if (!shouldMarkDirty) {
+    return;
+  }
+  textureManager?.markSurfaceTextureDirty({
+    content: true,
+    deferUploadUntilPaint,
+    priority,
+    reason: "content",
+    requestPaint: false,
+    surfaceId,
+  });
+}
+
+function requestGpuFlowRetainedDomControlSnapshotDrawFollowUp({
+  preparationSnapshotSourceIds,
+  shouldMarkDirty,
+  surface,
+  surfaceId,
+}: {
+  readonly preparationSnapshotSourceIds: ReadonlySet<string> | undefined;
+  readonly shouldMarkDirty: boolean;
+  readonly surface: GpuSurfaceHandle | null;
+  readonly surfaceId: string;
+}): void {
+  if (!shouldMarkDirty) {
+    return;
+  }
+  surface?.requestPaint();
+  requestGpuFlowRetainedDomControlSnapshotSourceFrame({
+    preparationSnapshotSourceIds,
+    surface,
+    surfaceId,
+  });
+}
+
+export function shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty({
+  source,
+  surfaceId,
+  textureManager,
+}: {
+  readonly source: Pick<
+    GpuRetainedDomControlSourceDescriptor,
+    "snapshotCacheKeyRevision"
+  >;
+  readonly surfaceId: string;
+  readonly textureManager: Pick<
+    HtmlSurfaceTextureManager,
+    "getCommittedSurfaceTexture"
+  >;
+}): boolean {
+  const texture = textureManager.getCommittedSurfaceTexture(surfaceId);
+  return (
+    !texture ||
+    texture.lastUploadFrame < 0 ||
+    texture.textureContentKey !== source.snapshotCacheKeyRevision
+  );
+}
+
+export function requestGpuFlowRetainedDomControlSnapshotSourceFrame({
+  preparationSnapshotSourceIds,
+  scheduleFollowUpFrame = scheduleGpuFlowRetainedDomControlSnapshotSourceFollowUpFrame,
+  surface,
+  surfaceId,
+}: {
+  readonly preparationSnapshotSourceIds?: ReadonlySet<string> | undefined;
+  readonly scheduleFollowUpFrame?: ((callback: () => void) => void) | undefined;
+  readonly surface: Pick<GpuSurfaceHandle, "requestFrame"> | null | undefined;
+  readonly surfaceId: string;
+}) {
+  if (!surface) {
+    return;
+  }
+  if (preparationSnapshotSourceIds?.has(surfaceId) === true) {
+    surface.requestFrame("texture-upload");
+    scheduleFollowUpFrame(() => {
+      surface.requestFrame("manual");
+      surface.requestFrame("texture-upload");
+    });
+    return;
+  }
+  surface.requestFrame("manual");
+  surface.requestFrame("texture-upload");
+}
+
+function scheduleGpuFlowRetainedDomControlSnapshotSourceFollowUpFrame(
+  callback: () => void,
+): void {
+  if (typeof globalThis.requestAnimationFrame === "function") {
+    globalThis.requestAnimationFrame(() => {
+      globalThis.requestAnimationFrame(() => callback());
+    });
+    return;
+  }
+  globalThis.setTimeout(callback, 0);
 }
 
 function getGpuRetainedDomControlSnapshotSources(
@@ -355,12 +604,14 @@ function registerGpuFlowRetainedDomControlSnapshotElement({
 export function registerGpuFlowRetainedDomControlSnapshotSourceTexture({
   deferUploadUntilPaint = true,
   element,
+  priority,
   source,
   surfaceId,
   textureManager,
 }: {
   readonly deferUploadUntilPaint?: boolean | undefined;
   readonly element: Element;
+  readonly priority?: NodeTexturePriority | undefined;
   readonly source: GpuRetainedDomControlSourceDescriptor;
   readonly surfaceId: string;
   readonly textureManager: Pick<
@@ -374,6 +625,7 @@ export function registerGpuFlowRetainedDomControlSnapshotSourceTexture({
     deferUploadUntilPaint,
     devicePixelRatio: source.snapshotCacheKey.devicePixelRatioBucket,
     element,
+    ...(priority === undefined ? {} : { priority }),
     surfaceId,
     textureContentKey: source.snapshotCacheKeyRevision,
     zoom: source.snapshotCacheKey.zoomBucket,
@@ -680,16 +932,17 @@ function getGpuRetainedDomControlSnapshotSourceId(
   );
 }
 
-function configureGpuRetainedDomControlSnapshotSourceElement({
+export function configureGpuRetainedDomControlSnapshotSourceElement({
   host,
   source,
 }: HtmlSurfaceSourceElementConfig<GpuRetainedDomControlSourceDescriptor>) {
   host.dataset.gpuFlowDomControlSnapshotSource = "true";
   host.dataset.gpuFlowDomControlId = source.sourceId;
   host.setAttribute(HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE, "true");
+  host.setAttribute(HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE, "true");
   host.setAttribute("aria-hidden", "true");
   host.style.height = `${source.sourceRectCssPx.height}px`;
   host.style.pointerEvents = "none";
   host.style.width = `${source.sourceRectCssPx.width}px`;
-  host.style.zIndex = "-1";
+  host.style.removeProperty("z-index");
 }

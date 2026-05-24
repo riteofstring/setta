@@ -1,4 +1,8 @@
-export type NodeTexturePriority = "interactive" | "visible" | "prefetch";
+export type NodeTexturePriority =
+  | "critical"
+  | "interactive"
+  | "visible"
+  | "prefetch";
 
 export type DirtyNodeWorkKind =
   | "animation"
@@ -57,9 +61,10 @@ type MutableDirtyNodeState = Omit<DirtyNodeState, "reasons" | "workKinds"> & {
 };
 
 const PRIORITY_RANK: Record<NodeTexturePriority, number> = {
-  interactive: 0,
-  visible: 1,
-  prefetch: 2,
+  critical: 0,
+  interactive: 1,
+  visible: 2,
+  prefetch: 3,
 };
 const DIRTY_REASON_WORK_KIND: Record<DirtyNodeReason, DirtyNodeWorkKind> = {
   animation: "animation",
@@ -142,6 +147,13 @@ function comparePriority(
   right: NodeTexturePriority,
 ): number {
   return PRIORITY_RANK[left] - PRIORITY_RANK[right];
+}
+
+export function compareNodeTexturePriority(
+  left: NodeTexturePriority,
+  right: NodeTexturePriority,
+): number {
+  return comparePriority(left, right);
 }
 
 function compareDirtyKind(

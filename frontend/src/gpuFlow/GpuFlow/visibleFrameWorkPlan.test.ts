@@ -79,6 +79,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
+        hasPreviousVisibleProjectionState: true,
         publicationDecision: publicationDecision({
           lane: "content",
           schedulerState: "motion-settling",
@@ -89,6 +90,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
+        hasPreviousVisibleProjectionState: true,
         publicationDecision: publicationDecision({
           lane: "motion",
           schedulerState: "motion-settling",
@@ -99,6 +101,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
+        hasPreviousVisibleProjectionState: true,
         publicationDecision: publicationDecision({
           lane: "content",
           rawReasons: ["texture-upload", "manual"],
@@ -110,6 +113,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
+        hasPreviousVisibleProjectionState: true,
         publicationDecision: publicationDecision({
           lane: "content",
           rawReasons: ["texture-upload", "dom-control-activation"],
@@ -121,9 +125,22 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
+        hasPreviousVisibleProjectionState: true,
         publicationDecision: publicationDecision({
           lane: "content",
           rawReasons: ["texture-upload", "retained-native-visual"],
+          schedulerState: "content-catchup",
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPublication({
+        deferResolutionUpdates: true,
+        hasPreviousRetainedDisplayFrame: true,
+        hasPreviousVisibleProjectionState: false,
+        publicationDecision: publicationDecision({
+          lane: "content",
+          rawReasons: ["texture-upload", "manual"],
           schedulerState: "content-catchup",
         }),
       }),

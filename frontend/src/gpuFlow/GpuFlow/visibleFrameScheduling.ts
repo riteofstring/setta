@@ -37,6 +37,7 @@ import {
   assertGpuFlowHoldPreviousTokenForProjectionSample,
 } from "./visibleFramePresentationTokens";
 import { createGpuFlowVisiblePublicationDecisionForLane } from "./visibleFramePublicationDecision";
+import { shouldDrainGpuFlowBrowserVisualMaintenanceNow } from "./visibleFrameMaintenanceScheduling";
 import {
   createGpuFlowVisibleFrameStarvationPolicy,
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
@@ -146,6 +147,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
   let consecutiveMotionFrames = 0;
 
   function currentState({
+    browserVisualContentRepairBlocked,
     browserVisualContentRepairReady,
     contentBlockedRetryDeferred,
     contentRetryDeferred,
@@ -154,6 +156,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     timestamp,
     viewportInteractionActive,
   }: {
+    readonly browserVisualContentRepairBlocked: boolean;
     readonly browserVisualContentRepairReady: boolean;
     readonly contentBlockedRetryDeferred: boolean;
     readonly contentRetryDeferred: boolean;
@@ -164,6 +167,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
   }): GpuFlowProjectionSchedulerState {
     const motionSettling = isGpuFlowProjectionMotionSettling(timestamp);
     const priorityState = selectGpuFlowProjectionPrioritySchedulerState({
+      browserVisualContentRepairBlocked,
       browserVisualContentRepairReady,
       contentBlockedRetryDeferred,
       contentRetryDeferred,
@@ -185,6 +189,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
   }
 
   function selectGpuFlowProjectionPrioritySchedulerState({
+    browserVisualContentRepairBlocked,
     browserVisualContentRepairReady,
     contentBlockedRetryDeferred,
     contentRetryDeferred,
@@ -195,6 +200,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     timestamp,
     viewportInteractionActive,
   }: {
+    readonly browserVisualContentRepairBlocked: boolean;
     readonly browserVisualContentRepairReady: boolean;
     readonly contentBlockedRetryDeferred: boolean;
     readonly contentRetryDeferred: boolean;
@@ -205,6 +211,17 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
   }): GpuFlowProjectionSchedulerState | null {
+    if (
+      shouldDrainGpuFlowBrowserVisualMaintenanceNow({
+        browserVisualContentRepairBlocked,
+        contentDebt,
+        maintenanceDebt,
+        rawReasons,
+        viewportInteractionActive,
+      })
+    ) {
+      return "maintenance-drain";
+    }
     if (
       shouldSelectGpuFlowProjectionPriorityContentCatchup({
         browserVisualContentRepairReady,
@@ -257,8 +274,12 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     ) {
       return "maintenance-deferred";
     }
-    if (motionSettling && !contentDebt) {
-      return "motion-settling";
+    const motionSettlingState = selectGpuFlowProjectionMotionSettlingState({
+      contentDebt,
+      motionSettling,
+    });
+    if (motionSettlingState !== null) {
+      return motionSettlingState;
     }
     if (
       shouldPublishGpuFlowProjectionContentDebtNow({
@@ -273,7 +294,6 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     }
     return null;
   }
-
   function shouldSelectGpuFlowProjectionPriorityContentCatchup({
     browserVisualContentRepairReady,
     contentRetryDeferred,
@@ -302,6 +322,16 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
         viewportInteractionActive,
       })
     );
+  }
+
+  function selectGpuFlowProjectionMotionSettlingState({
+    contentDebt,
+    motionSettling,
+  }: {
+    readonly contentDebt: boolean;
+    readonly motionSettling: boolean;
+  }): GpuFlowProjectionSchedulerState | null {
+    return motionSettling && !contentDebt ? "motion-settling" : null;
   }
 
   function shouldDeferGpuFlowProjectionMaintenanceDebt({
@@ -694,6 +724,8 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     const { contentRetryDeferred } = contentRetryBlock;
     const { motionRetryDeferred } = motionRetryBlock;
     const schedulerState = currentState({
+      browserVisualContentRepairBlocked:
+        contentRetryBlockedByBrowserVisualResource,
       browserVisualContentRepairReady:
         contentRetryBlockedByBrowserVisualResource && !contentRetryDeferred,
       contentBlockedRetryDeferred:

@@ -5,6 +5,7 @@ import {
   createGpuFlowVisibleFrameBudgetBroker,
   createGpuFlowVisibleFrameBudgetBrokerDecision,
   createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph,
+  createGpuFlowVisibleFrameSelectedResourceWorkKeys,
   shouldDeferGpuFlowBrowserVisualRepairForBudget,
 } from "./visibleFrameBudgetBroker";
 
@@ -290,6 +291,58 @@ describe("GPU Flow visible frame budget broker", () => {
     expect(decision.preparationBudget.deferredDebtByLane).toEqual({
       "retained-page": ["page:quality-prefetch"],
     });
+  });
+
+  it("maps selected synthetic browser-visual repair to newly queued resource work", () => {
+    const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
+      deferResolutionUpdates: false,
+      publicationDecision: publicationDecision({
+        lane: "content",
+        schedulerState: "content-catchup",
+      }),
+    });
+
+    expect(decision.preparationBudget.selectedDebtIds).toContain(
+      "browser-visual-repair",
+    );
+    expect(decision.preparationBudget.selectedResourceDebtIds).toEqual([]);
+    expect(
+      createGpuFlowVisibleFrameSelectedResourceWorkKeys({
+        budgetDecision: decision,
+        resourceGraphSnapshot: {
+          activeEditorPins: [],
+          candidateResourceKeys: [
+            "dom-control-snapshot:retained-text-control",
+          ],
+          committedFrameId: null,
+          committedResourceKeys: [],
+          pendingCandidateFrameIds: [10],
+          queuedResourceKeys: [
+            "dom-control-snapshot:retained-text-control",
+          ],
+          resourceDebtByState: {
+            absent: 0,
+            preparing: 0,
+            presented: 0,
+            ready: 0,
+            requested: 1,
+            retired: 0,
+          },
+          resourceStates: [
+            {
+              debtAgeFrames: 0,
+              deadlineFrame: 2,
+              estimatedCostMs: 1.5,
+              ownerFrameId: 10,
+              preparationLane: "browser-visual",
+              priority: "safety",
+              resourceKey: "dom-control-snapshot:retained-text-control",
+              state: "requested",
+            },
+          ],
+        },
+      }),
+    ).toEqual(["dom-control-snapshot:retained-text-control"]);
   });
 
   it("uses concrete browser-visual resource debt instead of synthetic repair placeholders", () => {

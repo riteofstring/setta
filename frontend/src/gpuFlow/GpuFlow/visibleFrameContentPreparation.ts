@@ -2,20 +2,23 @@ import type { GpuFlowCommittedSurfacePublicationFramePlanPreparation } from "./v
 
 export function prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate<
   OverlayTextureInput,
+  OverlayTextureResult,
 >({
   input,
   prepareOverlayTextures,
   publicationPreparation,
 }: {
   readonly input: OverlayTextureInput;
-  readonly prepareOverlayTextures: (input: OverlayTextureInput) => void;
+  readonly prepareOverlayTextures: (
+    input: OverlayTextureInput,
+  ) => OverlayTextureResult;
   readonly publicationPreparation: Pick<
     GpuFlowCommittedSurfacePublicationFramePlanPreparation,
     "shouldPrepareHtmlSurfaceOverlayTextures"
   >;
-}): void {
+}): OverlayTextureResult | undefined {
   if (!publicationPreparation.shouldPrepareHtmlSurfaceOverlayTextures) {
     return;
   }
-  prepareOverlayTextures(input);
+  return prepareOverlayTextures(input);
 }

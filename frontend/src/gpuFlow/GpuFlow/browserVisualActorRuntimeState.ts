@@ -30,7 +30,7 @@ export const EMPTY_DOM_ISLANDS: readonly GpuDomIsland[] = Object.freeze([]);
 
 const GPU_FLOW_BROWSER_VISUAL_LIVE_PREPARATION_BATCH_SIZE = 4;
 const GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_PREPARATION_BATCH_SIZE = 64;
-const GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_STAGE_BATCH_SIZE = 4;
+const GPU_FLOW_BROWSER_VISUAL_SNAPSHOT_STAGE_BATCH_SIZE = 16;
 
 export function createEmptyBrowserVisualActorRuntimeSnapshot(): GpuFlowBrowserVisualActorRuntimeSnapshot {
   const frameIds = Object.freeze({
@@ -275,6 +275,9 @@ function getGpuFlowBrowserVisualRepairActorIds(
   token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
 ): ReadonlySet<string> | null {
   if (!("blockedReasons" in token)) {
+    return null;
+  }
+  if (token.frozenFrame.kind === "cold-start-shell") {
     return null;
   }
   const actorIds = token.blockedReasons.flatMap((reason) =>

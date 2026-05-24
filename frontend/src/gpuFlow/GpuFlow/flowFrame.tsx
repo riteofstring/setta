@@ -67,8 +67,14 @@ import {
   reportGpuFlowNodeLayerFramePerformance,
   type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
+import { getGpuFlowCommittedSurfaceForceVisibleNodeIds } from "./flowForcedVisibleNodeIds";
 import { combineGpuFlowHtmlSurfaceNativeVisuals } from "./flowFrameVisuals";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
+import {
+  requestGpuFlowDirtySurfaceTextureUploadFollowUp,
+  shouldUploadGpuFlowMaintenanceDirtySurfaceTexturesEarly,
+  uploadGpuFlowMaintenanceDirtySurfaceTextures,
+} from "./flowMaintenanceTextureUpload";
 import {
   createGpuFlowRenderedSceneNodeIds,
   createGpuFlowRetainedRuntimeFrameSourceSignature,
@@ -646,6 +652,20 @@ export function renderGpuFlowNodeLayerFrame({
     onRetainedPreparedRuntimeFrame,
     retainedRuntimeFrame,
   );
+  if (
+    shouldUploadGpuFlowMaintenanceDirtySurfaceTexturesEarly({
+      frameReasons,
+      publicationLane,
+    })
+  ) {
+    uploadGpuFlowMaintenanceDirtySurfaceTextures({
+      deferResolutionUpdates,
+      frame,
+      surfaceRef,
+      textureManager: resources.textureManager,
+      uploadBudget: layer.uploadBudget,
+    });
+  }
   const previousRetainedDisplayFrame = retainedDisplayFrameRef.current;
   return runRetainedCommittedSurfacePublicationContentStage<
     GpuFlowRetainedCommittedSurfacePublicationRenderContext,
@@ -699,20 +719,27 @@ export function renderGpuFlowNodeLayerFrame({
               preparedCommittedSurfaceFrame,
             ),
         });
-      prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
-        input: {
-          canvasSize,
-          deferResolutionUpdates,
-          elementByNodeId: nodeElementByIdRef.current,
-          frame,
-          htmlSurfaceOverlays,
-          marginCssPx: layer.marginCssPx,
-          textureManager: resources.textureManager,
-          uploadBudget: layer.uploadBudget,
-          viewport: liveProjectionSample.viewport,
-        },
-        prepareOverlayTextures: prepareHtmlSurfaceOverlayTextures,
-        publicationPreparation: committedSurfacePublicationPreparation,
+      const overlayTextureWork =
+        prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
+          input: {
+            canvasSize,
+            deferResolutionUpdates,
+            elementByNodeId: nodeElementByIdRef.current,
+            frame,
+            htmlSurfaceOverlays,
+            marginCssPx: layer.marginCssPx,
+            textureManager: resources.textureManager,
+            uploadBudget: layer.uploadBudget,
+            viewport: liveProjectionSample.viewport,
+          },
+          prepareOverlayTextures: prepareHtmlSurfaceOverlayTextures,
+          publicationPreparation: committedSurfacePublicationPreparation,
+        });
+      requestGpuFlowDirtySurfaceTextureUploadFollowUp({
+        retryDeferredUploads: frameReasons.includes("texture-upload"),
+        source: "candidate-overlay",
+        surfaceRef,
+        uploadResult: overlayTextureWork?.uploadResult,
       });
     },
     onCommittedSurfaceCandidateAccepted: ({
@@ -762,7 +789,10 @@ export function renderGpuFlowNodeLayerFrame({
         edges: layer.edges,
         edgePalette: layer.edgePalette,
         elementByNodeId: nodeElementByIdRef.current,
-        forceVisibleNodeIds: layer.forceVisibleNodeIds,
+        forceVisibleNodeIds: getGpuFlowCommittedSurfaceForceVisibleNodeIds(
+          layer.forceVisibleNodeIds,
+          preparedCommittedSurfaceFrame,
+        ),
         frame,
         grid: layer.grid,
         htmlSurfaceOverlays,

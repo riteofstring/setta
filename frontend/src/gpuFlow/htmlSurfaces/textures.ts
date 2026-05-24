@@ -83,6 +83,12 @@ import {
   type HtmlSurfaceTextureUploadWorkSummary,
   type UploadDirtyHtmlSurfaceTexturesResult,
 } from "./textureUploadDiagnostics";
+import {
+  isProtectedTexturePriority,
+  orderDirtySurfacesForUpload,
+  shouldBypassUploadLoopBudgetForCriticalFirstUpload,
+  shouldCompleteCriticalFirstUpload,
+} from "./textureUploadOrdering";
 
 export type {
   CommittedHtmlSurfaceTextureSnapshot,
@@ -581,14 +587,21 @@ export class HtmlSurfaceTextureManager {
     let uploadedBytes = 0;
     let uploadedTextureCount = 0;
 
-    for (const dirtySurface of this.dirtyQueue.orderedDirtyNodes()) {
+    for (const dirtySurface of orderDirtySurfacesForUpload(
+      this.dirtyQueue.orderedDirtyNodes(),
+      this.records,
+    )) {
       if (
         shouldStopUploadLoop({
           options,
           startedAt,
           uploadedBytes,
           uploadedTextureCount,
-        })
+        }) &&
+        !shouldBypassUploadLoopBudgetForCriticalFirstUpload(
+          dirtySurface,
+          this.records,
+        )
       ) {
         break;
       }
@@ -660,6 +673,10 @@ export class HtmlSurfaceTextureManager {
       );
     } catch (error: unknown) {
       if (isMissingElementPaintRecordError(error)) {
+        recordHtmlSurfacePaintUnavailableUpload({
+          error,
+          surfaceId: dirtySurface.nodeId,
+        });
         this.canvas?.requestPaint();
         return "paint-unavailable";
       }
@@ -682,6 +699,7 @@ export class HtmlSurfaceTextureManager {
     );
     const uploadStartedAt = options.now();
     const upload = this.uploadRecord(
+      dirtySurface,
       handle,
       options,
       uploadProgress,
@@ -784,6 +802,7 @@ export class HtmlSurfaceTextureManager {
   }
 
   private uploadRecord(
+    dirtySurface: DirtyNodeState,
     handle: HtmlSurfaceTextureHandle,
     options: ResolvedUploadDirtyHtmlSurfaceTexturesOptions,
     uploadProgress: Pick<
@@ -808,10 +827,16 @@ export class HtmlSurfaceTextureManager {
     const uploadBudget = createTextureUploadBudget(options, uploadProgress);
     const committed = handle.committed;
     const hadCompleteTexture = committed.lastUploadFrame >= 0;
+    const resolvedUploadBudget = shouldCompleteCriticalFirstUpload(
+      dirtySurface,
+      committed,
+    )
+      ? { ...uploadBudget, maxUploads: Number.POSITIVE_INFINITY }
+      : uploadBudget;
     const upload = uploadHtmlSurfaceTextureSnapshot(
       queue,
       { ...committed, element: handle.element },
-      uploadBudget,
+      resolvedUploadBudget,
       dirtySourceRect,
     );
     if (upload.uploadedTextureCount === 0) {
@@ -900,12 +925,12 @@ export class HtmlSurfaceTextureManager {
       ...normalizeSurfaceIdSet(protectedSurfaceIds),
     ]);
     for (const record of this.records.values()) {
-      if (record.committed.priority === "interactive") {
+      if (isProtectedTexturePriority(record.committed.priority)) {
         protectedIds.add(record.committed.surfaceId);
       }
     }
     for (const dirtySurface of this.dirtyQueue.orderedDirtyNodes()) {
-      if (dirtySurface.priority === "interactive") {
+      if (isProtectedTexturePriority(dirtySurface.priority)) {
         protectedIds.add(dirtySurface.nodeId);
       }
     }
@@ -919,6 +944,32 @@ export class HtmlSurfaceTextureManager {
       .filter((record) => !protectedSurfaceIds.has(record.committed.surfaceId))
       .sort(compareEvictableSurfaceTextureRecords);
   }
+}
+
+function recordHtmlSurfacePaintUnavailableUpload({
+  error,
+  surfaceId,
+}: {
+  readonly error: unknown;
+  readonly surfaceId: string;
+}): void {
+  const errorRecord =
+    error && typeof error === "object"
+      ? (error as { readonly message?: unknown; readonly name?: unknown })
+      : null;
+  const view = globalThis as typeof globalThis & {
+    __SETTA_GPU_FLOW_HTML_SURFACE_PAINT_UNAVAILABLE_UPLOADS__?: unknown[];
+  };
+  const records =
+    view.__SETTA_GPU_FLOW_HTML_SURFACE_PAINT_UNAVAILABLE_UPLOADS__ ?? [];
+  records.push({
+    message:
+      typeof errorRecord?.message === "string" ? errorRecord.message : "",
+    name: typeof errorRecord?.name === "string" ? errorRecord.name : "",
+    surfaceId,
+  });
+  view.__SETTA_GPU_FLOW_HTML_SURFACE_PAINT_UNAVAILABLE_UPLOADS__ =
+    records.slice(-20);
 }
 
 export function createHtmlSurfaceTextureManager(

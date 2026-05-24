@@ -48,8 +48,12 @@ function mergeGpuFlowSceneNodeTextureMetadata({
   delete baseNode.textureCssHeight;
   delete baseNode.textureCssWidth;
   delete baseNode.textureSourceRect;
+  delete baseNode.actorKind;
   return {
     ...baseNode,
+    ...(sceneNode.actorKind === undefined
+      ? {}
+      : { actorKind: sceneNode.actorKind }),
     ...(sceneNode.textureContentKey === undefined
       ? {}
       : { textureContentKey: sceneNode.textureContentKey }),

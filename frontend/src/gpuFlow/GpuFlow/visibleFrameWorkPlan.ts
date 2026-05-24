@@ -88,14 +88,17 @@ export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
 export function shouldConsiderGpuFlowDeferredContentPublication({
   deferResolutionUpdates,
   hasPreviousRetainedDisplayFrame,
+  hasPreviousVisibleProjectionState,
   publicationDecision,
 }: {
   readonly deferResolutionUpdates: boolean;
   readonly hasPreviousRetainedDisplayFrame: boolean;
+  readonly hasPreviousVisibleProjectionState: boolean;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }): boolean {
   return (
     deferResolutionUpdates &&
+    hasPreviousVisibleProjectionState &&
     publicationDecision.lane !== "motion" &&
     hasPreviousRetainedDisplayFrame &&
     (publicationDecision.schedulerState === "motion-settling" ||

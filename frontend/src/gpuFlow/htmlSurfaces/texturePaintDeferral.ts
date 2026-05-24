@@ -21,6 +21,7 @@ export class HtmlSurfaceTexturePaintDeferral {
 
   markDirty(input: PaintDeferredDirtySurface) {
     if (!input.deferUploadUntilPaint) {
+      this.pendingSurfacePaintGenerations.delete(input.surfaceId);
       return;
     }
     this.pendingSurfacePaintGenerations.set(

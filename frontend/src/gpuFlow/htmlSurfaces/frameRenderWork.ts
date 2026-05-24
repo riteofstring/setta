@@ -1,6 +1,7 @@
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 import type { GpuEdgePaletteInput, GpuGridInput } from "../gpuPipelines";
 import type { GpuCanvasSize } from "../gpuRenderer";
+import type { NodeTexturePriority } from "../dirtyTracking";
 import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 import type {
   GpuHtmlSurfaceOverlayLayout,
@@ -349,10 +350,10 @@ function registerVisibleGpuNodeTextures({
       devicePixelRatio,
       element: captureElement,
       frame,
-      priority: resolveVisibleNodeTexturePriority(
-        quad.nodeId,
+      priority: resolveGpuVisibleSurfaceTexturePriority({
         activeSurfaceIds,
-      ),
+        quad,
+      }),
       surfaceId: quad.nodeId,
       ...(quad.textureContentKey
         ? { textureContentKey: quad.textureContentKey }
@@ -364,6 +365,19 @@ function registerVisibleGpuNodeTextures({
     });
   }
   return missingElementNodeIds;
+}
+
+function resolveGpuVisibleSurfaceTexturePriority({
+  activeSurfaceIds,
+  quad,
+}: {
+  readonly activeSurfaceIds: ReadonlySet<string>;
+  readonly quad: Pick<GpuVisibleNodeQuad, "actorKind" | "nodeId">;
+}): NodeTexturePriority {
+  if (quad.actorKind === "dom-section") {
+    return "critical";
+  }
+  return resolveVisibleNodeTexturePriority(quad.nodeId, activeSurfaceIds);
 }
 
 function resolveHtmlSurfaceTextureCaptureElement({

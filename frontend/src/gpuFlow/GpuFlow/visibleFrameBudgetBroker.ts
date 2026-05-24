@@ -208,6 +208,56 @@ export function shouldDeferGpuFlowBrowserVisualRepairForBudget(
     .browserVisualRepair.eligible;
 }
 
+export function createGpuFlowVisibleFrameSelectedResourceWorkKeys({
+  budgetDecision,
+  resourceGraphSnapshot,
+}: {
+  readonly budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision;
+  readonly resourceGraphSnapshot: GpuFlowVisibleFrameResourceGraphSnapshot;
+}): readonly string[] {
+  const selectedResourceDebtIds = [
+    ...budgetDecision.preparationBudget.selectedResourceDebtIds,
+  ];
+  if (
+    !budgetDecision.preparationBudget.selectedDebtIds.includes(
+      "browser-visual-repair",
+    )
+  ) {
+    return Object.freeze(selectedResourceDebtIds);
+  }
+  const resourceStateByKey = new Map(
+    resourceGraphSnapshot.resourceStates.map((state) => [
+      state.resourceKey,
+      state,
+    ]),
+  );
+  if (
+    selectedResourceDebtIds.some(
+      (resourceKey) =>
+        resourceStateByKey.get(resourceKey)?.preparationLane ===
+        "browser-visual",
+    )
+  ) {
+    return Object.freeze(selectedResourceDebtIds);
+  }
+  const selectedResourceDebtIdSet = new Set(selectedResourceDebtIds);
+  const selectedBrowserVisualResourceKey =
+    resourceGraphSnapshot.queuedResourceKeys.find((resourceKey) => {
+      const state = resourceStateByKey.get(resourceKey);
+      return (
+        state?.preparationLane === "browser-visual" &&
+        !selectedResourceDebtIdSet.has(resourceKey)
+      );
+    });
+  if (!selectedBrowserVisualResourceKey) {
+    return Object.freeze(selectedResourceDebtIds);
+  }
+  return Object.freeze([
+    ...selectedResourceDebtIds,
+    selectedBrowserVisualResourceKey,
+  ]);
+}
+
 type GpuFlowVisibleFrameAgedBudgetDebtRequest =
   GpuFlowVisibleFrameBudgetDebtRequest & {
     readonly debtAgeFrames: number;

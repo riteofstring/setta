@@ -89,6 +89,12 @@ export function requestGpuFlowSurfacePublicationDebtFrame({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
 }): void {
+  recordGpuFlowSurfacePublicationDebtFrameRequestDiagnostic({
+    completion,
+    debtFrameRequest,
+    outcome,
+    publicationDecision,
+  });
   if (debtFrameRequest === null) {
     return;
   }
@@ -108,6 +114,35 @@ export function requestGpuFlowSurfacePublicationDebtFrame({
     publicationDecision,
     surfaceRef,
   });
+}
+
+function recordGpuFlowSurfacePublicationDebtFrameRequestDiagnostic({
+  completion,
+  debtFrameRequest,
+  outcome,
+  publicationDecision,
+}: {
+  readonly completion: GpuFlowVisiblePublicationCompletion;
+  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}): void {
+  const view = globalThis as typeof globalThis & {
+    __SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__?: unknown[];
+  };
+  const requests =
+    view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ ?? [];
+  requests.push({
+    completionDebt: completion.debt,
+    completionOutcome: completion.outcome,
+    delayMs: debtFrameRequest?.delayMs ?? null,
+    frameReason: debtFrameRequest?.frameReason ?? null,
+    outcomeKind: outcome.kind,
+    publicationLane: publicationDecision.lane,
+    schedulerState: publicationDecision.schedulerState,
+  });
+  view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ =
+    requests.slice(-20);
 }
 
 function shouldDelayGpuFlowSurfacePublicationDebtFrame({

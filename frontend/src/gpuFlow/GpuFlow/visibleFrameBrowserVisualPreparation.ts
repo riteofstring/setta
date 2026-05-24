@@ -28,6 +28,10 @@ type OptionalGpuFlowBrowserVisualTextCoverageProof =
   | GpuFlowBrowserVisualTextCoverageProof
   | null
   | undefined;
+type GpuFlowBrowserVisualResourcePreparationBudgetState =
+  | "deferred"
+  | "selected"
+  | "unmanaged";
 
 const browserVisualResourceWorkFrameTimers = new WeakMap<
   GpuSurfaceHandle,
@@ -69,19 +73,21 @@ export function scheduleGpuFlowBrowserVisualResourcePreparation({
     outcome,
     runtimeCanvas,
   });
-  const budgetDeferred =
-    shouldDeferGpuFlowBrowserVisualResourcePreparationForBudget({
+  const budgetState =
+    selectGpuFlowBrowserVisualResourcePreparationBudgetState({
       budgetBroker,
       candidateResourceWork,
       deferResolutionUpdates,
       publicationDecision,
     });
+  const budgetSelected = budgetState === "selected";
   requestGpuFlowBrowserVisualResourceWorkFrame({
     candidateResourceWork,
     deferWakeup:
-      candidateResourceWork.deferWakeup ||
-      budgetDeferred ||
-      shouldWaitForGpuFlowBrowserVisualRepairSignal(candidateFrame),
+      !budgetSelected &&
+      (candidateResourceWork.deferWakeup ||
+        budgetState === "deferred" ||
+        shouldWaitForGpuFlowBrowserVisualRepairSignal(candidateFrame)),
     runtimeCanvas,
     surfaceRef,
   });
@@ -195,7 +201,7 @@ function requestGpuFlowBrowserVisualResourceWorkFrame({
   browserVisualResourceWorkFrameTimers.set(surface, timer);
 }
 
-function shouldDeferGpuFlowBrowserVisualResourcePreparationForBudget({
+function selectGpuFlowBrowserVisualResourcePreparationBudgetState({
   budgetBroker,
   candidateResourceWork,
   deferResolutionUpdates,
@@ -210,25 +216,27 @@ function shouldDeferGpuFlowBrowserVisualResourcePreparationForBudget({
         "debt" | "lane" | "schedulerState"
       >
     | undefined;
-}): boolean {
+}): GpuFlowBrowserVisualResourcePreparationBudgetState {
   if (!budgetBroker || !publicationDecision) {
-    return false;
+    return "unmanaged";
   }
   const requestedDebt =
     createGpuFlowBrowserVisualResourcePreparationDebtRequests({
       candidateResourceWork,
     });
   if (requestedDebt.length === 0) {
-    return false;
+    return "unmanaged";
   }
   const decision = budgetBroker.selectFrameBudget({
     deferResolutionUpdates,
     publicationDecision,
     requestedDebt,
   });
-  return !requestedDebt.some((debt) =>
+  return requestedDebt.some((debt) =>
     decision.preparationBudget.selectedDebtIds.includes(debt.id),
-  );
+  )
+    ? "selected"
+    : "deferred";
 }
 
 function estimateGpuFlowBrowserVisualResourcePreparationCostMs(

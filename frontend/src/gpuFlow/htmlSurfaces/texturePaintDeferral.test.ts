@@ -89,6 +89,38 @@ describe("HTML surface texture paint deferral", () => {
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
   });
 
+  it("clears paint deferral when a dirty surface is marked uploadable", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+
+    registerNode(manager, "live", "visible");
+    manager.uploadDirtySurfaceTextures({ frame: 1 });
+    manager.markSurfaceTextureDirty({
+      content: true,
+      deferUploadUntilPaint: true,
+      frame: 2,
+      reason: "content",
+      surfaceId: "live",
+    });
+    expect(manager.uploadDirtySurfaceTextures({ frame: 3 }).uploaded).toEqual(
+      [],
+    );
+
+    manager.markSurfaceTextureDirty({
+      content: true,
+      frame: 4,
+      reason: "content",
+      surfaceId: "live",
+    });
+
+    const uploaded = manager.uploadDirtySurfaceTextures({ frame: 5 });
+    expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
+      "live",
+    ]);
+    expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(2);
+  });
+
   it("lets post-paint deferred dirty surfaces continue through the upload budget", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();
