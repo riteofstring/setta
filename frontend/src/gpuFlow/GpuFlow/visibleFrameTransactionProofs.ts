@@ -252,7 +252,6 @@ function createGpuFlowVisibleFramePresentableFrameProof({
     hasGpuFlowVisibleFramePresentationCompatiblePreviousCoverage({
       preparedContentFrame,
       compatiblePreviousProofs,
-      coverage,
     });
   const debtProof = Object.freeze({
     content:
@@ -840,21 +839,16 @@ function createGpuFlowVisibleFramePresentationTransactionPresentableFrameProof({
 function hasGpuFlowVisibleFramePresentationCompatiblePreviousCoverage({
   preparedContentFrame,
   compatiblePreviousProofs,
-  coverage,
 }: {
   readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly compatiblePreviousProofs: ReturnType<
     typeof createGpuFlowVisibleFramePresentationCompatiblePreviousProofReportForFrame
   >;
-  readonly coverage: ReturnType<
-    typeof createGpuFlowVisibleFramePresentationCoverageReportForFrame
-  >;
 }): boolean {
   return (
     (preparedContentFrame.projectionHorizon?.textActorCoverage
       ?.compatiblePreviousActorIds.length ?? 0) > 0 ||
-    compatiblePreviousProofs.actorCount > 0 ||
-    (coverage?.compatibleCoverageCount ?? 0) > 0
+    compatiblePreviousProofs.actorCount > 0
   );
 }
 

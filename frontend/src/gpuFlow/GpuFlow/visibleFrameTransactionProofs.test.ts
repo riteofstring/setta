@@ -28,7 +28,6 @@ import {
 } from "./visibleFramePresentationEvidence";
 import {
   createGpuFlowVisibleFramePresentableFrameProofFactory,
-  createGpuFlowVisibleFramePresentationPreparedCandidateSetFrameFactory,
   createGpuFlowVisibleFramePresentationTransactionProofFactory,
   type GpuFlowVisibleFramePresentationCandidateSet,
   type GpuFlowVisibleFramePresentationContentCandidate,
@@ -45,8 +44,6 @@ const createGpuFlowVisibleFramePresentationTransactionProofFromFactory =
   createGpuFlowVisibleFramePresentationTransactionProofFactory();
 const createGpuFlowVisibleFramePresentableFrameProofFromFactory =
   createGpuFlowVisibleFramePresentableFrameProofFactory();
-const createGpuFlowVisibleFramePresentationPreparedCandidateSetFrame =
-  createGpuFlowVisibleFramePresentationPreparedCandidateSetFrameFactory();
 
 function createGpuFlowVisibleFramePresentationTransactionProof<
   ContentPreparationFrame extends
@@ -98,46 +95,6 @@ function createGpuFlowVisibleFramePresentableFrameProof({
       selectedPresentationEvidence.canvasGenerationEvidence
         .projectionTransactionId,
   });
-}
-
-function selectGpuFlowVisibleFramePresentationPreparedFrame<
-  ContentPreparationFrame extends
-    GpuFlowVisibleFramePresentationContentCandidate,
-  MotionProjectionFrame extends GpuFlowVisibleFramePresentationMotionCandidate,
->({
-  contentPreparationFrame,
-  motionProjectionFrame,
-  ...proofInput
-}: GpuFlowVisibleFramePresentationCandidateSet<
-  ContentPreparationFrame,
-  MotionProjectionFrame
-> & {
-  readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
-  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
-}) {
-  const transactionProof =
-    createGpuFlowVisibleFramePresentationTransactionProof({
-      contentPreparationFrame: withTestGpuFlowVisibleFramePresentationEvidence(
-        contentPreparationFrame,
-      ),
-      motionProjectionFrame: withTestGpuFlowVisibleFramePresentationEvidence(
-        motionProjectionFrame,
-      ),
-      ...proofInput,
-    });
-  const preparedFrame =
-    createGpuFlowVisibleFramePresentationPreparedCandidateSetFrame({
-      contentPreparationFrame,
-      motionProjectionFrame,
-      transactionProof,
-    });
-  return {
-    blockedPresentationCandidate: preparedFrame.blockedPresentationCandidate,
-    blockedProof: preparedFrame.blockedProof,
-    presentableFrameProof: preparedFrame.transactionProof.presentableFrameProof,
-    renderedVisibleFrame: preparedFrame.renderedVisibleFrame,
-    visibleProjectionState: preparedFrame.visibleProjectionState,
-  };
 }
 
 function withTestGpuFlowVisibleFramePresentationEvidence<
@@ -390,6 +347,33 @@ describe("GPU Flow visible frame transaction proofs", () => {
       createGpuFlowVisibleFramePresentableFrameProof({
         preparedContentFrame: createPreparedContentFrame({
           compatiblePreviousActorIds: [],
+        }),
+        reducerDecision: reducerDecisionWithContentDebt,
+      }).debtProof,
+    ).toEqual({
+      content: true,
+      maintenance: false,
+      motion: false,
+    });
+  });
+
+  it("clears content debt for retained-page compatible coverage", () => {
+    const sample = liveProjectionSample({ id: 47, timestamp: 470 });
+    const reducerDecisionWithContentDebt = reducerDecision(sample);
+
+    expect(
+      createGpuFlowVisibleFramePresentableFrameProof({
+        preparedContentFrame: createPreparedContentFrame({
+          compatibleSurfaceResourceHandles: [
+            { id: "page-compatible", kind: "page" },
+          ],
+          protectedResourceHandles: [
+            {
+              id: "page-compatible",
+              kind: "page",
+              reason: "presented-transaction",
+            },
+          ],
         }),
         reducerDecision: reducerDecisionWithContentDebt,
       }).debtProof,
@@ -797,11 +781,15 @@ function visibleProjectionState({
 function createPreparedContentFrame({
   actorGenerations = [],
   compatiblePreviousActorIds = [],
+  compatibleSurfaceResourceHandles = [],
   exactSurfaceResourceHandles = [],
   protectedResourceHandles = [],
 }: {
   readonly actorGenerations?: readonly GpuFlowPreparedContentActorGeneration[];
   readonly compatiblePreviousActorIds?: readonly string[] | undefined;
+  readonly compatibleSurfaceResourceHandles?:
+    | readonly SurfaceResourceHandle[]
+    | undefined;
   readonly exactSurfaceResourceHandles?:
     | readonly SurfaceResourceHandle[]
     | undefined;
@@ -822,6 +810,7 @@ function createPreparedContentFrame({
     retainedScrollRevision: 0,
   };
   const surfaceTransaction =
+    compatibleSurfaceResourceHandles.length > 0 ||
     exactSurfaceResourceHandles.length > 0 ||
     protectedResourceHandles.length > 0
       ? {
@@ -841,17 +830,34 @@ function createPreparedContentFrame({
               compatibleForVisuals: true,
               rejectedCandidates: [],
             },
-            compatibleCoverage: [],
+            compatibleCoverage:
+              compatibleSurfaceResourceHandles.length === 0
+                ? []
+                : [
+                    {
+                      coverageRect: rect(),
+                      fidelity: "compatible",
+                      generationId: "generation:compatible-resource-a",
+                      rendererBucket: "retained-content",
+                      resourceHandles: compatibleSurfaceResourceHandles,
+                      surfaceId: "surface:compatible-resource-a",
+                      zIndex: 1,
+                    },
+                  ],
             exactCoverage: [
-              {
-                coverageRect: rect(),
-                fidelity: "exact",
-                generationId: "generation:resource-a",
-                rendererBucket: "retained-content",
-                resourceHandles: exactSurfaceResourceHandles,
-                surfaceId: "surface:resource-a",
-                zIndex: 1,
-              },
+              ...(exactSurfaceResourceHandles.length === 0
+                ? []
+                : [
+                    {
+                      coverageRect: rect(),
+                      fidelity: "exact",
+                      generationId: "generation:resource-a",
+                      rendererBucket: "retained-content",
+                      resourceHandles: exactSurfaceResourceHandles,
+                      surfaceId: "surface:resource-a",
+                      zIndex: 1,
+                    },
+                  ]),
             ],
             protectedResourceHandles,
             rendererBuckets: [],
