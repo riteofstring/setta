@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 import {
@@ -34,6 +37,21 @@ const STANDARD_REFRESH_P50_MAX_MS = 18.5;
 const STANDARD_REFRESH_P95_MAX_MS = 24;
 const STANDARD_REFRESH_MAX_FRAME_GAP_MS = 50;
 const STANDARD_REFRESH_MAX_LONG_TASK_MS = 50;
+const DOM_GOLDEN_FIXTURE_DIR = fileURLToPath(
+  new URL(
+    "../../../../perf/artifacts/frontend/2026-05-24_settings-dom-golden-go-rewrite/",
+    import.meta.url,
+  ),
+);
+const DOM_GOLDEN_ALL_SETTINGS = readFileSync(
+  `${DOM_GOLDEN_FIXTURE_DIR}/all-settings-settled.png`,
+);
+const DOM_GOLDEN_SUMMARY = JSON.parse(
+  readFileSync(`${DOM_GOLDEN_FIXTURE_DIR}/summary.json`, "utf8"),
+) as DomGoldenSummary;
+const MIN_DOM_GOLDEN_NONBLANK_RATIO = 0.72;
+const MAX_DOM_GOLDEN_COLOR_HISTOGRAM_DISTANCE = 0.72;
+const MAX_DOM_GOLDEN_MEAN_DELTA = 112;
 
 test.use({
   userAgent:
@@ -76,6 +94,14 @@ test("All Settings first render keeps section header and retained content visibl
     {
       clip: sectionClip,
       path: testInfo.outputPath("first-render-visible-section.png"),
+    },
+  );
+  const paneClip = await resolveRetainedCompositorPaneClip(page);
+  const paneScreenshot = await captureRetainedCompositorEvidenceScreenshot(
+    page,
+    {
+      clip: paneClip,
+      path: testInfo.outputPath("first-render-dom-golden-pane.png"),
     },
   );
   const headerInk = await analyzeRetainedLabelTextInkBounds(page, {
@@ -126,6 +152,21 @@ test("All Settings first render keeps section header and retained content visibl
     MIN_SECTION_NONBLANK_RATIO,
   );
   expect(contentBands.highConfidencePlaceholder, details).toBe(false);
+  await expectMatchesDomGoldenAllSettingsReference(page, testInfo, {
+    actual: paneScreenshot,
+    details: {
+      contentBands,
+      diagnostics,
+      headerBands,
+      headerClip,
+      headerInk,
+      paneClip,
+      sectionBands,
+      sectionClip,
+      target,
+    },
+    name: "first-render",
+  });
 });
 
 test("retained section scroll moves visible pixels without blanking header or content", async ({
@@ -502,6 +543,20 @@ test("latest Chrome recording parity sequence keeps pixels, diagnostics, and cad
   await warmRetainedCompositorNativeWheelTarget(page, target.point);
   const controlCadence = await measureRetainedCompositorControlCadence(page);
   const screenshots: Buffer[] = [];
+  const settledPaneClip = await resolveRetainedCompositorPaneClip(page);
+  const settledPaneScreenshot =
+    await captureRetainedCompositorEvidenceScreenshot(page, {
+      clip: settledPaneClip,
+      path: testInfo.outputPath("latest-parity-dom-golden-settled-pane.png"),
+    });
+  await expectMatchesDomGoldenAllSettingsReference(page, testInfo, {
+    actual: settledPaneScreenshot,
+    details: {
+      settledPaneClip,
+      target,
+    },
+    name: "latest-parity-settled",
+  });
   const gesture = await measureRetainedCompositorGesture(
     page,
     async () => {
@@ -629,6 +684,60 @@ function mergeScreenshotClips(first: Rect, second: Rect): Rect {
   };
 }
 
+async function expectMatchesDomGoldenAllSettingsReference(
+  page: Page,
+  testInfo: TestInfo,
+  {
+    actual,
+    details,
+    name,
+  }: {
+    readonly actual: Buffer;
+    readonly details: unknown;
+    readonly name: string;
+  },
+): Promise<void> {
+  const [similarity, actualBands, expectedBands] = await Promise.all([
+    compareScreenshotSimilarity(page, {
+      actual,
+      expected: DOM_GOLDEN_ALL_SETTINGS,
+    }),
+    analyzeHorizontalPlaceholderBands(page, { screenshot: actual }),
+    analyzeHorizontalPlaceholderBands(page, {
+      screenshot: DOM_GOLDEN_ALL_SETTINGS,
+    }),
+  ]);
+  const oracle = {
+    actualBands,
+    details,
+    expectedBands,
+    golden: {
+      branch: DOM_GOLDEN_SUMMARY.branch,
+      evidenceVersion: DOM_GOLDEN_SUMMARY.evidenceVersion,
+      target: DOM_GOLDEN_SUMMARY.target,
+    },
+    similarity,
+  };
+  const oracleDetails = JSON.stringify(oracle, null, 2);
+  await testInfo.attach(`${name}-dom-golden-oracle.json`, {
+    body: oracleDetails,
+    contentType: "application/json",
+  });
+
+  expect(similarity.comparedPixelCount, oracleDetails).toBeGreaterThan(100_000);
+  expect(actualBands.highConfidencePlaceholder, oracleDetails).toBe(false);
+  expect(actualBands.nonblankRatio, oracleDetails).toBeGreaterThanOrEqual(
+    expectedBands.nonblankRatio * MIN_DOM_GOLDEN_NONBLANK_RATIO,
+  );
+  expect(
+    similarity.colorHistogramDistance,
+    oracleDetails,
+  ).toBeLessThanOrEqual(MAX_DOM_GOLDEN_COLOR_HISTOGRAM_DISTANCE);
+  expect(similarity.meanDelta, oracleDetails).toBeLessThanOrEqual(
+    MAX_DOM_GOLDEN_MEAN_DELTA,
+  );
+}
+
 function expectStandardRefreshGestureWithinFixedBudget({
   controlCadence,
   details,
@@ -696,6 +805,26 @@ async function resolveRetainedSectionHeaderClip(
       );
     }
   }, surfaceId);
+}
+
+async function resolveRetainedCompositorPaneClip(page: Page): Promise<Rect> {
+  return await page.evaluate(() => {
+    const pane = document.querySelector<HTMLElement>(".setta-gpu-flow__pane");
+    if (!pane) {
+      throw new Error("Missing retained compositor pane.");
+    }
+    const rect = pane.getBoundingClientRect();
+    const x = Math.max(0, Math.floor(rect.left));
+    const y = Math.max(0, Math.floor(rect.top));
+    const right = Math.min(window.innerWidth, Math.ceil(rect.right));
+    const bottom = Math.min(window.innerHeight, Math.ceil(rect.bottom));
+    return {
+      height: Math.max(1, bottom - y),
+      width: Math.max(1, right - x),
+      x,
+      y,
+    };
+  });
 }
 
 async function captureConsecutiveFrameScreenshots(
@@ -809,4 +938,10 @@ type ObservedVisibleFrameDiagnostics = {
   readonly requiredActorsByFamily: Record<string, number> | null;
   readonly scrollHorizonCoverage: unknown;
   readonly visibleOutcome: string | null;
+};
+
+type DomGoldenSummary = {
+  readonly branch: string;
+  readonly evidenceVersion: string;
+  readonly target: unknown;
 };
