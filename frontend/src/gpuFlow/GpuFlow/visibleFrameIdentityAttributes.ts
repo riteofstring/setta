@@ -24,10 +24,3 @@ export function setGpuFlowVisibleFrameIdentityAttributes(
   element.dataset.gpuFlowContentFrameId = String(token.contentFrameId);
   element.dataset.gpuFlowPresentationId = String(token.presentationId);
 }
-
-export function clearGpuFlowVisibleFrameIdentityAttributes(
-  element: HTMLElement,
-): void {
-  delete element.dataset.gpuFlowContentFrameId;
-  delete element.dataset.gpuFlowPresentationId;
-}
