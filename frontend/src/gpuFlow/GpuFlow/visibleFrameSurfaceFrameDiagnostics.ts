@@ -196,8 +196,8 @@ function createGpuFlowSurfaceFrameResourceGraphDiagnostic(
   return {
     actorResourceKeys: snapshot.actorResourceKeys ?? [],
     candidateResourceKeys: snapshot.candidateResourceKeys,
-    committedFrameId: snapshot.committedFrameId,
-    committedResourceKeys: snapshot.committedResourceKeys,
+    presentedFrameId: snapshot.presentedFrameId,
+    presentedResourceKeys: snapshot.presentedResourceKeys,
     debtAgeByResourceKey: Object.fromEntries(
       requestedOrPreparing.map((state) => [
         state.resourceKey,

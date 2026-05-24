@@ -34,8 +34,8 @@ export type GpuFlowVisibleFrameResourceGraphSnapshot = {
   readonly activeEditorPins: readonly string[];
   readonly actorResourceKeys?: readonly string[] | undefined;
   readonly candidateResourceKeys: readonly string[];
-  readonly committedFrameId: number | null;
-  readonly committedResourceKeys: readonly string[];
+  readonly presentedFrameId: number | null;
+  readonly presentedResourceKeys: readonly string[];
   readonly pendingCandidateFrameIds: readonly number[];
   readonly queuedResourceKeys: readonly string[];
   readonly resourceDebtByState: Record<
@@ -49,7 +49,7 @@ type GpuFlowVisibleFramePresentedContentFrameResult = {
   readonly activeEditorPins: readonly string[];
   readonly published: boolean;
   readonly releasedCandidateResourceKeys: readonly string[];
-  readonly releasedCommittedResourceKeys: readonly string[];
+  readonly releasedPresentedResourceKeys: readonly string[];
 };
 
 type GpuFlowVisibleFramePreparedContentFrameAbortResult = {
@@ -138,8 +138,8 @@ export type GpuFlowVisibleFrameResourcePriority =
   | "safety";
 
 export class GpuFlowVisibleFrameResourceGraph {
-  private committedFrameId: number | null = null;
-  private committedResourceKeys = new Set<string>();
+  private presentedFrameId: number | null = null;
+  private presentedResourceKeys = new Set<string>();
   private readonly pendingCandidateByFrameId = new Map<
     number,
     GpuFlowVisibleFrameCandidateResourceEntry
@@ -251,7 +251,7 @@ export class GpuFlowVisibleFrameResourceGraph {
     });
   }
 
-  registerPreparedCommittedSurfaceFrame({
+  registerPreparedContentFrame({
     browserVisualCandidate,
     frame,
   }: {
@@ -330,46 +330,46 @@ export class GpuFlowVisibleFrameResourceGraph {
       token,
     });
     this.pendingCandidateByFrameId.delete(frameId);
-    const nextCommittedResourceKeys = new Set(
+    const nextPresentedResourceKeys = new Set(
       this.getPresentableCandidateResourceKeys(entry),
     );
     const releasedCandidateResourceKeys = uniqueStrings([
       ...this.releaseUnpresentedCandidateResourceEntries(
         frameId,
         entry,
-        nextCommittedResourceKeys,
+        nextPresentedResourceKeys,
       ),
       ...this.releaseLoserCandidateResourceEntries(
         frameId,
-        nextCommittedResourceKeys,
+        nextPresentedResourceKeys,
       ),
     ]);
-    const releasedCommittedResourceKeys = [
-      ...this.committedResourceKeys,
-    ].filter((resourceKey) => !nextCommittedResourceKeys.has(resourceKey));
-    for (const resourceKey of releasedCommittedResourceKeys) {
+    const releasedPresentedResourceKeys = [
+      ...this.presentedResourceKeys,
+    ].filter((resourceKey) => !nextPresentedResourceKeys.has(resourceKey));
+    for (const resourceKey of releasedPresentedResourceKeys) {
       this.retireVisibleFrameResource({
-        ownerFrameId: this.committedFrameId,
+        ownerFrameId: this.presentedFrameId,
         resourceKey,
       });
     }
-    for (const resourceKey of nextCommittedResourceKeys) {
+    for (const resourceKey of nextPresentedResourceKeys) {
       this.transitionResource({
         ownerFrameId: frameId,
         resourceKey,
         state: "presented",
       });
     }
-    this.committedFrameId = frameId;
-    this.committedResourceKeys = nextCommittedResourceKeys;
+    this.presentedFrameId = frameId;
+    this.presentedResourceKeys = nextPresentedResourceKeys;
     return Object.freeze({
       activeEditorPins: entry.activeEditorPins,
       published,
       releasedCandidateResourceKeys: Object.freeze(
         releasedCandidateResourceKeys,
       ),
-      releasedCommittedResourceKeys: Object.freeze(
-        releasedCommittedResourceKeys,
+      releasedPresentedResourceKeys: Object.freeze(
+        releasedPresentedResourceKeys,
       ),
     });
   }
@@ -386,7 +386,7 @@ export class GpuFlowVisibleFrameResourceGraph {
       committedFrameId: frameId,
       token,
     });
-    const entry = this.requirePreparedCommittedSurfaceFrame(frame);
+    const entry = this.requirePreparedContentFrame(frame);
     assertGpuFlowVisibleFramePresentationTokenForPresentationProof({
       frame,
       token,
@@ -465,8 +465,8 @@ export class GpuFlowVisibleFrameResourceGraph {
           pendingEntries.flatMap((entry) => entry.candidateResourceKeys),
         ),
       ),
-      committedFrameId: this.committedFrameId,
-      committedResourceKeys: Object.freeze([...this.committedResourceKeys]),
+      presentedFrameId: this.presentedFrameId,
+      presentedResourceKeys: Object.freeze([...this.presentedResourceKeys]),
       pendingCandidateFrameIds: Object.freeze([
         ...this.pendingCandidateByFrameId.keys(),
       ]),
@@ -495,14 +495,14 @@ export class GpuFlowVisibleFrameResourceGraph {
     });
   }
 
-  private requirePreparedCommittedSurfaceFrame(
+  private requirePreparedContentFrame(
     frame: GpuFlowCommittedSurfaceFrame,
   ): GpuFlowVisibleFrameCandidateResourceEntry {
     const frameId = getGpuFlowCommittedSurfaceFrameId(frame);
     const entry = this.pendingCandidateByFrameId.get(frameId);
     if (!entry) {
       throw new Error(
-        `GPU Flow visible frame resource graph missing prepared candidate resources for committed frame ${frameId}.`,
+        `GPU Flow visible frame resource graph missing prepared candidate resources for content frame ${frameId}.`,
       );
     }
     return entry;
@@ -528,16 +528,16 @@ export class GpuFlowVisibleFrameResourceGraph {
   }
 
   private releaseLoserCandidateResourceEntries(
-    committedFrameId: number,
-    retainedResourceKeys: ReadonlySet<string>,
+    presentedFrameId: number,
+    presentedResourceKeys: ReadonlySet<string>,
   ): readonly string[] {
     const releasedResourceKeys: string[] = [];
     for (const [frameId, entry] of this.pendingCandidateByFrameId) {
-      if (frameId === committedFrameId) {
+      if (frameId === presentedFrameId) {
         continue;
       }
       for (const resourceKey of entry.candidateResourceKeys) {
-        if (retainedResourceKeys.has(resourceKey)) {
+        if (presentedResourceKeys.has(resourceKey)) {
           continue;
         }
         releasedResourceKeys.push(resourceKey);

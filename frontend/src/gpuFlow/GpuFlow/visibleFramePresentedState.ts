@@ -89,7 +89,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
         previousCommittedSurfaceFrame,
         retainedDisplayFrame: nextRetainedDisplayFrame,
       });
-      visibleFrameResourceGraphRef.current.registerPreparedCommittedSurfaceFrame(
+      visibleFrameResourceGraphRef.current.registerPreparedContentFrame(
         {
           browserVisualCandidate,
           frame: nextCommittedSurfaceFrame,

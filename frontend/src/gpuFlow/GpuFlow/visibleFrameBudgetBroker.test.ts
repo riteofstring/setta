@@ -302,8 +302,8 @@ describe("GPU Flow visible frame budget broker", () => {
         snapshot: {
           activeEditorPins: [],
           candidateResourceKeys: [],
-          committedFrameId: null,
-          committedResourceKeys: [],
+          presentedFrameId: null,
+          presentedResourceKeys: [],
           pendingCandidateFrameIds: [8],
           queuedResourceKeys: [
             "dom-control:active-editor",
@@ -372,8 +372,8 @@ describe("GPU Flow visible frame budget broker", () => {
       resourceGraphSnapshot: {
         activeEditorPins: [],
         candidateResourceKeys: [],
-        committedFrameId: null,
-        committedResourceKeys: [],
+        presentedFrameId: null,
+        presentedResourceKeys: [],
         pendingCandidateFrameIds: [9],
         queuedResourceKeys: [
           "dom-control:active-editor",
@@ -426,8 +426,8 @@ describe("GPU Flow visible frame budget broker", () => {
         snapshot: {
           activeEditorPins: [],
           candidateResourceKeys: [],
-          committedFrameId: null,
-          committedResourceKeys: [],
+          presentedFrameId: null,
+          presentedResourceKeys: [],
           pendingCandidateFrameIds: [],
           queuedResourceKeys: ["dom-control-snapshot:current-editor"],
           resourceDebtByState: {
@@ -474,8 +474,8 @@ describe("GPU Flow visible frame budget broker", () => {
         snapshot: {
           activeEditorPins: [],
           candidateResourceKeys: ["dom-control:preparing-editor"],
-          committedFrameId: null,
-          committedResourceKeys: [],
+          presentedFrameId: null,
+          presentedResourceKeys: [],
           pendingCandidateFrameIds: [43],
           queuedResourceKeys: ["dom-control:preparing-editor"],
           resourceDebtByState: {
@@ -525,8 +525,8 @@ describe("GPU Flow visible frame budget broker", () => {
             "dom-control:stale-editor",
             "dom-control:current-editor",
           ],
-          committedFrameId: 5,
-          committedResourceKeys: [],
+          presentedFrameId: 5,
+          presentedResourceKeys: [],
           pendingCandidateFrameIds: [8, 9],
           queuedResourceKeys: [
             "dom-control:stale-editor",
@@ -589,8 +589,8 @@ describe("GPU Flow visible frame budget broker", () => {
         resourceGraphSnapshot: {
           activeEditorPins: [],
           candidateResourceKeys: ["dom-control-snapshot:retained-text-control"],
-          committedFrameId: null,
-          committedResourceKeys: [],
+          presentedFrameId: null,
+          presentedResourceKeys: [],
           pendingCandidateFrameIds: [10],
           queuedResourceKeys: ["dom-control-snapshot:retained-text-control"],
           resourceDebtByState: {
@@ -628,8 +628,8 @@ describe("GPU Flow visible frame budget broker", () => {
       resourceGraphSnapshot: {
         activeEditorPins: ["active-editor"],
         candidateResourceKeys: ["dom-control:active-editor"],
-        committedFrameId: null,
-        committedResourceKeys: [],
+        presentedFrameId: null,
+        presentedResourceKeys: [],
         pendingCandidateFrameIds: [10],
         queuedResourceKeys: ["dom-control:active-editor"],
         resourceDebtByState: {

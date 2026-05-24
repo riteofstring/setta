@@ -70,7 +70,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     ]);
   });
 
-  it("rejects commit protection reports with missing resources", () => {
+  it("rejects presentation protection reports with missing resources", () => {
     const report = createGpuFlowVisiblePublicationResourceProtectionReport(
       committedSurfaceFrame({
         exactSurfaceResourceHandles: [resourceHandle("source", "source-a")],
@@ -83,7 +83,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     ).toThrow(/requires protected resources.*source:source-a/);
   });
 
-  it("creates stable resource protection digests for proof commit proofs", () => {
+  it("creates stable resource protection digests for presentation proofs", () => {
     const report = createGpuFlowVisiblePublicationResourceProtectionReport(
       committedSurfaceFrame({
         exactSurfaceResourceHandles: [resourceHandle("source", "source-b")],
@@ -115,7 +115,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       protectedResourceHandles: [protectedResource(surfaceTexture)],
     });
 
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: browserVisualCandidate({
         blockedControlIds: ["row-a", "row-b"],
         blockedIslandIds: ["island-a"],
@@ -143,8 +143,8 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         "dom-control-snapshot:snapshot-row-b",
         "dom-island:island-a",
       ],
-      committedFrameId: null,
-      committedResourceKeys: [],
+      presentedFrameId: null,
+      presentedResourceKeys: [],
       pendingCandidateFrameIds: [41],
       queuedResourceKeys: [
         "dom-control:row-a",
@@ -233,7 +233,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const frame = committedSurfaceFrame({ displayFrameId: 42 });
 
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: browserVisualCandidate({
         controls: [domControl({ sourceId: "row-a" })],
         frameId: frame.displayFrameId,
@@ -260,7 +260,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       ],
     } as unknown as GpuFlowCommittedSurfaceFrame;
 
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: browserVisualCandidate({
         frameId: frame.displayFrameId,
       }),
@@ -286,7 +286,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     expect(snapshot.resourceStates).toEqual([]);
   });
 
-  it("commits one candidate, records committed resources, and releases loser candidates", () => {
+  it("presents one candidate, records presented resources, and releases loser candidates", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const loserResource = resourceHandle("page", "loser-page");
     const winnerResource = resourceHandle("page", "winner-page");
@@ -310,11 +310,11 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       frameId: winnerFrame.displayFrameId,
       mountedControlIds: ["winner-control"],
     });
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: loserCandidate,
       frame: loserFrame,
     });
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: winnerCandidate,
       frame: winnerFrame,
     });
@@ -341,14 +341,14 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         "page:loser-page",
         "dom-control:loser-control",
       ],
-      releasedCommittedResourceKeys: [],
+      releasedPresentedResourceKeys: [],
     });
     const snapshot = registry.getSnapshot();
     expect(snapshot).toMatchObject({
       activeEditorPins: [],
       candidateResourceKeys: [],
-      committedFrameId: 52,
-      committedResourceKeys: ["page:winner-page", "dom-control:winner-control"],
+      presentedFrameId: 52,
+      presentedResourceKeys: ["page:winner-page", "dom-control:winner-control"],
       pendingCandidateFrameIds: [],
       queuedResourceKeys: [],
     });
@@ -389,7 +389,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       frameId: candidateFrame.displayFrameId,
       mountedControlIds: ["candidate-control"],
     });
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: candidate,
       frame: candidateFrame,
     });
@@ -412,12 +412,12 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     ).toThrow(/visible frame presentation token for the same visible frame/);
     expect(presentedCandidates).toEqual([]);
     expect(registry.getSnapshot()).toMatchObject({
-      committedFrameId: null,
+      presentedFrameId: null,
       pendingCandidateFrameIds: [53],
     });
   });
 
-  it("releases candidate resources on abort without changing the committed owner", () => {
+  it("releases candidate resources on abort without changing the presented owner", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const candidateResource = resourceHandle("texture", "candidate-texture");
     const frame = committedSurfaceFrame({
@@ -430,7 +430,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       frameId: frame.displayFrameId,
       mountedControlIds: ["candidate-control"],
     });
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: candidate,
       frame,
     });
@@ -470,8 +470,8 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     expect(snapshot).toMatchObject({
       activeEditorPins: [],
       candidateResourceKeys: [],
-      committedFrameId: null,
-      committedResourceKeys: [],
+      presentedFrameId: null,
+      presentedResourceKeys: [],
       pendingCandidateFrameIds: [],
     });
     expect(snapshot.resourceDebtByState).toEqual({
@@ -501,7 +501,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       frameId: frame.displayFrameId,
       mountedControlIds: ["active-control"],
     });
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: candidate,
       frame,
     });
@@ -554,7 +554,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
   });
 
-  it("commits publication-proof resources while retaining optional browser visual debt", () => {
+  it("presents publication-proof resources while retaining optional browser visual debt", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const frame = committedSurfaceFrame({
       displayFrameId: 62,
@@ -563,7 +563,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         protectedResource(resourceHandle("texture", "early-texture")),
       ],
     });
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: browserVisualCandidate({
         blockedControlIds: ["early-control"],
         controls: [domControl({ sourceId: "early-control" })],
@@ -591,11 +591,11 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       activeEditorPins: [],
       published: true,
       releasedCandidateResourceKeys: ["dom-control:early-control"],
-      releasedCommittedResourceKeys: [],
+      releasedPresentedResourceKeys: [],
     });
     expect(registry.getSnapshot()).toMatchObject({
-      committedFrameId: 62,
-      committedResourceKeys: ["texture:early-texture"],
+      presentedFrameId: 62,
+      presentedResourceKeys: ["texture:early-texture"],
       queuedResourceKeys: [],
       resourceDebtByState: {
         absent: 0,
@@ -621,7 +621,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
     const control = domControl({ sourceId: "repair-control" });
 
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: browserVisualCandidate({
         blockedControlIds: ["repair-control"],
         controls: [control],
@@ -668,7 +668,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       ],
     });
 
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: browserVisualCandidate({
         controls: [control],
         frameId: frame.displayFrameId,
@@ -696,7 +696,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     });
     const control = domControl({ sourceId: "shared-control" });
 
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: browserVisualCandidate({
         blockedControlIds: ["shared-control"],
         controls: [control],
@@ -712,7 +712,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       resourceState("dom-control:shared-control", "preparing", 631),
     ]);
 
-    registry.registerPreparedCommittedSurfaceFrame({
+    registry.registerPreparedContentFrame({
       browserVisualCandidate: browserVisualCandidate({
         blockedControlIds: ["shared-control"],
         controls: [control],

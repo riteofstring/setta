@@ -206,8 +206,8 @@ describe("GPU Flow visible frame coordinator budget", () => {
           visibleFrameResourceGraphSnapshot: {
             activeEditorPins: ["editor"],
             candidateResourceKeys: ["dom-control:editor"],
-            committedFrameId: null,
-            committedResourceKeys: [],
+            presentedFrameId: null,
+            presentedResourceKeys: [],
             pendingCandidateFrameIds: [88],
             queuedResourceKeys: ["dom-control:editor"],
             resourceDebtByState: {
@@ -297,8 +297,8 @@ describe("GPU Flow visible frame coordinator budget", () => {
           visibleFrameResourceGraphSnapshot: {
             activeEditorPins: ["editor"],
             candidateResourceKeys: ["dom-control:editor"],
-            committedFrameId: null,
-            committedResourceKeys: [],
+            presentedFrameId: null,
+            presentedResourceKeys: [],
             pendingCandidateFrameIds: [89],
             queuedResourceKeys: ["dom-control:editor"],
             resourceDebtByState: {
