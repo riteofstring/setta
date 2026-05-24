@@ -89,7 +89,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "utf8",
     );
     const coordinatorSource =
-      readVisibleFramePublicationCoordinatorAuthoritySource();
+      readVisibleFramePresentationCoordinatorAuthoritySource();
 
     expect(visibleFrameDiagnosticsSource).not.toContain(
       "createGpuFlowVisibleProjectionStateForRetainedPublication",
@@ -98,10 +98,10 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "createGpuFlowVisibleFrameHoldPreviousTokenForProjectionState",
     );
     expect(visibleFrameDiagnosticsSource).not.toContain(
-      "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
+      "createGpuFlowPreparedContentHeldPreviousPresentationTransaction",
     );
     expect(coordinatorSource).not.toContain(
-      "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
+      "createGpuFlowPreparedContentHeldPreviousPresentationTransaction",
     );
     expect(coordinatorSource).toContain(
       "resolveGpuFlowPreparedContentFramePresentationReadiness",
@@ -113,7 +113,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
   it("keeps projection frames from minting publication tokens before completion", () => {
     const source = readFileSync(PROJECTION_FRAME_MODULE_PATH, "utf8");
     const coordinatorSource =
-      readVisibleFramePublicationCoordinatorAuthoritySource();
+      readVisibleFramePresentationCoordinatorAuthoritySource();
     const surfaceFrameSource = readFileSync(
       SURFACE_FRAME_PUBLICATION_MODULE_PATH,
       "utf8",
@@ -160,7 +160,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
   it("keeps motion projection blocked repair scheduling inside the coordinator", () => {
     const source = readFileSync(PROJECTION_FRAME_MODULE_PATH, "utf8");
     const coordinatorSource =
-      readVisibleFramePublicationCoordinatorAuthoritySource();
+      readVisibleFramePresentationCoordinatorAuthoritySource();
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
 
     expect(source).not.toContain(
@@ -172,7 +172,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(surfaceFrameSource).toContain("runGpuFlowVisibleFrameCoordinator");
     expect(coordinatorSource).toContain(
-      "createGpuFlowVisibleFramePublicationTransactionProofFactory",
+      "createGpuFlowVisibleFramePresentationTransactionProofFactory",
     );
     expect(coordinatorSource).toContain("blockedSource");
     expect(coordinatorSource).toContain("visibleProjectionSource");
@@ -193,7 +193,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const coordinatorSource =
-      readVisibleFramePublicationCoordinatorAuthoritySource();
+      readVisibleFramePresentationCoordinatorAuthoritySource();
     const candidateSource = readPreparedContentAuthorityCandidateSource();
     const publishBranchStart = coordinatorSource.indexOf(
       'if (publicationReadiness.kind === "present")',
@@ -291,7 +291,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
   it("reports retained cold-start coverage blocks as coordinator candidates", () => {
     const source = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const coordinatorSource =
-      readVisibleFramePublicationCoordinatorAuthoritySource();
+      readVisibleFramePresentationCoordinatorAuthoritySource();
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const branchStart = source.indexOf(
       "runRetainedPreparedContentFramePresentationContentStage",
@@ -368,7 +368,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const presentationBoundaryStart = surfaceFrameSource.indexOf(
-      "function presentGpuFlowVisibleFramePublicationFrame",
+      "function presentGpuFlowVisibleFramePresentationFrame",
     );
     const presentationBoundarySource = surfaceFrameSource.slice(
       presentationBoundaryStart,
@@ -1143,7 +1143,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
   });
 });
 
-function readVisibleFramePublicationCoordinatorAuthoritySource(): string {
+function readVisibleFramePresentationCoordinatorAuthoritySource(): string {
   return [
     COORDINATOR_MODULE_PATH,
     STATE_MACHINE_MODULE_PATH,

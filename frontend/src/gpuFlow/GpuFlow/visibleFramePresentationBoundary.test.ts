@@ -29,14 +29,14 @@ describe("GPU Flow visible frame presentation boundary", () => {
     );
 
     expect(surfaceFrameSource).not.toContain(
-      "presentGpuFlowVisibleFramePublicationFrame",
+      "presentGpuFlowVisibleFramePresentationFrame",
     );
     expect(surfaceFrameSource).toContain("presentationRuntime");
     expect(coordinatorSource).toContain(
-      "presentGpuFlowVisibleFramePublicationFrame",
+      "presentGpuFlowVisibleFramePresentationFrame",
     );
     expect(presentationSource).toContain(
-      "export function presentGpuFlowVisibleFramePublicationFrame",
+      "export function presentGpuFlowVisibleFramePresentationFrame",
     );
   });
 });

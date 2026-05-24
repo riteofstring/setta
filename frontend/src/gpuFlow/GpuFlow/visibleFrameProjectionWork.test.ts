@@ -15,7 +15,7 @@ import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowMotionProjectionFrameWorkReport,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
-  type GpuFlowVisibleFramePublicationSample,
+  type GpuFlowVisibleFramePresentationSample,
 } from "./visibleFrameCoordinator";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 
@@ -80,8 +80,8 @@ describe("GPU Flow visible frame coordinator projection work", () => {
       publish: (transaction) => {
         publishedOutcomeKind = transaction.outcome.kind;
       },
-      sampleVisibleFramePublication: () =>
-        visibleFramePublicationSample({
+      sampleVisibleFramePresentation: () =>
+        visibleFramePresentationSample({
           previousVisibleProjectionState,
           rawReasons: ["retained-scroll"],
           sample,
@@ -210,11 +210,11 @@ function createPreparedContentFrame(): GpuFlowPreparedContentFrame {
   } as unknown as GpuFlowPreparedContentFrame;
 }
 
-type VisibleFramePublicationSampleInput = Partial<
-  Omit<GpuFlowVisibleFramePublicationSample, "sample">
+type VisibleFramePresentationSampleInput = Partial<
+  Omit<GpuFlowVisibleFramePresentationSample, "sample">
 > & { readonly sample: GpuFlowLiveProjectionSample };
 
-function visibleFramePublicationSample({
+function visibleFramePresentationSample({
   hasPresentedContentFrame = true,
   previousVisibleProjectionState = null,
   rawReasons = ["manual"],
@@ -222,7 +222,7 @@ function visibleFramePublicationSample({
   sample,
   timestamp = sample.timestamp,
   viewportInteractionActive = false,
-}: VisibleFramePublicationSampleInput): GpuFlowVisibleFramePublicationSample {
+}: VisibleFramePresentationSampleInput): GpuFlowVisibleFramePresentationSample {
   return {
     hasPresentedContentFrame,
     previousVisibleProjectionState,

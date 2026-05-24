@@ -16,7 +16,7 @@ type NativeIslandPublicationMode =
   | "blocked-commit-detach"
   | "blocked-replace";
 
-export type NativeIslandPublicationTransaction = {
+export type NativeIslandPresentationTransaction = {
   readonly attachedIslandIds: readonly string[];
   readonly blockedByCoverage: boolean;
   readonly desiredIslandIds: readonly string[];
@@ -41,7 +41,7 @@ export function createPublishedNativeIslandRects(
   );
 }
 
-export function resolveNativeIslandPublicationTransaction({
+export function resolveNativeIslandPresentationTransaction({
   blockedByCoverage,
   desiredIslandIds,
   previousIslandIds = [],
@@ -51,7 +51,7 @@ export function resolveNativeIslandPublicationTransaction({
   readonly desiredIslandIds: readonly string[];
   readonly previousIslandIds?: readonly string[] | undefined;
   readonly publishedIslandIds: readonly string[];
-}): NativeIslandPublicationTransaction {
+}): NativeIslandPresentationTransaction {
   const attachedIslandIds = difference(publishedIslandIds, previousIslandIds);
   const detachedIslandIds = difference(previousIslandIds, publishedIslandIds);
   const survivedIslandIds = intersection(publishedIslandIds, previousIslandIds);

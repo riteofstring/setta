@@ -23,7 +23,7 @@ import type {
 import {
   createGpuFlowVisibleFramePresentableFrameProofFactory,
   type GpuFlowVisibleFramePresentableFrameProof,
-  type GpuFlowVisibleFramePublicationTransactionProof,
+  type GpuFlowVisibleFramePresentationTransactionProof,
 } from "./visibleFrameTransactionProofs";
 import {
   createGpuFlowContentFrameId,
@@ -420,7 +420,7 @@ function transactionProof({
   presentableFrameProof,
 }: {
   readonly presentableFrameProof: GpuFlowVisibleFramePresentableFrameProof;
-}): GpuFlowVisibleFramePublicationTransactionProof {
+}): GpuFlowVisibleFramePresentationTransactionProof {
   return {
     blockedPresentationCandidate: null,
     blockedProof: null,

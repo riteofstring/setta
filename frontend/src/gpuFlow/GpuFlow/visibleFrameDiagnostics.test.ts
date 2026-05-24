@@ -398,7 +398,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     recordGpuFlowVisibleFrameHeld({
       candidateFrame: null,
       runtimeCanvas: heldCanvas,
-      token: heldPreviousPublicationToken(),
+      token: heldPreviousPresentationToken(),
     });
 
     expect(requestFrame).not.toHaveBeenCalled();
@@ -651,7 +651,7 @@ function blockedPresentationToken() {
   });
 }
 
-function heldPreviousPublicationToken() {
+function heldPreviousPresentationToken() {
   return createGpuFlowVisibleFrameHoldPreviousTokenForTest({
     preparedContentFrameId: 2,
     holdAgeFrames: 1,

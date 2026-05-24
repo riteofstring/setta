@@ -16,7 +16,7 @@ import {
 } from "./visibleFramePresentationEvidence";
 import {
   assertGpuFlowVisibleFramePresentationToken,
-  proveGpuFlowVisibleFramePublicationPresentation,
+  proveGpuFlowVisibleFramePresentationProof,
   type GpuFlowPresentationAuthorityProof,
 } from "./visibleFramePresentationProofs";
 import { proveGpuFlowVisibleFrameStateMachineFrame } from "./visibleFrameStateMachine";
@@ -192,7 +192,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(() =>
-      proveGpuFlowVisibleFramePublicationPresentationForCommit({
+      proveGpuFlowVisibleFramePresentationProofForCommit({
         presentationAuthorityProof: {
           ...presentationAuthorityProof,
           proofDigest: "stale-visible-proof",
@@ -220,7 +220,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(() =>
-      proveGpuFlowVisibleFramePublicationPresentationForCommit({
+      proveGpuFlowVisibleFramePresentationProofForCommit({
         presentationAuthorityProof: {
           ...presentationAuthorityProof,
           presentationPairProof: {
@@ -255,7 +255,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(() =>
-      proveGpuFlowVisibleFramePublicationPresentationForCommit({
+      proveGpuFlowVisibleFramePresentationProofForCommit({
         presentationAuthorityProof,
         frame,
         projectionSample,
@@ -280,7 +280,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(() =>
-      proveGpuFlowVisibleFramePublicationPresentationForCommit({
+      proveGpuFlowVisibleFramePresentationProofForCommit({
         presentationAuthorityProof: {
           ...presentationAuthorityProof,
           resourceProtectionDigest: "stale-resource-protection-proof",
@@ -399,7 +399,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
 
   it("wakes the coordinator for browser visual blocked content debt", () => {
     const projectionSample = liveProjectionSample();
-    const completion = proveGpuFlowVisibleFramePublicationPresentation({
+    const completion = proveGpuFlowVisibleFramePresentationProof({
       forceImmediateReducerDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
@@ -410,7 +410,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         sample: projectionSample,
         reducerState: "content-catchup",
       } as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
@@ -422,7 +422,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           outcome: "blocked",
         }),
       } as unknown as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["reducerRuntime"],
       transactionProof: {
         blockedProof: {
@@ -466,7 +466,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         },
         visibleProjectionState: null,
       } as unknown as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["transactionProof"],
     });
 
@@ -485,7 +485,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
 
   it("requests texture upload after section surface content blocks before manual repair", () => {
     const projectionSample = liveProjectionSample();
-    const completion = proveGpuFlowVisibleFramePublicationPresentation({
+    const completion = proveGpuFlowVisibleFramePresentationProof({
       forceImmediateReducerDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
@@ -496,7 +496,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         sample: projectionSample,
         reducerState: "content-catchup",
       } as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
@@ -508,7 +508,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           outcome: "blocked",
         }),
       } as unknown as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["reducerRuntime"],
       transactionProof: {
         blockedProof: {
@@ -557,7 +557,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         },
         visibleProjectionState: null,
       } as unknown as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["transactionProof"],
     });
 
@@ -576,7 +576,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
 
   it("requests texture upload after pending browser text snapshot blocks content", () => {
     const projectionSample = liveProjectionSample();
-    const completion = proveGpuFlowVisibleFramePublicationPresentation({
+    const completion = proveGpuFlowVisibleFramePresentationProof({
       forceImmediateReducerDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
@@ -587,7 +587,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         sample: projectionSample,
         reducerState: "content-catchup",
       } as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
@@ -599,7 +599,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           outcome: "blocked",
         }),
       } as unknown as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["reducerRuntime"],
       transactionProof: {
         blockedProof: {
@@ -643,7 +643,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         },
         visibleProjectionState: null,
       } as unknown as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["transactionProof"],
     });
 
@@ -675,7 +675,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       projectionTransactionId:
         pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
-    const completion = proveGpuFlowVisibleFramePublicationPresentation({
+    const completion = proveGpuFlowVisibleFramePresentationProof({
       forceImmediateReducerDebtFrame: false,
       followUpFrameReason: null,
       previousVisibleProjectionState: null,
@@ -686,7 +686,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         sample: projectionSample,
         reducerState: "maintenance-drain",
       } as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => ({
@@ -698,7 +698,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           throw new Error("Unexpected unpresented frame completion.");
         },
       } as unknown as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["reducerRuntime"],
       transactionProof: {
         presentableFrameProof: {
@@ -738,7 +738,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           },
         },
       } as unknown as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["transactionProof"],
     });
 
@@ -756,7 +756,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
 
   it("keeps held-previous budget blocked retained follow-up queued behind reducer debt", () => {
     const projectionSample = liveProjectionSample();
-    const completion = proveGpuFlowVisibleFramePublicationPresentation({
+    const completion = proveGpuFlowVisibleFramePresentationProof({
       forceImmediateReducerDebtFrame: false,
       followUpFrameReason: "texture-upload",
       previousVisibleProjectionState: null,
@@ -767,7 +767,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         sample: projectionSample,
         reducerState: "content-catchup",
       } as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["reducerDecision"],
       reducerRuntime: {
         completeFrame: () => {
@@ -779,7 +779,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           outcome: "blocked",
         }),
       } as unknown as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["reducerRuntime"],
       transactionProof: {
         blockedProof: {
@@ -823,7 +823,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         },
         visibleProjectionState: null,
       } as unknown as Parameters<
-        typeof proveGpuFlowVisibleFramePublicationPresentation
+        typeof proveGpuFlowVisibleFramePresentationProof
       >[0]["transactionProof"],
     });
 
@@ -842,7 +842,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
   });
 });
 
-function proveGpuFlowVisibleFramePublicationPresentationForCommit({
+function proveGpuFlowVisibleFramePresentationProofForCommit({
   presentationAuthorityProof,
   frame,
   projectionSample,
@@ -851,7 +851,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
   readonly frame: GpuFlowPreparedContentFrame;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): void {
-  proveGpuFlowVisibleFramePublicationPresentation({
+  proveGpuFlowVisibleFramePresentationProof({
     forceImmediateReducerDebtFrame: false,
     followUpFrameReason: null,
     previousVisibleProjectionState: null,
@@ -861,7 +861,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
       sample: projectionSample,
       reducerState: "idle",
     } as unknown as Parameters<
-      typeof proveGpuFlowVisibleFramePublicationPresentation
+      typeof proveGpuFlowVisibleFramePresentationProof
     >[0]["reducerDecision"],
     reducerRuntime: {
       completeFrame: () => ({
@@ -886,7 +886,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
         kind: "unpresented",
       }),
     } as unknown as Parameters<
-      typeof proveGpuFlowVisibleFramePublicationPresentation
+      typeof proveGpuFlowVisibleFramePresentationProof
     >[0]["reducerRuntime"],
     transactionProof: {
       presentableFrameProof: {
@@ -926,7 +926,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
         },
       },
     } as unknown as Parameters<
-      typeof proveGpuFlowVisibleFramePublicationPresentation
+      typeof proveGpuFlowVisibleFramePresentationProof
     >[0]["transactionProof"],
   });
 }

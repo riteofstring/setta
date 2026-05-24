@@ -6,7 +6,7 @@ import {
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
-  type GpuFlowVisibleFramePublicationSample,
+  type GpuFlowVisibleFramePresentationSample,
 } from "./visibleFrameCoordinator";
 import {
   createGpuFlowVisibleFramePresentationCanvasPresentationEvidence,
@@ -22,7 +22,7 @@ import type {
 } from "./visibleFramePresentationProofs";
 import { createGpuFlowVisibleFrameReducerRuntime } from "./visibleFrameReducerRuntime";
 
-type GpuFlowVisibleFramePublicationTestCandidate = {
+type GpuFlowVisibleFramePresentationTestCandidate = {
   readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
   readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence | null;
   readonly rendered: boolean;
@@ -47,8 +47,8 @@ export function createGpuFlowVisibleFramePresentationTokenForTest({
       sample: projectionSample,
     },
   } as unknown as GpuFlowVisibleProjectionState;
-  const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
-    contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
+  const result = runGpuFlowVisibleFramePresentationTestTokenKernel({
+    contentFrame: createGpuFlowVisibleFramePresentationTestCandidate({
       presentationEvidence:
         createGpuFlowVisibleFramePresentationTestPresentationEvidence({
           visibleProjectionState,
@@ -113,8 +113,8 @@ export function createGpuFlowVisibleFrameHoldPreviousTokenForTest({
       },
     },
   } as unknown as GpuFlowVisibleProjectionState;
-  const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
-    contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
+  const result = runGpuFlowVisibleFramePresentationTestTokenKernel({
+    contentFrame: createGpuFlowVisibleFramePresentationTestCandidate({
       rendered: true,
       visibleProjectionState,
     }),
@@ -139,8 +139,8 @@ export function createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
   readonly frozenFrameId: GpuFlowBlockedPresentationToken["frozenFrameId"];
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowBlockedPresentationToken {
-  const result = runGpuFlowVisibleFramePublicationTestTokenKernel({
-    contentFrame: createGpuFlowVisibleFramePublicationTestCandidate({
+  const result = runGpuFlowVisibleFramePresentationTestTokenKernel({
+    contentFrame: createGpuFlowVisibleFramePresentationTestCandidate({
       blockedPresentationCandidate: {
         blockedReasons,
         frozenFrameId,
@@ -155,12 +155,12 @@ export function createGpuFlowVisibleFrameBlockedPresentationTokenForTest({
   return result.outcome.token;
 }
 
-function runGpuFlowVisibleFramePublicationTestTokenKernel({
-  contentFrame = createGpuFlowVisibleFramePublicationTestCandidate(),
+function runGpuFlowVisibleFramePresentationTestTokenKernel({
+  contentFrame = createGpuFlowVisibleFramePresentationTestCandidate(),
   previousVisibleProjectionState = null,
   projectionSample,
 }: {
-  readonly contentFrame?: GpuFlowVisibleFramePublicationTestCandidate;
+  readonly contentFrame?: GpuFlowVisibleFramePresentationTestCandidate;
   readonly previousVisibleProjectionState?:
     | GpuFlowVisibleProjectionState
     | null
@@ -168,17 +168,17 @@ function runGpuFlowVisibleFramePublicationTestTokenKernel({
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }) {
   return runGpuFlowVisibleFrameCoordinator<
-    GpuFlowVisibleFramePublicationTestCandidate,
-    GpuFlowVisibleFramePublicationTestCandidate
+    GpuFlowVisibleFramePresentationTestCandidate,
+    GpuFlowVisibleFramePresentationTestCandidate
   >({
     prepareContentPreparationFrame: () => contentFrame,
     prepareMotionProjectionFrame: () => ({
-      frame: createGpuFlowVisibleFramePublicationTestCandidate(),
+      frame: createGpuFlowVisibleFramePresentationTestCandidate(),
       kind: "not-rendered",
     }),
     publish: () => {},
-    sampleVisibleFramePublication: () =>
-      createGpuFlowVisibleFramePublicationTestSample({
+    sampleVisibleFramePresentation: () =>
+      createGpuFlowVisibleFramePresentationTestSample({
         previousVisibleProjectionState,
         projectionSample,
       }),
@@ -186,12 +186,12 @@ function runGpuFlowVisibleFramePublicationTestTokenKernel({
   });
 }
 
-function createGpuFlowVisibleFramePublicationTestCandidate({
+function createGpuFlowVisibleFramePresentationTestCandidate({
   blockedPresentationCandidate = null,
   presentationEvidence = null,
   rendered = false,
   visibleProjectionState = null,
-}: Partial<GpuFlowVisibleFramePublicationTestCandidate> = {}): GpuFlowVisibleFramePublicationTestCandidate {
+}: Partial<GpuFlowVisibleFramePresentationTestCandidate> = {}): GpuFlowVisibleFramePresentationTestCandidate {
   return {
     blockedPresentationCandidate,
     presentationEvidence,
@@ -227,13 +227,13 @@ function createGpuFlowVisibleFramePresentationTestPresentationEvidence({
   });
 }
 
-function createGpuFlowVisibleFramePublicationTestSample({
+function createGpuFlowVisibleFramePresentationTestSample({
   previousVisibleProjectionState,
   projectionSample,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly projectionSample: GpuFlowLiveProjectionSample;
-}): GpuFlowVisibleFramePublicationSample {
+}): GpuFlowVisibleFramePresentationSample {
   return {
     hasPresentedContentFrame: true,
     previousVisibleProjectionState,

@@ -7,7 +7,7 @@ import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
   createGpuFlowVisibleFramePresentationTransactionReport,
   type GpuFlowVisibleFramePresentationOutcome,
-  type GpuFlowVisibleFramePublicationTransactionProof,
+  type GpuFlowVisibleFramePresentationTransactionProof,
   type GpuFlowVisibleFrameReducerCompletion,
 } from "./visibleFrameCoordinator";
 import type { GpuFlowPresentationPairProof } from "./visibleFramePresentationAuthorityProofs";
@@ -40,7 +40,7 @@ export function postGpuFlowVisibleFramePresentationOutcomeChromeReproEvent({
   readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly previousContentFrameId: number | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
-  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
+  readonly transactionProof: GpuFlowVisibleFramePresentationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): void {
   if (!isChromeReproActive()) {
@@ -71,7 +71,7 @@ export function createGpuFlowVisibleFramePresentationOutcomeChromeReproPayload({
   readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly previousContentFrameId: number | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
-  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
+  readonly transactionProof: GpuFlowVisibleFramePresentationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
   const report = createGpuFlowVisibleFramePresentationTransactionReport({

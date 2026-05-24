@@ -8,8 +8,8 @@ import {
 import { createGpuFlowVisibleFrameBudgetBroker } from "./visibleFrameBudgetBroker";
 import {
   runGpuFlowVisibleFrameCoordinator,
-  type GpuFlowVisibleFramePublicationFrameContext,
-  type GpuFlowVisibleFramePublicationSample,
+  type GpuFlowVisibleFramePresentationFrameContext,
+  type GpuFlowVisibleFramePresentationSample,
 } from "./visibleFrameCoordinator";
 
 describe("GPU Flow visible frame coordinator budget", () => {
@@ -86,15 +86,15 @@ describe("GPU Flow visible frame coordinator budget", () => {
         readonly resolutionDebtRequested: boolean;
       }> = [];
       runGpuFlowVisibleFrameCoordinator({
-        prepareContentPreparationFrame: ({ publicationFrameContext }) => {
+        prepareContentPreparationFrame: ({ presentationFrameContext }) => {
           observed.push(
-            observeResolutionDeferralContext(publicationFrameContext),
+            observeResolutionDeferralContext(presentationFrameContext),
           );
           return testPresentationCandidate();
         },
-        prepareMotionProjectionFrame: ({ publicationFrameContext }) => {
+        prepareMotionProjectionFrame: ({ presentationFrameContext }) => {
           observed.push(
-            observeResolutionDeferralContext(publicationFrameContext),
+            observeResolutionDeferralContext(presentationFrameContext),
           );
           return {
             frame: testPresentationCandidate(),
@@ -102,8 +102,8 @@ describe("GPU Flow visible frame coordinator budget", () => {
           };
         },
         publish: () => {},
-        sampleVisibleFramePublication: () =>
-          visibleFramePublicationSample({
+        sampleVisibleFramePresentation: () =>
+          visibleFramePresentationSample({
             rawReasons: testCase.rawReasons,
             runtimeViewportFrame: testCase.runtimeViewportFrame,
             sample: liveProjectionSample({ id: 57, timestamp: 570 }),
@@ -138,20 +138,20 @@ describe("GPU Flow visible frame coordinator budget", () => {
           reservedMotionProjectionBudgetMs: 2,
         },
       }),
-      prepareContentPreparationFrame: ({ publicationFrameContext }) => {
-        starvedObserved.push(publicationFrameContext.deferResolutionUpdates);
+      prepareContentPreparationFrame: ({ presentationFrameContext }) => {
+        starvedObserved.push(presentationFrameContext.deferResolutionUpdates);
         return testPresentationCandidate();
       },
-      prepareMotionProjectionFrame: ({ publicationFrameContext }) => {
-        starvedObserved.push(publicationFrameContext.deferResolutionUpdates);
+      prepareMotionProjectionFrame: ({ presentationFrameContext }) => {
+        starvedObserved.push(presentationFrameContext.deferResolutionUpdates);
         return {
           frame: testPresentationCandidate(),
           kind: "not-rendered" as const,
         };
       },
       publish: () => {},
-      sampleVisibleFramePublication: () =>
-        visibleFramePublicationSample({
+      sampleVisibleFramePresentation: () =>
+        visibleFramePresentationSample({
           rawReasons: ["manual"],
           runtimeViewportFrame: false,
           sample: liveProjectionSample({ id: 58, timestamp: 580 }),
@@ -179,14 +179,18 @@ describe("GPU Flow visible frame coordinator budget", () => {
           reservedMotionProjectionBudgetMs: 2,
         },
       }),
-      prepareContentPreparationFrame: ({ publicationFrameContext }) => {
+      prepareContentPreparationFrame: ({ presentationFrameContext }) => {
         phases.push("content");
-        observedActiveEditorPins.push(publicationFrameContext.activeEditorPins);
+        observedActiveEditorPins.push(
+          presentationFrameContext.activeEditorPins,
+        );
         return testPresentationCandidate();
       },
-      prepareMotionProjectionFrame: ({ publicationFrameContext }) => {
+      prepareMotionProjectionFrame: ({ presentationFrameContext }) => {
         phases.push("motion");
-        observedActiveEditorPins.push(publicationFrameContext.activeEditorPins);
+        observedActiveEditorPins.push(
+          presentationFrameContext.activeEditorPins,
+        );
         return {
           frame: testPresentationCandidate(),
           kind: "not-rendered" as const,
@@ -200,8 +204,8 @@ describe("GPU Flow visible frame coordinator budget", () => {
       publish: (transaction) => {
         phases.push(`publish:${transaction.outcome.kind}`);
       },
-      sampleVisibleFramePublication: () =>
-        visibleFramePublicationSample({
+      sampleVisibleFramePresentation: () =>
+        visibleFramePresentationSample({
           sample: liveProjectionSample({ id: 59, timestamp: 590 }),
           visibleFrameResourceGraphSnapshot: {
             activeEditorPins: ["editor"],
@@ -262,19 +266,19 @@ describe("GPU Flow visible frame coordinator budget", () => {
       }),
       prepareContentPreparationFrame: ({
         contentPreparationWorkPlan,
-        publicationFrameContext,
+        presentationFrameContext,
       }) => {
         phases.push(
-          `content:${contentPreparationWorkPlan.kind}:defer-${publicationFrameContext.deferResolutionUpdates}`,
+          `content:${contentPreparationWorkPlan.kind}:defer-${presentationFrameContext.deferResolutionUpdates}`,
         );
         return testPresentationCandidate();
       },
       prepareMotionProjectionFrame: ({
         motionProjectionWorkPlan,
-        publicationFrameContext,
+        presentationFrameContext,
       }) => {
         phases.push(
-          `motion:${motionProjectionWorkPlan.kind}:defer-${publicationFrameContext.deferResolutionUpdates}`,
+          `motion:${motionProjectionWorkPlan.kind}:defer-${presentationFrameContext.deferResolutionUpdates}`,
         );
         return {
           frame: testPresentationCandidate(),
@@ -289,8 +293,8 @@ describe("GPU Flow visible frame coordinator budget", () => {
       publish: (transaction) => {
         phases.push(`publish:${transaction.reducerDecision.lane}`);
       },
-      sampleVisibleFramePublication: () =>
-        visibleFramePublicationSample({
+      sampleVisibleFramePresentation: () =>
+        visibleFramePresentationSample({
           rawReasons: ["viewport"],
           runtimeViewportFrame: true,
           sample: liveProjectionSample({ id: 60, timestamp: 600 }),
@@ -333,7 +337,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
     expect(result.reducerDecision.lane).toBe("motion");
     expect(result.reducerDecision.debt.motion).toBe(false);
     expect(
-      result.publicationFrameContext.budgetDecision.preparationBudget,
+      result.presentationFrameContext.budgetDecision.preparationBudget,
     ).toMatchObject({
       selectedVisibleDebtIds: ["dom-control:editor"],
       selectedVisibleResourceDebtIds: ["dom-control:editor"],
@@ -348,17 +352,17 @@ describe("GPU Flow visible frame coordinator budget", () => {
 });
 
 function observeResolutionDeferralContext(
-  publicationFrameContext: GpuFlowVisibleFramePublicationFrameContext,
+  presentationFrameContext: GpuFlowVisibleFramePresentationFrameContext,
 ): {
   readonly deferResolutionUpdates: boolean;
   readonly resolutionDebtRequested: boolean;
 } {
   const selectedDebtIds =
-    publicationFrameContext.budgetDecision.preparationBudget.selectedDebtIds;
+    presentationFrameContext.budgetDecision.preparationBudget.selectedDebtIds;
   const deferredDebtIds =
-    publicationFrameContext.budgetDecision.preparationBudget.deferredDebtIds;
+    presentationFrameContext.budgetDecision.preparationBudget.deferredDebtIds;
   return {
-    deferResolutionUpdates: publicationFrameContext.deferResolutionUpdates,
+    deferResolutionUpdates: presentationFrameContext.deferResolutionUpdates,
     resolutionDebtRequested:
       selectedDebtIds.includes("resolution-update") ||
       deferredDebtIds.includes("resolution-update"),
@@ -434,11 +438,11 @@ function testPresentationCandidate(): {
   };
 }
 
-type VisibleFramePublicationSampleInput = Partial<
-  Omit<GpuFlowVisibleFramePublicationSample, "sample">
+type VisibleFramePresentationSampleInput = Partial<
+  Omit<GpuFlowVisibleFramePresentationSample, "sample">
 > & { readonly sample: GpuFlowLiveProjectionSample };
 
-function visibleFramePublicationSample({
+function visibleFramePresentationSample({
   hasPresentedContentFrame = true,
   previousVisibleProjectionState = null,
   rawReasons = ["manual"],
@@ -447,7 +451,7 @@ function visibleFramePublicationSample({
   timestamp = sample.timestamp,
   visibleFrameResourceGraphSnapshot,
   viewportInteractionActive = false,
-}: VisibleFramePublicationSampleInput): GpuFlowVisibleFramePublicationSample {
+}: VisibleFramePresentationSampleInput): GpuFlowVisibleFramePresentationSample {
   return {
     hasPresentedContentFrame,
     previousVisibleProjectionState,

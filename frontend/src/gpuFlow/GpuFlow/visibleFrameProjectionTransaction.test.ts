@@ -15,7 +15,7 @@ import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowProjectionFrameRenderablePlan,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
-  type GpuFlowVisibleFramePublicationSample,
+  type GpuFlowVisibleFramePresentationSample,
 } from "./visibleFrameCoordinator";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 
@@ -310,8 +310,8 @@ function resolveProjectionFrameTransactionThroughCoordinator({
       selection.blockedPresentationCandidate =
         transaction.preparedFrame.motionProjectionFrame.blockedPresentationCandidate;
     },
-    sampleVisibleFramePublication: () =>
-      visibleFramePublicationSample({
+    sampleVisibleFramePresentation: () =>
+      visibleFramePresentationSample({
         previousVisibleProjectionState,
         sample: requestedTransaction.sample,
       }),
@@ -339,13 +339,13 @@ function testProjectionPublicationFrame({
   };
 }
 
-function visibleFramePublicationSample({
+function visibleFramePresentationSample({
   previousVisibleProjectionState,
   sample,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly sample: GpuFlowLiveProjectionSample;
-}): GpuFlowVisibleFramePublicationSample {
+}): GpuFlowVisibleFramePresentationSample {
   return {
     hasPresentedContentFrame: true,
     previousVisibleProjectionState,

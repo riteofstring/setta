@@ -34,7 +34,7 @@ describe("GPU Flow visible projection state publication authority", () => {
       "function assertGpuFlowHeldPreviousVisibleProjectionState",
     );
     const presentedPublisherEnd = source.indexOf(
-      "function presentGpuFlowVisibleFramePublicationFrame",
+      "function presentGpuFlowVisibleFramePresentationFrame",
     );
     const heldPublisherSource = source.slice(
       heldPublisherStart,
@@ -55,13 +55,13 @@ describe("GPU Flow visible projection state publication authority", () => {
       "visibleProjectionStateRef.current = visibleProjectionState",
     );
     expect(presentedPublisherSource).toContain(
-      "visibleProjectionPublicationStateRef.current = visibleProjectionState",
+      "visibleProjectionPresentationStateRef.current = visibleProjectionState",
     );
     expect(heldPublisherSource).toContain(
       "assertGpuFlowHoldPreviousTokenForProjectionSample",
     );
     expect(heldPublisherSource).not.toContain(
-      "visibleProjectionPublicationStateRef.current = visibleProjectionState",
+      "visibleProjectionPresentationStateRef.current = visibleProjectionState",
     );
   });
 });

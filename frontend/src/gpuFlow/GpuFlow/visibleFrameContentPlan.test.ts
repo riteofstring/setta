@@ -464,7 +464,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "resolveGpuFlowPreparedContentFramePresentationReadiness",
     );
     expect(contentPlanSource).not.toContain(
-      "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
+      "createGpuFlowPreparedContentHeldPreviousPresentationTransaction",
     );
     expect(contentPlanSource).not.toContain(
       "shouldPreservePreparedContentFrameForBrowserVisualRepair",
@@ -496,7 +496,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "resolveGpuFlowPreparedContentFramePresentationReadiness",
     );
     expect(contentPlanSource).not.toContain(
-      "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
+      "createGpuFlowPreparedContentHeldPreviousPresentationTransaction",
     );
     expect(stateMachineSource).toContain(
       "export function reduceGpuFlowPreparedContentFramePresentationCandidate",
@@ -511,7 +511,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "resolveGpuFlowPreparedContentFramePresentationReadiness",
     );
     expect(stateMachineSource).not.toContain(
-      "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
+      "createGpuFlowPreparedContentHeldPreviousPresentationTransaction",
     );
     expect(stateMachineSource).toContain('"blocked"');
     expect(stateMachineSource).toContain('"blocked-candidate"');

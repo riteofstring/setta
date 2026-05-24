@@ -55,13 +55,13 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
     contentFrame.nodeLayerFrameStatePublication?.layerResult ?? null;
   requests.push({
     activeEditorPins:
-      coordinatorResult.publicationFrameContext.activeEditorPins,
+      coordinatorResult.presentationFrameContext.activeEditorPins,
     ...createGpuFlowSurfaceFrameDebtRequestDiagnostic(
       reducerCompletion.debtFrameRequest,
     ),
     ...createGpuFlowSurfaceFrameLayerResultDiagnostic(layerResult),
     budgetDecision: createGpuFlowSurfaceFrameBudgetDecisionDiagnostic(
-      coordinatorResult.publicationFrameContext.budgetDecision,
+      coordinatorResult.presentationFrameContext.budgetDecision,
     ),
     blockedReasons: getGpuFlowSurfaceFrameBlockedReasons(contentFrame),
     completionDebt: reducerCompletion.completion.debt,
@@ -70,7 +70,7 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
       createGpuFlowSurfaceFrameContentPublicationDiagnostic(contentFrame),
     frame,
     frameRequest: createGpuFlowSurfaceFrameRequestDiagnostic(
-      coordinatorResult.publicationFrameContext.frameRequest,
+      coordinatorResult.presentationFrameContext.frameRequest,
     ),
     frameReasons: [...frameReasons],
     outcomeKind: coordinatorResult.outcome.kind,
@@ -152,7 +152,7 @@ function getGpuFlowSurfaceFrameBlockedReasons(
 }
 
 function createGpuFlowSurfaceFrameBudgetDecisionDiagnostic(
-  budgetDecision: GpuFlowSurfaceFrameCoordinatorResult["publicationFrameContext"]["budgetDecision"],
+  budgetDecision: GpuFlowSurfaceFrameCoordinatorResult["presentationFrameContext"]["budgetDecision"],
 ) {
   const budget = budgetDecision.preparationBudget;
   return {
@@ -170,7 +170,7 @@ function createGpuFlowSurfaceFrameBudgetDecisionDiagnostic(
 }
 
 function createGpuFlowSurfaceFrameRequestDiagnostic(
-  frameRequest: GpuFlowSurfaceFrameCoordinatorResult["publicationFrameContext"]["frameRequest"],
+  frameRequest: GpuFlowSurfaceFrameCoordinatorResult["presentationFrameContext"]["frameRequest"],
 ) {
   return {
     contentDebt: frameRequest.contentDebt,

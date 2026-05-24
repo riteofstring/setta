@@ -25,7 +25,7 @@ import {
   type GpuFlowVisibleFrameRect,
 } from "./visibleFrameTypes";
 
-export function createGpuFlowVisibleFramePublicationStateMachinePreparedFrame({
+export function createGpuFlowVisibleFramePresentationStateMachinePreparedFrame({
   blockingProofs,
   candidateContentFrame,
   candidateVisibleProjectionState,
@@ -39,11 +39,11 @@ export function createGpuFlowVisibleFramePublicationStateMachinePreparedFrame({
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): GpuFlowVisibleFramePreparedFrame {
   const manifestFrame =
-    resolveGpuFlowVisibleFramePublicationStateMachineManifestFrame({
+    resolveGpuFlowVisibleFramePresentationStateMachineManifestFrame({
       candidateContentFrame,
       candidateVisibleProjectionState,
     });
-  const candidate = createGpuFlowVisibleFramePublicationStateMachineCandidate({
+  const candidate = createGpuFlowVisibleFramePresentationStateMachineCandidate({
     blockingProofs,
     candidateContentFrame,
     manifestFrame,
@@ -54,20 +54,20 @@ export function createGpuFlowVisibleFramePublicationStateMachinePreparedFrame({
   return Object.freeze({
     candidate,
     previousPresentation:
-      createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
+      createGpuFlowVisibleFramePresentationStateMachinePreviousPresentation({
         blockingProofs,
         candidate,
         candidateVisibleProjectionState,
         previousVisibleProjectionState,
       }),
-    sample: createGpuFlowVisibleFramePublicationStateMachineSample({
+    sample: createGpuFlowVisibleFramePresentationStateMachineSample({
       previousVisibleProjectionState,
       reducerDecision,
     }),
   });
 }
 
-function createGpuFlowVisibleFramePublicationStateMachineCandidate({
+function createGpuFlowVisibleFramePresentationStateMachineCandidate({
   blockingProofs,
   candidateContentFrame,
   manifestFrame,
@@ -83,7 +83,7 @@ function createGpuFlowVisibleFramePublicationStateMachineCandidate({
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }) {
   const contentFrameId =
-    createGpuFlowVisibleFramePublicationStateMachineContentFrameId({
+    createGpuFlowVisibleFramePresentationStateMachineContentFrameId({
       blockingProofs,
       candidateContentFrame,
       candidateVisibleProjectionState,
@@ -92,7 +92,7 @@ function createGpuFlowVisibleFramePublicationStateMachineCandidate({
     });
   const projectionSampleId = reducerDecision.sample.id;
   const manifestBlockedReasons =
-    createGpuFlowVisibleFramePublicationStateMachineManifestBlockedReasons({
+    createGpuFlowVisibleFramePresentationStateMachineManifestBlockedReasons({
       blockingProofs,
       candidateVisibleProjectionState,
     });
@@ -111,11 +111,11 @@ function createGpuFlowVisibleFramePublicationStateMachineCandidate({
     actorProofs,
     contentFrameId,
     preparedResourceIds:
-      createGpuFlowVisibleFramePublicationStateMachinePreparedResourceIds(
+      createGpuFlowVisibleFramePresentationStateMachinePreparedResourceIds(
         manifestFrame,
       ),
     projectionSampleId,
-    queuedDebt: createGpuFlowVisibleFramePublicationStateMachineDebt({
+    queuedDebt: createGpuFlowVisibleFramePresentationStateMachineDebt({
       blockingProofs,
       reducerDecision,
     }),
@@ -123,7 +123,7 @@ function createGpuFlowVisibleFramePublicationStateMachineCandidate({
   });
 }
 
-function createGpuFlowVisibleFramePublicationStateMachineManifestBlockedReasons({
+function createGpuFlowVisibleFramePresentationStateMachineManifestBlockedReasons({
   blockingProofs,
   candidateVisibleProjectionState,
 }: {
@@ -149,7 +149,7 @@ function createGpuFlowVisibleFramePublicationStateMachineManifestBlockedReasons(
   return Object.freeze(blockedReasons);
 }
 
-function createGpuFlowVisibleFramePublicationStateMachineContentFrameId({
+function createGpuFlowVisibleFramePresentationStateMachineContentFrameId({
   blockingProofs,
   candidateContentFrame,
   candidateVisibleProjectionState,
@@ -186,7 +186,7 @@ function createGpuFlowVisibleFramePublicationStateMachineContentFrameId({
   );
 }
 
-function resolveGpuFlowVisibleFramePublicationStateMachineManifestFrame({
+function resolveGpuFlowVisibleFramePresentationStateMachineManifestFrame({
   candidateContentFrame,
   candidateVisibleProjectionState,
 }: {
@@ -200,7 +200,7 @@ function resolveGpuFlowVisibleFramePublicationStateMachineManifestFrame({
   );
 }
 
-function createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
+function createGpuFlowVisibleFramePresentationStateMachinePreviousPresentation({
   blockingProofs,
   candidate,
   candidateVisibleProjectionState,
@@ -208,7 +208,7 @@ function createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
 }: {
   readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly candidate: ReturnType<
-    typeof createGpuFlowVisibleFramePublicationStateMachineCandidate
+    typeof createGpuFlowVisibleFramePresentationStateMachineCandidate
   >;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -228,14 +228,14 @@ function createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
     string,
     GpuFlowVisibleFramePresentedActorCoverage
   >();
-  addGpuFlowVisibleFramePublicationStateMachinePreviousActorCoverage({
+  addGpuFlowVisibleFramePresentationStateMachinePreviousActorCoverage({
     candidate,
     coverageByActor,
     presentationId,
     previousContentFrameId,
     previousProjectionState,
   });
-  addGpuFlowVisibleFramePublicationStateMachineBlockedFrozenCoverage({
+  addGpuFlowVisibleFramePresentationStateMachineBlockedFrozenCoverage({
     blockingProofs,
     candidate,
     coverageByActor,
@@ -243,7 +243,7 @@ function createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
     previousContentFrameId,
     previousProjectionState,
   });
-  addGpuFlowVisibleFramePublicationStateMachineHeldPreviousSyntheticCoverage({
+  addGpuFlowVisibleFramePresentationStateMachineHeldPreviousSyntheticCoverage({
     blockingProofs,
     candidate,
     candidateVisibleProjectionState,
@@ -258,7 +258,7 @@ function createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
   });
 }
 
-function addGpuFlowVisibleFramePublicationStateMachinePreviousActorCoverage({
+function addGpuFlowVisibleFramePresentationStateMachinePreviousActorCoverage({
   candidate,
   coverageByActor,
   presentationId,
@@ -266,7 +266,7 @@ function addGpuFlowVisibleFramePublicationStateMachinePreviousActorCoverage({
   previousProjectionState,
 }: {
   readonly candidate: ReturnType<
-    typeof createGpuFlowVisibleFramePublicationStateMachineCandidate
+    typeof createGpuFlowVisibleFramePresentationStateMachineCandidate
   >;
   readonly coverageByActor: Map<
     string,
@@ -297,7 +297,7 @@ function addGpuFlowVisibleFramePublicationStateMachinePreviousActorCoverage({
   }
 }
 
-function addGpuFlowVisibleFramePublicationStateMachineBlockedFrozenCoverage({
+function addGpuFlowVisibleFramePresentationStateMachineBlockedFrozenCoverage({
   blockingProofs,
   candidate,
   coverageByActor,
@@ -307,7 +307,7 @@ function addGpuFlowVisibleFramePublicationStateMachineBlockedFrozenCoverage({
 }: {
   readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly candidate: ReturnType<
-    typeof createGpuFlowVisibleFramePublicationStateMachineCandidate
+    typeof createGpuFlowVisibleFramePresentationStateMachineCandidate
   >;
   readonly coverageByActor: Map<
     string,
@@ -324,7 +324,7 @@ function addGpuFlowVisibleFramePublicationStateMachineBlockedFrozenCoverage({
   for (const blockingProof of blockingProofs) {
     if (
       blockingProof.source === "browser-visual-proof" ||
-      !shouldGpuFlowVisibleFramePublicationStateMachineUseBlockedFrozenFrameCoverage(
+      !shouldGpuFlowVisibleFramePresentationStateMachineUseBlockedFrozenFrameCoverage(
         {
           blockedProof: blockingProof,
           previousVisibleProjectionState: previousProjectionState,
@@ -350,7 +350,7 @@ function addGpuFlowVisibleFramePublicationStateMachineBlockedFrozenCoverage({
       }
       coverageByActor.set(
         createGpuFlowVisibleFrameActorCoverageKey(actor),
-        createGpuFlowVisibleFramePublicationStateMachineCoverage({
+        createGpuFlowVisibleFramePresentationStateMachineCoverage({
           actor,
           candidateContentFrameId: candidate.contentFrameId,
           contentFrameId: previousContentFrameId,
@@ -363,7 +363,7 @@ function addGpuFlowVisibleFramePublicationStateMachineBlockedFrozenCoverage({
   }
 }
 
-function addGpuFlowVisibleFramePublicationStateMachineHeldPreviousSyntheticCoverage({
+function addGpuFlowVisibleFramePresentationStateMachineHeldPreviousSyntheticCoverage({
   blockingProofs,
   candidate,
   candidateVisibleProjectionState,
@@ -373,7 +373,7 @@ function addGpuFlowVisibleFramePublicationStateMachineHeldPreviousSyntheticCover
 }: {
   readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
   readonly candidate: ReturnType<
-    typeof createGpuFlowVisibleFramePublicationStateMachineCandidate
+    typeof createGpuFlowVisibleFramePresentationStateMachineCandidate
   >;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly coverageByActor: Map<
@@ -396,7 +396,7 @@ function addGpuFlowVisibleFramePublicationStateMachineHeldPreviousSyntheticCover
   });
   coverageByActor.set(
     createGpuFlowVisibleFrameActorCoverageKey(actor),
-    createGpuFlowVisibleFramePublicationStateMachineCoverage({
+    createGpuFlowVisibleFramePresentationStateMachineCoverage({
       actor,
       candidateContentFrameId: candidate.contentFrameId,
       contentFrameId: previousContentFrameId,
@@ -406,7 +406,7 @@ function addGpuFlowVisibleFramePublicationStateMachineHeldPreviousSyntheticCover
   );
 }
 
-function createGpuFlowVisibleFramePublicationStateMachineCoverage({
+function createGpuFlowVisibleFramePresentationStateMachineCoverage({
   actor,
   candidateContentFrameId,
   contentFrameId,
@@ -437,7 +437,7 @@ function createGpuFlowVisibleFrameActorCoverageKey(
   return `${actor.family}:${actor.actorId}`;
 }
 
-function shouldGpuFlowVisibleFramePublicationStateMachineUseBlockedFrozenFrameCoverage({
+function shouldGpuFlowVisibleFramePresentationStateMachineUseBlockedFrozenFrameCoverage({
   blockedProof,
   previousVisibleProjectionState,
 }: {
@@ -456,7 +456,7 @@ function shouldGpuFlowVisibleFramePublicationStateMachineUseBlockedFrozenFrameCo
   );
 }
 
-function createGpuFlowVisibleFramePublicationStateMachinePreparedResourceIds(
+function createGpuFlowVisibleFramePresentationStateMachinePreparedResourceIds(
   frame: GpuFlowPreparedContentFrame | null,
 ): readonly string[] {
   if (frame === null) {
@@ -476,7 +476,7 @@ function createGpuFlowVisibleFramePublicationStateMachinePreparedResourceIds(
   );
 }
 
-function createGpuFlowVisibleFramePublicationStateMachineDebt({
+function createGpuFlowVisibleFramePresentationStateMachineDebt({
   blockingProofs,
   reducerDecision,
 }: {
@@ -501,7 +501,7 @@ function createGpuFlowVisibleFramePublicationStateMachineDebt({
   });
 }
 
-function createGpuFlowVisibleFramePublicationStateMachineSample({
+function createGpuFlowVisibleFramePresentationStateMachineSample({
   previousVisibleProjectionState,
   reducerDecision,
 }: {
@@ -511,29 +511,29 @@ function createGpuFlowVisibleFramePublicationStateMachineSample({
   const sample = reducerDecision.sample;
   const viewport = normalizeGpuViewport(sample.viewport ?? [0, 0, 1]);
   const canvasSize =
-    createGpuFlowVisibleFramePublicationStateMachineCanvasSize(sample);
+    createGpuFlowVisibleFramePresentationStateMachineCanvasSize(sample);
   return Object.freeze({
     activeGestureOwner: sample.gestureOwner ?? null,
     canvasSize,
     currentContentFrameId:
-      getGpuFlowVisibleFramePublicationStateMachineCurrentFrameId(
+      getGpuFlowVisibleFramePresentationStateMachineCurrentFrameId(
         previousVisibleProjectionState,
       ),
     dpr: sample.devicePixelRatio ?? 1,
     projectionSampleId: sample.id,
-    queuedDebt: createGpuFlowVisibleFramePublicationStateMachineDebt({
+    queuedDebt: createGpuFlowVisibleFramePresentationStateMachineDebt({
       blockingProofs: [],
       reducerDecision,
     }),
     retainedScrollOffsets:
-      createGpuFlowVisibleFramePublicationStateMachineRetainedScrollOffsets(
+      createGpuFlowVisibleFramePresentationStateMachineRetainedScrollOffsets(
         sample,
       ),
     sceneGeneration:
-      getGpuFlowVisibleFramePublicationStateMachineSceneGeneration(
+      getGpuFlowVisibleFramePresentationStateMachineSceneGeneration(
         previousVisibleProjectionState,
       ),
-    viewport: createGpuFlowVisibleFramePublicationStateMachineRect({
+    viewport: createGpuFlowVisibleFramePresentationStateMachineRect({
       height: canvasSize.height,
       width: canvasSize.width,
       x: viewport.x,
@@ -542,7 +542,7 @@ function createGpuFlowVisibleFramePublicationStateMachineSample({
   });
 }
 
-function createGpuFlowVisibleFramePublicationStateMachineCanvasSize(
+function createGpuFlowVisibleFramePresentationStateMachineCanvasSize(
   sample: GpuFlowVisibleFrameReducerDecision["sample"],
 ): GpuFlowVisibleFrameStateMachineSample["canvasSize"] {
   return Object.freeze({
@@ -551,7 +551,7 @@ function createGpuFlowVisibleFramePublicationStateMachineCanvasSize(
   });
 }
 
-function getGpuFlowVisibleFramePublicationStateMachineCurrentFrameId(
+function getGpuFlowVisibleFramePresentationStateMachineCurrentFrameId(
   previousVisibleProjectionState: GpuFlowVisibleProjectionState | null,
 ): GpuFlowVisibleFrameStateMachineSample["currentContentFrameId"] {
   return (
@@ -559,7 +559,7 @@ function getGpuFlowVisibleFramePublicationStateMachineCurrentFrameId(
   );
 }
 
-function getGpuFlowVisibleFramePublicationStateMachineSceneGeneration(
+function getGpuFlowVisibleFramePresentationStateMachineSceneGeneration(
   previousVisibleProjectionState: GpuFlowVisibleProjectionState | null,
 ): string {
   return (
@@ -568,7 +568,7 @@ function getGpuFlowVisibleFramePublicationStateMachineSceneGeneration(
   );
 }
 
-function createGpuFlowVisibleFramePublicationStateMachineRetainedScrollOffsets(
+function createGpuFlowVisibleFramePresentationStateMachineRetainedScrollOffsets(
   sample: GpuFlowVisibleFrameReducerDecision["sample"],
 ): GpuFlowVisibleFrameStateMachineSample["retainedScrollOffsets"] {
   return Object.freeze(
@@ -583,7 +583,7 @@ function createGpuFlowVisibleFramePublicationStateMachineRetainedScrollOffsets(
   );
 }
 
-function createGpuFlowVisibleFramePublicationStateMachineRect({
+function createGpuFlowVisibleFramePresentationStateMachineRect({
   height,
   width,
   x,

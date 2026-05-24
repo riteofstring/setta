@@ -19,7 +19,7 @@ import { createGpuFlowPreparedContentFramePresentationFramePlanPreparer } from "
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
-  type GpuFlowVisibleFramePublicationSample,
+  type GpuFlowVisibleFramePresentationSample,
 } from "./visibleFrameCoordinator";
 
 const preparePreparedContentFramePresentationFramePlanForTest =
@@ -538,8 +538,8 @@ function runPreparedCandidateCoordinator({
       kind: "not-rendered",
     }),
     publish,
-    sampleVisibleFramePublication: () =>
-      visibleFramePublicationSample({
+    sampleVisibleFramePresentation: () =>
+      visibleFramePresentationSample({
         hasPresentedContentFrame,
         previousVisibleProjectionState,
         rawReasons,
@@ -562,11 +562,11 @@ function testPresentationCandidate({
   };
 }
 
-type VisibleFramePublicationSampleInput = Partial<
-  Omit<GpuFlowVisibleFramePublicationSample, "sample">
+type VisibleFramePresentationSampleInput = Partial<
+  Omit<GpuFlowVisibleFramePresentationSample, "sample">
 > & { readonly sample: GpuFlowLiveProjectionSample };
 
-function visibleFramePublicationSample({
+function visibleFramePresentationSample({
   hasPresentedContentFrame = true,
   previousVisibleProjectionState = null,
   rawReasons = ["manual"],
@@ -574,7 +574,7 @@ function visibleFramePublicationSample({
   sample,
   timestamp = sample.timestamp,
   viewportInteractionActive = false,
-}: VisibleFramePublicationSampleInput): GpuFlowVisibleFramePublicationSample {
+}: VisibleFramePresentationSampleInput): GpuFlowVisibleFramePresentationSample {
   return {
     hasPresentedContentFrame,
     previousVisibleProjectionState,

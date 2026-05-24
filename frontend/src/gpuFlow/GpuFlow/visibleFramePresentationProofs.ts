@@ -30,7 +30,7 @@ import {
 import { getGpuFlowVisibleFrameHeldPreviousBudgetStatus } from "./visibleFrameStateMachine";
 import type {
   GpuFlowVisibleFramePresentationBlockedProof,
-  GpuFlowVisibleFramePublicationTransactionProof,
+  GpuFlowVisibleFramePresentationTransactionProof,
 } from "./visibleFrameTransactionProofs";
 import {
   GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
@@ -59,7 +59,7 @@ export {
   type GpuFlowVisibleFramePresentationToken,
 } from "./visibleFramePresentationTokens";
 
-type GpuFlowVisibleFramePublicationReducerRuntime = {
+type GpuFlowVisibleFramePresentationReducerRuntime = {
   readonly completeFrame: (
     reducerDecision: GpuFlowVisibleFrameReducerDecision,
     outcome: Extract<
@@ -79,7 +79,7 @@ type GpuFlowVisibleFramePublicationReducerRuntime = {
 
 const GPU_FLOW_MOTION_ACTIVE_DEBT_RETRY_DELAY_MS = 160;
 
-export function proveGpuFlowVisibleFramePublicationPresentation({
+export function proveGpuFlowVisibleFramePresentationProof({
   forceImmediateReducerDebtFrame,
   followUpFrameReason,
   reducerDecision,
@@ -91,8 +91,8 @@ export function proveGpuFlowVisibleFramePublicationPresentation({
   readonly followUpFrameReason: GpuFrameReason | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly reducerRuntime: GpuFlowVisibleFramePublicationReducerRuntime;
-  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
+  readonly reducerRuntime: GpuFlowVisibleFramePresentationReducerRuntime;
+  readonly transactionProof: GpuFlowVisibleFramePresentationTransactionProof;
 }): GpuFlowVisibleFramePresentationTransactionCompletion {
   const reducerPolicy = reducerRuntime.getKnobs();
   const outcome = createGpuFlowVisibleFrameReducerCompletionOutcome({
@@ -149,7 +149,7 @@ function createGpuFlowVisibleFramePresentationReducerFrameCompleter({
   readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
-  readonly reducerRuntime: GpuFlowVisibleFramePublicationReducerRuntime;
+  readonly reducerRuntime: GpuFlowVisibleFramePresentationReducerRuntime;
 }): () => GpuFlowVisibleFramePresentationReducerFrameCompletion {
   let reducerFrameCompletion: GpuFlowVisibleFramePresentationReducerFrameCompletion | null =
     null;
@@ -438,7 +438,7 @@ function createGpuFlowVisibleFrameReducerCompletionOutcome({
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
-  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
+  readonly transactionProof: GpuFlowVisibleFramePresentationTransactionProof;
 }): GpuFlowVisibleFramePresentationOutcome {
   const visibleFrameStateMachineOutcome =
     transactionProof.visibleFrameStateMachineOutcome;
@@ -499,7 +499,7 @@ function createGpuFlowVisibleFrameReducerCompletionHeldStateMachineOutcome({
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
-  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
+  readonly transactionProof: GpuFlowVisibleFramePresentationTransactionProof;
 }): Extract<
   GpuFlowVisibleFramePresentationOutcome,
   { readonly kind: "blocked" | "hold-previous" }
@@ -531,7 +531,7 @@ function createGpuFlowVisibleFrameReducerCompletionAbortedStateMachineOutcome({
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerPolicy: GpuFlowVisibleFrameReducerPolicy;
-  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
+  readonly transactionProof: GpuFlowVisibleFramePresentationTransactionProof;
 }): Extract<
   GpuFlowVisibleFramePresentationOutcome,
   { readonly kind: "blocked" | "hold-previous" }
@@ -582,7 +582,7 @@ function createGpuFlowVisibleFrameReducerCompletionPresentOutcome({
   transactionProof,
 }: {
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
-  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
+  readonly transactionProof: GpuFlowVisibleFramePresentationTransactionProof;
 }): Extract<
   GpuFlowVisibleFramePresentationOutcome,
   { readonly kind: "present" }
@@ -616,7 +616,7 @@ function createGpuFlowVisibleFrameReducerCompletionPresentOutcome({
       presentationAuthorityProof:
         presentableFrameProof.presentationAuthorityProof,
       presentationIdentity:
-        createGpuFlowVisibleFramePublicationPresentationIdentity({
+        createGpuFlowVisibleFramePresentationIdentityForProof({
           transactionProof,
         }),
       reducerDecision,
@@ -625,10 +625,10 @@ function createGpuFlowVisibleFrameReducerCompletionPresentOutcome({
   };
 }
 
-function createGpuFlowVisibleFramePublicationPresentationIdentity({
+function createGpuFlowVisibleFramePresentationIdentityForProof({
   transactionProof,
 }: {
-  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
+  readonly transactionProof: GpuFlowVisibleFramePresentationTransactionProof;
 }): GpuFlowVisibleFramePresentationIdentity {
   const visibleFrameStateMachineOutcome =
     transactionProof.visibleFrameStateMachineOutcome;

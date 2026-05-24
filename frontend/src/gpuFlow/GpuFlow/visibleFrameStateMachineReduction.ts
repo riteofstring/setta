@@ -29,7 +29,7 @@ import type {
   GpuFlowVisibleFrameReducerDecision,
   GpuFlowVisibleFrameRequestFacts,
 } from "./visibleFrameReducerRuntime";
-import type { GpuFlowVisibleFramePublicationMotionCandidate } from "./visibleFrameTransactionProofs";
+import type { GpuFlowVisibleFramePresentationMotionCandidate } from "./visibleFrameTransactionProofs";
 
 export type GpuFlowVisibleFrameStarvationPolicy = {
   readonly maxConsecutiveMotionFramesBeforeContentProbe: number;
@@ -227,7 +227,7 @@ export function reduceGpuFlowVisibleFrameMotionProjectionTransaction({
 }
 
 export function reduceGpuFlowMotionProjectionFramePreparation<
-  MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
+  MotionProjectionFrame extends GpuFlowVisibleFramePresentationMotionCandidate,
 >({
   preparation,
   previousVisibleProjectionState,

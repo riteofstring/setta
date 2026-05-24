@@ -4,7 +4,7 @@ import type {
 } from "../projectionRuntime";
 import type { GpuFlowVisibleFrameBlockedPresentationCandidate } from "./visibleFrameContentPlan";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
-import type { GpuFlowVisibleFramePublicationMotionCandidate } from "./visibleFrameTransactionProofs";
+import type { GpuFlowVisibleFramePresentationMotionCandidate } from "./visibleFrameTransactionProofs";
 
 export type GpuFlowProjectionFrameTransaction = {
   readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
@@ -31,7 +31,7 @@ export type GpuFlowProjectionFrameRenderablePlan = Extract<
 >;
 
 export type GpuFlowMotionProjectionFramePreparation<
-  MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
+  MotionProjectionFrame extends GpuFlowVisibleFramePresentationMotionCandidate,
 > =
   | {
       readonly frame: MotionProjectionFrame;

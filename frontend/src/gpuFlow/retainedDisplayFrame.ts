@@ -7,8 +7,8 @@ import type { RetainedContentTexturePagePreparedFrame } from "./retainedContentT
 import type { RetainedContentTextureResources } from "./retainedContentTextureResources";
 import {
   createPublishedNativeIslandRects,
-  resolveNativeIslandPublicationTransaction,
-  type NativeIslandPublicationTransaction,
+  resolveNativeIslandPresentationTransaction,
+  type NativeIslandPresentationTransaction,
   type PublishedNativeIslandRect,
 } from "./retainedNativeIslandTransactions";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
@@ -89,7 +89,7 @@ type RetainedVisibleCoverageProof = {
 };
 
 type PublishedFrameDiagnostics = {
-  readonly activeIslandTransaction: NativeIslandPublicationTransaction;
+  readonly activeIslandTransaction: NativeIslandPresentationTransaction;
   readonly compatiblePageCount: number;
   readonly continuityProof: RetainedMotionContinuityProof;
   readonly coverageReadiness: CoverageReadiness;
@@ -467,7 +467,7 @@ function createComposedRetainedDisplayFrame({
     prepared.retainedRuntimeFrame,
   );
   const activeIslandRects = desiredActiveIslandRects;
-  const activeIslandTransaction = resolveNativeIslandPublicationTransaction({
+  const activeIslandTransaction = resolveNativeIslandPresentationTransaction({
     blockedByCoverage: false,
     desiredIslandIds: prepared.retainedRuntimeFrame.input.activeNativeIslandIds,
     previousIslandIds: getPublishedNativeIslandIds(diagnosticsPrevious),

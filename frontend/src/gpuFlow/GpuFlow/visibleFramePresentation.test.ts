@@ -10,7 +10,7 @@ import {
 } from "../projectionRuntime";
 import type { GpuFlowPreparedContentBlockedCandidateResourceWork } from "./visibleFrameContentPlan";
 import {
-  presentGpuFlowVisibleFramePublicationFrame,
+  presentGpuFlowVisibleFramePresentationFrame,
   type GpuFlowVisibleFramePresentationRuntime,
 } from "./visibleFramePresentation";
 import {
@@ -19,17 +19,17 @@ import {
   createGpuFlowVisibleFramePresentationTokenForTest,
 } from "./visibleFrameTestUtils";
 
-type GpuFlowSurfacePublicationTransaction = Parameters<
-  typeof presentGpuFlowVisibleFramePublicationFrame
->[0]["publicationTransaction"];
+type GpuFlowSurfacePresentationTransaction = Parameters<
+  typeof presentGpuFlowVisibleFramePresentationFrame
+>[0]["presentationTransaction"];
 
 function createTestVisibleFramePresentationBoundary(
   runtime: GpuFlowVisibleFramePresentationRuntime,
-): (publicationTransaction: GpuFlowSurfacePublicationTransaction) => void {
-  return (publicationTransaction) =>
-    presentGpuFlowVisibleFramePublicationFrame({
+): (presentationTransaction: GpuFlowSurfacePresentationTransaction) => void {
+  return (presentationTransaction) =>
+    presentGpuFlowVisibleFramePresentationFrame({
       ...runtime,
-      publicationTransaction,
+      presentationTransaction,
     });
 }
 
@@ -46,7 +46,7 @@ describe("GPU Flow surface publication completion", () => {
       sampleId: 2,
     });
     const visibleProjectionStateRef = { current: committedState };
-    const visibleProjectionPublicationStateRef = { current: committedState };
+    const visibleProjectionPresentationStateRef = { current: committedState };
     const submitDomTransforms = vi.fn();
     const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame: () => {
@@ -75,14 +75,14 @@ describe("GPU Flow surface publication completion", () => {
         },
       },
       visibleOverlayProjectionKeyRef: { current: null },
-      visibleProjectionPublicationStateRef,
+      visibleProjectionPresentationStateRef,
       visibleProjectionStateRef,
     } as unknown as Parameters<
       typeof createTestVisibleFramePresentationBoundary
     >[0]);
 
     presentationBoundary(
-      heldPreviousPublicationTransaction({
+      heldPreviousPresentationTransaction({
         heldState,
         nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
           submitCanvas: () => {
@@ -98,7 +98,7 @@ describe("GPU Flow surface publication completion", () => {
     );
 
     expect(visibleProjectionStateRef.current).toBe(committedState);
-    expect(visibleProjectionPublicationStateRef.current).toBe(committedState);
+    expect(visibleProjectionPresentationStateRef.current).toBe(committedState);
     expect(submitDomTransforms).not.toHaveBeenCalled();
   });
 
@@ -147,7 +147,7 @@ describe("GPU Flow surface publication completion", () => {
         },
       },
       visibleOverlayProjectionKeyRef: { current: null },
-      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionPresentationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
     } as unknown as Parameters<
       typeof createTestVisibleFramePresentationBoundary
@@ -155,7 +155,7 @@ describe("GPU Flow surface publication completion", () => {
 
     expect(() =>
       presentationBoundary(
-        committedPublicationTransaction({
+        committedPresentationTransaction({
           preparedContentFrame,
           nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
             submitCanvas,
@@ -224,14 +224,14 @@ describe("GPU Flow surface publication completion", () => {
         applyOverlayTransforms: () => {},
       },
       visibleOverlayProjectionKeyRef: { current: null },
-      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionPresentationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
     } as unknown as Parameters<
       typeof createTestVisibleFramePresentationBoundary
     >[0]);
 
     presentationBoundary(
-      committedPublicationTransaction({
+      committedPresentationTransaction({
         preparedContentFrame,
         nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
           submitCanvas,
@@ -300,7 +300,7 @@ describe("GPU Flow surface publication completion", () => {
         },
       },
       visibleOverlayProjectionKeyRef: { current: null },
-      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionPresentationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
     } as unknown as Parameters<
       typeof createTestVisibleFramePresentationBoundary
@@ -308,7 +308,7 @@ describe("GPU Flow surface publication completion", () => {
 
     expect(() =>
       presentationBoundary(
-        committedPublicationTransaction({
+        committedPresentationTransaction({
           preparedContentFrame,
           nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
             submitCanvas: () => {
@@ -361,14 +361,14 @@ describe("GPU Flow surface publication completion", () => {
         applyOverlayTransforms: () => {},
       },
       visibleOverlayProjectionKeyRef: { current: null },
-      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionPresentationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
     } as unknown as Parameters<
       typeof createTestVisibleFramePresentationBoundary
     >[0]);
 
     presentationBoundary(
-      committedPublicationTransaction({
+      committedPresentationTransaction({
         preparedContentFrame,
         debtFrameRequest: {
           delayMs: null,
@@ -433,14 +433,14 @@ describe("GPU Flow surface publication completion", () => {
         applyOverlayTransforms: () => {},
       },
       visibleOverlayProjectionKeyRef: { current: null },
-      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionPresentationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
     } as unknown as Parameters<
       typeof createTestVisibleFramePresentationBoundary
     >[0]);
 
     presentationBoundary(
-      committedPublicationTransaction({
+      committedPresentationTransaction({
         preparedContentFrame,
         debtFrameRequest: {
           delayMs: null,
@@ -525,7 +525,7 @@ describe("GPU Flow surface publication completion", () => {
         applyOverlayTransforms: () => {},
       },
       visibleOverlayProjectionKeyRef: { current: null },
-      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionPresentationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
     } as unknown as Parameters<
       typeof createTestVisibleFramePresentationBoundary
@@ -540,7 +540,7 @@ describe("GPU Flow surface publication completion", () => {
     };
 
     presentationBoundary(
-      committedPublicationTransaction({
+      committedPresentationTransaction({
         preparedContentFrame: firstPreparedContentFrame,
         debtFrameRequest: {
           delayMs: 160,
@@ -553,7 +553,7 @@ describe("GPU Flow surface publication completion", () => {
       }),
     );
     presentationBoundary(
-      committedPublicationTransaction({
+      committedPresentationTransaction({
         preparedContentFrame: secondPreparedContentFrame,
         debtFrameRequest: {
           delayMs: 160,
@@ -632,7 +632,7 @@ describe("GPU Flow surface publication completion", () => {
         },
       },
       visibleOverlayProjectionKeyRef: { current: null },
-      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionPresentationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
     } as unknown as Parameters<
       typeof createTestVisibleFramePresentationBoundary
@@ -704,7 +704,7 @@ describe("GPU Flow surface publication completion", () => {
         },
       },
       visibleOverlayProjectionKeyRef: { current: null },
-      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionPresentationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
     } as unknown as Parameters<
       typeof createTestVisibleFramePresentationBoundary
@@ -715,7 +715,7 @@ describe("GPU Flow surface publication completion", () => {
         blockedFrame,
         blockedPreservePreparationSnapshot: true,
         debtFrameRequest: null,
-        publicationFrameContext: publicationFrameContextForTest({
+        presentationFrameContext: presentationFrameContextForTest({
           selectedResourceDebtIds: selectedResourceKeys,
         }),
         sample,
@@ -790,7 +790,7 @@ describe("GPU Flow surface publication completion", () => {
         },
       },
       visibleOverlayProjectionKeyRef: { current: null },
-      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionPresentationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
     } as unknown as Parameters<
       typeof createTestVisibleFramePresentationBoundary
@@ -828,7 +828,7 @@ describe("GPU Flow surface publication completion", () => {
   });
 });
 
-function heldPreviousPublicationTransaction({
+function heldPreviousPresentationTransaction({
   heldState,
   nodeLayerFrameStatePublication = null,
   previousContentFrameId,
@@ -836,7 +836,7 @@ function heldPreviousPublicationTransaction({
   readonly heldState: GpuFlowVisibleProjectionState;
   readonly nodeLayerFrameStatePublication?: unknown;
   readonly previousContentFrameId: number;
-}): GpuFlowSurfacePublicationTransaction {
+}): GpuFlowSurfacePresentationTransaction {
   return {
     coldStartShellPublication: null,
     completeReducerFrame: () => ({
@@ -878,16 +878,16 @@ function heldPreviousPublicationTransaction({
       visibleProjectionState: heldState,
     },
     previousContentFrameId,
-    publicationFrameContext: publicationFrameContextForTest(),
+    presentationFrameContext: presentationFrameContextForTest(),
     reducerDecision: {
       lane: "content",
       rawReasons: ["manual"],
       sample: heldState.sample,
     },
-  } as unknown as GpuFlowSurfacePublicationTransaction;
+  } as unknown as GpuFlowSurfacePresentationTransaction;
 }
 
-function committedPublicationTransaction({
+function committedPresentationTransaction({
   preparedContentFrame,
   debtFrameRequest = null,
   followUpFrameRequests = [],
@@ -914,7 +914,7 @@ function committedPublicationTransaction({
   readonly token: ReturnType<
     typeof createGpuFlowVisibleFramePresentationTokenForTest
   >;
-}): GpuFlowSurfacePublicationTransaction {
+}): GpuFlowSurfacePresentationTransaction {
   return {
     coldStartShellPublication: {
       frame: null,
@@ -956,14 +956,14 @@ function committedPublicationTransaction({
       visibleProjectionState: selectedState,
     },
     previousContentFrameId: null,
-    publicationFrameContext: publicationFrameContextForTest(),
+    presentationFrameContext: presentationFrameContextForTest(),
     reducerDecision: {
       lane: "content",
       rawReasons: ["manual"],
       sample: selectedState.sample,
       reducerState: "content-catchup",
     },
-  } as unknown as GpuFlowSurfacePublicationTransaction;
+  } as unknown as GpuFlowSurfacePresentationTransaction;
 }
 
 function nodeLayerFrameStatePublication({
@@ -1039,7 +1039,7 @@ function blockedPresentationTransaction({
   blockedPreservePreparationSnapshot = false,
   blockedResourceWork = null,
   debtFrameRequest,
-  publicationFrameContext = publicationFrameContextForTest(),
+  presentationFrameContext = presentationFrameContextForTest(),
   sample,
   reducerCompletion,
   token,
@@ -1051,13 +1051,13 @@ function blockedPresentationTransaction({
     | null
     | undefined;
   readonly debtFrameRequest: unknown;
-  readonly publicationFrameContext?: unknown;
+  readonly presentationFrameContext?: unknown;
   readonly sample: GpuFlowLiveProjectionSample;
   readonly reducerCompletion: unknown;
   readonly token: ReturnType<
     typeof createGpuFlowVisibleFrameBlockedPresentationTokenForTest
   >;
-}): GpuFlowSurfacePublicationTransaction {
+}): GpuFlowSurfacePresentationTransaction {
   return {
     coldStartShellPublication: null,
     completeReducerFrame: () => ({
@@ -1089,17 +1089,17 @@ function blockedPresentationTransaction({
       visibleProjectionState: null,
     },
     previousContentFrameId: null,
-    publicationFrameContext,
+    presentationFrameContext,
     reducerDecision: {
       lane: "content",
       rawReasons: ["manual"],
       sample,
       reducerState: "content-catchup",
     },
-  } as unknown as GpuFlowSurfacePublicationTransaction;
+  } as unknown as GpuFlowSurfacePresentationTransaction;
 }
 
-function publicationFrameContextForTest({
+function presentationFrameContextForTest({
   activeEditorPins = [],
   selectedResourceDebtIds = [],
 }: {

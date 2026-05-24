@@ -9,7 +9,7 @@ import {
 } from "../projectionRuntime";
 import {
   runGpuFlowVisibleFrameCoordinator,
-  type GpuFlowVisibleFramePublicationSample,
+  type GpuFlowVisibleFramePresentationSample,
 } from "./visibleFrameCoordinator";
 
 describe("GPU Flow visible frame outcome report", () => {
@@ -32,8 +32,8 @@ describe("GPU Flow visible frame outcome report", () => {
         kind: "not-rendered",
       }),
       publish: () => {},
-      sampleVisibleFramePublication: () =>
-        visibleFramePublicationSample({
+      sampleVisibleFramePresentation: () =>
+        visibleFramePresentationSample({
           previousVisibleProjectionState: previousHeldVisibleProjectionState(),
           rawReasons,
           sample,
@@ -76,8 +76,8 @@ describe("GPU Flow visible frame outcome report", () => {
         kind: "not-rendered",
       }),
       publish: () => {},
-      sampleVisibleFramePublication: () =>
-        visibleFramePublicationSample({
+      sampleVisibleFramePresentation: () =>
+        visibleFramePresentationSample({
           sample: liveProjectionSample({ id: 9, timestamp: 9 }),
         }),
       reducerRuntime: scheduler,
@@ -96,8 +96,8 @@ describe("GPU Flow visible frame outcome report", () => {
         kind: "not-rendered",
       }),
       publish: () => {},
-      sampleVisibleFramePublication: () =>
-        visibleFramePublicationSample({
+      sampleVisibleFramePresentation: () =>
+        visibleFramePresentationSample({
           hasPresentedContentFrame: false,
           sample: liveProjectionSample({ id: 10, timestamp: 10 }),
         }),
@@ -127,15 +127,15 @@ function noVisibleFramePresentationCandidate({
   };
 }
 
-function visibleFramePublicationSample({
+function visibleFramePresentationSample({
   previousVisibleProjectionState = null,
   rawReasons = ["manual"],
   sample,
   timestamp = sample.timestamp,
   viewportInteractionActive = false,
-}: Partial<Omit<GpuFlowVisibleFramePublicationSample, "sample">> & {
+}: Partial<Omit<GpuFlowVisibleFramePresentationSample, "sample">> & {
   readonly sample: GpuFlowLiveProjectionSample;
-}): GpuFlowVisibleFramePublicationSample {
+}): GpuFlowVisibleFramePresentationSample {
   return {
     hasPresentedContentFrame: true,
     previousVisibleProjectionState,

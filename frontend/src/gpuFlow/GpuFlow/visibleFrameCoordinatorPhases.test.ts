@@ -89,27 +89,27 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function runGpuFlowVisibleFrameCoordinator",
     );
     const firstHelperStart = source.indexOf(
-      "function sampleGpuFlowVisibleFramePublicationTransaction",
+      "function sampleGpuFlowVisibleFramePresentationTransaction",
     );
     const runSource = source.slice(runStart, firstHelperStart);
 
     expect(runStart).toBeGreaterThanOrEqual(0);
     expect(firstHelperStart).toBeGreaterThan(runStart);
     expectOrderedPhases(runSource, [
-      "sampleGpuFlowVisibleFramePublicationTransaction({",
-      "reduceGpuFlowVisibleFramePublicationFrame({",
-      "publishGpuFlowVisibleFramePublicationOutcome({",
+      "sampleGpuFlowVisibleFramePresentationTransaction({",
+      "reduceGpuFlowVisibleFramePresentationFrame({",
+      "publishGpuFlowVisibleFramePresentationOutcome({",
     ]);
     expect(runSource).not.toContain(
       "prepareGpuFlowVisibleFramePresentationCandidateSet({",
     );
     expect(runSource).not.toContain(
-      "proveGpuFlowVisibleFramePublicationPresentation({",
+      "proveGpuFlowVisibleFramePresentationProof({",
     );
     expect(runSource).not.toContain("createGpuFlowVisibleFrameStateMachine({");
     expect(runSource).not.toContain("stateMachine.runFrame();");
     const reducerStart = source.indexOf(
-      "function reduceGpuFlowVisibleFramePublicationFrame",
+      "function reduceGpuFlowVisibleFramePresentationFrame",
     );
     const reducerEnd = source.indexOf(
       "function prepareGpuFlowVisibleFramePresentationCandidateSet",
@@ -117,7 +117,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     );
     const reducerSource = source.slice(reducerStart, reducerEnd);
     const publishStart = source.indexOf(
-      "function publishGpuFlowVisibleFramePublicationOutcome",
+      "function publishGpuFlowVisibleFramePresentationOutcome",
     );
     const publishEnd = source.indexOf(
       "function createGpuFlowVisibleFrameRequestFacts",
@@ -131,67 +131,67 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expectOrderedPhases(reducerSource, [
       "createGpuFlowVisibleFrameRequestFacts({",
       "reduceGpuFlowVisibleFrameReducerDecision({",
-      "createGpuFlowVisibleFramePublicationFrameContext({",
+      "createGpuFlowVisibleFramePresentationFrameContext({",
       "prepareVisibleFrameResourcesForBudget?.(",
       "prepareGpuFlowVisibleFramePresentationCandidateSet({",
-      "createGpuFlowVisibleFramePublicationPreparedFrame({",
-      "proveGpuFlowVisibleFramePublicationPresentation(",
+      "createGpuFlowVisibleFramePresentationPreparedFrame({",
+      "proveGpuFlowVisibleFramePresentationProof(",
     ]);
     expectOrderedPhases(publishSource, [
-      "presentGpuFlowVisibleFramePublicationFrame({",
+      "presentGpuFlowVisibleFramePresentationFrame({",
       "publish?.(transaction);",
     ]);
     expect(publishSource).not.toContain(
       "prepareVisibleFrameResourcesForBudget?.(",
     );
     expect(source).toContain(
-      "function sampleGpuFlowVisibleFramePublicationTransaction",
+      "function sampleGpuFlowVisibleFramePresentationTransaction",
     );
     expect(source).toContain(
       "function prepareGpuFlowVisibleFramePresentationCandidateSet",
     );
     expect(source).toContain(
-      "function createGpuFlowVisibleFramePublicationPreparedFrame",
+      "function createGpuFlowVisibleFramePresentationPreparedFrame",
     );
     expect(source).not.toContain(
       "function proveGpuFlowVisibleFramePresentationCandidateSet",
     );
     expect(source).toContain(
-      "createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory()({",
+      "createGpuFlowVisibleFramePresentationPreparedCandidateSetFrameFactory()({",
     );
     expect(source).not.toContain(
-      "function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame",
+      "function createGpuFlowVisibleFramePresentationPreparedCandidateSetFrame",
     );
     expect(source).not.toMatch(
-      /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
+      /export\s*\{[\s\S]*createGpuFlowVisibleFramePresentationPreparedCandidateSetFrameFactory[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
     );
     expect(source).not.toMatch(
-      /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationPreparedFrameSelector[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
+      /export\s*\{[\s\S]*createGpuFlowVisibleFramePresentationPreparedFrameSelector[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
     );
     expect(source).not.toMatch(
-      /export\s*\{[\s\S]*createGpuFlowVisibleFramePublicationTransactionProofFactory[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
+      /export\s*\{[\s\S]*createGpuFlowVisibleFramePresentationTransactionProofFactory[\s\S]*\}\s+from "\.\/visibleFrameTransactionProofs"/,
     );
     expect(source).not.toContain(
-      "function reduceGpuFlowVisibleFramePublicationTransaction",
+      "function reduceGpuFlowVisibleFramePresentationTransaction",
     );
     expect(source).toContain('from "./visibleFramePresentationProofs"');
     expect(authoritySource).toContain(
-      "export function proveGpuFlowVisibleFramePublicationPresentation",
+      "export function proveGpuFlowVisibleFramePresentationProof",
     );
     expect(tokenAuthoritySource).toContain(
       "visibleFramePresentationTokenIssuer.createPresentationToken",
     );
     expect(source).toContain(
-      "function publishGpuFlowVisibleFramePublicationOutcome",
+      "function publishGpuFlowVisibleFramePresentationOutcome",
     );
     expect(source).not.toContain(
-      "export function completeGpuFlowVisibleFramePublicationTransaction",
+      "export function completeGpuFlowVisibleFramePresentationTransaction",
     );
     expect(source).not.toContain(
       "export function createGpuFlowVisibleFrameReducerCompletionOutcome",
     );
     expect(source).not.toContain(
-      "export function selectGpuFlowVisibleFramePublicationTransaction",
+      "export function selectGpuFlowVisibleFramePresentationTransaction",
     );
     expect(source).not.toContain("reducerRuntime.selectFrame({");
     expect(source).not.toContain(
@@ -266,19 +266,17 @@ describe("GPU Flow visible frame coordinator phases", () => {
     const source = readFileSync(SURFACE_FRAME_PUBLICATION_MODULE_PATH, "utf8");
 
     expect(source).not.toContain(
-      "createGpuFlowVisibleFramePublicationTransactionProof(",
+      "createGpuFlowVisibleFramePresentationTransactionProof(",
     );
     expect(source).not.toContain(
       "proveGpuFlowVisibleFramePresentationCandidateSet",
     );
+    expect(source).not.toContain("proveGpuFlowVisibleFramePresentationProof");
     expect(source).not.toContain(
-      "proveGpuFlowVisibleFramePublicationPresentation",
+      "completeGpuFlowVisibleFramePresentationTransaction",
     );
     expect(source).not.toContain(
-      "completeGpuFlowVisibleFramePublicationTransaction",
-    );
-    expect(source).not.toContain(
-      "selectGpuFlowVisibleFramePublicationTransaction",
+      "selectGpuFlowVisibleFramePresentationTransaction",
     );
     expect(source).not.toContain("selectProjectionFrameTransaction");
     expect(source).not.toContain("selectRetainedProjectionReducerDecision");
@@ -307,7 +305,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function shouldDeferGpuFlowResolutionUpdates",
     );
     expect(surfaceSource).not.toContain("shouldDeferGpuFlowResolutionUpdates");
-    expect(surfaceSource).toContain("publicationFrameContext");
+    expect(surfaceSource).toContain("presentationFrameContext");
   });
 
   it("keeps visible outcome token minting in the coordinator", () => {
@@ -359,7 +357,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "export function createGpuFlowVisibleFrameReducerCompletionPresentationToken",
     );
     expect(authoritySource).not.toContain(
-      "visibleFramePublicationBlockedProofToken",
+      "visibleFramePresentationBlockedProofToken",
     );
   });
 

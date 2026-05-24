@@ -43,7 +43,7 @@ import {
   type GpuFlowProjectionFrameRenderablePlan,
   type GpuFlowRetainedPreparedContentFramePresentationContentStageRunner,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
-  type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
+  type GpuFlowVisibleFramePresentationPreparedCandidateSetFrame,
 } from "./visibleFrameCoordinator";
 import {
   createGpuFlowVisibleFramePresentationEvidence,
@@ -83,7 +83,7 @@ type GpuFlowMotionProjectionFrameResult = {
 };
 
 export type GpuFlowSurfacePublicationPreparedFrame =
-  GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
+  GpuFlowVisibleFramePresentationPreparedCandidateSetFrame<
     GpuFlowContentPreparationFrameResult,
     GpuFlowMotionProjectionFrameResult
   >;
@@ -158,7 +158,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   readonly visiblePresentedContentFrame: GpuFlowPreparedContentFrame;
   readonly visibleOverlayProjectionKeyRef: MutableRefObject<string | null>;
   readonly visibleFrameBudgetBrokerRef: MutableRefObject<GpuFlowVisibleFrameBudgetBroker>;
-  readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
+  readonly visibleProjectionPresentationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visibleProjectionStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
   readonly visibleFrameReducerRuntimeRef: MutableRefObject<GpuFlowVisibleFrameReducerRuntime>;
   readonly viewportRuntime: GpuFlowViewportRuntime;
@@ -210,8 +210,8 @@ export function renderGpuFlowSurfaceFrame({
         validatePreparedContentFrame: input.validatePreparedContentFrame,
         viewportRuntime,
         visibleOverlayProjectionKeyRef: input.visibleOverlayProjectionKeyRef,
-        visibleProjectionPublicationStateRef:
-          input.visibleProjectionPublicationStateRef,
+        visibleProjectionPresentationStateRef:
+          input.visibleProjectionPresentationStateRef,
         visibleProjectionStateRef: input.visibleProjectionStateRef,
       },
       prepareVisibleFrameResourcesForBudget:
@@ -220,7 +220,7 @@ export function renderGpuFlowSurfaceFrame({
         motionProjectionWorkPlan,
         previousVisibleProjectionState,
         reducerDecision,
-        publicationFrameContext,
+        presentationFrameContext,
       }) => {
         frameMeasureDetail.lane = reducerDecision.lane;
         frameMeasureDetail.reducerState = reducerDecision.reducerState;
@@ -228,19 +228,19 @@ export function renderGpuFlowSurfaceFrame({
         frameMeasureDetail.maintenanceDebt = reducerDecision.debt.maintenance;
         frameMeasureDetail.motionDebt = reducerDecision.debt.motion;
         frameMeasureDetail.requestContentDebt =
-          publicationFrameContext.frameRequest.contentDebt;
+          presentationFrameContext.frameRequest.contentDebt;
         frameMeasureDetail.requestCriticalContentDebt =
-          publicationFrameContext.frameRequest.criticalContentDebt;
+          presentationFrameContext.frameRequest.criticalContentDebt;
         frameMeasureDetail.requestMaintenanceDebt =
-          publicationFrameContext.frameRequest.maintenanceDebt;
+          presentationFrameContext.frameRequest.maintenanceDebt;
         frameMeasureDetail.requestMotionDebt =
-          publicationFrameContext.frameRequest.motionDebt;
+          presentationFrameContext.frameRequest.motionDebt;
         frameMeasureDetail.requestMotionRetryDeferred =
-          publicationFrameContext.frameRequest.motionRetryDeferred;
+          presentationFrameContext.frameRequest.motionRetryDeferred;
         frameMeasureDetail.viewportFrame =
-          publicationFrameContext.viewportFrame;
+          presentationFrameContext.viewportFrame;
         frameMeasureDetail.deferResolutionUpdates =
-          publicationFrameContext.deferResolutionUpdates;
+          presentationFrameContext.deferResolutionUpdates;
         finishSetupMeasure();
         const finishMotionMeasure = startGpuFlowPerformanceMeasure(
           "surface-frame-motion-projection",
@@ -256,7 +256,7 @@ export function renderGpuFlowSurfaceFrame({
             motionProjectionWorkPlan,
             retainedContentRuntimeState,
             runtime,
-            viewportFrame: publicationFrameContext.viewportFrame,
+            viewportFrame: presentationFrameContext.viewportFrame,
             viewportStore,
           });
         if (motionProjectionPreparation.kind === "not-rendered") {
@@ -289,7 +289,7 @@ export function renderGpuFlowSurfaceFrame({
         contentPreparationWorkPlan,
         previousVisibleProjectionState,
         reducerDecision,
-        publicationFrameContext,
+        presentationFrameContext,
         runRetainedPreparedContentFramePresentationContentStage,
       }) => {
         const finishContentMeasure = startGpuFlowPerformanceMeasure(
@@ -300,19 +300,19 @@ export function renderGpuFlowSurfaceFrame({
           renderGpuFlowSurfaceContentPreparationFrame({
             ...input,
             deferResolutionUpdates:
-              publicationFrameContext.deferResolutionUpdates,
+              presentationFrameContext.deferResolutionUpdates,
             event,
             liveProjectionSample: reducerDecision.sample,
             nodeLayerRef,
             contentPreparationWorkPlan,
             activeEditorActivationPending:
-              publicationFrameContext.activeEditorPins.length > 0,
+              presentationFrameContext.activeEditorPins.length > 0,
             previousVisibleProjectionState,
             reducerDecision,
             retainedContentRuntimeState,
             runtime,
             runRetainedPreparedContentFramePresentationContentStage,
-            viewportFrame: publicationFrameContext.viewportFrame,
+            viewportFrame: presentationFrameContext.viewportFrame,
             viewportStore,
           });
         finishContentMeasure();
@@ -332,13 +332,13 @@ export function renderGpuFlowSurfaceFrame({
         );
         return contentPreparationFrame;
       },
-      sampleVisibleFramePublication: () => {
+      sampleVisibleFramePresentation: () => {
         const runtimeFrame = viewportRuntime.runFrame(frameStartedAtMs);
         const hasPresentedContentFrame = hasGpuFlowPresentedContentFrame(
           input.presentedContentFrameRef.current,
         );
         const previousVisibleProjectionState =
-          input.visibleProjectionPublicationStateRef.current ??
+          input.visibleProjectionPresentationStateRef.current ??
           input.visibleProjectionStateRef.current;
         frameMeasureDetail.hasPresentedContentFrame = hasPresentedContentFrame;
         nodeLayerRef.current = {

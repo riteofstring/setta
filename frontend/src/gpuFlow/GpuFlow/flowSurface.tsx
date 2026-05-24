@@ -211,7 +211,7 @@ export function GpuFlow({
   );
   const visibleProjectionStateRef =
     useRef<GpuFlowVisibleProjectionState | null>(null);
-  const visibleProjectionPublicationStateRef =
+  const visibleProjectionPresentationStateRef =
     useRef<GpuFlowVisibleProjectionState | null>(null);
   const visibleOverlayProjectionKeyRef = useRef<string | null>(null);
   const { activeColdStartShellFrame, publishColdStartShellFrame } =
@@ -908,7 +908,7 @@ export function GpuFlow({
         visibleNodeIdsRef,
         visibleOverlayProjectionKeyRef,
         visibleFrameBudgetBrokerRef,
-        visibleProjectionPublicationStateRef,
+        visibleProjectionPresentationStateRef,
         visibleProjectionStateRef,
         visibleFrameReducerRuntimeRef,
         viewportRuntime,

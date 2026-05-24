@@ -20,7 +20,7 @@ import { createGpuFlowPreparedContentFramePresentationFramePlanPreparer } from "
 import {
   runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
-  type GpuFlowVisibleFramePublicationSample,
+  type GpuFlowVisibleFramePresentationSample,
 } from "./visibleFrameCoordinator";
 import {
   createGpuFlowVisibleFramePresentationCanvasPresentationEvidence,
@@ -111,10 +111,10 @@ describe("GPU Flow visible frame coordinator", () => {
     >({
       prepareContentPreparationFrame: ({
         motionProjectionFrame,
-        publicationFrameContext,
+        presentationFrameContext,
       }) => {
         phases.push(
-          `content:${motionProjectionFrame.visibleProjectionState === null ? "no-motion" : "motion"}:viewport=${publicationFrameContext.viewportFrame}:defer=${publicationFrameContext.deferResolutionUpdates}`,
+          `content:${motionProjectionFrame.visibleProjectionState === null ? "no-motion" : "motion"}:viewport=${presentationFrameContext.viewportFrame}:defer=${presentationFrameContext.deferResolutionUpdates}`,
         );
         return {
           blockedPresentationCandidate: null,
@@ -150,10 +150,10 @@ describe("GPU Flow visible frame coordinator", () => {
       },
       prepareMotionProjectionFrame: ({
         reducerDecision,
-        publicationFrameContext,
+        presentationFrameContext,
       }) => {
         phases.push(
-          `motion:${reducerDecision.lane}:viewport=${publicationFrameContext.viewportFrame}:defer=${publicationFrameContext.deferResolutionUpdates}`,
+          `motion:${reducerDecision.lane}:viewport=${presentationFrameContext.viewportFrame}:defer=${presentationFrameContext.deferResolutionUpdates}`,
         );
         return {
           frame: {
@@ -167,8 +167,8 @@ describe("GPU Flow visible frame coordinator", () => {
       publish: (transaction) => {
         phases.push(`publish:${transaction.outcome.kind}`);
       },
-      sampleVisibleFramePublication: () =>
-        visibleFramePublicationSample({ sample }),
+      sampleVisibleFramePresentation: () =>
+        visibleFramePresentationSample({ sample }),
       reducerRuntime: scheduler,
     });
 
@@ -277,8 +277,8 @@ describe("GPU Flow visible frame coordinator", () => {
         };
       },
       publish: () => {},
-      sampleVisibleFramePublication: () =>
-        visibleFramePublicationSample({
+      sampleVisibleFramePresentation: () =>
+        visibleFramePresentationSample({
           previousVisibleProjectionState,
           rawReasons: ["retained-scroll"],
           sample,
@@ -342,8 +342,8 @@ describe("GPU Flow visible frame coordinator", () => {
         kind: "not-rendered",
       }),
       publish: () => {},
-      sampleVisibleFramePublication: () =>
-        visibleFramePublicationSample({ sample }),
+      sampleVisibleFramePresentation: () =>
+        visibleFramePresentationSample({ sample }),
       reducerRuntime: scheduler,
     });
     expect(suppliedRunner).toBe(true);
@@ -982,8 +982,8 @@ function runPreparedCandidateKernel({
       kind: "not-rendered",
     }),
     publish,
-    sampleVisibleFramePublication: () =>
-      visibleFramePublicationSample({
+    sampleVisibleFramePresentation: () =>
+      visibleFramePresentationSample({
         hasPresentedContentFrame,
         previousVisibleProjectionState,
         rawReasons,
@@ -1006,11 +1006,11 @@ function testPresentationCandidate({
   };
 }
 
-type VisibleFramePublicationSampleInput = Partial<
-  Omit<GpuFlowVisibleFramePublicationSample, "sample">
+type VisibleFramePresentationSampleInput = Partial<
+  Omit<GpuFlowVisibleFramePresentationSample, "sample">
 > & { readonly sample: GpuFlowLiveProjectionSample };
 
-function visibleFramePublicationSample({
+function visibleFramePresentationSample({
   hasPresentedContentFrame = true,
   previousVisibleProjectionState = null,
   rawReasons = ["manual"],
@@ -1019,7 +1019,7 @@ function visibleFramePublicationSample({
   timestamp = sample.timestamp,
   visibleFrameResourceGraphSnapshot,
   viewportInteractionActive = false,
-}: VisibleFramePublicationSampleInput): GpuFlowVisibleFramePublicationSample {
+}: VisibleFramePresentationSampleInput): GpuFlowVisibleFramePresentationSample {
   return {
     hasPresentedContentFrame,
     previousVisibleProjectionState,

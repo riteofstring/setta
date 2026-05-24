@@ -15,7 +15,7 @@ import {
   createGpuFlowVisibleFramePresentationTransactionProofReport,
   type GpuFlowVisibleFramePresentationDebtProof,
   type GpuFlowVisibleFramePresentationProofReport,
-  type GpuFlowVisibleFramePublicationTransactionProof,
+  type GpuFlowVisibleFramePresentationTransactionProof,
 } from "./visibleFrameTransactionProofs";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
@@ -72,7 +72,7 @@ export function createGpuFlowVisibleFramePresentationTransactionReport({
   readonly outcome: GpuFlowVisibleFramePresentationOutcome;
   readonly previousContentFrameId: number | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
-  readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof | null;
+  readonly transactionProof: GpuFlowVisibleFramePresentationTransactionProof | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
   const token =
