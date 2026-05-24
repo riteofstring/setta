@@ -1,0 +1,453 @@
+import { SectionTypeEnum, type DictSectionImpl } from "utils/generatedTypes";
+import {
+  createWorkspaceCanvasControllerState,
+  type WorkspaceCanvasControllerState,
+  type WorkspaceSceneTarget,
+} from "./workspaceController";
+import { deriveDictScene } from "./workspaceDictScene";
+import type { WorkspaceCodeHighlightCacheState } from "./workspaceHighlightCache";
+import {
+  buildCacheKey,
+  buildWorkspaceSceneCacheKeys,
+  compareHitRegions,
+  deriveEdgePortRegions,
+  deriveMinimapScene,
+  deriveNestedDropZones,
+  deriveNestedSectionLocalBounds,
+  deriveResizeHandles,
+  deriveRootSectionLocalBounds,
+  deriveSectionGeometry,
+  getChildLayoutDirection,
+  getSectionHitZIndex,
+  rectContainsPoint,
+  rectKey,
+  screenRectToWorkspaceRect,
+  screenToWorkspace,
+  unionRects,
+} from "./workspaceSceneGeometry";
+import {
+  getActiveViewModeTopLevelSections,
+  getEffectiveSectionSnapshot,
+  getRootSectionIdsForScene,
+  getSectionChildIds,
+  resolveViewport,
+} from "./workspaceSceneProject";
+import {
+  DEFAULT_WORKSPACE_SCENE_REVISIONS,
+  type PendingSectionRecord,
+  type WorkspaceHitRegion,
+  type WorkspacePoint,
+  type WorkspaceScene,
+  type WorkspaceSceneOptions,
+  type WorkspaceSceneProjectState,
+  type WorkspaceSceneRevisionKeys,
+  type WorkspaceSectionRenderModel,
+  type WorkspaceSectionScene,
+  type WorkspaceTypeErrorState,
+} from "./workspaceSceneTypes";
+
+export * from "./workspaceDictScene";
+export * from "./workspaceSceneGeometry";
+export * from "./workspaceSceneTypes";
+
+type SectionDerivationArgs = {
+  projectState: WorkspaceSceneProjectState;
+  controllerState: WorkspaceCanvasControllerState;
+  revisionKeys: WorkspaceSceneRevisionKeys;
+  typeErrors: WorkspaceTypeErrorState;
+  highlightCache: WorkspaceCodeHighlightCacheState | undefined;
+  topLevelSections: ReturnType<typeof getActiveViewModeTopLevelSections>;
+  sectionsById: Record<string, WorkspaceSectionScene>;
+  sectionOrder: Array<string>;
+  hitRegions: Array<WorkspaceHitRegion>;
+  sectionId: string;
+  parent: WorkspaceSectionScene | null;
+  sectionPath: Array<string>;
+  childIndex: number;
+};
+
+type SectionDerivationContext = SectionDerivationArgs & {
+  sectionOrderIndex: number;
+  effectiveImpl: NonNullable<
+    ReturnType<typeof getEffectiveSectionSnapshot>
+  >["effectiveImpl"];
+  sectionTarget: Extract<WorkspaceSceneTarget, { kind: "section" }>;
+};
+
+export function createWorkspaceSceneRevisionKeys(
+  overrides: Partial<WorkspaceSceneRevisionKeys> = {},
+): WorkspaceSceneRevisionKeys {
+  return { ...DEFAULT_WORKSPACE_SCENE_REVISIONS, ...overrides };
+}
+
+export function deriveWorkspaceScene({
+  projectState,
+  viewportSize,
+  controllerState = createWorkspaceCanvasControllerState(),
+  revisionKeys: revisionOverrides = {},
+  typeErrors = {},
+  highlightCache,
+}: WorkspaceSceneOptions): WorkspaceScene {
+  const revisionKeys = createWorkspaceSceneRevisionKeys(revisionOverrides);
+  const viewport = resolveViewport(projectState, viewportSize);
+  const visibleWorkspaceRect = screenRectToWorkspaceRect(
+    { x: 0, y: 0, ...viewportSize },
+    viewport,
+  );
+  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
+  const rootSectionIds = getRootSectionIdsForScene(
+    projectState,
+    topLevelSections,
+  );
+  const sectionsById: Record<string, WorkspaceSectionScene> = {};
+  const sectionOrder: Array<string> = [];
+  const hitRegions: Array<WorkspaceHitRegion> = [
+    {
+      id: "workspace:background",
+      coordinateSpace: "workspace",
+      rect: visibleWorkspaceRect,
+      intent: "pan-viewport",
+      target: { kind: "workspace" },
+      zIndex: -1,
+    },
+  ];
+
+  for (const sectionId of rootSectionIds) {
+    deriveSectionRecursive({
+      projectState,
+      controllerState,
+      revisionKeys,
+      typeErrors,
+      highlightCache,
+      topLevelSections,
+      sectionsById,
+      sectionOrder,
+      hitRegions,
+      sectionId,
+      parent: null,
+      sectionPath: [sectionId],
+      childIndex: 0,
+    });
+  }
+
+  const projectBounds =
+    unionRects(
+      sectionOrder.map((sectionId) => sectionsById[sectionId]?.worldBounds),
+    ) ?? visibleWorkspaceRect;
+  const minimap = deriveMinimapScene({
+    projectBounds,
+    sectionsById,
+    sectionOrder,
+    viewportSize,
+    visibleWorkspaceRect,
+  });
+
+  hitRegions.push(...minimap.hitRegions);
+  hitRegions.sort(compareHitRegions);
+
+  return {
+    viewport,
+    viewportSize,
+    visibleWorkspaceRect,
+    projectBounds,
+    rootSectionIds,
+    sectionOrder,
+    sectionsById,
+    minimap,
+    hitRegions,
+    revisionKeys,
+    cacheKeys: buildWorkspaceSceneCacheKeys(revisionKeys),
+  };
+}
+
+export function hitTestWorkspaceScene(
+  scene: WorkspaceScene,
+  screenPoint: WorkspacePoint,
+): WorkspaceHitRegion | null {
+  for (let idx = scene.hitRegions.length - 1; idx >= 0; idx -= 1) {
+    const region = scene.hitRegions[idx];
+    const point =
+      region?.coordinateSpace === "screen"
+        ? screenPoint
+        : screenToWorkspace(screenPoint, scene.viewport);
+    if (region && rectContainsPoint(region.rect, point)) {
+      return region;
+    }
+  }
+  return null;
+}
+
+function deriveSectionRecursive(args: SectionDerivationArgs) {
+  const context = createSectionDerivationContext(args);
+  if (!context) {
+    return;
+  }
+  const sectionRecord = buildInitialSectionRecord(context);
+  const provisional = finalizePendingSection(sectionRecord);
+  context.sectionsById[context.sectionId] = provisional;
+  context.sectionOrder.push(context.sectionId);
+
+  sectionRecord.renderModel = deriveSectionRenderModel(context, provisional);
+  if (sectionRecord.renderModel.kind === "dict") {
+    sectionRecord.hitRegions.push(...sectionRecord.renderModel.dict.hitRegions);
+  }
+  const finalized = finalizePendingSection({
+    ...sectionRecord,
+    nestedDropZones: deriveNestedDropZones(
+      provisional,
+      sectionRecord.childIds,
+      context.sectionsById,
+    ),
+  });
+  context.sectionsById[context.sectionId] = finalized;
+  context.hitRegions.push(...finalized.hitRegions);
+
+  deriveChildSections(context, finalized);
+  context.sectionsById[context.sectionId] = {
+    ...finalized,
+    nestedDropZones: deriveNestedDropZones(
+      finalized,
+      finalized.childIds,
+      context.sectionsById,
+    ),
+  };
+}
+
+function createSectionDerivationContext(
+  args: SectionDerivationArgs,
+): SectionDerivationContext | null {
+  const snapshot = getEffectiveSectionSnapshot(
+    args.projectState,
+    args.sectionId,
+  );
+  if (!snapshot) {
+    return null;
+  }
+  return {
+    ...args,
+    sectionOrderIndex: args.sectionOrder.length,
+    effectiveImpl: snapshot.effectiveImpl,
+    sectionTarget: {
+      kind: "section",
+      sectionId: args.sectionId,
+      sectionPath: args.sectionPath,
+    },
+  };
+}
+
+function buildInitialSectionRecord(
+  context: SectionDerivationContext,
+): PendingSectionRecord {
+  const { localBounds, worldBounds } = deriveSectionBounds(context);
+  const geometry = deriveSectionGeometry(worldBounds);
+  const resizeHandles = deriveResizeHandles(worldBounds);
+  const edgePortRegions = deriveEdgePortRegions({
+    sectionId: context.sectionId,
+    impl: context.effectiveImpl,
+    geometry,
+    target: context.sectionTarget,
+    zIndexBase: getSectionHitZIndex(context.sectionOrderIndex, 80),
+  });
+
+  return {
+    id: context.sectionId,
+    type: context.effectiveImpl.type,
+    name: context.effectiveImpl.name || context.sectionId,
+    parentId: context.parent?.id ?? null,
+    childIds: getSectionChildIds(
+      context.projectState,
+      context.sectionId,
+      context.effectiveImpl,
+    ),
+    sectionPath: context.sectionPath,
+    localBounds,
+    worldBounds,
+    zIndex: deriveSectionZIndex(context),
+    selected: isSectionSelected(context),
+    hovered: targetReferencesSection(
+      context.controllerState.hoveredTarget,
+      context.sectionId,
+    ),
+    active: isSectionActive(context),
+    childLayoutDirection: getChildLayoutDirection(context.effectiveImpl),
+    scrollOffset: getSectionScrollOffset(context),
+    geometry,
+    resizeHandles,
+    nestedDropZones: [],
+    edgePortRegions,
+    renderModel: null,
+    hitRegions: [
+      ...buildSectionHitRegions(context, geometry, resizeHandles),
+      ...edgePortRegions,
+    ],
+    cacheKeys: {
+      section: buildCacheKey(
+        context.revisionKeys,
+        "section",
+        context.sectionId,
+      ),
+      geometry: buildCacheKey(
+        context.revisionKeys,
+        "section-geometry",
+        context.sectionId,
+        rectKey(worldBounds),
+      ),
+    },
+  };
+}
+
+function deriveSectionBounds(context: SectionDerivationContext) {
+  const localBounds = context.parent
+    ? deriveNestedSectionLocalBounds(
+        context.parent,
+        context.effectiveImpl,
+        context.childIndex,
+      )
+    : deriveRootSectionLocalBounds(
+        context.topLevelSections[context.sectionId],
+        context.effectiveImpl,
+      );
+  const worldBounds = context.parent
+    ? {
+        ...localBounds,
+        x: context.parent.worldBounds.x + localBounds.x,
+        y: context.parent.worldBounds.y + localBounds.y,
+      }
+    : localBounds;
+  return { localBounds, worldBounds };
+}
+
+function deriveSectionZIndex(context: SectionDerivationContext) {
+  return context.parent
+    ? context.childIndex
+    : context.topLevelSections[context.sectionId]?.zIndex ?? 0;
+}
+
+function isSectionActive(context: SectionDerivationContext) {
+  return (context.projectState.projectConfig.activeIds ?? []).includes(
+    context.sectionId,
+  );
+}
+
+function getSectionScrollOffset(context: SectionDerivationContext) {
+  return context.controllerState.sectionScrollOffsets[context.sectionId] ?? 0;
+}
+
+function buildSectionHitRegions(
+  context: SectionDerivationContext,
+  geometry: WorkspaceSectionScene["geometry"],
+  resizeHandles: WorkspaceSectionScene["resizeHandles"],
+): Array<WorkspaceHitRegion> {
+  return [
+    {
+      id: `section:${context.sectionId}:header`,
+      coordinateSpace: "workspace",
+      rect: geometry.header,
+      intent: "drag-section",
+      target: context.sectionTarget,
+      zIndex: getSectionHitZIndex(context.sectionOrderIndex, 20),
+    },
+    {
+      id: `section:${context.sectionId}:body`,
+      coordinateSpace: "workspace",
+      rect: geometry.body,
+      intent: "select-section",
+      target: context.sectionTarget,
+      zIndex: getSectionHitZIndex(context.sectionOrderIndex, 10),
+    },
+    ...buildResizeHitRegions(context, resizeHandles),
+  ];
+}
+
+function buildResizeHitRegions(
+  context: SectionDerivationContext,
+  resizeHandles: WorkspaceSectionScene["resizeHandles"],
+): Array<WorkspaceHitRegion> {
+  return [
+    ["right", resizeHandles.right, 30],
+    ["bottom", resizeHandles.bottom, 30],
+    ["corner", resizeHandles.corner, 40],
+  ].map(([kind, rect, layer]) => ({
+    id: `section:${context.sectionId}:resize-${kind}`,
+    coordinateSpace: "workspace",
+    rect,
+    intent: "resize-section",
+    target: context.sectionTarget,
+    zIndex: getSectionHitZIndex(context.sectionOrderIndex, layer),
+  }));
+}
+
+function deriveSectionRenderModel(
+  context: SectionDerivationContext,
+  section: WorkspaceSectionScene,
+): WorkspaceSectionRenderModel {
+  if (context.effectiveImpl.type !== SectionTypeEnum.Dict) {
+    return {
+      kind: "placeholder",
+      reason: `Canvas renderer for ${context.effectiveImpl.type} sections is not implemented yet.`,
+    };
+  }
+  return {
+    kind: "dict",
+    dict: deriveDictScene({
+      projectState: context.projectState,
+      section,
+      sectionImpl: context.effectiveImpl as DictSectionImpl,
+      revisionKeys: context.revisionKeys,
+      controllerState: context.controllerState,
+      typeErrors: context.typeErrors,
+      highlightCache: context.highlightCache,
+    }),
+  };
+}
+
+function deriveChildSections(
+  context: SectionDerivationContext,
+  parent: WorkspaceSectionScene,
+) {
+  parent.childIds.forEach((childId, childIndex) => {
+    deriveSectionRecursive({
+      ...context,
+      sectionId: childId,
+      parent,
+      sectionPath: [...context.sectionPath, childId],
+      childIndex,
+    });
+  });
+}
+
+function finalizePendingSection(
+  section: PendingSectionRecord,
+): WorkspaceSectionScene {
+  return {
+    ...section,
+    renderModel:
+      section.renderModel ??
+      ({
+        kind: "placeholder",
+        reason: `Canvas renderer for ${section.type} sections is not implemented yet.`,
+      } satisfies WorkspaceSectionRenderModel),
+  };
+}
+
+function isSectionSelected(context: SectionDerivationContext) {
+  return (
+    (context.projectState.projectConfig.activeIds ?? []).includes(
+      context.sectionId,
+    ) ||
+    targetReferencesSection(
+      context.controllerState.selectedTarget,
+      context.sectionId,
+    )
+  );
+}
+
+function targetReferencesSection(
+  target: WorkspaceSceneTarget | null,
+  sectionId: string,
+) {
+  if (!target || target.kind === "workspace" || target.kind === "minimap") {
+    return false;
+  }
+  return target.sectionPath.includes(sectionId);
+}
