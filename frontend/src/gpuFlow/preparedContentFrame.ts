@@ -1,5 +1,4 @@
 import { createGpuFlowJsonDigest } from "./gpuFlowDigest";
-import { startGpuFlowPerformanceMeasure } from "./gpuFlowPerformanceMarks";
 import type {
   HtmlSurfaceFlatVisual,
   HtmlSurfaceSolidRoundedRectVisual,
@@ -390,15 +389,6 @@ export function createGpuFlowPreparedContentFrame({
   readonly retainedDisplayFrame: RetainedDisplayFrame;
 }): GpuFlowPreparedContentFrame {
   const retainedRuntimeFrame = retainedDisplayFrame.retainedRuntimeFrame;
-  const measureDetail = {
-    domControlCount: retainedRuntimeFrame.descriptors.domControlSources.length,
-    frame: retainedDisplayFrame.id,
-    retainedSurfaceCount: retainedDisplayFrame.surfaceActorSnapshots.length,
-  } as const;
-  const finishDomControlActorsMeasure = startGpuFlowPerformanceMeasure(
-    "prepared-content-dom-control-actors",
-    measureDetail,
-  );
   const domControlActorOptions = createPreparedContentDomControlActorOptions({
     browserVisualReadiness,
     previousPreparedContentFrame,
@@ -408,21 +398,11 @@ export function createGpuFlowPreparedContentFrame({
     retainedRuntimeFrame,
     domControlActorOptions,
   );
-  finishDomControlActorsMeasure();
-  const finishDomIslandActorsMeasure = startGpuFlowPerformanceMeasure(
-    "prepared-content-dom-island-actors",
-    measureDetail,
-  );
   const domIslandActorSet = createDomIslandActorSet({
     browserVisualReadinessByActorId:
       browserVisualReadiness?.domIslandReadinessByActorId,
     retainedRuntimeFrame,
   });
-  finishDomIslandActorsMeasure();
-  const finishActorManifestMeasure = startGpuFlowPerformanceMeasure(
-    "prepared-content-actor-manifest",
-    measureDetail,
-  );
   const browserVisualSurfaceFragment =
     createGpuFlowPreparedContentBrowserVisualFragment([
       ...domControlActorSet.browserVisualActors,
@@ -444,14 +424,6 @@ export function createGpuFlowPreparedContentFrame({
         retainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals,
     }),
   ]);
-  finishActorManifestMeasure();
-  const finishFreezeMeasure = startGpuFlowPerformanceMeasure(
-    "prepared-content-freeze",
-    {
-      ...measureDetail,
-      actorCount: actorGenerations.length,
-    },
-  );
   const frame = freezePreparedContentFrame({
     actorGenerations,
     browserVisualSurfaceFragment,
@@ -461,16 +433,7 @@ export function createGpuFlowPreparedContentFrame({
     retainedRuntimeFrame,
     transactionOutcome: retainedDisplayFrame.diagnostics.transactionOutcome,
   });
-  finishFreezeMeasure();
-  const finishCoherenceMeasure = startGpuFlowPerformanceMeasure(
-    "prepared-content-coherence",
-    {
-      ...measureDetail,
-      actorCount: actorGenerations.length,
-    },
-  );
   assertGpuFlowPreparedContentFrameCoherent(frame);
-  finishCoherenceMeasure();
   return frame;
 }
 
@@ -551,26 +514,10 @@ function freezePreparedContentFrame({
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly transactionOutcome: string;
 }): GpuFlowPreparedContentFrame {
-  const measureDetail = {
-    actorCount: actorGenerations.length,
-    displayFrameId,
-    domControlCount: actorGenerations.filter(
-      (actor) => actor.kind === "dom-control",
-    ).length,
-  } as const;
-  const finishCompletenessMeasure = startGpuFlowPerformanceMeasure(
-    "prepared-content-freeze-completeness",
-    measureDetail,
-  );
   const displayCompleteness = createGpuFlowPreparedContentCompleteness({
     actorGenerations,
     startup: retainedDisplayFrame === null,
   });
-  finishCompletenessMeasure();
-  const finishPresentabilityMeasure = startGpuFlowPerformanceMeasure(
-    "prepared-content-freeze-presentability",
-    measureDetail,
-  );
   const presentability = createGpuFlowContentFramePresentability({
     actorGenerations,
     displayCompleteness,
@@ -581,20 +528,10 @@ function freezePreparedContentFrame({
     startup: retainedDisplayFrame === null,
     transactionOutcome,
   });
-  finishPresentabilityMeasure();
-  const finishHorizonMeasure = startGpuFlowPerformanceMeasure(
-    "prepared-content-freeze-horizon",
-    measureDetail,
-  );
   const projectionHorizon = createGpuFlowProjectionHorizon({
     actorGenerations,
     displayFrameId,
   });
-  finishHorizonMeasure();
-  const finishSurfaceTransactionMeasure = startGpuFlowPerformanceMeasure(
-    "prepared-content-freeze-transaction",
-    measureDetail,
-  );
   const surfaceTransaction =
     retainedDisplayFrame && presentability.kind === "presentable"
       ? createGpuFlowPreparedContentTransaction({
@@ -607,16 +544,10 @@ function freezePreparedContentFrame({
           retainedSurfaceTransaction: retainedDisplayFrame.surfaceTransaction,
         })
       : null;
-  finishSurfaceTransactionMeasure();
-  const finishClipChainMeasure = startGpuFlowPerformanceMeasure(
-    "prepared-content-freeze-clip-chain",
-    measureDetail,
-  );
   const clipChainRevision = createPreparedClipChainRevision({
     actorGenerations,
     retainedRuntimeFrame,
   });
-  finishClipChainMeasure();
   const hitGenerationId =
     surfaceTransaction?.hitIndex.id ??
     retainedDisplayFrame?.surfaceTransaction.hitIndex.id ??
@@ -633,10 +564,6 @@ function freezePreparedContentFrame({
     htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision,
   });
-  const finishProofMeasure = startGpuFlowPerformanceMeasure(
-    "prepared-content-freeze-proof",
-    measureDetail,
-  );
   const presentationProof = createGpuFlowPreparedContentPresentationProof({
     actorGenerations,
     browserVisualSurfaceFragment,
@@ -645,7 +572,6 @@ function freezePreparedContentFrame({
     domGenerationEvidence: domPresentationEvidence,
     surfaceTransaction,
   });
-  finishProofMeasure();
   return Object.freeze({
     actorGenerations,
     browserVisualSurfaceFragment,

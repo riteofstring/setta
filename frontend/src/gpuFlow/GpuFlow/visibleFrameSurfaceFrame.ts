@@ -44,6 +44,7 @@ import {
   type GpuFlowProjectionFrameRenderablePlan,
   type GpuFlowRetainedPreparedContentFramePresentationContentStageRunner,
   type GpuFlowVisibleFrameBlockedPresentationCandidate,
+  type GpuFlowVisibleFramePresentationFrameContext,
   type GpuFlowVisibleFramePresentationPreparedCandidateSetFrame,
 } from "./visibleFrameCoordinator";
 import {
@@ -73,6 +74,10 @@ type GpuFlowNodeLayerFrameInput = Parameters<
 type GpuFlowSurfaceFrameEvent = Parameters<
   NonNullable<GpuSurfaceProps["onFrame"]>
 >[1];
+type GpuFlowSurfaceFrameMeasureDetail = Record<
+  string,
+  boolean | number | string | null | undefined
+>;
 
 type GpuFlowMotionProjectionFrameResult = {
   readonly blockedPresentationCandidate: GpuFlowVisibleFrameBlockedPresentationCandidate | null;
@@ -174,10 +179,7 @@ export function renderGpuFlowSurfaceFrame({
   viewportStore,
   ...input
 }: RenderGpuFlowSurfaceFrameInput) {
-  const frameMeasureDetail: Record<
-    string,
-    boolean | number | string | null | undefined
-  > = {
+  const frameMeasureDetail: GpuFlowSurfaceFrameMeasureDetail = {
     frame: input.frameRef.current,
     reasons: event.reasons.join("+") || "none",
   };
@@ -223,39 +225,11 @@ export function renderGpuFlowSurfaceFrame({
         reducerDecision,
         presentationFrameContext,
       }) => {
-        frameMeasureDetail.lane = reducerDecision.lane;
-        frameMeasureDetail.reducerState = reducerDecision.reducerState;
-        frameMeasureDetail.reducerReasons =
-          reducerDecision.rawReasons.join("+") || "none";
-        frameMeasureDetail.contentDebt = reducerDecision.debt.content;
-        frameMeasureDetail.maintenanceDebt = reducerDecision.debt.maintenance;
-        frameMeasureDetail.motionDebt = reducerDecision.debt.motion;
-        frameMeasureDetail.safetyDebtActive =
-          reducerDecision.classifiedDebt?.safety.active ?? false;
-        frameMeasureDetail.safetyDebtAgeFrames =
-          reducerDecision.classifiedDebt?.safety.ageFrames ?? 0;
-        frameMeasureDetail.continuityDebtActive =
-          reducerDecision.classifiedDebt?.continuity.active ?? false;
-        frameMeasureDetail.continuityDebtAgeFrames =
-          reducerDecision.classifiedDebt?.continuity.ageFrames ?? 0;
-        frameMeasureDetail.qualityDebtActive =
-          reducerDecision.classifiedDebt?.quality.active ?? false;
-        frameMeasureDetail.qualityDebtAgeFrames =
-          reducerDecision.classifiedDebt?.quality.ageFrames ?? 0;
-        frameMeasureDetail.requestContentDebt =
-          presentationFrameContext.frameRequest.contentDebt;
-        frameMeasureDetail.requestCriticalContentDebt =
-          presentationFrameContext.frameRequest.criticalContentDebt;
-        frameMeasureDetail.requestMaintenanceDebt =
-          presentationFrameContext.frameRequest.maintenanceDebt;
-        frameMeasureDetail.requestMotionDebt =
-          presentationFrameContext.frameRequest.motionDebt;
-        frameMeasureDetail.requestMotionRetryDeferred =
-          presentationFrameContext.frameRequest.motionRetryDeferred;
-        frameMeasureDetail.viewportFrame =
-          presentationFrameContext.viewportFrame;
-        frameMeasureDetail.deferResolutionUpdates =
-          presentationFrameContext.deferResolutionUpdates;
+        recordGpuFlowSurfaceFrameReducerDecisionMeasureDetail({
+          frameMeasureDetail,
+          presentationFrameContext,
+          reducerDecision,
+        });
         finishSetupMeasure();
         const finishMotionMeasure = startGpuFlowPerformanceMeasure(
           "surface-frame-motion-projection",
@@ -475,6 +449,63 @@ export function hasGpuFlowPresentedContentFrame(
   frame: Pick<GpuFlowPreparedContentFrame, "retainedDisplayFrame"> | null,
 ): boolean {
   return frame !== null && frame.retainedDisplayFrame !== null;
+}
+
+function recordGpuFlowSurfaceFrameReducerDecisionMeasureDetail({
+  frameMeasureDetail,
+  presentationFrameContext,
+  reducerDecision,
+}: {
+  readonly frameMeasureDetail: GpuFlowSurfaceFrameMeasureDetail;
+  readonly presentationFrameContext: GpuFlowVisibleFramePresentationFrameContext;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
+}): void {
+  const safetyDebt = getGpuFlowSurfaceFrameClassifiedDebtMeasure(
+    reducerDecision.classifiedDebt?.safety,
+  );
+  const continuityDebt = getGpuFlowSurfaceFrameClassifiedDebtMeasure(
+    reducerDecision.classifiedDebt?.continuity,
+  );
+  const qualityDebt = getGpuFlowSurfaceFrameClassifiedDebtMeasure(
+    reducerDecision.classifiedDebt?.quality,
+  );
+  frameMeasureDetail.lane = reducerDecision.lane;
+  frameMeasureDetail.reducerState = reducerDecision.reducerState;
+  frameMeasureDetail.reducerReasons =
+    reducerDecision.rawReasons.join("+") || "none";
+  frameMeasureDetail.contentDebt = reducerDecision.debt.content;
+  frameMeasureDetail.maintenanceDebt = reducerDecision.debt.maintenance;
+  frameMeasureDetail.motionDebt = reducerDecision.debt.motion;
+  frameMeasureDetail.safetyDebtActive = safetyDebt.active;
+  frameMeasureDetail.safetyDebtAgeFrames = safetyDebt.ageFrames;
+  frameMeasureDetail.continuityDebtActive = continuityDebt.active;
+  frameMeasureDetail.continuityDebtAgeFrames = continuityDebt.ageFrames;
+  frameMeasureDetail.qualityDebtActive = qualityDebt.active;
+  frameMeasureDetail.qualityDebtAgeFrames = qualityDebt.ageFrames;
+  frameMeasureDetail.requestContentDebt =
+    presentationFrameContext.frameRequest.contentDebt;
+  frameMeasureDetail.requestCriticalContentDebt =
+    presentationFrameContext.frameRequest.criticalContentDebt;
+  frameMeasureDetail.requestMaintenanceDebt =
+    presentationFrameContext.frameRequest.maintenanceDebt;
+  frameMeasureDetail.requestMotionDebt =
+    presentationFrameContext.frameRequest.motionDebt;
+  frameMeasureDetail.requestMotionRetryDeferred =
+    presentationFrameContext.frameRequest.motionRetryDeferred;
+  frameMeasureDetail.viewportFrame = presentationFrameContext.viewportFrame;
+  frameMeasureDetail.deferResolutionUpdates =
+    presentationFrameContext.deferResolutionUpdates;
+}
+
+function getGpuFlowSurfaceFrameClassifiedDebtMeasure(
+  debt:
+    | {
+        readonly active: boolean;
+        readonly ageFrames: number;
+      }
+    | undefined,
+): { readonly active: boolean; readonly ageFrames: number } {
+  return debt ?? { active: false, ageFrames: 0 };
 }
 
 function prepareGpuFlowSurfaceMotionProjectionFrame({

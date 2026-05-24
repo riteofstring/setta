@@ -26,6 +26,26 @@ type GpuFlowVisibleFramePresentationResourceProtectionReport = {
 
 type GpuFlowVisibleFramePresentationResourceProtectionDigest = string;
 
+const GPU_FLOW_ACTOR_RESOURCE_PREPARATION_LANE_BY_FAMILY = Object.freeze({
+  "accessibility-exposure": "presentation-state",
+  "active-editor": "browser-visual",
+  "browser-text-control": "browser-visual",
+  "browser-text-snapshot": "browser-visual",
+  "debug-snapshot": "debug-hit",
+  "dom-island": "dom-island",
+  edges: "presentation-state",
+  grid: "presentation-state",
+  "hit-generation": "debug-hit",
+  "public-runtime-state": "presentation-state",
+  "retained-native-visual": "retained-page",
+  "retained-page": "retained-page",
+  "scene-background": "presentation-state",
+  "section-body-clip": "section-structure",
+  "section-header": "section-structure",
+  "section-shell": "section-structure",
+  "viewport-portal": "presentation-state",
+} satisfies Record<string, GpuFlowVisibleFrameResourcePreparationLane>);
+
 export type GpuFlowVisibleFrameCandidateResourceEntry = {
   readonly activeEditorPins: readonly string[];
   readonly actorResourceKeys: readonly string[];
@@ -578,35 +598,13 @@ function inferGpuFlowVisibleFrameActorResourcePreparationLane(
   resourceKey: string,
 ): GpuFlowVisibleFrameResourcePreparationLane {
   const family = parseGpuFlowVisibleFrameActorResourceFamily(resourceKey);
-  switch (family) {
-    case "active-editor":
-    case "browser-text-control":
-    case "browser-text-snapshot":
-      return "browser-visual";
-    case "debug-snapshot":
-    case "hit-generation":
-      return "debug-hit";
-    case "dom-island":
-      return "dom-island";
-    case "retained-native-visual":
-    case "retained-page":
-      return "retained-page";
-    case "section-body-clip":
-    case "section-header":
-    case "section-shell":
-      return "section-structure";
-    case "accessibility-exposure":
-    case "edges":
-    case "grid":
-    case "public-runtime-state":
-    case "scene-background":
-    case "viewport-portal":
-      return "presentation-state";
-    default:
-      throw new Error(
-        `GPU Flow visible frame actor resource has unsupported family "${family}".`,
-      );
+  const lane = GPU_FLOW_ACTOR_RESOURCE_PREPARATION_LANE_BY_FAMILY[family];
+  if (!lane) {
+    throw new Error(
+      `GPU Flow visible frame actor resource has unsupported family "${family}".`,
+    );
   }
+  return lane;
 }
 
 function parseGpuFlowVisibleFrameActorResourceFamily(

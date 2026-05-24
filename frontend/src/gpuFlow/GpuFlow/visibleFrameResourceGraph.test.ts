@@ -308,27 +308,21 @@ describe("GPU Flow visible frame resource graph proofs", () => {
 
   it("normalizes prepared text actors before registering graph-managed actor resources", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
+    const browserTextResourceKey =
+      "actor:browser-text-control:settings:text-control";
     const frame = {
       ...preparedContentFrame({ displayFrameId: 44 }),
       actorGenerations: [
-        {
-          actorFamily: "text-like-dom-control",
-          actorId: "settings:text-control",
-          visibleNonempty: true,
-        },
+        { actorFamily: "text-like-dom-control", actorId: "settings:text-control", visibleNonempty: true },
       ],
     } as unknown as GpuFlowPreparedContentFrame;
 
     registry.registerPreparedContentFrame({
-      browserVisualCandidate: browserVisualCandidate({
-        frameId: frame.displayFrameId,
-      }),
+      browserVisualCandidate: browserVisualCandidate({ frameId: 44 }),
       frame,
     });
 
     const snapshot = registry.getSnapshot();
-    const browserTextResourceKey =
-      "actor:browser-text-control:settings:text-control";
     expect(snapshot.actorResourceKeys).toContain(browserTextResourceKey);
     expect(snapshot.candidateResourceKeys).toContain(browserTextResourceKey);
     expect(snapshot.resourceStates).toContainEqual(
