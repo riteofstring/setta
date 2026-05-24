@@ -397,6 +397,10 @@ export class GpuFlowVisibleFrameResourceGraph {
         candidate: entry.browserVisualCandidate,
         token,
       });
+      return Object.freeze({
+        activeEditorPins: entry.activeEditorPins,
+        releasedCandidateResourceKeys: Object.freeze([]),
+      });
     } else {
       abortBrowserVisualCandidate({
         candidate: entry.browserVisualCandidate,
@@ -865,7 +869,11 @@ function assertGpuFlowVisibleFrameResourceTransition({
 }): void {
   const allowedNextStates =
     GPU_FLOW_VISIBLE_FRAME_RESOURCE_ALLOWED_TRANSITIONS[currentState];
-  if (allowedNextStates.includes(nextState)) {
+  if (
+    (
+      allowedNextStates as readonly GpuFlowVisibleFrameResourceStateKind[]
+    ).includes(nextState)
+  ) {
     return;
   }
   throw new Error(

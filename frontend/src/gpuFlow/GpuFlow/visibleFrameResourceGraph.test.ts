@@ -382,6 +382,68 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     ]);
   });
 
+  it("keeps preserved preparation candidates queued until replacement or release", () => {
+    const registry = createGpuFlowVisibleFrameResourceGraph();
+    const frame = committedSurfaceFrame({
+      displayFrameId: 611,
+      exactSurfaceResourceHandles: [],
+      protectedResourceHandles: [],
+    });
+    const candidate = browserVisualCandidate({
+      blockedControlIds: ["active-control"],
+      controls: [domControl({ active: true, sourceId: "active-control" })],
+      frameId: frame.displayFrameId,
+      mountedControlIds: ["active-control"],
+    });
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: candidate,
+      frame,
+    });
+    const stagedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
+
+    const result = registry.abortPreparedCommittedSurfaceFrame({
+      abortBrowserVisualCandidate: () => {
+        throw new Error("Preserved preparation must not abort the candidate.");
+      },
+      frame,
+      preservePreparationSnapshot: true,
+      stageBrowserVisualCandidate: ({ candidate }) => {
+        stagedCandidates.push(candidate);
+      },
+      token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+        blockedReasons: [
+          {
+            actorId: "active-control",
+            family: "browser-visual",
+            reason: "live-dom-budget",
+          },
+        ],
+        frozenFrameId: frame.displayFrameId,
+        projectionSample: liveProjectionSample(611),
+      }),
+    });
+
+    expect(stagedCandidates).toEqual([candidate]);
+    expect(result).toEqual({
+      activeEditorPins: ["active-control"],
+      releasedCandidateResourceKeys: [],
+    });
+    expect(registry.getSnapshot()).toMatchObject({
+      activeEditorPins: ["active-control"],
+      candidateResourceKeys: ["dom-control:active-control"],
+      pendingCandidateFrameIds: [611],
+      queuedResourceKeys: ["dom-control:active-control"],
+      resourceDebtByState: {
+        absent: 0,
+        preparing: 0,
+        presented: 0,
+        ready: 0,
+        requested: 1,
+        retired: 0,
+      },
+    });
+  });
+
   it("commits publication-proof resources while retaining optional browser visual debt", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const frame = committedSurfaceFrame({
