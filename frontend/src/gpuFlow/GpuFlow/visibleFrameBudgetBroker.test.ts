@@ -62,6 +62,93 @@ describe("GPU Flow visible frame budget broker", () => {
     expect(decision.browserVisualRepair.eligible).toBe(false);
   });
 
+  it("keeps continuity content repair budgeted during motion frames", () => {
+    const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
+      deferResolutionUpdates: true,
+      reducerDecision: reducerDecision({
+        classifiedDebt: classifiedDebt({
+          continuity: { active: true, ageFrames: 1, ageMs: 16 },
+        }),
+        debt: {
+          content: true,
+          maintenance: false,
+          motion: true,
+        },
+        lane: "motion",
+        reducerState: "motion-active",
+      }),
+    });
+
+    expect(decision.preparationBudget.selectedDebtByLane).toEqual({
+      "retained-page": ["continuity-content-repair"],
+    });
+    expect(decision.preparationBudget.selectedDebtIds).toContain(
+      "continuity-content-repair",
+    );
+    expect(decision.preparationBudget.selectedVisibleDebtIds).toEqual([
+      "continuity-content-repair",
+    ]);
+    expect(decision.preparationBudget.deferredDebtIds).toContain(
+      "resolution-update",
+    );
+  });
+
+  it("uses concrete retained-page resource debt instead of synthetic continuity repair", () => {
+    const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
+      deferResolutionUpdates: false,
+      reducerDecision: reducerDecision({
+        classifiedDebt: classifiedDebt({
+          continuity: { active: true, ageFrames: 1, ageMs: 16 },
+        }),
+        debt: {
+          content: true,
+          maintenance: false,
+          motion: true,
+        },
+        lane: "motion",
+        reducerState: "motion-active",
+      }),
+      resourceGraphSnapshot: {
+        activeEditorPins: [],
+        candidateResourceKeys: ["page:visible-section-page"],
+        presentedFrameId: null,
+        presentedResourceKeys: [],
+        pendingCandidateFrameIds: [9],
+        queuedResourceKeys: ["page:visible-section-page"],
+        resourceDebtByState: {
+          absent: 0,
+          preparing: 0,
+          presented: 0,
+          ready: 0,
+          requested: 1,
+          retired: 0,
+        },
+        resourceStates: [
+          {
+            debtAgeFrames: 1,
+            deadlineFrame: 2,
+            estimatedCostMs: 1,
+            ownerFrameId: 9,
+            preparationLane: "retained-page",
+            priority: "continuity",
+            resourceKey: "page:visible-section-page",
+            state: "requested",
+          },
+        ],
+      },
+    });
+
+    expect(decision.preparationBudget.selectedDebtIds).toEqual([
+      "page:visible-section-page",
+    ]);
+    expect(decision.preparationBudget.selectedDebtIds).not.toContain(
+      "continuity-content-repair",
+    );
+    expect(decision.preparationBudget.selectedVisibleResourceDebtIds).toEqual([
+      "page:visible-section-page",
+    ]);
+  });
+
   it("arbitrates safety debt ahead of quality debt within a bounded preparation budget", () => {
     const budgetBroker = createGpuFlowVisibleFrameBudgetBroker({
       policy: {
@@ -679,22 +766,45 @@ describe("GPU Flow visible frame budget broker", () => {
 });
 
 function reducerDecision({
+  classifiedDebt,
+  debt,
   lane,
   reducerState,
 }: {
+  readonly classifiedDebt?:
+    | GpuFlowVisibleFrameReducerDecision["classifiedDebt"]
+    | undefined;
+  readonly debt?:
+    | Partial<GpuFlowVisibleFrameReducerDecision["debt"]>
+    | undefined;
   readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly reducerState: GpuFlowVisibleFrameReducerDecision["reducerState"];
 }): Pick<
   GpuFlowVisibleFrameReducerDecision,
-  "debt" | "lane" | "reducerState"
+  "classifiedDebt" | "debt" | "lane" | "reducerState"
 > {
   return {
+    classifiedDebt,
     debt: {
       content: lane === "content",
       maintenance: lane === "maintenance",
       motion: lane === "motion",
+      ...debt,
     },
     lane,
     reducerState,
+  };
+}
+
+function classifiedDebt(
+  overrides: Partial<
+    NonNullable<GpuFlowVisibleFrameReducerDecision["classifiedDebt"]>
+  >,
+): NonNullable<GpuFlowVisibleFrameReducerDecision["classifiedDebt"]> {
+  return {
+    continuity: { active: false, ageFrames: 0, ageMs: 0 },
+    quality: { active: false, ageFrames: 0, ageMs: 0 },
+    safety: { active: false, ageFrames: 0, ageMs: 0 },
+    ...overrides,
   };
 }

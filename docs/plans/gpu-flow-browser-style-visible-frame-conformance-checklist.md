@@ -51,7 +51,10 @@ Code audit update, 2026-05-27:
 - actor resource keys are now lifecycle-managed resources in the resource
   graph. They remain reported as `actorResourceKeys`, and are also promoted
   into `candidateResourceKeys` and `resourceStates` with family-specific
-  preparation lanes.
+  preparation lanes;
+- safety and continuity content debt now produce explicit budget debt while
+  motion is active, so a projected frame can keep repair preparation on the
+  content path even before concrete resource-graph repair items appear.
 
 Therefore the refactor is substantially implemented in code, but it is not
 strictly complete by the original plan's success criteria until the remaining
@@ -173,7 +176,7 @@ passes.
   also preparing safety or continuity repair resources for a future present.
 - [x] Apply the budget broker before candidate preparation so selected resource
   work can start during active gestures.
-- [ ] Remove any rule where `renderedProjectionOnlyFrame` or motion lane
+- [x] Remove any rule where `renderedProjectionOnlyFrame` or motion lane
   selection automatically skips safety or continuity content preparation.
 - [ ] Ensure texture uploads, browser visual host preparation, retained page
   rasterization, and snapshot capture remain preparation work and do not mutate

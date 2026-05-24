@@ -64,7 +64,7 @@ export type GpuFlowVisibleFrameBudgetBroker = {
     readonly deferResolutionUpdates: boolean;
     readonly reducerDecision: Pick<
       GpuFlowVisibleFrameReducerDecision,
-      "debt" | "lane" | "reducerState"
+      "classifiedDebt" | "debt" | "lane" | "reducerState"
     >;
     readonly requestedDebt?: readonly GpuFlowVisibleFrameBudgetDebtRequest[];
   }) => GpuFlowVisibleFrameBudgetBrokerDecision;
@@ -183,7 +183,7 @@ export function createGpuFlowVisibleFrameBudgetBrokerDecision({
   readonly deferResolutionUpdates: boolean;
   readonly reducerDecision: Pick<
     GpuFlowVisibleFrameReducerDecision,
-    "debt" | "lane" | "reducerState"
+    "classifiedDebt" | "debt" | "lane" | "reducerState"
   >;
   readonly resourceGraphSnapshot?:
     | GpuFlowVisibleFrameResourceGraphSnapshot
@@ -271,7 +271,7 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
   readonly deferResolutionUpdates: boolean;
   readonly reducerDecision: Pick<
     GpuFlowVisibleFrameReducerDecision,
-    "debt" | "lane" | "reducerState"
+    "classifiedDebt" | "debt" | "lane" | "reducerState"
   >;
   readonly resourceGraphSnapshot?:
     | GpuFlowVisibleFrameResourceGraphSnapshot
@@ -308,6 +308,12 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
       source: "synthetic",
     });
   }
+  debt.push(
+    ...createGpuFlowVisibleFrameContentRepairDebtRequests({
+      reducerDecision,
+      resourceGraphDebt,
+    }),
+  );
   if (deferResolutionUpdates) {
     debt.push({
       estimatedCostMs: 1.25,
@@ -320,6 +326,72 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
   }
   debt.push(...resourceGraphDebt);
   return Object.freeze(debt);
+}
+
+function createGpuFlowVisibleFrameContentRepairDebtRequests({
+  reducerDecision,
+  resourceGraphDebt,
+}: {
+  readonly reducerDecision: Pick<
+    GpuFlowVisibleFrameReducerDecision,
+    "classifiedDebt" | "debt"
+  >;
+  readonly resourceGraphDebt: readonly GpuFlowVisibleFrameBudgetDebtRequest[];
+}): readonly GpuFlowVisibleFrameBudgetDebtRequest[] {
+  if (!reducerDecision.debt.content) {
+    return Object.freeze([]);
+  }
+  if (
+    reducerDecision.classifiedDebt?.safety.active === true &&
+    !hasGpuFlowVisibleFrameConcreteContentRepairDebt(resourceGraphDebt)
+  ) {
+    return Object.freeze([
+      createGpuFlowVisibleFrameSyntheticContentRepairDebt({
+        id: "safety-content-repair",
+        priority: "safety",
+      }),
+    ]);
+  }
+  if (
+    reducerDecision.classifiedDebt?.continuity.active === true &&
+    !hasGpuFlowVisibleFrameConcreteContentRepairDebt(resourceGraphDebt)
+  ) {
+    return Object.freeze([
+      createGpuFlowVisibleFrameSyntheticContentRepairDebt({
+        id: "continuity-content-repair",
+        priority: "continuity",
+      }),
+    ]);
+  }
+  return Object.freeze([]);
+}
+
+function createGpuFlowVisibleFrameSyntheticContentRepairDebt({
+  id,
+  priority,
+}: {
+  readonly id: "continuity-content-repair" | "safety-content-repair";
+  readonly priority: GpuFlowVisibleFrameBudgetPriority;
+}): GpuFlowVisibleFrameBudgetDebtRequest {
+  return Object.freeze({
+    estimatedCostMs: 2,
+    id,
+    preparationLane: "retained-page",
+    priority,
+    resourceState: "requested",
+    source: "synthetic",
+  });
+}
+
+function hasGpuFlowVisibleFrameConcreteContentRepairDebt(
+  resourceGraphDebt: readonly GpuFlowVisibleFrameBudgetDebtRequest[],
+): boolean {
+  return resourceGraphDebt.some(
+    (debt) =>
+      (debt.preparationLane === "retained-page" ||
+        debt.preparationLane === "section-structure") &&
+      (debt.priority === "safety" || debt.priority === "continuity"),
+  );
 }
 
 function ageGpuFlowVisibleFrameBudgetDebt({
