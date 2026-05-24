@@ -18,14 +18,11 @@ import { withGpuFlowContentCatchupReasonForStalePublicationSample } from "../pro
 import type { GpuRetainedContentRuntimeState } from "../retainedContentRuntimeState";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
-import { chooseZoomBucket } from "../textureResolution";
 import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import { renderGpuFlowNodeLayerFrame } from "./flowFrame";
 import type { GpuFlowNodeLayerFrameStatePublication } from "./flowFrameLifecycle";
-import { createGpuFlowRetainedRuntimeFrameSourceSignature } from "./flowMountedSceneNodes";
 import { renderGpuFlowNodeLayerProjectionFrame } from "./flowProjectionFrame";
-import { shouldReuseGpuFlowDeferredRetainedContentPublicationFrame } from "./flowRetainedContentFrameCache";
 import { createGpuFlowRetainedRuntimeFrameSourceRenderSignature } from "./flowRetainedRuntimeFrameSignatures";
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
 import { isGpuFlowVisibleProjectionStateRetainedScrollCurrent } from "./retainedScrollProjectionState";
@@ -38,6 +35,7 @@ import {
   runGpuFlowVisibleFrameCoordinator,
   shouldConsiderGpuFlowDeferredContentPublication,
   shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication,
+  shouldSkipGpuFlowDeferredContentPublicationFrame,
   type GpuFlowContentPublicationFrameResult,
   type GpuFlowContentPublicationWorkPlan,
   type GpuFlowMotionProjectionFramePreparation,
@@ -314,8 +312,6 @@ export function renderGpuFlowSurfaceFrame({
             liveProjectionSample: publicationDecision.sample,
             nodeLayerRef,
             contentPublicationWorkPlan,
-            activeEditorActivationPending:
-              publicationFrameContext.activeEditorPins.length > 0,
             previousVisibleProjectionState,
             publicationDecision,
             retainedContentRuntimeState,
@@ -670,7 +666,6 @@ function createGpuFlowMotionProjectionFrameResult({
 }
 
 function renderGpuFlowSurfaceContentPublicationFrame({
-  activeEditorActivationPending,
   contentPublicationWorkPlan,
   deferResolutionUpdates,
   event,
@@ -687,7 +682,6 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   viewportStore,
   ...input
 }: Omit<RenderGpuFlowSurfaceFrameInput, "viewportRuntime"> & {
-  readonly activeEditorActivationPending: boolean;
   readonly contentPublicationWorkPlan: GpuFlowContentPublicationWorkPlan;
   readonly deferResolutionUpdates: boolean;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
@@ -708,18 +702,11 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   if (
     !shouldRenderGpuFlowSurfaceContentPublicationFrame({
       contentPublicationWorkPlan,
-      activeEditorActivationPending,
-      deferResolutionUpdates: contentDeferResolutionUpdates,
-      liveProjectionSample,
-      nodeElementByIdRef: input.nodeElementByIdRef,
-      nodeLayerRef,
+      deferResolutionUpdates,
       previousVisibleProjectionState,
       publicationDecision,
       retainedContentFrameCacheRef: input.retainedContentFrameCacheRef,
       retainedDisplayFrameRef: input.retainedDisplayFrameRef,
-      retainedPreparationRuntimeFrameRenderSignatureRef,
-      retainedRuntimeFrameSourceRenderSignatureRef:
-        input.retainedRuntimeFrameSourceRenderSignatureRef,
     })
   ) {
     return createGpuFlowContentPublicationFrameResult({ rendered: false });
@@ -784,78 +771,45 @@ function renderGpuFlowSurfaceContentPublicationFrame({
 }
 
 function shouldRenderGpuFlowSurfaceContentPublicationFrame({
-  activeEditorActivationPending,
   contentPublicationWorkPlan,
   deferResolutionUpdates,
-  liveProjectionSample,
-  nodeElementByIdRef,
-  nodeLayerRef,
   previousVisibleProjectionState,
   publicationDecision,
   retainedContentFrameCacheRef,
   retainedDisplayFrameRef,
-  retainedPreparationRuntimeFrameRenderSignatureRef,
-  retainedRuntimeFrameSourceRenderSignatureRef,
 }: {
-  readonly activeEditorActivationPending: boolean;
   readonly contentPublicationWorkPlan: GpuFlowContentPublicationWorkPlan;
   readonly deferResolutionUpdates: boolean;
-  readonly liveProjectionSample: GpuFlowLiveProjectionSample;
-  readonly nodeElementByIdRef: RenderGpuFlowSurfaceFrameInput["nodeElementByIdRef"];
-  readonly nodeLayerRef: RenderGpuFlowSurfaceFrameInput["nodeLayerRef"];
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly retainedContentFrameCacheRef: RenderGpuFlowSurfaceFrameInput["retainedContentFrameCacheRef"];
   readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
-  readonly retainedPreparationRuntimeFrameRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedPreparationRuntimeFrameRenderSignatureRef"];
-  readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
 }): boolean {
   if (contentPublicationWorkPlan.kind === "skip") {
     return false;
   }
   return !shouldSkipDeferredGpuFlowContentPublication({
     deferResolutionUpdates,
-    activeEditorActivationPending,
-    liveProjectionSample,
-    nodeElementByIdRef,
-    nodeLayerRef,
     previousVisibleProjectionState,
     publicationDecision,
     retainedContentFrameCacheRef,
     retainedDisplayFrameRef,
-    retainedPreparationRuntimeFrameRenderSignatureRef,
-    retainedRuntimeFrameSourceRenderSignatureRef,
   });
 }
 
 function shouldSkipDeferredGpuFlowContentPublication({
-  activeEditorActivationPending,
   deferResolutionUpdates,
-  liveProjectionSample,
-  nodeElementByIdRef,
-  nodeLayerRef,
   previousVisibleProjectionState,
   publicationDecision,
   retainedContentFrameCacheRef,
   retainedDisplayFrameRef,
-  retainedPreparationRuntimeFrameRenderSignatureRef,
-  retainedRuntimeFrameSourceRenderSignatureRef,
 }: {
-  readonly activeEditorActivationPending: boolean;
   readonly deferResolutionUpdates: boolean;
-  readonly liveProjectionSample: GpuFlowLiveProjectionSample;
-  readonly nodeElementByIdRef: RenderGpuFlowSurfaceFrameInput["nodeElementByIdRef"];
-  readonly nodeLayerRef: RenderGpuFlowSurfaceFrameInput["nodeLayerRef"];
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly retainedContentFrameCacheRef: RenderGpuFlowSurfaceFrameInput["retainedContentFrameCacheRef"];
   readonly retainedDisplayFrameRef: RenderGpuFlowSurfaceFrameInput["retainedDisplayFrameRef"];
-  readonly retainedPreparationRuntimeFrameRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedPreparationRuntimeFrameRenderSignatureRef"];
-  readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
 }): boolean {
-  if (activeEditorActivationPending) {
-    return false;
-  }
   if (
     !shouldConsiderGpuFlowDeferredContentPublication({
       deferResolutionUpdates,
@@ -867,70 +821,10 @@ function shouldSkipDeferredGpuFlowContentPublication({
   ) {
     return false;
   }
-  const preparedFrame = retainedContentFrameCacheRef.current;
-  if (!preparedFrame) {
-    return false;
-  }
-  if (
-    hasUnpublishedGpuFlowRetainedRuntimeSourceFrame({
-      retainedPreparationRuntimeFrameRenderSignatureRef,
-      retainedRuntimeFrameSourceRenderSignatureRef,
-    })
-  ) {
-    return false;
-  }
-  const targetZoomBucket = chooseZoomBucket(
-    normalizeGpuViewport(liveProjectionSample.viewport).zoom,
-  );
-  return isReusableGpuFlowDeferredContentPublicationFrame({
-    nodeElementByIdRef,
-    nodeLayerRef,
-    preparedFrame,
-    targetViewport: liveProjectionSample.viewport,
-    targetZoomBucket,
+  return shouldSkipGpuFlowDeferredContentPublicationFrame({
+    canReusePreparedFrame: false,
+    hasPreparedFrame: retainedContentFrameCacheRef.current !== null,
+    hasUnpublishedPreparedSourceFrame: false,
+    shouldConsiderDeferredPublication: true,
   });
-}
-
-function isReusableGpuFlowDeferredContentPublicationFrame({
-  nodeElementByIdRef,
-  nodeLayerRef,
-  preparedFrame,
-  targetViewport,
-  targetZoomBucket,
-}: {
-  readonly nodeElementByIdRef: RenderGpuFlowSurfaceFrameInput["nodeElementByIdRef"];
-  readonly nodeLayerRef: RenderGpuFlowSurfaceFrameInput["nodeLayerRef"];
-  readonly preparedFrame: NonNullable<
-    RenderGpuFlowSurfaceFrameInput["retainedContentFrameCacheRef"]["current"]
-  >;
-  readonly targetViewport: GpuViewportInput;
-  readonly targetZoomBucket: ReturnType<typeof chooseZoomBucket>;
-}): boolean {
-  return shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
-    cachedFrame: preparedFrame,
-    contentSurfaces: nodeLayerRef.current.scene?.contentSurfaces,
-    nativeVisualSignature: createGpuFlowRetainedRuntimeFrameSourceSignature({
-      layer: nodeLayerRef.current,
-      nodeElementById: nodeElementByIdRef.current,
-    }),
-    sceneRevision: nodeLayerRef.current.scene?.revision ?? 0,
-    targetViewport,
-    targetZoomBucket,
-  });
-}
-
-function hasUnpublishedGpuFlowRetainedRuntimeSourceFrame({
-  retainedPreparationRuntimeFrameRenderSignatureRef,
-  retainedRuntimeFrameSourceRenderSignatureRef,
-}: {
-  readonly retainedPreparationRuntimeFrameRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedPreparationRuntimeFrameRenderSignatureRef"];
-  readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
-}): boolean {
-  const preparedSourceSignature =
-    retainedPreparationRuntimeFrameRenderSignatureRef.current;
-  return (
-    preparedSourceSignature !== null &&
-    preparedSourceSignature !==
-      retainedRuntimeFrameSourceRenderSignatureRef.current
-  );
 }

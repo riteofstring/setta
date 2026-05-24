@@ -629,8 +629,13 @@ test("latest Chrome recording parity sequence keeps pixels, diagnostics, and cad
     testInfo,
     "latest-parity-visible-frame-diagnostics.json",
   );
+  const gpuFlowMeasures = await readGpuFlowPerformanceMeasureDiagnostics(page);
   await testInfo.attach("latest-parity-performance.json", {
-    body: JSON.stringify({ budget, controlCadence, gesture }, null, 2),
+    body: JSON.stringify(
+      { budget, controlCadence, gesture, gpuFlowMeasures },
+      null,
+      2,
+    ),
     contentType: "application/json",
   });
   const details = JSON.stringify(
@@ -639,6 +644,7 @@ test("latest Chrome recording parity sequence keeps pixels, diagnostics, and cad
       controlCadence,
       diagnostics,
       gesture,
+      gpuFlowMeasures,
       sampleBands,
       sectionClip,
       target,
@@ -917,6 +923,41 @@ async function readVisibleFrameDiagnostics(
   });
 }
 
+async function readGpuFlowPerformanceMeasureDiagnostics(
+  page: Page,
+): Promise<ObservedGpuFlowPerformanceMeasureDiagnostics> {
+  return await page.evaluate(() => {
+    const measures = performance
+      .getEntriesByType("measure")
+      .filter((entry) => entry.name.startsWith("setta.gpuFlow."))
+      .map((entry) => {
+        const detail =
+          typeof (entry as PerformanceMeasure).detail === "object" &&
+          (entry as PerformanceMeasure).detail !== null
+            ? ((entry as PerformanceMeasure).detail as Record<string, unknown>)
+            : {};
+        return {
+          detail,
+          durationMs: entry.duration,
+          name: entry.name,
+          phase:
+            typeof detail.phase === "string"
+              ? detail.phase
+              : entry.name.split(" ")[0]?.replace("setta.gpuFlow.", "") ??
+                entry.name,
+          startTimeMs: entry.startTime,
+        };
+      });
+    return {
+      longest: [...measures]
+        .sort((left, right) => right.durationMs - left.durationMs)
+        .slice(0, 30),
+      recent: measures.slice(-30),
+      totalCount: measures.length,
+    };
+  });
+}
+
 type ObservedVisibleFrameActorManifest = {
   readonly blockedDebt: Record<string, boolean> | null;
   readonly compatibleActorsByFamily: Record<string, number>;
@@ -938,6 +979,20 @@ type ObservedVisibleFrameDiagnostics = {
   readonly requiredActorsByFamily: Record<string, number> | null;
   readonly scrollHorizonCoverage: unknown;
   readonly visibleOutcome: string | null;
+};
+
+type ObservedGpuFlowPerformanceMeasure = {
+  readonly detail: Record<string, unknown>;
+  readonly durationMs: number;
+  readonly name: string;
+  readonly phase: string;
+  readonly startTimeMs: number;
+};
+
+type ObservedGpuFlowPerformanceMeasureDiagnostics = {
+  readonly longest: readonly ObservedGpuFlowPerformanceMeasure[];
+  readonly recent: readonly ObservedGpuFlowPerformanceMeasure[];
+  readonly totalCount: number;
 };
 
 type DomGoldenSummary = {

@@ -107,6 +107,7 @@ export {
   createGpuFlowMotionProjectionWorkPlan,
   shouldConsiderGpuFlowDeferredContentPublication,
   shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication,
+  shouldSkipGpuFlowDeferredContentPublicationFrame,
 } from "./visibleFrameWorkPlan";
 export type {
   GpuFlowContentPublicationWorkPlan,

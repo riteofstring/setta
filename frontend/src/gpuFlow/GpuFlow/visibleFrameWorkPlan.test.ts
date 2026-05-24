@@ -13,6 +13,7 @@ import {
   createGpuFlowMotionProjectionWorkPlan,
   shouldConsiderGpuFlowDeferredContentPublication,
   shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication,
+  shouldSkipGpuFlowDeferredContentPublicationFrame,
 } from "./visibleFrameCoordinator";
 
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
@@ -88,6 +89,30 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     ).toBe(true);
     expect(
       shouldConsiderGpuFlowDeferredContentPublication({
+        deferResolutionUpdates: false,
+        hasPreviousRetainedDisplayFrame: true,
+        hasPreviousVisibleProjectionState: true,
+        publicationDecision: publicationDecision({
+          lane: "maintenance",
+          rawReasons: ["texture-upload"],
+          schedulerState: "motion-settling",
+        }),
+      }),
+    ).toBe(true);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPublication({
+        deferResolutionUpdates: false,
+        hasPreviousRetainedDisplayFrame: true,
+        hasPreviousVisibleProjectionState: true,
+        publicationDecision: publicationDecision({
+          lane: "maintenance",
+          rawReasons: ["texture-upload", "dom-control-activation"],
+          schedulerState: "motion-settling",
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
@@ -132,7 +157,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
           schedulerState: "content-catchup",
         }),
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: true,
@@ -144,7 +169,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
           schedulerState: "content-catchup",
         }),
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
         deferResolutionUpdates: false,
@@ -161,6 +186,49 @@ describe("GPU Flow visible frame coordinator work plans", () => {
           lane: "content",
           schedulerState: "motion-active",
         }),
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps deferred content publication off the hot path until a non-deferred frame", () => {
+    expect(
+      shouldSkipGpuFlowDeferredContentPublicationFrame({
+        canReusePreparedFrame: false,
+        hasPreparedFrame: false,
+        hasUnpublishedPreparedSourceFrame: false,
+        shouldConsiderDeferredPublication: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSkipGpuFlowDeferredContentPublicationFrame({
+        canReusePreparedFrame: false,
+        hasPreparedFrame: true,
+        hasUnpublishedPreparedSourceFrame: true,
+        shouldConsiderDeferredPublication: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSkipGpuFlowDeferredContentPublicationFrame({
+        canReusePreparedFrame: true,
+        hasPreparedFrame: true,
+        hasUnpublishedPreparedSourceFrame: false,
+        shouldConsiderDeferredPublication: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSkipGpuFlowDeferredContentPublicationFrame({
+        canReusePreparedFrame: false,
+        hasPreparedFrame: true,
+        hasUnpublishedPreparedSourceFrame: false,
+        shouldConsiderDeferredPublication: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldSkipGpuFlowDeferredContentPublicationFrame({
+        canReusePreparedFrame: false,
+        hasPreparedFrame: false,
+        hasUnpublishedPreparedSourceFrame: false,
+        shouldConsiderDeferredPublication: false,
       }),
     ).toBe(false);
   });
@@ -192,6 +260,9 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     );
     expect(coordinatorSource).toContain(
       "shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication",
+    );
+    expect(coordinatorSource).toContain(
+      "shouldSkipGpuFlowDeferredContentPublicationFrame",
     );
   });
 });

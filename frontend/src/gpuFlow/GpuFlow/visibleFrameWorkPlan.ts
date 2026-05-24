@@ -1,12 +1,10 @@
 import type { GpuFlowProjectionLane } from "../projectionRuntime";
+import { hasGpuFlowCriticalContentFrameRequest } from "../projectionSchedulerPolicy";
 import {
   shouldDeferGpuFlowBrowserVisualRepairForBudget,
   type GpuFlowVisibleFrameBudgetBroker,
 } from "./visibleFrameBudgetBroker";
-import {
-  shouldDeferGpuFlowMaintenanceContentCatchup,
-  type GpuFlowVisiblePublicationDecision,
-} from "./visibleFrameScheduling";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
 
 export type GpuFlowMotionProjectionWorkPlan =
   | {
@@ -87,8 +85,6 @@ export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
 
 export function shouldConsiderGpuFlowDeferredContentPublication({
   deferResolutionUpdates,
-  hasPreviousRetainedDisplayFrame,
-  hasPreviousVisibleProjectionState,
   publicationDecision,
 }: {
   readonly deferResolutionUpdates: boolean;
@@ -97,15 +93,20 @@ export function shouldConsiderGpuFlowDeferredContentPublication({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }): boolean {
   return (
-    deferResolutionUpdates &&
-    hasPreviousVisibleProjectionState &&
+    (deferResolutionUpdates ||
+      publicationDecision.schedulerState === "motion-settling") &&
     publicationDecision.lane !== "motion" &&
-    hasPreviousRetainedDisplayFrame &&
-    !publicationDecision.rawReasons.includes("retained-native-visual") &&
-    (publicationDecision.schedulerState === "motion-settling" ||
-      shouldDeferGpuFlowMaintenanceContentCatchup({
-        lane: publicationDecision.lane,
-        rawReasons: publicationDecision.rawReasons,
-      }))
+    !hasGpuFlowCriticalContentFrameRequest(publicationDecision.rawReasons)
   );
+}
+
+export function shouldSkipGpuFlowDeferredContentPublicationFrame({
+  shouldConsiderDeferredPublication,
+}: {
+  readonly canReusePreparedFrame: boolean;
+  readonly hasPreparedFrame: boolean;
+  readonly hasUnpublishedPreparedSourceFrame: boolean;
+  readonly shouldConsiderDeferredPublication: boolean;
+}): boolean {
+  return shouldConsiderDeferredPublication;
 }
