@@ -14,11 +14,6 @@ import {
   useParamCodeObjUIConfig,
 } from "state/hooks/uiTypes";
 import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  SETTA_POPOVER_PORTAL_PARENT_ID,
-} from "utils/constants";
-import {
   type ColorPickerParamCodeObjImpl,
   CodeObjTypeEnum,
 } from "utils/generatedTypes";
@@ -402,8 +397,7 @@ function ColorPicker({
                 onChange(nextColor);
               }
             }}
-            className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${resolvedTheme.inputBorderClassName}`}
-            data-gpu-flow-interactive="true"
+            className={`single-cell-child flex !h-[calc(100%_-_2px)] min-h-0 !w-[calc(100%_-_2px)] min-w-0 cursor-pointer items-center justify-between overflow-hidden !rounded-lg !border !border-solid ${resolvedTheme.inputBorderClassName}`}
             disabled={isDisabled}
             onKeyDown={(e) => {
               if (e.code === "Escape") {
@@ -452,7 +446,6 @@ function ColorPickerFromColorChoices({
     <StandardPopover
       open={isOpen}
       onOpenChange={setIsOpen}
-      portalContainerId={SETTA_POPOVER_PORTAL_PARENT_ID}
       repositionOnCanvasTransform={true}
       contentClasses={theme.menuContentClassName}
       contentProps={{
@@ -467,8 +460,7 @@ function ColorPickerFromColorChoices({
       trigger={
         <button
           type="button"
-          className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${colorPickerChoicesClasses}`}
-          data-gpu-flow-interactive="true"
+          className={colorPickerChoicesClasses}
           disabled={isDisabled}
           aria-expanded={isOpen}
           aria-haspopup="listbox"

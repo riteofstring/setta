@@ -1,10 +1,4 @@
-import {
-  expect,
-  test,
-  type Locator,
-  type Page,
-  type Request,
-} from "@playwright/test";
+import { expect, test, type Locator, type Request } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   clearProjectChatWindows,
@@ -28,15 +22,9 @@ type LatestProjectStateResponse = {
   };
 };
 
-type ParamListKey = "pinned" | "unpinned";
-type RetainedParamRowDebug = {
-  labelClientPoint: { x: number; y: number };
-  rowId: string;
-  rowState: {
-    selected?: boolean;
-  };
-  surfaceId: string;
-};
+function getModKey(): "Control" | "Meta" {
+  return process.platform === "darwin" ? "Meta" : "Control";
+}
 
 async function ensureAppearanceAccordionExpanded(
   uiEditorPane: Locator,
@@ -69,133 +57,6 @@ async function getStyleBlock(uiEditorPane: Locator): Promise<Locator> {
   return styleBlock;
 }
 
-function paramSurfaceId(sectionId: string, listKey: ParamListKey): string {
-  return `${sectionId}:param-content:${listKey}`;
-}
-
-async function readShownParamIds(
-  page: Page,
-  sectionId: string,
-): Promise<{ pinned: string[]; unpinned: string[] }> {
-  return await page.evaluate(async (targetSectionId) => {
-    const { useProjectState } = await import("/src/state/definitions.ts");
-    const state = useProjectState.getState();
-    const variantId = state.projectConfig.sectionVariantMap[targetSectionId];
-    const shown = variantId ? state.shownParamIds[variantId] : null;
-    return {
-      pinned: shown?.pinned.topLevelParamIds ?? [],
-      unpinned: shown?.unpinned.topLevelParamIds ?? [],
-    };
-  }, sectionId);
-}
-
-async function waitForFirstShownParamId(
-  page: Page,
-  sectionId: string,
-): Promise<string> {
-  await expect
-    .poll(async () => {
-      const shown = await readShownParamIds(page, sectionId);
-      return shown.unpinned[0] ?? shown.pinned[0] ?? null;
-    })
-    .not.toBeNull();
-  const shown = await readShownParamIds(page, sectionId);
-  const firstParamId = shown.unpinned[0] ?? shown.pinned[0] ?? null;
-  if (!firstParamId) {
-    throw new Error(`Missing retained param row for ${sectionId}.`);
-  }
-  return firstParamId;
-}
-
-async function readRetainedParamRows(
-  page: Page,
-  sectionId: string,
-  listKey: ParamListKey,
-): Promise<RetainedParamRowDebug[]> {
-  const surfaceId = paramSurfaceId(sectionId, listKey);
-  return await page.evaluate((targetSurfaceId) => {
-    return (
-      window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? []
-    ).filter((row) => row.surfaceId === targetSurfaceId);
-  }, surfaceId);
-}
-
-async function readRetainedParamRow(
-  page: Page,
-  sectionId: string,
-  listKey: ParamListKey,
-  rowId: string,
-): Promise<RetainedParamRowDebug | null> {
-  const rows = await readRetainedParamRows(page, sectionId, listKey);
-  return rows.find((row) => row.rowId === rowId) ?? null;
-}
-
-async function hoverRetainedParamRow(
-  page: Page,
-  sectionId: string,
-  listKey: ParamListKey,
-  rowId: string,
-): Promise<void> {
-  const row = await readRetainedParamRow(page, sectionId, listKey, rowId);
-  if (!row) {
-    throw new Error(`Missing retained param row ${rowId}.`);
-  }
-  await page.mouse.move(row.labelClientPoint.x, row.labelClientPoint.y, {
-    steps: 4,
-  });
-}
-
-async function readHoveredRetainedRowTarget(page: Page): Promise<{
-  rowId: string;
-  surfaceId: string;
-} | null> {
-  return await page.evaluate(() => {
-    const hit = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().hoveredRetainedHit;
-    return hit ? { rowId: hit.rowId, surfaceId: hit.surfaceId } : null;
-  });
-}
-
-async function readSectionPortAnchorsForTest(
-  page: Page,
-  sectionId: string,
-): Promise<Array<{ id: string; kind: string }>> {
-  return await page.evaluate(async (targetSectionId) => {
-    const { useProjectState } = await import("/src/state/definitions.ts");
-    const { getProjectGpuFlowScene } = await import(
-      "/src/components/Pages/Project/GpuProjectSurface/projectGpuLayoutAdapter.ts"
-    );
-    const state = useProjectState.getState();
-    const scene = getProjectGpuFlowScene(state, {
-      darkMode: false,
-    });
-    const section = scene.sections.find(
-      (candidate) => candidate.sectionId === targetSectionId,
-    );
-    return (
-      section?.portAnchors.map((anchor) => ({
-        id: anchor.id,
-        kind: anchor.kind,
-      })) ?? []
-    );
-  }, sectionId);
-}
-
-async function toggleParamSelectedForTest(
-  page: Page,
-  sectionId: string,
-  paramInfoId: string,
-): Promise<void> {
-  await page.evaluate(
-    async ({ targetParamInfoId, targetSectionId }) => {
-      const { toggleParamSelected } = await import(
-        "/src/state/actions/sectionInfos/viewportUpdates.ts"
-      );
-      toggleParamSelected(targetSectionId, targetParamInfoId);
-    },
-    { targetParamInfoId: paramInfoId, targetSectionId: sectionId },
-  );
-}
-
 test.describe.serial("section style colors", () => {
   test("sets style color via Section Config and themes section chrome", async ({
     page,
@@ -219,11 +80,9 @@ test.describe.serial("section style colors", () => {
         "__pw_section_style_color__",
       );
 
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
-      await activateSectionForEditor(page, sectionId);
+      await node.click();
 
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
@@ -291,13 +150,13 @@ test.describe.serial("section style colors", () => {
         .toBe("#ff0000");
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".setta-gpu-flow__pane");
+      await page.waitForSelector(".react-flow__pane");
 
       const nodeAfter = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(nodeAfter).toBeVisible();
-      await activateSectionForEditor(page, sectionId);
+      await nodeAfter.click();
 
       const uiEditorAfter = page.locator("#UiEditorPane");
       await expect(uiEditorAfter).toBeVisible();
@@ -385,11 +244,9 @@ test.describe.serial("section style colors", () => {
         "__pw_section_style_minimap__",
       );
 
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
-      await activateSectionForEditor(page, sectionId);
+      await node.click();
 
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
@@ -462,7 +319,6 @@ test.describe.serial("section style colors", () => {
       const sectionId = await createCallableSection(
         page,
         projectContext.projectConfigId,
-        { position: { x: 220, y: 160 } },
       );
       await setCallableFromFrontend(page, {
         projectConfigId: projectContext.projectConfigId,
@@ -471,16 +327,15 @@ test.describe.serial("section style colors", () => {
         refetchParams: true,
       });
 
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
       const sectionChrome = node
         .locator(`section[data-section-id="${sectionId}"]`)
         .first();
       await expect(sectionChrome).toBeVisible();
+      // Click directly on the section chrome so the section selection handler runs,
+      // instead of landing on nested inputs that may stop click propagation.
       await sectionChrome.dispatchEvent("click");
-      await activateSectionForEditor(page, sectionId);
 
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
@@ -489,13 +344,10 @@ test.describe.serial("section style colors", () => {
 
       const argsStrip = sectionChrome.locator(".section-args").first();
       await expect(argsStrip).toBeVisible();
-      const firstParamId = await waitForFirstShownParamId(page, sectionId);
-      await expect
-        .poll(async () => {
-          const rows = await readRetainedParamRows(page, sectionId, "unpinned");
-          return rows.some((row) => row.rowId === firstParamId);
-        })
-        .toBe(true);
+      const firstParamRow = sectionChrome
+        .locator(`[id^="ParamContainer-${sectionId}-"]`)
+        .first();
+      await expect(firstParamRow).toBeVisible({ timeout: 20000 });
       const callableSearch = sectionChrome.locator(
         `[id="${sectionId}-search"]`,
       );
@@ -612,41 +464,73 @@ test.describe.serial("section style colors", () => {
         });
       await expect.poll(getCallableInputBorderColor).toBe("rgb(166, 255, 166)");
 
-      await hoverRetainedParamRow(page, sectionId, "unpinned", firstParamId);
+      await firstParamRow.hover();
       await expect
         .poll(async () => {
-          return await readHoveredRetainedRowTarget(page);
+          return await firstParamRow.evaluate((el) => {
+            return window.getComputedStyle(el).backgroundColor;
+          });
         })
-        .toEqual({
-          rowId: firstParamId,
-          surfaceId: paramSurfaceId(sectionId, "unpinned"),
-        });
+        .toBe("rgb(166, 255, 166)");
       await expect.poll(getArgsBackgroundColor).toBe("rgb(224, 255, 224)");
 
-      await toggleParamSelectedForTest(page, sectionId, firstParamId);
+      const modKey = getModKey();
+      await page.keyboard.down(modKey);
+      await page.keyboard.down("Shift");
+      await firstParamRow.click();
+      await page.keyboard.up("Shift");
+      await page.keyboard.up(modKey);
       await expect
         .poll(async () => {
-          return (
-            await readRetainedParamRow(page, sectionId, "unpinned", firstParamId)
-          )?.rowState.selected;
+          return await firstParamRow.evaluate((el) => {
+            const rowStyle = window.getComputedStyle(el);
+            const sampleText = el.querySelector(
+              ".section-key, .section-value, span",
+            );
+            const textColor = sampleText
+              ? window.getComputedStyle(sampleText).color
+              : rowStyle.color;
+            return {
+              backgroundColor: rowStyle.backgroundColor,
+              textColor,
+            };
+          });
         })
-        .toBe(true);
+        .toMatchObject({
+          backgroundColor: "rgb(89, 255, 89)",
+          textColor: "rgb(0, 0, 0)",
+        });
+
+      const firstParamRowId = await firstParamRow.getAttribute("id");
+      const pinnedParamId = firstParamRowId?.replace(
+        `ParamContainer-${sectionId}-`,
+        "",
+      );
+      if (!pinnedParamId || pinnedParamId === firstParamRowId) {
+        throw new Error("Unable to parse first selected param id.");
+      }
 
       await setSectionPinnedParamsFromFrontend(page, {
         projectConfigId: projectContext.projectConfigId,
         sectionId,
-        pinnedParams: [firstParamId],
+        pinnedParams: [pinnedParamId],
       });
-      await expect
-        .poll(async () => {
-          const rows = await readRetainedParamRows(page, sectionId, "pinned");
-          return rows.some((row) => row.rowId === firstParamId);
-        })
-        .toBe(true);
+      await expect(sectionChrome.getByText("Pinned Params")).toBeVisible({
+        timeout: 20000,
+      });
 
-      const shownParamIds = await readShownParamIds(page, sectionId);
-      const paramIds = [...shownParamIds.pinned, ...shownParamIds.unpinned];
-      const edgeParamId = paramIds.find((id) => id !== firstParamId) ?? null;
+      const paramIdPrefix = `ParamContainer-${sectionId}-`;
+      const paramIds = await sectionChrome
+        .locator(`[id^="${paramIdPrefix}"]`)
+        .evaluateAll(
+          (nodes, prefix) =>
+            nodes
+              .map((node) => node.id)
+              .filter((id) => id.startsWith(prefix))
+              .map((id) => id.slice(prefix.length)),
+          paramIdPrefix,
+        );
+      const edgeParamId = paramIds.find((id) => id !== pinnedParamId) ?? null;
       if (!edgeParamId) {
         throw new Error(
           "Expected at least one additional param for edge strip assertions.",
@@ -658,32 +542,71 @@ test.describe.serial("section style colors", () => {
         sectionId,
         edgeInputParams: [edgeParamId],
       });
+
+      const pinnedHeading = sectionChrome.getByText("Pinned Params").first();
+      await expect(pinnedHeading).toBeVisible();
       await expect
         .poll(async () => {
-          const anchors = await readSectionPortAnchorsForTest(page, sectionId);
-          return anchors.some(
-            (anchor) => anchor.id === edgeParamId && anchor.kind === "input",
-          );
+          return await pinnedHeading.evaluate((el) => {
+            const pinnedArea = el.closest(`section[data-params-fixed="true"]`);
+            if (!(pinnedArea instanceof HTMLElement)) {
+              return null;
+            }
+            return window.getComputedStyle(pinnedArea).backgroundColor;
+          });
         })
-        .toBe(true);
+        .toBe("rgb(204, 255, 204)");
 
-      const argEdgeHandle = sectionChrome.locator(
-        ".arg-edge-handle.arg-edge-handle--target",
+      const edgeRow = sectionChrome.locator(
+        `[data-edge-param-id="${edgeParamId}"][data-edge-param-side="in"]`,
+      );
+      await expect(edgeRow).toBeVisible();
+      await expect
+        .poll(async () => {
+          return await edgeRow.evaluate((el) => {
+            const strip = el.closest(`section[data-params-fixed="true"]`);
+            if (!(strip instanceof HTMLElement)) {
+              return null;
+            }
+            return window.getComputedStyle(strip).backgroundColor;
+          });
+        })
+        .toBe("rgb(204, 255, 204)");
+
+      const argEdgeHandle = page.locator(
+        `.react-flow__handle.arg-edge-handle[data-nodeid="${sectionId}"][data-handleid="${edgeParamId}"]`,
       );
       await expect(argEdgeHandle).toBeVisible();
       await expect(argEdgeHandle).toHaveCSS(
         "background-color",
         "rgb(166, 255, 166)",
       );
+      await argEdgeHandle.hover();
+      await expect(argEdgeHandle).toHaveCSS(
+        "background-color",
+        "rgb(89, 255, 89)",
+      );
+      const argEdgeHandleBox = await argEdgeHandle.boundingBox();
+      if (!argEdgeHandleBox) {
+        throw new Error("Missing arg edge handle bounding box.");
+      }
+      await page.mouse.move(
+        argEdgeHandleBox.x + argEdgeHandleBox.width / 2,
+        argEdgeHandleBox.y + argEdgeHandleBox.height / 2,
+      );
+      await page.mouse.down();
+      await expect(argEdgeHandle).toHaveCSS(
+        "background-color",
+        "rgb(166, 255, 166)",
+      );
+      await page.mouse.up();
 
-      await node.evaluate((element) => {
-        element.setAttribute("data-gpu-flow-hovered", "true");
-      });
+      await sectionChrome.hover();
       const agenticTargetHandle = page.locator(
-        `.setta-gpu-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
       );
       const agenticSourceHandle = page.locator(
-        `.setta-gpu-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
+        `.react-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
       );
       await expect(agenticTargetHandle).toHaveCSS(
         "border-color",
@@ -720,11 +643,9 @@ test.describe.serial("section style colors", () => {
         "__pw_section_style_drag__",
       );
 
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
-      await activateSectionForEditor(page, sectionId);
+      await node.click();
 
       const uiEditorPane = page.locator("#UiEditorPane");
       await expect(uiEditorPane).toBeVisible();
@@ -846,25 +767,3 @@ test.describe.serial("section style colors", () => {
     }
   });
 });
-
-async function activateSectionForEditor(
-  page: Page,
-  sectionId: string,
-): Promise<void> {
-  await page.evaluate(async (id) => {
-    const { setActiveSectionIds } = await import(
-      "/src/state/actions/activeSections"
-    );
-    setActiveSectionIds([id], { syncMode: "ui-only" });
-  }, sectionId);
-  await expect
-    .poll(async () =>
-      page.evaluate(async () => {
-        const { getActiveSectionUIIds } = await import(
-          "/src/state/activeSectionUI"
-        );
-        return getActiveSectionUIIds();
-      }),
-    )
-    .toEqual([sectionId]);
-}

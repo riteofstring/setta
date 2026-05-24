@@ -7,11 +7,6 @@ import { useLocalStorage, useProjectState } from "state/definitions";
 import { useLoadedChartData } from "state/hooks/artifacts";
 import useDeepCompareEffect from "use-deep-compare-effect";
 import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  SETTA_PREVENT_SECTION_ACTIVE_CSS,
-} from "utils/constants";
-import {
   BaseChartSettingsUnion,
   ChartDataArtifact,
   ChartType,
@@ -25,8 +20,6 @@ import {
   updateScatterChartWithNewData,
 } from "./ScatterChart";
 
-const CHART_GPU_CONTROL_PREFIX = "chart";
-
 function _ChartArea({ sectionId }: { sectionId: string }) {
   // const { getRootProps, isDragActive } = useLoadArtifactViaDropzone(
   //   sectionId,
@@ -38,9 +31,7 @@ function _ChartArea({ sectionId }: { sectionId: string }) {
 
   return (
     <figure
-      className={`${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} section-w-full section-row-main single-cell-container flex h-auto w-full max-w-full items-center justify-items-center overflow-clip ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
-      data-gpu-flow-control={`${CHART_GPU_CONTROL_PREFIX}:${sectionId}`}
-      data-gpu-flow-interactive="true"
+      className={`section-w-full section-row-main single-cell-container flex h-auto w-full max-w-full items-center justify-items-center overflow-clip ${isDragActive ? "outline outline-4 outline-green-500 dark:outline-green-500/80" : ""}`}
       // {...getRootProps()}
     >
       <ChartAreaCore sectionId={sectionId} />
@@ -113,14 +104,7 @@ function _ChartAreaCore({ sectionId }: { sectionId: string }) {
     chart.update();
   }, [data, size, datasetHidden, darkMode, chartSettings]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className={`${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`}
-      data-gpu-flow-control={`${CHART_GPU_CONTROL_PREFIX}:canvas:${sectionId}`}
-      data-gpu-flow-interactive="true"
-    />
-  );
+  return <canvas ref={canvasRef} />;
 }
 
 const ChartAreaCore = React.memo(_ChartAreaCore);

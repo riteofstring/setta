@@ -20,11 +20,6 @@ import {
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
-  NO_WHEEL_CLASS_NAME,
-} from "utils/constants";
-import {
   DrawAreaBrushShape,
   DrawAreaBrushShapeEnum,
   DrawAreaMode,
@@ -57,11 +52,7 @@ export function DrawAreaControls({
   clearStrokes: () => void;
 }) {
   return (
-    <div
-      className={`section-search section-w-full z-10 flex  flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 [&_.colorpicker]:!max-h-6 [&_.colorpicker]:max-w-24 ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME} ${NO_WHEEL_CLASS_NAME}`}
-      data-gpu-flow-control={`draw-controls:${sectionId}`}
-      data-gpu-flow-interactive="true"
-    >
+    <div className="section-search section-w-full z-10 flex  flex-wrap items-center gap-2 rounded-xl border-b border-solid border-white px-3 py-3 shadow-sm @container dark:border-setta-700 [&_.colorpicker]:!max-h-6 [&_.colorpicker]:max-w-24 ">
       <DrawAreaColorPicker sectionId={sectionId} brushColor={brushColor} />
       <div className="flex self-stretch">
         <DrawAreaSetToDrawModeButton

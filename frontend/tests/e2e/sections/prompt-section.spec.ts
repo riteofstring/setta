@@ -109,12 +109,14 @@ test.describe.serial("prompt section", () => {
         page.getByTestId(`prompt-preview-tab-${created.sectionId}`),
       ).toBeVisible();
 
-      await clickPromptTab(page, created.sectionId, "preview");
+      await page.getByTestId(`prompt-preview-tab-${created.sectionId}`).click();
       await expect(
         page.getByTestId(`prompt-render-preview-${created.sectionId}`),
       ).toContainText("No prompt rendered yet.");
 
-      await clickPromptTab(page, created.sectionId, "template");
+      await page
+        .getByTestId(`prompt-template-tab-${created.sectionId}`)
+        .click();
       const editorRoot = page.getByTestId(
         `prompt-template-editor-${created.sectionId}`,
       );
@@ -135,7 +137,7 @@ test.describe.serial("prompt section", () => {
           renderedText: "Hello there.",
         });
 
-      await clickPromptTab(page, created.sectionId, "preview");
+      await page.getByTestId(`prompt-preview-tab-${created.sectionId}`).click();
       await expect(
         page.getByTestId(`prompt-render-preview-${created.sectionId}`),
       ).toContainText("Hello there.");
@@ -162,12 +164,14 @@ test.describe.serial("prompt section", () => {
         promptTemplateId: linkedTemplate.id,
       });
 
-      await clickPromptTab(page, created.sectionId, "template");
+      await page
+        .getByTestId(`prompt-template-tab-${created.sectionId}`)
+        .click();
       await expect(
         page.getByTestId(`prompt-linked-template-note-${created.sectionId}`),
       ).toContainText("Linked to prompt template");
 
-      await clickPromptTab(page, created.sectionId, "preview");
+      await page.getByTestId(`prompt-preview-tab-${created.sectionId}`).click();
       const preview = page.getByTestId(
         `prompt-render-preview-${created.sectionId}`,
       );
@@ -292,26 +296,11 @@ async function fillCodeMirror(editorRoot: Locator, page: Page, value: string) {
     .locator("[contenteditable='true']")
     .first();
   await expect(contentEditable).toBeVisible();
-  await contentEditable.focus();
+  await contentEditable.click();
   await page.keyboard.press(SELECT_ALL_SHORTCUT);
   await page.keyboard.press("Backspace");
   await page.keyboard.insertText(value);
   await expect.poll(() => readCodeMirrorValue(page, editorId)).toContain(value);
-}
-
-async function clickPromptTab(
-  page: Page,
-  sectionId: string,
-  mode: "preview" | "template",
-): Promise<void> {
-  const tab = page.getByTestId(`prompt-${mode}-tab-${sectionId}`);
-  await expect(tab).toBeVisible();
-  await tab.evaluate((element) => {
-    element.dispatchEvent(
-      new MouseEvent("click", { bubbles: true, cancelable: true }),
-    );
-  });
-  await expect(tab).toHaveAttribute("aria-pressed", "true");
 }
 
 async function getCurrentProjectConfigId(page: Page): Promise<string> {
@@ -359,7 +348,7 @@ async function openIsolatedProject(
   }
   const url = new URL(name, BASE_URL).toString();
   await page.goto(url);
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
   const projectConfigId = await getCurrentProjectConfigId(page);
   return {
     projectConfigId,

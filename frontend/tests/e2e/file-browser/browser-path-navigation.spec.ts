@@ -78,7 +78,7 @@ test("overview file browser shows dotfiles and supports breadcrumb up-navigation
     await fs.writeFile(path.join(rootPath, ".env"), "API_KEY=test\n", "utf-8");
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = page.locator("#OverviewPane");
     const pathInput = overviewPane
@@ -171,7 +171,7 @@ test("browser sections support breadcrumb and go-up navigation", async ({
 
     try {
       const sectionNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
 

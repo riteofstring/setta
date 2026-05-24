@@ -1,4 +1,4 @@
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { useReactFlow } from "forks/xyflow/core/store";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImplIfPresent,
@@ -18,7 +18,6 @@ import {
   createCodeParamCodeObjImpl,
   createCore,
   createProjectConfig,
-  createSectionCapabilities,
   createSingleConfig,
   createSingletonSections,
   createVariant,
@@ -28,48 +27,6 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 describe("processProjectStateUpdateFromBackend", () => {
-  it("publishes backend updates when only section capabilities change", () => {
-    const projectConfig = createProjectConfig({
-      id: "project-1",
-    });
-    const baseProjectState = createSingleConfig({
-      projectConfig,
-      sections: {},
-      sectionImpls: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {},
-      shownParamIds: {},
-      requiredDecodedImages: [],
-      genCodeBinding: null,
-      sectionCapabilities: {},
-    });
-    useProjectState.setState(baseProjectState);
-    usePendingOperations.setState({ pending: [] });
-
-    processProjectStateUpdateFromBackend({
-      projectState: createSingleConfig({
-        ...baseProjectState,
-        sectionCapabilities: {
-          "code-section": createSectionCapabilities({
-            canRun: true,
-            runDisabledReason: null,
-          }),
-        },
-      }),
-      completedOpIds: [],
-      pendingOpIds: [],
-    });
-
-    expect(
-      useProjectState.getState().sectionCapabilities["code-section"]?.canRun,
-    ).toBe(true);
-  });
-
   it("applies viewport updates to the react flow store", () => {
     const sectionId = "section-1";
     const viewModeId = "view-1";
@@ -112,8 +69,8 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+    useReactFlow.setState({ transform: [0, 0, 1] });
+    useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -150,9 +107,9 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     processProjectStateUpdateFromBackend(update);
 
-    expect(gpuFlowViewportStore.getState().transform).toEqual([10, -20, 1.5]);
-    expect(gpuFlowViewportStore.getState().fitViewOnInit).toBe(false);
-    expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(true);
+    expect(useReactFlow.getState().transform).toEqual([10, -20, 1.5]);
+    expect(useReactFlow.getState().fitViewOnInit).toBe(false);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
   });
 
   it("fits view to visible sections when viewport is unset", () => {
@@ -207,7 +164,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+    useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -239,10 +196,10 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     processProjectStateUpdateFromBackend(update);
 
-    const gpuViewportState = gpuFlowViewportStore.getState();
-    expect(gpuViewportState.fitViewOnInit).toBe(true);
-    expect(gpuViewportState.fitViewOnInitDone).toBe(false);
-    expect(gpuViewportState.fitViewOnInitOptions?.nodes).toEqual([
+    const reactFlowState = useReactFlow.getState();
+    expect(reactFlowState.fitViewOnInit).toBe(true);
+    expect(reactFlowState.fitViewOnInitDone).toBe(false);
+    expect(reactFlowState.fitViewOnInitOptions?.nodes).toEqual([
       { id: sectionVisible },
     ]);
   });
@@ -319,7 +276,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+    useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -352,10 +309,10 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     processProjectStateUpdateFromBackend(update);
 
-    const gpuViewportState = gpuFlowViewportStore.getState();
-    expect(gpuViewportState.fitViewOnInit).toBe(true);
-    expect(gpuViewportState.fitViewOnInitDone).toBe(false);
-    expect(gpuViewportState.fitViewOnInitOptions?.nodes).toEqual([
+    const reactFlowState = useReactFlow.getState();
+    expect(reactFlowState.fitViewOnInit).toBe(true);
+    expect(reactFlowState.fitViewOnInitDone).toBe(false);
+    expect(reactFlowState.fitViewOnInitOptions?.nodes).toEqual([
       { id: sectionVisible },
     ]);
   });
@@ -409,7 +366,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+    useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -453,10 +410,10 @@ describe("processProjectStateUpdateFromBackend", () => {
       pendingOpIds: [],
     });
 
-    const gpuViewportState = gpuFlowViewportStore.getState();
-    expect(gpuViewportState.fitViewOnInit).toBe(true);
-    expect(gpuViewportState.fitViewOnInitDone).toBe(false);
-    expect(gpuViewportState.fitViewOnInitOptions?.nodes).toEqual([
+    const reactFlowState = useReactFlow.getState();
+    expect(reactFlowState.fitViewOnInit).toBe(true);
+    expect(reactFlowState.fitViewOnInitDone).toBe(false);
+    expect(reactFlowState.fitViewOnInitOptions?.nodes).toEqual([
       { id: sectionVisibleA },
       { id: sectionVisibleB },
     ]);
@@ -534,7 +491,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+    useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -607,8 +564,8 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+    useReactFlow.setState({ transform: [0, 0, 1] });
+    useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -680,8 +637,8 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: nodeInternals });
-    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+    useReactFlow.setState({ transform: [0, 0, 1] });
+    useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -812,8 +769,8 @@ describe("processProjectStateUpdateFromBackend", () => {
     } as ZustandProjectState);
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+    useReactFlow.setState({ transform: [0, 0, 1] });
+    useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,

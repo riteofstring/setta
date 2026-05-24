@@ -1,9 +1,9 @@
 /* @vitest-environment jsdom */
 
-import type { Node } from "gpuFlow/flowTypes";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { useReactFlow } from "forks/xyflow/core/store";
+import initialState from "forks/xyflow/core/store/initialState";
+import type { Node } from "forks/xyflow/core/types";
 import {
-  useActiveSectionUI,
   useLocalStorage,
   useMisc,
   useNodeInternals,
@@ -16,58 +16,59 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getNodeUpdateInformation,
   updateNodeDimensions,
-  updateNodeDimensionsFromGpuIntrinsicSize,
-  updateNodeDimensionsFromGpuResize,
 } from "./nodeInternals";
 import { debounced_route_set_top_level_section_layout } from "./sectionInfos";
 
+vi.mock("./edgeHandles", () => ({
+  scheduleEdgeHandlePositionUpdate: vi.fn(),
+}));
+
 vi.mock("./sectionInfos", () => ({
   debounced_route_set_top_level_section_layout: vi.fn(),
+  getSectionDescendants: vi.fn(() => []),
 }));
 
 function createNode(overrides: Partial<Node> & Pick<Node, "id">): Node {
-  const node: Node = {
+  return {
     id: overrides.id,
     position: overrides.position ?? { x: 0, y: 0 },
     width: overrides.width ?? null,
     height: overrides.height ?? null,
     zIndex: overrides.zIndex ?? 0,
     tempZIndex: overrides.tempZIndex ?? 0,
+    type: overrides.type,
+    style: overrides.style,
   };
-  if (overrides.type !== undefined) {
-    node.type = overrides.type;
-  }
-  if (overrides.style !== undefined) {
-    node.style = overrides.style;
-  }
-  return node;
 }
 
 function createViewportDomNode() {
   const domNode = document.createElement("div");
   const viewport = document.createElement("div");
-  viewport.className = "setta-gpu-flow__canvas";
+  viewport.className = "react-flow__viewport";
   domNode.appendChild(viewport);
   return domNode;
 }
 
-function setupGpuViewportStore() {
-  gpuFlowViewportStore.getState().setDomNode(createViewportDomNode());
-  gpuFlowViewportStore.getState().setViewportSize({
-    height: 600,
+function setupFitViewState(overrides: Partial<typeof initialState> = {}) {
+  const transform = vi.fn();
+  const d3Selection = { id: "selection" } as unknown as NonNullable<
+    typeof initialState.d3Selection
+  >;
+  const d3Zoom = { transform } as unknown as NonNullable<
+    typeof initialState.d3Zoom
+  >;
+
+  useReactFlow.setState({
+    ...initialState,
+    domNode: createViewportDomNode(),
     width: 800,
+    height: 600,
+    d3Selection,
+    d3Zoom,
+    ...overrides,
   });
-  gpuFlowViewportStore.getState().setZoomBounds({
-    defaultZoom: 1,
-    maxZoom: 4,
-    minZoom: 0.1,
-  });
-  gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
-  gpuFlowViewportStore.getState().setFitViewInitializationState({
-    fitViewOnInit: false,
-    fitViewOnInitDone: false,
-    fitViewOnInitOptions: undefined,
-  });
+
+  return { transform };
 }
 
 function createMeasuredElement({
@@ -97,22 +98,27 @@ describe("nodeInternals", () => {
     resetProjectStores();
     useSettings.setState(createSettingsState());
     useLocalStorage.setState({ overviewTrueWidth: 0, uiEditorTrueWidth: 0 });
-    setupGpuViewportStore();
+    useReactFlow.setState({
+      ...initialState,
+      domNode: createViewportDomNode(),
+      fitViewOnInit: false,
+      fitViewOnInitDone: false,
+    });
   });
 
   afterEach(() => {
     vi.clearAllMocks();
     resetProjectStores();
-    const domNode = gpuFlowViewportStore.getState().domNode;
-    if (domNode) {
-      gpuFlowViewportStore.getState().clearDomNode(domNode);
-    }
+    useReactFlow.setState({ ...initialState });
   });
 
-  it("ignores DOM measurements and defers fitView until code areas finish rendering", () => {
+  it("updates measured dimensions and defers fitView until code areas finish rendering", () => {
     useNodeInternals.setState({
       x: new Map([
-        ["section-1", createNode({ id: "section-1", width: 100, height: 80 })],
+        [
+          "section-1",
+          createNode({ id: "section-1", width: null, height: null }),
+        ],
       ]),
     });
     useMisc.setState({
@@ -133,134 +139,16 @@ describe("nodeInternals", () => {
     ]);
 
     const node = useNodeInternals.getState().x.get("section-1");
-    expect(node?.width).toBe(100);
-    expect(node?.height).toBe(80);
-    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
-    expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(false);
+    expect(node?.width).toBe(240);
+    expect(node?.height).toBe(120);
+    expect(debounced_route_set_top_level_section_layout).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(false);
   });
 
-  it("updates GPU resize dimensions without scheduling top-level layout persistence", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-1",
-          createNode({
-            id: "section-1",
-            width: 100,
-            height: 50,
-          }),
-        ],
-      ]),
-    });
-
-    expect(
-      updateNodeDimensionsFromGpuResize({
-        id: "section-1",
-        width: 140,
-        height: 80,
-      }),
-    ).toBe(true);
-
-    const node = useNodeInternals.getState().x.get("section-1");
-    expect(node?.width).toBe(140);
-    expect(node?.height).toBe(80);
-    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
-  });
-
-  it("updates intrinsic GPU auto-size dimensions without scheduling top-level layout persistence", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-1",
-          createNode({
-            id: "section-1",
-            width: 550,
-            height: null,
-          }),
-        ],
-      ]),
-    });
-
-    expect(
-      updateNodeDimensionsFromGpuIntrinsicSize({
-        id: "section-1",
-        height: 352,
-      }),
-    ).toBe(true);
-
-    const node = useNodeInternals.getState().x.get("section-1");
-    expect(node?.width).toBe(550);
-    expect(node?.height).toBe(352);
-    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
-  });
-
-  it("keeps GPU-resized section dimensions in project state", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        ["section-1", createNode({ id: "section-1", width: 200, height: 100 })],
-      ]),
-    });
-
-    updateNodeDimensionsFromGpuResize({
-      id: "section-1",
-      width: 240,
-      height: 120,
-    });
-
-    expect(useNodeInternals.getState().x.get("section-1")).toMatchObject({
-      width: 240,
-      height: 120,
-    });
-  });
-
-  it("refreshes existing selected-node bounds when a selected node GPU-resizes", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        [
-          "section-1",
-          createNode({
-            id: "section-1",
-            height: 50,
-            position: { x: 10, y: 20 },
-            width: 100,
-          }),
-        ],
-        [
-          "section-2",
-          createNode({
-            id: "section-2",
-            height: 40,
-            position: { x: 200, y: 40 },
-            width: 30,
-          }),
-        ],
-      ]),
-    });
-    useActiveSectionUI.setState({ activeIds: ["section-1", "section-2"] });
-    gpuFlowViewportStore.getState().setNodesSelectionBounds({
-      height: 60,
-      width: 220,
-      x: 10,
-      y: 20,
-    });
-
-    updateNodeDimensionsFromGpuResize({
-      id: "section-1",
-      width: 160,
-      height: 80,
-    });
-
-    expect(gpuFlowViewportStore.getState().nodesSelectionBounds).toEqual({
-      height: 80,
-      width: 220,
-      x: 10,
-      y: 20,
-    });
-  });
-
-  it("marks initial fitView complete once measurements are ready and centers into the visible pane", () => {
-    useLocalStorage.setState({ overviewTrueWidth: 120 });
-    gpuFlowViewportStore.getState().setFitViewInitializationState({
+  it("marks initial fitView complete once measurements are ready", () => {
+    const { transform } = setupFitViewState({
       fitViewOnInit: true,
       fitViewOnInitDone: false,
       fitViewOnInitOptions: { maxZoom: 1.5 },
@@ -287,8 +175,8 @@ describe("nodeInternals", () => {
       },
     ]);
 
-    expect(gpuFlowViewportStore.getState().transform).toEqual([470, 260, 1]);
-    expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(true);
+    expect(transform).toHaveBeenCalledTimes(1);
+    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
   });
 
   it("collects stored refs for explicit node refresh requests", () => {
@@ -313,39 +201,5 @@ describe("nodeInternals", () => {
         forceUpdate: true,
       },
     ]);
-  });
-
-  it("ignores ResizeObserver entries as graph dimension updates", () => {
-    useNodeInternals.setState({
-      x: new Map([
-        ["section-1", createNode({ id: "section-1", width: 200, height: 100 })],
-      ]),
-    });
-    const observedSourceHost = createMeasuredElement({
-      id: "section-1",
-      width: 260,
-      height: 140,
-    });
-
-    const updates = getNodeUpdateInformation(
-      [{ target: observedSourceHost } as unknown as ResizeObserverEntry],
-      true,
-    );
-
-    expect(updates).toEqual([
-      {
-        id: "section-1",
-        nodeElement: observedSourceHost,
-        forceUpdate: true,
-      },
-    ]);
-
-    updateNodeDimensions(updates);
-
-    expect(useNodeInternals.getState().x.get("section-1")).toMatchObject({
-      width: 200,
-      height: 100,
-    });
-    expect(debounced_route_set_top_level_section_layout).not.toHaveBeenCalled();
   });
 });

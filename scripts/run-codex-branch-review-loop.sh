@@ -937,7 +937,7 @@ Verification
 - Add unit, integration, and Playwright tests when appropriate.
 - When browser/CDP visual verification is needed, use `./aireset.sh` and stop that session afterwards.
 - If UI behavior changed, browser verification counts only if one affected flow actually ran end-to-end in Playwright or CDP.
-- Before finishing, run `pnpm -C frontend gcf` and `./scripts/quality/check.sh`, then fix any issues they surface against the current worktree.
+- Before finishing, run `pnpm -C frontend gcf` and `./check_quality.sh`, then fix any issues they surface against the current worktree.
 
 Do not update `cumulative_review.md`, remove the top-level `review*.md` files, or commit. Do not run `pnpm start` or `pnpm reset`.
 EOF
@@ -965,7 +965,7 @@ Goals:
 Verification:
 - Re-run the focused tests needed after the simplification.
 - When browser/CDP visual verification is needed, use `./aireset.sh` and stop that session afterwards.
-- Before finishing, run `pnpm -C frontend gcf` and `./scripts/quality/check.sh`, then fix any issues they surface against the current simplified worktree.
+- Before finishing, run `pnpm -C frontend gcf` and `./check_quality.sh`, then fix any issues they surface against the current simplified worktree.
 - Do not update `cumulative_review.md`, do not commit, and do not remove the top-level `review*.md` files.
 
 Output:
@@ -974,7 +974,7 @@ EOF
   append_extra_prompt_section "${simplify_prompt_file}"
 
   cat > "${finalize_prompt_file}" <<'EOF'
-The current simplified worktree is authoritative. Do not change code, tests, generated files, or rerun `pnpm -C frontend gcf` / `./scripts/quality/check.sh` in this stage.
+The current simplified worktree is authoritative. Do not change code, tests, generated files, or rerun `pnpm -C frontend gcf` / `./check_quality.sh` in this stage.
 
 Read `branch_intent.md` before writing metadata so the notes reflect intended branch behavior.
 

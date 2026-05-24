@@ -6,17 +6,15 @@ import { NavbarMenuDropdown } from "./menudropdown";
 vi.mock("@radix-ui/react-menubar", async () => {
   const React = await import("react");
   const passthrough = (Tag: React.ElementType) => {
-    const Component = Tag as React.ElementType<Record<string, unknown>>;
     return ({
       children,
       align,
       sideOffset,
       alignOffset,
       ...props
-    }: React.PropsWithChildren<Record<string, unknown>>) =>
-      React.createElement(Component, props, children);
+    }: Record<string, unknown>) => React.createElement(Tag, props, children);
   };
-  const Fragment = ({ children }: React.PropsWithChildren) =>
+  const Fragment = ({ children }) =>
     React.createElement(React.Fragment, null, children);
   return {
     Root: passthrough("div"),

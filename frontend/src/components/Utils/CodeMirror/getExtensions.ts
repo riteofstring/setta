@@ -9,7 +9,7 @@ import {
   startCompletion,
 } from "@codemirror/autocomplete";
 import { indentLess, indentMore } from "@codemirror/commands";
-import { EditorState, Prec, type ChangeSpec, type Extension } from "@codemirror/state";
+import { EditorState, Prec } from "@codemirror/state";
 import {
   EditorView,
   keymap,
@@ -17,8 +17,6 @@ import {
   type KeyBinding,
   type ViewUpdate,
 } from "@codemirror/view";
-import type { DirtyNodeReason } from "gpuFlow/dirtyTracking";
-import { dispatchGpuFlowNodeDirtyEvent } from "gpuFlow/nodeDirtyEvents";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import type { CodeLanguage } from "utils/codeLanguage";
@@ -37,18 +35,6 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
     borderRight: "0",
   },
 });
-const GPU_FLOW_DIRTY_UPDATE_LISTENER = EditorView.updateListener.of(
-  (update) => {
-    const reason = getGpuFlowCodeMirrorDirtyReason(update);
-    if (!reason) {
-      return;
-    }
-    dispatchGpuFlowNodeDirtyEvent(update.view.dom, {
-      priority: update.view.hasFocus ? "interactive" : "visible",
-      reason,
-    });
-  },
-);
 type GetExtensionsOptions = {
   parent?: HTMLElement | null;
   language?: CodeLanguage | null;
@@ -59,7 +45,6 @@ type GetExtensionsOptions = {
   tabToAutocomplete?: boolean;
   indentWithTab?: boolean;
   keyComboActions?: Record<string, (text: string) => boolean | void>;
-  onActivity?: () => void;
   onTab?: (text: string, completionResult: boolean) => void;
   onEnter?: (text: string, completionResult: boolean) => void;
   onEscape?: (status: ReturnType<typeof completionStatus>) => void;
@@ -102,17 +87,28 @@ export function getExtensions({
   onTab,
   onEnter,
   onEscape,
-  onActivity,
   keyComboActions,
   isDisabled,
   useJsx,
   triggerCompletionAfterAccept,
   completionTriggerChars,
 }: GetExtensionsOptions) {
+  const extensions = [CODEMIRROR_GUTTER_LAYOUT_FIX];
   const shouldWrap = wrapLines ?? !singleLine;
   const triggerChars = completionTriggerChars ?? ["/", "\\"];
+  if (shouldWrap) {
+    extensions.push(EditorView.lineWrapping);
+  }
   const enableJsx = useJsx === true;
-  const extensions = createCodeMirrorBaseExtensions({ parent, shouldWrap });
+
+  if (parent) {
+    extensions.push(
+      tooltips({
+        parent,
+      }),
+    );
+  }
+
   extensions.push(...getLanguageExtensions(language, enableJsx));
   extensions.push(
     ...getAutocompleteExtensions({
@@ -123,152 +119,34 @@ export function getExtensions({
       triggerChars,
     }),
   );
-  extensions.push(
-    ...getEditorStateExtensions({
-      isDisabled,
-      onActivity,
-      singleLine,
-    }),
-  );
-  extensions.push(
-    createCodeMirrorKeymapExtension({
-      hasCompletions: Boolean(completionsFn),
-      indentWithTab,
-      keyComboActions,
-      onEnter,
-      onEscape,
-      onTab,
-      singleLine,
-      tabToAutocomplete,
-    }),
-  );
 
-  return extensions;
-}
+  if (singleLine) {
+    extensions.push(
+      EditorState.transactionFilter.of((tr) => (tr.newDoc.lines > 1 ? [] : tr)),
+    );
+  }
 
-function createCodeMirrorBaseExtensions({
-  parent,
-  shouldWrap,
-}: {
-  readonly parent: HTMLElement | null | undefined;
-  readonly shouldWrap: boolean;
-}): Extension[] {
-  return [
-    CODEMIRROR_GUTTER_LAYOUT_FIX,
-    GPU_FLOW_DIRTY_UPDATE_LISTENER,
-    ...(shouldWrap ? [EditorView.lineWrapping] : []),
-    ...(parent
-      ? [
-          tooltips({
-            parent,
-          }),
-        ]
-      : []),
-  ];
-}
+  if (isDisabled) {
+    extensions.push(EditorState.readOnly.of(true));
+  }
 
-function getEditorStateExtensions({
-  isDisabled,
-  onActivity,
-  singleLine,
-}: Pick<GetExtensionsOptions, "isDisabled" | "onActivity" | "singleLine">) {
-  return [
-    ...(singleLine ? [createSingleLineTransactionFilter()] : []),
-    ...(isDisabled ? [EditorState.readOnly.of(true)] : []),
-    ...(onActivity
-      ? [
-          EditorView.updateListener.of((update) => {
-            if (update.docChanged || update.selectionSet) {
-              onActivity();
-            }
-          }),
-        ]
-      : []),
-  ];
-}
-
-function createCodeMirrorKeymapExtension({
-  hasCompletions,
-  indentWithTab,
-  keyComboActions,
-  onEnter,
-  onEscape,
-  onTab,
-  singleLine,
-  tabToAutocomplete,
-}: GetKeyMapArrayOptions) {
   const keymapArray = getKeyMapArray({
-    hasCompletions,
+    hasCompletions: Boolean(completionsFn),
     indentWithTab,
-    keyComboActions,
-    onEnter,
-    onEscape,
-    onTab,
     singleLine,
     tabToAutocomplete,
+    onTab,
+    onEnter,
+    onEscape,
+    keyComboActions,
   });
   const fullKeymap =
-    hasCompletions
+    completionsFn && completionsFn !== null
       ? [...keymapArray, ...completionKeymap]
       : keymapArray;
-  return Prec.highest(keymap.of(fullKeymap));
-}
+  extensions.push(Prec.highest(keymap.of(fullKeymap)));
 
-function createSingleLineTransactionFilter() {
-  return EditorState.transactionFilter.of((tr) => {
-    if (!tr.docChanged) {
-      return tr;
-    }
-    const changes: ChangeSpec[] = [];
-    let normalized = false;
-    tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-      const insertedText = inserted.toString();
-      const normalizedInsertedText =
-        normalizeCodeMirrorSingleLineText(insertedText);
-      if (normalizedInsertedText !== insertedText) {
-        normalized = true;
-      }
-      changes.push({
-        from: fromA,
-        insert: normalizedInsertedText,
-        to: toA,
-      });
-    });
-    if (!normalized) {
-      return tr.newDoc.lines > 1 ? [] : tr;
-    }
-    const normalizedTransaction = tr.startState.update({ changes });
-    return normalizedTransaction.newDoc.lines > 1 ? [] : { changes };
-  });
-}
-
-function normalizeCodeMirrorSingleLineText(text: string): string {
-  return text.replace(/\r\n?|\n/g, " ");
-}
-
-export function getGpuFlowCodeMirrorDirtyReason(
-  update: Pick<
-    ViewUpdate,
-    | "docChanged"
-    | "focusChanged"
-    | "geometryChanged"
-    | "selectionSet"
-    | "viewportChanged"
-  >,
-): DirtyNodeReason | null {
-  if (update.docChanged) {
-    return "input";
-  }
-  if (update.selectionSet) {
-    return "selection";
-  }
-  if (update.viewportChanged || update.geometryChanged) {
-    return "scroll";
-  }
-  if (update.focusChanged) {
-    return "focus";
-  }
-  return null;
+  return extensions;
 }
 
 function getLanguageExtensions(

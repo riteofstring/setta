@@ -313,7 +313,7 @@ test("project ai new thread placeholder stays inline, clears when unused, and pr
 
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     await maximizeProjectChatWindow(page);
     const overviewPane = await getVisibleProjectChatSurface(page);

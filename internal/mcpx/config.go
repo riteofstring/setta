@@ -16,6 +16,7 @@ import (
 type Transport string
 
 const (
+	TransportSSE            Transport = "sse"
 	TransportStreamableHTTP Transport = "streamable_http"
 	TransportStdio          Transport = "stdio"
 )
@@ -127,7 +128,7 @@ func defaultServerConfigs(opts LoadServerConfigsOptions) map[string]ServerConfig
 	}
 	return map[string]ServerConfig{
 		DefaultServerID: {
-			Transport: TransportStreamableHTTP,
+			Transport: TransportSSE,
 			URL:       strings.TrimSpace(opts.SettaServerURL),
 		},
 	}
@@ -151,7 +152,7 @@ func normalizeServerConfigs(raw map[string]ServerConfig, opts LoadServerConfigsO
 		}
 		if serverID == DefaultServerID &&
 			strings.TrimSpace(opts.SettaServerURL) != "" &&
-			resolved.Transport == TransportStreamableHTTP {
+			(resolved.Transport == TransportSSE || resolved.Transport == TransportStreamableHTTP) {
 			resolved.URL = strings.TrimSpace(opts.SettaServerURL)
 		}
 		normalized[serverID] = resolved
@@ -195,7 +196,7 @@ func validateServerTransport(serverID string, config ServerConfig, rawTransport 
 	switch config.Transport {
 	case "":
 		return fmt.Errorf("%w for server %q", ErrTransportRequired, serverID)
-	case TransportStreamableHTTP:
+	case TransportSSE, TransportStreamableHTTP:
 		return validateHTTPServerConfig(serverID, config)
 	case TransportStdio:
 		return validateStdioServerConfig(serverID, config)

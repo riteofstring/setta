@@ -126,7 +126,7 @@ test("browser path input autocompletes folders", async ({ page }) => {
 
     try {
       const sectionNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
       await rootResponsePromise;
