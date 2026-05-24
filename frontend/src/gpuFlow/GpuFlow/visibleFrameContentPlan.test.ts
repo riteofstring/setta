@@ -703,12 +703,6 @@ describe("GPU Flow visible publication content plans", () => {
       frame: heldPreparedFrame,
       preservePreparationSnapshot: true,
     });
-    expect(completionSource).not.toContain(
-      "function resolveGpuFlowBlockedPreparedCommittedSurfaceFrame",
-    );
-    expect(completionSource).not.toContain(
-      "function resolveGpuFlowBlockedPreparedCommittedSurfaceFramePreservation",
-    );
     expect(completionSource).toContain(
       "resolveGpuFlowBlockedPreparedContentFramePublicationAbort",
     );

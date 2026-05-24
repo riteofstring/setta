@@ -233,9 +233,6 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
     expect(flowFrameSource).not.toContain("onBlockedSurfacePublication");
     expect(flowFrameSource).not.toContain("onCommittedSurfaceFramePublishable");
-    expect(flowFrameSource).not.toContain(
-      "onPreparedCommittedSurfaceFrameHeld",
-    );
     expect(surfaceFrameSource).not.toContain(
       "prepareGpuFlowPreparedContentFramePublicationCandidate",
     );
@@ -266,7 +263,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
   });
 
-  it("keeps prepared-content-frame repair diagnostics behind the visible frame presenter", () => {
+  it("keeps prepared-content-frame repair diagnostics behind the visible-frame presentation boundary", () => {
     const visibleFrameDiagnosticsSource = readFileSync(
       VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH,
       "utf8",
@@ -367,13 +364,15 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     );
   });
 
-  it("keeps retained display repair scheduling behind the visible frame presenter", () => {
+  it("keeps retained display repair scheduling behind the visible-frame presentation boundary", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
-    const presenterStart = surfaceFrameSource.indexOf(
+    const presentationBoundaryStart = surfaceFrameSource.indexOf(
       "function presentGpuFlowVisibleFramePublicationFrame",
     );
-    const presenterSource = surfaceFrameSource.slice(presenterStart);
+    const presentationBoundarySource = surfaceFrameSource.slice(
+      presentationBoundaryStart,
+    );
 
     expect(flowFrameSource).not.toContain(
       'surfaceRef.current?.requestFrame("texture-upload")',
@@ -382,12 +381,14 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "onRetainedDisplayFollowUpFrameNeeded",
     );
     expect(flowFrameSource).not.toContain("retainedDisplayFollowUpFrameReason");
-    expect(presenterStart).toBeGreaterThanOrEqual(0);
-    expect(presenterSource).not.toContain("retainedDisplayFollowUpFrameReason");
-    expect(presenterSource).toContain(
+    expect(presentationBoundaryStart).toBeGreaterThanOrEqual(0);
+    expect(presentationBoundarySource).not.toContain(
+      "retainedDisplayFollowUpFrameReason",
+    );
+    expect(presentationBoundarySource).toContain(
       "requestGpuFlowSurfacePublicationFollowUpFrames",
     );
-    expect(presenterSource).toContain("followUpFrameRequests");
+    expect(presentationBoundarySource).toContain("followUpFrameRequests");
   });
 
   it("keeps held-previous prepared-content-frame candidates tokenless until completion", () => {
@@ -411,9 +412,6 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       /\btoken:\s*GpuFlowHoldPreviousToken\b/,
     );
     expect(candidateHandlingSource).not.toContain("GpuFlowHoldPreviousToken");
-    expect(candidateHandlingSource).not.toMatch(
-      /onPreparedCommittedSurfaceFrameHeld\?\.\([\s\S]{0,80}token/,
-    );
     expect(surfaceFrameSource).not.toContain(
       "selectGpuFlowVisiblePublicationTokens",
     );

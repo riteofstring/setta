@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { createGpuFlowSurfacePublicationDebtFrameRequest } from "./visibleFramePresentationDebtRequests";
 import type {
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameReducerRuntime";
-import { createGpuFlowSurfacePublicationDebtFrameRequest } from "./visibleFramePresentationDebtRequests";
 
-describe("GPU Flow visible frame presenter debt requests", () => {
+describe("GPU Flow visible-frame presentation boundary debt requests", () => {
   it("retries active editor content debt as immediate activation work", () => {
     const request = createGpuFlowSurfacePublicationDebtFrameRequest({
       activeEditorActivationPending: true,

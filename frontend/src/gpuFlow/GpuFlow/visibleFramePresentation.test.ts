@@ -23,7 +23,7 @@ type GpuFlowSurfacePublicationTransaction = Parameters<
   typeof presentGpuFlowVisibleFramePublicationFrame
 >[0]["publicationTransaction"];
 
-function createTestVisibleFramePresentation(
+function createTestVisibleFramePresentationBoundary(
   runtime: GpuFlowVisibleFramePresentationRuntime,
 ): (publicationTransaction: GpuFlowSurfacePublicationTransaction) => void {
   return (publicationTransaction) =>
@@ -48,7 +48,7 @@ describe("GPU Flow surface publication completion", () => {
     const visibleProjectionStateRef = { current: committedState };
     const visibleProjectionPublicationStateRef = { current: committedState };
     const submitDomTransforms = vi.fn();
-    const presenter = createTestVisibleFramePresentation({
+    const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame abort.");
       },
@@ -77,9 +77,11 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef,
       visibleProjectionStateRef,
-    } as unknown as Parameters<typeof createTestVisibleFramePresentation>[0]);
+    } as unknown as Parameters<
+      typeof createTestVisibleFramePresentationBoundary
+    >[0]);
 
-    presenter(
+    presentationBoundary(
       heldPreviousPublicationTransaction({
         heldState,
         nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
@@ -112,7 +114,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     let reducerCompletionCount = 0;
     const submitCanvas = vi.fn();
-    const presenter = createTestVisibleFramePresentation({
+    const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame abort.");
       },
@@ -144,10 +146,12 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<typeof createTestVisibleFramePresentation>[0]);
+    } as unknown as Parameters<
+      typeof createTestVisibleFramePresentationBoundary
+    >[0]);
 
     expect(() =>
-      presenter(
+      presentationBoundary(
         committedPublicationTransaction({
           committedFrame,
           nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
@@ -187,7 +191,7 @@ describe("GPU Flow surface publication completion", () => {
     const validatePreparedContentFrame = vi.fn(() => {
       visibleMutationOrder.push("validate");
     });
-    const presenter = createTestVisibleFramePresentation({
+    const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame abort.");
       },
@@ -215,9 +219,11 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<typeof createTestVisibleFramePresentation>[0]);
+    } as unknown as Parameters<
+      typeof createTestVisibleFramePresentationBoundary
+    >[0]);
 
-    presenter(
+    presentationBoundary(
       committedPublicationTransaction({
         committedFrame,
         nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
@@ -260,7 +266,7 @@ describe("GPU Flow surface publication completion", () => {
     const projectPresentedBrowserVisualActors = vi.fn();
     const validatePreparedContentFrame = vi.fn();
     let reducerCompletionCount = 0;
-    const presenter = createTestVisibleFramePresentation({
+    const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame abort.");
       },
@@ -287,10 +293,12 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<typeof createTestVisibleFramePresentation>[0]);
+    } as unknown as Parameters<
+      typeof createTestVisibleFramePresentationBoundary
+    >[0]);
 
     expect(() =>
-      presenter(
+      presentationBoundary(
         committedPublicationTransaction({
           committedFrame,
           nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
@@ -324,7 +332,7 @@ describe("GPU Flow surface publication completion", () => {
       projectionSample: selectedState.sample,
     });
     const requestFrame = vi.fn();
-    const presenter = createTestVisibleFramePresentation({
+    const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame abort.");
       },
@@ -344,9 +352,11 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<typeof createTestVisibleFramePresentation>[0]);
+    } as unknown as Parameters<
+      typeof createTestVisibleFramePresentationBoundary
+    >[0]);
 
-    presenter(
+    presentationBoundary(
       committedPublicationTransaction({
         committedFrame,
         debtFrameRequest: {
@@ -378,7 +388,7 @@ describe("GPU Flow surface publication completion", () => {
     const requestFrame = vi.fn();
     const setTimeout = vi.fn(() => 1);
     const clearTimeout = vi.fn();
-    const presenter = createTestVisibleFramePresentation({
+    const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame abort.");
       },
@@ -412,9 +422,11 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<typeof createTestVisibleFramePresentation>[0]);
+    } as unknown as Parameters<
+      typeof createTestVisibleFramePresentationBoundary
+    >[0]);
 
-    presenter(
+    presentationBoundary(
       committedPublicationTransaction({
         committedFrame,
         debtFrameRequest: {
@@ -476,7 +488,7 @@ describe("GPU Flow surface publication completion", () => {
       }),
       requestFrame,
     };
-    const presenter = createTestVisibleFramePresentation({
+    const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame abort.");
       },
@@ -498,7 +510,9 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<typeof createTestVisibleFramePresentation>[0]);
+    } as unknown as Parameters<
+      typeof createTestVisibleFramePresentationBoundary
+    >[0]);
     const reducerCompletion = {
       debt: {
         content: true,
@@ -508,7 +522,7 @@ describe("GPU Flow surface publication completion", () => {
       outcome: "present",
     };
 
-    presenter(
+    presentationBoundary(
       committedPublicationTransaction({
         committedFrame: firstCommittedFrame,
         debtFrameRequest: {
@@ -521,7 +535,7 @@ describe("GPU Flow surface publication completion", () => {
         token: firstToken,
       }),
     );
-    presenter(
+    presentationBoundary(
       committedPublicationTransaction({
         committedFrame: secondCommittedFrame,
         debtFrameRequest: {
@@ -564,7 +578,7 @@ describe("GPU Flow surface publication completion", () => {
       return 1;
     });
     const clearTimeout = vi.fn();
-    const presenter = createTestVisibleFramePresentation({
+    const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame: () => {},
       callbacksRef: { current: null },
       presentPreparedContentFrame: () => {
@@ -603,9 +617,11 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<typeof createTestVisibleFramePresentation>[0]);
+    } as unknown as Parameters<
+      typeof createTestVisibleFramePresentationBoundary
+    >[0]);
 
-    presenter(
+    presentationBoundary(
       blockedPublicationTransaction({
         blockedFrame,
         debtFrameRequest: {
@@ -646,7 +662,7 @@ describe("GPU Flow surface publication completion", () => {
     const requestFrame = vi.fn();
     const abortPreparedContentFrame = vi.fn();
     const selectedResourceKeys = ["dom-control:retained-dom-control:a"];
-    const presenter = createTestVisibleFramePresentation({
+    const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame,
       callbacksRef: { current: null },
       presentPreparedContentFrame: () => {
@@ -673,9 +689,11 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<typeof createTestVisibleFramePresentation>[0]);
+    } as unknown as Parameters<
+      typeof createTestVisibleFramePresentationBoundary
+    >[0]);
 
-    presenter(
+    presentationBoundary(
       blockedPublicationTransaction({
         blockedFrame,
         blockedPreservePreparationSnapshot: true,
@@ -730,7 +748,7 @@ describe("GPU Flow surface publication completion", () => {
       "browser-visual:visible-a:browser-text-control:live-dom-budget:generation-a",
       "browser-visual:new-a:browser-text-control:live-dom-budget:generation-b",
     ]);
-    const presenter = createTestVisibleFramePresentation({
+    const presentationBoundary = createTestVisibleFramePresentationBoundary({
       abortPreparedContentFrame,
       callbacksRef: { current: null },
       presentPreparedContentFrame: () => {
@@ -757,9 +775,11 @@ describe("GPU Flow surface publication completion", () => {
       visibleOverlayProjectionKeyRef: { current: null },
       visibleProjectionPublicationStateRef: { current: null },
       visibleProjectionStateRef: { current: null },
-    } as unknown as Parameters<typeof createTestVisibleFramePresentation>[0]);
+    } as unknown as Parameters<
+      typeof createTestVisibleFramePresentationBoundary
+    >[0]);
 
-    presenter(
+    presentationBoundary(
       blockedPublicationTransaction({
         blockedFrame,
         blockedPreservePreparationSnapshot: true,
