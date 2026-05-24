@@ -312,6 +312,8 @@ export function renderGpuFlowSurfaceFrame({
             liveProjectionSample: publicationDecision.sample,
             nodeLayerRef,
             contentPublicationWorkPlan,
+            activeEditorActivationPending:
+              publicationFrameContext.activeEditorPins.length > 0,
             previousVisibleProjectionState,
             publicationDecision,
             retainedContentRuntimeState,
@@ -666,6 +668,7 @@ function createGpuFlowMotionProjectionFrameResult({
 }
 
 function renderGpuFlowSurfaceContentPublicationFrame({
+  activeEditorActivationPending,
   contentPublicationWorkPlan,
   deferResolutionUpdates,
   event,
@@ -682,6 +685,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   viewportStore,
   ...input
 }: Omit<RenderGpuFlowSurfaceFrameInput, "viewportRuntime"> & {
+  readonly activeEditorActivationPending: boolean;
   readonly contentPublicationWorkPlan: GpuFlowContentPublicationWorkPlan;
   readonly deferResolutionUpdates: boolean;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
@@ -701,6 +705,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
     });
   if (
     !shouldRenderGpuFlowSurfaceContentPublicationFrame({
+      activeEditorActivationPending,
       contentPublicationWorkPlan,
       deferResolutionUpdates,
       previousVisibleProjectionState,
@@ -771,6 +776,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
 }
 
 function shouldRenderGpuFlowSurfaceContentPublicationFrame({
+  activeEditorActivationPending,
   contentPublicationWorkPlan,
   deferResolutionUpdates,
   previousVisibleProjectionState,
@@ -778,6 +784,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
   retainedContentFrameCacheRef,
   retainedDisplayFrameRef,
 }: {
+  readonly activeEditorActivationPending: boolean;
   readonly contentPublicationWorkPlan: GpuFlowContentPublicationWorkPlan;
   readonly deferResolutionUpdates: boolean;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -789,6 +796,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
     return false;
   }
   return !shouldSkipDeferredGpuFlowContentPublication({
+    activeEditorActivationPending,
     deferResolutionUpdates,
     previousVisibleProjectionState,
     publicationDecision,
@@ -798,12 +806,14 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
 }
 
 function shouldSkipDeferredGpuFlowContentPublication({
+  activeEditorActivationPending,
   deferResolutionUpdates,
   previousVisibleProjectionState,
   publicationDecision,
   retainedContentFrameCacheRef,
   retainedDisplayFrameRef,
 }: {
+  readonly activeEditorActivationPending: boolean;
   readonly deferResolutionUpdates: boolean;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
@@ -812,6 +822,7 @@ function shouldSkipDeferredGpuFlowContentPublication({
 }): boolean {
   if (
     !shouldConsiderGpuFlowDeferredContentPublication({
+      activeEditorActivationPending,
       deferResolutionUpdates,
       hasPreviousRetainedDisplayFrame: retainedDisplayFrameRef.current !== null,
       hasPreviousVisibleProjectionState:

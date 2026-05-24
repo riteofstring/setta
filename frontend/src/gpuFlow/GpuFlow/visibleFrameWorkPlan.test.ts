@@ -78,6 +78,19 @@ describe("GPU Flow visible frame coordinator work plans", () => {
   it("keeps deferred publication policy in the coordinator without suppressing browser visual repair", () => {
     expect(
       shouldConsiderGpuFlowDeferredContentPublication({
+        activeEditorActivationPending: true,
+        deferResolutionUpdates: true,
+        hasPreviousRetainedDisplayFrame: true,
+        hasPreviousVisibleProjectionState: true,
+        publicationDecision: publicationDecision({
+          lane: "content",
+          rawReasons: ["texture-upload"],
+          schedulerState: "motion-settling",
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPublication({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,

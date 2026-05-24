@@ -84,15 +84,18 @@ export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
 }
 
 export function shouldConsiderGpuFlowDeferredContentPublication({
+  activeEditorActivationPending = false,
   deferResolutionUpdates,
   publicationDecision,
 }: {
+  readonly activeEditorActivationPending?: boolean | undefined;
   readonly deferResolutionUpdates: boolean;
   readonly hasPreviousRetainedDisplayFrame: boolean;
   readonly hasPreviousVisibleProjectionState: boolean;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }): boolean {
   return (
+    !activeEditorActivationPending &&
     (deferResolutionUpdates ||
       publicationDecision.schedulerState === "motion-settling") &&
     publicationDecision.lane !== "motion" &&
