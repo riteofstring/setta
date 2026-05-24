@@ -37,7 +37,7 @@ describe("GPU Flow visible frame coordinator projection work", () => {
       sample: liveProjectionSample({ id: 30, timestamp: 300 }),
     });
     let publishedOutcomeKind: string | null = null;
-    type TestContentPublicationFrame = {
+    type TestContentPreparationFrame = {
       readonly blockedPublicationCandidate: null;
       readonly rendered: boolean;
       readonly visibleProjectionState: null;
@@ -49,10 +49,10 @@ describe("GPU Flow visible frame coordinator projection work", () => {
       readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
     };
     const result = runGpuFlowVisibleFrameCoordinator<
-      TestContentPublicationFrame,
+      TestContentPreparationFrame,
       TestMotionProjectionFrame
     >({
-      prepareContentPublicationFrame: () => ({
+      prepareContentPreparationFrame: () => ({
         blockedPublicationCandidate: null,
         rendered: false,
         visibleProjectionState: null,

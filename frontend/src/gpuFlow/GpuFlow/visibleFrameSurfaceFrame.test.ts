@@ -9,13 +9,13 @@ import {
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuViewportInput } from "../viewportMath";
 import {
-  shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame,
-  shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample,
+  shouldDeferGpuFlowContentPreparationResolutionUpdatesForFrame,
+  shouldDeferGpuFlowContentPreparationResolutionUpdatesForSample,
 } from "./visibleFrameResolutionDeferral";
 import {
   hasGpuFlowPresentedContentFrame,
   shouldRequestGpuFlowRetainedScrollCatchupFrame,
-  withGpuFlowContentCatchupReasonForStalePublicationSample,
+  withGpuFlowContentCatchupReasonForStalePreparedContentSample,
 } from "./visibleFrameSurfaceFrame";
 
 describe("GPU Flow surface frame publication", () => {
@@ -23,7 +23,7 @@ describe("GPU Flow surface frame publication", () => {
     const rawReasons: readonly GpuFrameReason[] = ["viewport"];
 
     expect(
-      withGpuFlowContentCatchupReasonForStalePublicationSample({
+      withGpuFlowContentCatchupReasonForStalePreparedContentSample({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 3,
           viewportSample: [10, 20, 1],
@@ -39,7 +39,7 @@ describe("GPU Flow surface frame publication", () => {
 
   it("adds content catch-up debt for stale committed viewport samples", () => {
     expect(
-      withGpuFlowContentCatchupReasonForStalePublicationSample({
+      withGpuFlowContentCatchupReasonForStalePreparedContentSample({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 3,
           viewportSample: [0, 0, 1],
@@ -55,7 +55,7 @@ describe("GPU Flow surface frame publication", () => {
 
   it("strips unchanged viewport motion while keeping content catch-up debt", () => {
     expect(
-      withGpuFlowContentCatchupReasonForStalePublicationSample({
+      withGpuFlowContentCatchupReasonForStalePreparedContentSample({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 3,
           viewportSample: [0, 0, 1],
@@ -74,7 +74,7 @@ describe("GPU Flow surface frame publication", () => {
 
   it("keeps viewport motion when the visible sample changes", () => {
     expect(
-      withGpuFlowContentCatchupReasonForStalePublicationSample({
+      withGpuFlowContentCatchupReasonForStalePreparedContentSample({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 3,
           viewportSample: [0, 0, 1],
@@ -93,7 +93,7 @@ describe("GPU Flow surface frame publication", () => {
 
   it("adds content catch-up debt for stale retained-scroll samples", () => {
     expect(
-      withGpuFlowContentCatchupReasonForStalePublicationSample({
+      withGpuFlowContentCatchupReasonForStalePreparedContentSample({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 2,
           viewportSample: [10, 20, 1],
@@ -109,7 +109,7 @@ describe("GPU Flow surface frame publication", () => {
 
   it("does not duplicate existing content reasons", () => {
     expect(
-      withGpuFlowContentCatchupReasonForStalePublicationSample({
+      withGpuFlowContentCatchupReasonForStalePreparedContentSample({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 2,
           viewportSample: [0, 0, 1],
@@ -174,7 +174,7 @@ describe("GPU Flow surface frame publication", () => {
 
   it("does not defer resolution updates for stale committed samples", () => {
     expect(
-      shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
+      shouldDeferGpuFlowContentPreparationResolutionUpdatesForSample({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 2,
           viewportSample: [0, 0, 1],
@@ -187,7 +187,7 @@ describe("GPU Flow surface frame publication", () => {
       }),
     ).toBe(false);
     expect(
-      shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
+      shouldDeferGpuFlowContentPreparationResolutionUpdatesForSample({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 2,
           viewportSample: [10, 20, 1],
@@ -203,7 +203,7 @@ describe("GPU Flow surface frame publication", () => {
 
   it("uses coordinator resolution deferral for viewport-frame content catchup", () => {
     expect(
-      shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
+      shouldDeferGpuFlowContentPreparationResolutionUpdatesForFrame({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 2,
           viewportSample: [0, 0, 1],
@@ -218,7 +218,7 @@ describe("GPU Flow surface frame publication", () => {
       }),
     ).toBe(false);
     expect(
-      shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
+      shouldDeferGpuFlowContentPreparationResolutionUpdatesForFrame({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 2,
           viewportSample: [0, 0, 1],
@@ -233,7 +233,7 @@ describe("GPU Flow surface frame publication", () => {
       }),
     ).toBe(true);
     expect(
-      shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
+      shouldDeferGpuFlowContentPreparationResolutionUpdatesForFrame({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 2,
           viewportSample: [0, 0, 1],

@@ -1,5 +1,5 @@
 import type { GpuFrameReason } from "../gpuRenderer";
-import type { GpuFlowContentPublicationFrameResult } from "./visibleFrameContentPlan";
+import type { GpuFlowContentPreparationFrameResult } from "./visibleFrameContentPlan";
 import type { runGpuFlowVisibleFrameCoordinator } from "./visibleFrameCoordinator";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import { createGpuFlowVisibleFramePresentationTransactionProofReport } from "./visibleFrameTransactionProofs";
@@ -10,14 +10,14 @@ type GpuFlowSurfaceFrameCoordinatorBaseResult = ReturnType<
 type GpuFlowSurfaceFrameCoordinatorResult =
   GpuFlowSurfaceFrameCoordinatorBaseResult & {
     readonly preparedFrame: GpuFlowSurfaceFrameCoordinatorBaseResult["preparedFrame"] & {
-      readonly contentPublicationFrame: GpuFlowContentPublicationFrameResult;
+      readonly contentPreparationFrame: GpuFlowContentPreparationFrameResult;
     };
   };
 type GpuFlowSurfaceFrameReducerCompletion = ReturnType<
   GpuFlowSurfaceFrameCoordinatorResult["completeReducerFrame"]
 >;
 type GpuFlowSurfaceFrameLayerResult = NonNullable<
-  GpuFlowContentPublicationFrameResult["nodeLayerFrameStatePublication"]
+  GpuFlowContentPreparationFrameResult["nodeLayerFrameStatePublication"]
 >["layerResult"];
 type GpuFlowSurfaceFrameDebtRequest =
   GpuFlowSurfaceFrameReducerCompletion["debtFrameRequest"];
@@ -50,7 +50,7 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
   };
   const requests =
     view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ ?? [];
-  const contentFrame = coordinatorResult.preparedFrame.contentPublicationFrame;
+  const contentFrame = coordinatorResult.preparedFrame.contentPreparationFrame;
   const layerResult =
     contentFrame.nodeLayerFrameStatePublication?.layerResult ?? null;
   requests.push({
@@ -92,7 +92,7 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
 }
 
 function createGpuFlowSurfaceFrameContentPublicationDiagnostic(
-  contentFrame: GpuFlowContentPublicationFrameResult,
+  contentFrame: GpuFlowContentPreparationFrameResult,
 ) {
   return {
     blockedPreparedContentFrameId:
@@ -146,7 +146,7 @@ function createGpuFlowSurfaceFrameDebtRequestDiagnostic(
 }
 
 function getGpuFlowSurfaceFrameBlockedReasons(
-  contentFrame: GpuFlowSurfaceFrameCoordinatorResult["preparedFrame"]["contentPublicationFrame"],
+  contentFrame: GpuFlowSurfaceFrameCoordinatorResult["preparedFrame"]["contentPreparationFrame"],
 ) {
   return contentFrame.blockedPublicationCandidate?.blockedReasons ?? [];
 }

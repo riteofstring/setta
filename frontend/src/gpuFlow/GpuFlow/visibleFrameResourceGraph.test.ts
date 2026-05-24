@@ -404,7 +404,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         },
         frame: candidateFrame,
         publishPresentedContentFrame: () => {
-          throw new Error("Unexpected presented content publication.");
+          throw new Error("Unexpected presented content preparation.");
         },
         token: createGpuFlowVisibleFramePresentationTokenForTest({
           frame: tokenFrame,

@@ -536,7 +536,7 @@ function runPreparedCandidateCoordinator({
     TestPublicationCandidate,
     TestPublicationCandidate
   >({
-    prepareContentPublicationFrame: () => contentFrame,
+    prepareContentPreparationFrame: () => contentFrame,
     prepareMotionProjectionFrame: () => ({
       frame: motionFrame,
       kind: "not-rendered",

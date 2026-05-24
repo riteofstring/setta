@@ -10,7 +10,7 @@ import type { GpuRect } from "../viewportMath";
 import {
   getGpuFlowPreparedContentFrameBrowserVisualSnapshotLayoutControls,
   shouldDeferGpuFlowRetainedContentPostSubmitMaintenance,
-  shouldReuseGpuFlowDeferredRetainedContentPublicationFrame,
+  shouldReuseGpuFlowDeferredRetainedContentPreparationFrame,
   shouldReuseGpuFlowRetainedContentFrameCache,
   shouldReuseGpuFlowRetainedRuntimeFrameForSample,
   syncGpuFlowNodeInteractionState,
@@ -210,12 +210,12 @@ describe("GPU flow frame helpers", () => {
     ).toBe(false);
   });
 
-  it("does not skip deferred content publication across viewport samples", () => {
+  it("does not skip deferred content preparation across viewport samples", () => {
     const contentSurfaces: readonly GpuContentSurface[] = [];
     const cachedFrame = retainedFrameCache({ contentSurfaces });
 
     expect(
-      shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
+      shouldReuseGpuFlowDeferredRetainedContentPreparationFrame({
         cachedFrame,
         contentSurfaces,
         nativeVisualSignature: cachedFrame.nativeVisualSignature,
@@ -225,7 +225,7 @@ describe("GPU flow frame helpers", () => {
       }),
     ).toBe(true);
     expect(
-      shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
+      shouldReuseGpuFlowDeferredRetainedContentPreparationFrame({
         cachedFrame,
         contentSurfaces,
         nativeVisualSignature: cachedFrame.nativeVisualSignature,
@@ -235,7 +235,7 @@ describe("GPU flow frame helpers", () => {
       }),
     ).toBe(false);
     expect(
-      shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
+      shouldReuseGpuFlowDeferredRetainedContentPreparationFrame({
         cachedFrame,
         contentSurfaces: [],
         nativeVisualSignature: cachedFrame.nativeVisualSignature,
@@ -245,7 +245,7 @@ describe("GPU flow frame helpers", () => {
       }),
     ).toBe(false);
     expect(
-      shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
+      shouldReuseGpuFlowDeferredRetainedContentPreparationFrame({
         cachedFrame,
         contentSurfaces,
         nativeVisualSignature: "changed-native-visuals",

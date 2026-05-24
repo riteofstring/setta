@@ -525,7 +525,7 @@ describe("GPU flow DOM control projection runtime", () => {
     );
   });
 
-  it("requests content publication when an active preparation host becomes ready", () => {
+  it("requests content preparation when an active preparation host becomes ready", () => {
     const animationFrames: FrameRequestCallback[] = [];
     vi.stubGlobal(
       "requestAnimationFrame",

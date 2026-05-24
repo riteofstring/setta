@@ -9,11 +9,11 @@ import type {
   GpuFlowVisibleFrameReducerDecision,
 } from "../projectionRuntime";
 import {
-  createGpuFlowContentPublicationWorkPlan,
+  createGpuFlowContentPreparationWorkPlan,
   createGpuFlowMotionProjectionWorkPlan,
-  shouldConsiderGpuFlowDeferredContentPublication,
-  shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication,
-  shouldSkipGpuFlowDeferredContentPublicationFrame,
+  shouldConsiderGpuFlowDeferredContentPreparation,
+  shouldDeferGpuFlowBrowserVisualResourceWakeupForPreparation,
+  shouldSkipGpuFlowDeferredContentPreparationFrame,
 } from "./visibleFrameCoordinator";
 
 const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
@@ -37,37 +37,37 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     ).toEqual({ kind: "skip" });
   });
 
-  it("maps content publication preparation lanes inside the coordinator", () => {
+  it("maps content preparation preparation lanes inside the coordinator", () => {
     expect(
-      createGpuFlowContentPublicationWorkPlan({
+      createGpuFlowContentPreparationWorkPlan({
         blockedProjectionOnlyFrame: false,
         reducerDecision: reducerDecision({ lane: "maintenance" }),
         renderedProjectionOnlyFrame: false,
       }),
     ).toEqual({ kind: "prepare", contentWorkLane: "maintenance" });
     expect(
-      createGpuFlowContentPublicationWorkPlan({
+      createGpuFlowContentPreparationWorkPlan({
         blockedProjectionOnlyFrame: false,
         reducerDecision: reducerDecision({ lane: "motion" }),
         renderedProjectionOnlyFrame: false,
       }),
     ).toEqual({ kind: "skip" });
     expect(
-      createGpuFlowContentPublicationWorkPlan({
+      createGpuFlowContentPreparationWorkPlan({
         blockedProjectionOnlyFrame: false,
         reducerDecision: reducerDecision({ lane: "content" }),
         renderedProjectionOnlyFrame: true,
       }),
     ).toEqual({ kind: "skip" });
     expect(
-      createGpuFlowContentPublicationWorkPlan({
+      createGpuFlowContentPreparationWorkPlan({
         blockedProjectionOnlyFrame: true,
         reducerDecision: reducerDecision({ lane: "motion" }),
         renderedProjectionOnlyFrame: false,
       }),
     ).toEqual({ kind: "skip" });
     expect(
-      createGpuFlowContentPublicationWorkPlan({
+      createGpuFlowContentPreparationWorkPlan({
         blockedProjectionOnlyFrame: false,
         reducerDecision: reducerDecision({ lane: "idle" }),
         renderedProjectionOnlyFrame: false,
@@ -77,7 +77,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
 
   it("keeps deferred publication policy in the coordinator without suppressing browser visual repair", () => {
     expect(
-      shouldConsiderGpuFlowDeferredContentPublication({
+      shouldConsiderGpuFlowDeferredContentPreparation({
         activeEditorActivationPending: true,
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
@@ -90,7 +90,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldConsiderGpuFlowDeferredContentPublication({
+      shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: false,
         hasPreviousRetainedDisplayFrame: false,
         hasPreviousVisibleProjectionState: false,
@@ -102,7 +102,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldConsiderGpuFlowDeferredContentPublication({
+      shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: false,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
@@ -114,7 +114,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(true);
     expect(
-      shouldConsiderGpuFlowDeferredContentPublication({
+      shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
@@ -125,7 +125,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(true);
     expect(
-      shouldConsiderGpuFlowDeferredContentPublication({
+      shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: false,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
@@ -137,7 +137,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldConsiderGpuFlowDeferredContentPublication({
+      shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: false,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
@@ -149,7 +149,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldConsiderGpuFlowDeferredContentPublication({
+      shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
@@ -160,7 +160,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldConsiderGpuFlowDeferredContentPublication({
+      shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
@@ -172,7 +172,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldConsiderGpuFlowDeferredContentPublication({
+      shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
@@ -184,7 +184,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldConsiderGpuFlowDeferredContentPublication({
+      shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: true,
@@ -196,7 +196,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldConsiderGpuFlowDeferredContentPublication({
+      shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: true,
         hasPreviousRetainedDisplayFrame: true,
         hasPreviousVisibleProjectionState: false,
@@ -208,7 +208,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
+      shouldDeferGpuFlowBrowserVisualResourceWakeupForPreparation({
         deferResolutionUpdates: false,
         reducerDecision: reducerDecision({
           lane: "content",
@@ -217,7 +217,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
       }),
     ).toBe(false);
     expect(
-      shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
+      shouldDeferGpuFlowBrowserVisualResourceWakeupForPreparation({
         deferResolutionUpdates: true,
         reducerDecision: reducerDecision({
           lane: "content",
@@ -227,45 +227,45 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     ).toBe(false);
   });
 
-  it("keeps deferred content publication off the hot path until a non-deferred frame", () => {
+  it("keeps deferred content preparation off the hot path until a non-deferred frame", () => {
     expect(
-      shouldSkipGpuFlowDeferredContentPublicationFrame({
+      shouldSkipGpuFlowDeferredContentPreparationFrame({
         canReusePreparedFrame: false,
         hasPreparedFrame: false,
         hasUnpublishedPreparedSourceFrame: false,
-        shouldConsiderDeferredPublication: true,
+        shouldConsiderDeferredPreparation: true,
       }),
     ).toBe(true);
     expect(
-      shouldSkipGpuFlowDeferredContentPublicationFrame({
+      shouldSkipGpuFlowDeferredContentPreparationFrame({
         canReusePreparedFrame: false,
         hasPreparedFrame: true,
         hasUnpublishedPreparedSourceFrame: true,
-        shouldConsiderDeferredPublication: true,
+        shouldConsiderDeferredPreparation: true,
       }),
     ).toBe(true);
     expect(
-      shouldSkipGpuFlowDeferredContentPublicationFrame({
+      shouldSkipGpuFlowDeferredContentPreparationFrame({
         canReusePreparedFrame: true,
         hasPreparedFrame: true,
         hasUnpublishedPreparedSourceFrame: false,
-        shouldConsiderDeferredPublication: true,
+        shouldConsiderDeferredPreparation: true,
       }),
     ).toBe(true);
     expect(
-      shouldSkipGpuFlowDeferredContentPublicationFrame({
+      shouldSkipGpuFlowDeferredContentPreparationFrame({
         canReusePreparedFrame: false,
         hasPreparedFrame: true,
         hasUnpublishedPreparedSourceFrame: false,
-        shouldConsiderDeferredPublication: true,
+        shouldConsiderDeferredPreparation: true,
       }),
     ).toBe(true);
     expect(
-      shouldSkipGpuFlowDeferredContentPublicationFrame({
+      shouldSkipGpuFlowDeferredContentPreparationFrame({
         canReusePreparedFrame: false,
         hasPreparedFrame: false,
         hasUnpublishedPreparedSourceFrame: false,
-        shouldConsiderDeferredPublication: false,
+        shouldConsiderDeferredPreparation: false,
       }),
     ).toBe(false);
   });
@@ -282,22 +282,22 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     );
     expect(surfaceSource).not.toContain("getGpuFlowContentPublicationLane");
     expect(surfaceSource).not.toContain('reducerDecision.lane !== "motion"');
-    expect(surfaceSource).toContain("contentPublicationWorkPlan");
+    expect(surfaceSource).toContain("contentPreparationWorkPlan");
     expect(surfaceSource).toContain("motionProjectionWorkPlan");
     expect(coordinatorSource).toContain(
       "createGpuFlowMotionProjectionWorkPlan",
     );
     expect(coordinatorSource).toContain(
-      "createGpuFlowContentPublicationWorkPlan",
+      "createGpuFlowContentPreparationWorkPlan",
     );
     expect(coordinatorSource).toContain(
-      "shouldConsiderGpuFlowDeferredContentPublication",
+      "shouldConsiderGpuFlowDeferredContentPreparation",
     );
     expect(coordinatorSource).toContain(
-      "shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication",
+      "shouldDeferGpuFlowBrowserVisualResourceWakeupForPreparation",
     );
     expect(coordinatorSource).toContain(
-      "shouldSkipGpuFlowDeferredContentPublicationFrame",
+      "shouldSkipGpuFlowDeferredContentPreparationFrame",
     );
   });
 });

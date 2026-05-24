@@ -84,7 +84,7 @@ describe("GPU Flow visible frame coordinator", () => {
       sample,
     });
     const phases: string[] = [];
-    type TestContentPublicationFrame = {
+    type TestContentPreparationFrame = {
       readonly blockedPublicationCandidate: null;
       readonly presentationEvidence: {
         readonly canvasGenerationEvidence: ReturnType<
@@ -106,10 +106,10 @@ describe("GPU Flow visible frame coordinator", () => {
       readonly visibleProjectionState: null;
     };
     const result = runGpuFlowVisibleFrameCoordinator<
-      TestContentPublicationFrame,
+      TestContentPreparationFrame,
       TestMotionProjectionFrame
     >({
-      prepareContentPublicationFrame: ({
+      prepareContentPreparationFrame: ({
         motionProjectionFrame,
         publicationFrameContext,
       }) => {
@@ -185,7 +185,7 @@ describe("GPU Flow visible frame coordinator", () => {
       result.preparedFrame.visibleFrameStateMachinePreparedFrame?.candidate
         .projectionSampleId,
     ).toBe(sample.id);
-    expect(result.preparedFrame.contentPublicationFrame.rendered).toBe(true);
+    expect(result.preparedFrame.contentPreparationFrame.rendered).toBe(true);
     expect(result.preparedFrame.visibleProjectionState).toBe(
       contentVisibleState,
     );
@@ -221,7 +221,7 @@ describe("GPU Flow visible frame coordinator", () => {
     const blockedCandidates: GpuFlowVisibleFrameBlockedPublicationCandidate[] =
       [];
 
-    type TestContentPublicationFrame = {
+    type TestContentPreparationFrame = {
       readonly blockedPublicationCandidate: null;
       readonly rendered: boolean;
       readonly visibleProjectionState: null;
@@ -232,10 +232,10 @@ describe("GPU Flow visible frame coordinator", () => {
       readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
     };
     const result = runGpuFlowVisibleFrameCoordinator<
-      TestContentPublicationFrame,
+      TestContentPreparationFrame,
       TestMotionProjectionFrame
     >({
-      prepareContentPublicationFrame: () => ({
+      prepareContentPreparationFrame: () => ({
         blockedPublicationCandidate: null,
         rendered: false,
         visibleProjectionState: null,
@@ -311,12 +311,12 @@ describe("GPU Flow visible frame coordinator", () => {
     );
   });
 
-  it("supplies a content publication stage runner from the coordinator", () => {
+  it("supplies a content preparation stage runner from the coordinator", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 55, timestamp: 550 });
     let suppliedRunner = false;
     runGpuFlowVisibleFrameCoordinator({
-      prepareContentPublicationFrame: (input) => {
+      prepareContentPreparationFrame: (input) => {
         suppliedRunner = true;
         expect(
           typeof input.runRetainedPreparedContentFramePublicationContentStage,
@@ -978,7 +978,7 @@ function runPreparedCandidateKernel({
     TestPublicationCandidate,
     TestPublicationCandidate
   >({
-    prepareContentPublicationFrame: () => contentFrame,
+    prepareContentPreparationFrame: () => contentFrame,
     prepareMotionProjectionFrame: () => ({
       frame: motionFrame,
       kind: "not-rendered",

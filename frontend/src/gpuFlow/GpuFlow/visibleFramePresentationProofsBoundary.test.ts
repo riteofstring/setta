@@ -351,10 +351,10 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "createGpuFlowNodeLayerFrameRetainedProjectionBlockedResult",
     );
     expect(coordinatorSource).toContain(
-      "selectGpuFlowContentPublicationBlockedCandidate",
+      "selectGpuFlowContentPreparationBlockedCandidate",
     );
     expect(coordinatorSource).not.toContain(
-      "export function createGpuFlowContentPublicationBlockedCandidateSelector",
+      "export function createGpuFlowContentPreparationBlockedCandidateSelector",
     );
     expect(coordinatorSource).toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
@@ -1073,10 +1073,10 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
   it("publishes retained runtime callbacks only from visible frame presentation completion", () => {
     const source = readSurfaceFramePublicationAuthoritySource();
     const contentFrameStart = source.indexOf(
-      "function renderGpuFlowSurfaceContentPublicationFrame",
+      "function renderGpuFlowSurfaceContentPreparationFrame",
     );
     const contentFrameEnd = source.indexOf(
-      "function shouldRenderGpuFlowSurfaceContentPublicationFrame",
+      "function shouldRenderGpuFlowSurfaceContentPreparationFrame",
       contentFrameStart,
     );
     const contentFrameSource = source.slice(contentFrameStart, contentFrameEnd);

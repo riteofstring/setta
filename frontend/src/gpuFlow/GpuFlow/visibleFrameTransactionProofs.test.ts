@@ -49,12 +49,12 @@ const createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame =
   createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory();
 
 function createGpuFlowVisibleFramePublicationTransactionProof<
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >(
   input: GpuFlowVisibleFramePublicationCandidateSet<
-    ContentPublicationFrame,
+    ContentPreparationFrame,
     MotionProjectionFrame
   > & {
     readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
@@ -63,8 +63,8 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
 ) {
   return createGpuFlowVisibleFramePublicationTransactionProofFromFactory({
     ...input,
-    contentPublicationFrame: withTestGpuFlowVisibleFramePresentationEvidence(
-      input.contentPublicationFrame,
+    contentPreparationFrame: withTestGpuFlowVisibleFramePresentationEvidence(
+      input.contentPreparationFrame,
     ),
     motionProjectionFrame: withTestGpuFlowVisibleFramePresentationEvidence(
       input.motionProjectionFrame,
@@ -101,15 +101,15 @@ function createGpuFlowVisibleFramePresentableFrameProof({
 }
 
 function selectGpuFlowVisibleFramePublicationPreparedFrame<
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
-  contentPublicationFrame,
+  contentPreparationFrame,
   motionProjectionFrame,
   ...proofInput
 }: GpuFlowVisibleFramePublicationCandidateSet<
-  ContentPublicationFrame,
+  ContentPreparationFrame,
   MotionProjectionFrame
 > & {
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
@@ -117,8 +117,8 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
 }) {
   const transactionProof = createGpuFlowVisibleFramePublicationTransactionProof(
     {
-      contentPublicationFrame: withTestGpuFlowVisibleFramePresentationEvidence(
-        contentPublicationFrame,
+      contentPreparationFrame: withTestGpuFlowVisibleFramePresentationEvidence(
+        contentPreparationFrame,
       ),
       motionProjectionFrame: withTestGpuFlowVisibleFramePresentationEvidence(
         motionProjectionFrame,
@@ -128,7 +128,7 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
   );
   const preparedFrame =
     createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame({
-      contentPublicationFrame,
+      contentPreparationFrame,
       motionProjectionFrame,
       transactionProof,
     });
@@ -262,7 +262,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
         heldPreviousProjectionState: null,
       });
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
-      contentPublicationFrame: {
+      contentPreparationFrame: {
         blockedPublicationCandidate: contentBlockedCandidate,
         visibleProjectionState: null,
       },
@@ -475,7 +475,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     });
 
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
-      contentPublicationFrame: {
+      contentPreparationFrame: {
         blockedPublicationCandidate: null,
         visibleProjectionState: overBudgetVisibleProjectionState,
       },
@@ -522,7 +522,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     });
 
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
-      contentPublicationFrame: {
+      contentPreparationFrame: {
         blockedPublicationCandidate: null,
         visibleProjectionState: null,
       },
@@ -657,7 +657,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     });
 
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
-      contentPublicationFrame: {
+      contentPreparationFrame: {
         blockedPublicationCandidate: null,
         visibleProjectionState: visibleProjectionStateWithMissingResource,
       },
@@ -731,7 +731,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
       });
 
       const proof = createGpuFlowVisibleFramePublicationTransactionProof({
-        contentPublicationFrame: {
+        contentPreparationFrame: {
           blockedPublicationCandidate: null,
           visibleProjectionState: visibleProjectionStateWithMismatch,
         },
@@ -767,7 +767,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
     expect(() =>
       selectGpuFlowVisibleFramePublicationPreparedFrame({
-        contentPublicationFrame: {
+        contentPreparationFrame: {
           blockedPublicationCandidate: null,
           visibleProjectionState: contentVisibleState,
         },
@@ -794,7 +794,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
       });
 
     const proof = createGpuFlowVisibleFramePublicationTransactionProof({
-      contentPublicationFrame: {
+      contentPreparationFrame: {
         blockedPublicationCandidate: null,
         visibleProjectionState: contentVisibleState,
       },
@@ -820,7 +820,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     });
 
     const prepared = selectGpuFlowVisibleFramePublicationPreparedFrame({
-      contentPublicationFrame: {
+      contentPreparationFrame: {
         blockedPublicationCandidate: null,
         visibleProjectionState: null,
       },
@@ -840,7 +840,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     expect(prepared.visibleProjectionState).toBe(motionVisibleState);
     expect(
       createGpuFlowVisibleFramePublicationTransactionProof({
-        contentPublicationFrame: {
+        contentPreparationFrame: {
           blockedPublicationCandidate: null,
           visibleProjectionState: null,
         },

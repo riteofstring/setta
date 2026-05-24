@@ -127,11 +127,11 @@ export type GpuFlowVisibleFramePublicationMotionCandidate = {
 };
 
 export type GpuFlowVisibleFramePublicationCandidateSet<
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 > = {
-  readonly contentPublicationFrame: ContentPublicationFrame;
+  readonly contentPreparationFrame: ContentPreparationFrame;
   readonly forcedBlockedPublicationCandidate?:
     | GpuFlowVisibleFrameBlockedPublicationCandidate
     | null
@@ -165,22 +165,22 @@ export type GpuFlowVisibleFramePublicationTransactionProof = {
 };
 
 export type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 > = GpuFlowVisibleFramePublicationPreparedFrame & {
-  readonly contentPublicationFrame: ContentPublicationFrame;
+  readonly contentPreparationFrame: ContentPreparationFrame;
   readonly motionProjectionFrame: MotionProjectionFrame;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 };
 
 export type GpuFlowVisibleFramePublicationTransactionProofFactory = <
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >(
   input: GpuFlowVisibleFramePublicationCandidateSet<
-    ContentPublicationFrame,
+    ContentPreparationFrame,
     MotionProjectionFrame
   > & {
     readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
@@ -189,15 +189,15 @@ export type GpuFlowVisibleFramePublicationTransactionProofFactory = <
 ) => GpuFlowVisibleFramePublicationTransactionProof;
 
 export type GpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory = <
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >(input: {
-  readonly contentPublicationFrame: ContentPublicationFrame;
+  readonly contentPreparationFrame: ContentPreparationFrame;
   readonly motionProjectionFrame: MotionProjectionFrame;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 }) => GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
-  ContentPublicationFrame,
+  ContentPreparationFrame,
   MotionProjectionFrame
 >;
 
@@ -383,26 +383,26 @@ export function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrameFac
 }
 
 function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
-  contentPublicationFrame,
+  contentPreparationFrame,
   motionProjectionFrame,
   transactionProof,
 }: {
-  readonly contentPublicationFrame: ContentPublicationFrame;
+  readonly contentPreparationFrame: ContentPreparationFrame;
   readonly motionProjectionFrame: MotionProjectionFrame;
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 }): GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
-  ContentPublicationFrame,
+  ContentPreparationFrame,
   MotionProjectionFrame
 > {
   return Object.freeze({
     blockedPublicationCandidate: transactionProof.blockedPublicationCandidate,
     blockedProof: transactionProof.blockedProof,
     blockedPublicationToken: null,
-    contentPublicationFrame,
+    contentPreparationFrame,
     motionProjectionFrame,
     renderedVisibleFrame: transactionProof.renderedVisibleFrame,
     transactionProof,
@@ -415,17 +415,17 @@ function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
 }
 
 function createGpuFlowVisibleFramePublicationTransactionProof<
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
-  contentPublicationFrame,
+  contentPreparationFrame,
   forcedBlockedPublicationCandidate = null,
   motionProjectionFrame,
   previousVisibleProjectionState = null,
   reducerDecision,
 }: GpuFlowVisibleFramePublicationCandidateSet<
-  ContentPublicationFrame,
+  ContentPreparationFrame,
   MotionProjectionFrame
 > & {
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
@@ -433,24 +433,24 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
 }): GpuFlowVisibleFramePublicationTransactionProof {
   const candidateVisibleProjectionState =
     resolveGpuFlowVisibleFramePublicationVisibleProjectionState({
-      contentPublicationFrame,
+      contentPreparationFrame,
       motionProjectionFrame,
     });
   const candidateBlockedProof =
     createGpuFlowVisibleFramePublicationCandidateBlockedProof({
-      contentPublicationFrame,
+      contentPreparationFrame,
       forcedBlockedPublicationCandidate,
       motionProjectionFrame,
     });
   const candidateVisibleProjectionSource =
     selectGpuFlowVisibleFramePublicationProjectionSource({
-      contentPublicationFrame,
+      contentPreparationFrame,
       motionProjectionFrame,
       visibleProjectionState: candidateVisibleProjectionState,
     });
   const presentationEvidence =
     resolveGpuFlowVisibleFramePublicationPresentationEvidence({
-      contentPublicationFrame,
+      contentPreparationFrame,
       motionProjectionFrame,
       visibleProjectionSource: candidateVisibleProjectionSource,
     });
@@ -472,7 +472,7 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
       blockingProofs,
       candidateContentFrame:
         resolveGpuFlowVisibleFramePublicationCandidateContentFrame({
-          contentPublicationFrame,
+          contentPreparationFrame,
           candidateVisibleProjectionState,
         }),
       candidateVisibleProjectionState,
@@ -513,7 +513,7 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
     visibleFrameStateMachinePreparedFrame,
     visibleProjectionSource:
       selectGpuFlowVisibleFramePublicationProjectionSource({
-        contentPublicationFrame,
+        contentPreparationFrame,
         motionProjectionFrame,
         visibleProjectionState: finalVisibleProjectionState,
       }),
@@ -566,20 +566,20 @@ function isGpuFlowVisibleFrameStateMachinePresentationOutcome(
 }
 
 function resolveGpuFlowVisibleFramePublicationCandidateContentFrame<
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
 >({
-  contentPublicationFrame,
+  contentPreparationFrame,
   candidateVisibleProjectionState,
 }: {
-  readonly contentPublicationFrame: ContentPublicationFrame;
+  readonly contentPreparationFrame: ContentPreparationFrame;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowPreparedContentFrame | null {
   return (
     candidateVisibleProjectionState?.preparedContentFrame ??
-    contentPublicationFrame.preparedContentFrame ??
-    contentPublicationFrame.blockedPreparedContentFrame ??
-    contentPublicationFrame.heldPreparedContentFrame ??
+    contentPreparationFrame.preparedContentFrame ??
+    contentPreparationFrame.blockedPreparedContentFrame ??
+    contentPreparationFrame.heldPreparedContentFrame ??
     null
   );
 }
@@ -685,18 +685,18 @@ function createGpuFlowVisibleFramePublicationMotionWorkBlockedProof({
 }
 
 function resolveGpuFlowVisibleFramePublicationVisibleProjectionState<
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
-  contentPublicationFrame,
+  contentPreparationFrame,
   motionProjectionFrame,
 }: GpuFlowVisibleFramePublicationCandidateSet<
-  ContentPublicationFrame,
+  ContentPreparationFrame,
   MotionProjectionFrame
 >): GpuFlowVisibleProjectionState | null {
   if (
-    contentPublicationFrame.visibleProjectionState &&
+    contentPreparationFrame.visibleProjectionState &&
     motionProjectionFrame.visibleProjectionState
   ) {
     throw new Error(
@@ -704,28 +704,28 @@ function resolveGpuFlowVisibleFramePublicationVisibleProjectionState<
     );
   }
   return (
-    contentPublicationFrame.visibleProjectionState ??
+    contentPreparationFrame.visibleProjectionState ??
     motionProjectionFrame.visibleProjectionState
   );
 }
 
 function resolveGpuFlowVisibleFramePublicationPresentationEvidence<
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
-  contentPublicationFrame,
+  contentPreparationFrame,
   motionProjectionFrame,
   visibleProjectionSource,
 }: GpuFlowVisibleFramePublicationCandidateSet<
-  ContentPublicationFrame,
+  ContentPreparationFrame,
   MotionProjectionFrame
 > & {
   readonly visibleProjectionSource: GpuFlowVisibleFramePublicationTransactionProof["visibleProjectionSource"];
 }): GpuFlowVisibleFramePresentationEvidence | null {
   switch (visibleProjectionSource) {
     case "prepared-content":
-      return contentPublicationFrame.presentationEvidence ?? null;
+      return contentPreparationFrame.presentationEvidence ?? null;
     case "motion-projection":
       return motionProjectionFrame.presentationEvidence ?? null;
     case null:
@@ -848,15 +848,15 @@ function hasGpuFlowVisibleFramePresentationCompatiblePreviousCoverage({
 }
 
 function createGpuFlowVisibleFramePublicationCandidateBlockedProof<
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
-  contentPublicationFrame,
+  contentPreparationFrame,
   forcedBlockedPublicationCandidate,
   motionProjectionFrame,
 }: GpuFlowVisibleFramePublicationCandidateSet<
-  ContentPublicationFrame,
+  ContentPreparationFrame,
   MotionProjectionFrame
 >): GpuFlowVisibleFramePresentationBlockedProof | null {
   if (forcedBlockedPublicationCandidate) {
@@ -866,7 +866,7 @@ function createGpuFlowVisibleFramePublicationCandidateBlockedProof<
     });
   }
   const contentBlockedCandidate =
-    contentPublicationFrame.blockedPublicationCandidate;
+    contentPreparationFrame.blockedPublicationCandidate;
   const motionBlockedCandidate =
     motionProjectionFrame.blockedPublicationCandidate;
   if (contentBlockedCandidate && motionBlockedCandidate) {
@@ -950,15 +950,15 @@ function createGpuFlowVisibleFramePresentationActorBlockedProofSource({
 }
 
 function selectGpuFlowVisibleFramePublicationProjectionSource<
-  ContentPublicationFrame extends
+  ContentPreparationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
 >({
-  contentPublicationFrame,
+  contentPreparationFrame,
   motionProjectionFrame,
   visibleProjectionState,
 }: GpuFlowVisibleFramePublicationCandidateSet<
-  ContentPublicationFrame,
+  ContentPreparationFrame,
   MotionProjectionFrame
 > & {
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -966,7 +966,7 @@ function selectGpuFlowVisibleFramePublicationProjectionSource<
   if (!visibleProjectionState) {
     return null;
   }
-  if (contentPublicationFrame.visibleProjectionState) {
+  if (contentPreparationFrame.visibleProjectionState) {
     return "prepared-content";
   }
   if (motionProjectionFrame.visibleProjectionState) {

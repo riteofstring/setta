@@ -75,7 +75,7 @@ export function shouldReuseGpuFlowRetainedRuntimeFrameForSample({
   );
 }
 
-export function shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
+export function shouldReuseGpuFlowDeferredRetainedContentPreparationFrame({
   cachedFrame,
   contentSurfaces,
   nativeVisualSignature,

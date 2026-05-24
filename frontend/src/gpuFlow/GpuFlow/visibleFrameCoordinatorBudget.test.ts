@@ -86,7 +86,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         readonly resolutionDebtRequested: boolean;
       }> = [];
       runGpuFlowVisibleFrameCoordinator({
-        prepareContentPublicationFrame: ({ publicationFrameContext }) => {
+        prepareContentPreparationFrame: ({ publicationFrameContext }) => {
           observed.push(
             observeResolutionDeferralContext(publicationFrameContext),
           );
@@ -138,7 +138,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
           reservedMotionProjectionBudgetMs: 2,
         },
       }),
-      prepareContentPublicationFrame: ({ publicationFrameContext }) => {
+      prepareContentPreparationFrame: ({ publicationFrameContext }) => {
         starvedObserved.push(publicationFrameContext.deferResolutionUpdates);
         return testPublicationCandidate();
       },
@@ -179,7 +179,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
           reservedMotionProjectionBudgetMs: 2,
         },
       }),
-      prepareContentPublicationFrame: ({ publicationFrameContext }) => {
+      prepareContentPreparationFrame: ({ publicationFrameContext }) => {
         phases.push("content");
         observedActiveEditorPins.push(publicationFrameContext.activeEditorPins);
         return testPublicationCandidate();
@@ -260,12 +260,12 @@ describe("GPU Flow visible frame coordinator budget", () => {
           reservedMotionProjectionBudgetMs: 2,
         },
       }),
-      prepareContentPublicationFrame: ({
-        contentPublicationWorkPlan,
+      prepareContentPreparationFrame: ({
+        contentPreparationWorkPlan,
         publicationFrameContext,
       }) => {
         phases.push(
-          `content:${contentPublicationWorkPlan.kind}:defer-${publicationFrameContext.deferResolutionUpdates}`,
+          `content:${contentPreparationWorkPlan.kind}:defer-${publicationFrameContext.deferResolutionUpdates}`,
         );
         return testPublicationCandidate();
       },

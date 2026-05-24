@@ -247,13 +247,13 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "function selectGpuFlowPreparedContentFramePublicationFramePlan",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function selectGpuFlowContentPublicationBlockedCandidate",
+      "function selectGpuFlowContentPreparationBlockedCandidate",
     );
     expect(stateMachineSource).toContain(
       "export function selectGpuFlowPreparedContentFramePublicationFramePlan",
     );
     expect(stateMachineSource).toContain(
-      "export function selectGpuFlowContentPublicationBlockedCandidateForFrameResult",
+      "export function selectGpuFlowContentPreparationBlockedCandidateForFrameResult",
     );
     expect(stateMachineSource).toContain(
       "export function selectGpuFlowRetainedDisplayPublicationFramePlan",
@@ -283,7 +283,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
     expect(source).not.toContain("selectProjectionFrameTransaction");
     expect(source).not.toContain("selectRetainedProjectionReducerDecision");
     expect(source).not.toContain(
-      "selectContentPublicationBlockedCandidateForFrameResult",
+      "selectContentPreparationBlockedCandidateForFrameResult",
     );
     expect(source).not.toContain(
       "visibleFrameReducerRuntimeRef.current.getKnobs",

@@ -132,7 +132,7 @@ describe("GPU Flow visible frame state machine reducer", () => {
     );
   });
 
-  it("presents content publication by advancing both content and presentation identities", () => {
+  it("presents content preparation by advancing both content and presentation identities", () => {
     const previousPresentation = committedPresentation({
       contentFrameId: createGpuFlowContentFrameId("content-a"),
       presentationId: createGpuFlowPresentationId("presentation-a"),

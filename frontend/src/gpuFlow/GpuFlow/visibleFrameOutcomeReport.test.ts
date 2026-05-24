@@ -25,7 +25,7 @@ describe("GPU Flow visible frame outcome report", () => {
     const rawReasons = ["retained-scroll"] as const;
 
     const result = runGpuFlowVisibleFrameCoordinator({
-      prepareContentPublicationFrame: () =>
+      prepareContentPreparationFrame: () =>
         noVisibleFramePresentationCandidate(),
       prepareMotionProjectionFrame: () => ({
         frame: noVisibleFramePresentationCandidate(),
@@ -67,7 +67,7 @@ describe("GPU Flow visible frame outcome report", () => {
   it("returns retained follow-up frame requests from coordinator completion", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const result = runGpuFlowVisibleFrameCoordinator({
-      prepareContentPublicationFrame: () =>
+      prepareContentPreparationFrame: () =>
         noVisibleFramePresentationCandidate({
           retainedDisplayFollowUpFrameReason: "texture-upload",
         }),
@@ -89,7 +89,7 @@ describe("GPU Flow visible frame outcome report", () => {
   it("returns cold-start shell publication from coordinator completion", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const result = runGpuFlowVisibleFrameCoordinator({
-      prepareContentPublicationFrame: () =>
+      prepareContentPreparationFrame: () =>
         noVisibleFramePresentationCandidate(),
       prepareMotionProjectionFrame: () => ({
         frame: noVisibleFramePresentationCandidate(),

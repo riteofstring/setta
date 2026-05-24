@@ -5,14 +5,14 @@ import { createGpuRetainedContentRuntimeState } from "../retainedContentRuntimeS
 import { createGpuRetainedRowContentScene } from "../retainedContentScene";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowScene } from "../scene";
+import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
   selectGpuFlowSceneStateFrameReason,
   syncGpuFlowNodeLayerSceneState,
 } from "./flowSceneStateSync";
-import type { GpuFlowNodeLayerState } from "./flowLayerState";
 
 describe("GPU flow scene state sync", () => {
-  it("requests content publication when the retained scene object changes", () => {
+  it("requests content preparation when the retained scene object changes", () => {
     const previousScene = scene("previous");
     const nextScene = scene("next");
 
@@ -24,7 +24,7 @@ describe("GPU flow scene state sync", () => {
     ).toBe("manual");
   });
 
-  it("requests critical content publication when a retained DOM control becomes active", () => {
+  it("requests critical content preparation when a retained DOM control becomes active", () => {
     expect(
       selectGpuFlowSceneStateFrameReason({
         nextScene: retainedDomControlScene(true),
@@ -74,7 +74,7 @@ describe("GPU flow scene state sync", () => {
         viewport: [11, 22, 1],
         visualScene,
         visualSceneViewport: [11, 22, 1],
-      } as GpuFlowNodeLayerState,
+      } as unknown as GpuFlowNodeLayerState,
     };
     const frameReasons: string[] = [];
 
@@ -124,7 +124,7 @@ describe("GPU flow scene state sync", () => {
           ],
         }),
         visualSceneViewport: [11, 22, 1],
-      } as GpuFlowNodeLayerState,
+      } as unknown as GpuFlowNodeLayerState,
     };
 
     syncSceneStateForTest({

@@ -171,7 +171,7 @@ function runGpuFlowVisibleFramePublicationTestTokenKernel({
     GpuFlowVisibleFramePublicationTestCandidate,
     GpuFlowVisibleFramePublicationTestCandidate
   >({
-    prepareContentPublicationFrame: () => contentFrame,
+    prepareContentPreparationFrame: () => contentFrame,
     prepareMotionProjectionFrame: () => ({
       frame: createGpuFlowVisibleFramePublicationTestCandidate(),
       kind: "not-rendered",

@@ -196,7 +196,7 @@ export function createGpuFlowProjectionSchedulingReasons({
   return rawReasons;
 }
 
-export function withGpuFlowContentCatchupReasonForStalePublicationSample({
+export function withGpuFlowContentCatchupReasonForStalePreparedContentSample({
   preparedContentFrame,
   previousVisibleProjectionState = null,
   rawReasons,

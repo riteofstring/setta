@@ -571,7 +571,7 @@ describe("GPU Flow surface publication completion", () => {
     expect(requestFrame).not.toHaveBeenCalled();
   });
 
-  it("requests texture upload debt immediately while content publication is blocked", () => {
+  it("requests texture upload debt immediately while content preparation is blocked", () => {
     const blockedFrame = createPreparedContentFrame({ displayFrameId: 51 });
     const sample = liveProjectionSample({
       id: 51,
@@ -861,7 +861,7 @@ function heldPreviousPublicationTransaction({
       }),
     },
     preparedFrame: {
-      contentPublicationFrame: {
+      contentPreparationFrame: {
         blockedErrorMessage: null,
         blockedPreparedContentFrame: null,
         blockedPreservePreparationSnapshot: false,
@@ -939,7 +939,7 @@ function committedPublicationTransaction({
       token,
     },
     preparedFrame: {
-      contentPublicationFrame: {
+      contentPreparationFrame: {
         blockedErrorMessage: null,
         blockedPreparedContentFrame: null,
         blockedPreservePreparationSnapshot: false,
@@ -1071,7 +1071,7 @@ function blockedPublicationTransaction({
       token,
     },
     preparedFrame: {
-      contentPublicationFrame: {
+      contentPreparationFrame: {
         blockedErrorMessage: null,
         blockedPreparedContentFrame: blockedFrame,
         blockedPreparedContentFrameResourceWork: blockedResourceWork,

@@ -881,7 +881,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
     });
   });
 
-  it("projects retained row hover visuals without content publication", () => {
+  it("projects retained row hover visuals without content preparation", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
 
     const rowHover = reducerRuntime.selectFrame({

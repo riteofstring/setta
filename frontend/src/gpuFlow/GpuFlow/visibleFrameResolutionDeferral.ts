@@ -2,7 +2,7 @@ import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 
-export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
+export function shouldDeferGpuFlowContentPreparationResolutionUpdatesForSample({
   preparedContentFrame,
   deferResolutionUpdates,
   sample,
@@ -27,7 +27,7 @@ export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
   );
 }
 
-export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
+export function shouldDeferGpuFlowContentPreparationResolutionUpdatesForFrame({
   preparedContentFrame,
   deferResolutionUpdates,
   hasPreviousVisibleProjectionState,
@@ -53,7 +53,7 @@ export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
   ) {
     return true;
   }
-  return shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
+  return shouldDeferGpuFlowContentPreparationResolutionUpdatesForSample({
     preparedContentFrame,
     deferResolutionUpdates,
     sample,

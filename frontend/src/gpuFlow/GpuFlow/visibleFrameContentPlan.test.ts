@@ -64,7 +64,7 @@ function readGpuFlowVisibleFramePresentationCoordinatorSource(): string {
 }
 
 describe("GPU Flow visible frame presentation content plans", () => {
-  it("keeps single-stage content publication gates off the public surfaces", () => {
+  it("keeps single-stage content preparation gates off the public surfaces", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
     const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const contentPlanReExport =
@@ -73,7 +73,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       )?.[0] ?? "";
 
     expect(contentPlanReExport).toContain(
-      "createGpuFlowContentPublicationFrameResult",
+      "createGpuFlowContentPreparationFrameResult",
     );
     expect(contentPlanReExport).not.toContain(
       "runGpuFlowRetainedDisplayPublicationContentStage",
@@ -188,7 +188,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
     expect(publication.preparedContentFrame.displayFrameId).toBe(48);
   });
 
-  it("keeps content publication selector factories off the coordinator public surface", () => {
+  it("keeps content preparation selector factories off the coordinator public surface", () => {
     const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
     const contentDecisionKernelSource = readFileSync(
@@ -197,7 +197,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
     );
 
     expect(kernelModuleSource).not.toMatch(
-      /export \{[\s\S]*createGpuFlow(?:PreparedContentFramePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector)[\s\S]*\} from "\.\/visibleFrameActorAdapters\/contentDecisionKernel";/,
+      /export \{[\s\S]*createGpuFlow(?:PreparedContentFramePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPreparationBlockedCandidateSelector)[\s\S]*\} from "\.\/visibleFrameActorAdapters\/contentDecisionKernel";/,
     );
     expect(kernelModuleSource).not.toContain(
       "export { prepareGpuFlowPreparedContentFramePublicationCandidate",
@@ -224,7 +224,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "export function createGpuFlowVisibleFramePresentationContentDecisionKernel",
     );
     expect(contentDecisionKernelSource).not.toMatch(
-      /export function createGpuFlow(?:PreparedContentFramePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPublicationBlockedCandidateSelector|PreparedContentFramePublicationFramePlanResultResolver|RetainedDisplayPublicationFramePlanResultResolver)/,
+      /export function createGpuFlow(?:PreparedContentFramePublicationFramePlanSelector|RetainedDisplayPublicationFramePlanSelector|ContentPreparationBlockedCandidateSelector|PreparedContentFramePublicationFramePlanResultResolver|RetainedDisplayPublicationFramePlanResultResolver)/,
     );
   });
 
@@ -293,19 +293,19 @@ describe("GPU Flow visible frame presentation content plans", () => {
     );
     expect(flowFrameSource).not.toContain("framePlanResult");
     expect(flowFrameSource).not.toContain(
-      "createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation",
+      "createGpuFlowContentPreparationFrameResultForRetainedDisplayPublicationPreparation",
     );
     expect(flowFrameSource).not.toContain(
-      "createGpuFlowContentPublicationFrameResultForPreparedContentFramePublicationPreparation",
+      "createGpuFlowContentPreparationFrameResultForPreparedContentFramePublicationPreparation",
     );
     expect(flowFrameSource).not.toContain(
       "requireGpuFlowRetainedDisplayPublishedOutcomeFrame",
     );
     expect(contentPlanSource).not.toMatch(
-      /export function createGpuFlowContentPublicationFrameResultForRetainedDisplayPublicationPreparation/,
+      /export function createGpuFlowContentPreparationFrameResultForRetainedDisplayPublicationPreparation/,
     );
     expect(contentPlanSource).not.toMatch(
-      /export function createGpuFlowContentPublicationFrameResultForPreparedContentFramePublicationPreparation/,
+      /export function createGpuFlowContentPreparationFrameResultForPreparedContentFramePublicationPreparation/,
     );
     expect(contentPlanSource).not.toMatch(
       /export function requireGpuFlowRetainedDisplayPublishedOutcomeFrame/,
@@ -605,25 +605,25 @@ describe("GPU Flow visible frame presentation content plans", () => {
     const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
 
     expect(contentPlanSource).not.toContain(
-      "export function selectGpuFlowContentPublicationBlockedCandidate",
+      "export function selectGpuFlowContentPreparationBlockedCandidate",
     );
     expect(contentPlanSource).not.toContain(
       "createGpuFlowBrowserVisualBlockedPublicationCandidate(",
     );
     expect(stateMachineSource).toContain(
-      "function selectGpuFlowContentPublicationBlockedCandidate",
+      "function selectGpuFlowContentPreparationBlockedCandidate",
     );
     expect(stateMachineSource).not.toContain(
-      "export function selectGpuFlowContentPublicationBlockedCandidate({",
+      "export function selectGpuFlowContentPreparationBlockedCandidate({",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function selectGpuFlowContentPublicationBlockedCandidate",
+      "function selectGpuFlowContentPreparationBlockedCandidate",
     );
     expect(stateMachineSource).toContain(
-      "export function selectGpuFlowContentPublicationBlockedCandidateForFrameResult",
+      "export function selectGpuFlowContentPreparationBlockedCandidateForFrameResult",
     );
     expect(contentDecisionKernelSource).not.toContain(
-      "function selectGpuFlowContentPublicationBlockedCandidateForFrameResult",
+      "function selectGpuFlowContentPreparationBlockedCandidateForFrameResult",
     );
     expect(stateMachineSource).toContain(
       "createGpuFlowBrowserVisualBlockedPublicationCandidate",
@@ -1020,7 +1020,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
     expect(prepared).toBe(4);
   });
 
-  it("keeps content publication frame-result derivation out of the surface frame", () => {
+  it("keeps content preparation frame-result derivation out of the surface frame", () => {
     const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
     const surfaceFrameSource = readFileSync(
       SURFACE_FRAME_PUBLICATION_MODULE_PATH,
@@ -1029,16 +1029,16 @@ describe("GPU Flow visible frame presentation content plans", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
 
     expect(surfaceFrameSource).not.toContain(
-      "function createGpuFlowVisibleContentPublicationFrameResult",
+      "function createGpuFlowVisibleContentPreparationFrameResult",
     );
     expect(surfaceFrameSource).not.toContain(
-      "function createGpuFlowNotVisibleContentPublicationFrameResult",
+      "function createGpuFlowNotVisibleContentPreparationFrameResult",
     );
     expect(surfaceFrameSource).not.toContain(
-      "createGpuFlowContentPublicationFrameResultForNodeLayerFrame",
+      "createGpuFlowContentPreparationFrameResultForNodeLayerFrame",
     );
     expect(flowFrameSource).not.toContain(
-      "createGpuFlowContentPublicationFrameResultForNodeLayerFrame",
+      "createGpuFlowContentPreparationFrameResultForNodeLayerFrame",
     );
     expect(flowFrameSource).not.toContain(
       "createGpuFlowVisibleProjectionStateForRetainedPublication",
@@ -1047,7 +1047,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "createGpuFlowNodeLayerFrameVisibleProjectionStateResult",
     );
     expect(flowFrameSource).toContain(
-      "createContentPublicationFrameResultForVisibleProjectionState",
+      "createContentPreparationFrameResultForVisibleProjectionState",
     );
     expect(flowFrameSource).toContain(
       "createVisibleProjectionStateForRetainedPublication",
@@ -1060,13 +1060,13 @@ describe("GPU Flow visible frame presentation content plans", () => {
     );
     expect(surfaceFrameSource).not.toContain("onRetainedRuntimeFrame");
     expect(contentPlanSource).toContain(
-      "function createGpuFlowVisibleContentPublicationFrameResult",
+      "function createGpuFlowVisibleContentPreparationFrameResult",
     );
     expect(contentPlanSource).toContain(
-      "function createGpuFlowNotVisibleContentPublicationFrameResult",
+      "function createGpuFlowNotVisibleContentPreparationFrameResult",
     );
     expect(contentPlanSource).toContain(
-      "function createGpuFlowContentPublicationFrameResultForVisibleProjectionState",
+      "function createGpuFlowContentPreparationFrameResultForVisibleProjectionState",
     );
     expect(contentPlanSource).toContain(
       "createGpuFlowNodeLayerFrameVisibleProjectionStateResult",

@@ -177,7 +177,7 @@ describe("GPU Flow presented surface runtime", () => {
     expect(presentationIds).toEqual([String(motionToken.presentationId)]);
   });
 
-  it("rejects presented content publication with a token for a different visible frame", () => {
+  it("rejects presented content preparation with a token for a different visible frame", () => {
     const startupFrame = preparedContentFrame({ displayFrameId: 1 });
     const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
     const nextFrame = preparedContentFrame({ displayFrameId: 2 });
@@ -198,7 +198,7 @@ describe("GPU Flow presented surface runtime", () => {
     expect("setStartupFrame" in runtime).toBe(false);
   });
 
-  it("rejects presented content publication with a stale token for the same visible frame id", () => {
+  it("rejects presented content preparation with a stale token for the same visible frame id", () => {
     const startupFrame = preparedContentFrame({ displayFrameId: 1 });
     const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
     const staleFrame = preparedContentFrame({

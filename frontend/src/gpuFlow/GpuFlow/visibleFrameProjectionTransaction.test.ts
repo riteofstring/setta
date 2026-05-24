@@ -286,7 +286,7 @@ function resolveProjectionFrameTransactionThroughCoordinator({
     TestProjectionPublicationFrame,
     TestProjectionPublicationFrame
   >({
-    prepareContentPublicationFrame: () => testProjectionPublicationFrame(),
+    prepareContentPreparationFrame: () => testProjectionPublicationFrame(),
     prepareMotionProjectionFrame: () => ({
       createBlockedProjectionFrame: ({ blockedPublicationCandidate }) => {
         return testProjectionPublicationFrame({

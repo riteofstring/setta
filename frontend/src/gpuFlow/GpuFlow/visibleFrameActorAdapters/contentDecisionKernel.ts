@@ -15,7 +15,7 @@ import {
   reduceGpuFlowPreparedContentFramePublicationCandidate,
   resolveGpuFlowPreparedContentFramePublicationFramePlanResult,
   resolveGpuFlowRetainedDisplayPublicationFramePlanResult,
-  selectGpuFlowContentPublicationBlockedCandidateForFrameResult,
+  selectGpuFlowContentPreparationBlockedCandidateForFrameResult,
   selectGpuFlowPreparedContentFramePublicationFramePlan,
   selectGpuFlowRetainedDisplayPublicationFramePlan,
 } from "../visibleFrameStateMachine";
@@ -84,7 +84,7 @@ export type GpuFlowVisibleFramePresentationContentDecisionKernel = {
   readonly resolvePreparedContentFramePublicationFramePlanResult: GpuFlowPreparedContentFramePublicationFramePlanResultResolver;
   readonly resolveRetainedDisplayPublicationFramePlanResult: GpuFlowRetainedDisplayPublicationFramePlanResultResolver;
   readonly selectPreparedContentFramePublicationFramePlan: GpuFlowPreparedContentFramePublicationFramePlanSelector;
-  readonly selectContentPublicationBlockedCandidateForFrameResult: (input: {
+  readonly selectContentPreparationBlockedCandidateForFrameResult: (input: {
     readonly nodeLayerFrameResult: GpuFlowNodeLayerFrameResult;
     readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   }) => GpuFlowVisibleFrameBlockedPublicationCandidate | null;
@@ -122,8 +122,8 @@ function createGpuFlowVisibleFramePresentationContentDecisionKernelMethods(): Gp
       resolveGpuFlowRetainedDisplayPublicationFramePlanResult,
     selectPreparedContentFramePublicationFramePlan:
       selectGpuFlowPreparedContentFramePublicationFramePlan,
-    selectContentPublicationBlockedCandidateForFrameResult:
-      selectGpuFlowContentPublicationBlockedCandidateForFrameResult,
+    selectContentPreparationBlockedCandidateForFrameResult:
+      selectGpuFlowContentPreparationBlockedCandidateForFrameResult,
     selectRetainedDisplayPublicationFramePlan:
       selectGpuFlowRetainedDisplayPublicationFramePlan,
   });

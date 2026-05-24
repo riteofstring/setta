@@ -238,7 +238,7 @@ describe("GPU Flow projection runtime", () => {
     expect(catchup.debt.maintenance).toBe(true);
   });
 
-  it("uses content publication for cold motion without a prepared content frame", () => {
+  it("uses content preparation for cold motion without a prepared content frame", () => {
     const reducerRuntime = createGpuFlowVisibleFrameReducerRuntime();
     const decision = reducerRuntime.selectFrame({
       hasPresentedContentFrame: false,

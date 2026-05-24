@@ -179,7 +179,7 @@ export function presentGpuFlowVisibleFramePublicationFrame({
     heldPreviousVisibleProjectionState,
     outcome,
     preparedFrame: {
-      contentPublicationFrame: {
+      contentPreparationFrame: {
         blockedErrorMessage,
         blockedPreparedContentFrame,
         blockedPreparedContentFrameResourceWork,

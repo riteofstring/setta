@@ -108,8 +108,8 @@ import {
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
 import { prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate } from "./visibleFrameContentPreparation";
 import {
-  createGpuFlowContentPublicationFrameResult,
-  type GpuFlowContentPublicationFrameResult,
+  createGpuFlowContentPreparationFrameResult,
+  type GpuFlowContentPreparationFrameResult,
   type GpuFlowRetainedDisplayPreparedContentFramePreparer,
   type GpuFlowRetainedPreparedContentFramePublicationContentStageRunner,
 } from "./visibleFrameCoordinator";
@@ -494,7 +494,7 @@ function getGpuFlowPreparedContentFrameBrowserVisualSnapshotLayoutControls({
 }
 
 export {
-  shouldReuseGpuFlowDeferredRetainedContentPublicationFrame,
+  shouldReuseGpuFlowDeferredRetainedContentPreparationFrame,
   shouldReuseGpuFlowRetainedContentFrameCache,
   shouldReuseGpuFlowRetainedRuntimeFrameForSample,
   type GpuFlowRetainedContentFrameCache,
@@ -586,7 +586,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly visibleNodeIdsRef: MutableRefObject<ReadonlySet<string>>;
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportFrame: boolean;
-}): GpuFlowContentPublicationFrameResult {
+}): GpuFlowContentPreparationFrameResult {
   const frameInput = resolveRenderableGpuFlowLayerFrameInput({
     canvasSizeRef,
     nodeLayerRef,
@@ -596,7 +596,7 @@ export function renderGpuFlowNodeLayerFrame({
     textureManagerRef,
   });
   if (!frameInput) {
-    return createGpuFlowContentPublicationFrameResult({ rendered: false });
+    return createGpuFlowContentPreparationFrameResult({ rendered: false });
   }
   const { canvasSize, layer, nodes, resources } = frameInput;
   const frame = nextFrame(frameRef);
@@ -669,7 +669,7 @@ export function renderGpuFlowNodeLayerFrame({
   const previousRetainedDisplayFrame = retainedDisplayFrameRef.current;
   return runRetainedPreparedContentFramePublicationContentStage<
     GpuFlowRetainedPreparedContentFramePublicationRenderContext,
-    GpuFlowContentPublicationFrameResult
+    GpuFlowContentPreparationFrameResult
   >({
     deferBrowserVisualWakeup,
     deferResolutionUpdates,
@@ -747,7 +747,7 @@ export function renderGpuFlowNodeLayerFrame({
     onPreparedContentFrameCandidateAccepted: ({
       preparedContentFramePublication,
       context,
-      createContentPublicationFrameResultForVisibleProjectionState,
+      createContentPreparationFrameResultForVisibleProjectionState,
       createVisibleProjectionStateForRetainedPublication,
       preparedContentFrame,
       retainedDisplayPublication,
@@ -906,7 +906,7 @@ export function renderGpuFlowNodeLayerFrame({
           viewportFrame,
           visibleNodeIdsRef,
         };
-      return createContentPublicationFrameResultForVisibleProjectionState({
+      return createContentPreparationFrameResultForVisibleProjectionState({
         preparedContentFramePublication,
         nodeLayerFrameStatePublication,
         retainedDisplayFrame: context.publishedRetainedFrame,

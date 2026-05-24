@@ -403,7 +403,7 @@ export function assertGpuFlowVisibleFramePresentationToken({
       })
   ) {
     throw new Error(
-      "GPU Flow presented content publication requires a visible frame presentation token for the same visible frame.",
+      "GPU Flow presented content preparation requires a visible frame presentation token for the same visible frame.",
     );
   }
   assertGpuFlowPresentationPairProof({
@@ -441,7 +441,7 @@ export function assertGpuFlowVisibleFramePresentationTokenForPresentationProof({
       })
   ) {
     throw new Error(
-      "GPU Flow presented content publication requires a visible frame presentation token for the same visible frame.",
+      "GPU Flow presented content preparation requires a visible frame presentation token for the same visible frame.",
     );
   }
   assertGpuFlowPresentationPairProof({

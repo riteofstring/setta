@@ -14,7 +14,7 @@ export type GpuFlowMotionProjectionWorkPlan =
       readonly kind: "skip";
     };
 
-export type GpuFlowContentPublicationWorkPlan =
+export type GpuFlowContentPreparationWorkPlan =
   | {
       readonly kind: "prepare";
       readonly contentWorkLane: Extract<
@@ -41,7 +41,7 @@ export function createGpuFlowMotionProjectionWorkPlan({
   });
 }
 
-export function createGpuFlowContentPublicationWorkPlan({
+export function createGpuFlowContentPreparationWorkPlan({
   blockedProjectionOnlyFrame,
   reducerDecision,
   renderedProjectionOnlyFrame,
@@ -49,7 +49,7 @@ export function createGpuFlowContentPublicationWorkPlan({
   readonly blockedProjectionOnlyFrame: boolean;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly renderedProjectionOnlyFrame: boolean;
-}): GpuFlowContentPublicationWorkPlan {
+}): GpuFlowContentPreparationWorkPlan {
   if (
     blockedProjectionOnlyFrame ||
     renderedProjectionOnlyFrame ||
@@ -67,7 +67,7 @@ export function createGpuFlowContentPublicationWorkPlan({
   });
 }
 
-export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
+export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPreparation({
   budgetBroker,
   deferResolutionUpdates,
   reducerDecision,
@@ -83,7 +83,7 @@ export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPublication({
   });
 }
 
-export function shouldConsiderGpuFlowDeferredContentPublication({
+export function shouldConsiderGpuFlowDeferredContentPreparation({
   activeEditorActivationPending = false,
   deferResolutionUpdates,
   hasPreviousRetainedDisplayFrame,
@@ -109,13 +109,13 @@ export function shouldConsiderGpuFlowDeferredContentPublication({
   );
 }
 
-export function shouldSkipGpuFlowDeferredContentPublicationFrame({
-  shouldConsiderDeferredPublication,
+export function shouldSkipGpuFlowDeferredContentPreparationFrame({
+  shouldConsiderDeferredPreparation,
 }: {
   readonly canReusePreparedFrame: boolean;
   readonly hasPreparedFrame: boolean;
   readonly hasUnpublishedPreparedSourceFrame: boolean;
-  readonly shouldConsiderDeferredPublication: boolean;
+  readonly shouldConsiderDeferredPreparation: boolean;
 }): boolean {
-  return shouldConsiderDeferredPublication;
+  return shouldConsiderDeferredPreparation;
 }

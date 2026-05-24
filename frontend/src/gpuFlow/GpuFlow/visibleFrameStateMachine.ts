@@ -71,7 +71,7 @@ type GpuFlowPreparedContentFramePublicationReadiness =
 type GpuFlowRetainedDisplayPublicationOutcome =
   GpuFlowRetainedDisplayPublicationResult["retainedDisplayOutcome"];
 
-type GpuFlowContentPublicationBlockedCandidateSelector = (input: {
+type GpuFlowContentPreparationBlockedCandidateSelector = (input: {
   readonly blockedPreparedContentFramePublicationCandidate?:
     | GpuFlowVisibleFrameBlockedPublicationCandidate
     | null
@@ -195,7 +195,7 @@ export function resolveGpuFlowRetainedDisplayPublicationFramePlanResult({
   };
 }
 
-export function selectGpuFlowContentPublicationBlockedCandidateForFrameResult({
+export function selectGpuFlowContentPreparationBlockedCandidateForFrameResult({
   nodeLayerFrameResult,
   previousVisibleProjectionState,
 }: {
@@ -204,11 +204,11 @@ export function selectGpuFlowContentPublicationBlockedCandidateForFrameResult({
 }): GpuFlowVisibleFrameBlockedPublicationCandidate | null {
   const preparedContentFramePublication =
     nodeLayerFrameResult.preparedContentFramePublication;
-  const selectContentPublicationBlockedCandidate =
-    selectGpuFlowContentPublicationBlockedCandidate({
+  const selectContentPreparationBlockedCandidate =
+    selectGpuFlowContentPreparationBlockedCandidate({
       previousVisibleProjectionState,
     });
-  return selectContentPublicationBlockedCandidate({
+  return selectContentPreparationBlockedCandidate({
     blockedPreparedContentFramePublicationCandidate:
       preparedContentFramePublication.blockedSurfacePublication
         ?.blockedPublicationCandidate ?? null,
@@ -269,11 +269,11 @@ function resolveGpuFlowPreparedContentFramePublicationActionFrameResult({
   );
 }
 
-function selectGpuFlowContentPublicationBlockedCandidate({
+function selectGpuFlowContentPreparationBlockedCandidate({
   previousVisibleProjectionState,
 }: {
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowContentPublicationBlockedCandidateSelector {
+}): GpuFlowContentPreparationBlockedCandidateSelector {
   return ({
     blockedPreparedContentFramePublicationCandidate,
     retainedDisplayBlockedPublicationCandidate,
