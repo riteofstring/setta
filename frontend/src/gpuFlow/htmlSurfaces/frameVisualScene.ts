@@ -29,3 +29,16 @@ export function createGpuNodeVisualScene({
     solidRoundedRectSurfaces: htmlSurfaceNativeVisuals ?? [],
   });
 }
+
+export function mergeHtmlSurfaceVisuals(
+  base: HtmlSurfaceVisualBuildResult,
+  overlays: HtmlSurfaceVisualBuildResult,
+): HtmlSurfaceVisualBuildResult {
+  return {
+    flatSurfaces: [...base.flatSurfaces, ...overlays.flatSurfaces],
+    tiledFlatSurfaces: [
+      ...base.tiledFlatSurfaces,
+      ...overlays.tiledFlatSurfaces,
+    ],
+  };
+}

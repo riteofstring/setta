@@ -42,6 +42,7 @@ import {
   commitPendingTextureSourceRect,
   compareEvictableSurfaceTextureRecords,
   compareSurfaceTextureRecords,
+  createPreparedHtmlSurfaceTextureEvictionResult,
   destroyTextureRecord,
   destroyTextureTiles,
   estimateDirtySurfaceUploadBytes,
@@ -75,6 +76,7 @@ import {
   type HtmlSurfaceTextureUploadResult,
   type SurfaceTextureLayoutResources,
 } from "./textureTiles";
+import { recordHtmlSurfacePaintUnavailableUpload } from "./texturePaintUnavailableDiagnostics";
 import {
   createHtmlSurfaceTextureUploadDiagnostic,
   createHtmlSurfaceTextureUploadWorkSummary,
@@ -92,6 +94,7 @@ import {
 
 export type {
   CommittedHtmlSurfaceTextureSnapshot,
+  HtmlSurfaceTextureEvictionResult,
   HtmlSurfaceTextureLifecycleDiagnostic,
   HtmlSurfaceTextureMemorySnapshot,
   HtmlSurfaceTextureTileRecord,
@@ -478,6 +481,30 @@ export class HtmlSurfaceTextureManager {
       protectedSurfaceIds: [...protectedIds].sort(compareSurfaceIds),
       reason,
     };
+  }
+
+  prepareSurfaceTextureEviction({
+    budgetBytes = this.maxTextureBytes,
+    protectedSurfaceIds,
+    reason = "memory-budget",
+    visibleSurfaceIds,
+  }: EvictHtmlSurfaceTexturesOptions = {}): HtmlSurfaceTextureEvictionResult {
+    const visibleIds = normalizeSurfaceIdSet(visibleSurfaceIds);
+    const resolvedBudgetBytes = normalizeTextureBudgetBytes(budgetBytes);
+    const protectedIds = this.resolveProtectedTextureSurfaceIds({
+      protectedSurfaceIds,
+      visibleSurfaceIds: visibleIds,
+    });
+    this.protectSurfaceTexturesUntilPresentation(protectedIds);
+    const memory = this.getMemorySnapshot({
+      visibleSurfaceIds: visibleIds,
+    });
+    return createPreparedHtmlSurfaceTextureEvictionResult({
+      budgetBytes: resolvedBudgetBytes,
+      memory,
+      protectedSurfaceIds: protectedIds,
+      reason,
+    });
   }
 
   setSurfaceTexturePriority(
@@ -904,6 +931,14 @@ export class HtmlSurfaceTextureManager {
     this.releasePendingUnprotectedSurfaceTextures();
   }
 
+  private protectSurfaceTexturesUntilPresentation(
+    protectedSurfaceIds: ReadonlySet<string>,
+  ): void {
+    for (const surfaceId of protectedSurfaceIds) {
+      this.protectedSurfaceTextureIds.add(surfaceId);
+    }
+  }
+
   private releasePendingUnprotectedSurfaceTextures(): void {
     for (const surfaceId of this.pendingProtectedSurfaceTextureReleaseIds) {
       if (this.protectedSurfaceTextureIds.has(surfaceId)) {
@@ -948,32 +983,6 @@ export class HtmlSurfaceTextureManager {
       .filter((record) => !protectedSurfaceIds.has(record.committed.surfaceId))
       .sort(compareEvictableSurfaceTextureRecords);
   }
-}
-
-function recordHtmlSurfacePaintUnavailableUpload({
-  error,
-  surfaceId,
-}: {
-  readonly error: unknown;
-  readonly surfaceId: string;
-}): void {
-  const errorRecord =
-    error && typeof error === "object"
-      ? (error as { readonly message?: unknown; readonly name?: unknown })
-      : null;
-  const view = globalThis as typeof globalThis & {
-    __SETTA_GPU_FLOW_HTML_SURFACE_PAINT_UNAVAILABLE_UPLOADS__?: unknown[];
-  };
-  const records =
-    view.__SETTA_GPU_FLOW_HTML_SURFACE_PAINT_UNAVAILABLE_UPLOADS__ ?? [];
-  records.push({
-    message:
-      typeof errorRecord?.message === "string" ? errorRecord.message : "",
-    name: typeof errorRecord?.name === "string" ? errorRecord.name : "",
-    surfaceId,
-  });
-  view.__SETTA_GPU_FLOW_HTML_SURFACE_PAINT_UNAVAILABLE_UPLOADS__ =
-    records.slice(-20);
 }
 
 export function createHtmlSurfaceTextureManager(

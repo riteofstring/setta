@@ -27,17 +27,17 @@ import {
   partitionGpuHtmlSurfaceOverlayQuads,
   toGpuHtmlSurfaceOverlayNodeLayouts,
 } from "./frameOverlayLayers";
-import { createGpuNodeVisualScene } from "./frameVisualScene";
+import {
+  createGpuNodeVisualScene,
+  mergeHtmlSurfaceVisuals,
+} from "./frameVisualScene";
 import {
   type HtmlSurfaceFlatVisual,
   type HtmlSurfaceSolidRoundedRectVisual,
   type HtmlSurfaceVisualScene,
 } from "./visualScene";
 
-import {
-  buildHtmlSurfaceVisuals,
-  type HtmlSurfaceVisualBuildResult,
-} from "./surfaceVisuals";
+import { buildHtmlSurfaceVisuals } from "./surfaceVisuals";
 
 import { resolveGpuNodeCssZIndex } from "../nodeZIndex";
 
@@ -61,14 +61,16 @@ import {
 } from "../viewportMath";
 
 import {
-  evictHtmlSurfaceFrameTextures,
   prepareHtmlSurfaceVisualSceneSubmission,
   renderHtmlSurfaceVisualScene,
+  resolveHtmlSurfaceFrameSubmissionModes,
+  resolveHtmlSurfaceFrameTextureEvictionWork,
   resolveHtmlSurfaceFrameTextureWork,
   syncHtmlSurfaceFrameDomTransforms,
   type GpuNodeSurfaceRenderTarget,
   type GpuNodeTextureController,
   type HtmlSurfaceFrameDomTransformWork,
+  type HtmlSurfaceFrameTextureEvictionSubmission,
 } from "./frameRenderWork";
 import {
   mergeNodeIdSets,
@@ -263,6 +265,7 @@ export type RenderHtmlSurfaceFrameResult = {
   readonly surfaceActorGenerationCount: number;
   readonly surfaceCoverageProtectedResourceCount: number;
   readonly surfaceCoverageTrueHoleCount: number;
+  readonly textureEvictionSubmission?: HtmlSurfaceFrameTextureEvictionSubmission | null;
   readonly textureMemory: HtmlSurfaceTextureMemorySnapshot;
   readonly textureMemoryBeforeEviction: HtmlSurfaceTextureMemorySnapshot;
   readonly textureLifecycleDiagnostics: readonly HtmlSurfaceTextureLifecycleDiagnostic[];
@@ -435,13 +438,15 @@ export function renderHtmlSurfaceFrame({
   const visibleSurfaceIds = new Set(
     visibleSurfaceQuads.map((quad) => quad.nodeId),
   );
+  const submissionModes = resolveHtmlSurfaceFrameSubmissionModes({
+    canvasSubmissionMode,
+    domTransformSubmissionMode,
+  });
 
   const domTransformWork = syncHtmlSurfaceFrameDomTransforms({
     activeNodeIds,
     domTransformCache,
-    domTransformSubmissionMode:
-      domTransformSubmissionMode ??
-      (canvasSubmissionMode === "deferred" ? "deferred" : "immediate"),
+    domTransformSubmissionMode: submissionModes.domTransformSubmissionMode,
     elementByNodeId,
     htmlSurfaceOverlays,
     nodes,
@@ -548,14 +553,16 @@ export function renderHtmlSurfaceFrame({
           visualScene,
           viewport,
         });
-  const evictionResult = evictHtmlSurfaceFrameTextures({
+  const textureEvictionWork = resolveHtmlSurfaceFrameTextureEvictionWork({
     nodeTextureMemoryBudgetBytes,
     protectedTextureSurfaceIds,
     retainedNodeIds,
+    submissionMode: submissionModes.textureEvictionSubmissionMode,
     textureManager,
     textureWorkMode,
     visibleSurfaceIds,
   });
+  const evictionResult = textureEvictionWork.result;
   const uploadedSurfaceIds = uploadResult.uploaded.map(
     (record) => record.surfaceId,
   );
@@ -597,6 +604,7 @@ export function renderHtmlSurfaceFrame({
       htmlSurfaceActorCoverage.coverageProof.protectedResourceHandles.length,
     surfaceCoverageTrueHoleCount:
       htmlSurfaceActorCoverage.coverageProof.trueHoleRects.length,
+    textureEvictionSubmission: textureEvictionWork.submission,
     textureMemory: evictionResult.memory,
     textureMemoryBeforeEviction: evictionResult.memoryBefore,
     textureLifecycleDiagnostics,
@@ -987,17 +995,4 @@ export function buildTexturedGpuNodeQuads(
   }
 
   return { missingTextureNodeIds, texturedQuads };
-}
-
-function mergeHtmlSurfaceVisuals(
-  base: HtmlSurfaceVisualBuildResult,
-  overlays: HtmlSurfaceVisualBuildResult,
-): HtmlSurfaceVisualBuildResult {
-  return {
-    flatSurfaces: [...base.flatSurfaces, ...overlays.flatSurfaces],
-    tiledFlatSurfaces: [
-      ...base.tiledFlatSurfaces,
-      ...overlays.tiledFlatSurfaces,
-    ],
-  };
 }

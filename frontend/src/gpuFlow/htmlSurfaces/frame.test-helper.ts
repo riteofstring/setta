@@ -158,6 +158,51 @@ export function createFrameTextureManager() {
       | readonly string[]
       | undefined;
   };
+  const getMemorySnapshot = vi.fn(
+    ({
+      visibleSurfaceIds,
+    }: Pick<EvictSurfaceTexturesInput, "visibleSurfaceIds"> = {}) => {
+      const visibleIds = new Set(visibleSurfaceIds ?? []);
+      let allocatedBytes = 0;
+      let largestTextureBytes = 0;
+      let visibleBytes = 0;
+      let visibleTextureCount = 0;
+      for (const record of records.values()) {
+        allocatedBytes += record.textureBytes;
+        largestTextureBytes = Math.max(
+          largestTextureBytes,
+          record.textureBytes,
+        );
+        if (visibleIds.has(record.surfaceId)) {
+          visibleBytes += record.textureBytes;
+          visibleTextureCount += 1;
+        }
+      }
+      return {
+        allocatedBytes,
+        largestTextureBytes,
+        textureCount: records.size,
+        visibleBytes,
+        visibleTextureCount,
+      };
+    },
+  );
+  const createEvictionResult = (input?: EvictSurfaceTexturesInput) => {
+    const memory = getMemorySnapshot({
+      visibleSurfaceIds: input?.visibleSurfaceIds,
+    });
+    const budgetBytes = input?.budgetBytes ?? Number.POSITIVE_INFINITY;
+    return {
+      budgetBytes,
+      evictedBytes: 0,
+      evictedSurfaceIds: [] as string[],
+      memory,
+      memoryBefore: memory,
+      overBudgetBytes: Math.max(0, memory.allocatedBytes - budgetBytes),
+      protectedSurfaceIds: Array.from(input?.protectedSurfaceIds ?? []),
+      reason: input?.reason ?? "memory-budget",
+    };
+  };
   const manager = {
     evictSurfaceTextures: vi.fn((input?: EvictSurfaceTexturesInput) => {
       void input;
@@ -173,32 +218,7 @@ export function createFrameTextureManager() {
       };
     }),
     getCommittedSurfaceTexture: vi.fn((nodeId: string) => records.get(nodeId)),
-    getMemorySnapshot: vi.fn(
-      ({
-        visibleSurfaceIds,
-      }: Pick<EvictSurfaceTexturesInput, "visibleSurfaceIds"> = {}) => {
-        const visibleIds = new Set(visibleSurfaceIds ?? []);
-        let allocatedBytes = 0;
-        let largestTextureBytes = 0;
-        let visibleBytes = 0;
-        let visibleTextureCount = 0;
-        for (const record of records.values()) {
-          allocatedBytes += record.textureBytes;
-          largestTextureBytes = Math.max(largestTextureBytes, record.textureBytes);
-          if (visibleIds.has(record.surfaceId)) {
-            visibleBytes += record.textureBytes;
-            visibleTextureCount += 1;
-          }
-        }
-        return {
-          allocatedBytes,
-          largestTextureBytes,
-          textureCount: records.size,
-          visibleBytes,
-          visibleTextureCount,
-        };
-      },
-    ),
+    getMemorySnapshot,
     getSurfaceTextureLifecycleDiagnostics: vi.fn(
       (
         surfaceIds?: Iterable<string>,
@@ -210,6 +230,7 @@ export function createFrameTextureManager() {
     ),
     markSurfaceTextureDirty: vi.fn(() => true),
     markSurfacesPainted: vi.fn(),
+    prepareSurfaceTextureEviction: vi.fn(createEvictionResult),
     registerSurfaceTexture: vi.fn(
       ({
         surfaceId,

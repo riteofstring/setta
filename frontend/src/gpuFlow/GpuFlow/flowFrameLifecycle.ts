@@ -11,6 +11,7 @@ import {
   type HtmlSurfaceFrameCanvasSubmission,
   type RenderHtmlSurfaceFrameResult,
 } from "../htmlSurfaces/frame";
+import type { HtmlSurfaceTextureEvictionResult } from "../htmlSurfaces/textures";
 import { createGpuFlowInteractionDiagnosticsSnapshot } from "../interactionDiagnostics";
 import { type GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
 import { type GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
@@ -138,34 +139,44 @@ function publishGpuFlowHtmlSurfaceCanvasSubmission({
 }): RenderHtmlSurfaceFrameResult {
   const canvasSubmission = layerResult.canvasSubmission ?? null;
   const domTransformSubmission = layerResult.domTransformSubmission ?? null;
-  if (!canvasSubmission) {
-    if (domTransformSubmission) {
-      submitGpuFlowHtmlSurfaceDomTransformFrame({
-        domTransformSubmission,
-        token,
-      });
-      return {
-        ...layerResult,
-        domTransformSubmission: null,
-      };
-    }
-    return layerResult;
+  const textureEvictionSubmission =
+    layerResult.textureEvictionSubmission ?? null;
+  let publishedLayerResult = layerResult;
+  if (canvasSubmission) {
+    submitGpuFlowHtmlSurfaceCanvasFrame({
+      canvasSubmission,
+      token,
+    });
+    publishedLayerResult = {
+      ...publishedLayerResult,
+      canvasSubmission: null,
+    };
   }
-  submitGpuFlowHtmlSurfaceCanvasFrame({
-    canvasSubmission,
-    token,
-  });
   if (domTransformSubmission) {
     submitGpuFlowHtmlSurfaceDomTransformFrame({
       domTransformSubmission,
       token,
     });
+    publishedLayerResult = {
+      ...publishedLayerResult,
+      domTransformSubmission: null,
+    };
   }
-  return {
-    ...layerResult,
-    canvasSubmission: null,
-    domTransformSubmission: null,
-  };
+  if (textureEvictionSubmission) {
+    const evictionResult = submitGpuFlowHtmlSurfaceTextureEvictionFrame({
+      textureEvictionSubmission,
+      token,
+    });
+    publishedLayerResult = {
+      ...publishedLayerResult,
+      evictedTextureBytes: evictionResult.evictedBytes,
+      evictedTextureNodeIds: evictionResult.evictedSurfaceIds,
+      textureEvictionSubmission: null,
+      textureMemory: evictionResult.memory,
+      textureMemoryBeforeEviction: evictionResult.memoryBefore,
+    };
+  }
+  return publishedLayerResult;
 }
 
 function submitGpuFlowHtmlSurfaceCanvasFrame({
@@ -195,6 +206,19 @@ function submitGpuFlowHtmlSurfaceDomTransformFrame({
     projectionSampleId: String(token.projectionSampleId),
     transactionId: token.transactionId,
   });
+}
+
+function submitGpuFlowHtmlSurfaceTextureEvictionFrame({
+  textureEvictionSubmission,
+  token,
+}: {
+  readonly textureEvictionSubmission: NonNullable<
+    RenderHtmlSurfaceFrameResult["textureEvictionSubmission"]
+  >;
+  readonly token: GpuFlowCommitPublicationToken;
+}): HtmlSurfaceTextureEvictionResult {
+  assertGpuFlowCommitPublicationTokenBrand({ token });
+  return textureEvictionSubmission.submit();
 }
 
 function updateGpuFlowNodeLayerFrameState({

@@ -553,6 +553,60 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     expect(manager.getCommittedSurfaceTexture("node-a")).toBeUndefined();
   });
 
+  it("prepares candidate protection without releasing previous visible textures", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+
+    registerNode(manager, "previous", "visible", { frame: 1 });
+    manager.evictSurfaceTextures({
+      budgetBytes: Number.POSITIVE_INFINITY,
+      protectedSurfaceIds: ["previous"],
+    });
+    releaseGpuFlowUnmountedSourceSurfaceTexture({
+      surfaceId: "previous",
+      textureManager: manager,
+    });
+
+    registerNode(manager, "candidate", "visible", { frame: 2 });
+    const prepared = manager.prepareSurfaceTextureEviction({
+      budgetBytes: Number.POSITIVE_INFINITY,
+      protectedSurfaceIds: ["candidate"],
+      reason: "html-surface-frame-pending-presentation",
+      visibleSurfaceIds: ["candidate"],
+    });
+    const candidateRelease = releaseGpuFlowUnmountedSourceSurfaceTexture({
+      surfaceId: "candidate",
+      textureManager: manager,
+    });
+
+    expect(prepared).toMatchObject({
+      evictedBytes: 0,
+      evictedSurfaceIds: [],
+      protectedSurfaceIds: ["candidate"],
+      reason: "html-surface-frame-pending-presentation",
+    });
+    expect(candidateRelease).toEqual({
+      kind: "deferred-protected",
+      surfaceId: "candidate",
+    });
+    expect(gpu.textures[0]?.destroy).not.toHaveBeenCalled();
+    expect(gpu.textures[1]?.destroy).not.toHaveBeenCalled();
+    expect(manager.getCommittedSurfaceTexture("previous")).toBeDefined();
+    expect(manager.getCommittedSurfaceTexture("candidate")).toBeDefined();
+
+    manager.evictSurfaceTextures({
+      budgetBytes: Number.POSITIVE_INFINITY,
+      protectedSurfaceIds: ["candidate"],
+      visibleSurfaceIds: ["candidate"],
+    });
+
+    expect(gpu.textures[0]?.destroy).toHaveBeenCalledTimes(1);
+    expect(gpu.textures[1]?.destroy).not.toHaveBeenCalled();
+    expect(manager.getCommittedSurfaceTexture("previous")).toBeUndefined();
+    expect(manager.getCommittedSurfaceTexture("candidate")).toBeDefined();
+  });
+
   it("cancels deferred release when the source remounts before protection clears", () => {
     installTextureUsage();
     const gpu = createGpuTextureMock();

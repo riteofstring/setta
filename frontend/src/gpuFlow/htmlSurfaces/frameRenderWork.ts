@@ -32,7 +32,10 @@ import {
   createHtmlSurfaceTextureUploadWorkSummary,
   type UploadDirtyHtmlSurfaceTexturesResult,
 } from "./textureUploadDiagnostics";
-import type { HtmlSurfaceTextureManager } from "./textures";
+import type {
+  HtmlSurfaceTextureEvictionResult,
+  HtmlSurfaceTextureManager,
+} from "./textures";
 import type { HtmlSurfaceVisualScene } from "./visualScene";
 
 export type GpuNodeTextureController = Pick<
@@ -42,6 +45,7 @@ export type GpuNodeTextureController = Pick<
   | "getSurfaceTextureLifecycleDiagnostics"
   | "evictSurfaceTextures"
   | "markSurfaceTextureDirty"
+  | "prepareSurfaceTextureEviction"
   | "registerSurfaceTexture"
   | "uploadDirtySurfaceTextures"
 >;
@@ -57,6 +61,38 @@ export type HtmlSurfaceFrameDomTransformWork = {
   readonly result: GpuNodeDomTransformSubmission["result"];
   readonly submission: GpuNodeDomTransformSubmission | null;
 };
+
+export type HtmlSurfaceFrameTextureEvictionSubmission = {
+  submit(): HtmlSurfaceTextureEvictionResult;
+};
+
+export type HtmlSurfaceFrameTextureEvictionWork = {
+  readonly result: HtmlSurfaceTextureEvictionResult;
+  readonly submission: HtmlSurfaceFrameTextureEvictionSubmission | null;
+};
+
+type HtmlSurfaceFrameSubmissionMode = "deferred" | "immediate";
+
+export function resolveHtmlSurfaceFrameSubmissionModes({
+  canvasSubmissionMode,
+  domTransformSubmissionMode,
+}: {
+  readonly canvasSubmissionMode: HtmlSurfaceFrameSubmissionMode;
+  readonly domTransformSubmissionMode?:
+    | HtmlSurfaceFrameSubmissionMode
+    | undefined;
+}): {
+  readonly domTransformSubmissionMode: HtmlSurfaceFrameSubmissionMode;
+  readonly textureEvictionSubmissionMode: HtmlSurfaceFrameSubmissionMode;
+} {
+  const defaultSubmissionMode =
+    canvasSubmissionMode === "deferred" ? "deferred" : "immediate";
+  return {
+    domTransformSubmissionMode:
+      domTransformSubmissionMode ?? defaultSubmissionMode,
+    textureEvictionSubmissionMode: defaultSubmissionMode,
+  };
+}
 
 export function syncHtmlSurfaceFrameDomTransforms({
   activeNodeIds,
@@ -280,6 +316,85 @@ export function evictHtmlSurfaceFrameTextures({
       protectedTextureSurfaceIds,
     ),
     reason: "html-surface-frame",
+    visibleSurfaceIds,
+  });
+}
+
+export function resolveHtmlSurfaceFrameTextureEvictionWork({
+  nodeTextureMemoryBudgetBytes,
+  protectedTextureSurfaceIds,
+  retainedNodeIds,
+  submissionMode,
+  textureManager,
+  textureWorkMode,
+  visibleSurfaceIds,
+}: {
+  readonly nodeTextureMemoryBudgetBytes: number | undefined;
+  readonly protectedTextureSurfaceIds:
+    | ReadonlySet<string>
+    | readonly string[]
+    | undefined;
+  readonly retainedNodeIds: ReadonlySet<string>;
+  readonly submissionMode: "deferred" | "immediate";
+  readonly textureManager: GpuNodeTextureController;
+  readonly textureWorkMode: "content" | "projection";
+  readonly visibleSurfaceIds: ReadonlySet<string>;
+}): HtmlSurfaceFrameTextureEvictionWork {
+  const evictionInput = {
+    nodeTextureMemoryBudgetBytes,
+    protectedTextureSurfaceIds,
+    retainedNodeIds,
+    textureManager,
+    textureWorkMode,
+    visibleSurfaceIds,
+  };
+  if (submissionMode !== "deferred" || textureWorkMode === "projection") {
+    return {
+      result: evictHtmlSurfaceFrameTextures(evictionInput),
+      submission: null,
+    };
+  }
+  return {
+    result: prepareDeferredTextureEvictionResult(evictionInput),
+    submission: createDeferredTextureEvictionSubmission(evictionInput),
+  };
+}
+
+function createDeferredTextureEvictionSubmission(
+  input: Parameters<typeof evictHtmlSurfaceFrameTextures>[0],
+): HtmlSurfaceFrameTextureEvictionSubmission {
+  let submitted = false;
+  return Object.freeze({
+    submit: () => {
+      if (submitted) {
+        throw new Error(
+          "HTML surface texture eviction submission cannot be submitted more than once.",
+        );
+      }
+      submitted = true;
+      return evictHtmlSurfaceFrameTextures(input);
+    },
+  });
+}
+
+function prepareDeferredTextureEvictionResult({
+  nodeTextureMemoryBudgetBytes,
+  protectedTextureSurfaceIds,
+  retainedNodeIds,
+  textureManager,
+  visibleSurfaceIds,
+}: Parameters<
+  typeof evictHtmlSurfaceFrameTextures
+>[0]): HtmlSurfaceTextureEvictionResult {
+  return textureManager.prepareSurfaceTextureEviction({
+    ...(nodeTextureMemoryBudgetBytes === undefined
+      ? {}
+      : { budgetBytes: nodeTextureMemoryBudgetBytes }),
+    protectedSurfaceIds: mergeProtectedSurfaceIds(
+      retainedNodeIds,
+      protectedTextureSurfaceIds,
+    ),
+    reason: "html-surface-frame-pending-presentation",
     visibleSurfaceIds,
   });
 }

@@ -162,6 +162,29 @@ export type HtmlSurfaceTextureHandle = {
   pendingTextureSourceRect?: HtmlSurfaceDirtyRect | null | undefined;
 };
 
+export function createPreparedHtmlSurfaceTextureEvictionResult({
+  budgetBytes,
+  memory,
+  protectedSurfaceIds,
+  reason,
+}: {
+  readonly budgetBytes: number;
+  readonly memory: HtmlSurfaceTextureMemorySnapshot;
+  readonly protectedSurfaceIds: ReadonlySet<string>;
+  readonly reason: string;
+}): HtmlSurfaceTextureEvictionResult {
+  return {
+    budgetBytes,
+    evictedBytes: 0,
+    evictedSurfaceIds: [],
+    memory,
+    memoryBefore: memory,
+    overBudgetBytes: Math.max(0, memory.allocatedBytes - budgetBytes),
+    protectedSurfaceIds: [...protectedSurfaceIds].sort(compareSurfaceIds),
+    reason,
+  };
+}
+
 export function destroyTextureRecord(handle: HtmlSurfaceTextureHandle) {
   destroyTextureTiles(handle.committed.tiles);
   if (handle.pendingTextureRecord) {
