@@ -170,7 +170,7 @@ export function createGpuFlowVisibleFramePresentationProofReportForFrame({
     );
   }
   if (
-    projectionTransactionKind === "content-publication" &&
+    projectionTransactionKind === "prepared-content" &&
     presentationEvidence.textureEvictionEvidence === null
   ) {
     throw new Error(

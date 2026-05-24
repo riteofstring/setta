@@ -71,7 +71,7 @@ export type GpuFlowVisibleFramePresentationBlockedProof = {
     | "actor-proof"
     | "browser-visual-proof"
     | "compatible-previous-proof"
-    | "content-publication"
+    | "prepared-content"
     | "motion-projection"
     | "presentation-pair"
     | "resource-protection";
@@ -158,7 +158,7 @@ export type GpuFlowVisibleFramePublicationTransactionProof = {
   readonly visibleFrameStateMachineOutcome: GpuFlowVisibleFrameStateMachineOutcome;
   readonly visibleFrameStateMachinePreparedFrame: GpuFlowVisibleFramePreparedFrame;
   readonly visibleProjectionSource:
-    | "content-publication"
+    | "prepared-content"
     | "motion-projection"
     | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -724,7 +724,7 @@ function resolveGpuFlowVisibleFramePublicationPresentationEvidence<
   readonly visibleProjectionSource: GpuFlowVisibleFramePublicationTransactionProof["visibleProjectionSource"];
 }): GpuFlowVisibleFramePresentationEvidence | null {
   switch (visibleProjectionSource) {
-    case "content-publication":
+    case "prepared-content":
       return contentPublicationFrame.presentationEvidence ?? null;
     case "motion-projection":
       return motionProjectionFrame.presentationEvidence ?? null;
@@ -877,7 +877,7 @@ function createGpuFlowVisibleFramePublicationCandidateBlockedProof<
   if (contentBlockedCandidate) {
     return createGpuFlowVisibleFramePresentationBlockedProof({
       candidate: contentBlockedCandidate,
-      source: "content-publication",
+      source: "prepared-content",
     });
   }
   if (motionBlockedCandidate) {
@@ -967,7 +967,7 @@ function selectGpuFlowVisibleFramePublicationProjectionSource<
     return null;
   }
   if (contentPublicationFrame.visibleProjectionState) {
-    return "content-publication";
+    return "prepared-content";
   }
   if (motionProjectionFrame.visibleProjectionState) {
     return "motion-projection";

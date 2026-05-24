@@ -401,7 +401,7 @@ function preparedContentFrameForReducerToken(
       retainedPageActorCount: 0,
       textActorCount: 0,
       textActorExactCoverageCount: 0,
-      transactionOutcome: "content-publication",
+      transactionOutcome: "prepared-content",
     },
     displayFrameId,
     presentationProof: createGpuFlowPreparedContentPresentationProof({

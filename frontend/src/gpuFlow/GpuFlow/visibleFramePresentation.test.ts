@@ -37,7 +37,7 @@ describe("GPU Flow surface publication completion", () => {
   it("records held-previous diagnostics without advancing presented visible projection state", () => {
     const committedState = visibleProjectionState({
       displayFrameId: 7,
-      kind: "content-publication",
+      kind: "prepared-content",
       sampleId: 1,
     });
     const heldState = visibleProjectionState({
@@ -108,7 +108,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     const selectedState = visibleProjectionState({
       displayFrameId: preparedContentFrame.displayFrameId,
-      kind: "content-publication",
+      kind: "prepared-content",
       sampleId: 12,
     });
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
@@ -180,7 +180,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     const selectedState = visibleProjectionState({
       displayFrameId: preparedContentFrame.displayFrameId,
-      kind: "content-publication",
+      kind: "prepared-content",
       sampleId: 21,
     });
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
@@ -264,7 +264,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     const selectedState = visibleProjectionState({
       displayFrameId: preparedContentFrame.displayFrameId,
-      kind: "content-publication",
+      kind: "prepared-content",
       sampleId: 22,
     });
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
@@ -335,7 +335,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     const selectedState = visibleProjectionState({
       displayFrameId: preparedContentFrame.displayFrameId,
-      kind: "content-publication",
+      kind: "prepared-content",
       sampleId: 31,
     });
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
@@ -391,7 +391,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     const selectedState = visibleProjectionState({
       displayFrameId: preparedContentFrame.displayFrameId,
-      kind: "content-publication",
+      kind: "prepared-content",
       sampleId: 41,
     });
     const token = createGpuFlowVisibleFramePresentationTokenForTest({
@@ -470,7 +470,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     const firstSelectedState = visibleProjectionState({
       displayFrameId: firstPreparedContentFrame.displayFrameId,
-      kind: "content-publication",
+      kind: "prepared-content",
       sampleId: 42,
     });
     const firstToken = createGpuFlowVisibleFramePresentationTokenForTest({
@@ -482,7 +482,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     const secondSelectedState = visibleProjectionState({
       displayFrameId: secondPreparedContentFrame.displayFrameId,
-      kind: "content-publication",
+      kind: "prepared-content",
       sampleId: 43,
     });
     const secondToken = createGpuFlowVisibleFramePresentationTokenForTest({
@@ -1122,7 +1122,7 @@ function visibleProjectionState({
   sampleId,
 }: {
   readonly displayFrameId: number;
-  readonly kind: "content-publication" | "held-previous";
+  readonly kind: "prepared-content" | "held-previous";
   readonly sampleId: number;
 }): GpuFlowVisibleProjectionState {
   return {

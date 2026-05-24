@@ -51,7 +51,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
   it("turns a no-frame attempt into a tokenized hold when a previous frame exists", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const previousVisibleProjectionState = visibleProjectionState({
-      kind: "content-publication",
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 4, timestamp: 40 }),
     });
     const sample = liveProjectionSample({ id: 5, timestamp: 56 });
@@ -154,7 +154,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
         },
       }),
       previousVisibleProjectionState: visibleProjectionState({
-        kind: "content-publication",
+        kind: "prepared-content",
         sample: liveProjectionSample({ id: 32, timestamp: 316 }),
       }),
       sample,
@@ -192,7 +192,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 4, timestamp: 64 });
     const previousVisibleProjectionState = visibleProjectionState({
-      kind: "content-publication",
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 3, timestamp: 48 }),
     });
 
@@ -243,7 +243,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
 
   it("does not surface retained true-hole candidates as page errors", () => {
     const previousVisibleProjectionState = visibleProjectionState({
-      kind: "content-publication",
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 13, timestamp: 208 }),
     });
     const candidate = preparePreparedContentFramePublicationCandidateForTest({

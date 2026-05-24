@@ -130,8 +130,8 @@ function createTestGpuFlowVisibleFramePresentationEvidence({
   drawnNodeIds,
   missingTextureNodeIds,
   reducerDecision,
-  projectionTransactionKind = "content-publication",
-  projectionTransactionId = `transaction:content-publication:${reducerDecision.sample.id}`,
+  projectionTransactionKind = "prepared-content",
+  projectionTransactionId = `transaction:prepared-content:${reducerDecision.sample.id}`,
   textureEvictionPrepared = true,
 }: {
   readonly preparedContentFrame: GpuFlowPreparedContentFrame;
@@ -175,7 +175,7 @@ function createTestGpuFlowVisibleFramePresentationEvidence({
 describe("GPU Flow visible frame transaction presentation evidence", () => {
   it("blocks presentation authority when the deferred canvas generation is not prepared", () => {
     const contentVisibleState = visibleProjectionState({
-      kind: "content-publication",
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 52, timestamp: 520 }),
     });
 
@@ -204,7 +204,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
 
   it("blocks presentation authority when deferred DOM transforms are not prepared", () => {
     const contentVisibleState = visibleProjectionState({
-      kind: "content-publication",
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 56, timestamp: 560 }),
     });
 
@@ -240,7 +240,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
 
   it("blocks presentation authority when deferred texture eviction is not prepared", () => {
     const contentVisibleState = visibleProjectionState({
-      kind: "content-publication",
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 57, timestamp: 570 }),
     });
 
@@ -287,7 +287,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
           },
         },
       } as GpuFlowPreparedContentFrame,
-      kind: "content-publication",
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 53, timestamp: 530 }),
     });
 
@@ -319,7 +319,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     });
     const contentVisibleState = visibleProjectionState({
       preparedContentFrame,
-      kind: "content-publication",
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 54, timestamp: 540 }),
     });
 
@@ -367,7 +367,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     });
     const contentVisibleState = visibleProjectionState({
       preparedContentFrame,
-      kind: "content-publication",
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 55, timestamp: 550 }),
     });
 
@@ -446,7 +446,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
   it("rejects competing content and motion blocked candidates", () => {
     const contentBlockedCandidate =
       createGpuFlowRetainedProjectionBlockedPublicationCandidate({
-        blockedReason: "content-publication-blocked",
+        blockedReason: "prepared-content-blocked",
         heldPreviousProjectionState: null,
       });
     const motionBlockedCandidate =
@@ -476,7 +476,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
 
   it("uses prepared motion projection blocked candidates", () => {
     const previousVisibleProjectionState = visibleProjectionState({
-      kind: "content-publication",
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 42, timestamp: 420 }),
     });
     const motionBlockedCandidate =

@@ -28,7 +28,7 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
   const transaction =
     createGpuFlowProjectionTransactionForPreparedContentFrameId({
       preparedContentFrameId: visiblePreparedContentFrame.displayFrameId,
-      kind: "content-publication",
+      kind: "prepared-content",
       lane: contentWorkLane,
       rawReasons: frameReasons,
       sample: liveProjectionSample,

@@ -652,7 +652,7 @@ function publishGpuFlowPresentedSurfaceVisibleProjectionState({
     );
   }
   if (
-    selectedVisibleProjectionState.transaction.kind === "content-publication" &&
+    selectedVisibleProjectionState.transaction.kind === "prepared-content" &&
     !preparedContentFrame
   ) {
     throw new Error(

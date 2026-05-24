@@ -298,7 +298,7 @@ describe("GPU Flow visible frame state machine blocked proof", () => {
         frozenFrameId: 9,
       },
       frozenFrameId: 9,
-      source: "content-publication",
+      source: "prepared-content",
     } satisfies GpuFlowVisibleFramePresentationBlockedProof;
     const proof = createGpuFlowVisibleFramePublicationStateMachineBlockedProof({
       blockingProofs: [blockingProof],

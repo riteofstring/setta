@@ -175,7 +175,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
     ).toThrow("GPU Flow visible projection requires a prepared content frame.");
   });
 
-  it("creates content-publication visible projection state for retained candidates", () => {
+  it("creates prepared-content visible projection state for retained candidates", () => {
     const publication =
       contentDecisionKernel.createVisibleProjectionStateForRetainedPublication({
         frameReasons: ["texture-upload", "dom-control-activation"],
@@ -184,7 +184,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
         preparedContentFrame: createPreparedContentFrame(48),
       });
 
-    expect(publication.transaction.kind).toBe("content-publication");
+    expect(publication.transaction.kind).toBe("prepared-content");
     expect(publication.preparedContentFrame.displayFrameId).toBe(48);
   });
 
@@ -667,9 +667,8 @@ describe("GPU Flow visible frame presentation content plans", () => {
         blockedPreservePreparationSnapshot: true,
         preparedContentFrame: preparedContentFrame,
         heldPreparedContentFrame: heldPreparedFrame,
-        selectedVisibleProjectionState: visibleProjectionState(
-          "content-publication",
-        ),
+        selectedVisibleProjectionState:
+          visibleProjectionState("prepared-content"),
       });
     const heldPreviousBlockedAbort =
       resolveGpuFlowBlockedPreparedContentFramePublicationAbort({

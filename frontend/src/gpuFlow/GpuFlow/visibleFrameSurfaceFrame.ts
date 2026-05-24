@@ -293,7 +293,7 @@ export function renderGpuFlowSurfaceFrame({
         runRetainedPreparedContentFramePublicationContentStage,
       }) => {
         const finishContentMeasure = startGpuFlowPerformanceMeasure(
-          "surface-frame-content-publication",
+          "surface-frame-prepared-content",
           frameMeasureDetail,
         );
         const contentPublicationFrame =

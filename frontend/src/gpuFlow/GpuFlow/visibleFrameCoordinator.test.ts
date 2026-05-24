@@ -39,7 +39,7 @@ const createGpuFlowVisibleFramePresentableFrameProof = ({
   readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }) => {
-  const projectionTransactionId = `transaction:content-publication:${reducerDecision.sample.id}`;
+  const projectionTransactionId = `transaction:prepared-content:${reducerDecision.sample.id}`;
   return createGpuFlowVisibleFramePresentableFrameProofFromFactory({
     preparedContentFrame,
     presentationEvidence: {
@@ -65,7 +65,7 @@ const createGpuFlowVisibleFramePresentableFrameProof = ({
         ),
     },
     reducerDecision,
-    projectionTransactionKind: "content-publication",
+    projectionTransactionKind: "prepared-content",
     projectionTransactionId,
   });
 };
@@ -80,7 +80,7 @@ describe("GPU Flow visible frame coordinator", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const sample = liveProjectionSample({ id: 50, timestamp: 500 });
     const contentVisibleState = visibleProjectionState({
-      kind: "content-publication",
+      kind: "prepared-content",
       sample,
     });
     const phases: string[] = [];
@@ -190,7 +190,7 @@ describe("GPU Flow visible frame coordinator", () => {
       contentVisibleState,
     );
     expect(result.preparedFrame.transactionProof.visibleProjectionSource).toBe(
-      "content-publication",
+      "prepared-content",
     );
     expect(result.preparedFrame.transactionProof.presentableFrameProof).toEqual(
       expect.objectContaining({
@@ -432,13 +432,13 @@ describe("GPU Flow visible frame coordinator", () => {
       const scheduler = createGpuFlowVisibleFrameReducerRuntime();
       const sample = liveProjectionSample({ id: 53, timestamp: 530 });
       const previousVisibleProjectionState = visibleProjectionState({
-        kind: "content-publication",
+        kind: "prepared-content",
         sample: liveProjectionSample({ id: 52, timestamp: 514 }),
       });
       const contentVisibleState = visibleProjectionState({
         preparedContentFrame:
           preparedContentFrameWithCompatiblePreviousCoverage(frameInput),
-        kind: "content-publication",
+        kind: "prepared-content",
         sample,
       });
       let publishedOutcome: string | null = null;
@@ -480,14 +480,14 @@ describe("GPU Flow visible frame coordinator", () => {
     const previousVisibleProjectionState = visibleProjectionState({
       preparedContentFrame:
         preparedContentFrameWithCompatiblePreviousCoverage(),
-      kind: "content-publication",
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 530, timestamp: 5294 }),
     });
     const contentVisibleState = visibleProjectionState({
       preparedContentFrame: preparedContentFrameWithCompatiblePreviousCoverage({
         budgetState: "over-budget",
       }),
-      kind: "content-publication",
+      kind: "prepared-content",
       sample,
     });
 
@@ -569,7 +569,7 @@ describe("GPU Flow visible frame coordinator", () => {
     "prepares a nonpublishable browser visual candidate for withheld proof $projectionCoverage",
     ({ actorFamily, projectionCoverage, readinessReason }) => {
       const previousVisibleProjectionState = visibleProjectionState({
-        kind: "content-publication",
+        kind: "prepared-content",
         sample: liveProjectionSample({ id: 20, timestamp: 200 }),
       });
       const candidate = preparePreparedContentFramePublicationCandidateForTest({

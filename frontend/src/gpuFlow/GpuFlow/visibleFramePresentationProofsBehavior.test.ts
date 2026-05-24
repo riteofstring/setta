@@ -186,7 +186,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       frame,
       presentationPairProof: pairProof,
       projectionSampleId: projectionSample.id,
-      projectionTransactionKind: "content-publication",
+      projectionTransactionKind: "prepared-content",
       projectionTransactionId:
         pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
@@ -214,7 +214,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       frame,
       presentationPairProof: pairProof,
       projectionSampleId: projectionSample.id,
-      projectionTransactionKind: "content-publication",
+      projectionTransactionKind: "prepared-content",
       projectionTransactionId:
         pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
@@ -274,7 +274,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       frame,
       presentationPairProof: pairProof,
       projectionSampleId: projectionSample.id,
-      projectionTransactionKind: "content-publication",
+      projectionTransactionKind: "prepared-content",
       projectionTransactionId:
         pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
@@ -318,7 +318,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         frame,
         presentationPairProof: pairProof,
         projectionSampleId: projectionSample.id,
-        projectionTransactionKind: "content-publication",
+        projectionTransactionKind: "prepared-content",
         projectionTransactionId:
           pairProof.canvasGenerationEvidence.projectionTransactionId,
       }),
@@ -444,7 +444,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
             frozenFrameId: 7,
           },
           frozenFrameId: 7,
-          source: "content-publication",
+          source: "prepared-content",
         },
         renderedVisibleFrame: false,
         visibleFrameStateMachineOutcome: {
@@ -535,7 +535,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
             frozenFrameId: 7,
           },
           frozenFrameId: 7,
-          source: "content-publication",
+          source: "prepared-content",
         },
         renderedVisibleFrame: false,
         visibleFrameStateMachineOutcome: {
@@ -621,7 +621,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
             frozenFrameId: 7,
           },
           frozenFrameId: 7,
-          source: "content-publication",
+          source: "prepared-content",
         },
         renderedVisibleFrame: false,
         visibleFrameStateMachineOutcome: {
@@ -671,7 +671,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       frame,
       presentationPairProof: pairProof,
       projectionSampleId: projectionSample.id,
-      projectionTransactionKind: "content-publication",
+      projectionTransactionKind: "prepared-content",
       projectionTransactionId:
         pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
@@ -734,7 +734,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           heldPreviousProjection: null,
           sample: projectionSample,
           transaction: {
-            kind: "content-publication",
+            kind: "prepared-content",
           },
         },
       } as unknown as Parameters<
@@ -922,7 +922,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
         heldPreviousProjection: null,
         sample: projectionSample,
         transaction: {
-          kind: "content-publication",
+          kind: "prepared-content",
         },
       },
     } as unknown as Parameters<
@@ -944,21 +944,21 @@ function presentationPairProof({
       createGpuFlowVisibleFramePresentationCanvasPresentationEvidence({
         preparedContentFrame: frame,
         projectionSampleId: projectionSample.id,
-        projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
+        projectionTransactionId: `test-prepared-content:${frame.displayFrameId}:${projectionSample.id}`,
       }),
     domTransformEvidence:
       createGpuFlowVisibleFramePresentationDomTransformPresentationEvidence({
         preparedContentFrame: frame,
         projectionSampleId: projectionSample.id,
-        projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
+        projectionTransactionId: `test-prepared-content:${frame.displayFrameId}:${projectionSample.id}`,
       }),
     projectionSampleId: projectionSample.id,
-    projectionTransactionKind: "content-publication" as const,
+    projectionTransactionKind: "prepared-content" as const,
     textureEvictionEvidence:
       createGpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence({
         preparedContentFrame: frame,
         projectionSampleId: projectionSample.id,
-        projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
+        projectionTransactionId: `test-prepared-content:${frame.displayFrameId}:${projectionSample.id}`,
       }),
   };
 }

@@ -118,7 +118,7 @@ export type GpuFlowTextControlCompatibilityProof = {
 };
 
 export type GpuFlowProjectionTransactionKind =
-  | "content-publication"
+  | "prepared-content"
   | "held-previous"
   | "motion-projection";
 

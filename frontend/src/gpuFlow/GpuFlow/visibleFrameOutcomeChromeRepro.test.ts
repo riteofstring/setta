@@ -69,7 +69,7 @@ const createGpuFlowVisibleFramePresentableFrameProof = ({
         ),
     },
     reducerDecision,
-    projectionTransactionKind: "content-publication",
+    projectionTransactionKind: "prepared-content",
     projectionTransactionId,
   });
 };
@@ -205,7 +205,7 @@ describe("GPU Flow visible frame presentation Chrome repro payload", () => {
       },
       transaction: {
         id: "transaction-a",
-        kind: "content-publication",
+        kind: "prepared-content",
       },
     } as unknown as GpuFlowVisibleProjectionState;
     const presentableFrameProof =
@@ -353,7 +353,7 @@ describe("GPU Flow visible frame presentation Chrome repro payload", () => {
             decidingProof: null,
             kind: "presented",
           },
-          visibleProjectionSource: "content-publication",
+          visibleProjectionSource: "prepared-content",
         },
         visibleTransaction: {
           inputSampleId: 11,
@@ -433,7 +433,7 @@ function transactionProof({
     } as GpuFlowVisibleFrameStateMachineOutcome,
     visibleFrameStateMachinePreparedFrame:
       {} as GpuFlowVisibleFramePreparedFrame,
-    visibleProjectionSource: "content-publication",
+    visibleProjectionSource: "prepared-content",
     visibleProjectionState: {} as GpuFlowVisibleProjectionState,
   };
 }
@@ -540,7 +540,7 @@ function presentationProof(projectionSampleId = 10) {
       source: "browser-visual-runtime-candidate",
       staged: true,
     },
-    projectionTransactionKind: "content-publication",
+    projectionTransactionKind: "prepared-content",
     surfaceTransactionDigest: "surface-transaction-digest",
   };
 }

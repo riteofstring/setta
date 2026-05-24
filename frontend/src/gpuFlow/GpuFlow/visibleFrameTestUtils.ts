@@ -42,8 +42,8 @@ export function createGpuFlowVisibleFramePresentationTokenForTest({
     sample: projectionSample,
     transaction: {
       preparedContentFrameId: frame.displayFrameId,
-      id: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
-      kind: "content-publication",
+      id: `test-prepared-content:${frame.displayFrameId}:${projectionSample.id}`,
+      kind: "prepared-content",
       sample: projectionSample,
     },
   } as unknown as GpuFlowVisibleProjectionState;
@@ -105,8 +105,8 @@ export function createGpuFlowVisibleFrameHoldPreviousTokenForTest({
     },
     transaction: {
       preparedContentFrameId,
-      id: `test-content-publication:${preparedContentFrameId}:${projectionSample.id - 1}`,
-      kind: "content-publication",
+      id: `test-prepared-content:${preparedContentFrameId}:${projectionSample.id - 1}`,
+      kind: "prepared-content",
       sample: {
         ...projectionSample,
         id: projectionSample.id - 1,
