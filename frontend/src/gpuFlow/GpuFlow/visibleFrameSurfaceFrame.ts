@@ -59,6 +59,7 @@ import type {
 } from "./visibleFramePresentationProofs";
 import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
 import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
+import { shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame } from "./visibleFrameResolutionDeferral";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import type {
   GpuFlowVisibleFrameRequestCoordinator,
@@ -127,7 +128,10 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
     token: GpuFlowCommitPublicationToken,
     frame: GpuFlowCommittedSurfaceFrame,
   ) => boolean;
-  readonly validatePreparedCommittedSurfaceFrame: (token: GpuFlowCommitPublicationToken, frame: GpuFlowCommittedSurfaceFrame) => void;
+  readonly validatePreparedCommittedSurfaceFrame: (
+    token: GpuFlowCommitPublicationToken,
+    frame: GpuFlowCommittedSurfaceFrame,
+  ) => void;
   readonly prepareCommittedSurfaceFrame: NonNullable<
     GpuFlowNodeLayerFrameInput["onRetainedDisplayFrame"]
   >;
@@ -458,64 +462,6 @@ export function hasGpuFlowCommittedContentFrame(
   return frame !== null && frame.retainedDisplayFrame !== null;
 }
 
-export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
-  committedFrame,
-  deferResolutionUpdates,
-  sample,
-}: {
-  readonly committedFrame: Pick<
-    GpuFlowCommittedSurfaceFrame,
-    "coherence" | "viewportSample"
-  > | null;
-  readonly deferResolutionUpdates: boolean;
-  readonly sample: Pick<
-    GpuFlowLiveProjectionSample,
-    "retainedScrollRevision" | "viewport"
-  >;
-}): boolean {
-  return (
-    deferResolutionUpdates &&
-    (committedFrame === null ||
-      isGpuFlowCommittedSurfaceFrameSampleCurrent({ committedFrame, sample }))
-  );
-}
-
-function isGpuFlowCommittedSurfaceFrameSampleCurrent({
-  committedFrame,
-  sample,
-}: {
-  readonly committedFrame: Pick<
-    GpuFlowCommittedSurfaceFrame,
-    "coherence" | "viewportSample"
-  >;
-  readonly sample: Pick<
-    GpuFlowLiveProjectionSample,
-    "retainedScrollRevision" | "viewport"
-  >;
-}): boolean {
-  return (
-    committedFrame.coherence.retainedScrollRevision ===
-      sample.retainedScrollRevision &&
-    areGpuFlowProjectionViewportsEqual(
-      committedFrame.viewportSample,
-      sample.viewport,
-    )
-  );
-}
-
-function areGpuFlowProjectionViewportsEqual(
-  left: GpuViewportInput,
-  right: GpuViewportInput,
-): boolean {
-  const normalizedLeft = normalizeGpuViewport(left);
-  const normalizedRight = normalizeGpuViewport(right);
-  return (
-    normalizedLeft.x === normalizedRight.x &&
-    normalizedLeft.y === normalizedRight.y &&
-    normalizedLeft.zoom === normalizedRight.zoom
-  );
-}
-
 function prepareGpuFlowSurfaceMotionProjectionFrame({
   committedSurfaceFrameRef,
   event,
@@ -747,10 +693,13 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   readonly viewportFrame: boolean;
 }): GpuFlowContentPublicationFrameResult {
   const contentDeferResolutionUpdates =
-    shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
+    shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
       committedFrame: input.committedSurfaceFrameRef.current,
       deferResolutionUpdates,
+      hasPreviousVisibleProjectionState:
+        previousVisibleProjectionState !== null,
       sample: liveProjectionSample,
+      viewportFrame,
     });
   if (
     !shouldRenderGpuFlowSurfaceContentPublicationFrame({

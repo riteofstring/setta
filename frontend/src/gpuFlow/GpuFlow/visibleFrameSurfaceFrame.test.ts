@@ -9,8 +9,11 @@ import {
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuViewportInput } from "../viewportMath";
 import {
-  hasGpuFlowCommittedContentFrame,
+  shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame,
   shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample,
+} from "./visibleFrameResolutionDeferral";
+import {
+  hasGpuFlowCommittedContentFrame,
   shouldRequestGpuFlowRetainedScrollCatchupFrame,
   withGpuFlowContentCatchupReasonForStalePublicationSample,
 } from "./visibleFrameSurfaceFrame";
@@ -196,6 +199,39 @@ describe("GPU Flow surface frame publication", () => {
         },
       }),
     ).toBe(true);
+  });
+
+  it("defers viewport-frame content resolution when a previous presentation can be projected", () => {
+    expect(
+      shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
+        committedFrame: committedFrameSample({
+          retainedScrollRevision: 2,
+          viewportSample: [0, 0, 1],
+        }),
+        deferResolutionUpdates: false,
+        hasPreviousVisibleProjectionState: true,
+        sample: {
+          retainedScrollRevision: 2,
+          viewport: { x: 10, y: 20, zoom: 1 },
+        },
+        viewportFrame: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
+        committedFrame: committedFrameSample({
+          retainedScrollRevision: 2,
+          viewportSample: [0, 0, 1],
+        }),
+        deferResolutionUpdates: false,
+        hasPreviousVisibleProjectionState: false,
+        sample: {
+          retainedScrollRevision: 2,
+          viewport: { x: 10, y: 20, zoom: 1 },
+        },
+        viewportFrame: true,
+      }),
+    ).toBe(false);
   });
 
   it("does not treat the startup committed frame as published content", () => {

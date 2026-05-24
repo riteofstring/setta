@@ -491,11 +491,26 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     });
     completeCommittedFrame(scheduler, immediateViewportRepair);
 
-    const delayedViewportRepair = scheduler.selectFrame({
+    const deferredViewportRepair = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "viewport"],
       sample: liveSample(250),
       timestamp: 250,
+      viewportInteractionActive: false,
+    });
+    expect(deferredViewportRepair.schedulerState).toBe("maintenance-deferred");
+    expect(deferredViewportRepair.lane).toBe("idle");
+    expect(deferredViewportRepair.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: true,
+    });
+
+    const delayedViewportRepair = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "viewport"],
+      sample: liveSample(600),
+      timestamp: 600,
       viewportInteractionActive: false,
     });
     expect(delayedViewportRepair.schedulerState).toBe("content-catchup");
@@ -580,11 +595,21 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
 
     completeCommittedFrame(scheduler, retry);
 
-    const contentRetry = scheduler.selectFrame({
+    const deferredContentRetry = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
       sample: liveSample(3),
       timestamp: 250,
+      viewportInteractionActive: false,
+    });
+    expect(deferredContentRetry.schedulerState).toBe("maintenance-deferred");
+    expect(deferredContentRetry.lane).toBe("idle");
+
+    const contentRetry = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(4),
+      timestamp: 600,
       viewportInteractionActive: false,
     });
     expect(contentRetry.schedulerState).toBe("content-catchup");

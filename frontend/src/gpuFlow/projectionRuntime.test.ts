@@ -34,9 +34,7 @@ describe("GPU Flow projection runtime", () => {
   it("publishes motion before mixed content and maintenance debt", () => {
     const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const sample = liveSample(1);
-
     expect(Object.isFrozen(scheduler.getKnobs())).toBe(true);
-
     const mixed = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual", "texture-upload"],
@@ -44,7 +42,6 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 1,
       viewportInteractionActive: true,
     });
-
     expect(mixed.lane).toBe("motion");
     expect(mixed.debt).toEqual({
       content: true,
@@ -52,7 +49,6 @@ describe("GPU Flow projection runtime", () => {
       motion: false,
     });
     expect(getGpuFlowVisiblePublicationDebtReason(mixed)).toBe("manual");
-
     completeCommittedFrame(scheduler, mixed);
     const deferredCatchup = scheduler.selectFrame({
       hasCommittedContentFrame: true,
@@ -61,7 +57,6 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 2,
       viewportInteractionActive: false,
     });
-
     expect(deferredCatchup.schedulerState).toBe("motion-settling");
     expect(deferredCatchup.lane).toBe("idle");
     expect(deferredCatchup.debt.maintenance).toBe(true);
@@ -70,11 +65,10 @@ describe("GPU Flow projection runtime", () => {
     const catchup = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
-      sample: liveSample(260),
-      timestamp: 260,
+      sample: liveSample(600),
+      timestamp: 600,
       viewportInteractionActive: false,
     });
-
     expect(catchup.schedulerState).toBe("content-catchup");
     expect(catchup.lane).toBe("content");
     expect(catchup.debt.maintenance).toBe(true);
@@ -87,7 +81,6 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 3,
       viewportInteractionActive: false,
     });
-
     expect(maintenance.schedulerState).toBe("maintenance-deferred");
     expect(maintenance.lane).toBe("idle");
     completeHeldFrame(scheduler, maintenance);
@@ -95,11 +88,10 @@ describe("GPU Flow projection runtime", () => {
     const delayedMaintenance = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["texture-upload"],
-      sample: liveSample(520),
-      timestamp: 520,
+      sample: liveSample(900),
+      timestamp: 900,
       viewportInteractionActive: false,
     });
-
     expect(delayedMaintenance.schedulerState).toBe("maintenance-drain");
     expect(delayedMaintenance.lane).toBe("maintenance");
   });
@@ -113,7 +105,6 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 1,
       viewportInteractionActive: false,
     });
-
     expect(motion.schedulerState).toBe("motion-active");
     expect(motion.lane).toBe("motion");
     expect(motion.debt).toEqual({
@@ -130,7 +121,6 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 2,
       viewportInteractionActive: false,
     });
-
     expect(deferredCatchup.schedulerState).toBe("motion-settling");
     expect(deferredCatchup.lane).toBe("idle");
     expect(deferredCatchup.debt.maintenance).toBe(true);
@@ -139,11 +129,10 @@ describe("GPU Flow projection runtime", () => {
     const catchup = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
-      sample: liveSample(260),
-      timestamp: 260,
+      sample: liveSample(600),
+      timestamp: 600,
       viewportInteractionActive: false,
     });
-
     expect(catchup.schedulerState).toBe("content-catchup");
     expect(catchup.lane).toBe("content");
     expect(catchup.debt.maintenance).toBe(true);
@@ -152,8 +141,8 @@ describe("GPU Flow projection runtime", () => {
     const postContentTextureUpload = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["texture-upload"],
-      sample: liveSample(120),
-      timestamp: 120,
+      sample: liveSample(720),
+      timestamp: 720,
       viewportInteractionActive: false,
     });
 
@@ -171,8 +160,8 @@ describe("GPU Flow projection runtime", () => {
     const maintenance = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["texture-upload"],
-      sample: liveSample(520),
-      timestamp: 520,
+      sample: liveSample(900),
+      timestamp: 900,
       viewportInteractionActive: false,
     });
 
@@ -241,8 +230,8 @@ describe("GPU Flow projection runtime", () => {
     const catchup = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
-      sample: liveSample(260),
-      timestamp: 260,
+      sample: liveSample(600),
+      timestamp: 600,
       viewportInteractionActive: false,
     });
 
@@ -673,8 +662,8 @@ describe("GPU Flow projection runtime", () => {
     const catchup = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
-      sample: liveSample(260),
-      timestamp: 260,
+      sample: liveSample(600),
+      timestamp: 600,
       viewportInteractionActive: false,
     });
 
@@ -820,8 +809,8 @@ describe("GPU Flow projection runtime", () => {
     const catchup = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: [],
-      sample: liveSample(260),
-      timestamp: 260,
+      sample: liveSample(600),
+      timestamp: 600,
       viewportInteractionActive: false,
     });
 

@@ -195,7 +195,10 @@ export function createGpuFlowProjectionSchedulingReasons({
   if (
     projectionInteractionActive ||
     !rawReasons.includes("retained-scroll") ||
-    !rawReasons.includes("manual")
+    !rawReasons.includes("manual") ||
+    rawReasons.some(
+      (reason) => reason !== "retained-scroll" && reason !== "manual",
+    )
   ) {
     return rawReasons;
   }
@@ -224,12 +227,11 @@ export function withGpuFlowContentCatchupReasonForStalePublicationSample({
     "retainedScrollRevision" | "viewport"
   >;
 }): readonly GpuFrameReason[] {
-  const projectionRawReasons =
-    withoutGpuFlowUnchangedViewportProjectionReason({
-      previousVisibleProjectionState,
-      rawReasons,
-      sample,
-    });
+  const projectionRawReasons = withoutGpuFlowUnchangedViewportProjectionReason({
+    previousVisibleProjectionState,
+    rawReasons,
+    sample,
+  });
   if (
     !committedFrame ||
     isGpuFlowCommittedSurfaceFrameSampleCurrent({
@@ -248,9 +250,10 @@ function withoutGpuFlowUnchangedViewportProjectionReason({
   rawReasons,
   sample,
 }: {
-  readonly previousVisibleProjectionState:
-    | Pick<GpuFlowVisibleProjectionState, "sample">
-    | null;
+  readonly previousVisibleProjectionState: Pick<
+    GpuFlowVisibleProjectionState,
+    "sample"
+  > | null;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly sample: Pick<GpuFlowLiveProjectionSample, "viewport">;
 }): readonly GpuFrameReason[] {
@@ -623,7 +626,9 @@ export function getGpuFlowMotionRetryDelayMultiplierAfterUncommittedFrame(
   }
   if (
     decision.lane !== "idle" &&
-    outcome.token.blockedReasons.some(isGpuFlowSectionSurfaceRepairBlockedReason)
+    outcome.token.blockedReasons.some(
+      isGpuFlowSectionSurfaceRepairBlockedReason,
+    )
   ) {
     return GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER;
   }

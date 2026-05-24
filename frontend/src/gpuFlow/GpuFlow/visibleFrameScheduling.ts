@@ -4,11 +4,12 @@ import type {
   GpuFlowProjectionLane,
 } from "../projectionRuntime";
 import {
+  createGpuFlowProjectionSchedulingReasons,
   getGpuFlowMotionRetryDelayMultiplierAfterUncommittedFrame,
   GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER,
   GPU_FLOW_CONTENT_BLOCKED_RETRY_DELAY_MULTIPLIER,
+  GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER,
   GPU_FLOW_RETAINED_SCROLL_CONTENT_SETTLE_DELAY_MULTIPLIER,
-  createGpuFlowProjectionSchedulingReasons,
   hasGpuFlowCriticalContentFrameRequest,
   isGpuFlowBrowserTextSnapshotPendingBlockedOutcome,
   isGpuFlowContentFrameReason,
@@ -19,7 +20,6 @@ import {
   isGpuFlowRetainedScrollSampleInteractionActive,
   resolveGpuFlowProjectionContentRetryBlock,
   resolveGpuFlowProjectionMotionRetryBlock,
-  shouldDeferGpuFlowMaintenanceContentCatchup,
   shouldDeferGpuFlowProjectionMaintenanceOnlyFrame,
   shouldDeferGpuFlowProjectionNonCriticalContentCatchupFrame,
   shouldPrioritizeGpuFlowProjectionMotionDebt,
@@ -27,6 +27,7 @@ import {
   shouldYieldGpuFlowCriticalContentDebtForCoverage,
   type GpuFlowProjectionSchedulerState,
 } from "../projectionSchedulerPolicy";
+import { shouldDrainGpuFlowBrowserVisualMaintenanceNow } from "./visibleFrameMaintenanceScheduling";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowCommitPublicationToken,
@@ -34,15 +35,21 @@ import type {
 } from "./visibleFramePresentationTokens";
 import {
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
-  assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
 } from "./visibleFramePresentationTokens";
-import { createGpuFlowVisiblePublicationDecisionForLane } from "./visibleFramePublicationDecision";
-import { shouldDrainGpuFlowBrowserVisualMaintenanceNow } from "./visibleFrameMaintenanceScheduling";
+import {
+  assertGpuFlowVisiblePublicationCommitDebtProofMatchesDecision,
+  assertGpuFlowVisiblePublicationCommitTokenMatchesDecision,
+  createGpuFlowVisiblePublicationCompletion,
+  hasCurrentGpuFlowProjectionMotion,
+  reduceGpuFlowVisibleFramePublicationDecision,
+  selectGpuFlowProjectionMotionSettlingState,
+  selectGpuFlowProjectionNonMotionSchedulerState,
+  shouldPublishGpuFlowProjectionContentDebtNow,
+} from "./visibleFrameSchedulingReduction";
 import {
   createGpuFlowVisibleFrameStarvationPolicy,
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
-  reduceGpuFlowVisibleFramePublicationLane,
   type GpuFlowVisibleFrameLaneReductionFacts,
   type GpuFlowVisibleFrameStarvationPolicy,
 } from "./visibleFrameStateMachine";
@@ -139,6 +146,8 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
   let lastMotionAtMs: number | null = null;
   let contentRetryBlockedUntilMs: number | null = null;
   let contentRetryBlockedByBrowserVisualResource = false;
+  let browserVisualContentRepairMotionCooldownUntilMs: number | null = null;
+  let textureUploadMaintenanceDebt = false;
   let criticalContentDebt = false;
   let criticalContentOriginDebt = false;
   let motionRetryBlockedUntilMs: number | null = null;
@@ -148,6 +157,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
 
   function currentState({
     browserVisualContentRepairBlocked,
+    browserVisualContentRepairMotionDeferred,
     browserVisualContentRepairReady,
     contentBlockedRetryDeferred,
     contentRetryDeferred,
@@ -157,6 +167,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     viewportInteractionActive,
   }: {
     readonly browserVisualContentRepairBlocked: boolean;
+    readonly browserVisualContentRepairMotionDeferred: boolean;
     readonly browserVisualContentRepairReady: boolean;
     readonly contentBlockedRetryDeferred: boolean;
     readonly contentRetryDeferred: boolean;
@@ -168,6 +179,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     const motionSettling = isGpuFlowProjectionMotionSettling(timestamp);
     const priorityState = selectGpuFlowProjectionPrioritySchedulerState({
       browserVisualContentRepairBlocked,
+      browserVisualContentRepairMotionDeferred,
       browserVisualContentRepairReady,
       contentBlockedRetryDeferred,
       contentRetryDeferred,
@@ -191,6 +203,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
 
   function selectGpuFlowProjectionPrioritySchedulerState({
     browserVisualContentRepairBlocked,
+    browserVisualContentRepairMotionDeferred,
     browserVisualContentRepairReady,
     contentBlockedRetryDeferred,
     contentRetryDeferred,
@@ -202,6 +215,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     viewportInteractionActive,
   }: {
     readonly browserVisualContentRepairBlocked: boolean;
+    readonly browserVisualContentRepairMotionDeferred: boolean;
     readonly browserVisualContentRepairReady: boolean;
     readonly contentBlockedRetryDeferred: boolean;
     readonly contentRetryDeferred: boolean;
@@ -212,27 +226,18 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
   }): GpuFlowProjectionSchedulerState | null {
-    if (
-      shouldDrainGpuFlowBrowserVisualMaintenanceNow({
+    const browserVisualPriorityState =
+      selectGpuFlowBrowserVisualPrioritySchedulerState({
         browserVisualContentRepairBlocked,
-        contentDebt,
-        maintenanceDebt,
-        rawReasons,
-        viewportInteractionActive,
-      })
-    ) {
-      return "maintenance-drain";
-    }
-    if (
-      shouldSelectGpuFlowProjectionPriorityContentCatchup({
+        browserVisualContentRepairMotionDeferred,
         browserVisualContentRepairReady,
         contentRetryDeferred,
         rawReasons,
         timestamp,
         viewportInteractionActive,
-      })
-    ) {
-      return "content-catchup";
+      });
+    if (browserVisualPriorityState !== null) {
+      return browserVisualPriorityState;
     }
     if (
       hasCurrentGpuFlowProjectionMotion({
@@ -276,16 +281,31 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     }
     const motionSettlingState = selectGpuFlowProjectionMotionSettlingState({
       contentDebt,
+      contentRetryDeferred,
       motionSettling,
     });
     if (motionSettlingState !== null) {
       return motionSettlingState;
     }
     if (
+      shouldDeferGpuFlowTextureUploadMaintenanceContentAfterMotion({
+        rawReasons,
+        timestamp,
+      })
+    ) {
+      return "maintenance-deferred";
+    }
+    if (
       shouldPublishGpuFlowProjectionContentDebtNow({
+        contentDebt,
         contentRetryDeferred,
-        maintenanceDebt,
-        motionDebt,
+        deferContinuousMotionMaintenance:
+          shouldDeferGpuFlowContentForContinuousMotionMaintenance({
+            maintenanceDebt,
+            motionDebt,
+            rawReasons,
+          }),
+        maxContentInterleaveMs: schedulerKnobs.maxContentInterleaveMs,
         rawReasons,
         viewportInteractionActive,
       })
@@ -294,6 +314,58 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     }
     return null;
   }
+
+  function selectGpuFlowBrowserVisualPrioritySchedulerState({
+    browserVisualContentRepairBlocked,
+    browserVisualContentRepairMotionDeferred,
+    browserVisualContentRepairReady,
+    contentRetryDeferred,
+    rawReasons,
+    timestamp,
+    viewportInteractionActive,
+  }: {
+    readonly browserVisualContentRepairBlocked: boolean;
+    readonly browserVisualContentRepairMotionDeferred: boolean;
+    readonly browserVisualContentRepairReady: boolean;
+    readonly contentRetryDeferred: boolean;
+    readonly rawReasons: readonly GpuFrameReason[];
+    readonly timestamp: DOMHighResTimeStamp;
+    readonly viewportInteractionActive: boolean;
+  }): GpuFlowProjectionSchedulerState | null {
+    if (
+      shouldDrainGpuFlowBrowserVisualMaintenanceNow({
+        browserVisualContentRepairBlocked,
+        contentDebt,
+        maintenanceDebt,
+        rawReasons,
+        viewportInteractionActive,
+      })
+    ) {
+      return "maintenance-drain";
+    }
+    if (
+      shouldDeferGpuFlowBrowserVisualContentRepairForMotion({
+        browserVisualContentRepairMotionDeferred,
+        rawReasons,
+        viewportInteractionActive,
+      })
+    ) {
+      return "maintenance-deferred";
+    }
+    if (
+      shouldSelectGpuFlowProjectionPriorityContentCatchup({
+        browserVisualContentRepairReady,
+        contentRetryDeferred,
+        rawReasons,
+        timestamp,
+        viewportInteractionActive,
+      })
+    ) {
+      return "content-catchup";
+    }
+    return null;
+  }
+
   function shouldSelectGpuFlowProjectionPriorityContentCatchup({
     browserVisualContentRepairReady,
     contentRetryDeferred,
@@ -322,16 +394,6 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
         viewportInteractionActive,
       })
     );
-  }
-
-  function selectGpuFlowProjectionMotionSettlingState({
-    contentDebt,
-    motionSettling,
-  }: {
-    readonly contentDebt: boolean;
-    readonly motionSettling: boolean;
-  }): GpuFlowProjectionSchedulerState | null {
-    return motionSettling && !contentDebt ? "motion-settling" : null;
   }
 
   function shouldDeferGpuFlowProjectionMaintenanceDebt({
@@ -449,6 +511,25 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     );
   }
 
+  function shouldDeferGpuFlowBrowserVisualContentRepairForMotion({
+    browserVisualContentRepairMotionDeferred,
+    rawReasons,
+    viewportInteractionActive,
+  }: {
+    readonly browserVisualContentRepairMotionDeferred: boolean;
+    readonly rawReasons: readonly GpuFrameReason[];
+    readonly viewportInteractionActive: boolean;
+  }): boolean {
+    return (
+      browserVisualContentRepairMotionDeferred &&
+      contentDebt &&
+      !viewportInteractionActive &&
+      rawReasons.some(isGpuFlowContentFrameReason) &&
+      !hasGpuFlowCriticalContentFrameRequest(rawReasons) &&
+      !rawReasons.some(isGpuFlowRetainedMotionFrameReason)
+    );
+  }
+
   function shouldPublishGpuFlowBrowserVisualContentRepairNow({
     browserVisualContentRepairReady,
     contentDebt,
@@ -466,49 +547,6 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
       !viewportInteractionActive &&
       rawReasons.some(isGpuFlowContentFrameReason) &&
       !rawReasons.some(isGpuFlowRetainedMotionFrameReason)
-    );
-  }
-
-  function shouldPublishGpuFlowProjectionContentDebtNow({
-    contentRetryDeferred,
-    maintenanceDebt,
-    motionDebt,
-    rawReasons,
-    viewportInteractionActive,
-  }: {
-    readonly contentRetryDeferred: boolean;
-    readonly maintenanceDebt: boolean;
-    readonly motionDebt: boolean;
-    readonly rawReasons: readonly GpuFrameReason[];
-    readonly viewportInteractionActive: boolean;
-  }): boolean {
-    return (
-      contentDebt &&
-      !contentRetryDeferred &&
-      !shouldDeferGpuFlowContentForContinuousMotionMaintenance({
-        maintenanceDebt,
-        motionDebt,
-        rawReasons,
-      }) &&
-      !viewportInteractionActive &&
-      schedulerKnobs.maxContentInterleaveMs > 0 &&
-      rawReasons.some(isGpuFlowContentFrameReason)
-    );
-  }
-
-  function hasCurrentGpuFlowProjectionMotion({
-    motionRetryDeferred,
-    rawReasons,
-    viewportInteractionActive,
-  }: {
-    readonly motionRetryDeferred: boolean;
-    readonly rawReasons: readonly GpuFrameReason[];
-    readonly viewportInteractionActive: boolean;
-  }): boolean {
-    return (
-      !motionRetryDeferred &&
-      (viewportInteractionActive ||
-        rawReasons.some(isGpuFlowRetainedMotionFrameReason))
     );
   }
 
@@ -569,11 +607,35 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
       );
       contentRetryBlockedByBrowserVisualResource =
         browserTextSnapshotPendingBlocked;
+      if (
+        browserTextSnapshotPendingBlocked &&
+        shouldCooldownGpuFlowBrowserVisualContentRepairAfterMotion(
+          decision.sample.timestamp,
+        )
+      ) {
+        browserVisualContentRepairMotionCooldownUntilMs = Math.max(
+          browserVisualContentRepairMotionCooldownUntilMs ?? 0,
+          decision.sample.timestamp +
+            schedulerKnobs.motionSettleWindowMs *
+              GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER,
+        );
+      }
       return;
     }
     if (decision.lane === "content") {
       contentRetryBlockedByBrowserVisualResource = false;
     }
+  }
+
+  function shouldCooldownGpuFlowBrowserVisualContentRepairAfterMotion(
+    timestamp: DOMHighResTimeStamp,
+  ): boolean {
+    return (
+      lastMotionAtMs !== null &&
+      timestamp - lastMotionAtMs <=
+        schedulerKnobs.motionSettleWindowMs *
+          GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER
+    );
   }
 
   function recordGpuFlowMotionRetryAfterUncommittedFrame(
@@ -610,6 +672,9 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     }
     if (rawReasons.some(isGpuFlowMaintenanceFrameReason)) {
       maintenanceDebt = true;
+    }
+    if (rawReasons.includes("texture-upload")) {
+      textureUploadMaintenanceDebt = true;
     }
   }
 
@@ -690,6 +755,43 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     return motionRetryBlock;
   }
 
+  function resolveGpuFlowBrowserVisualContentRepairMotionCooldownForSelection({
+    timestamp,
+  }: {
+    readonly timestamp: DOMHighResTimeStamp;
+  }): boolean {
+    if (
+      browserVisualContentRepairMotionCooldownUntilMs === null ||
+      !contentDebt
+    ) {
+      browserVisualContentRepairMotionCooldownUntilMs = null;
+      return false;
+    }
+    if (timestamp >= browserVisualContentRepairMotionCooldownUntilMs) {
+      browserVisualContentRepairMotionCooldownUntilMs = null;
+      return false;
+    }
+    return true;
+  }
+
+  function shouldDeferGpuFlowTextureUploadMaintenanceContentAfterMotion({
+    rawReasons,
+    timestamp,
+  }: {
+    readonly rawReasons: readonly GpuFrameReason[];
+    readonly timestamp: DOMHighResTimeStamp;
+  }): boolean {
+    return (
+      contentDebt &&
+      textureUploadMaintenanceDebt &&
+      lastMotionAtMs !== null &&
+      timestamp - lastMotionAtMs <=
+        schedulerKnobs.motionSettleWindowMs *
+          GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER &&
+      !hasGpuFlowCriticalContentFrameRequest(rawReasons)
+    );
+  }
+
   function selectGpuFlowVisibleFrameRequestFacts({
     hasCommittedContentFrame,
     rawReasons,
@@ -728,11 +830,24 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
         hasCommittedContentFrame,
         timestamp,
       });
-    const { contentRetryDeferred } = contentRetryBlock;
+    const browserVisualContentRepairMotionDeferred =
+      resolveGpuFlowBrowserVisualContentRepairMotionCooldownForSelection({
+        timestamp,
+      });
+    const textureUploadMaintenanceContentDeferred =
+      shouldDeferGpuFlowTextureUploadMaintenanceContentAfterMotion({
+        rawReasons: schedulingRawReasons,
+        timestamp,
+      });
+    const contentRetryDeferred =
+      contentRetryBlock.contentRetryDeferred ||
+      browserVisualContentRepairMotionDeferred ||
+      textureUploadMaintenanceContentDeferred;
     const { motionRetryDeferred } = motionRetryBlock;
     const schedulerState = currentState({
       browserVisualContentRepairBlocked:
         contentRetryBlockedByBrowserVisualResource,
+      browserVisualContentRepairMotionDeferred,
       browserVisualContentRepairReady:
         contentRetryBlockedByBrowserVisualResource && !contentRetryDeferred,
       contentBlockedRetryDeferred:
@@ -793,6 +908,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
         criticalContentOriginDebt = false;
         contentRetryBlockedUntilMs = null;
         contentRetryBlockedByBrowserVisualResource = false;
+        browserVisualContentRepairMotionCooldownUntilMs = null;
         retainedScrollContentBlockedUntilMs = null;
         lastContentAtMs = decision.sample.timestamp;
         consecutiveMotionFrames = 0;
@@ -801,6 +917,7 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
       }
       if (outcome.debtProof.maintenance) {
         maintenanceDebt = false;
+        textureUploadMaintenanceDebt = false;
         if (contentRetryBlockedByBrowserVisualResource) {
           contentRetryBlockedUntilMs = null;
           contentRetryBlockedByBrowserVisualResource = false;
@@ -858,140 +975,9 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
   });
 }
 
-export function reduceGpuFlowVisibleFramePublicationDecision({
-  frameRequest,
-  schedulerKnobs,
-}: {
-  readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
-  readonly schedulerKnobs: GpuFlowProjectionSchedulerKnobs;
-}): GpuFlowVisiblePublicationDecision {
-  const lane = reduceGpuFlowVisibleFramePublicationLane({
-    contentDebt: frameRequest.contentDebt,
-    contentRetryDeferred: frameRequest.contentRetryDeferred,
-    criticalContentDebt: frameRequest.criticalContentDebt,
-    hasCommittedContentFrame: frameRequest.hasCommittedContentFrame,
-    maintenanceDebt: frameRequest.maintenanceDebt,
-    motionDebt: frameRequest.motionDebt,
-    motionRetryDeferred: frameRequest.motionRetryDeferred,
-    rawReasons: frameRequest.rawReasons,
-    schedulerKnobs,
-    schedulerState: frameRequest.schedulerState,
-    viewportInteractionActive: frameRequest.viewportInteractionActive,
-  });
-  return createGpuFlowVisiblePublicationDecisionForLane({
-    frameRequest,
-    lane,
-  });
-}
-export function hasGpuFlowVisiblePublicationDebt(
-  debtOrDecision:
-    | GpuFlowVisiblePublicationDebt
-    | GpuFlowVisiblePublicationDecision,
-): boolean {
-  const debt = getGpuFlowVisiblePublicationDebt(debtOrDecision);
-  return debt.content || debt.maintenance || debt.motion;
-}
-export function getGpuFlowVisiblePublicationDebtReason(
-  debtOrDecision:
-    | GpuFlowVisiblePublicationDebt
-    | GpuFlowVisiblePublicationDecision,
-): GpuFrameReason {
-  const debt = getGpuFlowVisiblePublicationDebt(debtOrDecision);
-  if (debt.motion) {
-    return "retained-scroll";
-  }
-  if (debt.content) {
-    return "manual";
-  }
-  return "texture-upload";
-}
-export { shouldDeferGpuFlowMaintenanceContentCatchup };
-function createGpuFlowVisiblePublicationCompletion({
-  contentDebt,
-  maintenanceDebt,
-  motionDebt,
-  outcome,
-}: {
-  readonly contentDebt: boolean;
-  readonly maintenanceDebt: boolean;
-  readonly motionDebt: boolean;
-  readonly outcome: GpuFlowVisiblePublicationCompletion["outcome"];
-}): GpuFlowVisiblePublicationCompletion {
-  return Object.freeze({
-    debt: createGpuFlowVisiblePublicationDebt({
-      content: contentDebt,
-      maintenance: maintenanceDebt,
-      motion: motionDebt,
-    }),
-    outcome,
-  });
-}
-function createGpuFlowVisiblePublicationDebt({
-  content,
-  maintenance,
-  motion,
-}: GpuFlowVisiblePublicationDebt): GpuFlowVisiblePublicationDebt {
-  return Object.freeze({
-    content,
-    maintenance,
-    motion,
-  });
-}
-function selectGpuFlowProjectionNonMotionSchedulerState({
-  contentDebt,
-  contentRetryDeferred,
-  maintenanceDebt,
-}: {
-  readonly contentDebt: boolean;
-  readonly contentRetryDeferred: boolean;
-  readonly maintenanceDebt: boolean;
-}): GpuFlowProjectionSchedulerState {
-  if (contentDebt) {
-    if (!contentRetryDeferred) {
-      return "content-catchup";
-    }
-    return maintenanceDebt ? "maintenance-drain" : "idle";
-  }
-  return maintenanceDebt ? "maintenance-drain" : "idle";
-}
-function getGpuFlowVisiblePublicationDebt(
-  debtOrDecision:
-    | GpuFlowVisiblePublicationDebt
-    | GpuFlowVisiblePublicationDecision,
-): GpuFlowVisiblePublicationDebt {
-  return "debt" in debtOrDecision ? debtOrDecision.debt : debtOrDecision;
-}
-function assertGpuFlowVisiblePublicationCommitTokenMatchesDecision({
-  decision,
-  token,
-}: {
-  readonly decision: GpuFlowVisiblePublicationDecision;
-  readonly token: GpuFlowCommitPublicationToken;
-}): void {
-  assertGpuFlowCommitPublicationTokenForProjectionSample({
-    projectionSampleId: decision.sample.id,
-    token,
-  });
-}
-function assertGpuFlowVisiblePublicationCommitDebtProofMatchesDecision({
-  debtProof,
-  decision,
-}: {
-  readonly debtProof: GpuFlowVisiblePublicationDebtProof;
-  readonly decision: GpuFlowVisiblePublicationDecision;
-}): void {
-  const illegalDebtKinds = [
-    debtProof.content && decision.lane !== "content" ? "content" : null,
-    debtProof.maintenance && decision.lane !== "maintenance"
-      ? "maintenance"
-      : null,
-    debtProof.motion && decision.lane !== "motion" ? "motion" : null,
-  ].filter((kind): kind is string => kind !== null);
-  if (illegalDebtKinds.length > 0) {
-    throw new Error(
-      `GPU Flow visible publication debt completion can only clear debt for the selected publication lane (${decision.lane}); illegal debt proof: ${illegalDebtKinds.join(
-        ", ",
-      )}.`,
-    );
-  }
-}
+export {
+  getGpuFlowVisiblePublicationDebtReason,
+  hasGpuFlowVisiblePublicationDebt,
+  reduceGpuFlowVisibleFramePublicationDecision,
+  shouldDeferGpuFlowMaintenanceContentCatchup,
+} from "./visibleFrameSchedulingReduction";

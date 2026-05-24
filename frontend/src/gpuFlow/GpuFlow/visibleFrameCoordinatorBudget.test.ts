@@ -243,7 +243,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
     ]);
   });
 
-  it("lets selected visible resource debt preempt an active motion lane", () => {
+  it("keeps selected visible resource debt on the scheduled lane while preparing resources after publication", () => {
     const phases: string[] = [];
 
     const result = runGpuFlowVisibleFrameCoordinator({
@@ -276,6 +276,11 @@ describe("GPU Flow visible frame coordinator budget", () => {
           frame: testPublicationCandidate(),
           kind: "not-rendered" as const,
         };
+      },
+      prepareVisibleFrameResourcesForBudget: (budgetDecision) => {
+        phases.push(
+          `resources:${budgetDecision.preparationBudget.selectedVisibleResourceDebtIds.join(",")}`,
+        );
       },
       publish: (transaction) => {
         phases.push(`publish:${transaction.publicationDecision.lane}`);
@@ -321,8 +326,8 @@ describe("GPU Flow visible frame coordinator budget", () => {
       }),
     });
 
-    expect(result.publicationDecision.lane).toBe("content");
-    expect(result.publicationDecision.debt.motion).toBe(true);
+    expect(result.publicationDecision.lane).toBe("motion");
+    expect(result.publicationDecision.debt.motion).toBe(false);
     expect(
       result.publicationFrameContext.budgetDecision.preparationBudget,
     ).toMatchObject({
@@ -330,9 +335,10 @@ describe("GPU Flow visible frame coordinator budget", () => {
       selectedVisibleResourceDebtIds: ["dom-control:editor"],
     });
     expect(phases).toEqual([
-      "motion:skip:defer-false",
-      "content:prepare:defer-false",
-      "publish:content",
+      "motion:prepare:defer-true",
+      "content:skip:defer-true",
+      "publish:motion",
+      "resources:dom-control:editor",
     ]);
   });
 });
