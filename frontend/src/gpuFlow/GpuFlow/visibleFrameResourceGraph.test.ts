@@ -366,7 +366,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     ]);
   });
 
-  it("rejects commits before queued candidate resource work is ready", () => {
+  it("commits publication-proof resources while retaining optional browser visual debt", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const frame = committedSurfaceFrame({
       displayFrameId: 62,
@@ -385,17 +385,46 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       frame,
     });
 
-    expect(() =>
-      registry.commitPreparedCommittedSurfaceFrame({
-        commitBrowserVisualCandidate: () => undefined,
+    const committedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
+    const result = registry.commitPreparedCommittedSurfaceFrame({
+      commitBrowserVisualCandidate: ({ candidate }) => {
+        committedCandidates.push(candidate);
+      },
+      frame,
+      publishCommittedSurfaceFrame: () => true,
+      token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
         frame,
-        publishCommittedSurfaceFrame: () => true,
-        token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
-          frame,
-          projectionSample: liveProjectionSample(62),
-        }),
+        projectionSample: liveProjectionSample(62),
       }),
-    ).toThrow(/before resource dom-control:early-control is ready/);
+    });
+
+    expect(committedCandidates).toHaveLength(1);
+    expect(result).toEqual({
+      activeEditorPins: [],
+      published: true,
+      releasedCandidateResourceKeys: [],
+      releasedCommittedResourceKeys: [],
+    });
+    expect(registry.getSnapshot()).toMatchObject({
+      committedFrameId: 62,
+      committedResourceKeys: [
+        "texture:early-texture",
+        "dom-control:early-control",
+      ],
+      queuedResourceKeys: ["dom-control:early-control"],
+      resourceDebtByState: {
+        absent: 0,
+        preparing: 0,
+        presented: 1,
+        ready: 0,
+        requested: 1,
+        retired: 0,
+      },
+    });
+    expect(registry.getSnapshot().resourceStates).toEqual([
+      resourceState("dom-control:early-control", "requested", 62),
+      resourceState("texture:early-texture", "presented", 62),
+    ]);
   });
 
   it("requires budgeted preparation and later owner readiness before ready", () => {

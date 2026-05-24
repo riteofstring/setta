@@ -328,8 +328,9 @@ export function renderGpuFlowSurfaceFrame({
       publish: publishGpuFlowSurfacePublicationFrame,
       sampleVisibleFramePublication: () => {
         const runtimeFrame = viewportRuntime.runFrame(event.timestamp);
-        const hasCommittedContentFrame =
-          input.committedSurfaceFrameRef.current !== null;
+        const hasCommittedContentFrame = hasGpuFlowCommittedContentFrame(
+          input.committedSurfaceFrameRef.current,
+        );
         frameMeasureDetail.hasCommittedContentFrame = hasCommittedContentFrame;
         nodeLayerRef.current = {
           ...nodeLayerRef.current,
@@ -411,6 +412,12 @@ export function withGpuFlowContentCatchupReasonForStalePublicationSample({
     return rawReasons;
   }
   return Object.freeze([...rawReasons, "manual" as const]);
+}
+
+export function hasGpuFlowCommittedContentFrame(
+  frame: Pick<GpuFlowCommittedSurfaceFrame, "retainedDisplayFrame"> | null,
+): boolean {
+  return frame !== null && frame.retainedDisplayFrame !== null;
 }
 
 export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({

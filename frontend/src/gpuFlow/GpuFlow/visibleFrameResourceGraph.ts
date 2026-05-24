@@ -318,7 +318,7 @@ export class GpuFlowVisibleFrameResourceGraph {
       token,
     });
     const entry = this.requirePreparedCommittedSurfaceFrame(frame);
-    this.assertPreparedCandidateResourcesReady(entry);
+    this.assertPreparedCandidateRequiredResourcesReady(entry);
     commitBrowserVisualCandidate({
       candidate: entry.browserVisualCandidate,
       token,
@@ -328,9 +328,12 @@ export class GpuFlowVisibleFrameResourceGraph {
       token,
     });
     this.pendingCandidateByFrameId.delete(frameId);
-    const releasedCandidateResourceKeys =
-      this.releaseLoserCandidateResourceEntries(frameId);
     const nextCommittedResourceKeys = new Set(entry.candidateResourceKeys);
+    const releasedCandidateResourceKeys =
+      this.releaseLoserCandidateResourceEntries(
+        frameId,
+        nextCommittedResourceKeys,
+      );
     const releasedCommittedResourceKeys = [
       ...this.committedResourceKeys,
     ].filter((resourceKey) => !nextCommittedResourceKeys.has(resourceKey));
@@ -340,7 +343,7 @@ export class GpuFlowVisibleFrameResourceGraph {
         resourceKey,
       });
     }
-    for (const resourceKey of nextCommittedResourceKeys) {
+    for (const resourceKey of this.getPresentableCandidateResourceKeys(entry)) {
       this.transitionResource({
         ownerFrameId: frameId,
         resourceKey,
@@ -462,14 +465,18 @@ export class GpuFlowVisibleFrameResourceGraph {
 
   private releaseLoserCandidateResourceEntries(
     committedFrameId: number,
+    retainedResourceKeys: ReadonlySet<string>,
   ): readonly string[] {
     const releasedResourceKeys: string[] = [];
     for (const [frameId, entry] of this.pendingCandidateByFrameId) {
       if (frameId === committedFrameId) {
         continue;
       }
-      releasedResourceKeys.push(...entry.candidateResourceKeys);
       for (const resourceKey of entry.candidateResourceKeys) {
+        if (retainedResourceKeys.has(resourceKey)) {
+          continue;
+        }
+        releasedResourceKeys.push(resourceKey);
         this.retireVisibleFrameResource({
           ownerFrameId: frameId,
           resourceKey,
@@ -589,13 +596,25 @@ export class GpuFlowVisibleFrameResourceGraph {
     });
   }
 
-  private assertPreparedCandidateResourcesReady(
+  private getPresentableCandidateResourceKeys(
+    entry: GpuFlowVisibleFrameCandidateResourceEntry,
+  ): readonly string[] {
+    return Object.freeze(
+      entry.candidateResourceKeys.filter((resourceKey) =>
+        isGpuFlowVisibleFramePresentableResourceState(
+          this.resourceStateByKey.get(resourceKey)?.state,
+        ),
+      ),
+    );
+  }
+
+  private assertPreparedCandidateRequiredResourcesReady(
     entry: GpuFlowVisibleFrameCandidateResourceEntry,
   ): void {
-    const unpreparedResource = entry.candidateResourceKeys.find(
+    const unpreparedResource = entry.requiredResourceKeys.find(
       (resourceKey) => {
         const state = this.resourceStateByKey.get(resourceKey)?.state;
-        return state !== "ready" && state !== "presented";
+        return !isGpuFlowVisibleFramePresentableResourceState(state);
       },
     );
     if (unpreparedResource === undefined) {
@@ -677,6 +696,12 @@ export class GpuFlowVisibleFrameResourceGraph {
       }),
     );
   }
+}
+
+function isGpuFlowVisibleFramePresentableResourceState(
+  state: GpuFlowVisibleFrameResourceStateKind | undefined,
+): state is "presented" | "ready" {
+  return state === "ready" || state === "presented";
 }
 
 export function createGpuFlowVisibleFrameResourceGraph(): GpuFlowVisibleFrameResourceGraph {

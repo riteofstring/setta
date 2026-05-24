@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
+import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuViewportInput } from "../viewportMath";
 import {
+  hasGpuFlowCommittedContentFrame,
   shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample,
   withGpuFlowContentCatchupReasonForStalePublicationSample,
 } from "./visibleFrameSurfaceFrame";
@@ -103,6 +105,25 @@ describe("GPU Flow surface frame publication", () => {
       }),
     ).toBe(true);
   });
+
+  it("does not treat the startup committed frame as published content", () => {
+    expect(hasGpuFlowCommittedContentFrame(null)).toBe(false);
+    expect(
+      hasGpuFlowCommittedContentFrame(
+        committedContentFrame({ retainedDisplayFrame: null }),
+      ),
+    ).toBe(false);
+  });
+
+  it("treats committed retained-display frames as content", () => {
+    expect(
+      hasGpuFlowCommittedContentFrame(
+        committedContentFrame({
+          retainedDisplayFrame: {} as RetainedDisplayFrame,
+        }),
+      ),
+    ).toBe(true);
+  });
 });
 
 function committedFrameSample({
@@ -117,5 +138,15 @@ function committedFrameSample({
       retainedScrollRevision,
     } as GpuFlowCommittedSurfaceFrame["coherence"],
     viewportSample,
+  };
+}
+
+function committedContentFrame({
+  retainedDisplayFrame,
+}: {
+  readonly retainedDisplayFrame: RetainedDisplayFrame | null;
+}): Pick<GpuFlowCommittedSurfaceFrame, "retainedDisplayFrame"> {
+  return {
+    retainedDisplayFrame,
   };
 }
