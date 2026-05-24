@@ -1,4 +1,4 @@
-import setta.api.listener_connection as listener_connection_mod
+import setta.api.listener as listener_mod
 from setta.api.listener import SettaListener
 from setta.auth.cookies import auth_cookie_name
 from setta.sessions.registry import SessionMetadata
@@ -19,12 +19,12 @@ def test_resolve_auth_headers_treats_loopback_values_as_equivalent(
         serverMode="ide",
     )
     monkeypatch.setattr(
-        listener_connection_mod,
+        listener_mod,
         "load_current_session_secret",
         lambda: (session_metadata, b"secret"),
     )
     monkeypatch.setattr(
-        listener_connection_mod.AUTH_COOKIE_MANAGER,
+        listener_mod.AUTH_COOKIE_MANAGER,
         "mint",
         lambda _session_id, _secret: "cookie-value",
     )
@@ -48,12 +48,12 @@ def test_resolve_auth_headers_rejects_non_loopback_host_mismatch(monkeypatch) ->
         serverMode="ide",
     )
     monkeypatch.setattr(
-        listener_connection_mod,
+        listener_mod,
         "load_current_session_secret",
         lambda: (session_metadata, b"secret"),
     )
     monkeypatch.setattr(
-        listener_connection_mod.AUTH_COOKIE_MANAGER,
+        listener_mod.AUTH_COOKIE_MANAGER,
         "mint",
         lambda _session_id, _secret: "cookie-value",
     )
@@ -76,13 +76,9 @@ def test_resolve_auth_headers_uses_autoconnected_session_when_current_session_mi
         secretPath="/tmp/secret",
         serverMode="ide",
     )
+    monkeypatch.setattr(listener_mod, "load_current_session_secret", lambda: None)
     monkeypatch.setattr(
-        listener_connection_mod,
-        "load_current_session_secret",
-        lambda: None,
-    )
-    monkeypatch.setattr(
-        listener_connection_mod.AUTH_COOKIE_MANAGER,
+        listener_mod.AUTH_COOKIE_MANAGER,
         "mint",
         lambda _session_id, _secret: "cookie-value",
     )

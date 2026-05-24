@@ -75,7 +75,7 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
   const backendPluginCard = page
     .locator("article")
     .filter({
@@ -98,7 +98,7 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
   const frontendPluginCard = page
     .locator("article")
     .filter({
@@ -236,7 +236,7 @@ test("plugins overview tab supports fixture plugin render and disabled fallback"
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
 
   await expect(page.getByText("Plugin Section Unavailable")).toBeVisible();
   await expect(
@@ -513,7 +513,7 @@ test("plugins pane shows package-manager guidance and disables managed write act
   });
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
 
   const pluginCard = page
     .locator("article")
@@ -600,7 +600,7 @@ test("plugins pane shows mode-policy blocked capability reasons", async ({
   });
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
 
   const backendPluginCard = page
     .locator("article")
@@ -762,7 +762,7 @@ test("plugins pane lifecycle actions call update rollback and uninstall endpoint
   });
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
 
   const pluginCard = page
     .locator("article")
@@ -976,7 +976,7 @@ test("plugins pane keeps unrelated plugin actions enabled while one action is in
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const pluginACard = page
       .locator("article")

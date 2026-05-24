@@ -368,7 +368,7 @@ func saveAppManagedLiveProviderToolConfig(
 		},
 		MCPServers: map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: "streamable_http",
+				Transport: "sse",
 				URL:       serverURL + "/mcp",
 			},
 		},

@@ -51,14 +51,9 @@ Options:
                              If the Codex command exits non-zero, record the
                              failure and continue to the next iteration even
                              when --stop-on-error is enabled.
-  --continue-on-post-iteration-failure
-                             If the post-iteration command exits non-zero,
-                             record the failure and continue to the next
-                             iteration even when --stop-on-error is enabled.
   --retry-sleep-seconds N    Sleep N seconds before the next retryable
-                             iteration after an inactivity timeout, retryable
-                             Codex failure, or retryable post-iteration
-                             failure. Default: 0
+                             iteration after an inactivity timeout or retryable
+                             Codex failure. Default: 0
   --quiet                    Do not stream Codex transcripts or hook command
                              output to the terminal. Write them to per-run log
                              files and print only status/progress logs.
@@ -108,7 +103,6 @@ inactivity_timeout_seconds="0"
 watchdog_interval_seconds="15"
 continue_on_inactivity_timeout="0"
 continue_on_codex_failure="0"
-continue_on_post_iteration_failure="0"
 retry_sleep_seconds="0"
 quiet_mode="0"
 progress_log_interval_seconds="60"
@@ -172,10 +166,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --continue-on-codex-failure)
       continue_on_codex_failure="1"
-      shift
-      ;;
-    --continue-on-post-iteration-failure)
-      continue_on_post_iteration_failure="1"
       shift
       ;;
     --retry-sleep-seconds)
@@ -365,9 +355,7 @@ fi
 if [[ "${inactivity_timeout_seconds}" -gt 0 ]]; then
   echo "Inactivity timeout: ${inactivity_timeout_seconds}s"
 fi
-if [[ "${continue_on_codex_failure}" == "1" ]] \
-  || [[ "${continue_on_inactivity_timeout}" == "1" ]] \
-  || [[ "${continue_on_post_iteration_failure}" == "1" ]]; then
+if [[ "${continue_on_codex_failure}" == "1" ]] || [[ "${continue_on_inactivity_timeout}" == "1" ]]; then
   echo "Retry sleep: ${retry_sleep_seconds}s"
 fi
 
@@ -759,15 +747,6 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
           log_error "[$iteration/$iterations] Post-iteration command failed with exit code ${post_iteration_exit_code}. Log: ${post_iteration_log}"
         else
           echo "[$iteration/$iterations] Post-iteration command failed with exit code ${post_iteration_exit_code}" >&2
-        fi
-        if [[ "${continue_on_post_iteration_failure}" == "1" ]]; then
-          sleep_before_retry "post-iteration failure"
-          if [[ "${quiet_mode}" == "1" ]]; then
-            log_info "[$iteration/$iterations] Continuing after post-iteration failure."
-          else
-            echo "[$iteration/$iterations] Continuing after post-iteration failure"
-          fi
-          continue
         fi
         if [[ "${stop_on_error}" == "1" ]]; then
           exit "${post_iteration_exit_code}"

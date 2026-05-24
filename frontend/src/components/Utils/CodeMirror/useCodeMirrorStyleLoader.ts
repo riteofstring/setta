@@ -3,20 +3,13 @@ import { EditorView } from "@codemirror/view";
 import { useEffect, useState } from "react";
 import { getCodeMirrorStyle } from "./useCodeMirrorStyle";
 
-type CodeMirrorStyleLoaderTheme = {
-  readonly darkMode: boolean;
-  readonly color: string | undefined;
-};
-
 // A lot of the time, we render only dummy codemirror components.
 // Those components depend on codemirror css classes, which only load when an actual codemirror component renders.
 // So this is a hack to get those css styles to load when a project is opened.
 // It adds a codemirror div, goes through all the combinations of themes, and then immediately removes the div.
-export function useCodeMirrorStyleLoader(doneLoading: boolean, is404: boolean) {
-  const [containerState, setContainerState] = useState<HTMLDivElement | null>(
-    null,
-  );
-  const [view, setView] = useState<EditorView | null>(null);
+export function useCodeMirrorStyleLoader(doneLoading, is404) {
+  const [containerState, setContainerState] = useState(null);
+  const [view, setView] = useState(null);
 
   useEffect(() => {
     if (!doneLoading || is404) {
@@ -31,21 +24,17 @@ export function useCodeMirrorStyleLoader(doneLoading: boolean, is404: boolean) {
     document.body.appendChild(container);
 
     // Define all theme combinations to iterate through
-    const themeConfigs: CodeMirrorStyleLoaderTheme[] = [
+    const themeConfigs = [
       { darkMode: true, color: undefined },
       { darkMode: false, color: undefined },
       { darkMode: true, color: "green" },
       { darkMode: false, color: "green" },
     ];
-    const initialConfig = themeConfigs[0];
-    if (!initialConfig) {
-      return;
-    }
 
     // Create initial view with first theme
     const initialTheme = getCodeMirrorStyle(
-      initialConfig.darkMode,
-      initialConfig.color,
+      themeConfigs[0].darkMode,
+      themeConfigs[0].color,
     );
     const newView = new EditorView({
       state: EditorState.create({ extensions: [initialTheme] }),
@@ -53,7 +42,8 @@ export function useCodeMirrorStyleLoader(doneLoading: boolean, is404: boolean) {
     });
 
     // Iterate through remaining themes
-    for (const { darkMode, color } of themeConfigs.slice(1)) {
+    for (let i = 1; i < themeConfigs.length; i++) {
+      const { darkMode, color } = themeConfigs[i];
       const theme = getCodeMirrorStyle(darkMode, color);
 
       // Create new state with updated theme
@@ -72,15 +62,13 @@ export function useCodeMirrorStyleLoader(doneLoading: boolean, is404: boolean) {
       newView.destroy();
       try {
         document.body.removeChild(container);
-      } catch {
-        // The container may already have been removed by the eager cleanup effect.
-      }
+      } catch {}
     };
   }, [doneLoading, is404]);
 
   // Immediately unmount the component after mounting and cycling through themes
   useEffect(() => {
-    if (view && containerState) {
+    if (view) {
       view.destroy();
       if (document.body.contains(containerState)) {
         document.body.removeChild(containerState);

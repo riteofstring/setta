@@ -23,16 +23,7 @@ export async function runCodeBlockInPage(
   sectionId: string,
 ): Promise<void> {
   await page.evaluate(async (id) => {
-    const { useProjectState } = await import("/src/state/definitions");
     const { runCodeBlock } = await import("/src/state/actions/runOrImportCode");
-    const sectionCapabilities = useProjectState.getState().sectionCapabilities[
-      id
-    ];
-    if (!sectionCapabilities?.canRun) {
-      throw new Error(
-        `Code section ${id} is not runnable: ${sectionCapabilities?.runDisabledReason ?? "missing run capability"}`,
-      );
-    }
     await runCodeBlock(id);
   }, sectionId);
 }
@@ -47,31 +38,8 @@ export async function setCodeForSection(
       const { queueCodeUpdate, flushPendingCodeUpdate } = await import(
         "/src/state/actions/codeUpdates"
       );
-      const { getLatestProjectState } = await import("/src/openapi/http");
-      const { callOpenAPI } = await import(
-        "/tests/e2e/browserAppSubsystemSdk.ts"
-      );
-      const { getCurrProjectConfigId, processProjectStateUpdateFromBackend } =
-        await import("/src/state/actions/sectionInfos");
       queueCodeUpdate(id, value);
       await flushPendingCodeUpdate(id);
-      const projectConfigId = getCurrProjectConfigId();
-      const latestProjectStateResponse = await callOpenAPI(
-        getLatestProjectState({
-          body: {
-            projectConfigId,
-          },
-        } as Parameters<typeof getLatestProjectState>[0]),
-      );
-      if (
-        latestProjectStateResponse.status !== 200 ||
-        !latestProjectStateResponse.data
-      ) {
-        throw new Error(
-          `Failed to hydrate latest project state for ${projectConfigId}: ${latestProjectStateResponse.status}`,
-        );
-      }
-      processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
     },
     { id: sectionId, value: code },
   );
@@ -149,7 +117,7 @@ export async function getTerminalRowsSnapshot(
       document.querySelectorAll(`[data-attached-terminal-section-id="${id}"]`),
     );
     const detached = document.querySelector(
-      `.setta-gpu-flow__node[data-id="${id}"]`,
+      `.react-flow__node[data-id="${id}"]`,
     );
     if (detached) {
       candidates.push(detached);
@@ -161,7 +129,7 @@ export async function getTerminalRowsSnapshot(
         `[data-attached-terminal-section-id="${id}"]`,
       );
       const activeDetached = active.closest(
-        `.setta-gpu-flow__node[data-id="${id}"]`,
+        `.react-flow__node[data-id="${id}"]`,
       );
       const activeContainer = activeEmbedded ?? activeDetached;
       const activeRows = collectRows(activeContainer);
@@ -246,89 +214,6 @@ export function countLongLineWrapRows(rows: string[], marker: string): number {
   }).length;
 }
 
-export function getEmbeddedTerminalHost(
-  page: Page,
-  terminalId: string,
-): Locator {
-  return page.locator(`[data-attached-terminal-section-id="${terminalId}"]`);
-}
-
-export function getEmbeddedTerminalSection(
-  page: Page,
-  terminalId: string,
-): Locator {
-  return getEmbeddedTerminalHost(page, terminalId).locator(
-    "xpath=ancestor::section[1]",
-  );
-}
-
-export function getGpuFlowNode(page: Page, sectionId: string): Locator {
-  return page.locator(`.setta-gpu-flow__node[data-id="${sectionId}"]`);
-}
-
-export async function getGpuFlowNodeScreenRect(
-  page: Page,
-  sectionId: string,
-): Promise<{ x: number; y: number; width: number; height: number }> {
-  const rect = await page.evaluate((id) => {
-    const view = window as typeof window & {
-      __settaGpuFlowNodeScreenRect?:
-        | ((
-            nodeId: string,
-          ) => { height: number; width: number; x: number; y: number } | null)
-        | undefined;
-    };
-    return view.__settaGpuFlowNodeScreenRect?.(id) ?? null;
-  }, sectionId);
-  if (!rect) {
-    throw new Error(`Missing GPU flow screen rect for ${sectionId}.`);
-  }
-  return rect;
-}
-
-async function projectGpuSourceNodeForTest(
-  page: Page,
-  sectionId: string,
-): Promise<void> {
-  const visualRect = await getGpuFlowNodeScreenRect(page, sectionId);
-  await page.evaluate(
-    ({ id, rect }) => {
-      const node = document.querySelector<HTMLElement>(
-        `.setta-gpu-flow__node[data-id="${id}"]`,
-      );
-      if (!node) {
-        throw new Error(`Missing GPU source node for ${id}.`);
-      }
-      const parentRect =
-        node.offsetParent instanceof HTMLElement
-          ? node.offsetParent.getBoundingClientRect()
-          : { left: 0, top: 0 };
-      const width = node.offsetWidth;
-      const height = node.offsetHeight;
-      if (width <= 0 || height <= 0) {
-        throw new Error(`Cannot project zero-size GPU source node ${id}.`);
-      }
-      const scaleX = rect.width / width;
-      const scaleY = rect.height / height;
-      node.style.pointerEvents = "auto";
-      node.style.transform = `translate(${rect.x - parentRect.left}px, ${
-        rect.y - parentRect.top
-      }px) scale(${scaleX}, ${scaleY})`;
-      node.setAttribute("data-gpu-flow-projected-interaction", "true");
-    },
-    { id: sectionId, rect: visualRect },
-  );
-}
-
-export async function clickGpuSourceControl(control: Locator): Promise<void> {
-  await control.evaluate((element) => {
-    if (!(element instanceof HTMLElement)) {
-      throw new Error("GPU source control target is not an HTMLElement.");
-    }
-    element.click();
-  });
-}
-
 export async function syncEmbeddedTerminalSectionSize(
   page: Page,
   terminalId: string,
@@ -355,8 +240,12 @@ export async function focusTerminalAndType(
   terminalId: string,
   text: string,
 ): Promise<void> {
-  const detachedTerminalNode = getGpuFlowNode(page, terminalId);
-  const embeddedTerminalHost = getEmbeddedTerminalHost(page, terminalId);
+  const detachedTerminalNode = page.locator(
+    `.react-flow__node[data-id="${terminalId}"]`,
+  );
+  const embeddedTerminalHost = page.locator(
+    `[data-attached-terminal-section-id="${terminalId}"]`,
+  );
   const embeddedCount = await embeddedTerminalHost.count();
   const detachedCount = await detachedTerminalNode.count();
   let root: Locator | null = null;
@@ -371,6 +260,7 @@ export async function focusTerminalAndType(
 
   const terminalContainer = root.locator(".xterm");
   await expect(terminalContainer).toBeVisible();
+  await terminalContainer.click({ position: { x: 8, y: 8 } });
   const input = root.locator(".xterm-helper-textarea, .xterm textarea");
   await input.first().waitFor({ state: "attached", timeout: 20000 });
   await input.first().evaluate((el) => {
@@ -792,7 +682,7 @@ export async function addTerminalResizeInstrumentation(
 }
 
 export async function focusPaneForDnd(page: Page): Promise<void> {
-  await page.click(".setta-gpu-flow__pane", {
+  await page.click(".react-flow__pane", {
     position: { x: 8, y: 8 },
     force: true,
   });
@@ -832,17 +722,14 @@ export async function activateMovingFreeDragMode(
 
 export async function resetViewport(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    const { gpuFlowViewportStore } = await import(
-      "/src/gpuFlow/viewportStore.ts"
-    );
-    const viewportStore = gpuFlowViewportStore.getState();
-    viewportStore.setTransform({ x: 0, y: 0, zoom: 1 });
-    viewportStore.setFitViewInitializationState({
+    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
+    useReactFlow.setState({
+      transform: [0, 0, 1],
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
     });
-    window.settaGpuFlowZoom = 1;
+    window.reactFlowZoom = 1;
   });
 }
 
@@ -910,7 +797,6 @@ export async function dragSelectTerminalMarkerRangeAndCopy({
 }): Promise<string> {
   let lastSelection = "";
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    await projectGpuSourceNodeForTest(page, terminalId);
     const start = await getTerminalMarkerCharCenter({
       page,
       terminalId,
@@ -962,7 +848,6 @@ export async function getTerminalMarkerCharCenter({
   marker: string;
   markerOffset: number;
 }): Promise<{ x: number; y: number }> {
-  await projectGpuSourceNodeForTest(page, terminalId);
   return await page.evaluate(
     ({ id, marker, markerOffset }) => {
       const embedded = document.querySelector(
@@ -970,7 +855,7 @@ export async function getTerminalMarkerCharCenter({
       );
       const container =
         embedded ??
-        document.querySelector(`.setta-gpu-flow__node[data-id="${id}"]`);
+        document.querySelector(`.react-flow__node[data-id="${id}"]`);
       if (!container) {
         throw new Error(`Missing terminal container for ${id}.`);
       }
@@ -1034,7 +919,7 @@ export async function copyTerminalSelection(
     );
     const container =
       embedded ??
-      document.querySelector(`.setta-gpu-flow__node[data-id="${id}"]`);
+      document.querySelector(`.react-flow__node[data-id="${id}"]`);
     if (!container) {
       throw new Error(`Missing terminal container for ${id}.`);
     }
@@ -1071,7 +956,7 @@ export async function expectDetachedTerminalHeaderLayout(
     .poll(async () => {
       return await page.evaluate((id) => {
         const node = document.querySelector(
-          `.setta-gpu-flow__node[data-id="${id}"]`,
+          `.react-flow__node[data-id="${id}"]`,
         );
         if (!node) {
           return "missing-node";
@@ -1109,10 +994,16 @@ export function isPointOutsideBox(
 
 export async function isTerminalDetachedInDom(
   page: Page,
-  _sectionId: string,
+  sectionId: string,
   terminalId: string,
 ): Promise<boolean> {
-  const embeddedCount = await getEmbeddedTerminalHost(page, terminalId).count();
-  const terminalNodeCount = await getGpuFlowNode(page, terminalId).count();
+  const embeddedCount = await page
+    .locator(
+      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+    )
+    .count();
+  const terminalNodeCount = await page
+    .locator(`.react-flow__node[data-id="${terminalId}"]`)
+    .count();
   return embeddedCount === 0 && terminalNodeCount > 0;
 }

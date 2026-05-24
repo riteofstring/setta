@@ -1,5 +1,4 @@
-import { clearNodesSelectionBounds } from "gpuFlow/selectionBounds";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import { useMisc, useProjectState } from "state/definitions";
@@ -141,8 +140,7 @@ export function applyActiveSectionChange(
 ): ActiveSectionControllerResult {
   const activeIds = getActiveSectionUIIds();
   const isSelectingParams = useMisc.getState().isSelectingParams;
-  const multiSelectionActive =
-    gpuFlowViewportStore.getState().multiSelectionActive;
+  const multiSelectionActive = useReactFlow.getState().multiSelectionActive;
 
   const context = buildPolicyContext(
     intent,
@@ -158,8 +156,6 @@ export function applyActiveSectionChange(
     setActiveSectionIds(decision.nextActiveIds, options);
   }
 
-  clearSingleActivationSelectionBounds(intent, decision);
-
   if (decision.updateZIndex) {
     const zIndexTargets = getZIndexTargets(intent);
     if (zIndexTargets.length > 0) {
@@ -168,17 +164,4 @@ export function applyActiveSectionChange(
   }
 
   return { ...decision, activeIdsChanged };
-}
-
-function clearSingleActivationSelectionBounds(
-  intent: ActiveSectionIntent,
-  decision: ActiveSectionPolicyResult,
-): void {
-  if (
-    intent.interaction !== "selection-rect" &&
-    decision.nextActiveIds.length <= 1 &&
-    gpuFlowViewportStore.getState().nodesSelectionBounds
-  ) {
-    clearNodesSelectionBounds();
-  }
 }

@@ -1,8 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import fs from "node:fs/promises";
 import * as XLSX from "xlsx";
 import {
-  applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
   clearProjectChatWindows,
   ensureAppReady,
@@ -13,34 +12,11 @@ import {
 import {
   applyZoomPreset,
   createTopLevelSection,
+  dragBrowserRowToTarget,
   getExpectedSpreadsheetDensityMultiplier,
   getSpreadsheetCanvasDensityMetrics,
   type RootResponse,
 } from "./section-types-data-authoring-helpers";
-
-async function setSpreadsheetFilePathFromFrontend(
-  page: Page,
-  payload: {
-    projectConfigId: string;
-    sectionId: string;
-    filePath: string;
-  },
-): Promise<void> {
-  await applyProjectMutationsFromFrontend(page, {
-    projectConfigId: payload.projectConfigId,
-    operations: [
-      {
-        operationName: "setSpreadsheetFilePath",
-        body: {
-          sectionId: payload.sectionId,
-          filePath: payload.filePath,
-          activeSheet: null,
-          frontendOpId: null,
-        },
-      },
-    ],
-  });
-}
 
 test.describe.serial("section types data authoring", () => {
   test("spreadsheet filter and sort controls render correctly in dark mode", async ({
@@ -86,10 +62,10 @@ test.describe.serial("section types data authoring", () => {
       );
 
       const spreadsheetNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${spreadsheetSectionId}"]`,
+        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
       );
       const browserNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${browserSectionId}"]`,
+        `.react-flow__node[data-id="${browserSectionId}"]`,
       );
       await expect(spreadsheetNode).toBeVisible();
       await expect(browserNode).toBeVisible();
@@ -103,15 +79,16 @@ test.describe.serial("section types data authoring", () => {
         .filter({ hasText: "pw-dark-sheet.csv" })
         .first();
       await expect(csvRow).toBeVisible({ timeout: 15000 });
-      await setSpreadsheetFilePathFromFrontend(page, {
-        projectConfigId: projectContext.projectConfigId,
-        sectionId: spreadsheetSectionId,
-        filePath: csvPath,
-      });
+      await dragBrowserRowToTarget(
+        csvRow,
+        spreadsheetNode.locator(".section-main").first(),
+      );
 
-      const filterInput = page.getByTestId("spreadsheet-filter-input");
+      const filterInput = spreadsheetNode.getByTestId(
+        "spreadsheet-filter-input",
+      );
       await expect(filterInput).toBeVisible();
-      const sortColumn = page.getByTestId("spreadsheet-sort-column");
+      const sortColumn = spreadsheetNode.getByTestId("spreadsheet-sort-column");
       await expect(sortColumn).toBeVisible();
       const pageIsDark = await page.evaluate(() =>
         document.documentElement.classList.contains("dark"),
@@ -130,7 +107,7 @@ test.describe.serial("section types data authoring", () => {
       expect(filterStyles.color).not.toBe("rgb(0, 0, 0)");
       expect(filterStyles.borderColor).not.toBe("rgb(0, 0, 0)");
 
-      const glideBgCell = await page
+      const glideBgCell = await spreadsheetNode
         .getByTestId("spreadsheet-glide-grid")
         .evaluate((element) => {
           const themedElement =
@@ -194,10 +171,10 @@ test.describe.serial("section types data authoring", () => {
       );
 
       const spreadsheetNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${spreadsheetSectionId}"]`,
+        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
       );
       const browserNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${browserSectionId}"]`,
+        `.react-flow__node[data-id="${browserSectionId}"]`,
       );
       await expect(spreadsheetNode).toBeVisible();
       await expect(browserNode).toBeVisible();
@@ -211,15 +188,18 @@ test.describe.serial("section types data authoring", () => {
         .filter({ hasText: "pw-zoom-sheet.csv" })
         .first();
       await expect(csvRow).toBeVisible({ timeout: 15000 });
-      await setSpreadsheetFilePathFromFrontend(page, {
-        projectConfigId: projectContext.projectConfigId,
-        sectionId: spreadsheetSectionId,
-        filePath: csvPath,
-      });
+      await dragBrowserRowToTarget(
+        csvRow,
+        spreadsheetNode.locator(".section-main").first(),
+      );
 
-      const spreadsheetGrid = page.getByTestId("spreadsheet-glide-grid");
+      const spreadsheetGrid = spreadsheetNode.getByTestId(
+        "spreadsheet-glide-grid",
+      );
       await expect(spreadsheetGrid).toBeVisible();
-      await expect(page.getByText("4 rows · 2 columns")).toBeVisible();
+      await expect(
+        spreadsheetNode.getByText("4 rows · 2 columns"),
+      ).toBeVisible();
 
       const zoomPresets = [
         { label: "zoom-out-6", zoomOutClicks: 6, zoomInClicks: 0 },
@@ -245,7 +225,7 @@ test.describe.serial("section types data authoring", () => {
           preset.zoomInClicks,
         );
         const metrics =
-          await getSpreadsheetCanvasDensityMetrics(page.locator("body"));
+          await getSpreadsheetCanvasDensityMetrics(spreadsheetNode);
         samples.push({
           label: preset.label,
           zoom,
@@ -259,7 +239,7 @@ test.describe.serial("section types data authoring", () => {
         });
 
         await testInfo.attach(`spreadsheet-${preset.label}.png`, {
-          body: await spreadsheetGrid.screenshot(),
+          body: await spreadsheetNode.screenshot(),
           contentType: "image/png",
         });
       }
@@ -330,18 +310,14 @@ test.describe.serial("section types data authoring", () => {
         sortedByZoom[1]?.effectiveFontPx ?? 0,
         `effectiveFontPxByZoom=${effectiveFontDebug}`,
       ).toBeLessThan(sortedByZoom[2]?.effectiveFontPx ?? 0);
-      const resetEffectiveFontPx = sortedByZoom[2]?.effectiveFontPx ?? 0;
-      expect(resetEffectiveFontPx).toBeGreaterThan(0);
-      for (const sample of sortedByZoom.slice(2)) {
-        expect(
-          sample.effectiveFontPx,
-          `effectiveFontPxByZoom=${effectiveFontDebug}`,
-        ).toBeGreaterThanOrEqual(resetEffectiveFontPx * 0.95);
-        expect(
-          sample.effectiveFontPx,
-          `effectiveFontPxByZoom=${effectiveFontDebug}`,
-        ).toBeLessThanOrEqual(resetEffectiveFontPx * 1.05);
-      }
+      expect(
+        sortedByZoom[2]?.effectiveFontPx ?? 0,
+        `effectiveFontPxByZoom=${effectiveFontDebug}`,
+      ).toBeLessThan(sortedByZoom[3]?.effectiveFontPx ?? 0);
+      expect(
+        sortedByZoom[3]?.effectiveFontPx ?? 0,
+        `effectiveFontPxByZoom=${effectiveFontDebug}`,
+      ).toBeLessThan(sortedByZoom[4]?.effectiveFontPx ?? 0);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
@@ -397,7 +373,7 @@ test.describe.serial("section types data authoring", () => {
       await fs.writeFile(xlsxPath, xlsxBytes);
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".setta-gpu-flow__pane");
+      await page.waitForSelector(".react-flow__pane");
 
       const listPane = page.getByTestId("file-browser-list-pane");
       const previewPane = page.getByTestId("file-browser-preview-pane");

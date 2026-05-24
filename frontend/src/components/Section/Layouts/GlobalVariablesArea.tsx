@@ -3,27 +3,13 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 
-function _GlobalVariablesArea({
-  sectionId,
-  bgColor,
-  renderParamRows = true,
-  trackMeasuredHeight = true,
-}: {
-  sectionId: string;
-  bgColor: string;
-  renderParamRows?: boolean;
-  trackMeasuredHeight?: boolean;
-}) {
+function _GlobalVariablesArea({ sectionId, bgColor }) {
   return (
     <>
-      <KwargsControls
-        sectionId={sectionId}
-        trackMeasuredHeight={trackMeasuredHeight}
-      />
+      <KwargsControls sectionId={sectionId} />
       <ParamGroupContainer
         sectionId={sectionId}
         bgColor={bgColor}
-        renderParamRows={renderParamRows}
         sectionTypeName={SectionTypeEnum.GlobalVariables}
       />
     </>

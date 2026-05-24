@@ -25,7 +25,7 @@ test("project chat floating windows keep titlebar and minimum visibility guardra
 
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);
@@ -153,7 +153,7 @@ test("project chat floating drag shows snap ghost zones and snaps to quarter/hal
 
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);
@@ -268,7 +268,7 @@ test("project chat dragging a snapped window restores its previous floating size
 
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);
@@ -341,7 +341,7 @@ test("project chat dragging a snapped window with no prior floating bounds falls
 
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const created = await page.evaluate(async () => {
@@ -350,7 +350,7 @@ test("project chat dragging a snapped window with no prior floating bounds falls
         import("/src/utils/generatedTypes.ts"),
         import("/src/components/ChatWindowing/projectChatSnapLayout.ts"),
       ]);
-      const pane = document.querySelector(".setta-gpu-flow__pane");
+      const pane = document.querySelector(".react-flow__pane");
       const workspaceTopInsetPx =
         pane instanceof HTMLElement ? pane.getBoundingClientRect().top : 40;
       const viewModeTabs = document.querySelector(
@@ -462,7 +462,7 @@ test("project chat snapped quad layout keeps snap mode while shared split handle
 
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const snapTargets = [
@@ -480,7 +480,7 @@ test("project chat snapped quad layout keeps snap mode while shared split handle
             import("/src/utils/generatedTypes.ts"),
             import("/src/components/ChatWindowing/projectChatSnapLayout.ts"),
           ]);
-        const pane = document.querySelector(".setta-gpu-flow__pane");
+        const pane = document.querySelector(".react-flow__pane");
         const viewModeTabs = document.querySelector(
           '[data-testid="view-mode-tabs-bar"]',
         );

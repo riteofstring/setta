@@ -593,6 +593,9 @@ func addSettingsCodeObject(
 		case settingsValueIsHexColor(value):
 			implType = "ColorPickerParam"
 			payload["type"] = implType
+		case settingsValueIsStructuredScalar(value):
+			implType = "TextAreaParam"
+			payload["type"] = implType
 		case settingsValueIsBool(value):
 			implType = "SwitchParam"
 			payload["type"] = implType
@@ -826,6 +829,15 @@ func orderedSettingsObjectKeys(object map[string]any) []string {
 func settingsValueIsBool(value any) bool {
 	_, ok := value.(bool)
 	return ok
+}
+
+func settingsValueIsStructuredScalar(value any) bool {
+	switch value.(type) {
+	case nil, []any:
+		return true
+	default:
+		return false
+	}
 }
 
 func settingsValueIsHexColor(value any) bool {

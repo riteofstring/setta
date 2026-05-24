@@ -11,3 +11,7 @@ def resolve_setta_home(*, allow_env_override: bool = True) -> Path:
         allow_env_non_files_overrides=allow_env_override,
         allow_profile_env_overrides=False,
     ).setta_home
+
+
+def resolve_setta_user_config_path(*, setta_home: Path | None = None) -> Path:
+    return (setta_home or resolve_setta_home()) / "config.json"

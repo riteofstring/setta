@@ -22,6 +22,15 @@ const (
 	runtimeManagedFrontendPackagedDeployment
 )
 
+// EnsureRuntimeManagedPluginFrontendAssetsForRoot materializes required frontend
+// bundle assets for runtime-managed plugins that own their frontend build path.
+func EnsureRuntimeManagedPluginFrontendAssetsForRoot(pluginRoot string) error {
+	return ensureRuntimeManagedPluginFrontendAssetsForRootWithMode(
+		pluginRoot,
+		runtimeManagedFrontendSourceBuild,
+	)
+}
+
 func ensureRuntimeManagedPluginFrontendAssetsForRootWithMode(
 	pluginRoot string,
 	mode runtimeManagedFrontendAssetMode,

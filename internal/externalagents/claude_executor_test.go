@@ -168,8 +168,8 @@ func TestClaudeExecutorGeneratesTempMCPConfigWhenMissing(t *testing.T) {
 	if statuses[0].ServerID != mcpx.DefaultServerID {
 		t.Fatalf("expected generated MCP status for %q, got %#v", mcpx.DefaultServerID, statuses)
 	}
-	if statuses[0].Transport != mcpx.TransportStreamableHTTP {
-		t.Fatalf("expected generated MCP transport streamable_http, got %#v", statuses[0])
+	if statuses[0].Transport != mcpx.TransportSSE {
+		t.Fatalf("expected generated MCP transport sse, got %#v", statuses[0])
 	}
 	if statuses[0].Endpoint != fixture.executor.settaServerURL {
 		t.Fatalf("expected generated MCP endpoint %q, got %#v", fixture.executor.settaServerURL, statuses[0])
@@ -612,8 +612,8 @@ func assertClaudePersistedMCPStatuses(t *testing.T, statuses []mcpx.ServerRuntim
 	if got := statuses[1].ServerID; got != mcpx.DefaultServerID {
 		t.Fatalf("unexpected generated claude status server id %q", got)
 	}
-	if statuses[1].Transport != mcpx.TransportStreamableHTTP {
-		t.Fatalf("expected generated claude status transport streamable_http, got %#v", statuses[1])
+	if statuses[1].Transport != mcpx.TransportSSE {
+		t.Fatalf("expected generated claude status transport sse, got %#v", statuses[1])
 	}
 	if statuses[1].Endpoint != settaServerURL {
 		t.Fatalf("expected generated claude status endpoint %q, got %#v", settaServerURL, statuses[1])

@@ -12,8 +12,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 type CapturedParamUIProps = {
   onChange: (value: unknown, options?: { skipBackendUpdate?: boolean }) => void;
-  onTextInputActivity?: () => void;
-  onTextInputBlur?: () => void;
   onDropzoneStateless?: (
     attachments: Array<
       | {
@@ -33,7 +31,6 @@ type CapturedParamUIProps = {
     >,
   ) => void;
   onRevealPassword?: () => void;
-  tooltipParentDivId?: string | null;
 };
 
 const mocks = vi.hoisted(() => ({
@@ -66,12 +63,6 @@ const mocks = vi.hoisted(() => ({
       return send?.("frontend-op-1");
     },
   ),
-  dispatchOptimisticProjectStateUpdateWithResultMock: vi.fn((args: object) => ({
-    opId: "frontend-op-1",
-    result: Promise.resolve(
-      mocks.dispatchOptimisticProjectStateUpdateMock(args),
-    ),
-  })),
   getPasswordParamValueMock: vi.fn((args: object) => ({
     args,
     route: "getPasswordParamValue",
@@ -127,8 +118,6 @@ vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
 vi.mock("state/actions/sectionInfos", () => ({
   dispatchOptimisticProjectStateUpdate:
     mocks.dispatchOptimisticProjectStateUpdateMock,
-  dispatchOptimisticProjectStateUpdateWithResult:
-    mocks.dispatchOptimisticProjectStateUpdateWithResultMock,
   getCurrCodeObjVariantIfPresent: () => {
     if (!mocks.previewParamState?.codeObjVariantId) {
       return null;
@@ -231,7 +220,6 @@ describe("ParamInput", () => {
     mocks.callOpenAPIMock.mockClear();
     mocks.currentLocalValue = null;
     mocks.dispatchOptimisticProjectStateUpdateMock.mockClear();
-    mocks.dispatchOptimisticProjectStateUpdateWithResultMock.mockClear();
     mocks.getPasswordParamValueMock.mockClear();
     mocks.lastParamUIProps = null;
     mocks.pendingValues = [];
@@ -265,17 +253,10 @@ describe("ParamInput", () => {
     try {
       await act(async () => {
         requireParamUIProps().onChange("next value");
-        vi.advanceTimersByTime(1_499);
+        vi.advanceTimersByTime(60);
         await Promise.resolve();
       });
-      expect(
-        mocks.dispatchOptimisticProjectStateUpdateMock,
-      ).not.toHaveBeenCalled();
 
-      await act(async () => {
-        vi.advanceTimersByTime(1);
-        await Promise.resolve();
-      });
       expect(mocks.pendingValues).toEqual(["next value"]);
       expect(
         mocks.dispatchOptimisticProjectStateUpdateMock,
@@ -298,126 +279,6 @@ describe("ParamInput", () => {
           value: "next value",
         },
       });
-    } finally {
-      await cleanupRenderedParamInput(rendered);
-    }
-  });
-
-  it("persists only the latest text param value after the idle window", async () => {
-    const rendered = await renderParamInput();
-
-    try {
-      await act(async () => {
-        requireParamUIProps().onChange("n");
-        vi.advanceTimersByTime(750);
-        requireParamUIProps().onChange("next");
-        vi.advanceTimersByTime(1_499);
-        await Promise.resolve();
-      });
-      expect(
-        mocks.dispatchOptimisticProjectStateUpdateMock,
-      ).not.toHaveBeenCalled();
-
-      await act(async () => {
-        vi.advanceTimersByTime(1);
-        await Promise.resolve();
-      });
-
-      expect(mocks.pendingValues).toEqual(["n", "next"]);
-      expect(
-        mocks.dispatchOptimisticProjectStateUpdateMock,
-      ).toHaveBeenCalledTimes(1);
-      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
-        body: {
-          frontendOpId: "frontend-op-1",
-          paramInfoId: "param-1",
-          projectConfigId: "project-config-1",
-          sectionId: "section-1",
-          sectionVariantId: "section-variant-1",
-          value: "next",
-        },
-      });
-    } finally {
-      await cleanupRenderedParamInput(rendered);
-    }
-  });
-
-  it("keeps pending text param persistence alive across editor selection activity", async () => {
-    const rendered = await renderParamInput();
-
-    try {
-      await act(async () => {
-        requireParamUIProps().onChange("next");
-        vi.advanceTimersByTime(1_000);
-        requireParamUIProps().onTextInputActivity?.();
-        vi.advanceTimersByTime(1_499);
-        await Promise.resolve();
-      });
-      expect(
-        mocks.dispatchOptimisticProjectStateUpdateMock,
-      ).not.toHaveBeenCalled();
-
-      await act(async () => {
-        vi.advanceTimersByTime(1);
-        await Promise.resolve();
-      });
-
-      expect(
-        mocks.dispatchOptimisticProjectStateUpdateMock,
-      ).toHaveBeenCalledTimes(1);
-      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
-        body: {
-          frontendOpId: "frontend-op-1",
-          paramInfoId: "param-1",
-          projectConfigId: "project-config-1",
-          sectionId: "section-1",
-          sectionVariantId: "section-variant-1",
-          value: "next",
-        },
-      });
-    } finally {
-      await cleanupRenderedParamInput(rendered);
-    }
-  });
-
-  it("flushes a pending text param value on blur", async () => {
-    const rendered = await renderParamInput();
-
-    try {
-      await act(async () => {
-        requireParamUIProps().onChange("blurred");
-        vi.advanceTimersByTime(50);
-        requireParamUIProps().onTextInputBlur?.();
-        await Promise.resolve();
-      });
-
-      expect(
-        mocks.dispatchOptimisticProjectStateUpdateMock,
-      ).toHaveBeenCalledTimes(1);
-      expect(mocks.setParamEnteredValueMock).toHaveBeenCalledWith({
-        body: {
-          frontendOpId: "frontend-op-1",
-          paramInfoId: "param-1",
-          projectConfigId: "project-config-1",
-          sectionId: "section-1",
-          sectionVariantId: "section-variant-1",
-          value: "blurred",
-        },
-      });
-    } finally {
-      await cleanupRenderedParamInput(rendered);
-    }
-  });
-
-  it("passes the CodeMirror tooltip parent override to ParamUI", async () => {
-    const rendered = await renderParamInput({
-      tooltipParentDivId: "retained-codemirror-tooltips",
-    });
-
-    try {
-      expect(requireParamUIProps().tooltipParentDivId).toBe(
-        "retained-codemirror-tooltips",
-      );
     } finally {
       await cleanupRenderedParamInput(rendered);
     }

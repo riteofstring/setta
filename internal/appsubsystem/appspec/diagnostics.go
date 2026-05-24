@@ -482,3 +482,817 @@ type validationStackEntry struct {
 	element       map[string]any
 	scopeConfigID *string
 }
+
+func collectValidationIssue(message string, elementKey string, elementType string) AppValidationIssue {
+	issue := AppValidationIssue{Message: message}
+	if strings.TrimSpace(elementKey) != "" {
+		issue.ElementKey = elementKey
+	}
+	if strings.TrimSpace(elementType) != "" {
+		issue.ElementType = elementType
+	}
+	return issue
+}
+
+func collectElementProps(elementKey string, element map[string]any, elementType string, issues *[]AppValidationIssue) map[string]any {
+	rawProps, ok := element["props"]
+	if !ok || rawProps == nil {
+		return map[string]any{}
+	}
+	props, ok := rawProps.(map[string]any)
+	if !ok {
+		*issues = append(*issues, collectValidationIssue(
+			"App spec element "+quote(elementKey)+" props must be an object.",
+			elementKey,
+			elementType,
+		))
+		return map[string]any{}
+	}
+	return props
+}
+
+func collectValidateChildrenAgainstCatalog(
+	elementKey string,
+	componentType string,
+	componentSchema ComponentSchema,
+	element map[string]any,
+	issues *[]AppValidationIssue,
+) {
+	if componentSchema.Children {
+		return
+	}
+	if _, ok := element["children"]; !ok {
+		return
+	}
+	*issues = append(*issues, collectValidationIssue(
+		"App spec element "+quote(elementKey)+" cannot have children (component "+quote(componentType)+" is childless).",
+		elementKey,
+		componentType,
+	))
+}
+
+func collectValidatePropsAgainstCatalog(
+	elementKey string,
+	componentType string,
+	componentSchema ComponentSchema,
+	props map[string]any,
+	binding map[string]any,
+	issues *[]AppValidationIssue,
+) {
+	collectProvidedPropIssues(elementKey, componentType, componentSchema, props, issues)
+	collectRequiredPropIssues(elementKey, componentType, componentSchema, props, binding, issues)
+}
+
+func collectProvidedPropIssues(
+	elementKey string,
+	componentType string,
+	componentSchema ComponentSchema,
+	props map[string]any,
+	issues *[]AppValidationIssue,
+) {
+	for propKey, propValue := range props {
+		propSchema, ok := componentSchema.Props[propKey]
+		if !ok {
+			*issues = append(*issues, collectValidationIssue(
+				"App spec element "+quote(elementKey)+" has unknown prop "+quote(propKey)+" for component "+quote(componentType)+".",
+				elementKey,
+				componentType,
+			))
+			continue
+		}
+		if err := validatePropValue(elementKey, componentType, propKey, propValue, propSchema); err != nil {
+			*issues = append(*issues, collectValidationIssue(err.Error(), elementKey, componentType))
+		}
+	}
+}
+
+func collectRequiredPropIssues(
+	elementKey string,
+	componentType string,
+	componentSchema ComponentSchema,
+	props map[string]any,
+	binding map[string]any,
+	issues *[]AppValidationIssue,
+) {
+	for _, propKey := range orderedComponentPropKeys(componentSchema) {
+		propSchema := componentSchema.Props[propKey]
+		if !propSchema.Required {
+			continue
+		}
+		collectRequiredPropIssue(elementKey, componentType, propKey, propSchema, props, binding, issues)
+	}
+}
+
+func collectRequiredPropIssue(
+	elementKey string,
+	componentType string,
+	propKey string,
+	propSchema PropSchema,
+	props map[string]any,
+	binding map[string]any,
+	issues *[]AppValidationIssue,
+) {
+	valueState := resolveRequiredCatalogPropValue(props, binding, propKey)
+	if !valueState.present {
+		appendMissingRequiredPropIssue(elementKey, componentType, propKey, issues)
+		return
+	}
+	if valueState.fromBinding {
+		if err := validatePropValue(elementKey, componentType, propKey, valueState.value, propSchema); err != nil {
+			*issues = append(*issues, collectValidationIssue(err.Error(), elementKey, componentType))
+		}
+	}
+	if isMissingRequiredValue(valueState.value) {
+		appendMissingRequiredPropIssue(elementKey, componentType, propKey, issues)
+	}
+}
+
+func appendMissingRequiredPropIssue(
+	elementKey string,
+	componentType string,
+	propKey string,
+	issues *[]AppValidationIssue,
+) {
+	*issues = append(*issues, collectValidationIssue(
+		missingRequiredPropError(elementKey, componentType, propKey).Error(),
+		elementKey,
+		componentType,
+	))
+}
+
+func collectPushChildren(
+	elementKey string,
+	element map[string]any,
+	elements map[string]map[string]any,
+	scopeConfigID *string,
+	elementType string,
+	issues *[]AppValidationIssue,
+	stack *[]validationStackEntry,
+) {
+	rawChildren, ok := element["children"]
+	if !ok || rawChildren == nil {
+		return
+	}
+	children, ok := rawChildren.([]any)
+	if !ok {
+		*issues = append(*issues, collectValidationIssue(
+			"App spec element "+quote(elementKey)+" children must be a list.",
+			elementKey,
+			elementType,
+		))
+		return
+	}
+
+	for _, child := range children {
+		switch typed := child.(type) {
+		case string:
+			childElement, ok := elements[typed]
+			if !ok {
+				*issues = append(*issues, collectValidationIssue(
+					"App spec element "+quote(elementKey)+" references missing child "+quote(typed)+".",
+					elementKey,
+					elementType,
+				))
+				continue
+			}
+			*stack = append(*stack, validationStackEntry{element: childElement, scopeConfigID: scopeConfigID})
+		case map[string]any:
+			if !isUIElement(typed) {
+				*issues = append(*issues, collectValidationIssue(
+					"App spec element "+quote(elementKey)+" children must be element keys or objects.",
+					elementKey,
+					elementType,
+				))
+				continue
+			}
+			*stack = append(*stack, validationStackEntry{element: typed, scopeConfigID: scopeConfigID})
+		default:
+			*issues = append(*issues, collectValidationIssue(
+				"App spec element "+quote(elementKey)+" children must be element keys or objects.",
+				elementKey,
+				elementType,
+			))
+		}
+	}
+}
+
+func previewSorted(values []string, limit int) (string, string) {
+	if len(values) == 0 {
+		return "", ""
+	}
+	sortedValues := append([]string(nil), values...)
+	sort.Strings(sortedValues)
+	if limit <= 0 || limit > len(sortedValues) {
+		limit = len(sortedValues)
+	}
+	preview := strings.Join(sortedValues[:limit], ", ")
+	suffix := ""
+	if len(sortedValues) > limit {
+		suffix = " ..."
+	}
+	return preview, suffix
+}
+
+func collectThemeColorIssues(raw any, warnings *[]AppValidationIssue) []AppValidationIssue {
+	if raw == nil {
+		return nil
+	}
+	themeColors, ok := raw.(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{Message: "theme.colors must be an object."}}
+	}
+	if !themeColorsUseVariants(themeColors) {
+		return collectThemeColorMapIssues(themeColors, "theme.colors", warnings)
+	}
+	warnUnknownThemeColorVariants(themeColors, warnings)
+	return collectThemeColorVariantIssues(themeColors, warnings)
+}
+
+func themeColorsUseVariants(themeColors map[string]any) bool {
+	return hasMapKey(themeColors, "light") || hasMapKey(themeColors, "dark")
+}
+
+func warnUnknownThemeColorVariants(themeColors map[string]any, warnings *[]AppValidationIssue) {
+	extraVariantKeys := make([]string, 0)
+	for key := range themeColors {
+		if key != "light" && key != "dark" {
+			extraVariantKeys = append(extraVariantKeys, key)
+		}
+	}
+	if len(extraVariantKeys) == 0 {
+		return
+	}
+	preview, suffix := previewSorted(extraVariantKeys, 6)
+	*warnings = append(*warnings, AppValidationIssue{
+		Message: "theme.colors contains unknown keys and they will be ignored: " + preview + suffix,
+	})
+}
+
+func collectThemeColorVariantIssues(themeColors map[string]any, warnings *[]AppValidationIssue) []AppValidationIssue {
+	errors := make([]AppValidationIssue, 0)
+	for _, variantName := range []string{"light", "dark"} {
+		if !hasMapKey(themeColors, variantName) {
+			continue
+		}
+		errors = append(errors, collectSingleThemeColorVariantIssues(themeColors[variantName], variantName, warnings)...)
+	}
+	return errors
+}
+
+func collectSingleThemeColorVariantIssues(raw any, variantName string, warnings *[]AppValidationIssue) []AppValidationIssue {
+	variant, ok := raw.(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{
+			Message: "theme.colors." + variantName + " must be an object.",
+		}}
+	}
+	return collectThemeColorMapIssues(variant, "theme.colors."+variantName, warnings)
+}
+
+func collectThemeColorMapIssues(raw map[string]any, prefix string, warnings *[]AppValidationIssue) []AppValidationIssue {
+	unknown := unknownMapKeys(raw, themeColorKeys)
+	if len(unknown) > 0 {
+		preview, suffix := previewSorted(unknown, 6)
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: prefix + " contains unknown keys and they will be ignored: " + preview + suffix,
+		})
+	}
+
+	errors := make([]AppValidationIssue, 0)
+	for key := range themeColorKeys {
+		if !hasMapKey(raw, key) {
+			continue
+		}
+		if _, ok := raw[key].(string); !ok {
+			errors = append(errors, AppValidationIssue{
+				Message: prefix + "." + key + " must be a string.",
+			})
+		}
+	}
+	return errors
+}
+
+func collectThemeFontIssues(raw any, warnings *[]AppValidationIssue) []AppValidationIssue {
+	if raw == nil {
+		return nil
+	}
+	fonts, ok := raw.(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{Message: "theme.fonts must be an object."}}
+	}
+
+	unknown := unknownMapKeys(fonts, themeFontKeys)
+	if len(unknown) > 0 {
+		preview, suffix := previewSorted(unknown, 6)
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: "theme.fonts contains unknown keys and they will be ignored: " + preview + suffix,
+		})
+	}
+
+	errors := make([]AppValidationIssue, 0)
+	for key := range themeFontKeys {
+		if !hasMapKey(fonts, key) {
+			continue
+		}
+		if _, ok := fonts[key].(string); !ok {
+			errors = append(errors, AppValidationIssue{
+				Message: "theme.fonts." + key + " must be a string.",
+			})
+		}
+	}
+	return errors
+}
+
+func collectThemeTypographyIssues(raw any, warnings *[]AppValidationIssue) []AppValidationIssue {
+	if raw == nil {
+		return nil
+	}
+	typography, ok := raw.(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{Message: "theme.typography must be an object."}}
+	}
+
+	unknown := unknownMapKeys(typography, themeTypographyKeys)
+	if len(unknown) > 0 {
+		preview, suffix := previewSorted(unknown, 6)
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: "theme.typography contains unknown keys and they will be ignored: " + preview + suffix,
+		})
+	}
+
+	errors := collectThemeStringOrNumberIssues(
+		typography,
+		[]string{"bodySize", "bodyLineHeight", "headingLineHeight"},
+		"theme.typography",
+	)
+	errors = append(errors, collectThemeOptionalStringOrNumberMapIssues(
+		typography,
+		"headingSizes",
+		themeHeadingSizeKeys,
+		"theme.typography.headingSizes",
+		warnings,
+	)...)
+	errors = append(errors, collectThemeOptionalStringOrNumberMapIssues(
+		typography,
+		"scale",
+		themeTextScaleKeys,
+		"theme.typography.scale",
+		warnings,
+	)...)
+	return errors
+}
+
+func collectThemeStringOrNumberIssues(values map[string]any, keys []string, prefix string) []AppValidationIssue {
+	errors := make([]AppValidationIssue, 0)
+	for _, key := range keys {
+		if !hasMapKey(values, key) {
+			continue
+		}
+		if !isStringOrNumber(values[key]) {
+			errors = append(errors, AppValidationIssue{
+				Message: prefix + "." + key + " must be a number or string.",
+			})
+		}
+	}
+	return errors
+}
+
+func collectThemeOptionalStringOrNumberMapIssues(
+	values map[string]any,
+	key string,
+	allowed map[string]struct{},
+	prefix string,
+	warnings *[]AppValidationIssue,
+) []AppValidationIssue {
+	if !hasMapKey(values, key) {
+		return nil
+	}
+	entries, ok := values[key].(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{
+			Message: prefix + " must be an object.",
+		}}
+	}
+
+	unknown := unknownMapKeys(entries, allowed)
+	if len(unknown) > 0 {
+		preview, suffix := previewSorted(unknown, 6)
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: prefix + " contains unknown keys and they will be ignored: " + preview + suffix,
+		})
+	}
+
+	errors := make([]AppValidationIssue, 0)
+	for allowedKey := range allowed {
+		if !hasMapKey(entries, allowedKey) {
+			continue
+		}
+		if !isStringOrNumber(entries[allowedKey]) {
+			errors = append(errors, AppValidationIssue{
+				Message: prefix + "." + allowedKey + " must be a number or string.",
+			})
+		}
+	}
+	return errors
+}
+
+func collectThemeSpacingIssues(raw any, warnings *[]AppValidationIssue) []AppValidationIssue {
+	if raw == nil {
+		return nil
+	}
+	spacing, ok := raw.(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{Message: "theme.spacing must be an object."}}
+	}
+
+	unknown := unknownMapKeys(spacing, themeSpacingKeys)
+	if len(unknown) > 0 {
+		preview, suffix := previewSorted(unknown, 6)
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: "theme.spacing contains unknown keys and they will be ignored: " + preview + suffix,
+		})
+	}
+
+	errors := make([]AppValidationIssue, 0)
+	for key := range themeSpacingKeys {
+		if !hasMapKey(spacing, key) {
+			continue
+		}
+		if !isStringOrNumber(spacing[key]) {
+			errors = append(errors, AppValidationIssue{
+				Message: "theme.spacing." + key + " must be a number or string.",
+			})
+		}
+	}
+	return errors
+}
+
+func collectThemeVarIssues(raw any, warnings *[]AppValidationIssue) []AppValidationIssue {
+	if raw == nil {
+		return nil
+	}
+	vars, ok := raw.(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{Message: "theme.vars must be an object."}}
+	}
+
+	invalidNamespace := make([]string, 0)
+	for key := range vars {
+		if !strings.HasPrefix(key, "--app-") {
+			invalidNamespace = append(invalidNamespace, key)
+		}
+	}
+	if len(invalidNamespace) > 0 {
+		preview, suffix := previewSorted(invalidNamespace, 6)
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: "theme.vars contains keys that do not start with '--app-' and will be ignored: " + preview + suffix,
+		})
+	}
+
+	for key, value := range vars {
+		if !strings.HasPrefix(key, "--app-") {
+			continue
+		}
+		if _, ok := value.(string); ok {
+			continue
+		}
+		if _, ok := asNumber(value); ok {
+			continue
+		}
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: "theme.vars " + key + " must be a string or number and will be ignored.",
+		})
+	}
+	return nil
+}
+
+func collectThemeMotionIssues(raw any, warnings *[]AppValidationIssue) []AppValidationIssue {
+	if raw == nil {
+		return nil
+	}
+	motion, ok := raw.(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{Message: "theme.motion must be an object."}}
+	}
+
+	unknown := unknownMapKeys(motion, themeMotionKeys)
+	if len(unknown) > 0 {
+		preview, suffix := previewSorted(unknown, 6)
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: "theme.motion contains unknown keys and they will be ignored: " + preview + suffix,
+		})
+	}
+
+	errors := make([]AppValidationIssue, 0)
+	for _, key := range []string{"durationMs", "delayMs", "staggerMs"} {
+		if !hasMapKey(motion, key) {
+			continue
+		}
+		if _, ok := asNumber(motion[key]); !ok {
+			errors = append(errors, AppValidationIssue{
+				Message: "theme.motion." + key + " must be a number.",
+			})
+		}
+	}
+	if easing, ok := motion["easing"]; ok {
+		if _, ok := easing.(string); !ok {
+			errors = append(errors, AppValidationIssue{Message: "theme.motion.easing must be a string."})
+		}
+	}
+	return errors
+}
+
+func collectThemeShadowIssues(raw any, warnings *[]AppValidationIssue) []AppValidationIssue {
+	if raw == nil {
+		return nil
+	}
+	shadows, ok := raw.(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{Message: "theme.shadows must be an object."}}
+	}
+
+	unknown := unknownMapKeys(shadows, themeShadowKeys)
+	if len(unknown) > 0 {
+		preview, suffix := previewSorted(unknown, 6)
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: "theme.shadows contains unknown keys and they will be ignored: " + preview + suffix,
+		})
+	}
+
+	errors := make([]AppValidationIssue, 0)
+	for key := range themeShadowKeys {
+		if !hasMapKey(shadows, key) {
+			continue
+		}
+		if _, ok := shadows[key].(string); !ok {
+			errors = append(errors, AppValidationIssue{
+				Message: "theme.shadows." + key + " must be a string.",
+			})
+		}
+	}
+	return errors
+}
+
+func collectThemeComponentIssues(raw any, warnings *[]AppValidationIssue) []AppValidationIssue {
+	if raw == nil {
+		return nil
+	}
+	components, ok := raw.(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{Message: "theme.components must be an object."}}
+	}
+
+	unknown := unknownMapKeys(components, themeComponentKeys)
+	if len(unknown) > 0 {
+		preview, suffix := previewSorted(unknown, 6)
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: "theme.components contains unknown keys and they will be ignored: " + preview + suffix,
+		})
+	}
+
+	errors := make([]AppValidationIssue, 0)
+	errors = append(errors, collectThemeComponentTokenBlock(components, "button", themeButtonTokenKeys, warnings)...)
+	errors = append(errors, collectThemeComponentTokenBlock(components, "input", themeInputTokenKeys, warnings)...)
+	errors = append(errors, collectThemeComponentTokenBlock(components, "dropdown", themeDropdownTokenKeys, warnings)...)
+	errors = append(errors, collectThemeComponentTokenBlock(components, "card", themeCardTokenKeys, warnings)...)
+	errors = append(errors, collectThemeComponentTokenBlock(components, "page", themePageTokenKeys, warnings)...)
+	return errors
+}
+
+func collectThemeComponentTokenBlock(
+	components map[string]any,
+	component string,
+	tokenKeys map[string]struct{},
+	warnings *[]AppValidationIssue,
+) []AppValidationIssue {
+	if !hasMapKey(components, component) {
+		return nil
+	}
+
+	prefix := "theme.components." + component
+	value, ok := components[component].(map[string]any)
+	if !ok {
+		return []AppValidationIssue{{Message: prefix + " must be an object."}}
+	}
+
+	unknown := unknownMapKeys(value, tokenKeys)
+	if len(unknown) > 0 {
+		preview, suffix := previewSorted(unknown, 6)
+		*warnings = append(*warnings, AppValidationIssue{
+			Message: prefix + " contains unknown keys and they will be ignored: " + preview + suffix,
+		})
+	}
+
+	errors := make([]AppValidationIssue, 0)
+	for key := range tokenKeys {
+		if !hasMapKey(value, key) {
+			continue
+		}
+		if _, ok := value[key].(string); !ok {
+			errors = append(errors, AppValidationIssue{
+				Message: prefix + "." + key + " must be a string.",
+			})
+		}
+	}
+	return errors
+}
+
+func collectAssetWarnings(assets []any) []AppValidationIssue {
+	if len(assets) == 0 {
+		return nil
+	}
+
+	external := make([]string, 0)
+	for _, asset := range assets {
+		href := resolveAssetHref(asset)
+		if href == "" {
+			continue
+		}
+		if isExternalHref(href) {
+			external = append(external, href)
+		}
+	}
+	if len(external) == 0 {
+		return nil
+	}
+
+	sort.Strings(external)
+	previewLimit := 3
+	if len(external) < previewLimit {
+		previewLimit = len(external)
+	}
+	preview := strings.Join(external[:previewLimit], ", ")
+	suffix := ""
+	if len(external) > previewLimit {
+		suffix = " ..."
+	}
+	return []AppValidationIssue{{
+		Message: "assets includes external URLs which will be filtered when external links are disallowed: " + preview + suffix,
+	}}
+}
+
+func collectActionWarnings(appSpec any, definition Definition) []AppValidationIssue {
+	elements, ok := iterAppElements(appSpec)
+	if !ok {
+		return nil
+	}
+
+	warnings := make([]AppValidationIssue, 0)
+	for _, element := range elements {
+		elementType, _ := element["type"].(string)
+		if elementType != "ActionButton" {
+			continue
+		}
+
+		props, err := elementProps(element)
+		if err != nil {
+			continue
+		}
+		binding := resolveBindingRecord(definition.DataBindings, getDataPath(props))
+		actionName := resolveActionName(props, binding)
+		if actionName == "" {
+			continue
+		}
+		actionType := resolveActionType(actionName, definition.ActionMap[actionName])
+		if actionType != "run" {
+			continue
+		}
+
+		sectionID := getPropString(props, "sectionId")
+		if sectionID == "" {
+			sectionID = resolveBindingString(binding, "sectionId")
+		}
+		if strings.TrimSpace(sectionID) != "" {
+			continue
+		}
+
+		key, _ := element["key"].(string)
+		warnings = append(warnings, AppValidationIssue{
+			Message:     "Run ActionButton is missing sectionId.",
+			ElementKey:  key,
+			ElementType: "ActionButton",
+		})
+	}
+
+	return warnings
+}
+
+func iterAppElements(appSpec any) ([]map[string]any, bool) {
+	rootElement, elements, err := resolveAppSpec(appSpec)
+	if err != nil {
+		return nil, false
+	}
+
+	iterator := appElementIterator{
+		elements: elements,
+		stack:    []map[string]any{rootElement},
+		visited:  map[string]struct{}{},
+		output:   make([]map[string]any, 0),
+	}
+	return iterator.collect(), true
+}
+
+type appElementIterator struct {
+	elements map[string]map[string]any
+	stack    []map[string]any
+	visited  map[string]struct{}
+	output   []map[string]any
+}
+
+func (i *appElementIterator) collect() []map[string]any {
+	for len(i.stack) > 0 {
+		element := i.stack[len(i.stack)-1]
+		i.stack = i.stack[:len(i.stack)-1]
+		if !i.record(element) {
+			continue
+		}
+		i.pushChildren(element)
+	}
+	return i.output
+}
+
+func (i *appElementIterator) record(element map[string]any) bool {
+	keyValue, ok := element["key"].(string)
+	if !ok {
+		return false
+	}
+	if _, ok := i.visited[keyValue]; ok {
+		return false
+	}
+	i.visited[keyValue] = struct{}{}
+	i.output = append(i.output, element)
+	return true
+}
+
+func (i *appElementIterator) pushChildren(element map[string]any) {
+	children, err := elementChildren(element)
+	if err != nil {
+		return
+	}
+	for _, child := range children {
+		childElement := i.resolveChild(child)
+		if childElement != nil {
+			i.stack = append(i.stack, childElement)
+		}
+	}
+}
+
+func (i *appElementIterator) resolveChild(child any) map[string]any {
+	if childKey, ok := child.(string); ok {
+		return i.elements[childKey]
+	}
+	childElement, ok := child.(map[string]any)
+	if ok && isUIElement(childElement) {
+		return childElement
+	}
+	return nil
+}
+
+func resolveAssetHref(asset any) string {
+	assetObject, ok := asset.(map[string]any)
+	if !ok {
+		return ""
+	}
+	for _, key := range []string{"href", "url", "path"} {
+		value, _ := assetObject[key].(string)
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func isExternalHref(href string) bool {
+	trimmed := strings.TrimSpace(href)
+	if strings.HasPrefix(trimmed, "//") {
+		return true
+	}
+	return externalHrefRE.MatchString(trimmed)
+}
+
+func unknownMapKeys(values map[string]any, allowed map[string]struct{}) []string {
+	keys := make([]string, 0)
+	for key := range values {
+		if _, ok := allowed[key]; !ok {
+			keys = append(keys, key)
+		}
+	}
+	return keys
+}
+
+func hasMapKey(values map[string]any, key string) bool {
+	_, ok := values[key]
+	return ok
+}
+
+func isStringOrNumber(value any) bool {
+	if _, ok := value.(string); ok {
+		return true
+	}
+	_, ok := asNumber(value)
+	return ok
+}
+
+func quote(value string) string {
+	return `"` + value + `"`
+}

@@ -21,6 +21,7 @@ frontend/tests/e2e/.storageState.json
 .env.development.local
 .env.test.local
 .env.production.local
+infra/aws-devbox/aws-devbox.env
 
 npm-debug.log*
 yarn-debug.log*
