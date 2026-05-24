@@ -79,6 +79,7 @@ export type BrowserVisualActorCoverageState =
   | "true-hole";
 
 type BrowserVisualActorRepresentationReadinessBase = {
+  readonly faultInjected?: boolean | undefined;
   readonly projectionCoverageRequired?: boolean | undefined;
   readonly resourceHandles?: readonly SurfaceResourceHandle[] | undefined;
 };
@@ -162,6 +163,7 @@ export type BrowserVisualActor = {
   readonly island: SurfaceActiveDomIslandGeneration | null;
   readonly nonemptyReason: BrowserVisualActorNonemptyReason | null;
   readonly proof: BrowserVisualActorProof;
+  readonly readinessFaultInjected?: boolean | undefined;
   readonly rendererBucket: SurfaceRendererBucket;
   readonly representation: BrowserTextActorRepresentation | null;
   readonly representationKind: BrowserVisualActorRepresentationKind | null;
@@ -311,6 +313,9 @@ export function createDomControlBrowserVisualActor(
       coverageRequired: coverageRequired.required,
       coverageState,
     }),
+    ...(representationReadiness?.faultInjected === true
+      ? { readinessFaultInjected: true }
+      : {}),
     rendererBucket: "native-control",
     representation,
     representationKind,

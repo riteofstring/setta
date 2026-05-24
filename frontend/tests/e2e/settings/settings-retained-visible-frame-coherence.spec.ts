@@ -66,6 +66,8 @@ type BrowserVisualFaultReadiness =
   | "blocked-awaiting-live-host"
   | "blocked-awaiting-snapshot";
 
+type GpuFlowDebugFrameReason = "manual" | "resize" | "texture-upload";
+
 type ColdStartShellFrame = {
   readonly frameId: string | null;
   readonly input: string | null;
@@ -374,15 +376,10 @@ async function expectBrowserVisualFaultInjectionBlocksVisiblePublication(
   });
 
   await installBrowserVisualFaultInjection(page, readiness);
-  await page
-    .getByRole("button", { exact: true, name: "Param Defaults" })
-    .click();
-  await waitForActiveSettingsViewMode(page, "Param Defaults");
-  await page.waitForTimeout(120);
-  await requestGpuFlowDebugFrame(page, "texture-upload");
+  await triggerBrowserVisualFaultPublication(page);
   const firstBlockedEvent = await waitForBlockedVisiblePublicationEvent(page, {
     afterCount: beforeIdentity.blockedEventCount,
-    frameReason: "texture-upload",
+    frameReason: "resize",
     reason,
   });
   await requestGpuFlowDebugFrame(page, "texture-upload");
@@ -694,16 +691,29 @@ async function installBrowserVisualFaultInjection(
   page: Page,
   readiness: BrowserVisualFaultReadiness,
 ): Promise<void> {
-  await page.evaluate((domControlReadiness) => {
-    (
-      window as typeof window & {
+  const installedReadiness = await page.evaluate(
+    async (domControlReadiness) => {
+      const view = window as typeof window & {
         __SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__?: unknown;
-      }
-    ).__SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__ = {
-      domControlReadiness,
-      withholdAllDomControls: true,
-    };
-  }, readiness);
+      };
+      view.__SETTA_GPU_FLOW_BROWSER_VISUAL_FAULT_INJECTION__ = {
+        domControlReadiness,
+        withholdAllDomControls: true,
+      };
+      const mod = await import(
+        "/src/gpuFlow/GpuFlow/visibleFrameActorAdapters/browserVisualFaultInjection.ts"
+      );
+      return mod.readGpuFlowBrowserVisualFaultInjection()?.domControlReadiness;
+    },
+    readiness,
+  );
+  if (installedReadiness !== readiness) {
+    throw new Error(
+      `GPU Flow browser visual fault injection did not install: expected ${readiness}, received ${String(
+        installedReadiness,
+      )}.`,
+    );
+  }
 }
 
 async function installBrowserVisualFaultInjectionForSettingsStartup(
@@ -739,15 +749,25 @@ async function clearBrowserVisualFaultInjection(page: Page): Promise<void> {
   });
 }
 
+async function triggerBrowserVisualFaultPublication(page: Page): Promise<void> {
+  await setSettingsViewMode(page, "All Settings");
+  await requestGpuFlowDebugFrame(page, "resize");
+  await page.waitForTimeout(80);
+  await setSettingsViewMode(page, "Param Defaults");
+  await requestGpuFlowDebugFrame(page, "resize");
+  await page.waitForTimeout(120);
+  await requestGpuFlowDebugFrame(page, "texture-upload");
+}
+
 async function requestGpuFlowDebugFrame(
   page: Page,
-  frameReason: "manual" | "texture-upload" = "manual",
+  frameReason: GpuFlowDebugFrameReason = "manual",
 ): Promise<void> {
   await page.evaluate((frameReason) => {
     const requestFrame = (
       window as typeof window & {
         readonly __SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?: (
-          reason?: "manual" | "texture-upload",
+          reason?: GpuFlowDebugFrameReason,
         ) => void;
       }
     ).__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__;
@@ -787,7 +807,7 @@ async function waitForBlockedVisiblePublicationEvent(
   }: {
     readonly actorId?: string | undefined;
     readonly afterCount: number;
-    readonly frameReason?: "manual" | "texture-upload" | undefined;
+    readonly frameReason?: GpuFlowDebugFrameReason | undefined;
     readonly reason: string;
   },
 ): Promise<ObservedBlockedVisiblePublicationEvent> {
@@ -840,6 +860,7 @@ async function waitForBlockedVisiblePublicationEvent(
         eventCount: lastEvents.length,
         eventWindow: lastEvents.slice(eventWindowStart),
         eventWindowStart,
+        browserVisualDebug: await readBrowserVisualPublicationDebug(page),
         identity: await readVisibleFrameIdentity(page),
         reason,
         retainedFrameProbeWindow: retainedFrameProbe.slice(
@@ -886,6 +907,47 @@ function findBlockedVisiblePublicationEvent(
     }
   }
   return null;
+}
+
+async function readBrowserVisualPublicationDebug(page: Page): Promise<unknown> {
+  return await page.evaluate(async () => {
+    const faultInjection = (
+      await import(
+        "/src/gpuFlow/GpuFlow/visibleFrameActorAdapters/browserVisualFaultInjection.ts"
+      )
+    ).readGpuFlowBrowserVisualFaultInjection();
+    const debugSnapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.() ?? null;
+    const textActorProofs =
+      debugSnapshot?.committedSurfaceFrame?.textActorProofs ?? [];
+    const actorSummaries = textActorProofs
+      .slice(0, 12)
+      .map(
+        (actor: {
+          readonly actorId?: string | null;
+          readonly actualVisual?: string | null;
+          readonly projectionCoverage?: string | null;
+          readonly requiredVisual?: string | null;
+        }) => ({
+          actorId: actor.actorId ?? null,
+          actualVisual: actor.actualVisual ?? null,
+          projectionCoverage: actor.projectionCoverage ?? null,
+          requiredVisual: actor.requiredVisual ?? null,
+        }),
+      );
+    const firstActorId = actorSummaries[0]?.actorId ?? null;
+    const preparationDiagnostics =
+      typeof window.__settaGpuFlowBrowserVisualPreparationDiagnostics ===
+      "function"
+        ? window.__settaGpuFlowBrowserVisualPreparationDiagnostics(firstActorId)
+        : null;
+    return {
+      actorManifest:
+        debugSnapshot?.committedSurfaceFrame?.actorManifest ?? null,
+      actorSummaries,
+      faultInjection,
+      preparationDiagnostics,
+    };
+  });
 }
 
 async function readVisibleFrameIdentity(

@@ -1,8 +1,10 @@
+import { isGpuFlowCommittedSurfaceCompletenessBlockingActor } from "../committedSurfaceCompleteness";
 import type {
   GpuFlowCommittedSurfaceActorGeneration,
   GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
+import { readGpuFlowBrowserVisualFaultInjection } from "./visibleFrameActorAdapters/browserVisualFaultInjection";
 import {
   getGpuFlowBrowserStyleBlockedReasonFamily,
   getGpuFlowBrowserStyleVisibleFrameActorFamily,
@@ -177,6 +179,7 @@ export function createGpuFlowVisibleFrameActorManifest({
         entry: createGpuFlowVisibleFrameCommittedActorManifestEntry({
           activeEditorPublicationPending,
           actor,
+          startup: frame.retainedDisplayFrame === null,
         }),
         entryByKey,
       });
@@ -231,9 +234,8 @@ function addGpuFlowMissingSectionStructureActorManifestEntries({
     frame,
   )) {
     setGpuFlowVisibleFrameActorManifestEntry({
-      entry: createGpuFlowVisibleFrameSyntheticBlockedManifestEntry(
-        missingActor,
-      ),
+      entry:
+        createGpuFlowVisibleFrameSyntheticBlockedManifestEntry(missingActor),
       entryByKey,
     });
   }
@@ -252,7 +254,10 @@ export function createGpuFlowVisibleFrameActorProofsForManifest({
 }): readonly GpuFlowVisibleFrameActorProof[] {
   const proofByActor = new Map<string, GpuFlowVisibleFrameActorProof>();
   const activeEditorPublicationPending =
-    frame === null ? false : hasGpuFlowVisibleFrameActiveEditorPublication(frame);
+    frame === null
+      ? false
+      : hasGpuFlowVisibleFrameActiveEditorPublication(frame);
+  const startup = frame?.retainedDisplayFrame === null;
   for (const actor of frame?.actorGenerations ?? []) {
     if (!actor.visibleNonempty) {
       continue;
@@ -263,6 +268,7 @@ export function createGpuFlowVisibleFrameActorProofsForManifest({
         actor,
         contentFrameId,
         projectionSampleId,
+        startup,
       }),
       proofByActor,
     });
@@ -408,9 +414,8 @@ function createGpuFlowAccessibilityExposureGeneration({
       frame,
     }),
     projectionGeneration: `accessibility:${sample?.id ?? frame.displayFrameId}`,
-    readinessProof: getGpuFlowAccessibilityExposureReadinessProof(
-      domGeneration,
-    ),
+    readinessProof:
+      getGpuFlowAccessibilityExposureReadinessProof(domGeneration),
   };
 }
 
@@ -570,9 +575,11 @@ function getGpuFlowVisibleFramePresentationActorZOrder(
 function createGpuFlowVisibleFrameCommittedActorManifestEntry({
   activeEditorPublicationPending,
   actor,
+  startup,
 }: {
   readonly activeEditorPublicationPending: boolean;
   readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly startup: boolean;
 }): GpuFlowVisibleFrameActorManifestEntry {
   const family = getGpuFlowBrowserStyleVisibleFrameActorFamily(actor);
   return Object.freeze({
@@ -598,6 +605,7 @@ function createGpuFlowVisibleFrameCommittedActorManifestEntry({
     requirement: getGpuFlowVisibleFrameCommittedActorRequirement({
       activeEditorPublicationPending,
       actor,
+      startup,
     }),
     resourceState: getGpuFlowVisibleFrameActorResourceState(actor),
     source: "committed-actor" as const,
@@ -673,16 +681,19 @@ function createGpuFlowVisibleFrameActorProof({
   actor,
   contentFrameId,
   projectionSampleId,
+  startup,
 }: {
   readonly activeEditorPublicationPending: boolean;
   readonly actor: GpuFlowCommittedSurfaceActorGeneration;
   readonly contentFrameId: GpuFlowContentFrameId;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
+  readonly startup: boolean;
 }): GpuFlowVisibleFrameActorProof {
   const actorKey = createGpuFlowVisibleFrameActorProofKey(actor);
   const requirement = getGpuFlowVisibleFrameCommittedActorRequirement({
     activeEditorPublicationPending,
     actor,
+    startup,
   });
   const textCoverage = actor.textCoverageProof;
   switch (textCoverage?.projectionCoverage) {
@@ -720,21 +731,36 @@ function createGpuFlowVisibleFrameActorProof({
 function getGpuFlowVisibleFrameCommittedActorRequirement({
   activeEditorPublicationPending,
   actor,
+  startup,
 }: {
   readonly activeEditorPublicationPending: boolean;
   readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly startup: boolean;
 }): GpuFlowVisibleFrameActorProof["requirement"] {
   const textCoverage = actor.textCoverageProof;
+  const browserVisualReadinessFaultInjected =
+    actor.browserVisual?.readinessFaultInjected === true ||
+    readGpuFlowBrowserVisualFaultInjection() !== null;
   const passiveLiveDomBudgetActor =
+    !browserVisualReadinessFaultInjected &&
     !isGpuFlowVisibleFrameActiveEditorRepresentation(actor) &&
     textCoverage?.projectionCoverage === "blocked-awaiting-live-host" &&
     textCoverage.readinessReason === "live-dom-budget";
+  const passiveSnapshotPendingActor =
+    !startup &&
+    !browserVisualReadinessFaultInjected &&
+    !isGpuFlowCommittedSurfaceCompletenessBlockingActor({ actor, startup }) &&
+    textCoverage?.projectionCoverage === "blocked-awaiting-browser-visual" &&
+    textCoverage.readinessReason === "snapshot-pending";
   const passiveSnapshotPendingDuringActiveEditor =
     activeEditorPublicationPending &&
+    !browserVisualReadinessFaultInjected &&
     !isGpuFlowVisibleFrameActiveEditorRepresentation(actor) &&
     textCoverage?.projectionCoverage === "blocked-awaiting-browser-visual" &&
     textCoverage.readinessReason === "snapshot-pending";
-  return passiveLiveDomBudgetActor || passiveSnapshotPendingDuringActiveEditor
+  return passiveLiveDomBudgetActor ||
+    passiveSnapshotPendingActor ||
+    passiveSnapshotPendingDuringActiveEditor
     ? "maintenance"
     : "required";
 }
@@ -1015,9 +1041,11 @@ function createGpuFlowVisibleFrameViewportRect({
 
 function resolveGpuFlowVisibleFrameViewportDimension(
   sampleViewport: GpuFlowLiveProjectionSample["cssViewport"] | null,
-  frameViewport: NonNullable<
-    GpuFlowCommittedSurfaceFrame["retainedRuntimeFrame"]
-  >["input"]["viewportSize"] | null,
+  frameViewport:
+    | NonNullable<
+        GpuFlowCommittedSurfaceFrame["retainedRuntimeFrame"]
+      >["input"]["viewportSize"]
+    | null,
   dimension: "height" | "width",
 ): number {
   return sampleViewport?.[dimension] ?? frameViewport?.[dimension] ?? 0;

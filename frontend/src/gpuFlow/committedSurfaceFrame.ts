@@ -12,8 +12,8 @@ import {
   isGpuFlowCommittedSurfaceCompletenessBlockingActor,
 } from "./committedSurfaceCompleteness";
 import {
-  createGpuFlowContentFramePublishability,
   createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds,
+  createGpuFlowContentFramePublishability,
   createGpuFlowProjectionHorizon,
   isGpuFlowCommittedTextActor,
 } from "./committedSurfaceFrameProjection";
@@ -175,6 +175,7 @@ export type GpuFlowCommittedSurfaceBrowserVisualContract = Pick<
   | "coverageState"
   | "nonemptyReason"
   | "proof"
+  | "readinessFaultInjected"
   | "representation"
   | "representationKind"
   | "resourceHandles"
@@ -533,7 +534,9 @@ function freezeCommittedSurfaceFrame({
     actorGenerations,
     displayCompleteness,
     retainedSurfaceTrueHoleActorIds:
-      createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds(retainedDisplayFrame),
+      createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds(
+        retainedDisplayFrame,
+      ),
     startup: retainedDisplayFrame === null,
     transactionOutcome,
   });

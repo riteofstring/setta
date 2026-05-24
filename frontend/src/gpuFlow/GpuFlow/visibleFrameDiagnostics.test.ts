@@ -755,6 +755,7 @@ function blockedCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
       reason: "visible-dom-control-not-projected",
       status: "blocked",
     },
+    retainedDisplayFrame: null,
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
 

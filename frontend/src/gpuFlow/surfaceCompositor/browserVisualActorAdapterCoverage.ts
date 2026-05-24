@@ -237,6 +237,9 @@ export function canUseDomControlCompatiblePreviousCoverage(
   control: GpuRetainedDomControlSourceDescriptor,
   representationReadiness: BrowserVisualActorRepresentationReadiness | null,
 ): boolean {
+  if (representationReadiness?.faultInjected === true) {
+    return false;
+  }
   if (requiresLiveDomControlTextActorRepresentation(control)) {
     return false;
   }

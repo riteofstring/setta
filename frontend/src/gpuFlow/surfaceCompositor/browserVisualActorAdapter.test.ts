@@ -379,6 +379,37 @@ describe("browser visual actor adapter", () => {
     expect(fragment.trueHoleRects).toEqual([]);
   });
 
+  it("does not publish compatible previous coverage for fault-injected readiness", () => {
+    const actor = createDomControlBrowserVisualActor(
+      domControl({
+        value: "hello",
+        visualPolicy: "blocked-awaiting-browser-visual",
+      }),
+      {
+        compatiblePreviousProof: compatiblePreviousProof(),
+        representationReadiness: {
+          coverageState: "blocked-awaiting-snapshot",
+          faultInjected: true,
+        },
+      },
+    );
+    const fragment = createBrowserVisualSurfaceTransactionFragment([actor]);
+
+    expect(actor).toEqual(
+      expect.objectContaining({
+        coverageState: "blocked-awaiting-snapshot",
+        readinessFaultInjected: true,
+        representation: expect.objectContaining({
+          kind: "blocked",
+          reason: "snapshot-pending",
+        }),
+        representationKind: "blocked",
+      }),
+    );
+    expect(fragment.compatibleCoverage).toEqual([]);
+    expect(fragment.blockingSurfaceIds).toEqual([actor.surfaceId]);
+  });
+
   it("does not use compatible previous coverage for active DOM-control editors", () => {
     const actor = createDomControlBrowserVisualActor(
       domControl({

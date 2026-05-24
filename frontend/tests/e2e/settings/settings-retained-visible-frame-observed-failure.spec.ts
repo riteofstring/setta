@@ -73,6 +73,7 @@ test("All Settings first render keeps section header and retained content visibl
     page,
     target.surfaceId,
   );
+  await waitForRetainedSectionHeaderInk(page, headerClip);
   const sectionClip = mergeScreenshotClips(headerClip, target.clip);
 
   const headerScreenshot = await captureRetainedCompositorEvidenceScreenshot(
@@ -182,6 +183,7 @@ test("retained section scroll moves visible pixels without blanking header or co
     page,
     target.surfaceId,
   );
+  await waitForRetainedSectionHeaderInk(page, headerClip);
   await warmRetainedCompositorNativeWheelTarget(page, target.point);
   const beforeScrollSignature = await readRetainedCompositorScrollSignature(
     page,
@@ -336,6 +338,7 @@ test("pan, zoom, and retained scroll keep cadence and avoid content disappearanc
     page,
     target.surfaceId,
   );
+  await waitForRetainedSectionHeaderInk(page, headerClip);
   const sectionClip = mergeScreenshotClips(headerClip, target.clip);
   await warmRetainedCompositorNativeWheelTarget(page, target.point);
   const controlCadence = await measureRetainedCompositorControlCadence(page);
@@ -465,6 +468,7 @@ test("consecutive interaction frames do not flicker between present and absent c
     page,
     target.surfaceId,
   );
+  await waitForRetainedSectionHeaderInk(page, headerClip);
   const sectionClip = mergeScreenshotClips(headerClip, target.clip);
   await warmRetainedCompositorNativeWheelTarget(page, target.point);
   const baseline = await captureRetainedCompositorEvidenceScreenshot(page, {
@@ -539,6 +543,7 @@ test("latest Chrome recording parity sequence keeps pixels, diagnostics, and cad
     page,
     target.surfaceId,
   );
+  await waitForRetainedSectionHeaderInk(page, headerClip);
   const sectionClip = mergeScreenshotClips(headerClip, target.clip);
   await warmRetainedCompositorNativeWheelTarget(page, target.point);
   const controlCadence = await measureRetainedCompositorControlCadence(page);
@@ -735,10 +740,9 @@ async function expectMatchesDomGoldenAllSettingsReference(
   expect(actualBands.nonblankRatio, oracleDetails).toBeGreaterThanOrEqual(
     expectedBands.nonblankRatio * MIN_DOM_GOLDEN_NONBLANK_RATIO,
   );
-  expect(
-    similarity.colorHistogramDistance,
-    oracleDetails,
-  ).toBeLessThanOrEqual(MAX_DOM_GOLDEN_COLOR_HISTOGRAM_DISTANCE);
+  expect(similarity.colorHistogramDistance, oracleDetails).toBeLessThanOrEqual(
+    MAX_DOM_GOLDEN_COLOR_HISTOGRAM_DISTANCE,
+  );
   expect(similarity.meanDelta, oracleDetails).toBeLessThanOrEqual(
     MAX_DOM_GOLDEN_MEAN_DELTA,
   );
@@ -811,6 +815,41 @@ async function resolveRetainedSectionHeaderClip(
       );
     }
   }, surfaceId);
+}
+
+async function waitForRetainedSectionHeaderInk(
+  page: Page,
+  headerClip: Rect,
+): Promise<void> {
+  const deadline = Date.now() + 5_000;
+  let latestInk: Awaited<
+    ReturnType<typeof analyzeRetainedLabelTextInkBounds>
+  > | null = null;
+  while (Date.now() < deadline) {
+    const screenshot = await page.screenshot({ clip: headerClip });
+    latestInk = await analyzeRetainedLabelTextInkBounds(page, {
+      clip: headerClip,
+      screenshot,
+      searchRect: headerClip,
+    });
+    if ((latestInk?.pixelCount ?? 0) > MIN_HEADER_TEXT_INK_PIXELS) {
+      return;
+    }
+    await page.evaluate(() => {
+      window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("texture-upload");
+    });
+    await page.waitForTimeout(120);
+  }
+  throw new Error(
+    `Retained section header ink did not appear. ${JSON.stringify(
+      {
+        headerClip,
+        latestInk,
+      },
+      null,
+      2,
+    )}`,
+  );
 }
 
 async function resolveRetainedCompositorPaneClip(page: Page): Promise<Rect> {

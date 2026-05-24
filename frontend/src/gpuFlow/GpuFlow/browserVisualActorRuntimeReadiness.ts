@@ -499,10 +499,23 @@ function createGpuFlowBrowserVisualFaultInjectedDomControlReadiness(
       : "blocked-awaiting-live-host");
   switch (readiness) {
     case "blocked-awaiting-live-host":
-      return BLOCKED_AWAITING_LIVE_HOST_READINESS;
+      return createFaultInjectedDomControlReadiness(
+        BLOCKED_AWAITING_LIVE_HOST_READINESS,
+      );
     case "blocked-awaiting-snapshot":
-      return BLOCKED_AWAITING_SNAPSHOT_READINESS;
+      return createFaultInjectedDomControlReadiness(
+        BLOCKED_AWAITING_SNAPSHOT_READINESS,
+      );
   }
+}
+
+function createFaultInjectedDomControlReadiness(
+  readiness: BrowserVisualActorRepresentationReadiness,
+): BrowserVisualActorRepresentationReadiness {
+  return Object.freeze({
+    ...readiness,
+    faultInjected: true,
+  });
 }
 
 function createGpuFlowDomControlHostReadinessMatches(

@@ -144,22 +144,34 @@ export async function waitForRetainedCompositorCoherentVisibleFrame(
   while (Date.now() < deadline) {
     latestDiagnostics =
       await readRetainedCompositorVisibleFrameDiagnostics(page);
-    if (
-      latestDiagnostics &&
-      typeof latestDiagnostics === "object" &&
-      (latestDiagnostics as { readonly coldStartShell?: unknown })
-        .coldStartShell === null
-    ) {
+    if (isRetainedCompositorVisibleContentReady(latestDiagnostics)) {
       return;
     }
     await page.waitForTimeout(120);
   }
   throw new Error(
-    `Retained compositor cold-start shell did not clear. ${JSON.stringify(
+    `Retained compositor visible content did not become ready. ${JSON.stringify(
       latestDiagnostics,
       null,
       2,
     )}`,
+  );
+}
+
+function isRetainedCompositorVisibleContentReady(
+  diagnostics: unknown,
+): boolean {
+  if (!diagnostics || typeof diagnostics !== "object") {
+    return false;
+  }
+  const state = diagnostics as {
+    readonly coldStartShell?: unknown;
+    readonly domControlCount?: unknown;
+  };
+  return (
+    state.coldStartShell === null &&
+    typeof state.domControlCount === "number" &&
+    state.domControlCount > 0
   );
 }
 
@@ -226,6 +238,7 @@ export async function centerRetainedCompositorSurface(
     return;
   }
   await waitForRetainedCompositorViewportCommit(page, viewport);
+  await waitForRetainedCompositorCoherentVisibleFrame(page);
 }
 
 async function waitForRetainedCompositorRuntimeViewport(
@@ -272,7 +285,9 @@ async function waitForRetainedCompositorViewportCommit(
       (requestReason) => {
         window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.(requestReason);
       },
-      state?.runtimeMatches && !state.committedMatches ? "manual" : "resize",
+      state?.runtimeMatches && !state.committedMatches
+        ? "texture-upload"
+        : "resize",
     );
     await page.waitForTimeout(120);
   }
@@ -580,6 +595,8 @@ export async function warmRetainedCompositorNativeWheelTarget(
   await page.mouse.move(point.x, point.y);
   await page.mouse.wheel(0, 1);
   await waitForRetainedCompositorGestureIdle(page);
+  await waitForRetainedCompositorCoherentVisibleFrame(page);
+  await waitForAnimationFrame(page);
 }
 
 export async function captureRetainedCompositorVisualStats(

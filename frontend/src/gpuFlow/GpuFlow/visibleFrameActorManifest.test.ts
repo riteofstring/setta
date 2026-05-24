@@ -11,9 +11,7 @@ import {
   createGpuFlowVisibleFrameActorManifest,
   createGpuFlowVisibleFrameActorProofsForManifest,
 } from "./visibleFrameActorManifest";
-import {
-  createGpuFlowContentFrameId,
-} from "./visibleFrameTypes";
+import { createGpuFlowContentFrameId } from "./visibleFrameTypes";
 
 describe("GPU Flow visible frame actor manifest", () => {
   it("blocks missing section structure actors required by the retained scene", () => {
@@ -194,6 +192,123 @@ describe("GPU Flow visible frame actor manifest", () => {
       requirement: "maintenance",
     });
   });
+
+  it("treats passive snapshot-pending actors as maintenance after startup", () => {
+    const passiveSnapshotPending = textActor({
+      active: false,
+      actorId: "passive-snapshot",
+      generationId: "passive-generation",
+      projectionCoverage: "blocked-awaiting-browser-visual",
+      readinessReason: "snapshot-pending",
+    });
+    const frame = committedSurfaceFrame({
+      actorGenerations: [passiveSnapshotPending],
+      retainedRuntimeFrame: retainedRuntimeFrame(),
+    });
+
+    const manifest = createGpuFlowVisibleFrameActorManifest({ frame });
+    const proofs = createGpuFlowVisibleFrameActorProofsForManifest({
+      contentFrameId: createGpuFlowContentFrameId("content-a"),
+      frame,
+      manifest,
+      projectionSampleId: "projection-a",
+    });
+
+    expect(
+      manifest.entries.find((entry) => entry.actorId === "passive-snapshot")
+        ?.requirement,
+    ).toBe("maintenance");
+    expect(manifest.requiredActors).not.toContainEqual({
+      actorId: "passive-snapshot",
+      family: "browser-text-snapshot",
+    });
+    expect(
+      proofs.find((proof) => proof.actorId === "passive-snapshot"),
+    ).toMatchObject({
+      family: "browser-text-snapshot",
+      proof: "blocked",
+      reason: "snapshot-pending",
+      requirement: "maintenance",
+    });
+  });
+
+  it("keeps passive snapshot-pending actors required during startup", () => {
+    const passiveSnapshotPending = textActor({
+      active: false,
+      actorId: "passive-snapshot",
+      generationId: "passive-generation",
+      projectionCoverage: "blocked-awaiting-browser-visual",
+      readinessReason: "snapshot-pending",
+    });
+    const frame = committedSurfaceFrame({
+      actorGenerations: [passiveSnapshotPending],
+      retainedRuntimeFrame: retainedRuntimeFrame(),
+      startup: true,
+    });
+
+    const manifest = createGpuFlowVisibleFrameActorManifest({ frame });
+
+    expect(
+      manifest.entries.find((entry) => entry.actorId === "passive-snapshot")
+        ?.requirement,
+    ).toBe("required");
+    expect(manifest.requiredActors).toContainEqual({
+      actorId: "passive-snapshot",
+      family: "browser-text-snapshot",
+    });
+  });
+
+  it("keeps fault-injected passive snapshot-pending actors required", () => {
+    const passiveSnapshotPending = textActor({
+      active: false,
+      actorId: "passive-snapshot",
+      generationId: "passive-generation",
+      projectionCoverage: "blocked-awaiting-browser-visual",
+      readinessFaultInjected: true,
+      readinessReason: "snapshot-pending",
+    });
+    const frame = committedSurfaceFrame({
+      actorGenerations: [passiveSnapshotPending],
+      retainedRuntimeFrame: retainedRuntimeFrame(),
+    });
+
+    const manifest = createGpuFlowVisibleFrameActorManifest({ frame });
+
+    expect(
+      manifest.entries.find((entry) => entry.actorId === "passive-snapshot")
+        ?.requirement,
+    ).toBe("required");
+    expect(manifest.requiredActors).toContainEqual({
+      actorId: "passive-snapshot",
+      family: "browser-text-snapshot",
+    });
+  });
+
+  it("keeps fault-injected passive live DOM budget actors required", () => {
+    const passiveBudgetMiss = textActor({
+      active: false,
+      actorId: "passive-live-dom",
+      generationId: "passive-generation",
+      projectionCoverage: "blocked-awaiting-live-host",
+      readinessFaultInjected: true,
+      readinessReason: "live-dom-budget",
+    });
+    const frame = committedSurfaceFrame({
+      actorGenerations: [passiveBudgetMiss],
+      retainedRuntimeFrame: retainedRuntimeFrame(),
+    });
+
+    const manifest = createGpuFlowVisibleFrameActorManifest({ frame });
+
+    expect(
+      manifest.entries.find((entry) => entry.actorId === "passive-live-dom")
+        ?.requirement,
+    ).toBe("required");
+    expect(manifest.requiredActors).toContainEqual({
+      actorId: "passive-live-dom",
+      family: "browser-text-control",
+    });
+  });
 });
 
 function textActor({
@@ -201,6 +316,7 @@ function textActor({
   actorId,
   generationId,
   projectionCoverage,
+  readinessFaultInjected = false,
   readinessReason,
 }: {
   readonly active: boolean;
@@ -210,6 +326,7 @@ function textActor({
     | "blocked-awaiting-browser-visual"
     | "blocked-awaiting-live-host"
     | "exact-live-dom";
+  readonly readinessFaultInjected?: boolean | undefined;
   readonly readinessReason?: "live-dom-budget" | "snapshot-pending" | undefined;
 }): GpuFlowCommittedSurfaceActorGeneration {
   const representationKind =
@@ -227,6 +344,7 @@ function textActor({
         reason: active ? "active-editor" : "visible",
         required: true,
       },
+      ...(readinessFaultInjected ? { readinessFaultInjected: true } : {}),
       representationKind,
       resourceHandles: [],
     },
@@ -253,9 +371,11 @@ function textActor({
 function committedSurfaceFrame({
   actorGenerations,
   retainedRuntimeFrame,
+  startup = false,
 }: {
   readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
+  readonly startup?: boolean | undefined;
 }): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = 77;
   const coherence = {
@@ -279,6 +399,7 @@ function committedSurfaceFrame({
       displayFrameId,
       surfaceTransaction: null,
     }),
+    retainedDisplayFrame: startup ? null : {},
     retainedRuntimeFrame,
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
