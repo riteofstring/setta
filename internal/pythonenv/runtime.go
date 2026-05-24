@@ -153,25 +153,6 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 	}, nil
 }
 
-func PluginDistributionSearchPathsFromEnvLookup(lookupEnv func(string) (string, bool)) []string {
-	if lookupEnv == nil {
-		lookupEnv = os.LookupEnv
-	}
-	rawPythonPath, ok := lookupEnv("PYTHONPATH")
-	if !ok || strings.TrimSpace(rawPythonPath) == "" {
-		return nil
-	}
-	entries := filepath.SplitList(rawPythonPath)
-	searchPaths := make([]string, 0, len(entries))
-	for _, entry := range entries {
-		trimmed := strings.TrimSpace(entry)
-		if trimmed != "" {
-			searchPaths = append(searchPaths, trimmed)
-		}
-	}
-	return searchPaths
-}
-
 func ResolveCurrentProcessInterpreter(lookupEnv func(string) (string, bool)) (string, error) {
 	lookupEnv = defaultLookupEnv(lookupEnv)
 	if interpreter, err := resolveConfiguredInterpreter(lookupEnv); interpreter != "" || err != nil {
@@ -264,11 +245,10 @@ func (r *Runtime) PluginDistributions(ctx context.Context, searchPaths []string)
 }
 
 func encodePluginDistributionSearchPaths(searchPaths []string) ([]byte, error) {
-	trimmedSearchPaths := trimNonEmptyStrings(searchPaths)
-	if len(trimmedSearchPaths) == 0 {
+	if len(searchPaths) == 0 {
 		return []byte("null"), nil
 	}
-	encodedSearchPaths, err := json.Marshal(trimmedSearchPaths)
+	encodedSearchPaths, err := json.Marshal(trimNonEmptyStrings(searchPaths))
 	if err != nil {
 		return nil, fmt.Errorf("pythonenv: encode plugin distribution search paths: %w", err)
 	}

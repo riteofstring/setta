@@ -1,10 +1,8 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
-  disableCanvasSidePanePointerInterception,
   ensureAppReady,
-  getGpuFlowNodeScreenRect,
+  ensureManagedChatEngine,
   getViewportBoundsForPlacement,
-  hoverGpuFlowNode,
 } from "../helpers";
 
 const BACKEND_ORIGIN =
@@ -42,7 +40,6 @@ test.describe.serial("agentic edges", () => {
   }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await disableCanvasSidePanePointerInterception(page);
 
     try {
       const firstChat = await createChatSection(
@@ -54,11 +51,6 @@ test.describe.serial("agentic edges", () => {
         page,
         projectContext.projectConfigId,
         "__pw_chat_b__",
-      );
-      await placeSectionsForSharedHandleDrag(
-        page,
-        projectContext.projectConfigId,
-        [firstChat.sectionId, secondChat.sectionId],
       );
 
       const sourceHandle = page.locator(
@@ -73,15 +65,9 @@ test.describe.serial("agentic edges", () => {
       await expect(sourceHandle).not.toBeVisible({ timeout: 1500 });
       await expect(targetHandle).not.toBeVisible({ timeout: 1500 });
 
-      await hoverGpuFlowNode(
-        page,
-        page.getByTestId(`rf__node-${firstChat.sectionId}`),
-      );
+      await page.getByTestId(`rf__node-${firstChat.sectionId}`).hover();
       await expect(sourceHandle).toBeVisible();
-      await hoverGpuFlowNode(
-        page,
-        page.getByTestId(`rf__node-${secondChat.sectionId}`),
-      );
+      await page.getByTestId(`rf__node-${secondChat.sectionId}`).hover();
       await expect(targetHandle).toBeVisible();
 
       // After hover is gone, unconnected handles should fade out quickly.
@@ -112,7 +98,6 @@ test.describe.serial("agentic edges", () => {
   test("connects between chat and non-chat sections", async ({ page }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await disableCanvasSidePanePointerInterception(page);
 
     try {
       const chatSection = await createChatSection(
@@ -125,17 +110,12 @@ test.describe.serial("agentic edges", () => {
         projectContext.projectConfigId,
         "__pw_text__",
       );
-      await placeSectionsForSharedHandleDrag(
-        page,
-        projectContext.projectConfigId,
-        [chatSection.sectionId, textSection.sectionId],
-      );
 
       const sourceHandle = page.locator(
         `[data-testid="chat-shared-source-handle-${chatSection.sectionId}"]`,
       );
       const targetHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${textSection.sectionId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${textSection.sectionId}"][data-handleid="agentic-edge-target"]`,
       );
 
       await ensureHandlesInViewport(page, sourceHandle, targetHandle);
@@ -143,15 +123,9 @@ test.describe.serial("agentic edges", () => {
       await expect(sourceHandle).not.toBeVisible({ timeout: 1500 });
       await expect(targetHandle).not.toBeVisible({ timeout: 1500 });
 
-      await hoverGpuFlowNode(
-        page,
-        page.getByTestId(`rf__node-${chatSection.sectionId}`),
-      );
+      await page.getByTestId(`rf__node-${chatSection.sectionId}`).hover();
       await expect(sourceHandle).toBeVisible();
-      await hoverGpuFlowNode(
-        page,
-        page.getByTestId(`rf__node-${textSection.sectionId}`),
-      );
+      await page.getByTestId(`rf__node-${textSection.sectionId}`).hover();
       await expect(targetHandle).toBeVisible();
 
       await page.mouse.move(1, 1);
@@ -163,11 +137,7 @@ test.describe.serial("agentic edges", () => {
         projectContext.projectConfigId,
       );
 
-      await createChatToSectionAgenticEdge(
-        page,
-        chatSection.sectionId,
-        textSection.sectionId,
-      );
+      await dragHandleToHandle(page, sourceHandle, targetHandle);
 
       await expect
         .poll(
@@ -187,9 +157,10 @@ test.describe.serial("agentic edges", () => {
   }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await disableCanvasSidePanePointerInterception(page);
+    let cleanupManagedEngine: (() => Promise<void>) | null = null;
 
     try {
+      cleanupManagedEngine = await ensureManagedChatEngine(page);
       await page.evaluate(() => {
         window.localStorage.setItem("setta_agentic_debug", "1");
         window.__settaAgenticDebug = [];
@@ -203,10 +174,15 @@ test.describe.serial("agentic edges", () => {
         page,
         projectContext.projectConfigId,
       );
-      await placeSectionsForSharedHandleDrag(
+      await configureManagedChatSection(
         page,
         projectContext.projectConfigId,
-        [firstSectionId, secondSectionId],
+        firstSectionId,
+      );
+      await configureManagedChatSection(
+        page,
+        projectContext.projectConfigId,
+        secondSectionId,
       );
 
       const sourceHandle = page.locator(
@@ -221,15 +197,9 @@ test.describe.serial("agentic edges", () => {
       await expect(sourceHandle).not.toBeVisible({ timeout: 1500 });
       await expect(targetHandle).not.toBeVisible({ timeout: 1500 });
 
-      await hoverGpuFlowNode(
-        page,
-        page.getByTestId(`rf__node-${firstSectionId}`),
-      );
+      await page.getByTestId(`rf__node-${firstSectionId}`).hover();
       await expect(sourceHandle).toBeVisible();
-      await hoverGpuFlowNode(
-        page,
-        page.getByTestId(`rf__node-${secondSectionId}`),
-      );
+      await page.getByTestId(`rf__node-${secondSectionId}`).hover();
       await expect(targetHandle).toBeVisible();
       await ensureHandlesInViewport(page, sourceHandle, targetHandle);
 
@@ -249,6 +219,9 @@ test.describe.serial("agentic edges", () => {
 
       await assertConnectedHandlesStayVisible(page, sourceHandle, targetHandle);
     } finally {
+      if (cleanupManagedEngine) {
+        await cleanupManagedEngine();
+      }
       await cleanupIsolatedProject(page, projectContext);
     }
   });
@@ -320,7 +293,7 @@ async function openIsolatedProject(
   }
   const url = new URL(name, BASE_URL).toString();
   await page.goto(url);
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
   const projectConfigId = await getCurrentProjectConfigId(page);
   return {
     projectConfigId,
@@ -428,41 +401,34 @@ async function createTextBlockSection(
   return { sectionId: created.sectionId };
 }
 
-async function placeSectionsForSharedHandleDrag(
+async function configureManagedChatSection(
   page: Page,
   projectConfigId: string,
-  sectionIds: readonly string[],
-  options: { readonly reloadAfterLayout?: boolean } = {},
+  sectionId: string,
 ): Promise<void> {
-  await postBackend(page, "/setViewport", {
-    projectConfigId,
-    viewport: { x: 0, y: 0, zoom: 1 },
+  const managedEngineId = await page.evaluate(async () => {
+    const { useAIStore } = await import("/src/state/definitions.ts");
+    const engine =
+      useAIStore
+        .getState()
+        .engineConfigs.find((config) => config.engineType === "setta_llm") ?? null;
+    return engine?.id ?? null;
   });
-  const sectionWidth = 400;
-  const sectionHeight = 220;
-  const x = 420;
-  const topLevelSections: Record<
-    string,
-    { h: number; w: number; x: number; y: number; zIndex: number }
-  > = {};
-  sectionIds.forEach((sectionId, index) => {
-    topLevelSections[sectionId] = {
-      h: sectionHeight,
-      w: sectionWidth,
-      x,
-      y: 80 + index * (sectionHeight + 80),
-      zIndex: 30 + index,
-    };
-  });
-  await postBackend(page, "/setTopLevelSectionLayout", {
-    projectConfigId,
-    topLevelSections,
-  });
-  if (options.reloadAfterLayout ?? true) {
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
-    await disableCanvasSidePanePointerInterception(page);
+  if (!managedEngineId) {
+    throw new Error("Missing managed setta_llm engine config.");
   }
+  await postBackend(page, "/setChatSectionSettings", {
+    projectConfigId,
+    sectionId,
+    managed: true,
+    engineConfigId: managedEngineId,
+    transcriptionProfileId: null,
+    agentProfileId: null,
+    thinking: false,
+    permissionMode: "minimal",
+    searchEnabled: true,
+    dictationMode: "auto",
+  });
 }
 
 async function createChatSectionViaCommandPalette(
@@ -552,7 +518,7 @@ async function dragHandleToHandle(
   const sourceNode = page.getByTestId(`rf__node-${sourceNodeId}`);
   const targetNode = page.getByTestId(`rf__node-${targetNodeId}`);
 
-  await hoverGpuFlowNode(page, sourceNode);
+  await sourceNode.hover();
   await expect(source).toBeVisible();
 
   const sourceBox = await source.boundingBox();
@@ -564,12 +530,8 @@ async function dragHandleToHandle(
 
   await page.mouse.move(startX, startY);
   await page.mouse.down();
-  await expect(page.locator(".setta-gpu-flow-root")).toHaveAttribute(
-    "data-connecting",
-    "true",
-  );
 
-  const targetNodeBox = await getGpuFlowNodeScreenRect(targetNode);
+  const targetNodeBox = await targetNode.boundingBox();
   if (!targetNodeBox) {
     throw new Error("Target node not visible.");
   }
@@ -624,27 +586,6 @@ async function getAgenticEdgeCount(
   return response?.projectState?.projectConfig?.agenticEdges?.length ?? 0;
 }
 
-async function createChatToSectionAgenticEdge(
-  page: Page,
-  sourceSectionId: string,
-  targetSectionId: string,
-): Promise<void> {
-  await page.evaluate(
-    async ({ sourceSectionId, targetSectionId }) => {
-      const { createSharedChatEdgeFromConnection } = await import(
-        "/src/state/actions/chatSharedEdges.ts"
-      );
-      createSharedChatEdgeFromConnection({
-        source: sourceSectionId,
-        sourceHandle: "chat-shared-edge-source",
-        target: targetSectionId,
-        targetHandle: "agentic-edge-target",
-      });
-    },
-    { sourceSectionId, targetSectionId },
-  );
-}
-
 async function getChatSectionIds(
   page: Page,
   projectConfigId: string,
@@ -679,7 +620,7 @@ async function ensureHandlesInViewport(
     return;
   }
   const fitViewButton = page.getByRole("button", { name: "fit view" });
-  await fitViewButton.click({ force: true });
+  await fitViewButton.click();
   await expect
     .poll(() => areHandlesInViewport(page, sourceHandle, targetHandle), {
       timeout: 5000,
@@ -692,13 +633,9 @@ async function areHandlesInViewport(
   sourceHandle: Locator,
   targetHandle: Locator,
 ): Promise<boolean> {
-  const [sourceNodeId, targetNodeId] = await Promise.all([
-    getHandleNodeId(sourceHandle),
-    getHandleNodeId(targetHandle),
-  ]);
   const [sourceBox, targetBox] = await Promise.all([
-    getGpuFlowNodeScreenRect(page.getByTestId(`rf__node-${sourceNodeId}`)),
-    getGpuFlowNodeScreenRect(page.getByTestId(`rf__node-${targetNodeId}`)),
+    getLocatorRect(sourceHandle),
+    getLocatorRect(targetHandle),
   ]);
   const viewport = page.viewportSize();
   if (!sourceBox || !targetBox || !viewport) {
@@ -720,4 +657,20 @@ async function areHandlesInViewport(
     );
   };
   return withinViewport(sourceBox) && withinViewport(targetBox);
+}
+
+async function getLocatorRect(
+  locator: Locator,
+): Promise<{ x: number; y: number; width: number; height: number } | null> {
+  try {
+    return await locator.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      if (!rect.width || !rect.height) {
+        return null;
+      }
+      return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+    });
+  } catch {
+    return null;
+  }
 }

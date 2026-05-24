@@ -1,15 +1,11 @@
-import { movePaneToIncludeSection } from "gpuFlow/flowGeometry";
+import { movePaneToIncludeElement } from "forks/xyflow/core/utils/graph";
 import { useEffect, type RefObject } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import {
   getCurrEffectiveSectionImpl,
   getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
-import {
-  useLocalStorage,
-  useProjectState,
-  useSectionRefs,
-} from "state/definitions";
+import { useProjectState, useSectionRefs } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 
 type TabScopeBehavior = "default" | "canvas";
@@ -163,7 +159,7 @@ export function focusScope(scopeId: string): boolean {
   }
   element.focus({ preventScroll: true });
   if (scope.behavior === "canvas") {
-    movePaneToIncludeCanvasElement(element);
+    movePaneToIncludeElement(element);
   }
   return true;
 }
@@ -210,7 +206,7 @@ export function focusOnSection(
       return;
     }
     groupRef.focus({ preventScroll: true });
-    movePaneToIncludeProjectSection(sectionId);
+    movePaneToIncludeElement(groupRef);
     return;
   }
 
@@ -221,7 +217,7 @@ export function focusOnSection(
       : null;
     if (firstFocusable) {
       firstFocusable.focus({ preventScroll: true });
-      movePaneToIncludeProjectSection(sectionId);
+      movePaneToIncludeElement(firstFocusable);
       return;
     }
   }
@@ -231,7 +227,7 @@ export function focusOnSection(
     return;
   }
   sectionRef.focus({ preventScroll: true });
-  movePaneToIncludeProjectSection(sectionId);
+  movePaneToIncludeElement(sectionRef);
 }
 
 function resolveNextFocusable({
@@ -293,19 +289,15 @@ function getCurrentTopLevelSectionId(
   if (!activeElement) {
     return null;
   }
-  const sectionId = getCanvasElementSectionId(activeElement);
+  const sectionNode = activeElement.closest(".react-flow__node");
+  if (!(sectionNode instanceof HTMLElement)) {
+    return null;
+  }
+  const sectionId = sectionNode.getAttribute("data-id");
   if (!sectionId || !orderedSectionIds.includes(sectionId)) {
     return null;
   }
   return sectionId;
-}
-
-function getCanvasElementSectionId(element: HTMLElement): string | null {
-  const sectionNode = element.closest(".setta-gpu-flow__node");
-  if (!(sectionNode instanceof HTMLElement)) {
-    return null;
-  }
-  return sectionNode.getAttribute("data-id");
 }
 
 function shouldUseNativeTabNavigation(
@@ -343,23 +335,9 @@ function applyFocusResult(
   }
   focusResult.element.focus({ preventScroll: true });
   if (focusResult.scope.behavior === "canvas") {
-    movePaneToIncludeCanvasElement(focusResult.element);
+    movePaneToIncludeElement(focusResult.element);
   }
   return true;
-}
-
-function movePaneToIncludeCanvasElement(element: HTMLElement) {
-  const sectionId = getCanvasElementSectionId(element);
-  if (sectionId) {
-    movePaneToIncludeProjectSection(sectionId);
-  }
-}
-
-function movePaneToIncludeProjectSection(sectionId: string): void {
-  const { overviewTrueWidth } = useLocalStorage.getState();
-  movePaneToIncludeSection(sectionId, {
-    overviewWidth: overviewTrueWidth,
-  });
 }
 
 function getActiveCanvasElement(): HTMLElement | null {

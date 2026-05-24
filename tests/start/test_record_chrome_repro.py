@@ -133,13 +133,9 @@ def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -
             },
             {
                 "sequenceNumber": 6,
-                "event": {"type": "app-state", "kind": "gpu-flow-frame"},
-            },
-            {
-                "sequenceNumber": 7,
                 "event": {"type": "app-state", "kind": "perf-websocket-message"},
             },
-            {"sequenceNumber": 8, "event": {"type": "click"}},
+            {"sequenceNumber": 7, "event": {"type": "click"}},
         ]
         for payload in payloads:
             request = urllib.request.Request(
@@ -177,7 +173,7 @@ def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -
     )
 
     assert session_payload["eventCountsByType"] == {
-        "app-state": 3,
+        "app-state": 2,
         "click": 1,
         "console": 1,
         "network-response": 1,
@@ -198,11 +194,9 @@ def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -
     assert [json.loads(line)["event"]["type"] for line in app_state_lines] == [
         "app-state",
         "app-state",
-        "app-state",
     ]
     assert [json.loads(line)["event"]["type"] for line in performance_lines] == [
         "performance-frame-gap",
-        "app-state",
         "app-state",
     ]
 

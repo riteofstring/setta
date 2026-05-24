@@ -32,7 +32,7 @@ test("frontend-error fixture surfaces runtime error diagnostics and section fall
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const pluginCard = page
       .locator("article")
@@ -115,7 +115,7 @@ test("plugin fallback card actions open plugins, copy JSON, and delete section",
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
@@ -238,7 +238,7 @@ test("plugin frontend registration rejects full project-state selector reads", a
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const pluginCard = page
       .locator("article")

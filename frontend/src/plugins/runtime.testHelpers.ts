@@ -1,6 +1,9 @@
 import { syncStoreInitialState } from "components/Panes/paneTestUtils";
 import * as openAPI from "openapi/http";
-import { resetAppSubsystemFrontendRuntimeState } from "plugins/appSubsystem";
+import {
+  resetAppSubsystemFrontendRuntimeState,
+  useAppSubsystemFrontendStore,
+} from "plugins/appSubsystem";
 import { usePluginRuntimeStore } from "plugins/runtime";
 import {
   clearPluginRuntimeSideEffects,
@@ -9,6 +12,10 @@ import {
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { useProjectState } from "state/definitions";
+import {
+  createProjectStateBackendUpdate,
+  type ProjectStateBackendUpdate,
+} from "testUtils/projectStateBackendUpdate";
 import {
   createCore,
   createDictSectionImpl,
@@ -26,6 +33,7 @@ import {
   type PluginStatusEntry,
   type PluginStatusResponse,
 } from "utils/generatedTypes";
+import { expect } from "vitest";
 import { type StateCreator, type StoreApi } from "zustand/vanilla";
 
 export function resetPluginRuntimeStateForTests(): void {
@@ -128,7 +136,7 @@ export function buildPluginListEntry(
     ...overrides,
   });
 }
-type PluginFrontendLoadResult = Awaited<
+export type PluginFrontendLoadResult = Awaited<
   ReturnType<typeof loadPluginFrontendModule>
 >;
 
@@ -147,6 +155,27 @@ export function canvasControlsForPlugin(
   return controls;
 }
 
+export function withPluginConfigDigests(
+  config: PluginListEntry["config"],
+  overrides: {
+    schemaJsonDigestSha256?: string | null;
+    currentConfigDigestSha256?: string | null;
+  },
+): PluginListEntry["config"] {
+  return {
+    ...config,
+    ...overrides,
+  } as PluginListEntry["config"];
+}
+export function withStatusPayloadDigest(
+  statusEntry: PluginStatusEntry,
+  digest: string,
+): PluginStatusEntry {
+  return {
+    ...statusEntry,
+    runtimePayloadDigestSha256: digest,
+  } as PluginStatusEntry;
+}
 export function buildPluginListResponse(
   plugins: PluginListEntry[],
   overrides: Partial<PluginListResponse> = {},
@@ -192,7 +221,7 @@ export function buildPluginRuntimeResponse(
     ...overrides,
   };
 }
-function buildRuntimeEndpointResponse(
+export function buildRuntimeEndpointResponse(
   list: PluginListResponse,
   status: PluginStatusResponse,
 ): Awaited<ReturnType<typeof openAPI.getPluginsRuntime>> {
@@ -228,6 +257,37 @@ export function buildRuntimeRequestFailure(
   } as Awaited<ReturnType<typeof openAPI.getPluginsRuntime>>;
 }
 
+export function deferred<T = void>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, resolve, reject };
+}
+
+export function buildActiveAppSubsystemCapabilities(
+  pluginId: string,
+): NonNullable<PluginRuntimeResponse["featureCapabilities"]>["appSubsystem"] {
+  return {
+    providerSelection: {
+      status: "active",
+      selectedPluginId: pluginId,
+      activePluginIds: [pluginId],
+      disabledPluginIds: [],
+      invalidPluginIds: [],
+      conflictingPluginIds: [],
+    },
+    pluginId,
+    pluginEnabled: true,
+    appAuthoringUi: true,
+    appPreviewUi: false,
+    appGenerationChatModes: false,
+    appDeploymentRuntime: false,
+  };
+}
+
 export function buildUnavailableWatchCodeCapabilities(): NonNullable<
   PluginRuntimeResponse["featureCapabilities"]
 >["watchCode"] {
@@ -258,6 +318,41 @@ export function buildWatchCodeCapabilities(
   };
 }
 
+export function buildAppSubsystemRegistrationDelta(
+  pluginId: string,
+  applyStructuredContent: (structured: Record<string, unknown>) => boolean,
+  processProjectStateUpdate?: (payload: unknown) => void,
+  initializeAppSession?: (
+    host: unknown,
+    options?: {
+      forceNewSession?: boolean;
+    },
+  ) => Promise<boolean>,
+) {
+  return {
+    appSubsystemRegistrationsByPluginId: {
+      [pluginId]: {
+        pluginId,
+        overviewTab: {
+          renderer: { mount: () => undefined },
+          titleQuickInfo: `${pluginId} overview`,
+          moreMenuQuickInfo: `${pluginId} quick info`,
+          moreMenuLabel: pluginId,
+        },
+        controller: {
+          applyAppDefinitionStructuredContentToStore: applyStructuredContent,
+          initializeAppSessionFromCurrentDeployment: initializeAppSession,
+          processAppProjectStateUpdateFromBackend: processProjectStateUpdate,
+        },
+      },
+    },
+    sectionKinds: {},
+    panes: {},
+    commands: {},
+    topNavBarItems: {},
+    canvasControls: {},
+  };
+}
 export type CapturedPluginHost = {
   createStore: <TState extends object>(
     initializer: StateCreator<TState, [], []>,
@@ -322,6 +417,22 @@ export function readPluginRuntimeHookValue<T>(read: () => T): T {
   return captured as T;
 }
 
+export function readAppSubsystemHookValue<T>(read: () => T): T {
+  syncStoreInitialState(useAppSubsystemFrontendStore);
+  let captured: T | undefined;
+  let hasCaptured = false;
+  function Capture(): null {
+    captured = read();
+    hasCaptured = true;
+    return null;
+  }
+  renderToString(React.createElement(Capture));
+  if (!hasCaptured) {
+    throw new Error("Expected app subsystem hook to produce a value.");
+  }
+  return captured as T;
+}
+
 export function getCapturedPluginHost(): CapturedPluginHost {
   const globalScope = globalThis as {
     __settaCapturedPluginHost?: CapturedPluginHost;
@@ -332,6 +443,68 @@ export function getCapturedPluginHost(): CapturedPluginHost {
   return globalScope.__settaCapturedPluginHost;
 }
 
+export async function loadPluginRevealHandlerFixture(
+  registerSource: string,
+): Promise<void> {
+  const moduleUrl =
+    "data:text/javascript," +
+    encodeURIComponent(
+      "export const apiVersion = 1;\n" +
+        "export function register(host) {\n" +
+        `${registerSource}\n` +
+        "}\n",
+    );
+  const result = await loadPluginFrontendModule(
+    buildPluginListEntry({
+      frontend: {
+        entrypointUrl: moduleUrl,
+        styleUrl: null,
+      },
+      effectiveCapabilities: ["registerSettingRevealHandler"],
+    }),
+    "ide",
+  );
+  expect(result?.error).toBeNull();
+}
+
+export function expectPluginFrontendErrorCode(
+  invoke: () => void,
+  expectedCode: string,
+): void {
+  try {
+    invoke();
+    throw new Error("Expected plugin host call to throw.");
+  } catch (error) {
+    expect(
+      (
+        error as {
+          code?: string;
+        }
+      ).code,
+    ).toBe(expectedCode);
+  }
+}
+export function seedRuntimeSectionState(sectionId: string): void {
+  const implId = "impl-dict-runtime";
+  const variantId = "variant-dict-runtime";
+  useProjectState.setState((state) => {
+    state.projectConfig.id = "project-config-initial";
+    state.projectConfig.sectionVariantMap = {
+      ...state.projectConfig.sectionVariantMap,
+      [sectionId]: variantId,
+    };
+    state.sections[sectionId] = createCore({ id: sectionId });
+    state.sectionImpls[implId] = createDictSectionImpl({
+      id: implId,
+      name: "Runtime Dict Section",
+    });
+    state.sectionVariants[variantId] = createVariant({
+      id: variantId,
+      impl: implId,
+      nonPresetImpls: [implId],
+    });
+  });
+}
 export function seedRuntimePluginSectionState(sectionId: string): void {
   const implId = "impl-plugin-runtime";
   const variantId = "variant-plugin-runtime";
@@ -414,6 +587,58 @@ export class RuntimeTestWebSocket extends EventTarget {
   static reset(): void {
     RuntimeTestWebSocket.instances = [];
   }
+}
+export function buildPluginRuntimeProjectStateUpdate(
+  activeIds: string[],
+): ProjectStateBackendUpdate {
+  const state = useProjectState.getState();
+  return createProjectStateBackendUpdate({
+    projectState: {
+      projectConfig: {
+        ...state.projectConfig,
+        activeIds: [...activeIds],
+      },
+      sections: {
+        ...state.sections,
+      },
+      sectionImpls: {
+        ...state.sectionImpls,
+      },
+      sectionVariants: {
+        ...state.sectionVariants,
+      },
+      codeObjs: {
+        ...state.codeObjs,
+      },
+      codeObjImpls: {
+        ...state.codeObjImpls,
+      },
+      codeObjVariants: {
+        ...state.codeObjVariants,
+      },
+      artifactGroups: {
+        ...state.artifactGroups,
+      },
+      singletonSections: {
+        ...state.singletonSections,
+      },
+      parentSectionMap: {
+        ...state.parentSectionMap,
+      },
+      shownParamIds: {
+        ...state.shownParamIds,
+      },
+      projectChatWindowing: createProjectChatWindowingState({
+        ...state.projectChatWindowing,
+        instancesById: {
+          ...state.projectChatWindowing.instancesById,
+        },
+        order: [...state.projectChatWindowing.order],
+      }),
+      requiredDecodedImages: [...state.requiredDecodedImages],
+      genCodeBinding: state.genCodeBinding,
+    },
+  });
 }
 export function buildPluginRuntimeProjectState(
   projectConfigId: string,

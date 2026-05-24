@@ -168,7 +168,7 @@ export async function getFloatingWindowMetrics(
 ): Promise<FloatingWindowMetrics> {
   return floatingWindow.evaluate((element) => {
     const rect = element.getBoundingClientRect();
-    const pane = document.querySelector(".setta-gpu-flow__pane");
+    const pane = document.querySelector(".react-flow__pane");
     const workspaceTopInset =
       pane instanceof HTMLElement ? pane.getBoundingClientRect().top : 0;
     const viewModeTabs = document.querySelector(
@@ -204,7 +204,7 @@ export async function getFloatingWindowMetrics(
 
 export async function getWorkspaceTopInset(page: Page): Promise<number> {
   return page.evaluate(() => {
-    const pane = document.querySelector(".setta-gpu-flow__pane");
+    const pane = document.querySelector(".react-flow__pane");
     if (pane instanceof HTMLElement) {
       const topInset = pane.getBoundingClientRect().top;
       if (Number.isFinite(topInset) && topInset > 0) {
@@ -219,10 +219,8 @@ export async function getCanvasDomRect(
   page: Page,
 ): Promise<CanvasDomRect | null> {
   return page.evaluate(async () => {
-    const { gpuFlowViewportStore } = await import(
-      "/src/gpuFlow/viewportStore.ts"
-    );
-    const domNode = gpuFlowViewportStore.getState().domNode;
+    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
+    const domNode = useReactFlow.getState().domNode;
     if (!domNode) {
       return null;
     }
@@ -256,7 +254,7 @@ export async function getFlowPositionFromScreenPoint(
 ): Promise<FlowPoint> {
   return page.evaluate(async (point) => {
     const { screenToFlowPosition } = await import(
-      "/src/gpuFlow/viewportActions.ts"
+      "/src/forks/xyflow/core/hooks/useViewportHelper.ts"
     );
     return screenToFlowPosition(point);
   }, screenPoint);

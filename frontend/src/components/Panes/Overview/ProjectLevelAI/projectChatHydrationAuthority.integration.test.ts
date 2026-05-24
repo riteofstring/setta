@@ -188,7 +188,7 @@ describe("project chat hydration authority integration", () => {
     });
   });
 
-  it("routes ambiguous provenance through a warning instead of a valid fallback", () => {
+  it("routes ambiguous provenance through warning compatibility instead of a compatible fallback", () => {
     const authority = resolveProjectChatHydrationAuthority({
       chatId: "chat-ambiguous-provenance",
       selectedScopedChatProvenance: { status: "ambiguous" },

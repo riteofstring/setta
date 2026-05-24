@@ -30,7 +30,7 @@ test("plugins pane update and rollback actions work against real backend endpoin
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const pluginCard = page
       .locator("article")
@@ -89,7 +89,7 @@ test("plugins pane lifecycle actions work against real backend endpoints", async
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
 
   const pluginCard = page
     .locator("article")
@@ -115,7 +115,7 @@ test("plugins pane lifecycle actions work against real backend endpoints", async
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
 
   const reenabledPluginCard = page
     .locator("article")
@@ -164,7 +164,7 @@ test("plugins pane supports scope shadowing and scope-specific uninstall", async
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const workspaceCard = page
       .locator("article")
@@ -266,7 +266,7 @@ test("plugins pane updates frontend asset digest query after relink", async ({
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const firstRuntimeResponse = await page.request.get(
       `${BACKEND_ORIGIN}/api/plugins/runtime`,
@@ -301,7 +301,7 @@ test("plugins pane updates frontend asset digest query after relink", async ({
     });
     await postBackend(page, "/plugins/rescan", {});
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const secondRuntimeResponse = await page.request.get(
       `${BACKEND_ORIGIN}/api/plugins/runtime`,

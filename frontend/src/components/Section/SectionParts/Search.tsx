@@ -1,7 +1,6 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { scheduleGpuFlowPortLocalRectUpdate } from "gpuFlow/ports/portGeometry";
 import _ from "lodash";
 import { clearTextFieldCompletion } from "openapi/http";
 import {
@@ -15,6 +14,7 @@ import {
 } from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
+import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import { setCallableAndRefreshProjectState } from "state/actions/project/callable";
 import {
@@ -41,7 +41,6 @@ import {
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
-import { PROJECT_SECTION_SEARCH_HEIGHT_PX } from "./sectionSearchLayout";
 
 type SectionSearchInputState = {
   displayedCallableName: string;
@@ -60,11 +59,9 @@ type SectionSearchInputState = {
 export function SectionSearch({
   sectionId,
   callable,
-  syncDomPortGeometry = true,
 }: {
   sectionId: string;
   callable: string | null;
-  syncDomPortGeometry?: boolean;
 }) {
   const variantIsFrozen = useSectionImplIsFrozen(sectionId);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -114,7 +111,6 @@ export function SectionSearch({
       } bg-white mx-[.125rem] py-1 dark:bg-setta-950 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit`}
       isDisabled={variantIsFrozen || !lspEnabled}
       lspEnabled={lspEnabled}
-      syncDomPortGeometry={syncDomPortGeometry}
     />
   );
 }
@@ -123,20 +119,14 @@ function useSectionSearchMeasurements(
   searchRef: RefObject<HTMLElement | null>,
   sectionId: string,
   heightKey: string,
-  syncDomPortGeometry: boolean,
 ) {
   useLayoutEffect(() => {
-    if (!syncDomPortGeometry) {
-      return;
-    }
     const node = searchRef.current;
     if (!node) {
       useTemporaryMiscState.setState({ [heightKey]: 0 });
       return;
     }
-    const handleScope = syncDomPortGeometry
-      ? node.closest(".agentic-handle-scope")
-      : null;
+    const handleScope = node.closest(".agentic-handle-scope");
     let lastMeasuredHeight: number | null = null;
     let pendingAgenticHandleFrame: number | null = null;
     const updateAgenticHandleTop = () => {
@@ -171,9 +161,7 @@ function useSectionSearchMeasurements(
         return;
       }
       handleScope.style.setProperty("--agentic-handle-top", nextTopCss);
-      if (syncDomPortGeometry) {
-        scheduleGpuFlowPortLocalRectUpdate([sectionId]);
-      }
+      scheduleEdgeHandlePositionUpdate([sectionId]);
     };
     const updateHeight = () => {
       const style = window.getComputedStyle(node);
@@ -192,17 +180,13 @@ function useSectionSearchMeasurements(
     };
     const updateMeasurements = () => {
       updateHeight();
-      if (syncDomPortGeometry) {
-        updateAgenticHandleTop();
-      }
+      updateAgenticHandleTop();
     };
     updateMeasurements();
-    if (syncDomPortGeometry) {
-      pendingAgenticHandleFrame = requestAnimationFrame(() => {
-        pendingAgenticHandleFrame = null;
-        updateAgenticHandleTop();
-      });
-    }
+    pendingAgenticHandleFrame = requestAnimationFrame(() => {
+      pendingAgenticHandleFrame = null;
+      updateAgenticHandleTop();
+    });
     const observer = new ResizeObserver(updateMeasurements);
     observer.observe(node);
     return () => {
@@ -213,12 +197,10 @@ function useSectionSearchMeasurements(
       useTemporaryMiscState.setState({ [heightKey]: 0 });
       if (handleScope instanceof HTMLElement) {
         handleScope.style.removeProperty("--agentic-handle-top");
-        if (syncDomPortGeometry) {
-          scheduleGpuFlowPortLocalRectUpdate([sectionId]);
-        }
+        scheduleEdgeHandlePositionUpdate([sectionId]);
       }
     };
-  }, [heightKey, searchRef, sectionId, syncDomPortGeometry]);
+  }, [heightKey, searchRef, sectionId]);
 }
 
 function buildSectionSearchTooltipContent(
@@ -409,7 +391,6 @@ function SectionSearchCore({
   isDisabled,
   divId,
   lspEnabled,
-  syncDomPortGeometry,
 }: {
   sectionId: string;
   callable: string | null;
@@ -420,16 +401,10 @@ function SectionSearchCore({
   isDisabled: boolean;
   divId: string;
   lspEnabled: boolean;
-  syncDomPortGeometry: boolean;
 }) {
   const searchRef = useRef<HTMLElement | null>(null);
   const heightKey = getSectionSearchHeightKey(sectionId);
-  useSectionSearchMeasurements(
-    searchRef,
-    sectionId,
-    heightKey,
-    syncDomPortGeometry,
-  );
+  useSectionSearchMeasurements(searchRef, sectionId, heightKey);
   const projectConfigId = useProjectState((x) => x.projectConfig.id);
   const {
     name: baseCodeInfoName,
@@ -509,7 +484,6 @@ function SectionSearchCore({
       className="section-search single-cell-container relative w-full"
       {...getFloatingBoxHandlers(...tooltipContentArray)}
       ref={searchRef}
-      style={{ height: PROJECT_SECTION_SEARCH_HEIGHT_PX }}
     >
       <TextInputCodeMirror
         dummyDivId={divId}

@@ -87,7 +87,6 @@ def build_record_chrome_sandbox(tmp_path: Path) -> tuple[Path, Path, Path, Path]
     for relative_path in [
         Path("scripts/latest-chrome-recording.sh"),
         Path("scripts/record-chrome-repro.sh"),
-        Path("scripts/resolve-chrome-for-testing-149.sh"),
         Path("scripts/chrome_repro_collector.py"),
         Path("scripts/chrome_repro_collect_llm_artifacts.py"),
         Path("scripts/lib/setta_cli_command.sh"),

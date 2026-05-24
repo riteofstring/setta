@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -1153,4 +1154,23 @@ func resolvedProfile(profileID string, mode transcriptionprofiles.TransportMode,
 
 func stringPtr(value string) *string {
 	return &value
+}
+
+func readMultipartFile(t *testing.T, form *multipart.Form, field string) []byte {
+	t.Helper()
+
+	files := form.File[field]
+	if len(files) == 0 {
+		t.Fatalf("missing multipart file field %q", field)
+	}
+	file, err := files[0].Open()
+	if err != nil {
+		t.Fatalf("open multipart file %q: %v", field, err)
+	}
+	defer file.Close()
+	content, err := io.ReadAll(file)
+	if err != nil {
+		t.Fatalf("read multipart file %q: %v", field, err)
+	}
+	return content
 }

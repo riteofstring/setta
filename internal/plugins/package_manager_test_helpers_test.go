@@ -92,7 +92,7 @@ func materializePackageManagerFixtureFrontendAssets(t *testing.T, pluginRoot str
 	if manifest.Frontend == nil || manifest.Frontend.Build == nil {
 		return
 	}
-	if err := ensureRuntimeManagedPluginFrontendAssets(pluginRoot, manifest, runtimeManagedFrontendSourceBuild); err != nil {
+	if err := EnsureRuntimeManagedPluginFrontendAssetsForRoot(pluginRoot); err != nil {
 		t.Fatalf("materialize package-manager fixture frontend assets: %v", err)
 	}
 	for _, relativePath := range []string{

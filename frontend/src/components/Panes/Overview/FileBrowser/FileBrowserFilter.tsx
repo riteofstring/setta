@@ -1,8 +1,8 @@
 import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import { createFolderPathCompletionSource } from "components/Utils/CodeMirror/folderPathCompletions";
 import { InlineCodeMirrorInput } from "components/Utils/CodeMirror/InlineCodeMirrorInput";
-import { subscribeToGpuViewportReposition } from "gpuFlow/viewportReposition";
-import { useEffect, useId, useMemo, useState, type ReactElement } from "react";
+import { useReactFlow } from "forks/xyflow/core/store";
+import { useEffect, useId, useMemo, useState } from "react";
 import { FiSave } from "react-icons/fi";
 import { HiChevronDown } from "react-icons/hi";
 import { TbFolder, TbFolders } from "react-icons/tb";
@@ -38,10 +38,31 @@ const SEARCH_SCOPE_OPTIONS: SearchScopeOptionConfig[] = [
 
 function useSearchMenuReposition(searchMenuOpen: boolean): void {
   useEffect(() => {
-    if (!searchMenuOpen) {
+    if (!searchMenuOpen || typeof window === "undefined") {
       return;
     }
-    return subscribeToGpuViewportReposition();
+    let rafId: number | null = null;
+    const scheduleReposition = () => {
+      if (rafId !== null) {
+        return;
+      }
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null;
+        window.dispatchEvent(new Event("scroll"));
+        window.dispatchEvent(new Event("resize"));
+      });
+    };
+    scheduleReposition();
+    const unsubscribe = useReactFlow.subscribe(
+      (state) => state.transform,
+      () => scheduleReposition(),
+    );
+    return () => {
+      unsubscribe();
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
   }, [searchMenuOpen]);
 }
 
@@ -52,7 +73,7 @@ function SearchScopeOption(args: {
   description: string;
   selected: boolean;
   onSelect: (scope: FileBrowserSearchScope) => void;
-}): ReactElement {
+}): JSX.Element {
   const Icon = args.icon;
   return (
     <button
@@ -84,7 +105,7 @@ function SaveSearchButton(args: {
   enabled: boolean;
   onSave: () => void;
   visible: boolean;
-}): ReactElement | null {
+}): JSX.Element | null {
   if (!args.visible) {
     return null;
   }
@@ -111,7 +132,7 @@ function SearchScopePopover(args: {
   onSelect: (scope: FileBrowserSearchScope) => void;
   open: boolean;
   searchScope: FileBrowserSearchScope;
-}): ReactElement {
+}): JSX.Element {
   return (
     <StandardPopover
       open={args.open}
@@ -211,10 +232,6 @@ export function FileBrowserFilter({
     fileBrowserState.setState({ searchScope: nextScope });
     setSearchMenuOpen(false);
   };
-  const optionalInputProps = {
-    ...(completionSource ? { completionsFn: completionSource } : {}),
-    ...(tooltipParentDivId !== undefined ? { tooltipParentDivId } : {}),
-  };
 
   return (
     <search
@@ -229,6 +246,7 @@ export function FileBrowserFilter({
         className="min-w-0 flex-1 cursor-text truncate border-solid border-transparent bg-transparent outline-0 [border-width:0_0_1px_0] focus-within:border-blue-300 [&_.cm-content]:!py-1 [&_.cm-content]:!pl-3 [&_.cm-content]:!pr-12 [&_.cm-content]:font-sans [&_.cm-content]:text-xs [&_.cm-content]:text-setta-700 dark:[&_.cm-content]:text-setta-300 [&_.cm-line]:!px-0 [&_.cm-placeholder]:text-setta-400 dark:[&_.cm-placeholder]:text-setta-600"
         dummyClassName="min-w-0 flex-1 cursor-text truncate border-solid border-transparent bg-transparent py-1 pl-3 pr-12 text-xs text-setta-700 placeholder-setta-400 outline-0 [border-width:0_0_1px_0] focus-visible:border-blue-300 dark:text-setta-300 font-sans"
         singleLine
+        completionsFn={completionSource ?? undefined}
         keyComboActions={{
           Escape: () => {
             if (typeof document === "undefined") {
@@ -241,7 +259,7 @@ export function FileBrowserFilter({
             return true;
           },
         }}
-        {...optionalInputProps}
+        tooltipParentDivId={tooltipParentDivId}
       />
       <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
         <SaveSearchButton

@@ -16,7 +16,7 @@ test.describe.serial("project chat pending promotion", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".setta-gpu-flow__pane");
+      await page.waitForSelector(".react-flow__pane");
 
       await page.evaluate(
         async ({ projectConfigId }) => {

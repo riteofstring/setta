@@ -8,7 +8,7 @@ Usage: ./scripts/run-codex-authority-sequenced-loop.sh [options] [-- <extra code
 Run Codex in a fresh-session loop with three strict phases:
 1. remove unjustified duplicated logic across Go, Python, and TypeScript
 2. replace unjustified polling with websocket pushes
-3. run `./scripts/quality/report_complexity.sh` and fix actionable code quality hotspots
+3. run `./report_quality_hotspots.sh` and fix actionable code quality hotspots
 
 Defaults:
 - Maximum iterations: 1000
@@ -233,7 +233,7 @@ mkdir -p "${output_dir}" "${state_dir}"
 
 hotspot_report_command="$(
   shell_join \
-    "./scripts/quality/report_complexity.sh" \
+    "./report_quality_hotspots.sh" \
     --python-min "${hotspot_python_min}" \
     --frontend-min "${hotspot_frontend_min}" \
     --go-min "${hotspot_go_min}"
@@ -339,7 +339,7 @@ Rules:
 - [ ] Mark Phase 3 complete only after ${hotspot_review_file} and a fresh hotspot report show no remaining actionable hotspot cleanup worth landing without churn. Do not mark it complete when the real result is plateau.
 
 ## Completion
-- [ ] Before every non-stop commit, run focused verification, \`./gcf.sh\`, and \`./scripts/quality/check.sh\`.
+- [ ] Before every non-stop commit, run focused verification, \`./gcf.sh\`, and \`./check_quality.sh\`.
 - [ ] Every non-stop iteration ends with a clean worktree and a commit whose message starts with \`codex-cleanup:\`.
 EOF
 fi
@@ -382,9 +382,9 @@ Execution rules for every iteration:
 - Do not use Chrome DevTools, browser MCP, or other browser-driven verification unless the active change genuinely modifies frontend runtime behavior and non-browser verification is insufficient.
 - For duplication, polling, and hotspot cleanup, prefer code inspection, generation checks, focused tests, and scriptable verification over browser workflows.
 - If browser verification is genuinely required, use an already-running developer-started session only. Do not spend this loop iteration starting, waiting on, or debugging browser MCP processes.
-- Before every non-stop commit, run \`./gcf.sh\` and then \`./scripts/quality/check.sh\`. If either fails, fix the failure or stop without committing.
+- Before every non-stop commit, run \`./gcf.sh\` and then \`./check_quality.sh\`. If either fails, fix the failure or stop without committing.
 - When you launch a long-running shell command such as \`./gcf.sh\`, treat partial streamed output as still in progress. Do not inspect diffs, run follow-up commands, or commit until that command has fully exited successfully.
-- Treat \`No supported files to check.\` from \`./scripts/quality/check.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./scripts/quality/check.sh\` would normally inspect.
+- Treat \`No supported files to check.\` from \`./check_quality.sh\` as acceptable only when the current git diff contains no Go, Python, or frontend source files that \`./check_quality.sh\` would normally inspect.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`codex-cleanup:\`.
 - Do not create a commit if you made no repo changes.
 - Do not ask for follow-up.
@@ -414,7 +414,7 @@ Phase 3 rules:
 - Read the saved report at ${hotspot_report_file} before choosing work.
 - Update ${hotspot_review_file} during every Phase 3 iteration.
 - Use the report to pick the highest-leverage actionable hotspot or tight cluster of related hotspots, then simplify it without regressing behavior.
-- Start with contained top-10 hotspots only while that still produces real reductions. If the current top hotspots are concentrated in a few backlog-dense files or \`./scripts/quality/check.sh --files <file>\` shows that a narrow slice is blocked by same-file backlog, switch into Phase 3 backlog-burn mode instead of calling plateau.
+- Start with contained top-10 hotspots only while that still produces real reductions. If the current top hotspots are concentrated in a few backlog-dense files or \`./check_quality.sh --files <file>\` shows that a narrow slice is blocked by same-file backlog, switch into Phase 3 backlog-burn mode instead of calling plateau.
 - In backlog-burn mode, choose one dominant hotspot file or tightly coupled file cluster and make a broader refactor intended to materially lower that file or cluster's total backlog, even if the change spans multiple functions in the same file.
 - Treat these thresholds as the Phase 3 floor for this loop: Python ${hotspot_python_min}, frontend ${hotspot_frontend_min}, Go ${hotspot_go_min}. Do not burn iterations on sub-threshold churn unless that cleanup is already bundled into a higher-threshold target you are touching anyway.
 - Favor real structural simplification over just shuffling complexity into neighboring helpers.
@@ -424,13 +424,13 @@ Phase 3 rules:
   - lowers the reported complexity score of a current top-10 hotspot
   - clearly reduces structural branching in a current top-10 hotspot file without merely moving that complexity into adjacent helpers
 - A backlog-burn iteration also counts as material if it does at least one of:
-  - reduces the number of \`./scripts/quality/check.sh --files ...\` failures in the target file or cluster by at least 3
+  - reduces the number of \`./check_quality.sh --files ...\` failures in the target file or cluster by at least 3
   - removes at least 2 current above-threshold hotspots from the same target file or cluster
   - gets the touched-file quality gate to pass for a file or cluster that previously failed because of same-file backlog
 - Keep a consecutive no-material-reduction counter in ${hotspot_review_file}.
 - If a top hotspot file fails the touched-file gate because of many same-file issues, do not treat that by itself as plateau. First record it under "Dominant blocking clusters" in ${hotspot_review_file} and attempt a backlog-burn refactor in one of the dominant files or clusters.
 - Plateau only after three consecutive audited Phase 3 iterations fail to achieve a material reduction and the remaining dominant blocking files or clusters have either received a backlog-burn attempt or been ruled out with a concrete repo-specific blocker that would require a broader planned rewrite than this loop should land.
-- When auditing plateau, include the concrete \`./scripts/quality/check.sh --files ...\` failure counts for the remaining dominant files or clusters.
+- When auditing plateau, include the concrete \`./check_quality.sh --files ...\` failure counts for the remaining dominant files or clusters.
 - If plateau is reached, make no repo changes, leave the Phase 3 completion checkbox unchecked, explain that the stop reason is plateau, and end with the stop sentinel.
 - Mark Phase 3 complete only after a fresh hotspot report and ${hotspot_review_file} show no remaining actionable hotspot cleanup worth landing without churn.
 

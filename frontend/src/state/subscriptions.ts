@@ -1,4 +1,5 @@
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { updateDndChildren } from "forks/dnd-kit/dndChildren";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
   useDecodedImages,
@@ -18,16 +19,19 @@ import {
   debouncedDispatchViewportUpdate,
   dispatchViewportUpdateImmediately,
   getCurrEffectiveSectionImpl,
+  getDisplayedSectionIdToChildren,
 } from "./actions/sectionInfos";
 import { decodeExistingRawImages } from "./hooks/artifacts";
 
-declare global {
-  interface Window {
-    settaGpuFlowZoom?: number;
-  }
-}
-
 export function subscribe() {
+  useProjectState.subscribe(
+    getDisplayedSectionIdToChildren,
+    (x) => {
+      updateDndChildren(x);
+    },
+    { equalityFn: _.isEqual },
+  );
+
   useProjectState.subscribe(entryCodeBlockSubscriptionFn, (codeBlockIds) => {
     useProjectState.setState((state) => {
       const configState = state.projectConfig;
@@ -42,18 +46,15 @@ export function subscribe() {
     });
   });
 
-  gpuFlowViewportStore.subscribe(
-    gpuViewportSubscriptionFn,
+  useReactFlow.subscribe(
+    reactFlowTransformSubscriptionFn,
     (newState, prevState) => {
       const autoFitTransition =
         newState.fitViewOnInitDone &&
         (newState.fitViewOnInit || prevState.fitViewOnInit);
       if (autoFitTransition) {
         if (newState.fitViewOnInit) {
-          gpuFlowViewportStore.getState().setFitViewInitializationState({
-            fitViewOnInit: false,
-            fitViewOnInitOptions: undefined,
-          });
+          useReactFlow.setState({ fitViewOnInit: false });
         } else {
           // Auto-fit chooses an authoritative camera for the current
           // document, so persist it immediately instead of waiting on the
@@ -65,7 +66,7 @@ export function subscribe() {
       }
 
       // used by forked xterm to make text appear correctly
-      window.settaGpuFlowZoom = newState.transform[2];
+      window.reactFlowZoom = newState.transform[2];
     },
     { equalityFn: _.isEqual },
   );
@@ -123,7 +124,7 @@ export function subscribe() {
   );
 }
 
-function gpuViewportSubscriptionFn(state) {
+function reactFlowTransformSubscriptionFn(state) {
   return {
     transform: state.transform,
     fitViewOnInit: state.fitViewOnInit,
