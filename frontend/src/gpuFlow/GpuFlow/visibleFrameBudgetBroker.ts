@@ -1,4 +1,3 @@
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
 import type {
   GpuFlowVisibleFrameResourceGraphSnapshot,
   GpuFlowVisibleFrameResourcePreparationLane,
@@ -6,6 +5,7 @@ import type {
   GpuFlowVisibleFrameResourceStateKind,
   GpuFlowVisibleFrameResourceStateSnapshot,
 } from "./visibleFrameResourceGraph";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
 
 export type GpuFlowVisibleFrameBudgetPriority =
   GpuFlowVisibleFrameResourcePriority;
@@ -120,9 +120,12 @@ export function createGpuFlowVisibleFrameBudgetBroker({
         maxSafetyDebtAgeFrames: normalizedPolicy.maxSafetyDebtAgeFrames,
         requestedDebt: agedDebt,
       });
-      const browserVisualDebt = selectGpuFlowVisibleFrameBrowserVisualDebt(
-        agedDebt,
-      );
+      assertGpuFlowVisibleFrameBudgetDebtNotStarved({
+        overBudgetDebtIds,
+        selectedDebtIds,
+      });
+      const browserVisualDebt =
+        selectGpuFlowVisibleFrameBrowserVisualDebt(agedDebt);
       const resolutionDebtSelected =
         selectedDebtIds.includes("resolution-update");
       return Object.freeze({
@@ -427,6 +430,27 @@ function isGpuFlowVisibleFrameBudgetDebtOverBudget({
   return false;
 }
 
+function assertGpuFlowVisibleFrameBudgetDebtNotStarved({
+  overBudgetDebtIds,
+  selectedDebtIds,
+}: {
+  readonly overBudgetDebtIds: readonly string[];
+  readonly selectedDebtIds: readonly string[];
+}): void {
+  const selectedDebtIdSet = new Set(selectedDebtIds);
+  const starvedDebtIds = overBudgetDebtIds.filter(
+    (debtId) => !selectedDebtIdSet.has(debtId),
+  );
+  if (starvedDebtIds.length === 0) {
+    return;
+  }
+  throw new Error(
+    `GPU Flow visible frame budget broker starved over-budget visible debt: ${starvedDebtIds.join(
+      ", ",
+    )}.`,
+  );
+}
+
 function createGpuFlowVisibleFrameBudgetDebtIdsByLane(
   debt: readonly GpuFlowVisibleFrameAgedBudgetDebtRequest[],
 ): Partial<
@@ -489,8 +513,10 @@ function createGpuFlowVisibleFrameBudgetDebtRequestForResourceState(
 function selectGpuFlowVisibleFrameBrowserVisualDebt(
   requestedDebt: readonly GpuFlowVisibleFrameAgedBudgetDebtRequest[],
 ): GpuFlowVisibleFrameAgedBudgetDebtRequest | undefined {
-  return requestedDebt.find((debt) => debt.id === "browser-visual-repair")
-    ?? requestedDebt.find(isGpuFlowVisibleFrameBrowserVisualRepairDebt);
+  return (
+    requestedDebt.find((debt) => debt.id === "browser-visual-repair") ??
+    requestedDebt.find(isGpuFlowVisibleFrameBrowserVisualRepairDebt)
+  );
 }
 
 function isGpuFlowVisibleFrameBrowserVisualRepairDebt(

@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { GpuFlowVisiblePublicationDecision } from "../projectionRuntime";
 import {
   createGpuFlowVisibleFrameBudgetBroker,
-  createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph,
   createGpuFlowVisibleFrameBudgetBrokerDecision,
+  createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph,
   shouldDeferGpuFlowBrowserVisualRepairForBudget,
 } from "./visibleFrameBudgetBroker";
 
@@ -124,6 +124,41 @@ describe("GPU Flow visible frame budget broker", () => {
     );
   });
 
+  it("fails loudly when over-budget visible debt remains deferred", () => {
+    const budgetBroker = createGpuFlowVisibleFrameBudgetBroker({
+      policy: {
+        maxSafetyDebtAgeFrames: 1,
+        maxContinuityDebtAgeFrames: 2,
+        minPreparationBudgetDuringMotionMs: 0,
+        perFramePreparationBudgetMs: 0,
+        reservedMotionProjectionBudgetMs: 2,
+      },
+    });
+
+    expect(() =>
+      budgetBroker.selectFrameBudget({
+        deferResolutionUpdates: false,
+        publicationDecision: publicationDecision({
+          lane: "motion",
+          schedulerState: "motion-active",
+        }),
+        requestedDebt: [
+          {
+            debtAgeFrames: 2,
+            estimatedCostMs: 0.5,
+            id: "dom-control:active-editor",
+            preparationLane: "browser-visual",
+            priority: "safety",
+            resourceState: "requested",
+            source: "resource-graph",
+          },
+        ],
+      }),
+    ).toThrow(
+      /visible frame budget broker starved over-budget visible debt: dom-control:active-editor/,
+    );
+  });
+
   it("brokers concrete resource graph debt by preparation lane and cost", () => {
     const budgetBroker = createGpuFlowVisibleFrameBudgetBroker({
       policy: {
@@ -134,8 +169,8 @@ describe("GPU Flow visible frame budget broker", () => {
         reservedMotionProjectionBudgetMs: 2,
       },
     });
-    const requestedDebt = createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph(
-      {
+    const requestedDebt =
+      createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph({
         snapshot: {
           activeEditorPins: [],
           candidateResourceKeys: [],
@@ -177,8 +212,7 @@ describe("GPU Flow visible frame budget broker", () => {
             },
           ],
         },
-      },
-    );
+      });
 
     const decision = budgetBroker.selectFrameBudget({
       deferResolutionUpdates: false,
