@@ -301,18 +301,6 @@ export class GpuFlowVisibleFrameResourceGraph {
     return this.createVisibleFrameResourceWorkResult(transitions);
   }
 
-  drainVisibleFrameResourceWork(): GpuFlowVisibleFrameResourceWorkResult {
-    const transitions: GpuFlowVisibleFrameResourceWorkTransition[] = [];
-    while (this.queuedResourceKeys.length > 0) {
-      const result = this.advanceVisibleFrameResourceWork();
-      transitions.push(...result.transitions);
-      if (result.transitions.length === 0) {
-        break;
-      }
-    }
-    return this.createVisibleFrameResourceWorkResult(transitions);
-  }
-
   commitPreparedCommittedSurfaceFrame({
     commitBrowserVisualCandidate,
     frame,

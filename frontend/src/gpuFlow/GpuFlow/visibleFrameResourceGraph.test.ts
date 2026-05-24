@@ -245,7 +245,6 @@ describe("GPU Flow visible frame resource graph proofs", () => {
       browserVisualCandidate: winnerCandidate,
       frame: winnerFrame,
     });
-    registry.drainVisibleFrameResourceWork();
 
     const committedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
     const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
