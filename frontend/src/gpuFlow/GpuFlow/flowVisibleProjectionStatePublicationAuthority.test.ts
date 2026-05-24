@@ -22,7 +22,7 @@ describe("GPU Flow visible projection state publication authority", () => {
     expect(source).not.toContain("GpuFlowHoldPreviousToken | null");
   });
 
-  it("guards both committed and held visible projection publication refs", () => {
+  it("guards committed visible projection publication refs and keeps held frames read-only", () => {
     const source = readFileSync(
       VISIBLE_PROJECTION_PUBLICATION_MODULE_PATH,
       "utf8",
@@ -31,16 +31,23 @@ describe("GPU Flow visible projection state publication authority", () => {
       "function publishCommittedVisibleProjectionState",
     );
     const heldPublisherStart = source.indexOf(
-      "function recordHeldPreviousVisibleProjectionState",
+      "function assertGpuFlowHeldPreviousVisibleProjectionState",
+    );
+    const committedPublisherEnd = source.indexOf(
+      "function presentGpuFlowVisibleFramePublicationFrame",
+    );
+    const heldPublisherSource = source.slice(
+      heldPublisherStart,
+      committedPublisherStart,
     );
     const committedPublisherSource = source.slice(
       committedPublisherStart,
-      heldPublisherStart,
+      committedPublisherEnd,
     );
-    const heldPublisherSource = source.slice(heldPublisherStart);
 
     expect(committedPublisherStart).toBeGreaterThanOrEqual(0);
-    expect(heldPublisherStart).toBeGreaterThan(committedPublisherStart);
+    expect(heldPublisherStart).toBeGreaterThanOrEqual(0);
+    expect(committedPublisherEnd).toBeGreaterThan(committedPublisherStart);
     expect(committedPublisherSource).toContain(
       "assertGpuFlowCommitPublicationToken",
     );
@@ -53,7 +60,7 @@ describe("GPU Flow visible projection state publication authority", () => {
     expect(heldPublisherSource).toContain(
       "assertGpuFlowHoldPreviousTokenForProjectionSample",
     );
-    expect(heldPublisherSource).toContain(
+    expect(heldPublisherSource).not.toContain(
       "visibleProjectionPublicationStateRef.current = visibleProjectionState",
     );
   });

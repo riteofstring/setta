@@ -68,7 +68,7 @@ describe("GPU Flow surface publication completion", () => {
     );
 
     expect(visibleProjectionStateRef.current).toBe(committedState);
-    expect(visibleProjectionPublicationStateRef.current).toBe(heldState);
+    expect(visibleProjectionPublicationStateRef.current).toBe(committedState);
   });
 
   it("does not complete scheduler debt when committed publication fails before visibility advances", () => {

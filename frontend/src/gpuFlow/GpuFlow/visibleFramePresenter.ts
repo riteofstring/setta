@@ -91,13 +91,11 @@ function publishGpuFlowVisibleProjectionState({
   });
 }
 
-function recordGpuFlowHeldPreviousVisibleProjectionState({
+function assertGpuFlowHeldPreviousVisibleProjectionState({
   token,
-  visibleProjectionPublicationStateRef,
   visibleProjectionState,
 }: {
   readonly token: GpuFlowHoldPreviousToken;
-  readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): void {
   if (visibleProjectionState.transaction.kind !== "held-previous") {
@@ -105,11 +103,18 @@ function recordGpuFlowHeldPreviousVisibleProjectionState({
       "GPU Flow held-previous visible projection diagnostics require a held-previous frame.",
     );
   }
-  recordHeldPreviousVisibleProjectionState({
+  assertGpuFlowHoldPreviousTokenForProjectionSample({
+    projectionSampleId: visibleProjectionState.sample.id,
     token,
-    visibleProjectionPublicationStateRef,
-    visibleProjectionState,
   });
+  if (
+    token.committedFrameId !==
+    visibleProjectionState.committedFrame.displayFrameId
+  ) {
+    throw new Error(
+      "GPU Flow held-previous visible projection state publication requires a hold-previous token for the same committed frame.",
+    );
+  }
 }
 
 function publishCommittedVisibleProjectionState({
@@ -132,30 +137,6 @@ function publishCommittedVisibleProjectionState({
     token,
   });
   visibleProjectionStateRef.current = visibleProjectionState;
-  visibleProjectionPublicationStateRef.current = visibleProjectionState;
-}
-
-function recordHeldPreviousVisibleProjectionState({
-  token,
-  visibleProjectionPublicationStateRef,
-  visibleProjectionState,
-}: {
-  readonly token: GpuFlowHoldPreviousToken;
-  readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
-  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
-}): void {
-  assertGpuFlowHoldPreviousTokenForProjectionSample({
-    projectionSampleId: visibleProjectionState.sample.id,
-    token,
-  });
-  if (
-    token.committedFrameId !==
-    visibleProjectionState.committedFrame.displayFrameId
-  ) {
-    throw new Error(
-      "GPU Flow held-previous visible projection state publication requires a hold-previous token for the same committed frame.",
-    );
-  }
   visibleProjectionPublicationStateRef.current = visibleProjectionState;
 }
 
@@ -497,7 +478,6 @@ function publishGpuFlowSurfaceVisibleProjectionState({
         selectedVisibleProjectionState,
         surfaceRef,
         visibleFrameBudgetBrokerRef,
-        visibleProjectionPublicationStateRef,
       });
       return null;
     case "blocked":
@@ -532,7 +512,6 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionOutcome({
   selectedVisibleProjectionState,
   surfaceRef,
   visibleFrameBudgetBrokerRef,
-  visibleProjectionPublicationStateRef,
 }: {
   readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
   readonly blockedPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
@@ -551,7 +530,6 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionOutcome({
   readonly visibleFrameBudgetBrokerRef?:
     | RenderGpuFlowSurfaceFrameInput["visibleFrameBudgetBrokerRef"]
     | undefined;
-  readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
 }): void {
   const heldFrame =
     heldPreparedCommittedSurfaceFrame ??
@@ -571,7 +549,6 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionOutcome({
     selectedVisibleProjectionState,
     surfaceRef,
     visibleFrameBudgetBrokerRef,
-    visibleProjectionPublicationStateRef,
   });
 }
 
@@ -760,7 +737,6 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
   selectedVisibleProjectionState,
   surfaceRef,
   visibleFrameBudgetBrokerRef,
-  visibleProjectionPublicationStateRef,
 }: {
   readonly abortPreparedCommittedSurfaceFrame: RenderGpuFlowSurfaceFrameInput["abortPreparedCommittedSurfaceFrame"];
   readonly heldPreparedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
@@ -777,7 +753,6 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
   readonly visibleFrameBudgetBrokerRef?:
     | RenderGpuFlowSurfaceFrameInput["visibleFrameBudgetBrokerRef"]
     | undefined;
-  readonly visibleProjectionPublicationStateRef: RenderGpuFlowSurfaceFrameInput["visibleProjectionPublicationStateRef"];
 }): void {
   recordGpuFlowVisibleFrameHeld({
     candidateFrame: heldPreparedCommittedSurfaceFrame,
@@ -810,9 +785,8 @@ function publishGpuFlowHeldPreviousSurfaceVisibleProjectionState({
       "GPU Flow held-previous publication requires a selected or coordinator-proven held visible projection state.",
     );
   }
-  recordGpuFlowHeldPreviousVisibleProjectionState({
+  assertGpuFlowHeldPreviousVisibleProjectionState({
     token: outcome.token,
-    visibleProjectionPublicationStateRef,
     visibleProjectionState,
   });
 }
