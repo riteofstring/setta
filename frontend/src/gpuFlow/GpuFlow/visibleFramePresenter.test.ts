@@ -33,6 +33,7 @@ describe("GPU Flow surface publication completion", () => {
     });
     const visibleProjectionStateRef = { current: committedState };
     const visibleProjectionPublicationStateRef = { current: committedState };
+    const submitDomTransforms = vi.fn();
     const presenter = createGpuFlowVisibleFramePresenter({
       abortPreparedCommittedSurfaceFrame: () => {
         throw new Error("Unexpected prepared committed surface abort.");
@@ -63,12 +64,21 @@ describe("GPU Flow surface publication completion", () => {
     presenter(
       heldPreviousPublicationTransaction({
         heldState,
+        nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
+          submitCanvas: () => {
+            throw new Error(
+              "Held-previous publication must not submit prepared canvas work.",
+            );
+          },
+          submitDomTransforms,
+        }),
         previousCommittedFrameId: committedState.committedFrame.displayFrameId,
       }),
     );
 
     expect(visibleProjectionStateRef.current).toBe(committedState);
     expect(visibleProjectionPublicationStateRef.current).toBe(committedState);
+    expect(submitDomTransforms).not.toHaveBeenCalled();
   });
 
   it("does not complete scheduler debt when committed publication fails before visibility advances", () => {
@@ -127,7 +137,7 @@ describe("GPU Flow surface publication completion", () => {
     expect(schedulerCompletionCount).toBe(0);
   });
 
-  it("submits prepared canvas work only during committed publication", () => {
+  it("submits prepared visible work only during committed publication", () => {
     const committedFrame = committedSurfaceFrame({ displayFrameId: 21 });
     const selectedState = visibleProjectionState({
       displayFrameId: committedFrame.displayFrameId,
@@ -139,6 +149,7 @@ describe("GPU Flow surface publication completion", () => {
       projectionSample: selectedState.sample,
     });
     const submitCanvas = vi.fn();
+    const submitDomTransforms = vi.fn();
     const presenter = createGpuFlowVisibleFramePresenter({
       abortPreparedCommittedSurfaceFrame: () => {
         throw new Error("Unexpected prepared committed surface abort.");
@@ -170,6 +181,7 @@ describe("GPU Flow surface publication completion", () => {
         committedFrame,
         nodeLayerFrameStatePublication: nodeLayerFrameStatePublication({
           submitCanvas,
+          submitDomTransforms,
         }),
         onCompleteSchedulerFrame: () => {},
         selectedState,
@@ -178,6 +190,7 @@ describe("GPU Flow surface publication completion", () => {
     );
 
     expect(submitCanvas).toHaveBeenCalledOnce();
+    expect(submitDomTransforms).toHaveBeenCalledOnce();
   });
 
   it("does not promote committed state when prepared canvas submission fails", () => {
@@ -555,16 +568,18 @@ describe("GPU Flow surface publication completion", () => {
     expect(requestFrame).toHaveBeenCalledOnce();
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
     expect(setTimeout).toHaveBeenCalledOnce();
-    delayedContentRetry?.();
+    (delayedContentRetry as (() => void) | null)?.();
     expect(requestFrame).toHaveBeenLastCalledWith("manual");
   });
 });
 
 function heldPreviousPublicationTransaction({
   heldState,
+  nodeLayerFrameStatePublication = null,
   previousCommittedFrameId,
 }: {
   readonly heldState: GpuFlowVisibleProjectionState;
+  readonly nodeLayerFrameStatePublication?: unknown;
   readonly previousCommittedFrameId: number;
 }): GpuFlowSurfacePublicationTransaction {
   return {
@@ -602,7 +617,7 @@ function heldPreviousPublicationTransaction({
         retainedRuntimeFrame: null,
       },
       motionProjectionFrame: {
-        nodeLayerFrameStatePublication: null,
+        nodeLayerFrameStatePublication,
       },
       transactionProof: null,
       visibleProjectionState: heldState,
@@ -696,8 +711,10 @@ function committedPublicationTransaction({
 
 function nodeLayerFrameStatePublication({
   submitCanvas,
+  submitDomTransforms,
 }: {
   readonly submitCanvas: () => void;
+  readonly submitDomTransforms?: (() => void) | undefined;
 }) {
   return {
     callbacksRef: {
@@ -709,6 +726,9 @@ function nodeLayerFrameStatePublication({
     layerResult: {
       budgetExhausted: false,
       canvasSubmission: { submit: submitCanvas },
+      domTransformSubmission: submitDomTransforms
+        ? { submit: submitDomTransforms }
+        : null,
       domTransformParkedNodeIds: [],
       domTransformUpdatedNodeIds: [],
       visibleNodeIds: [],

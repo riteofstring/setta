@@ -139,16 +139,34 @@ function publishGpuFlowHtmlSurfaceCanvasSubmission({
   readonly token: GpuFlowCommitPublicationToken;
 }): RenderHtmlSurfaceFrameResult {
   const canvasSubmission = layerResult.canvasSubmission ?? null;
+  const domTransformSubmission = layerResult.domTransformSubmission ?? null;
   if (!canvasSubmission) {
+    if (domTransformSubmission) {
+      submitGpuFlowHtmlSurfaceDomTransformFrame({
+        domTransformSubmission,
+        token,
+      });
+      return {
+        ...layerResult,
+        domTransformSubmission: null,
+      };
+    }
     return layerResult;
   }
   submitGpuFlowHtmlSurfaceCanvasFrame({
     canvasSubmission,
     token,
   });
+  if (domTransformSubmission) {
+    submitGpuFlowHtmlSurfaceDomTransformFrame({
+      domTransformSubmission,
+      token,
+    });
+  }
   return {
     ...layerResult,
     canvasSubmission: null,
+    domTransformSubmission: null,
   };
 }
 
@@ -161,6 +179,19 @@ function submitGpuFlowHtmlSurfaceCanvasFrame({
 }): void {
   assertGpuFlowCommitPublicationTokenBrand({ token });
   canvasSubmission.submit();
+}
+
+function submitGpuFlowHtmlSurfaceDomTransformFrame({
+  domTransformSubmission,
+  token,
+}: {
+  readonly domTransformSubmission: NonNullable<
+    RenderHtmlSurfaceFrameResult["domTransformSubmission"]
+  >;
+  readonly token: GpuFlowCommitPublicationToken;
+}): void {
+  assertGpuFlowCommitPublicationTokenBrand({ token });
+  domTransformSubmission.submit();
 }
 
 function updateGpuFlowNodeLayerFrameState({

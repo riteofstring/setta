@@ -49,7 +49,10 @@ import {
   requestGpuFlowSurfacePublicationDebtFrame,
   requestGpuFlowSurfacePublicationFollowUpFrames,
 } from "./visibleFramePresenterDebtRequests";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameScheduling";
+import type {
+  GpuFlowVisiblePublicationCompletion,
+  GpuFlowVisiblePublicationDecision,
+} from "./visibleFrameScheduling";
 import type {
   GpuFlowSurfacePublicationPreparedFrame,
   RenderGpuFlowSurfaceFrameInput,

@@ -68,6 +68,7 @@ import {
   syncHtmlSurfaceFrameDomTransforms,
   type GpuNodeSurfaceRenderTarget,
   type GpuNodeTextureController,
+  type HtmlSurfaceFrameDomTransformWork,
 } from "./frameRenderWork";
 import {
   mergeNodeIdSets,
@@ -201,6 +202,7 @@ type RenderHtmlSurfaceFrameInput = {
   readonly canvasSubmissionMode?: "deferred" | "immediate" | undefined;
   readonly clearColor?: GPUColorDict | undefined;
   readonly deferResolutionUpdates?: boolean | undefined;
+  readonly domTransformSubmissionMode?: "deferred" | "immediate" | undefined;
   readonly edgePalette?: GpuEdgePaletteInput | undefined;
   readonly edges?: readonly GpuEdgeBufferInput[] | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
@@ -242,6 +244,10 @@ export type RenderHtmlSurfaceFrameResult = {
   readonly activeNodeId: string | null;
   readonly budgetExhausted: boolean;
   readonly canvasSubmission?: HtmlSurfaceFrameCanvasSubmission | null;
+  readonly domTransformSubmission?:
+    | HtmlSurfaceFrameDomTransformWork["submission"]
+    | null
+    | undefined;
   readonly domTransformParkedNodeIds: readonly string[];
   readonly domTransformUpdatedNodeIds: readonly string[];
   readonly drawnEdgeIds: readonly string[];
@@ -375,6 +381,7 @@ export function renderHtmlSurfaceFrame({
   clearColor,
   deferResolutionUpdates,
   domTransformCache,
+  domTransformSubmissionMode,
   edgePalette,
   edges,
   elementByNodeId,
@@ -429,9 +436,12 @@ export function renderHtmlSurfaceFrame({
     visibleSurfaceQuads.map((quad) => quad.nodeId),
   );
 
-  const domTransformResult = syncHtmlSurfaceFrameDomTransforms({
+  const domTransformWork = syncHtmlSurfaceFrameDomTransforms({
     activeNodeIds,
     domTransformCache,
+    domTransformSubmissionMode:
+      domTransformSubmissionMode ??
+      (canvasSubmissionMode === "deferred" ? "deferred" : "immediate"),
     elementByNodeId,
     htmlSurfaceOverlays,
     nodes,
@@ -440,6 +450,7 @@ export function renderHtmlSurfaceFrame({
     visibleSurfaceIds,
     visibleSurfaceQuads,
   });
+  const domTransformResult = domTransformWork.result;
   const { missingElementNodeIds, uploadResult } =
     resolveHtmlSurfaceFrameTextureWork({
       activeSurfaceIds,
@@ -555,6 +566,7 @@ export function renderHtmlSurfaceFrame({
     activeNodeId: activeNodeId ?? null,
     budgetExhausted: uploadResult.budgetExhausted,
     canvasSubmission,
+    domTransformSubmission: domTransformWork.submission,
     domTransformParkedNodeIds: domTransformResult.parkedNodeIds,
     domTransformUpdatedNodeIds: domTransformResult.updatedNodeIds,
     drawnEdgeIds: renderResult.drawnEdgeIds,

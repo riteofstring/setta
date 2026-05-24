@@ -1,5 +1,11 @@
 import { resolveGpuNodeZIndex } from "../nodeZIndex";
 import type { GpuViewportInput } from "../viewportMath";
+import type {
+  GpuNodeDomTransformState,
+  GpuNodeDomTransformSyncCache,
+  GpuNodeLayout,
+  GpuVisibleNodeQuad,
+} from "./frame";
 import {
   applyCulledNodeDomTransform,
   applyNodeDomTransformState,
@@ -10,12 +16,6 @@ import {
   normalizeNodeIdSet,
   resolveElement,
 } from "./sourceTransforms";
-import type {
-  GpuNodeDomTransformState,
-  GpuNodeDomTransformSyncCache,
-  GpuNodeLayout,
-  GpuVisibleNodeQuad,
-} from "./frame";
 
 type SyncGpuNodeDomTransformsInput = {
   readonly activeNodeIds?: ReadonlySet<string> | readonly string[] | undefined;
@@ -52,6 +52,13 @@ const EMPTY_DOM_TRANSFORM_SYNC_RESULT: GpuNodeDomTransformSyncResult = {
   visibleNodeIds: [],
 };
 
+export type GpuNodeDomTransformSubmission = {
+  readonly result: GpuNodeDomTransformSyncResult;
+  submit(): void;
+};
+
+type GpuNodeDomTransformOperation = () => void;
+
 export function createGpuNodeDomTransformSyncCache(): GpuNodeDomTransformSyncCache {
   return {
     previousVisibleNodeIds: new Set(),
@@ -80,7 +87,27 @@ export function syncGpuNodeDomTransformsFromQuads({
   elementByNodeId,
   retainNodeIds,
   visibleQuads,
+  viewport,
 }: SyncGpuNodeDomTransformsFromQuadsInput): GpuNodeDomTransformSyncResult {
+  const submission = prepareGpuNodeDomTransformsFromQuads({
+    cache,
+    elementByNodeId,
+    visibleQuads,
+    viewport,
+    ...(activeNodeIds === undefined ? {} : { activeNodeIds }),
+    ...(retainNodeIds === undefined ? {} : { retainNodeIds }),
+  });
+  submission.submit();
+  return submission.result;
+}
+
+export function prepareGpuNodeDomTransformsFromQuads({
+  activeNodeIds,
+  cache,
+  elementByNodeId,
+  retainNodeIds,
+  visibleQuads,
+}: SyncGpuNodeDomTransformsFromQuadsInput): GpuNodeDomTransformSubmission {
   const activeIds = normalizeNodeIdSet(activeNodeIds);
   const retainedIds = normalizeNodeIdSet(
     mergeNodeIdSets(activeIds, retainNodeIds),
@@ -98,20 +125,51 @@ export function syncGpuNodeDomTransformsFromQuads({
     visibleNodeIds: visibleResult.visibleNodeIds,
   });
 
-  cache.previousVisibleNodeIds.clear();
-  for (const nodeId of visibleResult.visibleNodeIds) {
-    cache.previousVisibleNodeIds.add(nodeId);
-  }
-
-  return {
-    parkedNodeIds: parkResult.parkedNodeIds,
-    skippedNodeIds: [
-      ...visibleResult.skippedNodeIds,
-      ...parkResult.skippedNodeIds,
+  return createGpuNodeDomTransformSubmission({
+    operations: [
+      ...visibleResult.operations,
+      ...parkResult.operations,
+      () => {
+        cache.previousVisibleNodeIds.clear();
+        for (const nodeId of visibleResult.visibleNodeIds) {
+          cache.previousVisibleNodeIds.add(nodeId);
+        }
+      },
     ],
-    updatedNodeIds: visibleResult.updatedNodeIds,
-    visibleNodeIds: [...visibleResult.visibleNodeIds],
-  };
+    result: {
+      parkedNodeIds: parkResult.parkedNodeIds,
+      skippedNodeIds: [
+        ...visibleResult.skippedNodeIds,
+        ...parkResult.skippedNodeIds,
+      ],
+      updatedNodeIds: visibleResult.updatedNodeIds,
+      visibleNodeIds: [...visibleResult.visibleNodeIds],
+    },
+  });
+}
+
+function createGpuNodeDomTransformSubmission({
+  operations,
+  result,
+}: {
+  readonly operations: readonly GpuNodeDomTransformOperation[];
+  readonly result: GpuNodeDomTransformSyncResult;
+}): GpuNodeDomTransformSubmission {
+  let submitted = false;
+  return Object.freeze({
+    result,
+    submit: () => {
+      if (submitted) {
+        throw new Error(
+          "GPU node DOM transform submission cannot be submitted more than once.",
+        );
+      }
+      submitted = true;
+      for (const operation of operations) {
+        operation();
+      }
+    },
+  });
 }
 
 function syncVisibleGpuNodeDomTransforms({
@@ -130,12 +188,15 @@ function syncVisibleGpuNodeDomTransforms({
   const visibleNodeIds = new Set<string>();
   const skippedNodeIds: string[] = [];
   const updatedNodeIds: string[] = [];
+  const operations: GpuNodeDomTransformOperation[] = [];
 
   for (const quad of visibleQuads) {
     visibleNodeIds.add(quad.nodeId);
     const element = resolveElement(elementByNodeId, quad.nodeId);
     if (!element) {
-      cache.stateByNodeId.delete(quad.nodeId);
+      operations.push(() => {
+        cache.stateByNodeId.delete(quad.nodeId);
+      });
       continue;
     }
     const state = createVisibleNodeDomTransformStateForQuad({
@@ -147,12 +208,14 @@ function syncVisibleGpuNodeDomTransforms({
       skippedNodeIds.push(quad.nodeId);
       continue;
     }
-    applyNodeDomTransformState(element, state);
-    cache.stateByNodeId.set(quad.nodeId, state);
+    operations.push(() => {
+      applyNodeDomTransformState(element, state);
+      cache.stateByNodeId.set(quad.nodeId, state);
+    });
     updatedNodeIds.push(quad.nodeId);
   }
 
-  return { skippedNodeIds, updatedNodeIds, visibleNodeIds };
+  return { operations, skippedNodeIds, updatedNodeIds, visibleNodeIds };
 }
 
 function parkExitedGpuNodeDomTransforms({
@@ -170,6 +233,7 @@ function parkExitedGpuNodeDomTransforms({
 }) {
   const parkedNodeIds: string[] = [];
   const skippedNodeIds: string[] = [];
+  const operations: GpuNodeDomTransformOperation[] = [];
 
   for (const nodeId of cache.previousVisibleNodeIds) {
     if (visibleNodeIds.has(nodeId)) {
@@ -194,13 +258,15 @@ function parkExitedGpuNodeDomTransforms({
         skippedNodeIds.push(nodeId);
         continue;
       }
-      applyNodeDomTransformState(element, retainedState);
-      cache.stateByNodeId.set(nodeId, retainedState);
+      operations.push(() => {
+        applyNodeDomTransformState(element, retainedState);
+        cache.stateByNodeId.set(nodeId, retainedState);
+      });
       continue;
     }
   }
 
-  return { parkedNodeIds, skippedNodeIds };
+  return { operations, parkedNodeIds, skippedNodeIds };
 }
 
 export function syncGpuNodeDomTransforms({
@@ -208,10 +274,29 @@ export function syncGpuNodeDomTransforms({
   elementByNodeId,
   nodes,
   visibleNodeIds,
+  viewport,
 }: SyncGpuNodeDomTransformsInput): GpuNodeDomTransformSyncResult {
+  const submission = prepareGpuNodeDomTransforms({
+    elementByNodeId,
+    nodes,
+    visibleNodeIds,
+    viewport,
+    ...(activeNodeIds === undefined ? {} : { activeNodeIds }),
+  });
+  submission.submit();
+  return submission.result;
+}
+
+export function prepareGpuNodeDomTransforms({
+  activeNodeIds,
+  elementByNodeId,
+  nodes,
+  visibleNodeIds,
+}: SyncGpuNodeDomTransformsInput): GpuNodeDomTransformSubmission {
   const activeIds = normalizeNodeIdSet(activeNodeIds);
   const parkedNodeIds: string[] = [];
   const updatedNodeIds: string[] = [];
+  const operations: GpuNodeDomTransformOperation[] = [];
   for (const node of nodes) {
     const element = resolveElement(elementByNodeId, node.nodeId);
     if (!element) {
@@ -219,23 +304,30 @@ export function syncGpuNodeDomTransforms({
     }
     const visible = visibleNodeIds.has(node.nodeId);
     if (visible) {
-      applyVisibleNodeDomTransform(element, {
-        height: node.height ?? 0,
-        interactive: activeIds.has(node.nodeId),
-        width: node.width ?? 0,
-        zIndex: resolveGpuNodeZIndex(node),
+      operations.push(() => {
+        applyVisibleNodeDomTransform(element, {
+          height: node.height ?? 0,
+          interactive: activeIds.has(node.nodeId),
+          width: node.width ?? 0,
+          zIndex: resolveGpuNodeZIndex(node),
+        });
       });
       updatedNodeIds.push(node.nodeId);
       continue;
     }
 
-    applyCulledNodeDomTransform(element);
+    operations.push(() => {
+      applyCulledNodeDomTransform(element);
+    });
     parkedNodeIds.push(node.nodeId);
   }
-  return {
-    parkedNodeIds,
-    skippedNodeIds: EMPTY_DOM_TRANSFORM_SYNC_RESULT.skippedNodeIds,
-    updatedNodeIds,
-    visibleNodeIds: [...visibleNodeIds],
-  };
+  return createGpuNodeDomTransformSubmission({
+    operations,
+    result: {
+      parkedNodeIds,
+      skippedNodeIds: EMPTY_DOM_TRANSFORM_SYNC_RESULT.skippedNodeIds,
+      updatedNodeIds,
+      visibleNodeIds: [...visibleNodeIds],
+    },
+  });
 }

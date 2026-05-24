@@ -1,7 +1,7 @@
+import type { NodeTexturePriority } from "../dirtyTracking";
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 import type { GpuEdgePaletteInput, GpuGridInput } from "../gpuPipelines";
 import type { GpuCanvasSize } from "../gpuRenderer";
-import type { NodeTexturePriority } from "../dirtyTracking";
 import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 import type {
   GpuHtmlSurfaceOverlayLayout,
@@ -11,8 +11,11 @@ import type {
   GpuVisibleNodeQuad,
 } from "./frame";
 import {
+  prepareGpuNodeDomTransforms,
+  prepareGpuNodeDomTransformsFromQuads,
   syncGpuNodeDomTransforms,
   syncGpuNodeDomTransformsFromQuads,
+  type GpuNodeDomTransformSubmission,
 } from "./frameDomTransformSync";
 import { toGpuHtmlSurfaceOverlayNodeLayouts } from "./frameOverlayLayers";
 import type {
@@ -50,9 +53,15 @@ export type GpuNodeSurfaceRenderTarget = {
   render(input: RenderHtmlSurfacesInput): RenderHtmlSurfacesResult;
 };
 
+export type HtmlSurfaceFrameDomTransformWork = {
+  readonly result: GpuNodeDomTransformSubmission["result"];
+  readonly submission: GpuNodeDomTransformSubmission | null;
+};
+
 export function syncHtmlSurfaceFrameDomTransforms({
   activeNodeIds,
   domTransformCache,
+  domTransformSubmissionMode = "immediate",
   elementByNodeId,
   htmlSurfaceOverlays,
   nodes,
@@ -63,6 +72,7 @@ export function syncHtmlSurfaceFrameDomTransforms({
 }: {
   readonly activeNodeIds: ReadonlySet<string>;
   readonly domTransformCache: GpuNodeDomTransformSyncCache | undefined;
+  readonly domTransformSubmissionMode?: "deferred" | "immediate" | undefined;
   readonly elementByNodeId: ReadonlyMap<string, HTMLElement>;
   readonly htmlSurfaceOverlays:
     | readonly GpuHtmlSurfaceOverlayLayout[]
@@ -72,18 +82,29 @@ export function syncHtmlSurfaceFrameDomTransforms({
   readonly viewport: GpuViewportInput;
   readonly visibleSurfaceIds: ReadonlySet<string>;
   readonly visibleSurfaceQuads: readonly GpuVisibleNodeQuad[];
-}) {
+}): HtmlSurfaceFrameDomTransformWork {
   if (domTransformCache) {
-    return syncGpuNodeDomTransformsFromQuads({
+    const input = {
       activeNodeIds,
       cache: domTransformCache,
       elementByNodeId,
       retainNodeIds: retainedNodeIds,
       visibleQuads: visibleSurfaceQuads,
       viewport,
-    });
+    };
+    if (domTransformSubmissionMode === "deferred") {
+      const submission = prepareGpuNodeDomTransformsFromQuads(input);
+      return {
+        result: submission.result,
+        submission,
+      };
+    }
+    return {
+      result: syncGpuNodeDomTransformsFromQuads(input),
+      submission: null,
+    };
   }
-  return syncGpuNodeDomTransforms({
+  const input = {
     activeNodeIds,
     elementByNodeId,
     nodes: [
@@ -92,7 +113,18 @@ export function syncHtmlSurfaceFrameDomTransforms({
     ],
     visibleNodeIds: visibleSurfaceIds,
     viewport,
-  });
+  };
+  if (domTransformSubmissionMode === "deferred") {
+    const submission = prepareGpuNodeDomTransforms(input);
+    return {
+      result: submission.result,
+      submission,
+    };
+  }
+  return {
+    result: syncGpuNodeDomTransforms(input),
+    submission: null,
+  };
 }
 
 export function resolveHtmlSurfaceFrameTextureWork({
@@ -392,9 +424,10 @@ function resolveHtmlSurfaceTextureCaptureElement({
   readonly element: HTMLElement;
   readonly surfaceId: string;
 }): HTMLElement {
-  const siblingCaptureTarget = element.parentElement?.querySelector<HTMLElement>(
-    `[${HTML_SURFACE_CAPTURE_TARGET_FOR_ATTRIBUTE}="${cssEscape(surfaceId)}"]`,
-  );
+  const siblingCaptureTarget =
+    element.parentElement?.querySelector<HTMLElement>(
+      `[${HTML_SURFACE_CAPTURE_TARGET_FOR_ATTRIBUTE}="${cssEscape(surfaceId)}"]`,
+    );
   return siblingCaptureTarget ?? element;
 }
 
@@ -413,7 +446,10 @@ function shouldDeferHtmlSurfaceUploadUntilPaint({
   readonly element: Element;
   readonly priority: NodeTexturePriority;
   readonly surfaceId: string;
-  readonly textureManager: Pick<GpuNodeTextureController, "getCommittedSurfaceTexture">;
+  readonly textureManager: Pick<
+    GpuNodeTextureController,
+    "getCommittedSurfaceTexture"
+  >;
 }): boolean {
   if (priority === "critical" || priority === "interactive") {
     return false;

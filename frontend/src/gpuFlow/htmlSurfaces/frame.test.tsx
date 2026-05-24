@@ -1016,6 +1016,41 @@ describe("HTML surface frame helpers", () => {
     });
   });
 
+  it("prepares DOM transforms without mutating source hosts until submitted", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+    const renderer = createFrameRenderer();
+    const element = document.createElement("div");
+    const elements = new Map([["node-a", element]]);
+    const nodes = [node("node-a", 10, 20, 100, 50, 0)];
+    const domTransformCache = createGpuNodeDomTransformSyncCache();
+
+    const frame = renderHtmlSurfaceFrame({
+      canvasSize: canvasSize(),
+      domTransformCache,
+      domTransformSubmissionMode: "deferred",
+      elementByNodeId: elements,
+      frame: 1,
+      nodes,
+      renderer,
+      textureManager: manager,
+      viewport: [0, 0, 1],
+    });
+
+    expect(frame.domTransformUpdatedNodeIds).toEqual(["node-a"]);
+    expect(frame.domTransformSubmission).not.toBeNull();
+    expect(element.style.transform).toBe("");
+    expect(element.style.width).toBe("");
+    expect(domTransformCache.previousVisibleNodeIds.size).toBe(0);
+
+    frame.domTransformSubmission?.submit();
+
+    expect(element.style.transform).toBe("translate(0px, 0px) scale(1)");
+    expect(element.style.width).toBe("100px");
+    expect([...domTransformCache.previousVisibleNodeIds]).toEqual(["node-a"]);
+  });
+
   it("passes renderable GPU edges into the scene renderer", () => {
     const element = document.createElement("div");
     const manager = createFrameTextureManager();
