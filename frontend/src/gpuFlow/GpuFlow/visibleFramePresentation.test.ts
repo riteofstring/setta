@@ -329,6 +329,78 @@ describe("GPU Flow surface presentation completion", () => {
     expect(reducerCompletionCount).toBe(0);
   });
 
+  it("does not publish background content preparation during a motion projection", () => {
+    const backgroundContentFrame = createPreparedContentFrame({
+      displayFrameId: 24,
+    });
+    const selectedState = visibleProjectionState({
+      displayFrameId: 7,
+      kind: "motion-projection",
+      sampleId: 24,
+    });
+    const token = createGpuFlowVisibleFramePresentationTokenForTest({
+      frame: selectedState.preparedContentFrame,
+      projectionSample: selectedState.sample,
+    });
+    const presentPreparedContentFrame = vi.fn(() => true);
+    const projectPresentedBrowserVisualActors = vi.fn();
+    const validatePreparedContentFrame = vi.fn();
+    const contentSubmit = vi.fn(() => {
+      throw new Error("background content must not submit");
+    });
+    const motionSubmit = vi.fn();
+    const presentationBoundary = createTestVisibleFramePresentationBoundary({
+      abortPreparedContentFrame: () => {
+        throw new Error("Unexpected prepared content frame abort.");
+      },
+      callbacksRef: {
+        current: {
+          framePerformanceReporter: undefined,
+          onNodeLayerFrame: () => {},
+        },
+      },
+      presentPreparedContentFrame,
+      projectPresentedBrowserVisualActors,
+      presentColdStartShellFrame: () => {},
+      retainedDisplayFrameRef: { current: null },
+      retainedRuntimeFrameRenderSignatureRef: { current: null },
+      retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
+      runtimeCanvas: testCanvas(),
+      surfaceRef: { current: null },
+      validatePreparedContentFrame,
+      viewportRuntime: {
+        applyOverlayTransforms: () => {},
+      },
+      visibleOverlayProjectionKeyRef: { current: null },
+      visibleProjectionPresentationStateRef: { current: null },
+      visibleProjectionStateRef: { current: null },
+    } as unknown as Parameters<
+      typeof createTestVisibleFramePresentationBoundary
+    >[0]);
+
+    presentationBoundary(
+      presentOutcomeTransaction({
+        preparedContentFrame: backgroundContentFrame,
+        nodeLayerFrameStatePresentation: nodeLayerFrameStatePresentation({
+          submitCanvas: contentSubmit,
+        }),
+        motionNodeLayerFrameStatePresentation: nodeLayerFrameStatePresentation({
+          submitCanvas: motionSubmit,
+        }),
+        onCompleteSchedulerFrame: () => {},
+        reducerLane: "motion",
+        selectedState,
+        token,
+      }),
+    );
+
+    expect(contentSubmit).not.toHaveBeenCalled();
+    expect(motionSubmit).toHaveBeenCalledOnce();
+    expect(validatePreparedContentFrame).not.toHaveBeenCalled();
+    expect(presentPreparedContentFrame).not.toHaveBeenCalled();
+    expect(projectPresentedBrowserVisualActors).toHaveBeenCalledOnce();
+  });
+
   it("lets reducer debt own duplicate retained follow-up frame requests", () => {
     const preparedContentFrame = createPreparedContentFrame({
       displayFrameId: 31,
@@ -891,8 +963,10 @@ function presentOutcomeTransaction({
   preparedContentFrame,
   debtFrameRequest = null,
   followUpFrameRequests = [],
+  motionNodeLayerFrameStatePresentation = null,
   nodeLayerFrameStatePresentation = null,
   onCompleteSchedulerFrame,
+  reducerLane = "content",
   reducerCompletion = {
     debt: {
       content: false,
@@ -907,8 +981,10 @@ function presentOutcomeTransaction({
   readonly preparedContentFrame: GpuFlowPreparedContentFrame;
   readonly debtFrameRequest?: unknown;
   readonly followUpFrameRequests?: readonly string[];
+  readonly motionNodeLayerFrameStatePresentation?: unknown;
   readonly nodeLayerFrameStatePresentation?: unknown;
   readonly onCompleteSchedulerFrame: () => void;
+  readonly reducerLane?: "content" | "maintenance" | "motion";
   readonly reducerCompletion?: unknown;
   readonly selectedState: GpuFlowVisibleProjectionState;
   readonly token: ReturnType<
@@ -950,7 +1026,7 @@ function presentOutcomeTransaction({
         retainedRuntimeFrame: null,
       },
       motionProjectionFrame: {
-        nodeLayerFrameStatePresentation: null,
+        nodeLayerFrameStatePresentation: motionNodeLayerFrameStatePresentation,
       },
       transactionProof: null,
       visibleProjectionState: selectedState,
@@ -958,7 +1034,7 @@ function presentOutcomeTransaction({
     previousContentFrameId: null,
     presentationFrameContext: presentationFrameContextForTest(),
     reducerDecision: {
-      lane: "content",
+      lane: reducerLane,
       rawReasons: ["manual"],
       sample: selectedState.sample,
       reducerState: "content-catchup",
@@ -1122,9 +1198,10 @@ function visibleProjectionState({
   sampleId,
 }: {
   readonly displayFrameId: number;
-  readonly kind: "prepared-content" | "held-previous";
+  readonly kind: "prepared-content" | "held-previous" | "motion-projection";
   readonly sampleId: number;
 }): GpuFlowVisibleProjectionState {
+  const lane = kind === "motion-projection" ? "motion" : "content";
   return {
     preparedContentFrame: createPreparedContentFrame({ displayFrameId }),
     debugState: {
@@ -1135,7 +1212,7 @@ function visibleProjectionState({
       heldPreviousOverBudget: false,
       heldPreviousReason: null,
       heldPreviousRequestedSampleId: null,
-      lane: "content",
+      lane,
       projectionSampleId: sampleId,
       projectionTransactionId: `projection:${displayFrameId}:${sampleId}`,
       transactionKind: kind,
@@ -1147,7 +1224,7 @@ function visibleProjectionState({
     transaction: {
       id: `projection:${displayFrameId}:${sampleId}`,
       kind,
-      lane: "content",
+      lane,
     },
   } as GpuFlowVisibleProjectionState;
 }

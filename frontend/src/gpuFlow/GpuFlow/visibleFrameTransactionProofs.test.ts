@@ -754,13 +754,55 @@ describe("GPU Flow visible frame transaction proofs", () => {
     },
   );
 
-  it("rejects competing content and motion visible projection states", () => {
+  it("keeps motion projection visible while background content preparation produces a candidate", () => {
     const contentVisibleState = visibleProjectionState({
       kind: "prepared-content",
       sample: liveProjectionSample({ id: 40, timestamp: 400 }),
     });
     const motionVisibleState = visibleProjectionState({
       kind: "motion-projection",
+      sample: liveProjectionSample({ id: 41, timestamp: 416 }),
+    });
+
+    const proof = createGpuFlowVisibleFramePresentationTransactionProof({
+      contentPreparationFrame: {
+        blockedPresentationCandidate: null,
+        presentationEvidence: createTestGpuFlowVisibleFramePresentationEvidence(
+          {
+            preparedContentFrame: contentVisibleState.preparedContentFrame,
+            projectionTransactionKind: "prepared-content",
+            projectionTransactionId: contentVisibleState.transaction.id,
+            reducerDecision: reducerDecision(contentVisibleState.sample),
+          },
+        ),
+        visibleProjectionState: contentVisibleState,
+      },
+      motionProjectionFrame: {
+        blockedPresentationCandidate: null,
+        presentationEvidence: createTestGpuFlowVisibleFramePresentationEvidence(
+          {
+            preparedContentFrame: motionVisibleState.preparedContentFrame,
+            projectionTransactionKind: "motion-projection",
+            projectionTransactionId: motionVisibleState.transaction.id,
+            reducerDecision: reducerDecision(motionVisibleState.sample),
+          },
+        ),
+        visibleProjectionState: motionVisibleState,
+      },
+      reducerDecision: reducerDecision(motionVisibleState.sample),
+    });
+
+    expect(proof.visibleProjectionSource).toBe("motion-projection");
+    expect(proof.visibleProjectionState).toBe(motionVisibleState);
+  });
+
+  it("rejects paired visible states when the selected motion candidate is not a motion projection", () => {
+    const contentVisibleState = visibleProjectionState({
+      kind: "prepared-content",
+      sample: liveProjectionSample({ id: 40, timestamp: 400 }),
+    });
+    const nonMotionVisibleState = visibleProjectionState({
+      kind: "prepared-content",
       sample: liveProjectionSample({ id: 41, timestamp: 416 }),
     });
 
@@ -772,12 +814,12 @@ describe("GPU Flow visible frame transaction proofs", () => {
         },
         motionProjectionFrame: {
           blockedPresentationCandidate: null,
-          visibleProjectionState: motionVisibleState,
+          visibleProjectionState: nonMotionVisibleState,
         },
         reducerDecision: reducerDecision(contentVisibleState.sample),
       }),
     ).toThrow(
-      "GPU Flow visible frame presentation proof received competing content and motion visible projection states for one transaction.",
+      "GPU Flow visible frame presentation proof can only pair background content preparation with a motion projection.",
     );
   });
 

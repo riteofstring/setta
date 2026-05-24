@@ -698,13 +698,25 @@ function resolveGpuFlowVisibleFramePresentationVisibleProjectionState<
     contentPreparationFrame.visibleProjectionState &&
     motionProjectionFrame.visibleProjectionState
   ) {
-    throw new Error(
-      "GPU Flow visible frame presentation proof received competing content and motion visible projection states for one transaction.",
+    assertGpuFlowMotionProjectionVisibleProjectionState(
+      motionProjectionFrame.visibleProjectionState,
     );
+    return motionProjectionFrame.visibleProjectionState;
   }
   return (
     contentPreparationFrame.visibleProjectionState ??
     motionProjectionFrame.visibleProjectionState
+  );
+}
+
+function assertGpuFlowMotionProjectionVisibleProjectionState(
+  visibleProjectionState: GpuFlowVisibleProjectionState,
+): void {
+  if (visibleProjectionState.transaction.kind === "motion-projection") {
+    return;
+  }
+  throw new Error(
+    "GPU Flow visible frame presentation proof can only pair background content preparation with a motion projection.",
   );
 }
 
@@ -965,10 +977,12 @@ function selectGpuFlowVisibleFramePresentationProjectionSource<
   if (!visibleProjectionState) {
     return null;
   }
-  if (contentPreparationFrame.visibleProjectionState) {
+  if (
+    visibleProjectionState === contentPreparationFrame.visibleProjectionState
+  ) {
     return "prepared-content";
   }
-  if (motionProjectionFrame.visibleProjectionState) {
+  if (visibleProjectionState === motionProjectionFrame.visibleProjectionState) {
     return "motion-projection";
   }
   return null;

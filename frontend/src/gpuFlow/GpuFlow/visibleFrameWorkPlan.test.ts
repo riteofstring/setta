@@ -8,6 +8,7 @@ import type {
   GpuFlowLiveProjectionSample,
   GpuFlowVisibleFrameReducerDecision,
 } from "../projectionRuntime";
+import type { GpuFlowVisibleFrameBudgetBrokerDecision } from "./visibleFrameBudgetBroker";
 import {
   createGpuFlowContentPreparationWorkPlan,
   createGpuFlowMotionProjectionWorkPlan,
@@ -66,6 +67,22 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         renderedProjectionOnlyFrame: false,
       }),
     ).toEqual({ kind: "skip" });
+    expect(
+      createGpuFlowContentPreparationWorkPlan({
+        blockedProjectionOnlyFrame: false,
+        budgetDecision: budgetDecisionWithVisibleRepair(),
+        reducerDecision: reducerDecision({ lane: "motion" }),
+        renderedProjectionOnlyFrame: true,
+      }),
+    ).toEqual({ kind: "prepare", contentWorkLane: "content" });
+    expect(
+      createGpuFlowContentPreparationWorkPlan({
+        blockedProjectionOnlyFrame: true,
+        budgetDecision: budgetDecisionWithVisibleRepair(),
+        reducerDecision: reducerDecision({ lane: "idle" }),
+        renderedProjectionOnlyFrame: false,
+      }),
+    ).toEqual({ kind: "prepare", contentWorkLane: "content" });
     expect(
       createGpuFlowContentPreparationWorkPlan({
         blockedProjectionOnlyFrame: false,
@@ -321,6 +338,34 @@ function reducerDecision({
     rawReasons,
     sample: liveProjectionSample(),
     reducerState,
+  };
+}
+
+function budgetDecisionWithVisibleRepair(): GpuFlowVisibleFrameBudgetBrokerDecision {
+  return {
+    browserVisualRepair: {
+      debtAgeFrames: 1,
+      eligible: true,
+      priority: "safety",
+    },
+    preparationBudget: {
+      availableMs: 2,
+      deferredDebtByLane: {},
+      deferredDebtIds: [],
+      overBudgetDebtIds: [],
+      reservedMotionProjectionMs: 2,
+      selectedDebtByLane: {
+        "browser-visual": ["dom-control:editor"],
+      },
+      selectedDebtIds: ["dom-control:editor"],
+      selectedResourceDebtIds: ["dom-control:editor"],
+      selectedVisibleDebtIds: ["dom-control:editor"],
+      selectedVisibleResourceDebtIds: ["dom-control:editor"],
+      usedMs: 0.5,
+    },
+    resolutionUpdates: {
+      deferred: false,
+    },
   };
 }
 

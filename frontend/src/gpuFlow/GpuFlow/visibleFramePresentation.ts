@@ -205,8 +205,11 @@ export function presentGpuFlowVisibleFramePresentationFrame({
     presentationFrameContext?.budgetDecision.browserVisualRepair?.eligible ??
     false;
   const nodeLayerFrameStatePresentation =
-    contentNodeLayerFrameStatePresentation ??
-    motionNodeLayerFrameStatePresentation;
+    selectGpuFlowVisibleProjectionNodeLayerFrameStatePresentation({
+      contentNodeLayerFrameStatePresentation,
+      motionNodeLayerFrameStatePresentation,
+      selectedVisibleProjectionState,
+    });
   assertGpuFlowSingleVisibleFramePresentationOutcome({
     outcome,
     reducerDecision,
@@ -651,36 +654,48 @@ function presentGpuFlowSurfaceVisibleProjectionState({
       "GPU Flow visible presentation requires selected visible projection state.",
     );
   }
+  const selectedPreparedContentFrame =
+    selectedVisibleProjectionState.transaction.kind === "prepared-content"
+      ? preparedContentFrame
+      : null;
+  const selectedRetainedDisplayFrame =
+    selectedVisibleProjectionState.transaction.kind === "prepared-content"
+      ? retainedDisplayFrame
+      : null;
+  const selectedRetainedRuntimeFrame =
+    selectedVisibleProjectionState.transaction.kind === "prepared-content"
+      ? retainedRuntimeFrame
+      : null;
   if (
     selectedVisibleProjectionState.transaction.kind === "prepared-content" &&
-    !preparedContentFrame
+    !selectedPreparedContentFrame
   ) {
     throw new Error(
       "GPU Flow content presentation requires the prepared content frame.",
     );
   }
-  if (preparedContentFrame) {
-    validatePreparedContentFrame(outcome.token, preparedContentFrame);
+  if (selectedPreparedContentFrame) {
+    validatePreparedContentFrame(outcome.token, selectedPreparedContentFrame);
   }
   const submittedNodeLayerFrameStatePresentation =
     submitGpuFlowNodeLayerFrameCanvasSubmission({
       nodeLayerFrameStatePresentation,
       token: outcome.token,
     });
-  if (preparedContentFrame) {
-    presentPreparedContentFrame(outcome.token, preparedContentFrame);
+  if (selectedPreparedContentFrame) {
+    presentPreparedContentFrame(outcome.token, selectedPreparedContentFrame);
   }
   presentGpuFlowRetainedDisplayFrame({
-    retainedDisplayFrame,
+    retainedDisplayFrame: selectedRetainedDisplayFrame,
     retainedDisplayFrameRef,
     token: outcome.token,
   });
   recordGpuFlowVisibleFramePresented({
-    preparedContentFrame,
+    preparedContentFrame: selectedPreparedContentFrame,
     runtimeCanvas,
     token: outcome.token,
   });
-  if (preparedContentFrame !== null) {
+  if (selectedPreparedContentFrame !== null) {
     clearGpuFlowBrowserVisualResourceWork(runtimeCanvas);
   }
   applyGpuFlowProjectionDebugAttributes({
@@ -710,11 +725,31 @@ function presentGpuFlowSurfaceVisibleProjectionState({
   });
   presentGpuFlowRetainedRuntimeFrame({
     callbacksRef,
-    retainedRuntimeFrame,
+    retainedRuntimeFrame: selectedRetainedRuntimeFrame,
     retainedRuntimeFrameRenderSignatureRef,
     retainedRuntimeFrameSourceRenderSignatureRef,
     token: outcome.token,
   });
+}
+
+function selectGpuFlowVisibleProjectionNodeLayerFrameStatePresentation({
+  contentNodeLayerFrameStatePresentation,
+  motionNodeLayerFrameStatePresentation,
+  selectedVisibleProjectionState,
+}: {
+  readonly contentNodeLayerFrameStatePresentation: GpuFlowNodeLayerFrameStatePresentation | null;
+  readonly motionNodeLayerFrameStatePresentation: GpuFlowNodeLayerFrameStatePresentation | null;
+  readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowNodeLayerFrameStatePresentation | null {
+  if (
+    selectedVisibleProjectionState?.transaction.kind === "motion-projection"
+  ) {
+    return motionNodeLayerFrameStatePresentation;
+  }
+  return (
+    contentNodeLayerFrameStatePresentation ??
+    motionNodeLayerFrameStatePresentation
+  );
 }
 
 function completeGpuFlowHeldPreviousSurfaceVisibleProjectionState({

@@ -3,6 +3,7 @@ import { hasGpuFlowCriticalContentFrameRequest } from "../projectionSchedulerPol
 import {
   shouldDeferGpuFlowBrowserVisualRepairForBudget,
   type GpuFlowVisibleFrameBudgetBroker,
+  type GpuFlowVisibleFrameBudgetBrokerDecision,
 } from "./visibleFrameBudgetBroker";
 import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
 
@@ -42,22 +43,32 @@ export function createGpuFlowMotionProjectionWorkPlan({
 }
 
 export function createGpuFlowContentPreparationWorkPlan({
+  budgetDecision,
   blockedProjectionOnlyFrame,
   reducerDecision,
   renderedProjectionOnlyFrame,
 }: {
+  readonly budgetDecision?: GpuFlowVisibleFrameBudgetBrokerDecision | undefined;
   readonly blockedProjectionOnlyFrame: boolean;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly renderedProjectionOnlyFrame: boolean;
 }): GpuFlowContentPreparationWorkPlan {
+  const budgetedVisibleRepair =
+    hasGpuFlowBudgetedVisibleContentRepair(budgetDecision);
   if (
-    blockedProjectionOnlyFrame ||
-    renderedProjectionOnlyFrame ||
+    (blockedProjectionOnlyFrame && !budgetedVisibleRepair) ||
+    (renderedProjectionOnlyFrame && !budgetedVisibleRepair) ||
     reducerDecision.lane === "motion" ||
     reducerDecision.lane === "idle"
   ) {
+    if (!budgetedVisibleRepair) {
+      return Object.freeze({
+        kind: "skip" as const,
+      });
+    }
     return Object.freeze({
-      kind: "skip" as const,
+      kind: "prepare" as const,
+      contentWorkLane: "content" as const,
     });
   }
   return Object.freeze({
@@ -65,6 +76,14 @@ export function createGpuFlowContentPreparationWorkPlan({
     contentWorkLane:
       reducerDecision.lane === "maintenance" ? "maintenance" : "content",
   });
+}
+
+function hasGpuFlowBudgetedVisibleContentRepair(
+  budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision | undefined,
+): boolean {
+  return (
+    (budgetDecision?.preparationBudget.selectedVisibleDebtIds.length ?? 0) > 0
+  );
 }
 
 export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPreparation({

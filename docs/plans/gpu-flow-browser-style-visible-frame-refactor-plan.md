@@ -41,6 +41,8 @@ resources, eligibility proof, and exactly one visible presentation step.
   `/private/var/folders/7t/11607ml14sjf_yx1xt0hg54h0000gn/T/setta-chrome-recordings/setta.go-rewrite-1814143074/recording-20260523-220744`
 - Architecture iteration history:
   `docs/notes/gpu-flow-architecture-iterations.md`
+- Companion conformance checklist:
+  `docs/plans/gpu-flow-browser-style-visible-frame-conformance-checklist.md`
 - Current architecture reference:
   `docs/reference/html-in-canvas-architecture.md`
 - Example repos reviewed:

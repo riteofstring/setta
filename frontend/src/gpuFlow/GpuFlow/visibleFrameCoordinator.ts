@@ -426,6 +426,7 @@ function prepareGpuFlowVisibleFramePresentationCandidateSet<
   const contentPreparationWorkPlan = createGpuFlowContentPreparationWorkPlan({
     blockedProjectionOnlyFrame:
       motionProjectionFrame.blockedPresentationCandidate !== null,
+    budgetDecision: presentationFrameContext.budgetDecision,
     reducerDecision,
     renderedProjectionOnlyFrame:
       motionProjectionFrame.visibleProjectionState !== null,
