@@ -8,7 +8,7 @@ import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface } from "../scene";
 import type { GpuRect } from "../viewportMath";
 import {
-  getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls,
+  getGpuFlowPreparedContentFrameBrowserVisualSnapshotLayoutControls,
   shouldDeferGpuFlowRetainedContentPostSubmitMaintenance,
   shouldReuseGpuFlowDeferredRetainedContentPublicationFrame,
   shouldReuseGpuFlowRetainedContentFrameCache,
@@ -261,7 +261,7 @@ describe("GPU flow frame helpers", () => {
     const preparedControl = retainedDomControl("control", "prepared-key");
 
     expect(
-      getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
+      getGpuFlowPreparedContentFrameBrowserVisualSnapshotLayoutControls({
         controls: [staleControl],
         preparedContentFrame: preparedContentFrame({
           controls: [preparedControl],
@@ -270,7 +270,7 @@ describe("GPU flow frame helpers", () => {
       }),
     ).toEqual([preparedControl]);
     expect(
-      getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
+      getGpuFlowPreparedContentFrameBrowserVisualSnapshotLayoutControls({
         controls: [staleControl],
         preparedContentFrame: preparedContentFrame({
           controls: [preparedControl],

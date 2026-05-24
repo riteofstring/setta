@@ -21,7 +21,7 @@ import {
   type GpuFlowRetainedDisplayPublicationFramePlanPreparer,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
 } from "./visibleFrameContentPlan";
-import { prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate } from "./visibleFrameContentPreparation";
+import { prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate } from "./visibleFrameContentPreparation";
 
 const FLOW_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowFrame.tsx", import.meta.url),
@@ -466,7 +466,7 @@ describe("GPU Flow visible publication content plans", () => {
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
     expect(contentPlanSource).not.toContain(
-      "shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair",
+      "shouldPreservePreparedContentFrameForBrowserVisualRepair",
     );
     expect(contentPlanSource).toContain("nodeLayerFrameResult:");
     expect(contentPlanSource).toContain(
@@ -1002,7 +1002,7 @@ describe("GPU Flow visible publication content plans", () => {
     const preparedInputs: number[] = [];
 
     const skipped =
-      prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
+      prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate({
         input: 1,
         prepareOverlayTextures: (input) => preparedInputs.push(input),
         publicationPreparation: {
@@ -1010,7 +1010,7 @@ describe("GPU Flow visible publication content plans", () => {
         },
       });
     const prepared =
-      prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
+      prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate({
         input: 2,
         prepareOverlayTextures: (input) => {
           preparedInputs.push(input);

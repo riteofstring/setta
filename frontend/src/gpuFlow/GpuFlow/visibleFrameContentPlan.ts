@@ -157,7 +157,7 @@ export type GpuFlowPreparedContentFramePublicationFramePlanPreparer = (
   input: GpuFlowPreparedContentFramePublicationCandidateInput,
 ) => GpuFlowPreparedContentFramePublicationFramePlanPreparation;
 
-export type GpuFlowRetainedDisplayCommittedSurfaceFramePreparer = (
+export type GpuFlowRetainedDisplayPreparedContentFramePreparer = (
   frame: RetainedDisplayFrame,
   options?:
     | {
@@ -265,7 +265,7 @@ export type GpuFlowRetainedPreparedContentFramePublicationContentStageInput<
     readonly retainedDisplayPublicationPreparation: GpuFlowRetainedDisplayPublicationFramePlanPreparation;
   }) => GpuFlowRetainedPreparedContentFramePublicationContentPublishedRetainedDisplay<RetainedContext>;
   readonly prepareContentFrame:
-    | GpuFlowRetainedDisplayCommittedSurfaceFramePreparer
+    | GpuFlowRetainedDisplayPreparedContentFramePreparer
     | undefined;
   readonly preparePreparedContentFramePublicationFramePlan: GpuFlowPreparedContentFramePublicationFramePlanPreparer;
   readonly prepareRetainedDisplayPublicationFramePlan: GpuFlowRetainedDisplayPublicationFramePlanPreparer;
@@ -421,7 +421,7 @@ function prepareGpuFlowPreparedContentFramePublicationFramePlanForRetainedDispla
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
   readonly prepareContentFrame:
-    | GpuFlowRetainedDisplayCommittedSurfaceFramePreparer
+    | GpuFlowRetainedDisplayPreparedContentFramePreparer
     | undefined;
   readonly preparePreparedContentFramePublicationFramePlan: GpuFlowPreparedContentFramePublicationFramePlanPreparer;
   readonly publicationLane: Extract<

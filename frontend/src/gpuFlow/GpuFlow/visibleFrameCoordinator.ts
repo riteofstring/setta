@@ -62,7 +62,7 @@ export type {
   GpuFlowPreparedContentFramePublicationCandidatePreparer,
   GpuFlowPreparedContentFramePublicationFramePlanPreparation,
   GpuFlowPreparedContentFramePublicationFramePlanPreparer,
-  GpuFlowRetainedDisplayCommittedSurfaceFramePreparer,
+  GpuFlowRetainedDisplayPreparedContentFramePreparer,
   GpuFlowRetainedDisplayPublicationFramePlanPreparer,
   GpuFlowRetainedDisplayPublicationPreparer,
   GpuFlowRetainedPreparedContentFramePublicationContentPublishedRetainedDisplay,

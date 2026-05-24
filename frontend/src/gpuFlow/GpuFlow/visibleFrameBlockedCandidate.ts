@@ -100,7 +100,7 @@ function isGpuFlowRetainedSurfaceTrueHoleFrame(
   );
 }
 
-export function shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair(
+export function shouldPreservePreparedContentFrameForBrowserVisualRepair(
   candidate: GpuFlowVisibleFrameBlockedPublicationCandidate,
 ): boolean {
   return candidate.blockedReasons.some(

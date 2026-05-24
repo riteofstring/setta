@@ -1,6 +1,6 @@
 import type { GpuFlowPreparedContentFramePublicationFramePlanPreparation } from "./visibleFrameContentPlan";
 
-export function prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate<
+export function prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate<
   OverlayTextureInput,
   OverlayTextureResult,
 >({

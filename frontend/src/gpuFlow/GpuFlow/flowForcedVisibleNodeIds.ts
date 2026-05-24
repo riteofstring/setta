@@ -1,7 +1,7 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 
-export function getGpuFlowCommittedSurfaceForceVisibleNodeIds(
+export function getGpuFlowPreparedContentFrameForceVisibleNodeIds(
   baseForceVisibleNodeIds: GpuFlowNodeLayerState["forceVisibleNodeIds"],
   preparedContentFrame: GpuFlowCommittedSurfaceFrame | void,
 ): GpuFlowNodeLayerState["forceVisibleNodeIds"] {

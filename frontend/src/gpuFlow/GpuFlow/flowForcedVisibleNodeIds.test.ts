@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import { getGpuFlowCommittedSurfaceForceVisibleNodeIds } from "./flowForcedVisibleNodeIds";
+import { getGpuFlowPreparedContentFrameForceVisibleNodeIds } from "./flowForcedVisibleNodeIds";
 
 describe("GPU Flow retained content forced visible node ids", () => {
-  it("forces committed visible section actor surfaces into the HTML surface pass", () => {
+  it("forces prepared visible section actor surfaces into the HTML surface pass", () => {
     expect(
-      getGpuFlowCommittedSurfaceForceVisibleNodeIds(
+      getGpuFlowPreparedContentFrameForceVisibleNodeIds(
         ["base-section"],
-        committedFrame(["settings-section__gui", "base-section"]),
+        preparedContentFrame(["settings-section__gui", "base-section"]),
       ),
     ).toEqual(["base-section", "settings-section__gui"]);
   });
@@ -17,12 +17,15 @@ describe("GPU Flow retained content forced visible node ids", () => {
     const base = new Set(["base-section"]);
 
     expect(
-      getGpuFlowCommittedSurfaceForceVisibleNodeIds(base, committedFrame([])),
+      getGpuFlowPreparedContentFrameForceVisibleNodeIds(
+        base,
+        preparedContentFrame([]),
+      ),
     ).toBe(base);
   });
 });
 
-function committedFrame(
+function preparedContentFrame(
   sectionSurfaceIds: readonly string[],
 ): GpuFlowCommittedSurfaceFrame {
   return {
@@ -38,5 +41,5 @@ function committedFrame(
         visibleNonempty: true,
       },
     ]),
-  } as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowCommittedSurfaceFrame;
 }

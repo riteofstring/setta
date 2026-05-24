@@ -17,7 +17,7 @@ import type { GpuFlowPreparedContentFrameCandidateAction } from "./visibleFrameA
 import {
   createGpuFlowBrowserVisualBlockedPublicationCandidate,
   createGpuFlowBrowserVisualResourceWorkRequests,
-  shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair,
+  shouldPreservePreparedContentFrameForBrowserVisualRepair,
 } from "./visibleFrameBlockedCandidate";
 import type {
   GpuFlowPreparedContentFramePublicationCandidate,
@@ -110,7 +110,7 @@ export function reduceGpuFlowPreparedContentFramePublicationCandidate({
     errorMessage: publicationReadiness.errorMessage,
     kind: "nonpublishable",
     preservePreparationSnapshot:
-      shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair(
+      shouldPreservePreparedContentFrameForBrowserVisualRepair(
         publicationReadiness.blockedPublicationCandidate,
       ),
     resourceWork: {

@@ -59,7 +59,7 @@ import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import { normalizeGpuViewport } from "../viewportMath";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 
-import { getGpuFlowCommittedSurfaceForceVisibleNodeIds } from "./flowForcedVisibleNodeIds";
+import { getGpuFlowPreparedContentFrameForceVisibleNodeIds } from "./flowForcedVisibleNodeIds";
 import {
   resolveActiveGpuFlowNodeId,
   resolveGpuFlowNodeInteractionActiveNodeId,
@@ -79,7 +79,7 @@ import {
   createGpuFlowRenderedSceneNodeIds,
   createGpuFlowRetainedRuntimeFrameSourceSignature,
 } from "./flowMountedSceneNodes";
-import { getGpuFlowCommittedSurfaceProtectedTextureSurfaceIds } from "./flowProtectedTextureSurfaceIds";
+import { getGpuFlowPreparedContentFrameProtectedTextureSurfaceIds } from "./flowProtectedTextureSurfaceIds";
 import {
   shouldReuseGpuFlowRetainedContentFrameCache,
   shouldReuseGpuFlowRetainedRuntimeFrameForSample,
@@ -106,11 +106,11 @@ import {
   type GpuFlowCallbacks,
 } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
-import { prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate } from "./visibleFrameContentPreparation";
+import { prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate } from "./visibleFrameContentPreparation";
 import {
   createGpuFlowContentPublicationFrameResult,
   type GpuFlowContentPublicationFrameResult,
-  type GpuFlowRetainedDisplayCommittedSurfaceFramePreparer,
+  type GpuFlowRetainedDisplayPreparedContentFramePreparer,
   type GpuFlowRetainedPreparedContentFramePublicationContentStageRunner,
 } from "./visibleFrameCoordinator";
 
@@ -454,7 +454,7 @@ function resolveGpuFlowRetainedContentFrame({
   };
 }
 
-function getGpuFlowCommittedSurfaceBrowserVisualSnapshotSourceIds(
+function getGpuFlowPreparedContentFrameBrowserVisualSnapshotSourceIds(
   frame: GpuFlowCommittedSurfaceFrame | void,
 ): ReadonlySet<string> {
   const sourceIds = new Set<string>();
@@ -473,7 +473,7 @@ function getGpuFlowCommittedSurfaceBrowserVisualSnapshotSourceIds(
   return sourceIds;
 }
 
-function getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
+function getGpuFlowPreparedContentFrameBrowserVisualSnapshotLayoutControls({
   controls,
   preparedContentFrame,
 }: {
@@ -481,7 +481,7 @@ function getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
   readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
 }): readonly GpuRetainedDomControlSourceDescriptor[] {
   const snapshotSourceIds =
-    getGpuFlowCommittedSurfaceBrowserVisualSnapshotSourceIds(
+    getGpuFlowPreparedContentFrameBrowserVisualSnapshotSourceIds(
       preparedContentFrame,
     );
   if (snapshotSourceIds.size === 0) {
@@ -500,7 +500,7 @@ export {
   type GpuFlowRetainedContentFrameCache,
 } from "./flowRetainedContentFrameCache";
 export { shouldDeferGpuFlowRetainedContentPostSubmitMaintenance } from "./flowRetainedPageMaintenance";
-export { getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls };
+export { getGpuFlowPreparedContentFrameBrowserVisualSnapshotLayoutControls };
 
 type GpuFlowRetainedPreparedContentFramePublicationRenderContext = {
   readonly committedGpuNativeVisuals: ReturnType<
@@ -574,7 +574,7 @@ export function renderGpuFlowNodeLayerFrame({
     "content" | "maintenance"
   >;
   readonly onRetainedDisplayFrame?:
-    | GpuFlowRetainedDisplayCommittedSurfaceFramePreparer
+    | GpuFlowRetainedDisplayPreparedContentFramePreparer
     | undefined;
   readonly runRetainedPreparedContentFramePublicationContentStage: GpuFlowRetainedPreparedContentFramePublicationContentStageRunner;
   readonly onRetainedPreparedRuntimeFrame?:
@@ -704,7 +704,7 @@ export function renderGpuFlowNodeLayerFrame({
       const htmlSurfaceOverlays =
         projectGpuRetainedDomControlSnapshotSurfaceLayouts({
           controls:
-            getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
+            getGpuFlowPreparedContentFrameBrowserVisualSnapshotLayoutControls({
               controls:
                 context.publishedRetainedRuntimeFrame.descriptors
                   .domControlSources,
@@ -715,26 +715,28 @@ export function renderGpuFlowNodeLayerFrame({
           overlays: layer.edgeLabelSurfaces,
           preserveUnmatchedSnapshotOverlays: true,
           snapshotSourceIds:
-            getGpuFlowCommittedSurfaceBrowserVisualSnapshotSourceIds(
+            getGpuFlowPreparedContentFrameBrowserVisualSnapshotSourceIds(
               preparedContentFrame,
             ),
         });
       const overlayTextureWork =
-        prepareGpuFlowCommittedSurfaceOverlayTexturesForPublicationCandidate({
-          input: {
-            canvasSize,
-            deferResolutionUpdates,
-            elementByNodeId: nodeElementByIdRef.current,
-            frame,
-            htmlSurfaceOverlays,
-            marginCssPx: layer.marginCssPx,
-            textureManager: resources.textureManager,
-            uploadBudget: layer.uploadBudget,
-            viewport: liveProjectionSample.viewport,
+        prepareGpuFlowPreparedContentFrameOverlayTexturesForPublicationCandidate(
+          {
+            input: {
+              canvasSize,
+              deferResolutionUpdates,
+              elementByNodeId: nodeElementByIdRef.current,
+              frame,
+              htmlSurfaceOverlays,
+              marginCssPx: layer.marginCssPx,
+              textureManager: resources.textureManager,
+              uploadBudget: layer.uploadBudget,
+              viewport: liveProjectionSample.viewport,
+            },
+            prepareOverlayTextures: prepareHtmlSurfaceOverlayTextures,
+            publicationPreparation: preparedContentFramePublicationPreparation,
           },
-          prepareOverlayTextures: prepareHtmlSurfaceOverlayTextures,
-          publicationPreparation: preparedContentFramePublicationPreparation,
-        });
+        );
       requestGpuFlowDirtySurfaceTextureUploadFollowUp({
         retryDeferredUploads: frameReasons.includes("texture-upload"),
         source: "candidate-overlay",
@@ -762,7 +764,7 @@ export function renderGpuFlowNodeLayerFrame({
       const htmlSurfaceOverlays =
         projectGpuRetainedDomControlSnapshotSurfaceLayouts({
           controls:
-            getGpuFlowCommittedSurfaceBrowserVisualSnapshotLayoutControls({
+            getGpuFlowPreparedContentFrameBrowserVisualSnapshotLayoutControls({
               controls:
                 context.publishedRetainedRuntimeFrame.descriptors
                   .domControlSources,
@@ -772,7 +774,7 @@ export function renderGpuFlowNodeLayerFrame({
             context.getRetainedDomControlRuntimeScrollOffset,
           overlays: layer.edgeLabelSurfaces,
           snapshotSourceIds:
-            getGpuFlowCommittedSurfaceBrowserVisualSnapshotSourceIds(
+            getGpuFlowPreparedContentFrameBrowserVisualSnapshotSourceIds(
               preparedContentFrame,
             ),
         });
@@ -790,7 +792,7 @@ export function renderGpuFlowNodeLayerFrame({
         edges: layer.edges,
         edgePalette: layer.edgePalette,
         elementByNodeId: nodeElementByIdRef.current,
-        forceVisibleNodeIds: getGpuFlowCommittedSurfaceForceVisibleNodeIds(
+        forceVisibleNodeIds: getGpuFlowPreparedContentFrameForceVisibleNodeIds(
           layer.forceVisibleNodeIds,
           preparedContentFrame,
         ),
@@ -803,7 +805,7 @@ export function renderGpuFlowNodeLayerFrame({
         nodes,
         nodeTextureMemoryBudgetBytes: layer.nodeTextureMemoryBudgetBytes,
         protectedTextureSurfaceIds:
-          getGpuFlowCommittedSurfaceProtectedTextureSurfaceIds(
+          getGpuFlowPreparedContentFrameProtectedTextureSurfaceIds(
             preparedContentFrame,
           ),
         renderer: resources.htmlSurfaceRenderer,
