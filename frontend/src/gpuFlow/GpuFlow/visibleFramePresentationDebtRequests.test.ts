@@ -4,7 +4,7 @@ import type {
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameScheduling";
-import { createGpuFlowSurfacePublicationDebtFrameRequest } from "./visibleFramePresenterDebtRequests";
+import { createGpuFlowSurfacePublicationDebtFrameRequest } from "./visibleFramePresentationDebtRequests";
 
 describe("GPU Flow visible frame presenter debt requests", () => {
   it("retries active editor content debt as immediate activation work", () => {
@@ -63,5 +63,5 @@ function contentDecision(): GpuFlowVisiblePublicationDecision {
     rawReasons: ["manual"],
     sample: { id: 1, timestamp: 1 },
     schedulerState: "content-catchup",
-  } as GpuFlowVisiblePublicationDecision;
+  } as unknown as GpuFlowVisiblePublicationDecision;
 }

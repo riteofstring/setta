@@ -47,20 +47,20 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = modulePath(
   "./visibleFrameSurfaceFrame.ts",
 );
 const VISIBLE_FRAME_PRESENTER_MODULE_PATH = modulePath(
-  "./visibleFramePresenter.ts",
+  "./visibleFramePresentation.ts",
 );
 const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
   "committedSurfaceRuntime.ts",
   "GpuFlow/committedSurfaceFrameState.ts",
 ]);
 const PRODUCTION_OVERLAY_TRANSFORM_CALLERS = new Set([
-  "GpuFlow/visibleFramePresenter.ts",
+  "GpuFlow/visibleFramePresentation.ts",
 ]);
 const PRODUCTION_BROWSER_VISUAL_CURRENT_PROJECTION_CALLERS = new Set([
   "GpuFlow/committedSurfaceFrameState.ts",
 ]);
 const PRODUCTION_PROJECTION_DEBUG_ATTRIBUTE_CALLERS = new Set([
-  "GpuFlow/visibleFramePresenter.ts",
+  "GpuFlow/visibleFramePresentation.ts",
 ]);
 const PRODUCTION_SURFACE_TEXTURE_RELEASE_CALLERS = new Set([
   "htmlSurfaces/textures.ts",
@@ -71,15 +71,15 @@ const PRODUCTION_RAW_SURFACE_TEXTURE_RELEASE_CALLERS = new Set([
 ]);
 const PRODUCTION_VISIBLE_PROJECTION_STATE_MUTATORS = new Set([
   "GpuFlow/flowSurface.tsx",
-  "GpuFlow/visibleFramePresenter.ts",
+  "GpuFlow/visibleFramePresentation.ts",
 ]);
 const PRODUCTION_VISIBLE_PROJECTION_STATE_PUBLISHERS = new Set([
-  "GpuFlow/visibleFramePresenter.ts",
+  "GpuFlow/visibleFramePresentation.ts",
 ]);
 const PRODUCTION_PREPARED_COMMITTED_SURFACE_FRAME_COMMITTERS = new Set([
   "GpuFlow/committedSurfaceFrameState.ts",
   "GpuFlow/visibleFrameResourceGraph.ts",
-  "GpuFlow/visibleFramePresenter.ts",
+  "GpuFlow/visibleFramePresentation.ts",
 ]);
 
 describe("GPU Flow visible frame presentation proof boundaries", () => {
@@ -1028,7 +1028,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     const assignmentPattern = /retainedDisplayFrameRef\.current\s*=(?!=)/g;
     const productionAssignmentModules = new Set([
       "GpuFlow/flowSurface.tsx",
-      "GpuFlow/visibleFramePresenter.ts",
+      "GpuFlow/visibleFramePresentation.ts",
     ]);
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {

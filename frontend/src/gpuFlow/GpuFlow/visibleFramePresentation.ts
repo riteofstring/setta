@@ -45,7 +45,7 @@ import {
   createGpuFlowSurfacePublicationDebtFrameRequest,
   requestGpuFlowSurfacePublicationDebtFrame,
   requestGpuFlowSurfacePublicationFollowUpFrames,
-} from "./visibleFramePresenterDebtRequests";
+} from "./visibleFramePresentationDebtRequests";
 import type {
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDecision,
@@ -55,16 +55,12 @@ import type {
   RenderGpuFlowSurfaceFrameInput,
 } from "./visibleFrameSurfaceFrame";
 
-type GpuFlowVisibleFramePresenter = (
-  publicationTransaction: GpuFlowVisibleFrameCoordinatorResult<GpuFlowSurfacePublicationPreparedFrame>,
-) => void;
-
 type GpuFlowBlockedSurfaceVisibleProjectionPublication = {
   readonly blockedErrorMessage: string | null;
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
 };
 
-type GpuFlowVisibleFramePresenterInput = Omit<
+export type GpuFlowVisibleFramePresentationRuntime = Omit<
   Parameters<typeof presentGpuFlowVisibleFramePublicationFrame>[0],
   "publicationTransaction"
 >;
@@ -142,7 +138,7 @@ function publishCommittedVisibleProjectionState({
   visibleProjectionPublicationStateRef.current = visibleProjectionState;
 }
 
-function presentGpuFlowVisibleFramePublicationFrame({
+export function presentGpuFlowVisibleFramePublicationFrame({
   abortPreparedCommittedSurfaceFrame,
   callbacksRef,
   commitPreparedCommittedSurfaceFrame,
@@ -362,44 +358,6 @@ function recordGpuFlowBlockedSurfaceVisibleProjectionPublication({
           },
     token: outcome.token,
   });
-}
-
-export function createGpuFlowVisibleFramePresenter({
-  abortPreparedCommittedSurfaceFrame,
-  callbacksRef,
-  commitPreparedCommittedSurfaceFrame,
-  projectCommittedBrowserVisualActors,
-  publishColdStartShellFrame,
-  retainedDisplayFrameRef,
-  retainedRuntimeFrameRenderSignatureRef,
-  retainedRuntimeFrameSourceRenderSignatureRef,
-  runtimeCanvas,
-  surfaceRef,
-  validatePreparedCommittedSurfaceFrame,
-  viewportRuntime,
-  visibleOverlayProjectionKeyRef,
-  visibleProjectionPublicationStateRef,
-  visibleProjectionStateRef,
-}: GpuFlowVisibleFramePresenterInput): GpuFlowVisibleFramePresenter {
-  return (publicationTransaction) =>
-    presentGpuFlowVisibleFramePublicationFrame({
-      abortPreparedCommittedSurfaceFrame,
-      callbacksRef,
-      commitPreparedCommittedSurfaceFrame,
-      projectCommittedBrowserVisualActors,
-      publicationTransaction,
-      publishColdStartShellFrame,
-      retainedDisplayFrameRef,
-      retainedRuntimeFrameRenderSignatureRef,
-      retainedRuntimeFrameSourceRenderSignatureRef,
-      runtimeCanvas,
-      surfaceRef,
-      validatePreparedCommittedSurfaceFrame,
-      viewportRuntime,
-      visibleOverlayProjectionKeyRef,
-      visibleProjectionPublicationStateRef,
-      visibleProjectionStateRef,
-    });
 }
 
 function publishGpuFlowColdStartShellFrame({

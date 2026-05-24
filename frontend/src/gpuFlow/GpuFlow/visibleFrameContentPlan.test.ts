@@ -30,7 +30,7 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameSurfaceFrame.ts", import.meta.url),
 );
 const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePresenter.ts", import.meta.url),
+  new URL("./visibleFramePresentation.ts", import.meta.url),
 );
 const COORDINATOR_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameCoordinator.ts", import.meta.url),

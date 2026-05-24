@@ -167,7 +167,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
 
   it("starts budget-selected resource preparation before candidate preparation", () => {
     const phases: string[] = [];
-    const observedActiveEditorPins: readonly string[][] = [];
+    const observedActiveEditorPins: (readonly string[])[] = [];
 
     runGpuFlowVisibleFrameCoordinator({
       budgetBroker: createGpuFlowVisibleFrameBudgetBroker({

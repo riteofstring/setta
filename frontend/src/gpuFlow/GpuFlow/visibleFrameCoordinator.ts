@@ -22,6 +22,10 @@ import {
 } from "./visibleFrameContentPlan";
 import type { GpuFlowVisiblePublicationTransactionCompletion } from "./visibleFrameOutcomeReport";
 import { proveGpuFlowVisibleFramePublicationPresentation } from "./visibleFramePresentationProofs";
+import {
+  presentGpuFlowVisibleFramePublicationFrame,
+  type GpuFlowVisibleFramePresentationRuntime,
+} from "./visibleFramePresentation";
 import type { GpuFlowMotionProjectionFramePreparation } from "./visibleFrameProjectionPlan";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import {
@@ -185,12 +189,17 @@ type GpuFlowVisibleFrameCoordinatorInput<
     | GpuFlowVisibleFrameResourceBudgetPreparer
     | undefined;
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
-  readonly publish: GpuFlowVisibleFramePublicationPublisher<
-    GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
-      ContentPublicationFrame,
-      MotionProjectionFrame
-    >
-  >;
+  readonly presentationRuntime?:
+    | GpuFlowVisibleFramePresentationRuntime
+    | undefined;
+  readonly publish?:
+    | GpuFlowVisibleFramePublicationPublisher<
+        GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
+          ContentPublicationFrame,
+          MotionProjectionFrame
+        >
+      >
+    | undefined;
   readonly sampleVisibleFramePublication: () => GpuFlowVisibleFramePublicationSample;
   readonly scheduler: GpuFlowVisiblePublicationScheduler;
 };
@@ -213,6 +222,7 @@ export function runGpuFlowVisibleFrameCoordinator<
   prepareMotionProjectionFrame,
   prepareVisibleFrameResourcesForBudget,
   budgetBroker,
+  presentationRuntime,
   publish,
   sampleVisibleFramePublication,
   scheduler,
@@ -237,6 +247,7 @@ export function runGpuFlowVisibleFrameCoordinator<
     scheduler,
   });
   return publishGpuFlowVisibleFramePublicationOutcome({
+    presentationRuntime,
     publish,
     transaction,
   });
@@ -606,13 +617,28 @@ function shouldDeferGpuFlowResolutionUpdatesForFrame({
 function publishGpuFlowVisibleFramePublicationOutcome<
   PreparedFrame extends GpuFlowVisibleFramePublicationPreparedFrame,
 >({
+  presentationRuntime,
   publish,
   transaction,
 }: {
-  readonly publish: GpuFlowVisibleFramePublicationPublisher<PreparedFrame>;
+  readonly presentationRuntime?:
+    | GpuFlowVisibleFramePresentationRuntime
+    | undefined;
+  readonly publish?:
+    | GpuFlowVisibleFramePublicationPublisher<PreparedFrame>
+    | undefined;
   readonly transaction: GpuFlowVisibleFrameCoordinatorResult<PreparedFrame>;
 }): GpuFlowVisibleFrameCoordinatorResult<PreparedFrame> {
-  publish(transaction);
+  if (presentationRuntime) {
+    presentGpuFlowVisibleFramePublicationFrame({
+      ...presentationRuntime,
+      publicationTransaction:
+        transaction as unknown as Parameters<
+          typeof presentGpuFlowVisibleFramePublicationFrame
+        >[0]["publicationTransaction"],
+    });
+  }
+  publish?.(transaction);
   return transaction;
 }
 

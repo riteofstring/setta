@@ -34,10 +34,10 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameSurfaceFrame.ts", import.meta.url),
 );
 const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePresenter.ts", import.meta.url),
+  new URL("./visibleFramePresentation.ts", import.meta.url),
 );
 const SURFACE_PUBLICATION_DEBT_REQUESTS_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFramePresenterDebtRequests.ts", import.meta.url),
+  new URL("./visibleFramePresentationDebtRequests.ts", import.meta.url),
 );
 const SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfacePublicationDebtFrame.ts", import.meta.url),
@@ -137,7 +137,10 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "createGpuFlowVisibleFramePublicationPreparedFrame({",
       "proveGpuFlowVisibleFramePublicationPresentation(",
     ]);
-    expect(publishSource).toContain("publish(transaction);");
+    expectOrderedPhases(publishSource, [
+      "presentGpuFlowVisibleFramePublicationFrame({",
+      "publish?.(transaction);",
+    ]);
     expect(publishSource).not.toContain(
       "prepareVisibleFrameResourcesForBudget?.(",
     );
