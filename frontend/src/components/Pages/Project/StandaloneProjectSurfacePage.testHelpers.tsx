@@ -22,8 +22,6 @@ type MockSectionImpl = {
 type MockProjectState = {
   projectConfig: {
     id: string;
-    name: string;
-    entryCodeBlockId: string | null;
     windowSpaces: Record<string, unknown>;
     windowSpaceIdsBySlug?: Record<string, Array<string>>;
     sectionVariantMap: Record<string, string>;
@@ -49,38 +47,11 @@ type MockShareSessionState = {
   } | null;
 };
 
-type MockAllProjectMetadataState = {
-  defaultProjectConfigId: string | null;
-  projectMetadata: Array<{ id: string; name: string }>;
-};
-
-type MockLocalStorageState = {
-  runSnapshotModeByProjectConfigId: Record<string, string>;
-};
-
-type MockSettingsState = {
-  backend: {
-    runSnapshotMode: string;
-  };
-};
-
-type MockServerModeState = {
-  mode: string | null;
-  modeResolved: boolean;
-  modeError: string | null;
-};
-
-type MockProjectLoadingState = {
-  loading: boolean;
-};
-
 const hoisted = vi.hoisted(() => {
   const state = {
     projectState: {
       projectConfig: {
         id: "project-config-1",
-        name: "demo",
-        entryCodeBlockId: null,
         windowSpaces: {},
         windowSpaceIdsBySlug: {},
         sectionVariantMap: {},
@@ -101,75 +72,16 @@ const hoisted = vi.hoisted(() => {
       isDeploymentMode: false,
       sharePolicy: null,
     } as MockShareSessionState,
-    allProjectMetadataState: {
-      defaultProjectConfigId: "project-config-1",
-      projectMetadata: [{ id: "project-config-1", name: "demo" }],
-    } as MockAllProjectMetadataState,
-    localStorageState: {
-      runSnapshotModeByProjectConfigId: {},
-    } as MockLocalStorageState,
-    settingsState: {
-      backend: {
-        runSnapshotMode: "latest",
-      },
-    } as MockSettingsState,
-    serverModeState: {
-      mode: null,
-      modeResolved: false,
-      modeError: null,
-    } as MockServerModeState,
-    projectLoadingState: {
-      loading: false,
-    } as MockProjectLoadingState,
     projectChatBlockedErrorCode: null as string | null,
     chatHistoryEntries: [] as Array<{ chatId: string; label: string }>,
     loadProjectConfigResult: [true, false] as [boolean, boolean],
   };
-
-  const createStoreMock = <TState extends object>(
-    getState: () => TState,
-    replaceState: (nextState: TState) => void,
-  ) =>
-    Object.assign(
-      (selector?: (nextState: TState) => unknown) =>
-        selector ? selector(getState()) : getState(),
-      {
-        getState,
-        setState: (
-          updater:
-            | Partial<TState>
-            | ((nextState: TState) => Partial<TState>),
-        ) => {
-          const currentState = getState();
-          const nextState =
-            typeof updater === "function" ? updater(currentState) : updater;
-          replaceState({
-            ...currentState,
-            ...nextState,
-          });
-        },
-        subscribe: () => () => undefined,
-      },
-    );
 
   const useProjectStateMock = Object.assign(
     (selector: (nextState: MockProjectState) => unknown) =>
       selector(state.projectState),
     {
       getState: () => state.projectState,
-      setState: (
-        updater:
-          | Partial<MockProjectState>
-          | ((nextState: MockProjectState) => Partial<MockProjectState>),
-      ) => {
-        const nextState =
-          typeof updater === "function" ? updater(state.projectState) : updater;
-        state.projectState = {
-          ...state.projectState,
-          ...nextState,
-        };
-      },
-      subscribe: () => () => undefined,
     },
   );
 
@@ -189,7 +101,6 @@ const hoisted = vi.hoisted(() => {
           ...nextState,
         };
       },
-      subscribe: () => () => undefined,
     },
   );
 
@@ -198,52 +109,6 @@ const hoisted = vi.hoisted(() => {
       selector(state.shareSessionState),
     {
       getState: () => state.shareSessionState,
-      setState: (
-        updater:
-          | Partial<MockShareSessionState>
-          | ((nextState: MockShareSessionState) => Partial<MockShareSessionState>),
-      ) => {
-        const nextState =
-          typeof updater === "function"
-            ? updater(state.shareSessionState)
-            : updater;
-        state.shareSessionState = {
-          ...state.shareSessionState,
-          ...nextState,
-        };
-      },
-      subscribe: () => () => undefined,
-    },
-  );
-
-  const useAllProjectMetadataMock = createStoreMock(
-    () => state.allProjectMetadataState,
-    (nextState) => {
-      state.allProjectMetadataState = nextState;
-    },
-  );
-  const useLocalStorageMock = createStoreMock(
-    () => state.localStorageState,
-    (nextState) => {
-      state.localStorageState = nextState;
-    },
-  );
-  const useSettingsMock = createStoreMock(
-    () => state.settingsState,
-    (nextState) => {
-      state.settingsState = nextState;
-    },
-  );
-  const useServerModeMock = createStoreMock(
-    () => state.serverModeState,
-    (nextState) => {
-      state.serverModeState = nextState;
-    },
-  );
-  const useProjectLoadingMock = createStoreMock(
-    () => state.projectLoadingState,
-    (nextState) => {
-      state.projectLoadingState = nextState;
     },
   );
 
@@ -252,11 +117,6 @@ const hoisted = vi.hoisted(() => {
     useProjectStateMock,
     useAIStoreMock,
     useShareSessionMock,
-    useAllProjectMetadataMock,
-    useLocalStorageMock,
-    useSettingsMock,
-    useServerModeMock,
-    useProjectLoadingMock,
   };
 });
 
@@ -374,31 +234,16 @@ vi.mock("components/Section/Container/SectionWindowSurface", () => ({
   },
 }));
 
-vi.mock("components/Section/Container/ManyNestedSections", () => ({
-  MaybeManyNestedSections: () => (
-    <div data-testid="mock-many-nested-sections" />
-  ),
-}));
-
 vi.mock("components/Utils/FloatingBox", () => ({
   FloatingBox: () => <div data-testid="mock-floating-box" />,
 }));
 
-vi.mock("forks/dnd-kit/SectionDndContext", () => ({
-  SectionDndContext: ({ children }: { children: ReactNode }) => <>{children}</>,
-}));
-
-vi.mock("forks/xyflow/core/utils/mouseLocation", () => ({
+vi.mock("gpuFlow/mouseLocation", () => ({
   useAddMouseLocationListener: () => undefined,
 }));
 
 vi.mock("plugins/runtime", () => ({
   usePluginRuntimeBootstrap: () => undefined,
-}));
-
-vi.mock("plugins/appSubsystemFrontendHost", () => ({
-  DEFAULT_APP_SUBSYSTEM_FRONTEND_HOST: { apiVersion: 1 },
-  createRuntimeAppSubsystemFrontendHost: () => ({ apiVersion: 1 }),
 }));
 
 vi.mock("components/Utils/CodeMirror/useCodeMirrorStyleLoader", () => ({
@@ -410,14 +255,8 @@ vi.mock("state/actions/chatHistory", () => ({
 }));
 
 vi.mock("state/definitions", () => ({
-  NULL_PROJECT_CONFIG_ID: "null",
   useAIStore: hoisted.useAIStoreMock,
-  useAllProjectMetadata: hoisted.useAllProjectMetadataMock,
-  useLocalStorage: hoisted.useLocalStorageMock,
-  useProjectLoading: hoisted.useProjectLoadingMock,
   useProjectState: hoisted.useProjectStateMock,
-  useServerMode: hoisted.useServerModeMock,
-  useSettings: hoisted.useSettingsMock,
   useShareSession: hoisted.useShareSessionMock,
 }));
 
@@ -468,12 +307,8 @@ export function resetStandaloneProjectSurfaceMocks() {
   hoisted.state.projectState = {
     projectConfig: {
       id: "project-config-1",
-      name: "demo",
-      entryCodeBlockId: null,
       windowSpaces: {},
-      windowSpaceIdsBySlug: {},
       sectionVariantMap: {},
-      sectionIdsByPathSlug: {},
     },
     sections: {},
     sectionVariants: {},
@@ -489,26 +324,6 @@ export function resetStandaloneProjectSurfaceMocks() {
   hoisted.state.shareSessionState = {
     isDeploymentMode: false,
     sharePolicy: null,
-  };
-  hoisted.state.allProjectMetadataState = {
-    defaultProjectConfigId: "project-config-1",
-    projectMetadata: [{ id: "project-config-1", name: "demo" }],
-  };
-  hoisted.state.localStorageState = {
-    runSnapshotModeByProjectConfigId: {},
-  };
-  hoisted.state.settingsState = {
-    backend: {
-      runSnapshotMode: "latest",
-    },
-  };
-  hoisted.state.serverModeState = {
-    mode: null,
-    modeResolved: false,
-    modeError: null,
-  };
-  hoisted.state.projectLoadingState = {
-    loading: false,
   };
   hoisted.state.projectChatBlockedErrorCode = null;
   hoisted.state.chatHistoryEntries = [

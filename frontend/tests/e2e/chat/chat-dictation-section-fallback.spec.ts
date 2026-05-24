@@ -230,7 +230,7 @@ test("chat section falls back to browser dictation when provider transcription s
     });
 
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const section = findSectionByName(page, sectionName);
     await expect(section).toBeVisible();
@@ -352,7 +352,7 @@ test("chat section stops browser dictation when composer becomes disabled", asyn
     });
 
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const section = findSectionByName(page, sectionName);
     await expect(section).toBeVisible();

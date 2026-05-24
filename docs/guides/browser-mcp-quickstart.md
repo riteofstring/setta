@@ -31,6 +31,9 @@ was started separately and Setta should keep running.
 2. Start the debug Chrome instance (if you are not using `./ai.sh` or `./aireset.sh`):
    `./scripts/start-browser-mcp.sh --devtools`
 
+   The helper resolves the shared Chrome for Testing 149+ browser by default.
+   Set `CHROME_BIN` only when you intentionally want to override that repo browser.
+
    Override MCP state location:
    `MCP_RUN_DIR="${TMPDIR:-/tmp}/setta-mcp/<worktree>-<hash>" ./scripts/start-browser-mcp.sh --devtools`
 
@@ -83,9 +86,14 @@ Optional overrides:
 - `SETTA_BOOTSTRAP_TOKEN` (skip auto-mint)
 - `SETTA_AUTH_COOKIE_NAME` (auth cookie override)
 
-If browser installs fail with permissions under `~/Library/Caches`, install to a
-repo-local path:
-`PLAYWRIGHT_BROWSERS_PATH=setta_files/runtime/playwright-browsers npx playwright install`
+The repo Playwright helper uses the same Chrome for Testing 149+ browser as the
+CDP helper, not Playwright's bundled Chromium. `PLAYWRIGHT_BROWSERS_PATH` only
+matters when running raw Playwright commands outside the repo helper.
+
+On macOS, raw Playwright snippets that call `chromium.launch` directly must pass
+`--use-mock-keychain` in `args`. The repo helpers already add this flag, but
+direct headed Chromium launches can otherwise ask for access to the user's
+Keychain credentials.
 
 ## Playwright recording (manual repro capture)
 

@@ -346,9 +346,9 @@ test.describe.serial("file browser transfer and drag/drop", () => {
       }
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".setta-gpu-flow__pane");
       const browserNode = page.locator(
-        `.react-flow__node[data-id="${browserSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${browserSectionId}"]`,
       );
       await expect(browserNode).toBeVisible();
       const browserPathEditor = browserNode.locator(
@@ -381,7 +381,7 @@ test.describe.serial("file browser transfer and drag/drop", () => {
         })
         .not.toBeNull();
 
-      const canvasPane = page.locator(".react-flow__pane").first();
+      const canvasPane = page.locator(".setta-gpu-flow__pane").first();
       await dragBrowserRowToTarget(csvRow, canvasPane);
 
       await expect
@@ -427,7 +427,7 @@ test.describe.serial("file browser transfer and drag/drop", () => {
       await fillCodeMirror(filterEditor, page, csvName);
       await expect(csvRow).toBeVisible({ timeout: 15000 });
       const spreadsheetNode = page.locator(
-        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${spreadsheetSectionId}"]`,
       );
       await expect(spreadsheetNode).toBeVisible();
       await dragBrowserRowToTarget(
@@ -593,7 +593,7 @@ test.describe.serial("file browser transfer and drag/drop", () => {
       }
 
       const sectionNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
       const pathEditor = sectionNode.locator(

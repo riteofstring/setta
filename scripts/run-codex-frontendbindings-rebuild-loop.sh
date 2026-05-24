@@ -271,7 +271,7 @@ Execution workflow for every iteration:
   verification for \`frontendbindings\` generator work is
   \`./scripts/go.sh test ./cmd/setta-gen-frontend-bindings ./internal/frontendbindings -count=1\`,
   plus any directly affected owner-package or frontend tests.
-- Run \`./check_quality.sh\` before committing.
+- Run \`./scripts/quality/check.sh\` before committing.
 - End every non-stop iteration with a clean worktree and a new commit whose
   message starts with \`codex-frontendbindings:\`.
 

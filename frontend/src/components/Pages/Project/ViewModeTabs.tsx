@@ -1,8 +1,10 @@
-import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import _ from "lodash";
-import { setActiveViewMode } from "openapi/http";
+import { startTransition } from "react";
 import { RxDragHandleDots2 } from "react-icons/rx";
-import { persistViewModeSortOrder } from "state/actions/viewModes";
+import {
+  persistActiveViewMode,
+  persistViewModeSortOrder,
+} from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { sortViewModes } from "utils/viewModeOrdering";
@@ -56,14 +58,9 @@ export function ViewModeTabs() {
     if (!canEditVariants || modeId === activeViewModeId) {
       return;
     }
-    void callOpenAPI(
-      setActiveViewMode({
-        body: {
-          projectConfigId,
-          activeViewModeId: modeId,
-        },
-      } as Parameters<typeof setActiveViewMode>[0]),
-    );
+    startTransition(() => {
+      persistActiveViewMode(projectConfigId, modeId);
+    });
   };
   const handleReorder = (reorderedTabIds: Array<string>) => {
     if (!sortableEnabled) {

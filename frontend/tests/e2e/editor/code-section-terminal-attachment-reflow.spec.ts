@@ -12,6 +12,7 @@ import {
   ensureTerminalAcceptsInput,
   expectDetachedTerminalHeaderLayout,
   focusTerminalAndType,
+  getEmbeddedTerminalHost,
   getTerminalLastResize,
   getTerminalOutputBuffer,
   getTerminalRowsSnapshot,
@@ -53,9 +54,7 @@ test("detached terminal accepts input", async ({ page }) => {
     );
     expect(attachedId).toBe(terminalId);
 
-    const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
+    const embeddedTerminalHost = getEmbeddedTerminalHost(page, terminalId);
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
       timeoutMs: process.env.CI ? 60000 : 40000,
@@ -66,7 +65,7 @@ test("detached terminal accepts input", async ({ page }) => {
     });
 
     const codeBox = await page
-      .locator(`.react-flow__node[data-id="${codeSectionId}"]`)
+      .locator(`.setta-gpu-flow__node[data-id="${codeSectionId}"]`)
       .boundingBox();
     if (!codeBox) {
       throw new Error("Missing bounding boxes for drag.");
@@ -86,7 +85,7 @@ test("detached terminal accepts input", async ({ page }) => {
     });
 
     const terminalNode = page.locator(
-      `.react-flow__node[data-id="${terminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${terminalId}"]`,
     );
     await expect(terminalNode).toBeVisible();
     await expect(
@@ -132,9 +131,7 @@ test("terminal reflows long lines when width increases", async ({ page }) => {
     );
     expect(attachedId).toBe(terminalId);
 
-    const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
+    const embeddedTerminalHost = getEmbeddedTerminalHost(page, terminalId);
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
       timeoutMs: process.env.CI ? 60000 : 40000,
@@ -324,9 +321,7 @@ test("terminal reflows command echo when width increases", async ({ page }) => {
     );
     expect(attachedId).toBe(terminalId);
 
-    const embeddedTerminalHost = page.locator(
-      `.react-flow__node[data-id="${codeSectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
-    );
+    const embeddedTerminalHost = getEmbeddedTerminalHost(page, terminalId);
     await expect(embeddedTerminalHost).toBeVisible();
     await waitForTerminalReady(page, terminalId, {
       timeoutMs: process.env.CI ? 60000 : 40000,

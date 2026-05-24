@@ -99,6 +99,10 @@ if [[ -n "${CHROME_EXTRA_ARGS}" ]]; then
   # shellcheck disable=SC2206
   CHROME_ARGS=(${CHROME_EXTRA_ARGS})
 fi
+if [[ "${OSTYPE:-}" == "darwin"* ]]; then
+  # Dedicated dev profiles should not request access to the user's real keychain.
+  CHROME_ARGS+=("--use-mock-keychain")
+fi
 
 resolve_python_bin() {
   if command -v python >/dev/null 2>&1; then
@@ -363,6 +367,7 @@ Environment variables:
   DEVTOOLS_OPEN_WITH_CHROME  Also ask Chrome to open the URL in the devtools profile (default: 1)
   CHROME_BIN   Path to Chrome/Chromium binary (auto-detected if unset)
   CHROME_EXTRA_ARGS  Extra Chrome flags (space-separated)
+  SETTA_CHROME_FOR_TESTING_CHANNEL  Chrome for Testing channel (default: Canary, minimum: 149)
 
 Flags:
   --devtools       Start Chrome with remote debugging for chrome-devtools-mcp
@@ -392,17 +397,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$CHROME_BIN" ]]; then
-  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
-    if [[ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]; then
-      CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-    elif [[ -x "/Applications/Chromium.app/Contents/MacOS/Chromium" ]]; then
-      CHROME_BIN="/Applications/Chromium.app/Contents/MacOS/Chromium"
-    fi
-  fi
-
-  if [[ -z "$CHROME_BIN" ]]; then
-    CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
-  fi
+  CHROME_BIN="$("${SCRIPT_DIR}/resolve-chrome-for-testing-149.sh")"
 fi
 
 if [[ -z "$CHROME_BIN" ]]; then

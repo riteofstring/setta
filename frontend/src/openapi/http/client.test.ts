@@ -1,66 +1,51 @@
-import { useServerMode } from "state/definitions";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createProjectConfig } from ".";
+import { rebuildBackendRequest } from "@setta/app-subsystem-frontend-sdk";
+import { describe, expect, it } from "vitest";
 
-describe("OpenAPI HTTP client", () => {
-  const env = import.meta.env as unknown as Record<string, unknown>;
-  const previousDev = env["DEV"];
-  const previousBackendOrigin = env["VITE_BACKEND_ORIGIN"];
-  const originalFetch = globalThis.fetch;
-  const originalRequest = globalThis.Request;
-
-  beforeEach(() => {
-    env["DEV"] = true;
-    env["VITE_BACKEND_ORIGIN"] = "http://127.0.0.1:18123";
-    useServerMode.setState({
-      mode: "ide",
-      modeResolved: true,
-      modeError: null,
+describe("rebuildBackendRequest", () => {
+  it("preserves POST metadata and body while rewriting the URL", async () => {
+    const original = new Request("http://127.0.0.1:3000/loadProjectConfig", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Test": "1",
+      },
+      body: JSON.stringify({ projectConfigName: "sample_project" }),
     });
+
+    const rebuilt = await rebuildBackendRequest(
+      original,
+      "http://127.0.0.1:8000/api/loadProjectConfig",
+    );
+
+    expect(rebuilt.url).toBe("http://127.0.0.1:8000/api/loadProjectConfig");
+    expect(rebuilt.method).toBe("POST");
+    expect(rebuilt.credentials).toBe("include");
+    expect(rebuilt.headers.get("Content-Type")).toBe("application/json");
+    expect(rebuilt.headers.get("X-Test")).toBe("1");
+    await expect(rebuilt.text()).resolves.toBe(
+      '{"projectConfigName":"sample_project"}',
+    );
   });
 
-  afterEach(() => {
-    env["DEV"] = previousDev;
-    env["VITE_BACKEND_ORIGIN"] = previousBackendOrigin;
-    globalThis.fetch = originalFetch;
-    globalThis.Request = originalRequest;
-    vi.restoreAllMocks();
-  });
-
-  it("rebuilds body requests with explicit init data before fetch", async () => {
-    const NativeRequest = originalRequest;
-    class GuardedRequest extends NativeRequest {
-      constructor(input: RequestInfo | URL, init?: RequestInit) {
-        if (init instanceof NativeRequest) {
-          throw new Error("Request object must not be reused as RequestInit");
-        }
-        super(input, init);
-      }
-    }
-    globalThis.Request = GuardedRequest as typeof Request;
-
-    const payload = { previewImgColor: "#123456" };
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const request = input as Request;
-
-      expect(request.url).toBe(
-        "http://127.0.0.1:18123/api/createProjectConfig",
-      );
-      expect(request.method).toBe("POST");
-      expect(request.credentials).toBe("include");
-      expect(request.headers.get("content-type")).toContain("application/json");
-      expect(await request.json()).toEqual(payload);
-
-      return new Response(JSON.stringify("created_project"), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
+  it("rewrites GET requests without adding a body", async () => {
+    const original = new Request("http://127.0.0.1:3000/serverMode", {
+      method: "GET",
+      credentials: "include",
+      headers: {
+        Accept: "application/json",
+      },
     });
-    globalThis.fetch = fetchMock as typeof fetch;
 
-    const result = await createProjectConfig({ body: payload });
+    const rebuilt = await rebuildBackendRequest(
+      original,
+      "http://127.0.0.1:8000/api/serverMode",
+    );
 
-    expect(result.data).toBe("created_project");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(rebuilt.url).toBe("http://127.0.0.1:8000/api/serverMode");
+    expect(rebuilt.method).toBe("GET");
+    expect(rebuilt.credentials).toBe("include");
+    expect(rebuilt.headers.get("Accept")).toBe("application/json");
+    expect(rebuilt.body).toBeNull();
   });
 });
