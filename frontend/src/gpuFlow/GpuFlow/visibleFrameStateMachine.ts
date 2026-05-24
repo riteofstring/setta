@@ -33,8 +33,8 @@ import {
   type GpuFlowVisibleFrameActorFamily,
   type GpuFlowVisibleFrameActorProof,
   type GpuFlowVisibleFrameCandidate,
-  type GpuFlowVisibleFrameCommittedActorCoverage,
-  type GpuFlowVisibleFrameCommittedPresentation,
+  type GpuFlowVisibleFramePresentedActorCoverage,
+  type GpuFlowVisibleFramePresentedFrame,
   type GpuFlowVisibleFrameDebt,
   type GpuFlowVisibleFrameRect,
 } from "./visibleFrameTypes";
@@ -401,7 +401,7 @@ export type GpuFlowVisibleFrameStateMachineSample = {
 
 export type GpuFlowVisibleFramePreparedFrame = {
   readonly candidate: GpuFlowVisibleFrameCandidate;
-  readonly previousPresentation: GpuFlowVisibleFrameCommittedPresentation | null;
+  readonly previousPresentation: GpuFlowVisibleFramePresentedFrame | null;
   readonly sample: GpuFlowVisibleFrameStateMachineSample;
 };
 
@@ -543,7 +543,7 @@ export function proveGpuFlowVisibleFrameStateMachineFrame({
   previousPresentation,
 }: {
   readonly candidate: GpuFlowVisibleFrameCandidate;
-  readonly previousPresentation: GpuFlowVisibleFrameCommittedPresentation | null;
+  readonly previousPresentation: GpuFlowVisibleFramePresentedFrame | null;
 }): GpuFlowVisibleFrameStateMachineOutcome {
   const blockingProof = selectGpuFlowVisibleFrameBlockingProof({
     candidate,
@@ -746,7 +746,7 @@ function createGpuFlowVisibleFrameBlockedOutcome({
   reason,
 }: {
   readonly candidate: GpuFlowVisibleFrameCandidate;
-  readonly previousPresentation: GpuFlowVisibleFrameCommittedPresentation | null;
+  readonly previousPresentation: GpuFlowVisibleFramePresentedFrame | null;
   readonly reason: GpuFlowVisibleFrameStateMachineOutcomeReason;
 }): GpuFlowVisibleFrameStateMachineOutcome {
   if (previousPresentation === null) {
@@ -834,7 +834,7 @@ function doesGpuFlowPreviousPresentationCoverRequiredActors({
   previousPresentation,
 }: {
   readonly candidate: GpuFlowVisibleFrameCandidate;
-  readonly previousPresentation: GpuFlowVisibleFrameCommittedPresentation;
+  readonly previousPresentation: GpuFlowVisibleFramePresentedFrame;
 }): boolean {
   const coverageByActor = new Map(
     previousPresentation.actorCoverages.map((coverage) => [
@@ -855,7 +855,7 @@ function doesGpuFlowPreviousCoverageCoverCandidate({
   coverage,
 }: {
   readonly candidateContentFrameId: GpuFlowContentFrameId;
-  readonly coverage: GpuFlowVisibleFrameCommittedActorCoverage | undefined;
+  readonly coverage: GpuFlowVisibleFramePresentedActorCoverage | undefined;
 }): boolean {
   if (!coverage?.coversCandidateProjection) {
     return false;

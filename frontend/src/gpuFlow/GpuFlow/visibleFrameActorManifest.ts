@@ -25,7 +25,7 @@ import {
   type GpuFlowProjectionSampleId,
   type GpuFlowVisibleFrameActorKey,
   type GpuFlowVisibleFrameActorProof,
-  type GpuFlowVisibleFrameCommittedActorCoverage,
+  type GpuFlowVisibleFramePresentedActorCoverage,
   type GpuFlowVisibleFrameRect,
 } from "./visibleFrameTypes";
 export { GPU_FLOW_PRESENTATION_ACTOR_FAMILIES } from "./visibleFramePresentationActors";
@@ -321,7 +321,7 @@ function addGpuFlowVisibleFrameSyntheticBlockedEntryProofs({
   }
 }
 
-export function createGpuFlowVisibleFrameCommittedActorCoverageForManifest({
+export function createGpuFlowVisibleFramePresentedActorCoverageForManifest({
   candidateContentFrameId,
   contentFrameId,
   coversCandidateProjection,
@@ -333,7 +333,7 @@ export function createGpuFlowVisibleFrameCommittedActorCoverageForManifest({
   readonly coversCandidateProjection: boolean;
   readonly manifest: GpuFlowVisibleFrameActorManifest;
   readonly presentationId: GpuFlowPresentationId;
-}): readonly GpuFlowVisibleFrameCommittedActorCoverage[] {
+}): readonly GpuFlowVisibleFramePresentedActorCoverage[] {
   return Object.freeze(
     manifest.requiredActors.map((actor) =>
       Object.freeze({

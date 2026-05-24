@@ -152,7 +152,7 @@ export type GpuFlowVisibleFrameActorProof =
       readonly trueHoleCount: number;
     });
 
-export type GpuFlowVisibleFrameCommittedActorCoverage =
+export type GpuFlowVisibleFramePresentedActorCoverage =
   GpuFlowVisibleFrameActorKey & {
     readonly compatibleContentFrameIds: readonly GpuFlowContentFrameId[];
     readonly contentFrameId: GpuFlowContentFrameId;
@@ -160,8 +160,8 @@ export type GpuFlowVisibleFrameCommittedActorCoverage =
     readonly presentationId: GpuFlowPresentationId;
   };
 
-export type GpuFlowVisibleFrameCommittedPresentation = {
-  readonly actorCoverages: readonly GpuFlowVisibleFrameCommittedActorCoverage[];
+export type GpuFlowVisibleFramePresentedFrame = {
+  readonly actorCoverages: readonly GpuFlowVisibleFramePresentedActorCoverage[];
   readonly contentFrameId: GpuFlowContentFrameId;
   readonly presentationId: GpuFlowPresentationId;
 };

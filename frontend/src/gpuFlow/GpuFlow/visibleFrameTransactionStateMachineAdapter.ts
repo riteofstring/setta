@@ -6,7 +6,7 @@ import {
   createGpuFlowVisibleFrameActorKeyForBlockedReason,
   createGpuFlowVisibleFrameActorManifest,
   createGpuFlowVisibleFrameActorProofsForManifest,
-  createGpuFlowVisibleFrameCommittedActorCoverageForManifest,
+  createGpuFlowVisibleFramePresentedActorCoverageForManifest,
 } from "./visibleFrameActorManifest";
 import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
 import type {
@@ -19,8 +19,8 @@ import {
   createGpuFlowPresentationId,
   type GpuFlowContentFrameId,
   type GpuFlowVisibleFrameActorKey,
-  type GpuFlowVisibleFrameCommittedActorCoverage,
-  type GpuFlowVisibleFrameCommittedPresentation,
+  type GpuFlowVisibleFramePresentedActorCoverage,
+  type GpuFlowVisibleFramePresentedFrame,
   type GpuFlowVisibleFrameDebt,
   type GpuFlowVisibleFrameRect,
 } from "./visibleFrameTypes";
@@ -208,7 +208,7 @@ function createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
   >;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowVisibleFrameCommittedPresentation | null {
+}): GpuFlowVisibleFramePresentedFrame | null {
   const previousProjectionState = previousVisibleProjectionState;
   if (previousProjectionState === null) {
     return null;
@@ -222,7 +222,7 @@ function createGpuFlowVisibleFramePublicationStateMachinePreviousPresentation({
   );
   const coverageByActor = new Map<
     string,
-    GpuFlowVisibleFrameCommittedActorCoverage
+    GpuFlowVisibleFramePresentedActorCoverage
   >();
   addGpuFlowVisibleFramePublicationStateMachinePreviousActorCoverage({
     candidate,
@@ -266,7 +266,7 @@ function addGpuFlowVisibleFramePublicationStateMachinePreviousActorCoverage({
   >;
   readonly coverageByActor: Map<
     string,
-    GpuFlowVisibleFrameCommittedActorCoverage
+    GpuFlowVisibleFramePresentedActorCoverage
   >;
   readonly presentationId: ReturnType<typeof createGpuFlowPresentationId>;
   readonly previousContentFrameId: GpuFlowContentFrameId;
@@ -276,7 +276,7 @@ function addGpuFlowVisibleFramePublicationStateMachinePreviousActorCoverage({
     frame: previousProjectionState.committedFrame,
     sample: previousProjectionState.sample,
   });
-  for (const coverage of createGpuFlowVisibleFrameCommittedActorCoverageForManifest(
+  for (const coverage of createGpuFlowVisibleFramePresentedActorCoverageForManifest(
     {
       candidateContentFrameId: candidate.contentFrameId,
       contentFrameId: previousContentFrameId,
@@ -307,7 +307,7 @@ function addGpuFlowVisibleFramePublicationStateMachineBlockedFrozenCoverage({
   >;
   readonly coverageByActor: Map<
     string,
-    GpuFlowVisibleFrameCommittedActorCoverage
+    GpuFlowVisibleFramePresentedActorCoverage
   >;
   readonly presentationId: ReturnType<typeof createGpuFlowPresentationId>;
   readonly previousContentFrameId: GpuFlowContentFrameId;
@@ -374,7 +374,7 @@ function addGpuFlowVisibleFramePublicationStateMachineHeldPreviousSyntheticCover
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly coverageByActor: Map<
     string,
-    GpuFlowVisibleFrameCommittedActorCoverage
+    GpuFlowVisibleFramePresentedActorCoverage
   >;
   readonly presentationId: ReturnType<typeof createGpuFlowPresentationId>;
   readonly previousContentFrameId: GpuFlowContentFrameId;
@@ -414,7 +414,7 @@ function createGpuFlowVisibleFramePublicationStateMachineCoverage({
   readonly contentFrameId: GpuFlowContentFrameId;
   readonly coversCandidateProjection: boolean;
   readonly presentationId: ReturnType<typeof createGpuFlowPresentationId>;
-}): GpuFlowVisibleFrameCommittedActorCoverage {
+}): GpuFlowVisibleFramePresentedActorCoverage {
   return Object.freeze({
     ...actor,
     compatibleContentFrameIds:

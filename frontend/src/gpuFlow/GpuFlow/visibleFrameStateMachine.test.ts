@@ -19,8 +19,8 @@ import {
   type GpuFlowVisibleFrameActorKey,
   type GpuFlowVisibleFrameActorProof,
   type GpuFlowVisibleFrameCandidate,
-  type GpuFlowVisibleFrameCommittedActorCoverage,
-  type GpuFlowVisibleFrameCommittedPresentation,
+  type GpuFlowVisibleFramePresentedActorCoverage,
+  type GpuFlowVisibleFramePresentedFrame,
   type GpuFlowVisibleFrameDebt,
   type GpuFlowVisibleFrameRect,
 } from "./visibleFrameTypes";
@@ -587,7 +587,7 @@ function preparedFrame({
 }: {
   readonly candidate: GpuFlowVisibleFrameCandidate;
   readonly previousPresentation?:
-    | GpuFlowVisibleFrameCommittedPresentation
+    | GpuFlowVisibleFramePresentedFrame
     | null
     | undefined;
   readonly sample: GpuFlowVisibleFrameStateMachineSample;
@@ -692,7 +692,7 @@ function compatibleBrowserProof({
     readonly family: "browser-text-snapshot";
   };
   readonly contentFrameId: GpuFlowContentFrameId;
-  readonly previousPresentation: GpuFlowVisibleFrameCommittedPresentation;
+  readonly previousPresentation: GpuFlowVisibleFramePresentedFrame;
   readonly projectionSampleId?: GpuFlowProjectionSampleId | undefined;
 }): GpuFlowVisibleFrameActorProof {
   return {
@@ -726,9 +726,9 @@ function committedPresentation({
   presentationId = createGpuFlowPresentationId("presentation-a"),
 }: {
   readonly contentFrameId: GpuFlowContentFrameId;
-  readonly coverages?: readonly GpuFlowVisibleFrameCommittedActorCoverage[];
+  readonly coverages?: readonly GpuFlowVisibleFramePresentedActorCoverage[];
   readonly presentationId?: ReturnType<typeof createGpuFlowPresentationId>;
-}): GpuFlowVisibleFrameCommittedPresentation {
+}): GpuFlowVisibleFramePresentedFrame {
   return {
     actorCoverages: coverages,
     contentFrameId,
@@ -744,7 +744,7 @@ function coverage({
   readonly actor: GpuFlowVisibleFrameActorKey;
   readonly contentFrameId: GpuFlowContentFrameId;
   readonly coversCandidateProjection?: boolean | undefined;
-}): GpuFlowVisibleFrameCommittedActorCoverage {
+}): GpuFlowVisibleFramePresentedActorCoverage {
   return {
     ...actor,
     compatibleContentFrameIds: [contentFrameId],
