@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import {
+  createGpuFlowCommittedSurfacePresentationProof,
+  type GpuFlowCommittedSurfaceFrame,
+} from "../committedSurfaceFrame";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleFrameRequestCoordinator,
@@ -17,7 +20,7 @@ import {
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 
 describe("GPU Flow visible frame coordinator projection work", () => {
-  it("mints retained projection blocked tokens from projection work reports inside the coordinator", () => {
+  it("mints retained projection blocked tokens from projection work reports inside the transaction proof", () => {
     const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 6,
@@ -43,7 +46,7 @@ describe("GPU Flow visible frame coordinator projection work", () => {
       readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
       readonly projectionOnlyFrameWork: GpuFlowMotionProjectionFrameWorkReport | null;
       readonly rendered: boolean;
-      readonly visibleProjectionState: null;
+      readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
     };
     const result = runGpuFlowVisibleFrameCoordinator<
       TestContentPublicationFrame,
@@ -69,7 +72,10 @@ describe("GPU Flow visible frame coordinator projection work", () => {
           blockedPublicationCandidate: null,
           projectionOnlyFrameWork: projectionOnlyContentWorkReport(),
           rendered: true,
-          visibleProjectionState: null,
+          visibleProjectionState: visibleProjectionState({
+            kind: "motion-projection",
+            sample,
+          }),
         }),
       }),
       publish: (transaction) => {
@@ -176,8 +182,31 @@ function visibleProjectionState({
 }
 
 function committedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+  const displayFrameId = 7;
+  const coherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip",
+    debugSnapshotFrameId: displayFrameId,
+    domControlCommittedFrameId: displayFrameId,
+    domIslandCommittedFrameId: displayFrameId,
+    gpuNativeVisualCommittedFrameId: displayFrameId,
+    hitGenerationId: `hit:${displayFrameId}`,
+    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+  };
   return {
-    displayFrameId: 7,
+    actorGenerations: [],
+    coherence,
+    displayFrameId,
+    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      coherence,
+      displayFrameId,
+    }),
+    projectionHorizon: {
+      obligations: {
+        visibleActorIds: [],
+      },
+    },
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
 

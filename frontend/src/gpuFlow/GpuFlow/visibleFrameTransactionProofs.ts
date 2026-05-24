@@ -16,6 +16,8 @@ import {
 } from "./visibleFramePresentationEvidence";
 import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
 import { createGpuFlowCommitAuthorityProof } from "./visibleFramePresentationProofs";
+import { selectGpuFlowMotionProjectionFrameBlockedPublicationReason } from "./visibleFrameProjectionWorkProof";
+import type { GpuFlowMotionProjectionFrameWorkReport } from "./visibleFrameProjectionWorkTypes";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
   createGpuFlowVisiblePublicationResourceBlockedReasons,
@@ -111,6 +113,10 @@ export type GpuFlowVisibleFramePublicationMotionCandidate = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly presentationEvidence?:
     | GpuFlowVisiblePublicationPresentationEvidence
+    | null
+    | undefined;
+  readonly projectionOnlyFrameWork?:
+    | GpuFlowMotionProjectionFrameWorkReport
     | null
     | undefined;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -438,6 +444,8 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
         candidateVisibleProjectionSource,
       }),
     candidateVisibleProjectionState,
+    candidateVisibleProjectionSource,
+    motionProjectionFrame,
     presentationEvidence,
     previousVisibleProjectionState,
     publicationDecision,
@@ -576,12 +584,16 @@ function resolveGpuFlowVisibleFramePublicationCandidateBlockedProof({
 function createGpuFlowVisibleFramePublicationBlockingProofs({
   candidateBlockedProof,
   candidateVisibleProjectionState,
+  candidateVisibleProjectionSource,
+  motionProjectionFrame,
   presentationEvidence,
   previousVisibleProjectionState,
   publicationDecision,
 }: {
   readonly candidateBlockedProof: GpuFlowVisiblePublicationBlockedProof | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly candidateVisibleProjectionSource: GpuFlowVisibleFramePublicationTransactionProof["visibleProjectionSource"];
+  readonly motionProjectionFrame: GpuFlowVisibleFramePublicationMotionCandidate;
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
@@ -597,6 +609,11 @@ function createGpuFlowVisibleFramePublicationBlockingProofs({
         previousVisibleProjectionState,
         visibleProjectionState: candidateVisibleProjectionState,
       }),
+      createGpuFlowVisibleFramePublicationMotionWorkBlockedProof({
+        candidateVisibleProjectionSource,
+        motionProjectionFrame,
+        previousVisibleProjectionState,
+      }),
       createGpuFlowVisibleFramePublicationPresentationBlockedProof({
         presentationEvidence,
         previousVisibleProjectionState,
@@ -607,6 +624,42 @@ function createGpuFlowVisibleFramePublicationBlockingProofs({
       (proof): proof is GpuFlowVisiblePublicationBlockedProof => proof !== null,
     ),
   );
+}
+
+function createGpuFlowVisibleFramePublicationMotionWorkBlockedProof({
+  candidateVisibleProjectionSource,
+  motionProjectionFrame,
+  previousVisibleProjectionState,
+}: {
+  readonly candidateVisibleProjectionSource: GpuFlowVisibleFramePublicationTransactionProof["visibleProjectionSource"];
+  readonly motionProjectionFrame: GpuFlowVisibleFramePublicationMotionCandidate;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+}): GpuFlowVisiblePublicationBlockedProof | null {
+  if (candidateVisibleProjectionSource !== "motion-projection") {
+    return null;
+  }
+  const blockedReason =
+    selectGpuFlowMotionProjectionFrameBlockedPublicationReason(
+      motionProjectionFrame,
+    );
+  if (blockedReason === null) {
+    return null;
+  }
+  return createGpuFlowVisiblePublicationBlockedProof({
+    candidate: Object.freeze({
+      blockedReasons: [
+        {
+          actorId: null,
+          family: "retained-projection",
+          reason: blockedReason,
+        },
+      ],
+      frozenFrameId:
+        previousVisibleProjectionState?.committedFrame.displayFrameId ??
+        GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID,
+    }),
+    source: "motion-projection",
+  });
 }
 
 function resolveGpuFlowVisibleFramePublicationVisibleProjectionState<
