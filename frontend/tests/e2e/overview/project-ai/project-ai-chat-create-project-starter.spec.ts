@@ -48,9 +48,12 @@ async function disableProjectChatAutoCreate(page: Page) {
 async function ensureCreateProjectStarterButton(
   overviewPane: Locator,
 ): Promise<Locator> {
-  const starterButton = overviewPane.page().getByRole("button", {
-    name: /^Create Project$/,
-  }).first();
+  const starterButton = overviewPane
+    .page()
+    .getByRole("button", {
+      name: /^Create Project$/,
+    })
+    .first();
   if (await starterButton.isVisible().catch(() => false)) {
     return starterButton;
   }
@@ -150,7 +153,7 @@ test("project ai create-project starter submits a codebase-first clarifying prom
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const overviewPane = page.locator("#OverviewPane");
     await expect(
@@ -233,7 +236,7 @@ test("project ai create-project starter submits a no-codebase clarifying prompt 
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const overviewPane = page.locator("#OverviewPane");
     const starterButton = await ensureCreateProjectStarterButton(overviewPane);

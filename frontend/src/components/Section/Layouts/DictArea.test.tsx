@@ -2,11 +2,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { useProjectState, useSettings } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  CodeObjTypeEnum,
   ConfigLanguageEnum,
-  ParamNameTypeEnum,
-  ParameterPassingStyleEnum,
-  SectionTypeEnum,
+  createCodeParamCodeObjImpl,
+  createDictSectionImpl,
   createProjectConfig,
   createSettingsState,
   type Core,
@@ -37,7 +35,7 @@ describe("DictArea layout", () => {
     resetProjectStores();
   });
 
-  it("keeps params in the pinned row area", () => {
+  it("keeps DOM params by default and omits them when retained content owns rows", () => {
     const sectionId = "section-1";
     const variantId = "variant-1";
     const implId = "impl-1";
@@ -72,17 +70,12 @@ describe("DictArea layout", () => {
       isFrozen: false,
     };
 
-    const dictImpl = {
-      type: SectionTypeEnum.Dict,
+    const dictImpl = createDictSectionImpl({
       id: implId,
       name: "Dict",
       isFrozen: false,
       isInOtherProjectConfigs: false,
       tagColor: null,
-      size: { width: 240, height: 160 },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
       isMinimized: false,
       positionAndSizeLocked: false,
       isPreset: false,
@@ -100,7 +93,7 @@ describe("DictArea layout", () => {
       isJsonSource: false,
       jsonSourceKeys: [],
       jsonSourceMissing: false,
-    };
+    });
 
     const paramCore: Core = {
       id: paramId,
@@ -121,18 +114,15 @@ describe("DictArea layout", () => {
       isFrozen: false,
     };
 
-    const paramImpl = {
-      type: CodeObjTypeEnum.CodeParam,
+    const paramImpl = createCodeParamCodeObjImpl({
       id: paramImplId,
       name: "Param",
       description: "",
       isPreset: false,
-      coreNameType: ParamNameTypeEnum.TEXT,
       coreNameEditable: true,
-      passingStyle: ParameterPassingStyleEnum.DEFAULT,
       defaultVal: "",
       value: "",
-    };
+    });
 
     useProjectState.setState((state) => {
       state.projectConfig = projectConfig;
@@ -166,6 +156,21 @@ describe("DictArea layout", () => {
     const classes = (match?.[1] ?? "").split(" ");
     expect(classes).toContain("section-args-nested");
     expect(classes).toContain("overflow-y-scroll");
+    expect(markup).toContain(`ParamContainer-${sectionId}-${paramId}`);
     expect(markup).toContain("section-row-pin-main");
+
+    const retainedMarkup = renderToStaticMarkup(
+      <DictArea
+        sectionId={sectionId}
+        bgColor="bg-transparent"
+        renderParamRows={false}
+      />,
+    );
+    expect(retainedMarkup).toContain("section-row-pin-main");
+    expect(retainedMarkup).toContain("overflow-hidden");
+    expect(retainedMarkup).not.toContain("overflow-y-scroll");
+    expect(retainedMarkup).not.toContain(
+      `ParamContainer-${sectionId}-${paramId}`,
+    );
   });
 });

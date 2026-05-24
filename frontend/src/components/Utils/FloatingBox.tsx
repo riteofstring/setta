@@ -1,4 +1,4 @@
-import { mouseLocation } from "forks/xyflow/core/utils/mouseLocation";
+import { mouseLocation } from "gpuFlow/mouseLocation";
 import _ from "lodash";
 import { Resizable, ResizeCallback } from "re-resizable";
 import React, { useEffect, useRef } from "react";

@@ -32,7 +32,11 @@ import {
   type JSONArtifact,
   SectionTypeEnum,
 } from "utils/generatedTypes";
-type BinaryDownloadRouteResponse = ResponseDataAndStatus<Blob | File>;
+import {
+  binaryPayloadToBlob,
+  type BinaryPayload,
+} from "utils/binaryPayload";
+type BinaryDownloadRouteResponse = ResponseDataAndStatus<BinaryPayload>;
 type LoadCachedImageArtifactsRouteResponse = ResponseDataAndStatus<
   Array<ImageArtifact>
 >;
@@ -95,7 +99,7 @@ async function fetchBinaryBlob(contentId: string): Promise<Blob | null> {
   if (!res200(res) || !res.data) {
     return null;
   }
-  return res.data;
+  return binaryPayloadToBlob(res.data);
 }
 export function useImageArtifact(sectionId: string) {
   const imagePath = useProjectState((state) => {

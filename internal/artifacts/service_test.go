@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -19,11 +20,33 @@ func TestServiceImportLoadAndDeleteFlow(t *testing.T) {
 	service, paths := newArtifactTestService(t)
 
 	workspaceFile := filepath.Join(paths.workspaceRoot, "source.txt")
-	if err := os.WriteFile(workspaceFile, []byte("imported file"), 0o644); err != nil {
-		t.Fatalf("write workspace file: %v", err)
-	}
+	writeArtifactTestFile(t, workspaceFile, "imported file")
 
-	// Import should persist a new file artifact under the artifact root using a state-relative id.
+	imported, importedPath := importWorkspaceArtifactForTest(t, service, paths, workspaceFile, "imported file")
+	assertCachedImageRoundTrip(t, service, paths)
+	assertCachedChartRoundTrip(t, service, paths)
+	assertCachedBrushStrokeRoundTrip(t, service, paths)
+	assertCachedTransformRoundTrip(t, service, paths)
+	assertImportedArtifactDelete(t, service, imported, importedPath)
+}
+
+func writeArtifactTestFile(t *testing.T, path string, payload string) {
+	t.Helper()
+
+	if err := os.WriteFile(path, []byte(payload), 0o644); err != nil {
+		t.Fatalf("write artifact test file %q: %v", path, err)
+	}
+}
+
+func importWorkspaceArtifactForTest(
+	t *testing.T,
+	service *Service,
+	paths artifactTestPaths,
+	workspaceFile string,
+	expectedPayload string,
+) (ImportFilesResponseItem, string) {
+	t.Helper()
+
 	imported, err := service.ImportFiles(context.Background(), ImportFilesRequest{
 		Paths:       []string{workspaceFile},
 		UploadScope: UploadScopeGeneric,
@@ -38,95 +61,169 @@ func TestServiceImportLoadAndDeleteFlow(t *testing.T) {
 		t.Fatalf("expected state-relative artifact id, got %q", imported[0].ID)
 	}
 	importedPath := filepath.Join(paths.settaFilesRoot, filepath.FromSlash(imported[0].ID))
-	if payload, err := os.ReadFile(importedPath); err != nil || string(payload) != "imported file" {
-		t.Fatalf("expected imported artifact payload, got %q err=%v", string(payload), err)
-	}
+	assertArtifactFilePayload(t, importedPath, expectedPayload, "imported artifact payload")
+	return imported[0], importedPath
+}
+
+func assertCachedImageRoundTrip(t *testing.T, service *Service, paths artifactTestPaths) {
+	t.Helper()
 
 	imageID := "artifacts/preview.png"
 	imagePath := filepath.Join(paths.settaFilesRoot, filepath.FromSlash(imageID))
-	if err := os.WriteFile(imagePath, []byte("png-bytes"), 0o644); err != nil {
-		t.Fatalf("write image artifact: %v", err)
-	}
-	images, err := service.LoadCachedImages(context.Background(), LoadCachedPathsRequest{Paths: []string{imageID}})
-	if err != nil {
-		t.Fatalf("load cached images: %v", err)
-	}
-	if len(images) != 1 || images[0] == nil {
-		t.Fatalf("expected one cached image artifact, got %#v", images)
-	}
-	if images[0].ID != imageID {
-		t.Fatalf("expected image id %q, got %q", imageID, images[0].ID)
-	}
-	imagePayload, err := paths.binaryStore.ReadBytes(images[0].Value.ContentID)
-	if err != nil {
-		t.Fatalf("read image payload from binary store: %v", err)
-	}
-	if string(imagePayload) != "png-bytes" {
-		t.Fatalf("expected image payload round-trip, got %q", string(imagePayload))
-	}
+	writeArtifactTestFile(t, imagePath, "png-bytes")
+	image := loadSingleCachedImage(t, service, imageID)
+	assertCachedArtifactID(t, image.ID, imageID)
+	assertCachedImagePayload(t, paths, image, "png-bytes")
+}
+
+func assertCachedChartRoundTrip(t *testing.T, service *Service, paths artifactTestPaths) {
+	t.Helper()
 
 	chartID := "artifacts/chart.csv"
 	chartPath := filepath.Join(paths.settaFilesRoot, filepath.FromSlash(chartID))
-	if err := os.WriteFile(chartPath, []byte("x,y\n1,2\n3,4\n"), 0o644); err != nil {
-		t.Fatalf("write chart artifact: %v", err)
-	}
-	charts, err := service.LoadCachedChartData(context.Background(), LoadCachedPathsRequest{Paths: []string{chartID}})
-	if err != nil {
-		t.Fatalf("load cached chart data: %v", err)
-	}
-	if len(charts) != 1 || charts[0] == nil {
-		t.Fatalf("expected one cached chart artifact, got %#v", charts)
-	}
-	if got := charts[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
-		t.Fatalf("unexpected chart column x: %#v", got)
-	}
+	writeArtifactTestFile(t, chartPath, "x,y\n1,2\n3,4\n")
+	chart := loadSingleCachedChart(t, service, chartID)
+	assertChartColumn(t, chart.Value, "x", []any{1.0, 3.0})
+}
+
+func assertCachedBrushStrokeRoundTrip(t *testing.T, service *Service, paths artifactTestPaths) {
+	t.Helper()
 
 	brushID := "artifacts/stroke.json"
 	brushPath := filepath.Join(paths.settaFilesRoot, filepath.FromSlash(brushID))
-	if err := os.WriteFile(brushPath, []byte(`{"strokeStyle":"#000000","lineWidth":2,"lineCap":"round","points":[[1,2],"BREAK"],"globalCompositeOperation":"source-over"}`), 0o644); err != nil {
-		t.Fatalf("write brush artifact: %v", err)
-	}
-	brushes, err := service.LoadCachedBrushStrokes(context.Background(), LoadCachedPathsRequest{Paths: []string{brushID}})
-	if err != nil {
-		t.Fatalf("load cached brushes: %v", err)
-	}
-	if len(brushes) != 1 || brushes[0] == nil {
-		t.Fatalf("expected one cached brush artifact, got %#v", brushes)
-	}
-	var brushValue map[string]any
-	if err := json.Unmarshal(brushes[0].Value, &brushValue); err != nil {
-		t.Fatalf("decode brush value: %v", err)
-	}
+	writeArtifactTestFile(t, brushPath, `{"strokeStyle":"#000000","lineWidth":2,"lineCap":"round","points":[[1,2],"BREAK"],"globalCompositeOperation":"source-over"}`)
+	brushValue := decodeJSONRawMessage(t, loadSingleCachedBrush(t, service, brushID).Value)
 	if brushValue["strokeStyle"] != "#000000" {
 		t.Fatalf("expected brush strokeStyle, got %#v", brushValue)
 	}
+}
+
+func assertCachedTransformRoundTrip(t *testing.T, service *Service, paths artifactTestPaths) {
+	t.Helper()
 
 	transformID := "artifacts/transform.json"
 	transformPath := filepath.Join(paths.settaFilesRoot, filepath.FromSlash(transformID))
-	if err := os.WriteFile(transformPath, []byte(`{"transform":[1,0,0,1,3,4],"eraserStrokes":[]}`), 0o644); err != nil {
-		t.Fatalf("write transform artifact: %v", err)
-	}
-	transforms, err := service.LoadCachedDrawAreaLayerItemTransforms(context.Background(), LoadCachedPathsRequest{Paths: []string{transformID}})
-	if err != nil {
-		t.Fatalf("load cached transforms: %v", err)
-	}
-	if len(transforms) != 1 || transforms[0] == nil {
-		t.Fatalf("expected one cached transform artifact, got %#v", transforms)
-	}
+	writeArtifactTestFile(t, transformPath, `{"transform":[1,0,0,1,3,4],"eraserStrokes":[]}`)
+	loadSingleCachedTransform(t, service, transformID)
+}
 
-	// Delete should remove the imported file artifact from disk and return the normalized id.
+func assertImportedArtifactDelete(t *testing.T, service *Service, imported ImportFilesResponseItem, importedPath string) {
+	t.Helper()
+
 	deleted, err := service.Delete(context.Background(), DeleteRequest{
-		Artifacts: []DeleteRequestItem{{ID: imported[0].ID, Type: ArtifactTypeFile}},
+		Artifacts: []DeleteRequestItem{{ID: imported.ID, Type: ArtifactTypeFile}},
 	})
 	if err != nil {
 		t.Fatalf("delete artifacts: %v", err)
 	}
-	if len(deleted) != 1 || deleted[0] != imported[0].ID {
-		t.Fatalf("expected deleted id %q, got %#v", imported[0].ID, deleted)
+	if len(deleted) != 1 || deleted[0] != imported.ID {
+		t.Fatalf("expected deleted id %q, got %#v", imported.ID, deleted)
 	}
 	if _, err := os.Stat(importedPath); !os.IsNotExist(err) {
 		t.Fatalf("expected imported artifact to be removed, stat err=%v", err)
 	}
+}
+
+func loadSingleCachedImage(t *testing.T, service *Service, path string) *ImageArtifact {
+	t.Helper()
+
+	images, err := service.LoadCachedImages(context.Background(), LoadCachedPathsRequest{Paths: []string{path}})
+	if err != nil {
+		t.Fatalf("load cached images: %v", err)
+	}
+	if len(images) != 1 {
+		t.Fatalf("expected one cached image artifact, got %#v", images)
+	}
+	if images[0] == nil {
+		t.Fatalf("expected cached image artifact, got nil")
+	}
+	return images[0]
+}
+
+func loadSingleCachedChart(t *testing.T, service *Service, path string) *ChartDataArtifact {
+	t.Helper()
+
+	charts, err := service.LoadCachedChartData(context.Background(), LoadCachedPathsRequest{Paths: []string{path}})
+	if err != nil {
+		t.Fatalf("load cached chart data: %v", err)
+	}
+	if len(charts) != 1 {
+		t.Fatalf("expected one cached chart artifact, got %#v", charts)
+	}
+	if charts[0] == nil {
+		t.Fatalf("expected cached chart artifact, got nil")
+	}
+	return charts[0]
+}
+
+func loadSingleCachedBrush(t *testing.T, service *Service, path string) *JSONArtifact {
+	t.Helper()
+
+	brushes, err := service.LoadCachedBrushStrokes(context.Background(), LoadCachedPathsRequest{Paths: []string{path}})
+	if err != nil {
+		t.Fatalf("load cached brushes: %v", err)
+	}
+	if len(brushes) != 1 {
+		t.Fatalf("expected one cached brush artifact, got %#v", brushes)
+	}
+	if brushes[0] == nil {
+		t.Fatalf("expected cached brush artifact, got nil")
+	}
+	return brushes[0]
+}
+
+func loadSingleCachedTransform(t *testing.T, service *Service, path string) *JSONArtifact {
+	t.Helper()
+
+	transforms, err := service.LoadCachedDrawAreaLayerItemTransforms(context.Background(), LoadCachedPathsRequest{Paths: []string{path}})
+	if err != nil {
+		t.Fatalf("load cached transforms: %v", err)
+	}
+	if len(transforms) != 1 {
+		t.Fatalf("expected one cached transform artifact, got %#v", transforms)
+	}
+	if transforms[0] == nil {
+		t.Fatalf("expected cached transform artifact, got nil")
+	}
+	return transforms[0]
+}
+
+func assertCachedArtifactID(t *testing.T, got string, expected string) {
+	t.Helper()
+
+	if got != expected {
+		t.Fatalf("expected cached artifact id %q, got %q", expected, got)
+	}
+}
+
+func assertCachedImagePayload(t *testing.T, paths artifactTestPaths, image *ImageArtifact, expected string) {
+	t.Helper()
+
+	imagePayload, err := paths.binaryStore.ReadBytes(image.Value.ContentID)
+	if err != nil {
+		t.Fatalf("read image payload from binary store: %v", err)
+	}
+	if string(imagePayload) != expected {
+		t.Fatalf("expected image payload round-trip, got %q", string(imagePayload))
+	}
+}
+
+func assertChartColumn(t *testing.T, values ChartDataValue, column string, expected []any) {
+	t.Helper()
+
+	if got := values[column]; !reflect.DeepEqual(got, expected) {
+		t.Fatalf("unexpected chart column %s: %#v", column, got)
+	}
+}
+
+func decodeJSONRawMessage(t *testing.T, payload json.RawMessage) map[string]any {
+	t.Helper()
+
+	var value map[string]any
+	if err := json.Unmarshal(payload, &value); err != nil {
+		t.Fatalf("decode json artifact: %v", err)
+	}
+	return value
 }
 
 func TestServiceLoadCachedArtifactsAcceptWorkspacePaths(t *testing.T) {
@@ -134,49 +231,28 @@ func TestServiceLoadCachedArtifactsAcceptWorkspacePaths(t *testing.T) {
 
 	service, paths := newArtifactTestService(t)
 
+	assertCachedWorkspaceImage(t, service, paths)
+	assertCachedWorkspaceChart(t, service, paths)
+}
+
+func assertCachedWorkspaceImage(t *testing.T, service *Service, paths artifactTestPaths) {
+	t.Helper()
+
 	imagePath := filepath.Join(paths.workspaceRoot, "workspace-image.png")
-	if err := os.WriteFile(imagePath, []byte("workspace-image"), 0o644); err != nil {
-		t.Fatalf("write workspace image: %v", err)
-	}
-	images, err := service.LoadCachedImages(context.Background(), LoadCachedPathsRequest{
-		Paths: []string{imagePath},
-	})
-	if err != nil {
-		t.Fatalf("load cached workspace image: %v", err)
-	}
-	if len(images) != 1 || images[0] == nil {
-		t.Fatalf("expected one cached workspace image, got %#v", images)
-	}
-	if images[0].ID != imagePath {
-		t.Fatalf("expected workspace image id %q, got %q", imagePath, images[0].ID)
-	}
-	imagePayload, err := paths.binaryStore.ReadBytes(images[0].Value.ContentID)
-	if err != nil {
-		t.Fatalf("read workspace image payload from binary store: %v", err)
-	}
-	if string(imagePayload) != "workspace-image" {
-		t.Fatalf("expected workspace image payload round-trip, got %q", string(imagePayload))
-	}
+	writeArtifactTestFile(t, imagePath, "workspace-image")
+	image := loadSingleCachedImage(t, service, imagePath)
+	assertCachedArtifactID(t, image.ID, imagePath)
+	assertCachedImagePayload(t, paths, image, "workspace-image")
+}
+
+func assertCachedWorkspaceChart(t *testing.T, service *Service, paths artifactTestPaths) {
+	t.Helper()
 
 	chartPath := filepath.Join(paths.workspaceRoot, "workspace-chart.csv")
-	if err := os.WriteFile(chartPath, []byte("x,y\n1,2\n3,4\n"), 0o644); err != nil {
-		t.Fatalf("write workspace chart: %v", err)
-	}
-	charts, err := service.LoadCachedChartData(context.Background(), LoadCachedPathsRequest{
-		Paths: []string{chartPath},
-	})
-	if err != nil {
-		t.Fatalf("load cached workspace chart: %v", err)
-	}
-	if len(charts) != 1 || charts[0] == nil {
-		t.Fatalf("expected one cached workspace chart, got %#v", charts)
-	}
-	if charts[0].ID != chartPath {
-		t.Fatalf("expected workspace chart id %q, got %q", chartPath, charts[0].ID)
-	}
-	if got := charts[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
-		t.Fatalf("unexpected workspace chart column x: %#v", got)
-	}
+	writeArtifactTestFile(t, chartPath, "x,y\n1,2\n3,4\n")
+	chart := loadSingleCachedChart(t, service, chartPath)
+	assertCachedArtifactID(t, chart.ID, chartPath)
+	assertChartColumn(t, chart.Value, "x", []any{1.0, 3.0})
 }
 
 func TestServiceLoadCachedDrawArtifactsNormalizesNullCollections(t *testing.T) {
@@ -184,54 +260,60 @@ func TestServiceLoadCachedDrawArtifactsNormalizesNullCollections(t *testing.T) {
 
 	service, paths := newArtifactTestService(t)
 
+	assertCachedBrushPointsNormalized(t, service, paths)
+	assertCachedTransformStrokePointsNormalized(t, service, paths)
+}
+
+func assertCachedBrushPointsNormalized(t *testing.T, service *Service, paths artifactTestPaths) {
+	t.Helper()
+
 	brushID := "artifacts/stroke-null.json"
 	brushPath := filepath.Join(paths.settaFilesRoot, filepath.FromSlash(brushID))
-	if err := os.WriteFile(brushPath, []byte(`{"strokeStyle":"#000000","lineWidth":2,"lineCap":"round","points":null,"globalCompositeOperation":"source-over"}`), 0o644); err != nil {
-		t.Fatalf("write brush artifact: %v", err)
-	}
-	brushes, err := service.LoadCachedBrushStrokes(context.Background(), LoadCachedPathsRequest{Paths: []string{brushID}})
-	if err != nil {
-		t.Fatalf("load cached brushes: %v", err)
-	}
-	if len(brushes) != 1 || brushes[0] == nil {
-		t.Fatalf("expected one cached brush artifact, got %#v", brushes)
-	}
-	var brushValue map[string]any
-	if err := json.Unmarshal(brushes[0].Value, &brushValue); err != nil {
-		t.Fatalf("decode brush artifact: %v", err)
-	}
-	brushPoints, ok := brushValue["points"].([]any)
-	if !ok || brushPoints == nil || len(brushPoints) != 0 {
-		t.Fatalf("expected normalized brush points array, got %#v", brushValue["points"])
-	}
+	writeArtifactTestFile(t, brushPath, `{"strokeStyle":"#000000","lineWidth":2,"lineCap":"round","points":null,"globalCompositeOperation":"source-over"}`)
+	brushValue := decodeJSONRawMessage(t, loadSingleCachedBrush(t, service, brushID).Value)
+	assertEmptyJSONArray(t, brushValue["points"], "normalized brush points")
+}
+
+func assertCachedTransformStrokePointsNormalized(t *testing.T, service *Service, paths artifactTestPaths) {
+	t.Helper()
 
 	transformID := "artifacts/transform-null.json"
 	transformPath := filepath.Join(paths.settaFilesRoot, filepath.FromSlash(transformID))
-	if err := os.WriteFile(transformPath, []byte(`{"transform":[1,0,0,1,3,4],"eraserStrokes":[{"strokeStyle":"#000000","lineWidth":2,"lineCap":"round","points":null,"globalCompositeOperation":"destination-out","transform":[1,0,0,1,0,0]}]}`), 0o644); err != nil {
-		t.Fatalf("write transform artifact: %v", err)
-	}
-	transforms, err := service.LoadCachedDrawAreaLayerItemTransforms(context.Background(), LoadCachedPathsRequest{Paths: []string{transformID}})
-	if err != nil {
-		t.Fatalf("load cached transforms: %v", err)
-	}
-	if len(transforms) != 1 || transforms[0] == nil {
-		t.Fatalf("expected one cached transform artifact, got %#v", transforms)
-	}
-	var transformValue map[string]any
-	if err := json.Unmarshal(transforms[0].Value, &transformValue); err != nil {
-		t.Fatalf("decode transform artifact: %v", err)
-	}
-	eraserStrokes, ok := transformValue["eraserStrokes"].([]any)
-	if !ok || len(eraserStrokes) != 1 {
-		t.Fatalf("expected one normalized eraser stroke, got %#v", transformValue["eraserStrokes"])
-	}
-	storedStroke, ok := eraserStrokes[0].(map[string]any)
+	writeArtifactTestFile(t, transformPath, `{"transform":[1,0,0,1,3,4],"eraserStrokes":[{"strokeStyle":"#000000","lineWidth":2,"lineCap":"round","points":null,"globalCompositeOperation":"destination-out","transform":[1,0,0,1,0,0]}]}`)
+	transformValue := decodeJSONRawMessage(t, loadSingleCachedTransform(t, service, transformID).Value)
+	storedStroke := assertSingleJSONObject(t, transformValue["eraserStrokes"], "normalized eraser stroke")
+	assertEmptyJSONArray(t, storedStroke["points"], "normalized eraser stroke points")
+}
+
+func assertSingleJSONObject(t *testing.T, value any, label string) map[string]any {
+	t.Helper()
+
+	values, ok := value.([]any)
 	if !ok {
-		t.Fatalf("expected eraser stroke object, got %#v", eraserStrokes[0])
+		t.Fatalf("expected %s array, got %#v", label, value)
 	}
-	storedPoints, ok := storedStroke["points"].([]any)
-	if !ok || storedPoints == nil || len(storedPoints) != 0 {
-		t.Fatalf("expected normalized eraser stroke points array, got %#v", storedStroke["points"])
+	if len(values) != 1 {
+		t.Fatalf("expected one %s, got %#v", label, value)
+	}
+	object, ok := values[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected %s object, got %#v", label, values[0])
+	}
+	return object
+}
+
+func assertEmptyJSONArray(t *testing.T, value any, label string) {
+	t.Helper()
+
+	values, ok := value.([]any)
+	if !ok {
+		t.Fatalf("expected %s array, got %#v", label, value)
+	}
+	if values == nil {
+		t.Fatalf("expected %s array, got nil", label)
+	}
+	if len(values) != 0 {
+		t.Fatalf("expected empty %s array, got %#v", label, value)
 	}
 }
 
@@ -285,9 +367,20 @@ func TestServiceImportFilesAllowsEmptyFilesAndCachesBinaryRef(t *testing.T) {
 	service, paths := newArtifactTestService(t)
 
 	emptyPath := filepath.Join(paths.workspaceRoot, "empty.bin")
-	if err := os.WriteFile(emptyPath, []byte{}, 0o644); err != nil {
-		t.Fatalf("write empty workspace file: %v", err)
-	}
+	writeArtifactTestFile(t, emptyPath, "")
+
+	_, importedPath := importEmptyWorkspaceFileForTest(t, service, paths, emptyPath)
+	assertCachedEmptyFileArtifact(t, service, importedPath)
+	assertEmptyFileMetadata(t, service, importedPath)
+}
+
+func importEmptyWorkspaceFileForTest(
+	t *testing.T,
+	service *Service,
+	paths artifactTestPaths,
+	emptyPath string,
+) (ImportFilesResponseItem, string) {
+	t.Helper()
 
 	imported, err := service.ImportFiles(context.Background(), ImportFilesRequest{
 		Paths:       []string{emptyPath},
@@ -304,15 +397,13 @@ func TestServiceImportFilesAllowsEmptyFilesAndCachesBinaryRef(t *testing.T) {
 	}
 
 	importedPath := filepath.Join(paths.settaFilesRoot, filepath.FromSlash(imported[0].ID))
-	payload, err := os.ReadFile(importedPath)
-	if err != nil {
-		t.Fatalf("read imported empty artifact: %v", err)
-	}
-	if len(payload) != 0 {
-		t.Fatalf("expected imported empty artifact payload, got %q", string(payload))
-	}
+	assertArtifactFilePayload(t, importedPath, "", "imported empty artifact payload")
+	return imported[0], importedPath
+}
 
-	// Empty files should still mint a cached file artifact with a binary-store payload ref.
+func assertCachedEmptyFileArtifact(t *testing.T, service *Service, importedPath string) {
+	t.Helper()
+
 	cached, ok := service.files[importedPath]
 	if !ok {
 		t.Fatalf("expected cached file artifact for %q", importedPath)
@@ -330,13 +421,17 @@ func TestServiceImportFilesAllowsEmptyFilesAndCachesBinaryRef(t *testing.T) {
 	if len(cachedPayload) != 0 {
 		t.Fatalf("expected empty cached binary payload, got %q", string(cachedPayload))
 	}
+}
+
+func assertEmptyFileMetadata(t *testing.T, service *Service, importedPath string) {
+	t.Helper()
 
 	metadata, ok := service.metadata[importedPath]
 	if !ok {
 		t.Fatalf("expected cache metadata for %q", importedPath)
 	}
-	if metadata.LastKnownHash != hashBytes(payload) {
-		t.Fatalf("expected empty-file hash %q, got %#v", hashBytes(payload), metadata)
+	if metadata.LastKnownHash != hashBytes(nil) {
+		t.Fatalf("expected empty-file hash %q, got %#v", hashBytes(nil), metadata)
 	}
 }
 
@@ -344,133 +439,143 @@ func TestServiceUpdateHandlesConflictsAndUnsupportedTypes(t *testing.T) {
 	t.Parallel()
 
 	service, paths := newArtifactTestService(t)
+	filePath := assertArtifactFileSaveAndUnchanged(t, service, paths)
+	nextValue := storeArtifactTestValue(t, paths, []byte("next"), "text/plain")
 
-	fileRef, err := paths.binaryStore.StoreBytes([]byte("hello"), "text/plain", false)
-	if err != nil {
-		t.Fatalf("store file payload: %v", err)
-	}
-	fileValue := mustRawJSON(t, fileRef)
-	fileResults, err := service.Update(context.Background(), UpdateRequest{
-		Artifacts: []RawArtifact{{
-			Type:  ArtifactTypeFile,
-			ID:    "artifacts/notes.txt",
-			Value: &fileValue,
-		}},
-		UploadScope: UploadScopeGeneric,
-	})
-	if err != nil {
-		t.Fatalf("update file artifact: %v", err)
-	}
-	if len(fileResults) != 1 || fileResults[0].Status != SaveStatusSaved {
-		t.Fatalf("expected saved file result, got %#v", fileResults)
-	}
+	assertArtifactConflictSkip(t, service, filePath, nextValue)
+	assertArtifactConflictBackup(t, service, paths, filePath, nextValue)
+	assertArtifactConflictOverwrite(t, service, paths, filePath)
+	assertArtifactInvalidConflictStrategy(t, service, paths, filePath)
+	assertArtifactJSONUpdates(t, service)
+	assertArtifactImageUpdate(t, service, paths)
+	assertArtifactChartUpdate(t, service)
+	assertUnsupportedArtifactUpdate(t, service)
+}
+
+func assertArtifactFileSaveAndUnchanged(t *testing.T, service *Service, paths artifactTestPaths) string {
+	t.Helper()
+
+	fileValue := storeArtifactTestValue(t, paths, []byte("hello"), "text/plain")
+	fileResults := updateSingleArtifactForTest(t, service, ArtifactTypeFile, "artifacts/notes.txt", fileValue, nil)
+	assertSingleArtifactSaveStatus(t, fileResults, SaveStatusSaved, "saved file result")
 	filePath := filepath.Join(paths.settaFilesRoot, "artifacts", "notes.txt")
-	if payload, err := os.ReadFile(filePath); err != nil || string(payload) != "hello" {
-		t.Fatalf("expected file artifact bytes, got %q err=%v", string(payload), err)
-	}
+	assertArtifactFilePayload(t, filePath, "hello", "file artifact bytes")
 
-	unchangedResults, err := service.Update(context.Background(), UpdateRequest{
-		Artifacts: []RawArtifact{{
-			Type:  ArtifactTypeFile,
-			ID:    "artifacts/notes.txt",
-			Value: &fileValue,
-		}},
-		UploadScope: UploadScopeGeneric,
-	})
-	if err != nil {
-		t.Fatalf("update unchanged file artifact: %v", err)
-	}
+	unchangedResults := updateSingleArtifactForTest(t, service, ArtifactTypeFile, "artifacts/notes.txt", fileValue, nil)
 	if unchangedResults[0].Status != SaveStatusUnchanged {
 		t.Fatalf("expected unchanged result, got %#v", unchangedResults)
 	}
+	return filePath
+}
+
+func storeArtifactTestValue(t *testing.T, paths artifactTestPaths, payload []byte, mimeType string) json.RawMessage {
+	t.Helper()
+
+	ref, err := paths.binaryStore.StoreBytes(payload, mimeType, false)
+	if err != nil {
+		t.Fatalf("store artifact payload: %v", err)
+	}
+	return mustRawJSON(t, ref)
+}
+
+func updateSingleArtifactForTest(
+	t *testing.T,
+	service *Service,
+	artifactType ArtifactType,
+	id string,
+	value json.RawMessage,
+	strategy *SaveConflictStrategy,
+) []ArtifactSaveResult {
+	t.Helper()
+
+	results, err := service.Update(context.Background(), UpdateRequest{
+		Artifacts: []RawArtifact{{
+			Type:  artifactType,
+			ID:    id,
+			Value: &value,
+		}},
+		ConflictStrategy: strategy,
+		UploadScope:      UploadScopeGeneric,
+	})
+	if err != nil {
+		t.Fatalf("update artifact %q: %v", id, err)
+	}
+	return results
+}
+
+func assertSingleArtifactSaveStatus(t *testing.T, results []ArtifactSaveResult, status SaveStatus, label string) {
+	t.Helper()
+
+	if len(results) != 1 || results[0].Status != status {
+		t.Fatalf("expected %s status %s, got %#v", label, status, results)
+	}
+}
+
+func assertArtifactFilePayload(t *testing.T, path string, expected string, label string) {
+	t.Helper()
+
+	payload, err := os.ReadFile(path)
+	if err != nil || string(payload) != expected {
+		t.Fatalf("expected %s, got %q err=%v", label, string(payload), err)
+	}
+}
+
+func assertArtifactConflictSkip(t *testing.T, service *Service, filePath string, nextValue json.RawMessage) {
+	t.Helper()
 
 	if err := os.WriteFile(filePath, []byte("external"), 0o644); err != nil {
 		t.Fatalf("write external file contents: %v", err)
 	}
-	nextRef, err := paths.binaryStore.StoreBytes([]byte("next"), "text/plain", false)
-	if err != nil {
-		t.Fatalf("store next file payload: %v", err)
-	}
-	nextValue := mustRawJSON(t, nextRef)
 	skip := SaveConflictStrategySkip
-	skipped, err := service.Update(context.Background(), UpdateRequest{
-		Artifacts: []RawArtifact{{
-			Type:  ArtifactTypeFile,
-			ID:    "artifacts/notes.txt",
-			Value: &nextValue,
-		}},
-		ConflictStrategy: &skip,
-		UploadScope:      UploadScopeGeneric,
-	})
-	if err != nil {
-		t.Fatalf("update skipped file artifact: %v", err)
-	}
+	skipped := updateSingleArtifactForTest(t, service, ArtifactTypeFile, "artifacts/notes.txt", nextValue, &skip)
 	if skipped[0].Status != SaveStatusSkipped {
 		t.Fatalf("expected skipped result, got %#v", skipped)
 	}
-	if payload, err := os.ReadFile(filePath); err != nil || string(payload) != "external" {
-		t.Fatalf("expected skipped write to preserve external contents, got %q err=%v", string(payload), err)
-	}
+	assertArtifactFilePayload(t, filePath, "external", "skipped write to preserve external contents")
+}
+
+func assertArtifactConflictBackup(
+	t *testing.T,
+	service *Service,
+	paths artifactTestPaths,
+	filePath string,
+	nextValue json.RawMessage,
+) {
+	t.Helper()
 
 	backup := SaveConflictStrategyBackup
-	conflicted, err := service.Update(context.Background(), UpdateRequest{
-		Artifacts: []RawArtifact{{
-			Type:  ArtifactTypeFile,
-			ID:    "artifacts/notes.txt",
-			Value: &nextValue,
-		}},
-		ConflictStrategy: &backup,
-		UploadScope:      UploadScopeGeneric,
-	})
-	if err != nil {
-		t.Fatalf("update conflicting file artifact: %v", err)
-	}
+	conflicted := updateSingleArtifactForTest(t, service, ArtifactTypeFile, "artifacts/notes.txt", nextValue, &backup)
 	if conflicted[0].Status != SaveStatusConflict || conflicted[0].BackupPath == nil {
 		t.Fatalf("expected conflict with backup path, got %#v", conflicted)
 	}
-	if payload, err := os.ReadFile(filePath); err != nil || string(payload) != "next" {
-		t.Fatalf("expected backup strategy to overwrite file, got %q err=%v", string(payload), err)
-	}
+	assertArtifactFilePayload(t, filePath, "next", "backup strategy to overwrite file")
 	if _, err := os.Stat(filepath.Join(paths.settaFilesRoot, filepath.FromSlash(*conflicted[0].BackupPath))); err != nil {
 		t.Fatalf("expected backup file to exist: %v", err)
 	}
+}
+
+func assertArtifactConflictOverwrite(t *testing.T, service *Service, paths artifactTestPaths, filePath string) {
+	t.Helper()
 
 	if err := os.WriteFile(filePath, []byte("external-again"), 0o644); err != nil {
 		t.Fatalf("write second external file contents: %v", err)
 	}
-	overwriteRef, err := paths.binaryStore.StoreBytes([]byte("overwrite"), "text/plain", false)
-	if err != nil {
-		t.Fatalf("store overwrite file payload: %v", err)
-	}
-	overwriteValue := mustRawJSON(t, overwriteRef)
+	overwriteValue := storeArtifactTestValue(t, paths, []byte("overwrite"), "text/plain")
 	overwrite := SaveConflictStrategyOverwrite
-	overwritten, err := service.Update(context.Background(), UpdateRequest{
-		Artifacts: []RawArtifact{{
-			Type:  ArtifactTypeFile,
-			ID:    "artifacts/notes.txt",
-			Value: &overwriteValue,
-		}},
-		ConflictStrategy: &overwrite,
-		UploadScope:      UploadScopeGeneric,
-	})
-	if err != nil {
-		t.Fatalf("update overwritten file artifact: %v", err)
-	}
+	overwritten := updateSingleArtifactForTest(t, service, ArtifactTypeFile, "artifacts/notes.txt", overwriteValue, &overwrite)
 	if overwritten[0].Status != SaveStatusConflict || overwritten[0].Message == nil || !strings.Contains(*overwritten[0].Message, "Overwriting per requested strategy") {
 		t.Fatalf("expected overwrite conflict result, got %#v", overwritten)
 	}
-	if payload, err := os.ReadFile(filePath); err != nil || string(payload) != "overwrite" {
-		t.Fatalf("expected overwrite strategy to replace file, got %q err=%v", string(payload), err)
-	}
+	assertArtifactFilePayload(t, filePath, "overwrite", "overwrite strategy to replace file")
+}
+
+func assertArtifactInvalidConflictStrategy(t *testing.T, service *Service, paths artifactTestPaths, filePath string) {
+	t.Helper()
 
 	if err := os.WriteFile(filePath, []byte("external-invalid"), 0o644); err != nil {
 		t.Fatalf("write third external file contents: %v", err)
 	}
-	invalidRef, err := paths.binaryStore.StoreBytes([]byte("invalid"), "text/plain", false)
-	if err != nil {
-		t.Fatalf("store invalid strategy payload: %v", err)
-	}
-	invalidValue := mustRawJSON(t, invalidRef)
+	invalidValue := storeArtifactTestValue(t, paths, []byte("invalid"), "text/plain")
 	invalidStrategy := SaveConflictStrategy("invalid")
 	if _, err := service.Update(context.Background(), UpdateRequest{
 		Artifacts: []RawArtifact{{
@@ -485,6 +590,10 @@ func TestServiceUpdateHandlesConflictsAndUnsupportedTypes(t *testing.T) {
 	} else {
 		assertArtifactErrorKind(t, err, ErrorInvalidRequest)
 	}
+}
+
+func assertArtifactJSONUpdates(t *testing.T, service *Service) {
+	t.Helper()
 
 	brushValue := json.RawMessage(`{"strokeStyle":"#ffffff","lineWidth":1,"lineCap":"round","points":[[0,1]],"globalCompositeOperation":"source-over"}`)
 	transformValue := json.RawMessage(`{"transform":[1,0,0,1,10,12],"eraserStrokes":[]}`)
@@ -501,30 +610,16 @@ func TestServiceUpdateHandlesConflictsAndUnsupportedTypes(t *testing.T) {
 	if len(multiResults) != 2 || multiResults[0].Status != SaveStatusSaved || multiResults[1].Status != SaveStatusSaved {
 		t.Fatalf("expected saved json artifacts, got %#v", multiResults)
 	}
+}
 
-	imageRef, err := paths.binaryStore.StoreBytes([]byte("png-bytes"), "image/png", false)
-	if err != nil {
-		t.Fatalf("store image payload: %v", err)
-	}
-	imageValue := mustRawJSON(t, imageRef)
-	imageResults, err := service.Update(context.Background(), UpdateRequest{
-		Artifacts: []RawArtifact{{
-			Type:  ArtifactTypeImage,
-			ID:    "artifacts/image.png",
-			Value: &imageValue,
-		}},
-		UploadScope: UploadScopeGeneric,
-	})
-	if err != nil {
-		t.Fatalf("update image artifact: %v", err)
-	}
-	if len(imageResults) != 1 || imageResults[0].Status != SaveStatusSaved {
-		t.Fatalf("expected saved image result, got %#v", imageResults)
-	}
+func assertArtifactImageUpdate(t *testing.T, service *Service, paths artifactTestPaths) {
+	t.Helper()
+
+	imageValue := storeArtifactTestValue(t, paths, []byte("png-bytes"), "image/png")
+	imageResults := updateSingleArtifactForTest(t, service, ArtifactTypeImage, "artifacts/image.png", imageValue, nil)
+	assertSingleArtifactSaveStatus(t, imageResults, SaveStatusSaved, "saved image result")
 	imagePath := filepath.Join(paths.settaFilesRoot, "artifacts", "image.png")
-	if payload, err := os.ReadFile(imagePath); err != nil || string(payload) != "png-bytes" {
-		t.Fatalf("expected updated image artifact payload, got %q err=%v", string(payload), err)
-	}
+	assertArtifactFilePayload(t, imagePath, "png-bytes", "updated image artifact payload")
 	loadedImages, err := service.LoadCachedImages(context.Background(), LoadCachedPathsRequest{Paths: []string{"artifacts/image.png"}})
 	if err != nil {
 		t.Fatalf("load cached image artifact after update: %v", err)
@@ -539,6 +634,10 @@ func TestServiceUpdateHandlesConflictsAndUnsupportedTypes(t *testing.T) {
 	if string(imagePayload) != "png-bytes" {
 		t.Fatalf("expected cached image bytes, got %q", string(imagePayload))
 	}
+}
+
+func assertArtifactChartUpdate(t *testing.T, service *Service) {
+	t.Helper()
 
 	chartValue := mustRawJSON(t, map[string][]any{
 		"x": {1.0, 3.0},
@@ -565,12 +664,12 @@ func TestServiceUpdateHandlesConflictsAndUnsupportedTypes(t *testing.T) {
 	if len(loadedCharts) != 1 || loadedCharts[0] == nil {
 		t.Fatalf("expected cached chart artifact, got %#v", loadedCharts)
 	}
-	if got := loadedCharts[0].Value["x"]; len(got) != 2 || got[0].(float64) != 1 || got[1].(float64) != 3 {
-		t.Fatalf("unexpected cached chart x column: %#v", got)
-	}
-	if got := loadedCharts[0].Value["y"]; len(got) != 2 || got[0].(string) != "alpha" || got[1].(string) != "" {
-		t.Fatalf("unexpected cached chart y column: %#v", got)
-	}
+	assertChartColumn(t, loadedCharts[0].Value, "x", []any{1.0, 3.0})
+	assertChartColumn(t, loadedCharts[0].Value, "y", []any{"alpha", ""})
+}
+
+func assertUnsupportedArtifactUpdate(t *testing.T, service *Service) {
+	t.Helper()
 
 	unsupportedValue := mustRawJSON(t, map[string]any{"payload": true})
 	if _, err := service.Update(context.Background(), UpdateRequest{
@@ -631,29 +730,21 @@ func TestServiceUpdateDrawArtifactsNormalizesNullCollections(t *testing.T) {
 		t.Fatalf("expected saved draw artifacts, got %#v", results)
 	}
 
-	readNormalizedObject := func(path string) map[string]any {
-		payload, err := os.ReadFile(path)
-		if err != nil {
-			t.Fatalf("read normalized artifact %q: %v", path, err)
-		}
-		var object map[string]any
-		if err := json.Unmarshal(payload, &object); err != nil {
-			t.Fatalf("decode normalized artifact %q: %v", path, err)
-		}
-		return object
-	}
+	brushArtifact := readJSONArtifactFile(t, filepath.Join(paths.settaFilesRoot, "artifacts", "stroke.json"))
+	assertEmptyJSONArray(t, brushArtifact["points"], "normalized saved brush points")
 
-	brushArtifact := readNormalizedObject(filepath.Join(paths.settaFilesRoot, "artifacts", "stroke.json"))
-	brushPoints, ok := brushArtifact["points"].([]any)
-	if !ok || brushPoints == nil || len(brushPoints) != 0 {
-		t.Fatalf("expected normalized saved brush points array, got %#v", brushArtifact["points"])
-	}
+	transformArtifact := readJSONArtifactFile(t, filepath.Join(paths.settaFilesRoot, "artifacts", "transform.json"))
+	assertEmptyJSONArray(t, transformArtifact["eraserStrokes"], "normalized saved eraserStrokes")
+}
 
-	transformArtifact := readNormalizedObject(filepath.Join(paths.settaFilesRoot, "artifacts", "transform.json"))
-	eraserStrokes, ok := transformArtifact["eraserStrokes"].([]any)
-	if !ok || eraserStrokes == nil || len(eraserStrokes) != 0 {
-		t.Fatalf("expected normalized saved eraserStrokes array, got %#v", transformArtifact["eraserStrokes"])
+func readJSONArtifactFile(t *testing.T, path string) map[string]any {
+	t.Helper()
+
+	payload, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read normalized artifact %q: %v", path, err)
 	}
+	return decodeJSONRawMessage(t, payload)
 }
 
 func TestServiceRejectsOversizedFileArtifactsAndOutsideRootDeletes(t *testing.T) {

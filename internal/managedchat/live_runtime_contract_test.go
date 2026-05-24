@@ -111,48 +111,10 @@ func decodeManagedChatStreamContractChunk(t *testing.T, rawChunk json.RawMessage
 			Message: message,
 		}
 	case realtime.StreamingEventTypeDelta:
-		rawContent, _ := payload["content"].([]any)
-		content := make([]any, 0, len(rawContent))
-		for _, rawEntry := range rawContent {
-			entry, ok := rawEntry.(map[string]any)
-			if !ok {
-				t.Fatalf("message delta content entry must be an object, got %T", rawEntry)
-			}
-			index, ok := extractInt(entry["index"])
-			if !ok {
-				index = 0
-			}
-			switch stringValue(entry["type"]) {
-			case realtime.MessageContentTypeTextDelta:
-				content = append(content, realtime.MessageTextDelta{
-					Type:  realtime.MessageContentTypeTextDelta,
-					Index: index,
-					Text:  stringValue(entry["text"]),
-				})
-			case realtime.MessageContentTypeThinkingDelta:
-				var summary *string
-				if rawSummary, exists := entry["summary"]; exists {
-					summary = optionalString(rawSummary)
-				}
-				var signature *string
-				if rawSignature, exists := entry["signature"]; exists {
-					signature = optionalString(rawSignature)
-				}
-				content = append(content, realtime.MessageThinkingDelta{
-					Type:      realtime.MessageContentTypeThinkingDelta,
-					Index:     index,
-					Thinking:  stringValue(entry["thinking"]),
-					Summary:   summary,
-					Signature: signature,
-				})
-			default:
-				t.Fatalf("unsupported message delta content type %q", stringValue(entry["type"]))
-			}
-		}
 		return realtime.MessageDeltaEvent{
 			Type:      chunkType,
 			MessageID: stringValue(payload["message_id"]),
-			Content:   content,
+			Content:   decodeManagedChatStreamMessageDeltaContent(t, payload["content"]),
 		}
 	case realtime.StreamingEventTypeMessageFinalized:
 		message, err := normalizeMessage(payload["message"])
@@ -177,24 +139,6 @@ func decodeManagedChatStreamContractChunk(t *testing.T, rawChunk json.RawMessage
 			ArgumentsDelta: stringValue(payload["arguments_delta"]),
 		}
 	case realtime.StreamingEventTypeToolArgumentPreview:
-		targetIDsByType := map[string][]string{}
-		if rawTargetIDs, ok := payload["target_ids_by_type"].(map[string]any); ok {
-			for rawType, rawIDs := range rawTargetIDs {
-				idList, ok := rawIDs.([]any)
-				if !ok {
-					continue
-				}
-				values := make([]string, 0, len(idList))
-				for _, rawID := range idList {
-					value := stringValue(rawID)
-					if value == "" {
-						continue
-					}
-					values = append(values, value)
-				}
-				targetIDsByType[rawType] = values
-			}
-		}
 		return realtime.ToolArgumentPreviewDeltaEvent{
 			Type:            chunkType,
 			MessageID:       stringValue(payload["message_id"]),
@@ -202,7 +146,7 @@ func decodeManagedChatStreamContractChunk(t *testing.T, rawChunk json.RawMessage
 			ToolName:        stringValue(payload["tool_name"]),
 			ArgumentsDelta:  stringValue(payload["arguments_delta"]),
 			PreviewKind:     tools.PreviewKind(stringValue(payload["preview_kind"])),
-			TargetIDsByType: realtime.NewToolArgumentPreviewTargetIDsFromMap(targetIDsByType),
+			TargetIDsByType: realtime.NewToolArgumentPreviewTargetIDsFromMap(decodePreviewTargetIDsByType(payload)),
 		}
 	case realtime.StreamingEventTypeToolResult:
 		result, err := normalizeMessage(payload["result"])
@@ -217,6 +161,82 @@ func decodeManagedChatStreamContractChunk(t *testing.T, rawChunk json.RawMessage
 		t.Fatalf("unsupported contract chunk type %q", chunkType)
 		return nil
 	}
+}
+
+func decodeManagedChatStreamMessageDeltaContent(t *testing.T, rawValue any) []any {
+	t.Helper()
+
+	rawContent, _ := rawValue.([]any)
+	content := make([]any, 0, len(rawContent))
+	for _, rawEntry := range rawContent {
+		entry, ok := rawEntry.(map[string]any)
+		if !ok {
+			t.Fatalf("message delta content entry must be an object, got %T", rawEntry)
+		}
+		index, ok := extractInt(entry["index"])
+		if !ok {
+			index = 0
+		}
+		switch stringValue(entry["type"]) {
+		case realtime.MessageContentTypeTextDelta:
+			content = append(content, realtime.MessageTextDelta{
+				Type:  realtime.MessageContentTypeTextDelta,
+				Index: index,
+				Text:  stringValue(entry["text"]),
+			})
+		case realtime.MessageContentTypeThinkingDelta:
+			content = append(content, decodeManagedChatStreamThinkingDelta(entry, index))
+		default:
+			t.Fatalf("unsupported message delta content type %q", stringValue(entry["type"]))
+		}
+	}
+	return content
+}
+
+func decodeManagedChatStreamThinkingDelta(entry map[string]any, index int) realtime.MessageThinkingDelta {
+	var summary *string
+	if rawSummary, exists := entry["summary"]; exists {
+		summary = optionalString(rawSummary)
+	}
+	var signature *string
+	if rawSignature, exists := entry["signature"]; exists {
+		signature = optionalString(rawSignature)
+	}
+	return realtime.MessageThinkingDelta{
+		Type:      realtime.MessageContentTypeThinkingDelta,
+		Index:     index,
+		Thinking:  stringValue(entry["thinking"]),
+		Summary:   summary,
+		Signature: signature,
+	}
+}
+
+func decodePreviewTargetIDsByType(payload map[string]any) map[string][]string {
+	targetIDsByType := map[string][]string{}
+	rawTargetIDs, ok := payload["target_ids_by_type"].(map[string]any)
+	if !ok {
+		return targetIDsByType
+	}
+	for rawType, rawIDs := range rawTargetIDs {
+		idList, ok := rawIDs.([]any)
+		if !ok {
+			continue
+		}
+		targetIDsByType[rawType] = decodePreviewTargetIDList(idList)
+	}
+	return targetIDsByType
+}
+
+func decodePreviewTargetIDList(idList []any) []string {
+	values := make([]string, 0, len(idList))
+	for _, rawID := range idList {
+		value := stringValue(rawID)
+		if value == "" {
+			continue
+		}
+		values = append(values, value)
+	}
+	return values
 }
 
 func optionalStringValue(value any) *string {

@@ -105,17 +105,32 @@ func TestFrontendValueTransportRouteConstantsUsesAuthoritativeRouteConstants(t *
 func TestFrontendValueSettaAPIPresetConfigUsesAuthoritativePresetContracts(t *testing.T) {
 	got := FrontendValueSettaAPIPresetConfig()
 
-	if got.RuntimeValueTokens.ProjectConfigID != frontendSettaAPIPresetProjectConfigIDToken {
-		t.Fatalf("unexpected project-config token: got %q want %q", got.RuntimeValueTokens.ProjectConfigID, frontendSettaAPIPresetProjectConfigIDToken)
-	}
-	if got.RuntimeValueTokens.EmptySpacePosition != frontendSettaAPIPresetEmptySpacePositionToken {
-		t.Fatalf("unexpected empty-space token: got %q want %q", got.RuntimeValueTokens.EmptySpacePosition, frontendSettaAPIPresetEmptySpacePositionToken)
-	}
+	assertFrontendSettaAPIPresetRuntimeTokens(t, got.RuntimeValueTokens)
 	if len(got.Presets) != 3 {
 		t.Fatalf("unexpected preset count: got %d want %d", len(got.Presets), 3)
 	}
+	assertFrontendSettaAPIPresetCreateSection(t, got.Presets[0])
+	assertFrontendSettaAPIProjectConfigOnlyPresets(t, got.Presets[1:])
+	assertFrontendSettaAPIPresetConfigClone(t, got)
+}
 
-	createPreset := got.Presets[0]
+func assertFrontendSettaAPIPresetRuntimeTokens(
+	t *testing.T,
+	tokens FrontendSettaAPIPresetRuntimeValueTokens,
+) {
+	t.Helper()
+
+	if tokens.ProjectConfigID != frontendSettaAPIPresetProjectConfigIDToken {
+		t.Fatalf("unexpected project-config token: got %q want %q", tokens.ProjectConfigID, frontendSettaAPIPresetProjectConfigIDToken)
+	}
+	if tokens.EmptySpacePosition != frontendSettaAPIPresetEmptySpacePositionToken {
+		t.Fatalf("unexpected empty-space token: got %q want %q", tokens.EmptySpacePosition, frontendSettaAPIPresetEmptySpacePositionToken)
+	}
+}
+
+func assertFrontendSettaAPIPresetCreateSection(t *testing.T, createPreset FrontendSettaAPIPreset) {
+	t.Helper()
+
 	if createPreset.Route != RouteCreateTopLevelSection {
 		t.Fatalf("unexpected create preset route: got %q want %q", createPreset.Route, RouteCreateTopLevelSection)
 	}
@@ -141,10 +156,14 @@ func TestFrontendValueSettaAPIPresetConfigUsesAuthoritativePresetContracts(t *te
 	if gotValue, ok := createPreset.BodyTemplate["position"].(string); !ok || gotValue != frontendSettaAPIPresetEmptySpacePositionToken {
 		t.Fatalf("unexpected create preset position token: %#v", createPreset.BodyTemplate["position"])
 	}
+}
+
+func assertFrontendSettaAPIProjectConfigOnlyPresets(t *testing.T, presets []FrontendSettaAPIPreset) {
+	t.Helper()
 
 	projectConfigOnlyRoutes := []string{RouteGetLatestProjectState, RouteSaveProject}
 	for idx, route := range projectConfigOnlyRoutes {
-		preset := got.Presets[idx+1]
+		preset := presets[idx]
 		if preset.Route != route {
 			t.Fatalf("unexpected project-config preset route at %d: got %q want %q", idx, preset.Route, route)
 		}
@@ -155,6 +174,10 @@ func TestFrontendValueSettaAPIPresetConfigUsesAuthoritativePresetContracts(t *te
 			t.Fatalf("unexpected project-config preset token at %d: %#v", idx, preset.BodyTemplate["projectConfigId"])
 		}
 	}
+}
+
+func assertFrontendSettaAPIPresetConfigClone(t *testing.T, got FrontendSettaAPIPresetConfigValue) {
+	t.Helper()
 
 	got.Presets[0].BodyTemplate["projectConfigId"] = "mutated"
 	gotAgain := FrontendValueSettaAPIPresetConfig()

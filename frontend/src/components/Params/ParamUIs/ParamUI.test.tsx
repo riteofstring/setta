@@ -3,6 +3,7 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
+import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import {
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,
@@ -76,8 +77,10 @@ vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
 vi.mock("components/Utils/CodeMirror/TextInputCodeMirror", () => ({
   TextInputCodeMirror: (props: {
     defaultVal: string;
+    focusActiveSectionOnMouseDown?: boolean;
     isDisabled: boolean;
     language: string;
+    tooltipParentDivId?: string | null;
   }) => {
     mocks.textInputProps(props);
     return (
@@ -86,13 +89,18 @@ vi.mock("components/Utils/CodeMirror/TextInputCodeMirror", () => ({
         data-default-val={props.defaultVal}
         data-disabled={String(props.isDisabled)}
         data-language={props.language}
+        data-tooltip-parent={props.tooltipParentDivId ?? ""}
       />
     );
   },
 }));
 
 vi.mock("./ConfiguredParamInputs", () => ({
-  ConfiguredColorPickerInput: (props: { isDisabled: boolean }) => {
+  ConfiguredColorPickerInput: (props: {
+    isDisabled: boolean;
+    onChange: (value: string) => void;
+    onCommit?: (value: string) => void;
+  }) => {
     mocks.colorPickerProps(props);
     return (
       <div
@@ -110,7 +118,11 @@ vi.mock("./ConfiguredParamInputs", () => ({
       />
     );
   },
-  ConfiguredRotaryInput: (props: { isDisabled: boolean }) => {
+  ConfiguredRotaryInput: (props: {
+    isDisabled: boolean;
+    onChange: (value: number) => void;
+    onCommit?: (value: number) => void;
+  }) => {
     mocks.rotaryProps(props);
     return (
       <div
@@ -119,7 +131,11 @@ vi.mock("./ConfiguredParamInputs", () => ({
       />
     );
   },
-  ConfiguredSliderInput: (props: { isDisabled: boolean }) => {
+  ConfiguredSliderInput: (props: {
+    isDisabled: boolean;
+    onChange: (value: number) => void;
+    onCommit?: (value: number) => void;
+  }) => {
     mocks.sliderProps(props);
     return (
       <div
@@ -302,7 +318,34 @@ describe("ParamUI", () => {
         "print('hello')",
       );
       expect(textInput?.getAttribute("data-disabled")).toBe("true");
+      expect(textInput?.getAttribute("data-tooltip-parent")).toBe(
+        CODEMIRROR_TOOLTIP_PARENT_ID,
+      );
       expect(mocks.textInputProps).toHaveBeenCalledTimes(1);
+    } finally {
+      await cleanupRenderedParamUI(rendered);
+    }
+  });
+
+  it("forwards a retained CodeMirror tooltip parent override to text inputs", async () => {
+    const rendered = await renderParamUI({
+      focusActiveSectionOnTextInput: false,
+      tooltipParentDivId: "retained-codemirror-tooltips",
+    });
+
+    try {
+      const textInput = rendered.host.querySelector(
+        '[data-testid="text-input"]',
+      );
+      expect(textInput?.getAttribute("data-tooltip-parent")).toBe(
+        "retained-codemirror-tooltips",
+      );
+      expect(mocks.textInputProps).toHaveBeenCalledWith(
+        expect.objectContaining({
+          focusActiveSectionOnMouseDown: false,
+          tooltipParentDivId: "retained-codemirror-tooltips",
+        }),
+      );
     } finally {
       await cleanupRenderedParamUI(rendered);
     }
@@ -401,6 +444,96 @@ describe("ParamUI", () => {
         "Drop files here",
       );
       expect(dropzoneInput?.getAttribute("data-disabled")).toBe("false");
+    } finally {
+      await cleanupRenderedParamUI(rendered);
+    }
+  });
+
+  it("keeps slider live updates out of the backend commit path", async () => {
+    const onChange = vi.fn();
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.SliderParam,
+      defaultVal: "0",
+    };
+
+    const rendered = await renderParamUI({ onChange, value: "1" });
+
+    try {
+      const sliderProps = mocks.sliderProps.mock.calls[0]?.[0] as
+        | {
+            onChange: (value: number) => void;
+            onCommit?: (value: number) => void;
+          }
+        | undefined;
+      expect(sliderProps).toBeDefined();
+
+      sliderProps?.onChange(4);
+      sliderProps?.onCommit?.(6);
+
+      expect(onChange.mock.calls).toEqual([
+        [4, { skipBackendUpdate: true }],
+        [6],
+      ]);
+    } finally {
+      await cleanupRenderedParamUI(rendered);
+    }
+  });
+
+  it("keeps rotary live updates out of the backend commit path", async () => {
+    const onChange = vi.fn();
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.RotaryParam,
+      defaultVal: "0",
+    };
+
+    const rendered = await renderParamUI({ onChange, value: "1" });
+
+    try {
+      const rotaryProps = mocks.rotaryProps.mock.calls[0]?.[0] as
+        | {
+            onChange: (value: number) => void;
+            onCommit?: (value: number) => void;
+          }
+        | undefined;
+      expect(rotaryProps).toBeDefined();
+
+      rotaryProps?.onChange(2);
+      rotaryProps?.onCommit?.(8);
+
+      expect(onChange.mock.calls).toEqual([
+        [2, { skipBackendUpdate: true }],
+        [8],
+      ]);
+    } finally {
+      await cleanupRenderedParamUI(rendered);
+    }
+  });
+
+  it("keeps color picker live updates out of the backend commit path", async () => {
+    const onChange = vi.fn();
+    mocks.state.codeObjImpl = {
+      type: CodeObjTypeEnum.ColorPickerParam,
+      defaultVal: "#000000",
+    };
+
+    const rendered = await renderParamUI({ onChange, value: "#111111" });
+
+    try {
+      const colorPickerProps = mocks.colorPickerProps.mock.calls[0]?.[0] as
+        | {
+            onChange: (value: string) => void;
+            onCommit?: (value: string) => void;
+          }
+        | undefined;
+      expect(colorPickerProps).toBeDefined();
+
+      colorPickerProps?.onChange("#222222");
+      colorPickerProps?.onCommit?.("#333333");
+
+      expect(onChange.mock.calls).toEqual([
+        ["#222222", { skipBackendUpdate: true }],
+        ["#333333"],
+      ]);
     } finally {
       await cleanupRenderedParamUI(rendered);
     }

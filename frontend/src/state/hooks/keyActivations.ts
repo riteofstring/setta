@@ -1,11 +1,11 @@
 import { useDndState } from "forks/dnd-kit/dndState";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
 
 export function useShouldDisablePointerEvents() {
   const isSortingOrMovingFree = useDndState(
     (x) => x.isSorting || x.isMovingFree,
   );
-  const otherSpecialKeysPressed = useReactFlow(
+  const otherSpecialKeysPressed = useGpuFlowViewportStore(
     (x) =>
       x.moveSectionActivationKeyPressed ||
       (x.selectionKeyPressed && Boolean(x.userSelectionRect)) ||

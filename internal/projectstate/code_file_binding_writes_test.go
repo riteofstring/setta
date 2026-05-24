@@ -14,88 +14,108 @@ func TestRuntimeSetCodeFileBindingUpdatesEffectivePayloadAndBinding(t *testing.T
 		CodeFileAccessModeReadOnly,
 		CodeFileAccessModeWriteOnly,
 	} {
-		runtime, err := OpenOverlayRuntime(Document{
-			SchemaVersion:    CurrentSchemaVersion,
-			DefaultProjectID: "project-alpha",
-			Projects: map[string]Project{
-				"project-alpha": codeFileBindingMutationTestProject(t),
-			},
-		})
-		if err != nil {
-			t.Fatalf("open overlay runtime for %s: %v", accessMode, err)
-		}
-
-		snapshot, err := runtime.SetCodeFileBinding(
-			context.Background(),
-			"project-alpha",
-			"code-section",
-			CodeFileBinding{
-				Path:       "./pkg/../pkg/" + string(accessMode) + ".py",
-				AccessMode: accessMode,
-			},
-		)
-		if closeErr := runtime.Close(); closeErr != nil {
-			t.Fatalf("close overlay runtime for %s: %v", accessMode, closeErr)
-		}
-		if err != nil {
-			t.Fatalf("SetCodeFileBinding returned error for %s: %v", accessMode, err)
-		}
-
+		snapshot := setCodeFileBindingForMode(t, accessMode)
 		project := snapshot.Document.Projects["project-alpha"]
-		payload, err := effectiveSectionPayload(project, "code-section", "code-variant")
-		if err != nil {
-			t.Fatalf("effectiveSectionPayload code-section for %s: %v", accessMode, err)
-		}
+		assertEffectiveCodeFileBinding(t, project, accessMode)
+		impl := assertSectionImplCodeFileBinding(t, project, accessMode)
+		assertSerializedCodeFileBinding(t, impl, accessMode)
+	}
+}
 
-		rawBinding, ok := payloadObjectField(payload, "codeFileBinding")
-		if !ok {
-			t.Fatalf("expected codeFileBinding object for %s, got %#v", accessMode, payload["codeFileBinding"])
-		}
-		if rawBinding["canonical_path"] != "pkg/"+string(accessMode)+".py" {
-			t.Fatalf("expected canonical_path pkg/%s.py, got %#v", accessMode, rawBinding["canonical_path"])
-		}
-		if rawBinding["access_mode"] != string(accessMode) {
-			t.Fatalf("expected access_mode %s, got %#v", accessMode, rawBinding["access_mode"])
-		}
-		if rawBinding["autoBinding"] != false {
-			t.Fatalf("expected autoBinding=false for %s, got %#v", accessMode, rawBinding["autoBinding"])
-		}
+func setCodeFileBindingForMode(t *testing.T, accessMode CodeFileAccessMode) Snapshot {
+	t.Helper()
 
-		_, _, impl, err := project.ResolveSection("code-section")
-		if err != nil {
-			t.Fatalf("resolve code section for %s: %v", accessMode, err)
-		}
-		if impl.Code == nil || impl.Code.Binding == nil {
-			t.Fatalf("expected code binding to persist on section impl for %s, got %#v", accessMode, impl.Code)
-		}
-		if impl.Code.Binding.Path != "pkg/"+string(accessMode)+".py" {
-			t.Fatalf("expected impl binding path pkg/%s.py, got %q", accessMode, impl.Code.Binding.Path)
-		}
-		if impl.Code.Binding.AccessMode != accessMode {
-			t.Fatalf("expected impl binding access mode %s, got %q", accessMode, impl.Code.Binding.AccessMode)
-		}
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": codeFileBindingMutationTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime for %s: %v", accessMode, err)
+	}
 
-		serializedImplPayload, err := SectionImplPayload(impl)
-		if err != nil {
-			t.Fatalf("serialize section impl payload for %s: %v", accessMode, err)
-		}
-		serializedImplObject, err := rawObjectFromProjectPayload(serializedImplPayload)
-		if err != nil {
-			t.Fatalf("decode serialized section impl payload for %s: %v", accessMode, err)
-		}
-		serializedBinding, ok := payloadObjectField(serializedImplObject, "codeFileBinding")
-		if !ok {
-			t.Fatalf("expected serialized impl payload binding for %s, got %#v", accessMode, serializedImplObject["codeFileBinding"])
-		}
-		if serializedBinding["canonical_path"] != "pkg/"+string(accessMode)+".py" {
-			t.Fatalf("expected serialized impl canonical_path pkg/%s.py, got %#v", accessMode, serializedBinding["canonical_path"])
-		}
-		if serializedBinding["access_mode"] != string(accessMode) {
-			t.Fatalf("expected serialized impl access_mode %s, got %#v", accessMode, serializedBinding["access_mode"])
-		}
-		if serializedBinding["autoBinding"] != false {
-			t.Fatalf("expected serialized impl autoBinding=false for %s, got %#v", accessMode, serializedBinding["autoBinding"])
-		}
+	snapshot, err := runtime.SetCodeFileBinding(
+		context.Background(),
+		"project-alpha",
+		"code-section",
+		CodeFileBinding{
+			Path:       "./pkg/../pkg/" + string(accessMode) + ".py",
+			AccessMode: accessMode,
+		},
+	)
+	if closeErr := runtime.Close(); closeErr != nil {
+		t.Fatalf("close overlay runtime for %s: %v", accessMode, closeErr)
+	}
+	if err != nil {
+		t.Fatalf("SetCodeFileBinding returned error for %s: %v", accessMode, err)
+	}
+	return snapshot
+}
+
+func assertEffectiveCodeFileBinding(t *testing.T, project Project, accessMode CodeFileAccessMode) {
+	t.Helper()
+
+	payload, err := effectiveSectionPayload(project, "code-section", "code-variant")
+	if err != nil {
+		t.Fatalf("effectiveSectionPayload code-section for %s: %v", accessMode, err)
+	}
+	rawBinding, ok := payloadObjectField(payload, "codeFileBinding")
+	if !ok {
+		t.Fatalf("expected codeFileBinding object for %s, got %#v", accessMode, payload["codeFileBinding"])
+	}
+	assertCodeFileBindingObject(t, rawBinding, accessMode, "")
+}
+
+func assertSectionImplCodeFileBinding(t *testing.T, project Project, accessMode CodeFileAccessMode) SectionImpl {
+	t.Helper()
+
+	_, _, impl, err := project.ResolveSection("code-section")
+	if err != nil {
+		t.Fatalf("resolve code section for %s: %v", accessMode, err)
+	}
+	if impl.Code == nil || impl.Code.Binding == nil {
+		t.Fatalf("expected code binding to persist on section impl for %s, got %#v", accessMode, impl.Code)
+	}
+	if impl.Code.Binding.Path != "pkg/"+string(accessMode)+".py" {
+		t.Fatalf("expected impl binding path pkg/%s.py, got %q", accessMode, impl.Code.Binding.Path)
+	}
+	if impl.Code.Binding.AccessMode != accessMode {
+		t.Fatalf("expected impl binding access mode %s, got %q", accessMode, impl.Code.Binding.AccessMode)
+	}
+	return impl
+}
+
+func assertSerializedCodeFileBinding(t *testing.T, impl SectionImpl, accessMode CodeFileAccessMode) {
+	t.Helper()
+
+	serializedImplPayload, err := SectionImplPayload(impl)
+	if err != nil {
+		t.Fatalf("serialize section impl payload for %s: %v", accessMode, err)
+	}
+	serializedImplObject, err := rawObjectFromProjectPayload(serializedImplPayload)
+	if err != nil {
+		t.Fatalf("decode serialized section impl payload for %s: %v", accessMode, err)
+	}
+	serializedBinding, ok := payloadObjectField(serializedImplObject, "codeFileBinding")
+	if !ok {
+		t.Fatalf("expected serialized impl payload binding for %s, got %#v", accessMode, serializedImplObject["codeFileBinding"])
+	}
+	assertCodeFileBindingObject(t, serializedBinding, accessMode, "serialized impl ")
+}
+
+func assertCodeFileBindingObject(t *testing.T, binding map[string]any, accessMode CodeFileAccessMode, contextLabel string) {
+	t.Helper()
+
+	if binding["canonical_path"] != "pkg/"+string(accessMode)+".py" {
+		t.Fatalf("expected %scanonical_path pkg/%s.py, got %#v", contextLabel, accessMode, binding["canonical_path"])
+	}
+	if binding["access_mode"] != string(accessMode) {
+		t.Fatalf("expected %saccess_mode %s, got %#v", contextLabel, accessMode, binding["access_mode"])
+	}
+	if binding["autoBinding"] != false {
+		t.Fatalf("expected %sautoBinding=false for %s, got %#v", contextLabel, accessMode, binding["autoBinding"])
 	}
 }
 

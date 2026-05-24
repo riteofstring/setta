@@ -1,6 +1,6 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { Item } from "components/Utils/atoms/dropdown/item";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { clearNodesSelectionBounds } from "gpuFlow/selectionBounds";
 import _ from "lodash";
 import {
   deleteSections,
@@ -74,7 +74,7 @@ function SelectionContextMenuOpen({
     }, _.isEqual);
   const closeContextMenu = () => {
     closeAllContextMenus();
-    useReactFlow.setState({ nodesSelectionDims: null });
+    clearNodesSelectionBounds();
   };
   function onClickCreate() {
     if (!canEditStructure) {

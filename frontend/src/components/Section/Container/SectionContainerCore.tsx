@@ -1,4 +1,3 @@
-import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
   getAttachedTerminalParentIdForTerminalSection,
@@ -29,11 +28,15 @@ import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 type SectionContainerCoreProps = {
   sectionId: string;
+  isTopLevel: boolean;
   isUserView: boolean;
+  fillSurface?: boolean;
   forceHideOutline?: boolean;
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
   joinedCorners?: "none" | "code-terminal-parent";
+  renderParamRows: boolean;
+  scenePortGeometry?: boolean;
 };
 
 type SectionContainerSnapshot = {
@@ -48,6 +51,8 @@ type SectionContainerSnapshot = {
 };
 
 type SectionEdgeHandleMode = "agentic" | "chat" | "none" | "state-machine";
+type SectionShellStyleVars = React.CSSProperties &
+  Partial<Record<`--setta-section-style-${string}`, string>>;
 
 const WORKFLOW_ONLY_SECTION_TYPES = new Set<SectionType>([
   SectionTypeEnum.StateMachineStart,
@@ -61,7 +66,7 @@ const EDGE_HANDLE_COMPONENTS = {
   "state-machine": StateMachineEdgeHandles,
 } satisfies Record<
   Exclude<SectionEdgeHandleMode, "none">,
-  React.ComponentType<{ isUserView: boolean }>
+  React.ComponentType<{ isUserView: boolean; scenePortGeometry?: boolean }>
 >;
 
 function getSectionContainerSnapshot(
@@ -69,13 +74,14 @@ function getSectionContainerSnapshot(
   sectionId: string,
 ): SectionContainerSnapshot {
   const impl = getCurrEffectiveSectionImpl(state, sectionId);
+  const sectionTypeName = impl.type as SectionType;
   const isAttachedTerminalChild =
     getAttachedTerminalParentIdForTerminalSection(state, sectionId) !== null;
   const isJoinedAttachedTerminalChild =
     getEmbeddedAttachedTerminalParentIdForTerminalSection(state, sectionId) !==
       null && !impl.isMinimized;
   return {
-    sectionTypeName: impl.type,
+    sectionTypeName,
     isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
     positionAndSizeLocked: impl.positionAndSizeLocked,
     textBlockMetaControlStyle:
@@ -104,6 +110,10 @@ function getAiHighlightClassName(showAiHighlight: boolean) {
   return showAiHighlight
     ? "setta-ai-gradient-border setta-ai-gradient-border-active"
     : "";
+}
+
+function getTopLevelSectionShellSizeClassName(isTopLevel: boolean) {
+  return isTopLevel ? { sizeClassName: "h-full w-full" } : {};
 }
 
 function getSectionTypeChromeState(
@@ -141,7 +151,7 @@ function getSectionStyleThemeOrNull({
 
 function resolveSectionStyleVars(
   sectionStyleTheme: ReturnType<typeof deriveSectionStyleTheme> | null,
-) {
+): SectionShellStyleVars | undefined {
   if (!sectionStyleTheme) {
     return undefined;
   }
@@ -156,23 +166,7 @@ function resolveSectionStyleVars(
     "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
     "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
     "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
-  } satisfies React.CSSProperties;
-}
-
-function getSectionShellStyle(
-  sectionStyleVars: React.CSSProperties | undefined,
-  viewportInteractionActive: boolean,
-) {
-  if (!viewportInteractionActive) {
-    return sectionStyleVars;
-  }
-  return {
-    ...sectionStyleVars,
-    willChange: "transform",
-    transform: "translateZ(0)",
-    backfaceVisibility: "hidden",
-    isolation: "isolate",
-  } satisfies React.CSSProperties;
+  } satisfies SectionShellStyleVars;
 }
 
 function getSectionEdgeHandleMode({
@@ -199,24 +193,35 @@ function getSectionEdgeHandleMode({
 function SectionEdgeHandles({
   isUserView,
   mode,
+  scenePortGeometry,
 }: {
   isUserView: boolean;
   mode: SectionEdgeHandleMode;
+  scenePortGeometry: boolean;
 }) {
   if (mode === "none") {
     return null;
   }
   const EdgeHandles = EDGE_HANDLE_COMPONENTS[mode];
-  return <EdgeHandles isUserView={isUserView} />;
+  return (
+    <EdgeHandles
+      isUserView={isUserView}
+      scenePortGeometry={scenePortGeometry}
+    />
+  );
 }
 
 function _SectionContainerCore({
   sectionId,
+  isTopLevel,
   isUserView,
+  fillSurface,
   forceHideOutline = false,
   hideAgenticEdgeHandles = false,
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
+  renderParamRows,
+  scenePortGeometry,
 }: SectionContainerCoreProps) {
   const {
     sectionTypeName,
@@ -267,10 +272,11 @@ function _SectionContainerCore({
     useMetaControlStyle,
   });
   const hasSectionStyleTheme = Boolean(sectionStyleTheme);
-  const viewportInteractionActive = useReactFlow(
-    (state) => state.viewportInteractionActive,
-  );
   const sectionStyleVars = resolveSectionStyleVars(sectionStyleTheme);
+  const surfaceFillsNode = resolveOptionalSectionSurfaceFlag(
+    fillSurface,
+    isTopLevel,
+  );
   const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
     isGlobalVariables,
@@ -284,11 +290,9 @@ function _SectionContainerCore({
     omitAgenticHandleScopeClass,
     aiHighlightClassName,
     scopeHighlightClassName,
+    ...getTopLevelSectionShellSizeClassName(surfaceFillsNode),
   });
-  const sectionShellStyle = getSectionShellStyle(
-    sectionStyleVars,
-    viewportInteractionActive,
-  );
+  const sectionShellStyle = sectionStyleVars;
   const edgeHandleMode = getSectionEdgeHandleMode({
     hideAgenticEdgeHandles,
     isAttachedTerminalChild,
@@ -305,7 +309,11 @@ function _SectionContainerCore({
       data-section-active={isActiveSection ? "true" : "false"}
       style={sectionShellStyle}
     >
-      <SectionEdgeHandles isUserView={isUserView} mode={edgeHandleMode} />
+      <SectionEdgeHandles
+        isUserView={isUserView}
+        mode={edgeHandleMode}
+        scenePortGeometry={scenePortGeometry === true}
+      />
       <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
@@ -315,11 +323,43 @@ function _SectionContainerCore({
         positionAndSizeLocked={positionAndSizeLocked}
         hideHeader={isAttachedTerminalChild}
         hasSectionStyleTheme={hasSectionStyleTheme}
+        renderParamRows={renderParamRows}
+        scenePortGeometry={scenePortGeometry === true}
       />
     </section>
   );
 }
 export const SectionContainerCore = React.memo(
   _SectionContainerCore,
-  (p, n) => p.isUserView === n.isUserView,
+  areSectionContainerCorePropsEqual,
 );
+
+function areSectionContainerCorePropsEqual(
+  prev: SectionContainerCoreProps,
+  next: SectionContainerCoreProps,
+): boolean {
+  return (
+    prev.isUserView === next.isUserView &&
+    prev.isTopLevel === next.isTopLevel &&
+    prev.renderParamRows === next.renderParamRows &&
+    (prev.scenePortGeometry ?? false) === (next.scenePortGeometry ?? false) &&
+    sectionContainerCoreSurfaceOptionsEqual(prev, next)
+  );
+}
+
+function sectionContainerCoreSurfaceOptionsEqual(
+  prev: SectionContainerCoreProps,
+  next: SectionContainerCoreProps,
+): boolean {
+  return (
+    resolveOptionalSectionSurfaceFlag(prev.fillSurface, prev.isTopLevel) ===
+    resolveOptionalSectionSurfaceFlag(next.fillSurface, next.isTopLevel)
+  );
+}
+
+function resolveOptionalSectionSurfaceFlag(
+  value: boolean | undefined,
+  fallback: boolean,
+): boolean {
+  return value ?? fallback;
+}

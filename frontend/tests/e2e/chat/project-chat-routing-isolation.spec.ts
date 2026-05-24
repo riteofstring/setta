@@ -66,7 +66,7 @@ test.describe.serial("project chat routing isolation", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".setta-gpu-flow__pane");
       const primaryWindowId = await page.evaluate(async () => {
         const { useProjectState } = await import("/src/state/definitions.ts");
         const instanceId =

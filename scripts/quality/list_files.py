@@ -16,11 +16,24 @@ DEFAULT_CONFIG_PATH = ROOT_DIR / "quality.paths.yaml"
 SCHEMA_VERSION = 1
 CATEGORIES = (
     "python",
+    "python-test",
     "frontend-eslint",
+    "frontend-file-length",
+    "frontend-test-file-length",
+    "frontend-test-complexity",
     "frontend-boundary",
     "frontend-guardrail",
     "go",
+    "go-test",
 )
+FRONTEND_CATEGORY_SECTIONS = {
+    "frontend-eslint": "eslint",
+    "frontend-file-length": "file_length",
+    "frontend-test-file-length": "test_file_length",
+    "frontend-test-complexity": "test_complexity",
+    "frontend-boundary": "boundary",
+    "frontend-guardrail": "guardrail",
+}
 
 
 def main() -> int:
@@ -109,11 +122,15 @@ def normalize_path(path: str) -> str:
 def is_category_candidate(config: dict[str, Any], category: str, path: str) -> bool:
     if category == "python":
         return matches_language_section(path, mapping(config, "python"))
+    if category == "python-test":
+        return matches_language_section(path, mapping(config, "python_tests"))
     if category == "go":
         return matches_language_section(path, mapping(config, "go"))
+    if category == "go-test":
+        return matches_language_section(path, mapping(config, "go_tests"))
     if category.startswith("frontend-"):
         frontend = mapping(config, "frontend")
-        section_name = category.removeprefix("frontend-")
+        section_name = FRONTEND_CATEGORY_SECTIONS[category]
         section = mapping(frontend, section_name)
         extra_excludes = (
             string_list(frontend, "generated_globs")

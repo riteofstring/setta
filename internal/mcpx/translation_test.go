@@ -233,6 +233,12 @@ func TestTranslateProjectStateSummaryToTemporaryTranslatesWindowSpaces(t *testin
 	if err != nil {
 		t.Fatalf("translate project state summary to temporary: %v", err)
 	}
+	assertTranslatedWindowSpaceSummary(t, translated)
+	assertTranslatedProjectSummaryMetadata(t, translated)
+}
+
+func assertTranslatedWindowSpaceSummary(t *testing.T, translated projectStateSummary) {
+	t.Helper()
 
 	translatedSpace, ok := translated.ProjectConfig.WindowSpaces["31"]
 	if !ok {
@@ -254,6 +260,11 @@ func TestTranslateProjectStateSummaryToTemporaryTranslatesWindowSpaces(t *testin
 	if translatedWindow.ChatID == nil || *translatedWindow.ChatID != "12" {
 		t.Fatalf("expected translated chat binding 12, got %#v", translatedWindow.ChatID)
 	}
+}
+
+func assertTranslatedProjectSummaryMetadata(t *testing.T, translated projectStateSummary) {
+	t.Helper()
+
 	if !translated.ProjectConfig.HasPythonCodegenTarget {
 		t.Fatal("expected python codegen target flag to be preserved")
 	}

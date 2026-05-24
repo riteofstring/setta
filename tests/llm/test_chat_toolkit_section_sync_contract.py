@@ -49,35 +49,40 @@ def _strip_message_created_at(messages: list[dict[str, object]]) -> list[dict[st
     return stripped_messages
 
 
+def _build_message_delta(raw_chunk: dict[str, object]) -> MessageDeltaEvent:
+    content = []
+    delta_builders = {
+        "text_delta": MessageTextDelta,
+        "thinking_delta": MessageThinkingDelta,
+    }
+    for delta in raw_chunk["content"]:
+        delta_type = delta["type"]
+        builder = delta_builders.get(delta_type)
+        if builder is None:
+            raise AssertionError(f"Unsupported contract delta type: {delta_type}")
+        content.append(builder.model_validate(delta))
+    return MessageDeltaEvent(
+        type=raw_chunk["type"],
+        message_id=raw_chunk["message_id"],
+        content=content,
+    )
+
+
 def _build_chunk(raw_chunk: dict[str, object]) -> LLMStreamingResponseChunk:
     chunk_type = raw_chunk["type"]
-    if chunk_type == "message_start":
-        return MessageStartEvent.model_validate(raw_chunk)
-    if chunk_type == "message_finalized":
-        return MessageFinalizedEvent.model_validate(raw_chunk)
-    if chunk_type == "message_stop":
-        return MessageStopEvent.model_validate(raw_chunk)
-    if chunk_type == "tool_call_delta":
-        return ToolCallDeltaEvent.model_validate(raw_chunk)
-    if chunk_type == "tool_argument_preview_delta":
-        return ToolArgumentPreviewDeltaEvent.model_validate(raw_chunk)
-    if chunk_type == "tool_result":
-        return ToolResultEvent.model_validate(raw_chunk)
     if chunk_type == "delta":
-        content = []
-        for delta in raw_chunk["content"]:
-            if delta["type"] == "text_delta":
-                content.append(MessageTextDelta.model_validate(delta))
-                continue
-            if delta["type"] == "thinking_delta":
-                content.append(MessageThinkingDelta.model_validate(delta))
-                continue
-            raise AssertionError(f"Unsupported contract delta type: {delta['type']}")
-        return MessageDeltaEvent(
-            type=raw_chunk["type"],
-            message_id=raw_chunk["message_id"],
-            content=content,
-        )
+        return _build_message_delta(raw_chunk)
+    builders = {
+        "message_start": MessageStartEvent,
+        "message_finalized": MessageFinalizedEvent,
+        "message_stop": MessageStopEvent,
+        "tool_call_delta": ToolCallDeltaEvent,
+        "tool_argument_preview_delta": ToolArgumentPreviewDeltaEvent,
+        "tool_result": ToolResultEvent,
+    }
+    builder = builders.get(chunk_type)
+    if builder is not None:
+        return builder.model_validate(raw_chunk)
     raise AssertionError(f"Unsupported contract chunk type: {chunk_type}")
 
 

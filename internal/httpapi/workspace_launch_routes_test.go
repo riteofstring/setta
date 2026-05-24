@@ -271,148 +271,164 @@ func TestRegisterWorkspaceLaunchRoutesCreateIntentMapsTypedStoreErrors(t *testin
 
 	t.Run("store unavailable", func(t *testing.T) {
 		t.Parallel()
-
-		runtimeRootPath := filepath.Join(t.TempDir(), "runtime-root-file")
-		if err := os.WriteFile(runtimeRootPath, []byte("not a directory"), 0o644); err != nil {
-			t.Fatalf("write runtime-root file: %v", err)
-		}
-		intentService, err := workspacelaunch.NewIntentService(workspacelaunch.IntentServiceOptions{
-			RuntimeRoot: runtimeRootPath,
-			Now:         func() time.Time { return time.Unix(1_710_000_000, 0).UTC() },
-		})
-		if err != nil {
-			t.Fatalf("new intent service: %v", err)
-		}
-
-		router := chi.NewRouter()
-		if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
-			ModePolicy: modes.NewPolicy(config.ModeIDE),
-			Auth:       baseServices.authService,
-			Intents:    intentService,
-			Launch:     baseServices.launchService,
-		}); err != nil {
-			t.Fatalf("register workspace launch routes: %v", err)
-		}
-
-		request := httptest.NewRequest(
-			http.MethodPost,
-			RouteCreateWorkspaceLaunchIntent,
-			strings.NewReader(`{"launchRequest":{"workspaceRoot":"/tmp/workspace"},"returnUrl":"http://127.0.0.1:3000/home"}`),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("Origin", "http://127.0.0.1:3000")
-
-		response := httptest.NewRecorder()
-		router.ServeHTTP(response, request)
-
-		var payload CreateWorkspaceLaunchIntentResponse
-		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-			t.Fatalf("decode response: %v", err)
-		}
-		if payload.Ok || payload.Error == nil || payload.Error.Code != "LaunchIntentStoreUnavailable" {
-			t.Fatalf("expected store unavailable payload, got %#v", payload)
-		}
+		assertWorkspaceLaunchIntentStoreUnavailable(t, baseServices)
 	})
 
 	t.Run("store invalid", func(t *testing.T) {
 		t.Parallel()
-
-		runtimeRoot := filepath.Join(t.TempDir(), "runtime")
-		if err := os.MkdirAll(runtimeRoot, 0o755); err != nil {
-			t.Fatalf("mkdir runtime root: %v", err)
-		}
-		if err := os.WriteFile(filepath.Join(runtimeRoot, "workspace_launch_intents.json"), []byte("{not-json"), 0o644); err != nil {
-			t.Fatalf("write invalid store payload: %v", err)
-		}
-		intentService, err := workspacelaunch.NewIntentService(workspacelaunch.IntentServiceOptions{
-			RuntimeRoot: runtimeRoot,
-			Now:         func() time.Time { return time.Unix(1_710_000_000, 0).UTC() },
-		})
-		if err != nil {
-			t.Fatalf("new intent service: %v", err)
-		}
-
-		router := chi.NewRouter()
-		if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
-			ModePolicy: modes.NewPolicy(config.ModeIDE),
-			Auth:       baseServices.authService,
-			Intents:    intentService,
-			Launch:     baseServices.launchService,
-		}); err != nil {
-			t.Fatalf("register workspace launch routes: %v", err)
-		}
-
-		request := httptest.NewRequest(
-			http.MethodPost,
-			RouteCreateWorkspaceLaunchIntent,
-			strings.NewReader(`{"launchRequest":{"workspaceRoot":"/tmp/workspace"},"returnUrl":"http://127.0.0.1:3000/home"}`),
-		)
-		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("Origin", "http://127.0.0.1:3000")
-
-		response := httptest.NewRecorder()
-		router.ServeHTTP(response, request)
-
-		var payload CreateWorkspaceLaunchIntentResponse
-		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-			t.Fatalf("decode response: %v", err)
-		}
-		if payload.Ok || payload.Error == nil || payload.Error.Code != "LaunchIntentStoreInvalid" {
-			t.Fatalf("expected store invalid payload, got %#v", payload)
-		}
+		assertWorkspaceLaunchIntentStoreInvalid(t, baseServices)
 	})
 
 	t.Run("capacity exceeded", func(t *testing.T) {
 		t.Parallel()
-
-		intentService, err := workspacelaunch.NewIntentService(workspacelaunch.IntentServiceOptions{
-			RuntimeRoot:   filepath.Join(t.TempDir(), "runtime"),
-			Now:           func() time.Time { return time.Unix(1_710_000_000, 0).UTC() },
-			MaxPerSession: 1,
-			MaxTotal:      1,
-		})
-		if err != nil {
-			t.Fatalf("new intent service: %v", err)
-		}
-
-		router := chi.NewRouter()
-		if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
-			ModePolicy: modes.NewPolicy(config.ModeIDE),
-			Auth:       baseServices.authService,
-			Intents:    intentService,
-			Launch:     baseServices.launchService,
-		}); err != nil {
-			t.Fatalf("register workspace launch routes: %v", err)
-		}
-
-		makeRequest := func() CreateWorkspaceLaunchIntentResponse {
-			request := httptest.NewRequest(
-				http.MethodPost,
-				RouteCreateWorkspaceLaunchIntent,
-				strings.NewReader(`{"launchRequest":{"workspaceRoot":"/tmp/workspace"},"returnUrl":"http://127.0.0.1:3000/home"}`),
-			)
-			request.Header.Set("Content-Type", "application/json")
-			request.Header.Set("Origin", "http://127.0.0.1:3000")
-
-			response := httptest.NewRecorder()
-			router.ServeHTTP(response, request)
-			if response.Code != http.StatusOK {
-				t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
-			}
-			var payload CreateWorkspaceLaunchIntentResponse
-			if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
-				t.Fatalf("decode response: %v", err)
-			}
-			return payload
-		}
-
-		if payload := makeRequest(); !payload.Ok {
-			t.Fatalf("expected first intent creation to succeed, got %#v", payload)
-		}
-		if payload := makeRequest(); payload.Ok || payload.Error == nil || payload.Error.Code != "LaunchIntentStoreCapacityExceeded" {
-			t.Fatalf("expected capacity payload, got %#v", payload)
-		}
+		assertWorkspaceLaunchIntentCapacityExceeded(t, baseServices)
 	})
+}
+
+func assertWorkspaceLaunchIntentStoreUnavailable(t *testing.T, baseServices workspaceLaunchTestServices) {
+	t.Helper()
+
+	runtimeRootPath := filepath.Join(t.TempDir(), "runtime-root-file")
+	if err := os.WriteFile(runtimeRootPath, []byte("not a directory"), 0o644); err != nil {
+		t.Fatalf("write runtime-root file: %v", err)
+	}
+	intentService := newWorkspaceLaunchIntentService(t, workspacelaunch.IntentServiceOptions{
+		RuntimeRoot: runtimeRootPath,
+		Now:         workspaceLaunchIntentTestNow,
+	})
+
+	router := newWorkspaceLaunchIntentErrorRouter(t, baseServices, intentService)
+	payload := postWorkspaceLaunchIntent(t, router)
+	assertWorkspaceLaunchIntentErrorCode(t, payload, "LaunchIntentStoreUnavailable")
+}
+
+func assertWorkspaceLaunchIntentStoreInvalid(t *testing.T, baseServices workspaceLaunchTestServices) {
+	t.Helper()
+
+	runtimeRoot := filepath.Join(t.TempDir(), "runtime")
+	if err := os.MkdirAll(runtimeRoot, 0o755); err != nil {
+		t.Fatalf("mkdir runtime root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(runtimeRoot, "workspace_launch_intents.json"), []byte("{not-json"), 0o644); err != nil {
+		t.Fatalf("write invalid store payload: %v", err)
+	}
+	intentService := newWorkspaceLaunchIntentService(t, workspacelaunch.IntentServiceOptions{
+		RuntimeRoot: runtimeRoot,
+		Now:         workspaceLaunchIntentTestNow,
+	})
+
+	router := newWorkspaceLaunchIntentErrorRouter(t, baseServices, intentService)
+	payload := postWorkspaceLaunchIntent(t, router)
+	assertWorkspaceLaunchIntentErrorCode(t, payload, "LaunchIntentStoreInvalid")
+}
+
+func assertWorkspaceLaunchIntentCapacityExceeded(t *testing.T, baseServices workspaceLaunchTestServices) {
+	t.Helper()
+
+	intentService := newWorkspaceLaunchIntentService(t, workspacelaunch.IntentServiceOptions{
+		RuntimeRoot:   filepath.Join(t.TempDir(), "runtime"),
+		Now:           workspaceLaunchIntentTestNow,
+		MaxPerSession: 1,
+		MaxTotal:      1,
+	})
+
+	router := newWorkspaceLaunchIntentErrorRouter(t, baseServices, intentService)
+	if payload := postWorkspaceLaunchIntentOK(t, router); !payload.Ok {
+		t.Fatalf("expected first intent creation to succeed, got %#v", payload)
+	}
+	payload := postWorkspaceLaunchIntentOK(t, router)
+	assertWorkspaceLaunchIntentErrorCode(t, payload, "LaunchIntentStoreCapacityExceeded")
+}
+
+func workspaceLaunchIntentTestNow() time.Time {
+	return time.Unix(1_710_000_000, 0).UTC()
+}
+
+func newWorkspaceLaunchIntentService(
+	t *testing.T,
+	options workspacelaunch.IntentServiceOptions,
+) *workspacelaunch.IntentService {
+	t.Helper()
+
+	intentService, err := workspacelaunch.NewIntentService(options)
+	if err != nil {
+		t.Fatalf("new intent service: %v", err)
+	}
+	return intentService
+}
+
+func newWorkspaceLaunchIntentErrorRouter(
+	t *testing.T,
+	baseServices workspaceLaunchTestServices,
+	intentService *workspacelaunch.IntentService,
+) *chi.Mux {
+	t.Helper()
+
+	router := chi.NewRouter()
+	if err := RegisterWorkspaceLaunchRoutes(router, WorkspaceLaunchRouteDependencies{
+		ModePolicy: modes.NewPolicy(config.ModeIDE),
+		Auth:       baseServices.authService,
+		Intents:    intentService,
+		Launch:     baseServices.launchService,
+	}); err != nil {
+		t.Fatalf("register workspace launch routes: %v", err)
+	}
+	return router
+}
+
+func postWorkspaceLaunchIntent(t *testing.T, router *chi.Mux) CreateWorkspaceLaunchIntentResponse {
+	t.Helper()
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		RouteCreateWorkspaceLaunchIntent,
+		strings.NewReader(`{"launchRequest":{"workspaceRoot":"/tmp/workspace"},"returnUrl":"http://127.0.0.1:3000/home"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://127.0.0.1:3000")
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	var payload CreateWorkspaceLaunchIntentResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	return payload
+}
+
+func postWorkspaceLaunchIntentOK(t *testing.T, router *chi.Mux) CreateWorkspaceLaunchIntentResponse {
+	t.Helper()
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		RouteCreateWorkspaceLaunchIntent,
+		strings.NewReader(`{"launchRequest":{"workspaceRoot":"/tmp/workspace"},"returnUrl":"http://127.0.0.1:3000/home"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://127.0.0.1:3000")
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload CreateWorkspaceLaunchIntentResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	return payload
+}
+
+func assertWorkspaceLaunchIntentErrorCode(
+	t *testing.T,
+	payload CreateWorkspaceLaunchIntentResponse,
+	expectedCode string,
+) {
+	t.Helper()
+
+	if payload.Ok || payload.Error == nil || payload.Error.Code != expectedCode {
+		t.Fatalf("expected %s payload, got %#v", expectedCode, payload)
+	}
 }
 
 func TestRegisterWorkspaceLaunchRoutesLaunchesWorkspaceFromIntent(t *testing.T) {

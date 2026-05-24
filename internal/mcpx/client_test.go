@@ -212,7 +212,7 @@ func TestClientBuildHTTPHeadersMergesProviderAndConfig(t *testing.T) {
 	}
 
 	headers, err := client.buildHTTPHeaders(DefaultServerID, ServerConfig{
-		Transport:   TransportSSE,
+		Transport:   TransportStreamableHTTP,
 		URL:         "http://127.0.0.1:8000/mcp",
 		HTTPHeaders: map[string]string{"Authorization": "Bearer token"},
 	})
@@ -279,7 +279,7 @@ func TestClientStartConnectsAndCloseMarksDisabled(t *testing.T) {
 	client, err := NewClient(ClientOptions{
 		Servers: map[string]ServerConfig{
 			DefaultServerID: {
-				Transport: TransportSSE,
+				Transport: TransportStreamableHTTP,
 				URL:       "http://127.0.0.1:8000/mcp",
 			},
 		},
@@ -355,7 +355,7 @@ func TestClientInitialRuntimeStatusesIncludeConfiguredServers(t *testing.T) {
 	client, err := NewClient(ClientOptions{
 		Servers: map[string]ServerConfig{
 			DefaultServerID: {
-				Transport: TransportSSE,
+				Transport: TransportStreamableHTTP,
 				URL:       "http://127.0.0.1:8000/mcp",
 			},
 			"local_stdio": {
@@ -410,6 +410,27 @@ func TestClientRuntimeStatusTransitionsResetFailureMetadata(t *testing.T) {
 
 	client.markFailure("github", errors.New("connect failed"), "GITHUB_TOKEN")
 	status = client.RuntimeStatuses()[0]
+	assertRuntimeStatusFailureMetadata(t, status)
+
+	client.markRetrying("github")
+	status = client.RuntimeStatuses()[0]
+	if status.State != RuntimeStateRetrying {
+		t.Fatalf("expected retrying state, got %q", status.State)
+	}
+
+	client.markConnected("github", 5)
+	status = client.RuntimeStatuses()[0]
+	assertRuntimeStatusConnectedMetadata(t, status)
+
+	client.markFailure("github", errors.New("connect failed"), "GITHUB_TOKEN")
+	client.markDisabled("github")
+	status = client.RuntimeStatuses()[0]
+	assertRuntimeStatusDisabledMetadata(t, status)
+}
+
+func assertRuntimeStatusFailureMetadata(t *testing.T, status ServerRuntimeStatus) {
+	t.Helper()
+
 	if status.State != RuntimeStateError {
 		t.Fatalf("expected error state, got %q", status.State)
 	}
@@ -422,15 +443,11 @@ func TestClientRuntimeStatusTransitionsResetFailureMetadata(t *testing.T) {
 	if status.ConsecutiveFailures != 1 {
 		t.Fatalf("expected one failure, got %d", status.ConsecutiveFailures)
 	}
+}
 
-	client.markRetrying("github")
-	status = client.RuntimeStatuses()[0]
-	if status.State != RuntimeStateRetrying {
-		t.Fatalf("expected retrying state, got %q", status.State)
-	}
+func assertRuntimeStatusConnectedMetadata(t *testing.T, status ServerRuntimeStatus) {
+	t.Helper()
 
-	client.markConnected("github", 5)
-	status = client.RuntimeStatuses()[0]
 	if status.State != RuntimeStateConnected {
 		t.Fatalf("expected connected state, got %q", status.State)
 	}
@@ -449,10 +466,11 @@ func TestClientRuntimeStatusTransitionsResetFailureMetadata(t *testing.T) {
 	if status.ConsecutiveFailures != 0 {
 		t.Fatalf("expected failures reset on connect, got %d", status.ConsecutiveFailures)
 	}
+}
 
-	client.markFailure("github", errors.New("connect failed"), "GITHUB_TOKEN")
-	client.markDisabled("github")
-	status = client.RuntimeStatuses()[0]
+func assertRuntimeStatusDisabledMetadata(t *testing.T, status ServerRuntimeStatus) {
+	t.Helper()
+
 	if status.State != RuntimeStateDisabled {
 		t.Fatalf("expected disabled state, got %q", status.State)
 	}

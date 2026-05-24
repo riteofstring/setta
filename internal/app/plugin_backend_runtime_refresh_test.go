@@ -1151,53 +1151,12 @@ func TestCommitAppliedLanguageServerPluginsDoesNotOverwriteNewerAppliedSpecs(t *
 
 	writerErrs := make(chan error, 1)
 	go func() {
-		payload, err := json.Marshal(map[string]any{
-			"pendingRestartBackendPluginIds": []string{"setta-unrelated"},
-		})
-		if err != nil {
-			writerErrs <- err
-			return
-		}
-		writer, err := os.OpenFile(statePath, os.O_WRONLY, 0)
-		if err != nil {
-			writerErrs <- err
-			return
-		}
-		if _, err := writer.Write(payload); err != nil {
-			_ = writer.Close()
-			writerErrs <- err
-			return
-		}
-		if err := writer.Close(); err != nil {
-			writerErrs <- err
-			return
-		}
-		writerErrs <- nil
+		writerErrs <- writeAppPluginStateFIFOForAppliedSpecCommitTest(statePath)
 	}()
 
-	select {
-	case err := <-writerErrs:
-		if err != nil {
-			t.Fatalf("write plugins state fifo: %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out writing plugins state fifo")
-	}
-
-	select {
-	case err := <-commitErrs:
-		if err != nil {
-			t.Fatalf("commit applied language server plugins: %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for applied language server commit")
-	}
-
-	select {
-	case <-mutationDone:
-	case <-time.After(5 * time.Second):
-		t.Fatal("timed out waiting for concurrent applied spec mutation")
-	}
+	waitAppPluginBackendRuntimeAsyncError(t, writerErrs, "write plugins state fifo")
+	waitAppPluginBackendRuntimeAsyncError(t, commitErrs, "commit applied language server plugins")
+	waitAppPluginBackendRuntimeAsyncDone(t, mutationDone, "concurrent applied spec mutation")
 
 	app.pluginRuntime.mu.Lock()
 	defer app.pluginRuntime.mu.Unlock()
@@ -1207,6 +1166,47 @@ func TestCommitAppliedLanguageServerPluginsDoesNotOverwriteNewerAppliedSpecs(t *
 	}
 	if !languageServerSpecSlicesEqual(app.pluginRuntime.lspSpecs, updated) {
 		t.Fatalf("expected current specs to keep the newer updated set, got %#v", app.pluginRuntime.lspSpecs)
+	}
+}
+
+func writeAppPluginStateFIFOForAppliedSpecCommitTest(statePath string) error {
+	payload, err := json.Marshal(map[string]any{
+		"pendingRestartBackendPluginIds": []string{"setta-unrelated"},
+	})
+	if err != nil {
+		return err
+	}
+	writer, err := os.OpenFile(statePath, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	if _, err := writer.Write(payload); err != nil {
+		_ = writer.Close()
+		return err
+	}
+	return writer.Close()
+}
+
+func waitAppPluginBackendRuntimeAsyncError(t *testing.T, errs <-chan error, label string) {
+	t.Helper()
+
+	select {
+	case err := <-errs:
+		if err != nil {
+			t.Fatalf("%s: %v", label, err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for %s", label)
+	}
+}
+
+func waitAppPluginBackendRuntimeAsyncDone(t *testing.T, done <-chan struct{}, label string) {
+	t.Helper()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("timed out waiting for %s", label)
 	}
 }
 

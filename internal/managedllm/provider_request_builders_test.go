@@ -91,6 +91,14 @@ func TestBuildGeminiGenerateContentConfigAppliesAliasesToolsAndThinking(t *testi
 	if err != nil {
 		t.Fatalf("build gemini generate content config: %v", err)
 	}
+	assertGeminiGenerationLimitsAndSystemInstruction(t, config)
+	assertGeminiToolConfig(t, config)
+	assertGeminiThinkingConfig(t, config)
+}
+
+func assertGeminiGenerationLimitsAndSystemInstruction(t *testing.T, config *genai.GenerateContentConfig) {
+	t.Helper()
+
 	if config.MaxOutputTokens != 128 {
 		t.Fatalf("expected max output tokens 128, got %d", config.MaxOutputTokens)
 	}
@@ -103,6 +111,11 @@ func TestBuildGeminiGenerateContentConfigAppliesAliasesToolsAndThinking(t *testi
 	if len(config.SystemInstruction.Parts) != 1 || config.SystemInstruction.Parts[0].Text != "System prompt" {
 		t.Fatalf("expected system prompt text, got %#v", config.SystemInstruction)
 	}
+}
+
+func assertGeminiToolConfig(t *testing.T, config *genai.GenerateContentConfig) {
+	t.Helper()
+
 	if len(config.Tools) != 1 || len(config.Tools[0].FunctionDeclarations) != 1 {
 		t.Fatalf("expected one tool declaration, got %#v", config.Tools)
 	}
@@ -116,6 +129,11 @@ func TestBuildGeminiGenerateContentConfigAppliesAliasesToolsAndThinking(t *testi
 	if config.ToolConfig.FunctionCallingConfig.Mode != genai.FunctionCallingConfigModeAuto {
 		t.Fatalf("expected auto function calling mode, got %#v", config.ToolConfig.FunctionCallingConfig.Mode)
 	}
+}
+
+func assertGeminiThinkingConfig(t *testing.T, config *genai.GenerateContentConfig) {
+	t.Helper()
+
 	if config.ThinkingConfig == nil {
 		t.Fatal("expected thinking config")
 	}
