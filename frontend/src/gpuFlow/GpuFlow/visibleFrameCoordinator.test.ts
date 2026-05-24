@@ -25,6 +25,7 @@ import {
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
   createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
+  createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import { createGpuFlowVisiblePublicationCommitProofFactory } from "./visibleFrameTransactionProofs";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
@@ -54,8 +55,15 @@ const createGpuFlowVisiblePublicationCommitProof = ({
           projectionSampleId: publicationDecision.sample.id,
           projectionTransactionId,
         }),
+      textureEvictionEvidence:
+        createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
+          committedFrame,
+          projectionSampleId: publicationDecision.sample.id,
+          projectionTransactionId,
+        }),
     },
     publicationDecision,
+    projectionTransactionKind: "content-publication",
     projectionTransactionId,
   });
 };
@@ -82,6 +90,9 @@ describe("GPU Flow visible frame coordinator", () => {
         >;
         readonly domTransformEvidence: ReturnType<
           typeof createGpuFlowVisiblePublicationDomTransformPresentationEvidence
+        >;
+        readonly textureEvictionEvidence: ReturnType<
+          typeof createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence
         >;
       };
       readonly rendered: boolean;
@@ -118,6 +129,14 @@ describe("GPU Flow visible frame coordinator", () => {
                 projectionSampleId: contentVisibleState.sample.id,
                 projectionTransactionId: contentVisibleState.transaction.id,
               }),
+            textureEvictionEvidence:
+              createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence(
+                {
+                  committedFrame: contentVisibleState.committedFrame,
+                  projectionSampleId: contentVisibleState.sample.id,
+                  projectionTransactionId: contentVisibleState.transaction.id,
+                },
+              ),
           },
           rendered: true,
           visibleProjectionState: contentVisibleState,

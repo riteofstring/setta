@@ -24,9 +24,18 @@ export type GpuFlowVisiblePublicationDomTransformPresentationEvidence = {
   readonly source: "deferred-dom-transform-submission";
 };
 
+export type GpuFlowVisiblePublicationTextureEvictionPresentationEvidence = {
+  readonly committedFrameId: number;
+  readonly prepared: true;
+  readonly projectionSampleId: number;
+  readonly projectionTransactionId: string;
+  readonly source: "deferred-texture-eviction-submission";
+};
+
 export type GpuFlowVisiblePublicationPresentationEvidence = {
   readonly canvasGenerationEvidence: GpuFlowVisiblePublicationCanvasPresentationEvidence;
   readonly domTransformEvidence: GpuFlowVisiblePublicationDomTransformPresentationEvidence | null;
+  readonly textureEvictionEvidence: GpuFlowVisiblePublicationTextureEvictionPresentationEvidence | null;
 };
 
 export function createGpuFlowVisiblePublicationPresentationEvidence({
@@ -44,6 +53,9 @@ export function createGpuFlowVisiblePublicationPresentationEvidence({
   }
   const domTransformSubmission =
     nodeLayerFrameStatePublication.layerResult.domTransformSubmission ?? null;
+  const textureEvictionSubmission =
+    nodeLayerFrameStatePublication.layerResult.textureEvictionSubmission ??
+    null;
   return Object.freeze({
     canvasGenerationEvidence:
       createGpuFlowVisiblePublicationCanvasPresentationEvidence({
@@ -56,6 +68,13 @@ export function createGpuFlowVisiblePublicationPresentationEvidence({
       }),
     domTransformEvidence: domTransformSubmission
       ? createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
+          committedFrame: visibleProjectionState.committedFrame,
+          projectionSampleId: visibleProjectionState.sample.id,
+          projectionTransactionId: visibleProjectionState.transaction.id,
+        })
+      : null,
+    textureEvictionEvidence: textureEvictionSubmission
+      ? createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
           committedFrame: visibleProjectionState.committedFrame,
           projectionSampleId: visibleProjectionState.sample.id,
           projectionTransactionId: visibleProjectionState.transaction.id,
@@ -108,6 +127,24 @@ export function createGpuFlowVisiblePublicationDomTransformPresentationEvidence(
   });
 }
 
+export function createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
+  committedFrame,
+  projectionSampleId,
+  projectionTransactionId,
+}: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly projectionSampleId: number;
+  readonly projectionTransactionId: string;
+}): GpuFlowVisiblePublicationTextureEvictionPresentationEvidence {
+  return Object.freeze({
+    committedFrameId: committedFrame.displayFrameId,
+    prepared: true as const,
+    projectionSampleId,
+    projectionTransactionId,
+    source: "deferred-texture-eviction-submission" as const,
+  });
+}
+
 export function createGpuFlowVisiblePublicationPresentationBlockedReasons({
   presentationEvidence,
   publicationDecision,
@@ -129,6 +166,15 @@ export function createGpuFlowVisiblePublicationPresentationBlockedReasons({
       publicationDecision,
       visibleProjectionState,
     }),
+    ...createGpuFlowVisiblePublicationTextureEvictionPresentationBlockedReasons(
+      {
+        committedFrame,
+        publicationDecision,
+        textureEvictionEvidence:
+          presentationEvidence?.textureEvictionEvidence ?? null,
+        visibleProjectionState,
+      },
+    ),
     ...createGpuFlowVisiblePublicationCanvasPresentationBlockedReasons({
       canvasEvidence: presentationEvidence?.canvasGenerationEvidence ?? null,
       committedFrame,
@@ -215,6 +261,65 @@ function createGpuFlowVisiblePublicationDomTransformPresentationBlockedReasons({
       actorId: null,
       family: "presentation-pair",
       reason: "dom-transform-transaction-mismatch",
+    });
+  }
+  return Object.freeze(reasons);
+}
+
+function createGpuFlowVisiblePublicationTextureEvictionPresentationBlockedReasons({
+  committedFrame,
+  publicationDecision,
+  textureEvictionEvidence,
+  visibleProjectionState,
+}: {
+  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly textureEvictionEvidence: GpuFlowVisiblePublicationTextureEvictionPresentationEvidence | null;
+  readonly visibleProjectionState: GpuFlowVisibleProjectionState;
+}): readonly GpuFlowVisiblePublicationPresentationBlockedReason[] {
+  const reasons: GpuFlowVisiblePublicationPresentationBlockedReason[] = [];
+  if (visibleProjectionState.transaction.kind === "motion-projection") {
+    if (textureEvictionEvidence !== null) {
+      reasons.push({
+        actorId: null,
+        family: "presentation-pair",
+        reason: "texture-eviction-unexpected-for-motion",
+      });
+    }
+    return Object.freeze(reasons);
+  }
+  if (!textureEvictionEvidence) {
+    reasons.push({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "texture-eviction-not-prepared",
+    });
+    return Object.freeze(reasons);
+  }
+  if (textureEvictionEvidence.committedFrameId !== committedFrame.displayFrameId) {
+    reasons.push({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "texture-eviction-frame-mismatch",
+    });
+  }
+  if (
+    textureEvictionEvidence.projectionSampleId !== publicationDecision.sample.id
+  ) {
+    reasons.push({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "texture-eviction-sample-mismatch",
+    });
+  }
+  if (
+    textureEvictionEvidence.projectionTransactionId !==
+    visibleProjectionState.transaction.id
+  ) {
+    reasons.push({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "texture-eviction-transaction-mismatch",
     });
   }
   return Object.freeze(reasons);

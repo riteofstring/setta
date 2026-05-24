@@ -9,6 +9,7 @@ import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./visi
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
   createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
+  createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
 import type {
@@ -54,8 +55,15 @@ const createGpuFlowVisiblePublicationCommitProof = ({
           projectionSampleId: publicationDecision.sample.id,
           projectionTransactionId,
         }),
+      textureEvictionEvidence:
+        createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
+          committedFrame,
+          projectionSampleId: publicationDecision.sample.id,
+          projectionTransactionId,
+        }),
     },
     publicationDecision,
+    projectionTransactionKind: "content-publication",
     projectionTransactionId,
   });
 };
@@ -487,6 +495,13 @@ function presentationProof(projectionSampleId = 10) {
       projectionTransactionId: "transaction-a",
       source: "deferred-dom-transform-submission",
     },
+    textureEvictionEvidence: {
+      committedFrameId: 7,
+      prepared: true,
+      projectionSampleId,
+      projectionTransactionId: "transaction-a",
+      source: "deferred-texture-eviction-submission",
+    },
     canvasGeneration: {
       canvasRetainedFrameId: 7,
       debugSnapshotFrameId: 7,
@@ -515,6 +530,7 @@ function presentationProof(projectionSampleId = 10) {
       source: "browser-visual-runtime-candidate",
       staged: true,
     },
+    projectionTransactionKind: "content-publication",
     surfaceTransactionDigest: "surface-transaction-digest",
   };
 }

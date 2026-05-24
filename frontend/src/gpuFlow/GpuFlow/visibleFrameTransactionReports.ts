@@ -1,8 +1,10 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowProjectionTransactionKind } from "../projectionRuntime";
 import type {
   GpuFlowVisiblePublicationCanvasPresentationEvidence,
   GpuFlowVisiblePublicationDomTransformPresentationEvidence,
   GpuFlowVisiblePublicationPresentationEvidence,
+  GpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 
 export type GpuFlowVisiblePublicationPresentationProofReport = {
@@ -15,7 +17,9 @@ export type GpuFlowVisiblePublicationPresentationProofReport = {
   readonly domGenerationEvidence: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGenerationEvidence"];
   readonly domGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGeneration"];
   readonly projectionSampleId: number;
+  readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly surfaceTransactionDigest: string | null;
+  readonly textureEvictionEvidence: GpuFlowVisiblePublicationTextureEvictionPresentationEvidence | null;
 };
 
 export function createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame({
@@ -153,14 +157,32 @@ export function createGpuFlowVisiblePublicationPresentationProofReportForFrame({
   committedFrame,
   presentationEvidence,
   projectionSampleId,
+  projectionTransactionKind,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence;
   readonly projectionSampleId: number;
+  readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
 }): GpuFlowVisiblePublicationPresentationProofReport {
   if (presentationEvidence.domTransformEvidence === null) {
     throw new Error(
       "GPU Flow visible publication presentation proof requires deferred DOM transform evidence.",
+    );
+  }
+  if (
+    projectionTransactionKind === "content-publication" &&
+    presentationEvidence.textureEvictionEvidence === null
+  ) {
+    throw new Error(
+      "GPU Flow visible publication presentation proof requires deferred texture eviction evidence.",
+    );
+  }
+  if (
+    projectionTransactionKind === "motion-projection" &&
+    presentationEvidence.textureEvictionEvidence !== null
+  ) {
+    throw new Error(
+      "GPU Flow visible publication presentation proof forbids texture eviction evidence during motion projection.",
     );
   }
   const proof = committedFrame.presentationProof;
@@ -178,7 +200,12 @@ export function createGpuFlowVisiblePublicationPresentationProofReportForFrame({
     domGenerationEvidence: Object.freeze({ ...proof.domGenerationEvidence }),
     domGeneration: Object.freeze({ ...proof.domGeneration }),
     projectionSampleId,
+    projectionTransactionKind,
     surfaceTransactionDigest: proof.surfaceTransactionDigest,
+    textureEvictionEvidence:
+      presentationEvidence.textureEvictionEvidence === null
+        ? null
+        : Object.freeze({ ...presentationEvidence.textureEvictionEvidence }),
   });
 }
 

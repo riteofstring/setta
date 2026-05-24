@@ -11,6 +11,7 @@ import {
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
   createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
+  createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import type {
@@ -213,6 +214,12 @@ function createGpuFlowVisiblePublicationTestPresentationEvidence({
       }),
     domTransformEvidence:
       createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
+        committedFrame: visibleProjectionState.committedFrame,
+        projectionSampleId: visibleProjectionState.sample.id,
+        projectionTransactionId: visibleProjectionState.transaction.id,
+      }),
+    textureEvictionEvidence:
+      createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
         committedFrame: visibleProjectionState.committedFrame,
         projectionSampleId: visibleProjectionState.sample.id,
         projectionTransactionId: visibleProjectionState.transaction.id,

@@ -12,6 +12,7 @@ import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTran
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
   createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
+  createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import {
   assertGpuFlowCommitPublicationToken,
@@ -185,6 +186,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       frame,
       presentationPairProof: pairProof,
       projectionSampleId: projectionSample.id,
+      projectionTransactionKind: "content-publication",
       projectionTransactionId:
         pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
@@ -212,6 +214,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       frame,
       presentationPairProof: pairProof,
       projectionSampleId: projectionSample.id,
+      projectionTransactionKind: "content-publication",
       projectionTransactionId:
         pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
@@ -242,6 +245,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       frame,
       presentationPairProof: pairProof,
       projectionSampleId: projectionSample.id,
+      projectionTransactionKind: "content-publication",
       projectionTransactionId:
         pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
@@ -285,6 +289,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         frame,
         presentationPairProof: pairProof,
         projectionSampleId: projectionSample.id,
+        projectionTransactionKind: "content-publication",
         projectionTransactionId:
           pairProof.canvasGenerationEvidence.projectionTransactionId,
       }),
@@ -637,6 +642,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       frame,
       presentationPairProof: pairProof,
       projectionSampleId: projectionSample.id,
+      projectionTransactionKind: "content-publication",
       projectionTransactionId:
         pairProof.canvasGenerationEvidence.projectionTransactionId,
     });
@@ -918,6 +924,13 @@ function presentationPairProof({
         projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
       }),
     projectionSampleId: projectionSample.id,
+    projectionTransactionKind: "content-publication" as const,
+    textureEvictionEvidence:
+      createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence({
+        committedFrame: frame,
+        projectionSampleId: projectionSample.id,
+        projectionTransactionId: `test-content-publication:${frame.displayFrameId}:${projectionSample.id}`,
+      }),
   };
 }
 

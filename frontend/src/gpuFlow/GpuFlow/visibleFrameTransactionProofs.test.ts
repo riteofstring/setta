@@ -23,6 +23,7 @@ import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./vi
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
   createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
+  createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import {
@@ -94,6 +95,7 @@ function createGpuFlowVisiblePublicationCommitProof({
     committedFrame,
     presentationEvidence: selectedPresentationEvidence,
     publicationDecision,
+    projectionTransactionKind: "content-publication",
     projectionTransactionId:
       selectedPresentationEvidence.canvasGenerationEvidence
         .projectionTransactionId,
@@ -163,6 +165,8 @@ function withTestGpuFlowVisiblePublicationPresentationEvidence<
         publicationDecision: {
           sample: candidate.visibleProjectionState.sample,
         },
+        projectionTransactionKind:
+          candidate.visibleProjectionState.transaction.kind,
         projectionTransactionId:
           candidate.visibleProjectionState.transaction.id,
       }),
@@ -172,11 +176,13 @@ function withTestGpuFlowVisiblePublicationPresentationEvidence<
 function createTestGpuFlowVisiblePublicationPresentationEvidence({
   committedFrame,
   publicationDecision,
+  projectionTransactionKind = "content-publication",
   projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly publicationDecision: Pick<GpuFlowVisiblePublicationDecision, "sample">;
-  readonly projectionTransactionId?: string | undefined;
+  readonly projectionTransactionKind?: GpuFlowProjectionTransactionKind;
+  readonly projectionTransactionId?: string;
 }): GpuFlowVisiblePublicationPresentationEvidence {
   const projectionSampleId = publicationDecision.sample.id;
   const evidenceInput = { committedFrame, projectionSampleId, projectionTransactionId };
@@ -187,9 +193,14 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
       createGpuFlowVisiblePublicationDomTransformPresentationEvidence(
         evidenceInput,
       ),
+    textureEvictionEvidence:
+      projectionTransactionKind === "motion-projection"
+        ? null
+        : createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence(
+            evidenceInput,
+          ),
   });
 }
-
 describe("GPU Flow visible frame transaction proofs", () => {
   it("keeps candidate-set proof assembly out of the coordinator wrapper", () => {
     const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
@@ -1165,24 +1176,13 @@ function createRetainedDomControlCompatiblePreviousProof({
   };
 }
 
-function rect() {
-  return { height: 20, width: 100, x: 0, y: 0 };
-}
-
+function rect() { return { height: 20, width: 100, x: 0, y: 0 }; }
 function publicationDecision(sample: GpuFlowLiveProjectionSample): GpuFlowVisiblePublicationDecision {
-  return {
-    debt: { content: true, maintenance: false, motion: false },
-    lane: "content",
-    rawReasons: ["manual"],
-    sample,
-    schedulerState: "idle",
-  };
+  const debt = { content: true, maintenance: false, motion: false };
+  return { debt, lane: "content", rawReasons: ["manual"], sample, schedulerState: "idle" };
 }
 
-function liveProjectionSample(input: {
-  readonly id: number;
-  readonly timestamp: number;
-}): GpuFlowLiveProjectionSample {
+function liveProjectionSample(input: { readonly id: number; readonly timestamp: number }): GpuFlowLiveProjectionSample {
   return {
     cssViewport: { height: 600, width: 800 },
     devicePixelRatio: 1,

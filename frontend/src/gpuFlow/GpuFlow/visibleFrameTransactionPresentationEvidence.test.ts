@@ -16,6 +16,7 @@ import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./vi
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
   createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
+  createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
 import {
@@ -120,6 +121,8 @@ function withTestGpuFlowVisiblePublicationPresentationEvidence<
         publicationDecision: {
           sample: candidate.visibleProjectionState.sample,
         },
+        projectionTransactionKind:
+          candidate.visibleProjectionState.transaction.kind,
         projectionTransactionId:
           candidate.visibleProjectionState.transaction.id,
       }),
@@ -132,7 +135,9 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
   drawnNodeIds,
   missingTextureNodeIds,
   publicationDecision,
+  projectionTransactionKind = "content-publication",
   projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`,
+  textureEvictionPrepared = true,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly domTransformPrepared?: boolean | undefined;
@@ -142,24 +147,34 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
     GpuFlowVisiblePublicationDecision,
     "sample"
   >;
+  readonly projectionTransactionKind?: GpuFlowProjectionTransactionKind | undefined;
   readonly projectionTransactionId?: string | undefined;
+  readonly textureEvictionPrepared?: boolean | undefined;
 }): GpuFlowVisiblePublicationPresentationEvidence {
+  const evidenceInput = {
+    committedFrame,
+    projectionSampleId: publicationDecision.sample.id,
+    projectionTransactionId,
+  };
   return Object.freeze({
     canvasGenerationEvidence:
       createGpuFlowVisiblePublicationCanvasPresentationEvidence({
-        committedFrame,
+        ...evidenceInput,
         drawnNodeIds,
         missingTextureNodeIds,
-        projectionSampleId: publicationDecision.sample.id,
-        projectionTransactionId,
       }),
     domTransformEvidence: domTransformPrepared
       ? createGpuFlowVisiblePublicationDomTransformPresentationEvidence({
-          committedFrame,
-          projectionSampleId: publicationDecision.sample.id,
-          projectionTransactionId,
+          ...evidenceInput,
         })
       : null,
+    textureEvictionEvidence:
+      textureEvictionPrepared &&
+      projectionTransactionKind !== "motion-projection"
+        ? createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence(
+            evidenceInput,
+          )
+        : null,
   });
 }
 
@@ -225,6 +240,43 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
       actorId: null,
       family: "presentation-pair",
       reason: "dom-transform-not-prepared",
+    });
+    expect(proof.commitProof).toBeNull();
+    expect(proof.renderedVisibleFrame).toBe(false);
+  });
+
+  it("blocks commit authority when deferred texture eviction is not prepared", () => {
+    const contentVisibleState = visibleProjectionState({
+      kind: "content-publication",
+      sample: liveProjectionSample({ id: 57, timestamp: 570 }),
+    });
+
+    const proof = createGpuFlowVisibleFramePublicationTransactionProof({
+      contentPublicationFrame: {
+        blockedPublicationCandidate: null,
+        presentationEvidence:
+          createTestGpuFlowVisiblePublicationPresentationEvidence({
+            committedFrame: contentVisibleState.committedFrame,
+            publicationDecision: publicationDecision(
+              contentVisibleState.sample,
+            ),
+            projectionTransactionId: contentVisibleState.transaction.id,
+            textureEvictionPrepared: false,
+          }),
+        visibleProjectionState: contentVisibleState,
+      },
+      motionProjectionFrame: {
+        blockedPublicationCandidate: null,
+        visibleProjectionState: null,
+      },
+      publicationDecision: publicationDecision(contentVisibleState.sample),
+    });
+
+    expect(proof.blockedSource).toBe("presentation-pair");
+    expect(proof.blockedPublicationCandidate?.blockedReasons).toContainEqual({
+      actorId: null,
+      family: "presentation-pair",
+      reason: "texture-eviction-not-prepared",
     });
     expect(proof.commitProof).toBeNull();
     expect(proof.renderedVisibleFrame).toBe(false);

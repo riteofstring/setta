@@ -1,7 +1,10 @@
 // Builds immutable transaction proof records; visible mutation stays in the presenter.
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
-import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
+import type {
+  GpuFlowProjectionTransactionKind,
+  GpuFlowVisibleProjectionState,
+} from "../projectionRuntime";
 import {
   assertGpuFlowVisiblePublicationCommitActorProofs,
   createGpuFlowVisiblePublicationActorProofDigest,
@@ -56,6 +59,7 @@ export type GpuFlowVisiblePublicationCommitProofFactory = (input: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly projectionTransactionId: GpuFlowVisibleProjectionState["transaction"]["id"];
 }) => GpuFlowVisiblePublicationCommitProof;
 
@@ -205,11 +209,13 @@ function createGpuFlowVisiblePublicationCommitProof({
   committedFrame,
   presentationEvidence,
   publicationDecision,
+  projectionTransactionKind,
   projectionTransactionId,
 }: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly projectionTransactionId: GpuFlowVisibleProjectionState["transaction"]["id"];
 }) {
   const actorProofs = createGpuFlowVisiblePublicationActorProofsForFrame({
@@ -236,6 +242,7 @@ function createGpuFlowVisiblePublicationCommitProof({
       committedFrame,
       presentationEvidence,
       projectionSampleId: publicationDecision.sample.id,
+      projectionTransactionKind,
     });
   const hasCompatiblePreviousCoverage =
     hasGpuFlowVisiblePublicationCompatiblePreviousCoverage({
@@ -264,6 +271,7 @@ function createGpuFlowVisiblePublicationCommitProof({
       frame: committedFrame,
       presentationPairProof: presentationProof,
       projectionSampleId: publicationDecision.sample.id,
+      projectionTransactionKind,
       projectionTransactionId,
     }),
     presentationProof,
@@ -803,6 +811,7 @@ function createGpuFlowVisibleFramePublicationTransactionCommitProof({
     committedFrame: visibleProjectionState.committedFrame,
     presentationEvidence,
     publicationDecision,
+    projectionTransactionKind: visibleProjectionState.transaction.kind,
     projectionTransactionId: visibleProjectionState.transaction.id,
   });
 }

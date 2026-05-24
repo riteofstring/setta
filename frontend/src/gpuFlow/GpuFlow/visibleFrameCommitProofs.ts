@@ -4,7 +4,10 @@ import {
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
 import { createGpuFlowJsonDigest } from "../gpuFlowDigest";
-import type { GpuFlowProjectionTransaction } from "../projectionRuntime";
+import type {
+  GpuFlowProjectionTransaction,
+  GpuFlowProjectionTransactionKind,
+} from "../projectionRuntime";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
   createGpuFlowVisiblePublicationResourceProtectionDigest,
@@ -37,10 +40,18 @@ export type GpuFlowCommitPresentationPairProof = {
     readonly projectionTransactionId: string;
     readonly source: "deferred-dom-transform-submission";
   };
+  readonly textureEvictionEvidence: {
+    readonly committedFrameId: number;
+    readonly prepared: true;
+    readonly projectionSampleId: number;
+    readonly projectionTransactionId: string;
+    readonly source: "deferred-texture-eviction-submission";
+  } | null;
   readonly canvasGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["canvasGeneration"];
   readonly domGenerationEvidence: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGenerationEvidence"];
   readonly domGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGeneration"];
   readonly projectionSampleId: GpuFlowProjectionSampleId;
+  readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly surfaceTransactionDigest: string | null;
 };
 
@@ -48,6 +59,7 @@ export type GpuFlowCommitAuthorityProof = {
   readonly expectedActorSetDigest: GpuFlowActorManifestDigest;
   readonly presentationPairDigest: GpuFlowPresentationPairDigest;
   readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
+  readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly projectionTransactionId: GpuFlowProjectionTransaction["id"];
   readonly proofDigest: GpuFlowVisibleProofDigest;
   readonly resourceProtectionDigest: GpuFlowResourceProtectionDigest;
@@ -57,17 +69,20 @@ export function createGpuFlowCommitAuthorityProof({
   frame,
   presentationPairProof,
   projectionSampleId,
+  projectionTransactionKind,
   projectionTransactionId,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
   readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
+  readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly projectionTransactionId: GpuFlowProjectionTransaction["id"];
 }): GpuFlowCommitAuthorityProof {
   assertGpuFlowCommitPresentationPairProof({
     frame,
     presentationPairProof,
     projectionSampleId,
+    projectionTransactionKind,
     projectionTransactionId,
   });
   const resourceProtectionDigest =
@@ -80,6 +95,7 @@ export function createGpuFlowCommitAuthorityProof({
       projectionSampleId,
     }),
     presentationPairProof,
+    projectionTransactionKind,
     projectionTransactionId,
     proofDigest: createGpuFlowVisibleProofDigest(frame),
     resourceProtectionDigest,
@@ -140,6 +156,7 @@ function assertGpuFlowCommitAuthorityProofMatchesFrame({
     frame,
     presentationPairProof: commitAuthorityProof.presentationPairProof,
     projectionSampleId,
+    projectionTransactionKind: commitAuthorityProof.projectionTransactionKind,
     projectionTransactionId: commitAuthorityProof.projectionTransactionId,
   });
   const resourceProtectionDigest =
@@ -173,11 +190,13 @@ export function assertGpuFlowCommitPresentationPairProof({
   frame,
   presentationPairProof,
   projectionSampleId,
+  projectionTransactionKind,
   projectionTransactionId,
 }: {
   readonly frame: GpuFlowCommittedSurfaceFrame;
   readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
+  readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly projectionTransactionId: GpuFlowProjectionTransaction["id"];
 }): void {
   const expected = frame.presentationProof;
@@ -186,6 +205,7 @@ export function assertGpuFlowCommitPresentationPairProof({
       expected,
       presentationPairProof,
       projectionSampleId,
+      projectionTransactionKind,
     }) ||
     !areGpuFlowDomPresentationGenerationEvidenceEqual(
       presentationPairProof.domGenerationEvidence,
@@ -196,6 +216,13 @@ export function assertGpuFlowCommitPresentationPairProof({
       presentationPairProof,
       projectionSampleId,
       projectionTransactionId,
+    }) ||
+    !isGpuFlowTextureEvictionPresentationEvidenceValid({
+      frame,
+      presentationPairProof,
+      projectionSampleId,
+      projectionTransactionId,
+      projectionTransactionKind,
     }) ||
     !isGpuFlowDomTransformPresentationEvidenceValid({
       frame,
@@ -222,13 +249,17 @@ function isGpuFlowCommitPresentationPairProofHeaderValid({
   expected,
   presentationPairProof,
   projectionSampleId,
+  projectionTransactionKind,
 }: {
   readonly expected: GpuFlowCommittedSurfaceFrame["presentationProof"];
   readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
+  readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
 }): boolean {
   return (
     presentationPairProof.projectionSampleId === projectionSampleId &&
+    presentationPairProof.projectionTransactionKind ===
+      projectionTransactionKind &&
     presentationPairProof.batchId === expected.batchId &&
     presentationPairProof.actorManifestDigest ===
       expected.actorManifestDigest &&
@@ -298,6 +329,37 @@ function isGpuFlowDomTransformPresentationEvidenceValid({
     domTransformEvidence.projectionTransactionId ===
       projectionTransactionId &&
     domTransformEvidence.source === "deferred-dom-transform-submission"
+  );
+}
+
+function isGpuFlowTextureEvictionPresentationEvidenceValid({
+  frame,
+  presentationPairProof,
+  projectionSampleId,
+  projectionTransactionId,
+  projectionTransactionKind,
+}: {
+  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly presentationPairProof: GpuFlowCommitPresentationPairProof;
+  readonly projectionSampleId: GpuFlowProjectionSampleId;
+  readonly projectionTransactionId: GpuFlowProjectionTransaction["id"];
+  readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
+}): boolean {
+  const textureEvictionEvidence =
+    presentationPairProof.textureEvictionEvidence;
+  if (projectionTransactionKind === "motion-projection") {
+    return textureEvictionEvidence === null;
+  }
+  if (textureEvictionEvidence === null) {
+    return false;
+  }
+  return (
+    textureEvictionEvidence.committedFrameId === frame.displayFrameId &&
+    textureEvictionEvidence.prepared === true &&
+    textureEvictionEvidence.projectionSampleId === projectionSampleId &&
+    textureEvictionEvidence.projectionTransactionId ===
+      projectionTransactionId &&
+    textureEvictionEvidence.source === "deferred-texture-eviction-submission"
   );
 }
 
@@ -428,10 +490,12 @@ export function createGpuFlowPresentationPairDigest({
     presentationBatchId: frame.presentationProof.batchId,
     presentationProofDigest: createGpuFlowPresentationProofDigest(frame),
     projectionSampleId,
+    projectionTransactionKind: presentationPairProof.projectionTransactionKind,
     proofDigest: createGpuFlowVisibleProofDigest(frame),
     proofPresentationActorManifestDigest:
       frame.presentationProof.actorManifestDigest,
     surfaceTransactionDigest: frame.presentationProof.surfaceTransactionDigest,
+    textureEvictionEvidence: presentationPairProof.textureEvictionEvidence,
   });
 }
 

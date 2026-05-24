@@ -406,6 +406,8 @@ export function assertGpuFlowCommitPublicationToken({
     frame,
     presentationPairProof: token.presentationPairProof,
     projectionSampleId: token.projectionSampleId,
+    projectionTransactionKind:
+      token.presentationPairProof.projectionTransactionKind,
     projectionTransactionId:
       token.presentationPairProof.canvasGenerationEvidence
         .projectionTransactionId,
@@ -442,6 +444,8 @@ export function assertGpuFlowCommitPublicationTokenForPresentationProof({
     frame,
     presentationPairProof: token.presentationPairProof,
     projectionSampleId: token.projectionSampleId,
+    projectionTransactionKind:
+      token.presentationPairProof.projectionTransactionKind,
     projectionTransactionId:
       token.presentationPairProof.canvasGenerationEvidence
         .projectionTransactionId,

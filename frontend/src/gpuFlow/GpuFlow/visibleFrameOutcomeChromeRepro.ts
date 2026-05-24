@@ -282,6 +282,7 @@ function summarizeChromeReproPresentationProof(
     surfaceTransactionDigest: summarizeChromeReproDigest(
       proof.surfaceTransactionDigest,
     ),
+    textureEvictionPrepared: proof.textureEvictionEvidence?.prepared ?? false,
   };
 }
 
