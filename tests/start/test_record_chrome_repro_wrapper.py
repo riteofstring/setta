@@ -1,4 +1,5 @@
 import json
+import sys
 from pathlib import Path
 
 from tests.start.dev_script_wiring_helpers import (
@@ -72,6 +73,7 @@ PY
         env["SETTA_CHROME_REPRO_BOOTSTRAP_URL"] = (
             f"{bootstrap_base_url}/__setta__/bootstrap#token=test-token"
         )
+        env["CHROME_EXTRA_ARGS"] = "--disable-features=Translate --lang=en-US"
         env.pop("SETTA_WORKSPACE_ROOT", None)
         env.pop("SETTA_PROJECT_URL", None)
         env.pop("SETTA_PROJECT_PATH", None)
@@ -96,6 +98,10 @@ PY
 
     assert '--user-data-dir="' not in browser_args
     assert "--user-data-dir=" in browser_args
+    if sys.platform == "darwin":
+        assert "--use-mock-keychain" in browser_args
+    assert "--disable-features=Translate" in browser_args
+    assert "--lang=en-US" in browser_args
     assert "--disable-extensions-except=" in browser_args
     assert "--load-extension=" in browser_args
     assert f"{bootstrap_base_url}/__setta__/bootstrap#token=test-token" in browser_args
@@ -128,6 +134,7 @@ PY
     assert (artifact_dir / "transport.ndjson").exists()
     assert (artifact_dir / "transport_details.ndjson").exists()
     assert (artifact_dir / "app_state.ndjson").exists()
+    assert (artifact_dir / "performance.ndjson").exists()
     assert (artifact_dir / "llm_engine_artifacts" / "manifest.json").exists()
     assert (artifact_dir / "extension" / "pageRuntime.js").exists()
 
@@ -317,6 +324,7 @@ PY
     assert helper_payload["launcherFile"] == latest_payload["launcherFile"]
     assert helper_payload["chromeLog"].endswith("/logs/chrome.log")
     assert helper_payload["transportDetailsFile"].endswith("/transport_details.ndjson")
+    assert helper_payload["performanceEventsFile"].endswith("/performance.ndjson")
     assert helper_payload["llmArtifactsDir"].endswith("/llm_engine_artifacts")
     assert helper_payload["llmArtifactsManifest"].endswith(
         "/llm_engine_artifacts/manifest.json"
@@ -420,6 +428,7 @@ def test_latest_chrome_recording_helper_falls_back_to_latest_recording_scan(
         "consoleEventsFile": str(older_dir / "console.ndjson"),
         "transportEventsFile": str(older_dir / "transport.ndjson"),
         "appStateEventsFile": str(older_dir / "app_state.ndjson"),
+        "performanceEventsFile": str(older_dir / "performance.ndjson"),
         "createdAt": "2026-03-30T15:14:18Z",
         "finalizedAt": "2026-03-30T15:14:30Z",
         "stopReason": "signal",
@@ -431,6 +440,7 @@ def test_latest_chrome_recording_helper_falls_back_to_latest_recording_scan(
         "consoleEventsFile": str(newer_dir / "console.ndjson"),
         "transportEventsFile": str(newer_dir / "transport.ndjson"),
         "appStateEventsFile": str(newer_dir / "app_state.ndjson"),
+        "performanceEventsFile": str(newer_dir / "performance.ndjson"),
         "createdAt": "2026-03-30T15:14:19Z",
         "finalizedAt": "2026-03-30T15:14:31Z",
         "stopReason": "signal",
@@ -466,6 +476,7 @@ def test_latest_chrome_recording_helper_falls_back_to_latest_recording_scan(
     assert payload["eventCount"] == 7
     assert payload["bootstrapUrl"] == "http://127.0.0.1:1234/__setta__/bootstrap"
     assert payload["transportDetailsFile"].endswith("/transport_details.ndjson")
+    assert payload["performanceEventsFile"].endswith("/performance.ndjson")
     assert payload["llmArtifactsDir"].endswith("/llm_engine_artifacts")
     assert payload["llmArtifactsManifest"].endswith(
         "/llm_engine_artifacts/manifest.json"

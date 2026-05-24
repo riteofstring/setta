@@ -54,6 +54,7 @@ The recorder also writes a stable pointer under the recording root:
 - `transport.ndjson`: fetch/XHR/websocket activity captured from the page runtime
 - `transport_details.ndjson`: full request/websocket payload sidecar for large transport events
 - `app_state.ndjson`: app-published debug snapshots such as diagnostics state
+- `performance.ndjson`: frame gaps, long tasks, event timing, performance marks, and app-published `perf-*` metrics
 - `session.json`: recording summary metadata
 - `launcher.json`: launcher/bootstrap metadata
 - `llm_engine_artifacts/`: redacted generated external-agent artifacts copied from the active `setta_files` root when a recording includes external-agent runs
@@ -64,9 +65,12 @@ The recorder also writes a stable pointer under the recording root:
 The recorder captures more than raw clicks and inputs:
 
 - browser console output and uncaught runtime failures
+- drag pointer movement, recorded as `pointermove` only while one or more mouse
+  buttons are pressed
 - fetch/XHR/websocket activity from the page
 - full websocket/request payload details in the transport sidecar when previews are truncated
 - app-published frontend debug snapshots when Setta emits them during state updates
+- active-interaction frame gaps, `PerformanceObserver` long tasks, slow event timing entries, and performance measures
 - backend debug summaries in `logs/backend.log` for LSP diagnostics and watch-code refresh flows
 - generated external-agent session artifacts such as run metadata, session config, session logs, and rollout JSONL when those runs were part of the recording
 
@@ -94,3 +98,8 @@ Pass `SETTA_CHROME_REPRO_SKIP_DEV_START=1` when you want to attach to an already
 running local Setta instance, and `SETTA_CHROME_REPRO_BOOTSTRAP_URL=<url>` to
 skip bootstrap URL discovery. Use `SETTA_CHROME_REPRO_LOG_LEVEL=<level>` to override
 the default debug backend logging for the repro session.
+
+Pass `CHROME_EXTRA_ARGS` when a repro needs explicit browser flags.
+
+On macOS the recorder launches its dedicated browser profile with
+`--use-mock-keychain` so Chromium does not ask for access to Keychain items.

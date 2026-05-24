@@ -11,10 +11,7 @@ export function postChromeReproEvent(
   kind: string,
   payload: Record<string, unknown>,
 ): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  if (window.__SETTA_CHROME_REPRO_ACTIVE__ !== true) {
+  if (!isChromeReproActive()) {
     return;
   }
   window.postMessage(
@@ -26,5 +23,12 @@ export function postChromeReproEvent(
       payload,
     },
     "*",
+  );
+}
+
+export function isChromeReproActive(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    window.__SETTA_CHROME_REPRO_ACTIVE__ === true
   );
 }

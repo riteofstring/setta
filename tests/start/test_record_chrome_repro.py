@@ -127,7 +127,15 @@ def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -
                 "sequenceNumber": 4,
                 "event": {"type": "app-state", "kind": "lsp-diagnostics"},
             },
-            {"sequenceNumber": 5, "event": {"type": "click"}},
+            {
+                "sequenceNumber": 5,
+                "event": {"type": "performance-frame-gap", "gapMs": 48},
+            },
+            {
+                "sequenceNumber": 6,
+                "event": {"type": "app-state", "kind": "perf-websocket-message"},
+            },
+            {"sequenceNumber": 7, "event": {"type": "click"}},
         ]
         for payload in payloads:
             request = urllib.request.Request(
@@ -160,18 +168,23 @@ def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -
     app_state_lines = (
         (artifact_dir / "app_state.ndjson").read_text(encoding="utf-8").splitlines()
     )
+    performance_lines = (
+        (artifact_dir / "performance.ndjson").read_text(encoding="utf-8").splitlines()
+    )
 
     assert session_payload["eventCountsByType"] == {
-        "app-state": 1,
+        "app-state": 2,
         "click": 1,
         "console": 1,
         "network-response": 1,
+        "performance-frame-gap": 1,
         "websocket-message": 1,
     }
     assert session_payload["consoleEventsFile"].endswith("console.ndjson")
     assert session_payload["transportEventsFile"].endswith("transport.ndjson")
     assert session_payload["transportDetailsFile"].endswith("transport_details.ndjson")
     assert session_payload["appStateEventsFile"].endswith("app_state.ndjson")
+    assert session_payload["performanceEventsFile"].endswith("performance.ndjson")
     assert [json.loads(line)["event"]["type"] for line in console_lines] == ["console"]
     assert [json.loads(line)["event"]["type"] for line in transport_lines] == [
         "network-response",
@@ -179,7 +192,12 @@ def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -
     ]
     assert transport_detail_lines == []
     assert [json.loads(line)["event"]["type"] for line in app_state_lines] == [
-        "app-state"
+        "app-state",
+        "app-state",
+    ]
+    assert [json.loads(line)["event"]["type"] for line in performance_lines] == [
+        "performance-frame-gap",
+        "app-state",
     ]
 
 
