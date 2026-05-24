@@ -24,6 +24,7 @@ import {
 import type { GpuRetainedContentRow } from "../retainedContentScene";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { GpuFlowScene } from "../scene";
+import { normalizeGpuViewport } from "../viewportMath";
 import {
   resolveGpuFlowEdgeDrawInputs,
   validateGpuFlowEdgeInput,
@@ -118,6 +119,22 @@ export function syncGpuFlowNodeLayerSceneState({
     previousScene,
   });
   const nextHtmlSurfaceNativeVisuals = htmlSurfaceNativeVisuals;
+  const layerEmpty = isGpuFlowNodeLayerEmpty({
+    grid,
+    htmlSurfaceOverlays,
+    nextEdges,
+    nextHtmlSurfaceNativeVisuals,
+    nextScene,
+    nodes,
+  });
+  const previousVisualScene = nodeLayerRef.current.visualScene;
+  const previousVisualSceneViewport =
+    nodeLayerRef.current.visualSceneViewport;
+  const preservePreviousVisualScene =
+    !layerEmpty &&
+    previousVisualScene !== undefined &&
+    previousVisualSceneViewport !== undefined &&
+    areGpuFlowViewportInputsEqual(previousVisualSceneViewport, viewport);
   nodeLayerRef.current = {
     edgeScene,
     edgePalette,
@@ -132,21 +149,18 @@ export function syncGpuFlowNodeLayerSceneState({
     nodeTextureTileDimensionPx,
     retainedContentRuntimeScrollOffsets: scrollOffsets,
     retainedContentRowHoverTarget,
+    retainedContentScrollbarVisualState:
+      nodeLayerRef.current.retainedContentScrollbarVisualState,
     retainedRuntimeFrame,
     scene: nextScene,
     uploadBudget,
     viewport,
+    visualScene: preservePreviousVisualScene ? previousVisualScene : undefined,
+    visualSceneViewport: preservePreviousVisualScene
+      ? previousVisualSceneViewport
+      : undefined,
   };
-  if (
-    isGpuFlowNodeLayerEmpty({
-      grid,
-      htmlSurfaceOverlays,
-      nextEdges,
-      nextHtmlSurfaceNativeVisuals,
-      nextScene,
-      nodes,
-    })
-  ) {
+  if (layerEmpty) {
     visibleNodeIdsRef.current = new Set();
     clearGpuNodeDomTransformSyncCache(nodeDomTransformSyncCacheRef.current);
     transformOnlyPaintNodeIdsRef.current.clear();
@@ -162,6 +176,19 @@ export function syncGpuFlowNodeLayerSceneState({
     nextScene,
     surface: surfaceRef.current,
   });
+}
+
+function areGpuFlowViewportInputsEqual(
+  left: GpuFlowNodeLayerState["viewport"],
+  right: GpuFlowNodeLayerState["viewport"],
+): boolean {
+  const normalizedLeft = normalizeGpuViewport(left);
+  const normalizedRight = normalizeGpuViewport(right);
+  return (
+    normalizedLeft.x === normalizedRight.x &&
+    normalizedLeft.y === normalizedRight.y &&
+    normalizedLeft.zoom === normalizedRight.zoom
+  );
 }
 
 function requestGpuFlowSceneStateFrame({
