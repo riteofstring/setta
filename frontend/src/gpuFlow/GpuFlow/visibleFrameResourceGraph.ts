@@ -1,6 +1,7 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
 import {
+  assertGpuFlowCommitPublicationTokenForPresentationProof,
   assertGpuFlowCommitPublicationTokenForFrameId,
   assertGpuFlowPreparedCandidateAbortToken,
   type GpuFlowBlockedPublicationToken,
@@ -321,6 +322,10 @@ export class GpuFlowVisibleFrameResourceGraph {
       token,
     });
     const entry = this.requirePreparedCommittedSurfaceFrame(frame);
+    assertGpuFlowCommitPublicationTokenForPresentationProof({
+      frame,
+      token,
+    });
     this.assertPreparedCandidateRequiredResourcesReady(entry);
     commitBrowserVisualCandidate({
       candidate: entry.browserVisualCandidate,

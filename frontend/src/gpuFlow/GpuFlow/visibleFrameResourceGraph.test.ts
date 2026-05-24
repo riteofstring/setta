@@ -368,6 +368,55 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     ]);
   });
 
+  it("validates the presentation proof before committing browser visual hosts", () => {
+    const registry = createGpuFlowVisibleFrameResourceGraph();
+    const tokenFrame = committedSurfaceFrame({
+      displayFrameId: 53,
+      exactSurfaceResourceHandles: [resourceHandle("page", "token-page")],
+      protectedResourceHandles: [
+        protectedResource(resourceHandle("page", "token-page")),
+      ],
+    });
+    const candidateFrame = committedSurfaceFrame({
+      displayFrameId: 53,
+      exactSurfaceResourceHandles: [resourceHandle("page", "candidate-page")],
+      protectedResourceHandles: [
+        protectedResource(resourceHandle("page", "candidate-page")),
+      ],
+    });
+    const candidate = browserVisualCandidate({
+      controls: [domControl({ sourceId: "candidate-control" })],
+      frameId: candidateFrame.displayFrameId,
+      mountedControlIds: ["candidate-control"],
+    });
+    registry.registerPreparedCommittedSurfaceFrame({
+      browserVisualCandidate: candidate,
+      frame: candidateFrame,
+    });
+    const committedCandidates: GpuFlowBrowserVisualActorCandidate[] = [];
+
+    expect(() =>
+      registry.commitPreparedCommittedSurfaceFrame({
+        commitBrowserVisualCandidate: ({ candidate }) => {
+          committedCandidates.push(candidate);
+        },
+        frame: candidateFrame,
+        publishCommittedSurfaceFrame: () => {
+          throw new Error("Unexpected committed content publication.");
+        },
+        token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+          frame: tokenFrame,
+          projectionSample: liveProjectionSample(53),
+        }),
+      }),
+    ).toThrow(/commit publication token for the same visible frame/);
+    expect(committedCandidates).toEqual([]);
+    expect(registry.getSnapshot()).toMatchObject({
+      committedFrameId: null,
+      pendingCandidateFrameIds: [53],
+    });
+  });
+
   it("releases candidate resources on abort without changing the committed owner", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const candidateResource = resourceHandle("texture", "candidate-texture");
