@@ -42,7 +42,6 @@ import {
   assertGpuFlowVisiblePublicationCommitTokenMatchesDecision,
   createGpuFlowVisiblePublicationCompletion,
   hasCurrentGpuFlowProjectionMotion,
-  reduceGpuFlowVisibleFramePublicationDecision,
   selectGpuFlowProjectionMotionSettlingState,
   selectGpuFlowProjectionNonMotionSchedulerState,
   shouldPublishGpuFlowProjectionContentDebtNow,
@@ -50,6 +49,7 @@ import {
 import {
   createGpuFlowVisibleFrameStarvationPolicy,
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
+  reduceGpuFlowVisibleFramePublicationDecision,
   type GpuFlowVisibleFrameLaneReductionFacts,
   type GpuFlowVisibleFrameStarvationPolicy,
 } from "./visibleFrameStateMachine";
@@ -978,6 +978,6 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
 export {
   getGpuFlowVisiblePublicationDebtReason,
   hasGpuFlowVisiblePublicationDebt,
-  reduceGpuFlowVisibleFramePublicationDecision,
   shouldDeferGpuFlowMaintenanceContentCatchup,
 } from "./visibleFrameSchedulingReduction";
+export { reduceGpuFlowVisibleFramePublicationDecision } from "./visibleFrameStateMachine";

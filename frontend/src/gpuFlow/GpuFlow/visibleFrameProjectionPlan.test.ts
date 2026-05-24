@@ -9,6 +9,9 @@ const PROJECTION_FRAME_MODULE_PATH = fileURLToPath(
 const COORDINATOR_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameCoordinator.ts", import.meta.url),
 );
+const STATE_MACHINE_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameStateMachine.ts", import.meta.url),
+);
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameProjectionPlan.ts", import.meta.url),
 );
@@ -27,6 +30,7 @@ describe("GPU Flow visible publication projection plans", () => {
       PROJECTION_PLAN_MODULE_PATH,
       "utf8",
     );
+    const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
     const surfaceFrameSource = readFileSync(
       SURFACE_FRAME_PUBLICATION_MODULE_PATH,
       "utf8",
@@ -51,13 +55,19 @@ describe("GPU Flow visible publication projection plans", () => {
     expect(coordinatorSource).not.toContain(
       'projectionFrameRenderPlan.kind === "blocked"',
     );
-    expect(coordinatorSource).toContain(
+    expect(coordinatorSource).not.toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
     expect(coordinatorSource).toContain(
-      "projectionFrameTransaction.blockedReason",
+      "reduceGpuFlowVisibleFrameMotionProjectionTransaction",
+    );
+    expect(stateMachineSource).toContain(
+      "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
     expect(coordinatorSource).toContain(
+      "projectionFrameTransaction.blockedPublicationCandidate",
+    );
+    expect(coordinatorSource).not.toContain(
       "projectionFrameTransaction.blockedReason",
     );
     expect(coordinatorSource).toContain(

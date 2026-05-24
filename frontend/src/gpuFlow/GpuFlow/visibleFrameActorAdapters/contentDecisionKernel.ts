@@ -7,28 +7,13 @@ import {
 } from "../flowFrameResult";
 import type { GpuFlowRetainedDisplayPublicationResult } from "../flowRetainedDisplayTransaction";
 import { createGpuFlowVisibleProjectionStateForRetainedPublication } from "../flowVisibleProjectionState";
-import {
-  createGpuFlowBrowserVisualBlockedPublicationCandidate,
-  createGpuFlowBrowserVisualResourceWorkRequests,
-  getGpuFlowCommittedSurfacePublishabilityActorIds,
-  shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair,
-} from "../visibleFrameBlockedCandidate";
 import type {
   GpuFlowCommittedSurfacePublicationCandidate,
   GpuFlowCommittedSurfacePublicationCandidateInput,
   GpuFlowVisibleFrameBlockedPublicationCandidate,
 } from "../visibleFrameContentPlan";
+import { reduceGpuFlowCommittedSurfacePublicationCandidate } from "../visibleFrameStateMachine";
 import type { GpuFlowCommittedSurfaceCandidateAction } from "./committedSurfaceCandidateAction";
-
-type GpuFlowCommittedSurfacePublicationReadiness =
-  | {
-      readonly kind: "publish";
-    }
-  | {
-      readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
-      readonly errorMessage: string | null;
-      readonly kind: "nonpublishable";
-    };
 
 type GpuFlowRetainedDisplayPublicationOutcome =
   GpuFlowRetainedDisplayPublicationResult["retainedDisplayOutcome"];
@@ -127,49 +112,6 @@ export type GpuFlowRetainedDisplayPublicationOutcomeFrame =
     readonly outcome: GpuFlowRetainedDisplayPublicationOutcome;
     readonly outcomeKind: GpuFlowRetainedDisplayPublicationOutcome["kind"];
   };
-
-export function prepareGpuFlowCommittedSurfacePublicationCandidate({
-  deferBrowserVisualWakeup,
-  heldPreviousProjectionState,
-  liveProjectionSample,
-  publishedCommittedSurfaceFrame,
-}: GpuFlowCommittedSurfacePublicationCandidateInput): GpuFlowCommittedSurfacePublicationCandidate {
-  const publicationReadiness =
-    resolveGpuFlowCommittedSurfacePublicationReadiness({
-      heldPreviousProjectionState,
-      publishedCommittedSurfaceFrame,
-    });
-  if (publicationReadiness.kind === "publish") {
-    return {
-      kind: "publish",
-    };
-  }
-  if (!publishedCommittedSurfaceFrame) {
-    throw new Error(
-      "GPU Flow committed surface publication transaction blocked without a candidate frame.",
-    );
-  }
-  return {
-    blockedPublicationCandidate:
-      publicationReadiness.blockedPublicationCandidate,
-    candidateFrame: publishedCommittedSurfaceFrame,
-    errorMessage: publicationReadiness.errorMessage,
-    kind: "nonpublishable",
-    preservePreparationSnapshot:
-      shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair(
-        publicationReadiness.blockedPublicationCandidate,
-      ),
-    resourceWork: {
-      deferWakeup: deferBrowserVisualWakeup === true,
-      timestamp: liveProjectionSample.timestamp,
-      workItems: createGpuFlowBrowserVisualResourceWorkRequests({
-        blockedPublicationCandidate:
-          publicationReadiness.blockedPublicationCandidate,
-        frame: publishedCommittedSurfaceFrame,
-      }),
-    },
-  };
-}
 
 export function createGpuFlowVisiblePublicationContentDecisionKernel(): GpuFlowVisiblePublicationContentDecisionKernel {
   return createGpuFlowVisiblePublicationContentDecisionKernelMethods();
@@ -336,7 +278,7 @@ function createGpuFlowVisiblePublicationContentDecisionKernelMethods(): GpuFlowV
     createVisibleProjectionStateForRetainedPublication:
       createGpuFlowVisibleProjectionStateForRetainedPublication,
     prepareCommittedSurfacePublicationCandidate:
-      prepareGpuFlowCommittedSurfacePublicationCandidate,
+      reduceGpuFlowCommittedSurfacePublicationCandidate,
     resolveCommittedSurfacePublicationFramePlanResult:
       resolveGpuFlowCommittedSurfacePublicationFramePlanResult,
     resolveRetainedDisplayPublicationFramePlanResult:
@@ -359,37 +301,6 @@ function createGpuFlowVisiblePublicationContentDecisionKernelMethods(): GpuFlowV
     selectRetainedDisplayPublicationFramePlan:
       selectGpuFlowRetainedDisplayPublicationFramePlan,
   });
-}
-
-function resolveGpuFlowCommittedSurfacePublicationReadiness({
-  heldPreviousProjectionState,
-  publishedCommittedSurfaceFrame,
-}: {
-  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
-  readonly publishedCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame | void;
-}): GpuFlowCommittedSurfacePublicationReadiness {
-  if (
-    !publishedCommittedSurfaceFrame ||
-    publishedCommittedSurfaceFrame.publishability.kind === "publishable"
-  ) {
-    return {
-      kind: "publish",
-    };
-  }
-  return {
-    blockedPublicationCandidate:
-      createGpuFlowBrowserVisualBlockedPublicationCandidate({
-        frame: publishedCommittedSurfaceFrame,
-        heldPreviousProjectionState,
-      }),
-    errorMessage:
-      publishedCommittedSurfaceFrame.publishability.kind === "true-hole"
-        ? `GPU Flow committed surface frame has true-hole visible coverage: ${getGpuFlowCommittedSurfacePublishabilityActorIds(
-            publishedCommittedSurfaceFrame,
-          ).join(", ")}.`
-        : null,
-    kind: "nonpublishable",
-  };
 }
 
 function resolveGpuFlowRetainedDisplayPublicationOutcomeFrame(

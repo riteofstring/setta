@@ -35,6 +35,9 @@ const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
 const COORDINATOR_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameCoordinator.ts", import.meta.url),
 );
+const STATE_MACHINE_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameStateMachine.ts", import.meta.url),
+);
 const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   new URL(
     "./visibleFrameActorAdapters/contentDecisionKernel.ts",
@@ -51,7 +54,11 @@ const contentDecisionKernel =
   createGpuFlowVisiblePublicationContentDecisionKernel();
 
 function readGpuFlowVisiblePublicationCoordinatorSource(): string {
-  return [COORDINATOR_MODULE_PATH, CONTENT_DECISION_KERNEL_MODULE_PATH]
+  return [
+    COORDINATOR_MODULE_PATH,
+    CONTENT_DECISION_KERNEL_MODULE_PATH,
+    STATE_MACHINE_MODULE_PATH,
+  ]
     .map((filePath) => readFileSync(filePath, "utf8"))
     .join("\n");
 }
@@ -462,8 +469,12 @@ describe("GPU Flow visible publication content plans", () => {
     );
   });
 
-  it("keeps committed-surface transaction candidate selection in the coordinator", () => {
+  it("keeps committed-surface transaction candidate reduction in the state machine authority", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
+    const contentDecisionKernelSource = readFileSync(
+      CONTENT_DECISION_KERNEL_MODULE_PATH,
+      "utf8",
+    );
     const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const coordinatorSource = readGpuFlowVisiblePublicationCoordinatorSource();
 
@@ -477,6 +488,9 @@ describe("GPU Flow visible publication content plans", () => {
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
     expect(coordinatorSource).toContain(
+      "export function reduceGpuFlowCommittedSurfacePublicationCandidate",
+    );
+    expect(contentDecisionKernelSource).not.toContain(
       "function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     expect(kernelModuleSource).not.toContain(

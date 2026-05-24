@@ -6,6 +6,12 @@ import { describe, expect, it } from "vitest";
 const COORDINATOR_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameCoordinator.ts", import.meta.url),
 );
+const STATE_MACHINE_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameStateMachine.ts", import.meta.url),
+);
+const SCHEDULING_REDUCTION_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameSchedulingReduction.ts", import.meta.url),
+);
 const AUTHORITY_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresentationProofs.ts", import.meta.url),
 );
@@ -32,6 +38,30 @@ const FORCED_BLOCKED_CANDIDATE_SET_MODULE_PATH = fileURLToPath(
 );
 
 describe("GPU Flow visible frame coordinator phases", () => {
+  it("keeps publication lane selection inside the visible-frame reducer", () => {
+    const schedulingReductionSource = readFileSync(
+      SCHEDULING_REDUCTION_MODULE_PATH,
+      "utf8",
+    );
+    const stateMachineSource = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
+
+    expect(schedulingReductionSource).not.toContain(
+      "reduceGpuFlowVisibleFramePublicationLane({",
+    );
+    expect(schedulingReductionSource).not.toContain(
+      "createGpuFlowVisiblePublicationDecisionForLane",
+    );
+    expect(stateMachineSource).toContain(
+      "export function reduceGpuFlowVisibleFramePublicationDecision",
+    );
+    expect(stateMachineSource).toContain(
+      "reduceGpuFlowVisibleFramePublicationLane({",
+    );
+    expect(stateMachineSource).toContain(
+      "createGpuFlowVisiblePublicationDecisionForLane",
+    );
+  });
+
   it("runs sample, one reducer, and publish through one transaction authority", () => {
     const source = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");

@@ -7,6 +7,7 @@ import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCov
 import type { GpuFlowVisibleFramePublicationMotionCandidate } from "./visibleFrameTransactionProofs";
 
 export type GpuFlowProjectionFrameTransaction = {
+  readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly blockedReason: string | null;
   readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
   readonly retainedProjectionFrame: GpuFlowRetainedProjectionFrame;

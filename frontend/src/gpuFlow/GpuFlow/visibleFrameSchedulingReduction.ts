@@ -9,45 +9,13 @@ import {
   assertGpuFlowCommitPublicationTokenForProjectionSample,
   type GpuFlowCommitPublicationToken,
 } from "./visibleFramePresentationTokens";
-import { createGpuFlowVisiblePublicationDecisionForLane } from "./visibleFramePublicationDecision";
 import type {
-  GpuFlowVisibleFrameRequestFacts,
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDebtProof,
   GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameScheduling";
-import {
-  reduceGpuFlowVisibleFramePublicationLane,
-  type GpuFlowVisibleFrameStarvationPolicy,
-} from "./visibleFrameStateMachine";
 
 type GpuFlowVisiblePublicationDebt = GpuFlowVisiblePublicationDecision["debt"];
-
-export function reduceGpuFlowVisibleFramePublicationDecision({
-  frameRequest,
-  schedulerKnobs,
-}: {
-  readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
-  readonly schedulerKnobs: GpuFlowVisibleFrameStarvationPolicy;
-}): GpuFlowVisiblePublicationDecision {
-  const lane = reduceGpuFlowVisibleFramePublicationLane({
-    contentDebt: frameRequest.contentDebt,
-    contentRetryDeferred: frameRequest.contentRetryDeferred,
-    criticalContentDebt: frameRequest.criticalContentDebt,
-    hasCommittedContentFrame: frameRequest.hasCommittedContentFrame,
-    maintenanceDebt: frameRequest.maintenanceDebt,
-    motionDebt: frameRequest.motionDebt,
-    motionRetryDeferred: frameRequest.motionRetryDeferred,
-    rawReasons: frameRequest.rawReasons,
-    schedulerKnobs,
-    schedulerState: frameRequest.schedulerState,
-    viewportInteractionActive: frameRequest.viewportInteractionActive,
-  });
-  return createGpuFlowVisiblePublicationDecisionForLane({
-    frameRequest,
-    lane,
-  });
-}
 
 export function hasGpuFlowVisiblePublicationDebt(
   debtOrDecision:

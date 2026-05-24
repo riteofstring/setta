@@ -7,6 +7,7 @@ const modulePath = (path: string): string =>
   fileURLToPath(new URL(path, import.meta.url));
 const GPU_FLOW_ROOT = modulePath("../");
 const COORDINATOR_MODULE_PATH = modulePath("./visibleFrameCoordinator.ts");
+const STATE_MACHINE_MODULE_PATH = modulePath("./visibleFrameStateMachine.ts");
 const CONTENT_DECISION_KERNEL_MODULE_PATH = modulePath(
   "./visibleFrameActorAdapters/contentDecisionKernel.ts",
 );
@@ -1141,6 +1142,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
 function readVisibleFramePublicationCoordinatorAuthoritySource(): string {
   return [
     COORDINATOR_MODULE_PATH,
+    STATE_MACHINE_MODULE_PATH,
     CONTENT_DECISION_KERNEL_MODULE_PATH,
     KERNEL_COMPLETION_MODULE_PATH,
     CONTENT_PLAN_MODULE_PATH,
@@ -1151,9 +1153,9 @@ function readVisibleFramePublicationCoordinatorAuthoritySource(): string {
 }
 
 function readCommittedSurfaceAuthorityCandidateSource(): string {
-  const source = readFileSync(CONTENT_DECISION_KERNEL_MODULE_PATH, "utf8");
+  const source = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
   const candidateStart = source.indexOf(
-    "function prepareGpuFlowCommittedSurfacePublicationCandidate",
+    "export function reduceGpuFlowCommittedSurfacePublicationCandidate",
   );
   expect(candidateStart).toBeGreaterThanOrEqual(0);
   return source.slice(candidateStart);

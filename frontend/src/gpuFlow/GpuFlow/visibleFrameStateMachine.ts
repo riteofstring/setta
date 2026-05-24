@@ -1,5 +1,11 @@
 import type { GpuFrameReason } from "../gpuRenderer";
-import type { GpuFlowProjectionLane } from "../projectionRuntime";
+import {
+  createGpuFlowHeldPreviousProjection,
+  createGpuFlowProjectionTransactionForCommittedFrameId,
+  type GpuFlowProjectionLane,
+  type GpuFlowProjectionTransaction,
+  type GpuFlowVisibleProjectionState,
+} from "../projectionRuntime";
 import {
   hasGpuFlowCriticalContentFrameRequest,
   isGpuFlowContentFrameReason,
@@ -11,6 +17,25 @@ import {
   shouldSelectGpuFlowSettledExplicitContentRepairLane,
   type GpuFlowProjectionSchedulerState,
 } from "../projectionSchedulerPolicy";
+import {
+  createGpuFlowBrowserVisualBlockedPublicationCandidate,
+  createGpuFlowBrowserVisualResourceWorkRequests,
+  createGpuFlowRetainedProjectionBlockedPublicationCandidate,
+  getGpuFlowCommittedSurfacePublishabilityActorIds,
+  shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair,
+} from "./visibleFrameBlockedCandidate";
+import type {
+  GpuFlowCommittedSurfacePublicationCandidate,
+  GpuFlowCommittedSurfacePublicationCandidateInput,
+  GpuFlowVisibleFrameBlockedPublicationCandidate,
+} from "./visibleFrameContentPlan";
+import { createGpuFlowVisiblePublicationDecisionForLane } from "./visibleFramePublicationDecision";
+import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
+import type { GpuFlowProjectionFrameTransaction } from "./visibleFrameProjectionPlan";
+import type {
+  GpuFlowVisibleFrameRequestFacts,
+  GpuFlowVisiblePublicationDecision,
+} from "./visibleFrameScheduling";
 import {
   createGpuFlowPresentationId,
   createGpuFlowVisibleFrameActorKey,
@@ -44,6 +69,16 @@ type GpuFlowVisibleFrameHeldPreviousBudgetStatus = {
   readonly maxHeldPreviousMsExceeded: boolean;
 };
 
+type GpuFlowCommittedSurfacePublicationReadiness =
+  | {
+      readonly kind: "publish";
+    }
+  | {
+      readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
+      readonly errorMessage: string | null;
+      readonly kind: "nonpublishable";
+    };
+
 export const DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY: GpuFlowVisibleFrameStarvationPolicy =
   Object.freeze({
     maxConsecutiveMotionFramesBeforeContentProbe: 6,
@@ -68,6 +103,32 @@ export type GpuFlowVisibleFrameLaneReductionFacts = {
   readonly schedulerState: GpuFlowProjectionSchedulerState;
   readonly viewportInteractionActive: boolean;
 };
+
+export function reduceGpuFlowVisibleFramePublicationDecision({
+  frameRequest,
+  schedulerKnobs,
+}: {
+  readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
+  readonly schedulerKnobs: GpuFlowVisibleFrameStarvationPolicy;
+}): GpuFlowVisiblePublicationDecision {
+  const lane = reduceGpuFlowVisibleFramePublicationLane({
+    contentDebt: frameRequest.contentDebt,
+    contentRetryDeferred: frameRequest.contentRetryDeferred,
+    criticalContentDebt: frameRequest.criticalContentDebt,
+    hasCommittedContentFrame: frameRequest.hasCommittedContentFrame,
+    maintenanceDebt: frameRequest.maintenanceDebt,
+    motionDebt: frameRequest.motionDebt,
+    motionRetryDeferred: frameRequest.motionRetryDeferred,
+    rawReasons: frameRequest.rawReasons,
+    schedulerKnobs,
+    schedulerState: frameRequest.schedulerState,
+    viewportInteractionActive: frameRequest.viewportInteractionActive,
+  });
+  return createGpuFlowVisiblePublicationDecisionForLane({
+    frameRequest,
+    lane,
+  });
+}
 
 export function reduceGpuFlowVisibleFramePublicationLane({
   contentDebt,
@@ -134,6 +195,146 @@ export function reduceGpuFlowVisibleFramePublicationLane({
     case "idle":
       return "idle";
   }
+}
+
+export function reduceGpuFlowVisibleFrameMotionProjectionTransaction({
+  hasActiveRetainedDomControl,
+  previousVisibleProjectionState,
+  projectionSchedulerKnobs,
+  rawReasons,
+  requestedProjectionCoverageMissing,
+  requestedRetainedProjectionFrame,
+  requestedTransaction,
+}: {
+  readonly hasActiveRetainedDomControl: boolean;
+  readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly projectionSchedulerKnobs: GpuFlowVisibleFrameStarvationPolicy;
+  readonly rawReasons: readonly GpuFrameReason[];
+  readonly requestedProjectionCoverageMissing: boolean;
+  readonly requestedRetainedProjectionFrame: GpuFlowRetainedProjectionFrame;
+  readonly requestedTransaction: GpuFlowProjectionTransaction;
+}): GpuFlowProjectionFrameTransaction {
+  if (!requestedProjectionCoverageMissing || hasActiveRetainedDomControl) {
+    return {
+      blockedPublicationCandidate: null,
+      blockedReason: null,
+      heldPreviousProjection: null,
+      retainedProjectionFrame: requestedRetainedProjectionFrame,
+      transaction: requestedTransaction,
+    };
+  }
+  if (previousVisibleProjectionState) {
+    const heldTransaction =
+      createGpuFlowProjectionTransactionForCommittedFrameId({
+        committedFrameId:
+          previousVisibleProjectionState.committedFrame.displayFrameId,
+        kind: "held-previous",
+        lane: requestedTransaction.lane,
+        rawReasons,
+        sample: requestedTransaction.sample,
+      });
+    const heldPreviousProjection = createGpuFlowHeldPreviousProjection({
+      heldTransaction,
+      knobs: projectionSchedulerKnobs,
+      previousVisibleProjectionState,
+      reason: "retained-projection-coverage-missing",
+      requestedSample: requestedTransaction.sample,
+    });
+    return {
+      blockedPublicationCandidate: null,
+      blockedReason: null,
+      heldPreviousProjection,
+      retainedProjectionFrame: requestedRetainedProjectionFrame,
+      transaction: heldTransaction,
+    };
+  }
+  const blockedReason = "retained-projection-coverage-missing";
+  return {
+    blockedPublicationCandidate:
+      createGpuFlowRetainedProjectionBlockedPublicationCandidate({
+        blockedReason,
+        heldPreviousProjectionState: previousVisibleProjectionState,
+      }),
+    blockedReason,
+    heldPreviousProjection: null,
+    retainedProjectionFrame: requestedRetainedProjectionFrame,
+    transaction: requestedTransaction,
+  };
+}
+
+export function reduceGpuFlowCommittedSurfacePublicationCandidate({
+  deferBrowserVisualWakeup,
+  heldPreviousProjectionState,
+  liveProjectionSample,
+  publishedCommittedSurfaceFrame,
+}: GpuFlowCommittedSurfacePublicationCandidateInput): GpuFlowCommittedSurfacePublicationCandidate {
+  const publicationReadiness =
+    resolveGpuFlowCommittedSurfacePublicationReadiness({
+      heldPreviousProjectionState,
+      publishedCommittedSurfaceFrame,
+    });
+  if (publicationReadiness.kind === "publish") {
+    return {
+      kind: "publish",
+    };
+  }
+  if (!publishedCommittedSurfaceFrame) {
+    throw new Error(
+      "GPU Flow committed surface publication transaction blocked without a candidate frame.",
+    );
+  }
+  return {
+    blockedPublicationCandidate:
+      publicationReadiness.blockedPublicationCandidate,
+    candidateFrame: publishedCommittedSurfaceFrame,
+    errorMessage: publicationReadiness.errorMessage,
+    kind: "nonpublishable",
+    preservePreparationSnapshot:
+      shouldPreservePreparedCommittedSurfaceFrameForBrowserVisualRepair(
+        publicationReadiness.blockedPublicationCandidate,
+      ),
+    resourceWork: {
+      deferWakeup: deferBrowserVisualWakeup === true,
+      timestamp: liveProjectionSample.timestamp,
+      workItems: createGpuFlowBrowserVisualResourceWorkRequests({
+        blockedPublicationCandidate:
+          publicationReadiness.blockedPublicationCandidate,
+        frame: publishedCommittedSurfaceFrame,
+      }),
+    },
+  };
+}
+
+function resolveGpuFlowCommittedSurfacePublicationReadiness({
+  heldPreviousProjectionState,
+  publishedCommittedSurfaceFrame,
+}: {
+  readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly publishedCommittedSurfaceFrame:
+    | GpuFlowCommittedSurfacePublicationCandidateInput["publishedCommittedSurfaceFrame"];
+}): GpuFlowCommittedSurfacePublicationReadiness {
+  if (
+    !publishedCommittedSurfaceFrame ||
+    publishedCommittedSurfaceFrame.publishability.kind === "publishable"
+  ) {
+    return {
+      kind: "publish",
+    };
+  }
+  return {
+    blockedPublicationCandidate:
+      createGpuFlowBrowserVisualBlockedPublicationCandidate({
+        frame: publishedCommittedSurfaceFrame,
+        heldPreviousProjectionState,
+      }),
+    errorMessage:
+      publishedCommittedSurfaceFrame.publishability.kind === "true-hole"
+        ? `GPU Flow committed surface frame has true-hole visible coverage: ${getGpuFlowCommittedSurfacePublishabilityActorIds(
+            publishedCommittedSurfaceFrame,
+          ).join(", ")}.`
+        : null,
+    kind: "nonpublishable",
+  };
 }
 
 function shouldPublishGpuFlowBootstrapContentFrame({
