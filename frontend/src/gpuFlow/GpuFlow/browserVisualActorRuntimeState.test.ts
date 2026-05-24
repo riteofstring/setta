@@ -1,12 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import {
   resolveGpuFlowDomControlLiveHostPreparationStage,
   resolveGpuFlowDomControlSnapshotPreparationStage,
 } from "./browserVisualActorRuntimeState";
-import { createGpuFlowVisibleFrameBlockedPublicationTokenForTest } from "./visibleFrameTestUtils";
+import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationProofs";
 
 describe("GPU Flow browser visual actor runtime state", () => {
   it("stages budget-selected live controls instead of the first live preparation batch", () => {
@@ -82,17 +81,21 @@ function domControl({
   } as unknown as GpuRetainedDomControlSourceDescriptor;
 }
 
-function blockedToken(actorIds: readonly string[] = []) {
-  return createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+function blockedToken(
+  actorIds: readonly string[] = [],
+): GpuFlowBlockedPublicationToken {
+  return {
     blockedReasons: actorIds.map((actorId) => ({
       actorId,
       family: "browser-text-snapshot",
       reason: "snapshot-pending",
     })),
+    frozenFrame: {
+      frameId: 1,
+      kind: "committed",
+    },
     frozenFrameId: 1,
-    projectionSample: {
-      id: 1,
-      timestamp: 16,
-    } as unknown as GpuFlowLiveProjectionSample,
-  });
+    projectionSampleId: 1,
+    transactionId: "blocked:1",
+  } as unknown as GpuFlowBlockedPublicationToken;
 }

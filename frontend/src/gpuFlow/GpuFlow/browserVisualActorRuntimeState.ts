@@ -184,7 +184,10 @@ export function resolveGpuFlowDomControlLiveHostPreparationStage({
     }
     pendingControls.push(control);
   }
-  if (repairSelection.budgetSelectedResourceKeys) {
+  if (
+    repairSelection.budgetSelectedResourceKeys &&
+    !repairSelection.unrestrictedToken
+  ) {
     return Object.freeze([...readyControls, ...pendingControls]);
   }
   return Object.freeze([
@@ -239,7 +242,10 @@ export function resolveGpuFlowDomControlSnapshotPreparationStage({
     }
     pendingControls.push(control);
   }
-  if (repairSelection.budgetSelectedResourceKeys) {
+  if (
+    repairSelection.budgetSelectedResourceKeys &&
+    !repairSelection.unrestrictedToken
+  ) {
     return Object.freeze([...readyControls, ...pendingControls]);
   }
   return Object.freeze([
@@ -349,6 +355,9 @@ function shouldPrepareGpuFlowDomControlLiveHost({
   readonly repairSelection: GpuFlowBrowserVisualRepairSelection;
 }): boolean {
   if (repairSelection.budgetSelectedResourceKeys) {
+    if (repairSelection.unrestrictedToken) {
+      return true;
+    }
     return hasGpuFlowBrowserVisualSelectedResourceKeyForControl({
       actorIds: repairSelection.actorIds,
       control,
@@ -373,6 +382,9 @@ function shouldPrepareGpuFlowDomControlSnapshot({
   readonly repairSelection: GpuFlowBrowserVisualRepairSelection;
 }): boolean {
   if (repairSelection.budgetSelectedResourceKeys) {
+    if (repairSelection.unrestrictedToken) {
+      return true;
+    }
     return hasGpuFlowBrowserVisualSelectedResourceKeyForControl({
       actorIds: repairSelection.actorIds,
       control,
