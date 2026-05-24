@@ -216,10 +216,7 @@ function shouldKeepGpuFlowContinuityRepairPreparationOnVisiblePath({
   if (hasGpuFlowCriticalContentFrameRequest(reducerDecision.rawReasons)) {
     return true;
   }
-  if (
-    sourceReasons.some(isGpuFlowMotionFrameReason) &&
-    !sourceReasons.some(isGpuFlowContentFrameReason)
-  ) {
+  if (hasOnlyGpuFlowMotionFrameReasons(sourceReasons)) {
     return false;
   }
   if (sourceReasons.some(isGpuFlowContentFrameReason)) {
@@ -232,6 +229,15 @@ function shouldKeepGpuFlowContinuityRepairPreparationOnVisiblePath({
     frameReasons,
     reducerDecision,
   });
+}
+
+function hasOnlyGpuFlowMotionFrameReasons(
+  frameReasons: readonly GpuFrameReason[],
+): boolean {
+  return (
+    frameReasons.some(isGpuFlowMotionFrameReason) &&
+    !frameReasons.some(isGpuFlowContentFrameReason)
+  );
 }
 
 function shouldDeferGpuFlowMaintenanceContinuityRepair({

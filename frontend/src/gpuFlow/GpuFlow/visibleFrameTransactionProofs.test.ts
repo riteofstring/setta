@@ -809,84 +809,12 @@ function createPreparedContentFrame({
     htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
-  const surfaceTransaction =
-    compatibleSurfaceResourceHandles.length > 0 ||
-    exactSurfaceResourceHandles.length > 0 ||
-    protectedResourceHandles.length > 0
-      ? {
-          activeDomIslandTransaction: {
-            islands: [],
-            mode: "none",
-          },
-          coverageProof: {
-            blockingGenerationIds: [],
-            blockingSurfaceIds: [],
-            compatibilityProof: {
-              compatibleForActiveDomIsland: true,
-              compatibleForClipChain: true,
-              compatibleForHitTesting: true,
-              compatibleForMotion: true,
-              compatibleForSourceWindow: true,
-              compatibleForVisuals: true,
-              rejectedCandidates: [],
-            },
-            compatibleCoverage:
-              compatibleSurfaceResourceHandles.length === 0
-                ? []
-                : [
-                    {
-                      coverageRect: rect(),
-                      fidelity: "compatible",
-                      generationId: "generation:compatible-resource-a",
-                      rendererBucket: "retained-content",
-                      resourceHandles: compatibleSurfaceResourceHandles,
-                      surfaceId: "surface:compatible-resource-a",
-                      zIndex: 1,
-                    },
-                  ],
-            exactCoverage: [
-              ...(exactSurfaceResourceHandles.length === 0
-                ? []
-                : [
-                    {
-                      coverageRect: rect(),
-                      fidelity: "exact",
-                      generationId: "generation:resource-a",
-                      rendererBucket: "retained-content",
-                      resourceHandles: exactSurfaceResourceHandles,
-                      surfaceId: "surface:resource-a",
-                      zIndex: 1,
-                    },
-                  ]),
-            ],
-            protectedResourceHandles,
-            rendererBuckets: [],
-            trueHoleRects: [],
-            visibleRects: [],
-            zOrder: [],
-          },
-          desiredSurfaceGenerations: [],
-          diagnostics: {
-            hold: null,
-            presentedAtMs: 0,
-          },
-          drawCommands: [],
-          followUpWorkRequests: [],
-          hitIndex: {
-            generationIds: [],
-            id: `hit:${displayFrameId}`,
-          },
-          id: `surface-transaction:${displayFrameId}`,
-          motionFrame: {
-            activeIslands: [],
-            retainedScrollOffset: null,
-            viewport: { x: 0, y: 0, zoom: 1 },
-          },
-          protectedResourceHandles,
-          rendererBuckets: [],
-          zOrder: [],
-        }
-      : null;
+  const surfaceTransaction = createPreparedContentFrameSurfaceTransaction({
+    compatibleSurfaceResourceHandles,
+    displayFrameId,
+    exactSurfaceResourceHandles,
+    protectedResourceHandles,
+  });
   return {
     actorGenerations,
     coherence,
@@ -914,6 +842,134 @@ function createPreparedContentFrame({
     },
     surfaceTransaction,
   } as unknown as GpuFlowPreparedContentFrame;
+}
+
+function createPreparedContentFrameSurfaceTransaction({
+  compatibleSurfaceResourceHandles,
+  displayFrameId,
+  exactSurfaceResourceHandles,
+  protectedResourceHandles,
+}: {
+  readonly compatibleSurfaceResourceHandles: readonly SurfaceResourceHandle[];
+  readonly displayFrameId: number;
+  readonly exactSurfaceResourceHandles: readonly SurfaceResourceHandle[];
+  readonly protectedResourceHandles: readonly ProtectedSurfaceResourceHandle[];
+}): GpuFlowPreparedContentFrame["surfaceTransaction"] {
+  if (
+    !hasTestPreparedContentFrameSurfaceTransaction({
+      compatibleSurfaceResourceHandles,
+      exactSurfaceResourceHandles,
+      protectedResourceHandles,
+    })
+  ) {
+    return null;
+  }
+  return {
+    activeDomIslandTransaction: {
+      islands: [],
+      mode: "none",
+    },
+    coverageProof: {
+      blockingGenerationIds: [],
+      blockingSurfaceIds: [],
+      compatibilityProof: {
+        compatibleForActiveDomIsland: true,
+        compatibleForClipChain: true,
+        compatibleForHitTesting: true,
+        compatibleForMotion: true,
+        compatibleForSourceWindow: true,
+        compatibleForVisuals: true,
+        rejectedCandidates: [],
+      },
+      compatibleCoverage: createCompatibleTestSurfaceCoverage(
+        compatibleSurfaceResourceHandles,
+      ),
+      exactCoverage: createExactTestSurfaceCoverage(exactSurfaceResourceHandles),
+      protectedResourceHandles,
+      rendererBuckets: [],
+      trueHoleRects: [],
+      visibleRects: [],
+      zOrder: [],
+    },
+    desiredSurfaceGenerations: [],
+    diagnostics: {
+      hold: null,
+      presentedAtMs: 0,
+    },
+    drawCommands: [],
+    followUpWorkRequests: [],
+    hitIndex: {
+      generationIds: [],
+      id: `hit:${displayFrameId}`,
+    },
+    id: `surface-transaction:${displayFrameId}`,
+    motionFrame: {
+      activeIslands: [],
+      retainedScrollOffset: null,
+      viewport: { x: 0, y: 0, zoom: 1 },
+    },
+    protectedResourceHandles,
+    rendererBuckets: [],
+    zOrder: [],
+  };
+}
+
+function hasTestPreparedContentFrameSurfaceTransaction({
+  compatibleSurfaceResourceHandles,
+  exactSurfaceResourceHandles,
+  protectedResourceHandles,
+}: {
+  readonly compatibleSurfaceResourceHandles: readonly SurfaceResourceHandle[];
+  readonly exactSurfaceResourceHandles: readonly SurfaceResourceHandle[];
+  readonly protectedResourceHandles: readonly ProtectedSurfaceResourceHandle[];
+}): boolean {
+  return (
+    compatibleSurfaceResourceHandles.length > 0 ||
+    exactSurfaceResourceHandles.length > 0 ||
+    protectedResourceHandles.length > 0
+  );
+}
+
+function createCompatibleTestSurfaceCoverage(
+  resourceHandles: readonly SurfaceResourceHandle[],
+): NonNullable<
+  GpuFlowPreparedContentFrame["surfaceTransaction"]
+>["coverageProof"]["compatibleCoverage"] {
+  if (resourceHandles.length === 0) {
+    return [];
+  }
+  return [
+    {
+      coverageRect: rect(),
+      fidelity: "compatible",
+      generationId: "generation:compatible-resource-a",
+      rendererBucket: "retained-content",
+      resourceHandles,
+      surfaceId: "surface:compatible-resource-a",
+      zIndex: 1,
+    },
+  ];
+}
+
+function createExactTestSurfaceCoverage(
+  resourceHandles: readonly SurfaceResourceHandle[],
+): NonNullable<
+  GpuFlowPreparedContentFrame["surfaceTransaction"]
+>["coverageProof"]["exactCoverage"] {
+  if (resourceHandles.length === 0) {
+    return [];
+  }
+  return [
+    {
+      coverageRect: rect(),
+      fidelity: "exact",
+      generationId: "generation:resource-a",
+      rendererBucket: "retained-content",
+      resourceHandles,
+      surfaceId: "surface:resource-a",
+      zIndex: 1,
+    },
+  ];
 }
 
 function retainedDomControlActor({

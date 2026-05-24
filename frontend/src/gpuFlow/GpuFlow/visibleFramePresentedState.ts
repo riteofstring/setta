@@ -39,6 +39,27 @@ type GpuFlowPreparedContentFrameReuseEntry = {
   readonly retainedDisplayFrame: RetainedDisplayFrame;
 };
 
+type GpuFlowBrowserVisualCompatibilityProof =
+  BrowserVisualActorRepresentationReadiness & {
+    readonly coverageState: "compatible-previous-ready";
+  };
+
+const GPU_FLOW_BROWSER_VISUAL_COMPATIBILITY_PROOF_IDENTITY_KEYS = [
+  "activationPolicy",
+  "actorId",
+  "canonicalActorId",
+  "clipChainRevision",
+  "controlKind",
+  "displayRevision",
+  "focusState",
+  "hitTargetId",
+  "reasonCode",
+  "retainedScrollCompatible",
+  "retainedSurfaceId",
+  "semanticGenerationId",
+  "visualGenerationId",
+] as const satisfies readonly (keyof GpuFlowBrowserVisualCompatibilityProof["compatibilityProof"])[];
+
 export function useGpuFlowPresentedSurfaceFrameState({
   initialRetainedRuntimeFrame,
 }: {
@@ -449,36 +470,12 @@ function areGpuFlowBrowserVisualCompatibilityProofsEqual(
   ) {
     return left.coverageState === right.coverageState;
   }
+  const leftProof = left.compatibilityProof;
+  const rightProof = right.compatibilityProof;
   return (
-    left.compatibilityProof.activationPolicy ===
-      right.compatibilityProof.activationPolicy &&
-    left.compatibilityProof.actorId === right.compatibilityProof.actorId &&
-    left.compatibilityProof.canonicalActorId ===
-      right.compatibilityProof.canonicalActorId &&
-    left.compatibilityProof.clipChainRevision ===
-      right.compatibilityProof.clipChainRevision &&
-    left.compatibilityProof.controlKind ===
-      right.compatibilityProof.controlKind &&
-    left.compatibilityProof.displayRevision ===
-      right.compatibilityProof.displayRevision &&
-    left.compatibilityProof.focusState ===
-      right.compatibilityProof.focusState &&
-    left.compatibilityProof.hitTargetId ===
-      right.compatibilityProof.hitTargetId &&
-    left.compatibilityProof.reasonCode ===
-      right.compatibilityProof.reasonCode &&
-    left.compatibilityProof.retainedScrollCompatible ===
-      right.compatibilityProof.retainedScrollCompatible &&
-    left.compatibilityProof.retainedSurfaceId ===
-      right.compatibilityProof.retainedSurfaceId &&
-    left.compatibilityProof.semanticGenerationId ===
-      right.compatibilityProof.semanticGenerationId &&
-    left.compatibilityProof.visualGenerationId ===
-      right.compatibilityProof.visualGenerationId &&
-    areGpuFlowRectsEqual(
-      left.compatibilityProof.flowRect,
-      right.compatibilityProof.flowRect,
-    )
+    GPU_FLOW_BROWSER_VISUAL_COMPATIBILITY_PROOF_IDENTITY_KEYS.every(
+      (key) => leftProof[key] === rightProof[key],
+    ) && areGpuFlowRectsEqual(leftProof.flowRect, rightProof.flowRect)
   );
 }
 

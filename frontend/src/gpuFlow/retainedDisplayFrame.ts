@@ -463,24 +463,19 @@ function selectReusablePresentedRetainedDisplayFrame({
   if (!previous) {
     return null;
   }
-  if (
-    previous.id !== prepared.id ||
-    previous.retainedRuntimeFrame !== prepared.retainedRuntimeFrame ||
-    previous.pageFrame !== prepared.pageFrame
-  ) {
+  if (!matchesPreparedRetainedDisplayFrame(previous, prepared)) {
     return null;
   }
   if (
-    previous.diagnostics.coverageReadiness !== coverageReadiness ||
-    previous.diagnostics.holdDiagnostics !== null ||
-    previous.diagnostics.transactionOutcome !== transactionOutcome
+    !matchesPresentedRetainedDisplayDiagnostics({
+      coverageReadiness,
+      previous,
+      transactionOutcome,
+    })
   ) {
     return null;
   }
-  if (
-    previous.surfaceTransaction.id !== surfaceTransaction.id ||
-    previous.surfaceTransaction.hitIndex.id !== surfaceTransaction.hitIndex.id
-  ) {
+  if (!matchesRetainedSurfaceTransactionIdentity(previous, surfaceTransaction)) {
     return null;
   }
   if (
@@ -492,6 +487,43 @@ function selectReusablePresentedRetainedDisplayFrame({
     return null;
   }
   return previous;
+}
+
+function matchesPreparedRetainedDisplayFrame(
+  previous: RetainedDisplayFrame,
+  prepared: RetainedDisplayFrameInput,
+): boolean {
+  return (
+    previous.id === prepared.id &&
+    previous.retainedRuntimeFrame === prepared.retainedRuntimeFrame &&
+    previous.pageFrame === prepared.pageFrame
+  );
+}
+
+function matchesPresentedRetainedDisplayDiagnostics({
+  coverageReadiness,
+  previous,
+  transactionOutcome,
+}: {
+  readonly coverageReadiness: CoverageReadiness;
+  readonly previous: RetainedDisplayFrame;
+  readonly transactionOutcome: PresentedFrameDiagnostics["transactionOutcome"];
+}): boolean {
+  return (
+    previous.diagnostics.coverageReadiness === coverageReadiness &&
+    previous.diagnostics.holdDiagnostics === null &&
+    previous.diagnostics.transactionOutcome === transactionOutcome
+  );
+}
+
+function matchesRetainedSurfaceTransactionIdentity(
+  previous: RetainedDisplayFrame,
+  surfaceTransaction: SurfaceDisplayTransaction,
+): boolean {
+  return (
+    previous.surfaceTransaction.id === surfaceTransaction.id &&
+    previous.surfaceTransaction.hitIndex.id === surfaceTransaction.hitIndex.id
+  );
 }
 
 function surfaceGenerationIdsEqual(
