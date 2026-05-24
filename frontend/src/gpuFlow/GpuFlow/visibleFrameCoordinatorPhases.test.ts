@@ -67,15 +67,32 @@ describe("GPU Flow visible frame coordinator phases", () => {
       reducerStart,
     );
     const reducerSource = source.slice(reducerStart, reducerEnd);
+    const publishStart = source.indexOf(
+      "function publishGpuFlowVisibleFramePublicationOutcome",
+    );
+    const publishEnd = source.indexOf(
+      "function createGpuFlowVisibleFrameRequestFacts",
+      publishStart,
+    );
+    const publishSource = source.slice(publishStart, publishEnd);
     expect(reducerStart).toBeGreaterThan(firstHelperStart);
     expect(reducerEnd).toBeGreaterThan(reducerStart);
+    expect(publishStart).toBeGreaterThan(reducerEnd);
+    expect(publishEnd).toBeGreaterThan(publishStart);
     expectOrderedPhases(reducerSource, [
       "createGpuFlowVisibleFrameRequestFacts({",
       "reduceGpuFlowVisibleFramePublicationDecision({",
       "createGpuFlowVisibleFramePublicationFrameContext({",
       "prepareGpuFlowVisibleFramePublicationCandidateSet({",
       "createGpuFlowVisibleFramePublicationPreparedFrame({",
-      "proveGpuFlowVisibleFramePublicationPresentation({",
+      "proveGpuFlowVisibleFramePublicationPresentation(",
+    ]);
+    expect(reducerSource).not.toContain(
+      "prepareVisibleFrameResourcesForBudget?.",
+    );
+    expectOrderedPhases(publishSource, [
+      "publish(transaction);",
+      "prepareVisibleFrameResourcesForBudget?.(",
     ]);
     expect(source).toContain(
       "function sampleGpuFlowVisibleFramePublicationTransaction",
