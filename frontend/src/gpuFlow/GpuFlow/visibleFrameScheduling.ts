@@ -4,10 +4,10 @@ import type {
   GpuFlowProjectionLane,
 } from "../projectionRuntime";
 import {
+  getGpuFlowMotionRetryDelayMultiplierAfterUncommittedFrame,
   GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER,
   GPU_FLOW_CONTENT_BLOCKED_RETRY_DELAY_MULTIPLIER,
   GPU_FLOW_RETAINED_SCROLL_CONTENT_SETTLE_DELAY_MULTIPLIER,
-  getGpuFlowMotionRetryDelayMultiplierAfterUncommittedFrame,
   hasGpuFlowCriticalContentFrameRequest,
   isGpuFlowBrowserTextSnapshotPendingBlockedOutcome,
   isGpuFlowContentFrameReason,
@@ -36,6 +36,7 @@ import {
   assertGpuFlowCommitPublicationTokenForProjectionSample,
   assertGpuFlowHoldPreviousTokenForProjectionSample,
 } from "./visibleFramePresentationTokens";
+import { createGpuFlowVisiblePublicationDecisionForLane } from "./visibleFramePublicationDecision";
 import {
   createGpuFlowVisibleFrameStarvationPolicy,
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
@@ -523,10 +524,9 @@ export function createGpuFlowVisibleFrameRequestCoordinator({
     if (
       shouldThrottleGpuFlowContentRetryAfterUncommittedFrame(decision, outcome)
     ) {
-      const contentRetryDelayMultiplier =
-        browserTextSnapshotPendingBlocked
-          ? GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER
-          : GPU_FLOW_CONTENT_BLOCKED_RETRY_DELAY_MULTIPLIER;
+      const contentRetryDelayMultiplier = browserTextSnapshotPendingBlocked
+        ? GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER
+        : GPU_FLOW_CONTENT_BLOCKED_RETRY_DELAY_MULTIPLIER;
       const contentRetryBlockedUntil =
         decision.sample.timestamp +
         schedulerKnobs.motionSettleWindowMs * contentRetryDelayMultiplier;
@@ -839,17 +839,9 @@ export function reduceGpuFlowVisibleFramePublicationDecision({
     schedulerState: frameRequest.schedulerState,
     viewportInteractionActive: frameRequest.viewportInteractionActive,
   });
-  return Object.freeze({
-    debt: createGpuFlowVisiblePublicationDebt({
-      content: lane === "content" ? false : frameRequest.contentDebt,
-      maintenance:
-        lane === "maintenance" ? false : frameRequest.maintenanceDebt,
-      motion: lane === "motion" ? false : frameRequest.motionDebt,
-    }),
+  return createGpuFlowVisiblePublicationDecisionForLane({
+    frameRequest,
     lane,
-    rawReasons: Object.freeze([...frameRequest.rawReasons]),
-    sample: frameRequest.sample,
-    schedulerState: frameRequest.schedulerState,
   });
 }
 

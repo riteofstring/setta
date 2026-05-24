@@ -242,6 +242,89 @@ describe("GPU Flow visible frame coordinator budget", () => {
       "resources:dom-control:editor",
     ]);
   });
+
+  it("lets selected visible resource debt preempt an active motion lane", () => {
+    const phases: string[] = [];
+
+    const result = runGpuFlowVisibleFrameCoordinator({
+      budgetBroker: createGpuFlowVisibleFrameBudgetBroker({
+        policy: {
+          maxContinuityDebtAgeFrames: 2,
+          maxSafetyDebtAgeFrames: 1,
+          minPreparationBudgetDuringMotionMs: 0.5,
+          perFramePreparationBudgetMs: 0.5,
+          reservedMotionProjectionBudgetMs: 2,
+        },
+      }),
+      prepareContentPublicationFrame: ({ contentPublicationWorkPlan }) => {
+        phases.push(`content:${contentPublicationWorkPlan.kind}`);
+        return testPublicationCandidate();
+      },
+      prepareMotionProjectionFrame: ({ motionProjectionWorkPlan }) => {
+        phases.push(`motion:${motionProjectionWorkPlan.kind}`);
+        return {
+          frame: testPublicationCandidate(),
+          kind: "not-rendered" as const,
+        };
+      },
+      publish: (transaction) => {
+        phases.push(`publish:${transaction.publicationDecision.lane}`);
+      },
+      sampleVisibleFramePublication: () =>
+        visibleFramePublicationSample({
+          rawReasons: ["viewport"],
+          runtimeViewportFrame: true,
+          sample: liveProjectionSample({ id: 60, timestamp: 600 }),
+          visibleFrameResourceGraphSnapshot: {
+            activeEditorPins: ["editor"],
+            candidateResourceKeys: ["dom-control:editor"],
+            committedFrameId: null,
+            committedResourceKeys: [],
+            pendingCandidateFrameIds: [89],
+            queuedResourceKeys: ["dom-control:editor"],
+            resourceDebtByState: {
+              absent: 0,
+              preparing: 0,
+              presented: 0,
+              ready: 0,
+              requested: 1,
+              retired: 0,
+            },
+            resourceStates: [
+              {
+                debtAgeFrames: 0,
+                deadlineFrame: 1,
+                estimatedCostMs: 0.5,
+                ownerFrameId: 89,
+                preparationLane: "browser-visual",
+                priority: "safety",
+                resourceKey: "dom-control:editor",
+                state: "requested",
+              },
+            ],
+          },
+          viewportInteractionActive: true,
+        }),
+      scheduler: fixedPublicationScheduler({
+        lane: "motion",
+        schedulerState: "motion-active",
+      }),
+    });
+
+    expect(result.publicationDecision.lane).toBe("content");
+    expect(result.publicationDecision.debt.motion).toBe(true);
+    expect(
+      result.publicationFrameContext.budgetDecision.preparationBudget,
+    ).toMatchObject({
+      selectedVisibleDebtIds: ["dom-control:editor"],
+      selectedVisibleResourceDebtIds: ["dom-control:editor"],
+    });
+    expect(phases).toEqual([
+      "motion:skip",
+      "content:prepare",
+      "publish:content",
+    ]);
+  });
 });
 
 function observeResolutionDeferralContext(

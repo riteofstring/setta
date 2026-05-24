@@ -343,6 +343,12 @@ describe("GPU Flow visible frame budget broker", () => {
     expect(decision.preparationBudget.selectedResourceDebtIds).toEqual([
       "dom-control:active-editor",
     ]);
+    expect(decision.preparationBudget.selectedVisibleDebtIds).toEqual([
+      "dom-control:active-editor",
+    ]);
+    expect(decision.preparationBudget.selectedVisibleResourceDebtIds).toEqual([
+      "dom-control:active-editor",
+    ]);
   });
 });
 

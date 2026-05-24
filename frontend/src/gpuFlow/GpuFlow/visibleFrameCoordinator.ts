@@ -33,6 +33,7 @@ import type {
   GpuFlowProjectionFrameRenderPlan,
   GpuFlowProjectionFrameTransaction,
 } from "./visibleFrameProjectionPlan";
+import { createGpuFlowVisiblePublicationDecisionForLane } from "./visibleFramePublicationDecision";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
 import {
   reduceGpuFlowVisibleFramePublicationDecision,
@@ -309,7 +310,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
     frameRequest,
     schedulerKnobs,
   });
-  const publicationFrameContext =
+  const initialPublicationFrameContext =
     createGpuFlowVisibleFramePublicationFrameContext({
       frameRequest,
       publicationDecision,
@@ -319,11 +320,18 @@ function reduceGpuFlowVisibleFramePublicationFrame<
       visibleFrameResourceGraphSnapshot,
       viewportInteractionActive,
     });
+  const finalPublicationDecision =
+    selectGpuFlowVisibleFramePublicationDecisionForBudget({
+      budgetDecision: initialPublicationFrameContext.budgetDecision,
+      frameRequest,
+      publicationDecision,
+    });
+  const publicationFrameContext = initialPublicationFrameContext;
   const candidateSet = prepareGpuFlowVisibleFramePublicationCandidateSet({
     prepareContentPublicationFrame,
     prepareMotionProjectionFrame,
     previousVisibleProjectionState,
-    publicationDecision,
+    publicationDecision: finalPublicationDecision,
     publicationFrameContext,
     projectionSchedulerKnobs: schedulerKnobs,
     rawReasons,
@@ -331,7 +339,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   const preparedFrame = createGpuFlowVisibleFramePublicationPreparedFrame({
     candidateSet,
     previousVisibleProjectionState,
-    publicationDecision,
+    publicationDecision: finalPublicationDecision,
   });
   const transactionCompletion = proveGpuFlowVisibleFramePublicationPresentation(
     {
@@ -342,7 +350,7 @@ function reduceGpuFlowVisibleFramePublicationFrame<
         preparedFrame.contentPublicationFrame
           .retainedDisplayFollowUpFrameReason ?? null,
       previousVisibleProjectionState,
-      publicationDecision,
+      publicationDecision: finalPublicationDecision,
       scheduler,
       transactionProof: preparedFrame.transactionProof,
     },
@@ -350,9 +358,30 @@ function reduceGpuFlowVisibleFramePublicationFrame<
   return Object.freeze({
     ...transactionCompletion,
     preparedFrame,
-    publicationDecision,
+    publicationDecision: finalPublicationDecision,
     publicationFrameContext,
   });
+}
+
+function selectGpuFlowVisibleFramePublicationDecisionForBudget({
+  budgetDecision,
+  frameRequest,
+  publicationDecision,
+}: {
+  readonly budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision;
+  readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+}): GpuFlowVisiblePublicationDecision {
+  if (
+    publicationDecision.lane !== "content" &&
+    budgetDecision.preparationBudget.selectedVisibleDebtIds.length > 0
+  ) {
+    return createGpuFlowVisiblePublicationDecisionForLane({
+      frameRequest,
+      lane: "content",
+    });
+  }
+  return publicationDecision;
 }
 
 function prepareGpuFlowVisibleFramePublicationCandidateSet<

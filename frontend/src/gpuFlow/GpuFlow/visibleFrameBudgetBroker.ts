@@ -50,7 +50,9 @@ export type GpuFlowVisibleFrameBudgetBrokerDecision = {
       Record<GpuFlowVisibleFrameResourcePreparationLane, readonly string[]>
     >;
     readonly selectedDebtIds: readonly string[];
+    readonly selectedVisibleDebtIds: readonly string[];
     readonly selectedResourceDebtIds: readonly string[];
+    readonly selectedVisibleResourceDebtIds: readonly string[];
     readonly usedMs: number;
   };
   readonly resolutionUpdates: {
@@ -115,6 +117,13 @@ export function createGpuFlowVisibleFrameBudgetBroker({
       const selectedResourceDebtIds = selected.selectedDebt
         .filter(isGpuFlowVisibleFrameResourceGraphBudgetDebt)
         .map((debt) => debt.id);
+      const selectedVisibleDebtIds = selected.selectedDebt
+        .filter(isGpuFlowVisibleFrameSafetyOrContinuityDebt)
+        .map((debt) => debt.id);
+      const selectedVisibleResourceDebtIds = selected.selectedDebt
+        .filter(isGpuFlowVisibleFrameSafetyOrContinuityDebt)
+        .filter(isGpuFlowVisibleFrameResourceGraphBudgetDebt)
+        .map((debt) => debt.id);
       const overBudgetDebtIds = selectGpuFlowVisibleFrameOverBudgetDebtIds({
         maxContinuityDebtAgeFrames: normalizedPolicy.maxContinuityDebtAgeFrames,
         maxSafetyDebtAgeFrames: normalizedPolicy.maxSafetyDebtAgeFrames,
@@ -149,7 +158,11 @@ export function createGpuFlowVisibleFrameBudgetBroker({
             selected.selectedDebt,
           ),
           selectedDebtIds: Object.freeze(selectedDebtIds),
+          selectedVisibleDebtIds: Object.freeze(selectedVisibleDebtIds),
           selectedResourceDebtIds: Object.freeze(selectedResourceDebtIds),
+          selectedVisibleResourceDebtIds: Object.freeze(
+            selectedVisibleResourceDebtIds,
+          ),
           usedMs: selected.usedMs,
         }),
         resolutionUpdates: Object.freeze({
@@ -535,6 +548,12 @@ function isGpuFlowVisibleFrameResourceGraphBudgetDebt(
   debt: Pick<GpuFlowVisibleFrameBudgetDebtRequest, "source">,
 ): boolean {
   return debt.source === "resource-graph";
+}
+
+function isGpuFlowVisibleFrameSafetyOrContinuityDebt(
+  debt: Pick<GpuFlowVisibleFrameBudgetDebtRequest, "priority">,
+): boolean {
+  return debt.priority === "safety" || debt.priority === "continuity";
 }
 
 function assertGpuFlowVisibleFrameBudgetBrokerPolicy(
