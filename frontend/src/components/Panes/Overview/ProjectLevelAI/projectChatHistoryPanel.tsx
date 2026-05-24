@@ -30,6 +30,11 @@ import {
   type ThreadGroupSection,
 } from "./projectChatHistoryShared";
 
+const THREAD_SEARCH_STEP_BUTTON_CLASS_NAME =
+  "inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100";
+const THREAD_TOOLBAR_BUTTON_CLASS_NAME =
+  "nodrag inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-[10px] text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100";
+
 type ProjectChatHistoryPanelProps = {
   activeMasterSearchMatchThreadId: string | null;
   activeMasterSearchMatchThreadIdCounterText: string;
@@ -171,7 +176,7 @@ function ProjectChatHistoryToolbar({
       />
       <button
         type="button"
-        className="nodrag relative inline-flex h-full shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+        className={THREAD_TOOLBAR_BUTTON_CLASS_NAME}
         onClick={() => {
           setShowThreadAgentBadges((current) => !current);
         }}
@@ -188,7 +193,7 @@ function ProjectChatHistoryToolbar({
       </button>
       <button
         type="button"
-        className="nodrag relative inline-flex h-full shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 disabled:cursor-not-allowed disabled:text-setta-400 disabled:opacity-60 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent dark:disabled:text-setta-500"
+        className={THREAD_TOOLBAR_BUTTON_CLASS_NAME}
         aria-label="Undo Delete"
         onClick={handleRestoreDeletedThreadOrGroup}
         disabled={!canUndoDeletedThreadOrGroup}
@@ -196,18 +201,16 @@ function ProjectChatHistoryToolbar({
         {...restoreThreadMutationTooltipHandlers}
       >
         <MdRestore size={14} />
-        <span className="hidden @[26rem]:inline">Undo Delete</span>
       </button>
       <button
         type="button"
-        className="nodrag relative inline-flex h-full shrink-0 cursor-pointer select-none items-center gap-1 rounded-md bg-transparent px-1 text-xs font-semibold text-setta-600 transition-colors hover:text-setta-900 focus-visible:ring-2 active:!bg-blue-100 dark:text-setta-300 dark:hover:bg-transparent dark:hover:text-white active:dark:!bg-transparent"
+        className={THREAD_TOOLBAR_BUTTON_CLASS_NAME}
         aria-label="New Group"
         onClick={handleCreateGroup}
         data-testid="project-chat-thread-group-new-group-button"
         {...newGroupTooltipHandlers}
       >
         <MdAdd size={15} />
-        <span className="hidden @[20rem]:inline">New Group</span>
       </button>
     </div>
   );
@@ -296,7 +299,7 @@ function SearchStepButton({
     <button
       type="button"
       aria-label={ariaLabel}
-      className="inline-flex h-4 w-4 items-center justify-center rounded-sm text-[10px] text-setta-500 transition-colors hover:bg-setta-100 hover:text-setta-700 disabled:cursor-not-allowed disabled:opacity-30 dark:text-setta-300 dark:hover:bg-setta-800 dark:hover:text-setta-100"
+      className={THREAD_SEARCH_STEP_BUTTON_CLASS_NAME}
       onClick={() => onStep(direction)}
       disabled={disabled}
     >

@@ -23,7 +23,7 @@ export function getKwargsControlsContainerClassName({
     : "border-white dark:border-setta-700";
 
   return joinClassNames(
-    "section-args z-10 flex min-w-0 flex-nowrap rounded-xl border-b border-solid px-1 shadow-sm @container overflow-hidden isolate",
+    "section-args z-10 flex min-w-0 flex-wrap rounded-xl border-b border-solid px-1 shadow-sm @container overflow-hidden isolate",
     isCallableSection ? "mt-0 pb-0" : "mt-1 pb-1",
     argsBackgroundClassName,
     argsBorderColorClassName,

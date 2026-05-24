@@ -431,7 +431,7 @@ test.describe.serial("chat composer context controls", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".setta-gpu-flow__pane");
+      await page.waitForSelector(".react-flow__pane");
 
       const overviewPane = page.locator("#OverviewPane");
       await expect(
@@ -598,7 +598,7 @@ test.describe.serial("chat composer context controls", () => {
 
     try {
       await page.reload();
-      await page.waitForSelector(".setta-gpu-flow__pane");
+      await page.waitForSelector(".react-flow__pane");
 
       const projectChatSurface = await getVisibleProjectChatSurface(page);
       const input = projectChatSurface.getByPlaceholder("Type a message...");

@@ -2651,58 +2651,6 @@
       ]
     },
     {
-      "name": "ParamUIRendererConfigValue",
-      "kind": "model",
-      "schemaRef": "#/$defs/ParamUIRendererConfigValue"
-    },
-    {
-      "name": "ParamUIRendererFamily",
-      "kind": "enum",
-      "schemaRef": "#/$defs/ParamUIRendererFamily",
-      "enumValues": [
-        {
-          "name": "TextLike",
-          "value": "text-like"
-        },
-        {
-          "name": "DateTime",
-          "value": "date-time"
-        },
-        {
-          "name": "button",
-          "value": "button"
-        },
-        {
-          "name": "slider",
-          "value": "slider"
-        },
-        {
-          "name": "rotary",
-          "value": "rotary"
-        },
-        {
-          "name": "switch",
-          "value": "switch"
-        },
-        {
-          "name": "ColorPicker",
-          "value": "color-picker"
-        },
-        {
-          "name": "dropdown",
-          "value": "dropdown"
-        },
-        {
-          "name": "password",
-          "value": "password"
-        },
-        {
-          "name": "dropzone",
-          "value": "dropzone"
-        }
-      ]
-    },
-    {
       "name": "ParameterPassingStyle",
       "kind": "enum",
       "schemaRef": "#/$defs/ParameterPassingStyle",
@@ -3360,16 +3308,6 @@
       "name": "ProjectConfigMetadata",
       "kind": "model",
       "schemaRef": "#/$defs/ProjectConfigMetadata"
-    },
-    {
-      "name": "ProjectParamUpdateContent",
-      "kind": "model",
-      "schemaRef": "#/$defs/ProjectParamUpdateContent"
-    },
-    {
-      "name": "ProjectParamUpdateMessage",
-      "kind": "model",
-      "schemaRef": "#/$defs/ProjectParamUpdateMessage"
     },
     {
       "name": "ProjectPluginData",
@@ -6490,6 +6428,10 @@
       "schemaRef": "#/$defs/Transport",
       "enumValues": [
         {
+          "name": "sse",
+          "value": "sse"
+        },
+        {
           "name": "streamable_http",
           "value": "streamable_http"
         },
@@ -6817,10 +6759,6 @@
         {
           "name": "UpdateFrontendProjectState",
           "value": "UpdateFrontendProjectState"
-        },
-        {
-          "name": "UpdateFrontendProjectParam",
-          "value": "UpdateFrontendProjectParam"
         },
         {
           "name": "UpdateSettings",
@@ -10127,7 +10065,7 @@
       "profile": "frontend",
       "type": "SettingsChatWindowing",
       "value": {
-        "autoCreateInitialChat": false,
+        "autoCreateInitialChat": true,
         "restorePriorStateOnUnmaximize": true,
         "shortcuts": {
           "canvasToggle": "Shift + Esc",
@@ -10313,7 +10251,7 @@
           "showDefaultConfigOnLoad": true
         },
         "chatWindowing": {
-          "autoCreateInitialChat": false,
+          "autoCreateInitialChat": true,
           "restorePriorStateOnUnmaximize": true,
           "shortcuts": {
             "canvasToggle": "Shift + Esc",
@@ -11729,61 +11667,6 @@
           "RunInstructions": "Custom Runs",
           "ViewModes": "View Modes"
         }
-      }
-    },
-    {
-      "name": "ParamUIRendererConfig",
-      "type": "ParamUIRendererConfigValue",
-      "value": {
-        "dateTimeParamTypes": [
-          "DateParam",
-          "TimeParam"
-        ],
-        "rendererFamiliesByType": {
-          "ButtonParam": "button",
-          "CodeParam": "text-like",
-          "ColorPickerParam": "color-picker",
-          "DateParam": "date-time",
-          "DropdownParam": "dropdown",
-          "DropzoneParam": "dropzone",
-          "PasswordParam": "password",
-          "RotaryParam": "rotary",
-          "SliderParam": "slider",
-          "SwitchParam": "switch",
-          "TextAreaParam": "text-like",
-          "TextParam": "text-like",
-          "TimeParam": "date-time"
-        },
-        "rendererTypes": [
-          "CodeParam",
-          "TextParam",
-          "TextAreaParam",
-          "DateParam",
-          "TimeParam",
-          "ButtonParam",
-          "SliderParam",
-          "RotaryParam",
-          "SwitchParam",
-          "ColorPickerParam",
-          "DropdownParam",
-          "PasswordParam",
-          "DropzoneParam"
-        ],
-        "specializedRendererFamilies": {
-          "ButtonParam": "button",
-          "ColorPickerParam": "color-picker",
-          "DropdownParam": "dropdown",
-          "DropzoneParam": "dropzone",
-          "PasswordParam": "password",
-          "RotaryParam": "rotary",
-          "SliderParam": "slider",
-          "SwitchParam": "switch"
-        },
-        "textLikeParamTypes": [
-          "CodeParam",
-          "TextParam",
-          "TextAreaParam"
-        ]
       }
     },
     {

@@ -1,12 +1,14 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
-import { getSectionRect } from "gpuFlow/flowGeometry";
-import { setViewport } from "gpuFlow/viewportActions";
-import { getGpuViewportForBounds } from "gpuFlow/viewportMath";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
+import { zoomIdentity } from "d3-zoom";
+import { useReactFlow } from "forks/xyflow/core/store";
+import {
+  getD3Transition,
+  getSectionRect,
+  getViewportForBounds,
+} from "forks/xyflow/core/utils/graph";
 import _ from "lodash";
 import { autoLayoutTopLevelSections } from "openapi/http";
 import {
-  useLocalStorage,
   useNodeInternals,
   useSettings,
   useShareSession,
@@ -16,9 +18,6 @@ import {
   debounced_route_set_top_level_section_layout,
   getCurrProjectConfigId,
 } from "../sectionInfos";
-
-type NodeInternalsMap = ReturnType<typeof useNodeInternals.getState>["x"];
-
 export function setZIndices(
   sectionIds: Array<string>,
   incrementVersion: boolean = false,
@@ -35,7 +34,9 @@ export function setZIndices(
   }
 }
 function shouldNormalizeZIndices(
-  nodeInternals: NodeInternalsMap,
+  nodeInternals: typeof useNodeInternals.getState extends () => infer T
+    ? T["x"]
+    : never,
   incrementVersion: boolean,
 ) {
   if (incrementVersion) {
@@ -48,7 +49,9 @@ function shouldNormalizeZIndices(
   return maxZIndex > nodeInternals.size * 4;
 }
 function normalizeNodeZIndices(
-  nodeInternals: NodeInternalsMap,
+  nodeInternals: typeof useNodeInternals.getState extends () => infer T
+    ? T["x"]
+    : never,
   sectionIds: Array<string>,
 ) {
   const excludingInputIds = Array.from(nodeInternals.values()).filter(
@@ -56,26 +59,25 @@ function normalizeNodeZIndices(
   );
   excludingInputIds.sort((a, b) => a.zIndex - b.zIndex);
   const newValues = _.cloneDeep(nodeInternals);
-  for (const [i, node] of excludingInputIds.entries()) {
-    const curr = newValues.get(node.id);
-    if (!curr) {
-      continue;
-    }
+  for (let i = 0; i < excludingInputIds.length; i++) {
+    const curr = newValues.get(excludingInputIds[i].id);
     curr.zIndex = i;
     curr.tempZIndex = curr.zIndex;
   }
-  for (const [i, sectionId] of sectionIds.entries()) {
-    const curr = newValues.get(sectionId);
-    if (!curr) {
+  for (let i = 0; i < sectionIds.length; i++) {
+    if (!nodeInternals.has(sectionIds[i])) {
       continue;
     }
+    const curr = newValues.get(sectionIds[i]);
     curr.zIndex = i + excludingInputIds.length;
     curr.tempZIndex = curr.zIndex;
   }
   return newValues;
 }
 function raiseNodeZIndices(
-  nodeInternals: NodeInternalsMap,
+  nodeInternals: typeof useNodeInternals.getState extends () => infer T
+    ? T["x"]
+    : never,
   sectionIds: Array<string>,
 ) {
   let maxZIndex = -1;
@@ -104,6 +106,7 @@ function raiseNodeZIndices(
   return changed ? newValues : nodeInternals;
 }
 export function goToSection(sectionId: string) {
+  const rfStore = useReactFlow.getState();
   const rect = getSectionRect(sectionId);
   if (!rect) {
     return;
@@ -114,25 +117,20 @@ export function goToSection(sectionId: string) {
     width: sectionWidth,
     height: sectionHeight,
   } = rect;
-  const viewportState = gpuFlowViewportStore.getState();
-  const maxZoom = Math.min(viewportState.maxZoom, 1);
-  const minZoom = Math.min(viewportState.minZoom, maxZoom);
-  const { x, y, zoom } = getGpuViewportForBounds(
+  const { x, y, zoom } = getViewportForBounds(
     { x: sectionX, y: sectionY, width: sectionWidth, height: sectionHeight },
-    {
-      canvasHeight: viewportState.height,
-      canvasWidth: viewportState.width,
-      keepCurrentZoomIfPossible: true,
-      maxZoom,
-      minZoom,
-      overviewWidth: useLocalStorage.getState().overviewTrueWidth,
-      padding: 0.1,
-      viewport: viewportState.transform,
-    },
+    rfStore.width,
+    rfStore.height,
+    0,
+    1,
+    0.1,
+    true,
   );
-  setViewport(
-    { x, y, zoom },
-    { duration: useSettings.getState().gui.transitionDuration },
+  const duration = useSettings.getState().gui.transitionDuration;
+  const nextTransform = zoomIdentity.translate(x, y).scale(zoom);
+  rfStore.d3Zoom.transform(
+    getD3Transition(rfStore.d3Selection, duration),
+    nextTransform,
   );
   applyActiveSectionChange({ interaction: "go-to", sectionId });
 }
@@ -149,8 +147,6 @@ export function autoLayout() {
       body: {
         projectConfigId: getCurrProjectConfigId(),
       },
-    } as Parameters<typeof autoLayoutTopLevelSections>[0]) as Parameters<
-      typeof callOpenAPI
-    >[0],
+    } as Parameters<typeof autoLayoutTopLevelSections>[0]),
   );
 }

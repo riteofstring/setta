@@ -188,7 +188,7 @@ test("project ai stops retrying hydration after terminal 404 failures", async ({
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -358,7 +358,7 @@ test("project ai shows context unavailable when backend context telemetry is mis
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -520,7 +520,7 @@ test("project ai shows context-left badge for external chats when backend teleme
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -624,7 +624,7 @@ test("project ai warns on stale selected chat ids without hard-blocking composer
       activeChatId: staleChatId,
     });
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     const overviewPane = await getVisibleProjectChatSurface(page);
     await bindVisibleProjectChatWindowToChatId(page, staleChatId);
 
@@ -755,7 +755,7 @@ test("project ai keeps composer usable when in-flight submitted chats warn about
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     const overviewPane = await getVisibleProjectChatSurface(page);
     const input = overviewPane.locator("textarea").first();
     await expect(input).toBeVisible();

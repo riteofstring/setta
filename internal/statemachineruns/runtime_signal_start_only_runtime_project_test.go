@@ -884,6 +884,10 @@ func signalRetryLoopRuntimeTestProjectWithSourceAgentProfile(t *testing.T, agent
 	return project
 }
 
+func signalStateMachineRuntimeTestProject(t *testing.T) projectstate.Project {
+	return signalStateMachineRuntimeTestProjectWithSourceAgentProfile(t, nil)
+}
+
 func signalStateMachineRuntimeTestProjectWithSourceAgentProfile(t *testing.T, agentProfileID *string) projectstate.Project {
 	t.Helper()
 

@@ -151,7 +151,7 @@ test("browser carousel previews and edits csv/xlsx spreadsheets", async ({
       await fs.utimes(xlsxPath, stableMtime, stableMtime);
 
       const sectionNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(sectionNode).toBeVisible();
       await ensureCarouselView(sectionNode);

@@ -74,7 +74,7 @@ test("project ai chat keeps aux views session-local across stale storage and rel
   ).toBeVisible();
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
   await expect(page.getByTestId("project-chat-skills-view")).toHaveCount(0);
   await expect(
     (await getVisibleProjectChatSurface(page)).getByTestId(

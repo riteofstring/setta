@@ -175,7 +175,7 @@ func TestBootstrapWorkspaceDefaultsInstallProfileSelectsUsableLowerPrecedenceDup
 	}
 }
 
-func TestBootstrapWorkspaceDefaultsInstallProfileDoesNotConsumeProfileWhenPluginUnavailable(t *testing.T) {
+func TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerProfileVersion(t *testing.T) {
 	runtimeRoot := t.TempDir()
 	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
 
@@ -183,9 +183,6 @@ func TestBootstrapWorkspaceDefaultsInstallProfileDoesNotConsumeProfileWhenPlugin
 	firstPluginService := newDefaultsProfilePluginService(t, []string{emptySitePackages})
 	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, firstPluginService); err != nil {
 		t.Fatalf("first bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
-	}
-	if _, err := os.Stat(defaultsProfileBootstrapStatePath(runtimeRoot)); !os.IsNotExist(err) {
-		t.Fatalf("expected unavailable defaults profile to leave no marker, stat error=%v", err)
 	}
 
 	sitePackages := filepath.Join(t.TempDir(), "site-packages")
@@ -196,41 +193,8 @@ func TestBootstrapWorkspaceDefaultsInstallProfileDoesNotConsumeProfileWhenPlugin
 	}
 
 	selection, ok := defaultsProfileLanguageServerSelection(t, settingsRuntime.Snapshot().Document, "python")
-	if !ok || selection == nil || *selection != "setta-basedpyright" {
-		t.Fatalf("expected python selection after plugin becomes available, got ok=%v selection=%#v", ok, selection)
-	}
-}
-
-func TestBootstrapWorkspaceDefaultsInstallProfileRunsOnlyOncePerAppliedProfileVersion(t *testing.T) {
-	runtimeRoot := t.TempDir()
-	settingsRuntime := newDefaultsProfileSettingsRuntime(t)
-	profile := plugins.DefaultsInstallProfile()
-	if err := os.MkdirAll(runtimeRoot, 0o755); err != nil {
-		t.Fatalf("mkdir runtime root: %v", err)
-	}
-	marker := defaultsProfileBootstrapState{
-		SchemaVersion:  defaultsProfileBootstrapStateSchemaVersion,
-		ProfileID:      profile.ID,
-		ProfileVersion: profile.Version,
-	}
-	payload, err := json.Marshal(marker)
-	if err != nil {
-		t.Fatalf("encode defaults profile marker: %v", err)
-	}
-	if err := os.WriteFile(defaultsProfileBootstrapStatePath(runtimeRoot), payload, 0o644); err != nil {
-		t.Fatalf("write defaults profile marker: %v", err)
-	}
-
-	sitePackages := filepath.Join(t.TempDir(), "site-packages")
-	installDefaultsProfilePackageManagerPlugin(t, sitePackages)
-	pluginService := newDefaultsProfilePluginService(t, []string{sitePackages})
-	if err := bootstrapWorkspaceDefaultsInstallProfile(context.Background(), runtimeRoot, settingsRuntime, pluginService); err != nil {
-		t.Fatalf("bootstrapWorkspaceDefaultsInstallProfile returned error: %v", err)
-	}
-
-	selection, ok := defaultsProfileLanguageServerSelection(t, settingsRuntime.Snapshot().Document, "python")
 	if ok || selection != nil {
-		t.Fatalf("expected already-applied profile to leave selection missing, got ok=%v selection=%#v", ok, selection)
+		t.Fatalf("expected python selection to stay missing after first-open bootstrap, got ok=%v selection=%#v", ok, selection)
 	}
 }
 

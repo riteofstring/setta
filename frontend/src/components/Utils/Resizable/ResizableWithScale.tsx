@@ -1,4 +1,4 @@
-import { getZoom } from "gpuFlow/viewportActions";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { Resizable } from "re-resizable";
 import { useState } from "react";
 
@@ -6,9 +6,7 @@ export function ResizableWithScale({ children, onResizeStart, as, ...props }) {
   const { scale, onResizeStart: onResizeStart_ } = useSetScaleOnResizeStart();
 
   function localOnResizeStart(...props) {
-    if (onResizeStart) {
-      onResizeStart(...props);
-    }
+    onResizeStart && onResizeStart(...props);
     onResizeStart_(...props);
   }
 
@@ -28,7 +26,7 @@ function useSetScaleOnResizeStart() {
   const [scale, setScale] = useState(1);
 
   function onResizeStart() {
-    setScale(getZoom());
+    setScale(useReactFlow.getState().transform[2]);
   }
   return { scale, onResizeStart };
 }

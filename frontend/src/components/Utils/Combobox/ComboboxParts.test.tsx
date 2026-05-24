@@ -23,23 +23,6 @@ function renderInputMarkup(variant: "pill" | "pane") {
   );
 }
 
-function renderInputMarkupWithoutBg(variant: "pill" | "pane") {
-  return renderToStaticMarkup(
-    <ComboboxInput
-      divId="combobox-test-no-bg"
-      getInputProps={() => ({})}
-      getToggleButtonProps={() => ({})}
-      isOpen={false}
-      small={true}
-      onKeyDown={() => {}}
-      placeholder="Pick one"
-      isDisabled={false}
-      inputRef={inputRef}
-      variant={variant}
-    />,
-  );
-}
-
 function renderNormalInputMarkup(variant: "pill" | "pane") {
   return renderToStaticMarkup(
     <ComboboxInput
@@ -66,14 +49,6 @@ describe("ComboboxInput", () => {
     expect(markup).toContain("h-6 w-6");
   });
 
-  it("uses the variant background when bg is omitted", () => {
-    const paneMarkup = renderInputMarkupWithoutBg("pane");
-    const pillMarkup = renderInputMarkupWithoutBg("pill");
-
-    expect(paneMarkup).toContain("bg-white/80");
-    expect(pillMarkup).toContain("bg-white");
-  });
-
   it("keeps compact toggle sizing for pill variants", () => {
     // Pill variant keeps the existing tighter small toggle.
     const markup = renderInputMarkup("pill");
@@ -86,6 +61,25 @@ describe("ComboboxInput", () => {
     const markup = renderNormalInputMarkup("pill");
     expect(markup).toContain("h-7 w-7");
     expect(markup).toContain("pr-8");
+  });
+
+  it("uses the default background when bg is omitted", () => {
+    const markup = renderToStaticMarkup(
+      <ComboboxInput
+        divId="combobox-test-default-bg"
+        getInputProps={() => ({})}
+        getToggleButtonProps={() => ({})}
+        isOpen={false}
+        small={true}
+        onKeyDown={() => {}}
+        placeholder="Pick one"
+        isDisabled={false}
+        inputRef={inputRef}
+        variant="pill"
+      />,
+    );
+
+    expect(markup).toContain("bg-white");
   });
 
   it("uses svg chevron icons instead of gg chevron classes", () => {

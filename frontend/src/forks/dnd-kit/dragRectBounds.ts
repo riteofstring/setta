@@ -59,3 +59,13 @@ export function resolveRectBoundsById(
 
   return resolveRectBounds(rects);
 }
+
+export function resolveRectBoundsFromMap(
+  rectsById: Record<string, DragRectLike> | null,
+): BoundingRectangle | null {
+  if (!rectsById) {
+    return null;
+  }
+
+  return resolveRectBounds(Object.values(rectsById));
+}

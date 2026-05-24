@@ -174,7 +174,7 @@ test("project ai thread spinner clears when latest run in a chat is completed", 
   });
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
 
@@ -211,7 +211,7 @@ test("project ai shows styled empty state when no threads exist", async ({
 
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const projectChatSurface = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -319,7 +319,7 @@ test("project ai thread spinner clears after polling observes run completion", a
 
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
 
@@ -436,7 +436,7 @@ test("project ai selected thread spinner follows live chat state before agent-ru
 
   try {
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
 
@@ -838,7 +838,7 @@ test("project ai preserves draft text when resize reveals inline threads", async
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     let overviewPane = await getOverviewProjectChatSurface(page);
     let composerInput = overviewPane.getByTestId("chat-input-textarea");
@@ -876,7 +876,7 @@ test("project ai preserves unsent draft text across reloads", async ({
 
   try {
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = await getOverviewProjectChatSurface(page);
     const composerInput = overviewPane.getByTestId("chat-input-textarea");
@@ -887,7 +887,7 @@ test("project ai preserves unsent draft text across reloads", async ({
     // Reload should keep the in-progress composer text instead of resetting the
     // controlled input back to an empty project chat draft.
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const reloadedOverviewPane = await getOverviewProjectChatSurface(page);
     await expect(
@@ -1000,7 +1000,7 @@ test("project ai conversation search dedupes duplicate terms and ignores code-on
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);
@@ -1148,7 +1148,7 @@ test("project ai conversation search ignores hidden tool payloads and counts vis
     });
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = await getVisibleProjectChatSurface(page);
     const threadsPanel = await ensureProjectChatThreadsPanelVisible(page);

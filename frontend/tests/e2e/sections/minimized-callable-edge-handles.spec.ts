@@ -16,15 +16,6 @@ type SetCallableResponse = {
   lspStatus?: string | null;
 };
 const TARGET_CALLABLE = "sorted";
-type GpuFlowFrameProbeWindow = Window & {
-  __settaGpuFlowFrameProbeRecords?: Array<{
-    drawnEdgeCount: number;
-    frame: number;
-  }>;
-  __settaGpuFlowPerformanceProbe?: {
-    recordNodeLayerFrame?: (event: unknown) => void;
-  };
-};
 
 async function setCallable(
   page: Page,
@@ -57,78 +48,25 @@ async function getParamIds(
   minCount: number,
 ): Promise<string[]> {
   const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
+  const idPrefix = `ParamContainer-${sectionId}-`;
   await expect(sectionNode).toBeVisible();
-  const readParamIds = async () => {
-    return page.evaluate((sectionId) => {
-      return import("/src/state/definitions.ts").then(({ useProjectState }) => {
-        const state = useProjectState.getState();
-        const variantId = state.projectConfig.sectionVariantMap[sectionId];
-        const shown = variantId ? state.shownParamIds[variantId] : undefined;
-        const shownParamIds = [
-          ...(shown?.unpinned?.topLevelParamIds ?? []),
-          ...(shown?.pinned?.topLevelParamIds ?? []),
-        ];
-        if (shownParamIds.length > 0) {
-          return shownParamIds;
-        }
-        const implId = variantId
-          ? state.sectionVariants[variantId]?.impl
-          : undefined;
-        const impl = implId ? state.sectionImpls[implId] : undefined;
-        return Object.keys(impl?.codeObjVariantMap ?? {});
-      });
-    }, sectionId);
-  };
-  await expect
-    .poll(async () => (await readParamIds()).length, { timeout: 20000 })
-    .toBeGreaterThanOrEqual(minCount);
-  return await readParamIds();
-}
-
-async function installGpuFlowFrameProbe(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const view = window as GpuFlowFrameProbeWindow;
-    view.__settaGpuFlowFrameProbeRecords = [];
-    view.__settaGpuFlowPerformanceProbe = {
-      recordNodeLayerFrame(event: unknown) {
-        if (
-          !event ||
-          typeof event !== "object" ||
-          typeof (event as { drawnEdgeCount?: unknown }).drawnEdgeCount !==
-            "number" ||
-          typeof (event as { frame?: unknown }).frame !== "number"
-        ) {
-          return;
-        }
-        const records = view.__settaGpuFlowFrameProbeRecords ?? [];
-        records.push({
-          drawnEdgeCount: (event as { drawnEdgeCount: number }).drawnEdgeCount,
-          frame: (event as { frame: number }).frame,
-        });
-        if (records.length > 120) {
-          records.splice(0, records.length - 120);
-        }
-        view.__settaGpuFlowFrameProbeRecords = records;
-      },
-    };
+  await expect(sectionNode.locator(`[id^="${idPrefix}"]`).first()).toBeVisible({
+    timeout: 20000,
   });
-}
-
-async function waitForDrawnEdgeCount(
-  page: Page,
-  expected: number,
-): Promise<void> {
-  await expect
-    .poll(
-      async () =>
-        page.evaluate(() => {
-          const records = (window as GpuFlowFrameProbeWindow)
-            .__settaGpuFlowFrameProbeRecords;
-          return records?.at(-1)?.drawnEdgeCount ?? -1;
-        }),
-      { timeout: 15000 },
-    )
-    .toBe(expected);
+  const ids = await sectionNode.locator(`[id^="${idPrefix}"]`).evaluateAll(
+    (nodes, prefix) =>
+      nodes
+        .map((node) => node.id)
+        .filter((id) => id.startsWith(prefix))
+        .map((id) => id.slice(prefix.length)),
+    idPrefix,
+  );
+  if (ids.length < minCount) {
+    throw new Error(
+      `Expected at least ${minCount} params in section ${sectionId}. Found ${ids.length}.`,
+    );
+  }
+  return ids;
 }
 
 test.describe.serial("minimized callable edge handles", () => {
@@ -137,7 +75,6 @@ test.describe.serial("minimized callable edge handles", () => {
   }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    await installGpuFlowFrameProbe(page);
 
     try {
       const projectConfigId = projectContext.projectConfigId;
@@ -277,10 +214,37 @@ test.describe.serial("minimized callable edge handles", () => {
         ],
       });
 
-      await waitForDrawnEdgeCount(page, 6);
+      await expect
+        .poll(
+          async () =>
+            page.locator("svg.react-flow__edges .react-flow__edge").count(),
+          { timeout: 15000 },
+        )
+        .toBe(4);
+      await expect
+        .poll(
+          async () =>
+            page
+              .locator(
+                "svg.react-flow__agentic-edges .react-flow__agentic-edge-path",
+              )
+              .count(),
+          { timeout: 15000 },
+        )
+        .toBe(2);
 
       const sectionBNode = page.getByTestId(`rf__node-${sectionB}`);
       await expect(sectionBNode).toBeVisible();
+
+      const expandedInputHandles = sectionBNode.locator(
+        ".react-flow__handle.arg-edge-handle.react-flow__handle-left",
+      );
+      const expandedOutputHandles = sectionBNode.locator(
+        ".react-flow__handle.arg-edge-handle.react-flow__handle-right",
+      );
+
+      await expect(expandedInputHandles).toHaveCount(2);
+      await expect(expandedOutputHandles).toHaveCount(2);
 
       await toggleMinimizedFromFrontend(page, {
         projectConfigId,
@@ -294,45 +258,51 @@ test.describe.serial("minimized callable edge handles", () => {
       // connected by routing all ports to one dot on each side.
       await expect(
         sectionBNode.locator(
-          `.setta-gpu-flow__handle.arg-edge-handle[data-handleid="${bParam1}"]`,
+          `.react-flow__handle.arg-edge-handle[data-handleid="${bParam1}"]`,
         ),
       ).toHaveCount(0);
       await expect(
         sectionBNode.locator(
-          `.setta-gpu-flow__handle.arg-edge-handle[data-handleid="${bParam2}"]`,
+          `.react-flow__handle.arg-edge-handle[data-handleid="${bParam2}"]`,
         ),
       ).toHaveCount(0);
       await expect(
         sectionBNode.locator(
-          `.setta-gpu-flow__handle.arg-edge-handle[data-handleid="${bOutPortId1}"]`,
+          `.react-flow__handle.arg-edge-handle[data-handleid="${bOutPortId1}"]`,
         ),
       ).toHaveCount(0);
       await expect(
         sectionBNode.locator(
-          `.setta-gpu-flow__handle.arg-edge-handle[data-handleid="${bOutPortId2}"]`,
+          `.react-flow__handle.arg-edge-handle[data-handleid="${bOutPortId2}"]`,
         ),
       ).toHaveCount(0);
 
       const minimizedDots = sectionBNode.locator(
-        ".setta-gpu-flow__handle.arg-edge-handle--minimized",
+        ".react-flow__handle.arg-edge-handle--minimized",
       );
       await expect(minimizedDots).toHaveCount(2);
-      await waitForDrawnEdgeCount(page, 6);
+      await expect
+        .poll(
+          async () =>
+            page.locator("svg.react-flow__edges .react-flow__edge").count(),
+          { timeout: 15000 },
+        )
+        .toBe(4);
 
       const minimizedLeftDot = sectionBNode.locator(
-        ".setta-gpu-flow__handle.arg-edge-handle--minimized.setta-gpu-flow__handle-left",
+        ".react-flow__handle.arg-edge-handle--minimized.react-flow__handle-left",
       );
       const minimizedRightDot = sectionBNode.locator(
-        ".setta-gpu-flow__handle.arg-edge-handle--minimized.setta-gpu-flow__handle-right",
+        ".react-flow__handle.arg-edge-handle--minimized.react-flow__handle-right",
       );
       await expect(minimizedLeftDot).toBeVisible();
       await expect(minimizedRightDot).toBeVisible();
 
       const agenticTarget = sectionBNode.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionB}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${sectionB}"][data-handleid="agentic-edge-target"]`,
       );
       const agenticSource = sectionBNode.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionB}"][data-handleid="agentic-edge-source"]`,
+        `.react-flow__handle[data-nodeid="${sectionB}"][data-handleid="agentic-edge-source"]`,
       );
       await expect(agenticTarget).toBeVisible();
       await expect(agenticSource).toBeVisible();

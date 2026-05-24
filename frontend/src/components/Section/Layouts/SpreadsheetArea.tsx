@@ -1,5 +1,5 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
-import { useGpuFlowZoom } from "gpuFlow/viewportHooks";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { setSpreadsheetFilePath } from "openapi/http";
 import type { DragEvent } from "react";
@@ -93,7 +93,7 @@ async function persistImportedSpreadsheetFile(
 }
 
 export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
-  const flowZoom = useGpuFlowZoom();
+  const flowZoom = useReactFlow((state) => state.transform[2]);
   const { canEditLayout } = useShareCapabilities();
   const {
     filePath,
@@ -215,7 +215,6 @@ export function SpreadsheetArea({ sectionId }: { sectionId: string }) {
           ? "border border-blue-400/70 bg-blue-50/30 dark:border-blue-500/60 dark:bg-blue-950/20"
           : ""
       }`}
-      data-gpu-flow-control={`spreadsheet:${sectionId}`}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onDragLeave={handleDragLeave}

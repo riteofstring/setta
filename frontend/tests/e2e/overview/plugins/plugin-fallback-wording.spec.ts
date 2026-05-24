@@ -13,7 +13,7 @@ test("plugin-not-installed fallback uses canonical scope wording", async ({
 }) => {
   const projectContext = await openIsolatedProject(page);
   try {
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
       throw new Error("Unable to resolve viewport bounds for plugin section.");
@@ -63,7 +63,7 @@ test("plugin-kind-missing fallback uses explicit section kind wording", async ({
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
@@ -119,7 +119,7 @@ test("plugin fallback reason updates reactively when plugin state changes", asyn
     await postBackend(page, "/plugins/rescan", {});
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
 
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
