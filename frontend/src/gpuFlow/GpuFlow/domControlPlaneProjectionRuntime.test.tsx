@@ -45,6 +45,8 @@ describe("GPU flow DOM control projection runtime", () => {
       act(() => root?.unmount());
       root = null;
     }
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
     delete (window as Window & { __SETTA_CHROME_REPRO_ACTIVE__?: boolean })
       .__SETTA_CHROME_REPRO_ACTIVE__;
     delete (
@@ -525,6 +527,14 @@ describe("GPU flow DOM control projection runtime", () => {
   });
 
   it("requests content publication when an active preparation host becomes ready", () => {
+    const animationFrames: FrameRequestCallback[] = [];
+    vi.stubGlobal(
+      "requestAnimationFrame",
+      vi.fn((callback: FrameRequestCallback) => {
+        animationFrames.push(callback);
+        return animationFrames.length;
+      }),
+    );
     const passiveControl = domControl({ active: false, index: 0 });
     const activeControl = domControl({ active: true, index: 0 });
     const requestFrame = vi.fn();
@@ -588,6 +598,12 @@ describe("GPU flow DOM control projection runtime", () => {
       root?.render(renderPlane());
     });
 
+    expect(requestFrame).toHaveBeenCalledWith("dom-control-activation");
+    expect(animationFrames).toHaveLength(1);
+    requestFrame.mockClear();
+    act(() => {
+      animationFrames[0]?.(performance.now());
+    });
     expect(requestFrame).toHaveBeenCalledWith("dom-control-activation");
   });
 

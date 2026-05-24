@@ -13,6 +13,7 @@ import {
 
 export function createGpuFlowVisibleProjectionStateForRetainedPublication({
   frameReasons,
+  forceContentPublicationForHeldRetainedDisplay = false,
   heldPreviousProjectionState,
   heldPreviousReason = "retained-display-coverage-missing",
   liveProjectionSample,
@@ -21,6 +22,9 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
   retainedDisplayOutcomeKind,
 }: {
   readonly frameReasons: readonly GpuFrameReason[];
+  readonly forceContentPublicationForHeldRetainedDisplay?:
+    | boolean
+    | undefined;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly heldPreviousReason?: string | undefined;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
@@ -32,6 +36,7 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
   readonly retainedDisplayOutcomeKind: string;
 }): GpuFlowVisibleProjectionState {
   const heldPrevious = getGpuFlowHeldPreviousProjectionState({
+    forceContentPublicationForHeldRetainedDisplay,
     heldPreviousProjectionState,
     retainedDisplayOutcomeKind,
   });
@@ -63,12 +68,17 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
 }
 
 function getGpuFlowHeldPreviousProjectionState({
+  forceContentPublicationForHeldRetainedDisplay,
   heldPreviousProjectionState,
   retainedDisplayOutcomeKind,
 }: {
+  readonly forceContentPublicationForHeldRetainedDisplay: boolean;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly retainedDisplayOutcomeKind: string;
 }): GpuFlowVisibleProjectionState | null {
+  if (forceContentPublicationForHeldRetainedDisplay) {
+    return null;
+  }
   if (retainedDisplayOutcomeKind !== "hold-previous") {
     return null;
   }

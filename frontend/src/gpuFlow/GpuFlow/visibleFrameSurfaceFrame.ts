@@ -97,6 +97,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   | "deferResolutionUpdates"
   | "deferBrowserVisualWakeup"
   | "frameReasons"
+  | "forceContentPublicationForHeldRetainedDisplay"
   | "heldPreviousProjectionState"
   | "liveProjectionSample"
   | "onRetainedDisplayFrame"
@@ -315,6 +316,8 @@ export function renderGpuFlowSurfaceFrame({
             liveProjectionSample: publicationDecision.sample,
             nodeLayerRef,
             contentPublicationWorkPlan,
+            activeEditorActivationPending:
+              publicationFrameContext.activeEditorPins.length > 0,
             previousVisibleProjectionState,
             publicationDecision,
             retainedContentRuntimeState,
@@ -668,6 +671,7 @@ function createGpuFlowMotionProjectionFrameResult({
 }
 
 function renderGpuFlowSurfaceContentPublicationFrame({
+  activeEditorActivationPending,
   contentPublicationWorkPlan,
   deferResolutionUpdates,
   event,
@@ -684,6 +688,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   viewportStore,
   ...input
 }: Omit<RenderGpuFlowSurfaceFrameInput, "viewportRuntime"> & {
+  readonly activeEditorActivationPending: boolean;
   readonly contentPublicationWorkPlan: GpuFlowContentPublicationWorkPlan;
   readonly deferResolutionUpdates: boolean;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
@@ -704,6 +709,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   if (
     !shouldRenderGpuFlowSurfaceContentPublicationFrame({
       contentPublicationWorkPlan,
+      activeEditorActivationPending,
       deferResolutionUpdates: contentDeferResolutionUpdates,
       liveProjectionSample,
       nodeElementByIdRef: input.nodeElementByIdRef,
@@ -735,6 +741,8 @@ function renderGpuFlowSurfaceContentPublicationFrame({
         deferResolutionUpdates: contentDeferResolutionUpdates,
         publicationDecision,
       }),
+    forceContentPublicationForHeldRetainedDisplay:
+      activeEditorActivationPending,
     frameReasons: event.reasons,
     frameRef: input.frameRef,
     interactionDiagnosticsRef: input.interactionDiagnosticsRef,
@@ -779,6 +787,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
 }
 
 function shouldRenderGpuFlowSurfaceContentPublicationFrame({
+  activeEditorActivationPending,
   contentPublicationWorkPlan,
   deferResolutionUpdates,
   liveProjectionSample,
@@ -791,6 +800,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
   retainedPreparationRuntimeFrameRenderSignatureRef,
   retainedRuntimeFrameSourceRenderSignatureRef,
 }: {
+  readonly activeEditorActivationPending: boolean;
   readonly contentPublicationWorkPlan: GpuFlowContentPublicationWorkPlan;
   readonly deferResolutionUpdates: boolean;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
@@ -808,6 +818,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
   }
   return !shouldSkipDeferredGpuFlowContentPublication({
     deferResolutionUpdates,
+    activeEditorActivationPending,
     liveProjectionSample,
     nodeElementByIdRef,
     nodeLayerRef,
@@ -821,6 +832,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
 }
 
 function shouldSkipDeferredGpuFlowContentPublication({
+  activeEditorActivationPending,
   deferResolutionUpdates,
   liveProjectionSample,
   nodeElementByIdRef,
@@ -832,6 +844,7 @@ function shouldSkipDeferredGpuFlowContentPublication({
   retainedPreparationRuntimeFrameRenderSignatureRef,
   retainedRuntimeFrameSourceRenderSignatureRef,
 }: {
+  readonly activeEditorActivationPending: boolean;
   readonly deferResolutionUpdates: boolean;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
   readonly nodeElementByIdRef: RenderGpuFlowSurfaceFrameInput["nodeElementByIdRef"];
@@ -843,6 +856,9 @@ function shouldSkipDeferredGpuFlowContentPublication({
   readonly retainedPreparationRuntimeFrameRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedPreparationRuntimeFrameRenderSignatureRef"];
   readonly retainedRuntimeFrameSourceRenderSignatureRef: RenderGpuFlowSurfaceFrameInput["retainedRuntimeFrameSourceRenderSignatureRef"];
 }): boolean {
+  if (activeEditorActivationPending) {
+    return false;
+  }
   if (
     !shouldConsiderGpuFlowDeferredContentPublication({
       deferResolutionUpdates,

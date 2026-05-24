@@ -49,16 +49,25 @@ export function requestGpuFlowSurfacePublicationFollowUpFrames({
 }
 
 export function createGpuFlowSurfacePublicationDebtFrameRequest({
+  activeEditorActivationPending = false,
   completion,
   debtFrameRequest,
   publicationDecision,
 }: {
+  readonly activeEditorActivationPending?: boolean | undefined;
   readonly completion: GpuFlowVisiblePublicationCompletion;
   readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }): GpuFlowVisiblePublicationDebtFrameRequest | null {
   if (debtFrameRequest === null) {
     return null;
+  }
+  if (activeEditorActivationPending && completion.debt.content) {
+    return Object.freeze({
+      ...debtFrameRequest,
+      delayMs: null,
+      frameReason: "dom-control-activation",
+    });
   }
   if (
     !shouldDelayGpuFlowSurfacePublicationDebtFrame({
@@ -161,6 +170,9 @@ function shouldDelayGpuFlowSurfacePublicationDebtFrame({
     return true;
   }
   if (debtFrameRequest.frameReason === "texture-upload") {
+    return false;
+  }
+  if (debtFrameRequest.frameReason === "dom-control-activation") {
     return false;
   }
   return shouldDelayGpuFlowContentDebtFrame({

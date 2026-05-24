@@ -56,6 +56,104 @@ describe("GPU flow DOM control projection compatibility", () => {
       }),
     );
   });
+
+  it("lets active editor pins carry every compatible passive previous host", () => {
+    const passiveControls = Array.from({ length: 12 }, (_, index) =>
+      domControl({
+        index,
+        projectionVisibility: "viewport-visible",
+        visualPolicy: "live-dom",
+      }),
+    );
+    const activeControl = domControl({
+      active: true,
+      index: 99,
+      projectionVisibility: "viewport-visible",
+      visualPolicy: "live-dom",
+    });
+    const assignments = [
+      {
+        compatibilityProof: null,
+        control: activeControl,
+        coverageState: "live",
+        phase: "project",
+        priority: 0,
+        reason: "active-pinned",
+      },
+      ...passiveControls.map((control) =>
+        domControlAssignment({
+          control,
+          reason: "live-host-overflow",
+        }),
+      ),
+    ] satisfies readonly GpuFlowDomControlProjectionAssignment[];
+
+    const resolvedAssignments =
+      resolveGpuFlowDomControlCompatiblePreviousAssignments({
+        assignments,
+        promotedRepresentationByControlId:
+          promotedRepresentationMapForControls(passiveControls),
+      });
+
+    expect(
+      resolvedAssignments.filter(
+        (assignment) => assignment.coverageState === "compatible-previous",
+      ),
+    ).toHaveLength(passiveControls.length);
+  });
+
+  it("lets active editor pins carry passive previous hosts past the passive frame budget", () => {
+    const passiveControl = domControl({
+      index: 80,
+      projectionVisibility: "viewport-visible",
+      visualPolicy: "live-dom",
+    });
+    const activeControl = domControl({
+      active: true,
+      index: 99,
+      projectionVisibility: "viewport-visible",
+      visualPolicy: "live-dom",
+    });
+
+    const [resolvedActiveAssignment, resolvedPassiveAssignment] =
+      resolveGpuFlowDomControlCompatiblePreviousAssignments({
+        assignments: [
+          {
+            compatibilityProof: null,
+            control: activeControl,
+            coverageState: "live",
+            phase: "project",
+            priority: 0,
+            reason: "active-pinned",
+          },
+          domControlAssignment({
+            control: passiveControl,
+            reason: "live-host-overflow",
+          }),
+        ],
+        promotedRepresentationByControlId: new Map([
+          [
+            passiveControl.sourceId,
+            {
+              compatiblePreviousFrameCount: 2,
+              control: passiveControl,
+            },
+          ],
+        ]),
+      });
+
+    expect(resolvedActiveAssignment?.coverageState).toBe("live");
+    expect(resolvedPassiveAssignment).toEqual(
+      expect.objectContaining({
+        compatibilityProof: expect.objectContaining({
+          actorId: passiveControl.sourceId,
+          reasonCode: "same-value-and-geometry",
+        }),
+        coverageState: "compatible-previous",
+        reason: "compatible-previous-proof",
+      }),
+    );
+  });
 });
 
 function domControlAssignment({
@@ -84,4 +182,18 @@ function promotedRepresentationMap(
       },
     ],
   ]);
+}
+
+function promotedRepresentationMapForControls(
+  controls: readonly GpuFlowDomControlProjectionAssignment["control"][],
+): ReadonlyMap<string, GpuFlowDomControlPromotedRepresentation> {
+  return new Map(
+    controls.map((control) => [
+      control.sourceId,
+      {
+        compatiblePreviousFrameCount: 0,
+        control,
+      },
+    ]),
+  );
 }

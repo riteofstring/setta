@@ -175,6 +175,42 @@ describe("GPU Flow visible publication content plans", () => {
     );
   });
 
+  it("lets active editor activation commit candidate frames through retained display holds", () => {
+    const previousVisibleProjectionState =
+      contentDecisionKernel.createVisibleProjectionStateForRetainedPublication({
+        frameReasons: ["manual"],
+        heldPreviousProjectionState: null,
+        liveProjectionSample: liveProjectionSample(),
+        publicationLane: "content",
+        publishedCommittedSurfaceFrame: committedSurfaceFrame(12),
+        retainedDisplayOutcomeKind: "publish-exact",
+      });
+    const heldPublication =
+      contentDecisionKernel.createVisibleProjectionStateForRetainedPublication({
+        frameReasons: ["texture-upload", "dom-control-activation"],
+        heldPreviousProjectionState: previousVisibleProjectionState,
+        liveProjectionSample: liveProjectionSample(),
+        publicationLane: "content",
+        publishedCommittedSurfaceFrame: committedSurfaceFrame(48),
+        retainedDisplayOutcomeKind: "hold-previous",
+      });
+    const forcedPublication =
+      contentDecisionKernel.createVisibleProjectionStateForRetainedPublication({
+        forceContentPublicationForHeldRetainedDisplay: true,
+        frameReasons: ["texture-upload", "dom-control-activation"],
+        heldPreviousProjectionState: previousVisibleProjectionState,
+        liveProjectionSample: liveProjectionSample(),
+        publicationLane: "content",
+        publishedCommittedSurfaceFrame: committedSurfaceFrame(48),
+        retainedDisplayOutcomeKind: "hold-previous",
+      });
+
+    expect(heldPublication.transaction.kind).toBe("held-previous");
+    expect(heldPublication.committedFrame.displayFrameId).toBe(12);
+    expect(forcedPublication.transaction.kind).toBe("content-publication");
+    expect(forcedPublication.committedFrame.displayFrameId).toBe(48);
+  });
+
   it("keeps content publication selector factories off the coordinator public surface", () => {
     const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");

@@ -20,8 +20,12 @@ export function resolveGpuFlowDomControlCompatiblePreviousAssignments({
     GpuFlowDomControlPromotedRepresentation
   >;
 }): readonly GpuFlowDomControlProjectionAssignment[] {
-  let remainingCompatiblePreviousBudget =
-    DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.maxCompatiblePreviousControls;
+  const activeEditorPinned = assignments.some(
+    (assignment) => assignment.control.active,
+  );
+  let remainingCompatiblePreviousBudget = activeEditorPinned
+    ? Number.POSITIVE_INFINITY
+    : DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.maxCompatiblePreviousControls;
   return assignments.map((assignment) => {
     if (
       remainingCompatiblePreviousBudget <= 0 ||
@@ -32,7 +36,12 @@ export function resolveGpuFlowDomControlCompatiblePreviousAssignments({
     const previous = promotedRepresentationByControlId.get(
       assignment.control.sourceId,
     );
-    if (!isCompatiblePreviousCarryAllowed(previous)) {
+    if (
+      !isCompatiblePreviousCarryAllowed({
+        activeEditorPinned,
+        previous,
+      })
+    ) {
       return assignment;
     }
     const proof = createGpuFlowDomControlCompatiblePreviousProof({
@@ -97,13 +106,20 @@ export function createGpuFlowDomControlPromotedRepresentationMap({
   return promotedRepresentationByControlId;
 }
 
-function isCompatiblePreviousCarryAllowed(
-  previous: GpuFlowDomControlPromotedRepresentation | undefined,
-): previous is GpuFlowDomControlPromotedRepresentation {
-  return Boolean(
-    previous &&
-      previous.compatiblePreviousFrameCount <
-        DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.maxCompatiblePreviousFrames,
+function isCompatiblePreviousCarryAllowed({
+  activeEditorPinned,
+  previous,
+}: {
+  readonly activeEditorPinned: boolean;
+  readonly previous: GpuFlowDomControlPromotedRepresentation | undefined;
+}): previous is GpuFlowDomControlPromotedRepresentation {
+  if (!previous) {
+    return false;
+  }
+  return (
+    activeEditorPinned ||
+    previous.compatiblePreviousFrameCount <
+      DEFAULT_GPU_FLOW_DOM_CONTROL_PROJECTION_KNOBS.maxCompatiblePreviousFrames
   );
 }
 

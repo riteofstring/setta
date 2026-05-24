@@ -13,7 +13,7 @@ import { useProjectGpuDomIslandActivation } from "./projectGpuDomIslandActivatio
 import { PROJECT_GPU_RETAINED_CODEMIRROR_TOOLTIP_PARENT_ID } from "./projectGpuPortalAdapter";
 
 const PROJECT_GPU_RETAINED_TEXT_LIKE_DOM_CONTROL_ACTIVE_CLASS =
-  "relative h-full min-w-0 bg-setta-100/50 dark:bg-blue-950/30";
+  "relative h-full min-w-0 bg-transparent";
 
 export function renderProjectGpuRetainedDomControl(
   source: GpuRetainedDomControlSourceDescriptor,

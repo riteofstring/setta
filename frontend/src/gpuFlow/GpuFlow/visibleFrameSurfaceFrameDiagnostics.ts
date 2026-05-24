@@ -2,6 +2,7 @@ import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuFlowContentPublicationFrameResult } from "./visibleFrameContentPlan";
 import type { runGpuFlowVisibleFrameCoordinator } from "./visibleFrameCoordinator";
 import type { GpuFlowVisibleFrameResourceGraphSnapshot } from "./visibleFrameResourceGraph";
+import { createGpuFlowVisiblePublicationTransactionProofReport } from "./visibleFrameTransactionProofs";
 
 type GpuFlowSurfaceFrameCoordinatorBaseResult = ReturnType<
   typeof runGpuFlowVisibleFrameCoordinator
@@ -53,6 +54,7 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
   const layerResult =
     contentFrame.nodeLayerFrameStatePublication?.layerResult ?? null;
   requests.push({
+    activeEditorPins: coordinatorResult.publicationFrameContext.activeEditorPins,
     ...createGpuFlowSurfaceFrameDebtRequestDiagnostic(
       schedulerCompletion.debtFrameRequest,
     ),
@@ -63,6 +65,9 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
     blockedReasons: getGpuFlowSurfaceFrameBlockedReasons(contentFrame),
     completionDebt: schedulerCompletion.completion.debt,
     completionOutcome: schedulerCompletion.completion.outcome,
+    contentPublication: createGpuFlowSurfaceFrameContentPublicationDiagnostic(
+      contentFrame,
+    ),
     frame,
     frameRequest: createGpuFlowSurfaceFrameRequestDiagnostic(
       coordinatorResult.publicationFrameContext.frameRequest,
@@ -78,8 +83,36 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
     sampleRetainedScrollRevision:
       coordinatorResult.publicationDecision.sample.retainedScrollRevision,
     source: "surface-frame",
+    transactionProof: createGpuFlowVisiblePublicationTransactionProofReport(
+      coordinatorResult.preparedFrame.transactionProof,
+    ),
   });
   view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ = requests.slice(-20);
+}
+
+function createGpuFlowSurfaceFrameContentPublicationDiagnostic(
+  contentFrame: GpuFlowContentPublicationFrameResult,
+) {
+  return {
+    blockedPreparedCommittedSurfaceFrameId:
+      contentFrame.blockedPreparedCommittedSurfaceFrame?.displayFrameId ?? null,
+    committedSurfaceFrameId:
+      contentFrame.committedSurfaceFrame?.displayFrameId ?? null,
+    heldPreparedCommittedSurfaceFrameId:
+      contentFrame.heldPreparedCommittedSurfaceFrame?.displayFrameId ?? null,
+    rendered: contentFrame.rendered,
+    retainedDisplayFrameId: contentFrame.retainedDisplayFrame?.id ?? null,
+    retainedDisplayOutcome:
+      contentFrame.retainedDisplayFrame?.diagnostics.transactionOutcome ?? null,
+    retainedDisplayHoldReason:
+      contentFrame.retainedDisplayFrame?.diagnostics.holdDiagnostics
+        ?.holdReason ?? null,
+    visibleProjectionCommittedFrameId:
+      contentFrame.visibleProjectionState?.committedFrame.displayFrameId ??
+      null,
+    visibleProjectionTransactionKind:
+      contentFrame.visibleProjectionState?.transaction.kind ?? null,
+  };
 }
 
 function createGpuFlowSurfaceFrameLayerResultDiagnostic(

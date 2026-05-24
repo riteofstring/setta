@@ -235,9 +235,20 @@ test("retained settings text editor activation keeps text ink aligned with the p
   });
 
   await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
-  await expect
-    .poll(() => readActiveCodeMirrorId(page), { timeout: 5_000 })
-    .toContain(row.rowId);
+  try {
+    await expect
+      .poll(() => readActiveCodeMirrorId(page), { timeout: 5_000 })
+      .toContain(row.rowId);
+  } catch (error) {
+    const causeMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Timed out waiting for active CodeMirror after zoomed retained click: ${JSON.stringify(
+        await readActivationDiagnostics(page, row),
+        null,
+        2,
+      )} (${causeMessage})`,
+    );
+  }
   await waitForAnimationFrame(page);
   const activeFrame = await page.screenshot({
     clip,
@@ -592,6 +603,159 @@ async function readActivationDiagnostics(
         },
       };
     });
+    const controlSourceId = controlHosts[0]?.id ?? null;
+    const summarizeReasons = (reasons: unknown) => {
+      if (!Array.isArray(reasons)) {
+        return {
+          count: 0,
+          byFamily: {},
+          rowReasons: [],
+          sample: [],
+        };
+      }
+      const reasonRecords = reasons.filter(
+        (reason): reason is {
+          actorId?: unknown;
+          family?: unknown;
+          reason?: unknown;
+        } => typeof reason === "object" && reason !== null,
+      );
+      const byFamily = reasonRecords.reduce<Record<string, number>>(
+        (counts, reason) => {
+          const family = String(reason.family ?? "unknown");
+          counts[family] = (counts[family] ?? 0) + 1;
+          return counts;
+        },
+        {},
+      );
+      const rowReasons = reasonRecords
+        .filter((reason) => {
+          const actorId = String(reason.actorId ?? "");
+          return (
+            (controlSourceId !== null && actorId === controlSourceId) ||
+            actorId.includes(rowId)
+          );
+        })
+        .map((reason) => ({
+          actorId: reason.actorId ?? null,
+          family: reason.family ?? null,
+          reason: reason.reason ?? null,
+        }));
+      return {
+        count: reasonRecords.length,
+        byFamily,
+        rowReasons,
+        sample: reasonRecords.slice(0, 8).map((reason) => ({
+          actorId: reason.actorId ?? null,
+          family: reason.family ?? null,
+          reason: reason.reason ?? null,
+        })),
+      };
+    };
+    const summarizeBlockedEvents = (events: unknown) => {
+      if (!Array.isArray(events)) {
+        return [];
+      }
+      return events.slice(-6).map((event) => {
+        const record =
+          typeof event === "object" && event !== null
+            ? (event as Record<string, unknown>)
+            : {};
+        const manifest =
+          typeof record.actorManifest === "object" &&
+          record.actorManifest !== null
+            ? (record.actorManifest as Record<string, unknown>)
+            : {};
+        return {
+          actorManifest: {
+            blockedActorsByFamily:
+              manifest.blockedActorsByFamily ?? null,
+            blockerReasons: summarizeReasons(manifest.blockerReasons),
+            committedFrameId: manifest.committedFrameId ?? null,
+            compatibleActorsByFamily:
+              manifest.compatibleActorsByFamily ?? null,
+            missingActorsByFamily:
+              manifest.missingActorsByFamily ?? null,
+            readyActorsByFamily: manifest.readyActorsByFamily ?? null,
+            requiredActorsByFamily:
+              manifest.requiredActorsByFamily ?? null,
+            visibleOutcome: manifest.visibleOutcome ?? null,
+          },
+          blockedReasons: summarizeReasons(record.blockedReasons),
+          outcome: record.outcome ?? null,
+          schedulerState: record.schedulerState ?? null,
+          source: record.source ?? null,
+        };
+      });
+    };
+    const summarizeDebtRequests = (requests: unknown) => {
+      if (!Array.isArray(requests)) {
+        return [];
+      }
+      return requests.slice(-6).map((request) => {
+        const record =
+          typeof request === "object" && request !== null
+            ? (request as Record<string, unknown>)
+            : {};
+        const resourceStates = Array.isArray(record.resourceStates)
+          ? record.resourceStates
+          : [];
+        const resourceKeys = resourceStates
+          .map((state) =>
+            typeof state === "object" && state !== null
+              ? String((state as Record<string, unknown>).resourceKey ?? "")
+              : "",
+          )
+          .filter(Boolean);
+        return {
+          activeEditorPins: record.activeEditorPins ?? null,
+          activeEditorResourceKeys: resourceKeys.filter((resourceKey) =>
+            controlSourceId === null
+              ? false
+              : resourceKey.includes(controlSourceId),
+          ),
+          frame: record.frame ?? null,
+          frameReason: record.frameReason ?? null,
+          frameReasons: record.frameReasons ?? null,
+          frameRequest: record.frameRequest ?? null,
+          outcomeKind: record.outcomeKind ?? null,
+          contentPublication: record.contentPublication ?? null,
+          pendingCandidateFrameIds: record.pendingCandidateFrameIds ?? null,
+          publicationLane: record.publicationLane ?? null,
+          queuedResourceKeyCount: Array.isArray(record.queuedResourceKeys)
+            ? record.queuedResourceKeys.length
+            : null,
+          resourceGraph:
+            typeof record.resourceGraph === "object" &&
+            record.resourceGraph !== null
+              ? {
+                  pendingCandidateFrameIds:
+                    (record.resourceGraph as Record<string, unknown>)
+                      .pendingCandidateFrameIds ?? null,
+                  queuedResourceKeyCount: Array.isArray(
+                    (record.resourceGraph as Record<string, unknown>)
+                      .queuedResourceKeys,
+                  )
+                    ? (
+                        (record.resourceGraph as Record<string, unknown>)
+                          .queuedResourceKeys as unknown[]
+                      ).length
+                    : null,
+                  resourceDebtByState:
+                    (record.resourceGraph as Record<string, unknown>)
+                      .resourceDebtByState ?? null,
+                }
+              : null,
+          resourceDebtByState: record.resourceDebtByState ?? null,
+          rowResourceKeys: resourceKeys.filter((resourceKey) =>
+            resourceKey.includes(rowId),
+          ),
+          schedulerState: record.schedulerState ?? null,
+          source: record.source ?? null,
+          transactionProof: record.transactionProof ?? null,
+        };
+      });
+    };
     return {
       activeElement: activeElement
         ? {
@@ -606,6 +770,14 @@ async function readActivationDiagnostics(
       domControlPlane:
         window.__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null,
       activeRetainedHit: snapshot?.activeRetainedHit ?? null,
+      blockedVisiblePublicationEvents:
+        summarizeBlockedEvents(
+          window.__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__,
+        ),
+      publicationDebtFrameRequests:
+        summarizeDebtRequests(
+          window.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__,
+        ),
       elementAtPoint:
         elementAtPoint instanceof Element
           ? {

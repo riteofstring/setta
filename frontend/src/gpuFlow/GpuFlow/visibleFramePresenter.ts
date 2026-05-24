@@ -260,6 +260,14 @@ function presentGpuFlowVisibleFramePublicationFrame({
     publicationTransaction.completeSchedulerFrame();
   const { completion } = schedulerFrameCompletion;
   const debtFrameRequest = createGpuFlowSurfacePublicationDebtFrameRequest({
+    activeEditorActivationPending:
+      publicationFrameContext.activeEditorPins.length > 0 ||
+      hasGpuFlowActiveEditorActivationPendingFrame([
+        blockedPreparedCommittedSurfaceFrame,
+        committedSurfaceFrame,
+        heldPreparedCommittedSurfaceFrame,
+        selectedVisibleProjectionState?.committedFrame ?? null,
+      ]),
     completion,
     debtFrameRequest: schedulerFrameCompletion.debtFrameRequest,
     publicationDecision,
@@ -303,6 +311,21 @@ function presentGpuFlowVisibleFramePublicationFrame({
   if (blockedVisiblePublication?.blockedErrorMessage) {
     throw new Error(blockedVisiblePublication.blockedErrorMessage);
   }
+}
+
+function hasGpuFlowActiveEditorActivationPendingFrame(
+  frames: readonly (GpuFlowCommittedSurfaceFrame | null)[],
+): boolean {
+  return frames.some((frame) =>
+    frame?.actorGenerations.some((actor) =>
+      Boolean(
+        actor.active ||
+          actor.browserVisual?.representationKind === "active-editor" ||
+          actor.textCoverageProof?.pointerSemantics ===
+            "active-browser-editor",
+      ),
+    ),
+  );
 }
 
 function recordGpuFlowBlockedSurfaceVisibleProjectionPublication({

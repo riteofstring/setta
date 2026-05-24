@@ -521,6 +521,7 @@ export function renderGpuFlowNodeLayerFrame({
   canvasSizeRef,
   deferBrowserVisualWakeup,
   deferResolutionUpdates,
+  forceContentPublicationForHeldRetainedDisplay,
   frameReasons,
   frameRef,
   interactionDiagnosticsRef,
@@ -553,6 +554,7 @@ export function renderGpuFlowNodeLayerFrame({
   readonly canvasSizeRef: MutableRefObject<GpuCanvasSize | null>;
   readonly deferBrowserVisualWakeup: boolean;
   readonly deferResolutionUpdates: boolean;
+  readonly forceContentPublicationForHeldRetainedDisplay: boolean;
   readonly frameReasons: readonly GpuFrameReason[];
   readonly frameRef: MutableRefObject<number>;
   readonly interactionDiagnosticsRef: MutableRefObject<MutableGpuFlowInteractionDiagnostics>;
@@ -849,6 +851,7 @@ export function renderGpuFlowNodeLayerFrame({
       };
       const visibleProjectionState =
         createVisibleProjectionStateForRetainedPublication({
+          forceContentPublicationForHeldRetainedDisplay,
           publishedCommittedSurfaceFrame: preparedCommittedSurfaceFrame,
         });
       const performanceReport: GpuFlowNodeLayerFramePerformanceReport = {

@@ -167,6 +167,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
 
   it("starts budget-selected resource preparation after proofed publication", () => {
     const phases: string[] = [];
+    const observedActiveEditorPins: readonly string[][] = [];
 
     runGpuFlowVisibleFrameCoordinator({
       budgetBroker: createGpuFlowVisibleFrameBudgetBroker({
@@ -178,12 +179,14 @@ describe("GPU Flow visible frame coordinator budget", () => {
           reservedMotionProjectionBudgetMs: 2,
         },
       }),
-      prepareContentPublicationFrame: () => {
+      prepareContentPublicationFrame: ({ publicationFrameContext }) => {
         phases.push("content");
+        observedActiveEditorPins.push(publicationFrameContext.activeEditorPins);
         return testPublicationCandidate();
       },
-      prepareMotionProjectionFrame: () => {
+      prepareMotionProjectionFrame: ({ publicationFrameContext }) => {
         phases.push("motion");
+        observedActiveEditorPins.push(publicationFrameContext.activeEditorPins);
         return {
           frame: testPublicationCandidate(),
           kind: "not-rendered" as const,
@@ -241,6 +244,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
       "publish:blocked",
       "resources:dom-control:editor",
     ]);
+    expect(observedActiveEditorPins).toEqual([["editor"], ["editor"]]);
   });
 
   it("keeps selected visible resource debt on the scheduled lane while preparing resources after publication", () => {

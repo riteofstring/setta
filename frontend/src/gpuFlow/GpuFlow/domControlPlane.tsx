@@ -461,10 +461,20 @@ function requestGpuFlowDomControlActivationFrame({
   readonly element: HTMLElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null> | undefined;
 }) {
-  surfaceRef?.current?.requestFrame("dom-control-activation");
-  element.ownerDocument.defaultView?.setTimeout(() => {
+  const requestFrame = () => {
     surfaceRef?.current?.requestFrame("dom-control-activation");
-  }, 0);
+  };
+  requestFrame();
+  const view = element.ownerDocument.defaultView;
+  view?.setTimeout(requestFrame, 0);
+  if (typeof view?.requestAnimationFrame !== "function") {
+    view?.setTimeout(requestFrame, 16);
+    return;
+  }
+  view.requestAnimationFrame(() => {
+    requestFrame();
+    view.setTimeout(requestFrame, 0);
+  });
 }
 
 function isGpuFlowDomControlPreparationHostRequired({

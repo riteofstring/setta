@@ -123,6 +123,7 @@ type GpuFlowProjectionFrameRenderPlanSelector = (input: {
 }) => GpuFlowProjectionFrameRenderPlan;
 
 export type GpuFlowVisibleFramePublicationFrameContext = {
+  readonly activeEditorPins: readonly string[];
   readonly budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision;
   readonly deferResolutionUpdates: boolean;
   readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
@@ -510,6 +511,9 @@ function createGpuFlowVisibleFramePublicationFrameContext({
     resourceGraphSnapshot: visibleFrameResourceGraphSnapshot,
   });
   return Object.freeze({
+    activeEditorPins: Object.freeze([
+      ...(visibleFrameResourceGraphSnapshot?.activeEditorPins ?? []),
+    ]),
     budgetDecision,
     deferResolutionUpdates: budgetDecision.resolutionUpdates.deferred,
     frameRequest,
