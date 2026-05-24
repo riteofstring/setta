@@ -27,6 +27,9 @@ const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
 const PROJECTION_WORK_PROOF_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameProjectionWorkProof.ts", import.meta.url),
 );
+const STATE_MACHINE_REDUCTION_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameStateMachineReduction.ts", import.meta.url),
+);
 
 describe("GPU Flow visible frame coordinator projection work", () => {
   it("keeps projection-only blocked work classification out of projection rendering", () => {
@@ -127,6 +130,36 @@ describe("GPU Flow visible frame coordinator projection work", () => {
     );
     expect(kernelProjectionCoverageSource).not.toContain(
       "export function isGpuFlowRetainedProjectionSurfaceCovered",
+    );
+  });
+
+  it("keeps motion projection hold and repair decisions in the state-machine reducer", () => {
+    const projectionFrameSource = readFileSync(
+      FLOW_PROJECTION_FRAME_MODULE_PATH,
+      "utf8",
+    );
+    const stateMachineReductionSource = readFileSync(
+      STATE_MACHINE_REDUCTION_MODULE_PATH,
+      "utf8",
+    );
+
+    expect(stateMachineReductionSource).toContain(
+      "export function reduceGpuFlowVisibleFrameMotionProjectionTransaction",
+    );
+    expect(stateMachineReductionSource).toContain(
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
+    );
+    expect(stateMachineReductionSource).toContain(
+      "retained-projection-coverage-missing",
+    );
+    expect(stateMachineReductionSource).not.toMatch(
+      /domControl|browserVisual|textActor/,
+    );
+    expect(projectionFrameSource).not.toContain(
+      "retained-projection-coverage-missing",
+    );
+    expect(projectionFrameSource).not.toContain(
+      "createGpuFlowRetainedProjectionBlockedPresentationCandidate",
     );
   });
 });

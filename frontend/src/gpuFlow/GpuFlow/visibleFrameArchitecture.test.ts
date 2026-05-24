@@ -41,6 +41,8 @@ const REMOVED_VISIBLE_FRAME_PRESENTATION_AUTHORITY_MODULES = [
   "./visibleFramePublicationTestUtils",
   "./visibleFramePublicationTokens",
   "./visibleFrameResourceRegistry",
+  "./visibleFramePresenter",
+  "./visibleFrameScheduling",
 ] as const;
 
 describe("GPU Flow visible frame architecture", () => {
