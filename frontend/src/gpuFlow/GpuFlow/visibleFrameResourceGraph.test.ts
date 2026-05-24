@@ -652,6 +652,21 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     expect(registry.getSnapshot().resourceStates).toEqual([
       resourceState("dom-control:repair-control", "preparing", 63),
     ]);
+    expect(
+      registry.advanceVisibleFrameResourceWork({
+        resourceKeys: ["dom-control:repair-control"],
+      }),
+    ).toEqual({
+      remainingQueuedResourceKeys: [],
+      transitions: [
+        resourceTransition(
+          "dom-control:repair-control",
+          "preparing",
+          "preparing",
+          63,
+        ),
+      ],
+    });
 
     registry.registerPreparedCommittedSurfaceFrame({
       browserVisualCandidate: browserVisualCandidate({

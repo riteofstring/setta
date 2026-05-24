@@ -336,7 +336,7 @@ describe("GPU Flow visible frame budget broker", () => {
               preparationLane: "retained-page",
               priority: "quality",
               resourceKey: "page:quality-prefetch",
-              state: "requested",
+              state: "preparing",
             },
           ],
         },
@@ -406,7 +406,7 @@ describe("GPU Flow visible frame budget broker", () => {
             preparationLane: "retained-page",
             priority: "quality",
             resourceKey: "page:quality-prefetch",
-            state: "requested",
+            state: "preparing",
           },
         ],
       },
@@ -468,7 +468,7 @@ describe("GPU Flow visible frame budget broker", () => {
     ]);
   });
 
-  it("does not rebudget in-flight preparing resource work", () => {
+  it("keeps in-flight preparing resource work visible to the budget broker", () => {
     const requestedDebt =
       createGpuFlowVisibleFrameBudgetDebtRequestsForResourceGraph({
         snapshot: {
@@ -501,7 +501,19 @@ describe("GPU Flow visible frame budget broker", () => {
         },
       });
 
-    expect(requestedDebt).toEqual([]);
+    expect(requestedDebt).toEqual([
+      {
+        debtAgeFrames: 132,
+        deadlineFrame: 1,
+        estimatedCostMs: 0.5,
+        id: "dom-control:preparing-editor",
+        ownerFrameId: 43,
+        preparationLane: "browser-visual",
+        priority: "safety",
+        resourceState: "preparing",
+        source: "resource-graph",
+      },
+    ]);
   });
 
   it("ignores stale pending candidate debt when newer candidate debt is present", () => {

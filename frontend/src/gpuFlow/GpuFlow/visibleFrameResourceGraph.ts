@@ -647,6 +647,16 @@ export class GpuFlowVisibleFrameResourceGraph {
           toState: "preparing" as const,
         });
       case "preparing":
+        this.refreshPreparingVisibleFrameResourceWork({
+          resourceKey,
+          state: current,
+        });
+        return Object.freeze({
+          fromState: "preparing" as const,
+          ownerFrameId: current.ownerFrameId,
+          resourceKey,
+          toState: "preparing" as const,
+        });
       case "absent":
       case "presented":
       case "ready":
@@ -679,6 +689,28 @@ export class GpuFlowVisibleFrameResourceGraph {
       remainingQueuedResourceKeys: Object.freeze([...this.queuedResourceKeys]),
       transitions: Object.freeze([...transitions]),
     });
+  }
+
+  private refreshPreparingVisibleFrameResourceWork({
+    resourceKey,
+    state,
+  }: {
+    readonly resourceKey: string;
+    readonly state: GpuFlowVisibleFrameResourceStateEntry;
+  }): void {
+    this.transitionFrame += 1;
+    this.resourceStateByKey.set(
+      resourceKey,
+      Object.freeze({
+        ...state,
+        debtAgeFrames: calculateGpuFlowVisibleFrameResourceDebtAgeFrames({
+          requestedAtFrame: state.requestedAtFrame,
+          state: "preparing",
+          transitionFrame: this.transitionFrame,
+        }),
+        transitionFrame: this.transitionFrame,
+      }),
+    );
   }
 
   private getPresentableCandidateResourceKeys(

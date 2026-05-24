@@ -619,7 +619,7 @@ function isGpuFlowVisibleFrameResourceDebtCurrentForBudget({
 function isGpuFlowVisibleFrameResourceDebtState(
   state: GpuFlowVisibleFrameResourceStateSnapshot,
 ): boolean {
-  return state.state === "requested";
+  return state.state === "requested" || state.state === "preparing";
 }
 
 function createGpuFlowVisibleFrameBudgetDebtRequestForResourceState(
