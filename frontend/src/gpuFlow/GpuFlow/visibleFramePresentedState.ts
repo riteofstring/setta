@@ -137,7 +137,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
       }),
     [],
   );
-  const projectCommittedBrowserVisualActors = useCallback(
+  const projectPresentedBrowserVisualActors = useCallback(
     (
       token: GpuFlowVisibleFramePresentationToken,
       viewport?: GpuViewportInput | undefined,
@@ -222,7 +222,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
     getVisibleFrameResourceGraphSnapshot,
     prepareCommittedSurfaceFrame,
     prepareVisibleFrameResourcesForBudget,
-    projectCommittedBrowserVisualActors,
+    projectPresentedBrowserVisualActors,
     validatePreparedContentFrame,
     visiblePresentedContentFrame,
   };

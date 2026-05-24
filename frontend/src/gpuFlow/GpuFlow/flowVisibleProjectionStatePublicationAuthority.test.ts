@@ -22,39 +22,39 @@ describe("GPU Flow visible projection state publication authority", () => {
     expect(source).not.toContain("GpuFlowHoldPreviousToken | null");
   });
 
-  it("guards committed visible projection publication refs and keeps held frames read-only", () => {
+  it("guards presented visible projection publication refs and keeps held frames read-only", () => {
     const source = readFileSync(
       VISIBLE_PROJECTION_PUBLICATION_MODULE_PATH,
       "utf8",
     );
-    const committedPublisherStart = source.indexOf(
-      "function publishCommittedVisibleProjectionState",
+    const presentedPublisherStart = source.indexOf(
+      "function publishPresentedVisibleProjectionState",
     );
     const heldPublisherStart = source.indexOf(
       "function assertGpuFlowHeldPreviousVisibleProjectionState",
     );
-    const committedPublisherEnd = source.indexOf(
+    const presentedPublisherEnd = source.indexOf(
       "function presentGpuFlowVisibleFramePublicationFrame",
     );
     const heldPublisherSource = source.slice(
       heldPublisherStart,
-      committedPublisherStart,
+      presentedPublisherStart,
     );
-    const committedPublisherSource = source.slice(
-      committedPublisherStart,
-      committedPublisherEnd,
+    const presentedPublisherSource = source.slice(
+      presentedPublisherStart,
+      presentedPublisherEnd,
     );
 
-    expect(committedPublisherStart).toBeGreaterThanOrEqual(0);
+    expect(presentedPublisherStart).toBeGreaterThanOrEqual(0);
     expect(heldPublisherStart).toBeGreaterThanOrEqual(0);
-    expect(committedPublisherEnd).toBeGreaterThan(committedPublisherStart);
-    expect(committedPublisherSource).toContain(
+    expect(presentedPublisherEnd).toBeGreaterThan(presentedPublisherStart);
+    expect(presentedPublisherSource).toContain(
       "assertGpuFlowVisibleFramePresentationToken",
     );
-    expect(committedPublisherSource).toContain(
+    expect(presentedPublisherSource).toContain(
       "visibleProjectionStateRef.current = visibleProjectionState",
     );
-    expect(committedPublisherSource).toContain(
+    expect(presentedPublisherSource).toContain(
       "visibleProjectionPublicationStateRef.current = visibleProjectionState",
     );
     expect(heldPublisherSource).toContain(

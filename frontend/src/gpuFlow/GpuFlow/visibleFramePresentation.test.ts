@@ -34,7 +34,7 @@ function createTestVisibleFramePresentation(
 }
 
 describe("GPU Flow surface publication completion", () => {
-  it("records held-previous diagnostics without advancing committed visible projection state", () => {
+  it("records held-previous diagnostics without advancing presented visible projection state", () => {
     const committedState = visibleProjectionState({
       displayFrameId: 7,
       kind: "content-publication",
@@ -56,7 +56,7 @@ describe("GPU Flow surface publication completion", () => {
       presentPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame presentation.");
       },
-      projectCommittedBrowserVisualActors: () => {
+      projectPresentedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
       publishColdStartShellFrame: () => {
@@ -120,7 +120,7 @@ describe("GPU Flow surface publication completion", () => {
       presentPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame presentation.");
       },
-      projectCommittedBrowserVisualActors: () => {
+      projectPresentedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
       publishColdStartShellFrame: () => {
@@ -201,7 +201,7 @@ describe("GPU Flow surface publication completion", () => {
         visibleMutationOrder.push("present");
         return true;
       },
-      projectCommittedBrowserVisualActors: () => {},
+      projectPresentedBrowserVisualActors: () => {},
       publishColdStartShellFrame,
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
@@ -257,7 +257,7 @@ describe("GPU Flow surface publication completion", () => {
       projectionSample: selectedState.sample,
     });
     const presentPreparedContentFrame = vi.fn(() => true);
-    const projectCommittedBrowserVisualActors = vi.fn();
+    const projectPresentedBrowserVisualActors = vi.fn();
     const validatePreparedContentFrame = vi.fn();
     let reducerCompletionCount = 0;
     const presenter = createTestVisibleFramePresentation({
@@ -271,7 +271,7 @@ describe("GPU Flow surface publication completion", () => {
         },
       },
       presentPreparedContentFrame,
-      projectCommittedBrowserVisualActors,
+      projectPresentedBrowserVisualActors,
       publishColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
@@ -308,7 +308,7 @@ describe("GPU Flow surface publication completion", () => {
     ).toThrow(/canvas submission failed/);
     expect(validatePreparedContentFrame).toHaveBeenCalledOnce();
     expect(presentPreparedContentFrame).not.toHaveBeenCalled();
-    expect(projectCommittedBrowserVisualActors).not.toHaveBeenCalled();
+    expect(projectPresentedBrowserVisualActors).not.toHaveBeenCalled();
     expect(reducerCompletionCount).toBe(0);
   });
 
@@ -330,7 +330,7 @@ describe("GPU Flow surface publication completion", () => {
       },
       callbacksRef: { current: null },
       presentPreparedContentFrame: () => true,
-      projectCommittedBrowserVisualActors: () => {},
+      projectPresentedBrowserVisualActors: () => {},
       publishColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
@@ -384,7 +384,7 @@ describe("GPU Flow surface publication completion", () => {
       },
       callbacksRef: { current: null },
       presentPreparedContentFrame: () => true,
-      projectCommittedBrowserVisualActors: () => {},
+      projectPresentedBrowserVisualActors: () => {},
       publishColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
@@ -482,7 +482,7 @@ describe("GPU Flow surface publication completion", () => {
       },
       callbacksRef: { current: null },
       presentPreparedContentFrame: () => true,
-      projectCommittedBrowserVisualActors: () => {},
+      projectPresentedBrowserVisualActors: () => {},
       publishColdStartShellFrame: () => {},
       retainedDisplayFrameRef: { current: null },
       retainedRuntimeFrameRenderSignatureRef: { current: null },
@@ -570,7 +570,7 @@ describe("GPU Flow surface publication completion", () => {
       presentPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame presentation.");
       },
-      projectCommittedBrowserVisualActors: () => {
+      projectPresentedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
       publishColdStartShellFrame: () => {
@@ -652,7 +652,7 @@ describe("GPU Flow surface publication completion", () => {
       presentPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame presentation.");
       },
-      projectCommittedBrowserVisualActors: () => {
+      projectPresentedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
       publishColdStartShellFrame: () => {},
@@ -736,7 +736,7 @@ describe("GPU Flow surface publication completion", () => {
       presentPreparedContentFrame: () => {
         throw new Error("Unexpected prepared content frame presentation.");
       },
-      projectCommittedBrowserVisualActors: () => {
+      projectPresentedBrowserVisualActors: () => {
         throw new Error("Unexpected browser visual actor projection.");
       },
       publishColdStartShellFrame: () => {},

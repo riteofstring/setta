@@ -134,7 +134,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   readonly prepareVisibleFrameResourcesForBudget: (
     budgetDecision: GpuFlowVisibleFrameBudgetBrokerDecision,
   ) => void;
-  readonly projectCommittedBrowserVisualActors: (
+  readonly projectPresentedBrowserVisualActors: (
     token: GpuFlowVisibleFramePresentationToken,
     viewport?: GpuViewportInput | undefined,
   ) => void;
@@ -197,8 +197,8 @@ export function renderGpuFlowSurfaceFrame({
         abortPreparedContentFrame: input.abortPreparedContentFrame,
         callbacksRef: input.callbacksRef,
         presentPreparedContentFrame: input.presentPreparedContentFrame,
-        projectCommittedBrowserVisualActors:
-          input.projectCommittedBrowserVisualActors,
+        projectPresentedBrowserVisualActors:
+          input.projectPresentedBrowserVisualActors,
         publishColdStartShellFrame: input.publishColdStartShellFrame,
         retainedDisplayFrameRef: input.retainedDisplayFrameRef,
         retainedRuntimeFrameRenderSignatureRef:
