@@ -6,7 +6,7 @@ import {
 } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
-  createGpuFlowVisiblePublicationScheduler,
+  createGpuFlowVisibleFrameRequestCoordinator,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionTransaction,
   type GpuFlowProjectionTransactionKind,
@@ -49,7 +49,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
   });
 
   it("turns a no-frame attempt into a tokenized hold when a previous frame exists", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const previousVisibleProjectionState = visibleProjectionState({
       kind: "content-publication",
       sample: liveProjectionSample({ id: 4, timestamp: 40 }),
@@ -78,7 +78,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
   });
 
   it("turns a no-frame cold start into a blocked shell", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const result = runPreparedCandidateCoordinator({
       hasCommittedContentFrame: false,
       rawReasons: ["manual"],
@@ -102,7 +102,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
   });
 
   it("keeps selected content debt queued for held-previous transactions", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const sample = liveProjectionSample({ id: 3, timestamp: 30 });
 
     const heldVisibleProjectionState = visibleProjectionState({
@@ -129,7 +129,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
   });
 
   it("blocks rendered held-previous transactions that exceed the coordinator budget", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const sample = liveProjectionSample({ id: 33, timestamp: 330 });
     const heldVisibleProjectionState = visibleProjectionState({
       kind: "held-previous",
@@ -189,7 +189,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
   });
 
   it("turns a nonpublishable committed-surface candidate into a held outcome at completion", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const sample = liveProjectionSample({ id: 4, timestamp: 64 });
     const previousVisibleProjectionState = visibleProjectionState({
       kind: "content-publication",
@@ -462,7 +462,7 @@ function runPreparedCandidateCoordinator({
   readonly rawReasons?: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
   readonly scheduler: ReturnType<
-    typeof createGpuFlowVisiblePublicationScheduler
+    typeof createGpuFlowVisibleFrameRequestCoordinator
   >;
   readonly viewportInteractionActive?: boolean;
 }) {

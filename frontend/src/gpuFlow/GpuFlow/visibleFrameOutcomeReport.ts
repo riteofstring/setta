@@ -7,7 +7,6 @@ import type {
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
 import type {
-  GpuFlowVisibleFrameRequestCoordinator,
   GpuFlowVisiblePublicationCompletion,
   GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameScheduling";
@@ -19,8 +18,6 @@ import {
   type GpuFlowVisiblePublicationPresentationProofReport,
 } from "./visibleFrameTransactionProofs";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
-
-type GpuFlowVisiblePublicationScheduler = GpuFlowVisibleFrameRequestCoordinator;
 
 export type { GpuFlowVisiblePublicationCompletion } from "./visibleFrameScheduling";
 

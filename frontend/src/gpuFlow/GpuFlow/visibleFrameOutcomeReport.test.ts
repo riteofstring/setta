@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
-  createGpuFlowVisiblePublicationScheduler,
+  createGpuFlowVisibleFrameRequestCoordinator,
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
@@ -14,7 +14,7 @@ import {
 
 describe("GPU Flow visible frame outcome report", () => {
   it("blocks no-frame held-previous outcomes after the coordinator hold budget", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler({
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
       knobs: {
         ...DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
         maxHeldPreviousFrames: 1,
@@ -64,7 +64,7 @@ describe("GPU Flow visible frame outcome report", () => {
   });
 
   it("returns retained follow-up frame requests from coordinator completion", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const result = runGpuFlowVisibleFrameCoordinator({
       prepareContentPublicationFrame: () =>
         noVisiblePublicationCandidate({
@@ -86,7 +86,7 @@ describe("GPU Flow visible frame outcome report", () => {
   });
 
   it("returns cold-start shell publication from coordinator completion", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const result = runGpuFlowVisibleFrameCoordinator({
       prepareContentPublicationFrame: () => noVisiblePublicationCandidate(),
       prepareMotionProjectionFrame: () => ({

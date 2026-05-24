@@ -1,4 +1,5 @@
 import type { GpuFlowCommittedSurfaceFrame } from "./committedSurfaceFrame";
+import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "./GpuFlow/visibleFrameScheduling";
 import type { GpuCanvasSize, GpuFrameReason } from "./gpuRenderer";
 import type { GpuWheelGestureOwner } from "./interactions/wheelOwnership";
 import type {
@@ -7,7 +8,6 @@ import type {
 } from "./projectionHeldPrevious";
 import { createGpuFlowHeldPreviousDebugState } from "./projectionHeldPrevious";
 import { createGpuFlowReadonlyMap } from "./projectionReadonlyMap";
-import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "./projectionScheduler";
 import {
   getGpuRetainedContentRuntimeScrollOffsets,
   getGpuRetainedContentRuntimeScrollRevision,
@@ -21,21 +21,21 @@ import {
 } from "./viewportMath";
 
 export {
+  createGpuFlowVisibleFrameRequestCoordinator,
+  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+  getGpuFlowVisiblePublicationDebtReason,
+  hasGpuFlowVisiblePublicationDebt,
+} from "./GpuFlow/visibleFrameScheduling";
+export type {
+  GpuFlowProjectionSchedulerKnobs,
+  GpuFlowVisiblePublicationDecision,
+} from "./GpuFlow/visibleFrameScheduling";
+export {
   applyGpuFlowProjectionDebugAttributes,
   setProjectionDebugAttributes,
 } from "./projectionDebugAttributes";
 export { createGpuFlowHeldPreviousProjection } from "./projectionHeldPrevious";
 export type { GpuFlowHeldPreviousProjection } from "./projectionHeldPrevious";
-export {
-  createGpuFlowVisiblePublicationScheduler,
-  DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
-  getGpuFlowVisiblePublicationDebtReason,
-  hasGpuFlowVisiblePublicationDebt,
-} from "./projectionScheduler";
-export type {
-  GpuFlowProjectionSchedulerKnobs,
-  GpuFlowVisiblePublicationDecision,
-} from "./projectionScheduler";
 
 export type GpuFlowProjectionLane = "content" | "maintenance" | "motion";
 

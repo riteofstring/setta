@@ -7,7 +7,7 @@ import {
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
-  createGpuFlowVisiblePublicationScheduler,
+  createGpuFlowVisibleFrameRequestCoordinator,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionTransaction,
   type GpuFlowProjectionTransactionKind,
@@ -58,7 +58,7 @@ const prepareCommittedSurfacePublicationFramePlanForTest =
 
 describe("GPU Flow visible frame coordinator", () => {
   it("prepares motion and content candidate sets inside the coordinator before completion", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const sample = liveProjectionSample({ id: 50, timestamp: 500 });
     const contentVisibleState = visibleProjectionState({
       kind: "content-publication",
@@ -167,7 +167,7 @@ describe("GPU Flow visible frame coordinator", () => {
   });
 
   it("binds retained projection decisions to the coordinator sample, reasons, and previous frame", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const sample = liveProjectionSample({ id: 54, timestamp: 540 });
     const previousVisibleProjectionState = visibleProjectionState({
       kind: "motion-projection",
@@ -269,7 +269,7 @@ describe("GPU Flow visible frame coordinator", () => {
   });
 
   it("supplies a content publication stage runner from the coordinator", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const sample = liveProjectionSample({ id: 55, timestamp: 550 });
     let suppliedRunner = false;
     runGpuFlowVisibleFrameCoordinator({
@@ -391,7 +391,7 @@ describe("GPU Flow visible frame coordinator", () => {
   });
 
   it("uses one commit proof for compatible-previous proof reports and debt", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const publicationDecision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual"],
@@ -469,7 +469,7 @@ describe("GPU Flow visible frame coordinator", () => {
   ])(
     "blocks $blockedSource compatible-previous proof before publishing a commit token",
     ({ blockedSource, frameInput, reason }) => {
-      const scheduler = createGpuFlowVisiblePublicationScheduler();
+      const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
       const sample = liveProjectionSample({ id: 53, timestamp: 530 });
       const previousVisibleProjectionState = visibleProjectionState({
         kind: "content-publication",
@@ -513,7 +513,7 @@ describe("GPU Flow visible frame coordinator", () => {
   );
 
   it("lets the state machine hold a proof-blocked candidate when the previous frame covers the actors", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const sample = liveProjectionSample({ id: 531, timestamp: 5310 });
     const previousVisibleProjectionState = visibleProjectionState({
       committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage(),
@@ -555,7 +555,7 @@ describe("GPU Flow visible frame coordinator", () => {
   });
 
   it("keeps selected content debt queued for blocked transactions", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const result = runPreparedCandidateKernel({
       contentFrame: testPublicationCandidate({
         blockedPublicationCandidate: {
@@ -1000,7 +1000,7 @@ function runPreparedCandidateKernel({
   readonly rawReasons?: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
   readonly scheduler: ReturnType<
-    typeof createGpuFlowVisiblePublicationScheduler
+    typeof createGpuFlowVisibleFrameRequestCoordinator
   >;
   readonly viewportInteractionActive?: boolean;
 }) {
@@ -1032,8 +1032,8 @@ function fixedPublicationScheduler({
 }: {
   readonly lane: GpuFlowVisiblePublicationDecision["lane"];
   readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
-}): ReturnType<typeof createGpuFlowVisiblePublicationScheduler> {
-  const baseScheduler = createGpuFlowVisiblePublicationScheduler();
+}): ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator> {
+  const baseScheduler = createGpuFlowVisibleFrameRequestCoordinator();
   return {
     completeFrame: (_decision, outcome) =>
       Object.freeze({

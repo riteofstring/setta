@@ -22,8 +22,8 @@ import {
   createGpuFlowLiveProjectionSampler,
   createGpuFlowProjectionHorizonObligations,
   createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowVisibleFrameRequestCoordinator,
   createGpuFlowVisibleProjectionState,
-  createGpuFlowVisiblePublicationScheduler,
   getGpuFlowVisiblePublicationDebtReason,
   setProjectionDebugAttributes,
   type GpuFlowVisiblePublicationDecision,
@@ -32,7 +32,7 @@ import { createGpuRetainedContentRuntimeState } from "./retainedContentRuntimeSt
 
 describe("GPU Flow projection runtime", () => {
   it("publishes motion before mixed content and maintenance debt", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const sample = liveSample(1);
 
     expect(Object.isFrozen(scheduler.getKnobs())).toBe(true);
@@ -91,7 +91,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("keeps stale-sample catch-up debt queued behind retained-scroll motion", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const motion = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual", "texture-upload"],
@@ -154,7 +154,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("defers maintenance-only frames while explicit content debt is queued", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const motion = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual"],
@@ -212,7 +212,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("uses content publication for cold motion without a committed frame", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: false,
       rawReasons: ["viewport"],
@@ -226,7 +226,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("keeps selected lane debt queued when a frame blocks", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual", "texture-upload"],
@@ -256,7 +256,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("keeps selected lane debt queued when a held-previous frame is presented", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual", "texture-upload"],
@@ -284,7 +284,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("keeps selected lane debt queued when a blocked publication is recorded", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual", "texture-upload"],
@@ -313,7 +313,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("does not clear selected lane debt without committed proof coverage", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual", "texture-upload"],
@@ -337,7 +337,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("rejects committed debt proof for lanes outside the selected publication outcome", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll", "manual", "texture-upload"],
@@ -357,7 +357,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("rejects committed debt completion for a different projection sample", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
@@ -379,7 +379,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("rejects unbranded committed publication tokens", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
@@ -400,7 +400,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("rejects blocked debt completion for a different projection sample", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const decision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
@@ -424,7 +424,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("rejects unbranded hold and blocked publication tokens", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const heldDecision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
@@ -561,7 +561,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("keeps unpresented motion ahead of content probes during continuous motion", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler({
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 2,
         maxContentInterleaveMs: 2,
@@ -597,7 +597,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("uses the content probe knob when motion has no unpresented sample", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler({
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 2,
         maxContentInterleaveMs: 2,
@@ -632,7 +632,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("keeps an inactive retained-scroll sample ahead of queued content debt", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler({
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 2,
         maxContentInterleaveMs: 2,
@@ -669,7 +669,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("prioritizes inactive explicit content debt over queued motion debt", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const motion = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["retained-scroll"],
@@ -694,7 +694,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("keeps content debt deferred while viewport interaction remains active", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler({
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 2,
         maxContentInterleaveMs: 2,
@@ -729,7 +729,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("honors motion-settling interleave budgets for content and maintenance debt", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler({
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 2,
         maxContentInterleaveMs: 0,
@@ -783,7 +783,7 @@ describe("GPU Flow projection runtime", () => {
   });
 
   it("honors the maintenance interleave budget while motion is settling", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler({
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 2,
         maxContentInterleaveMs: 2,
@@ -996,7 +996,7 @@ describe("GPU Flow projection runtime", () => {
 });
 
 function completeCommittedFrame(
-  scheduler: ReturnType<typeof createGpuFlowVisiblePublicationScheduler>,
+  scheduler: ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator>,
   decision: GpuFlowVisiblePublicationDecision,
   debtProof = createDebtProofForSelectedLane(decision),
 ) {
@@ -1011,7 +1011,7 @@ function completeCommittedFrame(
 }
 
 function completeHeldFrame(
-  scheduler: ReturnType<typeof createGpuFlowVisiblePublicationScheduler>,
+  scheduler: ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator>,
   decision: GpuFlowVisiblePublicationDecision,
 ) {
   return scheduler.recordUncommittedFrame(decision, {
@@ -1026,7 +1026,7 @@ function completeHeldFrame(
 }
 
 function completeBlockedFrame(
-  scheduler: ReturnType<typeof createGpuFlowVisiblePublicationScheduler>,
+  scheduler: ReturnType<typeof createGpuFlowVisibleFrameRequestCoordinator>,
   decision: GpuFlowVisiblePublicationDecision,
   blockedReasons: GpuFlowBlockedPublicationToken["blockedReasons"] = [
     { actorId: null, family: "visible-transaction", reason: "blocked" },

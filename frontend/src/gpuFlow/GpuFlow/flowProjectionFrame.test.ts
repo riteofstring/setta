@@ -4,8 +4,8 @@ import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
+  createGpuFlowVisibleFrameRequestCoordinator,
   createGpuFlowVisibleProjectionState,
-  createGpuFlowVisiblePublicationScheduler,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionSchedulerKnobs,
   type GpuFlowProjectionTransaction,
@@ -403,7 +403,7 @@ function resolveGpuFlowProjectionFrameTransaction({
   readonly retainedDisplayFrame: RetainedDisplayFrame;
   readonly requestedTransaction: GpuFlowProjectionTransaction;
 }): TestProjectionFrameTransaction {
-  const scheduler = createGpuFlowVisiblePublicationScheduler({
+  const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
     knobs: projectionSchedulerKnobs,
   });
   const selection: {

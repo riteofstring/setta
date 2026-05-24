@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
-  createGpuFlowVisiblePublicationScheduler,
+  createGpuFlowVisibleFrameRequestCoordinator,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionTransactionKind,
   type GpuFlowVisibleProjectionState,
@@ -24,7 +24,7 @@ describe("GPU Flow visible publication browser visual fault injection", () => {
         withholdAllDomControls: true,
       },
     });
-    const scheduler = createGpuFlowVisiblePublicationScheduler();
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
     const sample = liveProjectionSample({ id: 51, timestamp: 510 });
     const previousVisibleProjectionState = visibleProjectionState({
       kind: "content-publication",

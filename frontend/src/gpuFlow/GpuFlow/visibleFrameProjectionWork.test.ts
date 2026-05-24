@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
-  createGpuFlowVisiblePublicationScheduler,
+  createGpuFlowVisibleFrameRequestCoordinator,
   type GpuFlowLiveProjectionSample,
   type GpuFlowProjectionTransactionKind,
   type GpuFlowVisibleProjectionState,
@@ -18,7 +18,7 @@ import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCov
 
 describe("GPU Flow visible frame coordinator projection work", () => {
   it("mints retained projection blocked tokens from projection work reports inside the coordinator", () => {
-    const scheduler = createGpuFlowVisiblePublicationScheduler({
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 6,
         maxContentInterleaveMs: 2,

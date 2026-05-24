@@ -5,13 +5,13 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
-import type {
-  GpuFlowVisiblePublicationCompletionOutcome,
-  GpuFlowVisiblePublicationDebtProof,
-} from "../projectionScheduler";
 import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./visibleFrameOutcomeChromeRepro";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
 import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
+import type {
+  GpuFlowVisiblePublicationCompletionOutcome,
+  GpuFlowVisiblePublicationDebtProof,
+} from "./visibleFrameScheduling";
 import type {
   GpuFlowVisibleFramePreparedFrame,
   GpuFlowVisibleFrameStateMachineOutcome,

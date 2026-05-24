@@ -5,11 +5,11 @@ import type {
   GpuFlowLiveProjectionSample,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
+import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutcomeGuard";
 import {
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
   type GpuFlowVisiblePublicationCompletionOutcome,
-} from "../projectionScheduler";
-import { recordGpuFlowBlockedPublicationGuard } from "./visibleFrameBlockedOutcomeGuard";
+} from "./visibleFrameScheduling";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
