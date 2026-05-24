@@ -49,14 +49,8 @@ class RuntimeState:
         }
         self.write()
 
-    def update_from_line(self, line: str) -> None:
-        runtime_match = RUNTIME_BLOCK_START_RE.search(line)
-        if runtime_match:
-            self.reset(int(runtime_match.group(1)))
-            return
-
+    def update_urls_from_line(self, line: str) -> bool:
         updated = False
-
         local_match = LOCAL_URL_RE.search(line)
         if local_match:
             self.current_block["frontendUrl"] = local_match.group(1)
@@ -73,22 +67,43 @@ class RuntimeState:
                 f"http://{bind_match.group(1)}:{bind_match.group(2)}"
             )
             updated = True
+        return updated
 
+    def update_bootstrap_from_line(self, line: str) -> bool:
         bootstrap_url_match = BOOTSTRAP_URL_RE.search(line)
-        if bootstrap_url_match:
-            bootstrap_url = bootstrap_url_match.group(0)
-            if "${LOCAL_PORT}" not in bootstrap_url:
-                self.current_block["bootstrapUrl"] = bootstrap_url
-                updated = True
+        if not bootstrap_url_match:
+            return False
+        bootstrap_url = bootstrap_url_match.group(0)
+        if "${LOCAL_PORT}" in bootstrap_url:
+            return False
+        self.current_block["bootstrapUrl"] = bootstrap_url
+        return True
 
+    def update_session_ids_from_line(self, line: str) -> bool:
         session_match = SESSION_ID_RE.search(line)
-        if session_match:
-            session_ids = self.current_block["sessionIds"]
-            assert isinstance(session_ids, list)
-            session_id = session_match.group(1)
-            if session_id not in session_ids:
-                session_ids.append(session_id)
-                updated = True
+        if not session_match:
+            return False
+        session_ids = self.current_block["sessionIds"]
+        assert isinstance(session_ids, list)
+        session_id = session_match.group(1)
+        if session_id in session_ids:
+            return False
+        session_ids.append(session_id)
+        return True
+
+    def update_from_line(self, line: str) -> None:
+        runtime_match = RUNTIME_BLOCK_START_RE.search(line)
+        if runtime_match:
+            self.reset(int(runtime_match.group(1)))
+            return
+
+        updated = any(
+            (
+                self.update_urls_from_line(line),
+                self.update_bootstrap_from_line(line),
+                self.update_session_ids_from_line(line),
+            )
+        )
 
         if updated:
             self.write()
