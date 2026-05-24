@@ -51,7 +51,7 @@ function completeBlockedFrame(
   decision: GpuFlowVisiblePublicationDecision,
   blockedReasons: GpuFlowBlockedPublicationToken["blockedReasons"],
 ) {
-  return reducerRuntime.recordUncommittedFrame(decision, {
+  return reducerRuntime.recordUnpresentedFrame(decision, {
     kind: "blocked",
     token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
       blockedReasons,

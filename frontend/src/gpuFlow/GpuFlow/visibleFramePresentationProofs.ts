@@ -68,7 +68,7 @@ type GpuFlowVisibleFramePublicationReducerRuntime = {
     >,
   ) => GpuFlowVisiblePublicationReducerFrameCompletion["completion"];
   readonly getKnobs: () => GpuFlowVisibleFrameReducerPolicy;
-  readonly recordUncommittedFrame: (
+  readonly recordUnpresentedFrame: (
     publicationDecision: GpuFlowVisiblePublicationDecision,
     outcome: Extract<
       GpuFlowVisiblePublicationOutcome,
@@ -157,7 +157,7 @@ function createGpuFlowVisiblePublicationReducerFrameCompleter({
     const completion =
       outcome.kind === "present"
         ? reducerRuntime.completeFrame(publicationDecision, outcome)
-        : reducerRuntime.recordUncommittedFrame(publicationDecision, outcome);
+        : reducerRuntime.recordUnpresentedFrame(publicationDecision, outcome);
     reducerFrameCompletion = Object.freeze({
       completion,
       debtFrameRequest: createGpuFlowVisiblePublicationDebtFrameRequest({

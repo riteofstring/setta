@@ -157,7 +157,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
       }
       const source = readFileSync(filePath, "utf8");
       if (
-        !/\b(?:visibleFrameReducerRuntimeRef\.current|reducerRuntime)\.(?:selectFrame|completeFrame|recordUncommittedFrame)\s*\(/.test(
+        !/\b(?:visibleFrameReducerRuntimeRef\.current|reducerRuntime)\.(?:selectFrame|completeFrame|recordUnpresentedFrame)\s*\(/.test(
           source,
         )
       ) {

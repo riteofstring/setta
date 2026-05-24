@@ -1063,7 +1063,7 @@ function completeBlockedFrame(
     { actorId: null, family: "visible-transaction", reason: "blocked" },
   ],
 ) {
-  return reducerRuntime.recordUncommittedFrame(decision, {
+  return reducerRuntime.recordUnpresentedFrame(decision, {
     kind: "blocked",
     token: createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
       blockedReasons,
@@ -1109,7 +1109,7 @@ function completeHeldFrame(
   reducerRuntime: ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime>,
   decision: GpuFlowVisiblePublicationDecision,
 ) {
-  return reducerRuntime.recordUncommittedFrame(decision, {
+  return reducerRuntime.recordUnpresentedFrame(decision, {
     kind: "hold-previous",
     token: createGpuFlowVisibleFrameHoldPreviousTokenForTest({
       committedFrameId: 41,

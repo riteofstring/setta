@@ -385,7 +385,7 @@ function fixedPublicationScheduler({
         outcome: outcome.kind,
       }),
     getKnobs: baseScheduler.getKnobs,
-    recordUncommittedFrame: (_decision, outcome) =>
+    recordUnpresentedFrame: (_decision, outcome) =>
       Object.freeze({
         debt,
         outcome: outcome.kind,

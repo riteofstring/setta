@@ -924,7 +924,7 @@ describe("GPU flow DOM control projection runtime", () => {
       "live-host-ready",
     );
 
-    const uncommittedCompatibleCandidate =
+    const unpresentedCompatibleCandidate =
       browserVisualRuntime.prepareCommittedSurfaceFrame({
         retainedDisplayFrame: retainedDisplayFrame({
           id: 2,
@@ -932,7 +932,7 @@ describe("GPU flow DOM control projection runtime", () => {
         }),
       });
     expect(
-      domControlCoverageState(uncommittedCompatibleCandidate, nextControl),
+      domControlCoverageState(unpresentedCompatibleCandidate, nextControl),
     ).toBe("blocked-awaiting-snapshot");
     browserVisualRuntime.commitPreparedBrowserVisualActors({
       candidate: firstCandidate,

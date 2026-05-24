@@ -417,7 +417,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           throw new Error("Unexpected committed frame completion.");
         },
         getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
-        recordUncommittedFrame: () => ({
+        recordUnpresentedFrame: () => ({
           debt: { content: true, maintenance: false, motion: false },
           outcome: "blocked",
         }),
@@ -503,7 +503,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           throw new Error("Unexpected committed frame completion.");
         },
         getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
-        recordUncommittedFrame: () => ({
+        recordUnpresentedFrame: () => ({
           debt: { content: true, maintenance: false, motion: false },
           outcome: "blocked",
         }),
@@ -594,7 +594,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           throw new Error("Unexpected committed frame completion.");
         },
         getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
-        recordUncommittedFrame: () => ({
+        recordUnpresentedFrame: () => ({
           debt: { content: true, maintenance: true, motion: false },
           outcome: "blocked",
         }),
@@ -694,8 +694,8 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           outcome: "present",
         }),
         getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
-        recordUncommittedFrame: () => {
-          throw new Error("Unexpected uncommitted frame completion.");
+        recordUnpresentedFrame: () => {
+          throw new Error("Unexpected unpresented frame completion.");
         },
       } as unknown as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
@@ -774,7 +774,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
           throw new Error("Unexpected committed frame completion.");
         },
         getKnobs: () => DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
-        recordUncommittedFrame: () => ({
+        recordUnpresentedFrame: () => ({
           debt: { content: true, maintenance: true, motion: true },
           outcome: "blocked",
         }),
@@ -877,13 +877,13 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
         maxHeldPreviousMs: 120,
         motionSettleWindowMs: 80,
       }),
-      recordUncommittedFrame: () => ({
+      recordUnpresentedFrame: () => ({
         debt: {
           content: true,
           maintenance: true,
           motion: true,
         },
-        kind: "uncommitted",
+        kind: "unpresented",
       }),
     } as unknown as Parameters<
       typeof proveGpuFlowVisibleFramePublicationPresentation

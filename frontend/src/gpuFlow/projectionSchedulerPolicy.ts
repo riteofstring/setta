@@ -31,7 +31,7 @@ type GpuFlowBlockedReasonLike = {
   readonly reason: string;
 };
 
-type GpuFlowVisiblePublicationUncommittedCompletionOutcomeLike =
+type GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike =
   | {
       readonly kind: "hold-previous";
     }
@@ -566,9 +566,9 @@ export function shouldSelectGpuFlowMaintenancePriorityPublicationLane({
   return maintenanceDebt && !contentRetryDeferred;
 }
 
-export function shouldThrottleGpuFlowContentRetryAfterUncommittedFrame(
+export function shouldThrottleGpuFlowContentRetryAfterUnpresentedFrame(
   decision: GpuFlowVisiblePublicationDecisionLike,
-  outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcomeLike,
+  outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
 ): boolean {
   return (
     (decision.lane === "content" && outcome.kind === "hold-previous") ||
@@ -584,7 +584,7 @@ export function shouldThrottleGpuFlowContentRetryAfterUncommittedFrame(
 }
 
 export function isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(
-  outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcomeLike,
+  outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
 ): boolean {
   return (
     outcome.kind === "blocked" &&
@@ -594,21 +594,21 @@ export function isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(
   );
 }
 
-export function shouldThrottleGpuFlowMotionRetryAfterUncommittedFrame(
+export function shouldThrottleGpuFlowMotionRetryAfterUnpresentedFrame(
   decision: GpuFlowVisiblePublicationDecisionLike,
-  outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcomeLike,
+  outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
 ): boolean {
   return (
-    getGpuFlowMotionRetryDelayMultiplierAfterUncommittedFrame(
+    getGpuFlowMotionRetryDelayMultiplierAfterUnpresentedFrame(
       decision,
       outcome,
     ) !== null
   );
 }
 
-export function getGpuFlowMotionRetryDelayMultiplierAfterUncommittedFrame(
+export function getGpuFlowMotionRetryDelayMultiplierAfterUnpresentedFrame(
   decision: GpuFlowVisiblePublicationDecisionLike,
-  outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcomeLike,
+  outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
 ): number | null {
   if (outcome.kind !== "blocked") {
     return null;
@@ -631,7 +631,7 @@ export function getGpuFlowMotionRetryDelayMultiplierAfterUncommittedFrame(
 
 export function shouldYieldGpuFlowCriticalContentDebtForCoverage(
   decision: GpuFlowVisiblePublicationDecisionLike,
-  outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcomeLike,
+  outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcomeLike,
 ): boolean {
   return (
     decision.lane === "content" &&

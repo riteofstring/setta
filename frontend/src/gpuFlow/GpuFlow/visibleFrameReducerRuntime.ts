@@ -5,7 +5,7 @@ import type {
 } from "../projectionRuntime";
 import {
   createGpuFlowProjectionSchedulingReasons,
-  getGpuFlowMotionRetryDelayMultiplierAfterUncommittedFrame,
+  getGpuFlowMotionRetryDelayMultiplierAfterUnpresentedFrame,
   GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER,
   GPU_FLOW_CONTENT_BLOCKED_RETRY_DELAY_MULTIPLIER,
   GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER,
@@ -23,7 +23,7 @@ import {
   shouldDeferGpuFlowProjectionMaintenanceOnlyFrame,
   shouldDeferGpuFlowProjectionNonCriticalContentCatchupFrame,
   shouldPrioritizeGpuFlowProjectionMotionDebt,
-  shouldThrottleGpuFlowContentRetryAfterUncommittedFrame,
+  shouldThrottleGpuFlowContentRetryAfterUnpresentedFrame,
   shouldYieldGpuFlowCriticalContentDebtForCoverage,
   type GpuFlowProjectionSchedulerState,
 } from "../projectionSchedulerPolicy";
@@ -93,7 +93,7 @@ export type GpuFlowVisiblePublicationPresentCompletionOutcome = {
   readonly token: GpuFlowVisibleFramePresentationToken;
 };
 
-export type GpuFlowVisiblePublicationUncommittedCompletionOutcome =
+export type GpuFlowVisiblePublicationUnpresentedCompletionOutcome =
   | {
       readonly kind: "hold-previous";
       readonly token: GpuFlowHoldPreviousToken;
@@ -105,7 +105,7 @@ export type GpuFlowVisiblePublicationUncommittedCompletionOutcome =
 
 export type GpuFlowVisiblePublicationCompletionOutcome =
   | GpuFlowVisiblePublicationPresentCompletionOutcome
-  | GpuFlowVisiblePublicationUncommittedCompletionOutcome;
+  | GpuFlowVisiblePublicationUnpresentedCompletionOutcome;
 
 export type GpuFlowVisibleFrameReducerRuntime = {
   completeFrame(
@@ -113,9 +113,9 @@ export type GpuFlowVisibleFrameReducerRuntime = {
     outcome: GpuFlowVisiblePublicationPresentCompletionOutcome,
   ): GpuFlowVisiblePublicationCompletion;
   getKnobs(): GpuFlowVisibleFrameReducerPolicy;
-  recordUncommittedFrame(
+  recordUnpresentedFrame(
     decision: GpuFlowVisiblePublicationDecision,
-    outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcome,
+    outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
   ): GpuFlowVisiblePublicationCompletion;
   selectFrameRequest(input: {
     readonly hasPresentedContentFrame: boolean;
@@ -568,9 +568,9 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     );
   }
 
-  function assertGpuFlowVisiblePublicationUncommittedTokenMatchesDecision(
+  function assertGpuFlowVisiblePublicationUnpresentedTokenMatchesDecision(
     decision: GpuFlowVisiblePublicationDecision,
-    outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcome,
+    outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
   ): void {
     if (outcome.kind === "hold-previous") {
       assertGpuFlowHoldPreviousTokenForProjectionSample({
@@ -585,15 +585,15 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     });
   }
 
-  function recordGpuFlowContentRetryAfterUncommittedFrame(
+  function recordGpuFlowContentRetryAfterUnpresentedFrame(
     decision: GpuFlowVisiblePublicationDecision,
-    outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcome,
+    outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
   ): void {
     const browserTextSnapshotPendingBlocked =
       decision.lane === "content" &&
       isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(outcome);
     if (
-      shouldThrottleGpuFlowContentRetryAfterUncommittedFrame(decision, outcome)
+      shouldThrottleGpuFlowContentRetryAfterUnpresentedFrame(decision, outcome)
     ) {
       const contentRetryDelayMultiplier = browserTextSnapshotPendingBlocked
         ? GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER
@@ -638,12 +638,12 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     );
   }
 
-  function recordGpuFlowMotionRetryAfterUncommittedFrame(
+  function recordGpuFlowMotionRetryAfterUnpresentedFrame(
     decision: GpuFlowVisiblePublicationDecision,
-    outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcome,
+    outcome: GpuFlowVisiblePublicationUnpresentedCompletionOutcome,
   ): void {
     const motionRetryDelayMultiplier =
-      getGpuFlowMotionRetryDelayMultiplierAfterUncommittedFrame(
+      getGpuFlowMotionRetryDelayMultiplierAfterUnpresentedFrame(
         decision,
         outcome,
       );
@@ -934,13 +934,13 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     getKnobs() {
       return reducerPolicy;
     },
-    recordUncommittedFrame(decision, outcome) {
-      assertGpuFlowVisiblePublicationUncommittedTokenMatchesDecision(
+    recordUnpresentedFrame(decision, outcome) {
+      assertGpuFlowVisiblePublicationUnpresentedTokenMatchesDecision(
         decision,
         outcome,
       );
-      recordGpuFlowContentRetryAfterUncommittedFrame(decision, outcome);
-      recordGpuFlowMotionRetryAfterUncommittedFrame(decision, outcome);
+      recordGpuFlowContentRetryAfterUnpresentedFrame(decision, outcome);
+      recordGpuFlowMotionRetryAfterUnpresentedFrame(decision, outcome);
       if (shouldYieldGpuFlowCriticalContentDebtForCoverage(decision, outcome)) {
         criticalContentDebt = false;
       }

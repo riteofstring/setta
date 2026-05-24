@@ -289,7 +289,7 @@ describe("GPU Flow visible frame coordinator phases", () => {
       "visibleFrameReducerRuntimeRef.current.getKnobs",
     );
     expect(source).not.toMatch(
-      /\.(?:selectFrame|completeFrame|recordUncommittedFrame)\s*\(/,
+      /\.(?:selectFrame|completeFrame|recordUnpresentedFrame)\s*\(/,
     );
   });
 
