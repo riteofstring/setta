@@ -361,8 +361,14 @@ function createGpuFlowVisiblePublicationActorProofState({
   readonly requiredVisualRepresentation: string;
 }): GpuFlowVisiblePublicationActorProof["proofState"] {
   if (
-    actualVisualProof === "blocked" ||
-    actualInteractionProof === "blocked" ||
+    isGpuFlowBlockingRequiredBrowserVisualProof({
+      actualVisualProof,
+      requiredInteractionRepresentation,
+    }) ||
+    isGpuFlowBlockingRequiredBrowserInteractionProof({
+      actualInteractionProof,
+      requiredInteractionRepresentation,
+    }) ||
     compatiblePreviousBudgetState === "over-budget" ||
     isGpuFlowActiveEditorCompatiblePreviousProofBlocked({
       actualVisualProof,
@@ -381,6 +387,32 @@ function createGpuFlowVisiblePublicationActorProofState({
     return "not-required";
   }
   return "exact";
+}
+
+function isGpuFlowBlockingRequiredBrowserVisualProof({
+  actualVisualProof,
+  requiredInteractionRepresentation,
+}: {
+  readonly actualVisualProof: string;
+  readonly requiredInteractionRepresentation: string;
+}): boolean {
+  return (
+    actualVisualProof === "blocked" &&
+    requiredInteractionRepresentation === "active-editor-live"
+  );
+}
+
+function isGpuFlowBlockingRequiredBrowserInteractionProof({
+  actualInteractionProof,
+  requiredInteractionRepresentation,
+}: {
+  readonly actualInteractionProof: string;
+  readonly requiredInteractionRepresentation: string;
+}): boolean {
+  return (
+    actualInteractionProof === "blocked" &&
+    requiredInteractionRepresentation === "active-editor-live"
+  );
 }
 
 function isGpuFlowActiveEditorCompatiblePreviousProofBlocked({

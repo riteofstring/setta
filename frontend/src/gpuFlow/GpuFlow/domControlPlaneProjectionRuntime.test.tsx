@@ -3,7 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
@@ -522,6 +522,148 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(domControlCoverageState(readyCandidate, activeControl)).toBe(
       "live-host-ready",
     );
+  });
+
+  it("requests content publication when an active preparation host becomes ready", () => {
+    const passiveControl = domControl({ active: false, index: 0 });
+    const activeControl = domControl({ active: true, index: 0 });
+    const requestFrame = vi.fn();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const surfaceRef = {
+      current: {
+        requestFrame,
+      } as never,
+    };
+    const committedSurfaceRuntime =
+      createCommittedSurfaceRuntimeWithBrowserVisuals({
+        frame: committedSurfaceFrame({
+          displayFrameId: 1,
+          retainedRuntimeFrame: retainedRuntimeFrame([passiveControl]),
+        }),
+        viewportRuntime,
+        viewportStore,
+      });
+    const browserVisualRuntime =
+      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
+        committedSurfaceRuntime,
+      );
+    const host = document.body.appendChild(document.createElement("div"));
+    root = createRoot(host);
+    const renderPlane = () => (
+      <GpuFlowDomControlPlane
+        committedSurfaceRuntime={committedSurfaceRuntime}
+        getRetainedScrollOffset={undefined}
+        onActivate={undefined}
+        renderControl={(control) => (
+          <input data-row-id={control.rowId} readOnly value={control.value} />
+        )}
+        surfaceRef={surfaceRef}
+        viewportRuntime={viewportRuntime}
+        viewportStore={viewportStore}
+      />
+    );
+
+    act(() => {
+      root?.render(renderPlane());
+    });
+    const blockedCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: retainedRuntimeFrame([activeControl], 2),
+      }),
+    });
+
+    act(() => {
+      stageBrowserVisualCandidate({
+        actorId: activeControl.sourceId,
+        browserVisualRuntime,
+        candidate: blockedCandidate,
+        reason: "active-editor",
+      });
+      root?.render(renderPlane());
+    });
+
+    expect(requestFrame).toHaveBeenCalledWith("dom-control-activation");
+  });
+
+  it("does not force immediate repair frames for passive preparation hosts", () => {
+    const visibleControl = domControl({ active: false, index: 0 });
+    const preparationControl = domControl({
+      active: false,
+      index: 1,
+    });
+    const requestFrame = vi.fn();
+    const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
+    const viewportStore = createGpuFlowViewportStore({
+      height: 60,
+      transform: [0, 0, 1],
+      width: 400,
+    });
+    const surfaceRef = {
+      current: {
+        requestFrame,
+      } as never,
+    };
+    const committedSurfaceRuntime =
+      createCommittedSurfaceRuntimeWithBrowserVisuals({
+        frame: committedSurfaceFrame({
+          displayFrameId: 1,
+          retainedRuntimeFrame: retainedRuntimeFrame([visibleControl]),
+        }),
+        viewportRuntime,
+        viewportStore,
+      });
+    const browserVisualRuntime =
+      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
+        committedSurfaceRuntime,
+      );
+    const host = document.body.appendChild(document.createElement("div"));
+    root = createRoot(host);
+    const renderPlane = () => (
+      <GpuFlowDomControlPlane
+        committedSurfaceRuntime={committedSurfaceRuntime}
+        getRetainedScrollOffset={undefined}
+        onActivate={undefined}
+        renderControl={(control) => (
+          <input data-row-id={control.rowId} readOnly value={control.value} />
+        )}
+        surfaceRef={surfaceRef}
+        viewportRuntime={viewportRuntime}
+        viewportStore={viewportStore}
+      />
+    );
+
+    act(() => {
+      root?.render(renderPlane());
+    });
+    requestFrame.mockClear();
+    const blockedCandidate = browserVisualRuntime.prepareCommittedSurfaceFrame({
+      retainedDisplayFrame: retainedDisplayFrame({
+        id: 2,
+        retainedRuntimeFrame: retainedRuntimeFrame(
+          [visibleControl, preparationControl],
+          2,
+        ),
+      }),
+    });
+
+    act(() => {
+      stageBrowserVisualCandidate({
+        actorId: preparationControl.sourceId,
+        browserVisualRuntime,
+        candidate: blockedCandidate,
+        reason: "snapshot-pending",
+      });
+      root?.render(renderPlane());
+    });
+
+    expect(preparationRowIds()).toContain("row-1");
+    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
   });
 
   it("uses identical DOM-control host selection when Chrome repro capture is active", () => {

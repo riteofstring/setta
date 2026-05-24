@@ -8,12 +8,12 @@ import {
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
-  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFrameKernel";
+} from "./visibleFrameCoordinator";
 
 describe("GPU Flow visible frame outcome report", () => {
-  it("blocks no-frame held-previous outcomes after the kernel hold budget", () => {
+  it("blocks no-frame held-previous outcomes after the coordinator hold budget", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler({
       knobs: {
         ...DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
@@ -24,7 +24,7 @@ describe("GPU Flow visible frame outcome report", () => {
     const sample = liveProjectionSample({ id: 8, timestamp: 8 });
     const rawReasons = ["retained-scroll"] as const;
 
-    const result = runGpuFlowVisibleFramePublicationCandidateSetKernel({
+    const result = runGpuFlowVisibleFrameCoordinator({
       prepareContentPublicationFrame: () => noVisiblePublicationCandidate(),
       prepareMotionProjectionFrame: () => ({
         frame: noVisiblePublicationCandidate(),
@@ -51,7 +51,7 @@ describe("GPU Flow visible frame outcome report", () => {
       {
         actorId: null,
         family: "visible-transaction",
-        reason: "held-previous-budget-exceeded",
+        reason: "no-visible-frame",
       },
     ]);
     const schedulerCompletion = result.completeSchedulerFrame();
@@ -63,9 +63,9 @@ describe("GPU Flow visible frame outcome report", () => {
     expect(result.followUpFrameRequests).toEqual([]);
   });
 
-  it("returns retained follow-up frame requests from kernel completion", () => {
+  it("returns retained follow-up frame requests from coordinator completion", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
-    const result = runGpuFlowVisibleFramePublicationCandidateSetKernel({
+    const result = runGpuFlowVisibleFrameCoordinator({
       prepareContentPublicationFrame: () =>
         noVisiblePublicationCandidate({
           retainedDisplayFollowUpFrameReason: "texture-upload",
@@ -85,9 +85,9 @@ describe("GPU Flow visible frame outcome report", () => {
     expect(result.followUpFrameRequests).toEqual(["texture-upload"]);
   });
 
-  it("returns cold-start shell publication from kernel completion", () => {
+  it("returns cold-start shell publication from coordinator completion", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
-    const result = runGpuFlowVisibleFramePublicationCandidateSetKernel({
+    const result = runGpuFlowVisibleFrameCoordinator({
       prepareContentPublicationFrame: () => noVisiblePublicationCandidate(),
       prepareMotionProjectionFrame: () => ({
         frame: noVisiblePublicationCandidate(),

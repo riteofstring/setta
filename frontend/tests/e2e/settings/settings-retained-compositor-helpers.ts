@@ -13,7 +13,6 @@ import {
 import {
   startRetainedCompositorGestureFrameSampler,
   stopRetainedCompositorGestureFrameSampler,
-  type RetainedCompositorFrameSample,
   type RetainedCompositorLongTaskSample,
 } from "./settings-retained-frame-sampler";
 import type {
@@ -294,7 +293,7 @@ export async function centerRetainedCompositorSurface(
   page: Page,
   surfaceId = SETTINGS_RETAINED_COMPOSITOR_SURFACE_ID,
 ): Promise<void> {
-  await page.evaluate(async (targetSurfaceId) => {
+  const viewport = await page.evaluate(async (targetSurfaceId) => {
     const pane = document.querySelector<HTMLElement>(".setta-gpu-flow__pane");
     const transform =
       window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.().viewport.transform;
@@ -320,6 +319,11 @@ export async function centerRetainedCompositorSurface(
     });
     window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__?.("viewport");
     window.settaGpuFlowZoom = zoom;
+    return {
+      x: paneRect.width * 0.5 - flowCenter.x * zoom,
+      y: paneRect.height * 0.48 - flowCenter.y * zoom,
+      zoom,
+    };
 
     function getRetainedRows(): readonly RetainedRowDebugEntry[] {
       return window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [];
@@ -327,6 +331,64 @@ export async function centerRetainedCompositorSurface(
   }, surfaceId);
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
+  await waitForRetainedCompositorViewportCommit(page, viewport);
+}
+
+async function waitForRetainedCompositorViewportCommit(
+  page: Page,
+  viewport: RetainedCompositorViewportSample,
+): Promise<void> {
+  await expect
+    .poll(() => readRetainedCompositorViewportCommitState(page, viewport), {
+      intervals: [50, 80, 120, 180],
+      timeout: 10_000,
+    })
+    .toMatchObject({
+      committedMatches: true,
+      runtimeMatches: true,
+    });
+}
+
+async function readRetainedCompositorViewportCommitState(
+  page: Page,
+  viewport: RetainedCompositorViewportSample,
+) {
+  return await page.evaluate((expected) => {
+    const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
+    const runtime = snapshot?.viewport.transform ?? null;
+    const committed = snapshot?.committedSurfaceFrame?.viewportSample ?? null;
+    return {
+      committed,
+      committedMatches: viewportMatches(committed, expected),
+      expected,
+      runtime,
+      runtimeMatches: viewportMatches(runtime, expected),
+    };
+
+    function viewportMatches(
+      actual:
+        | { readonly x: number; readonly y: number; readonly zoom: number }
+        | null
+        | undefined,
+      target: {
+        readonly x: number;
+        readonly y: number;
+        readonly zoom: number;
+      },
+    ): boolean {
+      return (
+        actual !== null &&
+        actual !== undefined &&
+        closeEnough(actual.x, target.x) &&
+        closeEnough(actual.y, target.y) &&
+        closeEnough(actual.zoom, target.zoom)
+      );
+    }
+
+    function closeEnough(actual: number, expectedValue: number): boolean {
+      return Math.abs(actual - expectedValue) <= 0.5;
+    }
+  }, viewport);
 }
 
 export async function resolveRetainedCompositorTarget(
@@ -892,7 +954,8 @@ export async function readRetainedCompositorSceneSummary(page: Page): Promise<{
         ].sort((left, right) => left.localeCompare(right)),
       mountedNodeCount,
       nodeCount:
-        sceneSummary?.nodeCount ?? Math.max(mountedNodeCount, retainedNodeCount),
+        sceneSummary?.nodeCount ??
+        Math.max(mountedNodeCount, retainedNodeCount),
       retainedRowCount: sceneSummary?.retainedRowCount ?? rows.length,
       surfaceCount:
         sceneSummary?.surfaceCount ??

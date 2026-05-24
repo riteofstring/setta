@@ -52,6 +52,24 @@ type GpuFlowSurfaceClipBounds = {
 };
 
 type GpuFlowDebugNodeLayer = {
+  readonly htmlSurfaceNativeVisuals?:
+    | readonly { readonly surfaceId: string }[]
+    | undefined;
+  readonly retainedContentRowHoverTarget?:
+    | { readonly rowId: string; readonly surfaceId: string }
+    | null
+    | undefined;
+  readonly retainedRuntimeFrame?:
+    | {
+        readonly descriptors: {
+          readonly htmlSurfaceNativeVisuals: readonly {
+            readonly surfaceId: string;
+          }[];
+        };
+        readonly frameId: number;
+      }
+    | null
+    | undefined;
   readonly scene: GpuFlowScene | undefined;
   readonly viewport?: GpuViewportInput | undefined;
   readonly visualScene?: HtmlSurfaceVisualScene | undefined;
@@ -157,6 +175,8 @@ export function useGpuFlowDebugGlobals<
         viewport: getVisualSceneViewport(),
         visualScene: nodeLayerRef.current.visualScene,
       });
+    const getRetainedNativeVisuals = () =>
+      createGpuFlowRetainedNativeVisualDebugSnapshot(nodeLayerRef.current);
     window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ = getSnapshot;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__ = getRetainedRows;
     window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__ = getRetainedRowCount;
@@ -165,6 +185,8 @@ export function useGpuFlowDebugGlobals<
     window.__SETTA_GPU_FLOW_DEBUG_REQUEST_FRAME__ = requestDebugFrame;
     window.__SETTA_GPU_FLOW_DEBUG_SET_VIEWPORT__ = setViewport;
     window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__ = getVisualSurfaces;
+    window.__SETTA_GPU_FLOW_DEBUG_RETAINED_NATIVE_VISUALS__ =
+      getRetainedNativeVisuals;
     return () => {
       if (window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__ === getSnapshot) {
         delete window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__;
@@ -195,6 +217,12 @@ export function useGpuFlowDebugGlobals<
       ) {
         delete window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__;
       }
+      if (
+        window.__SETTA_GPU_FLOW_DEBUG_RETAINED_NATIVE_VISUALS__ ===
+        getRetainedNativeVisuals
+      ) {
+        delete window.__SETTA_GPU_FLOW_DEBUG_RETAINED_NATIVE_VISUALS__;
+      }
     };
   }, [
     activeResizeNodeIdRef,
@@ -209,6 +237,30 @@ export function useGpuFlowDebugGlobals<
     retainedContentRuntimeState,
     viewportStore,
   ]);
+}
+
+function createGpuFlowRetainedNativeVisualDebugSnapshot(
+  layer: GpuFlowDebugNodeLayer,
+) {
+  const layerNativeVisuals = layer.htmlSurfaceNativeVisuals ?? [];
+  const retainedRuntimeFrame = layer.retainedRuntimeFrame;
+  const retainedRuntimeNativeVisuals =
+    retainedRuntimeFrame?.descriptors.htmlSurfaceNativeVisuals ?? [];
+  const visualSceneSolidSurfaces =
+    layer.visualScene?.solidRoundedRectSurfaces ?? [];
+  return {
+    layerNativeVisualSurfaceIds: layerNativeVisuals.map(
+      (visual) => visual.surfaceId,
+    ),
+    retainedRuntimeFrameId: retainedRuntimeFrame?.frameId ?? null,
+    retainedRuntimeNativeVisualSurfaceIds: retainedRuntimeNativeVisuals.map(
+      (visual) => visual.surfaceId,
+    ),
+    rowHoverTarget: layer.retainedContentRowHoverTarget ?? null,
+    visualSceneSolidSurfaceIds: visualSceneSolidSurfaces.map(
+      (visual) => visual.surfaceId,
+    ),
+  };
 }
 
 function createGpuFlowRetainedSceneDebugSummary(

@@ -68,6 +68,69 @@ describe("GPU retained content interaction controller", () => {
     cleanup();
   });
 
+  it("emits retained content pointer-down activation from mouse-only input", () => {
+    const element = createHostElement();
+    const onHitPointerDown = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitPointerDown,
+      store: createGpuFlowViewportStore(),
+    });
+
+    element.dispatchEvent(
+      createMouseEvent("mousedown", {
+        clientX: 140,
+        clientY: 14,
+      }),
+    );
+
+    expect(onHitPointerDown).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hit: expect.objectContaining({
+          id: "control:param-0",
+          kind: "control",
+          ownerRowId: "param-0",
+        }),
+        nativeEvent: expect.any(MouseEvent),
+        ownerSectionId: "dict-a",
+        screenPoint: { x: 140, y: 14 },
+        surfaceId: "dict-a:param-content:unpinned",
+      }),
+    );
+
+    cleanup();
+  });
+
+  it("does not duplicate pointer-down activation when pointer input is present", () => {
+    const element = createHostElement();
+    const onHitPointerDown = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitPointerDown,
+      store: createGpuFlowViewportStore(),
+    });
+
+    element.dispatchEvent(
+      createPointerEvent("pointerdown", {
+        clientX: 140,
+        clientY: 14,
+        pointerId: 1,
+      }),
+    );
+    element.dispatchEvent(
+      createMouseEvent("mousedown", {
+        clientX: 140,
+        clientY: 14,
+      }),
+    );
+
+    expect(onHitPointerDown).toHaveBeenCalledTimes(1);
+
+    cleanup();
+  });
+
   it("suppresses the browser click that follows a retained content click", () => {
     const element = createHostElement();
     const onHitClick = vi.fn();

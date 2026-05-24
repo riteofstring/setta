@@ -128,6 +128,47 @@ describe("HtmlSurfaceSourceLayer", () => {
     canvas.remove();
   });
 
+  it("reports the source host when a source renders a canvas child", () => {
+    const canvas = document.createElement("canvas");
+    document.body.append(canvas);
+    const root = createRoot(canvas);
+    const elements = new Map<string, HTMLElement>();
+
+    act(() => {
+      root.render(
+        <HtmlSurfaceSourceLayer
+          getSourceId={(source: TestSource) => source.id}
+          onSourceElementChange={(sourceId, element) => {
+            if (element) {
+              elements.set(sourceId, element);
+              return;
+            }
+            elements.delete(sourceId);
+          }}
+          renderSource={(source: TestSource) => (
+            <canvas data-label={source.label} />
+          )}
+          sources={[{ id: "source-a", label: "A" }]}
+        />,
+      );
+    });
+
+    const sourceHost = mustSourceElement(elements, "source-a");
+    const canvasChild = mustQueryHTMLElement(sourceHost, "canvas[data-label]");
+    expect(canvasChild.tagName).toBe("CANVAS");
+    expect(canvasChild.getAttribute("data-label")).toBe("A");
+    expect(sourceHost?.parentElement).toBe(canvas);
+    expect(sourceHost?.dataset.gpuFlowHtmlSource).toBe("true");
+    expect(sourceHost?.getAttribute(HTML_SURFACE_SOURCE_ID_ATTRIBUTE)).toBe(
+      "source-a",
+    );
+
+    act(() => root.unmount());
+    expect(elements.has("source-a")).toBe(false);
+    expect(sourceHost?.isConnected).toBe(false);
+    canvas.remove();
+  });
+
   it("runs owner-specific source configuration without hiding the source host", () => {
     const canvas = document.createElement("canvas");
     document.body.append(canvas);

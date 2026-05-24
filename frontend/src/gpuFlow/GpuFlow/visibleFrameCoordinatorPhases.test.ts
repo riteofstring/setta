@@ -3,8 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFrameKernel.ts", import.meta.url),
+const COORDINATOR_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameCoordinator.ts", import.meta.url),
 );
 const AUTHORITY_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresentationProofs.ts", import.meta.url),
@@ -25,16 +25,16 @@ const SURFACE_PUBLICATION_DEBT_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowSurfacePublicationDebtFrame.ts", import.meta.url),
 );
 
-describe("GPU Flow visible publication kernel phases", () => {
+describe("GPU Flow visible frame coordinator phases", () => {
   it("runs sample, prepare, prove, reduce, completion, and publish through one transaction authority", () => {
-    const source = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const source = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const authoritySource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
     const tokenAuthoritySource = readFileSync(
       TOKEN_AUTHORITY_MODULE_PATH,
       "utf8",
     );
     const runStart = source.indexOf(
-      "export function runGpuFlowVisibleFramePublicationCandidateSetKernel",
+      "export function runGpuFlowVisibleFrameCoordinator",
     );
     const firstHelperStart = source.indexOf(
       "function sampleGpuFlowVisibleFramePublicationTransaction",
@@ -52,8 +52,8 @@ describe("GPU Flow visible publication kernel phases", () => {
       "proveGpuFlowVisibleFramePublicationPresentation",
       "publishGpuFlowVisibleFramePublicationOutcome({",
     ]);
-    expect(runSource).not.toContain("createGpuFlowVisibleFrameEngine({");
-    expect(runSource).not.toContain("engine.runFrame();");
+    expect(runSource).not.toContain("createGpuFlowVisibleFrameStateMachine({");
+    expect(runSource).not.toContain("stateMachine.runFrame();");
     expect(source).toContain(
       "function sampleGpuFlowVisibleFramePublicationTransaction",
     );
@@ -133,25 +133,25 @@ describe("GPU Flow visible publication kernel phases", () => {
     );
   });
 
-  it("keeps frame-context deferral decisions private to the transaction kernel", () => {
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+  it("keeps frame-context deferral decisions private to the coordinator", () => {
+    const coordinatorSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const surfaceSource = readFileSync(
       SURFACE_FRAME_PUBLICATION_MODULE_PATH,
       "utf8",
     );
 
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function shouldDeferGpuFlowResolutionUpdates",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function shouldDeferGpuFlowResolutionUpdates",
     );
     expect(surfaceSource).not.toContain("shouldDeferGpuFlowResolutionUpdates");
     expect(surfaceSource).toContain("publicationFrameContext");
   });
 
-  it("keeps visible outcome token minting in the kernel", () => {
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+  it("keeps visible outcome token minting in the coordinator", () => {
+    const coordinatorSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const authoritySource = readFileSync(TOKEN_AUTHORITY_MODULE_PATH, "utf8");
     const presentationProofSource = readFileSync(AUTHORITY_MODULE_PATH, "utf8");
     const completionSource = readFileSync(COMPLETION_MODULE_PATH, "utf8");
@@ -178,7 +178,7 @@ describe("GPU Flow visible publication kernel phases", () => {
       "visiblePublicationTokenIssuer.createHoldPreviousToken",
     );
     for (const constructorName of rawTokenConstructors) {
-      expect(kernelSource).not.toContain(constructorName);
+      expect(coordinatorSource).not.toContain(constructorName);
       expect(completionSource).not.toContain(constructorName);
       expect(authoritySource).toContain(`function ${constructorName}`);
       expect(authoritySource).not.toContain(

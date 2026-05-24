@@ -14,14 +14,16 @@ import {
 import { createRetainedCommittedPageLifecycle } from "../retainedContentLifecycle";
 import { createGpuRetainedRowContentScene } from "../retainedContentScene";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
+import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "../scene";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
+import { resolveGpuFlowProjectionRetainedRuntimeFrame } from "./flowProjectionFrame";
 import {
-  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  runGpuFlowVisibleFrameCoordinator,
   type GpuFlowProjectionFrameRenderablePlan,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFrameKernel";
+} from "./visibleFrameCoordinator";
 import {
   resolveGpuFlowRetainedProjectionFrame,
   type GpuFlowRetainedProjectionFrame,
@@ -35,7 +37,9 @@ type TestProjectionPublicationFrame = {
 type TestProjectionFrameTransaction = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly blockedReason: string | null;
-  readonly heldPreviousProjection: GpuFlowProjectionFrameRenderablePlan["heldPreviousProjection"] | null;
+  readonly heldPreviousProjection:
+    | GpuFlowProjectionFrameRenderablePlan["heldPreviousProjection"]
+    | null;
   readonly outcomeKind: string;
   readonly retainedProjectionFrame: GpuFlowRetainedProjectionFrame;
   readonly transaction: GpuFlowProjectionTransaction;
@@ -157,6 +161,89 @@ describe("GPU flow projection frame coverage", () => {
     );
   });
 
+  it("samples native scrollbar visuals from motion projection scroll offsets", () => {
+    const layer = retainedLayer();
+    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
+      committedFrameId: 12,
+      kind: "motion-projection",
+      lane: "motion",
+      rawReasons: ["retained-scroll"],
+      sample: liveSample({
+        id: 2,
+        retainedScrollY: 400,
+      }),
+    });
+    const frame = resolveGpuFlowProjectionRetainedRuntimeFrame({
+      canvasSize: canvasSize(),
+      fallbackRetainedRuntimeFrame: createGpuRetainedRuntimeFrame({
+        devicePixelRatioBucket: 1,
+        frameId: 1,
+        scene: layer.scene,
+        scrollOffsets: new Map([["surface-a", { x: 0, y: 0 }]]),
+        scrollRevision: 1,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        viewportSize: { height: 100, width: 100 },
+        viewportZoomBucket: 1,
+      }),
+      frame: 2,
+      heldPreviousProjectionState: null,
+      layer,
+      transaction,
+    });
+
+    const thumbVisual = frame.descriptors.htmlSurfaceNativeVisuals.find(
+      (visual) => visual.surfaceId === "surface-a:scrollbar:y:thumb",
+    );
+    expect(frame.input.scrollOffsets.get("surface-a")).toEqual({
+      x: 0,
+      y: 400,
+    });
+    expect(thumbVisual?.rect.y).toBeGreaterThan(2);
+  });
+
+  it("samples retained row hover visuals during motion projection", () => {
+    const layer = retainedLayer({
+      retainedContentRowHoverTarget: {
+        rowId: "row-2",
+        surfaceId: "surface-a",
+      },
+    });
+    const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
+      committedFrameId: 12,
+      kind: "motion-projection",
+      lane: "motion",
+      rawReasons: ["retained-row-hover-visual"],
+      sample: liveSample({
+        id: 2,
+        retainedScrollY: 0,
+      }),
+    });
+    const frame = resolveGpuFlowProjectionRetainedRuntimeFrame({
+      canvasSize: canvasSize(),
+      fallbackRetainedRuntimeFrame: createGpuRetainedRuntimeFrame({
+        devicePixelRatioBucket: 1,
+        frameId: 1,
+        scene: layer.scene,
+        scrollOffsets: new Map([["surface-a", { x: 0, y: 0 }]]),
+        scrollRevision: 1,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        viewportSize: { height: 100, width: 100 },
+        viewportZoomBucket: 1,
+      }),
+      frame: 2,
+      frameReasons: ["retained-row-hover-visual"],
+      heldPreviousProjectionState: null,
+      layer,
+      transaction,
+    });
+
+    expect(
+      frame.descriptors.htmlSurfaceNativeVisuals.map(
+        (visual) => visual.surfaceId,
+      ),
+    ).toContain("surface-a:row-hover:row-2");
+  });
+
   it("blocks held-previous projection after the scheduler budget is exceeded", () => {
     const previousSample = liveSample({
       id: 1,
@@ -216,14 +303,16 @@ describe("GPU flow projection frame coverage", () => {
         }),
     });
 
-    expect(secondHeld.blockedReason).toBe("held-previous-budget-exceeded");
+    expect(secondHeld.blockedReason).toBe(
+      "retained-projection-coverage-missing",
+    );
     expect(secondHeld.transaction.kind).toBe("motion-projection");
     expect(secondHeld.transaction.sample.id).toBe(10);
     expect(secondHeld.blockedPublicationCandidate?.blockedReasons).toEqual([
       {
         actorId: null,
         family: "retained-projection",
-        reason: "held-previous-budget-exceeded",
+        reason: "retained-projection-coverage-missing",
       },
     ]);
     expect(secondHeld.outcomeKind).toBe("blocked");
@@ -324,7 +413,7 @@ function resolveGpuFlowProjectionFrameTransaction({
     blockedPublicationCandidate: null,
     renderPlan: null,
   };
-  const result = runGpuFlowVisibleFramePublicationCandidateSetKernel<
+  const result = runGpuFlowVisibleFrameCoordinator<
     TestProjectionPublicationFrame,
     TestProjectionPublicationFrame
   >({
@@ -352,15 +441,14 @@ function resolveGpuFlowProjectionFrameTransaction({
     }),
     publish: (transaction) => {
       selection.blockedPublicationCandidate =
-        transaction.preparedFrame.motionProjectionFrame
-          .blockedPublicationCandidate;
+        transaction.preparedFrame.motionProjectionFrame.blockedPublicationCandidate;
     },
     sampleVisibleFramePublication: () =>
       visibleFramePublicationSample({
         frameReasons,
         previousVisibleProjectionState: heldPreviousProjectionState,
         sample: requestedTransaction.sample,
-    }),
+      }),
     scheduler,
   });
   const renderPlan = selection.renderPlan;
@@ -478,10 +566,13 @@ function visibleProjectionState({
   });
 }
 
-function retainedLayer(): GpuFlowNodeLayerState {
+function retainedLayer(
+  overrides: Partial<GpuFlowNodeLayerState> = {},
+): GpuFlowNodeLayerState {
   return {
     scene: retainedScene(),
     viewport: { x: 0, y: 0, zoom: 1 },
+    ...overrides,
   } as GpuFlowNodeLayerState;
 }
 
@@ -520,6 +611,16 @@ function retainedContentSurface(): GpuContentSurface {
       viewportRect: rect,
     }),
     zIndex: 1,
+  };
+}
+
+function canvasSize() {
+  return {
+    cssHeight: 100,
+    cssWidth: 100,
+    devicePixelRatio: 1,
+    pixelHeight: 100,
+    pixelWidth: 100,
   };
 }
 

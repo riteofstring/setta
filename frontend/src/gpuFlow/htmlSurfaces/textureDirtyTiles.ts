@@ -28,7 +28,7 @@ export function markTextureRecordDirty(
     sourceRect,
   );
   if (dirtyTileIds.size === 0) {
-    return record.dirtyContent || record.dirtyResolution;
+    return false;
   }
 
   record.tiles = record.tiles.map((tile) =>
@@ -243,7 +243,7 @@ function resolveDirtyTextureTileIds(
   dirtyFlags: { readonly resolution: boolean },
   sourceRect: HtmlSurfaceDirtyRect | undefined,
 ): ReadonlySet<string> {
-  if (dirtyFlags.resolution || record.textureLayout.kind === "single") {
+  if (dirtyFlags.resolution) {
     return allTileIds(record.tiles);
   }
   if (!sourceRect) {

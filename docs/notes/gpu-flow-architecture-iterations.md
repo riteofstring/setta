@@ -804,7 +804,7 @@ could still be completed by separate helpers.
 The May 21-23 cutover ultimately moved those decisions behind one coherent
 visible-frame engine:
 
-- `visibleFrameKernel.ts` samples one live projection frame, selects the lane,
+- `visibleFrameCoordinator.ts` samples one live projection frame, selects the lane,
   prepares content and motion candidates, asks the engine-owned proof reducers
   to prove the candidates, and returns exactly one outcome: presented,
   projected, held, blocked-cold-start, or aborted;
@@ -860,7 +860,7 @@ ownership, identity evidence, and active-editor coverage.
 
 This iteration tightened the finish-line contracts:
 
-- `visibleFrameEngine.ts` became the explicit lifecycle reducer for
+- `visibleFrameStateMachine.ts` became the explicit lifecycle reducer for
   `presented`, `projected`, `held`, `blocked-cold-start`, and `aborted`
   outcomes, with production publication routed through the engine instead of
   legacy publication authority shells;
@@ -868,7 +868,7 @@ This iteration tightened the finish-line contracts:
   authority, candidate action, content decision, and fault parsing were split
   into focused modules so candidate preparation cannot also complete
   presentation side effects;
-- visible-frame resource lifetime moved into `visibleFrameResourceRegistry.ts`,
+- visible-frame resource lifetime moved into `visibleFrameResourceGraph.ts`,
   making protected resources and releases part of the selected outcome rather
   than an incidental cleanup path;
 - retry behavior became lane-specific: browser-visual blocked content debt,
@@ -939,15 +939,15 @@ After these iterations, GPU Flow has these major boundaries:
   live, snapshot, or compatible-previous coverage.
 - Committed surface frames own content publication; live projection samples can
   advance without independently advancing React-visible committed content.
-- `GpuFlow/visibleFrameEngine.ts`, `GpuFlow/visibleFrameKernel.ts`,
+- `GpuFlow/visibleFrameStateMachine.ts`, `GpuFlow/visibleFrameCoordinator.ts`,
   `GpuFlow/visibleFrameContentPlan.ts`, `GpuFlow/visibleFrameProjectionWork.ts`,
   and `GpuFlow/visibleFrameTransactionProofs.ts` own the single visible-frame
-  kernel, scheduler authority, prepared content and motion facts,
+  coordinator, scheduler authority, prepared content and motion facts,
   actor/resource/presentation proofs, projection work plans, presentation token
   issuance, and completion accounting that select presented, projected, held,
   blocked-cold-start, or aborted outcomes.
 - `GpuFlow/visibleFrameCommitProofs.ts`,
-  `GpuFlow/visibleFrameResourceRegistry.ts`,
+  `GpuFlow/visibleFrameResourceGraph.ts`,
   `GpuFlow/visibleFramePresentationTokens.ts`, and
   `GpuFlow/visibleFrameIdentityAttributes.ts` bind visible-frame outcomes to
   protected resources, presentation tokens, content-frame ids, presentation ids,
@@ -1078,12 +1078,12 @@ Useful reports from this branch:
 
 The May 21-23 coherent visible-frame cutover is covered mainly by focused
 Vitest authority and boundary suites plus retained Settings E2E coverage:
-[visibleFrameEngine.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameEngine.test.ts),
-[visibleFrameKernel.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameKernel.test.ts),
+[visibleFrameStateMachine.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameStateMachine.test.ts),
+[visibleFrameCoordinator.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameCoordinator.test.ts),
 [visibleFrameTransactionProofs.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameTransactionProofs.test.ts),
 [visibleFramePresentationProofsBoundary.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePresentationProofsBoundary.test.ts),
 [visibleFramePresentationTokenBoundary.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFramePresentationTokenBoundary.test.ts),
-[visibleFrameResourceRegistry.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameResourceRegistry.test.ts),
+[visibleFrameResourceGraph.test.ts](../../frontend/src/gpuFlow/GpuFlow/visibleFrameResourceGraph.test.ts),
 and the visible-frame baseline, retry follow-up, and final verification reports
 linked above.
 

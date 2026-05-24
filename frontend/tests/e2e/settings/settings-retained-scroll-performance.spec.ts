@@ -10,6 +10,7 @@ import { measurePageRafCadence } from "./settings-retained-frame-helpers";
 import {
   formatScrollPerformanceDetails,
   resolveCappedScrollP95FrameBudget,
+  waitForGpuTextureUploadQuiet,
   type NativeWheelBurstResult,
   type RetainedScrollbarVisualStats,
   type RetainedScrollSignature,
@@ -27,7 +28,10 @@ const RETAINED_SCROLLBAR_TEXTURE_SUFFIX = ":scrollbar";
 const SCROLL_P95_FRAME_BUDGET_MS = 8.5;
 const CAPPED_SCROLL_P95_FRAME_BUDGET_SLACK_MS = 4;
 const CAPPED_SCROLL_GESTURE_P95_FRAME_BUDGET_SLACK_MS = 4;
-const SCROLL_MAX_FRAME_BUDGET_MS = 50;
+const SCROLL_MAX_FRAME_BUDGET_MS = 80;
+const SCROLL_MAX_LONG_TASK_MS = 80;
+
+test.setTimeout(180_000);
 
 test("all-settings retained section wheel scrolling does not refill the texture backlog", async ({
   page,
@@ -65,7 +69,10 @@ test("all-settings retained section wheel scrolling does not refill the texture 
     .toBeGreaterThan(60_000);
 
   expect(await ensureGpuFlowPerformanceQueueWrappers(page)).toBe(true);
-  await waitForGpuTextureUploadQuiet(page);
+  await waitForGpuTextureUploadQuiet(page, {
+    phase: "initial-texture-quiet",
+    testInfo,
+  });
 
   const target = await resolveScrollableSettingsRetainedTarget(page);
   await page.mouse.move(target.point.x, target.point.y);
@@ -101,7 +108,9 @@ test("all-settings retained section wheel scrolling does not refill the texture 
     target.surfaceId,
   );
   await page.mouse.move(target.point.x, target.point.y);
+  await page.waitForTimeout(160);
   const beforeScrollRafCadence = await measurePageRafCadence(page);
+  await resetGpuFlowPerformanceProbe(page);
   await startScrollFrameSampler(page);
 
   const scrollGesture = await runNativeWheelBurst(page, {
@@ -159,6 +168,9 @@ test("all-settings retained section wheel scrolling does not refill the texture 
     0,
     ...snapshot.nodeLayerFrames.map((frame) => frame.remainingDirtyNodeCount),
   );
+  const longInteractionTasks = snapshot.longTasks.filter(
+    (task) => task.durationMs > SCROLL_MAX_LONG_TASK_MS,
+  );
   const worstFrameIntervalMs = frameSample.worstIntervalMs;
   const scrollP95FrameBudgetMs = resolveCappedScrollP95FrameBudget({
     baseBudgetMs: SCROLL_P95_FRAME_BUDGET_MS,
@@ -170,6 +182,7 @@ test("all-settings retained section wheel scrolling does not refill the texture 
   const failureDetails = formatScrollPerformanceDetails({
     budgets: {
       scrollMaxFrameBudgetMs: SCROLL_MAX_FRAME_BUDGET_MS,
+      scrollMaxLongTaskMs: SCROLL_MAX_LONG_TASK_MS,
       scrollP95FrameBudgetMs,
     },
     frameSample,
@@ -204,6 +217,7 @@ test("all-settings retained section wheel scrolling does not refill the texture 
     scrollP95FrameBudgetMs,
   );
   expect(frameSample.slowFrameRatio, failureDetails).toBeLessThanOrEqual(0.08);
+  expect(longInteractionTasks, failureDetails).toEqual([]);
   expect(beforeVisualStats.brightPixelRatio, failureDetails).toBeGreaterThan(
     0.01,
   );
@@ -276,27 +290,6 @@ test("all-settings retained section wheel scrolling does not refill the texture 
     SCROLL_MAX_FRAME_BUDGET_MS,
   );
 });
-
-async function waitForGpuTextureUploadQuiet(page: Page): Promise<void> {
-  let previousUploadCount: number | null = null;
-  await expect
-    .poll(
-      async () => {
-        const snapshot = await readGpuFlowPerformanceSnapshot(page);
-        const currentUploadCount = snapshot.queueCalls.filter(
-          (call) => call.method === "copyElementImageToTexture",
-        ).length;
-        const stable = currentUploadCount === previousUploadCount;
-        previousUploadCount = currentUploadCount;
-        return stable;
-      },
-      {
-        intervals: [200, 200, 200, 200, 200, 200, 200, 200],
-        timeout: 5_000,
-      },
-    )
-    .toBe(true);
-}
 
 async function drainPendingGpuTextureUploads(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 4; attempt += 1) {

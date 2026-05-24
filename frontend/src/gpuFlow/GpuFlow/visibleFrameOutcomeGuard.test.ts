@@ -5,8 +5,8 @@ import type {
   GpuFlowLiveProjectionSample,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
+import type { GpuFlowVisiblePublicationOutcome } from "./visibleFrameCoordinator";
 import { assertGpuFlowSingleVisiblePublicationOutcome } from "./visibleFrameOutcomeGuard";
-import type { GpuFlowVisiblePublicationOutcome } from "./visibleFrameKernel";
 import { createGpuFlowVisibleFrameHoldPreviousTokenForTest } from "./visibleFrameTestUtils";
 
 describe("GPU Flow visible publication outcome guard", () => {

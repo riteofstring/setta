@@ -16,13 +16,12 @@ import {
 } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisiblePublicationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
-import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
 import { createGpuFlowCommittedSurfacePublicationFramePlanPreparer } from "./visibleFrameContentPlan";
 import {
-  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFrameKernel";
+} from "./visibleFrameCoordinator";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
 import { createGpuFlowVisiblePublicationCommitProofFactory } from "./visibleFrameTransactionProofs";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
@@ -57,8 +56,8 @@ const prepareCommittedSurfacePublicationFramePlanForTest =
       createGpuFlowVisiblePublicationContentDecisionKernel(),
   });
 
-describe("GPU Flow visible publication transaction kernel", () => {
-  it("prepares motion and content candidate sets inside the kernel before completion", () => {
+describe("GPU Flow visible frame coordinator", () => {
+  it("prepares motion and content candidate sets inside the coordinator before completion", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const sample = liveProjectionSample({ id: 50, timestamp: 500 });
     const contentVisibleState = visibleProjectionState({
@@ -81,7 +80,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
       readonly rendered: boolean;
       readonly visibleProjectionState: null;
     };
-    const result = runGpuFlowVisibleFramePublicationCandidateSetKernel<
+    const result = runGpuFlowVisibleFrameCoordinator<
       TestContentPublicationFrame,
       TestMotionProjectionFrame
     >({
@@ -136,11 +135,11 @@ describe("GPU Flow visible publication transaction kernel", () => {
       "publish:commit",
     ]);
     expect(result.outcome.kind).toBe("commit");
-    expect(result.preparedFrame.visibleFrameEngineOutcome?.kind).toBe(
+    expect(result.preparedFrame.visibleFrameStateMachineOutcome?.kind).toBe(
       "presented",
     );
     expect(
-      result.preparedFrame.visibleFrameEnginePreparedFrame?.candidate
+      result.preparedFrame.visibleFrameStateMachinePreparedFrame?.candidate
         .projectionSampleId,
     ).toBe(sample.id);
     expect(result.preparedFrame.contentPublicationFrame.rendered).toBe(true);
@@ -167,7 +166,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
     );
   });
 
-  it("binds retained projection decisions to the kernel sample, reasons, and previous frame", () => {
+  it("binds retained projection decisions to the coordinator sample, reasons, and previous frame", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const sample = liveProjectionSample({ id: 54, timestamp: 540 });
     const previousVisibleProjectionState = visibleProjectionState({
@@ -188,7 +187,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
       readonly rendered: boolean;
       readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
     };
-    const result = runGpuFlowVisibleFramePublicationCandidateSetKernel<
+    const result = runGpuFlowVisibleFrameCoordinator<
       TestContentPublicationFrame,
       TestMotionProjectionFrame
     >({
@@ -257,9 +256,11 @@ describe("GPU Flow visible publication transaction kernel", () => {
     expect(selectedTransaction.committedFrameId).toBe(
       previousVisibleProjectionState.committedFrame.displayFrameId,
     );
-    expect(result.preparedFrame.visibleFrameEngineOutcome?.kind).toBe("held");
+    expect(result.preparedFrame.visibleFrameStateMachineOutcome?.kind).toBe(
+      "held",
+    );
     expect(
-      result.preparedFrame.visibleFrameEngineOutcome?.decidingProof,
+      result.preparedFrame.visibleFrameStateMachineOutcome?.decidingProof,
     ).toEqual(
       expect.objectContaining({
         reason: "held-previous",
@@ -267,11 +268,11 @@ describe("GPU Flow visible publication transaction kernel", () => {
     );
   });
 
-  it("supplies a content publication stage runner from the kernel", () => {
+  it("supplies a content publication stage runner from the coordinator", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const sample = liveProjectionSample({ id: 55, timestamp: 550 });
     let suppliedRunner = false;
-    runGpuFlowVisibleFramePublicationCandidateSetKernel({
+    runGpuFlowVisibleFrameCoordinator({
       prepareContentPublicationFrame: (input) => {
         suppliedRunner = true;
         expect(
@@ -305,11 +306,12 @@ describe("GPU Flow visible publication transaction kernel", () => {
     expect(suppliedRunner).toBe(true);
   });
 
-  it("computes retained resolution deferral inside the kernel frame context", () => {
+  it("computes retained resolution deferral inside the coordinator frame context", () => {
     const cases = [
       {
         expected: true,
         lane: "content",
+        rawReasons: ["manual"],
         runtimeViewportFrame: false,
         schedulerState: "motion-settling",
         viewportInteractionActive: false,
@@ -317,6 +319,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
       {
         expected: true,
         lane: "maintenance",
+        rawReasons: ["manual"],
         runtimeViewportFrame: true,
         schedulerState: "idle",
         viewportInteractionActive: false,
@@ -324,6 +327,31 @@ describe("GPU Flow visible publication transaction kernel", () => {
       {
         expected: false,
         lane: "content",
+        rawReasons: ["manual"],
+        runtimeViewportFrame: false,
+        schedulerState: "content-catchup",
+        viewportInteractionActive: false,
+      },
+      {
+        expected: true,
+        lane: "content",
+        rawReasons: ["texture-upload", "manual"],
+        runtimeViewportFrame: false,
+        schedulerState: "content-catchup",
+        viewportInteractionActive: false,
+      },
+      {
+        expected: false,
+        lane: "content",
+        rawReasons: ["retained-scroll", "texture-upload"],
+        runtimeViewportFrame: false,
+        schedulerState: "motion-active",
+        viewportInteractionActive: true,
+      },
+      {
+        expected: false,
+        lane: "content",
+        rawReasons: ["texture-upload", "dom-control-activation"],
         runtimeViewportFrame: false,
         schedulerState: "content-catchup",
         viewportInteractionActive: false,
@@ -332,7 +360,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
 
     for (const testCase of cases) {
       const observed: boolean[] = [];
-      runGpuFlowVisibleFramePublicationCandidateSetKernel({
+      runGpuFlowVisibleFrameCoordinator({
         prepareContentPublicationFrame: ({ publicationFrameContext }) => {
           observed.push(publicationFrameContext.deferResolutionUpdates);
           return testPublicationCandidate();
@@ -347,6 +375,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
         publish: () => {},
         sampleVisibleFramePublication: () =>
           visibleFramePublicationSample({
+            rawReasons: testCase.rawReasons,
             runtimeViewportFrame: testCase.runtimeViewportFrame,
             sample: liveProjectionSample({ id: 57, timestamp: 570 }),
             viewportInteractionActive: testCase.viewportInteractionActive,
@@ -483,7 +512,7 @@ describe("GPU Flow visible publication transaction kernel", () => {
     },
   );
 
-  it("lets the engine hold a proof-blocked candidate when the previous frame covers the actors", () => {
+  it("lets the state machine hold a proof-blocked candidate when the previous frame covers the actors", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler();
     const sample = liveProjectionSample({ id: 531, timestamp: 5310 });
     const previousVisibleProjectionState = visibleProjectionState({
@@ -512,9 +541,11 @@ describe("GPU Flow visible publication transaction kernel", () => {
     expect(result.preparedFrame.transactionProof.blockedSource).toBe(
       "compatible-previous-proof",
     );
-    expect(result.preparedFrame.visibleFrameEngineOutcome?.kind).toBe("held");
+    expect(result.preparedFrame.visibleFrameStateMachineOutcome?.kind).toBe(
+      "held",
+    );
     expect(
-      result.preparedFrame.visibleFrameEngineOutcome?.decidingProof,
+      result.preparedFrame.visibleFrameStateMachineOutcome?.decidingProof,
     ).toEqual(
       expect.objectContaining({
         reason: "compatible-previous-budget-exceeded",
@@ -635,7 +666,6 @@ describe("GPU Flow visible publication transaction kernel", () => {
       },
     ]);
   });
-
 });
 
 function visibleProjectionState({
@@ -962,7 +992,7 @@ function runPreparedCandidateKernel({
   readonly motionFrame?: TestPublicationCandidate;
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
   readonly publish?: Parameters<
-    typeof runGpuFlowVisibleFramePublicationCandidateSetKernel<
+    typeof runGpuFlowVisibleFrameCoordinator<
       TestPublicationCandidate,
       TestPublicationCandidate
     >
@@ -974,7 +1004,7 @@ function runPreparedCandidateKernel({
   >;
   readonly viewportInteractionActive?: boolean;
 }) {
-  return runGpuFlowVisibleFramePublicationCandidateSetKernel<
+  return runGpuFlowVisibleFrameCoordinator<
     TestPublicationCandidate,
     TestPublicationCandidate
   >({

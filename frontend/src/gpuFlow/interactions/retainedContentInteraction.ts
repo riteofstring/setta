@@ -162,6 +162,11 @@ class GpuRetainedContentInteractionController {
     readonly nativeEvent: PointerEvent;
     readonly retryCount: number;
   } | null = null;
+  private lastPointerDownSignature: {
+    readonly clientX: number;
+    readonly clientY: number;
+    readonly timeStamp: number;
+  } | null = null;
   private suppressNextClick: SuppressedRetainedContentClick | null = null;
   private readonly element: HTMLElement;
   private readonly options: GpuRetainedContentInteractionControllerOptions;
@@ -194,6 +199,9 @@ class GpuRetainedContentInteractionController {
     this.element.addEventListener("pointerleave", this.onPointerLeave, {
       capture: true,
     });
+    this.element.addEventListener("mousedown", this.onMouseDown, {
+      capture: true,
+    });
     this.element.addEventListener("wheel", this.onWheel, {
       capture: true,
       passive: true,
@@ -218,6 +226,7 @@ class GpuRetainedContentInteractionController {
       true,
     );
     this.element.removeEventListener("pointerleave", this.onPointerLeave, true);
+    this.element.removeEventListener("mousedown", this.onMouseDown, true);
     this.element.removeEventListener("wheel", this.onWheel, true);
     this.element.removeEventListener("click", this.onClick, true);
     this.activePointer = null;
@@ -229,6 +238,11 @@ class GpuRetainedContentInteractionController {
   }
 
   private readonly onPointerDown = (event: PointerEvent) => {
+    this.lastPointerDownSignature = {
+      clientX: event.clientX,
+      clientY: event.clientY,
+      timeStamp: event.timeStamp,
+    };
     this.recordPointerDiagnostics(event);
     if (this.shouldSkipPointerEvent(event)) {
       return;
@@ -262,6 +276,7 @@ class GpuRetainedContentInteractionController {
       this.element.hasPointerCapture?.(event.pointerId) ?? true,
     );
     this.setActiveRetainedHitDiagnostics(hit, event.pointerId, false);
+    this.setLastRetainedPointerDownHitDiagnostics(hit);
     this.options.onHitPointerDown?.({ ...hit, nativeEvent: event });
   };
 
@@ -334,6 +349,31 @@ class GpuRetainedContentInteractionController {
     this.clearHover();
   };
 
+  private readonly onMouseDown = (event: MouseEvent) => {
+    if (this.isMouseDownCoveredByPointerDown(event)) {
+      return;
+    }
+    if (this.shouldSkipPointerEvent(event)) {
+      return;
+    }
+    const hit = this.hitTestEvent(event);
+    if (!hit) {
+      this.options.onPointerDownMiss?.({
+        nativeEvent: event as unknown as PointerEvent,
+        screenPoint: getEventPointRelativeToElement(event, this.element),
+      });
+      return;
+    }
+    if (event.button !== 0) {
+      event.stopImmediatePropagation();
+      return;
+    }
+    this.options.onHitPointerDown?.({
+      ...hit,
+      nativeEvent: event as unknown as PointerEvent,
+    });
+  };
+
   private readonly onWheel = () => {
     this.cancelDeferredHoverReplay();
     this.clearHover();
@@ -356,8 +396,9 @@ class GpuRetainedContentInteractionController {
     hitFilter:
       | ((hit: GpuRetainedContentInteractionHit) => boolean)
       | undefined = this.options.shouldHandleHit,
+    options: { readonly preserveNativeTarget?: boolean } = {},
   ): GpuRetainedContentInteractionHit | null {
-    if (this.shouldSkipPointerEvent(event)) {
+    if (this.shouldSkipPointerEvent(event, options)) {
       return null;
     }
     const hit = hitTestGpuRetainedContentInteraction({
@@ -369,8 +410,9 @@ class GpuRetainedContentInteractionController {
       getVisibleProjectionState: this.options.getVisibleProjectionState,
       store: this.store,
     });
-    if (hit && hitFilter?.(hit) !== false) {
-      return hit;
+    const filteredHit = this.filterHit(hit, hitFilter);
+    if (filteredHit) {
+      return filteredHit;
     }
     const currentSceneHit = hitTestGpuRetainedContentInteraction({
       element: this.element,
@@ -382,16 +424,40 @@ class GpuRetainedContentInteractionController {
       getVisibleProjectionState: this.options.getVisibleProjectionState,
       store: this.store,
     });
-    if (currentSceneHit && hitFilter?.(currentSceneHit) !== false) {
-      return currentSceneHit;
-    }
-    return null;
+    return this.filterHit(currentSceneHit, hitFilter);
   }
 
-  private shouldSkipPointerEvent(event: Pick<PointerEvent, "target">): boolean {
+  private filterHit(
+    hit: GpuRetainedContentInteractionHit | null,
+    hitFilter: ((hit: GpuRetainedContentInteractionHit) => boolean) | undefined,
+  ): GpuRetainedContentInteractionHit | null {
+    if (!hit) {
+      return null;
+    }
+    return hitFilter?.(hit) === false ? null : hit;
+  }
+
+  private shouldSkipPointerEvent(
+    event: Pick<PointerEvent, "target">,
+    options: { readonly preserveNativeTarget?: boolean } = {},
+  ): boolean {
+    const preserveNativeTarget = options.preserveNativeTarget ?? true;
     return (
       isRetainedContentInteractionDisabled(this.options.disabled) ||
-      shouldPreserveGpuRetainedContentNativeTarget(event)
+      (preserveNativeTarget &&
+        shouldPreserveGpuRetainedContentNativeTarget(event))
+    );
+  }
+
+  private isMouseDownCoveredByPointerDown(event: MouseEvent): boolean {
+    const signature = this.lastPointerDownSignature;
+    if (!signature) {
+      return false;
+    }
+    return (
+      Math.abs(signature.timeStamp - event.timeStamp) < 50 &&
+      Math.abs(signature.clientX - event.clientX) < 1 &&
+      Math.abs(signature.clientY - event.clientY) < 1
     );
   }
 
@@ -408,6 +474,7 @@ class GpuRetainedContentInteractionController {
     const hit = this.hitTestEvent(
       event,
       this.options.shouldHandlePointerMoveHit ?? this.options.shouldHandleHit,
+      { preserveNativeTarget: false },
     );
     const nextHoveredHitKey = hit ? getRetainedContentHitKey(hit) : null;
     this.hoveredHitKey = nextHoveredHitKey;
@@ -570,9 +637,11 @@ class GpuRetainedContentInteractionController {
     const hit = this.hitTestEvent(event);
     let emittedClick = false;
     if (isRetainedContentActivePointerHit(activePointer, hit)) {
+      this.setLastRetainedClickHitDiagnostics(hit);
       this.options.onHitClick?.({ ...hit, nativeEvent: event });
       emittedClick = true;
     } else if (!hit && !this.shouldSkipPointerEvent(event)) {
+      this.setLastRetainedClickHitDiagnostics(activePointer.startHit);
       this.options.onHitClick?.({
         ...activePointer.startHit,
         nativeEvent: event,
@@ -709,6 +778,27 @@ class GpuRetainedContentInteractionController {
       return;
     }
     diagnostics.pointerCapture = { active, pointerId };
+  }
+
+  private setLastRetainedPointerDownHitDiagnostics(
+    hit: GpuRetainedContentInteractionHit,
+  ) {
+    const diagnostics = this.options.interactionDiagnostics?.current;
+    if (!diagnostics) {
+      return;
+    }
+    diagnostics.lastRetainedPointerDownHit =
+      toGpuFlowRetainedHitDiagnostics(hit);
+  }
+
+  private setLastRetainedClickHitDiagnostics(
+    hit: GpuRetainedContentInteractionHit,
+  ) {
+    const diagnostics = this.options.interactionDiagnostics?.current;
+    if (!diagnostics) {
+      return;
+    }
+    diagnostics.lastRetainedClickHit = toGpuFlowRetainedHitDiagnostics(hit);
   }
 
   private clearPointerCaptureDiagnostics(pointerId: number) {

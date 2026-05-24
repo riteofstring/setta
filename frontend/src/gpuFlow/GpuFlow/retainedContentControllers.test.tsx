@@ -201,13 +201,73 @@ describe("GpuFlow retained content controllers", () => {
     });
 
     expect(dirtySurfaces).toEqual([]);
-    expect(requestedFrames).toEqual(["manual"]);
+    expect(requestedFrames).toEqual(["retained-row-hover-visual"]);
     expect(readNativeVisuals()).toEqual([
       expect.objectContaining({
         rect: { height: 28, width: 160, x: 0, y: 0 },
         surfaceId: "dict-a:param-content:unpinned:row-hover:param-0",
       }),
     ]);
+  });
+
+  it("requests an immediate retained row hover clear frame on pointer leave", () => {
+    const dirtySurfaces: DirtySurfaceRecord[] = [];
+    const requestedFrames: string[] = [];
+    let host: HTMLDivElement | null = null;
+    let readNativeVisuals =
+      (): readonly HtmlSurfaceSolidRoundedRectVisual[] => [];
+
+    act(() => {
+      root = createRoot(
+        document.body.appendChild(document.createElement("div")),
+      );
+      root.render(
+        <RetainedContentHoverHarness
+          onDirtySurface={(surface) => {
+            dirtySurfaces.push(surface);
+          }}
+          onHostChange={(element) => {
+            host = element;
+          }}
+          onReadNativeVisuals={(read) => {
+            readNativeVisuals = read;
+          }}
+          onRequestFrame={(reason) => {
+            requestedFrames.push(reason);
+          }}
+        />,
+      );
+    });
+
+    if (!host) {
+      throw new Error("Expected retained content hover host to mount.");
+    }
+
+    act(() => {
+      host?.dispatchEvent(
+        createPointerEvent("pointermove", {
+          buttons: 0,
+          clientX: 20,
+          clientY: 14,
+          pointerId: 1,
+        }),
+      );
+      host?.dispatchEvent(
+        createPointerEvent("pointerleave", {
+          buttons: 0,
+          clientX: 200,
+          clientY: 200,
+          pointerId: 1,
+        }),
+      );
+    });
+
+    expect(dirtySurfaces).toEqual([]);
+    expect(requestedFrames).toEqual([
+      "retained-row-hover-visual",
+      "retained-row-hover-clear",
+    ]);
+    expect(getHoverNativeVisuals(readNativeVisuals())).toEqual([]);
   });
 
   it("replaces the retained row hover visual during fast row movement", () => {
@@ -258,7 +318,11 @@ describe("GpuFlow retained content controllers", () => {
     }
 
     expect(dirtySurfaces).toEqual([]);
-    expect(requestedFrames).toEqual(["manual", "manual", "manual"]);
+    expect(requestedFrames).toEqual([
+      "retained-row-hover-visual",
+      "retained-row-hover-visual",
+      "retained-row-hover-visual",
+    ]);
     expect(getHoverNativeVisuals(readNativeVisuals())).toEqual([
       expect.objectContaining({
         rect: { height: 24, width: 160, x: 0, y: 56 },

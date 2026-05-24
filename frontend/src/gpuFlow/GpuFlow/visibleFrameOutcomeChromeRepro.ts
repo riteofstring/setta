@@ -7,12 +7,13 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
+import type { GpuFlowCommitPresentationPairProof } from "./visibleFrameCommitProofs";
 import {
   createGpuFlowVisiblePublicationTransactionReport,
   type GpuFlowVisibleFramePublicationTransactionProof,
   type GpuFlowVisiblePublicationCompletion,
   type GpuFlowVisiblePublicationOutcome,
-} from "./visibleFrameKernel";
+} from "./visibleFrameCoordinator";
 
 type GpuFlowVisiblePublicationSchedulerCompletion =
   GpuFlowVisiblePublicationCompletion;
@@ -201,14 +202,12 @@ function summarizeChromeReproOutcomeToken(
   if ("presentationPairProof" in token) {
     return {
       committedFrameId: token.committedFrameId,
-      contentFrameId: token.contentFrameId,
-      presentationId: token.presentationId,
       presentationPairProof: summarizeChromeReproPresentationProof(
         token.presentationPairProof,
       ),
       projectionSampleId: token.projectionSampleId,
       resourceProtectionDigest: summarizeChromeReproDigest(
-        token.resourceProtectionDigest,
+        token.resourceProtectionDigest ?? null,
       ),
       transactionId: token.transactionId,
     };
@@ -236,19 +235,7 @@ function summarizeChromeReproVisibleTransaction(
     presentableCommit:
       presentableCommit === null
         ? null
-        : {
-            committedFrameId: presentableCommit.committedFrameId,
-            contentFrameId: presentableCommit.contentFrameId,
-            presentationId: presentableCommit.presentationId,
-            presentationPairProof: summarizeChromeReproPresentationProof(
-              presentableCommit.presentationPairProof,
-            ),
-            projectionSampleId: presentableCommit.projectionSampleId,
-            resourceProtectionDigest: summarizeChromeReproDigest(
-              presentableCommit.resourceProtectionDigest,
-            ),
-            transactionId: presentableCommit.transactionId,
-          },
+        : summarizeChromeReproPresentableCommit(presentableCommit),
     presentationProof:
       presentationProof === null
         ? null
@@ -257,8 +244,24 @@ function summarizeChromeReproVisibleTransaction(
   };
 }
 
+function summarizeChromeReproPresentableCommit(
+  presentableCommit: NonNullable<
+    GpuFlowVisibleTransactionReport["presentableCommit"]
+  >,
+) {
+  const { presentationPairProof, ...digestFields } = presentableCommit;
+  return {
+    ...summarizeChromeReproStringRecord(digestFields),
+    presentationPairProof: summarizeChromeReproPresentationProof(
+      presentationPairProof,
+    ),
+  };
+}
+
 function summarizeChromeReproPresentationProof(
-  proof: NonNullable<GpuFlowVisibleTransactionReport["presentationProof"]>,
+  proof:
+    | GpuFlowCommitPresentationPairProof
+    | NonNullable<GpuFlowVisibleTransactionReport["presentationProof"]>,
 ) {
   return {
     actorManifestDigest: summarizeChromeReproDigest(proof.actorManifestDigest),
@@ -281,13 +284,7 @@ function summarizeChromeReproPresentationProof(
   };
 }
 
-function summarizeChromeReproStringList(values: readonly string[]) {
-  return values.slice(0, 16).map(summarizeChromeReproDigest);
-}
-
-function summarizeChromeReproScalarRecord(
-  record: Record<string, string | number | boolean | null>,
-) {
+function summarizeChromeReproStringRecord(record: Record<string, unknown>) {
   return Object.fromEntries(
     Object.entries(record).map(([key, value]) => [
       key,
@@ -295,3 +292,24 @@ function summarizeChromeReproScalarRecord(
     ]),
   );
 }
+
+function summarizeChromeReproStringList(values: readonly string[]) {
+  return values.slice(0, 16).map(summarizeChromeReproDigest);
+}
+
+function summarizeChromeReproScalarRecord(
+  record: Record<string, ChromeReproScalar>,
+) {
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => [
+      key,
+      Array.isArray(value)
+        ? summarizeChromeReproStringList(value)
+        : typeof value === "string"
+          ? summarizeChromeReproDigest(value)
+          : value,
+    ]),
+  );
+}
+
+type ChromeReproScalar = boolean | null | number | readonly string[] | string;

@@ -17,7 +17,7 @@ import {
   type GpuFlowCommitPublicationToken,
   type GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
-import { createGpuFlowVisibleFrameResourceRegistry } from "./visibleFrameResourceRegistry";
+import { createGpuFlowVisibleFrameResourceGraph } from "./visibleFrameResourceGraph";
 
 export function useGpuFlowCommittedSurfaceFrameState({
   initialRetainedRuntimeFrame,
@@ -37,8 +37,8 @@ export function useGpuFlowCommittedSurfaceFrameState({
   const committedSurfaceRuntimeRef = useRef(
     createGpuFlowCommittedSurfaceRuntime(startupCommittedSurfaceFrame),
   );
-  const visibleFrameResourceRegistryRef = useRef(
-    createGpuFlowVisibleFrameResourceRegistry(),
+  const visibleFrameResourceGraphRef = useRef(
+    createGpuFlowVisibleFrameResourceGraph(),
   );
   const semanticSnapshot = useSyncExternalStore(
     committedSurfaceRuntimeRef.current.subscribeReactSemanticSnapshot.bind(
@@ -85,7 +85,7 @@ export function useGpuFlowCommittedSurfaceFrameState({
         previousCommittedSurfaceFrame,
         retainedDisplayFrame: nextRetainedDisplayFrame,
       });
-      visibleFrameResourceRegistryRef.current.registerPreparedCommittedSurfaceFrame(
+      visibleFrameResourceGraphRef.current.registerPreparedCommittedSurfaceFrame(
         {
           browserVisualCandidate,
           frame: nextCommittedSurfaceFrame,
@@ -101,7 +101,7 @@ export function useGpuFlowCommittedSurfaceFrameState({
       frame: GpuFlowCommittedSurfaceFrame,
     ): boolean => {
       const result =
-        visibleFrameResourceRegistryRef.current.commitPreparedCommittedSurfaceFrame(
+        visibleFrameResourceGraphRef.current.commitPreparedCommittedSurfaceFrame(
           {
             commitBrowserVisualCandidate: ({ candidate, token }) =>
               getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
@@ -156,24 +156,22 @@ export function useGpuFlowCommittedSurfaceFrameState({
         getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
           committedSurfaceRuntimeRef.current,
         );
-      visibleFrameResourceRegistryRef.current.abortPreparedCommittedSurfaceFrame(
-        {
-          abortBrowserVisualCandidate: ({ candidate, token }) =>
-            browserVisualRuntime.abortPreparedBrowserVisualActors({
-              candidate,
-              token,
-            }),
-          frame,
-          preservePreparationSnapshot:
-            options?.preservePreparationSnapshot === true,
-          stageBrowserVisualCandidate: ({ candidate, token }) =>
-            browserVisualRuntime.stagePreparedBrowserVisualActors({
-              candidate,
-              token,
-            }),
-          token,
-        },
-      );
+      visibleFrameResourceGraphRef.current.abortPreparedCommittedSurfaceFrame({
+        abortBrowserVisualCandidate: ({ candidate, token }) =>
+          browserVisualRuntime.abortPreparedBrowserVisualActors({
+            candidate,
+            token,
+          }),
+        frame,
+        preservePreparationSnapshot:
+          options?.preservePreparationSnapshot === true,
+        stageBrowserVisualCandidate: ({ candidate, token }) =>
+          browserVisualRuntime.stagePreparedBrowserVisualActors({
+            candidate,
+            token,
+          }),
+        token,
+      });
     },
     [],
   );

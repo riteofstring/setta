@@ -311,6 +311,47 @@ describe("GpuFlow", () => {
     expect(markup).toContain('data-gpu-flow-source-id="section-a"');
   });
 
+  it("keeps scene texture metadata when using subscribed layout store geometry", () => {
+    const layoutStore = createGpuFlowLayoutStore({
+      nodes: [
+        {
+          height: 80,
+          nodeId: "section-a",
+          width: 120,
+          x: 10,
+          y: 20,
+        },
+      ],
+    });
+    const sceneNode = {
+      ...sectionSceneNode("section-a"),
+      textureContentKey: "section-shell",
+      textureCssHeight: 1,
+      textureCssWidth: 1,
+    };
+    const scene: GpuFlowScene = {
+      contentSurfaces: [],
+      domIslands: [],
+      edges: [],
+      revision: 1,
+      sections: [sceneNode],
+    };
+
+    const node = resolveGpuFlowRenderableNodes({
+      sceneNodes: getGpuFlowSceneDomSectionNodes(scene),
+      storeNodes: layoutStore.getState().getNodes(),
+    })?.[0];
+
+    expect(node).toMatchObject({
+      height: 80,
+      nodeId: "section-a",
+      textureContentKey: "section-shell",
+      textureCssHeight: 1,
+      textureCssWidth: 1,
+      width: 120,
+    });
+  });
+
   it("uses scene snapshot nodes while a layout store has stale scene topology", () => {
     const layoutStore = createGpuFlowLayoutStore({
       nodes: [

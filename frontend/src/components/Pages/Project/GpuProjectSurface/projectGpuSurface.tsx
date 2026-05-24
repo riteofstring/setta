@@ -45,16 +45,20 @@ import {
   useProjectGpuEdgeScene,
 } from "../gpuProjectEdgeScene";
 import { getProjectGpuGridInput } from "../gpuProjectGridInput";
-import { PROJECT_GPU_NODE_UPLOAD_BUDGET } from "./gpuProjectUploadBudget";
+import {
+  PROJECT_GPU_NODE_TEXTURE_TILE_DIMENSION_PX,
+  PROJECT_GPU_NODE_UPLOAD_BUDGET,
+} from "./gpuProjectUploadBudget";
 import { useProjectGpuActiveParamCanvasPopupDismissal } from "./projectGpuActiveParamCanvasPopupDismissal";
 import {
   useProjectGpuActiveParamCanvasPopupKeyboard,
   useProjectGpuActiveParamCanvasPopupWheel,
 } from "./projectGpuActiveParamCanvasPopupKeyboard";
-import { areProjectGpuActiveParamDomIslandsEquivalent } from "./projectGpuActiveParamDomIslandEquality";
 import { shouldClearProjectGpuActiveParamDomIslandOnPointerDown } from "./projectGpuActiveParamDomIslandDeactivation";
+import { areProjectGpuActiveParamDomIslandsEquivalent } from "./projectGpuActiveParamDomIslandEquality";
 import { PROJECT_GPU_FLOW_FRAME_PERFORMANCE_REPORTER } from "./projectGpuFramePerformance";
 import { getProjectGpuAutoPanInsetsPx } from "./projectGpuHandleAdapter";
+import { getProjectKeyboardScrollParentSectionId } from "./projectGpuKeyboardScrollParentSection";
 import {
   useProjectGpuLayoutAdapter,
   type ProjectGpuActiveParamCanvasPopup,
@@ -63,7 +67,6 @@ import {
   type ProjectGpuRetainedParamTarget,
 } from "./projectGpuLayoutAdapter";
 import {
-  getProjectRetainedContentSectionIds,
   getProjectSceneSectionById,
   renderProjectGpuNode,
 } from "./projectGpuNodeRenderer";
@@ -92,6 +95,10 @@ import {
   type ProjectGpuRetainedPasswordRevealStateMap,
   type ProjectGpuRetainedPasswordRevealUpdate,
 } from "./projectGpuRetainedParamPasswordRevealState";
+import {
+  createProjectGpuRetainedSectionTextureScene,
+  getProjectRetainedContentSectionIds,
+} from "./projectGpuRetainedSectionTextures";
 import { useProjectGpuSearchReveal } from "./projectGpuSearchReveal";
 import { useProjectSurfaceDimensions } from "./projectGpuSurfaceDimensionsHook";
 import {
@@ -320,32 +327,32 @@ export function GpuProjectSurface() {
       })}
       data-tab-scope="canvas"
       onPointerDownCapture={(event) => {
+        const retainedClickPoint = isProjectRetainedContentClickPoint({
+          event,
+          forceCurrentScene: true,
+          root: rootRef.current,
+          getRetainedRuntimeFrame,
+          scene: layoutAdapter.scene,
+        });
         if (
           activeParamDomIsland &&
           shouldClearProjectGpuActiveParamDomIslandOnPointerDown(
             event.target,
           ) &&
-          !isProjectRetainedContentClickPoint({
-            event,
-            forceCurrentScene: true,
-            root: rootRef.current,
-            getRetainedRuntimeFrame,
-            scene: layoutAdapter.scene,
-          })
+          !retainedClickPoint
         ) {
           setActiveParamDomIsland(null);
         }
       }}
       onClick={(event) => {
-        if (
-          isProjectRetainedContentClickPoint({
-            event,
-            forceCurrentScene: true,
-            root: rootRef.current,
-            getRetainedRuntimeFrame,
-            scene: layoutAdapter.scene,
-          })
-        ) {
+        const retainedClickPoint = isProjectRetainedContentClickPoint({
+          event,
+          forceCurrentScene: true,
+          root: rootRef.current,
+          getRetainedRuntimeFrame,
+          scene: layoutAdapter.scene,
+        });
+        if (retainedClickPoint) {
           return;
         }
         if (isProjectPaneBackgroundTarget(event.target)) {
@@ -461,6 +468,10 @@ function ProjectGpuFlowLayer({
   const effectiveScene =
     resizePreviewScene ??
     (activeParamDomIsland ? layoutAdapter.scene : deferredCommittedScene);
+  const gpuFlowScene = useMemo(
+    () => createProjectGpuRetainedSectionTextureScene(effectiveScene),
+    [effectiveScene],
+  );
   useEffect(() => {
     if (
       resizePreviewScene &&
@@ -479,12 +490,12 @@ function ProjectGpuFlowLayer({
     [],
   );
   const sceneSectionById = useMemo(
-    () => getProjectSceneSectionById(effectiveScene),
-    [effectiveScene],
+    () => getProjectSceneSectionById(gpuFlowScene),
+    [gpuFlowScene],
   );
   const retainedContentSectionIds = useMemo(
-    () => getProjectRetainedContentSectionIds(effectiveScene),
-    [effectiveScene],
+    () => getProjectRetainedContentSectionIds(gpuFlowScene),
+    [gpuFlowScene],
   );
   const renderNode = useCallback(
     (node: GpuNodeLayout) =>
@@ -556,6 +567,10 @@ function ProjectGpuFlowLayer({
     scene: layoutAdapter.scene,
   });
   const portals = getProjectGpuPortalDescriptors();
+  const getActiveParamDomIsland = useCallback(
+    () => activeParamDomIsland,
+    [activeParamDomIsland],
+  );
   const handleNodeElementChange = useProjectNodeIntrinsicSizeObserver(
     layoutStore,
     nodeLayouts,
@@ -613,6 +628,7 @@ function ProjectGpuFlowLayer({
     () =>
       getProjectRetainedContentInteractionOptions({
         canEditStructure,
+        getActiveParamDomIsland,
         onActiveParamCanvasPopupChange,
         onActiveParamCanvasControlChange,
         onActiveParamDomIslandChange,
@@ -631,6 +647,7 @@ function ProjectGpuFlowLayer({
     [
       canEditStructure,
       flowInteractionKeys,
+      getActiveParamDomIsland,
       onActiveParamCanvasPopupChange,
       onActiveParamCanvasControlChange,
       onActiveParamDomIslandChange,
@@ -701,6 +718,7 @@ function ProjectGpuFlowLayer({
       layoutStore={layoutStore}
       nodeDrag={nodeDragOptions}
       nodeResize={nodeResizeOptions}
+      nodeTextureTileDimensionPx={PROJECT_GPU_NODE_TEXTURE_TILE_DIMENSION_PX}
       onNodeElementChange={handleNodeElementChange}
       onDomControlActivation={handleDomControlActivation}
       onRetainedRuntimeFrame={onRetainedRuntimeFrameChange}
@@ -715,7 +733,7 @@ function ProjectGpuFlowLayer({
       retainedContentKeyboard={retainedContentKeyboardOptions}
       retainedContentRuntimeState={layoutAdapter.retainedContentRuntimeState}
       retainedContentScroll={retainedContentScrollOptions}
-      scene={effectiveScene}
+      scene={gpuFlowScene}
       scenePortConnection={scenePortConnectionOptions}
       sceneScroll={sceneScrollOptions}
       selection={selectionOptions}
@@ -940,26 +958,6 @@ function getProjectRetainedContentKeyboardOptions({
       selectOnlyParam(event.target.ownerSectionId, event.target.rowId);
     },
   };
-}
-
-function getProjectKeyboardScrollParentSectionId(
-  scene: GpuFlowScene,
-  selectedSectionId: string | null,
-): string | null {
-  if (!selectedSectionId) {
-    return null;
-  }
-  const sectionById = new Map(
-    scene.sections.map((section) => [section.sectionId, section]),
-  );
-  const selectedSection = sectionById.get(selectedSectionId);
-  if (!selectedSection) {
-    return null;
-  }
-  if (selectedSection.childSectionIds.length > 0) {
-    return selectedSection.sectionId;
-  }
-  return selectedSection.parentSectionId;
 }
 
 function getProjectPanZoomOptions({

@@ -168,7 +168,7 @@ describe("GPU Flow committed surface frame", () => {
         domControlCommittedFrameId: 7,
         domIslandCommittedFrameId: 7,
         gpuNativeVisualCommittedFrameId: 7,
-        hitGenerationId: "retained-hit:7",
+        hitGenerationId: "committed-hit:7",
         htmlTextureOverlayCommittedFrameId: 7,
         retainedScrollRevision: 7,
       }),
@@ -291,7 +291,7 @@ describe("GPU Flow committed surface frame", () => {
     ).toThrow(/actor manifest and browser visual resources/);
   });
 
-  it("represents blocked visible DOM-control actors as typed publishability", () => {
+  it("keeps blocked passive visible DOM-control actors as publishable browser visual debt", () => {
     const retainedRuntimeFrame = createBlockedRuntimeFrame({ frameId: 5 });
     const frame = createGpuFlowCommittedSurfaceFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
@@ -303,10 +303,39 @@ describe("GPU Flow committed surface frame", () => {
     expect(() =>
       assertGpuFlowCommittedSurfaceFrameCoherent(frame),
     ).not.toThrow();
-    expect(frame.displayCompleteness.status).toBe("blocked");
-    expect(frame.displayCompleteness.blockingActorIds.length).toBeGreaterThan(
-      0,
+    expect(frame.displayCompleteness.status).toBe("complete");
+    expect(frame.displayCompleteness.blockingActorIds).toEqual([]);
+    expect(frame.publishability).toEqual(
+      expect.objectContaining({
+        kind: "publishable",
+        status: "publishable",
+      }),
     );
+    expect(
+      frame.projectionHorizon.textActorCoverage
+        .blockedAwaitingBrowserVisualActorIds.length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("blocks active visible DOM-control actors until live host coverage is ready", () => {
+    const retainedRuntimeFrame = createRuntimeFrame({
+      activeControl: true,
+      frameId: 20,
+    });
+    const frame = createGpuFlowCommittedSurfaceFrame({
+      retainedDisplayFrame: fakeRetainedDisplayFrame({
+        id: 20,
+        retainedRuntimeFrame,
+      }),
+    });
+    const actor = findCommittedDomControlActor(frame);
+
+    expect(actor.active).toBe(true);
+    expect(actor.browserVisual?.coverageState).toBe(
+      "blocked-awaiting-live-host",
+    );
+    expect(frame.displayCompleteness.status).toBe("blocked");
+    expect(frame.displayCompleteness.blockingActorIds).toEqual([actor.actorId]);
     expect(frame.publishability).toEqual(
       expect.objectContaining({
         kind: "hold-previous",
@@ -314,10 +343,7 @@ describe("GPU Flow committed surface frame", () => {
         status: "blocked",
       }),
     );
-    expect(
-      frame.projectionHorizon.textActorCoverage
-        .blockedAwaitingBrowserVisualActorIds.length,
-    ).toBeGreaterThan(0);
+    expect(frame.surfaceTransaction).toBeNull();
   });
 
   it("publishes compatible-previous DOM-control coverage from a prior committed frame", () => {
@@ -376,9 +402,13 @@ describe("GPU Flow committed surface frame", () => {
         readinessReason: "snapshot-pending",
       }),
     );
-    expect(frame.displayCompleteness.status).toBe("blocked");
-    expect(frame.publishability.kind).toBe("hold-previous");
-    expect(frame.surfaceTransaction).toBeNull();
+    expect(frame.displayCompleteness.status).toBe("complete");
+    expect(frame.publishability.kind).toBe("publishable");
+    expect(frame.surfaceTransaction).toEqual(
+      expect.objectContaining({
+        id: "committed-surface:17:retained:17",
+      }),
+    );
   });
 
   it("does not publish compatible-previous coverage from a previously blocked actor", () => {
@@ -424,9 +454,13 @@ describe("GPU Flow committed surface frame", () => {
         readinessReason: "snapshot-pending",
       }),
     );
-    expect(frame.displayCompleteness.status).toBe("blocked");
-    expect(frame.publishability.kind).toBe("hold-previous");
-    expect(frame.surfaceTransaction).toBeNull();
+    expect(frame.displayCompleteness.status).toBe("complete");
+    expect(frame.publishability.kind).toBe("publishable");
+    expect(frame.surfaceTransaction).toEqual(
+      expect.objectContaining({
+        id: "committed-surface:16:retained:16",
+      }),
+    );
     expect(frame.browserVisualSurfaceFragment.blockingSurfaceIds).toEqual([
       `dom-control:${actor?.actorId}`,
     ]);
@@ -700,9 +734,13 @@ function expectBlockedCompatiblePreviousDomControlActor({
       readinessReason: "snapshot-pending",
     }),
   );
-  expect(frame.displayCompleteness.status).toBe("blocked");
-  expect(frame.publishability.kind).toBe("hold-previous");
-  expect(frame.surfaceTransaction).toBeNull();
+  expect(frame.displayCompleteness.status).toBe("complete");
+  expect(frame.publishability.kind).toBe("publishable");
+  expect(frame.surfaceTransaction).toEqual(
+    expect.objectContaining({
+      id: "committed-surface:14:retained:14",
+    }),
+  );
 }
 
 function expectCompatiblePreviousBrowserVisual(
@@ -825,12 +863,14 @@ function expectCompatiblePreviousSurfaceCoverage({
 }
 
 function createRuntimeFrame({
+  activeControl = false,
   frameId,
   scrollRevision = frameId,
   scrollY = frameId,
   value = "hello",
   viewport = [0, 0, 1],
 }: {
+  readonly activeControl?: boolean | undefined;
   readonly frameId: number;
   readonly scrollRevision?: number | undefined;
   readonly scrollY?: number | undefined;
@@ -840,7 +880,7 @@ function createRuntimeFrame({
   return createGpuRetainedRuntimeFrame({
     devicePixelRatioBucket: 1,
     frameId,
-    scene: sceneWithRetainedContentSurface(value),
+    scene: sceneWithRetainedContentSurface(value, activeControl),
     scrollOffsets: new Map([
       ["dict-a:param-content:unpinned", { x: 0, y: scrollY }],
     ]),
@@ -1059,9 +1099,12 @@ function nativeVisual(surfaceId: string): HtmlSurfaceSolidRoundedRectVisual {
   };
 }
 
-function sceneWithRetainedContentSurface(value: string): GpuFlowScene {
+function sceneWithRetainedContentSurface(
+  value: string,
+  activeControl = false,
+): GpuFlowScene {
   return {
-    contentSurfaces: [retainedContentSurface(value)],
+    contentSurfaces: [retainedContentSurface(value, activeControl)],
     domIslands: [],
     edges: [],
     revision: 1,
@@ -1079,7 +1122,10 @@ function sceneWithManyRetainedRows(): GpuFlowScene {
   };
 }
 
-function retainedContentSurface(value: string): GpuContentSurface {
+function retainedContentSurface(
+  value: string,
+  activeControl = false,
+): GpuContentSurface {
   const rect = { height: 120, width: 240, x: 10, y: 20 };
   return {
     clipRect: rect,
@@ -1110,6 +1156,7 @@ function retainedContentSurface(value: string): GpuContentSurface {
           depth: 0,
           id: "param-a",
           label: "Param A",
+          state: activeControl ? { nativeControlActive: true } : undefined,
         },
       ],
       scrollOffset: { x: 0, y: 0 },

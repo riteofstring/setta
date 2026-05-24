@@ -15,6 +15,10 @@ import type {
   GpuFlowVisibleProjectionState,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
+import type {
+  ProtectedSurfaceResourceHandle,
+  SurfaceResourceHandle,
+} from "../surfaceCompositor/surfaceCoverage";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
 import {
   createGpuFlowVisiblePublicationCanvasPresentationEvidence,
@@ -30,7 +34,7 @@ import {
 } from "./visibleFrameTransactionProofs";
 
 const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFrameKernel.ts", import.meta.url),
+  new URL("./visibleFrameCoordinator.ts", import.meta.url),
 );
 const PROOF_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameTransactionProofs.ts", import.meta.url),
@@ -110,8 +114,8 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
   readonly previousVisibleProjectionState?: GpuFlowVisibleProjectionState | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }) {
-  const transactionProof =
-    createGpuFlowVisibleFramePublicationTransactionProof({
+  const transactionProof = createGpuFlowVisibleFramePublicationTransactionProof(
+    {
       contentPublicationFrame:
         withTestGpuFlowVisiblePublicationPresentationEvidence(
           contentPublicationFrame,
@@ -121,7 +125,8 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
           motionProjectionFrame,
         ),
       ...proofInput,
-    });
+    },
+  );
   const preparedFrame =
     createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame({
       contentPublicationFrame,
@@ -186,7 +191,7 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
 }
 
 describe("GPU Flow visible frame transaction proofs", () => {
-  it("keeps candidate-set proof assembly out of the kernel wrapper", () => {
+  it("keeps candidate-set proof assembly out of the coordinator wrapper", () => {
     const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
     const proofSource = readFileSync(PROOF_MODULE_PATH, "utf8");
 
@@ -211,9 +216,7 @@ describe("GPU Flow visible frame transaction proofs", () => {
     expect(proofSource).toContain(
       "motionProjectionFrame.blockedPublicationCandidate",
     );
-    expect(proofSource).toContain(
-      "type GpuFlowVisiblePublicationBlockedProof",
-    );
+    expect(proofSource).toContain("type GpuFlowVisiblePublicationBlockedProof");
     expect(proofSource).toContain(
       "function createGpuFlowVisibleFramePublicationPreparedCandidateSetFrame",
     );
@@ -592,19 +595,14 @@ describe("GPU Flow visible frame transaction proofs", () => {
     ).toThrow(/exact-live-host:active-editor-host-identity-required/);
   });
 
-  it("rejects commit proof proof when actor resources are unprotected", () => {
+  it("rejects commit proof when surface transaction resources are unprotected", () => {
     const sample = liveProjectionSample({ id: 57, timestamp: 570 });
-    const actor = actorWithBrowserVisualResourceHandles(
-      retainedDomControlActor({
-        actualInteractionProof: "active-editor-live",
-        actualVisualProof: "exact-live-host",
-      }),
-      [{ id: "source-a", kind: "source" }],
-    );
 
     expect(() =>
       createGpuFlowVisiblePublicationCommitProof({
-        committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+        committedFrame: committedSurfaceFrame({
+          exactSurfaceResourceHandles: [{ id: "source-a", kind: "source" }],
+        }),
         publicationDecision: publicationDecision(sample),
       }),
     ).toThrow(/requires protected resources.*source:source-a/);
@@ -612,19 +610,14 @@ describe("GPU Flow visible frame transaction proofs", () => {
 
   it("converts missing protected resources into a blocked transaction proof", () => {
     const sample = liveProjectionSample({ id: 58, timestamp: 580 });
-    const actor = actorWithBrowserVisualResourceHandles(
-      retainedDomControlActor({
-        actualInteractionProof: "active-editor-live",
-        actualVisualProof: "exact-live-host",
-      }),
-      [{ id: "source-a", kind: "source" }],
-    );
     const previousVisibleProjectionState = visibleProjectionState({
       kind: "content-publication",
       sample: liveProjectionSample({ id: 57, timestamp: 564 }),
     });
     const visibleProjectionStateWithMissingResource = visibleProjectionState({
-      committedFrame: committedSurfaceFrame({ actorGenerations: [actor] }),
+      committedFrame: committedSurfaceFrame({
+        exactSurfaceResourceHandles: [{ id: "source-a", kind: "source" }],
+      }),
       kind: "content-publication",
       sample,
     });
@@ -823,7 +816,6 @@ describe("GPU Flow visible frame transaction proofs", () => {
     ).toBe("motion-projection");
     expect(prepared.commitProof?.debtProof.content).toBe(true);
   });
-
 });
 
 function visibleProjectionState({
@@ -867,9 +859,17 @@ function visibleProjectionState({
 function committedSurfaceFrame({
   actorGenerations = [],
   compatiblePreviousActorIds = [],
+  exactSurfaceResourceHandles = [],
+  protectedResourceHandles = [],
 }: {
   readonly actorGenerations?: readonly GpuFlowCommittedSurfaceActorGeneration[];
   readonly compatiblePreviousActorIds?: readonly string[] | undefined;
+  readonly exactSurfaceResourceHandles?:
+    | readonly SurfaceResourceHandle[]
+    | undefined;
+  readonly protectedResourceHandles?:
+    | readonly ProtectedSurfaceResourceHandle[]
+    | undefined;
 } = {}): GpuFlowCommittedSurfaceFrame {
   const displayFrameId = 7;
   const coherence = {
@@ -883,6 +883,65 @@ function committedSurfaceFrame({
     htmlTextureOverlayCommittedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
+  const surfaceTransaction =
+    exactSurfaceResourceHandles.length > 0 || protectedResourceHandles.length > 0
+      ? {
+          activeDomIslandTransaction: {
+            islands: [],
+            mode: "none",
+          },
+          coverageProof: {
+            blockingGenerationIds: [],
+            blockingSurfaceIds: [],
+            compatibilityProof: {
+              compatibleForActiveDomIsland: true,
+              compatibleForClipChain: true,
+              compatibleForHitTesting: true,
+              compatibleForMotion: true,
+              compatibleForSourceWindow: true,
+              compatibleForVisuals: true,
+              rejectedCandidates: [],
+            },
+            compatibleCoverage: [],
+            exactCoverage: [
+              {
+                coverageRect: rect(),
+                fidelity: "exact",
+                generationId: "generation:resource-a",
+                rendererBucket: "retained-content",
+                resourceHandles: exactSurfaceResourceHandles,
+                surfaceId: "surface:resource-a",
+                zIndex: 1,
+              },
+            ],
+            protectedResourceHandles,
+            rendererBuckets: [],
+            trueHoleRects: [],
+            visibleRects: [],
+            zOrder: [],
+          },
+          desiredSurfaceGenerations: [],
+          diagnostics: {
+            hold: null,
+            publishedAtMs: 0,
+          },
+          drawCommands: [],
+          followUpWorkRequests: [],
+          hitIndex: {
+            generationIds: [],
+            id: `hit:${displayFrameId}`,
+          },
+          id: `surface-transaction:${displayFrameId}`,
+          motionFrame: {
+            activeIslands: [],
+            retainedScrollOffset: null,
+            viewport: { x: 0, y: 0, zoom: 1 },
+          },
+          protectedResourceHandles,
+          rendererBuckets: [],
+          zOrder: [],
+        }
+      : null;
   return {
     actorGenerations,
     coherence,
@@ -891,6 +950,8 @@ function committedSurfaceFrame({
       actorGenerations,
       coherence,
       displayFrameId,
+      surfaceTransaction:
+        surfaceTransaction as GpuFlowCommittedSurfaceFrame["surfaceTransaction"],
     }),
     projectionHorizon: {
       textActorCoverage: {
@@ -906,7 +967,7 @@ function committedSurfaceFrame({
       blockingActorIds: [],
       kind: "publishable",
     },
-    surfaceTransaction: null,
+    surfaceTransaction,
   } as unknown as GpuFlowCommittedSurfaceFrame;
 }
 
@@ -979,24 +1040,6 @@ function actorWithBrowserVisualRepresentation(
     browserVisual: {
       ...actor.browserVisual,
       representation,
-    },
-  });
-}
-
-function actorWithBrowserVisualResourceHandles(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
-  resourceHandles: NonNullable<
-    GpuFlowCommittedSurfaceActorGeneration["browserVisual"]
-  >["resourceHandles"],
-): GpuFlowCommittedSurfaceActorGeneration {
-  if (!actor.browserVisual) {
-    throw new Error("Expected browser visual actor.");
-  }
-  return freezeActor({
-    ...actor,
-    browserVisual: {
-      ...actor.browserVisual,
-      resourceHandles,
     },
   });
 }

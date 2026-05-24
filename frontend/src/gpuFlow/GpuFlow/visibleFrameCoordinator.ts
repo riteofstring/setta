@@ -5,6 +5,7 @@ import {
   type GpuFlowVisibleProjectionState,
   type GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
+import { shouldDeferGpuFlowMaintenanceContentCatchup } from "../projectionScheduler";
 import {
   resolveGpuFlowRetainedDisplayPublication,
   type GpuFlowRetainedDisplayPublicationInput,
@@ -129,7 +130,7 @@ export type GpuFlowVisibleFramePublicationSample = {
   readonly viewportInteractionActive: boolean;
 };
 
-export type GpuFlowVisibleFramePublicationKernelResult<
+export type GpuFlowVisibleFrameCoordinatorResult<
   PreparedFrame extends GpuFlowVisibleFramePublicationPreparedFrame,
 > = GpuFlowVisiblePublicationTransactionCompletion & {
   readonly preparedFrame: PreparedFrame;
@@ -160,11 +161,9 @@ type GpuFlowVisibleFramePublicationMotionFramePreparer<
 
 type GpuFlowVisibleFramePublicationPublisher<
   PreparedFrame extends GpuFlowVisibleFramePublicationPreparedFrame,
-> = (
-  transaction: GpuFlowVisibleFramePublicationKernelResult<PreparedFrame>,
-) => void;
+> = (transaction: GpuFlowVisibleFrameCoordinatorResult<PreparedFrame>) => void;
 
-type GpuFlowVisibleFramePublicationCandidateSetKernelInput<
+type GpuFlowVisibleFrameCoordinatorInput<
   ContentPublicationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
@@ -197,7 +196,7 @@ type GpuFlowVisibleFramePublicationOutcomeDecision<
   readonly transactionProof: GpuFlowVisibleFramePublicationTransactionProof;
 };
 
-export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
+export function runGpuFlowVisibleFrameCoordinator<
   ContentPublicationFrame extends
     GpuFlowVisibleFramePublicationContentCandidate,
   MotionProjectionFrame extends GpuFlowVisibleFramePublicationMotionCandidate,
@@ -207,10 +206,10 @@ export function runGpuFlowVisibleFramePublicationCandidateSetKernel<
   publish,
   sampleVisibleFramePublication,
   scheduler,
-}: GpuFlowVisibleFramePublicationCandidateSetKernelInput<
+}: GpuFlowVisibleFrameCoordinatorInput<
   ContentPublicationFrame,
   MotionProjectionFrame
->): GpuFlowVisibleFramePublicationKernelResult<
+>): GpuFlowVisibleFrameCoordinatorResult<
   GpuFlowVisibleFramePublicationPreparedCandidateSetFrame<
     ContentPublicationFrame,
     MotionProjectionFrame
@@ -454,6 +453,7 @@ function createGpuFlowVisibleFramePublicationFrameContext({
   return Object.freeze({
     deferResolutionUpdates: shouldDeferGpuFlowResolutionUpdates({
       lane: publicationDecision.lane,
+      rawReasons,
       schedulerState: publicationDecision.schedulerState,
       viewportFrame,
       viewportInteractionActive,
@@ -565,19 +565,28 @@ function assertGpuFlowProjectionFrameTransactionRenderable(
 
 function shouldDeferGpuFlowResolutionUpdates({
   lane,
+  rawReasons,
   schedulerState,
   viewportFrame,
   viewportInteractionActive,
 }: {
   readonly lane: GpuFlowVisiblePublicationDecision["lane"];
+  readonly rawReasons: readonly GpuFrameReason[];
   readonly schedulerState: GpuFlowVisiblePublicationDecision["schedulerState"];
   readonly viewportFrame: boolean;
   readonly viewportInteractionActive: boolean;
 }): boolean {
+  if (lane === "content" && schedulerState === "motion-active") {
+    return false;
+  }
   return (
     viewportInteractionActive ||
     viewportFrame ||
-    (schedulerState === "motion-settling" && lane !== "idle")
+    (schedulerState === "motion-settling" && lane !== "idle") ||
+    shouldDeferGpuFlowMaintenanceContentCatchup({
+      lane,
+      rawReasons,
+    })
   );
 }
 
@@ -613,8 +622,8 @@ function publishGpuFlowVisibleFramePublicationOutcome<
   transaction,
 }: {
   readonly publish: GpuFlowVisibleFramePublicationPublisher<PreparedFrame>;
-  readonly transaction: GpuFlowVisibleFramePublicationKernelResult<PreparedFrame>;
-}): GpuFlowVisibleFramePublicationKernelResult<PreparedFrame> {
+  readonly transaction: GpuFlowVisibleFrameCoordinatorResult<PreparedFrame>;
+}): GpuFlowVisibleFrameCoordinatorResult<PreparedFrame> {
   publish(transaction);
   return transaction;
 }

@@ -7,16 +7,16 @@ import type { GpuFlowRetainedCommittedSurfacePublicationContentStageRunner } fro
 import type {
   GpuFlowMotionProjectionFramePreparation,
   GpuFlowVisibleFramePublicationFrameContext,
-} from "./visibleFrameKernel";
-import type {
-  GpuFlowContentPublicationWorkPlan,
-  GpuFlowMotionProjectionWorkPlan,
-} from "./visibleFrameWorkPlan";
+} from "./visibleFrameCoordinator";
 import type {
   GpuFlowVisibleFramePublicationCandidateSet,
   GpuFlowVisibleFramePublicationContentCandidate,
   GpuFlowVisibleFramePublicationMotionCandidate,
 } from "./visibleFrameTransactionProofs";
+import type {
+  GpuFlowContentPublicationWorkPlan,
+  GpuFlowMotionProjectionWorkPlan,
+} from "./visibleFrameWorkPlan";
 
 type GpuFlowForcedBlockedContentFramePreparer<
   ContentPublicationFrame extends

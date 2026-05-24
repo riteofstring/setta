@@ -158,9 +158,20 @@ test("focusing a text input does not blank surrounding section content", async (
   });
 
   await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
-  await expect
-    .poll(() => readActiveCodeMirrorId(page), { timeout: 5_000 })
-    .toContain(row.rowId);
+  try {
+    await expect
+      .poll(() => readActiveCodeMirrorId(page), { timeout: 5_000 })
+      .toContain(row.rowId);
+  } catch (error) {
+    const causeMessage = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Timed out waiting for active CodeMirror after retained click: ${JSON.stringify(
+        await readActivationDiagnostics(page, row),
+        null,
+        2,
+      )} (${causeMessage})`,
+    );
+  }
   await waitForAnimationFrame(page);
   const activeGeometry = await readActiveEditorGeometry(
     page,
@@ -545,6 +556,85 @@ async function readActiveCodeMirrorId(page: Page): Promise<string | null> {
         .closest("[data-gpu-flow-control]")
         ?.getAttribute("data-gpu-flow-control") ?? null
     );
+  });
+}
+
+async function readActivationDiagnostics(
+  page: Page,
+  row: RetainedRowDebugEntry,
+): Promise<unknown> {
+  return await page.evaluate(({ point, row, rowId }) => {
+    const activeElement = document.activeElement;
+    const elementAtPoint =
+      point === null ? null : document.elementFromPoint(point.x, point.y);
+    const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
+    const controlHosts = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        `[data-gpu-flow-dom-control-row-id="${CSS.escape(rowId)}"]`,
+      ),
+    ).map((element) => {
+      const rect = element.getBoundingClientRect();
+      return {
+        active: element.dataset.gpuFlowDomControlActive ?? null,
+        coverageReason:
+          element.dataset.gpuFlowDomControlCoverageReason ?? null,
+        coverageState:
+          element.dataset.gpuFlowDomControlCoverageState ?? null,
+        focusable: element.dataset.gpuFlowDomControlFocusable ?? null,
+        id: element.dataset.gpuFlowDomControlId ?? null,
+        pointerSemantics:
+          element.dataset.gpuFlowDomControlPointerSemantics ?? null,
+        rect: {
+          height: rect.height,
+          width: rect.width,
+          x: rect.x,
+          y: rect.y,
+        },
+      };
+    });
+    return {
+      activeElement: activeElement
+        ? {
+            className: String(activeElement.className),
+            controlId:
+              activeElement
+                .closest("[data-gpu-flow-control]")
+                ?.getAttribute("data-gpu-flow-control") ?? null,
+            tagName: activeElement.tagName,
+          }
+        : null,
+      domControlPlane:
+        window.__settaGpuFlowDomControlPlaneDiagnostics?.() ?? null,
+      activeRetainedHit: snapshot?.activeRetainedHit ?? null,
+      elementAtPoint:
+        elementAtPoint instanceof Element
+          ? {
+              className: String(elementAtPoint.className),
+              controlHostRowId:
+                elementAtPoint
+                  .closest("[data-gpu-flow-dom-control-row-id]")
+                  ?.getAttribute("data-gpu-flow-dom-control-row-id") ?? null,
+              tagName: elementAtPoint.tagName,
+            }
+          : null,
+      point,
+      pointer: snapshot?.lastPointer ?? null,
+      hoveredRetainedHit: snapshot?.hoveredRetainedHit ?? null,
+      lastRetainedClickHit: snapshot?.lastRetainedClickHit ?? null,
+      lastRetainedPointerDownHit:
+        snapshot?.lastRetainedPointerDownHit ?? null,
+      preparation:
+        window.__settaGpuFlowBrowserVisualPreparationDiagnostics?.(
+          controlHosts[0]?.id ?? null,
+        ) ?? null,
+      row,
+      rowId,
+      controlHosts,
+    };
+  }, {
+    point: row.controlClientPoint,
+    row,
+    rowId: row.rowId,
   });
 }
 

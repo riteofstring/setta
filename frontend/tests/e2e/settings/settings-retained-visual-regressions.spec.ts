@@ -1,6 +1,8 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
+import { installGpuFlowPerformanceProbeForCurrentPage } from "../gpuFlowPerformanceProbe";
 import { ensureAppReady, postBackend } from "../helpers";
+import { waitForGuiRowHoverState } from "./settings-retained-row-hover-helpers";
 import { readVisibleRetainedContentScrollMarker } from "./settings-retained-scroll-marker";
 import {
   analyzeHoverBands,
@@ -75,6 +77,7 @@ test("rapid row hover shows exactly one retained row highlight", async ({
   page,
 }, testInfo) => {
   await openSettings(page);
+  await installGpuFlowPerformanceProbeForCurrentPage(page);
   const zoomTarget = await resolveVisibleGuiRow(page, "Max Zoom");
   await performCloseZoom(page, zoomTarget.labelClientPoint);
   const rows = await resolveVisibleGuiRows(page, [
@@ -85,7 +88,7 @@ test("rapid row hover shows exactly one retained row highlight", async ({
     "Pan On Scroll",
   ]);
   await moveAwayFromRetainedRows(page);
-  await waitForGuiRowHoverState(page, null);
+  await waitForGuiRowHoverState(page, GUI_CONTENT_SURFACE_ID, null);
 
   const clip = rowsToClip(rows);
   const warmupRow = rows[0];
@@ -95,11 +98,15 @@ test("rapid row hover shows exactly one retained row highlight", async ({
       warmupRow.labelClientPoint.y,
       { steps: 4 },
     );
-    await waitForGuiRowHoverState(page, warmupRow.rowLabel);
+    await waitForGuiRowHoverState(
+      page,
+      GUI_CONTENT_SURFACE_ID,
+      warmupRow.rowLabel,
+    );
     await waitForAnimationFrame(page);
     await waitForAnimationFrame(page);
     await moveAwayFromRetainedRows(page);
-    await waitForGuiRowHoverState(page, null);
+    await waitForGuiRowHoverState(page, GUI_CONTENT_SURFACE_ID, null);
   }
   await waitForStableScreenshotClip(page, clip);
   const before = await screenshotClip({
@@ -117,7 +124,7 @@ test("rapid row hover shows exactly one retained row highlight", async ({
     await page.mouse.move(row.labelClientPoint.x, row.labelClientPoint.y, {
       steps: 4,
     });
-    await waitForGuiRowHoverState(page, row.rowLabel);
+    await waitForGuiRowHoverState(page, GUI_CONTENT_SURFACE_ID, row.rowLabel);
     await waitForAnimationFrame(page);
     await waitForAnimationFrame(page);
     const sample = await screenshotClip({
@@ -689,40 +696,6 @@ async function resolveVisibleGuiRows(
   );
 }
 
-async function waitForGuiRowHoverState(
-  page: Page,
-  expectedLabel: string | null,
-): Promise<void> {
-  await expect
-    .poll(
-      async () =>
-        await page.evaluate((surfaceId) => {
-          const rowLabelById = new Map(
-            (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
-              .filter(
-                (row): row is RetainedRowDebugEntry =>
-                  row.surfaceId === surfaceId,
-              )
-              .map((row) => [row.rowId, row.rowLabel]),
-          );
-          const hoverPrefix = `${surfaceId}:row-hover:`;
-          return (window.__SETTA_GPU_FLOW_DEBUG_VISUAL_SURFACES__?.() ?? [])
-            .filter(
-              (surface) =>
-                surface.kind === "solid-rounded-rect" &&
-                surface.surfaceId.startsWith(hoverPrefix),
-            )
-            .map((surface) =>
-              rowLabelById.get(surface.surfaceId.slice(hoverPrefix.length)),
-            )
-            .filter((label): label is string => label !== undefined)
-            .sort();
-        }, GUI_CONTENT_SURFACE_ID),
-      { timeout: 2_000 },
-    )
-    .toEqual(expectedLabel === null ? [] : [expectedLabel]);
-}
-
 async function resolveVisibleGuiSurfaceClip(page: Page): Promise<Rect> {
   return await page.evaluate((surfaceId) => {
     const rows = (window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.() ?? [])
@@ -1065,7 +1038,8 @@ async function waitForViewportIdle(page: Page): Promise<void> {
             viewport &&
               !viewport.viewportInteractionActive &&
               !viewport.wheelZooming &&
-              !viewport.viewportAnimating,
+              !viewport.viewportAnimating &&
+              !viewport.zoomActivationKeyPressed,
           );
         }),
       { timeout: 5_000 },

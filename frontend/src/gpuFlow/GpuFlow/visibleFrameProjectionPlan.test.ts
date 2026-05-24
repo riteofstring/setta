@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 const PROJECTION_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowProjectionFrame.tsx", import.meta.url),
 );
-const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFrameKernel.ts", import.meta.url),
+const COORDINATOR_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameCoordinator.ts", import.meta.url),
 );
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameProjectionPlan.ts", import.meta.url),
@@ -22,7 +22,7 @@ describe("GPU Flow visible publication projection plans", () => {
       PROJECTION_FRAME_MODULE_PATH,
       "utf8",
     );
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const coordinatorSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const projectionPlanSource = readFileSync(
       PROJECTION_PLAN_MODULE_PATH,
       "utf8",
@@ -48,20 +48,22 @@ describe("GPU Flow visible publication projection plans", () => {
     expect(surfaceFrameSource).not.toContain(
       'projectionFrameRenderPlan.kind === "blocked"',
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       'projectionFrameRenderPlan.kind === "blocked"',
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "candidateDecisionKernel.createRetainedProjectionBlockedPublicationCandidate",
     );
-    expect(kernelSource).toContain("projectionFrameTransaction.blockedReason");
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "projectionFrameTransaction.blockedReason",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
+      "projectionFrameTransaction.blockedReason",
+    );
+    expect(coordinatorSource).toContain(
       "function selectGpuFlowProjectionFrameRenderPlan",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function selectGpuFlowProjectionFrameRenderPlan",
     );
     expect(projectionPlanSource).not.toContain(
@@ -78,8 +80,8 @@ describe("GPU Flow visible publication projection plans", () => {
     );
   });
 
-  it("keeps requested retained projection coverage derivation inside the kernel", () => {
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+  it("keeps requested retained projection coverage derivation inside the coordinator", () => {
+    const coordinatorSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const projectionPlanSource = readFileSync(
       PROJECTION_PLAN_MODULE_PATH,
       "utf8",
@@ -102,8 +104,10 @@ describe("GPU Flow visible publication projection plans", () => {
     );
     expect(projectionPlanSource).not.toContain("requestedProjectionFrame");
     expect(projectionPlanSource).toContain("resolveRetainedProjectionFrame");
-    expect(kernelSource).toContain("const requestedRetainedProjectionFrame");
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
+      "const requestedRetainedProjectionFrame",
+    );
+    expect(coordinatorSource).toContain(
       "requestedRetainedProjectionFrame.missingCoverageSurfaceIds.size > 0",
     );
   });

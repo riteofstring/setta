@@ -197,12 +197,12 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     expect(readBlockedVisiblePublicationEvents()).toEqual([
       expect.objectContaining({
         actorManifest: expect.objectContaining({
-          blockedActorsByFamily: { "browser-visual": 1 },
+          blockedActorsByFamily: { "browser-text-snapshot": 1 },
           blockedDebt: { content: true, maintenance: false, motion: false },
           committedFrameId: 2,
-          missingActorsByFamily: { "text-like-dom-control": 1 },
+          missingActorsByFamily: { "browser-text-snapshot": 1 },
           readyActorsByFamily: {},
-          requiredActorsByFamily: { "text-like-dom-control": 1 },
+          requiredActorsByFamily: { "browser-text-snapshot": 1 },
           visibleOutcome: "blocked",
         }),
       }),

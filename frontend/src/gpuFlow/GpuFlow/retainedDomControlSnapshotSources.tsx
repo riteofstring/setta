@@ -35,8 +35,8 @@ const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SOURCE_CLASS_NAME =
   "setta-gpu-flow__dom-control-snapshot-source";
 const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_SURFACE_ID_PREFIX =
   "retained-dom-control-snapshot:";
-const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_SIZE = 1;
-const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_DELAY_MS = 750;
+const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_SIZE = 4;
+const GPU_RETAINED_DOM_CONTROL_SNAPSHOT_PROGRESSIVE_BATCH_DELAY_MS = 120;
 const noop = () => {};
 type GpuRetainedDomControlSnapshotSourceDiagnostic = {
   readonly expectedTextureContentKey: string;

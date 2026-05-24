@@ -8,7 +8,7 @@ const modulePath = (path: string): string =>
 const GPU_FLOW_ROOT = modulePath("../");
 const AUTHORITY_MODULE_PATH = modulePath("./visibleFramePresentationTokens.ts");
 const COMMIT_PROOF_MODULE_PATH = modulePath("./visibleFrameCommitProofs.ts");
-const KERNEL_MODULE_PATH = modulePath("./visibleFrameKernel.ts");
+const KERNEL_MODULE_PATH = modulePath("./visibleFrameCoordinator.ts");
 const CHROME_REPRO_MODULE_PATH = modulePath(
   "./visibleFrameOutcomeChromeRepro.ts",
 );
@@ -26,7 +26,7 @@ const DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES = [
 ] as const;
 const PRODUCTION_SCHEDULER_TRANSACTION_CALLERS = new Set([
   "GpuFlow/visibleFramePresentationProofs.ts",
-  "GpuFlow/visibleFrameKernel.ts",
+  "GpuFlow/visibleFrameCoordinator.ts",
 ]);
 
 describe("GPU Flow visible frame presentation token boundaries", () => {
@@ -75,7 +75,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
     expect(violations).toEqual([]);
   });
 
-  it("keeps raw token constructor imports isolated to the transaction kernel", () => {
+  it("keeps raw token constructor imports isolated to the transaction coordinator", () => {
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (
         filePath === AUTHORITY_MODULE_PATH ||
@@ -111,7 +111,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
       readonly names: readonly string[];
     }[] = [
       {
-        moduleName: "visibleFrameKernel",
+        moduleName: "visibleFrameCoordinator",
         names: DIRECT_VISIBLE_TOKEN_MINT_HELPER_NAMES,
       },
       {
@@ -148,7 +148,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
     expect(violations).toEqual([]);
   });
 
-  it("keeps visible publication scheduler selection and completion inside the transaction kernel", () => {
+  it("keeps visible publication scheduler selection and completion inside the transaction coordinator", () => {
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
         return [];
@@ -166,14 +166,14 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
         return [];
       }
       return [
-        `${relativePath} selects, completes, or observes visible publication scheduler debt outside the transaction kernel`,
+        `${relativePath} selects, completes, or observes visible publication scheduler debt outside the transaction coordinator`,
       ];
     });
 
     expect(violations).toEqual([]);
   });
 
-  it("keeps visible publication transaction report assembly inside the transaction kernel", () => {
+  it("keeps visible publication transaction report assembly inside the transaction coordinator", () => {
     const source = readFileSync(CHROME_REPRO_MODULE_PATH, "utf8");
     const forbiddenReportAssembly = [
       {

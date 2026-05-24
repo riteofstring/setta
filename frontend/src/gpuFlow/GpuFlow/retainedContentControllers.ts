@@ -225,6 +225,42 @@ export function useGpuFlowRetainedContentControllers({
         activeTarget: null,
         hoveredTarget: null,
       };
+    let retainedContentRowHoverFrameTimeout: ReturnType<
+      typeof setTimeout
+    > | null = null;
+    const clearRetainedContentRowHoverFrameTimeout = () => {
+      if (retainedContentRowHoverFrameTimeout === null) {
+        return;
+      }
+      clearTimeout(retainedContentRowHoverFrameTimeout);
+      retainedContentRowHoverFrameTimeout = null;
+    };
+    const requestRetainedContentRowHoverFrame = (
+      target: GpuRetainedContentRowHoverTarget | null,
+    ) => {
+      if (!viewportStore.getState().retainedContentScrolling) {
+        surfaceRef.current?.requestFrame(
+          target ? "retained-row-hover-visual" : "retained-row-hover-clear",
+        );
+      }
+      clearRetainedContentRowHoverFrameTimeout();
+      if (!target) {
+        return;
+      }
+      retainedContentRowHoverFrameTimeout = setTimeout(() => {
+        retainedContentRowHoverFrameTimeout = null;
+        if (
+          !areGpuRetainedContentRowHoverTargetsEqual(
+            retainedContentRowHoverTargetRef.current,
+            target,
+          ) ||
+          viewportStore.getState().retainedContentScrolling
+        ) {
+          return;
+        }
+        surfaceRef.current?.requestFrame("retained-row-hover-visual");
+      }, 80);
+    };
     const setRetainedContentScrollbarVisualState = (
       nextState: GpuRetainedContentScrollbarVisualState,
     ) => {
@@ -278,16 +314,13 @@ export function useGpuFlowRetainedContentControllers({
         };
       }
       if (!targetChanged) {
-        if (nextTarget) {
-          surfaceRef.current?.requestFrame("manual");
-        }
         return;
       }
       updateGpuFlowRetainedContentRuntimeNativeVisuals({
         nodeLayerRef,
         retainedContentRuntimeState,
       });
-      surfaceRef.current?.requestFrame("manual");
+      requestRetainedContentRowHoverFrame(nextTarget);
     };
     const commitRetainedContentScrollbarScrollResult = (result: {
       readonly scrollOffsets: ReadonlyMap<
@@ -540,6 +573,7 @@ export function useGpuFlowRetainedContentControllers({
         store: viewportStore,
       });
     return () => {
+      clearRetainedContentRowHoverFrameTimeout();
       detachRetainedContentInteractionController();
     };
   }, [

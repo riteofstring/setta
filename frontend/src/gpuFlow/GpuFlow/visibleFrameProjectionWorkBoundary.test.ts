@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 const FLOW_PROJECTION_FRAME_MODULE_PATH = fileURLToPath(
   new URL("./flowProjectionFrame.tsx", import.meta.url),
 );
-const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFrameKernel.ts", import.meta.url),
+const COORDINATOR_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameCoordinator.ts", import.meta.url),
 );
 const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   new URL(
@@ -16,22 +16,19 @@ const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   ),
 );
 const KERNEL_PROJECTION_COVERAGE_MODULE_PATH = fileURLToPath(
-  new URL(
-    "./visibleFrameProjectionCoverage.ts",
-    import.meta.url,
-  ),
+  new URL("./visibleFrameProjectionCoverage.ts", import.meta.url),
 );
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameProjectionPlan.ts", import.meta.url),
 );
 
-describe("GPU Flow visible publication kernel projection work", () => {
+describe("GPU Flow visible frame coordinator projection work", () => {
   it("keeps projection-only blocked work classification out of projection rendering", () => {
     const projectionFrameSource = readFileSync(
       FLOW_PROJECTION_FRAME_MODULE_PATH,
       "utf8",
     );
-    const kernelSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const coordinatorSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const candidateDecisionKernelSource = readFileSync(
       CONTENT_DECISION_KERNEL_MODULE_PATH,
       "utf8",
@@ -62,35 +59,37 @@ describe("GPU Flow visible publication kernel projection work", () => {
     expect(candidateDecisionKernelSource).toContain(
       "function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
     expect(candidateDecisionKernelSource).not.toContain(
       "export function selectGpuFlowMotionProjectionFrameBlockedPublicationReason",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function assertGpuFlowMotionProjectionFrameWork",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "createGpuFlowMotionProjectionFrameBlockedPublicationReasonSelector",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "createGpuFlowMotionProjectionFrameWorkBlockedReasonSelector",
     );
     expect(candidateDecisionKernelSource).toContain(
       "function selectGpuFlowMotionProjectionFrameWorkBlockedReason",
     );
-    expect(kernelSource).not.toContain("resolveGpuFlowRetainedProjectionFrame");
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
+      "resolveGpuFlowRetainedProjectionFrame",
+    );
+    expect(coordinatorSource).not.toContain(
       "isGpuFlowRetainedProjectionSurfaceCovered",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export type { GpuFlowRetainedProjectionFrame }",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function selectGpuFlowMotionProjectionFrameWorkBlockedReason",
     );
     expect(projectionPlanSource).not.toContain(

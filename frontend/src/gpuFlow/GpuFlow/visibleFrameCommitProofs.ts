@@ -9,7 +9,7 @@ import {
   assertGpuFlowVisiblePublicationResourcesProtected,
   createGpuFlowVisiblePublicationResourceProtectionDigest,
   createGpuFlowVisiblePublicationResourceProtectionReport,
-} from "./visibleFrameResourceRegistry";
+} from "./visibleFrameResourceGraph";
 
 type GpuFlowProjectionSampleId = number;
 type GpuFlowActorManifestDigest = string;
@@ -147,7 +147,8 @@ function assertGpuFlowCommitAuthorityProofMatchesFrame({
   if (
     commitAuthorityProof.expectedActorSetDigest !==
       frame.presentationProof.actorManifestDigest ||
-    commitAuthorityProof.proofDigest !== createGpuFlowVisibleProofDigest(frame) ||
+    commitAuthorityProof.proofDigest !==
+      createGpuFlowVisibleProofDigest(frame) ||
     commitAuthorityProof.presentationPairDigest !==
       createGpuFlowPresentationPairDigest({
         frame,

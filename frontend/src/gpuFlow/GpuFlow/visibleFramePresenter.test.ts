@@ -259,6 +259,80 @@ describe("GPU Flow surface publication completion", () => {
     expect(requestFrame).toHaveBeenCalledOnce();
     expect(requestFrame).toHaveBeenCalledWith("texture-upload");
   });
+
+  it("defers unresolved content debt instead of immediately looping repair frames", () => {
+    const committedFrame = committedSurfaceFrame({ displayFrameId: 41 });
+    const selectedState = visibleProjectionState({
+      displayFrameId: committedFrame.displayFrameId,
+      kind: "content-publication",
+      sampleId: 41,
+    });
+    const token = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      frame: committedFrame,
+      projectionSample: selectedState.sample,
+    });
+    const requestFrame = vi.fn();
+    const setTimeout = vi.fn(() => 1);
+    const clearTimeout = vi.fn();
+    const presenter = createGpuFlowVisibleFramePresenter({
+      abortPreparedCommittedSurfaceFrame: () => {
+        throw new Error("Unexpected prepared committed surface abort.");
+      },
+      callbacksRef: { current: null },
+      commitPreparedCommittedSurfaceFrame: () => true,
+      projectCommittedBrowserVisualActors: () => {},
+      publishColdStartShellFrame: () => {},
+      retainedDisplayFrameRef: { current: null },
+      retainedRuntimeFrameRenderSignatureRef: { current: null },
+      retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
+      runtimeCanvas: testCanvas(),
+      surfaceRef: {
+        current: {
+          getRuntime: () => ({
+            canvas: {
+              ownerDocument: {
+                defaultView: {
+                  clearTimeout,
+                  setTimeout,
+                },
+              },
+            },
+          }),
+          requestFrame,
+        },
+      },
+      viewportRuntime: {
+        applyOverlayTransforms: () => {},
+      },
+      visibleOverlayProjectionKeyRef: { current: null },
+      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionStateRef: { current: null },
+    } as unknown as Parameters<typeof createGpuFlowVisibleFramePresenter>[0]);
+
+    presenter(
+      committedPublicationTransaction({
+        committedFrame,
+        debtFrameRequest: {
+          delayMs: null,
+          frameReason: "manual",
+        },
+        onCompleteSchedulerFrame: () => {},
+        schedulerCompletion: {
+          debt: {
+            content: true,
+            maintenance: false,
+            motion: false,
+          },
+          outcome: "blocked",
+        },
+        selectedState,
+        token,
+      }),
+    );
+
+    expect(requestFrame).not.toHaveBeenCalled();
+    expect(setTimeout).toHaveBeenCalledOnce();
+  });
 });
 
 function heldPreviousPublicationTransaction({
@@ -323,6 +397,14 @@ function committedPublicationTransaction({
   followUpFrameRequests = [],
   nodeLayerFrameStatePublication = null,
   onCompleteSchedulerFrame,
+  schedulerCompletion = {
+    debt: {
+      content: false,
+      maintenance: false,
+      motion: false,
+    },
+    outcome: "commit",
+  },
   selectedState,
   token,
 }: {
@@ -331,6 +413,7 @@ function committedPublicationTransaction({
   readonly followUpFrameRequests?: readonly string[];
   readonly nodeLayerFrameStatePublication?: unknown;
   readonly onCompleteSchedulerFrame: () => void;
+  readonly schedulerCompletion?: unknown;
   readonly selectedState: GpuFlowVisibleProjectionState;
   readonly token: ReturnType<
     typeof createGpuFlowVisibleFrameCommitPublicationTokenForTest
@@ -344,14 +427,7 @@ function committedPublicationTransaction({
     completeSchedulerFrame: () => {
       onCompleteSchedulerFrame();
       return {
-        completion: {
-          debt: {
-            content: false,
-            maintenance: false,
-            motion: false,
-          },
-          outcome: "commit",
-        },
+        completion: schedulerCompletion,
         debtFrameRequest,
       };
     },

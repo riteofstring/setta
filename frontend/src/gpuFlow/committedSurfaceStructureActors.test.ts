@@ -137,11 +137,67 @@ describe("GPU Flow committed surface structure actors", () => {
     expect(frame.projectionHorizon.obligations.visibleActorIds).toEqual([]);
   });
 
-  it("marks visible retained page snapshots as required retained-page actors", () => {
-    const retainedRuntimeFrame = createEmptyRuntimeFrame({ frameId: 21 });
+  it("does not require nested retained section actors outside the retained source window", () => {
+    const retainedRuntimeFrame = createSectionRuntimeFrame({
+      frameId: 21,
+      section: sectionSceneNode({
+        parentSectionId: "settings-root",
+      }),
+      viewportSize: { height: 120, width: 300 },
+    });
     const frame = createGpuFlowCommittedSurfaceFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 21,
+        retainedRuntimeFrame,
+      }),
+    });
+
+    expect(
+      frame.actorGenerations.filter((actor) =>
+        actor.actorId.startsWith("settings:"),
+      ),
+    ).toEqual([]);
+    expect(frame.projectionHorizon.obligations.visibleActorIds).toEqual([]);
+  });
+
+  it("treats compact retained section shell textures as maintenance actors", () => {
+    const retainedRuntimeFrame = createSectionRuntimeFrame({
+      frameId: 22,
+      section: {
+        ...sectionSceneNode(),
+        textureCssHeight: 1,
+        textureCssWidth: 1,
+      },
+      viewportSize: { height: 120, width: 300 },
+    });
+    const frame = createGpuFlowCommittedSurfaceFrame({
+      retainedDisplayFrame: fakeRetainedDisplayFrame({
+        id: 22,
+        retainedRuntimeFrame,
+      }),
+    });
+
+    const sectionActors = frame.actorGenerations.filter((actor) =>
+      actor.actorId.startsWith("settings:"),
+    );
+    expect(sectionActors.map((actor) => actor.visibleNonempty)).toEqual([
+      false,
+      false,
+      false,
+    ]);
+    expect(frame.projectionHorizon.obligations.visibleActorIds).toEqual([]);
+    expect(frame.projectionHorizon.obligations.maintenanceActorIds).toEqual([
+      "settings:section-body-clip",
+      "settings:section-header",
+      "settings:section-shell",
+    ]);
+  });
+
+  it("marks visible retained page snapshots as required retained-page actors", () => {
+    const retainedRuntimeFrame = createEmptyRuntimeFrame({ frameId: 23 });
+    const frame = createGpuFlowCommittedSurfaceFrame({
+      retainedDisplayFrame: fakeRetainedDisplayFrame({
+        id: 23,
         retainedRuntimeFrame,
         surfaceActorSnapshots: [retainedPageSnapshot()],
       }),
@@ -352,9 +408,11 @@ function sceneWithSection(section: GpuSectionSceneNode): GpuFlowScene {
 
 function sectionSceneNode({
   bodyRect,
+  parentSectionId,
   worldRect,
 }: {
   readonly bodyRect?: GpuRect | undefined;
+  readonly parentSectionId?: string | null | undefined;
   readonly worldRect?: GpuRect | undefined;
 } = {}): GpuSectionSceneNode {
   const sectionWorldRect = worldRect ?? { height: 80, width: 240, x: 10, y: 20 };
@@ -379,7 +437,7 @@ function sectionSceneNode({
       y: 0,
     },
     nodeId: "settings",
-    parentSectionId: null,
+    parentSectionId: parentSectionId ?? null,
     portAnchors: [],
     resizePolicy: {
       aspectRatio: false,

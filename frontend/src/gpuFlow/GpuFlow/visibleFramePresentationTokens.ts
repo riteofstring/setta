@@ -310,7 +310,7 @@ function assertGpuFlowCommitPresentationIdentity({
     presentationIdentity.projectionSampleId !== projectionSample.id
   ) {
     throw new Error(
-      "GPU Flow commit publication token requires the visible frame engine identity for the selected content frame and projection sample.",
+      "GPU Flow commit publication token requires the visible frame state machine identity for the selected content frame and projection sample.",
     );
   }
 }

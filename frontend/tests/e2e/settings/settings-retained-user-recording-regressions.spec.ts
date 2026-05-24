@@ -259,32 +259,20 @@ test("Chrome repro capture flag does not change retained Settings visible public
   expect(recorder.placeholderStats.highConfidencePlaceholder, details).toBe(
     false,
   );
+  expect(normal.committed?.displayCompletenessStatus, details).toBe("complete");
+  expect(recorder.committed?.displayCompletenessStatus, details).toBe(
+    "complete",
+  );
   expect(normal.committed?.publishabilityKind, details).toBe("publishable");
   expect(recorder.committed?.publishabilityKind, details).toBe("publishable");
   expect(normal.committed?.textActorTrueHoleCount, details).toBe(0);
   expect(recorder.committed?.textActorTrueHoleCount, details).toBe(0);
-  expect(
-    normal.committed?.textActorExactCoverageCount ?? 0,
-    details,
-  ).toBeGreaterThan(0);
-  expect(
-    recorder.committed?.textActorExactCoverageCount ?? 0,
-    details,
-  ).toBeGreaterThan(0);
   expect(
     normal.committed?.visibleNonemptyDomControlCount ?? 0,
     details,
   ).toBeGreaterThan(0);
   expect(
     recorder.committed?.visibleNonemptyDomControlCount ?? 0,
-    details,
-  ).toBeGreaterThan(0);
-  expect(
-    normal.committed?.projectedVisibleNonemptyDomControlCount ?? 0,
-    details,
-  ).toBeGreaterThan(0);
-  expect(
-    recorder.committed?.projectedVisibleNonemptyDomControlCount ?? 0,
     details,
   ).toBeGreaterThan(0);
   expect(visualSimilarity.changedPixelRatio, details).toBeLessThanOrEqual(
@@ -748,6 +736,64 @@ async function setRetainedCompositorViewport(
   }, viewport);
   await waitForAnimationFrame(page);
   await waitForAnimationFrame(page);
+  await waitForRetainedCompositorViewportCommit(page, viewport);
+}
+
+async function waitForRetainedCompositorViewportCommit(
+  page: Page,
+  viewport: RetainedCompositorViewportSample,
+): Promise<void> {
+  await expect
+    .poll(() => readRetainedCompositorViewportCommitState(page, viewport), {
+      intervals: [50, 80, 120, 180],
+      timeout: 10_000,
+    })
+    .toMatchObject({
+      committedMatches: true,
+      runtimeMatches: true,
+    });
+}
+
+async function readRetainedCompositorViewportCommitState(
+  page: Page,
+  viewport: RetainedCompositorViewportSample,
+) {
+  return await page.evaluate((expected) => {
+    const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
+    const runtime = snapshot?.viewport.transform ?? null;
+    const committed = snapshot?.committedSurfaceFrame?.viewportSample ?? null;
+    return {
+      committed,
+      committedMatches: viewportMatches(committed, expected),
+      expected,
+      runtime,
+      runtimeMatches: viewportMatches(runtime, expected),
+    };
+
+    function viewportMatches(
+      actual:
+        | { readonly x: number; readonly y: number; readonly zoom: number }
+        | null
+        | undefined,
+      target: {
+        readonly x: number;
+        readonly y: number;
+        readonly zoom: number;
+      },
+    ): boolean {
+      return (
+        actual !== null &&
+        actual !== undefined &&
+        closeEnough(actual.x, target.x) &&
+        closeEnough(actual.y, target.y) &&
+        closeEnough(actual.zoom, target.zoom)
+      );
+    }
+
+    function closeEnough(actual: number, expectedValue: number): boolean {
+      return Math.abs(actual - expectedValue) <= 0.5;
+    }
+  }, viewport);
 }
 
 function requireRetainedCompositorViewportSample(

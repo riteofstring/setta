@@ -211,11 +211,14 @@ describe("GPU flow frame helpers", () => {
   });
 
   it("does not skip deferred content publication across viewport samples", () => {
-    const cachedFrame = retainedFrameCache({});
+    const contentSurfaces: readonly GpuContentSurface[] = [];
+    const cachedFrame = retainedFrameCache({ contentSurfaces });
 
     expect(
       shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
         cachedFrame,
+        contentSurfaces,
+        nativeVisualSignature: cachedFrame.nativeVisualSignature,
         sceneRevision: 7,
         targetViewport: [0, 0, 1],
         targetZoomBucket: 1,
@@ -224,8 +227,30 @@ describe("GPU flow frame helpers", () => {
     expect(
       shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
         cachedFrame,
+        contentSurfaces,
+        nativeVisualSignature: cachedFrame.nativeVisualSignature,
         sceneRevision: 7,
         targetViewport: [40, 0, 1],
+        targetZoomBucket: 1,
+      }),
+    ).toBe(false);
+    expect(
+      shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
+        cachedFrame,
+        contentSurfaces: [],
+        nativeVisualSignature: cachedFrame.nativeVisualSignature,
+        sceneRevision: 7,
+        targetViewport: [0, 0, 1],
+        targetZoomBucket: 1,
+      }),
+    ).toBe(false);
+    expect(
+      shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
+        cachedFrame,
+        contentSurfaces,
+        nativeVisualSignature: "changed-native-visuals",
+        sceneRevision: 7,
+        targetViewport: [0, 0, 1],
         targetZoomBucket: 1,
       }),
     ).toBe(false);

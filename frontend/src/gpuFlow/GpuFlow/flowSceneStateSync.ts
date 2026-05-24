@@ -3,6 +3,7 @@ import type { MutableRefObject } from "react";
 import type { GpuEdgeBufferInput } from "../edges/edgeGpuBuffers";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import type { GpuEdgePaletteInput, GpuGridInput } from "../gpuPipelines";
+import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
   clearGpuNodeDomTransformSyncCache,
@@ -20,6 +21,7 @@ import {
   syncGpuRetainedContentRuntimeStateForScene,
   type GpuRetainedContentRuntimeState,
 } from "../retainedContentRuntimeState";
+import type { GpuRetainedContentRow } from "../retainedContentScene";
 import type { RetainedContentTexturePageManager } from "../retainedContentTexturePageManager";
 import type { GpuFlowScene } from "../scene";
 import {
@@ -46,6 +48,7 @@ export function syncGpuFlowNodeLayerSceneState({
   nodeLayerRef,
   nodes,
   nodeTextureMemoryBudgetBytes,
+  nodeTextureTileDimensionPx,
   retainedContentPageManagerRef,
   scene,
   sourceInteractionProjector,
@@ -79,6 +82,7 @@ export function syncGpuFlowNodeLayerSceneState({
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly nodeTextureMemoryBudgetBytes: number | undefined;
+  readonly nodeTextureTileDimensionPx: number | undefined;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
   readonly scene: GpuFlowScene | undefined;
   readonly sourceInteractionProjector: HtmlSurfaceInteractionProjector;
@@ -125,6 +129,7 @@ export function syncGpuFlowNodeLayerSceneState({
     marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes,
+    nodeTextureTileDimensionPx,
     retainedContentRuntimeScrollOffsets: scrollOffsets,
     retainedContentRowHoverTarget,
     retainedRuntimeFrame,
@@ -171,16 +176,97 @@ function requestGpuFlowSceneStateFrame({
   if (!surface) {
     return;
   }
+  const reason = selectGpuFlowSceneStateFrameReason({
+    nextScene,
+    previousScene,
+  });
+  surface.requestFrame(reason);
+}
+
+export function selectGpuFlowSceneStateFrameReason({
+  previousScene,
+  nextScene,
+}: {
+  readonly previousScene: GpuFlowScene | undefined;
+  readonly nextScene: GpuFlowScene | undefined;
+}): GpuFrameReason {
   if (
     previousScene !== nextScene &&
-    typeof globalThis.requestAnimationFrame === "function"
+    hasGpuFlowRetainedDomControlActivationChange({
+      nextScene,
+      previousScene,
+    })
   ) {
-    globalThis.requestAnimationFrame(() => {
-      surface.requestFrame("viewport");
-    });
-    return;
+    return "dom-control-activation";
   }
-  surface.requestFrame("viewport");
+  return previousScene === nextScene ? "viewport" : "manual";
+}
+
+function hasGpuFlowRetainedDomControlActivationChange({
+  previousScene,
+  nextScene,
+}: {
+  readonly previousScene: GpuFlowScene | undefined;
+  readonly nextScene: GpuFlowScene | undefined;
+}): boolean {
+  const previousSignatures =
+    createGpuFlowRetainedDomControlActivationSignatureSet(previousScene);
+  for (const signature of createGpuFlowRetainedDomControlActivationSignatureSet(
+    nextScene,
+  )) {
+    if (!previousSignatures.has(signature)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function createGpuFlowRetainedDomControlActivationSignatureSet(
+  scene: GpuFlowScene | undefined,
+): ReadonlySet<string> {
+  const signatures = new Set<string>();
+  for (const surface of scene?.contentSurfaces ?? []) {
+    for (const row of surface.retainedScene?.rows ?? []) {
+      const signature = createGpuFlowRetainedDomControlActivationSignature({
+        row,
+        surfaceId: surface.id,
+      });
+      if (signature) {
+        signatures.add(signature);
+      }
+    }
+  }
+  return signatures;
+}
+
+function createGpuFlowRetainedDomControlActivationSignature({
+  row,
+  surfaceId,
+}: {
+  readonly row: GpuRetainedContentRow;
+  readonly surfaceId: string;
+}): string | null {
+  if (!hasGpuFlowRetainedDomControlActivationState(row.state)) {
+    return null;
+  }
+  const activation = row.state.domControlActivation;
+  return [
+    surfaceId,
+    row.id,
+    row.state.nativeControlActive ? "native-control-active" : "",
+    activation?.kind ?? "",
+    activation?.clientPoint.x ?? "",
+    activation?.clientPoint.y ?? "",
+  ].join("|");
+}
+
+function hasGpuFlowRetainedDomControlActivationState(
+  state: GpuRetainedContentRow["state"],
+): boolean {
+  if (state.nativeControlActive) {
+    return true;
+  }
+  return Boolean(state.domControlActivation);
 }
 
 function resolveRetainedRuntimeFrameForSceneStateSync({

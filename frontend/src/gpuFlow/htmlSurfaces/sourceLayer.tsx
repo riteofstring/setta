@@ -1,10 +1,10 @@
 import {
+  startTransition,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  startTransition,
   type ReactNode,
 } from "react";
 
@@ -245,10 +245,7 @@ function useProgressiveHtmlSurfaceSources<TSource>({
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(frame);
-      if (
-        idle !== null &&
-        typeof window.cancelIdleCallback === "function"
-      ) {
+      if (idle !== null && typeof window.cancelIdleCallback === "function") {
         window.cancelIdleCallback(idle);
       }
       if (timer !== null) {
@@ -357,8 +354,8 @@ function HtmlSurfaceSourceChild<TSource>({
   sourceId,
 }: HtmlSurfaceSourceChildProps<TSource>) {
   const anchorRef = useRef<HTMLSpanElement | null>(null);
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const [hostElement, setHostElement] = useState<HTMLDivElement | null>(null);
+  const hostRef = useRef<HTMLElement | null>(null);
+  const [hostElement, setHostElement] = useState<HTMLElement | null>(null);
 
   useLayoutEffect(() => {
     const anchor = anchorRef.current;
@@ -366,7 +363,7 @@ function HtmlSurfaceSourceChild<TSource>({
       return;
     }
     const host =
-      hostRef.current ?? createHtmlSurfaceSourceElement(anchor.ownerDocument);
+      hostRef.current ?? anchor.ownerDocument.createElement("div");
     hostRef.current = host;
     insertHtmlSurfaceSourceAfterAnchor(anchor, host);
     setHostElement(host);
@@ -419,12 +416,6 @@ function HtmlSurfaceSourceChild<TSource>({
       {hostElement ? createPortal(renderSource(source), hostElement) : null}
     </>
   );
-}
-
-function createHtmlSurfaceSourceElement(
-  ownerDocument: Document,
-): HTMLDivElement {
-  return ownerDocument.createElement("div");
 }
 
 function insertHtmlSurfaceSourceAfterAnchor(

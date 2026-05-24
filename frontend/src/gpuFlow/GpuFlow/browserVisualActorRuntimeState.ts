@@ -84,23 +84,64 @@ export function createGpuFlowBrowserVisualCandidatePresentationEvidence({
     domControlMountedCount: snapshot.domControls.mountedControls.length,
     domControlSnapshotCount: snapshot.domControls.snapshotControls.length,
     domIslandCount: snapshot.domIslands.islands.length,
-    exposable: isGpuFlowBrowserVisualReadinessExposable(readiness),
+    exposable: isGpuFlowBrowserVisualReadinessExposable({
+      readiness,
+      snapshot,
+    }),
     runtimeFrameId: frameIds.runtimeFrameId,
     source: "browser-visual-runtime-candidate",
     staged: true,
   });
 }
 
-function isGpuFlowBrowserVisualReadinessExposable(
-  readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness,
+function isGpuFlowBrowserVisualReadinessExposable({
+  readiness,
+  snapshot,
+}: {
+  readonly readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness;
+  readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
+}): boolean {
+  const requiredControlIds = new Set(
+    snapshot.domControls.controls
+      .filter(isGpuFlowBrowserVisualExposableDomControlRequired)
+      .map((control) => control.sourceId),
+  );
+  return (
+    [...readiness.domControlReadinessByActorId].every(([actorId, entry]) => {
+      if (!requiredControlIds.has(actorId)) {
+        return true;
+      }
+      return isGpuFlowBrowserVisualReadinessEntryExposable(entry);
+    }) &&
+    [...readiness.domIslandReadinessByActorId.values()].every(
+      isGpuFlowBrowserVisualReadinessEntryExposable,
+    )
+  );
+}
+
+function isGpuFlowBrowserVisualExposableDomControlRequired(
+  control: GpuRetainedDomControlSourceDescriptor,
 ): boolean {
-  return [
-    ...readiness.domControlReadinessByActorId.values(),
-    ...readiness.domIslandReadinessByActorId.values(),
-  ].every(
-    (entry) =>
-      entry.coverageState !== "blocked-awaiting-live-host" &&
-      entry.coverageState !== "blocked-awaiting-snapshot",
+  return (
+    control.active ||
+    control.visualSemantics.accessibility === "active-browser-editor" ||
+    control.textCoverageState.caret === "visible" ||
+    control.textCoverageState.composition === "active" ||
+    control.textCoverageState.selection !== "none"
+  );
+}
+
+function isGpuFlowBrowserVisualReadinessEntryExposable(
+  entry: GpuFlowCommittedSurfaceBrowserVisualReadiness["domControlReadinessByActorId"] extends ReadonlyMap<
+    string,
+    infer Entry
+  >
+    ? Entry
+    : never,
+): boolean {
+  return (
+    entry.coverageState !== "blocked-awaiting-live-host" &&
+    entry.coverageState !== "blocked-awaiting-snapshot"
   );
 }
 

@@ -62,6 +62,32 @@ describe("GPU retained content interaction hit testing", () => {
     expect(hit).toBeNull();
   });
 
+  it("honors explicit current-scene hit testing before a runtime frame is published", () => {
+    const element = createHostElement();
+    const hit = hitTestGpuRetainedContentInteraction({
+      element,
+      event: createPointerEvent("pointermove", {
+        clientX: 116,
+        clientY: 42,
+        pointerId: 1,
+      }),
+      forceCurrentScene: true,
+      getRetainedRuntimeFrame: () => null,
+      getScene: () => retainedContentScene(),
+      store: createGpuFlowViewportStore(),
+    });
+
+    expect(hit).toMatchObject({
+      hit: {
+        id: "row:param-1",
+        kind: "row",
+        ownerRowId: "param-1",
+      },
+      localPoint: { x: 116, y: 42 },
+      surfaceId: "dict-a:param-content:unpinned",
+    });
+  });
+
   it("hit tests the current retained scene after a runtime frame has been published", () => {
     const element = createHostElement();
     const scene = retainedContentScene();

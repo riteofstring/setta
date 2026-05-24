@@ -263,7 +263,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     expect(proof.commitProof).toBeNull();
     expect(proof.renderedVisibleFrame).toBe(false);
     expect(
-      proof.visibleFrameEnginePreparedFrame.candidate.requiredActors,
+      proof.visibleFrameStateMachinePreparedFrame.candidate.requiredActors,
     ).toContainEqual({
       actorId: "settings:section-shell",
       family: "section-shell",
@@ -392,7 +392,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     });
     const motionBlockedCandidate =
       createGpuFlowRetainedProjectionBlockedPublicationCandidate({
-        blockedReason: "held-previous-budget-exceeded",
+        blockedReason: "retained-projection-coverage-missing",
         heldPreviousProjectionState: previousVisibleProjectionState,
       });
 
@@ -426,7 +426,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
       {
         actorId: null,
         family: "retained-projection",
-        reason: "held-previous-budget-exceeded",
+        reason: "retained-projection-coverage-missing",
       },
     ]);
   });

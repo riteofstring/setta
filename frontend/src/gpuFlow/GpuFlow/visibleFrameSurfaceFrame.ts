@@ -22,14 +22,14 @@ import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import { renderGpuFlowNodeLayerFrame } from "./flowFrame";
 import type { GpuFlowNodeLayerFrameStatePublication } from "./flowFrameLifecycle";
+import { createGpuFlowRetainedRuntimeFrameSourceSignature } from "./flowMountedSceneNodes";
 import { renderGpuFlowNodeLayerProjectionFrame } from "./flowProjectionFrame";
 import { shouldReuseGpuFlowDeferredRetainedContentPublicationFrame } from "./flowRetainedContentFrameCache";
 import { createGpuFlowRetainedRuntimeFrameSourceRenderSignature } from "./flowRetainedRuntimeFrameSignatures";
 import { sampleGpuFlowRetainedContentRuntimeScene } from "./retainedContentRuntimeSceneSampling";
-import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
 import {
   createGpuFlowContentPublicationFrameResult,
-  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  runGpuFlowVisibleFrameCoordinator,
   shouldConsiderGpuFlowDeferredContentPublication,
   shouldDeferGpuFlowBrowserVisualRetryForPublication,
   type GpuFlowContentPublicationFrameResult,
@@ -41,8 +41,7 @@ import {
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationPreparedCandidateSetFrame,
-} from "./visibleFrameKernel";
-import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
+} from "./visibleFrameCoordinator";
 import {
   createGpuFlowVisiblePublicationPresentationEvidence,
   type GpuFlowVisiblePublicationPresentationEvidence,
@@ -52,6 +51,8 @@ import type {
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
+import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
+import { resolveGpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
 type GpuFlowNodeLayerFrameInput = Parameters<
@@ -194,7 +195,7 @@ export function renderGpuFlowSurfaceFrame({
           input.visibleProjectionPublicationStateRef,
         visibleProjectionStateRef: input.visibleProjectionStateRef,
       });
-    runGpuFlowVisibleFramePublicationCandidateSetKernel({
+    runGpuFlowVisibleFrameCoordinator({
       prepareMotionProjectionFrame: ({
         motionProjectionWorkPlan,
         previousVisibleProjectionState,
@@ -299,6 +300,9 @@ export function renderGpuFlowSurfaceFrame({
       publish: publishGpuFlowSurfacePublicationFrame,
       sampleVisibleFramePublication: () => {
         const runtimeFrame = viewportRuntime.runFrame(event.timestamp);
+        const hasCommittedContentFrame =
+          input.retainedDisplayFrameRef.current !== null;
+        frameMeasureDetail.hasCommittedContentFrame = hasCommittedContentFrame;
         nodeLayerRef.current = {
           ...nodeLayerRef.current,
           viewport: viewportRuntime.getViewportTuple(),
@@ -320,8 +324,7 @@ export function renderGpuFlowSurfaceFrame({
         frameMeasureDetail.sampleViewportY = sampleViewport.y;
         frameMeasureDetail.sampleViewportZoom = sampleViewport.zoom;
         return {
-          hasCommittedContentFrame:
-            input.retainedDisplayFrameRef.current !== null,
+          hasCommittedContentFrame,
           previousVisibleProjectionState:
             input.visibleProjectionPublicationStateRef.current ??
             input.visibleProjectionStateRef.current,
@@ -677,6 +680,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
       contentPublicationWorkPlan,
       deferResolutionUpdates: contentDeferResolutionUpdates,
       liveProjectionSample,
+      nodeElementByIdRef: input.nodeElementByIdRef,
       nodeLayerRef,
       publicationDecision,
       retainedContentFrameCacheRef: input.retainedContentFrameCacheRef,
@@ -690,7 +694,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
   }
   if (contentPublicationWorkPlan.kind !== "prepare") {
     throw new Error(
-      "GPU Flow content publication frame requires a kernel prepare work plan.",
+      "GPU Flow content publication frame requires a coordinator prepare work plan.",
     );
   }
   return renderGpuFlowNodeLayerFrame({
@@ -751,6 +755,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
   contentPublicationWorkPlan,
   deferResolutionUpdates,
   liveProjectionSample,
+  nodeElementByIdRef,
   nodeLayerRef,
   publicationDecision,
   retainedContentFrameCacheRef,
@@ -761,6 +766,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
   readonly contentPublicationWorkPlan: GpuFlowContentPublicationWorkPlan;
   readonly deferResolutionUpdates: boolean;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
+  readonly nodeElementByIdRef: RenderGpuFlowSurfaceFrameInput["nodeElementByIdRef"];
   readonly nodeLayerRef: RenderGpuFlowSurfaceFrameInput["nodeLayerRef"];
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly retainedContentFrameCacheRef: RenderGpuFlowSurfaceFrameInput["retainedContentFrameCacheRef"];
@@ -774,6 +780,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
   return !shouldSkipDeferredGpuFlowContentPublication({
     deferResolutionUpdates,
     liveProjectionSample,
+    nodeElementByIdRef,
     nodeLayerRef,
     publicationDecision,
     retainedContentFrameCacheRef,
@@ -786,6 +793,7 @@ function shouldRenderGpuFlowSurfaceContentPublicationFrame({
 function shouldSkipDeferredGpuFlowContentPublication({
   deferResolutionUpdates,
   liveProjectionSample,
+  nodeElementByIdRef,
   nodeLayerRef,
   publicationDecision,
   retainedContentFrameCacheRef,
@@ -795,6 +803,7 @@ function shouldSkipDeferredGpuFlowContentPublication({
 }: {
   readonly deferResolutionUpdates: boolean;
   readonly liveProjectionSample: GpuFlowLiveProjectionSample;
+  readonly nodeElementByIdRef: RenderGpuFlowSurfaceFrameInput["nodeElementByIdRef"];
   readonly nodeLayerRef: RenderGpuFlowSurfaceFrameInput["nodeLayerRef"];
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly retainedContentFrameCacheRef: RenderGpuFlowSurfaceFrameInput["retainedContentFrameCacheRef"];
@@ -827,6 +836,7 @@ function shouldSkipDeferredGpuFlowContentPublication({
     normalizeGpuViewport(liveProjectionSample.viewport).zoom,
   );
   return isReusableGpuFlowDeferredContentPublicationFrame({
+    nodeElementByIdRef,
     nodeLayerRef,
     preparedFrame,
     targetViewport: liveProjectionSample.viewport,
@@ -835,11 +845,13 @@ function shouldSkipDeferredGpuFlowContentPublication({
 }
 
 function isReusableGpuFlowDeferredContentPublicationFrame({
+  nodeElementByIdRef,
   nodeLayerRef,
   preparedFrame,
   targetViewport,
   targetZoomBucket,
 }: {
+  readonly nodeElementByIdRef: RenderGpuFlowSurfaceFrameInput["nodeElementByIdRef"];
   readonly nodeLayerRef: RenderGpuFlowSurfaceFrameInput["nodeLayerRef"];
   readonly preparedFrame: NonNullable<
     RenderGpuFlowSurfaceFrameInput["retainedContentFrameCacheRef"]["current"]
@@ -849,6 +861,11 @@ function isReusableGpuFlowDeferredContentPublicationFrame({
 }): boolean {
   return shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
     cachedFrame: preparedFrame,
+    contentSurfaces: nodeLayerRef.current.scene?.contentSurfaces,
+    nativeVisualSignature: createGpuFlowRetainedRuntimeFrameSourceSignature({
+      layer: nodeLayerRef.current,
+      nodeElementById: nodeElementByIdRef.current,
+    }),
     sceneRevision: nodeLayerRef.current.scene?.revision ?? 0,
     targetViewport,
     targetZoomBucket,

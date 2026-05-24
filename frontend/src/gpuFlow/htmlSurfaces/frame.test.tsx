@@ -32,12 +32,12 @@ import {
   textureRecord,
   toVisibleQuad,
 } from "./frame.test-helper";
+import type { RenderHtmlSurfacesInput } from "./renderer";
 import {
   HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_PROJECTED_INTERACTION_ATTRIBUTE,
 } from "./sourceDom";
 import { HtmlSurfaceTextureManager } from "./textures";
-import type { RenderHtmlSurfacesInput } from "./renderer";
 
 describe("HTML surface frame helpers", () => {
   afterEach(() => {

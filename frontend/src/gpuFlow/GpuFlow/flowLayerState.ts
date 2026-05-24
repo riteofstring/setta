@@ -35,6 +35,7 @@ export type GpuFlowNodeLayerState = {
   readonly marginCssPx: number | undefined;
   readonly nodes: readonly GpuNodeLayout[] | undefined;
   readonly nodeTextureMemoryBudgetBytes: number | undefined;
+  readonly nodeTextureTileDimensionPx: number | undefined;
   readonly retainedContentRowHoverTarget?:
     | GpuRetainedContentRowHoverTarget
     | null

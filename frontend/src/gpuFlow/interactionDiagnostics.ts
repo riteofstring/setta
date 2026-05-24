@@ -82,6 +82,8 @@ export type MutableGpuFlowInteractionDiagnostics = {
   activeRetainedPointerDragging: boolean;
   activeRetainedPointerId: number | null;
   hoveredRetainedHit: GpuFlowRetainedHitDiagnostics | null;
+  lastRetainedClickHit: GpuFlowRetainedHitDiagnostics | null;
+  lastRetainedPointerDownHit: GpuFlowRetainedHitDiagnostics | null;
   lastPointer: GpuFlowPointerDiagnostics | null;
   pointerCapture: GpuFlowPointerCaptureDiagnostics | null;
 };
@@ -94,6 +96,8 @@ export type GpuFlowInteractionDiagnostics = {
   readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null;
   readonly activeRetainedHit: GpuFlowRetainedHitDiagnostics | null;
   readonly hoveredRetainedHit: GpuFlowRetainedHitDiagnostics | null;
+  readonly lastRetainedClickHit: GpuFlowRetainedHitDiagnostics | null;
+  readonly lastRetainedPointerDownHit: GpuFlowRetainedHitDiagnostics | null;
   readonly lastPointer: GpuFlowPointerDiagnostics | null;
   readonly nodeInteractionActiveNodeId: string | null;
   readonly pointerCapture: GpuFlowPointerCaptureDiagnostics | null;
@@ -230,6 +234,8 @@ export function createGpuFlowInteractionDiagnosticsState(): MutableGpuFlowIntera
     activeRetainedPointerDragging: false,
     activeRetainedPointerId: null,
     hoveredRetainedHit: null,
+    lastRetainedClickHit: null,
+    lastRetainedPointerDownHit: null,
     lastPointer: null,
     pointerCapture: null,
   };
@@ -274,6 +280,8 @@ export function createGpuFlowInteractionDiagnosticsSnapshot({
     presentationIdentity,
     activeRetainedHit: diagnostics.activeRetainedHit,
     hoveredRetainedHit: diagnostics.hoveredRetainedHit,
+    lastRetainedClickHit: diagnostics.lastRetainedClickHit,
+    lastRetainedPointerDownHit: diagnostics.lastRetainedPointerDownHit,
     lastPointer: diagnostics.lastPointer,
     nodeInteractionActiveNodeId,
     pointerCapture: diagnostics.pointerCapture,
@@ -572,6 +580,18 @@ declare global {
       | (() => readonly GpuFlowRetainedRowDebugEntry[])
       | undefined;
     __SETTA_GPU_FLOW_DEBUG_RETAINED_ROW_COUNT__?: (() => number) | undefined;
+    __SETTA_GPU_FLOW_DEBUG_RETAINED_NATIVE_VISUALS__?:
+      | (() => {
+          readonly layerNativeVisualSurfaceIds: readonly string[];
+          readonly retainedRuntimeFrameId: number | null;
+          readonly retainedRuntimeNativeVisualSurfaceIds: readonly string[];
+          readonly rowHoverTarget: {
+            readonly rowId: string;
+            readonly surfaceId: string;
+          } | null;
+          readonly visualSceneSolidSurfaceIds: readonly string[];
+        })
+      | undefined;
     __SETTA_GPU_FLOW_DEBUG_RETAINED_SCENE_SUMMARY__?:
       | (() => GpuFlowRetainedSceneDebugSummary)
       | undefined;

@@ -77,21 +77,26 @@ export function shouldReuseGpuFlowRetainedRuntimeFrameForSample({
 
 export function shouldReuseGpuFlowDeferredRetainedContentPublicationFrame({
   cachedFrame,
+  contentSurfaces,
+  nativeVisualSignature,
   sceneRevision,
   targetViewport,
   targetZoomBucket,
 }: {
   readonly cachedFrame: GpuFlowRetainedContentFrameCache;
+  readonly contentSurfaces: readonly GpuContentSurface[] | undefined;
+  readonly nativeVisualSignature: string;
   readonly sceneRevision: number;
   readonly targetViewport: GpuViewportInput;
   readonly targetZoomBucket: number;
 }): boolean {
   return (
+    cachedFrame.contentSurfaces === contentSurfaces &&
     cachedFrame.sceneRevision === sceneRevision &&
     cachedFrame.viewportZoomBucket === targetZoomBucket &&
     shouldReuseGpuFlowRetainedRuntimeFrameForSample({
       cachedFrame,
-      nativeVisualSignature: cachedFrame.nativeVisualSignature,
+      nativeVisualSignature,
       viewport: targetViewport,
     })
   );

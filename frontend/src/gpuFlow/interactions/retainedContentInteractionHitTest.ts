@@ -169,21 +169,19 @@ function resolveUseCurrentRetainedScene({
   readonly scene: GpuFlowScene;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): boolean {
+  if (forceCurrentScene) {
+    return true;
+  }
   if (!visibleProjectionState) {
     return false;
   }
-  return (
-    forceCurrentScene ||
-    shouldHitTestCurrentRetainedScene({
-      currentScrollOffsets,
-      retainedRuntimeFrame:
-        getRetainedRuntimeFrame !== undefined
-          ? retainedRuntimeFrame
-          : undefined,
-      scene,
-      visibleProjectionState,
-    })
-  );
+  return shouldHitTestCurrentRetainedScene({
+    currentScrollOffsets,
+    retainedRuntimeFrame:
+      getRetainedRuntimeFrame !== undefined ? retainedRuntimeFrame : undefined,
+    scene,
+    visibleProjectionState,
+  });
 }
 
 function resolveHitTestViewport({
@@ -213,6 +211,13 @@ function hitTestGpuRetainedContentInteractionFrame({
   useCurrentRetainedScene,
   visibleProjectionState,
 }: GpuRetainedContentInteractionHitRuntimeInput): GpuRetainedContentHitTarget | null {
+  if (useCurrentRetainedScene) {
+    return hitTestGpuRetainedContentSampledScene({
+      point: flowPoint,
+      scene,
+      scrollOffsets: currentScrollOffsets,
+    });
+  }
   if (visibleProjectionState) {
     return hitTestGpuRetainedContentInteractionVisibleProjection({
       currentScrollOffsets,

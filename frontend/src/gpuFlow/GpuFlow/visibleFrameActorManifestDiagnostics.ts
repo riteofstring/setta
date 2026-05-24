@@ -1,4 +1,8 @@
 import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import {
+  getGpuFlowBrowserStyleBlockedReasonFamily,
+  getGpuFlowBrowserStyleVisibleFrameActorFamily,
+} from "./visibleFrameActorRegistry";
 import type { GpuFlowBlockedVisibleReason } from "./visibleFramePresentationProofs";
 
 export type GpuFlowVisibleFrameActorManifestDiagnostics = {
@@ -174,7 +178,10 @@ function createGpuFlowVisibleFrameBlockedActorsByFamily(
 ): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const reason of blockedReasons) {
-    incrementGpuFlowVisibleFrameActorFamily(counts, reason.family);
+    incrementGpuFlowVisibleFrameActorFamily(
+      counts,
+      getGpuFlowBrowserStyleBlockedReasonFamily(reason),
+    );
   }
   return freezeGpuFlowVisibleFrameActorFamilyCounts(counts);
 }
@@ -198,7 +205,7 @@ function createGpuFlowVisibleFrameScrollHorizonCoverage(
 function getGpuFlowVisibleFrameManifestActorFamily(
   actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
 ): string {
-  return actor.actorFamily ?? actor.kind;
+  return getGpuFlowBrowserStyleVisibleFrameActorFamily(actor);
 }
 
 function incrementGpuFlowVisibleFrameActorFamily(

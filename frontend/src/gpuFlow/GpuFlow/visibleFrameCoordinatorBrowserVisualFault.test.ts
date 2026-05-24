@@ -8,9 +8,9 @@ import {
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
-  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFrameKernel";
+} from "./visibleFrameCoordinator";
 
 describe("GPU Flow visible publication browser visual fault injection", () => {
   afterEach(() => {
@@ -32,7 +32,7 @@ describe("GPU Flow visible publication browser visual fault injection", () => {
     });
     const phases: string[] = [];
 
-    const result = runGpuFlowVisibleFramePublicationCandidateSetKernel({
+    const result = runGpuFlowVisibleFrameCoordinator({
       prepareContentPublicationFrame: ({ contentPublicationWorkPlan }) => {
         phases.push(`content:${contentPublicationWorkPlan.kind}`);
         return {

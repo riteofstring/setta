@@ -67,9 +67,7 @@ import {
   reportGpuFlowNodeLayerFramePerformance,
   type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
-import {
-  combineGpuFlowHtmlSurfaceNativeVisuals,
-} from "./flowFrameVisuals";
+import { combineGpuFlowHtmlSurfaceNativeVisuals } from "./flowFrameVisuals";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 import {
   createGpuFlowRenderedSceneNodeIds,
@@ -81,7 +79,6 @@ import {
   shouldReuseGpuFlowRetainedRuntimeFrameForSample,
   type GpuFlowRetainedContentFrameCache,
 } from "./flowRetainedContentFrameCache";
-import { createGpuFlowRetainedRuntimeFrameForLayer } from "./flowRetainedRuntimeFrame";
 import {
   markGpuFlowRetainedContentFrameFreshnessDirty,
   settleGpuFlowRetainedContentFrameSwitchAnimationSurfaces,
@@ -92,6 +89,7 @@ import {
   postGpuFlowRetainedDomControlChromeReproEvent,
 } from "./flowRetainedFrameDiagnostics";
 import { resolveGpuFlowRetainedPageMaintenanceAfterPublish } from "./flowRetainedPageMaintenance";
+import { createGpuFlowRetainedRuntimeFrameForLayer } from "./flowRetainedRuntimeFrame";
 import {
   hasGpuFlowRetainedContentActiveSwitchAnimationSurfaces,
   syncGpuFlowRetainedContentSwitchAnimationSurfaces,
@@ -108,7 +106,7 @@ import {
   type GpuFlowContentPublicationFrameResult,
   type GpuFlowRetainedCommittedSurfacePublicationContentStageRunner,
   type GpuFlowRetainedDisplayCommittedSurfaceFramePreparer,
-} from "./visibleFrameKernel";
+} from "./visibleFrameCoordinator";
 
 export function resolveRenderableGpuFlowLayerFrameInput({
   canvasSizeRef,
@@ -149,6 +147,7 @@ export function resolveRenderableGpuFlowLayerFrameInput({
     nodes: layer.nodes ?? EMPTY_GPU_NODE_LAYOUTS,
     resources: ensureNodeLayerResources({
       htmlSurfaceRendererRef,
+      nodeTextureTileDimensionPx: layer.nodeTextureTileDimensionPx,
       retainedContentPageManagerRef,
       runtime,
       textureManagerRef,
@@ -158,17 +157,23 @@ export function resolveRenderableGpuFlowLayerFrameInput({
 
 function ensureNodeLayerResources({
   htmlSurfaceRendererRef,
+  nodeTextureTileDimensionPx,
   retainedContentPageManagerRef,
   runtime,
   textureManagerRef,
 }: {
   readonly htmlSurfaceRendererRef: MutableRefObject<HtmlSurfaceRenderer | null>;
+  readonly nodeTextureTileDimensionPx: number | undefined;
   readonly retainedContentPageManagerRef: MutableRefObject<RetainedContentTexturePageManager | null>;
   readonly runtime: GpuFlowRuntime;
   readonly textureManagerRef: MutableRefObject<HtmlSurfaceTextureManager | null>;
 }) {
   if (!textureManagerRef.current) {
-    textureManagerRef.current = createHtmlSurfaceTextureManager(runtime);
+    textureManagerRef.current = createHtmlSurfaceTextureManager(runtime, {
+      ...(nodeTextureTileDimensionPx === undefined
+        ? {}
+        : { maxTextureTileDimension2D: nodeTextureTileDimensionPx }),
+    });
   }
   if (!htmlSurfaceRendererRef.current) {
     htmlSurfaceRendererRef.current = new HtmlSurfaceRenderer(runtime);

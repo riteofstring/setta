@@ -61,6 +61,7 @@ export type GpuFlowProps = Pick<
   marginCssPx?: number | undefined;
   nodeClassName?: string | undefined;
   nodeTextureMemoryBudgetBytes?: number | undefined;
+  nodeTextureTileDimensionPx?: number | undefined;
   onNodeElementChange?:
     | ((nodeId: string, element: HTMLElement | null) => void)
     | undefined;

@@ -19,7 +19,10 @@ import type {
   RenderHtmlSurfacesInput,
   RenderHtmlSurfacesResult,
 } from "./renderer";
-import { HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE } from "./sourceDom";
+import {
+  HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE,
+  HTML_SURFACE_CAPTURE_TARGET_FOR_ATTRIBUTE,
+} from "./sourceDom";
 import { resolveVisibleNodeTexturePriority } from "./sourceTransforms";
 import {
   createHtmlSurfaceTextureUploadWorkSummary,
@@ -334,13 +337,17 @@ function registerVisibleGpuNodeTextures({
       surfaceId: quad.nodeId,
       textureManager,
     });
+    const captureElement = resolveHtmlSurfaceTextureCaptureElement({
+      element,
+      surfaceId: quad.nodeId,
+    });
     textureManager.registerSurfaceTexture({
       cssHeight: quad.textureCssHeight ?? quad.height,
       cssWidth: quad.textureCssWidth ?? quad.width,
       ...(deferResolutionUpdates ? { deferResolution: true } : {}),
       ...(deferUploadUntilPaint ? { deferUploadUntilPaint: true } : {}),
       devicePixelRatio,
-      element,
+      element: captureElement,
       frame,
       priority: resolveVisibleNodeTexturePriority(
         quad.nodeId,
@@ -357,6 +364,25 @@ function registerVisibleGpuNodeTextures({
     });
   }
   return missingElementNodeIds;
+}
+
+function resolveHtmlSurfaceTextureCaptureElement({
+  element,
+  surfaceId,
+}: {
+  readonly element: HTMLElement;
+  readonly surfaceId: string;
+}): HTMLElement {
+  const siblingCaptureTarget = element.parentElement?.querySelector<HTMLElement>(
+    `[${HTML_SURFACE_CAPTURE_TARGET_FOR_ATTRIBUTE}="${cssEscape(surfaceId)}"]`,
+  );
+  return siblingCaptureTarget ?? element;
+}
+
+function cssEscape(value: string): string {
+  return globalThis.CSS?.escape
+    ? globalThis.CSS.escape(value)
+    : value.replace(/["\\]/g, "\\$&");
 }
 
 function shouldDeferHtmlSurfaceUploadUntilPaint({

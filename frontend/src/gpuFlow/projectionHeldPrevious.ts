@@ -1,4 +1,4 @@
-import { getGpuFlowVisibleFrameHeldPreviousBudgetStatus } from "./GpuFlow/visibleFrameEngine";
+import { getGpuFlowVisibleFrameHeldPreviousBudgetStatus } from "./GpuFlow/visibleFrameStateMachine";
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionSchedulerKnobs,
@@ -84,8 +84,7 @@ export function createGpuFlowHeldPreviousProjection({
     heldAtMs: requestedSample.timestamp,
     heldDurationMs,
     hitProjectionId: hitGenerationId,
-    maxHeldPreviousFramesExceeded:
-      budgetStatus.maxHeldPreviousFramesExceeded,
+    maxHeldPreviousFramesExceeded: budgetStatus.maxHeldPreviousFramesExceeded,
     maxHeldPreviousMsExceeded: budgetStatus.maxHeldPreviousMsExceeded,
     previousTransactionId: previousVisibleProjectionState.transaction.id,
     projectionSampleId: heldTransaction.sample.id,

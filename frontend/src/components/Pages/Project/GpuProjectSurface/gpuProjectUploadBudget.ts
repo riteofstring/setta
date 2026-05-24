@@ -5,3 +5,5 @@ export const PROJECT_GPU_NODE_UPLOAD_BUDGET = {
   maxDurationMs: 4,
   maxUploads: 2,
 } as const;
+
+export const PROJECT_GPU_NODE_TEXTURE_TILE_DIMENSION_PX = 256;

@@ -2,6 +2,8 @@ import type {
   GpuFlowProjectionLane,
   GpuFlowVisiblePublicationDecision,
 } from "../projectionRuntime";
+import { shouldDeferGpuFlowMaintenanceContentCatchup } from "../projectionScheduler";
+import { shouldDeferGpuFlowBrowserVisualRepairForBudget } from "./visibleFrameBudgetBroker";
 
 export type GpuFlowMotionProjectionWorkPlan =
   | {
@@ -70,11 +72,10 @@ export function shouldDeferGpuFlowBrowserVisualRetryForPublication({
   readonly deferResolutionUpdates: boolean;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }): boolean {
-  return (
-    deferResolutionUpdates ||
-    (publicationDecision.schedulerState === "motion-active" &&
-      publicationDecision.lane !== "motion")
-  );
+  return shouldDeferGpuFlowBrowserVisualRepairForBudget({
+    deferResolutionUpdates,
+    publicationDecision,
+  });
 }
 
 export function shouldConsiderGpuFlowDeferredContentPublication({
@@ -88,8 +89,12 @@ export function shouldConsiderGpuFlowDeferredContentPublication({
 }): boolean {
   return (
     deferResolutionUpdates &&
-    publicationDecision.schedulerState === "motion-settling" &&
     publicationDecision.lane !== "motion" &&
-    hasPreviousRetainedDisplayFrame
+    hasPreviousRetainedDisplayFrame &&
+    (publicationDecision.schedulerState === "motion-settling" ||
+      shouldDeferGpuFlowMaintenanceContentCatchup({
+        lane: publicationDecision.lane,
+        rawReasons: publicationDecision.rawReasons,
+      }))
   );
 }

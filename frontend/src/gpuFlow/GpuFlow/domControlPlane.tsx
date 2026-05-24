@@ -137,6 +137,10 @@ export function GpuFlowDomControlPlane({
   const frameIdsRef = useRef(frameIds);
   frameIdsRef.current = frameIds;
   const controlsToMount = snapshot.domControls.mountedControls;
+  const activeControlsToMount = useMemo(
+    () => controlsToMount.filter((control) => control.active),
+    [controlsToMount],
+  );
   const visibleControlIds = useMemo(
     () => new Set(controlsToMount.map((control) => control.sourceId)),
     [controlsToMount],
@@ -187,11 +191,13 @@ export function GpuFlowDomControlPlane({
           presentation,
           ...(token === null ? {} : { token }),
         });
-        if (element) {
-          browserVisualRuntime.requestCommittedBrowserVisualRepairFrame({
-            surface: surfaceRef?.current,
-          });
-        }
+        requestGpuFlowDomControlHostFrameIfNeeded({
+          browserVisualRuntime,
+          control,
+          element,
+          presentation,
+          surfaceRef,
+        });
       } finally {
         finishMeasure();
       }
@@ -270,11 +276,11 @@ export function GpuFlowDomControlPlane({
     const projectionFrameKey = [
       frameIds.committedFrameId,
       frameIds.runtimeFrameId,
-      controlsToMount.length,
+      activeControlsToMount.length,
       snapshot.domControls.sourceRevision,
     ].join(":");
     if (
-      controlsToMount.length > 0 &&
+      activeControlsToMount.length > 0 &&
       projectedFrameRequestKeyRef.current !== projectionFrameKey
     ) {
       projectedFrameRequestKeyRef.current = projectionFrameKey;
@@ -284,10 +290,67 @@ export function GpuFlowDomControlPlane({
     }
   }, [
     browserVisualRuntime,
-    controlsToMount.length,
+    activeControlsToMount.length,
     frameIds,
     snapshot.domControls.sourceRevision,
     surfaceRef,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!publicationToken || activeControlsToMount.length === 0) {
+      return;
+    }
+    let disposed = false;
+    let frameHandle: number | null = null;
+    const clearFrame = () => {
+      if (frameHandle === null) {
+        return;
+      }
+      window.cancelAnimationFrame(frameHandle);
+      frameHandle = null;
+    };
+    const projectActiveControls = () => {
+      frameHandle = null;
+      if (disposed) {
+        return;
+      }
+      if (!viewportStore.getState().retainedContentScrolling) {
+        return;
+      }
+      browserVisualRuntime.projectDomControls({
+        token: publicationToken,
+      });
+      frameHandle = window.requestAnimationFrame(projectActiveControls);
+    };
+    const scheduleProjection = () => {
+      if (frameHandle !== null) {
+        return;
+      }
+      frameHandle = window.requestAnimationFrame(projectActiveControls);
+    };
+    if (viewportStore.getState().retainedContentScrolling) {
+      scheduleProjection();
+    }
+    const unsubscribe = viewportStore.subscribe((state, previousState) => {
+      if (
+        state.retainedContentScrolling ===
+          previousState.retainedContentScrolling ||
+        !state.retainedContentScrolling
+      ) {
+        return;
+      }
+      scheduleProjection();
+    });
+    return () => {
+      disposed = true;
+      clearFrame();
+      unsubscribe();
+    };
+  }, [
+    activeControlsToMount.length,
+    browserVisualRuntime,
+    publicationToken,
+    viewportStore,
   ]);
 
   useLayoutEffect(() => {
@@ -327,7 +390,7 @@ export function GpuFlowDomControlPlane({
     };
     view.__settaGpuFlowBrowserVisualPreparationDiagnostics = (actorId) =>
       createGpuFlowBrowserVisualPreparationDiagnostics({
-        actorId,
+        actorId: actorId ?? null,
         browserVisualRuntime,
       });
     view.__settaGpuFlowDomControlPlaneDiagnostics = () => ({
@@ -418,6 +481,46 @@ export function GpuFlowDomControlPlane({
       ) : null}
     </div>
   );
+}
+
+function requestGpuFlowDomControlHostFrameIfNeeded({
+  browserVisualRuntime,
+  control,
+  element,
+  presentation,
+  surfaceRef,
+}: {
+  readonly browserVisualRuntime: GpuFlowBrowserVisualActorRuntime;
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+  readonly element: HTMLElement | null;
+  readonly presentation: "preparation" | "visible";
+  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null> | undefined;
+}) {
+  if (!element) {
+    return;
+  }
+  if (presentation === "preparation" && control.active) {
+    requestGpuFlowDomControlActivationFrame({ element, surfaceRef });
+    return;
+  }
+  if (shouldRequestGpuFlowDomControlHostRepairFrame({ control })) {
+    browserVisualRuntime.requestCommittedBrowserVisualRepairFrame({
+      surface: surfaceRef?.current,
+    });
+  }
+}
+
+function requestGpuFlowDomControlActivationFrame({
+  element,
+  surfaceRef,
+}: {
+  readonly element: HTMLElement;
+  readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null> | undefined;
+}) {
+  surfaceRef?.current?.requestFrame("dom-control-activation");
+  element.ownerDocument.defaultView?.setTimeout(() => {
+    surfaceRef?.current?.requestFrame("dom-control-activation");
+  }, 0);
 }
 
 function isGpuFlowDomControlPreparationHostRequired({
@@ -640,6 +743,21 @@ function GpuFlowDomControlHost({
           visibility: "hidden" as const,
         }
       : initialStyle;
+  const requestRetainedControlActivation = useCallback(
+    (clientPoint: { readonly x: number; readonly y: number }) => {
+      if (presentation !== "visible") {
+        return;
+      }
+      if (control.active || control.disabled) {
+        return;
+      }
+      onActivate?.(control, {
+        clientPoint,
+        kind: "pointer",
+      });
+    },
+    [control, onActivate, presentation],
+  );
 
   return (
     <div
@@ -669,18 +787,21 @@ function GpuFlowDomControlHost({
       data-gpu-flow-dom-control-active={control.active ? "true" : "false"}
       {...coverageDebugAttributes}
       onPointerDownCapture={(event) => {
-        if (presentation !== "visible") {
+        if (event.button !== 0) {
           return;
         }
-        if (control.active || control.disabled) {
+        requestRetainedControlActivation({
+          x: event.clientX,
+          y: event.clientY,
+        });
+      }}
+      onMouseDownCapture={(event) => {
+        if (event.button !== 0) {
           return;
         }
-        onActivate?.(control, {
-          clientPoint: {
-            x: event.clientX,
-            y: event.clientY,
-          },
-          kind: "pointer",
+        requestRetainedControlActivation({
+          x: event.clientX,
+          y: event.clientY,
         });
       }}
       onCompositionEndCapture={() => {
@@ -716,6 +837,14 @@ function GpuFlowDomControlHost({
       </div>
     </div>
   );
+}
+
+function shouldRequestGpuFlowDomControlHostRepairFrame({
+  control,
+}: {
+  readonly control: GpuRetainedDomControlSourceDescriptor;
+}): boolean {
+  return control.active;
 }
 
 function getGpuFlowDomControlCoverageDebugAttributes({

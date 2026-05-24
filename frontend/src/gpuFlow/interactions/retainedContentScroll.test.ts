@@ -197,7 +197,7 @@ describe("GPU retained content scroll controller", () => {
     expect(store.getState().viewportInteractionActive).toBe(true);
     expect(requestFrame).toHaveBeenCalledWith("retained-scroll");
     expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
-    vi.advanceTimersByTime(119);
+    vi.advanceTimersByTime(179);
     expect(store.getState().retainedContentScrolling).toBe(true);
     expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
     vi.advanceTimersByTime(1);
@@ -240,13 +240,13 @@ describe("GPU retained content scroll controller", () => {
     expect(store.getState().retainedContentScrolling).toBe(true);
     store.getState().setViewportInteractionFlags({ panScrolling: true });
 
-    vi.advanceTimersByTime(120);
+    vi.advanceTimersByTime(180);
     expect(store.getState().retainedContentScrolling).toBe(false);
     expect(store.getState().viewportInteractionActive).toBe(true);
     expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
 
     store.getState().setViewportInteractionFlags({ panScrolling: false });
-    vi.advanceTimersByTime(119);
+    vi.advanceTimersByTime(179);
     expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
     vi.advanceTimersByTime(1);
     expect(store.getState().viewportInteractionActive).toBe(false);

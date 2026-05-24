@@ -23,5 +23,44 @@ export function resolveGpuFlowRenderableNodes({
       return sceneNodes;
     }
   }
-  return storeNodes;
+  const sceneNodeById = new Map(sceneNodes.map((node) => [node.nodeId, node]));
+  return storeNodes.map((storeNode) => {
+    const sceneNode = sceneNodeById.get(storeNode.nodeId);
+    if (!sceneNode) {
+      return storeNode;
+    }
+    return mergeGpuFlowSceneNodeTextureMetadata({
+      sceneNode,
+      storeNode,
+    });
+  });
+}
+
+function mergeGpuFlowSceneNodeTextureMetadata({
+  sceneNode,
+  storeNode,
+}: {
+  readonly sceneNode: GpuNodeLayout;
+  readonly storeNode: GpuNodeLayout;
+}): GpuNodeLayout {
+  const baseNode = { ...storeNode };
+  delete baseNode.textureContentKey;
+  delete baseNode.textureCssHeight;
+  delete baseNode.textureCssWidth;
+  delete baseNode.textureSourceRect;
+  return {
+    ...baseNode,
+    ...(sceneNode.textureContentKey === undefined
+      ? {}
+      : { textureContentKey: sceneNode.textureContentKey }),
+    ...(sceneNode.textureCssHeight === undefined
+      ? {}
+      : { textureCssHeight: sceneNode.textureCssHeight }),
+    ...(sceneNode.textureCssWidth === undefined
+      ? {}
+      : { textureCssWidth: sceneNode.textureCssWidth }),
+    ...(sceneNode.textureSourceRect === undefined
+      ? {}
+      : { textureSourceRect: sceneNode.textureSourceRect }),
+  };
 }

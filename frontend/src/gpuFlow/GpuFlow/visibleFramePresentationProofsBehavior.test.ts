@@ -9,13 +9,13 @@ import {
   type GpuFlowLiveProjectionSample,
 } from "../projectionRuntime";
 import type { SurfaceDisplayTransaction } from "../surfaceCompositor/surfaceTransaction";
-import { proveGpuFlowVisibleFrameEngineFrame } from "./visibleFrameEngine";
+import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
 import {
   assertGpuFlowCommitPublicationToken,
   proveGpuFlowVisibleFramePublicationPresentation,
   type GpuFlowCommitAuthorityProof,
 } from "./visibleFramePresentationProofs";
-import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
+import { proveGpuFlowVisibleFrameStateMachineFrame } from "./visibleFrameStateMachine";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFrameTestUtils";
 import { createGpuFlowContentFrameId } from "./visibleFrameTypes";
 
@@ -360,7 +360,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     ).toThrow(/commit publication token for the same visible frame/);
   });
 
-  it("keeps browser visual blocked content debt queued without an immediate manual retry", () => {
+  it("wakes the coordinator for browser visual blocked content debt", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({
       blockedPublicationProof: {
@@ -410,7 +410,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       >[0]["scheduler"],
       transactionProof: {
         renderedVisibleFrame: false,
-        visibleFrameEngineOutcome: {
+        visibleFrameStateMachineOutcome: {
           debt: {
             browserVisual: true,
             content: true,
@@ -439,7 +439,10 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         debt: { content: true, maintenance: false, motion: false },
         outcome: "blocked",
       },
-      debtFrameRequest: null,
+      debtFrameRequest: {
+        delayMs: null,
+        frameReason: "manual",
+      },
     });
   });
 
@@ -493,7 +496,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       >[0]["scheduler"],
       transactionProof: {
         renderedVisibleFrame: false,
-        visibleFrameEngineOutcome: {
+        visibleFrameStateMachineOutcome: {
           debt: {
             browserVisual: false,
             content: true,
@@ -517,7 +520,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
 
     expect(completion.outcome.kind).toBe("blocked");
-    expect(completion.followUpFrameRequests).toEqual([]);
+    expect(completion.followUpFrameRequests).toEqual(["texture-upload"]);
     expect(completion.completeSchedulerFrame()).toEqual({
       completion: {
         debt: { content: true, maintenance: true, motion: true },
@@ -588,24 +591,25 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
         },
       },
       renderedVisibleFrame: true,
-      visibleFrameEngineOutcome: proveGpuFlowVisibleFrameEngineFrame({
-        candidate: {
-          actorProofs: [],
-          contentFrameId: createGpuFlowContentFrameId(
-            String(frame.displayFrameId),
-          ),
-          preparedResourceIds: [],
-          projectionSampleId: projectionSample.id,
-          queuedDebt: {
-            browserVisual: false,
-            content: true,
-            maintenance: true,
-            motion: true,
+      visibleFrameStateMachineOutcome:
+        proveGpuFlowVisibleFrameStateMachineFrame({
+          candidate: {
+            actorProofs: [],
+            contentFrameId: createGpuFlowContentFrameId(
+              String(frame.displayFrameId),
+            ),
+            preparedResourceIds: [],
+            projectionSampleId: projectionSample.id,
+            queuedDebt: {
+              browserVisual: false,
+              content: true,
+              maintenance: true,
+              motion: true,
+            },
+            requiredActors: [],
           },
-          requiredActors: [],
-        },
-        previousPresentation: null,
-      }),
+          previousPresentation: null,
+        }),
       visibleProjectionState: {
         committedFrame: frame,
         heldPreviousProjection: null,

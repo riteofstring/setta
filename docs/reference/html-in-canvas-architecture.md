@@ -256,8 +256,8 @@ The reusable runtime is centered on these modules:
 - `GpuFlow/committedSurfaceFrameState.ts` ties committed-frame creation to
   browser visual actor preparation, visible-frame presentation tokens,
   projection, and abort handling.
-- `GpuFlow/visibleFrameTypes.ts`, `GpuFlow/visibleFrameEngine.ts`,
-  `GpuFlow/visibleFrameKernel.ts`, and `GpuFlow/visibleFrameActorAdapters/*`
+- `GpuFlow/visibleFrameTypes.ts`, `GpuFlow/visibleFrameStateMachine.ts`,
+  `GpuFlow/visibleFrameCoordinator.ts`, and `GpuFlow/visibleFrameActorAdapters/*`
   own the visible-frame lifecycle: sample, prepare, reduce actor/resource/
   presentation proofs, and select presented, projected, held,
   blocked-cold-start, or aborted outcomes.
@@ -265,7 +265,7 @@ The reusable runtime is centered on these modules:
   It applies the visible DOM-control, DOM-island, canvas, hit/debug, runtime
   committed-frame, React semantic snapshot, and debt-accounting mutation batch
   for a selected presentation token.
-- `GpuFlow/visibleFrameResourceRegistry.ts` owns committed and candidate
+- `GpuFlow/visibleFrameResourceGraph.ts` owns committed and candidate
   resource lifetime, active-editor pins, loser release, and candidate abort
   release after the presenter selects the visible outcome.
 - `surfaceCompositor/browserVisualActorAdapter.ts` adapts retained DOM controls
@@ -405,7 +405,10 @@ The simplified project runtime DOM shape is:
         data-gpu-flow-source-id={nodeId}
       >
         {retainedContentSection ? (
-          <ProjectGpuRetainedSectionSourceShell sectionId={nodeId} isTopLevel={true} />
+          <ProjectGpuRetainedSectionSourceShell
+            sectionId={nodeId}
+            isTopLevel={true}
+          />
         ) : (
           <SectionContainer sectionId={nodeId} isTopLevel={true} />
         )}

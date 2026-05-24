@@ -11,7 +11,8 @@ export function createGpuFlowCommittedSurfaceCompleteness({
   readonly startup: boolean;
 }): GpuFlowCommittedSurfaceCompleteness {
   const visibleBrowserOwnedActors = actorGenerations.filter(
-    (actor) => actor.browserVisual?.coverageRequired.required ?? false,
+    (actor) =>
+      isGpuFlowCommittedSurfaceCompletenessBlockingActor({ actor, startup }),
   );
   const visibleNonemptyDomControls = actorGenerations.filter(
     (actor) => actor.kind === "dom-control" && actor.visibleNonempty,
@@ -40,6 +41,39 @@ export function createGpuFlowCommittedSurfaceCompleteness({
     status,
     visibleNonemptyDomControlCount: visibleNonemptyDomControls.length,
   });
+}
+
+export function isGpuFlowCommittedSurfaceCompletenessBlockingActor({
+  actor,
+  startup,
+}: {
+  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly startup: boolean;
+}): boolean {
+  if (!(actor.browserVisual?.coverageRequired?.required ?? false)) {
+    return false;
+  }
+  if (startup) {
+    return true;
+  }
+  if (actor.kind !== "dom-control") {
+    return true;
+  }
+  return isGpuFlowCommittedSurfaceCompletenessBlockingDomControl(actor);
+}
+
+function isGpuFlowCommittedSurfaceCompletenessBlockingDomControl(
+  actor: GpuFlowCommittedSurfaceActorGeneration,
+): boolean {
+  if (actor.textCoverageProof === null) {
+    return true;
+  }
+  if (actor.textCoverageProof.projectionCoverage === "true-hole") {
+    return true;
+  }
+  return (
+    actor.active || actor.browserVisual?.representationKind === "active-editor"
+  );
 }
 
 export function assertGpuFlowCommittedSurfaceCompleteness(

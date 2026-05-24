@@ -9,13 +9,13 @@ import type {
   GpuFlowVisiblePublicationCompletionOutcome,
   GpuFlowVisiblePublicationDebtProof,
 } from "../projectionScheduler";
-import type {
-  GpuFlowVisibleFrameEngineOutcome,
-  GpuFlowVisibleFramePreparedFrame,
-} from "./visibleFrameEngine";
 import { createGpuFlowVisiblePublicationOutcomeChromeReproPayload } from "./visibleFrameOutcomeChromeRepro";
 import { createGpuFlowVisiblePublicationCanvasPresentationEvidence } from "./visibleFramePresentationEvidence";
 import type { GpuFlowCommitPublicationToken } from "./visibleFramePresentationProofs";
+import type {
+  GpuFlowVisibleFramePreparedFrame,
+  GpuFlowVisibleFrameStateMachineOutcome,
+} from "./visibleFrameStateMachine";
 import {
   createGpuFlowVisiblePublicationCommitProofFactory,
   type GpuFlowVisibleFramePublicationTransactionProof,
@@ -329,7 +329,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
           hasCommitProof: true,
           hasPresentableCommit: true,
           renderedVisibleFrame: true,
-          visibleFrameEngineOutcome: {
+          visibleFrameStateMachineOutcome: {
             decidingProof: null,
             kind: "presented",
           },
@@ -407,11 +407,12 @@ function transactionProof({
     blockedSource: null,
     commitProof,
     renderedVisibleFrame: true,
-    visibleFrameEngineOutcome: {
+    visibleFrameStateMachineOutcome: {
       decidingProof: null,
       kind: "presented",
-    } as GpuFlowVisibleFrameEngineOutcome,
-    visibleFrameEnginePreparedFrame: {} as GpuFlowVisibleFramePreparedFrame,
+    } as GpuFlowVisibleFrameStateMachineOutcome,
+    visibleFrameStateMachinePreparedFrame:
+      {} as GpuFlowVisibleFramePreparedFrame,
     visibleProjectionSource: "content-publication",
     visibleProjectionState: {} as GpuFlowVisibleProjectionState,
   };

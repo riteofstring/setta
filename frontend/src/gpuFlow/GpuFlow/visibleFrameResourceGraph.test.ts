@@ -12,17 +12,17 @@ import type {
 import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
-  createGpuFlowVisibleFrameResourceRegistry,
+  createGpuFlowVisibleFrameResourceGraph,
   createGpuFlowVisiblePublicationResourceBlockedReasons,
   createGpuFlowVisiblePublicationResourceProtectionDigest,
   createGpuFlowVisiblePublicationResourceProtectionReport,
-} from "./visibleFrameResourceRegistry";
+} from "./visibleFrameResourceGraph";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameCommitPublicationTokenForTest,
 } from "./visibleFrameTestUtils";
 
-describe("GPU Flow visible frame resource registry proofs", () => {
+describe("GPU Flow visible frame resource graph proofs", () => {
   it("reports null frames as protected empty resource sets", () => {
     expect(
       createGpuFlowVisiblePublicationResourceProtectionReport(null),
@@ -35,20 +35,12 @@ describe("GPU Flow visible frame resource registry proofs", () => {
   });
 
   it("derives required and protected resources from one transaction proof surface", () => {
-    const actorTexture = resourceHandle("texture", "actor-texture");
-    const previousSource = resourceHandle("source", "previous-source");
     const exactPage = resourceHandle("page", "exact-page");
     const compatiblePage = resourceHandle("page", "compatible-page");
     const frame = committedSurfaceFrame({
-      actorResourceHandles: [actorTexture],
-      compatiblePreviousResourceHandles: [previousSource],
       compatibleSurfaceResourceHandles: [compatiblePage],
       exactSurfaceResourceHandles: [exactPage],
-      protectedResourceHandles: [
-        protectedResource(actorTexture),
-        protectedResource(previousSource),
-        protectedResource(exactPage),
-      ],
+      protectedResourceHandles: [protectedResource(exactPage)],
     });
 
     expect(
@@ -56,23 +48,14 @@ describe("GPU Flow visible frame resource registry proofs", () => {
     ).toEqual({
       missingResourceKeys: ["page:compatible-page"],
       protected: false,
-      protectedResourceKeys: [
-        "texture:actor-texture",
-        "source:previous-source",
-        "page:exact-page",
-      ],
-      requiredResourceKeys: [
-        "texture:actor-texture",
-        "source:previous-source",
-        "page:exact-page",
-        "page:compatible-page",
-      ],
+      protectedResourceKeys: ["page:exact-page"],
+      requiredResourceKeys: ["page:exact-page", "page:compatible-page"],
     });
   });
 
   it("turns missing protected resources into blocked visible reasons", () => {
     const frame = committedSurfaceFrame({
-      actorResourceHandles: [resourceHandle("texture", "actor-texture")],
+      exactSurfaceResourceHandles: [resourceHandle("texture", "actor-texture")],
       protectedResourceHandles: [],
     });
 
@@ -90,7 +73,7 @@ describe("GPU Flow visible frame resource registry proofs", () => {
   it("rejects commit protection reports with missing resources", () => {
     const report = createGpuFlowVisiblePublicationResourceProtectionReport(
       committedSurfaceFrame({
-        actorResourceHandles: [resourceHandle("source", "source-a")],
+        exactSurfaceResourceHandles: [resourceHandle("source", "source-a")],
         protectedResourceHandles: [],
       }),
     );
@@ -103,7 +86,7 @@ describe("GPU Flow visible frame resource registry proofs", () => {
   it("creates stable resource protection digests for proof commit proofs", () => {
     const report = createGpuFlowVisiblePublicationResourceProtectionReport(
       committedSurfaceFrame({
-        actorResourceHandles: [resourceHandle("source", "source-b")],
+        exactSurfaceResourceHandles: [resourceHandle("source", "source-b")],
         protectedResourceHandles: [
           protectedResource(resourceHandle("source", "source-b")),
           protectedResource(resourceHandle("texture", "extra-texture")),
@@ -124,12 +107,12 @@ describe("GPU Flow visible frame resource registry proofs", () => {
   });
 
   it("owns prepared candidate resources and active editor pins", () => {
-    const registry = createGpuFlowVisibleFrameResourceRegistry();
-    const actorTexture = resourceHandle("texture", "actor-texture");
+    const registry = createGpuFlowVisibleFrameResourceGraph();
+    const surfaceTexture = resourceHandle("texture", "surface-texture");
     const frame = committedSurfaceFrame({
-      actorResourceHandles: [actorTexture],
       displayFrameId: 41,
-      protectedResourceHandles: [protectedResource(actorTexture)],
+      exactSurfaceResourceHandles: [surfaceTexture],
+      protectedResourceHandles: [protectedResource(surfaceTexture)],
     });
 
     registry.registerPreparedCommittedSurfaceFrame({
@@ -152,7 +135,7 @@ describe("GPU Flow visible frame resource registry proofs", () => {
     expect(registry.getSnapshot()).toEqual({
       activeEditorPins: ["row-a"],
       candidateResourceKeys: [
-        "texture:actor-texture",
+        "texture:surface-texture",
         "dom-control:row-a",
         "dom-control-snapshot:snapshot-row-b",
         "dom-island:island-a",
@@ -164,7 +147,7 @@ describe("GPU Flow visible frame resource registry proofs", () => {
   });
 
   it("commits one candidate, records committed resources, and releases loser candidates", () => {
-    const registry = createGpuFlowVisibleFrameResourceRegistry();
+    const registry = createGpuFlowVisibleFrameResourceGraph();
     const loserResource = resourceHandle("page", "loser-page");
     const winnerResource = resourceHandle("page", "winner-page");
     const loserFrame = committedSurfaceFrame({
@@ -230,11 +213,11 @@ describe("GPU Flow visible frame resource registry proofs", () => {
   });
 
   it("releases candidate resources on abort without changing the committed owner", () => {
-    const registry = createGpuFlowVisibleFrameResourceRegistry();
+    const registry = createGpuFlowVisibleFrameResourceGraph();
     const candidateResource = resourceHandle("texture", "candidate-texture");
     const frame = committedSurfaceFrame({
-      actorResourceHandles: [candidateResource],
       displayFrameId: 61,
+      exactSurfaceResourceHandles: [candidateResource],
       protectedResourceHandles: [protectedResource(candidateResource)],
     });
     const candidate = browserVisualCandidate({

@@ -594,7 +594,7 @@ function prepareGpuFlowRetainedProjectionPublicationCandidate({
       heldPreviousProjection.maxHeldPreviousMsExceeded
     ) {
       return {
-        blockedReason: "held-previous-budget-exceeded",
+        blockedReason: "retained-projection-coverage-missing",
         kind: "blocked-candidate",
         transaction: requestedTransaction,
       };

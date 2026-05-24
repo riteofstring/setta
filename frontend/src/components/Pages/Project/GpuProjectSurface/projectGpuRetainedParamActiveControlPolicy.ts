@@ -31,6 +31,9 @@ export function isProjectGpuRetainedParamControlBrowserActivationTarget({
   if (isProjectGpuRetainedParamControlInactive(row)) {
     return false;
   }
+  if (isProjectGpuRetainedParamTextLikeDomOwned(row)) {
+    return true;
+  }
   if (isProjectGpuRetainedParamControlCanvasOwned(row)) {
     return false;
   }

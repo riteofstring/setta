@@ -5,20 +5,20 @@ import {
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
-  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  runGpuFlowVisibleFrameCoordinator,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFrameKernel";
+} from "./visibleFrameCoordinator";
+import {
+  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
+  type GpuFlowVisiblePublicationPresentationEvidence,
+} from "./visibleFramePresentationEvidence";
 import type {
   GpuFlowBlockedPublicationToken,
   GpuFlowBlockedVisibleReason,
   GpuFlowCommitPublicationToken,
   GpuFlowHoldPreviousToken,
 } from "./visibleFramePresentationProofs";
-import {
-  createGpuFlowVisiblePublicationCanvasPresentationEvidence,
-  type GpuFlowVisiblePublicationPresentationEvidence,
-} from "./visibleFramePresentationEvidence";
 
 type GpuFlowVisibleFramePublicationTestCandidate = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
@@ -58,7 +58,7 @@ export function createGpuFlowVisibleFrameCommitPublicationTokenForTest({
   });
 
   if (result.outcome.kind !== "commit") {
-    throw new Error("Expected GPU Flow test token kernel to commit.");
+    throw new Error("Expected GPU Flow test token coordinator to commit.");
   }
   return result.outcome.token;
 }
@@ -103,7 +103,9 @@ export function createGpuFlowVisibleFrameHoldPreviousTokenForTest({
   });
 
   if (result.outcome.kind !== "hold-previous") {
-    throw new Error("Expected GPU Flow test token kernel to hold previous.");
+    throw new Error(
+      "Expected GPU Flow test token coordinator to hold previous.",
+    );
   }
   return result.outcome.token;
 }
@@ -128,7 +130,7 @@ export function createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
   });
 
   if (result.outcome.kind !== "blocked") {
-    throw new Error("Expected GPU Flow test token kernel to block.");
+    throw new Error("Expected GPU Flow test token coordinator to block.");
   }
   return result.outcome.token;
 }
@@ -140,7 +142,7 @@ function runGpuFlowVisibleFramePublicationTestTokenKernel({
   readonly contentFrame?: GpuFlowVisibleFramePublicationTestCandidate;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }) {
-  return runGpuFlowVisibleFramePublicationCandidateSetKernel<
+  return runGpuFlowVisibleFrameCoordinator<
     GpuFlowVisibleFramePublicationTestCandidate,
     GpuFlowVisibleFramePublicationTestCandidate
   >({

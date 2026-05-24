@@ -972,6 +972,7 @@ describe("project GPU retained param DOM islands", () => {
 
     const event = {
       hit: controlHit,
+      flowPoint: { x: 120, y: 14 },
       localPoint: { x: 120, y: 14 },
       nativeEvent: new MouseEvent("pointerdown", {
         clientX: 220,
@@ -981,6 +982,7 @@ describe("project GPU retained param DOM islands", () => {
       retainedScene,
       screenPoint: { x: 120, y: 14 },
       surfaceId: "section-1:param-content:unpinned",
+      zIndex: 0,
     } satisfies GpuRetainedContentInteractionEvent;
 
     options.onHitPointerDown?.(event);
@@ -1049,6 +1051,7 @@ describe("project GPU retained param DOM islands", () => {
 
     options.onHitPointerDown?.({
       hit: labelHit,
+      flowPoint: { x: 12, y: 14 },
       localPoint: { x: 12, y: 14 },
       nativeEvent: new MouseEvent("pointerdown", {
         clientX: 32,
@@ -1058,6 +1061,7 @@ describe("project GPU retained param DOM islands", () => {
       retainedScene,
       screenPoint: { x: 12, y: 14 },
       surfaceId: "section-1:param-content:unpinned",
+      zIndex: 0,
     } satisfies GpuRetainedContentInteractionEvent);
 
     expect(onActiveParamDomIslandChange).toHaveBeenCalledWith({
@@ -1116,6 +1120,7 @@ describe("project GPU retained param DOM islands", () => {
 
     options.onHitClick({
       hit: controlHit,
+      flowPoint: { x: 120, y: 14 },
       localPoint: { x: 120, y: 14 },
       nativeEvent: new MouseEvent("pointerup", {
         clientX: 220,
@@ -1125,6 +1130,7 @@ describe("project GPU retained param DOM islands", () => {
       retainedScene,
       screenPoint: { x: 120, y: 14 },
       surfaceId: "section-1:param-content:unpinned",
+      zIndex: 0,
     } satisfies GpuRetainedContentInteractionEvent);
 
     expect(onActiveParamDomIslandChange).not.toHaveBeenCalled();
@@ -1171,6 +1177,7 @@ describe("project GPU retained param DOM islands", () => {
     });
     const event = {
       hit: controlHit,
+      flowPoint: { x: 120, y: 14 },
       localPoint: { x: 120, y: 14 },
       nativeEvent: new MouseEvent("pointerup", {
         clientX: 220,
@@ -1180,6 +1187,7 @@ describe("project GPU retained param DOM islands", () => {
       retainedScene,
       screenPoint: { x: 120, y: 14 },
       surfaceId: "section-1:param-content:unpinned",
+      zIndex: 0,
     } satisfies GpuRetainedContentInteractionEvent;
 
     expect(options.shouldHandleHit?.(event)).toBe(false);

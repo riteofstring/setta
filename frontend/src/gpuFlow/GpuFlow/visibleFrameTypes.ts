@@ -1,3 +1,5 @@
+import type { GpuFlowBrowserStyleVisibleFrameActorFamily } from "./visibleFrameActorRegistry";
+
 const GPU_FLOW_CONTENT_FRAME_ID = Symbol("GpuFlowContentFrameId");
 const GPU_FLOW_PRESENTATION_ID = Symbol("GpuFlowPresentationId");
 
@@ -30,18 +32,7 @@ export type GpuFlowColdStartShellFrame = {
 };
 
 export type GpuFlowVisibleFrameActorFamily =
-  | "browser-visual"
-  | "dom-island"
-  | "hit-debug"
-  | "html-texture"
-  | "native-visual"
-  | "presentation-pair"
-  | "resource-maintenance"
-  | "resource-protection"
-  | "retained-page"
-  | "section-body-clip"
-  | "section-header"
-  | "section-shell";
+  GpuFlowBrowserStyleVisibleFrameActorFamily;
 
 export type GpuFlowVisibleFrameActorKey = {
   readonly actorId: string;
@@ -98,7 +89,10 @@ type GpuFlowBrowserVisualCompatiblePreviousProof = {
 
 type GpuFlowVisibleFrameCompatiblePreviousProof =
   | {
-      readonly family: "browser-visual";
+      readonly family:
+        | "active-editor"
+        | "browser-text-control"
+        | "browser-text-snapshot";
       readonly proof: GpuFlowBrowserVisualCompatiblePreviousProof;
     }
   | {

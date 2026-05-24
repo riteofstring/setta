@@ -9,15 +9,15 @@ import {
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
-  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  runGpuFlowVisibleFrameCoordinator,
   type GpuFlowMotionProjectionFrameWorkReport,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFrameKernel";
+} from "./visibleFrameCoordinator";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 
-describe("GPU Flow visible publication kernel projection work", () => {
-  it("mints retained projection blocked tokens from projection work reports inside the kernel", () => {
+describe("GPU Flow visible frame coordinator projection work", () => {
+  it("mints retained projection blocked tokens from projection work reports inside the coordinator", () => {
     const scheduler = createGpuFlowVisiblePublicationScheduler({
       knobs: {
         maxConsecutiveMotionFramesBeforeContentProbe: 6,
@@ -45,7 +45,7 @@ describe("GPU Flow visible publication kernel projection work", () => {
       readonly rendered: boolean;
       readonly visibleProjectionState: null;
     };
-    const result = runGpuFlowVisibleFramePublicationCandidateSetKernel<
+    const result = runGpuFlowVisibleFrameCoordinator<
       TestContentPublicationFrame,
       TestMotionProjectionFrame
     >({
@@ -88,7 +88,7 @@ describe("GPU Flow visible publication kernel projection work", () => {
     expect(result.outcome.kind).toBe("blocked");
     expect(publishedOutcomeKind).toBe("blocked");
     if (result.outcome.kind !== "blocked") {
-      throw new Error("Expected kernel blocked outcome.");
+      throw new Error("Expected coordinator blocked outcome.");
     }
     expect(result.outcome.token.frozenFrame.kind).toBe("committed");
     expect(result.outcome.token.frozenFrame).toEqual({

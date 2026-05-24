@@ -6,9 +6,13 @@ import { GpuFlowSupportError } from "./gpuDevice";
 
 export type GpuFrameReason =
   | "animation"
+  | "dom-control-activation"
   | "init"
   | "manual"
   | "paint"
+  | "retained-native-visual"
+  | "retained-row-hover-clear"
+  | "retained-row-hover-visual"
   | "retained-scroll"
   | "resize"
   | "texture-upload"

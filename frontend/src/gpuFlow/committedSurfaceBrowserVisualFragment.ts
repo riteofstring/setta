@@ -20,15 +20,27 @@ export function createGpuFlowCommittedSurfaceBrowserVisualFragment(
 export function createGpuFlowCommittedSurfaceTransaction({
   browserVisualSurfaceFragment,
   displayFrameId,
+  maintenanceBlockingSurfaceIds = [],
   retainedSurfaceTransaction,
 }: {
   readonly browserVisualSurfaceFragment: BrowserVisualSurfaceTransactionFragment;
   readonly displayFrameId: number;
+  readonly maintenanceBlockingSurfaceIds?: readonly string[] | undefined;
   readonly retainedSurfaceTransaction: SurfaceDisplayTransaction;
 }): SurfaceDisplayTransaction | null {
-  if (browserVisualSurfaceFragment.blockingSurfaceIds.length > 0) {
+  const maintenanceBlockingSurfaceIdSet = new Set(maintenanceBlockingSurfaceIds);
+  const requiredBlockingSurfaceIds =
+    browserVisualSurfaceFragment.blockingSurfaceIds.filter(
+      (surfaceId) => !maintenanceBlockingSurfaceIdSet.has(surfaceId),
+    );
+  if (requiredBlockingSurfaceIds.length > 0) {
     return null;
   }
+  const browserVisualTrueHoleRects =
+    browserVisualSurfaceFragment.trueHoleRects.filter((_, index) => {
+      const surfaceId = browserVisualSurfaceFragment.blockingSurfaceIds[index];
+      return !surfaceId || !maintenanceBlockingSurfaceIdSet.has(surfaceId);
+    });
   const browserVisualDrawCommands = createBrowserVisualDrawCommands(
     browserVisualSurfaceFragment,
   );
@@ -65,7 +77,7 @@ export function createGpuFlowCommittedSurfaceTransaction({
       ]),
       trueHoleRects: [
         ...retainedSurfaceTransaction.coverageProof.trueHoleRects,
-        ...browserVisualSurfaceFragment.trueHoleRects,
+        ...browserVisualTrueHoleRects,
       ],
       visibleRects: [
         ...retainedSurfaceTransaction.coverageProof.visibleRects,

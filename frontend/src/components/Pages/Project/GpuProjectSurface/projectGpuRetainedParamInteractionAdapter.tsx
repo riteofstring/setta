@@ -100,6 +100,7 @@ type ActiveParamCanvasControlHandler = (
 type ActiveParamDomIslandHandler = (
   island: ProjectGpuActiveParamDomIsland | null,
 ) => void;
+type ActiveParamDomIslandReader = () => ProjectGpuActiveParamDomIsland | null;
 type ActiveParamPopupHandler = (
   popup: ProjectGpuActiveParamCanvasPopup | null,
 ) => void;
@@ -112,6 +113,7 @@ const EMPTY_PROJECT_GPU_RETAINED_PASSWORD_REVEALS: ProjectGpuRetainedPasswordRev
 
 export function getProjectRetainedContentInteractionOptions({
   canEditStructure,
+  getActiveParamDomIsland,
   onActiveParamCanvasPopupChange = ignoreProjectGpuActiveParamCanvasPopup,
   onActiveParamCanvasControlChange = ignoreProjectGpuActiveParamCanvasControl,
   onActiveParamDomIslandChange,
@@ -124,6 +126,7 @@ export function getProjectRetainedContentInteractionOptions({
   zoomActivationKeyPressed,
 }: {
   readonly canEditStructure: boolean;
+  readonly getActiveParamDomIsland?: ActiveParamDomIslandReader | undefined;
   readonly onActiveParamCanvasPopupChange?: ActiveParamPopupHandler;
   readonly onActiveParamCanvasControlChange?: ActiveParamCanvasControlHandler;
   readonly onActiveParamDomIslandChange: ActiveParamDomIslandHandler;
@@ -148,6 +151,8 @@ export function getProjectRetainedContentInteractionOptions({
         onActiveParamCanvasPopupChange,
         onActiveParamCanvasControlChange,
         onActiveParamDomIslandChange,
+        canEditStructure,
+        getActiveParamDomIsland,
         onPasswordRevealStateChange,
         passwordRevealStates,
       }),
@@ -338,12 +343,16 @@ function toProjectGpuRetainedParamTarget(
 function handleProjectRetainedContentClick(
   event: GpuRetainedContentInteractionEvent,
   {
+    canEditStructure,
+    getActiveParamDomIsland,
     onActiveParamCanvasPopupChange,
     onActiveParamCanvasControlChange,
     onActiveParamDomIslandChange,
     onPasswordRevealStateChange,
     passwordRevealStates,
-  }: {
+}: {
+    readonly canEditStructure: boolean;
+    readonly getActiveParamDomIsland?: ActiveParamDomIslandReader | undefined;
     readonly onActiveParamCanvasPopupChange: ActiveParamPopupHandler;
     readonly onActiveParamCanvasControlChange: ActiveParamCanvasControlHandler;
     readonly onActiveParamDomIslandChange: ActiveParamDomIslandHandler;
@@ -353,6 +362,17 @@ function handleProjectRetainedContentClick(
 ) {
   if (useMisc.getState().isSelectingParams) {
     toggleParamSelected(event.ownerSectionId, event.hit.ownerRowId);
+    return;
+  }
+  if (
+    handleProjectRetainedContentBrowserActivationClick(event, {
+      canEditStructure,
+      getActiveParamDomIsland,
+      onActiveParamCanvasPopupChange,
+      onActiveParamCanvasControlChange,
+      onActiveParamDomIslandChange,
+    })
+  ) {
     return;
   }
   if (
@@ -410,6 +430,66 @@ function handleProjectRetainedContentPointerDown(
   ) {
     return;
   }
+  activateProjectRetainedContentBrowserTarget(event, {
+    onActiveParamCanvasPopupChange,
+    onActiveParamCanvasControlChange,
+    onActiveParamDomIslandChange,
+  });
+}
+
+function handleProjectRetainedContentBrowserActivationClick(
+  event: GpuRetainedContentInteractionEvent,
+  {
+    canEditStructure,
+    getActiveParamDomIsland,
+    onActiveParamCanvasPopupChange,
+    onActiveParamCanvasControlChange,
+    onActiveParamDomIslandChange,
+  }: {
+    readonly canEditStructure: boolean;
+    readonly getActiveParamDomIsland: ActiveParamDomIslandReader | undefined;
+    readonly onActiveParamCanvasPopupChange: ActiveParamPopupHandler;
+    readonly onActiveParamCanvasControlChange: ActiveParamCanvasControlHandler;
+    readonly onActiveParamDomIslandChange: ActiveParamDomIslandHandler;
+  },
+): boolean {
+  if (
+    !isProjectRetainedParamControlActivationHit(event) &&
+    !isProjectRetainedParamLabelActivationHit(event, { canEditStructure })
+  ) {
+    return false;
+  }
+  if (!getActiveParamDomIsland) {
+    return true;
+  }
+  if (
+    isProjectRetainedContentBrowserTargetAlreadyActive(
+      event,
+      getActiveParamDomIsland(),
+    )
+  ) {
+    return true;
+  }
+  activateProjectRetainedContentBrowserTarget(event, {
+    onActiveParamCanvasPopupChange,
+    onActiveParamCanvasControlChange,
+    onActiveParamDomIslandChange,
+  });
+  return true;
+}
+
+function activateProjectRetainedContentBrowserTarget(
+  event: GpuRetainedContentInteractionEvent,
+  {
+    onActiveParamCanvasPopupChange,
+    onActiveParamCanvasControlChange,
+    onActiveParamDomIslandChange,
+  }: {
+    readonly onActiveParamCanvasPopupChange: ActiveParamPopupHandler;
+    readonly onActiveParamCanvasControlChange: ActiveParamCanvasControlHandler;
+    readonly onActiveParamDomIslandChange: ActiveParamDomIslandHandler;
+  },
+) {
   onActiveParamCanvasPopupChange(null);
   onActiveParamCanvasControlChange(null);
   postProjectGpuRetainedParamActivationPreflightChromeReproEvent(event);
@@ -426,6 +506,19 @@ function handleProjectRetainedContentPointerDown(
     sectionId: event.ownerSectionId,
     surfaceId: event.surfaceId,
   });
+}
+
+function isProjectRetainedContentBrowserTargetAlreadyActive(
+  event: GpuRetainedContentInteractionEvent,
+  activeParamDomIsland: ProjectGpuActiveParamDomIsland | null,
+): boolean {
+  return (
+    activeParamDomIsland !== null &&
+    activeParamDomIsland.hitRecordId === event.hit.id &&
+    activeParamDomIsland.paramInfoId === event.hit.ownerRowId &&
+    activeParamDomIsland.sectionId === event.ownerSectionId &&
+    activeParamDomIsland.surfaceId === event.surfaceId
+  );
 }
 
 function handleProjectRetainedContentCanvasControlClick(
@@ -747,6 +840,12 @@ function isProjectRetainedParamCanvasControlHit(
     return false;
   }
   const row = getProjectRetainedContentHitRow(event);
+  if (
+    row &&
+    isProjectGpuRetainedParamControlBrowserActivationTarget({ row })
+  ) {
+    return false;
+  }
   return Boolean(
     row &&
       !row.state.disabled &&

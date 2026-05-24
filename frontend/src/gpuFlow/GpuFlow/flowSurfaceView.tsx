@@ -1,4 +1,9 @@
-import { useMemo, type ReactNode, type RefObject } from "react";
+import {
+  useMemo,
+  useSyncExternalStore,
+  type ReactNode,
+  type RefObject,
+} from "react";
 
 import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
 import { GpuSurface, type GpuSurfaceHandle } from "../GpuSurface";
@@ -26,9 +31,9 @@ import type { GpuFlowProps } from "./flowSurfaceTypes";
 import { renderGpuFlowNodeLayerElement } from "./nodeLayerElement";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
 
-const GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_SIZE = 1;
-const GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_DELAY_MS = 750;
-const GPU_FLOW_NODE_SOURCE_MAX_INITIAL_PRIORITY_COUNT = 1;
+const GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_SIZE = 4;
+const GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_DELAY_MS = 120;
+const GPU_FLOW_NODE_SOURCE_MAX_INITIAL_PRIORITY_COUNT = 8;
 const GPU_FLOW_NODE_SOURCE_PRIORITY_MARGIN_CSS_PX = 360;
 
 export function GpuFlowSurfaceView({
@@ -100,13 +105,15 @@ export function GpuFlowSurfaceView({
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly viewportStore: GpuFlowViewportStoreApi;
 }) {
+  const viewportPrioritySnapshot =
+    useGpuFlowViewportPrioritySnapshot(viewportStore);
   const priorityNodeIds = useMemo(
     () =>
       resolveGpuFlowPrioritySourceNodeIds({
         nodes,
         viewportStore,
       }),
-    [nodes, viewportStore],
+    [nodes, viewportPrioritySnapshot, viewportStore],
   );
   const nodeLayerElement = renderGpuFlowNodeLayerElement({
     nodeClassName,
@@ -226,10 +233,16 @@ function resolveGpuFlowPrioritySourceNodeIds({
     marginCssPx: GPU_FLOW_NODE_SOURCE_PRIORITY_MARGIN_CSS_PX,
     viewport: viewportState.getViewport(),
   });
-  const priorityIds: string[] = [];
-  for (const node of nodes) {
+  const visibleCenterX = visibleRect.x + visibleRect.width / 2;
+  const visibleCenterY = visibleRect.y + visibleRect.height / 2;
+  const priorityCandidates: Array<{
+    readonly distanceSquared: number;
+    readonly nodeId: string;
+    readonly order: number;
+  }> = [];
+  nodes.forEach((node, order) => {
     if (node.width === null || node.height === null) {
-      continue;
+      return;
     }
     if (
       rectsIntersect(visibleRect, {
@@ -239,12 +252,44 @@ function resolveGpuFlowPrioritySourceNodeIds({
         y: node.y,
       })
     ) {
-      priorityIds.push(node.nodeId);
+      const nodeCenterX = node.x + node.width / 2;
+      const nodeCenterY = node.y + node.height / 2;
+      priorityCandidates.push({
+        distanceSquared:
+          (nodeCenterX - visibleCenterX) ** 2 +
+          (nodeCenterY - visibleCenterY) ** 2,
+        nodeId: node.nodeId,
+        order,
+      });
     }
-  }
-  return priorityIds.length > 0
-    ? priorityIds.slice(0, GPU_FLOW_NODE_SOURCE_MAX_INITIAL_PRIORITY_COUNT)
+  });
+  return priorityCandidates.length > 0
+    ? priorityCandidates
+        .sort(
+          (left, right) =>
+            left.distanceSquared - right.distanceSquared ||
+            left.order - right.order,
+        )
+        .slice(0, GPU_FLOW_NODE_SOURCE_MAX_INITIAL_PRIORITY_COUNT)
+        .map((candidate) => candidate.nodeId)
     : nodes
         .slice(0, GPU_FLOW_NODE_SOURCE_PROGRESSIVE_BATCH_SIZE)
         .map((node) => node.nodeId);
+}
+
+function useGpuFlowViewportPrioritySnapshot(
+  viewportStore: GpuFlowViewportStoreApi,
+): string {
+  return useSyncExternalStore(
+    (onStoreChange) => viewportStore.subscribe(onStoreChange),
+    () => createGpuFlowViewportPrioritySnapshot(viewportStore),
+    () => createGpuFlowViewportPrioritySnapshot(viewportStore),
+  );
+}
+
+function createGpuFlowViewportPrioritySnapshot(
+  viewportStore: GpuFlowViewportStoreApi,
+): string {
+  const { height, transform, width } = viewportStore.getState();
+  return `${width}:${height}:${transform[0]}:${transform[1]}:${transform[2]}`;
 }

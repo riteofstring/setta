@@ -1,4 +1,8 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type {
+  GpuFlowCommittedSurfaceActorGeneration,
+  GpuFlowCommittedSurfaceFrame,
+} from "../committedSurfaceFrame";
+import { isGpuFlowCommittedSurfaceCompletenessBlockingActor } from "../committedSurfaceCompleteness";
 import type { SurfaceResourceHandle } from "../surfaceCompositor/surfaceCoverage";
 import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
 import {
@@ -27,7 +31,7 @@ type GpuFlowVisibleFrameCandidateResourceEntry = {
   readonly requiredResourceKeys: readonly string[];
 };
 
-type GpuFlowVisibleFrameResourceRegistrySnapshot = {
+type GpuFlowVisibleFrameResourceGraphSnapshot = {
   readonly activeEditorPins: readonly string[];
   readonly candidateResourceKeys: readonly string[];
   readonly committedFrameId: number | null;
@@ -62,7 +66,7 @@ type GpuFlowVisibleFrameBrowserVisualCandidateAborter = (input: {
   readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
 }) => void;
 
-export class GpuFlowVisibleFrameResourceRegistry {
+export class GpuFlowVisibleFrameResourceGraph {
   private committedFrameId: number | null = null;
   private committedResourceKeys = new Set<string>();
   private readonly pendingCandidateByFrameId = new Map<
@@ -170,7 +174,7 @@ export class GpuFlowVisibleFrameResourceRegistry {
     });
   }
 
-  getSnapshot(): GpuFlowVisibleFrameResourceRegistrySnapshot {
+  getSnapshot(): GpuFlowVisibleFrameResourceGraphSnapshot {
     const pendingEntries = [...this.pendingCandidateByFrameId.values()];
     return Object.freeze({
       activeEditorPins: Object.freeze(
@@ -198,7 +202,7 @@ export class GpuFlowVisibleFrameResourceRegistry {
     const entry = this.pendingCandidateByFrameId.get(frameId);
     if (!entry) {
       throw new Error(
-        `GPU Flow visible frame resource registry missing prepared candidate resources for committed frame ${frameId}.`,
+        `GPU Flow visible frame resource graph missing prepared candidate resources for committed frame ${frameId}.`,
       );
     }
     return entry;
@@ -219,8 +223,8 @@ export class GpuFlowVisibleFrameResourceRegistry {
   }
 }
 
-export function createGpuFlowVisibleFrameResourceRegistry(): GpuFlowVisibleFrameResourceRegistry {
-  return new GpuFlowVisibleFrameResourceRegistry();
+export function createGpuFlowVisibleFrameResourceGraph(): GpuFlowVisibleFrameResourceGraph {
+  return new GpuFlowVisibleFrameResourceGraph();
 }
 
 export function createGpuFlowVisiblePublicationResourceProtectionReport(
@@ -325,18 +329,44 @@ function getGpuFlowVisiblePublicationRequiredResourceHandles(
   committedFrame: GpuFlowCommittedSurfaceFrame,
 ): readonly SurfaceResourceHandle[] {
   return [
-    ...committedFrame.actorGenerations.flatMap((actor) => [
-      ...(actor.browserVisual?.resourceHandles ?? []),
-      ...(actor.textCoverageProof?.projectionCoverage === "compatible-previous"
-        ? actor.textCoverageProof.compatiblePreviousProof.resourceHandles
-        : []),
-    ]),
+    ...committedFrame.actorGenerations.flatMap((actor) =>
+      getGpuFlowVisiblePublicationActorRequiredResourceHandles({
+        actor,
+        startup: committedFrame.retainedDisplayFrame === null,
+      }),
+    ),
     ...(committedFrame.surfaceTransaction?.coverageProof.exactCoverage.flatMap(
       (entry) => entry.resourceHandles,
     ) ?? []),
     ...(committedFrame.surfaceTransaction?.coverageProof.compatibleCoverage.flatMap(
       (entry) => entry.resourceHandles,
     ) ?? []),
+  ];
+}
+
+function getGpuFlowVisiblePublicationActorRequiredResourceHandles({
+  actor,
+  startup,
+}: {
+  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly startup: boolean;
+}): readonly SurfaceResourceHandle[] {
+  if (
+    !isGpuFlowCommittedSurfaceCompletenessBlockingActor({
+      actor,
+      startup,
+    })
+  ) {
+    return [];
+  }
+  if (actor.kind === "dom-control") {
+    return [];
+  }
+  return [
+    ...(actor.browserVisual?.resourceHandles ?? []),
+    ...(actor.textCoverageProof?.projectionCoverage === "compatible-previous"
+      ? actor.textCoverageProof.compatiblePreviousProof.resourceHandles
+      : []),
   ];
 }
 
@@ -420,7 +450,7 @@ function getGpuFlowCommittedSurfaceFrameId(
 ): number {
   if (!Number.isFinite(frame.displayFrameId)) {
     throw new Error(
-      "GPU Flow visible frame resource registry requires a numeric committed frame id.",
+      "GPU Flow visible frame resource graph requires a numeric committed frame id.",
     );
   }
   return frame.displayFrameId;

@@ -35,12 +35,13 @@ import {
   type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
+import { createGpuFlowRetainedRuntimeFrameForLayer } from "./flowRetainedRuntimeFrame";
 import type { GpuFlowCallbacks } from "./flowSurfaceTypes";
 import { projectGpuRetainedDomControlSnapshotSurfaceLayouts } from "./retainedDomControlSnapshotSources";
 import type {
   GpuFlowMotionProjectionFrameWorkReport,
   GpuFlowProjectionFrameRenderablePlan,
-} from "./visibleFrameKernel";
+} from "./visibleFrameCoordinator";
 
 type RenderGpuFlowNodeLayerProjectionFrameResult =
   | {
@@ -139,8 +140,12 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   const projectionViewport = transaction.sample.viewport;
   const projectionRetainedRuntimeFrame =
     resolveGpuFlowProjectionRetainedRuntimeFrame({
+      canvasSize,
       fallbackRetainedRuntimeFrame: retainedRuntimeFrame,
+      frame,
+      frameReasons,
       heldPreviousProjectionState,
+      layer,
       transaction,
     });
   const retainedPageVisuals = retainedProjectionFrame.flatSurfaces;
@@ -249,20 +254,137 @@ export function renderGpuFlowNodeLayerProjectionFrame({
   };
 }
 
-function resolveGpuFlowProjectionRetainedRuntimeFrame({
+export function resolveGpuFlowProjectionRetainedRuntimeFrame({
+  canvasSize,
   fallbackRetainedRuntimeFrame,
+  frame,
+  frameReasons = [],
   heldPreviousProjectionState,
+  layer,
   transaction,
 }: {
+  readonly canvasSize: GpuCanvasSize;
   readonly fallbackRetainedRuntimeFrame: RetainedDisplayFrame["retainedRuntimeFrame"];
+  readonly frame: number;
+  readonly frameReasons?: readonly GpuFrameReason[] | undefined;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
+  readonly layer: GpuFlowNodeLayerState;
   readonly transaction: GpuFlowProjectionTransaction;
 }): RetainedDisplayFrame["retainedRuntimeFrame"] {
   if (transaction.kind !== "held-previous") {
+    if (
+      transaction.kind === "motion-projection" &&
+      shouldRebuildGpuFlowProjectionRetainedRuntimeFrame({
+        frameReasons,
+        layer,
+        retainedRuntimeFrame: fallbackRetainedRuntimeFrame,
+        transaction,
+      })
+    ) {
+      return createGpuFlowRetainedRuntimeFrameForLayer({
+        canvasSize,
+        devicePixelRatio: canvasSize.devicePixelRatio,
+        frame,
+        layer,
+        renderedSceneNodeIds:
+          fallbackRetainedRuntimeFrame.descriptors.renderedSceneNodeIds,
+        scrollOffsets: transaction.sample.retainedScrollOffsets,
+        scrollRevision: transaction.sample.retainedScrollRevision,
+        scrollRevisions: fallbackRetainedRuntimeFrame.input.scrollRevisions,
+        viewport: transaction.sample.viewport,
+        viewportZoomBucket:
+          fallbackRetainedRuntimeFrame.input.viewportZoomBucket,
+      });
+    }
     return fallbackRetainedRuntimeFrame;
   }
   return (
     heldPreviousProjectionState?.committedFrame.retainedRuntimeFrame ??
     fallbackRetainedRuntimeFrame
   );
+}
+
+function shouldRebuildGpuFlowProjectionRetainedRuntimeFrame({
+  frameReasons,
+  layer,
+  retainedRuntimeFrame,
+  transaction,
+}: {
+  readonly frameReasons: readonly GpuFrameReason[];
+  readonly layer: GpuFlowNodeLayerState;
+  readonly retainedRuntimeFrame: RetainedDisplayFrame["retainedRuntimeFrame"];
+  readonly transaction: GpuFlowProjectionTransaction;
+}): boolean {
+  return (
+    retainedRuntimeFrameScrollOffsetsDifferFromSample({
+      retainedRuntimeFrame,
+      sample: transaction.sample,
+    }) ||
+    frameReasons.some(isGpuFlowNativeVisualProjectionFrameReason) ||
+    retainedRuntimeFrameRowHoverVisualsDifferFromLayer({
+      layer,
+      retainedRuntimeFrame,
+    })
+  );
+}
+
+function isGpuFlowNativeVisualProjectionFrameReason(
+  reason: GpuFrameReason,
+): boolean {
+  return (
+    reason === "retained-row-hover-clear" ||
+    reason === "retained-row-hover-visual"
+  );
+}
+
+function retainedRuntimeFrameRowHoverVisualsDifferFromLayer({
+  layer,
+  retainedRuntimeFrame,
+}: {
+  readonly layer: GpuFlowNodeLayerState;
+  readonly retainedRuntimeFrame: RetainedDisplayFrame["retainedRuntimeFrame"];
+}): boolean {
+  const target = layer.retainedContentRowHoverTarget ?? null;
+  const rowHoverSurfaceIds =
+    retainedRuntimeFrame.descriptors.htmlSurfaceNativeVisuals.flatMap(
+      (visual) => (visual.surfaceId.includes(":row-hover:") ? [visual.surfaceId] : []),
+    );
+  if (!target) {
+    return rowHoverSurfaceIds.length > 0;
+  }
+  return !rowHoverSurfaceIds.includes(
+    `${target.surfaceId}:row-hover:${target.rowId}`,
+  );
+}
+
+function retainedRuntimeFrameScrollOffsetsDifferFromSample({
+  retainedRuntimeFrame,
+  sample,
+}: {
+  readonly retainedRuntimeFrame: RetainedDisplayFrame["retainedRuntimeFrame"];
+  readonly sample: GpuFlowProjectionTransaction["sample"];
+}): boolean {
+  if (
+    retainedRuntimeFrame.input.scrollRevision !== sample.retainedScrollRevision
+  ) {
+    return true;
+  }
+  if (
+    retainedRuntimeFrame.input.scrollOffsets.size !==
+    sample.retainedScrollOffsets.size
+  ) {
+    return true;
+  }
+  for (const [surfaceId, sampleOffset] of sample.retainedScrollOffsets) {
+    const runtimeOffset =
+      retainedRuntimeFrame.input.scrollOffsets.get(surfaceId);
+    if (
+      !runtimeOffset ||
+      runtimeOffset.x !== sampleOffset.x ||
+      runtimeOffset.y !== sampleOffset.y
+    ) {
+      return true;
+    }
+  }
+  return false;
 }

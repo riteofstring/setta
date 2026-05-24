@@ -7,7 +7,10 @@ import {
   createGpuFlowCommittedSurfaceBrowserVisualFragment,
   createGpuFlowCommittedSurfaceTransaction,
 } from "./committedSurfaceBrowserVisualFragment";
-import { createGpuFlowCommittedSurfaceCompleteness } from "./committedSurfaceCompleteness";
+import {
+  createGpuFlowCommittedSurfaceCompleteness,
+  isGpuFlowCommittedSurfaceCompletenessBlockingActor,
+} from "./committedSurfaceCompleteness";
 import {
   createGpuFlowContentFramePublishability,
   createGpuFlowProjectionHorizon,
@@ -540,6 +543,10 @@ function freezeCommittedSurfaceFrame({
       ? createGpuFlowCommittedSurfaceTransaction({
           browserVisualSurfaceFragment,
           displayFrameId: retainedDisplayFrame.id,
+          maintenanceBlockingSurfaceIds:
+            createGpuFlowCommittedSurfaceMaintenanceBlockingSurfaceIds(
+              actorGenerations,
+            ),
           retainedSurfaceTransaction: retainedDisplayFrame.surfaceTransaction,
         })
       : null;
@@ -613,6 +620,38 @@ function freezeCommittedSurfaceFrame({
     surfaceTransaction,
     viewportSample: retainedRuntimeFrame.input.viewport,
   });
+}
+
+function createGpuFlowCommittedSurfaceMaintenanceBlockingSurfaceIds(
+  actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[],
+): readonly string[] {
+  return Object.freeze(
+    actorGenerations
+      .filter(
+        (actor) =>
+          actor.kind === "dom-control" &&
+          actor.browserVisual !== null &&
+          isGpuFlowCommittedSurfaceMaintenanceBlockingCoverageState(
+            actor.browserVisual.coverageState,
+          ) &&
+          !isGpuFlowCommittedSurfaceCompletenessBlockingActor({
+            actor,
+            startup: false,
+          }),
+      )
+      .map((actor) => `dom-control:${actor.actorId}`),
+  );
+}
+
+function isGpuFlowCommittedSurfaceMaintenanceBlockingCoverageState(
+  coverageState: NonNullable<
+    GpuFlowCommittedSurfaceActorGeneration["browserVisual"]
+  >["coverageState"],
+): boolean {
+  return (
+    coverageState === "blocked-awaiting-live-host" ||
+    coverageState === "blocked-awaiting-snapshot"
+  );
 }
 
 function createRetainedPageActors(

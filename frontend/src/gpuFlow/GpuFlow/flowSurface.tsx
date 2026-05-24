@@ -105,6 +105,7 @@ export function GpuFlow({
   marginCssPx,
   nodeClassName,
   nodeTextureMemoryBudgetBytes,
+  nodeTextureTileDimensionPx,
   nodeDrag,
   nodeResize,
   onFrame,
@@ -234,10 +235,10 @@ export function GpuFlow({
   }, []);
   const getRetainedDomControlScrollOffset = useCallback(
     (surfaceId: string) =>
+      activeRetainedContentRuntimeState.scrollOffsets.get(surfaceId) ??
       visibleProjectionStateRef.current?.sample.retainedScrollOffsets.get(
         surfaceId,
       ) ??
-      activeRetainedContentRuntimeState.scrollOffsets.get(surfaceId) ??
       null,
     [activeRetainedContentRuntimeState],
   );
@@ -324,6 +325,7 @@ export function GpuFlow({
     marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes,
+    nodeTextureTileDimensionPx,
     retainedRuntimeFrame: initialRetainedRuntimeFrame,
     scene,
     uploadBudget,
@@ -420,6 +422,7 @@ export function GpuFlow({
         nodeLayerRef,
         nodes,
         nodeTextureMemoryBudgetBytes,
+        nodeTextureTileDimensionPx,
         retainedContentPageManagerRef,
         scene,
         sourceInteractionProjector,
@@ -458,6 +461,7 @@ export function GpuFlow({
     marginCssPx,
     nodes,
     nodeTextureMemoryBudgetBytes,
+    nodeTextureTileDimensionPx,
     scene,
     sourceInteractionProjector,
     uploadBudget,
@@ -682,7 +686,11 @@ export function GpuFlow({
         retainedContentPageManagerRef,
       );
       if (nodeLayerRef.current.nodes) {
-        textureManagerRef.current = createHtmlSurfaceTextureManager(runtime);
+        textureManagerRef.current = createHtmlSurfaceTextureManager(runtime, {
+          ...(nodeTextureTileDimensionPx === undefined
+            ? {}
+            : { maxTextureTileDimension2D: nodeTextureTileDimensionPx }),
+        });
         htmlSurfaceRendererRef.current = new HtmlSurfaceRenderer(runtime);
       }
       destroyNodeInteractionResources(

@@ -33,6 +33,7 @@ const GPU_RETAINED_CONTENT_WHEEL_NATIVE_TARGET_SELECTORS = [
   '[data-gpu-flow-dom-island="true"]',
   '[data-gpu-flow-retained-content-native="true"]',
 ] as const;
+const GPU_RETAINED_CONTENT_SCROLL_IDLE_FRAME_DELAY_MS = 180;
 
 export type GpuRetainedContentScrollControllerOptions = {
   readonly disabled?: ((event: WheelEvent) => boolean) | undefined;
@@ -240,7 +241,7 @@ class GpuRetainedContentScrollController {
         return;
       }
       this.options.requestFrame?.("texture-upload");
-    }, 120);
+    }, GPU_RETAINED_CONTENT_SCROLL_IDLE_FRAME_DELAY_MS);
   }
 
   private cancelScrollIdleFrame() {

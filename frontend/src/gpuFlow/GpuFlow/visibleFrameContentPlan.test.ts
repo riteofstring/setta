@@ -35,8 +35,8 @@ const SURFACE_FRAME_PUBLICATION_MODULE_PATH = fileURLToPath(
 const SURFACE_PUBLICATION_COMPLETION_MODULE_PATH = fileURLToPath(
   new URL("./visibleFramePresenter.ts", import.meta.url),
 );
-const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFrameKernel.ts", import.meta.url),
+const COORDINATOR_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameCoordinator.ts", import.meta.url),
 );
 const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   new URL(
@@ -53,8 +53,8 @@ const CONTENT_PREPARATION_MODULE_PATH = fileURLToPath(
 const contentDecisionKernel =
   createGpuFlowVisiblePublicationContentDecisionKernel();
 
-function readGpuFlowVisiblePublicationKernelSource(): string {
-  return [KERNEL_MODULE_PATH, CONTENT_DECISION_KERNEL_MODULE_PATH]
+function readGpuFlowVisiblePublicationCoordinatorSource(): string {
+  return [COORDINATOR_MODULE_PATH, CONTENT_DECISION_KERNEL_MODULE_PATH]
     .map((filePath) => readFileSync(filePath, "utf8"))
     .join("\n");
 }
@@ -62,7 +62,7 @@ function readGpuFlowVisiblePublicationKernelSource(): string {
 describe("GPU Flow visible publication content plans", () => {
   it("keeps single-stage content publication gates off the public surfaces", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
-    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const contentPlanReExport =
       kernelModuleSource.match(
         /export \{[\s\S]*?\} from "\.\/visibleFrameContentPlan";/,
@@ -220,8 +220,8 @@ describe("GPU Flow visible publication content plans", () => {
     );
   });
 
-  it("keeps content publication selector factories off the kernel public surface", () => {
-    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+  it("keeps content publication selector factories off the coordinator public surface", () => {
+    const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
     const candidateDecisionKernelSource = readFileSync(
       CONTENT_DECISION_KERNEL_MODULE_PATH,
@@ -267,7 +267,7 @@ describe("GPU Flow visible publication content plans", () => {
       "utf8",
     );
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
-    const kernelSource = readGpuFlowVisiblePublicationKernelSource();
+    const coordinatorSource = readGpuFlowVisiblePublicationCoordinatorSource();
     const contentPreparationSource = readFileSync(
       CONTENT_PREPARATION_MODULE_PATH,
       "utf8",
@@ -441,37 +441,37 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentPlanSource).toContain(
       "resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
     );
-    expect(readFileSync(KERNEL_MODULE_PATH, "utf8")).not.toMatch(
+    expect(readFileSync(COORDINATOR_MODULE_PATH, "utf8")).not.toMatch(
       /(?:apply|create)GpuFlow(?:RetainedDisplay|CommittedSurface)PublicationContentStage/,
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function resolveGpuFlowRetainedDisplayOutcomeFrameResult",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "function resolveGpuFlowRetainedDisplayOutcomeFrameResult",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function resolveGpuFlowRetainedDisplayPublicationFramePlanResult",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function resolveGpuFlowRetainedDisplayPublicationFramePlanResult",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function selectGpuFlowRetainedDisplayPublicationFramePlan",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function selectGpuFlowCommittedSurfacePublicationFramePlan",
     );
     expect(contentPlanSource).toContain(
@@ -499,10 +499,10 @@ describe("GPU Flow visible publication content plans", () => {
     );
   });
 
-  it("keeps committed-surface transaction candidate selection in the kernel", () => {
+  it("keeps committed-surface transaction candidate selection in the coordinator", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
-    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
-    const kernelSource = readGpuFlowVisiblePublicationKernelSource();
+    const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
+    const coordinatorSource = readGpuFlowVisiblePublicationCoordinatorSource();
 
     expect(contentPlanSource).not.toContain(
       "export function prepareGpuFlowCommittedSurfacePublicationCandidate",
@@ -513,25 +513,25 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentPlanSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
     expect(kernelModuleSource).not.toContain(
       "prepareGpuFlowCommittedSurfacePublicationCandidate",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "resolveGpuFlowCommittedSurfacePublicationReadiness",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
     );
-    expect(kernelSource).toContain('"nonpublishable"');
-    expect(kernelSource).toContain('"blocked-candidate"');
+    expect(coordinatorSource).toContain('"nonpublishable"');
+    expect(coordinatorSource).toContain('"blocked-candidate"');
   });
 
-  it("keeps committed-surface frame-plan selection in the kernel", () => {
+  it("keeps committed-surface frame-plan selection in the coordinator", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
-    const kernelSource = readGpuFlowVisiblePublicationKernelSource();
+    const coordinatorSource = readGpuFlowVisiblePublicationCoordinatorSource();
 
     expect(contentPlanSource).not.toContain(
       "export function selectGpuFlowCommittedSurfacePublicationFramePlan",
@@ -542,32 +542,32 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentPlanSource).not.toContain(
       "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function selectGpuFlowCommittedSurfacePublicationFramePlan",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function selectGpuFlowCommittedSurfacePublicationFramePlan",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function resolveGpuFlowCommittedSurfacePublicationActionFrameResult",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function resolveGpuFlowCommittedSurfacePublicationFramePlanResult",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "createGpuFlowNodeLayerCommittedSurfacePublicationResult",
     );
   });
 
-  it("keeps retained-display outcome selection in the kernel", () => {
+  it("keeps retained-display outcome selection in the coordinator", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
-    const kernelSource = readGpuFlowVisiblePublicationKernelSource();
+    const coordinatorSource = readGpuFlowVisiblePublicationCoordinatorSource();
 
     expect(contentPlanSource).not.toContain(
       "export function selectGpuFlowRetainedDisplayPublicationFramePlan",
@@ -578,20 +578,20 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentPlanSource).not.toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate(",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function selectGpuFlowRetainedDisplayPublicationFramePlan",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "resolveGpuFlowRetainedDisplayPublicationOutcomeFrame",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "createGpuFlowRetainedProjectionBlockedPublicationCandidate",
     );
   });
 
-  it("keeps content blocked-candidate selection in the kernel", () => {
+  it("keeps content blocked-candidate selection in the coordinator", () => {
     const contentPlanSource = readFileSync(CONTENT_PLAN_MODULE_PATH, "utf8");
-    const kernelSource = readGpuFlowVisiblePublicationKernelSource();
+    const coordinatorSource = readGpuFlowVisiblePublicationCoordinatorSource();
 
     expect(contentPlanSource).not.toContain(
       "export function selectGpuFlowContentPublicationBlockedCandidate",
@@ -599,22 +599,22 @@ describe("GPU Flow visible publication content plans", () => {
     expect(contentPlanSource).not.toContain(
       "createGpuFlowBrowserVisualBlockedPublicationCandidate(",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function selectGpuFlowContentPublicationBlockedCandidate",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function selectGpuFlowContentPublicationBlockedCandidate",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "function selectGpuFlowContentPublicationBlockedCandidateForFrameResult",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "export function selectGpuFlowContentPublicationBlockedCandidateForFrameResult",
     );
-    expect(kernelSource).toContain(
+    expect(coordinatorSource).toContain(
       "createGpuFlowBrowserVisualBlockedPublicationCandidate",
     );
-    expect(kernelSource).not.toContain(
+    expect(coordinatorSource).not.toContain(
       "createGpuFlowBrowserVisualBlockedPublicationCandidateFactory",
     );
   });

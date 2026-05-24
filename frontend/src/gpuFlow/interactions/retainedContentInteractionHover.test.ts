@@ -40,6 +40,42 @@ describe("GPU retained content hover interaction", () => {
     cleanup();
   });
 
+  it("updates retained hover when pointer move targets a browser-owned host", () => {
+    const element = createHostElement();
+    const nativeTarget = document.createElement("div");
+    nativeTarget.dataset.gpuFlowDomControl = "true";
+    element.append(nativeTarget);
+    const onHitPointerMove = vi.fn();
+    const cleanup = attachGpuRetainedContentInteractionController({
+      element,
+      getScene: () => retainedContentScene(),
+      onHitPointerMove,
+      shouldHandlePointerMoveHit: () => true,
+      store: createGpuFlowViewportStore(),
+    });
+
+    nativeTarget.dispatchEvent(
+      createPointerEvent("pointermove", {
+        buttons: 0,
+        clientX: 20,
+        clientY: 42,
+        pointerId: 1,
+      }),
+    );
+
+    expect(onHitPointerMove).toHaveBeenCalledWith({
+      hit: expect.objectContaining({
+        hit: expect.objectContaining({
+          ownerRowId: "param-1",
+        }),
+        surfaceId: "dict-a:param-content:unpinned",
+      }),
+      nativeEvent: expect.any(MouseEvent),
+    });
+
+    cleanup();
+  });
+
   it("clears hover hits when wheel gestures begin without a pointer leave", () => {
     const element = createHostElement();
     const onHitPointerLeave = vi.fn();

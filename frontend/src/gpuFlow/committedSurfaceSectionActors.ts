@@ -18,15 +18,39 @@ export function createSectionStructureActors(
   const renderedNodeIds = new Set(
     retainedRuntimeFrame.descriptors.renderedSceneNodeIds,
   );
+  const visibleRetainedSectionIds = new Set(
+    retainedRuntimeFrame.descriptors.sourceSurfaces.map(
+      (surface) => surface.ownerSectionId,
+    ),
+  );
   return Object.freeze(
     retainedRuntimeFrame.descriptors.sceneSections
       .filter((section) => renderedNodeIds.has(section.sectionId))
+      .filter((section) =>
+        isSectionStructureActorRequiredForRuntimeFrame({
+          section,
+          visibleRetainedSectionIds,
+        }),
+      )
       .flatMap((section) =>
         createSectionStructureActorsForSection({
           retainedRuntimeFrame,
           section,
         }),
       ),
+  );
+}
+
+function isSectionStructureActorRequiredForRuntimeFrame({
+  section,
+  visibleRetainedSectionIds,
+}: {
+  readonly section: GpuSectionSceneNode;
+  readonly visibleRetainedSectionIds: ReadonlySet<string>;
+}): boolean {
+  return (
+    section.parentSectionId === null ||
+    visibleRetainedSectionIds.has(section.sectionId)
   );
 }
 
@@ -141,6 +165,7 @@ function createSectionStructureActor({
     zOrder,
   ].join("|");
   const readinessGenerationId = `${actorFamily}:ready:${section.sectionId}`;
+  const visibleNonempty = !isCompactSectionStructureTexture(section);
   return freezeActor({
     active: false,
     actorFamily,
@@ -170,10 +195,14 @@ function createSectionStructureActor({
     rowId: null,
     sourceRect,
     valueStyleRevision: null,
-    visibleNonempty: true,
+    visibleNonempty,
     wheelPolicy: "none",
     zOrder,
   });
+}
+
+function isCompactSectionStructureTexture(section: GpuSectionSceneNode): boolean {
+  return section.textureCssHeight === 1 && section.textureCssWidth === 1;
 }
 
 function createSectionHeaderActorRect({

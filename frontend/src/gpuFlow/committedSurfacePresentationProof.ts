@@ -270,61 +270,67 @@ export function createGpuFlowCommittedSurfaceActorManifestDigest(
   }
   const digest = createGpuFlowJsonDigest(
     "committed-surface-actor-manifest",
-    actorGenerations.map((actor) => ({
-      accessibilityProjection: actor.accessibilityProjection,
-      activationPolicy: actor.activationPolicy,
-      active: actor.active,
-      actorFamily: actor.actorFamily,
-      actorId: actor.actorId,
-      browserVisual:
-        actor.browserVisual === null
-          ? null
-          : {
-              coverageExemption: actor.browserVisual.coverageExemption,
-              coverageRequired: actor.browserVisual.coverageRequired,
-              coverageState: actor.browserVisual.coverageState,
-              nonemptyReason: actor.browserVisual.nonemptyReason,
-              proof: actor.browserVisual.proof,
-              representationKind: actor.browserVisual.representationKind,
-              resourceHandles: actor.browserVisual.resourceHandles.map(
-                createGpuFlowCommittedSurfaceResourceHandleDigest,
-              ),
-              visibilityReason: actor.browserVisual.visibilityReason,
-            },
-      canonicalActorId: actor.canonicalActorId,
-      clipChainRevision: actor.clipChainRevision,
-      clipRect: actor.clipRect,
-      contentGenerationId: actor.contentGenerationId,
-      controlId: actor.controlId,
-      focusIdentity: actor.focusIdentity,
-      flowRect: actor.flowRect,
-      generationClassification: actor.generationClassification,
-      generationId: actor.generationId,
-      islandId: actor.islandId,
-      kind: actor.kind,
-      layoutProjectionGenerationId: actor.layoutProjectionGenerationId,
-      liveMotionSampleId: actor.liveMotionSampleId,
-      mountReadiness: actor.mountReadiness,
-      ownerSurfaceId: actor.ownerSurfaceId,
-      pointerEvents: actor.pointerEvents,
-      projectionReadiness: actor.projectionReadiness,
-      readinessGenerationId: actor.readinessGenerationId,
-      retainedScrollOffset: actor.retainedScrollOffset,
-      retainedScrollRevision: actor.retainedScrollRevision,
-      rowId: actor.rowId,
-      semanticGenerationId: actor.semanticGenerationId,
-      sourceRect: actor.sourceRect,
-      textCoverageProof: actor.textCoverageProof,
-      textSnapshotCacheKeyRevision: actor.textSnapshotCacheKeyRevision,
-      valueStyleRevision: actor.valueStyleRevision,
-      visibleNonempty: actor.visibleNonempty,
-      visualGenerationId: actor.visualGenerationId,
-      wheelPolicy: actor.wheelPolicy,
-      zOrder: actor.zOrder,
-    })),
+    actorGenerations.map(createGpuFlowCommittedSurfaceActorManifestEntry),
   );
   actorManifestDigestCache.set(actorGenerations, digest);
   return digest;
+}
+
+function createGpuFlowCommittedSurfaceActorManifestEntry(
+  actor: GpuFlowCommittedSurfaceActorGeneration,
+) {
+  return [
+    actor.actorId,
+    actor.canonicalActorId,
+    actor.kind,
+    actor.actorFamily,
+    actor.generationClassification,
+    actor.generationId,
+    actor.contentGenerationId,
+    actor.layoutProjectionGenerationId,
+    actor.readinessGenerationId,
+    actor.semanticGenerationId,
+    actor.visualGenerationId,
+    actor.clipChainRevision,
+    actor.liveMotionSampleId,
+    actor.ownerSurfaceId,
+    actor.controlId,
+    actor.islandId,
+    actor.rowId,
+    actor.focusIdentity,
+    actor.active,
+    actor.pointerEvents,
+    actor.mountReadiness,
+    actor.projectionReadiness,
+    actor.visibleNonempty,
+    actor.retainedScrollRevision,
+    actor.valueStyleRevision,
+    actor.textSnapshotCacheKeyRevision,
+    actor.wheelPolicy,
+    actor.zOrder,
+    actor.browserVisual === null
+      ? null
+      : [
+          actor.browserVisual.coverageState,
+          actor.browserVisual.coverageRequired?.required ?? null,
+          actor.browserVisual.coverageRequired?.reason ?? null,
+          actor.browserVisual.coverageExemption?.reason ?? null,
+          actor.browserVisual.nonemptyReason,
+          actor.browserVisual.proof
+            ? [
+                actor.browserVisual.proof.actualInteraction,
+                actor.browserVisual.proof.actualVisual,
+                actor.browserVisual.proof.requiredInteraction,
+                actor.browserVisual.proof.requiredVisual,
+              ]
+            : null,
+          actor.browserVisual.representationKind,
+          actor.browserVisual.resourceHandles.map(
+            createGpuFlowCommittedSurfaceResourceHandleDigest,
+          ),
+          actor.browserVisual.visibilityReason,
+        ],
+  ] as const;
 }
 
 function hasCachedGpuFlowCommittedSurfacePresentationProofValidation(

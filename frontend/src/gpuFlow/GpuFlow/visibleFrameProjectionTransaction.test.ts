@@ -12,11 +12,11 @@ import type {
 } from "../projectionRuntime";
 import { createGpuFlowVisiblePublicationScheduler } from "../projectionRuntime";
 import {
-  runGpuFlowVisibleFramePublicationCandidateSetKernel,
+  runGpuFlowVisibleFrameCoordinator,
   type GpuFlowProjectionFrameRenderablePlan,
   type GpuFlowVisibleFrameBlockedPublicationCandidate,
   type GpuFlowVisibleFramePublicationSample,
-} from "./visibleFrameKernel";
+} from "./visibleFrameCoordinator";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
 
 type TestProjectionPublicationFrame = {
@@ -27,8 +27,8 @@ type TestProjectionPublicationFrame = {
 const PROJECTION_PLAN_MODULE_PATH = fileURLToPath(
   new URL("./visibleFrameProjectionPlan.ts", import.meta.url),
 );
-const KERNEL_MODULE_PATH = fileURLToPath(
-  new URL("./visibleFrameKernel.ts", import.meta.url),
+const COORDINATOR_MODULE_PATH = fileURLToPath(
+  new URL("./visibleFrameCoordinator.ts", import.meta.url),
 );
 const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   new URL(
@@ -37,7 +37,7 @@ const CONTENT_DECISION_KERNEL_MODULE_PATH = fileURLToPath(
   ),
 );
 
-describe("GPU Flow visible publication kernel projection transactions", () => {
+describe("GPU Flow visible frame coordinator projection transactions", () => {
   it("selects requested projection candidates and reports missing coverage for global hold/block decisions", () => {
     const requestedFrame = projectionFrame({
       needsRetainedPageMaintenance: true,
@@ -126,7 +126,7 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
         {
           actorId: null,
           family: "retained-projection",
-          reason: "held-previous-budget-exceeded",
+          reason: "retained-projection-coverage-missing",
         },
       ],
       frozenFrameId: 11,
@@ -134,12 +134,12 @@ describe("GPU Flow visible publication kernel projection transactions", () => {
     expect(blockedSelection.outcomeKind).toBe("blocked");
   });
 
-  it("keeps retained projection transaction candidates in the kernel-owned proof and out of render planning", () => {
+  it("keeps retained projection transaction candidates in the coordinator-owned proof and out of render planning", () => {
     const projectionPlanSource = readFileSync(
       PROJECTION_PLAN_MODULE_PATH,
       "utf8",
     );
-    const kernelModuleSource = readFileSync(KERNEL_MODULE_PATH, "utf8");
+    const kernelModuleSource = readFileSync(COORDINATOR_MODULE_PATH, "utf8");
     const candidateDecisionKernelSource = readFileSync(
       CONTENT_DECISION_KERNEL_MODULE_PATH,
       "utf8",
@@ -245,7 +245,7 @@ function selectProjectionFrameTransactionThroughKernel({
     renderPlan: null,
   };
   let resolvedHeldTransaction: GpuFlowProjectionTransaction | null = null;
-  const result = runGpuFlowVisibleFramePublicationCandidateSetKernel<
+  const result = runGpuFlowVisibleFrameCoordinator<
     TestProjectionPublicationFrame,
     TestProjectionPublicationFrame
   >({

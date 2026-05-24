@@ -1,16 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  assertGpuFlowVisibleFrameEngineOutcomeBrand,
+  assertGpuFlowVisibleFrameStateMachineOutcomeBrand,
   createGpuFlowVisibleFrameStarvationPolicy,
-  createGpuFlowVisibleFrameEngine,
+  createGpuFlowVisibleFrameStateMachine,
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
   getGpuFlowVisibleFrameHeldPreviousBudgetStatus,
-  proveGpuFlowVisibleFrameEngineFrame,
-  type GpuFlowVisibleFrameEngineOutcome,
-  type GpuFlowVisibleFrameEngineSample,
+  proveGpuFlowVisibleFrameStateMachineFrame,
   type GpuFlowVisibleFramePreparedFrame,
-} from "./visibleFrameEngine";
+  type GpuFlowVisibleFrameStateMachineOutcome,
+  type GpuFlowVisibleFrameStateMachineSample,
+} from "./visibleFrameStateMachine";
 import {
   createGpuFlowContentFrameId,
   createGpuFlowPresentationId,
@@ -27,7 +27,7 @@ import {
 
 const ACTOR_A = {
   actorId: "actor-a",
-  family: "browser-visual",
+  family: "browser-text-snapshot",
 } as const satisfies GpuFlowVisibleFrameActorKey;
 const ACTOR_B = {
   actorId: "actor-b",
@@ -40,7 +40,7 @@ const EMPTY_DEBT = Object.freeze({
   motion: false,
 } satisfies GpuFlowVisibleFrameDebt);
 
-describe("GPU Flow visible frame engine reducer", () => {
+describe("GPU Flow visible frame state machine reducer", () => {
   it("lets true-hole required proofs win over exact, compatible, and blocked proofs", () => {
     const contentFrameId = createGpuFlowContentFrameId("content-a");
     const previousPresentation = committedPresentation({
@@ -51,7 +51,7 @@ describe("GPU Flow visible frame engine reducer", () => {
       ],
     });
 
-    const outcome = proveGpuFlowVisibleFrameEngineFrame({
+    const outcome = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [
           trueHoleProof(ACTOR_A, "retained-page-hole"),
@@ -59,13 +59,13 @@ describe("GPU Flow visible frame engine reducer", () => {
           exactProof({
             actor: {
               actorId: "actor-c",
-              family: "hit-debug",
+              family: "hit-generation",
             },
           }),
           compatibleBrowserProof({
             actor: {
               actorId: "actor-d",
-              family: "browser-visual",
+              family: "browser-text-snapshot",
             },
             contentFrameId,
             previousPresentation,
@@ -87,7 +87,7 @@ describe("GPU Flow visible frame engine reducer", () => {
   });
 
   it("blocks cold start instead of publishing partial current-scene content", () => {
-    const outcome = proveGpuFlowVisibleFrameEngineFrame({
+    const outcome = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [blockedProof(ACTOR_A, "coverage-missing")],
         requiredActors: [ACTOR_A],
@@ -110,7 +110,7 @@ describe("GPU Flow visible frame engine reducer", () => {
       presentationId: createGpuFlowPresentationId("presentation-a"),
     });
 
-    const outcome = proveGpuFlowVisibleFrameEngineFrame({
+    const outcome = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [exactProof({ actor: ACTOR_A })],
         contentFrameId,
@@ -139,7 +139,7 @@ describe("GPU Flow visible frame engine reducer", () => {
     });
     const nextContentFrameId = createGpuFlowContentFrameId("content-b");
 
-    const outcome = proveGpuFlowVisibleFrameEngineFrame({
+    const outcome = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [exactProof({ actor: ACTOR_A })],
         contentFrameId: nextContentFrameId,
@@ -171,7 +171,7 @@ describe("GPU Flow visible frame engine reducer", () => {
       coverages: [coverage({ actor: ACTOR_A, contentFrameId })],
     });
 
-    const heldOutcome = proveGpuFlowVisibleFrameEngineFrame({
+    const heldOutcome = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [blockedProof(ACTOR_A, "snapshot-pending")],
         contentFrameId,
@@ -180,7 +180,7 @@ describe("GPU Flow visible frame engine reducer", () => {
       }),
       previousPresentation: completePreviousPresentation,
     });
-    const abortedOutcome = proveGpuFlowVisibleFrameEngineFrame({
+    const abortedOutcome = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [blockedProof(ACTOR_A, "snapshot-pending")],
         contentFrameId,
@@ -209,7 +209,7 @@ describe("GPU Flow visible frame engine reducer", () => {
       coverages: [coverage({ actor: ACTOR_A, contentFrameId })],
     });
 
-    const outcome = proveGpuFlowVisibleFrameEngineFrame({
+    const outcome = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [blockedProof(ACTOR_A, "held-previous-budget-exceeded")],
         contentFrameId,
@@ -237,7 +237,7 @@ describe("GPU Flow visible frame engine reducer", () => {
       contentFrameId,
     });
 
-    const outcome = proveGpuFlowVisibleFrameEngineFrame({
+    const outcome = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [
           exactProof({ actor: ACTOR_A }),
@@ -272,7 +272,7 @@ describe("GPU Flow visible frame engine reducer", () => {
       coverages: [coverage({ actor: ACTOR_A, contentFrameId })],
     });
 
-    const outcome = proveGpuFlowVisibleFrameEngineFrame({
+    const outcome = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [
           compatibleBrowserProof({
@@ -299,7 +299,7 @@ describe("GPU Flow visible frame engine reducer", () => {
   });
 
   it("brands final outcomes so actor adapters cannot construct them directly", () => {
-    const outcome = proveGpuFlowVisibleFrameEngineFrame({
+    const outcome = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [exactProof({ actor: ACTOR_A })],
         requiredActors: [ACTOR_A],
@@ -308,27 +308,27 @@ describe("GPU Flow visible frame engine reducer", () => {
     });
 
     expect(() =>
-      assertGpuFlowVisibleFrameEngineOutcomeBrand({ outcome }),
+      assertGpuFlowVisibleFrameStateMachineOutcomeBrand({ outcome }),
     ).not.toThrow();
     expect(() =>
-      assertGpuFlowVisibleFrameEngineOutcomeBrand({
+      assertGpuFlowVisibleFrameStateMachineOutcomeBrand({
         outcome: {
           kind: "presented",
-        } as GpuFlowVisibleFrameEngineOutcome,
+        } as GpuFlowVisibleFrameStateMachineOutcome,
       }),
-    ).toThrow(/visible frame engine outcome/);
+    ).toThrow(/visible frame state machine outcome/);
   });
 });
 
-describe("GPU Flow visible frame engine lifecycle", () => {
+describe("GPU Flow visible frame state machine lifecycle", () => {
   it("samples immutably, prepares a candidate, proves it, then presents only a branded complete outcome", () => {
     const order: string[] = [];
     const mutableSample = engineSample();
-    let presented: {
-      readonly outcome: GpuFlowVisibleFrameEngineOutcome;
+    const presentations: {
+      readonly outcome: GpuFlowVisibleFrameStateMachineOutcome;
       readonly preparedFrame: GpuFlowVisibleFramePreparedFrame;
-    } | null = null;
-    const engine = createGpuFlowVisibleFrameEngine({
+    }[] = [];
+    const stateMachine = createGpuFlowVisibleFrameStateMachine({
       abortVisibleFrameCandidate: () => {
         order.push("abort");
       },
@@ -346,7 +346,7 @@ describe("GPU Flow visible frame engine lifecycle", () => {
       },
       presentVisibleFrame: (input) => {
         order.push(`present:${input.outcome.kind}`);
-        presented = input;
+        presentations.push(input);
       },
       sampleVisibleFrame: () => {
         order.push("sample");
@@ -354,19 +354,23 @@ describe("GPU Flow visible frame engine lifecycle", () => {
       },
     });
 
-    const outcome = engine.runFrame();
+    const outcome = stateMachine.runFrame();
+    const presented = presentations[0];
 
     expect(outcome.kind).toBe("presented");
     expect(order).toEqual(["sample", "prepare:true", "present:presented"]);
-    expect(presented?.outcome).toBe(outcome);
-    expect(Object.isFrozen(presented?.preparedFrame)).toBe(true);
+    if (!presented) {
+      throw new Error("Expected presented visible frame callback.");
+    }
+    expect(presented.outcome).toBe(outcome);
+    expect(Object.isFrozen(presented.preparedFrame)).toBe(true);
     expect(Object.isFrozen(mutableSample)).toBe(false);
   });
 
   it("holds the previous coherent frame without running the present or abort callbacks", () => {
     const contentFrameId = createGpuFlowContentFrameId("content-a");
     const calls: string[] = [];
-    const engine = createGpuFlowVisibleFrameEngine({
+    const stateMachine = createGpuFlowVisibleFrameStateMachine({
       abortVisibleFrameCandidate: () => calls.push("abort"),
       holdVisibleFrame: ({ outcome }) => calls.push(`hold:${outcome.kind}`),
       prepareVisibleFrameCandidate: ({ sample }) =>
@@ -387,7 +391,7 @@ describe("GPU Flow visible frame engine lifecycle", () => {
       sampleVisibleFrame: () => engineSample(),
     });
 
-    const outcome = engine.runFrame();
+    const outcome = stateMachine.runFrame();
 
     expect(outcome.kind).toBe("held");
     expect(calls).toEqual(["hold:held"]);
@@ -396,7 +400,7 @@ describe("GPU Flow visible frame engine lifecycle", () => {
   it("aborts candidate resources without running the present callback when previous coverage is incomplete", () => {
     const contentFrameId = createGpuFlowContentFrameId("content-a");
     let releasedResourceIds: readonly string[] | null = null;
-    const engine = createGpuFlowVisibleFrameEngine({
+    const stateMachine = createGpuFlowVisibleFrameStateMachine({
       abortVisibleFrameCandidate: ({ outcome }) => {
         releasedResourceIds = outcome.releasedResourceIds;
       },
@@ -421,7 +425,7 @@ describe("GPU Flow visible frame engine lifecycle", () => {
       sampleVisibleFrame: () => engineSample(),
     });
 
-    const outcome = engine.runFrame();
+    const outcome = stateMachine.runFrame();
 
     expect(outcome.kind).toBe("aborted");
     expect(releasedResourceIds).toEqual(["candidate-resource-a"]);
@@ -429,7 +433,7 @@ describe("GPU Flow visible frame engine lifecycle", () => {
 
   it("routes cold-start blocks to the deliberate shell callback without presenting partial content", () => {
     const calls: string[] = [];
-    const engine = createGpuFlowVisibleFrameEngine({
+    const stateMachine = createGpuFlowVisibleFrameStateMachine({
       abortVisibleFrameCandidate: () => calls.push("abort"),
       blockColdStartVisibleFrame: ({ outcome }) =>
         calls.push(`cold-start:${outcome.shellFrameId}`),
@@ -446,7 +450,7 @@ describe("GPU Flow visible frame engine lifecycle", () => {
       sampleVisibleFrame: () => engineSample(),
     });
 
-    const outcome = engine.runFrame();
+    const outcome = stateMachine.runFrame();
 
     expect(outcome.kind).toBe("blocked-cold-start");
     expect(calls).toEqual(["cold-start:cold-start-shell"]);
@@ -462,14 +466,14 @@ describe("GPU Flow visible frame engine lifecycle", () => {
       }),
       sample: engineSample(),
     });
-    const engine = createGpuFlowVisibleFrameEngine({
+    const stateMachine = createGpuFlowVisibleFrameStateMachine({
       abortVisibleFrameCandidate: () => {},
       prepareVisibleFrameCandidate: () => prepared,
       presentVisibleFrame: () => {},
       sampleVisibleFrame: () => engineSample(),
     });
-    const presented = engine.prove(prepared);
-    const held = proveGpuFlowVisibleFrameEngineFrame({
+    const presented = stateMachine.prove(prepared);
+    const held = proveGpuFlowVisibleFrameStateMachineFrame({
       candidate: candidate({
         actorProofs: [blockedProof(ACTOR_A, "snapshot-pending")],
         contentFrameId,
@@ -482,20 +486,20 @@ describe("GPU Flow visible frame engine lifecycle", () => {
     });
 
     expect(() =>
-      engine.present(prepared, {
+      stateMachine.present(prepared, {
         kind: "presented",
-      } as GpuFlowVisibleFrameEngineOutcome),
-    ).toThrow(/visible frame engine outcome/);
-    expect(() => engine.present(prepared, held)).toThrow(
+      } as GpuFlowVisibleFrameStateMachineOutcome),
+    ).toThrow(/visible frame state machine outcome/);
+    expect(() => stateMachine.present(prepared, held)).toThrow(
       /present requires a presented or projected outcome/,
     );
-    expect(() => engine.abort(prepared, presented)).toThrow(
+    expect(() => stateMachine.abort(prepared, presented)).toThrow(
       /cannot be used as aborted/,
     );
   });
 });
 
-describe("GPU Flow visible frame engine starvation policy", () => {
+describe("GPU Flow visible frame state machine starvation policy", () => {
   it("owns the default visible-frame fairness and held-previous budgets", () => {
     expect(DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY).toEqual({
       maxConsecutiveMotionFramesBeforeContentProbe: 6,
@@ -512,7 +516,7 @@ describe("GPU Flow visible frame engine starvation policy", () => {
     ).not.toBe(DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY);
   });
 
-  it("computes held-previous over-budget state from the engine policy", () => {
+  it("computes held-previous over-budget state from the state machine policy", () => {
     const policy = createGpuFlowVisibleFrameStarvationPolicy({
       ...DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY,
       maxHeldPreviousFrames: 2,
@@ -586,7 +590,7 @@ function preparedFrame({
     | GpuFlowVisibleFrameCommittedPresentation
     | null
     | undefined;
-  readonly sample: GpuFlowVisibleFrameEngineSample;
+  readonly sample: GpuFlowVisibleFrameStateMachineSample;
 }): GpuFlowVisibleFramePreparedFrame {
   return {
     candidate: preparedCandidate,
@@ -599,7 +603,7 @@ function engineSample({
   projectionSampleId = "sample-1",
 }: {
   readonly projectionSampleId?: GpuFlowProjectionSampleId | undefined;
-} = {}): GpuFlowVisibleFrameEngineSample {
+} = {}): GpuFlowVisibleFrameStateMachineSample {
   return {
     activeGestureOwner: "retained-section",
     canvasSize: {
@@ -623,17 +627,17 @@ function engineSample({
 }
 
 function expectOutcomeKind<
-  Kind extends GpuFlowVisibleFrameEngineOutcome["kind"],
+  Kind extends GpuFlowVisibleFrameStateMachineOutcome["kind"],
 >(
-  outcome: GpuFlowVisibleFrameEngineOutcome,
+  outcome: GpuFlowVisibleFrameStateMachineOutcome,
   kind: Kind,
-): Extract<GpuFlowVisibleFrameEngineOutcome, { readonly kind: Kind }> {
+): Extract<GpuFlowVisibleFrameStateMachineOutcome, { readonly kind: Kind }> {
   expect(outcome.kind).toBe(kind);
   if (outcome.kind !== kind) {
     throw new Error(`Expected visible frame outcome ${kind}.`);
   }
   return outcome as Extract<
-    GpuFlowVisibleFrameEngineOutcome,
+    GpuFlowVisibleFrameStateMachineOutcome,
     { readonly kind: Kind }
   >;
 }
@@ -685,7 +689,7 @@ function compatibleBrowserProof({
   projectionSampleId = "sample-1",
 }: {
   readonly actor: GpuFlowVisibleFrameActorKey & {
-    readonly family: "browser-visual";
+    readonly family: "browser-text-snapshot";
   };
   readonly contentFrameId: GpuFlowContentFrameId;
   readonly previousPresentation: GpuFlowVisibleFrameCommittedPresentation;
@@ -694,7 +698,7 @@ function compatibleBrowserProof({
   return {
     ...actor,
     compatiblePreviousProof: {
-      family: "browser-visual",
+      family: "browser-text-snapshot",
       proof: {
         actorId: actor.actorId,
         browserVisualGeneration: "visual-a",

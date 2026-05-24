@@ -18,7 +18,7 @@ import {
 import type {
   GpuFlowCommittedSurfaceBlockedCandidateRetry,
   GpuFlowVisiblePublicationCompletion,
-} from "./visibleFrameKernel";
+} from "./visibleFrameCoordinator";
 import {
   assertGpuFlowBlockedPublicationTokenBrand,
   assertGpuFlowBlockedPublicationTokenForProjectionSample,
