@@ -351,6 +351,7 @@ function shouldPrepareGpuFlowDomControlLiveHost({
 }): boolean {
   if (repairSelection.budgetSelectedResourceKeys) {
     return hasGpuFlowBrowserVisualSelectedResourceKeyForControl({
+      actorIds: repairSelection.actorIds,
       control,
       resourceKeys: repairSelection.budgetSelectedResourceKeys,
       resourcePrefix: "dom-control",
@@ -371,6 +372,7 @@ function shouldPrepareGpuFlowDomControlSnapshot({
 }): boolean {
   if (repairSelection.budgetSelectedResourceKeys) {
     return hasGpuFlowBrowserVisualSelectedResourceKeyForControl({
+      actorIds: repairSelection.actorIds,
       control,
       resourceKeys: repairSelection.budgetSelectedResourceKeys,
       resourcePrefix: "dom-control-snapshot",
@@ -383,14 +385,19 @@ function shouldPrepareGpuFlowDomControlSnapshot({
 }
 
 function hasGpuFlowBrowserVisualSelectedResourceKeyForControl({
+  actorIds,
   control,
   resourceKeys,
   resourcePrefix,
 }: {
+  readonly actorIds: ReadonlySet<string> | null;
   readonly control: GpuRetainedDomControlSourceDescriptor;
   readonly resourceKeys: ReadonlySet<string>;
   readonly resourcePrefix: "dom-control" | "dom-control-snapshot";
 }): boolean {
+  if (actorIds?.has(control.sourceId)) {
+    return true;
+  }
   if (resourcePrefix === "dom-control") {
     return (
       resourceKeys.has(`dom-control:${control.sourceId}`) ||

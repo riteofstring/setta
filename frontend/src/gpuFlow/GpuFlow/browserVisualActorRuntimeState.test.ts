@@ -28,6 +28,25 @@ describe("GPU Flow browser visual actor runtime state", () => {
     expect(staged.map((control) => control.sourceId)).toEqual(["c", "e"]);
   });
 
+  it("stages blocked token actors alongside budget-selected resources", () => {
+    const controls = ["a", "b", "c", "d", "e"].map((sourceId) =>
+      domControl({ sourceId }),
+    );
+
+    const staged = resolveGpuFlowDomControlLiveHostPreparationStage({
+      isDomControlHostReady: () => false,
+      preparedDomControls: {
+        mountedControls: controls,
+      } as unknown as Parameters<
+        typeof resolveGpuFlowDomControlLiveHostPreparationStage
+      >[0]["preparedDomControls"],
+      selectedResourceKeys: ["dom-control:e"],
+      token: blockedToken(["c"]),
+    });
+
+    expect(staged.map((control) => control.sourceId)).toEqual(["c", "e"]);
+  });
+
   it("stages budget-selected snapshot controls by resolved snapshot resource key", () => {
     const controls = [
       domControl({ sourceId: "a", snapshotSurfaceId: "snapshot:a" }),
@@ -63,9 +82,13 @@ function domControl({
   } as unknown as GpuRetainedDomControlSourceDescriptor;
 }
 
-function blockedToken() {
+function blockedToken(actorIds: readonly string[] = []) {
   return createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
-    blockedReasons: [],
+    blockedReasons: actorIds.map((actorId) => ({
+      actorId,
+      family: "browser-text-snapshot",
+      reason: "snapshot-pending",
+    })),
     frozenFrameId: 1,
     projectionSample: {
       id: 1,
