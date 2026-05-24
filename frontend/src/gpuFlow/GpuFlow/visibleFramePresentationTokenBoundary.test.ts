@@ -189,7 +189,7 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
         pattern: /\bcompatiblePreviousProof\b/,
       },
       {
-        label: "presentable commit digest assembly",
+        label: "presentable frame digest assembly",
         pattern:
           /\b(?:expectedActorSetDigest|presentationPairDigest|proofDigest)\b/,
       },

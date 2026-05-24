@@ -21,12 +21,12 @@ import type { GpuFlowBlockedPublicationToken } from "./visibleFramePresentationP
 import { createGpuFlowCommitAuthorityProof } from "./visibleFramePresentationProofs";
 import { selectGpuFlowMotionProjectionFrameBlockedPublicationReason } from "./visibleFrameProjectionWorkProof";
 import type { GpuFlowMotionProjectionFrameWorkReport } from "./visibleFrameProjectionWorkTypes";
+import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
 import {
   assertGpuFlowVisiblePublicationResourcesProtected,
   createGpuFlowVisiblePublicationResourceBlockedReasons,
   createGpuFlowVisiblePublicationResourceProtectionReport,
 } from "./visibleFrameResourceGraph";
-import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
 import {
   proveGpuFlowVisibleFrameStateMachineFrame,
   type GpuFlowVisibleFramePreparedFrame,
@@ -329,7 +329,7 @@ export function createGpuFlowVisiblePublicationTransactionProofReport(
       blockedProof: null,
       blockedSource: null,
       hasCommitProof: false,
-      hasPresentableCommit: false,
+      hasPresentableFrame: false,
       renderedVisibleFrame: false,
       visibleFrameStateMachineOutcome: null,
       visibleProjectionSource: null,
@@ -348,7 +348,7 @@ export function createGpuFlowVisiblePublicationTransactionProofReport(
           },
     blockedSource: transactionProof.blockedSource,
     hasCommitProof: transactionProof.commitProof !== null,
-    hasPresentableCommit:
+    hasPresentableFrame:
       transactionProof.commitProof !== null &&
       transactionProof.visibleProjectionState?.transaction?.kind !==
         "held-previous",

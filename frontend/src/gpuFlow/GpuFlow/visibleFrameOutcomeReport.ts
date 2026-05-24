@@ -152,7 +152,7 @@ function createGpuFlowVisibleTransactionReport({
   return {
     inputSampleId: publicationDecision.sample.id,
     outcome: outcome.kind,
-    presentableCommit:
+    presentableFrame:
       commitToken === null
         ? null
         : {

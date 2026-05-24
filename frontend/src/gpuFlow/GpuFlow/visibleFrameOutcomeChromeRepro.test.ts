@@ -339,7 +339,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
           blockedProof: null,
           blockedSource: null,
           hasCommitProof: true,
-          hasPresentableCommit: true,
+          hasPresentableFrame: true,
           renderedVisibleFrame: true,
           visibleFrameStateMachineOutcome: {
             decidingProof: null,
@@ -350,7 +350,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         visibleTransaction: {
           inputSampleId: 11,
           outcome: "commit",
-          presentableCommit: expect.objectContaining({
+          presentableFrame: expect.objectContaining({
             presentationPairProof: expect.objectContaining({
               actorManifestDigest: expect.objectContaining({
                 preview: "manifest-digest",

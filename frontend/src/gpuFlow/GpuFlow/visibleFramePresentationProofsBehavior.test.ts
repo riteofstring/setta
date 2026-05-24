@@ -291,7 +291,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     ).toThrow(/resource protection proof/);
   });
 
-  it("rejects presentable commits when actor proof resources are not protected", async () => {
+  it("rejects presentable frames when actor proof resources are not protected", async () => {
     const { createGpuFlowCommitAuthorityProof } = await import(
       "./visibleFramePresentationProofs"
     );

@@ -226,14 +226,14 @@ function summarizeChromeReproOutcomeToken(
 function summarizeChromeReproVisibleTransaction(
   visibleTransaction: GpuFlowVisibleTransactionReport,
 ) {
-  const { presentableCommit, presentationProof, token, ...rest } =
+  const { presentableFrame, presentationProof, token, ...rest } =
     visibleTransaction;
   return {
     ...rest,
-    presentableCommit:
-      presentableCommit === null
+    presentableFrame:
+      presentableFrame === null
         ? null
-        : summarizeChromeReproPresentableCommit(presentableCommit),
+        : summarizeChromeReproPresentableFrame(presentableFrame),
     presentationProof:
       presentationProof === null
         ? null
@@ -242,12 +242,12 @@ function summarizeChromeReproVisibleTransaction(
   };
 }
 
-function summarizeChromeReproPresentableCommit(
-  presentableCommit: NonNullable<
-    GpuFlowVisibleTransactionReport["presentableCommit"]
+function summarizeChromeReproPresentableFrame(
+  presentableFrame: NonNullable<
+    GpuFlowVisibleTransactionReport["presentableFrame"]
   >,
 ) {
-  const { presentationPairProof, ...digestFields } = presentableCommit;
+  const { presentationPairProof, ...digestFields } = presentableFrame;
   return {
     ...summarizeChromeReproStringRecord(digestFields),
     presentationPairProof: summarizeChromeReproPresentationProof(
