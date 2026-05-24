@@ -18,7 +18,7 @@ describe("GPU Flow cold-start maintenance retry", () => {
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(content.schedulerState).toBe("content-catchup");
+    expect(content.reducerState).toBe("content-catchup");
     expect(content.lane).toBe("content");
 
     completeBlockedFrame(reducerRuntime, content, [
@@ -36,7 +36,7 @@ describe("GPU Flow cold-start maintenance retry", () => {
       timestamp: 250,
       viewportInteractionActive: false,
     });
-    expect(upload.schedulerState).toBe("maintenance-drain");
+    expect(upload.reducerState).toBe("maintenance-drain");
     expect(upload.lane).toBe("maintenance");
     expect(upload.debt).toEqual({
       content: true,

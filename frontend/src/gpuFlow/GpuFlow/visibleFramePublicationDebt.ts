@@ -4,7 +4,7 @@ import {
   isGpuFlowMotionFrameReason,
   isGpuFlowRetainedMotionFrameReason,
   shouldDeferGpuFlowMaintenanceContentCatchup,
-  type GpuFlowProjectionSchedulerState,
+  type GpuFlowVisibleFrameReducerState,
 } from "../projectionSchedulerPolicy";
 import {
   assertGpuFlowVisibleFramePresentationTokenForProjectionSample,
@@ -63,7 +63,7 @@ export function createGpuFlowVisiblePublicationCompletion({
   });
 }
 
-export function selectGpuFlowProjectionNonMotionSchedulerState({
+export function selectGpuFlowProjectionNonMotionReducerState({
   contentDebt,
   contentRetryDeferred,
   maintenanceDebt,
@@ -71,7 +71,7 @@ export function selectGpuFlowProjectionNonMotionSchedulerState({
   readonly contentDebt: boolean;
   readonly contentRetryDeferred: boolean;
   readonly maintenanceDebt: boolean;
-}): GpuFlowProjectionSchedulerState {
+}): GpuFlowVisibleFrameReducerState {
   if (contentDebt) {
     if (!contentRetryDeferred) {
       return "content-catchup";
@@ -89,7 +89,7 @@ export function selectGpuFlowProjectionMotionSettlingState({
   readonly contentDebt: boolean;
   readonly contentRetryDeferred: boolean;
   readonly motionSettling: boolean;
-}): GpuFlowProjectionSchedulerState | null {
+}): GpuFlowVisibleFrameReducerState | null {
   return motionSettling && (!contentDebt || contentRetryDeferred)
     ? "motion-settling"
     : null;

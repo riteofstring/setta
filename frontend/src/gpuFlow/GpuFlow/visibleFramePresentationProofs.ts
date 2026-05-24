@@ -291,7 +291,7 @@ function shouldRequestGpuFlowVisiblePublicationDebtFrameImmediately({
 }): boolean {
   return (
     isGpuFlowRetainedProjectionBlockedOutcome(outcome) &&
-    reducerDecision.schedulerState !== "motion-active"
+    reducerDecision.reducerState !== "motion-active"
   );
 }
 
@@ -337,13 +337,13 @@ function getDelayedGpuFlowVisiblePublicationDebtRequestMs({
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly reducerMotionSettleWindowMs: number;
 }): number | null {
-  if (reducerDecision.schedulerState === "motion-active") {
+  if (reducerDecision.reducerState === "motion-active") {
     return GPU_FLOW_MOTION_ACTIVE_DEBT_RETRY_DELAY_MS;
   }
   if (reducerDecision.lane === "motion") {
     return null;
   }
-  if (reducerDecision.schedulerState === "motion-settling") {
+  if (reducerDecision.reducerState === "motion-settling") {
     return reducerMotionSettleWindowMs * 8;
   }
   return null;

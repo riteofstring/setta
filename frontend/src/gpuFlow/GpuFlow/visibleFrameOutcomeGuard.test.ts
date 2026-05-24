@@ -64,7 +64,7 @@ function reducerDecision(
     lane: "idle",
     rawReasons: [],
     sample: liveProjectionSample(sampleId),
-    schedulerState: "idle",
+    reducerState: "idle",
   };
 }
 

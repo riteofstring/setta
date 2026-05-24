@@ -916,7 +916,7 @@ async function readActivationDiagnostics(
           },
           blockedReasons: summarizeReasons(record.blockedReasons),
           outcome: record.outcome ?? null,
-          schedulerState: record.schedulerState ?? null,
+          reducerState: record.reducerState ?? null,
           source: record.source ?? null,
         };
       });
@@ -983,7 +983,7 @@ async function readActivationDiagnostics(
           rowResourceKeys: resourceKeys.filter((resourceKey) =>
             resourceKey.includes(rowId),
           ),
-          schedulerState: record.schedulerState ?? null,
+          reducerState: record.reducerState ?? null,
           source: record.source ?? null,
           transactionProof: record.transactionProof ?? null,
         };

@@ -944,7 +944,7 @@ function committedPublicationTransaction({
       lane: "content",
       rawReasons: ["manual"],
       sample: selectedState.sample,
-      schedulerState: "content-catchup",
+      reducerState: "content-catchup",
     },
   } as unknown as GpuFlowSurfacePublicationTransaction;
 }
@@ -1077,7 +1077,7 @@ function blockedPublicationTransaction({
       lane: "content",
       rawReasons: ["manual"],
       sample,
-      schedulerState: "content-catchup",
+      reducerState: "content-catchup",
     },
   } as unknown as GpuFlowSurfacePublicationTransaction;
 }

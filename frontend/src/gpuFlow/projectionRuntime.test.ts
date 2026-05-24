@@ -57,7 +57,7 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(deferredCatchup.schedulerState).toBe("motion-settling");
+    expect(deferredCatchup.reducerState).toBe("motion-settling");
     expect(deferredCatchup.lane).toBe("idle");
     expect(deferredCatchup.debt.maintenance).toBe(true);
     completeHeldFrame(reducerRuntime, deferredCatchup);
@@ -69,7 +69,7 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 600,
       viewportInteractionActive: false,
     });
-    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.reducerState).toBe("content-catchup");
     expect(catchup.lane).toBe("content");
     expect(catchup.debt.maintenance).toBe(true);
     completeCommittedFrame(reducerRuntime, catchup);
@@ -81,7 +81,7 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 3,
       viewportInteractionActive: false,
     });
-    expect(maintenance.schedulerState).toBe("maintenance-deferred");
+    expect(maintenance.reducerState).toBe("maintenance-deferred");
     expect(maintenance.lane).toBe("idle");
     completeHeldFrame(reducerRuntime, maintenance);
 
@@ -92,7 +92,7 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 900,
       viewportInteractionActive: false,
     });
-    expect(delayedMaintenance.schedulerState).toBe("maintenance-drain");
+    expect(delayedMaintenance.reducerState).toBe("maintenance-drain");
     expect(delayedMaintenance.lane).toBe("maintenance");
   });
 
@@ -105,7 +105,7 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(motion.schedulerState).toBe("motion-active");
+    expect(motion.reducerState).toBe("motion-active");
     expect(motion.lane).toBe("motion");
     expect(motion.debt).toEqual({
       content: true,
@@ -121,7 +121,7 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(deferredCatchup.schedulerState).toBe("motion-settling");
+    expect(deferredCatchup.reducerState).toBe("motion-settling");
     expect(deferredCatchup.lane).toBe("idle");
     expect(deferredCatchup.debt.maintenance).toBe(true);
     completeHeldFrame(reducerRuntime, deferredCatchup);
@@ -133,7 +133,7 @@ describe("GPU Flow projection runtime", () => {
       timestamp: 600,
       viewportInteractionActive: false,
     });
-    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.reducerState).toBe("content-catchup");
     expect(catchup.lane).toBe("content");
     expect(catchup.debt.maintenance).toBe(true);
     completeCommittedFrame(reducerRuntime, catchup);
@@ -146,7 +146,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(postContentTextureUpload.schedulerState).toBe(
+    expect(postContentTextureUpload.reducerState).toBe(
       "maintenance-deferred",
     );
     expect(postContentTextureUpload.lane).toBe("idle");
@@ -165,7 +165,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(maintenance.schedulerState).toBe("maintenance-drain");
+    expect(maintenance.reducerState).toBe("maintenance-drain");
     expect(maintenance.lane).toBe("maintenance");
   });
 
@@ -188,7 +188,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(textureUpload.schedulerState).toBe("maintenance-deferred");
+    expect(textureUpload.reducerState).toBe("maintenance-deferred");
     expect(textureUpload.lane).toBe("idle");
     expect(textureUpload.debt).toEqual({
       content: true,
@@ -205,7 +205,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(paint.schedulerState).toBe("maintenance-deferred");
+    expect(paint.reducerState).toBe("maintenance-deferred");
     expect(paint.lane).toBe("idle");
     expect(paint.debt).toEqual({
       content: true,
@@ -222,7 +222,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(deferredCatchup.schedulerState).toBe("motion-settling");
+    expect(deferredCatchup.reducerState).toBe("motion-settling");
     expect(deferredCatchup.lane).toBe("idle");
     expect(deferredCatchup.debt.maintenance).toBe(true);
     completeHeldFrame(reducerRuntime, deferredCatchup);
@@ -235,7 +235,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.reducerState).toBe("content-catchup");
     expect(catchup.lane).toBe("content");
     expect(catchup.debt.maintenance).toBe(true);
   });
@@ -620,7 +620,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: true,
     });
 
-    expect(catchup.schedulerState).toBe("motion-active");
+    expect(catchup.reducerState).toBe("motion-active");
     expect(catchup.lane).toBe("motion");
     expect(catchup.debt.content).toBe(true);
   });
@@ -655,7 +655,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(deferredCatchup.schedulerState).toBe("motion-settling");
+    expect(deferredCatchup.reducerState).toBe("motion-settling");
     expect(deferredCatchup.lane).toBe("idle");
     completeHeldFrame(reducerRuntime, deferredCatchup);
 
@@ -667,7 +667,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.reducerState).toBe("content-catchup");
     expect(catchup.lane).toBe("content");
     expect(catchup.debt.motion).toBe(false);
   });
@@ -703,7 +703,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(motion.schedulerState).toBe("motion-active");
+    expect(motion.reducerState).toBe("motion-active");
     expect(motion.lane).toBe("motion");
     expect(motion.debt.content).toBe(true);
     expect(motion.debt.motion).toBe(false);
@@ -729,7 +729,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.reducerState).toBe("content-catchup");
     expect(catchup.lane).toBe("content");
     expect(catchup.debt.motion).toBe(true);
   });
@@ -764,7 +764,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: true,
     });
 
-    expect(activeViewport.schedulerState).toBe("motion-active");
+    expect(activeViewport.reducerState).toBe("motion-active");
     expect(activeViewport.lane).toBe("motion");
     expect(activeViewport.debt.content).toBe(true);
   });
@@ -797,7 +797,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(settling.schedulerState).toBe("motion-settling");
+    expect(settling.reducerState).toBe("motion-settling");
     expect(settling.lane).toBe("idle");
     expect(settling.debt).toEqual({
       content: true,
@@ -814,7 +814,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(catchup.schedulerState).toBe("content-catchup");
+    expect(catchup.reducerState).toBe("content-catchup");
     expect(catchup.lane).toBe("content");
     expect(catchup.debt).toEqual({
       content: false,
@@ -851,7 +851,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(settling.schedulerState).toBe("maintenance-deferred");
+    expect(settling.reducerState).toBe("maintenance-deferred");
     expect(settling.lane).toBe("idle");
     expect(settling.debt).toEqual({
       content: false,
@@ -868,7 +868,7 @@ describe("GPU Flow projection runtime", () => {
       viewportInteractionActive: false,
     });
 
-    expect(maintenance.schedulerState).toBe("maintenance-drain");
+    expect(maintenance.reducerState).toBe("maintenance-drain");
     expect(maintenance.lane).toBe("maintenance");
   });
 

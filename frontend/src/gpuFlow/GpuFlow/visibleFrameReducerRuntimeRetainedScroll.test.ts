@@ -33,7 +33,7 @@ describe("GPU Flow retained scroll scheduling", () => {
         timestamp: 2 + index,
         viewportInteractionActive: true,
       });
-      expect(motion.schedulerState).toBe("motion-active");
+      expect(motion.reducerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
       completeCommittedFrame(reducerRuntime, motion);
     }
@@ -47,7 +47,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 8,
       viewportInteractionActive: false,
     });
-    expect(retainedScroll.schedulerState).toBe("motion-active");
+    expect(retainedScroll.reducerState).toBe("motion-active");
     expect(retainedScroll.lane).toBe("motion");
   });
 
@@ -74,7 +74,7 @@ describe("GPU Flow retained scroll scheduling", () => {
         timestamp: 2 + index,
         viewportInteractionActive: false,
       });
-      expect(motion.schedulerState).toBe("motion-active");
+      expect(motion.reducerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
       completeCommittedFrame(reducerRuntime, motion);
     }
@@ -88,7 +88,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 8,
       viewportInteractionActive: false,
     });
-    expect(retainedScroll.schedulerState).toBe("motion-active");
+    expect(retainedScroll.reducerState).toBe("motion-active");
     expect(retainedScroll.lane).toBe("motion");
   });
 
@@ -124,7 +124,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 100,
       viewportInteractionActive: false,
     });
-    expect(postScrollManual.schedulerState).toBe("motion-settling");
+    expect(postScrollManual.reducerState).toBe("motion-settling");
     expect(postScrollManual.lane).toBe("idle");
     expect(postScrollManual.debt).toEqual({
       content: true,
@@ -139,7 +139,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 500,
       viewportInteractionActive: false,
     });
-    expect(postScrollPaint.schedulerState).toBe("maintenance-deferred");
+    expect(postScrollPaint.reducerState).toBe("maintenance-deferred");
     expect(postScrollPaint.lane).toBe("idle");
     expect(postScrollPaint.debt).toEqual({
       content: true,
@@ -154,7 +154,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 600,
       viewportInteractionActive: false,
     });
-    expect(criticalContent.schedulerState).toBe("content-catchup");
+    expect(criticalContent.reducerState).toBe("content-catchup");
     expect(criticalContent.lane).toBe("content");
 
     const settledContent = reducerRuntime.selectFrame({
@@ -164,7 +164,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 1_600,
       viewportInteractionActive: false,
     });
-    expect(settledContent.schedulerState).toBe("content-catchup");
+    expect(settledContent.reducerState).toBe("content-catchup");
     expect(settledContent.lane).toBe("content");
   });
 
@@ -200,7 +200,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 100,
       viewportInteractionActive: false,
     });
-    expect(deferredManual.schedulerState).toBe("motion-settling");
+    expect(deferredManual.reducerState).toBe("motion-settling");
     expect(deferredManual.lane).toBe("idle");
 
     const retainedScrollPulse = reducerRuntime.selectFrame({
@@ -212,7 +212,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 250,
       viewportInteractionActive: false,
     });
-    expect(retainedScrollPulse.schedulerState).toBe("motion-active");
+    expect(retainedScrollPulse.reducerState).toBe("motion-active");
     expect(retainedScrollPulse.lane).toBe("motion");
     completeCommittedFrame(reducerRuntime, retainedScrollPulse);
 
@@ -223,7 +223,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 360,
       viewportInteractionActive: true,
     });
-    expect(manualViewportDuringCooldown.schedulerState).toBe("motion-active");
+    expect(manualViewportDuringCooldown.reducerState).toBe("motion-active");
     expect(manualViewportDuringCooldown.lane).toBe("motion");
     expect(manualViewportDuringCooldown.debt).toEqual({
       content: true,
@@ -264,7 +264,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 300,
       viewportInteractionActive: false,
     });
-    expect(idleCatchup.schedulerState).toBe("motion-active");
+    expect(idleCatchup.reducerState).toBe("motion-active");
     expect(idleCatchup.lane).toBe("motion");
     expect(idleCatchup.rawReasons).toEqual(["retained-scroll", "manual"]);
     completeCommittedFrame(reducerRuntime, idleCatchup);
@@ -276,7 +276,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 1_100,
       viewportInteractionActive: false,
     });
-    expect(contentCatchup.schedulerState).toBe("content-catchup");
+    expect(contentCatchup.reducerState).toBe("content-catchup");
     expect(contentCatchup.lane).toBe("content");
   });
 
@@ -294,7 +294,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 1,
       viewportInteractionActive: true,
     });
-    expect(activation.schedulerState).toBe("motion-active");
+    expect(activation.reducerState).toBe("motion-active");
     expect(activation.lane).toBe("content");
     completeCompatiblePreviousCommittedFrame(reducerRuntime, activation);
 
@@ -307,7 +307,7 @@ describe("GPU Flow retained scroll scheduling", () => {
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(motion.schedulerState).toBe("motion-active");
+    expect(motion.reducerState).toBe("motion-active");
     expect(motion.lane).toBe("motion");
     expect(motion.debt).toEqual({
       content: true,

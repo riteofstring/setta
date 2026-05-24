@@ -21,6 +21,6 @@ export function createGpuFlowVisibleFrameReducerDecisionForLane({
     lane,
     rawReasons: Object.freeze([...frameRequest.rawReasons]),
     sample: frameRequest.sample,
-    schedulerState: frameRequest.schedulerState,
+    reducerState: frameRequest.reducerState,
   });
 }

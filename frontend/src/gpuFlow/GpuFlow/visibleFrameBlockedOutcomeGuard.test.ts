@@ -151,7 +151,7 @@ function reducerDecision(
     lane: "motion",
     rawReasons: ["viewport"],
     sample: liveProjectionSample(sampleId, timestamp),
-    schedulerState: "motion-active",
+    reducerState: "motion-active",
   };
 }
 

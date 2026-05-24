@@ -54,7 +54,7 @@ type BlockedVisiblePublicationEvent = {
     readonly motion?: boolean;
   } | null;
   readonly reducerOutcome?: string | null;
-  readonly schedulerState?: string | null;
+  readonly reducerState?: string | null;
   readonly tokenTransactionId?: string | null;
 };
 

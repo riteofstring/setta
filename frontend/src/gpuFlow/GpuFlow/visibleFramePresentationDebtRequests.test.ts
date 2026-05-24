@@ -62,6 +62,6 @@ function contentDecision(): GpuFlowVisibleFrameReducerDecision {
     lane: "content",
     rawReasons: ["manual"],
     sample: { id: 1, timestamp: 1 },
-    schedulerState: "content-catchup",
+    reducerState: "content-catchup",
   } as unknown as GpuFlowVisibleFrameReducerDecision;
 }

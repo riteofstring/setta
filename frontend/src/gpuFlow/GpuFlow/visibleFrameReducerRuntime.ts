@@ -25,7 +25,7 @@ import {
   shouldPrioritizeGpuFlowProjectionMotionDebt,
   shouldThrottleGpuFlowContentRetryAfterUnpresentedFrame,
   shouldYieldGpuFlowCriticalContentDebtForCoverage,
-  type GpuFlowProjectionSchedulerState,
+  type GpuFlowVisibleFrameReducerState,
 } from "../projectionSchedulerPolicy";
 import { shouldDrainGpuFlowBrowserVisualMaintenanceNow } from "./visibleFrameMaintenanceScheduling";
 import type {
@@ -43,7 +43,7 @@ import {
   createGpuFlowVisiblePublicationCompletion,
   hasCurrentGpuFlowProjectionMotion,
   selectGpuFlowProjectionMotionSettlingState,
-  selectGpuFlowProjectionNonMotionSchedulerState,
+  selectGpuFlowProjectionNonMotionReducerState,
   shouldPublishGpuFlowProjectionContentDebtNow,
 } from "./visibleFramePublicationDebt";
 import {
@@ -64,7 +64,7 @@ export type GpuFlowVisibleFrameReducerDecision = {
   readonly lane: GpuFlowProjectionLane | "idle";
   readonly rawReasons: readonly GpuFrameReason[];
   readonly sample: GpuFlowLiveProjectionSample;
-  readonly schedulerState: GpuFlowProjectionSchedulerState;
+  readonly reducerState: GpuFlowVisibleFrameReducerState;
 };
 
 export type GpuFlowVisibleFrameRequestFacts =
@@ -175,9 +175,9 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     readonly rawReasons: readonly GpuFrameReason[];
     readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
-  }): GpuFlowProjectionSchedulerState {
+  }): GpuFlowVisibleFrameReducerState {
     const motionSettling = isGpuFlowProjectionMotionSettling(timestamp);
-    const priorityState = selectGpuFlowProjectionPrioritySchedulerState({
+    const priorityState = selectGpuFlowProjectionPriorityReducerState({
       browserVisualContentRepairBlocked,
       browserVisualContentRepairMotionDeferred,
       browserVisualContentRepairReady,
@@ -193,7 +193,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     if (priorityState !== null) {
       return priorityState;
     }
-    return selectGpuFlowProjectionDebtSchedulerState({
+    return selectGpuFlowProjectionDebtReducerState({
       contentDebt,
       contentRetryDeferred,
       motionSettling,
@@ -201,7 +201,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     });
   }
 
-  function selectGpuFlowProjectionPrioritySchedulerState({
+  function selectGpuFlowProjectionPriorityReducerState({
     browserVisualContentRepairBlocked,
     browserVisualContentRepairMotionDeferred,
     browserVisualContentRepairReady,
@@ -225,9 +225,9 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     readonly rawReasons: readonly GpuFrameReason[];
     readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
-  }): GpuFlowProjectionSchedulerState | null {
+  }): GpuFlowVisibleFrameReducerState | null {
     const browserVisualPriorityState =
-      selectGpuFlowBrowserVisualPrioritySchedulerState({
+      selectGpuFlowBrowserVisualPriorityReducerState({
         browserVisualContentRepairBlocked,
         browserVisualContentRepairMotionDeferred,
         browserVisualContentRepairReady,
@@ -315,7 +315,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     return null;
   }
 
-  function selectGpuFlowBrowserVisualPrioritySchedulerState({
+  function selectGpuFlowBrowserVisualPriorityReducerState({
     browserVisualContentRepairBlocked,
     browserVisualContentRepairMotionDeferred,
     browserVisualContentRepairReady,
@@ -331,7 +331,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     readonly rawReasons: readonly GpuFrameReason[];
     readonly timestamp: DOMHighResTimeStamp;
     readonly viewportInteractionActive: boolean;
-  }): GpuFlowProjectionSchedulerState | null {
+  }): GpuFlowVisibleFrameReducerState | null {
     if (
       shouldDrainGpuFlowBrowserVisualMaintenanceNow({
         browserVisualContentRepairBlocked,
@@ -419,7 +419,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     });
   }
 
-  function selectGpuFlowProjectionDebtSchedulerState({
+  function selectGpuFlowProjectionDebtReducerState({
     contentDebt,
     contentRetryDeferred,
     motionSettling,
@@ -429,14 +429,14 @@ export function createGpuFlowVisibleFrameReducerRuntime({
     readonly contentRetryDeferred: boolean;
     readonly motionSettling: boolean;
     readonly motionRetryDeferred: boolean;
-  }): GpuFlowProjectionSchedulerState {
+  }): GpuFlowVisibleFrameReducerState {
     if (motionDebt && !contentDebt && !motionRetryDeferred) {
       return "motion-active";
     }
     if (motionSettling) {
       return "motion-settling";
     }
-    return selectGpuFlowProjectionNonMotionSchedulerState({
+    return selectGpuFlowProjectionNonMotionReducerState({
       contentDebt,
       contentRetryDeferred,
       maintenanceDebt,
@@ -844,7 +844,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       browserVisualContentRepairMotionDeferred ||
       textureUploadMaintenanceContentDeferred;
     const { motionRetryDeferred } = motionRetryBlock;
-    const schedulerState = currentState({
+    const reducerState = currentState({
       browserVisualContentRepairBlocked:
         contentRetryBlockedByBrowserVisualResource,
       browserVisualContentRepairMotionDeferred,
@@ -868,7 +868,7 @@ export function createGpuFlowVisibleFrameReducerRuntime({
       motionRetryDeferred,
       rawReasons: Object.freeze([...schedulingRawReasons]),
       sample,
-      schedulerState,
+      reducerState,
       timestamp,
       viewportInteractionActive: projectionInteractionActive,
     });

@@ -109,7 +109,7 @@ export async function readRetainedSurfaceRowSearchDiagnostics(
               readonly queuedResourceKeys?: readonly string[];
               readonly resourceDebtByState?: unknown;
             };
-            readonly schedulerState?: string;
+            readonly reducerState?: string;
           }[];
         }
       ).__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ ?? [];
@@ -207,7 +207,7 @@ export async function readRetainedSurfaceRowSearchDiagnostics(
                 resourceDebtByState: entry.resourceGraph.resourceDebtByState,
               }
             : null,
-          schedulerState: entry.schedulerState,
+          reducerState: entry.reducerState,
         })),
       snapshotSourceDiagnostics: snapshotSourceDiagnostics
         .filter((entry) => entry.surfaceId === target.surfaceId)

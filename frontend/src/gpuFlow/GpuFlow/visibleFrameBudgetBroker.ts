@@ -65,7 +65,7 @@ export type GpuFlowVisibleFrameBudgetBroker = {
     readonly deferResolutionUpdates: boolean;
     readonly reducerDecision: Pick<
       GpuFlowVisibleFrameReducerDecision,
-      "debt" | "lane" | "schedulerState"
+      "debt" | "lane" | "reducerState"
     >;
     readonly requestedDebt?: readonly GpuFlowVisibleFrameBudgetDebtRequest[];
   }) => GpuFlowVisibleFrameBudgetBrokerDecision;
@@ -102,7 +102,7 @@ export function createGpuFlowVisibleFrameBudgetBroker({
         requestedDebt,
       });
       const availableMs =
-        reducerDecision.schedulerState === "motion-active" ||
+        reducerDecision.reducerState === "motion-active" ||
         reducerDecision.lane === "motion"
           ? normalizedPolicy.minPreparationBudgetDuringMotionMs
           : normalizedPolicy.perFramePreparationBudgetMs;
@@ -184,7 +184,7 @@ export function createGpuFlowVisibleFrameBudgetBrokerDecision({
   readonly deferResolutionUpdates: boolean;
   readonly reducerDecision: Pick<
     GpuFlowVisibleFrameReducerDecision,
-    "debt" | "lane" | "schedulerState"
+    "debt" | "lane" | "reducerState"
   >;
   readonly resourceGraphSnapshot?:
     | GpuFlowVisibleFrameResourceGraphSnapshot
@@ -272,7 +272,7 @@ function createGpuFlowVisibleFrameBudgetDebtRequests({
   readonly deferResolutionUpdates: boolean;
   readonly reducerDecision: Pick<
     GpuFlowVisibleFrameReducerDecision,
-    "debt" | "lane" | "schedulerState"
+    "debt" | "lane" | "reducerState"
   >;
   readonly resourceGraphSnapshot?:
     | GpuFlowVisibleFrameResourceGraphSnapshot

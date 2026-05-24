@@ -101,8 +101,8 @@ export function shouldConsiderGpuFlowDeferredContentPublication({
     hasPreviousRetainedDisplayFrame &&
     hasPreviousVisibleProjectionState &&
     (deferResolutionUpdates ||
-      reducerDecision.schedulerState === "motion-active" ||
-      reducerDecision.schedulerState === "motion-settling") &&
+      reducerDecision.reducerState === "motion-active" ||
+      reducerDecision.reducerState === "motion-settling") &&
     reducerDecision.lane !== "motion" &&
     !reducerDecision.rawReasons.includes("texture-upload") &&
     !hasGpuFlowCriticalContentFrameRequest(reducerDecision.rawReasons)

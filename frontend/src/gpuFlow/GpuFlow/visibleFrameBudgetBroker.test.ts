@@ -15,7 +15,7 @@ describe("GPU Flow visible frame budget broker", () => {
       deferResolutionUpdates: true,
       reducerDecision: reducerDecision({
         lane: "content",
-        schedulerState: "motion-active",
+        reducerState: "motion-active",
       }),
     });
 
@@ -33,7 +33,7 @@ describe("GPU Flow visible frame budget broker", () => {
         deferResolutionUpdates: true,
         reducerDecision: reducerDecision({
           lane: "content",
-          schedulerState: "motion-active",
+          reducerState: "motion-active",
         }),
       }),
     ).toBe(false);
@@ -49,7 +49,7 @@ describe("GPU Flow visible frame budget broker", () => {
           motion: true,
         },
         lane: "motion",
-        schedulerState: "motion-active",
+        reducerState: "motion-active",
       },
     });
 
@@ -77,7 +77,7 @@ describe("GPU Flow visible frame budget broker", () => {
       deferResolutionUpdates: false,
       reducerDecision: reducerDecision({
         lane: "content",
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       }),
       requestedDebt: [
         {
@@ -129,7 +129,7 @@ describe("GPU Flow visible frame budget broker", () => {
       deferResolutionUpdates: false,
       reducerDecision: reducerDecision({
         lane: "content",
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       }),
       requestedDebt: frameDebt,
     });
@@ -137,7 +137,7 @@ describe("GPU Flow visible frame budget broker", () => {
       deferResolutionUpdates: false,
       reducerDecision: reducerDecision({
         lane: "content",
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       }),
       requestedDebt: frameDebt,
     });
@@ -164,7 +164,7 @@ describe("GPU Flow visible frame budget broker", () => {
         deferResolutionUpdates: false,
         reducerDecision: reducerDecision({
           lane: "motion",
-          schedulerState: "motion-active",
+          reducerState: "motion-active",
         }),
         requestedDebt: [
           {
@@ -198,7 +198,7 @@ describe("GPU Flow visible frame budget broker", () => {
       deferResolutionUpdates: false,
       reducerDecision: reducerDecision({
         lane: "content",
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       }),
       requestedDebt: [
         {
@@ -249,7 +249,7 @@ describe("GPU Flow visible frame budget broker", () => {
       deferResolutionUpdates: false,
       reducerDecision: reducerDecision({
         lane: "content",
-        schedulerState: "motion-active",
+        reducerState: "motion-active",
       }),
       requestedDebt: [
         {
@@ -346,7 +346,7 @@ describe("GPU Flow visible frame budget broker", () => {
       deferResolutionUpdates: false,
       reducerDecision: reducerDecision({
         lane: "motion",
-        schedulerState: "motion-active",
+        reducerState: "motion-active",
       }),
       requestedDebt,
     });
@@ -367,7 +367,7 @@ describe("GPU Flow visible frame budget broker", () => {
       deferResolutionUpdates: false,
       reducerDecision: reducerDecision({
         lane: "motion",
-        schedulerState: "motion-active",
+        reducerState: "motion-active",
       }),
       resourceGraphSnapshot: {
         activeEditorPins: [],
@@ -575,7 +575,7 @@ describe("GPU Flow visible frame budget broker", () => {
       deferResolutionUpdates: false,
       reducerDecision: reducerDecision({
         lane: "content",
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       }),
     });
 
@@ -623,7 +623,7 @@ describe("GPU Flow visible frame budget broker", () => {
       deferResolutionUpdates: false,
       reducerDecision: reducerDecision({
         lane: "content",
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       }),
       resourceGraphSnapshot: {
         activeEditorPins: ["active-editor"],
@@ -680,13 +680,13 @@ describe("GPU Flow visible frame budget broker", () => {
 
 function reducerDecision({
   lane,
-  schedulerState,
+  reducerState,
 }: {
   readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
-  readonly schedulerState: GpuFlowVisibleFrameReducerDecision["schedulerState"];
+  readonly reducerState: GpuFlowVisibleFrameReducerDecision["reducerState"];
 }): Pick<
   GpuFlowVisibleFrameReducerDecision,
-  "debt" | "lane" | "schedulerState"
+  "debt" | "lane" | "reducerState"
 > {
   return {
     debt: {
@@ -695,6 +695,6 @@ function reducerDecision({
       motion: lane === "motion",
     },
     lane,
-    schedulerState,
+    reducerState,
   };
 }

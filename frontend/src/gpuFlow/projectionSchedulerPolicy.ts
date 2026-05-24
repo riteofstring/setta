@@ -6,7 +6,7 @@ import type {
 } from "./projectionRuntime";
 import { normalizeGpuViewport, type GpuViewportInput } from "./viewportMath";
 
-export type GpuFlowProjectionSchedulerState =
+export type GpuFlowVisibleFrameReducerState =
   | "content-catchup"
   | "idle"
   | "maintenance-deferred"
@@ -532,17 +532,17 @@ export function shouldSelectGpuFlowMotionPriorityWorkLane({
   hasPresentedContentFrame,
   motionDebt,
   motionRetryDeferred,
-  schedulerState,
+  reducerState,
 }: {
   readonly hasPresentedContentFrame: boolean;
   readonly motionDebt: boolean;
   readonly motionRetryDeferred: boolean;
-  readonly schedulerState: GpuFlowProjectionSchedulerState;
+  readonly reducerState: GpuFlowVisibleFrameReducerState;
 }): boolean {
   return (
     hasPresentedContentFrame &&
     !motionRetryDeferred &&
-    (motionDebt || schedulerState === "motion-active")
+    (motionDebt || reducerState === "motion-active")
   );
 }
 

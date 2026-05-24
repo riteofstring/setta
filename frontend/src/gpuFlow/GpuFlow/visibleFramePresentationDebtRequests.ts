@@ -151,7 +151,7 @@ function recordGpuFlowSurfacePublicationDebtFrameRequestDiagnostic({
     frameReason: debtFrameRequest?.frameReason ?? null,
     outcomeKind: outcome.kind,
     publicationLane: reducerDecision.lane,
-    schedulerState: reducerDecision.schedulerState,
+    reducerState: reducerDecision.reducerState,
   });
   view.__SETTA_GPU_FLOW_PUBLICATION_DEBT_FRAME_REQUESTS__ =
     requests.slice(-20);
@@ -166,7 +166,7 @@ function shouldDelayGpuFlowSurfacePublicationDebtFrame({
   readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
-  if (reducerDecision.schedulerState === "maintenance-deferred") {
+  if (reducerDecision.reducerState === "maintenance-deferred") {
     return true;
   }
   if (isGpuFlowDelayedMotionDebtFrame(debtFrameRequest, reducerDecision)) {
@@ -189,7 +189,7 @@ function isGpuFlowDelayedMotionDebtFrame(
   reducerDecision: GpuFlowVisibleFrameReducerDecision,
 ): boolean {
   return (
-    reducerDecision.schedulerState === "motion-active" &&
+    reducerDecision.reducerState === "motion-active" &&
     debtFrameRequest.delayMs !== null
   );
 }

@@ -42,7 +42,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(immediateRetry.schedulerState).toBe("content-catchup");
+    expect(immediateRetry.reducerState).toBe("content-catchup");
     expect(immediateRetry.lane).toBe("content");
     expect(immediateRetry.debt).toEqual({
       content: false,
@@ -57,7 +57,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 250,
       viewportInteractionActive: false,
     });
-    expect(delayedRetry.schedulerState).toBe("content-catchup");
+    expect(delayedRetry.reducerState).toBe("content-catchup");
     expect(delayedRetry.lane).toBe("content");
     expect(delayedRetry.debt.motion).toBe(true);
   });
@@ -87,7 +87,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(retainedScroll.schedulerState).toBe("content-catchup");
+    expect(retainedScroll.reducerState).toBe("content-catchup");
     expect(retainedScroll.lane).toBe("motion");
 
     const nonMotionRepair = reducerRuntime.selectFrame({
@@ -97,7 +97,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 3,
       viewportInteractionActive: false,
     });
-    expect(nonMotionRepair.schedulerState).toBe("content-catchup");
+    expect(nonMotionRepair.reducerState).toBe("content-catchup");
     expect(nonMotionRepair.lane).toBe("content");
   });
 
@@ -120,7 +120,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(retainedScroll.schedulerState).toBe("motion-active");
+    expect(retainedScroll.reducerState).toBe("motion-active");
     expect(retainedScroll.lane).toBe("motion");
     expect(retainedScroll.debt).toEqual({
       content: true,
@@ -148,7 +148,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: true,
     });
-    expect(viewport.schedulerState).toBe("motion-active");
+    expect(viewport.reducerState).toBe("motion-active");
     expect(viewport.lane).toBe("motion");
     expect(viewport.debt).toEqual({
       content: true,
@@ -192,7 +192,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 3,
       viewportInteractionActive: false,
     });
-    expect(immediateRetry.schedulerState).toBe("maintenance-drain");
+    expect(immediateRetry.reducerState).toBe("maintenance-drain");
     expect(immediateRetry.lane).toBe("maintenance");
     expect(immediateRetry.debt).toEqual({
       content: true,
@@ -207,7 +207,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 250,
       viewportInteractionActive: false,
     });
-    expect(delayedRetry.schedulerState).toBe("content-catchup");
+    expect(delayedRetry.reducerState).toBe("content-catchup");
     expect(delayedRetry.lane).toBe("content");
     expect(delayedRetry.debt.motion).toBe(true);
   });
@@ -231,7 +231,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 250,
       viewportInteractionActive: true,
     });
-    expect(repair.schedulerState).toBe("motion-active");
+    expect(repair.reducerState).toBe("motion-active");
     expect(repair.lane).toBe("motion");
     expect(repair.debt).toEqual({
       content: true,
@@ -259,7 +259,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: true,
     });
-    expect(repair.schedulerState).toBe("motion-active");
+    expect(repair.reducerState).toBe("motion-active");
     expect(repair.lane).toBe("motion");
     expect(repair.debt).toEqual({
       content: true,
@@ -276,7 +276,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 3,
       viewportInteractionActive: false,
     });
-    expect(settledRepair.schedulerState).toBe("content-catchup");
+    expect(settledRepair.reducerState).toBe("content-catchup");
     expect(settledRepair.lane).toBe("content");
     expect(settledRepair.debt).toEqual({
       content: false,
@@ -294,7 +294,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: true,
     });
-    expect(motion.schedulerState).toBe("motion-active");
+    expect(motion.reducerState).toBe("motion-active");
     expect(motion.lane).toBe("motion");
     completeBlockedFrame(reducerRuntime, motion, [
       {
@@ -316,7 +316,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(repair.schedulerState).toBe("content-catchup");
+    expect(repair.reducerState).toBe("content-catchup");
     expect(repair.lane).toBe("content");
     expect(repair.debt).toEqual({
       content: false,
@@ -334,7 +334,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(content.schedulerState).toBe("content-catchup");
+    expect(content.reducerState).toBe("content-catchup");
     expect(content.lane).toBe("content");
     expect(content.debt).toEqual({
       content: false,
@@ -361,7 +361,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 250,
       viewportInteractionActive: true,
     });
-    expect(repair.schedulerState).toBe("content-catchup");
+    expect(repair.reducerState).toBe("content-catchup");
     expect(repair.lane).toBe("content");
     expect(repair.debt).toEqual({
       content: false,
@@ -379,7 +379,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(content.schedulerState).toBe("content-catchup");
+    expect(content.reducerState).toBe("content-catchup");
     expect(content.lane).toBe("content");
     expect(content.debt).toEqual({
       content: false,
@@ -401,7 +401,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(upload.schedulerState).toBe("maintenance-drain");
+    expect(upload.reducerState).toBe("maintenance-drain");
     expect(upload.lane).toBe("maintenance");
     expect(upload.debt).toEqual({
       content: true,
@@ -419,7 +419,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(content.schedulerState).toBe("content-catchup");
+    expect(content.reducerState).toBe("content-catchup");
     expect(content.lane).toBe("content");
     completeBlockedFrame(reducerRuntime, content, [
       {
@@ -436,7 +436,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(upload.schedulerState).toBe("maintenance-drain");
+    expect(upload.reducerState).toBe("maintenance-drain");
     expect(upload.lane).toBe("maintenance");
     completeCommittedFrame(reducerRuntime, upload);
 
@@ -447,7 +447,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 3,
       viewportInteractionActive: false,
     });
-    expect(retry.schedulerState).toBe("content-catchup");
+    expect(retry.reducerState).toBe("content-catchup");
     expect(retry.lane).toBe("content");
     expect(retry.debt).toEqual({
       content: false,
@@ -465,7 +465,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(content.schedulerState).toBe("content-catchup");
+    expect(content.reducerState).toBe("content-catchup");
     expect(content.lane).toBe("content");
     completeBlockedFrame(reducerRuntime, content, [
       {
@@ -482,7 +482,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(viewport.schedulerState).toBe("motion-active");
+    expect(viewport.reducerState).toBe("motion-active");
     expect(viewport.lane).toBe("motion");
     expect(viewport.debt).toEqual({
       content: true,
@@ -500,7 +500,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(content.schedulerState).toBe("content-catchup");
+    expect(content.reducerState).toBe("content-catchup");
     expect(content.lane).toBe("content");
     completeBlockedFrame(reducerRuntime, content, [
       {
@@ -517,7 +517,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: true,
     });
-    expect(immediateViewportRepair.schedulerState).toBe("motion-active");
+    expect(immediateViewportRepair.reducerState).toBe("motion-active");
     expect(immediateViewportRepair.lane).toBe("motion");
     expect(immediateViewportRepair.debt).toEqual({
       content: true,
@@ -533,7 +533,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 250,
       viewportInteractionActive: false,
     });
-    expect(deferredViewportRepair.schedulerState).toBe("maintenance-deferred");
+    expect(deferredViewportRepair.reducerState).toBe("maintenance-deferred");
     expect(deferredViewportRepair.lane).toBe("idle");
     expect(deferredViewportRepair.debt).toEqual({
       content: true,
@@ -548,7 +548,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 600,
       viewportInteractionActive: false,
     });
-    expect(delayedViewportRepair.schedulerState).toBe("content-catchup");
+    expect(delayedViewportRepair.reducerState).toBe("content-catchup");
     expect(delayedViewportRepair.lane).toBe("content");
     expect(delayedViewportRepair.debt).toEqual({
       content: false,
@@ -580,7 +580,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(activation.schedulerState).toBe("motion-active");
+    expect(activation.reducerState).toBe("motion-active");
     expect(activation.lane).toBe("content");
     expect(activation.debt).toEqual({
       content: false,
@@ -603,7 +603,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: true,
     });
-    expect(activation.schedulerState).toBe("motion-active");
+    expect(activation.reducerState).toBe("motion-active");
     expect(activation.lane).toBe("content");
     completeBlockedFrame(reducerRuntime, activation, [
       {
@@ -620,7 +620,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: true,
     });
-    expect(retry.schedulerState).toBe("motion-active");
+    expect(retry.reducerState).toBe("motion-active");
     expect(retry.lane).toBe("motion");
     expect(retry.debt).toEqual({
       content: true,
@@ -637,7 +637,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 250,
       viewportInteractionActive: false,
     });
-    expect(deferredContentRetry.schedulerState).toBe("maintenance-deferred");
+    expect(deferredContentRetry.reducerState).toBe("maintenance-deferred");
     expect(deferredContentRetry.lane).toBe("idle");
 
     const contentRetry = reducerRuntime.selectFrame({
@@ -647,7 +647,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 600,
       viewportInteractionActive: false,
     });
-    expect(contentRetry.schedulerState).toBe("content-catchup");
+    expect(contentRetry.reducerState).toBe("content-catchup");
     expect(contentRetry.lane).toBe("content");
   });
 
@@ -672,7 +672,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
         timestamp: 2 + index,
         viewportInteractionActive: true,
       });
-      expect(motion.schedulerState).toBe("motion-active");
+      expect(motion.reducerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
       completeCommittedFrame(reducerRuntime, motion);
     }
@@ -684,7 +684,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 8,
       viewportInteractionActive: false,
     });
-    expect(contentProbe.schedulerState).toBe("content-catchup");
+    expect(contentProbe.reducerState).toBe("content-catchup");
     expect(contentProbe.lane).toBe("content");
   });
 
@@ -709,7 +709,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
         timestamp: 2 + index,
         viewportInteractionActive: true,
       });
-      expect(motion.schedulerState).toBe("motion-active");
+      expect(motion.reducerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
       completeCommittedFrame(reducerRuntime, motion);
     }
@@ -721,7 +721,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 8,
       viewportInteractionActive: true,
     });
-    expect(contentProbe.schedulerState).toBe("motion-active");
+    expect(contentProbe.reducerState).toBe("motion-active");
     expect(contentProbe.lane).toBe("motion");
     expect(contentProbe.debt).toEqual({
       content: true,
@@ -750,7 +750,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: true,
     });
-    expect(motion.schedulerState).toBe("motion-active");
+    expect(motion.reducerState).toBe("motion-active");
     expect(motion.lane).toBe("motion");
     completeCommittedFrame(reducerRuntime, motion);
 
@@ -761,7 +761,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 3,
       viewportInteractionActive: false,
     });
-    expect(contentCatchup.schedulerState).toBe("content-catchup");
+    expect(contentCatchup.reducerState).toBe("content-catchup");
     expect(contentCatchup.lane).toBe("content");
     expect(contentCatchup.debt).toEqual({
       content: false,
@@ -791,7 +791,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
         timestamp: 2 + index,
         viewportInteractionActive: true,
       });
-      expect(motion.schedulerState).toBe("motion-active");
+      expect(motion.reducerState).toBe("motion-active");
       expect(motion.lane).toBe("motion");
       completeCommittedFrame(reducerRuntime, motion);
     }
@@ -803,7 +803,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 8,
       viewportInteractionActive: true,
     });
-    expect(viewport.schedulerState).toBe("motion-active");
+    expect(viewport.reducerState).toBe("motion-active");
     expect(viewport.lane).toBe("motion");
   });
 
@@ -834,7 +834,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(nativeVisual.schedulerState).toBe("motion-active");
+    expect(nativeVisual.reducerState).toBe("motion-active");
     expect(nativeVisual.lane).toBe("motion");
     expect(nativeVisual.debt).toEqual({
       content: true,
@@ -853,7 +853,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: true,
     });
-    expect(nativeVisual.schedulerState).toBe("motion-active");
+    expect(nativeVisual.reducerState).toBe("motion-active");
     expect(nativeVisual.lane).toBe("motion");
     expect(nativeVisual.debt).toEqual({
       content: true,
@@ -872,7 +872,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(nativeVisual.schedulerState).toBe("motion-active");
+    expect(nativeVisual.reducerState).toBe("motion-active");
     expect(nativeVisual.lane).toBe("motion");
     expect(nativeVisual.debt).toEqual({
       content: true,
@@ -891,7 +891,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(rowHover.schedulerState).toBe("motion-active");
+    expect(rowHover.reducerState).toBe("motion-active");
     expect(rowHover.lane).toBe("motion");
     expect(rowHover.debt).toEqual({
       content: false,
@@ -910,7 +910,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(rowHover.schedulerState).toBe("motion-active");
+    expect(rowHover.reducerState).toBe("motion-active");
     expect(rowHover.lane).toBe("motion");
     expect(rowHover.debt).toEqual({
       content: false,
@@ -929,7 +929,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 1,
       viewportInteractionActive: false,
     });
-    expect(rowHoverClear.schedulerState).toBe("motion-active");
+    expect(rowHoverClear.reducerState).toBe("motion-active");
     expect(rowHoverClear.lane).toBe("motion");
     expect(rowHoverClear.debt).toEqual({
       content: false,
@@ -957,7 +957,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(immediateRetry.schedulerState).toBe("maintenance-drain");
+    expect(immediateRetry.reducerState).toBe("maintenance-drain");
     expect(immediateRetry.lane).toBe("maintenance");
     expect(immediateRetry.debt).toEqual({
       content: true,
@@ -972,7 +972,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 250,
       viewportInteractionActive: false,
     });
-    expect(delayedRetry.schedulerState).toBe("content-catchup");
+    expect(delayedRetry.reducerState).toBe("content-catchup");
     expect(delayedRetry.lane).toBe("content");
     expect(delayedRetry.debt.maintenance).toBe(true);
   });
@@ -996,7 +996,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(immediateRetry.schedulerState).toBe("maintenance-deferred");
+    expect(immediateRetry.reducerState).toBe("maintenance-deferred");
     expect(immediateRetry.lane).toBe("idle");
     expect(immediateRetry.debt).toEqual({
       content: true,
@@ -1011,7 +1011,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 250,
       viewportInteractionActive: false,
     });
-    expect(delayedRetry.schedulerState).toBe("content-catchup");
+    expect(delayedRetry.reducerState).toBe("content-catchup");
     expect(delayedRetry.lane).toBe("content");
   });
 
@@ -1034,7 +1034,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 2,
       viewportInteractionActive: false,
     });
-    expect(idle.schedulerState).toBe("idle");
+    expect(idle.reducerState).toBe("idle");
     expect(idle.lane).toBe("idle");
     completeBlockedFrame(reducerRuntime, idle, [
       {
@@ -1051,7 +1051,7 @@ describe("GPU Flow visible frame reducer runtime content retry throttling", () =
       timestamp: 250,
       viewportInteractionActive: false,
     });
-    expect(delayedRetry.schedulerState).toBe("content-catchup");
+    expect(delayedRetry.reducerState).toBe("content-catchup");
     expect(delayedRetry.lane).toBe("content");
   });
 });

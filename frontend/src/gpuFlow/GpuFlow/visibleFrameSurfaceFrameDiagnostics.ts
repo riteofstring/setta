@@ -79,7 +79,7 @@ export function recordGpuFlowSurfacePublicationFrameOutcomeDiagnostic({
     resourceGraph: createGpuFlowSurfaceFrameResourceGraphDiagnostic(
       postFrameResourceGraphSnapshot,
     ),
-    schedulerState: coordinatorResult.reducerDecision.schedulerState,
+    reducerState: coordinatorResult.reducerDecision.reducerState,
     sampleRetainedScrollRevision:
       coordinatorResult.reducerDecision.sample.retainedScrollRevision,
     source: "surface-frame",
@@ -179,7 +179,7 @@ function createGpuFlowSurfaceFrameRequestDiagnostic(
     motionDebt: frameRequest.motionDebt,
     motionRetryDeferred: frameRequest.motionRetryDeferred,
     rawReasons: frameRequest.rawReasons,
-    schedulerState: frameRequest.schedulerState,
+    reducerState: frameRequest.reducerState,
     viewportInteractionActive: frameRequest.viewportInteractionActive,
   };
 }

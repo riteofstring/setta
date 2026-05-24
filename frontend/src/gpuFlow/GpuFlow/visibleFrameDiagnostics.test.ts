@@ -343,7 +343,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         lane: "content",
         rawReasons: ["texture-upload"],
         sample: { id: 1 },
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       } as unknown as Parameters<
         typeof recordGpuFlowBlockedVisiblePublication
       >[0]["reducerDecision"],
@@ -434,7 +434,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         lane: "content",
         rawReasons: ["texture-upload"],
         sample: { id: 9 },
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       } as unknown as Parameters<
         typeof recordGpuFlowBlockedVisiblePublication
       >[0]["reducerDecision"],
@@ -457,7 +457,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         projectionSampleId: 9,
         remainingDebt: { content: true, maintenance: false, motion: false },
         reducerOutcome: "blocked",
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       }),
     ]);
   });
@@ -492,7 +492,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           lane: "content",
           rawReasons: ["texture-upload"],
           sample: { id: 10 },
-          schedulerState: "content-catchup",
+          reducerState: "content-catchup",
         } as unknown as Parameters<
           typeof recordGpuFlowBlockedVisiblePublication
         >[0]["reducerDecision"],
@@ -518,7 +518,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
           lane: "content",
           rawReasons: ["texture-upload"],
           sample: { id: 9 },
-          schedulerState: "content-catchup",
+          reducerState: "content-catchup",
         } as unknown as Parameters<
           typeof recordGpuFlowBlockedVisiblePublication
         >[0]["reducerDecision"],

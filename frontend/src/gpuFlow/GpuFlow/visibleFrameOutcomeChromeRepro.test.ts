@@ -470,7 +470,7 @@ function reducerDecision(
     lane: "content",
     rawReasons: ["manual"],
     sample,
-    schedulerState: "content-catchup",
+    reducerState: "content-catchup",
   };
 }
 

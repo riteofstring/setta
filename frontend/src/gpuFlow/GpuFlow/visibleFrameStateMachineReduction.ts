@@ -15,7 +15,7 @@ import {
   shouldSelectGpuFlowMaintenancePriorityWorkLane,
   shouldSelectGpuFlowMotionPriorityWorkLane,
   shouldSelectGpuFlowSettledExplicitContentRepairLane,
-  type GpuFlowProjectionSchedulerState,
+  type GpuFlowVisibleFrameReducerState,
 } from "../projectionSchedulerPolicy";
 import { createGpuFlowRetainedProjectionBlockedPublicationCandidate } from "./visibleFrameBlockedCandidate";
 import type { GpuFlowRetainedProjectionFrame } from "./visibleFrameProjectionCoverage";
@@ -66,7 +66,7 @@ export type GpuFlowVisibleFrameLaneReductionFacts = {
   readonly motionDebt: boolean;
   readonly motionRetryDeferred: boolean;
   readonly rawReasons: readonly GpuFrameReason[];
-  readonly schedulerState: GpuFlowProjectionSchedulerState;
+  readonly reducerState: GpuFlowVisibleFrameReducerState;
   readonly viewportInteractionActive: boolean;
 };
 
@@ -87,7 +87,7 @@ export function reduceGpuFlowVisibleFrameReducerDecision({
     motionRetryDeferred: frameRequest.motionRetryDeferred,
     rawReasons: frameRequest.rawReasons,
     reducerPolicy,
-    schedulerState: frameRequest.schedulerState,
+    reducerState: frameRequest.reducerState,
     viewportInteractionActive: frameRequest.viewportInteractionActive,
   });
   return createGpuFlowVisibleFrameReducerDecisionForLane({
@@ -106,7 +106,7 @@ export function reduceGpuFlowVisibleFrameWorkLane({
   motionRetryDeferred,
   rawReasons,
   reducerPolicy,
-  schedulerState,
+  reducerState,
   viewportInteractionActive,
 }: GpuFlowVisibleFrameLaneReductionFacts & {
   readonly reducerPolicy: GpuFlowVisibleFrameStarvationPolicy;
@@ -126,13 +126,13 @@ export function reduceGpuFlowVisibleFrameWorkLane({
       motionDebt,
       motionRetryDeferred,
       rawReasons,
-      schedulerState,
+      reducerState,
       viewportInteractionActive,
     })
   ) {
     return "motion";
   }
-  switch (schedulerState) {
+  switch (reducerState) {
     case "motion-active":
     case "motion-settling":
       return selectMotionPriorityVisibleFrameWorkLane({
@@ -145,7 +145,7 @@ export function reduceGpuFlowVisibleFrameWorkLane({
         motionRetryDeferred,
         rawReasons,
         reducerPolicy,
-        schedulerState,
+        reducerState,
         viewportInteractionActive,
       });
     case "content-catchup":
@@ -339,7 +339,7 @@ function selectMotionPriorityVisibleFrameWorkLane({
   motionDebt,
   motionRetryDeferred,
   rawReasons,
-  schedulerState,
+  reducerState,
   reducerPolicy,
   viewportInteractionActive,
 }: GpuFlowVisibleFrameLaneReductionFacts & {
@@ -361,7 +361,7 @@ function selectMotionPriorityVisibleFrameWorkLane({
       hasPresentedContentFrame,
       motionDebt,
       motionRetryDeferred,
-      schedulerState,
+      reducerState,
     })
   ) {
     return "motion";
@@ -393,7 +393,7 @@ function shouldSelectCurrentGpuFlowMotionWorkLane({
   motionDebt,
   motionRetryDeferred,
   rawReasons,
-  schedulerState,
+  reducerState,
   viewportInteractionActive,
 }: {
   readonly criticalContentDebt: boolean;
@@ -401,7 +401,7 @@ function shouldSelectCurrentGpuFlowMotionWorkLane({
   readonly motionDebt: boolean;
   readonly motionRetryDeferred: boolean;
   readonly rawReasons: readonly GpuFrameReason[];
-  readonly schedulerState: GpuFlowProjectionSchedulerState;
+  readonly reducerState: GpuFlowVisibleFrameReducerState;
   readonly viewportInteractionActive: boolean;
 }): boolean {
   if (rawReasons.includes("texture-upload")) {
@@ -426,7 +426,7 @@ function shouldSelectCurrentGpuFlowMotionWorkLane({
     hasPresentedContentFrame,
     motionDebt,
     motionRetryDeferred: hasRetainedMotionReason ? false : motionRetryDeferred,
-    schedulerState,
+    reducerState,
   });
 }
 

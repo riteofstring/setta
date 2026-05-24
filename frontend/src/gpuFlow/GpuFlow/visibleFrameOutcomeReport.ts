@@ -101,7 +101,7 @@ export function createGpuFlowVisiblePublicationTransactionReport({
     remainingDebt: completion.debt,
     resourceProtection: presentableFrameProofReport.resourceProtection,
     reducerOutcome: completion.outcome,
-    schedulerState: reducerDecision.schedulerState,
+    reducerState: reducerDecision.reducerState,
     token,
     transactionId: getGpuFlowVisiblePublicationOutcomeTransactionId(outcome),
     transactionProof: transactionProofReport,

@@ -1195,7 +1195,7 @@ function reducerDecision(
     lane: "content",
     rawReasons: ["manual"],
     sample,
-    schedulerState: "idle",
+    reducerState: "idle",
   };
 }
 

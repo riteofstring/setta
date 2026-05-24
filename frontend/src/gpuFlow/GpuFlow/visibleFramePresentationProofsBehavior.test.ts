@@ -408,7 +408,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         lane: "content",
         rawReasons: ["manual"],
         sample: projectionSample,
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["reducerDecision"],
@@ -494,7 +494,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         lane: "content",
         rawReasons: ["manual"],
         sample: projectionSample,
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["reducerDecision"],
@@ -585,7 +585,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         lane: "content",
         rawReasons: ["manual"],
         sample: projectionSample,
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["reducerDecision"],
@@ -684,7 +684,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         lane: "maintenance",
         rawReasons: ["texture-upload"],
         sample: projectionSample,
-        schedulerState: "maintenance-drain",
+        reducerState: "maintenance-drain",
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["reducerDecision"],
@@ -765,7 +765,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         lane: "content",
         rawReasons: ["texture-upload"],
         sample: projectionSample,
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       } as Parameters<
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["reducerDecision"],
@@ -859,7 +859,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
       lane: "content",
       rawReasons: ["manual"],
       sample: projectionSample,
-      schedulerState: "idle",
+      reducerState: "idle",
     } as unknown as Parameters<
       typeof proveGpuFlowVisibleFramePublicationPresentation
     >[0]["reducerDecision"],

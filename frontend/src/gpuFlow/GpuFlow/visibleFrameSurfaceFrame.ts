@@ -223,7 +223,7 @@ export function renderGpuFlowSurfaceFrame({
         publicationFrameContext,
       }) => {
         frameMeasureDetail.lane = reducerDecision.lane;
-        frameMeasureDetail.schedulerState = reducerDecision.schedulerState;
+        frameMeasureDetail.reducerState = reducerDecision.reducerState;
         frameMeasureDetail.contentDebt = reducerDecision.debt.content;
         frameMeasureDetail.maintenanceDebt =
           reducerDecision.debt.maintenance;

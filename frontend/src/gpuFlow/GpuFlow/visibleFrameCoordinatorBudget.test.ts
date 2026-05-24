@@ -21,7 +21,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         lane: "content",
         rawReasons: ["manual"],
         runtimeViewportFrame: false,
-        schedulerState: "motion-settling",
+        reducerState: "motion-settling",
         viewportInteractionActive: false,
       },
       {
@@ -30,7 +30,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         lane: "maintenance",
         rawReasons: ["manual"],
         runtimeViewportFrame: true,
-        schedulerState: "idle",
+        reducerState: "idle",
         viewportInteractionActive: false,
       },
       {
@@ -39,7 +39,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         lane: "content",
         rawReasons: ["manual"],
         runtimeViewportFrame: true,
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
         viewportInteractionActive: false,
       },
       {
@@ -48,7 +48,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         lane: "content",
         rawReasons: ["manual"],
         runtimeViewportFrame: false,
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
         viewportInteractionActive: false,
       },
       {
@@ -57,7 +57,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         lane: "content",
         rawReasons: ["texture-upload", "manual"],
         runtimeViewportFrame: false,
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
         viewportInteractionActive: false,
       },
       {
@@ -66,7 +66,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         lane: "content",
         rawReasons: ["retained-scroll", "texture-upload"],
         runtimeViewportFrame: false,
-        schedulerState: "motion-active",
+        reducerState: "motion-active",
         viewportInteractionActive: true,
       },
       {
@@ -75,7 +75,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         lane: "content",
         rawReasons: ["texture-upload", "dom-control-activation"],
         runtimeViewportFrame: false,
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
         viewportInteractionActive: false,
       },
     ] as const;
@@ -111,7 +111,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
           }),
         reducerRuntime: fixedPublicationScheduler({
           lane: testCase.lane,
-          schedulerState: testCase.schedulerState,
+          reducerState: testCase.reducerState,
         }),
       });
 
@@ -159,7 +159,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         }),
       reducerRuntime: fixedPublicationScheduler({
         lane: "content",
-        schedulerState: "motion-settling",
+        reducerState: "motion-settling",
       }),
     });
     expect(starvedObserved).toEqual([true, true]);
@@ -234,7 +234,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         }),
       reducerRuntime: fixedPublicationScheduler({
         lane: "content",
-        schedulerState: "content-catchup",
+        reducerState: "content-catchup",
       }),
     });
 
@@ -326,7 +326,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         }),
       reducerRuntime: fixedPublicationScheduler({
         lane: "motion",
-        schedulerState: "motion-active",
+        reducerState: "motion-active",
       }),
     });
 
@@ -367,10 +367,10 @@ function observeResolutionDeferralContext(
 
 function fixedPublicationScheduler({
   lane,
-  schedulerState,
+  reducerState,
 }: {
   readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
-  readonly schedulerState: GpuFlowVisibleFrameReducerDecision["schedulerState"];
+  readonly reducerState: GpuFlowVisibleFrameReducerDecision["reducerState"];
 }): ReturnType<typeof createGpuFlowVisibleFrameReducerRuntime> {
   const baseScheduler = createGpuFlowVisibleFrameReducerRuntime();
   const debt = Object.freeze({
@@ -407,7 +407,7 @@ function fixedPublicationScheduler({
         motionRetryDeferred: false,
         rawReasons: Object.freeze([...rawReasons]),
         sample,
-        schedulerState,
+        reducerState,
         timestamp,
         viewportInteractionActive,
       }),
@@ -417,7 +417,7 @@ function fixedPublicationScheduler({
         lane,
         rawReasons: Object.freeze([...rawReasons]),
         sample,
-        schedulerState,
+        reducerState,
       }),
   };
 }

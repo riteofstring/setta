@@ -85,7 +85,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["texture-upload"],
-          schedulerState: "motion-settling",
+          reducerState: "motion-settling",
         }),
       }),
     ).toBe(false);
@@ -97,7 +97,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["retained-scroll"],
-          schedulerState: "motion-active",
+          reducerState: "motion-active",
         }),
       }),
     ).toBe(false);
@@ -109,7 +109,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["retained-scroll"],
-          schedulerState: "motion-active",
+          reducerState: "motion-active",
         }),
       }),
     ).toBe(true);
@@ -120,7 +120,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         hasPreviousVisibleProjectionState: true,
         reducerDecision: reducerDecision({
           lane: "content",
-          schedulerState: "motion-settling",
+          reducerState: "motion-settling",
         }),
       }),
     ).toBe(true);
@@ -132,7 +132,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({
           lane: "maintenance",
           rawReasons: ["texture-upload"],
-          schedulerState: "motion-settling",
+          reducerState: "motion-settling",
         }),
       }),
     ).toBe(false);
@@ -144,7 +144,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({
           lane: "maintenance",
           rawReasons: ["texture-upload", "dom-control-activation"],
-          schedulerState: "motion-settling",
+          reducerState: "motion-settling",
         }),
       }),
     ).toBe(false);
@@ -155,7 +155,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         hasPreviousVisibleProjectionState: true,
         reducerDecision: reducerDecision({
           lane: "motion",
-          schedulerState: "motion-settling",
+          reducerState: "motion-settling",
         }),
       }),
     ).toBe(false);
@@ -167,7 +167,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["texture-upload", "manual"],
-          schedulerState: "content-catchup",
+          reducerState: "content-catchup",
         }),
       }),
     ).toBe(false);
@@ -179,7 +179,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["texture-upload", "dom-control-activation"],
-          schedulerState: "content-catchup",
+          reducerState: "content-catchup",
         }),
       }),
     ).toBe(false);
@@ -191,7 +191,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["texture-upload", "retained-native-visual"],
-          schedulerState: "content-catchup",
+          reducerState: "content-catchup",
         }),
       }),
     ).toBe(false);
@@ -203,7 +203,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         reducerDecision: reducerDecision({
           lane: "content",
           rawReasons: ["texture-upload", "manual"],
-          schedulerState: "content-catchup",
+          reducerState: "content-catchup",
         }),
       }),
     ).toBe(false);
@@ -212,7 +212,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: false,
         reducerDecision: reducerDecision({
           lane: "content",
-          schedulerState: "motion-active",
+          reducerState: "motion-active",
         }),
       }),
     ).toBe(false);
@@ -221,7 +221,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         deferResolutionUpdates: true,
         reducerDecision: reducerDecision({
           lane: "content",
-          schedulerState: "motion-active",
+          reducerState: "motion-active",
         }),
       }),
     ).toBe(false);
@@ -307,11 +307,11 @@ describe("GPU Flow visible frame coordinator work plans", () => {
 function reducerDecision({
   lane,
   rawReasons = [],
-  schedulerState = "idle",
+  reducerState = "idle",
 }: {
   readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly rawReasons?: readonly GpuFrameReason[] | undefined;
-  readonly schedulerState?: GpuFlowVisibleFrameReducerDecision["schedulerState"];
+  readonly reducerState?: GpuFlowVisibleFrameReducerDecision["reducerState"];
 }): GpuFlowVisibleFrameReducerDecision {
   return {
     debt: {
@@ -322,7 +322,7 @@ function reducerDecision({
     lane,
     rawReasons,
     sample: liveProjectionSample(),
-    schedulerState,
+    reducerState,
   };
 }
 
