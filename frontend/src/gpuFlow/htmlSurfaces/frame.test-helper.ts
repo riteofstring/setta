@@ -217,7 +217,7 @@ export function createFrameTextureManager() {
         reason: "html-surface-frame",
       };
     }),
-    getCommittedSurfaceTexture: vi.fn((nodeId: string) => records.get(nodeId)),
+    getPreparedContentTexture: vi.fn((nodeId: string) => records.get(nodeId)),
     getMemorySnapshot,
     getSurfaceTextureLifecycleDiagnostics: vi.fn(
       (

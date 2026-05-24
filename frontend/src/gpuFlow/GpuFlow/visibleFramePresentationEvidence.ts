@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type { GpuFlowNodeLayerFrameStatePublication } from "./flowFrameLifecycle";
 import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFrameContentPlan";
@@ -93,7 +93,7 @@ export function createGpuFlowVisibleFramePresentationCanvasPresentationEvidence(
   projectionSampleId,
   projectionTransactionId,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly drawnNodeIds?: readonly string[] | undefined;
   readonly missingTextureNodeIds?: readonly string[] | undefined;
   readonly projectionSampleId: number;
@@ -117,7 +117,7 @@ export function createGpuFlowVisibleFramePresentationDomTransformPresentationEvi
   projectionSampleId,
   projectionTransactionId,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly projectionSampleId: number;
   readonly projectionTransactionId: string;
 }): GpuFlowVisibleFramePresentationDomTransformPresentationEvidence {
@@ -135,7 +135,7 @@ export function createGpuFlowVisibleFramePresentationTextureEvictionPresentation
   projectionSampleId,
   projectionTransactionId,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly projectionSampleId: number;
   readonly projectionTransactionId: string;
 }): GpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence {
@@ -197,8 +197,8 @@ function createGpuFlowVisibleFramePresentationDomPresentationBlockedReasons({
   committedFrame,
   domEvidence,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
-  readonly domEvidence: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGenerationEvidence"];
+  readonly committedFrame: GpuFlowPreparedContentFrame;
+  readonly domEvidence: GpuFlowPreparedContentFrame["presentationProof"]["domGenerationEvidence"];
 }): readonly GpuFlowVisibleFramePresentationBlockedReason[] {
   const reasons: GpuFlowVisibleFramePresentationBlockedReason[] = [];
   if (!domEvidence.staged) {
@@ -215,7 +215,7 @@ function createGpuFlowVisibleFramePresentationDomPresentationBlockedReasons({
       reason: "dom-generation-not-exposable",
     });
   }
-  if (domEvidence.committedFrameId !== committedFrame.displayFrameId) {
+  if (domEvidence.preparedFrameId !== committedFrame.displayFrameId) {
     reasons.push({
       actorId: null,
       family: "presentation-pair",
@@ -231,7 +231,7 @@ function createGpuFlowVisibleFramePresentationDomTransformPresentationBlockedRea
   reducerDecision,
   visibleProjectionState,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly domTransformEvidence: GpuFlowVisibleFramePresentationDomTransformPresentationEvidence | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
@@ -278,7 +278,7 @@ function createGpuFlowVisibleFramePresentationTextureEvictionPresentationBlocked
   textureEvictionEvidence,
   visibleProjectionState,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly textureEvictionEvidence: GpuFlowVisibleFramePresentationTextureEvictionPresentationEvidence | null;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
@@ -340,7 +340,7 @@ function createGpuFlowVisibleFramePresentationCanvasPresentationBlockedReasons({
   visibleProjectionState,
 }: {
   readonly canvasEvidence: GpuFlowVisibleFramePresentationCanvasPresentationEvidence | null;
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState;
 }): readonly GpuFlowVisibleFramePresentationBlockedReason[] {
@@ -401,7 +401,7 @@ function createGpuFlowVisibleFramePresentationSectionPresentationBlockedReasons(
   committedFrame,
 }: {
   readonly canvasEvidence: GpuFlowVisibleFramePresentationCanvasPresentationEvidence;
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
 }): readonly GpuFlowVisibleFramePresentationBlockedReason[] {
   const drawnNodeIds = new Set(canvasEvidence.drawnNodeIds);
   const missingTextureNodeIds = new Set(canvasEvidence.missingTextureNodeIds);
@@ -434,7 +434,7 @@ function createGpuFlowVisibleFramePresentationSectionPresentationBlockedReasons(
 }
 
 function isGpuFlowVisibleFramePresentationSectionActor(
-  actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
+  actor: GpuFlowPreparedContentFrame["actorGenerations"][number],
 ): boolean {
   return (
     actor.actorFamily === "section-body-clip" ||

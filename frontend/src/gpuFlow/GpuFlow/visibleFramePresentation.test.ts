@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import {
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
-import type { GpuFlowCommittedSurfaceBlockedCandidateResourceWork } from "./visibleFrameContentPlan";
+import type { GpuFlowPreparedContentBlockedCandidateResourceWork } from "./visibleFrameContentPlan";
 import {
   presentGpuFlowVisibleFramePublicationFrame,
   type GpuFlowVisibleFramePresentationRuntime,
@@ -889,7 +889,7 @@ function committedPublicationTransaction({
   selectedState,
   token,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly debtFrameRequest?: unknown;
   readonly followUpFrameRequests?: readonly string[];
   readonly nodeLayerFrameStatePublication?: unknown;
@@ -998,7 +998,7 @@ function nodeLayerFrameStatePublication({
 
 function browserVisualResourceWork(
   candidateResourceKeys: readonly string[],
-): GpuFlowCommittedSurfaceBlockedCandidateResourceWork {
+): GpuFlowPreparedContentBlockedCandidateResourceWork {
   return {
     deferWakeup: false,
     timestamp: 62,
@@ -1029,10 +1029,10 @@ function blockedPublicationTransaction({
   reducerCompletion,
   token,
 }: {
-  readonly blockedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly blockedFrame: GpuFlowPreparedContentFrame;
   readonly blockedPreservePreparationSnapshot?: boolean | undefined;
   readonly blockedResourceWork?:
-    | GpuFlowCommittedSurfaceBlockedCandidateResourceWork
+    | GpuFlowPreparedContentBlockedCandidateResourceWork
     | null
     | undefined;
   readonly debtFrameRequest: unknown;
@@ -1141,23 +1141,23 @@ function preparedContentFrame({
   displayFrameId,
 }: {
   readonly displayFrameId: number;
-}): GpuFlowCommittedSurfaceFrame {
+}): GpuFlowPreparedContentFrame {
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
     actorGenerations: [],
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       coherence,
       displayFrameId,
     }),
@@ -1179,7 +1179,7 @@ function preparedContentFrame({
       kind: "publishable",
     },
     surfaceTransaction: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function testCanvas(): HTMLCanvasElement {

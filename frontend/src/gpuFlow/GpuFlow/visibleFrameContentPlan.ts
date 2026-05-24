@@ -1,6 +1,6 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionLane,
@@ -37,7 +37,7 @@ import type {
   GpuFlowBlockedVisibleReason,
 } from "./visibleFramePresentationProofs";
 
-export type GpuFlowCommittedSurfaceBlockedCandidateResourceWork = {
+export type GpuFlowPreparedContentBlockedCandidateResourceWork = {
   readonly deferWakeup: boolean;
   readonly timestamp: number;
   readonly workItems: readonly GpuFlowBrowserVisualResourceWorkRequest[];
@@ -72,13 +72,13 @@ export type GpuFlowVisibleFrameBlockedPublicationCandidate = {
 
 export type GpuFlowContentPublicationFrameResult = {
   readonly blockedErrorMessage: string | null;
-  readonly blockedPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly blockedPreparedContentFrameResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
+  readonly blockedPreparedContentFrame: GpuFlowPreparedContentFrame | null;
+  readonly blockedPreparedContentFrameResourceWork: GpuFlowPreparedContentBlockedCandidateResourceWork | null;
   readonly blockedPreservePreparationSnapshot: boolean;
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | null;
   readonly forceImmediateReducerDebtFrame: boolean;
-  readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly heldPreparedContentFrame: GpuFlowPreparedContentFrame | null;
   readonly nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication | null;
   readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence | null;
   readonly rendered: boolean;
@@ -117,11 +117,11 @@ export type GpuFlowPreparedContentFramePublicationCandidate =
     }
   | {
       readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
-      readonly candidateFrame: GpuFlowCommittedSurfaceFrame;
+      readonly candidateFrame: GpuFlowPreparedContentFrame;
       readonly errorMessage: string | null;
       readonly kind: "nonpublishable";
       readonly preservePreparationSnapshot: boolean;
-      readonly resourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork;
+      readonly resourceWork: GpuFlowPreparedContentBlockedCandidateResourceWork;
     };
 
 export type GpuFlowPreparedContentFramePublicationCandidateInput = {
@@ -136,7 +136,7 @@ export type GpuFlowPreparedContentFramePublicationCandidateInput = {
     GpuFlowProjectionLane,
     "content" | "maintenance"
   >;
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
   readonly publishedRetainedFrame: RetainedDisplayFrame;
 };
 
@@ -167,10 +167,10 @@ export type GpuFlowRetainedDisplayPreparedContentFramePreparer = (
         readonly viewport?: GpuViewportInput | undefined;
       }
     | undefined,
-) => GpuFlowCommittedSurfaceFrame | void;
+) => GpuFlowPreparedContentFrame | void;
 
 type GpuFlowRetainedDisplayPreparedContentFramePublicationPreparation = {
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
   readonly publicationPreparation: GpuFlowPreparedContentFramePublicationFramePlanPreparation;
 };
 
@@ -234,7 +234,7 @@ export type GpuFlowRetainedPreparedContentFramePublicationContentStageInput<
   readonly onPreparedContentFrameCandidatePrepared?: (input: {
     readonly preparedContentFramePublicationPreparation: GpuFlowPreparedContentFramePublicationFramePlanPreparation;
     readonly context: RetainedContext;
-    readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
+    readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
     readonly publishedRetainedDisplayOutcomeFrame: NonNullable<
       GpuFlowRetainedDisplayPublicationFramePlanPreparation["publishedOutcomeFrame"]
     >;
@@ -248,7 +248,7 @@ export type GpuFlowRetainedPreparedContentFramePublicationContentStageInput<
     readonly context: RetainedContext;
     readonly createContentPublicationFrameResultForVisibleProjectionState: GpuFlowContentPublicationFrameResultForVisibleProjectionStatePreparer;
     readonly createVisibleProjectionStateForRetainedPublication: GpuFlowRetainedPublicationVisibleProjectionStatePreparer;
-    readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
+    readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
     readonly publishedRetainedDisplayOutcomeFrame: NonNullable<
       GpuFlowRetainedDisplayPublicationFramePlanPreparation["publishedOutcomeFrame"]
     >;
@@ -293,7 +293,7 @@ export type GpuFlowRetainedPreparedContentFramePublicationContentStageRunner = <
 ) => GpuFlowContentPublicationFrameResult | Result;
 
 export type GpuFlowRetainedPublicationVisibleProjectionStatePreparer = (input: {
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }) => GpuFlowVisibleProjectionState;
 
 export type GpuFlowContentPublicationFrameResultForVisibleProjectionStatePreparer =

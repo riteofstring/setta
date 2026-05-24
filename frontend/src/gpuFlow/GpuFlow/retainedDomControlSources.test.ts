@@ -3,12 +3,12 @@
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it, vi } from "vitest";
 
-import { createGpuFlowStartupCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import { createDomControlActors } from "../committedSurfaceTextActor";
 import {
   HTML_SURFACE_CAPTURE_ONLY_SOURCE_ATTRIBUTE,
   HTML_SURFACE_EXPLICIT_DIRTY_SOURCE_ATTRIBUTE,
 } from "../htmlSurfaces/sourceDom";
+import { createGpuFlowStartupPreparedContentFrame } from "../preparedContentFrame";
+import { createDomControlActors } from "../preparedContentTextActor";
 import {
   createGpuRetainedRowContentScene,
   type GpuRetainedContentRowInput,
@@ -202,7 +202,7 @@ describe("getGpuRetainedDomControlSources", () => {
       }),
     );
 
-    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+    const committedFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: runtimeFrame,
     });
     expect(
@@ -242,7 +242,7 @@ describe("getGpuRetainedDomControlSources", () => {
       }),
     );
 
-    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+    const committedFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: runtimeFrame,
     });
     const coverage = committedFrame.projectionHorizon.textActorCoverage;
@@ -654,7 +654,7 @@ describe("getGpuRetainedDomControlSources", () => {
       }),
     );
 
-    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+    const committedFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: nextFrame,
     });
     expect(
@@ -794,12 +794,12 @@ function textureManagerWithCommittedSnapshot({
   typeof shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty
 >[0]["textureManager"] {
   return {
-    getCommittedSurfaceTexture: () =>
+    getPreparedContentTexture: () =>
       ({ lastUploadFrame, textureContentKey }) as NonNullable<
         ReturnType<
           Parameters<
             typeof shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty
-          >[0]["textureManager"]["getCommittedSurfaceTexture"]
+          >[0]["textureManager"]["getPreparedContentTexture"]
         >
       >,
   };

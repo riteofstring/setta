@@ -2,11 +2,11 @@ import type { MutableRefObject } from "react";
 
 import { nowChromeReproPerformanceMs } from "state/actions/chromeRepro";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowRuntime } from "../gpuDevice";
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import type { GpuSurfaceProps } from "../GpuSurface";
 import { getGpuWheelGestureOwnershipArbiter } from "../interactions/wheelOwnership";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import {
   createGpuFlowLiveProjectionSampler,
   createGpuFlowProjectionTransaction,
@@ -103,7 +103,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
 > & {
   readonly abortPreparedContentFrame: (
     token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
-    frame: GpuFlowCommittedSurfaceFrame,
+    frame: GpuFlowPreparedContentFrame,
     options?:
       | {
           readonly browserVisualPreparationResourceKeys?:
@@ -113,7 +113,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
         }
       | undefined,
   ) => void;
-  readonly presentedContentFrameRef: MutableRefObject<GpuFlowCommittedSurfaceFrame | null>;
+  readonly presentedContentFrameRef: MutableRefObject<GpuFlowPreparedContentFrame | null>;
   readonly event: GpuFlowSurfaceFrameEvent;
   readonly getVisibleFrameResourceGraphSnapshot: () => GpuFlowVisibleFrameResourceGraphSnapshot;
   readonly initialRetainedRuntimeFrame: GpuRetainedRuntimeFrame;
@@ -122,11 +122,11 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
   >;
   readonly presentPreparedContentFrame: (
     token: GpuFlowVisibleFramePresentationToken,
-    frame: GpuFlowCommittedSurfaceFrame,
+    frame: GpuFlowPreparedContentFrame,
   ) => boolean;
   readonly validatePreparedContentFrame: (
     token: GpuFlowVisibleFramePresentationToken,
-    frame: GpuFlowCommittedSurfaceFrame,
+    frame: GpuFlowPreparedContentFrame,
   ) => void;
   readonly prepareContentFrame: NonNullable<
     GpuFlowNodeLayerFrameInput["onRetainedDisplayFrame"]
@@ -155,7 +155,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
     string | null
   >;
   readonly runtime: GpuFlowRuntime;
-  readonly visiblePresentedContentFrame: GpuFlowCommittedSurfaceFrame;
+  readonly visiblePresentedContentFrame: GpuFlowPreparedContentFrame;
   readonly visibleOverlayProjectionKeyRef: MutableRefObject<string | null>;
   readonly visibleFrameBudgetBrokerRef: MutableRefObject<GpuFlowVisibleFrameBudgetBroker>;
   readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
@@ -448,7 +448,7 @@ function requestGpuFlowRetainedScrollCatchupFrameForStaleVisibleState({
 }
 
 export function hasGpuFlowPresentedContentFrame(
-  frame: Pick<GpuFlowCommittedSurfaceFrame, "retainedDisplayFrame"> | null,
+  frame: Pick<GpuFlowPreparedContentFrame, "retainedDisplayFrame"> | null,
 ): boolean {
   return frame !== null && frame.retainedDisplayFrame !== null;
 }
@@ -547,7 +547,7 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
   | "viewportRuntime"
   | "visiblePresentedContentFrame"
 > & {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly projectionFrameRenderPlan: GpuFlowProjectionFrameRenderablePlan;
   readonly projectionTransaction: ReturnType<

@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowVisibleProjectionState,
@@ -88,13 +88,13 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "resolveGpuFlowPreparedContentFramePublicationFramePlanNodeLayerResult",
     );
     expect(contentPlanSource).not.toMatch(
-      /\bexport function (?:create|apply|run)GpuFlow(?:RetainedDisplay|CommittedSurface)PublicationContentStage\b/,
+      /\bexport function (?:create|apply|run)GpuFlow(?:RetainedDisplay|PreparedContent)PublicationContentStage\b/,
     );
     expect(contentPlanSource).not.toContain(
       "export function prepareGpuFlowPreparedContentFramePublicationFramePlanForRetainedDisplay",
     );
     expect(contentPlanSource).not.toMatch(
-      /\bexport function resolveGpuFlow(?:RetainedDisplay|CommittedSurface)PublicationFramePlanNodeLayerResult\b/,
+      /\bexport function resolveGpuFlow(?:RetainedDisplay|PreparedContent)PublicationFramePlanNodeLayerResult\b/,
     );
   });
 
@@ -311,7 +311,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       /export function requireGpuFlowRetainedDisplayPublishedOutcomeFrame/,
     );
     expect(flowFrameSource).not.toMatch(
-      /\b(?:create|apply)GpuFlow(?:RetainedDisplay|CommittedSurface)PublicationContentStage\b/,
+      /\b(?:create|apply)GpuFlow(?:RetainedDisplay|PreparedContent)PublicationContentStage\b/,
     );
     expect(flowFrameSource).not.toContain("onRetainedDisplayFrame?.");
     expect(flowFrameSource).not.toContain(
@@ -357,18 +357,18 @@ describe("GPU Flow visible frame presentation content plans", () => {
     expect(flowFrameSource).not.toContain(
       "runGpuFlowPreparedContentFramePublicationContentStage",
     );
-    expect(flowFrameSource).not.toContain("committedSurfaceContentStage.kind");
+    expect(flowFrameSource).not.toContain("preparedContentContentStage.kind");
     expect(flowFrameSource).not.toContain(
-      "committedSurfaceContentStage.blockedFrameResult",
+      "preparedContentContentStage.blockedFrameResult",
     );
     expect(flowFrameSource).not.toContain(
-      "committedSurfaceContentStage.preparedContentFramePublication",
+      "preparedContentContentStage.preparedContentFramePublication",
     );
     expect(flowFrameSource).not.toContain(
-      "committedSurfaceContentStep.frameResult",
+      "preparedContentContentStep.frameResult",
     );
     expect(flowFrameSource).not.toContain(
-      "committedSurfaceContentStep.preparedContentFramePublication",
+      "preparedContentContentStep.preparedContentFramePublication",
     );
     expect(flowFrameSource).not.toContain(
       "resolveGpuFlowRetainedDisplayPublicationContentResolution",
@@ -379,8 +379,8 @@ describe("GPU Flow visible frame presentation content plans", () => {
     expect(flowFrameSource).not.toContain("content-frame-result");
     expect(flowFrameSource).not.toContain("published-outcome-frame");
     expect(flowFrameSource).not.toContain("prepared-content-frame-publication");
-    expect(flowFrameSource).not.toContain("onCommittedSurfacePrepared");
-    expect(flowFrameSource).not.toContain("onCommittedSurfacePublished");
+    expect(flowFrameSource).not.toContain("onPreparedContentPrepared");
+    expect(flowFrameSource).not.toContain("onPreparedContentPublished");
     expect(flowFrameSource).not.toContain("onRetainedDisplayPublished");
     expect(flowFrameSource).toContain(
       "runRetainedPreparedContentFramePublicationContentStage",
@@ -416,7 +416,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "resolveGpuFlowRetainedDisplayPublicationFramePlanNodeLayerResult",
     );
     expect(readFileSync(COORDINATOR_MODULE_PATH, "utf8")).not.toMatch(
-      /(?:apply|create)GpuFlow(?:RetainedDisplay|CommittedSurface)PublicationContentStage/,
+      /(?:apply|create)GpuFlow(?:RetainedDisplay|PreparedContent)PublicationContentStage/,
     );
     expect(coordinatorSource).not.toContain(
       "export function resolveGpuFlowRetainedDisplayOutcomeFrameResult",
@@ -464,7 +464,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "resolveGpuFlowPreparedContentFramePublicationReadiness",
     );
     expect(contentPlanSource).not.toContain(
-      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
+      "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
     );
     expect(contentPlanSource).not.toContain(
       "shouldPreservePreparedContentFrameForBrowserVisualRepair",
@@ -496,7 +496,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "resolveGpuFlowPreparedContentFramePublicationReadiness",
     );
     expect(contentPlanSource).not.toContain(
-      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
+      "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
     );
     expect(stateMachineSource).toContain(
       "export function reduceGpuFlowPreparedContentFramePublicationCandidate",
@@ -511,7 +511,7 @@ describe("GPU Flow visible frame presentation content plans", () => {
       "resolveGpuFlowPreparedContentFramePublicationReadiness",
     );
     expect(stateMachineSource).not.toContain(
-      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
+      "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
     );
     expect(stateMachineSource).toContain('"nonpublishable"');
     expect(stateMachineSource).toContain('"blocked-candidate"');
@@ -1075,12 +1075,10 @@ describe("GPU Flow visible frame presentation content plans", () => {
   });
 });
 
-function preparedContentFrame(
-  displayFrameId = 7,
-): GpuFlowCommittedSurfaceFrame {
+function preparedContentFrame(displayFrameId = 7): GpuFlowPreparedContentFrame {
   return {
     displayFrameId,
-  } as GpuFlowCommittedSurfaceFrame;
+  } as GpuFlowPreparedContentFrame;
 }
 
 function liveProjectionSample(): GpuFlowLiveProjectionSample {
@@ -1093,7 +1091,7 @@ function liveProjectionSample(): GpuFlowLiveProjectionSample {
 function preparedContentFramePublicationCandidateInput({
   preparedContentFrame,
 }: {
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }): GpuFlowPreparedContentFramePublicationCandidateInput {
   return {
     committedGpuNativeVisuals: undefined,

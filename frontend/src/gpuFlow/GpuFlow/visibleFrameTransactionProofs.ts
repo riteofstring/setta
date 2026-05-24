@@ -1,6 +1,6 @@
 // Builds immutable transaction proof records; visible mutation stays in the presentation step.
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type {
   GpuFlowProjectionTransactionKind,
   GpuFlowVisibleProjectionState,
@@ -56,7 +56,7 @@ export type GpuFlowVisibleFramePresentableFrameProof = ReturnType<
 >;
 
 export type GpuFlowVisibleFramePresentableFrameProofFactory = (input: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
@@ -89,17 +89,17 @@ export type GpuFlowVisibleFramePublicationPreparedFrame = {
 
 export type GpuFlowVisibleFramePublicationContentCandidate = {
   readonly blockedPreparedContentFrame?:
-    | GpuFlowCommittedSurfaceFrame
+    | GpuFlowPreparedContentFrame
     | null
     | undefined;
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly preparedContentFrame?:
-    | GpuFlowCommittedSurfaceFrame
+    | GpuFlowPreparedContentFrame
     | null
     | undefined;
   readonly forceImmediateReducerDebtFrame?: boolean | undefined;
   readonly heldPreparedContentFrame?:
-    | GpuFlowCommittedSurfaceFrame
+    | GpuFlowPreparedContentFrame
     | null
     | undefined;
   readonly presentationEvidence?:
@@ -212,7 +212,7 @@ function createGpuFlowVisibleFramePresentableFrameProof({
   projectionTransactionKind,
   projectionTransactionId,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
@@ -572,7 +572,7 @@ function resolveGpuFlowVisibleFramePublicationCandidateContentFrame<
 }: {
   readonly contentPublicationFrame: ContentPublicationFrame;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowCommittedSurfaceFrame | null {
+}): GpuFlowPreparedContentFrame | null {
   return (
     candidateVisibleProjectionState?.committedFrame ??
     contentPublicationFrame.preparedContentFrame ??
@@ -829,7 +829,7 @@ function hasGpuFlowVisibleFramePresentationCompatiblePreviousCoverage({
   compatiblePreviousProofs,
   coverage,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly compatiblePreviousProofs: ReturnType<
     typeof createGpuFlowVisibleFramePresentationCompatiblePreviousProofReportForFrame
   >;

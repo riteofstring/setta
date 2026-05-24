@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { GpuFlowVisibleFrameActorManifestEntry } from "./visibleFrameActorManifest";
 import type { GpuFlowBrowserStyleVisibleFrameActorFamily } from "./visibleFrameActorRegistry";
@@ -11,7 +11,7 @@ type GpuFlowVisibleFramePresentationGeneration = {
 };
 
 type GpuFlowVisibleFramePresentationGenerationFactory = (input: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }) => GpuFlowVisibleFramePresentationGeneration;
 
@@ -58,7 +58,7 @@ export function createGpuFlowVisibleFramePresentationManifestEntries({
   frame,
   sample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): readonly GpuFlowVisibleFrameActorManifestEntry[] {
   return GPU_FLOW_PRESENTATION_ACTOR_FAMILIES.map((family) =>
@@ -76,7 +76,7 @@ function createGpuFlowVisibleFramePresentationManifestEntry({
   sample,
 }: {
   readonly family: (typeof GPU_FLOW_PRESENTATION_ACTOR_FAMILIES)[number];
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): GpuFlowVisibleFrameActorManifestEntry {
   const generation = createGpuFlowVisibleFramePresentationGeneration({
@@ -107,7 +107,7 @@ function createGpuFlowHitGenerationGeneration({
   frame,
   sample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): GpuFlowVisibleFramePresentationGeneration {
   return {
@@ -122,7 +122,7 @@ function createGpuFlowAccessibilityExposureGeneration({
   frame,
   sample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): GpuFlowVisibleFramePresentationGeneration {
   const domGeneration = frame.presentationProof?.domGeneration;
@@ -143,10 +143,10 @@ function getGpuFlowAccessibilityExposureContentGeneration({
 }: {
   readonly domGeneration:
     | NonNullable<
-        GpuFlowCommittedSurfaceFrame["presentationProof"]
+        GpuFlowPreparedContentFrame["presentationProof"]
       >["domGeneration"]
     | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
 }): string {
   return (
     domGeneration?.presentationBatchId ??
@@ -157,7 +157,7 @@ function getGpuFlowAccessibilityExposureContentGeneration({
 function getGpuFlowAccessibilityExposureReadinessProof(
   domGeneration:
     | NonNullable<
-        GpuFlowCommittedSurfaceFrame["presentationProof"]
+        GpuFlowPreparedContentFrame["presentationProof"]
       >["domGeneration"]
     | undefined,
 ): string {
@@ -170,7 +170,7 @@ function createGpuFlowDebugSnapshotGeneration({
   frame,
   sample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): GpuFlowVisibleFramePresentationGeneration {
   return {
@@ -186,7 +186,7 @@ function createGpuFlowPublicRuntimeStateGeneration({
   frame,
   sample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): GpuFlowVisibleFramePresentationGeneration {
   return {
@@ -201,7 +201,7 @@ function createGpuFlowViewportPortalGeneration({
   frame,
   sample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): GpuFlowVisibleFramePresentationGeneration {
   return {
@@ -215,7 +215,7 @@ function createGpuFlowEdgesGeneration({
   frame,
   sample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): GpuFlowVisibleFramePresentationGeneration {
   return {
@@ -229,7 +229,7 @@ function createGpuFlowGridGeneration({
   frame,
   sample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): GpuFlowVisibleFramePresentationGeneration {
   return {
@@ -243,7 +243,7 @@ function createGpuFlowSceneBackgroundGeneration({
   frame,
   sample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): GpuFlowVisibleFramePresentationGeneration {
   return {
@@ -259,7 +259,7 @@ function createGpuFlowVisibleFramePresentationGeneration({
   sample,
 }: {
   readonly family: GpuFlowBrowserStyleVisibleFrameActorFamily;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): GpuFlowVisibleFramePresentationGeneration {
   const factory = (
@@ -294,7 +294,7 @@ function createGpuFlowVisibleFrameViewportRect({
   frame,
   sample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample | null;
 }): GpuFlowVisibleFrameRect {
   const sampleViewport = sample?.cssViewport ?? null;
@@ -319,7 +319,7 @@ function resolveGpuFlowVisibleFrameViewportDimension(
   sampleViewport: GpuFlowLiveProjectionSample["cssViewport"] | null,
   frameViewport:
     | NonNullable<
-        GpuFlowCommittedSurfaceFrame["retainedRuntimeFrame"]
+        GpuFlowPreparedContentFrame["retainedRuntimeFrame"]
       >["input"]["viewportSize"]
     | null,
   dimension: "height" | "width",

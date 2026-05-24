@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
+import {
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import {
   createGpuFlowVisibleFrameReducerRuntime,
   type GpuFlowLiveProjectionSample,
@@ -199,7 +199,7 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
     const candidate = preparePreparedContentFramePublicationCandidateForTest({
       heldPreviousProjectionState: previousVisibleProjectionState,
       liveSample: sample,
-      preparedContentFrame: blockedCommittedSurfaceFrame({
+      preparedContentFrame: blockedPreparedContentFrame({
         actorFamily: "dom-control",
         projectionCoverage: "blocked-awaiting-browser-visual",
         readinessReason: "snapshot-pending",
@@ -248,12 +248,12 @@ describe("GPU Flow visible frame coordinator held outcomes", () => {
     });
     const candidate = preparePreparedContentFramePublicationCandidateForTest({
       heldPreviousProjectionState: previousVisibleProjectionState,
-      preparedContentFrame: trueHoleCommittedSurfaceFrame(),
+      preparedContentFrame: trueHolePreparedContentFrame(),
     });
     const coldCandidate =
       preparePreparedContentFramePublicationCandidateForTest({
         heldPreviousProjectionState: null,
-        preparedContentFrame: trueHoleCommittedSurfaceFrame(),
+        preparedContentFrame: trueHolePreparedContentFrame(),
       });
 
     expect(candidate.kind).toBe("nonpublishable");
@@ -284,7 +284,7 @@ function visibleProjectionState({
   sample,
   transaction,
 }: {
-  readonly committedFrame?: GpuFlowCommittedSurfaceFrame | undefined;
+  readonly committedFrame?: GpuFlowPreparedContentFrame | undefined;
   readonly heldPreviousProjection?:
     | GpuFlowVisibleProjectionState["heldPreviousProjection"]
     | undefined;
@@ -337,24 +337,24 @@ function visibleProjectionState({
   };
 }
 
-function preparedContentFrame(): GpuFlowCommittedSurfaceFrame {
+function preparedContentFrame(): GpuFlowPreparedContentFrame {
   const displayFrameId = 7;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
     actorGenerations: [],
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       coherence,
       displayFrameId,
     }),
@@ -373,7 +373,7 @@ function preparedContentFrame(): GpuFlowCommittedSurfaceFrame {
       kind: "publishable",
     },
     surfaceTransaction: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function preparePreparedContentFramePublicationCandidateForTest({
@@ -383,7 +383,7 @@ function preparePreparedContentFramePublicationCandidateForTest({
 }: {
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly liveSample?: GpuFlowLiveProjectionSample | undefined;
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
 }) {
   return preparePreparedContentFramePublicationFramePlanForTest({
     committedGpuNativeVisuals: undefined,
@@ -396,7 +396,7 @@ function preparePreparedContentFramePublicationCandidateForTest({
   }).candidate;
 }
 
-function blockedCommittedSurfaceFrame({
+function blockedPreparedContentFrame({
   actorFamily,
   projectionCoverage,
   readinessReason,
@@ -406,7 +406,7 @@ function blockedCommittedSurfaceFrame({
     | "blocked-awaiting-browser-visual"
     | "blocked-awaiting-live-host";
   readonly readinessReason: "live-dom-budget" | "snapshot-pending";
-}): GpuFlowCommittedSurfaceFrame {
+}): GpuFlowPreparedContentFrame {
   return {
     actorGenerations: [
       {
@@ -444,10 +444,10 @@ function blockedCommittedSurfaceFrame({
       kind: "hold-previous",
       reason: "visible-dom-control-not-projected",
     },
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
-function trueHoleCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+function trueHolePreparedContentFrame(): GpuFlowPreparedContentFrame {
   const actorId =
     "settings-section__sectionSizingPolicy:param-content:unpinned";
   return {
@@ -473,7 +473,7 @@ function trueHoleCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
       kind: "true-hole",
       reason: "retained-surface-true-hole",
     },
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function retainedDisplayFrame(): RetainedDisplayFrame {

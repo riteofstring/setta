@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 
-import {
-  createGpuFlowCommittedSurfaceFrame,
-  createGpuFlowStartupCommittedSurfaceFrame,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
+import {
+  createGpuFlowPreparedContentFrame,
+  createGpuFlowStartupPreparedContentFrame,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import { createGpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
@@ -28,12 +28,12 @@ export function useGpuFlowPresentedSurfaceFrameState({
 }: {
   readonly initialRetainedRuntimeFrame: GpuRetainedRuntimeFrame;
 }) {
-  const presentedContentFrameRef = useRef<GpuFlowCommittedSurfaceFrame | null>(
+  const presentedContentFrameRef = useRef<GpuFlowPreparedContentFrame | null>(
     null,
   );
   const startupPresentedContentFrame = useMemo(
     () =>
-      createGpuFlowStartupCommittedSurfaceFrame({
+      createGpuFlowStartupPreparedContentFrame({
         retainedRuntimeFrame: initialRetainedRuntimeFrame,
       }),
     [initialRetainedRuntimeFrame],
@@ -70,8 +70,8 @@ export function useGpuFlowPresentedSurfaceFrameState({
             readonly viewport?: GpuViewportInput | undefined;
           }
         | undefined,
-    ): GpuFlowCommittedSurfaceFrame => {
-      const previousCommittedSurfaceFrame =
+    ): GpuFlowPreparedContentFrame => {
+      const previousPreparedContentFrame =
         presentedSurfaceRuntimeRef.current.getPresentedContentFrame();
       const browserVisualRuntime =
         getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
@@ -81,25 +81,25 @@ export function useGpuFlowPresentedSurfaceFrameState({
         retainedDisplayFrame: nextRetainedDisplayFrame,
         viewport: options?.viewport,
       });
-      const nextCommittedSurfaceFrame = createGpuFlowCommittedSurfaceFrame({
+      const nextPreparedContentFrame = createGpuFlowPreparedContentFrame({
         browserVisualReadiness: browserVisualCandidate.readiness,
         domPresentationEvidence: browserVisualCandidate.presentationEvidence,
         gpuNativeVisuals: options?.gpuNativeVisuals,
-        previousCommittedSurfaceFrame,
+        previousPreparedContentFrame,
         retainedDisplayFrame: nextRetainedDisplayFrame,
       });
       visibleFrameResourceGraphRef.current.registerPreparedContentFrame({
         browserVisualCandidate,
-        frame: nextCommittedSurfaceFrame,
+        frame: nextPreparedContentFrame,
       });
-      return nextCommittedSurfaceFrame;
+      return nextPreparedContentFrame;
     },
     [],
   );
   const presentPreparedContentFrame = useCallback(
     (
       token: GpuFlowVisibleFramePresentationToken,
-      frame: GpuFlowCommittedSurfaceFrame,
+      frame: GpuFlowPreparedContentFrame,
     ): boolean => {
       const result =
         visibleFrameResourceGraphRef.current.presentPreparedContentFrame({
@@ -126,7 +126,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
   const validatePreparedContentFrame = useCallback(
     (
       token: GpuFlowVisibleFramePresentationToken,
-      frame: GpuFlowCommittedSurfaceFrame,
+      frame: GpuFlowPreparedContentFrame,
     ) =>
       visibleFrameResourceGraphRef.current.validatePreparedContentFrame({
         frame,
@@ -154,7 +154,7 @@ export function useGpuFlowPresentedSurfaceFrameState({
   const abortPreparedContentFrame = useCallback(
     (
       token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken,
-      frame: GpuFlowCommittedSurfaceFrame,
+      frame: GpuFlowPreparedContentFrame,
       options?:
         | {
             readonly browserVisualPreparationResourceKeys?:

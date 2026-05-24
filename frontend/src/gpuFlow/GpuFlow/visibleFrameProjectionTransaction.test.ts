@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type {
   GpuFlowHeldPreviousProjection,
   GpuFlowLiveProjectionSample,
@@ -376,7 +376,7 @@ function visibleProjectionState({
         hitGenerationId: "hit:11",
       },
       displayFrameId: 11,
-    } as GpuFlowCommittedSurfaceFrame,
+    } as GpuFlowPreparedContentFrame,
     debugState: {
       committedFrameId: 11,
       gestureOwner: "idle",

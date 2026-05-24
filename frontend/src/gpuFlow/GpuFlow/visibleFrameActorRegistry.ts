@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 
 const GPU_FLOW_VISIBLE_FRAME_ACTOR_FAMILIES = Object.freeze([
   "scene-background",
@@ -24,7 +24,7 @@ export type GpuFlowBrowserStyleVisibleFrameActorFamily =
   (typeof GPU_FLOW_VISIBLE_FRAME_ACTOR_FAMILIES)[number];
 
 type GpuFlowCommittedVisibleFrameActor =
-  GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+  GpuFlowPreparedContentFrame["actorGenerations"][number];
 
 const GPU_FLOW_DIRECT_VISIBLE_FRAME_ACTOR_FAMILY = Object.freeze({
   "dom-island": "dom-island",

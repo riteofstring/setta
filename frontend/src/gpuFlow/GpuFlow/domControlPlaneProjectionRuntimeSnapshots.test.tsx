@@ -47,7 +47,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
     });
     let committedTexture: CommittedHtmlSurfaceTextureSnapshot | undefined;
     browserVisualRuntime.setDomControlSnapshotTextureManager({
-      getCommittedSurfaceTexture: (surfaceId) =>
+      getPreparedContentTexture: (surfaceId) =>
         surfaceId === "snapshot-0" ? committedTexture : undefined,
     });
 
@@ -186,7 +186,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
       viewportStore,
     });
     browserVisualRuntime.setDomControlSnapshotTextureManager({
-      getCommittedSurfaceTexture: (surfaceId) =>
+      getPreparedContentTexture: (surfaceId) =>
         committedTextureBySurfaceId.get(surfaceId),
     });
 
@@ -289,7 +289,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
       viewportStore,
     });
     browserVisualRuntime.setDomControlSnapshotTextureManager({
-      getCommittedSurfaceTexture: () => undefined,
+      getPreparedContentTexture: () => undefined,
     });
 
     const readiness = browserVisualRuntime.prepareContentFrame({
@@ -338,7 +338,7 @@ describe("GPU flow DOM control projection runtime snapshots", () => {
       viewportStore,
     });
     browserVisualRuntime.setDomControlSnapshotTextureManager({
-      getCommittedSurfaceTexture: (surfaceId) =>
+      getPreparedContentTexture: (surfaceId) =>
         committedTextureBySurfaceId.get(surfaceId),
     });
 

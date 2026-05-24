@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import {
   createGpuRetainedContentRuntimeState,
   setGpuRetainedContentRuntimeScrollOffset,
@@ -275,11 +275,11 @@ function committedFrameSample({
 }: {
   readonly retainedScrollRevision: number;
   readonly viewportSample: GpuViewportInput;
-}): Pick<GpuFlowCommittedSurfaceFrame, "coherence" | "viewportSample"> {
+}): Pick<GpuFlowPreparedContentFrame, "coherence" | "viewportSample"> {
   return {
     coherence: {
       retainedScrollRevision,
-    } as GpuFlowCommittedSurfaceFrame["coherence"],
+    } as GpuFlowPreparedContentFrame["coherence"],
     viewportSample,
   };
 }
@@ -288,7 +288,7 @@ function committedContentFrame({
   retainedDisplayFrame,
 }: {
   readonly retainedDisplayFrame: RetainedDisplayFrame | null;
-}): Pick<GpuFlowCommittedSurfaceFrame, "retainedDisplayFrame"> {
+}): Pick<GpuFlowPreparedContentFrame, "retainedDisplayFrame"> {
   return {
     retainedDisplayFrame,
   };

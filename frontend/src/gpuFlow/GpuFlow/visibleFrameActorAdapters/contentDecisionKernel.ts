@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../../projectionRuntime";
 import type {
   GpuFlowNodeLayerFrameResult,
@@ -52,7 +52,7 @@ type GpuFlowPreparedContentFramePublicationFramePlanResultResolver = (input: {
 
 type GpuFlowPreparedContentFramePublicationFramePlanSelector = (input: {
   readonly candidate: GpuFlowPreparedContentFramePublicationCandidate;
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }) => GpuFlowPreparedContentFramePublicationFramePlan;
 
 export type GpuFlowRetainedDisplayOutcomeFrameResult = {

@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { createGpuFlowCommittedSurfaceFrame } from "./committedSurfaceFrame";
 import type { HtmlSurfaceFlatVisual } from "./htmlSurfaces/visualScene";
+import { createGpuFlowPreparedContentFrame } from "./preparedContentFrame";
 import type { RetainedDisplayFrame } from "./retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuFlowScene, GpuSectionSceneNode } from "./scene";
 import type { SurfaceActorSnapshot } from "./surfaceCompositor/surfaceActor";
 import type { GpuRect } from "./viewportMath";
 
-describe("GPU Flow committed surface structure actors", () => {
-  it("promotes retained flat HTML textures into committed surface actors", () => {
+describe("GPU Flow prepared content structure actors", () => {
+  it("promotes retained flat HTML textures into prepared content actors", () => {
     const retainedRuntimeFrame = createEmptyRuntimeFrame({ frameId: 11 });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         flatSurfaces: [flatHtmlSurface("dict-a:param-content:unpinned")],
         id: 11,
@@ -36,12 +36,12 @@ describe("GPU Flow committed surface structure actors", () => {
     expect(frame.diagnostics.htmlTextureActorCount).toBe(1);
   });
 
-  it("promotes visible section shell, header, and body clips into committed actors", () => {
+  it("promotes visible section shell, header, and body clips into prepared actors", () => {
     const retainedRuntimeFrame = createSectionRuntimeFrame({
       frameId: 17,
       viewportSize: { height: 120, width: 300 },
     });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 17,
         retainedRuntimeFrame,
@@ -101,7 +101,7 @@ describe("GPU Flow committed surface structure actors", () => {
       }),
       viewportSize: { height: 120, width: 300 },
     });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 19,
         retainedRuntimeFrame,
@@ -122,7 +122,7 @@ describe("GPU Flow committed surface structure actors", () => {
       renderedSceneNodeIds: ["other-section"],
       viewportSize: { height: 120, width: 300 },
     });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 20,
         retainedRuntimeFrame,
@@ -145,7 +145,7 @@ describe("GPU Flow committed surface structure actors", () => {
       }),
       viewportSize: { height: 120, width: 300 },
     });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 21,
         retainedRuntimeFrame,
@@ -170,7 +170,7 @@ describe("GPU Flow committed surface structure actors", () => {
       },
       viewportSize: { height: 120, width: 300 },
     });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 22,
         retainedRuntimeFrame,
@@ -195,7 +195,7 @@ describe("GPU Flow committed surface structure actors", () => {
 
   it("marks visible retained page snapshots as required retained-page actors", () => {
     const retainedRuntimeFrame = createEmptyRuntimeFrame({ frameId: 23 });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 23,
         retainedRuntimeFrame,
@@ -415,9 +415,13 @@ function sectionSceneNode({
   readonly parentSectionId?: string | null | undefined;
   readonly worldRect?: GpuRect | undefined;
 } = {}): GpuSectionSceneNode {
-  const sectionWorldRect = worldRect ?? { height: 80, width: 240, x: 10, y: 20 };
-  const sectionBodyRect =
-    bodyRect ?? { height: 48, width: 240, x: 10, y: 52 };
+  const sectionWorldRect = worldRect ?? {
+    height: 80,
+    width: 240,
+    x: 10,
+    y: 20,
+  };
+  const sectionBodyRect = bodyRect ?? { height: 48, width: 240, x: 10, y: 52 };
   return {
     bodyRect: sectionBodyRect,
     childLayout: { gap: { x: 0, y: 0 } },

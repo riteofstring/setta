@@ -1,20 +1,20 @@
-import { freezeActor } from "./committedSurfaceActorFreeze";
+import { freezeActor } from "./preparedContentActorFreeze";
 import type {
-  GpuFlowCommittedSurfaceActorGeneration,
-  GpuFlowCommittedSurfaceSectionActorFamily,
-} from "./committedSurfaceFrame";
-import { rectKey } from "./committedSurfaceGpuNativeVisualActor";
+  GpuFlowPreparedContentActorGeneration,
+  GpuFlowPreparedContentSectionActorFamily,
+} from "./preparedContentFrame";
+import { rectKey } from "./preparedContentGpuNativeVisualActor";
 import {
-  intersectCommittedSurfaceFrameRects,
-  isPositiveCommittedSurfaceRect,
-} from "./committedSurfaceRects";
+  intersectPreparedContentFrameRects,
+  isPositivePreparedContentRect,
+} from "./preparedContentRects";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuSectionSceneNode } from "./scene";
 import { getVisibleFlowRect, type GpuRect } from "./viewportMath";
 
 export function createSectionStructureActors(
   retainedRuntimeFrame: GpuRetainedRuntimeFrame,
-): readonly GpuFlowCommittedSurfaceActorGeneration[] {
+): readonly GpuFlowPreparedContentActorGeneration[] {
   const renderedNodeIds = new Set(
     retainedRuntimeFrame.descriptors.renderedSceneNodeIds,
   );
@@ -60,18 +60,18 @@ function createSectionStructureActorsForSection({
 }: {
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly section: GpuSectionSceneNode;
-}): readonly GpuFlowCommittedSurfaceActorGeneration[] {
+}): readonly GpuFlowPreparedContentActorGeneration[] {
   if (section.contentRenderer.kind === "scene-only") {
     return [];
   }
   const shellRect = createVisibleSectionActorRect({
     retainedRuntimeFrame,
-    sectionRect: intersectCommittedSurfaceFrameRects(
+    sectionRect: intersectPreparedContentFrameRects(
       section.worldRect,
       section.clipRect,
     ),
   });
-  if (!isPositiveCommittedSurfaceRect(shellRect)) {
+  if (!isPositivePreparedContentRect(shellRect)) {
     return [];
   }
   const headerRect = createSectionHeaderActorRect({
@@ -80,7 +80,7 @@ function createSectionStructureActorsForSection({
   });
   const bodyClipRect = createVisibleSectionActorRect({
     retainedRuntimeFrame,
-    sectionRect: intersectCommittedSurfaceFrameRects(
+    sectionRect: intersectPreparedContentFrameRects(
       section.bodyRect,
       section.clipRect,
     ),
@@ -93,7 +93,7 @@ function createSectionStructureActorsForSection({
       section,
       zOrderOffset: 0,
     }),
-    ...(headerRect && isPositiveCommittedSurfaceRect(headerRect)
+    ...(headerRect && isPositivePreparedContentRect(headerRect)
       ? [
           createSectionStructureActor({
             actorFamily: "section-header",
@@ -104,7 +104,7 @@ function createSectionStructureActorsForSection({
           }),
         ]
       : []),
-    ...(isPositiveCommittedSurfaceRect(bodyClipRect)
+    ...(isPositivePreparedContentRect(bodyClipRect)
       ? [
           createSectionStructureActor({
             actorFamily: "section-body-clip",
@@ -125,12 +125,12 @@ function createSectionStructureActor({
   section,
   zOrderOffset,
 }: {
-  readonly actorFamily: GpuFlowCommittedSurfaceSectionActorFamily;
+  readonly actorFamily: GpuFlowPreparedContentSectionActorFamily;
   readonly flowRect: GpuRect;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly section: GpuSectionSceneNode;
   readonly zOrderOffset: number;
-}): GpuFlowCommittedSurfaceActorGeneration {
+}): GpuFlowPreparedContentActorGeneration {
   const ownerSurfaceId = section.sectionId;
   const contentRendererSurfaceId =
     section.contentRenderer.kind === "scene-only"
@@ -201,7 +201,9 @@ function createSectionStructureActor({
   });
 }
 
-function isCompactSectionStructureTexture(section: GpuSectionSceneNode): boolean {
+function isCompactSectionStructureTexture(
+  section: GpuSectionSceneNode,
+): boolean {
   return section.textureCssHeight === 1 && section.textureCssWidth === 1;
 }
 
@@ -218,7 +220,7 @@ function createSectionHeaderActorRect({
   }
   return createVisibleSectionActorRect({
     retainedRuntimeFrame,
-    sectionRect: intersectCommittedSurfaceFrameRects(
+    sectionRect: intersectPreparedContentFrameRects(
       {
         height: headerHeight,
         width: section.chromeRect.width,
@@ -241,7 +243,7 @@ function createVisibleSectionActorRect({
   if (!viewportSize) {
     return sectionRect;
   }
-  return intersectCommittedSurfaceFrameRects(
+  return intersectPreparedContentFrameRects(
     sectionRect,
     getVisibleFlowRect({
       canvasHeight: viewportSize.height,

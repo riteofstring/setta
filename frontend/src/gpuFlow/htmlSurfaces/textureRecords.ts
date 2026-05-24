@@ -237,7 +237,7 @@ export function commitPendingTextureSourceRect(
   ) {
     return;
   }
-  updateCommittedSurfaceTextureSnapshot(handle, {
+  updatePreparedContentTextureSnapshot(handle, {
     textureContentKey:
       handle.pendingTextureContentKey === undefined
         ? handle.committed.textureContentKey
@@ -302,7 +302,7 @@ export function textureResolutionFromSnapshot(
   };
 }
 
-export function updateCommittedSurfaceTextureSnapshot(
+export function updatePreparedContentTextureSnapshot(
   handle: HtmlSurfaceTextureHandle,
   updates: Partial<CommittedHtmlSurfaceTextureSnapshot>,
 ) {
@@ -338,7 +338,7 @@ export function markExistingSurfaceTextureRecordDirty(
       input.sourceRect,
     );
   }
-  updateCommittedSurfaceTextureSnapshot(handle, {
+  updatePreparedContentTextureSnapshot(handle, {
     priority: input.priority ?? handle.committed.priority,
   });
   return shouldQueueDirtySurface;

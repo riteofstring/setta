@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceActorGeneration } from "./committedSurfaceFrame";
+import type { GpuFlowPreparedContentActorGeneration } from "./preparedContentFrame";
 import {
   createBrowserVisualSurfaceTransactionFragment,
   type BrowserVisualActor,
@@ -11,13 +11,13 @@ import {
   type SurfaceDrawCommand,
 } from "./surfaceCompositor/surfaceTransaction";
 
-export function createGpuFlowCommittedSurfaceBrowserVisualFragment(
+export function createGpuFlowPreparedContentBrowserVisualFragment(
   browserVisualActors: readonly BrowserVisualActor[],
 ): BrowserVisualSurfaceTransactionFragment {
   return createBrowserVisualSurfaceTransactionFragment(browserVisualActors);
 }
 
-export function createGpuFlowCommittedSurfaceTransaction({
+export function createGpuFlowPreparedContentTransaction({
   browserVisualSurfaceFragment,
   displayFrameId,
   maintenanceBlockingSurfaceIds = [],
@@ -28,7 +28,9 @@ export function createGpuFlowCommittedSurfaceTransaction({
   readonly maintenanceBlockingSurfaceIds?: readonly string[] | undefined;
   readonly retainedSurfaceTransaction: SurfaceDisplayTransaction;
 }): SurfaceDisplayTransaction | null {
-  const maintenanceBlockingSurfaceIdSet = new Set(maintenanceBlockingSurfaceIds);
+  const maintenanceBlockingSurfaceIdSet = new Set(
+    maintenanceBlockingSurfaceIds,
+  );
   const requiredBlockingSurfaceIds =
     browserVisualSurfaceFragment.blockingSurfaceIds.filter(
       (surfaceId) => !maintenanceBlockingSurfaceIdSet.has(surfaceId),
@@ -113,9 +115,9 @@ export function createGpuFlowCommittedSurfaceTransaction({
           (snapshot) => snapshot.generation.generationId,
         ),
       ],
-      id: `committed-hit:${displayFrameId}`,
+      id: `prepared-hit:${displayFrameId}`,
     },
-    id: `committed-surface:${displayFrameId}:${retainedSurfaceTransaction.id}`,
+    id: `prepared-content:${displayFrameId}:${retainedSurfaceTransaction.id}`,
     motionFrame: {
       ...retainedSurfaceTransaction.motionFrame,
       activeIslands,
@@ -139,7 +141,7 @@ export function assertGpuFlowBrowserVisualSurfaceFragment({
   actorGenerations,
   browserVisualSurfaceFragment,
 }: {
-  readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
+  readonly actorGenerations: readonly GpuFlowPreparedContentActorGeneration[];
   readonly browserVisualSurfaceFragment: BrowserVisualSurfaceTransactionFragment;
 }): void {
   const browserVisualContracts = actorGenerations
@@ -177,7 +179,7 @@ export function assertGpuFlowBrowserVisualSurfaceFragment({
       blockingCoverageCount
   ) {
     throw new Error(
-      "GPU Flow committed surface frame has stale browser visual surface coverage.",
+      "GPU Flow prepared content frame has stale browser visual surface coverage.",
     );
   }
 }

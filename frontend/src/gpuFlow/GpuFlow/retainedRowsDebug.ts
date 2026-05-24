@@ -1,6 +1,5 @@
 import { useEffect, type MutableRefObject, type RefObject } from "react";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { HtmlSurfaceVisualScene } from "../htmlSurfaces/visualScene";
 import {
@@ -13,6 +12,7 @@ import {
   type MutableGpuFlowInteractionDiagnostics,
 } from "../interactionDiagnostics";
 import type { GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
   createGpuRetainedContentSampledSceneForSurface,
@@ -106,7 +106,7 @@ export function useGpuFlowDebugGlobals<
   readonly containerRef: RefObject<HTMLElement | null>;
   readonly getViewport: () => GpuViewportTuple;
   readonly getPresentedContentFrame?:
-    | (() => GpuFlowCommittedSurfaceFrame | null)
+    | (() => GpuFlowPreparedContentFrame | null)
     | undefined;
   readonly getPresentationIdentity?:
     | (() => GpuFlowVisibleFramePresentationIdentity | null)
@@ -453,7 +453,7 @@ export function createGpuFlowPresentedContentFrameDebugEntry({
   frame,
   presentationIdentity,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame | null;
+  readonly frame: GpuFlowPreparedContentFrame | null;
   readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null;
 }): GpuFlowPresentedContentFrameDebugEntry | null {
   if (!frame) {
@@ -475,16 +475,16 @@ export function createGpuFlowPresentedContentFrameDebugEntry({
     displayFrameId: frame.displayFrameId,
     displayCompletenessStatus: frame.displayCompleteness.status,
     domControlActorCount: frame.diagnostics.domControlActorCount,
-    domControlCommittedFrameId: frame.coherence.domControlCommittedFrameId,
+    domControlPreparedFrameId: frame.coherence.domControlPreparedFrameId,
     domIslandActorCount: frame.diagnostics.domIslandActorCount,
-    domIslandCommittedFrameId: frame.coherence.domIslandCommittedFrameId,
+    domIslandPreparedFrameId: frame.coherence.domIslandPreparedFrameId,
     gpuNativeVisualActorCount: frame.diagnostics.gpuNativeVisualActorCount,
-    gpuNativeVisualCommittedFrameId:
-      frame.coherence.gpuNativeVisualCommittedFrameId,
+    gpuNativeVisualPreparedFrameId:
+      frame.coherence.gpuNativeVisualPreparedFrameId,
     hitGenerationId: frame.coherence.hitGenerationId,
     htmlTextureActorCount: frame.diagnostics.htmlTextureActorCount,
-    htmlTextureOverlayCommittedFrameId:
-      frame.coherence.htmlTextureOverlayCommittedFrameId,
+    htmlTextureOverlayPreparedFrameId:
+      frame.coherence.htmlTextureOverlayPreparedFrameId,
     presentationId: presentationDebug.presentationId,
     presentationProjectionSampleId: presentationDebug.projectionSampleId,
     projectedVisibleNonemptyDomControlCount:
@@ -527,7 +527,7 @@ function createPresentedContentFrameDebugPresentationIdentity(
 }
 
 function createPresentedContentFrameDebugProjectionHorizon(
-  frame: GpuFlowCommittedSurfaceFrame,
+  frame: GpuFlowPreparedContentFrame,
 ): GpuFlowPresentedContentFrameDebugEntry["projectionHorizon"] {
   const textCoverage = frame.projectionHorizon.textActorCoverage;
   return {
@@ -547,7 +547,7 @@ function createPresentedContentFrameDebugProjectionHorizon(
 }
 
 function getPresentedContentFrameDebugPublishabilityReason(
-  publishability: GpuFlowCommittedSurfaceFrame["publishability"],
+  publishability: GpuFlowPreparedContentFrame["publishability"],
 ): string | null {
   return "reason" in publishability ? publishability.reason : null;
 }
@@ -566,7 +566,7 @@ function flowViewportInputToDebugEntry(viewport: GpuViewportInput): {
 }
 
 function toPresentedContentFrameTextActorProofDebugEntry(
-  actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
+  actor: GpuFlowPreparedContentFrame["actorGenerations"][number],
 ): GpuFlowPresentedContentFrameTextActorProofDebugEntry {
   const browserProof =
     toPresentedContentFrameBrowserVisualProofDebugEntry(actor);
@@ -588,7 +588,7 @@ function toPresentedContentFrameTextActorProofDebugEntry(
 }
 
 function toPresentedContentFrameBrowserVisualProofDebugEntry(
-  actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
+  actor: GpuFlowPreparedContentFrame["actorGenerations"][number],
 ): Pick<
   GpuFlowPresentedContentFrameTextActorProofDebugEntry,
   | "actualInteraction"

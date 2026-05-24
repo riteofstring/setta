@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import { getGpuFlowPreparedContentFrameForceVisibleNodeIds } from "./flowForcedVisibleNodeIds";
 
 describe("GPU Flow retained content forced visible node ids", () => {
@@ -27,7 +27,7 @@ describe("GPU Flow retained content forced visible node ids", () => {
 
 function preparedContentFrame(
   sectionSurfaceIds: readonly string[],
-): GpuFlowCommittedSurfaceFrame {
+): GpuFlowPreparedContentFrame {
   return {
     actorGenerations: sectionSurfaceIds.flatMap((ownerSurfaceId) => [
       {
@@ -41,5 +41,5 @@ function preparedContentFrame(
         visibleNonempty: true,
       },
     ]),
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }

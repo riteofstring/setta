@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type {
   GpuFlowBrowserVisualResourceWorkRect,
@@ -15,7 +15,7 @@ import {
 } from "./visibleFrameTypes";
 
 type GpuFlowBrowserVisualActorGeneration =
-  GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+  GpuFlowPreparedContentFrame["actorGenerations"][number];
 
 type GpuFlowBrowserVisualTextCoverageProof = NonNullable<
   GpuFlowBrowserVisualActorGeneration["textCoverageProof"]
@@ -51,7 +51,7 @@ export function createGpuFlowBrowserVisualBlockedPublicationCandidate({
   frame,
   heldPreviousProjectionState,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowVisibleFrameBlockedPublicationCandidate {
   if (isGpuFlowRetainedSurfaceTrueHoleFrame(frame)) {
@@ -72,12 +72,12 @@ function createGpuFlowRetainedSurfaceTrueHoleBlockedPublicationCandidate({
   frame,
   heldPreviousProjectionState,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowVisibleFrameBlockedPublicationCandidate {
   return Object.freeze({
     blockedReasons: Object.freeze(
-      getGpuFlowCommittedSurfacePublishabilityActorIds(frame).map((actorId) =>
+      getGpuFlowPreparedContentPublishabilityActorIds(frame).map((actorId) =>
         Object.freeze({
           actorId,
           family: "retained-projection",
@@ -92,7 +92,7 @@ function createGpuFlowRetainedSurfaceTrueHoleBlockedPublicationCandidate({
 }
 
 function isGpuFlowRetainedSurfaceTrueHoleFrame(
-  frame: GpuFlowCommittedSurfaceFrame,
+  frame: GpuFlowPreparedContentFrame,
 ): boolean {
   return (
     frame.publishability.kind === "true-hole" &&
@@ -239,7 +239,7 @@ export function createGpuFlowBrowserVisualResourceWorkRequests({
   frame,
 }: {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
 }): readonly GpuFlowBrowserVisualResourceWorkRequest[] {
   const actorById = new Map(
     frame.actorGenerations.map((actor) => [actor.actorId, actor]),
@@ -260,14 +260,14 @@ export function createGpuFlowBrowserVisualResourceWorkRequests({
 }
 
 function createGpuFlowBlockedVisibleReasons(
-  frame: GpuFlowCommittedSurfaceFrame,
+  frame: GpuFlowPreparedContentFrame,
 ): readonly GpuFlowBlockedVisibleReason[] {
   const actorById = new Map(
     frame.actorGenerations.map((actor) => [actor.actorId, actor]),
   );
-  const actorIds = getGpuFlowCommittedSurfacePublishabilityActorIds(frame);
+  const actorIds = getGpuFlowPreparedContentPublishabilityActorIds(frame);
   const publishabilityActorFamily =
-    getGpuFlowCommittedSurfacePublishabilityActorFamily(frame);
+    getGpuFlowPreparedContentPublishabilityActorFamily(frame);
   return Object.freeze(
     actorIds.map((actorId) => {
       const actor = actorById.get(actorId);
@@ -284,7 +284,7 @@ function createGpuFlowBlockedVisibleReasons(
 }
 
 function createGpuFlowPassiveBrowserVisualActorIdSet(
-  frame: GpuFlowCommittedSurfaceFrame,
+  frame: GpuFlowPreparedContentFrame,
 ): ReadonlySet<string> {
   return new Set(
     frame.actorGenerations
@@ -336,7 +336,7 @@ function createGpuFlowBrowserVisualResourceWorkRequest({
   reason,
 }: {
   readonly actor: GpuFlowBrowserVisualActorGeneration | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly reason: GpuFlowBlockedVisibleReason;
 }): GpuFlowBrowserVisualResourceWorkRequest {
   const actorId = reason.actorId ?? null;
@@ -379,7 +379,7 @@ function createGpuFlowBrowserVisualResourceKey({
 }: {
   readonly actor: GpuFlowBrowserVisualActorGeneration | undefined;
   readonly actorId: string | null;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly reason: GpuFlowBlockedVisibleReason;
 }): string {
   const generation = getGpuFlowBrowserVisualResourceGeneration({
@@ -416,7 +416,7 @@ function getGpuFlowBrowserVisualResourceGeneration({
   frame,
 }: {
   readonly actor: GpuFlowBrowserVisualActorGeneration | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
 }): string {
   const textCoverage = actor?.textCoverageProof;
   return (
@@ -439,7 +439,7 @@ function getGpuFlowBrowserVisualResourceRepresentationKind({
   reason,
 }: {
   readonly actor: GpuFlowBrowserVisualActorGeneration | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly reason: GpuFlowBlockedVisibleReason;
 }): string {
   return (
@@ -458,7 +458,7 @@ function getGpuFlowBrowserVisualSourceHostIdentity({
 }: {
   readonly actor: GpuFlowBrowserVisualActorGeneration | undefined;
   readonly actorId: string | null;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly reason: GpuFlowBlockedVisibleReason;
 }): string {
   return (
@@ -506,16 +506,16 @@ function readGpuFlowBrowserVisualStringProperty(
   return typeof propertyValue === "string" ? propertyValue : null;
 }
 
-export function getGpuFlowCommittedSurfacePublishabilityActorIds(
-  frame: GpuFlowCommittedSurfaceFrame,
+export function getGpuFlowPreparedContentPublishabilityActorIds(
+  frame: GpuFlowPreparedContentFrame,
 ): readonly string[] {
   return frame.publishability.kind === "true-hole"
     ? frame.publishability.actorIds
     : frame.publishability.blockingActorIds;
 }
 
-function getGpuFlowCommittedSurfacePublishabilityActorFamily(
-  frame: GpuFlowCommittedSurfaceFrame,
+function getGpuFlowPreparedContentPublishabilityActorFamily(
+  frame: GpuFlowPreparedContentFrame,
 ): string {
   return frame.publishability.kind === "true-hole"
     ? frame.publishability.actorFamily
@@ -526,17 +526,17 @@ export function getGpuFlowBrowserVisualBlockedReason({
   frame,
   textCoverage,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly textCoverage: OptionalGpuFlowBrowserVisualTextCoverageProof;
 }): string {
   if (textCoverage && "readinessReason" in textCoverage) {
     return textCoverage.readinessReason;
   }
-  return getGpuFlowCommittedSurfacePublishabilityReason(frame);
+  return getGpuFlowPreparedContentPublishabilityReason(frame);
 }
 
-function getGpuFlowCommittedSurfacePublishabilityReason(
-  frame: GpuFlowCommittedSurfaceFrame,
+function getGpuFlowPreparedContentPublishabilityReason(
+  frame: GpuFlowPreparedContentFrame,
 ): string {
   switch (frame.publishability.kind) {
     case "block-first-publication":

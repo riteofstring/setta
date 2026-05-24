@@ -127,9 +127,7 @@ function projectGpuFlowRetainedDisplayFrameFlatSurfaces({
     return {
       flatSurfaces: retainedDisplayFrame.flatSurfaces,
       missingCoverageSurfaceIds:
-        createGpuFlowRetainedProjectionCommittedSurfaceIds(
-          retainedDisplayFrame,
-        ),
+        createGpuFlowRetainedProjectionPreparedContentIds(retainedDisplayFrame),
       needsRetainedPageMaintenance: true,
     };
   }
@@ -357,7 +355,7 @@ function hasGpuFlowRetainedProjectionSceneRevisionChanged({
   );
 }
 
-function createGpuFlowRetainedProjectionCommittedSurfaceIds(
+function createGpuFlowRetainedProjectionPreparedContentIds(
   retainedDisplayFrame: RetainedDisplayFrame,
 ): ReadonlySet<string> {
   const surfaceIds = new Set(

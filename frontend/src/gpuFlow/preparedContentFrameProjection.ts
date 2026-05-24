@@ -1,14 +1,14 @@
 import type {
-  GpuFlowCommittedSurfaceActorGeneration,
-  GpuFlowCommittedSurfaceCompleteness,
   GpuFlowContentFramePublishability,
+  GpuFlowPreparedContentActorGeneration,
+  GpuFlowPreparedContentCompleteness,
   GpuFlowProjectionHorizon,
-} from "./committedSurfaceFrame";
+} from "./preparedContentFrame";
 import type { RetainedDisplayFrame } from "./retainedDisplayFrame";
 
 type GpuFlowProjectionHorizonSurfaceEntry = {
   actorCount: number;
-  committedScrollOffset: { readonly x: number; readonly y: number } | null;
+  preparedScrollOffset: { readonly x: number; readonly y: number } | null;
   textActorCount: number;
   visibleNonemptyTextActorCount: number;
 };
@@ -22,13 +22,13 @@ export function createGpuFlowContentFramePublishability({
   startup,
   transactionOutcome,
 }: {
-  readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
-  readonly displayCompleteness: GpuFlowCommittedSurfaceCompleteness;
+  readonly actorGenerations: readonly GpuFlowPreparedContentActorGeneration[];
+  readonly displayCompleteness: GpuFlowPreparedContentCompleteness;
   readonly retainedSurfaceTrueHoleActorIds?: readonly string[] | undefined;
   readonly startup: boolean;
   readonly transactionOutcome: string;
 }): GpuFlowContentFramePublishability {
-  const textActors = actorGenerations.filter(isGpuFlowCommittedTextActor);
+  const textActors = actorGenerations.filter(isGpuFlowPreparedTextActor);
   const visibleNonemptyTextTrueHoleActorIds = textActors
     .filter(
       (actor) =>
@@ -37,8 +37,7 @@ export function createGpuFlowContentFramePublishability({
     )
     .map((actor) => actor.actorId)
     .sort();
-  const hasRetainedSurfaceTrueHole =
-    retainedSurfaceTrueHoleActorIds.length > 0;
+  const hasRetainedSurfaceTrueHole = retainedSurfaceTrueHoleActorIds.length > 0;
   const status: GpuFlowContentFramePublishability["status"] = startup
     ? "startup"
     : displayCompleteness.status === "complete" && !hasRetainedSurfaceTrueHole
@@ -102,12 +101,12 @@ export function assertGpuFlowContentFramePublishability(
 ): void {
   if (JSON.stringify(left) !== JSON.stringify(right)) {
     throw new Error(
-      "GPU Flow committed surface frame has stale content publishability.",
+      "GPU Flow prepared content frame has stale content publishability.",
     );
   }
 }
 
-export function createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds(
+export function createGpuFlowPreparedContentRetainedTrueHoleActorIds(
   retainedDisplayFrame: RetainedDisplayFrame | null,
 ): readonly string[] {
   if (
@@ -120,8 +119,7 @@ export function createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds(
   return Object.freeze(
     [
       ...new Set(
-        retainedDisplayFrame.surfaceTransaction.coverageProof
-          .blockingSurfaceIds,
+        retainedDisplayFrame.surfaceTransaction.coverageProof.blockingSurfaceIds,
       ),
     ].sort(),
   );
@@ -131,11 +129,11 @@ export function createGpuFlowProjectionHorizon({
   actorGenerations,
   displayFrameId,
 }: {
-  readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
+  readonly actorGenerations: readonly GpuFlowPreparedContentActorGeneration[];
   readonly displayFrameId: number;
 }): GpuFlowProjectionHorizon {
   const surfaces = collectGpuFlowProjectionHorizonSurfaces(actorGenerations);
-  const textActors = actorGenerations.filter(isGpuFlowCommittedTextActor);
+  const textActors = actorGenerations.filter(isGpuFlowPreparedTextActor);
   return Object.freeze({
     actorFamilyCoverage:
       createGpuFlowProjectionActorFamilyCoverage(actorGenerations),
@@ -153,7 +151,7 @@ export function createGpuFlowProjectionHorizon({
 }
 
 function createGpuFlowProjectionHorizonObligations(
-  actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[],
+  actorGenerations: readonly GpuFlowPreparedContentActorGeneration[],
 ): GpuFlowProjectionHorizon["obligations"] {
   const visibleActorIds: string[] = [];
   const activePinnedActorIds: string[] = [];
@@ -167,7 +165,7 @@ function createGpuFlowProjectionHorizonObligations(
       visibleActorIds.push(actor.actorId);
       continue;
     }
-    if (isGpuFlowCommittedTextActor(actor)) {
+    if (isGpuFlowPreparedTextActor(actor)) {
       nearFutureActorIds.push(actor.actorId);
       continue;
     }
@@ -182,7 +180,7 @@ function createGpuFlowProjectionHorizonObligations(
 }
 
 function collectGpuFlowProjectionHorizonSurfaces(
-  actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[],
+  actorGenerations: readonly GpuFlowPreparedContentActorGeneration[],
 ): ReadonlyMap<string, GpuFlowProjectionHorizonSurfaceEntry> {
   const surfaces = new Map<string, GpuFlowProjectionHorizonSurfaceEntry>();
   for (const actor of actorGenerations) {
@@ -195,20 +193,20 @@ function addGpuFlowProjectionHorizonSurfaceActor({
   actor,
   surfaces,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly surfaces: Map<string, GpuFlowProjectionHorizonSurfaceEntry>;
 }): void {
   const entry = surfaces.get(actor.ownerSurfaceId) ?? {
     actorCount: 0,
-    committedScrollOffset: null,
+    preparedScrollOffset: null,
     textActorCount: 0,
     visibleNonemptyTextActorCount: 0,
   };
   entry.actorCount += 1;
-  entry.committedScrollOffset ??= actor.retainedScrollOffset
+  entry.preparedScrollOffset ??= actor.retainedScrollOffset
     ? { ...actor.retainedScrollOffset }
     : null;
-  if (isGpuFlowCommittedTextActor(actor)) {
+  if (isGpuFlowPreparedTextActor(actor)) {
     entry.textActorCount += 1;
     if (actor.visibleNonempty) {
       entry.visibleNonemptyTextActorCount += 1;
@@ -218,7 +216,7 @@ function addGpuFlowProjectionHorizonSurfaceActor({
 }
 
 function createGpuFlowProjectionActorFamilyCoverage(
-  actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[],
+  actorGenerations: readonly GpuFlowPreparedContentActorGeneration[],
 ): GpuFlowProjectionHorizon["actorFamilyCoverage"] {
   const actorIdsByKind = {
     domControlActorIds: [] as string[],
@@ -249,7 +247,7 @@ function collectGpuFlowProjectionActorFamilyId({
   actor,
   actorIdsByKind,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly actorIdsByKind: {
     readonly domControlActorIds: string[];
     readonly domIslandActorIds: string[];
@@ -285,11 +283,11 @@ function createGpuFlowProjectionRetainedScrollSurfaces(
       .map(([surfaceId, entry]) =>
         Object.freeze({
           actorCount: entry.actorCount,
-          committedScrollOffset: entry.committedScrollOffset
-            ? Object.freeze({ ...entry.committedScrollOffset })
+          preparedScrollOffset: entry.preparedScrollOffset
+            ? Object.freeze({ ...entry.preparedScrollOffset })
             : null,
           preparedScrollRange: createGpuFlowProjectionPreparedScrollRange(
-            entry.committedScrollOffset,
+            entry.preparedScrollOffset,
           ),
           surfaceId,
           textActorCount: entry.textActorCount,
@@ -301,29 +299,29 @@ function createGpuFlowProjectionRetainedScrollSurfaces(
 }
 
 function createGpuFlowProjectionPreparedScrollRange(
-  committedScrollOffset: GpuFlowProjectionHorizonSurfaceEntry["committedScrollOffset"],
+  preparedScrollOffset: GpuFlowProjectionHorizonSurfaceEntry["preparedScrollOffset"],
 ): GpuFlowProjectionHorizon["retainedScrollSurfaces"][number]["preparedScrollRange"] {
   return Object.freeze({
-    x: committedScrollOffset
+    x: preparedScrollOffset
       ? Object.freeze({
           max:
-            committedScrollOffset.x +
+            preparedScrollOffset.x +
             GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX,
           min: Math.max(
             0,
-            committedScrollOffset.x -
+            preparedScrollOffset.x -
               GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX,
           ),
         })
       : null,
-    y: committedScrollOffset
+    y: preparedScrollOffset
       ? Object.freeze({
           max:
-            committedScrollOffset.y +
+            preparedScrollOffset.y +
             GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX,
           min: Math.max(
             0,
-            committedScrollOffset.y -
+            preparedScrollOffset.y -
               GPU_FLOW_RETAINED_SCROLL_PREPARATION_HORIZON_CSS_PX,
           ),
         })
@@ -332,7 +330,7 @@ function createGpuFlowProjectionPreparedScrollRange(
 }
 
 function createGpuFlowProjectionTextActorCoverage(
-  textActors: readonly GpuFlowCommittedSurfaceActorGeneration[],
+  textActors: readonly GpuFlowPreparedContentActorGeneration[],
 ): GpuFlowProjectionHorizon["textActorCoverage"] {
   return Object.freeze({
     blockedAwaitingBrowserVisualActorIds: Object.freeze(
@@ -401,13 +399,13 @@ export function assertGpuFlowProjectionHorizon(
 ): void {
   if (JSON.stringify(left) !== JSON.stringify(right)) {
     throw new Error(
-      "GPU Flow committed surface frame has stale projection horizon.",
+      "GPU Flow prepared content frame has stale projection horizon.",
     );
   }
 }
 
-export function isGpuFlowCommittedTextActor(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+export function isGpuFlowPreparedTextActor(
+  actor: GpuFlowPreparedContentActorGeneration,
 ): boolean {
   return actor.actorFamily === "text-like-dom-control";
 }

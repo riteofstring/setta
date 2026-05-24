@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import { createGpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuContentSurface } from "../scene";
@@ -300,21 +300,21 @@ function preparedContentFrame({
     | "blocked-awaiting-snapshot"
     | "exact-snapshot-ready"
     | "live-host-ready";
-}): GpuFlowCommittedSurfaceFrame {
+}): GpuFlowPreparedContentFrame {
   return {
     actorGenerations: [
       {
         actorId: "control",
         browserVisual: { coverageState },
         kind: "dom-control",
-      } as GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
+      } as GpuFlowPreparedContentFrame["actorGenerations"][number],
     ],
     retainedRuntimeFrame: {
       descriptors: {
         domControlSources: controls,
       },
     },
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function retainedFrameCache({

@@ -1,9 +1,9 @@
-import {
-  assertGpuFlowCommittedSurfacePresentationProof,
-  createGpuFlowCommittedSurfaceActorManifestDigest,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
 import { createGpuFlowJsonDigest } from "../gpuFlowDigest";
+import {
+  assertGpuFlowPreparedContentPresentationProof,
+  createGpuFlowPreparedContentActorManifestDigest,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import type {
   GpuFlowProjectionTransaction,
   GpuFlowProjectionTransactionKind,
@@ -47,9 +47,9 @@ export type GpuFlowPresentationPairProof = {
     readonly projectionTransactionId: string;
     readonly source: "deferred-texture-eviction-submission";
   } | null;
-  readonly canvasGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["canvasGeneration"];
-  readonly domGenerationEvidence: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGenerationEvidence"];
-  readonly domGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGeneration"];
+  readonly canvasGeneration: GpuFlowPreparedContentFrame["presentationProof"]["canvasGeneration"];
+  readonly domGenerationEvidence: GpuFlowPreparedContentFrame["presentationProof"]["domGenerationEvidence"];
+  readonly domGeneration: GpuFlowPreparedContentFrame["presentationProof"]["domGeneration"];
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly surfaceTransactionDigest: string | null;
@@ -72,7 +72,7 @@ export function createGpuFlowPresentationAuthorityProof({
   projectionTransactionKind,
   projectionTransactionId,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly presentationPairProof: GpuFlowPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
@@ -107,7 +107,7 @@ export function assertGpuFlowPresentationAuthorityFrame({
   presentationAuthorityProof,
   projectionSampleId,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly presentationAuthorityProof: GpuFlowPresentationAuthorityProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): void {
@@ -131,11 +131,11 @@ function assertGpuFlowPresentationPairFeasible({
   presentationAuthorityProof,
   projectionSampleId,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly presentationAuthorityProof: GpuFlowPresentationAuthorityProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): void {
-  assertGpuFlowCommittedSurfacePresentationProof(frame);
+  assertGpuFlowPreparedContentPresentationProof(frame);
   assertGpuFlowPresentationAuthorityProofMatchesFrame({
     frame,
     presentationAuthorityProof,
@@ -148,7 +148,7 @@ function assertGpuFlowPresentationAuthorityProofMatchesFrame({
   presentationAuthorityProof,
   projectionSampleId,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly presentationAuthorityProof: GpuFlowPresentationAuthorityProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): void {
@@ -195,7 +195,7 @@ export function assertGpuFlowPresentationPairProof({
   projectionTransactionKind,
   projectionTransactionId,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly presentationPairProof: GpuFlowPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
@@ -253,7 +253,7 @@ function isGpuFlowPresentationPairProofHeaderValid({
   projectionSampleId,
   projectionTransactionKind,
 }: {
-  readonly expected: GpuFlowCommittedSurfaceFrame["presentationProof"];
+  readonly expected: GpuFlowPreparedContentFrame["presentationProof"];
   readonly presentationPairProof: GpuFlowPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
@@ -278,7 +278,7 @@ function areGpuFlowDomPresentationGenerationEvidenceEqual(
 ): boolean {
   return (
     left.browserVisualCandidateId === right.browserVisualCandidateId &&
-    left.committedFrameId === right.committedFrameId &&
+    left.preparedFrameId === right.preparedFrameId &&
     left.domControlMountedCount === right.domControlMountedCount &&
     left.domControlSnapshotCount === right.domControlSnapshotCount &&
     left.domIslandCount === right.domIslandCount &&
@@ -295,7 +295,7 @@ function isGpuFlowCanvasPresentationEvidenceValid({
   projectionSampleId,
   projectionTransactionId,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly presentationPairProof: GpuFlowPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly projectionTransactionId: GpuFlowProjectionTransaction["id"];
@@ -318,7 +318,7 @@ function isGpuFlowDomTransformPresentationEvidenceValid({
   projectionSampleId,
   projectionTransactionId,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly presentationPairProof: GpuFlowPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly projectionTransactionId: GpuFlowProjectionTransaction["id"];
@@ -340,7 +340,7 @@ function isGpuFlowTextureEvictionPresentationEvidenceValid({
   projectionTransactionId,
   projectionTransactionKind,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly presentationPairProof: GpuFlowPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly projectionTransactionId: GpuFlowProjectionTransaction["id"];
@@ -405,10 +405,9 @@ function areGpuFlowDomPresentationGenerationProofsEqual(
   right: GpuFlowDomPresentationGenerationProof,
 ): boolean {
   return (
-    left.browserVisualCommittedFrameId ===
-      right.browserVisualCommittedFrameId &&
-    left.domControlCommittedFrameId === right.domControlCommittedFrameId &&
-    left.domIslandCommittedFrameId === right.domIslandCommittedFrameId &&
+    left.browserVisualPreparedFrameId === right.browserVisualPreparedFrameId &&
+    left.domControlPreparedFrameId === right.domControlPreparedFrameId &&
+    left.domIslandPreparedFrameId === right.domIslandPreparedFrameId &&
     left.exposable === right.exposable &&
     left.presentationBatchId === right.presentationBatchId &&
     left.staged === right.staged
@@ -423,10 +422,10 @@ function areGpuFlowCanvasPresentationGenerationProofsEqual(
     left.canvasRetainedFrameId === right.canvasRetainedFrameId &&
     left.debugSnapshotFrameId === right.debugSnapshotFrameId &&
     left.exposable === right.exposable &&
-    left.gpuNativeVisualCommittedFrameId ===
-      right.gpuNativeVisualCommittedFrameId &&
-    left.htmlTextureOverlayCommittedFrameId ===
-      right.htmlTextureOverlayCommittedFrameId &&
+    left.gpuNativeVisualPreparedFrameId ===
+      right.gpuNativeVisualPreparedFrameId &&
+    left.htmlTextureOverlayPreparedFrameId ===
+      right.htmlTextureOverlayPreparedFrameId &&
     left.prepared === right.prepared &&
     left.presentationBatchId === right.presentationBatchId
   );
@@ -435,7 +434,7 @@ function areGpuFlowCanvasPresentationGenerationProofsEqual(
 export function createGpuFlowPresentationResourceProtectionDigestForFrame({
   frame,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
 }): GpuFlowResourceProtectionDigest {
   const report =
     createGpuFlowVisibleFramePresentationResourceProtectionReport(frame);
@@ -444,15 +443,15 @@ export function createGpuFlowPresentationResourceProtectionDigestForFrame({
 }
 
 export function createGpuFlowActorManifestDigest(
-  frame: GpuFlowCommittedSurfaceFrame,
+  frame: GpuFlowPreparedContentFrame,
 ): GpuFlowActorManifestDigest {
-  return createGpuFlowCommittedSurfaceActorManifestDigest(
+  return createGpuFlowPreparedContentActorManifestDigest(
     frame.actorGenerations,
   );
 }
 
 export function createGpuFlowVisibleProofDigest(
-  frame: GpuFlowCommittedSurfaceFrame,
+  frame: GpuFlowPreparedContentFrame,
 ): GpuFlowVisibleProofDigest {
   const transaction = frame.surfaceTransaction;
   return createGpuFlowJsonDigest("visible-frame-presentation-proof", {
@@ -475,7 +474,7 @@ export function createGpuFlowPresentationPairDigest({
   presentationPairProof,
   projectionSampleId,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly presentationPairProof: GpuFlowPresentationPairProof;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): GpuFlowPresentationPairDigest {
@@ -501,7 +500,7 @@ export function createGpuFlowPresentationPairDigest({
 }
 
 function createGpuFlowPresentationProofDigest(
-  frame: GpuFlowCommittedSurfaceFrame,
+  frame: GpuFlowPreparedContentFrame,
 ): string {
   return createGpuFlowJsonDigest("visible-presentation-proof", {
     actorManifestDigest: frame.presentationProof.actorManifestDigest,

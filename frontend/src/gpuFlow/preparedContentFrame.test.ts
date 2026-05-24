@@ -1,25 +1,25 @@
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it } from "vitest";
-import {
-  assertGpuFlowCommittedSurfaceFrameCoherent,
-  createGpuFlowCommittedSurfaceFrame,
-  createGpuFlowCommittedSurfaceFrameRenderSignature,
-  createGpuFlowCommittedSurfacePresentationProof,
-  createGpuFlowStartupCommittedSurfaceFrame,
-  type GpuFlowCommittedSurfaceBrowserVisualReadiness,
-  type GpuFlowCommittedSurfaceFrame,
-} from "./committedSurfaceFrame";
 import { createGpuFlowDomControlCompatiblePreviousProof } from "./GpuFlow/domControlPlaneCompatibility";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "./htmlSurfaces/visualScene";
+import {
+  assertGpuFlowPreparedContentFrameCoherent,
+  createGpuFlowPreparedContentFrame,
+  createGpuFlowPreparedContentFrameRenderSignature,
+  createGpuFlowPreparedContentPresentationProof,
+  createGpuFlowStartupPreparedContentFrame,
+  type GpuFlowPreparedContentBrowserVisualReadiness,
+  type GpuFlowPreparedContentFrame,
+} from "./preparedContentFrame";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import type { RetainedDisplayFrame } from "./retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "./scene";
 
-describe("GPU Flow committed surface frame", () => {
+describe("GPU Flow prepared content frame", () => {
   it("requires runtime-proven DOM-control coverage before reporting actor readiness", () => {
     const retainedRuntimeFrame = createRuntimeFrame({ frameId: 3 });
-    const frame = createGpuFlowStartupCommittedSurfaceFrame({
+    const frame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame,
     });
 
@@ -29,7 +29,7 @@ describe("GPU Flow committed surface frame", () => {
     expect(domControlActors).toHaveLength(1);
     const domControlActor = domControlActors[0];
     if (!domControlActor) {
-      throw new Error("Expected a committed DOM-control actor.");
+      throw new Error("Expected a prepared DOM-control actor.");
     }
     expect(JSON.parse(domControlActor.canonicalActorId)).toEqual({
       actorFamily: "text-like-dom-control",
@@ -126,9 +126,9 @@ describe("GPU Flow committed surface frame", () => {
     });
   });
 
-  it("uses the committed GPU-native visual set when publishing actors", () => {
+  it("uses the prepared GPU-native visual set when publishing actors", () => {
     const retainedRuntimeFrame = createRuntimeFrame({ frameId: 12 });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       gpuNativeVisuals: [nativeVisual("switch-animation")],
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 12,
@@ -152,9 +152,9 @@ describe("GPU Flow committed surface frame", () => {
     expect(frame.diagnostics.gpuNativeVisualActorCount).toBe(1);
   });
 
-  it("uses the published display frame id for every visible committed surface family", () => {
+  it("uses the published display frame id for every visible prepared content family", () => {
     const retainedRuntimeFrame = createRuntimeFrame({ frameId: 7 });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 7,
         retainedRuntimeFrame,
@@ -165,29 +165,29 @@ describe("GPU Flow committed surface frame", () => {
       expect.objectContaining({
         canvasRetainedFrameId: 7,
         debugSnapshotFrameId: 7,
-        domControlCommittedFrameId: 7,
-        domIslandCommittedFrameId: 7,
-        gpuNativeVisualCommittedFrameId: 7,
-        hitGenerationId: "committed-hit:7",
-        htmlTextureOverlayCommittedFrameId: 7,
+        domControlPreparedFrameId: 7,
+        domIslandPreparedFrameId: 7,
+        gpuNativeVisualPreparedFrameId: 7,
+        hitGenerationId: "prepared-hit:7",
+        htmlTextureOverlayPreparedFrameId: 7,
         retainedScrollRevision: 7,
       }),
     );
   });
 
   it("includes actor generations in the render signature", () => {
-    const first = createGpuFlowStartupCommittedSurfaceFrame({
+    const first = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: createRuntimeFrame({ frameId: 8 }),
     });
-    const second = createGpuFlowStartupCommittedSurfaceFrame({
+    const second = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: createRuntimeFrame({
         frameId: 9,
         value: "changed",
       }),
     });
 
-    expect(createGpuFlowCommittedSurfaceFrameRenderSignature(first)).not.toBe(
-      createGpuFlowCommittedSurfaceFrameRenderSignature(second),
+    expect(createGpuFlowPreparedContentFrameRenderSignature(first)).not.toBe(
+      createGpuFlowPreparedContentFrameRenderSignature(second),
     );
     expect(
       first.actorGenerations.find((actor) => actor.kind === "dom-control")
@@ -198,8 +198,8 @@ describe("GPU Flow committed surface frame", () => {
     );
   });
 
-  it("keeps viewport-only motion out of the committed render signature", () => {
-    const first = createGpuFlowStartupCommittedSurfaceFrame({
+  it("keeps viewport-only motion out of the prepared render signature", () => {
+    const first = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: createRuntimeFrame({
         frameId: 8,
         scrollRevision: 3,
@@ -207,7 +207,7 @@ describe("GPU Flow committed surface frame", () => {
         viewport: [0, 0, 1],
       }),
     });
-    const second = createGpuFlowStartupCommittedSurfaceFrame({
+    const second = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: createRuntimeFrame({
         frameId: 9,
         scrollRevision: 3,
@@ -216,28 +216,28 @@ describe("GPU Flow committed surface frame", () => {
       }),
     });
 
-    expect(createGpuFlowCommittedSurfaceFrameRenderSignature(first)).toBe(
-      createGpuFlowCommittedSurfaceFrameRenderSignature(second),
+    expect(createGpuFlowPreparedContentFrameRenderSignature(first)).toBe(
+      createGpuFlowPreparedContentFrameRenderSignature(second),
     );
   });
 
   it("splits passive actor content identity from retained scroll projection identity", () => {
-    const first = createGpuFlowStartupCommittedSurfaceFrame({
+    const first = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: createRuntimeFrame({
         frameId: 8,
         scrollRevision: 3,
         scrollY: 12,
       }),
     });
-    const second = createGpuFlowStartupCommittedSurfaceFrame({
+    const second = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: createRuntimeFrame({
         frameId: 9,
         scrollRevision: 4,
         scrollY: 18,
       }),
     });
-    const firstControl = findCommittedDomControlActor(first);
-    const secondControl = findCommittedDomControlActor(second);
+    const firstControl = findPreparedDomControlActor(first);
+    const secondControl = findPreparedDomControlActor(second);
 
     expect(firstControl.contentGenerationId).toBe(
       secondControl.contentGenerationId,
@@ -254,30 +254,30 @@ describe("GPU Flow committed surface frame", () => {
     ).not.toBe(secondControl.generationClassification.projectionGenerationId);
   });
 
-  it("rejects visible frame id drift across committed surface families", () => {
-    const frame = createGpuFlowStartupCommittedSurfaceFrame({
+  it("rejects visible frame id drift across prepared content families", () => {
+    const frame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: createRuntimeFrame({ frameId: 4 }),
     });
-    const drifted: GpuFlowCommittedSurfaceFrame = {
+    const drifted: GpuFlowPreparedContentFrame = {
       ...frame,
       coherence: {
         ...frame.coherence,
-        domControlCommittedFrameId: 5,
+        domControlPreparedFrameId: 5,
       },
     };
 
-    expect(() => assertGpuFlowCommittedSurfaceFrameCoherent(drifted)).toThrow(
+    expect(() => assertGpuFlowPreparedContentFrameCoherent(drifted)).toThrow(
       /incoherent visible frame ids/,
     );
   });
 
   it("rejects presentation proofs that do not match the actor manifest", () => {
-    const frame = createGpuFlowStartupCommittedSurfaceFrame({
+    const frame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: createRuntimeFrame({ frameId: 4 }),
     });
-    const staleProof: GpuFlowCommittedSurfaceFrame = {
+    const staleProof: GpuFlowPreparedContentFrame = {
       ...frame,
-      presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      presentationProof: createGpuFlowPreparedContentPresentationProof({
         actorGenerations: [],
         browserVisualSurfaceFragment: frame.browserVisualSurfaceFragment,
         coherence: frame.coherence,
@@ -286,14 +286,14 @@ describe("GPU Flow committed surface frame", () => {
       }),
     };
 
-    expect(() =>
-      assertGpuFlowCommittedSurfaceFrameCoherent(staleProof),
-    ).toThrow(/actor manifest and browser visual resources/);
+    expect(() => assertGpuFlowPreparedContentFrameCoherent(staleProof)).toThrow(
+      /actor manifest and browser visual resources/,
+    );
   });
 
   it("keeps blocked passive visible DOM-control actors as publishable browser visual debt", () => {
     const retainedRuntimeFrame = createBlockedRuntimeFrame({ frameId: 5 });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 5,
         retainedRuntimeFrame,
@@ -301,7 +301,7 @@ describe("GPU Flow committed surface frame", () => {
     });
 
     expect(() =>
-      assertGpuFlowCommittedSurfaceFrameCoherent(frame),
+      assertGpuFlowPreparedContentFrameCoherent(frame),
     ).not.toThrow();
     expect(frame.displayCompleteness.status).toBe("complete");
     expect(frame.displayCompleteness.blockingActorIds).toEqual([]);
@@ -322,13 +322,13 @@ describe("GPU Flow committed surface frame", () => {
       activeControl: true,
       frameId: 20,
     });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 20,
         retainedRuntimeFrame,
       }),
     });
-    const actor = findCommittedDomControlActor(frame);
+    const actor = findPreparedDomControlActor(frame);
 
     expect(actor.active).toBe(true);
     expect(actor.browserVisual?.coverageState).toBe(
@@ -346,9 +346,9 @@ describe("GPU Flow committed surface frame", () => {
     expect(frame.surfaceTransaction).toBeNull();
   });
 
-  it("does not chain compatible-previous DOM-control coverage beyond one committed frame", () => {
-    const previousCommittedSurfaceFrame =
-      createCompatiblePreviousCommittedSurfaceFrame().frame;
+  it("does not chain compatible-previous DOM-control coverage beyond one prepared frame", () => {
+    const previousPreparedContentFrame =
+      createCompatiblePreviousPreparedContentFrame().frame;
     const retainedRuntimeFrame = withDomControlVisualPolicy(
       createRuntimeFrame({
         frameId: 17,
@@ -357,8 +357,8 @@ describe("GPU Flow committed surface frame", () => {
       }),
       "blocked-awaiting-browser-visual",
     );
-    const frame = createGpuFlowCommittedSurfaceFrame({
-      previousCommittedSurfaceFrame,
+    const frame = createGpuFlowPreparedContentFrame({
+      previousPreparedContentFrame,
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 17,
         retainedRuntimeFrame,
@@ -381,7 +381,7 @@ describe("GPU Flow committed surface frame", () => {
     expect(frame.publishability.kind).toBe("publishable");
     expect(frame.surfaceTransaction).toEqual(
       expect.objectContaining({
-        id: "committed-surface:17:retained:17",
+        id: "prepared-content:17:retained:17",
       }),
     );
   });
@@ -395,7 +395,7 @@ describe("GPU Flow committed surface frame", () => {
       }),
       "blocked-awaiting-browser-visual",
     );
-    const previousCommittedSurfaceFrame = createGpuFlowCommittedSurfaceFrame({
+    const previousPreparedContentFrame = createGpuFlowPreparedContentFrame({
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 15,
         retainedRuntimeFrame: previousRetainedRuntimeFrame,
@@ -409,8 +409,8 @@ describe("GPU Flow committed surface frame", () => {
       }),
       "blocked-awaiting-browser-visual",
     );
-    const frame = createGpuFlowCommittedSurfaceFrame({
-      previousCommittedSurfaceFrame,
+    const frame = createGpuFlowPreparedContentFrame({
+      previousPreparedContentFrame,
       retainedDisplayFrame: fakeRetainedDisplayFrame({
         id: 16,
         retainedRuntimeFrame,
@@ -433,7 +433,7 @@ describe("GPU Flow committed surface frame", () => {
     expect(frame.publishability.kind).toBe("publishable");
     expect(frame.surfaceTransaction).toEqual(
       expect.objectContaining({
-        id: "committed-surface:16:retained:16",
+        id: "prepared-content:16:retained:16",
       }),
     );
     expect(frame.browserVisualSurfaceFragment.blockingSurfaceIds).toEqual([
@@ -445,7 +445,7 @@ describe("GPU Flow committed surface frame", () => {
 
   it("reports typed publishability and retained-scroll horizon diagnostics", () => {
     const retainedRuntimeFrame = createRuntimeFrame({ frameId: 6 });
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       browserVisualReadiness:
         createReadyBrowserVisualReadiness(retainedRuntimeFrame),
       retainedDisplayFrame: fakeRetainedDisplayFrame({
@@ -458,9 +458,9 @@ describe("GPU Flow committed surface frame", () => {
     expect(frame.surfaceTransaction).toEqual(
       expect.objectContaining({
         hitIndex: expect.objectContaining({
-          id: "committed-hit:6",
+          id: "prepared-hit:6",
         }),
-        id: "committed-surface:6:retained:6",
+        id: "prepared-content:6:retained:6",
       }),
     );
     expect(frame.surfaceTransaction?.coverageProof.exactCoverage).toEqual(
@@ -499,10 +499,10 @@ describe("GPU Flow committed surface frame", () => {
     );
   });
 
-  it("blocks committed publication when retained coverage still has true holes", () => {
+  it("blocks prepared publication when retained coverage still has true holes", () => {
     const retainedRuntimeFrame = createRuntimeFrame({ frameId: 19 });
     const retainedSurfaceId = "dict-a:param-content:unpinned";
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       browserVisualReadiness:
         createReadyBrowserVisualReadiness(retainedRuntimeFrame),
       retainedDisplayFrame: fakeRetainedDisplayFrame({
@@ -539,7 +539,7 @@ describe("GPU Flow committed surface frame", () => {
       projectionGenerationId: "projection:snapshot-a",
       resourceGenerationId: "snapshot-a:content-revision",
     };
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       browserVisualReadiness: {
         domControlReadinessByActorId: new Map([
           [
@@ -586,7 +586,7 @@ describe("GPU Flow committed surface frame", () => {
       "outside-viewport",
     );
     const control = requireFirstDomControlSource(retainedRuntimeFrame);
-    const frame = createGpuFlowCommittedSurfaceFrame({
+    const frame = createGpuFlowPreparedContentFrame({
       browserVisualReadiness: {
         domControlReadinessByActorId: new Map([
           [
@@ -630,7 +630,7 @@ describe("GPU Flow committed surface frame", () => {
   });
 });
 
-function createCompatiblePreviousCommittedSurfaceFrame({
+function createCompatiblePreviousPreparedContentFrame({
   publishedAtMs,
   previousPublishedAtMs,
   previousRetainedFrameId = 13,
@@ -646,19 +646,19 @@ function createCompatiblePreviousCommittedSurfaceFrame({
     | "blocked-awaiting-snapshot"
     | "compatible-previous";
   readonly retainedFrameId?: number | undefined;
-  readonly visualPolicy?: GpuFlowCommittedSurfaceDomControlSource["visualPolicy"];
+  readonly visualPolicy?: GpuFlowPreparedContentDomControlSource["visualPolicy"];
 } = {}): {
   readonly actor:
-    | GpuFlowCommittedSurfaceFrame["actorGenerations"][number]
+    | GpuFlowPreparedContentFrame["actorGenerations"][number]
     | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
 } {
   const previousRetainedRuntimeFrame = createRuntimeFrame({
     frameId: previousRetainedFrameId,
     scrollRevision: 1,
     scrollY: 0,
   });
-  const previousCommittedSurfaceFrame = createGpuFlowCommittedSurfaceFrame({
+  const previousPreparedContentFrame = createGpuFlowPreparedContentFrame({
     browserVisualReadiness: createReadyBrowserVisualReadiness(
       previousRetainedRuntimeFrame,
     ),
@@ -676,7 +676,7 @@ function createCompatiblePreviousCommittedSurfaceFrame({
     }),
     visualPolicy,
   );
-  const frame = createGpuFlowCommittedSurfaceFrame({
+  const frame = createGpuFlowPreparedContentFrame({
     browserVisualReadiness:
       readiness === "compatible-previous"
         ? createCompatiblePreviousBrowserVisualReadiness({
@@ -684,7 +684,7 @@ function createCompatiblePreviousCommittedSurfaceFrame({
             previousRetainedRuntimeFrame,
           })
         : createBlockedBrowserVisualReadiness(retainedRuntimeFrame, readiness),
-    previousCommittedSurfaceFrame,
+    previousPreparedContentFrame,
     retainedDisplayFrame: fakeRetainedDisplayFrame({
       id: retainedFrameId,
       publishedAtMs,
@@ -699,19 +699,19 @@ function createCompatiblePreviousCommittedSurfaceFrame({
   };
 }
 
-type GpuFlowCommittedSurfaceActor =
-  GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
-type GpuFlowCommittedSurfaceDomControlSource =
-  GpuFlowCommittedSurfaceFrame["retainedRuntimeFrame"]["descriptors"]["domControlSources"][number];
+type GpuFlowPreparedContentActor =
+  GpuFlowPreparedContentFrame["actorGenerations"][number];
+type GpuFlowPreparedContentDomControlSource =
+  GpuFlowPreparedContentFrame["retainedRuntimeFrame"]["descriptors"]["domControlSources"][number];
 
-function findCommittedDomControlActor(
-  frame: GpuFlowCommittedSurfaceFrame,
-): GpuFlowCommittedSurfaceActor {
+function findPreparedDomControlActor(
+  frame: GpuFlowPreparedContentFrame,
+): GpuFlowPreparedContentActor {
   const actor = frame.actorGenerations.find(
     (candidate) => candidate.kind === "dom-control",
   );
   if (!actor) {
-    throw new Error("Expected committed DOM-control actor.");
+    throw new Error("Expected prepared DOM-control actor.");
   }
   return actor;
 }
@@ -772,8 +772,8 @@ function requireFirstDomControlSource(
 
 function withDomControlVisualPolicy(
   retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>,
-  visualPolicy: GpuFlowCommittedSurfaceDomControlSource["visualPolicy"],
-  projectionVisibility: GpuFlowCommittedSurfaceDomControlSource["projectionVisibility"] = "viewport-visible",
+  visualPolicy: GpuFlowPreparedContentDomControlSource["visualPolicy"],
+  projectionVisibility: GpuFlowPreparedContentDomControlSource["projectionVisibility"] = "viewport-visible",
 ): ReturnType<typeof createRuntimeFrame> {
   return {
     ...retainedRuntimeFrame,
@@ -890,7 +890,7 @@ function fakeRetainedDisplayFrame({
 
 function createReadyBrowserVisualReadiness(
   retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>,
-): GpuFlowCommittedSurfaceBrowserVisualReadiness {
+): GpuFlowPreparedContentBrowserVisualReadiness {
   return {
     domControlReadinessByActorId: new Map(
       retainedRuntimeFrame.descriptors.domControlSources.map((control) => [
@@ -920,7 +920,7 @@ function createBlockedBrowserVisualReadiness(
   coverageState:
     | "blocked-awaiting-live-host"
     | "blocked-awaiting-snapshot" = "blocked-awaiting-snapshot",
-): GpuFlowCommittedSurfaceBrowserVisualReadiness {
+): GpuFlowPreparedContentBrowserVisualReadiness {
   return {
     domControlReadinessByActorId: new Map(
       retainedRuntimeFrame.descriptors.domControlSources.map((control) => [
@@ -938,7 +938,7 @@ function createCompatiblePreviousBrowserVisualReadiness({
 }: {
   readonly previousRetainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>;
   readonly retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>;
-}): GpuFlowCommittedSurfaceBrowserVisualReadiness {
+}): GpuFlowPreparedContentBrowserVisualReadiness {
   const previousControlById = new Map(
     previousRetainedRuntimeFrame.descriptors.domControlSources.map(
       (control) => [control.sourceId, control],

@@ -1,14 +1,14 @@
 import type { MutableRefObject } from "react";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuSurfaceHandle } from "../GpuSurface";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import { isGpuFlowBrowserVisualPreparationResourceKey } from "./visibleFrameBrowserVisualResourceKeys";
 import {
   recordGpuFlowBrowserVisualResourceWorkPreparationState,
   recordGpuFlowBrowserVisualResourceWorkRequested,
   type GpuFlowBrowserVisualResourceWorkOutcome,
 } from "./visibleFrameBrowserVisualResourceWork";
-import type { GpuFlowCommittedSurfaceBlockedCandidateResourceWork } from "./visibleFrameContentPlan";
+import type { GpuFlowPreparedContentBlockedCandidateResourceWork } from "./visibleFrameContentPlan";
 
 export function requestGpuFlowBrowserVisualResourcePreparation({
   budgetSelectedResourceKeys = [],
@@ -21,8 +21,8 @@ export function requestGpuFlowBrowserVisualResourcePreparation({
 }: {
   readonly budgetSelectedResourceKeys?: readonly string[] | undefined;
   readonly browserVisualRepairSelected?: boolean | undefined;
-  readonly candidateFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
+  readonly candidateFrame: GpuFlowPreparedContentFrame | null;
+  readonly candidateResourceWork: GpuFlowPreparedContentBlockedCandidateResourceWork | null;
   readonly outcome: GpuFlowBrowserVisualResourceWorkOutcome;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
@@ -67,7 +67,7 @@ function requestGpuFlowBrowserVisualResourceWorkFrame({
   runtimeCanvas,
   surfaceRef,
 }: {
-  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork | null;
+  readonly candidateResourceWork: GpuFlowPreparedContentBlockedCandidateResourceWork | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
 }): void {

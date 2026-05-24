@@ -2,11 +2,11 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
 import type { GpuSurfaceHandle } from "../GpuSurface";
+import {
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import { DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
@@ -316,7 +316,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     const canvas = document.createElement("canvas");
 
     recordGpuFlowVisibleFrameBlocked({
-      candidateFrame: blockedCommittedSurfaceFrame(),
+      candidateFrame: blockedPreparedContentFrame(),
       runtimeCanvas: canvas,
       token: blockedPublicationToken(),
     });
@@ -333,7 +333,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     const canvas = document.createElement("canvas");
 
     recordGpuFlowBlockedVisibleFramePresentation({
-      frame: blockedCommittedSurfaceFrame(),
+      frame: blockedPreparedContentFrame(),
       publicationCompletion: {
         debt: { content: true, maintenance: false, motion: false },
         outcome: "blocked",
@@ -592,7 +592,7 @@ function publicationCandidateInput({
     heldPreviousProjectionState: null,
     liveProjectionSample: { id: 1, timestamp },
     contentWorkLane: "content",
-    preparedContentFrame: blockedCommittedSurfaceFrame(),
+    preparedContentFrame: blockedPreparedContentFrame(),
     publishedRetainedFrame: retainedFrame,
   } as unknown as GpuFlowPreparedContentFramePublicationCandidateInput;
 }
@@ -621,7 +621,7 @@ function applyPreparedBlockedCandidate(
 }
 
 function applyBlockedCandidate(
-  candidateFrame: GpuFlowCommittedSurfaceFrame,
+  candidateFrame: GpuFlowPreparedContentFrame,
   {
     canvas,
   }: {
@@ -668,7 +668,7 @@ function heldPreviousPublicationToken() {
 
 function presentationToken() {
   return createGpuFlowVisibleFramePresentationTokenForTest({
-    frame: publishableCommittedSurfaceFrame(3),
+    frame: publishablePreparedContentFrame(3),
     projectionSample: {
       id: 1,
     } as Parameters<
@@ -677,25 +677,25 @@ function presentationToken() {
   });
 }
 
-function publishableCommittedSurfaceFrame(
+function publishablePreparedContentFrame(
   displayFrameId: number,
-): GpuFlowCommittedSurfaceFrame {
+): GpuFlowPreparedContentFrame {
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
     actorGenerations: [],
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       coherence,
       displayFrameId,
     }),
@@ -708,20 +708,20 @@ function publishableCommittedSurfaceFrame(
       blockingActorIds: [],
       kind: "publishable",
     },
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
-function blockedCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+function blockedPreparedContentFrame(): GpuFlowPreparedContentFrame {
   const displayFrameId = 2;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
@@ -744,7 +744,7 @@ function blockedCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
     ],
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       coherence,
       displayFrameId,
     }),
@@ -760,7 +760,7 @@ function blockedCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
       status: "blocked",
     },
     retainedDisplayFrame: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function readStarvationReports(): readonly unknown[] {

@@ -1,18 +1,17 @@
 import type {
-  GpuFlowCommittedSurfaceActorGeneration,
-  GpuFlowCommittedSurfaceCompleteness,
-} from "./committedSurfaceFrame";
+  GpuFlowPreparedContentActorGeneration,
+  GpuFlowPreparedContentCompleteness,
+} from "./preparedContentFrame";
 
-export function createGpuFlowCommittedSurfaceCompleteness({
+export function createGpuFlowPreparedContentCompleteness({
   actorGenerations,
   startup,
 }: {
-  readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
+  readonly actorGenerations: readonly GpuFlowPreparedContentActorGeneration[];
   readonly startup: boolean;
-}): GpuFlowCommittedSurfaceCompleteness {
-  const visibleBrowserOwnedActors = actorGenerations.filter(
-    (actor) =>
-      isGpuFlowCommittedSurfaceCompletenessBlockingActor({ actor, startup }),
+}): GpuFlowPreparedContentCompleteness {
+  const visibleBrowserOwnedActors = actorGenerations.filter((actor) =>
+    isGpuFlowPreparedContentCompletenessBlockingActor({ actor, startup }),
   );
   const visibleNonemptyDomControls = actorGenerations.filter(
     (actor) => actor.kind === "dom-control" && actor.visibleNonempty,
@@ -43,11 +42,11 @@ export function createGpuFlowCommittedSurfaceCompleteness({
   });
 }
 
-export function isGpuFlowCommittedSurfaceCompletenessBlockingActor({
+export function isGpuFlowPreparedContentCompletenessBlockingActor({
   actor,
   startup,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly startup: boolean;
 }): boolean {
   if (!(actor.browserVisual?.coverageRequired?.required ?? false)) {
@@ -59,11 +58,11 @@ export function isGpuFlowCommittedSurfaceCompletenessBlockingActor({
   if (actor.kind !== "dom-control") {
     return true;
   }
-  return isGpuFlowCommittedSurfaceCompletenessBlockingDomControl(actor);
+  return isGpuFlowPreparedContentCompletenessBlockingDomControl(actor);
 }
 
-function isGpuFlowCommittedSurfaceCompletenessBlockingDomControl(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+function isGpuFlowPreparedContentCompletenessBlockingDomControl(
+  actor: GpuFlowPreparedContentActorGeneration,
 ): boolean {
   if (actor.textCoverageProof === null) {
     return true;
@@ -76,9 +75,9 @@ function isGpuFlowCommittedSurfaceCompletenessBlockingDomControl(
   );
 }
 
-export function assertGpuFlowCommittedSurfaceCompleteness(
-  left: GpuFlowCommittedSurfaceCompleteness,
-  right: GpuFlowCommittedSurfaceCompleteness,
+export function assertGpuFlowPreparedContentCompleteness(
+  left: GpuFlowPreparedContentCompleteness,
+  right: GpuFlowPreparedContentCompleteness,
 ): void {
   if (
     left.status !== right.status ||
@@ -92,7 +91,7 @@ export function assertGpuFlowCommittedSurfaceCompleteness(
     )
   ) {
     throw new Error(
-      "GPU Flow committed surface frame has stale display completeness.",
+      "GPU Flow prepared content frame has stale display completeness.",
     );
   }
 }

@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
 import {
   assertGpuFlowPreparedCandidateAbortToken,
@@ -75,7 +75,7 @@ type GpuFlowVisibleFrameBrowserVisualCandidatePresenter = (input: {
 }) => void;
 
 type GpuFlowVisibleFramePresentedContentFramePublisher = (input: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly token: GpuFlowVisibleFramePresentationToken;
 }) => boolean;
 
@@ -256,9 +256,9 @@ export class GpuFlowVisibleFrameResourceGraph {
     frame,
   }: {
     readonly browserVisualCandidate: GpuFlowBrowserVisualActorCandidate;
-    readonly frame: GpuFlowCommittedSurfaceFrame;
+    readonly frame: GpuFlowPreparedContentFrame;
   }): void {
-    const frameId = getGpuFlowCommittedSurfaceFrameId(frame);
+    const frameId = getGpuFlowPreparedContentFrameId(frame);
     const entry = createGpuFlowVisibleFrameCandidateResourceEntry({
       browserVisualCandidate,
       frame,
@@ -311,12 +311,12 @@ export class GpuFlowVisibleFrameResourceGraph {
     publishPresentedContentFrame,
     token,
   }: {
-    readonly frame: GpuFlowCommittedSurfaceFrame;
+    readonly frame: GpuFlowPreparedContentFrame;
     readonly presentBrowserVisualCandidate: GpuFlowVisibleFrameBrowserVisualCandidatePresenter;
     readonly publishPresentedContentFrame: GpuFlowVisibleFramePresentedContentFramePublisher;
     readonly token: GpuFlowVisibleFramePresentationToken;
   }): GpuFlowVisibleFramePresentedContentFrameResult {
-    const frameId = getGpuFlowCommittedSurfaceFrameId(frame);
+    const frameId = getGpuFlowPreparedContentFrameId(frame);
     const entry = this.validatePreparedContentFrame({
       frame,
       token,
@@ -378,10 +378,10 @@ export class GpuFlowVisibleFrameResourceGraph {
     frame,
     token,
   }: {
-    readonly frame: GpuFlowCommittedSurfaceFrame;
+    readonly frame: GpuFlowPreparedContentFrame;
     readonly token: GpuFlowVisibleFramePresentationToken;
   }): GpuFlowVisibleFrameCandidateResourceEntry {
-    const frameId = getGpuFlowCommittedSurfaceFrameId(frame);
+    const frameId = getGpuFlowPreparedContentFrameId(frame);
     assertGpuFlowVisibleFramePresentationTokenForFrameId({
       committedFrameId: frameId,
       token,
@@ -407,13 +407,13 @@ export class GpuFlowVisibleFrameResourceGraph {
     readonly browserVisualPreparationResourceKeys?:
       | readonly string[]
       | undefined;
-    readonly frame: GpuFlowCommittedSurfaceFrame;
+    readonly frame: GpuFlowPreparedContentFrame;
     readonly preservePreparationSnapshot: boolean;
     readonly stageBrowserVisualCandidate: GpuFlowVisibleFrameBrowserVisualCandidateAborter;
     readonly token: GpuFlowBlockedPublicationToken | GpuFlowHoldPreviousToken;
   }): GpuFlowVisibleFramePreparedContentFrameAbortResult | null {
     assertGpuFlowPreparedCandidateAbortToken({ token });
-    const frameId = getGpuFlowCommittedSurfaceFrameId(frame);
+    const frameId = getGpuFlowPreparedContentFrameId(frame);
     const entry = this.pendingCandidateByFrameId.get(frameId);
     if (!entry) {
       return null;
@@ -496,9 +496,9 @@ export class GpuFlowVisibleFrameResourceGraph {
   }
 
   private requirePreparedContentFrame(
-    frame: GpuFlowCommittedSurfaceFrame,
+    frame: GpuFlowPreparedContentFrame,
   ): GpuFlowVisibleFrameCandidateResourceEntry {
-    const frameId = getGpuFlowCommittedSurfaceFrameId(frame);
+    const frameId = getGpuFlowPreparedContentFrameId(frame);
     const entry = this.pendingCandidateByFrameId.get(frameId);
     if (!entry) {
       throw new Error(
@@ -739,7 +739,7 @@ export class GpuFlowVisibleFrameResourceGraph {
     }
     const state = this.resourceStateByKey.get(unpreparedResource)?.state;
     throw new Error(
-      `GPU Flow visible frame resource graph cannot present frame ${getGpuFlowCommittedSurfaceFrameId(
+      `GPU Flow visible frame resource graph cannot present frame ${getGpuFlowPreparedContentFrameId(
         entry.frame,
       )} before resource ${unpreparedResource} is ready; current state is ${
         state ?? "absent"
@@ -987,8 +987,8 @@ const GPU_FLOW_VISIBLE_FRAME_RESOURCE_ALLOWED_TRANSITIONS = Object.freeze({
   readonly GpuFlowVisibleFrameResourceStateKind[]
 >);
 
-function getGpuFlowCommittedSurfaceFrameId(
-  frame: GpuFlowCommittedSurfaceFrame,
+function getGpuFlowPreparedContentFrameId(
+  frame: GpuFlowPreparedContentFrame,
 ): number {
   if (!Number.isFinite(frame.displayFrameId)) {
     throw new Error(

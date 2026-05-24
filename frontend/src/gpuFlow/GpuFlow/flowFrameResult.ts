@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import type {
   GpuFlowBlockedPreparedContentFrameCandidate,
@@ -8,8 +8,8 @@ import type { GpuFlowVisibleFrameBlockedPublicationCandidate } from "./visibleFr
 
 export type GpuFlowNodeLayerPreparedContentFramePublicationResult = {
   readonly blockedSurfacePublication: GpuFlowBlockedPreparedContentFrameCandidate | null;
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | null;
+  readonly heldPreparedContentFrame: GpuFlowPreparedContentFrame | null;
 };
 
 const EMPTY_GPU_FLOW_NODE_LAYER_PREPARED_CONTENT_FRAME_PUBLICATION =

@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowProjectionTransactionKind } from "../projectionRuntime";
 import type {
   GpuFlowVisibleFramePresentationCanvasPresentationEvidence,
@@ -12,10 +12,10 @@ export type GpuFlowVisibleFramePresentationProofReport = {
   readonly batchId: string;
   readonly browserVisualFragmentDigest: string | null;
   readonly canvasGenerationEvidence: GpuFlowVisibleFramePresentationCanvasPresentationEvidence;
-  readonly canvasGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["canvasGeneration"];
+  readonly canvasGeneration: GpuFlowPreparedContentFrame["presentationProof"]["canvasGeneration"];
   readonly domTransformEvidence: GpuFlowVisibleFramePresentationDomTransformPresentationEvidence;
-  readonly domGenerationEvidence: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGenerationEvidence"];
-  readonly domGeneration: GpuFlowCommittedSurfaceFrame["presentationProof"]["domGeneration"];
+  readonly domGenerationEvidence: GpuFlowPreparedContentFrame["presentationProof"]["domGenerationEvidence"];
+  readonly domGeneration: GpuFlowPreparedContentFrame["presentationProof"]["domGeneration"];
   readonly projectionSampleId: number;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly surfaceTransactionDigest: string | null;
@@ -26,7 +26,7 @@ export function createGpuFlowVisibleFramePresentationCompatiblePreviousProofRepo
   committedFrame,
   projectionSampleId,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly committedFrame: GpuFlowPreparedContentFrame | null;
   readonly projectionSampleId: number | null;
 }) {
   const actorGenerations = committedFrame?.actorGenerations ?? [];
@@ -85,7 +85,7 @@ export function createGpuFlowVisibleFramePresentationCompatiblePreviousProofRepo
 }
 
 export function createGpuFlowVisibleFramePresentationBrowserActorProofReportForFrame(
-  committedFrame: GpuFlowCommittedSurfaceFrame | null,
+  committedFrame: GpuFlowPreparedContentFrame | null,
 ) {
   const actorGenerations = committedFrame?.actorGenerations ?? [];
   const proofCounts = {
@@ -133,7 +133,7 @@ export function createGpuFlowVisibleFramePresentationBrowserActorProofReportForF
 }
 
 export function createGpuFlowVisibleFramePresentationCoverageReportForFrame(
-  committedFrame: GpuFlowCommittedSurfaceFrame | null,
+  committedFrame: GpuFlowPreparedContentFrame | null,
 ) {
   const coverageProof =
     committedFrame?.surfaceTransaction?.coverageProof ?? null;
@@ -159,7 +159,7 @@ export function createGpuFlowVisibleFramePresentationProofReportForFrame({
   projectionSampleId,
   projectionTransactionKind,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly presentationEvidence: GpuFlowVisibleFramePresentationEvidence;
   readonly projectionSampleId: number;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;

@@ -1,7 +1,7 @@
 import type {
-  GpuFlowCommittedSurfaceActorGeneration,
-  GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+  GpuFlowPreparedContentActorGeneration,
+  GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   getGpuFlowBrowserStyleBlockedReasonFamily,
@@ -81,7 +81,7 @@ type GpuFlowVisibleFrameBrowserActorFamily = Extract<
 >;
 
 type GpuFlowVisibleFrameTextProjectionCoverage = NonNullable<
-  GpuFlowCommittedSurfaceActorGeneration["textCoverageProof"]
+  GpuFlowPreparedContentActorGeneration["textCoverageProof"]
 >["projectionCoverage"];
 
 const GPU_FLOW_VISIBLE_FRAME_TEXT_COVERAGE_RESOURCE_STATE = Object.freeze({
@@ -102,7 +102,7 @@ export function createGpuFlowVisibleFrameActorManifest({
   sample = null,
 }: {
   readonly blockedReasons?: readonly GpuFlowBlockedVisibleReason[] | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame | null;
+  readonly frame: GpuFlowPreparedContentFrame | null;
   readonly sample?: GpuFlowLiveProjectionSample | null | undefined;
 }): GpuFlowVisibleFrameActorManifest {
   const entryByKey = new Map<string, GpuFlowVisibleFrameActorManifestEntry>();
@@ -183,7 +183,7 @@ function addGpuFlowMissingSectionStructureActorManifestEntries({
   frame,
 }: {
   readonly entryByKey: Map<string, GpuFlowVisibleFrameActorManifestEntry>;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
 }): void {
   for (const missingActor of createGpuFlowMissingSectionStructureActorManifestEntries(
     frame,
@@ -203,7 +203,7 @@ export function createGpuFlowVisibleFrameActorProofsForManifest({
   projectionSampleId,
 }: {
   readonly contentFrameId: GpuFlowContentFrameId;
-  readonly frame: GpuFlowCommittedSurfaceFrame | null;
+  readonly frame: GpuFlowPreparedContentFrame | null;
   readonly manifest: GpuFlowVisibleFrameActorManifest;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
 }): readonly GpuFlowVisibleFrameActorProof[] {
@@ -236,7 +236,7 @@ function addGpuFlowVisibleFrameCommittedActorProofs({
   proofByActor,
 }: {
   readonly contentFrameId: GpuFlowContentFrameId;
-  readonly frame: GpuFlowCommittedSurfaceFrame | null;
+  readonly frame: GpuFlowPreparedContentFrame | null;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly proofByActor: Map<string, GpuFlowVisibleFrameActorProof>;
 }): void {
@@ -356,7 +356,7 @@ function createGpuFlowVisibleFrameCommittedActorManifestEntry({
   startup,
 }: {
   readonly activeEditorPublicationPending: boolean;
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly startup: boolean;
 }): GpuFlowVisibleFrameActorManifestEntry {
   const family = getGpuFlowBrowserStyleVisibleFrameActorFamily(actor);
@@ -408,7 +408,7 @@ function getGpuFlowVisibleFrameActorAcceptableCoverage(
 }
 
 function getGpuFlowVisibleFrameActorResourceState(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): GpuFlowVisibleFrameResourceStateName {
   const coverageState = actor.textCoverageProof?.projectionCoverage;
   const resourceState = coverageState
@@ -421,7 +421,7 @@ function getGpuFlowVisibleFrameActorResourceState(
 }
 
 function getGpuFlowVisibleFrameMountResourceState(
-  actor: Pick<GpuFlowCommittedSurfaceActorGeneration, "mountReadiness">,
+  actor: Pick<GpuFlowPreparedContentActorGeneration, "mountReadiness">,
 ): GpuFlowVisibleFrameResourceStateName {
   return actor.mountReadiness === "ready" ||
     actor.mountReadiness === "not-required"
@@ -462,7 +462,7 @@ function createGpuFlowVisibleFrameActorProof({
   startup,
 }: {
   readonly activeEditorPublicationPending: boolean;
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly contentFrameId: GpuFlowContentFrameId;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
   readonly startup: boolean;
@@ -545,7 +545,7 @@ function createGpuFlowVisibleFrameCompatiblePreviousOrBlockedProof({
   contentFrameId,
   projectionSampleId,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly actorKey: GpuFlowVisibleFrameActorKey;
   readonly contentFrameId: GpuFlowContentFrameId;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
@@ -570,7 +570,7 @@ function createGpuFlowVisibleFrameCompatiblePreviousProof({
   contentFrameId,
   projectionSampleId,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly actorKey: GpuFlowVisibleFrameActorKey;
   readonly contentFrameId: GpuFlowContentFrameId;
   readonly projectionSampleId: GpuFlowProjectionSampleId;
@@ -652,7 +652,7 @@ function createGpuFlowVisibleFrameSyntheticBlockedProof({
 }
 
 function createGpuFlowVisibleFrameActorProofKey(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): GpuFlowVisibleFrameActorKey {
   return Object.freeze({
     actorId: actor.actorId,
@@ -676,7 +676,7 @@ function assertGpuFlowVisibleFrameBrowserActorFamily(
 }
 
 function getGpuFlowVisibleFrameBrowserRepresentationKind(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): GpuFlowVisibleFrameBrowserRepresentationKind {
   if (isGpuFlowVisibleFrameActiveEditorRepresentation(actor)) {
     return "active-editor";
@@ -688,7 +688,7 @@ function getGpuFlowVisibleFrameBrowserRepresentationKind(
 }
 
 function isGpuFlowVisibleFrameSnapshotRepresentation(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): boolean {
   const projectionCoverage = actor.textCoverageProof?.projectionCoverage;
   return (

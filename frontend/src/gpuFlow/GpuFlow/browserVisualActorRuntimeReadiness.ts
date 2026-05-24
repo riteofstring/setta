@@ -44,7 +44,7 @@ export type GpuFlowDomControlHostReadinessDiagnostics = {
 
 type GpuFlowDomControlSnapshotTextureManager = Pick<
   HtmlSurfaceTextureManager,
-  "getCommittedSurfaceTexture"
+  "getPreparedContentTexture"
 > | null;
 
 export type GpuFlowDomControlReadinessContext = {
@@ -453,7 +453,7 @@ function getReadyGpuFlowDomControlSnapshotTexture({
     return null;
   }
   const texture =
-    domControlSnapshotTextureManager?.getCommittedSurfaceTexture(
+    domControlSnapshotTextureManager?.getPreparedContentTexture(
       snapshotSurfaceId,
     );
   if (

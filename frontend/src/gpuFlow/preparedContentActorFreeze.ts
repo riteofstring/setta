@@ -1,20 +1,20 @@
-import type {
-  GpuFlowCommittedSurfaceActorGeneration,
-  GpuFlowCommittedSurfaceActorGenerationInput,
-  GpuFlowCommittedSurfaceBrowserVisualContract,
-} from "./committedSurfaceFrame";
 import {
   createGpuFlowCanonicalActorId,
-  createGpuFlowCommittedSurfaceActorGenerationClassification,
-  getGpuFlowCommittedSurfaceActorRepresentationRole,
-} from "./committedSurfaceActorIdentity";
+  createGpuFlowPreparedContentActorGenerationClassification,
+  getGpuFlowPreparedContentActorRepresentationRole,
+} from "./preparedContentActorIdentity";
+import type {
+  GpuFlowPreparedContentActorGeneration,
+  GpuFlowPreparedContentActorGenerationInput,
+  GpuFlowPreparedContentBrowserVisualContract,
+} from "./preparedContentFrame";
 import type { GpuRect } from "./viewportMath";
 
 export function freezeActor(
-  actor: GpuFlowCommittedSurfaceActorGenerationInput,
-): GpuFlowCommittedSurfaceActorGeneration {
+  actor: GpuFlowPreparedContentActorGenerationInput,
+): GpuFlowPreparedContentActorGeneration {
   const actorFamily = actor.actorFamily ?? actor.kind;
-  const representationRole = getGpuFlowCommittedSurfaceActorRepresentationRole({
+  const representationRole = getGpuFlowPreparedContentActorRepresentationRole({
     actorFamily,
     kind: actor.kind,
   });
@@ -39,7 +39,7 @@ export function freezeActor(
     clipRect: freezeRect(actor.clipRect),
     flowRect: freezeRect(actor.flowRect),
     generationClassification:
-      createGpuFlowCommittedSurfaceActorGenerationClassification({
+      createGpuFlowPreparedContentActorGenerationClassification({
         browserVisualRepresentationKind:
           actor.browserVisual?.representationKind ?? null,
         contentGenerationId: actor.contentGenerationId,
@@ -61,22 +61,22 @@ export function freezeActor(
 }
 
 function freezeOptionalBrowserVisualContract(
-  contract: GpuFlowCommittedSurfaceActorGenerationInput["browserVisual"],
-): GpuFlowCommittedSurfaceBrowserVisualContract | null {
+  contract: GpuFlowPreparedContentActorGenerationInput["browserVisual"],
+): GpuFlowPreparedContentBrowserVisualContract | null {
   return contract ? freezeBrowserVisualContract(contract) : null;
 }
 
 function freezeOptionalRetainedScrollOffset(
-  retainedScrollOffset: GpuFlowCommittedSurfaceActorGenerationInput["retainedScrollOffset"],
-): GpuFlowCommittedSurfaceActorGeneration["retainedScrollOffset"] {
+  retainedScrollOffset: GpuFlowPreparedContentActorGenerationInput["retainedScrollOffset"],
+): GpuFlowPreparedContentActorGeneration["retainedScrollOffset"] {
   return retainedScrollOffset
     ? Object.freeze({ ...retainedScrollOffset })
     : null;
 }
 
 function freezeOptionalTextCoverageProof(
-  textCoverageProof: GpuFlowCommittedSurfaceActorGenerationInput["textCoverageProof"],
-): GpuFlowCommittedSurfaceActorGeneration["textCoverageProof"] {
+  textCoverageProof: GpuFlowPreparedContentActorGenerationInput["textCoverageProof"],
+): GpuFlowPreparedContentActorGeneration["textCoverageProof"] {
   if (!textCoverageProof) {
     return null;
   }
@@ -102,8 +102,8 @@ function freezeOptionalTextCoverageProof(
 }
 
 function freezeBrowserVisualContract(
-  contract: GpuFlowCommittedSurfaceBrowserVisualContract,
-): GpuFlowCommittedSurfaceBrowserVisualContract {
+  contract: GpuFlowPreparedContentBrowserVisualContract,
+): GpuFlowPreparedContentBrowserVisualContract {
   return Object.freeze({
     ...contract,
     coverageExemption: contract.coverageExemption

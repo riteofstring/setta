@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
 import type { HtmlSurfaceTextureEvictionResult } from "../htmlSurfaces/textures";
+import {
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   submitGpuFlowNodeLayerFrameCanvasSubmission,
@@ -167,23 +167,23 @@ function dirtyWorkCounts() {
 
 function preparedContentFrame(
   displayFrameId: number,
-): GpuFlowCommittedSurfaceFrame {
+): GpuFlowPreparedContentFrame {
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
     actorGenerations: [],
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       coherence,
       displayFrameId,
     }),
@@ -205,7 +205,7 @@ function preparedContentFrame(
       kind: "publishable",
     },
     surfaceTransaction: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function liveProjectionSample(id: number): GpuFlowLiveProjectionSample {

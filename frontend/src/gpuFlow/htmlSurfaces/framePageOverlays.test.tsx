@@ -74,7 +74,7 @@ describe("HTML surface page overlays", () => {
       [pagePreviewTexture.surfaceId, pagePreviewTexture],
       [tooltipTexture.surfaceId, tooltipTexture],
     ]);
-    manager.getCommittedSurfaceTexture.mockImplementation((surfaceId) =>
+    manager.getPreparedContentTexture.mockImplementation((surfaceId) =>
       textures.get(surfaceId),
     );
 

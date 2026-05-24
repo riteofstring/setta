@@ -1,7 +1,7 @@
 import { type MutableRefObject } from "react";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFlowRuntime } from "../gpuDevice";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 
 import {
@@ -455,7 +455,7 @@ function resolveGpuFlowRetainedContentFrame({
 }
 
 function getGpuFlowPreparedContentFrameBrowserVisualSnapshotSourceIds(
-  frame: GpuFlowCommittedSurfaceFrame | void,
+  frame: GpuFlowPreparedContentFrame | void,
 ): ReadonlySet<string> {
   const sourceIds = new Set<string>();
   for (const actor of frame?.actorGenerations ?? []) {
@@ -478,7 +478,7 @@ function getGpuFlowPreparedContentFrameBrowserVisualSnapshotLayoutControls({
   preparedContentFrame,
 }: {
   readonly controls: readonly GpuRetainedDomControlSourceDescriptor[];
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }): readonly GpuRetainedDomControlSourceDescriptor[] {
   const snapshotSourceIds =
     getGpuFlowPreparedContentFrameBrowserVisualSnapshotSourceIds(

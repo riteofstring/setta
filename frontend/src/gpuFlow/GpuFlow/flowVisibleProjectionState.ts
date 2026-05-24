@@ -1,5 +1,5 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleProjectionState,
@@ -20,9 +20,9 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
     GpuFlowProjectionLane,
     "content" | "maintenance"
   >;
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }): GpuFlowVisibleProjectionState {
-  const visibleCommittedFrame = getGpuFlowVisibleCommittedSurfaceFrame({
+  const visibleCommittedFrame = getGpuFlowVisiblePreparedContentFrame({
     preparedContentFrame,
   });
   const transaction = createGpuFlowProjectionTransactionForCommittedFrameId({
@@ -39,11 +39,11 @@ export function createGpuFlowVisibleProjectionStateForRetainedPublication({
   });
 }
 
-function getGpuFlowVisibleCommittedSurfaceFrame({
+function getGpuFlowVisiblePreparedContentFrame({
   preparedContentFrame,
 }: {
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
-}): GpuFlowCommittedSurfaceFrame {
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
+}): GpuFlowPreparedContentFrame {
   if (preparedContentFrame) {
     return preparedContentFrame;
   }

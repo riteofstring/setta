@@ -1,6 +1,6 @@
-import { freezeActor } from "./committedSurfaceActorFreeze";
-import type { GpuFlowCommittedSurfaceActorGeneration } from "./committedSurfaceFrame";
 import type { HtmlSurfaceSolidRoundedRectVisual } from "./htmlSurfaces/visualScene";
+import { freezeActor } from "./preparedContentActorFreeze";
+import type { GpuFlowPreparedContentActorGeneration } from "./preparedContentFrame";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuRect } from "./viewportMath";
 
@@ -10,7 +10,7 @@ export function createGpuNativeVisualActors({
 }: {
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly visuals: readonly HtmlSurfaceSolidRoundedRectVisual[];
-}): readonly GpuFlowCommittedSurfaceActorGeneration[] {
+}): readonly GpuFlowPreparedContentActorGeneration[] {
   return Object.freeze(
     visuals.map((visual, index) =>
       gpuNativeVisualToActor({
@@ -30,8 +30,8 @@ function gpuNativeVisualToActor({
   readonly index: number;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly visual: HtmlSurfaceSolidRoundedRectVisual;
-}): GpuFlowCommittedSurfaceActorGeneration {
-  const retainedScrollRevision = getGpuFlowCommittedSurfaceActorScrollRevision({
+}): GpuFlowPreparedContentActorGeneration {
+  const retainedScrollRevision = getGpuFlowPreparedContentActorScrollRevision({
     retainedRuntimeFrame,
     surfaceId: visual.surfaceId,
   });
@@ -83,7 +83,7 @@ function gpuNativeVisualToActor({
   });
 }
 
-export function getGpuFlowCommittedSurfaceActorScrollRevision({
+export function getGpuFlowPreparedContentActorScrollRevision({
   retainedRuntimeFrame,
   surfaceId,
 }: {

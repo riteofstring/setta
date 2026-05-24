@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { freezeActor } from "../committedSurfaceActorFreeze";
+import { freezeActor } from "../preparedContentActorFreeze";
 import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceActorGeneration,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentActorGeneration,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowProjectionTransactionKind,
@@ -133,7 +133,7 @@ function createTestGpuFlowVisibleFramePresentationEvidence({
   projectionTransactionId = `transaction:content-publication:${reducerDecision.sample.id}`,
   textureEvictionPrepared = true,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly domTransformPrepared?: boolean | undefined;
   readonly drawnNodeIds?: readonly string[] | undefined;
   readonly missingTextureNodeIds?: readonly string[] | undefined;
@@ -285,7 +285,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
             exposable: false,
           },
         },
-      } as GpuFlowCommittedSurfaceFrame,
+      } as GpuFlowPreparedContentFrame,
       kind: "content-publication",
       sample: liveProjectionSample({ id: 53, timestamp: 530 }),
     });
@@ -549,7 +549,7 @@ function visibleProjectionState({
   kind,
   sample,
 }: {
-  readonly committedFrame?: GpuFlowCommittedSurfaceFrame | undefined;
+  readonly committedFrame?: GpuFlowPreparedContentFrame | undefined;
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleProjectionState {
@@ -586,26 +586,26 @@ function preparedContentFrame({
   actorGenerations = [],
   compatiblePreviousActorIds = [],
 }: {
-  readonly actorGenerations?: readonly GpuFlowCommittedSurfaceActorGeneration[];
+  readonly actorGenerations?: readonly GpuFlowPreparedContentActorGeneration[];
   readonly compatiblePreviousActorIds?: readonly string[] | undefined;
-} = {}): GpuFlowCommittedSurfaceFrame {
+} = {}): GpuFlowPreparedContentFrame {
   const displayFrameId = 7;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
     actorGenerations,
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       actorGenerations,
       coherence,
       displayFrameId,
@@ -625,10 +625,10 @@ function preparedContentFrame({
       kind: "publishable",
     },
     surfaceTransaction: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
-function sectionStructureActor(): GpuFlowCommittedSurfaceActorGeneration {
+function sectionStructureActor(): GpuFlowPreparedContentActorGeneration {
   return freezeActor({
     active: false,
     actorFamily: "section-shell",

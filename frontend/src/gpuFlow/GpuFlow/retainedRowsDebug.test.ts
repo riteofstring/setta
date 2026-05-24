@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import {
   createGpuRetainedContentRuntimeState,
   setGpuRetainedContentRuntimeScrollOffset,
@@ -90,16 +90,16 @@ function runtimeState(
   return state;
 }
 
-function committedFrame(displayFrameId: number): GpuFlowCommittedSurfaceFrame {
+function committedFrame(displayFrameId: number): GpuFlowPreparedContentFrame {
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
@@ -120,7 +120,7 @@ function committedFrame(displayFrameId: number): GpuFlowCommittedSurfaceFrame {
       visibleNonemptyDomControlCount: 0,
     },
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       coherence,
       displayFrameId,
     }),
@@ -144,5 +144,5 @@ function committedFrame(displayFrameId: number): GpuFlowCommittedSurfaceFrame {
     retainedRuntimeFrame: null,
     sceneRevision: 1,
     viewportSample: [0, 0, 1],
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }

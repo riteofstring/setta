@@ -1,7 +1,7 @@
 import type {
-  GpuFlowCommittedSurfaceBrowserVisualReadiness,
-  GpuFlowCommittedSurfaceDomPresentationEvidence,
-} from "../committedSurfaceFrame";
+  GpuFlowPreparedContentBrowserVisualReadiness,
+  GpuFlowPreparedContentDomPresentationEvidence,
+} from "../preparedContentFrame";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuDomIsland } from "../scene";
 import type { GpuViewportInput } from "../viewportMath";
@@ -45,7 +45,7 @@ export type GpuFlowBrowserVisualActorProjectionInput = {
 
 export type GpuFlowBrowserVisualActorCandidate = {
   readonly id: string;
-  readonly presentationEvidence: GpuFlowCommittedSurfaceDomPresentationEvidence;
-  readonly readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness;
+  readonly presentationEvidence: GpuFlowPreparedContentDomPresentationEvidence;
+  readonly readiness: GpuFlowPreparedContentBrowserVisualReadiness;
   readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
 };

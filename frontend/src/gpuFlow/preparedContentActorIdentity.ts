@@ -1,17 +1,17 @@
-type GpuFlowCommittedSurfaceActorRepresentationRole =
+type GpuFlowPreparedContentActorRepresentationRole =
   | "browser-dom-island"
   | "browser-text-control"
   | "gpu-native-visual"
   | "html-texture"
   | "retained-page";
 
-export type GpuFlowCommittedSurfaceCanonicalActorId = string;
+export type GpuFlowPreparedContentCanonicalActorId = string;
 
-export type GpuFlowCommittedSurfaceActorGenerationClassification = {
+export type GpuFlowPreparedContentActorGenerationClassification = {
   readonly contentGenerationId: string;
   readonly projectionGenerationId: string;
   readonly representationGenerationId: string;
-  readonly representationRole: GpuFlowCommittedSurfaceActorRepresentationRole;
+  readonly representationRole: GpuFlowPreparedContentActorRepresentationRole;
   readonly semanticGenerationId: string;
   readonly visualGenerationId: string;
 };
@@ -30,9 +30,9 @@ export function createGpuFlowCanonicalActorId({
   readonly controlId: string | null;
   readonly islandId: string | null;
   readonly ownerSurfaceId: string;
-  readonly representationRole: GpuFlowCommittedSurfaceActorRepresentationRole;
+  readonly representationRole: GpuFlowPreparedContentActorRepresentationRole;
   readonly rowId: string | null;
-}): GpuFlowCommittedSurfaceCanonicalActorId {
+}): GpuFlowPreparedContentCanonicalActorId {
   return JSON.stringify({
     actorFamily,
     ownerIdentity: rowId ?? controlId ?? islandId ?? actorId,
@@ -41,13 +41,13 @@ export function createGpuFlowCanonicalActorId({
   });
 }
 
-export function getGpuFlowCommittedSurfaceActorRepresentationRole({
+export function getGpuFlowPreparedContentActorRepresentationRole({
   actorFamily,
   kind,
 }: {
   readonly actorFamily: string;
   readonly kind: string;
-}): GpuFlowCommittedSurfaceActorRepresentationRole {
+}): GpuFlowPreparedContentActorRepresentationRole {
   if (actorFamily === "text-like-dom-control") {
     return "browser-text-control";
   }
@@ -63,10 +63,10 @@ export function getGpuFlowCommittedSurfaceActorRepresentationRole({
     case "dom-control":
       return "browser-text-control";
   }
-  throw new Error(`Unknown GPU Flow committed actor kind "${kind}".`);
+  throw new Error(`Unknown GPU Flow prepared actor kind "${kind}".`);
 }
 
-export function createGpuFlowCommittedSurfaceActorGenerationClassification({
+export function createGpuFlowPreparedContentActorGenerationClassification({
   browserVisualRepresentationKind,
   contentGenerationId,
   layoutProjectionGenerationId,
@@ -79,10 +79,10 @@ export function createGpuFlowCommittedSurfaceActorGenerationClassification({
   readonly contentGenerationId: string;
   readonly layoutProjectionGenerationId: string;
   readonly readinessGenerationId: string;
-  readonly representationRole: GpuFlowCommittedSurfaceActorRepresentationRole;
+  readonly representationRole: GpuFlowPreparedContentActorRepresentationRole;
   readonly semanticGenerationId: string;
   readonly visualGenerationId: string;
-}): GpuFlowCommittedSurfaceActorGenerationClassification {
+}): GpuFlowPreparedContentActorGenerationClassification {
   return Object.freeze({
     contentGenerationId,
     projectionGenerationId: layoutProjectionGenerationId,

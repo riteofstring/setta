@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import {
   type GpuFlowLiveProjectionSample,
   type GpuFlowVisibleProjectionState,
@@ -33,7 +33,7 @@ export function createGpuFlowVisibleFramePresentationTokenForTest({
   frame,
   projectionSample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleFramePresentationToken {
   const visibleProjectionState = {

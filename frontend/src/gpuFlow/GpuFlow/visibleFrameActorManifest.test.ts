@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceActorGeneration,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
-import { createSectionStructureActors } from "../committedSurfaceSectionActors";
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentActorGeneration,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
+import { createSectionStructureActors } from "../preparedContentSectionActors";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import {
   createGpuFlowVisibleFrameActorManifest,
@@ -328,7 +328,7 @@ function textActor({
     | "exact-live-dom";
   readonly readinessFaultInjected?: boolean | undefined;
   readonly readinessReason?: "live-dom-budget" | "snapshot-pending" | undefined;
-}): GpuFlowCommittedSurfaceActorGeneration {
+}): GpuFlowPreparedContentActorGeneration {
   const representationKind =
     projectionCoverage === "blocked-awaiting-browser-visual"
       ? "passive-snapshot"
@@ -365,7 +365,7 @@ function textActor({
         : { projectionCoverage, readinessReason },
     visibleNonempty: true,
     zOrder: 1,
-  } as unknown as GpuFlowCommittedSurfaceActorGeneration;
+  } as unknown as GpuFlowPreparedContentActorGeneration;
 }
 
 function preparedContentFrame({
@@ -373,27 +373,27 @@ function preparedContentFrame({
   retainedRuntimeFrame,
   startup = false,
 }: {
-  readonly actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[];
+  readonly actorGenerations: readonly GpuFlowPreparedContentActorGeneration[];
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly startup?: boolean | undefined;
-}): GpuFlowCommittedSurfaceFrame {
+}): GpuFlowPreparedContentFrame {
   const displayFrameId = 77;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
     actorGenerations,
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       actorGenerations,
       coherence,
       displayFrameId,
@@ -401,7 +401,7 @@ function preparedContentFrame({
     }),
     retainedDisplayFrame: startup ? null : {},
     retainedRuntimeFrame,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function retainedRuntimeFrame(): GpuRetainedRuntimeFrame {

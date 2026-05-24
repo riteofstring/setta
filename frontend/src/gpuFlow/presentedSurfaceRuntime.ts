@@ -1,15 +1,15 @@
 import {
-  createGpuFlowCommittedSurfaceFrameRenderSignature,
-  type GpuFlowCommittedSurfaceFrame,
-} from "./committedSurfaceFrame";
-import {
   assertGpuFlowVisibleFramePresentationTokenBrand,
   assertGpuFlowVisibleFramePresentationTokenForPresentationProof,
   type GpuFlowVisibleFramePresentationToken,
 } from "./GpuFlow/visibleFramePresentationProofs";
 import type { GpuFlowVisibleFramePresentationIdentity } from "./GpuFlow/visibleFrameTypes";
+import {
+  createGpuFlowPreparedContentFrameRenderSignature,
+  type GpuFlowPreparedContentFrame,
+} from "./preparedContentFrame";
 
-type GpuFlowPresentedContentFrame = GpuFlowCommittedSurfaceFrame;
+type GpuFlowPresentedContentFrame = GpuFlowPreparedContentFrame;
 
 type GpuFlowReactSemanticSnapshot = {
   readonly frame: GpuFlowPresentedContentFrame;
@@ -80,7 +80,7 @@ class DefaultGpuFlowPresentedSurfaceRuntime
       token,
     });
     const renderSignature =
-      createGpuFlowCommittedSurfaceFrameRenderSignature(frame);
+      createGpuFlowPreparedContentFrameRenderSignature(frame);
     const renderSignatureChanged =
       this.semanticSnapshot.renderSignature !== renderSignature;
     const presentationIdentity =
@@ -148,7 +148,7 @@ class DefaultGpuFlowPresentedSurfaceRuntime
       frame,
       presentationIdentity: null,
       publishCount: this.publishCount,
-      renderSignature: createGpuFlowCommittedSurfaceFrameRenderSignature(frame),
+      renderSignature: createGpuFlowPreparedContentFrameRenderSignature(frame),
     };
   }
 

@@ -6,9 +6,9 @@ import "testUtils/reactRefreshPreamble";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import { createGpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
@@ -211,7 +211,7 @@ function publishBrowserVisualFrame({
   readonly presentedSurfaceRuntime: ReturnType<
     typeof createGpuFlowPresentedSurfaceRuntime
   >;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly viewportStore: ReturnType<typeof createGpuFlowViewportStore>;
 }): ReturnType<typeof publicationToken> {
@@ -256,23 +256,23 @@ function preparedContentFrame({
 }: {
   readonly displayFrameId: number;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-}): GpuFlowCommittedSurfaceFrame {
+}): GpuFlowPreparedContentFrame {
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
     actorGenerations: [],
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       coherence,
       displayFrameId,
     }),
@@ -293,10 +293,10 @@ function preparedContentFrame({
     retainedRuntimeFrame,
     sceneRevision: 1,
     surfaceTransaction: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
-function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
+function publicationToken(frame: GpuFlowPreparedContentFrame) {
   return createGpuFlowVisibleFramePresentationTokenForTest({
     frame,
     projectionSample: {

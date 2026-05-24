@@ -836,7 +836,7 @@ function createHtmlSurfaceTextureSnapshotMap({
     HtmlSurfaceCompositorTextureSnapshot
   >();
   for (const quad of quads) {
-    const texture = textureManager.getCommittedSurfaceTexture(quad.nodeId);
+    const texture = textureManager.getPreparedContentTexture(quad.nodeId);
     if (!texture) {
       continue;
     }
@@ -971,13 +971,13 @@ export function collectVisibleGpuHtmlSurfaceOverlayQuads({
 export function buildTexturedGpuNodeQuads(
   quads: readonly GpuVisibleNodeQuad[],
   textureSource:
-    | Pick<HtmlSurfaceTextureManager, "getCommittedSurfaceTexture">
+    | Pick<HtmlSurfaceTextureManager, "getPreparedContentTexture">
     | ((nodeId: string) => CommittedHtmlSurfaceTextureSnapshot | undefined),
 ): BuildTexturedGpuNodeQuadsResult {
   const getTexture =
     typeof textureSource === "function"
       ? textureSource
-      : textureSource.getCommittedSurfaceTexture.bind(textureSource);
+      : textureSource.getPreparedContentTexture.bind(textureSource);
   const texturedQuads: GpuTexturedNodeQuad[] = [];
   const missingTextureNodeIds: string[] = [];
 

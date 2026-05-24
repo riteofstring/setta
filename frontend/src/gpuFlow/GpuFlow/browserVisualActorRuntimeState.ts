@@ -1,9 +1,9 @@
-import {
-  createGpuFlowCommittedSurfaceDomPresentationEvidence,
-  type GpuFlowCommittedSurfaceBrowserVisualReadiness,
-  type GpuFlowCommittedSurfaceDomPresentationEvidence,
-} from "../committedSurfaceFrame";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
+import {
+  createGpuFlowPreparedContentDomPresentationEvidence,
+  type GpuFlowPreparedContentBrowserVisualReadiness,
+  type GpuFlowPreparedContentDomPresentationEvidence,
+} from "../preparedContentFrame";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuDomIsland } from "../scene";
 import type {
@@ -27,7 +27,7 @@ import type {
 
 export type GpuFlowDomControlSnapshotTextureManager = Pick<
   HtmlSurfaceTextureManager,
-  "getCommittedSurfaceTexture"
+  "getPreparedContentTexture"
 >;
 
 const EMPTY_DOM_CONTROL_DESCRIPTORS: readonly GpuRetainedDomControlSourceDescriptor[] =
@@ -81,12 +81,12 @@ export function createGpuFlowBrowserVisualCandidatePresentationEvidence({
 }: {
   readonly candidateId: string;
   readonly frameIds: GpuFlowBrowserVisualActorRuntimeFrameIds;
-  readonly readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness;
+  readonly readiness: GpuFlowPreparedContentBrowserVisualReadiness;
   readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
-}): GpuFlowCommittedSurfaceDomPresentationEvidence {
-  return createGpuFlowCommittedSurfaceDomPresentationEvidence({
+}): GpuFlowPreparedContentDomPresentationEvidence {
+  return createGpuFlowPreparedContentDomPresentationEvidence({
     browserVisualCandidateId: candidateId,
-    committedFrameId: frameIds.committedFrameId,
+    preparedFrameId: frameIds.committedFrameId,
     domControlMountedCount: snapshot.domControls.mountedControls.length,
     domControlSnapshotCount: snapshot.domControls.snapshotControls.length,
     domIslandCount: snapshot.domIslands.islands.length,
@@ -104,7 +104,7 @@ function isGpuFlowBrowserVisualReadinessExposable({
   readiness,
   snapshot,
 }: {
-  readonly readiness: GpuFlowCommittedSurfaceBrowserVisualReadiness;
+  readonly readiness: GpuFlowPreparedContentBrowserVisualReadiness;
   readonly snapshot: GpuFlowBrowserVisualActorRuntimeSnapshot;
 }): boolean {
   const requiredControlIds = new Set(
@@ -138,7 +138,7 @@ function isGpuFlowBrowserVisualExposableDomControlRequired(
 }
 
 function isGpuFlowBrowserVisualReadinessEntryExposable(
-  entry: GpuFlowCommittedSurfaceBrowserVisualReadiness["domControlReadinessByActorId"] extends ReadonlyMap<
+  entry: GpuFlowPreparedContentBrowserVisualReadiness["domControlReadinessByActorId"] extends ReadonlyMap<
     string,
     infer Entry
   >

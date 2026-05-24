@@ -1,12 +1,12 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
 
 export function getGpuFlowPreparedContentFrameForceVisibleNodeIds(
   baseForceVisibleNodeIds: GpuFlowNodeLayerState["forceVisibleNodeIds"],
-  preparedContentFrame: GpuFlowCommittedSurfaceFrame | void,
+  preparedContentFrame: GpuFlowPreparedContentFrame | void,
 ): GpuFlowNodeLayerState["forceVisibleNodeIds"] {
   const sectionSurfaceIds =
-    getGpuFlowCommittedSurfaceSectionSurfaceIds(preparedContentFrame);
+    getGpuFlowPreparedContentSectionSurfaceIds(preparedContentFrame);
   if (sectionSurfaceIds.length === 0) {
     return baseForceVisibleNodeIds;
   }
@@ -18,8 +18,8 @@ export function getGpuFlowPreparedContentFrameForceVisibleNodeIds(
   ]);
 }
 
-function getGpuFlowCommittedSurfaceSectionSurfaceIds(
-  preparedContentFrame: GpuFlowCommittedSurfaceFrame | void,
+function getGpuFlowPreparedContentSectionSurfaceIds(
+  preparedContentFrame: GpuFlowPreparedContentFrame | void,
 ): readonly string[] {
   if (!preparedContentFrame) {
     return [];

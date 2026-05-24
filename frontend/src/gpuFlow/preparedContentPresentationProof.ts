@@ -1,39 +1,37 @@
+import { createGpuFlowJsonDigest } from "./gpuFlowDigest";
+import { assertGpuFlowBrowserVisualSurfaceFragment } from "./preparedContentBrowserVisualFragment";
 import {
-  assertGpuFlowBrowserVisualSurfaceFragment,
-} from "./committedSurfaceBrowserVisualFragment";
-import {
-  assertGpuFlowCommittedSurfaceCompleteness,
-  createGpuFlowCommittedSurfaceCompleteness,
-} from "./committedSurfaceCompleteness";
+  assertGpuFlowPreparedContentCompleteness,
+  createGpuFlowPreparedContentCompleteness,
+} from "./preparedContentCompleteness";
 import type {
-  GpuFlowCommittedSurfaceActorGeneration,
-  GpuFlowCommittedSurfaceFrame,
-} from "./committedSurfaceFrame";
+  GpuFlowPreparedContentActorGeneration,
+  GpuFlowPreparedContentFrame,
+} from "./preparedContentFrame";
 import {
   assertGpuFlowContentFramePublishability,
-  createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds,
   assertGpuFlowProjectionHorizon,
   createGpuFlowContentFramePublishability,
+  createGpuFlowPreparedContentRetainedTrueHoleActorIds,
   createGpuFlowProjectionHorizon,
-} from "./committedSurfaceFrameProjection";
-import { createGpuFlowJsonDigest } from "./gpuFlowDigest";
+} from "./preparedContentFrameProjection";
+import type { BrowserVisualSurfaceTransactionFragment } from "./surfaceCompositor/browserVisualActorAdapter";
 import type { SurfaceResourceHandle } from "./surfaceCompositor/surfaceCoverage";
 import type { SurfaceDisplayTransaction } from "./surfaceCompositor/surfaceTransaction";
-import type { BrowserVisualSurfaceTransactionFragment } from "./surfaceCompositor/browserVisualActorAdapter";
 
-export type GpuFlowCommittedSurfaceCoherence = {
+export type GpuFlowPreparedContentCoherence = {
   readonly canvasRetainedFrameId: number;
   readonly clipChainRevision: string;
   readonly debugSnapshotFrameId: number;
-  readonly domControlCommittedFrameId: number;
-  readonly domIslandCommittedFrameId: number;
-  readonly gpuNativeVisualCommittedFrameId: number;
+  readonly domControlPreparedFrameId: number;
+  readonly domIslandPreparedFrameId: number;
+  readonly gpuNativeVisualPreparedFrameId: number;
   readonly hitGenerationId: string;
-  readonly htmlTextureOverlayCommittedFrameId: number;
+  readonly htmlTextureOverlayPreparedFrameId: number;
   readonly retainedScrollRevision: number;
 };
 
-export type GpuFlowCommittedSurfacePresentationProof = {
+export type GpuFlowPreparedContentPresentationProof = {
   readonly actorManifestDigest: string;
   readonly batchId: string;
   readonly browserVisualFragmentDigest: string | null;
@@ -41,16 +39,16 @@ export type GpuFlowCommittedSurfacePresentationProof = {
     readonly canvasRetainedFrameId: number;
     readonly debugSnapshotFrameId: number;
     readonly exposable: true;
-    readonly gpuNativeVisualCommittedFrameId: number;
-    readonly htmlTextureOverlayCommittedFrameId: number;
+    readonly gpuNativeVisualPreparedFrameId: number;
+    readonly htmlTextureOverlayPreparedFrameId: number;
     readonly prepared: true;
     readonly presentationBatchId: string;
   };
-  readonly domGenerationEvidence: GpuFlowCommittedSurfaceDomPresentationEvidence;
+  readonly domGenerationEvidence: GpuFlowPreparedContentDomPresentationEvidence;
   readonly domGeneration: {
-    readonly browserVisualCommittedFrameId: number;
-    readonly domControlCommittedFrameId: number;
-    readonly domIslandCommittedFrameId: number;
+    readonly browserVisualPreparedFrameId: number;
+    readonly domControlPreparedFrameId: number;
+    readonly domIslandPreparedFrameId: number;
     readonly exposable: true;
     readonly presentationBatchId: string;
     readonly staged: true;
@@ -58,9 +56,9 @@ export type GpuFlowCommittedSurfacePresentationProof = {
   readonly surfaceTransactionDigest: string | null;
 };
 
-export type GpuFlowCommittedSurfaceDomPresentationEvidence = {
+export type GpuFlowPreparedContentDomPresentationEvidence = {
   readonly browserVisualCandidateId: string;
-  readonly committedFrameId: number;
+  readonly preparedFrameId: number;
   readonly domControlMountedCount: number;
   readonly domControlSnapshotCount: number;
   readonly domIslandCount: number;
@@ -70,17 +68,17 @@ export type GpuFlowCommittedSurfaceDomPresentationEvidence = {
   readonly staged: boolean;
 };
 
-type GpuFlowCommittedSurfacePresentationProofValidationCache = {
-  readonly actorGenerations: GpuFlowCommittedSurfaceFrame["actorGenerations"];
-  readonly browserVisualSurfaceFragment: GpuFlowCommittedSurfaceFrame["browserVisualSurfaceFragment"];
-  readonly coherence: GpuFlowCommittedSurfaceFrame["coherence"];
-  readonly displayFrameId: GpuFlowCommittedSurfaceFrame["displayFrameId"];
-  readonly presentationProof: GpuFlowCommittedSurfacePresentationProof;
-  readonly surfaceTransaction: GpuFlowCommittedSurfaceFrame["surfaceTransaction"];
+type GpuFlowPreparedContentPresentationProofValidationCache = {
+  readonly actorGenerations: GpuFlowPreparedContentFrame["actorGenerations"];
+  readonly browserVisualSurfaceFragment: GpuFlowPreparedContentFrame["browserVisualSurfaceFragment"];
+  readonly coherence: GpuFlowPreparedContentFrame["coherence"];
+  readonly displayFrameId: GpuFlowPreparedContentFrame["displayFrameId"];
+  readonly presentationProof: GpuFlowPreparedContentPresentationProof;
+  readonly surfaceTransaction: GpuFlowPreparedContentFrame["surfaceTransaction"];
 };
 
 const actorManifestDigestCache = new WeakMap<
-  readonly GpuFlowCommittedSurfaceActorGeneration[],
+  readonly GpuFlowPreparedContentActorGeneration[],
   string
 >();
 const browserVisualFragmentDigestCache = new WeakMap<
@@ -92,21 +90,21 @@ const surfaceTransactionDigestCache = new WeakMap<
   string
 >();
 const presentationProofValidationCache = new WeakMap<
-  GpuFlowCommittedSurfaceFrame,
-  GpuFlowCommittedSurfacePresentationProofValidationCache
+  GpuFlowPreparedContentFrame,
+  GpuFlowPreparedContentPresentationProofValidationCache
 >();
 
-export function assertGpuFlowCommittedSurfaceFrameCoherent(
-  frame: GpuFlowCommittedSurfaceFrame,
+export function assertGpuFlowPreparedContentFrameCoherent(
+  frame: GpuFlowPreparedContentFrame,
 ): void {
-  assertGpuFlowCommittedSurfaceFamilyFrameIds(frame);
-  assertGpuFlowCommittedSurfacePresentationProof(frame);
-  assertGpuFlowCommittedSurfaceRetainedScrollRevision(frame);
-  const expectedCompleteness = createGpuFlowCommittedSurfaceCompleteness({
+  assertGpuFlowPreparedContentFamilyFrameIds(frame);
+  assertGpuFlowPreparedContentPresentationProof(frame);
+  assertGpuFlowPreparedContentRetainedScrollRevision(frame);
+  const expectedCompleteness = createGpuFlowPreparedContentCompleteness({
     actorGenerations: frame.actorGenerations,
     startup: frame.retainedDisplayFrame === null,
   });
-  assertGpuFlowCommittedSurfaceCompleteness(
+  assertGpuFlowPreparedContentCompleteness(
     frame.displayCompleteness,
     expectedCompleteness,
   );
@@ -120,7 +118,7 @@ export function assertGpuFlowCommittedSurfaceFrameCoherent(
       actorGenerations: frame.actorGenerations,
       displayCompleteness: expectedCompleteness,
       retainedSurfaceTrueHoleActorIds:
-        createGpuFlowCommittedSurfaceRetainedTrueHoleActorIds(
+        createGpuFlowPreparedContentRetainedTrueHoleActorIds(
           frame.retainedDisplayFrame,
         ),
       startup: frame.retainedDisplayFrame === null,
@@ -136,7 +134,7 @@ export function assertGpuFlowCommittedSurfaceFrameCoherent(
   );
 }
 
-export function createGpuFlowCommittedSurfacePresentationProof({
+export function createGpuFlowPreparedContentPresentationProof({
   actorGenerations = [],
   browserVisualSurfaceFragment = null,
   coherence,
@@ -147,55 +145,53 @@ export function createGpuFlowCommittedSurfacePresentationProof({
   surfaceTransaction = null,
 }: {
   readonly actorGenerations?:
-    | readonly GpuFlowCommittedSurfaceActorGeneration[]
+    | readonly GpuFlowPreparedContentActorGeneration[]
     | undefined;
   readonly browserVisualSurfaceFragment?:
     | BrowserVisualSurfaceTransactionFragment
     | null
     | undefined;
-  readonly coherence: GpuFlowCommittedSurfaceCoherence;
+  readonly coherence: GpuFlowPreparedContentCoherence;
   readonly displayFrameId: number;
   readonly domGenerationEvidence?:
-    | GpuFlowCommittedSurfaceDomPresentationEvidence
+    | GpuFlowPreparedContentDomPresentationEvidence
     | undefined;
   readonly surfaceTransaction?: SurfaceDisplayTransaction | null | undefined;
-}): GpuFlowCommittedSurfacePresentationProof {
+}): GpuFlowPreparedContentPresentationProof {
   assertGpuFlowDomPresentationEvidenceFrame({
     displayFrameId,
     evidence: domGenerationEvidence,
   });
-  const batchId = createGpuFlowCommittedSurfacePresentationBatchId({
+  const batchId = createGpuFlowPreparedContentPresentationBatchId({
     coherence,
     domGenerationEvidence,
     displayFrameId,
   });
   return Object.freeze({
-    actorManifestDigest: createGpuFlowCommittedSurfaceActorManifestDigest(
-      actorGenerations,
-    ),
+    actorManifestDigest:
+      createGpuFlowPreparedContentActorManifestDigest(actorGenerations),
     batchId,
     browserVisualFragmentDigest:
       browserVisualSurfaceFragment === null
         ? null
-        : createGpuFlowCommittedSurfacePresentationBrowserVisualFragmentDigest(
+        : createGpuFlowPreparedContentPresentationBrowserVisualFragmentDigest(
             browserVisualSurfaceFragment,
           ),
     canvasGeneration: Object.freeze({
       canvasRetainedFrameId: coherence.canvasRetainedFrameId,
       debugSnapshotFrameId: coherence.debugSnapshotFrameId,
       exposable: true as const,
-      gpuNativeVisualCommittedFrameId:
-        coherence.gpuNativeVisualCommittedFrameId,
-      htmlTextureOverlayCommittedFrameId:
-        coherence.htmlTextureOverlayCommittedFrameId,
+      gpuNativeVisualPreparedFrameId: coherence.gpuNativeVisualPreparedFrameId,
+      htmlTextureOverlayPreparedFrameId:
+        coherence.htmlTextureOverlayPreparedFrameId,
       prepared: true as const,
       presentationBatchId: batchId,
     }),
     domGenerationEvidence: Object.freeze({ ...domGenerationEvidence }),
     domGeneration: Object.freeze({
-      browserVisualCommittedFrameId: displayFrameId,
-      domControlCommittedFrameId: coherence.domControlCommittedFrameId,
-      domIslandCommittedFrameId: coherence.domIslandCommittedFrameId,
+      browserVisualPreparedFrameId: displayFrameId,
+      domControlPreparedFrameId: coherence.domControlPreparedFrameId,
+      domIslandPreparedFrameId: coherence.domIslandPreparedFrameId,
       exposable: true as const,
       presentationBatchId: batchId,
       staged: true as const,
@@ -203,16 +199,16 @@ export function createGpuFlowCommittedSurfacePresentationProof({
     surfaceTransactionDigest:
       surfaceTransaction === null
         ? null
-        : createGpuFlowCommittedSurfacePresentationSurfaceTransactionDigest(
+        : createGpuFlowPreparedContentPresentationSurfaceTransactionDigest(
             surfaceTransaction,
           ),
   });
 }
 
-export function assertGpuFlowCommittedSurfacePresentationProof(
-  frame: GpuFlowCommittedSurfaceFrame,
+export function assertGpuFlowPreparedContentPresentationProof(
+  frame: GpuFlowPreparedContentFrame,
 ): void {
-  if (hasCachedGpuFlowCommittedSurfacePresentationProofValidation(frame)) {
+  if (hasCachedGpuFlowPreparedContentPresentationProofValidation(frame)) {
     return;
   }
   const proof = frame.presentationProof;
@@ -221,7 +217,7 @@ export function assertGpuFlowCommittedSurfacePresentationProof(
   assertGpuFlowDomPresentationEvidence(proof);
   assertGpuFlowCanvasPresentationGeneration(proof);
   assertGpuFlowPresentedFrameIds({ frame, proof });
-  const expected = createGpuFlowCommittedSurfacePresentationProof({
+  const expected = createGpuFlowPreparedContentPresentationProof({
     actorGenerations: frame.actorGenerations,
     browserVisualSurfaceFragment: frame.browserVisualSurfaceFragment,
     coherence: frame.coherence,
@@ -242,9 +238,9 @@ export function assertGpuFlowCommittedSurfacePresentationProof(
   });
 }
 
-export function createGpuFlowCommittedSurfaceDomPresentationEvidence({
+export function createGpuFlowPreparedContentDomPresentationEvidence({
   browserVisualCandidateId,
-  committedFrameId,
+  preparedFrameId,
   domControlMountedCount,
   domControlSnapshotCount,
   domIslandCount,
@@ -252,10 +248,10 @@ export function createGpuFlowCommittedSurfaceDomPresentationEvidence({
   runtimeFrameId,
   source,
   staged,
-}: GpuFlowCommittedSurfaceDomPresentationEvidence): GpuFlowCommittedSurfaceDomPresentationEvidence {
+}: GpuFlowPreparedContentDomPresentationEvidence): GpuFlowPreparedContentDomPresentationEvidence {
   return Object.freeze({
     browserVisualCandidateId,
-    committedFrameId,
+    preparedFrameId,
     domControlMountedCount,
     domControlSnapshotCount,
     domIslandCount,
@@ -266,8 +262,8 @@ export function createGpuFlowCommittedSurfaceDomPresentationEvidence({
   });
 }
 
-export function createGpuFlowCommittedSurfaceActorManifestDigest(
-  actorGenerations: readonly GpuFlowCommittedSurfaceActorGeneration[],
+export function createGpuFlowPreparedContentActorManifestDigest(
+  actorGenerations: readonly GpuFlowPreparedContentActorGeneration[],
 ): string {
   const cached = actorManifestDigestCache.get(actorGenerations);
   if (cached !== undefined) {
@@ -275,14 +271,14 @@ export function createGpuFlowCommittedSurfaceActorManifestDigest(
   }
   const digest = createGpuFlowJsonDigest(
     "prepared-content-frame-actor-manifest",
-    actorGenerations.map(createGpuFlowCommittedSurfaceActorManifestEntry),
+    actorGenerations.map(createGpuFlowPreparedContentActorManifestEntry),
   );
   actorManifestDigestCache.set(actorGenerations, digest);
   return digest;
 }
 
-function createGpuFlowCommittedSurfaceActorManifestEntry(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+function createGpuFlowPreparedContentActorManifestEntry(
+  actor: GpuFlowPreparedContentActorGeneration,
 ) {
   return [
     actor.actorId,
@@ -331,15 +327,15 @@ function createGpuFlowCommittedSurfaceActorManifestEntry(
             : null,
           actor.browserVisual.representationKind,
           actor.browserVisual.resourceHandles.map(
-            createGpuFlowCommittedSurfaceResourceHandleDigest,
+            createGpuFlowPreparedContentResourceHandleDigest,
           ),
           actor.browserVisual.visibilityReason,
         ],
   ] as const;
 }
 
-function hasCachedGpuFlowCommittedSurfacePresentationProofValidation(
-  frame: GpuFlowCommittedSurfaceFrame,
+function hasCachedGpuFlowPreparedContentPresentationProofValidation(
+  frame: GpuFlowPreparedContentFrame,
 ): boolean {
   const cached = presentationProofValidationCache.get(frame);
   return Boolean(
@@ -354,71 +350,71 @@ function hasCachedGpuFlowCommittedSurfacePresentationProofValidation(
   );
 }
 
-function assertGpuFlowCommittedSurfaceFamilyFrameIds(
-  frame: GpuFlowCommittedSurfaceFrame,
+function assertGpuFlowPreparedContentFamilyFrameIds(
+  frame: GpuFlowPreparedContentFrame,
 ): void {
-  const committedFrameIds = [
+  const preparedFrameIds = [
     frame.coherence.canvasRetainedFrameId,
     frame.coherence.debugSnapshotFrameId,
-    frame.coherence.domControlCommittedFrameId,
-    frame.coherence.domIslandCommittedFrameId,
-    frame.coherence.gpuNativeVisualCommittedFrameId,
-    frame.coherence.htmlTextureOverlayCommittedFrameId,
+    frame.coherence.domControlPreparedFrameId,
+    frame.coherence.domIslandPreparedFrameId,
+    frame.coherence.gpuNativeVisualPreparedFrameId,
+    frame.coherence.htmlTextureOverlayPreparedFrameId,
   ];
-  if (committedFrameIds.some((frameId) => frameId !== frame.displayFrameId)) {
+  if (preparedFrameIds.some((frameId) => frameId !== frame.displayFrameId)) {
     throw new Error(
-      "GPU Flow committed surface frame has incoherent visible frame ids.",
+      "GPU Flow prepared content frame has incoherent visible frame ids.",
     );
   }
 }
 
-function assertGpuFlowCommittedSurfaceRetainedScrollRevision(
-  frame: GpuFlowCommittedSurfaceFrame,
+function assertGpuFlowPreparedContentRetainedScrollRevision(
+  frame: GpuFlowPreparedContentFrame,
 ): void {
   if (
     frame.coherence.retainedScrollRevision !==
     frame.retainedRuntimeFrame.input.scrollRevision
   ) {
     throw new Error(
-      "GPU Flow committed surface frame has an incoherent retained scroll revision.",
+      "GPU Flow prepared content frame has an incoherent retained scroll revision.",
     );
   }
 }
 
 function assertGpuFlowPresentationProofExists(
-  proof: GpuFlowCommittedSurfacePresentationProof | null | undefined,
-): asserts proof is GpuFlowCommittedSurfacePresentationProof {
+  proof: GpuFlowPreparedContentPresentationProof | null | undefined,
+): asserts proof is GpuFlowPreparedContentPresentationProof {
   if (!proof) {
     throw new Error(
-      "GPU Flow committed surface frame requires a DOM/canvas presentation proof.",
+      "GPU Flow prepared content frame requires a DOM/canvas presentation proof.",
     );
   }
 }
 
 function assertGpuFlowDomPresentationGeneration(
-  proof: GpuFlowCommittedSurfacePresentationProof,
+  proof: GpuFlowPreparedContentPresentationProof,
 ): void {
   if (
     proof.domGeneration.staged !== true ||
     proof.domGeneration.exposable !== true
   ) {
     throw new Error(
-      "GPU Flow committed surface presentation proof requires DOM generation staged and exposable.",
+      "GPU Flow prepared content presentation proof requires DOM generation staged and exposable.",
     );
   }
 }
 
 function assertGpuFlowDomPresentationEvidence(
-  proof: GpuFlowCommittedSurfacePresentationProof,
+  proof: GpuFlowPreparedContentPresentationProof,
 ): void {
   const evidence = proof.domGenerationEvidence;
   if (!evidence) {
     throw new Error(
-      "GPU Flow committed surface presentation proof requires DOM runtime presentation evidence.",
+      "GPU Flow prepared content presentation proof requires DOM runtime presentation evidence.",
     );
   }
   assertGpuFlowDomPresentationEvidenceFrame({
-    displayFrameId: proof.domGeneration.browserVisualCommittedFrameId,
+    displayFrameId: proof.domGeneration.browserVisualPreparedFrameId,
     evidence,
   });
 }
@@ -428,24 +424,24 @@ function assertGpuFlowDomPresentationEvidenceFrame({
   evidence,
 }: {
   readonly displayFrameId: number;
-  readonly evidence: GpuFlowCommittedSurfaceDomPresentationEvidence;
+  readonly evidence: GpuFlowPreparedContentDomPresentationEvidence;
 }): void {
-  if (evidence.committedFrameId !== displayFrameId) {
+  if (evidence.preparedFrameId !== displayFrameId) {
     throw new Error(
-      "GPU Flow committed surface DOM presentation evidence requires the same committed frame id.",
+      "GPU Flow prepared content DOM presentation evidence requires the same prepared frame id.",
     );
   }
 }
 
 function assertGpuFlowCanvasPresentationGeneration(
-  proof: GpuFlowCommittedSurfacePresentationProof,
+  proof: GpuFlowPreparedContentPresentationProof,
 ): void {
   if (
     proof.canvasGeneration.prepared !== true ||
     proof.canvasGeneration.exposable !== true
   ) {
     throw new Error(
-      "GPU Flow committed surface presentation proof requires canvas generation prepared and exposable.",
+      "GPU Flow prepared content presentation proof requires canvas generation prepared and exposable.",
     );
   }
 }
@@ -454,21 +450,21 @@ function assertGpuFlowPresentedFrameIds({
   frame,
   proof,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
-  readonly proof: GpuFlowCommittedSurfacePresentationProof;
+  readonly frame: GpuFlowPreparedContentFrame;
+  readonly proof: GpuFlowPreparedContentPresentationProof;
 }): void {
   const presentedFrameIds = [
-    proof.domGeneration.browserVisualCommittedFrameId,
-    proof.domGeneration.domControlCommittedFrameId,
-    proof.domGeneration.domIslandCommittedFrameId,
+    proof.domGeneration.browserVisualPreparedFrameId,
+    proof.domGeneration.domControlPreparedFrameId,
+    proof.domGeneration.domIslandPreparedFrameId,
     proof.canvasGeneration.canvasRetainedFrameId,
     proof.canvasGeneration.debugSnapshotFrameId,
-    proof.canvasGeneration.gpuNativeVisualCommittedFrameId,
-    proof.canvasGeneration.htmlTextureOverlayCommittedFrameId,
+    proof.canvasGeneration.gpuNativeVisualPreparedFrameId,
+    proof.canvasGeneration.htmlTextureOverlayPreparedFrameId,
   ];
   if (presentedFrameIds.some((frameId) => frameId !== frame.displayFrameId)) {
     throw new Error(
-      "GPU Flow committed surface presentation proof requires DOM and canvas generations for the same committed frame.",
+      "GPU Flow prepared content presentation proof requires DOM and canvas generations for the same prepared frame.",
     );
   }
 }
@@ -477,8 +473,8 @@ function assertGpuFlowPresentationBatch({
   expected,
   proof,
 }: {
-  readonly expected: GpuFlowCommittedSurfacePresentationProof;
-  readonly proof: GpuFlowCommittedSurfacePresentationProof;
+  readonly expected: GpuFlowPreparedContentPresentationProof;
+  readonly proof: GpuFlowPreparedContentPresentationProof;
 }): void {
   if (
     proof.batchId !== proof.domGeneration.presentationBatchId ||
@@ -486,7 +482,7 @@ function assertGpuFlowPresentationBatch({
     proof.batchId !== expected.batchId
   ) {
     throw new Error(
-      "GPU Flow committed surface presentation proof requires DOM and canvas generations in the same presentation batch.",
+      "GPU Flow prepared content presentation proof requires DOM and canvas generations in the same presentation batch.",
     );
   }
 }
@@ -495,18 +491,19 @@ function assertGpuFlowPresentationGenerations({
   expected,
   proof,
 }: {
-  readonly expected: GpuFlowCommittedSurfacePresentationProof;
-  readonly proof: GpuFlowCommittedSurfacePresentationProof;
+  readonly expected: GpuFlowPreparedContentPresentationProof;
+  readonly proof: GpuFlowPreparedContentPresentationProof;
 }): void {
   const actualGenerationIds = createGpuFlowPresentationGenerationIds(proof);
-  const expectedGenerationIds = createGpuFlowPresentationGenerationIds(expected);
+  const expectedGenerationIds =
+    createGpuFlowPresentationGenerationIds(expected);
   if (
     actualGenerationIds.some(
       (frameId, index) => frameId !== expectedGenerationIds[index],
     )
   ) {
     throw new Error(
-      "GPU Flow committed surface presentation proof does not match the committed frame generations.",
+      "GPU Flow prepared content presentation proof does not match the prepared frame generations.",
     );
   }
 }
@@ -515,8 +512,8 @@ function assertGpuFlowPresentationDigests({
   expected,
   proof,
 }: {
-  readonly expected: GpuFlowCommittedSurfacePresentationProof;
-  readonly proof: GpuFlowCommittedSurfacePresentationProof;
+  readonly expected: GpuFlowPreparedContentPresentationProof;
+  readonly proof: GpuFlowPreparedContentPresentationProof;
 }): void {
   if (
     proof.actorManifestDigest !== expected.actorManifestDigest ||
@@ -529,18 +526,18 @@ function assertGpuFlowPresentationDigests({
     proof.surfaceTransactionDigest !== expected.surfaceTransactionDigest
   ) {
     throw new Error(
-      "GPU Flow committed surface presentation proof does not match the committed actor manifest and browser visual resources.",
+      "GPU Flow prepared content presentation proof does not match the prepared actor manifest and browser visual resources.",
     );
   }
 }
 
 function areGpuFlowDomPresentationEvidenceEqual(
-  left: GpuFlowCommittedSurfaceDomPresentationEvidence,
-  right: GpuFlowCommittedSurfaceDomPresentationEvidence,
+  left: GpuFlowPreparedContentDomPresentationEvidence,
+  right: GpuFlowPreparedContentDomPresentationEvidence,
 ): boolean {
   return (
     left.browserVisualCandidateId === right.browserVisualCandidateId &&
-    left.committedFrameId === right.committedFrameId &&
+    left.preparedFrameId === right.preparedFrameId &&
     left.domControlMountedCount === right.domControlMountedCount &&
     left.domControlSnapshotCount === right.domControlSnapshotCount &&
     left.domIslandCount === right.domIslandCount &&
@@ -552,20 +549,20 @@ function areGpuFlowDomPresentationEvidenceEqual(
 }
 
 function createGpuFlowPresentationGenerationIds(
-  proof: GpuFlowCommittedSurfacePresentationProof,
+  proof: GpuFlowPreparedContentPresentationProof,
 ): readonly number[] {
   return [
-    proof.domGeneration.browserVisualCommittedFrameId,
-    proof.domGeneration.domControlCommittedFrameId,
-    proof.domGeneration.domIslandCommittedFrameId,
+    proof.domGeneration.browserVisualPreparedFrameId,
+    proof.domGeneration.domControlPreparedFrameId,
+    proof.domGeneration.domIslandPreparedFrameId,
     proof.canvasGeneration.canvasRetainedFrameId,
     proof.canvasGeneration.debugSnapshotFrameId,
-    proof.canvasGeneration.gpuNativeVisualCommittedFrameId,
-    proof.canvasGeneration.htmlTextureOverlayCommittedFrameId,
+    proof.canvasGeneration.gpuNativeVisualPreparedFrameId,
+    proof.canvasGeneration.htmlTextureOverlayPreparedFrameId,
   ];
 }
 
-function createGpuFlowCommittedSurfaceResourceHandleDigest(
+function createGpuFlowPreparedContentResourceHandleDigest(
   handle: SurfaceResourceHandle,
 ): readonly [
   SurfaceResourceHandle["kind"],
@@ -585,14 +582,14 @@ function createGpuFlowCommittedSurfaceResourceHandleDigest(
   ];
 }
 
-function createGpuFlowCommittedSurfacePresentationBrowserVisualFragmentDigest(
+function createGpuFlowPreparedContentPresentationBrowserVisualFragmentDigest(
   fragment: BrowserVisualSurfaceTransactionFragment,
 ): string {
   const cached = browserVisualFragmentDigestCache.get(fragment);
   if (cached !== undefined) {
     return cached;
   }
-  const digest = createGpuFlowJsonDigest("committed-surface-browser-visual", {
+  const digest = createGpuFlowJsonDigest("prepared-content-browser-visual", {
     activeIslandIds: fragment.activeIslands.map((island) => island.islandId),
     actorGenerations: fragment.actorSnapshots.map(
       (snapshot) => snapshot.generation.generationId,
@@ -619,50 +616,46 @@ function createGpuFlowCommittedSurfacePresentationBrowserVisualFragmentDigest(
   return digest;
 }
 
-function createGpuFlowCommittedSurfacePresentationSurfaceTransactionDigest(
+function createGpuFlowPreparedContentPresentationSurfaceTransactionDigest(
   transaction: SurfaceDisplayTransaction,
 ): string {
   const cached = surfaceTransactionDigestCache.get(transaction);
   if (cached !== undefined) {
     return cached;
   }
-  const digest = createGpuFlowJsonDigest(
-    "committed-surface-transaction",
-    {
-      desiredSurfaceGenerationCount:
-        transaction.desiredSurfaceGenerations.length,
-      drawCommandCount: transaction.drawCommands.length,
-      hitGenerationCount: transaction.hitIndex.generationIds.length,
-      hitIndexId: transaction.hitIndex.id,
-      id: transaction.id,
-      protectedResourceHandles: transaction.protectedResourceHandles.map(
-        (handle) => [handle.kind, handle.id, handle.reason],
-      ),
-      rendererBucketCount: transaction.rendererBuckets.length,
-      zOrderCount: transaction.zOrder.length,
-    },
-  );
+  const digest = createGpuFlowJsonDigest("prepared-content-transaction", {
+    desiredSurfaceGenerationCount: transaction.desiredSurfaceGenerations.length,
+    drawCommandCount: transaction.drawCommands.length,
+    hitGenerationCount: transaction.hitIndex.generationIds.length,
+    hitIndexId: transaction.hitIndex.id,
+    id: transaction.id,
+    protectedResourceHandles: transaction.protectedResourceHandles.map(
+      (handle) => [handle.kind, handle.id, handle.reason],
+    ),
+    rendererBucketCount: transaction.rendererBuckets.length,
+    zOrderCount: transaction.zOrder.length,
+  });
   surfaceTransactionDigestCache.set(transaction, digest);
   return digest;
 }
 
-function createGpuFlowCommittedSurfacePresentationBatchId({
+function createGpuFlowPreparedContentPresentationBatchId({
   coherence,
   domGenerationEvidence,
   displayFrameId,
 }: {
-  readonly coherence: GpuFlowCommittedSurfaceCoherence;
-  readonly domGenerationEvidence: GpuFlowCommittedSurfaceDomPresentationEvidence;
+  readonly coherence: GpuFlowPreparedContentCoherence;
+  readonly domGenerationEvidence: GpuFlowPreparedContentDomPresentationEvidence;
   readonly displayFrameId: number;
 }): string {
   return [
     "presentation",
     displayFrameId,
     coherence.canvasRetainedFrameId,
-    coherence.domControlCommittedFrameId,
-    coherence.domIslandCommittedFrameId,
-    coherence.gpuNativeVisualCommittedFrameId,
-    coherence.htmlTextureOverlayCommittedFrameId,
+    coherence.domControlPreparedFrameId,
+    coherence.domIslandPreparedFrameId,
+    coherence.gpuNativeVisualPreparedFrameId,
+    coherence.htmlTextureOverlayPreparedFrameId,
     coherence.debugSnapshotFrameId,
     coherence.clipChainRevision,
     coherence.retainedScrollRevision,
@@ -677,10 +670,10 @@ function createGpuFlowStartupDomPresentationEvidence({
   displayFrameId,
 }: {
   readonly displayFrameId: number;
-}): GpuFlowCommittedSurfaceDomPresentationEvidence {
-  return createGpuFlowCommittedSurfaceDomPresentationEvidence({
+}): GpuFlowPreparedContentDomPresentationEvidence {
+  return createGpuFlowPreparedContentDomPresentationEvidence({
     browserVisualCandidateId: `startup-browser-visual:${displayFrameId}`,
-    committedFrameId: displayFrameId,
+    preparedFrameId: displayFrameId,
     domControlMountedCount: 0,
     domControlSnapshotCount: 0,
     domIslandCount: 0,

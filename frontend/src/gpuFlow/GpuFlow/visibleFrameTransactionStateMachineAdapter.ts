@@ -1,5 +1,5 @@
 // Adapts transaction proof state into the visible frame state machine's manifest model.
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import { normalizeGpuViewport } from "../viewportMath";
 import {
@@ -33,7 +33,7 @@ export function createGpuFlowVisibleFramePublicationStateMachinePreparedFrame({
   reducerDecision,
 }: {
   readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
-  readonly candidateContentFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly candidateContentFrame: GpuFlowPreparedContentFrame | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
@@ -76,8 +76,8 @@ function createGpuFlowVisibleFramePublicationStateMachineCandidate({
   reducerDecision,
 }: {
   readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
-  readonly candidateContentFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly manifestFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly candidateContentFrame: GpuFlowPreparedContentFrame | null;
+  readonly manifestFrame: GpuFlowPreparedContentFrame | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
@@ -157,7 +157,7 @@ function createGpuFlowVisibleFramePublicationStateMachineContentFrameId({
   reducerDecision,
 }: {
   readonly blockingProofs: readonly GpuFlowVisibleFramePresentationBlockedProof[];
-  readonly candidateContentFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly candidateContentFrame: GpuFlowPreparedContentFrame | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
@@ -186,9 +186,9 @@ function resolveGpuFlowVisibleFramePublicationStateMachineManifestFrame({
   candidateContentFrame,
   candidateVisibleProjectionState,
 }: {
-  readonly candidateContentFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly candidateContentFrame: GpuFlowPreparedContentFrame | null;
   readonly candidateVisibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowCommittedSurfaceFrame | null {
+}): GpuFlowPreparedContentFrame | null {
   return (
     candidateContentFrame ??
     candidateVisibleProjectionState?.committedFrame ??
@@ -453,7 +453,7 @@ function shouldGpuFlowVisibleFramePublicationStateMachineUseBlockedFrozenFrameCo
 }
 
 function createGpuFlowVisibleFramePublicationStateMachinePreparedResourceIds(
-  frame: GpuFlowCommittedSurfaceFrame | null,
+  frame: GpuFlowPreparedContentFrame | null,
 ): readonly string[] {
   if (frame === null) {
     return [];

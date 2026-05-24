@@ -223,7 +223,7 @@ export function withGpuFlowContentCatchupReasonForStalePublicationSample({
   });
   if (
     !committedFrame ||
-    isGpuFlowCommittedSurfaceFrameSampleCurrent({
+    isGpuFlowPreparedContentFrameSampleCurrent({
       committedFrame,
       sample,
     }) ||
@@ -259,7 +259,7 @@ function withoutGpuFlowUnchangedViewportProjectionReason({
   return Object.freeze(rawReasons.filter((reason) => reason !== "viewport"));
 }
 
-function isGpuFlowCommittedSurfaceFrameSampleCurrent({
+function isGpuFlowPreparedContentFrameSampleCurrent({
   committedFrame,
   sample,
 }: {

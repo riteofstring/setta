@@ -2,14 +2,14 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
-import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFramePresentationTokenForTest,
 } from "../GpuFlow/visibleFrameTestUtils";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "../GpuFlow/visibleFrameTypes";
+import {
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   releaseGpuFlowBlockedCandidateSurfaceTexture,
@@ -318,7 +318,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
       allocatedBytes: 800,
       textureCount: 2,
     });
-    expect(manager.getCommittedSurfaceTexture("oldest")).toBeUndefined();
+    expect(manager.getPreparedContentTexture("oldest")).toBeUndefined();
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
   });
 
@@ -370,14 +370,14 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
       "interactive",
       "visible",
     ]);
-    expect(manager.getCommittedSurfaceTexture("candidate")).toBeUndefined();
-    expect(manager.getCommittedSurfaceTexture("visible")).toBeDefined();
-    expect(manager.getCommittedSurfaceTexture("explicit")).toBeDefined();
-    expect(manager.getCommittedSurfaceTexture("critical")).toBeDefined();
-    expect(manager.getCommittedSurfaceTexture("interactive")).toBeDefined();
-    expect(manager.getCommittedSurfaceTexture("dirty-critical")).toBeDefined();
+    expect(manager.getPreparedContentTexture("candidate")).toBeUndefined();
+    expect(manager.getPreparedContentTexture("visible")).toBeDefined();
+    expect(manager.getPreparedContentTexture("explicit")).toBeDefined();
+    expect(manager.getPreparedContentTexture("critical")).toBeDefined();
+    expect(manager.getPreparedContentTexture("interactive")).toBeDefined();
+    expect(manager.getPreparedContentTexture("dirty-critical")).toBeDefined();
     expect(
-      manager.getCommittedSurfaceTexture("dirty-interactive"),
+      manager.getPreparedContentTexture("dirty-interactive"),
     ).toBeDefined();
   });
 
@@ -399,7 +399,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
       surfaceId: "node-a",
     });
     expect(gpu.textures[0]?.destroy).toHaveBeenCalledTimes(1);
-    expect(manager.getCommittedSurfaceTexture("node-a")).toBeUndefined();
+    expect(manager.getPreparedContentTexture("node-a")).toBeUndefined();
 
     manager.destroy();
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
@@ -425,7 +425,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     ).toThrow(
       'GPU Flow surface texture release requires a release token for surface "node-a".',
     );
-    expect(manager.getCommittedSurfaceTexture("node-a")).toBeDefined();
+    expect(manager.getPreparedContentTexture("node-a")).toBeDefined();
   });
 
   it("uses outcome-specific publication tokens for transaction-owned release", () => {
@@ -433,7 +433,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     const gpu = createGpuTextureMock();
     const manager = new HtmlSurfaceTextureManager(gpu.device);
     const commitToken = createGpuFlowVisibleFramePresentationTokenForTest({
-      frame: committedSurfaceFrame(4),
+      frame: preparedContentFrame(4),
       projectionSample: projectionSample(9),
     });
     const blockedToken =
@@ -515,8 +515,8 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
       kind: "released",
       surfaceId: "candidate",
     });
-    expect(manager.getCommittedSurfaceTexture("candidate")).toBeUndefined();
-    expect(manager.getCommittedSurfaceTexture("previous")).toBeDefined();
+    expect(manager.getPreparedContentTexture("candidate")).toBeUndefined();
+    expect(manager.getPreparedContentTexture("previous")).toBeDefined();
     expect(gpu.textures[0]?.destroy).not.toHaveBeenCalled();
     expect(gpu.textures[1]?.destroy).toHaveBeenCalledTimes(1);
   });
@@ -542,7 +542,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
       surfaceId: "node-a",
     });
     expect(gpu.textures[0]?.destroy).not.toHaveBeenCalled();
-    expect(manager.getCommittedSurfaceTexture("node-a")).toBeDefined();
+    expect(manager.getPreparedContentTexture("node-a")).toBeDefined();
 
     manager.evictSurfaceTextures({
       budgetBytes: Number.POSITIVE_INFINITY,
@@ -550,7 +550,7 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     });
 
     expect(gpu.textures[0]?.destroy).toHaveBeenCalledTimes(1);
-    expect(manager.getCommittedSurfaceTexture("node-a")).toBeUndefined();
+    expect(manager.getPreparedContentTexture("node-a")).toBeUndefined();
   });
 
   it("prepares candidate protection without releasing previous visible textures", () => {
@@ -592,8 +592,8 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     });
     expect(gpu.textures[0]?.destroy).not.toHaveBeenCalled();
     expect(gpu.textures[1]?.destroy).not.toHaveBeenCalled();
-    expect(manager.getCommittedSurfaceTexture("previous")).toBeDefined();
-    expect(manager.getCommittedSurfaceTexture("candidate")).toBeDefined();
+    expect(manager.getPreparedContentTexture("previous")).toBeDefined();
+    expect(manager.getPreparedContentTexture("candidate")).toBeDefined();
 
     manager.evictSurfaceTextures({
       budgetBytes: Number.POSITIVE_INFINITY,
@@ -603,8 +603,8 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
 
     expect(gpu.textures[0]?.destroy).toHaveBeenCalledTimes(1);
     expect(gpu.textures[1]?.destroy).not.toHaveBeenCalled();
-    expect(manager.getCommittedSurfaceTexture("previous")).toBeUndefined();
-    expect(manager.getCommittedSurfaceTexture("candidate")).toBeDefined();
+    expect(manager.getPreparedContentTexture("previous")).toBeUndefined();
+    expect(manager.getPreparedContentTexture("candidate")).toBeDefined();
   });
 
   it("cancels deferred release when the source remounts before protection clears", () => {
@@ -629,29 +629,29 @@ describe("HtmlSurfaceTextureManager upload budgets and eviction", () => {
     });
 
     expect(gpu.textures[0]?.destroy).not.toHaveBeenCalled();
-    expect(manager.getCommittedSurfaceTexture("node-a")).toBeDefined();
+    expect(manager.getPreparedContentTexture("node-a")).toBeDefined();
   });
 });
 
-function committedSurfaceFrame(
+function preparedContentFrame(
   displayFrameId: number,
-): GpuFlowCommittedSurfaceFrame {
+): GpuFlowPreparedContentFrame {
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
     actorGenerations: [],
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       coherence,
       displayFrameId,
     }),
@@ -670,7 +670,7 @@ function committedSurfaceFrame(
       kind: "publishable",
     },
     surfaceTransaction: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function projectionSample(id: number): GpuFlowLiveProjectionSample {

@@ -1,6 +1,6 @@
 import type {
   GpuFlowBrowserVisualResourceWorkRequest,
-  GpuFlowCommittedSurfaceBlockedCandidateResourceWork,
+  GpuFlowPreparedContentBlockedCandidateResourceWork,
 } from "./visibleFrameContentPlan";
 
 export type GpuFlowBrowserVisualResourceWorkOutcome =
@@ -40,7 +40,7 @@ export function recordGpuFlowBrowserVisualResourceWorkRequested({
   outcome,
   runtimeCanvas,
 }: {
-  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork;
+  readonly candidateResourceWork: GpuFlowPreparedContentBlockedCandidateResourceWork;
   readonly nowMs: number;
   readonly outcome: GpuFlowBrowserVisualResourceWorkOutcome;
   readonly runtimeCanvas: HTMLCanvasElement;
@@ -75,7 +75,7 @@ export function recordGpuFlowBrowserVisualResourceWorkPreparationState({
   runtimeCanvas,
   wakeupSource,
 }: {
-  readonly candidateResourceWork: GpuFlowCommittedSurfaceBlockedCandidateResourceWork;
+  readonly candidateResourceWork: GpuFlowPreparedContentBlockedCandidateResourceWork;
   readonly nowMs: number;
   readonly readinessState: GpuFlowBrowserVisualResourceReadinessState;
   readonly runtimeCanvas: HTMLCanvasElement;

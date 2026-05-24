@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import { normalizeGpuViewport, type GpuViewportInput } from "../viewportMath";
 
@@ -8,7 +8,7 @@ export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
   sample,
 }: {
   readonly committedFrame: Pick<
-    GpuFlowCommittedSurfaceFrame,
+    GpuFlowPreparedContentFrame,
     "coherence" | "viewportSample"
   > | null;
   readonly deferResolutionUpdates: boolean;
@@ -20,7 +20,7 @@ export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample({
   return (
     deferResolutionUpdates &&
     (committedFrame === null ||
-      isGpuFlowCommittedSurfaceFrameSampleCurrent({ committedFrame, sample }))
+      isGpuFlowPreparedContentFrameSampleCurrent({ committedFrame, sample }))
   );
 }
 
@@ -32,7 +32,7 @@ export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
   viewportFrame,
 }: {
   readonly committedFrame: Pick<
-    GpuFlowCommittedSurfaceFrame,
+    GpuFlowPreparedContentFrame,
     "coherence" | "viewportSample"
   > | null;
   readonly deferResolutionUpdates: boolean;
@@ -57,12 +57,12 @@ export function shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
   });
 }
 
-function isGpuFlowCommittedSurfaceFrameSampleCurrent({
+function isGpuFlowPreparedContentFrameSampleCurrent({
   committedFrame,
   sample,
 }: {
   readonly committedFrame: Pick<
-    GpuFlowCommittedSurfaceFrame,
+    GpuFlowPreparedContentFrame,
     "coherence" | "viewportSample"
   >;
   readonly sample: Pick<

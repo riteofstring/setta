@@ -1,4 +1,4 @@
-import { createGpuFlowCanonicalActorId } from "../committedSurfaceActorIdentity";
+import { createGpuFlowCanonicalActorId } from "../preparedContentActorIdentity";
 import type { GpuFlowTextControlCompatibilityProof } from "../projectionRuntime";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuRect } from "../viewportMath";

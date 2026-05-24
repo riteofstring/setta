@@ -51,7 +51,7 @@ describe("GPU flow DOM control projection runtime snapshot repair", () => {
       viewportStore,
     });
     browserVisualRuntime.setDomControlSnapshotTextureManager({
-      getCommittedSurfaceTexture: (surfaceId) =>
+      getPreparedContentTexture: (surfaceId) =>
         committedTextureBySurfaceId.get(surfaceId),
     });
 
@@ -137,7 +137,7 @@ describe("GPU flow DOM control projection runtime snapshot repair", () => {
       viewportStore,
     });
     browserVisualRuntime.setDomControlSnapshotTextureManager({
-      getCommittedSurfaceTexture: (surfaceId) =>
+      getPreparedContentTexture: (surfaceId) =>
         committedTextureBySurfaceId.get(surfaceId),
     });
     const snapshotSurfaceId =

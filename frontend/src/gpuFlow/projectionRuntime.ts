@@ -1,7 +1,7 @@
-import type { GpuFlowCommittedSurfaceFrame } from "./committedSurfaceFrame";
 import { DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY } from "./GpuFlow/visibleFrameReducerRuntime";
 import type { GpuCanvasSize, GpuFrameReason } from "./gpuRenderer";
 import type { GpuWheelGestureOwner } from "./interactions/wheelOwnership";
+import type { GpuFlowPreparedContentFrame } from "./preparedContentFrame";
 import type {
   GpuFlowHeldPreviousProjection,
   GpuFlowHeldPreviousProjectionDebugState,
@@ -27,8 +27,8 @@ export {
   hasGpuFlowVisibleFrameReducerDebt,
 } from "./GpuFlow/visibleFrameReducerRuntime";
 export type {
-  GpuFlowVisibleFrameReducerPolicy,
   GpuFlowVisibleFrameReducerDecision,
+  GpuFlowVisibleFrameReducerPolicy,
 } from "./GpuFlow/visibleFrameReducerRuntime";
 export {
   applyGpuFlowProjectionDebugAttributes,
@@ -142,7 +142,7 @@ export type GpuFlowProjectionDebugState = {
 } & GpuFlowHeldPreviousProjectionDebugState;
 
 export type GpuFlowVisibleProjectionState = {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly debugState: GpuFlowProjectionDebugState;
   readonly heldPreviousProjection: GpuFlowHeldPreviousProjection | null;
   readonly sample: GpuFlowLiveProjectionSample;
@@ -188,7 +188,7 @@ export function createGpuFlowProjectionHorizonObligations({
   committedFrame,
   sample,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly sample: GpuFlowLiveProjectionSample;
 }): GpuFlowProjectionHorizonObligationList {
   const actorById = new Map(
@@ -288,7 +288,7 @@ export function createGpuFlowProjectionTransaction({
   rawReasons,
   sample,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly kind: GpuFlowProjectionTransactionKind;
   readonly lane: GpuFlowProjectionLane;
   readonly rawReasons: readonly GpuFrameReason[];
@@ -355,7 +355,7 @@ export function createGpuFlowVisibleProjectionState({
   heldPreviousProjection = null,
   transaction,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly heldPreviousProjection?: GpuFlowHeldPreviousProjection | null;
   readonly transaction: GpuFlowProjectionTransaction;
 }): GpuFlowVisibleProjectionState {
@@ -381,7 +381,7 @@ function createProjectionHorizonObligationsForKind({
 }: {
   readonly actorById: ReadonlyMap<
     string,
-    GpuFlowCommittedSurfaceFrame["actorGenerations"][number]
+    GpuFlowPreparedContentFrame["actorGenerations"][number]
   >;
   readonly actorIds: readonly string[];
   readonly kind: GpuFlowProjectionHorizonObligationKind;
@@ -407,7 +407,7 @@ function createProjectionHorizonObligationsForKind({
 }
 
 function getProjectionHorizonAcceptableCoverage(
-  actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
+  actor: GpuFlowPreparedContentFrame["actorGenerations"][number],
 ): readonly GpuFlowProjectionCoverageState[] {
   switch (actor.textCoverageProof?.projectionCoverage) {
     case "blocked-awaiting-browser-visual":
@@ -428,7 +428,7 @@ function getProjectionHorizonAcceptableCoverage(
 }
 
 function getNonTextProjectionHorizonCoverage(
-  actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number],
+  actor: GpuFlowPreparedContentFrame["actorGenerations"][number],
 ): readonly GpuFlowProjectionCoverageState[] {
   if (
     actor.projectionReadiness !== "ready" &&
@@ -450,7 +450,7 @@ function getNonTextProjectionHorizonCoverage(
 function getProjectionHorizonBlockedReason({
   actor,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+  readonly actor: GpuFlowPreparedContentFrame["actorGenerations"][number];
 }): string | null {
   const proof = actor.textCoverageProof;
   const coverage = proof?.projectionCoverage;

@@ -98,10 +98,10 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "createGpuFlowVisibleFrameHoldPreviousTokenForProjectionState",
     );
     expect(visibleFrameDiagnosticsSource).not.toContain(
-      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
+      "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
     );
     expect(coordinatorSource).not.toContain(
-      "createGpuFlowCommittedSurfaceHeldPreviousPublicationTransaction",
+      "createGpuFlowPreparedContentHeldPreviousPublicationTransaction",
     );
     expect(coordinatorSource).toContain(
       "resolveGpuFlowPreparedContentFramePublicationReadiness",
@@ -194,7 +194,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
     const coordinatorSource =
       readVisibleFramePublicationCoordinatorAuthoritySource();
-    const candidateSource = readCommittedSurfaceAuthorityCandidateSource();
+    const candidateSource = readPreparedContentAuthorityCandidateSource();
     const publishBranchStart = coordinatorSource.indexOf(
       'if (publicationReadiness.kind === "publish")',
     );
@@ -232,7 +232,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "preparedContentFramePublicationCandidateAction.kind",
     );
     expect(flowFrameSource).not.toContain("onBlockedSurfacePublication");
-    expect(flowFrameSource).not.toContain("onCommittedSurfaceFramePublishable");
+    expect(flowFrameSource).not.toContain("onPreparedContentFramePublishable");
     expect(surfaceFrameSource).not.toContain(
       "prepareGpuFlowPreparedContentFramePublicationCandidate",
     );
@@ -259,7 +259,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "GpuFlowVisibleFramePresentationToken",
     );
     expect(candidateHandlingSource).not.toMatch(
-      /onCommittedSurfaceFramePublishable\?\.\([\s\S]{0,80}token/,
+      /onPreparedContentFramePublishable\?\.\([\s\S]{0,80}token/,
     );
   });
 
@@ -269,7 +269,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       "utf8",
     );
     const surfaceFrameSource = readSurfaceFramePublicationAuthoritySource();
-    const candidateSource = readCommittedSurfaceAuthorityCandidateSource();
+    const candidateSource = readPreparedContentAuthorityCandidateSource();
     const effectApplierStart = visibleFrameDiagnosticsSource.indexOf(
       "export function recordGpuFlowVisibleFramePresented",
     );
@@ -396,7 +396,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
       VISIBLE_FRAME_DIAGNOSTICS_MODULE_PATH,
       "utf8",
     );
-    const candidateSource = readCommittedSurfaceAuthorityCandidateSource();
+    const candidateSource = readPreparedContentAuthorityCandidateSource();
     const candidateHandlingSource = readFileSync(
       COMMITTED_SURFACE_CANDIDATE_ACTION_MODULE_PATH,
       "utf8",
@@ -1157,7 +1157,7 @@ function readVisibleFramePublicationCoordinatorAuthoritySource(): string {
     .join("\n");
 }
 
-function readCommittedSurfaceAuthorityCandidateSource(): string {
+function readPreparedContentAuthorityCandidateSource(): string {
   const source = readFileSync(STATE_MACHINE_MODULE_PATH, "utf8");
   const candidateStart = source.indexOf(
     "export function reduceGpuFlowPreparedContentFramePublicationCandidate",

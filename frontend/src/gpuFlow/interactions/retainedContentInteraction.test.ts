@@ -2,7 +2,7 @@
 
 import { NO_PAN_CLASS_NAME } from "utils/constants";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createGpuFlowStartupCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import { createGpuFlowStartupPreparedContentFrame } from "../preparedContentFrame";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleProjectionState,
@@ -497,7 +497,7 @@ describe("GPU retained content interaction controller", () => {
       viewport: [0, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+    const committedFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame,
     });
     const visibleProjectionState = createGpuFlowVisibleProjectionState({
@@ -575,7 +575,7 @@ describe("GPU retained content interaction controller", () => {
       viewport: [40, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+    const committedFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame,
     });
     const visibleProjectionState = createGpuFlowVisibleProjectionState({

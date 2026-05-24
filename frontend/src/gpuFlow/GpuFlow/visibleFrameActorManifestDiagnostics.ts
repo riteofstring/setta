@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import {
   createGpuFlowVisibleFrameActorManifest,
   createGpuFlowVisibleFrameActorProofsForManifest,
@@ -46,7 +46,7 @@ export function createGpuFlowVisibleFrameActorManifestDiagnostics({
   visibleOutcome = null,
 }: {
   readonly blockedReasons?: readonly GpuFlowBlockedVisibleReason[] | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame | null;
+  readonly frame: GpuFlowPreparedContentFrame | null;
   readonly presentationId?: string | null | undefined;
   readonly remainingDebt?: Record<string, boolean> | null | undefined;
   readonly visibleOutcome?: string | null | undefined;
@@ -78,7 +78,7 @@ function createGpuFlowVisibleFrameActorFamilyReadiness({
   blockedReasons,
 }: {
   readonly blockedReasons: readonly GpuFlowBlockedVisibleReason[];
-  readonly frame: GpuFlowCommittedSurfaceFrame | null;
+  readonly frame: GpuFlowPreparedContentFrame | null;
 }): GpuFlowVisibleFrameActorFamilyReadiness {
   const requiredActorsByFamily: Record<string, number> = {};
   const readyActorsByFamily: Record<string, number> = {};
@@ -166,7 +166,7 @@ function createGpuFlowVisibleFrameBlockedActorsByFamily(
 }
 
 function createGpuFlowVisibleFrameScrollHorizonCoverage(
-  frame: GpuFlowCommittedSurfaceFrame | null,
+  frame: GpuFlowPreparedContentFrame | null,
 ): GpuFlowVisibleFrameActorManifestDiagnostics["scrollHorizonCoverage"] {
   const surfaces = frame?.projectionHorizon?.retainedScrollSurfaces ?? [];
   return Object.freeze({

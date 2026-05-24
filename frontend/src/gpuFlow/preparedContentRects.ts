@@ -1,6 +1,6 @@
 import type { GpuRect } from "./viewportMath";
 
-export function intersectCommittedSurfaceFrameRects(
+export function intersectPreparedContentFrameRects(
   left: GpuRect,
   right: GpuRect,
 ): GpuRect {
@@ -16,6 +16,6 @@ export function intersectCommittedSurfaceFrameRects(
   };
 }
 
-export function isPositiveCommittedSurfaceRect(rect: GpuRect): boolean {
+export function isPositivePreparedContentRect(rect: GpuRect): boolean {
   return rect.width > 0 && rect.height > 0;
 }

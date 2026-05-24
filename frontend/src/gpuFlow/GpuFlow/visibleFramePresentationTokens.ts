@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type {
   GpuFlowLiveProjectionSample,
   GpuFlowVisibleProjectionState,
@@ -127,7 +127,7 @@ type GpuFlowVisibleFramePresentationTokenIssuer = {
   }) => GpuFlowBlockedPublicationToken;
   readonly createPresentationToken: (input: {
     readonly presentationAuthorityProof: GpuFlowPresentationAuthorityProof;
-    readonly frame: GpuFlowCommittedSurfaceFrame;
+    readonly frame: GpuFlowPreparedContentFrame;
     readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity;
     readonly projectionSample: GpuFlowLiveProjectionSample;
   }) => GpuFlowVisibleFramePresentationToken;
@@ -169,7 +169,7 @@ function createGpuFlowPresentableFrame({
   presentationIdentity,
   projectionSample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly presentationAuthorityProof: GpuFlowPresentationAuthorityProof;
   readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity;
   readonly projectionSample: GpuFlowLiveProjectionSample;
@@ -303,7 +303,7 @@ function assertGpuFlowVisibleFramePresentationIdentity({
   presentationIdentity,
   projectionSample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): void {
@@ -383,7 +383,7 @@ export function assertGpuFlowVisibleFramePresentationToken({
   frame,
   token,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   if (
@@ -422,7 +422,7 @@ export function assertGpuFlowVisibleFramePresentationTokenForPresentationProof({
   frame,
   token,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
   if (
@@ -656,7 +656,7 @@ function createGpuFlowVisibleTransactionId({
   frame,
   projectionSample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): GpuFlowVisibleTransactionId {
   return `present:frame-${frame.displayFrameId}:sample-${projectionSample.id}`;

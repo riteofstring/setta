@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type {
   ProtectedSurfaceResourceHandle,
@@ -260,7 +260,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
           visibleNonempty: true,
         },
       ],
-    } as unknown as GpuFlowCommittedSurfaceFrame;
+    } as unknown as GpuFlowPreparedContentFrame;
 
     registry.registerPreparedContentFrame({
       browserVisualCandidate: browserVisualCandidate({
@@ -821,16 +821,16 @@ function preparedContentFrame({
   readonly protectedResourceHandles?:
     | readonly ProtectedSurfaceResourceHandle[]
     | undefined;
-}): GpuFlowCommittedSurfaceFrame {
+}): GpuFlowPreparedContentFrame {
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   const actorGenerations =
@@ -892,13 +892,13 @@ function preparedContentFrame({
     actorGenerations,
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       actorGenerations:
-        actorGenerations as unknown as GpuFlowCommittedSurfaceFrame["actorGenerations"],
+        actorGenerations as unknown as GpuFlowPreparedContentFrame["actorGenerations"],
       coherence,
       displayFrameId,
       surfaceTransaction:
-        surfaceTransaction as unknown as GpuFlowCommittedSurfaceFrame["surfaceTransaction"],
+        surfaceTransaction as unknown as GpuFlowPreparedContentFrame["surfaceTransaction"],
     }),
     projectionHorizon: {
       textActorCoverage: {
@@ -915,7 +915,7 @@ function preparedContentFrame({
       kind: "publishable",
     },
     surfaceTransaction,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function browserVisualCandidate({

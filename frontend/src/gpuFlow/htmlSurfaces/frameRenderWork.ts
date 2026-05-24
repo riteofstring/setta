@@ -41,7 +41,7 @@ import type { HtmlSurfaceVisualScene } from "./visualScene";
 
 export type GpuNodeTextureController = Pick<
   HtmlSurfaceTextureManager,
-  | "getCommittedSurfaceTexture"
+  | "getPreparedContentTexture"
   | "getMemorySnapshot"
   | "getSurfaceTextureLifecycleDiagnostics"
   | "evictSurfaceTextures"
@@ -571,7 +571,7 @@ function shouldDeferHtmlSurfaceUploadUntilPaint({
   readonly surfaceId: string;
   readonly textureManager: Pick<
     GpuNodeTextureController,
-    "getCommittedSurfaceTexture"
+    "getPreparedContentTexture"
   >;
 }): boolean {
   if (priority === "critical" || priority === "interactive") {
@@ -580,7 +580,7 @@ function shouldDeferHtmlSurfaceUploadUntilPaint({
   if (!isCaptureOnlyHtmlSurfaceSource(element)) {
     return false;
   }
-  const texture = textureManager.getCommittedSurfaceTexture(surfaceId);
+  const texture = textureManager.getPreparedContentTexture(surfaceId);
   return !texture || texture.lastUploadFrame < 0;
 }
 
@@ -590,7 +590,9 @@ function isCaptureOnlyHtmlSurfaceSource(element: Element): boolean {
   );
 }
 
-function isBrowserVisualPreparationHtmlSurfaceSource(element: Element): boolean {
+function isBrowserVisualPreparationHtmlSurfaceSource(
+  element: Element,
+): boolean {
   return (
     element.getAttribute(
       HTML_SURFACE_BROWSER_VISUAL_PREPARATION_SOURCE_ATTRIBUTE,

@@ -1,8 +1,8 @@
-import { isGpuFlowCommittedSurfaceCompletenessBlockingActor } from "../committedSurfaceCompleteness";
+import { isGpuFlowPreparedContentCompletenessBlockingActor } from "../preparedContentCompleteness";
 import type {
-  GpuFlowCommittedSurfaceActorGeneration,
-  GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+  GpuFlowPreparedContentActorGeneration,
+  GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import { readGpuFlowBrowserVisualFaultInjection } from "./visibleFrameActorAdapters/browserVisualFaultInjection";
 
 export type GpuFlowVisibleFrameCommittedActorRequirement =
@@ -15,7 +15,7 @@ export function getGpuFlowVisibleFrameCommittedActorRequirement({
   startup,
 }: {
   readonly activeEditorPublicationPending: boolean;
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly startup: boolean;
 }): GpuFlowVisibleFrameCommittedActorRequirement {
   if (
@@ -32,7 +32,7 @@ export function getGpuFlowVisibleFrameCommittedActorRequirement({
 }
 
 export function hasGpuFlowVisibleFrameActiveEditorPublication(
-  frame: GpuFlowCommittedSurfaceFrame,
+  frame: GpuFlowPreparedContentFrame,
 ): boolean {
   return (frame.actorGenerations ?? []).some(
     (actor) =>
@@ -42,7 +42,7 @@ export function hasGpuFlowVisibleFrameActiveEditorPublication(
 }
 
 export function isGpuFlowVisibleFrameActiveEditorRepresentation(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): boolean {
   return (
     actor.active || actor.browserVisual?.representationKind === "active-editor"
@@ -50,7 +50,7 @@ export function isGpuFlowVisibleFrameActiveEditorRepresentation(
 }
 
 function isGpuFlowVisibleFramePassiveLiveDomBudgetActor(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): boolean {
   return (
     !hasGpuFlowBrowserVisualReadinessFaultInjection(actor) &&
@@ -67,13 +67,13 @@ function isGpuFlowVisibleFramePassiveSnapshotPendingActor({
   actor,
   startup,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly startup: boolean;
 }): boolean {
   return (
     !startup &&
     !hasGpuFlowBrowserVisualReadinessFaultInjection(actor) &&
-    !isGpuFlowCommittedSurfaceCompletenessBlockingActor({ actor, startup }) &&
+    !isGpuFlowPreparedContentCompletenessBlockingActor({ actor, startup }) &&
     hasGpuFlowVisibleFrameTextCoverage({
       actor,
       projectionCoverage: "blocked-awaiting-browser-visual",
@@ -87,7 +87,7 @@ function isGpuFlowVisibleFramePassiveSnapshotPendingDuringActiveEditor({
   actor,
 }: {
   readonly activeEditorPublicationPending: boolean;
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
 }): boolean {
   return (
     activeEditorPublicationPending &&
@@ -102,7 +102,7 @@ function isGpuFlowVisibleFramePassiveSnapshotPendingDuringActiveEditor({
 }
 
 function hasGpuFlowBrowserVisualReadinessFaultInjection(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): boolean {
   return (
     actor.browserVisual?.readinessFaultInjected === true ||
@@ -115,9 +115,9 @@ function hasGpuFlowVisibleFrameTextCoverage({
   projectionCoverage,
   readinessReason,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly projectionCoverage: NonNullable<
-    GpuFlowCommittedSurfaceActorGeneration["textCoverageProof"]
+    GpuFlowPreparedContentActorGeneration["textCoverageProof"]
   >["projectionCoverage"];
   readonly readinessReason: string;
 }): boolean {

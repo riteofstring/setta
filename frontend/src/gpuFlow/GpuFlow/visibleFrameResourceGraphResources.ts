@@ -1,8 +1,8 @@
-import { isGpuFlowCommittedSurfaceCompletenessBlockingActor } from "../committedSurfaceCompleteness";
+import { isGpuFlowPreparedContentCompletenessBlockingActor } from "../preparedContentCompleteness";
 import type {
-  GpuFlowCommittedSurfaceActorGeneration,
-  GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+  GpuFlowPreparedContentActorGeneration,
+  GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import type { SurfaceResourceHandle } from "../surfaceCompositor/surfaceCoverage";
 import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
 import { GPU_FLOW_PRESENTATION_ACTOR_FAMILIES } from "./visibleFrameActorManifest";
@@ -30,7 +30,7 @@ export type GpuFlowVisibleFrameCandidateResourceEntry = {
   readonly actorResourceKeys: readonly string[];
   readonly browserVisualCandidate: GpuFlowBrowserVisualActorCandidate;
   readonly candidateResourceKeys: readonly string[];
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly requiredResourceKeys: readonly string[];
 };
 
@@ -45,7 +45,7 @@ export type GpuFlowVisibleFrameCandidateResourceRequest = {
 };
 
 export function createGpuFlowVisibleFramePresentationResourceProtectionReport(
-  committedFrame: GpuFlowCommittedSurfaceFrame | null,
+  committedFrame: GpuFlowPreparedContentFrame | null,
 ): GpuFlowVisibleFramePresentationResourceProtectionReport {
   if (committedFrame === null) {
     return createGpuFlowVisibleFramePresentationResourceProtectionReportFromKeys(
@@ -66,7 +66,7 @@ export function createGpuFlowVisibleFramePresentationResourceProtectionReport(
 }
 
 export function createGpuFlowVisibleFramePresentationResourceBlockedReasons(
-  committedFrame: GpuFlowCommittedSurfaceFrame,
+  committedFrame: GpuFlowPreparedContentFrame,
 ): readonly GpuFlowBlockedVisibleReason[] {
   return Object.freeze(
     createGpuFlowVisibleFramePresentationResourceProtectionReport(
@@ -290,7 +290,7 @@ export function createGpuFlowVisibleFrameCandidateResourceEntry({
   frame,
 }: {
   readonly browserVisualCandidate: GpuFlowBrowserVisualActorCandidate;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
 }): GpuFlowVisibleFrameCandidateResourceEntry {
   const requiredResourceKeys =
     createGpuFlowVisibleFramePresentationRequiredResourceKeys(frame);
@@ -341,7 +341,7 @@ function createGpuFlowVisibleFramePresentationResourceProtectionReportFromKeys({
 }
 
 function createGpuFlowVisibleFramePresentationRequiredResourceKeys(
-  committedFrame: GpuFlowCommittedSurfaceFrame,
+  committedFrame: GpuFlowPreparedContentFrame,
 ): readonly string[] {
   return createGpuFlowVisibleFramePresentationResourceKeys(
     getGpuFlowVisibleFramePresentationRequiredResourceHandles(committedFrame),
@@ -349,7 +349,7 @@ function createGpuFlowVisibleFramePresentationRequiredResourceKeys(
 }
 
 function createGpuFlowVisibleFramePresentationProtectedResourceKeys(
-  committedFrame: GpuFlowCommittedSurfaceFrame,
+  committedFrame: GpuFlowPreparedContentFrame,
 ): readonly string[] {
   return createGpuFlowVisibleFramePresentationResourceKeys([
     ...(committedFrame.surfaceTransaction?.protectedResourceHandles ?? []),
@@ -359,7 +359,7 @@ function createGpuFlowVisibleFramePresentationProtectedResourceKeys(
 }
 
 function getGpuFlowVisibleFramePresentationRequiredResourceHandles(
-  committedFrame: GpuFlowCommittedSurfaceFrame,
+  committedFrame: GpuFlowPreparedContentFrame,
 ): readonly SurfaceResourceHandle[] {
   return [
     ...committedFrame.actorGenerations.flatMap((actor) =>
@@ -381,11 +381,11 @@ function getGpuFlowVisibleFramePresentationActorRequiredResourceHandles({
   actor,
   startup,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly startup: boolean;
 }): readonly SurfaceResourceHandle[] {
   if (
-    !isGpuFlowCommittedSurfaceCompletenessBlockingActor({
+    !isGpuFlowPreparedContentCompletenessBlockingActor({
       actor,
       startup,
     })
@@ -527,7 +527,7 @@ function createGpuFlowBrowserVisualCandidateResourceKeys(
 }
 
 function createGpuFlowVisibleFrameCandidateActorResourceKeys(
-  frame: GpuFlowCommittedSurfaceFrame,
+  frame: GpuFlowPreparedContentFrame,
 ): readonly string[] {
   return uniqueStrings([
     ...GPU_FLOW_PRESENTATION_ACTOR_FAMILIES.map((family) =>

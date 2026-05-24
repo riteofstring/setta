@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../../preparedContentFrame";
 import type { GpuFlowPreparedContentFramePublicationCandidate } from "../visibleFrameContentPlan";
 
 export type GpuFlowBlockedPreparedContentFrameCandidate = Extract<
@@ -8,7 +8,7 @@ export type GpuFlowBlockedPreparedContentFrameCandidate = Extract<
 
 export type GpuFlowPreparedContentFrameCandidateAction =
   | {
-      readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
+      readonly preparedContentFrame: GpuFlowPreparedContentFrame | null;
       readonly kind: "publish";
     }
   | {

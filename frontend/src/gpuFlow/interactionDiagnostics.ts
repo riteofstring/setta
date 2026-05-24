@@ -152,14 +152,14 @@ export type GpuFlowPresentedContentFrameDebugEntry = {
   readonly displayFrameId: number;
   readonly displayCompletenessStatus: string;
   readonly domControlActorCount: number;
-  readonly domControlCommittedFrameId: number;
+  readonly domControlPreparedFrameId: number;
   readonly domIslandActorCount: number;
-  readonly domIslandCommittedFrameId: number;
+  readonly domIslandPreparedFrameId: number;
   readonly gpuNativeVisualActorCount: number;
-  readonly gpuNativeVisualCommittedFrameId: number;
+  readonly gpuNativeVisualPreparedFrameId: number;
   readonly hitGenerationId: string;
   readonly htmlTextureActorCount: number;
-  readonly htmlTextureOverlayCommittedFrameId: number;
+  readonly htmlTextureOverlayPreparedFrameId: number;
   readonly presentationId:
     | GpuFlowVisibleFramePresentationIdentity["presentationId"]
     | null;

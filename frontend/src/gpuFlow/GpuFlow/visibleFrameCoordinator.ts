@@ -55,8 +55,8 @@ import {
 
 export { createGpuFlowContentPublicationFrameResult } from "./visibleFrameContentPlan";
 export type {
-  GpuFlowCommittedSurfaceBlockedCandidateResourceWork,
   GpuFlowContentPublicationFrameResult,
+  GpuFlowPreparedContentBlockedCandidateResourceWork,
   GpuFlowPreparedContentFramePublicationCandidate,
   GpuFlowPreparedContentFramePublicationCandidateInput,
   GpuFlowPreparedContentFramePublicationCandidatePreparer,

@@ -1,7 +1,7 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 
 export function getGpuFlowPreparedContentFrameProtectedTextureSurfaceIds(
-  frame: GpuFlowCommittedSurfaceFrame | void,
+  frame: GpuFlowPreparedContentFrame | void,
 ): readonly string[] {
   const transaction = frame?.surfaceTransaction;
   if (!transaction) {

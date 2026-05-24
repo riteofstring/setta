@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import {
   getGpuFlowBrowserStyleBlockedReasonFamily,
   getGpuFlowBrowserStyleVisibleFrameActorFamily,
 } from "./visibleFrameActorRegistry";
 
-type CommittedActor = GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+type CommittedActor = GpuFlowPreparedContentFrame["actorGenerations"][number];
 
 describe("GPU Flow browser-style visible frame actor registry", () => {
   it("classifies text-like controls by their browser-owned presentation", () => {

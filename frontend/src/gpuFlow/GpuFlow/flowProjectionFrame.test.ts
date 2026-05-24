@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { HtmlSurfaceFlatVisual } from "../htmlSurfaces/visualScene";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleFrameReducerRuntime,
@@ -471,7 +471,7 @@ describe("GPU flow projection frame coverage", () => {
       heldPreviousProjectionState: createGpuFlowVisibleProjectionState({
         committedFrame: {
           displayFrameId: 11,
-        } as GpuFlowCommittedSurfaceFrame,
+        } as GpuFlowPreparedContentFrame,
         heldPreviousProjection: firstHeld.heldPreviousProjection,
         transaction: firstHeld.transaction,
       }),
@@ -553,7 +553,7 @@ describe("GPU flow projection frame coverage", () => {
       heldPreviousProjectionState: createGpuFlowVisibleProjectionState({
         committedFrame: {
           displayFrameId: 11,
-        } as GpuFlowCommittedSurfaceFrame,
+        } as GpuFlowPreparedContentFrame,
         heldPreviousProjection: firstHeld.heldPreviousProjection,
         transaction: firstHeld.transaction,
       }),
@@ -748,7 +748,7 @@ function visibleProjectionState({
   return createGpuFlowVisibleProjectionState({
     committedFrame: {
       displayFrameId: committedFrameId,
-    } as GpuFlowCommittedSurfaceFrame,
+    } as GpuFlowPreparedContentFrame,
     transaction,
   });
 }

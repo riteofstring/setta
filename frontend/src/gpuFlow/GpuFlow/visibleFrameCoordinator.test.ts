@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
+import {
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleFrameReducerRuntime,
@@ -36,7 +36,7 @@ const createGpuFlowVisibleFramePresentableFrameProof = ({
   committedFrame,
   reducerDecision,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }) => {
   const projectionTransactionId = `transaction:content-publication:${reducerDecision.sample.id}`;
@@ -569,7 +569,7 @@ describe("GPU Flow visible frame coordinator", () => {
       });
       const candidate = preparePreparedContentFramePublicationCandidateForTest({
         heldPreviousProjectionState: previousVisibleProjectionState,
-        preparedContentFrame: blockedCommittedSurfaceFrame({
+        preparedContentFrame: blockedPreparedContentFrame({
           actorFamily,
           projectionCoverage,
           readinessReason,
@@ -607,7 +607,7 @@ describe("GPU Flow visible frame coordinator", () => {
           maxHeldPreviousMsExceeded: true,
         } as GpuFlowVisibleProjectionState["heldPreviousProjection"],
       },
-      preparedContentFrame: blockedCommittedSurfaceFrame({
+      preparedContentFrame: blockedPreparedContentFrame({
         actorFamily: "dom-control",
         projectionCoverage: "blocked-awaiting-browser-visual",
         readinessReason: "snapshot-pending",
@@ -640,7 +640,7 @@ function visibleProjectionState({
   sample,
   transaction,
 }: {
-  readonly committedFrame?: GpuFlowCommittedSurfaceFrame | undefined;
+  readonly committedFrame?: GpuFlowPreparedContentFrame | undefined;
   readonly heldPreviousProjection?:
     | GpuFlowVisibleProjectionState["heldPreviousProjection"]
     | undefined;
@@ -693,24 +693,24 @@ function visibleProjectionState({
   };
 }
 
-function preparedContentFrame(): GpuFlowCommittedSurfaceFrame {
+function preparedContentFrame(): GpuFlowPreparedContentFrame {
   const displayFrameId = 7;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
     actorGenerations: [],
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       coherence,
       displayFrameId,
     }),
@@ -729,7 +729,7 @@ function preparedContentFrame(): GpuFlowCommittedSurfaceFrame {
       kind: "publishable",
     },
     surfaceTransaction: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function preparedContentFrameWithCompatiblePreviousCoverage({
@@ -740,7 +740,7 @@ function preparedContentFrameWithCompatiblePreviousCoverage({
   readonly actualInteractionProof?: string | undefined;
   readonly budgetState?: "over-budget" | "within-budget" | undefined;
   readonly requiredInteractionProof?: string | undefined;
-} = {}): GpuFlowCommittedSurfaceFrame {
+} = {}): GpuFlowPreparedContentFrame {
   return {
     ...preparedContentFrame(),
     actorGenerations: [
@@ -813,7 +813,7 @@ function preparedContentFrameWithCompatiblePreviousCoverage({
         zOrder: [],
       },
     },
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function preparePreparedContentFramePublicationCandidateForTest({
@@ -823,7 +823,7 @@ function preparePreparedContentFramePublicationCandidateForTest({
 }: {
   readonly heldPreviousProjectionState: GpuFlowVisibleProjectionState | null;
   readonly liveSample?: GpuFlowLiveProjectionSample | undefined;
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame;
 }) {
   return preparePreparedContentFramePublicationFramePlanForTest({
     committedGpuNativeVisuals: undefined,
@@ -836,7 +836,7 @@ function preparePreparedContentFramePublicationCandidateForTest({
   }).candidate;
 }
 
-function blockedCommittedSurfaceFrame({
+function blockedPreparedContentFrame({
   actorFamily,
   projectionCoverage,
   readinessReason,
@@ -846,7 +846,7 @@ function blockedCommittedSurfaceFrame({
     | "blocked-awaiting-browser-visual"
     | "blocked-awaiting-live-host";
   readonly readinessReason: "live-dom-budget" | "snapshot-pending";
-}): GpuFlowCommittedSurfaceFrame {
+}): GpuFlowPreparedContentFrame {
   return {
     actorGenerations: [
       {
@@ -884,7 +884,7 @@ function blockedCommittedSurfaceFrame({
       kind: "hold-previous",
       reason: "visible-dom-control-not-projected",
     },
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function retainedDisplayFrame(): RetainedDisplayFrame {

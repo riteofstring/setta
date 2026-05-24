@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "./committedSurfaceFrame";
 import { createGpuFlowVisibleFramePresentationTokenForTest } from "./GpuFlow/visibleFrameTestUtils";
+import {
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "./preparedContentFrame";
 import { createGpuFlowPresentedSurfaceRuntime } from "./presentedSurfaceRuntime";
 import type { GpuFlowLiveProjectionSample } from "./projectionRuntime";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
@@ -221,19 +221,19 @@ function committedFrame({
   displayFrameId,
 }: {
   readonly actorGenerations?:
-    | GpuFlowCommittedSurfaceFrame["actorGenerations"]
+    | GpuFlowPreparedContentFrame["actorGenerations"]
     | undefined;
   readonly displayFrameId: number;
-}): GpuFlowCommittedSurfaceFrame {
+}): GpuFlowPreparedContentFrame {
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
@@ -257,7 +257,7 @@ function committedFrame({
     } as unknown as GpuRetainedRuntimeFrame,
     sceneRevision: 1,
     coherence,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       actorGenerations,
       coherence,
       displayFrameId,
@@ -277,12 +277,12 @@ function committedFrame({
       kind: "publishable",
     },
     surfaceTransaction: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 function committedActor(
   actorId: string,
-): GpuFlowCommittedSurfaceFrame["actorGenerations"][number] {
+): GpuFlowPreparedContentFrame["actorGenerations"][number] {
   return {
     actorFamily: "dom-control",
     actorId,
@@ -292,15 +292,15 @@ function committedActor(
     layoutProjectionGenerationId: `layout:${actorId}`,
     ownerSurfaceId: `surface:${actorId}`,
     textCoverageProof: null,
-  } as GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+  } as GpuFlowPreparedContentFrame["actorGenerations"][number];
 }
 
-function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
+function publicationToken(frame: GpuFlowPreparedContentFrame) {
   return publicationTokenForSample(frame, frame.displayFrameId);
 }
 
 function publicationTokenForSample(
-  frame: GpuFlowCommittedSurfaceFrame,
+  frame: GpuFlowPreparedContentFrame,
   sampleId: number,
 ) {
   return createGpuFlowVisibleFramePresentationTokenForTest({

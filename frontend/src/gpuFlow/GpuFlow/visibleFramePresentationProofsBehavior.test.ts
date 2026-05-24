@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import {
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
   type GpuFlowLiveProjectionSample,
@@ -44,12 +44,12 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
       createGpuFlowVisibleFramePresentationTokenForTest({
         frame: preparedContentFrame({
           coherence: {
-            domControlCommittedFrameId: 42,
+            domControlPreparedFrameId: 42,
           },
         }),
         projectionSample: liveProjectionSample(),
       }),
-    ).toThrow(/DOM and canvas generations for the same committed frame/);
+    ).toThrow(/DOM and canvas generations for the same prepared frame/);
   });
 
   it("rejects presentation authority when the DOM generation is not staged and exposable", () => {
@@ -66,7 +66,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
               staged: false,
             },
           },
-        } as unknown as GpuFlowCommittedSurfaceFrame,
+        } as unknown as GpuFlowPreparedContentFrame,
         projectionSample: liveProjectionSample(),
       }),
     ).toThrow(/DOM generation staged and exposable/);
@@ -86,7 +86,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
               prepared: false,
             },
           },
-        } as unknown as GpuFlowCommittedSurfaceFrame,
+        } as unknown as GpuFlowPreparedContentFrame,
         projectionSample: liveProjectionSample(),
       }),
     ).toThrow(/canvas generation prepared and exposable/);
@@ -106,7 +106,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
               presentationBatchId: "presentation:other",
             },
           },
-        } as unknown as GpuFlowCommittedSurfaceFrame,
+        } as unknown as GpuFlowPreparedContentFrame,
         projectionSample: liveProjectionSample(),
       }),
     ).toThrow(/same presentation batch/);
@@ -359,14 +359,14 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
             actualVisual,
           }),
         },
-      } as unknown as GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+      } as unknown as GpuFlowPreparedContentFrame["actorGenerations"][number];
 
       expect(() =>
         createGpuFlowVisibleFramePresentationTokenForTest({
           frame: {
             ...frame,
             actorGenerations: [changedActor],
-          } as unknown as GpuFlowCommittedSurfaceFrame,
+          } as unknown as GpuFlowPreparedContentFrame,
           projectionSample: liveProjectionSample(),
         }),
       ).toThrow(/actor manifest and browser visual resources/);
@@ -391,7 +391,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
               presentationBatchId: "presentation:stale-dom",
             },
           },
-        } as unknown as GpuFlowCommittedSurfaceFrame,
+        } as unknown as GpuFlowPreparedContentFrame,
         token,
       }),
     ).toThrow(/visible frame presentation token for the same visible frame/);
@@ -848,7 +848,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
   projectionSample,
 }: {
   readonly presentationAuthorityProof: GpuFlowPresentationAuthorityProof;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }): void {
   proveGpuFlowVisibleFramePublicationPresentation({
@@ -935,7 +935,7 @@ function presentationPairProof({
   frame,
   projectionSample,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly projectionSample: GpuFlowLiveProjectionSample;
 }) {
   return {
@@ -973,26 +973,26 @@ function preparedContentFrame({
   surfaceTransaction = null,
 }: {
   readonly actorGenerations?:
-    | readonly GpuFlowCommittedSurfaceFrame["actorGenerations"][number][]
+    | readonly GpuFlowPreparedContentFrame["actorGenerations"][number][]
     | undefined;
   readonly coherence?:
-    | Partial<GpuFlowCommittedSurfaceFrame["coherence"]>
+    | Partial<GpuFlowPreparedContentFrame["coherence"]>
     | undefined;
   readonly publishability?:
-    | Partial<GpuFlowCommittedSurfaceFrame["publishability"]>
+    | Partial<GpuFlowPreparedContentFrame["publishability"]>
     | undefined;
   readonly surfaceTransaction?: SurfaceDisplayTransaction | null | undefined;
-} = {}): GpuFlowCommittedSurfaceFrame {
+} = {}): GpuFlowPreparedContentFrame {
   const displayFrameId = 7;
   const committedCoherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
     ...coherence,
   };
@@ -1000,7 +1000,7 @@ function preparedContentFrame({
     actorGenerations,
     coherence: committedCoherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       actorGenerations,
       coherence: committedCoherence,
       displayFrameId,
@@ -1022,11 +1022,11 @@ function preparedContentFrame({
       ...publishability,
     },
     surfaceTransaction,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
 type CommittedBrowserVisualProof = NonNullable<
-  GpuFlowCommittedSurfaceFrame["actorGenerations"][number]["browserVisual"]
+  GpuFlowPreparedContentFrame["actorGenerations"][number]["browserVisual"]
 >["proof"];
 
 function committedActorGeneration({
@@ -1037,9 +1037,9 @@ function committedActorGeneration({
   readonly actorId: string;
   readonly proof?: CommittedBrowserVisualProof | null | undefined;
   readonly resourceHandles: NonNullable<
-    GpuFlowCommittedSurfaceFrame["actorGenerations"][number]["browserVisual"]
+    GpuFlowPreparedContentFrame["actorGenerations"][number]["browserVisual"]
   >["resourceHandles"];
-}): GpuFlowCommittedSurfaceFrame["actorGenerations"][number] {
+}): GpuFlowPreparedContentFrame["actorGenerations"][number] {
   return {
     actorFamily: "text-like-dom-control",
     actorId,
@@ -1056,7 +1056,7 @@ function committedActorGeneration({
     layoutProjectionGenerationId: `layout:${actorId}`,
     ownerSurfaceId: `surface:${actorId}`,
     textCoverageProof: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+  } as unknown as GpuFlowPreparedContentFrame["actorGenerations"][number];
 }
 
 function browserVisualProof({

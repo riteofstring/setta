@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { RetainedContentTexturePagePreparedFrame } from "../retainedContentTexturePageManager";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { createGpuFlowVisibleFramePresentationContentDecisionKernel } from "./visibleFrameActorAdapters/contentDecisionKernel";
@@ -45,7 +45,7 @@ describe("GPU Flow retained display candidate content plans", () => {
 
   it("reports visible true-hole blockers from prepared content frame candidates", () => {
     const retainedFrame = {} as RetainedDisplayFrame;
-    const committedFrame = trueHoleCommittedSurfaceFrame();
+    const committedFrame = trueHolePreparedContentFrame();
     const result =
       runGpuFlowRetainedPreparedContentFramePublicationContentStage<
         Record<string, never>,
@@ -115,7 +115,7 @@ describe("GPU Flow retained display candidate content plans", () => {
 
   it("reports retained true-hole blockers without publishing a surface transaction", () => {
     const retainedFrame = {} as RetainedDisplayFrame;
-    const committedFrame = retainedTrueHoleCommittedSurfaceFrame();
+    const committedFrame = retainedTrueHolePreparedContentFrame();
     const result =
       runGpuFlowRetainedPreparedContentFramePublicationContentStage<
         Record<string, never>,
@@ -207,7 +207,7 @@ function retainedDisplayPublicationInputFixture({
   };
 }
 
-function trueHoleCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+function trueHolePreparedContentFrame(): GpuFlowPreparedContentFrame {
   return {
     actorGenerations: [
       {
@@ -234,10 +234,10 @@ function trueHoleCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
       transactionOutcome: "publish-exact",
       visibleNonemptyTextActorCount: 1,
     },
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
-function retainedTrueHoleCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+function retainedTrueHolePreparedContentFrame(): GpuFlowPreparedContentFrame {
   return {
     actorGenerations: [],
     displayFrameId: 13,
@@ -253,5 +253,5 @@ function retainedTrueHoleCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
       transactionOutcome: "publish-exact",
       visibleNonemptyTextActorCount: 0,
     },
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }

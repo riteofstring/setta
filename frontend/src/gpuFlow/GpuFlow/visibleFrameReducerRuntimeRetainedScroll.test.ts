@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createGpuFlowCommittedSurfacePresentationProof,
-  type GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
+  createGpuFlowPreparedContentPresentationProof,
+  type GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import {
   createGpuFlowVisibleFrameReducerRuntime,
@@ -376,17 +376,17 @@ function liveSample(
 
 function committedFrameForReducerToken(
   decision: GpuFlowVisibleFrameReducerDecision,
-): GpuFlowCommittedSurfaceFrame {
+): GpuFlowPreparedContentFrame {
   const displayFrameId = decision.sample.id;
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip-chain",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: "hit-generation",
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
@@ -404,7 +404,7 @@ function committedFrameForReducerToken(
       transactionOutcome: "content-publication",
     },
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       coherence,
       displayFrameId,
     }),
@@ -424,5 +424,5 @@ function committedFrameForReducerToken(
     },
     surfaceTransaction: null,
     viewportSample: { x: 0, y: 0, zoom: 1 },
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }

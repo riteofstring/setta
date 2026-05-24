@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 import {
   createGpuFlowNodeLayerPreparedContentFramePublicationResult,
@@ -50,8 +50,8 @@ export {
 } from "./visibleFrameStateMachineReduction";
 export type {
   GpuFlowVisibleFrameLaneReductionFacts,
-  GpuFlowVisibleFrameWorkLane,
   GpuFlowVisibleFrameStarvationPolicy,
+  GpuFlowVisibleFrameWorkLane,
 } from "./visibleFrameStateMachineReduction";
 
 const GPU_FLOW_VISIBLE_FRAME_STATE_MACHINE_OUTCOME = Symbol(
@@ -130,7 +130,7 @@ export function selectGpuFlowPreparedContentFramePublicationFramePlan({
   preparedContentFrame,
 }: {
   readonly candidate: GpuFlowPreparedContentFramePublicationCandidate;
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }): GpuFlowPreparedContentFramePublicationFramePlan {
   const action = resolveGpuFlowPreparedContentFrameCandidateAction({
     candidate,
@@ -222,7 +222,7 @@ function resolveGpuFlowPreparedContentFrameCandidateAction({
   preparedContentFrame,
 }: {
   readonly candidate: GpuFlowPreparedContentFramePublicationCandidate;
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | void;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | void;
 }): GpuFlowPreparedContentFrameCandidateAction {
   switch (candidate.kind) {
     case "nonpublishable":

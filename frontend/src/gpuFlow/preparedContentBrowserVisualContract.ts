@@ -1,6 +1,6 @@
 import type { BrowserVisualActor } from "./surfaceCompositor/browserVisualActorAdapter";
 
-export type GpuFlowCommittedSurfaceBrowserVisualContract = Pick<
+export type GpuFlowPreparedContentBrowserVisualContract = Pick<
   BrowserVisualActor,
   | "coverageExemption"
   | "coverageRequired"

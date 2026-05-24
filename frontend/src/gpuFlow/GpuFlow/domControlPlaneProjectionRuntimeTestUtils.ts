@@ -1,9 +1,9 @@
-import type {
-  GpuFlowCommittedSurfaceBrowserVisualReadiness,
-  GpuFlowCommittedSurfaceFrame,
-} from "../committedSurfaceFrame";
-import { createGpuFlowCommittedSurfacePresentationProof } from "../committedSurfaceFrame";
 import type { CommittedHtmlSurfaceTextureSnapshot } from "../htmlSurfaces/textures";
+import type {
+  GpuFlowPreparedContentBrowserVisualReadiness,
+  GpuFlowPreparedContentFrame,
+} from "../preparedContentFrame";
+import { createGpuFlowPreparedContentPresentationProof } from "../preparedContentFrame";
 import { createGpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
@@ -80,7 +80,7 @@ export function createPresentedSurfaceRuntimeWithBrowserVisuals({
   viewportRuntime,
   viewportStore,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly getRetainedScrollOffset?:
     | GpuFlowRetainedScrollOffsetGetter
     | undefined;
@@ -108,7 +108,7 @@ export function publishBrowserVisualFrame({
   readonly presentedSurfaceRuntime: ReturnType<
     typeof createGpuFlowPresentedSurfaceRuntime
   >;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly getRetainedScrollOffset?:
     | GpuFlowRetainedScrollOffsetGetter
     | undefined;
@@ -172,23 +172,23 @@ export function preparedContentFrame({
 }: {
   readonly displayFrameId: number;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
-}): GpuFlowCommittedSurfaceFrame {
+}): GpuFlowPreparedContentFrame {
   const coherence = {
     canvasRetainedFrameId: displayFrameId,
     clipChainRevision: "clip",
     debugSnapshotFrameId: displayFrameId,
-    domControlCommittedFrameId: displayFrameId,
-    domIslandCommittedFrameId: displayFrameId,
-    gpuNativeVisualCommittedFrameId: displayFrameId,
+    domControlPreparedFrameId: displayFrameId,
+    domIslandPreparedFrameId: displayFrameId,
+    gpuNativeVisualPreparedFrameId: displayFrameId,
     hitGenerationId: `hit:${displayFrameId}`,
-    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    htmlTextureOverlayPreparedFrameId: displayFrameId,
     retainedScrollRevision: 0,
   };
   return {
     actorGenerations: [],
     coherence,
     displayFrameId,
-    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+    presentationProof: createGpuFlowPreparedContentPresentationProof({
       coherence,
       displayFrameId,
     }),
@@ -209,10 +209,10 @@ export function preparedContentFrame({
     retainedRuntimeFrame,
     sceneRevision: 1,
     surfaceTransaction: null,
-  } as unknown as GpuFlowCommittedSurfaceFrame;
+  } as unknown as GpuFlowPreparedContentFrame;
 }
 
-export function publicationToken(frame: GpuFlowCommittedSurfaceFrame) {
+export function publicationToken(frame: GpuFlowPreparedContentFrame) {
   return createGpuFlowVisibleFramePresentationTokenForTest({
     frame,
     projectionSample: {
@@ -253,7 +253,7 @@ export function preparationRowIds(): readonly string[] {
 export function domControlCoverageState(
   readiness:
     | GpuFlowBrowserVisualActorCandidate
-    | GpuFlowCommittedSurfaceBrowserVisualReadiness,
+    | GpuFlowPreparedContentBrowserVisualReadiness,
   control: GpuRetainedDomControlSourceDescriptor,
 ) {
   return resolveDomControlReadiness(readiness).domControlReadinessByActorId.get(
@@ -264,7 +264,7 @@ export function domControlCoverageState(
 export function domControlReadinessResourceHandles(
   readiness:
     | GpuFlowBrowserVisualActorCandidate
-    | GpuFlowCommittedSurfaceBrowserVisualReadiness,
+    | GpuFlowPreparedContentBrowserVisualReadiness,
   control: GpuRetainedDomControlSourceDescriptor,
 ) {
   return resolveDomControlReadiness(readiness).domControlReadinessByActorId.get(
@@ -411,8 +411,8 @@ function normalizeViewportTuple(viewport: GpuViewportInput): GpuViewportTuple {
 function resolveDomControlReadiness(
   readiness:
     | GpuFlowBrowserVisualActorCandidate
-    | GpuFlowCommittedSurfaceBrowserVisualReadiness,
-): GpuFlowCommittedSurfaceBrowserVisualReadiness {
+    | GpuFlowPreparedContentBrowserVisualReadiness,
+): GpuFlowPreparedContentBrowserVisualReadiness {
   return "readiness" in readiness ? readiness.readiness : readiness;
 }
 

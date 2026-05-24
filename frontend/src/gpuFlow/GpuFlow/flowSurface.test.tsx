@@ -1,9 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it } from "vitest";
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
 import type { GpuEdgeScene } from "../edges/edgeSources";
 import { createGpuFlowLayoutStore } from "../layoutStore";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import {
   createGpuFlowProjectionTransaction,
   createGpuFlowVisibleProjectionState,
@@ -551,7 +551,7 @@ function sectionSceneNode(sectionId: string): GpuSectionSceneNode {
 
 const overlayProjectionCommittedFrame = {
   displayFrameId: 17,
-} as GpuFlowCommittedSurfaceFrame;
+} as GpuFlowPreparedContentFrame;
 
 function visibleProjectionStateForOverlayKey({
   retainedScrollOffsets,

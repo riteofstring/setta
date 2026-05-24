@@ -3,14 +3,14 @@ import type { NodeTexturePriority } from "../dirtyTracking";
 import type { HtmlInCanvasCanvas } from "../htmlInCanvasTypes";
 import { HtmlSurfaceTextureManager } from "./textures";
 
-export function requireCommittedSurfaceTexture(
+export function requirePreparedContentTexture(
   manager: HtmlSurfaceTextureManager,
   surfaceId: string,
 ) {
-  const record = manager.getCommittedSurfaceTexture(surfaceId);
+  const record = manager.getPreparedContentTexture(surfaceId);
   expect(record).toBeDefined();
   if (!record) {
-    throw new Error(`Missing committed surface texture ${surfaceId}.`);
+    throw new Error(`Missing prepared content texture ${surfaceId}.`);
   }
   return record;
 }

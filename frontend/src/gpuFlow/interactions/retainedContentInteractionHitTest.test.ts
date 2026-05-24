@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it } from "vitest";
-import { createGpuFlowStartupCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import { createGpuFlowStartupPreparedContentFrame } from "../preparedContentFrame";
 import {
   createGpuFlowProjectionTransactionForCommittedFrameId,
   createGpuFlowVisibleProjectionState,
@@ -135,7 +135,7 @@ describe("GPU retained content interaction hit testing", () => {
       viewport: [0, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+    const committedFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame,
     });
     const projectionSample = {
@@ -245,7 +245,7 @@ describe("GPU retained content interaction hit testing", () => {
       viewport: [0, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+    const committedFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: staleRetainedRuntimeFrame,
     });
     const visibleProjectionState = createGpuFlowVisibleProjectionState({
@@ -308,7 +308,7 @@ describe("GPU retained content interaction hit testing", () => {
       viewport: [0, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+    const committedFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame: startupRetainedRuntimeFrame,
     });
     const visibleProjectionState = createGpuFlowVisibleProjectionState({
@@ -407,7 +407,7 @@ describe("GPU retained content interaction hit testing", () => {
       viewport: [0, 0, 1],
       viewportZoomBucket: 1,
     });
-    const committedFrame = createGpuFlowStartupCommittedSurfaceFrame({
+    const committedFrame = createGpuFlowStartupPreparedContentFrame({
       retainedRuntimeFrame,
     });
     const staleProjectionSample = {

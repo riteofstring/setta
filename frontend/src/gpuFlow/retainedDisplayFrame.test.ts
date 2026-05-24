@@ -345,7 +345,7 @@ describe("retained display frame publisher", () => {
     ).toThrow(/committed visual epoch coverage/);
   });
 
-  it("leaves browser text actor readiness to committed-surface publication", () => {
+  it("leaves browser text actor readiness to prepared-content publication", () => {
     const outcome = resolveRetainedDisplayFrameTransaction({
       prepared: preparedFrame({
         scene: sceneWithTextRows(100),

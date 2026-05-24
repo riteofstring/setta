@@ -7,11 +7,11 @@ import {
   installTextureUsage,
 } from "./textures.test-helper";
 
-function requireCommittedSurfaceTexture(
+function requirePreparedContentTexture(
   manager: HtmlSurfaceTextureManager,
   surfaceId: string,
 ) {
-  const record = manager.getCommittedSurfaceTexture(surfaceId);
+  const record = manager.getPreparedContentTexture(surfaceId);
   expect(record).toBeDefined();
   return record!;
 }
@@ -84,7 +84,7 @@ describe("HtmlSurfaceTextureManager pending resolution uploads", () => {
       budgetExhausted: false,
       remainingDirtySurfaceIds: [],
     });
-    const committed = requireCommittedSurfaceTexture(manager, "node-a");
+    const committed = requirePreparedContentTexture(manager, "node-a");
     expect(committed.texture).not.toBe(oldTexture);
     expect(committed).toMatchObject({
       dirtyContent: false,
@@ -240,7 +240,7 @@ describe("HtmlSurfaceTextureManager pending resolution uploads", () => {
     ]);
 
     manager.uploadDirtySurfaceTextures({ frame: 4, maxUploads: 1 });
-    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
+    expect(requirePreparedContentTexture(manager, "node-a")).toMatchObject({
       cssHeight: 120,
       cssWidth: 100,
       lastUploadFrame: 4,
@@ -346,7 +346,7 @@ describe("HtmlSurfaceTextureManager pending resolution uploads", () => {
       remainingDirtySurfaceIds: [],
       uploaded: [expect.objectContaining({ surfaceId: "node-a" })],
     });
-    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
+    expect(requirePreparedContentTexture(manager, "node-a")).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 4,

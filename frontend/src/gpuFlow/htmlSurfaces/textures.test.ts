@@ -7,7 +7,7 @@ import {
   emptyDirtyWorkCounts,
   installTextureUsage,
   registerNode,
-  requireCommittedSurfaceTexture,
+  requirePreparedContentTexture,
 } from "./textures.test-helper";
 
 describe("HtmlSurfaceTextureManager", () => {
@@ -67,7 +67,7 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: 80_000,
     });
-    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
+    expect(requirePreparedContentTexture(manager, "node-a")).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 2,
@@ -169,7 +169,7 @@ describe("HtmlSurfaceTextureManager", () => {
       uploadedBytes: 300 * 200 * 4,
     });
     expect(
-      requireCommittedSurfaceTexture(manager, "large-node").tiles.every(
+      requirePreparedContentTexture(manager, "large-node").tiles.every(
         (tile) => tile.lastUploadFrame === 2,
       ),
     ).toBe(true);
@@ -252,7 +252,7 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: 40 * 20 * 4,
     });
-    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
+    expect(requirePreparedContentTexture(manager, "node-a")).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 4,
@@ -391,7 +391,7 @@ describe("HtmlSurfaceTextureManager", () => {
         texture: record.tiles[1]?.texture,
       },
     );
-    const committed = requireCommittedSurfaceTexture(manager, "large-node");
+    const committed = requirePreparedContentTexture(manager, "large-node");
     expect(committed.tiles[1]).toMatchObject({
       dirtyContent: false,
       lastUploadFrame: 4,
@@ -442,7 +442,7 @@ describe("HtmlSurfaceTextureManager", () => {
       uploadedBytes: 2 * 128 * 128 * 4,
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(8);
-    const partiallyUploaded = requireCommittedSurfaceTexture(
+    const partiallyUploaded = requirePreparedContentTexture(
       manager,
       "large-node",
     );
@@ -470,7 +470,7 @@ describe("HtmlSurfaceTextureManager", () => {
     });
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(12);
     expect(
-      requireCommittedSurfaceTexture(manager, "large-node").tiles.every(
+      requirePreparedContentTexture(manager, "large-node").tiles.every(
         (tile) => !tile.dirtyContent,
       ),
     ).toBe(true);
@@ -504,7 +504,7 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: record.textureBytes - 2 * 128 * 128 * 4,
       uploadedBytes: 2 * 128 * 128 * 4,
     });
-    const partiallyUploaded = requireCommittedSurfaceTexture(
+    const partiallyUploaded = requirePreparedContentTexture(
       manager,
       "large-node",
     );
@@ -535,7 +535,7 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: record.textureBytes - 2 * 128 * 128 * 4,
     });
-    const committed = requireCommittedSurfaceTexture(manager, "large-node");
+    const committed = requirePreparedContentTexture(manager, "large-node");
     expect(committed.lastUploadFrame).toBe(3);
     expect(committed.tiles.every((tile) => !tile.dirtyResolution)).toBe(true);
     expect(gpu.copyElementImageToTexture).toHaveBeenCalledTimes(6);
@@ -635,7 +635,7 @@ describe("HtmlSurfaceTextureManager", () => {
 
     expect(gpu.createTexture).toHaveBeenCalledTimes(2);
     expect(oldTexture?.destroy).toHaveBeenCalledTimes(1);
-    const committed = requireCommittedSurfaceTexture(manager, "node-a");
+    const committed = requirePreparedContentTexture(manager, "node-a");
     expect(committed).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
@@ -703,7 +703,7 @@ describe("HtmlSurfaceTextureManager", () => {
     ]);
 
     manager.uploadDirtySurfaceTextures({ frame: 4 });
-    expect(requireCommittedSurfaceTexture(manager, "node-a")).toMatchObject({
+    expect(requirePreparedContentTexture(manager, "node-a")).toMatchObject({
       lastUploadFrame: 4,
       pixelHeight: 150,
       pixelWidth: 300,
@@ -937,7 +937,7 @@ describe("HtmlSurfaceTextureManager", () => {
       skippedUploadBytes: 0,
       uploadedBytes: 128 * 72 * 4 + 72 * 72 * 4,
     });
-    const committed = requireCommittedSurfaceTexture(manager, "node-a");
+    const committed = requirePreparedContentTexture(manager, "node-a");
     expect(committed.texture).not.toBe(oldTexture);
     expect(oldTexture?.destroy).toHaveBeenCalledTimes(1);
     expect(committed).toMatchObject({
@@ -996,14 +996,14 @@ describe("HtmlSurfaceTextureManager", () => {
 
     expect(partial.budgetExhausted).toBe(true);
     expect(
-      requireCommittedSurfaceTexture(manager, "node-a").textureSourceRect,
+      requirePreparedContentTexture(manager, "node-a").textureSourceRect,
     ).toEqual(initialSourceRect);
 
     const complete = manager.uploadDirtySurfaceTextures({ frame: 5 });
 
     expect(complete.budgetExhausted).toBe(false);
     expect(
-      requireCommittedSurfaceTexture(manager, "node-a").textureSourceRect,
+      requirePreparedContentTexture(manager, "node-a").textureSourceRect,
     ).toEqual(nextSourceRect);
   });
 
@@ -1043,7 +1043,7 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(manager.getDirtySurfaces()).toEqual([]);
     expect(gpu.copyElementImageToTexture).not.toHaveBeenCalled();
     expect(
-      requireCommittedSurfaceTexture(manager, "node-a").textureSourceRect,
+      requirePreparedContentTexture(manager, "node-a").textureSourceRect,
     ).toEqual(nextSourceRect);
   });
 
@@ -1125,7 +1125,7 @@ describe("HtmlSurfaceTextureManager", () => {
       },
     });
     expect(canvas.requestPaint).toHaveBeenCalledTimes(2);
-    expect(manager.getCommittedSurfaceTexture("node-a")).toMatchObject({
+    expect(manager.getPreparedContentTexture("node-a")).toMatchObject({
       dirtyContent: true,
       dirtyResolution: true,
       lastUploadFrame: -1,
@@ -1148,7 +1148,7 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(uploaded.uploaded.map((surface) => surface.surfaceId)).toEqual([
       "node-a",
     ]);
-    expect(manager.getCommittedSurfaceTexture("node-a")).toMatchObject({
+    expect(manager.getPreparedContentTexture("node-a")).toMatchObject({
       dirtyContent: false,
       dirtyResolution: false,
       lastUploadFrame: 4,

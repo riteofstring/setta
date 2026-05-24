@@ -9,9 +9,8 @@ import {
   type ReactNode,
 } from "react";
 
-import type { GpuSurfaceHandle } from "../GpuSurface";
-import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { NodeTexturePriority } from "../dirtyTracking";
+import type { GpuSurfaceHandle } from "../GpuSurface";
 import {
   clearGpuNodeDomTransformSyncCacheNode,
   type GpuHtmlSurfaceOverlayLayout,
@@ -28,6 +27,7 @@ import {
   type HtmlSurfaceSourceElementConfig,
 } from "../htmlSurfaces/sourceLayer";
 import type { HtmlSurfaceTextureManager } from "../htmlSurfaces/textures";
+import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import { releaseGpuFlowUnmountedSourceSurfaceTexture } from "../surfaceTextureReleaseAuthority";
@@ -93,8 +93,8 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
   );
   const browserVisualTextureManager = useMemo(
     () => ({
-      getCommittedSurfaceTexture: (surfaceId: string) =>
-        textureManagerRef.current?.getCommittedSurfaceTexture(surfaceId),
+      getPreparedContentTexture: (surfaceId: string) =>
+        textureManagerRef.current?.getPreparedContentTexture(surfaceId),
     }),
     [textureManagerRef],
   );
@@ -329,7 +329,7 @@ function createGpuRetainedDomControlSnapshotSourceManagerDiagnostic({
   if (!textureManager) {
     return { dirtySurface: null, lifecycle: null, texture: null };
   }
-  const texture = textureManager.getCommittedSurfaceTexture(surfaceId) ?? null;
+  const texture = textureManager.getPreparedContentTexture(surfaceId) ?? null;
   return {
     dirtySurface:
       textureManager
@@ -353,7 +353,7 @@ function createGpuRetainedDomControlSnapshotTextureDiagnostic({
 }: {
   readonly source: GpuRetainedDomControlSourceDescriptor;
   readonly texture: NonNullable<
-    ReturnType<HtmlSurfaceTextureManager["getCommittedSurfaceTexture"]>
+    ReturnType<HtmlSurfaceTextureManager["getPreparedContentTexture"]>
   >;
 }) {
   return {
@@ -514,10 +514,10 @@ export function shouldMarkGpuFlowRetainedDomControlSnapshotSourceDirty({
   readonly surfaceId: string;
   readonly textureManager: Pick<
     HtmlSurfaceTextureManager,
-    "getCommittedSurfaceTexture"
+    "getPreparedContentTexture"
   >;
 }): boolean {
-  const texture = textureManager.getCommittedSurfaceTexture(surfaceId);
+  const texture = textureManager.getPreparedContentTexture(surfaceId);
   return (
     !texture ||
     texture.lastUploadFrame < 0 ||
@@ -655,7 +655,7 @@ function registerGpuFlowRetainedDomControlSnapshotTextureManager({
   readonly presentedSurfaceRuntime?: GpuFlowPresentedSurfaceRuntime | undefined;
   readonly textureManager: Pick<
     HtmlSurfaceTextureManager,
-    "getCommittedSurfaceTexture"
+    "getPreparedContentTexture"
   > | null;
 }): void {
   if (!presentedSurfaceRuntime) {

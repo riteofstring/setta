@@ -1,13 +1,13 @@
 import { postChromeReproEvent } from "state/actions/chromeRepro";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import {
   createGpuFlowVisibleFrameActorManifestDiagnostics,
   type GpuFlowVisibleFrameActorManifestDiagnostics,
 } from "./visibleFrameActorManifestDiagnostics";
 import {
   getGpuFlowBrowserVisualBlockedReason,
-  getGpuFlowCommittedSurfacePublishabilityActorIds,
+  getGpuFlowPreparedContentPublishabilityActorIds,
 } from "./visibleFrameBlockedCandidate";
 import type { GpuFlowVisibleFrameReducerCompletion } from "./visibleFrameCoordinator";
 import {
@@ -64,7 +64,7 @@ type GpuFlowBlockedVisibleFramePresentationEvent = {
 };
 
 type GpuFlowBrowserVisualActorGeneration =
-  GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
+  GpuFlowPreparedContentFrame["actorGenerations"][number];
 
 type GpuFlowBrowserVisualTextCoverageProof = NonNullable<
   GpuFlowBrowserVisualActorGeneration["textCoverageProof"]
@@ -86,7 +86,7 @@ const browserVisualStarvationDebtByCanvas = new WeakMap<
 >();
 
 export function recordGpuFlowVisibleFramePresented(application: {
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly token: GpuFlowVisibleFramePresentationToken;
 }): void {
@@ -99,7 +99,7 @@ export function recordGpuFlowVisibleFramePresented(application: {
 }
 
 export function recordGpuFlowVisibleFrameHeld(application: {
-  readonly candidateFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly candidateFrame: GpuFlowPreparedContentFrame | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly token: GpuFlowHoldPreviousToken;
 }): void {
@@ -117,7 +117,7 @@ export function recordGpuFlowVisibleFrameHeld(application: {
 }
 
 export function recordGpuFlowVisibleFrameBlocked(application: {
-  readonly candidateFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly candidateFrame: GpuFlowPreparedContentFrame | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly token: GpuFlowBlockedPublicationToken;
 }): void {
@@ -146,12 +146,12 @@ function recordGpuFlowBrowserVisualStarvation({
   outcome,
   runtimeCanvas,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly nowMs: number;
   readonly outcome: GpuFlowBrowserVisualStarvationOutcome;
   readonly runtimeCanvas: HTMLCanvasElement;
 }): void {
-  const actorIds = getGpuFlowCommittedSurfacePublishabilityActorIds(frame);
+  const actorIds = getGpuFlowPreparedContentPublishabilityActorIds(frame);
   const actorIdsKey = actorIds.join("\n");
   const previousDebt = browserVisualStarvationDebtByCanvas.get(runtimeCanvas);
   const debt =
@@ -199,7 +199,7 @@ function createGpuFlowBrowserVisualStarvationReports({
   outcome,
 }: {
   readonly debt: GpuFlowBrowserVisualStarvationDebt;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly nowMs: number;
   readonly outcome: GpuFlowBrowserVisualStarvationOutcome;
 }): readonly GpuFlowBrowserVisualStarvationReport[] {
@@ -210,7 +210,7 @@ function createGpuFlowBrowserVisualStarvationReports({
   const visibleActorCount =
     frame.projectionHorizon.obligations.visibleActorIds.length;
   return Object.freeze(
-    getGpuFlowCommittedSurfacePublishabilityActorIds(frame).map((actorId) =>
+    getGpuFlowPreparedContentPublishabilityActorIds(frame).map((actorId) =>
       createGpuFlowBrowserVisualStarvationReport({
         actor: actorById.get(actorId),
         actorId,
@@ -237,7 +237,7 @@ function createGpuFlowBrowserVisualStarvationReport({
   readonly actorId: string;
   readonly ageMs: number;
   readonly blockedFrameCount: number;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly outcome: GpuFlowBrowserVisualStarvationOutcome;
   readonly visibleActorCount: number;
 }): GpuFlowBrowserVisualStarvationReport {
@@ -289,7 +289,7 @@ function getGpuFlowBrowserVisualRequiredRepresentation({
   frame,
   textCoverage,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly frame: GpuFlowPreparedContentFrame;
   readonly textCoverage: OptionalGpuFlowBrowserVisualTextCoverageProof;
 }): string {
   return textCoverage?.projectionCoverage ?? frame.publishability.kind;
@@ -332,7 +332,7 @@ export function recordGpuFlowBlockedVisibleFramePresentation({
   stateMachineOutcome = null,
   token,
 }: {
-  readonly frame: GpuFlowCommittedSurfaceFrame | null;
+  readonly frame: GpuFlowPreparedContentFrame | null;
   readonly publicationCompletion: GpuFlowVisibleFrameReducerCompletion;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly runtimeCanvas: HTMLCanvasElement;

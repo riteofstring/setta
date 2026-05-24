@@ -1,7 +1,7 @@
 import type {
-  GpuFlowCommittedSurfaceActorGeneration,
-  GpuFlowCommittedSurfaceFrame,
-} from "../../committedSurfaceFrame";
+  GpuFlowPreparedContentActorGeneration,
+  GpuFlowPreparedContentFrame,
+} from "../../preparedContentFrame";
 import type { BrowserTextActorRepresentation } from "../../surfaceCompositor/browserVisualActorAdapter";
 import type { GpuFlowBlockedVisibleReason } from "../visibleFramePresentationProofs";
 
@@ -19,7 +19,7 @@ type GpuFlowVisibleFramePresentationActorProof = {
   readonly clipChainRevision: string;
   readonly compatiblePreviousBudgetState: GpuFlowCompatiblePreviousBudgetState;
   readonly contentGenerationId: string;
-  readonly generationClassification: GpuFlowCommittedSurfaceActorGeneration["generationClassification"];
+  readonly generationClassification: GpuFlowPreparedContentActorGeneration["generationClassification"];
   readonly ownerFamily: string;
   readonly ownerSurfaceId: string;
   readonly projectionGenerationId: string;
@@ -54,7 +54,7 @@ export function createGpuFlowVisibleFramePresentationActorProofsForFrame({
   committedFrame,
   projectionSampleId,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly projectionSampleId: number;
 }): readonly GpuFlowVisibleFramePresentationActorProof[] {
   return Object.freeze(
@@ -93,7 +93,7 @@ export function createGpuFlowVisibleFramePresentationBlockedActorReasonsForFrame
   committedFrame,
   projectionSampleId,
 }: {
-  readonly committedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly committedFrame: GpuFlowPreparedContentFrame;
   readonly projectionSampleId: number;
 }): readonly GpuFlowBlockedVisibleReason[] {
   return Object.freeze(
@@ -159,7 +159,7 @@ function createGpuFlowVisibleFramePresentationActorProof({
   actor,
   projectionSampleId,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActorGeneration;
+  readonly actor: GpuFlowPreparedContentActorGeneration;
   readonly projectionSampleId: number;
 }): GpuFlowVisibleFramePresentationActorProof {
   const requiredVisualRepresentation =
@@ -214,7 +214,7 @@ function createGpuFlowVisibleFramePresentationActorProof({
 }
 
 function createGpuFlowVisibleFramePresentationBrowserVisualRepresentation(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): BrowserTextActorRepresentation | null {
   const representation = actor.browserVisual?.representation ?? null;
   return representation === null ? null : Object.freeze({ ...representation });
@@ -301,19 +301,19 @@ function isGpuFlowVisibleFramePresentationLiveHostRepresentation(
 }
 
 function getGpuFlowVisibleFramePresentationRequiredVisualRepresentation(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): string {
   return actor.browserVisual?.proof.requiredVisual ?? "canvas-visible";
 }
 
 function getGpuFlowVisibleFramePresentationActualVisualProof(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): string {
   return actor.browserVisual?.proof.actualVisual ?? "exact-canvas";
 }
 
 function getGpuFlowVisibleFramePresentationRequiredInteractionRepresentation(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): string {
   return (
     actor.browserVisual?.proof.requiredInteraction ??
@@ -322,7 +322,7 @@ function getGpuFlowVisibleFramePresentationRequiredInteractionRepresentation(
 }
 
 function getGpuFlowVisibleFramePresentationActualInteractionProof(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): string {
   return (
     actor.browserVisual?.proof.actualInteraction ??
@@ -331,7 +331,7 @@ function getGpuFlowVisibleFramePresentationActualInteractionProof(
 }
 
 function getGpuFlowVisibleFramePresentationCompatiblePreviousBudgetState(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): GpuFlowCompatiblePreviousBudgetState {
   const textCoverageProof = actor.textCoverageProof;
   if (textCoverageProof?.projectionCoverage !== "compatible-previous") {
@@ -341,13 +341,13 @@ function getGpuFlowVisibleFramePresentationCompatiblePreviousBudgetState(
 }
 
 function getGpuFlowVisibleFramePresentationCanvasInteractionRequirement(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): string {
   return actor.pointerEvents === "auto" ? "canvas-hit" : "none";
 }
 
 function getGpuFlowVisibleFramePresentationCanvasInteractionProof(
-  actor: GpuFlowCommittedSurfaceActorGeneration,
+  actor: GpuFlowPreparedContentActorGeneration,
 ): string {
   return actor.pointerEvents === "auto" ? "canvas-hit" : "not-required";
 }

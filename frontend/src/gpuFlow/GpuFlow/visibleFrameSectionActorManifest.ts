@@ -1,5 +1,5 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
-import { createSectionStructureActors } from "../committedSurfaceSectionActors";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
+import { createSectionStructureActors } from "../preparedContentSectionActors";
 import {
   getGpuFlowBrowserStyleVisibleFrameActorFamily,
   type GpuFlowBrowserStyleVisibleFrameActorFamily,
@@ -12,7 +12,7 @@ export type GpuFlowMissingSectionStructureActorManifestEntry = {
 };
 
 export function createGpuFlowMissingSectionStructureActorManifestEntries(
-  frame: GpuFlowCommittedSurfaceFrame,
+  frame: GpuFlowPreparedContentFrame,
 ): readonly GpuFlowMissingSectionStructureActorManifestEntry[] {
   const retainedRuntimeFrame = frame.retainedRuntimeFrame;
   if (!retainedRuntimeFrame) {

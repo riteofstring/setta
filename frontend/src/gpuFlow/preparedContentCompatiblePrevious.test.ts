@@ -1,32 +1,32 @@
 import { TEST_GPU_RETAINED_SINGLE_LINE_TEXT_POLICY } from "testUtils/gpuRetainedTextLikePolicy";
 import { describe, expect, it } from "vitest";
 
-import {
-  createGpuFlowCommittedSurfaceFrame,
-  type GpuFlowCommittedSurfaceBrowserVisualReadiness,
-  type GpuFlowCommittedSurfaceFrame,
-} from "./committedSurfaceFrame";
 import { createGpuFlowDomControlCompatiblePreviousProof } from "./GpuFlow/domControlPlaneCompatibility";
+import {
+  createGpuFlowPreparedContentFrame,
+  type GpuFlowPreparedContentBrowserVisualReadiness,
+  type GpuFlowPreparedContentFrame,
+} from "./preparedContentFrame";
 import { createGpuRetainedRowContentScene } from "./retainedContentScene";
 import type { RetainedDisplayFrame } from "./retainedDisplayFrame";
 import { createGpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 import type { GpuContentSurface, GpuFlowScene } from "./scene";
 
-type GpuFlowCommittedSurfaceActor =
-  GpuFlowCommittedSurfaceFrame["actorGenerations"][number];
-type GpuFlowCommittedSurfaceDomControlSource =
-  GpuFlowCommittedSurfaceFrame["retainedRuntimeFrame"]["descriptors"]["domControlSources"][number];
+type GpuFlowPreparedContentActor =
+  GpuFlowPreparedContentFrame["actorGenerations"][number];
+type GpuFlowPreparedContentDomControlSource =
+  GpuFlowPreparedContentFrame["retainedRuntimeFrame"]["descriptors"]["domControlSources"][number];
 
-describe("GPU Flow committed surface compatible-previous coverage", () => {
-  it("publishes compatible-previous DOM-control coverage from a prior committed frame", () => {
-    const { actor, frame } = createCompatiblePreviousCommittedSurfaceFrame();
+describe("GPU Flow prepared content compatible-previous coverage", () => {
+  it("publishes compatible-previous DOM-control coverage from a prior prepared frame", () => {
+    const { actor, frame } = createCompatiblePreviousPreparedContentFrame();
 
     expectCompatiblePreviousDomControlActor({ actor, frame });
     expectCompatiblePreviousSurfaceCoverage({ actor, frame });
   });
 
   it("publishes compatible-previous DOM-control coverage while the current snapshot is pending", () => {
-    const { actor, frame } = createCompatiblePreviousCommittedSurfaceFrame({
+    const { actor, frame } = createCompatiblePreviousPreparedContentFrame({
       readiness: "blocked-awaiting-snapshot",
     });
 
@@ -35,7 +35,7 @@ describe("GPU Flow committed surface compatible-previous coverage", () => {
   });
 
   it("publishes compatible-previous DOM-control coverage while the current live host is pending", () => {
-    const { actor, frame } = createCompatiblePreviousCommittedSurfaceFrame({
+    const { actor, frame } = createCompatiblePreviousPreparedContentFrame({
       readiness: "blocked-awaiting-live-host",
       visualPolicy: "live-dom",
     });
@@ -45,7 +45,7 @@ describe("GPU Flow committed surface compatible-previous coverage", () => {
   });
 
   it("does not publish compatible-previous DOM-control coverage beyond the frame-age budget", () => {
-    const { actor, frame } = createCompatiblePreviousCommittedSurfaceFrame({
+    const { actor, frame } = createCompatiblePreviousPreparedContentFrame({
       retainedFrameId: 14,
       previousRetainedFrameId: 10,
     });
@@ -54,7 +54,7 @@ describe("GPU Flow committed surface compatible-previous coverage", () => {
   });
 
   it("does not publish compatible-previous DOM-control coverage beyond the millisecond-age budget", () => {
-    const { actor, frame } = createCompatiblePreviousCommittedSurfaceFrame({
+    const { actor, frame } = createCompatiblePreviousPreparedContentFrame({
       publishedAtMs: 250,
       previousPublishedAtMs: 0,
     });
@@ -63,7 +63,7 @@ describe("GPU Flow committed surface compatible-previous coverage", () => {
   });
 });
 
-function createCompatiblePreviousCommittedSurfaceFrame({
+function createCompatiblePreviousPreparedContentFrame({
   publishedAtMs,
   previousPublishedAtMs,
   previousRetainedFrameId = 13,
@@ -79,17 +79,17 @@ function createCompatiblePreviousCommittedSurfaceFrame({
     | "blocked-awaiting-snapshot"
     | "compatible-previous";
   readonly retainedFrameId?: number | undefined;
-  readonly visualPolicy?: GpuFlowCommittedSurfaceDomControlSource["visualPolicy"];
+  readonly visualPolicy?: GpuFlowPreparedContentDomControlSource["visualPolicy"];
 } = {}): {
-  readonly actor: GpuFlowCommittedSurfaceActor | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly actor: GpuFlowPreparedContentActor | undefined;
+  readonly frame: GpuFlowPreparedContentFrame;
 } {
   const previousRetainedRuntimeFrame = createRuntimeFrame({
     frameId: previousRetainedFrameId,
     scrollRevision: 1,
     scrollY: 0,
   });
-  const previousCommittedSurfaceFrame = createGpuFlowCommittedSurfaceFrame({
+  const previousPreparedContentFrame = createGpuFlowPreparedContentFrame({
     browserVisualReadiness: createReadyBrowserVisualReadiness(
       previousRetainedRuntimeFrame,
     ),
@@ -107,7 +107,7 @@ function createCompatiblePreviousCommittedSurfaceFrame({
     }),
     visualPolicy,
   );
-  const frame = createGpuFlowCommittedSurfaceFrame({
+  const frame = createGpuFlowPreparedContentFrame({
     browserVisualReadiness:
       readiness === "compatible-previous"
         ? createCompatiblePreviousBrowserVisualReadiness({
@@ -115,7 +115,7 @@ function createCompatiblePreviousCommittedSurfaceFrame({
             previousRetainedRuntimeFrame,
           })
         : createBlockedBrowserVisualReadiness(retainedRuntimeFrame, readiness),
-    previousCommittedSurfaceFrame,
+    previousPreparedContentFrame,
     retainedDisplayFrame: fakeRetainedDisplayFrame({
       id: retainedFrameId,
       publishedAtMs,
@@ -134,22 +134,22 @@ function expectCompatiblePreviousDomControlActor({
   actor,
   frame,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActor | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly actor: GpuFlowPreparedContentActor | undefined;
+  readonly frame: GpuFlowPreparedContentFrame;
 }): void {
   expect(actor).toBeDefined();
-  const committedActor = actor as GpuFlowCommittedSurfaceActor;
-  expectCompatiblePreviousBrowserVisual(committedActor);
-  expectCompatiblePreviousTextCoverage(committedActor);
-  expectCompatiblePreviousFramePublication({ actor: committedActor, frame });
+  const preparedActor = actor as GpuFlowPreparedContentActor;
+  expectCompatiblePreviousBrowserVisual(preparedActor);
+  expectCompatiblePreviousTextCoverage(preparedActor);
+  expectCompatiblePreviousFramePublication({ actor: preparedActor, frame });
 }
 
 function expectBlockedCompatiblePreviousDomControlActor({
   actor,
   frame,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActor | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly actor: GpuFlowPreparedContentActor | undefined;
+  readonly frame: GpuFlowPreparedContentFrame;
 }): void {
   expect(actor).toBeDefined();
   expect(actor?.browserVisual?.coverageState).toBe("blocked-awaiting-snapshot");
@@ -163,13 +163,13 @@ function expectBlockedCompatiblePreviousDomControlActor({
   expect(frame.publishability.kind).toBe("publishable");
   expect(frame.surfaceTransaction).toEqual(
     expect.objectContaining({
-      id: "committed-surface:14:retained:14",
+      id: "prepared-content:14:retained:14",
     }),
   );
 }
 
 function expectCompatiblePreviousBrowserVisual(
-  actor: GpuFlowCommittedSurfaceActor,
+  actor: GpuFlowPreparedContentActor,
 ): void {
   expect(actor.browserVisual).toEqual(
     expect.objectContaining({
@@ -189,7 +189,7 @@ function expectCompatiblePreviousBrowserVisual(
 }
 
 function expectCompatiblePreviousTextCoverage(
-  actor: GpuFlowCommittedSurfaceActor,
+  actor: GpuFlowPreparedContentActor,
 ): void {
   expect(actor.textCoverageProof).toEqual(
     expect.objectContaining({
@@ -206,7 +206,7 @@ function expectCompatiblePreviousTextCoverage(
         previousActorGenerationId: expect.any(String),
         previousContentFrameId: 13,
         previousProjectionSampleRevision: expect.any(String),
-        previousTransactionId: "committed-surface:13:retained:13",
+        previousTransactionId: "prepared-content:13:retained:13",
         previousVisualGenerationId: actor.visualGenerationId,
         proofAgeFrames: 1,
         proofAgeMs: 1,
@@ -235,8 +235,8 @@ function expectCompatiblePreviousFramePublication({
   actor,
   frame,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActor;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly actor: GpuFlowPreparedContentActor;
+  readonly frame: GpuFlowPreparedContentFrame;
 }): void {
   expect(frame.displayCompleteness.status).toBe("complete");
   expect(frame.publishability.kind).toBe("publishable");
@@ -251,16 +251,16 @@ function expectCompatiblePreviousSurfaceCoverage({
   actor,
   frame,
 }: {
-  readonly actor: GpuFlowCommittedSurfaceActor | undefined;
-  readonly frame: GpuFlowCommittedSurfaceFrame;
+  readonly actor: GpuFlowPreparedContentActor | undefined;
+  readonly frame: GpuFlowPreparedContentFrame;
 }): void {
   expect(frame.surfaceTransaction).toEqual(
     expect.objectContaining({
       hitIndex: expect.objectContaining({
-        id: "committed-hit:14",
+        id: "prepared-hit:14",
         generationIds: expect.arrayContaining([expect.any(String)]),
       }),
-      id: "committed-surface:14:retained:14",
+      id: "prepared-content:14:retained:14",
     }),
   );
   expect(frame.surfaceTransaction?.coverageProof.compatibleCoverage).toEqual(
@@ -318,7 +318,7 @@ function createRuntimeFrame({
 
 function withDomControlVisualPolicy(
   retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>,
-  visualPolicy: GpuFlowCommittedSurfaceDomControlSource["visualPolicy"],
+  visualPolicy: GpuFlowPreparedContentDomControlSource["visualPolicy"],
 ): ReturnType<typeof createRuntimeFrame> {
   return {
     ...retainedRuntimeFrame,
@@ -405,7 +405,7 @@ function fakeRetainedDisplayFrame({
 
 function createReadyBrowserVisualReadiness(
   retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>,
-): GpuFlowCommittedSurfaceBrowserVisualReadiness {
+): GpuFlowPreparedContentBrowserVisualReadiness {
   return {
     domControlReadinessByActorId: new Map(
       retainedRuntimeFrame.descriptors.domControlSources.map((control) => [
@@ -425,7 +425,7 @@ function createBlockedBrowserVisualReadiness(
   coverageState:
     | "blocked-awaiting-live-host"
     | "blocked-awaiting-snapshot" = "blocked-awaiting-snapshot",
-): GpuFlowCommittedSurfaceBrowserVisualReadiness {
+): GpuFlowPreparedContentBrowserVisualReadiness {
   return {
     domControlReadinessByActorId: new Map(
       retainedRuntimeFrame.descriptors.domControlSources.map((control) => [
@@ -443,7 +443,7 @@ function createCompatiblePreviousBrowserVisualReadiness({
 }: {
   readonly previousRetainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>;
   readonly retainedRuntimeFrame: ReturnType<typeof createRuntimeFrame>;
-}): GpuFlowCommittedSurfaceBrowserVisualReadiness {
+}): GpuFlowPreparedContentBrowserVisualReadiness {
   const previousControlById = new Map(
     previousRetainedRuntimeFrame.descriptors.domControlSources.map(
       (control) => [control.sourceId, control],

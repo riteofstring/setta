@@ -1,8 +1,8 @@
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
 
 type GpuFlowBlockedPreparedContentFramePublicationAbort = {
-  readonly frame: GpuFlowCommittedSurfaceFrame | null;
+  readonly frame: GpuFlowPreparedContentFrame | null;
   readonly preservePreparationSnapshot: boolean;
 };
 
@@ -13,10 +13,10 @@ export function resolveGpuFlowBlockedPreparedContentFramePublicationAbort({
   heldPreparedContentFrame,
   selectedVisibleProjectionState,
 }: {
-  readonly blockedPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly blockedPreparedContentFrame: GpuFlowPreparedContentFrame | null;
   readonly blockedPreservePreparationSnapshot: boolean;
-  readonly preparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
-  readonly heldPreparedContentFrame: GpuFlowCommittedSurfaceFrame | null;
+  readonly preparedContentFrame: GpuFlowPreparedContentFrame | null;
+  readonly heldPreparedContentFrame: GpuFlowPreparedContentFrame | null;
   readonly selectedVisibleProjectionState: GpuFlowVisibleProjectionState | null;
 }): GpuFlowBlockedPreparedContentFramePublicationAbort {
   if (blockedPreparedContentFrame) {
