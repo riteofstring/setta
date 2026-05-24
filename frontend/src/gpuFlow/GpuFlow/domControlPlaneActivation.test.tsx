@@ -8,7 +8,7 @@ import { createGpuFlowViewportStore } from "../viewportStore";
 import { GpuFlowDomControlPlane } from "./domControlPlane";
 import {
   committedSurfaceFrame,
-  createCommittedSurfaceRuntimeWithBrowserVisuals,
+  createPresentedSurfaceRuntimeWithBrowserVisuals,
   createMockViewportRuntime,
   domControl,
   retainedRuntimeFrame,
@@ -33,8 +33,8 @@ describe("GPU flow DOM control activation", () => {
       transform: [0, 0, 1],
       width: 400,
     });
-    const committedSurfaceRuntime =
-      createCommittedSurfaceRuntimeWithBrowserVisuals({
+    const presentedSurfaceRuntime =
+      createPresentedSurfaceRuntimeWithBrowserVisuals({
         frame: committedSurfaceFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame(controls),
@@ -54,7 +54,7 @@ describe("GPU flow DOM control activation", () => {
     act(() => {
       root?.render(
         <GpuFlowDomControlPlane
-          committedSurfaceRuntime={committedSurfaceRuntime}
+          presentedSurfaceRuntime={presentedSurfaceRuntime}
           getRetainedScrollOffset={undefined}
           onActivate={(control, activation) => {
             activated = {

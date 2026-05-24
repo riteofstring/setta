@@ -33,7 +33,7 @@ const COMMITTED_SURFACE_CANDIDATE_ACTION_MODULE_PATH = modulePath(
   "./visibleFrameActorAdapters/committedSurfaceCandidateAction.ts",
 );
 const COMMITTED_SURFACE_RUNTIME_MODULE_PATH = modulePath(
-  "../committedSurfaceRuntime.ts",
+  "../presentedSurfaceRuntime.ts",
 );
 const PROJECTION_FRAME_MODULE_PATH = modulePath("./flowProjectionFrame.tsx");
 const FLOW_FRAME_MODULE_PATH = modulePath("./flowFrame.tsx");
@@ -50,14 +50,14 @@ const VISIBLE_FRAME_PRESENTER_MODULE_PATH = modulePath(
   "./visibleFramePresentation.ts",
 );
 const PRODUCTION_COMMITTED_CONTENT_STORE_MUTATORS = new Set([
-  "committedSurfaceRuntime.ts",
-  "GpuFlow/committedSurfaceFrameState.ts",
+  "presentedSurfaceRuntime.ts",
+  "GpuFlow/visibleFramePresentedState.ts",
 ]);
 const PRODUCTION_OVERLAY_TRANSFORM_CALLERS = new Set([
   "GpuFlow/visibleFramePresentation.ts",
 ]);
 const PRODUCTION_BROWSER_VISUAL_CURRENT_PROJECTION_CALLERS = new Set([
-  "GpuFlow/committedSurfaceFrameState.ts",
+  "GpuFlow/visibleFramePresentedState.ts",
 ]);
 const PRODUCTION_PROJECTION_DEBUG_ATTRIBUTE_CALLERS = new Set([
   "GpuFlow/visibleFramePresentation.ts",
@@ -77,7 +77,7 @@ const PRODUCTION_VISIBLE_PROJECTION_STATE_PUBLISHERS = new Set([
   "GpuFlow/visibleFramePresentation.ts",
 ]);
 const PRODUCTION_PREPARED_COMMITTED_SURFACE_FRAME_COMMITTERS = new Set([
-  "GpuFlow/committedSurfaceFrameState.ts",
+  "GpuFlow/visibleFramePresentedState.ts",
   "GpuFlow/visibleFrameResourceGraph.ts",
   "GpuFlow/visibleFramePresentation.ts",
 ]);
@@ -417,7 +417,7 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
   });
 
   it("keeps committed content store mutation inside committed-surface publication state", () => {
-    const mutatorPattern = /\bpublishCommittedContentFrame\s*\(/;
+    const mutatorPattern = /\bpublishPresentedContentFrame\s*\(/;
     const violations = listSourceFiles(GPU_FLOW_ROOT).flatMap((filePath) => {
       if (isTestSourceFile(filePath)) {
         return [];
@@ -439,49 +439,49 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
   });
 
   it("keeps React semantic committed-surface observers downstream of publication", () => {
-    const committedSurfaceRuntimeSource = readFileSync(
+    const presentedSurfaceRuntimeSource = readFileSync(
       COMMITTED_SURFACE_RUNTIME_MODULE_PATH,
       "utf8",
     );
-    const publishMethodStart = committedSurfaceRuntimeSource.indexOf(
+    const publishMethodStart = presentedSurfaceRuntimeSource.indexOf(
       [
-        "  publishCommittedContentFrame(",
+        "  publishPresentedContentFrame(",
         "    token: GpuFlowCommitPublicationToken,",
-        "    frame: GpuFlowCommittedContentFrame,",
+        "    frame: GpuFlowPresentedContentFrame,",
         "  ): boolean {",
       ].join("\n"),
     );
-    const publishMethodEnd = committedSurfaceRuntimeSource.indexOf(
-      "  subscribeCommittedContentFrame(",
+    const publishMethodEnd = presentedSurfaceRuntimeSource.indexOf(
+      "  subscribePresentedContentFrame(",
       publishMethodStart,
     );
-    const scheduleMethodStart = committedSurfaceRuntimeSource.indexOf(
+    const scheduleMethodStart = presentedSurfaceRuntimeSource.indexOf(
       "private scheduleReactSemanticEmit",
     );
-    const emitSemanticMethodStart = committedSurfaceRuntimeSource.indexOf(
+    const emitSemanticMethodStart = presentedSurfaceRuntimeSource.indexOf(
       "private emitReactSemanticSnapshot",
     );
-    const publishMethodSource = committedSurfaceRuntimeSource.slice(
+    const publishMethodSource = presentedSurfaceRuntimeSource.slice(
       publishMethodStart,
       publishMethodEnd,
     );
-    const scheduleMethodSource = committedSurfaceRuntimeSource.slice(
+    const scheduleMethodSource = presentedSurfaceRuntimeSource.slice(
       scheduleMethodStart,
       emitSemanticMethodStart,
     );
 
     expect(publishMethodStart).toBeGreaterThanOrEqual(0);
     expect(publishMethodEnd).toBeGreaterThan(publishMethodStart);
-    expect(committedSurfaceRuntimeSource).not.toContain(
-      "resetCommittedContentFrame",
+    expect(presentedSurfaceRuntimeSource).not.toContain(
+      "resetPresentedContentFrame",
     );
-    expect(committedSurfaceRuntimeSource).not.toContain("setStartupFrame");
+    expect(presentedSurfaceRuntimeSource).not.toContain("setStartupFrame");
     expect(scheduleMethodStart).toBeGreaterThan(publishMethodEnd);
     expect(emitSemanticMethodStart).toBeGreaterThan(scheduleMethodStart);
-    expect(publishMethodSource).toContain("this.emitCommittedFrame()");
+    expect(publishMethodSource).toContain("this.emitPresentedFrame()");
     expect(publishMethodSource).toContain("this.scheduleReactSemanticEmit()");
     expect(
-      publishMethodSource.indexOf("this.emitCommittedFrame()"),
+      publishMethodSource.indexOf("this.emitPresentedFrame()"),
     ).toBeLessThan(
       publishMethodSource.indexOf("this.scheduleReactSemanticEmit()"),
     );

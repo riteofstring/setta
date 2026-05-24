@@ -3,7 +3,7 @@ import type {
   GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
 import { createGpuFlowCommittedSurfacePresentationProof } from "../committedSurfaceFrame";
-import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
+import { createGpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { CommittedHtmlSurfaceTextureSnapshot } from "../htmlSurfaces/textures";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
@@ -20,7 +20,7 @@ import {
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
-  getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
+  getGpuFlowBrowserVisualActorRuntimeForPresentedSurface,
   type GpuFlowBrowserVisualActorCandidate,
 } from "./browserVisualActorRuntime";
 import type { GpuFlowRetainedScrollOffsetGetter } from "./domControlPlane";
@@ -74,7 +74,7 @@ export function retainedRuntimeFrame(
   } as unknown as GpuRetainedRuntimeFrame;
 }
 
-export function createCommittedSurfaceRuntimeWithBrowserVisuals({
+export function createPresentedSurfaceRuntimeWithBrowserVisuals({
   frame,
   getRetainedScrollOffset,
   viewportRuntime,
@@ -87,26 +87,26 @@ export function createCommittedSurfaceRuntimeWithBrowserVisuals({
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly viewportStore: ReturnType<typeof createGpuFlowViewportStore>;
 }) {
-  const committedSurfaceRuntime = createGpuFlowCommittedSurfaceRuntime(frame);
+  const presentedSurfaceRuntime = createGpuFlowPresentedSurfaceRuntime(frame);
   publishBrowserVisualFrame({
-    committedSurfaceRuntime,
+    presentedSurfaceRuntime,
     frame,
     getRetainedScrollOffset,
     viewportRuntime,
     viewportStore,
   });
-  return committedSurfaceRuntime;
+  return presentedSurfaceRuntime;
 }
 
 export function publishBrowserVisualFrame({
-  committedSurfaceRuntime,
+  presentedSurfaceRuntime,
   frame,
   getRetainedScrollOffset,
   viewportRuntime,
   viewportStore,
 }: {
-  readonly committedSurfaceRuntime: ReturnType<
-    typeof createGpuFlowCommittedSurfaceRuntime
+  readonly presentedSurfaceRuntime: ReturnType<
+    typeof createGpuFlowPresentedSurfaceRuntime
   >;
   readonly frame: GpuFlowCommittedSurfaceFrame;
   readonly getRetainedScrollOffset?:
@@ -116,8 +116,8 @@ export function publishBrowserVisualFrame({
   readonly viewportStore: ReturnType<typeof createGpuFlowViewportStore>;
 }): void {
   const browserVisualRuntime =
-    getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
-      committedSurfaceRuntime,
+    getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+      presentedSurfaceRuntime,
     );
   browserVisualRuntime.setDomControlProjectionEnvironment({
     getRetainedScrollOffset,
@@ -132,7 +132,7 @@ export function publishBrowserVisualFrame({
     }),
   });
   browserVisualRuntime.commitPreparedBrowserVisualActors({ candidate, token });
-  committedSurfaceRuntime.publishCommittedContentFrame(token, frame);
+  presentedSurfaceRuntime.publishPresentedContentFrame(token, frame);
 }
 
 export function stageBrowserVisualCandidate({
@@ -144,7 +144,7 @@ export function stageBrowserVisualCandidate({
 }: {
   readonly actorId?: string | null | undefined;
   readonly browserVisualRuntime: ReturnType<
-    typeof getGpuFlowBrowserVisualActorRuntimeForCommittedSurface
+    typeof getGpuFlowBrowserVisualActorRuntimeForPresentedSurface
   >;
   readonly candidate: GpuFlowBrowserVisualActorCandidate;
   readonly reason?: string | undefined;

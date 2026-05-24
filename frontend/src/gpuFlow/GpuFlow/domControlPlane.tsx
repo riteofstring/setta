@@ -10,7 +10,7 @@ import {
 } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
-import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
+import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type {
@@ -22,7 +22,7 @@ import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import {
   createGpuFlowBrowserVisualActorRuntime,
-  getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
+  getGpuFlowBrowserVisualActorRuntimeForPresentedSurface,
   type GpuFlowBrowserVisualActorRuntime,
 } from "./browserVisualActorRuntime";
 import {
@@ -93,7 +93,7 @@ const GPU_FLOW_ACTIVE_DOM_CONTROL_FOCUS_ATTEMPTS = 300;
 const GPU_FLOW_ACTIVE_DOM_CONTROL_FOCUS_RETRY_DELAY_MS = 16;
 
 export function GpuFlowDomControlPlane({
-  committedSurfaceRuntime,
+  presentedSurfaceRuntime,
   getRetainedScrollOffset,
   onActivate,
   renderControl,
@@ -101,7 +101,7 @@ export function GpuFlowDomControlPlane({
   viewportStore,
   viewportRuntime,
 }: {
-  readonly committedSurfaceRuntime?: GpuFlowCommittedSurfaceRuntime | undefined;
+  readonly presentedSurfaceRuntime?: GpuFlowPresentedSurfaceRuntime | undefined;
   readonly getRetainedScrollOffset:
     | GpuFlowRetainedScrollOffsetGetter
     | undefined;
@@ -117,14 +117,14 @@ export function GpuFlowDomControlPlane({
   const preparationFrameRequestKeyRef = useRef<string>("");
   const projectedFrameRequestKeyRef = useRef<string>("");
   const browserVisualRuntime = useMemo(() => {
-    if (committedSurfaceRuntime) {
-      return getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
-        committedSurfaceRuntime,
+    if (presentedSurfaceRuntime) {
+      return getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+        presentedSurfaceRuntime,
       );
     }
     fallbackRuntimeRef.current ??= createGpuFlowBrowserVisualActorRuntime();
     return fallbackRuntimeRef.current;
-  }, [committedSurfaceRuntime]);
+  }, [presentedSurfaceRuntime]);
   const snapshot = useSyncExternalStore(
     browserVisualRuntime.subscribe.bind(browserVisualRuntime),
     browserVisualRuntime.getSnapshot.bind(browserVisualRuntime),

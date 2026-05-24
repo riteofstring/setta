@@ -402,7 +402,7 @@ describe("GPU Flow visible frame resource graph proofs", () => {
         },
         frame: candidateFrame,
         publishCommittedSurfaceFrame: () => {
-          throw new Error("Unexpected committed content publication.");
+          throw new Error("Unexpected presented content publication.");
         },
         token: createGpuFlowVisibleFrameCommitPublicationTokenForTest({
           frame: tokenFrame,

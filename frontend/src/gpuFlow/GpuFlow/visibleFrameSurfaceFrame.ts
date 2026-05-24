@@ -113,7 +113,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
         }
       | undefined,
   ) => void;
-  readonly committedSurfaceFrameRef: MutableRefObject<GpuFlowCommittedSurfaceFrame | null>;
+  readonly presentedContentFrameRef: MutableRefObject<GpuFlowCommittedSurfaceFrame | null>;
   readonly event: GpuFlowSurfaceFrameEvent;
   readonly getVisibleFrameResourceGraphSnapshot: () => GpuFlowVisibleFrameResourceGraphSnapshot;
   readonly initialRetainedRuntimeFrame: GpuRetainedRuntimeFrame;
@@ -155,7 +155,7 @@ export type RenderGpuFlowSurfaceFrameInput = Omit<
     string | null
   >;
   readonly runtime: GpuFlowRuntime;
-  readonly visibleCommittedSurfaceFrame: GpuFlowCommittedSurfaceFrame;
+  readonly visiblePresentedContentFrame: GpuFlowCommittedSurfaceFrame;
   readonly visibleOverlayProjectionKeyRef: MutableRefObject<string | null>;
   readonly visibleFrameBudgetBrokerRef: MutableRefObject<GpuFlowVisibleFrameBudgetBroker>;
   readonly visibleProjectionPublicationStateRef: MutableRefObject<GpuFlowVisibleProjectionState | null>;
@@ -338,8 +338,8 @@ export function renderGpuFlowSurfaceFrame({
       },
       sampleVisibleFramePublication: () => {
         const runtimeFrame = viewportRuntime.runFrame(frameStartedAtMs);
-        const hasCommittedContentFrame = hasGpuFlowCommittedContentFrame(
-          input.committedSurfaceFrameRef.current,
+        const hasCommittedContentFrame = hasGpuFlowPresentedContentFrame(
+          input.presentedContentFrameRef.current,
         );
         const previousVisibleProjectionState =
           input.visibleProjectionPublicationStateRef.current ??
@@ -372,7 +372,7 @@ export function renderGpuFlowSurfaceFrame({
           hasCommittedContentFrame,
           previousVisibleProjectionState,
           rawReasons: withGpuFlowContentCatchupReasonForStalePublicationSample({
-            committedFrame: input.committedSurfaceFrameRef.current,
+            committedFrame: input.presentedContentFrameRef.current,
             previousVisibleProjectionState,
             rawReasons: event.reasons,
             sample,
@@ -451,21 +451,21 @@ function requestGpuFlowRetainedScrollCatchupFrameForStaleVisibleState({
   surface?.requestFrame("retained-scroll");
 }
 
-export function hasGpuFlowCommittedContentFrame(
+export function hasGpuFlowPresentedContentFrame(
   frame: Pick<GpuFlowCommittedSurfaceFrame, "retainedDisplayFrame"> | null,
 ): boolean {
   return frame !== null && frame.retainedDisplayFrame !== null;
 }
 
 function prepareGpuFlowSurfaceMotionProjectionFrame({
-  committedSurfaceFrameRef,
+  presentedContentFrameRef,
   event,
   liveProjectionSample,
   motionProjectionWorkPlan,
   nodeLayerRef,
   previousVisibleProjectionState,
   runtime,
-  visibleCommittedSurfaceFrame,
+  visiblePresentedContentFrame,
   viewportFrame,
   viewportStore,
   ...input
@@ -485,7 +485,7 @@ function prepareGpuFlowSurfaceMotionProjectionFrame({
     };
   }
   const committedFrame =
-    committedSurfaceFrameRef.current ?? visibleCommittedSurfaceFrame;
+    presentedContentFrameRef.current ?? visiblePresentedContentFrame;
   const projectionTransaction = createGpuFlowProjectionTransaction({
     committedFrame,
     kind: "motion-projection",
@@ -546,10 +546,10 @@ function renderGpuFlowSurfaceMotionProjectionFrame({
   ...input
 }: Omit<
   RenderGpuFlowSurfaceFrameInput,
-  | "committedSurfaceFrameRef"
+  | "presentedContentFrameRef"
   | "initialRetainedRuntimeFrame"
   | "viewportRuntime"
-  | "visibleCommittedSurfaceFrame"
+  | "visiblePresentedContentFrame"
 > & {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
@@ -682,7 +682,7 @@ function renderGpuFlowSurfaceContentPublicationFrame({
 }): GpuFlowContentPublicationFrameResult {
   const contentDeferResolutionUpdates =
     shouldDeferGpuFlowContentPublicationResolutionUpdatesForFrame({
-      committedFrame: input.committedSurfaceFrameRef.current,
+      committedFrame: input.presentedContentFrameRef.current,
       deferResolutionUpdates,
       hasPreviousVisibleProjectionState:
         previousVisibleProjectionState !== null,

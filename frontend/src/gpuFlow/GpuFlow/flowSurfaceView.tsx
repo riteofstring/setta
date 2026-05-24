@@ -5,7 +5,7 @@ import {
   type RefObject,
 } from "react";
 
-import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
+import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import { GpuSurface, type GpuSurfaceHandle } from "../GpuSurface";
 import type { GpuNodeLayout } from "../htmlSurfaces/frame";
 import { GpuFlowLayoutStoreContext } from "../layoutStoreContext";
@@ -40,7 +40,7 @@ export function GpuFlowSurfaceView({
   children,
   className,
   coldStartShellFrame,
-  committedSurfaceRuntime,
+  presentedSurfaceRuntime,
   containerRef,
   deviceOptions,
   edgeLabelSourceElement,
@@ -73,7 +73,7 @@ export function GpuFlowSurfaceView({
   readonly children: ReactNode;
   readonly className: string;
   readonly coldStartShellFrame: GpuFlowColdStartShellFrame | null;
-  readonly committedSurfaceRuntime: GpuFlowCommittedSurfaceRuntime;
+  readonly presentedSurfaceRuntime: GpuFlowPresentedSurfaceRuntime;
   readonly containerRef: RefObject<HTMLDivElement | null>;
   readonly deviceOptions: GpuFlowProps["deviceOptions"];
   readonly edgeLabelSourceElement: ReactNode;
@@ -160,7 +160,7 @@ export function GpuFlowSurfaceView({
           {profileGpuFlowReactElement(
             "dom-control-plane",
             <GpuFlowDomControlPlane
-              committedSurfaceRuntime={committedSurfaceRuntime}
+              presentedSurfaceRuntime={presentedSurfaceRuntime}
               getRetainedScrollOffset={getRetainedDomControlScrollOffset}
               onActivate={onDomControlActivation}
               renderControl={renderRetainedDomControl}
@@ -172,7 +172,7 @@ export function GpuFlowSurfaceView({
           {profileGpuFlowReactElement(
             "dom-island-layer",
             <GpuFlowDomIslandLayer
-              committedSurfaceRuntime={committedSurfaceRuntime}
+              presentedSurfaceRuntime={presentedSurfaceRuntime}
               renderDomIsland={renderDomIsland}
               viewportStore={viewportStore}
               viewportRuntime={viewportRuntime}

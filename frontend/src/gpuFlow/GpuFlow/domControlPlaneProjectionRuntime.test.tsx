@@ -5,20 +5,20 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
+import { createGpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import {
   createGpuFlowBrowserVisualActorRuntime,
-  getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
+  getGpuFlowBrowserVisualActorRuntimeForPresentedSurface,
   type GpuFlowBrowserVisualActorCandidate,
 } from "./browserVisualActorRuntime";
 import { applyVisibleGpuFlowDomControlHostPresentation } from "./browserVisualActorRuntimeState";
 import { GpuFlowDomControlPlane } from "./domControlPlane";
 import {
   committedSurfaceFrame,
-  createCommittedSurfaceRuntimeWithBrowserVisuals,
+  createPresentedSurfaceRuntimeWithBrowserVisuals,
   createMockViewportRuntime,
   domControl,
   domControlCoverageState,
@@ -273,8 +273,8 @@ describe("GPU flow DOM control projection runtime", () => {
       transform: [0, 0, 1],
       width: 400,
     });
-    const committedSurfaceRuntime =
-      createCommittedSurfaceRuntimeWithBrowserVisuals({
+    const presentedSurfaceRuntime =
+      createPresentedSurfaceRuntimeWithBrowserVisuals({
         frame: committedSurfaceFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: runtimeFrame,
@@ -287,7 +287,7 @@ describe("GPU flow DOM control projection runtime", () => {
 
     const renderPlane = () => (
       <GpuFlowDomControlPlane
-        committedSurfaceRuntime={committedSurfaceRuntime}
+        presentedSurfaceRuntime={presentedSurfaceRuntime}
         getRetainedScrollOffset={undefined}
         onActivate={undefined}
         renderControl={(control) => (
@@ -313,7 +313,7 @@ describe("GPU flow DOM control projection runtime", () => {
 
     act(() => {
       publishBrowserVisualFrame({
-        committedSurfaceRuntime,
+        presentedSurfaceRuntime,
         frame: committedSurfaceFrame({
           displayFrameId: 2,
           retainedRuntimeFrame: runtimeFrame,
@@ -340,8 +340,8 @@ describe("GPU flow DOM control projection runtime", () => {
       transform: [0, 0, 1],
       width: 400,
     });
-    const committedSurfaceRuntime =
-      createCommittedSurfaceRuntimeWithBrowserVisuals({
+    const presentedSurfaceRuntime =
+      createPresentedSurfaceRuntimeWithBrowserVisuals({
         frame: committedSurfaceFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame(controls),
@@ -355,7 +355,7 @@ describe("GPU flow DOM control projection runtime", () => {
     act(() => {
       root?.render(
         <GpuFlowDomControlPlane
-          committedSurfaceRuntime={committedSurfaceRuntime}
+          presentedSurfaceRuntime={presentedSurfaceRuntime}
           getRetainedScrollOffset={undefined}
           onActivate={undefined}
           renderControl={(control) => (
@@ -402,8 +402,8 @@ describe("GPU flow DOM control projection runtime", () => {
       transform: [0, 0, 1],
       width: 400,
     });
-    const committedSurfaceRuntime =
-      createCommittedSurfaceRuntimeWithBrowserVisuals({
+    const presentedSurfaceRuntime =
+      createPresentedSurfaceRuntimeWithBrowserVisuals({
         frame: committedSurfaceFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame([control]),
@@ -412,8 +412,8 @@ describe("GPU flow DOM control projection runtime", () => {
         viewportStore,
       });
     const browserVisualRuntime =
-      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
-        committedSurfaceRuntime,
+      getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+        presentedSurfaceRuntime,
       );
     const host = document.body.appendChild(document.createElement("div"));
     root = createRoot(host);
@@ -421,7 +421,7 @@ describe("GPU flow DOM control projection runtime", () => {
     act(() => {
       root?.render(
         <GpuFlowDomControlPlane
-          committedSurfaceRuntime={committedSurfaceRuntime}
+          presentedSurfaceRuntime={presentedSurfaceRuntime}
           getRetainedScrollOffset={undefined}
           onActivate={undefined}
           renderControl={(control) => (
@@ -454,8 +454,8 @@ describe("GPU flow DOM control projection runtime", () => {
       transform: [0, 0, 1],
       width: 400,
     });
-    const committedSurfaceRuntime =
-      createCommittedSurfaceRuntimeWithBrowserVisuals({
+    const presentedSurfaceRuntime =
+      createPresentedSurfaceRuntimeWithBrowserVisuals({
         frame: committedSurfaceFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame([passiveControl]),
@@ -464,14 +464,14 @@ describe("GPU flow DOM control projection runtime", () => {
         viewportStore,
       });
     const browserVisualRuntime =
-      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
-        committedSurfaceRuntime,
+      getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+        presentedSurfaceRuntime,
       );
     const host = document.body.appendChild(document.createElement("div"));
     root = createRoot(host);
     const renderPlane = () => (
       <GpuFlowDomControlPlane
-        committedSurfaceRuntime={committedSurfaceRuntime}
+        presentedSurfaceRuntime={presentedSurfaceRuntime}
         getRetainedScrollOffset={undefined}
         onActivate={undefined}
         renderControl={(control) => (
@@ -549,8 +549,8 @@ describe("GPU flow DOM control projection runtime", () => {
         requestFrame,
       } as never,
     };
-    const committedSurfaceRuntime =
-      createCommittedSurfaceRuntimeWithBrowserVisuals({
+    const presentedSurfaceRuntime =
+      createPresentedSurfaceRuntimeWithBrowserVisuals({
         frame: committedSurfaceFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame([passiveControl]),
@@ -559,14 +559,14 @@ describe("GPU flow DOM control projection runtime", () => {
         viewportStore,
       });
     const browserVisualRuntime =
-      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
-        committedSurfaceRuntime,
+      getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+        presentedSurfaceRuntime,
       );
     const host = document.body.appendChild(document.createElement("div"));
     root = createRoot(host);
     const renderPlane = () => (
       <GpuFlowDomControlPlane
-        committedSurfaceRuntime={committedSurfaceRuntime}
+        presentedSurfaceRuntime={presentedSurfaceRuntime}
         getRetainedScrollOffset={undefined}
         onActivate={undefined}
         renderControl={(control) => (
@@ -625,8 +625,8 @@ describe("GPU flow DOM control projection runtime", () => {
         requestFrame,
       } as never,
     };
-    const committedSurfaceRuntime =
-      createCommittedSurfaceRuntimeWithBrowserVisuals({
+    const presentedSurfaceRuntime =
+      createPresentedSurfaceRuntimeWithBrowserVisuals({
         frame: committedSurfaceFrame({
           displayFrameId: 1,
           retainedRuntimeFrame: retainedRuntimeFrame([visibleControl]),
@@ -635,14 +635,14 @@ describe("GPU flow DOM control projection runtime", () => {
         viewportStore,
       });
     const browserVisualRuntime =
-      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
-        committedSurfaceRuntime,
+      getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+        presentedSurfaceRuntime,
       );
     const host = document.body.appendChild(document.createElement("div"));
     root = createRoot(host);
     const renderPlane = () => (
       <GpuFlowDomControlPlane
-        committedSurfaceRuntime={committedSurfaceRuntime}
+        presentedSurfaceRuntime={presentedSurfaceRuntime}
         getRetainedScrollOffset={undefined}
         onActivate={undefined}
         renderControl={(control) => (
@@ -706,7 +706,7 @@ describe("GPU flow DOM control projection runtime", () => {
     expect(recorderMounted).toEqual(normalMounted);
   });
 
-  it("tracks committed-frame store updates when React semantic rendering dedupes", async () => {
+  it("tracks presented-frame store updates when React semantic rendering dedupes", async () => {
     const firstControls = [domControl({ index: 0 })];
     const nextControls = [domControl({ index: 1 })];
     const firstRuntimeFrame = retainedRuntimeFrame(firstControls, 1);
@@ -721,8 +721,8 @@ describe("GPU flow DOM control projection runtime", () => {
       transform: [0, 0, 1],
       width: 400,
     });
-    const committedSurfaceRuntime =
-      createCommittedSurfaceRuntimeWithBrowserVisuals({
+    const presentedSurfaceRuntime =
+      createPresentedSurfaceRuntimeWithBrowserVisuals({
         frame: firstFrame,
         viewportRuntime,
         viewportStore,
@@ -733,7 +733,7 @@ describe("GPU flow DOM control projection runtime", () => {
     act(() => {
       root?.render(
         <GpuFlowDomControlPlane
-          committedSurfaceRuntime={committedSurfaceRuntime}
+          presentedSurfaceRuntime={presentedSurfaceRuntime}
           getRetainedScrollOffset={undefined}
           onActivate={undefined}
           renderControl={(control) => (
@@ -752,7 +752,7 @@ describe("GPU flow DOM control projection runtime", () => {
         retainedRuntimeFrame: nextRuntimeFrame,
       });
       publishBrowserVisualFrame({
-        committedSurfaceRuntime,
+        presentedSurfaceRuntime,
         frame,
         viewportRuntime,
         viewportStore,
@@ -773,15 +773,15 @@ describe("GPU flow DOM control projection runtime", () => {
     const nextControl = domControl({ index: 1 });
     const firstRuntimeFrame = retainedRuntimeFrame([firstControl]);
     const nextRuntimeFrame = retainedRuntimeFrame([nextControl], 2);
-    const committedSurfaceRuntime = createGpuFlowCommittedSurfaceRuntime(
+    const presentedSurfaceRuntime = createGpuFlowPresentedSurfaceRuntime(
       committedSurfaceFrame({
         displayFrameId: 1,
         retainedRuntimeFrame: firstRuntimeFrame,
       }),
     );
     const browserVisualRuntime =
-      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
-        committedSurfaceRuntime,
+      getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+        presentedSurfaceRuntime,
       );
     const viewportRuntime = createMockViewportRuntime([0, 0, 1]);
     const viewportStore = createGpuFlowViewportStore({
@@ -790,7 +790,7 @@ describe("GPU flow DOM control projection runtime", () => {
       width: 400,
     });
     publishBrowserVisualFrame({
-      committedSurfaceRuntime,
+      presentedSurfaceRuntime,
       frame: committedSurfaceFrame({
         displayFrameId: 1,
         retainedRuntimeFrame: firstRuntimeFrame,
@@ -804,7 +804,7 @@ describe("GPU flow DOM control projection runtime", () => {
     act(() => {
       root?.render(
         <GpuFlowDomControlPlane
-          committedSurfaceRuntime={committedSurfaceRuntime}
+          presentedSurfaceRuntime={presentedSurfaceRuntime}
           getRetainedScrollOffset={undefined}
           onActivate={undefined}
           renderControl={(control) => (
@@ -1151,8 +1151,8 @@ function renderMountedRowIds({
     transform: [0, 0, 1],
     width: 400,
   });
-  const committedSurfaceRuntime =
-    createCommittedSurfaceRuntimeWithBrowserVisuals({
+  const presentedSurfaceRuntime =
+    createPresentedSurfaceRuntimeWithBrowserVisuals({
       frame: committedSurfaceFrame({
         displayFrameId: 1,
         retainedRuntimeFrame: retainedRuntimeFrame(controls),
@@ -1166,7 +1166,7 @@ function renderMountedRowIds({
   act(() => {
     root?.render(
       <GpuFlowDomControlPlane
-        committedSurfaceRuntime={committedSurfaceRuntime}
+        presentedSurfaceRuntime={presentedSurfaceRuntime}
         getRetainedScrollOffset={undefined}
         onActivate={undefined}
         renderControl={(control) => (

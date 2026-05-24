@@ -1,4 +1,4 @@
-import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
+import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedDomControlSourceDescriptor } from "../retainedDomControlScene";
@@ -75,8 +75,8 @@ export type {
   GpuFlowBrowserVisualActorRuntimeSnapshot,
 } from "./browserVisualActorRuntimeTypes";
 
-const browserVisualActorRuntimeByCommittedSurfaceRuntime = new WeakMap<
-  GpuFlowCommittedSurfaceRuntime,
+const browserVisualActorRuntimeByPresentedSurfaceRuntime = new WeakMap<
+  GpuFlowPresentedSurfaceRuntime,
   GpuFlowBrowserVisualActorRuntime
 >();
 
@@ -84,18 +84,18 @@ export function createGpuFlowBrowserVisualActorRuntime(): GpuFlowBrowserVisualAc
   return new GpuFlowBrowserVisualActorRuntime();
 }
 
-export function getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
-  committedSurfaceRuntime: GpuFlowCommittedSurfaceRuntime,
+export function getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+  presentedSurfaceRuntime: GpuFlowPresentedSurfaceRuntime,
 ): GpuFlowBrowserVisualActorRuntime {
-  const existing = browserVisualActorRuntimeByCommittedSurfaceRuntime.get(
-    committedSurfaceRuntime,
+  const existing = browserVisualActorRuntimeByPresentedSurfaceRuntime.get(
+    presentedSurfaceRuntime,
   );
   if (existing) {
     return existing;
   }
   const runtime = createGpuFlowBrowserVisualActorRuntime();
-  browserVisualActorRuntimeByCommittedSurfaceRuntime.set(
-    committedSurfaceRuntime,
+  browserVisualActorRuntimeByPresentedSurfaceRuntime.set(
+    presentedSurfaceRuntime,
     runtime,
   );
   return runtime;

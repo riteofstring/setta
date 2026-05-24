@@ -401,7 +401,7 @@ export function assertGpuFlowCommitPublicationToken({
       })
   ) {
     throw new Error(
-      "GPU Flow committed content publication requires a commit publication token for the same visible frame.",
+      "GPU Flow presented content publication requires a commit publication token for the same visible frame.",
     );
   }
   assertGpuFlowCommitPresentationPairProof({
@@ -439,7 +439,7 @@ export function assertGpuFlowCommitPublicationTokenForPresentationProof({
       })
   ) {
     throw new Error(
-      "GPU Flow committed content publication requires a commit publication token for the same visible frame.",
+      "GPU Flow presented content publication requires a commit publication token for the same visible frame.",
     );
   }
   assertGpuFlowCommitPresentationPairProof({

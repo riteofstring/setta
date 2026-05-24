@@ -9,7 +9,7 @@ import {
   createGpuFlowCommittedSurfacePresentationProof,
   type GpuFlowCommittedSurfaceFrame,
 } from "../committedSurfaceFrame";
-import { createGpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
+import { createGpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { GpuFlowLiveProjectionSample } from "../projectionRuntime";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
@@ -21,7 +21,7 @@ import {
 } from "../viewportMath";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import { createGpuFlowViewportStore } from "../viewportStore";
-import { getGpuFlowBrowserVisualActorRuntimeForCommittedSurface } from "./browserVisualActorRuntime";
+import { getGpuFlowBrowserVisualActorRuntimeForPresentedSurface } from "./browserVisualActorRuntime";
 import { GpuFlowDomIslandLayer } from "./domIslandLayer";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./visibleFrameTestUtils";
 
@@ -36,10 +36,10 @@ describe("GPU Flow DOM island layer", () => {
     document.body.replaceChildren();
   });
 
-  it("tracks committed-frame store updates when React semantic rendering dedupes", async () => {
+  it("tracks presented-frame store updates when React semantic rendering dedupes", async () => {
     const firstRuntimeFrame = retainedRuntimeFrame([domIsland("island-a")], 1);
     const nextRuntimeFrame = retainedRuntimeFrame([domIsland("island-b")], 2);
-    const committedSurfaceRuntime = createGpuFlowCommittedSurfaceRuntime(
+    const presentedSurfaceRuntime = createGpuFlowPresentedSurfaceRuntime(
       committedSurfaceFrame({
         displayFrameId: 1,
         retainedRuntimeFrame: firstRuntimeFrame,
@@ -52,7 +52,7 @@ describe("GPU Flow DOM island layer", () => {
       width: 400,
     });
     publishBrowserVisualFrame({
-      committedSurfaceRuntime,
+      presentedSurfaceRuntime,
       frame: committedSurfaceFrame({
         displayFrameId: 1,
         retainedRuntimeFrame: firstRuntimeFrame,
@@ -66,7 +66,7 @@ describe("GPU Flow DOM island layer", () => {
     act(() => {
       root?.render(
         <GpuFlowDomIslandLayer
-          committedSurfaceRuntime={committedSurfaceRuntime}
+          presentedSurfaceRuntime={presentedSurfaceRuntime}
           renderDomIsland={(island) => <span>{island.id}</span>}
           viewportRuntime={viewportRuntime}
           viewportStore={viewportStore}
@@ -76,7 +76,7 @@ describe("GPU Flow DOM island layer", () => {
     expect(mountedIslandIds()).toEqual(["island-a"]);
 
     const nextToken = await publishBrowserVisualFrameInAct({
-      committedSurfaceRuntime,
+      presentedSurfaceRuntime,
       displayFrameId: 2,
       retainedRuntimeFrame: nextRuntimeFrame,
       viewportRuntime,
@@ -92,12 +92,12 @@ describe("GPU Flow DOM island layer", () => {
     expectDomIslandPresentationIdentity(nextToken);
 
     const projectionToken = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
-      frame: committedSurfaceRuntime.getCommittedContentFrame(),
+      frame: presentedSurfaceRuntime.getPresentedContentFrame(),
       projectionSample: { id: 42 } as GpuFlowLiveProjectionSample,
     });
     await act(async () => {
-      getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
-        committedSurfaceRuntime,
+      getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+        presentedSurfaceRuntime,
       ).projectDomIslands({
         token: projectionToken,
         viewport: [16, 0, 1],
@@ -110,14 +110,14 @@ describe("GPU Flow DOM island layer", () => {
 });
 
 async function publishBrowserVisualFrameInAct({
-  committedSurfaceRuntime,
+  presentedSurfaceRuntime,
   displayFrameId,
   retainedRuntimeFrame,
   viewportRuntime,
   viewportStore,
 }: {
-  readonly committedSurfaceRuntime: ReturnType<
-    typeof createGpuFlowCommittedSurfaceRuntime
+  readonly presentedSurfaceRuntime: ReturnType<
+    typeof createGpuFlowPresentedSurfaceRuntime
   >;
   readonly displayFrameId: number;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
@@ -131,7 +131,7 @@ async function publishBrowserVisualFrameInAct({
       retainedRuntimeFrame,
     });
     token = publishBrowserVisualFrame({
-      committedSurfaceRuntime,
+      presentedSurfaceRuntime,
       frame,
       viewportRuntime,
       viewportStore,
@@ -203,21 +203,21 @@ function createMockViewportRuntime(
 }
 
 function publishBrowserVisualFrame({
-  committedSurfaceRuntime,
+  presentedSurfaceRuntime,
   frame,
   viewportRuntime,
   viewportStore,
 }: {
-  readonly committedSurfaceRuntime: ReturnType<
-    typeof createGpuFlowCommittedSurfaceRuntime
+  readonly presentedSurfaceRuntime: ReturnType<
+    typeof createGpuFlowPresentedSurfaceRuntime
   >;
   readonly frame: GpuFlowCommittedSurfaceFrame;
   readonly viewportRuntime: GpuFlowViewportRuntime;
   readonly viewportStore: ReturnType<typeof createGpuFlowViewportStore>;
 }): ReturnType<typeof publicationToken> {
   const browserVisualRuntime =
-    getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
-      committedSurfaceRuntime,
+    getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+      presentedSurfaceRuntime,
     );
   browserVisualRuntime.setDomIslandProjectionEnvironment({
     viewportRuntime,
@@ -231,7 +231,7 @@ function publishBrowserVisualFrame({
     } as RetainedDisplayFrame,
   });
   browserVisualRuntime.commitPreparedBrowserVisualActors({ candidate, token });
-  committedSurfaceRuntime.publishCommittedContentFrame(token, frame);
+  presentedSurfaceRuntime.publishPresentedContentFrame(token, frame);
   return token;
 }
 

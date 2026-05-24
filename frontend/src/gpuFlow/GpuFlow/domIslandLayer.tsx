@@ -9,7 +9,7 @@ import {
 } from "react";
 import { NO_DRAG_CLASS_NAME, NO_PAN_CLASS_NAME } from "utils/constants";
 
-import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
+import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import { projectHtmlSurfaceActiveDomIsland } from "../htmlSurfaces/interactionProjector";
 import type { GpuDomIsland } from "../scene";
 import { normalizeGpuViewport } from "../viewportMath";
@@ -17,7 +17,7 @@ import type { GpuFlowViewportRuntime } from "../viewportRuntime";
 import type { GpuFlowViewportStoreApi } from "../viewportStore";
 import {
   createGpuFlowBrowserVisualActorRuntime,
-  getGpuFlowBrowserVisualActorRuntimeForCommittedSurface,
+  getGpuFlowBrowserVisualActorRuntimeForPresentedSurface,
   type GpuFlowBrowserVisualActorRuntime,
 } from "./browserVisualActorRuntime";
 import { getGpuFlowVisibleFrameIdentityDataAttributes } from "./visibleFrameIdentityAttributes";
@@ -33,12 +33,12 @@ const GPU_FLOW_DOM_ISLAND_CLASS_NAME = [
 const GPU_FLOW_DOM_ISLAND_LAYER_CLASS_NAME = "setta-gpu-flow__dom-island-layer";
 
 export function GpuFlowDomIslandLayer({
-  committedSurfaceRuntime,
+  presentedSurfaceRuntime,
   renderDomIsland,
   viewportStore,
   viewportRuntime,
 }: {
-  readonly committedSurfaceRuntime?: GpuFlowCommittedSurfaceRuntime | undefined;
+  readonly presentedSurfaceRuntime?: GpuFlowPresentedSurfaceRuntime | undefined;
   readonly renderDomIsland: GpuFlowDomIslandRenderer | undefined;
   readonly viewportStore: GpuFlowViewportStoreApi;
   readonly viewportRuntime: GpuFlowViewportRuntime;
@@ -47,14 +47,14 @@ export function GpuFlowDomIslandLayer({
     null,
   );
   const browserVisualRuntime = useMemo(() => {
-    if (committedSurfaceRuntime) {
-      return getGpuFlowBrowserVisualActorRuntimeForCommittedSurface(
-        committedSurfaceRuntime,
+    if (presentedSurfaceRuntime) {
+      return getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
+        presentedSurfaceRuntime,
       );
     }
     fallbackRuntimeRef.current ??= createGpuFlowBrowserVisualActorRuntime();
     return fallbackRuntimeRef.current;
-  }, [committedSurfaceRuntime]);
+  }, [presentedSurfaceRuntime]);
   const snapshot = useSyncExternalStore(
     browserVisualRuntime.subscribe.bind(browserVisualRuntime),
     browserVisualRuntime.getSnapshot.bind(browserVisualRuntime),

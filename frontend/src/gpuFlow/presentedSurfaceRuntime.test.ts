@@ -4,23 +4,23 @@ import {
   createGpuFlowCommittedSurfacePresentationProof,
   type GpuFlowCommittedSurfaceFrame,
 } from "./committedSurfaceFrame";
-import { createGpuFlowCommittedSurfaceRuntime } from "./committedSurfaceRuntime";
+import { createGpuFlowPresentedSurfaceRuntime } from "./presentedSurfaceRuntime";
 import { createGpuFlowVisibleFrameCommitPublicationTokenForTest } from "./GpuFlow/visibleFrameTestUtils";
 import type { GpuFlowLiveProjectionSample } from "./projectionRuntime";
 import type { GpuRetainedRuntimeFrame } from "./retainedRuntimeFrame";
 
-describe("GPU Flow committed surface runtime", () => {
-  it("notifies committed-frame subscribers synchronously while deferring React semantic observers", async () => {
+describe("GPU Flow presented surface runtime", () => {
+  it("notifies presented-frame subscribers synchronously while deferring React semantic observers", async () => {
     const startupFrame = committedFrame({ displayFrameId: 1 });
-    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
     const nextFrame = committedFrame({
       actorGenerations: [committedActor("actor-next")],
       displayFrameId: 2,
     });
     const notifications: string[] = [];
-    runtime.subscribeCommittedContentFrame(() => {
+    runtime.subscribePresentedContentFrame(() => {
       notifications.push(
-        `committed:${runtime.getCommittedContentFrame().displayFrameId}`,
+        `presented:${runtime.getPresentedContentFrame().displayFrameId}`,
       );
     });
     runtime.subscribeReactSemanticSnapshot(() => {
@@ -30,25 +30,25 @@ describe("GPU Flow committed surface runtime", () => {
     });
 
     const token = publicationToken(nextFrame);
-    expect(runtime.publishCommittedContentFrame(token, nextFrame)).toBe(true);
+    expect(runtime.publishPresentedContentFrame(token, nextFrame)).toBe(true);
 
-    expect(runtime.getCommittedContentFrame()).toBe(nextFrame);
+    expect(runtime.getPresentedContentFrame()).toBe(nextFrame);
     expect(runtime.getReactSemanticSnapshot().frame).toBe(nextFrame);
     expect(runtime.getReactSemanticSnapshot().presentationIdentity).toEqual({
       contentFrameId: token.contentFrameId,
       presentationId: token.presentationId,
       projectionSampleId: token.projectionSampleId,
     });
-    expect(notifications).toEqual(["committed:2"]);
+    expect(notifications).toEqual(["presented:2"]);
 
     await nextMicrotask();
 
-    expect(notifications).toEqual(["committed:2", "semantic:2"]);
+    expect(notifications).toEqual(["presented:2", "semantic:2"]);
   });
 
-  it("coalesces React semantic observers behind the latest committed frame", async () => {
+  it("coalesces React semantic observers behind the latest presented frame", async () => {
     const startupFrame = committedFrame({ displayFrameId: 1 });
-    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
     const firstFrame = committedFrame({
       actorGenerations: [committedActor("actor-first")],
       displayFrameId: 2,
@@ -57,10 +57,10 @@ describe("GPU Flow committed surface runtime", () => {
       actorGenerations: [committedActor("actor-second")],
       displayFrameId: 3,
     });
-    const committedFrameIds: number[] = [];
+    const presentedFrameIds: number[] = [];
     const semanticFrameIds: number[] = [];
-    runtime.subscribeCommittedContentFrame(() => {
-      committedFrameIds.push(runtime.getCommittedContentFrame().displayFrameId);
+    runtime.subscribePresentedContentFrame(() => {
+      presentedFrameIds.push(runtime.getPresentedContentFrame().displayFrameId);
     });
     runtime.subscribeReactSemanticSnapshot(() => {
       semanticFrameIds.push(
@@ -69,20 +69,20 @@ describe("GPU Flow committed surface runtime", () => {
     });
 
     expect(
-      runtime.publishCommittedContentFrame(
+      runtime.publishPresentedContentFrame(
         publicationToken(firstFrame),
         firstFrame,
       ),
     ).toBe(true);
     expect(
-      runtime.publishCommittedContentFrame(
+      runtime.publishPresentedContentFrame(
         publicationToken(secondFrame),
         secondFrame,
       ),
     ).toBe(true);
 
-    expect(runtime.getCommittedContentFrame()).toBe(secondFrame);
-    expect(committedFrameIds).toEqual([2, 3]);
+    expect(runtime.getPresentedContentFrame()).toBe(secondFrame);
+    expect(presentedFrameIds).toEqual([2, 3]);
     expect(semanticFrameIds).toEqual([]);
 
     await nextMicrotask();
@@ -92,14 +92,14 @@ describe("GPU Flow committed surface runtime", () => {
 
   it("keeps deferred React semantic updates pending until a subscriber attaches", async () => {
     const startupFrame = committedFrame({ displayFrameId: 1 });
-    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
     const nextFrame = committedFrame({
       actorGenerations: [committedActor("actor-next")],
       displayFrameId: 2,
     });
 
     expect(
-      runtime.publishCommittedContentFrame(
+      runtime.publishPresentedContentFrame(
         publicationToken(nextFrame),
         nextFrame,
       ),
@@ -118,13 +118,13 @@ describe("GPU Flow committed surface runtime", () => {
     expect(semanticFrameIds).toEqual([2]);
   });
 
-  it("notifies committed-frame subscribers for render-signature deduped frames", () => {
+  it("notifies presented-frame subscribers for render-signature deduped frames", () => {
     const startupFrame = committedFrame({ displayFrameId: 1 });
-    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
-    let committedFrameUpdates = 0;
+    const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
+    let presentedFrameUpdates = 0;
     let semanticUpdates = 0;
-    runtime.subscribeCommittedContentFrame(() => {
-      committedFrameUpdates += 1;
+    runtime.subscribePresentedContentFrame(() => {
+      presentedFrameUpdates += 1;
     });
     runtime.subscribeReactSemanticSnapshot(() => {
       semanticUpdates += 1;
@@ -133,23 +133,23 @@ describe("GPU Flow committed surface runtime", () => {
     const transformOnlyFrame = committedFrame({ displayFrameId: 2 });
     const token = publicationToken(transformOnlyFrame);
     expect(
-      runtime.publishCommittedContentFrame(token, transformOnlyFrame),
+      runtime.publishPresentedContentFrame(token, transformOnlyFrame),
     ).toBe(false);
 
-    expect(runtime.getCommittedContentFrame()).toBe(transformOnlyFrame);
+    expect(runtime.getPresentedContentFrame()).toBe(transformOnlyFrame);
     expect(runtime.getReactSemanticSnapshot().frame).toBe(startupFrame);
     expect(runtime.getReactSemanticSnapshot().presentationIdentity).toEqual({
       contentFrameId: token.contentFrameId,
       presentationId: token.presentationId,
       projectionSampleId: token.projectionSampleId,
     });
-    expect(committedFrameUpdates).toBe(1);
+    expect(presentedFrameUpdates).toBe(1);
     expect(semanticUpdates).toBe(0);
   });
 
   it("advances React semantic presentation metadata for motion-only commits", async () => {
     const frame = committedFrame({ displayFrameId: 1 });
-    const runtime = createGpuFlowCommittedSurfaceRuntime(frame);
+    const runtime = createGpuFlowPresentedSurfaceRuntime(frame);
     const contentToken = publicationToken(frame);
     const motionToken = publicationTokenForSample(frame, 2);
     const presentationIds: string[] = [];
@@ -160,14 +160,14 @@ describe("GPU Flow committed surface runtime", () => {
       }
     });
 
-    expect(runtime.publishCommittedContentFrame(contentToken, frame)).toBe(
+    expect(runtime.publishPresentedContentFrame(contentToken, frame)).toBe(
       false,
     );
-    expect(runtime.publishCommittedPresentationIdentity(motionToken)).toBe(
+    expect(runtime.publishPresentedProjectionIdentity(motionToken)).toBe(
       true,
     );
 
-    expect(runtime.getCommittedContentFrame()).toBe(frame);
+    expect(runtime.getPresentedContentFrame()).toBe(frame);
     expect(runtime.getReactSemanticSnapshot().presentationIdentity).toEqual({
       contentFrameId: motionToken.contentFrameId,
       presentationId: motionToken.presentationId,
@@ -179,13 +179,13 @@ describe("GPU Flow committed surface runtime", () => {
     expect(presentationIds).toEqual([String(motionToken.presentationId)]);
   });
 
-  it("rejects committed content publication with a token for a different visible frame", () => {
+  it("rejects presented content publication with a token for a different visible frame", () => {
     const startupFrame = committedFrame({ displayFrameId: 1 });
-    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
     const nextFrame = committedFrame({ displayFrameId: 2 });
 
     expect(() =>
-      runtime.publishCommittedContentFrame(
+      runtime.publishPresentedContentFrame(
         publicationToken(startupFrame),
         nextFrame,
       ),
@@ -194,15 +194,15 @@ describe("GPU Flow committed surface runtime", () => {
 
   it("does not expose reset or startup lifecycle mutators", () => {
     const startupFrame = committedFrame({ displayFrameId: 1 });
-    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
 
-    expect("resetCommittedContentFrame" in runtime).toBe(false);
+    expect("resetPresentedContentFrame" in runtime).toBe(false);
     expect("setStartupFrame" in runtime).toBe(false);
   });
 
-  it("rejects committed content publication with a stale token for the same visible frame id", () => {
+  it("rejects presented content publication with a stale token for the same visible frame id", () => {
     const startupFrame = committedFrame({ displayFrameId: 1 });
-    const runtime = createGpuFlowCommittedSurfaceRuntime(startupFrame);
+    const runtime = createGpuFlowPresentedSurfaceRuntime(startupFrame);
     const staleFrame = committedFrame({
       actorGenerations: [committedActor("actor-stale")],
       displayFrameId: 2,
@@ -210,7 +210,7 @@ describe("GPU Flow committed surface runtime", () => {
     const nextFrame = committedFrame({ displayFrameId: 2 });
 
     expect(() =>
-      runtime.publishCommittedContentFrame(
+      runtime.publishPresentedContentFrame(
         publicationToken(staleFrame),
         nextFrame,
       ),

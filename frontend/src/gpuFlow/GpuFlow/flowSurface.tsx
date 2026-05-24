@@ -40,7 +40,7 @@ import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import { getGpuFlowSceneDomSectionNodes } from "../scene";
 import { registerGpuFlowViewportRuntime } from "../viewportRuntimeRegistry";
 import { gpuFlowViewportStore } from "../viewportStore";
-import { useGpuFlowCommittedSurfaceFrameState } from "./committedSurfaceFrameState";
+import { useGpuFlowPresentedSurfaceFrameState } from "./visibleFramePresentedState";
 import {
   resolveGpuFlowEdgeDrawInputs,
   validateGpuFlowEdgeInput,
@@ -261,19 +261,19 @@ export function GpuFlow({
   const {
     abortPreparedCommittedSurfaceFrame,
     commitPreparedCommittedSurfaceFrame,
-    committedSurfaceFrameRef,
-    committedSurfaceRuntime,
+    presentedContentFrameRef,
+    presentedSurfaceRuntime,
     getVisibleFrameResourceGraphSnapshot,
     prepareCommittedSurfaceFrame,
     prepareVisibleFrameResourcesForBudget,
     projectCommittedBrowserVisualActors,
     validatePreparedCommittedSurfaceFrame,
-    visibleCommittedSurfaceFrame,
-  } = useGpuFlowCommittedSurfaceFrameState({
+    visiblePresentedContentFrame,
+  } = useGpuFlowPresentedSurfaceFrameState({
     initialRetainedRuntimeFrame,
   });
   const overlayRetainedRuntimeFrame =
-    visibleCommittedSurfaceFrame.retainedRuntimeFrame;
+    visiblePresentedContentFrame.retainedRuntimeFrame;
   const transformOnlyPaintNodeIdsRef = useRef<Set<string>>(new Set());
   const visibleNodeIdsRef = useRef<ReadonlySet<string>>(new Set());
   nodeResizeRef.current = nodeResize;
@@ -288,7 +288,7 @@ export function GpuFlow({
     retainedDomControlSnapshotSourceElement,
     selectionOverlaySourceElement,
   } = useGpuFlowOverlaySources({
-    committedSurfaceRuntime,
+    presentedSurfaceRuntime,
     edgeScene,
     layoutStore,
     nodeDomTransformSyncCacheRef,
@@ -385,9 +385,9 @@ export function GpuFlow({
   useGpuFlowDebugGlobals({
     activeResizeNodeIdRef,
     containerRef,
-    getCommittedSurfaceFrame: () => committedSurfaceFrameRef.current,
+    getCommittedSurfaceFrame: () => presentedContentFrameRef.current,
     getPresentationIdentity: () =>
-      committedSurfaceRuntime.getReactSemanticSnapshot().presentationIdentity,
+      presentedSurfaceRuntime.getReactSemanticSnapshot().presentationIdentity,
     getVisibleProjectionState: () => visibleProjectionStateRef.current,
     getViewport: () => viewportRuntime.getViewportTuple(),
     interactionDiagnosticsRef,
@@ -874,7 +874,7 @@ export function GpuFlow({
         callbacksRef,
         canvasSizeRef,
         commitPreparedCommittedSurfaceFrame,
-        committedSurfaceFrameRef,
+        presentedContentFrameRef,
         event,
         frameRef,
         htmlSurfaceRendererRef,
@@ -904,7 +904,7 @@ export function GpuFlow({
         textureManagerRef,
         transformOnlyPaintNodeIdsRef,
         validatePreparedCommittedSurfaceFrame,
-        visibleCommittedSurfaceFrame,
+        visiblePresentedContentFrame,
         visibleNodeIdsRef,
         visibleOverlayProjectionKeyRef,
         visibleFrameBudgetBrokerRef,
@@ -928,7 +928,7 @@ export function GpuFlow({
       publishColdStartShellFrame,
       validatePreparedCommittedSurfaceFrame,
       retainedContentSwitchAnimations,
-      visibleCommittedSurfaceFrame,
+      visiblePresentedContentFrame,
       viewportRuntime,
       viewportStore,
     ],
@@ -944,7 +944,7 @@ export function GpuFlow({
     <GpuFlowSurfaceView
       className={className}
       coldStartShellFrame={activeColdStartShellFrame}
-      committedSurfaceRuntime={committedSurfaceRuntime}
+      presentedSurfaceRuntime={presentedSurfaceRuntime}
       containerRef={containerRef}
       deviceOptions={deviceOptions}
       edgeLabelSourceElement={edgeLabelSourceElement}

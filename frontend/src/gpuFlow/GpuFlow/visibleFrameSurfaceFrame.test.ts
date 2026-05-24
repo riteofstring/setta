@@ -13,7 +13,7 @@ import {
   shouldDeferGpuFlowContentPublicationResolutionUpdatesForSample,
 } from "./visibleFrameResolutionDeferral";
 import {
-  hasGpuFlowCommittedContentFrame,
+  hasGpuFlowPresentedContentFrame,
   shouldRequestGpuFlowRetainedScrollCatchupFrame,
   withGpuFlowContentCatchupReasonForStalePublicationSample,
 } from "./visibleFrameSurfaceFrame";
@@ -250,9 +250,9 @@ describe("GPU Flow surface frame publication", () => {
   });
 
   it("does not treat the startup committed frame as published content", () => {
-    expect(hasGpuFlowCommittedContentFrame(null)).toBe(false);
+    expect(hasGpuFlowPresentedContentFrame(null)).toBe(false);
     expect(
-      hasGpuFlowCommittedContentFrame(
+      hasGpuFlowPresentedContentFrame(
         committedContentFrame({ retainedDisplayFrame: null }),
       ),
     ).toBe(false);
@@ -260,7 +260,7 @@ describe("GPU Flow surface frame publication", () => {
 
   it("treats committed retained-display frames as content", () => {
     expect(
-      hasGpuFlowCommittedContentFrame(
+      hasGpuFlowPresentedContentFrame(
         committedContentFrame({
           retainedDisplayFrame: {} as RetainedDisplayFrame,
         }),

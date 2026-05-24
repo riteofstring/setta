@@ -9,61 +9,61 @@ import {
 } from "./GpuFlow/visibleFramePresentationProofs";
 import type { GpuFlowVisibleFramePresentationIdentity } from "./GpuFlow/visibleFrameTypes";
 
-type GpuFlowCommittedContentFrame = GpuFlowCommittedSurfaceFrame;
+type GpuFlowPresentedContentFrame = GpuFlowCommittedSurfaceFrame;
 
 type GpuFlowReactSemanticSnapshot = {
-  readonly frame: GpuFlowCommittedContentFrame;
+  readonly frame: GpuFlowPresentedContentFrame;
   readonly presentationIdentity: GpuFlowVisibleFramePresentationIdentity | null;
   readonly publishCount: number;
   readonly renderSignature: string;
 };
 
-type GpuFlowCommittedSurfaceRuntimeListener = () => void;
+type GpuFlowPresentedSurfaceRuntimeListener = () => void;
 
-export type GpuFlowCommittedSurfaceRuntime = {
-  getCommittedContentFrame(): GpuFlowCommittedContentFrame;
+export type GpuFlowPresentedSurfaceRuntime = {
+  getPresentedContentFrame(): GpuFlowPresentedContentFrame;
   getReactSemanticSnapshot(): GpuFlowReactSemanticSnapshot;
-  publishCommittedContentFrame(
+  publishPresentedContentFrame(
     token: GpuFlowCommitPublicationToken,
-    frame: GpuFlowCommittedContentFrame,
+    frame: GpuFlowPresentedContentFrame,
   ): boolean;
-  publishCommittedPresentationIdentity(
+  publishPresentedProjectionIdentity(
     token: GpuFlowCommitPublicationToken,
   ): boolean;
-  subscribeCommittedContentFrame(
-    listener: GpuFlowCommittedSurfaceRuntimeListener,
+  subscribePresentedContentFrame(
+    listener: GpuFlowPresentedSurfaceRuntimeListener,
   ): () => void;
   subscribeReactSemanticSnapshot(
-    listener: GpuFlowCommittedSurfaceRuntimeListener,
+    listener: GpuFlowPresentedSurfaceRuntimeListener,
   ): () => void;
 };
 
-export function createGpuFlowCommittedSurfaceRuntime(
-  startupFrame: GpuFlowCommittedContentFrame,
-): GpuFlowCommittedSurfaceRuntime {
-  return new DefaultGpuFlowCommittedSurfaceRuntime(startupFrame);
+export function createGpuFlowPresentedSurfaceRuntime(
+  startupFrame: GpuFlowPresentedContentFrame,
+): GpuFlowPresentedSurfaceRuntime {
+  return new DefaultGpuFlowPresentedSurfaceRuntime(startupFrame);
 }
 
-class DefaultGpuFlowCommittedSurfaceRuntime
-  implements GpuFlowCommittedSurfaceRuntime
+class DefaultGpuFlowPresentedSurfaceRuntime
+  implements GpuFlowPresentedSurfaceRuntime
 {
-  private currentFrame: GpuFlowCommittedContentFrame | null = null;
-  private readonly committedFrameListeners =
-    new Set<GpuFlowCommittedSurfaceRuntimeListener>();
+  private currentFrame: GpuFlowPresentedContentFrame | null = null;
+  private readonly presentedFrameListeners =
+    new Set<GpuFlowPresentedSurfaceRuntimeListener>();
   private readonly listeners =
-    new Set<GpuFlowCommittedSurfaceRuntimeListener>();
+    new Set<GpuFlowPresentedSurfaceRuntimeListener>();
   private publishCount = 0;
   private reactSemanticEmitQueued = false;
   private reactSemanticEmitPending = false;
   private semanticSnapshot: GpuFlowReactSemanticSnapshot;
-  private readonly startupFrame: GpuFlowCommittedContentFrame;
+  private readonly startupFrame: GpuFlowPresentedContentFrame;
 
-  constructor(startupFrame: GpuFlowCommittedContentFrame) {
+  constructor(startupFrame: GpuFlowPresentedContentFrame) {
     this.startupFrame = startupFrame;
     this.semanticSnapshot = this.createSemanticSnapshot(startupFrame);
   }
 
-  getCommittedContentFrame(): GpuFlowCommittedContentFrame {
+  getPresentedContentFrame(): GpuFlowPresentedContentFrame {
     return this.currentFrame ?? this.startupFrame;
   }
 
@@ -71,9 +71,9 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     return this.semanticSnapshot;
   }
 
-  publishCommittedContentFrame(
+  publishPresentedContentFrame(
     token: GpuFlowCommitPublicationToken,
-    frame: GpuFlowCommittedContentFrame,
+    frame: GpuFlowPresentedContentFrame,
   ): boolean {
     assertGpuFlowCommitPublicationTokenForPresentationProof({
       frame,
@@ -95,19 +95,19 @@ class DefaultGpuFlowCommittedSurfaceRuntime
       publishCount: this.publishCount,
       renderSignature,
     });
-    this.emitCommittedFrame();
+    this.emitPresentedFrame();
     if (semanticSnapshotChanged) {
       this.scheduleReactSemanticEmit();
     }
     return renderSignatureChanged;
   }
 
-  publishCommittedPresentationIdentity(
+  publishPresentedProjectionIdentity(
     token: GpuFlowCommitPublicationToken,
   ): boolean {
     assertGpuFlowCommitPublicationTokenBrand({ token });
     assertGpuFlowCommitPublicationTokenForPresentationProof({
-      frame: this.getCommittedContentFrame(),
+      frame: this.getPresentedContentFrame(),
       token,
     });
     const semanticSnapshotChanged = this.setReactSemanticSnapshot({
@@ -120,17 +120,17 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     return semanticSnapshotChanged;
   }
 
-  subscribeCommittedContentFrame(
-    listener: GpuFlowCommittedSurfaceRuntimeListener,
+  subscribePresentedContentFrame(
+    listener: GpuFlowPresentedSurfaceRuntimeListener,
   ): () => void {
-    this.committedFrameListeners.add(listener);
+    this.presentedFrameListeners.add(listener);
     return () => {
-      this.committedFrameListeners.delete(listener);
+      this.presentedFrameListeners.delete(listener);
     };
   }
 
   subscribeReactSemanticSnapshot(
-    listener: GpuFlowCommittedSurfaceRuntimeListener,
+    listener: GpuFlowPresentedSurfaceRuntimeListener,
   ): () => void {
     this.listeners.add(listener);
     if (this.reactSemanticEmitPending && !this.reactSemanticEmitQueued) {
@@ -142,7 +142,7 @@ class DefaultGpuFlowCommittedSurfaceRuntime
   }
 
   private createSemanticSnapshot(
-    frame: GpuFlowCommittedContentFrame,
+    frame: GpuFlowPresentedContentFrame,
   ): GpuFlowReactSemanticSnapshot {
     return {
       frame,
@@ -186,8 +186,8 @@ class DefaultGpuFlowCommittedSurfaceRuntime
     }
   }
 
-  private emitCommittedFrame(): void {
-    for (const listener of this.committedFrameListeners) {
+  private emitPresentedFrame(): void {
+    for (const listener of this.presentedFrameListeners) {
       listener();
     }
   }

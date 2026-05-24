@@ -2,7 +2,7 @@ import { createRef } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { GpuFlowCommittedSurfaceRuntime } from "../committedSurfaceRuntime";
+import type { GpuFlowPresentedSurfaceRuntime } from "../presentedSurfaceRuntime";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import { createGpuFlowViewportStore } from "../viewportStore";
 import { createMockViewportRuntime } from "./domControlPlaneProjectionRuntimeTestUtils";
@@ -18,7 +18,7 @@ describe("GpuFlowSurfaceView", () => {
       <GpuFlowSurfaceView
         className="setta-gpu-flow"
         coldStartShellFrame={coldStartShellFrame()}
-        committedSurfaceRuntime={throwingCommittedSurfaceRuntime()}
+        presentedSurfaceRuntime={throwingPresentedSurfaceRuntime()}
         containerRef={createRef<HTMLDivElement>()}
         deviceOptions={undefined}
         edgeLabelSourceElement={null}
@@ -78,15 +78,15 @@ function coldStartShellFrame(): GpuFlowColdStartShellFrame {
   };
 }
 
-function throwingCommittedSurfaceRuntime(): GpuFlowCommittedSurfaceRuntime {
+function throwingPresentedSurfaceRuntime(): GpuFlowPresentedSurfaceRuntime {
   return new Proxy(
     {},
     {
       get() {
         throw new Error(
-          "Cold-start shell must not mount committed projection hosts.",
+          "Cold-start shell must not mount presented projection hosts.",
         );
       },
     },
-  ) as GpuFlowCommittedSurfaceRuntime;
+  ) as GpuFlowPresentedSurfaceRuntime;
 }
