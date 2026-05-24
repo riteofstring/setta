@@ -3,6 +3,7 @@ import type {
   GpuFlowCommittedSurfaceActorGenerationClassification,
   GpuFlowCommittedSurfaceCanonicalActorId,
 } from "./committedSurfaceActorIdentity";
+import type { GpuFlowCommittedSurfaceBrowserVisualContract } from "./committedSurfaceBrowserVisualContract";
 import {
   createGpuFlowCommittedSurfaceBrowserVisualFragment,
   createGpuFlowCommittedSurfaceTransaction,
@@ -57,6 +58,7 @@ import type { SurfaceResourceHandle } from "./surfaceCompositor/surfaceCoverage"
 import type { SurfaceDisplayTransaction } from "./surfaceCompositor/surfaceTransaction";
 import type { GpuRect, GpuViewportInput } from "./viewportMath";
 
+export type { GpuFlowCommittedSurfaceBrowserVisualContract } from "./committedSurfaceBrowserVisualContract";
 export {
   assertGpuFlowCommittedSurfaceFrameCoherent,
   assertGpuFlowCommittedSurfacePresentationProof,
@@ -167,20 +169,6 @@ export type GpuFlowCommittedSurfaceTextCoverageProof =
       readonly projectionCoverage: "true-hole";
       readonly readinessReason: "clipped-empty" | "missing-browser-visual";
     });
-
-export type GpuFlowCommittedSurfaceBrowserVisualContract = Pick<
-  BrowserVisualActor,
-  | "coverageExemption"
-  | "coverageRequired"
-  | "coverageState"
-  | "nonemptyReason"
-  | "proof"
-  | "readinessFaultInjected"
-  | "representation"
-  | "representationKind"
-  | "resourceHandles"
-  | "visibilityReason"
->;
 
 export type GpuFlowCommittedSurfaceActorGeneration = {
   readonly active: boolean;
