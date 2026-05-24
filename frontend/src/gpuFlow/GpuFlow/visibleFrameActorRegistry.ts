@@ -1,6 +1,6 @@
 import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
 
-const GPU_FLOW_VISIBLE_FRAME_ACTOR_FAMILIES = Object.freeze([
+export const GPU_FLOW_VISIBLE_FRAME_ACTOR_FAMILIES = Object.freeze([
   "scene-background",
   "grid",
   "edges",
