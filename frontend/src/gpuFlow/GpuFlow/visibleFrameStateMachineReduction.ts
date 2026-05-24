@@ -119,18 +119,12 @@ export function reduceGpuFlowVisibleFrameWorkLane({
   readonly reducerPolicy: GpuFlowVisibleFrameStarvationPolicy;
 }): GpuFlowVisibleFrameWorkLane {
   if (
-    shouldPresentGpuFlowBootstrapContentFrame({
-      hasPresentedContentFrame,
-      motionDebt,
-    })
-  ) {
-    return "content";
-  }
-  if (
-    shouldForceGpuFlowRetainedScrollContinuityRepairLane({
+    shouldSelectGpuFlowImmediateContentRepairLane({
       classifiedDebt,
       contentDebt,
       contentRetryDeferred,
+      hasPresentedContentFrame,
+      motionDebt,
       rawReasons,
       reducerPolicy,
       retainedScrollInteractionActive,
@@ -347,6 +341,43 @@ function shouldPresentGpuFlowBootstrapContentFrame({
   readonly motionDebt: boolean;
 }): boolean {
   return motionDebt && !hasPresentedContentFrame;
+}
+
+function shouldSelectGpuFlowImmediateContentRepairLane({
+  classifiedDebt,
+  contentDebt,
+  contentRetryDeferred,
+  hasPresentedContentFrame,
+  motionDebt,
+  rawReasons,
+  reducerPolicy,
+  retainedScrollInteractionActive,
+}: Pick<
+  GpuFlowVisibleFrameLaneReductionFacts,
+  | "classifiedDebt"
+  | "contentDebt"
+  | "contentRetryDeferred"
+  | "hasPresentedContentFrame"
+  | "motionDebt"
+  | "rawReasons"
+  | "retainedScrollInteractionActive"
+> & {
+  readonly reducerPolicy: GpuFlowVisibleFrameStarvationPolicy;
+}): boolean {
+  return (
+    shouldPresentGpuFlowBootstrapContentFrame({
+      hasPresentedContentFrame,
+      motionDebt,
+    }) ||
+    shouldForceGpuFlowRetainedScrollContinuityRepairLane({
+      classifiedDebt,
+      contentDebt,
+      contentRetryDeferred,
+      rawReasons,
+      reducerPolicy,
+      retainedScrollInteractionActive,
+    })
+  );
 }
 
 function shouldForceGpuFlowRetainedScrollContinuityRepairLane({

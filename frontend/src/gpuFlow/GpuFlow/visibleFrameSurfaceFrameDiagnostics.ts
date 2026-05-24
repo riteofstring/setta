@@ -103,25 +103,56 @@ export function recordGpuFlowSurfacePresentationFrameOutcomeDiagnostic({
 function createGpuFlowSurfaceFrameContentPresentationDiagnostic(
   contentFrame: GpuFlowContentPreparationFrameResult,
 ) {
+  const retainedDisplayDiagnostics =
+    createGpuFlowSurfaceFrameRetainedDisplayDiagnostic(contentFrame);
+  const visibleProjection =
+    createGpuFlowSurfaceFrameVisibleProjectionDiagnostic(contentFrame);
   return {
-    blockedPreparedContentFrameId:
-      contentFrame.blockedPreparedContentFrame?.displayFrameId ?? null,
-    preparedContentFrameId:
-      contentFrame.preparedContentFrame?.displayFrameId ?? null,
-    heldPreparedContentFrameId:
-      contentFrame.heldPreparedContentFrame?.displayFrameId ?? null,
+    blockedPreparedContentFrameId: getGpuFlowSurfaceFramePreparedContentFrameId(
+      contentFrame.blockedPreparedContentFrame,
+    ),
+    preparedContentFrameId: getGpuFlowSurfaceFramePreparedContentFrameId(
+      contentFrame.preparedContentFrame,
+    ),
+    heldPreparedContentFrameId: getGpuFlowSurfaceFramePreparedContentFrameId(
+      contentFrame.heldPreparedContentFrame,
+    ),
     rendered: contentFrame.rendered,
-    retainedDisplayFrameId: contentFrame.retainedDisplayFrame?.id ?? null,
-    retainedDisplayOutcome:
-      contentFrame.retainedDisplayFrame?.diagnostics.transactionOutcome ?? null,
-    retainedDisplayHoldReason:
-      contentFrame.retainedDisplayFrame?.diagnostics.holdDiagnostics
-        ?.holdReason ?? null,
+    retainedDisplayFrameId: retainedDisplayDiagnostics.frameId,
+    retainedDisplayOutcome: retainedDisplayDiagnostics.outcome,
+    retainedDisplayHoldReason: retainedDisplayDiagnostics.holdReason,
     visibleProjectionPreparedContentFrameId:
-      contentFrame.visibleProjectionState?.preparedContentFrame
-        .displayFrameId ?? null,
-    visibleProjectionTransactionKind:
-      contentFrame.visibleProjectionState?.transaction.kind ?? null,
+      visibleProjection.preparedContentFrameId,
+    visibleProjectionTransactionKind: visibleProjection.transactionKind,
+  };
+}
+
+function getGpuFlowSurfaceFramePreparedContentFrameId(
+  frame: GpuFlowPreparedContentFrame | null | undefined,
+): number | null {
+  return frame?.displayFrameId ?? null;
+}
+
+function createGpuFlowSurfaceFrameRetainedDisplayDiagnostic(
+  contentFrame: GpuFlowContentPreparationFrameResult,
+) {
+  const retainedDisplayFrame = contentFrame.retainedDisplayFrame;
+  return {
+    frameId: retainedDisplayFrame?.id ?? null,
+    holdReason:
+      retainedDisplayFrame?.diagnostics.holdDiagnostics?.holdReason ?? null,
+    outcome: retainedDisplayFrame?.diagnostics.transactionOutcome ?? null,
+  };
+}
+
+function createGpuFlowSurfaceFrameVisibleProjectionDiagnostic(
+  contentFrame: GpuFlowContentPreparationFrameResult,
+) {
+  const visibleProjectionState = contentFrame.visibleProjectionState;
+  return {
+    preparedContentFrameId:
+      visibleProjectionState?.preparedContentFrame.displayFrameId ?? null,
+    transactionKind: visibleProjectionState?.transaction.kind ?? null,
   };
 }
 

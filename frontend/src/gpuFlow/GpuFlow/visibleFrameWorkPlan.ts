@@ -115,19 +115,79 @@ export function shouldConsiderGpuFlowDeferredContentPreparation({
   readonly hasPreviousVisibleProjectionState: boolean;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
-  if (hasGpuFlowSafetyOrContinuityDebt(reducerDecision)) {
+  if (
+    shouldKeepGpuFlowRepairPreparationOnVisiblePath({
+      activeEditorActivationPending,
+      reducerDecision,
+    })
+  ) {
+    return false;
+  }
+  if (
+    !hasGpuFlowPreviousVisibleContentPreparationState({
+      hasPreviousRetainedDisplayFrame,
+      hasPreviousVisibleProjectionState,
+    })
+  ) {
+    return false;
+  }
+  if (
+    !isGpuFlowDeferredContentPreparationWindow({
+      deferResolutionUpdates,
+      reducerDecision,
+    })
+  ) {
+    return false;
+  }
+  return !requiresImmediateGpuFlowContentPreparation(reducerDecision);
+}
+
+function shouldKeepGpuFlowRepairPreparationOnVisiblePath({
+  activeEditorActivationPending,
+  reducerDecision,
+}: {
+  readonly activeEditorActivationPending: boolean;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
+}): boolean {
+  return (
+    activeEditorActivationPending ||
+    hasGpuFlowSafetyOrContinuityDebt(reducerDecision)
+  );
+}
+
+function hasGpuFlowPreviousVisibleContentPreparationState({
+  hasPreviousRetainedDisplayFrame,
+  hasPreviousVisibleProjectionState,
+}: {
+  readonly hasPreviousRetainedDisplayFrame: boolean;
+  readonly hasPreviousVisibleProjectionState: boolean;
+}): boolean {
+  return hasPreviousRetainedDisplayFrame && hasPreviousVisibleProjectionState;
+}
+
+function isGpuFlowDeferredContentPreparationWindow({
+  deferResolutionUpdates,
+  reducerDecision,
+}: {
+  readonly deferResolutionUpdates: boolean;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
+}): boolean {
+  if (reducerDecision.lane === "motion") {
     return false;
   }
   return (
-    !activeEditorActivationPending &&
-    hasPreviousRetainedDisplayFrame &&
-    hasPreviousVisibleProjectionState &&
-    (deferResolutionUpdates ||
-      reducerDecision.reducerState === "motion-active" ||
-      reducerDecision.reducerState === "motion-settling") &&
-    reducerDecision.lane !== "motion" &&
-    !reducerDecision.rawReasons.includes("texture-upload") &&
-    !hasGpuFlowCriticalContentFrameRequest(reducerDecision.rawReasons)
+    deferResolutionUpdates ||
+    reducerDecision.reducerState === "motion-active" ||
+    reducerDecision.reducerState === "motion-settling"
+  );
+}
+
+function requiresImmediateGpuFlowContentPreparation(
+  reducerDecision: GpuFlowVisibleFrameReducerDecision,
+): boolean {
+  return (
+    reducerDecision.rawReasons.includes("texture-upload") ||
+    hasGpuFlowCriticalContentFrameRequest(reducerDecision.rawReasons)
   );
 }
 

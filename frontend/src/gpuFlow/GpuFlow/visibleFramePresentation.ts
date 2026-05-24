@@ -50,15 +50,19 @@ import type {
   GpuFlowVisibleFrameReducerCompletion,
   GpuFlowVisibleFrameReducerDecision,
 } from "./visibleFrameReducerRuntime";
+import {
+  getGpuFlowBrowserVisualPreparationResourceKeys,
+  hasGpuFlowActiveEditorActivationPendingPresentationFrame,
+  isGpuFlowBrowserVisualRepairSelected,
+  selectGpuFlowSurfaceVisibleProjectionContent,
+  selectGpuFlowVisibleProjectionStateForReport,
+  throwGpuFlowBlockedVisibleFramePresentationError,
+  type GpuFlowBlockedSurfaceVisibleProjectionPresentation,
+} from "./visibleFramePresentationSelection";
 import type {
   GpuFlowSurfacePresentationPreparedFrame,
   RenderGpuFlowSurfaceFrameInput,
 } from "./visibleFrameSurfaceFrame";
-
-type GpuFlowBlockedSurfaceVisibleProjectionPresentation = {
-  readonly blockedErrorMessage: string | null;
-  readonly frame: GpuFlowPreparedContentFrame | null;
-};
 
 export type GpuFlowVisibleFramePresentationRuntime = Omit<
   Parameters<typeof presentGpuFlowVisibleFramePresentationFrame>[0],
@@ -199,11 +203,9 @@ export function presentGpuFlowVisibleFramePresentationFrame({
     presentationFrameContext,
   } = presentationTransaction;
   const browserVisualPreparationResourceKeys =
-    presentationFrameContext?.budgetDecision.preparationBudget
-      .selectedResourceDebtIds ?? [];
+    getGpuFlowBrowserVisualPreparationResourceKeys(presentationFrameContext);
   const browserVisualRepairSelected =
-    presentationFrameContext?.budgetDecision.browserVisualRepair?.eligible ??
-    false;
+    isGpuFlowBrowserVisualRepairSelected(presentationFrameContext);
   const nodeLayerFrameStatePresentation =
     selectGpuFlowVisibleProjectionNodeLayerFrameStatePresentation({
       contentNodeLayerFrameStatePresentation,
@@ -254,13 +256,13 @@ export function presentGpuFlowVisibleFramePresentationFrame({
   const { completion } = reducerFrameCompletion;
   const debtFrameRequest = createGpuFlowSurfaceReducerDebtFrameRequest({
     activeEditorActivationPending:
-      presentationFrameContext.activeEditorPins.length > 0 ||
-      hasGpuFlowActiveEditorActivationPendingFrame([
+      hasGpuFlowActiveEditorActivationPendingPresentationFrame({
         blockedPreparedContentFrame,
-        preparedContentFrame,
         heldPreparedContentFrame,
-        selectedVisibleProjectionState?.preparedContentFrame ?? null,
-      ]),
+        preparedContentFrame,
+        presentationFrameContext,
+        selectedVisibleProjectionState,
+      }),
     completion,
     debtFrameRequest: reducerFrameCompletion.debtFrameRequest,
     reducerDecision,
@@ -281,8 +283,10 @@ export function presentGpuFlowVisibleFramePresentationFrame({
     reducerDecision,
     previousContentFrameId: presentationTransaction.previousContentFrameId,
     transactionProof: presentationTransaction.preparedFrame.transactionProof,
-    visibleProjectionState:
-      selectedVisibleProjectionState ?? heldPreviousVisibleProjectionState,
+    visibleProjectionState: selectGpuFlowVisibleProjectionStateForReport({
+      heldPreviousVisibleProjectionState,
+      selectedVisibleProjectionState,
+    }),
   });
   recordGpuFlowBlockedPresentationGuard({
     outcome,
@@ -301,22 +305,8 @@ export function presentGpuFlowVisibleFramePresentationFrame({
     reducerDecision,
     surfaceRef,
   });
-  if (blockedVisibleFramePresentation?.blockedErrorMessage) {
-    throw new Error(blockedVisibleFramePresentation.blockedErrorMessage);
-  }
-}
-
-function hasGpuFlowActiveEditorActivationPendingFrame(
-  frames: readonly (GpuFlowPreparedContentFrame | null)[],
-): boolean {
-  return frames.some((frame) =>
-    frame?.actorGenerations.some((actor) =>
-      Boolean(
-        actor.active ||
-          actor.browserVisual?.representationKind === "active-editor" ||
-          actor.textCoverageProof?.pointerSemantics === "active-browser-editor",
-      ),
-    ),
+  throwGpuFlowBlockedVisibleFramePresentationError(
+    blockedVisibleFramePresentation,
   );
 }
 
@@ -654,26 +644,13 @@ function presentGpuFlowSurfaceVisibleProjectionState({
       "GPU Flow visible presentation requires selected visible projection state.",
     );
   }
-  const selectedPreparedContentFrame =
-    selectedVisibleProjectionState.transaction.kind === "prepared-content"
-      ? preparedContentFrame
-      : null;
-  const selectedRetainedDisplayFrame =
-    selectedVisibleProjectionState.transaction.kind === "prepared-content"
-      ? retainedDisplayFrame
-      : null;
-  const selectedRetainedRuntimeFrame =
-    selectedVisibleProjectionState.transaction.kind === "prepared-content"
-      ? retainedRuntimeFrame
-      : null;
-  if (
-    selectedVisibleProjectionState.transaction.kind === "prepared-content" &&
-    !selectedPreparedContentFrame
-  ) {
-    throw new Error(
-      "GPU Flow content presentation requires the prepared content frame.",
-    );
-  }
+  const selectedContent = selectGpuFlowSurfaceVisibleProjectionContent({
+    preparedContentFrame,
+    retainedDisplayFrame,
+    retainedRuntimeFrame,
+    selectedVisibleProjectionState,
+  });
+  const selectedPreparedContentFrame = selectedContent.preparedContentFrame;
   if (selectedPreparedContentFrame) {
     validatePreparedContentFrame(outcome.token, selectedPreparedContentFrame);
   }
@@ -686,7 +663,7 @@ function presentGpuFlowSurfaceVisibleProjectionState({
     presentPreparedContentFrame(outcome.token, selectedPreparedContentFrame);
   }
   presentGpuFlowRetainedDisplayFrame({
-    retainedDisplayFrame: selectedRetainedDisplayFrame,
+    retainedDisplayFrame: selectedContent.retainedDisplayFrame,
     retainedDisplayFrameRef,
     token: outcome.token,
   });
@@ -725,7 +702,7 @@ function presentGpuFlowSurfaceVisibleProjectionState({
   });
   presentGpuFlowRetainedRuntimeFrame({
     callbacksRef,
-    retainedRuntimeFrame: selectedRetainedRuntimeFrame,
+    retainedRuntimeFrame: selectedContent.retainedRuntimeFrame,
     retainedRuntimeFrameRenderSignatureRef,
     retainedRuntimeFrameSourceRenderSignatureRef,
     token: outcome.token,

@@ -27,6 +27,11 @@ import {
   shouldYieldGpuFlowCriticalContentDebtForCoverage,
   type GpuFlowVisibleFrameReducerState,
 } from "../projectionSchedulerPolicy";
+import {
+  createGpuFlowClassifiedDebtTrackers,
+  updateGpuFlowVisibleFrameClassifiedDebt,
+  type GpuFlowVisibleFrameClassifiedDebt,
+} from "./visibleFrameClassifiedDebt";
 import { shouldDrainGpuFlowBrowserVisualMaintenanceNow } from "./visibleFrameMaintenanceScheduling";
 import type {
   GpuFlowBlockedPresentationToken,
@@ -53,12 +58,10 @@ import {
   type GpuFlowVisibleFrameLaneReductionFacts,
   type GpuFlowVisibleFrameStarvationPolicy,
 } from "./visibleFrameStateMachine";
-
 export type GpuFlowVisibleFrameReducerPolicy =
   GpuFlowVisibleFrameStarvationPolicy;
 export const DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY: GpuFlowVisibleFrameReducerPolicy =
   DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY;
-
 export type GpuFlowVisibleFrameReducerDecision = {
   readonly classifiedDebt?: GpuFlowVisibleFrameClassifiedDebt | undefined;
   readonly debt: GpuFlowVisibleFrameReducerDebt;
@@ -67,7 +70,6 @@ export type GpuFlowVisibleFrameReducerDecision = {
   readonly sample: GpuFlowLiveProjectionSample;
   readonly reducerState: GpuFlowVisibleFrameReducerState;
 };
-
 export type GpuFlowVisibleFrameRequestFacts =
   GpuFlowVisibleFrameLaneReductionFacts & {
     readonly classifiedDebt?: GpuFlowVisibleFrameClassifiedDebt | undefined;
@@ -76,39 +78,22 @@ export type GpuFlowVisibleFrameRequestFacts =
     readonly sample: GpuFlowLiveProjectionSample;
     readonly timestamp: DOMHighResTimeStamp;
   };
-
 type GpuFlowVisibleFrameReducerDebt = {
   readonly content: boolean;
   readonly maintenance: boolean;
   readonly motion: boolean;
 };
-
 export type GpuFlowVisibleFrameReducerDebtProof =
   GpuFlowVisibleFrameReducerDebt;
-
 export type GpuFlowVisibleFrameReducerCompletion = {
   readonly debt: GpuFlowVisibleFrameReducerDebt;
   readonly outcome: GpuFlowVisibleFrameReducerCompletionOutcome["kind"];
 };
-
-export type GpuFlowVisibleFrameClassifiedDebtEntry = {
-  readonly active: boolean;
-  readonly ageFrames: number;
-  readonly ageMs: number;
-};
-
-export type GpuFlowVisibleFrameClassifiedDebt = {
-  readonly continuity: GpuFlowVisibleFrameClassifiedDebtEntry;
-  readonly quality: GpuFlowVisibleFrameClassifiedDebtEntry;
-  readonly safety: GpuFlowVisibleFrameClassifiedDebtEntry;
-};
-
 export type GpuFlowVisibleFrameReducerPresentCompletionOutcome = {
   readonly debtProof: GpuFlowVisibleFrameReducerDebtProof;
   readonly kind: "present";
   readonly token: GpuFlowVisibleFramePresentationToken;
 };
-
 export type GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome =
   | {
       readonly kind: "hold-previous";
@@ -118,11 +103,9 @@ export type GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome =
       readonly kind: "blocked";
       readonly token: GpuFlowBlockedPresentationToken;
     };
-
 export type GpuFlowVisibleFrameReducerCompletionOutcome =
   | GpuFlowVisibleFrameReducerPresentCompletionOutcome
   | GpuFlowVisibleFrameReducerUnpresentedCompletionOutcome;
-
 export type GpuFlowVisibleFrameReducerRuntime = {
   completeFrame(
     decision: GpuFlowVisibleFrameReducerDecision,
@@ -148,7 +131,6 @@ export type GpuFlowVisibleFrameReducerRuntime = {
     readonly viewportInteractionActive: boolean;
   }): GpuFlowVisibleFrameReducerDecision;
 };
-
 export function createGpuFlowVisibleFrameReducerRuntime({
   knobs = DEFAULT_GPU_FLOW_VISIBLE_FRAME_REDUCER_POLICY,
 }: {
@@ -171,7 +153,6 @@ export function createGpuFlowVisibleFrameReducerRuntime({
   let retainedScrollContentBlockedUntilMs: number | null = null;
   let consecutiveMotionFrames = 0;
   const classifiedDebtTrackers = createGpuFlowClassifiedDebtTrackers();
-
   function currentState({
     browserVisualContentRepairBlocked,
     browserVisualContentRepairMotionDeferred,
@@ -1006,104 +987,13 @@ export function createGpuFlowVisibleFrameReducerRuntime({
   });
 }
 
-type GpuFlowVisibleFrameClassifiedDebtTracker = {
-  active: boolean;
-  ageFrames: number;
-  firstActiveAtMs: number | null;
-};
-
-function createGpuFlowClassifiedDebtTrackers(): Record<
-  keyof GpuFlowVisibleFrameClassifiedDebt,
-  GpuFlowVisibleFrameClassifiedDebtTracker
-> {
-  return {
-    continuity: createGpuFlowClassifiedDebtTracker(),
-    quality: createGpuFlowClassifiedDebtTracker(),
-    safety: createGpuFlowClassifiedDebtTracker(),
-  };
-}
-
-function createGpuFlowClassifiedDebtTracker(): GpuFlowVisibleFrameClassifiedDebtTracker {
-  return {
-    active: false,
-    ageFrames: 0,
-    firstActiveAtMs: null,
-  };
-}
-
-function updateGpuFlowVisibleFrameClassifiedDebt({
-  contentDebt,
-  criticalContentDebt,
-  maintenanceDebt,
-  motionDebt,
-  timestamp,
-  trackers,
-}: {
-  readonly contentDebt: boolean;
-  readonly criticalContentDebt: boolean;
-  readonly maintenanceDebt: boolean;
-  readonly motionDebt: boolean;
-  readonly timestamp: DOMHighResTimeStamp;
-  readonly trackers: Record<
-    keyof GpuFlowVisibleFrameClassifiedDebt,
-    GpuFlowVisibleFrameClassifiedDebtTracker
-  >;
-}): GpuFlowVisibleFrameClassifiedDebt {
-  return Object.freeze({
-    continuity: updateGpuFlowVisibleFrameClassifiedDebtEntry({
-      active: contentDebt || motionDebt,
-      timestamp,
-      tracker: trackers.continuity,
-    }),
-    quality: updateGpuFlowVisibleFrameClassifiedDebtEntry({
-      active: maintenanceDebt,
-      timestamp,
-      tracker: trackers.quality,
-    }),
-    safety: updateGpuFlowVisibleFrameClassifiedDebtEntry({
-      active: criticalContentDebt,
-      timestamp,
-      tracker: trackers.safety,
-    }),
-  });
-}
-
-function updateGpuFlowVisibleFrameClassifiedDebtEntry({
-  active,
-  timestamp,
-  tracker,
-}: {
-  readonly active: boolean;
-  readonly timestamp: DOMHighResTimeStamp;
-  readonly tracker: GpuFlowVisibleFrameClassifiedDebtTracker;
-}): GpuFlowVisibleFrameClassifiedDebtEntry {
-  if (!active) {
-    tracker.active = false;
-    tracker.ageFrames = 0;
-    tracker.firstActiveAtMs = null;
-    return Object.freeze({
-      active: false,
-      ageFrames: 0,
-      ageMs: 0,
-    });
-  }
-  if (!tracker.active) {
-    tracker.active = true;
-    tracker.ageFrames = 0;
-    tracker.firstActiveAtMs = timestamp;
-  } else {
-    tracker.ageFrames += 1;
-  }
-  return Object.freeze({
-    active: true,
-    ageFrames: tracker.ageFrames,
-    ageMs: Math.max(0, timestamp - (tracker.firstActiveAtMs ?? timestamp)),
-  });
-}
-
 export {
   getGpuFlowVisibleFrameReducerDebtReason,
   hasGpuFlowVisibleFrameReducerDebt,
   shouldDeferGpuFlowMaintenanceContentCatchup,
 } from "./visibleFrameReducerDebt";
+export type {
+  GpuFlowVisibleFrameClassifiedDebt,
+  GpuFlowVisibleFrameClassifiedDebtEntry,
+} from "./visibleFrameClassifiedDebt";
 export { reduceGpuFlowVisibleFrameReducerDecision } from "./visibleFrameStateMachine";
