@@ -2,10 +2,10 @@ import { type MutableRefObject } from "react";
 
 import {
   createGpuFlowFramePerformanceEvent,
+  type GpuFlowFramePerformanceInput,
   type GpuFlowFramePhaseDiagnostics,
   type GpuFlowRetainedTexturePageFrameMetrics,
 } from "../framePerformance";
-import { type GpuFrameReason } from "../gpuRenderer";
 import { type GpuSurfaceHandle } from "../GpuSurface";
 import {
   type HtmlSurfaceFrameCanvasSubmission,
@@ -13,7 +13,6 @@ import {
 } from "../htmlSurfaces/frame";
 import { createGpuFlowInteractionDiagnosticsSnapshot } from "../interactionDiagnostics";
 import { type GpuNodeInteractionDirtyController } from "../nodeInteractionDirty";
-import { type GpuFlowProjectionDebugState } from "../projectionRuntime";
 import { type GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 
 import type { GpuFlowNodeLayerState } from "./flowLayerState";
@@ -24,37 +23,37 @@ import {
   type GpuFlowCommitPublicationToken,
 } from "./visibleFramePresentationProofs";
 
-export function reportGpuFlowNodeLayerFramePerformance({
-  callbacksRef,
-  deferResolutionUpdates,
-  frame,
-  frameReasons,
-  interactionDiagnostics,
-  layerResult,
-  phaseDiagnostics,
-  projectionDebugState,
-  renderDurationMs,
-  retainedTexturePages,
-  viewport,
-  viewportFrame,
-}: {
-  readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
-  readonly deferResolutionUpdates: boolean;
-  readonly frame: number;
-  readonly frameReasons: readonly GpuFrameReason[];
+export type GpuFlowNodeLayerFramePerformanceReport = Omit<
+  GpuFlowFramePerformanceInput,
+  "layerResult"
+> & {
   readonly interactionDiagnostics: ReturnType<
     typeof createGpuFlowInteractionDiagnosticsSnapshot
   >;
-  readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly phaseDiagnostics: GpuFlowFramePhaseDiagnostics;
-  readonly projectionDebugState?: GpuFlowProjectionDebugState | undefined;
-  readonly renderDurationMs: number;
   readonly retainedTexturePages:
     | GpuFlowRetainedTexturePageFrameMetrics
     | undefined;
-  readonly viewport: GpuFlowNodeLayerState["viewport"];
-  readonly viewportFrame: boolean;
+};
+
+function publishGpuFlowNodeLayerFramePerformance({
+  callbacksRef,
+  layerResult,
+  performanceReport,
+  token,
+}: {
+  readonly callbacksRef: MutableRefObject<GpuFlowCallbacks>;
+  readonly layerResult: RenderHtmlSurfaceFrameResult;
+  readonly performanceReport:
+    | GpuFlowNodeLayerFramePerformanceReport
+    | null
+    | undefined;
+  readonly token: GpuFlowCommitPublicationToken;
 }) {
+  assertGpuFlowCommitPublicationTokenBrand({ token });
+  if (!performanceReport) {
+    return;
+  }
   const framePerformanceReporter =
     callbacksRef.current.framePerformanceReporter;
   if (
@@ -65,17 +64,8 @@ export function reportGpuFlowNodeLayerFramePerformance({
   }
   framePerformanceReporter.onFrame(
     createGpuFlowFramePerformanceEvent({
-      deferResolutionUpdates,
-      frame,
-      frameReasons,
-      interactionDiagnostics,
+      ...performanceReport,
       layerResult,
-      phaseDiagnostics,
-      projectionDebugState,
-      renderDurationMs,
-      retainedTexturePages,
-      viewport,
-      viewportFrame,
     }),
   );
 }
@@ -85,6 +75,7 @@ export type GpuFlowNodeLayerFrameStatePublication = {
   readonly layerResult: RenderHtmlSurfaceFrameResult;
   readonly nodeInteractionRef: MutableRefObject<GpuNodeInteractionDirtyController | null>;
   readonly nodeLayerRef: MutableRefObject<GpuFlowNodeLayerState>;
+  readonly performanceReport?: GpuFlowNodeLayerFramePerformanceReport | null;
   readonly retainedRuntimeFrame: GpuRetainedRuntimeFrame;
   readonly retainedTexturePageFollowUpFrame: boolean;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
@@ -102,12 +93,19 @@ export function publishGpuFlowNodeLayerFrameState({
   readonly token: GpuFlowCommitPublicationToken;
 }): void {
   assertGpuFlowCommitPublicationTokenBrand({ token });
+  const layerResult = publishGpuFlowHtmlSurfaceCanvasSubmission({
+    layerResult: publication.layerResult,
+    token,
+  });
+  publishGpuFlowNodeLayerFramePerformance({
+    callbacksRef: publication.callbacksRef,
+    layerResult,
+    performanceReport: publication.performanceReport,
+    token,
+  });
   updateGpuFlowNodeLayerFrameState({
     ...publication,
-    layerResult: publishGpuFlowHtmlSurfaceCanvasSubmission({
-      layerResult: publication.layerResult,
-      token,
-    }),
+    layerResult,
   });
 }
 

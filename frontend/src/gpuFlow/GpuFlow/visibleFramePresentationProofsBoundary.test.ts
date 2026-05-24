@@ -619,6 +619,40 @@ describe("GPU Flow visible frame presentation proof boundaries", () => {
     expect(submitterSource).toContain("domTransformSubmission.submit()");
   });
 
+  it("publishes frame performance only from commit-tokened node-layer publication", () => {
+    const flowFrameSource = readFileSync(FLOW_FRAME_MODULE_PATH, "utf8");
+    const projectionFrameSource = readFileSync(
+      PROJECTION_FRAME_MODULE_PATH,
+      "utf8",
+    );
+    const lifecycleSource = readFileSync(
+      modulePath("./flowFrameLifecycle.ts"),
+      "utf8",
+    );
+    const reporterStart = lifecycleSource.indexOf(
+      "function publishGpuFlowNodeLayerFramePerformance",
+    );
+    const reporterSource = lifecycleSource.slice(reporterStart);
+
+    expect(flowFrameSource).not.toContain("framePerformanceReporter.onFrame");
+    expect(projectionFrameSource).not.toContain(
+      "framePerformanceReporter.onFrame",
+    );
+    expect(flowFrameSource).not.toContain(
+      "reportGpuFlowNodeLayerFramePerformance(",
+    );
+    expect(projectionFrameSource).not.toContain(
+      "reportGpuFlowNodeLayerFramePerformance(",
+    );
+    expect(flowFrameSource).toContain("performanceReport");
+    expect(projectionFrameSource).toContain("performanceReport");
+    expect(reporterStart).toBeGreaterThanOrEqual(0);
+    expect(reporterSource).toContain(
+      "assertGpuFlowCommitPublicationTokenBrand",
+    );
+    expect(reporterSource).toContain("framePerformanceReporter.onFrame");
+  });
+
   it("keeps browser visual projection on tokenized publication paths", () => {
     const currentProjectionPattern =
       /\.(?:projectDomControls|projectDomIslands)\s*\((?<args>[^)]*)\)/g;

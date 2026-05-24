@@ -65,7 +65,7 @@ import {
   resolveGpuFlowNodeInteractionActiveNodeId,
 } from "./flowFrameInteractionState";
 import {
-  reportGpuFlowNodeLayerFramePerformance,
+  type GpuFlowNodeLayerFramePerformanceReport,
   type GpuFlowNodeLayerFrameStatePublication,
 } from "./flowFrameLifecycle";
 import { combineGpuFlowHtmlSurfaceNativeVisuals } from "./flowFrameVisuals";
@@ -851,8 +851,7 @@ export function renderGpuFlowNodeLayerFrame({
         createVisibleProjectionStateForRetainedPublication({
           publishedCommittedSurfaceFrame: preparedCommittedSurfaceFrame,
         });
-      reportGpuFlowNodeLayerFramePerformance({
-        callbacksRef,
+      const performanceReport: GpuFlowNodeLayerFramePerformanceReport = {
         deferResolutionUpdates,
         frame,
         frameReasons,
@@ -864,7 +863,6 @@ export function renderGpuFlowNodeLayerFrame({
           ownerDocument: runtime.canvas.ownerDocument,
           viewportState: viewportStore.getState(),
         }),
-        layerResult: combinedLayerResult,
         phaseDiagnostics: {
           committedContentPublishMs,
           diagnosticsMs,
@@ -888,13 +886,14 @@ export function renderGpuFlowNodeLayerFrame({
         }),
         viewport: liveProjectionSample.viewport,
         viewportFrame,
-      });
+      };
       const nodeLayerFrameStatePublication: GpuFlowNodeLayerFrameStatePublication =
         {
           callbacksRef,
           layerResult: combinedLayerResult,
           nodeInteractionRef,
           nodeLayerRef,
+          performanceReport,
           retainedRuntimeFrame: context.publishedRetainedRuntimeFrame,
           retainedTexturePageFollowUpFrame:
             retainedPageResult.needsFollowUpFrame,
