@@ -401,6 +401,43 @@ describe("getGpuRetainedDomControlSources", () => {
     });
   });
 
+  it("can continue staged snapshot uploads without waiting for another paint", () => {
+    const runtimeFrame = createGpuRetainedRuntimeFrame({
+      devicePixelRatioBucket: 2,
+      frameId: 4,
+      scene: scene({ rowCount: 80, surfaceHeight: 80 * 24 }),
+      scrollOffsets: new Map(),
+      scrollRevision: 0,
+      viewport: [0, 0, 1.5],
+      viewportSize: { height: 2_200, width: 320 },
+      viewportZoomBucket: 1.5,
+    });
+    const snapshotSource = runtimeFrame.descriptors.domControlSources.find(
+      (source) => source.visualPolicy === "snapshot",
+    );
+    if (!snapshotSource?.snapshotSurfaceId) {
+      throw new Error("Expected a snapshot-backed DOM control source.");
+    }
+    const element = document.createElement("div");
+    const textureManager = {
+      registerSurfaceTexture: vi.fn(),
+    };
+
+    registerGpuFlowRetainedDomControlSnapshotSourceTexture({
+      deferUploadUntilPaint: false,
+      element,
+      source: snapshotSource,
+      surfaceId: snapshotSource.snapshotSurfaceId,
+      textureManager,
+    });
+
+    expect(textureManager.registerSurfaceTexture).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deferUploadUntilPaint: false,
+      }),
+    );
+  });
+
   it("recreates DOM-control snapshot texture content when a snapshot-backed value changes", () => {
     const firstFrame = createGpuRetainedRuntimeFrame({
       devicePixelRatioBucket: 1,

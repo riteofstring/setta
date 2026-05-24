@@ -362,15 +362,25 @@ async function waitForRetainedCompositorViewportCommit(
   page: Page,
   viewport: RetainedCompositorViewportSample,
 ): Promise<void> {
-  await expect
-    .poll(() => readRetainedCompositorViewportCommitState(page, viewport), {
-      intervals: [50, 80, 120, 180],
-      timeout: 10_000,
-    })
-    .toMatchObject({
-      committedMatches: true,
-      runtimeMatches: true,
-    });
+  const deadline = Date.now() + 10_000;
+  const intervals = [50, 80, 120, 180];
+  let intervalIndex = 0;
+  let latest = await readRetainedCompositorViewportCommitState(page, viewport);
+  while (Date.now() < deadline) {
+    if (latest.committedMatches && latest.runtimeMatches) {
+      return;
+    }
+    await page.waitForTimeout(intervals[intervalIndex] ?? 180);
+    intervalIndex += 1;
+    latest = await readRetainedCompositorViewportCommitState(page, viewport);
+  }
+  throw new Error(
+    `Retained compositor viewport did not commit. ${JSON.stringify(
+      latest,
+      null,
+      2,
+    )}`,
+  );
 }
 
 async function readRetainedCompositorViewportCommitState(
@@ -379,12 +389,87 @@ async function readRetainedCompositorViewportCommitState(
 ) {
   return await page.evaluate((expected) => {
     const snapshot = window.__SETTA_GPU_FLOW_DEBUG_SNAPSHOT__?.();
+    const blockedEvents =
+      (
+        window as typeof window & {
+          readonly __SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__?: readonly unknown[];
+        }
+      ).__SETTA_GPU_FLOW_BLOCKED_VISIBLE_PUBLICATION_EVENTS__ ?? [];
+    const browserVisualResourceWork =
+      (
+        window as typeof window & {
+          readonly __SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__?: readonly unknown[];
+        }
+      ).__SETTA_GPU_FLOW_BROWSER_VISUAL_RESOURCE_WORK__ ?? [];
+    const browserVisualStarvationReports =
+      (
+        window as typeof window & {
+          readonly __SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__?: readonly unknown[];
+        }
+      ).__SETTA_GPU_FLOW_BROWSER_VISUAL_STARVATION_REPORTS__ ?? [];
+    const snapshotSourceDiagnostics =
+      (
+        window as typeof window & {
+          readonly __settaGpuFlowDomControlSnapshotSourceDiagnostics?: () => readonly unknown[];
+        }
+      ).__settaGpuFlowDomControlSnapshotSourceDiagnostics?.() ?? [];
+    const getBrowserVisualPreparationDiagnostics = (
+      window as typeof window & {
+        readonly __settaGpuFlowBrowserVisualPreparationDiagnostics?:
+          | ((actorId?: string | null) => unknown)
+          | undefined;
+      }
+    ).__settaGpuFlowBrowserVisualPreparationDiagnostics;
     const runtime = snapshot?.viewport.transform ?? null;
     const committed = snapshot?.committedSurfaceFrame?.viewportSample ?? null;
+    const recentGpuFlowFrameMeasures = performance
+      .getEntriesByType("measure")
+      .filter((entry) => entry.name.startsWith("setta.gpuFlow.surface-frame"))
+      .slice(-16)
+      .map((entry) => ({
+        detail:
+          entry instanceof PerformanceMeasure &&
+          entry.detail &&
+          typeof entry.detail === "object"
+            ? entry.detail
+            : null,
+        duration: entry.duration,
+        name: entry.name,
+      }));
+    const latestBlockedEvent = blockedEvents.at(-1) as
+      | {
+          readonly blockedReasons?: readonly {
+            readonly actorId?: string | null;
+          }[];
+        }
+      | undefined;
+    const latestBlockedActorId =
+      latestBlockedEvent?.blockedReasons?.[0]?.actorId ?? null;
     return {
+      browserVisualResourceWork: browserVisualResourceWork.slice(-8),
+      browserVisualStarvationReports: browserVisualStarvationReports.slice(-8),
       committed,
       committedMatches: viewportMatches(committed, expected),
       expected,
+      latestBlockedEvent: latestBlockedEvent ?? null,
+      latestBlockedBrowserVisualPreparation:
+        latestBlockedActorId === null
+          ? null
+          : getBrowserVisualPreparationDiagnostics?.(latestBlockedActorId) ??
+            null,
+      latestBlockedSnapshotSourceDiagnostics:
+        latestBlockedActorId === null
+          ? []
+          : snapshotSourceDiagnostics.filter(
+              (diagnostic) =>
+                typeof diagnostic === "object" &&
+                diagnostic !== null &&
+                "sourceId" in diagnostic &&
+                diagnostic.sourceId === latestBlockedActorId,
+            ),
+      recentGpuFlowFrameMeasures,
+      recentBlockedEvents: blockedEvents.slice(-8),
+      visiblePublication: snapshot?.visiblePublication ?? null,
       runtime,
       runtimeMatches: viewportMatches(runtime, expected),
     };

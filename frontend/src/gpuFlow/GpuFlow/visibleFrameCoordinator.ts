@@ -579,6 +579,18 @@ function shouldDeferGpuFlowResolutionUpdates({
   if (lane === "content" && schedulerState === "motion-active") {
     return false;
   }
+  if (
+    lane === "content" &&
+    schedulerState === "content-catchup" &&
+    viewportFrame &&
+    !viewportInteractionActive &&
+    !shouldDeferGpuFlowMaintenanceContentCatchup({
+      lane,
+      rawReasons,
+    })
+  ) {
+    return false;
+  }
   return (
     viewportInteractionActive ||
     viewportFrame ||

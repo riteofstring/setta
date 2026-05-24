@@ -132,8 +132,8 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     const repair = scheduler.selectFrame({
       hasCommittedContentFrame: true,
       rawReasons: ["manual", "viewport"],
-      sample: liveSample(2),
-      timestamp: 2,
+      sample: liveSample(250),
+      timestamp: 250,
       viewportInteractionActive: false,
     });
     expect(repair.schedulerState).toBe("motion-active");
@@ -184,6 +184,228 @@ describe("GPU Flow projection scheduler content retry throttling", () => {
     expect(settledRepair.schedulerState).toBe("content-catchup");
     expect(settledRepair.lane).toBe("content");
     expect(settledRepair.debt).toEqual({
+      content: false,
+      maintenance: true,
+      motion: true,
+    });
+  });
+
+  it("lets content repair run after motion is blocked by missing section surface actors", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const motion = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "viewport"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(motion.schedulerState).toBe("motion-active");
+    expect(motion.lane).toBe("motion");
+    completeBlockedFrame(scheduler, motion, [
+      {
+        actorId: "section-a:section-shell",
+        family: "section-shell",
+        reason: "section-surface-not-drawn",
+      },
+      {
+        actorId: "section-a:section-body-clip",
+        family: "section-body-clip",
+        reason: "section-surface-not-drawn",
+      },
+    ]);
+
+    const repair = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "viewport"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+    expect(repair.schedulerState).toBe("content-catchup");
+    expect(repair.lane).toBe("content");
+    expect(repair.debt).toEqual({
+      content: false,
+      maintenance: false,
+      motion: true,
+    });
+  });
+
+  it("keeps content repair ahead of motion after content is blocked by missing section surface actors", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const content = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(content.schedulerState).toBe("content-catchup");
+    expect(content.lane).toBe("content");
+    expect(content.debt).toEqual({
+      content: false,
+      maintenance: false,
+      motion: false,
+    });
+    completeBlockedFrame(scheduler, content, [
+      {
+        actorId: "section-a:section-shell",
+        family: "section-shell",
+        reason: "section-surface-not-drawn",
+      },
+      {
+        actorId: "section-a:section-body-clip",
+        family: "section-body-clip",
+        reason: "section-surface-not-drawn",
+      },
+    ]);
+
+    const repair = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["retained-scroll", "texture-upload"],
+      sample: liveSample(250),
+      timestamp: 250,
+      viewportInteractionActive: true,
+    });
+    expect(repair.schedulerState).toBe("content-catchup");
+    expect(repair.lane).toBe("content");
+    expect(repair.debt).toEqual({
+      content: false,
+      maintenance: true,
+      motion: true,
+    });
+  });
+
+  it("lets maintenance upload run after content is blocked by pending browser text snapshots", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const content = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "texture-upload"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(content.schedulerState).toBe("content-catchup");
+    expect(content.lane).toBe("content");
+    expect(content.debt).toEqual({
+      content: false,
+      maintenance: true,
+      motion: false,
+    });
+    completeBlockedFrame(scheduler, content, [
+      {
+        actorId: "retained-dom-control:a",
+        family: "browser-text-snapshot",
+        reason: "snapshot-pending",
+      },
+    ]);
+
+    const upload = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["texture-upload"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+    expect(upload.schedulerState).toBe("maintenance-drain");
+    expect(upload.lane).toBe("maintenance");
+    expect(upload.debt).toEqual({
+      content: true,
+      maintenance: false,
+      motion: false,
+    });
+  });
+
+  it("retries content immediately after browser text snapshot maintenance uploads", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const content = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "texture-upload"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(content.schedulerState).toBe("content-catchup");
+    expect(content.lane).toBe("content");
+    completeBlockedFrame(scheduler, content, [
+      {
+        actorId: "retained-dom-control:a",
+        family: "browser-text-snapshot",
+        reason: "snapshot-pending",
+      },
+    ]);
+
+    const upload = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["texture-upload"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+    expect(upload.schedulerState).toBe("maintenance-drain");
+    expect(upload.lane).toBe("maintenance");
+    completeCommittedFrame(scheduler, upload);
+
+    const retry = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual"],
+      sample: liveSample(3),
+      timestamp: 3,
+      viewportInteractionActive: false,
+    });
+    expect(retry.schedulerState).toBe("content-catchup");
+    expect(retry.lane).toBe("content");
+    expect(retry.debt).toEqual({
+      content: false,
+      maintenance: false,
+      motion: false,
+    });
+  });
+
+  it("lets browser text snapshot content repair preempt noninteractive viewport motion after retry delay", () => {
+    const scheduler = createGpuFlowVisibleFrameRequestCoordinator();
+    const content = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "texture-upload"],
+      sample: liveSample(1),
+      timestamp: 1,
+      viewportInteractionActive: false,
+    });
+    expect(content.schedulerState).toBe("content-catchup");
+    expect(content.lane).toBe("content");
+    completeBlockedFrame(scheduler, content, [
+      {
+        actorId: "retained-dom-control:a",
+        family: "browser-text-snapshot",
+        reason: "snapshot-pending",
+      },
+    ]);
+
+    const immediateViewportRepair = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "viewport"],
+      sample: liveSample(2),
+      timestamp: 2,
+      viewportInteractionActive: false,
+    });
+    expect(immediateViewportRepair.schedulerState).toBe("motion-active");
+    expect(immediateViewportRepair.lane).toBe("motion");
+    expect(immediateViewportRepair.debt).toEqual({
+      content: true,
+      maintenance: true,
+      motion: false,
+    });
+    completeCommittedFrame(scheduler, immediateViewportRepair);
+
+    const delayedViewportRepair = scheduler.selectFrame({
+      hasCommittedContentFrame: true,
+      rawReasons: ["manual", "viewport"],
+      sample: liveSample(250),
+      timestamp: 250,
+      viewportInteractionActive: false,
+    });
+    expect(delayedViewportRepair.schedulerState).toBe("content-catchup");
+    expect(delayedViewportRepair.lane).toBe("content");
+    expect(delayedViewportRepair.debt).toEqual({
       content: false,
       maintenance: true,
       motion: true,

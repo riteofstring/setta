@@ -263,8 +263,10 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
     (surfaceId: string, source: GpuRetainedDomControlSourceDescriptor) => {
       const textureManager = textureManagerRef.current;
       const element = nodeElementByIdRef.current.get(surfaceId);
+      const deferUploadUntilPaint = false;
       if (textureManager && element) {
         registerGpuFlowRetainedDomControlSnapshotSourceTexture({
+          deferUploadUntilPaint,
           element,
           source,
           surfaceId,
@@ -273,7 +275,7 @@ export function useGpuFlowRetainedDomControlSnapshotSources({
       }
       textureManager?.markSurfaceTextureDirty({
         content: true,
-        deferUploadUntilPaint: true,
+        deferUploadUntilPaint,
         reason: "content",
         requestPaint: false,
         surfaceId,
@@ -351,11 +353,13 @@ function registerGpuFlowRetainedDomControlSnapshotElement({
 }
 
 export function registerGpuFlowRetainedDomControlSnapshotSourceTexture({
+  deferUploadUntilPaint = true,
   element,
   source,
   surfaceId,
   textureManager,
 }: {
+  readonly deferUploadUntilPaint?: boolean | undefined;
   readonly element: Element;
   readonly source: GpuRetainedDomControlSourceDescriptor;
   readonly surfaceId: string;
@@ -367,7 +371,7 @@ export function registerGpuFlowRetainedDomControlSnapshotSourceTexture({
   textureManager.registerSurfaceTexture({
     cssHeight: source.sourceRectCssPx.height,
     cssWidth: source.sourceRectCssPx.width,
-    deferUploadUntilPaint: true,
+    deferUploadUntilPaint,
     devicePixelRatio: source.snapshotCacheKey.devicePixelRatioBucket,
     element,
     surfaceId,

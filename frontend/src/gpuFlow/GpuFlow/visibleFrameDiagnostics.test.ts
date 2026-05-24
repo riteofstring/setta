@@ -2,7 +2,10 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { GpuFlowCommittedSurfaceFrame } from "../committedSurfaceFrame";
+import {
+  createGpuFlowCommittedSurfacePresentationProof,
+  type GpuFlowCommittedSurfaceFrame,
+} from "../committedSurfaceFrame";
 import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceHandle } from "../GpuSurface";
 import { DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS } from "../projectionRuntime";
@@ -17,9 +20,11 @@ import {
   recordGpuFlowBlockedVisiblePublication,
   recordGpuFlowVisibleFrameBlocked,
   recordGpuFlowVisibleFrameHeld,
+  recordGpuFlowVisibleFramePresented,
 } from "./visibleFrameDiagnostics";
 import {
   createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
+  createGpuFlowVisibleFrameCommitPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
 } from "./visibleFrameTestUtils";
 import {
@@ -114,6 +119,7 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
     vi.useFakeTimers();
     const canvas = document.createElement("canvas");
     const requestFrame = vi.fn();
+    const surface = { requestFrame } as unknown as GpuSurfaceHandle;
 
     const result = prepareGpuFlowCommittedSurfacePublicationCandidate(
       publicationCandidateInput({
@@ -152,6 +158,85 @@ describe("GPU Flow visible frame blocked candidate diagnostics", () => {
         wakeupSource: "deferred-watchdog",
       }),
     ]);
+  });
+
+  it("keeps browser visual repair work alive across motion-only commits", () => {
+    vi.useFakeTimers();
+    const canvas = document.createElement("canvas");
+    const requestFrame = vi.fn();
+    const surface = { requestFrame } as unknown as GpuSurfaceHandle;
+
+    const result = prepareGpuFlowCommittedSurfacePublicationCandidate(
+      publicationCandidateInput({
+        deferBrowserVisualWakeup: true,
+        timestamp: 10,
+      }),
+    );
+
+    expect(result.kind).toBe("nonpublishable");
+    if (result.kind !== "nonpublishable") {
+      throw new Error("Expected nonpublishable publication candidate.");
+    }
+    applyBlockedCandidate(result.candidateFrame, result.resourceWork, {
+      canvas,
+      requestFrame,
+      surface,
+    });
+
+    recordGpuFlowVisibleFramePresented({
+      committedSurfaceFrame: null,
+      runtimeCanvas: canvas,
+      surfaceRef: { current: surface },
+      token: commitPublicationToken(),
+    });
+
+    expect(readBrowserVisualResourceWork()).toEqual([
+      expect.objectContaining({
+        actorId: "actor-a",
+        readinessState: "preparing",
+      }),
+    ]);
+    vi.advanceTimersByTime(
+      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2,
+    );
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+  });
+
+  it("clears browser visual repair work after a committed surface frame presents", () => {
+    vi.useFakeTimers();
+    const canvas = document.createElement("canvas");
+    const requestFrame = vi.fn();
+    const surface = { requestFrame } as unknown as GpuSurfaceHandle;
+
+    const result = prepareGpuFlowCommittedSurfacePublicationCandidate(
+      publicationCandidateInput({
+        deferBrowserVisualWakeup: true,
+        timestamp: 10,
+      }),
+    );
+
+    expect(result.kind).toBe("nonpublishable");
+    if (result.kind !== "nonpublishable") {
+      throw new Error("Expected nonpublishable publication candidate.");
+    }
+    applyBlockedCandidate(result.candidateFrame, result.resourceWork, {
+      canvas,
+      requestFrame,
+      surface,
+    });
+
+    recordGpuFlowVisibleFramePresented({
+      committedSurfaceFrame: result.candidateFrame,
+      runtimeCanvas: canvas,
+      surfaceRef: { current: surface },
+      token: commitPublicationToken(),
+    });
+
+    expect(readBrowserVisualResourceWork()).toEqual([]);
+    vi.advanceTimersByTime(
+      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2,
+    );
+    expect(requestFrame).not.toHaveBeenCalledWith("texture-upload");
   });
 
   it("rejects unbranded blocked candidate tokens", () => {
@@ -513,18 +598,18 @@ function applyBlockedCandidate(
   {
     canvas,
     requestFrame,
+    surface = { requestFrame } as unknown as GpuSurfaceHandle,
   }: {
     readonly canvas: HTMLCanvasElement;
     readonly requestFrame: (reason: GpuFrameReason) => void;
+    readonly surface?: GpuSurfaceHandle | undefined;
   },
 ): void {
   recordGpuFlowVisibleFrameBlocked({
     candidateFrame,
     candidateResourceWork,
     runtimeCanvas: canvas,
-    surfaceRef: {
-      current: { requestFrame } as unknown as GpuSurfaceHandle,
-    },
+    surfaceRef: { current: surface },
     token: blockedPublicationToken(),
   });
 }
@@ -560,7 +645,64 @@ function heldPreviousPublicationToken() {
   });
 }
 
+function commitPublicationToken() {
+  return createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+    frame: publishableCommittedSurfaceFrame(3),
+    projectionSample: {
+      id: 1,
+    } as Parameters<
+      typeof createGpuFlowVisibleFrameCommitPublicationTokenForTest
+    >[0]["projectionSample"],
+  });
+}
+
+function publishableCommittedSurfaceFrame(
+  displayFrameId: number,
+): GpuFlowCommittedSurfaceFrame {
+  const coherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip",
+    debugSnapshotFrameId: displayFrameId,
+    domControlCommittedFrameId: displayFrameId,
+    domIslandCommittedFrameId: displayFrameId,
+    gpuNativeVisualCommittedFrameId: displayFrameId,
+    hitGenerationId: `hit:${displayFrameId}`,
+    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+  };
+  return {
+    actorGenerations: [],
+    coherence,
+    displayFrameId,
+    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      coherence,
+      displayFrameId,
+    }),
+    projectionHorizon: {
+      obligations: {
+        visibleActorIds: [],
+      },
+    },
+    publishability: {
+      blockingActorIds: [],
+      kind: "publishable",
+    },
+  } as unknown as GpuFlowCommittedSurfaceFrame;
+}
+
 function blockedCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
+  const displayFrameId = 2;
+  const coherence = {
+    canvasRetainedFrameId: displayFrameId,
+    clipChainRevision: "clip",
+    debugSnapshotFrameId: displayFrameId,
+    domControlCommittedFrameId: displayFrameId,
+    domIslandCommittedFrameId: displayFrameId,
+    gpuNativeVisualCommittedFrameId: displayFrameId,
+    hitGenerationId: `hit:${displayFrameId}`,
+    htmlTextureOverlayCommittedFrameId: displayFrameId,
+    retainedScrollRevision: 0,
+  };
   return {
     actorGenerations: [
       {
@@ -579,7 +721,12 @@ function blockedCommittedSurfaceFrame(): GpuFlowCommittedSurfaceFrame {
         visibleNonempty: true,
       },
     ],
-    displayFrameId: 2,
+    coherence,
+    displayFrameId,
+    presentationProof: createGpuFlowCommittedSurfacePresentationProof({
+      coherence,
+      displayFrameId,
+    }),
     projectionHorizon: {
       obligations: {
         visibleActorIds: ["actor-a"],

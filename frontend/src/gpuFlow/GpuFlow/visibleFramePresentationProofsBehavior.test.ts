@@ -446,6 +446,277 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     });
   });
 
+  it("requests manual repair after section surface content blocks even when motion debt remains", () => {
+    const projectionSample = liveProjectionSample();
+    const completion = proveGpuFlowVisibleFramePublicationPresentation({
+      blockedPublicationProof: {
+        blockedReasons: [
+          {
+            actorId: "section-a:section-shell",
+            family: "section-shell",
+            reason: "section-surface-not-drawn",
+          },
+          {
+            actorId: "section-a:section-body-clip",
+            family: "section-body-clip",
+            reason: "section-surface-not-drawn",
+          },
+        ],
+        candidate: {
+          blockedReasons: [
+            {
+              actorId: "section-a:section-shell",
+              family: "section-shell",
+              reason: "section-surface-not-drawn",
+            },
+          ],
+          frozenFrameId: 7,
+        },
+        frozenFrameId: 7,
+        source: "content-publication",
+      },
+      forceImmediatePublicationDebtFrame: false,
+      followUpFrameReason: null,
+      previousVisibleProjectionState: null,
+      publicationDecision: {
+        debt: { content: false, maintenance: true, motion: true },
+        lane: "content",
+        rawReasons: ["manual"],
+        sample: projectionSample,
+        schedulerState: "content-catchup",
+      } as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["publicationDecision"],
+      scheduler: {
+        completeFrame: () => {
+          throw new Error("Unexpected committed frame completion.");
+        },
+        getKnobs: () => DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+        recordUncommittedFrame: () => ({
+          debt: { content: true, maintenance: true, motion: true },
+          outcome: "blocked",
+        }),
+      } as unknown as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["scheduler"],
+      transactionProof: {
+        renderedVisibleFrame: false,
+        visibleFrameStateMachineOutcome: {
+          debt: {
+            browserVisual: false,
+            content: true,
+            maintenance: true,
+            motion: true,
+          },
+          decidingProof: {
+            actorId: "section-a:section-shell",
+            family: "section-shell",
+            proof: "blocked",
+            reason: "section-surface-not-drawn",
+          },
+          kind: "aborted",
+          previousPresentationId: "presentation:previous",
+          releasedResourceIds: [],
+        },
+        visibleProjectionState: null,
+      } as unknown as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["transactionProof"],
+    });
+
+    expect(completion.outcome.kind).toBe("blocked");
+    expect(completion.completeSchedulerFrame()).toEqual({
+      completion: {
+        debt: { content: true, maintenance: true, motion: true },
+        outcome: "blocked",
+      },
+      debtFrameRequest: {
+        delayMs: null,
+        frameReason: "manual",
+      },
+    });
+  });
+
+  it("requests texture upload after pending browser text snapshot blocks content", () => {
+    const projectionSample = liveProjectionSample();
+    const completion = proveGpuFlowVisibleFramePublicationPresentation({
+      blockedPublicationProof: {
+        blockedReasons: [
+          {
+            actorId: "retained-dom-control:a",
+            family: "browser-text-snapshot",
+            reason: "snapshot-pending",
+          },
+        ],
+        candidate: {
+          blockedReasons: [
+            {
+              actorId: "retained-dom-control:a",
+              family: "browser-text-snapshot",
+              reason: "snapshot-pending",
+            },
+          ],
+          frozenFrameId: 7,
+        },
+        frozenFrameId: 7,
+        source: "content-publication",
+      },
+      forceImmediatePublicationDebtFrame: false,
+      followUpFrameReason: null,
+      previousVisibleProjectionState: null,
+      publicationDecision: {
+        debt: { content: false, maintenance: true, motion: false },
+        lane: "content",
+        rawReasons: ["manual"],
+        sample: projectionSample,
+        schedulerState: "content-catchup",
+      } as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["publicationDecision"],
+      scheduler: {
+        completeFrame: () => {
+          throw new Error("Unexpected committed frame completion.");
+        },
+        getKnobs: () => DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+        recordUncommittedFrame: () => ({
+          debt: { content: true, maintenance: true, motion: false },
+          outcome: "blocked",
+        }),
+      } as unknown as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["scheduler"],
+      transactionProof: {
+        renderedVisibleFrame: false,
+        visibleFrameStateMachineOutcome: {
+          debt: {
+            browserVisual: true,
+            content: true,
+            maintenance: true,
+            motion: false,
+          },
+          decidingProof: {
+            actorId: "retained-dom-control:a",
+            family: "browser-text-snapshot",
+            proof: "blocked",
+            reason: "snapshot-pending",
+          },
+          kind: "aborted",
+          previousPresentationId: "presentation:previous",
+          releasedResourceIds: [],
+        },
+        visibleProjectionState: null,
+      } as unknown as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["transactionProof"],
+    });
+
+    expect(completion.outcome.kind).toBe("blocked");
+    expect(completion.completeSchedulerFrame()).toEqual({
+      completion: {
+        debt: { content: true, maintenance: true, motion: false },
+        outcome: "blocked",
+      },
+      debtFrameRequest: {
+        delayMs: null,
+        frameReason: "texture-upload",
+      },
+    });
+  });
+
+  it("requests content repair after maintenance clears browser visual resource debt", async () => {
+    const { createGpuFlowCommitAuthorityProof } = await import(
+      "./visibleFramePresentationProofs"
+    );
+    const frame = committedSurfaceFrame();
+    const projectionSample = liveProjectionSample();
+    const pairProof = presentationPairProof({ frame, projectionSample });
+    const commitAuthorityProof = createGpuFlowCommitAuthorityProof({
+      frame,
+      presentationPairProof: pairProof,
+      projectionSampleId: projectionSample.id,
+      projectionTransactionId:
+        pairProof.canvasGenerationEvidence.projectionTransactionId,
+    });
+    const completion = proveGpuFlowVisibleFramePublicationPresentation({
+      blockedPublicationProof: null,
+      forceImmediatePublicationDebtFrame: false,
+      followUpFrameReason: null,
+      previousVisibleProjectionState: null,
+      publicationDecision: {
+        debt: { content: true, maintenance: false, motion: true },
+        lane: "maintenance",
+        rawReasons: ["texture-upload"],
+        sample: projectionSample,
+        schedulerState: "maintenance-drain",
+      } as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["publicationDecision"],
+      scheduler: {
+        completeFrame: () => ({
+          debt: { content: true, maintenance: false, motion: true },
+          outcome: "commit",
+        }),
+        getKnobs: () => DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS,
+        recordUncommittedFrame: () => {
+          throw new Error("Unexpected uncommitted frame completion.");
+        },
+      } as unknown as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["scheduler"],
+      transactionProof: {
+        commitProof: {
+          commitAuthorityProof,
+          debtProof: {
+            content: false,
+            maintenance: true,
+            motion: false,
+          },
+        },
+        renderedVisibleFrame: true,
+        visibleFrameStateMachineOutcome:
+          proveGpuFlowVisibleFrameStateMachineFrame({
+            candidate: {
+              actorProofs: [],
+              contentFrameId: createGpuFlowContentFrameId(
+                String(frame.displayFrameId),
+              ),
+              preparedResourceIds: [],
+              projectionSampleId: projectionSample.id,
+              queuedDebt: {
+                browserVisual: false,
+                content: false,
+                maintenance: true,
+                motion: false,
+              },
+              requiredActors: [],
+            },
+            previousPresentation: null,
+          }),
+        visibleProjectionState: {
+          committedFrame: frame,
+          heldPreviousProjection: null,
+          sample: projectionSample,
+          transaction: {
+            kind: "content-publication",
+          },
+        },
+      } as unknown as Parameters<
+        typeof proveGpuFlowVisibleFramePublicationPresentation
+      >[0]["transactionProof"],
+    });
+
+    expect(completion.completeSchedulerFrame()).toEqual({
+      completion: {
+        debt: { content: true, maintenance: false, motion: true },
+        outcome: "commit",
+      },
+      debtFrameRequest: {
+        delayMs: null,
+        frameReason: "manual",
+      },
+    });
+  });
+
   it("keeps held-previous budget blocked retained follow-up queued behind scheduler debt", () => {
     const projectionSample = liveProjectionSample();
     const completion = proveGpuFlowVisibleFramePublicationPresentation({

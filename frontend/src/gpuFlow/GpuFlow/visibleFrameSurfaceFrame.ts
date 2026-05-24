@@ -206,6 +206,10 @@ export function renderGpuFlowSurfaceFrame({
       }) => {
         frameMeasureDetail.lane = publicationDecision.lane;
         frameMeasureDetail.schedulerState = publicationDecision.schedulerState;
+        frameMeasureDetail.contentDebt = publicationDecision.debt.content;
+        frameMeasureDetail.maintenanceDebt =
+          publicationDecision.debt.maintenance;
+        frameMeasureDetail.motionDebt = publicationDecision.debt.motion;
         frameMeasureDetail.viewportFrame =
           publicationFrameContext.viewportFrame;
         frameMeasureDetail.deferResolutionUpdates =
@@ -322,6 +326,8 @@ export function renderGpuFlowSurfaceFrame({
           viewport: nodeLayerRef.current.viewport,
         });
         const sampleViewport = normalizeGpuViewport(sample.viewport);
+        frameMeasureDetail.eventTimestamp = event.timestamp;
+        frameMeasureDetail.sampleTimestamp = sample.timestamp;
         frameMeasureDetail.sampleViewportX = sampleViewport.x;
         frameMeasureDetail.sampleViewportY = sampleViewport.y;
         frameMeasureDetail.sampleViewportZoom = sampleViewport.zoom;

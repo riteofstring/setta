@@ -10,6 +10,7 @@ import {
 } from "../projectionRuntime";
 import { createGpuFlowVisibleFramePresenter } from "./visibleFramePresenter";
 import {
+  createGpuFlowVisibleFrameBlockedPublicationTokenForTest,
   createGpuFlowVisibleFrameCommitPublicationTokenForTest,
   createGpuFlowVisibleFrameHoldPreviousTokenForTest,
 } from "./visibleFrameTestUtils";
@@ -333,6 +334,196 @@ describe("GPU Flow surface publication completion", () => {
     expect(requestFrame).not.toHaveBeenCalled();
     expect(setTimeout).toHaveBeenCalledOnce();
   });
+
+  it("keeps the earliest delayed retry when repeated frames request the same debt reason", () => {
+    const firstCommittedFrame = committedSurfaceFrame({ displayFrameId: 42 });
+    const firstSelectedState = visibleProjectionState({
+      displayFrameId: firstCommittedFrame.displayFrameId,
+      kind: "content-publication",
+      sampleId: 42,
+    });
+    const firstToken = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      frame: firstCommittedFrame,
+      projectionSample: firstSelectedState.sample,
+    });
+    const secondCommittedFrame = committedSurfaceFrame({ displayFrameId: 43 });
+    const secondSelectedState = visibleProjectionState({
+      displayFrameId: secondCommittedFrame.displayFrameId,
+      kind: "content-publication",
+      sampleId: 43,
+    });
+    const secondToken = createGpuFlowVisibleFrameCommitPublicationTokenForTest({
+      frame: secondCommittedFrame,
+      projectionSample: secondSelectedState.sample,
+    });
+    const requestFrame = vi.fn();
+    const setTimeout = vi.fn(() => 1);
+    const clearTimeout = vi.fn();
+    const surface = {
+      getRuntime: () => ({
+        canvas: {
+          ownerDocument: {
+            defaultView: {
+              clearTimeout,
+              setTimeout,
+            },
+          },
+        },
+      }),
+      requestFrame,
+    };
+    const presenter = createGpuFlowVisibleFramePresenter({
+      abortPreparedCommittedSurfaceFrame: () => {
+        throw new Error("Unexpected prepared committed surface abort.");
+      },
+      callbacksRef: { current: null },
+      commitPreparedCommittedSurfaceFrame: () => true,
+      projectCommittedBrowserVisualActors: () => {},
+      publishColdStartShellFrame: () => {},
+      retainedDisplayFrameRef: { current: null },
+      retainedRuntimeFrameRenderSignatureRef: { current: null },
+      retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
+      runtimeCanvas: testCanvas(),
+      surfaceRef: {
+        current: surface,
+      },
+      viewportRuntime: {
+        applyOverlayTransforms: () => {},
+      },
+      visibleOverlayProjectionKeyRef: { current: null },
+      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionStateRef: { current: null },
+    } as unknown as Parameters<typeof createGpuFlowVisibleFramePresenter>[0]);
+    const schedulerCompletion = {
+      debt: {
+        content: true,
+        maintenance: false,
+        motion: false,
+      },
+      outcome: "commit",
+    };
+
+    presenter(
+      committedPublicationTransaction({
+        committedFrame: firstCommittedFrame,
+        debtFrameRequest: {
+          delayMs: 160,
+          frameReason: "manual",
+        },
+        onCompleteSchedulerFrame: () => {},
+        schedulerCompletion,
+        selectedState: firstSelectedState,
+        token: firstToken,
+      }),
+    );
+    presenter(
+      committedPublicationTransaction({
+        committedFrame: secondCommittedFrame,
+        debtFrameRequest: {
+          delayMs: 160,
+          frameReason: "manual",
+        },
+        onCompleteSchedulerFrame: () => {},
+        schedulerCompletion,
+        selectedState: secondSelectedState,
+        token: secondToken,
+      }),
+    );
+
+    expect(setTimeout).toHaveBeenCalledOnce();
+    expect(clearTimeout).not.toHaveBeenCalled();
+    expect(requestFrame).not.toHaveBeenCalled();
+  });
+
+  it("requests texture upload debt immediately while content publication is blocked", () => {
+    const blockedFrame = committedSurfaceFrame({ displayFrameId: 51 });
+    const sample = liveProjectionSample({
+      id: 51,
+      timestamp: 51,
+    });
+    const token = createGpuFlowVisibleFrameBlockedPublicationTokenForTest({
+      blockedReasons: [
+        {
+          actorId: "retained-dom-control:a",
+          family: "browser-text-snapshot",
+          reason: "snapshot-pending",
+        },
+      ],
+      frozenFrameId: blockedFrame.displayFrameId,
+      projectionSample: sample,
+    });
+    const requestFrame = vi.fn();
+    let delayedContentRetry: (() => void) | null = null;
+    const setTimeout = vi.fn((callback: () => void) => {
+      delayedContentRetry = callback;
+      return 1;
+    });
+    const clearTimeout = vi.fn();
+    const presenter = createGpuFlowVisibleFramePresenter({
+      abortPreparedCommittedSurfaceFrame: () => {},
+      callbacksRef: { current: null },
+      commitPreparedCommittedSurfaceFrame: () => {
+        throw new Error("Unexpected prepared committed surface commit.");
+      },
+      projectCommittedBrowserVisualActors: () => {
+        throw new Error("Unexpected browser visual actor projection.");
+      },
+      publishColdStartShellFrame: () => {},
+      retainedDisplayFrameRef: { current: null },
+      retainedRuntimeFrameRenderSignatureRef: { current: null },
+      retainedRuntimeFrameSourceRenderSignatureRef: { current: null },
+      runtimeCanvas: testCanvas(),
+      surfaceRef: {
+        current: {
+          getRuntime: () => ({
+            canvas: {
+              ownerDocument: {
+                defaultView: {
+                  clearTimeout,
+                  setTimeout,
+                },
+              },
+            },
+          }),
+          requestFrame,
+        },
+      },
+      viewportRuntime: {
+        applyOverlayTransforms: () => {
+          throw new Error("Unexpected overlay projection transform.");
+        },
+      },
+      visibleOverlayProjectionKeyRef: { current: null },
+      visibleProjectionPublicationStateRef: { current: null },
+      visibleProjectionStateRef: { current: null },
+    } as unknown as Parameters<typeof createGpuFlowVisibleFramePresenter>[0]);
+
+    presenter(
+      blockedPublicationTransaction({
+        blockedFrame,
+        debtFrameRequest: {
+          delayMs: null,
+          frameReason: "texture-upload",
+        },
+        sample,
+        schedulerCompletion: {
+          debt: {
+            content: true,
+            maintenance: true,
+            motion: true,
+          },
+          outcome: "blocked",
+        },
+        token,
+      }),
+    );
+
+    expect(requestFrame).toHaveBeenCalledOnce();
+    expect(requestFrame).toHaveBeenCalledWith("texture-upload");
+    expect(setTimeout).toHaveBeenCalledOnce();
+    delayedContentRetry?.();
+    expect(requestFrame).toHaveBeenLastCalledWith("manual");
+  });
 });
 
 function heldPreviousPublicationTransaction({
@@ -464,6 +655,61 @@ function committedPublicationTransaction({
       lane: "content",
       rawReasons: ["manual"],
       sample: selectedState.sample,
+      schedulerState: "content-catchup",
+    },
+  } as unknown as GpuFlowSurfacePublicationTransaction;
+}
+
+function blockedPublicationTransaction({
+  blockedFrame,
+  debtFrameRequest,
+  sample,
+  schedulerCompletion,
+  token,
+}: {
+  readonly blockedFrame: GpuFlowCommittedSurfaceFrame;
+  readonly debtFrameRequest: unknown;
+  readonly sample: GpuFlowLiveProjectionSample;
+  readonly schedulerCompletion: unknown;
+  readonly token: ReturnType<
+    typeof createGpuFlowVisibleFrameBlockedPublicationTokenForTest
+  >;
+}): GpuFlowSurfacePublicationTransaction {
+  return {
+    coldStartShellPublication: null,
+    completeSchedulerFrame: () => ({
+      completion: schedulerCompletion,
+      debtFrameRequest,
+    }),
+    followUpFrameRequests: [],
+    heldPreviousVisibleProjectionState: null,
+    outcome: {
+      kind: "blocked",
+      token,
+    },
+    preparedFrame: {
+      contentPublicationFrame: {
+        blockedErrorMessage: null,
+        blockedPreparedCommittedSurfaceFrame: blockedFrame,
+        blockedPreparedCommittedSurfaceFrameResourceWork: null,
+        blockedPreservePreparationSnapshot: false,
+        committedSurfaceFrame: null,
+        heldPreparedCommittedSurfaceFrame: null,
+        nodeLayerFrameStatePublication: null,
+        retainedDisplayFrame: null,
+        retainedRuntimeFrame: null,
+      },
+      motionProjectionFrame: {
+        nodeLayerFrameStatePublication: null,
+      },
+      transactionProof: null,
+      visibleProjectionState: null,
+    },
+    previousCommittedFrameId: null,
+    publicationDecision: {
+      lane: "content",
+      rawReasons: ["manual"],
+      sample,
       schedulerState: "content-catchup",
     },
   } as unknown as GpuFlowSurfacePublicationTransaction;

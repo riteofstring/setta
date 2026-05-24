@@ -244,10 +244,22 @@ function getGpuFlowVisiblePublicationDebtFrameReason({
   readonly outcome: GpuFlowVisiblePublicationOutcome;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }): GpuFrameReason {
+  if (isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(outcome)) {
+    return "texture-upload";
+  }
   if (
     publicationDecision.lane === "content" &&
     completion.debt.content &&
     !completion.debt.motion
+  ) {
+    return "manual";
+  }
+  if (publicationDecision.lane === "maintenance" && completion.debt.content) {
+    return "manual";
+  }
+  if (
+    completion.debt.content &&
+    isGpuFlowSectionSurfaceRepairBlockedOutcome(outcome)
   ) {
     return "manual";
   }
@@ -277,6 +289,32 @@ function isGpuFlowRetainedProjectionBlockedOutcome(
     outcome.kind === "blocked" &&
     outcome.token.blockedReasons.some(
       (reason) => reason.family === "retained-projection",
+    )
+  );
+}
+
+function isGpuFlowSectionSurfaceRepairBlockedOutcome(
+  outcome: GpuFlowVisiblePublicationOutcome,
+): boolean {
+  return (
+    outcome.kind === "blocked" &&
+    outcome.token.blockedReasons.some(
+      (reason) =>
+        reason.reason === "section-surface-not-drawn" ||
+        reason.reason === "section-surface-texture-missing",
+    )
+  );
+}
+
+function isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(
+  outcome: GpuFlowVisiblePublicationOutcome,
+): boolean {
+  return (
+    outcome.kind === "blocked" &&
+    outcome.token.blockedReasons.some(
+      (reason) =>
+        reason.family === "browser-text-snapshot" &&
+        reason.reason === "snapshot-pending",
     )
   );
 }

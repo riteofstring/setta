@@ -285,8 +285,7 @@ test("visible retained DOM controls share canvas transaction and stay aligned th
   await waitForViewportIdle(page);
   const afterZoom = await waitForDomControlCoherenceSample(page, row);
 
-  await page.mouse.click(row.controlClientPoint.x, row.controlClientPoint.y);
-  await waitForAnimationFrame(page);
+  await activateObservedRetainedEditor(page, row);
   const afterClick = await waitForDomControlCoherenceSample(page, row);
   const snapshot = await readGpuFlowPerformanceSnapshot(page);
   const motionProjectionViolations = snapshot.nodeLayerFrames
@@ -324,7 +323,7 @@ test("visible retained DOM controls share canvas transaction and stay aligned th
     expect(sample.rectDelta.width, details).toBeLessThanOrEqual(4);
     expect(sample.rectDelta.height, details).toBeLessThanOrEqual(6);
   }
-  expect(afterClick.activeEditorId, details).toContain(row.rowId);
+  expect(afterClick.activeEditorId ?? "", details).toContain(row.rowId);
   expect(afterClick.active, details).toBe("true");
   expect(afterClick.canvasTransactionId, details).toBe(
     afterClick.planeTransactionId,

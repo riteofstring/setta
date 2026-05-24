@@ -13,6 +13,8 @@ export type GpuFlowProjectionSchedulerState =
   | "motion-settling";
 
 export const GPU_FLOW_CONTENT_BLOCKED_RETRY_DELAY_MULTIPLIER = 2;
+export const GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER = 0.25;
+export const GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER = 4;
 export const GPU_FLOW_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER = 2;
 export const GPU_FLOW_RETAINED_SCROLL_CONTENT_SETTLE_DELAY_MULTIPLIER = 1;
 
@@ -40,6 +42,7 @@ type GpuFlowVisiblePublicationUncommittedCompletionOutcomeLike =
 
 export function shouldDeferGpuFlowProjectionMaintenanceOnlyFrame({
   contentDebt,
+  contentBlockedRetryDeferred,
   motionDebt,
   maintenanceDebt,
   motionSettling,
@@ -47,6 +50,7 @@ export function shouldDeferGpuFlowProjectionMaintenanceOnlyFrame({
   rawReasons,
 }: {
   readonly contentDebt: boolean;
+  readonly contentBlockedRetryDeferred: boolean;
   readonly maintenanceDebt: boolean;
   readonly motionDebt: boolean;
   readonly motionSettling: boolean;
@@ -59,6 +63,9 @@ export function shouldDeferGpuFlowProjectionMaintenanceOnlyFrame({
       postContentMaintenanceSettling,
       rawReasons,
     });
+  if (contentBlockedRetryDeferred) {
+    return false;
+  }
   return (
     !motionDebt &&
     (maintenanceOnlyFrame || maintenanceBackedNonCriticalContentFrame) &&
@@ -288,6 +295,7 @@ export function resolveGpuFlowProjectionContentRetryBlock({
   readonly timestamp: DOMHighResTimeStamp;
 }): {
   readonly blockedUntilMs: number | null;
+  readonly contentBlockedRetryDeferred: boolean;
   readonly contentRetryDeferred: boolean;
   readonly retainedScrollBlockedUntilMs: number | null;
 } {
@@ -310,6 +318,7 @@ export function resolveGpuFlowProjectionContentRetryBlock({
       timestamp >= contentRetryBlockedUntilMs
         ? null
         : contentRetryBlockedUntilMs,
+    contentBlockedRetryDeferred: retryDeferred,
     contentRetryDeferred: retryDeferred || retainedScrollDeferred,
     retainedScrollBlockedUntilMs:
       retainedScrollContentBlockedUntilMs !== null &&
@@ -455,6 +464,8 @@ export function shouldThrottleGpuFlowContentRetryAfterUncommittedFrame(
 ): boolean {
   return (
     (decision.lane === "content" && outcome.kind === "hold-previous") ||
+    (decision.lane === "content" &&
+      isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(outcome)) ||
     (outcome.kind === "blocked" &&
       decision.lane !== "idle" &&
       decision.lane !== "motion" &&
@@ -464,15 +475,48 @@ export function shouldThrottleGpuFlowContentRetryAfterUncommittedFrame(
   );
 }
 
+export function isGpuFlowBrowserTextSnapshotPendingBlockedOutcome(
+  outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcomeLike,
+): boolean {
+  return (
+    outcome.kind === "blocked" &&
+    outcome.token.blockedReasons.some(
+      isGpuFlowBrowserTextSnapshotPendingBlockedReason,
+    )
+  );
+}
+
 export function shouldThrottleGpuFlowMotionRetryAfterUncommittedFrame(
   decision: GpuFlowVisiblePublicationDecisionLike,
   outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcomeLike,
 ): boolean {
   return (
-    decision.lane === "motion" &&
-    outcome.kind === "blocked" &&
-    outcome.token.blockedReasons.some(isGpuFlowHeldPreviousBudgetBlockedReason)
+    getGpuFlowMotionRetryDelayMultiplierAfterUncommittedFrame(
+      decision,
+      outcome,
+    ) !== null
   );
+}
+
+export function getGpuFlowMotionRetryDelayMultiplierAfterUncommittedFrame(
+  decision: GpuFlowVisiblePublicationDecisionLike,
+  outcome: GpuFlowVisiblePublicationUncommittedCompletionOutcomeLike,
+): number | null {
+  if (outcome.kind !== "blocked") {
+    return null;
+  }
+  if (
+    decision.lane !== "idle" &&
+    outcome.token.blockedReasons.some(isGpuFlowSectionSurfaceRepairBlockedReason)
+  ) {
+    return GPU_FLOW_CONTENT_REPAIR_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER;
+  }
+  if (decision.lane === "motion") {
+    return outcome.token.blockedReasons.some(isGpuFlowMotionRepairBlockedReason)
+      ? GPU_FLOW_MOTION_BLOCKED_RETRY_DELAY_MULTIPLIER
+      : null;
+  }
+  return null;
 }
 
 export function shouldYieldGpuFlowCriticalContentDebtForCoverage(
@@ -492,6 +536,34 @@ function isGpuFlowHeldPreviousBudgetBlockedReason(reason: {
   readonly reason: string;
 }): boolean {
   return reason.reason === "held-previous-budget-exceeded";
+}
+
+function isGpuFlowMotionRepairBlockedReason(
+  reason: GpuFlowBlockedReasonLike,
+): boolean {
+  return (
+    isGpuFlowHeldPreviousBudgetBlockedReason(reason) ||
+    isGpuFlowRetainedProjectionCoverageBlockedReason(reason) ||
+    isGpuFlowSectionSurfaceRepairBlockedReason(reason)
+  );
+}
+
+function isGpuFlowSectionSurfaceRepairBlockedReason(
+  reason: GpuFlowBlockedReasonLike,
+): boolean {
+  return (
+    reason.reason === "section-surface-not-drawn" ||
+    reason.reason === "section-surface-texture-missing"
+  );
+}
+
+function isGpuFlowBrowserTextSnapshotPendingBlockedReason(
+  reason: GpuFlowBlockedReasonLike,
+): boolean {
+  return (
+    reason.family === "browser-text-snapshot" &&
+    reason.reason === "snapshot-pending"
+  );
 }
 
 function isGpuFlowRetainedProjectionCoverageBlockedReason(

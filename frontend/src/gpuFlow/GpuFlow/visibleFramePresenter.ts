@@ -5,6 +5,7 @@ import {
   applyGpuFlowProjectionDebugAttributes,
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
+import { GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER } from "../projectionSchedulerPolicy";
 import type { RetainedDisplayFrame } from "../retainedDisplayFrame";
 import type { GpuRetainedRuntimeFrame } from "../retainedRuntimeFrame";
 import type { GpuFlowViewportRuntime } from "../viewportRuntime";
@@ -60,7 +61,15 @@ type GpuFlowBlockedSurfaceVisibleProjectionPublication = {
   readonly frame: GpuFlowCommittedSurfaceFrame | null;
 };
 
-const deferredResolutionFrameTimers = new WeakMap<GpuSurfaceHandle, number>();
+type GpuFlowDelayedPublicationDebtFrameTimer = {
+  readonly frameReason: GpuFrameReason;
+  readonly timer: number;
+};
+
+const deferredResolutionFrameTimers = new WeakMap<
+  GpuSurfaceHandle,
+  GpuFlowDelayedPublicationDebtFrameTimer
+>();
 
 type GpuFlowVisibleFramePresenterInput = Omit<
   Parameters<typeof presentGpuFlowVisibleFramePublicationFrame>[0],
@@ -296,6 +305,9 @@ function presentGpuFlowVisibleFramePublicationFrame({
   });
   requestGpuFlowSurfacePublicationDebtFrame({
     debtFrameRequest,
+    completion,
+    outcome,
+    publicationDecision,
     surfaceRef,
   });
   if (blockedVisiblePublication?.blockedErrorMessage) {
@@ -443,6 +455,9 @@ function shouldDelayGpuFlowSurfacePublicationDebtFrame({
   ) {
     return true;
   }
+  if (debtFrameRequest.frameReason === "texture-upload") {
+    return false;
+  }
   if (publicationDecision.lane === "content" && completion.debt.content) {
     return true;
   }
@@ -456,9 +471,15 @@ function shouldDelayGpuFlowSurfacePublicationDebtFrame({
 
 function requestGpuFlowSurfacePublicationDebtFrame({
   debtFrameRequest,
+  completion,
+  outcome,
+  publicationDecision,
   surfaceRef,
 }: {
   readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest | null;
+  readonly completion: GpuFlowVisiblePublicationCompletion;
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
 }): void {
   if (debtFrameRequest === null) {
@@ -473,6 +494,48 @@ function requestGpuFlowSurfacePublicationDebtFrame({
     return;
   }
   surfaceRef.current?.requestFrame(debtFrameRequest.frameReason);
+  scheduleGpuFlowContentRetryAfterBrowserVisualTextureUpload({
+    completion,
+    debtFrameRequest,
+    outcome,
+    publicationDecision,
+    surfaceRef,
+  });
+}
+
+function scheduleGpuFlowContentRetryAfterBrowserVisualTextureUpload({
+  completion,
+  debtFrameRequest,
+  outcome,
+  publicationDecision,
+  surfaceRef,
+}: {
+  readonly completion: GpuFlowVisiblePublicationCompletion;
+  readonly debtFrameRequest: GpuFlowVisiblePublicationDebtFrameRequest;
+  readonly outcome: GpuFlowVisiblePublicationOutcome;
+  readonly publicationDecision: GpuFlowVisiblePublicationDecision;
+  readonly surfaceRef: RenderGpuFlowSurfaceFrameInput["surfaceRef"];
+}): void {
+  if (
+    debtFrameRequest.frameReason !== "texture-upload" ||
+    !completion.debt.content ||
+    publicationDecision.lane !== "content" ||
+    outcome.kind !== "blocked" ||
+    !outcome.token.blockedReasons.some(
+      (reason) =>
+        reason.family === "browser-text-snapshot" &&
+        reason.reason === "snapshot-pending",
+    )
+  ) {
+    return;
+  }
+  scheduleDelayedGpuFlowPublicationDebtFrame({
+    delayMs:
+      DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs *
+      GPU_FLOW_BROWSER_VISUAL_CONTENT_RETRY_DELAY_MULTIPLIER,
+    frameReason: "manual",
+    surfaceRef,
+  });
 }
 
 function scheduleDelayedGpuFlowPublicationDebtFrame({
@@ -493,16 +556,21 @@ function scheduleDelayedGpuFlowPublicationDebtFrame({
   }
   const existingTimer = deferredResolutionFrameTimers.get(surface);
   if (existingTimer !== undefined) {
-    ownerWindow.clearTimeout(existingTimer);
+    if (existingTimer.frameReason === frameReason) {
+      return true;
+    }
+    ownerWindow.clearTimeout(existingTimer.timer);
   }
   const timer = ownerWindow.setTimeout(
     () => {
-      deferredResolutionFrameTimers.delete(surface);
+      if (deferredResolutionFrameTimers.get(surface)?.timer === timer) {
+        deferredResolutionFrameTimers.delete(surface);
+      }
       surface.requestFrame(frameReason);
     },
     Math.max(0, delayMs),
   );
-  deferredResolutionFrameTimers.set(surface, timer);
+  deferredResolutionFrameTimers.set(surface, { frameReason, timer });
   return true;
 }
 
@@ -793,6 +861,7 @@ function publishGpuFlowCommittedSurfaceVisibleProjectionState({
     token: outcome.token,
   });
   recordGpuFlowVisibleFramePresented({
+    committedSurfaceFrame,
     runtimeCanvas,
     surfaceRef,
     token: outcome.token,

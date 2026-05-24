@@ -125,12 +125,17 @@ const GPU_FLOW_BROWSER_VISUAL_DEFERRED_WORK_WAKEUP_MS =
   DEFAULT_GPU_FLOW_PROJECTION_SCHEDULER_KNOBS.motionSettleWindowMs * 2;
 
 export function recordGpuFlowVisibleFramePresented(application: {
+  readonly committedSurfaceFrame: GpuFlowCommittedSurfaceFrame | null;
   readonly runtimeCanvas: HTMLCanvasElement;
   readonly surfaceRef: MutableRefObject<GpuSurfaceHandle | null>;
   readonly token: GpuFlowCommitPublicationToken;
 }): void {
-  const { runtimeCanvas, surfaceRef, token } = application;
+  const { committedSurfaceFrame, runtimeCanvas, surfaceRef, token } =
+    application;
   assertGpuFlowCommitPublicationTokenBrand({ token });
+  if (committedSurfaceFrame === null) {
+    return;
+  }
   clearGpuFlowBrowserVisualStarvationDebt(runtimeCanvas);
   clearGpuFlowBrowserVisualResourceWork(runtimeCanvas);
   clearGpuFlowBrowserVisualResourceWorkFrame({
