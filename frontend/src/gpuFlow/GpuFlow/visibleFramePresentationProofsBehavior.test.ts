@@ -147,7 +147,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
     );
   });
 
-  it("keeps commit proof digests compact for large actor manifests", () => {
+  it("keeps presentable frame proof digests compact for large actor manifests", () => {
     const frame = committedSurfaceFrame({
       actorGenerations: Array.from({ length: 80 }, (_, index) =>
         committedActorGeneration({
@@ -701,7 +701,7 @@ describe("GPU Flow visible frame presentation proof behavior", () => {
         typeof proveGpuFlowVisibleFramePublicationPresentation
       >[0]["reducerRuntime"],
       transactionProof: {
-        commitProof: {
+        presentableFrameProof: {
           presentationAuthorityProof,
           debtProof: {
             content: false,
@@ -889,7 +889,7 @@ function proveGpuFlowVisibleFramePublicationPresentationForCommit({
       typeof proveGpuFlowVisibleFramePublicationPresentation
     >[0]["reducerRuntime"],
     transactionProof: {
-      commitProof: {
+      presentableFrameProof: {
         presentationAuthorityProof,
         debtProof: {
           content: true,

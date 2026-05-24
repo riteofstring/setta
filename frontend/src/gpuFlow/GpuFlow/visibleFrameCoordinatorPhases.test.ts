@@ -345,8 +345,9 @@ describe("GPU Flow visible frame coordinator phases", () => {
         `export function ${constructorName}`,
       );
     }
+    expect(presentationProofSource).toContain("presentationAuthorityProof:");
     expect(presentationProofSource).toContain(
-      "presentationAuthorityProof: commitProof.presentationAuthorityProof",
+      "presentableFrameProof.presentationAuthorityProof",
     );
     expect(presentationProofSource).toContain(
       "function createGpuFlowVisibleFrameBlockedPublicationTokenForProof",

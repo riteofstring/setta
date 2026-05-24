@@ -100,7 +100,7 @@ export type {
   GpuFlowVisibleFramePublicationTransactionProof,
   GpuFlowVisibleFramePublicationTransactionProofFactory,
   GpuFlowVisiblePublicationBlockedProof,
-  GpuFlowVisiblePublicationCommitDebtProof,
+  GpuFlowVisiblePublicationPresentationDebtProof,
 } from "./visibleFrameTransactionProofs";
 export {
   createGpuFlowContentPublicationWorkPlan,

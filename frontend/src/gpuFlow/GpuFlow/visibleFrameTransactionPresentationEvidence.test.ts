@@ -95,7 +95,7 @@ function selectGpuFlowVisibleFramePublicationPreparedFrame<
   return {
     blockedPublicationCandidate: preparedFrame.blockedPublicationCandidate,
     blockedProof: preparedFrame.blockedProof,
-    commitProof: preparedFrame.transactionProof.commitProof,
+    presentableFrameProof: preparedFrame.transactionProof.presentableFrameProof,
     renderedVisibleFrame: preparedFrame.renderedVisibleFrame,
     visibleProjectionState: preparedFrame.visibleProjectionState,
   };
@@ -147,7 +147,9 @@ function createTestGpuFlowVisiblePublicationPresentationEvidence({
     GpuFlowVisiblePublicationDecision,
     "sample"
   >;
-  readonly projectionTransactionKind?: GpuFlowProjectionTransactionKind | undefined;
+  readonly projectionTransactionKind?:
+    | GpuFlowProjectionTransactionKind
+    | undefined;
   readonly projectionTransactionId?: string | undefined;
   readonly textureEvictionPrepared?: boolean | undefined;
 }): GpuFlowVisiblePublicationPresentationEvidence {
@@ -204,7 +206,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
       family: "presentation-pair",
       reason: "canvas-generation-not-prepared",
     });
-    expect(proof.commitProof).toBeNull();
+    expect(proof.presentableFrameProof).toBeNull();
     expect(proof.renderedVisibleFrame).toBe(false);
   });
 
@@ -241,7 +243,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
       family: "presentation-pair",
       reason: "dom-transform-not-prepared",
     });
-    expect(proof.commitProof).toBeNull();
+    expect(proof.presentableFrameProof).toBeNull();
     expect(proof.renderedVisibleFrame).toBe(false);
   });
 
@@ -278,7 +280,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
       family: "presentation-pair",
       reason: "texture-eviction-not-prepared",
     });
-    expect(proof.commitProof).toBeNull();
+    expect(proof.presentableFrameProof).toBeNull();
     expect(proof.renderedVisibleFrame).toBe(false);
   });
 
@@ -317,7 +319,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
       family: "presentation-pair",
       reason: "dom-generation-not-exposable",
     });
-    expect(proof.commitProof).toBeNull();
+    expect(proof.presentableFrameProof).toBeNull();
   });
 
   it("blocks presentation authority when a visible section source node was not drawn", () => {
@@ -359,7 +361,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
       family: "section-shell",
       reason: "section-surface-not-drawn",
     });
-    expect(proof.commitProof).toBeNull();
+    expect(proof.presentableFrameProof).toBeNull();
     expect(proof.renderedVisibleFrame).toBe(false);
     expect(
       proof.visibleFrameStateMachinePreparedFrame.candidate.requiredActors,
@@ -403,7 +405,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     });
 
     expect(proof.blockedSource).toBeNull();
-    expect(proof.commitProof).toEqual(
+    expect(proof.presentableFrameProof).toEqual(
       expect.objectContaining({
         remainingActorDebt: [],
       }),
@@ -510,7 +512,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     });
 
     expect(prepared.renderedVisibleFrame).toBe(false);
-    expect(prepared.commitProof).toBeNull();
+    expect(prepared.presentableFrameProof).toBeNull();
     expect(prepared.blockedPublicationCandidate).toBe(motionBlockedCandidate);
     expect(prepared.blockedProof).toEqual({
       blockedReasons: motionBlockedCandidate.blockedReasons,
@@ -548,7 +550,7 @@ describe("GPU Flow visible frame transaction presentation evidence", () => {
     expect(prepared).toEqual({
       blockedPublicationCandidate: null,
       blockedProof: null,
-      commitProof: null,
+      presentableFrameProof: null,
       renderedVisibleFrame: false,
       visibleProjectionState: null,
     });

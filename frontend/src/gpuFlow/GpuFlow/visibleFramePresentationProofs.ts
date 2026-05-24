@@ -596,17 +596,18 @@ function createGpuFlowVisiblePublicationCompletionPresentOutcome({
       "GPU Flow visible publication completion cannot present a held-previous state machine outcome.",
     );
   }
-  const commitProof = transactionProof.commitProof;
-  if (commitProof === null) {
+  const presentableFrameProof = transactionProof.presentableFrameProof;
+  if (presentableFrameProof === null) {
     throw new Error(
-      "GPU Flow visible presentation completion requires the transaction proof commit proof.",
+      "GPU Flow visible presentation completion requires the transaction proof presentable frame proof.",
     );
   }
   return {
-    debtProof: commitProof.debtProof,
+    debtProof: presentableFrameProof.debtProof,
     kind: "present",
     token: createGpuFlowVisiblePublicationCompletionPresentationToken({
-      presentationAuthorityProof: commitProof.presentationAuthorityProof,
+      presentationAuthorityProof:
+        presentableFrameProof.presentationAuthorityProof,
       presentationIdentity:
         createGpuFlowVisibleFramePublicationPresentationIdentity({
           transactionProof,

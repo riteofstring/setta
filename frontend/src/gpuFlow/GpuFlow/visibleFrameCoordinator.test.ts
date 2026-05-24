@@ -27,12 +27,12 @@ import {
   createGpuFlowVisiblePublicationDomTransformPresentationEvidence,
   createGpuFlowVisiblePublicationTextureEvictionPresentationEvidence,
 } from "./visibleFramePresentationEvidence";
-import { createGpuFlowVisiblePublicationCommitProofFactory } from "./visibleFrameTransactionProofs";
+import { createGpuFlowVisiblePublicationPresentableFrameProofFactory } from "./visibleFrameTransactionProofs";
 import { GPU_FLOW_BROWSER_VISUAL_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
-const createGpuFlowVisiblePublicationCommitProofFromFactory =
-  createGpuFlowVisiblePublicationCommitProofFactory();
-const createGpuFlowVisiblePublicationCommitProof = ({
+const createGpuFlowVisiblePublicationPresentableFrameProofFromFactory =
+  createGpuFlowVisiblePublicationPresentableFrameProofFactory();
+const createGpuFlowVisiblePublicationPresentableFrameProof = ({
   committedFrame,
   publicationDecision,
 }: {
@@ -40,7 +40,7 @@ const createGpuFlowVisiblePublicationCommitProof = ({
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
 }) => {
   const projectionTransactionId = `transaction:content-publication:${publicationDecision.sample.id}`;
-  return createGpuFlowVisiblePublicationCommitProofFromFactory({
+  return createGpuFlowVisiblePublicationPresentableFrameProofFromFactory({
     committedFrame,
     presentationEvidence: {
       canvasGenerationEvidence:
@@ -186,7 +186,7 @@ describe("GPU Flow visible frame coordinator", () => {
     expect(result.preparedFrame.transactionProof.visibleProjectionSource).toBe(
       "content-publication",
     );
-    expect(result.preparedFrame.transactionProof.commitProof).toEqual(
+    expect(result.preparedFrame.transactionProof.presentableFrameProof).toEqual(
       expect.objectContaining({
         actorProofDigest: "[]",
         debtProof: { content: true, maintenance: false, motion: false },
@@ -342,7 +342,7 @@ describe("GPU Flow visible frame coordinator", () => {
     expect(suppliedRunner).toBe(true);
   });
 
-  it("uses one commit proof for compatible-previous proof reports and debt", () => {
+  it("uses one presentable frame proof for compatible-previous proof reports and debt", () => {
     const scheduler = createGpuFlowVisibleFrameReducerRuntime();
     const publicationDecision = scheduler.selectFrame({
       hasCommittedContentFrame: true,
@@ -352,7 +352,7 @@ describe("GPU Flow visible frame coordinator", () => {
       viewportInteractionActive: false,
     });
 
-    const proof = createGpuFlowVisiblePublicationCommitProof({
+    const proof = createGpuFlowVisiblePublicationPresentableFrameProof({
       committedFrame: committedSurfaceFrameWithCompatiblePreviousCoverage(),
       publicationDecision,
     });
@@ -453,7 +453,9 @@ describe("GPU Flow visible frame coordinator", () => {
       expect(result.preparedFrame.transactionProof.blockedSource).toBe(
         blockedSource,
       );
-      expect(result.preparedFrame.transactionProof.commitProof).toBeNull();
+      expect(
+        result.preparedFrame.transactionProof.presentableFrameProof,
+      ).toBeNull();
       if (result.outcome.kind !== "blocked") {
         throw new Error("Expected compatible previous proof block.");
       }

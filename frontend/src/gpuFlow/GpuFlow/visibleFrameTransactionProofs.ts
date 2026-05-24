@@ -6,7 +6,7 @@ import type {
   GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
-  assertGpuFlowVisiblePublicationCommitActorProofs,
+  assertGpuFlowVisiblePublicationPresentationActorProofs,
   createGpuFlowVisiblePublicationActorProofDigest,
   createGpuFlowVisiblePublicationActorProofsForFrame,
   createGpuFlowVisiblePublicationBlockedActorReasonsForFrame,
@@ -43,7 +43,7 @@ import {
 import { createGpuFlowVisibleFramePublicationStateMachinePreparedFrame } from "./visibleFrameTransactionStateMachineAdapter";
 import { GPU_FLOW_RETAINED_PROJECTION_COLD_START_SHELL_FRAME_ID } from "./visibleFrameTypes";
 
-export type GpuFlowVisiblePublicationCommitDebtProof = {
+export type GpuFlowVisiblePublicationPresentationDebtProof = {
   readonly content: boolean;
   readonly maintenance: boolean;
   readonly motion: boolean;
@@ -51,17 +51,17 @@ export type GpuFlowVisiblePublicationCommitDebtProof = {
 
 export type { GpuFlowVisiblePublicationPresentationProofReport };
 
-export type GpuFlowVisiblePublicationCommitProof = ReturnType<
-  typeof createGpuFlowVisiblePublicationCommitProof
+export type GpuFlowVisiblePublicationPresentableFrameProof = ReturnType<
+  typeof createGpuFlowVisiblePublicationPresentableFrameProof
 >;
 
-export type GpuFlowVisiblePublicationCommitProofFactory = (input: {
+export type GpuFlowVisiblePublicationPresentableFrameProofFactory = (input: {
   readonly committedFrame: GpuFlowCommittedSurfaceFrame;
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly projectionTransactionKind: GpuFlowProjectionTransactionKind;
   readonly projectionTransactionId: GpuFlowVisibleProjectionState["transaction"]["id"];
-}) => GpuFlowVisiblePublicationCommitProof;
+}) => GpuFlowVisiblePublicationPresentableFrameProof;
 
 export type GpuFlowVisiblePublicationBlockedProof = {
   readonly blockedReasons: GpuFlowVisibleFrameBlockedPublicationCandidate["blockedReasons"];
@@ -142,7 +142,7 @@ export type GpuFlowVisibleFramePublicationCandidateSet<
 export type GpuFlowVisibleFramePublicationPreparedCandidateSet = {
   readonly blockedPublicationCandidate: GpuFlowVisibleFrameBlockedPublicationCandidate | null;
   readonly blockedProof: GpuFlowVisiblePublicationBlockedProof | null;
-  readonly commitProof: GpuFlowVisiblePublicationCommitProof | null;
+  readonly presentableFrameProof: GpuFlowVisiblePublicationPresentableFrameProof | null;
   readonly renderedVisibleFrame: boolean;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 };
@@ -153,7 +153,7 @@ export type GpuFlowVisibleFramePublicationTransactionProof = {
   readonly blockedSource:
     | GpuFlowVisiblePublicationBlockedProof["source"]
     | null;
-  readonly commitProof: GpuFlowVisiblePublicationCommitProof | null;
+  readonly presentableFrameProof: GpuFlowVisiblePublicationPresentableFrameProof | null;
   readonly renderedVisibleFrame: boolean;
   readonly visibleFrameStateMachineOutcome: GpuFlowVisibleFrameStateMachineOutcome;
   readonly visibleFrameStateMachinePreparedFrame: GpuFlowVisibleFramePreparedFrame;
@@ -201,11 +201,11 @@ export type GpuFlowVisibleFramePublicationPreparedCandidateSetFrameFactory = <
   MotionProjectionFrame
 >;
 
-export function createGpuFlowVisiblePublicationCommitProofFactory(): GpuFlowVisiblePublicationCommitProofFactory {
-  return createGpuFlowVisiblePublicationCommitProof;
+export function createGpuFlowVisiblePublicationPresentableFrameProofFactory(): GpuFlowVisiblePublicationPresentableFrameProofFactory {
+  return createGpuFlowVisiblePublicationPresentableFrameProof;
 }
 
-function createGpuFlowVisiblePublicationCommitProof({
+function createGpuFlowVisiblePublicationPresentableFrameProof({
   committedFrame,
   presentationEvidence,
   publicationDecision,
@@ -222,7 +222,7 @@ function createGpuFlowVisiblePublicationCommitProof({
     committedFrame,
     projectionSampleId: publicationDecision.sample.id,
   });
-  assertGpuFlowVisiblePublicationCommitActorProofs(actorProofs);
+  assertGpuFlowVisiblePublicationPresentationActorProofs(actorProofs);
   const resourceProtection =
     createGpuFlowVisiblePublicationResourceProtectionReport(committedFrame);
   assertGpuFlowVisiblePublicationResourcesProtected(resourceProtection);
@@ -281,16 +281,16 @@ function createGpuFlowVisiblePublicationCommitProof({
   });
 }
 
-export function createGpuFlowVisiblePublicationCommitProofReport(
-  commitProof: GpuFlowVisiblePublicationCommitProof | null,
+export function createGpuFlowVisiblePublicationPresentableFrameProofReport(
+  presentableFrameProof: GpuFlowVisiblePublicationPresentableFrameProof | null,
 ) {
-  if (commitProof === null) {
+  if (presentableFrameProof === null) {
     return {
       actorProofDigest: null,
       actorProofs: [],
       browserActorProofs:
         createGpuFlowVisiblePublicationBrowserActorProofReportForFrame(null),
-      commitProof: null,
+      presentableFrameProof: null,
       compatiblePreviousProofs:
         createGpuFlowVisiblePublicationCompatiblePreviousProofReportForFrame({
           committedFrame: null,
@@ -304,20 +304,22 @@ export function createGpuFlowVisiblePublicationCommitProofReport(
     };
   }
   return {
-    actorProofDigest: commitProof.actorProofDigest,
-    actorProofs: commitProof.actorProofs,
-    browserActorProofs: commitProof.browserActorProofs,
-    commitProof: {
-      debtProof: commitProof.debtProof,
-      hasCompatiblePreviousCoverage: commitProof.hasCompatiblePreviousCoverage,
+    actorProofDigest: presentableFrameProof.actorProofDigest,
+    actorProofs: presentableFrameProof.actorProofs,
+    browserActorProofs: presentableFrameProof.browserActorProofs,
+    presentableFrameProof: {
+      debtProof: presentableFrameProof.debtProof,
+      hasCompatiblePreviousCoverage:
+        presentableFrameProof.hasCompatiblePreviousCoverage,
       resourceProtectionDigest:
-        commitProof.presentationAuthorityProof.resourceProtectionDigest,
+        presentableFrameProof.presentationAuthorityProof
+          .resourceProtectionDigest,
     },
-    compatiblePreviousProofs: commitProof.compatiblePreviousProofs,
-    coverage: commitProof.coverage,
-    presentationProof: commitProof.presentationProof,
-    remainingActorDebt: commitProof.remainingActorDebt,
-    resourceProtection: commitProof.resourceProtection,
+    compatiblePreviousProofs: presentableFrameProof.compatiblePreviousProofs,
+    coverage: presentableFrameProof.coverage,
+    presentationProof: presentableFrameProof.presentationProof,
+    remainingActorDebt: presentableFrameProof.remainingActorDebt,
+    resourceProtection: presentableFrameProof.resourceProtection,
   };
 }
 
@@ -328,7 +330,7 @@ export function createGpuFlowVisiblePublicationTransactionProofReport(
     return {
       blockedProof: null,
       blockedSource: null,
-      hasCommitProof: false,
+      hasPresentableFrameProof: false,
       hasPresentableFrame: false,
       renderedVisibleFrame: false,
       visibleFrameStateMachineOutcome: null,
@@ -347,9 +349,9 @@ export function createGpuFlowVisiblePublicationTransactionProofReport(
             source: transactionProof.blockedProof.source,
           },
     blockedSource: transactionProof.blockedSource,
-    hasCommitProof: transactionProof.commitProof !== null,
+    hasPresentableFrameProof: transactionProof.presentableFrameProof !== null,
     hasPresentableFrame:
-      transactionProof.commitProof !== null &&
+      transactionProof.presentableFrameProof !== null &&
       transactionProof.visibleProjectionState?.transaction?.kind !==
         "held-previous",
     renderedVisibleFrame: transactionProof.renderedVisibleFrame,
@@ -488,8 +490,8 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
       candidateVisibleProjectionState,
       visibleFrameStateMachineOutcome,
     });
-  const commitProof =
-    createGpuFlowVisibleFramePublicationTransactionCommitProof({
+  const presentableFrameProof =
+    createGpuFlowVisibleFramePublicationTransactionPresentableFrameProof({
       presentationEvidence,
       publicationDecision,
       visibleProjectionState: finalVisibleProjectionState,
@@ -498,7 +500,7 @@ function createGpuFlowVisibleFramePublicationTransactionProof<
     blockedPublicationCandidate: finalBlockedProof?.candidate ?? null,
     blockedProof: finalBlockedProof,
     blockedSource: finalBlockedProof?.source ?? null,
-    commitProof,
+    presentableFrameProof,
     renderedVisibleFrame: finalVisibleProjectionState !== null,
     visibleFrameStateMachineOutcome,
     visibleFrameStateMachinePreparedFrame,
@@ -787,7 +789,7 @@ function createGpuFlowVisibleFramePublicationResourceBlockedProof({
   });
 }
 
-function createGpuFlowVisibleFramePublicationTransactionCommitProof({
+function createGpuFlowVisibleFramePublicationTransactionPresentableFrameProof({
   presentationEvidence,
   publicationDecision,
   visibleProjectionState,
@@ -795,7 +797,7 @@ function createGpuFlowVisibleFramePublicationTransactionCommitProof({
   readonly presentationEvidence: GpuFlowVisiblePublicationPresentationEvidence | null;
   readonly publicationDecision: GpuFlowVisiblePublicationDecision;
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
-}): GpuFlowVisiblePublicationCommitProof | null {
+}): GpuFlowVisiblePublicationPresentableFrameProof | null {
   if (
     visibleProjectionState === null ||
     visibleProjectionState.transaction.kind === "held-previous"
@@ -807,7 +809,7 @@ function createGpuFlowVisibleFramePublicationTransactionCommitProof({
       "GPU Flow visible presentation proof requires DOM/canvas presentation evidence.",
     );
   }
-  return createGpuFlowVisiblePublicationCommitProof({
+  return createGpuFlowVisiblePublicationPresentableFrameProof({
     committedFrame: visibleProjectionState.committedFrame,
     presentationEvidence,
     publicationDecision,

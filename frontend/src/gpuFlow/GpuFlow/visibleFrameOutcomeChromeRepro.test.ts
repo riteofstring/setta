@@ -21,26 +21,26 @@ import type {
   GpuFlowVisibleFrameStateMachineOutcome,
 } from "./visibleFrameStateMachine";
 import {
-  createGpuFlowVisiblePublicationCommitProofFactory,
+  createGpuFlowVisiblePublicationPresentableFrameProofFactory,
   type GpuFlowVisibleFramePublicationTransactionProof,
-  type GpuFlowVisiblePublicationCommitProof,
+  type GpuFlowVisiblePublicationPresentableFrameProof,
 } from "./visibleFrameTransactionProofs";
 
-const createGpuFlowVisiblePublicationCommitProofFromFactory =
-  createGpuFlowVisiblePublicationCommitProofFactory();
-const createGpuFlowVisiblePublicationCommitProof = ({
+const createGpuFlowVisiblePublicationPresentableFrameProofFromFactory =
+  createGpuFlowVisiblePublicationPresentableFrameProofFactory();
+const createGpuFlowVisiblePublicationPresentableFrameProof = ({
   committedFrame,
   publicationDecision,
 }: {
   readonly committedFrame: Parameters<
-    typeof createGpuFlowVisiblePublicationCommitProofFromFactory
+    typeof createGpuFlowVisiblePublicationPresentableFrameProofFromFactory
   >[0]["committedFrame"];
   readonly publicationDecision: Parameters<
-    typeof createGpuFlowVisiblePublicationCommitProofFromFactory
+    typeof createGpuFlowVisiblePublicationPresentableFrameProofFromFactory
   >[0]["publicationDecision"];
 }) => {
   const projectionTransactionId = "transaction-a";
-  return createGpuFlowVisiblePublicationCommitProofFromFactory({
+  return createGpuFlowVisiblePublicationPresentableFrameProofFromFactory({
     committedFrame,
     presentationEvidence: {
       canvasGenerationEvidence:
@@ -69,7 +69,7 @@ const createGpuFlowVisiblePublicationCommitProof = ({
 };
 
 describe("GPU Flow visible publication Chrome repro payload", () => {
-  it("records committed coverage proof counts with the visible outcome", () => {
+  it("records presented coverage proof counts with the visible outcome", () => {
     const sample = liveProjectionSample();
     const visibleProjectionState = {
       committedFrame: {
@@ -202,26 +202,27 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         kind: "content-publication",
       },
     } as unknown as GpuFlowVisibleProjectionState;
-    const commitProof = createGpuFlowVisiblePublicationCommitProof({
-      committedFrame: visibleProjectionState.committedFrame,
-      publicationDecision: publicationDecision(sample),
-    });
+    const presentableFrameProof =
+      createGpuFlowVisiblePublicationPresentableFrameProof({
+        committedFrame: visibleProjectionState.committedFrame,
+        publicationDecision: publicationDecision(sample),
+      });
     const payload = createGpuFlowVisiblePublicationOutcomeChromeReproPayload({
       completion: {
         debt: { content: false, maintenance: true, motion: false },
         outcome: "present",
       },
-      outcome: commitOutcome({
+      outcome: presentOutcome({
         debtProof: { content: true, maintenance: false, motion: false },
         sample,
       }),
       previousCommittedFrameId: 6,
       publicationDecision: publicationDecision(sample),
-      transactionProof: transactionProof({ commitProof }),
+      transactionProof: transactionProof({ presentableFrameProof }),
       visibleProjectionState,
     });
 
-    expect(JSON.stringify(payload).length).toBeLessThan(12000);
+    expect(JSON.stringify(payload).length).toBeLessThan(12100);
     expect(payload).toEqual(
       expect.objectContaining({
         actorProofCount: 2,
@@ -338,7 +339,7 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
         transactionProof: {
           blockedProof: null,
           blockedSource: null,
-          hasCommitProof: true,
+          hasPresentableFrameProof: true,
           hasPresentableFrame: true,
           renderedVisibleFrame: true,
           visibleFrameStateMachineOutcome: {
@@ -409,15 +410,15 @@ describe("GPU Flow visible publication Chrome repro payload", () => {
 });
 
 function transactionProof({
-  commitProof,
+  presentableFrameProof,
 }: {
-  readonly commitProof: GpuFlowVisiblePublicationCommitProof;
+  readonly presentableFrameProof: GpuFlowVisiblePublicationPresentableFrameProof;
 }): GpuFlowVisibleFramePublicationTransactionProof {
   return {
     blockedPublicationCandidate: null,
     blockedProof: null,
     blockedSource: null,
-    commitProof,
+    presentableFrameProof,
     renderedVisibleFrame: true,
     visibleFrameStateMachineOutcome: {
       decidingProof: null,
@@ -430,7 +431,7 @@ function transactionProof({
   };
 }
 
-function commitOutcome({
+function presentOutcome({
   debtProof,
   sample,
 }: {

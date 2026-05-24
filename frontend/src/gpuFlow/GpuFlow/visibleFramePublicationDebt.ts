@@ -141,7 +141,7 @@ export function hasCurrentGpuFlowProjectionMotion({
   );
 }
 
-export function assertGpuFlowVisiblePublicationCommitTokenMatchesDecision({
+export function assertGpuFlowVisiblePublicationPresentationTokenMatchesDecision({
   decision,
   token,
 }: {
@@ -154,7 +154,7 @@ export function assertGpuFlowVisiblePublicationCommitTokenMatchesDecision({
   });
 }
 
-export function assertGpuFlowVisiblePublicationCommitDebtProofMatchesDecision({
+export function assertGpuFlowVisiblePublicationPresentationDebtProofMatchesDecision({
   debtProof,
   decision,
 }: {

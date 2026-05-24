@@ -119,8 +119,8 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
       {
         moduleName: "visibleFrameTransactionProofs",
         names: [
-          "createGpuFlowVisiblePublicationCommitDebtProof",
-          "createGpuFlowVisiblePublicationCommitProofFactory",
+          "createGpuFlowVisiblePublicationPresentationDebtProof",
+          "createGpuFlowVisiblePublicationPresentableFrameProofFactory",
         ],
       },
     ];
@@ -216,7 +216,10 @@ describe("GPU Flow visible frame presentation token boundaries", () => {
   });
 
   it("binds presentation authority digests to actor manifests and browser visual resources", () => {
-    const source = readFileSync(PRESENTATION_AUTHORITY_PROOF_MODULE_PATH, "utf8");
+    const source = readFileSync(
+      PRESENTATION_AUTHORITY_PROOF_MODULE_PATH,
+      "utf8",
+    );
     const digestStart = source.indexOf(
       "function createGpuFlowPresentationPairDigest",
     );

@@ -38,8 +38,8 @@ import {
   assertGpuFlowHoldPreviousTokenForProjectionSample,
 } from "./visibleFramePresentationTokens";
 import {
-  assertGpuFlowVisiblePublicationCommitDebtProofMatchesDecision,
-  assertGpuFlowVisiblePublicationCommitTokenMatchesDecision,
+  assertGpuFlowVisiblePublicationPresentationDebtProofMatchesDecision,
+  assertGpuFlowVisiblePublicationPresentationTokenMatchesDecision,
   createGpuFlowVisiblePublicationCompletion,
   hasCurrentGpuFlowProjectionMotion,
   selectGpuFlowProjectionMotionSettlingState,
@@ -876,11 +876,11 @@ export function createGpuFlowVisibleFrameReducerRuntime({
 
   return Object.freeze({
     completeFrame(decision, outcome) {
-      assertGpuFlowVisiblePublicationCommitTokenMatchesDecision({
+      assertGpuFlowVisiblePublicationPresentationTokenMatchesDecision({
         decision,
         token: outcome.token,
       });
-      assertGpuFlowVisiblePublicationCommitDebtProofMatchesDecision({
+      assertGpuFlowVisiblePublicationPresentationDebtProofMatchesDecision({
         debtProof: outcome.debtProof,
         decision,
       });

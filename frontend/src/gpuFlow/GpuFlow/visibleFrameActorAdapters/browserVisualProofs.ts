@@ -121,7 +121,7 @@ export function createGpuFlowVisiblePublicationRemainingActorDebt(
   );
 }
 
-export function assertGpuFlowVisiblePublicationCommitActorProofs(
+export function assertGpuFlowVisiblePublicationPresentationActorProofs(
   actorProofs: readonly GpuFlowVisiblePublicationActorProof[],
 ): void {
   const blockedProofs = actorProofs.filter(

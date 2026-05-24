@@ -4,13 +4,13 @@ import {
 } from "state/actions/chromeRepro";
 
 import type { GpuFlowVisibleProjectionState } from "../projectionRuntime";
-import type { GpuFlowPresentationPairProof } from "./visibleFramePresentationAuthorityProofs";
 import {
   createGpuFlowVisiblePublicationTransactionReport,
   type GpuFlowVisibleFramePublicationTransactionProof,
   type GpuFlowVisiblePublicationCompletion,
   type GpuFlowVisiblePublicationOutcome,
 } from "./visibleFrameCoordinator";
+import type { GpuFlowPresentationPairProof } from "./visibleFramePresentationAuthorityProofs";
 import type { GpuFlowVisiblePublicationDecision } from "./visibleFrameReducerRuntime";
 
 type GpuFlowVisiblePublicationReducerCompletion =
@@ -93,7 +93,7 @@ function createBoundedGpuFlowVisiblePublicationOutcomeChromeReproPayload(
   const {
     actorProofDigest,
     actorProofs,
-    commitProof,
+    presentableFrameProof,
     resourceProtection,
     token,
     visibleTransaction,
@@ -106,7 +106,9 @@ function createBoundedGpuFlowVisiblePublicationOutcomeChromeReproPayload(
     actorProofSamples: actorProofs
       .slice(0, CHROME_REPRO_ACTOR_PROOF_SAMPLE_LIMIT)
       .map(summarizeChromeReproActorProof),
-    commitProof: summarizeChromeReproCommitProof(commitProof),
+    presentableFrameProof: summarizeChromeReproPresentableFrameProof(
+      presentableFrameProof,
+    ),
     resourceProtection:
       summarizeChromeReproResourceProtection(resourceProtection),
     token: summarizeChromeReproOutcomeToken(token),
@@ -180,16 +182,16 @@ function summarizeChromeReproResourceProtection(
   };
 }
 
-function summarizeChromeReproCommitProof(
-  commitProof: GpuFlowVisiblePublicationTransactionReport["commitProof"],
+function summarizeChromeReproPresentableFrameProof(
+  presentableFrameProof: GpuFlowVisiblePublicationTransactionReport["presentableFrameProof"],
 ) {
-  if (commitProof === null) {
+  if (presentableFrameProof === null) {
     return null;
   }
   return {
-    ...commitProof,
+    ...presentableFrameProof,
     resourceProtectionDigest: summarizeChromeReproDigest(
-      commitProof.resourceProtectionDigest,
+      presentableFrameProof.resourceProtectionDigest,
     ),
   };
 }

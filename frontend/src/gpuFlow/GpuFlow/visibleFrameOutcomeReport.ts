@@ -11,10 +11,10 @@ import type {
   GpuFlowVisiblePublicationDecision,
 } from "./visibleFrameReducerRuntime";
 import {
-  createGpuFlowVisiblePublicationCommitProofReport,
+  createGpuFlowVisiblePublicationPresentableFrameProofReport,
   createGpuFlowVisiblePublicationTransactionProofReport,
   type GpuFlowVisibleFramePublicationTransactionProof,
-  type GpuFlowVisiblePublicationCommitDebtProof,
+  type GpuFlowVisiblePublicationPresentationDebtProof,
   type GpuFlowVisiblePublicationPresentationProofReport,
 } from "./visibleFrameTransactionProofs";
 import type { GpuFlowColdStartShellFrame } from "./visibleFrameTypes";
@@ -28,7 +28,7 @@ export type GpuFlowVisiblePublicationOutcome =
     }
   | {
       readonly kind: "present";
-      readonly debtProof: GpuFlowVisiblePublicationCommitDebtProof;
+      readonly debtProof: GpuFlowVisiblePublicationPresentationDebtProof;
       readonly token: GpuFlowVisibleFramePresentationToken;
     }
   | {
@@ -76,18 +76,20 @@ export function createGpuFlowVisiblePublicationTransactionReport({
   readonly visibleProjectionState: GpuFlowVisibleProjectionState | null;
 }) {
   const token = createGpuFlowVisiblePublicationOutcomeTokenPayload(outcome);
-  const commitProofReport = createGpuFlowVisiblePublicationCommitProofReport(
-    transactionProof?.commitProof ?? null,
-  );
+  const presentableFrameProofReport =
+    createGpuFlowVisiblePublicationPresentableFrameProofReport(
+      transactionProof?.presentableFrameProof ?? null,
+    );
   const transactionProofReport =
     createGpuFlowVisiblePublicationTransactionProofReport(transactionProof);
   return {
-    actorProofDigest: commitProofReport.actorProofDigest,
-    actorProofs: commitProofReport.actorProofs,
-    browserActorProofs: commitProofReport.browserActorProofs,
-    commitProof: commitProofReport.commitProof,
-    compatiblePreviousProofs: commitProofReport.compatiblePreviousProofs,
-    coverage: commitProofReport.coverage,
+    actorProofDigest: presentableFrameProofReport.actorProofDigest,
+    actorProofs: presentableFrameProofReport.actorProofs,
+    browserActorProofs: presentableFrameProofReport.browserActorProofs,
+    presentableFrameProof: presentableFrameProofReport.presentableFrameProof,
+    compatiblePreviousProofs:
+      presentableFrameProofReport.compatiblePreviousProofs,
+    coverage: presentableFrameProofReport.coverage,
     decisionDebt: publicationDecision.debt,
     inputSampleId: publicationDecision.sample.id,
     lane: publicationDecision.lane,
@@ -95,9 +97,9 @@ export function createGpuFlowVisiblePublicationTransactionReport({
     previousCommittedFrameId,
     projectionSampleId: publicationDecision.sample.id,
     rawReasons: publicationDecision.rawReasons,
-    remainingActorDebt: commitProofReport.remainingActorDebt,
+    remainingActorDebt: presentableFrameProofReport.remainingActorDebt,
     remainingDebt: completion.debt,
-    resourceProtection: commitProofReport.resourceProtection,
+    resourceProtection: presentableFrameProofReport.resourceProtection,
     reducerOutcome: completion.outcome,
     schedulerState: publicationDecision.schedulerState,
     token,
@@ -110,7 +112,7 @@ export function createGpuFlowVisiblePublicationTransactionReport({
       getGpuFlowVisiblePublicationOutcomeCommittedFrameId(outcome),
     visibleTransaction: createGpuFlowVisibleTransactionReport({
       outcome,
-      presentationProof: commitProofReport.presentationProof,
+      presentationProof: presentableFrameProofReport.presentationProof,
       previousCommittedFrameId,
       publicationDecision,
       token,
