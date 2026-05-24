@@ -259,6 +259,14 @@ func TestBuildSemanticSidecarUsesAuthoritativeRoutesAndDefaults(t *testing.T) {
 		t.Fatalf("BuildSemanticSidecar() error = %v", err)
 	}
 
+	assertSemanticSidecarRoutes(t, sidecar)
+	assertSemanticSidecarRouteContract(t, sidecar)
+	assertSemanticSidecarDefaults(t, sidecar)
+}
+
+func assertSemanticSidecarRoutes(t *testing.T, sidecar SemanticSidecar) {
+	t.Helper()
+
 	routeByName := map[string]string{}
 	for _, route := range sidecar.Routes {
 		routeByName[route.Name] = route.Path
@@ -269,6 +277,11 @@ func TestBuildSemanticSidecarUsesAuthoritativeRoutesAndDefaults(t *testing.T) {
 	if got := routeByName["LISTENER_BY_ID"]; got != wsapi.RouteListenerByID {
 		t.Fatalf("LISTENER_BY_ID route = %q, want %q", got, wsapi.RouteListenerByID)
 	}
+}
+
+func assertSemanticSidecarRouteContract(t *testing.T, sidecar SemanticSidecar) {
+	t.Helper()
+
 	routeEnumByName := map[string]string{}
 	for _, contract := range sidecar.Contracts {
 		if contract.Name != "Route" {
@@ -287,6 +300,10 @@ func TestBuildSemanticSidecarUsesAuthoritativeRoutesAndDefaults(t *testing.T) {
 	if got := routeEnumByName["LISTENER_BY_ID"]; got != wsapi.RouteListenerByID {
 		t.Fatalf("Route contract LISTENER_BY_ID = %q, want %q", got, wsapi.RouteListenerByID)
 	}
+}
+
+func assertSemanticSidecarDefaults(t *testing.T, sidecar SemanticSidecar) {
+	t.Helper()
 
 	foundViewportDefault := false
 	foundPythonSharedProjectConfigDefault := false
@@ -446,65 +463,22 @@ func TestBuildSchemaDocumentUsesSharedSchemaOverridesForRawCarrierFields(t *test
 		t.Fatalf("BuildSchemaDocument() error = %v", err)
 	}
 
-	baseArtifactUnion := document.Defs["BaseArtifactUnion"]
-	if baseArtifactUnion == nil {
-		t.Fatalf("expected BaseArtifactUnion schema in $defs")
-	}
-	if got := len(baseArtifactUnion.AnyOf); got != 5 {
-		t.Fatalf("BaseArtifactUnion anyOf count = %d, want 5", got)
-	}
+	baseArtifactUnion := requireSchemaDef(t, document, "BaseArtifactUnion")
+	assertSchemaAnyOfCount(t, baseArtifactUnion, "BaseArtifactUnion", 5)
 
-	singleConfigSchema := document.Defs["SingleConfig"]
-	if singleConfigSchema == nil {
-		t.Fatalf("expected SingleConfig schema in $defs")
-	}
-	sectionImplsValueSchema := singleConfigSchema.Properties["sectionImpls"].AdditionalProperties
-	if sectionImplsValueSchema == nil {
-		t.Fatalf("expected SingleConfig.sectionImpls additionalProperties schema")
-	}
-	if got := len(sectionImplsValueSchema.AnyOf); got < 2 {
-		t.Fatalf("SingleConfig.sectionImpls anyOf count = %d, want at least 2", got)
-	}
-	if got := sectionImplsValueSchema.AnyOf[0].Ref; got != "#/$defs/BaseSectionImpl" {
-		t.Fatalf("SingleConfig.sectionImpls first anyOf ref = %q, want %q", got, "#/$defs/BaseSectionImpl")
-	}
-	codeObjImplsValueSchema := singleConfigSchema.Properties["codeObjImpls"].AdditionalProperties
-	if codeObjImplsValueSchema == nil {
-		t.Fatalf("expected SingleConfig.codeObjImpls additionalProperties schema")
-	}
-	if got := len(codeObjImplsValueSchema.AnyOf); got < 2 {
-		t.Fatalf("SingleConfig.codeObjImpls anyOf count = %d, want at least 2", got)
-	}
-	if got := codeObjImplsValueSchema.AnyOf[0].Ref; got != "#/$defs/BaseCodeObjImpl" {
-		t.Fatalf("SingleConfig.codeObjImpls first anyOf ref = %q, want %q", got, "#/$defs/BaseCodeObjImpl")
-	}
+	singleConfigSchema := requireSchemaDef(t, document, "SingleConfig")
+	assertAdditionalPropertiesAnyOfFirstRef(t, singleConfigSchema, "SingleConfig", "sectionImpls", "#/$defs/BaseSectionImpl")
+	assertAdditionalPropertiesAnyOfFirstRef(t, singleConfigSchema, "SingleConfig", "codeObjImpls", "#/$defs/BaseCodeObjImpl")
 
-	chatStateSchema := document.Defs["ChatSectionState"]
-	if chatStateSchema == nil {
-		t.Fatalf("expected ChatSectionState schema in $defs")
-	}
-	if got := chatStateSchema.Properties["messages"].Items.Ref; got != "#/$defs/BaseChatMessageUnion" {
-		t.Fatalf("ChatSectionState.messages items ref = %q, want %q", got, "#/$defs/BaseChatMessageUnion")
-	}
-	if got := chatStateSchema.Properties["branches"].AdditionalProperties.Ref; got != "#/$defs/ChatSectionBranch" {
-		t.Fatalf("ChatSectionState.branches additionalProperties ref = %q, want %q", got, "#/$defs/ChatSectionBranch")
-	}
+	chatStateSchema := requireSchemaDef(t, document, "ChatSectionState")
+	assertPropertyItemsRef(t, chatStateSchema, "ChatSectionState", "messages", "#/$defs/BaseChatMessageUnion")
+	assertPropertyAdditionalPropertiesRef(t, chatStateSchema, "ChatSectionState", "branches", "#/$defs/ChatSectionBranch")
 
-	chatSchema := document.Defs["Chat"]
-	if chatSchema == nil {
-		t.Fatalf("expected Chat schema in $defs")
-	}
-	if got := chatSchema.Properties["llmConfig"].Ref; got != "#/$defs/LLMConfig" {
-		t.Fatalf("Chat.llmConfig ref = %q, want %q", got, "#/$defs/LLMConfig")
-	}
+	chatSchema := requireSchemaDef(t, document, "Chat")
+	assertPropertyRef(t, chatSchema, "Chat", "llmConfig", "#/$defs/LLMConfig")
 
-	chatMetadataSchema := document.Defs["ChatMetadata"]
-	if chatMetadataSchema == nil {
-		t.Fatalf("expected ChatMetadata schema in $defs")
-	}
-	if got := chatMetadataSchema.Properties["llmConfig"].Ref; got != "#/$defs/LLMConfig" {
-		t.Fatalf("ChatMetadata.llmConfig ref = %q, want %q", got, "#/$defs/LLMConfig")
-	}
+	chatMetadataSchema := requireSchemaDef(t, document, "ChatMetadata")
+	assertPropertyRef(t, chatMetadataSchema, "ChatMetadata", "llmConfig", "#/$defs/LLMConfig")
 
 	realtimeUIChangeSchema := document.Defs["RealtimeUIChangeContent"]
 	if realtimeUIChangeSchema == nil {
@@ -525,20 +499,67 @@ func TestBuildSchemaDocumentUsesSharedSchemaOverridesForRawCarrierFields(t *test
 		t.Fatalf("RealtimeUIChangeContent.value first anyOf ref = %q, want %q", got, "#/$defs/BaseDependencyValueUnion")
 	}
 
-	streamingSchema := document.Defs["LLMStreamingResponseContent"]
-	if streamingSchema == nil {
-		t.Fatalf("expected LLMStreamingResponseContent schema in $defs")
-	}
-	if got := streamingSchema.Properties["chunk"].Ref; got != "#/$defs/LLMStreamingResponseChunk" {
-		t.Fatalf("LLMStreamingResponseContent.chunk ref = %q, want %q", got, "#/$defs/LLMStreamingResponseChunk")
-	}
+	streamingSchema := requireSchemaDef(t, document, "LLMStreamingResponseContent")
+	assertPropertyRef(t, streamingSchema, "LLMStreamingResponseContent", "chunk", "#/$defs/LLMStreamingResponseChunk")
 
-	updateArtifactsSchema := document.Defs["UpdateArtifactsContent"]
-	if updateArtifactsSchema == nil {
-		t.Fatalf("expected UpdateArtifactsContent schema in $defs")
+	updateArtifactsSchema := requireSchemaDef(t, document, "UpdateArtifactsContent")
+	assertPropertyItemsRef(t, updateArtifactsSchema, "UpdateArtifactsContent", "artifacts", "#/$defs/BaseArtifactUnion")
+}
+
+func requireSchemaDef(t *testing.T, document *jsonschema.Schema, name string) *jsonschema.Schema {
+	t.Helper()
+
+	schema := document.Defs[name]
+	if schema == nil {
+		t.Fatalf("expected %s schema in $defs", name)
 	}
-	if got := updateArtifactsSchema.Properties["artifacts"].Items.Ref; got != "#/$defs/BaseArtifactUnion" {
-		t.Fatalf("UpdateArtifactsContent.artifacts items ref = %q, want %q", got, "#/$defs/BaseArtifactUnion")
+	return schema
+}
+
+func assertSchemaAnyOfCount(t *testing.T, schema *jsonschema.Schema, schemaName string, want int) {
+	t.Helper()
+
+	if got := len(schema.AnyOf); got != want {
+		t.Fatalf("%s anyOf count = %d, want %d", schemaName, got, want)
+	}
+}
+
+func assertAdditionalPropertiesAnyOfFirstRef(t *testing.T, schema *jsonschema.Schema, schemaName string, propertyName string, wantRef string) {
+	t.Helper()
+
+	valueSchema := schema.Properties[propertyName].AdditionalProperties
+	if valueSchema == nil {
+		t.Fatalf("expected %s.%s additionalProperties schema", schemaName, propertyName)
+	}
+	if got := len(valueSchema.AnyOf); got < 2 {
+		t.Fatalf("%s.%s anyOf count = %d, want at least 2", schemaName, propertyName, got)
+	}
+	if got := valueSchema.AnyOf[0].Ref; got != wantRef {
+		t.Fatalf("%s.%s first anyOf ref = %q, want %q", schemaName, propertyName, got, wantRef)
+	}
+}
+
+func assertPropertyRef(t *testing.T, schema *jsonschema.Schema, schemaName string, propertyName string, wantRef string) {
+	t.Helper()
+
+	if got := schema.Properties[propertyName].Ref; got != wantRef {
+		t.Fatalf("%s.%s ref = %q, want %q", schemaName, propertyName, got, wantRef)
+	}
+}
+
+func assertPropertyItemsRef(t *testing.T, schema *jsonschema.Schema, schemaName string, propertyName string, wantRef string) {
+	t.Helper()
+
+	if got := schema.Properties[propertyName].Items.Ref; got != wantRef {
+		t.Fatalf("%s.%s items ref = %q, want %q", schemaName, propertyName, got, wantRef)
+	}
+}
+
+func assertPropertyAdditionalPropertiesRef(t *testing.T, schema *jsonschema.Schema, schemaName string, propertyName string, wantRef string) {
+	t.Helper()
+
+	if got := schema.Properties[propertyName].AdditionalProperties.Ref; got != wantRef {
+		t.Fatalf("%s.%s additionalProperties ref = %q, want %q", schemaName, propertyName, got, wantRef)
 	}
 }
 
@@ -573,13 +594,8 @@ func TestBuildSchemaDocumentUsesSpecialSchemasForRecursiveJSONAndSyntheticUnions
 		t.Fatalf("BuildSchemaDocument() error = %v", err)
 	}
 
-	rawMessageSchema := document.Defs["RawMessage"]
-	if rawMessageSchema == nil {
-		t.Fatalf("expected RawMessage schema in $defs")
-	}
-	if got := len(rawMessageSchema.AnyOf); got != 6 {
-		t.Fatalf("RawMessage anyOf count = %d, want 6", got)
-	}
+	rawMessageSchema := requireSchemaDef(t, document, "RawMessage")
+	assertSchemaAnyOfCount(t, rawMessageSchema, "RawMessage", 6)
 	if got := rawMessageSchema.AnyOf[4].Items.Ref; got != "#/$defs/RawMessage" {
 		t.Fatalf("RawMessage array items ref = %q, want %q", got, "#/$defs/RawMessage")
 	}
@@ -587,21 +603,13 @@ func TestBuildSchemaDocumentUsesSpecialSchemasForRecursiveJSONAndSyntheticUnions
 		t.Fatalf("RawMessage additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
 	}
 
-	sectionSizeValueSchema := document.Defs["SectionSizeValue"]
-	if sectionSizeValueSchema == nil {
-		t.Fatalf("expected SectionSizeValue schema in $defs")
-	}
-	if got := len(sectionSizeValueSchema.AnyOf); got != 2 {
-		t.Fatalf("SectionSizeValue anyOf count = %d, want 2", got)
-	}
+	sectionSizeValueSchema := requireSchemaDef(t, document, "SectionSizeValue")
+	assertSchemaAnyOfCount(t, sectionSizeValueSchema, "SectionSizeValue", 2)
 	if got := sectionSizeValueSchema.AnyOf[1].Ref; got != "#/$defs/SectionSizeMode" {
 		t.Fatalf("SectionSizeValue enum ref = %q, want %q", got, "#/$defs/SectionSizeMode")
 	}
 
-	chartDataValueSchema := document.Defs["ChartDataValue"]
-	if chartDataValueSchema == nil {
-		t.Fatalf("expected ChartDataValue schema in $defs")
-	}
+	chartDataValueSchema := requireSchemaDef(t, document, "ChartDataValue")
 	if chartDataValueSchema.AdditionalProperties == nil || chartDataValueSchema.AdditionalProperties.Items == nil {
 		t.Fatalf("expected ChartDataValue additionalProperties array schema")
 	}
@@ -609,34 +617,30 @@ func TestBuildSchemaDocumentUsesSpecialSchemasForRecursiveJSONAndSyntheticUnions
 		t.Fatalf("ChartDataValue item anyOf count = %d, want 2", got)
 	}
 
-	baseSectionImplUnion := document.Defs["BaseSectionImplUnion"]
-	if baseSectionImplUnion == nil {
-		t.Fatalf("expected BaseSectionImplUnion schema in $defs")
-	}
-	if got := len(baseSectionImplUnion.AnyOf); got < 2 {
-		t.Fatalf("BaseSectionImplUnion anyOf count = %d, want at least 2", got)
-	}
-	if got := baseSectionImplUnion.AnyOf[0].Ref; got != "#/$defs/BaseSectionImpl" {
-		t.Fatalf("BaseSectionImplUnion first ref = %q, want %q", got, "#/$defs/BaseSectionImpl")
-	}
+	baseSectionImplUnion := requireSchemaDef(t, document, "BaseSectionImplUnion")
+	assertSchemaAnyOfFirstRef(t, baseSectionImplUnion, "BaseSectionImplUnion", "#/$defs/BaseSectionImpl")
 
-	baseCodeObjImplUnion := document.Defs["BaseCodeObjImplUnion"]
-	if baseCodeObjImplUnion == nil {
-		t.Fatalf("expected BaseCodeObjImplUnion schema in $defs")
-	}
-	if got := len(baseCodeObjImplUnion.AnyOf); got < 2 {
-		t.Fatalf("BaseCodeObjImplUnion anyOf count = %d, want at least 2", got)
-	}
-	if got := baseCodeObjImplUnion.AnyOf[0].Ref; got != "#/$defs/BaseCodeObjImpl" {
-		t.Fatalf("BaseCodeObjImplUnion first ref = %q, want %q", got, "#/$defs/BaseCodeObjImpl")
-	}
+	baseCodeObjImplUnion := requireSchemaDef(t, document, "BaseCodeObjImplUnion")
+	assertSchemaAnyOfFirstRef(t, baseCodeObjImplUnion, "BaseCodeObjImplUnion", "#/$defs/BaseCodeObjImpl")
 
-	baseChildlessCodeObjImplUnion := document.Defs["BaseChildlessCodeObjImplUnion"]
-	if baseChildlessCodeObjImplUnion == nil {
-		t.Fatalf("expected BaseChildlessCodeObjImplUnion schema in $defs")
+	baseChildlessCodeObjImplUnion := requireSchemaDef(t, document, "BaseChildlessCodeObjImplUnion")
+	assertSchemaAnyOfAtLeast(t, baseChildlessCodeObjImplUnion, "BaseChildlessCodeObjImplUnion", 2)
+}
+
+func assertSchemaAnyOfFirstRef(t *testing.T, schema *jsonschema.Schema, schemaName string, wantRef string) {
+	t.Helper()
+
+	assertSchemaAnyOfAtLeast(t, schema, schemaName, 2)
+	if got := schema.AnyOf[0].Ref; got != wantRef {
+		t.Fatalf("%s first ref = %q, want %q", schemaName, got, wantRef)
 	}
-	if got := len(baseChildlessCodeObjImplUnion.AnyOf); got < 2 {
-		t.Fatalf("BaseChildlessCodeObjImplUnion anyOf count = %d, want at least 2", got)
+}
+
+func assertSchemaAnyOfAtLeast(t *testing.T, schema *jsonschema.Schema, schemaName string, minimum int) {
+	t.Helper()
+
+	if got := len(schema.AnyOf); got < minimum {
+		t.Fatalf("%s anyOf count = %d, want at least %d", schemaName, got, minimum)
 	}
 }
 
@@ -977,6 +981,16 @@ func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 		t.Fatalf("OpenAPI projection version = %#v, want %q", got, OpenAPIProjectionVersion)
 	}
 
+	schemas := requireOpenAPIProjectionSchemas(t, document)
+	assertOpenAPIProjectionBaseArtifactUnion(t, schemas)
+	assertOpenAPIProjectionChatRef(t, schemas)
+	assertOpenAPIProjectionRouteEnum(t, schemas)
+	assertOpenAPIProjectionLineChartDefault(t, schemas)
+}
+
+func requireOpenAPIProjectionSchemas(t *testing.T, document map[string]any) map[string]any {
+	t.Helper()
+
 	components, ok := document["components"].(map[string]any)
 	if !ok {
 		t.Fatalf("OpenAPI projection components type = %T, want map[string]any", document["components"])
@@ -985,6 +999,12 @@ func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 	if !ok {
 		t.Fatalf("OpenAPI projection schemas type = %T, want map[string]any", components["schemas"])
 	}
+	return schemas
+}
+
+func assertOpenAPIProjectionBaseArtifactUnion(t *testing.T, schemas map[string]any) {
+	t.Helper()
+
 	baseArtifactUnion, ok := schemas["BaseArtifactUnion"].(map[string]any)
 	if !ok {
 		t.Fatalf("BaseArtifactUnion projection type = %T, want map[string]any", schemas["BaseArtifactUnion"])
@@ -1007,6 +1027,10 @@ func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 	if got, _ := discriminator["propertyName"].(string); got != "type" {
 		t.Fatalf("BaseArtifactUnion discriminator propertyName = %q, want %q", got, "type")
 	}
+}
+
+func assertOpenAPIProjectionChatRef(t *testing.T, schemas map[string]any) {
+	t.Helper()
 
 	chatProjection, ok := schemas["Chat"].(map[string]any)
 	if !ok {
@@ -1023,6 +1047,10 @@ func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 	if got, _ := llmConfig["$ref"].(string); got != "#/components/schemas/LLMConfig" {
 		t.Fatalf("Chat.llmConfig projection ref = %q, want %q", got, "#/components/schemas/LLMConfig")
 	}
+}
+
+func assertOpenAPIProjectionRouteEnum(t *testing.T, schemas map[string]any) {
+	t.Helper()
 
 	routeProjection, ok := schemas["Route"].(map[string]any)
 	if !ok {
@@ -1048,6 +1076,10 @@ func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 			t.Fatalf("Route projection is missing %q", want)
 		}
 	}
+}
+
+func assertOpenAPIProjectionLineChartDefault(t *testing.T, schemas map[string]any) {
+	t.Helper()
 
 	lineChartProjection, ok := schemas["LineChartSettings"].(map[string]any)
 	if !ok {

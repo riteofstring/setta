@@ -133,6 +133,19 @@ function buildPluginStatusEntry({
   });
 }
 
+function unavailableSelectedPythonProviders(selectedPluginId: string | null) {
+  if (!selectedPluginId || selectedPluginId === "setta-basedpyright") {
+    return [];
+  }
+  return [
+    {
+      pluginId: selectedPluginId,
+      name: selectedPluginId,
+      available: false,
+    },
+  ];
+}
+
 function buildPythonSelectionStatus(options?: {
   message?: string;
   restartRequired?: boolean;
@@ -154,16 +167,21 @@ function buildPythonSelectionStatus(options?: {
     | typeof LanguageServerSelectionStatusKindEnum.pending_restart
     | typeof LanguageServerSelectionStatusKindEnum.active;
 }) {
-  const selectedPluginId = options?.selectedPluginId ?? null;
+  const {
+    message = "No Python language server is selected for this workspace. Choose one below, then restart the language server to apply it.",
+    restartRequired = false,
+    selectedPluginId = null,
+    selectionState = LanguageServerSelectionStateEnum.unset,
+    severity = LanguageServerSelectionSeverityEnum.warning,
+    status = LanguageServerSelectionStatusKindEnum.unselected,
+  } = options ?? {};
+
   return createLanguageServerSelectionStatus({
     language: "python",
-    selectionState:
-      options?.selectionState ?? LanguageServerSelectionStateEnum.unset,
-    severity: options?.severity ?? LanguageServerSelectionSeverityEnum.warning,
-    status: options?.status ?? LanguageServerSelectionStatusKindEnum.unselected,
-    message:
-      options?.message ??
-      "No Python language server is selected for this workspace. Choose one below, then restart the language server to apply it.",
+    selectionState,
+    severity,
+    status,
+    message,
     selectedPluginId,
     appliedPluginId: null,
     availableProviders: [
@@ -172,17 +190,9 @@ function buildPythonSelectionStatus(options?: {
         name: "Setta Basedpyright (setta-basedpyright)",
         available: true,
       },
-      ...(selectedPluginId && selectedPluginId !== "setta-basedpyright"
-        ? [
-            {
-              pluginId: selectedPluginId,
-              name: selectedPluginId,
-              available: false,
-            },
-          ]
-        : []),
+      ...unavailableSelectedPythonProviders(selectedPluginId),
     ],
-    restartRequired: options?.restartRequired ?? false,
+    restartRequired,
   });
 }
 

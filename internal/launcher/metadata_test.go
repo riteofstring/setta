@@ -36,9 +36,26 @@ func TestBuildLauncherInstallMetadataDefaultsWorkspaceBehaviorAndRoundTripsField
 	if err != nil {
 		t.Fatalf("build launcher metadata: %v", err)
 	}
+	assertDefaultLauncherWorkspaceBehavior(t, metadata)
+
+	loaded := writeAndLoadLauncherInstallMetadata(t, settaHome, metadata)
+	assertLoadedLauncherInstallMetadataRoundTrip(t, loaded, metadata)
+}
+
+func assertDefaultLauncherWorkspaceBehavior(t *testing.T, metadata LauncherInstallMetadata) {
+	t.Helper()
+
 	if metadata.WorkspaceBehavior != string(LauncherWorkspaceBehaviorDefault) {
 		t.Fatalf("expected default workspace behavior %q, got %q", LauncherWorkspaceBehaviorDefault, metadata.WorkspaceBehavior)
 	}
+}
+
+func writeAndLoadLauncherInstallMetadata(
+	t *testing.T,
+	settaHome string,
+	metadata LauncherInstallMetadata,
+) *LauncherInstallMetadata {
+	t.Helper()
 
 	metadataPath, err := WriteLauncherInstallMetadata(settaHome, metadata)
 	if err != nil {
@@ -59,6 +76,15 @@ func TestBuildLauncherInstallMetadataDefaultsWorkspaceBehaviorAndRoundTripsField
 	if loaded == nil {
 		t.Fatal("expected launcher metadata to load")
 	}
+	return loaded
+}
+
+func assertLoadedLauncherInstallMetadataRoundTrip(
+	t *testing.T,
+	loaded *LauncherInstallMetadata,
+	metadata LauncherInstallMetadata,
+) {
+	t.Helper()
 
 	if loaded.SchemaVersion != launcherMetadataSchemaVersion {
 		t.Fatalf("expected schema version %d, got %d", launcherMetadataSchemaVersion, loaded.SchemaVersion)

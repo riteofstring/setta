@@ -141,6 +141,26 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	t.Parallel()
 
 	store, service := newExternalAgentConfigRouteTestService(t)
+	healthFixture := seedExternalAgentConfigRouteHealthFixture(t, store)
+	handler := newExternalAgentConfigRouteTestHandler(t, config.ModeIDE, service, healthFixture.checker)
+
+	payload := getExternalAgentConfigRouteHealth(t, handler)
+	assertExternalAgentConfigRouteHealthPayload(t, payload, healthFixture)
+	assertExternalAgentConfigRouteHealthCheckerOrder(t, healthFixture.checker)
+}
+
+type externalAgentConfigRouteHealthFixture struct {
+	checker    *externalAgentConfigRouteStubChecker
+	sdkVersion string
+	cliVersion string
+}
+
+func seedExternalAgentConfigRouteHealthFixture(
+	t *testing.T,
+	store *externalagentconfigs.Store,
+) externalAgentConfigRouteHealthFixture {
+	t.Helper()
+
 	if err := store.Write([]externalagentconfigs.Config{
 		{
 			ID:                 "config-1",
@@ -162,37 +182,44 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	sdkVersion := "1.1.36"
 	cliVersion := "codex 0.25.1"
 	workingDir := "/workspace"
-	checker := &externalAgentConfigRouteStubChecker{
-		statusByConfigID: map[string]externalagentconfigs.Status{
-			"config-1": {
-				ConfigID:   "config-1",
-				Name:       "Claude",
-				ToolType:   externalagentconfigs.ToolTypeClaudeCode,
-				RunMode:    externalagentconfigs.RunModeSDK,
-				Supported:  true,
-				Available:  false,
-				Issues:     []string{"Missing env vars: ANTHROPIC_API_KEY"},
-				WorkingDir: &workingDir,
-				SDKVersion: &sdkVersion,
-				EnvVars: externalagentconfigs.EnvVarStatus{
-					Present: []string{},
-					Missing: []string{"ANTHROPIC_API_KEY"},
+	return externalAgentConfigRouteHealthFixture{
+		sdkVersion: sdkVersion,
+		cliVersion: cliVersion,
+		checker: &externalAgentConfigRouteStubChecker{
+			statusByConfigID: map[string]externalagentconfigs.Status{
+				"config-1": {
+					ConfigID:   "config-1",
+					Name:       "Claude",
+					ToolType:   externalagentconfigs.ToolTypeClaudeCode,
+					RunMode:    externalagentconfigs.RunModeSDK,
+					Supported:  true,
+					Available:  false,
+					Issues:     []string{"Missing env vars: ANTHROPIC_API_KEY"},
+					WorkingDir: &workingDir,
+					SDKVersion: &sdkVersion,
+					EnvVars: externalagentconfigs.EnvVarStatus{
+						Present: []string{},
+						Missing: []string{"ANTHROPIC_API_KEY"},
+					},
 				},
-			},
-			"config-2": {
-				ConfigID:   "config-2",
-				Name:       "Codex",
-				ToolType:   externalagentconfigs.ToolTypeCodex,
-				RunMode:    externalagentconfigs.RunModeAppServer,
-				Supported:  true,
-				Available:  true,
-				Issues:     []string{},
-				WorkingDir: &workingDir,
-				CLIVersion: &cliVersion,
+				"config-2": {
+					ConfigID:   "config-2",
+					Name:       "Codex",
+					ToolType:   externalagentconfigs.ToolTypeCodex,
+					RunMode:    externalagentconfigs.RunModeAppServer,
+					Supported:  true,
+					Available:  true,
+					Issues:     []string{},
+					WorkingDir: &workingDir,
+					CLIVersion: &cliVersion,
+				},
 			},
 		},
 	}
-	handler := newExternalAgentConfigRouteTestHandler(t, config.ModeIDE, service, checker)
+}
+
+func getExternalAgentConfigRouteHealth(t *testing.T, handler http.Handler) []ExternalAgentPreflightStatus {
+	t.Helper()
 
 	// Health read should preserve config order and adapt checker output to the frontend contract.
 	request := httptest.NewRequest(http.MethodGet, "/api"+RouteGetExternalAgentHealth, nil)
@@ -206,16 +233,26 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode health payload: %v", err)
 	}
+	return payload
+}
+
+func assertExternalAgentConfigRouteHealthPayload(
+	t *testing.T,
+	payload []ExternalAgentPreflightStatus,
+	healthFixture externalAgentConfigRouteHealthFixture,
+) {
+	t.Helper()
+
 	if len(payload) != 2 {
 		t.Fatalf("expected two health entries, got %#v", payload)
 	}
 	if payload[0].ConfigID != "config-1" || payload[1].ConfigID != "config-2" {
 		t.Fatalf("expected config order to match store order, got %#v", payload)
 	}
-	if payload[0].SDKVersion == nil || *payload[0].SDKVersion != sdkVersion {
+	if payload[0].SDKVersion == nil || *payload[0].SDKVersion != healthFixture.sdkVersion {
 		t.Fatalf("expected claude sdkVersion mapping, got %#v", payload[0])
 	}
-	if payload[1].CLIVersion == nil || *payload[1].CLIVersion != cliVersion {
+	if payload[1].CLIVersion == nil || *payload[1].CLIVersion != healthFixture.cliVersion {
 		t.Fatalf("expected codex cliVersion mapping, got %#v", payload[1])
 	}
 	if payload[1].Issues == nil {
@@ -227,6 +264,11 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	if payload[1].EnvVars.Present == nil || payload[1].EnvVars.Missing == nil {
 		t.Fatalf("expected empty env var lists to serialize as [], got %#v", payload[1].EnvVars)
 	}
+}
+
+func assertExternalAgentConfigRouteHealthCheckerOrder(t *testing.T, checker *externalAgentConfigRouteStubChecker) {
+	t.Helper()
+
 	if len(checker.seenConfigIDs) != 2 || checker.seenConfigIDs[0] != "config-1" || checker.seenConfigIDs[1] != "config-2" {
 		t.Fatalf("expected checker calls in config order, got %#v", checker.seenConfigIDs)
 	}

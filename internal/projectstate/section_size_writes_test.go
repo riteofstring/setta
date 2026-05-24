@@ -159,44 +159,9 @@ func TestRuntimeSetSectionSizesKeepsEmbeddedCodeAndTerminalWidthsInLockstep(t *t
 	}
 
 	project := firstSnapshot.Document.Projects["project-alpha"]
-	codePayload, err := effectiveSectionPayload(project, "code-section", "code-variant")
-	if err != nil {
-		t.Fatalf("code payload after code resize: %v", err)
-	}
-	codeSize, ok := payloadObjectField(codePayload, "size")
-	if !ok {
-		t.Fatalf("expected code size payload after code resize, got %#v", codePayload)
-	}
-	codeWidth, isAuto, present, err := payloadAutoLayoutSizeValue(codeSize, "width")
-	if err != nil {
-		t.Fatalf("parse code width after code resize: %v", err)
-	}
-	if !present || isAuto || codeWidth != 600 {
-		t.Fatalf("expected code width 600 after code resize, got present=%v auto=%v width=%v payload=%#v", present, isAuto, codeWidth, codeSize)
-	}
-	codeHeight, isAuto, present, err := payloadAutoLayoutSizeValue(codeSize, "height")
-	if err != nil {
-		t.Fatalf("parse code height after code resize: %v", err)
-	}
-	if !present || isAuto || codeHeight != 238.2 {
-		t.Fatalf("expected embedded code height 238.2 after code resize, got present=%v auto=%v height=%v payload=%#v", present, isAuto, codeHeight, codeSize)
-	}
-
-	terminalPayload, err := effectiveSectionPayload(project, "terminal-section", "terminal-variant")
-	if err != nil {
-		t.Fatalf("terminal payload after code resize: %v", err)
-	}
-	terminalSize, ok := payloadObjectField(terminalPayload, "size")
-	if !ok {
-		t.Fatalf("expected terminal size payload after code resize, got %#v", terminalPayload)
-	}
-	terminalWidth, isAuto, present, err := payloadAutoLayoutSizeValue(terminalSize, "width")
-	if err != nil {
-		t.Fatalf("parse terminal width after code resize: %v", err)
-	}
-	if !present || isAuto || terminalWidth != 600 {
-		t.Fatalf("expected terminal width 600 after code resize, got present=%v auto=%v width=%v payload=%#v", present, isAuto, terminalWidth, terminalSize)
-	}
+	assertSectionFixedSizeValue(t, project, "code-section", "code-variant", "width", 600, "after code resize")
+	assertSectionFixedSizeValue(t, project, "code-section", "code-variant", "height", 238.2, "after code resize")
+	assertSectionFixedSizeValue(t, project, "terminal-section", "terminal-variant", "width", 600, "after code resize")
 
 	secondSnapshot, err := runtime.SetSectionSizes(context.Background(), "project-alpha", map[string]SectionSize{
 		"terminal-section": {
@@ -209,20 +174,34 @@ func TestRuntimeSetSectionSizesKeepsEmbeddedCodeAndTerminalWidthsInLockstep(t *t
 	}
 
 	project = secondSnapshot.Document.Projects["project-alpha"]
-	codePayload, err = effectiveSectionPayload(project, "code-section", "code-variant")
+	assertSectionFixedSizeValue(t, project, "code-section", "code-variant", "width", 510, "after terminal resize")
+}
+
+func assertSectionFixedSizeValue(
+	t *testing.T,
+	project Project,
+	sectionID string,
+	variantID string,
+	field string,
+	want float64,
+	contextLabel string,
+) {
+	t.Helper()
+
+	payload, err := effectiveSectionPayload(project, sectionID, variantID)
 	if err != nil {
-		t.Fatalf("code payload after terminal resize: %v", err)
+		t.Fatalf("%s payload %s: %v", sectionID, contextLabel, err)
 	}
-	codeSize, ok = payloadObjectField(codePayload, "size")
+	size, ok := payloadObjectField(payload, "size")
 	if !ok {
-		t.Fatalf("expected code size payload after terminal resize, got %#v", codePayload)
+		t.Fatalf("expected %s size payload %s, got %#v", sectionID, contextLabel, payload)
 	}
-	codeWidth, isAuto, present, err = payloadAutoLayoutSizeValue(codeSize, "width")
+	got, isAuto, present, err := payloadAutoLayoutSizeValue(size, field)
 	if err != nil {
-		t.Fatalf("parse code width after terminal resize: %v", err)
+		t.Fatalf("parse %s %s %s: %v", sectionID, field, contextLabel, err)
 	}
-	if !present || isAuto || codeWidth != 510 {
-		t.Fatalf("expected code width 510 after terminal resize, got present=%v auto=%v width=%v payload=%#v", present, isAuto, codeWidth, codeSize)
+	if !present || isAuto || got != want {
+		t.Fatalf("expected %s %s %v %s, got present=%v auto=%v value=%v payload=%#v", sectionID, field, want, contextLabel, present, isAuto, got, size)
 	}
 }
 

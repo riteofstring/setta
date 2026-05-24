@@ -40,16 +40,7 @@ func TestDocumentPasteSectionsClonesNestedIDsAndClearsPasswordSecrets(t *testing
 		t.Fatalf("prepareSectionsForCopy password source: %v", err)
 	}
 
-	document := Document{
-		SchemaVersion:    CurrentSchemaVersion,
-		DefaultProjectID: "project-target",
-		Projects: map[string]Project{
-			"project-target": {
-				ID:   "project-target",
-				Name: "Target",
-			},
-		},
-	}
+	document := newClipboardPasteTargetDocument()
 
 	if err := document.PasteSections("project-target", PasteSectionsInput{
 		Data:     clipboard.Data,
@@ -60,79 +51,9 @@ func TestDocumentPasteSectionsClonesNestedIDsAndClearsPasswordSecrets(t *testing
 	}
 
 	targetProject := document.Projects["project-target"]
-	if len(targetProject.Sections) != 1 {
-		t.Fatalf("expected one pasted root section, got %#v", targetProject.Sections)
-	}
-
-	var pastedSectionID string
-	for sectionID := range targetProject.Sections {
-		pastedSectionID = sectionID
-	}
-	if pastedSectionID == "dict-a" {
-		t.Fatalf("expected pasted section id to be remapped, got %q", pastedSectionID)
-	}
-	if !targetProject.HasTopLevelSection(pastedSectionID) {
-		t.Fatalf("expected pasted section %q to become top-level", pastedSectionID)
-	}
-	layout, ok := targetProject.TopLevelSections[pastedSectionID]
-	if !ok {
-		t.Fatalf("expected pasted section layout in top-level map, got %#v", targetProject.TopLevelSections)
-	}
-	if layout.X != 320 || layout.Y != 160 || layout.ZIndex != 0 {
-		t.Fatalf("expected pasted section layout {320 160 0}, got %#v", layout)
-	}
-
-	pastedVariantID := targetProject.SectionVariantMap[pastedSectionID]
-	pastedPayload, err := targetProject.EffectiveSectionPayload(pastedSectionID, pastedVariantID)
-	if err != nil {
-		t.Fatalf("resolve pasted section payload: %v", err)
-	}
-	topLevelParamID := payloadStringField(pastedPayload, "topLevelParamId")
-	if topLevelParamID == "" || topLevelParamID == "shared-root" {
-		t.Fatalf("expected pasted root param id to be remapped, got %q", topLevelParamID)
-	}
-	codeObjVariantMap := payloadStringMapField(pastedPayload, "codeObjVariantMap")
-	if len(codeObjVariantMap) != 4 {
-		t.Fatalf("expected four remapped code object variants, got %#v", codeObjVariantMap)
-	}
-	if _, ok := codeObjVariantMap["shared-secret"]; ok {
-		t.Fatalf("expected password param id to be remapped, got %#v", codeObjVariantMap)
-	}
-	if _, ok := codeObjVariantMap[topLevelParamID]; !ok {
-		t.Fatalf("expected top-level param %q in remapped code-object map, got %#v", topLevelParamID, codeObjVariantMap)
-	}
-
-	rootPayload, _, _, _, err := targetProject.ResolveSectionCodeObject(pastedSectionID, topLevelParamID)
-	if err != nil {
-		t.Fatalf("resolve pasted root param: %v", err)
-	}
-	childIDs := payloadStringArrayField(rootPayload, "children")
-	if len(childIDs) != 3 {
-		t.Fatalf("expected remapped nested param children, got %#v", childIDs)
-	}
-
-	passwordParamID := ""
-	for _, childID := range childIDs {
-		childPayload, _, _, childImpl, err := targetProject.ResolveSectionCodeObject(pastedSectionID, childID)
-		if err != nil {
-			t.Fatalf("resolve pasted child param %q: %v", childID, err)
-		}
-		if childImpl.Type == "PasswordParam" {
-			passwordParamID = childID
-			if got := payloadStringField(childPayload, "value"); got != "" {
-				t.Fatalf("expected copied password payload value to be cleared, got %q", got)
-			}
-			if payloadBoolField(childPayload, "hasSecret") {
-				t.Fatalf("expected copied password payload hasSecret to reset false, got %#v", childPayload)
-			}
-		}
-	}
-	if passwordParamID == "" {
-		t.Fatalf("expected remapped password child among %#v", childIDs)
-	}
-	if passwordParamID == "shared-secret" {
-		t.Fatalf("expected password param id to be remapped, got %q", passwordParamID)
-	}
+	pastedSectionID := assertOnlyRemappedPastedRootSection(t, targetProject, "dict-a", TopLevelSectionLayout{X: 320, Y: 160})
+	childIDs := assertPastedNestedRootParamRemapped(t, targetProject, pastedSectionID)
+	assertPastedPasswordChildSecretCleared(t, targetProject, pastedSectionID, childIDs)
 }
 
 func TestDocumentPasteSectionsPreservesCopiedDescendantActiveVariants(t *testing.T) {
@@ -490,6 +411,86 @@ func newClipboardPasteTargetDocument() Document {
 				Name: "Target",
 			},
 		},
+	}
+}
+
+func assertOnlyRemappedPastedRootSection(t *testing.T, project Project, originalID string, wantLayout TopLevelSectionLayout) string {
+	t.Helper()
+
+	if len(project.Sections) != 1 {
+		t.Fatalf("expected one pasted root section, got %#v", project.Sections)
+	}
+	pastedSectionID := onlyTopLevelPastedSectionID(t, project)
+	if pastedSectionID == originalID {
+		t.Fatalf("expected pasted section id to be remapped, got %q", pastedSectionID)
+	}
+	layout := project.TopLevelSections[pastedSectionID]
+	if layout.X != wantLayout.X || layout.Y != wantLayout.Y || layout.ZIndex != wantLayout.ZIndex {
+		t.Fatalf("expected pasted section layout %#v, got %#v", wantLayout, layout)
+	}
+	return pastedSectionID
+}
+
+func assertPastedNestedRootParamRemapped(t *testing.T, project Project, pastedSectionID string) []string {
+	t.Helper()
+
+	pastedVariantID := project.SectionVariantMap[pastedSectionID]
+	pastedPayload, err := project.EffectiveSectionPayload(pastedSectionID, pastedVariantID)
+	if err != nil {
+		t.Fatalf("resolve pasted section payload: %v", err)
+	}
+	topLevelParamID := payloadStringField(pastedPayload, "topLevelParamId")
+	if topLevelParamID == "" || topLevelParamID == "shared-root" {
+		t.Fatalf("expected pasted root param id to be remapped, got %q", topLevelParamID)
+	}
+
+	codeObjVariantMap := payloadStringMapField(pastedPayload, "codeObjVariantMap")
+	if len(codeObjVariantMap) != 4 {
+		t.Fatalf("expected four remapped code object variants, got %#v", codeObjVariantMap)
+	}
+	if _, ok := codeObjVariantMap["shared-secret"]; ok {
+		t.Fatalf("expected password param id to be remapped, got %#v", codeObjVariantMap)
+	}
+	if _, ok := codeObjVariantMap[topLevelParamID]; !ok {
+		t.Fatalf("expected top-level param %q in remapped code-object map, got %#v", topLevelParamID, codeObjVariantMap)
+	}
+
+	rootPayload, _, _, _, err := project.ResolveSectionCodeObject(pastedSectionID, topLevelParamID)
+	if err != nil {
+		t.Fatalf("resolve pasted root param: %v", err)
+	}
+	childIDs := payloadStringArrayField(rootPayload, "children")
+	if len(childIDs) != 3 {
+		t.Fatalf("expected remapped nested param children, got %#v", childIDs)
+	}
+	return childIDs
+}
+
+func assertPastedPasswordChildSecretCleared(t *testing.T, project Project, pastedSectionID string, childIDs []string) {
+	t.Helper()
+
+	passwordParamID := ""
+	for _, childID := range childIDs {
+		childPayload, _, _, childImpl, err := project.ResolveSectionCodeObject(pastedSectionID, childID)
+		if err != nil {
+			t.Fatalf("resolve pasted child param %q: %v", childID, err)
+		}
+		if childImpl.Type != "PasswordParam" {
+			continue
+		}
+		passwordParamID = childID
+		if got := payloadStringField(childPayload, "value"); got != "" {
+			t.Fatalf("expected copied password payload value to be cleared, got %q", got)
+		}
+		if payloadBoolField(childPayload, "hasSecret") {
+			t.Fatalf("expected copied password payload hasSecret to reset false, got %#v", childPayload)
+		}
+	}
+	if passwordParamID == "" {
+		t.Fatalf("expected remapped password child among %#v", childIDs)
+	}
+	if passwordParamID == "shared-secret" {
+		t.Fatalf("expected password param id to be remapped, got %q", passwordParamID)
 	}
 }
 

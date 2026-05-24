@@ -87,72 +87,126 @@ func TestRunLaunchEmitsJSONPayloadAndUsesSessionLauncher(t *testing.T) {
 		t.Fatalf("expected empty stderr, got %q", stderr)
 	}
 
-	payload := decodeJSONPayload(t, stdout)
+	assertLaunchSuccessPayload(t, decodeJSONPayload(t, stdout), launchSuccessPayloadExpectation{
+		WorkspaceRoot:        workspaceRoot,
+		SettaHome:            settaHome,
+		SettaFilesLocation:   "local",
+		RuntimeRoot:          runtimeRoot,
+		Profile:              "dev",
+		BootstrapURLFragment: "http://127.0.0.1:61234/__setta__/bootstrap#token=tok",
+		SessionID:            "session-1",
+		StartedNew:           false,
+	})
+	assertLaunchCapturedInput(t, capturedInput, launchCapturedInputExpectation{
+		ServerExecutable:         serverExecutable,
+		CapturedServerExecutable: capturedServerExecutable,
+		CapturedTimeout:          capturedTimeout,
+		WorkspaceRoot:            workspaceRoot,
+		Profile:                  "dev",
+		SettaHome:                settaHome,
+		ProfileLookupHome:        profileLookupHome,
+		SettaFilesLocation:       "local",
+		RuntimeRoot:              runtimeRoot,
+		ServerMode:               config.ModeIDE,
+	})
+}
+
+type launchSuccessPayloadExpectation struct {
+	WorkspaceRoot        string
+	SettaHome            string
+	SettaFilesLocation   string
+	RuntimeRoot          string
+	Profile              string
+	BootstrapURLFragment string
+	SessionID            string
+	StartedNew           bool
+}
+
+func assertLaunchSuccessPayload(t *testing.T, payload map[string]any, want launchSuccessPayloadExpectation) {
+	t.Helper()
+
 	if got := payload["ok"]; got != true {
 		t.Fatalf("expected ok payload, got %#v", payload)
 	}
-	if got := payload["bootstrapUrlFragment"]; got != "http://127.0.0.1:61234/__setta__/bootstrap#token=tok" {
+	if got := payload["bootstrapUrlFragment"]; got != want.BootstrapURLFragment {
 		t.Fatalf("unexpected bootstrap url fragment %#v", got)
 	}
-	if got := payload["workspaceRoot"]; got != workspaceRoot {
-		t.Fatalf("expected workspaceRoot %q, got %#v", workspaceRoot, got)
+	if got := payload["workspaceRoot"]; got != want.WorkspaceRoot {
+		t.Fatalf("expected workspaceRoot %q, got %#v", want.WorkspaceRoot, got)
 	}
-	if got := payload["settaFilesLocation"]; got != "local" {
-		t.Fatalf("expected settaFilesLocation local, got %#v", got)
+	if got := payload["settaFilesLocation"]; got != want.SettaFilesLocation {
+		t.Fatalf("expected settaFilesLocation %q, got %#v", want.SettaFilesLocation, got)
 	}
-	if got := payload["runtimeRoot"]; got != runtimeRoot {
-		t.Fatalf("expected runtimeRoot %q, got %#v", runtimeRoot, got)
+	if got := payload["runtimeRoot"]; got != want.RuntimeRoot {
+		t.Fatalf("expected runtimeRoot %q, got %#v", want.RuntimeRoot, got)
 	}
-	if got := payload["settaHome"]; got != settaHome {
-		t.Fatalf("expected settaHome %q, got %#v", settaHome, got)
+	if got := payload["settaHome"]; got != want.SettaHome {
+		t.Fatalf("expected settaHome %q, got %#v", want.SettaHome, got)
 	}
-	if got := payload["profile"]; got != "dev" {
-		t.Fatalf("expected profile dev, got %#v", got)
+	if got := payload["profile"]; got != want.Profile {
+		t.Fatalf("expected profile %q, got %#v", want.Profile, got)
 	}
-	if got := payload["sessionId"]; got != "session-1" {
-		t.Fatalf("expected sessionId session-1, got %#v", got)
+	if got := payload["sessionId"]; got != want.SessionID {
+		t.Fatalf("expected sessionId %q, got %#v", want.SessionID, got)
 	}
-	if got := payload["startedNew"]; got != false {
-		t.Fatalf("expected startedNew false, got %#v", got)
+	if got := payload["startedNew"]; got != want.StartedNew {
+		t.Fatalf("expected startedNew %v, got %#v", want.StartedNew, got)
 	}
 
 	sessionPayload, ok := payload["session"].(map[string]any)
 	if !ok {
 		t.Fatalf("expected nested session payload, got %#v", payload["session"])
 	}
-	if got := sessionPayload["workspacePath"]; got != workspaceRoot {
-		t.Fatalf("expected workspacePath %q, got %#v", workspaceRoot, got)
+	if got := sessionPayload["workspacePath"]; got != want.WorkspaceRoot {
+		t.Fatalf("expected workspacePath %q, got %#v", want.WorkspaceRoot, got)
 	}
 	if got := sessionPayload["serverMode"]; got != "ide" {
 		t.Fatalf("expected serverMode ide, got %#v", got)
 	}
+}
 
-	if capturedServerExecutable != serverExecutable {
-		t.Fatalf("expected server executable %q, got %q", serverExecutable, capturedServerExecutable)
+type launchCapturedInputExpectation struct {
+	ServerExecutable         string
+	CapturedServerExecutable string
+	CapturedTimeout          time.Duration
+	WorkspaceRoot            string
+	Profile                  string
+	SettaHome                string
+	ProfileLookupHome        string
+	SettaFilesLocation       string
+	RuntimeRoot              string
+	ServerMode               config.Mode
+}
+
+func assertLaunchCapturedInput(t *testing.T, input launcher.IDELaunchInput, want launchCapturedInputExpectation) {
+	t.Helper()
+
+	if want.CapturedServerExecutable != want.ServerExecutable {
+		t.Fatalf("expected server executable %q, got %q", want.ServerExecutable, want.CapturedServerExecutable)
 	}
-	if capturedTimeout != 12500*time.Millisecond {
-		t.Fatalf("expected launch timeout 12.5s, got %v", capturedTimeout)
+	if want.CapturedTimeout != 12500*time.Millisecond {
+		t.Fatalf("expected launch timeout 12.5s, got %v", want.CapturedTimeout)
 	}
-	if capturedInput.WorkspaceRoot != workspaceRoot {
-		t.Fatalf("expected workspace input %q, got %q", workspaceRoot, capturedInput.WorkspaceRoot)
+	if input.WorkspaceRoot != want.WorkspaceRoot {
+		t.Fatalf("expected workspace input %q, got %q", want.WorkspaceRoot, input.WorkspaceRoot)
 	}
-	if capturedInput.Profile != "dev" {
-		t.Fatalf("expected profile input dev, got %q", capturedInput.Profile)
+	if input.Profile != want.Profile {
+		t.Fatalf("expected profile input %q, got %q", want.Profile, input.Profile)
 	}
-	if capturedInput.SettaHome != settaHome {
-		t.Fatalf("expected settaHome input %q, got %q", settaHome, capturedInput.SettaHome)
+	if input.SettaHome != want.SettaHome {
+		t.Fatalf("expected settaHome input %q, got %q", want.SettaHome, input.SettaHome)
 	}
-	if capturedInput.ProfileLookupHome != profileLookupHome {
-		t.Fatalf("expected profileLookupHome %q, got %q", profileLookupHome, capturedInput.ProfileLookupHome)
+	if input.ProfileLookupHome != want.ProfileLookupHome {
+		t.Fatalf("expected profileLookupHome %q, got %q", want.ProfileLookupHome, input.ProfileLookupHome)
 	}
-	if capturedInput.SettaFilesLocation == nil || *capturedInput.SettaFilesLocation != "local" {
-		t.Fatalf("expected settaFilesLocation local, got %#v", capturedInput.SettaFilesLocation)
+	if input.SettaFilesLocation == nil || *input.SettaFilesLocation != want.SettaFilesLocation {
+		t.Fatalf("expected settaFilesLocation %q, got %#v", want.SettaFilesLocation, input.SettaFilesLocation)
 	}
-	if capturedInput.RuntimeRoot != runtimeRoot {
-		t.Fatalf("expected runtimeRoot input %q, got %q", runtimeRoot, capturedInput.RuntimeRoot)
+	if input.RuntimeRoot != want.RuntimeRoot {
+		t.Fatalf("expected runtimeRoot input %q, got %q", want.RuntimeRoot, input.RuntimeRoot)
 	}
-	if capturedInput.ServerMode != config.ModeIDE {
-		t.Fatalf("expected ide server mode, got %q", capturedInput.ServerMode)
+	if input.ServerMode != want.ServerMode {
+		t.Fatalf("expected server mode %q, got %q", want.ServerMode, input.ServerMode)
 	}
 }
 
@@ -640,32 +694,38 @@ func TestRunLaunchEmitsTypedJSONConfigErrors(t *testing.T) {
 			})
 
 			stdout, stderr, err := runLaunchCommandWithDeps(t, tc.buildArgs(root), globalFlags{}, root, deps)
-			if err == nil {
-				t.Fatal("expected launch failure")
-			}
-			if code := ExitCode(err); code != 2 {
-				t.Fatalf("expected exit code 2, got %d", code)
-			}
-			if stderr != "" {
-				t.Fatalf("expected empty stderr, got %q", stderr)
-			}
-
-			payload := decodeJSONPayload(t, stdout)
-			errorPayload, ok := payload["error"].(map[string]any)
-			if !ok {
-				t.Fatalf("expected error payload, got %#v", payload)
-			}
-			if got := errorPayload["code"]; got != tc.expectedCode {
-				t.Fatalf("expected %s error, got %#v", tc.expectedCode, got)
-			}
-			message, ok := errorPayload["message"].(string)
-			if !ok {
-				t.Fatalf("expected string error message, got %#v", errorPayload["message"])
-			}
-			if !strings.Contains(message, tc.expectedMessage) {
-				t.Fatalf("expected message containing %q, got %q", tc.expectedMessage, message)
-			}
+			assertLaunchTypedConfigError(t, stdout, stderr, err, tc.expectedCode, tc.expectedMessage)
 		})
+	}
+}
+
+func assertLaunchTypedConfigError(t *testing.T, stdout string, stderr string, err error, expectedCode string, expectedMessage string) {
+	t.Helper()
+
+	if err == nil {
+		t.Fatal("expected launch failure")
+	}
+	if code := ExitCode(err); code != 2 {
+		t.Fatalf("expected exit code 2, got %d", code)
+	}
+	if stderr != "" {
+		t.Fatalf("expected empty stderr, got %q", stderr)
+	}
+
+	payload := decodeJSONPayload(t, stdout)
+	errorPayload, ok := payload["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected error payload, got %#v", payload)
+	}
+	if got := errorPayload["code"]; got != expectedCode {
+		t.Fatalf("expected %s error, got %#v", expectedCode, got)
+	}
+	message, ok := errorPayload["message"].(string)
+	if !ok {
+		t.Fatalf("expected string error message, got %#v", errorPayload["message"])
+	}
+	if !strings.Contains(message, expectedMessage) {
+		t.Fatalf("expected message containing %q, got %q", expectedMessage, message)
 	}
 }
 

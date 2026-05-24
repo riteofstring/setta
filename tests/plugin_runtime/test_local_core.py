@@ -212,7 +212,9 @@ def test_run_local_core_command_surfaces_structured_errors(
         shared_local_core, "resolve_go_cli_env", lambda _command_cwd: {}
     )
     monkeypatch.setattr(
-        shared_local_core.subprocess, "Popen", lambda *args, **kwargs: fake_process
+        shared_local_core.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: fake_process,
     )
 
     with pytest.raises(shared_local_core.LocalCoreCommandError) as excinfo:
@@ -237,7 +239,9 @@ def test_run_local_core_command_rejects_sdk_version_mismatch(
         shared_local_core, "resolve_go_cli_env", lambda _command_cwd: {}
     )
     monkeypatch.setattr(
-        shared_local_core.subprocess, "Popen", lambda *args, **kwargs: fake_process
+        shared_local_core.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: fake_process,
     )
 
     with pytest.raises(
@@ -264,7 +268,9 @@ def test_run_local_core_command_rejects_sdk_contract_mismatch(
         shared_local_core, "resolve_go_cli_env", lambda _command_cwd: {}
     )
     monkeypatch.setattr(
-        shared_local_core.subprocess, "Popen", lambda *args, **kwargs: fake_process
+        shared_local_core.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: fake_process,
     )
 
     with pytest.raises(RuntimeCompatibilityError, match="local core contract mismatch"):

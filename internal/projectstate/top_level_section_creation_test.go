@@ -48,38 +48,57 @@ func TestProjectCreateTopLevelSectionPrunesStaleLayoutStateAndUsesDeterministicP
 	if layout.ZIndex != 3 {
 		t.Fatalf("expected next z-index 3, got %#v", layout)
 	}
-	if createdSection, ok := project.Sections[result.SectionID]; !ok {
-		t.Fatalf("expected created section %q in project state", result.SectionID)
-	} else if createdSection.Name == "" {
-		t.Fatal("expected created top-level section name")
-	} else if _, err := validateSectionName(project, result.SectionID, createdSection.Name); err != nil {
-		t.Fatalf("expected created top-level section name to remain valid, got %q with error %v", createdSection.Name, err)
-	} else {
-		activeVariantID := project.SectionVariantMap[result.SectionID]
-		createdVariant := project.SectionVariants[activeVariantID]
-		if createdVariant.Name != createdSection.Name {
-			t.Fatalf(
-				"expected created default variant name %q to match section name, got %q",
-				createdSection.Name,
-				createdVariant.Name,
-			)
-		}
-	}
+	assertCreatedTopLevelSectionNameAndVariant(t, project, result.SectionID)
 
 	for _, viewModeID := range []string{"focus", "secondary"} {
-		viewMode := project.ViewModes[viewModeID]
-		if _, ok := viewMode.TopLevelSections["stale-section"]; ok {
-			t.Fatalf("did not expect stale-section in %s top-level layouts, got %#v", viewModeID, viewMode.TopLevelSections)
-		}
-		if _, ok := viewMode.VisibilityBySectionID["stale-section"]; ok {
-			t.Fatalf("did not expect stale-section in %s visibility, got %#v", viewModeID, viewMode.VisibilityBySectionID)
-		}
-		if _, ok := viewMode.TopLevelSections[result.SectionID]; !ok {
-			t.Fatalf("expected created section in %s top-level layouts, got %#v", viewModeID, viewMode.TopLevelSections)
-		}
-		if !viewMode.VisibilityBySectionID[result.SectionID] {
-			t.Fatalf("expected created section visible in %s, got %#v", viewModeID, viewMode.VisibilityBySectionID)
-		}
+		assertViewModePrunedStaleAndIncludesCreatedSection(t, project, result.SectionID, viewModeID)
+	}
+}
+
+func assertCreatedTopLevelSectionNameAndVariant(t *testing.T, project Project, sectionID string) {
+	t.Helper()
+	createdSection, ok := project.Sections[sectionID]
+	if !ok {
+		t.Fatalf("expected created section %q in project state", sectionID)
+	}
+	if createdSection.Name == "" {
+		t.Fatal("expected created top-level section name")
+	}
+	if _, err := validateSectionName(project, sectionID, createdSection.Name); err != nil {
+		t.Fatalf("expected created top-level section name to remain valid, got %q with error %v", createdSection.Name, err)
+	}
+
+	activeVariantID := project.SectionVariantMap[sectionID]
+	createdVariant, ok := project.SectionVariants[activeVariantID]
+	if !ok {
+		t.Fatalf("expected active variant %q for created section %q, got %#v", activeVariantID, sectionID, project.SectionVariants)
+	}
+	if createdVariant.Name != createdSection.Name {
+		t.Fatalf(
+			"expected created default variant name %q to match section name, got %q",
+			createdSection.Name,
+			createdVariant.Name,
+		)
+	}
+}
+
+func assertViewModePrunedStaleAndIncludesCreatedSection(t *testing.T, project Project, sectionID string, viewModeID string) {
+	t.Helper()
+	viewMode, ok := project.ViewModes[viewModeID]
+	if !ok {
+		t.Fatalf("expected view mode %q in project state", viewModeID)
+	}
+	if _, ok := viewMode.TopLevelSections["stale-section"]; ok {
+		t.Fatalf("did not expect stale-section in %s top-level layouts, got %#v", viewModeID, viewMode.TopLevelSections)
+	}
+	if _, ok := viewMode.VisibilityBySectionID["stale-section"]; ok {
+		t.Fatalf("did not expect stale-section in %s visibility, got %#v", viewModeID, viewMode.VisibilityBySectionID)
+	}
+	if _, ok := viewMode.TopLevelSections[sectionID]; !ok {
+		t.Fatalf("expected created section in %s top-level layouts, got %#v", viewModeID, viewMode.TopLevelSections)
+	}
+	if !viewMode.VisibilityBySectionID[sectionID] {
+		t.Fatalf("expected created section visible in %s, got %#v", viewModeID, viewMode.VisibilityBySectionID)
 	}
 }
 
@@ -425,101 +444,27 @@ func TestProjectCreateTopLevelSectionSupportsExpandedSectionTypes(t *testing.T) 
 		{
 			name:     "callable",
 			implType: "Callable",
-			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
-				t.Helper()
-				if got := payloadStringField(payload, "type"); got != "Callable" {
-					t.Fatalf("expected Callable payload type, got %q", got)
-				}
-				if got := payloadRawStringField(payload, "paramFilter"); got != "" {
-					t.Fatalf("expected empty paramFilter, got %q", got)
-				}
-				if got := payload["callable"]; got != nil {
-					t.Fatalf("expected nil callable target, got %#v", got)
-				}
-				if !reflect.DeepEqual(payload["pinnedParams"], []any{}) {
-					t.Fatalf("expected empty pinned params, got %#v", payload["pinnedParams"])
-				}
-			},
+			assert:   assertCallableTopLevelSectionDefaults,
 		},
 		{
 			name:     "list root",
 			implType: "ListRoot",
-			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
-				t.Helper()
-				if got := payloadStringField(payload, "defaultChildSectionType"); got != "Callable" {
-					t.Fatalf("expected default child Callable, got %q", got)
-				}
-				if got := payloadStringField(payload, "viewMode"); got != "default" {
-					t.Fatalf("expected default view mode, got %q", got)
-				}
-				if !reflect.DeepEqual(payload["children"], []any{}) {
-					t.Fatalf("expected empty children array, got %#v", payload["children"])
-				}
-			},
+			assert:   assertListRootTopLevelSectionDefaults,
 		},
 		{
 			name:     "draw",
 			implType: "Draw",
-			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
-				t.Helper()
-				if !impl.IsDraw() || impl.Draw == nil {
-					t.Fatalf("expected draw impl, got %#v", impl)
-				}
-				rawLayers, ok := payload["layers"].([]any)
-				if !ok || len(rawLayers) != 1 {
-					t.Fatalf("expected one seeded draw layer, got %#v", payload["layers"])
-				}
-				layer, ok := rawLayers[0].(map[string]any)
-				if !ok {
-					t.Fatalf("expected draw layer object, got %#v", rawLayers[0])
-				}
-				if got := payloadRawStringField(layer, "name"); got == "" {
-					t.Fatalf("expected seeded draw layer name, got %#v", layer)
-				}
-				if !payloadBoolField(layer, "visible") {
-					t.Fatalf("expected seeded draw layer to be visible, got %#v", layer)
-				}
-			},
+			assert:   assertDrawTopLevelSectionDefaults,
 		},
 		{
 			name:     "browser",
 			implType: "Browser",
-			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
-				t.Helper()
-				if got := payloadStringField(payload, "viewMode"); got != string(BrowserAreaViewModeList) {
-					t.Fatalf("expected browser view mode %q, got %q", BrowserAreaViewModeList, got)
-				}
-				size, ok := payloadObjectField(payload, "size")
-				if !ok {
-					t.Fatalf("expected browser size object, got %#v", payload["size"])
-				}
-				if width, ok := size["width"].(float64); !ok || width != 720 {
-					t.Fatalf("expected browser width 720, got %#v", size["width"])
-				}
-				if height, ok := size["height"].(float64); !ok || height != 460 {
-					t.Fatalf("expected browser height 460, got %#v", size["height"])
-				}
-			},
+			assert:   assertBrowserTopLevelSectionDefaults,
 		},
 		{
 			name:     "generated python",
 			implType: "GenPythonCode",
-			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
-				t.Helper()
-				if !impl.IsGenerated() || impl.Generated == nil || impl.Generated.Kind != GeneratedSectionKindPythonCode {
-					t.Fatalf("expected generated python impl, got %#v", impl)
-				}
-				if got := payloadStringField(payload, "type"); got != "GenPythonCode" {
-					t.Fatalf("expected generated python payload type, got %q", got)
-				}
-				size, ok := payloadObjectField(payload, "size")
-				if !ok {
-					t.Fatalf("expected generated python size object, got %#v", payload["size"])
-				}
-				if width, ok := size["width"].(float64); !ok || width != 500 {
-					t.Fatalf("expected generated python width 500, got %#v", size["width"])
-				}
-			},
+			assert:   assertGeneratedPythonTopLevelSectionDefaults,
 		},
 		{
 			name:     "plugin",
@@ -531,35 +476,12 @@ func TestProjectCreateTopLevelSectionSupportsExpandedSectionTypes(t *testing.T) 
 					"mode": "compact",
 				},
 			},
-			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
-				t.Helper()
-				if got := payloadStringField(payload, "pluginId"); got != "acme.plugin" {
-					t.Fatalf("expected pluginId acme.plugin, got %q", got)
-				}
-				if got := payloadStringField(payload, "kind"); got != "inspector" {
-					t.Fatalf("expected plugin kind inspector, got %q", got)
-				}
-				data, ok := payloadObjectField(payload, "data")
-				if !ok {
-					t.Fatalf("expected plugin data object, got %#v", payload["data"])
-				}
-				if got := payloadRawStringField(data, "mode"); got != "compact" {
-					t.Fatalf("expected plugin data.mode compact, got %q", got)
-				}
-			},
+			assert: assertPluginTopLevelSectionOverrides,
 		},
 		{
 			name:     "spreadsheet",
 			implType: "Spreadsheet",
-			assert: func(t *testing.T, project Project, result CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
-				t.Helper()
-				if got := payloadStringField(payload, "density"); got != string(SpreadsheetGridDensityCompact) {
-					t.Fatalf("expected spreadsheet density %q, got %q", SpreadsheetGridDensityCompact, got)
-				}
-				if !payloadBoolField(payload, "showRowNumbers") {
-					t.Fatalf("expected spreadsheet row numbers enabled, got %#v", payload)
-				}
-			},
+			assert:   assertSpreadsheetTopLevelSectionDefaults,
 		},
 	}
 
@@ -587,6 +509,117 @@ func TestProjectCreateTopLevelSectionSupportsExpandedSectionTypes(t *testing.T) 
 	}
 }
 
+func assertCallableTopLevelSectionDefaults(t *testing.T, _ Project, _ CreateTopLevelSectionResult, payload map[string]any, _ SectionImpl) {
+	t.Helper()
+	if got := payloadStringField(payload, "type"); got != "Callable" {
+		t.Fatalf("expected Callable payload type, got %q", got)
+	}
+	if got := payloadRawStringField(payload, "paramFilter"); got != "" {
+		t.Fatalf("expected empty paramFilter, got %q", got)
+	}
+	if got := payload["callable"]; got != nil {
+		t.Fatalf("expected nil callable target, got %#v", got)
+	}
+	if !reflect.DeepEqual(payload["pinnedParams"], []any{}) {
+		t.Fatalf("expected empty pinned params, got %#v", payload["pinnedParams"])
+	}
+}
+
+func assertListRootTopLevelSectionDefaults(t *testing.T, _ Project, _ CreateTopLevelSectionResult, payload map[string]any, _ SectionImpl) {
+	t.Helper()
+	if got := payloadStringField(payload, "defaultChildSectionType"); got != "Callable" {
+		t.Fatalf("expected default child Callable, got %q", got)
+	}
+	if got := payloadStringField(payload, "viewMode"); got != "default" {
+		t.Fatalf("expected default view mode, got %q", got)
+	}
+	if !reflect.DeepEqual(payload["children"], []any{}) {
+		t.Fatalf("expected empty children array, got %#v", payload["children"])
+	}
+}
+
+func assertDrawTopLevelSectionDefaults(t *testing.T, _ Project, _ CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
+	t.Helper()
+	if !impl.IsDraw() || impl.Draw == nil {
+		t.Fatalf("expected draw impl, got %#v", impl)
+	}
+	rawLayers, ok := payload["layers"].([]any)
+	if !ok || len(rawLayers) != 1 {
+		t.Fatalf("expected one seeded draw layer, got %#v", payload["layers"])
+	}
+	layer, ok := rawLayers[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected draw layer object, got %#v", rawLayers[0])
+	}
+	if got := payloadRawStringField(layer, "name"); got == "" {
+		t.Fatalf("expected seeded draw layer name, got %#v", layer)
+	}
+	if !payloadBoolField(layer, "visible") {
+		t.Fatalf("expected seeded draw layer to be visible, got %#v", layer)
+	}
+}
+
+func assertBrowserTopLevelSectionDefaults(t *testing.T, _ Project, _ CreateTopLevelSectionResult, payload map[string]any, _ SectionImpl) {
+	t.Helper()
+	if got := payloadStringField(payload, "viewMode"); got != string(BrowserAreaViewModeList) {
+		t.Fatalf("expected browser view mode %q, got %q", BrowserAreaViewModeList, got)
+	}
+	size := mustPayloadObjectField(t, payload, "size")
+	if width, ok := size["width"].(float64); !ok || width != 720 {
+		t.Fatalf("expected browser width 720, got %#v", size["width"])
+	}
+	if height, ok := size["height"].(float64); !ok || height != 460 {
+		t.Fatalf("expected browser height 460, got %#v", size["height"])
+	}
+}
+
+func assertGeneratedPythonTopLevelSectionDefaults(t *testing.T, _ Project, _ CreateTopLevelSectionResult, payload map[string]any, impl SectionImpl) {
+	t.Helper()
+	if !impl.IsGenerated() || impl.Generated == nil || impl.Generated.Kind != GeneratedSectionKindPythonCode {
+		t.Fatalf("expected generated python impl, got %#v", impl)
+	}
+	if got := payloadStringField(payload, "type"); got != "GenPythonCode" {
+		t.Fatalf("expected generated python payload type, got %q", got)
+	}
+	size := mustPayloadObjectField(t, payload, "size")
+	if width, ok := size["width"].(float64); !ok || width != 500 {
+		t.Fatalf("expected generated python width 500, got %#v", size["width"])
+	}
+}
+
+func assertPluginTopLevelSectionOverrides(t *testing.T, _ Project, _ CreateTopLevelSectionResult, payload map[string]any, _ SectionImpl) {
+	t.Helper()
+	if got := payloadStringField(payload, "pluginId"); got != "acme.plugin" {
+		t.Fatalf("expected pluginId acme.plugin, got %q", got)
+	}
+	if got := payloadStringField(payload, "kind"); got != "inspector" {
+		t.Fatalf("expected plugin kind inspector, got %q", got)
+	}
+	data := mustPayloadObjectField(t, payload, "data")
+	if got := payloadRawStringField(data, "mode"); got != "compact" {
+		t.Fatalf("expected plugin data.mode compact, got %q", got)
+	}
+}
+
+func assertSpreadsheetTopLevelSectionDefaults(t *testing.T, _ Project, _ CreateTopLevelSectionResult, payload map[string]any, _ SectionImpl) {
+	t.Helper()
+	if got := payloadStringField(payload, "density"); got != string(SpreadsheetGridDensityCompact) {
+		t.Fatalf("expected spreadsheet density %q, got %q", SpreadsheetGridDensityCompact, got)
+	}
+	if !payloadBoolField(payload, "showRowNumbers") {
+		t.Fatalf("expected spreadsheet row numbers enabled, got %#v", payload)
+	}
+}
+
+func mustPayloadObjectField(t *testing.T, payload map[string]any, field string) map[string]any {
+	t.Helper()
+	value, ok := payloadObjectField(payload, field)
+	if !ok {
+		t.Fatalf("expected %s object, got %#v", field, payload[field])
+	}
+	return value
+}
+
 // Top-level meta controls should accept the same control types and defaults as change_param_impl.
 func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing.T) {
 	t.Parallel()
@@ -604,173 +637,85 @@ func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing
 			name:            "default omitted",
 			controlCodeType: nil,
 			expectedType:    "SliderParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payload["min"]; got != float64(0) {
-					t.Fatalf("expected slider min 0, got %#v", got)
-				}
-				if got := payload["max"]; got != float64(100) {
-					t.Fatalf("expected slider max 100, got %#v", got)
-				}
-				if got := payloadRawStringField(payload, "value"); got != "0" {
-					t.Fatalf("expected slider default value 0, got %q", got)
-				}
-			},
+			assert:          assertDefaultSliderMetaControlDefaults,
 		},
 		{
 			name:            "code",
 			controlCodeType: stringPtr("CodeParam"),
 			expectedType:    "CodeParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payloadStringField(payload, "passingStyle"); got != "DEFAULT" {
-					t.Fatalf("expected code param passingStyle DEFAULT, got %q", got)
-				}
-			},
+			assert:          assertCodeParamMetaControlDefaults,
 		},
 		{
 			name:            "text",
 			controlCodeType: stringPtr("TextParam"),
 			expectedType:    "TextParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payloadStringField(payload, "uiType"); got != "plain" {
-					t.Fatalf("expected text param uiType plain, got %q", got)
-				}
-			},
+			assert:          assertTextParamMetaControlDefaults,
 		},
 		{
 			name:            "date",
 			controlCodeType: stringPtr("DateParam"),
 			expectedType:    "DateParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payloadStringField(payload, "dateControlMode"); got != "input" {
-					t.Fatalf("expected date control mode input, got %q", got)
-				}
-				if got := payloadStringField(payload, "dateSelectionMode"); got != "single" {
-					t.Fatalf("expected date selection mode single, got %q", got)
-				}
-			},
+			assert:          assertDateParamMetaControlDefaults,
 		},
 		{
 			name:            "time",
 			controlCodeType: stringPtr("TimeParam"),
 			expectedType:    "TimeParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payloadStringField(payload, "timeControlMode"); got != "input" {
-					t.Fatalf("expected time control mode input, got %q", got)
-				}
-				if got := payloadStringField(payload, "timeDisplayFormat"); got != "twenty_four_hour" {
-					t.Fatalf("expected time display format twenty_four_hour, got %q", got)
-				}
-			},
+			assert:          assertTimeParamMetaControlDefaults,
 		},
 		{
 			name:            "text area",
 			controlCodeType: stringPtr("TextAreaParam"),
 			expectedType:    "TextAreaParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payloadRawStringField(payload, "defaultVal"); got != "" {
-					t.Fatalf("expected empty text area defaultVal, got %q", got)
-				}
-			},
+			assert:          assertTextAreaParamMetaControlDefaults,
 		},
 		{
 			name:            "slider",
 			controlCodeType: stringPtr("SliderParam"),
 			expectedType:    "SliderParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payload["step"]; got != float64(1) {
-					t.Fatalf("expected slider step 1, got %#v", got)
-				}
-			},
+			assert:          assertSliderParamMetaControlDefaults,
 		},
 		{
 			name:            "rotary",
 			controlCodeType: stringPtr("RotaryParam"),
 			expectedType:    "RotaryParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payload["step"]; got != float64(0.1) {
-					t.Fatalf("expected rotary step 0.1, got %#v", got)
-				}
-			},
+			assert:          assertRotaryParamMetaControlDefaults,
 		},
 		{
 			name:            "switch",
 			controlCodeType: stringPtr("SwitchParam"),
 			expectedType:    "SwitchParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payloadRawStringField(payload, "value"); got != "false" {
-					t.Fatalf("expected switch default value false, got %q", got)
-				}
-			},
+			assert:          assertSwitchParamMetaControlDefaults,
 		},
 		{
 			name:            "color picker",
 			controlCodeType: stringPtr("ColorPickerParam"),
 			expectedType:    "ColorPickerParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payloadRawStringField(payload, "value"); got != "#ff0000" {
-					t.Fatalf("expected color picker default #ff0000, got %q", got)
-				}
-			},
+			assert:          assertColorPickerParamMetaControlDefaults,
 		},
 		{
 			name:            "dropdown",
 			controlCodeType: stringPtr("DropdownParam"),
 			expectedType:    "DropdownParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if !reflect.DeepEqual(payload["choices"], []any{}) {
-					t.Fatalf("expected empty dropdown choices, got %#v", payload["choices"])
-				}
-			},
+			assert:          assertDropdownParamMetaControlDefaults,
 		},
 		{
 			name:            "password",
 			controlCodeType: stringPtr("PasswordParam"),
 			expectedType:    "PasswordParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got, ok := payload["hasSecret"].(bool); !ok || got {
-					t.Fatalf("expected password hasSecret false, got %#v", payload["hasSecret"])
-				}
-			},
+			assert:          assertPasswordParamMetaControlDefaults,
 		},
 		{
 			name:            "button",
 			controlCodeType: stringPtr("ButtonParam"),
 			expectedType:    "ButtonParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payloadStringField(payload, "actionMode"); got != "WEBSOCKET_LISTENER" {
-					t.Fatalf("expected button action mode WEBSOCKET_LISTENER, got %q", got)
-				}
-				if got := payloadStringField(payload, "requestMethod"); got != "POST" {
-					t.Fatalf("expected button request method POST, got %q", got)
-				}
-			},
+			assert:          assertButtonParamMetaControlDefaults,
 		},
 		{
 			name:            "dropzone",
 			controlCodeType: stringPtr("DropzoneParam"),
 			expectedType:    "DropzoneParam",
-			assert: func(t *testing.T, payload map[string]any) {
-				t.Helper()
-				if got := payloadStringField(payload, "mode"); got != "STATEFUL" {
-					t.Fatalf("expected dropzone mode STATEFUL, got %q", got)
-				}
-				if got := payloadStringField(payload, "placeholder"); got != "Drop a file here" {
-					t.Fatalf("expected dropzone placeholder, got %q", got)
-				}
-			},
+			assert:          assertDropzoneParamMetaControlDefaults,
 		},
 	}
 
@@ -803,6 +748,122 @@ func TestProjectCreateTopLevelSectionSupportsExpandedMetaControlTypes(t *testing
 		}
 
 		tc.assert(t, codeObjPayload)
+	}
+}
+
+func assertDefaultSliderMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payload["min"]; got != float64(0) {
+		t.Fatalf("expected slider min 0, got %#v", got)
+	}
+	if got := payload["max"]; got != float64(100) {
+		t.Fatalf("expected slider max 100, got %#v", got)
+	}
+	if got := payloadRawStringField(payload, "value"); got != "0" {
+		t.Fatalf("expected slider default value 0, got %q", got)
+	}
+}
+
+func assertCodeParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payloadStringField(payload, "passingStyle"); got != "DEFAULT" {
+		t.Fatalf("expected code param passingStyle DEFAULT, got %q", got)
+	}
+}
+
+func assertTextParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payloadStringField(payload, "uiType"); got != "plain" {
+		t.Fatalf("expected text param uiType plain, got %q", got)
+	}
+}
+
+func assertDateParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payloadStringField(payload, "dateControlMode"); got != "input" {
+		t.Fatalf("expected date control mode input, got %q", got)
+	}
+	if got := payloadStringField(payload, "dateSelectionMode"); got != "single" {
+		t.Fatalf("expected date selection mode single, got %q", got)
+	}
+}
+
+func assertTimeParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payloadStringField(payload, "timeControlMode"); got != "input" {
+		t.Fatalf("expected time control mode input, got %q", got)
+	}
+	if got := payloadStringField(payload, "timeDisplayFormat"); got != "twenty_four_hour" {
+		t.Fatalf("expected time display format twenty_four_hour, got %q", got)
+	}
+}
+
+func assertTextAreaParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payloadRawStringField(payload, "defaultVal"); got != "" {
+		t.Fatalf("expected empty text area defaultVal, got %q", got)
+	}
+}
+
+func assertSliderParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payload["step"]; got != float64(1) {
+		t.Fatalf("expected slider step 1, got %#v", got)
+	}
+}
+
+func assertRotaryParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payload["step"]; got != float64(0.1) {
+		t.Fatalf("expected rotary step 0.1, got %#v", got)
+	}
+}
+
+func assertSwitchParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payloadRawStringField(payload, "value"); got != "false" {
+		t.Fatalf("expected switch default value false, got %q", got)
+	}
+}
+
+func assertColorPickerParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payloadRawStringField(payload, "value"); got != "#ff0000" {
+		t.Fatalf("expected color picker default #ff0000, got %q", got)
+	}
+}
+
+func assertDropdownParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if !reflect.DeepEqual(payload["choices"], []any{}) {
+		t.Fatalf("expected empty dropdown choices, got %#v", payload["choices"])
+	}
+}
+
+func assertPasswordParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got, ok := payload["hasSecret"].(bool); !ok || got {
+		t.Fatalf("expected password hasSecret false, got %#v", payload["hasSecret"])
+	}
+}
+
+func assertButtonParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payloadStringField(payload, "actionMode"); got != "WEBSOCKET_LISTENER" {
+		t.Fatalf("expected button action mode WEBSOCKET_LISTENER, got %q", got)
+	}
+	if got := payloadStringField(payload, "requestMethod"); got != "POST" {
+		t.Fatalf("expected button request method POST, got %q", got)
+	}
+}
+
+func assertDropzoneParamMetaControlDefaults(t *testing.T, payload map[string]any) {
+	t.Helper()
+	if got := payloadStringField(payload, "mode"); got != "STATEFUL" {
+		t.Fatalf("expected dropzone mode STATEFUL, got %q", got)
+	}
+	if got := payloadStringField(payload, "placeholder"); got != "Drop a file here" {
+		t.Fatalf("expected dropzone placeholder, got %q", got)
 	}
 }
 

@@ -47,6 +47,14 @@ func TestFrontendValueAppSubsystemChatUIConfigUsesAuthoritativeAppGenerationMeta
 		t.Fatalf("build app generation mode registry: %v", err)
 	}
 
+	assertDefaultCustomSlashCommandMode(t, got)
+	assertSlashCommandsUseAuthoritativeMetadata(t, got, registry)
+	assertCustomSlashCommandOptionsUseAuthoritativeMetadata(t, got, registry)
+}
+
+func assertDefaultCustomSlashCommandMode(t *testing.T, got AppSubsystemChatUIConfigValue) {
+	t.Helper()
+
 	if got.DefaultCustomSlashCommandMode != string(agentruns.ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("unexpected default custom slash command mode: %q", got.DefaultCustomSlashCommandMode)
 	}
@@ -54,6 +62,14 @@ func TestFrontendValueAppSubsystemChatUIConfigUsesAuthoritativeAppGenerationMeta
 		got.CustomSlashCommandModeOptions[0].Value != string(agentruns.ChatAppGenerationMessageModePlainChat) {
 		t.Fatalf("expected plain chat to be first custom slash command mode option, got %#v", got.CustomSlashCommandModeOptions)
 	}
+}
+
+func assertSlashCommandsUseAuthoritativeMetadata(
+	t *testing.T,
+	got AppSubsystemChatUIConfigValue,
+	registry *chatmodes.AppGenerationModeRegistry,
+) {
+	t.Helper()
 
 	metadataEntries := appsubsystemchatmodes.AppGenerationModeMetadataEntries()
 	if len(got.SlashCommands) != len(metadataEntries) {
@@ -69,6 +85,14 @@ func TestFrontendValueAppSubsystemChatUIConfigUsesAuthoritativeAppGenerationMeta
 			t.Fatalf("slash command mode is not registered by backend registry: %#v", entry)
 		}
 	}
+}
+
+func assertCustomSlashCommandOptionsUseAuthoritativeMetadata(
+	t *testing.T,
+	got AppSubsystemChatUIConfigValue,
+	registry *chatmodes.AppGenerationModeRegistry,
+) {
+	t.Helper()
 
 	for _, option := range got.CustomSlashCommandModeOptions[1:] {
 		if option.Value == "" || option.Label == "" {

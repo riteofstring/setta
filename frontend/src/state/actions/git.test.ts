@@ -4,10 +4,6 @@ import {
   getGitDiff,
   getGitLog,
   getGitStatus,
-  type GitreadCommit as Commit,
-  type GitreadCommitDetailsResponse as CommitDetailsResponse,
-  type GitreadLogResponse as LogResponse,
-  type GitreadStatusResponse as StatusResponse,
 } from "openapi/http";
 import { ensureTrackedGitPaneGraphWindow } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
@@ -26,6 +22,16 @@ import {
   selectGitCommitFile,
   setGitDiffMode,
 } from "./git";
+import {
+  commit,
+  createCommitDetailsResponse,
+  createDeferred,
+  createLogResponse,
+  createStatusResponse,
+  getGraphState,
+  setGitStatusResponse,
+  setGraphOverlayState,
+} from "./git.helpers.test";
 
 vi.mock("openapi/http", () => ({
   getGitCommitDetails: vi.fn(),
@@ -49,159 +55,6 @@ vi.mock("@setta/app-subsystem-frontend-sdk", async (importOriginal) => {
 vi.mock("state/actions/projectChatWindowing", () => ({
   ensureTrackedGitPaneGraphWindow: vi.fn(),
 }));
-
-function commit(hash: string, parents: string[]): Commit {
-  return {
-    hash,
-    parents,
-    authorName: "A",
-    authorEmail: "a@example.com",
-    authorTimeMs: 1,
-    subject: hash,
-    decorations: [],
-  };
-}
-
-function createLogResponse({
-  commits,
-  offset,
-  pageSize,
-  nextOffset,
-  hasMore,
-  isCapped,
-}: {
-  commits: Commit[];
-  offset: number;
-  pageSize: number;
-  nextOffset: number | null;
-  hasMore: boolean;
-  isCapped: boolean;
-}): LogResponse {
-  return {
-    repoRoot: "/repo",
-    headBranch: "main",
-    commits,
-    offset,
-    pageSize,
-    nextOffset,
-    hasMore,
-    isCapped,
-  };
-}
-
-function createCommitDetailsResponse(
-  overrides: Partial<CommitDetailsResponse> &
-    Pick<CommitDetailsResponse, "commitHash">,
-): CommitDetailsResponse {
-  return {
-    repoRoot: overrides.repoRoot ?? "/repo",
-    commitHash: overrides.commitHash,
-    parents: overrides.parents ?? [],
-    authorName: overrides.authorName ?? "A",
-    authorEmail: overrides.authorEmail ?? "a@example.com",
-    authorTimeMs: overrides.authorTimeMs ?? 1,
-    committerName: overrides.committerName ?? "A",
-    committerEmail: overrides.committerEmail ?? "a@example.com",
-    committerTimeMs: overrides.committerTimeMs ?? 1,
-    subject: overrides.subject ?? overrides.commitHash,
-    body: overrides.body ?? "",
-    files: overrides.files ?? [],
-    isTruncated: overrides.isTruncated ?? false,
-  };
-}
-
-function createStatusResponse(
-  entries: StatusResponse["entries"],
-): StatusResponse {
-  return {
-    repo: {
-      isGitRepo: true,
-      repoRoot: "/repo",
-      headBranch: "main",
-      headCommit: "abc123",
-    },
-    entries,
-    isTruncated: false,
-    worktrees: [],
-  };
-}
-
-function setGraphOverlayState({
-  projectConfigId = "project-config-1",
-  response,
-  filterText = "",
-  loadMoreError = null,
-}: {
-  projectConfigId?: string;
-  response: LogResponse;
-  filterText?: string;
-  loadMoreError?: string | null;
-}): void {
-  const commits = response.commits ?? [];
-  const rowResult = computeGitGraphRowsWithState(commits);
-  useGitStore.setState((state) => ({
-    ...state,
-    graph: {
-      projectConfigId,
-      allRefs: true,
-      response,
-      seenCommitHashes: new Set(commits.map((commit) => commit.hash)),
-      rows: rowResult.rows,
-      rowComputationState: rowResult.rowComputationState,
-      filterText,
-      isLoading: false,
-      isLoadingMore: false,
-      error: null,
-      loadMoreError,
-      hasMore: response.hasMore,
-      nextOffset: response.nextOffset,
-      pageSize: response.pageSize,
-      isCapped: response.isCapped,
-      selectedCommitHash: null,
-      selectedCommitDetails: null,
-      selectedCommitDetailsIsLoading: false,
-      selectedCommitDetailsError: null,
-      selectedCommitFilePath: null,
-      selectedCommitFileDiffResponse: null,
-      selectedCommitFileDiffIsLoading: false,
-      selectedCommitFileDiffError: null,
-    },
-  }));
-}
-
-function getGraphState() {
-  const graph = useGitStore.getState().graph;
-  expect(graph).not.toBeNull();
-  if (!graph) {
-    throw new Error("Expected git graph state.");
-  }
-  return graph;
-}
-
-function createDeferred<T>() {
-  let resolve: (value: T) => void = () => undefined;
-  const promise = new Promise<T>((nextResolve) => {
-    resolve = nextResolve;
-  });
-  return { promise, resolve };
-}
-
-async function setGitStatusResponse(
-  entries: Array<{
-    path: string;
-    oldPath: string | null;
-    indexStatus: string;
-    worktreeStatus: string;
-    kind: "conflict" | "staged" | "unstaged" | "untracked";
-  }>,
-): Promise<void> {
-  vi.mocked(getGitStatus).mockResolvedValue({
-    status: 200,
-    hasResponse: true,
-    data: createStatusResponse(entries),
-  });
-  await refreshGitStatus();
-}
 
 describe("git graph actions", () => {
   beforeEach(() => {
