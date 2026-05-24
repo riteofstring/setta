@@ -4,6 +4,7 @@ import { nowChromeReproPerformanceMs } from "state/actions/chromeRepro";
 
 import type { GpuFlowRuntime } from "../gpuDevice";
 import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
+import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuSurfaceProps } from "../GpuSurface";
 import { getGpuWheelGestureOwnershipArbiter } from "../interactions/wheelOwnership";
 import type { GpuFlowPreparedContentFrame } from "../preparedContentFrame";
@@ -224,9 +225,23 @@ export function renderGpuFlowSurfaceFrame({
       }) => {
         frameMeasureDetail.lane = reducerDecision.lane;
         frameMeasureDetail.reducerState = reducerDecision.reducerState;
+        frameMeasureDetail.reducerReasons =
+          reducerDecision.rawReasons.join("+") || "none";
         frameMeasureDetail.contentDebt = reducerDecision.debt.content;
         frameMeasureDetail.maintenanceDebt = reducerDecision.debt.maintenance;
         frameMeasureDetail.motionDebt = reducerDecision.debt.motion;
+        frameMeasureDetail.safetyDebtActive =
+          reducerDecision.classifiedDebt?.safety.active ?? false;
+        frameMeasureDetail.safetyDebtAgeFrames =
+          reducerDecision.classifiedDebt?.safety.ageFrames ?? 0;
+        frameMeasureDetail.continuityDebtActive =
+          reducerDecision.classifiedDebt?.continuity.active ?? false;
+        frameMeasureDetail.continuityDebtAgeFrames =
+          reducerDecision.classifiedDebt?.continuity.ageFrames ?? 0;
+        frameMeasureDetail.qualityDebtActive =
+          reducerDecision.classifiedDebt?.quality.active ?? false;
+        frameMeasureDetail.qualityDebtAgeFrames =
+          reducerDecision.classifiedDebt?.quality.ageFrames ?? 0;
         frameMeasureDetail.requestContentDebt =
           presentationFrameContext.frameRequest.contentDebt;
         frameMeasureDetail.requestCriticalContentDebt =
@@ -292,6 +307,14 @@ export function renderGpuFlowSurfaceFrame({
         presentationFrameContext,
         runRetainedPreparedContentFramePresentationContentStage,
       }) => {
+        frameMeasureDetail.activeEditorPinCount =
+          presentationFrameContext.activeEditorPins.length;
+        frameMeasureDetail.contentWorkPlanKind =
+          contentPreparationWorkPlan.kind;
+        frameMeasureDetail.hasPreviousRetainedDisplayFrame =
+          input.retainedDisplayFrameRef.current !== null;
+        frameMeasureDetail.hasPreviousVisibleProjectionState =
+          previousVisibleProjectionState !== null;
         const finishContentMeasure = startGpuFlowPerformanceMeasure(
           "surface-frame-prepared-content",
           frameMeasureDetail,
@@ -692,6 +715,7 @@ function renderGpuFlowSurfaceContentPreparationFrame({
       activeEditorActivationPending,
       contentPreparationWorkPlan,
       deferResolutionUpdates,
+      frameReasons: event.reasons,
       previousVisibleProjectionState,
       reducerDecision,
       retainedContentFrameCacheRef: input.retainedContentFrameCacheRef,
@@ -763,6 +787,7 @@ function shouldRenderGpuFlowSurfaceContentPreparationFrame({
   activeEditorActivationPending,
   contentPreparationWorkPlan,
   deferResolutionUpdates,
+  frameReasons,
   previousVisibleProjectionState,
   reducerDecision,
   retainedContentFrameCacheRef,
@@ -771,6 +796,7 @@ function shouldRenderGpuFlowSurfaceContentPreparationFrame({
   readonly activeEditorActivationPending: boolean;
   readonly contentPreparationWorkPlan: GpuFlowContentPreparationWorkPlan;
   readonly deferResolutionUpdates: boolean;
+  readonly frameReasons: readonly GpuFrameReason[];
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly retainedContentFrameCacheRef: RenderGpuFlowSurfaceFrameInput["retainedContentFrameCacheRef"];
@@ -782,6 +808,7 @@ function shouldRenderGpuFlowSurfaceContentPreparationFrame({
   return !shouldSkipDeferredGpuFlowContentPresentation({
     activeEditorActivationPending,
     deferResolutionUpdates,
+    frameReasons,
     previousVisibleProjectionState,
     reducerDecision,
     retainedContentFrameCacheRef,
@@ -792,6 +819,7 @@ function shouldRenderGpuFlowSurfaceContentPreparationFrame({
 function shouldSkipDeferredGpuFlowContentPresentation({
   activeEditorActivationPending,
   deferResolutionUpdates,
+  frameReasons,
   previousVisibleProjectionState,
   reducerDecision,
   retainedContentFrameCacheRef,
@@ -799,6 +827,7 @@ function shouldSkipDeferredGpuFlowContentPresentation({
 }: {
   readonly activeEditorActivationPending: boolean;
   readonly deferResolutionUpdates: boolean;
+  readonly frameReasons: readonly GpuFrameReason[];
   readonly previousVisibleProjectionState: GpuFlowVisibleProjectionState | null;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly retainedContentFrameCacheRef: RenderGpuFlowSurfaceFrameInput["retainedContentFrameCacheRef"];
@@ -808,6 +837,7 @@ function shouldSkipDeferredGpuFlowContentPresentation({
     !shouldConsiderGpuFlowDeferredContentPreparation({
       activeEditorActivationPending,
       deferResolutionUpdates,
+      frameReasons,
       hasPreviousRetainedDisplayFrame: retainedDisplayFrameRef.current !== null,
       hasPreviousVisibleProjectionState:
         previousVisibleProjectionState !== null,

@@ -306,6 +306,36 @@ describe("GPU Flow visible frame resource graph proofs", () => {
     expect(snapshot.resourceStates).toHaveLength(9);
   });
 
+  it("normalizes prepared text actors before registering graph-managed actor resources", () => {
+    const registry = createGpuFlowVisibleFrameResourceGraph();
+    const frame = {
+      ...preparedContentFrame({ displayFrameId: 44 }),
+      actorGenerations: [
+        {
+          actorFamily: "text-like-dom-control",
+          actorId: "settings:text-control",
+          visibleNonempty: true,
+        },
+      ],
+    } as unknown as GpuFlowPreparedContentFrame;
+
+    registry.registerPreparedContentFrame({
+      browserVisualCandidate: browserVisualCandidate({
+        frameId: frame.displayFrameId,
+      }),
+      frame,
+    });
+
+    const snapshot = registry.getSnapshot();
+    const browserTextResourceKey =
+      "actor:browser-text-control:settings:text-control";
+    expect(snapshot.actorResourceKeys).toContain(browserTextResourceKey);
+    expect(snapshot.candidateResourceKeys).toContain(browserTextResourceKey);
+    expect(snapshot.resourceStates).toContainEqual(
+      resourceState(browserTextResourceKey, "ready", 44),
+    );
+  });
+
   it("presents one candidate, records presented resources, and releases loser candidates", () => {
     const registry = createGpuFlowVisibleFrameResourceGraph();
     const loserResource = resourceHandle("page", "loser-page");

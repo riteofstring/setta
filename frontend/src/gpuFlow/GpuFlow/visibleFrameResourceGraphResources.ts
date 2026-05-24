@@ -5,6 +5,7 @@ import type {
 } from "../preparedContentFrame";
 import type { SurfaceResourceHandle } from "../surfaceCompositor/surfaceCoverage";
 import type { GpuFlowBrowserVisualActorCandidate } from "./browserVisualActorRuntime";
+import { getGpuFlowBrowserStyleVisibleFrameActorFamily } from "./visibleFrameActorRegistry";
 import { GPU_FLOW_PRESENTATION_ACTOR_FAMILIES } from "./visibleFrameActorManifest";
 import {
   createGpuFlowDomControlLiveHostPreparationResourceKey,
@@ -556,7 +557,7 @@ function createGpuFlowVisibleFrameCandidateActorResourceKeys(
       return [
         createGpuFlowVisibleFrameActorResourceKey({
           actorId: actor.actorId,
-          family: actor.actorFamily,
+          family: getGpuFlowBrowserStyleVisibleFrameActorFamily(actor),
         }),
       ];
     }),

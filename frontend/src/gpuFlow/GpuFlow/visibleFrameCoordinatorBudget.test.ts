@@ -16,7 +16,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
   it("brokers retained resolution deferral inside the coordinator frame context", () => {
     const cases = [
       {
-        expected: false,
+        expected: true,
         expectedResolutionDebtRequested: true,
         lane: "content",
         rawReasons: ["manual"],
@@ -25,7 +25,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         viewportInteractionActive: false,
       },
       {
-        expected: false,
+        expected: true,
         expectedResolutionDebtRequested: true,
         lane: "maintenance",
         rawReasons: ["manual"],
@@ -52,7 +52,7 @@ describe("GPU Flow visible frame coordinator budget", () => {
         viewportInteractionActive: false,
       },
       {
-        expected: false,
+        expected: true,
         expectedResolutionDebtRequested: true,
         lane: "content",
         rawReasons: ["texture-upload", "manual"],
@@ -61,8 +61,8 @@ describe("GPU Flow visible frame coordinator budget", () => {
         viewportInteractionActive: false,
       },
       {
-        expected: false,
-        expectedResolutionDebtRequested: false,
+        expected: true,
+        expectedResolutionDebtRequested: true,
         lane: "content",
         rawReasons: ["retained-scroll", "texture-upload"],
         runtimeViewportFrame: false,

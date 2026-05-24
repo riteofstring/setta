@@ -1,7 +1,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 
-import { expect, type Page } from "@playwright/test";
+import { expect, type ConsoleMessage, type Page } from "@playwright/test";
 
 import { ensureAppReady, postBackend } from "../helpers";
 import { readRetainedCompositorVisibleFrameDiagnostics } from "./settings-retained-compositor-diagnostics";
@@ -119,21 +119,60 @@ export type RetainedCompositorViewportSample = {
 export async function openAllSettingsForRetainedCompositor(
   page: Page,
 ): Promise<void> {
-  await ensureAppReady(page);
-  await postBackend(page, "/setActiveViewMode", {
-    activeViewModeId: "settings-all",
-    projectConfigId: "settings",
-  });
-  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-  await page.getByRole("button", { name: "fit view" }).click();
-  await waitForAnimationFrame(page);
-  await page.getByRole("button", { exact: true, name: "All Settings" }).click();
-  await expect
-    .poll(() => readRetainedCompositorRowCount(page), { timeout: 10_000 })
-    .toBeGreaterThan(50);
-  await waitForRetainedCompositorCoherentVisibleFrame(page);
-  await waitForAnimationFrame(page);
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  const onConsole = (message: ConsoleMessage) => {
+    if (message.type() === "error") {
+      const text = message.text();
+      if (text && !consoleErrors.includes(text)) {
+        consoleErrors.push(text);
+      }
+    }
+  };
+  const onPageError = (error: Error) => {
+    const message = error?.stack || error?.message || String(error);
+    if (message && !pageErrors.includes(message)) {
+      pageErrors.push(message);
+    }
+  };
+  page.on("console", onConsole);
+  page.on("pageerror", onPageError);
+  try {
+    await ensureAppReady(page);
+    await postBackend(page, "/setActiveViewMode", {
+      activeViewModeId: "settings-all",
+      projectConfigId: "settings",
+    });
+    await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+    await page.getByRole("button", { name: "fit view" }).click();
+    await waitForAnimationFrame(page);
+    await page
+      .getByRole("button", { exact: true, name: "All Settings" })
+      .click();
+    await expect
+      .poll(() => readRetainedCompositorRowCount(page), { timeout: 10_000 })
+      .toBeGreaterThan(50);
+    await waitForRetainedCompositorCoherentVisibleFrame(page);
+    await waitForAnimationFrame(page);
+  } catch (error) {
+    throw new Error(
+      [
+        error instanceof Error ? error.message : String(error),
+        pageErrors.length
+          ? `Page errors:\n${pageErrors.slice(0, 5).join("\n")}`
+          : "",
+        consoleErrors.length
+          ? `Console errors:\n${consoleErrors.slice(0, 10).join("\n")}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
+    );
+  } finally {
+    page.off("console", onConsole);
+    page.off("pageerror", onPageError);
+  }
 }
 
 export async function waitForRetainedCompositorCoherentVisibleFrame(

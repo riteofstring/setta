@@ -19,11 +19,11 @@ export function shouldDeferGpuFlowContentPreparationResolutionUpdatesForSample({
 }): boolean {
   return (
     deferResolutionUpdates &&
-    (preparedContentFrame === null ||
-      isGpuFlowPreparedContentFrameSampleCurrent({
-        preparedContentFrame,
-        sample,
-      }))
+    preparedContentFrame !== null &&
+    isGpuFlowPreparedContentFrameSampleCurrent({
+      preparedContentFrame,
+      sample,
+    })
   );
 }
 

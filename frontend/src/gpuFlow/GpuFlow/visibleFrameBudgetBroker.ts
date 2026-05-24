@@ -107,8 +107,6 @@ export function createGpuFlowVisibleFrameBudgetBroker({
           : normalizedPolicy.perFramePreparationBudgetMs;
       const selected = selectGpuFlowVisibleFrameBudgetDebt({
         availableMs,
-        maxContinuityDebtAgeFrames: normalizedPolicy.maxContinuityDebtAgeFrames,
-        maxSafetyDebtAgeFrames: normalizedPolicy.maxSafetyDebtAgeFrames,
         requestedDebt: agedDebt,
       });
       const selectedDebtIds = selected.selectedDebt.map((debt) => debt.id);
@@ -135,8 +133,6 @@ export function createGpuFlowVisibleFrameBudgetBroker({
       });
       const browserVisualDebt =
         selectGpuFlowVisibleFrameBrowserVisualDebt(agedDebt);
-      const resolutionDebtSelected =
-        selectedDebtIds.includes("resolution-update");
       return Object.freeze({
         browserVisualRepair: Object.freeze({
           debtAgeFrames: browserVisualDebt?.debtAgeFrames ?? 0,
@@ -166,7 +162,7 @@ export function createGpuFlowVisibleFrameBudgetBroker({
           usedMs: selected.usedMs,
         }),
         resolutionUpdates: Object.freeze({
-          deferred: deferResolutionUpdates && !resolutionDebtSelected,
+          deferred: deferResolutionUpdates,
         }),
       });
     },
@@ -424,13 +420,9 @@ function ageGpuFlowVisibleFrameBudgetDebt({
 
 function selectGpuFlowVisibleFrameBudgetDebt({
   availableMs,
-  maxContinuityDebtAgeFrames,
-  maxSafetyDebtAgeFrames,
   requestedDebt,
 }: {
   readonly availableMs: number;
-  readonly maxContinuityDebtAgeFrames: number;
-  readonly maxSafetyDebtAgeFrames: number;
   readonly requestedDebt: readonly GpuFlowVisibleFrameAgedBudgetDebtRequest[];
 }): {
   readonly deferredDebt: readonly GpuFlowVisibleFrameAgedBudgetDebtRequest[];
@@ -440,8 +432,6 @@ function selectGpuFlowVisibleFrameBudgetDebt({
   const sortedDebt = [...requestedDebt].sort((left, right) =>
     compareGpuFlowVisibleFrameBudgetDebt({
       left,
-      maxContinuityDebtAgeFrames,
-      maxSafetyDebtAgeFrames,
       right,
     }),
   );
@@ -465,51 +455,27 @@ function selectGpuFlowVisibleFrameBudgetDebt({
 
 function compareGpuFlowVisibleFrameBudgetDebt({
   left,
-  maxContinuityDebtAgeFrames,
-  maxSafetyDebtAgeFrames,
   right,
 }: {
   readonly left: GpuFlowVisibleFrameAgedBudgetDebtRequest;
-  readonly maxContinuityDebtAgeFrames: number;
-  readonly maxSafetyDebtAgeFrames: number;
   readonly right: GpuFlowVisibleFrameAgedBudgetDebtRequest;
 }): number {
   return (
-    getGpuFlowVisibleFrameBudgetDebtRank({
-      debt: left,
-      maxContinuityDebtAgeFrames,
-      maxSafetyDebtAgeFrames,
-    }) -
-      getGpuFlowVisibleFrameBudgetDebtRank({
-        debt: right,
-        maxContinuityDebtAgeFrames,
-        maxSafetyDebtAgeFrames,
-      }) ||
+    getGpuFlowVisibleFrameBudgetDebtRank(left) -
+      getGpuFlowVisibleFrameBudgetDebtRank(right) ||
     compareGpuFlowVisibleFrameBudgetDebtDeadline(left, right) ||
     right.debtAgeFrames - left.debtAgeFrames ||
     left.id.localeCompare(right.id)
   );
 }
 
-function getGpuFlowVisibleFrameBudgetDebtRank({
-  debt,
-  maxContinuityDebtAgeFrames,
-  maxSafetyDebtAgeFrames,
-}: {
-  readonly debt: GpuFlowVisibleFrameAgedBudgetDebtRequest;
-  readonly maxContinuityDebtAgeFrames: number;
-  readonly maxSafetyDebtAgeFrames: number;
-}): number {
-  if (
-    debt.priority === "safety" ||
-    debt.debtAgeFrames >= maxSafetyDebtAgeFrames
-  ) {
+function getGpuFlowVisibleFrameBudgetDebtRank(
+  debt: GpuFlowVisibleFrameAgedBudgetDebtRequest,
+): number {
+  if (debt.priority === "safety") {
     return 0;
   }
-  if (
-    debt.priority === "continuity" ||
-    debt.debtAgeFrames >= maxContinuityDebtAgeFrames
-  ) {
+  if (debt.priority === "continuity") {
     return 1;
   }
   return 2;

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useSyncExternalStore } from "react";
 
 import type { HtmlSurfaceSolidRoundedRectVisual } from "../htmlSurfaces/visualScene";
+import { startGpuFlowPerformanceMeasure } from "../gpuFlowPerformanceMarks";
 import {
   createGpuFlowPreparedContentFrame,
   createGpuFlowStartupPreparedContentFrame,
@@ -77,10 +78,28 @@ export function useGpuFlowPresentedSurfaceFrameState({
         getGpuFlowBrowserVisualActorRuntimeForPresentedSurface(
           presentedSurfaceRuntimeRef.current,
         );
+      const finishBrowserVisualCandidateMeasure =
+        startGpuFlowPerformanceMeasure(
+          "prepared-content-browser-visual-candidate",
+          {
+            domControlCount:
+              nextRetainedDisplayFrame.retainedRuntimeFrame.descriptors
+                .domControlSources.length,
+            frame: nextRetainedDisplayFrame.id,
+          },
+        );
       const browserVisualCandidate = browserVisualRuntime.prepareContentFrame({
         retainedDisplayFrame: nextRetainedDisplayFrame,
         viewport: options?.viewport,
       });
+      finishBrowserVisualCandidateMeasure();
+      const finishPreparedContentBuildMeasure =
+        startGpuFlowPerformanceMeasure("prepared-content-build", {
+          domControlCount:
+            nextRetainedDisplayFrame.retainedRuntimeFrame.descriptors
+              .domControlSources.length,
+          frame: nextRetainedDisplayFrame.id,
+        });
       const nextPreparedContentFrame = createGpuFlowPreparedContentFrame({
         browserVisualReadiness: browserVisualCandidate.readiness,
         domPresentationEvidence: browserVisualCandidate.presentationEvidence,
@@ -88,10 +107,19 @@ export function useGpuFlowPresentedSurfaceFrameState({
         previousPreparedContentFrame,
         retainedDisplayFrame: nextRetainedDisplayFrame,
       });
+      finishPreparedContentBuildMeasure();
+      const finishResourceGraphMeasure = startGpuFlowPerformanceMeasure(
+        "prepared-content-resource-graph-register",
+        {
+          actorCount: nextPreparedContentFrame.actorGenerations.length,
+          frame: nextPreparedContentFrame.displayFrameId,
+        },
+      );
       visibleFrameResourceGraphRef.current.registerPreparedContentFrame({
         browserVisualCandidate,
         frame: nextPreparedContentFrame,
       });
+      finishResourceGraphMeasure();
       return nextPreparedContentFrame;
     },
     [],

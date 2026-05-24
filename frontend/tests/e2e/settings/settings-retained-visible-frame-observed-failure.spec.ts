@@ -987,10 +987,33 @@ async function readGpuFlowPerformanceMeasureDiagnostics(
           startTimeMs: entry.startTime,
         };
       });
+    const phaseTotals = [...measures]
+      .reduce((totals, measure) => {
+        const current = totals.get(measure.phase) ?? {
+          count: 0,
+          maxDurationMs: 0,
+          totalDurationMs: 0,
+        };
+        current.count += 1;
+        current.maxDurationMs = Math.max(
+          current.maxDurationMs,
+          measure.durationMs,
+        );
+        current.totalDurationMs += measure.durationMs;
+        totals.set(measure.phase, current);
+        return totals;
+      }, new Map<string, { count: number; maxDurationMs: number; totalDurationMs: number }>());
     return {
       longest: [...measures]
         .sort((left, right) => right.durationMs - left.durationMs)
         .slice(0, 30),
+      phaseTotals: Object.fromEntries(
+        [...phaseTotals.entries()].sort(
+          (left, right) =>
+            right[1].maxDurationMs - left[1].maxDurationMs ||
+            right[1].totalDurationMs - left[1].totalDurationMs,
+        ),
+      ),
       recent: measures.slice(-30),
       totalCount: measures.length,
     };
@@ -1030,6 +1053,10 @@ type ObservedGpuFlowPerformanceMeasure = {
 
 type ObservedGpuFlowPerformanceMeasureDiagnostics = {
   readonly longest: readonly ObservedGpuFlowPerformanceMeasure[];
+  readonly phaseTotals: Record<
+    string,
+    { count: number; maxDurationMs: number; totalDurationMs: number }
+  >;
   readonly recent: readonly ObservedGpuFlowPerformanceMeasure[];
   readonly totalCount: number;
 };

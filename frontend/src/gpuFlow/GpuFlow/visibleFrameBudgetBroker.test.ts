@@ -93,6 +93,21 @@ describe("GPU Flow visible frame budget broker", () => {
     );
   });
 
+  it("keeps deferred retained resolution updates behind the coordinator deferral policy", () => {
+    const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
+      deferResolutionUpdates: true,
+      reducerDecision: reducerDecision({
+        lane: "maintenance",
+        reducerState: "maintenance-drain",
+      }),
+    });
+
+    expect(decision.preparationBudget.selectedDebtIds).toContain(
+      "resolution-update",
+    );
+    expect(decision.resolutionUpdates).toEqual({ deferred: true });
+  });
+
   it("uses concrete retained-page resource debt instead of synthetic continuity repair", () => {
     const decision = createGpuFlowVisibleFrameBudgetBrokerDecision({
       deferResolutionUpdates: false,
@@ -187,6 +202,45 @@ describe("GPU Flow visible frame budget broker", () => {
       usedMs: 1,
     });
     expect(decision.browserVisualRepair.eligible).toBe(true);
+  });
+
+  it("does not promote aged quality debt above visible repair priority", () => {
+    const budgetBroker = createGpuFlowVisibleFrameBudgetBroker({
+      policy: {
+        maxSafetyDebtAgeFrames: 1,
+        maxContinuityDebtAgeFrames: 2,
+        minPreparationBudgetDuringMotionMs: 1,
+        perFramePreparationBudgetMs: 1,
+        reservedMotionProjectionBudgetMs: 2,
+      },
+    });
+
+    const decision = budgetBroker.selectFrameBudget({
+      deferResolutionUpdates: false,
+      reducerDecision: reducerDecision({
+        lane: "content",
+        reducerState: "content-catchup",
+      }),
+      requestedDebt: [
+        {
+          debtAgeFrames: 25,
+          estimatedCostMs: 1,
+          id: "aaa-quality-refinement",
+          priority: "quality",
+        },
+        {
+          estimatedCostMs: 1,
+          id: "zzz-browser-visual-repair",
+          priority: "safety",
+        },
+      ],
+    });
+
+    expect(decision.preparationBudget).toMatchObject({
+      deferredDebtIds: ["aaa-quality-refinement"],
+      selectedDebtIds: ["zzz-browser-visual-repair"],
+      usedMs: 1,
+    });
   });
 
   it("ages deferred debt so starvation is visible to the coordinator", () => {

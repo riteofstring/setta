@@ -1,4 +1,7 @@
-import { createGpuFlowJsonDigest } from "./gpuFlowDigest";
+import {
+  createGpuFlowPrimitiveSequenceDigest,
+  type GpuFlowDigestPrimitive,
+} from "./gpuFlowDigest";
 import { assertGpuFlowBrowserVisualSurfaceFragment } from "./preparedContentBrowserVisualFragment";
 import {
   assertGpuFlowPreparedContentCompleteness,
@@ -269,69 +272,53 @@ export function createGpuFlowPreparedContentActorManifestDigest(
   if (cached !== undefined) {
     return cached;
   }
-  const digest = createGpuFlowJsonDigest(
+  const digest = createGpuFlowPrimitiveSequenceDigest(
     "prepared-content-frame-actor-manifest",
-    actorGenerations.map(createGpuFlowPreparedContentActorManifestEntry),
+    createGpuFlowPreparedContentActorManifestDigestFields(actorGenerations),
   );
   actorManifestDigestCache.set(actorGenerations, digest);
   return digest;
 }
 
-function createGpuFlowPreparedContentActorManifestEntry(
-  actor: GpuFlowPreparedContentActorGeneration,
-) {
-  return [
-    actor.actorId,
-    actor.canonicalActorId,
-    actor.kind,
-    actor.actorFamily,
-    actor.generationClassification,
-    actor.generationId,
-    actor.contentGenerationId,
-    actor.layoutProjectionGenerationId,
-    actor.readinessGenerationId,
-    actor.semanticGenerationId,
-    actor.visualGenerationId,
-    actor.clipChainRevision,
-    actor.liveMotionSampleId,
-    actor.ownerSurfaceId,
-    actor.controlId,
-    actor.islandId,
-    actor.rowId,
-    actor.focusIdentity,
-    actor.active,
-    actor.pointerEvents,
-    actor.mountReadiness,
-    actor.projectionReadiness,
-    actor.visibleNonempty,
-    actor.retainedScrollRevision,
-    actor.valueStyleRevision,
-    actor.textSnapshotCacheKeyRevision,
-    actor.wheelPolicy,
-    actor.zOrder,
-    actor.browserVisual === null
-      ? null
-      : [
-          actor.browserVisual.coverageState,
-          actor.browserVisual.coverageRequired?.required ?? null,
-          actor.browserVisual.coverageRequired?.reason ?? null,
-          actor.browserVisual.coverageExemption?.reason ?? null,
-          actor.browserVisual.nonemptyReason,
-          actor.browserVisual.proof
-            ? [
-                actor.browserVisual.proof.actualInteraction,
-                actor.browserVisual.proof.actualVisual,
-                actor.browserVisual.proof.requiredInteraction,
-                actor.browserVisual.proof.requiredVisual,
-              ]
-            : null,
-          actor.browserVisual.representationKind,
-          actor.browserVisual.resourceHandles.map(
-            createGpuFlowPreparedContentResourceHandleDigest,
-          ),
-          actor.browserVisual.visibilityReason,
-        ],
-  ] as const;
+function* createGpuFlowPreparedContentActorManifestDigestFields(
+  actorGenerations: readonly GpuFlowPreparedContentActorGeneration[],
+): Iterable<GpuFlowDigestPrimitive> {
+  for (const actor of actorGenerations) {
+    yield "actor";
+    yield actor.actorId;
+    yield actor.canonicalActorId;
+    yield actor.kind;
+    yield actor.actorFamily;
+    yield actor.generationClassification;
+    yield actor.generationId;
+    yield actor.semanticGenerationId;
+    yield actor.visualGenerationId;
+    yield actor.clipChainRevision;
+    yield actor.mountReadiness;
+    yield actor.projectionReadiness;
+    const browserVisual = actor.browserVisual;
+    if (browserVisual === null) {
+      yield null;
+      continue;
+    }
+    yield "browser-visual";
+    yield browserVisual.coverageState;
+    yield browserVisual.coverageRequired?.required ?? null;
+    yield browserVisual.coverageRequired?.reason ?? null;
+    if (browserVisual.proof) {
+      yield "proof";
+      yield browserVisual.proof.actualInteraction;
+      yield browserVisual.proof.actualVisual;
+      yield browserVisual.proof.requiredInteraction;
+      yield browserVisual.proof.requiredVisual;
+    } else {
+      yield null;
+    }
+    yield browserVisual.representationKind;
+    for (const handle of browserVisual.resourceHandles) {
+      yield* createGpuFlowPreparedContentResourceHandleDigestFields(handle);
+    }
+  }
 }
 
 function hasCachedGpuFlowPreparedContentPresentationProofValidation(
@@ -562,24 +549,16 @@ function createGpuFlowPresentationGenerationIds(
   ];
 }
 
-function createGpuFlowPreparedContentResourceHandleDigest(
+function* createGpuFlowPreparedContentResourceHandleDigestFields(
   handle: SurfaceResourceHandle,
-): readonly [
-  SurfaceResourceHandle["kind"],
-  string,
-  string | null,
-  string | null,
-  string | null,
-  string | null,
-] {
-  return [
-    handle.kind,
-    handle.id,
-    handle.actorId ?? null,
-    handle.contentGenerationId ?? null,
-    handle.projectionGenerationId ?? null,
-    handle.resourceGenerationId ?? null,
-  ];
+): Iterable<GpuFlowDigestPrimitive> {
+  yield "resource";
+  yield handle.kind;
+  yield handle.id;
+  yield handle.actorId ?? null;
+  yield handle.contentGenerationId ?? null;
+  yield handle.projectionGenerationId ?? null;
+  yield handle.resourceGenerationId ?? null;
 }
 
 function createGpuFlowPreparedContentPresentationBrowserVisualFragmentDigest(
@@ -589,31 +568,54 @@ function createGpuFlowPreparedContentPresentationBrowserVisualFragmentDigest(
   if (cached !== undefined) {
     return cached;
   }
-  const digest = createGpuFlowJsonDigest("prepared-content-browser-visual", {
-    activeIslandIds: fragment.activeIslands.map((island) => island.islandId),
-    actorGenerations: fragment.actorSnapshots.map(
-      (snapshot) => snapshot.generation.generationId,
-    ),
-    blockingGenerationIds: fragment.blockingGenerationIds,
-    blockingSurfaceIds: fragment.blockingSurfaceIds,
-    compatibleCoverage: fragment.compatibleCoverage.map((entry) => [
-      entry.surfaceId,
-      entry.generationId,
-    ]),
-    exactCoverage: fragment.exactCoverage.map((entry) => [
-      entry.surfaceId,
-      entry.generationId,
-    ]),
-    protectedResourceHandles: fragment.protectedResourceHandles.map(
-      (handle) => [handle.kind, handle.id, handle.reason],
-    ),
-    rendererBucketCount: fragment.rendererBuckets.length,
-    trueHoleRectCount: fragment.trueHoleRects.length,
-    visibleRectCount: fragment.visibleRects.length,
-    zOrderCount: fragment.zOrder.length,
-  });
+  const digest = createGpuFlowPrimitiveSequenceDigest(
+    "prepared-content-browser-visual",
+    createGpuFlowPreparedContentBrowserVisualFragmentDigestFields(fragment),
+  );
   browserVisualFragmentDigestCache.set(fragment, digest);
   return digest;
+}
+
+function* createGpuFlowPreparedContentBrowserVisualFragmentDigestFields(
+  fragment: BrowserVisualSurfaceTransactionFragment,
+): Iterable<GpuFlowDigestPrimitive> {
+  yield "active-islands";
+  for (const island of fragment.activeIslands) {
+    yield island.islandId;
+  }
+  yield "actor-generations";
+  for (const snapshot of fragment.actorSnapshots) {
+    yield snapshot.generation.generationId;
+  }
+  yield "blocking-generations";
+  for (const generationId of fragment.blockingGenerationIds) {
+    yield generationId;
+  }
+  yield "blocking-surfaces";
+  for (const surfaceId of fragment.blockingSurfaceIds) {
+    yield surfaceId;
+  }
+  yield "compatible-coverage";
+  for (const entry of fragment.compatibleCoverage) {
+    yield entry.surfaceId;
+    yield entry.generationId;
+  }
+  yield "exact-coverage";
+  for (const entry of fragment.exactCoverage) {
+    yield entry.surfaceId;
+    yield entry.generationId;
+  }
+  yield "protected-resources";
+  for (const handle of fragment.protectedResourceHandles) {
+    yield handle.kind;
+    yield handle.id;
+    yield handle.reason;
+  }
+  yield "counts";
+  yield fragment.rendererBuckets.length;
+  yield fragment.trueHoleRects.length;
+  yield fragment.visibleRects.length;
+  yield fragment.zOrder.length;
 }
 
 function createGpuFlowPreparedContentPresentationSurfaceTransactionDigest(
@@ -623,20 +625,31 @@ function createGpuFlowPreparedContentPresentationSurfaceTransactionDigest(
   if (cached !== undefined) {
     return cached;
   }
-  const digest = createGpuFlowJsonDigest("prepared-content-transaction", {
-    desiredSurfaceGenerationCount: transaction.desiredSurfaceGenerations.length,
-    drawCommandCount: transaction.drawCommands.length,
-    hitGenerationCount: transaction.hitIndex.generationIds.length,
-    hitIndexId: transaction.hitIndex.id,
-    id: transaction.id,
-    protectedResourceHandles: transaction.protectedResourceHandles.map(
-      (handle) => [handle.kind, handle.id, handle.reason],
+  const digest = createGpuFlowPrimitiveSequenceDigest(
+    "prepared-content-transaction",
+    createGpuFlowPreparedContentPresentationSurfaceTransactionDigestFields(
+      transaction,
     ),
-    rendererBucketCount: transaction.rendererBuckets.length,
-    zOrderCount: transaction.zOrder.length,
-  });
+  );
   surfaceTransactionDigestCache.set(transaction, digest);
   return digest;
+}
+
+function* createGpuFlowPreparedContentPresentationSurfaceTransactionDigestFields(
+  transaction: SurfaceDisplayTransaction,
+): Iterable<GpuFlowDigestPrimitive> {
+  yield transaction.id;
+  yield transaction.hitIndex.id;
+  yield transaction.desiredSurfaceGenerations.length;
+  yield transaction.drawCommands.length;
+  yield transaction.hitIndex.generationIds.length;
+  yield transaction.rendererBuckets.length;
+  yield transaction.zOrder.length;
+  for (const handle of transaction.protectedResourceHandles) {
+    yield handle.kind;
+    yield handle.id;
+    yield handle.reason;
+  }
 }
 
 function createGpuFlowPreparedContentPresentationBatchId({

@@ -1,11 +1,17 @@
+import type { GpuFrameReason } from "../gpuRenderer";
 import type { GpuFlowProjectionLane } from "../projectionRuntime";
-import { hasGpuFlowCriticalContentFrameRequest } from "../projectionSchedulerPolicy";
+import {
+  hasGpuFlowCriticalContentFrameRequest,
+  isGpuFlowContentFrameReason,
+  isGpuFlowMaintenanceFrameReason,
+} from "../projectionSchedulerPolicy";
 import {
   shouldDeferGpuFlowBrowserVisualRepairForBudget,
   type GpuFlowVisibleFrameBudgetBroker,
   type GpuFlowVisibleFrameBudgetBrokerDecision,
 } from "./visibleFrameBudgetBroker";
 import type { GpuFlowVisibleFrameReducerDecision } from "./visibleFrameReducerRuntime";
+import { DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY } from "./visibleFrameStateMachine";
 
 export type GpuFlowMotionProjectionWorkPlan =
   | {
@@ -105,12 +111,14 @@ export function shouldDeferGpuFlowBrowserVisualResourceWakeupForPreparation({
 export function shouldConsiderGpuFlowDeferredContentPreparation({
   activeEditorActivationPending = false,
   deferResolutionUpdates,
+  frameReasons,
   hasPreviousRetainedDisplayFrame,
   hasPreviousVisibleProjectionState,
   reducerDecision,
 }: {
   readonly activeEditorActivationPending?: boolean | undefined;
   readonly deferResolutionUpdates: boolean;
+  readonly frameReasons?: readonly GpuFrameReason[] | undefined;
   readonly hasPreviousRetainedDisplayFrame: boolean;
   readonly hasPreviousVisibleProjectionState: boolean;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
@@ -118,6 +126,7 @@ export function shouldConsiderGpuFlowDeferredContentPreparation({
   if (
     shouldKeepGpuFlowRepairPreparationOnVisiblePath({
       activeEditorActivationPending,
+      frameReasons,
       reducerDecision,
     })
   ) {
@@ -144,14 +153,28 @@ export function shouldConsiderGpuFlowDeferredContentPreparation({
 
 function shouldKeepGpuFlowRepairPreparationOnVisiblePath({
   activeEditorActivationPending,
+  frameReasons,
   reducerDecision,
 }: {
   readonly activeEditorActivationPending: boolean;
+  readonly frameReasons: readonly GpuFrameReason[] | undefined;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
 }): boolean {
+  if (
+    shouldDeferGpuFlowMaintenanceContinuityRepair({
+      frameReasons,
+      reducerDecision,
+    })
+  ) {
+    return false;
+  }
   return (
     activeEditorActivationPending ||
-    hasGpuFlowSafetyOrContinuityDebt(reducerDecision)
+    hasGpuFlowSafetyDebt(reducerDecision) ||
+    shouldKeepGpuFlowContinuityRepairPreparationOnVisiblePath({
+      frameReasons,
+      reducerDecision,
+    })
   );
 }
 
@@ -185,18 +208,58 @@ function isGpuFlowDeferredContentPreparationWindow({
 function requiresImmediateGpuFlowContentPreparation(
   reducerDecision: GpuFlowVisibleFrameReducerDecision,
 ): boolean {
-  return (
-    reducerDecision.rawReasons.includes("texture-upload") ||
-    hasGpuFlowCriticalContentFrameRequest(reducerDecision.rawReasons)
-  );
+  return hasGpuFlowCriticalContentFrameRequest(reducerDecision.rawReasons);
 }
 
-function hasGpuFlowSafetyOrContinuityDebt(
+function hasGpuFlowSafetyDebt(
   reducerDecision: GpuFlowVisibleFrameReducerDecision,
 ): boolean {
+  return reducerDecision.classifiedDebt?.safety.active === true;
+}
+
+function shouldKeepGpuFlowContinuityRepairPreparationOnVisiblePath({
+  frameReasons,
+  reducerDecision,
+}: {
+  readonly frameReasons: readonly GpuFrameReason[] | undefined;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
+}): boolean {
+  const continuityDebt = reducerDecision.classifiedDebt?.continuity;
+  const sourceReasons = frameReasons ?? reducerDecision.rawReasons;
+  if (continuityDebt?.active !== true) {
+    return false;
+  }
+  if (hasGpuFlowCriticalContentFrameRequest(reducerDecision.rawReasons)) {
+    return true;
+  }
+  if (sourceReasons.some(isGpuFlowContentFrameReason)) {
+    return true;
+  }
+  if (!sourceReasons.some(isGpuFlowMaintenanceFrameReason)) {
+    return true;
+  }
+  return !shouldDeferGpuFlowMaintenanceContinuityRepair({
+    frameReasons,
+    reducerDecision,
+  });
+}
+
+function shouldDeferGpuFlowMaintenanceContinuityRepair({
+  frameReasons,
+  reducerDecision,
+}: {
+  readonly frameReasons: readonly GpuFrameReason[] | undefined;
+  readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
+}): boolean {
+  const continuityDebt = reducerDecision.classifiedDebt?.continuity;
+  const sourceReasons = frameReasons ?? reducerDecision.rawReasons;
   return (
-    reducerDecision.classifiedDebt?.safety.active === true ||
-    reducerDecision.classifiedDebt?.continuity.active === true
+    continuityDebt?.active === true &&
+    continuityDebt.ageFrames >=
+      DEFAULT_GPU_FLOW_VISIBLE_FRAME_STARVATION_POLICY.maxConsecutiveMotionFramesBeforeContentProbe &&
+    sourceReasons.some(isGpuFlowMaintenanceFrameReason) &&
+    !sourceReasons.some(isGpuFlowContentFrameReason) &&
+    !hasGpuFlowCriticalContentFrameRequest(reducerDecision.rawReasons)
   );
 }
 

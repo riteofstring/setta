@@ -175,6 +175,16 @@ describe("GPU Flow surface frame presentation", () => {
   it("does not defer resolution updates for stale presented samples", () => {
     expect(
       shouldDeferGpuFlowContentPreparationResolutionUpdatesForSample({
+        preparedContentFrame: null,
+        deferResolutionUpdates: true,
+        sample: {
+          retainedScrollRevision: 2,
+          viewport: { x: 10, y: 20, zoom: 1 },
+        },
+      }),
+    ).toBe(false);
+    expect(
+      shouldDeferGpuFlowContentPreparationResolutionUpdatesForSample({
         preparedContentFrame: preparedContentFrameSample({
           retainedScrollRevision: 2,
           viewportSample: [0, 0, 1],

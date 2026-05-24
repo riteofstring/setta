@@ -91,7 +91,7 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
     const recentGpuFlowFrameMeasures = performance
       .getEntriesByType("measure")
       .filter((entry) => entry.name.startsWith("setta.gpuFlow.surface-frame"))
-      .slice(-8)
+      .slice(-24)
       .map((entry) => ({
         detail:
           entry instanceof PerformanceMeasure &&
@@ -102,6 +102,16 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
         duration: entry.duration,
         name: entry.name,
       }));
+    const recentGpuFlowPreparedContentMeasures = recentGpuFlowFrameMeasures
+      .filter((entry) =>
+        entry.name.startsWith("setta.gpuFlow.surface-frame-prepared-content"),
+      )
+      .slice(-8);
+    const recentGpuFlowCompletionMeasures = recentGpuFlowFrameMeasures
+      .filter((entry) =>
+        entry.name.startsWith("setta.gpuFlow.surface-frame-completion"),
+      )
+      .slice(-8);
     if (!coldStartShell) {
       return {
         blockedEventCount: blockedEvents.length,
@@ -115,7 +125,9 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
           domControlPlane?.dataset
             .gpuFlowDomControlPlanePreparedContentFrameId ?? null,
         presentationDebtFrameRequests,
+        recentGpuFlowCompletionMeasures,
         recentGpuFlowFrameMeasures,
+        recentGpuFlowPreparedContentMeasures,
         retainedNativeVisuals,
         retainedRowCount:
           window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,
@@ -198,7 +210,9 @@ export async function readRetainedCompositorVisibleFrameDiagnostics(
       preparationControlCount: document.querySelectorAll(
         '[data-gpu-flow-dom-control-preparation="true"]',
       ).length,
+      recentGpuFlowCompletionMeasures,
       recentGpuFlowFrameMeasures,
+      recentGpuFlowPreparedContentMeasures,
       retainedNativeVisuals,
       retainedRowCount:
         window.__SETTA_GPU_FLOW_DEBUG_RETAINED_ROWS__?.().length ?? 0,

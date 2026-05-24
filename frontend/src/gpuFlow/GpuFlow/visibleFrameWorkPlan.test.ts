@@ -152,7 +152,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
           reducerState: "motion-settling",
         }),
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: false,
@@ -187,7 +187,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
           reducerState: "content-catchup",
         }),
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: true,
@@ -211,7 +211,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
           reducerState: "content-catchup",
         }),
       }),
-    ).toBe(false);
+    ).toBe(true);
     expect(
       shouldConsiderGpuFlowDeferredContentPreparation({
         deferResolutionUpdates: true,
@@ -287,7 +287,7 @@ describe("GPU Flow visible frame coordinator work plans", () => {
     ).toBe(false);
   });
 
-  it("does not defer safety or continuity repair preparation", () => {
+  it("keeps safety and explicit continuity repair preparation on the visible path", () => {
     const deferredRepairInput = {
       deferResolutionUpdates: true,
       hasPreviousRetainedDisplayFrame: true,
@@ -308,6 +308,85 @@ describe("GPU Flow visible frame coordinator work plans", () => {
         }),
       }),
     ).toBe(false);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPreparation({
+        ...deferredRepairInput,
+        activeEditorActivationPending: true,
+        reducerDecision: reducerDecision({
+          classifiedDebt: {
+            continuity: { active: true, ageFrames: 12, ageMs: 192 },
+            quality: { active: false, ageFrames: 0, ageMs: 0 },
+            safety: { active: false, ageFrames: 0, ageMs: 0 },
+          },
+          lane: "content",
+          rawReasons: ["manual", "texture-upload"],
+          reducerState: "motion-active",
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPreparation({
+        ...deferredRepairInput,
+        reducerDecision: reducerDecision({
+          classifiedDebt: {
+            continuity: { active: true, ageFrames: 12, ageMs: 192 },
+            quality: { active: false, ageFrames: 0, ageMs: 0 },
+            safety: { active: false, ageFrames: 0, ageMs: 0 },
+          },
+          lane: "content",
+          rawReasons: ["paint", "texture-upload"],
+          reducerState: "motion-active",
+        }),
+      }),
+    ).toBe(true);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPreparation({
+        ...deferredRepairInput,
+        frameReasons: ["paint", "texture-upload"],
+        reducerDecision: reducerDecision({
+          classifiedDebt: {
+            continuity: { active: true, ageFrames: 12, ageMs: 192 },
+            quality: { active: false, ageFrames: 0, ageMs: 0 },
+            safety: { active: false, ageFrames: 0, ageMs: 0 },
+          },
+          lane: "content",
+          rawReasons: ["paint", "texture-upload", "manual"],
+          reducerState: "content-catchup",
+        }),
+      }),
+    ).toBe(true);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPreparation({
+        ...deferredRepairInput,
+        frameReasons: ["manual", "texture-upload"],
+        reducerDecision: reducerDecision({
+          classifiedDebt: {
+            continuity: { active: true, ageFrames: 12, ageMs: 192 },
+            quality: { active: false, ageFrames: 0, ageMs: 0 },
+            safety: { active: false, ageFrames: 0, ageMs: 0 },
+          },
+          lane: "content",
+          rawReasons: ["manual", "texture-upload"],
+          reducerState: "content-catchup",
+        }),
+      }),
+    ).toBe(false);
+    expect(
+      shouldConsiderGpuFlowDeferredContentPreparation({
+        ...deferredRepairInput,
+        activeEditorActivationPending: true,
+        reducerDecision: reducerDecision({
+          classifiedDebt: {
+            continuity: { active: true, ageFrames: 12, ageMs: 192 },
+            quality: { active: false, ageFrames: 0, ageMs: 0 },
+            safety: { active: false, ageFrames: 0, ageMs: 0 },
+          },
+          lane: "content",
+          rawReasons: ["texture-upload"],
+          reducerState: "motion-active",
+        }),
+      }),
+    ).toBe(true);
     expect(
       shouldConsiderGpuFlowDeferredContentPreparation({
         ...deferredRepairInput,

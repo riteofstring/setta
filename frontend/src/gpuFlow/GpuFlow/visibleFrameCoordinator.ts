@@ -4,6 +4,10 @@ import {
   type GpuFlowVisibleProjectionState,
 } from "../projectionRuntime";
 import {
+  hasGpuFlowCriticalContentFrameRequest,
+  isGpuFlowMaintenanceFrameReason,
+} from "../projectionSchedulerPolicy";
+import {
   resolveGpuFlowRetainedDisplayPresentation,
   type GpuFlowRetainedDisplayPresentationInput,
   type GpuFlowRetainedDisplayPresentationResult,
@@ -317,6 +321,7 @@ function reduceGpuFlowVisibleFramePresentationFrame<
   const presentationFrameContext =
     createGpuFlowVisibleFramePresentationFrameContext({
       frameRequest,
+      hasPresentedContentFrame,
       reducerDecision,
       budgetBroker,
       rawReasons,
@@ -485,6 +490,7 @@ function createGpuFlowVisibleFramePresentationPreparedFrame<
 function createGpuFlowVisibleFramePresentationFrameContext({
   budgetBroker,
   frameRequest,
+  hasPresentedContentFrame,
   reducerDecision,
   rawReasons,
   runtimeViewportFrame,
@@ -493,6 +499,7 @@ function createGpuFlowVisibleFramePresentationFrameContext({
 }: {
   readonly budgetBroker?: GpuFlowVisibleFrameBudgetBroker | undefined;
   readonly frameRequest: GpuFlowVisibleFrameRequestFacts;
+  readonly hasPresentedContentFrame: boolean;
   readonly reducerDecision: GpuFlowVisibleFrameReducerDecision;
   readonly rawReasons: readonly GpuFrameReason[];
   readonly runtimeViewportFrame: boolean;
@@ -504,6 +511,7 @@ function createGpuFlowVisibleFramePresentationFrameContext({
 }): GpuFlowVisibleFramePresentationFrameContext {
   const viewportFrame = rawReasons.includes("viewport") || runtimeViewportFrame;
   const deferResolutionUpdates = shouldDeferGpuFlowResolutionUpdates({
+    hasPresentedContentFrame,
     lane: reducerDecision.lane,
     rawReasons,
     reducerState: reducerDecision.reducerState,
@@ -528,12 +536,14 @@ function createGpuFlowVisibleFramePresentationFrameContext({
 }
 
 function shouldDeferGpuFlowResolutionUpdates({
+  hasPresentedContentFrame,
   lane,
   rawReasons,
   reducerState,
   viewportFrame,
   viewportInteractionActive,
 }: {
+  readonly hasPresentedContentFrame: boolean;
   readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly rawReasons: readonly GpuFrameReason[];
   readonly reducerState: GpuFlowVisibleFrameReducerDecision["reducerState"];
@@ -542,6 +552,7 @@ function shouldDeferGpuFlowResolutionUpdates({
 }): boolean {
   if (
     shouldRunGpuFlowResolutionUpdatesForContentCatchup({
+      hasPresentedContentFrame,
       lane,
       rawReasons,
       reducerState,
@@ -561,12 +572,14 @@ function shouldDeferGpuFlowResolutionUpdates({
 }
 
 function shouldRunGpuFlowResolutionUpdatesForContentCatchup({
+  hasPresentedContentFrame,
   lane,
   rawReasons,
   reducerState,
   viewportFrame,
   viewportInteractionActive,
 }: {
+  readonly hasPresentedContentFrame: boolean;
   readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
   readonly rawReasons: readonly GpuFrameReason[];
   readonly reducerState: GpuFlowVisibleFrameReducerDecision["reducerState"];
@@ -576,8 +589,11 @@ function shouldRunGpuFlowResolutionUpdatesForContentCatchup({
   if (lane !== "content") {
     return false;
   }
-  if (reducerState === "motion-active") {
+  if (!hasPresentedContentFrame) {
     return true;
+  }
+  if (reducerState === "motion-active") {
+    return false;
   }
   return (
     reducerState === "content-catchup" &&
@@ -607,10 +623,31 @@ function shouldDeferGpuFlowResolutionUpdatesForFrame({
     viewportInteractionActive ||
     viewportFrame ||
     (reducerState === "motion-settling" && lane !== "idle") ||
+    shouldDeferGpuFlowMaintenanceResolutionUpdates({
+      lane,
+      rawReasons,
+      reducerState,
+    }) ||
     shouldDeferGpuFlowMaintenanceContentCatchup({
       lane,
       rawReasons,
     })
+  );
+}
+
+function shouldDeferGpuFlowMaintenanceResolutionUpdates({
+  lane,
+  rawReasons,
+  reducerState,
+}: {
+  readonly lane: GpuFlowVisibleFrameReducerDecision["lane"];
+  readonly rawReasons: readonly GpuFrameReason[];
+  readonly reducerState: GpuFlowVisibleFrameReducerDecision["reducerState"];
+}): boolean {
+  return (
+    (lane === "maintenance" || reducerState === "maintenance-deferred") &&
+    rawReasons.some(isGpuFlowMaintenanceFrameReason) &&
+    !hasGpuFlowCriticalContentFrameRequest(rawReasons)
   );
 }
 
