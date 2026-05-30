@@ -918,6 +918,46 @@ func TestStoreRejectsMalformedConversationState(t *testing.T) {
 	}
 }
 
+func TestServiceListConversationsSkipsMalformedConversationState(t *testing.T) {
+	appDataDir := t.TempDir()
+	store := mustStore(t, appDataDir)
+	goodConversation := Conversation{
+		SchemaVersion: SchemaVersion,
+		ID:            "conversation_good",
+		WorkspaceID:   "workspace_api",
+		Title:         "Good",
+		CreatedAt:     "2026-05-29T20:00:00Z",
+		UpdatedAt:     "2026-05-29T20:00:00Z",
+		HarnessRefs:   []HarnessThreadRef{},
+	}
+	if err := store.SaveConversation(goodConversation); err != nil {
+		t.Fatalf("save good conversation: %v", err)
+	}
+	conversationPath := store.conversationPath("workspace_api", "conversation_bad")
+	if err := os.MkdirAll(filepath.Dir(conversationPath), 0o755); err != nil {
+		t.Fatalf("create bad conversation dir: %v", err)
+	}
+	if err := os.WriteFile(conversationPath, []byte(`{"schemaVersion":1,"id":"conversation_bad","workspaceId":"workspace_api","title":"Bad","createdAt":"2026-05-29T20:00:00Z","updatedAt":"2026-05-29T20:00:00Z","archivedAt":"","harnessRefs":[],"extra":true}`), 0o644); err != nil {
+		t.Fatalf("write malformed conversation: %v", err)
+	}
+	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+
+	conversations, err := service.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list conversations: %v", err)
+	}
+	if len(conversations) != 1 {
+		t.Fatalf("conversation count = %d, want 1", len(conversations))
+	}
+	if conversations[0].Conversation.ID != goodConversation.ID {
+		t.Fatalf("conversation id = %q, want good conversation", conversations[0].Conversation.ID)
+	}
+	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
+	if !strings.Contains(diagnostic.Message, `unknown field "extra"`) {
+		t.Fatalf("diagnostic = %q, want unknown field", diagnostic.Message)
+	}
+}
+
 func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
@@ -1011,7 +1051,7 @@ func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
 	}
 }
 
-func TestServiceRejectsRunningRunWithoutAssistantMessageIDOnStartup(t *testing.T) {
+func TestServiceRecordsRunningRunWithoutAssistantMessageIDOnStartup(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
 	conversation := Conversation{
@@ -1035,19 +1075,24 @@ func TestServiceRejectsRunningRunWithoutAssistantMessageIDOnStartup(t *testing.T
 		t.Fatalf("write malformed run: %v", err)
 	}
 
-	_, err := NewService(store, testResolver(t), NewFakeHarness(nil))
-	if err == nil {
-		t.Fatal("new service succeeded, want malformed run error")
+	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
+	if !strings.Contains(diagnostic.Message, "assistantMessageId is required unless queued") {
+		t.Fatalf("diagnostic = %q, want missing assistantMessageId", diagnostic.Message)
 	}
-	if !strings.Contains(err.Error(), "assistantMessageId is required unless queued") {
-		t.Fatalf("error = %q, want missing assistantMessageId", err)
+	conversations, err := service.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list conversations: %v", err)
 	}
-	if !IsCorruptStateError(err) {
-		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	if len(conversations) != 1 {
+		t.Fatalf("conversation count = %d, want 1", len(conversations))
+	}
+	if conversations[0].ActiveRunID != "" {
+		t.Fatalf("active run id = %q, want malformed run isolated", conversations[0].ActiveRunID)
 	}
 }
 
-func TestServiceRejectsRunningRunWithMissingAssistantMessageOnStartup(t *testing.T) {
+func TestServiceRecordsRunningRunWithMissingAssistantMessageOnStartup(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
 	conversation := Conversation{
@@ -1097,15 +1142,17 @@ func TestServiceRejectsRunningRunWithMissingAssistantMessageOnStartup(t *testing
 		t.Fatalf("save run: %v", err)
 	}
 
-	_, err := NewService(store, testResolver(t), NewFakeHarness(nil))
-	if err == nil {
-		t.Fatal("new service succeeded, want corrupt missing assistant message")
+	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
+	if !strings.Contains(diagnostic.Message, "assistant message message_missing was not found") {
+		t.Fatalf("diagnostic = %q, want missing assistant message", diagnostic.Message)
 	}
-	if !strings.Contains(err.Error(), "assistant message message_missing was not found") {
-		t.Fatalf("error = %q, want missing assistant message", err)
+	conversations, err := service.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list conversations: %v", err)
 	}
-	if !IsCorruptStateError(err) {
-		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	if len(conversations) != 1 {
+		t.Fatalf("conversation count = %d, want 1", len(conversations))
 	}
 }
 

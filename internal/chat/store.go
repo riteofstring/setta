@@ -131,23 +131,39 @@ func (store *Store) LoadConversation(workspaceID string, conversationID string) 
 }
 
 func (store *Store) ListConversations(workspaceID string) ([]Conversation, error) {
+	conversations, corrupt, err := store.ScanConversations(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	if len(corrupt) > 0 {
+		return nil, corrupt[0]
+	}
+	return conversations, nil
+}
+
+func (store *Store) ScanConversations(workspaceID string) ([]Conversation, []error, error) {
 	dir := store.conversationsDir(workspaceID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return []Conversation{}, nil
+			return []Conversation{}, nil, nil
 		}
-		return nil, &PersistenceError{Operation: "list conversations", Path: dir, Err: err}
+		return nil, nil, &PersistenceError{Operation: "list conversations", Path: dir, Err: err}
 	}
 
 	conversations := make([]Conversation, 0, len(entries))
+	corrupt := []error{}
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
 		conversation, err := store.LoadConversation(workspaceID, entry.Name())
 		if err != nil {
-			return nil, err
+			if IsCorruptStateError(err) {
+				corrupt = append(corrupt, err)
+				continue
+			}
+			return nil, nil, err
 		}
 		conversations = append(conversations, conversation)
 	}
@@ -157,7 +173,7 @@ func (store *Store) ListConversations(workspaceID string) ([]Conversation, error
 		}
 		return conversations[left].UpdatedAt > conversations[right].UpdatedAt
 	})
-	return conversations, nil
+	return conversations, corrupt, nil
 }
 
 func (store *Store) SaveMessage(workspaceID string, message ChatMessage) error {
@@ -306,16 +322,28 @@ func (store *Store) LoadRun(workspaceID string, runID string) (Run, error) {
 }
 
 func (store *Store) ListRuns(workspaceID string) ([]Run, error) {
+	runs, corrupt, err := store.ScanRuns(workspaceID)
+	if err != nil {
+		return nil, err
+	}
+	if len(corrupt) > 0 {
+		return nil, corrupt[0]
+	}
+	return runs, nil
+}
+
+func (store *Store) ScanRuns(workspaceID string) ([]Run, []error, error) {
 	dir := store.runsDir(workspaceID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return []Run{}, nil
+			return []Run{}, nil, nil
 		}
-		return nil, &PersistenceError{Operation: "list runs", Path: dir, Err: err}
+		return nil, nil, &PersistenceError{Operation: "list runs", Path: dir, Err: err}
 	}
 
 	runs := make([]Run, 0, len(entries))
+	corrupt := []error{}
 	for _, entry := range entries {
 		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
 			continue
@@ -323,7 +351,11 @@ func (store *Store) ListRuns(workspaceID string) ([]Run, error) {
 		runID := strings.TrimSuffix(entry.Name(), ".json")
 		run, err := store.LoadRun(workspaceID, runID)
 		if err != nil {
-			return nil, err
+			if IsCorruptStateError(err) {
+				corrupt = append(corrupt, err)
+				continue
+			}
+			return nil, nil, err
 		}
 		runs = append(runs, run)
 	}
@@ -333,7 +365,7 @@ func (store *Store) ListRuns(workspaceID string) ([]Run, error) {
 		}
 		return runs[left].StartedAt > runs[right].StartedAt
 	})
-	return runs, nil
+	return runs, corrupt, nil
 }
 
 func (store *Store) ActiveRun(workspaceID string, conversationID string) (Run, bool, error) {

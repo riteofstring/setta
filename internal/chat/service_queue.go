@@ -72,11 +72,14 @@ func (service *Service) promoteQueuedIfIdleLocked(workspaceSummary workspace.Wor
 	if service.hasActiveTurnLocked(workspaceSummary.ID, conversationID) {
 		return nil
 	}
-	_, ok, err := service.store.ActiveRun(workspaceSummary.ID, conversationID)
-	if err != nil || ok {
+	runs, err := service.runsWithDiagnosticsLocked(workspaceSummary.ID)
+	if err != nil {
 		return err
 	}
-	return service.promoteNextQueuedRunLocked(workspaceSummary, conversationID)
+	if _, ok := activeRunFromRuns(runs, conversationID); ok {
+		return nil
+	}
+	return service.promoteNextQueuedRunLocked(workspaceSummary, conversationID, runs)
 }
 
 func (service *Service) queueMessageResultLocked(workspaceID string, conversationID string, messageID string, runID string) (QueueMessageResult, error) {
@@ -91,7 +94,11 @@ func (service *Service) queueMessageResultLocked(workspaceID string, conversatio
 	if err != nil {
 		return QueueMessageResult{}, err
 	}
-	queue, err := service.store.QueuedState(workspaceID, conversationID)
+	runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+	if err != nil {
+		return QueueMessageResult{}, err
+	}
+	queue, err := service.queuedStateFromRunsLocked(workspaceID, conversationID, runs)
 	if err != nil {
 		return QueueMessageResult{}, err
 	}
@@ -163,7 +170,11 @@ func (service *Service) publishQueueEventsLocked(workspaceID string, conversatio
 }
 
 func (service *Service) publishQueueUpdatedLocked(workspaceID string, conversationID string, runID string) error {
-	queue, err := service.store.QueuedState(workspaceID, conversationID)
+	runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+	if err != nil {
+		return err
+	}
+	queue, err := service.queuedStateFromRunsLocked(workspaceID, conversationID, runs)
 	if err != nil {
 		return err
 	}
@@ -176,8 +187,8 @@ func (service *Service) hasActiveTurnLocked(workspaceID string, conversationID s
 	return ok && active.workspaceID == workspaceID
 }
 
-func (service *Service) promoteNextQueuedRunLocked(workspaceSummary workspace.WorkspaceSummary, conversationID string) error {
-	run, userMessage, ok, err := service.store.NextQueuedRun(workspaceSummary.ID, conversationID)
+func (service *Service) promoteNextQueuedRunLocked(workspaceSummary workspace.WorkspaceSummary, conversationID string, runs []Run) error {
+	run, userMessage, ok, err := service.nextQueuedRunFromRunsLocked(workspaceSummary.ID, conversationID, runs)
 	if err != nil || !ok {
 		return err
 	}
@@ -283,10 +294,11 @@ func (service *Service) persistSteeringMessage(workspaceID string, conversationI
 func (service *Service) attachedActiveTurnLocked(workspaceID string, conversationID string) (activeTurn, error) {
 	active, ok := service.active[activeKey(workspaceID, conversationID)]
 	if !ok || active.workspaceID != workspaceID {
-		run, exists, err := service.store.ActiveRun(workspaceID, conversationID)
+		runs, err := service.runsWithDiagnosticsLocked(workspaceID)
 		if err != nil {
 			return activeTurn{}, err
 		}
+		run, exists := activeRunFromRuns(runs, conversationID)
 		if exists {
 			return activeTurn{}, fmt.Errorf("active run %s is not attached to this backend process", run.ID)
 		}

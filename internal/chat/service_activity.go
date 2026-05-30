@@ -255,7 +255,11 @@ func (service *Service) newRunItemOutputLocked(workspaceID string, runID string,
 }
 
 func (service *Service) attachPageState(workspaceID string, conversationID string, page *MessagePage) error {
-	queue, err := service.store.QueuedState(workspaceID, conversationID)
+	runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+	if err != nil {
+		return err
+	}
+	queue, err := service.queuedStateFromRunsLocked(workspaceID, conversationID, runs)
 	if err != nil {
 		return err
 	}
