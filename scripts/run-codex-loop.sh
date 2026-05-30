@@ -305,11 +305,9 @@ validate_stop_exit_code() {
     return
   fi
 
-  if (
-    [[ ! "${value}" =~ ^[0-9]+$ ]] \
+  if [[ ! "${value}" =~ ^[0-9]+$ ]] \
     || [[ "${value}" -lt 0 ]] \
-    || [[ "${value}" -gt 255 ]]
-  ); then
+    || [[ "${value}" -gt 255 ]]; then
     echo "${flag_name} must be an integer between 0 and 255" >&2
     exit 1
   fi
@@ -506,11 +504,9 @@ run_codex_command() {
     current_epoch="$(date +%s)"
     inactivity_age_seconds="$((current_epoch - last_activity_epoch))"
 
-    if (
-      [[ "${quiet_mode}" == "1" ]] \
+    if [[ "${quiet_mode}" == "1" ]] \
       && [[ "${progress_log_interval_seconds}" -gt 0 ]] \
-      && [[ "$((current_epoch - last_progress_log_epoch))" -ge "${progress_log_interval_seconds}" ]]
-    ); then
+      && [[ "$((current_epoch - last_progress_log_epoch))" -ge "${progress_log_interval_seconds}" ]]; then
       log_info "[$iteration/$iterations] Codex still running (${mode}); last transcript update ${inactivity_age_seconds}s ago. Transcript: ${transcript_path}"
       last_progress_log_epoch="${current_epoch}"
     fi

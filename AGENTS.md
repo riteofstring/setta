@@ -10,8 +10,8 @@
 
 - Pin checked-in direct dependency versions exactly. Do not use floating version ranges like `^`, `~`, `>=`, `>`, `*`, or `latest` in dependency manifests.
 - Use `./update_dependencies.sh` when a dependency update needs lockfile changes.
-- Run formatting, linting, dead-code checks, and relevant tests before committing.
-- Unless the developer explicitly narrows verification scope, run the repository quality check before committing.
+- Before each commit, run `./scripts/format.sh`, `./check_quality.sh --all`, and `./scripts/check_supply_chain.sh` unless the developer explicitly narrows verification scope.
+- The required pre-commit workflow must cover quality checks, formatting, linting, complexity checks, file length checks, dead-code checks, and supply-chain checks.
 - Do not skip tests broadly. Missing dependencies or capabilities should usually fail loudly. Any skip must be narrow and justified.
 - Do not add generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
 - Tests must use temporary directories instead of local runtime state, must never mutate real git history in this repo or any non-disposable developer worktree, and should exercise production paths instead of mocks or test-only code paths.

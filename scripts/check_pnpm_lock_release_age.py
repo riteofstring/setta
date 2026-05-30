@@ -53,6 +53,8 @@ def load_package_keys(lockfile_text: str, *, lockfile: Path) -> list[str]:
 
         if not raw_line.startswith(" "):
             break
+        if not raw_line.startswith("  ") or raw_line.startswith("    "):
+            continue
 
         stripped = raw_line.strip()
         if not stripped.endswith(":"):

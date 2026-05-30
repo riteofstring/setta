@@ -12,12 +12,14 @@ fi
 worktree_sh_script_path() {
   if [ -n "${ZSH_VERSION:-}" ]; then
     # zsh: %x is the current file path (works for sourced + executed).
+    # shellcheck disable=SC2296
     printf '%s\n' "${(%):-%x}"
     return 0
   fi
 
   if [ -n "${BASH_VERSION:-}" ]; then
     # bash: BASH_SOURCE[0] is this file even when sourced.
+    # shellcheck disable=SC3028,SC3054
     printf '%s\n' "${BASH_SOURCE[0]}"
     return 0
   fi

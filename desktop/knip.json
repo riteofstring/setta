@@ -1,0 +1,26 @@
+{
+  "entry": [
+    "electron.vite.config.ts",
+    "eslint.config.mjs",
+    "src/main/index.ts",
+    "src/preload/index.ts",
+    "src/renderer/src/main.tsx",
+    "tests/browser-pane.spec.ts"
+  ],
+  "project": [
+    "electron.vite.config.ts",
+    "eslint.config.mjs",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "tests/**/*.ts"
+  ],
+  "ignore": ["out/**", "dist/**", "src/generated/**"],
+  "ignoreDependencies": [
+    "@playwright/test",
+    "@types/node",
+    "@types/react",
+    "@types/react-dom",
+    "tailwindcss",
+    "vite"
+  ]
+}

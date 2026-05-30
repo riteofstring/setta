@@ -83,7 +83,7 @@ list_active_generation_processes() {
   while IFS= read -r line; do
     [[ -n "${line}" ]] || continue
     pid="${line%% *}"
-    command="${line#${pid}}"
+    command="${line#"${pid}"}"
     command="${command#"${command%%[![:space:]]*}"}"
 
     if [[ ! "${command}" =~ ${candidate_regex} ]]; then

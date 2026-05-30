@@ -22,8 +22,10 @@ test-results/
 playwright-report/
 build/
 dist/
+out/
 */build/
 */dist/
+*/out/
 
 # Go/tooling caches
 /.gocache/
