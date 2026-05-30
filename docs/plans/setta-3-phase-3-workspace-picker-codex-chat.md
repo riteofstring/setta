@@ -45,11 +45,16 @@ terminal UI, or canvas in this phase.
 - The app schema is provider-neutral. Codex-specific app-server protocol
   messages, event shapes, and logs stay at the Codex adapter boundary.
 - Codex owns the agent loop, tool semantics, approval semantics, and provider
-  behavior. Setta owns workspace selection, durable chat projection, run
-  records, and UI.
+  behavior for Codex turns. Setta owns workspace selection, durable chat and
+  agent timeline state, run records, and UI.
+- Setta's conversation/run model should grow into the complete user-facing
+  agent timeline: assistant messages, tool calls, command output, file edits,
+  approvals, diffs, artifacts, errors, and summaries. Phase 3 only captures the
+  minimal reliable subset needed for Codex-backed chat.
 - Prefer explicit failure states over silent recovery.
 - Keep the first schema small, but do not store chat as plain strings only.
-- Persist semantic chat state separately from lower-level run/trace details.
+- Persist semantic chat/timeline state separately from lower-level harness
+  transport logs.
 - No client-side persistence for domain state. Zustand may hold renderer view
   state and async actions, but the backend is authoritative.
 
@@ -78,12 +83,13 @@ Initial records:
 - `Conversation`
 - `ChatMessage`
 - `MessagePart`
+- `HarnessThreadRef`
 - enough `Run` / `Trace` data to debug Codex turns
 
 The initial `MessagePart` implementation can support only text, but the shape
 should be a discriminated model so attachments, tool calls, tool results,
-reasoning summaries, and artifacts can be added without replacing the transcript
-model.
+command output, file edits, approvals, reasoning summaries, diffs, and artifacts
+can be added without replacing the conversation model.
 
 Minimum `Conversation` fields:
 
@@ -93,6 +99,7 @@ Minimum `Conversation` fields:
 - createdAt
 - updatedAt
 - archivedAt, if needed
+- harness refs
 
 Minimum `ChatMessage` fields:
 
@@ -124,6 +131,32 @@ Support multiple conversations per workspace from the start. Multiple
 conversations can be active across the same workspace and across different
 workspaces.
 
+### Harness References
+
+Setta IDs are primary. Harness IDs are foreign references used to resume or
+correlate external harness state.
+
+Each Setta conversation may have one or more generic harness thread refs:
+
+- harness: `codex`
+- external thread id
+- external session id, if supplied by the harness
+- last external turn id, if supplied by the harness
+- status: `linked`, `missing`, `stale`, or `unsupported`
+- createdAt
+- lastResumedAt, if resumed
+
+For Phase 3, Codex app-server thread refs are needed because Setta will not yet
+capture every app-server item that Codex may use to continue a turn. This is a
+resumability bridge, not a statement that Codex is the long-term source of truth
+for Setta chat.
+
+If a Codex thread cannot be resumed, Setta should keep showing the saved Setta
+conversation and mark the harness ref unavailable. It should not silently pretend
+to continue the exact same Codex session. A later recovery action can start a new
+Codex thread for the same Setta conversation, with a visible boundary in the
+timeline.
+
 ### Codex Harness
 
 Implement one harness: Codex.
@@ -135,7 +168,8 @@ The harness should support:
 - start a Codex turn for a workspace and conversation
 - send the current prompt and required context as app-server turn input
 - stream assistant output back to the backend
-- append stable assistant messages/parts as the backend source of truth
+- append stable assistant messages/parts as the backend source of truth for the
+  Setta timeline
 - stop/cancel an active turn through Codex app-server `turn/interrupt`
 - report app-server startup failures, protocol failures, turn failures, and
   missing Codex installation/authentication clearly
@@ -206,6 +240,8 @@ Minimum trace/event support:
 - Codex app-server connected
 - assistant text delta received
 - assistant message completed
+- Codex thread/turn ref linked
+- Codex thread resume failed
 - turn completed
 - cancellation requested
 - error received
@@ -213,12 +249,17 @@ Minimum trace/event support:
 - approval resolved
 
 Raw token-by-token deltas do not need to be permanent transcript rows. Persist
-final semantic messages and enough trace data to investigate failures.
+final semantic messages/timeline items and enough trace data to investigate
+failures.
 
 ### Renderer
 
 Use a small Zustand store for chat view state and async actions. The store should
 call preload APIs and update from backend responses/events.
+
+Build the transcript behind a `ChatTranscript` component boundary. The first
+implementation can be non-virtualized, but the component and data API should not
+assume that every message in every conversation is mounted at once.
 
 Renderer surfaces:
 
@@ -232,9 +273,31 @@ Renderer surfaces:
 - minimal approval prompt/card while Codex is waiting for user approval
 - loading, empty, cancelled, and error states
 
-Keep the transcript non-virtualized until there is measured need. Use stable
-message IDs, pinned-bottom behavior, and a visible jump-to-latest control when
-the user scrolls away from the latest message.
+Conversation and transcript loading rules:
+
+- conversation lists load metadata only, not full message payloads
+- opening a conversation loads the latest page/window of messages
+- older messages are fetched by cursor or ordinal
+- prepending older messages preserves scroll position
+- no renderer path should load and render every message for every conversation
+  by default
+
+Transcript rendering rules:
+
+- render one stable row per semantic message or pending approval, not one row per
+  token
+- use backend message IDs as React keys
+- update only the active assistant message/part during streaming
+- batch streaming text deltas before updating React state
+- auto-scroll only when the user is pinned to the latest message
+- show a visible jump-to-latest control when the user scrolls away from the
+  latest message
+- memoize Markdown/code rendering by message id and revision/status where useful
+
+Keep the transcript non-virtualized until there is measured need. TanStack
+Virtual is the likely future virtualization candidate if message count or row
+cost requires it. Do not add TanStack Virtual or Pretext in Phase 3 unless
+profiling shows the simple transcript cannot meet the reliability target.
 
 Markdown rendering is in scope for chat messages. Keep rendering safe and
 predictable; do not enable raw HTML as trusted chat content.
@@ -333,7 +396,8 @@ Likely operations:
 - select workspace
 - list conversations for workspace
 - create conversation
-- get conversation messages
+- get latest conversation message page
+- get older conversation messages by cursor or ordinal
 - send user message
 - cancel active run
 - get active run status
@@ -350,6 +414,7 @@ Backend tests:
 - workspace open/select/restart behavior
 - conversation persistence
 - message ordering
+- message pagination by cursor or ordinal
 - send-message mutation
 - Codex app-server adapter request/notification mapping without invoking real
   Codex
@@ -363,6 +428,8 @@ Renderer tests:
 - workspace picker states
 - conversation list states
 - message rendering
+- latest-page loading and older-message loading
+- pinned-bottom and jump-to-latest behavior
 - composer send behavior
 - stop button behavior
 - approval prompt behavior
@@ -388,7 +455,7 @@ or controlled test command, not duplicated test-only chat logic.
 2. Add backend chat service operations.
 3. Add endpoint registry entries and regenerate TypeScript contracts.
 4. Add typed preload APIs.
-5. Add renderer chat store and minimal UI.
+5. Add renderer chat store and minimal UI with paged transcript loading.
 6. Add fake/test harness support for deterministic tests.
 7. Add Codex app-server adapter and connection management.
 8. Add streaming/cancellation behavior.
@@ -409,6 +476,8 @@ or controlled test command, not duplicated test-only chat logic.
 - Codex approval requests are surfaced in Setta and can be answered from the UI.
 - The backend remains the source of truth for workspace, chat, message, and run
   state.
+- The renderer loads conversation metadata separately from message pages and does
+  not render every saved message by default.
 - Durable workspace/chat/run state lives in Setta app data, not inside the
   opened repository.
 - The implementation does not introduce node/canvas/workbench scope.
