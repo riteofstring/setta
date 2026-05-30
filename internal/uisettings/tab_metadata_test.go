@@ -30,6 +30,9 @@ func TestFrontendValueUIEditorTabUIConfigUsesCanonicalTabMetadata(t *testing.T) 
 	t.Parallel()
 
 	got := FrontendValueUIEditorTabUIConfig()
+	if got.Names.SectionContents != UIEditorTabNameSectionContents {
+		t.Fatalf("expected section contents tab %q, got %q", UIEditorTabNameSectionContents, got.Names.SectionContents)
+	}
 	if got.Names.SectionConfig != UIEditorTabNameSectionConfig {
 		t.Fatalf("expected section config tab %q, got %q", UIEditorTabNameSectionConfig, got.Names.SectionConfig)
 	}
@@ -41,6 +44,9 @@ func TestFrontendValueUIEditorTabUIConfigUsesCanonicalTabMetadata(t *testing.T) 
 	}
 	if got.Titles.UIConfig != "Params" {
 		t.Fatalf("expected UI config title Params, got %q", got.Titles.UIConfig)
+	}
+	if got.Titles.SectionContents != "Contents" {
+		t.Fatalf("expected section contents title Contents, got %q", got.Titles.SectionContents)
 	}
 	if got.Titles.InfoConfig != "Text Editor" {
 		t.Fatalf("expected info config title Text Editor, got %q", got.Titles.InfoConfig)

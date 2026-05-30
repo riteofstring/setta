@@ -22,6 +22,7 @@ const PluginOverviewTabPrefixValue PluginOverviewTabPrefix = "PluginPane"
 type UIEditorTabName string
 
 const (
+	UIEditorTabNameSectionContents       UIEditorTabName = "SectionContents"
 	UIEditorTabNameSectionConfig         UIEditorTabName = "SectionConfig"
 	UIEditorTabNameQuickInfoConfig       UIEditorTabName = "QuickInfoConfig"
 	UIEditorTabNameUIConfig              UIEditorTabName = "UIConfig"
@@ -62,6 +63,7 @@ type OverviewTabUIConfigValue struct {
 }
 
 type UIEditorTabNamesValue struct {
+	SectionContents       UIEditorTabName `json:"SectionContents"`
 	SectionConfig         UIEditorTabName `json:"SectionConfig"`
 	QuickInfoConfig       UIEditorTabName `json:"QuickInfoConfig"`
 	UIConfig              UIEditorTabName `json:"UIConfig"`
@@ -70,6 +72,7 @@ type UIEditorTabNamesValue struct {
 }
 
 type UIEditorTabTitlesValue struct {
+	SectionContents       string `json:"SectionContents"`
 	SectionConfig         string `json:"SectionConfig"`
 	QuickInfoConfig       string `json:"QuickInfoConfig"`
 	UIConfig              string `json:"UIConfig"`
@@ -83,6 +86,7 @@ type UIEditorTabUIConfigValue struct {
 }
 
 var validUIEditorTabNames = map[UIEditorTabName]struct{}{
+	UIEditorTabNameSectionContents:       {},
 	UIEditorTabNameSectionConfig:         {},
 	UIEditorTabNameQuickInfoConfig:       {},
 	UIEditorTabNameUIConfig:              {},
@@ -128,6 +132,7 @@ func FrontendValueOverviewTabUIConfig() OverviewTabUIConfigValue {
 func FrontendValueUIEditorTabUIConfig() UIEditorTabUIConfigValue {
 	return UIEditorTabUIConfigValue{
 		Names: UIEditorTabNamesValue{
+			SectionContents:       UIEditorTabNameSectionContents,
 			SectionConfig:         UIEditorTabNameSectionConfig,
 			QuickInfoConfig:       UIEditorTabNameQuickInfoConfig,
 			UIConfig:              UIEditorTabNameUIConfig,
@@ -135,6 +140,7 @@ func FrontendValueUIEditorTabUIConfig() UIEditorTabUIConfigValue {
 			SectionVariantsConfig: UIEditorTabNameSectionVariantsConfig,
 		},
 		Titles: UIEditorTabTitlesValue{
+			SectionContents:       "Contents",
 			SectionConfig:         "Section",
 			QuickInfoConfig:       "Quick Info",
 			UIConfig:              "Params",

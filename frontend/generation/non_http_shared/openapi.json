@@ -17591,6 +17591,7 @@
       },
       "UIEditorTabName": {
         "enum": [
+          "SectionContents",
           "SectionConfig",
           "QuickInfoConfig",
           "UIConfig",
@@ -17612,6 +17613,9 @@
           "SectionConfig": {
             "$ref": "#/components/schemas/UIEditorTabName"
           },
+          "SectionContents": {
+            "$ref": "#/components/schemas/UIEditorTabName"
+          },
           "SectionVariantsConfig": {
             "$ref": "#/components/schemas/UIEditorTabName"
           },
@@ -17620,6 +17624,7 @@
           }
         },
         "required": [
+          "SectionContents",
           "SectionConfig",
           "QuickInfoConfig",
           "UIConfig",
@@ -17641,6 +17646,9 @@
           "SectionConfig": {
             "type": "string"
           },
+          "SectionContents": {
+            "type": "string"
+          },
           "SectionVariantsConfig": {
             "type": "string"
           },
@@ -17649,6 +17657,7 @@
           }
         },
         "required": [
+          "SectionContents",
           "SectionConfig",
           "QuickInfoConfig",
           "UIConfig",

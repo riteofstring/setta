@@ -13,6 +13,7 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { EdgesStrip } from "./EdgesStrip";
 import { ParamGroupContainer } from "./GroupContainer";
 
 vi.mock("./ParamDndList", () => ({
@@ -30,15 +31,7 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-function seedParamGroupState({
-  sectionId = "section-1",
-  variantId = "variant-1",
-  implId = "impl-1",
-  sectionTypeName = SectionTypeEnum.Dict,
-  pinnedParamCount = 0,
-  unpinnedParamCount = 1,
-  unpinnedParamsAreaMinHeight,
-}: {
+type SeedParamGroupOptions = {
   sectionId?: string;
   variantId?: string;
   implId?: string;
@@ -46,7 +39,19 @@ function seedParamGroupState({
   pinnedParamCount?: number;
   unpinnedParamCount?: number;
   unpinnedParamsAreaMinHeight?: number;
-} = {}) {
+  edgeInputParams?: Array<string>;
+  edgeOutputPorts?: Array<{ id: string; accessor: string }>;
+};
+
+type ParamEntry = {
+  paramId: string;
+  paramImplId: string;
+  paramVariantId: string;
+};
+
+function configureParamGroupSettings(
+  unpinnedParamsAreaMinHeight: number | undefined,
+) {
   const settingsState = createSettingsState();
   if (unpinnedParamsAreaMinHeight !== undefined) {
     settingsState.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight =
@@ -54,7 +59,139 @@ function seedParamGroupState({
   }
   useSettings.setState(settingsState);
   syncStoreInitialState(useSettings);
+}
 
+function buildParamEntries(
+  pinnedParamCount: number,
+  unpinnedParamCount: number,
+): Array<ParamEntry> {
+  return Array.from(
+    { length: pinnedParamCount + unpinnedParamCount },
+    (_, index) => {
+      const number = index + 1;
+      return {
+        paramId: `param-${number}`,
+        paramVariantId: `param-variant-${number}`,
+        paramImplId: `param-impl-${number}`,
+      };
+    },
+  );
+}
+
+function buildParamCoreRecords(paramEntries: Array<ParamEntry>) {
+  const codeObjVariantMap = Object.fromEntries(
+    paramEntries.map(({ paramId, paramVariantId }) => [
+      paramId,
+      paramVariantId,
+    ]),
+  );
+  return {
+    codeObjVariantMap,
+    codeObjs: Object.fromEntries(
+      paramEntries.map(({ paramId }) => [
+        paramId,
+        {
+          id: paramId,
+          name: paramId,
+          displayName: "",
+          variants: [codeObjVariantMap[paramId]],
+          defaultVariant: codeObjVariantMap[paramId],
+          sharedModifier: {},
+          unsharedKeys: [],
+        } satisfies Core,
+      ]),
+    ),
+    codeObjVariants: Object.fromEntries(
+      paramEntries.map(({ paramVariantId, paramImplId }) => [
+        paramVariantId,
+        {
+          id: paramVariantId,
+          name: `ParamVariant-${paramVariantId}`,
+          impl: paramImplId,
+          nonPresetImpls: [],
+          modifier: {},
+          isFrozen: false,
+        } satisfies Variant,
+      ]),
+    ),
+    codeObjImpls: Object.fromEntries(
+      paramEntries.map(({ paramImplId }) => [
+        paramImplId,
+        {
+          type: CodeObjTypeEnum.CodeParam,
+          id: paramImplId,
+          name: "Param",
+          description: "",
+          isPreset: false,
+          coreNameType: ParamNameTypeEnum.TEXT,
+          coreNameEditable: true,
+          passingStyle: ParameterPassingStyleEnum.DEFAULT,
+          defaultVal: "",
+          value: "",
+        },
+      ]),
+    ),
+  };
+}
+
+function buildShownParamIdState({
+  pinnedEntries,
+  pinnedParamIds,
+  unpinnedEntries,
+  unpinnedParamIds,
+  variantId,
+}: {
+  pinnedEntries: Array<ParamEntry>;
+  pinnedParamIds: Array<string>;
+  unpinnedEntries: Array<ParamEntry>;
+  unpinnedParamIds: Array<string>;
+  variantId: string;
+}) {
+  return {
+    [variantId]: {
+      pinned: {
+        requiredParamIdsToPaths: Object.fromEntries(
+          pinnedEntries.map(({ paramId }) => [paramId, [paramId]]),
+        ),
+        topLevelParamIds: pinnedParamIds,
+      },
+      unpinned: {
+        requiredParamIdsToPaths: Object.fromEntries(
+          unpinnedEntries.map(({ paramId }) => [paramId, [paramId]]),
+        ),
+        topLevelParamIds: unpinnedParamIds,
+      },
+    },
+  };
+}
+
+function normalizeSeedParamGroupOptions(options: SeedParamGroupOptions) {
+  return {
+    sectionId: "section-1",
+    variantId: "variant-1",
+    implId: "impl-1",
+    sectionTypeName: SectionTypeEnum.Dict,
+    pinnedParamCount: 0,
+    unpinnedParamCount: 1,
+    edgeInputParams: [],
+    edgeOutputPorts: [],
+    ...options,
+  };
+}
+
+function seedParamGroupState(options: SeedParamGroupOptions = {}) {
+  const {
+    sectionId,
+    variantId,
+    implId,
+    sectionTypeName,
+    pinnedParamCount,
+    unpinnedParamCount,
+    unpinnedParamsAreaMinHeight,
+    edgeInputParams,
+    edgeOutputPorts,
+  } = normalizeSeedParamGroupOptions(options);
+  configureParamGroupSettings(unpinnedParamsAreaMinHeight);
   const projectConfig = createProjectConfig({
     id: "project-1",
     sectionVariantMap: { [sectionId]: variantId },
@@ -82,72 +219,20 @@ function seedParamGroupState({
     isFrozen: false,
   };
 
-  const paramEntries = Array.from(
-    { length: pinnedParamCount + unpinnedParamCount },
-    (_, index) => {
-      const number = index + 1;
-      return {
-        paramId: `param-${number}`,
-        paramVariantId: `param-variant-${number}`,
-        paramImplId: `param-impl-${number}`,
-      };
-    },
-  );
+  const paramEntries = buildParamEntries(pinnedParamCount, unpinnedParamCount);
   const pinnedEntries = paramEntries.slice(0, pinnedParamCount);
   const unpinnedEntries = paramEntries.slice(pinnedParamCount);
-
-  const codeObjVariantMap = Object.fromEntries(
-    paramEntries.map(({ paramId, paramVariantId }) => [
-      paramId,
-      paramVariantId,
-    ]),
-  );
-  const codeObjs = Object.fromEntries(
-    paramEntries.map(({ paramId }) => [
-      paramId,
-      {
-        id: paramId,
-        name: paramId,
-        displayName: "",
-        variants: [codeObjVariantMap[paramId]],
-        defaultVariant: codeObjVariantMap[paramId],
-        sharedModifier: {},
-        unsharedKeys: [],
-      } satisfies Core,
-    ]),
-  );
-  const codeObjVariants = Object.fromEntries(
-    paramEntries.map(({ paramVariantId, paramImplId }) => [
-      paramVariantId,
-      {
-        id: paramVariantId,
-        name: `ParamVariant-${paramVariantId}`,
-        impl: paramImplId,
-        nonPresetImpls: [],
-        modifier: {},
-        isFrozen: false,
-      } satisfies Variant,
-    ]),
-  );
-  const codeObjImpls = Object.fromEntries(
-    paramEntries.map(({ paramImplId }) => [
-      paramImplId,
-      {
-        type: CodeObjTypeEnum.CodeParam,
-        id: paramImplId,
-        name: "Param",
-        description: "",
-        isPreset: false,
-        coreNameType: ParamNameTypeEnum.TEXT,
-        coreNameEditable: true,
-        passingStyle: ParameterPassingStyleEnum.DEFAULT,
-        defaultVal: "",
-        value: "",
-      },
-    ]),
-  );
+  const { codeObjVariantMap, codeObjs, codeObjVariants, codeObjImpls } =
+    buildParamCoreRecords(paramEntries);
   const pinnedParamIds = pinnedEntries.map(({ paramId }) => paramId);
   const unpinnedParamIds = unpinnedEntries.map(({ paramId }) => paramId);
+  const shownParamIds = buildShownParamIdState({
+    pinnedEntries,
+    pinnedParamIds,
+    unpinnedEntries,
+    unpinnedParamIds,
+    variantId,
+  });
 
   useProjectState.setState((state) => {
     state.projectConfig = projectConfig;
@@ -176,8 +261,8 @@ function seedParamGroupState({
         pinnedParams: pinnedParamIds,
         selectedParams: [],
         ignoreTypeErrors: { callable: false, params: {} },
-        edgeInputParams: [],
-        edgeOutputPorts: [],
+        edgeInputParams,
+        edgeOutputPorts,
         topLevelParamId: null,
         isJsonSource: false,
         jsonSourceKeys: [],
@@ -189,22 +274,7 @@ function seedParamGroupState({
     state.codeObjImpls = codeObjImpls;
     state.parentSectionMap = { [sectionId]: null };
     state.previewSectionVariantMap = {};
-    state.shownParamIds = {
-      [variantId]: {
-        pinned: {
-          requiredParamIdsToPaths: Object.fromEntries(
-            pinnedEntries.map(({ paramId }) => [paramId, [paramId]]),
-          ),
-          topLevelParamIds: pinnedParamIds,
-        },
-        unpinned: {
-          requiredParamIdsToPaths: Object.fromEntries(
-            unpinnedEntries.map(({ paramId }) => [paramId, [paramId]]),
-          ),
-          topLevelParamIds: unpinnedParamIds,
-        },
-      },
-    };
+    state.shownParamIds = shownParamIds;
   });
   syncStoreInitialState(useProjectState);
 
@@ -283,5 +353,27 @@ describe("ParamGroupContainer layout", () => {
     expect(classes).toContain("section-args-nested");
     expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
+  });
+
+  it("renders a compact edge strip for bare canvas nodes", () => {
+    const { sectionId } = seedParamGroupState({
+      edgeInputParams: ["param-1"],
+      edgeOutputPorts: [{ id: "result", accessor: "result" }],
+    });
+
+    const markup = renderToStaticMarkup(
+      <EdgesStrip
+        sectionId={sectionId}
+        bgColor="bg-transparent"
+        variant="bare-node"
+      />,
+    );
+
+    expect(markup).toContain('data-testid="bare-section-edge-strip"');
+    expect(markup).toContain('data-edge-param-id="param-1"');
+    expect(markup).toContain('data-edge-param-side="in"');
+    expect(markup).toContain('data-edge-param-id="result"');
+    expect(markup).toContain('data-edge-param-side="out"');
+    expect(markup).not.toContain("-mt-4");
   });
 });

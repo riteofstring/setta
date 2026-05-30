@@ -17,6 +17,7 @@ type MockProjectState = {
   projectConfig: {
     id: string;
   };
+  sections: Record<string, { name: string }>;
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
 };
 
@@ -24,8 +25,30 @@ let mockProjectState: MockProjectState = {
   projectConfig: {
     id: "project-1",
   },
+  sections: {},
   projectChatWindowing: createProjectChatWindowingState(),
 };
+
+const mockEdgeStripState = vi.hoisted(() => ({
+  visible: false,
+}));
+
+vi.mock("components/Params/EdgesStrip", () => ({
+  EdgesStrip: ({
+    sectionId,
+    variant,
+  }: {
+    sectionId: string;
+    variant?: string;
+  }) =>
+    mockEdgeStripState.visible ? (
+      <div
+        data-testid="mock-bare-edge-strip"
+        data-section-id={sectionId}
+        data-variant={variant ?? ""}
+      />
+    ) : null,
+}));
 
 vi.mock("components/ChatWindowing/UnifiedChatSurface", () => ({
   UnifiedChatSurface: ({
@@ -79,8 +102,20 @@ vi.mock("state/definitions", () => ({
     selector(mockProjectState),
 }));
 
+vi.mock("state/activeSectionUI", () => ({
+  useIsSectionUIActive: () => false,
+}));
+
+vi.mock("state/hooks/uiTypes", () => ({
+  useIsListElement: () => false,
+}));
+
 vi.mock("../Header/SectionHeader", () => ({
   SectionHeader: () => <header data-testid="mock-section-header" />,
+}));
+
+vi.mock("../Header/HeaderIcon", () => ({
+  HeaderIcon: () => <span data-testid="mock-header-icon" />,
 }));
 
 vi.mock("../Header/SectionWindowToggleButton", () => ({
@@ -187,8 +222,10 @@ describe("SectionContainerCoreResizable", () => {
       projectConfig: {
         id: "project-1",
       },
+      sections: {},
       projectChatWindowing: createProjectChatWindowingState(),
     };
+    mockEdgeStripState.visible = false;
   });
 
   it("keeps the canvas placeholder for hidden external non-chat section bindings", () => {
@@ -196,6 +233,7 @@ describe("SectionContainerCoreResizable", () => {
       projectConfig: {
         id: "project-1",
       },
+      sections: {},
       projectChatWindowing: createProjectChatWindowingState({
         order: ["project-chat-window-1"],
         instancesById: {
@@ -248,6 +286,52 @@ describe("SectionContainerCoreResizable", () => {
     );
     expect(markup).toContain('data-project-chat-id=""');
     expect(markup).toContain('data-project-chat-controlled="false"');
+  });
+
+  it("renders callable canvas sections as bare icon-title nodes", () => {
+    mockProjectState.sections = {
+      "callable-1": { name: "Prepare report" },
+    };
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="callable-1"
+        sectionTypeName={SectionTypeEnum.Callable}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="bare-section-node-header"');
+    expect(markup).toContain('data-testid="mock-header-icon"');
+    expect(markup).toContain("Prepare report");
+    expect(markup).not.toContain('data-testid="mock-section-header"');
+    expect(markup).not.toContain('data-testid="mock-callable-area"');
+  });
+
+  it("keeps bare section data edge controls on the canvas node", () => {
+    mockProjectState.sections = {
+      "callable-1": { name: "Prepare report" },
+    };
+    mockEdgeStripState.visible = true;
+
+    const markup = renderToStaticMarkup(
+      <SectionContainerCoreResizable
+        sectionId="callable-1"
+        sectionTypeName={SectionTypeEnum.Callable}
+        isInOtherProjectConfigs={false}
+        isUserView={false}
+        positionAndSizeLocked={false}
+        hasSectionStyleTheme={false}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="bare-section-node-header"');
+    expect(markup).toContain('data-testid="mock-bare-edge-strip"');
+    expect(markup).toContain('data-variant="bare-node"');
+    expect(markup).not.toContain('data-testid="mock-callable-area"');
   });
 
   it("preserves explicit standalone thread ownership overrides", () => {

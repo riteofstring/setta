@@ -20,6 +20,12 @@ import {
   ZustandProjectState,
 } from "state/definitions";
 import {
+  BARE_SECTION_NODE_MIN_HEIGHT,
+  BARE_SECTION_NODE_MIN_WIDTH,
+  isBareSectionNodeType,
+} from "utils/bareSectionNodes";
+import {
+  getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
   getSectionHeaderHeightKey,
@@ -43,6 +49,7 @@ type SizeMode = {
 type EffectiveSectionImpl = ReturnType<typeof getCurrEffectiveSectionImpl>;
 
 type SectionMeasuredHeights = {
+  edgesStripHeight: number;
   kwargsControlsHeight: number;
   paramsFixedHeight: number;
   sectionHeaderHeight: number;
@@ -125,6 +132,10 @@ export function getMinSectionHeight({
     return sizingPolicy.globals.minimizedHeight;
   }
 
+  if (isBareSectionNodeType(sectionType)) {
+    return BARE_SECTION_NODE_MIN_HEIGHT;
+  }
+
   if (sectionType === SectionTypeEnum.Callable) {
     const callablePolicy = sizingPolicy.byType.Callable;
     if (hideSearch) {
@@ -165,6 +176,10 @@ export function getMinSectionWidth({
 }): number {
   const policyByType = sizingPolicy.byType[sectionType];
 
+  if (isBareSectionNodeType(sectionType)) {
+    return BARE_SECTION_NODE_MIN_WIDTH;
+  }
+
   return policyByType.minWidth;
 }
 
@@ -191,15 +206,19 @@ function getSizeMode({
   isTwitter: boolean;
   metaControlSizeMode: SizeMode | null;
 }) {
+  if (isBareSectionNodeType(sectionType)) {
+    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
+  }
+
   if (sectionType === SectionTypeEnum.MetaControl && metaControlSizeMode) {
     return metaControlSizeMode;
   }
 
-  if (sectionType === SectionTypeEnum.Callable) {
-    if (hideParams) {
-      return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
-    }
-  } else if (
+  if (sectionType === SectionTypeEnum.Callable && hideParams) {
+    return { height: SIZE_MODE.auto_only, width: SIZE_MODE.any };
+  }
+
+  if (
     sectionType === SectionTypeEnum.Terminal ||
     sectionType === SectionTypeEnum.Chart
   ) {
@@ -257,6 +276,10 @@ function getResolvedUnpinnedMinHeight({
   return normalizedUnpinnedMinHeight;
 }
 
+function usesCanvasParamSizing(sectionType: SectionType) {
+  return sectionType === SectionTypeEnum.GlobalVariables;
+}
+
 function getRequiredParamsMinHeight({
   hideParams,
   impl,
@@ -277,6 +300,12 @@ function getRequiredParamsMinHeight({
   if (isMinimized || hideParams || !isBaseSectionWithParamsImpl(impl)) {
     return 0;
   }
+  if (isBareSectionNodeType(impl.type)) {
+    return 0;
+  }
+  if (!usesCanvasParamSizing(impl.type)) {
+    return 0;
+  }
 
   const variantId = getCurrSectionVariantId(projectState, sectionId, true);
   const shown = projectState.shownParamIds[variantId];
@@ -295,6 +324,21 @@ function getRequiredParamsMinHeight({
       sizingPolicy,
     })
   );
+}
+
+function getBareSectionEdgeStripHeight({
+  isMinimized,
+  measuredHeights,
+  sectionType,
+}: {
+  isMinimized: boolean;
+  measuredHeights: SectionMeasuredHeights;
+  sectionType: SectionType;
+}) {
+  if (isMinimized || !isBareSectionNodeType(sectionType)) {
+    return 0;
+  }
+  return measuredHeights.edgesStripHeight;
 }
 
 function getMetaControlMinDimensions({
@@ -356,14 +400,20 @@ function getSectionMinDimensions({
   sectionType: SectionType;
   sizingPolicy: SectionSizingPolicy;
 }): SectionMinDimensions {
+  const baseMinHeight = getMinSectionHeight({
+    sectionType,
+    hideSearch,
+    hideParams,
+    isMinimized,
+    sizingPolicy,
+  });
   const minHeight = Math.max(
-    getMinSectionHeight({
-      sectionType,
-      hideSearch,
-      hideParams,
-      isMinimized,
-      sizingPolicy,
-    }),
+    baseMinHeight +
+      getBareSectionEdgeStripHeight({
+        isMinimized,
+        measuredHeights,
+        sectionType,
+      }),
     getRequiredParamsMinHeight({
       hideParams,
       impl,
@@ -396,6 +446,10 @@ function getSectionMinDimensions({
 export function useSectionMinMaxDims(sectionId: string) {
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
   const resizeEvent = useResizeEvent((x) => x.resizeEvent[sectionId]);
+  const edgesStripHeight = useTemporaryMiscState((x) => {
+    const height = x[getEdgesStripHeightKey(sectionId)];
+    return typeof height === "number" ? height : 0;
+  });
   const sectionHeaderHeight = useTemporaryMiscState((x) => {
     const height = x[getSectionHeaderHeightKey(sectionId)];
     return typeof height === "number" ? height : 0;
@@ -439,6 +493,7 @@ export function useSectionMinMaxDims(sectionId: string) {
         impl,
         isMinimized,
         measuredHeights: {
+          edgesStripHeight,
           kwargsControlsHeight,
           paramsFixedHeight,
           sectionHeaderHeight,

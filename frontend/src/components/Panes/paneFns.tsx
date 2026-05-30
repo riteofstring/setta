@@ -8,6 +8,7 @@ import {
   useSettings,
 } from "state/definitions";
 import { getUIEditorTab } from "state/hooks/uiTypes";
+import { isBareSectionNodeType } from "utils/bareSectionNodes";
 import { OverviewTabKey, PaneName, PaneNameEnum } from "utils/constants";
 import {
   OverviewTabUIConfig,
@@ -109,20 +110,11 @@ export function onOverviewResizeStop(widthDiff) {
 }
 
 export function getOnUIEditorTabClick(sectionType: SectionType) {
-  const setTab = (newTabState: UIEditorTabName) => {
-    useLocalStorage.setState((state) => ({
-      uiEditorTab: {
-        ...state.uiEditorTab,
-        [sectionType]: newTabState,
-      },
-    }));
-  };
-
   return (tabValue: UIEditorTabName) => {
     const { uiEditorVis, uiEditorTab } = useLocalStorage.getState();
     const { selectedTabName } = getUIEditorTab(sectionType, uiEditorTab);
     if (selectedTabName !== tabValue) {
-      setTab(tabValue);
+      setUIEditorTab(sectionType, tabValue);
       if (!uiEditorVis) {
         visToggle(PaneNameEnum.uiEditor);
       }
@@ -130,6 +122,33 @@ export function getOnUIEditorTabClick(sectionType: SectionType) {
       visToggle(PaneNameEnum.uiEditor);
     }
   };
+}
+
+function setUIEditorTab(sectionType: SectionType, tabName: UIEditorTabName) {
+  useLocalStorage.setState((state) => ({
+    uiEditorTab: {
+      ...state.uiEditorTab,
+      [sectionType]: tabName,
+    },
+  }));
+}
+
+function showUIEditorTab(sectionType: SectionType, tabName: UIEditorTabName) {
+  setUIEditorTab(sectionType, tabName);
+  if (!useLocalStorage.getState().uiEditorVis) {
+    visToggle(PaneNameEnum.uiEditor);
+  }
+}
+
+export function showSectionContentsTabForSection(sectionId: string) {
+  const sectionType = getSectionType(
+    useProjectState.getState(),
+    sectionId,
+  ) as SectionType;
+  if (!isBareSectionNodeType(sectionType)) {
+    return;
+  }
+  showUIEditorTab(sectionType, UIEditorTabUIConfig.names.SectionContents);
 }
 
 export function getOnUIEditorTabClickNoSectionSelected() {

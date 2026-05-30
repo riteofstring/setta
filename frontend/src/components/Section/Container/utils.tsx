@@ -1,3 +1,4 @@
+import { showSectionContentsTabForSection } from "components/Panes/paneFns";
 import { useDndChildren } from "forks/dnd-kit/dndChildren";
 import _ from "lodash";
 import { useEffect, useState } from "react";
@@ -74,7 +75,16 @@ export function getOnSectionClick(sectionId: string) {
       useMisc.setState({ mouseDownDrawArea: false });
       return;
     }
-    applyActiveSectionChange({ interaction: "section-click", sectionId });
+    const result = applyActiveSectionChange({
+      interaction: "section-click",
+      sectionId,
+    });
+    if (
+      result.nextActiveIds.length === 1 &&
+      result.nextActiveIds[0] === sectionId
+    ) {
+      showSectionContentsTabForSection(sectionId);
+    }
   };
 }
 

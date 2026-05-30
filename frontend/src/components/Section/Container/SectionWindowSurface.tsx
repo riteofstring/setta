@@ -14,7 +14,7 @@ import {
   type ChatWindowMode,
   type ChatWindowPlacement,
 } from "utils/generatedTypes";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import { buildSectionStyleVars } from "utils/sectionStyleVars";
 import { SectionHeader } from "../Header/SectionHeader";
 import { AreaSwitch } from "./SectionContainerCoreResizabe";
 import {
@@ -86,22 +86,12 @@ function getSectionWindowSurfaceAppearance({
     };
   }
 
-  const sectionStyleTheme = deriveSectionStyleTheme(
-    resolvedStyleColor,
-    darkMode,
-  );
+  const sectionStyleVars = buildSectionStyleVars(resolvedStyleColor, darkMode);
   return {
     bgColor: defaultBgColor,
     useMetaControlStyle,
-    hasSectionStyleTheme: true,
-    sectionStyleVars: {
-      "--setta-section-style-bg": sectionStyleTheme.bg,
-      "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
-      "--setta-section-style-border": sectionStyleTheme.border,
-      "--setta-section-style-outline": sectionStyleTheme.outline,
-      "--setta-section-style-text": sectionStyleTheme.text,
-      "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
-    } as React.CSSProperties,
+    hasSectionStyleTheme: Boolean(sectionStyleVars),
+    sectionStyleVars,
   };
 }
 

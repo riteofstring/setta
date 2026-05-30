@@ -1,11 +1,13 @@
 {
   "Callable": [
+    "SectionContents",
     "SectionConfig",
     "UIConfig",
     "QuickInfoConfig",
     "SectionVariantsConfig"
   ],
   "Dict": [
+    "SectionContents",
     "SectionConfig",
     "UIConfig",
     "QuickInfoConfig",

@@ -69,7 +69,7 @@ export type ServerSentEventsOptions<TData = unknown> = Omit<
     url: string;
   };
 
-interface StreamEvent<TData = unknown> {
+export interface StreamEvent<TData = unknown> {
   data: TData;
   event?: string | undefined;
   id?: string | undefined;

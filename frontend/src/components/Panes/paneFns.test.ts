@@ -9,7 +9,11 @@ import {
   createVariant,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it } from "vitest";
-import { showParamUITypeTab, showVersionsTab } from "./paneFns";
+import {
+  showParamUITypeTab,
+  showSectionContentsTabForSection,
+  showVersionsTab,
+} from "./paneFns";
 
 function configureActiveDictSection() {
   const sectionId = "section-dict";
@@ -56,6 +60,41 @@ describe("paneFns tab helpers", () => {
 
     expect(useLocalStorage.getState().uiEditorTab[SectionTypeEnum.Dict]).toBe(
       UIEditorTabUIConfig.names.UIConfig,
+    );
+  });
+
+  it("opens the right pane on the contents tab for bare dict sections", () => {
+    useLocalStorage.setState((state) => ({
+      uiEditorVis: false,
+      uiEditorTab: {
+        ...state.uiEditorTab,
+        [SectionTypeEnum.Dict]: UIEditorTabUIConfig.names.SectionConfig,
+      },
+    }));
+
+    showSectionContentsTabForSection("section-dict");
+
+    const state = useLocalStorage.getState();
+    expect(state.uiEditorVis).toBe(true);
+    expect(state.uiEditorTab[SectionTypeEnum.Dict]).toBe(
+      UIEditorTabUIConfig.names.SectionContents,
+    );
+  });
+
+  it("keeps an already visible contents pane open", () => {
+    useLocalStorage.setState((state) => ({
+      uiEditorVis: true,
+      uiEditorTab: {
+        ...state.uiEditorTab,
+        [SectionTypeEnum.Dict]: UIEditorTabUIConfig.names.SectionContents,
+      },
+    }));
+
+    showSectionContentsTabForSection("section-dict");
+
+    expect(useLocalStorage.getState().uiEditorVis).toBe(true);
+    expect(useLocalStorage.getState().uiEditorTab[SectionTypeEnum.Dict]).toBe(
+      UIEditorTabUIConfig.names.SectionContents,
     );
   });
 });

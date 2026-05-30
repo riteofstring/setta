@@ -16,7 +16,7 @@ import {
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import { buildSectionStyleVars } from "utils/sectionStyleVars";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
@@ -124,7 +124,7 @@ function resolvePreviewStyleColor(
   return previewStyleColor === undefined ? styleColor : previewStyleColor;
 }
 
-function getSectionStyleThemeOrNull({
+function getSectionStyleVarsOrUndefined({
   darkMode,
   resolvedStyleColor,
   useMetaControlStyle,
@@ -134,29 +134,9 @@ function getSectionStyleThemeOrNull({
   useMetaControlStyle: boolean;
 }) {
   if (!resolvedStyleColor || useMetaControlStyle) {
-    return null;
-  }
-  return deriveSectionStyleTheme(resolvedStyleColor, darkMode);
-}
-
-function resolveSectionStyleVars(
-  sectionStyleTheme: ReturnType<typeof deriveSectionStyleTheme> | null,
-) {
-  if (!sectionStyleTheme) {
     return undefined;
   }
-  return {
-    "--setta-section-style-bg": sectionStyleTheme.bg,
-    "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
-    "--setta-section-style-border": sectionStyleTheme.border,
-    "--setta-section-style-outline": sectionStyleTheme.outline,
-    "--setta-section-style-text": sectionStyleTheme.text,
-    "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
-    "--setta-section-style-arg-handle": sectionStyleTheme.border,
-    "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
-    "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
-    "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
-  } satisfies React.CSSProperties;
+  return buildSectionStyleVars(resolvedStyleColor, darkMode);
 }
 
 function getSectionShellStyle(
@@ -261,16 +241,15 @@ function _SectionContainerCore({
     styleColor,
   );
   const darkMode = useLocalStorage((x) => x.darkMode);
-  const sectionStyleTheme = getSectionStyleThemeOrNull({
+  const sectionStyleVars = getSectionStyleVarsOrUndefined({
     darkMode,
     resolvedStyleColor,
     useMetaControlStyle,
   });
-  const hasSectionStyleTheme = Boolean(sectionStyleTheme);
+  const hasSectionStyleTheme = Boolean(sectionStyleVars);
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
   );
-  const sectionStyleVars = resolveSectionStyleVars(sectionStyleTheme);
   const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
     isGlobalVariables,
