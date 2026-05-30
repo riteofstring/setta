@@ -213,6 +213,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) =>
             handleComposerKeyDown(event, {
+              queueDraft,
               running,
               sendDraft,
               stopRun: chat.stopActiveRun,
@@ -234,6 +235,7 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
 }
 
 interface ComposerKeyActions {
+  queueDraft: () => Promise<void>;
   running: boolean;
   sendDraft: () => Promise<void>;
   stopRun: () => Promise<void>;
@@ -243,6 +245,11 @@ export function handleComposerKeyDown(
   event: KeyboardEvent<HTMLTextAreaElement>,
   actions: ComposerKeyActions,
 ) {
+  if (isQueueShortcut(event)) {
+    event.preventDefault();
+    void actions.queueDraft();
+    return;
+  }
   if (isStopShortcut(event, actions.running)) {
     event.preventDefault();
     void actions.stopRun();
@@ -253,6 +260,10 @@ export function handleComposerKeyDown(
   }
   event.preventDefault();
   void actions.sendDraft();
+}
+
+function isQueueShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
+  return event.key === "Tab" && !event.nativeEvent.isComposing;
 }
 
 function isStopShortcut(event: KeyboardEvent<HTMLTextAreaElement>, running: boolean) {

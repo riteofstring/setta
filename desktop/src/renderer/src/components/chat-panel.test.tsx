@@ -5,18 +5,21 @@ import { describe, expect, test, vi } from "vitest";
 import { ComposerButton, handleComposerKeyDown } from "./chat-panel";
 
 describe("composer keyboard behavior", () => {
-  test("does not queue or submit on Tab", () => {
+  test("queues on Tab", () => {
     const event = keyboardEvent("Tab");
+    const queueDraft = vi.fn();
     const sendDraft = vi.fn();
     const stopRun = vi.fn();
 
     handleComposerKeyDown(event, {
-      running: true,
+      queueDraft,
+      running: false,
       sendDraft,
       stopRun,
     });
 
-    expect(event.preventDefault).not.toHaveBeenCalled();
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(queueDraft).toHaveBeenCalledOnce();
     expect(sendDraft).not.toHaveBeenCalled();
     expect(stopRun).not.toHaveBeenCalled();
   });
@@ -26,6 +29,7 @@ describe("composer keyboard behavior", () => {
     const sendDraft = vi.fn();
 
     handleComposerKeyDown(event, {
+      queueDraft: vi.fn(),
       running: false,
       sendDraft,
       stopRun: vi.fn(),
@@ -40,6 +44,7 @@ describe("composer keyboard behavior", () => {
     const stopRun = vi.fn();
 
     handleComposerKeyDown(event, {
+      queueDraft: vi.fn(),
       running: true,
       sendDraft: vi.fn(),
       stopRun,

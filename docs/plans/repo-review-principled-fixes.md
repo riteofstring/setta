@@ -13,7 +13,8 @@ contracts and values, not maintain local mirrors.
 
 ## Goals
 
-- Remove hidden or surprising user commands from the chat composer.
+- Make chat composer commands intentional, tested, and consistent with product
+  decisions.
 - Make corrupt durable state fail loudly in user-facing service paths.
 - Generate TypeScript literal unions for Go-owned status/type/value contracts.
 - Treat mismatched provider events as protocol drift, not harmless noise.
@@ -31,8 +32,8 @@ contracts and values, not maintain local mirrors.
 
 ## Guiding Principles
 
-- A normal text-editing key must not submit, queue, approve, deny, or cancel
-  work.
+- Keyboard shortcuts that submit, queue, approve, deny, or cancel work must be
+  intentional product decisions and covered by focused tests.
 - Backend state corruption is not a bad request. It is an internal state
   failure and should be reported through typed errors and diagnostics.
 - A diagnostic can add context, but it must not be the only signal when the
@@ -48,8 +49,9 @@ contracts and values, not maintain local mirrors.
 
 This plan is implemented as of 2026-05-30.
 
-- Phase 1 is complete. `Tab` no longer queues the draft message, and queueing is
-  reachable through an explicit active-run control.
+- Phase 1 is complete with a revised product decision: `Tab` queues the draft
+  message while the composer text input is focused, including idle chats.
+  Queueing is also reachable through an explicit active-run control.
 - Phase 2 is complete. User-facing chat state paths fail closed for corrupt
   durable state, partial scan helpers are explicitly named, and malformed
   startup run state fails startup after diagnostics are recorded.
@@ -65,19 +67,20 @@ This plan is implemented as of 2026-05-30.
 - Phase 6 is complete. Submit approval IPC/preload surfaces use the generated
   `SubmitApprovalRequest` contract instead of a manual mirror.
 
-## Phase 1: Make Composer Commands Explicit
+## Phase 1: Make Composer Commands Intentional
 
 Problem:
 
-- `Tab` currently queues the draft message.
+- `Tab` queues the draft message when the composer text input is focused.
 - When no run is active, queueing immediately promotes the message into a
   running turn.
-- This turns a common focus-navigation and text-editing key into a hidden submit
-  command.
+- This is intentional product behavior, but it must be documented in tests so
+  future cleanup does not remove it accidentally.
 
 Principled fix:
 
-- Remove `Tab` as a queue shortcut.
+- Keep `Tab` as the composer queue shortcut while the textarea is focused,
+  including when no run is active.
 - Keep `Enter` submit only if product direction explicitly wants chat-style
   send-on-enter. Otherwise move to `Cmd/Ctrl+Enter`.
 - Add an explicit Queue button only when a queue action makes sense.
@@ -90,12 +93,12 @@ Principled fix:
 
 Implementation steps:
 
-- Replace `isQueueShortcut` with either no shortcut or a conventional modified
-  shortcut.
+- Keep `isQueueShortcut` scoped to textarea keydown handling and guard it
+  against IME composition.
 - Add tests for keyboard behavior:
-  - `Tab` does not call `queueMessage`.
+  - `Tab` calls `queueMessage` when the composer text input is focused.
   - submit shortcut calls `sendMessage` or `steerMessage` exactly once.
-  - queue action is reachable only through the explicit queue control.
+  - explicit Queue control also calls `queueMessage` while a run is active.
 - Add renderer tests for active-run and idle composer controls.
 - Keep backend `QueueUserMessage` semantics strict; do not add backend behavior
   shims to compensate for old UI behavior.
@@ -415,8 +418,8 @@ pnpm -C desktop test
 
 ## Suggested Sequencing
 
-1. Composer command cleanup. This is narrow and immediately removes surprising
-   user behavior.
+1. Composer command policy. This is narrow and keeps keyboard behavior
+   intentional and tested.
 2. Manual contract mirror removal. This is small and reduces drift before
    broader generator work.
 3. Corrupt-state fail-closed behavior. This changes user-visible failure
@@ -448,8 +451,8 @@ For the output pagination phase, add an append-only performance note under
 
 ## Acceptance Criteria
 
-- Pressing `Tab` in the composer never submits, queues, cancels, approves, or
-  denies anything.
+- Pressing `Tab` in the focused composer queues the draft message, including in
+  idle chats, and does not submit, cancel, approve, or deny anything.
 - Corrupt chat state cannot silently hide conversations, runs, queued messages,
   or run activity in normal user-facing views.
 - Generated TypeScript exposes backend-owned statuses and kinds as literal
