@@ -69,6 +69,7 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 	flagSet.StringVar(&config.Host, "host", envOrDefault(getenv, "SETTA_BACKEND_HOST", config.Host), "loopback host to bind")
 	flagSet.IntVar(&config.Port, "port", port, "port to bind, or 0 for an ephemeral port")
 	flagSet.StringVar(&config.Version, "version", envOrDefault(getenv, "SETTA_BACKEND_VERSION", config.Version), "backend version metadata")
+	config.ChatHarness = runtime.ChatHarnessMode(envOrDefault(getenv, "SETTA_TEST_CHAT_HARNESS", string(config.ChatHarness)))
 
 	if err := flagSet.Parse(args); err != nil {
 		return config, err

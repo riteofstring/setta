@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -85,6 +86,25 @@ func TestWorkspaceEndpointReturnsStructuredError(t *testing.T) {
 	}
 }
 
+func TestWorkspaceEndpointMapsMalformedMetadataToCorruptState(t *testing.T) {
+	times := []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+		mustTime(t, "2026-05-29T20:05:00Z"),
+	}
+	handler, appDataDir := newWorkspaceHandlerWithAppDataDir(t, nil, times)
+	rootPath := t.TempDir()
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: rootPath}, http.StatusOK)
+	metadataPath := filepath.Join(appDataDir, "workspaces", opened.Workspace.ID, "workspace.json")
+	if err := os.WriteFile(metadataPath, []byte("{"), 0o644); err != nil {
+		t.Fatalf("write malformed workspace metadata: %v", err)
+	}
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: rootPath}, http.StatusInternalServerError)
+	if errResponse.Error.Code != "corrupt_workspace_state" {
+		t.Fatalf("error code = %q, want corrupt_workspace_state", errResponse.Error.Code)
+	}
+}
+
 func TestWorkspaceEndpointRejectsMalformedJSON(t *testing.T) {
 	handler := newWorkspaceHandler(t, nil, nil)
 	request := httptest.NewRequest(http.MethodPost, "/workspaces/select", bytes.NewBufferString("{"))
@@ -131,6 +151,13 @@ func TestWorkspaceEndpointRejectsUnknownJSONFields(t *testing.T) {
 func newWorkspaceHandler(t *testing.T, _ []string, times []time.Time) http.Handler {
 	t.Helper()
 
+	handler, _ := newWorkspaceHandlerWithAppDataDir(t, nil, times)
+	return handler
+}
+
+func newWorkspaceHandlerWithAppDataDir(t *testing.T, _ []string, times []time.Time) (http.Handler, string) {
+	t.Helper()
+
 	store, err := appstate.NewStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("new app store: %v", err)
@@ -154,7 +181,7 @@ func newWorkspaceHandler(t *testing.T, _ []string, times []time.Time) http.Handl
 	return NewHandler(HandlerConfig{
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService: service,
-	})
+	}), filepath.Dir(store.Path())
 }
 
 func postJSON[T any](t *testing.T, handler http.Handler, path string, payload any, wantStatus int) T {

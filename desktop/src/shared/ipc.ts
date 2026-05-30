@@ -7,11 +7,16 @@ import type {
   ListConversationsResponse,
   MessagePage,
   OpenWorkspaceResponse,
+  QueueMessageResult,
   Run,
+  RunActivityPage,
+  RunItemOutputPage,
   SendMessageResult,
+  SteerMessageResult,
+  SubmitApprovalRequest,
   WorkspaceSession,
 } from "@generated/backend";
-import type { RuntimeVersions, SubmitApprovalInput } from "./types";
+import type { RuntimeVersions } from "./types";
 
 export const ipcChannels = {
   appVersions: "app:versions",
@@ -21,7 +26,11 @@ export const ipcChannels = {
   chatCreateConversation: "chat:create-conversation",
   chatListConversations: "chat:list-conversations",
   chatMessagePage: "chat:message-page",
+  chatQueueMessage: "chat:queue-message",
+  chatRunActivity: "chat:run-activity",
+  chatRunItemOutput: "chat:run-item-output",
   chatSendMessage: "chat:send-message",
+  chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
@@ -32,6 +41,8 @@ export const ipcChannels = {
 } as const;
 
 export const ipcEvents = {
+  backendEventStreamStatus: "backend:event-stream-status",
+  backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
 } as const;
@@ -65,12 +76,34 @@ interface IpcContract {
     args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
     result: MessagePage;
   };
+  chatQueueMessage: {
+    args: [workspaceId: string, conversationId: string, prompt: string];
+    result: QueueMessageResult;
+  };
+  chatRunActivity: {
+    args: [workspaceId: string, runId: string, limit: number];
+    result: RunActivityPage;
+  };
+  chatRunItemOutput: {
+    args: [
+      workspaceId: string,
+      runId: string,
+      runItemId: string,
+      afterOrdinal: number,
+      limit: number,
+    ];
+    result: RunItemOutputPage;
+  };
   chatSendMessage: {
     args: [workspaceId: string, conversationId: string, prompt: string];
     result: SendMessageResult;
   };
+  chatSteerMessage: {
+    args: [workspaceId: string, conversationId: string, prompt: string];
+    result: SteerMessageResult;
+  };
   chatSubmitApproval: {
-    args: [input: SubmitApprovalInput];
+    args: [input: SubmitApprovalRequest];
     result: Run;
   };
   workspaceClose: {
@@ -140,10 +173,25 @@ export interface IpcObservedFailure {
 let nextObservedIpcID = 1;
 
 export function createRendererIpcInvoke(renderer: Pick<IpcRenderer, "invoke">): RendererIpcInvoke {
-  return (channel, ...args) =>
-    renderer.invoke(ipcChannels[channel], ...args) as Promise<
-      IpcContract[typeof channel]["result"]
-    >;
+  return async (channel, ...args) => {
+    const channelName = ipcChannels[channel];
+    try {
+      return (await renderer.invoke(channelName, ...args)) as IpcContract[typeof channel]["result"];
+    } catch (error) {
+      throw normalizeRendererIpcError(channelName, error);
+    }
+  };
+}
+
+function normalizeRendererIpcError(channelName: string, error: unknown) {
+  if (!(error instanceof Error)) {
+    return error;
+  }
+  const prefix = `Error invoking remote method '${channelName}': Error: `;
+  if (!error.message.startsWith(prefix)) {
+    return error;
+  }
+  return new Error(error.message.slice(prefix.length));
 }
 
 export function handleIpc<Channel extends IpcChannelKey>(

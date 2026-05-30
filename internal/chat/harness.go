@@ -8,9 +8,23 @@ import (
 )
 
 type Harness interface {
-	StartTurn(context.Context, TurnRequest, TurnSink) error
+	StartTurn(context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
+	SteerTurn(context.Context, SteerRequest) error
 	CancelTurn(context.Context, CancelRequest) error
 	SubmitApproval(context.Context, ApprovalResponse) error
+}
+
+type TurnOutcome string
+
+const (
+	TurnOutcomeCompleted TurnOutcome = "completed"
+	TurnOutcomeCancelled TurnOutcome = "cancelled"
+	TurnOutcomeFailed    TurnOutcome = "failed"
+)
+
+type TurnCompletion struct {
+	Outcome      TurnOutcome
+	ErrorMessage string
 }
 
 type TurnRequest struct {
@@ -27,6 +41,15 @@ type CancelRequest struct {
 	ConversationID string
 }
 
+type SteerRequest struct {
+	RunID          string
+	WorkspaceID    string
+	ConversationID string
+	ThreadID       string
+	TurnID         string
+	Text           string
+}
+
 type ApprovalResponse struct {
 	RunID      string
 	ApprovalID string
@@ -40,7 +63,7 @@ var ErrTurnNotStarted = errors.New("turn has not started")
 
 type HarnessRefUnavailableError struct {
 	Err      error
-	Harness  string
+	Harness  HarnessKind
 	ThreadID string
 	Message  string
 }
@@ -49,7 +72,7 @@ func (err *HarnessRefUnavailableError) Error() string {
 	if err.Message != "" {
 		return err.Message
 	}
-	return err.Harness + " thread ref unavailable: " + err.ThreadID
+	return string(err.Harness) + " thread ref unavailable: " + err.ThreadID
 }
 
 func (err *HarnessRefUnavailableError) Unwrap() error {
@@ -57,9 +80,12 @@ func (err *HarnessRefUnavailableError) Unwrap() error {
 }
 
 type TurnSink interface {
-	AssistantTextDelta(text string) error
+	AssistantTextDelta(providerItemID string, text string) error
 	ApprovalRequested(approval ApprovalRequest) error
 	ApprovalResolved(approvalID string, approved bool, response string) error
+	ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool) error
+	RunItemOutputDelta(providerItemID string, stream string, text string) error
+	RunItemUpsert(item RunItem) error
 	ThreadLinked(threadID string, sessionID string, turnID string) error
 	Trace(eventType string, message string) error
 }
