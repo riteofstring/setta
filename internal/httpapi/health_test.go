@@ -8,7 +8,7 @@ import (
 )
 
 func TestHealthEndpointReturnsStructuredJSON(t *testing.T) {
-	handler := NewHandler(BackendMetadata{Name: BackendName, Version: "test"})
+	handler := NewHandler(HandlerConfig{Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
 	request := httptest.NewRequest(http.MethodGet, "/health", nil)
 	response := httptest.NewRecorder()
 
@@ -31,7 +31,7 @@ func TestHealthEndpointReturnsStructuredJSON(t *testing.T) {
 }
 
 func TestUnknownEndpointReturnsNotFound(t *testing.T) {
-	handler := NewHandler(BackendMetadata{Name: BackendName, Version: "test"})
+	handler := NewHandler(HandlerConfig{Metadata: BackendMetadata{Name: BackendName, Version: "test"}})
 	request := httptest.NewRequest(http.MethodGet, "/missing", nil)
 	response := httptest.NewRecorder()
 

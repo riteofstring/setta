@@ -1,0 +1,179 @@
+package httpapi
+
+import (
+	"bytes"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"setta/internal/appstate"
+	"setta/internal/workspace"
+	"setta/internal/workspacesession"
+)
+
+func TestWorkspaceEndpointsOpenSelectReorderCloseAndRemoveRecent(t *testing.T) {
+	handler := newWorkspaceHandler(t, []string{"workspace_api", "workspace_web"}, []time.Time{
+		mustTime(t, "2026-05-29T20:00:00Z"),
+		mustTime(t, "2026-05-29T20:05:00Z"),
+	})
+
+	apiRoot := t.TempDir()
+	webRoot := t.TempDir()
+
+	openAPI := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: apiRoot}, http.StatusOK)
+	if openAPI.Workspace.ID != "workspace_api" {
+		t.Fatalf("opened workspace id = %q, want workspace_api", openAPI.Workspace.ID)
+	}
+	openWeb := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: webRoot}, http.StatusOK)
+	assertIDs(t, "active after open", openWeb.Session.ActiveWorkspaces, []string{"workspace_api", "workspace_web"})
+	if openWeb.Session.SelectedWorkspaceID != "workspace_web" {
+		t.Fatalf("selected after open = %q, want workspace_web", openWeb.Session.SelectedWorkspaceID)
+	}
+
+	selected := postJSON[workspacesession.WorkspaceSession](t, handler, "/workspaces/select", SelectWorkspaceRequest{ID: "workspace_api"}, http.StatusOK)
+	if selected.SelectedWorkspaceID != "workspace_api" {
+		t.Fatalf("selected = %q, want workspace_api", selected.SelectedWorkspaceID)
+	}
+
+	reordered := postJSON[workspacesession.WorkspaceSession](t, handler, "/workspaces/reorder", ReorderWorkspaceRequest{IDs: []string{"workspace_web", "workspace_api"}}, http.StatusOK)
+	assertIDs(t, "active after reorder", reordered.ActiveWorkspaces, []string{"workspace_web", "workspace_api"})
+
+	closedWeb := postJSON[workspacesession.WorkspaceSession](t, handler, "/workspaces/close", CloseWorkspaceRequest{ID: "workspace_web"}, http.StatusOK)
+	assertIDs(t, "active after close web", closedWeb.ActiveWorkspaces, []string{"workspace_api"})
+	assertIDs(t, "recent after close web", closedWeb.RecentWorkspaces, []string{"workspace_web", "workspace_api"})
+
+	if errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/remove-recent", RemoveRecentWorkspaceRequest{ID: "workspace_api"}, http.StatusBadRequest); errResponse.Error.Code != "remove_recent_workspace_failed" {
+		t.Fatalf("active remove error code = %q", errResponse.Error.Code)
+	}
+
+	removedRecent := postJSON[workspacesession.WorkspaceSession](t, handler, "/workspaces/remove-recent", RemoveRecentWorkspaceRequest{ID: "workspace_web"}, http.StatusOK)
+	assertIDs(t, "recent after remove web", removedRecent.RecentWorkspaces, []string{"workspace_api"})
+}
+
+func TestWorkspaceSessionEndpointReturnsCurrentSession(t *testing.T) {
+	handler := newWorkspaceHandler(t, nil, nil)
+	request := httptest.NewRequest(http.MethodGet, "/workspace-session", nil)
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
+	}
+	var session workspacesession.WorkspaceSession
+	if err := json.NewDecoder(response.Body).Decode(&session); err != nil {
+		t.Fatalf("decode session: %v", err)
+	}
+	if len(session.ActiveWorkspaces) != 0 || len(session.RecentWorkspaces) != 0 || session.SelectedWorkspaceID != "" {
+		t.Fatalf("session = %+v, want empty session", session)
+	}
+}
+
+func TestWorkspaceEndpointReturnsStructuredError(t *testing.T) {
+	handler := newWorkspaceHandler(t, []string{"workspace_unused"}, []time.Time{mustTime(t, "2026-05-29T20:00:00Z")})
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: "relative"}, http.StatusBadRequest)
+	if errResponse.Error.Code != "open_workspace_failed" {
+		t.Fatalf("error code = %q, want open_workspace_failed", errResponse.Error.Code)
+	}
+	if errResponse.Error.Message == "" {
+		t.Fatal("error message is empty")
+	}
+}
+
+func TestWorkspaceEndpointRejectsMalformedJSON(t *testing.T) {
+	handler := newWorkspaceHandler(t, nil, nil)
+	request := httptest.NewRequest(http.MethodPost, "/workspaces/select", bytes.NewBufferString("{"))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusBadRequest)
+	}
+	var errResponse ErrorResponse
+	if err := json.NewDecoder(response.Body).Decode(&errResponse); err != nil {
+		t.Fatalf("decode error response: %v", err)
+	}
+	if errResponse.Error.Code != "invalid_json" {
+		t.Fatalf("error code = %q, want invalid_json", errResponse.Error.Code)
+	}
+}
+
+func newWorkspaceHandler(t *testing.T, ids []string, times []time.Time) http.Handler {
+	t.Helper()
+
+	store, err := appstate.NewStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new app store: %v", err)
+	}
+	idIndex := 0
+	timeIndex := 0
+	manager := workspace.NewManager(
+		workspace.WithIDGenerator(func() (string, error) {
+			id := ids[idIndex]
+			idIndex++
+			return id, nil
+		}),
+		workspace.WithClock(func() time.Time {
+			value := times[timeIndex]
+			timeIndex++
+			return value
+		}),
+	)
+	service, err := workspacesession.NewService(store, manager)
+	if err != nil {
+		t.Fatalf("new workspace service: %v", err)
+	}
+	return NewHandler(HandlerConfig{
+		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
+		WorkspaceService: service,
+	})
+}
+
+func postJSON[T any](t *testing.T, handler http.Handler, path string, payload any, wantStatus int) T {
+	t.Helper()
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal request payload: %v", err)
+	}
+	request := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
+	response := httptest.NewRecorder()
+
+	handler.ServeHTTP(response, request)
+
+	if response.Code != wantStatus {
+		t.Fatalf("%s status = %d, want %d, body: %s", path, response.Code, wantStatus, response.Body.String())
+	}
+	var decoded T
+	if err := json.NewDecoder(response.Body).Decode(&decoded); err != nil {
+		t.Fatalf("decode response %s: %v", path, err)
+	}
+	return decoded
+}
+
+func assertIDs(t *testing.T, label string, summaries []workspace.WorkspaceSummary, want []string) {
+	t.Helper()
+
+	if len(summaries) != len(want) {
+		t.Fatalf("%s ids length = %d, want %d: %+v", label, len(summaries), len(want), summaries)
+	}
+	for index, summary := range summaries {
+		if summary.ID != want[index] {
+			t.Fatalf("%s id[%d] = %q, want %q", label, index, summary.ID, want[index])
+		}
+	}
+}
+
+func mustTime(t *testing.T, value string) time.Time {
+	t.Helper()
+
+	parsed, err := time.Parse(time.RFC3339Nano, value)
+	if err != nil {
+		t.Fatalf("parse time %q: %v", value, err)
+	}
+	return parsed
+}

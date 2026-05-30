@@ -9,6 +9,14 @@ const api: SettaAPI = {
   backend: {
     health: () => ipcRenderer.invoke("backend:health"),
   },
+  workspace: {
+    close: (id: string) => ipcRenderer.invoke("workspace:close", id),
+    openLocalFolder: () => ipcRenderer.invoke("workspace:open-local-folder"),
+    removeRecent: (id: string) => ipcRenderer.invoke("workspace:remove-recent", id),
+    reorder: (ids: string[]) => ipcRenderer.invoke("workspace:reorder", ids),
+    select: (id: string) => ipcRenderer.invoke("workspace:select", id),
+    session: () => ipcRenderer.invoke("workspace:session"),
+  },
   browserPane: {
     captureScreenshot: () => ipcRenderer.invoke("browser-pane:capture-screenshot"),
     click: (point: BrowserPanePoint) => ipcRenderer.invoke("browser-pane:click", point),

@@ -1,8 +1,17 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import type { OpenDialogOptions } from "electron";
 import { join, resolve } from "node:path";
 
 import { fetchBackendHealth } from "./backend-health";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
+import {
+  closeWorkspace,
+  fetchWorkspaceSession,
+  openWorkspace,
+  removeRecentWorkspace,
+  reorderWorkspaces,
+  selectWorkspace,
+} from "./backend-workspace";
 import {
   createBrowserPane,
   registerBrowserPaneIpc,
@@ -26,7 +35,7 @@ function repoRoot() {
 
 async function prepareBackend() {
   try {
-    backend = await startBackend(repoRoot(), process.env);
+    backend = await startBackend(repoRoot(), app.getPath("userData"), process.env);
     backendStartupError = null;
     backend.events.on("exit", (exit) => {
       if (!exit.expected) {
@@ -90,6 +99,56 @@ function registerIpc() {
       throw new Error(backendStartupError ?? "backend is not running");
     }
     return fetchBackendHealth(backend.url);
+  });
+  ipcMain.handle("workspace:session", async () => {
+    if (!backend) {
+      throw new Error(backendStartupError ?? "backend is not running");
+    }
+    return fetchWorkspaceSession(backend.url);
+  });
+  ipcMain.handle("workspace:open-local-folder", async () => {
+    if (!backend) {
+      throw new Error(backendStartupError ?? "backend is not running");
+    }
+    const options: OpenDialogOptions = {
+      properties: ["openDirectory"],
+      title: "Open Workspace Folder",
+    };
+    const result = mainWindow
+      ? await dialog.showOpenDialog(mainWindow, options)
+      : await dialog.showOpenDialog(options);
+    if (result.canceled) {
+      return null;
+    }
+    const rootPath = result.filePaths[0];
+    if (!rootPath) {
+      throw new Error("open folder dialog returned no selected path");
+    }
+    return openWorkspace(backend.url, { rootPath });
+  });
+  ipcMain.handle("workspace:select", async (_event, id: string) => {
+    if (!backend) {
+      throw new Error(backendStartupError ?? "backend is not running");
+    }
+    return selectWorkspace(backend.url, { id });
+  });
+  ipcMain.handle("workspace:close", async (_event, id: string) => {
+    if (!backend) {
+      throw new Error(backendStartupError ?? "backend is not running");
+    }
+    return closeWorkspace(backend.url, { id });
+  });
+  ipcMain.handle("workspace:reorder", async (_event, ids: string[]) => {
+    if (!backend) {
+      throw new Error(backendStartupError ?? "backend is not running");
+    }
+    return reorderWorkspaces(backend.url, { ids });
+  });
+  ipcMain.handle("workspace:remove-recent", async (_event, id: string) => {
+    if (!backend) {
+      throw new Error(backendStartupError ?? "backend is not running");
+    }
+    return removeRecentWorkspace(backend.url, { id });
   });
   registerBrowserPaneIpc(() => browserPane);
 }

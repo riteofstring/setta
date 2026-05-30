@@ -5,3 +5,51 @@ export interface BackendHealth {
   name: string;
   version: string;
 }
+export interface WorkspaceSummary {
+  id: string;
+  rootPath: string;
+  displayName: string;
+  lastOpenedAt: string;
+}
+export interface WorkspaceState {
+  schemaVersion: number;
+  id: string;
+  rootPath: string;
+  displayName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface WorkspaceSession {
+  selectedWorkspaceId: string;
+  activeWorkspaces: WorkspaceSummary[];
+  recentWorkspaces: WorkspaceSummary[];
+}
+export interface RecentWorkspacesResponse {
+  recentWorkspaces: WorkspaceSummary[];
+}
+export interface OpenWorkspaceRequest {
+  rootPath: string;
+}
+export interface OpenWorkspaceResponse {
+  workspace: WorkspaceSummary;
+  session: WorkspaceSession;
+}
+export interface SelectWorkspaceRequest {
+  id: string;
+}
+export interface CloseWorkspaceRequest {
+  id: string;
+}
+export interface ReorderWorkspaceRequest {
+  ids: string[];
+}
+export interface RemoveRecentWorkspaceRequest {
+  id: string;
+}
+export interface APIError {
+  code: string;
+  message: string;
+}
+export interface ErrorResponse {
+  error: APIError;
+}

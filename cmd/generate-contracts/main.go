@@ -24,6 +24,18 @@ func main() {
 	var buffer bytes.Buffer
 	if err := render(&buffer, []interfaceSpec{
 		{Name: "BackendHealth", Type: reflect.TypeOf(httpapi.HealthResponse{})},
+		{Name: "WorkspaceSummary", Type: reflect.TypeOf(httpapi.WorkspaceSummary{})},
+		{Name: "WorkspaceState", Type: reflect.TypeOf(httpapi.WorkspaceState{})},
+		{Name: "WorkspaceSession", Type: reflect.TypeOf(httpapi.WorkspaceSession{})},
+		{Name: "RecentWorkspacesResponse", Type: reflect.TypeOf(httpapi.RecentWorkspacesResponse{})},
+		{Name: "OpenWorkspaceRequest", Type: reflect.TypeOf(httpapi.OpenWorkspaceRequest{})},
+		{Name: "OpenWorkspaceResponse", Type: reflect.TypeOf(httpapi.OpenWorkspaceResponse{})},
+		{Name: "SelectWorkspaceRequest", Type: reflect.TypeOf(httpapi.SelectWorkspaceRequest{})},
+		{Name: "CloseWorkspaceRequest", Type: reflect.TypeOf(httpapi.CloseWorkspaceRequest{})},
+		{Name: "ReorderWorkspaceRequest", Type: reflect.TypeOf(httpapi.ReorderWorkspaceRequest{})},
+		{Name: "RemoveRecentWorkspaceRequest", Type: reflect.TypeOf(httpapi.RemoveRecentWorkspaceRequest{})},
+		{Name: "APIError", Type: reflect.TypeOf(httpapi.APIError{})},
+		{Name: "ErrorResponse", Type: reflect.TypeOf(httpapi.ErrorResponse{})},
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "render contracts: %v\n", err)
 		os.Exit(1)
@@ -76,8 +88,21 @@ func typeScriptType(goType reflect.Type) (string, error) {
 	switch goType.Kind() {
 	case reflect.Bool:
 		return "boolean", nil
+	case reflect.Int:
+		return "number", nil
 	case reflect.String:
 		return "string", nil
+	case reflect.Slice:
+		elementType, err := typeScriptType(goType.Elem())
+		if err != nil {
+			return "", err
+		}
+		return elementType + "[]", nil
+	case reflect.Struct:
+		if goType.Name() == "" {
+			return "", fmt.Errorf("unsupported anonymous Go struct %s", goType)
+		}
+		return goType.Name(), nil
 	default:
 		return "", fmt.Errorf("unsupported Go type %s", goType)
 	}

@@ -1,4 +1,6 @@
 import { test, expect, _electron as electron } from "@playwright/test";
+import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import type { BrowserPaneSnapshot } from "../src/shared/types";
@@ -6,8 +8,11 @@ import type { BrowserPaneSnapshot } from "../src/shared/types";
 const desktopRoot = resolve(__dirname, "..");
 
 test("WebContentsView browser pane supports phase 1 automation", async () => {
+  const userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "setta-electron-user-data-")));
+  const apiRoot = realpathSync(mkdtempSync(join(tmpdir(), "setta-workspace-api-")));
+  const webRoot = realpathSync(mkdtempSync(join(tmpdir(), "setta-workspace-web-")));
   const electronApp = await electron.launch({
-    args: [join(desktopRoot, "out/main/index.js")],
+    args: [`--user-data-dir=${userDataDir}`, join(desktopRoot, "out/main/index.js")],
     cwd: desktopRoot,
     env: {
       ...process.env,
@@ -16,10 +21,47 @@ test("WebContentsView browser pane supports phase 1 automation", async () => {
   });
 
   try {
+    await expect(electronApp.evaluate(({ app }) => app.getPath("userData"))).resolves.toBe(
+      userDataDir,
+    );
+    await electronApp.evaluate(
+      ({ dialog }, workspacePaths) => {
+        let index = 0;
+        const openDialog = async () => {
+          const selectedPath = workspacePaths[index];
+          if (selectedPath === undefined) {
+            throw new Error("no stubbed workspace path remains");
+          }
+          index += 1;
+          return { canceled: false, filePaths: [selectedPath] };
+        };
+        dialog.showOpenDialog = openDialog as typeof dialog.showOpenDialog;
+      },
+      [apiRoot, webRoot],
+    );
+
     const page = await electronApp.firstWindow();
     await page.waitForSelector('[data-testid="browser-pane-host"]');
     await page.waitForFunction(() => window.setta !== undefined);
     await expect(page.getByTestId("backend-status")).toContainText("Online", { timeout: 20000 });
+    await expect(page.getByText("No workspace open")).toBeVisible();
+
+    await page.getByRole("button", { name: "Open workspace folder" }).click();
+    await expect(page.getByTestId("selected-workspace-path")).toContainText(apiRoot);
+    await expect(page.getByTestId("active-workspace-list")).toContainText(apiRoot);
+
+    await page.getByRole("button", { name: "Open workspace folder" }).click();
+    await expect(page.getByTestId("selected-workspace-path")).toContainText(webRoot);
+    await expect(page.getByTestId("active-workspace-list")).toContainText(apiRoot);
+    await expect(page.getByTestId("active-workspace-list")).toContainText(webRoot);
+
+    const apiWorkspace = page.getByTestId("active-workspace-item").filter({ hasText: apiRoot });
+    await apiWorkspace.getByTestId("active-workspace-select").click();
+    await expect(page.getByTestId("selected-workspace-path")).toContainText(apiRoot);
+    await apiWorkspace.getByRole("button", { name: "Close workspace" }).click();
+    await expect(page.getByTestId("selected-workspace-path")).toContainText(webRoot);
+    await expect(page.getByTestId("active-workspace-list")).not.toContainText(apiRoot);
+    await expect(page.getByTestId("recent-workspace-list")).toContainText(apiRoot);
 
     await page.evaluate(() => window.setta.browserPane.loadPreview());
     await page.evaluate(() => window.setta.browserPane.focus());
@@ -64,6 +106,9 @@ test("WebContentsView browser pane supports phase 1 automation", async () => {
     expect(afterResize.bounds.width).not.toBe(beforeResize.bounds.width);
   } finally {
     await electronApp.close();
+    rmSync(userDataDir, { force: true, recursive: true });
+    rmSync(apiRoot, { force: true, recursive: true });
+    rmSync(webRoot, { force: true, recursive: true });
   }
 });
 

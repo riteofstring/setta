@@ -9,13 +9,18 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"path/filepath"
 	"strconv"
 	"time"
 
+	"setta/internal/appstate"
 	"setta/internal/httpapi"
+	"setta/internal/workspace"
+	"setta/internal/workspacesession"
 )
 
 type Config struct {
+	AppDataDir      string
 	Host            string
 	Port            int
 	Version         string
@@ -37,6 +42,7 @@ type Server struct {
 
 func DefaultConfig() Config {
 	return Config{
+		AppDataDir:      "",
 		Host:            "127.0.0.1",
 		Port:            0,
 		Version:         "dev",
@@ -47,6 +53,12 @@ func DefaultConfig() Config {
 }
 
 func (config Config) Validate() error {
+	if config.AppDataDir == "" {
+		return errors.New("app data directory is required")
+	}
+	if !filepath.IsAbs(config.AppDataDir) {
+		return fmt.Errorf("app data directory must be absolute: %s", config.AppDataDir)
+	}
 	if config.Host == "" {
 		return errors.New("host is required")
 	}
@@ -80,12 +92,25 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bind backend listener: %w", err)
 	}
+	appStore, err := appstate.NewStore(config.AppDataDir)
+	if err != nil {
+		_ = listener.Close()
+		return nil, fmt.Errorf("create app state store: %w", err)
+	}
+	workspaceService, err := workspacesession.NewService(appStore, workspace.NewManager())
+	if err != nil {
+		_ = listener.Close()
+		return nil, fmt.Errorf("load workspace session: %w", err)
+	}
 
 	server := &Server{
 		server: &http.Server{
-			Handler: httpapi.NewHandler(httpapi.BackendMetadata{
-				Name:    httpapi.BackendName,
-				Version: config.Version,
+			Handler: httpapi.NewHandler(httpapi.HandlerConfig{
+				Metadata: httpapi.BackendMetadata{
+					Name:    httpapi.BackendName,
+					Version: config.Version,
+				},
+				WorkspaceService: workspaceService,
 			}),
 		},
 		listener: listener,

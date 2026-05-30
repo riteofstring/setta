@@ -9,7 +9,9 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 
-	config, err := configFromArgs([]string{"--port", "0", "--version", "test"}, &stdout, &stderr, emptyEnv)
+	appDataDir := t.TempDir()
+
+	config, err := configFromArgs([]string{"--app-data-dir", appDataDir, "--port", "0", "--version", "test"}, &stdout, &stderr, emptyEnv)
 	if err != nil {
 		t.Fatalf("config from args: %v", err)
 	}
@@ -18,6 +20,9 @@ func TestConfigFromArgsUsesExplicitPort(t *testing.T) {
 	}
 	if config.Version != "test" {
 		t.Fatalf("version = %q, want test", config.Version)
+	}
+	if config.AppDataDir != appDataDir {
+		t.Fatalf("app data dir = %q, want %q", config.AppDataDir, appDataDir)
 	}
 }
 

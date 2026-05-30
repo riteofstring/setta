@@ -1,4 +1,4 @@
-import type { BackendHealth } from "@generated/backend";
+import type { BackendHealth, OpenWorkspaceResponse, WorkspaceSession } from "@generated/backend";
 
 export interface RuntimeVersions {
   app: string;
@@ -52,6 +52,14 @@ export interface SettaAPI {
   };
   backend: {
     health: () => Promise<BackendHealth>;
+  };
+  workspace: {
+    close: (id: string) => Promise<WorkspaceSession>;
+    openLocalFolder: () => Promise<OpenWorkspaceResponse | null>;
+    removeRecent: (id: string) => Promise<WorkspaceSession>;
+    reorder: (ids: string[]) => Promise<WorkspaceSession>;
+    select: (id: string) => Promise<WorkspaceSession>;
+    session: () => Promise<WorkspaceSession>;
   };
   browserPane: {
     captureScreenshot: () => Promise<BrowserPaneScreenshot>;

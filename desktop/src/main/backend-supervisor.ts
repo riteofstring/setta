@@ -45,11 +45,12 @@ type BackendChild = ChildProcessByStdio<null, Readable, Readable>;
 
 function resolveBackendLaunchOptions(
   repoRoot: string,
+  appDataDir: string,
   env: NodeJS.ProcessEnv,
 ): BackendLaunchOptions {
   const readyTimeoutMs = positiveIntegerEnv(env.SETTA_BACKEND_READY_TIMEOUT_MS, 10_000);
   return {
-    args: ["run", "./cmd/setta-backend"],
+    args: ["run", "./cmd/setta-backend", "--app-data-dir", appDataDir],
     command: `${repoRoot}/scripts/go.sh`,
     cwd: repoRoot,
     env: {
@@ -103,12 +104,13 @@ export async function startSpawnedBackend(options: BackendLaunchOptions): Promis
 
 export async function startBackend(
   repoRoot: string,
+  appDataDir: string,
   env: NodeJS.ProcessEnv,
 ): Promise<BackendHandle> {
   if (env.SETTA_BACKEND_URL) {
     return externalBackendHandle(env.SETTA_BACKEND_URL);
   }
-  return startSpawnedBackend(resolveBackendLaunchOptions(repoRoot, env));
+  return startSpawnedBackend(resolveBackendLaunchOptions(repoRoot, appDataDir, env));
 }
 
 export function parseReadyLine(line: string): BackendReadyEvent | null {

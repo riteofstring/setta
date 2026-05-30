@@ -12,7 +12,7 @@ import (
 
 func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 	var stdout bytes.Buffer
-	config := DefaultConfig()
+	config := testConfig(t)
 	config.Stdout = &stdout
 	config.Version = "test"
 
@@ -46,12 +46,14 @@ func TestStartReportsReadyAfterListenerIsBound(t *testing.T) {
 
 func TestInvalidStartupConfigurationFails(t *testing.T) {
 	tests := map[string]Config{
-		"empty host":        withHost(""),
-		"non numeric host":  withHost("localhost"),
-		"non loopback host": withHost("0.0.0.0"),
-		"negative port":     withPort(-1),
-		"large port":        withPort(65536),
-		"empty version":     withVersion(""),
+		"empty app data":    withAppDataDir(t, ""),
+		"relative app data": withAppDataDir(t, "relative-app-data"),
+		"empty host":        withHost(t, ""),
+		"non numeric host":  withHost(t, "localhost"),
+		"non loopback host": withHost(t, "0.0.0.0"),
+		"negative port":     withPort(t, -1),
+		"large port":        withPort(t, 65536),
+		"empty version":     withVersion(t, ""),
 	}
 
 	for name, config := range tests {
@@ -64,7 +66,7 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 }
 
 func TestGracefulShutdownStopsServing(t *testing.T) {
-	server, err := Start(context.Background(), DefaultConfig())
+	server, err := Start(context.Background(), testConfig(t))
 	if err != nil {
 		t.Fatalf("start backend: %v", err)
 	}
@@ -91,20 +93,42 @@ func shutdownServer(t *testing.T, server *Server) {
 	}
 }
 
-func withHost(host string) Config {
+func testConfig(t *testing.T) Config {
+	t.Helper()
+
 	config := DefaultConfig()
+	config.AppDataDir = t.TempDir()
+	return config
+}
+
+func withAppDataDir(t *testing.T, appDataDir string) Config {
+	t.Helper()
+
+	config := testConfig(t)
+	config.AppDataDir = appDataDir
+	return config
+}
+
+func withHost(t *testing.T, host string) Config {
+	t.Helper()
+
+	config := testConfig(t)
 	config.Host = host
 	return config
 }
 
-func withPort(port int) Config {
-	config := DefaultConfig()
+func withPort(t *testing.T, port int) Config {
+	t.Helper()
+
+	config := testConfig(t)
 	config.Port = port
 	return config
 }
 
-func withVersion(version string) Config {
-	config := DefaultConfig()
+func withVersion(t *testing.T, version string) Config {
+	t.Helper()
+
+	config := testConfig(t)
 	config.Version = version
 	return config
 }

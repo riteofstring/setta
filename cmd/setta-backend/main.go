@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strconv"
 	"syscall"
 
@@ -57,9 +58,14 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 	if err != nil {
 		return config, err
 	}
+	appDataDir, err := defaultAppDataDir(getenv)
+	if err != nil {
+		return config, err
+	}
 
 	flagSet := flag.NewFlagSet("setta-backend", flag.ContinueOnError)
 	flagSet.SetOutput(stderr)
+	flagSet.StringVar(&config.AppDataDir, "app-data-dir", appDataDir, "directory for persisted Setta app state")
 	flagSet.StringVar(&config.Host, "host", envOrDefault(getenv, "SETTA_BACKEND_HOST", config.Host), "loopback host to bind")
 	flagSet.IntVar(&config.Port, "port", port, "port to bind, or 0 for an ephemeral port")
 	flagSet.StringVar(&config.Version, "version", envOrDefault(getenv, "SETTA_BACKEND_VERSION", config.Version), "backend version metadata")
@@ -71,6 +77,17 @@ func configFromArgs(args []string, stdout io.Writer, stderr io.Writer, getenv fu
 		return config, fmt.Errorf("invalid configuration: %w", err)
 	}
 	return config, nil
+}
+
+func defaultAppDataDir(getenv func(string) string) (string, error) {
+	if value := getenv("SETTA_APP_DATA_DIR"); value != "" {
+		return value, nil
+	}
+	configRoot, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve default app data directory: %w", err)
+	}
+	return filepath.Join(configRoot, "setta"), nil
 }
 
 func defaultPort(rawPort string) (int, error) {

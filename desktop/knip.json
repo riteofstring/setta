@@ -5,14 +5,16 @@
     "src/main/index.ts",
     "src/preload/index.ts",
     "src/renderer/src/main.tsx",
-    "tests/browser-pane.spec.ts"
+    "tests/browser-pane.spec.ts",
+    "vitest.config.ts"
   ],
   "project": [
     "electron.vite.config.ts",
     "eslint.config.mjs",
     "src/**/*.ts",
     "src/**/*.tsx",
-    "tests/**/*.ts"
+    "tests/**/*.ts",
+    "vitest.config.ts"
   ],
   "ignore": ["out/**", "dist/**", "src/generated/**"],
   "ignoreDependencies": [

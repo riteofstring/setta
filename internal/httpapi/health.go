@@ -2,7 +2,14 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
+
+	"setta/internal/appstate"
+	"setta/internal/workspace"
+	"setta/internal/workspacesession"
 )
 
 const BackendName = "setta-backend"
@@ -18,20 +25,225 @@ type HealthResponse struct {
 	Version string `json:"version"`
 }
 
-func NewHandler(metadata BackendMetadata) http.Handler {
+type WorkspaceSummary = workspace.WorkspaceSummary
+type WorkspaceState = workspace.WorkspaceState
+type WorkspaceSession = workspacesession.WorkspaceSession
+
+type RecentWorkspacesResponse struct {
+	RecentWorkspaces []workspace.WorkspaceSummary `json:"recentWorkspaces"`
+}
+
+type OpenWorkspaceRequest struct {
+	RootPath string `json:"rootPath"`
+}
+
+type OpenWorkspaceResponse struct {
+	Workspace workspace.WorkspaceSummary        `json:"workspace"`
+	Session   workspacesession.WorkspaceSession `json:"session"`
+}
+
+type SelectWorkspaceRequest struct {
+	ID string `json:"id"`
+}
+
+type CloseWorkspaceRequest struct {
+	ID string `json:"id"`
+}
+
+type ReorderWorkspaceRequest struct {
+	IDs []string `json:"ids"`
+}
+
+type RemoveRecentWorkspaceRequest struct {
+	ID string `json:"id"`
+}
+
+type APIError struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+type ErrorResponse struct {
+	Error APIError `json:"error"`
+}
+
+type WorkspaceService interface {
+	Close(id string) (workspacesession.WorkspaceSession, error)
+	OpenLocalFolder(rootPath string) (workspace.WorkspaceSummary, workspacesession.WorkspaceSession, error)
+	RemoveRecent(id string) (workspacesession.WorkspaceSession, error)
+	Reorder(ids []string) (workspacesession.WorkspaceSession, error)
+	Select(id string) (workspacesession.WorkspaceSession, error)
+	Session() workspacesession.WorkspaceSession
+}
+
+type HandlerConfig struct {
+	Metadata         BackendMetadata
+	WorkspaceService WorkspaceService
+}
+
+type handler struct {
+	metadata         BackendMetadata
+	workspaceService WorkspaceService
+}
+
+func NewHandler(config HandlerConfig) http.Handler {
+	apiHandler := handler{
+		metadata:         config.Metadata,
+		workspaceService: config.WorkspaceService,
+	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", func(response http.ResponseWriter, request *http.Request) {
-		writeJSON(response, HealthResponse{
-			OK:      true,
-			Name:    metadata.Name,
-			Version: metadata.Version,
-		})
-	})
+	mux.HandleFunc("GET /health", apiHandler.health)
+	mux.HandleFunc("GET /workspace-session", apiHandler.workspaceSession)
+	mux.HandleFunc("POST /workspaces/open", apiHandler.openWorkspace)
+	mux.HandleFunc("POST /workspaces/select", apiHandler.selectWorkspace)
+	mux.HandleFunc("POST /workspaces/close", apiHandler.closeWorkspace)
+	mux.HandleFunc("POST /workspaces/reorder", apiHandler.reorderWorkspaces)
+	mux.HandleFunc("POST /workspaces/remove-recent", apiHandler.removeRecentWorkspace)
 	return mux
 }
 
-func writeJSON(response http.ResponseWriter, payload any) {
+func (handler handler) health(response http.ResponseWriter, request *http.Request) {
+	writeJSON(response, http.StatusOK, HealthResponse{
+		OK:      true,
+		Name:    handler.metadata.Name,
+		Version: handler.metadata.Version,
+	})
+}
+
+func (handler handler) workspaceSession(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceService(response, handler.workspaceService)
+	if service == nil {
+		return
+	}
+	writeJSON(response, http.StatusOK, service.Session())
+}
+
+func (handler handler) openWorkspace(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceService(response, handler.workspaceService)
+	if service == nil {
+		return
+	}
+	var payload OpenWorkspaceRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	workspaceSummary, session, err := service.OpenLocalFolder(payload.RootPath)
+	if err != nil {
+		writeWorkspaceError(response, "open_workspace_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, OpenWorkspaceResponse{Workspace: workspaceSummary, Session: session})
+}
+
+func (handler handler) selectWorkspace(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceService(response, handler.workspaceService)
+	if service == nil {
+		return
+	}
+	var payload SelectWorkspaceRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	session, err := service.Select(payload.ID)
+	if err != nil {
+		writeWorkspaceError(response, "select_workspace_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, session)
+}
+
+func (handler handler) closeWorkspace(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceService(response, handler.workspaceService)
+	if service == nil {
+		return
+	}
+	var payload CloseWorkspaceRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	session, err := service.Close(payload.ID)
+	if err != nil {
+		writeWorkspaceError(response, "close_workspace_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, session)
+}
+
+func (handler handler) reorderWorkspaces(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceService(response, handler.workspaceService)
+	if service == nil {
+		return
+	}
+	var payload ReorderWorkspaceRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	session, err := service.Reorder(payload.IDs)
+	if err != nil {
+		writeWorkspaceError(response, "reorder_workspaces_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, session)
+}
+
+func (handler handler) removeRecentWorkspace(response http.ResponseWriter, request *http.Request) {
+	service := requireWorkspaceService(response, handler.workspaceService)
+	if service == nil {
+		return
+	}
+	var payload RemoveRecentWorkspaceRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	session, err := service.RemoveRecent(payload.ID)
+	if err != nil {
+		writeWorkspaceError(response, "remove_recent_workspace_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, session)
+}
+
+func requireWorkspaceService(response http.ResponseWriter, service WorkspaceService) WorkspaceService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "workspace_service_unavailable", "workspace service is not available")
+		return nil
+	}
+	return service
+}
+
+func decodeRequest(response http.ResponseWriter, request *http.Request, target any) bool {
+	decoder := json.NewDecoder(request.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_json", fmt.Sprintf("request body must be valid JSON: %v", err))
+		return false
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		writeError(response, http.StatusBadRequest, "invalid_json", "request body must contain exactly one JSON value")
+		return false
+	}
+	return true
+}
+
+func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	if appstate.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
+func writeError(response http.ResponseWriter, status int, code string, message string) {
+	writeJSON(response, status, ErrorResponse{
+		Error: APIError{
+			Code:    code,
+			Message: message,
+		},
+	})
+}
+
+func writeJSON(response http.ResponseWriter, status int, payload any) {
 	response.Header().Set("Content-Type", "application/json")
-	response.WriteHeader(http.StatusOK)
+	response.WriteHeader(status)
 	_ = json.NewEncoder(response).Encode(payload)
 }
