@@ -130,25 +130,32 @@ func (service *Service) ListConversations(workspaceID string) ([]ConversationLis
 		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
 		return nil, err
 	}
-	service.recordCorruptStateDiagnostics(corruptConversations, workspaceID, "", "")
+	if len(corruptConversations) > 0 {
+		service.recordCorruptStateDiagnostic(corruptConversations[0], workspaceID, "", "")
+		return nil, corruptConversations[0]
+	}
 	runs, corruptRuns, err := service.store.ScanRuns(workspaceID)
 	if err != nil {
 		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
 		return nil, err
 	}
-	service.recordCorruptStateDiagnostics(corruptRuns, workspaceID, "", "")
+	if len(corruptRuns) > 0 {
+		service.recordCorruptStateDiagnostic(corruptRuns[0], workspaceID, "", "")
+		return nil, corruptRuns[0]
+	}
 	items := make([]ConversationListItem, 0, len(conversations))
 	for _, conversation := range conversations {
 		count, err := service.store.MessageCount(workspaceID, conversation.ID)
 		if err != nil {
 			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
-			if IsCorruptStateError(err) {
-				continue
-			}
 			return nil, err
 		}
 		activeRunID := ""
 		if run, ok := activeRunFromRuns(runs, conversation.ID); ok {
+			if err := service.validateRunAssistantMessage(workspaceID, run); err != nil {
+				service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, run.ID)
+				return nil, err
+			}
 			activeRunID = run.ID
 		}
 		items = append(items, ConversationListItem{
@@ -242,7 +249,9 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 	if err != nil {
 		return SendMessageResult{}, err
 	}
-	if run, ok := activeRunFromRuns(runs, conversationID); ok {
+	if run, ok, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs); err != nil {
+		return SendMessageResult{}, err
+	} else if ok {
 		return SendMessageResult{}, fmt.Errorf("conversation already has an active run: %s", run.ID)
 	}
 	if state, err := service.queuedStateFromRunsLocked(workspaceID, conversationID, runs); err != nil {
@@ -341,7 +350,11 @@ func (service *Service) CancelActiveRun(workspaceID string, conversationID strin
 	active, ok := service.active[key]
 	if !ok || active.workspaceID != workspaceID {
 		runs, err := service.runsWithDiagnosticsLocked(workspaceID)
-		run, exists := activeRunFromRuns(runs, conversationID)
+		if err != nil {
+			service.mu.Unlock()
+			return Run{}, err
+		}
+		run, exists, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
 		service.mu.Unlock()
 		if err != nil {
 			return Run{}, err
@@ -428,14 +441,13 @@ func (service *Service) ActiveRun(workspaceID string, conversationID string) (Ru
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return Run{}, false, err
 	}
-	runs, corrupt, err := service.store.ScanRuns(workspaceID)
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	runs, err := service.runsWithDiagnosticsLocked(workspaceID)
 	if err != nil {
-		service.recordCorruptStateDiagnostic(err, workspaceID, conversationID, "")
 		return Run{}, false, err
 	}
-	service.recordCorruptStateDiagnostics(corrupt, workspaceID, "", "")
-	run, ok := activeRunFromRuns(runs, conversationID)
-	return run, ok, nil
+	return service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
 }
 
 func (service *Service) SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []ApprovalAnswer, cancelled bool) (Run, error) {
@@ -464,7 +476,10 @@ func (service *Service) pendingApprovalRun(workspaceID string, conversationID st
 	if err != nil {
 		return Run{}, err
 	}
-	run, ok := activeRunFromRuns(runs, conversationID)
+	run, ok, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
+	if err != nil {
+		return Run{}, err
+	}
 	if !ok {
 		return Run{}, fmt.Errorf("conversation has no active run: %s", conversationID)
 	}
@@ -980,7 +995,9 @@ func (service *Service) conversationListItemLocked(workspaceID string, conversat
 	if err != nil {
 		return ConversationListItem{}, err
 	}
-	if run, ok := activeRunFromRuns(runs, conversationID); ok {
+	if run, ok, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs); err != nil {
+		return ConversationListItem{}, err
+	} else if ok {
 		activeRunID = run.ID
 	}
 	return ConversationListItem{
@@ -1022,12 +1039,18 @@ func (service *Service) recoverInterruptedRuns() error {
 		if err != nil {
 			return err
 		}
-		service.recordCorruptStateDiagnostics(corrupt, workspaceID, "", "")
+		if len(corrupt) > 0 {
+			service.recordCorruptStateDiagnostic(corrupt[0], workspaceID, "", "")
+		}
 		for _, run := range runs {
 			if run.Status != RunStatusRunning {
 				continue
 			}
 			if err := service.recoverInterruptedRun(workspaceID, run, now); err != nil {
+				if IsCorruptStateError(err) {
+					service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, run.ID)
+					break
+				}
 				return err
 			}
 		}
@@ -1038,19 +1061,13 @@ func (service *Service) recoverInterruptedRuns() error {
 func (service *Service) recoverInterruptedRun(workspaceID string, run Run, now string) error {
 	message, ok, err := service.store.FindMessageByID(workspaceID, run.ConversationID, run.AssistantMessageID)
 	if err != nil {
-		if IsCorruptStateError(err) {
-			service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, run.ID)
-			return nil
-		}
 		return err
 	}
 	if !ok {
-		service.recordCorruptStateDiagnostic(corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "run %s assistant message %s was not found", run.ID, run.AssistantMessageID), workspaceID, run.ConversationID, run.ID)
-		return nil
+		return corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "run %s assistant message %s was not found", run.ID, run.AssistantMessageID)
 	}
 	if err := validateRunAssistantMessageRecord(run, message); err != nil {
-		service.recordCorruptStateDiagnostic(corruptStateError(service.store.runPath(workspaceID, run.ID), err), workspaceID, run.ConversationID, run.ID)
-		return nil
+		return corruptStateError(service.store.runPath(workspaceID, run.ID), err)
 	}
 	message.Status = MessageStatusError
 	message.UpdatedAt = now

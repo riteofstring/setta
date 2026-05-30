@@ -96,12 +96,6 @@ func (service *Service) recordCorruptStateDiagnostic(err error, workspaceID stri
 	service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversationID, runID)
 }
 
-func (service *Service) recordCorruptStateDiagnostics(errs []error, workspaceID string, conversationID string, runID string) {
-	for _, err := range errs {
-		service.recordCorruptStateDiagnostic(err, workspaceID, conversationID, runID)
-	}
-}
-
 func (service *Service) recordCorruptStateDiagnosticLocked(err error, workspaceID string, conversationID string, runID string) {
 	if err == nil || !IsCorruptStateError(err) {
 		return
@@ -118,11 +112,5 @@ func (service *Service) recordCorruptStateDiagnosticLocked(err error, workspaceI
 	})
 	if diagnosticErr != nil {
 		return
-	}
-}
-
-func (service *Service) recordCorruptStateDiagnosticsLocked(errs []error, workspaceID string, conversationID string, runID string) {
-	for _, err := range errs {
-		service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversationID, runID)
 	}
 }

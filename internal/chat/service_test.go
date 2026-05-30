@@ -918,7 +918,7 @@ func TestStoreRejectsMalformedConversationState(t *testing.T) {
 	}
 }
 
-func TestServiceListConversationsSkipsMalformedConversationState(t *testing.T) {
+func TestServiceListConversationsFailsOnMalformedConversationState(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
 	goodConversation := Conversation{
@@ -942,15 +942,15 @@ func TestServiceListConversationsSkipsMalformedConversationState(t *testing.T) {
 	}
 	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
 
-	conversations, err := service.ListConversations("workspace_api")
-	if err != nil {
-		t.Fatalf("list conversations: %v", err)
+	_, err := service.ListConversations("workspace_api")
+	if err == nil {
+		t.Fatal("list conversations succeeded, want corrupt state error")
 	}
-	if len(conversations) != 1 {
-		t.Fatalf("conversation count = %d, want 1", len(conversations))
+	if !IsCorruptStateError(err) {
+		t.Fatalf("error = %T %v, want corrupt state", err, err)
 	}
-	if conversations[0].Conversation.ID != goodConversation.ID {
-		t.Fatalf("conversation id = %q, want good conversation", conversations[0].Conversation.ID)
+	if !strings.Contains(err.Error(), `unknown field "extra"`) {
+		t.Fatalf("error = %q, want unknown field", err)
 	}
 	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
 	if !strings.Contains(diagnostic.Message, `unknown field "extra"`) {
@@ -1051,7 +1051,7 @@ func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
 	}
 }
 
-func TestServiceRecordsRunningRunWithoutAssistantMessageIDOnStartup(t *testing.T) {
+func TestServiceListConversationsFailsOnMalformedRunState(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
 	conversation := Conversation{
@@ -1076,23 +1076,23 @@ func TestServiceRecordsRunningRunWithoutAssistantMessageIDOnStartup(t *testing.T
 	}
 
 	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	_, err := service.ListConversations("workspace_api")
+	if err == nil {
+		t.Fatal("list conversations succeeded, want corrupt state error")
+	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	}
+	if !strings.Contains(err.Error(), "assistantMessageId is required unless queued") {
+		t.Fatalf("error = %q, want missing assistantMessageId", err)
+	}
 	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
 	if !strings.Contains(diagnostic.Message, "assistantMessageId is required unless queued") {
 		t.Fatalf("diagnostic = %q, want missing assistantMessageId", diagnostic.Message)
 	}
-	conversations, err := service.ListConversations("workspace_api")
-	if err != nil {
-		t.Fatalf("list conversations: %v", err)
-	}
-	if len(conversations) != 1 {
-		t.Fatalf("conversation count = %d, want 1", len(conversations))
-	}
-	if conversations[0].ActiveRunID != "" {
-		t.Fatalf("active run id = %q, want malformed run isolated", conversations[0].ActiveRunID)
-	}
 }
 
-func TestServiceRecordsRunningRunWithMissingAssistantMessageOnStartup(t *testing.T) {
+func TestServiceListConversationsFailsOnRunningRunWithMissingAssistantMessage(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
 	conversation := Conversation{
@@ -1143,16 +1143,19 @@ func TestServiceRecordsRunningRunWithMissingAssistantMessageOnStartup(t *testing
 	}
 
 	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
+	_, err := service.ListConversations("workspace_api")
+	if err == nil {
+		t.Fatal("list conversations succeeded, want corrupt state error")
+	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	}
+	if !strings.Contains(err.Error(), "assistant message message_missing was not found") {
+		t.Fatalf("error = %q, want missing assistant message", err)
+	}
 	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
 	if !strings.Contains(diagnostic.Message, "assistant message message_missing was not found") {
 		t.Fatalf("diagnostic = %q, want missing assistant message", diagnostic.Message)
-	}
-	conversations, err := service.ListConversations("workspace_api")
-	if err != nil {
-		t.Fatalf("list conversations: %v", err)
-	}
-	if len(conversations) != 1 {
-		t.Fatalf("conversation count = %d, want 1", len(conversations))
 	}
 }
 

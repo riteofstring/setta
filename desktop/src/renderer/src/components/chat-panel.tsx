@@ -54,7 +54,7 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
           <RunBadge active={running} status={chat.activeRun?.status ?? null} />
         </header>
         <ConversationBody busy={busy} chat={chat} />
-        <CriticalDiagnostics diagnostics={chat.diagnostics} />
+        <CriticalDiagnostics chat={chat} />
         <ChatError message={chat.error} />
         <Composer busy={composerBusy} chat={chat} running={running} />
       </div>
@@ -138,8 +138,18 @@ function ChatError({ message }: { message: string | null }) {
   );
 }
 
-function CriticalDiagnostics({ diagnostics }: { diagnostics: ChatView["diagnostics"] }) {
-  const critical = diagnostics.filter((diagnostic) => diagnostic.severity === "critical").at(-1);
+function CriticalDiagnostics({ chat }: { chat: ChatView }) {
+  const selectedConversationId = chat.selectedConversation?.id ?? "";
+  const activeRunId = chat.activeRun?.id ?? "";
+  const critical = chat.diagnostics
+    .filter(
+      (diagnostic) =>
+        diagnostic.severity === "critical" &&
+        ((diagnostic.conversationId !== "" &&
+          diagnostic.conversationId === selectedConversationId) ||
+          (diagnostic.runId !== "" && diagnostic.runId === activeRunId)),
+    )
+    .at(-1);
   if (!critical) {
     return null;
   }

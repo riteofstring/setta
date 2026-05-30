@@ -76,7 +76,9 @@ func (service *Service) promoteQueuedIfIdleLocked(workspaceSummary workspace.Wor
 	if err != nil {
 		return err
 	}
-	if _, ok := activeRunFromRuns(runs, conversationID); ok {
+	if _, ok, err := service.activeRunFromRunsLocked(workspaceSummary.ID, conversationID, runs); err != nil {
+		return err
+	} else if ok {
 		return nil
 	}
 	return service.promoteNextQueuedRunLocked(workspaceSummary, conversationID, runs)
@@ -298,7 +300,10 @@ func (service *Service) attachedActiveTurnLocked(workspaceID string, conversatio
 		if err != nil {
 			return activeTurn{}, err
 		}
-		run, exists := activeRunFromRuns(runs, conversationID)
+		run, exists, err := service.activeRunFromRunsLocked(workspaceID, conversationID, runs)
+		if err != nil {
+			return activeTurn{}, err
+		}
 		if exists {
 			return activeTurn{}, fmt.Errorf("active run %s is not attached to this backend process", run.ID)
 		}

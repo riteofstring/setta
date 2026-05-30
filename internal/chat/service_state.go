@@ -10,7 +10,10 @@ func (service *Service) runsWithDiagnosticsLocked(workspaceID string) ([]Run, er
 	if err != nil {
 		return nil, err
 	}
-	service.recordCorruptStateDiagnosticsLocked(corrupt, workspaceID, "", "")
+	if len(corrupt) > 0 {
+		service.recordCorruptStateDiagnosticLocked(corrupt[0], workspaceID, "", "")
+		return nil, corrupt[0]
+	}
 	return runs, nil
 }
 
@@ -21,6 +24,18 @@ func activeRunFromRuns(runs []Run, conversationID string) (Run, bool) {
 		}
 	}
 	return Run{}, false
+}
+
+func (service *Service) activeRunFromRunsLocked(workspaceID string, conversationID string, runs []Run) (Run, bool, error) {
+	run, ok := activeRunFromRuns(runs, conversationID)
+	if !ok {
+		return Run{}, false, nil
+	}
+	if err := service.validateRunAssistantMessage(workspaceID, run); err != nil {
+		service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversationID, run.ID)
+		return Run{}, false, err
+	}
+	return run, true, nil
 }
 
 func (service *Service) queuedStateFromRunsLocked(workspaceID string, conversationID string, runs []Run) (QueueState, error) {
@@ -34,13 +49,13 @@ func (service *Service) queuedStateFromRunsLocked(workspaceID string, conversati
 		if err != nil {
 			if IsCorruptStateError(err) {
 				service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversationID, run.ID)
-				continue
 			}
 			return QueueState{}, err
 		}
 		if !ok {
-			service.recordCorruptStateDiagnosticLocked(corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "queued run %s trigger message %s was not found", run.ID, run.TriggerMessageID), workspaceID, conversationID, run.ID)
-			continue
+			err := corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "queued run %s trigger message %s was not found", run.ID, run.TriggerMessageID)
+			service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversationID, run.ID)
+			return QueueState{}, err
 		}
 		messages = append(messages, message)
 		queuedRuns = append(queuedRuns, run)

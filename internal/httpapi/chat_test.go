@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -67,6 +68,43 @@ func TestChatEndpointMapsMalformedDurableStateToCorruptState(t *testing.T) {
 	}, http.StatusInternalServerError)
 	if errResponse.Error.Code != "corrupt_chat_state" {
 		t.Fatalf("error code = %q, want corrupt_chat_state", errResponse.Error.Code)
+	}
+}
+
+func TestChatEndpointsFailClosedOnMalformedRunState(t *testing.T) {
+	handler, appDataDir := newChatHandlerWithAppDataDir(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+	runPath := filepath.Join(appDataDir, "workspaces", opened.Workspace.ID, "runs", "run_bad.json")
+	if err := os.MkdirAll(filepath.Dir(runPath), 0o755); err != nil {
+		t.Fatalf("create runs dir: %v", err)
+	}
+	raw := fmt.Sprintf(`{"schemaVersion":1,"id":"run_bad","workspaceId":%q,"conversationId":%q,"triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"running","startedAt":"2026-05-29T20:00:00Z","completedAt":"","promptSummary":"prompt","error":"","hasPendingApproval":false}`, opened.Workspace.ID, conversation.ID)
+	if err := os.WriteFile(runPath, []byte(raw), 0o644); err != nil {
+		t.Fatalf("write malformed run: %v", err)
+	}
+
+	listErr := postJSON[ErrorResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusInternalServerError)
+	if listErr.Error.Code != "corrupt_chat_state" || !strings.Contains(listErr.Error.Message, "assistantMessageId is required unless queued") {
+		t.Fatalf("list error = %+v, want corrupt run state", listErr.Error)
+	}
+
+	sendErr := postJSON[ErrorResponse](t, handler, "/chat/messages/send", SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "hello",
+	}, http.StatusInternalServerError)
+	if sendErr.Error.Code != "corrupt_chat_state" || !strings.Contains(sendErr.Error.Message, "assistantMessageId is required unless queued") {
+		t.Fatalf("send error = %+v, want corrupt run state", sendErr.Error)
+	}
+	messages, err := filepath.Glob(filepath.Join(appDataDir, "workspaces", opened.Workspace.ID, "conversations", conversation.ID, "messages", "*.json"))
+	if err != nil {
+		t.Fatalf("glob messages: %v", err)
+	}
+	if len(messages) != 0 {
+		t.Fatalf("send persisted messages despite corrupt run state: %v", messages)
 	}
 }
 
