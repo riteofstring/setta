@@ -13,18 +13,42 @@ import { setTimeout as delay } from "node:timers/promises";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(desktopRoot, "..");
-const recordingDir = join(
-  repoRoot,
-  "test-results",
-  "electron-integration",
-  "corrupt-chat-workflow",
-);
+const options = parseArgs(process.argv.slice(2));
+const recordingDir = corruptChatRecordingDir(options);
 const pageLoadTimeoutMs = 20_000;
 const workflowTimeoutMs = 10_000;
 const shutdownTimeoutMs = 10_000;
 const workspaceId = "workspace_electron_corrupt_chat";
 const conversationId = "conversation_corrupt_history";
 const runId = "run_missing_assistant_message";
+
+function parseArgs(args) {
+  const parsed = {
+    keepArtifacts: false,
+    visible: process.env.SETTA_E2E_VISIBLE === "1",
+  };
+  for (const arg of args) {
+    switch (arg) {
+      case "--keep-artifacts":
+        parsed.keepArtifacts = true;
+        break;
+      case "--visible":
+        parsed.visible = true;
+        break;
+      default:
+        throw new Error(`unknown corrupt chat workflow argument: ${arg}`);
+    }
+  }
+  return parsed;
+}
+
+function corruptChatRecordingDir(parsed) {
+  const base = join(repoRoot, "test-results", "electron-integration", "corrupt-chat-workflow");
+  if (!parsed.keepArtifacts) {
+    return base;
+  }
+  return join(base, pathTimestamp());
+}
 
 class CDPClient {
   constructor(socket) {
@@ -87,7 +111,9 @@ class CDPClient {
 
 async function main() {
   assertBuildExists();
-  await rm(recordingDir, { force: true, recursive: true });
+  if (!options.keepArtifacts) {
+    await rm(recordingDir, { force: true, recursive: true });
+  }
   await mkdir(recordingDir, { recursive: true });
   const tempRoot = await mkdtemp(join(tmpdir(), "setta-electron-corrupt-chat-"));
   const fixture = await createCorruptChatFixture(tempRoot);
@@ -231,6 +257,8 @@ function launchElectron(debugPort, appDataDir) {
     cwd: desktopRoot,
     env: {
       ...process.env,
+      SETTA_E2E: "1",
+      ...(options.visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
       SETTA_APP_DATA_DIR: appDataDir,
       SETTA_RECORD_INCLUDE_PAYLOADS: "1",
       SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
@@ -429,6 +457,10 @@ async function readJsonLines(path) {
     .split("\n")
     .filter((line) => line.trim() !== "")
     .map((line) => JSON.parse(line));
+}
+
+function pathTimestamp() {
+  return new Date().toISOString().replaceAll(":", "").replaceAll(".", "-");
 }
 
 main().catch((error) => {

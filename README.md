@@ -61,11 +61,15 @@ pnpm -C desktop build
 ```
 
 `./scripts/test_chat_workflows.sh` is the chat workflow gate. It runs
-deterministic Electron app-boundary chat workflows against temporary app data
-and runs the live Codex workflow automatically when `.env` contains
-`OPENAI_API_KEY`; the live-provider skip is printed explicitly when credentials
-are absent. `./check_quality.sh --all` runs this gate after the production
-desktop build.
+deterministic hidden Electron app-boundary chat workflows against temporary app
+data and runs live Electron plus backend Codex workflows automatically when
+`.env` contains `OPENAI_API_KEY`; the live-provider skip is printed explicitly
+when credentials are absent. Use `--visible` to debug with windows shown,
+`--deterministic-only` or `--live-only` to narrow the gate, and
+`--keep-artifacts` to retain prior recordings. Scripted Electron harness modes
+are test-only and require `SETTA_E2E=1` with
+`SETTA_E2E_CHAT_HARNESS=scripted-workflow`. `./check_quality.sh --all` runs this
+gate after the production desktop build.
 
 Regenerate Go-owned TypeScript contracts after changing HTTP endpoint contracts
 or their owning Go types:

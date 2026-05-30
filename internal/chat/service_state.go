@@ -66,6 +66,49 @@ func (service *Service) activeRunFromRunsLocked(workspaceID string, conversation
 	return run, true, nil
 }
 
+func (service *Service) ListRuns(workspaceID string, conversationID string) ([]Run, error) {
+	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+		return nil, err
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	for _, run := range runs {
+		if err := service.validateRunAssistantMessage(workspaceID, run); err != nil {
+			service.recordCorruptStateDiagnosticLocked(err, workspaceID, conversationID, run.ID)
+			return nil, err
+		}
+	}
+	return runs, nil
+}
+
+func (service *Service) ListDiagnostics(workspaceID string, conversationID string, runID string) ([]Diagnostic, error) {
+	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+		return nil, err
+	}
+	diagnostics, err := service.store.ListDiagnostics()
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]Diagnostic, 0, len(diagnostics))
+	for _, diagnostic := range diagnostics {
+		if diagnostic.WorkspaceID != workspaceID {
+			continue
+		}
+		if conversationID != "" && diagnostic.ConversationID != conversationID {
+			continue
+		}
+		if runID != "" && diagnostic.RunID != runID {
+			continue
+		}
+		filtered = append(filtered, diagnostic)
+	}
+	return filtered, nil
+}
+
 func (service *Service) queuedStateFromRunsLocked(workspaceID string, conversationID string, runs []Run) (QueueState, error) {
 	messages := []ChatMessage{}
 	queuedRuns := []Run{}

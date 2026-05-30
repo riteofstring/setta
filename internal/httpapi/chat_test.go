@@ -94,6 +94,12 @@ func TestChatEndpointsFailClosedOnMalformedRunState(t *testing.T) {
 	if listErr.Error.Code != "corrupt_chat_state" {
 		t.Fatalf("list error = %+v, want corrupt chat state", listErr.Error)
 	}
+	diagnostics := postJSON[ListDiagnosticsResponse](t, handler, "/chat/diagnostics/list", ListDiagnosticsRequest{
+		WorkspaceID: opened.Workspace.ID,
+	}, http.StatusOK)
+	if len(diagnostics.Diagnostics) == 0 || diagnostics.Diagnostics[0].Severity != chat.DiagnosticSeverityCritical {
+		t.Fatalf("diagnostics = %+v, want critical corrupt-state diagnostic", diagnostics.Diagnostics)
+	}
 
 	sendErr := postJSON[ErrorResponse](t, handler, "/chat/messages/send", SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
@@ -168,6 +174,12 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 	if queued.UserMessage.Delivery != chat.MessageDeliveryQueued || queued.Run.Status != chat.RunStatusQueued {
 		t.Fatalf("queued result = %+v, want queued message and run", queued)
 	}
+	runs := postJSON[ListRunsResponse](t, handler, "/chat/runs/list", ListRunsRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+	}, http.StatusOK)
+	assertRunStatus(t, runs.Runs, started.Run.ID, chat.RunStatusRunning)
+	assertRunStatus(t, runs.Runs, queued.Run.ID, chat.RunStatusQueued)
 
 	steered := postJSON[chat.SteerMessageResult](t, handler, "/chat/messages/steer", SteerChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
@@ -426,4 +438,18 @@ func waitForRunMessageStatusHTTP(t *testing.T, handler http.Handler, workspaceID
 		time.Sleep(10 * time.Millisecond)
 	}
 	t.Fatalf("timed out waiting for run %s status %s", runID, status)
+}
+
+func assertRunStatus(t *testing.T, runs []chat.Run, runID string, status chat.RunStatus) {
+	t.Helper()
+
+	for _, run := range runs {
+		if run.ID == runID {
+			if run.Status != status {
+				t.Fatalf("run %s status = %s, want %s", runID, run.Status, status)
+			}
+			return
+		}
+	}
+	t.Fatalf("run %s was not returned in %+v", runID, runs)
 }

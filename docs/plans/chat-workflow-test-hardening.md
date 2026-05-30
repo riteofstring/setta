@@ -1,6 +1,6 @@
 # Chat Workflow Test Hardening
 
-Status: proposed
+Status: implemented
 
 ## Problem
 

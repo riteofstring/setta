@@ -106,6 +106,15 @@ type GetActiveRunResponse struct {
 	Run          *chat.Run `json:"run"`
 }
 
+type ListRunsRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
+type ListRunsResponse struct {
+	Runs []chat.Run `json:"runs"`
+}
+
 type GetRunActivityRequest struct {
 	WorkspaceID string `json:"workspaceId"`
 	RunID       string `json:"runId"`
@@ -118,6 +127,16 @@ type GetRunItemOutputRequest struct {
 	RunItemID    string `json:"runItemId"`
 	AfterOrdinal int    `json:"afterOrdinal"`
 	Limit        int    `json:"limit"`
+}
+
+type ListDiagnosticsRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	RunID          string `json:"runId"`
+}
+
+type ListDiagnosticsResponse struct {
+	Diagnostics []chat.Diagnostic `json:"diagnostics"`
 }
 
 type SubmitApprovalRequest struct {
@@ -152,7 +171,9 @@ type ChatService interface {
 	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
 	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
 	CreateConversation(workspaceID string, title string) (chat.Conversation, error)
+	ListDiagnostics(workspaceID string, conversationID string, runID string) ([]chat.Diagnostic, error)
 	ListConversations(workspaceID string) ([]chat.ConversationListItem, error)
+	ListRuns(workspaceID string, conversationID string) ([]chat.Run, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
@@ -427,6 +448,23 @@ func (handler handler) getActiveRun(response http.ResponseWriter, request *http.
 	writeJSON(response, http.StatusOK, GetActiveRunResponse{HasActiveRun: ok, Run: activeRun})
 }
 
+func (handler handler) listRuns(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload ListRunsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	runs, err := service.ListRuns(payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeChatError(response, "list_runs_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, ListRunsResponse{Runs: runs})
+}
+
 func (handler handler) getRunActivity(response http.ResponseWriter, request *http.Request) {
 	service := requireChatService(response, handler.chatService)
 	if service == nil {
@@ -459,6 +497,23 @@ func (handler handler) getRunItemOutput(response http.ResponseWriter, request *h
 		return
 	}
 	writeJSON(response, http.StatusOK, page)
+}
+
+func (handler handler) listDiagnostics(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload ListDiagnosticsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	diagnostics, err := service.ListDiagnostics(payload.WorkspaceID, payload.ConversationID, payload.RunID)
+	if err != nil {
+		writeChatError(response, "list_diagnostics_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, ListDiagnosticsResponse{Diagnostics: diagnostics})
 }
 
 func (handler handler) submitApproval(response http.ResponseWriter, request *http.Request) {

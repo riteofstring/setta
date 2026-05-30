@@ -575,6 +575,42 @@ func TestServiceCancelDoesNotDrainQueuedRuns(t *testing.T) {
 	}
 }
 
+func TestServiceFailureDoesNotDrainQueuedRuns(t *testing.T) {
+	harness := NewFakeHarness([]FakeHarnessEvent{
+		{Type: FakeEventThreadLinked, ThreadID: "thread_fake", SessionID: "session_fake", TurnID: "turn_fake"},
+		{Type: FakeEventWaitForSteer},
+		{Type: FakeEventFailed, Error: "provider failed"},
+	})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	active, err := service.SendUserMessage("workspace_api", conversation.ID, "A1")
+	if err != nil {
+		t.Fatalf("send active: %v", err)
+	}
+	waitForHarnessRef(t, service, "workspace_api", conversation.ID, "turn_fake")
+	queued, err := service.QueueUserMessage("workspace_api", conversation.ID, "Q1")
+	if err != nil {
+		t.Fatalf("queue q1: %v", err)
+	}
+	if _, err := service.SteerActiveRun("workspace_api", conversation.ID, "fail active"); err != nil {
+		t.Fatalf("steer active: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, active.Run.ID, RunStatusFailed)
+	run, err := service.store.LoadRun("workspace_api", queued.Run.ID)
+	if err != nil {
+		t.Fatalf("load queued: %v", err)
+	}
+	if run.Status != RunStatusQueued {
+		t.Fatalf("queued run status = %s, want queued", run.Status)
+	}
+	if _, ok, err := service.ActiveRun("workspace_api", conversation.ID); err != nil || ok {
+		t.Fatalf("active after failure = ok %v err %v, want none", ok, err)
+	}
+}
+
 func TestServiceSteeringPersistsMessageAndCallsHarness(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{
 		{Type: FakeEventThreadLinked, ThreadID: "thread_fake", SessionID: "session_fake", TurnID: "turn_fake"},

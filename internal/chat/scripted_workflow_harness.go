@@ -14,6 +14,26 @@ type ScriptedWorkflowHarness struct {
 	steers    map[string]chan SteerRequest
 }
 
+type scriptedWorkflowRunner func(*ScriptedWorkflowHarness, context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
+
+type scriptedWorkflowFixture struct {
+	Prompt string
+	Run    scriptedWorkflowRunner
+}
+
+var scriptedWorkflowFixtures = []scriptedWorkflowFixture{
+	{Prompt: "workflow hold for queue and steering", Run: (*ScriptedWorkflowHarness).workflowTurn},
+	{Prompt: "queued follow-up from active run", Run: scriptedQueuedReply},
+	{Prompt: "queued follow-up after cancel", Run: scriptedQueuedReply},
+	{Prompt: "queued follow-up after failure", Run: scriptedQueuedReply},
+	{Prompt: "cancel active workflow", Run: (*ScriptedWorkflowHarness).cancelTurn},
+	{Prompt: "fail active workflow", Run: (*ScriptedWorkflowHarness).failTurn},
+	{Prompt: "command approval workflow", Run: scriptedCommandApprovalTurn},
+	{Prompt: "file approval workflow", Run: scriptedFileApprovalTurn},
+	{Prompt: "permission approval workflow", Run: scriptedPermissionApprovalTurn},
+	{Prompt: "user input approval workflow", Run: (*ScriptedWorkflowHarness).userInputApprovalTurn},
+}
+
 func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
 	return &ScriptedWorkflowHarness{
 		approvals: map[string]chan ApprovalResponse{},
@@ -29,27 +49,12 @@ func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request T
 		return TurnCompletion{}, err
 	}
 
-	prompt := strings.ToLower(request.Prompt)
-	switch {
-	case strings.Contains(prompt, "workflow hold"):
-		return harness.workflowTurn(ctx, request, sink)
-	case strings.Contains(prompt, "queued follow-up"):
-		return scriptedReply(sink, request.Run.ID, "Queued follow-up response rendered through the app.")
-	case strings.Contains(prompt, "cancel active"):
-		return harness.cancelTurn(ctx, request, sink)
-	case strings.Contains(prompt, "fail active"):
-		return harness.failTurn(ctx, request, sink)
-	case strings.Contains(prompt, "command approval"):
-		return harness.decisionApprovalTurn(ctx, request, sink, scriptedCommandApproval(request.Run.ID))
-	case strings.Contains(prompt, "file approval"):
-		return harness.decisionApprovalTurn(ctx, request, sink, scriptedFileApproval(request.Run.ID, request.Workspace.RootPath))
-	case strings.Contains(prompt, "permission approval"):
-		return harness.decisionApprovalTurn(ctx, request, sink, scriptedPermissionApproval(request.Run.ID))
-	case strings.Contains(prompt, "user input approval"):
-		return harness.userInputApprovalTurn(ctx, request, sink)
-	default:
-		return scriptedReply(sink, request.Run.ID, "Scripted response: "+request.Prompt)
+	for _, fixture := range scriptedWorkflowFixtures {
+		if strings.EqualFold(strings.TrimSpace(request.Prompt), fixture.Prompt) {
+			return fixture.Run(harness, ctx, request, sink)
+		}
 	}
+	return scriptedReply(sink, request.Run.ID, "Scripted response: "+request.Prompt)
 }
 
 func (harness *ScriptedWorkflowHarness) CancelTurn(_ context.Context, request CancelRequest) error {
@@ -84,6 +89,22 @@ func (harness *ScriptedWorkflowHarness) SubmitApproval(_ context.Context, respon
 	}
 	channel <- response
 	return nil
+}
+
+func scriptedQueuedReply(_ *ScriptedWorkflowHarness, _ context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	return scriptedReply(sink, request.Run.ID, "Queued follow-up response rendered through the app.")
+}
+
+func scriptedCommandApprovalTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	return harness.decisionApprovalTurn(ctx, request, sink, scriptedCommandApproval(request.Run.ID))
+}
+
+func scriptedFileApprovalTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	return harness.decisionApprovalTurn(ctx, request, sink, scriptedFileApproval(request.Run.ID, request.Workspace.RootPath))
+}
+
+func scriptedPermissionApprovalTurn(harness *ScriptedWorkflowHarness, ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	return harness.decisionApprovalTurn(ctx, request, sink, scriptedPermissionApproval(request.Run.ID))
 }
 
 func (harness *ScriptedWorkflowHarness) workflowTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {

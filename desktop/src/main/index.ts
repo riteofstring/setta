@@ -122,8 +122,23 @@ function settaAppDataDir() {
   return process.env.SETTA_APP_DATA_DIR ?? join(homedir(), ".setta");
 }
 
+function isE2E() {
+  return process.env.SETTA_E2E === "1";
+}
+
+function isVisibleE2E() {
+  return process.env.SETTA_E2E_VISIBLE === "1";
+}
+
+function shouldShowMainWindow() {
+  return !isE2E() || isVisibleE2E();
+}
+
 function testOpenWorkspaceRoot() {
-  return process.env.SETTA_TEST_OPEN_WORKSPACE_ROOT ?? "";
+  if (!isE2E()) {
+    return "";
+  }
+  return process.env.SETTA_E2E_OPEN_WORKSPACE_ROOT ?? "";
 }
 
 async function createWindow() {
@@ -146,7 +161,11 @@ async function createWindow() {
   registerIpc();
 
   mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
+    if (shouldShowMainWindow()) {
+      mainWindow?.show();
+    } else {
+      recorder?.recordAppEvent("window_hidden_for_e2e", {});
+    }
   });
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -380,6 +399,9 @@ function requestQuit() {
 }
 
 app.whenReady().then(async () => {
+  if (isE2E() && !isVisibleE2E()) {
+    app.dock?.hide();
+  }
   const appDataDir = settaAppDataDir();
   recorder = createSessionRecorder(process.env, {
     appDataDir,

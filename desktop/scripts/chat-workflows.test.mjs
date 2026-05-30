@@ -3,7 +3,7 @@ import { Buffer } from "node:buffer";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,9 +13,11 @@ import { setTimeout as delay } from "node:timers/promises";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const desktopRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(desktopRoot, "..");
-const recordingRoot = join(repoRoot, "test-results", "electron-integration", "chat-workflows");
+const options = parseArgs(process.argv.slice(2));
+const recordingRoot = chatWorkflowRecordingRoot(options);
 const pageLoadTimeoutMs = 20_000;
 const workflowTimeoutMs = 15_000;
+const liveWorkflowTimeoutMs = 120_000;
 const shutdownTimeoutMs = 10_000;
 
 class CDPClient {
@@ -77,53 +79,95 @@ class CDPClient {
   }
 }
 
-async function main() {
-  assertBuildExists();
-  await rm(recordingRoot, { force: true, recursive: true });
-  await mkdir(recordingRoot, { recursive: true });
-
-  await runSingleLaunchWorkflow("happy-path", runHappyPathWorkflow, {
-    backendPaths: [
-      "/workspaces/open",
-      "/chat/conversations/create",
-      "/chat/messages/send",
-      "/chat/messages/queue",
-      "/chat/messages/steer",
-    ],
-    ipcChannels: [
-      "workspace:open-local-folder",
-      "chat:create-conversation",
-      "chat:send-message",
-      "chat:queue-message",
-      "chat:steer-message",
-    ],
-  });
-  await runSingleLaunchWorkflow("cancel-queue", runCancelWorkflow, {
-    backendPaths: ["/chat/messages/send", "/chat/messages/queue", "/chat/runs/cancel"],
-    ipcChannels: ["chat:send-message", "chat:queue-message", "chat:cancel-run"],
-  });
-  await runSingleLaunchWorkflow("fail-queue", runFailWorkflow, {
-    backendPaths: ["/chat/messages/send", "/chat/messages/queue", "/chat/messages/steer"],
-    ipcChannels: ["chat:send-message", "chat:queue-message", "chat:steer-message"],
-  });
-  await runSingleLaunchWorkflow("approvals", runApprovalsWorkflow, {
-    backendPaths: ["/chat/messages/send", "/chat/approvals/submit"],
-    ipcChannels: ["chat:send-message", "chat:submit-approval"],
-  });
-  await runRestartWorkflow();
-
-  process.stdout.write("Electron chat workflow suite passed: 5 deterministic workflows.\n");
+function parseArgs(args) {
+  const parsed = {
+    deterministic: true,
+    keepArtifacts: false,
+    live: false,
+    visible: process.env.SETTA_E2E_VISIBLE === "1",
+  };
+  for (const arg of args) {
+    switch (arg) {
+      case "--deterministic-only":
+        parsed.deterministic = true;
+        parsed.live = false;
+        break;
+      case "--live-only":
+        parsed.deterministic = false;
+        parsed.live = true;
+        break;
+      case "--all":
+        parsed.deterministic = true;
+        parsed.live = true;
+        break;
+      case "--keep-artifacts":
+        parsed.keepArtifacts = true;
+        break;
+      case "--visible":
+        parsed.visible = true;
+        break;
+      default:
+        throw new Error(`unknown chat workflow argument: ${arg}`);
+    }
+  }
+  return parsed;
 }
 
-async function runSingleLaunchWorkflow(name, workflow, evidence) {
-  const fixture = await createFixture(name);
-  const recordingDir = join(recordingRoot, name);
+function chatWorkflowRecordingRoot(parsed) {
+  const base = join(repoRoot, "test-results", "electron-integration", "chat-workflows");
+  if (!parsed.keepArtifacts) {
+    return base;
+  }
+  return join(base, pathTimestamp());
+}
+
+async function main() {
+  assertBuildExists();
+  if (!options.keepArtifacts && options.deterministic) {
+    await rm(recordingRoot, { force: true, recursive: true });
+  }
+  await mkdir(recordingRoot, { recursive: true });
+
+  const results = [];
+  if (options.deterministic) {
+    await runDeterministicWorkflowLaunch(results);
+    await runRestartWorkflow(results);
+  }
+  if (options.live) {
+    await runLiveCodexWorkflow(results);
+  }
+
+  process.stdout.write("Electron chat workflow results:\n");
+  for (const result of results) {
+    process.stdout.write(`  passed: ${result}\n`);
+  }
+}
+
+async function runDeterministicWorkflowLaunch(results) {
+  const fixture = await createFixture("deterministic");
+  const recordingDir = join(recordingRoot, "deterministic");
   const context = await launchContext(fixture, recordingDir);
   let failure = null;
 
   try {
-    await workflow(context.client, fixture);
-    await captureScreenshot(context.client, join(recordingDir, "success.png"));
+    const backend = await backendProbe(recordingDir);
+    const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
+    await runWorkflowStep(results, recordingDir, "happy-path", context.client, async () => {
+      const conversationId = await createChat(context.client, backend, workspaceId);
+      await runHappyPathWorkflow(context.client, backend, workspaceId, conversationId);
+    });
+    await runWorkflowStep(results, recordingDir, "cancel-queue", context.client, async () => {
+      const conversationId = await createChat(context.client, backend, workspaceId);
+      await runCancelWorkflow(context.client, backend, workspaceId, conversationId);
+    });
+    await runWorkflowStep(results, recordingDir, "fail-queue", context.client, async () => {
+      const conversationId = await createChat(context.client, backend, workspaceId);
+      await runFailWorkflow(context.client, backend, workspaceId, conversationId);
+    });
+    await runWorkflowStep(results, recordingDir, "approvals", context.client, async () => {
+      const conversationId = await createChat(context.client, backend, workspaceId);
+      await runApprovalsWorkflow(context.client, backend, workspaceId, conversationId);
+    });
   } catch (error) {
     failure = error;
     await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
@@ -136,11 +180,44 @@ async function runSingleLaunchWorkflow(name, workflow, evidence) {
   if (failure) {
     throw failureWithLogs(failure, context.electron.logs);
   }
-  await assertRecordingEvidence(recordingDir, evidence);
+  await assertRecordingEvidence(recordingDir, {
+    backendPaths: [
+      "/workspaces/open",
+      "/chat/conversations/create",
+      "/chat/messages/send",
+      "/chat/messages/queue",
+      "/chat/messages/steer",
+      "/chat/runs/active",
+      "/chat/runs/list",
+      "/chat/runs/cancel",
+      "/chat/approvals/submit",
+    ],
+    ipcChannels: [
+      "workspace:open-local-folder",
+      "chat:create-conversation",
+      "chat:send-message",
+      "chat:queue-message",
+      "chat:steer-message",
+      "chat:cancel-run",
+      "chat:submit-approval",
+    ],
+  });
+}
+
+async function runWorkflowStep(results, recordingDir, name, client, workflow) {
+  try {
+    await workflow();
+    await captureScreenshot(client, join(recordingDir, `${name}-success.png`));
+  } catch (error) {
+    await captureScreenshot(client, join(recordingDir, `${name}-failure.png`)).catch(() => {});
+    throw error;
+  }
+  results.push(name);
+  await appendWorkflowState(recordingDir, { name, status: "passed" });
   process.stdout.write(`Electron chat workflow passed: ${name}\n`);
 }
 
-async function runRestartWorkflow() {
+async function runRestartWorkflow(results) {
   const fixture = await createFixture("restart");
   const firstRecording = join(recordingRoot, "restart", "first-launch");
   const secondRecording = join(recordingRoot, "restart", "second-launch");
@@ -186,7 +263,161 @@ async function runRestartWorkflow() {
     backendPaths: ["/workspace-session", "/chat/conversations/list", "/chat/messages/page"],
     ipcChannels: ["workspace:session", "chat:list-conversations", "chat:message-page"],
   });
+  results.push("restart");
   process.stdout.write("Electron chat workflow passed: restart\n");
+}
+
+async function runLiveCodexWorkflow(results) {
+  const liveEnv = await prepareLiveCodexEnv();
+  const fixture = await createFixture("live-codex");
+  const recordingDir = join(recordingRoot, "live-codex");
+  const context = await launchContext(fixture, recordingDir, {
+    extraEnv: liveEnv.env,
+    harness: "codex",
+  });
+  let failure = null;
+
+  try {
+    const backend = await backendProbe(recordingDir);
+    const workspaceId = await openWorkspace(context.client, fixture.workspaceRoot, backend);
+    const conversationId = await createChat(context.client, backend, workspaceId);
+    await submitComposer(
+      context.client,
+      "Reply with one short sentence containing the exact phrase setta live electron smoke.",
+      "Send message",
+    );
+    const run = await waitForRunWithPrompt(
+      backend,
+      workspaceId,
+      conversationId,
+      "Reply with one short sentence containing the exact phrase setta live electron smoke.",
+      null,
+    );
+    await waitForRunStatus(
+      backend,
+      workspaceId,
+      conversationId,
+      run.id,
+      "completed",
+      liveWorkflowTimeoutMs,
+    );
+    await assertNoActiveRun(backend, workspaceId, conversationId);
+    await assertAssistantCompleted(backend, workspaceId, conversationId, run.id);
+    await waitForAssistantTextRendered(context.client, liveWorkflowTimeoutMs);
+    await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
+    await captureScreenshot(context.client, join(recordingDir, "success.png"));
+  } catch (error) {
+    failure = error;
+    await captureScreenshot(context.client, join(recordingDir, "failure.png")).catch(() => {});
+  } finally {
+    context.client?.close();
+    await stopElectron(context.electron);
+    await rm(fixture.tempRoot, { force: true, recursive: true });
+    await rm(liveEnv.codexHome, { force: true, recursive: true });
+  }
+
+  if (failure) {
+    throw failureWithLogs(failure, context.electron.logs);
+  }
+  await assertRecordingEvidence(recordingDir, {
+    backendPaths: [
+      "/workspaces/open",
+      "/chat/conversations/create",
+      "/chat/messages/send",
+      "/chat/messages/page",
+      "/chat/runs/active",
+      "/chat/runs/list",
+      "/chat/diagnostics/list",
+    ],
+    ipcChannels: ["workspace:open-local-folder", "chat:create-conversation", "chat:send-message"],
+  });
+  results.push("live-codex-electron");
+  process.stdout.write("Electron chat workflow passed: live-codex-electron\n");
+}
+
+async function prepareLiveCodexEnv() {
+  const openAIKey = await openAIKeyFromDotEnv();
+  const codexHome = await mkdtemp(join(tmpdir(), "setta-live-codex-home-"));
+  await runCommand("codex", ["login", "--with-api-key"], {
+    env: { ...process.env, CODEX_HOME: codexHome },
+    input: openAIKey + "\n",
+  });
+  return {
+    codexHome,
+    env: {
+      CODEX_HOME: codexHome,
+      OPENAI_API_KEY: openAIKey,
+    },
+  };
+}
+
+async function openAIKeyFromDotEnv() {
+  const content = await readFile(join(repoRoot, ".env"), "utf8");
+  for (const line of content.split("\n")) {
+    const parsed = parseDotEnvLine(line);
+    if (parsed?.key === "OPENAI_API_KEY" && parsed.value !== "") {
+      return parsed.value;
+    }
+  }
+  throw new Error("OPENAI_API_KEY is not present in .env");
+}
+
+function parseDotEnvLine(line) {
+  const trimmed = line.trim();
+  if (trimmed === "" || trimmed.startsWith("#")) {
+    return null;
+  }
+  const withoutExport = trimmed.startsWith("export ")
+    ? trimmed.slice("export ".length).trim()
+    : trimmed;
+  const separator = withoutExport.indexOf("=");
+  if (separator === -1) {
+    return null;
+  }
+  const key = withoutExport.slice(0, separator).trim();
+  let value = withoutExport.slice(separator + 1).trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1);
+  }
+  return { key, value };
+}
+
+async function runCommand(command, args, { env, input }) {
+  const child = spawn(command, args, {
+    env,
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let stderr = "";
+  child.stdout.on("data", () => {});
+  child.stderr.on("data", (data) => {
+    stderr += data.toString();
+  });
+  if (input !== undefined) {
+    child.stdin.end(input);
+  }
+  const code = await onceExit(child);
+  if (code !== 0) {
+    throw new Error(`${command} ${args.join(" ")} exited with ${code}: ${stderr}`);
+  }
+}
+
+async function waitForAssistantTextRendered(client, timeoutMs) {
+  await waitForState(
+    client,
+    `(() => {
+      const rows = Array.from(document.querySelectorAll('[data-testid="chat-message"]'));
+      const assistantTexts = rows
+        .filter((row) => row.className.includes("justify-start"))
+        .map((row) => row.innerText.trim())
+        .filter((text) => text !== "" && text !== "...");
+      return { assistantTexts };
+    })()`,
+    (value) => value.assistantTexts.length > 0,
+    timeoutMs,
+  );
 }
 
 async function stopLaunchedContext(context) {
@@ -197,11 +428,24 @@ async function stopLaunchedContext(context) {
   await stopElectron(context.electron);
 }
 
-async function runHappyPathWorkflow(client, fixture) {
-  await openWorkspaceAndCreateChat(client, fixture.workspaceRoot);
+async function runHappyPathWorkflow(client, backend, workspaceId, conversationId) {
   await submitComposer(client, "workflow hold for queue and steering", "Send message");
+  const activeRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "workflow hold for queue and steering",
+    "running",
+  );
   await waitForText(client, "Workflow stream started.");
   await submitComposer(client, "queued follow-up from active run", "Queue follow-up");
+  const queuedRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "queued follow-up from active run",
+    "queued",
+  );
   await waitForTexts(client, ["queued follow-up from active run", "Queued"]);
   await submitComposer(client, "steer active run", "Send steering message");
   await waitForTexts(client, [
@@ -209,36 +453,84 @@ async function runHappyPathWorkflow(client, fixture) {
     "Active workflow complete.",
     "Queued follow-up response rendered through the app.",
   ]);
+  await waitForRunStatus(backend, workspaceId, conversationId, activeRun.id, "completed");
+  await waitForRunStatus(backend, workspaceId, conversationId, queuedRun.id, "completed");
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+  await assertAssistantCompleted(backend, workspaceId, conversationId, queuedRun.id);
 }
 
-async function runCancelWorkflow(client, fixture) {
-  await openWorkspaceAndCreateChat(client, fixture.workspaceRoot);
+async function runCancelWorkflow(client, backend, workspaceId, conversationId) {
   await submitComposer(client, "cancel active workflow", "Send message");
+  const activeRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "cancel active workflow",
+    "running",
+  );
   await waitForText(client, "Cancel workflow waiting.");
   await submitComposer(client, "queued follow-up after cancel", "Queue follow-up");
+  const queuedRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "queued follow-up after cancel",
+    "queued",
+  );
   await waitForTexts(client, ["queued follow-up after cancel", "Queued"]);
   await clickButtonByAria(client, "Stop run");
   await waitForText(client, "Cancelled");
-  await assertTextDoesNotAppear(client, "Queued follow-up response rendered through the app.");
+  await assertQueuedRunNotPromoted(
+    backend,
+    workspaceId,
+    conversationId,
+    activeRun.id,
+    queuedRun.id,
+    "cancelled",
+  );
+  await assertRendererQueueMatchesBackend(client, "queued follow-up after cancel");
+  await assertTextAbsent(client, "Queued follow-up response rendered through the app.");
 }
 
-async function runFailWorkflow(client, fixture) {
-  await openWorkspaceAndCreateChat(client, fixture.workspaceRoot);
+async function runFailWorkflow(client, backend, workspaceId, conversationId) {
   await submitComposer(client, "fail active workflow", "Send message");
+  const activeRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "fail active workflow",
+    "running",
+  );
   await waitForText(client, "Failure workflow waiting.");
   await submitComposer(client, "queued follow-up after failure", "Queue follow-up");
+  const queuedRun = await waitForRunWithPrompt(
+    backend,
+    workspaceId,
+    conversationId,
+    "queued follow-up after failure",
+    "queued",
+  );
   await waitForTexts(client, ["queued follow-up after failure", "Queued"]);
   await submitComposer(client, "trigger scripted failure", "Send steering message");
   await waitForTexts(client, ["Scripted failure surfaced.", "Failed"]);
-  await assertTextDoesNotAppear(client, "Queued follow-up response rendered through the app.");
+  await assertQueuedRunNotPromoted(
+    backend,
+    workspaceId,
+    conversationId,
+    activeRun.id,
+    queuedRun.id,
+    "failed",
+  );
+  await assertRendererQueueMatchesBackend(client, "queued follow-up after failure");
+  await assertTextAbsent(client, "Queued follow-up response rendered through the app.");
 }
 
-async function runApprovalsWorkflow(client, fixture) {
-  await openWorkspaceAndCreateChat(client, fixture.workspaceRoot);
+async function runApprovalsWorkflow(client, backend, workspaceId, conversationId) {
   await approveDecisionWorkflow(client, "command approval workflow", "Command approval");
   await approveDecisionWorkflow(client, "file approval workflow", "File change approval");
   await approveDecisionWorkflow(client, "permission approval workflow", "Permission approval");
   await answerUserInputApproval(client);
+  await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 }
 
 async function approveDecisionWorkflow(client, prompt, title) {
@@ -263,6 +555,34 @@ async function openWorkspaceAndCreateChat(client, workspaceRoot) {
   await clickButtonByAria(client, "New chat");
   await waitForTexts(client, ["New chat"]);
   await waitForComposerReady(client);
+}
+
+async function openWorkspace(client, workspaceRoot, backend) {
+  await waitForTexts(client, ["setta-backend dev", "Stream"]);
+  await clickButtonByAria(client, "Open workspace folder");
+  await waitForTexts(client, [workspaceRoot, "No chats yet"]);
+  const session = await waitForBackendState(
+    async () => backend.get("/workspace-session"),
+    (value) => Boolean(value.selectedWorkspaceId),
+  );
+  return session.selectedWorkspaceId;
+}
+
+async function createChat(client, backend, workspaceId) {
+  const before = await backend.post("/chat/conversations/list", { workspaceId });
+  const existing = new Set(before.conversations.map((item) => item.conversation.id));
+  await clickButtonByAria(client, "New chat");
+  await waitForTexts(client, ["New chat"]);
+  await waitForComposerReady(client);
+  const after = await waitForBackendState(
+    async () => backend.post("/chat/conversations/list", { workspaceId }),
+    (value) => value.conversations.some((item) => !existing.has(item.conversation.id)),
+  );
+  const created = after.conversations.find((item) => !existing.has(item.conversation.id));
+  if (!created) {
+    throw new Error("new conversation was not returned by the backend");
+  }
+  return created.conversation.id;
 }
 
 async function submitComposer(client, text, buttonLabel) {
@@ -346,8 +666,7 @@ async function waitForTexts(client, texts) {
   );
 }
 
-async function assertTextDoesNotAppear(client, text) {
-  await delay(700);
+async function assertTextAbsent(client, text) {
   const body = await client.evaluate("document.body.innerText");
   if (body.includes(text)) {
     throw new Error(`unexpected rendered text: ${text}`);
@@ -358,10 +677,10 @@ function bodyTextExpression() {
   return `(() => ({ body: document.body.innerText }))()`;
 }
 
-async function waitForState(client, expression, isReady) {
+async function waitForState(client, expression, isReady, timeoutMs = workflowTimeoutMs) {
   const startedAt = Date.now();
   let lastValue = null;
-  while (Date.now() - startedAt < workflowTimeoutMs) {
+  while (Date.now() - startedAt < timeoutMs) {
     lastValue = await client.evaluate(expression);
     if (isReady(lastValue)) {
       return lastValue;
@@ -371,11 +690,188 @@ async function waitForState(client, expression, isReady) {
   throw new Error(`timed out waiting for Electron workflow state: ${JSON.stringify(lastValue)}`);
 }
 
-async function launchContext(fixture, recordingDir) {
+async function backendProbe(recordingDir) {
+  const baseURL = await waitForBackendURL(recordingDir);
+  await writeFile(join(recordingDir, "backend-url.txt"), baseURL + "\n");
+  return {
+    baseURL,
+    get: (path) => backendRequest(recordingDir, baseURL, "GET", path),
+    post: (path, payload) => backendRequest(recordingDir, baseURL, "POST", path, payload),
+  };
+}
+
+async function backendRequest(recordingDir, baseURL, method, path, payload) {
+  const response = await globalThis.fetch(baseURL + path, {
+    body: payload === undefined ? undefined : JSON.stringify(payload),
+    headers: payload === undefined ? undefined : { "Content-Type": "application/json" },
+    method,
+  });
+  const body = await response.text();
+  await appendWorkflowState(recordingDir, {
+    method,
+    ok: response.ok,
+    path,
+    status: response.status,
+    type: "backend_request",
+  });
+  if (!response.ok) {
+    throw new Error(`${method} ${path} returned ${response.status}: ${body}`);
+  }
+  return JSON.parse(body);
+}
+
+async function waitForBackendURL(recordingDir) {
+  const eventsPath = join(recordingDir, "events.jsonl");
+  const startedAt = Date.now();
+  let lastError = null;
+  while (Date.now() - startedAt < pageLoadTimeoutMs) {
+    try {
+      const events = await readJsonLines(eventsPath);
+      const started = events.find((entry) => entry.type === "backend_started");
+      const url = started?.payload?.url;
+      if (typeof url === "string" && url !== "") {
+        return url;
+      }
+    } catch (error) {
+      lastError = error;
+    }
+    await delay(100);
+  }
+  throw new Error(`backend URL was not recorded: ${lastError?.message ?? "timed out"}`);
+}
+
+async function waitForBackendState(readState, isReady, timeoutMs = workflowTimeoutMs) {
+  const startedAt = Date.now();
+  let lastValue = null;
+  while (Date.now() - startedAt < timeoutMs) {
+    lastValue = await readState();
+    if (isReady(lastValue)) {
+      return lastValue;
+    }
+    await delay(100);
+  }
+  throw new Error(`timed out waiting for backend state: ${JSON.stringify(lastValue)}`);
+}
+
+async function waitForRunWithPrompt(backend, workspaceId, conversationId, prompt, status) {
+  return waitForBackendState(async () => {
+    const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
+    return (
+      list.runs.find(
+        (run) => run.promptSummary === prompt && (status === null || run.status === status),
+      ) ?? null
+    );
+  }, Boolean);
+}
+
+async function waitForRunStatus(backend, workspaceId, conversationId, runId, status, timeoutMs) {
+  return waitForBackendState(
+    async () => {
+      const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
+      return list.runs.find((run) => run.id === runId) ?? null;
+    },
+    (run) => run?.status === status,
+    timeoutMs,
+  );
+}
+
+async function assertNoActiveRun(backend, workspaceId, conversationId) {
+  const active = await waitForBackendState(
+    async () => backend.post("/chat/runs/active", { conversationId, workspaceId }),
+    (value) => !value.hasActiveRun,
+  );
+  if (active.run !== null && active.run !== undefined) {
+    throw new Error(
+      `active run payload was present after terminal state: ${JSON.stringify(active)}`,
+    );
+  }
+}
+
+async function assertQueuedRunNotPromoted(
+  backend,
+  workspaceId,
+  conversationId,
+  activeRunId,
+  queuedRunId,
+  terminalStatus,
+) {
+  await waitForRunStatus(backend, workspaceId, conversationId, activeRunId, terminalStatus);
+  await assertNoActiveRun(backend, workspaceId, conversationId);
+  const list = await backend.post("/chat/runs/list", { conversationId, workspaceId });
+  const queued = list.runs.find((run) => run.id === queuedRunId);
+  if (!queued) {
+    throw new Error(`queued run ${queuedRunId} was not returned by /chat/runs/list`);
+  }
+  if (queued.status !== "queued") {
+    throw new Error(`queued run ${queuedRunId} status = ${queued.status}, want queued`);
+  }
+  if (queued.startedAt !== "" || queued.assistantMessageId !== "") {
+    throw new Error(`queued run ${queuedRunId} was partially promoted: ${JSON.stringify(queued)}`);
+  }
+  const page = await backend.post("/chat/messages/page", {
+    conversationId,
+    limit: 40,
+    workspaceId,
+  });
+  if (!page.queue.runs.some((run) => run.id === queuedRunId)) {
+    throw new Error(`queued run ${queuedRunId} was not present in page queue state`);
+  }
+  const queuedAssistant = page.messages.find(
+    (message) => message.runId === queuedRunId && message.role === "assistant",
+  );
+  if (queuedAssistant) {
+    throw new Error(
+      `queued run ${queuedRunId} has assistant message: ${JSON.stringify(queuedAssistant)}`,
+    );
+  }
+}
+
+async function assertAssistantCompleted(backend, workspaceId, conversationId, runId) {
+  const page = await backend.post("/chat/messages/page", {
+    conversationId,
+    limit: 40,
+    workspaceId,
+  });
+  const assistant = page.messages.find(
+    (message) => message.runId === runId && message.role === "assistant",
+  );
+  if (!assistant || assistant.status !== "complete" || messageText(assistant).trim() === "") {
+    throw new Error(
+      `assistant response for run ${runId} was not complete: ${JSON.stringify(assistant)}`,
+    );
+  }
+}
+
+async function assertRendererQueueMatchesBackend(client, queuedPrompt) {
+  const body = await client.evaluate("document.body.innerText");
+  if (!body.includes(queuedPrompt) || !body.includes("Queued")) {
+    throw new Error(`renderer did not show queued state for ${queuedPrompt}: ${body}`);
+  }
+}
+
+async function assertNoCriticalDiagnostics(backend, workspaceId, conversationId) {
+  const diagnostics = await backend.post("/chat/diagnostics/list", {
+    conversationId,
+    runId: "",
+    workspaceId,
+  });
+  const critical = diagnostics.diagnostics.filter(
+    (diagnostic) => diagnostic.severity === "critical",
+  );
+  if (critical.length > 0) {
+    throw new Error(`critical diagnostics recorded: ${JSON.stringify(critical)}`);
+  }
+}
+
+function messageText(message) {
+  return message.parts.map((part) => part.text).join("");
+}
+
+async function launchContext(fixture, recordingDir, options = {}) {
   await rm(recordingDir, { force: true, recursive: true });
   await mkdir(recordingDir, { recursive: true });
   const debugPort = await openPort();
-  const electron = launchElectron(debugPort, fixture, recordingDir);
+  const electron = launchElectron(debugPort, fixture, recordingDir, options);
   const client = await connectToSettaPage(debugPort);
   await client.call("Runtime.enable");
   await installPageHelpers(client);
@@ -396,18 +892,26 @@ async function installPageHelpers(client) {
   })()`);
 }
 
-function launchElectron(debugPort, fixture, recordingDir) {
+function launchElectron(debugPort, fixture, recordingDir, launchOptions = {}) {
+  const harness = launchOptions.harness ?? "scripted-workflow";
+  const extraEnv = launchOptions.extraEnv ?? {};
+  const e2eEnv = {
+    SETTA_E2E: "1",
+    SETTA_E2E_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
+    ...(options.visible ? { SETTA_E2E_VISIBLE: "1" } : {}),
+    ...(harness === "scripted-workflow" ? { SETTA_E2E_CHAT_HARNESS: "scripted-workflow" } : {}),
+  };
   const electron = spawn(electronBin(), [`--remote-debugging-port=${debugPort}`, "."], {
     cwd: desktopRoot,
     env: {
       ...process.env,
+      ...extraEnv,
+      ...e2eEnv,
       SETTA_APP_DATA_DIR: fixture.appDataDir,
       SETTA_RECORD_INCLUDE_PAYLOADS: "1",
       SETTA_RECORD_SCREENSHOT_INTERVAL_MS: "0",
       SETTA_RECORDING: "1",
       SETTA_RECORDING_DIR: recordingDir,
-      SETTA_TEST_CHAT_HARNESS: "scripted-workflow",
-      SETTA_TEST_OPEN_WORKSPACE_ROOT: fixture.workspaceRoot,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -536,6 +1040,7 @@ async function assertRecordingEvidence(recordingDir, expected) {
     }
   }
   const backend = await readJsonLines(join(recordingDir, "backend-http.jsonl"));
+  const workflowState = await readJsonLinesOptional(join(recordingDir, "workflow-state.jsonl"));
   for (const path of expected.backendPaths) {
     if (
       !backend.some(
@@ -543,6 +1048,9 @@ async function assertRecordingEvidence(recordingDir, expected) {
           entry.type === "backend_http_response" &&
           entry.status === 200 &&
           entry.url.includes(path),
+      ) &&
+      !workflowState.some(
+        (entry) => entry.type === "backend_request" && entry.status === 200 && entry.path === path,
       )
     ) {
       throw new Error(`recording missing successful backend path: ${path}`);
@@ -564,6 +1072,26 @@ async function readJsonLines(path) {
     .split("\n")
     .filter((line) => line.trim() !== "")
     .map((line) => JSON.parse(line));
+}
+
+async function readJsonLinesOptional(path) {
+  try {
+    return await readJsonLines(path);
+  } catch (error) {
+    if (error?.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+}
+
+async function appendWorkflowState(recordingDir, value) {
+  await mkdir(recordingDir, { recursive: true });
+  await appendFile(join(recordingDir, "workflow-state.jsonl"), JSON.stringify(value) + "\n");
+}
+
+function pathTimestamp() {
+  return new Date().toISOString().replaceAll(":", "").replaceAll(".", "-");
 }
 
 main().catch((error) => {

@@ -587,12 +587,14 @@ function operationPagePatch(
   returnedRun: Run,
   fallbackActiveRun: Run | null,
 ): ChatPatch {
-  const patch = pagePatch(
-    page,
-    activeRunAfterOperation(current.activeRun, returnedRun, fallbackActiveRun),
-  );
+  const activeRun = activeRunAfterOperation(current.activeRun, returnedRun, fallbackActiveRun);
+  const patch = pagePatch(page, activeRun);
   if (patch.messages) {
-    patch.messages = mergeOperationMessages(current.messages, patch.messages);
+    patch.messages = mergeOperationMessages(
+      current.messages,
+      patch.messages,
+      terminalRunIdsAfterOperation(current.activeRun, activeRun, returnedRun),
+    );
   }
   return patch;
 }
@@ -617,39 +619,37 @@ function activeRunAfterOperation(
   return returnedRun;
 }
 
+function terminalRunIdsAfterOperation(
+  currentActiveRun: Run | null,
+  nextActiveRun: Run | null,
+  returnedRun: Run,
+) {
+  const runIds = new Set<string>();
+  for (const run of [currentActiveRun, nextActiveRun, returnedRun]) {
+    if (run && isTerminalRun(run)) {
+      runIds.add(run.id);
+    }
+  }
+  return runIds;
+}
+
 function isTerminalRun(run: Run) {
   return run.status === "completed" || run.status === "cancelled" || run.status === "failed";
 }
 
-function mergeOperationMessages(currentMessages: ChatMessage[], pageMessages: ChatMessage[]) {
+function mergeOperationMessages(
+  currentMessages: ChatMessage[],
+  pageMessages: ChatMessage[],
+  terminalRunIds: Set<string>,
+) {
   const currentById = new Map(currentMessages.map((message) => [message.id, message]));
   return pageMessages.map((pageMessage) => {
     const current = currentById.get(pageMessage.id);
-    if (!current || current.updatedAt < pageMessage.updatedAt) {
-      return pageMessage;
-    }
-    if (current.updatedAt > pageMessage.updatedAt) {
+    if (current && terminalRunIds.has(pageMessage.runId)) {
       return current;
     }
-    return messageStatusRank(current.status) > messageStatusRank(pageMessage.status)
-      ? current
-      : pageMessage;
+    return pageMessage;
   });
-}
-
-function messageStatusRank(status: ChatMessage["status"]) {
-  switch (status) {
-    case "pending":
-      return 0;
-    case "streaming":
-      return 1;
-    case "complete":
-    case "cancelled":
-    case "error":
-      return 2;
-    default:
-      return assertNever(status);
-  }
 }
 
 function emptyConversationPatch(): ChatPatch {
