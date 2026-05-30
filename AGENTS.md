@@ -34,11 +34,7 @@
 - Keep shared constants at the owning domain boundary, not scattered at the top of unrelated files. Avoid a global constants junk drawer. File-local constants are fine only for private implementation details.
 - Prefer TypeScript discriminated unions, `satisfies` mappings, and `never` assertions so switch statements and status handling are checked exhaustively.
 - Prefer push-based updates over polling. Do not add polling unless there is a strong, explicit justification and the tradeoffs are documented.
-- Do not embed large blocks of executable code in string literals. Prefer normal
-  source files, typed helpers, fixtures, or templates that can be formatted,
-  linted, typechecked, and tested. Keep string-embedded code limited to small
-  fixtures, small generated fragments, or APIs that explicitly require source
-  text.
+- Do not embed large blocks of executable code in string literals. Prefer normal source files, typed helpers, fixtures, or templates that can be formatted, linted, typechecked, and tested. Keep string-embedded code limited to small fixtures, small generated fragments, or APIs that explicitly require source text.
 - Keep code explicit.
 - Do not add `try/except` or `try/catch` blocks unless they are actually needed to handle a specific failure path.
 - If a robust solution is not possible, say so explicitly and present the real tradeoffs.
