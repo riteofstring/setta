@@ -71,7 +71,7 @@ func TestChatEndpointMapsMalformedDurableStateToCorruptState(t *testing.T) {
 	}
 }
 
-func TestChatEndpointsIsolateMalformedRunStateByConversation(t *testing.T) {
+func TestChatEndpointsFailClosedOnMalformedRunState(t *testing.T) {
 	handler, appDataDir := newChatHandlerWithAppDataDir(t, nil)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
 	corruptConversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
@@ -88,11 +88,11 @@ func TestChatEndpointsIsolateMalformedRunStateByConversation(t *testing.T) {
 		t.Fatalf("write unowned malformed run: %v", err)
 	}
 
-	list := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
+	listErr := postJSON[ErrorResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
 		WorkspaceID: opened.Workspace.ID,
-	}, http.StatusOK)
-	if len(list.Conversations) != 1 || list.Conversations[0].Conversation.ID != corruptConversation.ID {
-		t.Fatalf("conversation list = %+v, want corrupt conversation listed without hydrating its runs", list.Conversations)
+	}, http.StatusInternalServerError)
+	if listErr.Error.Code != "corrupt_chat_state" {
+		t.Fatalf("list error = %+v, want corrupt chat state", listErr.Error)
 	}
 
 	sendErr := postJSON[ErrorResponse](t, handler, "/chat/messages/send", SendChatMessageRequest{
@@ -110,17 +110,6 @@ func TestChatEndpointsIsolateMalformedRunStateByConversation(t *testing.T) {
 	if len(messages) != 0 {
 		t.Fatalf("send persisted messages despite corrupt run state: %v", messages)
 	}
-
-	newConversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
-	result := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: newConversation.ID,
-		Prompt:         "hello",
-	}, http.StatusOK)
-	if result.Conversation.ID != newConversation.ID || result.UserMessage.Role != chat.RoleUser {
-		t.Fatalf("send result = %+v, want successful new conversation turn", result)
-	}
-	waitForAssistantStatus(t, handler, opened.Workspace.ID, newConversation.ID, chat.MessageStatusComplete)
 }
 
 func TestChatEndpointsCancelActiveRun(t *testing.T) {
@@ -188,7 +177,7 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 	if steered.UserMessage.Delivery != chat.MessageDeliverySteering {
 		t.Fatalf("steering message delivery = %q, want steering", steered.UserMessage.Delivery)
 	}
-	waitForRunStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, started.Run.ID, chat.MessageStatusComplete)
+	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, started.Run.ID, chat.MessageStatusComplete)
 
 	activity := postJSON[chat.RunActivityPage](t, handler, "/chat/runs/activity", GetRunActivityRequest{
 		WorkspaceID: opened.Workspace.ID,
@@ -362,7 +351,7 @@ func readServerSentChatEvent(t *testing.T, reader *bufio.Reader) chat.Event {
 	}
 }
 
-func waitForAssistantStatus(t *testing.T, handler http.Handler, workspaceID string, conversationID string, status string) chat.MessagePage {
+func waitForAssistantStatus(t *testing.T, handler http.Handler, workspaceID string, conversationID string, status chat.MessageStatus) chat.MessagePage {
 	t.Helper()
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -419,7 +408,7 @@ func waitForHarnessTurn(t *testing.T, handler http.Handler, workspaceID string, 
 	t.Fatalf("timed out waiting for turn %s", turnID)
 }
 
-func waitForRunStatusHTTP(t *testing.T, handler http.Handler, workspaceID string, conversationID string, runID string, status string) {
+func waitForRunMessageStatusHTTP(t *testing.T, handler http.Handler, workspaceID string, conversationID string, runID string, status chat.MessageStatus) {
 	t.Helper()
 
 	deadline := time.Now().Add(2 * time.Second)

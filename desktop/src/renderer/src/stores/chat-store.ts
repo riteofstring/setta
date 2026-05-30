@@ -25,6 +25,14 @@ type ChatOperation =
   | "steering"
   | null;
 
+export interface RunItemOutputPageState {
+  error: string | null;
+  hasMore: boolean;
+  loadedThroughOrdinal: number;
+  loading: boolean;
+  nextOrdinal: number;
+}
+
 interface ChatStore {
   activeRun: Run | null;
   conversations: ConversationListItem[];
@@ -52,6 +60,7 @@ interface ChatStore {
   createConversation: (title?: string) => Promise<void>;
   runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
+  runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputs: RunItemOutput[];
   runItemOutputsById: Record<string, RunItemOutput>;
   runItems: RunItem[];
@@ -88,6 +97,7 @@ type ChatPatch = Partial<
     | "operation"
     | "runItemIdsByRunId"
     | "runItemOutputIdsByRunItemId"
+    | "runItemOutputPagesByRunItemId"
     | "runItemOutputs"
     | "runItemOutputsById"
     | "runItems"
@@ -257,6 +267,15 @@ export const useChatStore = create<ChatStore>((set, get) => {
       if (!workspaceId || runId === "" || runItemId === "") {
         return;
       }
+      set((current) =>
+        normalizeChatPatch({
+          runItemOutputPagesByRunItemId: updateRunItemOutputPageState(
+            current.runItemOutputPagesByRunItemId,
+            runItemId,
+            { error: null, loading: true },
+          ),
+        }),
+      );
       try {
         const page = await window.setta.chat.runItemOutput(
           workspaceId,
@@ -267,12 +286,26 @@ export const useChatStore = create<ChatStore>((set, get) => {
         );
         set((current) =>
           normalizeChatPatch({
+            runItemOutputPagesByRunItemId: updateRunItemOutputPageState(
+              current.runItemOutputPagesByRunItemId,
+              runItemId,
+              outputPageLoadedState(page.output, afterOrdinal, page.hasMore, page.nextOrdinal),
+            ),
             runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
             status: "ready",
           }),
         );
       } catch (error) {
-        set(errorPatch(error));
+        set((current) =>
+          normalizeChatPatch({
+            ...errorPatch(error),
+            runItemOutputPagesByRunItemId: updateRunItemOutputPageState(
+              current.runItemOutputPagesByRunItemId,
+              runItemId,
+              { error: errorMessage(error), loading: false },
+            ),
+          }),
+        );
       }
     },
     loadWorkspace: async (workspaceId: string) => {
@@ -283,6 +316,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         messages: [],
         operation: "loading",
         diagnostics: [],
+        runItemOutputPagesByRunItemId: {},
         runItemOutputs: [],
         runItems: [],
         selectedConversation: null,
@@ -411,6 +445,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     status: "idle",
     runItemOutputs: [],
     runItemOutputIdsByRunItemId: {},
+    runItemOutputPagesByRunItemId: {},
     runItemOutputsById: {},
     runItems: [],
     runItemIdsByRunId: {},
@@ -504,6 +539,7 @@ function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
     activeRun,
     hasMoreOlder: page.hasMoreOlder,
     messages: page.messages,
+    runItemOutputPagesByRunItemId: {},
     runItemOutputs: page.runItemOutputs,
     runItems: page.runItems,
     selectedConversation: page.conversation,
@@ -515,6 +551,7 @@ function emptyConversationPatch(): ChatPatch {
     activeRun: null,
     hasMoreOlder: false,
     messages: [],
+    runItemOutputPagesByRunItemId: {},
     runItemOutputs: [],
     runItems: [],
     selectedConversation: null,
@@ -523,9 +560,50 @@ function emptyConversationPatch(): ChatPatch {
 
 function errorPatch(error: unknown): ChatPatch {
   return {
-    error: error instanceof Error ? error.message : "Chat operation failed",
+    error: errorMessage(error),
     operation: null,
     status: "error",
+  };
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Chat operation failed";
+}
+
+function outputPageLoadedState(
+  outputs: RunItemOutput[],
+  afterOrdinal: number,
+  hasMore: boolean,
+  nextOrdinal: number,
+): Partial<RunItemOutputPageState> {
+  return {
+    error: null,
+    hasMore,
+    loadedThroughOrdinal: outputs.reduce(
+      (current, output) => Math.max(current, output.ordinal),
+      afterOrdinal,
+    ),
+    loading: false,
+    nextOrdinal,
+  };
+}
+
+function updateRunItemOutputPageState(
+  current: Record<string, RunItemOutputPageState>,
+  runItemId: string,
+  patch: Partial<RunItemOutputPageState>,
+) {
+  return {
+    ...current,
+    [runItemId]: {
+      error: null,
+      hasMore: false,
+      loadedThroughOrdinal: 0,
+      loading: false,
+      nextOrdinal: 0,
+      ...current[runItemId],
+      ...patch,
+    },
   };
 }
 

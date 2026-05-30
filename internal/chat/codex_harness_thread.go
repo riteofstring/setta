@@ -20,8 +20,8 @@ func handleCodexThreadLifecycle(message jsonRPCMessage, threadID string, _ strin
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if messageThreadID != threadID {
-		return codexNotificationResult{}, nil
+	if err := requireCodexThreadIDMatch(message, threadID, messageThreadID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	return codexNotificationResult{}, sink.Trace("codex_thread_lifecycle", message.Method)
 }
@@ -35,8 +35,8 @@ func handleCodexThreadGoalCleared(message jsonRPCMessage, threadID string, _ str
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if messageThreadID != threadID {
-		return codexNotificationResult{}, nil
+	if err := requireCodexThreadIDMatch(message, threadID, messageThreadID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	return codexNotificationResult{}, sink.Trace("codex_thread_goal_cleared", messageThreadID)
 }
@@ -50,8 +50,8 @@ func handleCodexThreadGoalUpdated(message jsonRPCMessage, threadID string, _ str
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if messageThreadID != threadID {
-		return codexNotificationResult{}, nil
+	if err := requireCodexThreadIDMatch(message, threadID, messageThreadID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	goal, err := requireObject(params, "goal", "codex thread goal updated")
 	if err != nil {
@@ -82,8 +82,8 @@ func handleCodexThreadNameUpdated(message jsonRPCMessage, threadID string, _ str
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if messageThreadID != threadID {
-		return codexNotificationResult{}, nil
+	if err := requireCodexThreadIDMatch(message, threadID, messageThreadID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	name, err := optionalString(params, "threadName", "codex thread name updated")
 	if err != nil {
@@ -101,8 +101,8 @@ func handleCodexThreadSettingsUpdated(message jsonRPCMessage, threadID string, _
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if messageThreadID != threadID {
-		return codexNotificationResult{}, nil
+	if err := requireCodexThreadIDMatch(message, threadID, messageThreadID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	if _, err := requireObject(params, "threadSettings", "codex thread settings updated"); err != nil {
 		return codexNotificationResult{}, err

@@ -125,7 +125,7 @@ func (service *Service) ListConversations(workspaceID string) ([]ConversationLis
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return nil, err
 	}
-	conversations, corruptConversations, err := service.store.ScanConversations(workspaceID)
+	conversations, corruptConversations, err := service.store.ScanConversationsAllowingCorrupt(workspaceID)
 	if err != nil {
 		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
 		return nil, err
@@ -133,6 +133,10 @@ func (service *Service) ListConversations(workspaceID string) ([]ConversationLis
 	if len(corruptConversations) > 0 {
 		service.recordCorruptStateDiagnostic(corruptConversations[0], workspaceID, "", "")
 		return nil, corruptConversations[0]
+	}
+	runs, err := service.runsForWorkspaceWithDiagnostics(workspaceID)
+	if err != nil {
+		return nil, err
 	}
 	items := make([]ConversationListItem, 0, len(conversations))
 	for _, conversation := range conversations {
@@ -144,7 +148,7 @@ func (service *Service) ListConversations(workspaceID string) ([]ConversationLis
 		items = append(items, ConversationListItem{
 			Conversation: conversation,
 			MessageCount: count,
-			ActiveRunID:  "",
+			ActiveRunID:  activeRunIDFromRuns(runs, conversation.ID),
 		})
 	}
 	return items, nil
@@ -512,7 +516,7 @@ func (service *Service) clearSubmittedApproval(workspaceID string, runID string,
 	return run, nil
 }
 
-func (service *Service) newUserMessage(workspaceID string, conversationID string, runID string, prompt string, delivery string, status string, now string) (ChatMessage, error) {
+func (service *Service) newUserMessage(workspaceID string, conversationID string, runID string, prompt string, delivery MessageDelivery, status MessageStatus, now string) (ChatMessage, error) {
 	messageID, err := service.newID("message")
 	if err != nil {
 		return ChatMessage{}, fmt.Errorf("create user message id: %w", err)
@@ -1018,12 +1022,13 @@ func (service *Service) recoverInterruptedRuns() error {
 	}
 	now := timestamp(service.now())
 	for _, workspaceID := range workspaceIDs {
-		runs, corrupt, err := service.store.ScanRuns(workspaceID)
+		runs, corrupt, err := service.store.ScanRunsAllowingCorrupt(workspaceID)
 		if err != nil {
 			return err
 		}
 		if len(corrupt) > 0 {
 			service.recordCorruptStateDiagnostic(corrupt[0], workspaceID, "", "")
+			return corrupt[0]
 		}
 		for _, run := range runs {
 			if run.Status != RunStatusRunning {
@@ -1032,7 +1037,6 @@ func (service *Service) recoverInterruptedRuns() error {
 			if err := service.recoverInterruptedRun(workspaceID, run, now); err != nil {
 				if IsCorruptStateError(err) {
 					service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, run.ID)
-					break
 				}
 				return err
 			}
@@ -1112,7 +1116,7 @@ func updateConversationAfterPrompt(conversation Conversation, prompt string, now
 	return conversation
 }
 
-func latestHarnessRef(conversation Conversation, harness string) HarnessThreadRef {
+func latestHarnessRef(conversation Conversation, harness HarnessKind) HarnessThreadRef {
 	for index := len(conversation.HarnessRefs) - 1; index >= 0; index-- {
 		if conversation.HarnessRefs[index].Harness == harness {
 			return conversation.HarnessRefs[index]

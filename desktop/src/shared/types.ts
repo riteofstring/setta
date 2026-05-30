@@ -1,6 +1,5 @@
 import type {
   BackendHealth,
-  ApprovalAnswer,
   ChatEvent,
   Conversation,
   GetActiveRunResponse,
@@ -13,6 +12,7 @@ import type {
   RunItemOutputPage,
   SendMessageResult,
   SteerMessageResult,
+  SubmitApprovalRequest,
   WorkspaceSession,
 } from "@generated/backend";
 
@@ -41,16 +41,6 @@ export type BackendEventStreamStatus =
     }
   | { status: "resyncing"; lastSequence: number; lastStreamId: string; message: string }
   | { status: "stopped"; message: string };
-
-export interface SubmitApprovalInput {
-  workspaceId: string;
-  conversationId: string;
-  approvalId: string;
-  approved: boolean;
-  answers: ApprovalAnswer[];
-  response: string;
-  cancelled: boolean;
-}
 
 export interface SettaAPI {
   app: {
@@ -104,6 +94,6 @@ export interface SettaAPI {
       prompt: string,
     ) => Promise<SteerMessageResult>;
     onEvent: (listener: (event: ChatEvent) => void) => () => void;
-    submitApproval: (input: SubmitApprovalInput) => Promise<Run>;
+    submitApproval: (input: SubmitApprovalRequest) => Promise<Run>;
   };
 }

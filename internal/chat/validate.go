@@ -67,7 +67,7 @@ func validateMessageIdentity(message ChatMessage) error {
 	if message.ConversationID == "" {
 		return fmt.Errorf("message %s conversationId is required", message.ID)
 	}
-	if !validString(message.Role, []string{RoleUser, RoleAssistant, RoleSystem, RoleDeveloper, RoleTool}) {
+	if !validValue(message.Role, messageRoleValues) {
 		return fmt.Errorf("message %s has unsupported role %s", message.ID, message.Role)
 	}
 	if message.Ordinal <= 0 {
@@ -83,10 +83,10 @@ func validateMessageState(message ChatMessage) error {
 	if err := validateTimestamp(message.UpdatedAt, "message "+message.ID+" updatedAt"); err != nil {
 		return err
 	}
-	if !validString(message.Status, []string{MessageStatusPending, MessageStatusStreaming, MessageStatusComplete, MessageStatusCancelled, MessageStatusError}) {
+	if !validValue(message.Status, messageStatusValues) {
 		return fmt.Errorf("message %s has unsupported status %s", message.ID, message.Status)
 	}
-	if !validString(message.Delivery, []string{MessageDeliveryNormal, MessageDeliveryQueued, MessageDeliverySteering}) {
+	if !validValue(message.Delivery, messageDeliveryValues) {
 		return fmt.Errorf("message %s has unsupported delivery %s", message.ID, message.Delivery)
 	}
 	if message.Role != RoleUser && message.Delivery != MessageDeliveryNormal {
@@ -102,7 +102,7 @@ func validateMessagePart(messageID string, part MessagePart) error {
 	if part.Type != MessagePartText {
 		return fmt.Errorf("message %s part %s has unsupported type %s", messageID, part.ID, part.Type)
 	}
-	if !validString(part.Format, []string{TextFormatPlain, TextFormatMarkdown}) {
+	if !validValue(part.Format, textFormatValues) {
 		return fmt.Errorf("message %s part %s has unsupported format %s", messageID, part.ID, part.Format)
 	}
 	return nil
@@ -112,10 +112,13 @@ func validateHarnessThreadRef(conversationID string, ref HarnessThreadRef) error
 	if ref.Harness == "" {
 		return fmt.Errorf("conversation %s harness ref harness is required", conversationID)
 	}
+	if !validValue(ref.Harness, harnessKindValues) {
+		return fmt.Errorf("conversation %s harness ref has unsupported harness %s", conversationID, ref.Harness)
+	}
 	if ref.ThreadID == "" {
 		return fmt.Errorf("conversation %s harness ref threadId is required", conversationID)
 	}
-	if !validString(ref.Status, []string{HarnessRefLinked, HarnessRefMissing, HarnessRefStale, HarnessRefUnsupported}) {
+	if !validValue(ref.Status, harnessRefStatusValues) {
 		return fmt.Errorf("conversation %s harness ref has unsupported status %s", conversationID, ref.Status)
 	}
 	if err := validateTimestamp(ref.CreatedAt, "conversation "+conversationID+" harness ref createdAt"); err != nil {
@@ -170,11 +173,14 @@ func validateRunIdentity(run Run) error {
 	if run.Harness == "" {
 		return fmt.Errorf("run %s harness is required", run.ID)
 	}
+	if !validValue(run.Harness, harnessKindValues) {
+		return fmt.Errorf("run %s has unsupported harness %s", run.ID, run.Harness)
+	}
 	return nil
 }
 
 func validateRunState(run Run) error {
-	if !validString(run.Status, []string{RunStatusQueued, RunStatusRunning, RunStatusCompleted, RunStatusCancelled, RunStatusFailed}) {
+	if !validValue(run.Status, runStatusValues) {
 		return fmt.Errorf("run %s has unsupported status %s", run.ID, run.Status)
 	}
 	if run.StartedAt == "" {
@@ -216,7 +222,7 @@ func validateApprovalIdentity(approval ApprovalRequest) error {
 	if approval.RunID == "" {
 		return fmt.Errorf("approval %s runId is required", approval.ID)
 	}
-	if !validString(approval.Kind, []string{ApprovalKindCommand, ApprovalKindFileChange, ApprovalKindPermission, ApprovalKindUserInput}) {
+	if !validValue(approval.Kind, approvalKindValues) {
 		return fmt.Errorf("approval %s has unsupported kind %s", approval.ID, approval.Kind)
 	}
 	if approval.Title == "" {
@@ -226,7 +232,7 @@ func validateApprovalIdentity(approval ApprovalRequest) error {
 }
 
 func validateApprovalState(approval ApprovalRequest) error {
-	if !validString(approval.Status, []string{ApprovalStatusPending, ApprovalStatusApproved, ApprovalStatusDenied, ApprovalStatusAnswered, ApprovalStatusCancelled}) {
+	if !validValue(approval.Status, approvalStatusValues) {
 		return fmt.Errorf("approval %s has unsupported status %s", approval.ID, approval.Status)
 	}
 	if err := validateTimestamp(approval.CreatedAt, "approval "+approval.ID+" createdAt"); err != nil {
@@ -279,10 +285,10 @@ func validateDiagnostic(diagnostic Diagnostic) error {
 	if diagnostic.ID == "" {
 		return fmt.Errorf("diagnostic id is required")
 	}
-	if !validString(diagnostic.Source, []string{DiagnosticSourceBackend, DiagnosticSourceEventStream, DiagnosticSourceChat, DiagnosticSourceWorkspace, DiagnosticSourceProvider}) {
+	if !validValue(diagnostic.Source, diagnosticSourceValues) {
 		return fmt.Errorf("diagnostic %s has unsupported source %s", diagnostic.ID, diagnostic.Source)
 	}
-	if !validString(diagnostic.Severity, []string{DiagnosticSeverityInfo, DiagnosticSeverityWarning, DiagnosticSeverityError, DiagnosticSeverityCritical}) {
+	if !validValue(diagnostic.Severity, diagnosticSeverityValues) {
 		return fmt.Errorf("diagnostic %s has unsupported severity %s", diagnostic.ID, diagnostic.Severity)
 	}
 	if diagnostic.Code == "" {
@@ -342,32 +348,13 @@ func validateRunItemIdentity(item RunItem) error {
 }
 
 func validateRunItemTypeAndStatus(item RunItem) error {
-	if !validString(item.Type, validRunItemTypes()) {
+	if !validValue(item.Type, runItemTypeValues) {
 		return fmt.Errorf("run item %s has unsupported type %s", item.ID, item.Type)
 	}
-	if !validString(item.Status, []string{RunItemStatusPending, RunItemStatusRunning, RunItemStatusCompleted, RunItemStatusFailed, RunItemStatusCancelled}) {
+	if !validValue(item.Status, runItemStatusValues) {
 		return fmt.Errorf("run item %s has unsupported status %s", item.ID, item.Status)
 	}
 	return nil
-}
-
-func validRunItemTypes() []string {
-	return []string{
-		RunItemTypeAgentMessage,
-		RunItemTypePlan,
-		RunItemTypeReasoning,
-		RunItemTypeCommandExecution,
-		RunItemTypeFileChange,
-		RunItemTypeMCPToolCall,
-		RunItemTypeDynamicToolCall,
-		RunItemTypeCollabAgentToolCall,
-		RunItemTypeWebSearch,
-		RunItemTypeImageView,
-		RunItemTypeImageGeneration,
-		RunItemTypeTerminalInteraction,
-		RunItemTypeDiff,
-		RunItemTypeNotice,
-	}
 }
 
 func validateRunItemTimestamps(item RunItem) error {
@@ -419,6 +406,6 @@ func validateTimestamp(value string, label string) error {
 	return nil
 }
 
-func validString(value string, values []string) bool {
+func validValue[T comparable](value T, values []T) bool {
 	return slices.Contains(values, value)
 }

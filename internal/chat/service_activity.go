@@ -392,16 +392,3 @@ func activityOutputPreviewLimit(limit int) int {
 	}
 	return limit
 }
-
-func outputsAfterOrdinal(outputs []RunItemOutput, afterOrdinal int) []RunItemOutput {
-	if afterOrdinal <= 0 {
-		return outputs
-	}
-	filtered := outputs[:0]
-	for _, output := range outputs {
-		if output.Ordinal > afterOrdinal {
-			filtered = append(filtered, output)
-		}
-	}
-	return filtered
-}

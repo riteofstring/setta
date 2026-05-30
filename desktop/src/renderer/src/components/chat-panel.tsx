@@ -1,4 +1,4 @@
-import type { ConversationListItem, WorkspaceSummary } from "@generated/backend";
+import type { ConversationListItem, RunStatus, WorkspaceSummary } from "@generated/backend";
 import { MessageSquarePlus, Plus, Send, Square } from "lucide-react";
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
@@ -93,6 +93,7 @@ function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
       messagesById={chat.messagesById}
       runItemIdsByRunId={chat.runItemIdsByRunId}
       runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
+      runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
       runItemOutputs={chat.runItemOutputs}
       runItemOutputsById={chat.runItemOutputsById}
       runItems={chat.runItems}
@@ -212,7 +213,6 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) =>
             handleComposerKeyDown(event, {
-              queueDraft,
               running,
               sendDraft,
               stopRun: chat.stopActiveRun,
@@ -222,28 +222,27 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           rows={2}
           value={draft}
         />
-        <ComposerButton canSend={!disabled && draft.trim() !== ""} chat={chat} running={running} />
+        <ComposerButton
+          canSend={!disabled && draft.trim() !== ""}
+          chat={chat}
+          queueDraft={queueDraft}
+          running={running}
+        />
       </div>
     </form>
   );
 }
 
 interface ComposerKeyActions {
-  queueDraft: () => Promise<void>;
   running: boolean;
   sendDraft: () => Promise<void>;
   stopRun: () => Promise<void>;
 }
 
-function handleComposerKeyDown(
+export function handleComposerKeyDown(
   event: KeyboardEvent<HTMLTextAreaElement>,
   actions: ComposerKeyActions,
 ) {
-  if (isQueueShortcut(event)) {
-    event.preventDefault();
-    void actions.queueDraft();
-    return;
-  }
   if (isStopShortcut(event, actions.running)) {
     event.preventDefault();
     void actions.stopRun();
@@ -254,10 +253,6 @@ function handleComposerKeyDown(
   }
   event.preventDefault();
   void actions.sendDraft();
-}
-
-function isQueueShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
-  return event.key === "Tab" && !event.nativeEvent.isComposing;
 }
 
 function isStopShortcut(event: KeyboardEvent<HTMLTextAreaElement>, running: boolean) {
@@ -274,13 +269,18 @@ function hasTextSelection(textarea: HTMLTextAreaElement) {
   return textarea.selectionStart !== textarea.selectionEnd;
 }
 
-function ComposerButton({
+export function ComposerButton({
   canSend,
   chat,
+  queueDraft,
   running,
 }: {
   canSend: boolean;
-  chat: ChatView;
+  chat: {
+    operation: string | null;
+    stopActiveRun: () => Promise<void>;
+  };
+  queueDraft: () => Promise<void>;
   running: boolean;
 }) {
   if (running) {
@@ -294,6 +294,16 @@ function ComposerButton({
         >
           <Send className="h-4 w-4" />
           Send
+        </Button>
+        <Button
+          aria-label="Queue follow-up"
+          disabled={!canSend || chat.operation === "queueing"}
+          onClick={() => void queueDraft()}
+          type="button"
+          variant="secondary"
+        >
+          <MessageSquarePlus className="h-4 w-4" />
+          Queue
         </Button>
         <Button
           aria-label="Stop run"
@@ -332,6 +342,9 @@ function useChatViewState(workspaceId: string | null) {
   const queueMessage = useChatStore((state) => state.queueMessage);
   const runItemIdsByRunId = useChatStore((state) => state.runItemIdsByRunId);
   const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
+  const runItemOutputPagesByRunItemId = useChatStore(
+    (state) => state.runItemOutputPagesByRunItemId,
+  );
   const runItemOutputs = useChatStore((state) => state.runItemOutputs);
   const runItemOutputsById = useChatStore((state) => state.runItemOutputsById);
   const runItems = useChatStore((state) => state.runItems);
@@ -368,6 +381,7 @@ function useChatViewState(workspaceId: string | null) {
     queueMessage,
     runItemIdsByRunId,
     runItemOutputIdsByRunItemId,
+    runItemOutputPagesByRunItemId,
     runItemOutputs,
     runItemOutputsById,
     runItems,
@@ -439,15 +453,21 @@ function ConversationList({
   );
 }
 
-function RunBadge({ active, status }: { active: boolean; status: string | null }) {
+const runBadgeByStatus = {
+  cancelled: { label: "Cancelled", variant: "neutral" },
+  completed: { label: "Ready", variant: "success" },
+  failed: { label: "Failed", variant: "danger" },
+  queued: { label: "Queued", variant: "neutral" },
+  running: { label: "Running", variant: "neutral" },
+} satisfies Record<RunStatus, { label: string; variant: "danger" | "neutral" | "success" }>;
+
+function RunBadge({ active, status }: { active: boolean; status: RunStatus | null }) {
   if (active) {
     return <Badge variant="neutral">Running</Badge>;
   }
-  if (status === "failed") {
-    return <Badge variant="danger">Failed</Badge>;
+  if (status === null) {
+    return <Badge variant="success">Ready</Badge>;
   }
-  if (status === "cancelled") {
-    return <Badge variant="neutral">Cancelled</Badge>;
-  }
-  return <Badge variant="success">Ready</Badge>;
+  const badge = runBadgeByStatus[status];
+  return <Badge variant={badge.variant}>{badge.label}</Badge>;
 }

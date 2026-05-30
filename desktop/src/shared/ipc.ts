@@ -13,9 +13,10 @@ import type {
   RunItemOutputPage,
   SendMessageResult,
   SteerMessageResult,
+  SubmitApprovalRequest,
   WorkspaceSession,
 } from "@generated/backend";
-import type { RuntimeVersions, SubmitApprovalInput } from "./types";
+import type { RuntimeVersions } from "./types";
 
 export const ipcChannels = {
   appVersions: "app:versions",
@@ -102,7 +103,7 @@ interface IpcContract {
     result: SteerMessageResult;
   };
   chatSubmitApproval: {
-    args: [input: SubmitApprovalInput];
+    args: [input: SubmitApprovalRequest];
     result: Run;
   };
   workspaceClose: {

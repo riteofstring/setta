@@ -444,22 +444,10 @@ func optionalStringArray(value map[string]any, name string, label string) ([]str
 	return result, nil
 }
 
-func notificationMatchesTurn(params map[string]any, threadID string, turnID string) bool {
-	messageThreadID, ok := params["threadId"].(string)
-	if ok && messageThreadID != "" && messageThreadID != threadID {
-		return false
-	}
-	messageTurnID, ok := params["turnId"].(string)
-	if ok && messageTurnID != "" && messageTurnID != turnID {
-		return false
-	}
-	return true
-}
-
 type codexRunItemBase struct {
 	providerItemID string
-	status         string
-	itemType       string
+	status         RunItemStatus
+	itemType       RunItemType
 }
 
 type codexRunItemTextFields struct {
@@ -487,7 +475,7 @@ type codexRunItemResultFields struct {
 	result       string
 }
 
-func runItemFromCodexItem(item map[string]any, status string) (RunItem, error) {
+func runItemFromCodexItem(item map[string]any, status RunItemStatus) (RunItem, error) {
 	base, err := codexRunItemBaseFromItem(item, status)
 	if err != nil {
 		return RunItem{}, err
@@ -528,7 +516,7 @@ func runItemFromCodexItem(item map[string]any, status string) (RunItem, error) {
 	}, nil
 }
 
-func codexRunItemBaseFromItem(item map[string]any, status string) (codexRunItemBase, error) {
+func codexRunItemBaseFromItem(item map[string]any, status RunItemStatus) (codexRunItemBase, error) {
 	providerItemID, err := requireString(item, "id", "codex item")
 	if err != nil {
 		return codexRunItemBase{}, err
@@ -645,7 +633,7 @@ func codexRunItemResultFieldsFromItem(item map[string]any) (codexRunItemResultFi
 	return codexRunItemResultFields{result: result, errorMessage: errorMessage}, nil
 }
 
-var codexRunItemTypeByCodexType = map[string]string{
+var codexRunItemTypeByCodexType = map[string]RunItemType{
 	"agentMessage":        RunItemTypeAgentMessage,
 	"collabAgentToolCall": RunItemTypeCollabAgentToolCall,
 	"commandExecution":    RunItemTypeCommandExecution,
@@ -661,7 +649,7 @@ var codexRunItemTypeByCodexType = map[string]string{
 	"webSearch":           RunItemTypeWebSearch,
 }
 
-func mapCodexItemType(codexType string) (string, error) {
+func mapCodexItemType(codexType string) (RunItemType, error) {
 	itemType, ok := codexRunItemTypeByCodexType[codexType]
 	if !ok {
 		return "", fmt.Errorf("unsupported codex item type: %s", codexType)
@@ -671,7 +659,7 @@ func mapCodexItemType(codexType string) (string, error) {
 
 // Codex app-server 0.135.0 item status values observed from the app-server
 // protocol source and exercised by the local protocol fixtures.
-var codexRunItemStatusByCodexStatus = map[string]string{
+var codexRunItemStatusByCodexStatus = map[string]RunItemStatus{
 	"completed":   RunItemStatusCompleted,
 	"declined":    RunItemStatusCancelled,
 	"failed":      RunItemStatusFailed,
@@ -714,7 +702,7 @@ func requireStringAllowEmpty(value map[string]any, name string, label string) (s
 	return text, nil
 }
 
-func mapCodexItemStatus(status string) (string, error) {
+func mapCodexItemStatus(status string) (RunItemStatus, error) {
 	itemStatus, ok := codexRunItemStatusByCodexStatus[status]
 	if !ok {
 		return "", fmt.Errorf("unsupported codex item status: %s", status)

@@ -4,10 +4,16 @@ import type {
   ChatMessage,
   Conversation,
   ConversationListItem,
+  MessageDelivery,
   MessagePage,
+  MessageRole,
+  MessageStatus,
   Run,
   RunItem,
   RunItemOutput,
+  RunItemStatus,
+  RunItemType,
+  RunStatus,
   WorkspaceSession,
 } from "@generated/backend";
 import type { RuntimeVersions, SettaAPI } from "@shared/types";
@@ -33,6 +39,7 @@ describe("chat store", () => {
       operation: null,
       runItemOutputs: [],
       runItemOutputIdsByRunItemId: {},
+      runItemOutputPagesByRunItemId: {},
       runItemOutputsById: {},
       runItems: [],
       runItemIdsByRunId: {},
@@ -280,7 +287,7 @@ describe("chat store", () => {
   test("applies run activity events incrementally", () => {
     const conversation = testConversation();
     const item = runItem("run_item_command", "command_execution", "running");
-    const completed = { ...item, status: "completed", exitCode: 0 };
+    const completed: RunItem = { ...item, status: "completed", exitCode: 0 };
     const output = runItemOutput("run_item_output_1", item.id, 1, "ok\n");
     useChatStore.setState({
       selectedConversation: conversation,
@@ -301,7 +308,7 @@ describe("chat store", () => {
 
   test("lazy-loads run activity without dropping embedded output", async () => {
     const item = runItem("run_item_command", "command_execution", "running");
-    const completed = { ...item, status: "completed" };
+    const completed: RunItem = { ...item, status: "completed" };
     const firstOutput = runItemOutput("run_item_output_1", item.id, 1, "first\n");
     const secondOutput = runItemOutput("run_item_output_2", item.id, 2, "second\n");
     const runActivity = vi.fn().mockResolvedValue({
@@ -346,6 +353,69 @@ describe("chat store", () => {
 
     expect(runItemOutputPage).toHaveBeenCalledWith("workspace_api", "run_api", itemB.id, 0, 200);
     expect(useChatStore.getState().runItemOutputs).toEqual([outputA, outputB]);
+  });
+
+  test("tracks run item output pagination per item", async () => {
+    const itemA = runItem("run_item_a", "command_execution", "completed");
+    const itemB = runItem("run_item_b", "command_execution", "completed");
+    const outputA1 = runItemOutput("run_item_output_a1", itemA.id, 1, "a1\n");
+    const outputA2 = runItemOutput("run_item_output_a2", itemA.id, 2, "a2\n");
+    const outputB1 = runItemOutput("run_item_output_b1", itemB.id, 1, "b1\n");
+    const runItemOutputPage = vi
+      .fn()
+      .mockResolvedValueOnce({
+        hasMore: true,
+        nextOrdinal: 1,
+        output: [outputA1],
+        runId: "run_api",
+        runItemId: itemA.id,
+      })
+      .mockResolvedValueOnce({
+        hasMore: false,
+        nextOrdinal: 0,
+        output: [outputB1],
+        runId: "run_api",
+        runItemId: itemB.id,
+      })
+      .mockResolvedValueOnce({
+        hasMore: false,
+        nextOrdinal: 0,
+        output: [outputA1, outputA2],
+        runId: "run_api",
+        runItemId: itemA.id,
+      });
+    installSettaAPI({ chat: { runItemOutput: runItemOutputPage } });
+    useChatStore.setState({
+      runItems: [itemA, itemB],
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().loadRunItemOutput("run_api", itemA.id, 0, 1);
+    await useChatStore.getState().loadRunItemOutput("run_api", itemB.id, 0, 1);
+    await useChatStore.getState().loadRunItemOutput("run_api", itemA.id, 1, 2);
+
+    expect(runItemOutputPage).toHaveBeenNthCalledWith(
+      3,
+      "workspace_api",
+      "run_api",
+      itemA.id,
+      1,
+      2,
+    );
+    expect(useChatStore.getState().runItemOutputs.map((output) => output.id)).toEqual([
+      outputA1.id,
+      outputA2.id,
+      outputB1.id,
+    ]);
+    expect(useChatStore.getState().runItemOutputPagesByRunItemId[itemA.id]).toMatchObject({
+      hasMore: false,
+      loadedThroughOrdinal: 2,
+      nextOrdinal: 0,
+    });
+    expect(useChatStore.getState().runItemOutputPagesByRunItemId[itemB.id]).toMatchObject({
+      hasMore: false,
+      loadedThroughOrdinal: 1,
+    });
   });
 
   test("ignores pushed message events for unrelated conversations", () => {
@@ -467,7 +537,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       onProcessStatus: () => () => {},
     },
     chat: {
-      activeRun: async () => ({ hasActiveRun: false, run: testRun("completed") }),
+      activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => testRun("cancelled"),
       createConversation: async () => conversation,
       listConversations: async () => ({ conversations: [] }),
@@ -775,10 +845,10 @@ function testPage(
 function message(
   id: string,
   ordinal: number,
-  role: string,
-  status: string,
+  role: MessageRole,
+  status: MessageStatus,
   text: string,
-  delivery = "normal",
+  delivery: MessageDelivery = "normal",
 ): ChatMessage {
   return {
     conversationId: "conversation_api",
@@ -809,7 +879,7 @@ function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
   };
 }
 
-function testRun(status: string): Run {
+function testRun(status: RunStatus): Run {
   return {
     assistantMessageId: "message_assistant",
     completedAt: status === "running" ? "" : "2026-05-29T20:01:00Z",
@@ -847,7 +917,7 @@ function testRun(status: string): Run {
   };
 }
 
-function runItem(id: string, type: string, status: string): RunItem {
+function runItem(id: string, type: RunItemType, status: RunItemStatus): RunItem {
   return {
     command: "go test ./...",
     completedAt: "",

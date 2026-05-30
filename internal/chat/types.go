@@ -2,86 +2,220 @@ package chat
 
 import "encoding/json"
 
+type HarnessKind string
+type MessageRole string
+type MessageStatus string
+type MessageDelivery string
+type MessagePartType string
+type TextFormat string
+type HarnessRefStatus string
+type RunStatus string
+type ApprovalStatus string
+type ApprovalKind string
+type RunItemStatus string
+type RunItemType string
+type DiagnosticSeverity string
+type DiagnosticSource string
+
 const (
 	SchemaVersion = 1
 
-	HarnessCodex = "codex"
+	HarnessCodex HarnessKind = "codex"
 
-	RoleUser      = "user"
-	RoleAssistant = "assistant"
-	RoleSystem    = "system"
-	RoleDeveloper = "developer"
-	RoleTool      = "tool"
+	RoleUser      MessageRole = "user"
+	RoleAssistant MessageRole = "assistant"
+	RoleSystem    MessageRole = "system"
+	RoleDeveloper MessageRole = "developer"
+	RoleTool      MessageRole = "tool"
 
-	MessageStatusPending   = "pending"
-	MessageStatusStreaming = "streaming"
-	MessageStatusComplete  = "complete"
-	MessageStatusCancelled = "cancelled"
-	MessageStatusError     = "error"
+	MessageStatusPending   MessageStatus = "pending"
+	MessageStatusStreaming MessageStatus = "streaming"
+	MessageStatusComplete  MessageStatus = "complete"
+	MessageStatusCancelled MessageStatus = "cancelled"
+	MessageStatusError     MessageStatus = "error"
 
-	MessageDeliveryNormal   = "normal"
-	MessageDeliveryQueued   = "queued"
-	MessageDeliverySteering = "steering"
+	MessageDeliveryNormal   MessageDelivery = "normal"
+	MessageDeliveryQueued   MessageDelivery = "queued"
+	MessageDeliverySteering MessageDelivery = "steering"
 
-	MessagePartText = "text"
+	MessagePartText MessagePartType = "text"
 
-	TextFormatPlain    = "plain"
-	TextFormatMarkdown = "markdown"
+	TextFormatPlain    TextFormat = "plain"
+	TextFormatMarkdown TextFormat = "markdown"
 
-	RunStatusQueued    = "queued"
-	RunStatusRunning   = "running"
-	RunStatusCompleted = "completed"
-	RunStatusCancelled = "cancelled"
-	RunStatusFailed    = "failed"
+	RunStatusQueued    RunStatus = "queued"
+	RunStatusRunning   RunStatus = "running"
+	RunStatusCompleted RunStatus = "completed"
+	RunStatusCancelled RunStatus = "cancelled"
+	RunStatusFailed    RunStatus = "failed"
 
-	HarnessRefLinked      = "linked"
-	HarnessRefMissing     = "missing"
-	HarnessRefStale       = "stale"
-	HarnessRefUnsupported = "unsupported"
+	HarnessRefLinked      HarnessRefStatus = "linked"
+	HarnessRefMissing     HarnessRefStatus = "missing"
+	HarnessRefStale       HarnessRefStatus = "stale"
+	HarnessRefUnsupported HarnessRefStatus = "unsupported"
 
-	ApprovalStatusPending   = "pending"
-	ApprovalStatusApproved  = "approved"
-	ApprovalStatusDenied    = "denied"
-	ApprovalStatusAnswered  = "answered"
-	ApprovalStatusCancelled = "cancelled"
+	ApprovalStatusPending   ApprovalStatus = "pending"
+	ApprovalStatusApproved  ApprovalStatus = "approved"
+	ApprovalStatusDenied    ApprovalStatus = "denied"
+	ApprovalStatusAnswered  ApprovalStatus = "answered"
+	ApprovalStatusCancelled ApprovalStatus = "cancelled"
 
-	ApprovalKindCommand    = "command"
-	ApprovalKindFileChange = "file_change"
-	ApprovalKindPermission = "permission"
-	ApprovalKindUserInput  = "user_input"
+	ApprovalKindCommand    ApprovalKind = "command"
+	ApprovalKindFileChange ApprovalKind = "file_change"
+	ApprovalKindPermission ApprovalKind = "permission"
+	ApprovalKindUserInput  ApprovalKind = "user_input"
 
-	RunItemStatusPending   = "pending"
-	RunItemStatusRunning   = "running"
-	RunItemStatusCompleted = "completed"
-	RunItemStatusFailed    = "failed"
-	RunItemStatusCancelled = "cancelled"
+	RunItemStatusPending   RunItemStatus = "pending"
+	RunItemStatusRunning   RunItemStatus = "running"
+	RunItemStatusCompleted RunItemStatus = "completed"
+	RunItemStatusFailed    RunItemStatus = "failed"
+	RunItemStatusCancelled RunItemStatus = "cancelled"
 
-	RunItemTypeAgentMessage        = "agent_message"
-	RunItemTypePlan                = "plan"
-	RunItemTypeReasoning           = "reasoning"
-	RunItemTypeCommandExecution    = "command_execution"
-	RunItemTypeFileChange          = "file_change"
-	RunItemTypeMCPToolCall         = "mcp_tool_call"
-	RunItemTypeDynamicToolCall     = "dynamic_tool_call"
-	RunItemTypeCollabAgentToolCall = "collab_agent_tool_call"
-	RunItemTypeWebSearch           = "web_search"
-	RunItemTypeImageView           = "image_view"
-	RunItemTypeImageGeneration     = "image_generation"
-	RunItemTypeTerminalInteraction = "terminal_interaction"
-	RunItemTypeDiff                = "diff"
-	RunItemTypeNotice              = "notice"
+	RunItemTypeAgentMessage        RunItemType = "agent_message"
+	RunItemTypePlan                RunItemType = "plan"
+	RunItemTypeReasoning           RunItemType = "reasoning"
+	RunItemTypeCommandExecution    RunItemType = "command_execution"
+	RunItemTypeFileChange          RunItemType = "file_change"
+	RunItemTypeMCPToolCall         RunItemType = "mcp_tool_call"
+	RunItemTypeDynamicToolCall     RunItemType = "dynamic_tool_call"
+	RunItemTypeCollabAgentToolCall RunItemType = "collab_agent_tool_call"
+	RunItemTypeWebSearch           RunItemType = "web_search"
+	RunItemTypeImageView           RunItemType = "image_view"
+	RunItemTypeImageGeneration     RunItemType = "image_generation"
+	RunItemTypeTerminalInteraction RunItemType = "terminal_interaction"
+	RunItemTypeDiff                RunItemType = "diff"
+	RunItemTypeNotice              RunItemType = "notice"
 
-	DiagnosticSeverityInfo     = "info"
-	DiagnosticSeverityWarning  = "warning"
-	DiagnosticSeverityError    = "error"
-	DiagnosticSeverityCritical = "critical"
+	DiagnosticSeverityInfo     DiagnosticSeverity = "info"
+	DiagnosticSeverityWarning  DiagnosticSeverity = "warning"
+	DiagnosticSeverityError    DiagnosticSeverity = "error"
+	DiagnosticSeverityCritical DiagnosticSeverity = "critical"
 
-	DiagnosticSourceBackend     = "backend"
-	DiagnosticSourceEventStream = "event_stream"
-	DiagnosticSourceChat        = "chat"
-	DiagnosticSourceWorkspace   = "workspace"
-	DiagnosticSourceProvider    = "provider"
+	DiagnosticSourceBackend     DiagnosticSource = "backend"
+	DiagnosticSourceEventStream DiagnosticSource = "event_stream"
+	DiagnosticSourceChat        DiagnosticSource = "chat"
+	DiagnosticSourceWorkspace   DiagnosticSource = "workspace"
+	DiagnosticSourceProvider    DiagnosticSource = "provider"
 )
+
+type ContractValueSet struct {
+	Name   string
+	Values []string
+}
+
+var (
+	harnessKindValues = []HarnessKind{HarnessCodex}
+	messageRoleValues = []MessageRole{
+		RoleUser,
+		RoleAssistant,
+		RoleSystem,
+		RoleDeveloper,
+		RoleTool,
+	}
+	messageStatusValues = []MessageStatus{
+		MessageStatusPending,
+		MessageStatusStreaming,
+		MessageStatusComplete,
+		MessageStatusCancelled,
+		MessageStatusError,
+	}
+	messageDeliveryValues = []MessageDelivery{
+		MessageDeliveryNormal,
+		MessageDeliveryQueued,
+		MessageDeliverySteering,
+	}
+	messagePartTypeValues = []MessagePartType{MessagePartText}
+	textFormatValues      = []TextFormat{TextFormatPlain, TextFormatMarkdown}
+	runStatusValues       = []RunStatus{
+		RunStatusQueued,
+		RunStatusRunning,
+		RunStatusCompleted,
+		RunStatusCancelled,
+		RunStatusFailed,
+	}
+	harnessRefStatusValues = []HarnessRefStatus{
+		HarnessRefLinked,
+		HarnessRefMissing,
+		HarnessRefStale,
+		HarnessRefUnsupported,
+	}
+	approvalStatusValues = []ApprovalStatus{
+		ApprovalStatusPending,
+		ApprovalStatusApproved,
+		ApprovalStatusDenied,
+		ApprovalStatusAnswered,
+		ApprovalStatusCancelled,
+	}
+	approvalKindValues = []ApprovalKind{
+		ApprovalKindCommand,
+		ApprovalKindFileChange,
+		ApprovalKindPermission,
+		ApprovalKindUserInput,
+	}
+	runItemStatusValues = []RunItemStatus{
+		RunItemStatusPending,
+		RunItemStatusRunning,
+		RunItemStatusCompleted,
+		RunItemStatusFailed,
+		RunItemStatusCancelled,
+	}
+	runItemTypeValues = []RunItemType{
+		RunItemTypeAgentMessage,
+		RunItemTypePlan,
+		RunItemTypeReasoning,
+		RunItemTypeCommandExecution,
+		RunItemTypeFileChange,
+		RunItemTypeMCPToolCall,
+		RunItemTypeDynamicToolCall,
+		RunItemTypeCollabAgentToolCall,
+		RunItemTypeWebSearch,
+		RunItemTypeImageView,
+		RunItemTypeImageGeneration,
+		RunItemTypeTerminalInteraction,
+		RunItemTypeDiff,
+		RunItemTypeNotice,
+	}
+	diagnosticSeverityValues = []DiagnosticSeverity{
+		DiagnosticSeverityInfo,
+		DiagnosticSeverityWarning,
+		DiagnosticSeverityError,
+		DiagnosticSeverityCritical,
+	}
+	diagnosticSourceValues = []DiagnosticSource{
+		DiagnosticSourceBackend,
+		DiagnosticSourceEventStream,
+		DiagnosticSourceChat,
+		DiagnosticSourceWorkspace,
+		DiagnosticSourceProvider,
+	}
+)
+
+func ContractValueSets() []ContractValueSet {
+	return []ContractValueSet{
+		{Name: "HarnessKind", Values: stringValues(harnessKindValues)},
+		{Name: "MessageRole", Values: stringValues(messageRoleValues)},
+		{Name: "MessageStatus", Values: stringValues(messageStatusValues)},
+		{Name: "MessageDelivery", Values: stringValues(messageDeliveryValues)},
+		{Name: "MessagePartType", Values: stringValues(messagePartTypeValues)},
+		{Name: "TextFormat", Values: stringValues(textFormatValues)},
+		{Name: "HarnessRefStatus", Values: stringValues(harnessRefStatusValues)},
+		{Name: "RunStatus", Values: stringValues(runStatusValues)},
+		{Name: "ApprovalStatus", Values: stringValues(approvalStatusValues)},
+		{Name: "ApprovalKind", Values: stringValues(approvalKindValues)},
+		{Name: "RunItemStatus", Values: stringValues(runItemStatusValues)},
+		{Name: "RunItemType", Values: stringValues(runItemTypeValues)},
+		{Name: "DiagnosticSeverity", Values: stringValues(diagnosticSeverityValues)},
+		{Name: "DiagnosticSource", Values: stringValues(diagnosticSourceValues)},
+	}
+}
+
+func stringValues[T ~string](values []T) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		result = append(result, string(value))
+	}
+	return result
+}
 
 type Conversation struct {
 	SchemaVersion int                `json:"schemaVersion"`
@@ -95,35 +229,35 @@ type Conversation struct {
 }
 
 type ChatMessage struct {
-	SchemaVersion  int           `json:"schemaVersion"`
-	ID             string        `json:"id"`
-	ConversationID string        `json:"conversationId"`
-	RunID          string        `json:"runId"`
-	Role           string        `json:"role"`
-	Delivery       string        `json:"delivery"`
-	Ordinal        int           `json:"ordinal"`
-	CreatedAt      string        `json:"createdAt"`
-	UpdatedAt      string        `json:"updatedAt"`
-	Status         string        `json:"status"`
-	Parts          []MessagePart `json:"parts"`
+	SchemaVersion  int             `json:"schemaVersion"`
+	ID             string          `json:"id"`
+	ConversationID string          `json:"conversationId"`
+	RunID          string          `json:"runId"`
+	Role           MessageRole     `json:"role"`
+	Delivery       MessageDelivery `json:"delivery"`
+	Ordinal        int             `json:"ordinal"`
+	CreatedAt      string          `json:"createdAt"`
+	UpdatedAt      string          `json:"updatedAt"`
+	Status         MessageStatus   `json:"status"`
+	Parts          []MessagePart   `json:"parts"`
 }
 
 type MessagePart struct {
-	ID     string `json:"id"`
-	Type   string `json:"type"`
-	Text   string `json:"text"`
-	Format string `json:"format"`
+	ID     string          `json:"id"`
+	Type   MessagePartType `json:"type"`
+	Text   string          `json:"text"`
+	Format TextFormat      `json:"format"`
 }
 
 type HarnessThreadRef struct {
-	Harness        string `json:"harness"`
-	ThreadID       string `json:"threadId"`
-	SessionID      string `json:"sessionId"`
-	LastTurnID     string `json:"lastTurnId"`
-	Status         string `json:"status"`
-	CreatedAt      string `json:"createdAt"`
-	LastResumedAt  string `json:"lastResumedAt"`
-	UnavailableMsg string `json:"unavailableMessage"`
+	Harness        HarnessKind      `json:"harness"`
+	ThreadID       string           `json:"threadId"`
+	SessionID      string           `json:"sessionId"`
+	LastTurnID     string           `json:"lastTurnId"`
+	Status         HarnessRefStatus `json:"status"`
+	CreatedAt      string           `json:"createdAt"`
+	LastResumedAt  string           `json:"lastResumedAt"`
+	UnavailableMsg string           `json:"unavailableMessage"`
 }
 
 type Run struct {
@@ -133,8 +267,8 @@ type Run struct {
 	ConversationID     string          `json:"conversationId"`
 	TriggerMessageID   string          `json:"triggerMessageId"`
 	AssistantMessageID string          `json:"assistantMessageId"`
-	Harness            string          `json:"harness"`
-	Status             string          `json:"status"`
+	Harness            HarnessKind     `json:"harness"`
+	Status             RunStatus       `json:"status"`
 	StartedAt          string          `json:"startedAt"`
 	CompletedAt        string          `json:"completedAt"`
 	PromptSummary      string          `json:"promptSummary"`
@@ -148,7 +282,7 @@ type ApprovalRequest struct {
 	RunID          string             `json:"runId"`
 	RunItemID      string             `json:"runItemId"`
 	ProviderItemID string             `json:"providerItemId"`
-	Kind           string             `json:"kind"`
+	Kind           ApprovalKind       `json:"kind"`
 	Title          string             `json:"title"`
 	Body           string             `json:"body"`
 	Command        string             `json:"command"`
@@ -157,7 +291,7 @@ type ApprovalRequest struct {
 	Question       string             `json:"question"`
 	Options        []string           `json:"options"`
 	Questions      []ApprovalQuestion `json:"questions"`
-	Status         string             `json:"status"`
+	Status         ApprovalStatus     `json:"status"`
 	CreatedAt      string             `json:"createdAt"`
 	ResolvedAt     string             `json:"resolvedAt"`
 	Response       string             `json:"response"`
@@ -188,17 +322,17 @@ type TraceEvent struct {
 }
 
 type Diagnostic struct {
-	SchemaVersion  int               `json:"schemaVersion"`
-	ID             string            `json:"id"`
-	Source         string            `json:"source"`
-	Severity       string            `json:"severity"`
-	Code           string            `json:"code"`
-	Message        string            `json:"message"`
-	WorkspaceID    string            `json:"workspaceId"`
-	ConversationID string            `json:"conversationId"`
-	RunID          string            `json:"runId"`
-	OccurredAt     string            `json:"occurredAt"`
-	Context        map[string]string `json:"context"`
+	SchemaVersion  int                `json:"schemaVersion"`
+	ID             string             `json:"id"`
+	Source         DiagnosticSource   `json:"source"`
+	Severity       DiagnosticSeverity `json:"severity"`
+	Code           string             `json:"code"`
+	Message        string             `json:"message"`
+	WorkspaceID    string             `json:"workspaceId"`
+	ConversationID string             `json:"conversationId"`
+	RunID          string             `json:"runId"`
+	OccurredAt     string             `json:"occurredAt"`
+	Context        map[string]string  `json:"context"`
 }
 
 func (diagnostic Diagnostic) MarshalJSON() ([]byte, error) {
@@ -210,33 +344,33 @@ func (diagnostic Diagnostic) MarshalJSON() ([]byte, error) {
 }
 
 type RunItem struct {
-	SchemaVersion  int      `json:"schemaVersion"`
-	ID             string   `json:"id"`
-	WorkspaceID    string   `json:"workspaceId"`
-	ConversationID string   `json:"conversationId"`
-	RunID          string   `json:"runId"`
-	ProviderItemID string   `json:"providerItemId"`
-	Type           string   `json:"type"`
-	Status         string   `json:"status"`
-	CreatedAt      string   `json:"createdAt"`
-	StartedAt      string   `json:"startedAt"`
-	CompletedAt    string   `json:"completedAt"`
-	Title          string   `json:"title"`
-	Summary        string   `json:"summary"`
-	Command        string   `json:"command"`
-	Cwd            string   `json:"cwd"`
-	ExitCode       int      `json:"exitCode"`
-	DurationMs     int      `json:"durationMs"`
-	FilePaths      []string `json:"filePaths"`
-	PatchStatus    string   `json:"patchStatus"`
-	ServerName     string   `json:"serverName"`
-	ToolName       string   `json:"toolName"`
-	Progress       string   `json:"progress"`
-	Result         string   `json:"result"`
-	Error          string   `json:"error"`
-	NoticeKind     string   `json:"noticeKind"`
-	NoticeMessage  string   `json:"noticeMessage"`
-	DiffSummary    string   `json:"diffSummary"`
+	SchemaVersion  int           `json:"schemaVersion"`
+	ID             string        `json:"id"`
+	WorkspaceID    string        `json:"workspaceId"`
+	ConversationID string        `json:"conversationId"`
+	RunID          string        `json:"runId"`
+	ProviderItemID string        `json:"providerItemId"`
+	Type           RunItemType   `json:"type"`
+	Status         RunItemStatus `json:"status"`
+	CreatedAt      string        `json:"createdAt"`
+	StartedAt      string        `json:"startedAt"`
+	CompletedAt    string        `json:"completedAt"`
+	Title          string        `json:"title"`
+	Summary        string        `json:"summary"`
+	Command        string        `json:"command"`
+	Cwd            string        `json:"cwd"`
+	ExitCode       int           `json:"exitCode"`
+	DurationMs     int           `json:"durationMs"`
+	FilePaths      []string      `json:"filePaths"`
+	PatchStatus    string        `json:"patchStatus"`
+	ServerName     string        `json:"serverName"`
+	ToolName       string        `json:"toolName"`
+	Progress       string        `json:"progress"`
+	Result         string        `json:"result"`
+	Error          string        `json:"error"`
+	NoticeKind     string        `json:"noticeKind"`
+	NoticeMessage  string        `json:"noticeMessage"`
+	DiffSummary    string        `json:"diffSummary"`
 }
 
 type RunItemOutput struct {

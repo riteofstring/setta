@@ -8,8 +8,8 @@ type diagnosticDraft struct {
 	ConversationID string
 	Message        string
 	RunID          string
-	Severity       string
-	Source         string
+	Severity       DiagnosticSeverity
+	Source         DiagnosticSource
 	WorkspaceID    string
 }
 

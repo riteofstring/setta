@@ -1051,7 +1051,7 @@ func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
 	}
 }
 
-func TestServiceMalformedRunStateFailsOnlyOwningConversation(t *testing.T) {
+func TestServiceStartupFailsOnMalformedRunState(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
 	corruptConversation := Conversation{
@@ -1082,22 +1082,19 @@ func TestServiceMalformedRunStateFailsOnlyOwningConversation(t *testing.T) {
 		t.Fatalf("write malformed run: %v", err)
 	}
 
-	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
-	conversations, err := service.ListConversations("workspace_api")
-	if err != nil {
-		t.Fatalf("list conversations: %v", err)
-	}
-	if len(conversations) != 2 {
-		t.Fatalf("conversation count = %d, want 2", len(conversations))
-	}
-	result, err := service.SendUserMessage("workspace_api", validConversation.ID, "hello")
-	if err != nil {
-		t.Fatalf("send valid conversation: %v", err)
-	}
-	waitForRunStatus(t, service, "workspace_api", validConversation.ID, result.Run.ID, RunStatusCompleted)
-	_, err = service.SendUserMessage("workspace_api", corruptConversation.ID, "hello")
+	_, err := NewService(
+		store,
+		testResolver(t),
+		NewFakeHarness(nil),
+		WithClock(func() time.Time {
+			return mustTime(t, "2026-05-29T20:00:00Z")
+		}),
+		WithIDGenerator(func(prefix string) (string, error) {
+			return prefix + "_test", nil
+		}),
+	)
 	if err == nil {
-		t.Fatal("send corrupt conversation succeeded, want corrupt state error")
+		t.Fatal("new service succeeded, want corrupt state error")
 	}
 	if !IsCorruptStateError(err) {
 		t.Fatalf("error = %T %v, want corrupt state", err, err)
@@ -1105,13 +1102,16 @@ func TestServiceMalformedRunStateFailsOnlyOwningConversation(t *testing.T) {
 	if !strings.Contains(err.Error(), "assistantMessageId is required unless queued") {
 		t.Fatalf("error = %q, want missing assistantMessageId", err)
 	}
-	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
-	if !strings.Contains(diagnostic.Message, "assistantMessageId is required unless queued") {
-		t.Fatalf("diagnostic = %q, want missing assistantMessageId", diagnostic.Message)
+	diagnostics, err := store.ListDiagnostics()
+	if err != nil {
+		t.Fatalf("list diagnostics: %v", err)
+	}
+	if len(diagnostics) == 0 || !strings.Contains(diagnostics[0].Message, "assistantMessageId is required unless queued") {
+		t.Fatalf("diagnostics = %+v, want missing assistantMessageId", diagnostics)
 	}
 }
 
-func TestServiceMissingAssistantMessageFailsOnlyOwningConversationPage(t *testing.T) {
+func TestServiceStartupFailsOnMissingAssistantMessage(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
 	conversation := Conversation{
@@ -1161,17 +1161,19 @@ func TestServiceMissingAssistantMessageFailsOnlyOwningConversationPage(t *testin
 		t.Fatalf("save run: %v", err)
 	}
 
-	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
-	conversations, err := service.ListConversations("workspace_api")
-	if err != nil {
-		t.Fatalf("list conversations: %v", err)
-	}
-	if len(conversations) != 1 || conversations[0].Conversation.ID != conversation.ID {
-		t.Fatalf("conversations = %+v, want corrupt conversation listed", conversations)
-	}
-	_, err = service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	_, err := NewService(
+		store,
+		testResolver(t),
+		NewFakeHarness(nil),
+		WithClock(func() time.Time {
+			return mustTime(t, "2026-05-29T20:00:00Z")
+		}),
+		WithIDGenerator(func(prefix string) (string, error) {
+			return prefix + "_test", nil
+		}),
+	)
 	if err == nil {
-		t.Fatal("load message page succeeded, want corrupt state error")
+		t.Fatal("new service succeeded, want corrupt state error")
 	}
 	if !IsCorruptStateError(err) {
 		t.Fatalf("error = %T %v, want corrupt state", err, err)
@@ -1179,9 +1181,12 @@ func TestServiceMissingAssistantMessageFailsOnlyOwningConversationPage(t *testin
 	if !strings.Contains(err.Error(), "assistant message message_missing was not found") {
 		t.Fatalf("error = %q, want missing assistant message", err)
 	}
-	diagnostic := waitForDiagnostic(t, service, "corrupt_chat_state")
-	if !strings.Contains(diagnostic.Message, "assistant message message_missing was not found") {
-		t.Fatalf("diagnostic = %q, want missing assistant message", diagnostic.Message)
+	diagnostics, err := store.ListDiagnostics()
+	if err != nil {
+		t.Fatalf("list diagnostics: %v", err)
+	}
+	if len(diagnostics) == 0 || !strings.Contains(diagnostics[0].Message, "assistant message message_missing was not found") {
+		t.Fatalf("diagnostics = %+v, want missing assistant message", diagnostics)
 	}
 }
 
@@ -1368,7 +1373,7 @@ func mustStore(t *testing.T, appDataDir string) *Store {
 	return store
 }
 
-func waitForRunStatus(t *testing.T, service *Service, workspaceID string, conversationID string, runID string, status string) Run {
+func waitForRunStatus(t *testing.T, service *Service, workspaceID string, conversationID string, runID string, status RunStatus) Run {
 	t.Helper()
 
 	deadline := time.Now().Add(2 * time.Second)
@@ -1487,14 +1492,4 @@ func waitForAssistantText(t *testing.T, service *Service, workspaceID string, co
 	}
 	t.Fatalf("timed out waiting for assistant text %q", text)
 	return MessagePage{}
-}
-
-func mustTime(t *testing.T, value string) time.Time {
-	t.Helper()
-
-	parsed, err := time.Parse(time.RFC3339Nano, value)
-	if err != nil {
-		t.Fatalf("parse time %q: %v", value, err)
-	}
-	return parsed
 }

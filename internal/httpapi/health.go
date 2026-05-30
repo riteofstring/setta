@@ -102,8 +102,8 @@ type GetActiveRunRequest struct {
 }
 
 type GetActiveRunResponse struct {
-	HasActiveRun bool     `json:"hasActiveRun"`
-	Run          chat.Run `json:"run"`
+	HasActiveRun bool      `json:"hasActiveRun"`
+	Run          *chat.Run `json:"run"`
 }
 
 type GetRunActivityRequest struct {
@@ -420,7 +420,11 @@ func (handler handler) getActiveRun(response http.ResponseWriter, request *http.
 		writeChatError(response, "get_active_run_failed", err)
 		return
 	}
-	writeJSON(response, http.StatusOK, GetActiveRunResponse{HasActiveRun: ok, Run: run})
+	var activeRun *chat.Run
+	if ok {
+		activeRun = &run
+	}
+	writeJSON(response, http.StatusOK, GetActiveRunResponse{HasActiveRun: ok, Run: activeRun})
 }
 
 func (handler handler) getRunActivity(response http.ResponseWriter, request *http.Request) {

@@ -1,10 +1,15 @@
 import type {
   ApprovalAnswer,
+  ApprovalKind,
   ApprovalQuestion,
   ChatMessage,
+  MessageDelivery,
+  MessageRole,
+  MessageStatus,
   Run,
   RunItem,
   RunItemOutput,
+  RunItemType,
 } from "@generated/backend";
 import {
   AlertTriangle,
@@ -14,6 +19,7 @@ import {
   FileText,
   ListChecks,
   Terminal,
+  type LucideIcon,
   Wrench,
   X,
 } from "lucide-react";
@@ -22,6 +28,7 @@ import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button } from "./ui/button";
 import { MarkdownText } from "./markdown-text";
+import type { RunItemOutputPageState } from "../stores/chat-store";
 
 export interface ChatTranscriptProps {
   activeRun: Run | null;
@@ -38,6 +45,7 @@ export interface ChatTranscriptProps {
   messagesById?: Record<string, ChatMessage>;
   runItemIdsByRunId?: Record<string, string[]>;
   runItemOutputIdsByRunItemId?: Record<string, string[]>;
+  runItemOutputPagesByRunItemId?: Record<string, RunItemOutputPageState>;
   runItemOutputs: RunItemOutput[];
   runItemOutputsById?: Record<string, RunItemOutput>;
   runItems: RunItem[];
@@ -160,6 +168,99 @@ function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
   return left.runItemId.localeCompare(right.runItemId);
 }
 
+const messageRowClassByRole = {
+  assistant: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
+  developer: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
+  system: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
+  tool: "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2",
+  user: "mx-auto flex w-full max-w-4xl min-w-0 justify-end py-2",
+} satisfies Record<MessageRole, string>;
+
+const deliveryLabelByDelivery = {
+  queued: "Queued",
+  steering: "Steering",
+} satisfies Record<Exclude<MessageDelivery, "normal">, string>;
+
+const messageStatusLabelByStatus = {
+  cancelled: "cancelled",
+  complete: null,
+  error: "error",
+  pending: null,
+  streaming: null,
+} satisfies Record<MessageStatus, string | null>;
+
+const assistantMessageContainerClass =
+  "max-w-[84%] min-w-0 overflow-hidden rounded-md border border-zinc-200 bg-white px-4 py-3";
+
+const assistantMessageContainerClassByRole = {
+  assistant: assistantMessageContainerClass,
+  developer: assistantMessageContainerClass,
+  system: assistantMessageContainerClass,
+  tool: assistantMessageContainerClass,
+} satisfies Record<Exclude<MessageRole, "user">, string>;
+
+const userMessageContainerClassByDelivery = {
+  normal:
+    "max-w-[78%] overflow-hidden rounded-md bg-zinc-900 px-4 py-3 text-sm leading-6 break-words text-white",
+  queued:
+    "max-w-[78%] overflow-hidden rounded-md border border-dashed border-zinc-300 bg-white px-4 py-3 text-sm leading-6 break-words text-zinc-800",
+  steering:
+    "max-w-[78%] overflow-hidden rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 break-words text-blue-950",
+} satisfies Record<MessageDelivery, string>;
+
+const activityLabelByType = {
+  agent_message: "assistant message",
+  collab_agent_tool_call: "collab agent tool call",
+  command_execution: "command execution",
+  diff: "diff",
+  dynamic_tool_call: "dynamic tool call",
+  file_change: "file change",
+  image_generation: "image generation",
+  image_view: "image view",
+  mcp_tool_call: "mcp tool call",
+  notice: "notice",
+  plan: "plan",
+  reasoning: "reasoning",
+  terminal_interaction: "terminal interaction",
+  web_search: "web search",
+} satisfies Record<RunItemType, string>;
+
+const activityIconByType = {
+  agent_message: Wrench,
+  collab_agent_tool_call: Wrench,
+  command_execution: Terminal,
+  diff: FileText,
+  dynamic_tool_call: Wrench,
+  file_change: FileText,
+  image_generation: Wrench,
+  image_view: Wrench,
+  mcp_tool_call: Wrench,
+  notice: AlertTriangle,
+  plan: ListChecks,
+  reasoning: ListChecks,
+  terminal_interaction: Terminal,
+  web_search: Wrench,
+} satisfies Record<RunItemType, LucideIcon>;
+
+const activityIconClassByType = {
+  agent_message: "h-4 w-4 shrink-0 text-zinc-500",
+  collab_agent_tool_call: "h-4 w-4 shrink-0 text-zinc-500",
+  command_execution: "h-4 w-4 shrink-0 text-zinc-500",
+  diff: "h-4 w-4 shrink-0 text-zinc-500",
+  dynamic_tool_call: "h-4 w-4 shrink-0 text-zinc-500",
+  file_change: "h-4 w-4 shrink-0 text-zinc-500",
+  image_generation: "h-4 w-4 shrink-0 text-zinc-500",
+  image_view: "h-4 w-4 shrink-0 text-zinc-500",
+  mcp_tool_call: "h-4 w-4 shrink-0 text-zinc-500",
+  notice: "h-4 w-4 shrink-0 text-amber-600",
+  plan: "h-4 w-4 shrink-0 text-zinc-500",
+  reasoning: "h-4 w-4 shrink-0 text-zinc-500",
+  terminal_interaction: "h-4 w-4 shrink-0 text-zinc-500",
+  web_search: "h-4 w-4 shrink-0 text-zinc-500",
+} satisfies Record<RunItemType, string>;
+
+type SubmitApproval = ChatTranscriptProps["submitApproval"];
+
 export function ChatTranscript({
   activeRun,
   hasMoreOlder,
@@ -170,6 +271,7 @@ export function ChatTranscript({
   messagesById,
   runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
+  runItemOutputPagesByRunItemId = {},
   runItemOutputs,
   runItemOutputsById,
   runItems,
@@ -226,27 +328,7 @@ export function ChatTranscript({
   }
 
   if (transcript.messageIds.length === 0) {
-    return (
-      <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
-        <div className="h-full min-h-0 min-w-0 overflow-y-auto px-6 py-5">
-          <div
-            className="mx-auto w-full max-w-4xl py-16 text-center text-sm text-zinc-500"
-            data-testid="empty-chat"
-          >
-            Start a conversation for this workspace.
-          </div>
-          {activeRun?.hasPendingApproval ? (
-            <div className="mx-auto w-full max-w-4xl">
-              <ApprovalCard
-                key={activeRun.pendingApproval.id}
-                run={activeRun}
-                submitApproval={submitApproval}
-              />
-            </div>
-          ) : null}
-        </div>
-      </div>
-    );
+    return <EmptyChatTranscript activeRun={activeRun} submitApproval={submitApproval} />;
   }
 
   return (
@@ -255,28 +337,10 @@ export function ChatTranscript({
         atBottomStateChange={setPinned}
         className="h-full min-h-0 min-w-0 px-6 py-5"
         components={{
-          Footer: () => (
-            <>
-              {activeRun?.hasPendingApproval ? (
-                <div className="mx-auto w-full max-w-4xl py-2">
-                  <ApprovalCard
-                    key={activeRun.pendingApproval.id}
-                    run={activeRun}
-                    submitApproval={submitApproval}
-                  />
-                </div>
-              ) : null}
-            </>
+          Footer: () => <TranscriptFooter activeRun={activeRun} submitApproval={submitApproval} />,
+          Header: () => (
+            <TranscriptHeader hasMoreOlder={hasMoreOlder} loadOlder={loadOlderAndPreserveScroll} />
           ),
-          Header: () =>
-            hasMoreOlder ? (
-              <div className="mb-3 flex justify-center">
-                <Button onClick={() => void loadOlderAndPreserveScroll()} variant="secondary">
-                  <ChevronUp className="h-4 w-4" />
-                  Older
-                </Button>
-              </div>
-            ) : null,
         }}
         data={transcript.messageIds}
         firstItemIndex={firstItemIndex}
@@ -294,6 +358,7 @@ export function ChatTranscript({
               loadRunItemOutput={loadRunItemOutput}
               runItemIdsByRunId={transcript.runItemIdsByRunId}
               runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
+              runItemOutputPagesByRunItemId={runItemOutputPagesByRunItemId}
               runItemOutputsById={transcript.runItemOutputsById}
               runItemsById={transcript.runItemsById}
             />
@@ -302,20 +367,113 @@ export function ChatTranscript({
         overscan={200}
         ref={virtuosoRef}
       />
-      {!pinned ? (
-        <Button
-          aria-label="Jump to latest"
-          className="absolute bottom-4 right-6 shadow-sm"
-          onClick={() => {
-            virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
-            setPinned(true);
-          }}
-          variant="secondary"
-        >
-          <ArrowDown className="h-4 w-4" />
-        </Button>
-      ) : null}
+      <JumpToLatestButton pinned={pinned} setPinned={setPinned} virtuosoRef={virtuosoRef} />
     </div>
+  );
+}
+
+function EmptyChatTranscript({
+  activeRun,
+  submitApproval,
+}: {
+  activeRun: Run | null;
+  submitApproval: SubmitApproval;
+}) {
+  return (
+    <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
+      <div className="h-full min-h-0 min-w-0 overflow-y-auto px-6 py-5">
+        <div
+          className="mx-auto w-full max-w-4xl py-16 text-center text-sm text-zinc-500"
+          data-testid="empty-chat"
+        >
+          Start a conversation for this workspace.
+        </div>
+        <PendingApproval activeRun={activeRun} submitApproval={submitApproval} />
+      </div>
+    </div>
+  );
+}
+
+function TranscriptHeader({
+  hasMoreOlder,
+  loadOlder,
+}: {
+  hasMoreOlder: boolean;
+  loadOlder: () => Promise<void>;
+}) {
+  if (!hasMoreOlder) {
+    return null;
+  }
+  return (
+    <div className="mb-3 flex justify-center">
+      <Button onClick={() => void loadOlder()} variant="secondary">
+        <ChevronUp className="h-4 w-4" />
+        Older
+      </Button>
+    </div>
+  );
+}
+
+function TranscriptFooter({
+  activeRun,
+  submitApproval,
+}: {
+  activeRun: Run | null;
+  submitApproval: SubmitApproval;
+}) {
+  if (!activeRun?.hasPendingApproval) {
+    return null;
+  }
+  return (
+    <div className="mx-auto w-full max-w-4xl py-2">
+      <PendingApproval activeRun={activeRun} submitApproval={submitApproval} />
+    </div>
+  );
+}
+
+function PendingApproval({
+  activeRun,
+  submitApproval,
+}: {
+  activeRun: Run | null;
+  submitApproval: SubmitApproval;
+}) {
+  if (!activeRun?.hasPendingApproval) {
+    return null;
+  }
+  return (
+    <ApprovalCard
+      key={activeRun.pendingApproval.id}
+      run={activeRun}
+      submitApproval={submitApproval}
+    />
+  );
+}
+
+function JumpToLatestButton({
+  pinned,
+  setPinned,
+  virtuosoRef,
+}: {
+  pinned: boolean;
+  setPinned: (pinned: boolean) => void;
+  virtuosoRef: { current: VirtuosoHandle | null };
+}) {
+  if (pinned) {
+    return null;
+  }
+  return (
+    <Button
+      aria-label="Jump to latest"
+      className="absolute bottom-4 right-6 shadow-sm"
+      onClick={() => {
+        virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
+        setPinned(true);
+      }}
+      variant="secondary"
+    >
+      <ArrowDown className="h-4 w-4" />
+    </Button>
   );
 }
 
@@ -324,6 +482,7 @@ const MessageRow = memo(function MessageRow({
   loadRunItemOutput,
   runItemIdsByRunId,
   runItemOutputIdsByRunItemId,
+  runItemOutputPagesByRunItemId,
   runItemOutputsById,
   runItemsById,
 }: {
@@ -336,6 +495,7 @@ const MessageRow = memo(function MessageRow({
   ) => Promise<void>;
   runItemIdsByRunId: Record<string, string[]>;
   runItemOutputIdsByRunItemId: Record<string, string[]>;
+  runItemOutputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   runItemOutputsById: Record<string, RunItemOutput>;
   runItemsById: Record<string, RunItem>;
 }) {
@@ -351,6 +511,7 @@ const MessageRow = memo(function MessageRow({
             items={itemRows}
             loadRunItemOutput={loadRunItemOutput}
             outputIdsByRunItemId={runItemOutputIdsByRunItemId}
+            outputPagesByRunItemId={runItemOutputPagesByRunItemId}
             outputsById={runItemOutputsById}
           />
         ) : null}
@@ -360,24 +521,39 @@ const MessageRow = memo(function MessageRow({
 });
 
 function messageRowClass(message: ChatMessage) {
-  return message.role === "user"
-    ? "mx-auto flex w-full max-w-4xl min-w-0 justify-end py-2"
-    : "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2";
+  return messageRowClassByRole[message.role];
 }
 
 function MessageContent({ message }: { message: ChatMessage }) {
   const text = message.parts.map((part) => part.text).join("");
-  if (message.role === "user") {
-    return <div className="whitespace-pre-wrap">{text}</div>;
+  switch (message.role) {
+    case "user":
+      return <div className="whitespace-pre-wrap">{text}</div>;
+    case "assistant":
+    case "developer":
+    case "system":
+    case "tool":
+      return <MarkdownText text={assistantMessageText(text, message.status)} />;
+    default:
+      return assertNever(message.role);
   }
-  return <MarkdownText text={assistantMessageText(text, message.status)} />;
 }
 
-function assistantMessageText(text: string, status: string) {
+function assistantMessageText(text: string, status: MessageStatus) {
   if (text !== "") {
     return text;
   }
-  return status === "streaming" ? "..." : "";
+  switch (status) {
+    case "streaming":
+      return "...";
+    case "cancelled":
+    case "complete":
+    case "error":
+    case "pending":
+      return "";
+    default:
+      return assertNever(status);
+  }
 }
 
 function UserDeliveryBadge({ message }: { message: ChatMessage }) {
@@ -385,17 +561,16 @@ function UserDeliveryBadge({ message }: { message: ChatMessage }) {
     return null;
   }
   return (
-    <div className="mt-2 text-xs font-medium opacity-80">
-      {message.delivery === "queued" ? "Queued" : "Steering"}
-    </div>
+    <div className="mt-2 text-xs font-medium opacity-80">{deliveryLabel(message.delivery)}</div>
   );
 }
 
 function MessageStatus({ message }: { message: ChatMessage }) {
-  if (message.status !== "error" && message.status !== "cancelled") {
+  const label = messageStatusLabelByStatus[message.status];
+  if (label === null) {
     return null;
   }
-  return <div className="mt-3 text-xs font-medium text-red-600">{message.status}</div>;
+  return <div className="mt-3 text-xs font-medium text-red-600">{label}</div>;
 }
 
 function activityItemsForMessage(
@@ -412,22 +587,16 @@ function activityItemsForMessage(
 }
 
 function messageContainerClass(message: ChatMessage) {
-  if (message.role !== "user") {
-    return "max-w-[84%] min-w-0 overflow-hidden rounded-md border border-zinc-200 bg-white px-4 py-3";
-  }
-  if (message.delivery === "queued") {
-    return "max-w-[78%] overflow-hidden rounded-md border border-dashed border-zinc-300 bg-white px-4 py-3 text-sm leading-6 break-words text-zinc-800";
-  }
-  if (message.delivery === "steering") {
-    return "max-w-[78%] overflow-hidden rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 break-words text-blue-950";
-  }
-  return "max-w-[78%] overflow-hidden rounded-md bg-zinc-900 px-4 py-3 text-sm leading-6 break-words text-white";
+  return message.role === "user"
+    ? userMessageContainerClassByDelivery[message.delivery]
+    : assistantMessageContainerClassByRole[message.role];
 }
 
 function RunActivityRows({
   items,
   loadRunItemOutput,
   outputIdsByRunItemId,
+  outputPagesByRunItemId,
   outputsById,
 }: {
   items: RunItem[];
@@ -438,6 +607,7 @@ function RunActivityRows({
     limit?: number,
   ) => Promise<void>;
   outputIdsByRunItemId: Record<string, string[]>;
+  outputPagesByRunItemId: Record<string, RunItemOutputPageState>;
   outputsById: Record<string, RunItemOutput>;
 }) {
   return (
@@ -447,6 +617,7 @@ function RunActivityRows({
           item={item}
           key={item.id}
           loadRunItemOutput={loadRunItemOutput}
+          outputPage={outputPagesByRunItemId[item.id]}
           outputs={outputsForItem(outputIdsByRunItemId, outputsById, item.id)}
         />
       ))}
@@ -457,6 +628,7 @@ function RunActivityRows({
 function RunActivityRow({
   item,
   loadRunItemOutput,
+  outputPage,
   outputs,
 }: {
   item: RunItem;
@@ -466,20 +638,19 @@ function RunActivityRow({
     afterOrdinal?: number,
     limit?: number,
   ) => Promise<void>;
+  outputPage: RunItemOutputPageState | undefined;
   outputs: RunItemOutput[];
 }) {
-  const [expandedOutputLoaded, setExpandedOutputLoaded] = useState(false);
   const outputText = outputPreview(outputs);
   return (
     <details
       className="group rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm"
       data-testid="run-activity-row"
       onToggle={(event) => {
-        if (!event.currentTarget.open || expandedOutputLoaded) {
+        if (!event.currentTarget.open || outputPage?.loading || outputPage) {
           return;
         }
-        setExpandedOutputLoaded(true);
-        void loadRunItemOutput(item.runId, item.id, maxOutputOrdinal(outputs));
+        void loadRunItemOutput(item.runId, item.id, 0);
       }}
     >
       <summary className="flex cursor-pointer list-none items-center gap-2">
@@ -489,12 +660,29 @@ function RunActivityRow({
         </span>
         <span className="shrink-0 text-xs text-zinc-500">{item.status}</span>
       </summary>
-      <RunActivityDetails item={item} outputText={outputText} />
+      <RunActivityDetails
+        item={item}
+        loadMoreOutput={() =>
+          void loadRunItemOutput(item.runId, item.id, outputPage?.nextOrdinal ?? 0)
+        }
+        outputPage={outputPage}
+        outputText={outputText}
+      />
     </details>
   );
 }
 
-function RunActivityDetails({ item, outputText }: { item: RunItem; outputText: string }) {
+function RunActivityDetails({
+  item,
+  loadMoreOutput,
+  outputPage,
+  outputText,
+}: {
+  item: RunItem;
+  loadMoreOutput: () => void;
+  outputPage: RunItemOutputPageState | undefined;
+  outputText: string;
+}) {
   return (
     <div className="mt-2 space-y-2 text-xs text-zinc-600">
       <RunActivityCwd cwd={item.cwd} />
@@ -506,7 +694,11 @@ function RunActivityDetails({ item, outputText }: { item: RunItem; outputText: s
       <OptionalRunActivityText value={item.noticeMessage} />
       <OptionalRunActivityText value={item.diffSummary} />
       <RunActivityExit durationMs={item.durationMs} exitCode={item.exitCode} />
-      <RunActivityOutput outputText={outputText} />
+      <RunActivityOutput
+        loadMoreOutput={loadMoreOutput}
+        outputPage={outputPage}
+        outputText={outputText}
+      />
     </div>
   );
 }
@@ -563,7 +755,33 @@ function RunActivityExit({ durationMs, exitCode }: { durationMs: number; exitCod
   );
 }
 
-function RunActivityOutput({ outputText }: { outputText: string }) {
+function RunActivityOutput({
+  loadMoreOutput,
+  outputPage,
+  outputText,
+}: {
+  loadMoreOutput: () => void;
+  outputPage: RunItemOutputPageState | undefined;
+  outputText: string;
+}) {
+  if (!hasRunActivityOutput(outputText, outputPage)) {
+    return null;
+  }
+  return (
+    <div className="space-y-2">
+      <RunActivityOutputText outputText={outputText} />
+      <RunActivityOutputError outputPage={outputPage} />
+      <RunActivityOutputLoadMore loadMoreOutput={loadMoreOutput} outputPage={outputPage} />
+      <RunActivityOutputLoading outputPage={outputPage} />
+    </div>
+  );
+}
+
+function hasRunActivityOutput(outputText: string, outputPage: RunItemOutputPageState | undefined) {
+  return Boolean(outputText || outputPage?.hasMore || outputPage?.loading || outputPage?.error);
+}
+
+function RunActivityOutputText({ outputText }: { outputText: string }) {
   if (!outputText) {
     return null;
   }
@@ -574,20 +792,53 @@ function RunActivityOutput({ outputText }: { outputText: string }) {
   );
 }
 
-function ActivityIcon({ type }: { type: string }) {
-  if (type === "command_execution" || type === "terminal_interaction") {
-    return <Terminal className="h-4 w-4 shrink-0 text-zinc-500" />;
+function RunActivityOutputError({
+  outputPage,
+}: {
+  outputPage: RunItemOutputPageState | undefined;
+}) {
+  if (!outputPage?.error) {
+    return null;
   }
-  if (type === "file_change" || type === "diff") {
-    return <FileText className="h-4 w-4 shrink-0 text-zinc-500" />;
+  return <div className="font-medium text-red-600">{outputPage.error}</div>;
+}
+
+function RunActivityOutputLoadMore({
+  loadMoreOutput,
+  outputPage,
+}: {
+  loadMoreOutput: () => void;
+  outputPage: RunItemOutputPageState | undefined;
+}) {
+  if (!outputPage?.hasMore) {
+    return null;
   }
-  if (type === "plan" || type === "reasoning") {
-    return <ListChecks className="h-4 w-4 shrink-0 text-zinc-500" />;
+  return (
+    <Button
+      disabled={outputPage.loading}
+      onClick={loadMoreOutput}
+      type="button"
+      variant="secondary"
+    >
+      Load more
+    </Button>
+  );
+}
+
+function RunActivityOutputLoading({
+  outputPage,
+}: {
+  outputPage: RunItemOutputPageState | undefined;
+}) {
+  if (!outputPage?.loading) {
+    return null;
   }
-  if (type === "notice") {
-    return <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />;
-  }
-  return <Wrench className="h-4 w-4 shrink-0 text-zinc-500" />;
+  return <div className="text-zinc-500">Loading output...</div>;
+}
+
+function ActivityIcon({ type }: { type: RunItemType }) {
+  const Icon = activityIconByType[type];
+  return <Icon className={activityIconClassByType[type]} />;
 }
 
 function activityTitle(item: RunItem) {
@@ -606,7 +857,7 @@ function activityTitle(item: RunItem) {
   if (item.summary) {
     return item.summary;
   }
-  return item.type.replaceAll("_", " ");
+  return activityLabelByType[item.type];
 }
 
 function outputsForItem(
@@ -619,8 +870,8 @@ function outputsForItem(
     .filter((output): output is RunItemOutput => output !== undefined);
 }
 
-function maxOutputOrdinal(outputs: RunItemOutput[]) {
-  return outputs.reduce((max, output) => Math.max(max, output.ordinal), 0);
+function deliveryLabel(delivery: Exclude<MessageDelivery, "normal">) {
+  return deliveryLabelByDelivery[delivery];
 }
 
 function outputPreview(outputs: RunItemOutput[]) {
@@ -645,7 +896,6 @@ function ApprovalCard({
   ) => Promise<void>;
 }) {
   const approval = run.pendingApproval;
-  const isUserInput = approval.kind === "user_input";
   return (
     <section
       className="min-w-0 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm break-words text-amber-950"
@@ -667,18 +917,44 @@ function ApprovalCard({
         </pre>
       ) : null}
       {approval.question ? <div className="mt-2">{approval.question}</div> : null}
-      {isUserInput ? (
+      <ApprovalControls approvalKind={approval.kind} run={run} submitApproval={submitApproval} />
+    </section>
+  );
+}
+
+function ApprovalControls({
+  approvalKind,
+  run,
+  submitApproval,
+}: {
+  approvalKind: ApprovalKind;
+  run: Run;
+  submitApproval: (
+    approvalId: string,
+    approved: boolean,
+    response: string,
+    answers: ApprovalAnswer[],
+    cancelled: boolean,
+  ) => Promise<void>;
+}) {
+  const approval = run.pendingApproval;
+  switch (approvalKind) {
+    case "user_input":
+      return (
         <UserInputApproval
           questions={approval.questions}
           submitApproval={(answers, cancelled) =>
             submitApproval(approval.id, !cancelled, "", answers, cancelled)
           }
         />
-      ) : (
-        <DecisionApproval approvalId={approval.id} submitApproval={submitApproval} />
-      )}
-    </section>
-  );
+      );
+    case "command":
+    case "file_change":
+    case "permission":
+      return <DecisionApproval approvalId={approval.id} submitApproval={submitApproval} />;
+    default:
+      return assertNever(approvalKind);
+  }
 }
 
 function DecisionApproval({
@@ -797,4 +1073,8 @@ function setQuestionAnswer(
   answer: string,
 ) {
   setAnswersByQuestion((current) => ({ ...current, [questionID]: answer }));
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled generated value: ${JSON.stringify(value)}`);
 }

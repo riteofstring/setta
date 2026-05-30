@@ -166,6 +166,40 @@ func TestRenderIncludesEndpointDescriptorsDecodersAndClient(t *testing.T) {
 	}
 }
 
+func TestRenderIncludesLiteralUnionValueSets(t *testing.T) {
+	specs, err := contractSpecs(httpapi.ContractSchema{
+		Endpoints: []httpapi.ContractEndpoint{{
+			Name:     "ContractTestRun",
+			Method:   "GET",
+			Path:     "/contract-test/run",
+			Response: reflect.TypeFor[chat.Run](),
+		}},
+		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	}, chat.EventContractSchema{})
+	if err != nil {
+		t.Fatalf("collect contracts: %v", err)
+	}
+
+	var buffer bytes.Buffer
+	if err := render(&buffer, specs); err != nil {
+		t.Fatalf("render contracts: %v", err)
+	}
+	output := buffer.String()
+
+	for _, expected := range []string{
+		"export type RunStatus = \"queued\" | \"running\" | \"completed\" | \"cancelled\" | \"failed\";",
+		"export function decodeRunStatus(value: unknown, label = \"RunStatus\"): RunStatus",
+		"status: RunStatus;",
+		"status: decodeRunStatus(requireField(record, \"status\", \"Run\"), \"Run.status\")",
+		"kind: ApprovalKind;",
+		"kind: decodeApprovalKind(requireField(record, \"kind\", \"ApprovalRequest\"), \"ApprovalRequest.kind\")",
+	} {
+		if !strings.Contains(output, expected) {
+			t.Fatalf("generated output missing %q:\n%s", expected, output)
+		}
+	}
+}
+
 func specNames(specs []interfaceSpec) []string {
 	names := make([]string, 0, len(specs))
 	for _, spec := range specs {

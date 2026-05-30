@@ -309,14 +309,6 @@ var codexNotificationHandlers = map[string]codexNotificationHandler{
 	"warning":                                   handleCodexNotice,
 }
 
-func handleCodexNotification(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	handler, ok := codexNotificationHandlers[message.Method]
-	if !ok {
-		return handleUnsupportedCodexNotification(message, sink)
-	}
-	return handler(message, threadID, turnID, sink)
-}
-
 func handleCodexItemStarted(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
 	return handleCodexItemUpsert(message, threadID, turnID, sink, RunItemStatusRunning)
 }
@@ -358,8 +350,8 @@ func handleCodexThreadStarted(message jsonRPCMessage, threadID string, _ string,
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if messageThreadID != threadID {
-		return codexNotificationResult{}, nil
+	if err := requireCodexThreadIDMatch(message, threadID, messageThreadID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	return codexNotificationResult{}, sink.Trace("codex_thread_started", messageThreadID)
 }
@@ -373,8 +365,8 @@ func handleCodexThreadStatusChanged(message jsonRPCMessage, threadID string, _ s
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if messageThreadID != threadID {
-		return codexNotificationResult{}, nil
+	if err := requireCodexThreadIDMatch(message, threadID, messageThreadID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	status, err := requireObject(params, "status", "codex thread status changed")
 	if err != nil {
@@ -397,8 +389,8 @@ func handleCodexThreadTokenUsageUpdated(message jsonRPCMessage, threadID string,
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexThreadMatch(message, params, threadID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	tokenUsage, err := requireObject(params, "tokenUsage", "codex thread token usage")
 	if err != nil {
@@ -436,8 +428,8 @@ func handleCodexErrorNotification(message jsonRPCMessage, threadID string, turnI
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	errorObject, err := requireObject(params, "error", "codex error notification")
 	if err != nil {
@@ -466,8 +458,15 @@ func handleUnsupportedCodexNotification(message jsonRPCMessage, sink TurnSink) (
 }
 
 func emitCodexProviderDrift(sink TurnSink, code string, messageText string, message jsonRPCMessage, resyncRequired bool) error {
+	return emitCodexProviderDriftWithContext(sink, code, messageText, message, resyncRequired, nil)
+}
+
+func emitCodexProviderDriftWithContext(sink TurnSink, code string, messageText string, message jsonRPCMessage, resyncRequired bool, extraContext map[string]string) error {
 	context := map[string]string{
 		"method": message.Method,
+	}
+	for key, value := range extraContext {
+		context[key] = value
 	}
 	if len(message.Params) > 0 {
 		context["params"] = boundedJSON(message.Params, 4096)
@@ -502,16 +501,8 @@ func handleCodexAssistantDelta(message jsonRPCMessage, threadID string, turnID s
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	messageThreadID, err := requireString(params, "threadId", "codex assistant delta")
-	if err != nil {
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
 		return codexNotificationResult{}, err
-	}
-	messageTurnID, err := requireString(params, "turnId", "codex assistant delta")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	if messageThreadID != threadID || messageTurnID != turnID {
-		return codexNotificationResult{}, nil
 	}
 	delta, err := requireString(params, "delta", "codex assistant delta")
 	if err != nil {
@@ -529,19 +520,19 @@ func handleCodexTurnStarted(message jsonRPCMessage, threadID string, turnID stri
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexThreadMatch(message, params, threadID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	return codexNotificationResult{}, sink.Trace("codex_turn_started", turnID)
 }
 
-func handleCodexItemUpsert(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, status string) (codexNotificationResult, error) {
+func handleCodexItemUpsert(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, status RunItemStatus) (codexNotificationResult, error) {
 	params, err := objectValue(message.Params, "codex item params")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	item, err := requireObject(params, "item", "codex item")
 	if err != nil {
@@ -573,13 +564,13 @@ func ignoreCodexItemIfHandled(item map[string]any, sink TurnSink) (bool, error) 
 	return true, sink.Trace("codex_user_message_item_ignored", providerItemID)
 }
 
-func handleCodexTextActivityDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, itemType string, title string) (codexNotificationResult, error) {
+func handleCodexTextActivityDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, itemType RunItemType, title string) (codexNotificationResult, error) {
 	params, err := objectValue(message.Params, "codex text activity delta params")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	itemID, err := requireString(params, "itemId", "codex text activity delta")
 	if err != nil {
@@ -592,13 +583,13 @@ func handleCodexTextActivityDelta(message jsonRPCMessage, threadID string, turnI
 	return codexNotificationResult{}, sink.RunItemUpsert(textActivityRunItem(itemID, itemType, title, delta))
 }
 
-func handleCodexTextActivityValue(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, itemType string, title string, progress string) (codexNotificationResult, error) {
+func handleCodexTextActivityValue(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, itemType RunItemType, title string, progress string) (codexNotificationResult, error) {
 	params, err := objectValue(message.Params, "codex text activity params")
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	itemID, err := requireString(params, "itemId", "codex text activity")
 	if err != nil {
@@ -607,7 +598,7 @@ func handleCodexTextActivityValue(message jsonRPCMessage, threadID string, turnI
 	return codexNotificationResult{}, sink.RunItemUpsert(textActivityRunItem(itemID, itemType, title, progress))
 }
 
-func textActivityRunItem(itemID string, itemType string, title string, progress string) RunItem {
+func textActivityRunItem(itemID string, itemType RunItemType, title string, progress string) RunItem {
 	return RunItem{
 		ProviderItemID: itemID,
 		Type:           itemType,
@@ -622,8 +613,8 @@ func handleCodexOutputDelta(message jsonRPCMessage, threadID string, turnID stri
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	itemID, err := requireString(params, "itemId", "codex command output delta")
 	if err != nil {
@@ -645,8 +636,8 @@ func handleCodexTerminalInteraction(message jsonRPCMessage, threadID string, tur
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	itemID, err := requireString(params, "itemId", "codex terminal interaction")
 	if err != nil {
@@ -670,8 +661,8 @@ func handleCodexPatchUpdated(message jsonRPCMessage, threadID string, turnID str
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	itemID, err := requireString(params, "itemId", "codex file patch")
 	if err != nil {
@@ -699,8 +690,8 @@ func handleCodexMCPProgress(message jsonRPCMessage, threadID string, turnID stri
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	itemID, err := requireString(params, "itemId", "codex mcp progress")
 	if err != nil {
@@ -723,8 +714,8 @@ func handleCodexDiffUpdated(message jsonRPCMessage, threadID string, turnID stri
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	summary, err := optionalString(params, "summary", "codex diff")
 	if err != nil {
@@ -746,8 +737,8 @@ func handleCodexPlanUpdated(message jsonRPCMessage, threadID string, turnID stri
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	if !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+		return codexNotificationResult{}, err
 	}
 	summary, err := optionalString(params, "summary", "codex plan update")
 	if err != nil {
@@ -773,8 +764,16 @@ func handleCodexNotice(message jsonRPCMessage, threadID string, turnID string, s
 	if err != nil && len(message.Params) > 0 {
 		return codexNotificationResult{}, err
 	}
-	if len(params) > 0 && !notificationMatchesTurn(params, threadID, turnID) {
-		return codexNotificationResult{}, nil
+	switch policy := codexNotificationScopePolicies[message.Method]; {
+	case len(params) == 0:
+	case policy == codexNotificationScopeTurnState:
+		if err := requireCodexTurnMatch(message, params, threadID, turnID, sink); err != nil {
+			return codexNotificationResult{}, err
+		}
+	case policy == codexNotificationScopeThread:
+		if err := requireCodexThreadMatch(message, params, threadID, sink); err != nil {
+			return codexNotificationResult{}, err
+		}
 	}
 	text, err := optionalString(params, "message", "codex notice")
 	if err != nil {
@@ -802,41 +801,38 @@ var codexTurnOutcomeByCodexStatus = map[string]TurnOutcome{
 }
 
 func handleCodexTurnCompleted(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
-	status, turn, matches, err := codexCompletedTurnStatus(message, threadID, turnID)
-	if err != nil || !matches {
+	status, turn, err := codexCompletedTurnStatus(message, threadID, turnID, sink)
+	if err != nil {
 		return codexNotificationResult{}, err
 	}
 	return codexTurnCompletionForStatus(status, turn, message, sink)
 }
 
-func codexCompletedTurnStatus(message jsonRPCMessage, threadID string, turnID string) (string, map[string]any, bool, error) {
+func codexCompletedTurnStatus(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (string, map[string]any, error) {
 	params, err := objectValue(message.Params, "codex turn completed params")
 	if err != nil {
-		return "", nil, false, err
+		return "", nil, err
 	}
 	messageThreadID, err := requireString(params, "threadId", "codex turn completed")
 	if err != nil {
-		return "", nil, false, err
-	}
-	if messageThreadID != threadID {
-		return "", nil, false, nil
+		return "", nil, err
 	}
 	turn, err := requireObject(params, "turn", "codex turn completed")
 	if err != nil {
-		return "", nil, false, err
+		return "", nil, err
 	}
 	messageTurnID, err := requireString(turn, "id", "codex turn completed turn")
 	if err != nil {
-		return "", nil, false, err
+		return "", nil, err
 	}
-	if messageTurnID != turnID {
-		return "", nil, false, nil
+	if err := requireCodexTurnIDMatch(message, threadID, turnID, messageThreadID, messageTurnID, sink); err != nil {
+		return "", nil, err
 	}
 	status, err := requireString(turn, "status", "codex turn completed turn")
 	if err != nil {
-		return "", nil, false, err
+		return "", nil, err
 	}
-	return status, turn, true, nil
+	return status, turn, nil
 }
 
 func codexTurnCompletionForStatus(status string, turn map[string]any, message jsonRPCMessage, sink TurnSink) (codexNotificationResult, error) {
@@ -862,7 +858,7 @@ func (harness *CodexHarness) handleCodexServerRequest(message jsonRPCMessage, ru
 	if !isSupportedCodexServerRequest(message.Method) {
 		return handleUnsupportedCodexServerRequest(message, sink)
 	}
-	approval, details, err := approvalRequestFromCodex(message, runID, threadID, turnID)
+	approval, details, err := approvalRequestFromCodex(message, runID, threadID, turnID, sink)
 	if err != nil {
 		return err
 	}
@@ -916,7 +912,7 @@ type codexApprovalContext struct {
 	runID          string
 }
 
-func approvalRequestFromCodex(message jsonRPCMessage, runID string, threadID string, turnID string) (ApprovalRequest, codexApprovalDetails, error) {
+func approvalRequestFromCodex(message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) (ApprovalRequest, codexApprovalDetails, error) {
 	params, err := objectValue(message.Params, "codex approval request params")
 	if err != nil {
 		return ApprovalRequest{}, codexApprovalDetails{}, err
@@ -925,7 +921,7 @@ func approvalRequestFromCodex(message jsonRPCMessage, runID string, threadID str
 	if err != nil {
 		return ApprovalRequest{}, codexApprovalDetails{}, err
 	}
-	if err := validateCodexRequestTurn(params, threadID, turnID); err != nil {
+	if err := validateCodexRequestTurn(message, params, threadID, turnID, sink); err != nil {
 		return ApprovalRequest{}, codexApprovalDetails{}, err
 	}
 	itemID, err := requireString(params, "itemId", "codex approval request")
@@ -947,7 +943,7 @@ func approvalRequestFromCodex(message jsonRPCMessage, runID string, threadID str
 	}
 }
 
-func validateCodexRequestTurn(params map[string]any, threadID string, turnID string) error {
+func validateCodexRequestTurn(message jsonRPCMessage, params map[string]any, threadID string, turnID string, sink TurnSink) error {
 	messageThreadID, err := requireString(params, "threadId", "codex approval request")
 	if err != nil {
 		return err
@@ -956,10 +952,7 @@ func validateCodexRequestTurn(params map[string]any, threadID string, turnID str
 	if err != nil {
 		return err
 	}
-	if messageThreadID != threadID || messageTurnID != turnID {
-		return fmt.Errorf("codex approval request belongs to thread %s turn %s, not thread %s turn %s", messageThreadID, messageTurnID, threadID, turnID)
-	}
-	return nil
+	return requireCodexTurnIDMatch(message, threadID, turnID, messageThreadID, messageTurnID, sink)
 }
 
 func commandApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {

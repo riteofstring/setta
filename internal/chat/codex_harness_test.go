@@ -32,7 +32,7 @@ func TestCodexHarnessMapsStreamingTurn(t *testing.T) {
 }
 
 func TestCodexRunItemStatusMappingCoversCurrentProtocolValues(t *testing.T) {
-	tests := map[string]string{
+	tests := map[string]RunItemStatus{
 		"completed":   RunItemStatusCompleted,
 		"declined":    RunItemStatusCancelled,
 		"failed":      RunItemStatusFailed,
@@ -301,12 +301,12 @@ func TestCodexHarnessMapsRunActivity(t *testing.T) {
 	}
 }
 
-func containsRunItemType(items []RunItem, itemType string) bool {
+func containsRunItemType(items []RunItem, itemType RunItemType) bool {
 	_, ok := findRunItemType(items, itemType)
 	return ok
 }
 
-func findRunItemType(items []RunItem, itemType string) (RunItem, bool) {
+func findRunItemType(items []RunItem, itemType RunItemType) (RunItem, bool) {
 	for _, item := range items {
 		if item.Type == itemType {
 			return item, true
@@ -931,6 +931,9 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	})
 	if handled, done := handleFakeAppServerStatusMode(mode); handled {
 		return done
+	}
+	if handleFakeMismatchMode(mode) {
+		return true
 	}
 	switch mode {
 	case "stream":

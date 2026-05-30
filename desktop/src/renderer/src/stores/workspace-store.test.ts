@@ -1,4 +1,11 @@
-import type { BackendHealth, OpenWorkspaceResponse, WorkspaceSession } from "@generated/backend";
+import type {
+  BackendHealth,
+  ChatMessage,
+  MessagePage,
+  OpenWorkspaceResponse,
+  Run,
+  WorkspaceSession,
+} from "@generated/backend";
 import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -256,7 +263,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       onProcessStatus: () => () => {},
     },
     chat: {
-      activeRun: async () => ({ hasActiveRun: false, run: emptyRun() }),
+      activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),
       createConversation: async () => emptyConversation(),
       listConversations: async () => ({ conversations: [] }),
@@ -328,7 +335,7 @@ function emptyConversation() {
   };
 }
 
-function emptyMessage() {
+function emptyMessage(): ChatMessage {
   return {
     conversationId: "conversation_test",
     createdAt: "2026-05-29T20:00:00Z",
@@ -344,7 +351,7 @@ function emptyMessage() {
   };
 }
 
-function emptyMessagePage() {
+function emptyMessagePage(): MessagePage {
   return {
     conversation: emptyConversation(),
     hasMoreOlder: false,
@@ -356,7 +363,7 @@ function emptyMessagePage() {
   };
 }
 
-function emptyRun() {
+function emptyRun(): Run {
   return {
     assistantMessageId: "message_assistant",
     completedAt: "",

@@ -180,7 +180,7 @@ func transitionQueuedRecords(suffix string) QueuedTurnRecords {
 	}
 }
 
-func transitionUserMessage(id string, runID string, ordinal int, delivery string, status string) ChatMessage {
+func transitionUserMessage(id string, runID string, ordinal int, delivery MessageDelivery, status MessageStatus) ChatMessage {
 	return ChatMessage{
 		SchemaVersion:  SchemaVersion,
 		ID:             id,
@@ -201,7 +201,7 @@ func transitionUserMessage(id string, runID string, ordinal int, delivery string
 	}
 }
 
-func transitionAssistantMessage(id string, runID string, ordinal int, status string) ChatMessage {
+func transitionAssistantMessage(id string, runID string, ordinal int, status MessageStatus) ChatMessage {
 	return ChatMessage{
 		SchemaVersion:  SchemaVersion,
 		ID:             id,

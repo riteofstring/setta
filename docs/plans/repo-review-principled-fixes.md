@@ -44,6 +44,27 @@ contracts and values, not maintain local mirrors.
 - Pagination contracts must tell the truth: if more data exists, callers must
   have a deterministic way to load it.
 
+## Current Status
+
+This plan is implemented as of 2026-05-30.
+
+- Phase 1 is complete. `Tab` no longer queues the draft message, and queueing is
+  reachable through an explicit active-run control.
+- Phase 2 is complete. User-facing chat state paths fail closed for corrupt
+  durable state, partial scan helpers are explicitly named, and malformed
+  startup run state fails startup after diagnostics are recorded.
+- Phase 3 is complete. Go-owned status/type/value fields use typed constants,
+  generated TypeScript exposes literal unions, and renderer mappings are
+  exhaustive.
+- Phase 4 is complete. Codex notification scope policy is explicit, and
+  turn-scoped mismatches record provider diagnostics and fail the active turn
+  instead of being silently ignored.
+- Phase 5 is complete. Run output pages slice filenames before reading payloads,
+  the renderer tracks per-item output pagination state, and expanded activity
+  rows expose a Load more control.
+- Phase 6 is complete. Submit approval IPC/preload surfaces use the generated
+  `SubmitApprovalRequest` contract instead of a manual mirror.
+
 ## Phase 1: Make Composer Commands Explicit
 
 Problem:
@@ -90,10 +111,16 @@ pnpm -C desktop typecheck
 
 Problem:
 
-- `ScanConversations` and `ScanRuns` collect corrupt records and continue.
-- `ListConversations` records diagnostics but returns a partial list.
-- Queued-state helpers skip corrupt queued messages or missing trigger messages.
-- This can make chats, active runs, or queued work disappear from the UI.
+- `ScanConversations`, `ScanRuns`, and `ScanRunsForConversation` expose
+  partial-success semantics by returning valid records plus corrupt-record
+  errors.
+- User-facing conversation and page paths have been tightened, but that strict
+  behavior is still encoded at each call site instead of through clearly named
+  strict wrappers.
+- Startup recovery still records corrupt run diagnostics and continues. This
+  can leave normal chat use available even when durable run state is malformed.
+- Any caller that accidentally uses a partial scan result can still make chats,
+  active runs, queued work, or run activity disappear from the UI.
 
 Principled fix:
 
@@ -107,15 +134,19 @@ Principled fix:
 
 Implementation steps:
 
-- Replace user-facing uses of `ScanConversations` and `ScanRuns` with strict
-  wrappers that return the first corrupt error after recording diagnostics.
+- Replace user-facing uses of `ScanConversations`, `ScanRuns`, and
+  `ScanRunsForConversation` with strict wrappers that return the first corrupt
+  error after recording diagnostics.
 - Keep lower-level scan helpers only if internal startup or future repair tools
   need to inspect multiple errors. Name them to make partial behavior explicit,
-  for example `ScanConversationsAllowingCorrupt`.
-- Change `ListConversations` so any corrupt conversation, message list, run, or
-  run/message relationship fails the request.
-- Change queued-state computation so missing trigger messages and corrupt
-  queued messages fail the request instead of disappearing from `QueueState`.
+  for example `ScanConversationsAllowingCorrupt` and
+  `ScanRunsForConversationAllowingCorrupt`.
+- Audit `ListConversations`, `LoadMessagePage`, `GetActiveRun`, run activity,
+  and queue-related service paths so any corrupt conversation, message list,
+  run, queued message, or run/message relationship fails the request.
+- Keep queued-state computation strict: missing trigger messages and corrupt
+  queued messages must fail the request instead of disappearing from
+  `QueueState`.
 - Review startup recovery:
   - valid interrupted running runs may still transition to failed.
   - malformed runs should record a diagnostic and make startup fail, unless the
@@ -126,13 +157,15 @@ Implementation steps:
 
 Test changes:
 
-- Remove tests that require partial success for malformed conversation or run
-  state.
-- Add tests that assert:
+- Remove or update tests that require partial success for malformed conversation
+  or run state in normal user-facing paths.
+- Keep or add tests that assert:
   - corrupt conversation metadata makes `ListConversations` return
     `CorruptStateError`.
   - corrupt run metadata makes `ListConversations` return `CorruptStateError`.
   - missing queued trigger message makes page loading fail as corrupt state.
+  - corrupt startup run metadata either fails startup or blocks normal chat use
+    through the chosen UI path.
   - HTTP maps these failures to `corrupt_chat_state` with status 500.
   - diagnostics are recorded when possible, but the request still fails even if
     diagnostic recording cannot complete.
@@ -205,29 +238,45 @@ pnpm -C desktop test
 
 Problem:
 
-- Codex notifications with a different `threadId` or `turnId` are silently
-  ignored.
+- Some Codex notifications with a different `threadId` or `turnId` are
+  silently ignored.
+- Recent app-server handlers added explicit support for account, thread, MCP,
+  and status notifications. These notifications are not all turn-scoped, so the
+  adapter now needs a documented scope policy per method instead of one generic
+  boolean match helper.
 - This can drop assistant text, run activity, or completion-relevant events
-  without any user-visible error.
+  without any user-visible error when the notification is turn-scoped and
+  state-changing.
 
 Principled fix:
 
 - A mismatched notification on a per-turn app-server client is provider
-  protocol drift.
+  protocol drift when the notification is required to describe the active turn.
 - State-changing mismatches should record a provider diagnostic and fail the
   active turn.
-- Known non-state-changing messages may record a diagnostic and request resync,
-  but only with an explicit reason documented in code.
+- Known non-state-changing or non-turn-scoped messages may be traced, ignored,
+  or treated as resync signals only when the scope policy and reason are
+  documented in code.
+- Global notifications such as account updates and MCP server startup status
+  should not require active-turn IDs unless the provider protocol changes.
 
 Implementation steps:
 
+- Define a Codex notification scope policy for each supported method:
+  - global, for account and process-wide provider notifications.
+  - thread-scoped, for lifecycle, goal, status, name, settings, and token usage
+    notifications.
+  - turn-scoped state-changing, for assistant deltas, item upserts, output
+    deltas, approvals, turn lifecycle, and completion.
 - Replace `notificationMatchesTurn` boolean filtering with a function that
   returns a typed result:
   - matches
   - missing required IDs
   - mismatched IDs
 - For handlers that require a turn match, return a provider-drift error on
-  mismatch.
+  mismatch instead of silently ignoring the notification.
+- For handlers that only require a thread match, document whether a different
+  thread is expected noise, provider drift, or a resync signal.
 - Record diagnostic context:
   - method
   - expected thread ID
@@ -248,8 +297,10 @@ Test changes:
   - record provider diagnostics
   - do not mutate transcript or run activity
   - fail the active turn or force resync according to the handler policy
-- Add one test for a genuinely ignorable message only if the protocol explicitly
-  documents that it may not be scoped to the current turn.
+- Add tests for documented global and thread-scoped notifications so they do
+  not regress into accidental hard failures or silent state-changing drops.
+- Add one test for a genuinely ignorable cross-thread message only if the
+  protocol explicitly documents that it may arrive on the current connection.
 
 Verification:
 
@@ -262,6 +313,9 @@ Verification:
 Problem:
 
 - The store reads all output chunks before applying `limit`.
+- The API contract now exposes `afterOrdinal`, `limit`, `hasMore`, and
+  `nextOrdinal`, but the store implementation still applies the page after
+  reading every output file.
 - Message pages embed only a capped preview.
 - The renderer loads one extra page on expansion and then ignores `hasMore` and
   `nextOrdinal`.
@@ -282,7 +336,7 @@ Implementation steps:
 
 - Change `runItemOutputFiles` usage so `LoadRunItemOutputPage` slices filenames
   before reading payloads.
-- Define output pagination in the API contract:
+- Keep the output pagination API contract:
   - `afterOrdinal`
   - `limit`
   - `hasMore`

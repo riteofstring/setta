@@ -1,3 +1,4 @@
+import type { ChatMessage } from "@generated/backend";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
@@ -372,6 +373,86 @@ describe("chat renderer states", () => {
     expect(html).toContain("warning text");
   });
 
+  test("renders load more for paged run output", () => {
+    const html = renderToString(
+      <ChatTranscript
+        activeRun={null}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
+        messages={[
+          {
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            delivery: "normal",
+            id: "message_assistant",
+            ordinal: 1,
+            parts: [{ format: "markdown", id: "part_assistant", text: "done", type: "text" }],
+            role: "assistant",
+            runId: "run_api",
+            schemaVersion: 1,
+            status: "complete",
+            updatedAt: "2026-05-29T20:00:00Z",
+          },
+        ]}
+        runItemOutputPagesByRunItemId={{
+          item_command: {
+            error: null,
+            hasMore: true,
+            loadedThroughOrdinal: 1,
+            loading: false,
+            nextOrdinal: 1,
+          },
+        }}
+        runItemOutputs={[
+          {
+            createdAt: "2026-05-29T20:00:00Z",
+            id: "output_1",
+            ordinal: 1,
+            runItemId: "item_command",
+            schemaVersion: 1,
+            stream: "stdout",
+            text: "partial\n",
+          },
+        ]}
+        runItems={[
+          {
+            command: "go test ./...",
+            completedAt: "",
+            conversationId: "conversation_api",
+            createdAt: "2026-05-29T20:00:00Z",
+            cwd: "/tmp/workspace",
+            diffSummary: "",
+            durationMs: 0,
+            error: "",
+            exitCode: 0,
+            filePaths: [],
+            id: "item_command",
+            noticeKind: "",
+            noticeMessage: "",
+            patchStatus: "",
+            progress: "",
+            providerItemId: "command_provider",
+            result: "",
+            runId: "run_api",
+            schemaVersion: 1,
+            serverName: "",
+            startedAt: "2026-05-29T20:00:00Z",
+            status: "completed",
+            summary: "",
+            title: "",
+            toolName: "",
+            type: "command_execution",
+            workspaceId: "workspace_api",
+          },
+        ]}
+        submitApproval={async () => {}}
+      />,
+    );
+
+    expect(html).toContain("Load more");
+  });
+
   test("renders pending approval controls", () => {
     const html = renderToString(
       <ChatTranscript
@@ -503,7 +584,7 @@ function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
 }
 
-function chatMessage(id: string, ordinal: number) {
+function chatMessage(id: string, ordinal: number): ChatMessage {
   return {
     conversationId: "conversation_api",
     createdAt: "2026-05-29T20:00:00Z",

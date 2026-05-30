@@ -138,7 +138,7 @@ func (store *Store) LoadConversation(workspaceID string, conversationID string) 
 }
 
 func (store *Store) ListConversations(workspaceID string) ([]Conversation, error) {
-	conversations, corrupt, err := store.ScanConversations(workspaceID)
+	conversations, corrupt, err := store.ScanConversationsAllowingCorrupt(workspaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +148,7 @@ func (store *Store) ListConversations(workspaceID string) ([]Conversation, error
 	return conversations, nil
 }
 
-func (store *Store) ScanConversations(workspaceID string) ([]Conversation, []error, error) {
+func (store *Store) ScanConversationsAllowingCorrupt(workspaceID string) ([]Conversation, []error, error) {
 	dir := store.conversationsDir(workspaceID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -329,7 +329,7 @@ func (store *Store) LoadRun(workspaceID string, runID string) (Run, error) {
 }
 
 func (store *Store) ListRuns(workspaceID string) ([]Run, error) {
-	runs, corrupt, err := store.ScanRuns(workspaceID)
+	runs, corrupt, err := store.ScanRunsAllowingCorrupt(workspaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +339,7 @@ func (store *Store) ListRuns(workspaceID string) ([]Run, error) {
 	return runs, nil
 }
 
-func (store *Store) ScanRuns(workspaceID string) ([]Run, []error, error) {
+func (store *Store) ScanRunsAllowingCorrupt(workspaceID string) ([]Run, []error, error) {
 	dir := store.runsDir(workspaceID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -375,7 +375,7 @@ func (store *Store) ScanRuns(workspaceID string) ([]Run, []error, error) {
 	return runs, corrupt, nil
 }
 
-func (store *Store) ScanRunsForConversation(workspaceID string, conversationID string) ([]Run, []error, error) {
+func (store *Store) ScanRunsForConversationAllowingCorrupt(workspaceID string, conversationID string) ([]Run, []error, error) {
 	dir := store.runsDir(workspaceID)
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -417,9 +417,6 @@ func (store *Store) loadRunForConversation(workspaceID string, conversationID st
 	runID := strings.TrimSuffix(fileName, ".json")
 	owner, err := store.loadRunOwner(workspaceID, runID)
 	if err != nil {
-		if IsCorruptStateError(err) {
-			return Run{}, false, nil
-		}
 		return Run{}, false, err
 	}
 	if owner.ConversationID != conversationID {
@@ -617,6 +614,10 @@ func (store *Store) LoadRunItemOutputsForItem(workspaceID string, runID string, 
 	if err != nil {
 		return nil, err
 	}
+	return readRunItemOutputs(files, runItemID)
+}
+
+func readRunItemOutputs(files []runItemOutputFile, runItemID string) ([]RunItemOutput, error) {
 	outputs := make([]RunItemOutput, 0, len(files))
 	for _, file := range files {
 		var output RunItemOutput
@@ -647,16 +648,36 @@ func (store *Store) LoadRunItemOutputPage(workspaceID string, runID string, runI
 	if err := store.validateRunItemBelongsToRun(workspaceID, runID, runItemID); err != nil {
 		return RunItemOutputPage{}, err
 	}
-	outputs, err := store.LoadRunItemOutputsForItem(workspaceID, runID, runItemID)
+	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
 	if err != nil {
 		return RunItemOutputPage{}, err
 	}
-	outputs = outputsAfterOrdinal(outputs, afterOrdinal)
-	if limit > 0 && len(outputs) > limit {
-		page := outputs[:limit]
-		return RunItemOutputPage{RunID: runID, RunItemID: runItemID, Output: page, HasMore: true, NextOrdinal: page[len(page)-1].Ordinal}, nil
+	files = outputFilesAfterOrdinal(files, afterOrdinal)
+	hasMore := false
+	nextOrdinal := 0
+	if limit > 0 && len(files) > limit {
+		files = files[:limit]
+		hasMore = true
+		nextOrdinal = files[len(files)-1].ordinal
 	}
-	return RunItemOutputPage{RunID: runID, RunItemID: runItemID, Output: outputs}, nil
+	outputs, err := readRunItemOutputs(files, runItemID)
+	if err != nil {
+		return RunItemOutputPage{}, err
+	}
+	return RunItemOutputPage{RunID: runID, RunItemID: runItemID, Output: outputs, HasMore: hasMore, NextOrdinal: nextOrdinal}, nil
+}
+
+func outputFilesAfterOrdinal(files []runItemOutputFile, afterOrdinal int) []runItemOutputFile {
+	if afterOrdinal <= 0 {
+		return files
+	}
+	filtered := files[:0]
+	for _, file := range files {
+		if file.ordinal > afterOrdinal {
+			filtered = append(filtered, file)
+		}
+	}
+	return filtered
 }
 
 func (store *Store) validateRunItemBelongsToRun(workspaceID string, runID string, runItemID string) error {

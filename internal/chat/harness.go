@@ -63,7 +63,7 @@ var ErrTurnNotStarted = errors.New("turn has not started")
 
 type HarnessRefUnavailableError struct {
 	Err      error
-	Harness  string
+	Harness  HarnessKind
 	ThreadID string
 	Message  string
 }
@@ -72,7 +72,7 @@ func (err *HarnessRefUnavailableError) Error() string {
 	if err.Message != "" {
 		return err.Message
 	}
-	return err.Harness + " thread ref unavailable: " + err.ThreadID
+	return string(err.Harness) + " thread ref unavailable: " + err.ThreadID
 }
 
 func (err *HarnessRefUnavailableError) Unwrap() error {

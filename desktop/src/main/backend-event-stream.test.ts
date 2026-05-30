@@ -1,4 +1,4 @@
-import type { ChatEvent, ChatMessage } from "@generated/backend";
+import type { ChatEvent, ChatMessage, MessageRole, MessageStatus } from "@generated/backend";
 import type { BackendFetch } from "@shared/backend-runtime";
 import { describe, expect, test, vi } from "vitest";
 
@@ -230,8 +230,8 @@ function resyncRequiredEvent(
 function message(
   id: string,
   ordinal: number,
-  role: string,
-  status: string,
+  role: MessageRole,
+  status: MessageStatus,
   text: string,
 ): ChatMessage {
   return {

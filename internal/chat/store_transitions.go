@@ -193,7 +193,7 @@ func validateQueuedPromotionRecords(records QueuedPromotionRecords) error {
 	return validateTurnRecordLinks(records.Conversation, records.UserMessage, records.AssistantMessage, records.Run)
 }
 
-func validateTerminalTurnRecords(records TerminalTurnRecords, runStatus string, messageStatus string) error {
+func validateTerminalTurnRecords(records TerminalTurnRecords, runStatus RunStatus, messageStatus MessageStatus) error {
 	if err := validateMessage(records.AssistantMessage); err != nil {
 		return err
 	}

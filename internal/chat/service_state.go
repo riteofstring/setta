@@ -6,7 +6,7 @@ import (
 )
 
 func (service *Service) runsForConversationWithDiagnosticsLocked(workspaceID string, conversationID string) ([]Run, error) {
-	runs, corrupt, err := service.store.ScanRunsForConversation(workspaceID, conversationID)
+	runs, corrupt, err := service.store.ScanRunsForConversationAllowingCorrupt(workspaceID, conversationID)
 	if err != nil {
 		return nil, err
 	}
@@ -15,6 +15,34 @@ func (service *Service) runsForConversationWithDiagnosticsLocked(workspaceID str
 		return nil, corrupt[0]
 	}
 	return runs, nil
+}
+
+func (service *Service) runsForWorkspaceWithDiagnostics(workspaceID string) ([]Run, error) {
+	runs, corruptRuns, err := service.store.ScanRunsAllowingCorrupt(workspaceID)
+	if err != nil {
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
+		return nil, err
+	}
+	if len(corruptRuns) > 0 {
+		service.recordCorruptStateDiagnostic(corruptRuns[0], workspaceID, "", "")
+		return nil, corruptRuns[0]
+	}
+	for _, run := range runs {
+		if err := service.validateRunAssistantMessage(workspaceID, run); err != nil {
+			service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, run.ID)
+			return nil, err
+		}
+	}
+	return runs, nil
+}
+
+func activeRunIDFromRuns(runs []Run, conversationID string) string {
+	for _, run := range runs {
+		if run.ConversationID == conversationID && run.Status == RunStatusRunning {
+			return run.ID
+		}
+	}
+	return ""
 }
 
 func activeRunFromRuns(runs []Run, conversationID string) (Run, bool) {

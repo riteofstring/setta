@@ -7,11 +7,278 @@ import {
   decodeBoolean,
   decodeInteger,
   decodeStringRecord,
+  decodeNullable,
   decodeString,
   requestBackend,
   requireField,
   type BackendFetch,
 } from "@shared/backend-runtime";
+
+export type HarnessKind = "codex";
+
+export function decodeHarnessKind(value: unknown, label = "HarnessKind"): HarnessKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "codex":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type HarnessRefStatus = "linked" | "missing" | "stale" | "unsupported";
+
+export function decodeHarnessRefStatus(value: unknown, label = "HarnessRefStatus"): HarnessRefStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "linked":
+      return decoded;
+    case "missing":
+      return decoded;
+    case "stale":
+      return decoded;
+    case "unsupported":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type MessageRole = "user" | "assistant" | "system" | "developer" | "tool";
+
+export function decodeMessageRole(value: unknown, label = "MessageRole"): MessageRole {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "user":
+      return decoded;
+    case "assistant":
+      return decoded;
+    case "system":
+      return decoded;
+    case "developer":
+      return decoded;
+    case "tool":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type MessageDelivery = "normal" | "queued" | "steering";
+
+export function decodeMessageDelivery(value: unknown, label = "MessageDelivery"): MessageDelivery {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "normal":
+      return decoded;
+    case "queued":
+      return decoded;
+    case "steering":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type MessageStatus = "pending" | "streaming" | "complete" | "cancelled" | "error";
+
+export function decodeMessageStatus(value: unknown, label = "MessageStatus"): MessageStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pending":
+      return decoded;
+    case "streaming":
+      return decoded;
+    case "complete":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "error":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type MessagePartType = "text";
+
+export function decodeMessagePartType(value: unknown, label = "MessagePartType"): MessagePartType {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "text":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type TextFormat = "plain" | "markdown";
+
+export function decodeTextFormat(value: unknown, label = "TextFormat"): TextFormat {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "plain":
+      return decoded;
+    case "markdown":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RunItemType = "agent_message" | "plan" | "reasoning" | "command_execution" | "file_change" | "mcp_tool_call" | "dynamic_tool_call" | "collab_agent_tool_call" | "web_search" | "image_view" | "image_generation" | "terminal_interaction" | "diff" | "notice";
+
+export function decodeRunItemType(value: unknown, label = "RunItemType"): RunItemType {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "agent_message":
+      return decoded;
+    case "plan":
+      return decoded;
+    case "reasoning":
+      return decoded;
+    case "command_execution":
+      return decoded;
+    case "file_change":
+      return decoded;
+    case "mcp_tool_call":
+      return decoded;
+    case "dynamic_tool_call":
+      return decoded;
+    case "collab_agent_tool_call":
+      return decoded;
+    case "web_search":
+      return decoded;
+    case "image_view":
+      return decoded;
+    case "image_generation":
+      return decoded;
+    case "terminal_interaction":
+      return decoded;
+    case "diff":
+      return decoded;
+    case "notice":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RunItemStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+
+export function decodeRunItemStatus(value: unknown, label = "RunItemStatus"): RunItemStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pending":
+      return decoded;
+    case "running":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "failed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type RunStatus = "queued" | "running" | "completed" | "cancelled" | "failed";
+
+export function decodeRunStatus(value: unknown, label = "RunStatus"): RunStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "queued":
+      return decoded;
+    case "running":
+      return decoded;
+    case "completed":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    case "failed":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ApprovalKind = "command" | "file_change" | "permission" | "user_input";
+
+export function decodeApprovalKind(value: unknown, label = "ApprovalKind"): ApprovalKind {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "command":
+      return decoded;
+    case "file_change":
+      return decoded;
+    case "permission":
+      return decoded;
+    case "user_input":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type ApprovalStatus = "pending" | "approved" | "denied" | "answered" | "cancelled";
+
+export function decodeApprovalStatus(value: unknown, label = "ApprovalStatus"): ApprovalStatus {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "pending":
+      return decoded;
+    case "approved":
+      return decoded;
+    case "denied":
+      return decoded;
+    case "answered":
+      return decoded;
+    case "cancelled":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DiagnosticSource = "backend" | "event_stream" | "chat" | "workspace" | "provider";
+
+export function decodeDiagnosticSource(value: unknown, label = "DiagnosticSource"): DiagnosticSource {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "backend":
+      return decoded;
+    case "event_stream":
+      return decoded;
+    case "chat":
+      return decoded;
+    case "workspace":
+      return decoded;
+    case "provider":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
+
+export type DiagnosticSeverity = "info" | "warning" | "error" | "critical";
+
+export function decodeDiagnosticSeverity(value: unknown, label = "DiagnosticSeverity"): DiagnosticSeverity {
+  const decoded = decodeString(value, label);
+  switch (decoded) {
+    case "info":
+      return decoded;
+    case "warning":
+      return decoded;
+    case "error":
+      return decoded;
+    case "critical":
+      return decoded;
+    default:
+      throw new Error(label + " is unsupported: " + decoded);
+  }
+}
 
 export interface BackendHealth {
   ok: boolean;
@@ -62,11 +329,11 @@ export interface ListConversationsRequest {
 }
 
 export interface HarnessThreadRef {
-  harness: string;
+  harness: HarnessKind;
   threadId: string;
   sessionId: string;
   lastTurnId: string;
-  status: string;
+  status: HarnessRefStatus;
   createdAt: string;
   lastResumedAt: string;
   unavailableMessage: string;
@@ -107,9 +374,9 @@ export interface GetMessagePageRequest {
 
 export interface MessagePart {
   id: string;
-  type: string;
+  type: MessagePartType;
   text: string;
-  format: string;
+  format: TextFormat;
 }
 
 export interface ChatMessage {
@@ -117,12 +384,12 @@ export interface ChatMessage {
   id: string;
   conversationId: string;
   runId: string;
-  role: string;
-  delivery: string;
+  role: MessageRole;
+  delivery: MessageDelivery;
   ordinal: number;
   createdAt: string;
   updatedAt: string;
-  status: string;
+  status: MessageStatus;
   parts: MessagePart[];
 }
 
@@ -133,8 +400,8 @@ export interface RunItem {
   conversationId: string;
   runId: string;
   providerItemId: string;
-  type: string;
-  status: string;
+  type: RunItemType;
+  status: RunItemStatus;
   createdAt: string;
   startedAt: string;
   completedAt: string;
@@ -180,7 +447,7 @@ export interface ApprovalRequest {
   runId: string;
   runItemId: string;
   providerItemId: string;
-  kind: string;
+  kind: ApprovalKind;
   title: string;
   body: string;
   command: string;
@@ -189,7 +456,7 @@ export interface ApprovalRequest {
   question: string;
   options: string[];
   questions: ApprovalQuestion[];
-  status: string;
+  status: ApprovalStatus;
   createdAt: string;
   resolvedAt: string;
   response: string;
@@ -203,8 +470,8 @@ export interface Run {
   conversationId: string;
   triggerMessageId: string;
   assistantMessageId: string;
-  harness: string;
-  status: string;
+  harness: HarnessKind;
+  status: RunStatus;
   startedAt: string;
   completedAt: string;
   promptSummary: string;
@@ -281,7 +548,7 @@ export interface GetActiveRunRequest {
 
 export interface GetActiveRunResponse {
   hasActiveRun: boolean;
-  run: Run;
+  run: Run | null;
 }
 
 export interface GetRunActivityRequest {
@@ -397,8 +664,8 @@ export interface ResyncRequiredPayload {
 export interface Diagnostic {
   schemaVersion: number;
   id: string;
-  source: string;
-  severity: string;
+  source: DiagnosticSource;
+  severity: DiagnosticSeverity;
   code: string;
   message: string;
   workspaceId: string;
@@ -768,11 +1035,11 @@ export function decodeHarnessThreadRef(value: unknown): HarnessThreadRef {
   const record = assertRecord(value, "HarnessThreadRef");
   assertKnownFields(record, "HarnessThreadRef", ["harness", "threadId", "sessionId", "lastTurnId", "status", "createdAt", "lastResumedAt", "unavailableMessage"]);
   return {
-    harness: decodeString(requireField(record, "harness", "HarnessThreadRef"), "HarnessThreadRef.harness"),
+    harness: decodeHarnessKind(requireField(record, "harness", "HarnessThreadRef"), "HarnessThreadRef.harness"),
     threadId: decodeString(requireField(record, "threadId", "HarnessThreadRef"), "HarnessThreadRef.threadId"),
     sessionId: decodeString(requireField(record, "sessionId", "HarnessThreadRef"), "HarnessThreadRef.sessionId"),
     lastTurnId: decodeString(requireField(record, "lastTurnId", "HarnessThreadRef"), "HarnessThreadRef.lastTurnId"),
-    status: decodeString(requireField(record, "status", "HarnessThreadRef"), "HarnessThreadRef.status"),
+    status: decodeHarnessRefStatus(requireField(record, "status", "HarnessThreadRef"), "HarnessThreadRef.status"),
     createdAt: decodeString(requireField(record, "createdAt", "HarnessThreadRef"), "HarnessThreadRef.createdAt"),
     lastResumedAt: decodeString(requireField(record, "lastResumedAt", "HarnessThreadRef"), "HarnessThreadRef.lastResumedAt"),
     unavailableMessage: decodeString(requireField(record, "unavailableMessage", "HarnessThreadRef"), "HarnessThreadRef.unavailableMessage"),
@@ -837,9 +1104,9 @@ export function decodeMessagePart(value: unknown): MessagePart {
   assertKnownFields(record, "MessagePart", ["id", "type", "text", "format"]);
   return {
     id: decodeString(requireField(record, "id", "MessagePart"), "MessagePart.id"),
-    type: decodeString(requireField(record, "type", "MessagePart"), "MessagePart.type"),
+    type: decodeMessagePartType(requireField(record, "type", "MessagePart"), "MessagePart.type"),
     text: decodeString(requireField(record, "text", "MessagePart"), "MessagePart.text"),
-    format: decodeString(requireField(record, "format", "MessagePart"), "MessagePart.format"),
+    format: decodeTextFormat(requireField(record, "format", "MessagePart"), "MessagePart.format"),
   };
 }
 
@@ -851,12 +1118,12 @@ export function decodeChatMessage(value: unknown): ChatMessage {
     id: decodeString(requireField(record, "id", "ChatMessage"), "ChatMessage.id"),
     conversationId: decodeString(requireField(record, "conversationId", "ChatMessage"), "ChatMessage.conversationId"),
     runId: decodeString(requireField(record, "runId", "ChatMessage"), "ChatMessage.runId"),
-    role: decodeString(requireField(record, "role", "ChatMessage"), "ChatMessage.role"),
-    delivery: decodeString(requireField(record, "delivery", "ChatMessage"), "ChatMessage.delivery"),
+    role: decodeMessageRole(requireField(record, "role", "ChatMessage"), "ChatMessage.role"),
+    delivery: decodeMessageDelivery(requireField(record, "delivery", "ChatMessage"), "ChatMessage.delivery"),
     ordinal: decodeInteger(requireField(record, "ordinal", "ChatMessage"), "ChatMessage.ordinal"),
     createdAt: decodeString(requireField(record, "createdAt", "ChatMessage"), "ChatMessage.createdAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "ChatMessage"), "ChatMessage.updatedAt"),
-    status: decodeString(requireField(record, "status", "ChatMessage"), "ChatMessage.status"),
+    status: decodeMessageStatus(requireField(record, "status", "ChatMessage"), "ChatMessage.status"),
     parts: decodeArray(requireField(record, "parts", "ChatMessage"), "ChatMessage.parts", (item) => decodeMessagePart(item)),
   };
 }
@@ -871,8 +1138,8 @@ export function decodeRunItem(value: unknown): RunItem {
     conversationId: decodeString(requireField(record, "conversationId", "RunItem"), "RunItem.conversationId"),
     runId: decodeString(requireField(record, "runId", "RunItem"), "RunItem.runId"),
     providerItemId: decodeString(requireField(record, "providerItemId", "RunItem"), "RunItem.providerItemId"),
-    type: decodeString(requireField(record, "type", "RunItem"), "RunItem.type"),
-    status: decodeString(requireField(record, "status", "RunItem"), "RunItem.status"),
+    type: decodeRunItemType(requireField(record, "type", "RunItem"), "RunItem.type"),
+    status: decodeRunItemStatus(requireField(record, "status", "RunItem"), "RunItem.status"),
     createdAt: decodeString(requireField(record, "createdAt", "RunItem"), "RunItem.createdAt"),
     startedAt: decodeString(requireField(record, "startedAt", "RunItem"), "RunItem.startedAt"),
     completedAt: decodeString(requireField(record, "completedAt", "RunItem"), "RunItem.completedAt"),
@@ -930,7 +1197,7 @@ export function decodeApprovalRequest(value: unknown): ApprovalRequest {
     runId: decodeString(requireField(record, "runId", "ApprovalRequest"), "ApprovalRequest.runId"),
     runItemId: decodeString(requireField(record, "runItemId", "ApprovalRequest"), "ApprovalRequest.runItemId"),
     providerItemId: decodeString(requireField(record, "providerItemId", "ApprovalRequest"), "ApprovalRequest.providerItemId"),
-    kind: decodeString(requireField(record, "kind", "ApprovalRequest"), "ApprovalRequest.kind"),
+    kind: decodeApprovalKind(requireField(record, "kind", "ApprovalRequest"), "ApprovalRequest.kind"),
     title: decodeString(requireField(record, "title", "ApprovalRequest"), "ApprovalRequest.title"),
     body: decodeString(requireField(record, "body", "ApprovalRequest"), "ApprovalRequest.body"),
     command: decodeString(requireField(record, "command", "ApprovalRequest"), "ApprovalRequest.command"),
@@ -939,7 +1206,7 @@ export function decodeApprovalRequest(value: unknown): ApprovalRequest {
     question: decodeString(requireField(record, "question", "ApprovalRequest"), "ApprovalRequest.question"),
     options: decodeArray(requireField(record, "options", "ApprovalRequest"), "ApprovalRequest.options", (item) => decodeString(item, "ApprovalRequest.options item")),
     questions: decodeArray(requireField(record, "questions", "ApprovalRequest"), "ApprovalRequest.questions", (item) => decodeApprovalQuestion(item)),
-    status: decodeString(requireField(record, "status", "ApprovalRequest"), "ApprovalRequest.status"),
+    status: decodeApprovalStatus(requireField(record, "status", "ApprovalRequest"), "ApprovalRequest.status"),
     createdAt: decodeString(requireField(record, "createdAt", "ApprovalRequest"), "ApprovalRequest.createdAt"),
     resolvedAt: decodeString(requireField(record, "resolvedAt", "ApprovalRequest"), "ApprovalRequest.resolvedAt"),
     response: decodeString(requireField(record, "response", "ApprovalRequest"), "ApprovalRequest.response"),
@@ -957,8 +1224,8 @@ export function decodeRun(value: unknown): Run {
     conversationId: decodeString(requireField(record, "conversationId", "Run"), "Run.conversationId"),
     triggerMessageId: decodeString(requireField(record, "triggerMessageId", "Run"), "Run.triggerMessageId"),
     assistantMessageId: decodeString(requireField(record, "assistantMessageId", "Run"), "Run.assistantMessageId"),
-    harness: decodeString(requireField(record, "harness", "Run"), "Run.harness"),
-    status: decodeString(requireField(record, "status", "Run"), "Run.status"),
+    harness: decodeHarnessKind(requireField(record, "harness", "Run"), "Run.harness"),
+    status: decodeRunStatus(requireField(record, "status", "Run"), "Run.status"),
     startedAt: decodeString(requireField(record, "startedAt", "Run"), "Run.startedAt"),
     completedAt: decodeString(requireField(record, "completedAt", "Run"), "Run.completedAt"),
     promptSummary: decodeString(requireField(record, "promptSummary", "Run"), "Run.promptSummary"),
@@ -1079,7 +1346,7 @@ export function decodeGetActiveRunResponse(value: unknown): GetActiveRunResponse
   assertKnownFields(record, "GetActiveRunResponse", ["hasActiveRun", "run"]);
   return {
     hasActiveRun: decodeBoolean(requireField(record, "hasActiveRun", "GetActiveRunResponse"), "GetActiveRunResponse.hasActiveRun"),
-    run: decodeRun(requireField(record, "run", "GetActiveRunResponse")),
+    run: decodeNullable(requireField(record, "run", "GetActiveRunResponse"), "GetActiveRunResponse.run", (item) => decodeRun(item)),
   };
 }
 
@@ -1279,8 +1546,8 @@ export function decodeDiagnostic(value: unknown): Diagnostic {
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Diagnostic"), "Diagnostic.schemaVersion"),
     id: decodeString(requireField(record, "id", "Diagnostic"), "Diagnostic.id"),
-    source: decodeString(requireField(record, "source", "Diagnostic"), "Diagnostic.source"),
-    severity: decodeString(requireField(record, "severity", "Diagnostic"), "Diagnostic.severity"),
+    source: decodeDiagnosticSource(requireField(record, "source", "Diagnostic"), "Diagnostic.source"),
+    severity: decodeDiagnosticSeverity(requireField(record, "severity", "Diagnostic"), "Diagnostic.severity"),
     code: decodeString(requireField(record, "code", "Diagnostic"), "Diagnostic.code"),
     message: decodeString(requireField(record, "message", "Diagnostic"), "Diagnostic.message"),
     workspaceId: decodeString(requireField(record, "workspaceId", "Diagnostic"), "Diagnostic.workspaceId"),
