@@ -33,6 +33,7 @@ export const ipcChannels = {
 
 export const ipcEvents = {
   backendUnexpectedExit: "backend:unexpected-exit",
+  chatEvent: "chat:event",
 } as const;
 
 interface IpcContract {

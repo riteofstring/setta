@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"setta/internal/appstate"
 	"setta/internal/chat"
@@ -127,6 +128,7 @@ type ChatService interface {
 	ListConversations(workspaceID string) ([]chat.ConversationListItem, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
+	SubscribeEvents(afterSequence int) (*chat.EventSubscription, error)
 	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)
 }
 
@@ -371,6 +373,76 @@ func (handler handler) submitApproval(response http.ResponseWriter, request *htt
 		return
 	}
 	writeJSON(response, http.StatusOK, run)
+}
+
+func (handler handler) eventStream(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	afterSequence, err := eventStreamSequence(request)
+	if err != nil {
+		writeError(response, http.StatusBadRequest, "invalid_event_sequence", err.Error())
+		return
+	}
+	flusher, ok := response.(http.Flusher)
+	if !ok {
+		writeError(response, http.StatusInternalServerError, "event_stream_unavailable", "response writer does not support streaming")
+		return
+	}
+	subscription, err := service.SubscribeEvents(afterSequence)
+	if err != nil {
+		writeChatError(response, "subscribe_events_failed", err)
+		return
+	}
+	defer subscription.Unsubscribe()
+
+	response.Header().Set("Cache-Control", "no-cache")
+	response.Header().Set("Content-Type", "text/event-stream")
+	response.Header().Set("X-Accel-Buffering", "no")
+	response.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	for {
+		select {
+		case event, ok := <-subscription.Events:
+			if !ok {
+				return
+			}
+			if err := writeServerSentEvent(response, event); err != nil {
+				return
+			}
+			flusher.Flush()
+		case <-request.Context().Done():
+			return
+		}
+	}
+}
+
+func eventStreamSequence(request *http.Request) (int, error) {
+	value := request.Header.Get("Last-Event-ID")
+	if value == "" {
+		value = request.URL.Query().Get("lastSequence")
+	}
+	if value == "" {
+		return 0, nil
+	}
+	sequence, err := strconv.Atoi(value)
+	if err != nil || sequence < 0 {
+		return 0, fmt.Errorf("event sequence must be a non-negative integer: %s", value)
+	}
+	return sequence, nil
+}
+
+func writeServerSentEvent(response http.ResponseWriter, event chat.Event) error {
+	payload, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("marshal event %d: %w", event.Sequence, err)
+	}
+	if _, err := fmt.Fprintf(response, "id: %d\nevent: %s\ndata: %s\n\n", event.Sequence, event.Type, payload); err != nil {
+		return fmt.Errorf("write event %d: %w", event.Sequence, err)
+	}
+	return nil
 }
 
 func requireWorkspaceService(response http.ResponseWriter, service WorkspaceService) WorkspaceService {

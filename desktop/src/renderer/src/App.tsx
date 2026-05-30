@@ -14,6 +14,7 @@ import {
   type WorkspaceStatus,
   useWorkspaceStore,
 } from "./stores/workspace-store";
+import { useChatStore } from "./stores/chat-store";
 
 type BackendState =
   | { health: BackendHealth; message: string; status: "online" }
@@ -29,6 +30,12 @@ export function App() {
   const { backend, refreshHealth } = useBackendState();
   const runtime = useRuntimeVersions();
   const workspace = useWorkspaceViewState();
+
+  useEffect(() => {
+    return window.setta.chat.onEvent((event) => {
+      useChatStore.getState().handleEvent(event);
+    });
+  }, []);
 
   return (
     <div className="grid h-screen min-h-0 grid-rows-[56px_minmax(0,1fr)] overflow-hidden bg-zinc-50 text-zinc-950">

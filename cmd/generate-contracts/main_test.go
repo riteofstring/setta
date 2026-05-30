@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"setta/internal/chat"
 	"setta/internal/httpapi"
 )
 
@@ -39,7 +40,7 @@ func TestContractSpecsCollectsEndpointGraph(t *testing.T) {
 			Response: reflect.TypeFor[ContractTestResponse](),
 		}},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	})
+	}, chat.EventContractSchema{})
 	if err != nil {
 		t.Fatalf("collect contract specs: %v", err)
 	}
@@ -67,7 +68,7 @@ func TestContractSpecsRejectsDuplicateEndpointNames(t *testing.T) {
 			contractEndpoint("ContractTest", "/contract-test-again"),
 		},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	})
+	}, chat.EventContractSchema{})
 
 	if err == nil {
 		t.Fatal("collect contracts succeeded, want duplicate name error")
@@ -84,7 +85,7 @@ func TestContractSpecsRejectsDuplicateEndpointRoutes(t *testing.T) {
 			contractEndpoint("ContractTestAgain", "/contract-test"),
 		},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
-	})
+	}, chat.EventContractSchema{})
 
 	if err == nil {
 		t.Fatal("collect contracts succeeded, want duplicate route error")
@@ -106,6 +107,12 @@ func TestRenderIncludesEndpointDescriptorsDecodersAndClient(t *testing.T) {
 			},
 		},
 		ErrorResponses: []reflect.Type{reflect.TypeFor[ErrorResponse]()},
+	}, chat.EventContractSchema{
+		Events: []chat.EventContract{{
+			Name:    "ChatContractTestEvent",
+			Type:    "chat.contract_test",
+			Payload: reflect.TypeFor[ContractTestResponse](),
+		}},
 	})
 	if err != nil {
 		t.Fatalf("collect contracts: %v", err)
@@ -124,6 +131,10 @@ func TestRenderIncludesEndpointDescriptorsDecodersAndClient(t *testing.T) {
 		"ContractTest: {",
 		"method: \"POST\"",
 		"path: \"/contract-test\"",
+		"export type ChatEvent =",
+		"export interface ChatContractTestEvent",
+		"type: \"chat.contract_test\";",
+		"export function decodeChatEvent(value: unknown): ChatEvent",
 		"export function decodeContractTestResponse(value: unknown): ContractTestResponse",
 		"contractTest: (request: ContractTestRequest) => Promise<ContractTestResponse>;",
 		"contractTestHealth: () => Promise<ContractTestLeaf>;",

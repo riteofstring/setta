@@ -1,6 +1,7 @@
 import type {
   BackendHealth,
   ApprovalAnswer,
+  ChatEvent,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
@@ -59,6 +60,7 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<SendMessageResult>;
+    onEvent: (listener: (event: ChatEvent) => void) => () => void;
     submitApproval: (input: SubmitApprovalInput) => Promise<Run>;
   };
 }

@@ -2,12 +2,10 @@ import type { ConversationListItem, WorkspaceSummary } from "@generated/backend"
 import { MessageSquarePlus, Plus, Send, Square } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { shouldPollConversation, useChatStore } from "../stores/chat-store";
+import { useChatStore } from "../stores/chat-store";
 import { ChatTranscript } from "./chat-transcript";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-
-const activeConversationPollIntervalMs = 150;
 
 export function ChatPanel({ workspace }: { workspace: WorkspaceSummary | null }) {
   if (!workspace) {
@@ -210,7 +208,6 @@ function useChatViewState(workspaceId: string | null) {
   const loadWorkspace = useChatStore((state) => state.loadWorkspace);
   const messages = useChatStore((state) => state.messages);
   const operation = useChatStore((state) => state.operation);
-  const refreshActiveConversation = useChatStore((state) => state.refreshActiveConversation);
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
   const sendMessage = useChatStore((state) => state.sendMessage);
@@ -218,8 +215,6 @@ function useChatViewState(workspaceId: string | null) {
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
-  const shouldPoll = shouldPollConversation(activeRun, messages);
-  const refreshInFlight = useRef(false);
 
   useEffect(() => {
     if (!workspaceId || workspaceId === storeWorkspaceId) {
@@ -227,24 +222,6 @@ function useChatViewState(workspaceId: string | null) {
     }
     void loadWorkspace(workspaceId);
   }, [loadWorkspace, storeWorkspaceId, workspaceId]);
-
-  useEffect(() => {
-    if (!shouldPoll) {
-      return;
-    }
-    function refreshWhenIdle() {
-      if (refreshInFlight.current) {
-        return;
-      }
-      refreshInFlight.current = true;
-      void refreshActiveConversation().finally(() => {
-        refreshInFlight.current = false;
-      });
-    }
-    refreshWhenIdle();
-    const timer = window.setInterval(refreshWhenIdle, activeConversationPollIntervalMs);
-    return () => window.clearInterval(timer);
-  }, [refreshActiveConversation, shouldPoll]);
 
   return {
     activeRun,

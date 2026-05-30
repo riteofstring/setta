@@ -1,5 +1,6 @@
 import type {
   BackendHealth,
+  ChatEvent,
   ChatMessage,
   Conversation,
   ConversationListItem,
@@ -10,12 +11,7 @@ import type {
 import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import {
-  mergeMessagesByRevision,
-  prependOlderMessages,
-  shouldPollConversation,
-  useChatStore,
-} from "./chat-store";
+import { prependOlderMessages, useChatStore } from "./chat-store";
 
 describe("chat store", () => {
   beforeEach(() => {
@@ -24,6 +20,7 @@ describe("chat store", () => {
       conversations: [],
       error: null,
       hasMoreOlder: false,
+      lastEventSequence: 0,
       messages: [],
       operation: null,
       selectedConversation: null,
@@ -167,17 +164,6 @@ describe("chat store", () => {
     });
   });
 
-  test("preserves unchanged message objects while refreshing active conversation", () => {
-    const user = message("message_user", 1, "user", "complete", "hello");
-    const assistant = message("message_assistant", 2, "assistant", "streaming", "");
-    const updatedAssistant = { ...assistant, updatedAt: "2026-05-29T20:00:01Z" };
-
-    const merged = mergeMessagesByRevision([user, assistant], [user, updatedAssistant]);
-
-    expect(merged[0]).toBe(user);
-    expect(merged[1]).toBe(updatedAssistant);
-  });
-
   test("prepends older pages without duplicating messages already visible", () => {
     const currentLatest = message("message_latest", 2, "assistant", "streaming", "latest");
     const staleLatest = replaceMessageText(currentLatest, "stale latest");
@@ -191,14 +177,88 @@ describe("chat store", () => {
     expect(merged[1]).toBe(currentLatest);
   });
 
-  test("continues polling while visible messages are still streaming", () => {
-    expect(
-      shouldPollConversation(null, [message("message_assistant", 2, "assistant", "streaming", "")]),
-    ).toBe(true);
-    expect(
-      shouldPollConversation(null, [message("message_assistant", 2, "assistant", "complete", "")]),
-    ).toBe(false);
-    expect(shouldPollConversation(testRun("running"), [])).toBe(true);
+  test("applies pushed chat events to the active conversation", () => {
+    const conversation = testConversation();
+    const user = message("message_user", 1, "user", "complete", "hello");
+    const assistant = message("message_assistant", 2, "assistant", "streaming", "");
+    const updatedConversation = { ...conversation, title: "Updated chat" };
+    useChatStore.setState({
+      conversations: [conversationItem(conversation, 0)],
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    useChatStore.getState().handleEvent(messageCreatedEvent(1, user, "run_api"));
+    useChatStore.getState().handleEvent(messageCreatedEvent(2, assistant, "run_api"));
+    const assistantPart = assistant.parts[0];
+    if (!assistantPart) {
+      throw new Error("assistant test message must include a part");
+    }
+    useChatStore
+      .getState()
+      .handleEvent(assistantDeltaEvent(3, assistant.id, assistantPart.id, "done"));
+    useChatStore.getState().handleEvent(runUpdatedEvent(4, testRun("running")));
+    useChatStore
+      .getState()
+      .handleEvent(
+        conversationUpdatedEvent(5, conversationItem(updatedConversation, 2, "run_api")),
+      );
+
+    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual([
+      "message_user",
+      "message_assistant",
+    ]);
+    expect(useChatStore.getState().messages[1]?.parts[0]?.text).toBe("done");
+    expect(useChatStore.getState().activeRun?.id).toBe("run_api");
+    expect(useChatStore.getState().selectedConversation?.title).toBe("Updated chat");
+    expect(useChatStore.getState().conversations[0]?.messageCount).toBe(2);
+  });
+
+  test("ignores pushed message events for unrelated conversations", () => {
+    const conversation = testConversation();
+    useChatStore.setState({
+      messages: [message("message_existing", 1, "user", "complete", "existing")],
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+    const unrelated = {
+      ...message("message_other", 1, "user", "complete", "other"),
+      conversationId: "conversation_other",
+    };
+
+    useChatStore.getState().handleEvent({
+      ...messageCreatedEvent(1, unrelated, ""),
+      conversationId: "conversation_other",
+    });
+
+    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual(["message_existing"]);
+    expect(useChatStore.getState().lastEventSequence).toBe(1);
+  });
+
+  test("resync-required events reload the selected snapshot", async () => {
+    const conversation = testConversation();
+    const listConversations = vi.fn().mockResolvedValue({
+      conversations: [conversationItem(conversation, 1)],
+    });
+    const messagePage = vi
+      .fn()
+      .mockResolvedValue(
+        testPage(conversation, [message("message_latest", 1, "user", "complete", "latest")]),
+      );
+    installSettaAPI({ chat: { listConversations, messagePage } });
+    useChatStore.setState({
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    useChatStore.getState().handleEvent(resyncRequiredEvent(1));
+    await waitFor(() => messagePage.mock.calls.length === 1);
+
+    expect(listConversations).toHaveBeenCalledWith("workspace_api");
+    expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
   });
 });
 
@@ -230,6 +290,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       createConversation: async () => conversation,
       listConversations: async () => ({ conversations: [] }),
       messagePage: async () => testPage(conversation, []),
+      onEvent: () => () => {},
       sendMessage: async () => ({
         assistantMessage: message("message_assistant", 2, "assistant", "complete", "done"),
         conversation,
@@ -259,6 +320,103 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       setta: api,
     },
   });
+}
+
+function messageCreatedEvent(sequence: number, chatMessage: ChatMessage, runId: string): ChatEvent {
+  return {
+    conversationId: chatMessage.conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: String(sequence),
+    payload: {
+      message: chatMessage,
+    },
+    runId,
+    schemaVersion: 1,
+    sequence,
+    type: "chat.message.created",
+    workspaceId: "workspace_api",
+  };
+}
+
+function assistantDeltaEvent(
+  sequence: number,
+  messageId: string,
+  partId: string,
+  delta: string,
+): ChatEvent {
+  return {
+    conversationId: "conversation_api",
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: String(sequence),
+    payload: {
+      delta,
+      messageId,
+      partId,
+      updatedAt: "2026-05-29T20:00:01Z",
+    },
+    runId: "run_api",
+    schemaVersion: 1,
+    sequence,
+    type: "chat.assistant_text_delta",
+    workspaceId: "workspace_api",
+  };
+}
+
+function runUpdatedEvent(sequence: number, run: Run): ChatEvent {
+  return {
+    conversationId: run.conversationId,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: String(sequence),
+    payload: { run },
+    runId: run.id,
+    schemaVersion: 1,
+    sequence,
+    type: "chat.run.updated",
+    workspaceId: run.workspaceId,
+  };
+}
+
+function conversationUpdatedEvent(sequence: number, item: ConversationListItem): ChatEvent {
+  return {
+    conversationId: item.conversation.id,
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: String(sequence),
+    payload: { item },
+    runId: item.activeRunId,
+    schemaVersion: 1,
+    sequence,
+    type: "chat.conversation.updated",
+    workspaceId: item.conversation.workspaceId,
+  };
+}
+
+function resyncRequiredEvent(sequence: number): ChatEvent {
+  return {
+    conversationId: "",
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: String(sequence),
+    payload: {
+      currentSequence: sequence,
+      earliestSequence: 0,
+      reason: "test resync",
+      requestedSequence: sequence - 1,
+    },
+    runId: "",
+    schemaVersion: 1,
+    sequence,
+    type: "chat.resync_required",
+    workspaceId: "",
+  };
+}
+
+async function waitFor(done: () => boolean) {
+  const startedAt = Date.now();
+  while (!done()) {
+    if (Date.now() - startedAt > 2_000) {
+      throw new Error("timed out waiting for condition");
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
 }
 
 function testConversation(): Conversation {

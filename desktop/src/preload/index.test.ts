@@ -1,7 +1,8 @@
 import type { SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { ipcChannels } from "@shared/ipc";
+import type { ChatEvent } from "@generated/backend";
+import { ipcChannels, ipcEvents } from "@shared/ipc";
 
 describe("preload workspace API", () => {
   beforeEach(() => {
@@ -56,6 +57,8 @@ describe("preload workspace API", () => {
   test("exposes typed chat methods through IPC", async () => {
     const exposed: Record<string, unknown> = {};
     const invoke = vi.fn();
+    const on = vi.fn();
+    const removeListener = vi.fn();
     vi.doMock("electron", () => ({
       contextBridge: {
         exposeInMainWorld: (name: string, api: unknown) => {
@@ -64,6 +67,8 @@ describe("preload workspace API", () => {
       },
       ipcRenderer: {
         invoke,
+        on,
+        removeListener,
       },
     }));
 
@@ -76,6 +81,7 @@ describe("preload workspace API", () => {
       "createConversation",
       "listConversations",
       "messagePage",
+      "onEvent",
       "sendMessage",
       "submitApproval",
     ]);
@@ -95,6 +101,15 @@ describe("preload workspace API", () => {
       response: "",
       workspaceId: "workspace_api",
     });
+    const listener = vi.fn();
+    const unsubscribe = api.chat.onEvent(listener);
+    const event = chatEvent();
+    const handler = on.mock.calls[0]?.[1];
+    if (typeof handler !== "function") {
+      throw new Error("chat event handler was not registered");
+    }
+    handler({}, event);
+    unsubscribe();
 
     expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.chatListConversations, "workspace_api");
     expect(invoke).toHaveBeenNthCalledWith(
@@ -139,5 +154,42 @@ describe("preload workspace API", () => {
       response: "",
       workspaceId: "workspace_api",
     });
+    expect(on).toHaveBeenCalledWith(ipcEvents.chatEvent, expect.any(Function));
+    expect(listener).toHaveBeenCalledWith(event);
+    expect(removeListener).toHaveBeenCalledWith(ipcEvents.chatEvent, handler);
   });
 });
+
+function chatEvent(): ChatEvent {
+  return {
+    conversationId: "conversation_api",
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: "1",
+    payload: {
+      message: {
+        conversationId: "conversation_api",
+        createdAt: "2026-05-29T20:00:00Z",
+        id: "message_user",
+        ordinal: 1,
+        parts: [
+          {
+            format: "plain",
+            id: "part_user",
+            text: "hello",
+            type: "text",
+          },
+        ],
+        role: "user",
+        runId: "",
+        schemaVersion: 1,
+        status: "complete",
+        updatedAt: "2026-05-29T20:00:00Z",
+      },
+    },
+    runId: "run_api",
+    schemaVersion: 1,
+    sequence: 1,
+    type: "chat.message.created",
+    workspaceId: "workspace_api",
+  };
+}

@@ -1,10 +1,9 @@
 import type {
   ApprovalAnswer,
+  ChatEvent,
   ChatMessage,
   Conversation,
   ConversationListItem,
-  GetActiveRunResponse,
-  ListConversationsResponse,
   MessagePage,
   Run,
 } from "@generated/backend";
@@ -26,11 +25,13 @@ interface ChatStore {
   conversations: ConversationListItem[];
   error: string | null;
   hasMoreOlder: boolean;
+  handleEvent: (event: ChatEvent) => void;
+  lastEventSequence: number;
   loadOlder: () => Promise<void>;
   loadWorkspace: (workspaceId: string) => Promise<void>;
   messages: ChatMessage[];
   operation: ChatOperation;
-  refreshActiveConversation: () => Promise<void>;
+  resyncActiveConversation: () => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
   selectedConversation: Conversation | null;
   selectConversation: (conversationId: string) => Promise<void>;
@@ -54,6 +55,7 @@ type ChatPatch = Partial<
     | "conversations"
     | "error"
     | "hasMoreOlder"
+    | "lastEventSequence"
     | "messages"
     | "operation"
     | "selectedConversation"
@@ -130,6 +132,27 @@ export const useChatStore = create<ChatStore>((set, get) => {
     },
     error: null,
     hasMoreOlder: false,
+    handleEvent: (event) => {
+      const state = get();
+      if (event.sequence <= state.lastEventSequence) {
+        return;
+      }
+      if (state.lastEventSequence !== 0 && event.sequence !== state.lastEventSequence + 1) {
+        set({ lastEventSequence: event.sequence });
+        void get().resyncActiveConversation();
+        return;
+      }
+      if (event.type === "chat.resync_required") {
+        set({ lastEventSequence: event.sequence });
+        void get().resyncActiveConversation();
+        return;
+      }
+      const result = applyChatEvent(state, event);
+      set({ ...result.patch, lastEventSequence: event.sequence });
+      if (result.resync) {
+        void get().resyncActiveConversation();
+      }
+    },
     loadOlder: async () => {
       const { messages, selectedConversation, workspaceId } = get();
       const firstMessage = messages[0];
@@ -191,36 +214,33 @@ export const useChatStore = create<ChatStore>((set, get) => {
         commitCurrent(operationId, errorPatch(error));
       }
     },
+    lastEventSequence: 0,
     messages: [],
     operation: null,
-    refreshActiveConversation: async () => {
+    resyncActiveConversation: async () => {
       const { selectedConversation, workspaceId } = get();
-      if (!workspaceId || !selectedConversation) {
+      if (!workspaceId) {
         return;
       }
+      const operationId = beginOperation({ error: null, operation: "refreshing" });
       try {
-        const [page, active] = await Promise.all([
-          window.setta.chat.messagePage(workspaceId, selectedConversation.id, 0, pageLimit),
-          window.setta.chat.activeRun(workspaceId, selectedConversation.id),
-        ]);
-        const nextActiveRun = activeRunFromResponse(active);
-        const list = await reloadListAfterRunCompletion(
-          workspaceId,
-          get().activeRun,
-          nextActiveRun,
-        );
-        const current = get();
-        if (!isSelectedConversation(current, workspaceId, selectedConversation.id)) {
-          return;
-        }
-        set({
-          ...pagePatch(page, nextActiveRun),
-          ...conversationListPatch(list),
-          messages: mergeMessagesByRevision(current.messages, page.messages),
+        const list = await reloadConversations(workspaceId);
+        const nextConversation = selectedConversation
+          ? (list.conversations.find((item) => item.conversation.id === selectedConversation.id)
+              ?.conversation ?? selectedConversation)
+          : (list.conversations[0]?.conversation ?? null);
+        const patch = nextConversation
+          ? await loadConversationPage(workspaceId, nextConversation)
+          : emptyConversationPatch();
+        commitCurrent(operationId, {
+          ...patch,
+          conversations: list.conversations,
+          operation: null,
+          selectedConversation: nextConversation,
           status: "ready",
         });
       } catch (error) {
-        set(errorPatch(error));
+        commitCurrent(operationId, errorPatch(error));
       }
     },
     selectConversation: async (conversationId: string) => {
@@ -260,10 +280,8 @@ export const useChatStore = create<ChatStore>((set, get) => {
           selectedConversation.id,
           prompt,
         );
-        const list = await reloadConversations(workspaceId);
         commitCurrent(operationId, {
           ...pagePatch(result.page, result.run),
-          conversations: list.conversations,
           operation: null,
           selectedConversation: result.conversation,
           status: "ready",
@@ -281,14 +299,8 @@ export const useChatStore = create<ChatStore>((set, get) => {
       const operationId = beginOperation({ error: null, operation: "cancelling" });
       try {
         const run = await window.setta.chat.cancelRun(workspaceId, selectedConversation.id);
-        const page = await window.setta.chat.messagePage(
-          workspaceId,
-          selectedConversation.id,
-          0,
-          pageLimit,
-        );
         commitCurrent(operationId, {
-          ...pagePatch(page, run.status === "running" ? run : null),
+          activeRun: run,
           operation: null,
           status: "ready",
         });
@@ -343,55 +355,12 @@ function emptyConversationPatch(): ChatPatch {
   };
 }
 
-function activeRunFromResponse(response: GetActiveRunResponse): Run | null {
-  if (!response.hasActiveRun) {
-    return null;
-  }
-  return response.run;
-}
-
-async function reloadListAfterRunCompletion(
-  workspaceId: string,
-  previousRun: Run | null,
-  nextRun: Run | null,
-) {
-  if (!previousRun || nextRun) {
-    return null;
-  }
-  return window.setta.chat.listConversations(workspaceId);
-}
-
-function isSelectedConversation(state: ChatStore, workspaceId: string, conversationId: string) {
-  return state.workspaceId === workspaceId && state.selectedConversation?.id === conversationId;
-}
-
-function conversationListPatch(list: ListConversationsResponse | null): ChatPatch {
-  if (!list) {
-    return {};
-  }
-  return { conversations: list.conversations };
-}
-
 function errorPatch(error: unknown): ChatPatch {
   return {
     error: error instanceof Error ? error.message : "Chat operation failed",
     operation: null,
     status: "error",
   };
-}
-
-export function mergeMessagesByRevision(
-  currentMessages: ChatMessage[],
-  nextMessages: ChatMessage[],
-): ChatMessage[] {
-  const currentByID = new Map(currentMessages.map((message) => [message.id, message]));
-  return nextMessages.map((next) => {
-    const current = currentByID.get(next.id);
-    if (!current || messageRevision(current) !== messageRevision(next)) {
-      return next;
-    }
-    return current;
-  });
 }
 
 export function prependOlderMessages(
@@ -402,21 +371,144 @@ export function prependOlderMessages(
   return [...olderMessages.filter((message) => !currentIDs.has(message.id)), ...currentMessages];
 }
 
-export function shouldPollConversation(activeRun: Run | null, messages: ChatMessage[]): boolean {
+interface EventApplyResult {
+  patch: ChatPatch;
+  resync: boolean;
+}
+
+function applyChatEvent(
+  state: ChatStore,
+  event: Exclude<ChatEvent, { type: "chat.resync_required" }>,
+): EventApplyResult {
+  switch (event.type) {
+    case "chat.message.created":
+      return selectedConversationEventResult(state, event, {
+        messages: upsertMessage(state.messages, event.payload.message),
+        status: "ready",
+      });
+    case "chat.assistant_text_delta":
+      return applyAssistantTextDelta(state, event);
+    case "chat.message.updated":
+      return selectedConversationEventResult(state, event, {
+        messages: upsertMessage(state.messages, event.payload.message),
+        status: "ready",
+      });
+    case "chat.run.updated":
+      return selectedConversationEventResult(state, event, {
+        activeRun: event.payload.run,
+        status: "ready",
+      });
+    case "chat.conversation.updated":
+      return workspaceEventResult(
+        state,
+        event,
+        conversationUpdatedPatch(state, event.payload.item),
+      );
+    default:
+      return assertNever(event);
+  }
+}
+
+function selectedConversationEventResult(
+  state: ChatStore,
+  event: ChatEvent,
+  patch: ChatPatch,
+): EventApplyResult {
+  if (!isSelectedConversationEvent(state, event)) {
+    return unchangedEventResult();
+  }
+  return { patch, resync: false };
+}
+
+function workspaceEventResult(
+  state: ChatStore,
+  event: ChatEvent,
+  patch: ChatPatch,
+): EventApplyResult {
+  if (state.workspaceId !== event.workspaceId) {
+    return unchangedEventResult();
+  }
+  return { patch, resync: false };
+}
+
+function applyAssistantTextDelta(
+  state: ChatStore,
+  event: Extract<ChatEvent, { type: "chat.assistant_text_delta" }>,
+): EventApplyResult {
+  if (!isSelectedConversationEvent(state, event)) {
+    return unchangedEventResult();
+  }
+  let foundMessage = false;
+  let foundPart = false;
+  const messages = state.messages.map((message) => {
+    if (message.id !== event.payload.messageId) {
+      return message;
+    }
+    foundMessage = true;
+    return {
+      ...message,
+      parts: message.parts.map((part) => {
+        if (part.id !== event.payload.partId) {
+          return part;
+        }
+        foundPart = true;
+        return { ...part, text: part.text + event.payload.delta };
+      }),
+      updatedAt: event.payload.updatedAt,
+    };
+  });
+  if (!foundMessage || !foundPart) {
+    return { patch: {}, resync: true };
+  }
+  return { patch: { messages, status: "ready" }, resync: false };
+}
+
+function conversationUpdatedPatch(state: ChatStore, item: ConversationListItem): ChatPatch {
+  const selectedConversation =
+    state.selectedConversation?.id === item.conversation.id
+      ? item.conversation
+      : state.selectedConversation;
+  return {
+    conversations: upsertConversation(state.conversations, item),
+    selectedConversation,
+  };
+}
+
+function isSelectedConversationEvent(state: ChatStore, event: ChatEvent) {
   return (
-    activeRun?.status === "running" || messages.some((message) => message.status === "streaming")
+    state.workspaceId === event.workspaceId &&
+    state.selectedConversation?.id === event.conversationId
   );
 }
 
-function messageRevision(message: ChatMessage) {
-  return [
-    message.id,
-    message.runId,
-    message.role,
-    message.status,
-    message.updatedAt,
-    message.parts
-      .map((part) => `${part.id}:${part.type}:${part.format}:${part.text}`)
-      .join("\u0000"),
-  ].join("\u0001");
+function upsertMessage(messages: ChatMessage[], message: ChatMessage): ChatMessage[] {
+  const index = messages.findIndex((item) => item.id === message.id);
+  const next = index === -1 ? [...messages, message] : messages.with(index, message);
+  return next.toSorted((left, right) => left.ordinal - right.ordinal);
+}
+
+function upsertConversation(
+  conversations: ConversationListItem[],
+  item: ConversationListItem,
+): ConversationListItem[] {
+  const index = conversations.findIndex(
+    (current) => current.conversation.id === item.conversation.id,
+  );
+  const next = index === -1 ? [...conversations, item] : conversations.with(index, item);
+  return next.toSorted(compareConversationListItems);
+}
+
+function compareConversationListItems(left: ConversationListItem, right: ConversationListItem) {
+  if (left.conversation.updatedAt === right.conversation.updatedAt) {
+    return left.conversation.id.localeCompare(right.conversation.id);
+  }
+  return right.conversation.updatedAt.localeCompare(left.conversation.updatedAt);
+}
+
+function unchangedEventResult(): EventApplyResult {
+  return { patch: {}, resync: false };
+}
+
+function assertNever(value: never): never {
+  throw new Error(`Unhandled chat event: ${JSON.stringify(value)}`);
 }

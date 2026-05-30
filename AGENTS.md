@@ -11,6 +11,8 @@
 
 - Pin checked-in direct dependency versions exactly. Do not use floating version ranges like `^`, `~`, `>=`, `>`, `*`, or `latest` in dependency manifests.
 - Use `./update_dependencies.sh` when a dependency update needs lockfile changes.
+- Use `./scripts/go.sh` for all Go commands so the repo-pinned Go toolchain is used. For example, run `./scripts/go.sh test ./...`, `./scripts/go.sh test ./internal/chat`, and `./scripts/go.sh run ./cmd/generate-contracts`; do not call `go` directly unless you are intentionally debugging outside the pinned toolchain.
+- Prefer `./scripts/format.sh` for formatting. If direct `gofmt` is needed, run it through the pinned toolchain with `"$("./scripts/go.sh" env GOROOT)/bin/gofmt" -w <files>`.
 - Before committing source code, tests, scripts, generated inputs, generated outputs, build configuration, lint configuration, format configuration, or executable examples, run `./scripts/format.sh` and `./check_quality.sh --all`.
 - Before committing dependency manifests, lockfiles, package manager configuration, Go module configuration, or supply-chain tooling, run `./scripts/check_supply_chain.sh`.
 - Before broad implementation commits or release-like commits, run `./scripts/format.sh`, `./check_quality.sh --all`, and `./scripts/check_supply_chain.sh`.
@@ -31,6 +33,7 @@
 
 - Keep shared constants at the owning domain boundary, not scattered at the top of unrelated files. Avoid a global constants junk drawer. File-local constants are fine only for private implementation details.
 - Prefer TypeScript discriminated unions, `satisfies` mappings, and `never` assertions so switch statements and status handling are checked exhaustively.
+- Prefer push-based updates over polling. Do not add polling unless there is a strong, explicit justification and the tradeoffs are documented.
 - Do not embed large blocks of executable code in string literals. Prefer normal
   source files, typed helpers, fixtures, or templates that can be formatted,
   linted, typechecked, and tested. Keep string-embedded code limited to small

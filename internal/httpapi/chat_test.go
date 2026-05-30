@@ -1,8 +1,13 @@
 package httpapi
 
 import (
+	"bufio"
+	"context"
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -109,6 +114,47 @@ func TestChatEndpointsSubmitApproval(t *testing.T) {
 	}
 }
 
+func TestChatEventStreamStreamsServerSentEvents(t *testing.T) {
+	handler := newChatHandler(t, []chat.FakeHarnessEvent{{Type: chat.FakeEventAssistantDelta, Text: "done"}})
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/events", nil)
+	if err != nil {
+		t.Fatalf("create event stream request: %v", err)
+	}
+	response, err := server.Client().Do(request)
+	if err != nil {
+		t.Fatalf("open event stream: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("event stream status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+	if response.Header.Get("Content-Type") != "text/event-stream" {
+		t.Fatalf("event stream content type = %q, want text/event-stream", response.Header.Get("Content-Type"))
+	}
+
+	postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "stream events",
+	}, http.StatusOK)
+
+	event := readServerSentChatEvent(t, bufio.NewReader(response.Body))
+	if event.SchemaVersion != chat.EventSchemaVersion || event.Sequence == 0 || event.EventID == "" {
+		t.Fatalf("event envelope = %+v, want schema sequence and id", event)
+	}
+	if event.Type == "" || event.Payload == nil {
+		t.Fatalf("event = %+v, want typed payload", event)
+	}
+	waitForAssistantStatus(t, handler, opened.Workspace.ID, conversation.ID, chat.MessageStatusComplete)
+	cancel()
+}
+
 func newChatHandler(t *testing.T, events []chat.FakeHarnessEvent) http.Handler {
 	t.Helper()
 
@@ -143,6 +189,32 @@ func newChatHandler(t *testing.T, events []chat.FakeHarnessEvent) http.Handler {
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService: workspaceService,
 	})
+}
+
+func readServerSentChatEvent(t *testing.T, reader *bufio.Reader) chat.Event {
+	t.Helper()
+
+	var data string
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			t.Fatalf("read event stream line: %v", err)
+		}
+		line = strings.TrimRight(line, "\r\n")
+		if line == "" {
+			if data == "" {
+				continue
+			}
+			var event chat.Event
+			if err := json.Unmarshal([]byte(data), &event); err != nil {
+				t.Fatalf("decode event stream data: %v", err)
+			}
+			return event
+		}
+		if strings.HasPrefix(line, "data: ") {
+			data = strings.TrimPrefix(line, "data: ")
+		}
+	}
 }
 
 func waitForAssistantStatus(t *testing.T, handler http.Handler, workspaceID string, conversationID string, status string) chat.MessagePage {

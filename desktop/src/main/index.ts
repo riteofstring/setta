@@ -3,13 +3,16 @@ import type { OpenDialogOptions } from "electron";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { createBackendClient, type BackendClient } from "@generated/backend";
+import { createBackendClient, type BackendClient, type ChatEvent } from "@generated/backend";
 import { handleIpc, ipcEvents } from "@shared/ipc";
 import { recordingRendererEventChannel, type RendererRecordedEvent } from "@shared/recording";
+import { startBackendEventStream, type BackendEventStream } from "./backend-event-stream";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
+import { forwardChatEventToWindows } from "./chat-event-forwarding";
 import { createSessionRecorder, type SessionRecorder } from "./session-recorder";
 
 let backend: BackendHandle | null = null;
+let backendEventStream: BackendEventStream | null = null;
 let backendStartupError: string | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
@@ -40,16 +43,52 @@ async function prepareBackend(appDataDir: string) {
     });
     backend.events.on("exit", (exit) => {
       recorder?.recordBackendExit(exit);
+      void stopChatEventStream();
       if (!exit.expected) {
         mainWindow?.webContents.send(ipcEvents.backendUnexpectedExit, exit);
         void recorder?.captureScreenshot(mainWindow, "backend-unexpected-exit");
       }
     });
+    startChatEventStream();
   } catch (error) {
     backend = null;
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
     recorder?.recordBackendStartupError(backendStartupError);
   }
+}
+
+function startChatEventStream() {
+  if (!backend) {
+    return;
+  }
+  void stopChatEventStream();
+  backendEventStream = startBackendEventStream({
+    baseURL: backend.url,
+    fetchImpl: recorder?.createBackendFetch(fetch) ?? fetch,
+    observer: {
+      forwarded: (event) => {
+        recorder?.recordAppEvent("chat_event_forwarded", {
+          eventId: event.eventId,
+          sequence: event.sequence,
+          type: event.type,
+        });
+      },
+      lifecycle: (event) => {
+        recorder?.recordAppEvent("chat_event_stream_" + event.type, event);
+      },
+    },
+    sendEvent: forwardChatEvent,
+  });
+}
+
+async function stopChatEventStream() {
+  const stream = backendEventStream;
+  backendEventStream = null;
+  await stream?.stop();
+}
+
+function forwardChatEvent(event: ChatEvent) {
+  forwardChatEventToWindows(BrowserWindow.getAllWindows(), event);
 }
 
 function settaAppDataDir() {
@@ -250,6 +289,7 @@ function requireBackendClient(): BackendClient {
 }
 
 async function stopBackend() {
+  await stopChatEventStream();
   await backend?.stop();
   backend = null;
 }

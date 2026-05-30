@@ -14,11 +14,12 @@ type ContractSchema struct {
 }
 
 type ContractEndpoint struct {
-	Name     string
-	Method   string
-	Path     string
-	Request  reflect.Type
-	Response reflect.Type
+	Name      string
+	Method    string
+	Path      string
+	Request   reflect.Type
+	Response  reflect.Type
+	Streaming bool
 }
 
 type endpoint struct {
@@ -43,6 +44,7 @@ var apiEndpoints = []endpoint{
 	post[CancelRunRequest, chat.Run]("CancelRun", "/chat/runs/cancel", handler.cancelRun),
 	post[GetActiveRunRequest, GetActiveRunResponse]("GetActiveRun", "/chat/runs/active", handler.getActiveRun),
 	post[SubmitApprovalRequest, chat.Run]("SubmitApproval", "/chat/approvals/submit", handler.submitApproval),
+	stream("EventStream", "/events", handler.eventStream),
 }
 
 func Contracts() ContractSchema {
@@ -72,6 +74,18 @@ func get[Response any](name string, path string, handler routeHandler) endpoint 
 			Method:   http.MethodGet,
 			Path:     path,
 			Response: reflect.TypeFor[Response](),
+		},
+		Handler: handler,
+	}
+}
+
+func stream(name string, path string, handler routeHandler) endpoint {
+	return endpoint{
+		ContractEndpoint: ContractEndpoint{
+			Name:      name,
+			Method:    http.MethodGet,
+			Path:      path,
+			Streaming: true,
 		},
 		Handler: handler,
 	}

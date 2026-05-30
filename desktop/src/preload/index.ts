@@ -1,6 +1,7 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
-import { createRendererIpcInvoke } from "@shared/ipc";
+import { decodeChatEvent } from "@generated/backend";
+import { createRendererIpcInvoke, ipcEvents } from "@shared/ipc";
 import type { SettaAPI } from "@shared/types";
 import { installRendererRecorder } from "./renderer-recorder";
 
@@ -27,6 +28,15 @@ const api: SettaAPI = {
       beforeOrdinal: number,
       limit: number,
     ) => invoke("chatMessagePage", workspaceId, conversationId, beforeOrdinal, limit),
+    onEvent: (listener) => {
+      const handler = (_event: IpcRendererEvent, payload: unknown) => {
+        listener(decodeChatEvent(payload));
+      };
+      ipcRenderer.on(ipcEvents.chatEvent, handler);
+      return () => {
+        ipcRenderer.removeListener(ipcEvents.chatEvent, handler);
+      };
+    },
     sendMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSendMessage", workspaceId, conversationId, prompt),
     submitApproval: (input) => invoke("chatSubmitApproval", input),

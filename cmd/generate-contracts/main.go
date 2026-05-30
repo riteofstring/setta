@@ -10,12 +10,14 @@ import (
 	"reflect"
 	"strings"
 
+	"setta/internal/chat"
 	"setta/internal/httpapi"
 )
 
 type contractSpec struct {
 	Endpoints     []endpointSpec
 	ErrorResponse reflect.Type
+	Events        []eventSpec
 	Interfaces    []interfaceSpec
 }
 
@@ -26,11 +28,18 @@ type endpointSpec struct {
 	Path          string
 	Request       reflect.Type
 	Response      reflect.Type
+	Streaming     bool
 }
 
 type interfaceSpec struct {
 	Name string
 	Type reflect.Type
+}
+
+type eventSpec struct {
+	Name    string
+	Payload reflect.Type
+	Type    string
 }
 
 type decoderHelpers struct {
@@ -57,7 +66,7 @@ func main() {
 	output := flag.String("out", "desktop/src/generated/backend.ts", "generated TypeScript output path")
 	flag.Parse()
 
-	specs, err := contractSpecs(httpapi.Contracts())
+	specs, err := contractSpecs(httpapi.Contracts(), chat.EventContracts())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "collect contracts: %v\n", err)
 		os.Exit(1)
@@ -79,7 +88,7 @@ func main() {
 	}
 }
 
-func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
+func contractSpecs(schema httpapi.ContractSchema, eventSchema chat.EventContractSchema) (contractSpec, error) {
 	collector := contractCollector{
 		states: map[reflect.Type]visitState{},
 		names:  map[string]reflect.Type{},
@@ -92,9 +101,14 @@ func contractSpecs(schema httpapi.ContractSchema) (contractSpec, error) {
 	if err != nil {
 		return contractSpec{}, err
 	}
+	events, err := eventSpecs(eventSchema, &collector)
+	if err != nil {
+		return contractSpec{}, err
+	}
 	return contractSpec{
 		Endpoints:     endpoints,
 		ErrorResponse: errorResponse,
+		Events:        events,
 		Interfaces:    collector.specs,
 	}, nil
 }
@@ -111,8 +125,10 @@ func endpointSpecs(endpoints []httpapi.ContractEndpoint, collector *contractColl
 		if err := collector.add(endpoint.Request); err != nil {
 			return nil, fmt.Errorf("%s request: %w", endpoint.Name, err)
 		}
-		if err := collector.add(endpoint.Response); err != nil {
-			return nil, fmt.Errorf("%s response: %w", endpoint.Name, err)
+		if endpoint.Response != nil {
+			if err := collector.add(endpoint.Response); err != nil {
+				return nil, fmt.Errorf("%s response: %w", endpoint.Name, err)
+			}
 		}
 		specs = append(specs, spec)
 	}
@@ -145,10 +161,18 @@ func validateEndpoint(index int, endpoint httpapi.ContractEndpoint, names map[st
 		Path:          endpoint.Path,
 		Request:       endpoint.Request,
 		Response:      endpoint.Response,
+		Streaming:     endpoint.Streaming,
 	}, nil
 }
 
 func validateRoute(endpoint httpapi.ContractEndpoint) error {
+	if err := validateRouteShape(endpoint); err != nil {
+		return err
+	}
+	return validateRouteContract(endpoint)
+}
+
+func validateRouteShape(endpoint httpapi.ContractEndpoint) error {
 	if endpoint.Method != http.MethodGet && endpoint.Method != http.MethodPost {
 		return fmt.Errorf("%s has unsupported method %s", endpoint.Name, endpoint.Method)
 	}
@@ -158,16 +182,64 @@ func validateRoute(endpoint httpapi.ContractEndpoint) error {
 	if strings.ContainsAny(endpoint.Path, " \t\r\n") {
 		return fmt.Errorf("%s path contains whitespace: %s", endpoint.Name, endpoint.Path)
 	}
+	return nil
+}
+
+func validateRouteContract(endpoint httpapi.ContractEndpoint) error {
 	if endpoint.Method == http.MethodGet && endpoint.Request != nil {
 		return fmt.Errorf("%s GET endpoint must not declare a request body", endpoint.Name)
 	}
 	if endpoint.Method == http.MethodPost && endpoint.Request == nil {
 		return fmt.Errorf("%s POST endpoint must declare a request body", endpoint.Name)
 	}
-	if endpoint.Response == nil {
+	if endpoint.Streaming && endpoint.Response != nil {
+		return fmt.Errorf("%s streaming endpoint must not declare a response type", endpoint.Name)
+	}
+	if !endpoint.Streaming && endpoint.Response == nil {
 		return fmt.Errorf("%s has empty response type", endpoint.Name)
 	}
 	return nil
+}
+
+func eventSpecs(schema chat.EventContractSchema, collector *contractCollector) ([]eventSpec, error) {
+	names := map[string]bool{}
+	types := map[string]bool{}
+	specs := make([]eventSpec, 0, len(schema.Events))
+	for index, event := range schema.Events {
+		spec, err := validateEvent(index, event, names, types)
+		if err != nil {
+			return nil, err
+		}
+		if err := collector.add(event.Payload); err != nil {
+			return nil, fmt.Errorf("%s payload: %w", event.Name, err)
+		}
+		specs = append(specs, spec)
+	}
+	return specs, nil
+}
+
+func validateEvent(index int, event chat.EventContract, names map[string]bool, types map[string]bool) (eventSpec, error) {
+	if event.Name == "" {
+		return eventSpec{}, fmt.Errorf("event %d has empty name", index)
+	}
+	if !isTypeScriptIdentifier(event.Name) || !isUpperASCII(event.Name[0]) {
+		return eventSpec{}, fmt.Errorf("%s has unsupported event name", event.Name)
+	}
+	if names[event.Name] {
+		return eventSpec{}, fmt.Errorf("duplicate event name %s", event.Name)
+	}
+	names[event.Name] = true
+	if event.Type == "" {
+		return eventSpec{}, fmt.Errorf("%s has empty event type", event.Name)
+	}
+	if types[event.Type] {
+		return eventSpec{}, fmt.Errorf("duplicate event type %s", event.Type)
+	}
+	types[event.Type] = true
+	if event.Payload == nil || event.Payload.Kind() != reflect.Struct || event.Payload.Name() == "" {
+		return eventSpec{}, fmt.Errorf("%s has unsupported payload type %s", event.Name, event.Payload)
+	}
+	return eventSpec{Name: event.Name, Payload: event.Payload, Type: event.Type}, nil
 }
 
 func errorResponseSpec(errorResponses []reflect.Type, collector *contractCollector) (reflect.Type, error) {
@@ -280,16 +352,18 @@ func render(buffer *bytes.Buffer, specs contractSpec) error {
 	if err := renderInterfaces(buffer, specs.Interfaces); err != nil {
 		return err
 	}
+	renderEventUnion(buffer, specs.Events)
 	renderEndpointDescriptors(buffer, specs.Endpoints)
 	if err := renderDecoders(buffer, specs.Interfaces); err != nil {
 		return err
 	}
+	renderEventDecoders(buffer, specs.Events)
 	renderClient(buffer, specs)
 	return nil
 }
 
 func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
-	helpers := decoderHelperUsage(specs.Interfaces)
+	helpers := decoderHelperUsage(specs.Interfaces, specs.Events)
 	imports := []string{
 		"assertKnownFields",
 		"assertRecord",
@@ -341,6 +415,34 @@ func renderInterfaces(buffer *bytes.Buffer, specs []interfaceSpec) error {
 	return nil
 }
 
+func renderEventUnion(buffer *bytes.Buffer, events []eventSpec) {
+	if len(events) == 0 {
+		return
+	}
+	buffer.WriteString("export type ChatEvent =\n")
+	for index, event := range events {
+		prefix := "  | "
+		if index == 0 {
+			prefix = "  "
+		}
+		fmt.Fprintf(buffer, "%s%s\n", prefix, event.Name)
+	}
+	buffer.WriteString(";\n\n")
+	for _, event := range events {
+		fmt.Fprintf(buffer, "export interface %s {\n", event.Name)
+		buffer.WriteString("  schemaVersion: number;\n")
+		buffer.WriteString("  sequence: number;\n")
+		buffer.WriteString("  eventId: string;\n")
+		fmt.Fprintf(buffer, "  type: %q;\n", event.Type)
+		buffer.WriteString("  emittedAt: string;\n")
+		buffer.WriteString("  workspaceId: string;\n")
+		buffer.WriteString("  conversationId: string;\n")
+		buffer.WriteString("  runId: string;\n")
+		fmt.Fprintf(buffer, "  payload: %s;\n", typeName(event.Payload))
+		buffer.WriteString("}\n\n")
+	}
+}
+
 func renderEndpointDescriptors(buffer *bytes.Buffer, endpoints []endpointSpec) {
 	buffer.WriteString("export const backendEndpoints = {\n")
 	for _, endpoint := range endpoints {
@@ -359,6 +461,59 @@ func renderDecoders(buffer *bytes.Buffer, specs []interfaceSpec) error {
 		}
 	}
 	return nil
+}
+
+func renderEventDecoders(buffer *bytes.Buffer, events []eventSpec) {
+	if len(events) == 0 {
+		return
+	}
+	buffer.WriteString("export function decodeChatEvent(value: unknown): ChatEvent {\n")
+	buffer.WriteString("  const record = assertRecord(value, \"ChatEvent\");\n")
+	buffer.WriteString("  const type = decodeString(requireField(record, \"type\", \"ChatEvent\"), \"ChatEvent.type\");\n")
+	buffer.WriteString("  switch (type) {\n")
+	for _, event := range events {
+		fmt.Fprintf(buffer, "    case %q:\n", event.Type)
+		fmt.Fprintf(buffer, "      return decode%sFromRecord(record);\n", event.Name)
+	}
+	buffer.WriteString("    default:\n")
+	buffer.WriteString("      throw new Error(\"ChatEvent.type is unsupported: \" + type);\n")
+	buffer.WriteString("  }\n")
+	buffer.WriteString("}\n\n")
+	for _, event := range events {
+		renderEventDecoder(buffer, event)
+	}
+}
+
+func renderEventDecoder(buffer *bytes.Buffer, event eventSpec) {
+	fmt.Fprintf(buffer, "export function decode%s(value: unknown): %s {\n", event.Name, event.Name)
+	fmt.Fprintf(buffer, "  return decode%sFromRecord(assertRecord(value, %q));\n", event.Name, event.Name)
+	buffer.WriteString("}\n\n")
+	fmt.Fprintf(buffer, "function decode%sFromRecord(record: Record<string, unknown>): %s {\n", event.Name, event.Name)
+	fmt.Fprintf(buffer, "  assertKnownFields(record, %q, [\"schemaVersion\", \"sequence\", \"eventId\", \"type\", \"emittedAt\", \"workspaceId\", \"conversationId\", \"runId\", \"payload\"]);\n", event.Name)
+	buffer.WriteString("  const type = decodeString(requireField(record, \"type\", ")
+	fmt.Fprintf(buffer, "%q), %q);\n", event.Name, event.Name+".type")
+	fmt.Fprintf(buffer, "  if (type !== %q) {\n", event.Type)
+	fmt.Fprintf(buffer, "    throw new Error(%q + type);\n", event.Name+".type must be "+event.Type+", got ")
+	buffer.WriteString("  }\n")
+	buffer.WriteString("  return {\n")
+	buffer.WriteString("    schemaVersion: decodeInteger(requireField(record, \"schemaVersion\", ")
+	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".schemaVersion")
+	buffer.WriteString("    sequence: decodeInteger(requireField(record, \"sequence\", ")
+	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".sequence")
+	buffer.WriteString("    eventId: decodeString(requireField(record, \"eventId\", ")
+	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".eventId")
+	fmt.Fprintf(buffer, "    type: %q,\n", event.Type)
+	buffer.WriteString("    emittedAt: decodeString(requireField(record, \"emittedAt\", ")
+	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".emittedAt")
+	buffer.WriteString("    workspaceId: decodeString(requireField(record, \"workspaceId\", ")
+	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".workspaceId")
+	buffer.WriteString("    conversationId: decodeString(requireField(record, \"conversationId\", ")
+	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".conversationId")
+	buffer.WriteString("    runId: decodeString(requireField(record, \"runId\", ")
+	fmt.Fprintf(buffer, "%q), %q),\n", event.Name, event.Name+".runId")
+	fmt.Fprintf(buffer, "    payload: %s(requireField(record, \"payload\", %q)),\n", decoderFunctionName(event.Payload), event.Name)
+	buffer.WriteString("  };\n")
+	buffer.WriteString("}\n\n")
 }
 
 func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec) error {
@@ -384,7 +539,7 @@ func renderStructDecoder(buffer *bytes.Buffer, spec interfaceSpec) error {
 	return nil
 }
 
-func decoderHelperUsage(specs []interfaceSpec) decoderHelpers {
+func decoderHelperUsage(specs []interfaceSpec, events []eventSpec) decoderHelpers {
 	var helpers decoderHelpers
 	for _, spec := range specs {
 		for index := range spec.Type.NumField() {
@@ -394,6 +549,10 @@ func decoderHelperUsage(specs []interfaceSpec) decoderHelpers {
 			}
 			markDecoderHelperUsage(field.Type, &helpers)
 		}
+	}
+	if len(events) > 0 {
+		helpers.Integer = true
+		helpers.String = true
 	}
 	return helpers
 }
@@ -415,12 +574,18 @@ func markDecoderHelperUsage(goType reflect.Type, helpers *decoderHelpers) {
 func renderClient(buffer *bytes.Buffer, specs contractSpec) {
 	buffer.WriteString("export interface BackendClient {\n")
 	for _, endpoint := range specs.Endpoints {
+		if endpoint.Streaming {
+			continue
+		}
 		renderClientMethod(buffer, endpoint, true)
 	}
 	buffer.WriteString("}\n\n")
 	buffer.WriteString("export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = fetch): BackendClient {\n")
 	buffer.WriteString("  return {\n")
 	for _, endpoint := range specs.Endpoints {
+		if endpoint.Streaming {
+			continue
+		}
 		renderClientOperation(buffer, endpoint, specs.ErrorResponse)
 	}
 	buffer.WriteString("  };\n")

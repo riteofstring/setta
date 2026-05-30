@@ -36,9 +36,10 @@ type ReadyEvent struct {
 }
 
 type Server struct {
-	server   *http.Server
-	listener net.Listener
-	done     chan error
+	closeEvents func()
+	server      *http.Server
+	listener    net.Listener
+	done        chan error
 }
 
 func DefaultConfig() Config {
@@ -120,6 +121,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 	}
 
 	server := &Server{
+		closeEvents: chatService.CloseEvents,
 		server: &http.Server{
 			Handler: httpapi.NewHandler(httpapi.HandlerConfig{
 				Metadata: httpapi.BackendMetadata{
@@ -150,6 +152,9 @@ func (server *Server) Addr() string {
 func (server *Server) Shutdown(ctx context.Context) error {
 	if ctx == nil {
 		return errors.New("shutdown context is required")
+	}
+	if server.closeEvents != nil {
+		server.closeEvents()
 	}
 	return server.server.Shutdown(ctx)
 }

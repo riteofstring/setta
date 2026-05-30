@@ -264,6 +264,7 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         messages: [],
         olderBeforeOrdinal: 0,
       }),
+      onEvent: () => () => {},
       sendMessage: async () => ({
         assistantMessage: emptyMessage(),
         conversation: emptyConversation(),
