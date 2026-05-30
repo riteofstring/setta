@@ -42,6 +42,7 @@ import {
   handleWorkspacePointerMove,
   handleWorkspacePointerUp,
   handleWorkspaceWheel,
+  type WorkspaceWheelBehavior,
 } from "./workspaceInteractions";
 import type { WorkspaceCanvasPointerInteraction } from "./workspaceInteractionTypes";
 import {
@@ -106,6 +107,7 @@ export function WorkspaceCanvas() {
     (state) => state.uiEditorTrueWidth,
   );
   const gridSettings = useWorkspaceCanvasGridSettings(environment.isDarkMode);
+  const wheelBehavior = useWorkspaceCanvasWheelBehavior();
   const [highlightCache, setHighlightCache] =
     useState<WorkspaceCodeHighlightCacheState>(() =>
       createWorkspaceCodeHighlightCacheState(),
@@ -124,6 +126,8 @@ export function WorkspaceCanvas() {
     );
   const controllerStateRef = useLatestRef(controllerState);
   const projectStateRef = useLatestRef(projectState);
+  const showMinimapRef = useLatestRef(showMinimap);
+  const wheelBehaviorRef = useLatestRef(wheelBehavior);
   useEffect(() => {
     setControllerState((current) =>
       syncWorkspaceControllerViewport(current, projectState, viewportSize),
@@ -212,6 +216,14 @@ export function WorkspaceCanvas() {
     showMinimap,
   });
   useWorkspaceCanvasParitySnapshot({ canvasRef, scene, showMinimap });
+  useWorkspaceCanvasWheel({
+    canvasRef,
+    sceneRef,
+    controllerStateRef,
+    setControllerState,
+    showMinimapRef,
+    wheelBehaviorRef,
+  });
   useWorkspacePointerCleanup(canvasRef, activePointerIdRef);
 
   return (
@@ -223,7 +235,7 @@ export function WorkspaceCanvas() {
       <canvas
         ref={canvasRef}
         aria-label="Workspace"
-        className="block h-full w-full outline-none"
+        className="block h-full w-full touch-none outline-none"
         data-workspace-canvas-surface="true"
         onPointerDown={(event) => {
           activePointerIdRef.current = event.pointerId;
@@ -282,15 +294,6 @@ export function WorkspaceCanvas() {
             controllerState: controllerStateRef.current,
             setControllerState,
             canEditParams: shareCapabilities.canEditParams,
-          });
-        }}
-        onWheel={(event) => {
-          handleWorkspaceWheel({
-            event,
-            scene,
-            controllerState: controllerStateRef.current,
-            setControllerState,
-            showMinimap,
           });
         }}
         role="application"
@@ -666,6 +669,27 @@ function useWorkspaceCanvasGridSettings(
   );
 }
 
+function useWorkspaceCanvasWheelBehavior(): WorkspaceWheelBehavior {
+  const gui = useSettings((state) => state.gui);
+  return useMemo(
+    () => ({
+      panOnScroll: gui.panOnScroll,
+      panOnScrollMode:
+        gui.panOnScrollMode as WorkspaceWheelBehavior["panOnScrollMode"],
+      panOnScrollSpeed: gui.panOnScrollSpeed,
+      zoomOnPinch: gui.zoomOnPinch,
+      zoomOnScroll: gui.zoomOnScroll,
+    }),
+    [
+      gui.panOnScroll,
+      gui.panOnScrollMode,
+      gui.panOnScrollSpeed,
+      gui.zoomOnPinch,
+      gui.zoomOnScroll,
+    ],
+  );
+}
+
 function watchWorkspaceCanvasEnvironment(
   setEnvironment: Dispatch<SetStateAction<WorkspaceCanvasEnvironment>>,
 ) {
@@ -818,6 +842,53 @@ function useWorkspaceCanvasDraw({
     },
     [canvasRef],
   );
+}
+
+function useWorkspaceCanvasWheel({
+  canvasRef,
+  sceneRef,
+  controllerStateRef,
+  setControllerState,
+  showMinimapRef,
+  wheelBehaviorRef,
+}: {
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  sceneRef: MutableRefObject<ReturnType<typeof deriveWorkspaceScene>>;
+  controllerStateRef: MutableRefObject<WorkspaceCanvasControllerState>;
+  setControllerState: Dispatch<SetStateAction<WorkspaceCanvasControllerState>>;
+  showMinimapRef: MutableRefObject<boolean>;
+  wheelBehaviorRef: MutableRefObject<WorkspaceWheelBehavior>;
+}) {
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return undefined;
+    }
+    type WorkspaceCanvasWheelHandlerEvent = Parameters<
+      typeof handleWorkspaceWheel
+    >[0]["event"];
+    const handleWheelEvent = (event: globalThis.WheelEvent) => {
+      handleWorkspaceWheel({
+        event: event as unknown as WorkspaceCanvasWheelHandlerEvent,
+        scene: sceneRef.current,
+        controllerState: controllerStateRef.current,
+        setControllerState,
+        showMinimap: showMinimapRef.current,
+        wheelBehavior: wheelBehaviorRef.current,
+      });
+    };
+    canvas.addEventListener("wheel", handleWheelEvent, { passive: false });
+    return () => {
+      canvas.removeEventListener("wheel", handleWheelEvent);
+    };
+  }, [
+    canvasRef,
+    controllerStateRef,
+    sceneRef,
+    setControllerState,
+    showMinimapRef,
+    wheelBehaviorRef,
+  ]);
 }
 
 function useWorkspacePointerCleanup(

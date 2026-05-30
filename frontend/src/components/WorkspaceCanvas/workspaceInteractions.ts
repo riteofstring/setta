@@ -8,6 +8,7 @@ import type {
 } from "react";
 import { setActiveSectionIds } from "state/actions/activeSections";
 import type { useProjectState } from "state/definitions";
+import { isMacOs } from "utils/utils";
 import {
   centerWorkspaceViewportOnPoint,
   clearWorkspaceSectionBoundsDrafts,
@@ -64,6 +65,22 @@ import type {
   WorkspaceScene,
   WorkspaceViewport,
 } from "./workspaceSceneTypes";
+
+export type WorkspaceWheelBehavior = {
+  panOnScroll: boolean;
+  panOnScrollMode: "free" | "vertical" | "horizontal";
+  panOnScrollSpeed: number;
+  zoomOnPinch: boolean;
+  zoomOnScroll: boolean;
+};
+
+export const DEFAULT_WORKSPACE_WHEEL_BEHAVIOR: WorkspaceWheelBehavior = {
+  panOnScroll: true,
+  panOnScrollMode: "free",
+  panOnScrollSpeed: 1,
+  zoomOnPinch: true,
+  zoomOnScroll: true,
+};
 
 // The pointer entrypoints are dispatch tables over declared hit-region intents.
 // eslint-disable-next-line complexity
@@ -565,31 +582,18 @@ export function handleWorkspaceWheel({
   controllerState,
   setControllerState,
   showMinimap,
+  wheelBehavior = DEFAULT_WORKSPACE_WHEEL_BEHAVIOR,
 }: {
   event: WheelEvent<HTMLCanvasElement>;
   scene: WorkspaceScene;
   controllerState: WorkspaceCanvasControllerState;
   setControllerState: Dispatch<SetStateAction<WorkspaceCanvasControllerState>>;
   showMinimap: boolean;
+  wheelBehavior?: WorkspaceWheelBehavior;
 }) {
   const screenPoint = getCanvasEventPoint(event);
   const hit = getWorkspaceCanvasHit(scene, screenPoint, showMinimap);
   const normalizedDelta = normalizeWheelDelta(event);
-  const scrollSectionId = resolveWheelScrollSectionId(scene, screenPoint, hit);
-  if (scrollSectionId) {
-    const nextOffset = resolveWorkspaceSectionWheelScrollOffset({
-      scene,
-      sectionId: scrollSectionId,
-      currentOffset: controllerState.sectionScrollOffsets[scrollSectionId] ?? 0,
-      deltaY: normalizedDelta.y,
-    });
-    setControllerState((current) =>
-      setWorkspaceSectionScrollOffset(current, scrollSectionId, nextOffset),
-    );
-    event.preventDefault();
-    return;
-  }
-
   if (hit?.target.kind === "minimap" && showMinimap) {
     const workspacePoint = minimapScreenToWorkspacePoint(scene, screenPoint);
     const nextViewport = centerWorkspaceViewportOnPoint({
@@ -613,17 +617,63 @@ export function handleWorkspaceWheel({
     return;
   }
 
+  const zoomDeltaY = resolveWorkspaceWheelZoomDelta({
+    event,
+    normalizedDeltaY: normalizedDelta.y,
+    wheelBehavior,
+  });
+  if (zoomDeltaY !== null) {
+    updateWorkspaceViewportState({
+      viewport: zoomWorkspaceViewportByWheelDelta({
+        viewport: scene.viewport,
+        screenPoint,
+        deltaY: zoomDeltaY,
+      }),
+      setControllerState,
+      immediate: false,
+    });
+    event.preventDefault();
+    return;
+  }
+
+  if (wheelBehavior.panOnScroll) {
+    const panDelta = resolveWorkspacePanOnScrollDelta({
+      event,
+      normalizedDelta,
+      wheelBehavior,
+    });
+    updateWorkspaceViewportState({
+      viewport: panWorkspaceViewport(scene.viewport, {
+        x: -panDelta.x,
+        y: -panDelta.y,
+      }),
+      setControllerState,
+      immediate: false,
+    });
+    event.preventDefault();
+    return;
+  }
+
+  const scrollSectionId = resolveWheelScrollSectionId(scene, screenPoint, hit);
+  if (scrollSectionId) {
+    const nextOffset = resolveWorkspaceSectionWheelScrollOffset({
+      scene,
+      sectionId: scrollSectionId,
+      currentOffset: controllerState.sectionScrollOffsets[scrollSectionId] ?? 0,
+      deltaY: normalizedDelta.y,
+    });
+    setControllerState((current) =>
+      setWorkspaceSectionScrollOffset(current, scrollSectionId, nextOffset),
+    );
+    event.preventDefault();
+    return;
+  }
+
   const nextViewport =
-    event.ctrlKey || event.metaKey
-      ? zoomWorkspaceViewportByWheelDelta({
-          viewport: scene.viewport,
-          screenPoint,
-          deltaY: normalizedDelta.y,
-        })
-      : panWorkspaceViewport(scene.viewport, {
-          x: -normalizedDelta.x,
-          y: -normalizedDelta.y,
-        });
+    panWorkspaceViewport(scene.viewport, {
+      x: -normalizedDelta.x,
+      y: -normalizedDelta.y,
+    });
   updateWorkspaceViewportState({
     viewport: nextViewport,
     setControllerState,
@@ -734,6 +784,52 @@ function getCanvasEventPoint(
   return {
     x: event.clientX - rect.left,
     y: event.clientY - rect.top,
+  };
+}
+
+function resolveWorkspaceWheelZoomDelta({
+  event,
+  normalizedDeltaY,
+  wheelBehavior,
+}: {
+  event: WheelEvent<HTMLCanvasElement>;
+  normalizedDeltaY: number;
+  wheelBehavior: WorkspaceWheelBehavior;
+}) {
+  const isMacPinch = event.ctrlKey && isMacOs();
+  if (isMacPinch) {
+    return wheelBehavior.zoomOnPinch ? normalizedDeltaY * 10 : null;
+  }
+  if ((event.ctrlKey || event.metaKey) && wheelBehavior.zoomOnScroll) {
+    return normalizedDeltaY;
+  }
+  return null;
+}
+
+function resolveWorkspacePanOnScrollDelta({
+  event,
+  normalizedDelta,
+  wheelBehavior,
+}: {
+  event: WheelEvent<HTMLCanvasElement>;
+  normalizedDelta: WorkspacePoint;
+  wheelBehavior: WorkspaceWheelBehavior;
+}): WorkspacePoint {
+  let x =
+    wheelBehavior.panOnScrollMode === "vertical" ? 0 : normalizedDelta.x;
+  let y =
+    wheelBehavior.panOnScrollMode === "horizontal" ? 0 : normalizedDelta.y;
+  if (
+    !isMacOs() &&
+    event.shiftKey &&
+    wheelBehavior.panOnScrollMode !== "vertical"
+  ) {
+    x = normalizedDelta.y;
+    y = 0;
+  }
+  return {
+    x: x * wheelBehavior.panOnScrollSpeed,
+    y: y * wheelBehavior.panOnScrollSpeed,
   };
 }
 
