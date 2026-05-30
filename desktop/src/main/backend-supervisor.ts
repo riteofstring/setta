@@ -23,11 +23,17 @@ interface BackendExit {
   signal: NodeJS.Signals | null;
 }
 
+type BackendEvents = EventEmitter<{
+  exit: [BackendExit];
+  log: [string];
+}>;
+
+type BackendStdoutEvents = EventEmitter<{
+  line: [string];
+}>;
+
 export interface BackendHandle {
-  events: EventEmitter<{
-    exit: [BackendExit];
-    log: [string];
-  }>;
+  events: BackendEvents;
   mode: "external" | "spawned";
   recentLogs: () => string[];
   stop: () => Promise<void>;
@@ -72,13 +78,19 @@ export async function startSpawnedBackend(options: BackendLaunchOptions): Promis
     env: options.env,
     stdio: ["ignore", "pipe", "pipe"],
   });
-  const events = new EventEmitter<{
-    exit: [BackendExit];
-    log: [string];
-  }>();
+  const events: BackendEvents = new EventEmitter();
+  const stdoutEvents: BackendStdoutEvents = new EventEmitter();
   const logs: string[] = [];
-  const lifecycle = monitorBackendProcess(child, events, logs);
-  const ready = await waitForBackendReady(child, events, logs, options.readyTimeoutMs);
+  const readyPromise = waitForBackendReady(child, stdoutEvents, options.readyTimeoutMs);
+  const lifecycle = monitorBackendProcess(child, events, stdoutEvents, logs);
+  let ready: BackendReadyEvent;
+
+  try {
+    ready = await readyPromise;
+  } catch (error) {
+    await stopBackend(child, lifecycle.markStopping, lifecycle.exitPromise);
+    throw error;
+  }
 
   return {
     events,
@@ -117,7 +129,8 @@ export function parseReadyLine(line: string): BackendReadyEvent | null {
 
 function monitorBackendProcess(
   child: BackendChild,
-  events: EventEmitter<{ exit: [BackendExit]; log: [string] }>,
+  events: BackendEvents,
+  stdoutEvents: BackendStdoutEvents,
   logs: string[],
 ) {
   let stopping = false;
@@ -125,48 +138,67 @@ function monitorBackendProcess(
     stopping = true;
   };
   const exitPromise = new Promise<BackendExit>((resolve) => {
-    child.once("exit", (code, signal) => {
+    child.once("close", (code, signal) => {
       const exit = { code, expected: stopping, signal };
       events.emit("exit", exit);
       resolve(exit);
     });
   });
 
+  collectLines(child.stdout, events, logs, (line) => {
+    stdoutEvents.emit("line", line);
+  });
   collectLines(child.stderr, events, logs);
   return { exitPromise, markStopping };
 }
 
 function waitForBackendReady(
   child: BackendChild,
-  events: EventEmitter<{ exit: [BackendExit]; log: [string] }>,
-  logs: string[],
+  stdoutEvents: BackendStdoutEvents,
   readyTimeoutMs: number,
 ): Promise<BackendReadyEvent> {
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error(`backend readiness timed out after ${readyTimeoutMs}ms`));
-    }, readyTimeoutMs);
-
-    child.once("exit", (code, signal) => {
-      clearTimeout(timeout);
-      reject(
+    let settled = false;
+    const timeout = setTimeout(
+      () => finish(new Error(`backend readiness timed out after ${readyTimeoutMs}ms`)),
+      readyTimeoutMs,
+    );
+    const onExit = (code: number | null, signal: NodeJS.Signals | null) => {
+      finish(
         new Error(
           `backend exited before ready with code ${code ?? "null"} and signal ${signal ?? "null"}`,
         ),
       );
-    });
-
-    const stdout = createInterface({ input: child.stdout });
-    stdout.on("line", (line) => {
-      appendLog(logs, line);
-      events.emit("log", line);
+    };
+    const onError = (error: Error) => {
+      finish(new Error(`backend process failed before ready: ${error.message}`));
+    };
+    const onLine = (line: string) => {
       const ready = parseReadyLine(line);
       if (ready) {
-        clearTimeout(timeout);
-        stdout.close();
-        resolve(ready);
+        finish(ready);
       }
-    });
+    };
+
+    child.once("close", onExit);
+    child.once("error", onError);
+    stdoutEvents.on("line", onLine);
+
+    function finish(result: BackendReadyEvent | Error) {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timeout);
+      child.off("close", onExit);
+      child.off("error", onError);
+      stdoutEvents.off("line", onLine);
+      if (result instanceof Error) {
+        reject(result);
+      } else {
+        resolve(result);
+      }
+    }
   });
 }
 
@@ -182,24 +214,26 @@ async function stopBackend(
   signalBackendProcess(child, "SIGTERM");
   const exit = await Promise.race([exitPromise, delay(3_000).then(() => null)]);
   if (exit === null) {
-    signalBackendProcess(child, "SIGKILL");
-    await exitPromise;
+    if (signalBackendProcess(child, "SIGKILL")) {
+      await Promise.race([exitPromise, delay(3_000)]);
+    }
   }
 }
 
-function signalBackendProcess(child: BackendChild, signal: NodeJS.Signals) {
+function signalBackendProcess(child: BackendChild, signal: NodeJS.Signals): boolean {
   if (child.pid === undefined) {
-    return;
+    return false;
   }
   if (process.platform === "win32") {
     child.kill(signal);
-    return;
+    return true;
   }
   try {
     process.kill(-child.pid, signal);
+    return true;
   } catch (error) {
     if (isMissingProcessError(error)) {
-      return;
+      return false;
     }
     throw error;
   }
@@ -211,13 +245,15 @@ function isMissingProcessError(error: unknown): error is NodeJS.ErrnoException {
 
 function collectLines(
   stream: NodeJS.ReadableStream,
-  events: EventEmitter<{ exit: [BackendExit]; log: [string] }>,
+  events: BackendEvents,
   logs: string[],
+  onLine?: (line: string) => void,
 ) {
   const lines = createInterface({ input: stream });
   lines.on("line", (line) => {
     appendLog(logs, line);
     events.emit("log", line);
+    onLine?.(line);
   });
 }
 

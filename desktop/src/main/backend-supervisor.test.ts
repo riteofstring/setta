@@ -1,6 +1,9 @@
 import { describe, expect, test } from "vitest";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-import { parseReadyLine, startSpawnedBackend } from "./backend-supervisor";
+import { parseReadyLine, startSpawnedBackend, type BackendHandle } from "./backend-supervisor";
 
 describe("parseReadyLine", () => {
   test("accepts the machine-readable ready event", () => {
@@ -42,6 +45,58 @@ describe("startSpawnedBackend", () => {
     await handle.stop();
   });
 
+  test("continues capturing stdout after readiness", async () => {
+    const handle = await startSpawnedBackend({
+      args: [
+        "-e",
+        [
+          "console.log(JSON.stringify({ event: 'ready', addr: '127.0.0.1:41002' }))",
+          "setTimeout(() => console.log('post-ready stdout'), 20)",
+          "setInterval(() => {}, 1000)",
+        ].join(";"),
+      ],
+      command: process.execPath,
+      cwd: process.cwd(),
+      env: process.env,
+      readyTimeoutMs: 1000,
+    });
+
+    try {
+      await waitForLog(handle, "post-ready stdout");
+      expect(handle.recentLogs()).toContain("post-ready stdout");
+    } finally {
+      await handle.stop();
+    }
+  });
+
+  test("stops the backend process when readiness times out", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "setta-backend-supervisor-"));
+    const markerPath = join(tempDir, "terminated");
+
+    try {
+      await expect(
+        startSpawnedBackend({
+          args: [
+            "-e",
+            [
+              "const fs = require('node:fs')",
+              `const markerPath = ${JSON.stringify(markerPath)}`,
+              "process.on('SIGTERM', () => { fs.writeFileSync(markerPath, 'terminated'); process.exit(0) })",
+              "setInterval(() => {}, 1000)",
+            ].join(";"),
+          ],
+          command: process.execPath,
+          cwd: process.cwd(),
+          env: process.env,
+          readyTimeoutMs: 50,
+        }),
+      ).rejects.toThrow("backend readiness timed out");
+      expect(existsSync(markerPath)).toBe(true);
+    } finally {
+      rmSync(tempDir, { force: true, recursive: true });
+    }
+  });
+
   test("reports unexpected exit after readiness", async () => {
     const handle = await startSpawnedBackend({
       args: [
@@ -64,3 +119,27 @@ describe("startSpawnedBackend", () => {
     expect(exit).toEqual({ code: 12, expected: false, signal: null });
   });
 });
+
+function waitForLog(handle: BackendHandle, expectedLine: string): Promise<void> {
+  if (handle.recentLogs().includes(expectedLine)) {
+    return Promise.resolve();
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      handle.events.off("log", onLog);
+      reject(new Error(`timed out waiting for log line: ${expectedLine}`));
+    }, 1000);
+
+    const onLog = (line: string) => {
+      if (line !== expectedLine) {
+        return;
+      }
+      clearTimeout(timeout);
+      handle.events.off("log", onLog);
+      resolve();
+    };
+
+    handle.events.on("log", onLog);
+  });
+}
