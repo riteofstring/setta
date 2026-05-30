@@ -53,9 +53,9 @@ export function ChatTranscript({
   }
 
   return (
-    <div className="relative min-h-0">
+    <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
       <div
-        className="h-full min-h-0 overflow-y-auto px-6 py-5"
+        className="h-full min-h-0 min-w-0 overflow-y-auto px-6 py-5"
         onScroll={(event) => {
           const node = event.currentTarget;
           setPinned(node.scrollHeight - node.scrollTop - node.clientHeight < 24);
@@ -70,7 +70,7 @@ export function ChatTranscript({
             </Button>
           </div>
         ) : null}
-        <div className="mx-auto flex max-w-4xl flex-col gap-5">
+        <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-5">
           {messages.length === 0 ? (
             <div className="py-16 text-center text-sm text-zinc-500" data-testid="empty-chat">
               Start a conversation for this workspace.
@@ -114,14 +114,14 @@ const MessageRow = memo(function MessageRow({ message }: { message: ChatMessage 
   const text = message.parts.map((part) => part.text).join("");
   return (
     <article
-      className={isUser ? "flex justify-end" : "flex justify-start"}
+      className={isUser ? "flex min-w-0 justify-end" : "flex min-w-0 justify-start"}
       data-testid="chat-message"
     >
       <div
         className={
           isUser
-            ? "max-w-[78%] rounded-md bg-zinc-900 px-4 py-3 text-sm leading-6 text-white"
-            : "max-w-[84%] rounded-md border border-zinc-200 bg-white px-4 py-3"
+            ? "max-w-[78%] overflow-hidden rounded-md bg-zinc-900 px-4 py-3 text-sm leading-6 break-words text-white"
+            : "max-w-[84%] min-w-0 overflow-hidden rounded-md border border-zinc-200 bg-white px-4 py-3"
         }
       >
         {isUser ? (
@@ -155,19 +155,21 @@ function ApprovalCard({
   const questions = approval.questions.length > 0 ? approval.questions : legacyQuestion(approval);
   return (
     <section
-      className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+      className="min-w-0 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm break-words text-amber-950"
       data-testid="approval-card"
     >
       <div className="font-semibold">{approval.title}</div>
       {approval.body ? <div className="mt-1 text-amber-900">{approval.body}</div> : null}
       {approval.command ? (
-        <pre className="mt-3 overflow-x-auto rounded border border-amber-200 bg-white p-2 text-xs">
+        <pre className="mt-3 max-w-full overflow-x-auto rounded border border-amber-200 bg-white p-2 text-xs">
           {approval.command}
         </pre>
       ) : null}
-      {approval.filePath ? <div className="mt-2 font-mono text-xs">{approval.filePath}</div> : null}
+      {approval.filePath ? (
+        <div className="mt-2 break-all font-mono text-xs">{approval.filePath}</div>
+      ) : null}
       {approval.permission ? (
-        <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded border border-amber-200 bg-white p-2 text-xs">
+        <pre className="mt-3 max-w-full overflow-x-auto whitespace-pre-wrap rounded border border-amber-200 bg-white p-2 text-xs">
           {approval.permission}
         </pre>
       ) : null}

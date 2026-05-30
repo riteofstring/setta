@@ -100,6 +100,38 @@ func TestServiceKeepsUserMessageWhenHarnessFails(t *testing.T) {
 	}
 }
 
+func TestServiceLoadsUnpersistedActiveAssistantDeltas(t *testing.T) {
+	harness := NewFakeHarness([]FakeHarnessEvent{
+		{Type: FakeEventAssistantDelta, Text: "first"},
+		{Type: FakeEventAssistantDelta, Text: "second"},
+		{Type: FakeEventWaitForCancel},
+	})
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "stream")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+
+	page := waitForAssistantText(t, service, "workspace_api", conversation.ID, "firstsecond")
+	if page.Messages[1].Parts[0].Text != "firstsecond" {
+		t.Fatalf("assistant text = %q, want latest in-memory deltas", page.Messages[1].Parts[0].Text)
+	}
+	storedPage, err := service.store.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load stored page: %v", err)
+	}
+	if storedPage.Messages[1].Parts[0].Text == page.Messages[1].Parts[0].Text {
+		t.Fatal("stored page already includes all deltas; test did not observe in-memory overlay")
+	}
+	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
+		t.Fatalf("cancel active run %s: %v", result.Run.ID, err)
+	}
+}
+
 func TestServiceCancelsActiveRunThroughHarness(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{
 		{Type: FakeEventAssistantDelta, Text: "partial"},
@@ -665,6 +697,24 @@ func waitForPendingApproval(t *testing.T, service *Service, workspaceID string, 
 	}
 	t.Fatal("timed out waiting for pending approval")
 	return Run{}
+}
+
+func waitForAssistantText(t *testing.T, service *Service, workspaceID string, conversationID string, text string) MessagePage {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		page, err := service.LoadMessagePage(workspaceID, conversationID, 0, 20)
+		if err != nil {
+			t.Fatalf("load message page: %v", err)
+		}
+		if len(page.Messages) > 1 && page.Messages[1].Parts[0].Text == text {
+			return page
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for assistant text %q", text)
+	return MessagePage{}
 }
 
 func mustTime(t *testing.T, value string) time.Time {

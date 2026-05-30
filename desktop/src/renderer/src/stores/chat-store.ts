@@ -3,6 +3,8 @@ import type {
   ChatMessage,
   Conversation,
   ConversationListItem,
+  GetActiveRunResponse,
+  ListConversationsResponse,
   MessagePage,
   Run,
 } from "@generated/backend";
@@ -197,21 +199,23 @@ export const useChatStore = create<ChatStore>((set, get) => {
         return;
       }
       try {
-        const [page, active, list] = await Promise.all([
+        const [page, active] = await Promise.all([
           window.setta.chat.messagePage(workspaceId, selectedConversation.id, 0, pageLimit),
           window.setta.chat.activeRun(workspaceId, selectedConversation.id),
-          reloadConversations(workspaceId),
         ]);
+        const nextActiveRun = activeRunFromResponse(active);
+        const list = await reloadListAfterRunCompletion(
+          workspaceId,
+          get().activeRun,
+          nextActiveRun,
+        );
         const current = get();
-        if (
-          current.workspaceId !== workspaceId ||
-          current.selectedConversation?.id !== selectedConversation.id
-        ) {
+        if (!isSelectedConversation(current, workspaceId, selectedConversation.id)) {
           return;
         }
         set({
-          ...pagePatch(page, active.hasActiveRun ? active.run : null),
-          conversations: list.conversations,
+          ...pagePatch(page, nextActiveRun),
+          ...conversationListPatch(list),
           messages: mergeMessagesByRevision(current.messages, page.messages),
           status: "ready",
         });
@@ -337,6 +341,35 @@ function emptyConversationPatch(): ChatPatch {
     messages: [],
     selectedConversation: null,
   };
+}
+
+function activeRunFromResponse(response: GetActiveRunResponse): Run | null {
+  if (!response.hasActiveRun) {
+    return null;
+  }
+  return response.run;
+}
+
+async function reloadListAfterRunCompletion(
+  workspaceId: string,
+  previousRun: Run | null,
+  nextRun: Run | null,
+) {
+  if (!previousRun || nextRun) {
+    return null;
+  }
+  return window.setta.chat.listConversations(workspaceId);
+}
+
+function isSelectedConversation(state: ChatStore, workspaceId: string, conversationId: string) {
+  return state.workspaceId === workspaceId && state.selectedConversation?.id === conversationId;
+}
+
+function conversationListPatch(list: ListConversationsResponse | null): ChatPatch {
+  if (!list) {
+    return {};
+  }
+  return { conversations: list.conversations };
 }
 
 function errorPatch(error: unknown): ChatPatch {

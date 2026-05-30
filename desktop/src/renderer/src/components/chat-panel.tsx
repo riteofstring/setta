@@ -1,11 +1,13 @@
 import type { ConversationListItem, WorkspaceSummary } from "@generated/backend";
 import { MessageSquarePlus, Plus, Send, Square } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { shouldPollConversation, useChatStore } from "../stores/chat-store";
 import { ChatTranscript } from "./chat-transcript";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
+
+const activeConversationPollIntervalMs = 150;
 
 export function ChatPanel({ workspace }: { workspace: WorkspaceSummary | null }) {
   if (!workspace) {
@@ -24,8 +26,8 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
   const running = chat.activeRun?.status === "running";
 
   return (
-    <section className="grid min-h-0 grid-cols-[280px_1fr] border-l border-zinc-200 bg-zinc-50">
-      <aside className="flex min-h-0 flex-col border-r border-zinc-200 bg-white">
+    <section className="grid min-h-0 min-w-0 grid-cols-[280px_1fr] overflow-hidden border-l border-zinc-200 bg-zinc-50">
+      <aside className="flex min-h-0 min-w-0 flex-col border-r border-zinc-200 bg-white">
         <div className="flex h-14 items-center justify-between border-b border-zinc-200 px-4">
           <h2 className="text-sm font-semibold">Chats</h2>
           <Button
@@ -42,7 +44,7 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
           selectConversation={chat.selectConversation}
         />
       </aside>
-      <div className="grid min-h-0 grid-rows-[56px_1fr_auto]">
+      <div className="grid min-h-0 min-w-0 grid-rows-[56px_minmax(0,1fr)_auto_auto] overflow-hidden">
         <header className="flex min-w-0 items-center justify-between border-b border-zinc-200 bg-white px-5">
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold">
@@ -115,15 +117,21 @@ function ChatError({ message }: { message: string | null }) {
 
 function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; running: boolean }) {
   const [draft, setDraft] = useState("");
+  const submittingRef = useRef(false);
   const disabled = !chat.selectedConversation || busy || running;
 
   async function sendDraft() {
     const prompt = draft.trim();
-    if (!prompt || !chat.selectedConversation || running) {
+    if (!prompt || !chat.selectedConversation || running || submittingRef.current) {
       return;
     }
-    setDraft("");
-    await chat.sendMessage(prompt);
+    submittingRef.current = true;
+    try {
+      setDraft("");
+      await chat.sendMessage(prompt);
+    } finally {
+      submittingRef.current = false;
+    }
   }
 
   return (
@@ -134,11 +142,23 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
         void sendDraft();
       }}
     >
-      <div className="mx-auto flex max-w-4xl items-end gap-3">
+      <div className="mx-auto flex max-w-4xl min-w-0 items-end gap-3">
         <textarea
-          className="min-h-11 flex-1 resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm leading-6 outline-none focus:border-zinc-500"
+          className="min-h-11 min-w-0 flex-1 resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm leading-6 outline-none focus:border-zinc-500"
           disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
+          onKeyDown={(event) => {
+            if (
+              event.key !== "Enter" ||
+              event.shiftKey ||
+              event.altKey ||
+              event.nativeEvent.isComposing
+            ) {
+              return;
+            }
+            event.preventDefault();
+            void sendDraft();
+          }}
           placeholder={chat.selectedConversation ? "Ask Codex" : "Create a chat first"}
           rows={2}
           value={draft}
@@ -199,6 +219,7 @@ function useChatViewState(workspaceId: string | null) {
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
   const shouldPoll = shouldPollConversation(activeRun, messages);
+  const refreshInFlight = useRef(false);
 
   useEffect(() => {
     if (!workspaceId || workspaceId === storeWorkspaceId) {
@@ -211,9 +232,17 @@ function useChatViewState(workspaceId: string | null) {
     if (!shouldPoll) {
       return;
     }
-    const timer = window.setInterval(() => {
-      void refreshActiveConversation();
-    }, 400);
+    function refreshWhenIdle() {
+      if (refreshInFlight.current) {
+        return;
+      }
+      refreshInFlight.current = true;
+      void refreshActiveConversation().finally(() => {
+        refreshInFlight.current = false;
+      });
+    }
+    refreshWhenIdle();
+    const timer = window.setInterval(refreshWhenIdle, activeConversationPollIntervalMs);
     return () => window.clearInterval(timer);
   }, [refreshActiveConversation, shouldPoll]);
 

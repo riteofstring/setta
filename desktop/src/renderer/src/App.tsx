@@ -31,7 +31,7 @@ export function App() {
   const workspace = useWorkspaceViewState();
 
   return (
-    <div className="grid min-h-screen grid-rows-[56px_1fr] bg-zinc-50 text-zinc-950">
+    <div className="grid h-screen min-h-0 grid-rows-[56px_minmax(0,1fr)] overflow-hidden bg-zinc-50 text-zinc-950">
       <header className="flex items-center justify-between border-b border-zinc-200 bg-white px-5">
         <div className="flex items-center gap-4">
           <h1 className="text-base font-semibold">Setta</h1>
@@ -45,7 +45,7 @@ export function App() {
           </Button>
         </div>
       </header>
-      <main className="grid min-h-0 grid-cols-[260px_1fr]">
+      <main className="grid min-h-0 min-w-0 grid-cols-[260px_1fr] overflow-hidden">
         <aside className="flex min-h-0 flex-col border-r border-zinc-200 bg-white">
           <WorkspaceSidebar
             activeWorkspaces={workspace.activeWorkspaces}
@@ -70,7 +70,7 @@ export function App() {
             </div>
           </dl>
         </aside>
-        <section className="grid min-h-0 grid-rows-[132px_1fr]">
+        <section className="grid min-h-0 min-w-0 grid-rows-[132px_minmax(0,1fr)] overflow-hidden">
           <WorkspacePanel
             error={workspace.error}
             openLocalFolder={workspace.openLocalFolder}

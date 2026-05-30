@@ -4,12 +4,12 @@ import type { ReactNode } from "react";
 export const MarkdownText = memo(function MarkdownText({ text }: { text: string }) {
   const blocks = useMemo(() => parseBlocks(text), [text]);
   return (
-    <div className="space-y-3 text-sm leading-6 text-zinc-800">
+    <div className="min-w-0 space-y-3 text-sm leading-6 break-words text-zinc-800">
       {blocks.map((block, index) => {
         if (block.kind === "code") {
           return (
             <pre
-              className="overflow-x-auto rounded-md border border-zinc-200 bg-zinc-950 p-3 text-xs leading-5 text-zinc-50"
+              className="max-w-full overflow-x-auto rounded-md border border-zinc-200 bg-zinc-950 p-3 text-xs leading-5 text-zinc-50"
               key={index}
             >
               <code>{block.text}</code>
@@ -17,7 +17,7 @@ export const MarkdownText = memo(function MarkdownText({ text }: { text: string 
           );
         }
         return (
-          <p className="whitespace-pre-wrap" key={index}>
+          <p className="whitespace-pre-wrap break-words" key={index}>
             {renderInlineMarkdown(block.text)}
           </p>
         );

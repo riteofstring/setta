@@ -157,7 +157,11 @@ func (service *Service) LoadMessagePage(workspaceID string, conversationID strin
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return MessagePage{}, err
 	}
-	return service.store.LoadMessagePage(workspaceID, conversationID, beforeOrdinal, limit)
+	page, err := service.store.LoadMessagePage(workspaceID, conversationID, beforeOrdinal, limit)
+	if err != nil {
+		return MessagePage{}, err
+	}
+	return service.overlayActiveAssistantMessage(workspaceID, conversationID, beforeOrdinal, page), nil
 }
 
 func (service *Service) SendUserMessage(workspaceID string, conversationID string, prompt string) (SendMessageResult, error) {
@@ -608,6 +612,31 @@ func (service *Service) appendAssistantDelta(workspaceID string, conversationID 
 	}
 	service.active[key] = active
 	return nil
+}
+
+func (service *Service) overlayActiveAssistantMessage(workspaceID string, conversationID string, beforeOrdinal int, page MessagePage) MessagePage {
+	service.mu.Lock()
+	active, ok := service.active[activeKey(workspaceID, conversationID)]
+	service.mu.Unlock()
+	if !ok {
+		return page
+	}
+	message := cloneMessage(active.assistantMessage)
+	for index, pageMessage := range page.Messages {
+		if pageMessage.ID == message.ID {
+			page.Messages[index] = message
+			return page
+		}
+	}
+	if beforeOrdinal == 0 {
+		page.Messages = append(page.Messages, message)
+	}
+	return page
+}
+
+func cloneMessage(message ChatMessage) ChatMessage {
+	message.Parts = append([]MessagePart{}, message.Parts...)
+	return message
 }
 
 func (service *Service) requestApproval(workspaceID string, conversationID string, runID string, approval ApprovalRequest) error {
