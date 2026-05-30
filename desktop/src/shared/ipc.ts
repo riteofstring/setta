@@ -173,10 +173,25 @@ export interface IpcObservedFailure {
 let nextObservedIpcID = 1;
 
 export function createRendererIpcInvoke(renderer: Pick<IpcRenderer, "invoke">): RendererIpcInvoke {
-  return (channel, ...args) =>
-    renderer.invoke(ipcChannels[channel], ...args) as Promise<
-      IpcContract[typeof channel]["result"]
-    >;
+  return async (channel, ...args) => {
+    const channelName = ipcChannels[channel];
+    try {
+      return (await renderer.invoke(channelName, ...args)) as IpcContract[typeof channel]["result"];
+    } catch (error) {
+      throw normalizeRendererIpcError(channelName, error);
+    }
+  };
+}
+
+function normalizeRendererIpcError(channelName: string, error: unknown) {
+  if (!(error instanceof Error)) {
+    return error;
+  }
+  const prefix = `Error invoking remote method '${channelName}': Error: `;
+  if (!error.message.startsWith(prefix)) {
+    return error;
+  }
+  return new Error(error.message.slice(prefix.length));
 }
 
 export function handleIpc<Channel extends IpcChannelKey>(

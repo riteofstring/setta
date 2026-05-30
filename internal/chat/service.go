@@ -1027,8 +1027,10 @@ func (service *Service) recoverInterruptedRuns() error {
 			return err
 		}
 		if len(corrupt) > 0 {
-			service.recordCorruptStateDiagnostic(corrupt[0], workspaceID, "", "")
-			return corrupt[0]
+			for _, corruptErr := range corrupt {
+				service.recordCorruptStateDiagnostic(corruptErr, workspaceID, "", "")
+			}
+			continue
 		}
 		for _, run := range runs {
 			if run.Status != RunStatusRunning {
@@ -1037,6 +1039,7 @@ func (service *Service) recoverInterruptedRuns() error {
 			if err := service.recoverInterruptedRun(workspaceID, run, now); err != nil {
 				if IsCorruptStateError(err) {
 					service.recordCorruptStateDiagnostic(err, workspaceID, run.ConversationID, run.ID)
+					continue
 				}
 				return err
 			}

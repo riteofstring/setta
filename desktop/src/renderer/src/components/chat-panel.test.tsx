@@ -2,7 +2,9 @@ import type { KeyboardEvent } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
-import { ComposerButton, handleComposerKeyDown } from "./chat-panel";
+import { ComposerButton, ConversationBody, handleComposerKeyDown } from "./chat-panel";
+
+type ConversationBodyProps = Parameters<typeof ConversationBody>[0];
 
 describe("composer keyboard behavior", () => {
   test("queues on Tab", () => {
@@ -79,6 +81,28 @@ describe("composer controls", () => {
     expect(html).toContain("Send steering message");
     expect(html).toContain("Queue follow-up");
     expect(html).toContain("Stop run");
+  });
+});
+
+describe("conversation body states", () => {
+  test("shows corrupt-state load errors instead of empty chat actions", () => {
+    const html = renderToString(
+      <ConversationBody
+        busy={false}
+        chat={
+          {
+            createConversation: async () => {},
+            error: "malformed chat state /tmp/run.json",
+            selectedConversation: null,
+          } as ConversationBodyProps["chat"]
+        }
+      />,
+    );
+
+    expect(html).toContain('data-testid="chat-load-error"');
+    expect(html).toContain("Chat state is corrupt");
+    expect(html).toContain("malformed chat state /tmp/run.json");
+    expect(html).not.toContain("New Chat");
   });
 });
 

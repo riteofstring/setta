@@ -21,8 +21,10 @@ export function ChatPanel({ workspace }: { workspace: WorkspaceSummary | null })
 function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
   const chat = useChatViewState(workspace.id);
   const busy = isChatBusy(chat);
+  const blocked = isChatBlocked(chat);
   const composerBusy = isComposerBusy(chat);
   const running = isRunRunning(chat);
+  const selectedConversationId = selectedChatConversationId(chat);
 
   return (
     <section className="grid min-h-0 min-w-0 grid-cols-[280px_1fr] overflow-hidden border-l border-zinc-200 bg-zinc-50">
@@ -31,7 +33,7 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
           <h2 className="text-sm font-semibold">Chats</h2>
           <Button
             aria-label="New chat"
-            disabled={busy}
+            disabled={isNewChatDisabled(busy, blocked)}
             onClick={() => void chat.createConversation()}
           >
             <Plus className="h-4 w-4" />
@@ -39,24 +41,22 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
         </div>
         <ConversationList
           conversations={chat.conversations}
-          selectedConversationId={chat.selectedConversation?.id ?? ""}
+          selectedConversationId={selectedConversationId}
           selectConversation={chat.selectConversation}
         />
       </aside>
       <div className="grid min-h-0 min-w-0 grid-rows-[56px_minmax(0,1fr)_auto_auto] overflow-hidden">
         <header className="flex min-w-0 items-center justify-between border-b border-zinc-200 bg-white px-5">
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">
-              {chat.selectedConversation?.title ?? workspace.displayName}
-            </div>
+            <div className="truncate text-sm font-semibold">{chatTitle(chat, workspace)}</div>
             <div className="truncate text-xs text-zinc-500">{workspace.rootPath}</div>
           </div>
-          <RunBadge active={running} status={chat.activeRun?.status ?? null} />
+          <RunBadge active={running} status={activeRunStatus(chat)} />
         </header>
         <ConversationBody busy={busy} chat={chat} />
         <CriticalDiagnostics chat={chat} />
-        <ChatError message={chat.error} />
-        <Composer busy={composerBusy} chat={chat} running={running} />
+        <ChatError message={selectedConversationChatError(chat)} />
+        <ComposerSlot blocked={blocked} busy={composerBusy} chat={chat} running={running} />
       </div>
     </section>
   );
@@ -78,7 +78,51 @@ function isRunRunning(chat: ChatView) {
   return chat.activeRun?.status === "running";
 }
 
-function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
+function isChatBlocked(chat: ChatView) {
+  return chat.error !== null && !chat.selectedConversation;
+}
+
+function isNewChatDisabled(busy: boolean, blocked: boolean) {
+  return busy || blocked;
+}
+
+function selectedChatConversationId(chat: ChatView) {
+  return chat.selectedConversation?.id ?? "";
+}
+
+function chatTitle(chat: ChatView, workspace: WorkspaceSummary) {
+  return chat.selectedConversation?.title ?? workspace.displayName;
+}
+
+function activeRunStatus(chat: ChatView) {
+  return chat.activeRun?.status ?? null;
+}
+
+function selectedConversationChatError(chat: ChatView) {
+  return chat.selectedConversation ? chat.error : null;
+}
+
+function ComposerSlot({
+  blocked,
+  busy,
+  chat,
+  running,
+}: {
+  blocked: boolean;
+  busy: boolean;
+  chat: ChatView;
+  running: boolean;
+}) {
+  if (blocked) {
+    return null;
+  }
+  return <Composer busy={busy} chat={chat} running={running} />;
+}
+
+export function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
+  if (chat.error && !chat.selectedConversation) {
+    return <ChatLoadError message={chat.error} />;
+  }
   if (!chat.selectedConversation) {
     return <EmptyConversation busy={busy} createConversation={chat.createConversation} />;
   }
@@ -100,6 +144,20 @@ function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
       runItemsById={chat.runItemsById}
       submitApproval={chat.submitApproval}
     />
+  );
+}
+
+function ChatLoadError({ message }: { message: string }) {
+  return (
+    <div className="grid min-h-0 place-items-center px-6">
+      <div
+        className="max-w-2xl rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm break-words text-red-800"
+        data-testid="chat-load-error"
+      >
+        <div className="font-medium">Chat state is corrupt</div>
+        <div className="mt-2">{message}</div>
+      </div>
+    </div>
   );
 }
 

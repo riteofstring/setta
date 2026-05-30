@@ -54,7 +54,7 @@ This plan is implemented as of 2026-05-30.
   Queueing is also reachable through an explicit active-run control.
 - Phase 2 is complete. User-facing chat state paths fail closed for corrupt
   durable state, partial scan helpers are explicitly named, and malformed
-  startup run state fails startup after diagnostics are recorded.
+  startup run state records diagnostics without preventing unrelated app use.
 - Phase 3 is complete. Go-owned status/type/value fields use typed constants,
   generated TypeScript exposes literal unions, and renderer mappings are
   exhaustive.
@@ -152,8 +152,9 @@ Implementation steps:
   `QueueState`.
 - Review startup recovery:
   - valid interrupted running runs may still transition to failed.
-  - malformed runs should record a diagnostic and make startup fail, unless the
-    UI has a dedicated corrupt-state screen that can block normal chat use.
+  - malformed runs should record diagnostics and remain blocked in normal
+    user-facing chat paths for the affected workspace, without preventing the
+    backend from starting or unrelated workspaces from loading.
 - Stop ignoring diagnostic write failures in paths where the primary operation
   otherwise succeeds because of a skipped corrupt record. The primary operation
   should fail instead.
@@ -167,8 +168,8 @@ Test changes:
     `CorruptStateError`.
   - corrupt run metadata makes `ListConversations` return `CorruptStateError`.
   - missing queued trigger message makes page loading fail as corrupt state.
-  - corrupt startup run metadata either fails startup or blocks normal chat use
-    through the chosen UI path.
+  - corrupt startup run metadata records diagnostics, does not prevent backend
+    startup, and still blocks normal chat use for the affected workspace.
   - HTTP maps these failures to `corrupt_chat_state` with status 500.
   - diagnostics are recorded when possible, but the request still fails even if
     diagnostic recording cannot complete.

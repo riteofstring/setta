@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -62,6 +64,36 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 				t.Fatal("start succeeded, want error")
 			}
 		})
+	}
+}
+
+func TestStartReportsReadyWithMalformedHistoricalRunState(t *testing.T) {
+	var stdout bytes.Buffer
+	config := testConfig(t)
+	config.Stdout = &stdout
+	config.Version = "test"
+
+	runPath := filepath.Join(config.AppDataDir, "workspaces", "workspace_bad", "runs", "run_bad.json")
+	if err := os.MkdirAll(filepath.Dir(runPath), 0o755); err != nil {
+		t.Fatalf("create run dir: %v", err)
+	}
+	rawRun := `{"schemaVersion":1,"id":"run_bad","workspaceId":"workspace_bad","conversationId":"conversation_bad","triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"completed","startedAt":"2026-05-29T20:00:00Z","completedAt":"2026-05-29T20:00:01Z","promptSummary":"prompt","error":"","hasPendingApproval":false,"pendingApproval":{"id":"","runId":"","kind":"","title":"","body":"","command":"","filePath":"","permission":"","question":"","options":[],"questions":[],"status":"","createdAt":"","resolvedAt":"","response":"","approved":false}}`
+	if err := os.WriteFile(runPath, []byte(rawRun), 0o644); err != nil {
+		t.Fatalf("write malformed run: %v", err)
+	}
+
+	server, err := Start(context.Background(), config)
+	if err != nil {
+		t.Fatalf("start backend: %v", err)
+	}
+	defer shutdownServer(t, server)
+
+	var ready ReadyEvent
+	if err := json.NewDecoder(&stdout).Decode(&ready); err != nil {
+		t.Fatalf("decode ready event: %v", err)
+	}
+	if ready.Event != "ready" {
+		t.Fatalf("ready event = %q, want ready", ready.Event)
 	}
 }
 
