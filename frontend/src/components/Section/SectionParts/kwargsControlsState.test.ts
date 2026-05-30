@@ -78,7 +78,6 @@ describe("getKwargsControlsActionState", () => {
 describe("getKwargsControlsThemeState", () => {
   it("keeps default muted colors when no section style theme is active", () => {
     const state = getKwargsControlsThemeState({
-      contentSurface: "section",
       resolvedStyleColor: null,
       darkMode: false,
       isCallableSection: false,

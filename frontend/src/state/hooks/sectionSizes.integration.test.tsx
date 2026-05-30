@@ -10,9 +10,7 @@ import {
   useTemporaryMiscState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { BARE_SECTION_NODE_MIN_HEIGHT } from "utils/bareSectionNodes";
 import {
-  getEdgesStripHeightKey,
   getKwargsControlsHeightKey,
   getParamsFixedHeightKey,
   getSectionHeaderHeightKey,
@@ -213,21 +211,18 @@ function renderDims(sectionId: string) {
 
 function setSectionMeasuredHeights({
   sectionId,
-  edgesStripHeight = 0,
   headerHeight = 20,
   searchHeight = 0,
   kwargsHeight = 0,
   paramsFixedHeight = 0,
 }: {
   sectionId: string;
-  edgesStripHeight?: number;
   headerHeight?: number;
   searchHeight?: number;
   kwargsHeight?: number;
   paramsFixedHeight?: number;
 }) {
   useTemporaryMiscState.setState({
-    [getEdgesStripHeightKey(sectionId)]: edgesStripHeight,
     [getSectionHeaderHeightKey(sectionId)]: headerHeight,
     [getSectionSearchHeightKey(sectionId)]: searchHeight,
     [getKwargsControlsHeightKey(sectionId)]: kwargsHeight,
@@ -252,7 +247,7 @@ describe("useSectionMinMaxDims integration", () => {
     resetProjectStores();
   });
 
-  it("accounts for pinned/unpinned/edges/kwargs heights on non-bare param sections", () => {
+  it("accounts for pinned/unpinned/edges/kwargs heights on callables", () => {
     const sectionId = "section-callable";
     const variantId = "variant-callable";
     const implId = "impl-callable";
@@ -266,89 +261,13 @@ describe("useSectionMinMaxDims integration", () => {
     });
 
     const callableImpl = {
-      type: SectionTypeEnum.GlobalVariables,
-      id: implId,
-      name: "Callable",
-      isFrozen: false,
-      isInOtherProjectConfigs: false,
-      tagColor: null,
-      size: { width: 400, height: 200 },
-      aspectRatio: false,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: false,
-      paramFilter: "",
-      columnWidth: null,
-      configLanguage: ConfigLanguageEnum.python,
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: { callable: false, params: {} },
-      edgeInputParams: ["edge-param"],
-      edgeOutputPorts: [],
-      topLevelParamId: null,
-      isJsonSource: false,
-      jsonSourceKeys: [],
-      jsonSourceMissing: false,
-    };
-
-    useProjectState.setState((state) => {
-      state.projectConfig = projectConfig;
-      state.sections = { [sectionId]: buildCore(sectionId, variantId) };
-      state.sectionVariants = { [variantId]: buildVariant(variantId, implId) };
-      state.sectionImpls = { [implId]: callableImpl };
-      state.previewSectionVariantMap = {};
-      state.parentSectionMap = { [sectionId]: null };
-      state.shownParamIds = {
-        [variantId]: {
-          pinned: { requiredParamIdsToPaths: {}, topLevelParamIds: ["pin-1"] },
-          unpinned: {
-            requiredParamIdsToPaths: {},
-            topLevelParamIds: ["unpinned-1"],
-          },
-        },
-      };
-    });
-
-    setSectionMeasuredHeights({
-      sectionId,
-      headerHeight: 20,
-      searchHeight: 24,
-      kwargsHeight: 22,
-      paramsFixedHeight: 80,
-    });
-
-    syncStoreInitialState(useProjectState);
-    syncStoreInitialState(useTemporaryMiscState);
-
-    const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(190);
-  });
-
-  it("keeps bare callable nodes compact while preserving visible edge strip height", () => {
-    const sectionId = "section-bare-callable";
-    const variantId = "variant-bare-callable";
-    const implId = "impl-bare-callable";
-
-    const projectConfig = createProjectConfig({
-      id: "project-bare",
-      sectionVariantMap: { [sectionId]: variantId },
-      topLevelSections: {
-        [sectionId]: { x: 0, y: 0, zIndex: 0, w: null, h: null },
-      },
-    });
-
-    const callableImpl = {
       type: SectionTypeEnum.Callable,
       id: implId,
       name: "Callable",
       isFrozen: false,
       isInOtherProjectConfigs: false,
       tagColor: null,
-      size: { width: 400, height: "auto" },
+      size: { width: 400, height: 200 },
       aspectRatio: false,
       aspectRatioExtraHeight: 0,
       aspectRatioExtraWidth: 0,
@@ -389,7 +308,6 @@ describe("useSectionMinMaxDims integration", () => {
 
     setSectionMeasuredHeights({
       sectionId,
-      edgesStripHeight: 52,
       headerHeight: 20,
       searchHeight: 24,
       kwargsHeight: 22,
@@ -400,7 +318,7 @@ describe("useSectionMinMaxDims integration", () => {
     syncStoreInitialState(useTemporaryMiscState);
 
     const dims = renderDims(sectionId);
-    expect(dims.minHeight).toBe(BARE_SECTION_NODE_MIN_HEIGHT + 52);
+    expect(dims.minHeight).toBe(190);
   });
 
   it("uses policy mins for TextBlock sections", () => {
@@ -519,7 +437,7 @@ describe("useSectionMinMaxDims integration", () => {
     });
 
     const callableImpl = {
-      type: SectionTypeEnum.GlobalVariables,
+      type: SectionTypeEnum.Callable,
       id: implId,
       name: "Callable",
       isFrozen: false,
@@ -542,10 +460,8 @@ describe("useSectionMinMaxDims integration", () => {
       ignoreTypeErrors: { callable: false, params: {} },
       edgeInputParams: ["edge-param"],
       edgeOutputPorts: [],
-      topLevelParamId: null,
-      isJsonSource: false,
-      jsonSourceKeys: [],
-      jsonSourceMissing: false,
+      callable: null,
+      hideParams: false,
     };
 
     useProjectState.setState((state) => {
@@ -587,7 +503,7 @@ describe("useSectionMinMaxDims integration", () => {
     });
 
     const callableImpl = {
-      type: SectionTypeEnum.GlobalVariables,
+      type: SectionTypeEnum.Callable,
       id: implId,
       name: "Callable",
       isFrozen: false,
@@ -610,10 +526,8 @@ describe("useSectionMinMaxDims integration", () => {
       ignoreTypeErrors: { callable: false, params: {} },
       edgeInputParams: [],
       edgeOutputPorts: [],
-      topLevelParamId: null,
-      isJsonSource: false,
-      jsonSourceKeys: [],
-      jsonSourceMissing: false,
+      callable: null,
+      hideParams: false,
     };
 
     useProjectState.setState((state) => {
@@ -662,7 +576,7 @@ describe("useSectionMinMaxDims integration", () => {
     });
 
     const callableImpl = {
-      type: SectionTypeEnum.GlobalVariables,
+      type: SectionTypeEnum.Callable,
       id: implId,
       name: "Callable",
       isFrozen: false,
@@ -685,10 +599,8 @@ describe("useSectionMinMaxDims integration", () => {
       ignoreTypeErrors: { callable: false, params: {} },
       edgeInputParams: [],
       edgeOutputPorts: [],
-      topLevelParamId: null,
-      isJsonSource: false,
-      jsonSourceKeys: [],
-      jsonSourceMissing: false,
+      callable: null,
+      hideParams: false,
     };
 
     useProjectState.setState((state) => {
@@ -734,7 +646,7 @@ describe("useSectionMinMaxDims integration", () => {
     });
 
     const dictImpl = {
-      type: SectionTypeEnum.GlobalVariables,
+      type: SectionTypeEnum.Dict,
       id: implId,
       name: "Dict",
       isFrozen: false,
@@ -806,7 +718,7 @@ describe("useSectionMinMaxDims integration", () => {
     });
 
     const callableImpl = {
-      type: SectionTypeEnum.GlobalVariables,
+      type: SectionTypeEnum.Callable,
       id: implId,
       name: "Callable",
       isFrozen: false,
@@ -829,10 +741,8 @@ describe("useSectionMinMaxDims integration", () => {
       ignoreTypeErrors: { callable: false, params: {} },
       edgeInputParams: [],
       edgeOutputPorts: [],
-      topLevelParamId: null,
-      isJsonSource: false,
-      jsonSourceKeys: [],
-      jsonSourceMissing: false,
+      callable: null,
+      hideParams: false,
     };
 
     const policy = buildSizingPolicy();

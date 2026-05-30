@@ -1,7 +1,4 @@
-import type { SectionContentSurface } from "../sectionContentSurface";
-
 type KwargsControlsContainerClassNameOptions = {
-  contentSurface: SectionContentSurface;
   hasSectionStyleTheme: boolean;
   isCallableSection: boolean;
 };
@@ -13,25 +10,20 @@ function joinClassNames(
 }
 
 export function getKwargsControlsContainerClassName({
-  contentSurface,
   hasSectionStyleTheme,
   isCallableSection,
 }: KwargsControlsContainerClassNameOptions): string {
-  const usesPaneSurface = contentSurface === "pane";
-  const argsBackgroundClassName = usesPaneSurface
-    ? "bg-transparent"
-    : hasSectionStyleTheme
-      ? "bg-[color:var(--setta-section-style-bg)]"
-      : isCallableSection
-        ? "bg-setta-50 dark:bg-setta-860"
-        : "";
+  const argsBackgroundClassName = hasSectionStyleTheme
+    ? "bg-[color:var(--setta-section-style-bg)]"
+    : isCallableSection
+      ? "bg-setta-50 dark:bg-setta-860"
+      : "";
   const argsBorderColorClassName = hasSectionStyleTheme
     ? "border-[color:var(--setta-section-style-border)]"
     : "border-white dark:border-setta-700";
 
   return joinClassNames(
-    "section-args z-10 flex min-w-0 flex-wrap border-b border-solid px-1 @container overflow-hidden isolate",
-    !usesPaneSurface && "rounded-xl shadow-sm",
+    "section-args z-10 flex min-w-0 flex-wrap rounded-xl border-b border-solid px-1 shadow-sm @container overflow-hidden isolate",
     isCallableSection ? "mt-0 pb-0" : "mt-1 pb-1",
     argsBackgroundClassName,
     argsBorderColorClassName,

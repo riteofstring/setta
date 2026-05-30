@@ -38,13 +38,11 @@ import {
 } from "utils/generatedTypes";
 import { shortcutPrettified } from "utils/utils";
 import { shallow } from "zustand/shallow";
-import type { SectionContentSurface } from "../sectionContentSurface";
 import {
   getKwargsControlsActionState,
   getKwargsControlsThemeState,
 } from "./kwargsControlsState";
 type KwargsControlsProps = {
-  contentSurface?: SectionContentSurface;
   sectionId: string;
 };
 function getDeletableSelectedParamIds(
@@ -64,10 +62,7 @@ function getDeletableSelectedParamIds(
     return isBaseParamCodeObjImpl(paramImpl) && paramImpl.coreNameEditable;
   });
 }
-export function KwargsControls({
-  contentSurface = "section",
-  sectionId,
-}: KwargsControlsProps) {
+export function KwargsControls({ sectionId }: KwargsControlsProps) {
   const controlsRef = useRef<HTMLElement | null>(null);
   const heightKey = getKwargsControlsHeightKey(sectionId);
   useKwargsControlsHeightMeasurement(controlsRef, heightKey);
@@ -103,7 +98,6 @@ export function KwargsControls({
     argsLabelColorClassName,
     argsIconButtonColorClassName,
   } = getKwargsControlsThemeState({
-    contentSurface,
     resolvedStyleColor,
     darkMode,
     isCallableSection,

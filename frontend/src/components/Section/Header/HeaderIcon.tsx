@@ -21,12 +21,7 @@ import {
   SiTypescript,
   SiYaml,
 } from "react-icons/si";
-import {
-  TbAdjustmentsHorizontal,
-  TbBraces,
-  TbFolderFilled,
-  TbFunction,
-} from "react-icons/tb";
+import { TbAdjustmentsHorizontal, TbFolderFilled } from "react-icons/tb";
 import {
   getCurrEffectiveSectionImpl,
   getCurrEffectiveSectionImplOfType,
@@ -187,14 +182,6 @@ const headerIconRenderers = {
   [SectionTypeEnum.Code]: renderCodeLanguageIcon,
   [SectionTypeEnum.GenPythonCode]: renderSettaLogo,
   [SectionTypeEnum.GenPythonMetadata]: renderSettaLogo,
-  [SectionTypeEnum.Callable]: renderSimpleHeaderIcon(
-    TbFunction,
-    defaultBlueHeaderIconClassName,
-  ),
-  [SectionTypeEnum.Dict]: renderSimpleHeaderIcon(
-    TbBraces,
-    defaultBlueHeaderIconClassName,
-  ),
   [SectionTypeEnum.Terminal]: renderTerminalIcon,
   [SectionTypeEnum.GlobalVariables]: renderSimpleHeaderIcon(
     RiGlobalFill,

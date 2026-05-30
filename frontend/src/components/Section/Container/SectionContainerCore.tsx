@@ -14,20 +14,18 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import { useSectionRefAndInit } from "state/hooks/sectionRef";
-import { isBareSectionNodeType } from "utils/bareSectionNodes";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
-import { buildSectionStyleVars } from "utils/sectionStyleVars";
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
-import { BareSectionNodeSurface } from "./BareSectionNodeSurface";
 import { ChatSharedEdgeHandles } from "./ChatSharedEdgeHandles";
 import "./dndline.css";
 import { MinimizedDataEdgeHandles } from "./MinimizedDataEdgeHandles";
 import { getSectionContainerShellClassName } from "./sectionChrome";
 import { SectionContainerCoreResizable } from "./SectionContainerCoreResizabe";
 import { StateMachineEdgeHandles } from "./StateMachineEdgeHandles";
-import { getBgColor, getOnSectionClick, useAiSectionHighlight } from "./utils";
+import { getOnSectionClick, useAiSectionHighlight } from "./utils";
 
 type SectionContainerCoreProps = {
   sectionId: string;
@@ -45,7 +43,6 @@ type SectionContainerSnapshot = {
   textBlockMetaControlStyle: boolean;
   projectConfigId: string;
   isAttachedTerminalChild: boolean;
-  isMinimized: boolean;
   styleColor: string | null;
   isJoinedAttachedTerminalChild: boolean;
 };
@@ -85,7 +82,6 @@ function getSectionContainerSnapshot(
       impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
     projectConfigId: state.projectConfig.id,
     isAttachedTerminalChild,
-    isMinimized: impl.isMinimized,
     styleColor: impl.styleColor,
     isJoinedAttachedTerminalChild,
   };
@@ -128,7 +124,7 @@ function resolvePreviewStyleColor(
   return previewStyleColor === undefined ? styleColor : previewStyleColor;
 }
 
-function getSectionStyleVarsOrUndefined({
+function getSectionStyleThemeOrNull({
   darkMode,
   resolvedStyleColor,
   useMetaControlStyle,
@@ -138,9 +134,29 @@ function getSectionStyleVarsOrUndefined({
   useMetaControlStyle: boolean;
 }) {
   if (!resolvedStyleColor || useMetaControlStyle) {
+    return null;
+  }
+  return deriveSectionStyleTheme(resolvedStyleColor, darkMode);
+}
+
+function resolveSectionStyleVars(
+  sectionStyleTheme: ReturnType<typeof deriveSectionStyleTheme> | null,
+) {
+  if (!sectionStyleTheme) {
     return undefined;
   }
-  return buildSectionStyleVars(resolvedStyleColor, darkMode);
+  return {
+    "--setta-section-style-bg": sectionStyleTheme.bg,
+    "--setta-section-style-panel-bg": sectionStyleTheme.panelBg,
+    "--setta-section-style-border": sectionStyleTheme.border,
+    "--setta-section-style-outline": sectionStyleTheme.outline,
+    "--setta-section-style-text": sectionStyleTheme.text,
+    "--setta-section-style-muted-text": sectionStyleTheme.mutedText,
+    "--setta-section-style-arg-handle": sectionStyleTheme.border,
+    "--setta-section-style-arg-handle-hover": sectionStyleTheme.outline,
+    "--setta-section-style-arg-handle-active": sectionStyleTheme.border,
+    "--setta-section-style-agentic-handle": sectionStyleTheme.outline,
+  } satisfies React.CSSProperties;
 }
 
 function getSectionShellStyle(
@@ -194,51 +210,6 @@ function SectionEdgeHandles({
   return <EdgeHandles isUserView={isUserView} />;
 }
 
-function SectionContainerContent({
-  sectionId,
-  sectionTypeName,
-  isInOtherProjectConfigs,
-  isUserView,
-  positionAndSizeLocked,
-  hasSectionStyleTheme,
-  isMinimized,
-  hideHeader,
-}: {
-  sectionId: string;
-  sectionTypeName: SectionType;
-  isInOtherProjectConfigs: boolean;
-  isUserView: boolean;
-  positionAndSizeLocked: boolean;
-  hasSectionStyleTheme: boolean;
-  isMinimized: boolean;
-  hideHeader: boolean;
-}) {
-  if (isBareSectionNodeType(sectionTypeName)) {
-    return (
-      <BareSectionNodeSurface
-        sectionId={sectionId}
-        sectionTypeName={sectionTypeName}
-        isInOtherProjectConfigs={isInOtherProjectConfigs}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-        bgColor={getBgColor(sectionTypeName)}
-        isMinimized={isMinimized}
-      />
-    );
-  }
-
-  return (
-    <SectionContainerCoreResizable
-      sectionId={sectionId}
-      sectionTypeName={sectionTypeName}
-      isInOtherProjectConfigs={isInOtherProjectConfigs}
-      isUserView={isUserView}
-      positionAndSizeLocked={positionAndSizeLocked}
-      hideHeader={hideHeader}
-      hasSectionStyleTheme={hasSectionStyleTheme}
-    />
-  );
-}
-
 function _SectionContainerCore({
   sectionId,
   isUserView,
@@ -254,7 +225,6 @@ function _SectionContainerCore({
     textBlockMetaControlStyle,
     projectConfigId,
     isAttachedTerminalChild,
-    isMinimized,
     styleColor,
     isJoinedAttachedTerminalChild,
   } = useProjectState(
@@ -291,15 +261,16 @@ function _SectionContainerCore({
     styleColor,
   );
   const darkMode = useLocalStorage((x) => x.darkMode);
-  const sectionStyleVars = getSectionStyleVarsOrUndefined({
+  const sectionStyleTheme = getSectionStyleThemeOrNull({
     darkMode,
     resolvedStyleColor,
     useMetaControlStyle,
   });
-  const hasSectionStyleTheme = Boolean(sectionStyleVars);
+  const hasSectionStyleTheme = Boolean(sectionStyleTheme);
   const viewportInteractionActive = useReactFlow(
     (state) => state.viewportInteractionActive,
   );
+  const sectionStyleVars = resolveSectionStyleVars(sectionStyleTheme);
   const sectionShellClassName = getSectionContainerShellClassName({
     isActiveSection,
     isGlobalVariables,
@@ -336,15 +307,14 @@ function _SectionContainerCore({
     >
       <SectionEdgeHandles isUserView={isUserView} mode={edgeHandleMode} />
       <MinimizedDataEdgeHandles sectionId={sectionId} />
-      <SectionContainerContent
+      <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         isInOtherProjectConfigs={isInOtherProjectConfigs}
         isUserView={isUserView}
         positionAndSizeLocked={positionAndSizeLocked}
-        hasSectionStyleTheme={hasSectionStyleTheme}
-        isMinimized={isMinimized}
         hideHeader={isAttachedTerminalChild}
+        hasSectionStyleTheme={hasSectionStyleTheme}
       />
     </section>
   );

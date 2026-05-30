@@ -20675,7 +20675,6 @@
       "type": "string",
       "title": "UIEditorTabName",
       "enum": [
-        "SectionContents",
         "SectionConfig",
         "QuickInfoConfig",
         "UIConfig",
@@ -20686,9 +20685,6 @@
     "UIEditorTabNamesValue": {
       "type": "object",
       "properties": {
-        "SectionContents": {
-          "$ref": "#/$defs/UIEditorTabName"
-        },
         "SectionConfig": {
           "$ref": "#/$defs/UIEditorTabName"
         },
@@ -20707,7 +20703,6 @@
       },
       "title": "UIEditorTabNamesValue",
       "required": [
-        "SectionContents",
         "SectionConfig",
         "QuickInfoConfig",
         "UIConfig",
@@ -20719,9 +20714,6 @@
     "UIEditorTabTitlesValue": {
       "type": "object",
       "properties": {
-        "SectionContents": {
-          "type": "string"
-        },
         "SectionConfig": {
           "type": "string"
         },
@@ -20740,7 +20732,6 @@
       },
       "title": "UIEditorTabTitlesValue",
       "required": [
-        "SectionContents",
         "SectionConfig",
         "QuickInfoConfig",
         "UIConfig",

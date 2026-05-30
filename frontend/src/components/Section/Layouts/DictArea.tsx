@@ -1,26 +1,16 @@
 import React from "react";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
-import type { SectionContentSurface } from "../sectionContentSurface";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 
-function _DictArea({
-  sectionId,
-  bgColor,
-  contentSurface = "section",
-}: {
-  sectionId: string;
-  bgColor: string;
-  contentSurface?: SectionContentSurface;
-}) {
+function _DictArea({ sectionId, bgColor }) {
   return (
     <>
-      <KwargsControls sectionId={sectionId} contentSurface={contentSurface} />
+      <KwargsControls sectionId={sectionId} />
       <ParamGroupContainer
         sectionId={sectionId}
         bgColor={bgColor}
         sectionTypeName={SectionTypeEnum.Dict}
-        contentSurface={contentSurface}
       />
     </>
   );

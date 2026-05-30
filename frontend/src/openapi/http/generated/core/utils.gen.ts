@@ -8,14 +8,14 @@ import {
   serializePrimitiveParam,
 } from "./pathSerializer.gen";
 
-export interface PathSerializer {
+interface PathSerializer {
   path: Record<string, unknown>;
   url: string;
 }
 
-export const PATH_PARAM_RE = /\{[^{}]+\}/g;
+const PATH_PARAM_RE = /\{[^{}]+\}/g;
 
-export const defaultPathSerializer = ({ path, url: _url }: PathSerializer) => {
+const defaultPathSerializer = ({ path, url: _url }: PathSerializer) => {
   let url = _url;
   const matches = _url.match(PATH_PARAM_RE);
   if (matches) {

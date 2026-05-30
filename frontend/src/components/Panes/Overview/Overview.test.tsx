@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { resetAppSubsystemFrontendRuntimeState } from "plugins/appSubsystem";
 import {
   usePluginRuntimeStore,
@@ -106,6 +107,8 @@ function resetPluginRuntimeStateForTests(): void {
     topNavBarItemsByPluginId: {},
     sortedTopNavBarItems: [],
     frontendErrorsByPluginId: {},
+    canvasControlsByPluginId: {},
+    sortedCanvasControls: [],
   });
 }
 
@@ -263,6 +266,34 @@ describe("Overview rail offsets", () => {
 
     expect(markup).toContain('data-testid="overview-left-rail-settings-link"');
     expect(markup).toContain('aria-label="Open settings"');
+  });
+
+  it("mounts canvas-safe rail controls instead of xyflow controls", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Overview />
+      </MemoryRouter>,
+    );
+    const source = [
+      readFileSync(new URL("./Overview.tsx", import.meta.url), "utf8"),
+      readFileSync(
+        new URL(
+          "../../WorkspaceCanvas/WorkspaceCanvasControls.tsx",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ].join("\n");
+
+    expect(markup).toContain('data-testid="workspace-canvas-controls"');
+    expect(markup).not.toContain('data-testid="rf__controls"');
+    expect(markup).not.toContain('aria-label="zoom in"');
+    expect(markup).not.toContain('aria-label="zoom out"');
+    expect(markup).not.toContain('aria-label="fit view"');
+    expect(markup).not.toContain('aria-label="reset zoom"');
+    expect(source).not.toContain("forks/xyflow");
+    expect(source).not.toContain("useReactFlow");
+    expect(source).not.toContain("react-flow__controls");
   });
 
   it("renders the View Modes pane content when the view modes tab is selected", () => {

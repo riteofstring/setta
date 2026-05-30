@@ -17,7 +17,6 @@ type MockProjectState = {
   projectConfig: {
     id: string;
   };
-  sections: Record<string, { name: string }>;
   projectChatWindowing: ReturnType<typeof createProjectChatWindowingState>;
 };
 
@@ -25,7 +24,6 @@ let mockProjectState: MockProjectState = {
   projectConfig: {
     id: "project-1",
   },
-  sections: {},
   projectChatWindowing: createProjectChatWindowingState(),
 };
 
@@ -189,7 +187,6 @@ describe("SectionContainerCoreResizable", () => {
       projectConfig: {
         id: "project-1",
       },
-      sections: {},
       projectChatWindowing: createProjectChatWindowingState(),
     };
   });
@@ -199,7 +196,6 @@ describe("SectionContainerCoreResizable", () => {
       projectConfig: {
         id: "project-1",
       },
-      sections: {},
       projectChatWindowing: createProjectChatWindowingState({
         order: ["project-chat-window-1"],
         instancesById: {

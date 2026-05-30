@@ -6491,10 +6491,6 @@
       "schemaRef": "#/$defs/UIEditorTabName",
       "enumValues": [
         {
-          "name": "SectionContents",
-          "value": "SectionContents"
-        },
-        {
           "name": "SectionConfig",
           "value": "SectionConfig"
         },
@@ -10069,7 +10065,7 @@
       "profile": "frontend",
       "type": "SettingsChatWindowing",
       "value": {
-        "autoCreateInitialChat": false,
+        "autoCreateInitialChat": true,
         "restorePriorStateOnUnmaximize": true,
         "shortcuts": {
           "canvasToggle": "Shift + Esc",
@@ -10255,7 +10251,7 @@
           "showDefaultConfigOnLoad": true
         },
         "chatWindowing": {
-          "autoCreateInitialChat": false,
+          "autoCreateInitialChat": true,
           "restorePriorStateOnUnmaximize": true,
           "shortcuts": {
             "canvasToggle": "Shift + Esc",
@@ -11988,7 +11984,6 @@
           "SectionConfig"
         ],
         "Callable": [
-          "SectionContents",
           "SectionConfig",
           "UIConfig",
           "QuickInfoConfig",
@@ -12005,7 +12000,6 @@
           "SectionVariantsConfig"
         ],
         "Dict": [
-          "SectionContents",
           "SectionConfig",
           "UIConfig",
           "QuickInfoConfig",
@@ -12705,7 +12699,6 @@
           "InfoConfig": "InfoConfig",
           "QuickInfoConfig": "QuickInfoConfig",
           "SectionConfig": "SectionConfig",
-          "SectionContents": "SectionContents",
           "SectionVariantsConfig": "SectionVariantsConfig",
           "UIConfig": "UIConfig"
         },
@@ -12713,7 +12706,6 @@
           "InfoConfig": "Text Editor",
           "QuickInfoConfig": "Quick Info",
           "SectionConfig": "Section",
-          "SectionContents": "Contents",
           "SectionVariantsConfig": "Variants",
           "UIConfig": "Params"
         }

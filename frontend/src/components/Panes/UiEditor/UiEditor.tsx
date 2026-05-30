@@ -29,7 +29,6 @@ import { getPaneMinimumWidth } from "../paneLayout";
 import { MarkdownEditorInPane } from "./MarkdownEditor/MarkdownEditor";
 import { QuickInfoConfig } from "./QuickInfoConfig/QuickInfoConfig";
 import { SectionConfig } from "./SectionConfig/SectionConfig";
-import { SectionContents } from "./SectionContents/SectionContents";
 import { VariantList } from "./SectionVariants/VariantList";
 import { StateMachineEdgeInspector } from "./StateMachineEdgeInspector";
 import { UIConfig } from "./UIConfig/UIConfig";
@@ -131,13 +130,6 @@ export function UiEditor() {
           bottom: hasViewModeTabs ? "36px" : "0px",
         }}
       >
-        <TabButton<UIEditorTabName>
-          tabName={UIEditorTabUIConfig.names.SectionContents}
-          {...commonProps}
-          data-testid="ui-editor-tab-section-contents"
-          {...getFloatingBoxHandlers({ content: "Section Contents" })}
-          icon={<FiEdit3 />}
-        />
         <TabButton<UIEditorTabName>
           tabName={UIEditorTabUIConfig.names.SectionConfig}
           {...commonProps}
@@ -243,8 +235,6 @@ function TabContent({
   selectedTabName: UIEditorTabName;
 }) {
   switch (selectedTabName) {
-    case UIEditorTabUIConfig.names.SectionContents:
-      return <SectionContents sectionId={sectionId} />;
     case UIEditorTabUIConfig.names.SectionConfig:
       return <SectionConfig sectionId={sectionId} />;
     case UIEditorTabUIConfig.names.UIConfig:

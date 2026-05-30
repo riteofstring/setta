@@ -1,7 +1,3 @@
-import {
-  BARE_SECTION_NODE_MIN_HEIGHT,
-  BARE_SECTION_NODE_MIN_WIDTH,
-} from "utils/bareSectionNodes";
 import { SectionSizingPolicy, SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
@@ -106,30 +102,23 @@ describe("section sizing helpers", () => {
     expect(result).toBe(sizingPolicy.globals.minimizedHeight);
   });
 
-  it("uses the bare node min height for callable sections", () => {
-    const result = getMinSectionHeight({
-      sectionType: SectionTypeEnum.Callable,
-      sizingPolicy,
-    });
-    expect(result).toBe(BARE_SECTION_NODE_MIN_HEIGHT);
-  });
-
-  it("uses the bare node min width for dict sections", () => {
-    const result = getMinSectionWidth({
-      sectionType: SectionTypeEnum.Dict,
-      sizingPolicy,
-    });
-    expect(result).toBe(BARE_SECTION_NODE_MIN_WIDTH);
-  });
-
-  it("keeps callable sections at bare height even when legacy hide flags are set", () => {
+  it("uses callable hideSearchMinHeight when hideSearch is true", () => {
     const result = getMinSectionHeight({
       sectionType: SectionTypeEnum.Callable,
       hideSearch: true,
       hideParams: true,
       sizingPolicy,
     });
-    expect(result).toBe(BARE_SECTION_NODE_MIN_HEIGHT);
+    expect(result).toBe(sizingPolicy.byType.Callable.hideSearchMinHeight);
+  });
+
+  it("uses callable hideParamsMinHeight when hideParams is true", () => {
+    const result = getMinSectionHeight({
+      sectionType: SectionTypeEnum.Callable,
+      hideParams: true,
+      sizingPolicy,
+    });
+    expect(result).toBe(sizingPolicy.byType.Callable.hideParamsMinHeight);
   });
 
   it("returns policy minHeight when not minimized", () => {
