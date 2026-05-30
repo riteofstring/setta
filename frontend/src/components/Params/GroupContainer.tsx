@@ -1,3 +1,4 @@
+import type { SectionContentSurface } from "components/Section/sectionContentSurface";
 import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import _ from "lodash";
 import React, {
@@ -38,6 +39,7 @@ import {
 } from "./paramAreaMeasurements";
 import { attachParamAreaObservers } from "./paramAreaObservers";
 import { ParamDndList } from "./ParamDndList";
+import { getPinnedParamsSurfaceClassNames } from "./paramGroupContainerStyles";
 import { useHasSectionStyleTheme } from "./paramSectionStyleTheme";
 
 const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
@@ -209,10 +211,12 @@ function selectUnpinnedParamsState(
 function _ParamGroupContainer({
   sectionId,
   bgColor,
+  contentSurface = "section",
   sectionTypeName,
 }: {
   sectionId: string;
   bgColor: string;
+  contentSurface?: SectionContentSurface;
   sectionTypeName: SectionTypeEnum;
 }) {
   const outerRef = useRef<HTMLDivElement | null>(null);
@@ -329,7 +333,9 @@ function _ParamGroupContainer({
   return (
     <ParamDndContext>
       <div
-        className="section-row-pin-main section-w-full relative -mt-3 flex min-h-0 flex-col pt-2"
+        className={`section-row-pin-main section-w-full relative flex min-h-0 flex-col ${
+          contentSurface === "pane" ? "mt-0 pt-0" : "-mt-3 pt-2"
+        }`}
         ref={setOuterRef}
       >
         {waitingForResult && (
@@ -338,12 +344,17 @@ function _ParamGroupContainer({
           </div>
         )}
         <>
-          <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
+          <EdgesStrip
+            sectionId={sectionId}
+            bgColor={bgColor}
+            allowRoundedBottom={contentSurface !== "pane"}
+          />
           <GetPinnedParams
             sectionId={sectionId}
             handleColumnResizeStart={handleColumnResizeStart}
             setMaxNestedDepth={setMaxNestedDepth}
             sectionTypeName={sectionTypeName}
+            contentSurface={contentSurface}
           />
           <GetUnpinnedParams
             sectionId={sectionId}
@@ -357,16 +368,6 @@ function _ParamGroupContainer({
 }
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
-
-function getPinnedParamsBgClassName(sectionTypeName: SectionTypeEnum) {
-  if (sectionTypeName === SectionTypeEnum.Callable) {
-    return "bg-white dark:bg-blue-950/30";
-  }
-  if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
-    return "bg-setta-50 dark:bg-blue-950/30";
-  }
-  return "bg-setta-100/50 dark:bg-blue-950/30";
-}
 
 function useMeasuredParamAreaMinHeight({
   sectionId,
@@ -494,6 +495,7 @@ type GetPinnedParamsProps = {
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
   sectionTypeName: SectionTypeEnum;
+  contentSurface: SectionContentSurface;
 };
 
 type PinnedParamsAreaProps = {
@@ -505,6 +507,7 @@ type PinnedParamsAreaProps = {
   shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
   sectionTypeName: SectionTypeEnum;
+  contentSurface: SectionContentSurface;
   contentRef: React.RefObject<HTMLDivElement>;
   headerRef: React.RefObject<HTMLElement>;
   rowsRef: React.RefObject<HTMLDivElement>;
@@ -521,6 +524,7 @@ function GetPinnedParams({
   handleColumnResizeStart,
   setMaxNestedDepth,
   sectionTypeName,
+  contentSurface,
 }: GetPinnedParamsProps) {
   const {
     requiredParamIdsToPaths,
@@ -579,6 +583,7 @@ function GetPinnedParams({
         shouldRoundBottom={shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         sectionTypeName={sectionTypeName}
+        contentSurface={contentSurface}
         contentRef={contentRef}
         headerRef={headerRef}
         rowsRef={rowsRef}
@@ -596,13 +601,11 @@ function PinnedParamsArea({
   shouldRoundBottom,
   positionAndSizeLocked,
   sectionTypeName,
+  contentSurface,
   contentRef,
   headerRef,
   rowsRef,
 }: PinnedParamsAreaProps) {
-  const pinnedBgClassName = hasSectionStyleTheme
-    ? "bg-[color:var(--setta-section-style-panel-bg)]"
-    : getPinnedParamsBgClassName(sectionTypeName);
   const pinnedBorderColorClassName = hasSectionStyleTheme
     ? "border-[color:var(--setta-section-style-border)]"
     : "border-white dark:border-setta-700/30";
@@ -612,16 +615,18 @@ function PinnedParamsArea({
   const pinnedIconColorClassName = hasSectionStyleTheme
     ? "text-[color:var(--setta-section-style-muted-text)] after:text-[color:var(--setta-section-style-muted-text)]"
     : "text-setta-300 after:text-setta-300 dark:text-setta-500 dark:after:text-setta-500";
-  let roundedBottomClassName = "";
-  if (shouldRoundBottom) {
-    roundedBottomClassName = positionAndSizeLocked
-      ? "rounded-b-sm"
-      : "rounded-b-xl";
-  }
+  const { pinnedBgClassName, pinnedShadowClassName, roundedBottomClassName } =
+    getPinnedParamsSurfaceClassNames({
+      contentSurface,
+      hasSectionStyleTheme,
+      positionAndSizeLocked,
+      sectionTypeName,
+      shouldRoundBottom,
+    });
 
   return (
     <section
-      className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
+      className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b ${pinnedShadowClassName} ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
     >
       <div

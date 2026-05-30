@@ -41,6 +41,7 @@ import {
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import type { SectionContentSurface } from "../sectionContentSurface";
 
 type SectionSearchInputState = {
   displayedCallableName: string;
@@ -56,12 +57,50 @@ type SectionSearchInputState = {
   clearApplyIndicator: () => void;
 };
 
+function getSectionSearchCodeClassNames({
+  contentSurface,
+  hasSectionStyleTheme,
+}: {
+  contentSurface: SectionContentSurface;
+  hasSectionStyleTheme: boolean;
+}) {
+  if (contentSurface === "pane") {
+    return {
+      dummyCodeClassName: `${NO_PAN_CLASS_NAME} single-cell-child border-0 border-b border-solid ${
+        hasSectionStyleTheme
+          ? "border-[color:var(--setta-section-style-border)]"
+          : "border-setta-200 dark:border-setta-800"
+      } bg-transparent py-1 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]`,
+      realCodeClassName: `${NO_PAN_CLASS_NAME} single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-none [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] border-0 border-b border-solid ${
+        hasSectionStyleTheme
+          ? "border-[color:var(--setta-section-style-outline)]"
+          : "border-blue-500 dark:border-blue-400/50"
+      } bg-transparent mx-[.125rem] py-1 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit`,
+    };
+  }
+
+  return {
+    dummyCodeClassName: `${NO_PAN_CLASS_NAME} single-cell-child rounded-2xl border border-solid ${
+      hasSectionStyleTheme
+        ? "border-[color:var(--setta-section-style-border)]"
+        : "border-setta-100 dark:border-setta-800"
+    } bg-white py-1 dark:bg-setta-950 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]`,
+    realCodeClassName: `${NO_PAN_CLASS_NAME} single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid ${
+      hasSectionStyleTheme
+        ? "border-[color:var(--setta-section-style-outline)]"
+        : "border-blue-500 dark:border-blue-400/50"
+    } bg-white mx-[.125rem] py-1 dark:bg-setta-950 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit`,
+  };
+}
+
 export function SectionSearch({
   sectionId,
   callable,
+  contentSurface = "section",
 }: {
   sectionId: string;
   callable: string | null;
+  contentSurface?: SectionContentSurface;
 }) {
   const variantIsFrozen = useSectionImplIsFrozen(sectionId);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -86,6 +125,11 @@ export function SectionSearch({
       : null,
   );
   const lspEnabled = !isDeploymentMode;
+  const { dummyCodeClassName, realCodeClassName } =
+    getSectionSearchCodeClassNames({
+      contentSurface,
+      hasSectionStyleTheme,
+    });
   function onEnter(value: string) {
     setCallable(sectionId, value, lspEnabled);
   }
@@ -99,16 +143,8 @@ export function SectionSearch({
       callable={callable}
       onEnter={onEnter}
       onShiftEnter={onShiftEnter}
-      dummyCodeClassName={`${NO_PAN_CLASS_NAME} single-cell-child rounded-2xl border border-solid ${
-        hasSectionStyleTheme
-          ? "border-[color:var(--setta-section-style-border)]"
-          : "border-setta-100 dark:border-setta-800"
-      } bg-white py-1 dark:bg-setta-950 nodrag cursor-text select-text break-words px-[.625rem] font-mono mx-[.125rem] text-xs [tab-size:4] [word-break:break-word]`}
-      realCodeClassName={`${NO_PAN_CLASS_NAME} single-cell-child nodrag [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:rounded-md [&_.cm-content]:!py-0 [&_.cm-content]:text-xs first:[&_.cm-line>*]:mt-[3px] rounded-2xl border border-solid ${
-        hasSectionStyleTheme
-          ? "border-[color:var(--setta-section-style-outline)]"
-          : "border-blue-500 dark:border-blue-400/50"
-      } bg-white mx-[.125rem] py-1 dark:bg-setta-950 [&_.cm-line]:px-[.625rem] [&_.cm-activeLine]:!bg-inherit`}
+      dummyCodeClassName={dummyCodeClassName}
+      realCodeClassName={realCodeClassName}
       isDisabled={variantIsFrozen || !lspEnabled}
       lspEnabled={lspEnabled}
     />

@@ -358,7 +358,7 @@ function getEdgesStripClassName(
   variant: EdgesStripVariant,
 ) {
   if (variant === "bare-node") {
-    return `section-w-full section-row-pin-main relative z-0 flex shrink-0 flex-col overflow-visible border-t ${appearance.stripBorderColorClassName} ${appearance.edgeStripBgColorClassName} ${appearance.roundedBottomClassName}`;
+    return `relative z-0 flex shrink-0 flex-col overflow-visible border-t ${appearance.stripBorderColorClassName} ${appearance.edgeStripBgColorClassName} ${appearance.roundedBottomClassName}`;
   }
 
   return `section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b pt-5 ${appearance.stripBorderColorClassName} ${appearance.edgeStripBgColorClassName} ${appearance.roundedBottomClassName}`;
@@ -375,10 +375,12 @@ function getEdgesStripGridClassName(variant: EdgesStripVariant) {
 export function EdgesStrip({
   sectionId,
   bgColor,
+  allowRoundedBottom = true,
   variant = "section-body",
 }: {
   sectionId: string;
   bgColor: string;
+  allowRoundedBottom?: boolean;
   variant?: EdgesStripVariant;
 }) {
   const { canEditStructure } = useShareCapabilities();
@@ -407,7 +409,7 @@ export function EdgesStrip({
     hasSectionStyleTheme,
     bgColor,
     isSelectingParams,
-    shouldRoundBottom,
+    shouldRoundBottom: allowRoundedBottom && shouldRoundBottom,
     positionAndSizeLocked,
   });
 

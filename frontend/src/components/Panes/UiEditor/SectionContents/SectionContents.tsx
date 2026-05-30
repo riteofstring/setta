@@ -8,7 +8,6 @@ import {
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
 import { buildSectionStyleVars } from "utils/sectionStyleVars";
-import { getBgColor } from "../../../Section/Container/utils";
 import { CallableArea } from "../../../Section/Layouts/CallableArea";
 import { DictArea } from "../../../Section/Layouts/DictArea";
 
@@ -43,11 +42,14 @@ function SectionContentsBody({
         sectionId={sectionId}
         bgColor={bgColor}
         isMinimized={false}
+        contentSurface="pane"
       />
     );
   }
   if (sectionTypeName === SectionTypeEnum.Dict) {
-    return <DictArea sectionId={sectionId} bgColor={bgColor} />;
+    return (
+      <DictArea sectionId={sectionId} bgColor={bgColor} contentSurface="pane" />
+    );
   }
   return (
     <div className="flex h-full min-h-0 items-center justify-center px-4 text-xs text-setta-500 dark:text-setta-500">
@@ -70,17 +72,15 @@ function _SectionContents({ sectionId }: { sectionId: string }) {
   const sectionStyleVars = resolvedStyleColor
     ? buildSectionStyleVars(resolvedStyleColor, darkMode)
     : undefined;
-  const bgColor = getBgColor(sectionTypeName);
+  const bgColor = "bg-transparent";
 
   return (
     <section
-      className="setta-pane-scroll flex min-h-0 flex-1 flex-col overflow-hidden rounded-md"
+      className="setta-pane-scroll flex min-h-0 flex-1 flex-col overflow-hidden"
       data-testid="section-contents-pane"
     >
       <div
-        className={`section-grid-cols section-grid-rows section-grid-areas relative grid min-h-0 flex-1 overflow-hidden rounded-md ${bgColor} ${
-          sectionStyleVars ? "!bg-[color:var(--setta-section-style-bg)]" : ""
-        }`}
+        className="section-grid-cols section-grid-rows section-grid-areas relative grid min-h-0 flex-1 overflow-hidden bg-transparent"
         style={sectionStyleVars}
       >
         <SectionContentsBody

@@ -27,11 +27,18 @@ vi.mock("../../../Section/Layouts/CallableArea", () => ({
   CallableArea: ({
     sectionId,
     bgColor,
+    contentSurface,
   }: {
     sectionId: string;
     bgColor: string;
+    contentSurface?: string;
   }) => (
-    <div data-testid="mock-callable-area" data-section-id={sectionId}>
+    <div
+      data-testid="mock-callable-area"
+      data-bg-color={bgColor}
+      data-content-surface={contentSurface ?? ""}
+      data-section-id={sectionId}
+    >
       {bgColor}
     </div>
   ),
@@ -41,11 +48,18 @@ vi.mock("../../../Section/Layouts/DictArea", () => ({
   DictArea: ({
     sectionId,
     bgColor,
+    contentSurface,
   }: {
     sectionId: string;
     bgColor: string;
+    contentSurface?: string;
   }) => (
-    <div data-testid="mock-dict-area" data-section-id={sectionId}>
+    <div
+      data-testid="mock-dict-area"
+      data-bg-color={bgColor}
+      data-content-surface={contentSurface ?? ""}
+      data-section-id={sectionId}
+    >
       {bgColor}
     </div>
   ),
@@ -65,7 +79,10 @@ describe("SectionContents", () => {
     expect(markup).toContain('data-testid="section-contents-pane"');
     expect(markup).toContain('data-testid="mock-dict-area"');
     expect(markup).toContain('data-section-id="dict-section"');
+    expect(markup).toContain('data-bg-color="bg-transparent"');
+    expect(markup).toContain('data-content-surface="pane"');
     expect(markup).toContain("section-grid-areas");
+    expect(markup).not.toContain("rounded-md");
   });
 
   it("renders callable contents through the existing callable area", () => {
@@ -77,5 +94,7 @@ describe("SectionContents", () => {
 
     expect(markup).toContain('data-testid="mock-callable-area"');
     expect(markup).toContain('data-section-id="callable-section"');
+    expect(markup).toContain('data-bg-color="bg-transparent"');
+    expect(markup).toContain('data-content-surface="pane"');
   });
 });

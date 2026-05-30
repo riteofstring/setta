@@ -1,7 +1,9 @@
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import type { SectionContentSurface } from "../sectionContentSurface";
 import { getKwargsControlsContainerClassName } from "./kwargsControlsStyles";
 
 type KwargsThemeStateArgs = {
+  contentSurface: SectionContentSurface;
   resolvedStyleColor: string | null;
   darkMode: boolean;
   isCallableSection: boolean;
@@ -18,6 +20,7 @@ type KwargsActionStateArgs = {
 };
 
 export function getKwargsControlsThemeState({
+  contentSurface,
   resolvedStyleColor,
   darkMode,
   isCallableSection,
@@ -31,6 +34,7 @@ export function getKwargsControlsThemeState({
   return {
     hasSectionStyleTheme,
     controlsContainerClassName: getKwargsControlsContainerClassName({
+      contentSurface,
       hasSectionStyleTheme,
       isCallableSection,
     }),

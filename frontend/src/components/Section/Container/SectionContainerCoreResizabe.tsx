@@ -1,6 +1,5 @@
 import { buildWorkspaceSectionProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
-import { EdgesStrip } from "components/Params/EdgesStrip";
 import { CustomResizable } from "components/Utils/Resizable/CustomResizable";
 import _ from "lodash";
 import type { SetStateAction } from "react";
@@ -15,7 +14,6 @@ import {
 } from "state/actions/sectionInfos";
 import { getIsRoot } from "state/actions/uiTypes/utils";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
-import { isBareSectionNodeType } from "utils/bareSectionNodes";
 import {
   ChatWindowModeEnum,
   SectionTypeEnum,
@@ -48,7 +46,6 @@ import { TaskBoardArea } from "../Layouts/TaskBoardArea";
 import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
-import { BareSectionNodeHeader } from "./BareSectionNodeHeader";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
@@ -394,7 +391,6 @@ function _SectionContainerCoreResizable({
     textBlockMetaControlStyle,
   );
   const useMetaControlStyle = chromeMode !== "header";
-  const useBareNodeChrome = isBareSectionNodeType(sectionTypeName);
   const bgColor = useMetaControlStyle
     ? "bg-transparent"
     : getBgColor(sectionTypeName);
@@ -417,33 +413,23 @@ function _SectionContainerCoreResizable({
       frameClassName={metaControlFrameClassName}
       layoutClassName={metaControlLayoutClassName}
     >
-      {useBareNodeChrome ? (
-        <BareSectionNodeHeader
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
-      ) : (
-        <SectionContainerChrome
-          sectionId={sectionId}
-          sectionTypeName={sectionTypeName}
-          isInOtherProjectConfigs={isInOtherProjectConfigs}
-          isUserView={isUserView}
-          isRoot={isRoot}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-          chromeMode={chromeMode}
-          hideHeader={hideHeader}
-          positionAndSizeLocked={positionAndSizeLocked}
-        />
-      )}
+      <SectionContainerChrome
+        sectionId={sectionId}
+        sectionTypeName={sectionTypeName}
+        isInOtherProjectConfigs={isInOtherProjectConfigs}
+        isUserView={isUserView}
+        isRoot={isRoot}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        chromeMode={chromeMode}
+        hideHeader={hideHeader}
+        positionAndSizeLocked={positionAndSizeLocked}
+      />
       <CanvasSectionBody
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
         bgColor={bgColor}
         isMinimized={isMinimized}
         isUserView={isUserView}
-        renderBareContent={useBareNodeChrome}
       />
     </CustomResizable>
   );
@@ -490,14 +476,12 @@ function CanvasSectionBody({
   bgColor,
   isMinimized,
   isUserView,
-  renderBareContent,
 }: {
   sectionId: string;
   sectionTypeName: SectionType;
   bgColor: string;
   isMinimized: boolean;
   isUserView: boolean;
-  renderBareContent: boolean;
 }) {
   const externalizedWindowId = useProjectState((state) => {
     if (sectionTypeName === SectionTypeEnum.Chat) {
@@ -522,11 +506,6 @@ function CanvasSectionBody({
   }
   if (isMinimized) {
     return null;
-  }
-  if (renderBareContent) {
-    return (
-      <EdgesStrip sectionId={sectionId} bgColor={bgColor} variant="bare-node" />
-    );
   }
 
   return (

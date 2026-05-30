@@ -283,6 +283,7 @@ function seedParamGroupState(options: SeedParamGroupOptions = {}) {
 
 function renderParamGroupContainer(
   options: Parameters<typeof seedParamGroupState>[0] = {},
+  contentSurface: "section" | "pane" = "section",
 ) {
   const { sectionId, sectionTypeName } = seedParamGroupState(options);
   return renderToStaticMarkup(
@@ -290,6 +291,7 @@ function renderParamGroupContainer(
       sectionId={sectionId}
       bgColor="bg-transparent"
       sectionTypeName={sectionTypeName}
+      contentSurface={contentSurface}
     />,
   );
 }
@@ -353,6 +355,22 @@ describe("ParamGroupContainer layout", () => {
     expect(classes).toContain("section-args-nested");
     expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
+  });
+
+  it("lets pane-rendered args inherit the pane background without rounded section chrome", () => {
+    const markup = renderParamGroupContainer(
+      {
+        sectionTypeName: SectionTypeEnum.Callable,
+        pinnedParamCount: 1,
+      },
+      "pane",
+    );
+
+    expect(markup).toContain("Pinned Params");
+    expect(markup).toContain("bg-transparent");
+    expect(markup).not.toContain("bg-white dark:bg-blue-950/30");
+    expect(markup).not.toContain("rounded-b-xl");
+    expect(markup).not.toContain("shadow-sm");
   });
 
   it("renders a compact edge strip for bare canvas nodes", () => {

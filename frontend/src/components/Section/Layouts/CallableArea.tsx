@@ -4,6 +4,7 @@ import { getCurrEffectiveSectionImplOfType } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { ParamGroupContainer } from "../../Params/GroupContainer";
+import type { SectionContentSurface } from "../sectionContentSurface";
 import { KwargsControls } from "../SectionParts/KwargsControls";
 import { SectionSearch } from "../SectionParts/Search";
 
@@ -11,10 +12,12 @@ function _CallableArea({
   sectionId,
   bgColor,
   isMinimized,
+  contentSurface = "section",
 }: {
   sectionId: string;
   bgColor: string;
   isMinimized: boolean;
+  contentSurface?: SectionContentSurface;
 }) {
   const { callable, hideParams } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplOfType(
@@ -32,14 +35,22 @@ function _CallableArea({
 
   return (
     <>
-      <SectionSearch sectionId={sectionId} callable={callable} />
+      <SectionSearch
+        sectionId={sectionId}
+        callable={callable}
+        contentSurface={contentSurface}
+      />
       {!hideParams && !isMinimized && (
         <>
-          <KwargsControls sectionId={sectionId} />
+          <KwargsControls
+            sectionId={sectionId}
+            contentSurface={contentSurface}
+          />
           <ParamGroupContainer
             sectionId={sectionId}
             bgColor={bgColor}
             sectionTypeName={SectionTypeEnum.Callable}
+            contentSurface={contentSurface}
           />
         </>
       )}
