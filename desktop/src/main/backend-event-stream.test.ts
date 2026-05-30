@@ -29,12 +29,7 @@ describe("backend event stream", () => {
     const fetchImpl: BackendFetch = vi.fn(async (input, init) => {
       expect(input.toString()).toBe("http://127.0.0.1:41000/events");
       expect(init.method).toBe("GET");
-      return new Response(
-        textStream(
-          `id: ${event.sequence}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`,
-        ),
-        { status: 200 },
-      );
+      return new Response(textStream(sseFrame(event)), { status: 200 });
     });
 
     const stream = startBackendEventStream({
@@ -59,6 +54,54 @@ describe("backend event stream", () => {
     expect(forwarded).toEqual([event]);
     expect(lifecycle).toHaveBeenCalledWith(expect.objectContaining({ type: "connected" }));
   });
+
+  test("forwards resync events when a backend stream restarts with a lower sequence", async () => {
+    const oldEvent = messageCreatedEvent(5, "event_stream_old");
+    const resyncEvent = resyncRequiredEvent("event_stream_new", {
+      currentSequence: 0,
+      requestedSequence: oldEvent.sequence,
+      requestedStreamId: oldEvent.streamId,
+    });
+    const forwarded: ChatEvent[] = [];
+    const lastEventIds: string[] = [];
+    const fetchImpl: BackendFetch = vi.fn(async (_input, init) => {
+      const headers = init.headers as Record<string, string> | undefined;
+      lastEventIds.push(headers?.["Last-Event-ID"] ?? "");
+      if (lastEventIds.length === 1) {
+        return new Response(textStream(sseFrame(oldEvent)), { status: 200 });
+      }
+      return new Response(textStream(sseFrame(resyncEvent)), { status: 200 });
+    });
+    let sleepCount = 0;
+    const sleep = vi.fn(async (_ms: number, signal: AbortSignal) => {
+      sleepCount += 1;
+      if (sleepCount === 1) {
+        return;
+      }
+      await new Promise<void>((resolve) => {
+        signal.addEventListener("abort", () => resolve(), { once: true });
+      });
+    });
+
+    const stream = startBackendEventStream({
+      baseURL: "http://127.0.0.1:41000",
+      fetchImpl,
+      reconnect: {
+        initialDelayMs: 1,
+        maxDelayMs: 1,
+        sleep,
+      },
+      sendEvent: (payload) => {
+        forwarded.push(payload);
+      },
+    });
+
+    await waitFor(() => forwarded.length === 2);
+    await stream.stop();
+
+    expect(lastEventIds).toEqual(["", "event_stream_old:5"]);
+    expect(forwarded).toEqual([oldEvent, resyncEvent]);
+  });
 });
 
 function textStream(text: string): ReadableStream<Uint8Array> {
@@ -68,6 +111,10 @@ function textStream(text: string): ReadableStream<Uint8Array> {
       controller.close();
     },
   });
+}
+
+function sseFrame(event: ChatEvent): string {
+  return `id: ${event.eventId}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
 }
 
 async function waitFor(done: () => boolean) {
@@ -80,19 +127,49 @@ async function waitFor(done: () => boolean) {
   }
 }
 
-function messageCreatedEvent(sequence: number): ChatEvent {
+function messageCreatedEvent(sequence: number, streamId = "event_stream_test"): ChatEvent {
   return {
     conversationId: "conversation_api",
     emittedAt: "2026-05-29T20:00:00Z",
-    eventId: String(sequence),
+    eventId: `${streamId}:${sequence}`,
     payload: {
       message: message("message_user", 1, "user", "complete", "hello"),
     },
     runId: "run_api",
     schemaVersion: 1,
     sequence,
+    streamId,
     type: "chat.message.created",
     workspaceId: "workspace_api",
+  };
+}
+
+function resyncRequiredEvent(
+  streamId: string,
+  cursor: {
+    currentSequence: number;
+    requestedSequence: number;
+    requestedStreamId: string;
+  },
+): ChatEvent {
+  return {
+    conversationId: "",
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${cursor.currentSequence}`,
+    payload: {
+      currentSequence: cursor.currentSequence,
+      currentStreamId: streamId,
+      earliestSequence: 0,
+      reason: "event stream restarted",
+      requestedSequence: cursor.requestedSequence,
+      requestedStreamId: cursor.requestedStreamId,
+    },
+    runId: "",
+    schemaVersion: 1,
+    sequence: cursor.currentSequence,
+    streamId,
+    type: "chat.resync_required",
+    workspaceId: "",
   };
 }
 

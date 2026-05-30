@@ -33,16 +33,19 @@ function chatEvent(): ChatEvent {
   return {
     conversationId: "conversation_api",
     emittedAt: "2026-05-29T20:00:00Z",
-    eventId: "1",
+    eventId: "event_stream_test:1",
     payload: {
       currentSequence: 0,
+      currentStreamId: "event_stream_test",
       earliestSequence: 0,
       reason: "test",
       requestedSequence: 0,
+      requestedStreamId: "event_stream_test",
     },
     runId: "",
     schemaVersion: 1,
     sequence: 1,
+    streamId: "event_stream_test",
     type: "chat.resync_required",
     workspaceId: "workspace_api",
   };

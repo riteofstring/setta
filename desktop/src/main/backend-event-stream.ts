@@ -22,6 +22,7 @@ interface BackendEventStreamObserver {
 interface BackendEventStreamLifecycleEvent {
   attempt: number;
   lastSequence: number;
+  lastStreamId: string;
   message: string;
   type: "connecting" | "connected" | "disconnected" | "error" | "stopped";
 }
@@ -42,6 +43,11 @@ interface ServerSentEventState {
   data: string[];
   event: string;
   id: string;
+}
+
+interface EventCursor {
+  sequence: number;
+  streamId: string;
 }
 
 const defaultReconnect: BackendEventStreamReconnectOptions = {
@@ -83,9 +89,9 @@ async function runEventStreamLoop(options: {
   sleep: (ms: number, signal: AbortSignal) => Promise<void>;
 }) {
   let attempt = 0;
-  let lastSequence = 0;
+  let cursor = emptyEventCursor();
   while (!options.signal.aborted) {
-    lastSequence = await runStreamAttempt({ ...options, attempt, lastSequence });
+    cursor = await runStreamAttempt({ ...options, attempt, cursor });
     if (!options.signal.aborted) {
       await options.sleep(backoffMs(attempt, options.reconnect), options.signal);
       attempt += 1;
@@ -93,7 +99,7 @@ async function runEventStreamLoop(options: {
   }
   options.observer?.lifecycle({
     attempt,
-    lastSequence,
+    ...cursorLifecycleFields(cursor),
     message: "backend event stream stopped",
     type: "stopped",
   });
@@ -102,38 +108,38 @@ async function runEventStreamLoop(options: {
 async function runStreamAttempt(options: {
   attempt: number;
   baseURL: string;
+  cursor: EventCursor;
   fetchImpl: BackendFetch;
-  lastSequence: number;
   observer: BackendEventStreamObserver | undefined;
   sendEvent: (event: ChatEvent) => void;
   signal: AbortSignal;
-}): Promise<number> {
+}): Promise<EventCursor> {
   options.observer?.lifecycle({
     attempt: options.attempt,
-    lastSequence: options.lastSequence,
+    ...cursorLifecycleFields(options.cursor),
     message: "connecting to backend event stream",
     type: "connecting",
   });
+  let cursor = options.cursor;
   try {
-    const lastSequence = await streamOnce(options);
-    recordDisconnected(options.observer, options.attempt, lastSequence, options.signal);
-    return lastSequence;
+    cursor = await streamOnce({
+      ...options,
+      updateCursor: (nextCursor) => {
+        cursor = nextCursor;
+      },
+    });
+    recordDisconnected(options.observer, options.attempt, cursor, options.signal);
+    return cursor;
   } catch (error) {
-    recordStreamError(
-      options.observer,
-      options.attempt,
-      options.lastSequence,
-      error,
-      options.signal,
-    );
-    return options.lastSequence;
+    recordStreamError(options.observer, options.attempt, cursor, error, options.signal);
+    return cursor;
   }
 }
 
 function recordDisconnected(
   observer: BackendEventStreamObserver | undefined,
   attempt: number,
-  lastSequence: number,
+  cursor: EventCursor,
   signal: AbortSignal,
 ) {
   if (signal.aborted) {
@@ -141,7 +147,7 @@ function recordDisconnected(
   }
   observer?.lifecycle({
     attempt,
-    lastSequence,
+    ...cursorLifecycleFields(cursor),
     message: "backend event stream disconnected",
     type: "disconnected",
   });
@@ -150,7 +156,7 @@ function recordDisconnected(
 function recordStreamError(
   observer: BackendEventStreamObserver | undefined,
   attempt: number,
-  lastSequence: number,
+  cursor: EventCursor,
   error: unknown,
   signal: AbortSignal,
 ) {
@@ -159,7 +165,7 @@ function recordStreamError(
   }
   observer?.lifecycle({
     attempt,
-    lastSequence,
+    ...cursorLifecycleFields(cursor),
     message: error instanceof Error ? error.message : "backend event stream failed",
     type: "error",
   });
@@ -168,15 +174,16 @@ function recordStreamError(
 async function streamOnce(options: {
   attempt: number;
   baseURL: string;
+  cursor: EventCursor;
   fetchImpl: BackendFetch;
-  lastSequence: number;
   observer: BackendEventStreamObserver | undefined;
   sendEvent: (event: ChatEvent) => void;
   signal: AbortSignal;
-}): Promise<number> {
+  updateCursor: (cursor: EventCursor) => void;
+}): Promise<EventCursor> {
   const headers: Record<string, string> = {};
-  if (options.lastSequence > 0) {
-    headers["Last-Event-ID"] = String(options.lastSequence);
+  if (options.cursor.streamId !== "") {
+    headers["Last-Event-ID"] = encodeEventCursor(options.cursor);
   }
   const response = await options.fetchImpl(
     new URL(backendEndpoints.EventStream.path, options.baseURL),
@@ -194,25 +201,84 @@ async function streamOnce(options: {
   }
   options.observer?.lifecycle({
     attempt: options.attempt,
-    lastSequence: options.lastSequence,
+    ...cursorLifecycleFields(options.cursor),
     message: "connected to backend event stream",
     type: "connected",
   });
 
-  let lastSequence = options.lastSequence;
+  let cursor = options.cursor;
   for await (const message of parseServerSentEvents(response.body)) {
     if (options.signal.aborted) {
       break;
     }
     const event = decodeChatEvent(JSON.parse(message.data));
-    if (event.sequence <= lastSequence) {
+    if (event.type === "chat.resync_required") {
+      cursor = resyncEventCursor(event);
+      options.updateCursor(cursor);
+      forwardEvent(options, event);
       continue;
     }
-    lastSequence = event.sequence;
-    options.sendEvent(event);
-    options.observer?.forwarded(event);
+    if (isDuplicateEvent(event, cursor)) {
+      continue;
+    }
+    assertEventStream(event, cursor);
+    cursor = eventCursor(event);
+    options.updateCursor(cursor);
+    forwardEvent(options, event);
   }
-  return lastSequence;
+  return cursor;
+}
+
+function emptyEventCursor(): EventCursor {
+  return { sequence: 0, streamId: "" };
+}
+
+function cursorLifecycleFields(cursor: EventCursor) {
+  return {
+    lastSequence: cursor.sequence,
+    lastStreamId: cursor.streamId,
+  };
+}
+
+function encodeEventCursor(cursor: EventCursor): string {
+  return `${cursor.streamId}:${cursor.sequence}`;
+}
+
+function eventCursor(event: ChatEvent): EventCursor {
+  return { sequence: event.sequence, streamId: event.streamId };
+}
+
+function resyncEventCursor(
+  event: Extract<ChatEvent, { type: "chat.resync_required" }>,
+): EventCursor {
+  return {
+    sequence: event.payload.currentSequence,
+    streamId: event.payload.currentStreamId,
+  };
+}
+
+function isDuplicateEvent(event: ChatEvent, cursor: EventCursor): boolean {
+  return event.streamId === cursor.streamId && event.sequence <= cursor.sequence;
+}
+
+function assertEventStream(event: ChatEvent, cursor: EventCursor) {
+  if (cursor.streamId === "" || event.streamId === cursor.streamId) {
+    return;
+  }
+  throw new Error(
+    `backend event stream changed stream id without resync: ${cursor.streamId} -> ${event.streamId}`,
+  );
+}
+
+function forwardEvent(
+  options: {
+    observer: BackendEventStreamObserver | undefined;
+    sendEvent: (event: ChatEvent) => void;
+  },
+  event: ChatEvent,
+) {
+  options.sendEvent(event);
+  options.observer?.forwarded(event);
 }
 
 export async function* parseServerSentEvents(

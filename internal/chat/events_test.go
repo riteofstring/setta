@@ -6,75 +6,66 @@ import (
 	"time"
 )
 
-func TestEventHubBroadcastsReplaysAndReportsResync(t *testing.T) {
-	hub := NewEventHub(
-		WithEventBufferSize(2),
-		WithEventClock(func() time.Time {
-			return mustTime(t, "2026-05-29T20:00:00Z")
-		}),
-	)
-	active, err := hub.Subscribe(0)
-	if err != nil {
-		t.Fatalf("subscribe active: %v", err)
-	}
+const eventHubTestStreamID = "event_stream_test"
+
+func TestEventHubBroadcastsAndReplays(t *testing.T) {
+	hub := newEventHubTestHub(t)
+	active := subscribeEventHub(t, hub, EventCursor{})
 	defer active.Unsubscribe()
 
-	first, err := hub.Publish(NewMessageCreatedEvent("workspace_api", "conversation_api", "run_api", eventTestMessage("message_1", 1)))
-	if err != nil {
-		t.Fatalf("publish first event: %v", err)
-	}
-	if event := receiveEvent(t, active); event.Sequence != first.Sequence {
-		t.Fatalf("active event sequence = %d, want %d", event.Sequence, first.Sequence)
-	}
-	if _, err := hub.Publish(NewMessageCreatedEvent("workspace_api", "conversation_api", "run_api", eventTestMessage("message_2", 2))); err != nil {
-		t.Fatalf("publish second event: %v", err)
-	}
-	third, err := hub.Publish(NewMessageCreatedEvent("workspace_api", "conversation_api", "run_api", eventTestMessage("message_3", 3)))
-	if err != nil {
-		t.Fatalf("publish third event: %v", err)
-	}
+	first := publishEventHubMessage(t, hub, "message_1", 1)
+	second := publishEventHubMessage(t, hub, "message_2", 2)
+	third := publishEventHubMessage(t, hub, "message_3", 3)
+	assertEventSequences(t, active, []Event{first, second, third})
 
-	replay, err := hub.Subscribe(2)
-	if err != nil {
-		t.Fatalf("subscribe replay: %v", err)
-	}
+	replay := subscribeEventHub(t, hub, EventCursor{StreamID: eventHubTestStreamID, Sequence: 2})
 	defer replay.Unsubscribe()
 	if event := receiveEvent(t, replay); event.Sequence != third.Sequence {
 		t.Fatalf("replayed event sequence = %d, want %d", event.Sequence, third.Sequence)
 	}
+}
 
-	stale, err := hub.Subscribe(0)
-	if err != nil {
-		t.Fatalf("subscribe stale: %v", err)
-	}
+func TestEventHubResyncIsSubscriptionLocal(t *testing.T) {
+	hub := newEventHubTestHub(t)
+	active := subscribeEventHub(t, hub, EventCursor{})
+	defer active.Unsubscribe()
+	first := publishEventHubMessage(t, hub, "message_1", 1)
+	second := publishEventHubMessage(t, hub, "message_2", 2)
+	third := publishEventHubMessage(t, hub, "message_3", 3)
+	assertEventSequences(t, active, []Event{first, second, third})
+
+	stale := subscribeEventHub(t, hub, EventCursor{StreamID: eventHubTestStreamID, Sequence: 0})
 	defer stale.Unsubscribe()
-	resync := receiveEvent(t, stale)
-	if resync.Type != EventTypeResyncRequired {
-		t.Fatalf("stale replay event type = %q, want %q", resync.Type, EventTypeResyncRequired)
-	}
-	var payload ResyncRequiredPayload
-	if err := json.Unmarshal(resync.Payload, &payload); err != nil {
-		t.Fatalf("decode resync payload: %v", err)
-	}
-	if payload.RequestedSequence != 0 || payload.EarliestSequence != 2 {
-		t.Fatalf("resync payload = %+v, want requested 0 earliest 2", payload)
-	}
+	payload := requireResyncPayload(t, receiveEvent(t, stale))
+	assertResyncPayload(t, payload, ResyncRequiredPayload{
+		CurrentSequence:   third.Sequence,
+		CurrentStreamID:   eventHubTestStreamID,
+		EarliestSequence:  2,
+		RequestedSequence: 0,
+		RequestedStreamID: eventHubTestStreamID,
+	})
+	assertNoImmediateEvent(t, active)
+}
 
-	restarted, err := hub.Subscribe(99)
-	if err != nil {
-		t.Fatalf("subscribe after backend restart sequence: %v", err)
-	}
+func TestEventHubResyncsAfterStreamMismatch(t *testing.T) {
+	hub := newEventHubTestHub(t)
+	restarted := subscribeEventHub(t, hub, EventCursor{StreamID: "event_stream_previous", Sequence: 99})
 	defer restarted.Unsubscribe()
-	if event := receiveEvent(t, restarted); event.Type != EventTypeResyncRequired {
-		t.Fatalf("restart replay event type = %q, want %q", event.Type, EventTypeResyncRequired)
-	}
+	payload := requireResyncPayload(t, receiveEvent(t, restarted))
+	assertResyncPayload(t, payload, ResyncRequiredPayload{
+		CurrentSequence:   0,
+		CurrentStreamID:   eventHubTestStreamID,
+		EarliestSequence:  0,
+		RequestedSequence: 99,
+		RequestedStreamID: "event_stream_previous",
+	})
 }
 
 func TestServicePublishesTurnLifecycleEvents(t *testing.T) {
 	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{
 		{Type: FakeEventAssistantDelta, Text: "hello"},
 	}))
-	subscription, err := service.SubscribeEvents(0)
+	subscription, err := service.SubscribeEvents(EventCursor{})
 	if err != nil {
 		t.Fatalf("subscribe events: %v", err)
 	}
@@ -111,7 +102,7 @@ func TestServicePublishesApprovalCancellationAndFailureEvents(t *testing.T) {
 		service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{
 			{Type: FakeEventApproval, Approval: ApprovalRequest{Kind: ApprovalKindCommand, Title: "Run command"}, WaitForApproval: true},
 		}))
-		subscription, err := service.SubscribeEvents(0)
+		subscription, err := service.SubscribeEvents(EventCursor{})
 		if err != nil {
 			t.Fatalf("subscribe events: %v", err)
 		}
@@ -144,7 +135,7 @@ func TestServicePublishesApprovalCancellationAndFailureEvents(t *testing.T) {
 
 	t.Run("cancellation", func(t *testing.T) {
 		service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventWaitForCancel}}))
-		subscription, err := service.SubscribeEvents(0)
+		subscription, err := service.SubscribeEvents(EventCursor{})
 		if err != nil {
 			t.Fatalf("subscribe events: %v", err)
 		}
@@ -174,7 +165,7 @@ func TestServicePublishesApprovalCancellationAndFailureEvents(t *testing.T) {
 
 	t.Run("failure", func(t *testing.T) {
 		service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{{Type: FakeEventError, Error: "codex failed"}}))
-		subscription, err := service.SubscribeEvents(0)
+		subscription, err := service.SubscribeEvents(EventCursor{})
 		if err != nil {
 			t.Fatalf("subscribe events: %v", err)
 		}
@@ -202,6 +193,80 @@ func TestServicePublishesApprovalCancellationAndFailureEvents(t *testing.T) {
 	})
 }
 
+func newEventHubTestHub(t *testing.T) *EventHub {
+	t.Helper()
+
+	hub, err := NewEventHub(
+		eventHubTestStreamID,
+		WithEventBufferSize(2),
+		WithEventClock(func() time.Time {
+			return mustTime(t, "2026-05-29T20:00:00Z")
+		}),
+	)
+	if err != nil {
+		t.Fatalf("new event hub: %v", err)
+	}
+	return hub
+}
+
+func subscribeEventHub(t *testing.T, hub *EventHub, cursor EventCursor) *EventSubscription {
+	t.Helper()
+
+	subscription, err := hub.Subscribe(cursor)
+	if err != nil {
+		t.Fatalf("subscribe events: %v", err)
+	}
+	return subscription
+}
+
+func publishEventHubMessage(t *testing.T, hub *EventHub, messageID string, ordinal int) Event {
+	t.Helper()
+
+	event, err := hub.Publish(NewMessageCreatedEvent("workspace_api", "conversation_api", "run_api", eventTestMessage(messageID, ordinal)))
+	if err != nil {
+		t.Fatalf("publish event: %v", err)
+	}
+	return event
+}
+
+func assertEventSequences(t *testing.T, subscription *EventSubscription, want []Event) {
+	t.Helper()
+
+	for _, expected := range want {
+		if event := receiveEvent(t, subscription); event.Sequence != expected.Sequence {
+			t.Fatalf("event sequence = %d, want %d", event.Sequence, expected.Sequence)
+		}
+	}
+}
+
+func requireResyncPayload(t *testing.T, event Event) ResyncRequiredPayload {
+	t.Helper()
+
+	if event.Type != EventTypeResyncRequired {
+		t.Fatalf("event type = %q, want %q", event.Type, EventTypeResyncRequired)
+	}
+	var payload ResyncRequiredPayload
+	if err := json.Unmarshal(event.Payload, &payload); err != nil {
+		t.Fatalf("decode resync payload: %v", err)
+	}
+	return payload
+}
+
+func assertResyncPayload(t *testing.T, payload ResyncRequiredPayload, want ResyncRequiredPayload) {
+	t.Helper()
+
+	got := ResyncRequiredPayload{
+		CurrentSequence:   payload.CurrentSequence,
+		CurrentStreamID:   payload.CurrentStreamID,
+		EarliestSequence:  payload.EarliestSequence,
+		RequestedSequence: payload.RequestedSequence,
+		RequestedStreamID: payload.RequestedStreamID,
+	}
+	if got != want {
+		t.Fatalf("resync payload = %+v, want %+v", got, want)
+	}
+}
+
 func receiveEvent(t *testing.T, subscription *EventSubscription) Event {
 	t.Helper()
 
@@ -215,6 +280,19 @@ func receiveEvent(t *testing.T, subscription *EventSubscription) Event {
 		t.Fatal("timed out waiting for chat event")
 	}
 	return Event{}
+}
+
+func assertNoImmediateEvent(t *testing.T, subscription *EventSubscription) {
+	t.Helper()
+
+	select {
+	case event, ok := <-subscription.Events:
+		if !ok {
+			t.Fatal("event subscription closed")
+		}
+		t.Fatalf("received unexpected event %+v", event)
+	default:
+	}
 }
 
 func receiveEventsUntil(t *testing.T, subscription *EventSubscription, done func(Event) bool) []Event {

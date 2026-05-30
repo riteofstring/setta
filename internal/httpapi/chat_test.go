@@ -148,6 +148,9 @@ func TestChatEventStreamStreamsServerSentEvents(t *testing.T) {
 	if event.SchemaVersion != chat.EventSchemaVersion || event.Sequence == 0 || event.EventID == "" {
 		t.Fatalf("event envelope = %+v, want schema sequence and id", event)
 	}
+	if event.StreamID == "" {
+		t.Fatalf("event stream id is empty in envelope %+v", event)
+	}
 	if event.Type == "" || event.Payload == nil {
 		t.Fatalf("event = %+v, want typed payload", event)
 	}

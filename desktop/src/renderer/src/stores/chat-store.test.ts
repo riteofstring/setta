@@ -13,6 +13,8 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 
 import { prependOlderMessages, useChatStore } from "./chat-store";
 
+const eventStreamId = "event_stream_test";
+
 describe("chat store", () => {
   beforeEach(() => {
     useChatStore.setState({
@@ -21,6 +23,7 @@ describe("chat store", () => {
       error: null,
       hasMoreOlder: false,
       lastEventSequence: 0,
+      lastEventStreamId: "",
       messages: [],
       operation: null,
       selectedConversation: null,
@@ -260,6 +263,40 @@ describe("chat store", () => {
     expect(listConversations).toHaveBeenCalledWith("workspace_api");
     expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
   });
+
+  test("resync-required events bypass sequence filtering after stream restart", async () => {
+    const conversation = testConversation();
+    const listConversations = vi.fn().mockResolvedValue({
+      conversations: [conversationItem(conversation, 1)],
+    });
+    const messagePage = vi
+      .fn()
+      .mockResolvedValue(
+        testPage(conversation, [message("message_latest", 1, "user", "complete", "latest")]),
+      );
+    installSettaAPI({ chat: { listConversations, messagePage } });
+    useChatStore.setState({
+      lastEventSequence: 10,
+      lastEventStreamId: "event_stream_previous",
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    useChatStore.getState().handleEvent(
+      resyncRequiredEvent(0, {
+        currentSequence: 0,
+        currentStreamId: "event_stream_next",
+        requestedSequence: 10,
+        requestedStreamId: "event_stream_previous",
+      }),
+    );
+    await waitFor(() => messagePage.mock.calls.length === 1);
+
+    expect(useChatStore.getState().lastEventSequence).toBe(0);
+    expect(useChatStore.getState().lastEventStreamId).toBe("event_stream_next");
+    expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
+  });
 });
 
 interface SettaAPIOverrides {
@@ -322,17 +359,23 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   });
 }
 
-function messageCreatedEvent(sequence: number, chatMessage: ChatMessage, runId: string): ChatEvent {
+function messageCreatedEvent(
+  sequence: number,
+  chatMessage: ChatMessage,
+  runId: string,
+  streamId = eventStreamId,
+): ChatEvent {
   return {
     conversationId: chatMessage.conversationId,
     emittedAt: "2026-05-29T20:00:00Z",
-    eventId: String(sequence),
+    eventId: `${streamId}:${sequence}`,
     payload: {
       message: chatMessage,
     },
     runId,
     schemaVersion: 1,
     sequence,
+    streamId,
     type: "chat.message.created",
     workspaceId: "workspace_api",
   };
@@ -343,11 +386,12 @@ function assistantDeltaEvent(
   messageId: string,
   partId: string,
   delta: string,
+  streamId = eventStreamId,
 ): ChatEvent {
   return {
     conversationId: "conversation_api",
     emittedAt: "2026-05-29T20:00:00Z",
-    eventId: String(sequence),
+    eventId: `${streamId}:${sequence}`,
     payload: {
       delta,
       messageId,
@@ -357,53 +401,73 @@ function assistantDeltaEvent(
     runId: "run_api",
     schemaVersion: 1,
     sequence,
+    streamId,
     type: "chat.assistant_text_delta",
     workspaceId: "workspace_api",
   };
 }
 
-function runUpdatedEvent(sequence: number, run: Run): ChatEvent {
+function runUpdatedEvent(sequence: number, run: Run, streamId = eventStreamId): ChatEvent {
   return {
     conversationId: run.conversationId,
     emittedAt: "2026-05-29T20:00:00Z",
-    eventId: String(sequence),
+    eventId: `${streamId}:${sequence}`,
     payload: { run },
     runId: run.id,
     schemaVersion: 1,
     sequence,
+    streamId,
     type: "chat.run.updated",
     workspaceId: run.workspaceId,
   };
 }
 
-function conversationUpdatedEvent(sequence: number, item: ConversationListItem): ChatEvent {
+function conversationUpdatedEvent(
+  sequence: number,
+  item: ConversationListItem,
+  streamId = eventStreamId,
+): ChatEvent {
   return {
     conversationId: item.conversation.id,
     emittedAt: "2026-05-29T20:00:00Z",
-    eventId: String(sequence),
+    eventId: `${streamId}:${sequence}`,
     payload: { item },
     runId: item.activeRunId,
     schemaVersion: 1,
     sequence,
+    streamId,
     type: "chat.conversation.updated",
     workspaceId: item.conversation.workspaceId,
   };
 }
 
-function resyncRequiredEvent(sequence: number): ChatEvent {
+function resyncRequiredEvent(
+  sequence: number,
+  options: {
+    currentSequence?: number;
+    currentStreamId?: string;
+    requestedSequence?: number;
+    requestedStreamId?: string;
+  } = {},
+): ChatEvent {
+  const streamId = options.currentStreamId ?? eventStreamId;
+  const currentSequence = options.currentSequence ?? sequence;
   return {
     conversationId: "",
     emittedAt: "2026-05-29T20:00:00Z",
-    eventId: String(sequence),
+    eventId: `${streamId}:${currentSequence}`,
     payload: {
-      currentSequence: sequence,
+      currentSequence,
+      currentStreamId: streamId,
       earliestSequence: 0,
       reason: "test resync",
-      requestedSequence: sequence - 1,
+      requestedSequence: options.requestedSequence ?? Math.max(0, sequence - 1),
+      requestedStreamId: options.requestedStreamId ?? streamId,
     },
     runId: "",
     schemaVersion: 1,
     sequence,
+    streamId,
     type: "chat.resync_required",
     workspaceId: "",
   };

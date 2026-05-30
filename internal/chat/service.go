@@ -76,7 +76,15 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 		option(service)
 	}
 	if service.events == nil {
-		service.events = NewEventHub(WithEventClock(service.now))
+		streamID, err := service.newID("event_stream")
+		if err != nil {
+			return nil, fmt.Errorf("create event stream id: %w", err)
+		}
+		events, err := NewEventHub(streamID, WithEventClock(service.now))
+		if err != nil {
+			return nil, err
+		}
+		service.events = events
 	}
 	if err := service.recoverInterruptedRuns(); err != nil {
 		return nil, err
@@ -102,8 +110,8 @@ func WithEventHub(events *EventHub) Option {
 	}
 }
 
-func (service *Service) SubscribeEvents(afterSequence int) (*EventSubscription, error) {
-	return service.events.Subscribe(afterSequence)
+func (service *Service) SubscribeEvents(cursor EventCursor) (*EventSubscription, error) {
+	return service.events.Subscribe(cursor)
 }
 
 func (service *Service) CloseEvents() {

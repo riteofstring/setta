@@ -164,7 +164,7 @@ function chatEvent(): ChatEvent {
   return {
     conversationId: "conversation_api",
     emittedAt: "2026-05-29T20:00:00Z",
-    eventId: "1",
+    eventId: "event_stream_test:1",
     payload: {
       message: {
         conversationId: "conversation_api",
@@ -189,6 +189,7 @@ function chatEvent(): ChatEvent {
     runId: "run_api",
     schemaVersion: 1,
     sequence: 1,
+    streamId: "event_stream_test",
     type: "chat.message.created",
     workspaceId: "workspace_api",
   };

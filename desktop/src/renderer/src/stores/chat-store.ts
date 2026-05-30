@@ -27,6 +27,7 @@ interface ChatStore {
   hasMoreOlder: boolean;
   handleEvent: (event: ChatEvent) => void;
   lastEventSequence: number;
+  lastEventStreamId: string;
   loadOlder: () => Promise<void>;
   loadWorkspace: (workspaceId: string) => Promise<void>;
   messages: ChatMessage[];
@@ -56,6 +57,7 @@ type ChatPatch = Partial<
     | "error"
     | "hasMoreOlder"
     | "lastEventSequence"
+    | "lastEventStreamId"
     | "messages"
     | "operation"
     | "selectedConversation"
@@ -134,21 +136,33 @@ export const useChatStore = create<ChatStore>((set, get) => {
     hasMoreOlder: false,
     handleEvent: (event) => {
       const state = get();
-      if (event.sequence <= state.lastEventSequence) {
-        return;
-      }
-      if (state.lastEventSequence !== 0 && event.sequence !== state.lastEventSequence + 1) {
-        set({ lastEventSequence: event.sequence });
+      if (event.type === "chat.resync_required") {
+        set({
+          lastEventSequence: event.payload.currentSequence,
+          lastEventStreamId: event.payload.currentStreamId,
+        });
         void get().resyncActiveConversation();
         return;
       }
-      if (event.type === "chat.resync_required") {
-        set({ lastEventSequence: event.sequence });
+      if (isUnexpectedStream(state, event)) {
+        set({ lastEventSequence: event.sequence, lastEventStreamId: event.streamId });
+        void get().resyncActiveConversation();
+        return;
+      }
+      if (isDuplicateEvent(state, event)) {
+        return;
+      }
+      if (hasSequenceGap(state, event)) {
+        set({ lastEventSequence: event.sequence, lastEventStreamId: event.streamId });
         void get().resyncActiveConversation();
         return;
       }
       const result = applyChatEvent(state, event);
-      set({ ...result.patch, lastEventSequence: event.sequence });
+      set({
+        ...result.patch,
+        lastEventSequence: event.sequence,
+        lastEventStreamId: event.streamId,
+      });
       if (result.resync) {
         void get().resyncActiveConversation();
       }
@@ -215,6 +229,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
     },
     lastEventSequence: 0,
+    lastEventStreamId: "",
     messages: [],
     operation: null,
     resyncActiveConversation: async () => {
@@ -336,6 +351,22 @@ export const useChatStore = create<ChatStore>((set, get) => {
     workspaceId: null,
   };
 });
+
+function isUnexpectedStream(state: ChatStore, event: ChatEvent): boolean {
+  return state.lastEventStreamId !== "" && event.streamId !== state.lastEventStreamId;
+}
+
+function isDuplicateEvent(state: ChatStore, event: ChatEvent): boolean {
+  return event.streamId === state.lastEventStreamId && event.sequence <= state.lastEventSequence;
+}
+
+function hasSequenceGap(state: ChatStore, event: ChatEvent): boolean {
+  return (
+    event.streamId === state.lastEventStreamId &&
+    state.lastEventSequence !== 0 &&
+    event.sequence !== state.lastEventSequence + 1
+  );
+}
 
 function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
   return {

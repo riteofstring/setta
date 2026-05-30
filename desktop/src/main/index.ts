@@ -70,6 +70,7 @@ function startChatEventStream() {
         recorder?.recordAppEvent("chat_event_forwarded", {
           eventId: event.eventId,
           sequence: event.sequence,
+          streamId: event.streamId,
           type: event.type,
         });
       },

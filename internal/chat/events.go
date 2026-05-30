@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -38,6 +37,7 @@ type EventContract struct {
 
 type Event struct {
 	SchemaVersion  int             `json:"schemaVersion"`
+	StreamID       string          `json:"streamId"`
 	Sequence       int             `json:"sequence"`
 	EventID        string          `json:"eventId"`
 	Type           string          `json:"type"`
@@ -46,6 +46,11 @@ type Event struct {
 	ConversationID string          `json:"conversationId"`
 	RunID          string          `json:"runId"`
 	Payload        json.RawMessage `json:"payload"`
+}
+
+type EventCursor struct {
+	StreamID string
+	Sequence int
 }
 
 type EventDraft struct {
@@ -81,14 +86,15 @@ type ConversationUpdatedPayload struct {
 
 type ResyncRequiredPayload struct {
 	Reason            string `json:"reason"`
+	RequestedStreamID string `json:"requestedStreamId"`
 	RequestedSequence int    `json:"requestedSequence"`
-	EarliestSequence  int    `json:"earliestSequence"`
+	CurrentStreamID   string `json:"currentStreamId"`
 	CurrentSequence   int    `json:"currentSequence"`
+	EarliestSequence  int    `json:"earliestSequence"`
 }
 
 type EventHub struct {
 	bufferSize       int
-	newID            func(int) string
 	now              func() time.Time
 	subscriberBuffer int
 
@@ -96,6 +102,7 @@ type EventHub struct {
 	closed       bool
 	nextSequence int
 	retained     []Event
+	streamID     string
 	subscribers  map[chan Event]struct{}
 }
 
@@ -121,19 +128,22 @@ func EventContracts() EventContractSchema {
 	}
 }
 
-func NewEventHub(options ...EventHubOption) *EventHub {
+func NewEventHub(streamID string, options ...EventHubOption) (*EventHub, error) {
+	if streamID == "" {
+		return nil, errors.New("event stream id is required")
+	}
 	hub := &EventHub{
 		bufferSize:       defaultEventBufferSize,
-		newID:            strconv.Itoa,
 		now:              time.Now,
 		nextSequence:     1,
 		subscriberBuffer: defaultSubscriberBufferSize,
+		streamID:         streamID,
 		subscribers:      map[chan Event]struct{}{},
 	}
 	for _, option := range options {
 		option(hub)
 	}
-	return hub
+	return hub, nil
 }
 
 func WithEventClock(now func() time.Time) EventHubOption {
@@ -145,12 +155,6 @@ func WithEventClock(now func() time.Time) EventHubOption {
 func WithEventBufferSize(size int) EventHubOption {
 	return func(hub *EventHub) {
 		hub.bufferSize = size
-	}
-}
-
-func WithEventIDGenerator(newID func(int) string) EventHubOption {
-	return func(hub *EventHub) {
-		hub.newID = newID
 	}
 }
 
@@ -233,12 +237,15 @@ func (hub *EventHub) Publish(draft EventDraft) (Event, error) {
 	return event, nil
 }
 
-func (hub *EventHub) Subscribe(afterSequence int) (*EventSubscription, error) {
+func (hub *EventHub) Subscribe(cursor EventCursor) (*EventSubscription, error) {
 	if hub == nil {
 		return nil, errors.New("event hub is required")
 	}
-	if afterSequence < 0 {
-		return nil, fmt.Errorf("event sequence must be non-negative: %d", afterSequence)
+	if cursor.Sequence < 0 {
+		return nil, fmt.Errorf("event sequence must be non-negative: %d", cursor.Sequence)
+	}
+	if cursor.Sequence > 0 && cursor.StreamID == "" {
+		return nil, errors.New("event stream id is required for non-zero event sequence")
 	}
 
 	hub.mu.Lock()
@@ -250,14 +257,12 @@ func (hub *EventHub) Subscribe(afterSequence int) (*EventSubscription, error) {
 		return &EventSubscription{Events: channel, hub: hub, channel: channel}, nil
 	}
 
-	replay := hub.replayAfterLocked(afterSequence)
-	if hub.requiresResyncLocked(afterSequence) {
-		event, err := hub.resyncRequiredEventLocked(afterSequence)
+	replay := hub.replayAfterLocked(cursor)
+	if hub.requiresResyncLocked(cursor) {
+		event, err := hub.resyncRequiredEventLocked(cursor)
 		if err != nil {
 			return nil, err
 		}
-		hub.retainLocked(event)
-		hub.broadcastLocked(event)
 		replay = []Event{event}
 	}
 
@@ -330,8 +335,9 @@ func (hub *EventHub) nextEventLocked(draft EventDraft, payload []byte) Event {
 	hub.nextSequence += 1
 	return Event{
 		SchemaVersion:  EventSchemaVersion,
+		StreamID:       hub.streamID,
 		Sequence:       sequence,
-		EventID:        hub.newID(sequence),
+		EventID:        eventID(hub.streamID, sequence),
 		Type:           draft.Type,
 		EmittedAt:      timestamp(hub.now()),
 		WorkspaceID:    draft.WorkspaceID,
@@ -363,47 +369,64 @@ func (hub *EventHub) broadcastLocked(event Event) {
 	}
 }
 
-func (hub *EventHub) replayAfterLocked(afterSequence int) []Event {
+func (hub *EventHub) replayAfterLocked(cursor EventCursor) []Event {
 	replay := []Event{}
+	if cursor.StreamID != "" && cursor.StreamID != hub.streamID {
+		return replay
+	}
 	for _, event := range hub.retained {
-		if event.Sequence > afterSequence {
+		if event.Sequence > cursor.Sequence {
 			replay = append(replay, event)
 		}
 	}
 	return replay
 }
 
-func (hub *EventHub) requiresResyncLocked(afterSequence int) bool {
+func (hub *EventHub) requiresResyncLocked(cursor EventCursor) bool {
 	currentSequence := hub.nextSequence - 1
-	if afterSequence == 0 && len(hub.retained) == 0 {
+	if cursor.StreamID != "" && cursor.StreamID != hub.streamID {
+		return true
+	}
+	if cursor.Sequence == 0 && len(hub.retained) == 0 {
 		return false
 	}
-	if afterSequence > currentSequence {
+	if cursor.Sequence > currentSequence {
 		return true
 	}
 	if len(hub.retained) == 0 {
-		return afterSequence < currentSequence
+		return cursor.Sequence < currentSequence
 	}
-	return afterSequence < hub.retained[0].Sequence-1
+	return cursor.Sequence < hub.retained[0].Sequence-1
 }
 
-func (hub *EventHub) resyncRequiredEventLocked(requestedSequence int) (Event, error) {
+func (hub *EventHub) resyncRequiredEventLocked(cursor EventCursor) (Event, error) {
 	earliestSequence := 0
 	if len(hub.retained) > 0 {
 		earliestSequence = hub.retained[0].Sequence
 	}
 	currentSequence := hub.nextSequence - 1
 	payload, err := json.Marshal(ResyncRequiredPayload{
-		Reason:            "event replay is no longer available",
-		RequestedSequence: requestedSequence,
-		EarliestSequence:  earliestSequence,
+		CurrentStreamID:   hub.streamID,
 		CurrentSequence:   currentSequence,
+		Reason:            "event replay is no longer available",
+		RequestedStreamID: cursor.StreamID,
+		RequestedSequence: cursor.Sequence,
+		EarliestSequence:  earliestSequence,
 	})
 	if err != nil {
 		return Event{}, fmt.Errorf("marshal resync required payload: %w", err)
 	}
-	return hub.nextEventLocked(EventDraft{
-		Payload: ResyncRequiredPayload{},
-		Type:    EventTypeResyncRequired,
-	}, payload), nil
+	return Event{
+		SchemaVersion: EventSchemaVersion,
+		StreamID:      hub.streamID,
+		Sequence:      currentSequence,
+		EventID:       eventID(hub.streamID, currentSequence),
+		Type:          EventTypeResyncRequired,
+		EmittedAt:     timestamp(hub.now()),
+		Payload:       append(json.RawMessage{}, payload...),
+	}, nil
+}
+
+func eventID(streamID string, sequence int) string {
+	return fmt.Sprintf("%s:%d", streamID, sequence)
 }
