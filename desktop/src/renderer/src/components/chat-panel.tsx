@@ -33,7 +33,7 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
           <h2 className="text-sm font-semibold">Chats</h2>
           <Button
             aria-label="New chat"
-            disabled={isNewChatDisabled(busy, blocked)}
+            disabled={busy}
             onClick={() => void chat.createConversation()}
           >
             <Plus className="h-4 w-4" />
@@ -80,10 +80,6 @@ function isRunRunning(chat: ChatView) {
 
 function isChatBlocked(chat: ChatView) {
   return chat.error !== null && !chat.selectedConversation;
-}
-
-function isNewChatDisabled(busy: boolean, blocked: boolean) {
-  return busy || blocked;
 }
 
 function selectedChatConversationId(chat: ChatView) {

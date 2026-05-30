@@ -162,11 +162,15 @@ export const useChatStore = create<ChatStore>((set, get) => {
       const operationId = beginOperation({ error: null, operation: "creating" });
       try {
         const conversation = await window.setta.chat.createConversation(workspaceId, title);
-        const list = await reloadConversations(workspaceId);
         const patch = await loadConversationPage(workspaceId, conversation);
+        const listPatch = await reloadConversationsPatch(
+          workspaceId,
+          conversation,
+          get().conversations,
+        );
         commitCurrent(operationId, {
           ...patch,
-          conversations: list.conversations,
+          ...listPatch,
           operation: null,
           selectedConversation: conversation,
           status: "ready",
@@ -517,6 +521,37 @@ export const useChatStore = create<ChatStore>((set, get) => {
     workspaceId: null,
   };
 });
+
+async function reloadConversationsPatch(
+  workspaceId: string,
+  conversation: Conversation,
+  currentConversations: ConversationListItem[],
+): Promise<ChatPatch> {
+  try {
+    const list = await window.setta.chat.listConversations(workspaceId);
+    return { conversations: list.conversations };
+  } catch (error) {
+    return {
+      conversations: upsertConversation(
+        currentConversations,
+        conversationListItem(conversation, 0, ""),
+      ),
+      error: errorMessage(error),
+    };
+  }
+}
+
+function conversationListItem(
+  conversation: Conversation,
+  messageCount: number,
+  activeRunId: string,
+): ConversationListItem {
+  return {
+    activeRunId,
+    conversation,
+    messageCount,
+  };
+}
 
 function isUnexpectedStream(state: ChatStore, event: ChatEvent): boolean {
   return state.lastEventStreamId !== "" && event.streamId !== state.lastEventStreamId;

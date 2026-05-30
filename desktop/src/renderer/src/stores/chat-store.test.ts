@@ -72,6 +72,32 @@ describe("chat store", () => {
     expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
   });
 
+  test("creates a new conversation even when the historical list is corrupt", async () => {
+    const conversation = testConversation();
+    const createConversation = vi.fn().mockResolvedValue(conversation);
+    const listConversations = vi
+      .fn()
+      .mockRejectedValue(new Error("malformed chat state /tmp/run.json"));
+    const messagePage = vi.fn().mockResolvedValue(testPage(conversation, []));
+    installSettaAPI({ chat: { createConversation, listConversations, messagePage } });
+    useChatStore.setState({
+      error: "malformed chat state /tmp/old-run.json",
+      status: "error",
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().createConversation();
+
+    expect(createConversation).toHaveBeenCalledWith("workspace_api", "");
+    expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
+    expect(useChatStore.getState().selectedConversation?.id).toBe("conversation_api");
+    expect(useChatStore.getState().conversations.map((item) => item.conversation.id)).toEqual([
+      "conversation_api",
+    ]);
+    expect(useChatStore.getState().error).toContain("malformed chat state /tmp/run.json");
+    expect(useChatStore.getState().status).toBe("ready");
+  });
+
   test("prepends older message pages without replacing the latest page", async () => {
     const conversation = testConversation();
     installSettaAPI({
