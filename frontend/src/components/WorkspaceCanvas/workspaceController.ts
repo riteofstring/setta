@@ -1,4 +1,7 @@
-import { resolveSectionDimension } from "./workspaceSceneGeometry";
+import {
+  resolveSectionDimension,
+  screenToWorkspace,
+} from "./workspaceSceneGeometry";
 import {
   getActiveViewModeTopLevelSections,
   getEffectiveSectionSnapshot,
@@ -6,7 +9,9 @@ import {
 } from "./workspaceSceneProject";
 import {
   WORKSPACE_SCENE_GEOMETRY,
+  type WorkspacePoint,
   type WorkspaceRect,
+  type WorkspaceScene,
   type WorkspaceSceneProjectState,
   type WorkspaceSize,
   type WorkspaceViewport,
@@ -92,6 +97,131 @@ export type CanvasActiveControlState = {
   draftValue: string | number | boolean | null;
 };
 
+export type WorkspaceInteractionMutationContract = {
+  owner: "project" | "frontend-ui-state";
+  draftState: string;
+  commit: string;
+  cancel: string;
+  undoGrouping: string;
+  implementationStatus: "implemented" | "pending";
+};
+
+export const WORKSPACE_INTERACTION_MUTATION_CONTRACTS = {
+  viewportPersistence: {
+    owner: "project",
+    draftState: "WorkspaceControllerViewportState",
+    commit: "dispatchWorkspaceViewportUpdate(viewport)",
+    cancel: "restore the last synced viewport source",
+    undoGrouping: "coalesced debounced viewport update",
+    implementationStatus: "implemented",
+  },
+  sectionScroll: {
+    owner: "frontend-ui-state",
+    draftState: "sectionScrollOffsets[sectionId]",
+    commit: "controller state only; no project mutation",
+    cancel: "drop the transient scroll offset",
+    undoGrouping: "none",
+    implementationStatus: "implemented",
+  },
+  sectionDrag: {
+    owner: "project",
+    draftState: "sectionBoundsDrafts[sectionId]",
+    commit:
+      "dispatchWorkspaceTopLevelSectionLayoutUpdate or moveSectionsWithBackend",
+    cancel: "clear sectionBoundsDrafts",
+    undoGrouping: "single section drag release",
+    implementationStatus: "implemented",
+  },
+  sectionResize: {
+    owner: "project",
+    draftState: "sectionBoundsDrafts[sectionId]",
+    commit: "dispatchWorkspaceTopLevelSectionLayoutUpdate or setSectionSizes",
+    cancel: "clear sectionBoundsDrafts",
+    undoGrouping: "single section resize release",
+    implementationStatus: "implemented",
+  },
+  sectionReorderReparent: {
+    owner: "project",
+    draftState: "sectionBoundsDrafts[sectionId] plus nested drop zone",
+    commit: "moveSectionsWithBackend",
+    cancel: "clear sectionBoundsDrafts",
+    undoGrouping: "single section drop",
+    implementationStatus: "implemented",
+  },
+  paramReorder: {
+    owner: "project",
+    draftState: "paramRowDragDraft with nested Param drop target",
+    commit: "moveParamsWithBackend or moveParamGroupsWithBackend",
+    cancel: "clear row drag draft",
+    undoGrouping: "single Param row drop",
+    implementationStatus: "implemented",
+  },
+  canvasNativeControls: {
+    owner: "project",
+    draftState: "activeControlState",
+    commit: "setParamEnteredValue",
+    cancel: "clear activeControlState",
+    undoGrouping: "single immediate control activation",
+    implementationStatus: "implemented",
+  },
+  sliders: {
+    owner: "project",
+    draftState: "activeControlState.draftValue",
+    commit: "setParamEnteredValue on pointer release",
+    cancel: "clear activeControlState without commit",
+    undoGrouping: "single slider release",
+    implementationStatus: "implemented",
+  },
+  colorEdits: {
+    owner: "project",
+    draftState: "activeControlState for fixed color choices",
+    commit: "setParamEnteredValue for fixed palette choices",
+    cancel: "clear activeControlState",
+    undoGrouping: "single color choice activation",
+    implementationStatus: "implemented",
+  },
+  comboboxSelection: {
+    owner: "project",
+    draftState: "activeControlState for fixed dropdown choices",
+    commit: "setParamEnteredValue for fixed choices",
+    cancel: "clear activeControlState",
+    undoGrouping: "single fixed choice activation",
+    implementationStatus: "implemented",
+  },
+  textCodeDrafts: {
+    owner: "project",
+    draftState: "ActiveEditorSession.draftValue",
+    commit:
+      "reduceActiveEditorSession commit outcome plus setParamEnteredValue",
+    cancel: "ActiveEditorSession cancel",
+    undoGrouping: "single text/code editor commit",
+    implementationStatus: "implemented",
+  },
+} satisfies Record<string, WorkspaceInteractionMutationContract>;
+
+export type WorkspaceSectionBoundsDraft = {
+  source: "drag" | "resize";
+  sectionId: string;
+  worldBounds: WorkspaceRect;
+};
+
+export type WorkspaceParamRowDropTarget = {
+  sectionId: string;
+  paramId: string;
+  newParentId: string;
+  newIndex: number;
+  placement: "before" | "after" | "inside";
+  indicatorRect: WorkspaceRect;
+};
+
+export type WorkspaceParamRowDragDraft = {
+  sectionId: string;
+  rowId: string;
+  paramId: string;
+  worldRect: WorkspaceRect;
+  dropTarget: WorkspaceParamRowDropTarget | null;
+};
+
 export type WorkspaceControllerViewportState = {
   sourceKey: string;
   viewport: WorkspaceViewport;
@@ -101,10 +231,13 @@ export type WorkspaceCanvasControllerState = {
   viewport: WorkspaceControllerViewportState | null;
   hoveredTarget: WorkspaceSceneTarget | null;
   selectedTarget: WorkspaceSceneTarget | null;
+  selectedSectionIds: Array<string>;
   keyboardFocusedTarget: WorkspaceSceneTarget | null;
   activeEditorSession: ActiveEditorSession | null;
   activeControlState: CanvasActiveControlState | null;
   sectionScrollOffsets: Record<string, number>;
+  sectionBoundsDrafts: Record<string, WorkspaceSectionBoundsDraft>;
+  paramRowDragDraft: WorkspaceParamRowDragDraft | null;
 };
 
 export function createWorkspaceCanvasControllerState(
@@ -114,10 +247,13 @@ export function createWorkspaceCanvasControllerState(
     viewport: null,
     hoveredTarget: null,
     selectedTarget: null,
+    selectedSectionIds: [],
     keyboardFocusedTarget: null,
     activeEditorSession: null,
     activeControlState: null,
     sectionScrollOffsets: {},
+    sectionBoundsDrafts: {},
+    paramRowDragDraft: null,
     ...overrides,
   };
 }
@@ -186,6 +322,257 @@ export function setWorkspaceControllerViewport(
       }),
     },
   };
+}
+
+export function panWorkspaceViewport(
+  viewport: WorkspaceViewport,
+  deltaScreen: WorkspacePoint,
+): WorkspaceViewport {
+  return {
+    ...viewport,
+    x: viewport.x + deltaScreen.x,
+    y: viewport.y + deltaScreen.y,
+  };
+}
+
+export function zoomWorkspaceViewportAtScreenPoint({
+  viewport,
+  screenPoint,
+  zoom,
+}: {
+  viewport: WorkspaceViewport;
+  screenPoint: WorkspacePoint;
+  zoom: number;
+}): WorkspaceViewport {
+  const nextZoom = normalizeWorkspaceZoom(zoom);
+  const workspacePoint = screenToWorkspace(screenPoint, viewport);
+  return {
+    x: screenPoint.x - workspacePoint.x * nextZoom,
+    y: screenPoint.y - workspacePoint.y * nextZoom,
+    zoom: nextZoom,
+  };
+}
+
+export function zoomWorkspaceViewportByWheelDelta({
+  viewport,
+  screenPoint,
+  deltaY,
+}: {
+  viewport: WorkspaceViewport;
+  screenPoint: WorkspacePoint;
+  deltaY: number;
+}): WorkspaceViewport {
+  const zoomFactor = Math.exp(-deltaY * 0.0015);
+  return zoomWorkspaceViewportAtScreenPoint({
+    viewport,
+    screenPoint,
+    zoom: viewport.zoom * zoomFactor,
+  });
+}
+
+export function centerWorkspaceViewportOnPoint({
+  viewport,
+  viewportSize,
+  workspacePoint,
+}: {
+  viewport: WorkspaceViewport;
+  viewportSize: WorkspaceSize;
+  workspacePoint: WorkspacePoint;
+}): WorkspaceViewport {
+  return {
+    x: viewportSize.width / 2 - workspacePoint.x * viewport.zoom,
+    y: viewportSize.height / 2 - workspacePoint.y * viewport.zoom,
+    zoom: viewport.zoom,
+  };
+}
+
+export function minimapScreenToWorkspacePoint(
+  scene: WorkspaceScene,
+  screenPoint: WorkspacePoint,
+): WorkspacePoint {
+  const { transform } = scene.minimap;
+  return {
+    x: (screenPoint.x - transform.translateX) / transform.scale,
+    y: (screenPoint.y - transform.translateY) / transform.scale,
+  };
+}
+
+export function setWorkspaceHoveredTarget(
+  state: WorkspaceCanvasControllerState,
+  hoveredTarget: WorkspaceSceneTarget | null,
+): WorkspaceCanvasControllerState {
+  return targetsEqual(state.hoveredTarget, hoveredTarget)
+    ? state
+    : { ...state, hoveredTarget };
+}
+
+export function setWorkspaceSelectedTarget(
+  state: WorkspaceCanvasControllerState,
+  selectedTarget: WorkspaceSceneTarget | null,
+): WorkspaceCanvasControllerState {
+  return targetsEqual(state.selectedTarget, selectedTarget)
+    ? state
+    : { ...state, selectedTarget };
+}
+
+export function setWorkspaceKeyboardFocusedTarget(
+  state: WorkspaceCanvasControllerState,
+  keyboardFocusedTarget: WorkspaceSceneTarget | null,
+): WorkspaceCanvasControllerState {
+  return targetsEqual(state.keyboardFocusedTarget, keyboardFocusedTarget)
+    ? state
+    : { ...state, keyboardFocusedTarget };
+}
+
+export function setWorkspaceSelectedSectionIds(
+  state: WorkspaceCanvasControllerState,
+  selectedSectionIds: Array<string>,
+): WorkspaceCanvasControllerState {
+  return stringArraysEqual(state.selectedSectionIds, selectedSectionIds)
+    ? state
+    : { ...state, selectedSectionIds: [...selectedSectionIds] };
+}
+
+export function setWorkspaceActiveControlState(
+  state: WorkspaceCanvasControllerState,
+  activeControlState: CanvasActiveControlState | null,
+): WorkspaceCanvasControllerState {
+  return {
+    ...state,
+    activeControlState,
+  };
+}
+
+export function setWorkspaceActiveEditorSession(
+  state: WorkspaceCanvasControllerState,
+  activeEditorSession: ActiveEditorSession | null,
+): WorkspaceCanvasControllerState {
+  return {
+    ...state,
+    activeEditorSession,
+  };
+}
+
+export function setWorkspaceSectionBoundsDrafts(
+  state: WorkspaceCanvasControllerState,
+  sectionBoundsDrafts: Record<string, WorkspaceSectionBoundsDraft>,
+): WorkspaceCanvasControllerState {
+  return {
+    ...state,
+    sectionBoundsDrafts,
+  };
+}
+
+export function clearWorkspaceSectionBoundsDrafts(
+  state: WorkspaceCanvasControllerState,
+): WorkspaceCanvasControllerState {
+  return Object.keys(state.sectionBoundsDrafts).length === 0
+    ? state
+    : {
+        ...state,
+        sectionBoundsDrafts: {},
+      };
+}
+
+export function setWorkspaceParamRowDragDraft(
+  state: WorkspaceCanvasControllerState,
+  paramRowDragDraft: WorkspaceParamRowDragDraft | null,
+): WorkspaceCanvasControllerState {
+  return {
+    ...state,
+    paramRowDragDraft,
+  };
+}
+
+export function getWorkspaceSectionMaxScroll(
+  scene: WorkspaceScene,
+  sectionId: string,
+): number {
+  const section = scene.sectionsById[sectionId];
+  if (!section || section.renderModel.kind !== "dict") {
+    return 0;
+  }
+  const scrollbar = section.renderModel.dict.scrollbar;
+  if (!scrollbar) {
+    return 0;
+  }
+  return Math.max(0, scrollbar.contentHeight - scrollbar.viewportHeight);
+}
+
+export function resolveWorkspaceSectionWheelScrollOffset({
+  scene,
+  sectionId,
+  currentOffset,
+  deltaY,
+}: {
+  scene: WorkspaceScene;
+  sectionId: string;
+  currentOffset: number;
+  deltaY: number;
+}): number {
+  return clamp(
+    currentOffset + deltaY,
+    0,
+    getWorkspaceSectionMaxScroll(scene, sectionId),
+  );
+}
+
+export function getWorkspaceKeyboardNavigationTargets(
+  scene: WorkspaceScene,
+): Array<WorkspaceSceneTarget> {
+  const targets: Array<WorkspaceSceneTarget> = [];
+  for (const sectionId of scene.sectionOrder) {
+    const section = scene.sectionsById[sectionId];
+    if (!section) {
+      continue;
+    }
+    targets.push({
+      kind: "section",
+      sectionId: section.id,
+      sectionPath: section.sectionPath,
+    });
+    if (section.renderModel.kind !== "dict") {
+      continue;
+    }
+    for (const row of section.renderModel.dict.rows) {
+      if (!row.visible) {
+        continue;
+      }
+      targets.push({
+        kind: "dict-row",
+        sectionId: section.id,
+        sectionPath: section.sectionPath,
+        rowId: row.id,
+        paramId: row.paramId,
+      });
+    }
+  }
+  return targets;
+}
+
+export function resolveWorkspaceKeyboardNavigationTarget({
+  scene,
+  currentTarget,
+  direction,
+}: {
+  scene: WorkspaceScene;
+  currentTarget: WorkspaceSceneTarget | null;
+  direction: 1 | -1;
+}): WorkspaceSceneTarget | null {
+  const targets = getWorkspaceKeyboardNavigationTargets(scene);
+  if (targets.length === 0) {
+    return null;
+  }
+  const currentIndex = currentTarget
+    ? targets.findIndex((target) => targetsEqual(target, currentTarget))
+    : -1;
+  if (currentIndex < 0) {
+    return direction > 0 ? targets[0] ?? null : targets.at(-1) ?? null;
+  }
+  return (
+    targets[(currentIndex + direction + targets.length) % targets.length] ??
+    null
+  );
 }
 
 export function reduceActiveEditorSession(
@@ -316,8 +703,12 @@ function normalizeWorkspaceViewport(
   return {
     x: viewport.x,
     y: viewport.y,
-    zoom: Math.max(0.01, viewport.zoom),
+    zoom: normalizeWorkspaceZoom(viewport.zoom),
   };
+}
+
+function normalizeWorkspaceZoom(zoom: number) {
+  return clamp(zoom, 0.05, 4);
 }
 
 function deriveFitWorkspaceViewport(
@@ -446,4 +837,18 @@ export function setWorkspaceSectionScrollOffset(
       [sectionId]: Math.max(0, offset),
     },
   };
+}
+
+function targetsEqual(
+  left: WorkspaceSceneTarget | null,
+  right: WorkspaceSceneTarget | null,
+) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function stringArraysEqual(left: Array<string>, right: Array<string>) {
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((value, index) => value === right[index]);
 }

@@ -9,11 +9,13 @@ import {
   type SetStateAction,
 } from "react";
 import {
+  useActiveSectionUI,
   useLocalStorage,
   useProjectState,
   useSettings,
   useTypeErrors,
 } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   SETTA_POPOVER_PORTAL_PARENT_ID,
@@ -22,6 +24,7 @@ import type { BackgroundVariantEnum } from "utils/generatedTypes";
 import { renderWorkspaceCanvas } from "./workspaceCanvasRenderer";
 import {
   createWorkspaceCanvasControllerState,
+  setWorkspaceSelectedSectionIds,
   syncWorkspaceControllerViewport,
   type WorkspaceCanvasControllerState,
 } from "./workspaceController";
@@ -32,6 +35,15 @@ import {
   getWorkspaceCodeHighlightCacheEntry,
   type WorkspaceCodeHighlightCacheState,
 } from "./workspaceHighlightCache";
+import {
+  handleWorkspaceKeyDown,
+  handleWorkspacePointerCancel,
+  handleWorkspacePointerDown,
+  handleWorkspacePointerMove,
+  handleWorkspacePointerUp,
+  handleWorkspaceWheel,
+} from "./workspaceInteractions";
+import type { WorkspaceCanvasPointerInteraction } from "./workspaceInteractionTypes";
 import {
   clearWorkspaceCanvasParitySnapshot,
   publishWorkspaceCanvasParitySnapshot,
@@ -77,9 +89,13 @@ export function WorkspaceCanvas() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
+  const pointerInteractionRef =
+    useRef<WorkspaceCanvasPointerInteraction | null>(null);
   const viewportSize = useWorkspaceCanvasSize(containerRef);
   const environment = useWorkspaceCanvasEnvironment();
   const projectState = useProjectState();
+  const activeSectionIds = useActiveSectionUI((state) => state.activeIds);
+  const shareCapabilities = useShareCapabilities();
   const typeErrors = useTypeErrors((state) => state.errors);
   const showMinimap = useLocalStorage((state) => state.showMinimap);
   const minimapSide = useLocalStorage((state) => state.minimapSide);
@@ -106,11 +122,18 @@ export function WorkspaceCanvas() {
         viewportSize,
       ),
     );
+  const controllerStateRef = useLatestRef(controllerState);
+  const projectStateRef = useLatestRef(projectState);
   useEffect(() => {
     setControllerState((current) =>
       syncWorkspaceControllerViewport(current, projectState, viewportSize),
     );
   }, [projectState, viewportSize]);
+  useEffect(() => {
+    setControllerState((current) =>
+      setWorkspaceSelectedSectionIds(current, activeSectionIds),
+    );
+  }, [activeSectionIds]);
   const projectRevision = useMonotonicRevisionToken(projectState);
   const sectionScrollRevision = useMemo(
     () => serializeSectionScrollRevision(controllerState.sectionScrollOffsets),
@@ -167,6 +190,7 @@ export function WorkspaceCanvas() {
       viewportSize,
     ],
   );
+  const sceneRef = useLatestRef(scene);
 
   useWorkspacePassiveCodeHighlighting({
     scene,
@@ -204,16 +228,70 @@ export function WorkspaceCanvas() {
         onPointerDown={(event) => {
           activePointerIdRef.current = event.pointerId;
           event.currentTarget.focus({ preventScroll: true });
+          handleWorkspacePointerDown({
+            event,
+            scene,
+            controllerState: controllerStateRef.current,
+            setControllerState,
+            pointerInteractionRef,
+            showMinimap,
+            canEditLayout: shareCapabilities.canEditLayout,
+            canEditParams: shareCapabilities.canEditParams,
+          });
+        }}
+        onPointerMove={(event) => {
+          handleWorkspacePointerMove({
+            event,
+            scene: sceneRef.current,
+            controllerState: controllerStateRef.current,
+            setControllerState,
+            pointerInteractionRef,
+            showMinimap,
+            canEditParams: shareCapabilities.canEditParams,
+          });
         }}
         onPointerUp={(event) => {
+          handleWorkspacePointerUp({
+            event,
+            scene: sceneRef.current,
+            controllerState: controllerStateRef.current,
+            projectState: projectStateRef.current,
+            setControllerState,
+            pointerInteractionRef,
+            canEditLayout: shareCapabilities.canEditLayout,
+            canEditParams: shareCapabilities.canEditParams,
+          });
           if (activePointerIdRef.current === event.pointerId) {
             activePointerIdRef.current = null;
           }
         }}
         onPointerCancel={(event) => {
+          handleWorkspacePointerCancel({
+            event,
+            setControllerState,
+            pointerInteractionRef,
+          });
           if (activePointerIdRef.current === event.pointerId) {
             activePointerIdRef.current = null;
           }
+        }}
+        onKeyDown={(event) => {
+          handleWorkspaceKeyDown({
+            event,
+            scene,
+            controllerState: controllerStateRef.current,
+            setControllerState,
+            canEditParams: shareCapabilities.canEditParams,
+          });
+        }}
+        onWheel={(event) => {
+          handleWorkspaceWheel({
+            event,
+            scene,
+            controllerState: controllerStateRef.current,
+            setControllerState,
+            showMinimap,
+          });
         }}
         role="application"
         tabIndex={0}
@@ -257,15 +335,12 @@ function useWorkspacePassiveCodeHighlighting({
   const mountedRef = useRef(true);
   const requestCounterRef = useRef(0);
 
-  useEffect(
-    () => {
-      mountedRef.current = true;
-      return () => {
-        mountedRef.current = false;
-      };
-    },
-    [],
-  );
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const requests = collectWorkspacePassiveCodeHighlightRequests({
@@ -775,6 +850,12 @@ function useMonotonicRevisionToken(value: unknown) {
     };
   }
   return String(revisionRef.current.revision);
+}
+
+function useLatestRef<T>(value: T) {
+  const ref = useRef(value);
+  ref.current = value;
+  return ref;
 }
 
 function resizeCanvasBackingStore(

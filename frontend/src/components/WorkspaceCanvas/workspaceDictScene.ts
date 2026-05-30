@@ -535,7 +535,9 @@ function activeTargetReferencesDictRow(
       controllerState.activeControlState?.target ?? null,
       sectionId,
       rowId,
-    )
+    ) ||
+    (controllerState.paramRowDragDraft?.sectionId === sectionId &&
+      controllerState.paramRowDragDraft.rowId === rowId)
   );
 }
 
@@ -791,7 +793,7 @@ function buildRowHitRegions(
       id: `${row.id}:row`,
       coordinateSpace: "workspace",
       rect: row.visibleRect,
-      intent: "select-row",
+      intent: "drag-row",
       target: rowTarget,
       zIndex: zIndexBase + 100 + row.index,
     },

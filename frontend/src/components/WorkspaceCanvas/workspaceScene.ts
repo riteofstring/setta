@@ -360,6 +360,20 @@ function deriveSectionBounds(context: SectionDerivationContext) {
           context.effectiveImpl,
         ),
   );
+  const draft =
+    context.controllerState.sectionBoundsDrafts[context.sectionId]?.worldBounds;
+  if (draft) {
+    return {
+      localBounds: context.parent
+        ? {
+            ...draft,
+            x: draft.x - context.parent.worldBounds.x,
+            y: draft.y - context.parent.worldBounds.y,
+          }
+        : draft,
+      worldBounds: draft,
+    };
+  }
   const worldBounds = context.parent
     ? {
         ...localBounds,
@@ -587,6 +601,7 @@ function isSectionSelected(context: SectionDerivationContext) {
     (context.projectState.projectConfig.activeIds ?? []).includes(
       context.sectionId,
     ) ||
+    context.controllerState.selectedSectionIds.includes(context.sectionId) ||
     targetReferencesSection(
       context.controllerState.selectedTarget,
       context.sectionId,
