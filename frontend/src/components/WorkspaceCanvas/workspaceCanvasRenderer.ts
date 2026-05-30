@@ -1,3 +1,4 @@
+import { BackgroundVariantEnum } from "utils/generatedTypes";
 import type {
   WorkspaceDictRowScene,
   WorkspaceRect,
@@ -13,11 +14,19 @@ export type WorkspaceCanvasRenderOptions = {
   devicePixelRatio: number;
   isDarkMode: boolean;
   showMinimap: boolean;
+  grid?: WorkspaceCanvasGridOptions;
+};
+
+export type WorkspaceCanvasGridOptions = {
+  show: boolean;
+  color: string;
+  variant: WorkspaceCanvasGridVariant;
+  patternSize: number;
+  gap: readonly [number, number];
 };
 
 type WorkspaceCanvasPalette = {
   background: string;
-  gridMajor: string;
   gridMinor: string;
   sectionFill: string;
   sectionFillHover: string;
@@ -33,6 +42,8 @@ type WorkspaceCanvasPalette = {
   rowFocus: string;
   labelText: string;
   valueText: string;
+  valueNumberText: string;
+  valueKeywordText: string;
   mutedText: string;
   rail: string;
   error: string;
@@ -48,12 +59,16 @@ type WorkspaceCanvasPalette = {
   minimapViewport: string;
 };
 
-type GridDotSpec = {
-  spacing: number;
+type WorkspaceCanvasGridVariant =
+  (typeof BackgroundVariantEnum)[keyof typeof BackgroundVariantEnum];
+
+type GridPatternSpec = {
+  gapX: number;
+  gapY: number;
   xOffset: number;
   yOffset: number;
-  fillStyle: string;
-  radius: number;
+  strokeOrFillStyle: string;
+  patternSize: number;
 };
 
 type ControlPreviewDrawer = (
@@ -121,36 +136,106 @@ function drawWorkspaceGrid(
   options: WorkspaceCanvasRenderOptions,
   palette: WorkspaceCanvasPalette,
 ) {
-  const spacing = 15 * scene.viewport.zoom;
-  if (spacing < 5) {
+  const grid = resolveWorkspaceCanvasGridOptions(options, palette);
+  if (!grid.show) {
     return;
   }
-  drawScreenGridDots(context, options, {
-    spacing,
+  const gapX = Math.max(1, grid.gap[0] * scene.viewport.zoom || 1);
+  const gapY = Math.max(1, grid.gap[1] * scene.viewport.zoom || 1);
+  const patternSize = Math.max(0.1, grid.patternSize * scene.viewport.zoom);
+  if (gapX < 4 || gapY < 4) {
+    return;
+  }
+  const spec = {
+    gapX,
+    gapY,
     xOffset: scene.viewport.x,
     yOffset: scene.viewport.y,
-    fillStyle: palette.gridMinor,
-    radius: Math.max(0.35, scene.viewport.zoom),
-  });
+    strokeOrFillStyle: grid.color,
+    patternSize,
+  };
+  if (grid.variant === BackgroundVariantEnum.lines) {
+    drawScreenGridLines(context, options, spec);
+    return;
+  }
+  if (grid.variant === BackgroundVariantEnum.cross) {
+    drawScreenGridCrosses(context, options, spec);
+    return;
+  }
+  drawScreenGridDots(context, options, spec);
 }
 
 function drawScreenGridDots(
   context: CanvasRenderingContext2D,
   options: WorkspaceCanvasRenderOptions,
-  spec: GridDotSpec,
+  spec: GridPatternSpec,
 ) {
-  const { spacing, xOffset, yOffset, fillStyle, radius } = spec;
-  const normalizedXOffset = ((xOffset % spacing) + spacing) % spacing;
-  const normalizedYOffset = ((yOffset % spacing) + spacing) % spacing;
-  context.fillStyle = fillStyle;
+  const { gapX, gapY, xOffset, yOffset, strokeOrFillStyle, patternSize } = spec;
+  const radius = patternSize / 2;
+  const normalizedXOffset = normalizeGridOffset(xOffset, gapX);
+  const normalizedYOffset = normalizeGridOffset(yOffset, gapY);
+  context.fillStyle = strokeOrFillStyle;
   context.beginPath();
-  for (let y = normalizedYOffset; y <= options.height; y += spacing) {
-    for (let x = normalizedXOffset; x <= options.width; x += spacing) {
+  for (let y = normalizedYOffset; y <= options.height; y += gapY) {
+    for (let x = normalizedXOffset; x <= options.width; x += gapX) {
       context.moveTo(x + radius, y);
       context.arc(x, y, radius, 0, Math.PI * 2);
     }
   }
   context.fill();
+}
+
+function drawScreenGridLines(
+  context: CanvasRenderingContext2D,
+  options: WorkspaceCanvasRenderOptions,
+  spec: GridPatternSpec,
+) {
+  const { gapX, gapY, xOffset, yOffset, strokeOrFillStyle, patternSize } = spec;
+  const normalizedXOffset = normalizeGridOffset(xOffset, gapX);
+  const normalizedYOffset = normalizeGridOffset(yOffset, gapY);
+  context.save();
+  context.strokeStyle = strokeOrFillStyle;
+  context.lineWidth = patternSize;
+  context.beginPath();
+  for (let x = normalizedXOffset; x <= options.width; x += gapX) {
+    context.moveTo(x, 0);
+    context.lineTo(x, options.height);
+  }
+  for (let y = normalizedYOffset; y <= options.height; y += gapY) {
+    context.moveTo(0, y);
+    context.lineTo(options.width, y);
+  }
+  context.stroke();
+  context.restore();
+}
+
+function drawScreenGridCrosses(
+  context: CanvasRenderingContext2D,
+  options: WorkspaceCanvasRenderOptions,
+  spec: GridPatternSpec,
+) {
+  const { gapX, gapY, xOffset, yOffset, strokeOrFillStyle, patternSize } = spec;
+  const normalizedXOffset = normalizeGridOffset(xOffset, gapX);
+  const normalizedYOffset = normalizeGridOffset(yOffset, gapY);
+  const halfSize = patternSize / 2;
+  context.save();
+  context.strokeStyle = strokeOrFillStyle;
+  context.lineWidth = patternSize;
+  context.beginPath();
+  for (let y = normalizedYOffset; y <= options.height; y += gapY) {
+    for (let x = normalizedXOffset; x <= options.width; x += gapX) {
+      context.moveTo(x - halfSize, y);
+      context.lineTo(x + halfSize, y);
+      context.moveTo(x, y - halfSize);
+      context.lineTo(x, y + halfSize);
+    }
+  }
+  context.stroke();
+  context.restore();
+}
+
+function normalizeGridOffset(offset: number, gap: number) {
+  return ((offset % gap) + gap) % gap;
 }
 
 function drawWorkspaceSections(
@@ -266,10 +351,7 @@ function drawDictToolbar(
   const toolbarY = section.geometry.header.y + 34;
   const toolbarHeight = Math.max(
     0,
-    section.geometry.header.y +
-      section.geometry.header.height -
-      toolbarY -
-      2,
+    section.geometry.header.y + section.geometry.header.height - toolbarY - 2,
   );
   if (toolbarHeight <= 0) {
     return;
@@ -322,7 +404,7 @@ function drawDictRow(
     drawCodePreview(context, row, palette);
   } else {
     context.font = WORKSPACE_TEXT_STYLES["dict-value"];
-    context.fillStyle = palette.valueText;
+    context.fillStyle = getValueTextFill(row, palette);
     fillClippedText(context, row.textPreviews.value.displayText, row.valueRect);
   }
   drawControlPreview(context, row, palette);
@@ -364,6 +446,26 @@ function getRowStroke(
     return palette.controlActive;
   }
   return palette.rowStroke;
+}
+
+function getValueTextFill(
+  row: WorkspaceDictRowScene,
+  palette: WorkspaceCanvasPalette,
+) {
+  if (row.errors.length > 0) {
+    return palette.error;
+  }
+  if (row.passiveValue.kind === "number") {
+    return palette.valueNumberText;
+  }
+  if (isNullValuePreview(row.passiveValue.text)) {
+    return palette.valueKeywordText;
+  }
+  return palette.valueText;
+}
+
+function isNullValuePreview(value: string) {
+  return value === "null" || value === "None";
 }
 
 function drawCodePreview(
@@ -599,6 +701,8 @@ function drawMinimap(
       null,
     );
   }
+  context.save();
+  context.lineWidth = 2;
   drawRoundedRect(
     context,
     minimap.viewportMask,
@@ -606,6 +710,7 @@ function drawMinimap(
     "transparent",
     palette.minimapViewport,
   );
+  context.restore();
 }
 
 function formatCodePreviewFont(
@@ -716,21 +821,34 @@ function insetRect(rect: WorkspaceRect, inset: number): WorkspaceRect {
   };
 }
 
+function resolveWorkspaceCanvasGridOptions(
+  options: WorkspaceCanvasRenderOptions,
+  palette: WorkspaceCanvasPalette,
+): WorkspaceCanvasGridOptions {
+  return {
+    show: true,
+    color: palette.gridMinor,
+    variant: BackgroundVariantEnum.dots,
+    patternSize: 2,
+    gap: [15, 15],
+    ...options.grid,
+  };
+}
+
 function getWorkspaceCanvasPalette(
   isDarkMode: boolean,
 ): WorkspaceCanvasPalette {
   if (isDarkMode) {
     return {
-      background: "#111827",
-      gridMajor: "#2b364a",
+      background: "#1b2331",
       gridMinor: "#2b364a",
-      sectionFill: "#101722",
-      sectionFillHover: "#141f2f",
+      sectionFill: "#11141b",
+      sectionFillHover: "#151c26",
       sectionStroke: "rgba(75, 92, 118, 0.82)",
-      sectionHeader: "#0d131d",
+      sectionHeader: "#11141b",
       sectionHeaderText: "#e5e7eb",
-      sectionBody: "#111827",
-      rowFill: "#111827",
+      sectionBody: "#11141b",
+      rowFill: "#11141b",
       rowFillHover: "#172033",
       rowFillSelected: "rgba(37, 99, 235, 0.22)",
       rowFillActive: "rgba(37, 99, 235, 0.3)",
@@ -738,6 +856,8 @@ function getWorkspaceCanvasPalette(
       rowFocus: "#60a5fa",
       labelText: "#cbd5e1",
       valueText: "#f8fafc",
+      valueNumberText: "#79c0ff",
+      valueKeywordText: "#ff7b72",
       mutedText: "#64748b",
       rail: "rgba(71, 85, 105, 0.76)",
       error: "#f87171",
@@ -746,16 +866,15 @@ function getWorkspaceCanvasPalette(
       controlActive: "#2563eb",
       controlText: "#e5e7eb",
       controlMutedText: "#94a3b8",
-      minimapFill: "rgba(15, 23, 42, 0.78)",
-      minimapStroke: "rgba(148, 163, 184, 0.45)",
-      minimapSection: "rgba(148, 163, 184, 0.58)",
-      minimapSectionSelected: "rgba(56, 189, 248, 0.88)",
-      minimapViewport: "#38bdf8",
+      minimapFill: "hsla(220, 27%, 6%, 0.72)",
+      minimapStroke: "hsla(220, 26%, 14%, 0.55)",
+      minimapSection: "#2d384d",
+      minimapSectionSelected: "#2d384d",
+      minimapViewport: "rgba(226, 232, 240, 0.9)",
     };
   }
   return {
     background: "#f8fafc",
-    gridMajor: "rgba(100, 116, 139, 0.16)",
     gridMinor: "rgba(100, 116, 139, 0.08)",
     sectionFill: "#ffffff",
     sectionFillHover: "#f8fafc",
@@ -771,6 +890,8 @@ function getWorkspaceCanvasPalette(
     rowFocus: "#0e7490",
     labelText: "#334155",
     valueText: "#0f172a",
+    valueNumberText: "#0550ae",
+    valueKeywordText: "#cf222e",
     mutedText: "#64748b",
     rail: "rgba(14, 116, 144, 0.36)",
     error: "#dc2626",

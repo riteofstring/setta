@@ -8,7 +8,8 @@ export const WORKSPACE_TEXT_STYLES = {
   "section-title":
     "600 13px system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
   "dict-label": "12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-  "dict-value": "12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+  "dict-value":
+    '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
   "dict-control":
     "11px system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
 } satisfies Record<WorkspaceTextStyleKey, string>;

@@ -11,12 +11,14 @@ import {
 import {
   useLocalStorage,
   useProjectState,
+  useSettings,
   useTypeErrors,
 } from "state/definitions";
 import {
   CODEMIRROR_TOOLTIP_PARENT_ID,
   SETTA_POPOVER_PORTAL_PARENT_ID,
 } from "utils/constants";
+import type { BackgroundVariantEnum } from "utils/generatedTypes";
 import { renderWorkspaceCanvas } from "./workspaceCanvasRenderer";
 import {
   createWorkspaceCanvasControllerState,
@@ -55,6 +57,14 @@ type WorkspaceCanvasEnvironment = {
   fontRevision: number;
 };
 
+type WorkspaceCanvasGridSettings = {
+  show: boolean;
+  color: string;
+  variant: (typeof BackgroundVariantEnum)[keyof typeof BackgroundVariantEnum];
+  patternSize: number;
+  gap: readonly [number, number];
+};
+
 type WorkspaceDictRowWithCodePreview = WorkspaceDictRowScene & {
   codePreview: NonNullable<WorkspaceDictRowScene["codePreview"]>;
 };
@@ -68,6 +78,7 @@ export function WorkspaceCanvas() {
   const projectState = useProjectState();
   const typeErrors = useTypeErrors((state) => state.errors);
   const showMinimap = useLocalStorage((state) => state.showMinimap);
+  const gridSettings = useWorkspaceCanvasGridSettings(environment.isDarkMode);
   const [highlightCache, setHighlightCache] =
     useState<WorkspaceCodeHighlightCacheState>(() =>
       createWorkspaceCodeHighlightCacheState(),
@@ -156,6 +167,7 @@ export function WorkspaceCanvas() {
     scene,
     viewportSize,
     environment,
+    gridSettings,
     showMinimap,
   });
   useWorkspacePointerCleanup(canvasRef, activePointerIdRef);
@@ -527,6 +539,32 @@ function useWorkspaceCanvasEnvironment(): WorkspaceCanvasEnvironment {
   return environment;
 }
 
+function useWorkspaceCanvasGridSettings(
+  isDarkMode: boolean,
+): WorkspaceCanvasGridSettings {
+  const snapToGrid = useLocalStorage((state) => state.snapToGrid);
+  const gui = useSettings((state) => state.gui);
+  return useMemo(
+    () => ({
+      show: snapToGrid && !!gui.showGridLines,
+      color: isDarkMode ? gui.gridColorDarkMode : gui.gridColor,
+      variant: gui.gridPattern,
+      patternSize: gui.gridPatternSize,
+      gap: gui.snapGrid,
+    }),
+    [
+      gui.gridColor,
+      gui.gridColorDarkMode,
+      gui.gridPattern,
+      gui.gridPatternSize,
+      gui.showGridLines,
+      gui.snapGrid,
+      isDarkMode,
+      snapToGrid,
+    ],
+  );
+}
+
 function watchWorkspaceCanvasEnvironment(
   setEnvironment: Dispatch<SetStateAction<WorkspaceCanvasEnvironment>>,
 ) {
@@ -626,12 +664,14 @@ function useWorkspaceCanvasDraw({
   scene,
   viewportSize,
   environment,
+  gridSettings,
   showMinimap,
 }: {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   scene: ReturnType<typeof deriveWorkspaceScene>;
   viewportSize: WorkspaceSize;
   environment: WorkspaceCanvasEnvironment;
+  gridSettings: WorkspaceCanvasGridSettings;
   showMinimap: boolean;
 }) {
   useEffect(() => {
@@ -656,13 +696,14 @@ function useWorkspaceCanvasDraw({
         devicePixelRatio: environment.devicePixelRatio,
         isDarkMode: environment.isDarkMode,
         showMinimap,
+        grid: gridSettings,
       });
     });
 
     return () => {
       window.cancelAnimationFrame(frameId);
     };
-  }, [canvasRef, environment, scene, showMinimap, viewportSize]);
+  }, [canvasRef, environment, gridSettings, scene, showMinimap, viewportSize]);
 
   useEffect(
     () => () => {

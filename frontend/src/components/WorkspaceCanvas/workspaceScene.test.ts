@@ -609,7 +609,7 @@ describe("workspace scene model", () => {
     delete layout.h;
     section.impl.size = {
       width: { Auto: false, Value: 360 },
-      height: "auto",
+      height: { Auto: true, Value: 0 },
     };
     const scene = deriveWorkspaceScene({
       projectState: state,
@@ -621,7 +621,7 @@ describe("workspace scene model", () => {
     );
   });
 
-  it("focuses an active section at normal zoom when the view has no saved viewport", () => {
+  it("fits all visible sections when the view has no saved viewport", () => {
     const { state } = buildDictFixture();
     state.projectConfig.viewport = null;
     state.projectConfig.viewportInitialized = false;
@@ -634,12 +634,12 @@ describe("workspace scene model", () => {
 
     expect(syncedController.viewport?.viewport).toEqual({
       x: 120,
-      y: 46,
+      y: 130,
       zoom: 1,
     });
   });
 
-  it("uses the centered top-row section as the default unsaved viewport focus", () => {
+  it("centers the visible section bounds as the default unsaved viewport", () => {
     const state = createSingleConfig();
     state.projectConfig.viewport = null;
     state.projectConfig.viewportInitialized = false;
@@ -670,7 +670,38 @@ describe("workspace scene model", () => {
 
     expect(syncedController.viewport?.viewport).toEqual({
       x: 150,
-      y: 96,
+      y: 250,
+      zoom: 1,
+    });
+  });
+
+  it("ignores uninitialized active view mode viewport values", () => {
+    const { state } = buildDictFixture();
+    state.projectConfig.viewport = null;
+    state.projectConfig.viewportInitialized = false;
+    state.projectConfig.activeViewModeId = "view-a";
+    state.projectConfig.viewModes["view-a"] = createViewMode({
+      id: "view-a",
+      viewport: { x: 70, y: 80, zoom: 0.25 },
+      viewportInitialized: false,
+      visibilityBySectionId: { "dict-a": true },
+      topLevelSections: {
+        "dict-a": { x: 100, y: 50, w: 360, h: 240, zIndex: 0 },
+      },
+    });
+
+    const syncedController = syncWorkspaceControllerViewport(
+      createWorkspaceCanvasControllerState(),
+      state,
+      { width: 800, height: 600 },
+    );
+
+    expect(syncedController.viewport?.sourceKey).toContain(
+      "view-mode:view-a:pending",
+    );
+    expect(syncedController.viewport?.viewport).toEqual({
+      x: 120,
+      y: 130,
       zoom: 1,
     });
   });

@@ -298,6 +298,90 @@ describe("workspace canvas renderer", () => {
     expect(drawnText).not.toContain("Extremely verbose setting label");
     expect(drawnText).not.toContain("Long selected option");
   });
+
+  it("uses CodeMirror-compatible passive value colors for numbers and null markers", () => {
+    const numberRow = createDictRow({
+      id: "dict-row:dict:unpinned:number",
+      paramId: "number",
+      paramType: "SliderParam",
+      passiveValue: {
+        kind: "number",
+        text: "42",
+        swatchColor: null,
+        choices: [],
+        masked: false,
+      },
+      textPreviews: {
+        label: createTextPreview("Number"),
+        value: createTextPreview("42"),
+        control: null,
+      },
+    });
+    const nullRow = createDictRow({
+      id: "dict-row:dict:unpinned:null",
+      paramId: "nullable",
+      passiveValue: {
+        kind: "text",
+        text: "null",
+        swatchColor: null,
+        choices: [],
+        masked: false,
+      },
+      textPreviews: {
+        label: createTextPreview("Nullable"),
+        value: createTextPreview("null"),
+        control: null,
+      },
+      rect: { x: 28, y: 106, width: 304, height: 28 },
+      labelRect: { x: 32, y: 106, width: 104, height: 28 },
+      valueRect: { x: 148, y: 106, width: 184, height: 28 },
+      controlRect: { x: 148, y: 106, width: 184, height: 28 },
+      visibleRect: { x: 28, y: 106, width: 304, height: 28 },
+    });
+    const context = new MockCanvasContext();
+
+    renderWorkspaceCanvas(
+      context as unknown as CanvasRenderingContext2D,
+      createRendererScene({
+        rootSectionIds: ["dict"],
+        sectionOrder: ["dict"],
+        sectionsById: {
+          dict: createSection({
+            id: "dict",
+            name: "Dict",
+            worldBounds: { x: 20, y: 30, width: 320, height: 190 },
+            renderModel: {
+              kind: "dict",
+              dict: {
+                sectionId: "dict",
+                pinnedRegion: { x: 20, y: 66, width: 320, height: 0 },
+                unpinnedRegion: { x: 20, y: 66, width: 320, height: 124 },
+                scrollOffset: 0,
+                visibleRowRange: { start: 0, end: 2, overscan: 3 },
+                contentHeight: 60,
+                rows: [numberRow, nullRow],
+                scrollbar: null,
+                hitRegions: [],
+              },
+            },
+          }),
+        },
+      }),
+      createRenderOptions(),
+    );
+
+    expect(
+      context.operations.find(
+        (operation) => operation.kind === "fillText" && operation.text === "42",
+      ),
+    ).toMatchObject({ fillStyle: "#79c0ff" });
+    expect(
+      context.operations.find(
+        (operation) =>
+          operation.kind === "fillText" && operation.text === "null",
+      ),
+    ).toMatchObject({ fillStyle: "#ff7b72" });
+  });
 });
 
 function isFillTextOperation(

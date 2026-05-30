@@ -1,0 +1,88 @@
+{
+  "date": "2026-05-28",
+  "area": "frontend",
+  "scenario": "settings-all-settings-normal-dark",
+  "reference": {
+    "branch": "go-rewrite",
+    "commit": "8f36f30b7",
+    "screenshot": "perf/artifacts/frontend/canvas-webgpu-step4-parity-dom-clean-normal.png"
+  },
+  "current": {
+    "branch": "go-rewrite-canvas-webgpu-only",
+    "commit": "94cc59f3d-plus-working-tree",
+    "screenshot": "perf/artifacts/frontend/canvas-webgpu-step4-current-after-mono-values.png"
+  },
+  "capture": {
+    "viewport": {
+      "width": 1440,
+      "height": 1200,
+      "deviceScaleFactor": 1
+    },
+    "workspaceCrop": {
+      "x": 39,
+      "y": 36,
+      "width": 1361,
+      "height": 1128
+    },
+    "chromeState": {
+      "overviewPane": "closed",
+      "uiEditorPane": "closed",
+      "projectChatWindows": "closed",
+      "bottomDockExpandedChatContent": "closed"
+    },
+    "seededState": {
+      "route": "/settings",
+      "projectConfigId": "settings",
+      "view": "All Settings",
+      "theme": "dark",
+      "sceneViewport": {
+        "x": -42,
+        "y": 193,
+        "zoom": 0.589
+      },
+      "gridPattern": "lines",
+      "minimap": "hidden"
+    }
+  },
+  "thresholds": {
+    "workspaceMeanAbsRgbDeltaMax": 8,
+    "fullWorkspaceSsimMin": 0.9
+  },
+  "metrics": {
+    "dimensions": {
+      "reference": {
+        "width": 1440,
+        "height": 1200
+      },
+      "current": {
+        "width": 1440,
+        "height": 1200
+      }
+    },
+    "workspaceCrop": {
+      "meanAbsRgbDelta": 7.258673526106343,
+      "rmsRgbDelta": 18.703129685176528,
+      "local8x8GrayscaleSsim": 0.5680136976792557
+    },
+    "fullViewport": {
+      "meanAbsRgbDelta": 6.512063850308642,
+      "rmsRgbDelta": 17.764978742303807,
+      "local8x8GrayscaleSsim": 0.6126676490674554
+    }
+  },
+  "hardFailures": [
+    {
+      "code": "missing-required-captures",
+      "message": "Only the normal dark current/reference pair is recorded; light, zoomed-out, minimap, selected-section, and representative control crops are not recorded."
+    },
+    {
+      "code": "missing-anchor-bounds",
+      "message": "The comparison result does not yet extract section bounds, row bounds, label/value alignment, or minimap bounds."
+    },
+    {
+      "code": "ssim-below-threshold",
+      "message": "Local 8x8 grayscale SSIM sanity scores remain below the initial full-workspace SSIM threshold."
+    }
+  ],
+  "pass": false
+}

@@ -2,7 +2,7 @@
 
 Date: 2026-05-28
 Area: frontend
-Current branch/commit: `go-rewrite-canvas-webgpu-only` @ `ad2fd7c74` plus working tree edits
+Current branch/commit: `go-rewrite-canvas-webgpu-only` @ `94cc59f3d` plus working tree edits
 Reference branch/commit: `go-rewrite` @ `8f36f30b7`
 Related plan: `docs/plans/canvas-webgpu-workspace-replacement-plan.md`
 
@@ -33,9 +33,11 @@ hovered row, or section drag/resize affordance states.
 - Browser:
   Chrome DevTools MCP
 
-Before screenshot capture, the overview side pane and project chat window were
-closed in the DOM reference. The current canvas branch had no visible chat
-window and the visible workspace area was the canvas.
+Before screenshot capture, the overview pane, UI editor pane, and project chat
+windows were closed. The current canvas branch had no visible chat window and
+the visible workspace area was the canvas. The current capture also seeded the
+same explicit viewport and Settings GUI grid-pattern state used for the DOM
+reference.
 
 ## Current Canvas Evidence
 
@@ -54,9 +56,8 @@ Observed from the live current branch page:
 
 Current screenshot:
 
-- `perf/artifacts/frontend/canvas-webgpu-step4-parity-current-clean-normal-final.png`
+- `perf/artifacts/frontend/canvas-webgpu-step4-current-after-mono-values.png`
 - Dimensions: `1440x1200`
-- File size: `175K`
 
 ## DOM Reference Evidence
 
@@ -80,15 +81,33 @@ Reference screenshot:
 ## Image Sanity
 
 The saved screenshots have matching dimensions. A simple workspace-crop pixel
-sanity check over `y=36..1164` reported:
+sanity check over `x=39..1400`, `y=36..1164` reported:
 
-- Current workspace mean RGB: `(20.53, 26.39, 39.86)`
-- DOM reference workspace mean RGB: `(27.89, 33.21, 44.77)`
-- Mean absolute RGB delta: `14.72`
-- RMS RGB delta: `24.59`
+- Mean absolute RGB delta: `7.26`
+- RMS RGB delta: `18.70`
+- Local 8x8 grayscale SSIM sanity score: `0.568`
 
-These numbers are a sanity check, not a pixel-perfect target. The renderer is
-expected to be visually close, not byte-identical to the DOM/xyflow reference.
+The mean RGB sanity metric is now under the plan's initial `<= 8` workspace
+crop threshold, but the SSIM-style sanity score is still far below the plan's
+initial `>= 0.90` full-workspace SSIM threshold. This remains a checkpoint, not
+an accepted quantitative visual parity pass.
+
+Machine-readable comparison result:
+
+- `perf/reports/frontend/2026-05-28_canvas-webgpu-workspace-step4-passive-parity.json`
+
+Reusable comparison command:
+
+```bash
+pnpm -C frontend exec node scripts/compare-workspace-screenshots.mjs \
+  --reference ../perf/artifacts/frontend/canvas-webgpu-step4-parity-dom-clean-normal.png \
+  --current ../perf/artifacts/frontend/canvas-webgpu-step4-current-after-mono-values.png
+```
+
+Result:
+
+- Exit code: `1`
+- Failure: `full-workspace-ssim` (`0.613 < 0.9`)
 
 ## Verification
 
@@ -106,16 +125,30 @@ pnpm -C frontend exec vitest run \
 Result:
 
 - Test files: `5 passed`
-- Tests: `24 passed`
+- Tests: `26 passed`
+
+Focused typecheck filter:
+
+```bash
+pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | \
+  rg 'WorkspaceCanvas|workspaceController|workspaceScene|workspaceCanvasRenderer|workspaceTextMeasurementCache'
+```
+
+Result:
+
+- No matching errors in the touched workspace canvas files. The repo-wide
+  frontend typecheck still has unrelated pre-existing errors outside this
+  change.
 
 ## Result
 
-The clean normal dark-mode Settings `All Settings` passive view is now recorded
-as visually close to the clean `go-rewrite` DOM reference while preserving the
-Step 4 architecture requirements for the active workspace: one canvas surface,
-no xyflow workspace DOM, no xyflow minimap, no passive section DOM, no passive
-Param row DOM, and no inactive CodeMirror editors.
+The clean normal dark-mode Settings `All Settings` passive view is closer to
+the clean `go-rewrite` DOM reference while preserving the Step 4 architecture
+requirements for the active workspace: one canvas surface, no xyflow workspace
+DOM, no xyflow minimap, no passive section DOM, no passive Param row DOM, and
+no inactive CodeMirror editors.
 
-This is a Step 4 passive-renderer parity checkpoint for the clean normal view.
-The broader visual reference suite still needs separate capture and verification
-as the interaction and active-editor milestones land.
+This does not pass the quantitative visual parity gate yet. Remaining gaps
+include SSIM/crop parity, minimap crop parity, light-mode and zoomed-out
+captures, representative control crops, and deterministic extraction of section
+and row bounds for the gate report.
