@@ -586,9 +586,9 @@ describe("workspace scene model", () => {
     );
     expect(section?.geometry.body).toMatchObject({
       x: 100,
-      y: 86,
+      y: 110,
       width: 360,
-      height: 204,
+      height: 180,
     });
     expect(section?.edgePortRegions).toHaveLength(1);
     expect(section?.edgePortRegions[0]?.intent).toBe("edge-or-port");
@@ -598,6 +598,81 @@ describe("workspace scene model", () => {
       "minimap-jump",
       "minimap-pan",
     ]);
+  });
+
+  it("uses the workspace auto-height cap for auto-sized sections", () => {
+    const { state, section } = buildDictFixture();
+    const layout = state.projectConfig.topLevelSections["dict-a"];
+    if (!layout) {
+      throw new Error("missing dict-a layout");
+    }
+    delete layout.h;
+    section.impl.size = {
+      width: { Auto: false, Value: 360 },
+      height: "auto",
+    };
+    const scene = deriveWorkspaceScene({
+      projectState: state,
+      viewportSize: { width: 800, height: 600 },
+    });
+
+    expect(scene.sectionsById["dict-a"]?.worldBounds.height).toBe(
+      WORKSPACE_SCENE_GEOMETRY.sectionAutoHeight,
+    );
+  });
+
+  it("focuses an active section at normal zoom when the view has no saved viewport", () => {
+    const { state } = buildDictFixture();
+    state.projectConfig.viewport = null;
+    state.projectConfig.viewportInitialized = false;
+    state.projectConfig.activeIds = ["dict-a"];
+    const syncedController = syncWorkspaceControllerViewport(
+      createWorkspaceCanvasControllerState(),
+      state,
+      { width: 800, height: 600 },
+    );
+
+    expect(syncedController.viewport?.viewport).toEqual({
+      x: 120,
+      y: 46,
+      zoom: 1,
+    });
+  });
+
+  it("uses the centered top-row section as the default unsaved viewport focus", () => {
+    const state = createSingleConfig();
+    state.projectConfig.viewport = null;
+    state.projectConfig.viewportInitialized = false;
+    addSection(
+      state,
+      "left",
+      createTextBlockSectionImpl({ size: sectionSize(100, 100) }),
+      { layout: { x: 0, y: 0, w: 100, h: 100 } },
+    );
+    addSection(
+      state,
+      "center",
+      createTextBlockSectionImpl({ size: sectionSize(100, 100) }),
+      { layout: { x: 200, y: 0, w: 100, h: 100 } },
+    );
+    addSection(
+      state,
+      "right",
+      createTextBlockSectionImpl({ size: sectionSize(100, 100) }),
+      { layout: { x: 400, y: 0, w: 100, h: 100 } },
+    );
+
+    const syncedController = syncWorkspaceControllerViewport(
+      createWorkspaceCanvasControllerState(),
+      state,
+      { width: 800, height: 600 },
+    );
+
+    expect(syncedController.viewport?.viewport).toEqual({
+      x: 150,
+      y: 96,
+      zoom: 1,
+    });
   });
 
   it("derives nested section paths, local bounds, parent clips, and drop zones", () => {

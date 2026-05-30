@@ -1,8 +1,16 @@
-import type {
-  WorkspaceSceneProjectState,
-  WorkspaceSize,
-  WorkspaceViewport,
+import {
+  WORKSPACE_SCENE_GEOMETRY,
+  type WorkspaceRect,
+  type WorkspaceSceneProjectState,
+  type WorkspaceSize,
+  type WorkspaceViewport,
 } from "./workspaceSceneTypes";
+import {
+  getActiveViewModeTopLevelSections,
+  getEffectiveSectionSnapshot,
+  getRootSectionIdsForScene,
+} from "./workspaceSceneProject";
+import { resolveSectionDimension } from "./workspaceSceneGeometry";
 
 export type WorkspaceSceneItemKind =
   | "workspace"
@@ -119,7 +127,11 @@ export function createWorkspaceControllerViewportState(
   viewportSize: WorkspaceSize,
 ): WorkspaceControllerViewportState {
   const source = resolveCanonicalWorkspaceViewportSource(projectState);
-  const viewport = normalizeWorkspaceViewport(source.viewport, viewportSize);
+  const viewport = resolveWorkspaceViewport(
+    source.viewport,
+    projectState,
+    viewportSize,
+  );
   return {
     sourceKey: buildWorkspaceViewportSourceKey(
       source.kind,
@@ -233,12 +245,29 @@ function resolveCanonicalWorkspaceViewportSource(
       viewport: activeViewMode.viewport,
     };
   }
+  if (activeViewModeId && activeViewMode) {
+    return {
+      kind: `view-mode:${activeViewModeId}:pending`,
+      viewport: activeViewMode.viewport,
+    };
+  }
   return {
     kind: `project:${
       projectState.projectConfig.viewportInitialized ? "initialized" : "pending"
     }`,
     viewport: projectState.projectConfig.viewport,
   };
+}
+
+function resolveWorkspaceViewport(
+  viewport: WorkspaceViewport | null | undefined,
+  projectState: WorkspaceSceneProjectState,
+  viewportSize: WorkspaceSize,
+): WorkspaceViewport {
+  if (viewport) {
+    return normalizeWorkspaceViewport(viewport, viewportSize);
+  }
+  return deriveFitWorkspaceViewport(projectState, viewportSize);
 }
 
 function normalizeWorkspaceViewport(
@@ -257,6 +286,217 @@ function normalizeWorkspaceViewport(
     y: viewport.y,
     zoom: Math.max(0.01, viewport.zoom),
   };
+}
+
+function deriveFitWorkspaceViewport(
+  projectState: WorkspaceSceneProjectState,
+  viewportSize: WorkspaceSize,
+): WorkspaceViewport {
+  const focusedBounds = deriveActiveTopLevelSectionBounds(projectState);
+  if (focusedBounds) {
+    return deriveFocusedWorkspaceViewport(focusedBounds, viewportSize);
+  }
+  const defaultFocusBounds = deriveDefaultFocusedTopLevelSectionBounds(
+    projectState,
+  );
+  if (defaultFocusBounds) {
+    return deriveFocusedWorkspaceViewport(defaultFocusBounds, viewportSize);
+  }
+  const bounds = deriveVisibleTopLevelSectionBounds(projectState);
+  if (!bounds) {
+    return {
+      x: viewportSize.width / 2,
+      y: viewportSize.height / 2,
+      zoom: 1,
+    };
+  }
+  const paddingRatio = 0.08;
+  const paddedWidth = Math.max(1, bounds.width * (1 + paddingRatio * 2));
+  const paddedHeight = Math.max(1, bounds.height * (1 + paddingRatio * 2));
+  const rawZoom = Math.min(
+    viewportSize.width / paddedWidth,
+    viewportSize.height / paddedHeight,
+  );
+  const zoom = clamp(rawZoom, 0.1, 1);
+  return {
+    x: (viewportSize.width - bounds.width * zoom) / 2 - bounds.x * zoom,
+    y: (viewportSize.height - bounds.height * zoom) / 2 - bounds.y * zoom,
+    zoom,
+  };
+}
+
+function deriveFocusedWorkspaceViewport(
+  bounds: WorkspaceRect,
+  viewportSize: WorkspaceSize,
+): WorkspaceViewport {
+  const zoom = 1;
+  return {
+    x: viewportSize.width / 2 - (bounds.x + bounds.width / 2) * zoom,
+    y: viewportSize.height * 0.16 - bounds.y * zoom,
+    zoom,
+  };
+}
+
+function deriveActiveTopLevelSectionBounds(
+  projectState: WorkspaceSceneProjectState,
+): WorkspaceRect | null {
+  const activeIds = projectState.projectConfig.activeIds ?? [];
+  if (activeIds.length === 0) {
+    return null;
+  }
+  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
+  for (const sectionId of activeIds) {
+    const bounds = deriveTopLevelSectionBounds(
+      projectState,
+      topLevelSections,
+      sectionId,
+    );
+    if (bounds) {
+      return bounds;
+    }
+  }
+  return null;
+}
+
+function deriveDefaultFocusedTopLevelSectionBounds(
+  projectState: WorkspaceSceneProjectState,
+): WorkspaceRect | null {
+  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
+  const sectionIds = getRootSectionIdsForScene(projectState, topLevelSections);
+  const boundsById = sectionIds
+    .map((sectionId) => ({
+      sectionId,
+      bounds: deriveTopLevelSectionBounds(
+        projectState,
+        topLevelSections,
+        sectionId,
+      ),
+    }))
+    .filter(
+      (entry): entry is { sectionId: string; bounds: WorkspaceRect } =>
+        entry.bounds !== null,
+    );
+  if (boundsById.length === 0) {
+    return null;
+  }
+  const allBounds = unionTopLevelBounds(boundsById.map((entry) => entry.bounds));
+  if (!allBounds) {
+    return null;
+  }
+  const topY = Math.min(...boundsById.map((entry) => entry.bounds.y));
+  const topRow = boundsById.filter(
+    (entry) => Math.abs(entry.bounds.y - topY) <= 1,
+  );
+  const targetCenterX = allBounds.x + allBounds.width / 2;
+  return topRow.sort((left, right) => {
+    const leftDistance = Math.abs(
+      left.bounds.x + left.bounds.width / 2 - targetCenterX,
+    );
+    const rightDistance = Math.abs(
+      right.bounds.x + right.bounds.width / 2 - targetCenterX,
+    );
+    return (
+      leftDistance - rightDistance ||
+      (topLevelSections[left.sectionId]?.zIndex ?? 0) -
+        (topLevelSections[right.sectionId]?.zIndex ?? 0) ||
+      left.bounds.x - right.bounds.x ||
+      left.sectionId.localeCompare(right.sectionId)
+    );
+  })[0]?.bounds ?? null;
+}
+
+function deriveVisibleTopLevelSectionBounds(
+  projectState: WorkspaceSceneProjectState,
+) {
+  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
+  const sectionIds = getRootSectionIdsForScene(projectState, topLevelSections);
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  let count = 0;
+
+  for (const sectionId of sectionIds) {
+    const bounds = deriveTopLevelSectionBounds(
+      projectState,
+      topLevelSections,
+      sectionId,
+    );
+    if (!bounds) {
+      continue;
+    }
+    minX = Math.min(minX, bounds.x);
+    minY = Math.min(minY, bounds.y);
+    maxX = Math.max(maxX, bounds.x + bounds.width);
+    maxY = Math.max(maxY, bounds.y + bounds.height);
+    count += 1;
+  }
+
+  if (count === 0) {
+    return null;
+  }
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+function unionTopLevelBounds(boundsList: Array<WorkspaceRect>) {
+  if (boundsList.length === 0) {
+    return null;
+  }
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const bounds of boundsList) {
+    minX = Math.min(minX, bounds.x);
+    minY = Math.min(minY, bounds.y);
+    maxX = Math.max(maxX, bounds.x + bounds.width);
+    maxY = Math.max(maxY, bounds.y + bounds.height);
+  }
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+}
+
+function deriveTopLevelSectionBounds(
+  projectState: WorkspaceSceneProjectState,
+  topLevelSections: ReturnType<typeof getActiveViewModeTopLevelSections>,
+  sectionId: string,
+): WorkspaceRect | null {
+  const layout = topLevelSections[sectionId];
+  const snapshot = getEffectiveSectionSnapshot(projectState, sectionId);
+  if (!layout || !snapshot) {
+    return null;
+  }
+  const width =
+    typeof layout.w === "number"
+      ? layout.w
+      : resolveSectionDimension(snapshot.effectiveImpl.size?.width, 250, 250);
+  const height =
+    typeof layout.h === "number"
+      ? layout.h
+      : resolveSectionDimension(
+          snapshot.effectiveImpl.size?.height,
+          150,
+          WORKSPACE_SCENE_GEOMETRY.sectionAutoHeight,
+        );
+  return {
+    x: layout.x,
+    y: layout.y,
+    width,
+    height,
+  };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function buildWorkspaceViewportSourceKey(

@@ -609,21 +609,32 @@ function insetRect(rect: WorkspaceRect, inset: number): WorkspaceRect {
 function resolveSectionSize(impl: BaseSectionImplUnion): WorkspaceSize {
   const size = impl.size as { width?: unknown; height?: unknown } | undefined;
   return {
-    width: resolveSectionDimension(size?.width, 250),
-    height: resolveSectionDimension(size?.height, 150),
+    width: resolveSectionDimension(size?.width, 250, 250),
+    height: resolveSectionDimension(
+      size?.height,
+      150,
+      WORKSPACE_SCENE_GEOMETRY.sectionAutoHeight,
+    ),
   };
 }
 
-function resolveSectionDimension(value: unknown, fallback: number) {
+export function resolveSectionDimension(
+  value: unknown,
+  fallback: number,
+  autoFallback: number,
+) {
   if (typeof value === "number") {
     return value;
+  }
+  if (value === "auto") {
+    return autoFallback;
   }
   if (!value || typeof value !== "object") {
     return fallback;
   }
   const record = value as { Auto?: unknown; Value?: unknown };
   if (record.Auto === true) {
-    return fallback;
+    return autoFallback;
   }
   return typeof record.Value === "number" ? record.Value : fallback;
 }

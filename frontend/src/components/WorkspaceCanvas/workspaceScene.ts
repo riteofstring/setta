@@ -79,6 +79,7 @@ type SectionDerivationContext = SectionDerivationArgs & {
   effectiveImpl: NonNullable<
     ReturnType<typeof getEffectiveSectionSnapshot>
   >["effectiveImpl"];
+  sectionName: string;
   sectionTarget: Extract<WorkspaceSceneTarget, { kind: "section" }>;
 };
 
@@ -241,6 +242,8 @@ function createSectionDerivationContext(
     ...args,
     sectionOrderIndex: args.sectionOrder.length,
     effectiveImpl: snapshot.effectiveImpl,
+    sectionName:
+      snapshot.core.name || snapshot.effectiveImpl.name || args.sectionId,
     sectionTarget: {
       kind: "section",
       sectionId: args.sectionId,
@@ -255,7 +258,6 @@ function buildInitialSectionRecord(
   const { localBounds, worldBounds } = deriveSectionBounds(context);
   const geometry = deriveSectionGeometry(worldBounds);
   const resizeHandles = deriveResizeHandles(worldBounds);
-  const sectionName = context.effectiveImpl.name || context.sectionId;
   const edgePortRegions = deriveEdgePortRegions({
     sectionId: context.sectionId,
     impl: context.effectiveImpl,
@@ -267,7 +269,7 @@ function buildInitialSectionRecord(
   return {
     id: context.sectionId,
     type: context.effectiveImpl.type,
-    name: sectionName,
+    name: context.sectionName,
     parentId: context.parent?.id ?? null,
     childIds: getSectionChildIds(
       context.projectState,
@@ -296,7 +298,7 @@ function buildInitialSectionRecord(
         rectKey(geometry.header),
       ),
       role: "section-title",
-      text: sectionName,
+      text: context.sectionName,
       maxWidth: Math.max(0, geometry.header.width - 36),
     }),
     nestedDropZones: [],

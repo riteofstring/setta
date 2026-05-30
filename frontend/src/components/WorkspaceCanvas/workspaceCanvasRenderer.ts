@@ -48,11 +48,12 @@ type WorkspaceCanvasPalette = {
   minimapViewport: string;
 };
 
-type GridLineSpec = {
+type GridDotSpec = {
   spacing: number;
   xOffset: number;
   yOffset: number;
-  strokeStyle: string;
+  fillStyle: string;
+  radius: number;
 };
 
 type ControlPreviewDrawer = (
@@ -120,46 +121,36 @@ function drawWorkspaceGrid(
   options: WorkspaceCanvasRenderOptions,
   palette: WorkspaceCanvasPalette,
 ) {
-  const minor = 32 * scene.viewport.zoom;
-  const major = minor * 4;
-  if (minor < 8) {
+  const spacing = 15 * scene.viewport.zoom;
+  if (spacing < 5) {
     return;
   }
-  drawScreenGridLines(context, options, {
-    spacing: minor,
+  drawScreenGridDots(context, options, {
+    spacing,
     xOffset: scene.viewport.x,
     yOffset: scene.viewport.y,
-    strokeStyle: palette.gridMinor,
+    fillStyle: palette.gridMinor,
+    radius: Math.max(0.35, scene.viewport.zoom),
   });
-  if (major >= 24) {
-    drawScreenGridLines(context, options, {
-      spacing: major,
-      xOffset: scene.viewport.x,
-      yOffset: scene.viewport.y,
-      strokeStyle: palette.gridMajor,
-    });
-  }
 }
 
-function drawScreenGridLines(
+function drawScreenGridDots(
   context: CanvasRenderingContext2D,
   options: WorkspaceCanvasRenderOptions,
-  spec: GridLineSpec,
+  spec: GridDotSpec,
 ) {
-  const { spacing, xOffset, yOffset, strokeStyle } = spec;
+  const { spacing, xOffset, yOffset, fillStyle, radius } = spec;
   const normalizedXOffset = ((xOffset % spacing) + spacing) % spacing;
   const normalizedYOffset = ((yOffset % spacing) + spacing) % spacing;
-  context.strokeStyle = strokeStyle;
+  context.fillStyle = fillStyle;
   context.beginPath();
-  for (let x = normalizedXOffset; x <= options.width; x += spacing) {
-    context.moveTo(Math.round(x) + 0.5, 0);
-    context.lineTo(Math.round(x) + 0.5, options.height);
-  }
   for (let y = normalizedYOffset; y <= options.height; y += spacing) {
-    context.moveTo(0, Math.round(y) + 0.5);
-    context.lineTo(options.width, Math.round(y) + 0.5);
+    for (let x = normalizedXOffset; x <= options.width; x += spacing) {
+      context.moveTo(x + radius, y);
+      context.arc(x, y, radius, 0, Math.PI * 2);
+    }
   }
-  context.stroke();
+  context.fill();
 }
 
 function drawWorkspaceSections(
@@ -203,15 +194,22 @@ function drawSection(
   section: WorkspaceSectionScene,
   palette: WorkspaceCanvasPalette,
 ) {
+  context.save();
+  applyRoundedClip(context, section.worldBounds, 8);
   drawRect(
     context,
     section.worldBounds,
     section.hovered ? palette.sectionFillHover : palette.sectionFill,
-    palette.sectionStroke,
+    null,
   );
   drawRect(context, section.geometry.header, palette.sectionHeader, null);
   drawRect(context, section.geometry.body, palette.sectionBody, null);
+  context.restore();
+  drawRoundedRect(context, section.worldBounds, 8, null, palette.sectionStroke);
   drawSectionTitle(context, section, palette);
+  if (section.renderModel.kind === "dict") {
+    drawDictToolbar(context, section, palette);
+  }
   if (section.renderModel.kind === "dict") {
     drawDictRows(context, section, section.renderModel.dict.rows, palette);
     drawScrollbar(context, section.renderModel.dict.scrollbar, palette);
@@ -221,7 +219,7 @@ function drawSection(
   if (section.selected || section.active) {
     context.strokeStyle = palette.controlActive;
     context.lineWidth = 2;
-    strokeRect(context, section.worldBounds);
+    strokeRoundedRect(context, section.worldBounds, 8);
     context.lineWidth = 1;
   }
 }
@@ -233,11 +231,56 @@ function drawSectionTitle(
 ) {
   context.fillStyle = palette.sectionHeaderText;
   context.font = WORKSPACE_TEXT_STYLES["section-title"];
+  drawSectionMenuIcon(context, section.geometry.header, palette);
   fillClippedText(context, section.titleTextPreview.displayText, {
+    x: section.geometry.header.x + 32,
+    y: section.geometry.header.y + 4,
+    width: Math.max(0, section.geometry.header.width - 44),
+    height: Math.min(28, section.geometry.header.height),
+  });
+}
+
+function drawSectionMenuIcon(
+  context: CanvasRenderingContext2D,
+  header: WorkspaceRect,
+  palette: WorkspaceCanvasPalette,
+) {
+  const x = header.x + 13;
+  const y = header.y + 17;
+  context.strokeStyle = palette.controlActive;
+  context.lineWidth = 1.25;
+  context.beginPath();
+  for (let offset = -4; offset <= 4; offset += 4) {
+    context.moveTo(x - 5, y + offset);
+    context.lineTo(x + 5, y + offset);
+  }
+  context.stroke();
+  context.lineWidth = 1;
+}
+
+function drawDictToolbar(
+  context: CanvasRenderingContext2D,
+  section: WorkspaceSectionScene,
+  palette: WorkspaceCanvasPalette,
+) {
+  const toolbarY = section.geometry.header.y + 34;
+  const toolbarHeight = Math.max(
+    0,
+    section.geometry.header.y +
+      section.geometry.header.height -
+      toolbarY -
+      2,
+  );
+  if (toolbarHeight <= 0) {
+    return;
+  }
+  context.font = WORKSPACE_TEXT_STYLES["dict-control"];
+  context.fillStyle = palette.mutedText;
+  fillClippedText(context, "ARGS  -  +  link  x", {
     x: section.geometry.header.x + 12,
-    y: section.geometry.header.y,
+    y: toolbarY,
     width: Math.max(0, section.geometry.header.width - 24),
-    height: section.geometry.header.height,
+    height: toolbarHeight,
   });
 }
 
@@ -607,6 +650,16 @@ function drawRoundedRect(
   }
 }
 
+function strokeRoundedRect(
+  context: CanvasRenderingContext2D,
+  rect: WorkspaceRect,
+  radius: number,
+) {
+  context.beginPath();
+  context.roundRect(rect.x, rect.y, rect.width, rect.height, radius);
+  context.stroke();
+}
+
 function strokeRect(context: CanvasRenderingContext2D, rect: WorkspaceRect) {
   context.strokeRect(
     Math.round(rect.x) + 0.5,
@@ -638,6 +691,22 @@ function applyClip(context: CanvasRenderingContext2D, rect: WorkspaceRect) {
   context.clip();
 }
 
+function applyRoundedClip(
+  context: CanvasRenderingContext2D,
+  rect: WorkspaceRect,
+  radius: number,
+) {
+  context.beginPath();
+  context.roundRect(
+    rect.x,
+    rect.y,
+    Math.max(0, rect.width),
+    Math.max(0, rect.height),
+    radius,
+  );
+  context.clip();
+}
+
 function insetRect(rect: WorkspaceRect, inset: number): WorkspaceRect {
   return {
     x: rect.x + inset,
@@ -652,29 +721,29 @@ function getWorkspaceCanvasPalette(
 ): WorkspaceCanvasPalette {
   if (isDarkMode) {
     return {
-      background: "#080b12",
-      gridMajor: "rgba(148, 163, 184, 0.16)",
-      gridMinor: "rgba(148, 163, 184, 0.07)",
-      sectionFill: "#111827",
-      sectionFillHover: "#142036",
-      sectionStroke: "rgba(148, 163, 184, 0.35)",
-      sectionHeader: "#172033",
+      background: "#111827",
+      gridMajor: "#2b364a",
+      gridMinor: "#2b364a",
+      sectionFill: "#101722",
+      sectionFillHover: "#141f2f",
+      sectionStroke: "rgba(75, 92, 118, 0.82)",
+      sectionHeader: "#0d131d",
       sectionHeaderText: "#e5e7eb",
-      sectionBody: "#0f172a",
-      rowFill: "rgba(30, 41, 59, 0.85)",
-      rowFillHover: "rgba(51, 65, 85, 0.88)",
-      rowFillSelected: "rgba(14, 116, 144, 0.26)",
-      rowFillActive: "rgba(8, 145, 178, 0.34)",
-      rowStroke: "rgba(148, 163, 184, 0.16)",
-      rowFocus: "#7dd3fc",
+      sectionBody: "#111827",
+      rowFill: "#111827",
+      rowFillHover: "#172033",
+      rowFillSelected: "rgba(37, 99, 235, 0.22)",
+      rowFillActive: "rgba(37, 99, 235, 0.3)",
+      rowStroke: "rgba(75, 92, 118, 0.42)",
+      rowFocus: "#60a5fa",
       labelText: "#cbd5e1",
       valueText: "#f8fafc",
-      mutedText: "#94a3b8",
-      rail: "rgba(56, 189, 248, 0.42)",
+      mutedText: "#64748b",
+      rail: "rgba(71, 85, 105, 0.76)",
       error: "#f87171",
       controlStroke: "rgba(203, 213, 225, 0.4)",
       controlFill: "rgba(15, 23, 42, 0.95)",
-      controlActive: "#38bdf8",
+      controlActive: "#2563eb",
       controlText: "#e5e7eb",
       controlMutedText: "#94a3b8",
       minimapFill: "rgba(15, 23, 42, 0.78)",

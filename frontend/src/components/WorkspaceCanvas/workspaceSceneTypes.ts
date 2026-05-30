@@ -380,7 +380,8 @@ export type PendingSectionRecord = Omit<
 // compact headers, small rounded Param rows, 200px-ish Param label columns, and
 // right-side section scrollbars. They are scene geometry inputs, not DOM reads.
 export const WORKSPACE_SCENE_GEOMETRY = {
-  sectionHeaderHeight: 36,
+  sectionHeaderHeight: 60,
+  sectionAutoHeight: 350,
   sectionBodyPadding: 8,
   sectionNestedGap: 12,
   sectionResizeHandleSize: 12,
