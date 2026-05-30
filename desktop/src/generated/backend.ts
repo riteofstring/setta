@@ -5,6 +5,7 @@ import {
   assertRecord,
   decodeArray,
   decodeBoolean,
+  decodeInteger,
   decodeString,
   requestBackend,
   requireField,
@@ -55,6 +56,153 @@ export interface RemoveRecentWorkspaceRequest {
   id: string;
 }
 
+export interface ListConversationsRequest {
+  workspaceId: string;
+}
+
+export interface HarnessThreadRef {
+  harness: string;
+  threadId: string;
+  sessionId: string;
+  lastTurnId: string;
+  status: string;
+  createdAt: string;
+  lastResumedAt: string;
+  unavailableMessage: string;
+}
+
+export interface Conversation {
+  schemaVersion: number;
+  id: string;
+  workspaceId: string;
+  title: string;
+  createdAt: string;
+  updatedAt: string;
+  archivedAt: string;
+  harnessRefs: HarnessThreadRef[];
+}
+
+export interface ConversationListItem {
+  conversation: Conversation;
+  messageCount: number;
+  activeRunId: string;
+}
+
+export interface ListConversationsResponse {
+  conversations: ConversationListItem[];
+}
+
+export interface CreateConversationRequest {
+  workspaceId: string;
+  title: string;
+}
+
+export interface GetMessagePageRequest {
+  workspaceId: string;
+  conversationId: string;
+  beforeOrdinal: number;
+  limit: number;
+}
+
+export interface MessagePart {
+  id: string;
+  type: string;
+  text: string;
+  format: string;
+}
+
+export interface ChatMessage {
+  schemaVersion: number;
+  id: string;
+  conversationId: string;
+  runId: string;
+  role: string;
+  ordinal: number;
+  createdAt: string;
+  updatedAt: string;
+  status: string;
+  parts: MessagePart[];
+}
+
+export interface MessagePage {
+  conversation: Conversation;
+  messages: ChatMessage[];
+  hasMoreOlder: boolean;
+  olderBeforeOrdinal: number;
+}
+
+export interface SendChatMessageRequest {
+  workspaceId: string;
+  conversationId: string;
+  prompt: string;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  runId: string;
+  kind: string;
+  title: string;
+  body: string;
+  command: string;
+  filePath: string;
+  permission: string;
+  question: string;
+  options: string[];
+  status: string;
+  createdAt: string;
+  resolvedAt: string;
+  response: string;
+  approved: boolean;
+}
+
+export interface Run {
+  schemaVersion: number;
+  id: string;
+  workspaceId: string;
+  conversationId: string;
+  triggerMessageId: string;
+  harness: string;
+  status: string;
+  startedAt: string;
+  completedAt: string;
+  promptSummary: string;
+  error: string;
+  hasPendingApproval: boolean;
+  pendingApproval: ApprovalRequest;
+}
+
+export interface SendMessageResult {
+  conversation: Conversation;
+  userMessage: ChatMessage;
+  assistantMessage: ChatMessage;
+  run: Run;
+  page: MessagePage;
+}
+
+export interface CancelRunRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
+export interface GetActiveRunRequest {
+  workspaceId: string;
+  conversationId: string;
+}
+
+export interface GetActiveRunResponse {
+  hasActiveRun: boolean;
+  run: Run;
+}
+
+export interface SubmitApprovalRequest {
+  workspaceId: string;
+  conversationId: string;
+  approvalId: string;
+  approved: boolean;
+  response: string;
+  cancelled: boolean;
+}
+
 export interface APIError {
   code: string;
   message: string;
@@ -92,6 +240,34 @@ export const backendEndpoints = {
   RemoveRecentWorkspace: {
     method: "POST",
     path: "/workspaces/remove-recent",
+  },
+  ListConversations: {
+    method: "POST",
+    path: "/chat/conversations/list",
+  },
+  CreateConversation: {
+    method: "POST",
+    path: "/chat/conversations/create",
+  },
+  GetMessagePage: {
+    method: "POST",
+    path: "/chat/messages/page",
+  },
+  SendChatMessage: {
+    method: "POST",
+    path: "/chat/messages/send",
+  },
+  CancelRun: {
+    method: "POST",
+    path: "/chat/runs/cancel",
+  },
+  GetActiveRun: {
+    method: "POST",
+    path: "/chat/runs/active",
+  },
+  SubmitApproval: {
+    method: "POST",
+    path: "/chat/approvals/submit",
   },
 } as const;
 
@@ -175,6 +351,225 @@ export function decodeRemoveRecentWorkspaceRequest(value: unknown): RemoveRecent
   };
 }
 
+export function decodeListConversationsRequest(value: unknown): ListConversationsRequest {
+  const record = assertRecord(value, "ListConversationsRequest");
+  assertKnownFields(record, "ListConversationsRequest", ["workspaceId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "ListConversationsRequest"), "ListConversationsRequest.workspaceId"),
+  };
+}
+
+export function decodeHarnessThreadRef(value: unknown): HarnessThreadRef {
+  const record = assertRecord(value, "HarnessThreadRef");
+  assertKnownFields(record, "HarnessThreadRef", ["harness", "threadId", "sessionId", "lastTurnId", "status", "createdAt", "lastResumedAt", "unavailableMessage"]);
+  return {
+    harness: decodeString(requireField(record, "harness", "HarnessThreadRef"), "HarnessThreadRef.harness"),
+    threadId: decodeString(requireField(record, "threadId", "HarnessThreadRef"), "HarnessThreadRef.threadId"),
+    sessionId: decodeString(requireField(record, "sessionId", "HarnessThreadRef"), "HarnessThreadRef.sessionId"),
+    lastTurnId: decodeString(requireField(record, "lastTurnId", "HarnessThreadRef"), "HarnessThreadRef.lastTurnId"),
+    status: decodeString(requireField(record, "status", "HarnessThreadRef"), "HarnessThreadRef.status"),
+    createdAt: decodeString(requireField(record, "createdAt", "HarnessThreadRef"), "HarnessThreadRef.createdAt"),
+    lastResumedAt: decodeString(requireField(record, "lastResumedAt", "HarnessThreadRef"), "HarnessThreadRef.lastResumedAt"),
+    unavailableMessage: decodeString(requireField(record, "unavailableMessage", "HarnessThreadRef"), "HarnessThreadRef.unavailableMessage"),
+  };
+}
+
+export function decodeConversation(value: unknown): Conversation {
+  const record = assertRecord(value, "Conversation");
+  assertKnownFields(record, "Conversation", ["schemaVersion", "id", "workspaceId", "title", "createdAt", "updatedAt", "archivedAt", "harnessRefs"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Conversation"), "Conversation.schemaVersion"),
+    id: decodeString(requireField(record, "id", "Conversation"), "Conversation.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "Conversation"), "Conversation.workspaceId"),
+    title: decodeString(requireField(record, "title", "Conversation"), "Conversation.title"),
+    createdAt: decodeString(requireField(record, "createdAt", "Conversation"), "Conversation.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "Conversation"), "Conversation.updatedAt"),
+    archivedAt: decodeString(requireField(record, "archivedAt", "Conversation"), "Conversation.archivedAt"),
+    harnessRefs: decodeArray(requireField(record, "harnessRefs", "Conversation"), "Conversation.harnessRefs", (item) => decodeHarnessThreadRef(item)),
+  };
+}
+
+export function decodeConversationListItem(value: unknown): ConversationListItem {
+  const record = assertRecord(value, "ConversationListItem");
+  assertKnownFields(record, "ConversationListItem", ["conversation", "messageCount", "activeRunId"]);
+  return {
+    conversation: decodeConversation(requireField(record, "conversation", "ConversationListItem")),
+    messageCount: decodeInteger(requireField(record, "messageCount", "ConversationListItem"), "ConversationListItem.messageCount"),
+    activeRunId: decodeString(requireField(record, "activeRunId", "ConversationListItem"), "ConversationListItem.activeRunId"),
+  };
+}
+
+export function decodeListConversationsResponse(value: unknown): ListConversationsResponse {
+  const record = assertRecord(value, "ListConversationsResponse");
+  assertKnownFields(record, "ListConversationsResponse", ["conversations"]);
+  return {
+    conversations: decodeArray(requireField(record, "conversations", "ListConversationsResponse"), "ListConversationsResponse.conversations", (item) => decodeConversationListItem(item)),
+  };
+}
+
+export function decodeCreateConversationRequest(value: unknown): CreateConversationRequest {
+  const record = assertRecord(value, "CreateConversationRequest");
+  assertKnownFields(record, "CreateConversationRequest", ["workspaceId", "title"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CreateConversationRequest"), "CreateConversationRequest.workspaceId"),
+    title: decodeString(requireField(record, "title", "CreateConversationRequest"), "CreateConversationRequest.title"),
+  };
+}
+
+export function decodeGetMessagePageRequest(value: unknown): GetMessagePageRequest {
+  const record = assertRecord(value, "GetMessagePageRequest");
+  assertKnownFields(record, "GetMessagePageRequest", ["workspaceId", "conversationId", "beforeOrdinal", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "GetMessagePageRequest"), "GetMessagePageRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "GetMessagePageRequest"), "GetMessagePageRequest.conversationId"),
+    beforeOrdinal: decodeInteger(requireField(record, "beforeOrdinal", "GetMessagePageRequest"), "GetMessagePageRequest.beforeOrdinal"),
+    limit: decodeInteger(requireField(record, "limit", "GetMessagePageRequest"), "GetMessagePageRequest.limit"),
+  };
+}
+
+export function decodeMessagePart(value: unknown): MessagePart {
+  const record = assertRecord(value, "MessagePart");
+  assertKnownFields(record, "MessagePart", ["id", "type", "text", "format"]);
+  return {
+    id: decodeString(requireField(record, "id", "MessagePart"), "MessagePart.id"),
+    type: decodeString(requireField(record, "type", "MessagePart"), "MessagePart.type"),
+    text: decodeString(requireField(record, "text", "MessagePart"), "MessagePart.text"),
+    format: decodeString(requireField(record, "format", "MessagePart"), "MessagePart.format"),
+  };
+}
+
+export function decodeChatMessage(value: unknown): ChatMessage {
+  const record = assertRecord(value, "ChatMessage");
+  assertKnownFields(record, "ChatMessage", ["schemaVersion", "id", "conversationId", "runId", "role", "ordinal", "createdAt", "updatedAt", "status", "parts"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatMessage"), "ChatMessage.schemaVersion"),
+    id: decodeString(requireField(record, "id", "ChatMessage"), "ChatMessage.id"),
+    conversationId: decodeString(requireField(record, "conversationId", "ChatMessage"), "ChatMessage.conversationId"),
+    runId: decodeString(requireField(record, "runId", "ChatMessage"), "ChatMessage.runId"),
+    role: decodeString(requireField(record, "role", "ChatMessage"), "ChatMessage.role"),
+    ordinal: decodeInteger(requireField(record, "ordinal", "ChatMessage"), "ChatMessage.ordinal"),
+    createdAt: decodeString(requireField(record, "createdAt", "ChatMessage"), "ChatMessage.createdAt"),
+    updatedAt: decodeString(requireField(record, "updatedAt", "ChatMessage"), "ChatMessage.updatedAt"),
+    status: decodeString(requireField(record, "status", "ChatMessage"), "ChatMessage.status"),
+    parts: decodeArray(requireField(record, "parts", "ChatMessage"), "ChatMessage.parts", (item) => decodeMessagePart(item)),
+  };
+}
+
+export function decodeMessagePage(value: unknown): MessagePage {
+  const record = assertRecord(value, "MessagePage");
+  assertKnownFields(record, "MessagePage", ["conversation", "messages", "hasMoreOlder", "olderBeforeOrdinal"]);
+  return {
+    conversation: decodeConversation(requireField(record, "conversation", "MessagePage")),
+    messages: decodeArray(requireField(record, "messages", "MessagePage"), "MessagePage.messages", (item) => decodeChatMessage(item)),
+    hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "MessagePage"), "MessagePage.hasMoreOlder"),
+    olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "MessagePage"), "MessagePage.olderBeforeOrdinal"),
+  };
+}
+
+export function decodeSendChatMessageRequest(value: unknown): SendChatMessageRequest {
+  const record = assertRecord(value, "SendChatMessageRequest");
+  assertKnownFields(record, "SendChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SendChatMessageRequest"), "SendChatMessageRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SendChatMessageRequest"), "SendChatMessageRequest.conversationId"),
+    prompt: decodeString(requireField(record, "prompt", "SendChatMessageRequest"), "SendChatMessageRequest.prompt"),
+  };
+}
+
+export function decodeApprovalRequest(value: unknown): ApprovalRequest {
+  const record = assertRecord(value, "ApprovalRequest");
+  assertKnownFields(record, "ApprovalRequest", ["id", "runId", "kind", "title", "body", "command", "filePath", "permission", "question", "options", "status", "createdAt", "resolvedAt", "response", "approved"]);
+  return {
+    id: decodeString(requireField(record, "id", "ApprovalRequest"), "ApprovalRequest.id"),
+    runId: decodeString(requireField(record, "runId", "ApprovalRequest"), "ApprovalRequest.runId"),
+    kind: decodeString(requireField(record, "kind", "ApprovalRequest"), "ApprovalRequest.kind"),
+    title: decodeString(requireField(record, "title", "ApprovalRequest"), "ApprovalRequest.title"),
+    body: decodeString(requireField(record, "body", "ApprovalRequest"), "ApprovalRequest.body"),
+    command: decodeString(requireField(record, "command", "ApprovalRequest"), "ApprovalRequest.command"),
+    filePath: decodeString(requireField(record, "filePath", "ApprovalRequest"), "ApprovalRequest.filePath"),
+    permission: decodeString(requireField(record, "permission", "ApprovalRequest"), "ApprovalRequest.permission"),
+    question: decodeString(requireField(record, "question", "ApprovalRequest"), "ApprovalRequest.question"),
+    options: decodeArray(requireField(record, "options", "ApprovalRequest"), "ApprovalRequest.options", (item) => decodeString(item, "ApprovalRequest.options item")),
+    status: decodeString(requireField(record, "status", "ApprovalRequest"), "ApprovalRequest.status"),
+    createdAt: decodeString(requireField(record, "createdAt", "ApprovalRequest"), "ApprovalRequest.createdAt"),
+    resolvedAt: decodeString(requireField(record, "resolvedAt", "ApprovalRequest"), "ApprovalRequest.resolvedAt"),
+    response: decodeString(requireField(record, "response", "ApprovalRequest"), "ApprovalRequest.response"),
+    approved: decodeBoolean(requireField(record, "approved", "ApprovalRequest"), "ApprovalRequest.approved"),
+  };
+}
+
+export function decodeRun(value: unknown): Run {
+  const record = assertRecord(value, "Run");
+  assertKnownFields(record, "Run", ["schemaVersion", "id", "workspaceId", "conversationId", "triggerMessageId", "harness", "status", "startedAt", "completedAt", "promptSummary", "error", "hasPendingApproval", "pendingApproval"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Run"), "Run.schemaVersion"),
+    id: decodeString(requireField(record, "id", "Run"), "Run.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "Run"), "Run.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "Run"), "Run.conversationId"),
+    triggerMessageId: decodeString(requireField(record, "triggerMessageId", "Run"), "Run.triggerMessageId"),
+    harness: decodeString(requireField(record, "harness", "Run"), "Run.harness"),
+    status: decodeString(requireField(record, "status", "Run"), "Run.status"),
+    startedAt: decodeString(requireField(record, "startedAt", "Run"), "Run.startedAt"),
+    completedAt: decodeString(requireField(record, "completedAt", "Run"), "Run.completedAt"),
+    promptSummary: decodeString(requireField(record, "promptSummary", "Run"), "Run.promptSummary"),
+    error: decodeString(requireField(record, "error", "Run"), "Run.error"),
+    hasPendingApproval: decodeBoolean(requireField(record, "hasPendingApproval", "Run"), "Run.hasPendingApproval"),
+    pendingApproval: decodeApprovalRequest(requireField(record, "pendingApproval", "Run")),
+  };
+}
+
+export function decodeSendMessageResult(value: unknown): SendMessageResult {
+  const record = assertRecord(value, "SendMessageResult");
+  assertKnownFields(record, "SendMessageResult", ["conversation", "userMessage", "assistantMessage", "run", "page"]);
+  return {
+    conversation: decodeConversation(requireField(record, "conversation", "SendMessageResult")),
+    userMessage: decodeChatMessage(requireField(record, "userMessage", "SendMessageResult")),
+    assistantMessage: decodeChatMessage(requireField(record, "assistantMessage", "SendMessageResult")),
+    run: decodeRun(requireField(record, "run", "SendMessageResult")),
+    page: decodeMessagePage(requireField(record, "page", "SendMessageResult")),
+  };
+}
+
+export function decodeCancelRunRequest(value: unknown): CancelRunRequest {
+  const record = assertRecord(value, "CancelRunRequest");
+  assertKnownFields(record, "CancelRunRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "CancelRunRequest"), "CancelRunRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "CancelRunRequest"), "CancelRunRequest.conversationId"),
+  };
+}
+
+export function decodeGetActiveRunRequest(value: unknown): GetActiveRunRequest {
+  const record = assertRecord(value, "GetActiveRunRequest");
+  assertKnownFields(record, "GetActiveRunRequest", ["workspaceId", "conversationId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "GetActiveRunRequest"), "GetActiveRunRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "GetActiveRunRequest"), "GetActiveRunRequest.conversationId"),
+  };
+}
+
+export function decodeGetActiveRunResponse(value: unknown): GetActiveRunResponse {
+  const record = assertRecord(value, "GetActiveRunResponse");
+  assertKnownFields(record, "GetActiveRunResponse", ["hasActiveRun", "run"]);
+  return {
+    hasActiveRun: decodeBoolean(requireField(record, "hasActiveRun", "GetActiveRunResponse"), "GetActiveRunResponse.hasActiveRun"),
+    run: decodeRun(requireField(record, "run", "GetActiveRunResponse")),
+  };
+}
+
+export function decodeSubmitApprovalRequest(value: unknown): SubmitApprovalRequest {
+  const record = assertRecord(value, "SubmitApprovalRequest");
+  assertKnownFields(record, "SubmitApprovalRequest", ["workspaceId", "conversationId", "approvalId", "approved", "response", "cancelled"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SubmitApprovalRequest"), "SubmitApprovalRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SubmitApprovalRequest"), "SubmitApprovalRequest.conversationId"),
+    approvalId: decodeString(requireField(record, "approvalId", "SubmitApprovalRequest"), "SubmitApprovalRequest.approvalId"),
+    approved: decodeBoolean(requireField(record, "approved", "SubmitApprovalRequest"), "SubmitApprovalRequest.approved"),
+    response: decodeString(requireField(record, "response", "SubmitApprovalRequest"), "SubmitApprovalRequest.response"),
+    cancelled: decodeBoolean(requireField(record, "cancelled", "SubmitApprovalRequest"), "SubmitApprovalRequest.cancelled"),
+  };
+}
+
 export function decodeAPIError(value: unknown): APIError {
   const record = assertRecord(value, "APIError");
   assertKnownFields(record, "APIError", ["code", "message"]);
@@ -200,6 +595,13 @@ export interface BackendClient {
   closeWorkspace: (request: CloseWorkspaceRequest) => Promise<WorkspaceSession>;
   reorderWorkspace: (request: ReorderWorkspaceRequest) => Promise<WorkspaceSession>;
   removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
+  listConversations: (request: ListConversationsRequest) => Promise<ListConversationsResponse>;
+  createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
+  getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
+  sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
+  cancelRun: (request: CancelRunRequest) => Promise<Run>;
+  getActiveRun: (request: GetActiveRunRequest) => Promise<GetActiveRunResponse>;
+  submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
 }
 
 export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = fetch): BackendClient {
@@ -257,6 +659,62 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeWorkspaceSession,
       endpoint: backendEndpoints.RemoveRecentWorkspace,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    listConversations: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeListConversationsResponse,
+      endpoint: backendEndpoints.ListConversations,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    createConversation: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeConversation,
+      endpoint: backendEndpoints.CreateConversation,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    getMessagePage: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeMessagePage,
+      endpoint: backendEndpoints.GetMessagePage,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    sendChatMessage: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSendMessageResult,
+      endpoint: backendEndpoints.SendChatMessage,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    cancelRun: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRun,
+      endpoint: backendEndpoints.CancelRun,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    getActiveRun: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeGetActiveRunResponse,
+      endpoint: backendEndpoints.GetActiveRun,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    submitApproval: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRun,
+      endpoint: backendEndpoints.SubmitApproval,
       fetchImpl,
       requestPayload: request,
     }),

@@ -1,28 +1,28 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
-import type { BackendHealth, OpenWorkspaceResponse, WorkspaceSession } from "@generated/backend";
 import type {
-  BrowserPaneBounds,
-  BrowserPaneEvents,
-  BrowserPanePoint,
-  BrowserPaneScreenshot,
-  BrowserPaneSnapshot,
-  BrowserPaneStatus,
-  RuntimeVersions,
-} from "./types";
+  BackendHealth,
+  Conversation,
+  GetActiveRunResponse,
+  ListConversationsResponse,
+  MessagePage,
+  OpenWorkspaceResponse,
+  Run,
+  SendMessageResult,
+  WorkspaceSession,
+} from "@generated/backend";
+import type { RuntimeVersions, SubmitApprovalInput } from "./types";
 
 export const ipcChannels = {
   appVersions: "app:versions",
   backendHealth: "backend:health",
-  browserPaneCaptureScreenshot: "browser-pane:capture-screenshot",
-  browserPaneClick: "browser-pane:click",
-  browserPaneEvents: "browser-pane:events",
-  browserPaneFocus: "browser-pane:focus",
-  browserPaneInspect: "browser-pane:inspect",
-  browserPaneLoadPreview: "browser-pane:load-preview",
-  browserPaneSetBounds: "browser-pane:set-bounds",
-  browserPaneStatus: "browser-pane:status",
-  browserPaneTypeText: "browser-pane:type-text",
+  chatActiveRun: "chat:active-run",
+  chatCancelRun: "chat:cancel-run",
+  chatCreateConversation: "chat:create-conversation",
+  chatListConversations: "chat:list-conversations",
+  chatMessagePage: "chat:message-page",
+  chatSendMessage: "chat:send-message",
+  chatSubmitApproval: "chat:submit-approval",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
   workspaceRemoveRecent: "workspace:remove-recent",
@@ -44,41 +44,33 @@ interface IpcContract {
     args: [];
     result: BackendHealth;
   };
-  browserPaneCaptureScreenshot: {
-    args: [];
-    result: BrowserPaneScreenshot;
+  chatActiveRun: {
+    args: [workspaceId: string, conversationId: string];
+    result: GetActiveRunResponse;
   };
-  browserPaneClick: {
-    args: [point: BrowserPanePoint];
-    result: void;
+  chatCancelRun: {
+    args: [workspaceId: string, conversationId: string];
+    result: Run;
   };
-  browserPaneEvents: {
-    args: [];
-    result: BrowserPaneEvents;
+  chatCreateConversation: {
+    args: [workspaceId: string, title: string];
+    result: Conversation;
   };
-  browserPaneFocus: {
-    args: [];
-    result: void;
+  chatListConversations: {
+    args: [workspaceId: string];
+    result: ListConversationsResponse;
   };
-  browserPaneInspect: {
-    args: [selector: string];
-    result: BrowserPaneSnapshot | null;
+  chatMessagePage: {
+    args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
+    result: MessagePage;
   };
-  browserPaneLoadPreview: {
-    args: [];
-    result: BrowserPaneStatus;
+  chatSendMessage: {
+    args: [workspaceId: string, conversationId: string, prompt: string];
+    result: SendMessageResult;
   };
-  browserPaneSetBounds: {
-    args: [bounds: BrowserPaneBounds];
-    result: BrowserPaneStatus;
-  };
-  browserPaneStatus: {
-    args: [];
-    result: BrowserPaneStatus;
-  };
-  browserPaneTypeText: {
-    args: [text: string];
-    result: void;
+  chatSubmitApproval: {
+    args: [input: SubmitApprovalInput];
+    result: Run;
   };
   workspaceClose: {
     args: [id: string];

@@ -1,19 +1,14 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import type { OpenDialogOptions } from "electron";
+import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 import { createBackendClient, type BackendClient } from "@generated/backend";
 import { handleIpc, ipcEvents } from "@shared/ipc";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
-import {
-  createBrowserPane,
-  registerBrowserPaneIpc,
-  type BrowserPaneController,
-} from "./browser-pane";
 
 let backend: BackendHandle | null = null;
 let backendStartupError: string | null = null;
-let browserPane: BrowserPaneController | null = null;
 let ipcRegistered = false;
 let mainWindow: BrowserWindow | null = null;
 let quitting = false;
@@ -28,7 +23,7 @@ function repoRoot() {
 
 async function prepareBackend() {
   try {
-    backend = await startBackend(repoRoot(), app.getPath("userData"), process.env);
+    backend = await startBackend(repoRoot(), settaAppDataDir(), process.env);
     backendStartupError = null;
     backend.events.on("exit", (exit) => {
       if (!exit.expected) {
@@ -39,6 +34,10 @@ async function prepareBackend() {
     backend = null;
     backendStartupError = error instanceof Error ? error.message : "backend failed to start";
   }
+}
+
+function settaAppDataDir() {
+  return process.env.SETTA_APP_DATA_DIR ?? join(homedir(), ".setta");
 }
 
 async function createWindow() {
@@ -57,15 +56,12 @@ async function createWindow() {
     width: 1280,
   });
 
-  browserPane = createBrowserPane(mainWindow, join(desktopRoot(), "static/browser-preview.html"));
   registerIpc();
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
   });
   mainWindow.on("closed", () => {
-    browserPane?.destroy();
-    browserPane = null;
     mainWindow = null;
   });
 
@@ -122,7 +118,36 @@ function registerIpc() {
   handleIpc(ipcMain, "workspaceRemoveRecent", async (_event, id) => {
     return requireBackendClient().removeRecentWorkspace({ id });
   });
-  registerBrowserPaneIpc(() => browserPane);
+  handleIpc(ipcMain, "chatListConversations", async (_event, workspaceId) => {
+    return requireBackendClient().listConversations({ workspaceId });
+  });
+  handleIpc(ipcMain, "chatCreateConversation", async (_event, workspaceId, title) => {
+    return requireBackendClient().createConversation({ title, workspaceId });
+  });
+  handleIpc(
+    ipcMain,
+    "chatMessagePage",
+    async (_event, workspaceId, conversationId, beforeOrdinal, limit) => {
+      return requireBackendClient().getMessagePage({
+        beforeOrdinal,
+        conversationId,
+        limit,
+        workspaceId,
+      });
+    },
+  );
+  handleIpc(ipcMain, "chatSendMessage", async (_event, workspaceId, conversationId, prompt) => {
+    return requireBackendClient().sendChatMessage({ conversationId, prompt, workspaceId });
+  });
+  handleIpc(ipcMain, "chatCancelRun", async (_event, workspaceId, conversationId) => {
+    return requireBackendClient().cancelRun({ conversationId, workspaceId });
+  });
+  handleIpc(ipcMain, "chatActiveRun", async (_event, workspaceId, conversationId) => {
+    return requireBackendClient().getActiveRun({ conversationId, workspaceId });
+  });
+  handleIpc(ipcMain, "chatSubmitApproval", async (_event, input) => {
+    return requireBackendClient().submitApproval(input);
+  });
 }
 
 function requireBackendClient(): BackendClient {

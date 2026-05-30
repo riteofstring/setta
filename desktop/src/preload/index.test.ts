@@ -53,7 +53,7 @@ describe("preload workspace API", () => {
     expect(invoke).toHaveBeenNthCalledWith(6, ipcChannels.workspaceRemoveRecent, "workspace_web");
   });
 
-  test("exposes browser pane methods through shared IPC channels", async () => {
+  test("exposes typed chat methods through IPC", async () => {
     const exposed: Record<string, unknown> = {};
     const invoke = vi.fn();
     vi.doMock("electron", () => ({
@@ -70,21 +70,72 @@ describe("preload workspace API", () => {
     await import("./index");
 
     const api = exposed.setta as SettaAPI;
-    await api.browserPane.status();
-    await api.browserPane.setBounds({ height: 4, width: 3, x: 1, y: 2 });
-    await api.browserPane.inspect("#preview-title");
-    await api.browserPane.click({ x: 5, y: 6 });
-    await api.browserPane.typeText("hello");
+    expect(Object.keys(api.chat).sort()).toEqual([
+      "activeRun",
+      "cancelRun",
+      "createConversation",
+      "listConversations",
+      "messagePage",
+      "sendMessage",
+      "submitApproval",
+    ]);
 
-    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.browserPaneStatus);
-    expect(invoke).toHaveBeenNthCalledWith(2, ipcChannels.browserPaneSetBounds, {
-      height: 4,
-      width: 3,
-      x: 1,
-      y: 2,
+    await api.chat.listConversations("workspace_api");
+    await api.chat.createConversation("workspace_api", "Plan");
+    await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
+    await api.chat.sendMessage("workspace_api", "conversation_api", "hello");
+    await api.chat.cancelRun("workspace_api", "conversation_api");
+    await api.chat.activeRun("workspace_api", "conversation_api");
+    await api.chat.submitApproval({
+      approvalId: "approval_api",
+      approved: true,
+      cancelled: false,
+      conversationId: "conversation_api",
+      response: "",
+      workspaceId: "workspace_api",
     });
-    expect(invoke).toHaveBeenNthCalledWith(3, ipcChannels.browserPaneInspect, "#preview-title");
-    expect(invoke).toHaveBeenNthCalledWith(4, ipcChannels.browserPaneClick, { x: 5, y: 6 });
-    expect(invoke).toHaveBeenNthCalledWith(5, ipcChannels.browserPaneTypeText, "hello");
+
+    expect(invoke).toHaveBeenNthCalledWith(1, ipcChannels.chatListConversations, "workspace_api");
+    expect(invoke).toHaveBeenNthCalledWith(
+      2,
+      ipcChannels.chatCreateConversation,
+      "workspace_api",
+      "Plan",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      3,
+      ipcChannels.chatMessagePage,
+      "workspace_api",
+      "conversation_api",
+      10,
+      40,
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      4,
+      ipcChannels.chatSendMessage,
+      "workspace_api",
+      "conversation_api",
+      "hello",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      5,
+      ipcChannels.chatCancelRun,
+      "workspace_api",
+      "conversation_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      6,
+      ipcChannels.chatActiveRun,
+      "workspace_api",
+      "conversation_api",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(7, ipcChannels.chatSubmitApproval, {
+      approvalId: "approval_api",
+      approved: true,
+      cancelled: false,
+      conversationId: "conversation_api",
+      response: "",
+      workspaceId: "workspace_api",
+    });
   });
 });

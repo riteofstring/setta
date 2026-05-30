@@ -89,6 +89,21 @@ func (session *WorkspaceSession) Select(id string) error {
 	return nil
 }
 
+func (session WorkspaceSession) Workspace(id string) (workspace.WorkspaceSummary, error) {
+	if id == "" {
+		return workspace.WorkspaceSummary{}, errors.New("workspace id is required")
+	}
+	if index := activeIndex(session.ActiveWorkspaces, id); index >= 0 {
+		return session.ActiveWorkspaces[index], nil
+	}
+	for _, summary := range session.RecentWorkspaces {
+		if summary.ID == id {
+			return summary, nil
+		}
+	}
+	return workspace.WorkspaceSummary{}, fmt.Errorf("workspace not found: %s", id)
+}
+
 func (session *WorkspaceSession) Close(id string) error {
 	if id == "" {
 		return errors.New("workspace id is required")

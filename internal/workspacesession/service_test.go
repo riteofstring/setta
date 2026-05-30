@@ -1,6 +1,8 @@
 package workspacesession
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -17,47 +19,71 @@ func TestServicePersistsWorkspaceSessionAcrossRestart(t *testing.T) {
 		mustTime(t, "2026-05-29T20:00:00Z"),
 		mustTime(t, "2026-05-29T20:05:00Z"),
 	})
-	if _, _, err := service.OpenLocalFolder(apiRoot); err != nil {
+	apiSummary, _, err := service.OpenLocalFolder(apiRoot)
+	if err != nil {
 		t.Fatalf("open api: %v", err)
 	}
-	if _, _, err := service.OpenLocalFolder(webRoot); err != nil {
+	webSummary, _, err := service.OpenLocalFolder(webRoot)
+	if err != nil {
 		t.Fatalf("open web: %v", err)
 	}
-	if _, err := service.Reorder([]string{"workspace_web", "workspace_api"}); err != nil {
+	if _, err := service.Reorder([]string{webSummary.ID, apiSummary.ID}); err != nil {
 		t.Fatalf("reorder: %v", err)
 	}
-	if _, err := service.Select("workspace_api"); err != nil {
+	if _, err := service.Select(apiSummary.ID); err != nil {
 		t.Fatalf("select api: %v", err)
 	}
 
-	restarted, err := NewService(appStore, workspace.NewManager())
+	restartedManager, err := workspace.NewManager(filepath.Dir(appStore.Path()))
+	if err != nil {
+		t.Fatalf("new restarted manager: %v", err)
+	}
+	restarted, err := NewService(appStore, restartedManager)
 	if err != nil {
 		t.Fatalf("restart service: %v", err)
 	}
 	session := restarted.Session()
 
-	if session.SelectedWorkspaceID != "workspace_api" {
-		t.Fatalf("selected after restart = %q, want workspace_api", session.SelectedWorkspaceID)
+	if session.SelectedWorkspaceID != apiSummary.ID {
+		t.Fatalf("selected after restart = %q, want %s", session.SelectedWorkspaceID, apiSummary.ID)
 	}
-	assertIDs(t, "active after restart", session.ActiveWorkspaces, []string{"workspace_web", "workspace_api"})
-	assertIDs(t, "recent after restart", session.RecentWorkspaces, []string{"workspace_web", "workspace_api"})
+	assertIDs(t, "active after restart", session.ActiveWorkspaces, []string{webSummary.ID, apiSummary.ID})
+	assertIDs(t, "recent after restart", session.RecentWorkspaces, []string{webSummary.ID, apiSummary.ID})
 }
 
 func TestServiceCloseKeepsWorkspaceInRecents(t *testing.T) {
 	appStore := newTestStore(t)
 	service := newTestService(t, appStore, []string{"workspace_api"}, []time.Time{mustTime(t, "2026-05-29T20:00:00Z")})
-	if _, _, err := service.OpenLocalFolder(t.TempDir()); err != nil {
+	summary, _, err := service.OpenLocalFolder(t.TempDir())
+	if err != nil {
 		t.Fatalf("open api: %v", err)
 	}
 
-	session, err := service.Close("workspace_api")
+	session, err := service.Close(summary.ID)
 	if err != nil {
 		t.Fatalf("close api: %v", err)
 	}
 	if len(session.ActiveWorkspaces) != 0 {
 		t.Fatalf("active = %+v, want none", session.ActiveWorkspaces)
 	}
-	assertIDs(t, "recent", session.RecentWorkspaces, []string{"workspace_api"})
+	assertIDs(t, "recent", session.RecentWorkspaces, []string{summary.ID})
+}
+
+func TestServiceResolveWorkspaceRejectsMissingRoot(t *testing.T) {
+	appStore := newTestStore(t)
+	service := newTestService(t, appStore, []string{"workspace_api"}, []time.Time{mustTime(t, "2026-05-29T20:00:00Z")})
+	rootPath := t.TempDir()
+	summary, _, err := service.OpenLocalFolder(rootPath)
+	if err != nil {
+		t.Fatalf("open api: %v", err)
+	}
+	if err := os.RemoveAll(rootPath); err != nil {
+		t.Fatalf("remove root: %v", err)
+	}
+
+	if _, err := service.ResolveWorkspace(summary.ID); err == nil {
+		t.Fatal("resolve workspace succeeded, want missing root error")
+	}
 }
 
 func newTestStore(t *testing.T) *appstate.Store {
@@ -70,23 +96,21 @@ func newTestStore(t *testing.T) *appstate.Store {
 	return store
 }
 
-func newTestService(t *testing.T, store *appstate.Store, ids []string, times []time.Time) *Service {
+func newTestService(t *testing.T, store *appstate.Store, _ []string, times []time.Time) *Service {
 	t.Helper()
 
-	idIndex := 0
 	timeIndex := 0
-	manager := workspace.NewManager(
-		workspace.WithIDGenerator(func() (string, error) {
-			id := ids[idIndex]
-			idIndex++
-			return id, nil
-		}),
+	manager, err := workspace.NewManager(
+		filepath.Dir(store.Path()),
 		workspace.WithClock(func() time.Time {
 			value := times[timeIndex]
 			timeIndex++
 			return value
 		}),
 	)
+	if err != nil {
+		t.Fatalf("new workspace manager: %v", err)
+	}
 	service, err := NewService(store, manager)
 	if err != nil {
 		t.Fatalf("new service: %v", err)

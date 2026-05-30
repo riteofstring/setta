@@ -37,6 +37,22 @@ func (service *Service) Session() WorkspaceSession {
 	return service.session.Clone()
 }
 
+func (service *Service) ResolveWorkspace(id string) (workspace.WorkspaceSummary, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	summary, err := service.session.Workspace(id)
+	if err != nil {
+		return workspace.WorkspaceSummary{}, err
+	}
+	rootPath, err := workspace.ValidateLocalRootPath(summary.RootPath)
+	if err != nil {
+		return workspace.WorkspaceSummary{}, err
+	}
+	summary.RootPath = rootPath
+	return summary, nil
+}
+
 func (service *Service) OpenLocalFolder(rootPath string) (workspace.WorkspaceSummary, WorkspaceSession, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()

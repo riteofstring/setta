@@ -9,9 +9,15 @@ describe("typed IPC adapters", () => {
     const renderer = { invoke };
     const typedInvoke = createRendererIpcInvoke(renderer);
 
-    await typedInvoke("browserPaneInspect", "#preview-title");
+    await typedInvoke("chatMessagePage", "workspace_api", "conversation_api", 0, 40);
 
-    expect(invoke).toHaveBeenCalledWith(ipcChannels.browserPaneInspect, "#preview-title");
+    expect(invoke).toHaveBeenCalledWith(
+      ipcChannels.chatMessagePage,
+      "workspace_api",
+      "conversation_api",
+      0,
+      40,
+    );
   });
 
   test("main handler registration preserves argument order", async () => {

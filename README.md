@@ -33,12 +33,6 @@ pnpm -C desktop build
 ./scripts/check_supply_chain.sh
 ```
 
-Run the browser pane automation smoke:
-
-```sh
-pnpm -C desktop smoke:browser
-```
-
 Regenerate Go-owned TypeScript contracts after changing HTTP endpoint contracts
 or their owning Go types:
 

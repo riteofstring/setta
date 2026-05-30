@@ -11,7 +11,6 @@
     "format:write": "prettier --write .",
     "deadcode": "knip --no-config-hints",
     "lint": "eslint .",
-    "smoke:browser": "pnpm build && playwright test tests/browser-pane.spec.ts",
     "test": "vitest run src",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
@@ -26,7 +25,6 @@
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
-    "@playwright/test": "1.60.0",
     "@swc/core": "1.15.33",
     "@tailwindcss/vite": "4.3.0",
     "@types/node": "25.9.1",

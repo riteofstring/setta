@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"setta/internal/appstate"
+	"setta/internal/chat"
 	"setta/internal/jsonio"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
@@ -50,6 +51,56 @@ type RemoveRecentWorkspaceRequest struct {
 	ID string `json:"id"`
 }
 
+type ListConversationsRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+}
+
+type ListConversationsResponse struct {
+	Conversations []chat.ConversationListItem `json:"conversations"`
+}
+
+type CreateConversationRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	Title       string `json:"title"`
+}
+
+type GetMessagePageRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	BeforeOrdinal  int    `json:"beforeOrdinal"`
+	Limit          int    `json:"limit"`
+}
+
+type SendChatMessageRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	Prompt         string `json:"prompt"`
+}
+
+type CancelRunRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
+type GetActiveRunRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+}
+
+type GetActiveRunResponse struct {
+	HasActiveRun bool     `json:"hasActiveRun"`
+	Run          chat.Run `json:"run"`
+}
+
+type SubmitApprovalRequest struct {
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
+	ApprovalID     string `json:"approvalId"`
+	Approved       bool   `json:"approved"`
+	Response       string `json:"response"`
+	Cancelled      bool   `json:"cancelled"`
+}
+
 type APIError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
@@ -68,19 +119,32 @@ type WorkspaceService interface {
 	Session() workspacesession.WorkspaceSession
 }
 
+type ChatService interface {
+	ActiveRun(workspaceID string, conversationID string) (chat.Run, bool, error)
+	CancelActiveRun(workspaceID string, conversationID string) (chat.Run, error)
+	CreateConversation(workspaceID string, title string) (chat.Conversation, error)
+	ListConversations(workspaceID string) ([]chat.ConversationListItem, error)
+	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
+	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
+	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, cancelled bool) (chat.Run, error)
+}
+
 type HandlerConfig struct {
 	Metadata         BackendMetadata
+	ChatService      ChatService
 	WorkspaceService WorkspaceService
 }
 
 type handler struct {
 	metadata         BackendMetadata
+	chatService      ChatService
 	workspaceService WorkspaceService
 }
 
 func NewHandler(config HandlerConfig) http.Handler {
 	apiHandler := handler{
 		metadata:         config.Metadata,
+		chatService:      config.ChatService,
 		workspaceService: config.WorkspaceService,
 	}
 	mux := http.NewServeMux()
@@ -189,9 +253,136 @@ func (handler handler) removeRecentWorkspace(response http.ResponseWriter, reque
 	writeJSON(response, http.StatusOK, session)
 }
 
+func (handler handler) listConversations(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload ListConversationsRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	conversations, err := service.ListConversations(payload.WorkspaceID)
+	if err != nil {
+		writeChatError(response, "list_conversations_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, ListConversationsResponse{Conversations: conversations})
+}
+
+func (handler handler) createConversation(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload CreateConversationRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	conversation, err := service.CreateConversation(payload.WorkspaceID, payload.Title)
+	if err != nil {
+		writeChatError(response, "create_conversation_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, conversation)
+}
+
+func (handler handler) getMessagePage(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload GetMessagePageRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	page, err := service.LoadMessagePage(payload.WorkspaceID, payload.ConversationID, payload.BeforeOrdinal, payload.Limit)
+	if err != nil {
+		writeChatError(response, "get_message_page_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, page)
+}
+
+func (handler handler) sendChatMessage(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload SendChatMessageRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.SendUserMessage(payload.WorkspaceID, payload.ConversationID, payload.Prompt)
+	if err != nil {
+		writeChatError(response, "send_chat_message_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) cancelRun(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload CancelRunRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	run, err := service.CancelActiveRun(payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeChatError(response, "cancel_run_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, run)
+}
+
+func (handler handler) getActiveRun(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload GetActiveRunRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	run, ok, err := service.ActiveRun(payload.WorkspaceID, payload.ConversationID)
+	if err != nil {
+		writeChatError(response, "get_active_run_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, GetActiveRunResponse{HasActiveRun: ok, Run: run})
+}
+
+func (handler handler) submitApproval(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload SubmitApprovalRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	run, err := service.SubmitApproval(payload.WorkspaceID, payload.ConversationID, payload.ApprovalID, payload.Approved, payload.Response, payload.Cancelled)
+	if err != nil {
+		writeChatError(response, "submit_approval_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, run)
+}
+
 func requireWorkspaceService(response http.ResponseWriter, service WorkspaceService) WorkspaceService {
 	if service == nil {
 		writeError(response, http.StatusServiceUnavailable, "workspace_service_unavailable", "workspace service is not available")
+		return nil
+	}
+	return service
+}
+
+func requireChatService(response http.ResponseWriter, service ChatService) ChatService {
+	if service == nil {
+		writeError(response, http.StatusServiceUnavailable, "chat_service_unavailable", "chat service is not available")
 		return nil
 	}
 	return service
@@ -212,6 +403,14 @@ func decodeRequest(response http.ResponseWriter, request *http.Request, target a
 func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
 	if appstate.IsPersistenceError(err) {
+		status = http.StatusInternalServerError
+	}
+	writeError(response, status, code, err.Error())
+}
+
+func writeChatError(response http.ResponseWriter, code string, err error) {
+	status := http.StatusBadRequest
+	if chat.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())

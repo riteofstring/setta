@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"setta/internal/appstate"
+	"setta/internal/chat"
 	"setta/internal/httpapi"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
@@ -97,10 +98,25 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		_ = listener.Close()
 		return nil, fmt.Errorf("create app state store: %w", err)
 	}
-	workspaceService, err := workspacesession.NewService(appStore, workspace.NewManager())
+	workspaceManager, err := workspace.NewManager(config.AppDataDir)
+	if err != nil {
+		_ = listener.Close()
+		return nil, fmt.Errorf("create workspace manager: %w", err)
+	}
+	workspaceService, err := workspacesession.NewService(appStore, workspaceManager)
 	if err != nil {
 		_ = listener.Close()
 		return nil, fmt.Errorf("load workspace session: %w", err)
+	}
+	chatStore, err := chat.NewStore(config.AppDataDir)
+	if err != nil {
+		_ = listener.Close()
+		return nil, fmt.Errorf("create chat store: %w", err)
+	}
+	chatService, err := chat.NewService(chatStore, workspaceService, chat.NewCodexHarness(chat.CodexHarnessConfig{}))
+	if err != nil {
+		_ = listener.Close()
+		return nil, fmt.Errorf("create chat service: %w", err)
 	}
 
 	server := &Server{
@@ -110,6 +126,7 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 					Name:    httpapi.BackendName,
 					Version: config.Version,
 				},
+				ChatService:      chatService,
 				WorkspaceService: workspaceService,
 			}),
 		},

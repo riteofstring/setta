@@ -1,7 +1,7 @@
 package workspace
 
 import (
-	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -15,7 +15,7 @@ import (
 
 const (
 	SchemaVersion = 1
-	stateDirName  = ".setta"
+	stateDirName  = "workspaces"
 	stateFileName = "workspace.json"
 )
 
@@ -36,27 +36,27 @@ type WorkspaceState struct {
 }
 
 type Manager struct {
-	newID func() (string, error)
-	now   func() time.Time
+	appDataDir string
+	now        func() time.Time
 }
 
 type Option func(*Manager)
 
-func NewManager(options ...Option) *Manager {
+func NewManager(appDataDir string, options ...Option) (*Manager, error) {
+	if appDataDir == "" {
+		return nil, errors.New("app data directory is required")
+	}
+	if !filepath.IsAbs(appDataDir) {
+		return nil, fmt.Errorf("app data directory must be absolute: %s", appDataDir)
+	}
 	manager := &Manager{
-		newID: randomWorkspaceID,
-		now:   time.Now,
+		appDataDir: filepath.Clean(appDataDir),
+		now:        time.Now,
 	}
 	for _, option := range options {
 		option(manager)
 	}
-	return manager
-}
-
-func WithIDGenerator(newID func() (string, error)) Option {
-	return func(manager *Manager) {
-		manager.newID = newID
-	}
+	return manager, nil
 }
 
 func WithClock(now func() time.Time) Option {
@@ -65,8 +65,12 @@ func WithClock(now func() time.Time) Option {
 	}
 }
 
-func StateFilePath(rootPath string) string {
-	return filepath.Join(rootPath, stateDirName, stateFileName)
+func ValidateLocalRootPath(rootPath string) (string, error) {
+	return validateRootPath(rootPath)
+}
+
+func StateFilePath(appDataDir string, workspaceID string) string {
+	return filepath.Join(appDataDir, stateDirName, workspaceID, stateFileName)
 }
 
 func (manager *Manager) OpenLocal(rootPath string) (WorkspaceSummary, WorkspaceState, error) {
@@ -75,18 +79,19 @@ func (manager *Manager) OpenLocal(rootPath string) (WorkspaceSummary, WorkspaceS
 		return WorkspaceSummary{}, WorkspaceState{}, err
 	}
 
+	id := workspaceID(rootPath)
 	now := timestamp(manager.now())
-	statePath := StateFilePath(rootPath)
+	statePath := StateFilePath(manager.appDataDir, id)
 	state, exists, err := loadState(statePath)
 	if err != nil {
 		return WorkspaceSummary{}, WorkspaceState{}, err
 	}
 	if !exists {
-		state, err = manager.newState(rootPath, now)
-		if err != nil {
-			return WorkspaceSummary{}, WorkspaceState{}, err
-		}
+		state = newState(id, rootPath, now)
 	} else {
+		if state.ID != id {
+			return WorkspaceSummary{}, WorkspaceState{}, fmt.Errorf("malformed workspace metadata %s: id %s does not match canonical root path id %s", statePath, state.ID, id)
+		}
 		state.RootPath = rootPath
 		state.DisplayName = displayName(rootPath)
 		state.UpdatedAt = now
@@ -103,14 +108,7 @@ func (manager *Manager) OpenLocal(rootPath string) (WorkspaceSummary, WorkspaceS
 	}, state, nil
 }
 
-func (manager *Manager) newState(rootPath string, now string) (WorkspaceState, error) {
-	id, err := manager.newID()
-	if err != nil {
-		return WorkspaceState{}, fmt.Errorf("create workspace id: %w", err)
-	}
-	if id == "" {
-		return WorkspaceState{}, errors.New("create workspace id: generated id is empty")
-	}
+func newState(id string, rootPath string, now string) WorkspaceState {
 	return WorkspaceState{
 		SchemaVersion: SchemaVersion,
 		ID:            id,
@@ -118,7 +116,7 @@ func (manager *Manager) newState(rootPath string, now string) (WorkspaceState, e
 		DisplayName:   displayName(rootPath),
 		CreatedAt:     now,
 		UpdatedAt:     now,
-	}, nil
+	}
 }
 
 func validateRootPath(rootPath string) (string, error) {
@@ -129,20 +127,28 @@ func validateRootPath(rootPath string) (string, error) {
 		return "", fmt.Errorf("workspace path must be absolute: %s", rootPath)
 	}
 	rootPath = filepath.Clean(rootPath)
-	info, err := os.Stat(rootPath)
+	canonicalPath, err := filepath.EvalSymlinks(rootPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return "", fmt.Errorf("workspace path does not exist: %s", rootPath)
 		}
-		return "", fmt.Errorf("read workspace path %s: %w", rootPath, err)
+		return "", fmt.Errorf("resolve workspace path %s: %w", rootPath, err)
+	}
+	canonicalPath = filepath.Clean(canonicalPath)
+	info, err := os.Stat(canonicalPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("workspace path does not exist: %s", canonicalPath)
+		}
+		return "", fmt.Errorf("read workspace path %s: %w", canonicalPath, err)
 	}
 	if !info.IsDir() {
-		return "", fmt.Errorf("workspace path is not a directory: %s", rootPath)
+		return "", fmt.Errorf("workspace path is not a directory: %s", canonicalPath)
 	}
-	if _, err := os.ReadDir(rootPath); err != nil {
-		return "", fmt.Errorf("workspace path is not readable: %s: %w", rootPath, err)
+	if _, err := os.ReadDir(canonicalPath); err != nil {
+		return "", fmt.Errorf("workspace path is not readable: %s: %w", canonicalPath, err)
 	}
-	return rootPath, nil
+	return canonicalPath, nil
 }
 
 func loadState(statePath string) (WorkspaceState, bool, error) {
@@ -235,10 +241,7 @@ func timestamp(value time.Time) string {
 	return value.UTC().Format(time.RFC3339Nano)
 }
 
-func randomWorkspaceID() (string, error) {
-	var bytes [16]byte
-	if _, err := rand.Read(bytes[:]); err != nil {
-		return "", err
-	}
-	return "workspace_" + hex.EncodeToString(bytes[:]), nil
+func workspaceID(canonicalRootPath string) string {
+	hash := sha256.Sum256([]byte(canonicalRootPath))
+	return "workspace_" + hex.EncodeToString(hash[:16])
 }

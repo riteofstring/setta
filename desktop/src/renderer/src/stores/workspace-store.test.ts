@@ -253,28 +253,30 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         version: "test",
       }),
     },
-    browserPane: {
-      captureScreenshot: async () => ({ height: 1, pngBytes: 1, width: 1 }),
-      click: async () => {},
-      events: async () => ({ console: [], network: [] }),
-      focus: async () => {},
-      inspect: async () => null,
-      loadPreview: async () => ({
-        bounds: { height: 1, width: 1, x: 0, y: 0 },
-        focused: false,
-        url: "",
+    chat: {
+      activeRun: async () => ({ hasActiveRun: false, run: emptyRun() }),
+      cancelRun: async () => emptyRun(),
+      createConversation: async () => emptyConversation(),
+      listConversations: async () => ({ conversations: [] }),
+      messagePage: async () => ({
+        conversation: emptyConversation(),
+        hasMoreOlder: false,
+        messages: [],
+        olderBeforeOrdinal: 0,
       }),
-      setBounds: async () => ({
-        bounds: { height: 1, width: 1, x: 0, y: 0 },
-        focused: false,
-        url: "",
+      sendMessage: async () => ({
+        assistantMessage: emptyMessage(),
+        conversation: emptyConversation(),
+        page: {
+          conversation: emptyConversation(),
+          hasMoreOlder: false,
+          messages: [],
+          olderBeforeOrdinal: 0,
+        },
+        run: emptyRun(),
+        userMessage: emptyMessage(),
       }),
-      status: async () => ({
-        bounds: { height: 1, width: 1, x: 0, y: 0 },
-        focused: false,
-        url: "",
-      }),
-      typeText: async () => {},
+      submitApproval: async () => emptyRun(),
     },
     workspace: workspaceAPI,
   };
@@ -285,6 +287,68 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       setta: api,
     },
   });
+}
+
+function emptyConversation() {
+  return {
+    archivedAt: "",
+    createdAt: "2026-05-29T20:00:00Z",
+    harnessRefs: [],
+    id: "conversation_test",
+    schemaVersion: 1,
+    title: "Test",
+    updatedAt: "2026-05-29T20:00:00Z",
+    workspaceId: "workspace_api",
+  };
+}
+
+function emptyMessage() {
+  return {
+    conversationId: "conversation_test",
+    createdAt: "2026-05-29T20:00:00Z",
+    id: "message_test",
+    ordinal: 1,
+    parts: [{ format: "plain", id: "part_test", text: "", type: "text" }],
+    role: "user",
+    runId: "",
+    schemaVersion: 1,
+    status: "complete",
+    updatedAt: "2026-05-29T20:00:00Z",
+  };
+}
+
+function emptyRun() {
+  return {
+    completedAt: "",
+    conversationId: "conversation_test",
+    error: "",
+    harness: "codex",
+    hasPendingApproval: false,
+    id: "run_test",
+    pendingApproval: {
+      approved: false,
+      body: "",
+      command: "",
+      createdAt: "2026-05-29T20:00:00Z",
+      filePath: "",
+      id: "approval_test",
+      kind: "permission",
+      options: [],
+      permission: "",
+      question: "",
+      resolvedAt: "",
+      response: "",
+      runId: "run_test",
+      status: "pending",
+      title: "Approval",
+    },
+    promptSummary: "",
+    schemaVersion: 1,
+    startedAt: "2026-05-29T20:00:00Z",
+    status: "completed",
+    triggerMessageId: "message_test",
+    workspaceId: "workspace_api",
+  };
 }
 
 interface Deferred<T> {

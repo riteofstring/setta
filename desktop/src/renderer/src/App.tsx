@@ -1,9 +1,9 @@
 import type { BackendHealth, WorkspaceSession, WorkspaceSummary } from "@generated/backend";
 import { CircleAlert, CircleCheck, FolderOpen, RefreshCw } from "lucide-react";
-import type { RefObject } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { RuntimeVersions } from "@shared/types";
+import { ChatPanel } from "./components/chat-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
@@ -26,11 +26,9 @@ const initialBackendState: BackendState = {
 };
 
 export function App() {
-  const browserHostRef = useRef<HTMLDivElement | null>(null);
   const { backend, refreshHealth } = useBackendState();
   const runtime = useRuntimeVersions();
   const workspace = useWorkspaceViewState();
-  useBrowserPaneSync(browserHostRef);
 
   return (
     <div className="grid min-h-screen grid-rows-[56px_1fr] bg-zinc-50 text-zinc-950">
@@ -72,7 +70,7 @@ export function App() {
             </div>
           </dl>
         </aside>
-        <section className="grid min-h-0 grid-rows-[180px_1fr] gap-4 p-4">
+        <section className="grid min-h-0 grid-rows-[132px_1fr]">
           <WorkspacePanel
             error={workspace.error}
             openLocalFolder={workspace.openLocalFolder}
@@ -80,20 +78,7 @@ export function App() {
             selectedWorkspace={workspace.selectedWorkspace}
             status={workspace.status}
           />
-          <div
-            id="browser"
-            className="grid min-h-0 grid-rows-[40px_1fr] rounded-lg border border-zinc-200 bg-white shadow-sm"
-          >
-            <div className="flex items-center justify-between border-b border-zinc-200 px-4">
-              <h2 className="text-sm font-semibold">Browser Pane</h2>
-              <Badge variant="neutral">Local Preview</Badge>
-            </div>
-            <div
-              ref={browserHostRef}
-              className="min-h-0 bg-white"
-              data-testid="browser-pane-host"
-            />
-          </div>
+          <ChatPanel workspace={workspace.selectedWorkspace} />
         </section>
       </main>
     </div>
@@ -177,36 +162,6 @@ function useSelectedWorkspace(session: WorkspaceSession | null) {
   }, [session]);
 }
 
-function useBrowserPaneSync(browserHostRef: RefObject<HTMLDivElement | null>) {
-  useEffect(() => {
-    const host = browserHostRef.current;
-    if (!host) {
-      return;
-    }
-
-    const syncBounds = () => {
-      const rect = host.getBoundingClientRect();
-      void window.setta.browserPane.setBounds({
-        height: rect.height,
-        width: rect.width,
-        x: rect.x,
-        y: rect.y,
-      });
-    };
-
-    syncBounds();
-    void window.setta.browserPane.loadPreview();
-
-    const observer = new ResizeObserver(syncBounds);
-    observer.observe(host);
-    window.addEventListener("resize", syncBounds);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", syncBounds);
-    };
-  }, [browserHostRef]);
-}
-
 export function WorkspacePanel({
   error,
   openLocalFolder,
@@ -222,7 +177,7 @@ export function WorkspacePanel({
 }) {
   const busy = operation !== null || status === "loading";
   return (
-    <div id="workspace" className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm">
+    <div id="workspace" className="border-b border-zinc-200 bg-white p-4">
       <div className="flex h-full items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -232,7 +187,7 @@ export function WorkspacePanel({
           </div>
           {selectedWorkspace ? (
             <div className="mt-5 min-w-0">
-              <div className="truncate text-2xl font-semibold">{selectedWorkspace.displayName}</div>
+              <div className="truncate text-xl font-semibold">{selectedWorkspace.displayName}</div>
               <div
                 className="mt-2 truncate text-sm text-zinc-500"
                 data-testid="selected-workspace-path"
@@ -242,7 +197,7 @@ export function WorkspacePanel({
             </div>
           ) : (
             <div className="mt-5">
-              <div className="text-2xl font-semibold">No workspace open</div>
+              <div className="text-xl font-semibold">No workspace open</div>
               <Button
                 className="mt-4"
                 disabled={busy}

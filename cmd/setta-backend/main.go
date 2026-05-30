@@ -83,11 +83,11 @@ func defaultAppDataDir(getenv func(string) string) (string, error) {
 	if value := getenv("SETTA_APP_DATA_DIR"); value != "" {
 		return value, nil
 	}
-	configRoot, err := os.UserConfigDir()
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve default app data directory: %w", err)
 	}
-	return filepath.Join(configRoot, "setta"), nil
+	return filepath.Join(homeDir, ".setta"), nil
 }
 
 func defaultPort(rawPort string) (int, error) {
