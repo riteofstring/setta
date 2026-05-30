@@ -988,6 +988,81 @@ Required anchors:
 Do not redesign the workspace as part of this rewrite. Visual differences are
 acceptable only when they are implementation noise, not a new product direction.
 
+### Quantitative Visual Parity Gate
+
+Visual parity is a pass/fail gate, not a prose screenshot note. A milestone that
+claims visual parity must include deterministic reference captures, deterministic
+current captures, machine-readable comparison results, and a short human review
+summary under `perf/`.
+
+Use a visual comparison harness that captures the same scenario in the clean
+`go-rewrite` reference and the current canvas workspace. The harness must use:
+
+- the same route, project, view mode, active tab, viewport, theme, and browser
+  viewport size
+- `1440x1200` and device scale factor `1` for the primary benchmark capture
+- either consistently closed or consistently open side panes, chat windows, and
+  app chrome
+- a deterministic saved viewport or explicit scene viewport before capture
+- masks for branch name text, clocks, cursor, runtime-only notifications, and
+  other intentionally variable chrome
+- stable crop definitions for the workspace, minimap, representative sections,
+  Dict rows, and individual controls
+
+Before setting thresholds, capture the clean `go-rewrite` reference twice in the
+same run and record natural recapture noise. Current-versus-reference thresholds
+should be `max(fixed threshold, 3x go-rewrite recapture noise)` so the gate is
+grounded in measured browser/rendering variance.
+
+Hard failures:
+
+- any required reference or current capture is missing
+- reference and current capture dimensions differ
+- the current workspace architecture probes fail, such as missing the single
+  workspace canvas or mounting xyflow workspace DOM
+- section bounds, row bounds, or minimap bounds cannot be extracted for
+  anchor-based comparison
+- the comparison report omits a required metric, crop, or threshold
+
+Initial fixed thresholds for the Settings `All Settings` benchmark:
+
+- full workspace SSIM: `>= 0.90`
+- representative section crop SSIM: `>= 0.92`
+- representative Dict row/control crop SSIM: `>= 0.92`
+- mean absolute RGB delta for masked workspace crop: `<= 8`
+- section rect `x`, `y`, `width`, and `height` delta at normal zoom: `<= 4px`
+- Dict header height and row height delta: `<= 2px`
+- label/value column alignment delta: `<= 3px`
+- minimap bounds and viewport-mask IoU: `>= 0.95`
+- minimap section preview count must match the reference unless an explicit
+  minimap policy says otherwise
+
+The Step 4 passive-renderer gate must cover passive states only:
+
+- normal dark workspace
+- light workspace
+- zoomed-out overview
+- minimap crop
+- selected-section crop when selection is present in project state
+- representative Dict row/control crops for text, switch, color swatch,
+  dropdown selected value, nested row, code preview, and section scrollbar
+
+Interaction and active-editor visual states belong to the later milestone gates,
+but they are still required before the benchmark milestone is accepted:
+
+- hovered row
+- active editor
+- dropdown/combobox popup
+- color picker popup
+- switch active/changed state
+- error state
+- drag, resize, and drop affordances
+
+If a visual difference is intentionally accepted, document the reason and the
+affected anchor in the parity report. Intentional differences must be narrow.
+Broad differences in density, scale, colors, layout, or framing mean the gate
+fails.
+
 ## Performance Rules
 
 Primary rules:
@@ -1047,6 +1122,8 @@ section wheel-scroll frame time, and passive code highlighting cache hit rate.
   - switch
   - minimap
   - section selection/drag/resize affordances
+- Capture at least two deterministic `go-rewrite` reference passes for the
+  quantitative visual parity gate's recapture-noise calibration.
 
 ### 2. Workspace Scene Model
 
@@ -1125,8 +1202,9 @@ section wheel-scroll frame time, and passive code highlighting cache hit rate.
 - Render minimap from the same scene model.
 - Show explicit canvas placeholders for unsupported non-Dict section types until
   their renderers exist. Do not use xyflow as their fallback.
-- Compare visual output against `go-rewrite` references before continuing to
-  interaction work.
+- Pass the Step 4 passive-renderer quantitative visual parity gate before
+  continuing to interaction work. A single screenshot or prose comparison is not
+  sufficient.
 
 ### 5. Workspace Interactions
 
@@ -1260,7 +1338,7 @@ Integration tests:
 E2E/browser verification:
 
 - Settings `All Settings` pan/zoom visual check.
-- Visual parity check against `go-rewrite` references.
+- Quantitative visual parity gate against `go-rewrite` references.
 - Minimap visual and interaction check.
 - Section selection, drag, and resize check.
 - Nested section selection, drag, resize, and reparent check when nested section
@@ -1323,8 +1401,8 @@ Performance verification:
   discarded when their revision/cache keys are stale.
 - No Settings-specific renderer code paths, hard-coded Settings ids, or
   benchmark-only fast paths are introduced.
-- Settings `All Settings` remains visually close to `go-rewrite` in the
-  reference states.
+- Settings `All Settings` passes the quantitative visual parity gate for the
+  required passive, interaction, and active-editor reference states.
 - Pan/zoom in Settings `All Settings` beats the current full DOM path by a large
   margin.
 - Section-level scrolling works inside canvas-rendered Dict sections.
@@ -1335,7 +1413,8 @@ Performance verification:
 - Pan, zoom, section scroll, row invisibility, and project invalidation follow
   deterministic editor close/reposition/commit/cancel policies.
 - Focused tests pass.
-- Browser visual verification is completed for the Settings benchmark.
+- Browser visual verification and quantitative visual parity reports are
+  completed for the Settings benchmark.
 - Before/after performance notes are recorded under `perf/`.
 
 ### Full Workspace Acceptance
