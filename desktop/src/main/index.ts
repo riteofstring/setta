@@ -258,6 +258,22 @@ function registerIpc() {
   );
   handleIpc(
     ipcMain,
+    "chatQueueMessage",
+    async (_event, workspaceId, conversationId, prompt) => {
+      return requireBackendClient().queueChatMessage({ conversationId, prompt, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatSteerMessage",
+    async (_event, workspaceId, conversationId, prompt) => {
+      return requireBackendClient().steerChatMessage({ conversationId, prompt, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
     "chatCancelRun",
     async (_event, workspaceId, conversationId) => {
       return requireBackendClient().cancelRun({ conversationId, workspaceId });
@@ -269,6 +285,14 @@ function registerIpc() {
     "chatActiveRun",
     async (_event, workspaceId, conversationId) => {
       return requireBackendClient().getActiveRun({ conversationId, workspaceId });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatRunActivity",
+    async (_event, workspaceId, runId, afterOrdinal, limit) => {
+      return requireBackendClient().getRunActivity({ afterOrdinal, limit, runId, workspaceId });
     },
     ipcObserver,
   );

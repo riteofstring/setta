@@ -11,9 +11,12 @@ const (
 	FakeEventAssistantDelta = "assistant_delta"
 	FakeEventApproval       = "approval"
 	FakeEventError          = "error"
+	FakeEventRunItem        = "run_item"
+	FakeEventRunItemOutput  = "run_item_output"
 	FakeEventThreadLinked   = "thread_linked"
 	FakeEventTrace          = "trace"
 	FakeEventWaitForCancel  = "wait_for_cancel"
+	FakeEventWaitForSteer   = "wait_for_steer"
 )
 
 type FakeHarnessEvent struct {
@@ -23,6 +26,9 @@ type FakeHarnessEvent struct {
 	ThreadID        string
 	SessionID       string
 	TurnID          string
+	ProviderItemID  string
+	Stream          string
+	RunItem         RunItem
 	Approval        ApprovalRequest
 	WaitForApproval bool
 }
@@ -33,13 +39,16 @@ type FakeHarness struct {
 	mu          sync.Mutex
 	cancelled   []CancelRequest
 	approvals   []ApprovalResponse
+	steering    []SteerRequest
 	approvalChs map[string]chan ApprovalResponse
+	steerChs    map[string]chan SteerRequest
 }
 
 func NewFakeHarness(events []FakeHarnessEvent) *FakeHarness {
 	return &FakeHarness{
 		events:      append([]FakeHarnessEvent{}, events...),
 		approvalChs: map[string]chan ApprovalResponse{},
+		steerChs:    map[string]chan SteerRequest{},
 	}
 }
 
@@ -62,11 +71,19 @@ func (harness *FakeHarness) StartTurn(ctx context.Context, request TurnRequest, 
 func (harness *FakeHarness) handleEvent(ctx context.Context, request TurnRequest, sink TurnSink, event FakeHarnessEvent) error {
 	switch event.Type {
 	case FakeEventAssistantDelta:
-		return sink.AssistantTextDelta(event.Text)
+		return sink.AssistantTextDelta(event.ProviderItemID, event.Text)
 	case FakeEventApproval:
 		return harness.handleApprovalEvent(ctx, request.Run.ID, sink, event)
 	case FakeEventError:
 		return errors.New(event.Error)
+	case FakeEventRunItem:
+		item := event.RunItem
+		if item.ProviderItemID == "" {
+			item.ProviderItemID = event.ProviderItemID
+		}
+		return sink.RunItemUpsert(item)
+	case FakeEventRunItemOutput:
+		return sink.RunItemOutputDelta(event.ProviderItemID, event.Stream, event.Text)
 	case FakeEventThreadLinked:
 		return sink.ThreadLinked(event.ThreadID, event.SessionID, event.TurnID)
 	case FakeEventTrace:
@@ -74,6 +91,9 @@ func (harness *FakeHarness) handleEvent(ctx context.Context, request TurnRequest
 	case FakeEventWaitForCancel:
 		<-ctx.Done()
 		return ctx.Err()
+	case FakeEventWaitForSteer:
+		_, err := harness.waitForSteer(ctx, request.Run.ID)
+		return err
 	default:
 		return fmt.Errorf("unsupported fake harness event type %s", event.Type)
 	}
@@ -108,6 +128,18 @@ func (harness *FakeHarness) CancelTurn(_ context.Context, request CancelRequest)
 	return nil
 }
 
+func (harness *FakeHarness) SteerTurn(_ context.Context, request SteerRequest) error {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	harness.steering = append(harness.steering, request)
+	channel, ok := harness.steerChs[request.RunID]
+	if ok {
+		channel <- request
+	}
+	return nil
+}
+
 func (harness *FakeHarness) SubmitApproval(_ context.Context, response ApprovalResponse) error {
 	harness.mu.Lock()
 	defer harness.mu.Unlock()
@@ -134,6 +166,13 @@ func (harness *FakeHarness) ApprovalResponses() []ApprovalResponse {
 	return append([]ApprovalResponse{}, harness.approvals...)
 }
 
+func (harness *FakeHarness) SteeringRequests() []SteerRequest {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	return append([]SteerRequest{}, harness.steering...)
+}
+
 func (harness *FakeHarness) script(request TurnRequest) []FakeHarnessEvent {
 	if len(harness.events) > 0 {
 		return append([]FakeHarnessEvent{}, harness.events...)
@@ -150,6 +189,7 @@ func (harness *FakeHarness) registerRun(runID string) {
 	defer harness.mu.Unlock()
 
 	harness.approvalChs[runID] = make(chan ApprovalResponse, 1)
+	harness.steerChs[runID] = make(chan SteerRequest, 8)
 }
 
 func (harness *FakeHarness) unregisterRun(runID string) {
@@ -157,6 +197,7 @@ func (harness *FakeHarness) unregisterRun(runID string) {
 	defer harness.mu.Unlock()
 
 	delete(harness.approvalChs, runID)
+	delete(harness.steerChs, runID)
 }
 
 func (harness *FakeHarness) waitForApproval(ctx context.Context, runID string) (ApprovalResponse, error) {
@@ -169,5 +210,18 @@ func (harness *FakeHarness) waitForApproval(ctx context.Context, runID string) (
 		return response, nil
 	case <-ctx.Done():
 		return ApprovalResponse{}, ctx.Err()
+	}
+}
+
+func (harness *FakeHarness) waitForSteer(ctx context.Context, runID string) (SteerRequest, error) {
+	harness.mu.Lock()
+	channel := harness.steerChs[runID]
+	harness.mu.Unlock()
+
+	select {
+	case request := <-channel:
+		return request, nil
+	case <-ctx.Done():
+		return SteerRequest{}, ctx.Err()
 	}
 }

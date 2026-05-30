@@ -42,6 +42,13 @@ func TestCodexHarnessMapsApprovalRequestAndResponse(t *testing.T) {
 	if approval.Kind != ApprovalKindCommand || approval.Command != "go test ./..." {
 		t.Fatalf("approval = %+v, want command approval", approval)
 	}
+	if approval.ProviderItemID != "item_fake" {
+		t.Fatalf("approval provider item id = %q, want item_fake", approval.ProviderItemID)
+	}
+	commandItem, ok := findRunItemType(sink.items, RunItemTypeCommandExecution)
+	if !ok || commandItem.ProviderItemID != "item_fake" {
+		t.Fatalf("items = %+v, want command approval run item", sink.items)
+	}
 	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
 		ApprovalID: approval.ID,
 		Approved:   true,
@@ -70,6 +77,9 @@ func TestCodexHarnessMapsPermissionApprovalResponse(t *testing.T) {
 	if approval.Kind != ApprovalKindPermission || !strings.Contains(approval.Permission, "network") {
 		t.Fatalf("approval = %+v, want permission approval with details", approval)
 	}
+	if !containsRunItemType(sink.items, RunItemTypeDynamicToolCall) {
+		t.Fatalf("items = %+v, want permission approval run item", sink.items)
+	}
 	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
 		ApprovalID: approval.ID,
 		Approved:   true,
@@ -97,6 +107,9 @@ func TestCodexHarnessMapsMultiQuestionUserInput(t *testing.T) {
 	approval := waitForApproval(t, sink)
 	if approval.Kind != ApprovalKindUserInput || len(approval.Questions) != 2 {
 		t.Fatalf("approval = %+v, want two user input questions", approval)
+	}
+	if !containsRunItemType(sink.items, RunItemTypeDynamicToolCall) {
+		t.Fatalf("items = %+v, want user input approval run item", sink.items)
 	}
 	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
 		ApprovalID: approval.ID,
@@ -135,6 +148,72 @@ func TestCodexHarnessInterruptsActiveTurn(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessSteersActiveTurn(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("steer"))
+	sink := newRecordingSink()
+	done := make(chan error, 1)
+
+	go func() {
+		done <- harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	}()
+	waitForThreadLink(t, sink)
+
+	if err := harness.SteerTurn(context.Background(), SteerRequest{
+		RunID:    "run_fake",
+		ThreadID: "thread_fake",
+		TurnID:   "turn_fake",
+		Text:     "adjust course",
+	}); err != nil {
+		t.Fatalf("steer turn: %v", err)
+	}
+	if err := <-done; err != nil {
+		t.Fatalf("start turn after steer: %v", err)
+	}
+	if sink.text != "steered" {
+		t.Fatalf("assistant text = %q, want steered", sink.text)
+	}
+}
+
+func TestCodexHarnessMapsRunActivity(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("activity"))
+	sink := newRecordingSink()
+
+	if err := harness.StartTurn(context.Background(), testTurnRequest(t), sink); err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+
+	if len(sink.items) < 5 {
+		t.Fatalf("items = %+v, want command, reasoning, file, mcp, warning activity", sink.items)
+	}
+	commandItem, ok := findRunItemType(sink.items, RunItemTypeCommandExecution)
+	if !ok || commandItem.Command != "go test ./..." {
+		t.Fatalf("items = %+v, want command execution", sink.items)
+	}
+	if len(sink.outputs) != 1 || sink.outputs[0].text != "ok\n" {
+		t.Fatalf("outputs = %+v, want command output", sink.outputs)
+	}
+	if !containsRunItemType(sink.items, RunItemTypeNotice) {
+		t.Fatalf("items = %+v, want notice", sink.items)
+	}
+	if !containsRunItemType(sink.items, RunItemTypeReasoning) {
+		t.Fatalf("items = %+v, want reasoning summary", sink.items)
+	}
+}
+
+func containsRunItemType(items []RunItem, itemType string) bool {
+	_, ok := findRunItemType(items, itemType)
+	return ok
+}
+
+func findRunItemType(items []RunItem, itemType string) (RunItem, bool) {
+	for _, item := range items {
+		if item.Type == itemType {
+			return item, true
+		}
+	}
+	return RunItem{}, false
+}
+
 func TestCodexHarnessReportsNotStartedBeforeActiveRegistration(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("stream"))
 
@@ -170,6 +249,22 @@ func TestCodexHarnessRejectsMalformedAssistantDelta(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessReportsUnsupportedServerRequest(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("unsupported-request"))
+	sink := newRecordingSink()
+
+	err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want unsupported request error")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex app-server request") {
+		t.Fatalf("error = %q, want unsupported request", err)
+	}
+	if !containsRunItemType(sink.items, RunItemTypeNotice) {
+		t.Fatalf("items = %+v, want unsupported request notice", sink.items)
+	}
+}
+
 func TestCodexHarnessFakeAppServer(t *testing.T) {
 	if os.Getenv("SETTA_FAKE_CODEX_APP_SERVER") == "" {
 		return
@@ -180,10 +275,18 @@ func TestCodexHarnessFakeAppServer(t *testing.T) {
 
 type recordingSink struct {
 	approvalCh chan ApprovalRequest
+	items      []RunItem
 	linkCh     chan struct{}
+	outputs    []recordedOutput
 	text       string
 	threadID   string
 	turnID     string
+}
+
+type recordedOutput struct {
+	itemID string
+	stream string
+	text   string
 }
 
 func newRecordingSink() *recordingSink {
@@ -193,7 +296,7 @@ func newRecordingSink() *recordingSink {
 	}
 }
 
-func (sink *recordingSink) AssistantTextDelta(text string) error {
+func (sink *recordingSink) AssistantTextDelta(_ string, text string) error {
 	sink.text += text
 	return nil
 }
@@ -204,6 +307,16 @@ func (sink *recordingSink) ApprovalRequested(approval ApprovalRequest) error {
 }
 
 func (sink *recordingSink) ApprovalResolved(string, bool, string) error {
+	return nil
+}
+
+func (sink *recordingSink) RunItemOutputDelta(itemID string, stream string, text string) error {
+	sink.outputs = append(sink.outputs, recordedOutput{itemID: itemID, stream: stream, text: text})
+	return nil
+}
+
+func (sink *recordingSink) RunItemUpsert(item RunItem) error {
+	sink.items = append(sink.items, item)
 	return nil
 }
 
@@ -271,136 +384,297 @@ func testCodexConfig(mode string) CodexHarnessConfig {
 
 func fakeCodexAppServer(mode string) {
 	scanner := bufio.NewScanner(os.Stdin)
-	approvalOutstanding := false
+	state := fakeCodexState{}
 	for scanner.Scan() {
 		var message map[string]any
 		if err := json.Unmarshal(scanner.Bytes(), &message); err != nil {
 			panic(err)
 		}
-		if approvalOutstanding && message["method"] == nil {
-			delta := "approved"
-			if mode == "permission" {
-				assertFakePermissionApproval(message)
-				delta = "permission approved"
-			}
-			if mode == "user-input" {
-				assertFakeUserInputApproval(message)
-				delta = "answers received"
-			}
-			writeFakeNotification("item/agentMessage/delta", map[string]any{
-				"delta":    delta,
-				"itemId":   "item_fake",
-				"threadId": "thread_fake",
-				"turnId":   "turn_fake",
-			})
-			writeFakeNotification("turn/completed", map[string]any{
-				"threadId": "thread_fake",
-				"turn":     map[string]any{"id": "turn_fake", "items": []any{}, "status": "completed"},
-			})
+		if handleFakeApprovalResponse(mode, state, message) {
 			return
 		}
-		switch message["method"] {
-		case "initialize":
-			writeFakeResponse(message["id"], map[string]any{
-				"codexHome":      "/tmp/codex",
-				"platformFamily": "unix",
-				"platformOs":     "test",
-				"userAgent":      "fake",
-			})
-		case "thread/start", "thread/resume":
-			writeFakeResponse(message["id"], map[string]any{
-				"thread": map[string]any{"id": "thread_fake"},
-			})
-		case "turn/start":
-			writeFakeResponse(message["id"], map[string]any{
-				"turn": map[string]any{"id": "turn_fake", "items": []any{}, "status": "inProgress"},
-			})
-			switch mode {
-			case "stream":
-				writeFakeNotification("item/agentMessage/delta", map[string]any{
-					"delta":    "hello ",
-					"itemId":   "item_fake",
-					"threadId": "thread_fake",
-					"turnId":   "turn_fake",
-				})
-				writeFakeNotification("item/agentMessage/delta", map[string]any{
-					"delta":    "from codex",
-					"itemId":   "item_fake",
-					"threadId": "thread_fake",
-					"turnId":   "turn_fake",
-				})
-				writeFakeNotification("turn/completed", map[string]any{
-					"threadId": "thread_fake",
-					"turn":     map[string]any{"id": "turn_fake", "items": []any{}, "status": "completed"},
-				})
-				return
-			case "approval":
-				approvalOutstanding = true
-				writeFakeServerRequest("approval-1", "item/commandExecution/requestApproval", map[string]any{
-					"command":     "go test ./...",
-					"itemId":      "item_fake",
-					"startedAtMs": 0,
-					"threadId":    "thread_fake",
-					"turnId":      "turn_fake",
-				})
-			case "permission":
-				approvalOutstanding = true
-				writeFakeServerRequest("approval-1", "item/permissions/requestApproval", map[string]any{
-					"cwd":         "/tmp/workspace",
-					"itemId":      "item_fake",
-					"permissions": map[string]any{"network": map[string]any{"enabled": true}},
-					"reason":      "Need network access",
-					"startedAtMs": 0,
-					"threadId":    "thread_fake",
-					"turnId":      "turn_fake",
-				})
-			case "user-input":
-				approvalOutstanding = true
-				writeFakeServerRequest("approval-1", "item/tool/requestUserInput", map[string]any{
-					"itemId": "item_fake",
-					"questions": []map[string]any{
-						{
-							"header":   "Branch",
-							"id":       "branch",
-							"options":  []map[string]any{{"description": "Use main", "label": "main"}},
-							"question": "Which branch?",
-						},
-						{
-							"header":   "Mode",
-							"id":       "mode",
-							"options":  []map[string]any{{"description": "Fast mode", "label": "fast"}},
-							"question": "Which mode?",
-						},
-					},
-					"threadId": "thread_fake",
-					"turnId":   "turn_fake",
-				})
-			case "malformed-approval":
-				writeFakeServerRequest("approval-1", "item/commandExecution/requestApproval", map[string]any{
-					"itemId":   "item_fake",
-					"threadId": "thread_fake",
-					"turnId":   "turn_fake",
-				})
-				time.Sleep(2 * time.Second)
-				return
-			case "malformed-delta":
-				writeFakeNotification("item/agentMessage/delta", map[string]any{
-					"delta":    12,
-					"itemId":   "item_fake",
-					"threadId": "thread_fake",
-					"turnId":   "turn_fake",
-				})
-				time.Sleep(2 * time.Second)
-				return
-			}
-		case "turn/interrupt":
-			writeFakeResponse(message["id"], map[string]any{})
-			writeFakeNotification("turn/completed", map[string]any{
-				"threadId": "thread_fake",
-				"turn":     map[string]any{"id": "turn_fake", "items": []any{}, "status": "interrupted"},
-			})
+		done := handleFakeCodexMethod(mode, &state, message)
+		if done {
 			return
 		}
+	}
+}
+
+type fakeCodexState struct {
+	approvalOutstanding bool
+}
+
+func handleFakeApprovalResponse(mode string, state fakeCodexState, message map[string]any) bool {
+	if !state.approvalOutstanding || message["method"] != nil {
+		return false
+	}
+	delta := "approved"
+	if mode == "permission" {
+		assertFakePermissionApproval(message)
+		delta = "permission approved"
+	}
+	if mode == "user-input" {
+		assertFakeUserInputApproval(message)
+		delta = "answers received"
+	}
+	writeFakeAssistantDelta(delta)
+	writeFakeCompletedTurn("completed")
+	return true
+}
+
+func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[string]any) bool {
+	switch message["method"] {
+	case "initialize":
+		writeFakeInitializeResponse(message["id"])
+	case "thread/start", "thread/resume":
+		writeFakeThreadResponse(message["id"])
+	case "turn/start":
+		return handleFakeTurnStart(mode, state, message)
+	case "turn/interrupt":
+		writeFakeResponse(message["id"], map[string]any{})
+		writeFakeCompletedTurn("interrupted")
+		return true
+	case "turn/steer":
+		assertFakeSteer(message)
+		writeFakeResponse(message["id"], map[string]any{})
+		writeFakeAssistantDelta("steered")
+		writeFakeCompletedTurn("completed")
+		return true
+	}
+	return false
+}
+
+func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]any) bool {
+	writeFakeResponse(message["id"], map[string]any{
+		"turn": map[string]any{"id": "turn_fake", "items": []any{}, "status": "inProgress"},
+	})
+	switch mode {
+	case "stream":
+		writeFakeStreamTurn()
+		return true
+	case "steer":
+		return false
+	case "activity":
+		writeFakeActivityTurn()
+		return true
+	case "approval", "permission", "user-input":
+		state.approvalOutstanding = true
+		writeFakeApprovalRequest(mode)
+	case "malformed-approval":
+		writeFakeMalformedApproval()
+		return true
+	case "malformed-delta":
+		writeFakeMalformedDelta()
+		return true
+	case "unsupported-request":
+		writeFakeUnsupportedRequest()
+		return true
+	}
+	return false
+}
+
+func writeFakeInitializeResponse(id any) {
+	writeFakeResponse(id, map[string]any{
+		"codexHome":      "/tmp/codex",
+		"platformFamily": "unix",
+		"platformOs":     "test",
+		"userAgent":      "fake",
+	})
+}
+
+func writeFakeThreadResponse(id any) {
+	writeFakeResponse(id, map[string]any{
+		"thread": map[string]any{"id": "thread_fake"},
+	})
+}
+
+func writeFakeStreamTurn() {
+	writeFakeAssistantDelta("hello ")
+	writeFakeAssistantDelta("from codex")
+	writeFakeCompletedTurn("completed")
+}
+
+func writeFakeActivityTurn() {
+	writeFakeNotification("turn/started", map[string]any{
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/reasoning/summaryPartAdded", map[string]any{
+		"itemId":   "reasoning_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/reasoning/summaryTextDelta", map[string]any{
+		"delta":    "checked plan",
+		"itemId":   "reasoning_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/started", map[string]any{
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+		"item": map[string]any{
+			"id":      "command_fake",
+			"type":    "commandExecution",
+			"command": "go test ./...",
+			"cwd":     "/tmp/workspace",
+			"status":  "inProgress",
+		},
+	})
+	writeFakeNotification("item/commandExecution/outputDelta", map[string]any{
+		"delta":    "ok\n",
+		"itemId":   "command_fake",
+		"stream":   "stdout",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/fileChange/patchUpdated", map[string]any{
+		"changedPaths": []string{"/tmp/workspace/main.go"},
+		"itemId":       "file_fake",
+		"status":       "updated",
+		"threadId":     "thread_fake",
+		"turnId":       "turn_fake",
+	})
+	writeFakeNotification("item/mcpToolCall/progress", map[string]any{
+		"itemId":   "mcp_fake",
+		"progress": "halfway",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("warning", map[string]any{
+		"message":  "watch out",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	writeFakeNotification("item/completed", map[string]any{
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+		"item": map[string]any{
+			"durationMs": 42,
+			"exitCode":   0,
+			"id":         "command_fake",
+			"type":       "commandExecution",
+			"command":    "go test ./...",
+			"cwd":        "/tmp/workspace",
+			"status":     "completed",
+		},
+	})
+	writeFakeCompletedTurn("completed")
+}
+
+func writeFakeApprovalRequest(mode string) {
+	switch mode {
+	case "approval":
+		writeFakeCommandApprovalRequest()
+	case "permission":
+		writeFakePermissionApprovalRequest()
+	case "user-input":
+		writeFakeUserInputApprovalRequest()
+	}
+}
+
+func writeFakeCommandApprovalRequest() {
+	writeFakeServerRequest("approval-1", "item/commandExecution/requestApproval", map[string]any{
+		"command":     "go test ./...",
+		"itemId":      "item_fake",
+		"startedAtMs": 0,
+		"threadId":    "thread_fake",
+		"turnId":      "turn_fake",
+	})
+}
+
+func writeFakePermissionApprovalRequest() {
+	writeFakeServerRequest("approval-1", "item/permissions/requestApproval", map[string]any{
+		"cwd":         "/tmp/workspace",
+		"itemId":      "item_fake",
+		"permissions": map[string]any{"network": map[string]any{"enabled": true}},
+		"reason":      "Need network access",
+		"startedAtMs": 0,
+		"threadId":    "thread_fake",
+		"turnId":      "turn_fake",
+	})
+}
+
+func writeFakeUserInputApprovalRequest() {
+	writeFakeServerRequest("approval-1", "item/tool/requestUserInput", map[string]any{
+		"itemId": "item_fake",
+		"questions": []map[string]any{
+			{
+				"header":   "Branch",
+				"id":       "branch",
+				"options":  []map[string]any{{"description": "Use main", "label": "main"}},
+				"question": "Which branch?",
+			},
+			{
+				"header":   "Mode",
+				"id":       "mode",
+				"options":  []map[string]any{{"description": "Fast mode", "label": "fast"}},
+				"question": "Which mode?",
+			},
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+}
+
+func writeFakeMalformedApproval() {
+	writeFakeServerRequest("approval-1", "item/commandExecution/requestApproval", map[string]any{
+		"itemId":   "item_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	time.Sleep(2 * time.Second)
+}
+
+func writeFakeMalformedDelta() {
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    12,
+		"itemId":   "item_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	time.Sleep(2 * time.Second)
+}
+
+func writeFakeUnsupportedRequest() {
+	writeFakeServerRequest("request-unsupported", "item/unknown/requestApproval", map[string]any{
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+	time.Sleep(2 * time.Second)
+}
+
+func writeFakeAssistantDelta(delta string) {
+	writeFakeNotification("item/agentMessage/delta", map[string]any{
+		"delta":    delta,
+		"itemId":   "item_fake",
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+}
+
+func writeFakeCompletedTurn(status string) {
+	writeFakeNotification("turn/completed", map[string]any{
+		"threadId": "thread_fake",
+		"turn":     map[string]any{"id": "turn_fake", "items": []any{}, "status": status},
+	})
+}
+
+func assertFakeSteer(message map[string]any) {
+	params, ok := message["params"].(map[string]any)
+	if !ok {
+		panic("steer missing params")
+	}
+	if params["threadId"] != "thread_fake" || params["expectedTurnId"] != "turn_fake" {
+		panic("steer targeted wrong turn")
+	}
+	input, ok := params["input"].([]any)
+	if !ok || len(input) != 1 {
+		panic("steer missing input")
+	}
+	first, ok := input[0].(map[string]any)
+	if !ok || first["text"] != "adjust course" || first["type"] != "text" {
+		panic("steer input mismatch")
 	}
 }
 

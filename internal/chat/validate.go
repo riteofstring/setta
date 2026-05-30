@@ -86,6 +86,12 @@ func validateMessageState(message ChatMessage) error {
 	if !validString(message.Status, []string{MessageStatusPending, MessageStatusStreaming, MessageStatusComplete, MessageStatusCancelled, MessageStatusError}) {
 		return fmt.Errorf("message %s has unsupported status %s", message.ID, message.Status)
 	}
+	if !validString(message.Delivery, []string{MessageDeliveryNormal, MessageDeliveryQueued, MessageDeliverySteering}) {
+		return fmt.Errorf("message %s has unsupported delivery %s", message.ID, message.Delivery)
+	}
+	if message.Role != RoleUser && message.Delivery != MessageDeliveryNormal {
+		return fmt.Errorf("message %s non-user role %s must use normal delivery", message.ID, message.Role)
+	}
 	return nil
 }
 
@@ -164,8 +170,14 @@ func validateRunState(run Run) error {
 	if !validString(run.Status, []string{RunStatusQueued, RunStatusRunning, RunStatusCompleted, RunStatusCancelled, RunStatusFailed}) {
 		return fmt.Errorf("run %s has unsupported status %s", run.ID, run.Status)
 	}
-	if err := validateTimestamp(run.StartedAt, "run "+run.ID+" startedAt"); err != nil {
-		return err
+	if run.StartedAt == "" {
+		if run.Status != RunStatusQueued {
+			return fmt.Errorf("run %s startedAt is required unless queued", run.ID)
+		}
+	} else {
+		if err := validateTimestamp(run.StartedAt, "run "+run.ID+" startedAt"); err != nil {
+			return err
+		}
 	}
 	if run.CompletedAt != "" {
 		if err := validateTimestamp(run.CompletedAt, "run "+run.ID+" completedAt"); err != nil {
@@ -248,6 +260,118 @@ func validateTraceEvent(trace TraceEvent) error {
 		return fmt.Errorf("trace %s type is required", trace.ID)
 	}
 	if err := validateTimestamp(trace.CreatedAt, "trace "+trace.ID+" createdAt"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateRunItem(item RunItem) error {
+	if item.SchemaVersion != SchemaVersion {
+		return fmt.Errorf("run item %s has unsupported schemaVersion %d", item.ID, item.SchemaVersion)
+	}
+	if err := validateRunItemIdentity(item); err != nil {
+		return err
+	}
+	if err := validateRunItemTypeAndStatus(item); err != nil {
+		return err
+	}
+	if err := validateRunItemTimestamps(item); err != nil {
+		return err
+	}
+	if item.ExitCode < 0 {
+		return fmt.Errorf("run item %s exitCode must be non-negative", item.ID)
+	}
+	if item.DurationMs < 0 {
+		return fmt.Errorf("run item %s durationMs must be non-negative", item.ID)
+	}
+	return nil
+}
+
+func validateRunItemIdentity(item RunItem) error {
+	if item.ID == "" {
+		return fmt.Errorf("run item id is required")
+	}
+	if item.WorkspaceID == "" {
+		return fmt.Errorf("run item %s workspaceId is required", item.ID)
+	}
+	if item.ConversationID == "" {
+		return fmt.Errorf("run item %s conversationId is required", item.ID)
+	}
+	if item.RunID == "" {
+		return fmt.Errorf("run item %s runId is required", item.ID)
+	}
+	if item.ProviderItemID == "" {
+		return fmt.Errorf("run item %s providerItemId is required", item.ID)
+	}
+	return nil
+}
+
+func validateRunItemTypeAndStatus(item RunItem) error {
+	if !validString(item.Type, validRunItemTypes()) {
+		return fmt.Errorf("run item %s has unsupported type %s", item.ID, item.Type)
+	}
+	if !validString(item.Status, []string{RunItemStatusPending, RunItemStatusRunning, RunItemStatusCompleted, RunItemStatusFailed, RunItemStatusCancelled}) {
+		return fmt.Errorf("run item %s has unsupported status %s", item.ID, item.Status)
+	}
+	return nil
+}
+
+func validRunItemTypes() []string {
+	return []string{
+		RunItemTypeAgentMessage,
+		RunItemTypePlan,
+		RunItemTypeReasoning,
+		RunItemTypeCommandExecution,
+		RunItemTypeFileChange,
+		RunItemTypeMCPToolCall,
+		RunItemTypeDynamicToolCall,
+		RunItemTypeCollabAgentToolCall,
+		RunItemTypeWebSearch,
+		RunItemTypeImageView,
+		RunItemTypeImageGeneration,
+		RunItemTypeTerminalInteraction,
+		RunItemTypeDiff,
+		RunItemTypeNotice,
+	}
+}
+
+func validateRunItemTimestamps(item RunItem) error {
+	if err := validateTimestamp(item.CreatedAt, "run item "+item.ID+" createdAt"); err != nil {
+		return err
+	}
+	if item.StartedAt != "" {
+		if err := validateTimestamp(item.StartedAt, "run item "+item.ID+" startedAt"); err != nil {
+			return err
+		}
+	}
+	if item.CompletedAt != "" {
+		if err := validateTimestamp(item.CompletedAt, "run item "+item.ID+" completedAt"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateRunItemOutput(output RunItemOutput) error {
+	if output.SchemaVersion != SchemaVersion {
+		return fmt.Errorf("run item output %s has unsupported schemaVersion %d", output.ID, output.SchemaVersion)
+	}
+	if output.ID == "" {
+		return fmt.Errorf("run item output id is required")
+	}
+	if output.RunItemID == "" {
+		return fmt.Errorf("run item output %s runItemId is required", output.ID)
+	}
+	if output.Stream == "" {
+		return fmt.Errorf("run item output %s stream is required", output.ID)
+	}
+	if output.Ordinal <= 0 {
+		return fmt.Errorf("run item output %s ordinal must be positive", output.ID)
+	}
+	if output.Text == "" {
+		return fmt.Errorf("run item output %s text is required", output.ID)
+	}
+	if err := validateTimestamp(output.CreatedAt, "run item output "+output.ID+" createdAt"); err != nil {
 		return err
 	}
 	return nil

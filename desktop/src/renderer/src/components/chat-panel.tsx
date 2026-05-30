@@ -1,6 +1,6 @@
 import type { ConversationListItem, WorkspaceSummary } from "@generated/backend";
 import { MessageSquarePlus, Plus, Send, Square } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { useChatStore } from "../stores/chat-store";
 import { ChatTranscript } from "./chat-transcript";
@@ -20,8 +20,9 @@ export function ChatPanel({ workspace }: { workspace: WorkspaceSummary | null })
 
 function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
   const chat = useChatViewState(workspace.id);
-  const busy = chat.operation !== null || chat.status === "loading";
-  const running = chat.activeRun?.status === "running";
+  const busy = isChatBusy(chat);
+  const composerBusy = isComposerBusy(chat);
+  const running = isRunRunning(chat);
 
   return (
     <section className="grid min-h-0 min-w-0 grid-cols-[280px_1fr] overflow-hidden border-l border-zinc-200 bg-zinc-50">
@@ -54,13 +55,27 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
         </header>
         <ConversationBody busy={busy} chat={chat} />
         <ChatError message={chat.error} />
-        <Composer busy={busy} chat={chat} running={running} />
+        <Composer busy={composerBusy} chat={chat} running={running} />
       </div>
     </section>
   );
 }
 
 type ChatView = ReturnType<typeof useChatViewState>;
+
+const composerBlockingOperations = new Set(["creating", "loading", "loadingOlder", "refreshing"]);
+
+function isChatBusy(chat: ChatView) {
+  return chat.operation !== null || chat.status === "loading";
+}
+
+function isComposerBusy(chat: ChatView) {
+  return chat.status === "loading" || composerBlockingOperations.has(chat.operation ?? "");
+}
+
+function isRunRunning(chat: ChatView) {
+  return chat.activeRun?.status === "running";
+}
 
 function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
   if (!chat.selectedConversation) {
@@ -71,7 +86,10 @@ function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
       activeRun={chat.activeRun}
       hasMoreOlder={chat.hasMoreOlder}
       loadOlder={chat.loadOlder}
+      loadRunActivity={chat.loadRunActivity}
       messages={chat.messages}
+      runItemOutputs={chat.runItemOutputs}
+      runItems={chat.runItems}
       submitApproval={chat.submitApproval}
     />
   );
@@ -116,17 +134,35 @@ function ChatError({ message }: { message: string | null }) {
 function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; running: boolean }) {
   const [draft, setDraft] = useState("");
   const submittingRef = useRef(false);
-  const disabled = !chat.selectedConversation || busy || running;
+  const disabled = !chat.selectedConversation || busy;
 
   async function sendDraft() {
     const prompt = draft.trim();
-    if (!prompt || !chat.selectedConversation || running || submittingRef.current) {
+    if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
       return;
     }
     submittingRef.current = true;
     try {
       setDraft("");
-      await chat.sendMessage(prompt);
+      if (running) {
+        await chat.steerMessage(prompt);
+      } else {
+        await chat.sendMessage(prompt);
+      }
+    } finally {
+      submittingRef.current = false;
+    }
+  }
+
+  async function queueDraft() {
+    const prompt = draft.trim();
+    if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
+      return;
+    }
+    submittingRef.current = true;
+    try {
+      setDraft("");
+      await chat.queueMessage(prompt);
     } finally {
       submittingRef.current = false;
     }
@@ -145,18 +181,14 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
           className="min-h-11 min-w-0 flex-1 resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm leading-6 outline-none focus:border-zinc-500"
           disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (
-              event.key !== "Enter" ||
-              event.shiftKey ||
-              event.altKey ||
-              event.nativeEvent.isComposing
-            ) {
-              return;
-            }
-            event.preventDefault();
-            void sendDraft();
-          }}
+          onKeyDown={(event) =>
+            handleComposerKeyDown(event, {
+              queueDraft,
+              running,
+              sendDraft,
+              stopRun: chat.stopActiveRun,
+            })
+          }
           placeholder={chat.selectedConversation ? "Ask Codex" : "Create a chat first"}
           rows={2}
           value={draft}
@@ -165,6 +197,52 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
       </div>
     </form>
   );
+}
+
+interface ComposerKeyActions {
+  queueDraft: () => Promise<void>;
+  running: boolean;
+  sendDraft: () => Promise<void>;
+  stopRun: () => Promise<void>;
+}
+
+function handleComposerKeyDown(
+  event: KeyboardEvent<HTMLTextAreaElement>,
+  actions: ComposerKeyActions,
+) {
+  if (isQueueShortcut(event)) {
+    event.preventDefault();
+    void actions.queueDraft();
+    return;
+  }
+  if (isStopShortcut(event, actions.running)) {
+    event.preventDefault();
+    void actions.stopRun();
+    return;
+  }
+  if (!isSubmitShortcut(event)) {
+    return;
+  }
+  event.preventDefault();
+  void actions.sendDraft();
+}
+
+function isQueueShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
+  return event.key === "Tab" && !event.nativeEvent.isComposing;
+}
+
+function isStopShortcut(event: KeyboardEvent<HTMLTextAreaElement>, running: boolean) {
+  return running && event.key === "c" && event.ctrlKey && !hasTextSelection(event.currentTarget);
+}
+
+function isSubmitShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
+  return (
+    event.key === "Enter" && !event.shiftKey && !event.altKey && !event.nativeEvent.isComposing
+  );
+}
+
+function hasTextSelection(textarea: HTMLTextAreaElement) {
+  return textarea.selectionStart !== textarea.selectionEnd;
 }
 
 function ComposerButton({
@@ -178,16 +256,26 @@ function ComposerButton({
 }) {
   if (running) {
     return (
-      <Button
-        aria-label="Stop run"
-        disabled={chat.operation === "cancelling"}
-        onClick={() => void chat.stopActiveRun()}
-        type="button"
-        variant="secondary"
-      >
-        <Square className="h-4 w-4" />
-        Stop
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          aria-label="Send steering message"
+          disabled={!canSend}
+          type="submit"
+          variant="primary"
+        >
+          <Send className="h-4 w-4" />
+          Send
+        </Button>
+        <Button
+          aria-label="Stop run"
+          disabled={chat.operation === "cancelling"}
+          onClick={() => void chat.stopActiveRun()}
+          type="button"
+          variant="secondary"
+        >
+          <Square className="h-4 w-4" />
+        </Button>
+      </div>
     );
   }
   return (
@@ -205,13 +293,18 @@ function useChatViewState(workspaceId: string | null) {
   const error = useChatStore((state) => state.error);
   const hasMoreOlder = useChatStore((state) => state.hasMoreOlder);
   const loadOlder = useChatStore((state) => state.loadOlder);
+  const loadRunActivity = useChatStore((state) => state.loadRunActivity);
   const loadWorkspace = useChatStore((state) => state.loadWorkspace);
   const messages = useChatStore((state) => state.messages);
   const operation = useChatStore((state) => state.operation);
+  const queueMessage = useChatStore((state) => state.queueMessage);
+  const runItemOutputs = useChatStore((state) => state.runItemOutputs);
+  const runItems = useChatStore((state) => state.runItems);
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
   const sendMessage = useChatStore((state) => state.sendMessage);
   const status = useChatStore((state) => state.status);
+  const steerMessage = useChatStore((state) => state.steerMessage);
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
@@ -230,12 +323,17 @@ function useChatViewState(workspaceId: string | null) {
     error,
     hasMoreOlder,
     loadOlder,
+    loadRunActivity,
     messages,
     operation,
+    queueMessage,
+    runItemOutputs,
+    runItems,
     selectConversation,
     selectedConversation,
     sendMessage,
     status,
+    steerMessage,
     stopActiveRun,
     submitApproval,
   };

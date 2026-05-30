@@ -9,6 +9,7 @@ import (
 
 type Harness interface {
 	StartTurn(context.Context, TurnRequest, TurnSink) error
+	SteerTurn(context.Context, SteerRequest) error
 	CancelTurn(context.Context, CancelRequest) error
 	SubmitApproval(context.Context, ApprovalResponse) error
 }
@@ -25,6 +26,15 @@ type CancelRequest struct {
 	RunID          string
 	WorkspaceID    string
 	ConversationID string
+}
+
+type SteerRequest struct {
+	RunID          string
+	WorkspaceID    string
+	ConversationID string
+	ThreadID       string
+	TurnID         string
+	Text           string
 }
 
 type ApprovalResponse struct {
@@ -57,9 +67,11 @@ func (err *HarnessRefUnavailableError) Unwrap() error {
 }
 
 type TurnSink interface {
-	AssistantTextDelta(text string) error
+	AssistantTextDelta(providerItemID string, text string) error
 	ApprovalRequested(approval ApprovalRequest) error
 	ApprovalResolved(approvalID string, approved bool, response string) error
+	RunItemOutputDelta(providerItemID string, stream string, text string) error
+	RunItemUpsert(item RunItem) error
 	ThreadLinked(threadID string, sessionID string, turnID string) error
 	Trace(eventType string, message string) error
 }

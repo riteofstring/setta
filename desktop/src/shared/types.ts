@@ -7,8 +7,11 @@ import type {
   ListConversationsResponse,
   MessagePage,
   OpenWorkspaceResponse,
+  QueueMessageResult,
   Run,
+  RunActivityPage,
   SendMessageResult,
+  SteerMessageResult,
   WorkspaceSession,
 } from "@generated/backend";
 
@@ -55,11 +58,27 @@ export interface SettaAPI {
       beforeOrdinal: number,
       limit: number,
     ) => Promise<MessagePage>;
+    queueMessage: (
+      workspaceId: string,
+      conversationId: string,
+      prompt: string,
+    ) => Promise<QueueMessageResult>;
+    runActivity: (
+      workspaceId: string,
+      runId: string,
+      afterOrdinal: number,
+      limit: number,
+    ) => Promise<RunActivityPage>;
     sendMessage: (
       workspaceId: string,
       conversationId: string,
       prompt: string,
     ) => Promise<SendMessageResult>;
+    steerMessage: (
+      workspaceId: string,
+      conversationId: string,
+      prompt: string,
+    ) => Promise<SteerMessageResult>;
     onEvent: (listener: (event: ChatEvent) => void) => () => void;
     submitApproval: (input: SubmitApprovalInput) => Promise<Run>;
   };

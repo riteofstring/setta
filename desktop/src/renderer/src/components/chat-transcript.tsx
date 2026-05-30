@@ -1,5 +1,22 @@
-import type { ApprovalAnswer, ApprovalQuestion, ChatMessage, Run } from "@generated/backend";
-import { ArrowDown, ChevronUp, Check, X } from "lucide-react";
+import type {
+  ApprovalAnswer,
+  ApprovalQuestion,
+  ChatMessage,
+  Run,
+  RunItem,
+  RunItemOutput,
+} from "@generated/backend";
+import {
+  AlertTriangle,
+  ArrowDown,
+  Check,
+  ChevronUp,
+  FileText,
+  ListChecks,
+  Terminal,
+  Wrench,
+  X,
+} from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 
 import { Button } from "./ui/button";
@@ -9,7 +26,10 @@ export interface ChatTranscriptProps {
   activeRun: Run | null;
   hasMoreOlder: boolean;
   loadOlder: () => Promise<void>;
+  loadRunActivity: (runId: string, afterOrdinal?: number, limit?: number) => Promise<void>;
   messages: ChatMessage[];
+  runItemOutputs: RunItemOutput[];
+  runItems: RunItem[];
   submitApproval: (
     approvalId: string,
     approved: boolean,
@@ -23,7 +43,10 @@ export function ChatTranscript({
   activeRun,
   hasMoreOlder,
   loadOlder,
+  loadRunActivity,
   messages,
+  runItemOutputs,
+  runItems,
   submitApproval,
 }: ChatTranscriptProps) {
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -38,7 +61,7 @@ export function ChatTranscript({
       return;
     }
     node.scrollTop = node.scrollHeight;
-  }, [messages, activeRun, pinned]);
+  }, [messages, activeRun, runItemOutputs, runItems, pinned]);
 
   async function loadOlderAndPreserveScroll() {
     const node = scrollRef.current;
@@ -77,7 +100,13 @@ export function ChatTranscript({
             </div>
           ) : null}
           {messages.map((message) => (
-            <MessageRow key={message.id} message={message} />
+            <MessageRow
+              key={message.id}
+              message={message}
+              loadRunActivity={loadRunActivity}
+              runItemOutputs={runItemOutputs}
+              runItems={runItems}
+            />
           ))}
           {activeRun?.hasPendingApproval ? (
             <ApprovalCard
@@ -109,33 +138,281 @@ export function ChatTranscript({
   );
 }
 
-const MessageRow = memo(function MessageRow({ message }: { message: ChatMessage }) {
-  const isUser = message.role === "user";
-  const text = message.parts.map((part) => part.text).join("");
+const MessageRow = memo(function MessageRow({
+  message,
+  loadRunActivity,
+  runItemOutputs,
+  runItems,
+}: {
+  message: ChatMessage;
+  loadRunActivity: (runId: string, afterOrdinal?: number, limit?: number) => Promise<void>;
+  runItemOutputs: RunItemOutput[];
+  runItems: RunItem[];
+}) {
+  const itemRows = activityItemsForMessage(message, runItems);
   return (
-    <article
-      className={isUser ? "flex min-w-0 justify-end" : "flex min-w-0 justify-start"}
-      data-testid="chat-message"
-    >
-      <div
-        className={
-          isUser
-            ? "max-w-[78%] overflow-hidden rounded-md bg-zinc-900 px-4 py-3 text-sm leading-6 break-words text-white"
-            : "max-w-[84%] min-w-0 overflow-hidden rounded-md border border-zinc-200 bg-white px-4 py-3"
-        }
-      >
-        {isUser ? (
-          <div className="whitespace-pre-wrap">{text}</div>
-        ) : (
-          <MarkdownText text={text || (message.status === "streaming" ? "..." : "")} />
-        )}
-        {message.status === "error" || message.status === "cancelled" ? (
-          <div className="mt-3 text-xs font-medium text-red-600">{message.status}</div>
+    <article className={messageRowClass(message)} data-testid="chat-message">
+      <div className={messageContainerClass(message)}>
+        <MessageContent message={message} />
+        <UserDeliveryBadge message={message} />
+        <MessageStatus message={message} />
+        {itemRows.length > 0 ? (
+          <RunActivityRows
+            items={itemRows}
+            loadRunActivity={loadRunActivity}
+            outputs={runItemOutputs}
+          />
         ) : null}
       </div>
     </article>
   );
 });
+
+function messageRowClass(message: ChatMessage) {
+  return message.role === "user" ? "flex min-w-0 justify-end" : "flex min-w-0 justify-start";
+}
+
+function MessageContent({ message }: { message: ChatMessage }) {
+  const text = message.parts.map((part) => part.text).join("");
+  if (message.role === "user") {
+    return <div className="whitespace-pre-wrap">{text}</div>;
+  }
+  return <MarkdownText text={assistantMessageText(text, message.status)} />;
+}
+
+function assistantMessageText(text: string, status: string) {
+  if (text !== "") {
+    return text;
+  }
+  return status === "streaming" ? "..." : "";
+}
+
+function UserDeliveryBadge({ message }: { message: ChatMessage }) {
+  if (message.role !== "user" || message.delivery === "normal") {
+    return null;
+  }
+  return (
+    <div className="mt-2 text-xs font-medium opacity-80">
+      {message.delivery === "queued" ? "Queued" : "Steering"}
+    </div>
+  );
+}
+
+function MessageStatus({ message }: { message: ChatMessage }) {
+  if (message.status !== "error" && message.status !== "cancelled") {
+    return null;
+  }
+  return <div className="mt-3 text-xs font-medium text-red-600">{message.status}</div>;
+}
+
+function activityItemsForMessage(message: ChatMessage, runItems: RunItem[]) {
+  if (message.role === "user" || message.runId === "") {
+    return [];
+  }
+  return runItems.filter((item) => item.runId === message.runId);
+}
+
+function messageContainerClass(message: ChatMessage) {
+  if (message.role !== "user") {
+    return "max-w-[84%] min-w-0 overflow-hidden rounded-md border border-zinc-200 bg-white px-4 py-3";
+  }
+  if (message.delivery === "queued") {
+    return "max-w-[78%] overflow-hidden rounded-md border border-dashed border-zinc-300 bg-white px-4 py-3 text-sm leading-6 break-words text-zinc-800";
+  }
+  if (message.delivery === "steering") {
+    return "max-w-[78%] overflow-hidden rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 break-words text-blue-950";
+  }
+  return "max-w-[78%] overflow-hidden rounded-md bg-zinc-900 px-4 py-3 text-sm leading-6 break-words text-white";
+}
+
+function RunActivityRows({
+  items,
+  loadRunActivity,
+  outputs,
+}: {
+  items: RunItem[];
+  loadRunActivity: (runId: string, afterOrdinal?: number, limit?: number) => Promise<void>;
+  outputs: RunItemOutput[];
+}) {
+  return (
+    <div className="mt-4 space-y-2 border-t border-zinc-100 pt-3">
+      {items.map((item) => (
+        <RunActivityRow
+          item={item}
+          key={item.id}
+          loadRunActivity={loadRunActivity}
+          outputs={outputsForItem(outputs, item.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RunActivityRow({
+  item,
+  loadRunActivity,
+  outputs,
+}: {
+  item: RunItem;
+  loadRunActivity: (runId: string, afterOrdinal?: number, limit?: number) => Promise<void>;
+  outputs: RunItemOutput[];
+}) {
+  const [expandedOutputLoaded, setExpandedOutputLoaded] = useState(false);
+  const outputText = outputPreview(outputs);
+  return (
+    <details
+      className="group rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm"
+      data-testid="run-activity-row"
+      onToggle={(event) => {
+        if (!event.currentTarget.open || expandedOutputLoaded) {
+          return;
+        }
+        setExpandedOutputLoaded(true);
+        void loadRunActivity(item.runId, maxOutputOrdinal(outputs));
+      }}
+    >
+      <summary className="flex cursor-pointer list-none items-center gap-2">
+        <ActivityIcon type={item.type} />
+        <span className="min-w-0 flex-1 truncate font-medium text-zinc-800">
+          {activityTitle(item)}
+        </span>
+        <span className="shrink-0 text-xs text-zinc-500">{item.status}</span>
+      </summary>
+      <RunActivityDetails item={item} outputText={outputText} />
+    </details>
+  );
+}
+
+function RunActivityDetails({ item, outputText }: { item: RunItem; outputText: string }) {
+  return (
+    <div className="mt-2 space-y-2 text-xs text-zinc-600">
+      <RunActivityCwd cwd={item.cwd} />
+      <RunActivityCommand command={item.command} />
+      <RunActivityFiles paths={item.filePaths} />
+      <OptionalRunActivityText value={item.progress} />
+      <OptionalRunActivityText value={item.result} />
+      <OptionalRunActivityText className="font-medium text-red-600" value={item.error} />
+      <OptionalRunActivityText value={item.noticeMessage} />
+      <OptionalRunActivityText value={item.diffSummary} />
+      <RunActivityExit durationMs={item.durationMs} exitCode={item.exitCode} />
+      <RunActivityOutput outputText={outputText} />
+    </div>
+  );
+}
+
+function RunActivityCwd({ cwd }: { cwd: string }) {
+  if (!cwd) {
+    return null;
+  }
+  return <div className="break-all font-mono">{cwd}</div>;
+}
+
+function RunActivityCommand({ command }: { command: string }) {
+  if (!command) {
+    return null;
+  }
+  return (
+    <pre className="max-h-28 overflow-auto rounded border border-zinc-200 bg-white p-2">
+      {command}
+    </pre>
+  );
+}
+
+function RunActivityFiles({ paths }: { paths: string[] }) {
+  if (paths.length === 0) {
+    return null;
+  }
+  return (
+    <div className="space-y-1">
+      {paths.map((path) => (
+        <div className="break-all font-mono" key={path}>
+          {path}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function OptionalRunActivityText({ className, value }: { className?: string; value: string }) {
+  if (!value) {
+    return null;
+  }
+  return <div className={className}>{value}</div>;
+}
+
+function RunActivityExit({ durationMs, exitCode }: { durationMs: number; exitCode: number }) {
+  if (exitCode <= 0 && durationMs <= 0) {
+    return null;
+  }
+  return (
+    <div>
+      {exitCode > 0 ? `exit ${exitCode}` : "exit 0"}
+      {durationMs > 0 ? ` / ${durationMs}ms` : ""}
+    </div>
+  );
+}
+
+function RunActivityOutput({ outputText }: { outputText: string }) {
+  if (!outputText) {
+    return null;
+  }
+  return (
+    <pre className="max-h-32 overflow-auto rounded border border-zinc-200 bg-white p-2">
+      {outputText}
+    </pre>
+  );
+}
+
+function ActivityIcon({ type }: { type: string }) {
+  if (type === "command_execution" || type === "terminal_interaction") {
+    return <Terminal className="h-4 w-4 shrink-0 text-zinc-500" />;
+  }
+  if (type === "file_change" || type === "diff") {
+    return <FileText className="h-4 w-4 shrink-0 text-zinc-500" />;
+  }
+  if (type === "plan" || type === "reasoning") {
+    return <ListChecks className="h-4 w-4 shrink-0 text-zinc-500" />;
+  }
+  if (type === "notice") {
+    return <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600" />;
+  }
+  return <Wrench className="h-4 w-4 shrink-0 text-zinc-500" />;
+}
+
+function activityTitle(item: RunItem) {
+  if (item.title) {
+    return item.title;
+  }
+  if (item.command) {
+    return item.command;
+  }
+  if (item.toolName) {
+    return item.serverName ? `${item.serverName}.${item.toolName}` : item.toolName;
+  }
+  if (item.noticeKind) {
+    return item.noticeKind;
+  }
+  if (item.summary) {
+    return item.summary;
+  }
+  return item.type.replaceAll("_", " ");
+}
+
+function outputsForItem(outputs: RunItemOutput[], runItemId: string) {
+  return outputs.filter((output) => output.runItemId === runItemId);
+}
+
+function maxOutputOrdinal(outputs: RunItemOutput[]) {
+  return outputs.reduce((max, output) => Math.max(max, output.ordinal), 0);
+}
+
+function outputPreview(outputs: RunItemOutput[]) {
+  const text = outputs.map((output) => output.text).join("");
+  if (text.length <= 2000) {
+    return text;
+  }
+  return text.slice(0, 2000) + "\n...";
+}
 
 function ApprovalCard({
   run,
@@ -152,7 +429,6 @@ function ApprovalCard({
 }) {
   const approval = run.pendingApproval;
   const isUserInput = approval.kind === "user_input";
-  const questions = approval.questions.length > 0 ? approval.questions : legacyQuestion(approval);
   return (
     <section
       className="min-w-0 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm break-words text-amber-950"
@@ -176,7 +452,7 @@ function ApprovalCard({
       {approval.question ? <div className="mt-2">{approval.question}</div> : null}
       {isUserInput ? (
         <UserInputApproval
-          questions={questions}
+          questions={approval.questions}
           submitApproval={(answers, cancelled) =>
             submitApproval(approval.id, !cancelled, "", answers, cancelled)
           }
@@ -229,6 +505,11 @@ function UserInputApproval({
   submitApproval: (answers: ApprovalAnswer[], cancelled: boolean) => Promise<void>;
 }) {
   const [answersByQuestion, setAnswersByQuestion] = useState<Record<string, string>>({});
+  if (questions.length === 0) {
+    return (
+      <div className="mt-3 font-medium text-red-700">Approval request is missing questions.</div>
+    );
+  }
   const complete = questions.every(
     (question) => answerValue(answersByQuestion, question.id) !== "",
   );
@@ -287,22 +568,6 @@ function UserInputApproval({
       </div>
     </div>
   );
-}
-
-function legacyQuestion(approval: Run["pendingApproval"]): ApprovalQuestion[] {
-  if (!approval.question) {
-    return [];
-  }
-  return [
-    {
-      header: approval.title,
-      id: "response",
-      isOther: false,
-      isSecret: false,
-      options: approval.options,
-      question: approval.question,
-    },
-  ];
 }
 
 function answerValue(answersByQuestion: Record<string, string>, questionID: string) {

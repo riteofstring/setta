@@ -263,17 +263,35 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         hasMoreOlder: false,
         messages: [],
         olderBeforeOrdinal: 0,
+        queue: { messages: [], runs: [] },
+        runItemOutputs: [],
+        runItems: [],
       }),
       onEvent: () => () => {},
+      queueMessage: async () => ({
+        conversation: emptyConversation(),
+        page: emptyMessagePage(),
+        queue: { messages: [], runs: [] },
+        run: emptyRun(),
+        userMessage: emptyMessage(),
+      }),
+      runActivity: async () => ({
+        hasMore: false,
+        items: [],
+        nextOrdinal: 0,
+        output: [],
+        runId: "run_test",
+      }),
       sendMessage: async () => ({
         assistantMessage: emptyMessage(),
         conversation: emptyConversation(),
-        page: {
-          conversation: emptyConversation(),
-          hasMoreOlder: false,
-          messages: [],
-          olderBeforeOrdinal: 0,
-        },
+        page: emptyMessagePage(),
+        run: emptyRun(),
+        userMessage: emptyMessage(),
+      }),
+      steerMessage: async () => ({
+        conversation: emptyConversation(),
+        page: emptyMessagePage(),
         run: emptyRun(),
         userMessage: emptyMessage(),
       }),
@@ -307,6 +325,7 @@ function emptyMessage() {
   return {
     conversationId: "conversation_test",
     createdAt: "2026-05-29T20:00:00Z",
+    delivery: "normal",
     id: "message_test",
     ordinal: 1,
     parts: [{ format: "plain", id: "part_test", text: "", type: "text" }],
@@ -315,6 +334,18 @@ function emptyMessage() {
     schemaVersion: 1,
     status: "complete",
     updatedAt: "2026-05-29T20:00:00Z",
+  };
+}
+
+function emptyMessagePage() {
+  return {
+    conversation: emptyConversation(),
+    hasMoreOlder: false,
+    messages: [],
+    olderBeforeOrdinal: 0,
+    queue: { messages: [], runs: [] },
+    runItemOutputs: [],
+    runItems: [],
   };
 }
 
@@ -335,12 +366,14 @@ function emptyRun() {
       id: "approval_test",
       kind: "permission",
       options: [],
+      providerItemId: "",
       questions: [],
       permission: "",
       question: "",
       resolvedAt: "",
       response: "",
       runId: "run_test",
+      runItemId: "",
       status: "pending",
       title: "Approval",
     },

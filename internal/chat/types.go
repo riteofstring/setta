@@ -19,6 +19,10 @@ const (
 	MessageStatusCancelled = "cancelled"
 	MessageStatusError     = "error"
 
+	MessageDeliveryNormal   = "normal"
+	MessageDeliveryQueued   = "queued"
+	MessageDeliverySteering = "steering"
+
 	MessagePartText = "text"
 
 	TextFormatPlain    = "plain"
@@ -45,6 +49,27 @@ const (
 	ApprovalKindFileChange = "file_change"
 	ApprovalKindPermission = "permission"
 	ApprovalKindUserInput  = "user_input"
+
+	RunItemStatusPending   = "pending"
+	RunItemStatusRunning   = "running"
+	RunItemStatusCompleted = "completed"
+	RunItemStatusFailed    = "failed"
+	RunItemStatusCancelled = "cancelled"
+
+	RunItemTypeAgentMessage        = "agent_message"
+	RunItemTypePlan                = "plan"
+	RunItemTypeReasoning           = "reasoning"
+	RunItemTypeCommandExecution    = "command_execution"
+	RunItemTypeFileChange          = "file_change"
+	RunItemTypeMCPToolCall         = "mcp_tool_call"
+	RunItemTypeDynamicToolCall     = "dynamic_tool_call"
+	RunItemTypeCollabAgentToolCall = "collab_agent_tool_call"
+	RunItemTypeWebSearch           = "web_search"
+	RunItemTypeImageView           = "image_view"
+	RunItemTypeImageGeneration     = "image_generation"
+	RunItemTypeTerminalInteraction = "terminal_interaction"
+	RunItemTypeDiff                = "diff"
+	RunItemTypeNotice              = "notice"
 )
 
 type Conversation struct {
@@ -64,6 +89,7 @@ type ChatMessage struct {
 	ConversationID string        `json:"conversationId"`
 	RunID          string        `json:"runId"`
 	Role           string        `json:"role"`
+	Delivery       string        `json:"delivery"`
 	Ordinal        int           `json:"ordinal"`
 	CreatedAt      string        `json:"createdAt"`
 	UpdatedAt      string        `json:"updatedAt"`
@@ -106,22 +132,24 @@ type Run struct {
 }
 
 type ApprovalRequest struct {
-	ID         string             `json:"id"`
-	RunID      string             `json:"runId"`
-	Kind       string             `json:"kind"`
-	Title      string             `json:"title"`
-	Body       string             `json:"body"`
-	Command    string             `json:"command"`
-	FilePath   string             `json:"filePath"`
-	Permission string             `json:"permission"`
-	Question   string             `json:"question"`
-	Options    []string           `json:"options"`
-	Questions  []ApprovalQuestion `json:"questions"`
-	Status     string             `json:"status"`
-	CreatedAt  string             `json:"createdAt"`
-	ResolvedAt string             `json:"resolvedAt"`
-	Response   string             `json:"response"`
-	Approved   bool               `json:"approved"`
+	ID             string             `json:"id"`
+	RunID          string             `json:"runId"`
+	RunItemID      string             `json:"runItemId"`
+	ProviderItemID string             `json:"providerItemId"`
+	Kind           string             `json:"kind"`
+	Title          string             `json:"title"`
+	Body           string             `json:"body"`
+	Command        string             `json:"command"`
+	FilePath       string             `json:"filePath"`
+	Permission     string             `json:"permission"`
+	Question       string             `json:"question"`
+	Options        []string           `json:"options"`
+	Questions      []ApprovalQuestion `json:"questions"`
+	Status         string             `json:"status"`
+	CreatedAt      string             `json:"createdAt"`
+	ResolvedAt     string             `json:"resolvedAt"`
+	Response       string             `json:"response"`
+	Approved       bool               `json:"approved"`
 }
 
 type ApprovalQuestion struct {
@@ -147,6 +175,51 @@ type TraceEvent struct {
 	Message       string `json:"message"`
 }
 
+type RunItem struct {
+	SchemaVersion  int      `json:"schemaVersion"`
+	ID             string   `json:"id"`
+	WorkspaceID    string   `json:"workspaceId"`
+	ConversationID string   `json:"conversationId"`
+	RunID          string   `json:"runId"`
+	ProviderItemID string   `json:"providerItemId"`
+	Type           string   `json:"type"`
+	Status         string   `json:"status"`
+	CreatedAt      string   `json:"createdAt"`
+	StartedAt      string   `json:"startedAt"`
+	CompletedAt    string   `json:"completedAt"`
+	Title          string   `json:"title"`
+	Summary        string   `json:"summary"`
+	Command        string   `json:"command"`
+	Cwd            string   `json:"cwd"`
+	ExitCode       int      `json:"exitCode"`
+	DurationMs     int      `json:"durationMs"`
+	FilePaths      []string `json:"filePaths"`
+	PatchStatus    string   `json:"patchStatus"`
+	ServerName     string   `json:"serverName"`
+	ToolName       string   `json:"toolName"`
+	Progress       string   `json:"progress"`
+	Result         string   `json:"result"`
+	Error          string   `json:"error"`
+	NoticeKind     string   `json:"noticeKind"`
+	NoticeMessage  string   `json:"noticeMessage"`
+	DiffSummary    string   `json:"diffSummary"`
+}
+
+type RunItemOutput struct {
+	SchemaVersion int    `json:"schemaVersion"`
+	ID            string `json:"id"`
+	RunItemID     string `json:"runItemId"`
+	Stream        string `json:"stream"`
+	Ordinal       int    `json:"ordinal"`
+	Text          string `json:"text"`
+	CreatedAt     string `json:"createdAt"`
+}
+
+type QueueState struct {
+	Messages []ChatMessage `json:"messages"`
+	Runs     []Run         `json:"runs"`
+}
+
 type ConversationListItem struct {
 	Conversation Conversation `json:"conversation"`
 	MessageCount int          `json:"messageCount"`
@@ -154,10 +227,36 @@ type ConversationListItem struct {
 }
 
 type MessagePage struct {
-	Conversation       Conversation  `json:"conversation"`
-	Messages           []ChatMessage `json:"messages"`
-	HasMoreOlder       bool          `json:"hasMoreOlder"`
-	OlderBeforeOrdinal int           `json:"olderBeforeOrdinal"`
+	Conversation       Conversation    `json:"conversation"`
+	Messages           []ChatMessage   `json:"messages"`
+	RunItems           []RunItem       `json:"runItems"`
+	RunItemOutputs     []RunItemOutput `json:"runItemOutputs"`
+	Queue              QueueState      `json:"queue"`
+	HasMoreOlder       bool            `json:"hasMoreOlder"`
+	OlderBeforeOrdinal int             `json:"olderBeforeOrdinal"`
+}
+
+type RunActivityPage struct {
+	RunID       string          `json:"runId"`
+	Items       []RunItem       `json:"items"`
+	Output      []RunItemOutput `json:"output"`
+	HasMore     bool            `json:"hasMore"`
+	NextOrdinal int             `json:"nextOrdinal"`
+}
+
+type QueueMessageResult struct {
+	Conversation Conversation `json:"conversation"`
+	UserMessage  ChatMessage  `json:"userMessage"`
+	Run          Run          `json:"run"`
+	Queue        QueueState   `json:"queue"`
+	Page         MessagePage  `json:"page"`
+}
+
+type SteerMessageResult struct {
+	Conversation Conversation `json:"conversation"`
+	UserMessage  ChatMessage  `json:"userMessage"`
+	Run          Run          `json:"run"`
+	Page         MessagePage  `json:"page"`
 }
 
 func (approval ApprovalRequest) MarshalJSON() ([]byte, error) {
@@ -185,4 +284,48 @@ func (answer ApprovalAnswer) MarshalJSON() ([]byte, error) {
 		answer.Answers = []string{}
 	}
 	return json.Marshal(answerAlias(answer))
+}
+
+func (item RunItem) MarshalJSON() ([]byte, error) {
+	type itemAlias RunItem
+	if item.FilePaths == nil {
+		item.FilePaths = []string{}
+	}
+	return json.Marshal(itemAlias(item))
+}
+
+func (state QueueState) MarshalJSON() ([]byte, error) {
+	type stateAlias QueueState
+	if state.Messages == nil {
+		state.Messages = []ChatMessage{}
+	}
+	if state.Runs == nil {
+		state.Runs = []Run{}
+	}
+	return json.Marshal(stateAlias(state))
+}
+
+func (page MessagePage) MarshalJSON() ([]byte, error) {
+	type pageAlias MessagePage
+	if page.Messages == nil {
+		page.Messages = []ChatMessage{}
+	}
+	if page.RunItems == nil {
+		page.RunItems = []RunItem{}
+	}
+	if page.RunItemOutputs == nil {
+		page.RunItemOutputs = []RunItemOutput{}
+	}
+	return json.Marshal(pageAlias(page))
+}
+
+func (page RunActivityPage) MarshalJSON() ([]byte, error) {
+	type pageAlias RunActivityPage
+	if page.Items == nil {
+		page.Items = []RunItem{}
+	}
+	if page.Output == nil {
+		page.Output = []RunItemOutput{}
+	}
+	return json.Marshal(pageAlias(page))
 }

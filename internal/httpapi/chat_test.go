@@ -78,6 +78,59 @@ func TestChatEndpointsCancelActiveRun(t *testing.T) {
 	}
 }
 
+func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
+	handler := newChatHandler(t, []chat.FakeHarnessEvent{
+		{Type: chat.FakeEventThreadLinked, ThreadID: "thread_fake", SessionID: "session_fake", TurnID: "turn_fake"},
+		{Type: chat.FakeEventRunItem, ProviderItemID: "command_fake", RunItem: chat.RunItem{
+			ProviderItemID: "command_fake",
+			Type:           chat.RunItemTypeCommandExecution,
+			Status:         chat.RunItemStatusRunning,
+			Command:        "go test ./...",
+		}},
+		{Type: chat.FakeEventRunItemOutput, ProviderItemID: "command_fake", Stream: "stdout", Text: "ok\n"},
+		{Type: chat.FakeEventWaitForSteer},
+	})
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+	started := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "run activity",
+	}, http.StatusOK)
+	waitForHarnessTurn(t, handler, opened.Workspace.ID, conversation.ID, "turn_fake")
+
+	queued := postJSON[chat.QueueMessageResult](t, handler, "/chat/messages/queue", QueueChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "queued follow-up",
+	}, http.StatusOK)
+	if queued.UserMessage.Delivery != chat.MessageDeliveryQueued || queued.Run.Status != chat.RunStatusQueued {
+		t.Fatalf("queued result = %+v, want queued message and run", queued)
+	}
+
+	steered := postJSON[chat.SteerMessageResult](t, handler, "/chat/messages/steer", SteerChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "steer now",
+	}, http.StatusOK)
+	if steered.UserMessage.Delivery != chat.MessageDeliverySteering {
+		t.Fatalf("steering message delivery = %q, want steering", steered.UserMessage.Delivery)
+	}
+	waitForRunStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, started.Run.ID, chat.MessageStatusComplete)
+
+	activity := postJSON[chat.RunActivityPage](t, handler, "/chat/runs/activity", GetRunActivityRequest{
+		WorkspaceID: opened.Workspace.ID,
+		RunID:       started.Run.ID,
+		Limit:       20,
+	}, http.StatusOK)
+	if len(activity.Items) == 0 || activity.Items[0].Command != "go test ./..." {
+		t.Fatalf("activity items = %+v, want command activity", activity.Items)
+	}
+	if len(activity.Output) != 1 || activity.Output[0].Text != "ok\n" {
+		t.Fatalf("activity output = %+v, want output chunk", activity.Output)
+	}
+}
+
 func TestChatEndpointsSubmitApproval(t *testing.T) {
 	handler := newChatHandler(t, []chat.FakeHarnessEvent{
 		{
@@ -255,4 +308,44 @@ func waitForActiveApproval(t *testing.T, handler http.Handler, workspaceID strin
 	}
 	t.Fatal("timed out waiting for active approval")
 	return GetActiveRunResponse{}
+}
+
+func waitForHarnessTurn(t *testing.T, handler http.Handler, workspaceID string, conversationID string, turnID string) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		page := postJSON[chat.MessagePage](t, handler, "/chat/messages/page", GetMessagePageRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+			Limit:          20,
+		}, http.StatusOK)
+		for _, ref := range page.Conversation.HarnessRefs {
+			if ref.LastTurnID == turnID {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for turn %s", turnID)
+}
+
+func waitForRunStatusHTTP(t *testing.T, handler http.Handler, workspaceID string, conversationID string, runID string, status string) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		page := postJSON[chat.MessagePage](t, handler, "/chat/messages/page", GetMessagePageRequest{
+			WorkspaceID:    workspaceID,
+			ConversationID: conversationID,
+			Limit:          40,
+		}, http.StatusOK)
+		for _, item := range page.Messages {
+			if item.RunID == runID && item.Role == chat.RoleAssistant && item.Status == status {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for run %s status %s", runID, status)
 }

@@ -1,16 +1,9 @@
 package chat
 
 import (
-	"bufio"
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"os"
-	"os/exec"
-	"strconv"
 	"sync"
 )
 
@@ -136,6 +129,33 @@ func (harness *CodexHarness) CancelTurn(ctx context.Context, request CancelReque
 	return err
 }
 
+func (harness *CodexHarness) SteerTurn(ctx context.Context, request SteerRequest) error {
+	harness.mu.Lock()
+	active := harness.active[request.RunID]
+	harness.mu.Unlock()
+	if active == nil {
+		return fmt.Errorf("%w: codex turn is not active for run %s", ErrTurnNotStarted, request.RunID)
+	}
+	if active.threadID == "" || active.turnID == "" {
+		return ErrTurnNotStarted
+	}
+	if request.ThreadID != "" && request.ThreadID != active.threadID {
+		return fmt.Errorf("steering thread %s does not match active thread %s", request.ThreadID, active.threadID)
+	}
+	if request.TurnID != "" && request.TurnID != active.turnID {
+		return fmt.Errorf("steering turn %s does not match active turn %s", request.TurnID, active.turnID)
+	}
+	_, err := active.client.call(ctx, "turn/steer", map[string]any{
+		"expectedTurnId": active.turnID,
+		"input": []map[string]any{{
+			"text": request.Text,
+			"type": "text",
+		}},
+		"threadId": active.threadID,
+	})
+	return err
+}
+
 func (harness *CodexHarness) SubmitApproval(_ context.Context, response ApprovalResponse) error {
 	harness.mu.Lock()
 	pending, ok := harness.approvals[response.ApprovalID]
@@ -244,21 +264,88 @@ func startCodexTurn(ctx context.Context, client *jsonRPCClient, threadID string,
 	return turnID, nil
 }
 
+type codexNotificationHandler func(jsonRPCMessage, string, string, TurnSink) (bool, error)
+
+var codexNotificationHandlers = map[string]codexNotificationHandler{
+	"configWarning":                             handleCodexNotice,
+	"deprecationNotice":                         handleCodexNotice,
+	"error":                                     handleCodexErrorNotification,
+	"guardianWarning":                           handleCodexNotice,
+	"item/agentMessage/delta":                   handleCodexAssistantDelta,
+	"item/commandExecution/outputDelta":         handleCodexOutputDelta,
+	"item/commandExecution/terminalInteraction": handleCodexTerminalInteraction,
+	"item/completed":                            handleCodexItemCompleted,
+	"item/fileChange/patchUpdated":              handleCodexPatchUpdated,
+	"item/mcpToolCall/progress":                 handleCodexMCPProgress,
+	"item/plan/delta":                           handleCodexPlanDelta,
+	"item/reasoning/summaryPartAdded":           handleCodexReasoningSummaryPartAdded,
+	"item/reasoning/summaryTextDelta":           handleCodexReasoningSummaryDelta,
+	"item/started":                              handleCodexItemStarted,
+	"model/rerouted":                            handleCodexNotice,
+	"rawResponseItem/completed":                 ignoreCodexNotification,
+	"thread/compacted":                          handleCodexNotice,
+	"turn/completed":                            handleCodexTurnCompletedNotification,
+	"turn/diff/updated":                         handleCodexDiffUpdated,
+	"turn/plan/updated":                         handleCodexPlanUpdated,
+	"turn/started":                              handleCodexTurnStarted,
+	"warning":                                   handleCodexNotice,
+}
+
 func handleCodexNotification(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
-	switch message.Method {
-	case "item/agentMessage/delta":
-		return handleCodexAssistantDelta(message, threadID, turnID, sink)
-	case "turn/completed":
-		return handleCodexTurnCompleted(message, threadID, turnID)
-	case "error":
-		errorMessage, err := requireStringFromRaw(message.Params, "message", "codex error notification")
-		if err != nil {
-			return false, err
-		}
-		return false, fmt.Errorf("codex app-server error notification: %s", errorMessage)
-	default:
-		return false, sink.Trace("codex_notification_ignored", message.Method)
+	handler, ok := codexNotificationHandlers[message.Method]
+	if !ok {
+		return handleUnsupportedCodexNotification(message, sink)
 	}
+	return handler(message, threadID, turnID, sink)
+}
+
+func handleCodexItemStarted(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	return handleCodexItemUpsert(message, threadID, turnID, sink, RunItemStatusRunning)
+}
+
+func handleCodexItemCompleted(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	return handleCodexItemUpsert(message, threadID, turnID, sink, RunItemStatusCompleted)
+}
+
+func handleCodexPlanDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	return handleCodexTextActivityDelta(message, threadID, turnID, sink, RunItemTypePlan, "Plan update")
+}
+
+func handleCodexReasoningSummaryDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	return handleCodexTextActivityDelta(message, threadID, turnID, sink, RunItemTypeReasoning, "Reasoning summary")
+}
+
+func handleCodexReasoningSummaryPartAdded(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	return handleCodexTextActivityValue(message, threadID, turnID, sink, RunItemTypeReasoning, "Reasoning summary", "\n")
+}
+
+func handleCodexTurnCompletedNotification(message jsonRPCMessage, threadID string, turnID string, _ TurnSink) (bool, error) {
+	return handleCodexTurnCompleted(message, threadID, turnID)
+}
+
+func ignoreCodexNotification(jsonRPCMessage, string, string, TurnSink) (bool, error) {
+	return false, nil
+}
+
+func handleCodexErrorNotification(message jsonRPCMessage, _ string, _ string, _ TurnSink) (bool, error) {
+	errorMessage, err := requireStringFromRaw(message.Params, "message", "codex error notification")
+	if err != nil {
+		return false, err
+	}
+	return false, fmt.Errorf("codex app-server error notification: %s", errorMessage)
+}
+
+func handleUnsupportedCodexNotification(message jsonRPCMessage, sink TurnSink) (bool, error) {
+	if err := sink.Trace("codex_notification_unsupported", message.Method); err != nil {
+		return false, err
+	}
+	return false, sink.RunItemUpsert(RunItem{
+		ProviderItemID: "notice_" + message.Method,
+		Type:           RunItemTypeNotice,
+		Status:         RunItemStatusCompleted,
+		NoticeKind:     "unsupported_notification",
+		NoticeMessage:  message.Method,
+	})
 }
 
 func handleCodexAssistantDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
@@ -281,7 +368,260 @@ func handleCodexAssistantDelta(message jsonRPCMessage, threadID string, turnID s
 	if err != nil {
 		return false, err
 	}
-	return false, sink.AssistantTextDelta(delta)
+	itemID, err := optionalString(params, "itemId", "codex assistant delta")
+	if err != nil {
+		return false, err
+	}
+	return false, sink.AssistantTextDelta(itemID, delta)
+}
+
+func handleCodexTurnStarted(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	params, err := objectValue(message.Params, "codex turn started params")
+	if err != nil {
+		return false, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return false, nil
+	}
+	return false, sink.Trace("codex_turn_started", turnID)
+}
+
+func handleCodexItemUpsert(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, status string) (bool, error) {
+	params, err := objectValue(message.Params, "codex item params")
+	if err != nil {
+		return false, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return false, nil
+	}
+	item, err := requireObject(params, "item", "codex item")
+	if err != nil {
+		return false, err
+	}
+	runItem, err := runItemFromCodexItem(item, status)
+	if err != nil {
+		return false, err
+	}
+	return false, sink.RunItemUpsert(runItem)
+}
+
+func handleCodexTextActivityDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, itemType string, title string) (bool, error) {
+	params, err := objectValue(message.Params, "codex text activity delta params")
+	if err != nil {
+		return false, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return false, nil
+	}
+	itemID, err := requireString(params, "itemId", "codex text activity delta")
+	if err != nil {
+		return false, err
+	}
+	delta, err := requireString(params, "delta", "codex text activity delta")
+	if err != nil {
+		return false, err
+	}
+	return false, sink.RunItemUpsert(textActivityRunItem(itemID, itemType, title, delta))
+}
+
+func handleCodexTextActivityValue(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, itemType string, title string, progress string) (bool, error) {
+	params, err := objectValue(message.Params, "codex text activity params")
+	if err != nil {
+		return false, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return false, nil
+	}
+	itemID, err := requireString(params, "itemId", "codex text activity")
+	if err != nil {
+		return false, err
+	}
+	return false, sink.RunItemUpsert(textActivityRunItem(itemID, itemType, title, progress))
+}
+
+func textActivityRunItem(itemID string, itemType string, title string, progress string) RunItem {
+	return RunItem{
+		ProviderItemID: itemID,
+		Type:           itemType,
+		Status:         RunItemStatusRunning,
+		Title:          title,
+		Progress:       progress,
+	}
+}
+
+func handleCodexOutputDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	params, err := objectValue(message.Params, "codex command output delta params")
+	if err != nil {
+		return false, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return false, nil
+	}
+	itemID, err := requireString(params, "itemId", "codex command output delta")
+	if err != nil {
+		return false, err
+	}
+	stream, err := requireString(params, "stream", "codex command output delta")
+	if err != nil {
+		return false, err
+	}
+	delta, err := requireString(params, "delta", "codex command output delta")
+	if err != nil {
+		return false, err
+	}
+	return false, sink.RunItemOutputDelta(itemID, stream, delta)
+}
+
+func handleCodexTerminalInteraction(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	params, err := objectValue(message.Params, "codex terminal interaction params")
+	if err != nil {
+		return false, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return false, nil
+	}
+	itemID, err := requireString(params, "itemId", "codex terminal interaction")
+	if err != nil {
+		return false, err
+	}
+	text, err := requireString(params, "text", "codex terminal interaction")
+	if err != nil {
+		return false, err
+	}
+	return false, sink.RunItemUpsert(RunItem{
+		ProviderItemID: itemID + "_terminal",
+		Type:           RunItemTypeTerminalInteraction,
+		Status:         RunItemStatusCompleted,
+		Title:          "Terminal interaction",
+		Summary:        text,
+	})
+}
+
+func handleCodexPatchUpdated(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	params, err := objectValue(message.Params, "codex file patch params")
+	if err != nil {
+		return false, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return false, nil
+	}
+	itemID, err := requireString(params, "itemId", "codex file patch")
+	if err != nil {
+		return false, err
+	}
+	status, err := optionalString(params, "status", "codex file patch")
+	if err != nil {
+		return false, err
+	}
+	paths, err := optionalStringArray(params, "changedPaths", "codex file patch")
+	if err != nil {
+		return false, err
+	}
+	return false, sink.RunItemUpsert(RunItem{
+		ProviderItemID: itemID,
+		Type:           RunItemTypeFileChange,
+		Status:         RunItemStatusRunning,
+		FilePaths:      paths,
+		PatchStatus:    status,
+	})
+}
+
+func handleCodexMCPProgress(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	params, err := objectValue(message.Params, "codex mcp progress params")
+	if err != nil {
+		return false, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return false, nil
+	}
+	itemID, err := requireString(params, "itemId", "codex mcp progress")
+	if err != nil {
+		return false, err
+	}
+	progress, err := requireString(params, "progress", "codex mcp progress")
+	if err != nil {
+		return false, err
+	}
+	return false, sink.RunItemUpsert(RunItem{
+		ProviderItemID: itemID,
+		Type:           RunItemTypeMCPToolCall,
+		Status:         RunItemStatusRunning,
+		Progress:       progress,
+	})
+}
+
+func handleCodexDiffUpdated(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	params, err := objectValue(message.Params, "codex diff params")
+	if err != nil {
+		return false, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return false, nil
+	}
+	summary, err := optionalString(params, "summary", "codex diff")
+	if err != nil {
+		return false, err
+	}
+	if summary == "" {
+		summary = "Diff updated"
+	}
+	return false, sink.RunItemUpsert(RunItem{
+		ProviderItemID: "diff_" + turnID,
+		Type:           RunItemTypeDiff,
+		Status:         RunItemStatusCompleted,
+		DiffSummary:    summary,
+	})
+}
+
+func handleCodexPlanUpdated(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	params, err := objectValue(message.Params, "codex plan update params")
+	if err != nil {
+		return false, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return false, nil
+	}
+	summary, err := optionalString(params, "summary", "codex plan update")
+	if err != nil {
+		return false, err
+	}
+	if summary == "" {
+		summary, err = jsonSummaryAny(params["plan"])
+		if err != nil {
+			return false, err
+		}
+	}
+	return false, sink.RunItemUpsert(RunItem{
+		ProviderItemID: "plan_" + turnID,
+		Type:           RunItemTypePlan,
+		Status:         RunItemStatusRunning,
+		Title:          "Plan updated",
+		Summary:        summary,
+	})
+}
+
+func handleCodexNotice(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
+	params, err := objectValue(message.Params, "codex notice params")
+	if err != nil && len(message.Params) > 0 {
+		return false, err
+	}
+	if len(params) > 0 && !notificationMatchesTurn(params, threadID, turnID) {
+		return false, nil
+	}
+	text, err := optionalString(params, "message", "codex notice")
+	if err != nil {
+		return false, err
+	}
+	if text == "" {
+		text = message.Method
+	}
+	return false, sink.RunItemUpsert(RunItem{
+		ProviderItemID: "notice_" + message.Method + "_" + turnID,
+		Type:           RunItemTypeNotice,
+		Status:         RunItemStatusCompleted,
+		NoticeKind:     message.Method,
+		NoticeMessage:  text,
+	})
 }
 
 func handleCodexTurnCompleted(message jsonRPCMessage, threadID string, turnID string) (bool, error) {
@@ -322,8 +662,14 @@ func handleCodexTurnCompleted(message jsonRPCMessage, threadID string, turnID st
 }
 
 func (harness *CodexHarness) handleCodexServerRequest(message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) error {
+	if !isSupportedCodexServerRequest(message.Method) {
+		return handleUnsupportedCodexServerRequest(message, sink)
+	}
 	approval, details, err := approvalRequestFromCodex(message, runID, threadID, turnID)
 	if err != nil {
+		return err
+	}
+	if err := sink.RunItemUpsert(details.runItem); err != nil {
 		return err
 	}
 	harness.mu.Lock()
@@ -339,14 +685,43 @@ func (harness *CodexHarness) handleCodexServerRequest(message jsonRPCMessage, ru
 	return sink.ApprovalRequested(approval)
 }
 
+var supportedCodexServerRequests = map[string]bool{
+	"item/commandExecution/requestApproval": true,
+	"item/fileChange/requestApproval":       true,
+	"item/permissions/requestApproval":      true,
+	"item/tool/requestUserInput":            true,
+}
+
+func isSupportedCodexServerRequest(method string) bool {
+	return supportedCodexServerRequests[method]
+}
+
+func handleUnsupportedCodexServerRequest(message jsonRPCMessage, sink TurnSink) error {
+	if err := sink.Trace("codex_request_unsupported", message.Method); err != nil {
+		return err
+	}
+	if err := sink.RunItemUpsert(RunItem{
+		ProviderItemID: "notice_request_" + message.Method,
+		Type:           RunItemTypeNotice,
+		Status:         RunItemStatusCompleted,
+		NoticeKind:     "unsupported_request",
+		NoticeMessage:  message.Method,
+	}); err != nil {
+		return err
+	}
+	return fmt.Errorf("unsupported codex app-server request: %s", message.Method)
+}
+
 type codexApprovalDetails struct {
 	permissionProfile map[string]any
 	questions         []ApprovalQuestion
+	runItem           RunItem
 }
 
 type codexApprovalContext struct {
-	requestID string
-	runID     string
+	providerItemID string
+	requestID      string
+	runID          string
 }
 
 func approvalRequestFromCodex(message jsonRPCMessage, runID string, threadID string, turnID string) (ApprovalRequest, codexApprovalDetails, error) {
@@ -361,7 +736,11 @@ func approvalRequestFromCodex(message jsonRPCMessage, runID string, threadID str
 	if err := validateCodexRequestTurn(params, threadID, turnID); err != nil {
 		return ApprovalRequest{}, codexApprovalDetails{}, err
 	}
-	context := codexApprovalContext{requestID: requestID, runID: runID}
+	itemID, err := requireString(params, "itemId", "codex approval request")
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	context := codexApprovalContext{providerItemID: itemID, requestID: requestID, runID: runID}
 	switch message.Method {
 	case "item/commandExecution/requestApproval":
 		return commandApprovalFromCodex(params, context)
@@ -404,16 +783,30 @@ func commandApprovalFromCodex(params map[string]any, context codexApprovalContex
 	if err != nil {
 		return ApprovalRequest{}, codexApprovalDetails{}, err
 	}
-	return ApprovalRequest{
-		ID:       "codex_" + context.requestID,
-		RunID:    context.runID,
-		Kind:     ApprovalKindCommand,
-		Title:    "Command approval",
-		Body:     reason,
-		Command:  command,
-		FilePath: cwd,
-		Options:  []string{},
-	}, codexApprovalDetails{}, nil
+	approval := ApprovalRequest{
+		ID:             "codex_" + context.requestID,
+		RunID:          context.runID,
+		ProviderItemID: context.providerItemID,
+		Kind:           ApprovalKindCommand,
+		Title:          "Command approval",
+		Body:           reason,
+		Command:        command,
+		FilePath:       cwd,
+		Options:        []string{},
+	}
+	return approval, codexApprovalDetails{runItem: commandApprovalRunItem(context.providerItemID, command, cwd, reason)}, nil
+}
+
+func commandApprovalRunItem(providerItemID string, command string, cwd string, reason string) RunItem {
+	return RunItem{
+		ProviderItemID: providerItemID,
+		Type:           RunItemTypeCommandExecution,
+		Status:         RunItemStatusPending,
+		Title:          "Command approval",
+		Summary:        reason,
+		Command:        command,
+		Cwd:            cwd,
+	}
 }
 
 func fileChangeApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
@@ -425,15 +818,29 @@ func fileChangeApprovalFromCodex(params map[string]any, context codexApprovalCon
 	if err != nil {
 		return ApprovalRequest{}, codexApprovalDetails{}, err
 	}
-	return ApprovalRequest{
-		ID:       "codex_" + context.requestID,
-		RunID:    context.runID,
-		Kind:     ApprovalKindFileChange,
-		Title:    "File change approval",
-		Body:     reason,
-		FilePath: grantRoot,
-		Options:  []string{},
-	}, codexApprovalDetails{}, nil
+	approval := ApprovalRequest{
+		ID:             "codex_" + context.requestID,
+		RunID:          context.runID,
+		ProviderItemID: context.providerItemID,
+		Kind:           ApprovalKindFileChange,
+		Title:          "File change approval",
+		Body:           reason,
+		FilePath:       grantRoot,
+		Options:        []string{},
+	}
+	return approval, codexApprovalDetails{runItem: fileChangeApprovalRunItem(context.providerItemID, grantRoot, reason)}, nil
+}
+
+func fileChangeApprovalRunItem(providerItemID string, grantRoot string, reason string) RunItem {
+	return RunItem{
+		ProviderItemID: providerItemID,
+		Type:           RunItemTypeFileChange,
+		Status:         RunItemStatusPending,
+		Title:          "File change approval",
+		Summary:        reason,
+		FilePaths:      []string{grantRoot},
+		PatchStatus:    "approval_requested",
+	}
 }
 
 func permissionApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
@@ -453,16 +860,33 @@ func permissionApprovalFromCodex(params map[string]any, context codexApprovalCon
 	if err != nil {
 		return ApprovalRequest{}, codexApprovalDetails{}, err
 	}
-	return ApprovalRequest{
-		ID:         "codex_" + context.requestID,
-		RunID:      context.runID,
-		Kind:       ApprovalKindPermission,
-		Title:      "Permission approval",
-		Body:       reason,
-		FilePath:   cwd,
-		Permission: permissionSummary,
-		Options:    []string{},
-	}, codexApprovalDetails{permissionProfile: permissions}, nil
+	approval := ApprovalRequest{
+		ID:             "codex_" + context.requestID,
+		RunID:          context.runID,
+		ProviderItemID: context.providerItemID,
+		Kind:           ApprovalKindPermission,
+		Title:          "Permission approval",
+		Body:           reason,
+		FilePath:       cwd,
+		Permission:     permissionSummary,
+		Options:        []string{},
+	}
+	return approval, codexApprovalDetails{
+		permissionProfile: permissions,
+		runItem:           permissionApprovalRunItem(context.providerItemID, cwd, reason, permissionSummary),
+	}, nil
+}
+
+func permissionApprovalRunItem(providerItemID string, cwd string, reason string, permissionSummary string) RunItem {
+	return RunItem{
+		ProviderItemID: providerItemID,
+		Type:           RunItemTypeDynamicToolCall,
+		Status:         RunItemStatusPending,
+		Title:          "Permission approval",
+		Summary:        reason,
+		Cwd:            cwd,
+		Result:         permissionSummary,
+	}
 }
 
 func userInputApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
@@ -470,16 +894,31 @@ func userInputApprovalFromCodex(params map[string]any, context codexApprovalCont
 	if err != nil {
 		return ApprovalRequest{}, codexApprovalDetails{}, err
 	}
-	return ApprovalRequest{
-		ID:        "codex_" + context.requestID,
-		RunID:     context.runID,
-		Kind:      ApprovalKindUserInput,
-		Title:     title,
-		Body:      body,
-		Question:  body,
-		Options:   options,
-		Questions: questions,
-	}, codexApprovalDetails{questions: questions}, nil
+	approval := ApprovalRequest{
+		ID:             "codex_" + context.requestID,
+		RunID:          context.runID,
+		ProviderItemID: context.providerItemID,
+		Kind:           ApprovalKindUserInput,
+		Title:          title,
+		Body:           body,
+		Question:       body,
+		Options:        options,
+		Questions:      questions,
+	}
+	return approval, codexApprovalDetails{
+		questions: questions,
+		runItem:   userInputApprovalRunItem(context.providerItemID, title, body),
+	}, nil
+}
+
+func userInputApprovalRunItem(providerItemID string, title string, body string) RunItem {
+	return RunItem{
+		ProviderItemID: providerItemID,
+		Type:           RunItemTypeDynamicToolCall,
+		Status:         RunItemStatusPending,
+		Title:          title,
+		Summary:        body,
+	}
 }
 
 func codexApprovalResult(pending codexPendingApproval, response ApprovalResponse) (codexApprovalReply, error) {
@@ -559,457 +998,5 @@ func (harness *CodexHarness) unregisterActive(runID string) {
 		if approval.runID == runID {
 			delete(harness.approvals, approvalID)
 		}
-	}
-}
-
-type jsonRPCClient struct {
-	cmd           *exec.Cmd
-	stdin         io.WriteCloser
-	notifications chan jsonRPCMessage
-	requests      chan jsonRPCMessage
-	done          chan error
-
-	mu      sync.Mutex
-	nextID  int
-	pending map[int]chan jsonRPCMessage
-}
-
-type jsonRPCMessage struct {
-	ID     any             `json:"id,omitempty"`
-	Method string          `json:"method,omitempty"`
-	Params json.RawMessage `json:"params,omitempty"`
-	Result json.RawMessage `json:"result,omitempty"`
-	Error  *jsonRPCError   `json:"error,omitempty"`
-	client *jsonRPCClient
-}
-
-type jsonRPCError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-func startJSONRPCClient(config CodexHarnessConfig) (*jsonRPCClient, error) {
-	cmd := exec.Command(config.Command, config.Args...)
-	if len(config.Env) > 0 {
-		cmd.Env = append(os.Environ(), config.Env...)
-	}
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return nil, fmt.Errorf("create codex app-server stdin: %w", err)
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return nil, fmt.Errorf("create codex app-server stdout: %w", err)
-	}
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("start codex app-server: %w", err)
-	}
-	client := &jsonRPCClient{
-		cmd:           cmd,
-		stdin:         stdin,
-		notifications: make(chan jsonRPCMessage, 128),
-		requests:      make(chan jsonRPCMessage, 32),
-		done:          make(chan error, 1),
-		pending:       map[int]chan jsonRPCMessage{},
-	}
-	go client.readLoop(stdout, &stderr)
-	return client, nil
-}
-
-func (client *jsonRPCClient) call(ctx context.Context, method string, params any) (json.RawMessage, error) {
-	id, responseChannel := client.registerPending()
-	if err := client.write(map[string]any{
-		"jsonrpc": "2.0",
-		"id":      id,
-		"method":  method,
-		"params":  params,
-	}); err != nil {
-		client.unregisterPending(id)
-		return nil, err
-	}
-	select {
-	case <-ctx.Done():
-		client.unregisterPending(id)
-		return nil, ctx.Err()
-	case response := <-responseChannel:
-		if response.Error != nil {
-			return nil, fmt.Errorf("%s failed: %s", method, response.Error.Message)
-		}
-		return response.Result, nil
-	case err := <-client.done:
-		client.unregisterPending(id)
-		if err == nil {
-			return nil, fmt.Errorf("%s failed: codex app-server exited", method)
-		}
-		return nil, fmt.Errorf("%s failed: codex app-server exited: %w", method, err)
-	}
-}
-
-func (client *jsonRPCClient) respondResult(id any, result any) error {
-	return client.write(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
-}
-
-func (client *jsonRPCClient) respondError(id any, code int, message string) error {
-	return client.write(map[string]any{
-		"jsonrpc": "2.0",
-		"id":      id,
-		"error":   map[string]any{"code": code, "message": message},
-	})
-}
-
-func (client *jsonRPCClient) registerPending() (int, chan jsonRPCMessage) {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	client.nextID++
-	id := client.nextID
-	channel := make(chan jsonRPCMessage, 1)
-	client.pending[id] = channel
-	return id, channel
-}
-
-func (client *jsonRPCClient) unregisterPending(id int) {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	delete(client.pending, id)
-}
-
-func (client *jsonRPCClient) write(payload any) error {
-	client.mu.Lock()
-	defer client.mu.Unlock()
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("encode codex app-server message: %w", err)
-	}
-	if _, err := client.stdin.Write(append(data, '\n')); err != nil {
-		return fmt.Errorf("write codex app-server message: %w", err)
-	}
-	return nil
-}
-
-func (client *jsonRPCClient) readLoop(stdout io.Reader, stderr *bytes.Buffer) {
-	scanner := bufio.NewScanner(stdout)
-	scanner.Buffer(make([]byte, 4096), 16*1024*1024)
-	for scanner.Scan() {
-		var message jsonRPCMessage
-		if err := json.Unmarshal(scanner.Bytes(), &message); err != nil {
-			client.done <- fmt.Errorf("decode codex app-server message: %w", err)
-			return
-		}
-		message.client = client
-		if err := client.routeMessage(message); err != nil {
-			client.done <- err
-			return
-		}
-	}
-	if err := scanner.Err(); err != nil {
-		client.done <- err
-		return
-	}
-	waitErr := client.cmd.Wait()
-	if waitErr != nil {
-		message := stderr.String()
-		if message != "" {
-			client.done <- fmt.Errorf("%w: %s", waitErr, message)
-			return
-		}
-		client.done <- waitErr
-		return
-	}
-	client.done <- nil
-}
-
-func (client *jsonRPCClient) routeMessage(message jsonRPCMessage) error {
-	if message.Method != "" && message.ID != nil {
-		client.requests <- message
-		return nil
-	}
-	if message.Method != "" {
-		client.notifications <- message
-		return nil
-	}
-	if message.ID == nil {
-		return nil
-	}
-	id, ok := intID(message.ID)
-	if !ok {
-		return fmt.Errorf("codex response id must be an integer: %v", message.ID)
-	}
-	client.resolvePending(id, message)
-	return nil
-}
-
-func (client *jsonRPCClient) resolvePending(id int, message jsonRPCMessage) {
-	client.mu.Lock()
-	channel := client.pending[id]
-	delete(client.pending, id)
-	client.mu.Unlock()
-	if channel != nil {
-		channel <- message
-	}
-}
-
-func (client *jsonRPCClient) close() {
-	_ = client.stdin.Close()
-	if client.cmd.Process != nil {
-		_ = client.cmd.Process.Kill()
-	}
-}
-
-func threadIDFromResponse(raw json.RawMessage) (string, error) {
-	response, err := objectValue(raw, "codex thread response")
-	if err != nil {
-		return "", err
-	}
-	thread, err := requireObject(response, "thread", "codex thread response")
-	if err != nil {
-		return "", err
-	}
-	threadID, err := requireString(thread, "id", "codex thread response thread")
-	if err != nil {
-		return "", err
-	}
-	return threadID, nil
-}
-
-func turnIDFromResponse(raw json.RawMessage) (string, error) {
-	response, err := objectValue(raw, "codex turn response")
-	if err != nil {
-		return "", err
-	}
-	turn, err := requireObject(response, "turn", "codex turn response")
-	if err != nil {
-		return "", err
-	}
-	turnID, err := requireString(turn, "id", "codex turn response turn")
-	if err != nil {
-		return "", err
-	}
-	return turnID, nil
-}
-
-func objectValue(raw json.RawMessage, label string) (map[string]any, error) {
-	if len(raw) == 0 {
-		return nil, fmt.Errorf("%s is required", label)
-	}
-	var value map[string]any
-	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, fmt.Errorf("%s must be an object: %w", label, err)
-	}
-	if value == nil {
-		return nil, fmt.Errorf("%s must be an object", label)
-	}
-	return value, nil
-}
-
-func requireObject(value map[string]any, name string, label string) (map[string]any, error) {
-	raw, ok := value[name]
-	if !ok || raw == nil {
-		return nil, fmt.Errorf("%s.%s is required", label, name)
-	}
-	object, ok := raw.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("%s.%s must be an object", label, name)
-	}
-	return object, nil
-}
-
-func requireString(value map[string]any, name string, label string) (string, error) {
-	raw, ok := value[name]
-	if !ok || raw == nil {
-		return "", fmt.Errorf("%s.%s is required", label, name)
-	}
-	text, ok := raw.(string)
-	if !ok {
-		return "", fmt.Errorf("%s.%s must be a string", label, name)
-	}
-	if text == "" {
-		return "", fmt.Errorf("%s.%s is required", label, name)
-	}
-	return text, nil
-}
-
-func optionalString(value map[string]any, name string, label string) (string, error) {
-	raw, ok := value[name]
-	if !ok || raw == nil {
-		return "", nil
-	}
-	text, ok := raw.(string)
-	if !ok {
-		return "", fmt.Errorf("%s.%s must be a string", label, name)
-	}
-	return text, nil
-}
-
-func optionalBool(value map[string]any, name string, label string) (bool, error) {
-	raw, ok := value[name]
-	if !ok || raw == nil {
-		return false, nil
-	}
-	flag, ok := raw.(bool)
-	if !ok {
-		return false, fmt.Errorf("%s.%s must be a boolean", label, name)
-	}
-	return flag, nil
-}
-
-func requireStringFromRaw(raw json.RawMessage, name string, label string) (string, error) {
-	value, err := objectValue(raw, label)
-	if err != nil {
-		return "", err
-	}
-	return requireString(value, name, label)
-}
-
-func jsonSummary(value map[string]any) (string, error) {
-	data, err := json.MarshalIndent(value, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("summarize codex JSON object: %w", err)
-	}
-	return string(data), nil
-}
-
-func questionOptions(question map[string]any, label string) ([]string, error) {
-	raw, ok := question["options"]
-	if !ok || raw == nil {
-		return []string{}, nil
-	}
-	rawOptions, ok := raw.([]any)
-	if !ok {
-		return nil, fmt.Errorf("%s.options must be an array", label)
-	}
-	options := make([]string, 0, len(rawOptions))
-	for index, rawOption := range rawOptions {
-		option, ok := rawOption.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("%s.options[%d] must be an object", label, index)
-		}
-		optionLabel, err := requireString(option, "label", fmt.Sprintf("%s.options[%d]", label, index))
-		if err != nil {
-			return nil, err
-		}
-		options = append(options, optionLabel)
-	}
-	return options, nil
-}
-
-func userInputQuestions(params map[string]any) ([]ApprovalQuestion, string, string, []string, error) {
-	rawQuestions, err := requireQuestionArray(params)
-	if err != nil {
-		return nil, "", "", nil, err
-	}
-	questions := make([]ApprovalQuestion, 0, len(rawQuestions))
-	for index, raw := range rawQuestions {
-		question, err := approvalQuestionFromCodex(raw, index)
-		if err != nil {
-			return nil, "", "", nil, err
-		}
-		questions = append(questions, question)
-	}
-	title, body, options := userInputSummary(questions)
-	return questions, title, body, options, nil
-}
-
-func requireQuestionArray(params map[string]any) ([]any, error) {
-	raw, ok := params["questions"]
-	if !ok || raw == nil {
-		return nil, errors.New("codex user input approval.questions is required")
-	}
-	rawQuestions, ok := raw.([]any)
-	if !ok {
-		return nil, errors.New("codex user input approval.questions must be an array")
-	}
-	if len(rawQuestions) == 0 {
-		return nil, errors.New("codex user input approval.questions must not be empty")
-	}
-	return rawQuestions, nil
-}
-
-func approvalQuestionFromCodex(raw any, index int) (ApprovalQuestion, error) {
-	question, ok := raw.(map[string]any)
-	if !ok {
-		return ApprovalQuestion{}, fmt.Errorf("codex user input approval.questions[%d] must be an object", index)
-	}
-	label := fmt.Sprintf("codex user input approval.questions[%d]", index)
-	id, err := requireString(question, "id", label)
-	if err != nil {
-		return ApprovalQuestion{}, err
-	}
-	text, err := requireString(question, "question", label)
-	if err != nil {
-		return ApprovalQuestion{}, err
-	}
-	header, err := optionalString(question, "header", label)
-	if err != nil {
-		return ApprovalQuestion{}, err
-	}
-	options, err := questionOptions(question, label)
-	if err != nil {
-		return ApprovalQuestion{}, err
-	}
-	isOther, err := optionalBool(question, "isOther", label)
-	if err != nil {
-		return ApprovalQuestion{}, err
-	}
-	isSecret, err := optionalBool(question, "isSecret", label)
-	if err != nil {
-		return ApprovalQuestion{}, err
-	}
-	return ApprovalQuestion{
-		ID:       id,
-		Header:   header,
-		Question: text,
-		Options:  options,
-		IsOther:  isOther,
-		IsSecret: isSecret,
-	}, nil
-}
-
-func userInputSummary(questions []ApprovalQuestion) (string, string, []string) {
-	first := questions[0]
-	title := "User input requested"
-	if first.Header != "" {
-		title = first.Header
-	}
-	return title, first.Question, first.Options
-}
-
-func turnErrorMessage(turn map[string]any) (string, error) {
-	rawError, err := requireObject(turn, "error", "codex failed turn")
-	if err != nil {
-		return "", err
-	}
-	return requireString(rawError, "message", "codex failed turn error")
-}
-
-func requestIDString(id any) (string, error) {
-	switch value := id.(type) {
-	case string:
-		if value == "" {
-			return "", errors.New("codex request id is required")
-		}
-		return value, nil
-	case float64:
-		if value != float64(int(value)) {
-			return "", fmt.Errorf("codex request id must be an integer: %v", value)
-		}
-		return strconv.Itoa(int(value)), nil
-	default:
-		return "", fmt.Errorf("codex request id must be a string or integer: %T", id)
-	}
-}
-
-func intID(id any) (int, bool) {
-	switch value := id.(type) {
-	case float64:
-		if value != float64(int(value)) {
-			return 0, false
-		}
-		return int(value), true
-	case int:
-		return value, true
-	default:
-		return 0, false
 	}
 }

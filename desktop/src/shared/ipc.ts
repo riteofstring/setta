@@ -7,8 +7,11 @@ import type {
   ListConversationsResponse,
   MessagePage,
   OpenWorkspaceResponse,
+  QueueMessageResult,
   Run,
+  RunActivityPage,
   SendMessageResult,
+  SteerMessageResult,
   WorkspaceSession,
 } from "@generated/backend";
 import type { RuntimeVersions, SubmitApprovalInput } from "./types";
@@ -21,7 +24,10 @@ export const ipcChannels = {
   chatCreateConversation: "chat:create-conversation",
   chatListConversations: "chat:list-conversations",
   chatMessagePage: "chat:message-page",
+  chatQueueMessage: "chat:queue-message",
+  chatRunActivity: "chat:run-activity",
   chatSendMessage: "chat:send-message",
+  chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
@@ -65,9 +71,21 @@ interface IpcContract {
     args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
     result: MessagePage;
   };
+  chatQueueMessage: {
+    args: [workspaceId: string, conversationId: string, prompt: string];
+    result: QueueMessageResult;
+  };
+  chatRunActivity: {
+    args: [workspaceId: string, runId: string, afterOrdinal: number, limit: number];
+    result: RunActivityPage;
+  };
   chatSendMessage: {
     args: [workspaceId: string, conversationId: string, prompt: string];
     result: SendMessageResult;
+  };
+  chatSteerMessage: {
+    args: [workspaceId: string, conversationId: string, prompt: string];
+    result: SteerMessageResult;
   };
   chatSubmitApproval: {
     args: [input: SubmitApprovalInput];

@@ -14,11 +14,14 @@ import (
 )
 
 const (
-	conversationsDirName = "conversations"
-	conversationFileName = "conversation.json"
-	messagesDirName      = "messages"
-	runsDirName          = "runs"
-	tracesDirName        = "traces"
+	conversationsDirName  = "conversations"
+	conversationFileName  = "conversation.json"
+	messagesDirName       = "messages"
+	runsDirName           = "runs"
+	runItemsDirName       = "items"
+	runItemFileName       = "item.json"
+	runItemOutputsDirName = "outputs"
+	tracesDirName         = "traces"
 )
 
 type Store struct {
@@ -32,6 +35,11 @@ type PersistenceError struct {
 }
 
 type messageFile struct {
+	ordinal int
+	path    string
+}
+
+type runItemOutputFile struct {
 	ordinal int
 	path    string
 }
@@ -241,6 +249,26 @@ func (store *Store) FindMessageByRunID(workspaceID string, conversationID string
 	return ChatMessage{}, false, nil
 }
 
+func (store *Store) FindMessageByID(workspaceID string, conversationID string, messageID string) (ChatMessage, bool, error) {
+	files, err := store.messageFiles(workspaceID, conversationID)
+	if err != nil {
+		return ChatMessage{}, false, err
+	}
+	for _, file := range files {
+		var message ChatMessage
+		if err := readJSONFile(file.path, &message); err != nil {
+			return ChatMessage{}, false, err
+		}
+		if err := validateMessage(message); err != nil {
+			return ChatMessage{}, false, err
+		}
+		if message.ID == messageID {
+			return message, true, nil
+		}
+	}
+	return ChatMessage{}, false, nil
+}
+
 func (store *Store) SaveRun(run Run) error {
 	if err := validateRun(run); err != nil {
 		return err
@@ -309,6 +337,182 @@ func (store *Store) ActiveRun(workspaceID string, conversationID string) (Run, b
 	return Run{}, false, nil
 }
 
+func (store *Store) QueuedState(workspaceID string, conversationID string) (QueueState, error) {
+	runs, err := store.ListRuns(workspaceID)
+	if err != nil {
+		return QueueState{}, err
+	}
+	messages := []ChatMessage{}
+	queuedRuns := []Run{}
+	for _, run := range runs {
+		if run.ConversationID != conversationID || run.Status != RunStatusQueued {
+			continue
+		}
+		message, ok, err := store.FindMessageByID(workspaceID, conversationID, run.TriggerMessageID)
+		if err != nil {
+			return QueueState{}, err
+		}
+		if !ok {
+			return QueueState{}, fmt.Errorf("queued run %s trigger message %s was not found", run.ID, run.TriggerMessageID)
+		}
+		messages = append(messages, message)
+		queuedRuns = append(queuedRuns, run)
+	}
+	sort.SliceStable(queuedRuns, func(left int, right int) bool {
+		leftOrdinal := queuedMessageOrdinal(messages, queuedRuns[left].TriggerMessageID)
+		rightOrdinal := queuedMessageOrdinal(messages, queuedRuns[right].TriggerMessageID)
+		if leftOrdinal == rightOrdinal {
+			return queuedRuns[left].ID < queuedRuns[right].ID
+		}
+		return leftOrdinal < rightOrdinal
+	})
+	sort.SliceStable(messages, func(left int, right int) bool {
+		if messages[left].Ordinal == messages[right].Ordinal {
+			return messages[left].ID < messages[right].ID
+		}
+		return messages[left].Ordinal < messages[right].Ordinal
+	})
+	return QueueState{Messages: messages, Runs: queuedRuns}, nil
+}
+
+func queuedMessageOrdinal(messages []ChatMessage, messageID string) int {
+	for _, message := range messages {
+		if message.ID == messageID {
+			return message.Ordinal
+		}
+	}
+	return 0
+}
+
+func (store *Store) NextQueuedRun(workspaceID string, conversationID string) (Run, ChatMessage, bool, error) {
+	state, err := store.QueuedState(workspaceID, conversationID)
+	if err != nil {
+		return Run{}, ChatMessage{}, false, err
+	}
+	if len(state.Runs) == 0 {
+		return Run{}, ChatMessage{}, false, nil
+	}
+	run := state.Runs[0]
+	for _, message := range state.Messages {
+		if message.ID == run.TriggerMessageID {
+			return run, message, true, nil
+		}
+	}
+	return Run{}, ChatMessage{}, false, fmt.Errorf("queued run %s trigger message %s was not found", run.ID, run.TriggerMessageID)
+}
+
+func (store *Store) SaveRunItem(item RunItem) error {
+	if err := validateRunItem(item); err != nil {
+		return err
+	}
+	return writeJSONFile(store.runItemPath(item.WorkspaceID, item.RunID, item.ID), item)
+}
+
+func (store *Store) LoadRunItems(workspaceID string, runID string) ([]RunItem, error) {
+	dir := store.runItemsDir(workspaceID, runID)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []RunItem{}, nil
+		}
+		return nil, &PersistenceError{Operation: "list run items", Path: dir, Err: err}
+	}
+	items := make([]RunItem, 0, len(entries))
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		var item RunItem
+		path := store.runItemPath(workspaceID, runID, entry.Name())
+		if err := readJSONFile(path, &item); err != nil {
+			return nil, err
+		}
+		if err := validateRunItem(item); err != nil {
+			return nil, err
+		}
+		if item.WorkspaceID != workspaceID || item.RunID != runID {
+			return nil, fmt.Errorf("run item %s belongs to workspace %s run %s, not workspace %s run %s", item.ID, item.WorkspaceID, item.RunID, workspaceID, runID)
+		}
+		items = append(items, item)
+	}
+	sort.SliceStable(items, func(left int, right int) bool {
+		if items[left].CreatedAt == items[right].CreatedAt {
+			return items[left].ID < items[right].ID
+		}
+		return items[left].CreatedAt < items[right].CreatedAt
+	})
+	return items, nil
+}
+
+func (store *Store) FindRunItemByProviderID(workspaceID string, runID string, providerItemID string) (RunItem, bool, error) {
+	items, err := store.LoadRunItems(workspaceID, runID)
+	if err != nil {
+		return RunItem{}, false, err
+	}
+	for _, item := range items {
+		if item.ProviderItemID == providerItemID {
+			return item, true, nil
+		}
+	}
+	return RunItem{}, false, nil
+}
+
+func (store *Store) SaveRunItemOutput(workspaceID string, runID string, output RunItemOutput) error {
+	if err := validateRunItemOutput(output); err != nil {
+		return err
+	}
+	return writeJSONFile(store.runItemOutputPath(workspaceID, runID, output.RunItemID, output.Ordinal, output.ID), output)
+}
+
+func (store *Store) LoadRunItemOutputs(workspaceID string, runID string) ([]RunItemOutput, error) {
+	items, err := store.LoadRunItems(workspaceID, runID)
+	if err != nil {
+		return nil, err
+	}
+	outputs := []RunItemOutput{}
+	for _, item := range items {
+		itemOutputs, err := store.LoadRunItemOutputsForItem(workspaceID, runID, item.ID)
+		if err != nil {
+			return nil, err
+		}
+		outputs = append(outputs, itemOutputs...)
+	}
+	return outputs, nil
+}
+
+func (store *Store) LoadRunItemOutputsForItem(workspaceID string, runID string, runItemID string) ([]RunItemOutput, error) {
+	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
+	if err != nil {
+		return nil, err
+	}
+	outputs := make([]RunItemOutput, 0, len(files))
+	for _, file := range files {
+		var output RunItemOutput
+		if err := readJSONFile(file.path, &output); err != nil {
+			return nil, err
+		}
+		if err := validateRunItemOutput(output); err != nil {
+			return nil, err
+		}
+		if output.RunItemID != runItemID {
+			return nil, fmt.Errorf("run item output %s belongs to run item %s, not %s", output.ID, output.RunItemID, runItemID)
+		}
+		outputs = append(outputs, output)
+	}
+	return outputs, nil
+}
+
+func (store *Store) NextRunItemOutputOrdinal(workspaceID string, runID string, runItemID string) (int, error) {
+	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
+	if err != nil {
+		return 0, err
+	}
+	if len(files) == 0 {
+		return 1, nil
+	}
+	return files[len(files)-1].ordinal + 1, nil
+}
+
 func (store *Store) SaveTraceEvent(workspaceID string, trace TraceEvent) error {
 	if err := validateTraceEvent(trace); err != nil {
 		return err
@@ -348,6 +552,26 @@ func (store *Store) tracePath(workspaceID string, runID string, traceID string) 
 	return filepath.Join(store.runsDir(workspaceID), runID, tracesDirName, traceID+".json")
 }
 
+func (store *Store) runItemsDir(workspaceID string, runID string) string {
+	return filepath.Join(store.runsDir(workspaceID), runID, runItemsDirName)
+}
+
+func (store *Store) runItemDir(workspaceID string, runID string, runItemID string) string {
+	return filepath.Join(store.runItemsDir(workspaceID, runID), runItemID)
+}
+
+func (store *Store) runItemPath(workspaceID string, runID string, runItemID string) string {
+	return filepath.Join(store.runItemDir(workspaceID, runID, runItemID), runItemFileName)
+}
+
+func (store *Store) runItemOutputsDir(workspaceID string, runID string, runItemID string) string {
+	return filepath.Join(store.runItemDir(workspaceID, runID, runItemID), runItemOutputsDirName)
+}
+
+func (store *Store) runItemOutputPath(workspaceID string, runID string, runItemID string, ordinal int, outputID string) string {
+	return filepath.Join(store.runItemOutputsDir(workspaceID, runID, runItemID), messageFileName(ordinal, outputID))
+}
+
 func (store *Store) messageFiles(workspaceID string, conversationID string) ([]messageFile, error) {
 	dir := store.messagesDir(workspaceID, conversationID)
 	entries, err := os.ReadDir(dir)
@@ -379,6 +603,35 @@ func (store *Store) messageFiles(workspaceID string, conversationID string) ([]m
 
 func messageFileName(ordinal int, messageID string) string {
 	return fmt.Sprintf("%012d_%s.json", ordinal, messageID)
+}
+
+func (store *Store) runItemOutputFiles(workspaceID string, runID string, runItemID string) ([]runItemOutputFile, error) {
+	dir := store.runItemOutputsDir(workspaceID, runID, runItemID)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []runItemOutputFile{}, nil
+		}
+		return nil, &PersistenceError{Operation: "list run item outputs", Path: dir, Err: err}
+	}
+	files := make([]runItemOutputFile, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
+			continue
+		}
+		ordinal, ok := ordinalFromMessageFileName(entry.Name())
+		if !ok {
+			return nil, fmt.Errorf("malformed run item output filename %s", filepath.Join(dir, entry.Name()))
+		}
+		files = append(files, runItemOutputFile{
+			ordinal: ordinal,
+			path:    filepath.Join(dir, entry.Name()),
+		})
+	}
+	sort.SliceStable(files, func(left int, right int) bool {
+		return files[left].ordinal < files[right].ordinal
+	})
+	return files, nil
 }
 
 func isDataJSONFile(name string) bool {

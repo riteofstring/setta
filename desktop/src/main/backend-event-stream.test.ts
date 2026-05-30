@@ -183,6 +183,7 @@ function message(
   return {
     conversationId: "conversation_api",
     createdAt: "2026-05-29T20:00:00Z",
+    delivery: "normal",
     id,
     ordinal,
     parts: [

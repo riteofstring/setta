@@ -6,6 +6,8 @@ import type {
   ConversationListItem,
   MessagePage,
   Run,
+  RunItem,
+  RunItemOutput,
 } from "@generated/backend";
 import { create } from "zustand";
 
@@ -16,8 +18,10 @@ type ChatOperation =
   | "creating"
   | "loading"
   | "loadingOlder"
+  | "queueing"
   | "refreshing"
   | "sending"
+  | "steering"
   | null;
 
 interface ChatStore {
@@ -29,15 +33,20 @@ interface ChatStore {
   lastEventSequence: number;
   lastEventStreamId: string;
   loadOlder: () => Promise<void>;
+  loadRunActivity: (runId: string, afterOrdinal?: number, limit?: number) => Promise<void>;
   loadWorkspace: (workspaceId: string) => Promise<void>;
   messages: ChatMessage[];
   operation: ChatOperation;
+  queueMessage: (prompt: string) => Promise<void>;
   resyncActiveConversation: () => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
+  runItemOutputs: RunItemOutput[];
+  runItems: RunItem[];
   selectedConversation: Conversation | null;
   selectConversation: (conversationId: string) => Promise<void>;
   sendMessage: (prompt: string) => Promise<void>;
   status: ChatStatus;
+  steerMessage: (prompt: string) => Promise<void>;
   stopActiveRun: () => Promise<void>;
   submitApproval: (
     approvalId: string,
@@ -60,6 +69,8 @@ type ChatPatch = Partial<
     | "lastEventStreamId"
     | "messages"
     | "operation"
+    | "runItemOutputs"
+    | "runItems"
     | "selectedConversation"
     | "status"
     | "workspaceId"
@@ -192,11 +203,29 @@ export const useChatStore = create<ChatStore>((set, get) => {
             hasMoreOlder: page.hasMoreOlder,
             messages: prependOlderMessages(page.messages, current.messages),
             operation: null,
+            runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.runItemOutputs),
+            runItems: upsertRunItems(current.runItems, page.runItems),
             status: "ready",
           };
         });
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
+      }
+    },
+    loadRunActivity: async (runId, afterOrdinal = 0, limit = 200) => {
+      const { workspaceId } = get();
+      if (!workspaceId || runId === "") {
+        return;
+      }
+      try {
+        const page = await window.setta.chat.runActivity(workspaceId, runId, afterOrdinal, limit);
+        set((current) => ({
+          runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
+          runItems: upsertRunItems(current.runItems, page.items),
+          status: "ready",
+        }));
+      } catch (error) {
+        set(errorPatch(error));
       }
     },
     loadWorkspace: async (workspaceId: string) => {
@@ -206,6 +235,8 @@ export const useChatStore = create<ChatStore>((set, get) => {
         hasMoreOlder: false,
         messages: [],
         operation: "loading",
+        runItemOutputs: [],
+        runItems: [],
         selectedConversation: null,
         status: "loading",
         workspaceId,
@@ -232,6 +263,28 @@ export const useChatStore = create<ChatStore>((set, get) => {
     lastEventStreamId: "",
     messages: [],
     operation: null,
+    queueMessage: async (prompt: string) => {
+      const { activeRun, selectedConversation, workspaceId } = get();
+      if (!workspaceId || !selectedConversation) {
+        return;
+      }
+      const operationId = beginOperation({ error: null, operation: "queueing" });
+      try {
+        const result = await window.setta.chat.queueMessage(
+          workspaceId,
+          selectedConversation.id,
+          prompt,
+        );
+        commitCurrent(operationId, {
+          ...pagePatch(result.page, result.run.status === "running" ? result.run : activeRun),
+          operation: null,
+          selectedConversation: result.conversation,
+          status: "ready",
+        });
+      } catch (error) {
+        commitCurrent(operationId, errorPatch(error));
+      }
+    },
     resyncActiveConversation: async () => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId) {
@@ -306,6 +359,30 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
     },
     status: "idle",
+    runItemOutputs: [],
+    runItems: [],
+    steerMessage: async (prompt: string) => {
+      const { selectedConversation, workspaceId } = get();
+      if (!workspaceId || !selectedConversation) {
+        return;
+      }
+      const operationId = beginOperation({ error: null, operation: "steering" });
+      try {
+        const result = await window.setta.chat.steerMessage(
+          workspaceId,
+          selectedConversation.id,
+          prompt,
+        );
+        commitCurrent(operationId, {
+          ...pagePatch(result.page, result.run),
+          operation: null,
+          selectedConversation: result.conversation,
+          status: "ready",
+        });
+      } catch (error) {
+        commitCurrent(operationId, errorPatch(error));
+      }
+    },
     stopActiveRun: async () => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
@@ -373,6 +450,8 @@ function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
     activeRun,
     hasMoreOlder: page.hasMoreOlder,
     messages: page.messages,
+    runItemOutputs: page.runItemOutputs,
+    runItems: page.runItems,
     selectedConversation: page.conversation,
   };
 }
@@ -382,6 +461,8 @@ function emptyConversationPatch(): ChatPatch {
     activeRun: null,
     hasMoreOlder: false,
     messages: [],
+    runItemOutputs: [],
+    runItems: [],
     selectedConversation: null,
   };
 }
@@ -407,37 +488,85 @@ interface EventApplyResult {
   resync: boolean;
 }
 
-function applyChatEvent(
-  state: ChatStore,
-  event: Exclude<ChatEvent, { type: "chat.resync_required" }>,
-): EventApplyResult {
-  switch (event.type) {
-    case "chat.message.created":
-      return selectedConversationEventResult(state, event, {
-        messages: upsertMessage(state.messages, event.payload.message),
-        status: "ready",
-      });
-    case "chat.assistant_text_delta":
-      return applyAssistantTextDelta(state, event);
-    case "chat.message.updated":
-      return selectedConversationEventResult(state, event, {
-        messages: upsertMessage(state.messages, event.payload.message),
-        status: "ready",
-      });
-    case "chat.run.updated":
-      return selectedConversationEventResult(state, event, {
-        activeRun: event.payload.run,
-        status: "ready",
-      });
-    case "chat.conversation.updated":
-      return workspaceEventResult(
-        state,
-        event,
-        conversationUpdatedPatch(state, event.payload.item),
-      );
-    default:
-      return assertNever(event);
+type AppliedChatEvent = Exclude<ChatEvent, { type: "chat.resync_required" }>;
+type MessageUpsertEvent = Extract<
+  AppliedChatEvent,
+  {
+    type:
+      | "chat.message.created"
+      | "chat.message.queued"
+      | "chat.message.steering_sent"
+      | "chat.message.updated";
   }
+>;
+type RunItemUpsertEvent = Extract<
+  AppliedChatEvent,
+  { type: "chat.run_item.created" | "chat.run_item.updated" }
+>;
+
+const messageUpsertEventTypes = new Set([
+  "chat.message.created",
+  "chat.message.queued",
+  "chat.message.steering_sent",
+  "chat.message.updated",
+]);
+
+const runItemUpsertEventTypes = new Set(["chat.run_item.created", "chat.run_item.updated"]);
+
+function applyChatEvent(state: ChatStore, event: AppliedChatEvent): EventApplyResult {
+  if (isMessageUpsertEvent(event)) {
+    return applyMessageUpsertEvent(state, event);
+  }
+  if (isRunItemUpsertEvent(event)) {
+    return applyRunItemUpsertEvent(state, event);
+  }
+  if (event.type === "chat.assistant_text_delta") {
+    return applyAssistantTextDelta(state, event);
+  }
+  if (event.type === "chat.run.updated") {
+    return selectedConversationEventResult(state, event, {
+      activeRun: event.payload.run,
+      status: "ready",
+    });
+  }
+  if (event.type === "chat.run_item_output.delta") {
+    return selectedConversationEventResult(state, event, {
+      runItemOutputs: upsertRunItemOutput(state.runItemOutputs, event.payload.output),
+      status: "ready",
+    });
+  }
+  if (event.type === "chat.queue.updated") {
+    return selectedConversationEventResult(state, event, {
+      messages: mergeQueueMessages(state.messages, event.payload.queue.messages),
+      status: "ready",
+    });
+  }
+  if (event.type === "chat.conversation.updated") {
+    return workspaceEventResult(state, event, conversationUpdatedPatch(state, event.payload.item));
+  }
+  return assertNever(event);
+}
+
+function isMessageUpsertEvent(event: AppliedChatEvent): event is MessageUpsertEvent {
+  return messageUpsertEventTypes.has(event.type);
+}
+
+function isRunItemUpsertEvent(event: AppliedChatEvent): event is RunItemUpsertEvent {
+  return runItemUpsertEventTypes.has(event.type);
+}
+
+function applyMessageUpsertEvent(state: ChatStore, event: MessageUpsertEvent): EventApplyResult {
+  return selectedConversationEventResult(state, event, {
+    messages: upsertMessage(state.messages, event.payload.message),
+    status: "ready",
+  });
+}
+
+function applyRunItemUpsertEvent(state: ChatStore, event: RunItemUpsertEvent): EventApplyResult {
+  return selectedConversationEventResult(state, event, {
+    runItems: upsertRunItem(state.runItems, event.payload.item),
+    status: "ready",
+  });
 }
 
 function selectedConversationEventResult(
@@ -516,6 +645,47 @@ function upsertMessage(messages: ChatMessage[], message: ChatMessage): ChatMessa
   const index = messages.findIndex((item) => item.id === message.id);
   const next = index === -1 ? [...messages, message] : messages.with(index, message);
   return next.toSorted((left, right) => left.ordinal - right.ordinal);
+}
+
+function mergeQueueMessages(messages: ChatMessage[], queuedMessages: ChatMessage[]): ChatMessage[] {
+  return queuedMessages.reduce(upsertMessage, messages);
+}
+
+function upsertRunItems(items: RunItem[], nextItems: RunItem[]): RunItem[] {
+  return nextItems.reduce(upsertRunItem, items);
+}
+
+function upsertRunItem(items: RunItem[], item: RunItem): RunItem[] {
+  const index = items.findIndex((current) => current.id === item.id);
+  const next = index === -1 ? [...items, item] : items.with(index, item);
+  return next.toSorted(compareRunItems);
+}
+
+function compareRunItems(left: RunItem, right: RunItem) {
+  if (left.createdAt === right.createdAt) {
+    return left.id.localeCompare(right.id);
+  }
+  return left.createdAt.localeCompare(right.createdAt);
+}
+
+function upsertRunItemOutputs(
+  outputs: RunItemOutput[],
+  nextOutputs: RunItemOutput[],
+): RunItemOutput[] {
+  return nextOutputs.reduce(upsertRunItemOutput, outputs);
+}
+
+function upsertRunItemOutput(outputs: RunItemOutput[], output: RunItemOutput): RunItemOutput[] {
+  const index = outputs.findIndex((current) => current.id === output.id);
+  const next = index === -1 ? [...outputs, output] : outputs.with(index, output);
+  return next.toSorted(compareRunItemOutputs);
+}
+
+function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
+  if (left.runItemId === right.runItemId) {
+    return left.ordinal - right.ordinal;
+  }
+  return left.runItemId.localeCompare(right.runItemId);
 }
 
 function upsertConversation(

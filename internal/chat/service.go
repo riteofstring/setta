@@ -43,6 +43,8 @@ type activeTurn struct {
 	cancel           context.CancelFunc
 	lastPersistedAt  time.Time
 	runID            string
+	threadID         string
+	turnID           string
 	workspaceID      string
 }
 
@@ -190,7 +192,11 @@ func (service *Service) LoadMessagePage(workspaceID string, conversationID strin
 	if err != nil {
 		return MessagePage{}, err
 	}
-	return service.overlayActiveAssistantMessage(workspaceID, conversationID, beforeOrdinal, page), nil
+	page = service.overlayActiveAssistantMessage(workspaceID, conversationID, beforeOrdinal, page)
+	if err := service.attachPageState(workspaceID, conversationID, &page); err != nil {
+		return MessagePage{}, err
+	}
+	return page, nil
 }
 
 func (service *Service) SendUserMessage(workspaceID string, conversationID string, prompt string) (SendMessageResult, error) {
@@ -214,6 +220,11 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 		return SendMessageResult{}, err
 	} else if ok {
 		return SendMessageResult{}, fmt.Errorf("conversation already has an active run: %s", run.ID)
+	}
+	if state, err := service.store.QueuedState(workspaceID, conversationID); err != nil {
+		return SendMessageResult{}, err
+	} else if len(state.Runs) > 0 {
+		return SendMessageResult{}, fmt.Errorf("conversation has queued messages: %s", conversationID)
 	}
 
 	now := timestamp(service.now())
@@ -241,6 +252,9 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 	if err != nil {
 		return SendMessageResult{}, err
 	}
+	if err := service.attachPageState(workspaceID, conversationID, &page); err != nil {
+		return SendMessageResult{}, err
+	}
 	return SendMessageResult{
 		Conversation:     conversation,
 		UserMessage:      userMessage,
@@ -255,15 +269,16 @@ func (service *Service) persistTurnStartLocked(workspaceID string, conversationI
 	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
-	userMessage, err := service.newUserMessage(workspaceID, conversationID, prompt, now)
+	userMessage, err := service.newUserMessage(workspaceID, conversationID, "", prompt, MessageDeliveryNormal, MessageStatusComplete, now)
 	if err != nil {
-		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
-	}
-	if err := service.store.SaveMessage(workspaceID, userMessage); err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
 	run, assistantMessage, err := service.newRunAndAssistantMessage(workspaceID, conversationID, userMessage, prompt, now)
 	if err != nil {
+		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
+	}
+	userMessage.RunID = run.ID
+	if err := service.store.SaveMessage(workspaceID, userMessage); err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
 	if err := service.store.SaveRun(run); err != nil {
@@ -463,7 +478,7 @@ func (service *Service) clearSubmittedApproval(workspaceID string, runID string,
 	return run, nil
 }
 
-func (service *Service) newUserMessage(workspaceID string, conversationID string, prompt string, now string) (ChatMessage, error) {
+func (service *Service) newUserMessage(workspaceID string, conversationID string, runID string, prompt string, delivery string, status string, now string) (ChatMessage, error) {
 	messageID, err := service.newID("message")
 	if err != nil {
 		return ChatMessage{}, fmt.Errorf("create user message id: %w", err)
@@ -480,12 +495,13 @@ func (service *Service) newUserMessage(workspaceID string, conversationID string
 		SchemaVersion:  SchemaVersion,
 		ID:             messageID,
 		ConversationID: conversationID,
-		RunID:          "",
+		RunID:          runID,
 		Role:           RoleUser,
+		Delivery:       delivery,
 		Ordinal:        ordinal,
 		CreatedAt:      now,
 		UpdatedAt:      now,
-		Status:         MessageStatusComplete,
+		Status:         status,
 		Parts: []MessagePart{{
 			ID:     partID,
 			Type:   MessagePartText,
@@ -495,22 +511,30 @@ func (service *Service) newUserMessage(workspaceID string, conversationID string
 	}, nil
 }
 
+func (service *Service) newQueuedRun(workspaceID string, conversationID string, userMessage ChatMessage, prompt string) (Run, error) {
+	runID, err := service.newID("run")
+	if err != nil {
+		return Run{}, fmt.Errorf("create queued run id: %w", err)
+	}
+	return Run{
+		SchemaVersion:    SchemaVersion,
+		ID:               runID,
+		WorkspaceID:      workspaceID,
+		ConversationID:   conversationID,
+		TriggerMessageID: userMessage.ID,
+		Harness:          HarnessCodex,
+		Status:           RunStatusQueued,
+		StartedAt:        "",
+		CompletedAt:      "",
+		PromptSummary:    summarize(prompt, maxPromptSummary),
+		Error:            "",
+	}, nil
+}
+
 func (service *Service) newRunAndAssistantMessage(workspaceID string, conversationID string, userMessage ChatMessage, prompt string, now string) (Run, ChatMessage, error) {
 	runID, err := service.newID("run")
 	if err != nil {
 		return Run{}, ChatMessage{}, fmt.Errorf("create run id: %w", err)
-	}
-	messageID, err := service.newID("message")
-	if err != nil {
-		return Run{}, ChatMessage{}, fmt.Errorf("create assistant message id: %w", err)
-	}
-	partID, err := service.newID("part")
-	if err != nil {
-		return Run{}, ChatMessage{}, fmt.Errorf("create assistant message part id: %w", err)
-	}
-	ordinal, err := service.store.NextMessageOrdinal(workspaceID, conversationID)
-	if err != nil {
-		return Run{}, ChatMessage{}, err
 	}
 	run := Run{
 		SchemaVersion:    SchemaVersion,
@@ -525,12 +549,37 @@ func (service *Service) newRunAndAssistantMessage(workspaceID string, conversati
 		PromptSummary:    summarize(prompt, maxPromptSummary),
 		Error:            "",
 	}
-	message := ChatMessage{
+	message, err := service.newAssistantMessageWithOrdinal(conversationID, runID, userMessage.Ordinal+1, now)
+	if err != nil {
+		return Run{}, ChatMessage{}, err
+	}
+	return run, message, nil
+}
+
+func (service *Service) newAssistantMessage(workspaceID string, conversationID string, runID string, now string) (ChatMessage, error) {
+	ordinal, err := service.store.NextMessageOrdinal(workspaceID, conversationID)
+	if err != nil {
+		return ChatMessage{}, err
+	}
+	return service.newAssistantMessageWithOrdinal(conversationID, runID, ordinal, now)
+}
+
+func (service *Service) newAssistantMessageWithOrdinal(conversationID string, runID string, ordinal int, now string) (ChatMessage, error) {
+	messageID, err := service.newID("message")
+	if err != nil {
+		return ChatMessage{}, fmt.Errorf("create assistant message id: %w", err)
+	}
+	partID, err := service.newID("part")
+	if err != nil {
+		return ChatMessage{}, fmt.Errorf("create assistant message part id: %w", err)
+	}
+	return ChatMessage{
 		SchemaVersion:  SchemaVersion,
 		ID:             messageID,
 		ConversationID: conversationID,
 		RunID:          runID,
 		Role:           RoleAssistant,
+		Delivery:       MessageDeliveryNormal,
 		Ordinal:        ordinal,
 		CreatedAt:      now,
 		UpdatedAt:      now,
@@ -541,8 +590,7 @@ func (service *Service) newRunAndAssistantMessage(workspaceID string, conversati
 			Text:   "",
 			Format: TextFormatMarkdown,
 		}},
-	}
-	return run, message, nil
+	}, nil
 }
 
 func (service *Service) runHarnessTurn(ctx context.Context, request TurnRequest) {
@@ -566,36 +614,46 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	run, err := service.store.LoadRun(workspaceID, runID)
+	run, active, ok, err := service.runningActiveTurnLocked(workspaceID, conversationID, runID)
+	if err != nil || !ok {
+		return err
+	}
+	now := timestamp(service.now())
+	message, run, err := service.saveCompletedTurnLocked(workspaceID, run, active.assistantMessage, now)
 	if err != nil {
 		return err
 	}
-	if run.Status != RunStatusRunning {
-		return nil
+	delete(service.active, activeKey(workspaceID, conversationID))
+	if err := service.publishCompletedTurnLocked(workspaceID, conversationID, message, run); err != nil {
+		return err
 	}
-	key := activeKey(workspaceID, conversationID)
-	active, ok := service.active[key]
-	if !ok || active.runID != runID {
-		return nil
+	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	if err != nil {
+		return err
 	}
-	now := timestamp(service.now())
-	message := active.assistantMessage
+	return service.promoteNextQueuedRunLocked(workspaceSummary, conversationID)
+}
+
+func (service *Service) saveCompletedTurnLocked(workspaceID string, run Run, message ChatMessage, now string) (ChatMessage, Run, error) {
 	message.Status = MessageStatusComplete
 	message.UpdatedAt = now
 	if err := service.store.SaveMessage(workspaceID, message); err != nil {
-		return err
+		return ChatMessage{}, Run{}, err
 	}
 	run.Status = RunStatusCompleted
 	run.CompletedAt = now
 	run.HasPendingApproval = false
 	run.PendingApproval = ApprovalRequest{}
 	if err := service.store.SaveRun(run); err != nil {
-		return err
+		return ChatMessage{}, Run{}, err
 	}
 	if err := service.traceLocked(workspaceID, run.ID, "turn_completed", "Turn completed"); err != nil {
-		return err
+		return ChatMessage{}, Run{}, err
 	}
-	delete(service.active, key)
+	return message, run, nil
+}
+
+func (service *Service) publishCompletedTurnLocked(workspaceID string, conversationID string, message ChatMessage, run Run) error {
 	if _, err := service.events.Publish(NewMessageUpdatedEvent(workspaceID, conversationID, run.ID, message)); err != nil {
 		return err
 	}
@@ -655,44 +713,6 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 	return nil
 }
 
-func (service *Service) appendAssistantDelta(workspaceID string, conversationID string, runID string, delta string) error {
-	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	run, err := service.store.LoadRun(workspaceID, runID)
-	if err != nil {
-		return err
-	}
-	if run.Status != RunStatusRunning {
-		return nil
-	}
-	key := activeKey(workspaceID, conversationID)
-	active, ok := service.active[key]
-	if !ok || active.runID != runID {
-		return nil
-	}
-	message := active.assistantMessage
-	message.Parts[0].Text += delta
-	now := service.now()
-	message.UpdatedAt = timestamp(now)
-	partID := message.Parts[0].ID
-	active.assistantMessage = message
-	if _, err := service.events.Publish(NewAssistantTextDeltaEvent(workspaceID, conversationID, runID, message.ID, partID, delta, message.UpdatedAt)); err != nil {
-		return err
-	}
-	if active.lastPersistedAt.IsZero() || now.Sub(active.lastPersistedAt) >= deltaPersistInterval {
-		if err := service.store.SaveMessage(workspaceID, message); err != nil {
-			return err
-		}
-		active.lastPersistedAt = now
-		if err := service.traceLocked(workspaceID, run.ID, "assistant_text_delta_received", "Assistant text delta received"); err != nil {
-			return err
-		}
-	}
-	service.active[key] = active
-	return nil
-}
-
 func (service *Service) overlayActiveAssistantMessage(workspaceID string, conversationID string, beforeOrdinal int, page MessagePage) MessagePage {
 	service.mu.Lock()
 	active, ok := service.active[activeKey(workspaceID, conversationID)]
@@ -722,32 +742,87 @@ func (service *Service) requestApproval(workspaceID string, conversationID strin
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	run, err := service.store.LoadRun(workspaceID, runID)
+	run, ok, err := service.runningRunForApprovalLocked(workspaceID, conversationID, runID)
+	if err != nil || !ok {
+		return err
+	}
+	approval, err = service.prepareApprovalRequestLocked(workspaceID, runID, approval)
 	if err != nil {
 		return err
 	}
-	if run.Status != RunStatusRunning {
-		return nil
+	return service.saveApprovalRequestLocked(workspaceID, run, approval)
+}
+
+func (service *Service) runningRunForApprovalLocked(workspaceID string, conversationID string, runID string) (Run, bool, error) {
+	run, err := service.store.LoadRun(workspaceID, runID)
+	if err != nil || run.Status != RunStatusRunning {
+		return run, false, err
 	}
 	if _, ok := service.active[activeKey(workspaceID, conversationID)]; !ok {
-		return nil
+		return run, false, nil
 	}
-	if approval.ID == "" {
-		approvalID, err := service.newID("approval")
-		if err != nil {
-			return fmt.Errorf("create approval id: %w", err)
-		}
-		approval.ID = approvalID
+	return run, true, nil
+}
+
+func (service *Service) prepareApprovalRequestLocked(workspaceID string, runID string, approval ApprovalRequest) (ApprovalRequest, error) {
+	var err error
+	approval.ID, err = service.approvalIDLocked(approval.ID)
+	if err != nil {
+		return ApprovalRequest{}, err
 	}
 	approval.RunID = runID
-	if approval.Options == nil {
-		approval.Options = []string{}
+	runItemID, err := service.runItemIDForProviderIDLocked(workspaceID, runID, approval.ProviderItemID)
+	if err != nil {
+		return ApprovalRequest{}, err
 	}
-	if approval.Questions == nil {
-		approval.Questions = []ApprovalQuestion{}
-	}
+	approval.RunItemID = runItemID
+	approval.Options = stringSliceOrEmpty(approval.Options)
+	approval.Questions = approvalQuestionsOrEmpty(approval.Questions)
 	approval.Status = ApprovalStatusPending
 	approval.CreatedAt = timestamp(service.now())
+	return approval, nil
+}
+
+func (service *Service) approvalIDLocked(existing string) (string, error) {
+	if existing != "" {
+		return existing, nil
+	}
+	approvalID, err := service.newID("approval")
+	if err != nil {
+		return "", fmt.Errorf("create approval id: %w", err)
+	}
+	return approvalID, nil
+}
+
+func (service *Service) runItemIDForProviderIDLocked(workspaceID string, runID string, providerItemID string) (string, error) {
+	if providerItemID == "" {
+		return "", nil
+	}
+	item, ok, err := service.store.FindRunItemByProviderID(workspaceID, runID, providerItemID)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", fmt.Errorf("run item was not found for provider item id: %s", providerItemID)
+	}
+	return item.ID, nil
+}
+
+func stringSliceOrEmpty(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
+}
+
+func approvalQuestionsOrEmpty(values []ApprovalQuestion) []ApprovalQuestion {
+	if values == nil {
+		return []ApprovalQuestion{}
+	}
+	return values
+}
+
+func (service *Service) saveApprovalRequestLocked(workspaceID string, run Run, approval ApprovalRequest) error {
 	run.HasPendingApproval = true
 	run.PendingApproval = approval
 	if err := service.store.SaveRun(run); err != nil {
@@ -756,7 +831,7 @@ func (service *Service) requestApproval(workspaceID string, conversationID strin
 	if err := service.traceLocked(workspaceID, run.ID, "approval_requested", "Approval requested"); err != nil {
 		return err
 	}
-	_, err = service.events.Publish(NewRunUpdatedEvent(run))
+	_, err := service.events.Publish(NewRunUpdatedEvent(run))
 	return err
 }
 
@@ -815,6 +890,13 @@ func (service *Service) linkThread(workspaceID string, conversationID string, ru
 	}
 	if err := service.traceLocked(workspaceID, runID, "codex_thread_ref_linked", "Codex thread reference linked"); err != nil {
 		return err
+	}
+	key := activeKey(workspaceID, conversationID)
+	active, ok := service.active[key]
+	if ok && active.runID == runID {
+		active.threadID = threadID
+		active.turnID = turnID
+		service.active[key] = active
 	}
 	return service.publishConversationUpdatedLocked(workspaceID, conversationID, runID)
 }
@@ -953,8 +1035,8 @@ type turnSink struct {
 	runID          string
 }
 
-func (sink turnSink) AssistantTextDelta(text string) error {
-	return sink.service.appendAssistantDelta(sink.workspaceID, sink.conversationID, sink.runID, text)
+func (sink turnSink) AssistantTextDelta(providerItemID string, text string) error {
+	return sink.service.appendAssistantDelta(sink.workspaceID, sink.conversationID, sink.runID, providerItemID, text)
 }
 
 func (sink turnSink) ApprovalRequested(approval ApprovalRequest) error {
@@ -963,6 +1045,14 @@ func (sink turnSink) ApprovalRequested(approval ApprovalRequest) error {
 
 func (sink turnSink) ApprovalResolved(approvalID string, approved bool, response string) error {
 	return sink.service.resolveApproval(sink.workspaceID, sink.conversationID, sink.runID, approvalID, approved, response)
+}
+
+func (sink turnSink) RunItemOutputDelta(providerItemID string, stream string, text string) error {
+	return sink.service.appendRunItemOutput(sink.workspaceID, sink.conversationID, sink.runID, providerItemID, stream, text)
+}
+
+func (sink turnSink) RunItemUpsert(item RunItem) error {
+	return sink.service.upsertRunItem(sink.workspaceID, sink.conversationID, sink.runID, item)
 }
 
 func (sink turnSink) ThreadLinked(threadID string, sessionID string, turnID string) error {
@@ -1027,6 +1117,14 @@ func summarize(value string, limit int) string {
 		return value
 	}
 	return strings.TrimSpace(value[:limit])
+}
+
+func promptFromMessage(message ChatMessage) string {
+	parts := make([]string, 0, len(message.Parts))
+	for _, part := range message.Parts {
+		parts = append(parts, part.Text)
+	}
+	return strings.Join(parts, "")
 }
 
 func timestamp(value time.Time) string {

@@ -37,8 +37,14 @@ const api: SettaAPI = {
         ipcRenderer.removeListener(ipcEvents.chatEvent, handler);
       };
     },
+    queueMessage: (workspaceId: string, conversationId: string, prompt: string) =>
+      invoke("chatQueueMessage", workspaceId, conversationId, prompt),
+    runActivity: (workspaceId: string, runId: string, afterOrdinal: number, limit: number) =>
+      invoke("chatRunActivity", workspaceId, runId, afterOrdinal, limit),
     sendMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSendMessage", workspaceId, conversationId, prompt),
+    steerMessage: (workspaceId: string, conversationId: string, prompt: string) =>
+      invoke("chatSteerMessage", workspaceId, conversationId, prompt),
     submitApproval: (input) => invoke("chatSubmitApproval", input),
   },
   workspace: {

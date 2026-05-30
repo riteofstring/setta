@@ -117,6 +117,7 @@ export interface ChatMessage {
   conversationId: string;
   runId: string;
   role: string;
+  delivery: string;
   ordinal: number;
   createdAt: string;
   updatedAt: string;
@@ -124,17 +125,44 @@ export interface ChatMessage {
   parts: MessagePart[];
 }
 
-export interface MessagePage {
-  conversation: Conversation;
-  messages: ChatMessage[];
-  hasMoreOlder: boolean;
-  olderBeforeOrdinal: number;
-}
-
-export interface SendChatMessageRequest {
+export interface RunItem {
+  schemaVersion: number;
+  id: string;
   workspaceId: string;
   conversationId: string;
-  prompt: string;
+  runId: string;
+  providerItemId: string;
+  type: string;
+  status: string;
+  createdAt: string;
+  startedAt: string;
+  completedAt: string;
+  title: string;
+  summary: string;
+  command: string;
+  cwd: string;
+  exitCode: number;
+  durationMs: number;
+  filePaths: string[];
+  patchStatus: string;
+  serverName: string;
+  toolName: string;
+  progress: string;
+  result: string;
+  error: string;
+  noticeKind: string;
+  noticeMessage: string;
+  diffSummary: string;
+}
+
+export interface RunItemOutput {
+  schemaVersion: number;
+  id: string;
+  runItemId: string;
+  stream: string;
+  ordinal: number;
+  text: string;
+  createdAt: string;
 }
 
 export interface ApprovalQuestion {
@@ -149,6 +177,8 @@ export interface ApprovalQuestion {
 export interface ApprovalRequest {
   id: string;
   runId: string;
+  runItemId: string;
+  providerItemId: string;
   kind: string;
   title: string;
   body: string;
@@ -181,10 +211,58 @@ export interface Run {
   pendingApproval: ApprovalRequest;
 }
 
+export interface QueueState {
+  messages: ChatMessage[];
+  runs: Run[];
+}
+
+export interface MessagePage {
+  conversation: Conversation;
+  messages: ChatMessage[];
+  runItems: RunItem[];
+  runItemOutputs: RunItemOutput[];
+  queue: QueueState;
+  hasMoreOlder: boolean;
+  olderBeforeOrdinal: number;
+}
+
+export interface SendChatMessageRequest {
+  workspaceId: string;
+  conversationId: string;
+  prompt: string;
+}
+
 export interface SendMessageResult {
   conversation: Conversation;
   userMessage: ChatMessage;
   assistantMessage: ChatMessage;
+  run: Run;
+  page: MessagePage;
+}
+
+export interface QueueChatMessageRequest {
+  workspaceId: string;
+  conversationId: string;
+  prompt: string;
+}
+
+export interface QueueMessageResult {
+  conversation: Conversation;
+  userMessage: ChatMessage;
+  run: Run;
+  queue: QueueState;
+  page: MessagePage;
+}
+
+export interface SteerChatMessageRequest {
+  workspaceId: string;
+  conversationId: string;
+  prompt: string;
+}
+
+export interface SteerMessageResult {
+  conversation: Conversation;
+  userMessage: ChatMessage;
   run: Run;
   page: MessagePage;
 }
@@ -202,6 +280,21 @@ export interface GetActiveRunRequest {
 export interface GetActiveRunResponse {
   hasActiveRun: boolean;
   run: Run;
+}
+
+export interface GetRunActivityRequest {
+  workspaceId: string;
+  runId: string;
+  afterOrdinal: number;
+  limit: number;
+}
+
+export interface RunActivityPage {
+  runId: string;
+  items: RunItem[];
+  output: RunItemOutput[];
+  hasMore: boolean;
+  nextOrdinal: number;
 }
 
 export interface ApprovalAnswer {
@@ -232,6 +325,16 @@ export interface MessageCreatedPayload {
   message: ChatMessage;
 }
 
+export interface MessageQueuedPayload {
+  message: ChatMessage;
+  run: Run;
+}
+
+export interface MessageSteeringSentPayload {
+  message: ChatMessage;
+  run: Run;
+}
+
 export interface AssistantTextDeltaPayload {
   messageId: string;
   partId: string;
@@ -245,6 +348,22 @@ export interface MessageUpdatedPayload {
 
 export interface RunUpdatedPayload {
   run: Run;
+}
+
+export interface RunItemCreatedPayload {
+  item: RunItem;
+}
+
+export interface RunItemUpdatedPayload {
+  item: RunItem;
+}
+
+export interface RunItemOutputDeltaPayload {
+  output: RunItemOutput;
+}
+
+export interface QueueUpdatedPayload {
+  queue: QueueState;
 }
 
 export interface ConversationUpdatedPayload {
@@ -262,9 +381,15 @@ export interface ResyncRequiredPayload {
 
 export type ChatEvent =
   ChatMessageCreatedEvent
+  | ChatMessageQueuedEvent
+  | ChatMessageSteeringSentEvent
   | ChatAssistantTextDeltaEvent
   | ChatMessageUpdatedEvent
   | ChatRunUpdatedEvent
+  | ChatRunItemCreatedEvent
+  | ChatRunItemUpdatedEvent
+  | ChatRunItemOutputDeltaEvent
+  | ChatQueueUpdatedEvent
   | ChatConversationUpdatedEvent
   | ChatResyncRequiredEvent
 ;
@@ -280,6 +405,32 @@ export interface ChatMessageCreatedEvent {
   conversationId: string;
   runId: string;
   payload: MessageCreatedPayload;
+}
+
+export interface ChatMessageQueuedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.message.queued";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: MessageQueuedPayload;
+}
+
+export interface ChatMessageSteeringSentEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.message.steering_sent";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: MessageSteeringSentPayload;
 }
 
 export interface ChatAssistantTextDeltaEvent {
@@ -319,6 +470,58 @@ export interface ChatRunUpdatedEvent {
   conversationId: string;
   runId: string;
   payload: RunUpdatedPayload;
+}
+
+export interface ChatRunItemCreatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.run_item.created";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: RunItemCreatedPayload;
+}
+
+export interface ChatRunItemUpdatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.run_item.updated";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: RunItemUpdatedPayload;
+}
+
+export interface ChatRunItemOutputDeltaEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.run_item_output.delta";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: RunItemOutputDeltaPayload;
+}
+
+export interface ChatQueueUpdatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "chat.queue.updated";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: QueueUpdatedPayload;
 }
 
 export interface ChatConversationUpdatedEvent {
@@ -392,6 +595,14 @@ export const backendEndpoints = {
     method: "POST",
     path: "/chat/messages/send",
   },
+  QueueChatMessage: {
+    method: "POST",
+    path: "/chat/messages/queue",
+  },
+  SteerChatMessage: {
+    method: "POST",
+    path: "/chat/messages/steer",
+  },
   CancelRun: {
     method: "POST",
     path: "/chat/runs/cancel",
@@ -399,6 +610,10 @@ export const backendEndpoints = {
   GetActiveRun: {
     method: "POST",
     path: "/chat/runs/active",
+  },
+  GetRunActivity: {
+    method: "POST",
+    path: "/chat/runs/activity",
   },
   SubmitApproval: {
     method: "POST",
@@ -579,13 +794,14 @@ export function decodeMessagePart(value: unknown): MessagePart {
 
 export function decodeChatMessage(value: unknown): ChatMessage {
   const record = assertRecord(value, "ChatMessage");
-  assertKnownFields(record, "ChatMessage", ["schemaVersion", "id", "conversationId", "runId", "role", "ordinal", "createdAt", "updatedAt", "status", "parts"]);
+  assertKnownFields(record, "ChatMessage", ["schemaVersion", "id", "conversationId", "runId", "role", "delivery", "ordinal", "createdAt", "updatedAt", "status", "parts"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatMessage"), "ChatMessage.schemaVersion"),
     id: decodeString(requireField(record, "id", "ChatMessage"), "ChatMessage.id"),
     conversationId: decodeString(requireField(record, "conversationId", "ChatMessage"), "ChatMessage.conversationId"),
     runId: decodeString(requireField(record, "runId", "ChatMessage"), "ChatMessage.runId"),
     role: decodeString(requireField(record, "role", "ChatMessage"), "ChatMessage.role"),
+    delivery: decodeString(requireField(record, "delivery", "ChatMessage"), "ChatMessage.delivery"),
     ordinal: decodeInteger(requireField(record, "ordinal", "ChatMessage"), "ChatMessage.ordinal"),
     createdAt: decodeString(requireField(record, "createdAt", "ChatMessage"), "ChatMessage.createdAt"),
     updatedAt: decodeString(requireField(record, "updatedAt", "ChatMessage"), "ChatMessage.updatedAt"),
@@ -594,24 +810,51 @@ export function decodeChatMessage(value: unknown): ChatMessage {
   };
 }
 
-export function decodeMessagePage(value: unknown): MessagePage {
-  const record = assertRecord(value, "MessagePage");
-  assertKnownFields(record, "MessagePage", ["conversation", "messages", "hasMoreOlder", "olderBeforeOrdinal"]);
+export function decodeRunItem(value: unknown): RunItem {
+  const record = assertRecord(value, "RunItem");
+  assertKnownFields(record, "RunItem", ["schemaVersion", "id", "workspaceId", "conversationId", "runId", "providerItemId", "type", "status", "createdAt", "startedAt", "completedAt", "title", "summary", "command", "cwd", "exitCode", "durationMs", "filePaths", "patchStatus", "serverName", "toolName", "progress", "result", "error", "noticeKind", "noticeMessage", "diffSummary"]);
   return {
-    conversation: decodeConversation(requireField(record, "conversation", "MessagePage")),
-    messages: decodeArray(requireField(record, "messages", "MessagePage"), "MessagePage.messages", (item) => decodeChatMessage(item)),
-    hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "MessagePage"), "MessagePage.hasMoreOlder"),
-    olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "MessagePage"), "MessagePage.olderBeforeOrdinal"),
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItem"), "RunItem.schemaVersion"),
+    id: decodeString(requireField(record, "id", "RunItem"), "RunItem.id"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "RunItem"), "RunItem.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "RunItem"), "RunItem.conversationId"),
+    runId: decodeString(requireField(record, "runId", "RunItem"), "RunItem.runId"),
+    providerItemId: decodeString(requireField(record, "providerItemId", "RunItem"), "RunItem.providerItemId"),
+    type: decodeString(requireField(record, "type", "RunItem"), "RunItem.type"),
+    status: decodeString(requireField(record, "status", "RunItem"), "RunItem.status"),
+    createdAt: decodeString(requireField(record, "createdAt", "RunItem"), "RunItem.createdAt"),
+    startedAt: decodeString(requireField(record, "startedAt", "RunItem"), "RunItem.startedAt"),
+    completedAt: decodeString(requireField(record, "completedAt", "RunItem"), "RunItem.completedAt"),
+    title: decodeString(requireField(record, "title", "RunItem"), "RunItem.title"),
+    summary: decodeString(requireField(record, "summary", "RunItem"), "RunItem.summary"),
+    command: decodeString(requireField(record, "command", "RunItem"), "RunItem.command"),
+    cwd: decodeString(requireField(record, "cwd", "RunItem"), "RunItem.cwd"),
+    exitCode: decodeInteger(requireField(record, "exitCode", "RunItem"), "RunItem.exitCode"),
+    durationMs: decodeInteger(requireField(record, "durationMs", "RunItem"), "RunItem.durationMs"),
+    filePaths: decodeArray(requireField(record, "filePaths", "RunItem"), "RunItem.filePaths", (item) => decodeString(item, "RunItem.filePaths item")),
+    patchStatus: decodeString(requireField(record, "patchStatus", "RunItem"), "RunItem.patchStatus"),
+    serverName: decodeString(requireField(record, "serverName", "RunItem"), "RunItem.serverName"),
+    toolName: decodeString(requireField(record, "toolName", "RunItem"), "RunItem.toolName"),
+    progress: decodeString(requireField(record, "progress", "RunItem"), "RunItem.progress"),
+    result: decodeString(requireField(record, "result", "RunItem"), "RunItem.result"),
+    error: decodeString(requireField(record, "error", "RunItem"), "RunItem.error"),
+    noticeKind: decodeString(requireField(record, "noticeKind", "RunItem"), "RunItem.noticeKind"),
+    noticeMessage: decodeString(requireField(record, "noticeMessage", "RunItem"), "RunItem.noticeMessage"),
+    diffSummary: decodeString(requireField(record, "diffSummary", "RunItem"), "RunItem.diffSummary"),
   };
 }
 
-export function decodeSendChatMessageRequest(value: unknown): SendChatMessageRequest {
-  const record = assertRecord(value, "SendChatMessageRequest");
-  assertKnownFields(record, "SendChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
+export function decodeRunItemOutput(value: unknown): RunItemOutput {
+  const record = assertRecord(value, "RunItemOutput");
+  assertKnownFields(record, "RunItemOutput", ["schemaVersion", "id", "runItemId", "stream", "ordinal", "text", "createdAt"]);
   return {
-    workspaceId: decodeString(requireField(record, "workspaceId", "SendChatMessageRequest"), "SendChatMessageRequest.workspaceId"),
-    conversationId: decodeString(requireField(record, "conversationId", "SendChatMessageRequest"), "SendChatMessageRequest.conversationId"),
-    prompt: decodeString(requireField(record, "prompt", "SendChatMessageRequest"), "SendChatMessageRequest.prompt"),
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "RunItemOutput"), "RunItemOutput.schemaVersion"),
+    id: decodeString(requireField(record, "id", "RunItemOutput"), "RunItemOutput.id"),
+    runItemId: decodeString(requireField(record, "runItemId", "RunItemOutput"), "RunItemOutput.runItemId"),
+    stream: decodeString(requireField(record, "stream", "RunItemOutput"), "RunItemOutput.stream"),
+    ordinal: decodeInteger(requireField(record, "ordinal", "RunItemOutput"), "RunItemOutput.ordinal"),
+    text: decodeString(requireField(record, "text", "RunItemOutput"), "RunItemOutput.text"),
+    createdAt: decodeString(requireField(record, "createdAt", "RunItemOutput"), "RunItemOutput.createdAt"),
   };
 }
 
@@ -630,10 +873,12 @@ export function decodeApprovalQuestion(value: unknown): ApprovalQuestion {
 
 export function decodeApprovalRequest(value: unknown): ApprovalRequest {
   const record = assertRecord(value, "ApprovalRequest");
-  assertKnownFields(record, "ApprovalRequest", ["id", "runId", "kind", "title", "body", "command", "filePath", "permission", "question", "options", "questions", "status", "createdAt", "resolvedAt", "response", "approved"]);
+  assertKnownFields(record, "ApprovalRequest", ["id", "runId", "runItemId", "providerItemId", "kind", "title", "body", "command", "filePath", "permission", "question", "options", "questions", "status", "createdAt", "resolvedAt", "response", "approved"]);
   return {
     id: decodeString(requireField(record, "id", "ApprovalRequest"), "ApprovalRequest.id"),
     runId: decodeString(requireField(record, "runId", "ApprovalRequest"), "ApprovalRequest.runId"),
+    runItemId: decodeString(requireField(record, "runItemId", "ApprovalRequest"), "ApprovalRequest.runItemId"),
+    providerItemId: decodeString(requireField(record, "providerItemId", "ApprovalRequest"), "ApprovalRequest.providerItemId"),
     kind: decodeString(requireField(record, "kind", "ApprovalRequest"), "ApprovalRequest.kind"),
     title: decodeString(requireField(record, "title", "ApprovalRequest"), "ApprovalRequest.title"),
     body: decodeString(requireField(record, "body", "ApprovalRequest"), "ApprovalRequest.body"),
@@ -671,6 +916,39 @@ export function decodeRun(value: unknown): Run {
   };
 }
 
+export function decodeQueueState(value: unknown): QueueState {
+  const record = assertRecord(value, "QueueState");
+  assertKnownFields(record, "QueueState", ["messages", "runs"]);
+  return {
+    messages: decodeArray(requireField(record, "messages", "QueueState"), "QueueState.messages", (item) => decodeChatMessage(item)),
+    runs: decodeArray(requireField(record, "runs", "QueueState"), "QueueState.runs", (item) => decodeRun(item)),
+  };
+}
+
+export function decodeMessagePage(value: unknown): MessagePage {
+  const record = assertRecord(value, "MessagePage");
+  assertKnownFields(record, "MessagePage", ["conversation", "messages", "runItems", "runItemOutputs", "queue", "hasMoreOlder", "olderBeforeOrdinal"]);
+  return {
+    conversation: decodeConversation(requireField(record, "conversation", "MessagePage")),
+    messages: decodeArray(requireField(record, "messages", "MessagePage"), "MessagePage.messages", (item) => decodeChatMessage(item)),
+    runItems: decodeArray(requireField(record, "runItems", "MessagePage"), "MessagePage.runItems", (item) => decodeRunItem(item)),
+    runItemOutputs: decodeArray(requireField(record, "runItemOutputs", "MessagePage"), "MessagePage.runItemOutputs", (item) => decodeRunItemOutput(item)),
+    queue: decodeQueueState(requireField(record, "queue", "MessagePage")),
+    hasMoreOlder: decodeBoolean(requireField(record, "hasMoreOlder", "MessagePage"), "MessagePage.hasMoreOlder"),
+    olderBeforeOrdinal: decodeInteger(requireField(record, "olderBeforeOrdinal", "MessagePage"), "MessagePage.olderBeforeOrdinal"),
+  };
+}
+
+export function decodeSendChatMessageRequest(value: unknown): SendChatMessageRequest {
+  const record = assertRecord(value, "SendChatMessageRequest");
+  assertKnownFields(record, "SendChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SendChatMessageRequest"), "SendChatMessageRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SendChatMessageRequest"), "SendChatMessageRequest.conversationId"),
+    prompt: decodeString(requireField(record, "prompt", "SendChatMessageRequest"), "SendChatMessageRequest.prompt"),
+  };
+}
+
 export function decodeSendMessageResult(value: unknown): SendMessageResult {
   const record = assertRecord(value, "SendMessageResult");
   assertKnownFields(record, "SendMessageResult", ["conversation", "userMessage", "assistantMessage", "run", "page"]);
@@ -680,6 +958,49 @@ export function decodeSendMessageResult(value: unknown): SendMessageResult {
     assistantMessage: decodeChatMessage(requireField(record, "assistantMessage", "SendMessageResult")),
     run: decodeRun(requireField(record, "run", "SendMessageResult")),
     page: decodeMessagePage(requireField(record, "page", "SendMessageResult")),
+  };
+}
+
+export function decodeQueueChatMessageRequest(value: unknown): QueueChatMessageRequest {
+  const record = assertRecord(value, "QueueChatMessageRequest");
+  assertKnownFields(record, "QueueChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "QueueChatMessageRequest"), "QueueChatMessageRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "QueueChatMessageRequest"), "QueueChatMessageRequest.conversationId"),
+    prompt: decodeString(requireField(record, "prompt", "QueueChatMessageRequest"), "QueueChatMessageRequest.prompt"),
+  };
+}
+
+export function decodeQueueMessageResult(value: unknown): QueueMessageResult {
+  const record = assertRecord(value, "QueueMessageResult");
+  assertKnownFields(record, "QueueMessageResult", ["conversation", "userMessage", "run", "queue", "page"]);
+  return {
+    conversation: decodeConversation(requireField(record, "conversation", "QueueMessageResult")),
+    userMessage: decodeChatMessage(requireField(record, "userMessage", "QueueMessageResult")),
+    run: decodeRun(requireField(record, "run", "QueueMessageResult")),
+    queue: decodeQueueState(requireField(record, "queue", "QueueMessageResult")),
+    page: decodeMessagePage(requireField(record, "page", "QueueMessageResult")),
+  };
+}
+
+export function decodeSteerChatMessageRequest(value: unknown): SteerChatMessageRequest {
+  const record = assertRecord(value, "SteerChatMessageRequest");
+  assertKnownFields(record, "SteerChatMessageRequest", ["workspaceId", "conversationId", "prompt"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SteerChatMessageRequest"), "SteerChatMessageRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SteerChatMessageRequest"), "SteerChatMessageRequest.conversationId"),
+    prompt: decodeString(requireField(record, "prompt", "SteerChatMessageRequest"), "SteerChatMessageRequest.prompt"),
+  };
+}
+
+export function decodeSteerMessageResult(value: unknown): SteerMessageResult {
+  const record = assertRecord(value, "SteerMessageResult");
+  assertKnownFields(record, "SteerMessageResult", ["conversation", "userMessage", "run", "page"]);
+  return {
+    conversation: decodeConversation(requireField(record, "conversation", "SteerMessageResult")),
+    userMessage: decodeChatMessage(requireField(record, "userMessage", "SteerMessageResult")),
+    run: decodeRun(requireField(record, "run", "SteerMessageResult")),
+    page: decodeMessagePage(requireField(record, "page", "SteerMessageResult")),
   };
 }
 
@@ -707,6 +1028,29 @@ export function decodeGetActiveRunResponse(value: unknown): GetActiveRunResponse
   return {
     hasActiveRun: decodeBoolean(requireField(record, "hasActiveRun", "GetActiveRunResponse"), "GetActiveRunResponse.hasActiveRun"),
     run: decodeRun(requireField(record, "run", "GetActiveRunResponse")),
+  };
+}
+
+export function decodeGetRunActivityRequest(value: unknown): GetRunActivityRequest {
+  const record = assertRecord(value, "GetRunActivityRequest");
+  assertKnownFields(record, "GetRunActivityRequest", ["workspaceId", "runId", "afterOrdinal", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "GetRunActivityRequest"), "GetRunActivityRequest.workspaceId"),
+    runId: decodeString(requireField(record, "runId", "GetRunActivityRequest"), "GetRunActivityRequest.runId"),
+    afterOrdinal: decodeInteger(requireField(record, "afterOrdinal", "GetRunActivityRequest"), "GetRunActivityRequest.afterOrdinal"),
+    limit: decodeInteger(requireField(record, "limit", "GetRunActivityRequest"), "GetRunActivityRequest.limit"),
+  };
+}
+
+export function decodeRunActivityPage(value: unknown): RunActivityPage {
+  const record = assertRecord(value, "RunActivityPage");
+  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output", "hasMore", "nextOrdinal"]);
+  return {
+    runId: decodeString(requireField(record, "runId", "RunActivityPage"), "RunActivityPage.runId"),
+    items: decodeArray(requireField(record, "items", "RunActivityPage"), "RunActivityPage.items", (item) => decodeRunItem(item)),
+    output: decodeArray(requireField(record, "output", "RunActivityPage"), "RunActivityPage.output", (item) => decodeRunItemOutput(item)),
+    hasMore: decodeBoolean(requireField(record, "hasMore", "RunActivityPage"), "RunActivityPage.hasMore"),
+    nextOrdinal: decodeInteger(requireField(record, "nextOrdinal", "RunActivityPage"), "RunActivityPage.nextOrdinal"),
   };
 }
 
@@ -758,6 +1102,24 @@ export function decodeMessageCreatedPayload(value: unknown): MessageCreatedPaylo
   };
 }
 
+export function decodeMessageQueuedPayload(value: unknown): MessageQueuedPayload {
+  const record = assertRecord(value, "MessageQueuedPayload");
+  assertKnownFields(record, "MessageQueuedPayload", ["message", "run"]);
+  return {
+    message: decodeChatMessage(requireField(record, "message", "MessageQueuedPayload")),
+    run: decodeRun(requireField(record, "run", "MessageQueuedPayload")),
+  };
+}
+
+export function decodeMessageSteeringSentPayload(value: unknown): MessageSteeringSentPayload {
+  const record = assertRecord(value, "MessageSteeringSentPayload");
+  assertKnownFields(record, "MessageSteeringSentPayload", ["message", "run"]);
+  return {
+    message: decodeChatMessage(requireField(record, "message", "MessageSteeringSentPayload")),
+    run: decodeRun(requireField(record, "run", "MessageSteeringSentPayload")),
+  };
+}
+
 export function decodeAssistantTextDeltaPayload(value: unknown): AssistantTextDeltaPayload {
   const record = assertRecord(value, "AssistantTextDeltaPayload");
   assertKnownFields(record, "AssistantTextDeltaPayload", ["messageId", "partId", "delta", "updatedAt"]);
@@ -782,6 +1144,38 @@ export function decodeRunUpdatedPayload(value: unknown): RunUpdatedPayload {
   assertKnownFields(record, "RunUpdatedPayload", ["run"]);
   return {
     run: decodeRun(requireField(record, "run", "RunUpdatedPayload")),
+  };
+}
+
+export function decodeRunItemCreatedPayload(value: unknown): RunItemCreatedPayload {
+  const record = assertRecord(value, "RunItemCreatedPayload");
+  assertKnownFields(record, "RunItemCreatedPayload", ["item"]);
+  return {
+    item: decodeRunItem(requireField(record, "item", "RunItemCreatedPayload")),
+  };
+}
+
+export function decodeRunItemUpdatedPayload(value: unknown): RunItemUpdatedPayload {
+  const record = assertRecord(value, "RunItemUpdatedPayload");
+  assertKnownFields(record, "RunItemUpdatedPayload", ["item"]);
+  return {
+    item: decodeRunItem(requireField(record, "item", "RunItemUpdatedPayload")),
+  };
+}
+
+export function decodeRunItemOutputDeltaPayload(value: unknown): RunItemOutputDeltaPayload {
+  const record = assertRecord(value, "RunItemOutputDeltaPayload");
+  assertKnownFields(record, "RunItemOutputDeltaPayload", ["output"]);
+  return {
+    output: decodeRunItemOutput(requireField(record, "output", "RunItemOutputDeltaPayload")),
+  };
+}
+
+export function decodeQueueUpdatedPayload(value: unknown): QueueUpdatedPayload {
+  const record = assertRecord(value, "QueueUpdatedPayload");
+  assertKnownFields(record, "QueueUpdatedPayload", ["queue"]);
+  return {
+    queue: decodeQueueState(requireField(record, "queue", "QueueUpdatedPayload")),
   };
 }
 
@@ -812,12 +1206,24 @@ export function decodeChatEvent(value: unknown): ChatEvent {
   switch (type) {
     case "chat.message.created":
       return decodeChatMessageCreatedEventFromRecord(record);
+    case "chat.message.queued":
+      return decodeChatMessageQueuedEventFromRecord(record);
+    case "chat.message.steering_sent":
+      return decodeChatMessageSteeringSentEventFromRecord(record);
     case "chat.assistant_text_delta":
       return decodeChatAssistantTextDeltaEventFromRecord(record);
     case "chat.message.updated":
       return decodeChatMessageUpdatedEventFromRecord(record);
     case "chat.run.updated":
       return decodeChatRunUpdatedEventFromRecord(record);
+    case "chat.run_item.created":
+      return decodeChatRunItemCreatedEventFromRecord(record);
+    case "chat.run_item.updated":
+      return decodeChatRunItemUpdatedEventFromRecord(record);
+    case "chat.run_item_output.delta":
+      return decodeChatRunItemOutputDeltaEventFromRecord(record);
+    case "chat.queue.updated":
+      return decodeChatQueueUpdatedEventFromRecord(record);
     case "chat.conversation.updated":
       return decodeChatConversationUpdatedEventFromRecord(record);
     case "chat.resync_required":
@@ -848,6 +1254,54 @@ function decodeChatMessageCreatedEventFromRecord(record: Record<string, unknown>
     conversationId: decodeString(requireField(record, "conversationId", "ChatMessageCreatedEvent"), "ChatMessageCreatedEvent.conversationId"),
     runId: decodeString(requireField(record, "runId", "ChatMessageCreatedEvent"), "ChatMessageCreatedEvent.runId"),
     payload: decodeMessageCreatedPayload(requireField(record, "payload", "ChatMessageCreatedEvent")),
+  };
+}
+
+export function decodeChatMessageQueuedEvent(value: unknown): ChatMessageQueuedEvent {
+  return decodeChatMessageQueuedEventFromRecord(assertRecord(value, "ChatMessageQueuedEvent"));
+}
+
+function decodeChatMessageQueuedEventFromRecord(record: Record<string, unknown>): ChatMessageQueuedEvent {
+  assertKnownFields(record, "ChatMessageQueuedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
+  const type = decodeString(requireField(record, "type", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.type");
+  if (type !== "chat.message.queued") {
+    throw new Error("ChatMessageQueuedEvent.type must be chat.message.queued, got " + type);
+  }
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.eventId"),
+    type: "chat.message.queued",
+    emittedAt: decodeString(requireField(record, "emittedAt", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.conversationId"),
+    runId: decodeString(requireField(record, "runId", "ChatMessageQueuedEvent"), "ChatMessageQueuedEvent.runId"),
+    payload: decodeMessageQueuedPayload(requireField(record, "payload", "ChatMessageQueuedEvent")),
+  };
+}
+
+export function decodeChatMessageSteeringSentEvent(value: unknown): ChatMessageSteeringSentEvent {
+  return decodeChatMessageSteeringSentEventFromRecord(assertRecord(value, "ChatMessageSteeringSentEvent"));
+}
+
+function decodeChatMessageSteeringSentEventFromRecord(record: Record<string, unknown>): ChatMessageSteeringSentEvent {
+  assertKnownFields(record, "ChatMessageSteeringSentEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
+  const type = decodeString(requireField(record, "type", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.type");
+  if (type !== "chat.message.steering_sent") {
+    throw new Error("ChatMessageSteeringSentEvent.type must be chat.message.steering_sent, got " + type);
+  }
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.eventId"),
+    type: "chat.message.steering_sent",
+    emittedAt: decodeString(requireField(record, "emittedAt", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.conversationId"),
+    runId: decodeString(requireField(record, "runId", "ChatMessageSteeringSentEvent"), "ChatMessageSteeringSentEvent.runId"),
+    payload: decodeMessageSteeringSentPayload(requireField(record, "payload", "ChatMessageSteeringSentEvent")),
   };
 }
 
@@ -923,6 +1377,102 @@ function decodeChatRunUpdatedEventFromRecord(record: Record<string, unknown>): C
   };
 }
 
+export function decodeChatRunItemCreatedEvent(value: unknown): ChatRunItemCreatedEvent {
+  return decodeChatRunItemCreatedEventFromRecord(assertRecord(value, "ChatRunItemCreatedEvent"));
+}
+
+function decodeChatRunItemCreatedEventFromRecord(record: Record<string, unknown>): ChatRunItemCreatedEvent {
+  assertKnownFields(record, "ChatRunItemCreatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
+  const type = decodeString(requireField(record, "type", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.type");
+  if (type !== "chat.run_item.created") {
+    throw new Error("ChatRunItemCreatedEvent.type must be chat.run_item.created, got " + type);
+  }
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.eventId"),
+    type: "chat.run_item.created",
+    emittedAt: decodeString(requireField(record, "emittedAt", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.conversationId"),
+    runId: decodeString(requireField(record, "runId", "ChatRunItemCreatedEvent"), "ChatRunItemCreatedEvent.runId"),
+    payload: decodeRunItemCreatedPayload(requireField(record, "payload", "ChatRunItemCreatedEvent")),
+  };
+}
+
+export function decodeChatRunItemUpdatedEvent(value: unknown): ChatRunItemUpdatedEvent {
+  return decodeChatRunItemUpdatedEventFromRecord(assertRecord(value, "ChatRunItemUpdatedEvent"));
+}
+
+function decodeChatRunItemUpdatedEventFromRecord(record: Record<string, unknown>): ChatRunItemUpdatedEvent {
+  assertKnownFields(record, "ChatRunItemUpdatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
+  const type = decodeString(requireField(record, "type", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.type");
+  if (type !== "chat.run_item.updated") {
+    throw new Error("ChatRunItemUpdatedEvent.type must be chat.run_item.updated, got " + type);
+  }
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.eventId"),
+    type: "chat.run_item.updated",
+    emittedAt: decodeString(requireField(record, "emittedAt", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.conversationId"),
+    runId: decodeString(requireField(record, "runId", "ChatRunItemUpdatedEvent"), "ChatRunItemUpdatedEvent.runId"),
+    payload: decodeRunItemUpdatedPayload(requireField(record, "payload", "ChatRunItemUpdatedEvent")),
+  };
+}
+
+export function decodeChatRunItemOutputDeltaEvent(value: unknown): ChatRunItemOutputDeltaEvent {
+  return decodeChatRunItemOutputDeltaEventFromRecord(assertRecord(value, "ChatRunItemOutputDeltaEvent"));
+}
+
+function decodeChatRunItemOutputDeltaEventFromRecord(record: Record<string, unknown>): ChatRunItemOutputDeltaEvent {
+  assertKnownFields(record, "ChatRunItemOutputDeltaEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
+  const type = decodeString(requireField(record, "type", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.type");
+  if (type !== "chat.run_item_output.delta") {
+    throw new Error("ChatRunItemOutputDeltaEvent.type must be chat.run_item_output.delta, got " + type);
+  }
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.eventId"),
+    type: "chat.run_item_output.delta",
+    emittedAt: decodeString(requireField(record, "emittedAt", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.conversationId"),
+    runId: decodeString(requireField(record, "runId", "ChatRunItemOutputDeltaEvent"), "ChatRunItemOutputDeltaEvent.runId"),
+    payload: decodeRunItemOutputDeltaPayload(requireField(record, "payload", "ChatRunItemOutputDeltaEvent")),
+  };
+}
+
+export function decodeChatQueueUpdatedEvent(value: unknown): ChatQueueUpdatedEvent {
+  return decodeChatQueueUpdatedEventFromRecord(assertRecord(value, "ChatQueueUpdatedEvent"));
+}
+
+function decodeChatQueueUpdatedEventFromRecord(record: Record<string, unknown>): ChatQueueUpdatedEvent {
+  assertKnownFields(record, "ChatQueueUpdatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
+  const type = decodeString(requireField(record, "type", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.type");
+  if (type !== "chat.queue.updated") {
+    throw new Error("ChatQueueUpdatedEvent.type must be chat.queue.updated, got " + type);
+  }
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.eventId"),
+    type: "chat.queue.updated",
+    emittedAt: decodeString(requireField(record, "emittedAt", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.conversationId"),
+    runId: decodeString(requireField(record, "runId", "ChatQueueUpdatedEvent"), "ChatQueueUpdatedEvent.runId"),
+    payload: decodeQueueUpdatedPayload(requireField(record, "payload", "ChatQueueUpdatedEvent")),
+  };
+}
+
 export function decodeChatConversationUpdatedEvent(value: unknown): ChatConversationUpdatedEvent {
   return decodeChatConversationUpdatedEventFromRecord(assertRecord(value, "ChatConversationUpdatedEvent"));
 }
@@ -983,8 +1533,11 @@ export interface BackendClient {
   createConversation: (request: CreateConversationRequest) => Promise<Conversation>;
   getMessagePage: (request: GetMessagePageRequest) => Promise<MessagePage>;
   sendChatMessage: (request: SendChatMessageRequest) => Promise<SendMessageResult>;
+  queueChatMessage: (request: QueueChatMessageRequest) => Promise<QueueMessageResult>;
+  steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
   cancelRun: (request: CancelRunRequest) => Promise<Run>;
   getActiveRun: (request: GetActiveRunRequest) => Promise<GetActiveRunResponse>;
+  getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
 }
 
@@ -1078,6 +1631,22 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       fetchImpl,
       requestPayload: request,
     }),
+    queueChatMessage: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeQueueMessageResult,
+      endpoint: backendEndpoints.QueueChatMessage,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    steerChatMessage: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeSteerMessageResult,
+      endpoint: backendEndpoints.SteerChatMessage,
+      fetchImpl,
+      requestPayload: request,
+    }),
     cancelRun: (request) => requestBackend({
       baseURL,
       decodeErrorResponse: decodeErrorResponse,
@@ -1091,6 +1660,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeGetActiveRunResponse,
       endpoint: backendEndpoints.GetActiveRun,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    getRunActivity: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRunActivityPage,
+      endpoint: backendEndpoints.GetRunActivity,
       fetchImpl,
       requestPayload: request,
     }),
