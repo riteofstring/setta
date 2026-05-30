@@ -40,6 +40,7 @@ type WorkspaceCanvasPalette = {
   rowFillActive: string;
   rowStroke: string;
   rowFocus: string;
+  valueUnderline: string;
   labelText: string;
   valueText: string;
   valueNumberText: string;
@@ -52,11 +53,18 @@ type WorkspaceCanvasPalette = {
   controlActive: string;
   controlText: string;
   controlMutedText: string;
+  colorSwatchStroke: string;
+  colorSwatchEditMark: string;
+  dropdownFill: string;
+  dropdownStroke: string;
+  dropdownText: string;
+  toggleThumb: string;
   minimapFill: string;
   minimapStroke: string;
   minimapSection: string;
   minimapSectionSelected: string;
-  minimapViewport: string;
+  minimapMask: string;
+  minimapMaskStroke: string;
 };
 
 type WorkspaceCanvasGridVariant =
@@ -293,18 +301,20 @@ function drawSection(
   drawRoundedRect(context, section.worldBounds, 8, null, palette.sectionStroke);
   drawSectionTitle(context, section, palette);
   if (section.renderModel.kind === "dict") {
-    drawDictToolbar(context, section, palette);
+    drawDictToolbar(context, section);
   }
   if (section.renderModel.kind === "dict") {
     drawDictRows(context, section, section.renderModel.dict.rows, palette);
-    drawScrollbar(context, section.renderModel.dict.scrollbar, palette);
+    if (section.hovered) {
+      drawScrollbar(context, section.renderModel.dict.scrollbar, palette);
+    }
   } else {
     drawPlaceholder(context, section, section.renderModel.reason, palette);
   }
   if (section.selected || section.active) {
     context.strokeStyle = palette.controlActive;
-    context.lineWidth = 2;
-    strokeRoundedRect(context, section.worldBounds, 8);
+    context.lineWidth = 4;
+    strokeRoundedRect(context, outsetRect(section.worldBounds, 2), 10);
     context.lineWidth = 1;
   }
 }
@@ -317,12 +327,17 @@ function drawSectionTitle(
   context.fillStyle = palette.sectionHeaderText;
   context.font = WORKSPACE_TEXT_STYLES["section-title"];
   drawSectionMenuIcon(context, section.geometry.header, palette);
-  fillClippedText(context, section.titleTextPreview.displayText, {
-    x: section.geometry.header.x + 32,
-    y: section.geometry.header.y + 4,
-    width: Math.max(0, section.geometry.header.width - 44),
-    height: Math.min(28, section.geometry.header.height),
-  });
+  fillClippedText(
+    context,
+    section.titleTextPreview.displayText,
+    {
+      x: section.geometry.header.x + 17,
+      y: section.geometry.header.y + 4,
+      width: Math.max(0, section.geometry.header.width - 29),
+      height: Math.min(28, section.geometry.header.height),
+    },
+    { paddingX: 0 },
+  );
 }
 
 function drawSectionMenuIcon(
@@ -332,7 +347,7 @@ function drawSectionMenuIcon(
 ) {
   const x = header.x + 13;
   const y = header.y + 17;
-  context.strokeStyle = palette.controlActive;
+  context.strokeStyle = palette.mutedText;
   context.lineWidth = 1.25;
   context.beginPath();
   for (let offset = -4; offset <= 4; offset += 4) {
@@ -346,24 +361,127 @@ function drawSectionMenuIcon(
 function drawDictToolbar(
   context: CanvasRenderingContext2D,
   section: WorkspaceSectionScene,
-  palette: WorkspaceCanvasPalette,
 ) {
-  const toolbarY = section.geometry.header.y + 34;
-  const toolbarHeight = Math.max(
-    0,
-    section.geometry.header.y + section.geometry.header.height - toolbarY - 2,
-  );
-  if (toolbarHeight <= 0) {
-    return;
-  }
-  context.font = WORKSPACE_TEXT_STYLES["dict-control"];
-  context.fillStyle = palette.mutedText;
-  fillClippedText(context, "ARGS  -  +  link  x", {
-    x: section.geometry.header.x + 12,
+  const header = section.geometry.header;
+  const toolbarY = header.y + 33;
+  const toolbarHeight = 18;
+  context.save();
+  applyClip(context, {
+    x: header.x,
+    y: toolbarY - 2,
+    width: header.width,
+    height: toolbarHeight + 4,
+  });
+  context.font = "700 12px ui-sans-serif, system-ui, sans-serif";
+  context.fillStyle = "rgba(117, 136, 174, 0.3)";
+  fillClippedText(context, "ARGS", {
+    x: header.x + 10,
     y: toolbarY,
-    width: Math.max(0, section.geometry.header.width - 24),
+    width: 34,
     height: toolbarHeight,
   });
+  context.strokeStyle = "#56698f";
+  context.fillStyle = "#56698f";
+  context.lineWidth = 1;
+  drawToolbarMinus(context, header.x + 43, toolbarY + 9);
+  drawToolbarPlus(context, header.x + 64, toolbarY + 9);
+  drawToolbarPin(context, header.x + 85, toolbarY + 9);
+  drawToolbarLink(context, header.x + 107, toolbarY + 9);
+  drawToolbarClose(context, header.x + 129, toolbarY + 9);
+  drawToolbarSort(context, header.x + 150, toolbarY + 9);
+  context.font = "12px ui-sans-serif, system-ui, sans-serif";
+  context.fillStyle = "rgba(117, 136, 174, 0.55)";
+  fillClippedText(context, "Filter", {
+    x: header.x + 172,
+    y: toolbarY,
+    width: Math.max(0, header.width - 181),
+    height: toolbarHeight,
+  });
+  context.restore();
+}
+
+function drawToolbarMinus(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+) {
+  context.beginPath();
+  context.moveTo(x - 3, y);
+  context.lineTo(x + 3, y);
+  context.stroke();
+}
+
+function drawToolbarPlus(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+) {
+  drawToolbarMinus(context, x, y);
+  context.beginPath();
+  context.moveTo(x, y - 3);
+  context.lineTo(x, y + 3);
+  context.stroke();
+}
+
+function drawToolbarPin(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+) {
+  context.beginPath();
+  context.arc(x, y - 2, 2.2, 0, Math.PI * 2);
+  context.fill();
+  context.beginPath();
+  context.moveTo(x, y);
+  context.lineTo(x, y + 4);
+  context.stroke();
+}
+
+function drawToolbarLink(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+) {
+  context.beginPath();
+  context.ellipse(x - 2, y, 3, 1.8, -0.6, 0, Math.PI * 2);
+  context.ellipse(x + 2, y, 3, 1.8, -0.6, 0, Math.PI * 2);
+  context.stroke();
+}
+
+function drawToolbarClose(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+) {
+  context.beginPath();
+  context.moveTo(x - 3, y - 3);
+  context.lineTo(x + 3, y + 3);
+  context.moveTo(x + 3, y - 3);
+  context.lineTo(x - 3, y + 3);
+  context.stroke();
+}
+
+function drawToolbarSort(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+) {
+  context.save();
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(x - 3, y - 4);
+  context.lineTo(x + 2, y - 4);
+  context.moveTo(x - 3, y);
+  context.lineTo(x + 1, y);
+  context.moveTo(x - 3, y + 4);
+  context.lineTo(x, y + 4);
+  context.moveTo(x + 4, y - 4);
+  context.lineTo(x + 4, y + 4);
+  context.moveTo(x + 2, y + 2);
+  context.lineTo(x + 4, y + 4);
+  context.lineTo(x + 6, y + 2);
+  context.stroke();
+  context.restore();
 }
 
 function drawDictRows(
@@ -399,13 +517,24 @@ function drawDictRow(
   }
   context.font = WORKSPACE_TEXT_STYLES["dict-label"];
   context.fillStyle = row.errors.length > 0 ? palette.error : palette.labelText;
-  fillClippedText(context, row.textPreviews.label.displayText, row.labelRect);
+  fillClippedText(context, row.textPreviews.label.displayText, row.labelRect, {
+    paddingX: 1,
+    baselineOffsetY: 0,
+  });
+  drawValueCellUnderline(context, row, palette);
   if (row.codePreview) {
     drawCodePreview(context, row, palette);
-  } else {
+  } else if (shouldDrawPassiveValueText(row)) {
     context.font = WORKSPACE_TEXT_STYLES["dict-value"];
     context.fillStyle = getValueTextFill(row, palette);
-    fillClippedText(context, row.textPreviews.value.displayText, row.valueRect);
+    fillClippedText(
+      context,
+      row.textPreviews.value.displayText,
+      row.valueRect,
+      {
+        paddingX: 0,
+      },
+    );
   }
   drawControlPreview(context, row, palette);
   if (row.errors.length > 0) {
@@ -445,7 +574,27 @@ function getRowStroke(
   if (row.selected || row.active || row.focused) {
     return palette.controlActive;
   }
-  return palette.rowStroke;
+  return null;
+}
+
+function drawValueCellUnderline(
+  context: CanvasRenderingContext2D,
+  row: WorkspaceDictRowScene,
+  palette: WorkspaceCanvasPalette,
+) {
+  if (row.support.controlKind !== "value-cell") {
+    return;
+  }
+  const y = row.valueRect.y + row.valueRect.height - 0.5;
+  context.save();
+  context.strokeStyle =
+    row.errors.length > 0 ? palette.error : palette.valueUnderline;
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(row.valueRect.x, y);
+  context.lineTo(row.valueRect.x + row.valueRect.width, y);
+  context.stroke();
+  context.restore();
 }
 
 function getValueTextFill(
@@ -484,7 +633,7 @@ function drawCodePreview(
   context.save();
   applyClip(context, row.valueRect);
   const lineHeight = 14;
-  const baseX = row.valueRect.x + 6;
+  const baseX = row.valueRect.x + 1;
   const firstBaselineY =
     row.valueRect.y + Math.min(15, row.valueRect.height / 2 + 4);
   const maxVisibleLine = Math.max(
@@ -523,21 +672,27 @@ function drawToggleControlPreview(
   palette: WorkspaceCanvasPalette,
 ) {
   const checked = row.passiveValue.text === "On";
-  const rect = insetRect(row.controlRect, 5);
+  const rect = row.controlRect;
   drawRoundedRect(
     context,
     rect,
     rect.height / 2,
     checked ? palette.controlActive : palette.controlFill,
-    palette.controlStroke,
+    null,
   );
-  const knobSize = Math.max(8, rect.height - 8);
-  const knobX = checked ? rect.x + rect.width - knobSize - 4 : rect.x + 4;
+  const knobInset = rect.height * 0.2;
+  const knobSize = Math.max(4, rect.height * 0.625);
+  const knobX = checked ? rect.x + knobInset + rect.height : rect.x + knobInset;
   drawRoundedRect(
     context,
-    { x: knobX, y: rect.y + 4, width: knobSize, height: knobSize },
+    {
+      x: knobX,
+      y: rect.y + (rect.height - knobSize) / 2,
+      width: knobSize,
+      height: knobSize,
+    },
     knobSize / 2,
-    "#ffffff",
+    palette.toggleThumb,
     null,
   );
 }
@@ -549,11 +704,20 @@ function drawColorSwatchControlPreview(
 ) {
   drawRoundedRect(
     context,
-    insetRect(row.controlRect, 6),
-    4,
-    row.passiveValue.swatchColor ?? palette.controlFill,
-    palette.controlStroke,
+    row.controlRect,
+    row.controlRect.height / 2,
+    palette.colorSwatchStroke,
+    null,
   );
+  const swatchRect = insetRect(row.controlRect, 1);
+  drawRoundedRect(
+    context,
+    swatchRect,
+    swatchRect.height / 2,
+    row.passiveValue.swatchColor ?? palette.controlFill,
+    null,
+  );
+  drawColorPickerGlyph(context, row.controlRect, palette);
 }
 
 function drawDropdownOrButtonControlPreview(
@@ -561,18 +725,64 @@ function drawDropdownOrButtonControlPreview(
   row: WorkspaceDictRowScene,
   palette: WorkspaceCanvasPalette,
 ) {
-  const rect = insetRect(row.controlRect, 3);
-  drawRoundedRect(context, rect, 4, palette.controlFill, palette.controlStroke);
-  context.fillStyle = palette.controlText;
-  context.font = WORKSPACE_TEXT_STYLES["dict-control"];
+  const rect = row.controlRect;
+  const fillStyle =
+    row.support.controlKind === "dropdown"
+      ? palette.dropdownFill
+      : palette.controlFill;
+  const strokeStyle =
+    row.support.controlKind === "dropdown"
+      ? palette.dropdownStroke
+      : palette.controlStroke;
+  drawRoundedRect(
+    context,
+    rect,
+    row.support.controlKind === "dropdown" ? rect.height / 2 : 4,
+    fillStyle,
+    strokeStyle,
+  );
+  context.fillStyle =
+    row.support.controlKind === "dropdown"
+      ? palette.dropdownText
+      : palette.controlText;
+  context.font =
+    row.support.controlKind === "dropdown"
+      ? '500 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+      : WORKSPACE_TEXT_STYLES["dict-control"];
   fillClippedText(
     context,
     row.textPreviews.control?.displayText ?? row.passiveValue.text,
-    insetRect(rect, 2),
+    rect,
+    {
+      paddingX: row.support.controlKind === "dropdown" ? 12 : 10,
+      baselineOffsetY: row.support.controlKind === "dropdown" ? 1 : 0,
+    },
   );
   if (row.support.controlKind === "dropdown") {
     drawChevronDown(context, rect, palette);
   }
+}
+
+function drawColorPickerGlyph(
+  context: CanvasRenderingContext2D,
+  rect: WorkspaceRect,
+  palette: WorkspaceCanvasPalette,
+) {
+  const centerX = rect.x + rect.width / 2;
+  const centerY = rect.y + rect.height / 2;
+  context.save();
+  context.strokeStyle = palette.colorSwatchEditMark;
+  context.lineCap = "round";
+  context.lineWidth = 2;
+  context.beginPath();
+  context.moveTo(centerX + 2, centerY - 3);
+  context.lineTo(centerX - 3, centerY + 2);
+  context.stroke();
+  context.restore();
+}
+
+function shouldDrawPassiveValueText(row: WorkspaceDictRowScene) {
+  return row.support.controlKind === "value-cell";
 }
 
 function drawSliderControlPreview(
@@ -610,7 +820,7 @@ function drawChevronDown(
   palette: WorkspaceCanvasPalette,
 ) {
   const centerX = rect.x + rect.width - 12;
-  const centerY = rect.y + rect.height / 2;
+  const centerY = rect.y + rect.height / 2 + 1;
   context.strokeStyle = palette.controlMutedText;
   context.beginPath();
   context.moveTo(centerX - 4, centerY - 2);
@@ -701,14 +911,37 @@ function drawMinimap(
       null,
     );
   }
+  drawMinimapViewportMask(context, minimap, palette);
+}
+
+function drawMinimapViewportMask(
+  context: CanvasRenderingContext2D,
+  minimap: WorkspaceScene["minimap"],
+  palette: WorkspaceCanvasPalette,
+) {
   context.save();
+  context.beginPath();
+  context.rect(
+    minimap.bounds.x,
+    minimap.bounds.y,
+    minimap.bounds.width,
+    minimap.bounds.height,
+  );
+  context.rect(
+    minimap.viewportMask.x,
+    minimap.viewportMask.y,
+    minimap.viewportMask.width,
+    minimap.viewportMask.height,
+  );
+  context.fillStyle = palette.minimapMask;
+  context.fill("evenodd");
   context.lineWidth = 2;
   drawRoundedRect(
     context,
     minimap.viewportMask,
     2,
     "transparent",
-    palette.minimapViewport,
+    palette.minimapMaskStroke,
   );
   context.restore();
 }
@@ -778,10 +1011,15 @@ function fillClippedText(
   context: CanvasRenderingContext2D,
   text: string,
   rect: WorkspaceRect,
+  options: { paddingX?: number; baselineOffsetY?: number } = {},
 ) {
   context.save();
   applyClip(context, rect);
-  context.fillText(text, rect.x + 6, rect.y + rect.height / 2);
+  context.fillText(
+    text,
+    rect.x + (options.paddingX ?? 6),
+    rect.y + rect.height / 2 + (options.baselineOffsetY ?? 0),
+  );
   context.restore();
 }
 
@@ -821,6 +1059,15 @@ function insetRect(rect: WorkspaceRect, inset: number): WorkspaceRect {
   };
 }
 
+function outsetRect(rect: WorkspaceRect, outset: number): WorkspaceRect {
+  return {
+    x: rect.x - outset,
+    y: rect.y - outset,
+    width: rect.width + outset * 2,
+    height: rect.height + outset * 2,
+  };
+}
+
 function resolveWorkspaceCanvasGridOptions(
   options: WorkspaceCanvasRenderOptions,
   palette: WorkspaceCanvasPalette,
@@ -840,70 +1087,86 @@ function getWorkspaceCanvasPalette(
 ): WorkspaceCanvasPalette {
   if (isDarkMode) {
     return {
-      background: "#1b2331",
+      background: "#1c2331",
       gridMinor: "#2b364a",
-      sectionFill: "#11141b",
+      sectionFill: "#10141b",
       sectionFillHover: "#151c26",
-      sectionStroke: "rgba(75, 92, 118, 0.82)",
-      sectionHeader: "#11141b",
-      sectionHeaderText: "#e5e7eb",
-      sectionBody: "#11141b",
-      rowFill: "#11141b",
+      sectionStroke: "#2b374a",
+      sectionHeader: "#10141b",
+      sectionHeaderText: "rgb(150, 164, 192)",
+      sectionBody: "#10141b",
+      rowFill: "#10141b",
       rowFillHover: "#172033",
       rowFillSelected: "rgba(37, 99, 235, 0.22)",
       rowFillActive: "rgba(37, 99, 235, 0.3)",
       rowStroke: "rgba(75, 92, 118, 0.42)",
       rowFocus: "#60a5fa",
-      labelText: "#cbd5e1",
-      valueText: "#f8fafc",
+      valueUnderline: "rgba(71, 85, 105, 0.3)",
+      labelText: "rgb(182, 192, 211)",
+      valueText: "#a5d6ff",
       valueNumberText: "#79c0ff",
       valueKeywordText: "#ff7b72",
       mutedText: "#64748b",
       rail: "rgba(71, 85, 105, 0.76)",
       error: "#f87171",
       controlStroke: "rgba(203, 213, 225, 0.4)",
-      controlFill: "rgba(15, 23, 42, 0.95)",
-      controlActive: "#2563eb",
+      controlFill: "hsl(219, 25%, 34%)",
+      controlActive: "#1d4ed8",
       controlText: "#e5e7eb",
-      controlMutedText: "#94a3b8",
+      controlMutedText: "#64748b",
+      colorSwatchStroke: "rgba(86, 105, 143, 0.4)",
+      colorSwatchEditMark: "#020617",
+      dropdownFill: "#0b0e13",
+      dropdownStroke: "rgba(43, 54, 74, 0.7)",
+      dropdownText: "rgb(150, 164, 192)",
+      toggleThumb: "hsl(220, 26%, 14%)",
       minimapFill: "hsla(220, 27%, 6%, 0.72)",
       minimapStroke: "hsla(220, 26%, 14%, 0.55)",
       minimapSection: "#2d384d",
       minimapSectionSelected: "#2d384d",
-      minimapViewport: "rgba(226, 232, 240, 0.9)",
+      minimapMask: "rgb(20, 22, 31, 0.5)",
+      minimapMaskStroke: "rgba(226, 232, 240, 0)",
     };
   }
   return {
-    background: "#f8fafc",
-    gridMinor: "rgba(100, 116, 139, 0.08)",
-    sectionFill: "#ffffff",
-    sectionFillHover: "#f8fafc",
-    sectionStroke: "rgba(100, 116, 139, 0.32)",
-    sectionHeader: "#e2e8f0",
+    background: "#94a3b8",
+    gridMinor: "#94a3b8",
+    sectionFill: "#eff1f6",
+    sectionFillHover: "#e2e8f0",
+    sectionStroke: "#d8dee8",
+    sectionHeader: "#eff1f6",
     sectionHeaderText: "#0f172a",
-    sectionBody: "#f8fafc",
-    rowFill: "rgba(255, 255, 255, 0.9)",
+    sectionBody: "#eff1f6",
+    rowFill: "#eff1f6",
     rowFillHover: "rgba(226, 232, 240, 0.86)",
-    rowFillSelected: "rgba(8, 145, 178, 0.16)",
-    rowFillActive: "rgba(8, 145, 178, 0.22)",
+    rowFillSelected: "rgba(59, 130, 246, 0.16)",
+    rowFillActive: "rgba(59, 130, 246, 0.22)",
     rowStroke: "rgba(100, 116, 139, 0.2)",
     rowFocus: "#0e7490",
-    labelText: "#334155",
+    valueUnderline: "rgba(100, 116, 139, 0.28)",
+    labelText: "#1b202d",
     valueText: "#0f172a",
     valueNumberText: "#0550ae",
     valueKeywordText: "#cf222e",
-    mutedText: "#64748b",
+    mutedText: "#94a3b8",
     rail: "rgba(14, 116, 144, 0.36)",
     error: "#dc2626",
     controlStroke: "rgba(71, 85, 105, 0.35)",
-    controlFill: "rgba(241, 245, 249, 0.95)",
-    controlActive: "#0891b2",
+    controlFill: "hsl(220, 26%, 57%)",
+    controlActive: "#3b82f6",
     controlText: "#0f172a",
-    controlMutedText: "#64748b",
+    controlMutedText: "#7588ae",
+    colorSwatchStroke: "rgba(100, 116, 139, 0.2)",
+    colorSwatchEditMark: "#020617",
+    dropdownFill: "#ffffff",
+    dropdownStroke: "#e2e8f0",
+    dropdownText: "#475569",
+    toggleThumb: "#ffffff",
     minimapFill: "rgba(226, 232, 240, 0.82)",
     minimapStroke: "rgba(71, 85, 105, 0.35)",
     minimapSection: "rgba(71, 85, 105, 0.48)",
     minimapSectionSelected: "rgba(8, 145, 178, 0.78)",
-    minimapViewport: "#0891b2",
+    minimapMask: "rgb(51, 65, 85, 0.3)",
+    minimapMaskStroke: "rgba(30, 41, 59, 0.6)",
   };
 }

@@ -32,7 +32,7 @@ describe("workspace text measurement cache", () => {
     );
 
     expect(result.truncated).toBe(true);
-    expect(result.displayText).toMatch(/\.\.\.$/);
+    expect(result.displayText).toMatch(/\u2026$/);
     expect(result.displayWidth).toBeLessThanOrEqual(request.maxWidth);
   });
 
@@ -83,5 +83,36 @@ describe("workspace text measurement cache", () => {
     expect(complete.applied).toBe(true);
     expect(preview.ready).toBe(true);
     expect(preview.displayText).toBe("hello...");
+  });
+
+  it("applies completion when the pending state update has not flushed yet", () => {
+    const cacheKey = buildWorkspaceTextMeasurementCacheKey({
+      baseKey: "row:batched",
+      role: "dict-label",
+      text: "hello world",
+      font: WORKSPACE_TEXT_STYLES["dict-label"],
+      maxWidth: 48,
+    });
+    const complete = completeWorkspaceTextMeasurementRequest(
+      createWorkspaceTextMeasurementCacheState(),
+      cacheKey,
+      "request-1",
+      {
+        measuredWidth: 88,
+        displayText: "hello\u2026",
+        displayWidth: 48,
+        truncated: true,
+      },
+    );
+
+    expect(complete.applied).toBe(true);
+    expect(
+      resolveWorkspaceTextPreview(complete.cache, {
+        cacheKey,
+        text: "hello world",
+        font: WORKSPACE_TEXT_STYLES["dict-label"],
+        maxWidth: 48,
+      }).displayText,
+    ).toBe("hello\u2026");
   });
 });

@@ -101,7 +101,7 @@ export function completeWorkspaceCodeHighlightRequest(
   applied: boolean;
 } {
   const entry = cache.entriesByKey[key];
-  if (!entry || entry.requestId !== requestId || entry.status !== "pending") {
+  if (entry && (entry.requestId !== requestId || entry.status !== "pending")) {
     return { cache, applied: false };
   }
   return {

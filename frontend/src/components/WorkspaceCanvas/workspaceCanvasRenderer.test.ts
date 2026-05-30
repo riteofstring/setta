@@ -55,6 +55,7 @@ class MockCanvasContext {
   stroke() {}
   fill() {}
   arc() {}
+  ellipse() {}
   roundRect(x: number, y: number, width: number, height: number) {
     this.currentRect = { x, y, width, height };
   }

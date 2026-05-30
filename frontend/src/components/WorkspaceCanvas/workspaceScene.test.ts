@@ -441,7 +441,7 @@ function assertScrollableDictScene(scene: WorkspaceScene) {
   expect(hitRowControl(scene, firstRow)?.target.kind).not.toBe("control");
   expect(visibleSwitchRow.visible).toBe(true);
   expect(visibleSwitchRow.visibleRect).not.toBeNull();
-  expect(visibleSwitchRow.controlRect.width).toBe(48);
+  expect(visibleSwitchRow.controlRect.width).toBe(34);
   expect(hitRowControl(scene, visibleSwitchRow)?.intent).toBe(
     "toggle-immediate",
   );
@@ -586,9 +586,9 @@ describe("workspace scene model", () => {
     );
     expect(section?.geometry.body).toMatchObject({
       x: 100,
-      y: 110,
+      y: 50 + WORKSPACE_SCENE_GEOMETRY.sectionHeaderHeight,
       width: 360,
-      height: 180,
+      height: 240 - WORKSPACE_SCENE_GEOMETRY.sectionHeaderHeight,
     });
     expect(section?.edgePortRegions).toHaveLength(1);
     expect(section?.edgePortRegions[0]?.intent).toBe("edge-or-port");
@@ -771,8 +771,81 @@ describe("workspace scene model", () => {
     ]);
     expect(dict.dict.rows.map((row) => row.depth)).toEqual([0, 1, 1, 0]);
     expect(dict.dict.rows[1]?.label).toBe("Title");
+    expect(dict.dict.rows[1]?.codePreview?.language).toBe("python");
     expect(dict.dict.rows[2]?.codePreview?.language).toBe("python");
     expect(dict.dict.rows[3]?.passiveValue.text).toBe("On");
+  });
+
+  it("keys passive CodeMirror previews for JSON-source text code fields", () => {
+    const state = createSingleConfig();
+    const rootParamId = "settings-codeobj__codeSectionDefault";
+    const codeParamId =
+      "settings-codeobj__codeSectionDefault__codeSectionDefault__code";
+    const section = addSection(
+      state,
+      "settings-section__codeSectionDefault",
+      createDictSectionImpl({
+        configLanguage: "json",
+        isJsonSource: true,
+        jsonSourceKeys: ["codeSectionDefault"],
+        name: "codeSectionDefault",
+        size: sectionSize(550, 160),
+        topLevelParamId: rootParamId,
+      }),
+      { layout: { x: 0, y: 0, w: 550, h: 160 } },
+    );
+    addParam(state, section.impl, rootParamId, nestedParam([codeParamId]));
+    addParam(
+      state,
+      section.impl,
+      codeParamId,
+      valueParam("TextParam", "return 42"),
+      { displayName: "Code" },
+    );
+    setShownParams(
+      state,
+      section.variantId,
+      {
+        [rootParamId]: [rootParamId],
+        [codeParamId]: [rootParamId, codeParamId],
+      },
+      [rootParamId],
+    );
+
+    const scene = deriveWorkspaceScene({
+      projectState: state,
+      viewportSize: { width: 800, height: 600 },
+      revisionKeys: {
+        themeRevision: "dark",
+        fontRevision: "font",
+        highlighterRevision: "highlighter",
+      },
+    });
+    const dict = getRequiredDictScene(
+      scene,
+      "settings-section__codeSectionDefault",
+    );
+    const codeRow = must(
+      dict.rows.find((row) => row.paramId === codeParamId),
+      "settings code row",
+    );
+
+    expect(codeRow.paramType).toBe("TextParam");
+    expect(codeRow.passiveValue.kind).toBe("text");
+    expect(codeRow.codePreview?.language).toBe("json");
+    expect(codeRow.codePreview?.cacheKey).toBe(
+      buildWorkspaceCodeHighlightCacheKey({
+        sectionId: "settings-section__codeSectionDefault",
+        paramId: codeParamId,
+        codeHash: hashWorkspaceCodePreviewValue("return 42"),
+        language: "json",
+        themeRevision: "dark",
+        fontRevision: "font",
+        highlighterRevision: "highlighter",
+        previewWidth: codeRow.valueRect.width,
+        previewLineLimit: 6,
+      }),
+    );
   });
 
   it("computes row geometry, visible row ranges, scrollbars, hit regions, and intents", () => {
@@ -1104,6 +1177,20 @@ describe("workspace scene model", () => {
       color: "#c678dd",
       fontWeight: "bold",
     });
+
+    const batchedComplete = completeWorkspaceCodeHighlightRequest(
+      createWorkspaceCodeHighlightCacheState(),
+      mismatchedWidthKey,
+      "request-2",
+      [],
+    );
+    expect(batchedComplete.applied).toBe(true);
+    expect(
+      getWorkspaceCodeHighlightTokenRuns(
+        batchedComplete.cache,
+        mismatchedWidthKey,
+      ),
+    ).toEqual([]);
 
     const scene = deriveWorkspaceScene({
       projectState: state,

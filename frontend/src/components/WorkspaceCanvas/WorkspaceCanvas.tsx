@@ -258,8 +258,11 @@ function useWorkspacePassiveCodeHighlighting({
   const requestCounterRef = useRef(0);
 
   useEffect(
-    () => () => {
-      mountedRef.current = false;
+    () => {
+      mountedRef.current = true;
+      return () => {
+        mountedRef.current = false;
+      };
     },
     [],
   );
@@ -376,16 +379,8 @@ function useWorkspaceTextMeasurement({
     SetStateAction<WorkspaceTextMeasurementCacheState>
   >;
 }) {
-  const mountedRef = useRef(true);
   const requestCounterRef = useRef(0);
   const measurementContextRef = useRef<CanvasRenderingContext2D | null>(null);
-
-  useEffect(
-    () => () => {
-      mountedRef.current = false;
-    },
-    [],
-  );
 
   useEffect(() => {
     const context = getWorkspaceTextMeasurementContext(measurementContextRef);
@@ -400,18 +395,24 @@ function useWorkspaceTextMeasurement({
       return;
     }
 
-    const requestsWithIds = requests.map((request) => {
+    const measuredRequests = requests.map((request) => {
       requestCounterRef.current += 1;
+      const requestId = `${request.cacheKey}:${requestCounterRef.current}`;
       return {
         request,
-        requestId: `${request.cacheKey}:${requestCounterRef.current}`,
+        requestId,
+        result: measureWorkspaceTextPreview(context, request),
       };
     });
 
     setTextMeasurementCache((current) => {
       let next = current;
-      for (const { request, requestId } of requestsWithIds) {
-        if (getWorkspaceTextMeasurementCacheEntry(next, request.cacheKey)) {
+      for (const { request, requestId, result } of measuredRequests) {
+        const entry = getWorkspaceTextMeasurementCacheEntry(
+          next,
+          request.cacheKey,
+        );
+        if (entry?.status === "ready") {
           continue;
         }
         next = beginWorkspaceTextMeasurementRequest(
@@ -419,28 +420,15 @@ function useWorkspaceTextMeasurement({
           request.cacheKey,
           requestId,
         );
+        next = completeWorkspaceTextMeasurementRequest(
+          next,
+          request.cacheKey,
+          requestId,
+          result,
+        ).cache;
       }
       return next;
     });
-
-    for (const { request, requestId } of requestsWithIds) {
-      void Promise.resolve()
-        .then(() => measureWorkspaceTextPreview(context, request))
-        .then((result) => {
-          if (!mountedRef.current) {
-            return;
-          }
-          setTextMeasurementCache((current) => {
-            const completion = completeWorkspaceTextMeasurementRequest(
-              current,
-              request.cacheKey,
-              requestId,
-              result,
-            );
-            return completion.cache;
-          });
-        });
-    }
   }, [scene, setTextMeasurementCache, textMeasurementCache]);
 }
 

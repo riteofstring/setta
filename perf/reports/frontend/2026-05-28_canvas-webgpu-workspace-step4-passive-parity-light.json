@@ -1,0 +1,339 @@
+{
+  "reference": {
+    "screenshot": "../perf/artifacts/frontend/canvas-webgpu-step4-reference-light-sections-hidden-minimap.png"
+  },
+  "current": {
+    "screenshot": "../perf/artifacts/frontend/canvas-webgpu-step4-current-light-sections-hidden-minimap-after-swatch-glyph.png"
+  },
+  "capture": {
+    "workspaceCrop": {
+      "x": 39,
+      "y": 36,
+      "width": 1361,
+      "height": 1128
+    },
+    "representativeCrops": [
+      {
+        "kind": "section",
+        "id": "settings-section__backend",
+        "thresholdKind": "section",
+        "rect": {
+          "x": 661,
+          "y": 223,
+          "width": 335,
+          "height": 217
+        }
+      },
+      {
+        "kind": "text",
+        "id": "settings-section__backend:settings-codeobj__backend__backend__autobackupFreq",
+        "thresholdKind": "row-control",
+        "rect": {
+          "x": 830,
+          "y": 291,
+          "width": 160,
+          "height": 19
+        }
+      },
+      {
+        "kind": "switch",
+        "id": "settings-section__backend:settings-codeobj__backend__backend__autoRefetchCallableParamsOnLspMismatch",
+        "thresholdKind": "row-control",
+        "rect": {
+          "x": 830,
+          "y": 264,
+          "width": 27,
+          "height": 16
+        }
+      },
+      {
+        "kind": "color-swatch",
+        "id": "settings-section__gui:settings-codeobj__gui__gui__gridColor",
+        "thresholdKind": "row-control",
+        "rect": {
+          "x": 476,
+          "y": 278,
+          "width": 158,
+          "height": 16
+        }
+      },
+      {
+        "kind": "dropdown",
+        "id": "settings-section__backend:settings-codeobj__backend__backend__renameRefactorMode",
+        "thresholdKind": "row-control",
+        "rect": {
+          "x": 831,
+          "y": 405,
+          "width": 157,
+          "height": 17
+        }
+      },
+      {
+        "kind": "nested-row",
+        "id": "settings-section__callableSectionDefault:settings-codeobj__callableSectionDefault__callableSectionDefault__size",
+        "thresholdKind": "row-control",
+        "rect": {
+          "x": 316,
+          "y": 1126,
+          "width": 321,
+          "height": 36
+        }
+      }
+    ]
+  },
+  "thresholds": {
+    "workspaceMeanAbsRgbDeltaMax": 8,
+    "fullWorkspaceSsimMin": 0.9,
+    "representativeSectionCropSsimMin": 0.92,
+    "representativeRowControlCropSsimMin": 0.92,
+    "sectionRectDeltaMax": 4,
+    "headerHeightDeltaMax": 2,
+    "rowHeightDeltaMax": 2,
+    "labelValueColumnDeltaMax": 3,
+    "minimapIoUMin": 0.95
+  },
+  "dimensions": {
+    "reference": {
+      "width": 1440,
+      "height": 1200
+    },
+    "current": {
+      "width": 1440,
+      "height": 1200
+    }
+  },
+  "metrics": {
+    "workspaceCrop": {
+      "meanAbsRgbDelta": 1.7543399113779155,
+      "rmsRgbDelta": 9.838484203918563,
+      "local8x8GrayscaleSsim": 0.9587581662365625
+    },
+    "fullViewport": {
+      "meanAbsRgbDelta": 1.7483300540123456,
+      "rmsRgbDelta": 10.472021798479963,
+      "local8x8GrayscaleSsim": 0.9573558066095743
+    },
+    "representativeCrops": [
+      {
+        "kind": "section",
+        "id": "settings-section__backend",
+        "thresholdKind": "section",
+        "rect": {
+          "x": 661,
+          "y": 223,
+          "width": 335,
+          "height": 217
+        },
+        "metrics": {
+          "meanAbsRgbDelta": 3.865612032005869,
+          "rmsRgbDelta": 16.473170562260947,
+          "local8x8GrayscaleSsim": 0.9244042390071452
+        }
+      },
+      {
+        "kind": "text",
+        "id": "settings-section__backend:settings-codeobj__backend__backend__autobackupFreq",
+        "thresholdKind": "row-control",
+        "rect": {
+          "x": 830,
+          "y": 291,
+          "width": 160,
+          "height": 19
+        },
+        "metrics": {
+          "meanAbsRgbDelta": 1.5486842105263159,
+          "rmsRgbDelta": 9.244782786627809,
+          "local8x8GrayscaleSsim": 0.9509727259572704
+        }
+      },
+      {
+        "kind": "switch",
+        "id": "settings-section__backend:settings-codeobj__backend__backend__autoRefetchCallableParamsOnLspMismatch",
+        "thresholdKind": "row-control",
+        "rect": {
+          "x": 830,
+          "y": 264,
+          "width": 27,
+          "height": 16
+        },
+        "metrics": {
+          "meanAbsRgbDelta": 6.408950617283951,
+          "rmsRgbDelta": 19.661958005056174,
+          "local8x8GrayscaleSsim": 0.924370211086059
+        }
+      },
+      {
+        "kind": "color-swatch",
+        "id": "settings-section__gui:settings-codeobj__gui__gui__gridColor",
+        "thresholdKind": "row-control",
+        "rect": {
+          "x": 476,
+          "y": 278,
+          "width": 158,
+          "height": 16
+        },
+        "metrics": {
+          "meanAbsRgbDelta": 2.082146624472574,
+          "rmsRgbDelta": 7.986465013866994,
+          "local8x8GrayscaleSsim": 0.9779473827714665
+        }
+      },
+      {
+        "kind": "dropdown",
+        "id": "settings-section__backend:settings-codeobj__backend__backend__renameRefactorMode",
+        "thresholdKind": "row-control",
+        "rect": {
+          "x": 831,
+          "y": 405,
+          "width": 157,
+          "height": 17
+        },
+        "metrics": {
+          "meanAbsRgbDelta": 1.86174597227426,
+          "rmsRgbDelta": 5.725049853813496,
+          "local8x8GrayscaleSsim": 0.9443212176653056
+        }
+      },
+      {
+        "kind": "nested-row",
+        "id": "settings-section__callableSectionDefault:settings-codeobj__callableSectionDefault__callableSectionDefault__size",
+        "thresholdKind": "row-control",
+        "rect": {
+          "x": 316,
+          "y": 1126,
+          "width": 321,
+          "height": 36
+        },
+        "metrics": {
+          "meanAbsRgbDelta": 1.6015057113187954,
+          "rmsRgbDelta": 10.535761897390682,
+          "local8x8GrayscaleSsim": 0.9501351778198543
+        }
+      }
+    ]
+  },
+  "hardFailures": [],
+  "pass": true,
+  "anchors": {
+    "enabled": true,
+    "reference": {
+      "path": "../perf/artifacts/frontend/canvas-webgpu-step4-reference-light-sections-hidden-minimap-anchors.json",
+      "kind": "workspace-dom-parity-snapshot",
+      "sectionCount": 46,
+      "visibleRowCount": 94,
+      "minimapVisible": false
+    },
+    "current": {
+      "path": "../perf/artifacts/frontend/canvas-webgpu-step4-current-light-sections-hidden-minimap-after-swatch-glyph-anchors.json",
+      "kind": "workspace-canvas-parity-snapshot",
+      "sectionCount": 46,
+      "visibleRowCount": 94,
+      "minimapVisible": false
+    },
+    "metrics": {
+      "sections": {
+        "referenceCount": 46,
+        "currentCount": 46,
+        "commonCount": 46,
+        "missingCurrentSectionIds": [],
+        "extraCurrentSectionIds": [],
+        "maxRectDelta": {
+          "value": 0.0010000000002037268,
+          "detail": {
+            "sectionId": "settings-section__buttonParamCodeObjDefault",
+            "rect": "bounds",
+            "reference": {
+              "x": 311.667,
+              "y": 3767.523,
+              "width": 325.666,
+              "height": 185.252
+            },
+            "current": {
+              "x": 311.667,
+              "y": 3767.522,
+              "width": 325.666,
+              "height": 185.252
+            }
+          }
+        },
+        "maxHeaderHeightDelta": {
+          "value": 0,
+          "detail": null
+        }
+      },
+      "rows": {
+        "referenceVisibleCount": 94,
+        "currentVisibleCount": 94,
+        "commonCount": 94,
+        "missingCurrentRowKeys": [],
+        "extraCurrentRowKeys": [],
+        "maxRowHeightDelta": {
+          "value": 0.0010000000000012221,
+          "detail": {
+            "rowKey": "settings-section__backend:settings-codeobj__backend__backend__autobackupFreq",
+            "rect": "row",
+            "reference": {
+              "x": 673.322,
+              "y": 294.339,
+              "width": 313.867,
+              "height": 11.799
+            },
+            "current": {
+              "x": 673.322,
+              "y": 294.339,
+              "width": 313.867,
+              "height": 11.8
+            }
+          }
+        },
+        "maxLabelColumnDelta": {
+          "value": 2.3600000000000136,
+          "detail": {
+            "rowKey": "settings-section__sectionSizingPolicy:settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight",
+            "rect": "label",
+            "reference": {
+              "x": 334.676,
+              "y": 648.324,
+              "width": 151.624,
+              "height": 11.799
+            },
+            "current": {
+              "x": 337.036,
+              "y": 648.324,
+              "width": 150.656,
+              "height": 11.8
+            }
+          }
+        },
+        "maxValueColumnDelta": {
+          "value": 2.1480000000000246,
+          "detail": {
+            "rowKey": "settings-section__chartSectionDefault:settings-codeobj__chartSectionDefault__chartSectionDefault__size__height",
+            "rect": "value",
+            "reference": {
+              "x": 840.285,
+              "y": 1061.307,
+              "width": 145.724,
+              "height": 11.8
+            },
+            "current": {
+              "x": 838.137,
+              "y": 1058.947,
+              "width": 149.051,
+              "height": 11.8
+            }
+          }
+        }
+      },
+      "minimap": {
+        "referenceVisible": false,
+        "currentVisible": false,
+        "referencePreviewCount": 0,
+        "currentPreviewCount": 46,
+        "boundsIoU": null,
+        "viewportMaskIoU": null,
+        "skipped": false
+      }
+    }
+  }
+}

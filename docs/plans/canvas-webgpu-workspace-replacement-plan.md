@@ -1004,6 +1004,11 @@ Use a visual comparison harness that captures the same scenario in the clean
 - closed overview/UI-editor side panes and closed project chat windows in both
   the clean `go-rewrite` reference and the current canvas branch, unless a
   specific non-primary capture explicitly declares a different chrome state
+- a minimap-disabled or minimap-hidden capture state in both reference and
+  current section visual-parity screenshots so the minimap cannot cover
+  section, row, scrollbar, or control crops; do not rely on crop selection to
+  avoid an enabled minimap, and fail section-crop captures when the minimap is
+  visible outside a dedicated minimap or selected-section minimap-state scenario
 - a deterministic saved viewport or explicit scene viewport before capture
 - masks for branch name text, clocks, cursor, runtime-only notifications, and
   other intentionally variable chrome
@@ -1022,6 +1027,8 @@ Hard failures:
 
 - any required reference or current capture is missing
 - reference and current capture dimensions differ
+- the minimap is visible in a section visual-parity capture that is not a
+  dedicated minimap or selected-section minimap-state scenario
 - the current workspace architecture probes fail, such as missing the single
   workspace canvas or mounting xyflow workspace DOM
 - section bounds, row bounds, or minimap bounds cannot be extracted for
@@ -1130,6 +1137,10 @@ section wheel-scroll frame time, and passive code highlighting cache hit rate.
   and any project chat windows or expanded bottom-dock chat content before
   capturing; use the same closed-chrome setup for both the `go-rewrite`
   references and current branch recaptures.
+- For section visual-parity references and current recaptures, also put the
+  workspace in a minimap-disabled or minimap-hidden state before capturing so
+  the minimap cannot cover sections. Keep separate minimap-specific captures
+  with the minimap enabled.
 - Capture at least two deterministic `go-rewrite` reference passes for the
   quantitative visual parity gate's recapture-noise calibration.
 

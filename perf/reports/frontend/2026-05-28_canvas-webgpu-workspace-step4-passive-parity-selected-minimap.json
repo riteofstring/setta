@@ -1,0 +1,204 @@
+{
+  "reference": {
+    "screenshot": "../perf/artifacts/frontend/canvas-webgpu-step4-reference-dark-selected-minimap.png"
+  },
+  "current": {
+    "screenshot": "../perf/artifacts/frontend/canvas-webgpu-step4-current-dark-selected-minimap.png"
+  },
+  "capture": {
+    "workspaceCrop": {
+      "x": 39,
+      "y": 36,
+      "width": 1361,
+      "height": 1128
+    },
+    "representativeCrops": [
+      {
+        "kind": "minimap",
+        "id": "minimap",
+        "thresholdKind": "section",
+        "rect": {
+          "x": 53,
+          "y": 995,
+          "width": 206,
+          "height": 156
+        }
+      }
+    ]
+  },
+  "thresholds": {
+    "workspaceMeanAbsRgbDeltaMax": 8,
+    "fullWorkspaceSsimMin": 0.9,
+    "representativeSectionCropSsimMin": 0.92,
+    "representativeRowControlCropSsimMin": 0.92,
+    "sectionRectDeltaMax": 4,
+    "headerHeightDeltaMax": 2,
+    "rowHeightDeltaMax": 2,
+    "labelValueColumnDeltaMax": 3,
+    "minimapIoUMin": 0.95
+  },
+  "dimensions": {
+    "reference": {
+      "width": 1440,
+      "height": 1200
+    },
+    "current": {
+      "width": 1440,
+      "height": 1200
+    }
+  },
+  "metrics": {
+    "workspaceCrop": {
+      "meanAbsRgbDelta": 1.5527667912100511,
+      "rmsRgbDelta": 9.383612131965226,
+      "local8x8GrayscaleSsim": 0.9479005174500887
+    },
+    "fullViewport": {
+      "meanAbsRgbDelta": 1.444016975308642,
+      "rmsRgbDelta": 9.126244609015268,
+      "local8x8GrayscaleSsim": 0.9496414645088666
+    },
+    "representativeCrops": [
+      {
+        "kind": "minimap",
+        "id": "minimap",
+        "thresholdKind": "section",
+        "rect": {
+          "x": 53,
+          "y": 995,
+          "width": 206,
+          "height": 156
+        },
+        "metrics": {
+          "meanAbsRgbDelta": 1.7063314247780268,
+          "rmsRgbDelta": 3.6102863167651478,
+          "local8x8GrayscaleSsim": 0.9419717202160173
+        }
+      }
+    ]
+  },
+  "hardFailures": [],
+  "pass": true,
+  "anchors": {
+    "enabled": true,
+    "reference": {
+      "path": "../perf/artifacts/frontend/canvas-webgpu-step4-reference-dark-selected-minimap-anchors.json",
+      "kind": "workspace-dom-parity-snapshot",
+      "sectionCount": 46,
+      "visibleRowCount": 112,
+      "minimapVisible": true
+    },
+    "current": {
+      "path": "../perf/artifacts/frontend/canvas-webgpu-step4-current-dark-selected-minimap-anchors.json",
+      "kind": "workspace-canvas-parity-snapshot",
+      "sectionCount": 46,
+      "visibleRowCount": 112,
+      "minimapVisible": true
+    },
+    "metrics": {
+      "sections": {
+        "referenceCount": 46,
+        "currentCount": 46,
+        "commonCount": 46,
+        "missingCurrentSectionIds": [],
+        "extraCurrentSectionIds": [],
+        "maxRectDelta": {
+          "value": 0.0010000000000047748,
+          "detail": {
+            "sectionId": "settings-section__dropzoneParamCodeObjDefault",
+            "rect": "bounds",
+            "reference": {
+              "x": 308.985,
+              "y": 3233.821,
+              "width": 325.666,
+              "height": 156.934
+            },
+            "current": {
+              "x": 308.985,
+              "y": 3233.821,
+              "width": 325.666,
+              "height": 156.933
+            }
+          }
+        },
+        "maxHeaderHeightDelta": {
+          "value": 0,
+          "detail": null
+        }
+      },
+      "rows": {
+        "referenceVisibleCount": 112,
+        "currentVisibleCount": 112,
+        "commonCount": 112,
+        "missingCurrentRowKeys": [],
+        "extraCurrentRowKeys": [],
+        "maxRowHeightDelta": {
+          "value": 0.0010000000000012221,
+          "detail": {
+            "rowKey": "settings-section__chatSectionDefault:settings-codeobj__chatSectionDefault__chatSectionDefault__agentProfileId",
+            "rect": "row",
+            "reference": {
+              "x": -37.33,
+              "y": 100.463,
+              "width": 313.867,
+              "height": 11.799
+            },
+            "current": {
+              "x": -37.33,
+              "y": 100.463,
+              "width": 313.867,
+              "height": 11.8
+            }
+          }
+        },
+        "maxLabelColumnDelta": {
+          "value": 1.1800000000000068,
+          "detail": {
+            "rowKey": "settings-section__codeSectionDefault:settings-codeobj__codeSectionDefault__codeSectionDefault__diagnosticsIgnoreState__muted",
+            "rect": "label",
+            "reference": {
+              "x": 324.914,
+              "y": 173.62,
+              "width": 151.624,
+              "height": 11.8
+            },
+            "current": {
+              "x": 326.094,
+              "y": 171.26,
+              "width": 150.656,
+              "height": 11.8
+            }
+          }
+        },
+        "maxValueColumnDelta": {
+          "value": 2.1479999999999677,
+          "detail": {
+            "rowKey": "settings-section__codeSectionDefault:settings-codeobj__codeSectionDefault__codeSectionDefault__diagnosticsIgnoreState__muted",
+            "rect": "value",
+            "reference": {
+              "x": 483.618,
+              "y": 174.689,
+              "width": 20.28,
+              "height": 9.661
+            },
+            "current": {
+              "x": 481.47,
+              "y": 171.26,
+              "width": 149.051,
+              "height": 11.8
+            }
+          }
+        }
+      },
+      "minimap": {
+        "referenceVisible": true,
+        "currentVisible": true,
+        "referencePreviewCount": 46,
+        "currentPreviewCount": 46,
+        "boundsIoU": 1,
+        "viewportMaskIoU": 0.9510494199691535,
+        "skipped": false
+      }
+    }
+  }
+}

@@ -6,12 +6,13 @@ export type WorkspaceTextStyleKey =
 
 export const WORKSPACE_TEXT_STYLES = {
   "section-title":
-    "600 13px system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
-  "dict-label": "12px system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+    "700 11.2px ui-sans-serif, system-ui, sans-serif",
+  "dict-label":
+    "600 12px ui-sans-serif, system-ui, sans-serif",
   "dict-value":
     '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
   "dict-control":
-    "11px system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+    "11px ui-sans-serif, system-ui, sans-serif",
 } satisfies Record<WorkspaceTextStyleKey, string>;
 
 export type WorkspaceTextMeasurementRequest = {
@@ -109,7 +110,7 @@ export function completeWorkspaceTextMeasurementRequest(
   applied: boolean;
 } {
   const entry = cache.entriesByKey[key];
-  if (!entry || entry.requestId !== requestId || entry.status !== "pending") {
+  if (entry && (entry.requestId !== requestId || entry.status !== "pending")) {
     return { cache, applied: false };
   }
   return {
@@ -180,7 +181,7 @@ function truncateWorkspaceText(
   if (maxWidth <= 0 || text.length === 0) {
     return "";
   }
-  const suffix = "...";
+  const suffix = "\u2026";
   const suffixWidth = context.measureText(suffix).width;
   if (suffixWidth > maxWidth) {
     return "";

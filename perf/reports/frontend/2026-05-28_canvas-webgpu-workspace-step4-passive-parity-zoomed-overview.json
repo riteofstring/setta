@@ -1,0 +1,145 @@
+{
+  "reference": {
+    "screenshot": "../perf/artifacts/frontend/canvas-webgpu-step4-reference-dark-zoomed-overview-hidden-minimap.png"
+  },
+  "current": {
+    "screenshot": "../perf/artifacts/frontend/canvas-webgpu-step4-current-dark-zoomed-overview-hidden-minimap.png"
+  },
+  "capture": {
+    "workspaceCrop": {
+      "x": 39,
+      "y": 36,
+      "width": 1361,
+      "height": 1128
+    },
+    "representativeCrops": []
+  },
+  "thresholds": {
+    "workspaceMeanAbsRgbDeltaMax": 8,
+    "fullWorkspaceSsimMin": 0.9,
+    "representativeSectionCropSsimMin": 0.92,
+    "representativeRowControlCropSsimMin": 0.92,
+    "sectionRectDeltaMax": 4,
+    "headerHeightDeltaMax": 2,
+    "rowHeightDeltaMax": 2,
+    "labelValueColumnDeltaMax": 3,
+    "minimapIoUMin": 0.95
+  },
+  "dimensions": {
+    "reference": {
+      "width": 1440,
+      "height": 1200
+    },
+    "current": {
+      "width": 1440,
+      "height": 1200
+    }
+  },
+  "metrics": {
+    "workspaceCrop": {
+      "meanAbsRgbDelta": 2.189175234452487,
+      "rmsRgbDelta": 7.245408063712003,
+      "local8x8GrayscaleSsim": 0.9318857781339398
+    },
+    "fullViewport": {
+      "meanAbsRgbDelta": 2.0070030864197532,
+      "rmsRgbDelta": 7.1549265111271145,
+      "local8x8GrayscaleSsim": 0.9347510314560251
+    },
+    "representativeCrops": []
+  },
+  "hardFailures": [],
+  "pass": true,
+  "anchors": {
+    "enabled": true,
+    "reference": {
+      "path": "../perf/artifacts/frontend/canvas-webgpu-step4-reference-dark-zoomed-overview-hidden-minimap-anchors.json",
+      "kind": "workspace-dom-parity-snapshot",
+      "sectionCount": 46,
+      "visibleRowCount": 166,
+      "minimapVisible": false
+    },
+    "current": {
+      "path": "../perf/artifacts/frontend/canvas-webgpu-step4-current-dark-zoomed-overview-hidden-minimap-anchors.json",
+      "kind": "workspace-canvas-parity-snapshot",
+      "sectionCount": 46,
+      "visibleRowCount": 166,
+      "minimapVisible": false
+    },
+    "metrics": {
+      "sections": {
+        "referenceCount": 46,
+        "currentCount": 46,
+        "commonCount": 46,
+        "missingCurrentSectionIds": [],
+        "extraCurrentSectionIds": [],
+        "maxRectDelta": {
+          "value": 0,
+          "detail": null
+        },
+        "maxHeaderHeightDelta": {
+          "value": 0,
+          "detail": null
+        }
+      },
+      "rows": {
+        "referenceVisibleCount": 166,
+        "currentVisibleCount": 166,
+        "commonCount": 166,
+        "missingCurrentRowKeys": [],
+        "extraCurrentRowKeys": [],
+        "maxRowHeightDelta": {
+          "value": 0,
+          "detail": null
+        },
+        "maxLabelColumnDelta": {
+          "value": 1.400000000000034,
+          "detail": {
+            "rowKey": "settings-section__sectionSizingPolicy:settings-codeobj__sectionSizingPolicy__sectionSizingPolicy__byType__Browser__maxHeight",
+            "rect": "label",
+            "reference": {
+              "x": 323.65,
+              "y": 365.55,
+              "width": 89.95,
+              "height": 7
+            },
+            "current": {
+              "x": 325.05,
+              "y": 365.55,
+              "width": 89.376,
+              "height": 7
+            }
+          }
+        },
+        "maxValueColumnDelta": {
+          "value": 1.274000000000001,
+          "detail": {
+            "rowKey": "settings-section__browserSectionDefault:settings-codeobj__browserSectionDefault__browserSectionDefault__size__height",
+            "rect": "value",
+            "reference": {
+              "x": 203.6,
+              "y": 635.75,
+              "width": 86.45,
+              "height": 7
+            },
+            "current": {
+              "x": 202.326,
+              "y": 634.35,
+              "width": 88.424,
+              "height": 7
+            }
+          }
+        }
+      },
+      "minimap": {
+        "referenceVisible": false,
+        "currentVisible": false,
+        "referencePreviewCount": 0,
+        "currentPreviewCount": 46,
+        "boundsIoU": null,
+        "viewportMaskIoU": null,
+        "skipped": false
+      }
+    }
+  }
+}

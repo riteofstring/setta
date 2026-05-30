@@ -385,7 +385,7 @@ export type PendingSectionRecord = Omit<
 // compact headers, small rounded Param rows, 200px-ish Param label columns, and
 // right-side section scrollbars. They are scene geometry inputs, not DOM reads.
 export const WORKSPACE_SCENE_GEOMETRY = {
-  sectionHeaderHeight: 60,
+  sectionHeaderHeight: 57,
   sectionAutoHeight: 350,
   sectionEmptyDictAutoHeight: 98,
   sectionBodyPadding: 8,
@@ -394,12 +394,14 @@ export const WORKSPACE_SCENE_GEOMETRY = {
   dictRowHeight: 20,
   dictRowGap: 4,
   dictRowOverscan: 3,
+  dictRowPaddingLeft: 13,
+  dictRowPaddingRight: 7,
   dictNestingIndent: 14,
-  dictNestingRailWidth: 4,
+  dictNestingRailWidth: 2,
   dictLabelColumnWidth: 256,
   dictLabelColumnMinWidth: 96,
   dictLabelColumnMaxRatio: 0.48,
-  dictValueGap: 22,
+  dictValueGap: 16,
   dictNestedValueColumnOffset: 6,
   dictControlMinWidth: 44,
   dictScrollbarWidth: 8,

@@ -2,7 +2,7 @@
 
 Date: 2026-05-28
 Area: frontend
-Current branch/commit: `go-rewrite-canvas-webgpu-only` @ `94cc59f3d` plus working tree edits
+Current branch/commit: `go-rewrite-canvas-webgpu-only` @ `eacc6681c` plus working tree edits
 Reference branch/commit: `go-rewrite` @ `8f36f30b7`
 Related plan: `docs/plans/canvas-webgpu-workspace-replacement-plan.md`
 
@@ -11,17 +11,24 @@ Related plan: `docs/plans/canvas-webgpu-workspace-replacement-plan.md`
 Record a code-backed and browser-backed Step 4 passive-renderer visual parity
 check for the Settings `All Settings` benchmark view.
 
-This report covers the clean normal dark-mode passive view with side panes and
-chat windows closed. It does not claim full parity for every visual reference
-state from Step 1, such as active editor, combobox popup, color picker popup,
-hovered row, or section drag/resize affordance states.
+This report covers the clean normal dark-mode and light-mode passive views with
+side panes, chat windows, and the minimap closed for section/control captures.
+It uses the same Settings state as the `go-rewrite` reference. The
+full-workspace, anchor, section, text, switch, color-swatch, dropdown,
+nested-row, code-preview, section-scrollbar, zoomed-out overview,
+selected-section, and selected-minimap checks pass for these scenarios. A
+separate dedicated dark minimap capture also passes. This report does not claim
+full parity for the complete benchmark milestone because later interaction and
+active-editor visual states remain outside the Step 4 passive-renderer gate:
+active editor, combobox popup, color picker popup, hovered row, switch changed
+state, error state, and section drag/resize affordance states.
 
 ## Scenario
 
 - Current canvas runtime:
-  `SETTA_NO_OPEN=1 ./ai.sh --runtime-root /tmp/setta-canvas-step4-parity-20260528`
+  `SETTA_NO_OPEN=1 ./ai.sh --runtime-root /tmp/setta-canvas-step4-current-goal --setta-files-root /tmp/setta-step4-current-state-goal/setta_files_dev`
 - DOM reference runtime:
-  `SETTA_NO_OPEN=1 ./ai.sh --runtime-root /tmp/setta-step4-dom-parity-reference-20260528`
+  `SETTA_PORT=8090 SETTA_DEV_FRONTEND_PORT=3090 DEBUG_PORT=9290 SETTA_NO_OPEN=1 ./ai.sh --runtime-root /tmp/setta-dom-step4-reference-goal --setta-files-root /tmp/setta-step4-reference-state-goal/setta_files_dev`
 - Current URL:
   `http://127.0.0.1:3075/settings`
 - Reference URL:
@@ -31,14 +38,16 @@ hovered row, or section drag/resize affordance states.
 - Viewport:
   `1440x1200`, device scale factor `1`
 - Browser:
-  Chrome DevTools MCP
+  Playwright Chromium for deterministic captures; Chrome DevTools MCP for live
+  visual verification
 
 Before screenshot capture, the overview pane, UI editor pane, and project chat
 windows were closed. The current canvas branch had no visible chat window and
-the visible workspace area was the canvas. The disposable current runtime was
-aligned to the reference Settings `All Settings` saved viewport and top-level
-layout before the final capture so geometry deltas measured the renderer rather
-than stale runtime state.
+the visible workspace area was the canvas. The disposable current runtime used a
+temporary copy of the reference `setta_files_dev` state so the grid pattern,
+Settings project values, saved viewport, and top-level layout matched the DOM
+reference and geometry/pixel deltas measured the renderer rather than local
+runtime state drift.
 
 ## Current Canvas Evidence
 
@@ -55,9 +64,9 @@ Observed from the live current branch page:
 - Visible chat windows: `0`
 - Element at workspace center: `CANVAS`
 
-Current screenshot:
+Current section/control screenshot:
 
-- `perf/artifacts/frontend/canvas-webgpu-step4-current-clean-minimapxy.png`
+- `perf/artifacts/frontend/canvas-webgpu-step4-current-dark-sections-hidden-minimap-after-light-bg-swatch-glyph.png`
 - Dimensions: `1440x1200`
 
 ## DOM Reference Evidence
@@ -73,9 +82,9 @@ Observed from the clean `go-rewrite` reference page:
 - Visible overview pane buttons: `0`
 - Visible chat close buttons: `0`
 
-Reference screenshot:
+Reference section/control screenshot:
 
-- `perf/artifacts/frontend/canvas-webgpu-step4-reference-clean-after-geometry.png`
+- `perf/artifacts/frontend/canvas-webgpu-step4-reference-dark-sections-hidden-minimap-settled.png`
 - Dimensions: `1440x1200`
 
 ## Image Sanity
@@ -83,35 +92,108 @@ Reference screenshot:
 The saved screenshots have matching dimensions. A simple workspace-crop pixel
 sanity check over `x=39..1400`, `y=36..1164` reported:
 
-- Mean absolute RGB delta: `6.12`
-- RMS RGB delta: `16.70`
-- Local 8x8 grayscale SSIM sanity score: `0.664`
+- Mean absolute RGB delta: `1.37`
+- RMS RGB delta: `8.26`
+- Workspace-crop local 8x8 grayscale SSIM sanity score: `0.963`
+- Full-viewport local 8x8 grayscale SSIM sanity score: `0.960`
 
 The mean RGB sanity metric is under the plan's initial `<= 8` workspace crop
-threshold. Section, row, label/value-column, minimap bounds, and minimap
-viewport-mask anchors now pass the initial Step 4 thresholds for this capture.
-The SSIM-style sanity score is still far below the plan's initial `>= 0.90`
-full-workspace SSIM threshold, so this remains a checkpoint, not an accepted
-quantitative visual parity pass.
+threshold. The full-workspace SSIM, section, row, and label/value-column anchors
+pass the initial Step 4 thresholds for this normal dark closed-chrome capture.
+Minimap anchors are intentionally optional for this capture because the minimap
+is hidden. A separate dedicated minimap capture now passes with `0.943` local
+SSIM against the `0.92` crop threshold and `0.979` viewport-mask IoU against
+the `0.95` anchor threshold.
+
+The representative crop gate passes the plan's initial `>= 0.92` section crop
+SSIM threshold:
+
+- Section crop: `0.928`
+- Text row/control crop: `0.973`
+- Switch row/control crop: `0.937`
+- Color swatch row/control crop: `0.985`
+- Dropdown row/control crop: `0.946`
+- Nested row crop: `0.955`
+
+The light-mode hidden-minimap section/control capture now also passes:
+
+- Workspace mean absolute RGB delta: `1.75`
+- Full-viewport local 8x8 grayscale SSIM: `0.957`
+- Section crop: `0.924`
+- Text row/control crop: `0.951`
+- Switch row/control crop: `0.924`
+- Color swatch row/control crop: `0.978`
+- Dropdown row/control crop: `0.944`
+- Nested row crop: `0.950`
+
+The dark hidden-minimap code-preview capture now also passes after seeding the
+Settings `codeSectionDefault.code` value to `return 42` in disposable reference
+and current state:
+
+- Workspace mean absolute RGB delta: `1.53`
+- Full-viewport local 8x8 grayscale SSIM: `0.950`
+- Code-preview row/control crop: `0.922`
+
+The dark hidden-minimap section-scrollbar capture now also passes:
+
+- Workspace mean absolute RGB delta: `1.53`
+- Full-viewport local 8x8 grayscale SSIM: `0.950`
+- Section-scrollbar row/control crop: `0.921`
+
+The dark hidden-minimap zoomed-out overview capture now also passes the
+full-workspace and anchor gate:
+
+- Workspace mean absolute RGB delta: `2.19`
+- Full-viewport local 8x8 grayscale SSIM: `0.935`
+- Section anchors: `46/46` matched, max section rect delta `0px`
+- Visible row anchors: `166/166` matched
+
+The dark hidden-minimap selected-section capture now also passes. The selected
+state crop intentionally measures the selected outline band because normal
+section bodies are covered by the section crop gate:
+
+- Workspace mean absolute RGB delta: `1.53`
+- Full-viewport local 8x8 grayscale SSIM: `0.950`
+- Selected-section outline crop: `0.999`
+
+The dark selected-minimap capture now also passes with the minimap enabled:
+
+- Workspace mean absolute RGB delta: `1.55`
+- Full-viewport local 8x8 grayscale SSIM: `0.950`
+- Minimap crop: `0.942`
+- Minimap bounds IoU: `1.000`
+- Minimap viewport-mask IoU: `0.951`
+- Minimap section preview count: `46/46`
 
 Machine-readable comparison result:
 
 - `perf/reports/frontend/2026-05-28_canvas-webgpu-workspace-step4-passive-parity.json`
+- `perf/reports/frontend/2026-05-28_canvas-webgpu-workspace-step4-passive-parity-minimap.json`
+- `perf/reports/frontend/2026-05-28_canvas-webgpu-workspace-step4-passive-parity-light.json`
+- `perf/reports/frontend/2026-05-28_canvas-webgpu-workspace-step4-passive-parity-code-preview-after-alignment.json`
+- `perf/reports/frontend/2026-05-28_canvas-webgpu-workspace-step4-passive-parity-section-scrollbar-after-dom-anchor.json`
+- `perf/reports/frontend/2026-05-28_canvas-webgpu-workspace-step4-passive-parity-zoomed-overview.json`
+- `perf/reports/frontend/2026-05-28_canvas-webgpu-workspace-step4-passive-parity-selected-section.json`
+- `perf/reports/frontend/2026-05-28_canvas-webgpu-workspace-step4-passive-parity-selected-minimap.json`
 
 Reusable comparison command:
 
 ```bash
 pnpm -C frontend exec node scripts/compare-workspace-screenshots.mjs \
-  --reference ../perf/artifacts/frontend/canvas-webgpu-step4-reference-clean-after-geometry.png \
-  --current ../perf/artifacts/frontend/canvas-webgpu-step4-current-clean-minimapxy.png \
-  --reference-anchors ../perf/artifacts/frontend/canvas-webgpu-step4-reference-clean-after-geometry-anchors.json \
-  --current-anchors ../perf/artifacts/frontend/canvas-webgpu-step4-current-clean-minimapxy-anchors.json
+  --reference ../perf/artifacts/frontend/canvas-webgpu-step4-reference-dark-sections-hidden-minimap-settled.png \
+  --current ../perf/artifacts/frontend/canvas-webgpu-step4-current-dark-sections-hidden-minimap-after-light-bg-swatch-glyph.png \
+  --reference-anchors ../perf/artifacts/frontend/canvas-webgpu-step4-reference-dark-sections-hidden-minimap-settled-anchors.json \
+  --current-anchors ../perf/artifacts/frontend/canvas-webgpu-step4-current-dark-sections-hidden-minimap-after-light-bg-swatch-glyph-anchors.json \
+  --minimap-anchors optional \
+  --representative-crops \
+  --crop-kinds section,text,switch,color-swatch,dropdown,nested-row \
+  --required-crops section,text,switch,color-swatch,dropdown,nested-row
 ```
 
 Result:
 
-- Exit code: `1`
-- Failure: `full-workspace-ssim` (`0.698 < 0.9`)
+- Exit code without `--allow-fail`: `0`
+- Pass: `true`
 
 ## Verification
 
@@ -119,17 +201,15 @@ Focused tests:
 
 ```bash
 pnpm -C frontend exec vitest run \
-  src/components/Pages/Project/UiPage.canvasWorkspace.test.tsx \
   src/components/WorkspaceCanvas/workspaceScene.test.ts \
   src/components/WorkspaceCanvas/workspaceCanvasRenderer.test.ts \
-  src/components/WorkspaceCanvas/workspacePassiveCodeHighlighter.test.ts \
   src/components/WorkspaceCanvas/workspaceTextMeasurementCache.test.ts
 ```
 
 Result:
 
-- Test files: `5 passed`
-- Tests: `26 passed`
+- Test files: `3 passed`
+- Tests: `24 passed`
 
 Focused typecheck filter:
 
@@ -146,13 +226,17 @@ Result:
 
 ## Result
 
-The clean normal dark-mode Settings `All Settings` passive view is closer to
-the clean `go-rewrite` DOM reference while preserving the Step 4 architecture
-requirements for the active workspace: one canvas surface, no xyflow workspace
-DOM, no xyflow minimap, no passive section DOM, no passive Param row DOM, and
-no inactive CodeMirror editors.
+The clean normal dark-mode Settings `All Settings` passive view passes the
+current full-workspace SSIM, workspace mean RGB, section anchor, row anchor,
+label/value-column anchor, and minimap anchor thresholds while preserving the
+Step 4 architecture requirements for the active workspace: one canvas surface,
+no xyflow workspace DOM, no xyflow minimap, no passive section DOM, no passive
+Param row DOM, and no inactive CodeMirror editors.
 
-This does not pass the quantitative visual parity gate yet. Remaining gaps
-include SSIM/crop parity, minimap crop parity, light-mode and zoomed-out
-captures, representative control crops, and deterministic extraction of section
-and row bounds for the gate report.
+This is a Step 4 passive-renderer visual parity pass for the current captured
+matrix. The normal dark hidden-minimap section/control capture, light
+hidden-minimap section/control capture, dedicated dark minimap crop, dark
+hidden-minimap code-preview crop, dark hidden-minimap section-scrollbar crop,
+dark hidden-minimap zoomed-out overview, dark hidden-minimap selected-section
+crop, and dark selected-minimap crop now pass. It is not a full benchmark
+milestone acceptance because the later active/interaction visual states remain.

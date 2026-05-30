@@ -11,6 +11,8 @@ const DEFAULT_WORKSPACE_CROP = {
 const DEFAULT_THRESHOLDS = {
   workspaceMeanAbsRgbDeltaMax: 8,
   fullWorkspaceSsimMin: 0.9,
+  representativeSectionCropSsimMin: 0.92,
+  representativeRowControlCropSsimMin: 0.92,
   sectionRectDeltaMax: 4,
   headerHeightDeltaMax: 2,
   rowHeightDeltaMax: 2,
@@ -25,6 +27,7 @@ const outPath = args.out;
 const referenceAnchorsPath = args["reference-anchors"] ?? args.referenceAnchors;
 const currentAnchorsPath = args["current-anchors"] ?? args.currentAnchors;
 const requireAnchors = Boolean(args["require-anchors"] ?? args.requireAnchors);
+const anchorOptions = parseAnchorOptions(args);
 const workspaceCrop = parseCrop(
   args["workspace-crop"] ?? args.workspaceCrop,
   DEFAULT_WORKSPACE_CROP,
@@ -37,6 +40,16 @@ const thresholds = {
   fullWorkspaceSsimMin: parseNumberArg(
     args["full-ssim-min"] ?? args.fullSsimMin,
     DEFAULT_THRESHOLDS.fullWorkspaceSsimMin,
+  ),
+  representativeSectionCropSsimMin: parseNumberArg(
+    args["representative-section-crop-ssim-min"] ??
+      args.representativeSectionCropSsimMin,
+    DEFAULT_THRESHOLDS.representativeSectionCropSsimMin,
+  ),
+  representativeRowControlCropSsimMin: parseNumberArg(
+    args["representative-row-control-crop-ssim-min"] ??
+      args.representativeRowControlCropSsimMin,
+    DEFAULT_THRESHOLDS.representativeRowControlCropSsimMin,
   ),
   sectionRectDeltaMax: parseNumberArg(
     args["section-rect-delta-max"] ?? args.sectionRectDeltaMax,
@@ -59,22 +72,31 @@ const thresholds = {
     DEFAULT_THRESHOLDS.minimapIoUMin,
   ),
 };
+const representativeCropRequest = parseRepresentativeCropRequest(args);
+const representativeCropResult = await prepareRepresentativeCrops({
+  request: representativeCropRequest,
+  referenceAnchorsPath,
+  currentAnchorsPath,
+});
 
 const screenshotResult = await compareScreenshots({
   referencePath,
   currentPath,
   workspaceCrop,
+  representativeCrops: representativeCropResult.crops,
   thresholds,
 });
 const anchorResult = await compareAnchorInputs({
   referenceAnchorsPath,
   currentAnchorsPath,
   requireAnchors,
+  options: anchorOptions,
   thresholds,
 });
 const hardFailures = [
   ...screenshotResult.hardFailures,
   ...anchorResult.hardFailures,
+  ...representativeCropResult.hardFailures,
 ];
 const result = {
   ...screenshotResult,
@@ -154,10 +176,62 @@ function parseCrop(value, fallback) {
   return { x, y, width, height };
 }
 
+function parseRepresentativeCropRequest(args) {
+  const enabled = Boolean(
+    args["representative-crops"] ?? args.representativeCrops,
+  );
+  return {
+    enabled,
+    includedKinds: parseStringList(args["crop-kinds"] ?? args.cropKinds),
+    requiredKinds: parseStringList(
+      args["required-crops"] ?? args.requiredCrops,
+    ),
+  };
+}
+
+function parseAnchorOptions(args) {
+  return {
+    minimapAnchors: parseEnumArg(
+      args["minimap-anchors"] ?? args.minimapAnchors,
+      ["required", "optional", "skip"],
+      "required",
+      "minimap-anchors",
+    ),
+  };
+}
+
+function parseEnumArg(value, allowedValues, fallback, name) {
+  if (value === undefined || value === true) {
+    return fallback;
+  }
+  if (allowedValues.includes(value)) {
+    return value;
+  }
+  throw new Error(
+    `Invalid --${name} '${String(value)}'. Expected ${allowedValues.join(
+      ", ",
+    )}.`,
+  );
+}
+
+function parseStringList(value) {
+  if (value === undefined || value === true) {
+    return [];
+  }
+  if (typeof value !== "string") {
+    throw new Error(`Expected comma-separated list, got ${String(value)}.`);
+  }
+  return value
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
 async function compareScreenshots({
   referencePath,
   currentPath,
   workspaceCrop,
+  representativeCrops,
   thresholds,
 }) {
   const [referenceBuffer, currentBuffer] = await Promise.all([
@@ -167,7 +241,12 @@ async function compareScreenshots({
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   const comparison = await page.evaluate(
-    async ({ referenceDataUrl, currentDataUrl, workspaceCrop }) => {
+    async ({
+      referenceDataUrl,
+      currentDataUrl,
+      workspaceCrop,
+      representativeCrops,
+    }) => {
       const [reference, current] = await Promise.all([
         loadImageData(referenceDataUrl),
         loadImageData(currentDataUrl),
@@ -211,6 +290,17 @@ async function compareScreenshots({
               },
             ),
           },
+          representativeCrops: representativeCrops.map((crop) => ({
+            ...crop,
+            metrics: {
+              ...calculateRgbMetrics(reference, current, crop.rect),
+              local8x8GrayscaleSsim: calculateLocalGrayscaleSsim(
+                reference,
+                current,
+                crop.rect,
+              ),
+            },
+          })),
         },
       };
 
@@ -367,6 +457,7 @@ async function compareScreenshots({
         "base64",
       )}`,
       workspaceCrop,
+      representativeCrops,
     },
   );
   await browser.close();
@@ -380,6 +471,7 @@ async function compareScreenshots({
     },
     capture: {
       workspaceCrop,
+      representativeCrops,
     },
     thresholds,
     dimensions: comparison.dimensions,
@@ -431,13 +523,463 @@ function collectHardFailures(comparison, thresholds) {
       )} is below threshold ${thresholds.fullWorkspaceSsimMin}.`,
     });
   }
+  for (const crop of comparison.metrics.representativeCrops ?? []) {
+    const threshold =
+      crop.thresholdKind === "section"
+        ? thresholds.representativeSectionCropSsimMin
+        : thresholds.representativeRowControlCropSsimMin;
+    if (crop.metrics.local8x8GrayscaleSsim < threshold) {
+      failures.push({
+        code: "representative-crop-ssim",
+        message: `Representative ${crop.kind} crop '${crop.id}' local SSIM ${crop.metrics.local8x8GrayscaleSsim.toFixed(
+          3,
+        )} is below threshold ${threshold}.`,
+      });
+    }
+  }
   return failures;
+}
+
+async function prepareRepresentativeCrops({
+  request,
+  referenceAnchorsPath,
+  currentAnchorsPath,
+}) {
+  if (!request.enabled) {
+    return {
+      crops: [],
+      hardFailures: [],
+    };
+  }
+  if (!referenceAnchorsPath || !currentAnchorsPath) {
+    return {
+      crops: [],
+      hardFailures: [
+        {
+          code: "missing-representative-crop-anchors",
+          message:
+            "Representative crop comparison requires reference and current anchor inputs.",
+        },
+      ],
+    };
+  }
+  const [referenceAnchors, currentAnchors] = await Promise.all([
+    readJsonFile(referenceAnchorsPath),
+    readJsonFile(currentAnchorsPath),
+  ]);
+  return deriveRepresentativeCrops({
+    referenceAnchors,
+    currentAnchors,
+    includedKinds: request.includedKinds,
+    requiredKinds: request.requiredKinds,
+  });
+}
+
+function deriveRepresentativeCrops({
+  referenceAnchors,
+  currentAnchors,
+  includedKinds,
+  requiredKinds,
+}) {
+  const referenceSections = indexSectionsById(referenceAnchors);
+  const currentSections = indexSectionsById(currentAnchors);
+  const referenceRows = indexVisibleRowsByKey(referenceAnchors);
+  const currentRows = indexVisibleRowsByKey(currentAnchors);
+  const crops = [];
+  const availableKinds = new Set();
+  const knownKinds = new Set();
+  const shouldDeriveKind = (kind) =>
+    includedKinds.length === 0 || includedKinds.includes(kind);
+
+  addCropIfAvailable(
+    crops,
+    availableKinds,
+    knownKinds,
+    "section",
+    () =>
+      deriveSectionCrop({
+        referenceAnchors,
+        referenceSections,
+        currentSections,
+      }),
+    shouldDeriveKind,
+  );
+  addCropIfAvailable(
+    crops,
+    availableKinds,
+    knownKinds,
+    "selected-section",
+    () =>
+      deriveSelectedSectionCrop({
+        referenceAnchors,
+        referenceSections,
+        currentSections,
+      }),
+    shouldDeriveKind,
+  );
+  addCropIfAvailable(
+    crops,
+    availableKinds,
+    knownKinds,
+    "text",
+    () =>
+      deriveRowCrop({
+        kind: "text",
+        referenceAnchors,
+        referenceRows,
+        currentRows,
+        predicate: (row) =>
+          row.paramType === "TextParam" && row.controlKind === "value-cell",
+        rectName: "value",
+      }),
+    shouldDeriveKind,
+  );
+  addCropIfAvailable(
+    crops,
+    availableKinds,
+    knownKinds,
+    "switch",
+    () =>
+      deriveRowCrop({
+        kind: "switch",
+        referenceAnchors,
+        referenceRows,
+        currentRows,
+        predicate: (row) => row.controlKind === "toggle",
+        rectName: "control",
+      }),
+    shouldDeriveKind,
+  );
+  addCropIfAvailable(
+    crops,
+    availableKinds,
+    knownKinds,
+    "color-swatch",
+    () =>
+      deriveRowCrop({
+        kind: "color-swatch",
+        referenceAnchors,
+        referenceRows,
+        currentRows,
+        predicate: (row) => row.controlKind === "color-swatch",
+        rectName: "control",
+      }),
+    shouldDeriveKind,
+  );
+  addCropIfAvailable(
+    crops,
+    availableKinds,
+    knownKinds,
+    "dropdown",
+    () =>
+      deriveRowCrop({
+        kind: "dropdown",
+        referenceAnchors,
+        referenceRows,
+        currentRows,
+        predicate: (row) => row.controlKind === "dropdown",
+        rectName: "control",
+      }),
+    shouldDeriveKind,
+  );
+  addCropIfAvailable(
+    crops,
+    availableKinds,
+    knownKinds,
+    "nested-row",
+    () =>
+      deriveRowCrop({
+        kind: "nested-row",
+        referenceAnchors,
+        referenceRows,
+        currentRows,
+        predicate: (row) => Boolean(row.containerRow) || row.depth > 0,
+      }),
+    shouldDeriveKind,
+  );
+  addCropIfAvailable(
+    crops,
+    availableKinds,
+    knownKinds,
+    "code-preview",
+    () =>
+      deriveRowCrop({
+        kind: "code-preview",
+        referenceAnchors,
+        referenceRows,
+        currentRows,
+        predicate: isCodePreviewRow,
+      }),
+    shouldDeriveKind,
+  );
+  addCropIfAvailable(
+    crops,
+    availableKinds,
+    knownKinds,
+    "section-scrollbar",
+    () =>
+      deriveSectionScrollbarCrop({
+        referenceAnchors,
+        referenceSections,
+        currentSections,
+      }),
+    shouldDeriveKind,
+  );
+  addCropIfAvailable(
+    crops,
+    availableKinds,
+    knownKinds,
+    "minimap",
+    () => deriveMinimapCrop(referenceAnchors, currentAnchors),
+    shouldDeriveKind,
+  );
+
+  const missingRequiredKinds = requiredKinds.filter(
+    (kind) => !availableKinds.has(kind),
+  );
+  const unknownIncludedKinds = includedKinds.filter(
+    (kind) => !knownKinds.has(kind),
+  );
+  return {
+    crops,
+    hardFailures: [
+      ...unknownIncludedKinds.map((kind) => ({
+        code: "unknown-representative-crop-kind",
+        message: `Representative crop kind '${kind}' is not supported by the comparison harness.`,
+      })),
+      ...missingRequiredKinds.map((kind) => ({
+        code: "missing-representative-crop",
+        message: `Required representative crop '${kind}' could not be derived from the reference and current anchors.`,
+      })),
+    ],
+  };
+}
+
+function addCropIfAvailable(
+  crops,
+  availableKinds,
+  knownKinds,
+  kind,
+  derive,
+  shouldDeriveKind,
+) {
+  knownKinds.add(kind);
+  if (!shouldDeriveKind(kind)) {
+    return;
+  }
+  const crop = derive();
+  if (!crop) {
+    return;
+  }
+  availableKinds.add(kind);
+  crops.push(crop);
+}
+
+function deriveSectionCrop({
+  referenceAnchors,
+  referenceSections,
+  currentSections,
+}) {
+  const workspaceBounds = getSnapshotWorkspaceBounds(referenceAnchors);
+  for (const sectionId of Array.from(referenceSections.keys()).sort()) {
+    const referenceSection = referenceSections.get(sectionId);
+    if (
+      !currentSections.has(sectionId) ||
+      !isPositiveRect(referenceSection.bounds) ||
+      !rectsIntersect(referenceSection.bounds, workspaceBounds)
+    ) {
+      continue;
+    }
+    return createRepresentativeCrop({
+      kind: "section",
+      id: sectionId,
+      thresholdKind: "section",
+      rect: referenceSection.bounds,
+      padding: 4,
+      bounds: workspaceBounds,
+    });
+  }
+  return null;
+}
+
+function deriveSelectedSectionCrop({
+  referenceAnchors,
+  referenceSections,
+  currentSections,
+}) {
+  const workspaceBounds = getSnapshotWorkspaceBounds(referenceAnchors);
+  for (const sectionId of Array.from(referenceSections.keys()).sort()) {
+    const referenceSection = referenceSections.get(sectionId);
+    const currentSection = currentSections.get(sectionId);
+    if (
+      !currentSection ||
+      !isSelectedSection(referenceSection) ||
+      !isSelectedSection(currentSection) ||
+      !isPositiveRect(referenceSection.bounds) ||
+      !rectsIntersect(referenceSection.bounds, workspaceBounds)
+    ) {
+      continue;
+    }
+    const outlineBand = {
+      x: referenceSection.bounds.x - 4,
+      y: referenceSection.bounds.y - 4,
+      width: referenceSection.bounds.width + 8,
+      height: 8,
+    };
+    return {
+      kind: "selected-section",
+      id: sectionId,
+      thresholdKind: "section",
+      rect: clampRectToBounds(outlineBand, workspaceBounds),
+    };
+  }
+  return null;
+}
+
+function isSelectedSection(section) {
+  return Boolean(section?.selected || section?.active);
+}
+
+function deriveRowCrop({
+  kind,
+  referenceAnchors,
+  referenceRows,
+  currentRows,
+  predicate,
+  rectName = "row",
+}) {
+  const workspaceBounds = getSnapshotWorkspaceBounds(referenceAnchors);
+  for (const rowKey of Array.from(referenceRows.keys()).sort()) {
+    const referenceRow = referenceRows.get(rowKey);
+    const currentRow = currentRows.get(rowKey);
+    const referenceRect = referenceRow[rectName];
+    const currentRect = currentRow?.[rectName];
+    if (
+      !currentRow ||
+      !predicate(currentRow) ||
+      !isPositiveRect(referenceRect) ||
+      !isPositiveRect(currentRect) ||
+      !rectContainedByBounds(referenceRect, workspaceBounds)
+    ) {
+      continue;
+    }
+    return createRepresentativeCrop({
+      kind,
+      id: rowKey,
+      thresholdKind: "row-control",
+      rect: referenceRect,
+      padding: 3,
+      bounds: workspaceBounds,
+    });
+  }
+  return null;
+}
+
+function isCodePreviewRow(row) {
+  if (row.passiveKind === "code" || /CodeParam/u.test(row.paramType ?? "")) {
+    return true;
+  }
+  const stableId = String(row.paramId ?? row.id ?? "");
+  return /(?:^|__)code(?:$|__)/u.test(stableId);
+}
+
+function deriveSectionScrollbarCrop({
+  referenceAnchors,
+  referenceSections,
+  currentSections,
+}) {
+  const workspaceBounds = getSnapshotWorkspaceBounds(referenceAnchors);
+  for (const sectionId of Array.from(referenceSections.keys()).sort()) {
+    const referenceSection = referenceSections.get(sectionId);
+    const currentSection = currentSections.get(sectionId);
+    if (
+      !currentSection ||
+      !isPositiveRect(referenceSection.scrollbar) ||
+      !isPositiveRect(currentSection.scrollbar) ||
+      !rectsIntersect(referenceSection.scrollbar, workspaceBounds)
+    ) {
+      continue;
+    }
+    return createRepresentativeCrop({
+      kind: "section-scrollbar",
+      id: sectionId,
+      thresholdKind: "row-control",
+      rect: referenceSection.scrollbar,
+      padding: 4,
+      bounds: workspaceBounds,
+    });
+  }
+  return null;
+}
+
+function deriveMinimapCrop(referenceAnchors, currentAnchors) {
+  const referenceMinimap = referenceAnchors.minimap;
+  const currentMinimap = currentAnchors.minimap;
+  if (
+    !referenceMinimap?.visible ||
+    !currentMinimap?.visible ||
+    !isPositiveRect(referenceMinimap.bounds) ||
+    !isPositiveRect(currentMinimap.bounds)
+  ) {
+    return null;
+  }
+  return createRepresentativeCrop({
+    kind: "minimap",
+    id: "minimap",
+    thresholdKind: "section",
+    rect: referenceMinimap.bounds,
+    padding: 2,
+    bounds: getSnapshotWorkspaceBounds(referenceAnchors),
+  });
+}
+
+function createRepresentativeCrop({
+  kind,
+  id,
+  thresholdKind,
+  rect,
+  padding,
+  bounds,
+}) {
+  return {
+    kind,
+    id,
+    thresholdKind,
+    rect: clampRectToBounds(expandRect(rect, padding), bounds),
+  };
+}
+
+function expandRect(rect, padding) {
+  return {
+    x: rect.x - padding,
+    y: rect.y - padding,
+    width: rect.width + padding * 2,
+    height: rect.height + padding * 2,
+  };
+}
+
+function clampRectToBounds(rect, bounds) {
+  const boundsLeft = Math.ceil(bounds.x);
+  const boundsTop = Math.ceil(bounds.y);
+  const boundsRight = Math.floor(bounds.x + bounds.width);
+  const boundsBottom = Math.floor(bounds.y + bounds.height);
+  const left = Math.max(boundsLeft, Math.floor(rect.x));
+  const top = Math.max(boundsTop, Math.floor(rect.y));
+  const right = Math.min(boundsRight, Math.ceil(rect.x + rect.width));
+  const bottom = Math.min(boundsBottom, Math.ceil(rect.y + rect.height));
+  return {
+    x: left,
+    y: top,
+    width: Math.max(1, right - left),
+    height: Math.max(1, bottom - top),
+  };
 }
 
 async function compareAnchorInputs({
   referenceAnchorsPath,
   currentAnchorsPath,
   requireAnchors,
+  options,
   thresholds,
 }) {
   const anchorComparisonRequested = Boolean(
@@ -485,6 +1027,7 @@ async function compareAnchorInputs({
   const comparison = compareAnchorSnapshots({
     referenceAnchors,
     currentAnchors,
+    options,
     thresholds,
   });
   return {
@@ -520,6 +1063,7 @@ function summarizeAnchorSnapshot(filePath, snapshot) {
 function compareAnchorSnapshots({
   referenceAnchors,
   currentAnchors,
+  options,
   thresholds,
 }) {
   const hardFailures = [];
@@ -539,6 +1083,7 @@ function compareAnchorSnapshots({
     referenceAnchors,
     currentAnchors,
     hardFailures,
+    mode: options.minimapAnchors,
     thresholds,
   });
   return {
@@ -766,6 +1311,7 @@ function compareMinimapAnchors({
   referenceAnchors,
   currentAnchors,
   hardFailures,
+  mode,
   thresholds,
 }) {
   const referenceMinimap = referenceAnchors.minimap ?? null;
@@ -779,9 +1325,21 @@ function compareMinimapAnchors({
     currentPreviewCount: currentMinimap?.sectionPreviewCount ?? 0,
     boundsIoU: null,
     viewportMaskIoU: null,
+    skipped: mode === "skip",
   };
 
+  if (mode === "skip") {
+    return metrics;
+  }
+
   if (!referenceVisible || !currentVisible) {
+    if (
+      mode === "optional" &&
+      referenceVisible === false &&
+      currentVisible === false
+    ) {
+      return metrics;
+    }
     hardFailures.push({
       code: "missing-minimap-anchors",
       message: `Minimap anchors must be visible and extractable from both captures; reference=${referenceVisible}, current=${currentVisible}.`,
@@ -999,6 +1557,15 @@ function rectsIntersect(first, second) {
     first.x + first.width > second.x &&
     first.y < second.y + second.height &&
     first.y + first.height > second.y
+  );
+}
+
+function rectContainedByBounds(rect, bounds) {
+  return (
+    rect.x >= bounds.x &&
+    rect.y >= bounds.y &&
+    rect.x + rect.width <= bounds.x + bounds.width &&
+    rect.y + rect.height <= bounds.y + bounds.height
   );
 }
 

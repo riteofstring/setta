@@ -417,7 +417,7 @@ function materializeDictRow({
         {
           role: "dict-label",
           text: label,
-          maxWidth: Math.max(0, labelRect.width - 12),
+          maxWidth: Math.max(0, labelRect.width),
         },
       ),
       value: deriveRowTextPreview(
@@ -570,7 +570,7 @@ function deriveCodePreview({
   previewWidth: number;
   highlightCache: WorkspaceCodeHighlightCacheState | undefined;
 }): WorkspacePassiveCodePreview | null {
-  if (impl.type !== CodeObjTypeEnum.CodeParam) {
+  if (!isTextLikeCodeMirrorParam(impl)) {
     return null;
   }
   const language = sectionImpl.configLanguage || "python";
@@ -592,6 +592,14 @@ function deriveCodePreview({
       ? getWorkspaceCodeHighlightTokenRuns(highlightCache, cacheKey)
       : null,
   };
+}
+
+function isTextLikeCodeMirrorParam(impl: BaseCodeObjImplUnion) {
+  return (
+    impl.type === CodeObjTypeEnum.CodeParam ||
+    impl.type === CodeObjTypeEnum.TextParam ||
+    impl.type === CodeObjTypeEnum.TextAreaParam
+  );
 }
 
 function deriveVisibleRowRange({
@@ -635,17 +643,16 @@ function deriveRowRect(
   const rowPitch =
     WORKSPACE_SCENE_GEOMETRY.dictRowHeight +
     WORKSPACE_SCENE_GEOMETRY.dictRowGap;
+  const leftPadding = WORKSPACE_SCENE_GEOMETRY.dictRowPaddingLeft;
+  const rightPadding = WORKSPACE_SCENE_GEOMETRY.dictRowPaddingRight;
   return {
-    x: region.x + WORKSPACE_SCENE_GEOMETRY.sectionBodyPadding,
+    x: region.x + leftPadding,
     y:
       region.y +
       WORKSPACE_SCENE_GEOMETRY.sectionBodyPadding +
       listIndex * rowPitch -
       scrollOffset,
-    width: Math.max(
-      0,
-      region.width - WORKSPACE_SCENE_GEOMETRY.sectionBodyPadding * 2,
-    ),
+    width: Math.max(0, region.width - leftPadding - rightPadding),
     height: WORKSPACE_SCENE_GEOMETRY.dictRowHeight,
   };
 }
@@ -707,11 +714,33 @@ function deriveControlRect(
   valueRect: WorkspaceRect,
   controlKind: CanvasControlKind,
 ): WorkspaceRect {
+  if (controlKind === "toggle") {
+    return {
+      x: valueRect.x,
+      y: valueRect.y + 2,
+      width: Math.min(valueRect.width, 34),
+      height: Math.max(0, valueRect.height - 4),
+    };
+  }
+  if (controlKind === "dropdown") {
+    const inset = 2;
+    return {
+      x: valueRect.x + inset,
+      y: valueRect.y + 1,
+      width: Math.max(0, valueRect.width - inset * 2),
+      height: Math.max(0, valueRect.height - 2),
+    };
+  }
+  if (controlKind === "color-swatch") {
+    return {
+      x: valueRect.x,
+      y: valueRect.y + 2,
+      width: Math.max(0, valueRect.width - 4),
+      height: Math.max(0, valueRect.height - 4),
+    };
+  }
   const fixedWidthByKind: Partial<Record<CanvasControlKind, number>> = {
-    toggle: 48,
-    "color-swatch": 80,
     button: 96,
-    dropdown: Math.min(160, valueRect.width),
     slider: valueRect.width,
   };
   const fixedWidth = fixedWidthByKind[controlKind] ?? valueRect.width;
