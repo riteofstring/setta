@@ -34,6 +34,7 @@ func TestCodexHarnessMapsStreamingTurn(t *testing.T) {
 func TestCodexRunItemStatusMappingCoversCurrentProtocolValues(t *testing.T) {
 	tests := map[string]string{
 		"completed":   RunItemStatusCompleted,
+		"declined":    RunItemStatusCancelled,
 		"failed":      RunItemStatusFailed,
 		"inProgress":  RunItemStatusRunning,
 		"interrupted": RunItemStatusCancelled,
@@ -404,6 +405,105 @@ func TestCodexHarnessHandlesRemoteControlStatusAsGlobalNotification(t *testing.T
 	}
 }
 
+func TestCodexHarnessHandlesMCPServerStartupStatusAsGlobalNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("mcp-server-startup-status"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want streamed response", sink.text)
+	}
+	if len(sink.diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessHandlesReasoningItemSummaryArray(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("reasoning-summary-array"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	item, ok := findRunItemType(sink.items, RunItemTypeReasoning)
+	if !ok {
+		t.Fatalf("items = %+v, want reasoning item", sink.items)
+	}
+	if item.Summary != "checked context\nanswered directly" {
+		t.Fatalf("reasoning summary = %q, want joined summary array", item.Summary)
+	}
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want streamed response", sink.text)
+	}
+	if len(sink.diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessHandlesEmptyAgentMessageItemText(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("empty-agent-message-item-text"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	item, ok := findRunItemType(sink.items, RunItemTypeAgentMessage)
+	if !ok {
+		t.Fatalf("items = %+v, want agent message item", sink.items)
+	}
+	if item.Summary != "" {
+		t.Fatalf("agent message summary = %q, want empty text accepted", item.Summary)
+	}
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want streamed response", sink.text)
+	}
+	if len(sink.diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessHandlesAccountRateLimitsAsGlobalNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("account-rate-limits"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want streamed response", sink.text)
+	}
+	if len(sink.diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessHandlesThreadGoalClearedAsLifecycleNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("thread-goal-cleared"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want streamed response", sink.text)
+	}
+	if len(sink.diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", sink.diagnostics)
+	}
+}
+
 func TestCodexHarnessHandlesThreadStartedAsLifecycleNotification(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("thread-started-notification"))
 	sink := newRecordingSink()
@@ -509,6 +609,19 @@ func TestCodexHarnessFailsMalformedRemoteControlStatus(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "codex remote control status.status must be a string") {
 		t.Fatalf("error = %q, want malformed remote control status", err)
+	}
+}
+
+func TestCodexHarnessRejectsUnknownMCPServerStartupStatus(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("unknown-mcp-server-startup-status"))
+	sink := newRecordingSink()
+
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want unknown mcp server startup status error")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex mcp server startup status: waking") {
+		t.Fatalf("error = %q, want unknown mcp server startup status", err)
 	}
 }
 
@@ -816,6 +929,9 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	writeFakeResponse(message["id"], map[string]any{
 		"turn": map[string]any{"id": "turn_fake", "items": []any{}, "status": "inProgress"},
 	})
+	if handled, done := handleFakeAppServerStatusMode(mode); handled {
+		return done
+	}
 	switch mode {
 	case "stream":
 		writeFakeStreamTurn()
@@ -850,10 +966,6 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 			"turnId":   "turn_fake",
 		})
 		return true
-	case "remote-control-status":
-		writeFakeRemoteControlStatus("disabled")
-		writeFakeStreamTurn()
-		return true
 	case "thread-started-notification":
 		writeFakeThreadStarted()
 		writeFakeStreamTurn()
@@ -877,6 +989,16 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	case "terminal-error-notification":
 		writeFakeErrorNotification("model unavailable", false)
 		return true
+	}
+	return false
+}
+
+func handleFakeAppServerStatusMode(mode string) (bool, bool) {
+	switch mode {
+	case "remote-control-status":
+		writeFakeRemoteControlStatus("disabled")
+		writeFakeStreamTurn()
+		return true, true
 	case "malformed-remote-control-status":
 		writeFakeNotification("remoteControl/status/changed", map[string]any{
 			"environmentId":  nil,
@@ -884,9 +1006,33 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 			"serverName":     "fake.local",
 			"status":         7,
 		})
-		return true
+		return true, true
+	case "mcp-server-startup-status":
+		writeFakeMCPServerStartupStatus("codex_apps", "starting", nil)
+		writeFakeStreamTurn()
+		return true, true
+	case "unknown-mcp-server-startup-status":
+		writeFakeMCPServerStartupStatus("codex_apps", "waking", nil)
+		return true, true
+	case "reasoning-summary-array":
+		writeFakeReasoningSummaryArrayItem()
+		writeFakeStreamTurn()
+		return true, true
+	case "empty-agent-message-item-text":
+		writeFakeEmptyAgentMessageItem()
+		writeFakeStreamTurn()
+		return true, true
+	case "account-rate-limits":
+		writeFakeAccountRateLimits()
+		writeFakeStreamTurn()
+		return true, true
+	case "thread-goal-cleared":
+		writeFakeThreadGoalCleared()
+		writeFakeStreamTurn()
+		return true, true
+	default:
+		return false, false
 	}
-	return false
 }
 
 func writeFakeInitializeResponse(id any) {
@@ -916,6 +1062,59 @@ func writeFakeRemoteControlStatus(status string) {
 		"installationId": "installation_fake",
 		"serverName":     "fake.local",
 		"status":         status,
+	})
+}
+
+func writeFakeMCPServerStartupStatus(name string, status string, errorMessage any) {
+	writeFakeNotification("mcpServer/startupStatus/updated", map[string]any{
+		"error":  errorMessage,
+		"name":   name,
+		"status": status,
+	})
+}
+
+func writeFakeReasoningSummaryArrayItem() {
+	writeFakeNotification("item/completed", map[string]any{
+		"item": map[string]any{
+			"content": []string{},
+			"id":      "reasoning_summary_array_fake",
+			"summary": []string{"checked context", "answered directly"},
+			"type":    "reasoning",
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+}
+
+func writeFakeEmptyAgentMessageItem() {
+	writeFakeNotification("item/started", map[string]any{
+		"item": map[string]any{
+			"id":   "agent_message_empty_fake",
+			"text": "",
+			"type": "agentMessage",
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+}
+
+func writeFakeAccountRateLimits() {
+	writeFakeNotification("account/rateLimits/updated", map[string]any{
+		"rateLimits": map[string]any{
+			"credits":              nil,
+			"limitId":              "codex",
+			"limitName":            "Codex",
+			"planType":             "pro",
+			"primary":              map[string]any{"resetsAt": nil, "usedPercent": 1, "windowDurationMins": 300},
+			"rateLimitReachedType": nil,
+			"secondary":            nil,
+		},
+	})
+}
+
+func writeFakeThreadGoalCleared() {
+	writeFakeNotification("thread/goal/cleared", map[string]any{
+		"threadId": "thread_fake",
 	})
 }
 

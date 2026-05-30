@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -554,15 +555,32 @@ func codexRunItemBaseFromItem(item map[string]any, status string) (codexRunItemB
 }
 
 func codexRunItemTextFieldsFromItem(item map[string]any) (codexRunItemTextFields, error) {
-	title, err := optionalString(item, "title", "codex item")
+	codexType, err := requireString(item, "type", "codex item")
 	if err != nil {
 		return codexRunItemTextFields{}, err
 	}
-	summary, err := optionalString(item, "summary", "codex item")
-	if err != nil {
-		return codexRunItemTextFields{}, err
+	switch codexType {
+	case "agentMessage":
+		text, err := requireStringAllowEmpty(item, "text", "codex item")
+		if err != nil {
+			return codexRunItemTextFields{}, err
+		}
+		return codexRunItemTextFields{title: "Assistant message", summary: text}, nil
+	case "plan":
+		text, err := requireStringAllowEmpty(item, "text", "codex item")
+		if err != nil {
+			return codexRunItemTextFields{}, err
+		}
+		return codexRunItemTextFields{title: "Plan update", summary: text}, nil
+	case "reasoning":
+		summary, err := requireJoinedStringArray(item, "summary", "codex item")
+		if err != nil {
+			return codexRunItemTextFields{}, err
+		}
+		return codexRunItemTextFields{title: "Reasoning summary", summary: summary}, nil
+	default:
+		return codexRunItemTextFields{}, nil
 	}
-	return codexRunItemTextFields{title: title, summary: summary}, nil
 }
 
 func codexRunItemExecutionFieldsFromItem(item map[string]any) (codexRunItemExecutionFields, error) {
@@ -655,10 +673,45 @@ func mapCodexItemType(codexType string) (string, error) {
 // protocol source and exercised by the local protocol fixtures.
 var codexRunItemStatusByCodexStatus = map[string]string{
 	"completed":   RunItemStatusCompleted,
+	"declined":    RunItemStatusCancelled,
 	"failed":      RunItemStatusFailed,
 	"inProgress":  RunItemStatusRunning,
 	"interrupted": RunItemStatusCancelled,
 	"succeeded":   RunItemStatusCompleted,
+}
+
+func requireJoinedStringArray(value map[string]any, name string, label string) (string, error) {
+	raw, ok := value[name]
+	if !ok || raw == nil {
+		return "", fmt.Errorf("%s.%s is required", label, name)
+	}
+	values, ok := raw.([]any)
+	if !ok {
+		return "", fmt.Errorf("%s.%s must be an array", label, name)
+	}
+	parts := make([]string, 0, len(values))
+	for index, rawValue := range values {
+		part, ok := rawValue.(string)
+		if !ok {
+			return "", fmt.Errorf("%s.%s[%d] must be a string", label, name, index)
+		}
+		if part != "" {
+			parts = append(parts, part)
+		}
+	}
+	return strings.Join(parts, "\n"), nil
+}
+
+func requireStringAllowEmpty(value map[string]any, name string, label string) (string, error) {
+	raw, ok := value[name]
+	if !ok || raw == nil {
+		return "", fmt.Errorf("%s.%s is required", label, name)
+	}
+	text, ok := raw.(string)
+	if !ok {
+		return "", fmt.Errorf("%s.%s must be a string", label, name)
+	}
+	return text, nil
 }
 
 func mapCodexItemStatus(status string) (string, error) {

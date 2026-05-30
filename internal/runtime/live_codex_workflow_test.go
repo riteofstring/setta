@@ -97,6 +97,27 @@ func TestBackendAppWorkflowWithLiveCodex(t *testing.T) {
 	if text := strings.TrimSpace(runtimeMessageText(page.Messages[1])); text == "" {
 		t.Fatal("assistant reply was empty")
 	}
+
+	result = postRuntimeJSON[chat.SendMessageResult](t, client, baseURL, "/chat/messages/send", httpapi.SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "write one short sentence about testing",
+	}, http.StatusOK)
+
+	if result.UserMessage.Role != chat.RoleUser || result.AssistantMessage.Role != chat.RoleAssistant {
+		t.Fatalf("second send result roles = %q/%q, want user/assistant", result.UserMessage.Role, result.AssistantMessage.Role)
+	}
+	if result.Run.Status != chat.RunStatusRunning {
+		t.Fatalf("second run status = %q, want running", result.Run.Status)
+	}
+
+	page = waitForRuntimeLiveCodexReply(t, client, baseURL, config.AppDataDir, opened.Workspace.ID, conversation.ID, result.Run.ID)
+	if len(page.Messages) != 4 {
+		t.Fatalf("message count after second turn = %d, want 4", len(page.Messages))
+	}
+	if text := strings.TrimSpace(runtimeMessageText(page.Messages[3])); text == "" {
+		t.Fatal("second assistant reply was empty")
+	}
 }
 
 func waitForRuntimeLiveCodexReply(t *testing.T, client *http.Client, baseURL string, appDataDir string, workspaceID string, conversationID string, runID string) chat.MessagePage {
