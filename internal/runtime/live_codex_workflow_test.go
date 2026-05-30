@@ -90,34 +90,35 @@ func TestBackendAppWorkflowWithLiveCodex(t *testing.T) {
 		t.Fatalf("initial run status = %q, want running", result.Run.Status)
 	}
 
+	queued := postRuntimeJSON[chat.QueueMessageResult](t, client, baseURL, "/chat/messages/queue", httpapi.QueueChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		Prompt:         "write one short sentence about queueing work",
+	}, http.StatusOK)
+	if queued.UserMessage.Role != chat.RoleUser || queued.UserMessage.Delivery != chat.MessageDeliveryQueued {
+		t.Fatalf("queued message = %+v, want queued user message", queued.UserMessage)
+	}
+	if queued.Run.Status != chat.RunStatusQueued && queued.Run.Status != chat.RunStatusRunning {
+		t.Fatalf("queued run status = %q, want queued or running", queued.Run.Status)
+	}
+
 	page = waitForRuntimeLiveCodexReply(t, client, baseURL, config.AppDataDir, opened.Workspace.ID, conversation.ID, result.Run.ID)
-	if len(page.Messages) != 2 {
-		t.Fatalf("message count = %d, want 2", len(page.Messages))
+	if len(page.Messages) < 3 {
+		t.Fatalf("message count = %d, want at least 3 after queueing", len(page.Messages))
 	}
 	if text := strings.TrimSpace(runtimeMessageText(page.Messages[1])); text == "" {
 		t.Fatal("assistant reply was empty")
 	}
 
-	result = postRuntimeJSON[chat.SendMessageResult](t, client, baseURL, "/chat/messages/send", httpapi.SendChatMessageRequest{
-		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
-		Prompt:         "write one short sentence about testing",
-	}, http.StatusOK)
-
-	if result.UserMessage.Role != chat.RoleUser || result.AssistantMessage.Role != chat.RoleAssistant {
-		t.Fatalf("second send result roles = %q/%q, want user/assistant", result.UserMessage.Role, result.AssistantMessage.Role)
-	}
-	if result.Run.Status != chat.RunStatusRunning {
-		t.Fatalf("second run status = %q, want running", result.Run.Status)
-	}
-
-	page = waitForRuntimeLiveCodexReply(t, client, baseURL, config.AppDataDir, opened.Workspace.ID, conversation.ID, result.Run.ID)
+	page = waitForRuntimeLiveCodexReply(t, client, baseURL, config.AppDataDir, opened.Workspace.ID, conversation.ID, queued.Run.ID)
 	if len(page.Messages) != 4 {
-		t.Fatalf("message count after second turn = %d, want 4", len(page.Messages))
+		t.Fatalf("message count after queued turn = %d, want 4", len(page.Messages))
 	}
 	if text := strings.TrimSpace(runtimeMessageText(page.Messages[3])); text == "" {
-		t.Fatal("second assistant reply was empty")
+		t.Fatal("queued assistant reply was empty")
 	}
+	assertRuntimeLiveCodexDurableState(t, config.AppDataDir, opened.Workspace.ID, conversation.ID)
+	assertRuntimeNoCriticalDiagnostics(t, config.AppDataDir)
 }
 
 func waitForRuntimeLiveCodexReply(t *testing.T, client *http.Client, baseURL string, appDataDir string, workspaceID string, conversationID string, runID string) chat.MessagePage {
@@ -238,6 +239,44 @@ func runtimeRunStateForFailure(appDataDir string, workspaceID string, runID stri
 		return fmt.Sprintf("run status = %s, error = %s", run.Status, run.Error)
 	}
 	return fmt.Sprintf("run status = %s", run.Status)
+}
+
+func assertRuntimeLiveCodexDurableState(t *testing.T, appDataDir string, workspaceID string, conversationID string) {
+	t.Helper()
+
+	store, err := chat.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("open chat store: %v", err)
+	}
+	page, err := store.LoadMessagePage(workspaceID, conversationID, 0, 40)
+	if err != nil {
+		t.Fatalf("load durable message page: %v", err)
+	}
+	if len(page.Messages) != 4 {
+		t.Fatalf("durable message count = %d, want 4", len(page.Messages))
+	}
+	if strings.TrimSpace(runtimeMessageText(page.Messages[1])) == "" ||
+		strings.TrimSpace(runtimeMessageText(page.Messages[3])) == "" {
+		t.Fatalf("durable assistant messages must be non-empty: %+v", page.Messages)
+	}
+}
+
+func assertRuntimeNoCriticalDiagnostics(t *testing.T, appDataDir string) {
+	t.Helper()
+
+	store, err := chat.NewStore(appDataDir)
+	if err != nil {
+		t.Fatalf("open chat store for diagnostics: %v", err)
+	}
+	diagnostics, err := store.ListDiagnostics()
+	if err != nil {
+		t.Fatalf("list diagnostics: %v", err)
+	}
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Severity == chat.DiagnosticSeverityCritical {
+			t.Fatalf("critical diagnostic recorded during live Codex workflow: %+v", diagnostic)
+		}
+	}
 }
 
 func runtimeLoginCodexWithAPIKey(t *testing.T, codexHome string, openAIKey string) {

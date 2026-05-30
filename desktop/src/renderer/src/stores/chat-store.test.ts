@@ -237,6 +237,45 @@ describe("chat store", () => {
     expect(useChatStore.getState().messages[0]?.delivery).toBe("steering");
   });
 
+  test("operation responses do not regress terminal run events", async () => {
+    const conversation = testConversation();
+    const steerResponse = deferred<Awaited<ReturnType<SettaAPI["chat"]["steerMessage"]>>>();
+    const staleAssistant = message("message_assistant", 2, "assistant", "streaming", "partial");
+    const terminalAssistant: ChatMessage = {
+      ...staleAssistant,
+      status: "error",
+      updatedAt: "2026-05-29T20:00:01Z",
+    };
+    installSettaAPI({
+      chat: {
+        steerMessage: vi.fn().mockReturnValue(steerResponse.promise),
+      },
+    });
+    useChatStore.setState({
+      activeRun: testRun("running"),
+      messages: [staleAssistant],
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    const steerPromise = useChatStore.getState().steerMessage("trigger failure");
+    useChatStore.setState({
+      activeRun: testRun("failed"),
+      messages: [terminalAssistant],
+    });
+    steerResponse.resolve({
+      conversation,
+      page: testPage(conversation, [staleAssistant]),
+      run: testRun("running"),
+      userMessage: message("message_steer", 3, "user", "complete", "trigger failure", "steering"),
+    });
+    await steerPromise;
+
+    expect(useChatStore.getState().activeRun?.status).toBe("failed");
+    expect(useChatStore.getState().messages[0]?.status).toBe("error");
+  });
+
   test("submit approval passes the decision to the preload API", async () => {
     const submitApproval = vi.fn().mockResolvedValue(testRun("running"));
     installSettaAPI({ chat: { submitApproval } });
@@ -308,6 +347,27 @@ describe("chat store", () => {
     expect(useChatStore.getState().activeRun?.id).toBe("run_api");
     expect(useChatStore.getState().selectedConversation?.title).toBe("Updated chat");
     expect(useChatStore.getState().conversations[0]?.messageCount).toBe(2);
+  });
+
+  test("queued run events do not replace the active running run", () => {
+    const conversation = testConversation();
+    const activeRun = testRun("running");
+    const queuedRun = {
+      ...testRun("queued"),
+      id: "run_queued",
+      triggerMessageId: "message_queued",
+    };
+    useChatStore.setState({
+      activeRun,
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    useChatStore.getState().handleEvent(runUpdatedEvent(1, queuedRun));
+
+    expect(useChatStore.getState().activeRun?.id).toBe(activeRun.id);
+    expect(useChatStore.getState().activeRun?.status).toBe("running");
   });
 
   test("applies run activity events incrementally", () => {

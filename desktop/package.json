@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "test": "vitest run src",
     "test:electron": "pnpm build && pnpm test:electron:built",
-    "test:electron:built": "node scripts/corrupt-chat-workflow.test.mjs",
+    "test:electron:built": "node scripts/chat-workflows.test.mjs && node scripts/corrupt-chat-workflow.test.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

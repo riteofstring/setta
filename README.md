@@ -55,14 +55,17 @@ Run verification:
 ./scripts/run_go_tests.sh
 pnpm -C desktop test
 pnpm -C desktop build
-./scripts/test_desktop_integration.sh
+./scripts/test_chat_workflows.sh
 ./check_quality.sh --all
 ./scripts/check_supply_chain.sh
 ```
 
-`./check_quality.sh --all` also runs the desktop Electron integration checks
-after the production desktop build. The integration checks launch Electron
-against temporary app data, not `~/.setta`.
+`./scripts/test_chat_workflows.sh` is the chat workflow gate. It runs
+deterministic Electron app-boundary chat workflows against temporary app data
+and runs the live Codex workflow automatically when `.env` contains
+`OPENAI_API_KEY`; the live-provider skip is printed explicitly when credentials
+are absent. `./check_quality.sh --all` runs this gate after the production
+desktop build.
 
 Regenerate Go-owned TypeScript contracts after changing HTTP endpoint contracts
 or their owning Go types:

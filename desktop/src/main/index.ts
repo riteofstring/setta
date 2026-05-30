@@ -122,6 +122,10 @@ function settaAppDataDir() {
   return process.env.SETTA_APP_DATA_DIR ?? join(homedir(), ".setta");
 }
 
+function testOpenWorkspaceRoot() {
+  return process.env.SETTA_TEST_OPEN_WORKSPACE_ROOT ?? "";
+}
+
 async function createWindow() {
   mainWindow = new BrowserWindow({
     height: 820,
@@ -202,6 +206,10 @@ function registerIpc() {
     ipcMain,
     "workspaceOpenLocalFolder",
     async () => {
+      const scriptedRoot = testOpenWorkspaceRoot();
+      if (scriptedRoot) {
+        return requireBackendClient().openWorkspace({ rootPath: scriptedRoot });
+      }
       const options: OpenDialogOptions = {
         properties: ["openDirectory"],
         title: "Open Workspace Folder",

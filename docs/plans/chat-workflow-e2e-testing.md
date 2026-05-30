@@ -2,7 +2,12 @@
 
 ## Status
 
-Draft.
+Implemented.
+
+The chat workflow gate is `./scripts/test_chat_workflows.sh`. It builds the
+desktop app unless `--skip-build` is passed, runs deterministic Electron
+workflow tests, runs live Codex workflow coverage when `.env` contains
+`OPENAI_API_KEY`, and prints an explicit deterministic/live/skip summary.
 
 ## Problem
 
@@ -191,6 +196,35 @@ Explicitly decide and test:
 - what the UI should show for each state
 - what restart recovery does for running and queued work
 
+Implemented product rules:
+
+- `send` creates one `running` run and a streaming assistant message when the
+  selected conversation has no active run and no queued work.
+- `queue` creates a `queued` run and a pending queued user message. If the
+  conversation is idle, the oldest queued run promotes immediately. If another
+  run is active, queued work remains queued.
+- `steer` is allowed only after the active provider turn has linked a thread and
+  turn. Steering writes a `steering` user message and forwards the prompt to the
+  active harness turn.
+- `assistant delta` appends streamed text to the active assistant message and
+  persists deltas at the service persistence interval.
+- `approval requested` marks the active run as having one pending approval and
+  renders the approval UI. Command, file-change, permission, and user-input
+  approvals are submitted through `chat:submit-approval`.
+- `approval resolved` clears the run's pending approval before the provider turn
+  continues.
+- `provider completed` marks the active run `completed`, marks the assistant
+  message `complete`, and promotes the oldest queued run.
+- `user cancelled` marks the active run `cancelled`, marks the assistant message
+  `cancelled`, clears pending approval, and leaves queued work queued.
+- `provider cancelled` follows the same terminal UI rule as user cancellation
+  and leaves queued work queued.
+- `provider failed` marks the active run `failed`, marks the assistant message
+  `error`, records the provider error, clears pending approval, and leaves
+  queued work queued.
+- `backend restarted` marks interrupted `running` runs as `failed` with a
+  restart error. Existing queued work remains queued and visible after reload.
+
 ### Phase 5: Regression Rules
 
 For every future chat/Codex workflow bug:
@@ -213,12 +247,13 @@ when the failure was visible through the app UI.
   coverage of the changed behavior.
 - Run/queue product rules are written down and covered by workflow tests.
 
-## Open Decisions
+## Resolved Decisions
 
-- Whether deterministic workflow tests should use CDP directly, Playwright
-  Electron, or Electron `webContents.debugger`.
-- Whether the fake provider harness should be injected by environment variable,
-  test-only backend config, or a dedicated test backend mode.
-- Whether live-provider Electron tests should live under `desktop/scripts` or Go
-  runtime tests.
-- Exact product rule for queued work after cancel and failure.
+- Deterministic workflow tests use CDP against the production built Electron
+  app.
+- The fake provider harness is selected by `SETTA_TEST_CHAT_HARNESS` and uses
+  the production backend HTTP and durable store path.
+- Live-provider coverage remains in Go runtime tests and is invoked by the chat
+  workflow gate when `.env` contains `OPENAI_API_KEY`.
+- Queued work promotes after completion and remains queued after cancellation or
+  failure.

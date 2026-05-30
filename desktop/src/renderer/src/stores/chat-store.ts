@@ -363,12 +363,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
           selectedConversation.id,
           prompt,
         );
-        commitCurrent(operationId, {
-          ...pagePatch(result.page, result.run.status === "running" ? result.run : activeRun),
+        commitCurrentFromState(operationId, (current) => ({
+          ...operationPagePatch(current, result.page, result.run, activeRun),
           operation: null,
           selectedConversation: result.conversation,
           status: "ready",
-        });
+        }));
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
       }
@@ -436,12 +436,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
           selectedConversation.id,
           prompt,
         );
-        commitCurrent(operationId, {
-          ...pagePatch(result.page, result.run),
+        commitCurrentFromState(operationId, (current) => ({
+          ...operationPagePatch(current, result.page, result.run, null),
           operation: null,
           selectedConversation: result.conversation,
           status: "ready",
-        });
+        }));
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
       }
@@ -466,12 +466,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
           selectedConversation.id,
           prompt,
         );
-        commitCurrent(operationId, {
-          ...pagePatch(result.page, result.run),
+        commitCurrentFromState(operationId, (current) => ({
+          ...operationPagePatch(current, result.page, result.run, null),
           operation: null,
           selectedConversation: result.conversation,
           status: "ready",
-        });
+        }));
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
       }
@@ -579,6 +579,77 @@ function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
     runItems: page.runItems,
     selectedConversation: page.conversation,
   });
+}
+
+function operationPagePatch(
+  current: ChatStore,
+  page: MessagePage,
+  returnedRun: Run,
+  fallbackActiveRun: Run | null,
+): ChatPatch {
+  const patch = pagePatch(
+    page,
+    activeRunAfterOperation(current.activeRun, returnedRun, fallbackActiveRun),
+  );
+  if (patch.messages) {
+    patch.messages = mergeOperationMessages(current.messages, patch.messages);
+  }
+  return patch;
+}
+
+function activeRunAfterOperation(
+  currentActiveRun: Run | null,
+  returnedRun: Run,
+  fallbackActiveRun: Run | null,
+): Run | null {
+  const activeRun = currentActiveRun ?? fallbackActiveRun;
+  if (activeRun) {
+    if (activeRun.id !== returnedRun.id) {
+      return activeRun;
+    }
+    if (isTerminalRun(activeRun) && returnedRun.status === "running") {
+      return activeRun;
+    }
+  }
+  if (returnedRun.status === "queued") {
+    return activeRun;
+  }
+  return returnedRun;
+}
+
+function isTerminalRun(run: Run) {
+  return run.status === "completed" || run.status === "cancelled" || run.status === "failed";
+}
+
+function mergeOperationMessages(currentMessages: ChatMessage[], pageMessages: ChatMessage[]) {
+  const currentById = new Map(currentMessages.map((message) => [message.id, message]));
+  return pageMessages.map((pageMessage) => {
+    const current = currentById.get(pageMessage.id);
+    if (!current || current.updatedAt < pageMessage.updatedAt) {
+      return pageMessage;
+    }
+    if (current.updatedAt > pageMessage.updatedAt) {
+      return current;
+    }
+    return messageStatusRank(current.status) > messageStatusRank(pageMessage.status)
+      ? current
+      : pageMessage;
+  });
+}
+
+function messageStatusRank(status: ChatMessage["status"]) {
+  switch (status) {
+    case "pending":
+      return 0;
+    case "streaming":
+      return 1;
+    case "complete":
+    case "cancelled":
+    case "error":
+      return 2;
+    default:
+      return assertNever(status);
+  }
 }
 
 function emptyConversationPatch(): ChatPatch {
@@ -752,7 +823,7 @@ function applyChatEvent(state: ChatStore, event: AppliedChatEvent): EventApplyRe
   }
   if (event.type === "chat.run.updated") {
     return selectedConversationEventResult(state, event, {
-      activeRun: event.payload.run,
+      activeRun: activeRunFromRunEvent(state.activeRun, event.payload.run),
       status: "ready",
     });
   }
@@ -872,6 +943,19 @@ function isSelectedConversationEvent(state: ChatStore, event: ChatEvent) {
     state.workspaceId === event.workspaceId &&
     state.selectedConversation?.id === event.conversationId
   );
+}
+
+function activeRunFromRunEvent(current: Run | null, run: Run): Run | null {
+  if (run.status === "running") {
+    return run;
+  }
+  if (run.status === "queued") {
+    return current?.id === run.id ? run : current;
+  }
+  if (!current || current.id === run.id) {
+    return run;
+  }
+  return current;
 }
 
 function upsertMessage(messages: ChatMessage[], message: ChatMessage): ChatMessage[] {

@@ -565,9 +565,9 @@ if [[ ${#ts_files[@]} -gt 0 || ${#ts_test_files[@]} -gt 0 ]]; then
           pnpm -C "${repo_root}/${ts_project}" run deadcode || status=1
         fi
         if [[ "${mode}" == "all" && "${ts_project}" == "desktop" ]] &&
-          pnpm -C "${repo_root}/${ts_project}" run | grep -q '^  test:electron:built$'; then
-          echo "Electron integration checks (${ts_project})..."
-          pnpm -C "${repo_root}/${ts_project}" run test:electron:built || status=1
+          [[ -x "${repo_root}/scripts/test_chat_workflows.sh" ]]; then
+          echo "Chat workflow integration checks (${ts_project})..."
+          "${repo_root}/scripts/test_chat_workflows.sh" --skip-build || status=1
         fi
       done
     fi

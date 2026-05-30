@@ -50,6 +50,7 @@ func TestInvalidStartupConfigurationFails(t *testing.T) {
 	tests := map[string]Config{
 		"empty app data":    withAppDataDir(t, ""),
 		"relative app data": withAppDataDir(t, "relative-app-data"),
+		"bad chat harness":  withChatHarness(t, "unsupported"),
 		"empty host":        withHost(t, ""),
 		"non numeric host":  withHost(t, "localhost"),
 		"non loopback host": withHost(t, "0.0.0.0"),
@@ -146,6 +147,14 @@ func withHost(t *testing.T, host string) Config {
 
 	config := testConfig(t)
 	config.Host = host
+	return config
+}
+
+func withChatHarness(t *testing.T, harness ChatHarnessMode) Config {
+	t.Helper()
+
+	config := testConfig(t)
+	config.ChatHarness = harness
 	return config
 }
 
