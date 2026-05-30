@@ -22,6 +22,14 @@ For throwaway local app state:
 SETTA_APP_DATA_DIR="$(mktemp -d)" ./scripts/dev_desktop.sh
 ```
 
+Record a desktop dogfood session:
+
+```sh
+./scripts/record_desktop_session.sh
+```
+
+Recordings are written under `.recordings/` by default.
+
 The convenience script checks the repo Go wrapper and then runs:
 
 ```sh

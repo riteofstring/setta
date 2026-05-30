@@ -110,6 +110,34 @@ export type MainIpcHandler<Channel extends IpcChannelKey> = (
   ...args: IpcContract[Channel]["args"]
 ) => IpcContract[Channel]["result"] | Promise<IpcContract[Channel]["result"]>;
 
+export interface IpcObserver {
+  failed: (event: IpcObservedFailure) => void;
+  finished: (event: IpcObservedFinish) => void;
+  started: (event: IpcObservedStart) => void;
+}
+
+export interface IpcObservedStart {
+  args: unknown[];
+  channel: string;
+  id: number;
+}
+
+export interface IpcObservedFinish {
+  channel: string;
+  durationMs: number;
+  id: number;
+  result: unknown;
+}
+
+export interface IpcObservedFailure {
+  channel: string;
+  durationMs: number;
+  error: unknown;
+  id: number;
+}
+
+let nextObservedIpcID = 1;
+
 export function createRendererIpcInvoke(renderer: Pick<IpcRenderer, "invoke">): RendererIpcInvoke {
   return (channel, ...args) =>
     renderer.invoke(ipcChannels[channel], ...args) as Promise<
@@ -121,8 +149,31 @@ export function handleIpc<Channel extends IpcChannelKey>(
   main: Pick<IpcMain, "handle">,
   channel: Channel,
   handler: MainIpcHandler<Channel>,
+  observer?: IpcObserver,
 ) {
-  main.handle(ipcChannels[channel], (event, ...args) =>
-    handler(event, ...(args as IpcContract[Channel]["args"])),
-  );
+  const channelName = ipcChannels[channel];
+  main.handle(channelName, async (event, ...args) => {
+    const id = nextObservedIpcID;
+    nextObservedIpcID += 1;
+    const startedAt = Date.now();
+    observer?.started({ args, channel: channelName, id });
+    try {
+      const result = await handler(event, ...(args as IpcContract[Channel]["args"]));
+      observer?.finished({
+        channel: channelName,
+        durationMs: Date.now() - startedAt,
+        id,
+        result,
+      });
+      return result;
+    } catch (error) {
+      observer?.failed({
+        channel: channelName,
+        durationMs: Date.now() - startedAt,
+        error,
+        id,
+      });
+      throw error;
+    }
+  });
 }

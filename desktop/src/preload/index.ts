@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 
 import { createRendererIpcInvoke } from "@shared/ipc";
 import type { SettaAPI } from "@shared/types";
+import { installRendererRecorder } from "./renderer-recorder";
 
 const invoke = createRendererIpcInvoke(ipcRenderer);
 
@@ -40,4 +41,5 @@ const api: SettaAPI = {
   },
 };
 
+installRendererRecorder(ipcRenderer);
 contextBridge.exposeInMainWorld("setta", api);

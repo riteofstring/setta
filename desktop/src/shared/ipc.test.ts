@@ -51,4 +51,90 @@ describe("typed IPC adapters", () => {
       activeWorkspaces: [{ id: "workspace_web" }, { id: "workspace_api" }],
     });
   });
+
+  test("main handler observer sees invocation lifecycle", async () => {
+    type MainHandler = Parameters<IpcMain["handle"]>[1];
+    const handlers = new Map<string, MainHandler>();
+    const main: Pick<IpcMain, "handle"> = {
+      handle: (channel, handler) => {
+        handlers.set(channel, handler);
+      },
+    };
+    const started = vi.fn();
+    const finished = vi.fn();
+    const failed = vi.fn();
+
+    handleIpc(
+      main,
+      "workspaceSelect",
+      (_event, id) => ({
+        activeWorkspaces: [],
+        recentWorkspaces: [],
+        selectedWorkspaceId: id,
+      }),
+      { failed, finished, started },
+    );
+
+    const handler = handlers.get(ipcChannels.workspaceSelect);
+    if (!handler) {
+      throw new Error("workspace select handler was not registered");
+    }
+
+    const result = await Promise.resolve(handler({} as IpcMainInvokeEvent, "workspace_api"));
+
+    expect(result).toMatchObject({ selectedWorkspaceId: "workspace_api" });
+    expect(started).toHaveBeenCalledWith(
+      expect.objectContaining({
+        args: ["workspace_api"],
+        channel: ipcChannels.workspaceSelect,
+      }),
+    );
+    expect(finished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: ipcChannels.workspaceSelect,
+        result,
+      }),
+    );
+    expect(failed).not.toHaveBeenCalled();
+  });
+
+  test("main handler observer sees invocation failures", async () => {
+    type MainHandler = Parameters<IpcMain["handle"]>[1];
+    const handlers = new Map<string, MainHandler>();
+    const main: Pick<IpcMain, "handle"> = {
+      handle: (channel, handler) => {
+        handlers.set(channel, handler);
+      },
+    };
+    const started = vi.fn();
+    const finished = vi.fn();
+    const failed = vi.fn();
+
+    handleIpc(
+      main,
+      "workspaceSelect",
+      () => {
+        throw new Error("select failed");
+      },
+      { failed, finished, started },
+    );
+
+    const handler = handlers.get(ipcChannels.workspaceSelect);
+    if (!handler) {
+      throw new Error("workspace select handler was not registered");
+    }
+
+    await expect(handler({} as IpcMainInvokeEvent, "workspace_api")).rejects.toThrow(
+      "select failed",
+    );
+
+    expect(started).toHaveBeenCalledOnce();
+    expect(finished).not.toHaveBeenCalled();
+    expect(failed).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: ipcChannels.workspaceSelect,
+        error: expect.any(Error),
+      }),
+    );
+  });
 });

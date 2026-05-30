@@ -33,4 +33,5 @@ out/
 
 # Local workspace scratch
 tmp/
+.recordings/
 .claude/
