@@ -341,6 +341,12 @@ export function mergeMessagesByRevision(
   });
 }
 
+export function shouldPollConversation(activeRun: Run | null, messages: ChatMessage[]): boolean {
+  return (
+    activeRun?.status === "running" || messages.some((message) => message.status === "streaming")
+  );
+}
+
 function messageRevision(message: ChatMessage) {
   return [
     message.id,

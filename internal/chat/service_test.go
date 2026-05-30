@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -177,6 +178,29 @@ func TestServiceSurfacesAndResolvesApprovalRequests(t *testing.T) {
 	}
 	if page.Messages[1].Parts[0].Text != "approved" {
 		t.Fatalf("assistant text = %q, want approved", page.Messages[1].Parts[0].Text)
+	}
+}
+
+func TestServiceSubmitApprovalToleratesTurnCompletionBeforeLocalClear(t *testing.T) {
+	harness := newApprovalCompletesBeforeSubmitReturnsHarness()
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	harness.service = service
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "approval race")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	run := waitForPendingApproval(t, service, "workspace_api", conversation.ID)
+
+	submitted, err := service.SubmitApproval("workspace_api", conversation.ID, run.PendingApproval.ID, true, "", nil, false)
+	if err != nil {
+		t.Fatalf("submit approval: %v", err)
+	}
+	if submitted.ID != result.Run.ID || submitted.Status != RunStatusCompleted {
+		t.Fatalf("submitted run = %+v, want completed %s", submitted, result.Run.ID)
 	}
 }
 
@@ -443,6 +467,61 @@ type failingApprovalHarness struct {
 
 func (harness failingApprovalHarness) SubmitApproval(context.Context, ApprovalResponse) error {
 	return errors.New("approval transport failed")
+}
+
+type approvalCompletesBeforeSubmitReturnsHarness struct {
+	service *Service
+
+	mu          sync.Mutex
+	workspaceID string
+	submitted   chan ApprovalResponse
+}
+
+func newApprovalCompletesBeforeSubmitReturnsHarness() *approvalCompletesBeforeSubmitReturnsHarness {
+	return &approvalCompletesBeforeSubmitReturnsHarness{submitted: make(chan ApprovalResponse, 1)}
+}
+
+func (harness *approvalCompletesBeforeSubmitReturnsHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) error {
+	harness.mu.Lock()
+	harness.workspaceID = request.Workspace.ID
+	harness.mu.Unlock()
+	if err := sink.ApprovalRequested(ApprovalRequest{Kind: ApprovalKindCommand, Title: "Run command", Command: "go test ./..."}); err != nil {
+		return err
+	}
+	select {
+	case <-harness.submitted:
+		return sink.AssistantTextDelta("approved")
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (harness *approvalCompletesBeforeSubmitReturnsHarness) CancelTurn(context.Context, CancelRequest) error {
+	return nil
+}
+
+func (harness *approvalCompletesBeforeSubmitReturnsHarness) SubmitApproval(ctx context.Context, response ApprovalResponse) error {
+	select {
+	case harness.submitted <- response:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		harness.mu.Lock()
+		workspaceID := harness.workspaceID
+		harness.mu.Unlock()
+		run, err := harness.service.store.LoadRun(workspaceID, response.RunID)
+		if err != nil {
+			return err
+		}
+		if run.Status == RunStatusCompleted {
+			return nil
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	return errors.New("timed out waiting for approval run completion")
 }
 
 type unavailableRefHarness struct{}

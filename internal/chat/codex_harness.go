@@ -63,6 +63,9 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 }
 
 func (harness *CodexHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	client, err := startJSONRPCClient(harness.config)
 	if err != nil {
 		return err
@@ -121,7 +124,7 @@ func (harness *CodexHarness) CancelTurn(ctx context.Context, request CancelReque
 	active := harness.active[request.RunID]
 	harness.mu.Unlock()
 	if active == nil {
-		return fmt.Errorf("codex turn is not active for run %s", request.RunID)
+		return fmt.Errorf("%w: codex turn is not active for run %s", ErrTurnNotStarted, request.RunID)
 	}
 	if active.threadID == "" || active.turnID == "" {
 		return ErrTurnNotStarted

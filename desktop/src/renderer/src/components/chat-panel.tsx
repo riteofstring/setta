@@ -2,7 +2,7 @@ import type { ConversationListItem, WorkspaceSummary } from "@generated/backend"
 import { MessageSquarePlus, Plus, Send, Square } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-import { useChatStore } from "../stores/chat-store";
+import { shouldPollConversation, useChatStore } from "../stores/chat-store";
 import { ChatTranscript } from "./chat-transcript";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -198,6 +198,7 @@ function useChatViewState(workspaceId: string | null) {
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
+  const shouldPoll = shouldPollConversation(activeRun, messages);
 
   useEffect(() => {
     if (!workspaceId || workspaceId === storeWorkspaceId) {
@@ -207,14 +208,14 @@ function useChatViewState(workspaceId: string | null) {
   }, [loadWorkspace, storeWorkspaceId, workspaceId]);
 
   useEffect(() => {
-    if (!activeRun || activeRun.status !== "running") {
+    if (!shouldPoll) {
       return;
     }
     const timer = window.setInterval(() => {
       void refreshActiveConversation();
     }, 400);
     return () => window.clearInterval(timer);
-  }, [activeRun, refreshActiveConversation]);
+  }, [refreshActiveConversation, shouldPoll]);
 
   return {
     activeRun,

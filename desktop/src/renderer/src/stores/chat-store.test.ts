@@ -10,7 +10,7 @@ import type {
 import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { mergeMessagesByRevision, useChatStore } from "./chat-store";
+import { mergeMessagesByRevision, shouldPollConversation, useChatStore } from "./chat-store";
 
 describe("chat store", () => {
   beforeEach(() => {
@@ -139,6 +139,16 @@ describe("chat store", () => {
 
     expect(merged[0]).toBe(user);
     expect(merged[1]).toBe(updatedAssistant);
+  });
+
+  test("continues polling while visible messages are still streaming", () => {
+    expect(
+      shouldPollConversation(null, [message("message_assistant", 2, "assistant", "streaming", "")]),
+    ).toBe(true);
+    expect(
+      shouldPollConversation(null, [message("message_assistant", 2, "assistant", "complete", "")]),
+    ).toBe(false);
+    expect(shouldPollConversation(testRun("running"), [])).toBe(true);
   });
 });
 

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"strings"
 	"testing"
@@ -131,6 +132,15 @@ func TestCodexHarnessInterruptsActiveTurn(t *testing.T) {
 	}
 	if err := <-done; err != nil {
 		t.Fatalf("start turn after interrupt: %v", err)
+	}
+}
+
+func TestCodexHarnessReportsNotStartedBeforeActiveRegistration(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("stream"))
+
+	err := harness.CancelTurn(context.Background(), CancelRequest{RunID: "run_fake"})
+	if !errors.Is(err, ErrTurnNotStarted) {
+		t.Fatalf("cancel turn error = %v, want ErrTurnNotStarted", err)
 	}
 }
 
