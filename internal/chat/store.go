@@ -22,6 +22,7 @@ const (
 	runItemFileName       = "item.json"
 	runItemOutputsDirName = "outputs"
 	tracesDirName         = "traces"
+	diagnosticsDirName    = "diagnostics"
 )
 
 type Store struct {
@@ -229,26 +230,6 @@ func (store *Store) MessageCount(workspaceID string, conversationID string) (int
 	return len(files), nil
 }
 
-func (store *Store) FindMessageByRunID(workspaceID string, conversationID string, runID string) (ChatMessage, bool, error) {
-	files, err := store.messageFiles(workspaceID, conversationID)
-	if err != nil {
-		return ChatMessage{}, false, err
-	}
-	for _, file := range files {
-		var message ChatMessage
-		if err := readJSONFile(file.path, &message); err != nil {
-			return ChatMessage{}, false, err
-		}
-		if err := validateMessage(message); err != nil {
-			return ChatMessage{}, false, err
-		}
-		if message.RunID == runID {
-			return message, true, nil
-		}
-	}
-	return ChatMessage{}, false, nil
-}
-
 func (store *Store) FindMessageByID(workspaceID string, conversationID string, messageID string) (ChatMessage, bool, error) {
 	files, err := store.messageFiles(workspaceID, conversationID)
 	if err != nil {
@@ -267,6 +248,17 @@ func (store *Store) FindMessageByID(workspaceID string, conversationID string, m
 		}
 	}
 	return ChatMessage{}, false, nil
+}
+
+func (store *Store) LoadMessageByID(workspaceID string, conversationID string, messageID string) (ChatMessage, error) {
+	message, ok, err := store.FindMessageByID(workspaceID, conversationID, messageID)
+	if err != nil {
+		return ChatMessage{}, err
+	}
+	if !ok {
+		return ChatMessage{}, fmt.Errorf("message %s was not found in conversation %s", messageID, conversationID)
+	}
+	return message, nil
 }
 
 func (store *Store) SaveRun(run Run) error {
@@ -502,6 +494,44 @@ func (store *Store) LoadRunItemOutputsForItem(workspaceID string, runID string, 
 	return outputs, nil
 }
 
+func (store *Store) LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (RunItemOutputPage, error) {
+	if afterOrdinal < 0 {
+		return RunItemOutputPage{}, fmt.Errorf("run item output afterOrdinal must not be negative: %d", afterOrdinal)
+	}
+	if limit < 0 {
+		return RunItemOutputPage{}, fmt.Errorf("run item output page limit must not be negative: %d", limit)
+	}
+	if _, err := store.LoadRun(workspaceID, runID); err != nil {
+		return RunItemOutputPage{}, err
+	}
+	if err := store.validateRunItemBelongsToRun(workspaceID, runID, runItemID); err != nil {
+		return RunItemOutputPage{}, err
+	}
+	outputs, err := store.LoadRunItemOutputsForItem(workspaceID, runID, runItemID)
+	if err != nil {
+		return RunItemOutputPage{}, err
+	}
+	outputs = outputsAfterOrdinal(outputs, afterOrdinal)
+	if limit > 0 && len(outputs) > limit {
+		page := outputs[:limit]
+		return RunItemOutputPage{RunID: runID, RunItemID: runItemID, Output: page, HasMore: true, NextOrdinal: page[len(page)-1].Ordinal}, nil
+	}
+	return RunItemOutputPage{RunID: runID, RunItemID: runItemID, Output: outputs}, nil
+}
+
+func (store *Store) validateRunItemBelongsToRun(workspaceID string, runID string, runItemID string) error {
+	items, err := store.LoadRunItems(workspaceID, runID)
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		if item.ID == runItemID {
+			return nil
+		}
+	}
+	return fmt.Errorf("run item %s was not found in run %s", runItemID, runID)
+}
+
 func (store *Store) NextRunItemOutputOrdinal(workspaceID string, runID string, runItemID string) (int, error) {
 	files, err := store.runItemOutputFiles(workspaceID, runID, runItemID)
 	if err != nil {
@@ -518,6 +548,46 @@ func (store *Store) SaveTraceEvent(workspaceID string, trace TraceEvent) error {
 		return err
 	}
 	return writeJSONFile(store.tracePath(workspaceID, trace.RunID, trace.ID), trace)
+}
+
+func (store *Store) SaveDiagnostic(diagnostic Diagnostic) error {
+	if err := validateDiagnostic(diagnostic); err != nil {
+		return err
+	}
+	return writeNewJSONFile(store.diagnosticPath(diagnostic.ID), diagnostic)
+}
+
+func (store *Store) ListDiagnostics() ([]Diagnostic, error) {
+	dir := store.diagnosticsDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []Diagnostic{}, nil
+		}
+		return nil, &PersistenceError{Operation: "list diagnostics", Path: dir, Err: err}
+	}
+	diagnostics := make([]Diagnostic, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
+			continue
+		}
+		var diagnostic Diagnostic
+		path := filepath.Join(dir, entry.Name())
+		if err := readJSONFile(path, &diagnostic); err != nil {
+			return nil, err
+		}
+		if err := validateDiagnostic(diagnostic); err != nil {
+			return nil, err
+		}
+		diagnostics = append(diagnostics, diagnostic)
+	}
+	sort.SliceStable(diagnostics, func(left int, right int) bool {
+		if diagnostics[left].OccurredAt == diagnostics[right].OccurredAt {
+			return diagnostics[left].ID < diagnostics[right].ID
+		}
+		return diagnostics[left].OccurredAt < diagnostics[right].OccurredAt
+	})
+	return diagnostics, nil
 }
 
 func (store *Store) conversationPath(workspaceID string, conversationID string) string {
@@ -550,6 +620,14 @@ func (store *Store) runPath(workspaceID string, runID string) string {
 
 func (store *Store) tracePath(workspaceID string, runID string, traceID string) string {
 	return filepath.Join(store.runsDir(workspaceID), runID, tracesDirName, traceID+".json")
+}
+
+func (store *Store) diagnosticsDir() string {
+	return filepath.Join(store.appDataDir, diagnosticsDirName)
+}
+
+func (store *Store) diagnosticPath(diagnosticID string) string {
+	return filepath.Join(store.diagnosticsDir(), diagnosticID+".json")
 }
 
 func (store *Store) runItemsDir(workspaceID string, runID string) string {
@@ -681,6 +759,28 @@ func writeJSONFile(path string, payload any) error {
 		return &PersistenceError{Operation: "replace file", Path: path, Err: err}
 	}
 	removeTemp = false
+	return nil
+}
+
+func writeNewJSONFile(path string, payload any) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return &PersistenceError{Operation: "create directory", Path: dir, Err: err}
+	}
+
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return &PersistenceError{Operation: "create file", Path: path, Err: err}
+	}
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(payload); err != nil {
+		_ = file.Close()
+		return &PersistenceError{Operation: "write file", Path: path, Err: err}
+	}
+	if err := file.Close(); err != nil {
+		return &PersistenceError{Operation: "close file", Path: path, Err: err}
+	}
 	return nil
 }
 

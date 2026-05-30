@@ -157,6 +157,7 @@ function workspaceSession(): WorkspaceSession {
 
 function emptyRun() {
   return {
+    assistantMessageId: "",
     completedAt: "",
     conversationId: "",
     error: "",

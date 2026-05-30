@@ -10,6 +10,7 @@ import type {
   QueueMessageResult,
   Run,
   RunActivityPage,
+  RunItemOutputPage,
   SendMessageResult,
   SteerMessageResult,
   WorkspaceSession,
@@ -26,6 +27,7 @@ export const ipcChannels = {
   chatMessagePage: "chat:message-page",
   chatQueueMessage: "chat:queue-message",
   chatRunActivity: "chat:run-activity",
+  chatRunItemOutput: "chat:run-item-output",
   chatSendMessage: "chat:send-message",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
@@ -38,6 +40,8 @@ export const ipcChannels = {
 } as const;
 
 export const ipcEvents = {
+  backendEventStreamStatus: "backend:event-stream-status",
+  backendProcessStatus: "backend:process-status",
   backendUnexpectedExit: "backend:unexpected-exit",
   chatEvent: "chat:event",
 } as const;
@@ -76,8 +80,18 @@ interface IpcContract {
     result: QueueMessageResult;
   };
   chatRunActivity: {
-    args: [workspaceId: string, runId: string, afterOrdinal: number, limit: number];
+    args: [workspaceId: string, runId: string, limit: number];
     result: RunActivityPage;
+  };
+  chatRunItemOutput: {
+    args: [
+      workspaceId: string,
+      runId: string,
+      runItemId: string,
+      afterOrdinal: number,
+      limit: number,
+    ];
+    result: RunItemOutputPage;
   };
   chatSendMessage: {
     args: [workspaceId: string, conversationId: string, prompt: string];

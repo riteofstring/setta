@@ -22,6 +22,7 @@ describe("chat store", () => {
     useChatStore.setState({
       activeRun: null,
       conversations: [],
+      diagnostics: [],
       error: null,
       hasMoreOlder: false,
       lastEventSequence: 0,
@@ -294,9 +295,7 @@ describe("chat store", () => {
     const firstOutput = runItemOutput("run_item_output_1", item.id, 1, "first\n");
     const secondOutput = runItemOutput("run_item_output_2", item.id, 2, "second\n");
     const runActivity = vi.fn().mockResolvedValue({
-      hasMore: false,
       items: [completed],
-      nextOrdinal: 0,
       output: [secondOutput],
       runId: "run_api",
     });
@@ -307,11 +306,36 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await useChatStore.getState().loadRunActivity("run_api", 1, 200);
+    await useChatStore.getState().loadRunActivity("run_api", 200);
 
-    expect(runActivity).toHaveBeenCalledWith("workspace_api", "run_api", 1, 200);
+    expect(runActivity).toHaveBeenCalledWith("workspace_api", "run_api", 200);
     expect(useChatStore.getState().runItems).toEqual([completed]);
     expect(useChatStore.getState().runItemOutputs).toEqual([firstOutput, secondOutput]);
+  });
+
+  test("lazy-loads run item output for only the expanded row", async () => {
+    const itemA = runItem("run_item_a", "command_execution", "completed");
+    const itemB = runItem("run_item_b", "command_execution", "completed");
+    const outputA = runItemOutput("run_item_output_a1", itemA.id, 1, "a1\n");
+    const outputB = runItemOutput("run_item_output_b1", itemB.id, 1, "b1\n");
+    const runItemOutputPage = vi.fn().mockResolvedValue({
+      hasMore: false,
+      nextOrdinal: 0,
+      output: [outputB],
+      runId: "run_api",
+      runItemId: itemB.id,
+    });
+    installSettaAPI({ chat: { runItemOutput: runItemOutputPage } });
+    useChatStore.setState({
+      runItemOutputs: [outputA],
+      runItems: [itemA, itemB],
+      workspaceId: "workspace_api",
+    });
+
+    await useChatStore.getState().loadRunItemOutput("run_api", itemB.id, 0, 200);
+
+    expect(runItemOutputPage).toHaveBeenCalledWith("workspace_api", "run_api", itemB.id, 0, 200);
+    expect(useChatStore.getState().runItemOutputs).toEqual([outputA, outputB]);
   });
 
   test("ignores pushed message events for unrelated conversations", () => {
@@ -334,6 +358,19 @@ describe("chat store", () => {
 
     expect(useChatStore.getState().messages.map((item) => item.id)).toEqual(["message_existing"]);
     expect(useChatStore.getState().lastEventSequence).toBe(1);
+  });
+
+  test("records pushed critical diagnostics for the active workspace", () => {
+    useChatStore.setState({ workspaceId: "workspace_api" });
+
+    useChatStore.getState().handleEvent(diagnosticCreatedEvent(1));
+
+    expect(useChatStore.getState().diagnostics).toEqual([
+      expect.objectContaining({
+        code: "complete_turn_transition_failed",
+        severity: "critical",
+      }),
+    ]);
   });
 
   test("resync-required events reload the selected snapshot", async () => {
@@ -416,6 +453,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         ok: true,
         version: "test",
       }),
+      onEventStreamStatus: () => () => {},
+      onProcessStatus: () => () => {},
     },
     chat: {
       activeRun: async () => ({ hasActiveRun: false, run: testRun("completed") }),
@@ -432,11 +471,16 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: message("message_queued", 1, "user", "pending", "queued", "queued"),
       }),
       runActivity: async () => ({
-        hasMore: false,
         items: [],
+        output: [],
+        runId: "run_api",
+      }),
+      runItemOutput: async () => ({
+        hasMore: false,
         nextOrdinal: 0,
         output: [],
         runId: "run_api",
+        runItemId: "run_item_api",
       }),
       sendMessage: async () => ({
         assistantMessage: message("message_assistant", 2, "assistant", "complete", "done"),
@@ -606,6 +650,35 @@ function conversationUpdatedEvent(
   };
 }
 
+function diagnosticCreatedEvent(sequence: number, streamId = eventStreamId): ChatEvent {
+  return {
+    conversationId: "conversation_api",
+    emittedAt: "2026-05-29T20:00:00Z",
+    eventId: `${streamId}:${sequence}`,
+    payload: {
+      diagnostic: {
+        code: "complete_turn_transition_failed",
+        context: { error: "terminal transition failed" },
+        conversationId: "conversation_api",
+        id: "diagnostic_api",
+        message: "terminal transition failed",
+        occurredAt: "2026-05-29T20:00:00Z",
+        runId: "run_api",
+        schemaVersion: 1,
+        severity: "critical",
+        source: "chat",
+        workspaceId: "workspace_api",
+      },
+    },
+    runId: "run_api",
+    schemaVersion: 1,
+    sequence,
+    streamId,
+    type: "diagnostic.created",
+    workspaceId: "workspace_api",
+  };
+}
+
 function resyncRequiredEvent(
   sequence: number,
   options: {
@@ -728,6 +801,7 @@ function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
 
 function testRun(status: string): Run {
   return {
+    assistantMessageId: "message_assistant",
     completedAt: status === "running" ? "" : "2026-05-29T20:01:00Z",
     conversationId: "conversation_api",
     error: "",

@@ -265,16 +265,44 @@ func (service *Service) attachPageState(workspaceID string, conversationID strin
 
 func (service *Service) attachRunActivityToPage(workspaceID string, page *MessagePage) error {
 	for _, runID := range runIDsFromMessages(page.Messages) {
+		run, err := service.store.LoadRun(workspaceID, runID)
+		if err != nil {
+			return err
+		}
+		if err := service.validateRunAssistantMessage(workspaceID, run); err != nil {
+			return err
+		}
 		items, err := service.store.LoadRunItems(workspaceID, runID)
 		if err != nil {
 			return err
 		}
-		outputs, _, _, err := service.runItemOutputPage(workspaceID, runID, 0, embeddedRunOutputLimit)
+		outputs, err := service.runItemOutputPreviews(workspaceID, runID, items, embeddedRunOutputLimit)
 		if err != nil {
 			return err
 		}
 		page.RunItems = append(page.RunItems, items...)
 		page.RunItemOutputs = append(page.RunItemOutputs, outputs...)
+	}
+	return nil
+}
+
+func (service *Service) validateRunAssistantMessage(workspaceID string, run Run) error {
+	if run.Status == RunStatusQueued {
+		return nil
+	}
+	message, err := service.store.LoadMessageByID(workspaceID, run.ConversationID, run.AssistantMessageID)
+	if err != nil {
+		return err
+	}
+	return validateRunAssistantMessageRecord(run, message)
+}
+
+func validateRunAssistantMessageRecord(run Run, message ChatMessage) error {
+	if message.Role != RoleAssistant {
+		return fmt.Errorf("run %s assistantMessageId %s refers to %s message", run.ID, run.AssistantMessageID, message.Role)
+	}
+	if message.RunID != run.ID {
+		return fmt.Errorf("run %s assistant message %s belongs to run %s", run.ID, message.ID, message.RunID)
 	}
 	return nil
 }
@@ -292,13 +320,16 @@ func runIDsFromMessages(messages []ChatMessage) []string {
 	return runIDs
 }
 
-func (service *Service) LoadRunActivityPage(workspaceID string, runID string, afterOrdinal int, limit int) (RunActivityPage, error) {
+func (service *Service) LoadRunActivityPage(workspaceID string, runID string, limit int) (RunActivityPage, error) {
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return RunActivityPage{}, err
 	}
 	if limit < 0 {
 		return RunActivityPage{}, fmt.Errorf("run activity page limit must not be negative: %d", limit)
 	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
 	if _, err := service.store.LoadRun(workspaceID, runID); err != nil {
 		return RunActivityPage{}, err
 	}
@@ -306,24 +337,40 @@ func (service *Service) LoadRunActivityPage(workspaceID string, runID string, af
 	if err != nil {
 		return RunActivityPage{}, err
 	}
-	outputs, hasMore, nextOrdinal, err := service.runItemOutputPage(workspaceID, runID, afterOrdinal, limit)
+	outputs, err := service.runItemOutputPreviews(workspaceID, runID, items, activityOutputPreviewLimit(limit))
 	if err != nil {
 		return RunActivityPage{}, err
 	}
-	return RunActivityPage{RunID: runID, Items: items, Output: outputs, HasMore: hasMore, NextOrdinal: nextOrdinal}, nil
+	return RunActivityPage{RunID: runID, Items: items, Output: outputs}, nil
 }
 
-func (service *Service) runItemOutputPage(workspaceID string, runID string, afterOrdinal int, limit int) ([]RunItemOutput, bool, int, error) {
-	outputs, err := service.store.LoadRunItemOutputs(workspaceID, runID)
-	if err != nil {
-		return nil, false, 0, err
+func (service *Service) LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (RunItemOutputPage, error) {
+	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
+		return RunItemOutputPage{}, err
 	}
-	outputs = outputsAfterOrdinal(outputs, afterOrdinal)
-	if limit > 0 && len(outputs) > limit {
-		page := outputs[:limit]
-		return page, true, page[len(page)-1].Ordinal, nil
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	return service.store.LoadRunItemOutputPage(workspaceID, runID, runItemID, afterOrdinal, limit)
+}
+
+func (service *Service) runItemOutputPreviews(workspaceID string, runID string, items []RunItem, limit int) ([]RunItemOutput, error) {
+	outputs := []RunItemOutput{}
+	for _, item := range items {
+		page, err := service.store.LoadRunItemOutputPage(workspaceID, runID, item.ID, 0, limit)
+		if err != nil {
+			return nil, err
+		}
+		outputs = append(outputs, page.Output...)
 	}
-	return outputs, false, 0, nil
+	return outputs, nil
+}
+
+func activityOutputPreviewLimit(limit int) int {
+	if limit <= 0 {
+		return embeddedRunOutputLimit
+	}
+	return limit
 }
 
 func outputsAfterOrdinal(outputs []RunItemOutput, afterOrdinal int) []RunItemOutput {

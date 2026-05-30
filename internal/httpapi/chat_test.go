@@ -129,6 +129,16 @@ func TestChatEndpointsQueueSteerAndRunActivity(t *testing.T) {
 	if len(activity.Output) != 1 || activity.Output[0].Text != "ok\n" {
 		t.Fatalf("activity output = %+v, want output chunk", activity.Output)
 	}
+	output := postJSON[chat.RunItemOutputPage](t, handler, "/chat/runs/item-output", GetRunItemOutputRequest{
+		WorkspaceID:  opened.Workspace.ID,
+		RunID:        started.Run.ID,
+		RunItemID:    activity.Items[0].ID,
+		AfterOrdinal: 0,
+		Limit:        20,
+	}, http.StatusOK)
+	if output.RunItemID != activity.Items[0].ID || len(output.Output) != 1 || output.Output[0].Text != "ok\n" {
+		t.Fatalf("item output page = %+v, want command output only", output)
+	}
 }
 
 func TestChatEndpointsSubmitApproval(t *testing.T) {

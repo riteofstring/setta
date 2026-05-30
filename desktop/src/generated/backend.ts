@@ -6,6 +6,7 @@ import {
   decodeArray,
   decodeBoolean,
   decodeInteger,
+  decodeStringRecord,
   decodeString,
   requestBackend,
   requireField,
@@ -201,6 +202,7 @@ export interface Run {
   workspaceId: string;
   conversationId: string;
   triggerMessageId: string;
+  assistantMessageId: string;
   harness: string;
   status: string;
   startedAt: string;
@@ -285,13 +287,26 @@ export interface GetActiveRunResponse {
 export interface GetRunActivityRequest {
   workspaceId: string;
   runId: string;
-  afterOrdinal: number;
   limit: number;
 }
 
 export interface RunActivityPage {
   runId: string;
   items: RunItem[];
+  output: RunItemOutput[];
+}
+
+export interface GetRunItemOutputRequest {
+  workspaceId: string;
+  runId: string;
+  runItemId: string;
+  afterOrdinal: number;
+  limit: number;
+}
+
+export interface RunItemOutputPage {
+  runId: string;
+  runItemId: string;
   output: RunItemOutput[];
   hasMore: boolean;
   nextOrdinal: number;
@@ -379,6 +394,24 @@ export interface ResyncRequiredPayload {
   earliestSequence: number;
 }
 
+export interface Diagnostic {
+  schemaVersion: number;
+  id: string;
+  source: string;
+  severity: string;
+  code: string;
+  message: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  occurredAt: string;
+  context: Record<string, string>;
+}
+
+export interface DiagnosticCreatedPayload {
+  diagnostic: Diagnostic;
+}
+
 export type ChatEvent =
   ChatMessageCreatedEvent
   | ChatMessageQueuedEvent
@@ -392,6 +425,7 @@ export type ChatEvent =
   | ChatQueueUpdatedEvent
   | ChatConversationUpdatedEvent
   | ChatResyncRequiredEvent
+  | DiagnosticCreatedEvent
 ;
 
 export interface ChatMessageCreatedEvent {
@@ -550,6 +584,19 @@ export interface ChatResyncRequiredEvent {
   payload: ResyncRequiredPayload;
 }
 
+export interface DiagnosticCreatedEvent {
+  schemaVersion: number;
+  streamId: string;
+  sequence: number;
+  eventId: string;
+  type: "diagnostic.created";
+  emittedAt: string;
+  workspaceId: string;
+  conversationId: string;
+  runId: string;
+  payload: DiagnosticCreatedPayload;
+}
+
 export const backendEndpoints = {
   BackendHealth: {
     method: "GET",
@@ -614,6 +661,10 @@ export const backendEndpoints = {
   GetRunActivity: {
     method: "POST",
     path: "/chat/runs/activity",
+  },
+  GetRunItemOutputPage: {
+    method: "POST",
+    path: "/chat/runs/item-output",
   },
   SubmitApproval: {
     method: "POST",
@@ -898,13 +949,14 @@ export function decodeApprovalRequest(value: unknown): ApprovalRequest {
 
 export function decodeRun(value: unknown): Run {
   const record = assertRecord(value, "Run");
-  assertKnownFields(record, "Run", ["schemaVersion", "id", "workspaceId", "conversationId", "triggerMessageId", "harness", "status", "startedAt", "completedAt", "promptSummary", "error", "hasPendingApproval", "pendingApproval"]);
+  assertKnownFields(record, "Run", ["schemaVersion", "id", "workspaceId", "conversationId", "triggerMessageId", "assistantMessageId", "harness", "status", "startedAt", "completedAt", "promptSummary", "error", "hasPendingApproval", "pendingApproval"]);
   return {
     schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Run"), "Run.schemaVersion"),
     id: decodeString(requireField(record, "id", "Run"), "Run.id"),
     workspaceId: decodeString(requireField(record, "workspaceId", "Run"), "Run.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "Run"), "Run.conversationId"),
     triggerMessageId: decodeString(requireField(record, "triggerMessageId", "Run"), "Run.triggerMessageId"),
+    assistantMessageId: decodeString(requireField(record, "assistantMessageId", "Run"), "Run.assistantMessageId"),
     harness: decodeString(requireField(record, "harness", "Run"), "Run.harness"),
     status: decodeString(requireField(record, "status", "Run"), "Run.status"),
     startedAt: decodeString(requireField(record, "startedAt", "Run"), "Run.startedAt"),
@@ -1033,24 +1085,45 @@ export function decodeGetActiveRunResponse(value: unknown): GetActiveRunResponse
 
 export function decodeGetRunActivityRequest(value: unknown): GetRunActivityRequest {
   const record = assertRecord(value, "GetRunActivityRequest");
-  assertKnownFields(record, "GetRunActivityRequest", ["workspaceId", "runId", "afterOrdinal", "limit"]);
+  assertKnownFields(record, "GetRunActivityRequest", ["workspaceId", "runId", "limit"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "GetRunActivityRequest"), "GetRunActivityRequest.workspaceId"),
     runId: decodeString(requireField(record, "runId", "GetRunActivityRequest"), "GetRunActivityRequest.runId"),
-    afterOrdinal: decodeInteger(requireField(record, "afterOrdinal", "GetRunActivityRequest"), "GetRunActivityRequest.afterOrdinal"),
     limit: decodeInteger(requireField(record, "limit", "GetRunActivityRequest"), "GetRunActivityRequest.limit"),
   };
 }
 
 export function decodeRunActivityPage(value: unknown): RunActivityPage {
   const record = assertRecord(value, "RunActivityPage");
-  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output", "hasMore", "nextOrdinal"]);
+  assertKnownFields(record, "RunActivityPage", ["runId", "items", "output"]);
   return {
     runId: decodeString(requireField(record, "runId", "RunActivityPage"), "RunActivityPage.runId"),
     items: decodeArray(requireField(record, "items", "RunActivityPage"), "RunActivityPage.items", (item) => decodeRunItem(item)),
     output: decodeArray(requireField(record, "output", "RunActivityPage"), "RunActivityPage.output", (item) => decodeRunItemOutput(item)),
-    hasMore: decodeBoolean(requireField(record, "hasMore", "RunActivityPage"), "RunActivityPage.hasMore"),
-    nextOrdinal: decodeInteger(requireField(record, "nextOrdinal", "RunActivityPage"), "RunActivityPage.nextOrdinal"),
+  };
+}
+
+export function decodeGetRunItemOutputRequest(value: unknown): GetRunItemOutputRequest {
+  const record = assertRecord(value, "GetRunItemOutputRequest");
+  assertKnownFields(record, "GetRunItemOutputRequest", ["workspaceId", "runId", "runItemId", "afterOrdinal", "limit"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "GetRunItemOutputRequest"), "GetRunItemOutputRequest.workspaceId"),
+    runId: decodeString(requireField(record, "runId", "GetRunItemOutputRequest"), "GetRunItemOutputRequest.runId"),
+    runItemId: decodeString(requireField(record, "runItemId", "GetRunItemOutputRequest"), "GetRunItemOutputRequest.runItemId"),
+    afterOrdinal: decodeInteger(requireField(record, "afterOrdinal", "GetRunItemOutputRequest"), "GetRunItemOutputRequest.afterOrdinal"),
+    limit: decodeInteger(requireField(record, "limit", "GetRunItemOutputRequest"), "GetRunItemOutputRequest.limit"),
+  };
+}
+
+export function decodeRunItemOutputPage(value: unknown): RunItemOutputPage {
+  const record = assertRecord(value, "RunItemOutputPage");
+  assertKnownFields(record, "RunItemOutputPage", ["runId", "runItemId", "output", "hasMore", "nextOrdinal"]);
+  return {
+    runId: decodeString(requireField(record, "runId", "RunItemOutputPage"), "RunItemOutputPage.runId"),
+    runItemId: decodeString(requireField(record, "runItemId", "RunItemOutputPage"), "RunItemOutputPage.runItemId"),
+    output: decodeArray(requireField(record, "output", "RunItemOutputPage"), "RunItemOutputPage.output", (item) => decodeRunItemOutput(item)),
+    hasMore: decodeBoolean(requireField(record, "hasMore", "RunItemOutputPage"), "RunItemOutputPage.hasMore"),
+    nextOrdinal: decodeInteger(requireField(record, "nextOrdinal", "RunItemOutputPage"), "RunItemOutputPage.nextOrdinal"),
   };
 }
 
@@ -1200,6 +1273,32 @@ export function decodeResyncRequiredPayload(value: unknown): ResyncRequiredPaylo
   };
 }
 
+export function decodeDiagnostic(value: unknown): Diagnostic {
+  const record = assertRecord(value, "Diagnostic");
+  assertKnownFields(record, "Diagnostic", ["schemaVersion", "id", "source", "severity", "code", "message", "workspaceId", "conversationId", "runId", "occurredAt", "context"]);
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "Diagnostic"), "Diagnostic.schemaVersion"),
+    id: decodeString(requireField(record, "id", "Diagnostic"), "Diagnostic.id"),
+    source: decodeString(requireField(record, "source", "Diagnostic"), "Diagnostic.source"),
+    severity: decodeString(requireField(record, "severity", "Diagnostic"), "Diagnostic.severity"),
+    code: decodeString(requireField(record, "code", "Diagnostic"), "Diagnostic.code"),
+    message: decodeString(requireField(record, "message", "Diagnostic"), "Diagnostic.message"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "Diagnostic"), "Diagnostic.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "Diagnostic"), "Diagnostic.conversationId"),
+    runId: decodeString(requireField(record, "runId", "Diagnostic"), "Diagnostic.runId"),
+    occurredAt: decodeString(requireField(record, "occurredAt", "Diagnostic"), "Diagnostic.occurredAt"),
+    context: decodeStringRecord(requireField(record, "context", "Diagnostic"), "Diagnostic.context"),
+  };
+}
+
+export function decodeDiagnosticCreatedPayload(value: unknown): DiagnosticCreatedPayload {
+  const record = assertRecord(value, "DiagnosticCreatedPayload");
+  assertKnownFields(record, "DiagnosticCreatedPayload", ["diagnostic"]);
+  return {
+    diagnostic: decodeDiagnostic(requireField(record, "diagnostic", "DiagnosticCreatedPayload")),
+  };
+}
+
 export function decodeChatEvent(value: unknown): ChatEvent {
   const record = assertRecord(value, "ChatEvent");
   const type = decodeString(requireField(record, "type", "ChatEvent"), "ChatEvent.type");
@@ -1228,6 +1327,8 @@ export function decodeChatEvent(value: unknown): ChatEvent {
       return decodeChatConversationUpdatedEventFromRecord(record);
     case "chat.resync_required":
       return decodeChatResyncRequiredEventFromRecord(record);
+    case "diagnostic.created":
+      return decodeDiagnosticCreatedEventFromRecord(record);
     default:
       throw new Error("ChatEvent.type is unsupported: " + type);
   }
@@ -1521,6 +1622,30 @@ function decodeChatResyncRequiredEventFromRecord(record: Record<string, unknown>
   };
 }
 
+export function decodeDiagnosticCreatedEvent(value: unknown): DiagnosticCreatedEvent {
+  return decodeDiagnosticCreatedEventFromRecord(assertRecord(value, "DiagnosticCreatedEvent"));
+}
+
+function decodeDiagnosticCreatedEventFromRecord(record: Record<string, unknown>): DiagnosticCreatedEvent {
+  assertKnownFields(record, "DiagnosticCreatedEvent", ["schemaVersion", "streamId", "sequence", "eventId", "type", "emittedAt", "workspaceId", "conversationId", "runId", "payload"]);
+  const type = decodeString(requireField(record, "type", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.type");
+  if (type !== "diagnostic.created") {
+    throw new Error("DiagnosticCreatedEvent.type must be diagnostic.created, got " + type);
+  }
+  return {
+    schemaVersion: decodeInteger(requireField(record, "schemaVersion", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.schemaVersion"),
+    streamId: decodeString(requireField(record, "streamId", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.streamId"),
+    sequence: decodeInteger(requireField(record, "sequence", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.sequence"),
+    eventId: decodeString(requireField(record, "eventId", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.eventId"),
+    type: "diagnostic.created",
+    emittedAt: decodeString(requireField(record, "emittedAt", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.emittedAt"),
+    workspaceId: decodeString(requireField(record, "workspaceId", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.conversationId"),
+    runId: decodeString(requireField(record, "runId", "DiagnosticCreatedEvent"), "DiagnosticCreatedEvent.runId"),
+    payload: decodeDiagnosticCreatedPayload(requireField(record, "payload", "DiagnosticCreatedEvent")),
+  };
+}
+
 export interface BackendClient {
   backendHealth: () => Promise<BackendHealth>;
   workspaceSession: () => Promise<WorkspaceSession>;
@@ -1538,6 +1663,7 @@ export interface BackendClient {
   cancelRun: (request: CancelRunRequest) => Promise<Run>;
   getActiveRun: (request: GetActiveRunRequest) => Promise<GetActiveRunResponse>;
   getRunActivity: (request: GetRunActivityRequest) => Promise<RunActivityPage>;
+  getRunItemOutputPage: (request: GetRunItemOutputRequest) => Promise<RunItemOutputPage>;
   submitApproval: (request: SubmitApprovalRequest) => Promise<Run>;
 }
 
@@ -1668,6 +1794,14 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeRunActivityPage,
       endpoint: backendEndpoints.GetRunActivity,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    getRunItemOutputPage: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeRunItemOutputPage,
+      endpoint: backendEndpoints.GetRunItemOutputPage,
       fetchImpl,
       requestPayload: request,
     }),

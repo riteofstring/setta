@@ -19,7 +19,8 @@ type ContractTestRequest struct {
 }
 
 type ContractTestResponse struct {
-	Items []ContractTestLeaf `json:"items"`
+	Items  []ContractTestLeaf `json:"items"`
+	Labels map[string]string  `json:"labels"`
 }
 
 type ContractTestError struct {
@@ -136,6 +137,8 @@ func TestRenderIncludesEndpointDescriptorsDecodersAndClient(t *testing.T) {
 		"type: \"chat.contract_test\";",
 		"export function decodeChatEvent(value: unknown): ChatEvent",
 		"export function decodeContractTestResponse(value: unknown): ContractTestResponse",
+		"labels: Record<string, string>;",
+		"labels: decodeStringRecord(requireField(record, \"labels\", \"ContractTestResponse\"), \"ContractTestResponse.labels\")",
 		"contractTest: (request: ContractTestRequest) => Promise<ContractTestResponse>;",
 		"contractTestHealth: () => Promise<ContractTestLeaf>;",
 		"contractTest: (request) => requestBackend({",

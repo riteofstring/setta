@@ -107,8 +107,15 @@ type GetActiveRunResponse struct {
 }
 
 type GetRunActivityRequest struct {
+	WorkspaceID string `json:"workspaceId"`
+	RunID       string `json:"runId"`
+	Limit       int    `json:"limit"`
+}
+
+type GetRunItemOutputRequest struct {
 	WorkspaceID  string `json:"workspaceId"`
 	RunID        string `json:"runId"`
+	RunItemID    string `json:"runItemId"`
 	AfterOrdinal int    `json:"afterOrdinal"`
 	Limit        int    `json:"limit"`
 }
@@ -147,7 +154,8 @@ type ChatService interface {
 	CreateConversation(workspaceID string, title string) (chat.Conversation, error)
 	ListConversations(workspaceID string) ([]chat.ConversationListItem, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
-	LoadRunActivityPage(workspaceID string, runID string, afterOrdinal int, limit int) (chat.RunActivityPage, error)
+	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
+	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	QueueUserMessage(workspaceID string, conversationID string, prompt string) (chat.QueueMessageResult, error)
 	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
 	SteerActiveRun(workspaceID string, conversationID string, prompt string) (chat.SteerMessageResult, error)
@@ -424,9 +432,26 @@ func (handler handler) getRunActivity(response http.ResponseWriter, request *htt
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	page, err := service.LoadRunActivityPage(payload.WorkspaceID, payload.RunID, payload.AfterOrdinal, payload.Limit)
+	page, err := service.LoadRunActivityPage(payload.WorkspaceID, payload.RunID, payload.Limit)
 	if err != nil {
 		writeChatError(response, "get_run_activity_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, page)
+}
+
+func (handler handler) getRunItemOutput(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload GetRunItemOutputRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	page, err := service.LoadRunItemOutputPage(payload.WorkspaceID, payload.RunID, payload.RunItemID, payload.AfterOrdinal, payload.Limit)
+	if err != nil {
+		writeChatError(response, "get_run_item_output_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, page)

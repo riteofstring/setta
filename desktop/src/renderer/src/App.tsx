@@ -2,7 +2,11 @@ import type { BackendHealth, WorkspaceSession, WorkspaceSummary } from "@generat
 import { CircleAlert, CircleCheck, FolderOpen, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import type { RuntimeVersions } from "@shared/types";
+import type {
+  BackendEventStreamStatus,
+  BackendProcessStatus,
+  RuntimeVersions,
+} from "@shared/types";
 import { ChatPanel } from "./components/chat-panel";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
@@ -16,14 +20,18 @@ import {
 } from "./stores/workspace-store";
 import { useChatStore } from "./stores/chat-store";
 
-type BackendState =
-  | { health: BackendHealth; message: string; status: "online" }
-  | { health: null; message: string; status: "checking" | "offline" };
+interface BackendState {
+  eventStream: BackendEventStreamStatus;
+  health: BackendHealth | null;
+  healthMessage: string;
+  process: BackendProcessStatus;
+}
 
 const initialBackendState: BackendState = {
+  eventStream: { message: "Event stream stopped", status: "stopped" },
   health: null,
-  message: "Checking",
-  status: "checking",
+  healthMessage: "",
+  process: { message: "Starting backend", status: "starting" },
 };
 
 export function App() {
@@ -43,6 +51,7 @@ export function App() {
         <div className="flex items-center gap-4">
           <h1 className="text-base font-semibold">Setta</h1>
           <BackendBadge backend={backend} />
+          <EventStreamBadge status={backend.eventStream} />
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-zinc-500">Electron {runtime.electron}</span>
@@ -69,7 +78,9 @@ export function App() {
           <dl className="space-y-3 px-4 pb-5 text-xs">
             <div>
               <dt className="text-zinc-500">Backend</dt>
-              <dd className="mt-1 break-words font-medium text-zinc-800">{backend.message}</dd>
+              <dd className="mt-1 break-words font-medium text-zinc-800">
+                {backend.healthMessage || backend.process.message}
+              </dd>
             </div>
             <div>
               <dt className="text-zinc-500">Runtime</dt>
@@ -95,22 +106,39 @@ export function App() {
 function useBackendState() {
   const [backend, setBackend] = useState<BackendState>(initialBackendState);
   const refreshHealth = useCallback(async () => {
-    setBackend({ health: null, message: "Checking", status: "checking" });
+    setBackend((current) => ({ ...current, health: null, healthMessage: "Checking" }));
     try {
       const health = await window.setta.backend.health();
-      setBackend({ health, message: `${health.name} ${health.version}`, status: "online" });
+      setBackend((current) => ({
+        ...current,
+        health,
+        healthMessage: `${health.name} ${health.version}`,
+      }));
     } catch (error) {
-      setBackend({
+      setBackend((current) => ({
+        ...current,
         health: null,
-        message: error instanceof Error ? error.message : "Backend unavailable",
-        status: "offline",
-      });
+        healthMessage: error instanceof Error ? error.message : "Backend unavailable",
+      }));
     }
   }, []);
 
   useEffect(() => {
     void refreshHealth();
   }, [refreshHealth]);
+  useEffect(() => {
+    return window.setta.backend.onProcessStatus((process) => {
+      setBackend((current) => ({ ...current, process }));
+    });
+  }, []);
+  useEffect(() => {
+    return window.setta.backend.onEventStreamStatus((eventStream) => {
+      setBackend((current) => ({ ...current, eventStream }));
+      if (eventStream.status === "resyncing") {
+        void useChatStore.getState().resyncActiveConversation();
+      }
+    });
+  }, []);
 
   return { backend, refreshHealth };
 }
@@ -246,7 +274,7 @@ function operationLabel(operation: WorkspaceOperationKind) {
 }
 
 function BackendBadge({ backend }: { backend: BackendState }) {
-  if (backend.status === "online") {
+  if (backend.process.status === "online") {
     return (
       <Badge data-testid="backend-status" variant="success">
         <CircleCheck className="h-3.5 w-3.5" />
@@ -254,13 +282,30 @@ function BackendBadge({ backend }: { backend: BackendState }) {
       </Badge>
     );
   }
-  if (backend.status === "offline") {
+  if (backend.process.status === "offline" || backend.process.status === "failed") {
     return (
       <Badge data-testid="backend-status" variant="danger">
         <CircleAlert className="h-3.5 w-3.5" />
-        Offline
+        {backend.process.status === "failed" ? "Failed" : "Offline"}
       </Badge>
     );
   }
-  return <Badge data-testid="backend-status">Checking</Badge>;
+  return <Badge data-testid="backend-status">Starting</Badge>;
+}
+
+function EventStreamBadge({ status }: { status: BackendEventStreamStatus }) {
+  if (status.status === "connected") {
+    return <Badge variant="success">Stream</Badge>;
+  }
+  if (status.status === "reconnecting" || status.status === "resyncing") {
+    return (
+      <Badge variant="neutral">
+        {status.status === "resyncing" ? "Resyncing" : "Reconnecting"}
+      </Badge>
+    );
+  }
+  if (status.status === "connecting") {
+    return <Badge variant="neutral">Connecting</Badge>;
+  }
+  return <Badge variant="neutral">Stream stopped</Badge>;
 }

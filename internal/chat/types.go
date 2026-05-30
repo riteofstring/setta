@@ -70,6 +70,17 @@ const (
 	RunItemTypeTerminalInteraction = "terminal_interaction"
 	RunItemTypeDiff                = "diff"
 	RunItemTypeNotice              = "notice"
+
+	DiagnosticSeverityInfo     = "info"
+	DiagnosticSeverityWarning  = "warning"
+	DiagnosticSeverityError    = "error"
+	DiagnosticSeverityCritical = "critical"
+
+	DiagnosticSourceBackend     = "backend"
+	DiagnosticSourceEventStream = "event_stream"
+	DiagnosticSourceChat        = "chat"
+	DiagnosticSourceWorkspace   = "workspace"
+	DiagnosticSourceProvider    = "provider"
 )
 
 type Conversation struct {
@@ -121,6 +132,7 @@ type Run struct {
 	WorkspaceID        string          `json:"workspaceId"`
 	ConversationID     string          `json:"conversationId"`
 	TriggerMessageID   string          `json:"triggerMessageId"`
+	AssistantMessageID string          `json:"assistantMessageId"`
 	Harness            string          `json:"harness"`
 	Status             string          `json:"status"`
 	StartedAt          string          `json:"startedAt"`
@@ -173,6 +185,28 @@ type TraceEvent struct {
 	Type          string `json:"type"`
 	CreatedAt     string `json:"createdAt"`
 	Message       string `json:"message"`
+}
+
+type Diagnostic struct {
+	SchemaVersion  int               `json:"schemaVersion"`
+	ID             string            `json:"id"`
+	Source         string            `json:"source"`
+	Severity       string            `json:"severity"`
+	Code           string            `json:"code"`
+	Message        string            `json:"message"`
+	WorkspaceID    string            `json:"workspaceId"`
+	ConversationID string            `json:"conversationId"`
+	RunID          string            `json:"runId"`
+	OccurredAt     string            `json:"occurredAt"`
+	Context        map[string]string `json:"context"`
+}
+
+func (diagnostic Diagnostic) MarshalJSON() ([]byte, error) {
+	type diagnosticAlias Diagnostic
+	if diagnostic.Context == nil {
+		diagnostic.Context = map[string]string{}
+	}
+	return json.Marshal(diagnosticAlias(diagnostic))
 }
 
 type RunItem struct {
@@ -237,8 +271,14 @@ type MessagePage struct {
 }
 
 type RunActivityPage struct {
+	RunID  string          `json:"runId"`
+	Items  []RunItem       `json:"items"`
+	Output []RunItemOutput `json:"output"`
+}
+
+type RunItemOutputPage struct {
 	RunID       string          `json:"runId"`
-	Items       []RunItem       `json:"items"`
+	RunItemID   string          `json:"runItemId"`
 	Output      []RunItemOutput `json:"output"`
 	HasMore     bool            `json:"hasMore"`
 	NextOrdinal int             `json:"nextOrdinal"`
@@ -324,6 +364,14 @@ func (page RunActivityPage) MarshalJSON() ([]byte, error) {
 	if page.Items == nil {
 		page.Items = []RunItem{}
 	}
+	if page.Output == nil {
+		page.Output = []RunItemOutput{}
+	}
+	return json.Marshal(pageAlias(page))
+}
+
+func (page RunItemOutputPage) MarshalJSON() ([]byte, error) {
+	type pageAlias RunItemOutputPage
 	if page.Output == nil {
 		page.Output = []RunItemOutput{}
 	}

@@ -10,6 +10,7 @@ import type {
   QueueMessageResult,
   Run,
   RunActivityPage,
+  RunItemOutputPage,
   SendMessageResult,
   SteerMessageResult,
   WorkspaceSession,
@@ -21,6 +22,25 @@ export interface RuntimeVersions {
   electron: string;
   node: string;
 }
+
+export type BackendProcessStatus =
+  | { status: "starting"; message: string }
+  | { status: "online"; url: string; mode: "external" | "spawned"; message: string }
+  | { status: "offline"; message: string }
+  | { status: "failed"; message: string };
+
+export type BackendEventStreamStatus =
+  | { status: "connecting"; attempt: number; message: string }
+  | { status: "connected"; lastSequence: number; lastStreamId: string; message: string }
+  | {
+      status: "reconnecting";
+      attempt: number;
+      lastSequence: number;
+      lastStreamId: string;
+      message: string;
+    }
+  | { status: "resyncing"; lastSequence: number; lastStreamId: string; message: string }
+  | { status: "stopped"; message: string };
 
 export interface SubmitApprovalInput {
   workspaceId: string;
@@ -38,6 +58,8 @@ export interface SettaAPI {
   };
   backend: {
     health: () => Promise<BackendHealth>;
+    onEventStreamStatus: (listener: (status: BackendEventStreamStatus) => void) => () => void;
+    onProcessStatus: (listener: (status: BackendProcessStatus) => void) => () => void;
   };
   workspace: {
     close: (id: string) => Promise<WorkspaceSession>;
@@ -63,12 +85,14 @@ export interface SettaAPI {
       conversationId: string,
       prompt: string,
     ) => Promise<QueueMessageResult>;
-    runActivity: (
+    runActivity: (workspaceId: string, runId: string, limit: number) => Promise<RunActivityPage>;
+    runItemOutput: (
       workspaceId: string,
       runId: string,
+      runItemId: string,
       afterOrdinal: number,
       limit: number,
-    ) => Promise<RunActivityPage>;
+    ) => Promise<RunItemOutputPage>;
     sendMessage: (
       workspaceId: string,
       conversationId: string,

@@ -4,6 +4,7 @@ import type {
   ChatMessage,
   Conversation,
   ConversationListItem,
+  Diagnostic,
   MessagePage,
   Run,
   RunItem,
@@ -27,13 +28,20 @@ type ChatOperation =
 interface ChatStore {
   activeRun: Run | null;
   conversations: ConversationListItem[];
+  diagnostics: Diagnostic[];
   error: string | null;
   hasMoreOlder: boolean;
   handleEvent: (event: ChatEvent) => void;
   lastEventSequence: number;
   lastEventStreamId: string;
   loadOlder: () => Promise<void>;
-  loadRunActivity: (runId: string, afterOrdinal?: number, limit?: number) => Promise<void>;
+  loadRunActivity: (runId: string, limit?: number) => Promise<void>;
+  loadRunItemOutput: (
+    runId: string,
+    runItemId: string,
+    afterOrdinal?: number,
+    limit?: number,
+  ) => Promise<void>;
   loadWorkspace: (workspaceId: string) => Promise<void>;
   messages: ChatMessage[];
   operation: ChatOperation;
@@ -63,6 +71,7 @@ type ChatPatch = Partial<
     ChatStore,
     | "activeRun"
     | "conversations"
+    | "diagnostics"
     | "error"
     | "hasMoreOlder"
     | "lastEventSequence"
@@ -122,6 +131,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
   return {
     activeRun: null,
     conversations: [],
+    diagnostics: [],
     createConversation: async (title = "") => {
       const workspaceId = get().workspaceId;
       if (!workspaceId) {
@@ -212,16 +222,37 @@ export const useChatStore = create<ChatStore>((set, get) => {
         commitCurrent(operationId, errorPatch(error));
       }
     },
-    loadRunActivity: async (runId, afterOrdinal = 0, limit = 200) => {
+    loadRunActivity: async (runId, limit = 200) => {
       const { workspaceId } = get();
       if (!workspaceId || runId === "") {
         return;
       }
       try {
-        const page = await window.setta.chat.runActivity(workspaceId, runId, afterOrdinal, limit);
+        const page = await window.setta.chat.runActivity(workspaceId, runId, limit);
         set((current) => ({
           runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
           runItems: upsertRunItems(current.runItems, page.items),
+          status: "ready",
+        }));
+      } catch (error) {
+        set(errorPatch(error));
+      }
+    },
+    loadRunItemOutput: async (runId, runItemId, afterOrdinal = 0, limit = 200) => {
+      const { workspaceId } = get();
+      if (!workspaceId || runId === "" || runItemId === "") {
+        return;
+      }
+      try {
+        const page = await window.setta.chat.runItemOutput(
+          workspaceId,
+          runId,
+          runItemId,
+          afterOrdinal,
+          limit,
+        );
+        set((current) => ({
+          runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
           status: "ready",
         }));
       } catch (error) {
@@ -235,6 +266,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         hasMoreOlder: false,
         messages: [],
         operation: "loading",
+        diagnostics: [],
         runItemOutputs: [],
         runItems: [],
         selectedConversation: null,
@@ -544,6 +576,12 @@ function applyChatEvent(state: ChatStore, event: AppliedChatEvent): EventApplyRe
   if (event.type === "chat.conversation.updated") {
     return workspaceEventResult(state, event, conversationUpdatedPatch(state, event.payload.item));
   }
+  if (event.type === "diagnostic.created") {
+    return workspaceEventResult(state, event, {
+      diagnostics: upsertDiagnostic(state.diagnostics, event.payload.diagnostic),
+      status: "ready",
+    });
+  }
   return assertNever(event);
 }
 
@@ -697,6 +735,19 @@ function upsertConversation(
   );
   const next = index === -1 ? [...conversations, item] : conversations.with(index, item);
   return next.toSorted(compareConversationListItems);
+}
+
+function upsertDiagnostic(diagnostics: Diagnostic[], diagnostic: Diagnostic): Diagnostic[] {
+  const index = diagnostics.findIndex((current) => current.id === diagnostic.id);
+  const next = index === -1 ? [...diagnostics, diagnostic] : diagnostics.with(index, diagnostic);
+  return next.toSorted(compareDiagnostics).slice(-10);
+}
+
+function compareDiagnostics(left: Diagnostic, right: Diagnostic) {
+  if (left.occurredAt === right.occurredAt) {
+    return left.id.localeCompare(right.id);
+  }
+  return left.occurredAt.localeCompare(right.occurredAt);
 }
 
 function compareConversationListItems(left: ConversationListItem, right: ConversationListItem) {

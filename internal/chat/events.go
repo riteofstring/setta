@@ -24,6 +24,7 @@ const (
 	EventTypeQueueUpdated        = "chat.queue.updated"
 	EventTypeConversationUpdated = "chat.conversation.updated"
 	EventTypeResyncRequired      = "chat.resync_required"
+	EventTypeDiagnosticCreated   = "diagnostic.created"
 )
 
 const (
@@ -125,6 +126,10 @@ type ResyncRequiredPayload struct {
 	EarliestSequence  int    `json:"earliestSequence"`
 }
 
+type DiagnosticCreatedPayload struct {
+	Diagnostic Diagnostic `json:"diagnostic"`
+}
+
 type EventHub struct {
 	bufferSize       int
 	now              func() time.Time
@@ -162,6 +167,7 @@ func EventContracts() EventContractSchema {
 			{Name: "ChatQueueUpdatedEvent", Type: EventTypeQueueUpdated, Payload: reflect.TypeFor[QueueUpdatedPayload]()},
 			{Name: "ChatConversationUpdatedEvent", Type: EventTypeConversationUpdated, Payload: reflect.TypeFor[ConversationUpdatedPayload]()},
 			{Name: "ChatResyncRequiredEvent", Type: EventTypeResyncRequired, Payload: reflect.TypeFor[ResyncRequiredPayload]()},
+			{Name: "DiagnosticCreatedEvent", Type: EventTypeDiagnosticCreated, Payload: reflect.TypeFor[DiagnosticCreatedPayload]()},
 		},
 	}
 }
@@ -308,6 +314,16 @@ func NewConversationUpdatedEvent(workspaceID string, conversationID string, runI
 		RunID:          runID,
 		Type:           EventTypeConversationUpdated,
 		WorkspaceID:    workspaceID,
+	}
+}
+
+func NewDiagnosticCreatedEvent(diagnostic Diagnostic) EventDraft {
+	return EventDraft{
+		ConversationID: diagnostic.ConversationID,
+		Payload:        DiagnosticCreatedPayload{Diagnostic: diagnostic},
+		RunID:          diagnostic.RunID,
+		Type:           EventTypeDiagnosticCreated,
+		WorkspaceID:    diagnostic.WorkspaceID,
 	}
 }
 

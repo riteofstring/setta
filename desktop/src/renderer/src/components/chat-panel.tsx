@@ -54,6 +54,7 @@ function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
           <RunBadge active={running} status={chat.activeRun?.status ?? null} />
         </header>
         <ConversationBody busy={busy} chat={chat} />
+        <CriticalDiagnostics diagnostics={chat.diagnostics} />
         <ChatError message={chat.error} />
         <Composer busy={composerBusy} chat={chat} running={running} />
       </div>
@@ -86,7 +87,7 @@ function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
       activeRun={chat.activeRun}
       hasMoreOlder={chat.hasMoreOlder}
       loadOlder={chat.loadOlder}
-      loadRunActivity={chat.loadRunActivity}
+      loadRunItemOutput={chat.loadRunItemOutput}
       messages={chat.messages}
       runItemOutputs={chat.runItemOutputs}
       runItems={chat.runItems}
@@ -127,6 +128,18 @@ function ChatError({ message }: { message: string | null }) {
   return (
     <div className="border-t border-red-200 bg-red-50 px-5 py-2 text-sm text-red-700">
       {message}
+    </div>
+  );
+}
+
+function CriticalDiagnostics({ diagnostics }: { diagnostics: ChatView["diagnostics"] }) {
+  const critical = diagnostics.filter((diagnostic) => diagnostic.severity === "critical").at(-1);
+  if (!critical) {
+    return null;
+  }
+  return (
+    <div className="border-t border-red-200 bg-red-50 px-5 py-2 text-sm text-red-800">
+      <span className="font-medium">{critical.code}</span>: {critical.message}
     </div>
   );
 }
@@ -291,9 +304,10 @@ function useChatViewState(workspaceId: string | null) {
   const conversations = useChatStore((state) => state.conversations);
   const createConversation = useChatStore((state) => state.createConversation);
   const error = useChatStore((state) => state.error);
+  const diagnostics = useChatStore((state) => state.diagnostics);
   const hasMoreOlder = useChatStore((state) => state.hasMoreOlder);
   const loadOlder = useChatStore((state) => state.loadOlder);
-  const loadRunActivity = useChatStore((state) => state.loadRunActivity);
+  const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const loadWorkspace = useChatStore((state) => state.loadWorkspace);
   const messages = useChatStore((state) => state.messages);
   const operation = useChatStore((state) => state.operation);
@@ -320,10 +334,11 @@ function useChatViewState(workspaceId: string | null) {
     activeRun,
     conversations,
     createConversation,
+    diagnostics,
     error,
     hasMoreOlder,
     loadOlder,
-    loadRunActivity,
+    loadRunItemOutput,
     messages,
     operation,
     queueMessage,

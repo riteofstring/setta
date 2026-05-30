@@ -160,6 +160,13 @@ func validateRunIdentity(run Run) error {
 	if run.TriggerMessageID == "" {
 		return fmt.Errorf("run %s triggerMessageId is required", run.ID)
 	}
+	if run.Status == RunStatusQueued {
+		if run.AssistantMessageID != "" {
+			return fmt.Errorf("queued run %s assistantMessageId must be empty", run.ID)
+		}
+	} else if run.AssistantMessageID == "" {
+		return fmt.Errorf("run %s assistantMessageId is required unless queued", run.ID)
+	}
 	if run.Harness == "" {
 		return fmt.Errorf("run %s harness is required", run.ID)
 	}
@@ -261,6 +268,34 @@ func validateTraceEvent(trace TraceEvent) error {
 	}
 	if err := validateTimestamp(trace.CreatedAt, "trace "+trace.ID+" createdAt"); err != nil {
 		return err
+	}
+	return nil
+}
+
+func validateDiagnostic(diagnostic Diagnostic) error {
+	if diagnostic.SchemaVersion != SchemaVersion {
+		return fmt.Errorf("diagnostic %s has unsupported schemaVersion %d", diagnostic.ID, diagnostic.SchemaVersion)
+	}
+	if diagnostic.ID == "" {
+		return fmt.Errorf("diagnostic id is required")
+	}
+	if !validString(diagnostic.Source, []string{DiagnosticSourceBackend, DiagnosticSourceEventStream, DiagnosticSourceChat, DiagnosticSourceWorkspace, DiagnosticSourceProvider}) {
+		return fmt.Errorf("diagnostic %s has unsupported source %s", diagnostic.ID, diagnostic.Source)
+	}
+	if !validString(diagnostic.Severity, []string{DiagnosticSeverityInfo, DiagnosticSeverityWarning, DiagnosticSeverityError, DiagnosticSeverityCritical}) {
+		return fmt.Errorf("diagnostic %s has unsupported severity %s", diagnostic.ID, diagnostic.Severity)
+	}
+	if diagnostic.Code == "" {
+		return fmt.Errorf("diagnostic %s code is required", diagnostic.ID)
+	}
+	if diagnostic.Message == "" {
+		return fmt.Errorf("diagnostic %s message is required", diagnostic.ID)
+	}
+	if err := validateTimestamp(diagnostic.OccurredAt, "diagnostic "+diagnostic.ID+" occurredAt"); err != nil {
+		return err
+	}
+	if diagnostic.Context == nil {
+		return fmt.Errorf("diagnostic %s context is required", diagnostic.ID)
 	}
 	return nil
 }

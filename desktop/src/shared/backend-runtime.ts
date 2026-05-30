@@ -84,6 +84,15 @@ export function decodeArray<T>(
   return value.map(decodeItem);
 }
 
+export function decodeStringRecord(value: unknown, label: string): Record<string, string> {
+  const record = assertRecord(value, label);
+  const decoded: Record<string, string> = {};
+  for (const [key, item] of Object.entries(record)) {
+    decoded[key] = decodeString(item, `${label}.${key}`);
+  }
+  return decoded;
+}
+
 export async function requestBackend<ResponsePayload, ErrorPayload extends BackendErrorPayload>(
   request: BackendRequest<ResponsePayload, ErrorPayload>,
 ): Promise<ResponsePayload> {

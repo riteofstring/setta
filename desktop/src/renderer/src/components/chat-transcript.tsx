@@ -26,7 +26,12 @@ export interface ChatTranscriptProps {
   activeRun: Run | null;
   hasMoreOlder: boolean;
   loadOlder: () => Promise<void>;
-  loadRunActivity: (runId: string, afterOrdinal?: number, limit?: number) => Promise<void>;
+  loadRunItemOutput: (
+    runId: string,
+    runItemId: string,
+    afterOrdinal?: number,
+    limit?: number,
+  ) => Promise<void>;
   messages: ChatMessage[];
   runItemOutputs: RunItemOutput[];
   runItems: RunItem[];
@@ -43,7 +48,7 @@ export function ChatTranscript({
   activeRun,
   hasMoreOlder,
   loadOlder,
-  loadRunActivity,
+  loadRunItemOutput,
   messages,
   runItemOutputs,
   runItems,
@@ -103,7 +108,7 @@ export function ChatTranscript({
             <MessageRow
               key={message.id}
               message={message}
-              loadRunActivity={loadRunActivity}
+              loadRunItemOutput={loadRunItemOutput}
               runItemOutputs={runItemOutputs}
               runItems={runItems}
             />
@@ -140,12 +145,17 @@ export function ChatTranscript({
 
 const MessageRow = memo(function MessageRow({
   message,
-  loadRunActivity,
+  loadRunItemOutput,
   runItemOutputs,
   runItems,
 }: {
   message: ChatMessage;
-  loadRunActivity: (runId: string, afterOrdinal?: number, limit?: number) => Promise<void>;
+  loadRunItemOutput: (
+    runId: string,
+    runItemId: string,
+    afterOrdinal?: number,
+    limit?: number,
+  ) => Promise<void>;
   runItemOutputs: RunItemOutput[];
   runItems: RunItem[];
 }) {
@@ -159,7 +169,7 @@ const MessageRow = memo(function MessageRow({
         {itemRows.length > 0 ? (
           <RunActivityRows
             items={itemRows}
-            loadRunActivity={loadRunActivity}
+            loadRunItemOutput={loadRunItemOutput}
             outputs={runItemOutputs}
           />
         ) : null}
@@ -227,11 +237,16 @@ function messageContainerClass(message: ChatMessage) {
 
 function RunActivityRows({
   items,
-  loadRunActivity,
+  loadRunItemOutput,
   outputs,
 }: {
   items: RunItem[];
-  loadRunActivity: (runId: string, afterOrdinal?: number, limit?: number) => Promise<void>;
+  loadRunItemOutput: (
+    runId: string,
+    runItemId: string,
+    afterOrdinal?: number,
+    limit?: number,
+  ) => Promise<void>;
   outputs: RunItemOutput[];
 }) {
   return (
@@ -240,7 +255,7 @@ function RunActivityRows({
         <RunActivityRow
           item={item}
           key={item.id}
-          loadRunActivity={loadRunActivity}
+          loadRunItemOutput={loadRunItemOutput}
           outputs={outputsForItem(outputs, item.id)}
         />
       ))}
@@ -250,11 +265,16 @@ function RunActivityRows({
 
 function RunActivityRow({
   item,
-  loadRunActivity,
+  loadRunItemOutput,
   outputs,
 }: {
   item: RunItem;
-  loadRunActivity: (runId: string, afterOrdinal?: number, limit?: number) => Promise<void>;
+  loadRunItemOutput: (
+    runId: string,
+    runItemId: string,
+    afterOrdinal?: number,
+    limit?: number,
+  ) => Promise<void>;
   outputs: RunItemOutput[];
 }) {
   const [expandedOutputLoaded, setExpandedOutputLoaded] = useState(false);
@@ -268,7 +288,7 @@ function RunActivityRow({
           return;
         }
         setExpandedOutputLoaded(true);
-        void loadRunActivity(item.runId, maxOutputOrdinal(outputs));
+        void loadRunItemOutput(item.runId, item.id, maxOutputOrdinal(outputs));
       }}
     >
       <summary className="flex cursor-pointer list-none items-center gap-2">

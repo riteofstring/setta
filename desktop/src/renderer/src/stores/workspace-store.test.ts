@@ -252,6 +252,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         ok: true,
         version: "test",
       }),
+      onEventStreamStatus: () => () => {},
+      onProcessStatus: () => () => {},
     },
     chat: {
       activeRun: async () => ({ hasActiveRun: false, run: emptyRun() }),
@@ -276,11 +278,16 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         userMessage: emptyMessage(),
       }),
       runActivity: async () => ({
-        hasMore: false,
         items: [],
+        output: [],
+        runId: "run_test",
+      }),
+      runItemOutput: async () => ({
+        hasMore: false,
         nextOrdinal: 0,
         output: [],
         runId: "run_test",
+        runItemId: "run_item_test",
       }),
       sendMessage: async () => ({
         assistantMessage: emptyMessage(),
@@ -351,6 +358,7 @@ function emptyMessagePage() {
 
 function emptyRun() {
   return {
+    assistantMessageId: "message_assistant",
     completedAt: "",
     conversationId: "conversation_test",
     error: "",

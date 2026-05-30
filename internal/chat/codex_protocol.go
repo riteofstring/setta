@@ -559,18 +559,13 @@ func mapCodexItemType(codexType string) (string, error) {
 	return itemType, nil
 }
 
+// Codex app-server 0.135.0 item status values observed from the app-server
+// protocol source and exercised by the local protocol fixtures.
 var codexRunItemStatusByCodexStatus = map[string]string{
-	"cancelled":   RunItemStatusCancelled,
-	"canceled":    RunItemStatusCancelled,
-	"complete":    RunItemStatusCompleted,
 	"completed":   RunItemStatusCompleted,
-	"error":       RunItemStatusFailed,
 	"failed":      RunItemStatusFailed,
 	"inProgress":  RunItemStatusRunning,
 	"interrupted": RunItemStatusCancelled,
-	"pending":     RunItemStatusPending,
-	"queued":      RunItemStatusPending,
-	"running":     RunItemStatusRunning,
 	"succeeded":   RunItemStatusCompleted,
 }
 

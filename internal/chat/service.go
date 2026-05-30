@@ -188,11 +188,18 @@ func (service *Service) LoadMessagePage(workspaceID string, conversationID strin
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return MessagePage{}, err
 	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	return service.loadMessagePageLocked(workspaceID, conversationID, beforeOrdinal, limit)
+}
+
+func (service *Service) loadMessagePageLocked(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
 	page, err := service.store.LoadMessagePage(workspaceID, conversationID, beforeOrdinal, limit)
 	if err != nil {
 		return MessagePage{}, err
 	}
-	page = service.overlayActiveAssistantMessage(workspaceID, conversationID, beforeOrdinal, page)
+	page = service.overlayActiveAssistantMessageLocked(workspaceID, conversationID, beforeOrdinal, page)
 	if err := service.attachPageState(workspaceID, conversationID, &page); err != nil {
 		return MessagePage{}, err
 	}
@@ -248,11 +255,8 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 	}
 	go service.runHarnessTurn(ctx, request)
 
-	page, err := service.store.LoadMessagePage(workspaceID, conversationID, 0, defaultPageLimit)
+	page, err := service.loadMessagePageLocked(workspaceID, conversationID, 0, defaultPageLimit)
 	if err != nil {
-		return SendMessageResult{}, err
-	}
-	if err := service.attachPageState(workspaceID, conversationID, &page); err != nil {
 		return SendMessageResult{}, err
 	}
 	return SendMessageResult{
@@ -278,19 +282,20 @@ func (service *Service) persistTurnStartLocked(workspaceID string, conversationI
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
 	userMessage.RunID = run.ID
-	if err := service.store.SaveMessage(workspaceID, userMessage); err != nil {
-		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
-	}
-	if err := service.store.SaveRun(run); err != nil {
-		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
-	}
-	if err := service.store.SaveMessage(workspaceID, assistantMessage); err != nil {
-		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
-	}
 	conversation = updateConversationAfterPrompt(conversation, prompt, now)
-	if err := service.store.SaveConversation(conversation); err != nil {
+	records, err := service.store.CreateRunningTurn(RunningTurnRecords{
+		AssistantMessage: assistantMessage,
+		Conversation:     conversation,
+		Run:              run,
+		UserMessage:      userMessage,
+	})
+	if err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
+	assistantMessage = records.AssistantMessage
+	conversation = records.Conversation
+	run = records.Run
+	userMessage = records.UserMessage
 	if err := service.traceLocked(workspaceID, run.ID, "turn_started", "Codex turn started"); err != nil {
 		return Conversation{}, ChatMessage{}, ChatMessage{}, Run{}, err
 	}
@@ -370,17 +375,17 @@ func (service *Service) markTurnCancelled(workspaceID string, conversationID str
 	message := active.assistantMessage
 	message.Status = MessageStatusCancelled
 	message.UpdatedAt = now
-	if err := service.store.SaveMessage(workspaceID, message); err != nil {
-		return Run{}, err
-	}
 	run.Status = RunStatusCancelled
 	run.CompletedAt = now
 	run.Error = "turn cancelled"
 	run.HasPendingApproval = false
 	run.PendingApproval = ApprovalRequest{}
-	if err := service.store.SaveRun(run); err != nil {
+	records, err := service.store.CancelTurn(TerminalTurnRecords{AssistantMessage: message, Run: run})
+	if err != nil {
 		return Run{}, err
 	}
+	message = records.AssistantMessage
+	run = records.Run
 	if err := service.traceLocked(workspaceID, run.ID, "cancellation_requested", "Turn cancellation requested"); err != nil {
 		return Run{}, err
 	}
@@ -466,7 +471,8 @@ func (service *Service) clearSubmittedApproval(workspaceID string, runID string,
 	}
 	run.HasPendingApproval = false
 	run.PendingApproval = ApprovalRequest{}
-	if err := service.store.SaveRun(run); err != nil {
+	run, err = service.store.SubmitApproval(run)
+	if err != nil {
 		return Run{}, err
 	}
 	if err := service.traceLocked(workspaceID, run.ID, "approval_resolved", "Approval request resolved"); err != nil {
@@ -536,22 +542,23 @@ func (service *Service) newRunAndAssistantMessage(workspaceID string, conversati
 	if err != nil {
 		return Run{}, ChatMessage{}, fmt.Errorf("create run id: %w", err)
 	}
-	run := Run{
-		SchemaVersion:    SchemaVersion,
-		ID:               runID,
-		WorkspaceID:      workspaceID,
-		ConversationID:   conversationID,
-		TriggerMessageID: userMessage.ID,
-		Harness:          HarnessCodex,
-		Status:           RunStatusRunning,
-		StartedAt:        now,
-		CompletedAt:      "",
-		PromptSummary:    summarize(prompt, maxPromptSummary),
-		Error:            "",
-	}
 	message, err := service.newAssistantMessageWithOrdinal(conversationID, runID, userMessage.Ordinal+1, now)
 	if err != nil {
 		return Run{}, ChatMessage{}, err
+	}
+	run := Run{
+		SchemaVersion:      SchemaVersion,
+		ID:                 runID,
+		WorkspaceID:        workspaceID,
+		ConversationID:     conversationID,
+		TriggerMessageID:   userMessage.ID,
+		AssistantMessageID: message.ID,
+		Harness:            HarnessCodex,
+		Status:             RunStatusRunning,
+		StartedAt:          now,
+		CompletedAt:        "",
+		PromptSummary:      summarize(prompt, maxPromptSummary),
+		Error:              "",
 	}
 	return run, message, nil
 }
@@ -602,12 +609,18 @@ func (service *Service) runHarnessTurn(ctx context.Context, request TurnRequest)
 		}
 		var refErr *HarnessRefUnavailableError
 		if errors.As(err, &refErr) {
-			_ = service.markHarnessRefUnavailable(request.Workspace.ID, request.Conversation.ID, request.Run.ID, refErr)
+			if markErr := service.markHarnessRefUnavailable(request.Workspace.ID, request.Conversation.ID, request.Run.ID, refErr); markErr != nil {
+				service.recordBackgroundFailure(request, "harness_ref_update_failed", markErr)
+			}
 		}
-		_ = service.failTurn(request.Workspace.ID, request.Conversation.ID, request.Run.ID, err.Error())
+		if failErr := service.failTurn(request.Workspace.ID, request.Conversation.ID, request.Run.ID, err.Error()); failErr != nil {
+			service.recordBackgroundFailure(request, "fail_turn_transition_failed", failErr)
+		}
 		return
 	}
-	_ = service.completeTurn(request.Workspace.ID, request.Conversation.ID, request.Run.ID)
+	if err := service.completeTurn(request.Workspace.ID, request.Conversation.ID, request.Run.ID); err != nil {
+		service.recordBackgroundFailure(request, "complete_turn_transition_failed", err)
+	}
 }
 
 func (service *Service) completeTurn(workspaceID string, conversationID string, runID string) error {
@@ -637,16 +650,16 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 func (service *Service) saveCompletedTurnLocked(workspaceID string, run Run, message ChatMessage, now string) (ChatMessage, Run, error) {
 	message.Status = MessageStatusComplete
 	message.UpdatedAt = now
-	if err := service.store.SaveMessage(workspaceID, message); err != nil {
-		return ChatMessage{}, Run{}, err
-	}
 	run.Status = RunStatusCompleted
 	run.CompletedAt = now
 	run.HasPendingApproval = false
 	run.PendingApproval = ApprovalRequest{}
-	if err := service.store.SaveRun(run); err != nil {
+	records, err := service.store.CompleteTurn(TerminalTurnRecords{AssistantMessage: message, Run: run})
+	if err != nil {
 		return ChatMessage{}, Run{}, err
 	}
+	message = records.AssistantMessage
+	run = records.Run
 	if err := service.traceLocked(workspaceID, run.ID, "turn_completed", "Turn completed"); err != nil {
 		return ChatMessage{}, Run{}, err
 	}
@@ -686,17 +699,17 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 	assistant := active.assistantMessage
 	assistant.Status = MessageStatusError
 	assistant.UpdatedAt = now
-	if err := service.store.SaveMessage(workspaceID, assistant); err != nil {
-		return err
-	}
 	run.Status = RunStatusFailed
 	run.CompletedAt = now
 	run.Error = message
 	run.HasPendingApproval = false
 	run.PendingApproval = ApprovalRequest{}
-	if err := service.store.SaveRun(run); err != nil {
+	records, err := service.store.FailTurn(TerminalTurnRecords{AssistantMessage: assistant, Run: run})
+	if err != nil {
 		return err
 	}
+	assistant = records.AssistantMessage
+	run = records.Run
 	if err := service.traceLocked(workspaceID, run.ID, "error_received", message); err != nil {
 		return err
 	}
@@ -713,10 +726,8 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 	return nil
 }
 
-func (service *Service) overlayActiveAssistantMessage(workspaceID string, conversationID string, beforeOrdinal int, page MessagePage) MessagePage {
-	service.mu.Lock()
+func (service *Service) overlayActiveAssistantMessageLocked(workspaceID string, conversationID string, beforeOrdinal int, page MessagePage) MessagePage {
 	active, ok := service.active[activeKey(workspaceID, conversationID)]
-	service.mu.Unlock()
 	if !ok {
 		return page
 	}
@@ -848,7 +859,8 @@ func (service *Service) resolveApproval(workspaceID string, _ string, runID stri
 	}
 	run.HasPendingApproval = false
 	run.PendingApproval = ApprovalRequest{}
-	if err := service.store.SaveRun(run); err != nil {
+	run, err = service.store.ResolveApproval(run)
+	if err != nil {
 		return err
 	}
 	message := "Approval denied"
@@ -1001,23 +1013,21 @@ func (service *Service) recoverInterruptedRuns() error {
 			if run.Status != RunStatusRunning {
 				continue
 			}
-			message, ok, err := service.store.FindMessageByRunID(workspaceID, run.ConversationID, run.ID)
+			message, err := service.store.LoadMessageByID(workspaceID, run.ConversationID, run.AssistantMessageID)
 			if err != nil {
 				return err
 			}
-			if ok {
-				message.Status = MessageStatusError
-				message.UpdatedAt = now
-				if err := service.store.SaveMessage(workspaceID, message); err != nil {
-					return err
-				}
+			if err := validateRunAssistantMessageRecord(run, message); err != nil {
+				return err
 			}
+			message.Status = MessageStatusError
+			message.UpdatedAt = now
 			run.Status = RunStatusFailed
 			run.CompletedAt = now
 			run.Error = "run interrupted by backend restart"
 			run.HasPendingApproval = false
 			run.PendingApproval = ApprovalRequest{}
-			if err := service.store.SaveRun(run); err != nil {
+			if _, err := service.store.FailTurn(TerminalTurnRecords{AssistantMessage: message, Run: run}); err != nil {
 				return err
 			}
 			if err := service.traceLocked(workspaceID, run.ID, "error_received", run.Error); err != nil {

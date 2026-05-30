@@ -29,6 +29,35 @@ func TestCodexHarnessMapsStreamingTurn(t *testing.T) {
 	}
 }
 
+func TestCodexRunItemStatusMappingCoversCurrentProtocolValues(t *testing.T) {
+	tests := map[string]string{
+		"completed":   RunItemStatusCompleted,
+		"failed":      RunItemStatusFailed,
+		"inProgress":  RunItemStatusRunning,
+		"interrupted": RunItemStatusCancelled,
+		"succeeded":   RunItemStatusCompleted,
+	}
+	for status, want := range tests {
+		got, err := mapCodexItemStatus(status)
+		if err != nil {
+			t.Fatalf("map status %s: %v", status, err)
+		}
+		if got != want {
+			t.Fatalf("map status %s = %s, want %s", status, got, want)
+		}
+	}
+}
+
+func TestCodexRunItemStatusMappingRejectsUnknownValues(t *testing.T) {
+	_, err := mapCodexItemStatus("running")
+	if err == nil {
+		t.Fatal("map status succeeded, want unsupported status error")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex item status: running") {
+		t.Fatalf("error = %q, want unsupported status", err)
+	}
+}
+
 func TestCodexHarnessMapsApprovalRequestAndResponse(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("approval"))
 	sink := newRecordingSink()

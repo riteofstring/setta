@@ -46,6 +46,7 @@ type decoderHelpers struct {
 	Array   bool
 	Boolean bool
 	Integer bool
+	Map     bool
 	String  bool
 }
 
@@ -268,11 +269,20 @@ func (collector *contractCollector) add(goType reflect.Type) error {
 		return nil
 	case reflect.Slice:
 		return collector.add(goType.Elem())
+	case reflect.Map:
+		return collector.addMap(goType)
 	case reflect.Struct:
 		return collector.addStruct(goType)
 	default:
 		return fmt.Errorf("unsupported Go type %s", goType)
 	}
+}
+
+func (collector *contractCollector) addMap(goType reflect.Type) error {
+	if goType.Key().Kind() != reflect.String || goType.Elem().Kind() != reflect.String {
+		return fmt.Errorf("unsupported Go map type %s", goType)
+	}
+	return nil
 }
 
 func (collector *contractCollector) addStruct(goType reflect.Type) error {
@@ -376,6 +386,9 @@ func renderRuntimeImports(buffer *bytes.Buffer, specs contractSpec) {
 	}
 	if helpers.Integer {
 		imports = append(imports, "decodeInteger")
+	}
+	if helpers.Map {
+		imports = append(imports, "decodeStringRecord")
 	}
 	if helpers.String {
 		imports = append(imports, "decodeString")
@@ -571,6 +584,8 @@ func markDecoderHelperUsage(goType reflect.Type, helpers *decoderHelpers) {
 	case reflect.Slice:
 		helpers.Array = true
 		markDecoderHelperUsage(goType.Elem(), helpers)
+	case reflect.Map:
+		helpers.Map = true
 	}
 }
 
@@ -641,6 +656,11 @@ func decoderExpression(goType reflect.Type, valueExpr string, label string) (str
 			return "", err
 		}
 		return fmt.Sprintf("decodeArray(%s, %q, (item) => %s)", valueExpr, label, item), nil
+	case reflect.Map:
+		if goType.Key().Kind() != reflect.String || goType.Elem().Kind() != reflect.String {
+			return "", fmt.Errorf("unsupported Go map type %s", goType)
+		}
+		return fmt.Sprintf("decodeStringRecord(%s, %q)", valueExpr, label), nil
 	case reflect.Struct:
 		return fmt.Sprintf("%s(%s)", decoderFunctionName(goType), valueExpr), nil
 	default:
@@ -687,6 +707,11 @@ func typeScriptType(goType reflect.Type) (string, error) {
 			return "", err
 		}
 		return elementType + "[]", nil
+	case reflect.Map:
+		if goType.Key().Kind() != reflect.String || goType.Elem().Kind() != reflect.String {
+			return "", fmt.Errorf("unsupported Go map type %s", goType)
+		}
+		return "Record<string, string>", nil
 	case reflect.Struct:
 		if goType.Name() == "" {
 			return "", fmt.Errorf("unsupported anonymous Go struct %s", goType)

@@ -47,16 +47,18 @@ func (service *Service) persistQueuedMessageLocked(workspaceID string, conversat
 		return ChatMessage{}, Run{}, err
 	}
 	message.RunID = run.ID
-	if err := service.store.SaveRun(run); err != nil {
-		return ChatMessage{}, Run{}, err
-	}
-	if err := service.store.SaveMessage(workspaceID, message); err != nil {
-		return ChatMessage{}, Run{}, err
-	}
 	conversation = updateConversationAfterPrompt(conversation, prompt, now)
-	if err := service.store.SaveConversation(conversation); err != nil {
+	records, err := service.store.CreateQueuedTurn(QueuedTurnRecords{
+		Conversation: conversation,
+		Run:          run,
+		UserMessage:  message,
+	})
+	if err != nil {
 		return ChatMessage{}, Run{}, err
 	}
+	conversation = records.Conversation
+	message = records.UserMessage
+	run = records.Run
 	if err := service.traceLocked(workspaceID, run.ID, "message_queued", "Message queued"); err != nil {
 		return ChatMessage{}, Run{}, err
 	}
@@ -93,11 +95,8 @@ func (service *Service) queueMessageResultLocked(workspaceID string, conversatio
 	if err != nil {
 		return QueueMessageResult{}, err
 	}
-	page, err := service.store.LoadMessagePage(workspaceID, conversationID, 0, defaultPageLimit)
+	page, err := service.loadMessagePageLocked(workspaceID, conversationID, 0, defaultPageLimit)
 	if err != nil {
-		return QueueMessageResult{}, err
-	}
-	if err := service.attachPageState(workspaceID, conversationID, &page); err != nil {
 		return QueueMessageResult{}, err
 	}
 	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
@@ -222,6 +221,7 @@ func (service *Service) persistQueuedPromotionLocked(workspaceID string, convers
 	if err != nil {
 		return Conversation{}, ChatMessage{}, err
 	}
+	run.AssistantMessageID = assistantMessage.ID
 	if err := service.saveQueuedPromotionLocked(workspaceID, conversation, userMessage, assistantMessage, run, now); err != nil {
 		return Conversation{}, ChatMessage{}, err
 	}
@@ -229,17 +229,14 @@ func (service *Service) persistQueuedPromotionLocked(workspaceID string, convers
 }
 
 func (service *Service) saveQueuedPromotionLocked(workspaceID string, conversation Conversation, userMessage ChatMessage, assistantMessage ChatMessage, run Run, now string) error {
-	if err := service.store.SaveRun(run); err != nil {
-		return err
-	}
-	if err := service.store.SaveMessage(workspaceID, userMessage); err != nil {
-		return err
-	}
-	if err := service.store.SaveMessage(workspaceID, assistantMessage); err != nil {
-		return err
-	}
 	conversation.UpdatedAt = now
-	if err := service.store.SaveConversation(conversation); err != nil {
+	_, err := service.store.PromoteQueuedTurn(QueuedPromotionRecords{
+		AssistantMessage: assistantMessage,
+		Conversation:     conversation,
+		Run:              run,
+		UserMessage:      userMessage,
+	})
+	if err != nil {
 		return err
 	}
 	return service.traceLocked(workspaceID, run.ID, "queued_turn_promoted", "Queued message promoted")

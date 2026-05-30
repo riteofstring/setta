@@ -128,7 +128,7 @@ describe("chat renderer states", () => {
         activeRun={null}
         hasMoreOlder={false}
         loadOlder={async () => {}}
-        loadRunActivity={async () => {}}
+        loadRunItemOutput={async () => {}}
         messages={[
           {
             conversationId: "conversation_api",
@@ -168,7 +168,7 @@ describe("chat renderer states", () => {
         activeRun={null}
         hasMoreOlder={false}
         loadOlder={async () => {}}
-        loadRunActivity={async () => {}}
+        loadRunItemOutput={async () => {}}
         messages={[
           {
             conversationId: "conversation_api",
@@ -355,6 +355,7 @@ describe("chat renderer states", () => {
     const html = renderToString(
       <ChatTranscript
         activeRun={{
+          assistantMessageId: "message_assistant",
           completedAt: "",
           conversationId: "conversation_api",
           error: "",
@@ -390,7 +391,7 @@ describe("chat renderer states", () => {
         }}
         hasMoreOlder={false}
         loadOlder={async () => {}}
-        loadRunActivity={async () => {}}
+        loadRunItemOutput={async () => {}}
         messages={[]}
         runItemOutputs={[]}
         runItems={[]}
@@ -408,6 +409,7 @@ describe("chat renderer states", () => {
     const html = renderToString(
       <ChatTranscript
         activeRun={{
+          assistantMessageId: "message_assistant",
           completedAt: "",
           conversationId: "conversation_api",
           error: "",
@@ -460,7 +462,7 @@ describe("chat renderer states", () => {
         }}
         hasMoreOlder={false}
         loadOlder={async () => {}}
-        loadRunActivity={async () => {}}
+        loadRunItemOutput={async () => {}}
         messages={[]}
         runItemOutputs={[]}
         runItems={[]}
