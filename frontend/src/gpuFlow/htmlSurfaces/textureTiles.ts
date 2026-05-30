@@ -47,6 +47,7 @@ type UploadHtmlSurfaceTextureRecordInput = Pick<
   | "pixelHeight"
   | "pixelWidth"
   | "texture"
+  | "textureBytes"
   | "textureLayout"
   | "tiles"
 > & {
@@ -118,6 +119,7 @@ export function uploadHtmlSurfaceTextureRecord(
   dirtySourceRect?: HtmlSurfaceTextureSourceRect | undefined,
 ): HtmlSurfaceTextureUploadResult {
   const dirtyTiles = dirtyTextureTiles(record);
+  const scrollOffsets = captureElementScrollOffsets(record.element);
   let uploadedBytes = 0;
   let uploadedTextureCount = 0;
   const uploadedTileIds: string[] = [];
@@ -141,44 +143,62 @@ export function uploadHtmlSurfaceTextureRecord(
         record,
         dirtySourceRect,
       );
-      queue.copyElementImageToTexture?.(
+      copyElementImageToTexturePreservingScroll(
         record.element,
-        region.sourceX,
-        region.sourceY,
-        region.sourceWidth,
-        region.sourceHeight,
-        region.pixelWidth,
-        region.pixelHeight,
-        {
-          origin: {
-            x: region.destinationX,
-            y: region.destinationY,
-          },
-          texture: record.texture,
+        scrollOffsets,
+        () => {
+          queue.copyElementImageToTexture?.(
+            record.element,
+            region.sourceX,
+            region.sourceY,
+            region.sourceWidth,
+            region.sourceHeight,
+            region.pixelWidth,
+            region.pixelHeight,
+            {
+              origin: {
+                x: region.destinationX,
+                y: region.destinationY,
+              },
+              texture: record.texture,
+            },
+          );
         },
       );
       uploadedBytes += region.byteLength;
     } else if (record.textureLayout.kind === "single") {
-      queue.copyElementImageToTexture?.(
+      copyElementImageToTexturePreservingScroll(
         record.element,
-        record.pixelWidth,
-        record.pixelHeight,
-        {
-          texture: record.texture,
+        scrollOffsets,
+        () => {
+          queue.copyElementImageToTexture?.(
+            record.element,
+            record.pixelWidth,
+            record.pixelHeight,
+            {
+              texture: record.texture,
+            },
+          );
         },
       );
       uploadedBytes += tile.textureBytes;
     } else {
-      queue.copyElementImageToTexture?.(
+      copyElementImageToTexturePreservingScroll(
         record.element,
-        tile.cssX,
-        tile.cssY,
-        tile.cssWidth,
-        tile.cssHeight,
-        tile.pixelWidth,
-        tile.pixelHeight,
-        {
-          texture: tile.texture,
+        scrollOffsets,
+        () => {
+          queue.copyElementImageToTexture?.(
+            record.element,
+            tile.cssX,
+            tile.cssY,
+            tile.cssWidth,
+            tile.cssHeight,
+            tile.pixelWidth,
+            tile.pixelHeight,
+            {
+              texture: tile.texture,
+            },
+          );
         },
       );
       uploadedBytes += tile.textureBytes;
@@ -194,6 +214,69 @@ export function uploadHtmlSurfaceTextureRecord(
     uploadedTextureCount,
     uploadedTileIds,
   };
+}
+
+type ElementScrollOffset = {
+  readonly element: HTMLElement;
+  readonly scrollLeft: number;
+  readonly scrollTop: number;
+};
+
+function copyElementImageToTexturePreservingScroll(
+  element: Element,
+  scrollOffsets: readonly ElementScrollOffset[],
+  copy: () => void,
+) {
+  if (scrollOffsets.length === 0) {
+    copy();
+    return;
+  }
+  restoreElementScrollOffsets(scrollOffsets);
+  try {
+    copy();
+  } finally {
+    restoreElementScrollOffsets(scrollOffsets);
+  }
+  element.ownerDocument.defaultView?.requestAnimationFrame?.(() => {
+    restoreElementScrollOffsets(scrollOffsets);
+  });
+}
+
+function captureElementScrollOffsets(root: Element): ElementScrollOffset[] {
+  const offsets: ElementScrollOffset[] = [];
+  captureElementScrollOffset(root, offsets);
+  for (const element of root.querySelectorAll("*")) {
+    captureElementScrollOffset(element, offsets);
+  }
+  return offsets;
+}
+
+function captureElementScrollOffset(
+  element: Element,
+  offsets: ElementScrollOffset[],
+) {
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+  if (element.scrollTop === 0 && element.scrollLeft === 0) {
+    return;
+  }
+  offsets.push({
+    element,
+    scrollLeft: element.scrollLeft,
+    scrollTop: element.scrollTop,
+  });
+}
+
+function restoreElementScrollOffsets(offsets: readonly ElementScrollOffset[]) {
+  for (const { element, scrollLeft, scrollTop } of offsets) {
+    if (element.scrollLeft !== scrollLeft) {
+      element.scrollLeft = scrollLeft;
+    }
+    if (element.scrollTop !== scrollTop) {
+      element.scrollTop = scrollTop;
+    }
+  }
 }
 
 function canUploadSingleTextureSourceRect(

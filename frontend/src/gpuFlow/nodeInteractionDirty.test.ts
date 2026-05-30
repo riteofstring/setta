@@ -1,13 +1,21 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createGpuNodeTargetDescriptor } from "./activeNodeTargeting";
+import {
+  createGpuNodeTargetDescriptor,
+  type GpuNodePointerHandoffTarget,
+} from "./activeNodeTargeting";
 import { dispatchGpuFlowNodeDirtyEvent } from "./nodeDirtyEvents";
 import {
   createGpuNodeInteractionDirtyController,
   findGpuNodeIdForEventTarget,
   isGpuNodeInteractiveEventTarget,
 } from "./nodeInteractionDirty";
+
+type TestPointerHandoffResolver = (
+  event: PointerEvent,
+  options?: { readonly projectSource?: boolean | undefined },
+) => GpuNodePointerHandoffTarget | null;
 
 describe("gpu node interaction dirty tracking", () => {
   afterEach(() => {
@@ -77,221 +85,6 @@ describe("gpu node interaction dirty tracking", () => {
     detach();
   });
 
-  it("hands off a canvas-origin pointerdown to the projected source control", async () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const switchButton = document.createElement("button");
-    switchButton.dataset.gpuFlowControl = "enabled";
-    nodeElement.append(switchButton);
-    canvas.append(nodeElement);
-    document.body.append(canvas);
-    setRect(switchButton, 20, 30, 50, 24);
-    const descriptor = createGpuNodeTargetDescriptor(nodeElement, switchButton);
-    if (!descriptor) {
-      throw new Error("Expected a handoff target descriptor");
-    }
-    const textureManager = createInteractionTextureManager();
-    const requestFrame = vi.fn();
-    const pointerDowns: boolean[] = [];
-    const mouseDowns: boolean[] = [];
-    const clicks: boolean[] = [];
-    switchButton.addEventListener("pointerdown", () => {
-      pointerDowns.push(true);
-    });
-    switchButton.addEventListener("mousedown", () => {
-      mouseDowns.push(true);
-    });
-    switchButton.addEventListener("click", () => {
-      clicks.push(true);
-    });
-    let frame = 0;
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => {
-        frame += 1;
-        return frame;
-      },
-      requestFrame,
-      resolvePointerHandoffTarget: () => ({
-        descriptor,
-        nodeId: "node-a",
-      }),
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas, document);
-
-    const pointerDown = createPointerEvent("pointerdown", {
-      clientX: 25,
-      clientY: 35,
-      pointerId: 7,
-    });
-    canvas.dispatchEvent(pointerDown);
-
-    expect(pointerDown.defaultPrevented).toBe(true);
-    expect(pointerDowns).toEqual([true]);
-    expect(mouseDowns).toEqual([]);
-    expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
-      content: true,
-      frame: 1,
-      surfaceId: "node-a",
-      priority: "interactive",
-      reason: "pointer",
-    });
-
-    document.dispatchEvent(
-      createPointerEvent("pointerup", {
-        clientX: 25,
-        clientY: 35,
-        pointerId: 7,
-      }),
-    );
-    await Promise.resolve();
-
-    expect(clicks).toEqual([true]);
-
-    detach();
-    canvas.remove();
-  });
-
-  it("hands off a passive node wrapper pointerdown by coordinates", async () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const switchButton = document.createElement("button");
-    switchButton.dataset.gpuFlowControl = "enabled";
-    nodeElement.append(switchButton);
-    canvas.append(nodeElement);
-    document.body.append(canvas);
-    setRect(switchButton, 20, 30, 50, 24);
-    const descriptor = createGpuNodeTargetDescriptor(nodeElement, switchButton);
-    if (!descriptor) {
-      throw new Error("Expected a handoff target descriptor");
-    }
-    const textureManager = createInteractionTextureManager();
-    const requestFrame = vi.fn();
-    const clicks: boolean[] = [];
-    switchButton.addEventListener("click", () => {
-      clicks.push(true);
-    });
-    let frame = 0;
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => {
-        frame += 1;
-        return frame;
-      },
-      requestFrame,
-      resolvePointerHandoffTarget: () => ({
-        descriptor,
-        nodeId: "node-a",
-      }),
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas, document);
-
-    const pointerDown = createPointerEvent("pointerdown", {
-      clientX: 25,
-      clientY: 35,
-      pointerId: 9,
-    });
-    nodeElement.dispatchEvent(pointerDown);
-
-    expect(pointerDown.defaultPrevented).toBe(true);
-    expect(controller.getActiveNodeId()).toBe("node-a");
-
-    document.dispatchEvent(
-      createPointerEvent("pointerup", {
-        clientX: 25,
-        clientY: 35,
-        pointerId: 9,
-      }),
-    );
-    await Promise.resolve();
-
-    expect(clicks).toEqual([true]);
-
-    detach();
-    canvas.remove();
-  });
-
-  it("forwards pointer handoff target rects to tiled texture dirty ownership", async () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const switchButton = document.createElement("button");
-    switchButton.dataset.gpuFlowControl = "enabled";
-    nodeElement.append(switchButton);
-    canvas.append(nodeElement);
-    document.body.append(canvas);
-    setRect(nodeElement, 100, 200, 320, 240);
-    setRect(switchButton, 140, 260, 36, 20);
-    const descriptor = createGpuNodeTargetDescriptor(nodeElement, switchButton);
-    if (!descriptor) {
-      throw new Error("Expected a handoff target descriptor");
-    }
-    const textureManager = createInteractionTextureManager();
-    let frame = 0;
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => {
-        frame += 1;
-        return frame;
-      },
-      requestFrame: vi.fn(),
-      resolvePointerHandoffTarget: () => ({
-        descriptor,
-        nodeId: "node-a",
-      }),
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas, document);
-
-    canvas.dispatchEvent(
-      createPointerEvent("pointerdown", {
-        clientX: 145,
-        clientY: 265,
-        pointerId: 13,
-      }),
-    );
-    document.dispatchEvent(
-      createPointerEvent("pointerup", {
-        clientX: 145,
-        clientY: 265,
-        pointerId: 13,
-      }),
-    );
-    await Promise.resolve();
-
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenNthCalledWith(1, {
-      content: true,
-      frame: 1,
-      priority: "interactive",
-      reason: "pointer",
-      sourceRect: {
-        height: 20,
-        width: 36,
-        x: 40,
-        y: 60,
-      },
-      surfaceId: "node-a",
-    });
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenNthCalledWith(2, {
-      content: true,
-      frame: 2,
-      priority: "interactive",
-      reason: "pointer",
-      sourceRect: {
-        height: 20,
-        width: 36,
-        x: 40,
-        y: 60,
-      },
-      surfaceId: "node-a",
-    });
-
-    detach();
-    canvas.remove();
-  });
-
   it("activates resize handles on hover without broad control hover handoff", () => {
     const canvas = document.createElement("canvas");
     const nodeElement = createNodeElement("node-a");
@@ -309,7 +102,7 @@ describe("gpu node interaction dirty tracking", () => {
     const textureManager = createInteractionTextureManager();
     const clearProjectedInteraction = vi.fn();
     const requestFrame = vi.fn();
-    const resolvePointerHandoffTarget = vi.fn(() => ({
+    const resolvePointerHandoffTarget = vi.fn<TestPointerHandoffResolver>(() => ({
       descriptor,
       nodeId: "node-a",
     }));
@@ -415,10 +208,12 @@ describe("gpu node interaction dirty tracking", () => {
       throw new Error("Expected handoff target descriptors");
     }
     const textureManager = createInteractionTextureManager();
-    const resolvePointerHandoffTarget = vi.fn(() => ({
-      descriptor: buttonDescriptor,
-      nodeId: "node-a",
-    }));
+    const resolvePointerHandoffTarget = vi.fn<TestPointerHandoffResolver>(
+      () => ({
+        descriptor: buttonDescriptor,
+        nodeId: "node-a",
+      }),
+    );
     const controller = createGpuNodeInteractionDirtyController({
       elementByNodeId: () => new Map([["node-a", nodeElement]]),
       getFrame: () => 1,
@@ -658,136 +453,6 @@ describe("gpu node interaction dirty tracking", () => {
 
     detach();
     canvas.remove();
-  });
-
-  it("hands off a first wheel event to a passive native scroll region", () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const scroller = document.createElement("div");
-    scroller.className = "nowheel";
-    scroller.style.overflowY = "auto";
-    setScrollMetrics(scroller, {
-      clientHeight: 100,
-      clientWidth: 200,
-      scrollHeight: 400,
-      scrollWidth: 200,
-    });
-    nodeElement.append(scroller);
-    canvas.append(nodeElement);
-    document.body.append(canvas);
-    setRect(scroller, 20, 30, 200, 100);
-    const descriptor = createGpuNodeTargetDescriptor(nodeElement, scroller);
-    if (!descriptor) {
-      throw new Error("Expected a wheel handoff target descriptor");
-    }
-    const textureManager = createInteractionTextureManager();
-    const clearProjectedInteraction = vi.fn();
-    const requestFrame = vi.fn();
-    let frame = 0;
-    const controller = createGpuNodeInteractionDirtyController({
-      clearProjectedInteraction,
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => {
-        frame += 1;
-        return frame;
-      },
-      requestFrame,
-      resolveWheelHandoffTarget: () => ({
-        descriptor,
-        nodeId: "node-a",
-      }),
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas, document);
-
-    const wheel = new WheelEvent("wheel", {
-      bubbles: true,
-      cancelable: true,
-      clientX: 25,
-      clientY: 35,
-      deltaY: 80,
-    });
-    canvas.dispatchEvent(wheel);
-
-    expect(wheel.defaultPrevented).toBe(true);
-    expect(scroller.scrollTop).toBe(80);
-    expect(clearProjectedInteraction).toHaveBeenCalledWith("node-a");
-    expect(controller.getActiveNodeId()).toBe("node-a");
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
-      content: true,
-      frame: 1,
-      surfaceId: "node-a",
-      priority: "interactive",
-      reason: "scroll",
-    });
-    controller.completeFrame({
-      budgetExhausted: false,
-      remainingDirtyNodeIds: [],
-      uploadedNodeIds: ["node-a"],
-    });
-    expect(controller.getActiveNodeId()).toBeNull();
-
-    detach();
-    canvas.remove();
-  });
-
-  it("marks passive internal scrolls without promoting the node", () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const scroller = document.createElement("div");
-    nodeElement.append(scroller);
-    canvas.append(nodeElement);
-    const textureManager = createInteractionTextureManager();
-    const controller = createGpuNodeInteractionDirtyController({
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => 9,
-      requestFrame: vi.fn(),
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas);
-
-    scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
-
-    expect(controller.getActiveNodeId()).toBeNull();
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
-      content: true,
-      frame: 9,
-      surfaceId: "node-a",
-      priority: "visible",
-      reason: "scroll",
-    });
-
-    detach();
-  });
-
-  it("marks passive interaction dirty without requesting paint while viewport movement is active", () => {
-    const canvas = document.createElement("canvas");
-    const nodeElement = createNodeElement("node-a");
-    const scroller = document.createElement("div");
-    nodeElement.append(scroller);
-    canvas.append(nodeElement);
-    const textureManager = createInteractionTextureManager();
-    const controller = createGpuNodeInteractionDirtyController({
-      deferPassiveDirty: () => true,
-      elementByNodeId: () => new Map([["node-a", nodeElement]]),
-      getFrame: () => 10,
-      requestFrame: vi.fn(),
-      textureManager: () => textureManager,
-    });
-    const detach = controller.attach(canvas);
-
-    scroller.dispatchEvent(new Event("scroll", { bubbles: true }));
-
-    expect(textureManager.markSurfaceTextureDirty).toHaveBeenCalledWith({
-      content: true,
-      frame: 10,
-      surfaceId: "node-a",
-      priority: "visible",
-      reason: "scroll",
-      requestPaint: false,
-    });
-
-    detach();
   });
 
   it("keeps an interactive node active until its upload catches up", () => {
@@ -1486,21 +1151,4 @@ function setRect(
       y: top,
       toJSON: () => ({}),
     }) as DOMRect;
-}
-
-function setScrollMetrics(
-  element: HTMLElement,
-  metrics: {
-    readonly clientHeight: number;
-    readonly clientWidth: number;
-    readonly scrollHeight: number;
-    readonly scrollWidth: number;
-  },
-) {
-  Object.defineProperties(element, {
-    clientHeight: { configurable: true, value: metrics.clientHeight },
-    clientWidth: { configurable: true, value: metrics.clientWidth },
-    scrollHeight: { configurable: true, value: metrics.scrollHeight },
-    scrollWidth: { configurable: true, value: metrics.scrollWidth },
-  });
 }

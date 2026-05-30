@@ -1,4 +1,8 @@
-import { isGpuNodeInteractiveEventTarget } from "../activeNodeTargeting";
+import {
+  isGpuNodeInteractiveEventTarget,
+  resolveGpuNodeTargetDescriptor,
+  type GpuNodePointerHandoffTarget,
+} from "../activeNodeTargeting";
 
 import type { DirtyNodeReason, NodeTexturePriority } from "../dirtyTracking";
 
@@ -93,6 +97,68 @@ export function applyWheelScroll(
   return (
     target.scrollLeft !== previousScrollLeft ||
     target.scrollTop !== previousScrollTop
+  );
+}
+
+export function createTrackedWheelScroller(): (
+  target: HTMLElement,
+  event: WheelEvent,
+) => boolean {
+  const scrollOffsets = new WeakMap<
+    HTMLElement,
+    { readonly scrollLeft: number; readonly scrollTop: number }
+  >();
+
+  return (target, event) => {
+    const { deltaX, deltaY } = getWheelScrollDelta(target, event);
+    const previous = scrollOffsets.get(target) ?? {
+      scrollLeft: target.scrollLeft,
+      scrollTop: target.scrollTop,
+    };
+    const nextScrollLeft =
+      deltaX === 0
+        ? previous.scrollLeft
+        : clampScrollOffset(
+            previous.scrollLeft + deltaX,
+            target.scrollWidth - target.clientWidth,
+          );
+    const nextScrollTop =
+      deltaY === 0
+        ? previous.scrollTop
+        : clampScrollOffset(
+            previous.scrollTop + deltaY,
+            target.scrollHeight - target.clientHeight,
+          );
+    if (deltaX !== 0) {
+      target.scrollLeft = nextScrollLeft;
+    }
+    if (deltaY !== 0) {
+      target.scrollTop = nextScrollTop;
+    }
+    scrollOffsets.set(target, {
+      scrollLeft: nextScrollLeft,
+      scrollTop: nextScrollTop,
+    });
+    return (
+      nextScrollLeft !== previous.scrollLeft ||
+      nextScrollTop !== previous.scrollTop
+    );
+  };
+}
+
+export function resolveLivePointerHandoffTarget(
+  liveNodeElement: HTMLElement | null,
+  handoffTarget: GpuNodePointerHandoffTarget,
+): HTMLElement | null {
+  if (!liveNodeElement) {
+    return null;
+  }
+  if (handoffTarget.target && liveNodeElement.contains(handoffTarget.target)) {
+    return handoffTarget.target;
+  }
+  return resolveGpuNodeTargetDescriptor(
+    liveNodeElement,
+    handoffTarget.descriptor,
   );
 }
 

@@ -31,6 +31,7 @@ type GpuNodeTargetDescriptor =
 export type GpuNodePointerHandoffTarget = {
   readonly descriptor: GpuNodeTargetDescriptor;
   readonly nodeId: string;
+  readonly target?: HTMLElement | undefined;
 };
 
 export type GpuNodeSourceProjection = {
@@ -225,6 +226,7 @@ export function resolveGpuNodeWheelHandoffTarget({
   return {
     descriptor,
     nodeId: hit.node.nodeId,
+    target,
   };
 }
 

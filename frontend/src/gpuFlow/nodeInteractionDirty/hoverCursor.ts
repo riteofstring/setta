@@ -73,7 +73,8 @@ function resolveDirectPointerHoverCursorTarget(
   if (!isGpuNodeInteractiveEventTarget(target)) {
     return null;
   }
-  return toElement(target);
+  const element = toElement(target);
+  return element instanceof HTMLElement ? element : null;
 }
 
 function resolvePointerHoverCursorValue(

@@ -1,8 +1,13 @@
 /* @vitest-environment jsdom */
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { HtmlInCanvasCanvas } from "../htmlInCanvasTypes";
 import { HtmlSurfaceTextureManager } from "./textures";
+import {
+  createGpuTextureMock,
+  createHtmlInCanvasCanvas,
+  installTextureUsage,
+  registerNode,
+} from "./textureTestUtils";
 
 describe("HtmlSurfaceTextureManager", () => {
   afterEach(() => {
@@ -246,6 +251,35 @@ describe("HtmlSurfaceTextureManager", () => {
       dirtyResolution: false,
       lastUploadFrame: 4,
     });
+  });
+
+  it("restores source scroll offsets when element upload resets them", () => {
+    installTextureUsage();
+    const gpu = createGpuTextureMock();
+    const manager = new HtmlSurfaceTextureManager(gpu.device);
+    const element = document.createElement("div");
+    const scroller = document.createElement("div");
+    element.append(scroller);
+    scroller.scrollTop = 80;
+    scroller.scrollLeft = 12;
+    gpu.copyElementImageToTexture.mockImplementation(() => {
+      scroller.scrollTop = 0;
+      scroller.scrollLeft = 0;
+    });
+
+    manager.registerSurfaceTexture({
+      cssHeight: 50,
+      cssWidth: 100,
+      devicePixelRatio: 1,
+      element,
+      frame: 1,
+      surfaceId: "node-a",
+      zoom: 1,
+    });
+    manager.uploadDirtySurfaceTextures({ frame: 2 });
+
+    expect(scroller.scrollTop).toBe(80);
+    expect(scroller.scrollLeft).toBe(12);
   });
 
   it("marks and uploads only tiled source rect owners after the initial upload", () => {
@@ -1161,78 +1195,3 @@ describe("HtmlSurfaceTextureManager", () => {
     expect(manager.getDirtySurfaces()).toEqual([]);
   });
 });
-
-function createHtmlInCanvasCanvas(): HtmlInCanvasCanvas {
-  const canvas = document.createElement("canvas") as HtmlInCanvasCanvas;
-  canvas.layoutSubtree = true;
-  canvas.onpaint = null;
-  canvas.requestPaint = vi.fn();
-  return canvas;
-}
-
-function createGpuTextureMock() {
-  const textures: Array<GPUTexture & { destroy: ReturnType<typeof vi.fn> }> =
-    [];
-  const copyElementImageToTexture = vi.fn();
-  const createTexture = vi.fn((descriptor: GPUTextureDescriptor) => {
-    const texture = {
-      createView: vi.fn(() => ({}) as GPUTextureView),
-      destroy: vi.fn(),
-      descriptor,
-    } as unknown as GPUTexture & { destroy: ReturnType<typeof vi.fn> };
-    textures.push(texture);
-    return texture;
-  });
-  const createSampler = vi.fn(() => ({}) as GPUSampler);
-  const device = {
-    createSampler,
-    createTexture,
-    destroy: vi.fn(),
-    limits: {
-      maxTextureDimension2D: 4096,
-    },
-    queue: {
-      copyElementImageToTexture,
-    },
-  } as unknown as GPUDevice;
-
-  return {
-    copyElementImageToTexture,
-    createSampler,
-    createTexture,
-    device,
-    textures,
-  };
-}
-
-function installTextureUsage() {
-  vi.stubGlobal("GPUTextureUsage", {
-    COPY_DST: 2,
-    RENDER_ATTACHMENT: 4,
-    TEXTURE_BINDING: 1,
-  });
-}
-
-function registerNode(
-  manager: HtmlSurfaceTextureManager,
-  surfaceId: string,
-  priority: "interactive" | "visible" | "prefetch",
-  overrides: Partial<{
-    readonly cssHeight: number;
-    readonly cssWidth: number;
-    readonly devicePixelRatio: number;
-    readonly frame: number;
-    readonly zoom: number;
-  }> = {},
-) {
-  manager.registerSurfaceTexture({
-    cssHeight: overrides.cssHeight ?? 10,
-    cssWidth: overrides.cssWidth ?? 10,
-    devicePixelRatio: overrides.devicePixelRatio ?? 1,
-    element: document.createElement("div"),
-    ...(overrides.frame === undefined ? {} : { frame: overrides.frame }),
-    priority,
-    surfaceId,
-    zoom: overrides.zoom ?? 1,
-  });
-}

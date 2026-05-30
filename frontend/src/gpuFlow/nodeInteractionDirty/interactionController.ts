@@ -28,13 +28,14 @@ import {
 } from "./interactionTypes";
 
 import {
-  applyWheelScroll,
+  createTrackedWheelScroller,
   dirtyReasonForKind,
   dispatchPointerHandoffEvent,
   dispatchPointerHandoffMouseEvent,
   focusPointerHandoffTarget,
   getPendingPointerHandoffClick,
   normalizeDirtyEventPriority,
+  resolveLivePointerHandoffTarget,
   resolveCustomDirtyEventPriority,
   resolveEventDirtyPriority,
   resolveNullableStatePatchValue,
@@ -71,6 +72,7 @@ export function createGpuNodeInteractionDirtyController({
   let dispatchingPointerHandoff = false;
   let pendingPointerHandoffClick: PendingPointerHandoffClick | null = null;
   let pendingTrustedPointerHandoffClickTarget: HTMLElement | null = null;
+  const applyTrackedWheelScroll = createTrackedWheelScroller();
   let trustedPointerHandoffClickSuppressionTimer: ReturnType<
     typeof globalThis.setTimeout
   > | null = null;
@@ -268,26 +270,26 @@ export function createGpuNodeInteractionDirtyController({
     if (!handoffTarget) {
       return false;
     }
-    const liveNodeElement = elementByNodeId().get(handoffTarget.nodeId) ?? null;
-    const liveTarget = liveNodeElement
-      ? resolveGpuNodeTargetDescriptor(
-          liveNodeElement,
-          handoffTarget.descriptor,
-        )
-      : null;
+    const liveTarget = resolveLivePointerHandoffTarget(
+      elementByNodeId().get(handoffTarget.nodeId) ?? null,
+      handoffTarget,
+    );
     if (!liveTarget) {
       return false;
     }
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    beginInteractiveNode(
+    const sourceRect = resolveEventTargetSourceRect(
       handoffTarget.nodeId,
-      "scroll",
-      resolveEventTargetSourceRect(handoffTarget.nodeId, liveTarget),
+      liveTarget,
     );
-    applyWheelScroll(liveTarget, event);
-    clearProjectedInteraction?.(handoffTarget.nodeId);
+    const didScroll = applyTrackedWheelScroll(liveTarget, event);
+    if (!didScroll) {
+      clearProjectedInteraction?.(handoffTarget.nodeId);
+      return true;
+    }
+    beginInteractiveNode(handoffTarget.nodeId, "scroll", sourceRect);
     scheduleActiveNodeRelease(handoffTarget.nodeId);
     return true;
   }
