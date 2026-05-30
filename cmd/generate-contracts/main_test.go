@@ -118,6 +118,8 @@ func TestRenderIncludesEndpointDescriptorsDecodersAndClient(t *testing.T) {
 	output := buffer.String()
 
 	for _, expected := range []string{
+		"import {",
+		"} from \"@shared/backend-runtime\";",
 		"export const backendEndpoints = {",
 		"ContractTest: {",
 		"method: \"POST\"",
@@ -125,11 +127,27 @@ func TestRenderIncludesEndpointDescriptorsDecodersAndClient(t *testing.T) {
 		"export function decodeContractTestResponse(value: unknown): ContractTestResponse",
 		"contractTest: (request: ContractTestRequest) => Promise<ContractTestResponse>;",
 		"contractTestHealth: () => Promise<ContractTestLeaf>;",
-		"requestBackend(baseURL, backendEndpoints.ContractTest, request, decodeContractTestResponse, fetchImpl)",
-		"requestBackend(baseURL, backendEndpoints.ContractTestHealth, undefined, decodeContractTestLeaf, fetchImpl)",
+		"contractTest: (request) => requestBackend({",
+		"contractTestHealth: () => requestBackend({",
+		"decodeErrorResponse: decodeErrorResponse",
+		"decodeResponse: decodeContractTestResponse",
+		"decodeResponse: decodeContractTestLeaf",
+		"endpoint: backendEndpoints.ContractTest",
+		"endpoint: backendEndpoints.ContractTestHealth",
+		"requestPayload: request",
+		"requestPayload: undefined",
 	} {
 		if !strings.Contains(output, expected) {
 			t.Fatalf("generated output missing %q:\n%s", expected, output)
+		}
+	}
+	for _, unexpected := range []string{
+		"function assertRecord",
+		"function decodeArray",
+		"async function requestBackend",
+	} {
+		if strings.Contains(output, unexpected) {
+			t.Fatalf("generated output contains stable runtime block %q:\n%s", unexpected, output)
 		}
 	}
 }
