@@ -348,6 +348,7 @@ function _ParamGroupContainer({
             sectionId={sectionId}
             bgColor={bgColor}
             allowRoundedBottom={contentSurface !== "pane"}
+            showConnectorHandles={contentSurface !== "pane"}
           />
           <GetPinnedParams
             sectionId={sectionId}

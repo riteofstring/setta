@@ -273,6 +273,7 @@ type EdgeInputPortRowProps = {
   selected: boolean;
   isSelectingParams: boolean;
   canConnect: boolean;
+  showConnectorHandles: boolean;
   appearance: EdgeStripAppearance;
 };
 
@@ -282,6 +283,7 @@ function EdgeInputPortRow({
   selected,
   isSelectingParams,
   canConnect,
+  showConnectorHandles,
   appearance,
 }: EdgeInputPortRowProps) {
   const rowClassName = `relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${appearance.edgeRowHoverClassName} ${
@@ -303,20 +305,27 @@ function EdgeInputPortRow({
       data-edge-param-id={port.id}
       data-edge-param-side="in"
     >
-      <Handle
-        id={port.id}
-        type="target"
-        position={HandlePosition.Left}
-        onConnect={createEdgeFromConnection}
-        isValidConnection={isValidDataEdgeConnection}
-        isConnectable={canConnect}
-        isConnectableStart={canConnect}
-        isConnectableEnd={canConnect}
-        className={handleClassName}
-        onClick={(event) =>
-          toggleSelectedEdgeParam(event, isSelectingParams, sectionId, port.id)
-        }
-      />
+      {showConnectorHandles ? (
+        <Handle
+          id={port.id}
+          type="target"
+          position={HandlePosition.Left}
+          onConnect={createEdgeFromConnection}
+          isValidConnection={isValidDataEdgeConnection}
+          isConnectable={canConnect}
+          isConnectableStart={canConnect}
+          isConnectableEnd={canConnect}
+          className={handleClassName}
+          onClick={(event) =>
+            toggleSelectedEdgeParam(
+              event,
+              isSelectingParams,
+              sectionId,
+              port.id,
+            )
+          }
+        />
+      ) : null}
       <span className="truncate">{port.label}</span>
     </div>
   );
@@ -325,10 +334,12 @@ function EdgeInputPortRow({
 function EdgeOutputPortRow({
   port,
   canConnect,
+  showConnectorHandles,
   appearance,
 }: {
   port: EdgePortView;
   canConnect: boolean;
+  showConnectorHandles: boolean;
   appearance: EdgeStripAppearance;
 }) {
   return (
@@ -338,17 +349,19 @@ function EdgeOutputPortRow({
       data-edge-param-side="out"
     >
       <span className="truncate">{port.label}</span>
-      <Handle
-        id={port.id}
-        type="source"
-        position={HandlePosition.Right}
-        onConnect={createEdgeFromConnection}
-        isValidConnection={isValidDataEdgeConnection}
-        isConnectable={canConnect}
-        isConnectableStart={canConnect}
-        isConnectableEnd={canConnect}
-        className={`arg-edge-handle arg-edge-handle--source ${appearance.handlePreventSectionClassName}`}
-      />
+      {showConnectorHandles ? (
+        <Handle
+          id={port.id}
+          type="source"
+          position={HandlePosition.Right}
+          onConnect={createEdgeFromConnection}
+          isValidConnection={isValidDataEdgeConnection}
+          isConnectable={canConnect}
+          isConnectableStart={canConnect}
+          isConnectableEnd={canConnect}
+          className={`arg-edge-handle arg-edge-handle--source ${appearance.handlePreventSectionClassName}`}
+        />
+      ) : null}
     </div>
   );
 }
@@ -376,11 +389,13 @@ export function EdgesStrip({
   sectionId,
   bgColor,
   allowRoundedBottom = true,
+  showConnectorHandles = true,
   variant = "section-body",
 }: {
   sectionId: string;
   bgColor: string;
   allowRoundedBottom?: boolean;
+  showConnectorHandles?: boolean;
   variant?: EdgesStripVariant;
 }) {
   const { canEditStructure } = useShareCapabilities();
@@ -515,6 +530,7 @@ export function EdgesStrip({
                 selected={selectedParamIdSet.has(port.id)}
                 isSelectingParams={isSelectingParams}
                 canConnect={canConnect}
+                showConnectorHandles={showConnectorHandles}
                 appearance={appearance}
               />
             ))}
@@ -538,6 +554,7 @@ export function EdgesStrip({
                 key={port.id}
                 port={port}
                 canConnect={canConnect}
+                showConnectorHandles={showConnectorHandles}
                 appearance={appearance}
               />
             ))}

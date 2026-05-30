@@ -373,6 +373,21 @@ describe("ParamGroupContainer layout", () => {
     expect(markup).not.toContain("shadow-sm");
   });
 
+  it("keeps pane-rendered edge args visible without connector handles", () => {
+    const markup = renderParamGroupContainer(
+      {
+        edgeInputParams: ["param-1"],
+        edgeOutputPorts: [{ id: "result", accessor: "result" }],
+      },
+      "pane",
+    );
+
+    expect(markup).toContain('data-testid="section-edge-strip"');
+    expect(markup).toContain('data-edge-param-id="param-1"');
+    expect(markup).toContain('data-edge-param-id="result"');
+    expect(markup).not.toContain("arg-edge-handle");
+  });
+
   it("renders a compact edge strip for bare canvas nodes", () => {
     const { sectionId } = seedParamGroupState({
       edgeInputParams: ["param-1"],
@@ -392,6 +407,7 @@ describe("ParamGroupContainer layout", () => {
     expect(markup).toContain('data-edge-param-side="in"');
     expect(markup).toContain('data-edge-param-id="result"');
     expect(markup).toContain('data-edge-param-side="out"');
+    expect(markup).toContain("arg-edge-handle");
     expect(markup).not.toContain("-mt-4");
   });
 });
