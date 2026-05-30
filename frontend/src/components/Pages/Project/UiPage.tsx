@@ -1,20 +1,52 @@
-import { WorkspaceCanvas } from "components/WorkspaceCanvas/WorkspaceCanvas";
+import { PaneContextMenu } from "components/Utils/ContextMenus/PaneContextMenu";
+import { SelectionContextMenu } from "components/Utils/ContextMenus/SelectionContextMenu";
+import { TypeErrorContextMenu } from "components/Utils/ContextMenus/TypeErrorContextMenu";
+import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
+import ReactFlow from "forks/xyflow/core/container/ReactFlow";
+import "forks/xyflow/core/styles/style.css";
 import { useEffect } from "react";
-import { useMisc } from "state/definitions";
+import { attachKeyEventListeners } from "state/actions/keyActivations";
+import { useLocalStorage, useMisc } from "state/definitions";
+import "./react-flow-css.css";
+import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 
 export function UIPage() {
+  useInitGlobalKeyEventListeners();
   useLastMouseDownMouseUpLocation();
-  return <WorkspaceCanvas />;
+  const showMiniMap = useLocalStorage((x) => x.showMinimap);
+
+  return (
+    <SectionDndContext>
+      <div className="relative h-full min-h-0 w-full min-w-0">
+        <ReactFlow />
+        <PaneContextMenu />
+        <SelectionContextMenu />
+        <TypeErrorContextMenu />
+        {showMiniMap && <ResponsiveMiniMap />}
+      </div>
+    </SectionDndContext>
+  );
+}
+
+function useInitGlobalKeyEventListeners() {
+  useEffect(() => {
+    const cleanup = attachKeyEventListeners();
+    return cleanup;
+  }, []);
 }
 
 function useLastMouseDownMouseUpLocation() {
   useEffect(() => {
-    const handlePointerDown = (event: PointerEvent) => {
-      setLastPointerLocation("lastMouseDownLocation", event);
+    const handlePointerDown = (e) => {
+      useMisc.setState({
+        lastMouseDownLocation: { x: e.clientX, y: e.clientY },
+      });
     };
 
-    const handlePointerUp = (event: PointerEvent) => {
-      setLastPointerLocation("lastMouseUpLocation", event);
+    const handlePointerUp = (e) => {
+      useMisc.setState({
+        lastMouseUpLocation: { x: e.clientX, y: e.clientY },
+      });
     };
 
     document.addEventListener("pointerdown", handlePointerDown);
@@ -25,13 +57,4 @@ function useLastMouseDownMouseUpLocation() {
       document.removeEventListener("pointerup", handlePointerUp);
     };
   }, []);
-}
-
-function setLastPointerLocation(
-  key: "lastMouseDownLocation" | "lastMouseUpLocation",
-  event: PointerEvent,
-) {
-  useMisc.setState({
-    [key]: { x: event.clientX, y: event.clientY },
-  } as unknown as Parameters<typeof useMisc.setState>[0]);
 }
