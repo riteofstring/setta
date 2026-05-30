@@ -11,7 +11,10 @@
 
 - Pin checked-in direct dependency versions exactly. Do not use floating version ranges like `^`, `~`, `>=`, `>`, `*`, or `latest` in dependency manifests.
 - Use `./update_dependencies.sh` when a dependency update needs lockfile changes.
-- Before each commit, run `./scripts/format.sh`, `./check_quality.sh --all`, and `./scripts/check_supply_chain.sh` unless the developer explicitly narrows verification scope; the required pre-commit workflow must cover quality checks, formatting, linting, complexity checks, file length checks, dead-code checks, and supply-chain checks.
+- Before committing source code, tests, scripts, generated inputs, generated outputs, build configuration, lint configuration, format configuration, or executable examples, run `./scripts/format.sh` and `./check_quality.sh --all`.
+- Before committing dependency manifests, lockfiles, package manager configuration, Go module configuration, or supply-chain tooling, run `./scripts/check_supply_chain.sh`.
+- Before broad implementation commits or release-like commits, run `./scripts/format.sh`, `./check_quality.sh --all`, and `./scripts/check_supply_chain.sh`.
+- For documentation-only, planning-only, research-only, README-only, or AGENTS-only commits that do not change executable examples, scripts, manifests, generated artifacts, or committed code paths, the full workflow is not required. Inspect the diff and run any directly relevant checks; if no automated check applies, say that the full workflow was skipped because the change was documentation-only.
 - Do not skip tests broadly. Missing dependencies or capabilities should usually fail loudly. Any skip must be narrow and justified.
 - Do not add generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
 - Tests must use temporary directories instead of local runtime state, must never mutate real git history in this repo or any non-disposable developer worktree, and should exercise production paths instead of mocks or test-only code paths.
