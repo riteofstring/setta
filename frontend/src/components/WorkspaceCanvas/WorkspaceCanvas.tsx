@@ -33,6 +33,10 @@ import {
   type WorkspaceCodeHighlightCacheState,
 } from "./workspaceHighlightCache";
 import {
+  clearWorkspaceCanvasParitySnapshot,
+  publishWorkspaceCanvasParitySnapshot,
+} from "./workspaceParitySnapshot";
+import {
   highlightWorkspaceCodePreview,
   WORKSPACE_PASSIVE_CODE_HIGHLIGHTER_REVISION,
   type WorkspacePassiveCodeHighlightRequest,
@@ -170,6 +174,7 @@ export function WorkspaceCanvas() {
     gridSettings,
     showMinimap,
   });
+  useWorkspaceCanvasParitySnapshot({ canvasRef, scene, showMinimap });
   useWorkspacePointerCleanup(canvasRef, activePointerIdRef);
 
   return (
@@ -203,6 +208,26 @@ export function WorkspaceCanvas() {
       <WorkspaceCanvasOverlayHost />
     </div>
   );
+}
+
+function useWorkspaceCanvasParitySnapshot({
+  canvasRef,
+  scene,
+  showMinimap,
+}: {
+  canvasRef: RefObject<HTMLCanvasElement | null>;
+  scene: ReturnType<typeof deriveWorkspaceScene>;
+  showMinimap: boolean;
+}) {
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      clearWorkspaceCanvasParitySnapshot();
+      return clearWorkspaceCanvasParitySnapshot;
+    }
+    publishWorkspaceCanvasParitySnapshot(scene, canvas, showMinimap);
+    return clearWorkspaceCanvasParitySnapshot;
+  }, [canvasRef, scene, showMinimap]);
 }
 
 function useWorkspacePassiveCodeHighlighting({

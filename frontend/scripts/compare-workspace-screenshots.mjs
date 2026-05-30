@@ -11,12 +11,20 @@ const DEFAULT_WORKSPACE_CROP = {
 const DEFAULT_THRESHOLDS = {
   workspaceMeanAbsRgbDeltaMax: 8,
   fullWorkspaceSsimMin: 0.9,
+  sectionRectDeltaMax: 4,
+  headerHeightDeltaMax: 2,
+  rowHeightDeltaMax: 2,
+  labelValueColumnDeltaMax: 3,
+  minimapIoUMin: 0.95,
 };
 
 const args = parseArgs(process.argv.slice(2));
 const referencePath = requireArg(args, "reference");
 const currentPath = requireArg(args, "current");
 const outPath = args.out;
+const referenceAnchorsPath = args["reference-anchors"] ?? args.referenceAnchors;
+const currentAnchorsPath = args["current-anchors"] ?? args.currentAnchors;
+const requireAnchors = Boolean(args["require-anchors"] ?? args.requireAnchors);
 const workspaceCrop = parseCrop(
   args["workspace-crop"] ?? args.workspaceCrop,
   DEFAULT_WORKSPACE_CROP,
@@ -30,14 +38,50 @@ const thresholds = {
     args["full-ssim-min"] ?? args.fullSsimMin,
     DEFAULT_THRESHOLDS.fullWorkspaceSsimMin,
   ),
+  sectionRectDeltaMax: parseNumberArg(
+    args["section-rect-delta-max"] ?? args.sectionRectDeltaMax,
+    DEFAULT_THRESHOLDS.sectionRectDeltaMax,
+  ),
+  headerHeightDeltaMax: parseNumberArg(
+    args["header-height-delta-max"] ?? args.headerHeightDeltaMax,
+    DEFAULT_THRESHOLDS.headerHeightDeltaMax,
+  ),
+  rowHeightDeltaMax: parseNumberArg(
+    args["row-height-delta-max"] ?? args.rowHeightDeltaMax,
+    DEFAULT_THRESHOLDS.rowHeightDeltaMax,
+  ),
+  labelValueColumnDeltaMax: parseNumberArg(
+    args["label-value-column-delta-max"] ?? args.labelValueColumnDeltaMax,
+    DEFAULT_THRESHOLDS.labelValueColumnDeltaMax,
+  ),
+  minimapIoUMin: parseNumberArg(
+    args["minimap-iou-min"] ?? args.minimapIoUMin,
+    DEFAULT_THRESHOLDS.minimapIoUMin,
+  ),
 };
 
-const result = await compareScreenshots({
+const screenshotResult = await compareScreenshots({
   referencePath,
   currentPath,
   workspaceCrop,
   thresholds,
 });
+const anchorResult = await compareAnchorInputs({
+  referenceAnchorsPath,
+  currentAnchorsPath,
+  requireAnchors,
+  thresholds,
+});
+const hardFailures = [
+  ...screenshotResult.hardFailures,
+  ...anchorResult.hardFailures,
+];
+const result = {
+  ...screenshotResult,
+  anchors: anchorResult.anchors,
+  hardFailures,
+  pass: hardFailures.length === 0,
+};
 
 const serialized = `${JSON.stringify(result, null, 2)}\n`;
 if (outPath) {
@@ -388,4 +432,523 @@ function collectHardFailures(comparison, thresholds) {
     });
   }
   return failures;
+}
+
+async function compareAnchorInputs({
+  referenceAnchorsPath,
+  currentAnchorsPath,
+  requireAnchors,
+  thresholds,
+}) {
+  const anchorComparisonRequested = Boolean(
+    referenceAnchorsPath || currentAnchorsPath || requireAnchors,
+  );
+  if (!anchorComparisonRequested) {
+    return {
+      anchors: {
+        enabled: false,
+      },
+      hardFailures: [],
+    };
+  }
+
+  const missingInputLabels = [];
+  if (!referenceAnchorsPath) {
+    missingInputLabels.push("reference");
+  }
+  if (!currentAnchorsPath) {
+    missingInputLabels.push("current");
+  }
+  if (missingInputLabels.length > 0) {
+    return {
+      anchors: {
+        enabled: true,
+        reference: referenceAnchorsPath ? { path: referenceAnchorsPath } : null,
+        current: currentAnchorsPath ? { path: currentAnchorsPath } : null,
+        metrics: null,
+      },
+      hardFailures: [
+        {
+          code: "missing-anchor-input",
+          message: `Missing ${missingInputLabels.join(
+            " and ",
+          )} anchor input for workspace anchor comparison.`,
+        },
+      ],
+    };
+  }
+
+  const [referenceAnchors, currentAnchors] = await Promise.all([
+    readJsonFile(referenceAnchorsPath),
+    readJsonFile(currentAnchorsPath),
+  ]);
+  const comparison = compareAnchorSnapshots({
+    referenceAnchors,
+    currentAnchors,
+    thresholds,
+  });
+  return {
+    anchors: {
+      enabled: true,
+      reference: summarizeAnchorSnapshot(
+        referenceAnchorsPath,
+        referenceAnchors,
+      ),
+      current: summarizeAnchorSnapshot(currentAnchorsPath, currentAnchors),
+      metrics: comparison.metrics,
+    },
+    hardFailures: comparison.hardFailures,
+  };
+}
+
+async function readJsonFile(filePath) {
+  return JSON.parse(await fs.readFile(filePath, "utf8"));
+}
+
+function summarizeAnchorSnapshot(filePath, snapshot) {
+  return {
+    path: filePath,
+    kind: snapshot.kind ?? null,
+    sectionCount: Array.isArray(snapshot.sections)
+      ? snapshot.sections.length
+      : 0,
+    visibleRowCount: countVisibleRows(snapshot),
+    minimapVisible: Boolean(snapshot.minimap?.visible),
+  };
+}
+
+function compareAnchorSnapshots({
+  referenceAnchors,
+  currentAnchors,
+  thresholds,
+}) {
+  const hardFailures = [];
+  const sectionMetrics = compareSectionAnchors({
+    referenceAnchors,
+    currentAnchors,
+    hardFailures,
+    thresholds,
+  });
+  const rowMetrics = compareRowAnchors({
+    referenceAnchors,
+    currentAnchors,
+    hardFailures,
+    thresholds,
+  });
+  const minimapMetrics = compareMinimapAnchors({
+    referenceAnchors,
+    currentAnchors,
+    hardFailures,
+    thresholds,
+  });
+  return {
+    metrics: {
+      sections: sectionMetrics,
+      rows: rowMetrics,
+      minimap: minimapMetrics,
+    },
+    hardFailures,
+  };
+}
+
+function compareSectionAnchors({
+  referenceAnchors,
+  currentAnchors,
+  hardFailures,
+  thresholds,
+}) {
+  const referenceSections = indexSectionsById(referenceAnchors);
+  const currentSections = indexSectionsById(currentAnchors);
+  const referenceSectionIds = Array.from(referenceSections.keys()).sort();
+  const currentSectionIds = Array.from(currentSections.keys()).sort();
+  const commonSectionIds = referenceSectionIds.filter((sectionId) =>
+    currentSections.has(sectionId),
+  );
+  const missingCurrentSectionIds = referenceSectionIds.filter(
+    (sectionId) => !currentSections.has(sectionId),
+  );
+  const extraCurrentSectionIds = currentSectionIds.filter(
+    (sectionId) => !referenceSections.has(sectionId),
+  );
+  const metrics = {
+    referenceCount: referenceSectionIds.length,
+    currentCount: currentSectionIds.length,
+    commonCount: commonSectionIds.length,
+    missingCurrentSectionIds,
+    extraCurrentSectionIds,
+    maxRectDelta: createMaxMetric(),
+    maxHeaderHeightDelta: createMaxMetric(),
+  };
+
+  if (referenceSectionIds.length === 0 || currentSectionIds.length === 0) {
+    hardFailures.push({
+      code: "missing-section-anchors",
+      message: `Section anchors must be extractable from both captures; reference=${referenceSectionIds.length}, current=${currentSectionIds.length}.`,
+    });
+    return metrics;
+  }
+  if (
+    missingCurrentSectionIds.length > 0 ||
+    extraCurrentSectionIds.length > 0
+  ) {
+    hardFailures.push({
+      code: "section-anchor-id-mismatch",
+      message: `Section anchor ids differ. Missing current: ${
+        formatIdList(missingCurrentSectionIds) || "none"
+      }. Extra current: ${formatIdList(extraCurrentSectionIds) || "none"}.`,
+    });
+  }
+
+  for (const sectionId of commonSectionIds) {
+    const referenceSection = referenceSections.get(sectionId);
+    const currentSection = currentSections.get(sectionId);
+    updateMaxMetric(
+      metrics.maxRectDelta,
+      calculateMaxRectDelta(referenceSection.bounds, currentSection.bounds),
+      {
+        sectionId,
+        rect: "bounds",
+        reference: referenceSection.bounds,
+        current: currentSection.bounds,
+      },
+    );
+    updateMaxMetric(
+      metrics.maxHeaderHeightDelta,
+      Math.abs(
+        (referenceSection.header?.height ?? 0) -
+          (currentSection.header?.height ?? 0),
+      ),
+      {
+        sectionId,
+        rect: "header",
+        reference: referenceSection.header ?? null,
+        current: currentSection.header ?? null,
+      },
+    );
+  }
+
+  if (metrics.maxRectDelta.value > thresholds.sectionRectDeltaMax) {
+    hardFailures.push({
+      code: "section-anchor-rect-delta",
+      message: `Max section rect anchor delta ${metrics.maxRectDelta.value.toFixed(
+        3,
+      )} exceeds threshold ${thresholds.sectionRectDeltaMax}.`,
+    });
+  }
+  if (metrics.maxHeaderHeightDelta.value > thresholds.headerHeightDeltaMax) {
+    hardFailures.push({
+      code: "section-anchor-header-height-delta",
+      message: `Max section header height delta ${metrics.maxHeaderHeightDelta.value.toFixed(
+        3,
+      )} exceeds threshold ${thresholds.headerHeightDeltaMax}.`,
+    });
+  }
+  return metrics;
+}
+
+function compareRowAnchors({
+  referenceAnchors,
+  currentAnchors,
+  hardFailures,
+  thresholds,
+}) {
+  const referenceRows = indexVisibleRowsByKey(referenceAnchors);
+  const currentRows = indexVisibleRowsByKey(currentAnchors);
+  const referenceRowKeys = Array.from(referenceRows.keys()).sort();
+  const currentRowKeys = Array.from(currentRows.keys()).sort();
+  const commonRowKeys = referenceRowKeys.filter((rowKey) =>
+    currentRows.has(rowKey),
+  );
+  const missingCurrentRowKeys = referenceRowKeys.filter(
+    (rowKey) => !currentRows.has(rowKey),
+  );
+  const extraCurrentRowKeys = currentRowKeys.filter(
+    (rowKey) => !referenceRows.has(rowKey),
+  );
+  const metrics = {
+    referenceVisibleCount: referenceRowKeys.length,
+    currentVisibleCount: currentRowKeys.length,
+    commonCount: commonRowKeys.length,
+    missingCurrentRowKeys,
+    extraCurrentRowKeys,
+    maxRowHeightDelta: createMaxMetric(),
+    maxLabelColumnDelta: createMaxMetric(),
+    maxValueColumnDelta: createMaxMetric(),
+  };
+
+  if (referenceRowKeys.length === 0 || currentRowKeys.length === 0) {
+    hardFailures.push({
+      code: "missing-row-anchors",
+      message: `Visible row anchors must be extractable from both captures; reference=${referenceRowKeys.length}, current=${currentRowKeys.length}.`,
+    });
+    return metrics;
+  }
+  if (missingCurrentRowKeys.length > 0 || extraCurrentRowKeys.length > 0) {
+    hardFailures.push({
+      code: "row-anchor-id-mismatch",
+      message: `Visible row anchor ids differ. Missing current: ${
+        formatIdList(missingCurrentRowKeys) || "none"
+      }. Extra current: ${formatIdList(extraCurrentRowKeys) || "none"}.`,
+    });
+  }
+
+  for (const rowKey of commonRowKeys) {
+    const referenceRow = referenceRows.get(rowKey);
+    const currentRow = currentRows.get(rowKey);
+    updateMaxMetric(
+      metrics.maxRowHeightDelta,
+      Math.abs((referenceRow.row?.height ?? 0) - (currentRow.row?.height ?? 0)),
+      {
+        rowKey,
+        rect: "row",
+        reference: referenceRow.row ?? null,
+        current: currentRow.row ?? null,
+      },
+    );
+    updateMaxMetric(
+      metrics.maxLabelColumnDelta,
+      calculateColumnDelta(referenceRow.label, currentRow.label),
+      {
+        rowKey,
+        rect: "label",
+        reference: referenceRow.label ?? null,
+        current: currentRow.label ?? null,
+      },
+    );
+    updateMaxMetric(
+      metrics.maxValueColumnDelta,
+      calculateColumnDelta(referenceRow.value, currentRow.value),
+      {
+        rowKey,
+        rect: "value",
+        reference: referenceRow.value ?? null,
+        current: currentRow.value ?? null,
+      },
+    );
+  }
+
+  if (metrics.maxRowHeightDelta.value > thresholds.rowHeightDeltaMax) {
+    hardFailures.push({
+      code: "row-anchor-height-delta",
+      message: `Max row height delta ${metrics.maxRowHeightDelta.value.toFixed(
+        3,
+      )} exceeds threshold ${thresholds.rowHeightDeltaMax}.`,
+    });
+  }
+  const maxColumnDelta = Math.max(
+    metrics.maxLabelColumnDelta.value,
+    metrics.maxValueColumnDelta.value,
+  );
+  if (maxColumnDelta > thresholds.labelValueColumnDeltaMax) {
+    hardFailures.push({
+      code: "row-anchor-column-delta",
+      message: `Max row label/value column delta ${maxColumnDelta.toFixed(
+        3,
+      )} exceeds threshold ${thresholds.labelValueColumnDeltaMax}.`,
+    });
+  }
+  return metrics;
+}
+
+function compareMinimapAnchors({
+  referenceAnchors,
+  currentAnchors,
+  hardFailures,
+  thresholds,
+}) {
+  const referenceMinimap = referenceAnchors.minimap ?? null;
+  const currentMinimap = currentAnchors.minimap ?? null;
+  const referenceVisible = Boolean(referenceMinimap?.visible);
+  const currentVisible = Boolean(currentMinimap?.visible);
+  const metrics = {
+    referenceVisible,
+    currentVisible,
+    referencePreviewCount: referenceMinimap?.sectionPreviewCount ?? 0,
+    currentPreviewCount: currentMinimap?.sectionPreviewCount ?? 0,
+    boundsIoU: null,
+    viewportMaskIoU: null,
+  };
+
+  if (!referenceVisible || !currentVisible) {
+    hardFailures.push({
+      code: "missing-minimap-anchors",
+      message: `Minimap anchors must be visible and extractable from both captures; reference=${referenceVisible}, current=${currentVisible}.`,
+    });
+    return metrics;
+  }
+  if (
+    !isPositiveRect(referenceMinimap.bounds) ||
+    !isPositiveRect(currentMinimap.bounds) ||
+    !isPositiveRect(referenceMinimap.viewportMask) ||
+    !isPositiveRect(currentMinimap.viewportMask)
+  ) {
+    hardFailures.push({
+      code: "invalid-minimap-anchors",
+      message:
+        "Minimap bounds and viewport-mask anchors must be positive rects.",
+    });
+    return metrics;
+  }
+  if (metrics.referencePreviewCount !== metrics.currentPreviewCount) {
+    hardFailures.push({
+      code: "minimap-anchor-preview-count",
+      message: `Minimap section preview count ${metrics.currentPreviewCount} does not match reference ${metrics.referencePreviewCount}.`,
+    });
+  }
+
+  metrics.boundsIoU = calculateRectIoU(
+    referenceMinimap.bounds,
+    currentMinimap.bounds,
+  );
+  metrics.viewportMaskIoU = calculateRectIoU(
+    referenceMinimap.viewportMask,
+    currentMinimap.viewportMask,
+  );
+  if (metrics.boundsIoU < thresholds.minimapIoUMin) {
+    hardFailures.push({
+      code: "minimap-anchor-bounds-iou",
+      message: `Minimap bounds IoU ${metrics.boundsIoU.toFixed(
+        3,
+      )} is below threshold ${thresholds.minimapIoUMin}.`,
+    });
+  }
+  if (metrics.viewportMaskIoU < thresholds.minimapIoUMin) {
+    hardFailures.push({
+      code: "minimap-anchor-mask-iou",
+      message: `Minimap viewport-mask IoU ${metrics.viewportMaskIoU.toFixed(
+        3,
+      )} is below threshold ${thresholds.minimapIoUMin}.`,
+    });
+  }
+  return metrics;
+}
+
+function indexSectionsById(snapshot) {
+  const sections = Array.isArray(snapshot.sections) ? snapshot.sections : [];
+  return new Map(
+    sections
+      .filter((section) => typeof section?.id === "string")
+      .map((section) => [section.id, section]),
+  );
+}
+
+function indexVisibleRowsByKey(snapshot) {
+  const rows = new Map();
+  for (const section of Array.isArray(snapshot.sections)
+    ? snapshot.sections
+    : []) {
+    for (const row of Array.isArray(section.rows) ? section.rows : []) {
+      if (row?.visible === false || !isPositiveRect(row.row)) {
+        continue;
+      }
+      const rowKey = getRowKey(row, section.id);
+      if (rowKey) {
+        rows.set(rowKey, row);
+      }
+    }
+  }
+  return rows;
+}
+
+function countVisibleRows(snapshot) {
+  return indexVisibleRowsByKey(snapshot).size;
+}
+
+function getRowKey(row, fallbackSectionId) {
+  if (typeof row.sectionId === "string" && typeof row.paramId === "string") {
+    return `${row.sectionId}:${row.paramId}`;
+  }
+  if (
+    typeof fallbackSectionId === "string" &&
+    typeof row.paramId === "string"
+  ) {
+    return `${fallbackSectionId}:${row.paramId}`;
+  }
+  return typeof row.id === "string" ? row.id : null;
+}
+
+function createMaxMetric() {
+  return {
+    value: 0,
+    detail: null,
+  };
+}
+
+function updateMaxMetric(metric, value, detail) {
+  if (!Number.isFinite(value)) {
+    return;
+  }
+  if (value > metric.value) {
+    metric.value = value;
+    metric.detail = detail;
+  }
+}
+
+function calculateMaxRectDelta(referenceRect, currentRect) {
+  if (!isRect(referenceRect) || !isRect(currentRect)) {
+    return 1_000_000_000;
+  }
+  return Math.max(
+    Math.abs(referenceRect.x - currentRect.x),
+    Math.abs(referenceRect.y - currentRect.y),
+    Math.abs(referenceRect.width - currentRect.width),
+    Math.abs(referenceRect.height - currentRect.height),
+  );
+}
+
+function calculateColumnDelta(referenceRect, currentRect) {
+  if (!isRect(referenceRect) || !isRect(currentRect)) {
+    return 1_000_000_000;
+  }
+  return Math.max(
+    Math.abs(referenceRect.x - currentRect.x),
+    Math.abs(referenceRect.width - currentRect.width),
+  );
+}
+
+function calculateRectIoU(referenceRect, currentRect) {
+  const intersectionLeft = Math.max(referenceRect.x, currentRect.x);
+  const intersectionTop = Math.max(referenceRect.y, currentRect.y);
+  const intersectionRight = Math.min(
+    referenceRect.x + referenceRect.width,
+    currentRect.x + currentRect.width,
+  );
+  const intersectionBottom = Math.min(
+    referenceRect.y + referenceRect.height,
+    currentRect.y + currentRect.height,
+  );
+  const intersectionWidth = Math.max(0, intersectionRight - intersectionLeft);
+  const intersectionHeight = Math.max(0, intersectionBottom - intersectionTop);
+  const intersectionArea = intersectionWidth * intersectionHeight;
+  const referenceArea = referenceRect.width * referenceRect.height;
+  const currentArea = currentRect.width * currentRect.height;
+  const unionArea = referenceArea + currentArea - intersectionArea;
+  return unionArea > 0 ? intersectionArea / unionArea : 0;
+}
+
+function isPositiveRect(rect) {
+  return isRect(rect) && rect.width > 0 && rect.height > 0;
+}
+
+function isRect(rect) {
+  return (
+    typeof rect?.x === "number" &&
+    typeof rect.y === "number" &&
+    typeof rect.width === "number" &&
+    typeof rect.height === "number" &&
+    Number.isFinite(rect.x) &&
+    Number.isFinite(rect.y) &&
+    Number.isFinite(rect.width) &&
+    Number.isFinite(rect.height)
+  );
+}
+
+function formatIdList(ids) {
+  const sorted = [...ids].sort();
+  const visibleIds = sorted.slice(0, 20);
+  const suffix =
+    sorted.length > visibleIds.length
+      ? `, ... (${sorted.length - visibleIds.length} more)`
+      : "";
+  return `${visibleIds.join(", ")}${suffix}`;
 }

@@ -1009,6 +1009,9 @@ Use a visual comparison harness that captures the same scenario in the clean
   other intentionally variable chrome
 - stable crop definitions for the workspace, minimap, representative sections,
   Dict rows, and individual controls
+- machine-readable anchor JSON for the reference DOM workspace and current
+  canvas workspace, extracted from real rendered bounds rather than docs,
+  checklists, or commit metadata
 
 Before setting thresholds, capture the clean `go-rewrite` reference twice in the
 same run and record natural recapture noise. Current-versus-reference thresholds
@@ -1210,6 +1213,8 @@ section wheel-scroll frame time, and passive code highlighting cache hit rate.
 - Pass the Step 4 passive-renderer quantitative visual parity gate before
   continuing to interaction work. A single screenshot or prose comparison is not
   sufficient.
+- Produce screenshot comparisons and anchor-bound comparisons for the Step 4
+  captures, including section, row, label/value column, and minimap bounds.
 
 ### 5. Workspace Interactions
 
