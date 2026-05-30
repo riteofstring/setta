@@ -71,6 +71,7 @@ describe("startSpawnedBackend", () => {
 
   test("stops the backend process when readiness times out", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "setta-backend-supervisor-"));
+    const readyForSignalPath = join(tempDir, "ready-for-signal");
     const markerPath = join(tempDir, "terminated");
 
     try {
@@ -81,16 +82,19 @@ describe("startSpawnedBackend", () => {
             [
               "const fs = require('node:fs')",
               `const markerPath = ${JSON.stringify(markerPath)}`,
+              `const readyForSignalPath = ${JSON.stringify(readyForSignalPath)}`,
               "process.on('SIGTERM', () => { fs.writeFileSync(markerPath, 'terminated'); process.exit(0) })",
+              "fs.writeFileSync(readyForSignalPath, 'ready')",
               "setInterval(() => {}, 1000)",
             ].join(";"),
           ],
           command: process.execPath,
           cwd: process.cwd(),
           env: process.env,
-          readyTimeoutMs: 50,
+          readyTimeoutMs: 500,
         }),
       ).rejects.toThrow("backend readiness timed out");
+      expect(existsSync(readyForSignalPath)).toBe(true);
       expect(existsSync(markerPath)).toBe(true);
     } finally {
       rmSync(tempDir, { force: true, recursive: true });

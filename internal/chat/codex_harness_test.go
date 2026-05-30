@@ -144,6 +144,32 @@ func TestCodexHarnessReportsNotStartedBeforeActiveRegistration(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessRejectsMalformedApprovalRequest(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("malformed-approval"))
+	sink := newRecordingSink()
+
+	err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want malformed approval error")
+	}
+	if !strings.Contains(err.Error(), "codex command approval.command is required") {
+		t.Fatalf("error = %q, want missing command", err)
+	}
+}
+
+func TestCodexHarnessRejectsMalformedAssistantDelta(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("malformed-delta"))
+	sink := newRecordingSink()
+
+	err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want malformed delta error")
+	}
+	if !strings.Contains(err.Error(), "codex assistant delta.delta must be a string") {
+		t.Fatalf("error = %q, want malformed delta", err)
+	}
+}
+
 func TestCodexHarnessFakeAppServer(t *testing.T) {
 	if os.Getenv("SETTA_FAKE_CODEX_APP_SERVER") == "" {
 		return
@@ -349,6 +375,23 @@ func fakeCodexAppServer(mode string) {
 					"threadId": "thread_fake",
 					"turnId":   "turn_fake",
 				})
+			case "malformed-approval":
+				writeFakeServerRequest("approval-1", "item/commandExecution/requestApproval", map[string]any{
+					"itemId":   "item_fake",
+					"threadId": "thread_fake",
+					"turnId":   "turn_fake",
+				})
+				time.Sleep(2 * time.Second)
+				return
+			case "malformed-delta":
+				writeFakeNotification("item/agentMessage/delta", map[string]any{
+					"delta":    12,
+					"itemId":   "item_fake",
+					"threadId": "thread_fake",
+					"turnId":   "turn_fake",
+				})
+				time.Sleep(2 * time.Second)
+				return
 			}
 		case "turn/interrupt":
 			writeFakeResponse(message["id"], map[string]any{})

@@ -10,7 +10,12 @@ import type {
 import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { mergeMessagesByRevision, shouldPollConversation, useChatStore } from "./chat-store";
+import {
+  mergeMessagesByRevision,
+  prependOlderMessages,
+  shouldPollConversation,
+  useChatStore,
+} from "./chat-store";
 
 describe("chat store", () => {
   beforeEach(() => {
@@ -73,6 +78,38 @@ describe("chat store", () => {
       "message_latest",
     ]);
     expect(useChatStore.getState().hasMoreOlder).toBe(false);
+  });
+
+  test("older message pages merge with current messages when the request finishes", async () => {
+    const conversation = testConversation();
+    const olderPage = deferred<MessagePage>();
+    installSettaAPI({
+      chat: {
+        messagePage: vi.fn().mockReturnValue(olderPage.promise),
+      },
+    });
+    const latest = message("message_latest", 2, "assistant", "streaming", "latest");
+    const refreshedLatest = replaceMessageText(latest, "latest refreshed");
+    useChatStore.setState({
+      hasMoreOlder: true,
+      messages: [latest],
+      selectedConversation: conversation,
+      status: "ready",
+      workspaceId: "workspace_api",
+    });
+
+    const loadPromise = useChatStore.getState().loadOlder();
+    useChatStore.setState({ messages: [refreshedLatest] });
+    olderPage.resolve(
+      testPage(conversation, [message("message_old", 1, "user", "complete", "old")], false),
+    );
+    await loadPromise;
+
+    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual([
+      "message_old",
+      "message_latest",
+    ]);
+    expect(useChatStore.getState().messages[1]).toBe(refreshedLatest);
   });
 
   test("send message updates from the backend page and active run", async () => {
@@ -139,6 +176,19 @@ describe("chat store", () => {
 
     expect(merged[0]).toBe(user);
     expect(merged[1]).toBe(updatedAssistant);
+  });
+
+  test("prepends older pages without duplicating messages already visible", () => {
+    const currentLatest = message("message_latest", 2, "assistant", "streaming", "latest");
+    const staleLatest = replaceMessageText(currentLatest, "stale latest");
+
+    const merged = prependOlderMessages(
+      [message("message_old", 1, "user", "complete", "old"), staleLatest],
+      [currentLatest],
+    );
+
+    expect(merged.map((item) => item.id)).toEqual(["message_old", "message_latest"]);
+    expect(merged[1]).toBe(currentLatest);
   });
 
   test("continues polling while visible messages are still streaming", () => {
@@ -272,6 +322,18 @@ function message(
   };
 }
 
+function replaceMessageText(message: ChatMessage, text: string): ChatMessage {
+  const [part, ...rest] = message.parts;
+  if (!part) {
+    throw new Error("test message must include a part");
+  }
+  return {
+    ...message,
+    parts: [{ ...part, text }, ...rest],
+    updatedAt: "2026-05-29T20:00:01Z",
+  };
+}
+
 function testRun(status: string): Run {
   return {
     completedAt: status === "running" ? "" : "2026-05-29T20:01:00Z",
@@ -305,6 +367,25 @@ function testRun(status: string): Run {
     triggerMessageId: "message_user",
     workspaceId: "workspace_api",
   };
+}
+
+interface Deferred<T> {
+  promise: Promise<T>;
+  reject: (error: Error) => void;
+  resolve: (value: T) => void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve: Deferred<T>["resolve"] | null = null;
+  let reject: Deferred<T>["reject"] | null = null;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  if (!resolve || !reject) {
+    throw new Error("deferred promise callbacks were not initialized");
+  }
+  return { promise, reject, resolve };
 }
 
 function workspaceSession(): WorkspaceSession {

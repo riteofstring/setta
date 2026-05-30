@@ -111,7 +111,7 @@ func (harness *CodexHarness) waitForTurn(ctx context.Context, client *jsonRPCCli
 				return nil
 			}
 		case message := <-client.requests:
-			if err := harness.handleCodexServerRequest(message, runID, sink); err != nil {
+			if err := harness.handleCodexServerRequest(message, runID, threadID, turnID, sink); err != nil {
 				_ = client.respondError(message.ID, -32601, err.Error())
 				return err
 			}
@@ -251,46 +251,78 @@ func handleCodexNotification(message jsonRPCMessage, threadID string, turnID str
 	case "turn/completed":
 		return handleCodexTurnCompleted(message, threadID, turnID)
 	case "error":
-		return false, fmt.Errorf("codex app-server error notification: %s", stringFieldFromRaw(message.Params, "message"))
+		errorMessage, err := requireStringFromRaw(message.Params, "message", "codex error notification")
+		if err != nil {
+			return false, err
+		}
+		return false, fmt.Errorf("codex app-server error notification: %s", errorMessage)
 	default:
 		return false, sink.Trace("codex_notification_ignored", message.Method)
 	}
 }
 
 func handleCodexAssistantDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (bool, error) {
-	params, err := objectValue(message.Params)
+	params, err := objectValue(message.Params, "codex assistant delta params")
 	if err != nil {
 		return false, err
 	}
-	if stringField(params, "threadId") != threadID || stringField(params, "turnId") != turnID {
+	messageThreadID, err := requireString(params, "threadId", "codex assistant delta")
+	if err != nil {
+		return false, err
+	}
+	messageTurnID, err := requireString(params, "turnId", "codex assistant delta")
+	if err != nil {
+		return false, err
+	}
+	if messageThreadID != threadID || messageTurnID != turnID {
 		return false, nil
 	}
-	return false, sink.AssistantTextDelta(stringField(params, "delta"))
+	delta, err := requireString(params, "delta", "codex assistant delta")
+	if err != nil {
+		return false, err
+	}
+	return false, sink.AssistantTextDelta(delta)
 }
 
 func handleCodexTurnCompleted(message jsonRPCMessage, threadID string, turnID string) (bool, error) {
-	params, err := objectValue(message.Params)
+	params, err := objectValue(message.Params, "codex turn completed params")
 	if err != nil {
 		return false, err
 	}
-	if stringField(params, "threadId") != threadID {
+	messageThreadID, err := requireString(params, "threadId", "codex turn completed")
+	if err != nil {
+		return false, err
+	}
+	if messageThreadID != threadID {
 		return false, nil
 	}
-	turn, ok := params["turn"].(map[string]any)
-	if !ok {
-		return false, errors.New("codex turn/completed notification missing turn")
+	turn, err := requireObject(params, "turn", "codex turn completed")
+	if err != nil {
+		return false, err
 	}
-	if stringField(turn, "id") != turnID {
+	messageTurnID, err := requireString(turn, "id", "codex turn completed turn")
+	if err != nil {
+		return false, err
+	}
+	if messageTurnID != turnID {
 		return false, nil
 	}
-	if stringField(turn, "status") == "failed" {
-		return false, fmt.Errorf("codex turn failed: %s", turnErrorMessage(turn))
+	status, err := requireString(turn, "status", "codex turn completed turn")
+	if err != nil {
+		return false, err
+	}
+	if status == "failed" {
+		message, err := turnErrorMessage(turn)
+		if err != nil {
+			return false, err
+		}
+		return false, fmt.Errorf("codex turn failed: %s", message)
 	}
 	return true, nil
 }
 
-func (harness *CodexHarness) handleCodexServerRequest(message jsonRPCMessage, runID string, sink TurnSink) error {
-	approval, details, err := approvalRequestFromCodex(message, runID)
+func (harness *CodexHarness) handleCodexServerRequest(message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) error {
+	approval, details, err := approvalRequestFromCodex(message, runID, threadID, turnID)
 	if err != nil {
 		return err
 	}
@@ -312,61 +344,142 @@ type codexApprovalDetails struct {
 	questions         []ApprovalQuestion
 }
 
-func approvalRequestFromCodex(message jsonRPCMessage, runID string) (ApprovalRequest, codexApprovalDetails, error) {
-	params, err := objectValue(message.Params)
+type codexApprovalContext struct {
+	requestID string
+	runID     string
+}
+
+func approvalRequestFromCodex(message jsonRPCMessage, runID string, threadID string, turnID string) (ApprovalRequest, codexApprovalDetails, error) {
+	params, err := objectValue(message.Params, "codex approval request params")
 	if err != nil {
 		return ApprovalRequest{}, codexApprovalDetails{}, err
 	}
-	requestID := requestIDString(message.ID)
+	requestID, err := requestIDString(message.ID)
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	if err := validateCodexRequestTurn(params, threadID, turnID); err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	context := codexApprovalContext{requestID: requestID, runID: runID}
 	switch message.Method {
 	case "item/commandExecution/requestApproval":
-		return ApprovalRequest{
-			ID:       "codex_" + requestID,
-			RunID:    runID,
-			Kind:     ApprovalKindCommand,
-			Title:    "Command approval",
-			Body:     stringField(params, "reason"),
-			Command:  stringField(params, "command"),
-			FilePath: stringField(params, "cwd"),
-			Options:  []string{},
-		}, codexApprovalDetails{}, nil
+		return commandApprovalFromCodex(params, context)
 	case "item/fileChange/requestApproval":
-		return ApprovalRequest{
-			ID:       "codex_" + requestID,
-			RunID:    runID,
-			Kind:     ApprovalKindFileChange,
-			Title:    "File change approval",
-			Body:     stringField(params, "reason"),
-			FilePath: stringField(params, "grantRoot"),
-			Options:  []string{},
-		}, codexApprovalDetails{}, nil
+		return fileChangeApprovalFromCodex(params, context)
 	case "item/permissions/requestApproval":
-		permissions := objectField(params, "permissions")
-		return ApprovalRequest{
-			ID:         "codex_" + requestID,
-			RunID:      runID,
-			Kind:       ApprovalKindPermission,
-			Title:      "Permission approval",
-			Body:       stringField(params, "reason"),
-			FilePath:   stringField(params, "cwd"),
-			Permission: jsonSummary(permissions),
-			Options:    []string{},
-		}, codexApprovalDetails{permissionProfile: permissions}, nil
+		return permissionApprovalFromCodex(params, context)
 	case "item/tool/requestUserInput":
-		questions, title, body, options := userInputQuestions(params)
-		return ApprovalRequest{
-			ID:        "codex_" + requestID,
-			RunID:     runID,
-			Kind:      ApprovalKindUserInput,
-			Title:     title,
-			Body:      body,
-			Question:  body,
-			Options:   options,
-			Questions: questions,
-		}, codexApprovalDetails{questions: questions}, nil
+		return userInputApprovalFromCodex(params, context)
 	default:
 		return ApprovalRequest{}, codexApprovalDetails{}, fmt.Errorf("unsupported codex app-server request: %s", message.Method)
 	}
+}
+
+func validateCodexRequestTurn(params map[string]any, threadID string, turnID string) error {
+	messageThreadID, err := requireString(params, "threadId", "codex approval request")
+	if err != nil {
+		return err
+	}
+	messageTurnID, err := requireString(params, "turnId", "codex approval request")
+	if err != nil {
+		return err
+	}
+	if messageThreadID != threadID || messageTurnID != turnID {
+		return fmt.Errorf("codex approval request belongs to thread %s turn %s, not thread %s turn %s", messageThreadID, messageTurnID, threadID, turnID)
+	}
+	return nil
+}
+
+func commandApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
+	command, err := requireString(params, "command", "codex command approval")
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	reason, err := optionalString(params, "reason", "codex command approval")
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	cwd, err := optionalString(params, "cwd", "codex command approval")
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	return ApprovalRequest{
+		ID:       "codex_" + context.requestID,
+		RunID:    context.runID,
+		Kind:     ApprovalKindCommand,
+		Title:    "Command approval",
+		Body:     reason,
+		Command:  command,
+		FilePath: cwd,
+		Options:  []string{},
+	}, codexApprovalDetails{}, nil
+}
+
+func fileChangeApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
+	reason, err := optionalString(params, "reason", "codex file change approval")
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	grantRoot, err := requireString(params, "grantRoot", "codex file change approval")
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	return ApprovalRequest{
+		ID:       "codex_" + context.requestID,
+		RunID:    context.runID,
+		Kind:     ApprovalKindFileChange,
+		Title:    "File change approval",
+		Body:     reason,
+		FilePath: grantRoot,
+		Options:  []string{},
+	}, codexApprovalDetails{}, nil
+}
+
+func permissionApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
+	permissions, err := requireObject(params, "permissions", "codex permission approval")
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	permissionSummary, err := jsonSummary(permissions)
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	reason, err := optionalString(params, "reason", "codex permission approval")
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	cwd, err := optionalString(params, "cwd", "codex permission approval")
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	return ApprovalRequest{
+		ID:         "codex_" + context.requestID,
+		RunID:      context.runID,
+		Kind:       ApprovalKindPermission,
+		Title:      "Permission approval",
+		Body:       reason,
+		FilePath:   cwd,
+		Permission: permissionSummary,
+		Options:    []string{},
+	}, codexApprovalDetails{permissionProfile: permissions}, nil
+}
+
+func userInputApprovalFromCodex(params map[string]any, context codexApprovalContext) (ApprovalRequest, codexApprovalDetails, error) {
+	questions, title, body, options, err := userInputQuestions(params)
+	if err != nil {
+		return ApprovalRequest{}, codexApprovalDetails{}, err
+	}
+	return ApprovalRequest{
+		ID:        "codex_" + context.requestID,
+		RunID:     context.runID,
+		Kind:      ApprovalKindUserInput,
+		Title:     title,
+		Body:      body,
+		Question:  body,
+		Options:   options,
+		Questions: questions,
+	}, codexApprovalDetails{questions: questions}, nil
 }
 
 func codexApprovalResult(pending codexPendingApproval, response ApprovalResponse) (codexApprovalReply, error) {
@@ -585,22 +698,9 @@ func (client *jsonRPCClient) readLoop(stdout io.Reader, stderr *bytes.Buffer) {
 			return
 		}
 		message.client = client
-		if message.Method != "" && message.ID != nil {
-			client.requests <- message
-			continue
-		}
-		if message.Method != "" {
-			client.notifications <- message
-			continue
-		}
-		if id, ok := intID(message.ID); ok {
-			client.mu.Lock()
-			channel := client.pending[id]
-			delete(client.pending, id)
-			client.mu.Unlock()
-			if channel != nil {
-				channel <- message
-			}
+		if err := client.routeMessage(message); err != nil {
+			client.done <- err
+			return
 		}
 	}
 	if err := scanner.Err(); err != nil {
@@ -620,6 +720,36 @@ func (client *jsonRPCClient) readLoop(stdout io.Reader, stderr *bytes.Buffer) {
 	client.done <- nil
 }
 
+func (client *jsonRPCClient) routeMessage(message jsonRPCMessage) error {
+	if message.Method != "" && message.ID != nil {
+		client.requests <- message
+		return nil
+	}
+	if message.Method != "" {
+		client.notifications <- message
+		return nil
+	}
+	if message.ID == nil {
+		return nil
+	}
+	id, ok := intID(message.ID)
+	if !ok {
+		return fmt.Errorf("codex response id must be an integer: %v", message.ID)
+	}
+	client.resolvePending(id, message)
+	return nil
+}
+
+func (client *jsonRPCClient) resolvePending(id int, message jsonRPCMessage) {
+	client.mu.Lock()
+	channel := client.pending[id]
+	delete(client.pending, id)
+	client.mu.Unlock()
+	if channel != nil {
+		channel <- message
+	}
+}
+
 func (client *jsonRPCClient) close() {
 	_ = client.stdin.Close()
 	if client.cmd.Process != nil {
@@ -628,163 +758,254 @@ func (client *jsonRPCClient) close() {
 }
 
 func threadIDFromResponse(raw json.RawMessage) (string, error) {
-	response, err := objectValue(raw)
+	response, err := objectValue(raw, "codex thread response")
 	if err != nil {
 		return "", err
 	}
-	thread, ok := response["thread"].(map[string]any)
-	if !ok {
-		return "", errors.New("codex thread response missing thread")
+	thread, err := requireObject(response, "thread", "codex thread response")
+	if err != nil {
+		return "", err
 	}
-	threadID := stringField(thread, "id")
-	if threadID == "" {
-		return "", errors.New("codex thread response missing thread id")
+	threadID, err := requireString(thread, "id", "codex thread response thread")
+	if err != nil {
+		return "", err
 	}
 	return threadID, nil
 }
 
 func turnIDFromResponse(raw json.RawMessage) (string, error) {
-	response, err := objectValue(raw)
+	response, err := objectValue(raw, "codex turn response")
 	if err != nil {
 		return "", err
 	}
-	turn, ok := response["turn"].(map[string]any)
-	if !ok {
-		return "", errors.New("codex turn response missing turn")
+	turn, err := requireObject(response, "turn", "codex turn response")
+	if err != nil {
+		return "", err
 	}
-	turnID := stringField(turn, "id")
-	if turnID == "" {
-		return "", errors.New("codex turn response missing turn id")
+	turnID, err := requireString(turn, "id", "codex turn response turn")
+	if err != nil {
+		return "", err
 	}
 	return turnID, nil
 }
 
-func objectValue(raw json.RawMessage) (map[string]any, error) {
+func objectValue(raw json.RawMessage, label string) (map[string]any, error) {
+	if len(raw) == 0 {
+		return nil, fmt.Errorf("%s is required", label)
+	}
 	var value map[string]any
 	if err := json.Unmarshal(raw, &value); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%s must be an object: %w", label, err)
+	}
+	if value == nil {
+		return nil, fmt.Errorf("%s must be an object", label)
 	}
 	return value, nil
 }
 
-func objectField(value map[string]any, name string) map[string]any {
-	raw, ok := value[name].(map[string]any)
-	if !ok || raw == nil {
-		return map[string]any{}
-	}
-	return raw
-}
-
-func stringField(value map[string]any, name string) string {
+func requireObject(value map[string]any, name string, label string) (map[string]any, error) {
 	raw, ok := value[name]
 	if !ok || raw == nil {
-		return ""
+		return nil, fmt.Errorf("%s.%s is required", label, name)
+	}
+	object, ok := raw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%s.%s must be an object", label, name)
+	}
+	return object, nil
+}
+
+func requireString(value map[string]any, name string, label string) (string, error) {
+	raw, ok := value[name]
+	if !ok || raw == nil {
+		return "", fmt.Errorf("%s.%s is required", label, name)
 	}
 	text, ok := raw.(string)
 	if !ok {
-		return ""
+		return "", fmt.Errorf("%s.%s must be a string", label, name)
 	}
-	return text
+	if text == "" {
+		return "", fmt.Errorf("%s.%s is required", label, name)
+	}
+	return text, nil
 }
 
-func boolField(value map[string]any, name string) bool {
+func optionalString(value map[string]any, name string, label string) (string, error) {
 	raw, ok := value[name]
 	if !ok || raw == nil {
-		return false
+		return "", nil
+	}
+	text, ok := raw.(string)
+	if !ok {
+		return "", fmt.Errorf("%s.%s must be a string", label, name)
+	}
+	return text, nil
+}
+
+func optionalBool(value map[string]any, name string, label string) (bool, error) {
+	raw, ok := value[name]
+	if !ok || raw == nil {
+		return false, nil
 	}
 	flag, ok := raw.(bool)
-	return ok && flag
-}
-
-func stringFieldFromRaw(raw json.RawMessage, name string) string {
-	value, err := objectValue(raw)
-	if err != nil {
-		return ""
+	if !ok {
+		return false, fmt.Errorf("%s.%s must be a boolean", label, name)
 	}
-	return stringField(value, name)
+	return flag, nil
 }
 
-func jsonSummary(value map[string]any) string {
+func requireStringFromRaw(raw json.RawMessage, name string, label string) (string, error) {
+	value, err := objectValue(raw, label)
+	if err != nil {
+		return "", err
+	}
+	return requireString(value, name, label)
+}
+
+func jsonSummary(value map[string]any) (string, error) {
 	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
-		return "{}"
+		return "", fmt.Errorf("summarize codex JSON object: %w", err)
 	}
-	return string(data)
+	return string(data), nil
 }
 
-func questionOptions(question map[string]any) []string {
-	rawOptions, ok := question["options"].([]any)
+func questionOptions(question map[string]any, label string) ([]string, error) {
+	raw, ok := question["options"]
+	if !ok || raw == nil {
+		return []string{}, nil
+	}
+	rawOptions, ok := raw.([]any)
 	if !ok {
-		return []string{}
+		return nil, fmt.Errorf("%s.options must be an array", label)
 	}
 	options := make([]string, 0, len(rawOptions))
-	for _, rawOption := range rawOptions {
+	for index, rawOption := range rawOptions {
 		option, ok := rawOption.(map[string]any)
-		if ok {
-			options = append(options, stringField(option, "label"))
-		}
-	}
-	return options
-}
-
-func userInputQuestions(params map[string]any) ([]ApprovalQuestion, string, string, []string) {
-	rawQuestions, _ := params["questions"].([]any)
-	questions := make([]ApprovalQuestion, 0, len(rawQuestions))
-	options := []string{}
-	title := "User input requested"
-	body := ""
-	for index, raw := range rawQuestions {
-		question, ok := raw.(map[string]any)
 		if !ok {
-			continue
+			return nil, fmt.Errorf("%s.options[%d] must be an object", label, index)
 		}
-		id := stringField(question, "id")
-		optionsForQuestion := questionOptions(question)
-		questions = append(questions, ApprovalQuestion{
-			ID:       id,
-			Header:   stringField(question, "header"),
-			Question: stringField(question, "question"),
-			Options:  optionsForQuestion,
-			IsOther:  boolField(question, "isOther"),
-			IsSecret: boolField(question, "isSecret"),
-		})
-		if index == 0 {
-			if header := stringField(question, "header"); header != "" {
-				title = header
-			}
-			body = stringField(question, "question")
-			options = optionsForQuestion
+		optionLabel, err := requireString(option, "label", fmt.Sprintf("%s.options[%d]", label, index))
+		if err != nil {
+			return nil, err
 		}
+		options = append(options, optionLabel)
 	}
-	return questions, title, body, options
+	return options, nil
 }
 
-func turnErrorMessage(turn map[string]any) string {
-	rawError, ok := turn["error"].(map[string]any)
+func userInputQuestions(params map[string]any) ([]ApprovalQuestion, string, string, []string, error) {
+	rawQuestions, err := requireQuestionArray(params)
+	if err != nil {
+		return nil, "", "", nil, err
+	}
+	questions := make([]ApprovalQuestion, 0, len(rawQuestions))
+	for index, raw := range rawQuestions {
+		question, err := approvalQuestionFromCodex(raw, index)
+		if err != nil {
+			return nil, "", "", nil, err
+		}
+		questions = append(questions, question)
+	}
+	title, body, options := userInputSummary(questions)
+	return questions, title, body, options, nil
+}
+
+func requireQuestionArray(params map[string]any) ([]any, error) {
+	raw, ok := params["questions"]
+	if !ok || raw == nil {
+		return nil, errors.New("codex user input approval.questions is required")
+	}
+	rawQuestions, ok := raw.([]any)
 	if !ok {
-		return "unknown turn failure"
+		return nil, errors.New("codex user input approval.questions must be an array")
 	}
-	message := stringField(rawError, "message")
-	if message == "" {
-		return "unknown turn failure"
+	if len(rawQuestions) == 0 {
+		return nil, errors.New("codex user input approval.questions must not be empty")
 	}
-	return message
+	return rawQuestions, nil
 }
 
-func requestIDString(id any) string {
+func approvalQuestionFromCodex(raw any, index int) (ApprovalQuestion, error) {
+	question, ok := raw.(map[string]any)
+	if !ok {
+		return ApprovalQuestion{}, fmt.Errorf("codex user input approval.questions[%d] must be an object", index)
+	}
+	label := fmt.Sprintf("codex user input approval.questions[%d]", index)
+	id, err := requireString(question, "id", label)
+	if err != nil {
+		return ApprovalQuestion{}, err
+	}
+	text, err := requireString(question, "question", label)
+	if err != nil {
+		return ApprovalQuestion{}, err
+	}
+	header, err := optionalString(question, "header", label)
+	if err != nil {
+		return ApprovalQuestion{}, err
+	}
+	options, err := questionOptions(question, label)
+	if err != nil {
+		return ApprovalQuestion{}, err
+	}
+	isOther, err := optionalBool(question, "isOther", label)
+	if err != nil {
+		return ApprovalQuestion{}, err
+	}
+	isSecret, err := optionalBool(question, "isSecret", label)
+	if err != nil {
+		return ApprovalQuestion{}, err
+	}
+	return ApprovalQuestion{
+		ID:       id,
+		Header:   header,
+		Question: text,
+		Options:  options,
+		IsOther:  isOther,
+		IsSecret: isSecret,
+	}, nil
+}
+
+func userInputSummary(questions []ApprovalQuestion) (string, string, []string) {
+	first := questions[0]
+	title := "User input requested"
+	if first.Header != "" {
+		title = first.Header
+	}
+	return title, first.Question, first.Options
+}
+
+func turnErrorMessage(turn map[string]any) (string, error) {
+	rawError, err := requireObject(turn, "error", "codex failed turn")
+	if err != nil {
+		return "", err
+	}
+	return requireString(rawError, "message", "codex failed turn error")
+}
+
+func requestIDString(id any) (string, error) {
 	switch value := id.(type) {
 	case string:
-		return value
+		if value == "" {
+			return "", errors.New("codex request id is required")
+		}
+		return value, nil
 	case float64:
-		return strconv.Itoa(int(value))
+		if value != float64(int(value)) {
+			return "", fmt.Errorf("codex request id must be an integer: %v", value)
+		}
+		return strconv.Itoa(int(value)), nil
 	default:
-		return fmt.Sprintf("%v", value)
+		return "", fmt.Errorf("codex request id must be a string or integer: %T", id)
 	}
 }
 
 func intID(id any) (int, bool) {
 	switch value := id.(type) {
 	case float64:
+		if value != float64(int(value)) {
+			return 0, false
+		}
 		return int(value), true
 	case int:
 		return value, true

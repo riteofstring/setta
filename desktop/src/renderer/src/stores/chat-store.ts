@@ -80,6 +80,18 @@ export const useChatStore = create<ChatStore>((set, get) => {
     set(patch);
   }
 
+  function commitCurrentFromState(
+    operationId: number,
+    patchForState: (state: ChatStore) => ChatPatch,
+  ) {
+    if (operationId !== currentOperationId) {
+      return;
+    }
+    const patch = patchForState(get());
+    currentOperationId = 0;
+    set(patch);
+  }
+
   async function loadConversationPage(workspaceId: string, conversation: Conversation) {
     const page = await window.setta.chat.messagePage(workspaceId, conversation.id, 0, pageLimit);
     const active = await window.setta.chat.activeRun(workspaceId, conversation.id);
@@ -130,11 +142,19 @@ export const useChatStore = create<ChatStore>((set, get) => {
           firstMessage.ordinal,
           pageLimit,
         );
-        commitCurrent(operationId, {
-          hasMoreOlder: page.hasMoreOlder,
-          messages: [...page.messages, ...messages],
-          operation: null,
-          status: "ready",
+        commitCurrentFromState(operationId, (current) => {
+          if (
+            current.workspaceId !== workspaceId ||
+            current.selectedConversation?.id !== selectedConversation.id
+          ) {
+            return { operation: null };
+          }
+          return {
+            hasMoreOlder: page.hasMoreOlder,
+            messages: prependOlderMessages(page.messages, current.messages),
+            operation: null,
+            status: "ready",
+          };
         });
       } catch (error) {
         commitCurrent(operationId, errorPatch(error));
@@ -339,6 +359,14 @@ export function mergeMessagesByRevision(
     }
     return current;
   });
+}
+
+export function prependOlderMessages(
+  olderMessages: ChatMessage[],
+  currentMessages: ChatMessage[],
+): ChatMessage[] {
+  const currentIDs = new Set(currentMessages.map((message) => message.id));
+  return [...olderMessages.filter((message) => !currentIDs.has(message.id)), ...currentMessages];
 }
 
 export function shouldPollConversation(activeRun: Run | null, messages: ChatMessage[]): boolean {
