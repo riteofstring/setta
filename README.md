@@ -55,9 +55,14 @@ Run verification:
 ./scripts/run_go_tests.sh
 pnpm -C desktop test
 pnpm -C desktop build
+./scripts/test_desktop_integration.sh
 ./check_quality.sh --all
 ./scripts/check_supply_chain.sh
 ```
+
+`./check_quality.sh --all` also runs the desktop Electron integration checks
+after the production desktop build. The integration checks launch Electron
+against temporary app data, not `~/.setta`.
 
 Regenerate Go-owned TypeScript contracts after changing HTTP endpoint contracts
 or their owning Go types:
