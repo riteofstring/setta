@@ -188,6 +188,9 @@ func initializeCodex(ctx context.Context, client *jsonRPCClient) error {
 		},
 		"capabilities": map[string]any{
 			"experimentalApi": true,
+			"optOutNotificationMethods": []string{
+				"thread/started",
+			},
 		},
 	})
 	if err != nil {
@@ -284,7 +287,11 @@ var codexNotificationHandlers = map[string]codexNotificationHandler{
 	"item/started":                              handleCodexItemStarted,
 	"model/rerouted":                            handleCodexNotice,
 	"rawResponseItem/completed":                 ignoreCodexNotification,
+	"remoteControl/status/changed":              handleCodexRemoteControlStatusChanged,
 	"thread/compacted":                          handleCodexNotice,
+	"thread/started":                            handleCodexThreadStarted,
+	"thread/status/changed":                     handleCodexThreadStatusChanged,
+	"thread/tokenUsage/updated":                 handleCodexThreadTokenUsageUpdated,
 	"turn/completed":                            handleCodexTurnCompletedNotification,
 	"turn/diff/updated":                         handleCodexDiffUpdated,
 	"turn/plan/updated":                         handleCodexPlanUpdated,
@@ -328,10 +335,114 @@ func ignoreCodexNotification(jsonRPCMessage, string, string, TurnSink) (codexNot
 	return codexNotificationResult{}, nil
 }
 
-func handleCodexErrorNotification(message jsonRPCMessage, _ string, _ string, _ TurnSink) (codexNotificationResult, error) {
-	errorMessage, err := requireStringFromRaw(message.Params, "message", "codex error notification")
+func handleCodexThreadStarted(message jsonRPCMessage, threadID string, _ string, sink TurnSink) (codexNotificationResult, error) {
+	params, err := objectValue(message.Params, "codex thread started params")
 	if err != nil {
 		return codexNotificationResult{}, err
+	}
+	thread, err := requireObject(params, "thread", "codex thread started")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	messageThreadID, err := requireString(thread, "id", "codex thread started thread")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if messageThreadID != threadID {
+		return codexNotificationResult{}, nil
+	}
+	return codexNotificationResult{}, sink.Trace("codex_thread_started", messageThreadID)
+}
+
+func handleCodexThreadStatusChanged(message jsonRPCMessage, threadID string, _ string, sink TurnSink) (codexNotificationResult, error) {
+	params, err := objectValue(message.Params, "codex thread status changed params")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	messageThreadID, err := requireString(params, "threadId", "codex thread status changed")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if messageThreadID != threadID {
+		return codexNotificationResult{}, nil
+	}
+	status, err := requireObject(params, "status", "codex thread status changed")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	statusType, err := requireString(status, "type", "codex thread status changed status")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if _, ok := status["activeFlags"]; ok {
+		if _, err := optionalStringArray(status, "activeFlags", "codex thread status changed status"); err != nil {
+			return codexNotificationResult{}, err
+		}
+	}
+	return codexNotificationResult{}, sink.Trace("codex_thread_status_changed", statusType)
+}
+
+func handleCodexThreadTokenUsageUpdated(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
+	params, err := objectValue(message.Params, "codex thread token usage params")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return codexNotificationResult{}, nil
+	}
+	tokenUsage, err := requireObject(params, "tokenUsage", "codex thread token usage")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if _, err := requireObject(tokenUsage, "last", "codex thread token usage tokenUsage"); err != nil {
+		return codexNotificationResult{}, err
+	}
+	if _, err := requireObject(tokenUsage, "total", "codex thread token usage tokenUsage"); err != nil {
+		return codexNotificationResult{}, err
+	}
+	return codexNotificationResult{}, sink.Trace("codex_thread_token_usage_updated", turnID)
+}
+
+func handleCodexRemoteControlStatusChanged(message jsonRPCMessage, _ string, _ string, sink TurnSink) (codexNotificationResult, error) {
+	params, err := objectValue(message.Params, "codex remote control status params")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if _, err := requireString(params, "installationId", "codex remote control status"); err != nil {
+		return codexNotificationResult{}, err
+	}
+	if _, err := requireString(params, "serverName", "codex remote control status"); err != nil {
+		return codexNotificationResult{}, err
+	}
+	status, err := requireString(params, "status", "codex remote control status")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	return codexNotificationResult{}, sink.Trace("codex_remote_control_status_changed", status)
+}
+
+func handleCodexErrorNotification(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
+	params, err := objectValue(message.Params, "codex error notification params")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if !notificationMatchesTurn(params, threadID, turnID) {
+		return codexNotificationResult{}, nil
+	}
+	errorObject, err := requireObject(params, "error", "codex error notification")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	errorMessage, err := requireString(errorObject, "message", "codex error notification error")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	willRetry, err := requireBool(params, "willRetry", "codex error notification")
+	if err != nil {
+		return codexNotificationResult{}, err
+	}
+	if willRetry {
+		return codexNotificationResult{}, sink.Trace("codex_retryable_error_received", errorMessage)
 	}
 	return codexNotificationResult{}, fmt.Errorf("codex app-server error notification: %s", errorMessage)
 }
@@ -426,11 +537,30 @@ func handleCodexItemUpsert(message jsonRPCMessage, threadID string, turnID strin
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
+	ignored, err := ignoreCodexItemIfHandled(item, sink)
+	if err != nil || ignored {
+		return codexNotificationResult{}, err
+	}
 	runItem, err := runItemFromCodexItem(item, status)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
 	return codexNotificationResult{}, sink.RunItemUpsert(runItem)
+}
+
+func ignoreCodexItemIfHandled(item map[string]any, sink TurnSink) (bool, error) {
+	providerItemID, err := requireString(item, "id", "codex item")
+	if err != nil {
+		return false, err
+	}
+	codexType, err := requireString(item, "type", "codex item")
+	if err != nil {
+		return false, err
+	}
+	if codexType != "userMessage" {
+		return false, nil
+	}
+	return true, sink.Trace("codex_user_message_item_ignored", providerItemID)
 }
 
 func handleCodexTextActivityDelta(message jsonRPCMessage, threadID string, turnID string, sink TurnSink, itemType string, title string) (codexNotificationResult, error) {

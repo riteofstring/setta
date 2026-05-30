@@ -5,13 +5,13 @@ import (
 	"sort"
 )
 
-func (service *Service) runsWithDiagnosticsLocked(workspaceID string) ([]Run, error) {
-	runs, corrupt, err := service.store.ScanRuns(workspaceID)
+func (service *Service) runsForConversationWithDiagnosticsLocked(workspaceID string, conversationID string) ([]Run, error) {
+	runs, corrupt, err := service.store.ScanRunsForConversation(workspaceID, conversationID)
 	if err != nil {
 		return nil, err
 	}
 	if len(corrupt) > 0 {
-		service.recordCorruptStateDiagnosticLocked(corrupt[0], workspaceID, "", "")
+		service.recordCorruptStateDiagnosticLocked(corrupt[0], workspaceID, conversationID, "")
 		return nil, corrupt[0]
 	}
 	return runs, nil

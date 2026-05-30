@@ -1051,34 +1051,53 @@ func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
 	}
 }
 
-func TestServiceListConversationsFailsOnMalformedRunState(t *testing.T) {
+func TestServiceMalformedRunStateFailsOnlyOwningConversation(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
-	conversation := Conversation{
+	corruptConversation := Conversation{
 		SchemaVersion: SchemaVersion,
-		ID:            "conversation_api",
+		ID:            "conversation_corrupt",
 		WorkspaceID:   "workspace_api",
-		Title:         "API",
+		Title:         "Corrupt",
 		CreatedAt:     "2026-05-29T20:00:00Z",
 		UpdatedAt:     "2026-05-29T20:00:00Z",
 		HarnessRefs:   []HarnessThreadRef{},
 	}
-	if err := store.SaveConversation(conversation); err != nil {
-		t.Fatalf("save conversation: %v", err)
+	validConversation := corruptConversation
+	validConversation.ID = "conversation_valid"
+	validConversation.Title = "Valid"
+	validConversation.UpdatedAt = "2026-05-29T20:00:01Z"
+	if err := store.SaveConversation(corruptConversation); err != nil {
+		t.Fatalf("save corrupt conversation: %v", err)
+	}
+	if err := store.SaveConversation(validConversation); err != nil {
+		t.Fatalf("save valid conversation: %v", err)
 	}
 	path := store.runPath("workspace_api", "run_bad")
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatalf("create run dir: %v", err)
 	}
-	raw := `{"schemaVersion":1,"id":"run_bad","workspaceId":"workspace_api","conversationId":"conversation_api","triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"running","startedAt":"2026-05-29T20:00:00Z","completedAt":"","promptSummary":"prompt","error":"","hasPendingApproval":false,"pendingApproval":{"id":"","runId":"","runItemId":"","providerItemId":"","kind":"","title":"","body":"","command":"","filePath":"","permission":"","question":"","options":[],"questions":[],"status":"","createdAt":"","resolvedAt":"","response":"","approved":false}}`
+	raw := `{"schemaVersion":1,"id":"run_bad","workspaceId":"workspace_api","conversationId":"conversation_corrupt","triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"running","startedAt":"2026-05-29T20:00:00Z","completedAt":"","promptSummary":"prompt","error":"","hasPendingApproval":false,"pendingApproval":{"id":"","runId":"","runItemId":"","providerItemId":"","kind":"","title":"","body":"","command":"","filePath":"","permission":"","question":"","options":[],"questions":[],"status":"","createdAt":"","resolvedAt":"","response":"","approved":false}}`
 	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
 		t.Fatalf("write malformed run: %v", err)
 	}
 
 	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
-	_, err := service.ListConversations("workspace_api")
+	conversations, err := service.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list conversations: %v", err)
+	}
+	if len(conversations) != 2 {
+		t.Fatalf("conversation count = %d, want 2", len(conversations))
+	}
+	result, err := service.SendUserMessage("workspace_api", validConversation.ID, "hello")
+	if err != nil {
+		t.Fatalf("send valid conversation: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", validConversation.ID, result.Run.ID, RunStatusCompleted)
+	_, err = service.SendUserMessage("workspace_api", corruptConversation.ID, "hello")
 	if err == nil {
-		t.Fatal("list conversations succeeded, want corrupt state error")
+		t.Fatal("send corrupt conversation succeeded, want corrupt state error")
 	}
 	if !IsCorruptStateError(err) {
 		t.Fatalf("error = %T %v, want corrupt state", err, err)
@@ -1092,7 +1111,7 @@ func TestServiceListConversationsFailsOnMalformedRunState(t *testing.T) {
 	}
 }
 
-func TestServiceListConversationsFailsOnRunningRunWithMissingAssistantMessage(t *testing.T) {
+func TestServiceMissingAssistantMessageFailsOnlyOwningConversationPage(t *testing.T) {
 	appDataDir := t.TempDir()
 	store := mustStore(t, appDataDir)
 	conversation := Conversation{
@@ -1143,9 +1162,16 @@ func TestServiceListConversationsFailsOnRunningRunWithMissingAssistantMessage(t 
 	}
 
 	service := newTestService(t, appDataDir, testResolver(t), NewFakeHarness(nil))
-	_, err := service.ListConversations("workspace_api")
+	conversations, err := service.ListConversations("workspace_api")
+	if err != nil {
+		t.Fatalf("list conversations: %v", err)
+	}
+	if len(conversations) != 1 || conversations[0].Conversation.ID != conversation.ID {
+		t.Fatalf("conversations = %+v, want corrupt conversation listed", conversations)
+	}
+	_, err = service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
 	if err == nil {
-		t.Fatal("list conversations succeeded, want corrupt state error")
+		t.Fatal("load message page succeeded, want corrupt state error")
 	}
 	if !IsCorruptStateError(err) {
 		t.Fatalf("error = %T %v, want corrupt state", err, err)

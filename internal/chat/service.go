@@ -134,15 +134,6 @@ func (service *Service) ListConversations(workspaceID string) ([]ConversationLis
 		service.recordCorruptStateDiagnostic(corruptConversations[0], workspaceID, "", "")
 		return nil, corruptConversations[0]
 	}
-	runs, corruptRuns, err := service.store.ScanRuns(workspaceID)
-	if err != nil {
-		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
-		return nil, err
-	}
-	if len(corruptRuns) > 0 {
-		service.recordCorruptStateDiagnostic(corruptRuns[0], workspaceID, "", "")
-		return nil, corruptRuns[0]
-	}
 	items := make([]ConversationListItem, 0, len(conversations))
 	for _, conversation := range conversations {
 		count, err := service.store.MessageCount(workspaceID, conversation.ID)
@@ -150,18 +141,10 @@ func (service *Service) ListConversations(workspaceID string) ([]ConversationLis
 			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
 			return nil, err
 		}
-		activeRunID := ""
-		if run, ok := activeRunFromRuns(runs, conversation.ID); ok {
-			if err := service.validateRunAssistantMessage(workspaceID, run); err != nil {
-				service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, run.ID)
-				return nil, err
-			}
-			activeRunID = run.ID
-		}
 		items = append(items, ConversationListItem{
 			Conversation: conversation,
 			MessageCount: count,
-			ActiveRunID:  activeRunID,
+			ActiveRunID:  "",
 		})
 	}
 	return items, nil
@@ -245,7 +228,7 @@ func (service *Service) SendUserMessage(workspaceID string, conversationID strin
 	if _, ok := service.active[key]; ok {
 		return SendMessageResult{}, fmt.Errorf("conversation already has an active turn: %s", conversationID)
 	}
-	runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 	if err != nil {
 		return SendMessageResult{}, err
 	}
@@ -349,7 +332,7 @@ func (service *Service) CancelActiveRun(workspaceID string, conversationID strin
 	key := activeKey(workspaceID, conversationID)
 	active, ok := service.active[key]
 	if !ok || active.workspaceID != workspaceID {
-		runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+		runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 		if err != nil {
 			service.mu.Unlock()
 			return Run{}, err
@@ -443,7 +426,7 @@ func (service *Service) ActiveRun(workspaceID string, conversationID string) (Ru
 	}
 	service.mu.Lock()
 	defer service.mu.Unlock()
-	runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 	if err != nil {
 		return Run{}, false, err
 	}
@@ -472,7 +455,7 @@ func (service *Service) pendingApprovalRun(workspaceID string, conversationID st
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
-	runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 	if err != nil {
 		return Run{}, err
 	}
@@ -666,7 +649,7 @@ func (service *Service) completeTurn(workspaceID string, conversationID string, 
 	if err != nil {
 		return err
 	}
-	runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 	if err != nil {
 		return err
 	}
@@ -991,7 +974,7 @@ func (service *Service) conversationListItemLocked(workspaceID string, conversat
 		return ConversationListItem{}, err
 	}
 	activeRunID := ""
-	runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 	if err != nil {
 		return ConversationListItem{}, err
 	}

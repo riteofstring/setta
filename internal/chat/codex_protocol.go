@@ -370,6 +370,18 @@ func requireString(value map[string]any, name string, label string) (string, err
 	return text, nil
 }
 
+func requireBool(value map[string]any, name string, label string) (bool, error) {
+	raw, ok := value[name]
+	if !ok || raw == nil {
+		return false, fmt.Errorf("%s.%s is required", label, name)
+	}
+	flag, ok := raw.(bool)
+	if !ok {
+		return false, fmt.Errorf("%s.%s must be a boolean", label, name)
+	}
+	return flag, nil
+}
+
 func optionalString(value map[string]any, name string, label string) (string, error) {
 	raw, ok := value[name]
 	if !ok || raw == nil {
@@ -429,14 +441,6 @@ func optionalStringArray(value map[string]any, name string, label string) ([]str
 		}
 	}
 	return result, nil
-}
-
-func requireStringFromRaw(raw json.RawMessage, name string, label string) (string, error) {
-	value, err := objectValue(raw, label)
-	if err != nil {
-		return "", err
-	}
-	return requireString(value, name, label)
 }
 
 func notificationMatchesTurn(params map[string]any, threadID string, turnID string) bool {

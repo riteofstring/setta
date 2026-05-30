@@ -71,41 +71,56 @@ func TestChatEndpointMapsMalformedDurableStateToCorruptState(t *testing.T) {
 	}
 }
 
-func TestChatEndpointsFailClosedOnMalformedRunState(t *testing.T) {
+func TestChatEndpointsIsolateMalformedRunStateByConversation(t *testing.T) {
 	handler, appDataDir := newChatHandlerWithAppDataDir(t, nil)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
-	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+	corruptConversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
 	runPath := filepath.Join(appDataDir, "workspaces", opened.Workspace.ID, "runs", "run_bad.json")
 	if err := os.MkdirAll(filepath.Dir(runPath), 0o755); err != nil {
 		t.Fatalf("create runs dir: %v", err)
 	}
-	raw := fmt.Sprintf(`{"schemaVersion":1,"id":"run_bad","workspaceId":%q,"conversationId":%q,"triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"running","startedAt":"2026-05-29T20:00:00Z","completedAt":"","promptSummary":"prompt","error":"","hasPendingApproval":false}`, opened.Workspace.ID, conversation.ID)
+	raw := fmt.Sprintf(`{"schemaVersion":1,"id":"run_bad","workspaceId":%q,"conversationId":%q,"triggerMessageId":"message_user","assistantMessageId":"","harness":"codex","status":"running","startedAt":"2026-05-29T20:00:00Z","completedAt":"","promptSummary":"prompt","error":"","hasPendingApproval":false}`, opened.Workspace.ID, corruptConversation.ID)
 	if err := os.WriteFile(runPath, []byte(raw), 0o644); err != nil {
 		t.Fatalf("write malformed run: %v", err)
 	}
+	unownedRunPath := filepath.Join(appDataDir, "workspaces", opened.Workspace.ID, "runs", "run_unowned.json")
+	if err := os.WriteFile(unownedRunPath, []byte("{"), 0o644); err != nil {
+		t.Fatalf("write unowned malformed run: %v", err)
+	}
 
-	listErr := postJSON[ErrorResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
+	list := postJSON[ListConversationsResponse](t, handler, "/chat/conversations/list", ListConversationsRequest{
 		WorkspaceID: opened.Workspace.ID,
-	}, http.StatusInternalServerError)
-	if listErr.Error.Code != "corrupt_chat_state" || !strings.Contains(listErr.Error.Message, "assistantMessageId is required unless queued") {
-		t.Fatalf("list error = %+v, want corrupt run state", listErr.Error)
+	}, http.StatusOK)
+	if len(list.Conversations) != 1 || list.Conversations[0].Conversation.ID != corruptConversation.ID {
+		t.Fatalf("conversation list = %+v, want corrupt conversation listed without hydrating its runs", list.Conversations)
 	}
 
 	sendErr := postJSON[ErrorResponse](t, handler, "/chat/messages/send", SendChatMessageRequest{
 		WorkspaceID:    opened.Workspace.ID,
-		ConversationID: conversation.ID,
+		ConversationID: corruptConversation.ID,
 		Prompt:         "hello",
 	}, http.StatusInternalServerError)
 	if sendErr.Error.Code != "corrupt_chat_state" || !strings.Contains(sendErr.Error.Message, "assistantMessageId is required unless queued") {
-		t.Fatalf("send error = %+v, want corrupt run state", sendErr.Error)
+		t.Fatalf("send error = %+v, want corrupt state for owning conversation", sendErr.Error)
 	}
-	messages, err := filepath.Glob(filepath.Join(appDataDir, "workspaces", opened.Workspace.ID, "conversations", conversation.ID, "messages", "*.json"))
+	messages, err := filepath.Glob(filepath.Join(appDataDir, "workspaces", opened.Workspace.ID, "conversations", corruptConversation.ID, "messages", "*.json"))
 	if err != nil {
 		t.Fatalf("glob messages: %v", err)
 	}
 	if len(messages) != 0 {
 		t.Fatalf("send persisted messages despite corrupt run state: %v", messages)
 	}
+
+	newConversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+	result := postJSON[chat.SendMessageResult](t, handler, "/chat/messages/send", SendChatMessageRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: newConversation.ID,
+		Prompt:         "hello",
+	}, http.StatusOK)
+	if result.Conversation.ID != newConversation.ID || result.UserMessage.Role != chat.RoleUser {
+		t.Fatalf("send result = %+v, want successful new conversation turn", result)
+	}
+	waitForAssistantStatus(t, handler, opened.Workspace.ID, newConversation.ID, chat.MessageStatusComplete)
 }
 
 func TestChatEndpointsCancelActiveRun(t *testing.T) {

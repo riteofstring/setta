@@ -387,6 +387,131 @@ func TestCodexHarnessReportsUnsupportedNotificationAsProviderDrift(t *testing.T)
 	}
 }
 
+func TestCodexHarnessHandlesRemoteControlStatusAsGlobalNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("remote-control-status"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want streamed response", sink.text)
+	}
+	if len(sink.diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessHandlesThreadStartedAsLifecycleNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("thread-started-notification"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want streamed response", sink.text)
+	}
+	if len(sink.diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessHandlesThreadStatusChangedAsLifecycleNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("thread-status-changed-notification"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want streamed response", sink.text)
+	}
+	if len(sink.diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessHandlesThreadTokenUsageAsTelemetryNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("thread-token-usage-notification"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want streamed response", sink.text)
+	}
+	if len(sink.diagnostics) != 0 {
+		t.Fatalf("diagnostics = %+v, want none", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessIgnoresProviderUserMessageItem(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("provider-user-message-item"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want streamed response", sink.text)
+	}
+	if len(sink.items) != 0 {
+		t.Fatalf("items = %+v, want no user message run item", sink.items)
+	}
+}
+
+func TestCodexHarnessContinuesAfterRetryableErrorNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("retryable-error-notification"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
+	if sink.text != "hello from codex" {
+		t.Fatalf("assistant text = %q, want streamed response", sink.text)
+	}
+}
+
+func TestCodexHarnessFailsTerminalErrorNotification(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("terminal-error-notification"))
+	sink := newRecordingSink()
+
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want terminal error notification")
+	}
+	if !strings.Contains(err.Error(), "codex app-server error notification: model unavailable") {
+		t.Fatalf("error = %q, want terminal error notification", err)
+	}
+}
+
+func TestCodexHarnessFailsMalformedRemoteControlStatus(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("malformed-remote-control-status"))
+	sink := newRecordingSink()
+
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want malformed remote control status error")
+	}
+	if !strings.Contains(err.Error(), "codex remote control status.status must be a string") {
+		t.Fatalf("error = %q, want malformed remote control status", err)
+	}
+}
+
 func TestCodexHarnessFakeAppServer(t *testing.T) {
 	if os.Getenv("SETTA_FAKE_CODEX_APP_SERVER") == "" {
 		return
@@ -725,6 +850,41 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 			"turnId":   "turn_fake",
 		})
 		return true
+	case "remote-control-status":
+		writeFakeRemoteControlStatus("disabled")
+		writeFakeStreamTurn()
+		return true
+	case "thread-started-notification":
+		writeFakeThreadStarted()
+		writeFakeStreamTurn()
+		return true
+	case "thread-status-changed-notification":
+		writeFakeThreadStatusChanged("active")
+		writeFakeStreamTurn()
+		return true
+	case "thread-token-usage-notification":
+		writeFakeThreadTokenUsage()
+		writeFakeStreamTurn()
+		return true
+	case "provider-user-message-item":
+		writeFakeUserMessageItem()
+		writeFakeStreamTurn()
+		return true
+	case "retryable-error-notification":
+		writeFakeErrorNotification("temporary provider error", true)
+		writeFakeStreamTurn()
+		return true
+	case "terminal-error-notification":
+		writeFakeErrorNotification("model unavailable", false)
+		return true
+	case "malformed-remote-control-status":
+		writeFakeNotification("remoteControl/status/changed", map[string]any{
+			"environmentId":  nil,
+			"installationId": "installation_fake",
+			"serverName":     "fake.local",
+			"status":         7,
+		})
+		return true
 	}
 	return false
 }
@@ -748,6 +908,83 @@ func writeFakeStreamTurn() {
 	writeFakeAssistantDelta("hello ")
 	writeFakeAssistantDelta("from codex")
 	writeFakeCompletedTurn("completed")
+}
+
+func writeFakeRemoteControlStatus(status string) {
+	writeFakeNotification("remoteControl/status/changed", map[string]any{
+		"environmentId":  nil,
+		"installationId": "installation_fake",
+		"serverName":     "fake.local",
+		"status":         status,
+	})
+}
+
+func writeFakeThreadStarted() {
+	writeFakeNotification("thread/started", map[string]any{
+		"thread": map[string]any{
+			"id": "thread_fake",
+		},
+	})
+}
+
+func writeFakeThreadStatusChanged(statusType string) {
+	status := map[string]any{
+		"type": statusType,
+	}
+	if statusType == "active" {
+		status["activeFlags"] = []string{}
+	}
+	writeFakeNotification("thread/status/changed", map[string]any{
+		"status":   status,
+		"threadId": "thread_fake",
+	})
+}
+
+func writeFakeThreadTokenUsage() {
+	breakdown := map[string]any{
+		"cachedInputTokens":     0,
+		"inputTokens":           1,
+		"outputTokens":          2,
+		"reasoningOutputTokens": 0,
+		"totalTokens":           3,
+	}
+	writeFakeNotification("thread/tokenUsage/updated", map[string]any{
+		"threadId": "thread_fake",
+		"tokenUsage": map[string]any{
+			"last":               breakdown,
+			"modelContextWindow": nil,
+			"total":              breakdown,
+		},
+		"turnId": "turn_fake",
+	})
+}
+
+func writeFakeUserMessageItem() {
+	writeFakeNotification("item/started", map[string]any{
+		"item": map[string]any{
+			"content": []any{map[string]any{
+				"text": "hello",
+				"type": "text",
+			}},
+			"id":   "user_message_fake",
+			"type": "userMessage",
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
+	})
+}
+
+func writeFakeErrorNotification(message string, willRetry bool) {
+	writeFakeNotification("error", map[string]any{
+		"error": map[string]any{
+			"additionalDetails": nil,
+			"codexErrorInfo":    nil,
+			"message":           message,
+		},
+		"threadId":  "thread_fake",
+		"turnId":    "turn_fake",
+		"willRetry": willRetry,
+	})
 }
 
 func writeFakeFailedTurn() {

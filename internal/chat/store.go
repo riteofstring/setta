@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -48,6 +49,12 @@ type messageFile struct {
 type runItemOutputFile struct {
 	ordinal int
 	path    string
+}
+
+type runOwner struct {
+	ID             string `json:"id"`
+	WorkspaceID    string `json:"workspaceId"`
+	ConversationID string `json:"conversationId"`
 }
 
 func (err *PersistenceError) Error() string {
@@ -368,6 +375,63 @@ func (store *Store) ScanRuns(workspaceID string) ([]Run, []error, error) {
 	return runs, corrupt, nil
 }
 
+func (store *Store) ScanRunsForConversation(workspaceID string, conversationID string) ([]Run, []error, error) {
+	dir := store.runsDir(workspaceID)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []Run{}, nil, nil
+		}
+		return nil, nil, &PersistenceError{Operation: "list runs", Path: dir, Err: err}
+	}
+
+	runs := make([]Run, 0, len(entries))
+	corrupt := []error{}
+	for _, entry := range entries {
+		if entry.IsDir() || !isDataJSONFile(entry.Name()) {
+			continue
+		}
+		run, belongs, err := store.loadRunForConversation(workspaceID, conversationID, entry.Name())
+		if err != nil {
+			if IsCorruptStateError(err) {
+				corrupt = append(corrupt, err)
+				continue
+			}
+			return nil, nil, err
+		}
+		if !belongs {
+			continue
+		}
+		runs = append(runs, run)
+	}
+	sort.SliceStable(runs, func(left int, right int) bool {
+		if runs[left].StartedAt == runs[right].StartedAt {
+			return runs[left].ID < runs[right].ID
+		}
+		return runs[left].StartedAt > runs[right].StartedAt
+	})
+	return runs, corrupt, nil
+}
+
+func (store *Store) loadRunForConversation(workspaceID string, conversationID string, fileName string) (Run, bool, error) {
+	runID := strings.TrimSuffix(fileName, ".json")
+	owner, err := store.loadRunOwner(workspaceID, runID)
+	if err != nil {
+		if IsCorruptStateError(err) {
+			return Run{}, false, nil
+		}
+		return Run{}, false, err
+	}
+	if owner.ConversationID != conversationID {
+		return Run{}, false, nil
+	}
+	run, err := store.LoadRun(workspaceID, runID)
+	if err != nil {
+		return Run{}, true, err
+	}
+	return run, true, nil
+}
+
 func (store *Store) ActiveRun(workspaceID string, conversationID string) (Run, bool, error) {
 	runs, err := store.ListRuns(workspaceID)
 	if err != nil {
@@ -379,6 +443,30 @@ func (store *Store) ActiveRun(workspaceID string, conversationID string) (Run, b
 		}
 	}
 	return Run{}, false, nil
+}
+
+func (store *Store) loadRunOwner(workspaceID string, runID string) (runOwner, error) {
+	var owner runOwner
+	path := store.runPath(workspaceID, runID)
+	if err := readJSONMetadataFile(path, &owner); err != nil {
+		return runOwner{}, err
+	}
+	if owner.ID == "" {
+		return runOwner{}, corruptStateErrorf(path, "run id is required")
+	}
+	if owner.ID != runID {
+		return runOwner{}, corruptStateErrorf(path, "run file id %s does not match requested id %s", owner.ID, runID)
+	}
+	if owner.WorkspaceID == "" {
+		return runOwner{}, corruptStateErrorf(path, "run %s workspaceId is required", runID)
+	}
+	if owner.WorkspaceID != workspaceID {
+		return runOwner{}, corruptStateErrorf(path, "run %s belongs to workspace %s, not %s", runID, owner.WorkspaceID, workspaceID)
+	}
+	if owner.ConversationID == "" {
+		return runOwner{}, corruptStateErrorf(path, "run %s conversationId is required", runID)
+	}
+	return owner, nil
 }
 
 func (store *Store) QueuedState(workspaceID string, conversationID string) (QueueState, error) {
@@ -844,6 +932,27 @@ func readJSONFile(path string, target any) error {
 	defer file.Close()
 
 	if err := jsonio.DecodeSingle(file, target); err != nil {
+		return corruptStateError(path, err)
+	}
+	return nil
+}
+
+func readJSONMetadataFile(path string, target any) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return &PersistenceError{Operation: "read file", Path: path, Err: err}
+	}
+	defer file.Close()
+
+	decoder := json.NewDecoder(file)
+	if err := decoder.Decode(target); err != nil {
+		return corruptStateError(path, err)
+	}
+	var extra any
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		if err == nil {
+			return corruptStateError(path, jsonio.ErrMultipleValues)
+		}
 		return corruptStateError(path, err)
 	}
 	return nil

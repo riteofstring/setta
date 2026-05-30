@@ -72,7 +72,7 @@ func (service *Service) promoteQueuedIfIdleLocked(workspaceSummary workspace.Wor
 	if service.hasActiveTurnLocked(workspaceSummary.ID, conversationID) {
 		return nil
 	}
-	runs, err := service.runsWithDiagnosticsLocked(workspaceSummary.ID)
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceSummary.ID, conversationID)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (service *Service) queueMessageResultLocked(workspaceID string, conversatio
 	if err != nil {
 		return QueueMessageResult{}, err
 	}
-	runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 	if err != nil {
 		return QueueMessageResult{}, err
 	}
@@ -172,7 +172,7 @@ func (service *Service) publishQueueEventsLocked(workspaceID string, conversatio
 }
 
 func (service *Service) publishQueueUpdatedLocked(workspaceID string, conversationID string, runID string) error {
-	runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+	runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 	if err != nil {
 		return err
 	}
@@ -296,7 +296,7 @@ func (service *Service) persistSteeringMessage(workspaceID string, conversationI
 func (service *Service) attachedActiveTurnLocked(workspaceID string, conversationID string) (activeTurn, error) {
 	active, ok := service.active[activeKey(workspaceID, conversationID)]
 	if !ok || active.workspaceID != workspaceID {
-		runs, err := service.runsWithDiagnosticsLocked(workspaceID)
+		runs, err := service.runsForConversationWithDiagnosticsLocked(workspaceID, conversationID)
 		if err != nil {
 			return activeTurn{}, err
 		}
