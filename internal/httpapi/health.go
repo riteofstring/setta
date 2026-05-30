@@ -578,7 +578,15 @@ func decodeRequest(response http.ResponseWriter, request *http.Request, target a
 
 func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
-	if appstate.IsPersistenceError(err) {
+	if appstate.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_app_state", err.Error())
+		return
+	}
+	if workspace.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_workspace_state", err.Error())
+		return
+	}
+	if appstate.IsPersistenceError(err) || workspace.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}
 	writeError(response, status, code, err.Error())
@@ -586,6 +594,10 @@ func writeWorkspaceError(response http.ResponseWriter, code string, err error) {
 
 func writeChatError(response http.ResponseWriter, code string, err error) {
 	status := http.StatusBadRequest
+	if chat.IsCorruptStateError(err) {
+		writeError(response, http.StatusInternalServerError, "corrupt_chat_state", err.Error())
+		return
+	}
 	if chat.IsPersistenceError(err) {
 		status = http.StatusInternalServerError
 	}

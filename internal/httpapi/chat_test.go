@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -48,6 +49,24 @@ func TestChatEndpointsCreateSendListAndPageMessages(t *testing.T) {
 	}, http.StatusOK)
 	if len(list.Conversations) != 1 || list.Conversations[0].MessageCount != 2 {
 		t.Fatalf("conversation list = %+v, want one conversation with two messages", list.Conversations)
+	}
+}
+
+func TestChatEndpointMapsMalformedDurableStateToCorruptState(t *testing.T) {
+	handler, appDataDir := newChatHandlerWithAppDataDir(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+	conversationPath := filepath.Join(appDataDir, "workspaces", opened.Workspace.ID, "conversations", conversation.ID, "conversation.json")
+	if err := os.WriteFile(conversationPath, []byte("{"), 0o644); err != nil {
+		t.Fatalf("write malformed conversation state: %v", err)
+	}
+
+	errResponse := postJSON[ErrorResponse](t, handler, "/chat/messages/page", GetMessagePageRequest{
+		ConversationID: conversation.ID,
+		WorkspaceID:    opened.Workspace.ID,
+	}, http.StatusInternalServerError)
+	if errResponse.Error.Code != "corrupt_chat_state" {
+		t.Fatalf("error code = %q, want corrupt_chat_state", errResponse.Error.Code)
 	}
 }
 
@@ -224,6 +243,13 @@ func TestChatEventStreamStreamsServerSentEvents(t *testing.T) {
 func newChatHandler(t *testing.T, events []chat.FakeHarnessEvent) http.Handler {
 	t.Helper()
 
+	handler, _ := newChatHandlerWithAppDataDir(t, events)
+	return handler
+}
+
+func newChatHandlerWithAppDataDir(t *testing.T, events []chat.FakeHarnessEvent) (http.Handler, string) {
+	t.Helper()
+
 	appDataDir := t.TempDir()
 	store, err := appstate.NewStore(appDataDir)
 	if err != nil {
@@ -254,7 +280,7 @@ func newChatHandler(t *testing.T, events []chat.FakeHarnessEvent) http.Handler {
 		ChatService:      chatService,
 		Metadata:         BackendMetadata{Name: BackendName, Version: "test"},
 		WorkspaceService: workspaceService,
-	})
+	}), appDataDir
 }
 
 func readServerSentChatEvent(t *testing.T, reader *bufio.Reader) chat.Event {

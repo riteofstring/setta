@@ -27,10 +27,16 @@ describe("chat store", () => {
       hasMoreOlder: false,
       lastEventSequence: 0,
       lastEventStreamId: "",
+      messageIds: [],
       messages: [],
+      messagesById: {},
       operation: null,
       runItemOutputs: [],
+      runItemOutputIdsByRunItemId: {},
+      runItemOutputsById: {},
       runItems: [],
+      runItemIdsByRunId: {},
+      runItemsById: {},
       selectedConversation: null,
       status: "idle",
       workspaceId: null,
@@ -53,6 +59,8 @@ describe("chat store", () => {
 
     expect(useChatStore.getState().conversations).toHaveLength(1);
     expect(useChatStore.getState().messages.map((item) => item.id)).toEqual(["message_latest"]);
+    expect(useChatStore.getState().messageIds).toEqual(["message_latest"]);
+    expect(useChatStore.getState().messagesById.message_latest?.parts[0]?.text).toBe("latest");
     expect(listConversations).toHaveBeenCalledWith("workspace_api");
     expect(messagePage).toHaveBeenCalledWith("workspace_api", "conversation_api", 0, 40);
   });
@@ -287,6 +295,8 @@ describe("chat store", () => {
 
     expect(useChatStore.getState().runItems).toEqual([completed]);
     expect(useChatStore.getState().runItemOutputs).toEqual([output]);
+    expect(useChatStore.getState().runItemIdsByRunId.run_api).toEqual([completed.id]);
+    expect(useChatStore.getState().runItemOutputIdsByRunItemId[completed.id]).toEqual([output.id]);
   });
 
   test("lazy-loads run activity without dropping embedded output", async () => {

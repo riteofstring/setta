@@ -8,10 +8,23 @@ import (
 )
 
 type Harness interface {
-	StartTurn(context.Context, TurnRequest, TurnSink) error
+	StartTurn(context.Context, TurnRequest, TurnSink) (TurnCompletion, error)
 	SteerTurn(context.Context, SteerRequest) error
 	CancelTurn(context.Context, CancelRequest) error
 	SubmitApproval(context.Context, ApprovalResponse) error
+}
+
+type TurnOutcome string
+
+const (
+	TurnOutcomeCompleted TurnOutcome = "completed"
+	TurnOutcomeCancelled TurnOutcome = "cancelled"
+	TurnOutcomeFailed    TurnOutcome = "failed"
+)
+
+type TurnCompletion struct {
+	Outcome      TurnOutcome
+	ErrorMessage string
 }
 
 type TurnRequest struct {
@@ -70,6 +83,7 @@ type TurnSink interface {
 	AssistantTextDelta(providerItemID string, text string) error
 	ApprovalRequested(approval ApprovalRequest) error
 	ApprovalResolved(approvalID string, approved bool, response string) error
+	ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool) error
 	RunItemOutputDelta(providerItemID string, stream string, text string) error
 	RunItemUpsert(item RunItem) error
 	ThreadLinked(threadID string, sessionID string, turnID string) error

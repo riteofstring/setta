@@ -17,7 +17,8 @@ import {
   Wrench,
   X,
 } from "lucide-react";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
 
 import { Button } from "./ui/button";
 import { MarkdownText } from "./markdown-text";
@@ -32,9 +33,15 @@ export interface ChatTranscriptProps {
     afterOrdinal?: number,
     limit?: number,
   ) => Promise<void>;
+  messageIds?: string[];
   messages: ChatMessage[];
+  messagesById?: Record<string, ChatMessage>;
+  runItemIdsByRunId?: Record<string, string[]>;
+  runItemOutputIdsByRunItemId?: Record<string, string[]>;
   runItemOutputs: RunItemOutput[];
+  runItemOutputsById?: Record<string, RunItemOutput>;
   runItems: RunItem[];
+  runItemsById?: Record<string, RunItem>;
   submitApproval: (
     approvalId: string,
     approved: boolean,
@@ -44,94 +51,263 @@ export interface ChatTranscriptProps {
   ) => Promise<void>;
 }
 
+interface TranscriptIndexes {
+  messageIds: string[];
+  messagesById: Record<string, ChatMessage>;
+  runItemIdsByRunId: Record<string, string[]>;
+  runItemOutputIdsByRunItemId: Record<string, string[]>;
+  runItemOutputsById: Record<string, RunItemOutput>;
+  runItemsById: Record<string, RunItem>;
+}
+
+function transcriptIndexes(props: {
+  messageIds: string[] | undefined;
+  messages: ChatMessage[];
+  messagesById: Record<string, ChatMessage> | undefined;
+  runItemIdsByRunId: Record<string, string[]> | undefined;
+  runItemOutputIdsByRunItemId: Record<string, string[]> | undefined;
+  runItemOutputs: RunItemOutput[];
+  runItemOutputsById: Record<string, RunItemOutput> | undefined;
+  runItems: RunItem[];
+  runItemsById: Record<string, RunItem> | undefined;
+}): TranscriptIndexes {
+  return {
+    ...messageIndexes(props.messages, props.messageIds, props.messagesById),
+    ...runItemIndexes(props.runItems, props.runItemIdsByRunId, props.runItemsById),
+    ...runItemOutputIndexes(
+      props.runItemOutputs,
+      props.runItemOutputIdsByRunItemId,
+      props.runItemOutputsById,
+    ),
+  };
+}
+
+function messageIndexes(
+  messages: ChatMessage[],
+  messageIds: string[] | undefined,
+  messagesById: Record<string, ChatMessage> | undefined,
+) {
+  if (messageIds && messagesById) {
+    return { messageIds, messagesById };
+  }
+  const ordered = messages.toSorted((left, right) => left.ordinal - right.ordinal);
+  const fallbackById: Record<string, ChatMessage> = {};
+  for (const message of ordered) {
+    fallbackById[message.id] = message;
+  }
+  return {
+    messageIds: ordered.map((message) => message.id),
+    messagesById: fallbackById,
+  };
+}
+
+function runItemIndexes(
+  runItems: RunItem[],
+  runItemIdsByRunId: Record<string, string[]> | undefined,
+  runItemsById: Record<string, RunItem> | undefined,
+) {
+  if (runItemIdsByRunId && runItemsById) {
+    return { runItemIdsByRunId, runItemsById };
+  }
+  const ordered = runItems.toSorted(compareRunItems);
+  const fallbackById: Record<string, RunItem> = {};
+  const fallbackIdsByRunId: Record<string, string[]> = {};
+  for (const item of ordered) {
+    fallbackById[item.id] = item;
+    fallbackIdsByRunId[item.runId] = [...(fallbackIdsByRunId[item.runId] ?? []), item.id];
+  }
+  return {
+    runItemIdsByRunId: fallbackIdsByRunId,
+    runItemsById: fallbackById,
+  };
+}
+
+function runItemOutputIndexes(
+  runItemOutputs: RunItemOutput[],
+  runItemOutputIdsByRunItemId: Record<string, string[]> | undefined,
+  runItemOutputsById: Record<string, RunItemOutput> | undefined,
+) {
+  if (runItemOutputIdsByRunItemId && runItemOutputsById) {
+    return { runItemOutputIdsByRunItemId, runItemOutputsById };
+  }
+  const ordered = runItemOutputs.toSorted(compareRunItemOutputs);
+  const fallbackById: Record<string, RunItemOutput> = {};
+  const fallbackIdsByItemId: Record<string, string[]> = {};
+  for (const output of ordered) {
+    fallbackById[output.id] = output;
+    fallbackIdsByItemId[output.runItemId] = [
+      ...(fallbackIdsByItemId[output.runItemId] ?? []),
+      output.id,
+    ];
+  }
+  return {
+    runItemOutputIdsByRunItemId: fallbackIdsByItemId,
+    runItemOutputsById: fallbackById,
+  };
+}
+
+function compareRunItems(left: RunItem, right: RunItem) {
+  if (left.createdAt === right.createdAt) {
+    return left.id.localeCompare(right.id);
+  }
+  return left.createdAt.localeCompare(right.createdAt);
+}
+
+function compareRunItemOutputs(left: RunItemOutput, right: RunItemOutput) {
+  if (left.runItemId === right.runItemId) {
+    return left.ordinal - right.ordinal;
+  }
+  return left.runItemId.localeCompare(right.runItemId);
+}
+
 export function ChatTranscript({
   activeRun,
   hasMoreOlder,
   loadOlder,
   loadRunItemOutput,
+  messageIds,
   messages,
+  messagesById,
+  runItemIdsByRunId,
+  runItemOutputIdsByRunItemId,
   runItemOutputs,
+  runItemOutputsById,
   runItems,
+  runItemsById,
   submitApproval,
 }: ChatTranscriptProps) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const virtuosoRef = useRef<VirtuosoHandle | null>(null);
   const [pinned, setPinned] = useState(true);
+  const transcript = useMemo(
+    () =>
+      transcriptIndexes({
+        messageIds,
+        messages,
+        messagesById,
+        runItemIdsByRunId,
+        runItemOutputIdsByRunItemId,
+        runItemOutputs,
+        runItemOutputsById,
+        runItems,
+        runItemsById,
+      }),
+    [
+      messageIds,
+      messages,
+      messagesById,
+      runItemIdsByRunId,
+      runItemOutputIdsByRunItemId,
+      runItemOutputs,
+      runItemOutputsById,
+      runItems,
+      runItemsById,
+    ],
+  );
+  const firstMessage = transcript.messageIds[0]
+    ? transcript.messagesById[transcript.messageIds[0]]
+    : undefined;
+  const firstItemIndex = firstMessage?.ordinal ?? 0;
 
   useEffect(() => {
     if (!pinned) {
       return;
     }
-    const node = scrollRef.current;
-    if (!node) {
-      return;
-    }
-    node.scrollTop = node.scrollHeight;
-  }, [messages, activeRun, runItemOutputs, runItems, pinned]);
+    virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
+  }, [
+    activeRun,
+    pinned,
+    transcript.messageIds.length,
+    transcript.runItemOutputsById,
+    transcript.runItemsById,
+  ]);
 
   async function loadOlderAndPreserveScroll() {
-    const node = scrollRef.current;
-    const previousHeight = node?.scrollHeight ?? 0;
     await loadOlder();
-    requestAnimationFrame(() => {
-      if (!node) {
-        return;
-      }
-      node.scrollTop = node.scrollHeight - previousHeight + node.scrollTop;
-    });
+  }
+
+  if (transcript.messageIds.length === 0) {
+    return (
+      <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
+        <div className="h-full min-h-0 min-w-0 overflow-y-auto px-6 py-5">
+          <div
+            className="mx-auto w-full max-w-4xl py-16 text-center text-sm text-zinc-500"
+            data-testid="empty-chat"
+          >
+            Start a conversation for this workspace.
+          </div>
+          {activeRun?.hasPendingApproval ? (
+            <div className="mx-auto w-full max-w-4xl">
+              <ApprovalCard
+                key={activeRun.pendingApproval.id}
+                run={activeRun}
+                submitApproval={submitApproval}
+              />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="relative h-full min-h-0 min-w-0 overflow-hidden">
-      <div
-        className="h-full min-h-0 min-w-0 overflow-y-auto px-6 py-5"
-        onScroll={(event) => {
-          const node = event.currentTarget;
-          setPinned(node.scrollHeight - node.scrollTop - node.clientHeight < 24);
+      <Virtuoso
+        atBottomStateChange={setPinned}
+        className="h-full min-h-0 min-w-0 px-6 py-5"
+        components={{
+          Footer: () => (
+            <>
+              {activeRun?.hasPendingApproval ? (
+                <div className="mx-auto w-full max-w-4xl py-2">
+                  <ApprovalCard
+                    key={activeRun.pendingApproval.id}
+                    run={activeRun}
+                    submitApproval={submitApproval}
+                  />
+                </div>
+              ) : null}
+            </>
+          ),
+          Header: () =>
+            hasMoreOlder ? (
+              <div className="mb-3 flex justify-center">
+                <Button onClick={() => void loadOlderAndPreserveScroll()} variant="secondary">
+                  <ChevronUp className="h-4 w-4" />
+                  Older
+                </Button>
+              </div>
+            ) : null,
         }}
-        ref={scrollRef}
-      >
-        {hasMoreOlder ? (
-          <div className="mb-5 flex justify-center">
-            <Button onClick={() => void loadOlderAndPreserveScroll()} variant="secondary">
-              <ChevronUp className="h-4 w-4" />
-              Older
-            </Button>
-          </div>
-        ) : null}
-        <div className="mx-auto flex w-full max-w-4xl min-w-0 flex-col gap-5">
-          {messages.length === 0 ? (
-            <div className="py-16 text-center text-sm text-zinc-500" data-testid="empty-chat">
-              Start a conversation for this workspace.
-            </div>
-          ) : null}
-          {messages.map((message) => (
+        data={transcript.messageIds}
+        firstItemIndex={firstItemIndex}
+        followOutput={pinned ? "auto" : false}
+        increaseViewportBy={{ bottom: 800, top: 400 }}
+        initialItemCount={Math.min(transcript.messageIds.length, 30)}
+        itemContent={(_, messageId) => {
+          const message = transcript.messagesById[messageId];
+          if (!message) {
+            return null;
+          }
+          return (
             <MessageRow
-              key={message.id}
               message={message}
               loadRunItemOutput={loadRunItemOutput}
-              runItemOutputs={runItemOutputs}
-              runItems={runItems}
+              runItemIdsByRunId={transcript.runItemIdsByRunId}
+              runItemOutputIdsByRunItemId={transcript.runItemOutputIdsByRunItemId}
+              runItemOutputsById={transcript.runItemOutputsById}
+              runItemsById={transcript.runItemsById}
             />
-          ))}
-          {activeRun?.hasPendingApproval ? (
-            <ApprovalCard
-              key={activeRun.pendingApproval.id}
-              run={activeRun}
-              submitApproval={submitApproval}
-            />
-          ) : null}
-        </div>
-      </div>
+          );
+        }}
+        overscan={200}
+        ref={virtuosoRef}
+      />
       {!pinned ? (
         <Button
           aria-label="Jump to latest"
           className="absolute bottom-4 right-6 shadow-sm"
           onClick={() => {
-            const node = scrollRef.current;
-            if (!node) {
-              return;
-            }
-            node.scrollTop = node.scrollHeight;
+            virtuosoRef.current?.scrollToIndex({ align: "end", index: "LAST" });
             setPinned(true);
           }}
           variant="secondary"
@@ -146,8 +322,10 @@ export function ChatTranscript({
 const MessageRow = memo(function MessageRow({
   message,
   loadRunItemOutput,
-  runItemOutputs,
-  runItems,
+  runItemIdsByRunId,
+  runItemOutputIdsByRunItemId,
+  runItemOutputsById,
+  runItemsById,
 }: {
   message: ChatMessage;
   loadRunItemOutput: (
@@ -156,10 +334,12 @@ const MessageRow = memo(function MessageRow({
     afterOrdinal?: number,
     limit?: number,
   ) => Promise<void>;
-  runItemOutputs: RunItemOutput[];
-  runItems: RunItem[];
+  runItemIdsByRunId: Record<string, string[]>;
+  runItemOutputIdsByRunItemId: Record<string, string[]>;
+  runItemOutputsById: Record<string, RunItemOutput>;
+  runItemsById: Record<string, RunItem>;
 }) {
-  const itemRows = activityItemsForMessage(message, runItems);
+  const itemRows = activityItemsForMessage(message, runItemIdsByRunId, runItemsById);
   return (
     <article className={messageRowClass(message)} data-testid="chat-message">
       <div className={messageContainerClass(message)}>
@@ -170,7 +350,8 @@ const MessageRow = memo(function MessageRow({
           <RunActivityRows
             items={itemRows}
             loadRunItemOutput={loadRunItemOutput}
-            outputs={runItemOutputs}
+            outputIdsByRunItemId={runItemOutputIdsByRunItemId}
+            outputsById={runItemOutputsById}
           />
         ) : null}
       </div>
@@ -179,7 +360,9 @@ const MessageRow = memo(function MessageRow({
 });
 
 function messageRowClass(message: ChatMessage) {
-  return message.role === "user" ? "flex min-w-0 justify-end" : "flex min-w-0 justify-start";
+  return message.role === "user"
+    ? "mx-auto flex w-full max-w-4xl min-w-0 justify-end py-2"
+    : "mx-auto flex w-full max-w-4xl min-w-0 justify-start py-2";
 }
 
 function MessageContent({ message }: { message: ChatMessage }) {
@@ -215,11 +398,17 @@ function MessageStatus({ message }: { message: ChatMessage }) {
   return <div className="mt-3 text-xs font-medium text-red-600">{message.status}</div>;
 }
 
-function activityItemsForMessage(message: ChatMessage, runItems: RunItem[]) {
+function activityItemsForMessage(
+  message: ChatMessage,
+  runItemIdsByRunId: Record<string, string[]>,
+  runItemsById: Record<string, RunItem>,
+) {
   if (message.role === "user" || message.runId === "") {
     return [];
   }
-  return runItems.filter((item) => item.runId === message.runId);
+  return (runItemIdsByRunId[message.runId] ?? [])
+    .map((itemId) => runItemsById[itemId])
+    .filter((item): item is RunItem => item !== undefined);
 }
 
 function messageContainerClass(message: ChatMessage) {
@@ -238,7 +427,8 @@ function messageContainerClass(message: ChatMessage) {
 function RunActivityRows({
   items,
   loadRunItemOutput,
-  outputs,
+  outputIdsByRunItemId,
+  outputsById,
 }: {
   items: RunItem[];
   loadRunItemOutput: (
@@ -247,7 +437,8 @@ function RunActivityRows({
     afterOrdinal?: number,
     limit?: number,
   ) => Promise<void>;
-  outputs: RunItemOutput[];
+  outputIdsByRunItemId: Record<string, string[]>;
+  outputsById: Record<string, RunItemOutput>;
 }) {
   return (
     <div className="mt-4 space-y-2 border-t border-zinc-100 pt-3">
@@ -256,7 +447,7 @@ function RunActivityRows({
           item={item}
           key={item.id}
           loadRunItemOutput={loadRunItemOutput}
-          outputs={outputsForItem(outputs, item.id)}
+          outputs={outputsForItem(outputIdsByRunItemId, outputsById, item.id)}
         />
       ))}
     </div>
@@ -418,8 +609,14 @@ function activityTitle(item: RunItem) {
   return item.type.replaceAll("_", " ");
 }
 
-function outputsForItem(outputs: RunItemOutput[], runItemId: string) {
-  return outputs.filter((output) => output.runItemId === runItemId);
+function outputsForItem(
+  outputIdsByRunItemId: Record<string, string[]>,
+  outputsById: Record<string, RunItemOutput>,
+  runItemId: string,
+) {
+  return (outputIdsByRunItemId[runItemId] ?? [])
+    .map((outputId) => outputsById[outputId])
+    .filter((output): output is RunItemOutput => output !== undefined);
 }
 
 function maxOutputOrdinal(outputs: RunItemOutput[]) {

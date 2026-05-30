@@ -19,11 +19,24 @@ type jsonRPCClient struct {
 	stdin         io.WriteCloser
 	notifications chan jsonRPCMessage
 	requests      chan jsonRPCMessage
-	done          chan error
+	lifecycle     *jsonRPCLifecycle
 
 	mu      sync.Mutex
 	nextID  int
-	pending map[int]chan jsonRPCMessage
+	pending map[int]chan jsonRPCResponse
+}
+
+type jsonRPCLifecycle struct {
+	done chan struct{}
+	once sync.Once
+
+	mu  sync.Mutex
+	err error
+}
+
+type jsonRPCResponse struct {
+	err     error
+	message jsonRPCMessage
 }
 
 type jsonRPCMessage struct {
@@ -63,15 +76,18 @@ func startJSONRPCClient(config CodexHarnessConfig) (*jsonRPCClient, error) {
 		stdin:         stdin,
 		notifications: make(chan jsonRPCMessage, 128),
 		requests:      make(chan jsonRPCMessage, 32),
-		done:          make(chan error, 1),
-		pending:       map[int]chan jsonRPCMessage{},
+		lifecycle:     newJSONRPCLifecycle(),
+		pending:       map[int]chan jsonRPCResponse{},
 	}
 	go client.readLoop(stdout, &stderr)
 	return client, nil
 }
 
 func (client *jsonRPCClient) call(ctx context.Context, method string, params any) (json.RawMessage, error) {
-	id, responseChannel := client.registerPending()
+	id, responseChannel, err := client.registerPending()
+	if err != nil {
+		return nil, fmt.Errorf("%s failed: %w", method, err)
+	}
 	if err := client.write(map[string]any{
 		"jsonrpc": "2.0",
 		"id":      id,
@@ -86,16 +102,17 @@ func (client *jsonRPCClient) call(ctx context.Context, method string, params any
 		client.unregisterPending(id)
 		return nil, ctx.Err()
 	case response := <-responseChannel:
-		if response.Error != nil {
-			return nil, fmt.Errorf("%s failed: %s", method, response.Error.Message)
+		if response.err != nil {
+			return nil, fmt.Errorf("%s failed: %w", method, response.err)
 		}
-		return response.Result, nil
-	case err := <-client.done:
+		message := response.message
+		if message.Error != nil {
+			return nil, fmt.Errorf("%s failed: %s", method, message.Error.Message)
+		}
+		return message.Result, nil
+	case <-client.lifecycle.Done():
 		client.unregisterPending(id)
-		if err == nil {
-			return nil, fmt.Errorf("%s failed: codex app-server exited", method)
-		}
-		return nil, fmt.Errorf("%s failed: codex app-server exited: %w", method, err)
+		return nil, fmt.Errorf("%s failed: %w", method, client.lifecycleError("codex app-server exited"))
 	}
 }
 
@@ -111,14 +128,24 @@ func (client *jsonRPCClient) respondError(id any, code int, message string) erro
 	})
 }
 
-func (client *jsonRPCClient) registerPending() (int, chan jsonRPCMessage) {
+func (client *jsonRPCClient) registerPending() (int, chan jsonRPCResponse, error) {
+	select {
+	case <-client.lifecycle.Done():
+		return 0, nil, client.lifecycleError("codex app-server exited")
+	default:
+	}
 	client.mu.Lock()
 	defer client.mu.Unlock()
+	select {
+	case <-client.lifecycle.Done():
+		return 0, nil, client.lifecycleError("codex app-server exited")
+	default:
+	}
 	client.nextID++
 	id := client.nextID
-	channel := make(chan jsonRPCMessage, 1)
+	channel := make(chan jsonRPCResponse, 1)
 	client.pending[id] = channel
-	return id, channel
+	return id, channel, nil
 }
 
 func (client *jsonRPCClient) unregisterPending(id int) {
@@ -128,6 +155,11 @@ func (client *jsonRPCClient) unregisterPending(id int) {
 }
 
 func (client *jsonRPCClient) write(payload any) error {
+	select {
+	case <-client.lifecycle.Done():
+		return client.lifecycleError("codex app-server exited")
+	default:
+	}
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	data, err := json.Marshal(payload)
@@ -141,35 +173,38 @@ func (client *jsonRPCClient) write(payload any) error {
 }
 
 func (client *jsonRPCClient) readLoop(stdout io.Reader, stderr *bytes.Buffer) {
+	var terminalErr error
+	defer func() {
+		client.finish(terminalErr)
+	}()
 	scanner := bufio.NewScanner(stdout)
 	scanner.Buffer(make([]byte, 4096), 16*1024*1024)
 	for scanner.Scan() {
 		var message jsonRPCMessage
 		if err := json.Unmarshal(scanner.Bytes(), &message); err != nil {
-			client.done <- fmt.Errorf("decode codex app-server message: %w", err)
+			terminalErr = fmt.Errorf("decode codex app-server message: %w", err)
 			return
 		}
 		message.client = client
 		if err := client.routeMessage(message); err != nil {
-			client.done <- err
+			terminalErr = err
 			return
 		}
 	}
 	if err := scanner.Err(); err != nil {
-		client.done <- err
+		terminalErr = err
 		return
 	}
 	waitErr := client.cmd.Wait()
 	if waitErr != nil {
 		message := stderr.String()
 		if message != "" {
-			client.done <- fmt.Errorf("%w: %s", waitErr, message)
+			terminalErr = fmt.Errorf("%w: %s", waitErr, message)
 			return
 		}
-		client.done <- waitErr
+		terminalErr = waitErr
 		return
 	}
-	client.done <- nil
 }
 
 func (client *jsonRPCClient) routeMessage(message jsonRPCMessage) error {
@@ -188,18 +223,19 @@ func (client *jsonRPCClient) routeMessage(message jsonRPCMessage) error {
 	if !ok {
 		return fmt.Errorf("codex response id must be an integer: %v", message.ID)
 	}
-	client.resolvePending(id, message)
-	return nil
+	return client.resolvePending(id, message)
 }
 
-func (client *jsonRPCClient) resolvePending(id int, message jsonRPCMessage) {
+func (client *jsonRPCClient) resolvePending(id int, message jsonRPCMessage) error {
 	client.mu.Lock()
 	channel := client.pending[id]
 	delete(client.pending, id)
 	client.mu.Unlock()
-	if channel != nil {
-		channel <- message
+	if channel == nil {
+		return fmt.Errorf("codex response id has no pending request: %d", id)
 	}
+	channel <- jsonRPCResponse{message: message}
+	return nil
 }
 
 func (client *jsonRPCClient) close() {
@@ -207,6 +243,58 @@ func (client *jsonRPCClient) close() {
 	if client.cmd.Process != nil {
 		_ = client.cmd.Process.Kill()
 	}
+	client.finish(errors.New("codex app-server client closed"))
+}
+
+func newJSONRPCLifecycle() *jsonRPCLifecycle {
+	return &jsonRPCLifecycle{done: make(chan struct{})}
+}
+
+func (lifecycle *jsonRPCLifecycle) Done() <-chan struct{} {
+	return lifecycle.done
+}
+
+func (lifecycle *jsonRPCLifecycle) Err() error {
+	lifecycle.mu.Lock()
+	defer lifecycle.mu.Unlock()
+	return lifecycle.err
+}
+
+func (lifecycle *jsonRPCLifecycle) close(err error) {
+	lifecycle.once.Do(func() {
+		lifecycle.mu.Lock()
+		lifecycle.err = err
+		lifecycle.mu.Unlock()
+		close(lifecycle.done)
+	})
+}
+
+func (client *jsonRPCClient) finish(err error) {
+	client.lifecycle.close(err)
+	client.failPending(err)
+}
+
+func (client *jsonRPCClient) failPending(err error) {
+	client.mu.Lock()
+	pending := client.pending
+	client.pending = map[int]chan jsonRPCResponse{}
+	client.mu.Unlock()
+
+	terminalErr := client.terminalError("codex app-server exited", err)
+	for _, channel := range pending {
+		channel <- jsonRPCResponse{err: terminalErr}
+	}
+}
+
+func (client *jsonRPCClient) lifecycleError(message string) error {
+	return client.terminalError(message, client.lifecycle.Err())
+}
+
+func (client *jsonRPCClient) terminalError(message string, err error) error {
+	if err == nil {
+		return errors.New(message)
+	}
+	return fmt.Errorf("%s: %w", message, err)
 }
 
 func threadIDFromResponse(raw json.RawMessage) (string, error) {

@@ -290,11 +290,17 @@ func (service *Service) validateRunAssistantMessage(workspaceID string, run Run)
 	if run.Status == RunStatusQueued {
 		return nil
 	}
-	message, err := service.store.LoadMessageByID(workspaceID, run.ConversationID, run.AssistantMessageID)
+	message, ok, err := service.store.FindMessageByID(workspaceID, run.ConversationID, run.AssistantMessageID)
 	if err != nil {
 		return err
 	}
-	return validateRunAssistantMessageRecord(run, message)
+	if !ok {
+		return corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "run %s assistant message %s was not found", run.ID, run.AssistantMessageID)
+	}
+	if err := validateRunAssistantMessageRecord(run, message); err != nil {
+		return corruptStateError(service.store.runPath(workspaceID, run.ID), err)
+	}
+	return nil
 }
 
 func validateRunAssistantMessageRecord(run Run, message ChatMessage) error {
@@ -328,19 +334,25 @@ func (service *Service) LoadRunActivityPage(workspaceID string, runID string, li
 		return RunActivityPage{}, fmt.Errorf("run activity page limit must not be negative: %d", limit)
 	}
 	service.mu.Lock()
-	defer service.mu.Unlock()
 
 	if _, err := service.store.LoadRun(workspaceID, runID); err != nil {
+		service.mu.Unlock()
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
 		return RunActivityPage{}, err
 	}
 	items, err := service.store.LoadRunItems(workspaceID, runID)
 	if err != nil {
+		service.mu.Unlock()
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
 		return RunActivityPage{}, err
 	}
 	outputs, err := service.runItemOutputPreviews(workspaceID, runID, items, activityOutputPreviewLimit(limit))
 	if err != nil {
+		service.mu.Unlock()
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
 		return RunActivityPage{}, err
 	}
+	service.mu.Unlock()
 	return RunActivityPage{RunID: runID, Items: items, Output: outputs}, nil
 }
 
@@ -349,9 +361,13 @@ func (service *Service) LoadRunItemOutputPage(workspaceID string, runID string, 
 		return RunItemOutputPage{}, err
 	}
 	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	return service.store.LoadRunItemOutputPage(workspaceID, runID, runItemID, afterOrdinal, limit)
+	page, err := service.store.LoadRunItemOutputPage(workspaceID, runID, runItemID, afterOrdinal, limit)
+	service.mu.Unlock()
+	if err != nil {
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", runID)
+		return RunItemOutputPage{}, err
+	}
+	return page, nil
 }
 
 func (service *Service) runItemOutputPreviews(workspaceID string, runID string, items []RunItem, limit int) ([]RunItemOutput, error) {

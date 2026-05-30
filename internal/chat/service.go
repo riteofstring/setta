@@ -89,6 +89,7 @@ func NewService(store *Store, workspaceResolver WorkspaceResolver, harness Harne
 		service.events = events
 	}
 	if err := service.recoverInterruptedRuns(); err != nil {
+		service.recordCorruptStateDiagnostic(err, "", "", "")
 		return nil, err
 	}
 	return service, nil
@@ -126,16 +127,19 @@ func (service *Service) ListConversations(workspaceID string) ([]ConversationLis
 	}
 	conversations, err := service.store.ListConversations(workspaceID)
 	if err != nil {
+		service.recordCorruptStateDiagnostic(err, workspaceID, "", "")
 		return nil, err
 	}
 	items := make([]ConversationListItem, 0, len(conversations))
 	for _, conversation := range conversations {
 		count, err := service.store.MessageCount(workspaceID, conversation.ID)
 		if err != nil {
+			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
 			return nil, err
 		}
 		activeRunID := ""
 		if run, ok, err := service.store.ActiveRun(workspaceID, conversation.ID); err != nil {
+			service.recordCorruptStateDiagnostic(err, workspaceID, conversation.ID, "")
 			return nil, err
 		} else if ok {
 			activeRunID = run.ID
@@ -189,9 +193,13 @@ func (service *Service) LoadMessagePage(workspaceID string, conversationID strin
 		return MessagePage{}, err
 	}
 	service.mu.Lock()
-	defer service.mu.Unlock()
-
-	return service.loadMessagePageLocked(workspaceID, conversationID, beforeOrdinal, limit)
+	page, err := service.loadMessagePageLocked(workspaceID, conversationID, beforeOrdinal, limit)
+	service.mu.Unlock()
+	if err != nil {
+		service.recordCorruptStateDiagnostic(err, workspaceID, conversationID, "")
+		return MessagePage{}, err
+	}
+	return page, nil
 }
 
 func (service *Service) loadMessagePageLocked(workspaceID string, conversationID string, beforeOrdinal int, limit int) (MessagePage, error) {
@@ -354,6 +362,10 @@ func (service *Service) CancelActiveRun(workspaceID string, conversationID strin
 }
 
 func (service *Service) markTurnCancelled(workspaceID string, conversationID string, runID string) (Run, error) {
+	return service.markTurnCancelledWithReason(workspaceID, conversationID, runID, "turn cancelled", "cancellation_requested", "Turn cancellation requested")
+}
+
+func (service *Service) markTurnCancelledWithReason(workspaceID string, conversationID string, runID string, runError string, traceType string, traceMessage string) (Run, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
@@ -377,7 +389,7 @@ func (service *Service) markTurnCancelled(workspaceID string, conversationID str
 	message.UpdatedAt = now
 	run.Status = RunStatusCancelled
 	run.CompletedAt = now
-	run.Error = "turn cancelled"
+	run.Error = runError
 	run.HasPendingApproval = false
 	run.PendingApproval = ApprovalRequest{}
 	records, err := service.store.CancelTurn(TerminalTurnRecords{AssistantMessage: message, Run: run})
@@ -386,7 +398,7 @@ func (service *Service) markTurnCancelled(workspaceID string, conversationID str
 	}
 	message = records.AssistantMessage
 	run = records.Run
-	if err := service.traceLocked(workspaceID, run.ID, "cancellation_requested", "Turn cancellation requested"); err != nil {
+	if err := service.traceLocked(workspaceID, run.ID, traceType, traceMessage); err != nil {
 		return Run{}, err
 	}
 	delete(service.active, key)
@@ -406,7 +418,12 @@ func (service *Service) ActiveRun(workspaceID string, conversationID string) (Ru
 	if _, err := service.workspaceResolver.ResolveWorkspace(workspaceID); err != nil {
 		return Run{}, false, err
 	}
-	return service.store.ActiveRun(workspaceID, conversationID)
+	run, ok, err := service.store.ActiveRun(workspaceID, conversationID)
+	if err != nil {
+		service.recordCorruptStateDiagnostic(err, workspaceID, conversationID, "")
+		return Run{}, false, err
+	}
+	return run, ok, nil
 }
 
 func (service *Service) SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []ApprovalAnswer, cancelled bool) (Run, error) {
@@ -598,29 +615,6 @@ func (service *Service) newAssistantMessageWithOrdinal(conversationID string, ru
 			Format: TextFormatMarkdown,
 		}},
 	}, nil
-}
-
-func (service *Service) runHarnessTurn(ctx context.Context, request TurnRequest) {
-	sink := turnSink{service: service, workspaceID: request.Workspace.ID, conversationID: request.Conversation.ID, runID: request.Run.ID}
-	err := service.harness.StartTurn(ctx, request, sink)
-	if err != nil {
-		if errors.Is(ctx.Err(), context.Canceled) {
-			return
-		}
-		var refErr *HarnessRefUnavailableError
-		if errors.As(err, &refErr) {
-			if markErr := service.markHarnessRefUnavailable(request.Workspace.ID, request.Conversation.ID, request.Run.ID, refErr); markErr != nil {
-				service.recordBackgroundFailure(request, "harness_ref_update_failed", markErr)
-			}
-		}
-		if failErr := service.failTurn(request.Workspace.ID, request.Conversation.ID, request.Run.ID, err.Error()); failErr != nil {
-			service.recordBackgroundFailure(request, "fail_turn_transition_failed", failErr)
-		}
-		return
-	}
-	if err := service.completeTurn(request.Workspace.ID, request.Conversation.ID, request.Run.ID); err != nil {
-		service.recordBackgroundFailure(request, "complete_turn_transition_failed", err)
-	}
 }
 
 func (service *Service) completeTurn(workspaceID string, conversationID string, runID string) error {
@@ -1013,12 +1007,15 @@ func (service *Service) recoverInterruptedRuns() error {
 			if run.Status != RunStatusRunning {
 				continue
 			}
-			message, err := service.store.LoadMessageByID(workspaceID, run.ConversationID, run.AssistantMessageID)
+			message, ok, err := service.store.FindMessageByID(workspaceID, run.ConversationID, run.AssistantMessageID)
 			if err != nil {
 				return err
 			}
+			if !ok {
+				return corruptStateErrorf(service.store.runPath(workspaceID, run.ID), "run %s assistant message %s was not found", run.ID, run.AssistantMessageID)
+			}
 			if err := validateRunAssistantMessageRecord(run, message); err != nil {
-				return err
+				return corruptStateError(service.store.runPath(workspaceID, run.ID), err)
 			}
 			message.Status = MessageStatusError
 			message.UpdatedAt = now
@@ -1055,6 +1052,10 @@ func (sink turnSink) ApprovalRequested(approval ApprovalRequest) error {
 
 func (sink turnSink) ApprovalResolved(approvalID string, approved bool, response string) error {
 	return sink.service.resolveApproval(sink.workspaceID, sink.conversationID, sink.runID, approvalID, approved, response)
+}
+
+func (sink turnSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool) error {
+	return sink.service.recordProviderDiagnostic(sink.workspaceID, sink.conversationID, sink.runID, code, message, context, resyncRequired)
 }
 
 func (sink turnSink) RunItemOutputDelta(providerItemID string, stream string, text string) error {

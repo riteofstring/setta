@@ -10,7 +10,9 @@ import (
 const (
 	FakeEventAssistantDelta = "assistant_delta"
 	FakeEventApproval       = "approval"
+	FakeEventCancelled      = "cancelled"
 	FakeEventError          = "error"
+	FakeEventFailed         = "failed"
 	FakeEventRunItem        = "run_item"
 	FakeEventRunItemOutput  = "run_item_output"
 	FakeEventThreadLinked   = "thread_linked"
@@ -52,20 +54,26 @@ func NewFakeHarness(events []FakeHarnessEvent) *FakeHarness {
 	}
 }
 
-func (harness *FakeHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) error {
+func (harness *FakeHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	events := harness.script(request)
 	harness.registerRun(request.Run.ID)
 	defer harness.unregisterRun(request.Run.ID)
 
 	for _, event := range events {
 		if err := ctx.Err(); err != nil {
-			return err
+			return TurnCompletion{}, err
+		}
+		switch event.Type {
+		case FakeEventCancelled:
+			return TurnCompletion{Outcome: TurnOutcomeCancelled}, nil
+		case FakeEventFailed:
+			return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: event.Error}, nil
 		}
 		if err := harness.handleEvent(ctx, request, sink, event); err != nil {
-			return err
+			return TurnCompletion{}, err
 		}
 	}
-	return nil
+	return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
 }
 
 func (harness *FakeHarness) handleEvent(ctx context.Context, request TurnRequest, sink TurnSink, event FakeHarnessEvent) error {

@@ -167,6 +167,33 @@ func TestServiceCancelsActiveRunThroughHarness(t *testing.T) {
 	}
 }
 
+func TestServicePersistsProviderCancelledTurn(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness([]FakeHarnessEvent{
+		{Type: FakeEventAssistantDelta, Text: "partial"},
+		{Type: FakeEventCancelled},
+	}))
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "provider stop")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+
+	run := waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCancelled)
+	if run.Error != "turn cancelled by provider" {
+		t.Fatalf("run error = %q, want provider cancellation", run.Error)
+	}
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load page: %v", err)
+	}
+	if page.Messages[1].Status != MessageStatusCancelled {
+		t.Fatalf("assistant status = %q, want cancelled", page.Messages[1].Status)
+	}
+}
+
 func TestServiceSurfacesAndResolvesApprovalRequests(t *testing.T) {
 	approval := ApprovalRequest{
 		Kind:       ApprovalKindCommand,
@@ -886,6 +913,9 @@ func TestStoreRejectsMalformedConversationState(t *testing.T) {
 	if !strings.Contains(err.Error(), `unknown field "extra"`) {
 		t.Fatalf("error = %q, want unknown field", err)
 	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	}
 }
 
 func TestServiceMarksRunningRunsFailedAfterRestart(t *testing.T) {
@@ -1012,6 +1042,71 @@ func TestServiceRejectsRunningRunWithoutAssistantMessageIDOnStartup(t *testing.T
 	if !strings.Contains(err.Error(), "assistantMessageId is required unless queued") {
 		t.Fatalf("error = %q, want missing assistantMessageId", err)
 	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	}
+}
+
+func TestServiceRejectsRunningRunWithMissingAssistantMessageOnStartup(t *testing.T) {
+	appDataDir := t.TempDir()
+	store := mustStore(t, appDataDir)
+	conversation := Conversation{
+		SchemaVersion: SchemaVersion,
+		ID:            "conversation_api",
+		WorkspaceID:   "workspace_api",
+		Title:         "API",
+		CreatedAt:     "2026-05-29T20:00:00Z",
+		UpdatedAt:     "2026-05-29T20:00:00Z",
+		HarnessRefs:   []HarnessThreadRef{},
+	}
+	if err := store.SaveConversation(conversation); err != nil {
+		t.Fatalf("save conversation: %v", err)
+	}
+	if err := store.SaveMessage("workspace_api", ChatMessage{
+		SchemaVersion:  SchemaVersion,
+		ID:             "message_user",
+		ConversationID: conversation.ID,
+		RunID:          "run_api",
+		Role:           RoleUser,
+		Delivery:       MessageDeliveryNormal,
+		Ordinal:        1,
+		CreatedAt:      "2026-05-29T20:00:00Z",
+		UpdatedAt:      "2026-05-29T20:00:00Z",
+		Status:         MessageStatusComplete,
+		Parts: []MessagePart{{
+			Format: TextFormatPlain,
+			ID:     "part_user",
+			Text:   "prompt",
+			Type:   MessagePartText,
+		}},
+	}); err != nil {
+		t.Fatalf("save user message: %v", err)
+	}
+	if err := store.SaveRun(Run{
+		SchemaVersion:      SchemaVersion,
+		ID:                 "run_api",
+		WorkspaceID:        "workspace_api",
+		ConversationID:     conversation.ID,
+		TriggerMessageID:   "message_user",
+		AssistantMessageID: "message_missing",
+		Harness:            HarnessCodex,
+		Status:             RunStatusRunning,
+		StartedAt:          "2026-05-29T20:00:00Z",
+		PromptSummary:      "prompt",
+	}); err != nil {
+		t.Fatalf("save run: %v", err)
+	}
+
+	_, err := NewService(store, testResolver(t), NewFakeHarness(nil))
+	if err == nil {
+		t.Fatal("new service succeeded, want corrupt missing assistant message")
+	}
+	if !strings.Contains(err.Error(), "assistant message message_missing was not found") {
+		t.Fatalf("error = %q, want missing assistant message", err)
+	}
+	if !IsCorruptStateError(err) {
+		t.Fatalf("error = %T %v, want corrupt state", err, err)
+	}
 }
 
 type resolver map[string]workspace.WorkspaceSummary
@@ -1036,18 +1131,21 @@ func newApprovalCompletesBeforeSubmitReturnsHarness() *approvalCompletesBeforeSu
 	return &approvalCompletesBeforeSubmitReturnsHarness{submitted: make(chan ApprovalResponse, 1)}
 }
 
-func (harness *approvalCompletesBeforeSubmitReturnsHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) error {
+func (harness *approvalCompletesBeforeSubmitReturnsHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
 	harness.mu.Lock()
 	harness.workspaceID = request.Workspace.ID
 	harness.mu.Unlock()
 	if err := sink.ApprovalRequested(ApprovalRequest{Kind: ApprovalKindCommand, Title: "Run command", Command: "go test ./..."}); err != nil {
-		return err
+		return TurnCompletion{}, err
 	}
 	select {
 	case <-harness.submitted:
-		return sink.AssistantTextDelta("", "approved")
+		if err := sink.AssistantTextDelta("", "approved"); err != nil {
+			return TurnCompletion{}, err
+		}
+		return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
 	case <-ctx.Done():
-		return ctx.Err()
+		return TurnCompletion{}, ctx.Err()
 	}
 }
 
@@ -1085,8 +1183,8 @@ func (harness *approvalCompletesBeforeSubmitReturnsHarness) SubmitApproval(ctx c
 
 type unavailableRefHarness struct{}
 
-func (harness unavailableRefHarness) StartTurn(context.Context, TurnRequest, TurnSink) error {
-	return &HarnessRefUnavailableError{
+func (harness unavailableRefHarness) StartTurn(context.Context, TurnRequest, TurnSink) (TurnCompletion, error) {
+	return TurnCompletion{}, &HarnessRefUnavailableError{
 		Harness:  HarnessCodex,
 		ThreadID: "thread_missing",
 		Message:  "resume codex thread thread_missing: not found",
@@ -1113,10 +1211,10 @@ func newPreStartCancelHarness() *preStartCancelHarness {
 	return &preStartCancelHarness{started: make(chan struct{})}
 }
 
-func (harness *preStartCancelHarness) StartTurn(ctx context.Context, _ TurnRequest, _ TurnSink) error {
+func (harness *preStartCancelHarness) StartTurn(ctx context.Context, _ TurnRequest, _ TurnSink) (TurnCompletion, error) {
 	close(harness.started)
 	<-ctx.Done()
-	return ctx.Err()
+	return TurnCompletion{}, ctx.Err()
 }
 
 func (harness *preStartCancelHarness) CancelTurn(context.Context, CancelRequest) error {

@@ -43,13 +43,19 @@ interface ChatStore {
     limit?: number,
   ) => Promise<void>;
   loadWorkspace: (workspaceId: string) => Promise<void>;
+  messageIds: string[];
   messages: ChatMessage[];
+  messagesById: Record<string, ChatMessage>;
   operation: ChatOperation;
   queueMessage: (prompt: string) => Promise<void>;
   resyncActiveConversation: () => Promise<void>;
   createConversation: (title?: string) => Promise<void>;
+  runItemIdsByRunId: Record<string, string[]>;
+  runItemOutputIdsByRunItemId: Record<string, string[]>;
   runItemOutputs: RunItemOutput[];
+  runItemOutputsById: Record<string, RunItemOutput>;
   runItems: RunItem[];
+  runItemsById: Record<string, RunItem>;
   selectedConversation: Conversation | null;
   selectConversation: (conversationId: string) => Promise<void>;
   sendMessage: (prompt: string) => Promise<void>;
@@ -76,10 +82,16 @@ type ChatPatch = Partial<
     | "hasMoreOlder"
     | "lastEventSequence"
     | "lastEventStreamId"
+    | "messageIds"
     | "messages"
+    | "messagesById"
     | "operation"
+    | "runItemIdsByRunId"
+    | "runItemOutputIdsByRunItemId"
     | "runItemOutputs"
+    | "runItemOutputsById"
     | "runItems"
+    | "runItemsById"
     | "selectedConversation"
     | "status"
     | "workspaceId"
@@ -94,7 +106,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
   function beginOperation(patch: ChatPatch) {
     operationSequence += 1;
     currentOperationId = operationSequence;
-    set(patch);
+    set(normalizeChatPatch(patch));
     return currentOperationId;
   }
 
@@ -103,7 +115,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       return;
     }
     currentOperationId = 0;
-    set(patch);
+    set(normalizeChatPatch(patch));
   }
 
   function commitCurrentFromState(
@@ -115,7 +127,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
     }
     const patch = patchForState(get());
     currentOperationId = 0;
-    set(patch);
+    set(normalizeChatPatch(patch));
   }
 
   async function loadConversationPage(workspaceId: string, conversation: Conversation) {
@@ -180,7 +192,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
       const result = applyChatEvent(state, event);
       set({
-        ...result.patch,
+        ...normalizeChatPatch(result.patch),
         lastEventSequence: event.sequence,
         lastEventStreamId: event.streamId,
       });
@@ -229,11 +241,13 @@ export const useChatStore = create<ChatStore>((set, get) => {
       }
       try {
         const page = await window.setta.chat.runActivity(workspaceId, runId, limit);
-        set((current) => ({
-          runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
-          runItems: upsertRunItems(current.runItems, page.items),
-          status: "ready",
-        }));
+        set((current) =>
+          normalizeChatPatch({
+            runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
+            runItems: upsertRunItems(current.runItems, page.items),
+            status: "ready",
+          }),
+        );
       } catch (error) {
         set(errorPatch(error));
       }
@@ -251,10 +265,12 @@ export const useChatStore = create<ChatStore>((set, get) => {
           afterOrdinal,
           limit,
         );
-        set((current) => ({
-          runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
-          status: "ready",
-        }));
+        set((current) =>
+          normalizeChatPatch({
+            runItemOutputs: upsertRunItemOutputs(current.runItemOutputs, page.output),
+            status: "ready",
+          }),
+        );
       } catch (error) {
         set(errorPatch(error));
       }
@@ -293,7 +309,9 @@ export const useChatStore = create<ChatStore>((set, get) => {
     },
     lastEventSequence: 0,
     lastEventStreamId: "",
+    messageIds: [],
     messages: [],
+    messagesById: {},
     operation: null,
     queueMessage: async (prompt: string) => {
       const { activeRun, selectedConversation, workspaceId } = get();
@@ -392,7 +410,11 @@ export const useChatStore = create<ChatStore>((set, get) => {
     },
     status: "idle",
     runItemOutputs: [],
+    runItemOutputIdsByRunItemId: {},
+    runItemOutputsById: {},
     runItems: [],
+    runItemIdsByRunId: {},
+    runItemsById: {},
     steerMessage: async (prompt: string) => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
@@ -478,25 +500,25 @@ function hasSequenceGap(state: ChatStore, event: ChatEvent): boolean {
 }
 
 function pagePatch(page: MessagePage, activeRun: Run | null): ChatPatch {
-  return {
+  return normalizeChatPatch({
     activeRun,
     hasMoreOlder: page.hasMoreOlder,
     messages: page.messages,
     runItemOutputs: page.runItemOutputs,
     runItems: page.runItems,
     selectedConversation: page.conversation,
-  };
+  });
 }
 
 function emptyConversationPatch(): ChatPatch {
-  return {
+  return normalizeChatPatch({
     activeRun: null,
     hasMoreOlder: false,
     messages: [],
     runItemOutputs: [],
     runItems: [],
     selectedConversation: null,
-  };
+  });
 }
 
 function errorPatch(error: unknown): ChatPatch {
@@ -505,6 +527,66 @@ function errorPatch(error: unknown): ChatPatch {
     operation: null,
     status: "error",
   };
+}
+
+function normalizeChatPatch(patch: ChatPatch): ChatPatch {
+  const next: ChatPatch = { ...patch };
+  if (patch.messages !== undefined) {
+    Object.assign(next, normalizeMessages(patch.messages));
+  }
+  if (patch.runItems !== undefined) {
+    Object.assign(next, normalizeRunItems(patch.runItems));
+  }
+  if (patch.runItemOutputs !== undefined) {
+    Object.assign(next, normalizeRunItemOutputs(patch.runItemOutputs));
+  }
+  return next;
+}
+
+function normalizeMessages(messages: ChatMessage[]) {
+  const ordered = messages.toSorted((left, right) => left.ordinal - right.ordinal);
+  const messagesById: Record<string, ChatMessage> = {};
+  for (const message of ordered) {
+    messagesById[message.id] = message;
+  }
+  return {
+    messageIds: ordered.map((message) => message.id),
+    messages: ordered,
+    messagesById,
+  } satisfies ChatPatch;
+}
+
+function normalizeRunItems(items: RunItem[]) {
+  const ordered = items.toSorted(compareRunItems);
+  const runItemsById: Record<string, RunItem> = {};
+  const runItemIdsByRunId: Record<string, string[]> = {};
+  for (const item of ordered) {
+    runItemsById[item.id] = item;
+    runItemIdsByRunId[item.runId] = [...(runItemIdsByRunId[item.runId] ?? []), item.id];
+  }
+  return {
+    runItemIdsByRunId,
+    runItems: ordered,
+    runItemsById,
+  } satisfies ChatPatch;
+}
+
+function normalizeRunItemOutputs(outputs: RunItemOutput[]) {
+  const ordered = outputs.toSorted(compareRunItemOutputs);
+  const runItemOutputsById: Record<string, RunItemOutput> = {};
+  const runItemOutputIdsByRunItemId: Record<string, string[]> = {};
+  for (const output of ordered) {
+    runItemOutputsById[output.id] = output;
+    runItemOutputIdsByRunItemId[output.runItemId] = [
+      ...(runItemOutputIdsByRunItemId[output.runItemId] ?? []),
+      output.id,
+    ];
+  }
+  return {
+    runItemOutputIdsByRunItemId,
+    runItemOutputs: ordered,
+    runItemOutputsById,
+  } satisfies ChatPatch;
 }
 
 export function prependOlderMessages(

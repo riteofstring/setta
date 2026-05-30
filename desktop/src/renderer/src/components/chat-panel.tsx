@@ -88,9 +88,15 @@ function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
       hasMoreOlder={chat.hasMoreOlder}
       loadOlder={chat.loadOlder}
       loadRunItemOutput={chat.loadRunItemOutput}
+      messageIds={chat.messageIds}
       messages={chat.messages}
+      messagesById={chat.messagesById}
+      runItemIdsByRunId={chat.runItemIdsByRunId}
+      runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
       runItemOutputs={chat.runItemOutputs}
+      runItemOutputsById={chat.runItemOutputsById}
       runItems={chat.runItems}
+      runItemsById={chat.runItemsById}
       submitApproval={chat.submitApproval}
     />
   );
@@ -309,11 +315,17 @@ function useChatViewState(workspaceId: string | null) {
   const loadOlder = useChatStore((state) => state.loadOlder);
   const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const loadWorkspace = useChatStore((state) => state.loadWorkspace);
+  const messageIds = useChatStore((state) => state.messageIds);
   const messages = useChatStore((state) => state.messages);
+  const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
   const queueMessage = useChatStore((state) => state.queueMessage);
+  const runItemIdsByRunId = useChatStore((state) => state.runItemIdsByRunId);
+  const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
   const runItemOutputs = useChatStore((state) => state.runItemOutputs);
+  const runItemOutputsById = useChatStore((state) => state.runItemOutputsById);
   const runItems = useChatStore((state) => state.runItems);
+  const runItemsById = useChatStore((state) => state.runItemsById);
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
   const sendMessage = useChatStore((state) => state.sendMessage);
@@ -339,11 +351,17 @@ function useChatViewState(workspaceId: string | null) {
     hasMoreOlder,
     loadOlder,
     loadRunItemOutput,
+    messageIds,
     messages,
+    messagesById,
     operation,
     queueMessage,
+    runItemIdsByRunId,
+    runItemOutputIdsByRunItemId,
     runItemOutputs,
+    runItemOutputsById,
     runItems,
+    runItemsById,
     selectConversation,
     selectedConversation,
     sendMessage,

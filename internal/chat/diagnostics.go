@@ -68,3 +68,40 @@ func (service *Service) recordBackgroundFailure(request TurnRequest, code string
 		return
 	}
 }
+
+func (service *Service) recordProviderDiagnostic(workspaceID string, conversationID string, runID string, code string, message string, context map[string]string, resyncRequired bool) error {
+	if context == nil {
+		context = map[string]string{}
+	}
+	context["resyncRequired"] = fmt.Sprintf("%t", resyncRequired)
+	_, err := service.recordDiagnostic(diagnosticDraft{
+		Code:           code,
+		Context:        context,
+		ConversationID: conversationID,
+		Message:        message,
+		RunID:          runID,
+		Severity:       DiagnosticSeverityCritical,
+		Source:         DiagnosticSourceProvider,
+		WorkspaceID:    workspaceID,
+	})
+	return err
+}
+
+func (service *Service) recordCorruptStateDiagnostic(err error, workspaceID string, conversationID string, runID string) {
+	if err == nil || !IsCorruptStateError(err) {
+		return
+	}
+	_, diagnosticErr := service.recordDiagnostic(diagnosticDraft{
+		Code:           "corrupt_chat_state",
+		Context:        map[string]string{"error": err.Error()},
+		ConversationID: conversationID,
+		Message:        err.Error(),
+		RunID:          runID,
+		Severity:       DiagnosticSeverityCritical,
+		Source:         DiagnosticSourceChat,
+		WorkspaceID:    workspaceID,
+	})
+	if diagnosticErr != nil {
+		return
+	}
+}

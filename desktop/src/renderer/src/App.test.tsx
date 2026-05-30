@@ -162,6 +162,27 @@ describe("chat renderer states", () => {
     expect(html).not.toContain("<script>");
   });
 
+  test("bounds large transcript row rendering", () => {
+    const messages = Array.from({ length: 5000 }, (_, index) =>
+      chatMessage(`message_${index}`, index + 1),
+    );
+
+    const html = renderToString(
+      <ChatTranscript
+        activeRun={null}
+        hasMoreOlder={false}
+        loadOlder={async () => {}}
+        loadRunItemOutput={async () => {}}
+        messages={messages}
+        runItemOutputs={[]}
+        runItems={[]}
+        submitApproval={async () => {}}
+      />,
+    );
+
+    expect(rowCount(html, "chat-message")).toBeLessThanOrEqual(30);
+  });
+
   test("renders queued steering and activity rows", () => {
     const html = renderToString(
       <ChatTranscript
@@ -480,4 +501,20 @@ describe("chat renderer states", () => {
 
 function rowCount(html: string, testId: string) {
   return html.split(`data-testid="${testId}"`).length - 1;
+}
+
+function chatMessage(id: string, ordinal: number) {
+  return {
+    conversationId: "conversation_api",
+    createdAt: "2026-05-29T20:00:00Z",
+    delivery: "normal",
+    id,
+    ordinal,
+    parts: [{ format: "markdown", id: `${id}_part`, text: `message ${ordinal}`, type: "text" }],
+    role: "assistant",
+    runId: `run_${id}`,
+    schemaVersion: 1,
+    status: "complete",
+    updatedAt: "2026-05-29T20:00:00Z",
+  };
 }

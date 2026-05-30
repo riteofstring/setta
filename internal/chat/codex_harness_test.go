@@ -17,9 +17,11 @@ func TestCodexHarnessMapsStreamingTurn(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("stream"))
 	sink := newRecordingSink()
 
-	if err := harness.StartTurn(context.Background(), testTurnRequest(t), sink); err != nil {
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
 		t.Fatalf("start turn: %v", err)
 	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
 
 	if sink.text != "hello from codex" {
 		t.Fatalf("assistant text = %q, want streamed response", sink.text)
@@ -58,14 +60,77 @@ func TestCodexRunItemStatusMappingRejectsUnknownValues(t *testing.T) {
 	}
 }
 
+func TestJSONRPCPendingCallFailsOnProcessExit(t *testing.T) {
+	client, err := startJSONRPCClient(testCodexConfig("jsonrpc-pending-exit"))
+	if err != nil {
+		t.Fatalf("start json rpc client: %v", err)
+	}
+	defer client.close()
+
+	_, err = client.call(context.Background(), "hold", map[string]any{})
+	if err == nil {
+		t.Fatal("call succeeded, want app-server exit error")
+	}
+	if !strings.Contains(err.Error(), "hold failed: codex app-server exited") {
+		t.Fatalf("error = %q, want call exit error", err)
+	}
+}
+
+func TestJSONRPCConcurrentPendingCallsObserveProcessExit(t *testing.T) {
+	client, err := startJSONRPCClient(testCodexConfig("jsonrpc-exit-after-two-calls"))
+	if err != nil {
+		t.Fatalf("start json rpc client: %v", err)
+	}
+	defer client.close()
+
+	first := callJSONRPCAsync(client, "hold")
+	second := callJSONRPCAsync(client, "hold")
+	firstErr := waitForJSONRPCError(t, first)
+	secondErr := waitForJSONRPCError(t, second)
+	if !strings.Contains(firstErr.Error(), "codex app-server exited") {
+		t.Fatalf("first error = %q, want app-server exit", firstErr)
+	}
+	if !strings.Contains(secondErr.Error(), "codex app-server exited") {
+		t.Fatalf("second error = %q, want app-server exit", secondErr)
+	}
+}
+
+func TestJSONRPCCloseFailsPendingCalls(t *testing.T) {
+	client, err := startJSONRPCClient(testCodexConfig("jsonrpc-hold"))
+	if err != nil {
+		t.Fatalf("start json rpc client: %v", err)
+	}
+	done := callJSONRPCAsync(client, "hold")
+	waitForNotification(t, client, "hold/received")
+
+	client.close()
+
+	err = waitForJSONRPCError(t, done)
+	if !strings.Contains(err.Error(), "codex app-server client closed") {
+		t.Fatalf("error = %q, want client closed", err)
+	}
+}
+
+func TestJSONRPCMalformedResponseIDFailsPendingCall(t *testing.T) {
+	client, err := startJSONRPCClient(testCodexConfig("jsonrpc-malformed-response-id"))
+	if err != nil {
+		t.Fatalf("start json rpc client: %v", err)
+	}
+	defer client.close()
+
+	_, err = client.call(context.Background(), "badID", map[string]any{})
+	if err == nil {
+		t.Fatal("call succeeded, want malformed response id error")
+	}
+	if !strings.Contains(err.Error(), "codex response id must be an integer") {
+		t.Fatalf("error = %q, want malformed response id", err)
+	}
+}
+
 func TestCodexHarnessMapsApprovalRequestAndResponse(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("approval"))
 	sink := newRecordingSink()
-	done := make(chan error, 1)
-
-	go func() {
-		done <- harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	}()
+	done := startCodexTurnAsync(t, harness, sink)
 
 	approval := waitForApproval(t, sink)
 	if approval.Kind != ApprovalKindCommand || approval.Command != "go test ./..." {
@@ -85,9 +150,7 @@ func TestCodexHarnessMapsApprovalRequestAndResponse(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("submit approval: %v", err)
 	}
-	if err := <-done; err != nil {
-		t.Fatalf("start turn after approval: %v", err)
-	}
+	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
 	if sink.text != "approved" {
 		t.Fatalf("assistant text = %q, want approved", sink.text)
 	}
@@ -96,11 +159,7 @@ func TestCodexHarnessMapsApprovalRequestAndResponse(t *testing.T) {
 func TestCodexHarnessMapsPermissionApprovalResponse(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("permission"))
 	sink := newRecordingSink()
-	done := make(chan error, 1)
-
-	go func() {
-		done <- harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	}()
+	done := startCodexTurnAsync(t, harness, sink)
 
 	approval := waitForApproval(t, sink)
 	if approval.Kind != ApprovalKindPermission || !strings.Contains(approval.Permission, "network") {
@@ -116,9 +175,7 @@ func TestCodexHarnessMapsPermissionApprovalResponse(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("submit approval: %v", err)
 	}
-	if err := <-done; err != nil {
-		t.Fatalf("start turn after approval: %v", err)
-	}
+	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
 	if sink.text != "permission approved" {
 		t.Fatalf("assistant text = %q, want permission approved", sink.text)
 	}
@@ -127,11 +184,7 @@ func TestCodexHarnessMapsPermissionApprovalResponse(t *testing.T) {
 func TestCodexHarnessMapsMultiQuestionUserInput(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("user-input"))
 	sink := newRecordingSink()
-	done := make(chan error, 1)
-
-	go func() {
-		done <- harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	}()
+	done := startCodexTurnAsync(t, harness, sink)
 
 	approval := waitForApproval(t, sink)
 	if approval.Kind != ApprovalKindUserInput || len(approval.Questions) != 2 {
@@ -151,9 +204,7 @@ func TestCodexHarnessMapsMultiQuestionUserInput(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("submit approval: %v", err)
 	}
-	if err := <-done; err != nil {
-		t.Fatalf("start turn after user input: %v", err)
-	}
+	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
 	if sink.text != "answers received" {
 		t.Fatalf("assistant text = %q, want answers received", sink.text)
 	}
@@ -162,29 +213,49 @@ func TestCodexHarnessMapsMultiQuestionUserInput(t *testing.T) {
 func TestCodexHarnessInterruptsActiveTurn(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("cancel"))
 	sink := newRecordingSink()
-	done := make(chan error, 1)
-
-	go func() {
-		done <- harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	}()
+	done := startCodexTurnAsync(t, harness, sink)
 	waitForThreadLink(t, sink)
 
 	if err := harness.CancelTurn(context.Background(), CancelRequest{RunID: "run_fake"}); err != nil {
 		t.Fatalf("cancel turn: %v", err)
 	}
-	if err := <-done; err != nil {
-		t.Fatalf("start turn after interrupt: %v", err)
+	requireAsyncTurnOutcome(t, done, TurnOutcomeCancelled)
+}
+
+func TestCodexHarnessMapsFailedTurnOutcome(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("failed-turn"))
+	sink := newRecordingSink()
+
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
+		t.Fatalf("start turn: %v", err)
+	}
+	requireTurnOutcome(t, completion, TurnOutcomeFailed)
+	if completion.ErrorMessage != "model failed" {
+		t.Fatalf("turn error = %q, want provider message", completion.ErrorMessage)
+	}
+}
+
+func TestCodexHarnessRejectsUnknownTurnStatus(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("unknown-turn-status"))
+	sink := newRecordingSink()
+
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want unknown turn status error")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex turn status: paused") {
+		t.Fatalf("error = %q, want unsupported turn status", err)
+	}
+	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_turn_status_unsupported" {
+		t.Fatalf("diagnostics = %+v, want unsupported turn status diagnostic", sink.diagnostics)
 	}
 }
 
 func TestCodexHarnessSteersActiveTurn(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("steer"))
 	sink := newRecordingSink()
-	done := make(chan error, 1)
-
-	go func() {
-		done <- harness.StartTurn(context.Background(), testTurnRequest(t), sink)
-	}()
+	done := startCodexTurnAsync(t, harness, sink)
 	waitForThreadLink(t, sink)
 
 	if err := harness.SteerTurn(context.Background(), SteerRequest{
@@ -195,9 +266,7 @@ func TestCodexHarnessSteersActiveTurn(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("steer turn: %v", err)
 	}
-	if err := <-done; err != nil {
-		t.Fatalf("start turn after steer: %v", err)
-	}
+	requireAsyncTurnOutcome(t, done, TurnOutcomeCompleted)
 	if sink.text != "steered" {
 		t.Fatalf("assistant text = %q, want steered", sink.text)
 	}
@@ -207,9 +276,11 @@ func TestCodexHarnessMapsRunActivity(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("activity"))
 	sink := newRecordingSink()
 
-	if err := harness.StartTurn(context.Background(), testTurnRequest(t), sink); err != nil {
+	completion, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err != nil {
 		t.Fatalf("start turn: %v", err)
 	}
+	requireTurnOutcome(t, completion, TurnOutcomeCompleted)
 
 	if len(sink.items) < 5 {
 		t.Fatalf("items = %+v, want command, reasoning, file, mcp, warning activity", sink.items)
@@ -256,7 +327,7 @@ func TestCodexHarnessRejectsMalformedApprovalRequest(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("malformed-approval"))
 	sink := newRecordingSink()
 
-	err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
 	if err == nil {
 		t.Fatal("start turn succeeded, want malformed approval error")
 	}
@@ -269,7 +340,7 @@ func TestCodexHarnessRejectsMalformedAssistantDelta(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("malformed-delta"))
 	sink := newRecordingSink()
 
-	err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
 	if err == nil {
 		t.Fatal("start turn succeeded, want malformed delta error")
 	}
@@ -282,15 +353,37 @@ func TestCodexHarnessReportsUnsupportedServerRequest(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("unsupported-request"))
 	sink := newRecordingSink()
 
-	err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
 	if err == nil {
 		t.Fatal("start turn succeeded, want unsupported request error")
 	}
 	if !strings.Contains(err.Error(), "unsupported codex app-server request") {
 		t.Fatalf("error = %q, want unsupported request", err)
 	}
-	if !containsRunItemType(sink.items, RunItemTypeNotice) {
-		t.Fatalf("items = %+v, want unsupported request notice", sink.items)
+	if containsRunItemType(sink.items, RunItemTypeNotice) {
+		t.Fatalf("items = %+v, want no unsupported request notice", sink.items)
+	}
+	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_request_unsupported" {
+		t.Fatalf("diagnostics = %+v, want unsupported request diagnostic", sink.diagnostics)
+	}
+}
+
+func TestCodexHarnessReportsUnsupportedNotificationAsProviderDrift(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("unsupported-notification"))
+	sink := newRecordingSink()
+
+	_, err := harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	if err == nil {
+		t.Fatal("start turn succeeded, want unsupported notification error")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex app-server notification") {
+		t.Fatalf("error = %q, want unsupported notification", err)
+	}
+	if containsRunItemType(sink.items, RunItemTypeNotice) {
+		t.Fatalf("items = %+v, want no unsupported notification notice", sink.items)
+	}
+	if len(sink.diagnostics) != 1 || sink.diagnostics[0].code != "codex_notification_unsupported" {
+		t.Fatalf("diagnostics = %+v, want unsupported notification diagnostic", sink.diagnostics)
 	}
 }
 
@@ -303,13 +396,19 @@ func TestCodexHarnessFakeAppServer(t *testing.T) {
 }
 
 type recordingSink struct {
-	approvalCh chan ApprovalRequest
-	items      []RunItem
-	linkCh     chan struct{}
-	outputs    []recordedOutput
-	text       string
-	threadID   string
-	turnID     string
+	approvalCh  chan ApprovalRequest
+	diagnostics []recordedProviderDiagnostic
+	items       []RunItem
+	linkCh      chan struct{}
+	outputs     []recordedOutput
+	text        string
+	threadID    string
+	turnID      string
+}
+
+type codexTurnResult struct {
+	completion TurnCompletion
+	err        error
 }
 
 type recordedOutput struct {
@@ -318,10 +417,83 @@ type recordedOutput struct {
 	text   string
 }
 
+type recordedProviderDiagnostic struct {
+	code           string
+	context        map[string]string
+	message        string
+	resyncRequired bool
+}
+
 func newRecordingSink() *recordingSink {
 	return &recordingSink{
 		approvalCh: make(chan ApprovalRequest, 1),
 		linkCh:     make(chan struct{}, 1),
+	}
+}
+
+func startCodexTurnAsync(t *testing.T, harness *CodexHarness, sink *recordingSink) <-chan codexTurnResult {
+	t.Helper()
+	request := testTurnRequest(t)
+	done := make(chan codexTurnResult, 1)
+	go func() {
+		completion, err := harness.StartTurn(context.Background(), request, sink)
+		done <- codexTurnResult{completion: completion, err: err}
+	}()
+	return done
+}
+
+func requireAsyncTurnOutcome(t *testing.T, done <-chan codexTurnResult, outcome TurnOutcome) {
+	t.Helper()
+	select {
+	case result := <-done:
+		if result.err != nil {
+			t.Fatalf("start turn: %v", result.err)
+		}
+		requireTurnOutcome(t, result.completion, outcome)
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for turn outcome %s", outcome)
+	}
+}
+
+func requireTurnOutcome(t *testing.T, completion TurnCompletion, outcome TurnOutcome) {
+	t.Helper()
+	if completion.Outcome != outcome {
+		t.Fatalf("turn outcome = %s, want %s", completion.Outcome, outcome)
+	}
+}
+
+func callJSONRPCAsync(client *jsonRPCClient, method string) <-chan error {
+	done := make(chan error, 1)
+	go func() {
+		_, err := client.call(context.Background(), method, map[string]any{})
+		done <- err
+	}()
+	return done
+}
+
+func waitForJSONRPCError(t *testing.T, done <-chan error) error {
+	t.Helper()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("json rpc call succeeded, want error")
+		}
+		return err
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for json rpc error")
+		return nil
+	}
+}
+
+func waitForNotification(t *testing.T, client *jsonRPCClient, method string) {
+	t.Helper()
+	select {
+	case message := <-client.notifications:
+		if message.Method != method {
+			t.Fatalf("notification method = %q, want %q", message.Method, method)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out waiting for notification %s", method)
 	}
 }
 
@@ -336,6 +508,16 @@ func (sink *recordingSink) ApprovalRequested(approval ApprovalRequest) error {
 }
 
 func (sink *recordingSink) ApprovalResolved(string, bool, string) error {
+	return nil
+}
+
+func (sink *recordingSink) ProviderDiagnostic(code string, message string, context map[string]string, resyncRequired bool) error {
+	sink.diagnostics = append(sink.diagnostics, recordedProviderDiagnostic{
+		code:           code,
+		context:        context,
+		message:        message,
+		resyncRequired: resyncRequired,
+	})
 	return nil
 }
 
@@ -419,6 +601,9 @@ func fakeCodexAppServer(mode string) {
 		if err := json.Unmarshal(scanner.Bytes(), &message); err != nil {
 			panic(err)
 		}
+		if handleFakeJSONRPCMode(mode, &state, message) {
+			return
+		}
 		if handleFakeApprovalResponse(mode, state, message) {
 			return
 		}
@@ -431,6 +616,35 @@ func fakeCodexAppServer(mode string) {
 
 type fakeCodexState struct {
 	approvalOutstanding bool
+	holdCalls           int
+}
+
+func handleFakeJSONRPCMode(mode string, state *fakeCodexState, message map[string]any) bool {
+	switch mode {
+	case "jsonrpc-pending-exit":
+		if message["method"] == "hold" {
+			return true
+		}
+	case "jsonrpc-exit-after-two-calls":
+		if message["method"] == "hold" {
+			state.holdCalls++
+			if state.holdCalls == 2 {
+				return true
+			}
+		}
+	case "jsonrpc-hold":
+		if message["method"] == "hold" {
+			writeFakeNotification("hold/received", map[string]any{})
+			time.Sleep(2 * time.Second)
+			return true
+		}
+	case "jsonrpc-malformed-response-id":
+		if message["method"] == "badID" {
+			writeFake(map[string]any{"id": "not-an-int", "result": map[string]any{}})
+			return true
+		}
+	}
+	return false
 }
 
 func handleFakeApprovalResponse(mode string, state fakeCodexState, message map[string]any) bool {
@@ -481,6 +695,12 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 	case "stream":
 		writeFakeStreamTurn()
 		return true
+	case "failed-turn":
+		writeFakeFailedTurn()
+		return true
+	case "unknown-turn-status":
+		writeFakeCompletedTurn("paused")
+		return true
 	case "steer":
 		return false
 	case "activity":
@@ -497,6 +717,13 @@ func handleFakeTurnStart(mode string, state *fakeCodexState, message map[string]
 		return true
 	case "unsupported-request":
 		writeFakeUnsupportedRequest()
+		return true
+	case "unsupported-notification":
+		writeFakeNotification("turn/unknownStateChanged", map[string]any{
+			"data":     map[string]any{"value": "unknown"},
+			"threadId": "thread_fake",
+			"turnId":   "turn_fake",
+		})
 		return true
 	}
 	return false
@@ -521,6 +748,18 @@ func writeFakeStreamTurn() {
 	writeFakeAssistantDelta("hello ")
 	writeFakeAssistantDelta("from codex")
 	writeFakeCompletedTurn("completed")
+}
+
+func writeFakeFailedTurn() {
+	writeFakeNotification("turn/completed", map[string]any{
+		"threadId": "thread_fake",
+		"turn": map[string]any{
+			"error":  map[string]any{"message": "model failed"},
+			"id":     "turn_fake",
+			"items":  []any{},
+			"status": "failed",
+		},
+	})
 }
 
 func writeFakeActivityTurn() {
