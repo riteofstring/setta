@@ -63,9 +63,6 @@ if [[ -f "${DEST_DIR}/version.txt" ]] && [[ -x "${GOPLS_BIN}" ]]; then
   EXISTING_VERSION="$(tr -d '[:space:]' < "${DEST_DIR}/version.txt")"
   if [[ "${EXISTING_VERSION}" == "${GOPLS_VERSION}" ]]; then
     ensure_link "${ROOT_DIR}/.tools/bin/gopls" "../gopls/${PLATFORM_TAG}/bin/gopls"
-    if [[ -d "${ROOT_DIR}/.venv/bin" ]]; then
-      ensure_link "${ROOT_DIR}/.venv/bin/gopls" "../../.tools/gopls/${PLATFORM_TAG}/bin/gopls"
-    fi
     printf "Repo-local gopls %s already present for %s at %s\n" "${GOPLS_VERSION}" "${PLATFORM_TAG}" "${GOPLS_BIN}"
     exit 0
   fi
@@ -84,9 +81,6 @@ fi
 
 echo "${GOPLS_VERSION}" > "${DEST_DIR}/version.txt"
 ensure_link "${ROOT_DIR}/.tools/bin/gopls" "../gopls/${PLATFORM_TAG}/bin/gopls"
-if [[ -d "${ROOT_DIR}/.venv/bin" ]]; then
-  ensure_link "${ROOT_DIR}/.venv/bin/gopls" "../../.tools/gopls/${PLATFORM_TAG}/bin/gopls"
-fi
 
 printf "Installed repo-local gopls %s for %s at %s\n" "${GOPLS_VERSION}" "${PLATFORM_TAG}" "${GOPLS_BIN}"
 printf "Use it via %s\n" "./scripts/gopls.sh"

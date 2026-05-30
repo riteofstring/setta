@@ -78,7 +78,7 @@ list_active_generation_processes() {
   local cwd=""
   local matches=()
 
-  candidate_regex='pnpm gcf|pnpm generate|pnpm full-cleanup|runKnip\.mjs|openapi-ts|prettier/bin/prettier\.cjs|prune_generated_types\.py|fix_http_openapi_exact_optional\.mjs|setta-gen-(frontend-bindings|go-route-registries|go-shared-schema|go-type-registries|http-openapi|python-listener-endpoint-client|python-sdk-contracts|python-shared-constants|python-shared-types)|frontend/scripts/gcf\.sh|frontend/generation/generate(_go_frontend_bindings|_go_python_types|_http_openapi_bindings|_non_http_openapi_bindings)?\.sh'
+  candidate_regex='go generate|pnpm (build|generate|lint|test)|npm run (build|generate|lint|test)|prettier|eslint|tsc|openapi'
 
   while IFS= read -r line; do
     [[ -n "${line}" ]] || continue

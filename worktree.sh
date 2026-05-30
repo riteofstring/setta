@@ -44,7 +44,7 @@ EOF
 }
 
 worktree_sh_impl() {
-  # Runs worktree creation + install. Safe to run with `set -e`.
+  # Runs worktree creation. Safe to run with `set -e`.
   root_dir="$1"
   base_dir="$2"
   use_existing_branches="$3"
@@ -88,11 +88,7 @@ worktree_sh_impl() {
       fi
     done
 
-    echo "Running dev install in ${worktree_path}..."
-    (
-      cd "${worktree_path}"
-      . ./dev_install.sh
-    )
+    echo "Created worktree at ${worktree_path}."
   done
 }
 

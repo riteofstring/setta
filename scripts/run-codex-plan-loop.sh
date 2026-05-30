@@ -411,7 +411,7 @@ Execution rules for every iteration:
 - Pick one actionable issue or one tightly related cluster you can complete confidently in this session.
 - Prefer owner-level fixes that remove issue classes instead of patching symptoms at multiple call sites.
 - Do not hand-edit generated files.
-- If Go-owned contracts, generator inputs, Python SDK contracts, or frontend generation inputs change, regenerate affected outputs before cleanup.
+- If Go-owned contracts or generated TypeScript surfaces change, regenerate affected outputs before cleanup.
 - Run focused verification for the behavior you changed.
 - Before every commit, run the repository-required cleanup and quality checks from the plan or AGENTS.md.
 - If you make repo changes, end the session with a clean worktree and a commit whose message starts with \`${commit_prefix}\`.

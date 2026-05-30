@@ -9,8 +9,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import yaml
-
 DEFAULT_REGISTRY_URL = "https://registry.npmjs.org"
 MAX_WORKERS = 8
 
@@ -39,37 +37,39 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def require_mapping(
-    value: object, *, lockfile: Path, description: str
-) -> dict[object, object]:
-    if isinstance(value, dict):
-        return value
-    raise SystemExit(
-        f"pnpm release-age policy failed: expected {description} in {lockfile}."
-    )
-
-
 def load_package_keys(lockfile_text: str, *, lockfile: Path) -> list[str]:
-    data = yaml.safe_load(lockfile_text)
-    if data is None:
-        data = {}
-    lockfile_data = require_mapping(
-        data, lockfile=lockfile, description="a top-level mapping"
-    )
+    package_keys: list[str] = []
+    in_packages = False
+    for raw_line in lockfile_text.splitlines():
+        if not raw_line.strip() or raw_line.lstrip().startswith("#"):
+            continue
 
-    packages = lockfile_data.get("packages")
-    if packages is None:
-        return []
-    package_map = require_mapping(
-        packages, lockfile=lockfile, description="'packages' to be a mapping"
-    )
+        if raw_line == "packages:":
+            in_packages = True
+            continue
 
-    invalid_key = next((key for key in package_map if not isinstance(key, str)), None)
-    if invalid_key is not None:
+        if not in_packages:
+            continue
+
+        if not raw_line.startswith(" "):
+            break
+
+        stripped = raw_line.strip()
+        if not stripped.endswith(":"):
+            continue
+        key = stripped[:-1].strip()
+        if (key.startswith("'") and key.endswith("'")) or (
+            key.startswith('"') and key.endswith('"')
+        ):
+            key = key[1:-1]
+        if key:
+            package_keys.append(key)
+
+    if "packages:" in lockfile_text and not package_keys:
         raise SystemExit(
-            f"pnpm release-age policy failed: found a non-string package key in {lockfile}."
+            f"pnpm release-age policy failed: found packages section but no package entries in {lockfile}."
         )
-    return list(package_map)
+    return package_keys
 
 
 def parse_registry_package(raw_key: str) -> tuple[str, str] | None:
@@ -78,6 +78,7 @@ def parse_registry_package(raw_key: str) -> tuple[str, str] | None:
         return None
 
     package_name, version = base_key.rsplit("@", 1)
+    package_name = package_name.removeprefix("/")
     if not package_name or not version:
         return None
 

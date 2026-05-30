@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 import subprocess
 from pathlib import Path
 
 DEFAULT_MIN_RELEASE_AGE_DAYS = 7
 MINUTES_PER_DAY = 24 * 60
-LOCAL_PNPM_PROJECTS = (
-    Path("frontend"),
-    Path("backend/setta/agentic/external_adapters/sidecars"),
+IGNORED_PROJECT_PARTS = (
+    ".git",
+    ".tools",
+    "build",
+    "dist",
+    "node_modules",
 )
 LOCAL_POLICY_FILE = Path("supply_chain_policy.env")
 NPMRC_KEY_ALIASES = ("minimum-release-age", "min-release-age", "minimumReleaseAge")
@@ -124,25 +128,38 @@ def write_local_policy(repo_root: Path, *, days: int) -> None:
     )
 
 
+def discover_pnpm_projects(repo_root: Path) -> list[Path]:
+    projects: list[Path] = []
+    for root, dirnames, filenames in os.walk(repo_root):
+        dirnames[:] = [
+            dirname for dirname in dirnames if dirname not in IGNORED_PROJECT_PARTS
+        ]
+        root_path = Path(root)
+        if "package.json" not in filenames:
+            continue
+        projects.append(root_path.relative_to(repo_root))
+    return sorted(projects)
+
+
 def configure_local(repo_root: Path, *, days: int) -> None:
     write_local_policy(repo_root, days=days)
-    for project_dir in LOCAL_PNPM_PROJECTS:
+    pnpm_projects = discover_pnpm_projects(repo_root)
+    for project_dir in pnpm_projects:
         upsert_npmrc(repo_root / project_dir / ".npmrc", days=days)
 
     print(f"Configured repo-local minimum release age: {days} day(s).")
     print(f"- Updated {(repo_root / LOCAL_POLICY_FILE).relative_to(repo_root)}")
-    for project_dir in LOCAL_PNPM_PROJECTS:
+    for project_dir in pnpm_projects:
         print(
             f"- Updated {(repo_root / project_dir / '.npmrc').relative_to(repo_root)}"
         )
+    if not pnpm_projects:
+        print("- No package.json files found yet; skipped pnpm project .npmrc files.")
     print(
         "Go has no native install-time release-age setting; use ./audit_supply_chain.sh for Go module age checks."
     )
     print(
         "pnpm uses minimum-release-age in minutes, and this repo also verifies checked-in pnpm lockfiles with audit/update scripts."
-    )
-    print(
-        "uv only supports an absolute cutoff date, so this repo enforces Python age gating through init_env.sh and audit_supply_chain.sh."
     )
 
 
@@ -174,9 +191,6 @@ def configure_global(repo_root: Path, *, days: int) -> None:
     )
     print(
         "Skipped Go: Go modules do not expose a native install-time release-age setting."
-    )
-    print(
-        "Use ./configure_supply_chain.sh --local-only if you want repo-local Python enforcement via init_env.sh."
     )
 
 

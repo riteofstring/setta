@@ -1,29 +1,64 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SETTA_PYTHON_VERSION="${SETTA_PYTHON_VERSION:-3.13}"
-SETTA_INIT_ENV_UPDATE_LOCK=1 . ./init_env.sh
 SETTA_MIN_RELEASE_AGE_DAYS="${SETTA_MIN_RELEASE_AGE_DAYS:-7}"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! [[ "${SETTA_MIN_RELEASE_AGE_DAYS}" =~ ^[0-9]+$ ]]; then
   echo "Minimum release age must be a non-negative integer: ${SETTA_MIN_RELEASE_AGE_DAYS}" >&2
   exit 1
 fi
 
-repo_dev_python() {
-  uv run \
-    --frozen \
-    --python "${SETTA_PYTHON_VERSION:-3.13}" \
-    --extra source \
-    --extra dev \
-    python \
-    "$@"
+resolve_python() {
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s\n' python3
+    return
+  fi
+  if command -v python >/dev/null 2>&1; then
+    printf '%s\n' python
+    return
+  fi
+  echo "python3 or python is required for dependency policy checks." >&2
+  exit 1
 }
 
-pnpm -C frontend install --lockfile-only
-repo_dev_python ./scripts/check_pnpm_lock_release_age.py --days "${SETTA_MIN_RELEASE_AGE_DAYS}" --lockfile ./frontend/pnpm-lock.yaml
-pnpm -C frontend install --frozen-lockfile
+discover_pnpm_projects() {
+  find "${repo_root}" \
+    \( -path "${repo_root}/.git" -o -path "${repo_root}/.tools" -o -path "*/node_modules" -o -path "*/dist" -o -path "*/build" \) -prune \
+    -o -name package.json -type f -print \
+    | sed "s#^${repo_root}/##; s#/package.json\$##" \
+    | LC_ALL=C sort
+}
 
-pnpm -C backend/setta/agentic/external_adapters/sidecars install --lockfile-only
-repo_dev_python ./scripts/check_pnpm_lock_release_age.py --days "${SETTA_MIN_RELEASE_AGE_DAYS}" --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml
-pnpm -C backend/setta/agentic/external_adapters/sidecars install --frozen-lockfile --prefer-offline
+python_bin="$(resolve_python)"
+found_dependency_manifest=0
+
+if [[ -f "${repo_root}/go.mod" ]]; then
+  found_dependency_manifest=1
+  echo "Refreshing Go module metadata..."
+  "${repo_root}/scripts/go.sh" mod tidy
+  "${python_bin}" "${repo_root}/scripts/check_go_module_release_age.py" \
+    --days "${SETTA_MIN_RELEASE_AGE_DAYS}" \
+    --repo-root "${repo_root}"
+fi
+
+while IFS= read -r project_dir; do
+  [[ -n "${project_dir}" ]] || continue
+  found_dependency_manifest=1
+  if ! command -v pnpm >/dev/null 2>&1; then
+    echo "pnpm is required to update ${project_dir}." >&2
+    exit 1
+  fi
+  echo "Refreshing pnpm lockfile for ${project_dir}..."
+  pnpm -C "${repo_root}/${project_dir}" install --lockfile-only
+  if [[ -f "${repo_root}/${project_dir}/pnpm-lock.yaml" ]]; then
+    "${python_bin}" "${repo_root}/scripts/check_pnpm_lock_release_age.py" \
+      --days "${SETTA_MIN_RELEASE_AGE_DAYS}" \
+      --lockfile "${repo_root}/${project_dir}/pnpm-lock.yaml"
+    pnpm -C "${repo_root}/${project_dir}" install --frozen-lockfile
+  fi
+done < <(discover_pnpm_projects)
+
+if [[ "${found_dependency_manifest}" -eq 0 ]]; then
+  echo "No dependency manifests found."
+fi
