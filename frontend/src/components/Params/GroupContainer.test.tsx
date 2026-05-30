@@ -408,6 +408,7 @@ describe("ParamGroupContainer layout", () => {
     expect(markup).toContain('data-edge-param-id="result"');
     expect(markup).toContain('data-edge-param-side="out"');
     expect(markup).toContain("arg-edge-handle");
+    expect(markup).toContain("rounded-b-[inherit]");
     expect(markup).not.toContain("-mt-4");
   });
 });

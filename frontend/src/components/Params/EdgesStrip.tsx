@@ -371,7 +371,7 @@ function getEdgesStripClassName(
   variant: EdgesStripVariant,
 ) {
   if (variant === "bare-node") {
-    return `relative z-0 flex shrink-0 flex-col overflow-visible border-t ${appearance.stripBorderColorClassName} ${appearance.edgeStripBgColorClassName} ${appearance.roundedBottomClassName}`;
+    return `relative z-0 flex shrink-0 flex-col overflow-visible border-t ${appearance.stripBorderColorClassName} ${appearance.edgeStripBgColorClassName} ${appearance.roundedBottomClassName} rounded-b-[inherit]`;
   }
 
   return `section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b pt-5 ${appearance.stripBorderColorClassName} ${appearance.edgeStripBgColorClassName} ${appearance.roundedBottomClassName}`;
