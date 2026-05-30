@@ -170,15 +170,9 @@ printf '%s\\n' "$@" >> "{sandbox_root / "ruff_calls.txt"}"
 set -euo pipefail
 printf '__CALL__\\n' >> "{sandbox_root / "pnpm_calls.txt"}"
 printf '%s\\n' "$@" >> "{sandbox_root / "pnpm_calls.txt"}"
-emit_json=0
-previous_arg=""
-for arg in "$@"; do
-  if [[ "$previous_arg" == "--format" && "$arg" == "json" ]]; then
-    emit_json=1
-  fi
-  previous_arg="$arg"
-done
-if [[ "$emit_json" == "1" ]]; then
+if printf '%s\\n' "$@" | grep -qx 'eslint' &&
+   printf '%s\\n' "$@" | grep -qx -- '--format' &&
+   printf '%s\\n' "$@" | grep -qx 'json'; then
   printf '[]\\n'
 fi
 """,
@@ -470,7 +464,7 @@ def test_check_quality_includes_python_tests_and_test_file_length_sources(
             "-over",
             "19",
             "internal/demo/main_test.go",
-        ]
+        ],
     ]
 
 

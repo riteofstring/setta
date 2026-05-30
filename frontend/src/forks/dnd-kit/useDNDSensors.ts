@@ -6,39 +6,15 @@ import {
 import { useMemo } from "react";
 import { useMisc } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
-import { NO_DRAG_CLASS_NAME } from "utils/constants";
-import { useDndState } from "./dndState";
 import {
-  selectionDragHandle,
-  selectionDragPrimaryId,
-} from "./selectionDragHandle";
-
-type DndSource = {
-  id: string | number;
-  element?: Element;
-  handle?: Element;
-  data?: {
-    current?: {
-      type?: string;
-      isTopLevel?: boolean;
-    };
-  };
-};
+  type DndSource,
+  getSectionDndActivatorElements,
+  shouldPreventSectionDndActivation,
+} from "./dndSensorActivation";
+import { useDndState } from "./dndState";
 
 function getDragType(source: DndSource): string | null {
   return source.data?.current?.type ?? null;
-}
-
-function getIsTopLevel(source: DndSource): boolean {
-  return Boolean(source.data?.current?.isTopLevel);
-}
-
-function eventTargetsNoDragElement(event: Event): boolean {
-  const target = event.target;
-  if (!(target instanceof Element)) {
-    return false;
-  }
-  return target.closest(`.${NO_DRAG_CLASS_NAME}`) !== null;
 }
 
 export function useSectionDndSensors() {
@@ -49,55 +25,23 @@ export function useSectionDndSensors() {
     }
 
     const pointerSensor = PointerSensor.configure({
-      activatorElements: (source: DndSource) => {
-        const baseTarget = source.handle ?? source.element;
-        const handleElement = selectionDragHandle.value;
-        const primaryId = selectionDragPrimaryId.value;
-        if (
-          handleElement &&
-          primaryId &&
-          String(source.id) === String(primaryId)
-        ) {
-          return [baseTarget, handleElement];
-        }
-        return [baseTarget];
-      },
+      activatorElements: getSectionDndActivatorElements,
       preventActivation: (event, source: DndSource) => {
-        const { isSorting, isMovingFree } = useDndState.getState();
-        const isTopLevel = getIsTopLevel(source);
-        if (isMovingFree) {
-          return false;
-        }
-
-        if (isSorting && !isTopLevel) {
-          return false;
-        }
-
-        if (eventTargetsNoDragElement(event)) {
-          return true;
-        }
-
-        return true;
+        return shouldPreventSectionDndActivation(
+          event,
+          source,
+          useDndState.getState(),
+        );
       },
     });
 
     const keyboardSensor = KeyboardSensor.configure({
       preventActivation: (event, source: DndSource) => {
-        const { isSorting, isMovingFree } = useDndState.getState();
-        const isTopLevel = getIsTopLevel(source);
-        if (isMovingFree) {
-          return false;
-        }
-
-        if (isSorting && !isTopLevel) {
-          return false;
-        }
-
-        if (eventTargetsNoDragElement(event)) {
-          return true;
-        }
-
-        return true;
+        return shouldPreventSectionDndActivation(
+          event,
+          source,
+          useDndState.getState(),
+        );
       },
     });
 

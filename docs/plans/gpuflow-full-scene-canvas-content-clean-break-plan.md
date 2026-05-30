@@ -1,0 +1,497 @@
+# GpuFlow Full Scene And Canvas Content Clean-Break Plan
+
+## Goal
+
+Replace the current "large DOM subtree rendered into one node texture" model
+with a renderer-owned scene model:
+
+- `GpuFlow` owns live layout for top-level sections, nested child sections,
+  resize handles, scroll regions, hit testing, culling, and interaction
+  projection.
+- High-cardinality node contents, especially param dict/list rows, render
+  through retained canvas/GPU primitives instead of persistent React DOM rows.
+- DOM remains only for active or inherently DOM-dependent islands such as
+  CodeMirror, focused text inputs, popovers, color pickers, file controls, and
+  accessibility-critical controls that cannot yet be represented by the canvas
+  renderer.
+- Go remains the source of truth for durable section/param contracts,
+  validation, generated metadata, endpoint shapes, and correctness-sensitive
+  behavior. The frontend renderer applies those generated contracts to live
+  pixel layout and interaction.
+
+This plan is a clean break. Do not add backward compatibility, migrations,
+legacy support, old/new switches, compatibility shims, dual-read/write paths,
+or silent fallback behavior. When ownership moves to `GpuFlow`, delete the old
+owner in the same implementation slice.
+
+## Why This Replaces The Earlier Scene Plan
+
+The earlier scene-ownership plan correctly moved top-level project-canvas scene
+ownership into `GpuFlow`, but it explicitly left nested section layout and
+section content rendering out of scope.
+
+Those exclusions are now the main performance problem:
+
+- A param dict with many params is still a large DOM subtree inside one section
+  surface. Scrolling it requires browser layout/paint work for that subtree.
+- A group or list with many child sections still renders those child sections
+  as React/CSS descendants of the parent section. Sorting or moving child
+  sections invalidates and rerenders parent-owned DOM.
+- Nested resize still uses nested section DOM resize paths instead of the same
+  renderer-owned live layout path as top-level GPU resize.
+
+This plan keeps the earlier direction but extends it to the full section scene
+and to high-cardinality section contents.
+
+## Current Ownership Problems
+
+### Top-Level Surface Is GPU-Owned, Nested Scene Is Not
+
+Current files:
+
+- `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuSurface.tsx`
+  passes top-level `GpuNodeLayout[]` into `GpuFlow`.
+- `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuLayoutAdapter.ts`
+  adapts `useNodeInternals` into the `GpuFlow` layout store.
+- `frontend/src/gpuFlow/layoutStore.ts` owns live layout records for top-level
+  renderer nodes.
+
+The renderer already owns the right kind of state at the top level, but the
+records represent only top-level sections. Nested section layout is still
+inside the rendered node content.
+
+### Child Sections Are React/CSS/Dnd-Kit-Owned
+
+Current files:
+
+- `frontend/src/components/Section/Container/ManyNestedSections.tsx`
+  renders child section ids as DOM descendants.
+- `frontend/src/components/Section/Container/SortableSectionContainer.tsx`
+  applies dnd-kit transforms and schedules local rect updates from DOM.
+- `frontend/src/forks/dnd-kit/dndChildren.ts` mirrors parent-child order for
+  live sort rendering.
+- `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+  uses different resize paths for top-level and nested sections.
+
+This means a list/group with many child sections is expensive to sort because
+the child sections are part of the parent surface's DOM subtree.
+
+### Param Dicts Are DOM-Owned
+
+Current files:
+
+- `frontend/src/components/Section/Layouts/DictArea.tsx` renders param dict
+  contents through React components.
+- `frontend/src/components/Params/GroupContainer/groupContainer.tsx` measures
+  param areas with DOM observers and renders pinned/unpinned scroll areas.
+- `frontend/src/components/Params/ParamDndList.tsx` maps all visible param ids
+  to React row components.
+- `frontend/src/components/Params/GetParamSwitch.tsx` filters and maps params
+  without virtualization.
+- `frontend/src/components/Params/ParamContainer.tsx` renders nested param rows
+  and port/control DOM.
+
+This means a param dict with many params still pays DOM cost even though
+`GpuFlow` can efficiently compose the resulting texture.
+
+### Port Geometry Still Depends On DOM Measurement
+
+Current files:
+
+- `frontend/src/gpuFlow/ports/portGeometry.ts` registers port descriptors and
+  measures source-local handle rects.
+- `frontend/src/gpuFlow/Handle/index.tsx` registers handle DOM with the global
+  port registry.
+- `frontend/src/components/Pages/Project/GpuProjectSurface/projectGpuHandleAdapter.ts`
+  supplies Setta-specific connection policy to generic `GpuFlow` handles.
+- `frontend/src/components/Pages/Project/gpuProjectEdgeScene.ts` builds edge
+  geometry from renderer layout and registered port positions.
+
+Once section and param contents render through retained scene data, port
+positions must be metadata produced by layout and content renderers, not
+screen-DOM measurements.
+
+## HTML-In-Canvas Example Lessons
+
+The local example repos at
+`/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos` are useful
+for browser constraints and interaction patterns.
+
+Relevant examples:
+
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-official/README.md`
+  defines the core browser constraints: `layoutsubtree`, direct canvas child
+  requirements, `changedElements`, `requestPaint()`, transform synchronization,
+  and WebGPU `copyElementImageToTexture`.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-official/Examples/webgpu-jelly-slider/src/index.ts`
+  shows the WebGPU upload path with `copyElementImageToTexture`, explicit
+  paint requests for controls, and transform sync for interactive DOM.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-dot-dev/src/content/demos/multi-element-composition/demo.html`
+  shows that multiple direct canvas children can be composed independently and
+  ordered by the renderer instead of DOM order.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas-dot-dev/src/content/demos/3d-room-live-content/demo.html`
+  shows a critical staging rule: source elements must remain actually laid out
+  and painted. Do not use `display:none`, `visibility:hidden`, `opacity:0`,
+  large negative offscreen positioning, or clipping patterns that prevent the
+  browser from recording a usable paint snapshot.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/html-in-canvas/plugins/html-cloth.mjs`
+  is a useful reference for DOM controls rendered into a transformed canvas
+  surface while native interaction is projected back to the source element.
+- `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/three-html-render/src/htmlTexture.ts`
+  and `/Users/kevin/Documents/AppDevelopment/example_html_in_canvas_repos/three-html-render/src/syncFormState.ts`
+  are useful anti-pattern references for Setta's primary path: SVG/foreignObject
+  capture and DOM-clone fallback logic are complex and fragile. Setta should
+  rely on native html-in-canvas and renderer-owned primitives instead.
+
+Design implications for Setta:
+
+- Keep direct canvas child source surfaces for the DOM islands that remain.
+- Split independently invalidated things into independent renderer surfaces
+  instead of one giant parent source surface.
+- Do not hide or offscreen-stage source DOM in ways that suppress browser paint
+  snapshots.
+- Use `changedElements` and dirty rects only for true DOM islands. They are not
+  a substitute for removing high-cardinality DOM from the hot path.
+- Treat SVG/foreignObject capture as out of scope for the main renderer.
+
+## Target Architecture
+
+### Full `GpuFlowScene`
+
+Introduce a renderer-owned scene snapshot that is flat, explicit, and derived
+from Go-owned/generated project contracts:
+
+```ts
+type GpuFlowScene = {
+  sections: GpuSectionSceneNode[];
+  edges: GpuEdgeSceneRecord[];
+  contentSurfaces: GpuContentSurface[];
+  domIslands: GpuDomIsland[];
+  revision: number;
+};
+```
+
+The exact TypeScript names can differ, but the ownership cannot: `GpuFlow`
+should be able to render, hit-test, scroll, resize, and reorder visible
+sections from this scene without reading layout back from React DOM.
+
+Each section scene node should carry at least:
+
+- `sectionId`
+- `parentSectionId`
+- `childSectionIds` or a stable child range/order reference
+- layout mode: vertical, horizontal, kanban, absolute, or none
+- local rect relative to parent content space
+- world rect in flow space
+- chrome rect, body rect, and child viewport rect
+- clip rect
+- scroll offset for owned overflow regions
+- resize policy and min/max constraints
+- z order and interaction layer
+- port anchor descriptors
+- content renderer descriptor
+
+Go should own the durable section tree, size policy, layout mode identifiers,
+validation, and generated metadata. `GpuFlow` should own the live pixel layout
+execution, dirty flags, culling, and interaction geometry.
+
+### Child Sections As Independent Scene Items
+
+Nested sections must stop being DOM descendants of their parent section
+surface.
+
+Target behavior:
+
+- A group/list parent owns chrome, body background, optional headers, and a
+  child viewport/clip region.
+- Child sections are independent `GpuFlow` scene items positioned inside that
+  viewport.
+- Sorting a child changes renderer-owned child order and local rects.
+- Moving a child changes renderer-owned geometry and commits one durable move
+  operation on interaction stop.
+- Parent source surfaces do not rerender when a child is merely moved,
+  reordered, dragged, or resized.
+- Visible child sections are culled by parent clip rect and viewport.
+
+This should delete the current `ManyNestedSections` render ownership and the
+section-level dnd-kit DOM transform model.
+
+### Unified Resize
+
+All section resizing should use one live resize path in `GpuFlow`.
+
+Target behavior:
+
+- Top-level and nested sections use the same resize handles, hit-testing,
+  constraints, dirty flags, and live layout store.
+- Project-specific policy and persistence stay in the project adapter.
+- Nested resize no longer uses `CustomResizable`.
+- Size-dependent edge endpoints and port anchors update from renderer metadata
+  during the same frame as the resize.
+
+### Renderer-Owned Scroll And Clip Regions
+
+CSS overflow should stop being the owner of high-cardinality section scrolling.
+
+Target behavior:
+
+- Group/list child areas and param areas are explicit `GpuFlow` scroll regions.
+- Wheel, trackpad, drag-scroll, keyboard reveal, and programmatic reveal update
+  renderer-owned scroll offsets.
+- The renderer clips and culls visible children/rows from those offsets.
+- DOM islands inside a scroll region receive synchronized transforms only while
+  they are active or otherwise needed.
+
+CSS overflow can remain only inside a DOM island whose native control requires
+it, not as the parent owner for section or param layout.
+
+### Canvas/GPU Param Content Renderer
+
+Param dicts should be the first high-cardinality content moved out of DOM.
+
+Target behavior:
+
+- The param renderer receives generated/owner-defined param metadata, resolved
+  display state, validation state, search/filter state, pinning state, and
+  drag/drop state.
+- It produces retained draw commands for rows, labels, nesting guides,
+  controls, status/error indicators, ports, hover/selection state, and drag
+  placeholders.
+- It produces a hit-test tree matching those draw commands.
+- It virtualizes by scroll offset and viewport, drawing only visible rows plus
+  a small buffer.
+- It emits port anchor metadata directly from row layout.
+- It mounts DOM islands only for active controls.
+
+The renderer must not duplicate non-trivial section/param business logic in
+TypeScript. If a helper, type guard, normalized union, or metadata surface is
+missing, extend the Go-owned/generated path first.
+
+### DOM Islands
+
+DOM islands are explicit renderer resources, not arbitrary descendants inside a
+large section component.
+
+Examples:
+
+- focused CodeMirror editor
+- active text input or textarea
+- open combobox/dropdown/popover
+- color picker
+- file input/drop area
+- media preview requiring native controls
+- temporary accessibility fallback where canvas semantics are not yet adequate
+
+Each DOM island should have:
+
+- stable id
+- owning section/content id
+- local rect
+- clip owner
+- z layer
+- activation and deactivation rules
+- source element lifecycle
+- transform synchronization owned by `GpuFlow`
+- dirtying behavior tied to the island, not the whole section
+
+Inactive CodeMirror-like controls should render as canvas text/control
+primitives. Mount the real DOM editor only on focus/activation.
+
+### Port And Edge Geometry
+
+Port anchors should be produced by section/content layout, not measured from
+DOM.
+
+Target behavior:
+
+- Section chrome/content renderers emit local port anchor descriptors.
+- `GpuFlow` transforms local anchors to world positions from the same layout
+  store used for rendering.
+- Edge paths, reconnect anchors, labels, hit regions, minimap state, and
+  selection bounds consume the same edge scene.
+- DOM handle registration and screen-space `getBoundingClientRect()` are not
+  part of the steady-state edge geometry path.
+
+## Implementation Slices
+
+These slices are allowed to leave the branch temporarily broken while a slice
+is in progress. Each completed slice should remove the previous owner for the
+responsibility it moves.
+
+### 1. Define The Clean Scene Contract
+
+- Add a new `GpuFlowScene` model under `frontend/src/gpuFlow/`.
+- Define section scene records, content surface records, scroll regions, port
+  anchors, DOM island descriptors, and dirty flags.
+- Extend Go-owned metadata/generation where section layout modes, size policy,
+  param display metadata, or param type surfaces are missing.
+- Replace top-level-only layout records with section-scene records.
+- Delete any new local TypeScript mirrors that become unnecessary after
+  generation.
+
+Acceptance:
+
+- `GpuFlow` can receive one flat scene snapshot containing top-level and nested
+  sections.
+- The project adapter is the only layer translating Setta project state into
+  `GpuFlow` scene input.
+
+### 2. Move Nested Section Layout Into `GpuFlow`
+
+- Remove `ManyNestedSections` as the renderer for child section layout.
+- Remove `SortableSectionContainer` as the owner of live child section
+  transforms.
+- Replace dnd-kit child layout with `GpuFlow` child layout and hit testing.
+- Implement vertical, horizontal, and kanban child layout in the renderer scene
+  model.
+- Add parent clip rects and child viewport culling.
+
+Acceptance:
+
+- Group/list children are independent scene items.
+- Reordering children updates scene geometry without rerendering the parent
+  section surface.
+- Parent source surfaces do not contain child section DOM.
+
+### 3. Unify Section Resize
+
+- Route top-level and nested section resize through one `GpuFlow` resize
+  controller.
+- Delete nested `CustomResizable` ownership.
+- Move nested resize constraints into the scene record.
+- Commit final size changes through the project adapter.
+- Update edge/port geometry from renderer metadata during live resize.
+
+Acceptance:
+
+- Top-level and nested sections share the same resize implementation.
+- No resize path reads screen DOM as the source of truth for section geometry.
+
+### 4. Replace Section Sorting And Reparenting Interaction
+
+- Replace section dnd-kit sensors/transforms with `GpuFlow` pointer
+  interaction controllers.
+- Render insertion markers, drag previews, and autoscroll through `GpuFlow`.
+- Commit final reparent/reorder operations through existing project actions or
+  new Go-backed endpoints if the current contracts are not sufficient.
+- Delete `dndChildren` once renderer scene state owns live child order.
+
+Acceptance:
+
+- Dragging a child section changes renderer-owned layout every frame.
+- React does not rerender the child list on every drag frame.
+
+### 5. Introduce Renderer-Owned Scroll Regions
+
+- Add scroll-region state to `GpuFlow`.
+- Move group/list overflow to renderer clipping and scroll offsets.
+- Add reveal-to-rect and keyboard navigation APIs against renderer scroll
+  regions.
+- Keep DOM scroll only inside active DOM islands that require native scrolling.
+
+Acceptance:
+
+- Scrolling a large group/list changes a numeric renderer scroll offset and
+  culls children.
+- Parent/child section DOM is not the scroll owner.
+
+### 6. Build The Param Canvas Renderer
+
+- Define a retained param content scene from generated/owner-defined metadata.
+- Render rows, labels, nesting, simple controls, errors, hover, selection, and
+  drag state as canvas/GPU primitives.
+- Virtualize visible rows by scroll offset.
+- Emit hit-test records and port anchors from the same row layout.
+- Mount DOM islands for active CodeMirror/input/dropdown/color/file controls.
+- Delete the DOM row rendering hot path for dict params once parity is reached
+  for the target branch.
+
+Acceptance:
+
+- A large param dict scrolls without rendering all rows as DOM.
+- Param edge anchors come from retained layout metadata.
+- The inactive state of normal params is canvas-rendered.
+
+### 7. Move Edge Labels, Reconnect Anchors, And Selection Overlays Into Scene
+
+- Render edge labels, reconnect anchors, selected bounds, insertion markers,
+  drag previews, and resize affordances through `GpuFlow`.
+- Remove viewport-synchronized DOM overlay ownership where it duplicates
+  renderer state.
+- Keep DOM only when the overlay is an active island.
+
+Acceptance:
+
+- Edge visuals and interaction hit regions are built from one edge scene.
+- Selection and group drag use the same live layout store as section rendering.
+
+### 8. Delete Old DOM Measurement Paths
+
+- Remove DOM handle registration as a steady-state source of port geometry.
+- Remove screen-space section rect fallback helpers from project focus/reveal
+  paths after equivalent scene APIs exist.
+- Remove param area DOM measurements that computed row/container heights.
+- Remove nested-section DOM sort/resize stores.
+
+Acceptance:
+
+- Renderer geometry is not reconstructed from `getBoundingClientRect()` in the
+  steady-state canvas scene.
+- Remaining DOM measurement is limited to active DOM islands and intrinsic size
+  measurement that is explicitly content-owned.
+
+## Performance Verification
+
+Create repeatable fixtures before implementing the renderer rewrite:
+
+- param dict with 1,000+ top-level params
+- nested param tree with deep child rows
+- group with hundreds of child sections
+- list root with hundreds of child sections
+- kanban-style horizontal child layout with many columns/cards
+- mixed CodeMirror-active and CodeMirror-inactive param states
+
+Measure before and after:
+
+- scroll FPS and input latency
+- JS time per wheel event
+- JS time per reorder/drag frame
+- React commits per interaction
+- DOM node count in the project surface
+- texture uploads per frame
+- uploaded texture bytes per frame
+- paint event changed-surface count
+- GPU memory and source texture count
+- edge/port geometry update cost
+
+For implementation work, record before/after reports under `perf/` as
+append-only artifacts.
+
+## Testing And Debugging Requirements
+
+- Add unit tests for pure layout calculators and hit-test reducers.
+- Add focused frontend tests for scene generation from project state.
+- Add interaction tests for child section sort, resize, scroll, reveal, and
+  param row activation.
+- Use Chrome DevTools performance profiling for the large fixtures.
+- Add debug overlays for scene rects, clip rects, scroll regions, port anchors,
+  DOM islands, and dirty surfaces.
+- Fail loudly when a required scene record, generated metadata field, or DOM
+  island owner is missing.
+
+Do not add generator drift tests that only rerun generators and compare
+checked-in output.
+
+## Final Target
+
+The final architecture should have these properties:
+
+- `GpuFlow` owns the complete live project-canvas scene.
+- Child section layout is not React/CSS-owned.
+- Section resize is unified across top-level and nested sections.
+- High-cardinality param content is not persistent DOM.
+- DOM islands are explicit, sparse, active resources.
+- Port and edge geometry comes from renderer layout metadata.
+- Browser html-in-canvas source surfaces are used where they are strongest:
+  native active controls and accessibility surfaces, not bulk row rendering.
+- Old DOM render, sort, resize, scroll, and measurement owners are deleted.

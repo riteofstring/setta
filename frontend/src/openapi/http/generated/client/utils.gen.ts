@@ -16,7 +16,7 @@ import type {
   RequestOptions,
 } from "./types.gen";
 
-const createQuerySerializer = <T = unknown>({
+export const createQuerySerializer = <T = unknown>({
   parameters = {},
   ...args
 }: QuerySerializerOptions = {}) => {

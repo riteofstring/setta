@@ -9,9 +9,11 @@ import _ from "lodash";
 import { setParamEnteredValue } from "openapi/http";
 import React from "react";
 import {
-  dispatchButtonParamAction,
-  type ButtonParamActionConfig,
-} from "state/actions/params/buttonParamActions";
+  createChromeReproPerfTimer,
+  nowChromeReproPerformanceMs,
+  postChromeReproPerfEvent,
+  roundChromeReproMs,
+} from "state/actions/chromeRepro";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrCodeObjVariantIfPresent,
@@ -37,6 +39,7 @@ import type {
 } from "utils/generatedTypes";
 import {
   BinaryDependencyValue,
+  ButtonActionModeEnum,
   CodeObjTypeEnum,
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
@@ -45,6 +48,7 @@ import {
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
   DropzoneModeEnum,
+  HTTPRequestMethodEnum,
   LiteralDependencyValue,
   SectionTypeEnum,
   TimeControlModeEnum,
@@ -53,7 +57,16 @@ import {
   isBaseChildlessCodeObjImpl,
 } from "utils/generatedTypes";
 import { shouldEmitRealtimeValue } from "utils/paramValue";
-type ButtonRequestConfig = ButtonParamActionConfig;
+import { sendButtonSettaRequest } from "./settaApiAction";
+type ButtonRequestConfig = Pick<
+  ButtonParamCodeObjImpl,
+  | "actionMode"
+  | "requestMethod"
+  | "requestUrl"
+  | "requestHeaderKey"
+  | "requestHeaderValue"
+  | "requestBody"
+>;
 type ProjectStateSnapshot = Parameters<typeof getSectionCore>[0];
 type MetaControlSharedState = {
   sectionName: string;
@@ -357,15 +370,44 @@ function ButtonMetaControlContent({
       paramDisplayName={state.paramDisplayName}
       codeObjType={state.codeObjType}
       onAction={() =>
-        dispatchButtonParamAction({
-          config: state.buttonConfig,
+        handleMetaControlButtonAction(
+          state.buttonConfig,
           sectionId,
           controlParamId,
-        })
+        )
       }
       showSectionTitle={showSectionTitle}
     />
   );
+}
+
+function handleMetaControlButtonAction(
+  buttonConfig: ButtonRequestConfig,
+  sectionId: string,
+  controlParamId: string,
+) {
+  if (buttonConfig.actionMode === ButtonActionModeEnum.HTTP_REQUEST) {
+    sendButtonHttpRequest(buttonConfig);
+    return;
+  }
+  if (buttonConfig.actionMode === ButtonActionModeEnum.SETTA_API) {
+    sendButtonSettaRequest(buttonConfig);
+    return;
+  }
+  const payload: LiteralDependencyValue = {
+    payload: JSON.stringify({
+      actionMode: buttonConfig.actionMode,
+      controlParamId,
+    }),
+    type: DependencyValueTypeEnum.Literal,
+  };
+  sendRealtimeDependencyEvent({
+    dependencyKey: {
+      type: DependencyKeyTypeEnum.Section,
+      sectionId,
+    },
+    payload,
+  });
 }
 
 function ValueMetaControlContent({
@@ -483,7 +525,19 @@ function applyMetaControlValueChange({
     return;
   }
   const valueStr = _.toString(nextValue);
+  const timer = createChromeReproPerfTimer("meta-control-value-change", {
+    codeObjType,
+    controlParamId,
+    hasCodeObjVariantId: codeObjVariantId !== null,
+    hasSectionVariantId: sectionVariantId !== null,
+    sectionId,
+    skipBackendUpdate: options?.skipBackendUpdate === true,
+    valueLength: valueStr.length,
+    valueType: typeof nextValue,
+  });
   setPendingValue(valueStr);
+  timer.mark("set-pending-value");
+  let realtimeEmitted = false;
   if (
     shouldEmitRealtimeValue({
       previousValue: currentValue,
@@ -492,8 +546,14 @@ function applyMetaControlValueChange({
     })
   ) {
     sendRealtimeSectionLiteral(sectionId, valueStr);
+    realtimeEmitted = true;
   }
+  timer.mark("realtime-literal");
   if (options?.skipBackendUpdate) {
+    timer.finish({
+      backendUpdateQueued: false,
+      realtimeEmitted,
+    });
     return;
   }
   sendMetaControlBackendUpdate({
@@ -503,6 +563,11 @@ function applyMetaControlValueChange({
     codeObjVariantId,
     codeObjType,
     value: valueStr,
+  });
+  timer.mark("queue-backend-update");
+  timer.finish({
+    backendUpdateQueued: true,
+    realtimeEmitted,
   });
 }
 
@@ -625,8 +690,18 @@ const debouncedSetParamEnteredValue = _.debounce(
     codeObjVariantId: string,
     value: string,
   ) => {
+    const timer = createChromeReproPerfTimer("set-param-entered-value", {
+      codeObjVariantId,
+      paramInfoId,
+      sectionId,
+      sectionVariantId,
+      valueLength: value.length,
+    });
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
+        const applyStartedAt = timer.active
+          ? nowChromeReproPerformanceMs()
+          : null;
         setCodeObjVariantImplValue<BaseChildlessCodeObjImplUnion>(
           state,
           paramInfoId,
@@ -635,9 +710,35 @@ const debouncedSetParamEnteredValue = _.debounce(
             value,
           },
         );
+        if (applyStartedAt !== null) {
+          postChromeReproPerfEvent("set-param-optimistic-apply", {
+            codeObjVariantId,
+            durationMs: roundChromeReproMs(
+              nowChromeReproPerformanceMs() - applyStartedAt,
+            ),
+            paramInfoId,
+            sectionId,
+            sectionVariantId,
+            valueLength: value.length,
+          });
+        }
       },
-      send: (frontendOpId) =>
-        callOpenAPI(
+      send: (frontendOpId) => {
+        timer.mark("optimistic-dispatch");
+        const requestStartedAt = timer.active
+          ? nowChromeReproPerformanceMs()
+          : null;
+        if (requestStartedAt !== null) {
+          postChromeReproPerfEvent("set-param-request-start", {
+            codeObjVariantId,
+            frontendOpId,
+            paramInfoId,
+            sectionId,
+            sectionVariantId,
+            valueLength: value.length,
+          });
+        }
+        const request = callOpenAPI(
           setParamEnteredValue({
             body: {
               projectConfigId: getCurrProjectConfigId(),
@@ -648,8 +749,58 @@ const debouncedSetParamEnteredValue = _.debounce(
               frontendOpId,
             },
           } as Parameters<typeof setParamEnteredValue>[0]),
-        ),
+        );
+        void Promise.resolve(request).then(
+          (response) => {
+            if (requestStartedAt === null) {
+              return;
+            }
+            postChromeReproPerfEvent("set-param-request-finish", {
+              codeObjVariantId,
+              durationMs: roundChromeReproMs(
+                nowChromeReproPerformanceMs() - requestStartedAt,
+              ),
+              frontendOpId,
+              hasResponse:
+                typeof response === "object" &&
+                response !== null &&
+                "hasResponse" in response
+                  ? response.hasResponse
+                  : null,
+              paramInfoId,
+              sectionId,
+              sectionVariantId,
+              status:
+                typeof response === "object" &&
+                response !== null &&
+                "status" in response
+                  ? response.status
+                  : null,
+              valueLength: value.length,
+            });
+          },
+          (error) => {
+            if (requestStartedAt === null) {
+              return;
+            }
+            postChromeReproPerfEvent("set-param-request-finish", {
+              codeObjVariantId,
+              durationMs: roundChromeReproMs(
+                nowChromeReproPerformanceMs() - requestStartedAt,
+              ),
+              error: error instanceof Error ? error.message : String(error),
+              frontendOpId,
+              paramInfoId,
+              sectionId,
+              sectionVariantId,
+              valueLength: value.length,
+            });
+          },
+        );
+        return request;
+      },
     });
+    timer.finish();
   },
   50,
 );
@@ -678,4 +829,30 @@ function isButtonParamCodeObjImpl(
   impl: BaseCodeObjImplUnion,
 ): impl is ButtonParamCodeObjImpl {
   return impl.type === CodeObjTypeEnum.ButtonParam;
+}
+function sendButtonHttpRequest(config: ButtonRequestConfig) {
+  const requestUrl = config.requestUrl.trim();
+  if (requestUrl === "") {
+    return;
+  }
+  const method = config.requestMethod ?? HTTPRequestMethodEnum.POST;
+  const headerKey = config.requestHeaderKey.trim();
+  let headers: HeadersInit | undefined;
+  if (headerKey !== "") {
+    headers = { [headerKey]: config.requestHeaderValue };
+  }
+  const trimmedBody = config.requestBody.trim();
+  let body: string | undefined;
+  if (
+    trimmedBody !== "" &&
+    method !== HTTPRequestMethodEnum.GET &&
+    method !== HTTPRequestMethodEnum.HEAD
+  ) {
+    body = config.requestBody;
+  }
+  void fetch(requestUrl, {
+    method,
+    headers,
+    body,
+  });
 }

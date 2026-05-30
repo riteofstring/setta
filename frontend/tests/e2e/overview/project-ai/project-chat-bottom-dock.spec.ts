@@ -29,7 +29,7 @@ test("project chat bottom dock auto-creates a chat and supports creating additio
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const strip = page.getByTestId("project-chat-bottom-dock-strip");
@@ -308,7 +308,7 @@ test("the Project AI manager reopens minimized windows", async ({ page }) => {
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
 
     const dockPanel = page
       .getByTestId("project-chat-bottom-dock-window-panel")
@@ -368,7 +368,7 @@ test("project chat bottom dock narrows into a single visible window and collapse
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const createButton = page.getByTestId("project-chat-bottom-dock-create");
@@ -476,7 +476,7 @@ test("project chat canvas visibility toggle hides and restores overlay windows",
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     await page.getByTestId("project-chat-window-maximize").last().click();
@@ -518,7 +518,7 @@ test("project chat keyboard shortcuts toggle canvas and control focused windows"
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const isMac = await page.evaluate(() =>
@@ -575,7 +575,7 @@ test("project chat keyboard shortcuts snap the focused floating window to direct
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const isMac = await page.evaluate(() =>
@@ -637,7 +637,7 @@ test("project chat snap shortcuts open floating windows directly into quarter pr
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
     const { sectionId } = await createTextBlockSection(
       page,
@@ -709,7 +709,7 @@ test("project chat windows support floating drag/resize, z-order focus, and maxi
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const isMac = await page.evaluate(() =>
@@ -947,7 +947,7 @@ test("project chat floating windows show inline threads and chat together when r
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);
@@ -1011,7 +1011,7 @@ test("project chat floating windows keep conversation search inline until narrow
 
   try {
     await page.reload();
-    await page.waitForSelector(".react-flow__pane");
+    await page.waitForSelector(".setta-gpu-flow__pane");
     await collapseSidePanesForWindowInteraction(page);
 
     const floatingWindow = await ensureFloatingWindow(page);

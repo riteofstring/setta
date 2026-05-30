@@ -315,12 +315,12 @@ test.describe.serial("state machine sections", () => {
       await expect(chatSourceHandle).toBeVisible();
       await expect(
         page.locator(
-          `.react-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="left"]:not([data-reverse-start])`,
+          `.setta-gpu-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="left"]:not([data-reverse-start])`,
         ),
       ).toHaveCount(1);
       await expect(
         page.locator(
-          `.react-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="right"]`,
+          `.setta-gpu-flow__handle[data-nodeid="${chatSectionId}"][data-handlepos="right"]`,
         ),
       ).toHaveCount(1);
       await endNode.hover();

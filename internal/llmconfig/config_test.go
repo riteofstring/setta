@@ -23,8 +23,8 @@ func TestLoadDefaultsToSettaServerWhenFileMissing(t *testing.T) {
 	if !ok {
 		t.Fatal("expected default setta server")
 	}
-	if server.Transport != TransportSSE {
-		t.Fatalf("expected sse transport, got %q", server.Transport)
+	if server.Transport != TransportStreamableHTTP {
+		t.Fatalf("expected streamable_http transport, got %q", server.Transport)
 	}
 	if server.URL != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("unexpected setta server url %q", server.URL)
@@ -111,7 +111,7 @@ func TestLoadDerivesConfigIDsAndResolvesServerSets(t *testing.T) {
   "defaultMcpServerIds": ["github"],
   "mcpServers": {
     "setta": {
-      "transport": "sse",
+      "transport": "streamable_http",
       "url": "http://127.0.0.1:9999/mcp"
     },
     "github": {
@@ -186,7 +186,7 @@ func TestLoadRejectsEmbeddedConfigIDAndUnknownServers(t *testing.T) {
   },
   "mcpServers": {
     "bad__id": {
-      "transport": "sse",
+      "transport": "streamable_http",
       "url": "http://127.0.0.1:8000/mcp"
     }
   }
@@ -226,7 +226,7 @@ func TestSaveStripsTemporaryConfigsAndEmbeddedIDs(t *testing.T) {
 		},
 		MCPServers: map[string]ServerConfig{
 			DefaultServerID: {
-				Transport: TransportSSE,
+				Transport: TransportStreamableHTTP,
 				URL:       "http://127.0.0.1:8000/mcp",
 			},
 		},

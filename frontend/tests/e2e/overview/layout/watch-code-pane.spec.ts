@@ -47,7 +47,7 @@ async function linkWatchCodePlugin(page: Page): Promise<void> {
   });
   await postBackend(page, "/plugins/rescan", {});
   await page.reload({ waitUntil: "domcontentloaded" });
-  await expect(page.locator(".react-flow__pane")).toBeVisible();
+  await expect(page.locator(".setta-gpu-flow__pane")).toBeVisible();
 }
 
 test("watch code settings open from controls portal with all options", async ({
@@ -157,10 +157,14 @@ test("watch code input controls disable while an input save is pending", async (
   await fileInput.press("Enter");
   await inputsRouteStarted;
 
-  await expect(portal.getByPlaceholder("relative/path/to/file.py")).toBeDisabled();
+  await expect(
+    portal.getByPlaceholder("relative/path/to/file.py"),
+  ).toBeDisabled();
   await expect(portal.getByRole("button", { name: "Add File" })).toBeDisabled();
   releaseInputsRoute();
-  await expect(portal.getByPlaceholder("relative/path/to/file.py")).toBeEnabled();
+  await expect(
+    portal.getByPlaceholder("relative/path/to/file.py"),
+  ).toBeEnabled();
 });
 
 test("watch code controls stay hidden in deployment mode", async ({ page }) => {
@@ -270,7 +274,7 @@ test("watch code file updates appear live and reload without crashing", async ({
     }
     const [callableSectionId] = callableSectionEntry;
     const callableNode = page.locator(
-      `.react-flow__node[data-id="${callableSectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${callableSectionId}"]`,
     );
 
     await expect(callableNode).toBeVisible();
@@ -280,7 +284,7 @@ test("watch code file updates appear live and reload without crashing", async ({
     ).toBeVisible();
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator(".react-flow__pane")).toBeVisible();
+    await expect(page.locator(".setta-gpu-flow__pane")).toBeVisible();
     await expect(page.getByText("Unhandled Thrown Error!")).toHaveCount(0);
     await expect(callableNode).toBeVisible();
     await expect(callableNode).toContainText(callableName);

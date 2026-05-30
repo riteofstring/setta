@@ -82,7 +82,9 @@ test.describe.serial("section types data authoring", () => {
         ],
       });
 
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -189,7 +191,9 @@ test.describe.serial("section types data authoring", () => {
         projectContext.projectConfigId,
         "ListRoot",
       );
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -260,7 +264,9 @@ test.describe.serial("section types data authoring", () => {
         projectContext.projectConfigId,
         "ListRoot",
       );
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -318,9 +324,9 @@ test.describe.serial("section types data authoring", () => {
       ).toBe(true);
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".react-flow__pane");
+      await page.waitForSelector(".setta-gpu-flow__pane");
       const reloadedNode = page.locator(
-        `.react-flow__node[data-id="${sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
       );
       await expect(reloadedNode).toBeVisible();
       await reloadedNode.click();
@@ -405,13 +411,13 @@ test.describe.serial("section types data authoring", () => {
       );
 
       const taskBoardNode = page.locator(
-        `.react-flow__node[data-id="${taskBoardSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${taskBoardSectionId}"]`,
       );
       const spreadsheetNode = page.locator(
-        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${spreadsheetSectionId}"]`,
       );
       const browserNode = page.locator(
-        `.react-flow__node[data-id="${browserSectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${browserSectionId}"]`,
       );
 
       await expect(taskBoardNode).toBeVisible();

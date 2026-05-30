@@ -109,7 +109,7 @@ func saveManagedAllowlistContractConfig(t *testing.T, cfg config.Config, provide
 		},
 		map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: "sse",
+				Transport: "streamable_http",
 				URL:       serverURL + "/mcp",
 			},
 		},
@@ -404,7 +404,7 @@ func saveManagedStreamingContractConfig(t *testing.T, cfg config.Config, provide
 		},
 		map[string]llmconfig.ServerConfig{
 			mcpx.DefaultServerID: {
-				Transport: "sse",
+				Transport: "streamable_http",
 				URL:       serverURL + "/mcp",
 			},
 		},

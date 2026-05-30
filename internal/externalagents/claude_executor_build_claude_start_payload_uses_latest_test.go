@@ -1026,8 +1026,8 @@ func validateClaudeGeneratedMCPConfigPayload(payload map[string]any) error {
 	if !ok {
 		return fmt.Errorf("expected generated setta mcp server entry, got %#v", rawServers)
 	}
-	if got := strings.TrimSpace(stringValue(settaServer["type"])); got != string(mcpx.TransportSSE) {
-		return fmt.Errorf("expected generated setta transport %s, got %#v", mcpx.TransportSSE, settaServer)
+	if got := strings.TrimSpace(stringValue(settaServer["type"])); got != "streamable_http" {
+		return fmt.Errorf("expected generated setta transport streamable_http, got %#v", settaServer)
 	}
 	if got := strings.TrimSpace(stringValue(settaServer["url"])); got != "http://127.0.0.1:8000/mcp" {
 		return fmt.Errorf("expected generated setta url, got %#v", settaServer)

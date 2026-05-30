@@ -1,23 +1,33 @@
-import { HandlePosition, type HandleType } from "forks/xyflow/core/types";
+import { HandlePosition, type HandleType } from "gpuFlow/flowTypes";
+import {
+  registerGpuFlowPortsWithSharedElement,
+  unregisterGpuFlowPortDescriptor,
+} from "gpuFlow/ports/portGeometry";
 import _ from "lodash";
 import { useLayoutEffect, useRef } from "react";
-import {
-  registerEdgeHandlesWithSharedElement,
-  unregisterEdgeHandle,
-} from "state/actions/edgeHandles";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { useShareCapabilities } from "state/hooks/share";
 import {
+  NO_DRAG_CLASS_NAME,
+  NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 
+const MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
+
 export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
+  const { canEditStructure } = useShareCapabilities();
   const { isMinimized, inputPortIds, outputPortIds } = useProjectState(
     (state) => {
       const impl = getCurrEffectiveSectionImpl(state, sectionId);
-      if (!isBaseSectionWithParamsImpl(impl)) {
+      if (
+        !isBaseSectionWithParamsImpl(
+          impl as unknown as Parameters<typeof isBaseSectionWithParamsImpl>[0],
+        )
+      ) {
         return {
           isMinimized: impl.isMinimized,
           inputPortIds: [],
@@ -26,8 +36,8 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
       }
       return {
         isMinimized: impl.isMinimized,
-        inputPortIds: impl.edgeInputParams,
-        outputPortIds: impl.edgeOutputPorts.map((port) => port.id),
+        inputPortIds: impl.edgeInputParams ?? [],
+        outputPortIds: (impl.edgeOutputPorts ?? []).map((port) => port.id),
       };
     },
     _.isEqual,
@@ -49,12 +59,13 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
     const registered: Array<{ portId: string; type: HandleType }> = [];
 
     if (leftEl) {
-      registerEdgeHandlesWithSharedElement({
-        sectionId,
+      registerGpuFlowPortsWithSharedElement({
+        nodeId: sectionId,
         portIds: inputPortIds,
         type: "target",
         side: HandlePosition.Left,
         element: leftEl,
+        isConnectableEnd: canEditStructure,
       });
       for (const portId of inputPortIds) {
         registered.push({ portId, type: "target" });
@@ -62,12 +73,13 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
     }
 
     if (rightEl) {
-      registerEdgeHandlesWithSharedElement({
-        sectionId,
+      registerGpuFlowPortsWithSharedElement({
+        nodeId: sectionId,
         portIds: outputPortIds,
         type: "source",
         side: HandlePosition.Right,
         element: rightEl,
+        isConnectableEnd: canEditStructure,
       });
       for (const portId of outputPortIds) {
         registered.push({ portId, type: "source" });
@@ -76,10 +88,10 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
 
     return () => {
       for (const entry of registered) {
-        unregisterEdgeHandle(sectionId, entry.portId, entry.type);
+        unregisterGpuFlowPortDescriptor(sectionId, entry.portId, entry.type);
       }
     };
-  }, [inputPortIds, isMinimized, outputPortIds, sectionId]);
+  }, [canEditStructure, inputPortIds, isMinimized, outputPortIds, sectionId]);
 
   if (!isMinimized) {
     return null;
@@ -96,14 +108,14 @@ export function MinimizedDataEdgeHandles({ sectionId }: { sectionId: string }) {
       {hasInputPorts && (
         <div
           aria-hidden="true"
-          className={`react-flow__handle react-flow__handle-left arg-edge-handle arg-edge-handle--minimized arg-edge-handle--target ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
+          className={`setta-gpu-flow__handle setta-gpu-flow__handle-left arg-edge-handle arg-edge-handle--minimized arg-edge-handle--target ${MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES}`}
           ref={leftDotRef}
         />
       )}
       {hasOutputPorts && (
         <div
           aria-hidden="true"
-          className={`react-flow__handle react-flow__handle-right arg-edge-handle arg-edge-handle--minimized arg-edge-handle--source ${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`}
+          className={`setta-gpu-flow__handle setta-gpu-flow__handle-right arg-edge-handle arg-edge-handle--minimized arg-edge-handle--source ${MINIMIZED_DATA_EDGE_HANDLE_GUARD_CLASSES}`}
           ref={rightDotRef}
         />
       )}

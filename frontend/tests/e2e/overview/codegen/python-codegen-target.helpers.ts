@@ -9,7 +9,7 @@ import {
 } from "../../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-export const READY_SELECTOR = ".react-flow__pane";
+export const READY_SELECTOR = ".setta-gpu-flow__pane";
 
 type ProjectCodegenTarget = {
   language: string;
@@ -135,6 +135,7 @@ async function expandRunInstructionsAccordion(
   }
   await expect(trigger).toHaveAttribute("aria-expanded", "true");
 }
+
 export async function openCodegenAccordions(page: Page): Promise<void> {
   await expandRunInstructionsAccordion(
     page,
@@ -539,7 +540,7 @@ export async function getFirstParamInfoId(
 ): Promise<string> {
   const firstParam = page
     .locator(
-      `.react-flow__node[data-id="${sectionId}"] [id^="ParamContainer-${sectionId}-"]`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"] [id^="ParamContainer-${sectionId}-"]`,
     )
     .first();
   await expect(firstParam).toBeVisible({ timeout: 20000 });

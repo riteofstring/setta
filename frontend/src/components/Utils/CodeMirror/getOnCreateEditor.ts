@@ -1,5 +1,5 @@
 import { Completion, CompletionSource } from "@codemirror/autocomplete";
-import { useReactFlow } from "forks/xyflow/core/store";
+import { getZoom } from "gpuFlow/viewportActions";
 
 function fixPlaceholderCursor(divId, value, defaultVal) {
   // The cursor appears the wrong size when there's a placeholder text and when you're zoomed in.
@@ -7,7 +7,7 @@ function fixPlaceholderCursor(divId, value, defaultVal) {
   if (!value && defaultVal) {
     const divs = document.querySelectorAll(`#${divId} .cm-cursor`);
     divs.forEach((div) => {
-      div.style.height = `${14 * useReactFlow.getState().transform[2]}px`;
+      div.style.height = `${14 * getZoom()}px`;
     });
   }
 }
@@ -59,7 +59,7 @@ export function wrappedCompletionsFn(
     //   },
     //   { onDocChange: true },
     // );
-    const before = context.matchBefore(/([^.=\\(+-\/ ]*)$/);
+    const before = context.matchBefore(/([^.=\\(+-/ ]*)$/);
     const res = await completionFn(fullText, context.pos);
     if (res) {
       return {

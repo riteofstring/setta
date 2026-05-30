@@ -44,7 +44,7 @@ func newStdioBridgeRuntime(ctx context.Context, config StdioBridgeConfig) (*stdi
 		return nil, err
 	}
 
-	backendConn, err := (&sdkmcp.SSEClientTransport{
+	backendConn, err := (&sdkmcp.StreamableClientTransport{
 		Endpoint:   normalized.BackendURL,
 		HTTPClient: buildMCPHTTPClient(normalized.HTTPHeaders, normalized.HTTPConnectWait),
 	}).Connect(ctx)

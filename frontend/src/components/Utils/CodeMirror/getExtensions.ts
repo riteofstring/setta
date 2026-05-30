@@ -17,6 +17,8 @@ import {
   type KeyBinding,
   type ViewUpdate,
 } from "@codemirror/view";
+import type { DirtyNodeReason } from "gpuFlow/dirtyTracking";
+import { dispatchGpuFlowNodeDirtyEvent } from "gpuFlow/nodeDirtyEvents";
 import { redoProjectState, undoProjectState } from "state/actions/undo";
 import { useSettings } from "state/definitions";
 import type { CodeLanguage } from "utils/codeLanguage";
@@ -35,6 +37,18 @@ const CODEMIRROR_GUTTER_LAYOUT_FIX = EditorView.baseTheme({
     borderRight: "0",
   },
 });
+const GPU_FLOW_DIRTY_UPDATE_LISTENER = EditorView.updateListener.of(
+  (update) => {
+    const reason = getGpuFlowCodeMirrorDirtyReason(update);
+    if (!reason) {
+      return;
+    }
+    dispatchGpuFlowNodeDirtyEvent(update.view.dom, {
+      priority: update.view.hasFocus ? "interactive" : "visible",
+      reason,
+    });
+  },
+);
 type GetExtensionsOptions = {
   parent?: HTMLElement | null;
   language?: CodeLanguage | null;
@@ -93,7 +107,10 @@ export function getExtensions({
   triggerCompletionAfterAccept,
   completionTriggerChars,
 }: GetExtensionsOptions) {
-  const extensions = [CODEMIRROR_GUTTER_LAYOUT_FIX];
+  const extensions = [
+    CODEMIRROR_GUTTER_LAYOUT_FIX,
+    GPU_FLOW_DIRTY_UPDATE_LISTENER,
+  ];
   const shouldWrap = wrapLines ?? !singleLine;
   const triggerChars = completionTriggerChars ?? ["/", "\\"];
   if (shouldWrap) {
@@ -147,6 +164,31 @@ export function getExtensions({
   extensions.push(Prec.highest(keymap.of(fullKeymap)));
 
   return extensions;
+}
+
+export function getGpuFlowCodeMirrorDirtyReason(
+  update: Pick<
+    ViewUpdate,
+    | "docChanged"
+    | "focusChanged"
+    | "geometryChanged"
+    | "selectionSet"
+    | "viewportChanged"
+  >,
+): DirtyNodeReason | null {
+  if (update.docChanged) {
+    return "input";
+  }
+  if (update.selectionSet) {
+    return "selection";
+  }
+  if (update.viewportChanged || update.geometryChanged) {
+    return "scroll";
+  }
+  if (update.focusChanged) {
+    return "focus";
+  }
+  return null;
 }
 
 function getLanguageExtensions(

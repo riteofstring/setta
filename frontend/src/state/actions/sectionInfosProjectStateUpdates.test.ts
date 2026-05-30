@@ -1,4 +1,4 @@
-import { useReactFlow } from "forks/xyflow/core/store";
+import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveCodeObjImplIfPresent,
@@ -69,8 +69,8 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    useReactFlow.setState({ transform: [0, 0, 1] });
-    useReactFlow.setState({
+    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -107,9 +107,9 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     processProjectStateUpdateFromBackend(update);
 
-    expect(useReactFlow.getState().transform).toEqual([10, -20, 1.5]);
-    expect(useReactFlow.getState().fitViewOnInit).toBe(false);
-    expect(useReactFlow.getState().fitViewOnInitDone).toBe(true);
+    expect(gpuFlowViewportStore.getState().transform).toEqual([10, -20, 1.5]);
+    expect(gpuFlowViewportStore.getState().fitViewOnInit).toBe(false);
+    expect(gpuFlowViewportStore.getState().fitViewOnInitDone).toBe(true);
   });
 
   it("fits view to visible sections when viewport is unset", () => {
@@ -164,7 +164,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    useReactFlow.setState({
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -196,10 +196,10 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     processProjectStateUpdateFromBackend(update);
 
-    const reactFlowState = useReactFlow.getState();
-    expect(reactFlowState.fitViewOnInit).toBe(true);
-    expect(reactFlowState.fitViewOnInitDone).toBe(false);
-    expect(reactFlowState.fitViewOnInitOptions?.nodes).toEqual([
+    const gpuViewportState = gpuFlowViewportStore.getState();
+    expect(gpuViewportState.fitViewOnInit).toBe(true);
+    expect(gpuViewportState.fitViewOnInitDone).toBe(false);
+    expect(gpuViewportState.fitViewOnInitOptions?.nodes).toEqual([
       { id: sectionVisible },
     ]);
   });
@@ -276,7 +276,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    useReactFlow.setState({
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -309,10 +309,10 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     processProjectStateUpdateFromBackend(update);
 
-    const reactFlowState = useReactFlow.getState();
-    expect(reactFlowState.fitViewOnInit).toBe(true);
-    expect(reactFlowState.fitViewOnInitDone).toBe(false);
-    expect(reactFlowState.fitViewOnInitOptions?.nodes).toEqual([
+    const gpuViewportState = gpuFlowViewportStore.getState();
+    expect(gpuViewportState.fitViewOnInit).toBe(true);
+    expect(gpuViewportState.fitViewOnInitDone).toBe(false);
+    expect(gpuViewportState.fitViewOnInitOptions?.nodes).toEqual([
       { id: sectionVisible },
     ]);
   });
@@ -366,7 +366,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    useReactFlow.setState({
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -410,10 +410,10 @@ describe("processProjectStateUpdateFromBackend", () => {
       pendingOpIds: [],
     });
 
-    const reactFlowState = useReactFlow.getState();
-    expect(reactFlowState.fitViewOnInit).toBe(true);
-    expect(reactFlowState.fitViewOnInitDone).toBe(false);
-    expect(reactFlowState.fitViewOnInitOptions?.nodes).toEqual([
+    const gpuViewportState = gpuFlowViewportStore.getState();
+    expect(gpuViewportState.fitViewOnInit).toBe(true);
+    expect(gpuViewportState.fitViewOnInitDone).toBe(false);
+    expect(gpuViewportState.fitViewOnInitOptions?.nodes).toEqual([
       { id: sectionVisibleA },
       { id: sectionVisibleB },
     ]);
@@ -491,7 +491,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    useReactFlow.setState({
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -564,8 +564,8 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    useReactFlow.setState({ transform: [0, 0, 1] });
-    useReactFlow.setState({
+    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -637,8 +637,8 @@ describe("processProjectStateUpdateFromBackend", () => {
     });
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: nodeInternals });
-    useReactFlow.setState({ transform: [0, 0, 1] });
-    useReactFlow.setState({
+    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
@@ -769,8 +769,8 @@ describe("processProjectStateUpdateFromBackend", () => {
     } as ZustandProjectState);
     usePendingOperations.setState({ pending: [] });
     useNodeInternals.setState({ x: new Map() });
-    useReactFlow.setState({ transform: [0, 0, 1] });
-    useReactFlow.setState({
+    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
+    gpuFlowViewportStore.getState().setFitViewInitializationState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,

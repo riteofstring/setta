@@ -146,30 +146,30 @@ test.describe.serial("edge visibility toggles", () => {
 
       await page.getByRole("button", { name: "fit view" }).click();
 
-      const reactFlowRoot = page.locator(".react-flow");
-      await expect(reactFlowRoot).toHaveAttribute(
+      const gpuFlowRoot = page.locator(".setta-gpu-flow-root");
+      await expect(gpuFlowRoot).toHaveAttribute(
         "data-show-agentic-edges",
         "true",
       );
-      await expect(reactFlowRoot).toHaveAttribute("data-show-arg-edges", "true");
+      await expect(gpuFlowRoot).toHaveAttribute("data-show-arg-edges", "true");
 
       const argHandle = page.locator(
-        `.react-flow__handle.arg-edge-handle[data-nodeid="${sectionB}"]`,
+        `.setta-gpu-flow__handle.arg-edge-handle[data-nodeid="${sectionB}"]`,
       );
       await expect(argHandle.first()).toBeVisible();
 
       const agenticHandle = page.locator(
-        `.react-flow__handle.agentic-handle--connected[data-nodeid="${sectionB}"]`,
+        `.setta-gpu-flow__handle.agentic-handle--connected[data-nodeid="${sectionB}"]`,
       );
       await expect(agenticHandle.first()).toBeVisible();
 
-      const agenticEdges = page.locator("svg.react-flow__agentic-edges");
-      const argEdges = page.locator("svg.react-flow__edges");
+      const agenticEdges = page.locator("svg.setta-gpu-flow__agentic-edges");
+      const argEdges = page.locator("svg.setta-gpu-flow__edges");
       await expect(agenticEdges).toBeVisible();
       await expect(argEdges).toBeVisible();
 
       await page.getByTestId("rf__toggle-agentic-edges").click();
-      await expect(reactFlowRoot).toHaveAttribute(
+      await expect(gpuFlowRoot).toHaveAttribute(
         "data-show-agentic-edges",
         "false",
       );
@@ -177,7 +177,7 @@ test.describe.serial("edge visibility toggles", () => {
       await expect(agenticHandle.first()).toBeHidden();
 
       await page.getByTestId("rf__toggle-agentic-edges").click();
-      await expect(reactFlowRoot).toHaveAttribute(
+      await expect(gpuFlowRoot).toHaveAttribute(
         "data-show-agentic-edges",
         "true",
       );
@@ -185,12 +185,12 @@ test.describe.serial("edge visibility toggles", () => {
       await expect(agenticHandle.first()).toBeVisible();
 
       await page.getByTestId("rf__toggle-arg-edges").click();
-      await expect(reactFlowRoot).toHaveAttribute("data-show-arg-edges", "false");
+      await expect(gpuFlowRoot).toHaveAttribute("data-show-arg-edges", "false");
       await expect(argEdges).toBeHidden();
       await expect(argHandle.first()).toBeHidden();
 
       await page.getByTestId("rf__toggle-arg-edges").click();
-      await expect(reactFlowRoot).toHaveAttribute("data-show-arg-edges", "true");
+      await expect(gpuFlowRoot).toHaveAttribute("data-show-arg-edges", "true");
       await expect(argEdges).toBeVisible();
       await expect(argHandle.first()).toBeVisible();
     } finally {

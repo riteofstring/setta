@@ -48,12 +48,16 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
+import { SectionResizeFrame } from "./SectionResizeFrame";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
 
+export { getGpuFlowSectionAreaRendererTypes } from "./sectionAreaRendererMetadata";
+
 type SectionContainerCoreResizableProps = {
   sectionId: string;
+  isTopLevel: boolean;
   sectionTypeName: SectionType;
   isInOtherProjectConfigs: boolean;
   isUserView: boolean;
@@ -276,7 +280,7 @@ function SectionContainerChrome({
   );
 }
 
-const SECTION_AREA_RENDERERS = {
+export const SECTION_AREA_RENDERERS = {
   [SectionTypeEnum.Callable]: ({ sectionId, bgColor, isMinimized }) => (
     <CallableArea
       sectionId={sectionId}
@@ -330,17 +334,24 @@ const SECTION_AREA_RENDERERS = {
     setProjectChatId,
     projectChatSurfaceId,
     onProjectChatBlockedErrorCodeChange,
-  }) => (
-    <ChatSectionArea
-      sectionId={sectionId}
-      host={chatHost}
-      modeOverride={chatModeOverride}
-      projectChatId={projectChatId}
-      setProjectChatId={setProjectChatId}
-      surfaceId={projectChatSurfaceId}
-      onProjectChatBlockedErrorCodeChange={onProjectChatBlockedErrorCodeChange}
-    />
-  ),
+  }) => {
+    const chatProps = {
+      sectionId,
+      host: chatHost,
+      ...(chatModeOverride !== undefined
+        ? { modeOverride: chatModeOverride }
+        : {}),
+      ...(projectChatId !== undefined ? { projectChatId } : {}),
+      ...(setProjectChatId !== undefined ? { setProjectChatId } : {}),
+      ...(projectChatSurfaceId !== undefined
+        ? { surfaceId: projectChatSurfaceId }
+        : {}),
+      ...(onProjectChatBlockedErrorCodeChange !== undefined
+        ? { onProjectChatBlockedErrorCodeChange }
+        : {}),
+    };
+    return <ChatSectionArea {...chatProps} />;
+  },
   [SectionTypeEnum.Browser]: ({ sectionId }) => (
     <BrowserArea sectionId={sectionId} />
   ),
@@ -368,6 +379,7 @@ const SECTION_AREA_RENDERERS = {
 
 function _SectionContainerCoreResizable({
   sectionId,
+  isTopLevel,
   sectionTypeName,
   isInOtherProjectConfigs,
   isUserView,
@@ -400,19 +412,20 @@ function _SectionContainerCoreResizable({
   const metaControlLayoutClassName =
     chromeMode === "meta-control" ? "grid-cols-1 grid-rows-1" : undefined;
 
-  return (
-    <CustomResizable
-      sectionId={sectionId}
-      as="section"
-      bgColor={bgColor}
-      isYouTube={isYouTube}
-      isMetaControl={useMetaControlStyle}
-      positionAndSizeLocked={positionAndSizeLocked}
-      hasSectionStyleTheme={hasSectionStyleTheme}
-      allowPointerEventsDuringDnd={hasEmbeddedTerminal}
-      frameClassName={metaControlFrameClassName}
-      layoutClassName={metaControlLayoutClassName}
-    >
+  const resizeFrameProps = {
+    sectionId,
+    as: "section" as const,
+    bgColor,
+    isYouTube,
+    isMetaControl: useMetaControlStyle,
+    positionAndSizeLocked,
+    hasSectionStyleTheme,
+    allowPointerEventsDuringDnd: hasEmbeddedTerminal,
+    frameClassName: metaControlFrameClassName,
+    layoutClassName: metaControlLayoutClassName,
+  };
+  const content = (
+    <>
       <SectionContainerChrome
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}
@@ -431,8 +444,16 @@ function _SectionContainerCoreResizable({
         isMinimized={isMinimized}
         isUserView={isUserView}
       />
-    </CustomResizable>
+    </>
   );
+
+  if (isTopLevel) {
+    return (
+      <SectionResizeFrame {...resizeFrameProps}>{content}</SectionResizeFrame>
+    );
+  }
+
+  return <CustomResizable {...resizeFrameProps}>{content}</CustomResizable>;
 }
 
 export const SectionContainerCoreResizable = React.memo(
@@ -455,19 +476,22 @@ export function AreaSwitch({
   if (isMinimized) {
     return null;
   }
-  return SECTION_AREA_RENDERERS[sectionTypeName]({
+  const areaProps = {
     sectionId,
     sectionTypeName,
     bgColor,
     isMinimized,
     isUserView,
     chatHost,
-    chatModeOverride,
-    projectChatId,
-    setProjectChatId,
-    projectChatSurfaceId,
-    onProjectChatBlockedErrorCodeChange,
-  });
+    ...(chatModeOverride !== undefined ? { chatModeOverride } : {}),
+    ...(projectChatId !== undefined ? { projectChatId } : {}),
+    ...(setProjectChatId !== undefined ? { setProjectChatId } : {}),
+    ...(projectChatSurfaceId !== undefined ? { projectChatSurfaceId } : {}),
+    ...(onProjectChatBlockedErrorCodeChange !== undefined
+      ? { onProjectChatBlockedErrorCodeChange }
+      : {}),
+  } satisfies AreaSwitchProps;
+  return SECTION_AREA_RENDERERS[sectionTypeName](areaProps);
 }
 
 function CanvasSectionBody({
@@ -531,10 +555,14 @@ function ChatSectionArea({
   sectionId: string;
   host: ChatWindowPlacement | "section_layout" | "standalone_page";
   modeOverride?: ChatWindowMode;
-  projectChatId?: string | null;
-  setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
-  surfaceId?: string;
-  onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
+  projectChatId?: string | null | undefined;
+  setProjectChatId?:
+    | ((next: SetStateAction<string | null | undefined>) => void)
+    | undefined;
+  surfaceId?: string | undefined;
+  onProjectChatBlockedErrorCodeChange?:
+    | ((errorCode: string | null) => void)
+    | undefined;
 }) {
   const derivedMode = useProjectState((state) =>
     modeOverride === undefined
@@ -546,18 +574,18 @@ function ChatSectionArea({
   );
   const projectConfigId = useProjectState((state) => state.projectConfig.id);
   const mode = modeOverride ?? derivedMode ?? ChatWindowModeEnum.section_mode;
-  return (
-    <UnifiedChatSurface
-      mode={mode}
-      host={host}
-      sectionId={sectionId}
-      surfaceId={
-        surfaceId ??
-        buildWorkspaceSectionProjectChatSurfaceId(projectConfigId, sectionId)
-      }
-      projectChatId={projectChatId}
-      setProjectChatId={setProjectChatId}
-      onProjectChatBlockedErrorCodeChange={onProjectChatBlockedErrorCodeChange}
-    />
-  );
+  const chatSurfaceProps = {
+    mode,
+    host,
+    sectionId,
+    surfaceId:
+      surfaceId ??
+      buildWorkspaceSectionProjectChatSurfaceId(projectConfigId, sectionId),
+    ...(projectChatId !== undefined ? { projectChatId } : {}),
+    ...(setProjectChatId !== undefined ? { setProjectChatId } : {}),
+    ...(onProjectChatBlockedErrorCodeChange !== undefined
+      ? { onProjectChatBlockedErrorCodeChange }
+      : {}),
+  };
+  return <UnifiedChatSurface {...chatSurfaceProps} />;
 }

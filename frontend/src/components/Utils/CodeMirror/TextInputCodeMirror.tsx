@@ -38,6 +38,11 @@ export function TextInputCodeMirror({
   const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const theme = useCodeMirrorStyle(color);
+  const gpuFlowControl = getTextInputCodeMirrorGpuFlowControl({
+    isKeyName,
+    paramInfoId,
+    sectionId,
+  });
   function localOnBlur() {
     // hack to prevent codemirror from
     // blocking other inputs on blur
@@ -84,6 +89,7 @@ export function TextInputCodeMirror({
           theme={theme}
           placeholder={defaultVal}
           language={language}
+          gpuFlowControl={gpuFlowControl}
         />
       )}
       {activationEvent && (
@@ -109,11 +115,25 @@ export function TextInputCodeMirror({
           isKeyName={isKeyName}
           tooltipParentDivId={tooltipParentDivId}
           completionsFn={completionsFn}
+          gpuFlowControl={gpuFlowControl}
         />
       )}
     </>
   );
 }
+
+function getTextInputCodeMirrorGpuFlowControl({
+  isKeyName,
+  paramInfoId,
+  sectionId,
+}: {
+  isKeyName: boolean;
+  paramInfoId: string | null | undefined;
+  sectionId: string;
+}) {
+  return `codemirror:${sectionId}:${paramInfoId ?? ""}${isKeyName ? ":key" : ":value"}`;
+}
+
 function resolveTooltipParentDivId(
   tooltipParentDivId: string | null | undefined,
 ): string | null {
@@ -144,6 +164,7 @@ function CoreCodeMirror({
   isKeyName,
   completionsFn,
   tooltipParentDivId,
+  gpuFlowControl,
 }) {
   const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -179,6 +200,9 @@ function CoreCodeMirror({
   return (
     <CodeMirror
       id={divId}
+      data-gpu-flow-activation="mousedown"
+      data-gpu-flow-control={gpuFlowControl}
+      data-gpu-flow-interactive="true"
       className={`${className} ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}

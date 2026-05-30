@@ -107,6 +107,12 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "tests/e2e/gpuFlowLargeGraphStressFixture.test.ts",
+      "tests/e2e/gpuFlowInteractionLatencyProbe.test.ts",
+      "tests/e2e/gpuFlowPerformanceProbe.test.ts",
+      "tests/e2e/gpuFlowVisualParityProbe.test.ts",
+    ],
   },
 });

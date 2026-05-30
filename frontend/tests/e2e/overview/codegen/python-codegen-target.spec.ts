@@ -62,7 +62,7 @@ test("python codegen toggle persists and reconciles the generated code section",
       throw new Error("Expected generated python singleton section.");
     }
     const initialGeneratedCodeNode = page.locator(
-      `.react-flow__node[data-id="${initialState.singletonSections.GenPythonCode}"]`,
+      `.setta-gpu-flow__node[data-id="${initialState.singletonSections.GenPythonCode}"]`,
     );
     await expect(initialGeneratedCodeNode).toHaveCount(1);
 
@@ -115,7 +115,7 @@ test("python codegen toggle persists and reconciles the generated code section",
     }
     await expect(
       page.locator(
-        `.react-flow__node[data-id="${reenabledState.singletonSections.GenPythonCode}"]`,
+        `.setta-gpu-flow__node[data-id="${reenabledState.singletonSections.GenPythonCode}"]`,
       ),
     ).toHaveCount(1);
 
@@ -168,7 +168,7 @@ test("python metadata toggle persists and reconciles the metadata section", asyn
       throw new Error("Expected generated python metadata singleton section.");
     }
     const metadataNode = page.locator(
-      `.react-flow__node[data-id="${enabledState.singletonSections.GenPythonMetadata}"]`,
+      `.setta-gpu-flow__node[data-id="${enabledState.singletonSections.GenPythonMetadata}"]`,
     );
     await expect(metadataNode).toHaveCount(1);
 
@@ -230,7 +230,7 @@ test("generated python updates for callable and param changes and reports missin
       throw new Error("Expected generated python singleton section.");
     }
     const generatedCodeContent = page.locator(
-      `.react-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
+      `.setta-gpu-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
     );
     await expect(generatedCodeContent).toBeVisible();
 
@@ -318,7 +318,7 @@ test("generated python updates when switching callable section variants", async 
       throw new Error("Expected generated python singleton section.");
     }
     const generatedCodeContent = page.locator(
-      `.react-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
+      `.setta-gpu-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
     );
     await expect(generatedCodeContent).toBeVisible();
 
@@ -327,7 +327,7 @@ test("generated python updates when switching callable section variants", async 
       projectContext.projectConfigId,
     );
     const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
     await sectionNode.click();
@@ -435,7 +435,7 @@ test("generated python import fixes auto-refetch callable params without manual 
 
     const firstParam = page
       .locator(
-        `.react-flow__node[data-id="${sectionId}"] [id^="ParamContainer-${sectionId}-"]`,
+        `.setta-gpu-flow__node[data-id="${sectionId}"] [id^="ParamContainer-${sectionId}-"]`,
       )
       .first();
     await expect(firstParam).toBeVisible({ timeout: 20000 });
@@ -458,7 +458,7 @@ test("ui config does not crash when callable params appear and the callable is r
       projectContext.projectConfigId,
     );
     const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
     const sectionChrome = sectionNode
@@ -490,7 +490,7 @@ test("ui config does not crash when callable params appear and the callable is r
     }
 
     await page
-      .locator(`.react-flow__node[data-id="${generatedSectionId}"]`)
+      .locator(`.setta-gpu-flow__node[data-id="${generatedSectionId}"]`)
       .click();
     await sectionChrome.click();
 
@@ -517,7 +517,7 @@ test("ui config shows the current callable param type and applies slider selecti
       projectContext.projectConfigId,
     );
     const sectionNode = page.locator(
-      `.react-flow__node[data-id="${sectionId}"]`,
+      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
     );
     await expect(sectionNode).toBeVisible();
     const sectionChrome = sectionNode
@@ -578,7 +578,7 @@ test("generated python updates when text section text changes", async ({
       throw new Error("Expected generated python singleton section.");
     }
     const generatedCodeContent = page.locator(
-      `.react-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
+      `.setta-gpu-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
     );
     await expect(generatedCodeContent).toBeVisible();
 
@@ -643,7 +643,7 @@ test("generated python updates when a list section is moved into a dict section"
       throw new Error("Expected generated python singleton section.");
     }
     const generatedCodeContent = page.locator(
-      `.react-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
+      `.setta-gpu-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
     );
     await expect(generatedCodeContent).toBeVisible();
     await expect(generatedCodeContent).toContainText("state.Settings = {}");
@@ -778,7 +778,7 @@ test("generated python run hides internal readiness markers across repeated runs
       );
     }
     const terminalNode = page.locator(
-      `.react-flow__node[data-id="${createdTerminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${createdTerminalId}"]`,
     );
     await expect(terminalNode).toBeVisible();
     await expect
@@ -872,7 +872,7 @@ test("generated python run hides internal readiness markers across repeated runs
     await page.waitForSelector(READY_SELECTOR);
 
     const reloadedTerminalNode = page.locator(
-      `.react-flow__node[data-id="${createdTerminalId}"]`,
+      `.setta-gpu-flow__node[data-id="${createdTerminalId}"]`,
     );
     await expect(reloadedTerminalNode).toBeVisible();
     await expect
@@ -884,7 +884,7 @@ test("generated python run hides internal readiness markers across repeated runs
       })
       .toContain("RUN_OK_MARKER");
     await expect(reloadedTerminalNode).not.toContainText("SETTA_RDY");
-    await expect(page.locator(".react-flow__pane")).toBeVisible();
+    await expect(page.locator(".setta-gpu-flow__pane")).toBeVisible();
     await expect(
       page.getByText("Unexpected Application Error", { exact: true }),
     ).toHaveCount(0);

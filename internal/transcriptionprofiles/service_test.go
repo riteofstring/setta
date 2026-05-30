@@ -2,6 +2,7 @@ package transcriptionprofiles
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	"setta/internal/llmconfig"
@@ -139,6 +140,66 @@ func TestServiceCreateAllowsWhisperRealtimeTransport(t *testing.T) {
 	}
 	if !persisted.SupportsRealtimeTranscription {
 		t.Fatalf("expected persisted whisper realtime support, got %#v", persisted)
+	}
+}
+
+func TestServiceSeedDefaultProfilesRejectsUnavailableDefaultLLMConfig(t *testing.T) {
+	t.Parallel()
+
+	store := newTranscriptionProfileTestStore(t)
+	service, err := NewService(ServiceOptions{
+		Profiles: store,
+		LLM: newTranscriptionProfileTestRuntime(t, map[string]llmconfig.Config{
+			"project-only-config": {
+				ID:       "project-only-config",
+				Model:    "claude-3-5-sonnet-latest",
+				Provider: "anthropic",
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	err = service.SeedDefaultProfilesIfMissing()
+	if !errors.Is(err, ErrInvalidTranscriptionLLMConfig) {
+		t.Fatalf("expected invalid transcription llm config error, got %v", err)
+	}
+	if err.Error() != "Transcription profile references unknown transcription LLM config 'openai-whisper-1'." {
+		t.Fatalf("unexpected error message %q", err.Error())
+	}
+	if _, statErr := os.Stat(store.Path()); !errors.Is(statErr, os.ErrNotExist) {
+		t.Fatalf("expected failed seed to leave profiles file missing, got %v", statErr)
+	}
+}
+
+func TestServiceSeedDefaultProfilesWritesAvailableDefaultLLMConfig(t *testing.T) {
+	t.Parallel()
+
+	store := newTranscriptionProfileTestStore(t)
+	service, err := NewService(ServiceOptions{
+		Profiles: store,
+		LLM: newTranscriptionProfileTestRuntime(t, map[string]llmconfig.Config{
+			"openai-whisper-1": {
+				ID:       "openai-whisper-1",
+				Model:    "whisper-1",
+				Provider: "openai",
+			},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	if err := service.SeedDefaultProfilesIfMissing(); err != nil {
+		t.Fatalf("seed default profiles: %v", err)
+	}
+	profiles, err := store.List()
+	if err != nil {
+		t.Fatalf("list profiles: %v", err)
+	}
+	if len(profiles) != 1 || profiles[0].ID != "transcription-openai-whisper-1" {
+		t.Fatalf("expected available default profile, got %#v", profiles)
 	}
 }
 

@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   clearProjectChatWindows,
-  createTopLevelSectionFromFrontend,
   createTextBlockSection,
+  createTopLevelSectionFromFrontend,
   ensureAppReady,
   openIsolatedProject,
   seedLocalStorage,
@@ -30,7 +30,9 @@ test.describe.serial("section config accordion hierarchy", () => {
         "__pw_section_config_accordion__",
       );
 
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
+      const node = page.locator(
+        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+      );
       await expect(node).toBeVisible();
       await node.click();
 
@@ -104,7 +106,7 @@ test.describe.serial("section config accordion hierarchy", () => {
       }
 
       const node = page.locator(
-        `.react-flow__node[data-id="${created.sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${created.sectionId}"]`,
       );
       await expect(node).toBeVisible();
       await node.click();
@@ -161,10 +163,10 @@ test.describe.serial("section config accordion hierarchy", () => {
       }
 
       const textBlockNode = page.locator(
-        `.react-flow__node[data-id="${textBlock.sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${textBlock.sectionId}"]`,
       );
       const terminalNode = page.locator(
-        `.react-flow__node[data-id="${terminal.sectionId}"]`,
+        `.setta-gpu-flow__node[data-id="${terminal.sectionId}"]`,
       );
       await expect(textBlockNode).toBeVisible();
       await expect(terminalNode).toBeVisible();

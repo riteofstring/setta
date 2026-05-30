@@ -379,7 +379,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     const groups = groupMcpServersByConfigPath({
       mcpServers: {
         setta: {
-          transport: "sse",
+          transport: "streamable_http",
           url: "http://127.0.0.1:8000/mcp",
         },
       },
@@ -421,7 +421,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
       runtimeServers: [
         {
           serverId: "codex-remote",
-          transport: "sse",
+          transport: "streamable_http",
           endpoint: "http://127.0.0.1:9999/mcp",
         },
       ],
@@ -437,7 +437,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     const groups = groupMcpServersByConfigPath({
       mcpServers: {
         setta: {
-          transport: "sse",
+          transport: "streamable_http",
           url: "http://127.0.0.1:8019/mcp",
         },
       },
@@ -659,7 +659,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     const groups = groupMcpServersByConfigPath({
       mcpServers: {
         setta: {
-          transport: "sse",
+          transport: "streamable_http",
           url: "http://127.0.0.1:8019/mcp",
         },
       },

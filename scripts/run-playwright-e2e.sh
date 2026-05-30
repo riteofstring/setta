@@ -178,6 +178,19 @@ log() {
   echo "[$(date +"%Y-%m-%d %H:%M:%S")] $*"
 }
 
+resolve_setta_chrome_bin() {
+  if [[ -n "${CHROME_BIN:-}" ]]; then
+    printf '%s\n' "${CHROME_BIN}"
+    return 0
+  fi
+  if [[ -n "${SETTA_CHROME_BIN:-}" ]]; then
+    printf '%s\n' "${SETTA_CHROME_BIN}"
+    return 0
+  fi
+
+  "${ROOT_DIR}/scripts/resolve-chrome-for-testing-149.sh"
+}
+
 prepare_current_setta_cli() {
   if [[ -n "${SETTA_GO_CLI_BIN:-}" ]]; then
     log "Using preconfigured Go Setta CLI binary ${SETTA_GO_CLI_BIN}."
@@ -202,6 +215,9 @@ prepare_current_setta_cli() {
 }
 
 prepare_current_setta_cli
+SETTA_CHROME_BIN="$(resolve_setta_chrome_bin)"
+export SETTA_CHROME_BIN
+log "Using browser executable ${SETTA_CHROME_BIN}."
 
 if [[ -n "${SETTA_E2E_BUILD_PLUGIN_FIXTURES:-}" ]]; then
   SHOULD_PREPARE_PLUGIN_FIXTURES="${SETTA_E2E_BUILD_PLUGIN_FIXTURES}"
@@ -823,6 +839,7 @@ const token = process.env.SETTA_RECORD_BOOTSTRAP_TOKEN ?? "";
 const baseUrl = process.env.SETTA_RECORD_BASE_URL ?? "http://127.0.0.1:3000";
 const projectUrl = process.env.SETTA_RECORD_PROJECT_URL ?? baseUrl;
 const storageStatePath = process.env.SETTA_RECORD_STORAGE_STATE_FILE ?? "";
+const browserExecutablePath = process.env.SETTA_CHROME_BIN ?? "";
 
 if (!backendOrigin) {
   throw new Error("Missing SETTA_RECORD_BACKEND_ORIGIN.");
@@ -834,7 +851,10 @@ if (!storageStatePath) {
   throw new Error("Missing SETTA_RECORD_STORAGE_STATE_FILE.");
 }
 
-const browser = await chromium.launch();
+const browser = await chromium.launch({
+  ...(browserExecutablePath ? { executablePath: browserExecutablePath } : {}),
+  args: process.platform === "darwin" ? ["--use-mock-keychain"] : [],
+});
 const context = await browser.newContext();
 const page = await context.newPage();
 const pageErrors = [];
@@ -1047,6 +1067,7 @@ run_playwright_codegen() {
   local metadata_file="${SETTA_E2E_RECORD_METADATA_FILE:-${recording_bundle_dir}/session.json}"
   local record_url
   record_url="$(with_backend_origin_override "${SETTA_E2E_RECORD_URL:-${PROJECT_URL}}")"
+  local codegen_browser_executable="${SETTA_CHROME_BIN}"
 
   mkdir -p "${recording_bundle_dir}"
   mkdir -p "$(dirname "${auth_storage_state_file}")"
@@ -1054,6 +1075,15 @@ run_playwright_codegen() {
   mkdir -p "$(dirname "${output_file}")"
   mkdir -p "$(dirname "${har_file}")"
   mkdir -p "$(dirname "${metadata_file}")"
+
+  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
+    codegen_browser_executable="${LOG_DIR}/chrome-for-testing-with-mock-keychain"
+    cat >"${codegen_browser_executable}" <<EOF
+#!/usr/bin/env bash
+exec "${SETTA_CHROME_BIN}" --use-mock-keychain "\$@"
+EOF
+    chmod 0755 "${codegen_browser_executable}"
+  fi
 
   prepare_recording_auth_storage_state "${auth_storage_state_file}"
 
@@ -1084,9 +1114,12 @@ run_playwright_codegen() {
   log "Artifacts will be written to ${recording_bundle_dir}."
   log "Close the recorder browser when you are finished capturing the repro."
   cd "${ROOT_DIR}/frontend"
+  # Playwright codegen has no public --executable-path flag; this is the CLI's
+  # supported internal hook used by its own browser action runner.
   PLAYWRIGHT_BASE_URL="${PLAYWRIGHT_BASE_URL}" \
   SETTA_BACKEND_ORIGIN="${SETTA_BACKEND_ORIGIN}" \
   SETTA_BOOTSTRAP_TOKEN="${BOOTSTRAP_TOKEN}" \
+  PWTEST_CLI_EXECUTABLE_PATH="${codegen_browser_executable}" \
   "${PLAYWRIGHT_CMD[@]}"
 
   write_recording_session_metadata \
