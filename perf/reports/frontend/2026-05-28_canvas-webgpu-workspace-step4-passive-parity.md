@@ -35,9 +35,10 @@ hovered row, or section drag/resize affordance states.
 
 Before screenshot capture, the overview pane, UI editor pane, and project chat
 windows were closed. The current canvas branch had no visible chat window and
-the visible workspace area was the canvas. The current capture also seeded the
-same explicit viewport and Settings GUI grid-pattern state used for the DOM
-reference.
+the visible workspace area was the canvas. The disposable current runtime was
+aligned to the reference Settings `All Settings` saved viewport and top-level
+layout before the final capture so geometry deltas measured the renderer rather
+than stale runtime state.
 
 ## Current Canvas Evidence
 
@@ -56,7 +57,7 @@ Observed from the live current branch page:
 
 Current screenshot:
 
-- `perf/artifacts/frontend/canvas-webgpu-step4-current-after-mono-values.png`
+- `perf/artifacts/frontend/canvas-webgpu-step4-current-clean-minimapxy.png`
 - Dimensions: `1440x1200`
 
 ## DOM Reference Evidence
@@ -74,23 +75,24 @@ Observed from the clean `go-rewrite` reference page:
 
 Reference screenshot:
 
-- `perf/artifacts/frontend/canvas-webgpu-step4-parity-dom-clean-normal.png`
+- `perf/artifacts/frontend/canvas-webgpu-step4-reference-clean-after-geometry.png`
 - Dimensions: `1440x1200`
-- File size: `345K`
 
 ## Image Sanity
 
 The saved screenshots have matching dimensions. A simple workspace-crop pixel
 sanity check over `x=39..1400`, `y=36..1164` reported:
 
-- Mean absolute RGB delta: `7.26`
-- RMS RGB delta: `18.70`
-- Local 8x8 grayscale SSIM sanity score: `0.568`
+- Mean absolute RGB delta: `6.12`
+- RMS RGB delta: `16.70`
+- Local 8x8 grayscale SSIM sanity score: `0.664`
 
-The mean RGB sanity metric is now under the plan's initial `<= 8` workspace
-crop threshold, but the SSIM-style sanity score is still far below the plan's
-initial `>= 0.90` full-workspace SSIM threshold. This remains a checkpoint, not
-an accepted quantitative visual parity pass.
+The mean RGB sanity metric is under the plan's initial `<= 8` workspace crop
+threshold. Section, row, label/value-column, minimap bounds, and minimap
+viewport-mask anchors now pass the initial Step 4 thresholds for this capture.
+The SSIM-style sanity score is still far below the plan's initial `>= 0.90`
+full-workspace SSIM threshold, so this remains a checkpoint, not an accepted
+quantitative visual parity pass.
 
 Machine-readable comparison result:
 
@@ -100,14 +102,16 @@ Reusable comparison command:
 
 ```bash
 pnpm -C frontend exec node scripts/compare-workspace-screenshots.mjs \
-  --reference ../perf/artifacts/frontend/canvas-webgpu-step4-parity-dom-clean-normal.png \
-  --current ../perf/artifacts/frontend/canvas-webgpu-step4-current-after-mono-values.png
+  --reference ../perf/artifacts/frontend/canvas-webgpu-step4-reference-clean-after-geometry.png \
+  --current ../perf/artifacts/frontend/canvas-webgpu-step4-current-clean-minimapxy.png \
+  --reference-anchors ../perf/artifacts/frontend/canvas-webgpu-step4-reference-clean-after-geometry-anchors.json \
+  --current-anchors ../perf/artifacts/frontend/canvas-webgpu-step4-current-clean-minimapxy-anchors.json
 ```
 
 Result:
 
 - Exit code: `1`
-- Failure: `full-workspace-ssim` (`0.613 < 0.9`)
+- Failure: `full-workspace-ssim` (`0.698 < 0.9`)
 
 ## Verification
 

@@ -31,9 +31,11 @@ import {
   getEffectiveSectionSnapshot,
   getRootSectionIdsForScene,
   getSectionChildIds,
+  getShownParamIdsForSection,
 } from "./workspaceSceneProject";
 import {
   DEFAULT_WORKSPACE_SCENE_REVISIONS,
+  WORKSPACE_SCENE_GEOMETRY,
   type PendingSectionRecord,
   type WorkspaceHitRegion,
   type WorkspacePoint,
@@ -92,6 +94,9 @@ export function createWorkspaceSceneRevisionKeys(
 export function deriveWorkspaceScene({
   projectState,
   viewportSize,
+  minimapSide = "left",
+  minimapOverviewOffset = 0,
+  minimapUiEditorOffset = 0,
   controllerState = createWorkspaceCanvasControllerState(),
   revisionKeys: revisionOverrides = {},
   typeErrors = {},
@@ -106,6 +111,20 @@ export function deriveWorkspaceScene({
   );
   const visibleWorkspaceRect = screenRectToWorkspaceRect(
     { x: 0, y: 0, ...viewportSize },
+    viewport,
+  );
+  const minimapVisibleWorkspaceRect = screenRectToWorkspaceRect(
+    {
+      x: Math.max(0, minimapOverviewOffset),
+      y: 0,
+      width: Math.max(
+        0,
+        viewportSize.width -
+          Math.max(0, minimapOverviewOffset) -
+          Math.max(0, minimapUiEditorOffset),
+      ),
+      height: viewportSize.height,
+    },
     viewport,
   );
   const topLevelSections = getActiveViewModeTopLevelSections(projectState);
@@ -154,7 +173,10 @@ export function deriveWorkspaceScene({
     sectionsById,
     sectionOrder,
     viewportSize,
-    visibleWorkspaceRect,
+    visibleWorkspaceRect: minimapVisibleWorkspaceRect,
+    side: minimapSide,
+    overviewOffset: minimapOverviewOffset,
+    uiEditorOffset: minimapUiEditorOffset,
   });
 
   hitRegions.push(...minimap.hitRegions);
@@ -325,16 +347,19 @@ function buildInitialSectionRecord(
 }
 
 function deriveSectionBounds(context: SectionDerivationContext) {
-  const localBounds = context.parent
-    ? deriveNestedSectionLocalBounds(
-        context.parent,
-        context.effectiveImpl,
-        context.childIndex,
-      )
-    : deriveRootSectionLocalBounds(
-        context.topLevelSections[context.sectionId],
-        context.effectiveImpl,
-      );
+  const localBounds = adjustAutoSectionBounds(
+    context,
+    context.parent
+      ? deriveNestedSectionLocalBounds(
+          context.parent,
+          context.effectiveImpl,
+          context.childIndex,
+        )
+      : deriveRootSectionLocalBounds(
+          context.topLevelSections[context.sectionId],
+          context.effectiveImpl,
+        ),
+  );
   const worldBounds = context.parent
     ? {
         ...localBounds,
@@ -343,6 +368,68 @@ function deriveSectionBounds(context: SectionDerivationContext) {
       }
     : localBounds;
   return { localBounds, worldBounds };
+}
+
+function adjustAutoSectionBounds(
+  context: SectionDerivationContext,
+  localBounds: ReturnType<typeof deriveRootSectionLocalBounds>,
+) {
+  if (
+    context.effectiveImpl.type !== SectionTypeEnum.Dict ||
+    !isAutoSectionHeight(context.effectiveImpl) ||
+    hasExplicitRootSectionHeight(context)
+  ) {
+    return localBounds;
+  }
+  const shown = getShownParamIdsForSection(
+    context.projectState,
+    context.sectionId,
+  );
+  const rowCount =
+    Object.keys(shown.pinned.requiredParamIdsToPaths).length +
+    Object.keys(shown.unpinned.requiredParamIdsToPaths).length;
+  if (rowCount > 0) {
+    return {
+      ...localBounds,
+      height: Math.min(
+        WORKSPACE_SCENE_GEOMETRY.sectionAutoHeight,
+        deriveAutoDictSectionHeight(rowCount),
+      ),
+    };
+  }
+  return {
+    ...localBounds,
+    height: WORKSPACE_SCENE_GEOMETRY.sectionEmptyDictAutoHeight,
+  };
+}
+
+function hasExplicitRootSectionHeight(context: SectionDerivationContext) {
+  return (
+    !context.parent &&
+    typeof context.topLevelSections[context.sectionId]?.h === "number"
+  );
+}
+
+function deriveAutoDictSectionHeight(rowCount: number) {
+  const rowPitch =
+    WORKSPACE_SCENE_GEOMETRY.dictRowHeight +
+    WORKSPACE_SCENE_GEOMETRY.dictRowGap;
+  const rowsHeight =
+    rowCount * rowPitch -
+    WORKSPACE_SCENE_GEOMETRY.dictRowGap +
+    WORKSPACE_SCENE_GEOMETRY.sectionBodyPadding * 2;
+  return WORKSPACE_SCENE_GEOMETRY.sectionHeaderHeight + rowsHeight;
+}
+
+function isAutoSectionHeight(impl: SectionDerivationContext["effectiveImpl"]) {
+  const size = impl.size as { height?: unknown } | undefined;
+  const height = size?.height;
+  return (
+    height === "auto" ||
+    (typeof height === "object" &&
+      height !== null &&
+      (height as { Auto?: unknown }).Auto === true)
+  );
 }
 
 function deriveSectionZIndex(context: SectionDerivationContext) {

@@ -18,6 +18,7 @@ export type WorkspaceParityRowSnapshot = {
   paramType: string;
   passiveKind: string;
   controlKind: string;
+  containerRow?: boolean;
   list: "pinned" | "unpinned";
   index: number;
   depth: number;
@@ -25,6 +26,7 @@ export type WorkspaceParityRowSnapshot = {
   row: WorkspaceParityRect;
   label: WorkspaceParityRect;
   value: WorkspaceParityRect;
+  valuePresent?: boolean;
   control: WorkspaceParityRect;
 };
 
@@ -141,6 +143,17 @@ function buildSectionSnapshot(
   canvasBounds: WorkspaceRect,
   section: WorkspaceSectionScene,
 ): WorkspaceParitySectionSnapshot {
+  const rows =
+    section.renderModel.kind === "dict"
+      ? section.renderModel.dict.rows.map((row) =>
+          buildRowSnapshot(scene, canvasBounds, row),
+        )
+      : [];
+  const bounds = toAbsoluteWorkspaceScreenRect(
+    canvasBounds,
+    scene,
+    section.worldBounds,
+  );
   return {
     id: section.id,
     type: String(section.type),
@@ -150,27 +163,22 @@ function buildSectionSnapshot(
     selected: section.selected,
     active: section.active,
     worldBounds: roundRect(section.worldBounds),
-    bounds: toAbsoluteWorkspaceScreenRect(
-      canvasBounds,
-      scene,
-      section.worldBounds,
-    ),
-    header: toAbsoluteWorkspaceScreenRect(
-      canvasBounds,
-      scene,
-      section.geometry.header,
+    bounds,
+    header: deriveHeaderAnchor(
+      bounds,
+      rows,
+      toAbsoluteWorkspaceScreenRect(
+        canvasBounds,
+        scene,
+        section.geometry.header,
+      ),
     ),
     body: toAbsoluteWorkspaceScreenRect(
       canvasBounds,
       scene,
       section.geometry.body,
     ),
-    rows:
-      section.renderModel.kind === "dict"
-        ? section.renderModel.dict.rows.map((row) =>
-            buildRowSnapshot(scene, canvasBounds, row),
-          )
-        : [],
+    rows,
     scrollbar:
       section.renderModel.kind === "dict" && section.renderModel.dict.scrollbar
         ? toAbsoluteWorkspaceScreenRect(
@@ -180,6 +188,23 @@ function buildSectionSnapshot(
           )
         : null,
   };
+}
+
+function deriveHeaderAnchor(
+  sectionBounds: WorkspaceParityRect,
+  rows: Array<WorkspaceParityRowSnapshot>,
+  fallbackHeader: WorkspaceParityRect,
+) {
+  const firstVisibleRow = rows.find((row) => row.visible);
+  if (!firstVisibleRow) {
+    return fallbackHeader;
+  }
+  return roundRect({
+    x: sectionBounds.x,
+    y: sectionBounds.y,
+    width: sectionBounds.width,
+    height: Math.max(0, firstVisibleRow.row.y - sectionBounds.y),
+  });
 }
 
 function buildRowSnapshot(
@@ -194,6 +219,7 @@ function buildRowSnapshot(
     paramType: String(row.paramType),
     passiveKind: row.passiveValue.kind,
     controlKind: row.support.controlKind,
+    containerRow: row.passiveValue.kind === "nested",
     list: row.list,
     index: row.index,
     depth: row.depth,
@@ -201,6 +227,7 @@ function buildRowSnapshot(
     row: toAbsoluteWorkspaceScreenRect(canvasBounds, scene, row.rect),
     label: toAbsoluteWorkspaceScreenRect(canvasBounds, scene, row.labelRect),
     value: toAbsoluteWorkspaceScreenRect(canvasBounds, scene, row.valueRect),
+    valuePresent: true,
     control: toAbsoluteWorkspaceScreenRect(
       canvasBounds,
       scene,

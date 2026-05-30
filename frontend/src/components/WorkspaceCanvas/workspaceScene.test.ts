@@ -354,7 +354,7 @@ function buildScrollableDictScene() {
   const controller = setWorkspaceSectionScrollOffset(
     createWorkspaceCanvasControllerState(),
     "dict-scroll",
-    240,
+    168,
   );
   return deriveWorkspaceScene({
     projectState: state,
@@ -600,7 +600,7 @@ describe("workspace scene model", () => {
     ]);
   });
 
-  it("uses the workspace auto-height cap for auto-sized sections", () => {
+  it("fits short auto-sized Dict sections to rows and caps tall ones", () => {
     const { state, section } = buildDictFixture();
     const layout = state.projectConfig.topLevelSections["dict-a"];
     if (!layout) {
@@ -617,6 +617,31 @@ describe("workspace scene model", () => {
     });
 
     expect(scene.sectionsById["dict-a"]?.worldBounds.height).toBe(
+      WORKSPACE_SCENE_GEOMETRY.sectionHeaderHeight +
+        4 *
+          (WORKSPACE_SCENE_GEOMETRY.dictRowHeight +
+            WORKSPACE_SCENE_GEOMETRY.dictRowGap) -
+        WORKSPACE_SCENE_GEOMETRY.dictRowGap +
+        WORKSPACE_SCENE_GEOMETRY.sectionBodyPadding * 2,
+    );
+
+    const { state: tallState, section: tallSection } =
+      buildScrollableDictFixture();
+    const tallLayout = tallState.projectConfig.topLevelSections["dict-scroll"];
+    if (!tallLayout) {
+      throw new Error("missing dict-scroll layout");
+    }
+    delete tallLayout.h;
+    tallSection.impl.size = {
+      width: { Auto: false, Value: 320 },
+      height: { Auto: true, Value: 0 },
+    };
+    const tallScene = deriveWorkspaceScene({
+      projectState: tallState,
+      viewportSize: { width: 800, height: 600 },
+    });
+
+    expect(tallScene.sectionsById["dict-scroll"]?.worldBounds.height).toBe(
       WORKSPACE_SCENE_GEOMETRY.sectionAutoHeight,
     );
   });

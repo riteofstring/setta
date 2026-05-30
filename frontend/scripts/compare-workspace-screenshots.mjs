@@ -614,10 +614,17 @@ function compareSectionAnchors({
     );
     updateMaxMetric(
       metrics.maxHeaderHeightDelta,
-      Math.abs(
-        (referenceSection.header?.height ?? 0) -
-          (currentSection.header?.height ?? 0),
-      ),
+      shouldCompareSectionHeader({
+        referenceAnchors,
+        currentAnchors,
+        referenceSection,
+        currentSection,
+      })
+        ? Math.abs(
+            (referenceSection.header?.height ?? 0) -
+              (currentSection.header?.height ?? 0),
+          )
+        : 0,
       {
         sectionId,
         rect: "header",
@@ -695,6 +702,9 @@ function compareRowAnchors({
   for (const rowKey of commonRowKeys) {
     const referenceRow = referenceRows.get(rowKey);
     const currentRow = currentRows.get(rowKey);
+    if (referenceRow.containerRow || currentRow.containerRow) {
+      continue;
+    }
     updateMaxMetric(
       metrics.maxRowHeightDelta,
       Math.abs((referenceRow.row?.height ?? 0) - (currentRow.row?.height ?? 0)),
@@ -717,7 +727,9 @@ function compareRowAnchors({
     );
     updateMaxMetric(
       metrics.maxValueColumnDelta,
-      calculateColumnDelta(referenceRow.value, currentRow.value),
+      referenceRow.valuePresent === false || currentRow.valuePresent === false
+        ? 0
+        : calculateValueColumnDelta(referenceRow.value, currentRow.value),
       {
         rowKey,
         rect: "value",
@@ -833,12 +845,17 @@ function indexSectionsById(snapshot) {
 }
 
 function indexVisibleRowsByKey(snapshot) {
+  const workspaceBounds = getSnapshotWorkspaceBounds(snapshot);
   const rows = new Map();
   for (const section of Array.isArray(snapshot.sections)
     ? snapshot.sections
     : []) {
     for (const row of Array.isArray(section.rows) ? section.rows : []) {
-      if (row?.visible === false || !isPositiveRect(row.row)) {
+      if (
+        row?.visible === false ||
+        !isPositiveRect(row.row) ||
+        !rectsIntersect(row.row, workspaceBounds)
+      ) {
         continue;
       }
       const rowKey = getRowKey(row, section.id);
@@ -848,6 +865,45 @@ function indexVisibleRowsByKey(snapshot) {
     }
   }
   return rows;
+}
+
+function shouldCompareSectionHeader({
+  referenceAnchors,
+  currentAnchors,
+  referenceSection,
+  currentSection,
+}) {
+  return (
+    sectionHasVisibleRows(referenceAnchors, referenceSection) &&
+    sectionHasVisibleRows(currentAnchors, currentSection)
+  );
+}
+
+function sectionHasVisibleRows(snapshot, section) {
+  const workspaceBounds = getSnapshotWorkspaceBounds(snapshot);
+  return (Array.isArray(section.rows) ? section.rows : []).some(
+    (row) =>
+      row?.visible !== false &&
+      isPositiveRect(row.row) &&
+      rectsIntersect(row.row, workspaceBounds),
+  );
+}
+
+function getSnapshotWorkspaceBounds(snapshot) {
+  if (isPositiveRect(snapshot.canvasBounds)) {
+    return snapshot.canvasBounds;
+  }
+  const width = snapshot.viewportSize?.width;
+  const height = snapshot.viewportSize?.height;
+  if (typeof width === "number" && typeof height === "number") {
+    return { x: 0, y: 0, width, height };
+  }
+  return {
+    x: 0,
+    y: 0,
+    width: Number.MAX_SAFE_INTEGER,
+    height: Number.MAX_SAFE_INTEGER,
+  };
 }
 
 function countVisibleRows(snapshot) {
@@ -906,6 +962,13 @@ function calculateColumnDelta(referenceRect, currentRect) {
   );
 }
 
+function calculateValueColumnDelta(referenceRect, currentRect) {
+  if (!isRect(referenceRect) || !isRect(currentRect)) {
+    return 1_000_000_000;
+  }
+  return Math.abs(referenceRect.x - currentRect.x);
+}
+
 function calculateRectIoU(referenceRect, currentRect) {
   const intersectionLeft = Math.max(referenceRect.x, currentRect.x);
   const intersectionTop = Math.max(referenceRect.y, currentRect.y);
@@ -928,6 +991,15 @@ function calculateRectIoU(referenceRect, currentRect) {
 
 function isPositiveRect(rect) {
   return isRect(rect) && rect.width > 0 && rect.height > 0;
+}
+
+function rectsIntersect(first, second) {
+  return (
+    first.x < second.x + second.width &&
+    first.x + first.width > second.x &&
+    first.y < second.y + second.height &&
+    first.y + first.height > second.y
+  );
 }
 
 function isRect(rect) {

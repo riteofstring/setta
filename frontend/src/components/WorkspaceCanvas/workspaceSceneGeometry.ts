@@ -9,6 +9,7 @@ import {
   type WorkspaceHitRegion,
   type WorkspaceMinimapScene,
   type WorkspaceMinimapSectionPreview,
+  type WorkspaceMinimapSide,
   type WorkspaceNestedDropZone,
   type WorkspacePoint,
   type WorkspaceRect,
@@ -372,15 +373,29 @@ export function deriveMinimapScene({
   sectionOrder,
   viewportSize,
   visibleWorkspaceRect,
+  side,
+  overviewOffset,
+  uiEditorOffset,
 }: {
   projectBounds: WorkspaceRect;
   sectionsById: Record<string, WorkspaceSectionScene>;
   sectionOrder: Array<string>;
   viewportSize: WorkspaceSize;
   visibleWorkspaceRect: WorkspaceRect;
+  side: WorkspaceMinimapSide;
+  overviewOffset: number;
+  uiEditorOffset: number;
 }): WorkspaceMinimapScene {
-  const bounds = deriveMinimapBounds(viewportSize);
-  const transform = deriveMinimapTransform(bounds, projectBounds);
+  const bounds = deriveMinimapBounds({
+    viewportSize,
+    side,
+    overviewOffset,
+    uiEditorOffset,
+  });
+  const transform = deriveMinimapTransform(
+    bounds,
+    unionRects([projectBounds, visibleWorkspaceRect]) ?? projectBounds,
+  );
   const sectionPreviews = sectionOrder
     .map((sectionId) => {
       const section = sectionsById[sectionId];
@@ -531,7 +546,17 @@ function buildChildDropZones(
   ];
 }
 
-function deriveMinimapBounds(viewportSize: WorkspaceSize): WorkspaceRect {
+function deriveMinimapBounds({
+  viewportSize,
+  side,
+  overviewOffset,
+  uiEditorOffset,
+}: {
+  viewportSize: WorkspaceSize;
+  side: WorkspaceMinimapSide;
+  overviewOffset: number;
+  uiEditorOffset: number;
+}): WorkspaceRect {
   const width = Math.min(
     WORKSPACE_SCENE_GEOMETRY.minimapWidth,
     Math.max(160, viewportSize.width * 0.18),
@@ -540,15 +565,14 @@ function deriveMinimapBounds(viewportSize: WorkspaceSize): WorkspaceRect {
     WORKSPACE_SCENE_GEOMETRY.minimapHeight,
     Math.max(112, viewportSize.height * 0.16),
   );
+  const margin = WORKSPACE_SCENE_GEOMETRY.minimapViewportMargin;
+  const x =
+    side === "left"
+      ? margin + Math.max(0, overviewOffset)
+      : viewportSize.width - width - margin - Math.max(0, uiEditorOffset);
   return {
-    x:
-      viewportSize.width -
-      width -
-      WORKSPACE_SCENE_GEOMETRY.minimapViewportMargin,
-    y:
-      viewportSize.height -
-      height -
-      WORKSPACE_SCENE_GEOMETRY.minimapViewportMargin,
+    x,
+    y: viewportSize.height - height - margin,
     width,
     height,
   };
@@ -558,30 +582,33 @@ function deriveMinimapTransform(
   bounds: WorkspaceRect,
   projectBounds: WorkspaceRect,
 ) {
-  const drawableWidth = Math.max(
+  const elementWidth = Math.max(
     1,
-    bounds.width - WORKSPACE_SCENE_GEOMETRY.minimapPadding * 2,
+    bounds.width - WORKSPACE_SCENE_GEOMETRY.minimapSvgInset * 2,
   );
-  const drawableHeight = Math.max(
+  const elementHeight = Math.max(
     1,
-    bounds.height - WORKSPACE_SCENE_GEOMETRY.minimapPadding * 2,
+    bounds.height - WORKSPACE_SCENE_GEOMETRY.minimapSvgInset * 2,
   );
-  const scale = Math.min(
-    drawableWidth / Math.max(1, projectBounds.width),
-    drawableHeight / Math.max(1, projectBounds.height),
-  );
+  const scaledWidth = projectBounds.width / elementWidth;
+  const scaledHeight = projectBounds.height / elementHeight;
+  const viewScale = Math.max(scaledWidth, scaledHeight);
+  const viewWidth = viewScale * elementWidth;
+  const viewHeight = viewScale * elementHeight;
+  const offset = WORKSPACE_SCENE_GEOMETRY.minimapOffsetScale * viewScale;
+  const viewBox = {
+    x: projectBounds.x - (viewWidth - projectBounds.width) / 2 - offset,
+    y: projectBounds.y - (viewHeight - projectBounds.height) / 2 - offset,
+    width: viewWidth + offset * 2,
+    height: viewHeight + offset * 2,
+  };
+  const scale = elementWidth / Math.max(1, viewBox.width);
   return {
     scale,
     translateX:
-      bounds.x +
-      WORKSPACE_SCENE_GEOMETRY.minimapPadding -
-      projectBounds.x * scale +
-      (drawableWidth - projectBounds.width * scale) / 2,
+      bounds.x + WORKSPACE_SCENE_GEOMETRY.minimapSvgInset - viewBox.x * scale,
     translateY:
-      bounds.y +
-      WORKSPACE_SCENE_GEOMETRY.minimapPadding -
-      projectBounds.y * scale +
-      (drawableHeight - projectBounds.height * scale) / 2,
+      bounds.y + WORKSPACE_SCENE_GEOMETRY.minimapSvgInset - viewBox.y * scale,
   };
 }
 

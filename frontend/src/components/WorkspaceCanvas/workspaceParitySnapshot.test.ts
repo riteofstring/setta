@@ -21,7 +21,7 @@ describe("workspace canvas parity snapshot", () => {
       x: 48,
       y: 239,
       width: 100,
-      height: 15,
+      height: 23,
     });
     expect(snapshot.sections[0]?.rows[0]).toMatchObject({
       id: "dict-row:settings:unpinned:token",

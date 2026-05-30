@@ -82,6 +82,13 @@ export function WorkspaceCanvas() {
   const projectState = useProjectState();
   const typeErrors = useTypeErrors((state) => state.errors);
   const showMinimap = useLocalStorage((state) => state.showMinimap);
+  const minimapSide = useLocalStorage((state) => state.minimapSide);
+  const minimapOverviewOffset = useLocalStorage(
+    (state) => state.overviewTrueWidth,
+  );
+  const minimapUiEditorOffset = useLocalStorage(
+    (state) => state.uiEditorTrueWidth,
+  );
   const gridSettings = useWorkspaceCanvasGridSettings(environment.isDarkMode);
   const [highlightCache, setHighlightCache] =
     useState<WorkspaceCodeHighlightCacheState>(() =>
@@ -114,6 +121,9 @@ export function WorkspaceCanvas() {
       deriveWorkspaceScene({
         projectState,
         viewportSize,
+        minimapSide,
+        minimapOverviewOffset,
+        minimapUiEditorOffset,
         controllerState,
         typeErrors,
         revisionKeys: {
@@ -146,6 +156,9 @@ export function WorkspaceCanvas() {
       environment.isDarkMode,
       environment.themeRevision,
       highlightCache,
+      minimapOverviewOffset,
+      minimapSide,
+      minimapUiEditorOffset,
       projectRevision,
       projectState,
       sectionScrollRevision,

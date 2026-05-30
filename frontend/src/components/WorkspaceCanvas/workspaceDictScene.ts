@@ -367,7 +367,7 @@ function materializeDictRow({
   const rect = deriveRowRect(region, listIndex, scrollOffset);
   const labelColumnWidth = deriveLabelColumnWidth(sectionImpl, rect.width);
   const labelRect = deriveLabelRect(rect, labelColumnWidth, flat.depth);
-  const valueRect = deriveValueRect(rect, labelColumnWidth);
+  const valueRect = deriveValueRect(rect, labelColumnWidth, flat.depth);
   const visibleRect = visible ? intersectRects(rect, clipRegion) : null;
   const support = getWorkspaceParamSupportDeclaration(codeObj.effectiveImpl);
   const controlRect = deriveControlRect(valueRect, support.controlKind);
@@ -678,7 +678,7 @@ function deriveLabelRect(
     y: rect.y,
     width: Math.max(
       WORKSPACE_SCENE_GEOMETRY.dictLabelColumnMinWidth,
-      labelColumnWidth - WORKSPACE_SCENE_GEOMETRY.dictNestingIndent * depth,
+      labelColumnWidth,
     ),
     height: rect.height,
   };
@@ -687,9 +687,14 @@ function deriveLabelRect(
 function deriveValueRect(
   rect: WorkspaceRect,
   labelColumnWidth: number,
+  depth: number,
 ): WorkspaceRect {
   const valueX =
-    rect.x + labelColumnWidth + WORKSPACE_SCENE_GEOMETRY.dictValueGap;
+    rect.x +
+    WORKSPACE_SCENE_GEOMETRY.dictNestingIndent * depth +
+    labelColumnWidth +
+    WORKSPACE_SCENE_GEOMETRY.dictValueGap -
+    (depth > 0 ? WORKSPACE_SCENE_GEOMETRY.dictNestedValueColumnOffset : 0);
   return {
     x: valueX,
     y: rect.y,

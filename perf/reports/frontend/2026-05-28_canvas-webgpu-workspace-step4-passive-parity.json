@@ -1,88 +1,190 @@
 {
-  "date": "2026-05-28",
-  "area": "frontend",
-  "scenario": "settings-all-settings-normal-dark",
   "reference": {
-    "branch": "go-rewrite",
-    "commit": "8f36f30b7",
-    "screenshot": "perf/artifacts/frontend/canvas-webgpu-step4-parity-dom-clean-normal.png"
+    "screenshot": "../perf/artifacts/frontend/canvas-webgpu-step4-reference-clean-after-geometry.png"
   },
   "current": {
-    "branch": "go-rewrite-canvas-webgpu-only",
-    "commit": "94cc59f3d-plus-working-tree",
-    "screenshot": "perf/artifacts/frontend/canvas-webgpu-step4-current-after-mono-values.png"
+    "screenshot": "../perf/artifacts/frontend/canvas-webgpu-step4-current-clean-minimapxy.png"
   },
   "capture": {
-    "viewport": {
-      "width": 1440,
-      "height": 1200,
-      "deviceScaleFactor": 1
-    },
     "workspaceCrop": {
       "x": 39,
       "y": 36,
       "width": 1361,
       "height": 1128
-    },
-    "chromeState": {
-      "overviewPane": "closed",
-      "uiEditorPane": "closed",
-      "projectChatWindows": "closed",
-      "bottomDockExpandedChatContent": "closed"
-    },
-    "seededState": {
-      "route": "/settings",
-      "projectConfigId": "settings",
-      "view": "All Settings",
-      "theme": "dark",
-      "sceneViewport": {
-        "x": -42,
-        "y": 193,
-        "zoom": 0.589
-      },
-      "gridPattern": "lines",
-      "minimap": "hidden"
     }
   },
   "thresholds": {
     "workspaceMeanAbsRgbDeltaMax": 8,
-    "fullWorkspaceSsimMin": 0.9
+    "fullWorkspaceSsimMin": 0.9,
+    "sectionRectDeltaMax": 4,
+    "headerHeightDeltaMax": 2,
+    "rowHeightDeltaMax": 2,
+    "labelValueColumnDeltaMax": 3,
+    "minimapIoUMin": 0.95
+  },
+  "dimensions": {
+    "reference": {
+      "width": 1440,
+      "height": 1200
+    },
+    "current": {
+      "width": 1440,
+      "height": 1200
+    }
   },
   "metrics": {
-    "dimensions": {
-      "reference": {
-        "width": 1440,
-        "height": 1200
-      },
-      "current": {
-        "width": 1440,
-        "height": 1200
-      }
-    },
     "workspaceCrop": {
-      "meanAbsRgbDelta": 7.258673526106343,
-      "rmsRgbDelta": 18.703129685176528,
-      "local8x8GrayscaleSsim": 0.5680136976792557
+      "meanAbsRgbDelta": 6.1154909736443965,
+      "rmsRgbDelta": 16.700049813014942,
+      "local8x8GrayscaleSsim": 0.6642536630520602
     },
     "fullViewport": {
-      "meanAbsRgbDelta": 6.512063850308642,
-      "rmsRgbDelta": 17.764978742303807,
-      "local8x8GrayscaleSsim": 0.6126676490674554
+      "meanAbsRgbDelta": 5.497680555555555,
+      "rmsRgbDelta": 15.90081671557226,
+      "local8x8GrayscaleSsim": 0.698247827167247
     }
   },
   "hardFailures": [
     {
-      "code": "missing-required-captures",
-      "message": "Only the normal dark current/reference pair is recorded; light, zoomed-out, minimap, selected-section, and representative control crops are not recorded."
-    },
-    {
-      "code": "missing-anchor-bounds",
-      "message": "The comparison result does not yet extract section bounds, row bounds, label/value alignment, or minimap bounds."
-    },
-    {
-      "code": "ssim-below-threshold",
-      "message": "Local 8x8 grayscale SSIM sanity scores remain below the initial full-workspace SSIM threshold."
+      "code": "full-workspace-ssim",
+      "message": "Full viewport local SSIM 0.698 is below threshold 0.9."
     }
   ],
-  "pass": false
+  "pass": false,
+  "anchors": {
+    "enabled": true,
+    "reference": {
+      "path": "../perf/artifacts/frontend/canvas-webgpu-step4-reference-clean-after-geometry-anchors.json",
+      "kind": "workspace-dom-parity-snapshot",
+      "sectionCount": 46,
+      "visibleRowCount": 94,
+      "minimapVisible": true
+    },
+    "current": {
+      "path": "../perf/artifacts/frontend/canvas-webgpu-step4-current-clean-minimapxy-anchors.json",
+      "kind": "workspace-canvas-parity-snapshot",
+      "sectionCount": 46,
+      "visibleRowCount": 94,
+      "minimapVisible": true
+    },
+    "metrics": {
+      "sections": {
+        "referenceCount": 46,
+        "currentCount": 46,
+        "commonCount": 46,
+        "missingCurrentSectionIds": [],
+        "extraCurrentSectionIds": [],
+        "maxRectDelta": {
+          "value": 0.0010000000002037268,
+          "detail": {
+            "sectionId": "settings-section__buttonParamCodeObjDefault",
+            "rect": "bounds",
+            "reference": {
+              "x": 311.667,
+              "y": 3767.523,
+              "width": 325.666,
+              "height": 185.252
+            },
+            "current": {
+              "x": 311.667,
+              "y": 3767.522,
+              "width": 325.666,
+              "height": 185.252
+            }
+          }
+        },
+        "maxHeaderHeightDelta": {
+          "value": 1.7700000000000031,
+          "detail": {
+            "sectionId": "settings-section__backend",
+            "rect": "header",
+            "reference": {
+              "x": 665.652,
+              "y": 227.672,
+              "width": 325.666,
+              "height": 38.348
+            },
+            "current": {
+              "x": 665.652,
+              "y": 227.672,
+              "width": 325.666,
+              "height": 40.118
+            }
+          }
+        }
+      },
+      "rows": {
+        "referenceVisibleCount": 94,
+        "currentVisibleCount": 94,
+        "commonCount": 94,
+        "missingCurrentRowKeys": [],
+        "extraCurrentRowKeys": [],
+        "maxRowHeightDelta": {
+          "value": 0.0010000000000012221,
+          "detail": {
+            "rowKey": "settings-section__backend:settings-codeobj__backend__backend__autobackupFreq",
+            "rect": "row",
+            "reference": {
+              "x": 673.322,
+              "y": 294.339,
+              "width": 313.867,
+              "height": 11.799
+            },
+            "current": {
+              "x": 670.372,
+              "y": 296.109,
+              "width": 316.227,
+              "height": 11.8
+            }
+          }
+        },
+        "maxLabelColumnDelta": {
+          "value": 1.7699999999999818,
+          "detail": {
+            "rowKey": "settings-section__backend:settings-codeobj__backend__backend__autoRefetchCallableParamsOnLspMismatch",
+            "rect": "label",
+            "reference": {
+              "x": 674.502,
+              "y": 266.02,
+              "width": 151.624,
+              "height": 11.8
+            },
+            "current": {
+              "x": 672.732,
+              "y": 267.79,
+              "width": 151.034,
+              "height": 11.8
+            }
+          }
+        },
+        "maxValueColumnDelta": {
+          "value": 1.1800000000000068,
+          "detail": {
+            "rowKey": "settings-section__browserSectionDefault:settings-codeobj__browserSectionDefault__browserSectionDefault__aspectRatio",
+            "rect": "value",
+            "reference": {
+              "x": 125.235,
+              "y": 975.06,
+              "width": 20.28,
+              "height": 9.661
+            },
+            "current": {
+              "x": 126.415,
+              "y": 975.76,
+              "width": 152.214,
+              "height": 11.8
+            }
+          }
+        }
+      },
+      "minimap": {
+        "referenceVisible": true,
+        "currentVisible": true,
+        "referencePreviewCount": 46,
+        "currentPreviewCount": 46,
+        "boundsIoU": 1,
+        "viewportMaskIoU": 0.9791285372377838
+      }
+    }
+  }
 }

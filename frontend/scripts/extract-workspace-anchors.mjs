@@ -16,6 +16,7 @@ const browser = await chromium.launch({
   headless: !args.headed && !args.headful,
 });
 const page = await browser.newPage({ viewport });
+await installCleanWorkspaceCaptureState(page);
 await page.goto(url, { waitUntil: "domcontentloaded", timeout: waitMs });
 await waitForWorkspaceAnchors(page, mode, waitMs);
 
@@ -104,6 +105,56 @@ function parseViewport(value, fallback) {
   };
 }
 
+async function installCleanWorkspaceCaptureState(page) {
+  if (!Boolean(args["clean-workspace-capture"] ?? args.cleanWorkspaceCapture)) {
+    return;
+  }
+  await page.addInitScript(() => {
+    const CLOSED_PANE_WIDTH = 40;
+    const INITIAL_OVERVIEW_WIDTH = 335;
+    const INITIAL_UI_EDITOR_WIDTH = 500;
+    const storageKey = "setta_data";
+    const parsed = parsePersistedLocalStorage(localStorage.getItem(storageKey));
+    const state =
+      parsed && typeof parsed.state === "object" && parsed.state !== null
+        ? parsed.state
+        : {};
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({
+        ...(parsed && typeof parsed === "object" ? parsed : {}),
+        state: {
+          ...state,
+          darkMode: true,
+          colorMode: "dark",
+          showMinimap: true,
+          minimapSide: "left",
+          overviewVis: false,
+          overviewWidth: INITIAL_OVERVIEW_WIDTH,
+          overviewTrueWidth: CLOSED_PANE_WIDTH,
+          uiEditorVis: false,
+          uiEditorWidth: INITIAL_UI_EDITOR_WIDTH,
+          uiEditorTrueWidth: CLOSED_PANE_WIDTH,
+          showNavBarHelpMessage: false,
+        },
+        version:
+          parsed && typeof parsed.version === "number" ? parsed.version : 0,
+      }),
+    );
+
+    function parsePersistedLocalStorage(raw) {
+      if (!raw) {
+        return {};
+      }
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return {};
+      }
+    }
+  });
+}
+
 async function waitForWorkspaceAnchors(page, mode, waitMs) {
   await page.waitForFunction(
     ({ key, mode }) => {
@@ -180,6 +231,7 @@ async function extractDomAnchorSnapshot(page) {
         kind: "dom-react-flow",
         url: window.location.href,
       },
+      canvasBounds: rectFromElement(root),
       viewportSize: {
         width: window.innerWidth,
         height: window.innerHeight,
@@ -194,18 +246,20 @@ async function extractDomAnchorSnapshot(page) {
       const sectionId =
         sectionElement.getAttribute("data-section-id") ??
         `section:${sectionIndex}`;
+      const bounds = rectFromElement(sectionElement);
       const rows = Array.from(
         sectionElement.querySelectorAll('[data-param-row="true"]'),
       ).map((rowElement, rowIndex) =>
-        buildRowSnapshot(rowElement, sectionId, rowIndex),
+        buildRowSnapshot(rowElement, sectionId, rowIndex, bounds),
       );
-      const bounds = rectFromElement(sectionElement);
       const headerElement =
         sectionElement.querySelector("header") ??
         sectionElement.querySelector('[data-section-header="true"]');
-      const header = headerElement
-        ? rectFromElement(headerElement)
-        : { x: bounds.x, y: bounds.y, width: bounds.width, height: 0 };
+      const header = deriveHeaderAnchor({
+        bounds,
+        headerElement,
+        rows,
+      });
       return {
         id: sectionId,
         type: sectionElement.getAttribute("data-section-type") ?? "",
@@ -223,14 +277,35 @@ async function extractDomAnchorSnapshot(page) {
       };
     }
 
-    function buildRowSnapshot(rowElement, sectionId, rowIndex) {
-      const row = rectFromElement(rowElement);
+    function deriveHeaderAnchor({ bounds, headerElement, rows }) {
+      const firstVisibleRow = rows.find((row) => row.visible);
+      if (firstVisibleRow) {
+        return roundRect({
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: Math.max(0, firstVisibleRow.row.y - bounds.y),
+        });
+      }
+      return headerElement
+        ? rectFromElement(headerElement)
+        : { x: bounds.x, y: bounds.y, width: bounds.width, height: 0 };
+    }
+
+    function buildRowSnapshot(rowElement, sectionId, rowIndex, sectionBounds) {
       const labelElement = queryFirstRowCell(rowElement, ".section-key");
       const valueElement = queryFirstRowCell(rowElement, ".section-value");
       const controlElement =
         valueElement?.querySelector("input, textarea, select, button") ??
         valueElement ??
         rowElement;
+      const label = labelElement ? rectFromElement(labelElement) : null;
+      const value = valueElement ? rectFromElement(valueElement) : null;
+      const control = rectFromElement(controlElement);
+      const containerRow = Boolean(
+        rowElement.querySelector('[data-param-row="true"]'),
+      );
+      const row = deriveRowVisualRect(rowElement, [label, value, control]);
       return {
         id: rowElement.id || `${sectionId}:row:${rowIndex}`,
         sectionId,
@@ -238,21 +313,40 @@ async function extractDomAnchorSnapshot(page) {
         paramType: rowElement.getAttribute("data-param-type") ?? "",
         passiveKind: "dom",
         controlKind: "dom",
+        containerRow,
         list: "unpinned",
         index: rowIndex,
         depth: deriveRowDepth(rowElement),
-        visible: isVisibleRect(row),
+        visible: isVisibleRect(row) && rectsIntersect(row, sectionBounds),
         row,
-        label: labelElement ? rectFromElement(labelElement) : row,
-        value: valueElement ? rectFromElement(valueElement) : row,
-        control: rectFromElement(controlElement),
+        label: label ?? row,
+        value: value ?? row,
+        valuePresent: value !== null,
+        control,
       };
+    }
+
+    function deriveRowVisualRect(rowElement, cellRects) {
+      if (!rowElement.querySelector('[data-param-row="true"]')) {
+        return rectFromElement(rowElement);
+      }
+      return (
+        unionRects(cellRects.filter(Boolean)) || rectFromElement(rowElement)
+      );
     }
 
     function queryFirstRowCell(rowElement, selector) {
       const direct = Array.from(rowElement.children).find((child) =>
         child.matches(selector),
       );
+      if (!direct && selector === ".section-key") {
+        const directParagraph = Array.from(rowElement.children).find(
+          (child) => child.tagName === "P",
+        );
+        if (directParagraph) {
+          return directParagraph;
+        }
+      }
       return direct ?? rowElement.querySelector(selector);
     }
 
@@ -377,6 +471,15 @@ async function extractDomAnchorSnapshot(page) {
 
     function isVisibleRect(rect) {
       return rect.width > 0 && rect.height > 0;
+    }
+
+    function rectsIntersect(first, second) {
+      return (
+        first.x < second.x + second.width &&
+        first.x + first.width > second.x &&
+        first.y < second.y + second.height &&
+        first.y + first.height > second.y
+      );
     }
 
     function emptyRect() {

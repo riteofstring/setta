@@ -76,6 +76,9 @@ export type WorkspaceSceneRevisionKeys = {
 export type WorkspaceSceneOptions = {
   projectState: WorkspaceSceneProjectState;
   viewportSize: WorkspaceSize;
+  minimapSide?: WorkspaceMinimapSide;
+  minimapOverviewOffset?: number;
+  minimapUiEditorOffset?: number;
   controllerState?: WorkspaceCanvasControllerState;
   revisionKeys?: Partial<WorkspaceSceneRevisionKeys>;
   typeErrors?: WorkspaceTypeErrorState;
@@ -315,6 +318,8 @@ export type WorkspaceMinimapSectionPreview = {
   rect: WorkspaceRect;
 };
 
+export type WorkspaceMinimapSide = "left" | "right";
+
 export type WorkspaceMinimapScene = {
   id: string;
   bounds: WorkspaceRect;
@@ -382,24 +387,27 @@ export type PendingSectionRecord = Omit<
 export const WORKSPACE_SCENE_GEOMETRY = {
   sectionHeaderHeight: 60,
   sectionAutoHeight: 350,
+  sectionEmptyDictAutoHeight: 98,
   sectionBodyPadding: 8,
   sectionNestedGap: 12,
   sectionResizeHandleSize: 12,
-  dictRowHeight: 28,
+  dictRowHeight: 20,
   dictRowGap: 4,
   dictRowOverscan: 3,
-  dictNestingIndent: 16,
+  dictNestingIndent: 14,
   dictNestingRailWidth: 4,
-  dictLabelColumnWidth: 200,
+  dictLabelColumnWidth: 256,
   dictLabelColumnMinWidth: 96,
   dictLabelColumnMaxRatio: 0.48,
-  dictValueGap: 12,
+  dictValueGap: 22,
+  dictNestedValueColumnOffset: 6,
   dictControlMinWidth: 44,
   dictScrollbarWidth: 8,
   minimapWidth: 202,
   minimapHeight: 152,
-  minimapPadding: 8,
-  minimapViewportMargin: 16,
+  minimapSvgInset: 1,
+  minimapOffsetScale: 5,
+  minimapViewportMargin: 15,
 } as const;
 
 export const DEFAULT_WORKSPACE_SCENE_REVISIONS: WorkspaceSceneRevisionKeys = {
