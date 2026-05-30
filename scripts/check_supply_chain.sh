@@ -3,6 +3,7 @@ set -euo pipefail
 
 SETTA_MIN_RELEASE_AGE_DAYS="${SETTA_MIN_RELEASE_AGE_DAYS:-7}"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly GOVULNCHECK_VERSION="v1.3.0"
 
 if ! [[ "${SETTA_MIN_RELEASE_AGE_DAYS}" =~ ^[0-9]+$ ]]; then
   echo "Minimum release age must be a non-negative integer: ${SETTA_MIN_RELEASE_AGE_DAYS}" >&2
@@ -42,6 +43,9 @@ check_go_supply_chain() {
   "${python_bin}" "${repo_root}/scripts/check_go_module_release_age.py" \
     --days "${SETTA_MIN_RELEASE_AGE_DAYS}" \
     --repo-root "${repo_root}"
+
+  echo "Go vulnerability audit..."
+  "${repo_root}/scripts/go.sh" run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
 }
 
 check_pnpm_lock_sync() {
@@ -77,6 +81,9 @@ check_pnpm_project() {
   "${python_bin}" "${repo_root}/scripts/check_pnpm_lock_release_age.py" \
     --days "${SETTA_MIN_RELEASE_AGE_DAYS}" \
     --lockfile "${repo_root}/${project_dir}/pnpm-lock.yaml"
+
+  echo "pnpm vulnerability audit (${project_dir})..."
+  pnpm -C "${repo_root}/${project_dir}" audit --audit-level moderate
 }
 
 python_bin="$(resolve_python)"
