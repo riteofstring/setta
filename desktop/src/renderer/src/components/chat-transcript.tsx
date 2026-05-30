@@ -1,6 +1,6 @@
 import type {
   ApprovalAnswer,
-  ApprovalKind,
+  ApprovalRequest,
   ApprovalQuestion,
   ChatMessage,
   MessageDelivery,
@@ -441,13 +441,15 @@ function PendingApproval({
   if (!activeRun?.hasPendingApproval) {
     return null;
   }
-  return (
-    <ApprovalCard
-      key={activeRun.pendingApproval.id}
-      run={activeRun}
-      submitApproval={submitApproval}
-    />
-  );
+  const approval = requirePendingApproval(activeRun);
+  return <ApprovalCard approval={approval} key={approval.id} submitApproval={submitApproval} />;
+}
+
+function requirePendingApproval(run: Run): ApprovalRequest {
+  if (run.pendingApproval === null) {
+    throw new Error(`run ${run.id} hasPendingApproval is true but pendingApproval is null`);
+  }
+  return run.pendingApproval;
 }
 
 function JumpToLatestButton({
@@ -883,10 +885,10 @@ function outputPreview(outputs: RunItemOutput[]) {
 }
 
 function ApprovalCard({
-  run,
+  approval,
   submitApproval,
 }: {
-  run: Run;
+  approval: ApprovalRequest;
   submitApproval: (
     approvalId: string,
     approved: boolean,
@@ -895,7 +897,6 @@ function ApprovalCard({
     cancelled: boolean,
   ) => Promise<void>;
 }) {
-  const approval = run.pendingApproval;
   return (
     <section
       className="min-w-0 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm break-words text-amber-950"
@@ -917,18 +918,16 @@ function ApprovalCard({
         </pre>
       ) : null}
       {approval.question ? <div className="mt-2">{approval.question}</div> : null}
-      <ApprovalControls approvalKind={approval.kind} run={run} submitApproval={submitApproval} />
+      <ApprovalControls approval={approval} submitApproval={submitApproval} />
     </section>
   );
 }
 
 function ApprovalControls({
-  approvalKind,
-  run,
+  approval,
   submitApproval,
 }: {
-  approvalKind: ApprovalKind;
-  run: Run;
+  approval: ApprovalRequest;
   submitApproval: (
     approvalId: string,
     approved: boolean,
@@ -937,8 +936,7 @@ function ApprovalControls({
     cancelled: boolean,
   ) => Promise<void>;
 }) {
-  const approval = run.pendingApproval;
-  switch (approvalKind) {
+  switch (approval.kind) {
     case "user_input":
       return (
         <UserInputApproval
@@ -953,7 +951,7 @@ function ApprovalControls({
     case "permission":
       return <DecisionApproval approvalId={approval.id} submitApproval={submitApproval} />;
     default:
-      return assertNever(approvalKind);
+      return assertNever(approval.kind);
   }
 }
 

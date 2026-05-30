@@ -191,6 +191,8 @@ func TestRenderIncludesLiteralUnionValueSets(t *testing.T) {
 		"export function decodeRunStatus(value: unknown, label = \"RunStatus\"): RunStatus",
 		"status: RunStatus;",
 		"status: decodeRunStatus(requireField(record, \"status\", \"Run\"), \"Run.status\")",
+		"pendingApproval: ApprovalRequest | null;",
+		"pendingApproval: decodeNullable(requireField(record, \"pendingApproval\", \"Run\"), \"Run.pendingApproval\", (item) => decodeApprovalRequest(item))",
 		"kind: ApprovalKind;",
 		"kind: decodeApprovalKind(requireField(record, \"kind\", \"ApprovalRequest\"), \"ApprovalRequest.kind\")",
 	} {

@@ -261,20 +261,28 @@ type HarnessThreadRef struct {
 }
 
 type Run struct {
-	SchemaVersion      int             `json:"schemaVersion"`
-	ID                 string          `json:"id"`
-	WorkspaceID        string          `json:"workspaceId"`
-	ConversationID     string          `json:"conversationId"`
-	TriggerMessageID   string          `json:"triggerMessageId"`
-	AssistantMessageID string          `json:"assistantMessageId"`
-	Harness            HarnessKind     `json:"harness"`
-	Status             RunStatus       `json:"status"`
-	StartedAt          string          `json:"startedAt"`
-	CompletedAt        string          `json:"completedAt"`
-	PromptSummary      string          `json:"promptSummary"`
-	Error              string          `json:"error"`
-	HasPendingApproval bool            `json:"hasPendingApproval"`
-	PendingApproval    ApprovalRequest `json:"pendingApproval"`
+	SchemaVersion      int              `json:"schemaVersion"`
+	ID                 string           `json:"id"`
+	WorkspaceID        string           `json:"workspaceId"`
+	ConversationID     string           `json:"conversationId"`
+	TriggerMessageID   string           `json:"triggerMessageId"`
+	AssistantMessageID string           `json:"assistantMessageId"`
+	Harness            HarnessKind      `json:"harness"`
+	Status             RunStatus        `json:"status"`
+	StartedAt          string           `json:"startedAt"`
+	CompletedAt        string           `json:"completedAt"`
+	PromptSummary      string           `json:"promptSummary"`
+	Error              string           `json:"error"`
+	HasPendingApproval bool             `json:"hasPendingApproval"`
+	PendingApproval    *ApprovalRequest `json:"pendingApproval"`
+}
+
+func (run Run) MarshalJSON() ([]byte, error) {
+	type runAlias Run
+	if !run.HasPendingApproval {
+		run.PendingApproval = nil
+	}
+	return json.Marshal(runAlias(run))
 }
 
 type ApprovalRequest struct {

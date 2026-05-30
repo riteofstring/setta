@@ -477,7 +477,7 @@ export interface Run {
   promptSummary: string;
   error: string;
   hasPendingApproval: boolean;
-  pendingApproval: ApprovalRequest;
+  pendingApproval: ApprovalRequest | null;
 }
 
 export interface QueueState {
@@ -1231,7 +1231,7 @@ export function decodeRun(value: unknown): Run {
     promptSummary: decodeString(requireField(record, "promptSummary", "Run"), "Run.promptSummary"),
     error: decodeString(requireField(record, "error", "Run"), "Run.error"),
     hasPendingApproval: decodeBoolean(requireField(record, "hasPendingApproval", "Run"), "Run.hasPendingApproval"),
-    pendingApproval: decodeApprovalRequest(requireField(record, "pendingApproval", "Run")),
+    pendingApproval: decodeNullable(requireField(record, "pendingApproval", "Run"), "Run.pendingApproval", (item) => decodeApprovalRequest(item)),
   };
 }
 

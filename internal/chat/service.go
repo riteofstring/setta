@@ -401,7 +401,7 @@ func (service *Service) markTurnCancelledWithReason(workspaceID string, conversa
 	run.CompletedAt = now
 	run.Error = runError
 	run.HasPendingApproval = false
-	run.PendingApproval = ApprovalRequest{}
+	run.PendingApproval = nil
 	records, err := service.store.CancelTurn(TerminalTurnRecords{AssistantMessage: message, Run: run})
 	if err != nil {
 		return Run{}, err
@@ -470,7 +470,7 @@ func (service *Service) pendingApprovalRun(workspaceID string, conversationID st
 	if !ok {
 		return Run{}, fmt.Errorf("conversation has no active run: %s", conversationID)
 	}
-	if !run.HasPendingApproval || run.PendingApproval.ID != approvalID {
+	if !run.HasPendingApproval || run.PendingApproval == nil || run.PendingApproval.ID != approvalID {
 		return Run{}, fmt.Errorf("approval is not pending for active run: %s", approvalID)
 	}
 	return run, nil
@@ -484,10 +484,10 @@ func (service *Service) clearSubmittedApproval(workspaceID string, runID string,
 	if err != nil {
 		return Run{}, err
 	}
-	if !run.HasPendingApproval || run.PendingApproval.ID != approvalID {
+	if !run.HasPendingApproval || run.PendingApproval == nil || run.PendingApproval.ID != approvalID {
 		return run, nil
 	}
-	approval := run.PendingApproval
+	approval := *run.PendingApproval
 	approval.ResolvedAt = timestamp(service.now())
 	approval.Response = approvalResponseSummary(response, answers)
 	approval.Approved = approved
@@ -502,7 +502,7 @@ func (service *Service) clearSubmittedApproval(workspaceID string, runID string,
 		approval.Status = ApprovalStatusDenied
 	}
 	run.HasPendingApproval = false
-	run.PendingApproval = ApprovalRequest{}
+	run.PendingApproval = nil
 	run, err = service.store.SubmitApproval(run)
 	if err != nil {
 		return Run{}, err
@@ -666,7 +666,7 @@ func (service *Service) saveCompletedTurnLocked(workspaceID string, run Run, mes
 	run.Status = RunStatusCompleted
 	run.CompletedAt = now
 	run.HasPendingApproval = false
-	run.PendingApproval = ApprovalRequest{}
+	run.PendingApproval = nil
 	records, err := service.store.CompleteTurn(TerminalTurnRecords{AssistantMessage: message, Run: run})
 	if err != nil {
 		return ChatMessage{}, Run{}, err
@@ -716,7 +716,7 @@ func (service *Service) failTurn(workspaceID string, conversationID string, runI
 	run.CompletedAt = now
 	run.Error = message
 	run.HasPendingApproval = false
-	run.PendingApproval = ApprovalRequest{}
+	run.PendingApproval = nil
 	records, err := service.store.FailTurn(TerminalTurnRecords{AssistantMessage: assistant, Run: run})
 	if err != nil {
 		return err
@@ -848,7 +848,7 @@ func approvalQuestionsOrEmpty(values []ApprovalQuestion) []ApprovalQuestion {
 
 func (service *Service) saveApprovalRequestLocked(workspaceID string, run Run, approval ApprovalRequest) error {
 	run.HasPendingApproval = true
-	run.PendingApproval = approval
+	run.PendingApproval = &approval
 	if err := service.store.SaveRun(run); err != nil {
 		return err
 	}
@@ -867,11 +867,11 @@ func (service *Service) resolveApproval(workspaceID string, _ string, runID stri
 	if err != nil {
 		return err
 	}
-	if run.Status != RunStatusRunning || !run.HasPendingApproval || run.PendingApproval.ID != approvalID {
+	if run.Status != RunStatusRunning || !run.HasPendingApproval || run.PendingApproval == nil || run.PendingApproval.ID != approvalID {
 		return nil
 	}
 	run.HasPendingApproval = false
-	run.PendingApproval = ApprovalRequest{}
+	run.PendingApproval = nil
 	run, err = service.store.ResolveApproval(run)
 	if err != nil {
 		return err
@@ -1065,7 +1065,7 @@ func (service *Service) recoverInterruptedRun(workspaceID string, run Run, now s
 	run.CompletedAt = now
 	run.Error = "run interrupted by backend restart"
 	run.HasPendingApproval = false
-	run.PendingApproval = ApprovalRequest{}
+	run.PendingApproval = nil
 	if _, err := service.store.FailTurn(TerminalTurnRecords{AssistantMessage: message, Run: run}); err != nil {
 		return err
 	}

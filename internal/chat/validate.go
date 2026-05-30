@@ -143,7 +143,10 @@ func validateRun(run Run) error {
 		return err
 	}
 	if run.HasPendingApproval {
-		if err := validateApprovalRequest(run.PendingApproval); err != nil {
+		if run.PendingApproval == nil {
+			return fmt.Errorf("run %s pendingApproval is required when pending", run.ID)
+		}
+		if err := validateApprovalRequest(*run.PendingApproval); err != nil {
 			return err
 		}
 	}

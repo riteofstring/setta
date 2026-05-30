@@ -880,16 +880,47 @@ func TestStoreIgnoresTemporaryJSONFiles(t *testing.T) {
 }
 
 func TestApprovalRequestMarshalsEmptySlicesAsArrays(t *testing.T) {
-	data, err := json.Marshal(Run{})
+	data, err := json.Marshal(ApprovalRequest{})
 	if err != nil {
-		t.Fatalf("marshal run: %v", err)
+		t.Fatalf("marshal approval request: %v", err)
 	}
 	text := string(data)
 	if !strings.Contains(text, `"options":[]`) {
-		t.Fatalf("marshaled run = %s, want empty options array", text)
+		t.Fatalf("marshaled approval request = %s, want empty options array", text)
 	}
 	if !strings.Contains(text, `"questions":[]`) {
-		t.Fatalf("marshaled run = %s, want empty questions array", text)
+		t.Fatalf("marshaled approval request = %s, want empty questions array", text)
+	}
+}
+
+func TestRunWithoutPendingApprovalMarshalsNullPendingApproval(t *testing.T) {
+	approval := ApprovalRequest{
+		ID:        "approval_stale",
+		RunID:     "run_api",
+		Kind:      ApprovalKindPermission,
+		Title:     "Permission",
+		Status:    ApprovalStatusPending,
+		CreatedAt: "2026-05-29T20:00:00Z",
+	}
+	run := Run{
+		SchemaVersion:    SchemaVersion,
+		ID:               "run_api",
+		WorkspaceID:      "workspace_api",
+		ConversationID:   "conversation_api",
+		TriggerMessageID: "message_user",
+		Harness:          HarnessCodex,
+		Status:           RunStatusQueued,
+		StartedAt:        "2026-05-29T20:00:00Z",
+		PromptSummary:    "prompt",
+		PendingApproval:  &approval,
+	}
+
+	data, err := json.Marshal(run)
+	if err != nil {
+		t.Fatalf("marshal run: %v", err)
+	}
+	if !strings.Contains(string(data), `"pendingApproval":null`) {
+		t.Fatalf("marshaled run = %s, want null pending approval", string(data))
 	}
 }
 
