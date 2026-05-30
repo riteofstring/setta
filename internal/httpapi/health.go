@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
 	"setta/internal/appstate"
+	"setta/internal/jsonio"
 	"setta/internal/workspace"
 	"setta/internal/workspacesession"
 )
@@ -198,14 +198,12 @@ func requireWorkspaceService(response http.ResponseWriter, service WorkspaceServ
 }
 
 func decodeRequest(response http.ResponseWriter, request *http.Request, target any) bool {
-	decoder := json.NewDecoder(request.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(target); err != nil {
+	if err := jsonio.DecodeSingle(request.Body, target); err != nil {
+		if errors.Is(err, jsonio.ErrMultipleValues) {
+			writeError(response, http.StatusBadRequest, "invalid_json", "request body must contain exactly one JSON value")
+			return false
+		}
 		writeError(response, http.StatusBadRequest, "invalid_json", fmt.Sprintf("request body must be valid JSON: %v", err))
-		return false
-	}
-	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
-		writeError(response, http.StatusBadRequest, "invalid_json", "request body must contain exactly one JSON value")
 		return false
 	}
 	return true

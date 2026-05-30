@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -102,6 +103,30 @@ func TestWorkspaceEndpointRejectsMalformedJSON(t *testing.T) {
 	}
 }
 
+func TestWorkspaceEndpointRejectsTrailingJSON(t *testing.T) {
+	handler := newWorkspaceHandler(t, nil, nil)
+	errResponse := postRaw[ErrorResponse](t, handler, "/workspaces/select", `{"id":"workspace_api"}{"junk":true}`, http.StatusBadRequest)
+
+	if errResponse.Error.Code != "invalid_json" {
+		t.Fatalf("error code = %q, want invalid_json", errResponse.Error.Code)
+	}
+	if errResponse.Error.Message != "request body must contain exactly one JSON value" {
+		t.Fatalf("error message = %q", errResponse.Error.Message)
+	}
+}
+
+func TestWorkspaceEndpointRejectsUnknownJSONFields(t *testing.T) {
+	handler := newWorkspaceHandler(t, nil, nil)
+	errResponse := postRaw[ErrorResponse](t, handler, "/workspaces/select", `{"id":"workspace_api","extra":true}`, http.StatusBadRequest)
+
+	if errResponse.Error.Code != "invalid_json" {
+		t.Fatalf("error code = %q, want invalid_json", errResponse.Error.Code)
+	}
+	if !strings.Contains(errResponse.Error.Message, `unknown field "extra"`) {
+		t.Fatalf("error message = %q, want unknown field", errResponse.Error.Message)
+	}
+}
+
 func newWorkspaceHandler(t *testing.T, ids []string, times []time.Time) http.Handler {
 	t.Helper()
 
@@ -140,7 +165,13 @@ func postJSON[T any](t *testing.T, handler http.Handler, path string, payload an
 	if err != nil {
 		t.Fatalf("marshal request payload: %v", err)
 	}
-	request := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
+	return postRaw[T](t, handler, path, string(body), wantStatus)
+}
+
+func postRaw[T any](t *testing.T, handler http.Handler, path string, body string, wantStatus int) T {
+	t.Helper()
+
+	request := httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(body))
 	response := httptest.NewRecorder()
 
 	handler.ServeHTTP(response, request)

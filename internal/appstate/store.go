@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"setta/internal/jsonio"
 	"setta/internal/workspace"
 )
 
@@ -85,9 +86,7 @@ func (store *Store) Load() (State, error) {
 	defer file.Close()
 
 	var state State
-	decoder := json.NewDecoder(file)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&state); err != nil {
+	if err := jsonio.DecodeSingle(file, &state); err != nil {
 		return State{}, fmt.Errorf("malformed app state %s: %w", store.statePath, err)
 	}
 	if err := validateState(state, store.statePath); err != nil {

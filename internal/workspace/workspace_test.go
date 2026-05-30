@@ -110,6 +110,34 @@ func TestOpenLocalRejectsMalformedMetadata(t *testing.T) {
 	}
 }
 
+func TestOpenLocalRejectsTrailingMetadataJSON(t *testing.T) {
+	rootPath := t.TempDir()
+	writeWorkspaceStateFixture(t, rootPath, `{"schemaVersion":1,"id":"workspace_api","rootPath":"`+rootPath+`","displayName":"api","createdAt":"2026-05-29T20:00:00Z","updatedAt":"2026-05-29T20:00:00Z"}{"junk":true}`)
+
+	manager := testManager("workspace_unused", mustTime(t, "2026-05-29T20:00:00Z"))
+	_, _, err := manager.OpenLocal(rootPath)
+	if err == nil {
+		t.Fatal("open local succeeded, want trailing metadata error")
+	}
+	if !strings.Contains(err.Error(), "exactly one value") {
+		t.Fatalf("error = %q, want exactly one value", err)
+	}
+}
+
+func TestOpenLocalRejectsUnknownMetadataFields(t *testing.T) {
+	rootPath := t.TempDir()
+	writeWorkspaceStateFixture(t, rootPath, `{"schemaVersion":1,"id":"workspace_api","rootPath":"`+rootPath+`","displayName":"api","createdAt":"2026-05-29T20:00:00Z","updatedAt":"2026-05-29T20:00:00Z","extra":true}`)
+
+	manager := testManager("workspace_unused", mustTime(t, "2026-05-29T20:00:00Z"))
+	_, _, err := manager.OpenLocal(rootPath)
+	if err == nil {
+		t.Fatal("open local succeeded, want unknown field metadata error")
+	}
+	if !strings.Contains(err.Error(), `unknown field "extra"`) {
+		t.Fatalf("error = %q, want unknown field", err)
+	}
+}
+
 func TestOpenLocalFailsWhenSettaPathCannotBecomeDirectory(t *testing.T) {
 	rootPath := t.TempDir()
 	if err := os.WriteFile(filepath.Join(rootPath, stateDirName), []byte("file"), 0o644); err != nil {
@@ -149,6 +177,18 @@ func readWorkspaceState(t *testing.T, statePath string) WorkspaceState {
 		t.Fatalf("decode workspace state: %v", err)
 	}
 	return state
+}
+
+func writeWorkspaceStateFixture(t *testing.T, rootPath string, content string) {
+	t.Helper()
+
+	stateDir := filepath.Dir(StateFilePath(rootPath))
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
+		t.Fatalf("create metadata dir: %v", err)
+	}
+	if err := os.WriteFile(StateFilePath(rootPath), []byte(content), 0o644); err != nil {
+		t.Fatalf("write metadata fixture: %v", err)
+	}
 }
 
 func mustTime(t *testing.T, value string) time.Time {

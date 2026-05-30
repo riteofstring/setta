@@ -2,13 +2,13 @@ import type { WorkspaceSession } from "@generated/backend";
 import { create } from "zustand";
 
 export type WorkspaceStatus = "idle" | "loading" | "ready" | "error";
-export type WorkspaceOperation =
+export type WorkspaceOperationKind =
   | "closing"
   | "opening"
   | "removingRecent"
   | "reordering"
-  | "selecting"
-  | null;
+  | "selecting";
+export type WorkspaceOperation = WorkspaceOperationKind | null;
 
 interface WorkspaceStore {
   error: string | null;
@@ -23,70 +23,100 @@ interface WorkspaceStore {
   status: WorkspaceStatus;
 }
 
-export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
-  closeWorkspace: async (id: string) => {
-    set({ error: null, operation: "closing" });
-    try {
-      const session = await window.setta.workspace.close(id);
-      set({ operation: null, session, status: "ready" });
-    } catch (error) {
-      set({ error: errorMessage(error), operation: null, status: "error" });
+type WorkspaceStatePatch = Partial<
+  Pick<WorkspaceStore, "error" | "operation" | "session" | "status">
+>;
+
+let operationSequence = 0;
+let currentOperationId = 0;
+
+export const useWorkspaceStore = create<WorkspaceStore>((set) => {
+  function beginOperation(patch: WorkspaceStatePatch) {
+    operationSequence += 1;
+    currentOperationId = operationSequence;
+    set(patch);
+    return currentOperationId;
+  }
+
+  function commitCurrentOperation(operationId: number, patch: WorkspaceStatePatch) {
+    if (operationId !== currentOperationId) {
+      return;
     }
-  },
-  error: null,
-  loadSession: async () => {
-    set({ error: null, status: "loading" });
+    currentOperationId = 0;
+    set(patch);
+  }
+
+  async function runWorkspaceOperation<Result>(
+    kind: WorkspaceOperationKind,
+    action: () => Promise<Result>,
+    successPatch: (result: Result) => WorkspaceStatePatch,
+  ) {
+    const operationId = beginOperation({ error: null, operation: kind });
     try {
-      const session = await window.setta.workspace.session();
-      set({ session, status: "ready" });
+      const result = await action();
+      commitCurrentOperation(operationId, successPatch(result));
     } catch (error) {
-      set({ error: errorMessage(error), status: "error" });
+      commitCurrentOperation(operationId, {
+        error: errorMessage(error),
+        operation: null,
+        status: "error",
+      });
     }
-  },
-  openLocalFolder: async () => {
-    set({ error: null, operation: "opening" });
-    try {
-      const response = await window.setta.workspace.openLocalFolder();
-      if (response === null) {
-        set({ operation: null });
-        return;
+  }
+
+  return {
+    closeWorkspace: (id: string) =>
+      runWorkspaceOperation("closing", () => window.setta.workspace.close(id), sessionReadyPatch),
+    error: null,
+    loadSession: async () => {
+      const operationId = beginOperation({ error: null, operation: null, status: "loading" });
+      try {
+        const session = await window.setta.workspace.session();
+        commitCurrentOperation(operationId, { operation: null, session, status: "ready" });
+      } catch (error) {
+        commitCurrentOperation(operationId, {
+          error: errorMessage(error),
+          operation: null,
+          status: "error",
+        });
       }
-      set({ operation: null, session: response.session, status: "ready" });
-    } catch (error) {
-      set({ error: errorMessage(error), operation: null, status: "error" });
-    }
-  },
-  operation: null,
-  removeRecent: async (id: string) => {
-    set({ error: null, operation: "removingRecent" });
-    try {
-      const session = await window.setta.workspace.removeRecent(id);
-      set({ operation: null, session, status: "ready" });
-    } catch (error) {
-      set({ error: errorMessage(error), operation: null, status: "error" });
-    }
-  },
-  reorderWorkspaces: async (ids: string[]) => {
-    set({ error: null, operation: "reordering" });
-    try {
-      const session = await window.setta.workspace.reorder(ids);
-      set({ operation: null, session, status: "ready" });
-    } catch (error) {
-      set({ error: errorMessage(error), operation: null, status: "error" });
-    }
-  },
-  selectWorkspace: async (id: string) => {
-    set({ error: null, operation: "selecting" });
-    try {
-      const session = await window.setta.workspace.select(id);
-      set({ operation: null, session, status: "ready" });
-    } catch (error) {
-      set({ error: errorMessage(error), operation: null, status: "error" });
-    }
-  },
-  session: null,
-  status: "idle",
-}));
+    },
+    openLocalFolder: () =>
+      runWorkspaceOperation(
+        "opening",
+        () => window.setta.workspace.openLocalFolder(),
+        (response) =>
+          response === null
+            ? { operation: null }
+            : { operation: null, session: response.session, status: "ready" },
+      ),
+    operation: null,
+    removeRecent: (id: string) =>
+      runWorkspaceOperation(
+        "removingRecent",
+        () => window.setta.workspace.removeRecent(id),
+        sessionReadyPatch,
+      ),
+    reorderWorkspaces: (ids: string[]) =>
+      runWorkspaceOperation(
+        "reordering",
+        () => window.setta.workspace.reorder(ids),
+        sessionReadyPatch,
+      ),
+    selectWorkspace: (id: string) =>
+      runWorkspaceOperation(
+        "selecting",
+        () => window.setta.workspace.select(id),
+        sessionReadyPatch,
+      ),
+    session: null,
+    status: "idle",
+  };
+});
+
+function sessionReadyPatch(session: WorkspaceSession): WorkspaceStatePatch {
+  return { operation: null, session, status: "ready" };
+}
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Workspace operation failed";

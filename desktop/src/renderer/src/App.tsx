@@ -1,23 +1,15 @@
 import type { BackendHealth, WorkspaceSession, WorkspaceSummary } from "@generated/backend";
-import {
-  ArrowDown,
-  ArrowUp,
-  CircleAlert,
-  CircleCheck,
-  FolderOpen,
-  RefreshCw,
-  Trash2,
-  X,
-} from "lucide-react";
-import type { ReactNode, RefObject } from "react";
+import { CircleAlert, CircleCheck, FolderOpen, RefreshCw } from "lucide-react";
+import type { RefObject } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { RuntimeVersions } from "@shared/types";
+import { WorkspaceSidebar } from "./components/workspace-sidebar";
 import { Badge } from "./components/ui/badge";
 import { Button } from "./components/ui/button";
 import { Separator } from "./components/ui/separator";
-import { cn } from "./lib/utils";
 import {
+  type WorkspaceOperationKind,
   type WorkspaceOperation,
   type WorkspaceStatus,
   useWorkspaceStore,
@@ -215,188 +207,6 @@ function useBrowserPaneSync(browserHostRef: RefObject<HTMLDivElement | null>) {
   }, [browserHostRef]);
 }
 
-export function WorkspaceSidebar({
-  activeWorkspaces,
-  busy,
-  closeWorkspace,
-  openLocalFolder,
-  recentWorkspaces,
-  removeRecent,
-  reorderWorkspaces,
-  selectWorkspace,
-  selectedWorkspaceId,
-}: {
-  activeWorkspaces: WorkspaceSummary[];
-  busy: boolean;
-  closeWorkspace: (id: string) => Promise<void>;
-  openLocalFolder: () => Promise<void>;
-  recentWorkspaces: WorkspaceSummary[];
-  removeRecent: (id: string) => Promise<void>;
-  reorderWorkspaces: (ids: string[]) => Promise<void>;
-  selectWorkspace: (id: string) => Promise<void>;
-  selectedWorkspaceId: string;
-}) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col px-4 py-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold">Workspaces</h2>
-        <Button
-          aria-label="Open workspace folder"
-          className="h-8 px-2"
-          disabled={busy}
-          onClick={() => void openLocalFolder()}
-          title="Open workspace folder"
-        >
-          <FolderOpen className="h-4 w-4" />
-          Open
-        </Button>
-      </div>
-      <div className="mt-5 min-h-0 flex-1 overflow-y-auto">
-        <WorkspaceList
-          activeWorkspaces={activeWorkspaces}
-          busy={busy}
-          closeWorkspace={closeWorkspace}
-          reorderWorkspaces={reorderWorkspaces}
-          selectWorkspace={selectWorkspace}
-          selectedWorkspaceId={selectedWorkspaceId}
-        />
-        <Separator className="my-5" />
-        <RecentWorkspaceList
-          activeWorkspaceIds={new Set(activeWorkspaces.map((workspace) => workspace.id))}
-          busy={busy}
-          recentWorkspaces={recentWorkspaces}
-          removeRecent={removeRecent}
-        />
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceList({
-  activeWorkspaces,
-  busy,
-  closeWorkspace,
-  reorderWorkspaces,
-  selectWorkspace,
-  selectedWorkspaceId,
-}: {
-  activeWorkspaces: WorkspaceSummary[];
-  busy: boolean;
-  closeWorkspace: (id: string) => Promise<void>;
-  reorderWorkspaces: (ids: string[]) => Promise<void>;
-  selectWorkspace: (id: string) => Promise<void>;
-  selectedWorkspaceId: string;
-}) {
-  if (activeWorkspaces.length === 0) {
-    return <p className="text-sm text-zinc-500">No active workspaces</p>;
-  }
-
-  return (
-    <div className="space-y-1" data-testid="active-workspace-list">
-      {activeWorkspaces.map((workspace, index) => (
-        <div
-          className={cn(
-            "grid grid-cols-[1fr_auto] gap-1 rounded-md border px-2 py-2",
-            workspace.id === selectedWorkspaceId
-              ? "border-zinc-300 bg-zinc-100"
-              : "border-transparent bg-white hover:border-zinc-200",
-          )}
-          data-testid="active-workspace-item"
-          key={workspace.id}
-        >
-          <button
-            className="min-w-0 text-left"
-            data-testid="active-workspace-select"
-            disabled={busy}
-            onClick={() => void selectWorkspace(workspace.id)}
-          >
-            <span className="block truncate text-sm font-medium">{workspace.displayName}</span>
-            <span className="mt-0.5 block truncate text-xs text-zinc-500">
-              {workspace.rootPath}
-            </span>
-          </button>
-          <div className="flex items-center gap-1">
-            <IconButton
-              disabled={busy || index === 0}
-              label="Move workspace up"
-              onClick={() => void moveWorkspace(activeWorkspaces, index, -1, reorderWorkspaces)}
-            >
-              <ArrowUp className="h-3.5 w-3.5" />
-            </IconButton>
-            <IconButton
-              disabled={busy || index === activeWorkspaces.length - 1}
-              label="Move workspace down"
-              onClick={() => void moveWorkspace(activeWorkspaces, index, 1, reorderWorkspaces)}
-            >
-              <ArrowDown className="h-3.5 w-3.5" />
-            </IconButton>
-            <IconButton
-              disabled={busy}
-              label="Close workspace"
-              onClick={() => void closeWorkspace(workspace.id)}
-            >
-              <X className="h-3.5 w-3.5" />
-            </IconButton>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function RecentWorkspaceList({
-  activeWorkspaceIds,
-  busy,
-  recentWorkspaces,
-  removeRecent,
-}: {
-  activeWorkspaceIds: Set<string>;
-  busy: boolean;
-  recentWorkspaces: WorkspaceSummary[];
-  removeRecent: (id: string) => Promise<void>;
-}) {
-  if (recentWorkspaces.length === 0) {
-    return (
-      <div>
-        <h3 className="text-xs font-semibold uppercase tracking-normal text-zinc-500">Recent</h3>
-        <p className="mt-3 text-sm text-zinc-500">No recent workspaces</p>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <h3 className="text-xs font-semibold uppercase tracking-normal text-zinc-500">Recent</h3>
-      <div className="mt-3 space-y-1" data-testid="recent-workspace-list">
-        {recentWorkspaces.map((workspace) => {
-          const active = activeWorkspaceIds.has(workspace.id);
-          return (
-            <div
-              className="grid grid-cols-[1fr_auto] items-center gap-2 rounded-md px-2 py-2"
-              data-testid="recent-workspace-item"
-              key={workspace.id}
-            >
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-zinc-800">
-                  {workspace.displayName}
-                </div>
-                <div className="truncate text-xs text-zinc-500">{workspace.rootPath}</div>
-              </div>
-              <IconButton
-                disabled={busy || active}
-                label="Remove recent workspace"
-                onClick={() => void removeRecent(workspace.id)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </IconButton>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 export function WorkspacePanel({
   error,
   openLocalFolder,
@@ -461,65 +271,16 @@ export function WorkspacePanel({
   );
 }
 
-function IconButton({
-  children,
-  disabled,
-  label,
-  onClick,
-}: {
-  children: ReactNode;
-  disabled: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      aria-label={label}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-white text-zinc-600 transition-colors hover:bg-zinc-50 disabled:pointer-events-none disabled:opacity-40"
-      disabled={disabled}
-      onClick={onClick}
-      title={label}
-      type="button"
-    >
-      {children}
-    </button>
-  );
-}
+const operationLabels = {
+  closing: "Closing",
+  opening: "Opening",
+  removingRecent: "Removing",
+  reordering: "Reordering",
+  selecting: "Selecting",
+} satisfies Record<WorkspaceOperationKind, string>;
 
-function moveWorkspace(
-  activeWorkspaces: WorkspaceSummary[],
-  index: number,
-  direction: -1 | 1,
-  reorderWorkspaces: (ids: string[]) => Promise<void>,
-) {
-  const targetIndex = index + direction;
-  if (targetIndex < 0 || targetIndex >= activeWorkspaces.length) {
-    return;
-  }
-  const ids = activeWorkspaces.map((workspace) => workspace.id);
-  const currentID = ids[index];
-  const targetID = ids[targetIndex];
-  if (currentID === undefined || targetID === undefined) {
-    return;
-  }
-  ids[index] = targetID;
-  ids[targetIndex] = currentID;
-  void reorderWorkspaces(ids);
-}
-
-function operationLabel(operation: Exclude<WorkspaceOperation, null>) {
-  switch (operation) {
-    case "closing":
-      return "Closing";
-    case "opening":
-      return "Opening";
-    case "removingRecent":
-      return "Removing";
-    case "reordering":
-      return "Reordering";
-    case "selecting":
-      return "Selecting";
-  }
+function operationLabel(operation: WorkspaceOperationKind) {
+  return operationLabels[operation];
 }
 
 function BackendBadge({ backend }: { backend: BackendState }) {

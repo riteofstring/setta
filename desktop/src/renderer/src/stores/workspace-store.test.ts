@@ -106,6 +106,119 @@ describe("workspace store", () => {
     expect(useWorkspaceStore.getState().status).toBe("error");
     expect(useWorkspaceStore.getState().error).toBe("workspace path does not exist");
   });
+
+  test("newer operation result wins over older operation result", async () => {
+    const older = deferred<WorkspaceSession>();
+    const newer = deferred<WorkspaceSession>();
+    const olderSession = workspaceSession("workspace_api");
+    const newerSession = workspaceSession("workspace_web");
+    installSettaAPI({
+      workspace: {
+        close: vi.fn().mockReturnValue(older.promise),
+        select: vi.fn().mockReturnValue(newer.promise),
+      },
+    });
+
+    const closePromise = useWorkspaceStore.getState().closeWorkspace("workspace_api");
+    const selectPromise = useWorkspaceStore.getState().selectWorkspace("workspace_web");
+    newer.resolve(newerSession);
+    await selectPromise;
+    older.resolve(olderSession);
+    await closePromise;
+
+    expect(useWorkspaceStore.getState().session).toEqual(newerSession);
+    expect(useWorkspaceStore.getState().operation).toBeNull();
+    expect(useWorkspaceStore.getState().status).toBe("ready");
+  });
+
+  test("stale older rejection does not overwrite newer success", async () => {
+    const older = deferred<WorkspaceSession>();
+    const newer = deferred<WorkspaceSession>();
+    const newerSession = workspaceSession("workspace_web");
+    installSettaAPI({
+      workspace: {
+        close: vi.fn().mockReturnValue(older.promise),
+        select: vi.fn().mockReturnValue(newer.promise),
+      },
+    });
+
+    const closePromise = useWorkspaceStore.getState().closeWorkspace("workspace_api");
+    const selectPromise = useWorkspaceStore.getState().selectWorkspace("workspace_web");
+    newer.resolve(newerSession);
+    await selectPromise;
+    older.reject(new Error("stale close failed"));
+    await closePromise;
+
+    expect(useWorkspaceStore.getState().session).toEqual(newerSession);
+    expect(useWorkspaceStore.getState().error).toBeNull();
+    expect(useWorkspaceStore.getState().status).toBe("ready");
+  });
+
+  test("stale older success does not clear a newer operation", async () => {
+    const older = deferred<WorkspaceSession>();
+    const newer = deferred<WorkspaceSession>();
+    installSettaAPI({
+      workspace: {
+        close: vi.fn().mockReturnValue(newer.promise),
+        select: vi.fn().mockReturnValue(older.promise),
+      },
+    });
+
+    const selectPromise = useWorkspaceStore.getState().selectWorkspace("workspace_api");
+    const closePromise = useWorkspaceStore.getState().closeWorkspace("workspace_web");
+    older.resolve(workspaceSession("workspace_api"));
+    await selectPromise;
+
+    expect(useWorkspaceStore.getState().operation).toBe("closing");
+
+    newer.resolve(workspaceSession("workspace_web"));
+    await closePromise;
+    expect(useWorkspaceStore.getState().operation).toBeNull();
+  });
+
+  test("stale canceled folder open does not clear a newer operation", async () => {
+    const older = deferred<OpenWorkspaceResponse | null>();
+    const newer = deferred<WorkspaceSession>();
+    installSettaAPI({
+      workspace: {
+        openLocalFolder: vi.fn().mockReturnValue(older.promise),
+        select: vi.fn().mockReturnValue(newer.promise),
+      },
+    });
+
+    const openPromise = useWorkspaceStore.getState().openLocalFolder();
+    const selectPromise = useWorkspaceStore.getState().selectWorkspace("workspace_web");
+    older.resolve(null);
+    await openPromise;
+
+    expect(useWorkspaceStore.getState().operation).toBe("selecting");
+
+    newer.resolve(workspaceSession("workspace_web"));
+    await selectPromise;
+    expect(useWorkspaceStore.getState().operation).toBeNull();
+  });
+
+  test("stale session load does not replace a newer operation result", async () => {
+    const older = deferred<WorkspaceSession>();
+    const newer = deferred<WorkspaceSession>();
+    const newerSession = workspaceSession("workspace_web");
+    installSettaAPI({
+      workspace: {
+        select: vi.fn().mockReturnValue(newer.promise),
+        session: vi.fn().mockReturnValue(older.promise),
+      },
+    });
+
+    const loadPromise = useWorkspaceStore.getState().loadSession();
+    const selectPromise = useWorkspaceStore.getState().selectWorkspace("workspace_web");
+    newer.resolve(newerSession);
+    await selectPromise;
+    older.resolve(workspaceSession("workspace_api"));
+    await loadPromise;
+
+    expect(useWorkspaceStore.getState().session).toEqual(newerSession);
+    expect(useWorkspaceStore.getState().status).toBe("ready");
+  });
 });
 
 interface SettaAPIOverrides {
@@ -172,6 +285,25 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       setta: api,
     },
   });
+}
+
+interface Deferred<T> {
+  promise: Promise<T>;
+  reject: (error: Error) => void;
+  resolve: (value: T) => void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve: Deferred<T>["resolve"] | null = null;
+  let reject: Deferred<T>["reject"] | null = null;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+  if (!resolve || !reject) {
+    throw new Error("deferred promise callbacks were not initialized");
+  }
+  return { promise, reject, resolve };
 }
 
 function firstWorkspace(session: WorkspaceSession) {

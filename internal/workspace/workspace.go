@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"setta/internal/jsonio"
 )
 
 const (
@@ -154,9 +156,7 @@ func loadState(statePath string) (WorkspaceState, bool, error) {
 	defer file.Close()
 
 	var state WorkspaceState
-	decoder := json.NewDecoder(file)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&state); err != nil {
+	if err := jsonio.DecodeSingle(file, &state); err != nil {
 		return WorkspaceState{}, false, fmt.Errorf("malformed workspace metadata %s: %w", statePath, err)
 	}
 	if err := validateState(state, statePath); err != nil {

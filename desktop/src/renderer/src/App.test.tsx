@@ -1,7 +1,8 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, test } from "vitest";
 
-import { WorkspacePanel, WorkspaceSidebar } from "./App";
+import { WorkspacePanel } from "./App";
+import { WorkspaceSidebar } from "./components/workspace-sidebar";
 
 describe("workspace renderer states", () => {
   test("renders the empty workspace state", () => {
@@ -91,4 +92,34 @@ describe("workspace renderer states", () => {
     expect(html).toContain("workspace path does not exist");
     expect(html).toContain('data-testid="workspace-error"');
   });
+
+  test("bounds large workspace list row rendering", () => {
+    const workspaces = Array.from({ length: 3000 }, (_, index) => ({
+      displayName: `Workspace ${index}`,
+      id: `workspace_${index}`,
+      lastOpenedAt: "2026-05-29T20:00:00Z",
+      rootPath: `/tmp/workspace-${index}`,
+    }));
+
+    const html = renderToString(
+      <WorkspaceSidebar
+        activeWorkspaces={workspaces}
+        busy={false}
+        closeWorkspace={async () => {}}
+        openLocalFolder={async () => {}}
+        recentWorkspaces={workspaces}
+        removeRecent={async () => {}}
+        reorderWorkspaces={async () => {}}
+        selectWorkspace={async () => {}}
+        selectedWorkspaceId="workspace_0"
+      />,
+    );
+
+    expect(rowCount(html, "active-workspace-item")).toBeLessThan(30);
+    expect(rowCount(html, "recent-workspace-item")).toBeLessThan(30);
+  });
 });
+
+function rowCount(html: string, testId: string) {
+  return html.split(`data-testid="${testId}"`).length - 1;
+}

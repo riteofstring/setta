@@ -1,6 +1,7 @@
-import { WebContentsView, ipcMain, type BrowserWindow } from "electron";
+import { WebContentsView, ipcMain, type BrowserWindow, type IpcMain } from "electron";
 import { pathToFileURL } from "node:url";
 
+import { handleIpc } from "@shared/ipc";
 import type {
   BrowserPaneBounds,
   BrowserPaneEvents,
@@ -104,26 +105,27 @@ export function createBrowserPane(
   };
 }
 
-export function registerBrowserPaneIpc(getController: () => BrowserPaneController | null) {
-  ipcMain.handle("browser-pane:capture-screenshot", () =>
+export function registerBrowserPaneIpc(
+  getController: () => BrowserPaneController | null,
+  main: Pick<IpcMain, "handle"> = ipcMain,
+) {
+  handleIpc(main, "browserPaneCaptureScreenshot", () =>
     requireController(getController()).captureScreenshot(),
   );
-  ipcMain.handle("browser-pane:click", (_event, point: BrowserPanePoint) =>
+  handleIpc(main, "browserPaneClick", (_event, point) =>
     requireController(getController()).click(point),
   );
-  ipcMain.handle("browser-pane:events", () => requireController(getController()).events());
-  ipcMain.handle("browser-pane:focus", () => requireController(getController()).focus());
-  ipcMain.handle("browser-pane:inspect", (_event, selector: string) =>
+  handleIpc(main, "browserPaneEvents", () => requireController(getController()).events());
+  handleIpc(main, "browserPaneFocus", () => requireController(getController()).focus());
+  handleIpc(main, "browserPaneInspect", (_event, selector) =>
     requireController(getController()).inspect(selector),
   );
-  ipcMain.handle("browser-pane:load-preview", () =>
-    requireController(getController()).loadPreview(),
-  );
-  ipcMain.handle("browser-pane:set-bounds", (_event, bounds: BrowserPaneBounds) =>
+  handleIpc(main, "browserPaneLoadPreview", () => requireController(getController()).loadPreview());
+  handleIpc(main, "browserPaneSetBounds", (_event, bounds) =>
     requireController(getController()).setBounds(bounds),
   );
-  ipcMain.handle("browser-pane:status", () => requireController(getController()).status());
-  ipcMain.handle("browser-pane:type-text", (_event, text: string) =>
+  handleIpc(main, "browserPaneStatus", () => requireController(getController()).status());
+  handleIpc(main, "browserPaneTypeText", (_event, text) =>
     requireController(getController()).typeText(text),
   );
 }

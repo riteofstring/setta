@@ -71,6 +71,32 @@ func TestStoreRejectsMalformedAppState(t *testing.T) {
 	}
 }
 
+func TestStoreRejectsTrailingAppStateJSON(t *testing.T) {
+	store := newTestStore(t)
+	writeAppStateFixture(t, store, `{"schemaVersion":1,"selectedWorkspaceId":"","activeWorkspaceIds":[],"recentWorkspaces":[]}{"junk":true}`)
+
+	_, err := store.Load()
+	if err == nil {
+		t.Fatal("load succeeded, want trailing JSON error")
+	}
+	if !strings.Contains(err.Error(), "exactly one value") {
+		t.Fatalf("error = %q, want exactly one value", err)
+	}
+}
+
+func TestStoreRejectsUnknownAppStateFields(t *testing.T) {
+	store := newTestStore(t)
+	writeAppStateFixture(t, store, `{"schemaVersion":1,"selectedWorkspaceId":"","activeWorkspaceIds":[],"recentWorkspaces":[],"extra":true}`)
+
+	_, err := store.Load()
+	if err == nil {
+		t.Fatal("load succeeded, want unknown field error")
+	}
+	if !strings.Contains(err.Error(), `unknown field "extra"`) {
+		t.Fatalf("error = %q, want unknown field", err)
+	}
+}
+
 func TestStoreRejectsInvalidStateRelationships(t *testing.T) {
 	store := newTestStore(t)
 	state := State{
@@ -131,6 +157,17 @@ func newTestStore(t *testing.T) *Store {
 		t.Fatalf("new store: %v", err)
 	}
 	return store
+}
+
+func writeAppStateFixture(t *testing.T, store *Store, content string) {
+	t.Helper()
+
+	if err := os.MkdirAll(filepath.Dir(store.Path()), 0o755); err != nil {
+		t.Fatalf("create app data dir: %v", err)
+	}
+	if err := os.WriteFile(store.Path(), []byte(content), 0o644); err != nil {
+		t.Fatalf("write app state fixture: %v", err)
+	}
 }
 
 func summary(id string, lastOpenedAt string) workspace.WorkspaceSummary {

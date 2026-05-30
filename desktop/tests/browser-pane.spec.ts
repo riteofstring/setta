@@ -1,11 +1,19 @@
 import { test, expect, _electron as electron } from "@playwright/test";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import type { Locator } from "@playwright/test";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import type { BrowserPaneSnapshot } from "../src/shared/types";
 
 const desktopRoot = resolve(__dirname, "..");
+
+interface TestWorkspace {
+  displayName: string;
+  id: string;
+  lastOpenedAt: string;
+  rootPath: string;
+}
 
 test("WebContentsView browser pane supports phase 1 automation", async () => {
   const userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "setta-electron-user-data-")));
@@ -112,6 +120,45 @@ test("WebContentsView browser pane supports phase 1 automation", async () => {
   }
 });
 
+test("workspace lists virtualize large app state", async () => {
+  const userDataDir = realpathSync(mkdtempSync(join(tmpdir(), "setta-electron-user-data-")));
+  const workspaces = seedLargeAppState(userDataDir, 3000);
+  const targetWorkspace = requireWorkspace(workspaces, workspaces.length - 1);
+  const electronApp = await electron.launch({
+    args: [`--user-data-dir=${userDataDir}`, join(desktopRoot, "out/main/index.js")],
+    cwd: desktopRoot,
+    env: {
+      ...process.env,
+      SETTA_BACKEND_READY_TIMEOUT_MS: "20000",
+    },
+  });
+
+  try {
+    const page = await electronApp.firstWindow();
+    await page.waitForSelector('[data-testid="active-workspace-item"]', { timeout: 20000 });
+    await expect(page.getByTestId("backend-status")).toContainText("Online", { timeout: 20000 });
+    await expect.poll(() => page.getByTestId("active-workspace-item").count()).toBeLessThan(80);
+    await expect.poll(() => page.getByTestId("recent-workspace-item").count()).toBeLessThan(80);
+
+    await scrollToEnd(page.getByTestId("recent-workspace-list"));
+    await expect(page.getByTestId("recent-workspace-list")).toContainText(targetWorkspace.rootPath);
+
+    await scrollToEnd(page.getByTestId("active-workspace-list"));
+    const targetRow = page
+      .getByTestId("active-workspace-item")
+      .filter({ hasText: targetWorkspace.rootPath });
+    await expect(targetRow).toBeVisible();
+    await targetRow.getByTestId("active-workspace-select").click();
+    await expect(page.getByTestId("selected-workspace-path")).toContainText(
+      targetWorkspace.rootPath,
+    );
+    await expect.poll(() => page.getByTestId("active-workspace-item").count()).toBeLessThan(80);
+  } finally {
+    await electronApp.close();
+    rmSync(userDataDir, { force: true, recursive: true });
+  }
+});
+
 function centerPoint(rect: BrowserPaneSnapshot["rect"]) {
   return {
     x: Math.round(rect.x + rect.width / 2),
@@ -124,4 +171,47 @@ function requireSnapshot(snapshot: BrowserPaneSnapshot | null) {
     throw new Error("expected browser pane snapshot");
   }
   return snapshot;
+}
+
+function seedLargeAppState(userDataDir: string, count: number): TestWorkspace[] {
+  mkdirSync(userDataDir, { recursive: true });
+  const workspaces = Array.from({ length: count }, (_, index) => {
+    const padded = String(index).padStart(5, "0");
+    return {
+      displayName: `Workspace ${padded}`,
+      id: `workspace_${padded}`,
+      lastOpenedAt: new Date(Date.UTC(2026, 4, 29, 20, 0, count - index)).toISOString(),
+      rootPath: `/tmp/setta-large-workspace-${padded}`,
+    };
+  });
+  const selectedWorkspace = requireWorkspace(workspaces, 0);
+  writeFileSync(
+    join(userDataDir, "app-state.json"),
+    JSON.stringify(
+      {
+        activeWorkspaceIds: workspaces.map((workspace) => workspace.id),
+        recentWorkspaces: workspaces,
+        schemaVersion: 1,
+        selectedWorkspaceId: selectedWorkspace.id,
+      },
+      null,
+      2,
+    ),
+  );
+  return workspaces;
+}
+
+function requireWorkspace(workspaces: TestWorkspace[], index: number): TestWorkspace {
+  const workspace = workspaces[index];
+  if (!workspace) {
+    throw new Error(`expected workspace at index ${index}`);
+  }
+  return workspace;
+}
+
+async function scrollToEnd(locator: Locator) {
+  await locator.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
 }

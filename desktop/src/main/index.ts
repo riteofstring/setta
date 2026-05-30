@@ -2,16 +2,9 @@ import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import type { OpenDialogOptions } from "electron";
 import { join, resolve } from "node:path";
 
-import { fetchBackendHealth } from "./backend-health";
+import { createBackendClient, type BackendClient } from "@generated/backend";
+import { handleIpc, ipcEvents } from "@shared/ipc";
 import { startBackend, type BackendHandle } from "./backend-supervisor";
-import {
-  closeWorkspace,
-  fetchWorkspaceSession,
-  openWorkspace,
-  removeRecentWorkspace,
-  reorderWorkspaces,
-  selectWorkspace,
-} from "./backend-workspace";
 import {
   createBrowserPane,
   registerBrowserPaneIpc,
@@ -39,7 +32,7 @@ async function prepareBackend() {
     backendStartupError = null;
     backend.events.on("exit", (exit) => {
       if (!exit.expected) {
-        mainWindow?.webContents.send("backend:unexpected-exit", exit);
+        mainWindow?.webContents.send(ipcEvents.backendUnexpectedExit, exit);
       }
     });
   } catch (error) {
@@ -88,28 +81,19 @@ function registerIpc() {
     return;
   }
   ipcRegistered = true;
-  ipcMain.handle("app:versions", () => ({
+  handleIpc(ipcMain, "appVersions", () => ({
     app: app.getVersion(),
     chrome: process.versions.chrome,
     electron: process.versions.electron,
     node: process.versions.node,
   }));
-  ipcMain.handle("backend:health", async () => {
-    if (!backend) {
-      throw new Error(backendStartupError ?? "backend is not running");
-    }
-    return fetchBackendHealth(backend.url);
+  handleIpc(ipcMain, "backendHealth", async () => {
+    return requireBackendClient().backendHealth();
   });
-  ipcMain.handle("workspace:session", async () => {
-    if (!backend) {
-      throw new Error(backendStartupError ?? "backend is not running");
-    }
-    return fetchWorkspaceSession(backend.url);
+  handleIpc(ipcMain, "workspaceSession", async () => {
+    return requireBackendClient().workspaceSession();
   });
-  ipcMain.handle("workspace:open-local-folder", async () => {
-    if (!backend) {
-      throw new Error(backendStartupError ?? "backend is not running");
-    }
+  handleIpc(ipcMain, "workspaceOpenLocalFolder", async () => {
     const options: OpenDialogOptions = {
       properties: ["openDirectory"],
       title: "Open Workspace Folder",
@@ -124,33 +108,28 @@ function registerIpc() {
     if (!rootPath) {
       throw new Error("open folder dialog returned no selected path");
     }
-    return openWorkspace(backend.url, { rootPath });
+    return requireBackendClient().openWorkspace({ rootPath });
   });
-  ipcMain.handle("workspace:select", async (_event, id: string) => {
-    if (!backend) {
-      throw new Error(backendStartupError ?? "backend is not running");
-    }
-    return selectWorkspace(backend.url, { id });
+  handleIpc(ipcMain, "workspaceSelect", async (_event, id) => {
+    return requireBackendClient().selectWorkspace({ id });
   });
-  ipcMain.handle("workspace:close", async (_event, id: string) => {
-    if (!backend) {
-      throw new Error(backendStartupError ?? "backend is not running");
-    }
-    return closeWorkspace(backend.url, { id });
+  handleIpc(ipcMain, "workspaceClose", async (_event, id) => {
+    return requireBackendClient().closeWorkspace({ id });
   });
-  ipcMain.handle("workspace:reorder", async (_event, ids: string[]) => {
-    if (!backend) {
-      throw new Error(backendStartupError ?? "backend is not running");
-    }
-    return reorderWorkspaces(backend.url, { ids });
+  handleIpc(ipcMain, "workspaceReorder", async (_event, ids) => {
+    return requireBackendClient().reorderWorkspace({ ids });
   });
-  ipcMain.handle("workspace:remove-recent", async (_event, id: string) => {
-    if (!backend) {
-      throw new Error(backendStartupError ?? "backend is not running");
-    }
-    return removeRecentWorkspace(backend.url, { id });
+  handleIpc(ipcMain, "workspaceRemoveRecent", async (_event, id) => {
+    return requireBackendClient().removeRecentWorkspace({ id });
   });
   registerBrowserPaneIpc(() => browserPane);
+}
+
+function requireBackendClient(): BackendClient {
+  if (!backend) {
+    throw new Error(backendStartupError ?? "backend is not running");
+  }
+  return createBackendClient(backend.url);
 }
 
 async function stopBackend() {

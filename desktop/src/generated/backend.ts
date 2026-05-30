@@ -5,40 +5,271 @@ export interface BackendHealth {
   name: string;
   version: string;
 }
+
 export interface WorkspaceSummary {
   id: string;
   rootPath: string;
   displayName: string;
   lastOpenedAt: string;
 }
+
 export interface WorkspaceSession {
   selectedWorkspaceId: string;
   activeWorkspaces: WorkspaceSummary[];
   recentWorkspaces: WorkspaceSummary[];
 }
+
 export interface OpenWorkspaceRequest {
   rootPath: string;
 }
+
 export interface OpenWorkspaceResponse {
   workspace: WorkspaceSummary;
   session: WorkspaceSession;
 }
+
 export interface SelectWorkspaceRequest {
   id: string;
 }
+
 export interface CloseWorkspaceRequest {
   id: string;
 }
+
 export interface ReorderWorkspaceRequest {
   ids: string[];
 }
+
 export interface RemoveRecentWorkspaceRequest {
   id: string;
 }
+
 export interface APIError {
   code: string;
   message: string;
 }
+
 export interface ErrorResponse {
   error: APIError;
+}
+
+export const backendEndpoints = {
+  BackendHealth: {
+    method: "GET",
+    path: "/health",
+  },
+  WorkspaceSession: {
+    method: "GET",
+    path: "/workspace-session",
+  },
+  OpenWorkspace: {
+    method: "POST",
+    path: "/workspaces/open",
+  },
+  SelectWorkspace: {
+    method: "POST",
+    path: "/workspaces/select",
+  },
+  CloseWorkspace: {
+    method: "POST",
+    path: "/workspaces/close",
+  },
+  ReorderWorkspace: {
+    method: "POST",
+    path: "/workspaces/reorder",
+  },
+  RemoveRecentWorkspace: {
+    method: "POST",
+    path: "/workspaces/remove-recent",
+  },
+} as const;
+
+export function decodeBackendHealth(value: unknown): BackendHealth {
+  const record = assertRecord(value, "BackendHealth");
+  assertKnownFields(record, "BackendHealth", ["ok", "name", "version"]);
+  return {
+    ok: decodeBoolean(requireField(record, "ok", "BackendHealth"), "BackendHealth.ok"),
+    name: decodeString(requireField(record, "name", "BackendHealth"), "BackendHealth.name"),
+    version: decodeString(requireField(record, "version", "BackendHealth"), "BackendHealth.version"),
+  };
+}
+
+export function decodeWorkspaceSummary(value: unknown): WorkspaceSummary {
+  const record = assertRecord(value, "WorkspaceSummary");
+  assertKnownFields(record, "WorkspaceSummary", ["id", "rootPath", "displayName", "lastOpenedAt"]);
+  return {
+    id: decodeString(requireField(record, "id", "WorkspaceSummary"), "WorkspaceSummary.id"),
+    rootPath: decodeString(requireField(record, "rootPath", "WorkspaceSummary"), "WorkspaceSummary.rootPath"),
+    displayName: decodeString(requireField(record, "displayName", "WorkspaceSummary"), "WorkspaceSummary.displayName"),
+    lastOpenedAt: decodeString(requireField(record, "lastOpenedAt", "WorkspaceSummary"), "WorkspaceSummary.lastOpenedAt"),
+  };
+}
+
+export function decodeWorkspaceSession(value: unknown): WorkspaceSession {
+  const record = assertRecord(value, "WorkspaceSession");
+  assertKnownFields(record, "WorkspaceSession", ["selectedWorkspaceId", "activeWorkspaces", "recentWorkspaces"]);
+  return {
+    selectedWorkspaceId: decodeString(requireField(record, "selectedWorkspaceId", "WorkspaceSession"), "WorkspaceSession.selectedWorkspaceId"),
+    activeWorkspaces: decodeArray(requireField(record, "activeWorkspaces", "WorkspaceSession"), "WorkspaceSession.activeWorkspaces", (item) => decodeWorkspaceSummary(item)),
+    recentWorkspaces: decodeArray(requireField(record, "recentWorkspaces", "WorkspaceSession"), "WorkspaceSession.recentWorkspaces", (item) => decodeWorkspaceSummary(item)),
+  };
+}
+
+export function decodeOpenWorkspaceRequest(value: unknown): OpenWorkspaceRequest {
+  const record = assertRecord(value, "OpenWorkspaceRequest");
+  assertKnownFields(record, "OpenWorkspaceRequest", ["rootPath"]);
+  return {
+    rootPath: decodeString(requireField(record, "rootPath", "OpenWorkspaceRequest"), "OpenWorkspaceRequest.rootPath"),
+  };
+}
+
+export function decodeOpenWorkspaceResponse(value: unknown): OpenWorkspaceResponse {
+  const record = assertRecord(value, "OpenWorkspaceResponse");
+  assertKnownFields(record, "OpenWorkspaceResponse", ["workspace", "session"]);
+  return {
+    workspace: decodeWorkspaceSummary(requireField(record, "workspace", "OpenWorkspaceResponse")),
+    session: decodeWorkspaceSession(requireField(record, "session", "OpenWorkspaceResponse")),
+  };
+}
+
+export function decodeSelectWorkspaceRequest(value: unknown): SelectWorkspaceRequest {
+  const record = assertRecord(value, "SelectWorkspaceRequest");
+  assertKnownFields(record, "SelectWorkspaceRequest", ["id"]);
+  return {
+    id: decodeString(requireField(record, "id", "SelectWorkspaceRequest"), "SelectWorkspaceRequest.id"),
+  };
+}
+
+export function decodeCloseWorkspaceRequest(value: unknown): CloseWorkspaceRequest {
+  const record = assertRecord(value, "CloseWorkspaceRequest");
+  assertKnownFields(record, "CloseWorkspaceRequest", ["id"]);
+  return {
+    id: decodeString(requireField(record, "id", "CloseWorkspaceRequest"), "CloseWorkspaceRequest.id"),
+  };
+}
+
+export function decodeReorderWorkspaceRequest(value: unknown): ReorderWorkspaceRequest {
+  const record = assertRecord(value, "ReorderWorkspaceRequest");
+  assertKnownFields(record, "ReorderWorkspaceRequest", ["ids"]);
+  return {
+    ids: decodeArray(requireField(record, "ids", "ReorderWorkspaceRequest"), "ReorderWorkspaceRequest.ids", (item) => decodeString(item, "ReorderWorkspaceRequest.ids item")),
+  };
+}
+
+export function decodeRemoveRecentWorkspaceRequest(value: unknown): RemoveRecentWorkspaceRequest {
+  const record = assertRecord(value, "RemoveRecentWorkspaceRequest");
+  assertKnownFields(record, "RemoveRecentWorkspaceRequest", ["id"]);
+  return {
+    id: decodeString(requireField(record, "id", "RemoveRecentWorkspaceRequest"), "RemoveRecentWorkspaceRequest.id"),
+  };
+}
+
+export function decodeAPIError(value: unknown): APIError {
+  const record = assertRecord(value, "APIError");
+  assertKnownFields(record, "APIError", ["code", "message"]);
+  return {
+    code: decodeString(requireField(record, "code", "APIError"), "APIError.code"),
+    message: decodeString(requireField(record, "message", "APIError"), "APIError.message"),
+  };
+}
+
+export function decodeErrorResponse(value: unknown): ErrorResponse {
+  const record = assertRecord(value, "ErrorResponse");
+  assertKnownFields(record, "ErrorResponse", ["error"]);
+  return {
+    error: decodeAPIError(requireField(record, "error", "ErrorResponse")),
+  };
+}
+
+function assertRecord(value: unknown, label: string): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(label + " must be an object");
+  }
+  return value as Record<string, unknown>;
+}
+
+function assertKnownFields(record: Record<string, unknown>, label: string, fields: string[]) {
+  for (const field of Object.keys(record)) {
+    if (!fields.includes(field)) {
+      throw new Error(label + " contains unknown field " + field);
+    }
+  }
+}
+
+function requireField(record: Record<string, unknown>, field: string, label: string): unknown {
+  if (!(field in record)) {
+    throw new Error(label + "." + field + " is required");
+  }
+  return record[field];
+}
+
+function decodeBoolean(value: unknown, label: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new Error(label + " must be a boolean");
+  }
+  return value;
+}
+
+function decodeString(value: unknown, label: string): string {
+  if (typeof value !== "string") {
+    throw new Error(label + " must be a string");
+  }
+  return value;
+}
+
+function decodeArray<T>(
+  value: unknown,
+  label: string,
+  decodeItem: (value: unknown) => T,
+): T[] {
+  if (!Array.isArray(value)) {
+    throw new Error(label + " must be an array");
+  }
+  return value.map(decodeItem);
+}
+
+type BackendEndpoint = (typeof backendEndpoints)[keyof typeof backendEndpoints];
+type BackendFetch = (input: URL, init: RequestInit) => Promise<Response>;
+
+export interface BackendClient {
+  backendHealth: () => Promise<BackendHealth>;
+  workspaceSession: () => Promise<WorkspaceSession>;
+  openWorkspace: (request: OpenWorkspaceRequest) => Promise<OpenWorkspaceResponse>;
+  selectWorkspace: (request: SelectWorkspaceRequest) => Promise<WorkspaceSession>;
+  closeWorkspace: (request: CloseWorkspaceRequest) => Promise<WorkspaceSession>;
+  reorderWorkspace: (request: ReorderWorkspaceRequest) => Promise<WorkspaceSession>;
+  removeRecentWorkspace: (request: RemoveRecentWorkspaceRequest) => Promise<WorkspaceSession>;
+}
+
+export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = fetch): BackendClient {
+  return {
+    backendHealth: () => requestBackend(baseURL, backendEndpoints.BackendHealth, undefined, decodeBackendHealth, fetchImpl),
+    workspaceSession: () => requestBackend(baseURL, backendEndpoints.WorkspaceSession, undefined, decodeWorkspaceSession, fetchImpl),
+    openWorkspace: (request) => requestBackend(baseURL, backendEndpoints.OpenWorkspace, request, decodeOpenWorkspaceResponse, fetchImpl),
+    selectWorkspace: (request) => requestBackend(baseURL, backendEndpoints.SelectWorkspace, request, decodeWorkspaceSession, fetchImpl),
+    closeWorkspace: (request) => requestBackend(baseURL, backendEndpoints.CloseWorkspace, request, decodeWorkspaceSession, fetchImpl),
+    reorderWorkspace: (request) => requestBackend(baseURL, backendEndpoints.ReorderWorkspace, request, decodeWorkspaceSession, fetchImpl),
+    removeRecentWorkspace: (request) => requestBackend(baseURL, backendEndpoints.RemoveRecentWorkspace, request, decodeWorkspaceSession, fetchImpl),
+  };
+}
+
+async function requestBackend<ResponsePayload>(
+  baseURL: string,
+  endpoint: BackendEndpoint,
+  requestPayload: unknown | undefined,
+  decodeResponse: (value: unknown) => ResponsePayload,
+  fetchImpl: BackendFetch,
+): Promise<ResponsePayload> {
+  const init: RequestInit = { method: endpoint.method };
+  if (requestPayload !== undefined) {
+    init.body = JSON.stringify(requestPayload);
+    init.headers = { "Content-Type": "application/json" };
+  }
+
+  const response = await fetchImpl(new URL(endpoint.path, baseURL), init);
+  const payload: unknown = await response.json();
+  if (!response.ok) {
+    throw new Error(decodeErrorResponse(payload).error.message);
+  }
+  return decodeResponse(payload);
 }
