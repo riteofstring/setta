@@ -21,6 +21,9 @@ implementation.
 - Keep the first version narrow enough that every core flow is polished.
 - Prefer architecture hooks over full implementations for features that are not
   needed at launch.
+- Keep the Electron renderer thin. Go should own durable product state, graph
+  execution, agent orchestration, MCP/tools, browser automation, and other
+  correctness-sensitive runtime behavior.
 
 ## Initial Core
 
@@ -66,6 +69,27 @@ implementation.
 - Watch Code, if it can stay simple enough for the initial scope.
 - Mobile app for control, focused on chat, approvals, runs, diffs, artifacts, and
   terminal tails rather than full canvas editing.
+
+## Desktop And UI Stack
+
+- Electron is the desktop shell choice partly because Setta needs a predictable
+  Chromium, DevTools, screenshot, console/network, DOM-inspection, and CDP-style
+  automation path for generated UI preview and verification.
+- Prove the browser automation loop early before depending on it broadly. Viable
+  paths include Playwright's Electron support, CDP attachment, and Electron's
+  `webContents.debugger` API.
+- Use React + Vite for the renderer.
+- Use Tailwind 4 and shadcn/ui for app chrome: panels, dialogs, settings,
+  menus, forms, and other non-canvas interface surfaces.
+- Keep canvas/simple-node rendering custom and lightweight. If XYFlow remains
+  the graph interaction layer, node internals should still be shallow custom
+  React components with heavier editors, menus, and Radix/shadcn primitives
+  mounted only for active/editing states.
+- Use CSS variables for design tokens. Use CSS Modules or plain CSS in hot paths
+  where they make canvas/node performance or maintainability better.
+- Maintain a strict node performance budget: shallow DOM, simple paint, narrow
+  state subscriptions, and no always-mounted CodeMirror/editors inside inactive
+  nodes.
 
 ## Runs, Traces, And Trajectories
 
@@ -199,7 +223,14 @@ the current view-mode system.
 ## Open Decisions
 
 - Whether Watch Code belongs in initial core or the first follow-up.
+- Whether XYFlow is the committed canvas/graph interaction layer or just the
+  current research assumption.
 - Exact Setta 3 state-machine object model and v0 workflow node/action set.
 - How much plugin infrastructure is needed in the first architecture pass before
   plugin UX exists.
 - Exact UX for future scoped tool access and approval gates.
+
+## Research Notes
+
+- `docs/plans/stack-research/setta-ui-stack-recommendation.md`
+- `docs/plans/stack-research/setta-desktop-shell-browser-summary.md`
