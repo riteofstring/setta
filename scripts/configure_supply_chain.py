@@ -156,10 +156,10 @@ def configure_local(repo_root: Path, *, days: int) -> None:
     if not pnpm_projects:
         print("- No package.json files found yet; skipped pnpm project .npmrc files.")
     print(
-        "Go has no native install-time release-age setting; use ./audit_supply_chain.sh for Go module age checks."
+        "Go has no native install-time release-age setting; ./update_dependencies.sh checks Go module release age when go.mod exists."
     )
     print(
-        "pnpm uses minimum-release-age in minutes, and this repo also verifies checked-in pnpm lockfiles with audit/update scripts."
+        "pnpm uses minimum-release-age in minutes; ./update_dependencies.sh refreshes and verifies checked-in pnpm lockfiles when package.json files exist."
     )
 
 
@@ -186,9 +186,6 @@ def configure_global(repo_root: Path, *, days: int) -> None:
     )
 
     print(f"Configured global npm/pnpm minimum release age: {days} day(s).")
-    print(
-        "Skipped uv: current uv only supports an absolute exclude-newer date, not a rolling global minimum-age policy."
-    )
     print(
         "Skipped Go: Go modules do not expose a native install-time release-age setting."
     )
