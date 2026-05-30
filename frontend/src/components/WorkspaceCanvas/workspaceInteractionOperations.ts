@@ -1,6 +1,7 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { setParamEnteredValue, setSectionSizes } from "openapi/http";
 import type { Dispatch, SetStateAction } from "react";
+import { dispatchButtonParamAction } from "state/actions/params/buttonParamActions";
 import {
   moveParamsWithBackend,
   orderParamIdsByParent,
@@ -24,7 +25,11 @@ import {
 import { moveSectionsWithBackend } from "state/actions/sections/moveSections";
 import { setSelfParentSiblingChildrenWidths } from "state/actions/sections/sectionSizes";
 import { useProjectState } from "state/definitions";
-import type { BaseCodeObjImplUnion, SectionSize } from "utils/generatedTypes";
+import type {
+  BaseCodeObjImplUnion,
+  ButtonParamCodeObjImpl,
+  SectionSize,
+} from "utils/generatedTypes";
 import {
   CodeObjTypeEnum,
   isBaseParentCodeObjImpl,
@@ -34,6 +39,7 @@ import {
   reduceActiveEditorSession,
   setWorkspaceActiveControlState,
   setWorkspaceActiveEditorSession,
+  toggleWorkspaceParamDisclosureCollapsed,
   type ActiveEditorSession,
   type WorkspaceCanvasControllerState,
   type WorkspaceParamRowDragDraft,
@@ -554,33 +560,11 @@ export function activateWorkspaceCanvasControl({
     return null;
   }
   if (row.support.controlKind === "dropdown") {
-    const nextValue = getNextChoiceValue(
-      row.passiveValue.choices,
-      row.passiveValue.text,
-    );
-    if (nextValue !== null) {
-      commitCanvasParamValue({
-        sectionId: target.sectionId,
-        paramId: target.paramId,
-        value: nextValue,
-      });
-      pulseWorkspaceCanvasControl(setControllerState, target, nextValue);
-    }
+    openWorkspaceCanvasPopup(setControllerState, target, row.passiveValue.text);
     return null;
   }
   if (row.support.controlKind === "color-swatch") {
-    const nextValue = getNextChoiceValue(
-      row.passiveValue.choices,
-      row.passiveValue.text,
-    );
-    if (nextValue !== null) {
-      commitCanvasParamValue({
-        sectionId: target.sectionId,
-        paramId: target.paramId,
-        value: nextValue,
-      });
-      pulseWorkspaceCanvasControl(setControllerState, target, nextValue);
-    }
+    openWorkspaceCanvasPopup(setControllerState, target, row.passiveValue.text);
     return null;
   }
   if (row.support.controlKind === "slider") {
@@ -617,14 +601,52 @@ export function activateWorkspaceCanvasControl({
       draftValue,
     };
   }
-  if (
-    row.support.controlKind === "button" ||
-    row.support.controlKind === "disclosure"
-  ) {
+  if (row.support.controlKind === "button") {
+    const buttonConfig = getButtonConfigForTarget(target);
+    if (buttonConfig) {
+      dispatchButtonParamAction({
+        config: buttonConfig,
+        sectionId: target.sectionId,
+        controlParamId: target.paramId,
+      });
+    }
     pulseWorkspaceCanvasControl(setControllerState, target, true);
     return null;
   }
+  if (row.support.controlKind === "disclosure") {
+    setControllerState((current) =>
+      setWorkspaceActiveControlState(
+        toggleWorkspaceParamDisclosureCollapsed(
+          current,
+          target.sectionId,
+          target.paramId,
+        ),
+        {
+          id: target.controlId,
+          target,
+          phase: "pressed",
+          draftValue: true,
+        },
+      ),
+    );
+    return null;
+  }
   return null;
+}
+
+function openWorkspaceCanvasPopup(
+  setControllerState: Dispatch<SetStateAction<WorkspaceCanvasControllerState>>,
+  target: Extract<WorkspaceSceneTarget, { kind: "control" }>,
+  draftValue: string,
+) {
+  setControllerState((current) =>
+    setWorkspaceActiveControlState(current, {
+      id: target.controlId,
+      target,
+      phase: "popup-open",
+      draftValue,
+    }),
+  );
 }
 
 function pulseWorkspaceCanvasControl(
@@ -642,6 +664,113 @@ function pulseWorkspaceCanvasControl(
   );
 }
 
+export function commitWorkspaceCanvasPopupOption({
+  target,
+  setControllerState,
+}: {
+  target: Extract<WorkspaceSceneTarget, { kind: "canvas-popup-option" }>;
+  setControllerState: Dispatch<SetStateAction<WorkspaceCanvasControllerState>>;
+}) {
+  commitCanvasParamValue({
+    sectionId: target.sectionId,
+    paramId: target.paramId,
+    value: target.value,
+  });
+  setControllerState((current) =>
+    setWorkspaceActiveControlState(current, null),
+  );
+}
+
+export function commitWorkspaceCanvasPopupDraft({
+  scene,
+  controllerState,
+  setControllerState,
+}: {
+  scene: WorkspaceScene;
+  controllerState: WorkspaceCanvasControllerState;
+  setControllerState: Dispatch<SetStateAction<WorkspaceCanvasControllerState>>;
+}) {
+  const popup = scene.canvasPopup;
+  if (!popup) {
+    return false;
+  }
+  const option = resolveActivePopupDraftOption(scene, controllerState);
+  if (!option) {
+    return false;
+  }
+  commitCanvasParamValue({
+    sectionId: popup.target.sectionId,
+    paramId: popup.target.paramId,
+    value: option.value,
+  });
+  setControllerState((current) =>
+    setWorkspaceActiveControlState(current, null),
+  );
+  return true;
+}
+
+export function updateWorkspaceCanvasPopupDraft({
+  scene,
+  controllerState,
+  setControllerState,
+  direction,
+}: {
+  scene: WorkspaceScene;
+  controllerState: WorkspaceCanvasControllerState;
+  setControllerState: Dispatch<SetStateAction<WorkspaceCanvasControllerState>>;
+  direction: 1 | -1;
+}) {
+  const popup = scene.canvasPopup;
+  const active = controllerState.activeControlState;
+  if (!popup || !active || active.phase !== "popup-open") {
+    return false;
+  }
+  const options = popup.options;
+  if (options.length === 0) {
+    return false;
+  }
+  const draftValue =
+    typeof active.draftValue === "string" ? active.draftValue : null;
+  const currentIndex = draftValue
+    ? options.findIndex((option) => option.value === draftValue)
+    : options.findIndex((option) => option.selected);
+  const nextIndex =
+    currentIndex < 0
+      ? direction > 0
+        ? 0
+        : options.length - 1
+      : (currentIndex + direction + options.length) % options.length;
+  const nextOption = options[nextIndex];
+  if (!nextOption) {
+    return false;
+  }
+  setControllerState((current) =>
+    setWorkspaceActiveControlState(current, {
+      ...active,
+      draftValue: nextOption.value,
+    }),
+  );
+  return true;
+}
+
+function resolveActivePopupDraftOption(
+  scene: WorkspaceScene,
+  controllerState: WorkspaceCanvasControllerState,
+) {
+  const popup = scene.canvasPopup;
+  const active = controllerState.activeControlState;
+  if (!popup || !active || active.phase !== "popup-open") {
+    return null;
+  }
+  const draftValue =
+    typeof active.draftValue === "string" ? active.draftValue : null;
+  return (
+    popup.options.find((option) => option.value === draftValue) ??
+    popup.options.find((option) => option.selected) ??
+    null
+  );
+}
+
 function findWorkspaceDictRow(
   scene: WorkspaceScene,
   target: Extract<WorkspaceSceneTarget, { kind: "control" | "dict-row" }>,
@@ -653,14 +782,6 @@ function findWorkspaceDictRow(
   return (
     section.renderModel.dict.rows.find((row) => row.id === target.rowId) ?? null
   );
-}
-
-function getNextChoiceValue(choices: Array<string>, currentValue: string) {
-  if (choices.length === 0) {
-    return null;
-  }
-  const currentIndex = choices.indexOf(currentValue);
-  return choices[(currentIndex + 1 + choices.length) % choices.length] ?? null;
 }
 
 // eslint-disable-next-line complexity
@@ -684,6 +805,24 @@ function getSliderConfigForTarget(
     max: typeof impl?.max === "number" ? impl.max : 100,
     step: typeof impl?.step === "number" && impl.step > 0 ? impl.step : 1,
   };
+}
+
+function getButtonConfigForTarget(
+  target: Extract<WorkspaceSceneTarget, { kind: "control" }>,
+): ButtonParamCodeObjImpl | null {
+  const state = useProjectState.getState();
+  const sectionSnapshot = getEffectiveSectionSnapshot(state, target.sectionId);
+  const codeObjSnapshot = sectionSnapshot
+    ? getEffectiveCodeObjSnapshot(
+        state,
+        sectionSnapshot.effectiveImpl,
+        target.paramId,
+      )
+    : null;
+  const impl = codeObjSnapshot?.effectiveImpl;
+  return impl?.type === CodeObjTypeEnum.ButtonParam
+    ? (impl as ButtonParamCodeObjImpl)
+    : null;
 }
 
 export function resolveSliderValueFromWorkspacePoint(

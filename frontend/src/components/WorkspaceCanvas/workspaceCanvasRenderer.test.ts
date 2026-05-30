@@ -300,6 +300,64 @@ describe("workspace canvas renderer", () => {
     expect(drawnText).not.toContain("Long selected option");
   });
 
+  it("draws active canvas popup option labels", () => {
+    const scene = createRendererScene({
+      rootSectionIds: [],
+      sectionOrder: [],
+      sectionsById: {},
+      canvasPopup: {
+        id: "popup",
+        kind: "choice-list",
+        target: {
+          kind: "control",
+          sectionId: "dict",
+          sectionPath: ["dict"],
+          rowId: "row",
+          paramId: "mode",
+          controlId: "row:control",
+        },
+        bounds: { x: 100, y: 120, width: 180, height: 56 },
+        options: [
+          {
+            id: "popup:a",
+            index: 0,
+            value: "A",
+            label: "Alpha",
+            rect: { x: 104, y: 124, width: 172, height: 24 },
+            selected: true,
+            highlighted: false,
+            swatchColor: null,
+          },
+          {
+            id: "popup:b",
+            index: 1,
+            value: "B",
+            label: "Beta",
+            rect: { x: 104, y: 148, width: 172, height: 24 },
+            selected: false,
+            highlighted: true,
+            swatchColor: null,
+          },
+        ],
+        hitRegions: [],
+      },
+    });
+    const context = new MockCanvasContext();
+
+    renderWorkspaceCanvas(
+      context as unknown as CanvasRenderingContext2D,
+      scene,
+      { ...createRenderOptions(), showMinimap: false },
+    );
+
+    expect(
+      context.operations.find(
+        (operation) =>
+          operation.kind === "fillText" && operation.text === "Beta",
+      ),
+    ).toMatchObject({ fillStyle: "#e5e7eb" });
+  });
+
   it("uses CodeMirror-compatible passive value colors for numbers and null markers", () => {
     const numberRow = createDictRow({
       id: "dict-row:dict:unpinned:number",
@@ -405,13 +463,15 @@ function createRendererScene(
   overrides: Pick<
     WorkspaceScene,
     "rootSectionIds" | "sectionOrder" | "sectionsById"
-  >,
+  > &
+    Partial<Pick<WorkspaceScene, "canvasPopup">>,
 ): WorkspaceScene {
   return {
     viewport: { x: 0, y: 0, zoom: 1 },
     viewportSize: { width: 800, height: 600 },
     visibleWorkspaceRect: { x: 0, y: 0, width: 800, height: 600 },
     projectBounds: { x: 20, y: 30, width: 320, height: 190 },
+    canvasPopup: null,
     minimap: {
       id: "workspace-minimap",
       bounds: { x: 580, y: 420, width: 202, height: 152 },
@@ -537,6 +597,7 @@ function createDictRow(
       choices: [],
       masked: false,
     },
+    disclosureExpanded: null,
     codePreview: null,
     textPreviews: {
       label: createTextPreview("Code"),

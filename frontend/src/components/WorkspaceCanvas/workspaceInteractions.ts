@@ -29,12 +29,15 @@ import {
   setWorkspaceSelectedTarget,
   zoomWorkspaceViewportByWheelDelta,
   type WorkspaceCanvasControllerState,
+  type WorkspaceSceneTarget,
   type WorkspaceSectionBoundsDraft,
 } from "./workspaceController";
 import {
   activateWorkspaceCanvasControl,
   commitCanvasParamValue,
   commitWorkspaceActiveEditorSession,
+  commitWorkspaceCanvasPopupDraft,
+  commitWorkspaceCanvasPopupOption,
   commitWorkspaceParamRowDrag,
   commitWorkspaceSectionDrag,
   commitWorkspaceSectionResize,
@@ -44,6 +47,7 @@ import {
   openWorkspaceActiveEditorSession,
   resolveSliderValueFromWorkspacePoint,
   resolveWorkspaceParamRowDropTarget,
+  updateWorkspaceCanvasPopupDraft,
 } from "./workspaceInteractionOperations";
 import {
   WORKSPACE_MIN_SECTION_HEIGHT,
@@ -111,6 +115,32 @@ export function handleWorkspacePointerDown({
   const intent = hit?.intent ?? "pan-viewport";
   const target = hit?.target ?? ({ kind: "workspace" } as const);
   setControllerState((current) => setWorkspaceHoveredTarget(current, target));
+
+  if (target.kind === "canvas-popup-option") {
+    if (canEditParams) {
+      commitWorkspaceCanvasPopupOption({
+        target,
+        setControllerState,
+      });
+    } else {
+      setControllerState((current) =>
+        setWorkspaceActiveControlState(current, null),
+      );
+    }
+    return;
+  }
+
+  if (
+    controllerState.activeControlState?.phase === "popup-open" &&
+    !isActivePopupContinuationTarget(
+      controllerState.activeControlState.target,
+      target,
+    )
+  ) {
+    setControllerState((current) =>
+      setWorkspaceActiveControlState(current, null),
+    );
+  }
 
   if (target.kind === "workspace" || intent === "pan-viewport") {
     beginCanvasPointerInteraction(event, pointerInteractionRef, {
@@ -717,6 +747,34 @@ export function handleWorkspaceKeyDown({
     event.preventDefault();
     return;
   }
+  if (controllerState.activeControlState?.phase === "popup-open") {
+    const popupDirection = resolvePopupKeyboardDirection(event);
+    if (popupDirection !== null) {
+      if (
+        updateWorkspaceCanvasPopupDraft({
+          scene,
+          controllerState,
+          setControllerState,
+          direction: popupDirection,
+        })
+      ) {
+        event.preventDefault();
+      }
+      return;
+    }
+    if ((event.key === "Enter" || event.key === " ") && canEditParams) {
+      if (
+        commitWorkspaceCanvasPopupDraft({
+          scene,
+          controllerState,
+          setControllerState,
+        })
+      ) {
+        event.preventDefault();
+      }
+      return;
+    }
+  }
   const direction = resolveKeyboardNavigationDirection(event);
   if (direction !== null) {
     const nextTarget = resolveWorkspaceKeyboardNavigationTarget({
@@ -775,6 +833,18 @@ export function handleWorkspaceKeyDown({
       event.preventDefault();
     }
   }
+}
+
+function resolvePopupKeyboardDirection(
+  event: KeyboardEvent<HTMLCanvasElement>,
+) {
+  if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+    return 1 as const;
+  }
+  if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+    return -1 as const;
+  }
+  return null;
 }
 
 function getCanvasEventPoint(
@@ -843,6 +913,27 @@ function getWorkspaceCanvasHit(
     return null;
   }
   return hit;
+}
+
+function isActivePopupContinuationTarget(
+  activeTarget: Extract<WorkspaceSceneTarget, { kind: "control" }>,
+  target: WorkspaceSceneTarget,
+) {
+  if (target.kind === "canvas-popup-option") {
+    return (
+      target.sectionId === activeTarget.sectionId &&
+      target.rowId === activeTarget.rowId &&
+      target.paramId === activeTarget.paramId &&
+      target.controlId === activeTarget.controlId
+    );
+  }
+  return (
+    target.kind === "control" &&
+    target.sectionId === activeTarget.sectionId &&
+    target.rowId === activeTarget.rowId &&
+    target.paramId === activeTarget.paramId &&
+    target.controlId === activeTarget.controlId
+  );
 }
 
 function beginCanvasPointerInteraction(

@@ -120,6 +120,7 @@ function createParityScene(): WorkspaceScene {
                   choices: [],
                   masked: true,
                 },
+                disclosureExpanded: null,
                 codePreview: null,
                 textPreviews: {
                   label: createTextPreview("Token"),
@@ -158,6 +159,7 @@ function createParityScene(): WorkspaceScene {
         cacheKeys: { section: "section", geometry: "geometry" },
       },
     },
+    canvasPopup: null,
     minimap: {
       id: "workspace-minimap",
       bounds: { x: 580, y: 420, width: 202, height: 152 },

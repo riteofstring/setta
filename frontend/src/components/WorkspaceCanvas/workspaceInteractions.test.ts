@@ -199,11 +199,24 @@ describe("workspace canvas interactions", () => {
                   visible: true,
                   id: "row-a",
                   paramId: "param-a",
+                  hitRegions: [
+                    {
+                      target: {
+                        kind: "control",
+                        sectionId: "section-a",
+                        sectionPath: ["section-a"],
+                        rowId: "row-a",
+                        paramId: "param-a",
+                        controlId: "row-a:control",
+                      },
+                    },
+                  ],
                 },
                 {
                   visible: false,
                   id: "row-hidden",
                   paramId: "param-hidden",
+                  hitRegions: [],
                 },
               ],
             },
@@ -222,9 +235,15 @@ describe("workspace canvas interactions", () => {
       currentTarget: first,
       direction: 1,
     });
+    const third = resolveWorkspaceKeyboardNavigationTarget({
+      scene,
+      currentTarget: second,
+      direction: 1,
+    });
 
     expect(first).toMatchObject({ kind: "section", sectionId: "section-a" });
     expect(second).toMatchObject({ kind: "dict-row", paramId: "param-a" });
+    expect(third).toMatchObject({ kind: "control", paramId: "param-a" });
   });
 });
 

@@ -1083,6 +1083,116 @@ describe("workspace scene model", () => {
     expect(controller.keyboardFocusedTarget).toEqual(controlTarget);
   });
 
+  it("derives canvas popup options from active dropdown control state", () => {
+    const { state, section } = buildDictFixture();
+    addParam(
+      state,
+      section.impl,
+      "mode",
+      valueParam("DropdownParam", "A", { choices: ["A", "B", "C"] }),
+    );
+    setShownParams(
+      state,
+      section.variantId,
+      {
+        mode: ["mode"],
+      },
+      ["mode"],
+    );
+    const baseScene = deriveWorkspaceScene({
+      projectState: state,
+      viewportSize: { width: 800, height: 600 },
+    });
+    const dict = getRequiredDictScene(baseScene, "dict-a");
+    const modeRow = must(
+      dict.rows.find((row) => row.paramId === "mode"),
+      "mode row",
+    );
+    const controlRegion = must(
+      modeRow.hitRegions.find(
+        (
+          region,
+        ): region is typeof region & {
+          target: Extract<
+            (typeof modeRow.hitRegions)[number]["target"],
+            { kind: "control" }
+          >;
+        } => region.target.kind === "control",
+      ),
+      "mode control region",
+    );
+    const controlTarget = controlRegion.target;
+    const scene = deriveWorkspaceScene({
+      projectState: state,
+      viewportSize: { width: 800, height: 600 },
+      controllerState: createWorkspaceCanvasControllerState({
+        activeControlState: {
+          id: controlTarget.controlId,
+          target: controlTarget,
+          phase: "popup-open",
+          draftValue: "B",
+        },
+      }),
+    });
+    const popup = must(scene.canvasPopup, "canvas popup");
+    const secondOption = must(popup.options[1], "second popup option");
+    const hit = hitTestWorkspaceScene(
+      scene,
+      workspaceToScreen(
+        {
+          x: secondOption.rect.x + 1,
+          y: secondOption.rect.y + 1,
+        },
+        scene.viewport,
+      ),
+    );
+
+    expect(popup.kind).toBe("choice-list");
+    expect(popup.options.map((option) => option.value)).toEqual([
+      "A",
+      "B",
+      "C",
+    ]);
+    expect(secondOption.highlighted).toBe(true);
+    expect(hit?.target).toMatchObject({
+      kind: "canvas-popup-option",
+      value: "B",
+      paramId: "mode",
+    });
+  });
+
+  it("derives collapsed Nested Param rows without child rows", () => {
+    const { state } = buildDictFixture();
+    const expandedScene = deriveWorkspaceScene({
+      projectState: state,
+      viewportSize: { width: 800, height: 600 },
+    });
+    const collapsedScene = deriveWorkspaceScene({
+      projectState: state,
+      viewportSize: { width: 800, height: 600 },
+      controllerState: createWorkspaceCanvasControllerState({
+        collapsedParamIds: {
+          "dict-a": {
+            group: true,
+          },
+        },
+      }),
+    });
+    const expandedRows = getRequiredDictScene(expandedScene, "dict-a").rows.map(
+      (row) => row.paramId,
+    );
+    const collapsedDict = getRequiredDictScene(collapsedScene, "dict-a");
+    const collapsedRows = collapsedDict.rows.map((row) => row.paramId);
+    const groupRow = must(
+      collapsedDict.rows.find((row) => row.paramId === "group"),
+      "collapsed group row",
+    );
+
+    expect(expandedRows).toEqual(["group", "title", "script", "enabled"]);
+    expect(collapsedRows).toEqual(["group", "enabled"]);
+    expect(groupRow.disclosureExpanded).toBe(false);
+  });
+
   it("keys passive code highlighting and discards stale async results", () => {
     const revisions = {
       themeRevision: "dark",

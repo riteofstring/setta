@@ -9,6 +9,7 @@ import type {
   WorkspaceCanvasControllerState,
   WorkspaceSceneTarget,
 } from "./workspaceController";
+import { isWorkspaceParamDisclosureCollapsed } from "./workspaceController";
 import {
   derivePassiveValuePreview,
   getWorkspaceParamSupportDeclaration,
@@ -89,6 +90,7 @@ export function deriveDictScene({
     projectState,
     section.id,
     sectionImpl,
+    controllerState,
   );
   const layout = deriveDictRegionLayout({
     section,
@@ -163,6 +165,7 @@ function flattenVisibleDictRows(
   projectState: WorkspaceSceneProjectState,
   sectionId: string,
   sectionImpl: DictSectionImpl,
+  controllerState: WorkspaceCanvasControllerState,
 ) {
   const shown = getShownParamIdsForSection(projectState, sectionId);
   const edgeInputParams = new Set(sectionImpl.edgeInputParams ?? []);
@@ -179,6 +182,7 @@ function flattenVisibleDictRows(
       projectState,
       sectionId,
       sectionImpl,
+      controllerState,
       list: "pinned",
       shown: pinned,
     }),
@@ -188,6 +192,7 @@ function flattenVisibleDictRows(
           projectState,
           sectionId,
           sectionImpl,
+          controllerState,
           list: "unpinned",
           shown: unpinned,
         }),
@@ -198,12 +203,14 @@ function flattenDictParamRows({
   projectState,
   sectionId,
   sectionImpl,
+  controllerState,
   list,
   shown,
 }: {
   projectState: WorkspaceSceneProjectState;
   sectionId: string;
   sectionImpl: DictSectionImpl;
+  controllerState: WorkspaceCanvasControllerState;
   list: "pinned" | "unpinned";
   shown: NormalizedShownParamDetails;
 }): Array<FlatDictParamRow> {
@@ -235,7 +242,10 @@ function flattenDictParamRows({
       path: shown.requiredParamIdsToPaths[paramId] ?? [paramId],
     });
     const impl = codeObj.effectiveImpl;
-    if (isBaseParentCodeObjImpl(impl)) {
+    if (
+      isBaseParentCodeObjImpl(impl) &&
+      !isWorkspaceParamDisclosureCollapsed(controllerState, sectionId, paramId)
+    ) {
       for (const childId of impl.children ?? []) {
         walk(childId, depth + 1, paramId);
       }
@@ -372,6 +382,13 @@ function materializeDictRow({
   const support = getWorkspaceParamSupportDeclaration(codeObj.effectiveImpl);
   const controlRect = deriveControlRect(valueRect, support.controlKind);
   const passiveValue = derivePassiveValuePreview(codeObj.effectiveImpl);
+  const disclosureExpanded = isBaseParentCodeObjImpl(codeObj.effectiveImpl)
+    ? !isWorkspaceParamDisclosureCollapsed(
+        controllerState,
+        section.id,
+        flat.paramId,
+      )
+    : null;
   const cacheKeys = deriveRowCacheKeys(revisionKeys, section.id, flat.paramId, {
     valueWidth: valueRect.width,
     valueText: passiveValue.text,
@@ -400,6 +417,7 @@ function materializeDictRow({
     visible,
     ...interactionState,
     passiveValue,
+    disclosureExpanded,
     codePreview: deriveCodePreview({
       section,
       sectionImpl,

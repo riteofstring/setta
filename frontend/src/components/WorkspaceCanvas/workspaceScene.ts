@@ -10,6 +10,7 @@ import type { WorkspaceCodeHighlightCacheState } from "./workspaceHighlightCache
 import {
   buildCacheKey,
   buildWorkspaceSceneCacheKeys,
+  clamp,
   compareHitRegions,
   deriveEdgePortRegions,
   deriveMinimapScene,
@@ -37,8 +38,11 @@ import {
   DEFAULT_WORKSPACE_SCENE_REVISIONS,
   WORKSPACE_SCENE_GEOMETRY,
   type PendingSectionRecord,
+  type WorkspaceCanvasPopupOptionScene,
+  type WorkspaceCanvasPopupScene,
   type WorkspaceHitRegion,
   type WorkspacePoint,
+  type WorkspaceRect,
   type WorkspaceScene,
   type WorkspaceSceneOptions,
   type WorkspaceSceneProjectState,
@@ -179,6 +183,14 @@ export function deriveWorkspaceScene({
     uiEditorOffset: minimapUiEditorOffset,
   });
 
+  const canvasPopup = deriveWorkspaceCanvasPopupScene({
+    controllerState,
+    sectionsById,
+    visibleWorkspaceRect,
+  });
+  if (canvasPopup) {
+    hitRegions.push(...canvasPopup.hitRegions);
+  }
   hitRegions.push(...minimap.hitRegions);
   hitRegions.sort(compareHitRegions);
 
@@ -190,10 +202,149 @@ export function deriveWorkspaceScene({
     rootSectionIds,
     sectionOrder,
     sectionsById,
+    canvasPopup,
     minimap,
     hitRegions,
     revisionKeys,
     cacheKeys: buildWorkspaceSceneCacheKeys(revisionKeys),
+  };
+}
+
+function deriveWorkspaceCanvasPopupScene({
+  controllerState,
+  sectionsById,
+  visibleWorkspaceRect,
+}: {
+  controllerState: WorkspaceCanvasControllerState;
+  sectionsById: Record<string, WorkspaceSectionScene>;
+  visibleWorkspaceRect: WorkspaceRect;
+}): WorkspaceCanvasPopupScene | null {
+  const active = controllerState.activeControlState;
+  if (!active || active.phase !== "popup-open") {
+    return null;
+  }
+  const target = active.target;
+  const section = sectionsById[target.sectionId];
+  if (!section || section.renderModel.kind !== "dict") {
+    return null;
+  }
+  const row =
+    section.renderModel.dict.rows.find((entry) => entry.id === target.rowId) ??
+    null;
+  if (
+    !row ||
+    !row.visibleRect ||
+    (row.support.controlKind !== "dropdown" &&
+      row.support.controlKind !== "color-swatch") ||
+    row.passiveValue.choices.length === 0
+  ) {
+    return null;
+  }
+  const optionHeight = 24;
+  const verticalPadding = 4;
+  const popupWidth = clamp(
+    row.controlRect.width,
+    row.support.controlKind === "color-swatch" ? 132 : 160,
+    280,
+  );
+  const popupHeight =
+    row.passiveValue.choices.length * optionHeight + verticalPadding * 2;
+  const bounds = clampPopupBoundsToVisibleWorkspace(
+    {
+      x: row.controlRect.x,
+      y: row.controlRect.y + row.controlRect.height + 4,
+      width: popupWidth,
+      height: popupHeight,
+    },
+    row.controlRect,
+    visibleWorkspaceRect,
+  );
+  const popupId = `${target.controlId}:popup`;
+  const options = row.passiveValue.choices.map((choice, index) => {
+    const rect = {
+      x: bounds.x + verticalPadding,
+      y: bounds.y + verticalPadding + index * optionHeight,
+      width: Math.max(0, bounds.width - verticalPadding * 2),
+      height: optionHeight,
+    };
+    const selected = choice === row.passiveValue.text;
+    return {
+      id: `${popupId}:option:${index}`,
+      index,
+      value: choice,
+      label: choice,
+      rect,
+      selected,
+      highlighted:
+        active.draftValue === choice || (active.draftValue == null && selected),
+      swatchColor:
+        row.support.controlKind === "color-swatch" && choice.trim() !== ""
+          ? choice
+          : null,
+    } satisfies WorkspaceCanvasPopupOptionScene;
+  });
+  const hitRegions = options.map((option) => ({
+    id: option.id,
+    coordinateSpace: "workspace" as const,
+    rect: option.rect,
+    intent: "select-popup-option" as const,
+    target: {
+      kind: "canvas-popup-option" as const,
+      sectionId: target.sectionId,
+      sectionPath: target.sectionPath,
+      rowId: target.rowId,
+      paramId: target.paramId,
+      controlId: target.controlId,
+      popupId,
+      optionId: option.id,
+      value: option.value,
+      index: option.index,
+    },
+    zIndex: 900_000 + option.index,
+  }));
+  return {
+    id: popupId,
+    kind:
+      row.support.controlKind === "color-swatch"
+        ? "color-palette"
+        : "choice-list",
+    target,
+    bounds,
+    options,
+    hitRegions,
+  };
+}
+
+function clampPopupBoundsToVisibleWorkspace(
+  requested: WorkspaceRect,
+  anchor: WorkspaceRect,
+  visibleWorkspaceRect: WorkspaceRect,
+): WorkspaceRect {
+  const margin = 8;
+  const visibleRight = visibleWorkspaceRect.x + visibleWorkspaceRect.width;
+  const visibleBottom = visibleWorkspaceRect.y + visibleWorkspaceRect.height;
+  const y =
+    requested.y + requested.height <= visibleBottom - margin
+      ? requested.y
+      : anchor.y - requested.height - 4;
+  return {
+    ...requested,
+    x: clamp(
+      requested.x,
+      visibleWorkspaceRect.x + margin,
+      Math.max(
+        visibleWorkspaceRect.x + margin,
+        visibleRight - requested.width - margin,
+      ),
+    ),
+    y: clamp(
+      y,
+      visibleWorkspaceRect.y + margin,
+      Math.max(
+        visibleWorkspaceRect.y + margin,
+        visibleBottom - requested.height - margin,
+      ),
+    ),
   };
 }
 

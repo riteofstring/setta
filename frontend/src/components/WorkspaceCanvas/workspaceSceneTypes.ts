@@ -111,6 +111,8 @@ export type ControlHitIntent =
   | "open-dom-overlay"
   | "open-context-menu";
 
+export type CanvasPopupHitIntent = "select-popup-option";
+
 export type MinimapHitIntent = "minimap-pan" | "minimap-zoom" | "minimap-jump";
 
 export type EdgePortHitIntent = "edge-or-port";
@@ -120,6 +122,7 @@ export type HitRegionIntent =
   | SectionHitIntent
   | DictRowHitIntent
   | ControlHitIntent
+  | CanvasPopupHitIntent
   | MinimapHitIntent
   | EdgePortHitIntent
   | "unsupported";
@@ -274,6 +277,7 @@ export type WorkspaceDictRowScene = {
   active: boolean;
   focused: boolean;
   passiveValue: WorkspacePassiveValuePreview;
+  disclosureExpanded: boolean | null;
   codePreview: WorkspacePassiveCodePreview | null;
   textPreviews: {
     label: WorkspaceTextPreview;
@@ -333,6 +337,28 @@ export type WorkspaceMinimapScene = {
   hitRegions: Array<WorkspaceHitRegion>;
 };
 
+export type WorkspaceCanvasPopupKind = "choice-list" | "color-palette";
+
+export type WorkspaceCanvasPopupOptionScene = {
+  id: string;
+  index: number;
+  value: string;
+  label: string;
+  rect: WorkspaceRect;
+  selected: boolean;
+  highlighted: boolean;
+  swatchColor: string | null;
+};
+
+export type WorkspaceCanvasPopupScene = {
+  id: string;
+  kind: WorkspaceCanvasPopupKind;
+  target: Extract<WorkspaceSceneTarget, { kind: "control" }>;
+  bounds: WorkspaceRect;
+  options: Array<WorkspaceCanvasPopupOptionScene>;
+  hitRegions: Array<WorkspaceHitRegion>;
+};
+
 export type WorkspaceScene = {
   viewport: WorkspaceViewport;
   viewportSize: WorkspaceSize;
@@ -341,6 +367,7 @@ export type WorkspaceScene = {
   rootSectionIds: Array<string>;
   sectionOrder: Array<string>;
   sectionsById: Record<string, WorkspaceSectionScene>;
+  canvasPopup: WorkspaceCanvasPopupScene | null;
   minimap: WorkspaceMinimapScene;
   hitRegions: Array<WorkspaceHitRegion>;
   revisionKeys: WorkspaceSceneRevisionKeys;

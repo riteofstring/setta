@@ -22,6 +22,7 @@ export type WorkspaceSceneItemKind =
   | "section"
   | "dict-row"
   | "control"
+  | "canvas-popup-option"
   | "minimap";
 
 export type WorkspaceCommitMode =
@@ -55,6 +56,18 @@ export type WorkspaceSceneTarget =
       rowId: string;
       paramId: string;
       controlId: string;
+    }
+  | {
+      kind: "canvas-popup-option";
+      sectionId: string;
+      sectionPath: Array<string>;
+      rowId: string;
+      paramId: string;
+      controlId: string;
+      popupId: string;
+      optionId: string;
+      value: string;
+      index: number;
     }
   | {
       kind: "minimap";
@@ -236,6 +249,7 @@ export type WorkspaceCanvasControllerState = {
   activeEditorSession: ActiveEditorSession | null;
   activeControlState: CanvasActiveControlState | null;
   sectionScrollOffsets: Record<string, number>;
+  collapsedParamIds: Record<string, Record<string, boolean>>;
   sectionBoundsDrafts: Record<string, WorkspaceSectionBoundsDraft>;
   paramRowDragDraft: WorkspaceParamRowDragDraft | null;
 };
@@ -252,6 +266,7 @@ export function createWorkspaceCanvasControllerState(
     activeEditorSession: null,
     activeControlState: null,
     sectionScrollOffsets: {},
+    collapsedParamIds: {},
     sectionBoundsDrafts: {},
     paramRowDragDraft: null,
     ...overrides,
@@ -443,6 +458,55 @@ export function setWorkspaceActiveControlState(
   };
 }
 
+export function isWorkspaceParamDisclosureCollapsed(
+  state: WorkspaceCanvasControllerState,
+  sectionId: string,
+  paramId: string,
+) {
+  return state.collapsedParamIds[sectionId]?.[paramId] ?? false;
+}
+
+export function setWorkspaceParamDisclosureCollapsed(
+  state: WorkspaceCanvasControllerState,
+  sectionId: string,
+  paramId: string,
+  collapsed: boolean,
+): WorkspaceCanvasControllerState {
+  const currentSection = state.collapsedParamIds[sectionId] ?? {};
+  if ((currentSection[paramId] ?? false) === collapsed) {
+    return state;
+  }
+  const nextSection = { ...currentSection };
+  if (collapsed) {
+    nextSection[paramId] = true;
+  } else {
+    delete nextSection[paramId];
+  }
+  const nextCollapsed = { ...state.collapsedParamIds };
+  if (Object.keys(nextSection).length === 0) {
+    delete nextCollapsed[sectionId];
+  } else {
+    nextCollapsed[sectionId] = nextSection;
+  }
+  return {
+    ...state,
+    collapsedParamIds: nextCollapsed,
+  };
+}
+
+export function toggleWorkspaceParamDisclosureCollapsed(
+  state: WorkspaceCanvasControllerState,
+  sectionId: string,
+  paramId: string,
+): WorkspaceCanvasControllerState {
+  return setWorkspaceParamDisclosureCollapsed(
+    state,
+    sectionId,
+    paramId,
+    !isWorkspaceParamDisclosureCollapsed(state, sectionId, paramId),
+  );
+}
+
 export function setWorkspaceActiveEditorSession(
   state: WorkspaceCanvasControllerState,
   activeEditorSession: ActiveEditorSession | null,
@@ -545,6 +609,17 @@ export function getWorkspaceKeyboardNavigationTargets(
         rowId: row.id,
         paramId: row.paramId,
       });
+      const controlTarget =
+        row.hitRegions.find(
+          (
+            region,
+          ): region is typeof region & {
+            target: Extract<WorkspaceSceneTarget, { kind: "control" }>;
+          } => region.target.kind === "control",
+        )?.target ?? null;
+      if (controlTarget) {
+        targets.push(controlTarget);
+      }
     }
   }
   return targets;

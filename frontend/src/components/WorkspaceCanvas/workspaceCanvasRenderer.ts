@@ -58,6 +58,13 @@ type WorkspaceCanvasPalette = {
   dropdownFill: string;
   dropdownStroke: string;
   dropdownText: string;
+  popupFill: string;
+  popupStroke: string;
+  popupOptionFill: string;
+  popupOptionHighlighted: string;
+  popupOptionSelected: string;
+  popupText: string;
+  popupMutedText: string;
   toggleThumb: string;
   minimapFill: string;
   minimapStroke: string;
@@ -257,6 +264,7 @@ function drawWorkspaceSections(
   for (const sectionId of scene.rootSectionIds) {
     drawSectionRecursive(context, scene, sectionId, palette);
   }
+  drawCanvasPopup(context, scene.canvasPopup, palette);
   context.restore();
 }
 
@@ -811,7 +819,11 @@ function drawDisclosureControlPreview(
   row: WorkspaceDictRowScene,
   palette: WorkspaceCanvasPalette,
 ) {
-  drawChevronRight(context, insetRect(row.controlRect, 5), palette);
+  if (row.disclosureExpanded === false) {
+    drawChevronRight(context, insetRect(row.controlRect, 5), palette);
+    return;
+  }
+  drawChevronDownCentered(context, insetRect(row.controlRect, 5), palette);
 }
 
 function drawChevronDown(
@@ -842,6 +854,82 @@ function drawChevronRight(
   context.lineTo(centerX + 3, centerY);
   context.lineTo(centerX - 2, centerY + 5);
   context.stroke();
+}
+
+function drawChevronDownCentered(
+  context: CanvasRenderingContext2D,
+  rect: WorkspaceRect,
+  palette: WorkspaceCanvasPalette,
+) {
+  const centerX = rect.x + rect.width / 2;
+  const centerY = rect.y + rect.height / 2;
+  context.strokeStyle = palette.controlMutedText;
+  context.beginPath();
+  context.moveTo(centerX - 5, centerY - 2);
+  context.lineTo(centerX, centerY + 3);
+  context.lineTo(centerX + 5, centerY - 2);
+  context.stroke();
+}
+
+function drawCanvasPopup(
+  context: CanvasRenderingContext2D,
+  popup: WorkspaceScene["canvasPopup"],
+  palette: WorkspaceCanvasPalette,
+) {
+  if (!popup) {
+    return;
+  }
+  drawRoundedRect(
+    context,
+    popup.bounds,
+    6,
+    palette.popupFill,
+    palette.popupStroke,
+  );
+  context.save();
+  applyRoundedClip(context, popup.bounds, 6);
+  for (const option of popup.options) {
+    drawCanvasPopupOption(context, popup.kind, option, palette);
+  }
+  context.restore();
+}
+
+function drawCanvasPopupOption(
+  context: CanvasRenderingContext2D,
+  popupKind: NonNullable<WorkspaceScene["canvasPopup"]>["kind"],
+  option: NonNullable<WorkspaceScene["canvasPopup"]>["options"][number],
+  palette: WorkspaceCanvasPalette,
+) {
+  const fill = option.highlighted
+    ? palette.popupOptionHighlighted
+    : option.selected
+      ? palette.popupOptionSelected
+      : palette.popupOptionFill;
+  drawRoundedRect(context, option.rect, 4, fill, null);
+  const swatchSize = popupKind === "color-palette" ? 14 : 0;
+  if (popupKind === "color-palette") {
+    const swatchRect = {
+      x: option.rect.x + 8,
+      y: option.rect.y + (option.rect.height - swatchSize) / 2,
+      width: swatchSize,
+      height: swatchSize,
+    };
+    drawRoundedRect(
+      context,
+      swatchRect,
+      3,
+      option.swatchColor ?? palette.controlFill,
+      palette.popupStroke,
+    );
+  }
+  context.font = WORKSPACE_TEXT_STYLES["dict-control"];
+  context.fillStyle =
+    option.selected || option.highlighted
+      ? palette.popupText
+      : palette.popupMutedText;
+  fillClippedText(context, option.label, option.rect, {
+    paddingX: popupKind === "color-palette" ? 30 : 10,
+  });
 }
 
 function drawErrorMarker(
@@ -1119,6 +1207,13 @@ function getWorkspaceCanvasPalette(
       dropdownFill: "#0b0e13",
       dropdownStroke: "rgba(43, 54, 74, 0.7)",
       dropdownText: "rgb(150, 164, 192)",
+      popupFill: "#0b0e13",
+      popupStroke: "rgba(96, 165, 250, 0.42)",
+      popupOptionFill: "rgba(15, 23, 42, 0)",
+      popupOptionHighlighted: "rgba(37, 99, 235, 0.34)",
+      popupOptionSelected: "rgba(71, 85, 105, 0.28)",
+      popupText: "#e5e7eb",
+      popupMutedText: "rgb(150, 164, 192)",
       toggleThumb: "hsl(220, 26%, 14%)",
       minimapFill: "hsla(220, 27%, 6%, 0.72)",
       minimapStroke: "hsla(220, 26%, 14%, 0.55)",
@@ -1161,6 +1256,13 @@ function getWorkspaceCanvasPalette(
     dropdownFill: "#ffffff",
     dropdownStroke: "#e2e8f0",
     dropdownText: "#475569",
+    popupFill: "#ffffff",
+    popupStroke: "rgba(14, 116, 144, 0.32)",
+    popupOptionFill: "rgba(255, 255, 255, 0)",
+    popupOptionHighlighted: "rgba(14, 116, 144, 0.16)",
+    popupOptionSelected: "rgba(100, 116, 139, 0.14)",
+    popupText: "#0f172a",
+    popupMutedText: "#475569",
     toggleThumb: "#ffffff",
     minimapFill: "rgba(226, 232, 240, 0.82)",
     minimapStroke: "rgba(71, 85, 105, 0.35)",

@@ -242,7 +242,6 @@ describe("MetaControlArea Setta API button actions", () => {
       expect(fetchMock).toHaveBeenCalledWith("https://example.com/api", {
         method: HTTPRequestMethodEnum.GET,
         headers: { "X-Test": "yes" },
-        body: undefined,
       });
       expect(mocked.post).not.toHaveBeenCalled();
       expect(mocked.sendRealtimeDependencyEvent).not.toHaveBeenCalled();
@@ -306,8 +305,6 @@ describe("MetaControlArea Setta API button actions", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(fetchMock).toHaveBeenCalledWith("https://example.com/head", {
         method: HTTPRequestMethodEnum.HEAD,
-        headers: undefined,
-        body: undefined,
       });
       expect(mocked.post).not.toHaveBeenCalled();
       expect(mocked.sendRealtimeDependencyEvent).not.toHaveBeenCalled();
