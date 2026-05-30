@@ -19,18 +19,10 @@ type BackendMetadata struct {
 	Version string
 }
 
-type HealthResponse struct {
+type BackendHealth struct {
 	OK      bool   `json:"ok"`
 	Name    string `json:"name"`
 	Version string `json:"version"`
-}
-
-type WorkspaceSummary = workspace.WorkspaceSummary
-type WorkspaceState = workspace.WorkspaceState
-type WorkspaceSession = workspacesession.WorkspaceSession
-
-type RecentWorkspacesResponse struct {
-	RecentWorkspaces []workspace.WorkspaceSummary `json:"recentWorkspaces"`
 }
 
 type OpenWorkspaceRequest struct {
@@ -92,18 +84,12 @@ func NewHandler(config HandlerConfig) http.Handler {
 		workspaceService: config.WorkspaceService,
 	}
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", apiHandler.health)
-	mux.HandleFunc("GET /workspace-session", apiHandler.workspaceSession)
-	mux.HandleFunc("POST /workspaces/open", apiHandler.openWorkspace)
-	mux.HandleFunc("POST /workspaces/select", apiHandler.selectWorkspace)
-	mux.HandleFunc("POST /workspaces/close", apiHandler.closeWorkspace)
-	mux.HandleFunc("POST /workspaces/reorder", apiHandler.reorderWorkspaces)
-	mux.HandleFunc("POST /workspaces/remove-recent", apiHandler.removeRecentWorkspace)
+	registerEndpoints(mux, apiHandler)
 	return mux
 }
 
 func (handler handler) health(response http.ResponseWriter, request *http.Request) {
-	writeJSON(response, http.StatusOK, HealthResponse{
+	writeJSON(response, http.StatusOK, BackendHealth{
 		OK:      true,
 		Name:    handler.metadata.Name,
 		Version: handler.metadata.Version,

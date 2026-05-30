@@ -19,8 +19,12 @@ Phase 2 should answer these questions:
 
 ## Principles
 
-- Go owns workspace validation, workspace identity, persisted app state, persisted
-  workspace state, and TypeScript contract inputs.
+- Go owns workspace validation, workspace identity, persisted app state,
+  persisted workspace state, and HTTP contract inputs.
+- `internal/httpapi` owns HTTP endpoint request and response contracts through
+  its endpoint registry. TypeScript contracts should be generated from that
+  registry and its reachable Go payload types, not from a separate generator
+  checklist.
 - Electron main owns native OS dialogs and app lifecycle integration.
 - The renderer should use a typed preload API. It should not receive raw backend
   URLs or direct filesystem access.
@@ -174,26 +178,31 @@ Notes:
   recent workspaces.
 - `internal/appstate` owns persistence for active workspace ids, selected
   workspace id, and recent workspaces.
-- `internal/httpapi` remains thin and exposes the minimal backend endpoints.
+- `internal/httpapi` remains thin and exposes backend endpoints through the
+  endpoint registry.
 - Generated TypeScript workspace types should continue to live under
   `desktop/src/generated/`.
 
 ## Backend Scope
 
-Add Go-owned workspace contracts and generate TypeScript surfaces for them.
+Add Go-owned workspace endpoint contracts and generate TypeScript surfaces from
+the HTTP endpoint registry.
 
-Minimum contracts:
+Minimum generated HTTP contract graph:
 
+- `BackendHealth`
 - `WorkspaceSummary`
-- `WorkspaceState`
 - `WorkspaceSession`
-- `RecentWorkspacesResponse`
 - `OpenWorkspaceRequest`
 - `OpenWorkspaceResponse`
 - `SelectWorkspaceRequest`
 - `CloseWorkspaceRequest`
 - `ReorderWorkspaceRequest`
+- `RemoveRecentWorkspaceRequest`
 - structured error response shape if the current HTTP layer needs one
+
+`WorkspaceState` remains Go-owned persisted workspace metadata. It should be
+generated for TypeScript only if an HTTP endpoint exposes it.
 
 Minimum behavior:
 
@@ -233,8 +242,10 @@ Minimum HTTP surface:
 - `POST /workspaces/remove-recent`
 
 The exact route names can change during implementation, but they should stay
-backend-owned and generated or exported to TypeScript if the renderer needs
-route constants.
+backend-owned. Add routes through the `internal/httpapi` endpoint registry so
+route registration and contract generation share the same source of truth.
+Generate or export route constants to TypeScript only if the renderer needs
+them.
 
 ## Electron And Renderer Scope
 
@@ -338,9 +349,13 @@ Do not build these in Phase 2:
 2. Add backend workspace endpoints.
    - Keep HTTP handlers thin.
    - Return structured errors with specific messages.
+   - Register endpoints through the `internal/httpapi` endpoint registry.
 
 3. Extend Go-to-TypeScript generation.
-   - Generate workspace contracts.
+   - Generate workspace endpoint contracts from the endpoint registry.
+   - Recursively include reachable request, response, nested, and structured
+     error payload types.
+   - Do not maintain a separate generated-type list in the contract generator.
    - Keep generated files clearly marked.
 
 4. Wire Electron main and preload.
@@ -384,7 +399,7 @@ Phase 2 is complete when:
 - The renderer shows empty, active-workspace, selected-workspace,
   recent-workspace, loading, and error states.
 - The renderer uses typed preload APIs and generated TypeScript contracts for
-  Go-owned workspace data.
+  Go-owned workspace data exposed over HTTP.
 - The backend only binds to loopback and still starts/stops cleanly under
   Electron supervision.
 - The browser-pane smoke still passes.

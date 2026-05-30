@@ -11,20 +11,9 @@ export interface WorkspaceSummary {
   displayName: string;
   lastOpenedAt: string;
 }
-export interface WorkspaceState {
-  schemaVersion: number;
-  id: string;
-  rootPath: string;
-  displayName: string;
-  createdAt: string;
-  updatedAt: string;
-}
 export interface WorkspaceSession {
   selectedWorkspaceId: string;
   activeWorkspaces: WorkspaceSummary[];
-  recentWorkspaces: WorkspaceSummary[];
-}
-export interface RecentWorkspacesResponse {
   recentWorkspaces: WorkspaceSummary[];
 }
 export interface OpenWorkspaceRequest {

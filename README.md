@@ -39,8 +39,13 @@ Run the browser pane automation smoke:
 pnpm -C desktop smoke:browser
 ```
 
-Regenerate Go-owned TypeScript contracts after changing the owning Go types:
+Regenerate Go-owned TypeScript contracts after changing HTTP endpoint contracts
+or their owning Go types:
 
 ```sh
 ./scripts/go.sh run ./cmd/generate-contracts
 ```
+
+HTTP endpoint request and response contracts are discovered from the Go endpoint
+registry in `internal/httpapi`; add endpoints there instead of editing the
+contract generator.

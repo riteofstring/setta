@@ -21,11 +21,11 @@ func TestHealthEndpointReturnsStructuredJSON(t *testing.T) {
 		t.Fatalf("content type = %q, want application/json", response.Header().Get("Content-Type"))
 	}
 
-	var payload HealthResponse
+	var payload BackendHealth
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode health response: %v", err)
 	}
-	if payload != (HealthResponse{OK: true, Name: BackendName, Version: "test"}) {
+	if payload != (BackendHealth{OK: true, Name: BackendName, Version: "test"}) {
 		t.Fatalf("payload = %+v", payload)
 	}
 }
