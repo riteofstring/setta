@@ -5,22 +5,40 @@ frontend.
 
 ## Development
 
-Install or refresh checked-in dependencies:
+Try the Electron app locally:
 
 ```sh
 ./update_dependencies.sh
+./scripts/dev_desktop.sh
 ```
 
-Run the Go backend directly:
+The desktop dev command starts the Electron shell. The Electron main process
+starts the Go backend automatically, so a separate backend terminal is not
+required.
+
+For throwaway local app state:
+
+```sh
+SETTA_APP_DATA_DIR="$(mktemp -d)" ./scripts/dev_desktop.sh
+```
+
+The convenience script checks the repo Go wrapper and then runs:
+
+```sh
+pnpm -C desktop dev
+```
+
+Run the Go backend directly only for backend-only or manual API development:
 
 ```sh
 ./scripts/go.sh run ./cmd/setta-backend
 ```
 
-Start the desktop shell in development:
+If the repo Go wrapper cannot find the required Go version, install the
+repo-local toolchain:
 
 ```sh
-pnpm -C desktop dev
+./scripts/install_go_toolchain.sh
 ```
 
 Run verification:
