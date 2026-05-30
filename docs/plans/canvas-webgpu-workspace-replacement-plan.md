@@ -1001,8 +1001,9 @@ Use a visual comparison harness that captures the same scenario in the clean
 - the same route, project, view mode, active tab, viewport, theme, and browser
   viewport size
 - `1440x1200` and device scale factor `1` for the primary benchmark capture
-- either consistently closed or consistently open side panes, chat windows, and
-  app chrome
+- closed overview/UI-editor side panes and closed project chat windows in both
+  the clean `go-rewrite` reference and the current canvas branch, unless a
+  specific non-primary capture explicitly declares a different chrome state
 - a deterministic saved viewport or explicit scene viewport before capture
 - masks for branch name text, clocks, cursor, runtime-only notifications, and
   other intentionally variable chrome
@@ -1122,6 +1123,10 @@ section wheel-scroll frame time, and passive code highlighting cache hit rate.
   - switch
   - minimap
   - section selection/drag/resize affordances
+- For the primary workspace references, close the overview pane, UI editor pane,
+  and any project chat windows or expanded bottom-dock chat content before
+  capturing; use the same closed-chrome setup for both the `go-rewrite`
+  references and current branch recaptures.
 - Capture at least two deterministic `go-rewrite` reference passes for the
   quantitative visual parity gate's recapture-noise calibration.
 
