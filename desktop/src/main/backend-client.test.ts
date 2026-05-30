@@ -61,6 +61,24 @@ describe("generated backend client", () => {
     );
   });
 
+  test("decodes inactive chat run responses", async () => {
+    const client = createBackendClient("http://127.0.0.1:41000", async () =>
+      jsonResponse({
+        hasActiveRun: false,
+        run: emptyRun(),
+      }),
+    );
+
+    const response = await client.getActiveRun({
+      conversationId: "conversation_api",
+      workspaceId: "workspace_api",
+    });
+
+    expect(response.hasActiveRun).toBe(false);
+    expect(response.run.pendingApproval.options).toEqual([]);
+    expect(response.run.pendingApproval.questions).toEqual([]);
+  });
+
   test("GET endpoints do not send JSON bodies", async () => {
     const calls: FetchCall[] = [];
     const client = createBackendClient("http://127.0.0.1:41000", async (input, init) => {
@@ -134,5 +152,40 @@ function workspaceSession(): WorkspaceSession {
       },
     ],
     selectedWorkspaceId: "workspace_api",
+  };
+}
+
+function emptyRun() {
+  return {
+    completedAt: "",
+    conversationId: "",
+    error: "",
+    harness: "",
+    hasPendingApproval: false,
+    id: "",
+    pendingApproval: {
+      approved: false,
+      body: "",
+      command: "",
+      createdAt: "",
+      filePath: "",
+      id: "",
+      kind: "",
+      options: [],
+      permission: "",
+      question: "",
+      questions: [],
+      resolvedAt: "",
+      response: "",
+      runId: "",
+      status: "",
+      title: "",
+    },
+    promptSummary: "",
+    schemaVersion: 0,
+    startedAt: "",
+    status: "",
+    triggerMessageId: "",
+    workspaceId: "",
   };
 }

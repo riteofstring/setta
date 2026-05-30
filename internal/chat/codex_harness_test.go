@@ -84,6 +84,38 @@ func TestCodexHarnessMapsPermissionApprovalResponse(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessMapsMultiQuestionUserInput(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("user-input"))
+	sink := newRecordingSink()
+	done := make(chan error, 1)
+
+	go func() {
+		done <- harness.StartTurn(context.Background(), testTurnRequest(t), sink)
+	}()
+
+	approval := waitForApproval(t, sink)
+	if approval.Kind != ApprovalKindUserInput || len(approval.Questions) != 2 {
+		t.Fatalf("approval = %+v, want two user input questions", approval)
+	}
+	if err := harness.SubmitApproval(context.Background(), ApprovalResponse{
+		ApprovalID: approval.ID,
+		Answers: []ApprovalAnswer{
+			{QuestionID: "branch", Answers: []string{"main"}},
+			{QuestionID: "mode", Answers: []string{"fast"}},
+		},
+		Approved: true,
+		RunID:    "run_fake",
+	}); err != nil {
+		t.Fatalf("submit approval: %v", err)
+	}
+	if err := <-done; err != nil {
+		t.Fatalf("start turn after user input: %v", err)
+	}
+	if sink.text != "answers received" {
+		t.Fatalf("assistant text = %q, want answers received", sink.text)
+	}
+}
+
 func TestCodexHarnessInterruptsActiveTurn(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("cancel"))
 	sink := newRecordingSink()
@@ -215,6 +247,10 @@ func fakeCodexAppServer(mode string) {
 				assertFakePermissionApproval(message)
 				delta = "permission approved"
 			}
+			if mode == "user-input" {
+				assertFakeUserInputApproval(message)
+				delta = "answers received"
+			}
 			writeFakeNotification("item/agentMessage/delta", map[string]any{
 				"delta":    delta,
 				"itemId":   "item_fake",
@@ -282,6 +318,27 @@ func fakeCodexAppServer(mode string) {
 					"threadId":    "thread_fake",
 					"turnId":      "turn_fake",
 				})
+			case "user-input":
+				approvalOutstanding = true
+				writeFakeServerRequest("approval-1", "item/tool/requestUserInput", map[string]any{
+					"itemId": "item_fake",
+					"questions": []map[string]any{
+						{
+							"header":   "Branch",
+							"id":       "branch",
+							"options":  []map[string]any{{"description": "Use main", "label": "main"}},
+							"question": "Which branch?",
+						},
+						{
+							"header":   "Mode",
+							"id":       "mode",
+							"options":  []map[string]any{{"description": "Fast mode", "label": "fast"}},
+							"question": "Which mode?",
+						},
+					},
+					"threadId": "thread_fake",
+					"turnId":   "turn_fake",
+				})
 			}
 		case "turn/interrupt":
 			writeFakeResponse(message["id"], map[string]any{})
@@ -306,6 +363,30 @@ func assertFakePermissionApproval(message map[string]any) {
 	network, ok := permissions["network"].(map[string]any)
 	if !ok || network["enabled"] != true {
 		panic("permission approval did not echo requested network permission")
+	}
+}
+
+func assertFakeUserInputApproval(message map[string]any) {
+	result, ok := message["result"].(map[string]any)
+	if !ok {
+		panic("user input approval missing result")
+	}
+	answers, ok := result["answers"].(map[string]any)
+	if !ok {
+		panic("user input approval missing answers")
+	}
+	assertFakeAnswer(answers, "branch", "main")
+	assertFakeAnswer(answers, "mode", "fast")
+}
+
+func assertFakeAnswer(answers map[string]any, questionID string, expected string) {
+	raw, ok := answers[questionID].(map[string]any)
+	if !ok {
+		panic("missing answer for " + questionID)
+	}
+	values, ok := raw["answers"].([]any)
+	if !ok || len(values) != 1 || values[0] != expected {
+		panic("unexpected answer for " + questionID)
 	}
 }
 

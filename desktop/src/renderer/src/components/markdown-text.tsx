@@ -1,8 +1,8 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import type { ReactNode } from "react";
 
 export const MarkdownText = memo(function MarkdownText({ text }: { text: string }) {
-  const blocks = parseBlocks(text);
+  const blocks = useMemo(() => parseBlocks(text), [text]);
   return (
     <div className="space-y-3 text-sm leading-6 text-zinc-800">
       {blocks.map((block, index) => {

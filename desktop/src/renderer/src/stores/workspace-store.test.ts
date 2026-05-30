@@ -334,6 +334,7 @@ function emptyRun() {
       id: "approval_test",
       kind: "permission",
       options: [],
+      questions: [],
       permission: "",
       question: "",
       resolvedAt: "",

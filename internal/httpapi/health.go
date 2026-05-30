@@ -93,12 +93,13 @@ type GetActiveRunResponse struct {
 }
 
 type SubmitApprovalRequest struct {
-	WorkspaceID    string `json:"workspaceId"`
-	ConversationID string `json:"conversationId"`
-	ApprovalID     string `json:"approvalId"`
-	Approved       bool   `json:"approved"`
-	Response       string `json:"response"`
-	Cancelled      bool   `json:"cancelled"`
+	WorkspaceID    string                `json:"workspaceId"`
+	ConversationID string                `json:"conversationId"`
+	ApprovalID     string                `json:"approvalId"`
+	Approved       bool                  `json:"approved"`
+	Response       string                `json:"response"`
+	Answers        []chat.ApprovalAnswer `json:"answers"`
+	Cancelled      bool                  `json:"cancelled"`
 }
 
 type APIError struct {
@@ -126,7 +127,7 @@ type ChatService interface {
 	ListConversations(workspaceID string) ([]chat.ConversationListItem, error)
 	LoadMessagePage(workspaceID string, conversationID string, beforeOrdinal int, limit int) (chat.MessagePage, error)
 	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
-	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, cancelled bool) (chat.Run, error)
+	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)
 }
 
 type HandlerConfig struct {
@@ -364,7 +365,7 @@ func (handler handler) submitApproval(response http.ResponseWriter, request *htt
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	run, err := service.SubmitApproval(payload.WorkspaceID, payload.ConversationID, payload.ApprovalID, payload.Approved, payload.Response, payload.Cancelled)
+	run, err := service.SubmitApproval(payload.WorkspaceID, payload.ConversationID, payload.ApprovalID, payload.Approved, payload.Response, payload.Answers, payload.Cancelled)
 	if err != nil {
 		writeChatError(response, "submit_approval_failed", err)
 		return

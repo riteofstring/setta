@@ -243,7 +243,18 @@ function ConversationList({
   selectedConversationId: string;
   selectConversation: (conversationId: string) => Promise<void>;
 }) {
-  const visibleConversations = useMemo(() => conversations.slice(0, 80), [conversations]);
+  const [visibleLimit, setVisibleLimit] = useState(80);
+  const selectedIndex = conversations.findIndex(
+    (item) => item.conversation.id === selectedConversationId,
+  );
+  const effectiveLimit =
+    selectedIndex >= visibleLimit
+      ? Math.min(conversations.length, selectedIndex + 1)
+      : visibleLimit;
+  const visibleConversations = useMemo(
+    () => conversations.slice(0, effectiveLimit),
+    [conversations, effectiveLimit],
+  );
   if (visibleConversations.length === 0) {
     return <div className="px-4 py-5 text-sm text-zinc-500">No chats yet</div>;
   }
@@ -267,6 +278,15 @@ function ConversationList({
           <div className="mt-1 text-xs text-zinc-500">{item.messageCount} messages</div>
         </button>
       ))}
+      {visibleConversations.length < conversations.length ? (
+        <Button
+          className="mt-2 w-full"
+          onClick={() => setVisibleLimit((current) => current + 80)}
+          variant="secondary"
+        >
+          More Chats
+        </Button>
+      ) : null}
     </div>
   );
 }

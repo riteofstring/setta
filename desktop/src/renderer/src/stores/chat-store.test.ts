@@ -10,7 +10,7 @@ import type {
 import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { useChatStore } from "./chat-store";
+import { mergeMessagesByRevision, useChatStore } from "./chat-store";
 
 describe("chat store", () => {
   beforeEach(() => {
@@ -117,16 +117,28 @@ describe("chat store", () => {
       workspaceId: "workspace_api",
     });
 
-    await useChatStore.getState().submitApproval("approval_api", true, "", false);
+    await useChatStore.getState().submitApproval("approval_api", true, "", [], false);
 
     expect(submitApproval).toHaveBeenCalledWith({
       approvalId: "approval_api",
       approved: true,
+      answers: [],
       cancelled: false,
       conversationId: "conversation_api",
       response: "",
       workspaceId: "workspace_api",
     });
+  });
+
+  test("preserves unchanged message objects while refreshing active conversation", () => {
+    const user = message("message_user", 1, "user", "complete", "hello");
+    const assistant = message("message_assistant", 2, "assistant", "streaming", "");
+    const updatedAssistant = { ...assistant, updatedAt: "2026-05-29T20:00:01Z" };
+
+    const merged = mergeMessagesByRevision([user, assistant], [user, updatedAssistant]);
+
+    expect(merged[0]).toBe(user);
+    expect(merged[1]).toBe(updatedAssistant);
   });
 });
 
@@ -267,6 +279,7 @@ function testRun(status: string): Run {
       id: "approval_api",
       kind: "permission",
       options: [],
+      questions: [],
       permission: "",
       question: "",
       resolvedAt: "",

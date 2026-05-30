@@ -1,5 +1,6 @@
 import type {
   BackendHealth,
+  ApprovalAnswer,
   Conversation,
   GetActiveRunResponse,
   ListConversationsResponse,
@@ -22,6 +23,7 @@ export interface SubmitApprovalInput {
   conversationId: string;
   approvalId: string;
   approved: boolean;
+  answers: ApprovalAnswer[];
   response: string;
   cancelled: boolean;
 }

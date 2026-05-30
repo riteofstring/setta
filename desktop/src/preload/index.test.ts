@@ -89,6 +89,7 @@ describe("preload workspace API", () => {
     await api.chat.submitApproval({
       approvalId: "approval_api",
       approved: true,
+      answers: [],
       cancelled: false,
       conversationId: "conversation_api",
       response: "",
@@ -132,6 +133,7 @@ describe("preload workspace API", () => {
     expect(invoke).toHaveBeenNthCalledWith(7, ipcChannels.chatSubmitApproval, {
       approvalId: "approval_api",
       approved: true,
+      answers: [],
       cancelled: false,
       conversationId: "conversation_api",
       response: "",

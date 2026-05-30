@@ -137,6 +137,15 @@ export interface SendChatMessageRequest {
   prompt: string;
 }
 
+export interface ApprovalQuestion {
+  id: string;
+  header: string;
+  question: string;
+  options: string[];
+  isOther: boolean;
+  isSecret: boolean;
+}
+
 export interface ApprovalRequest {
   id: string;
   runId: string;
@@ -148,6 +157,7 @@ export interface ApprovalRequest {
   permission: string;
   question: string;
   options: string[];
+  questions: ApprovalQuestion[];
   status: string;
   createdAt: string;
   resolvedAt: string;
@@ -194,12 +204,18 @@ export interface GetActiveRunResponse {
   run: Run;
 }
 
+export interface ApprovalAnswer {
+  questionId: string;
+  answers: string[];
+}
+
 export interface SubmitApprovalRequest {
   workspaceId: string;
   conversationId: string;
   approvalId: string;
   approved: boolean;
   response: string;
+  answers: ApprovalAnswer[];
   cancelled: boolean;
 }
 
@@ -476,9 +492,22 @@ export function decodeSendChatMessageRequest(value: unknown): SendChatMessageReq
   };
 }
 
+export function decodeApprovalQuestion(value: unknown): ApprovalQuestion {
+  const record = assertRecord(value, "ApprovalQuestion");
+  assertKnownFields(record, "ApprovalQuestion", ["id", "header", "question", "options", "isOther", "isSecret"]);
+  return {
+    id: decodeString(requireField(record, "id", "ApprovalQuestion"), "ApprovalQuestion.id"),
+    header: decodeString(requireField(record, "header", "ApprovalQuestion"), "ApprovalQuestion.header"),
+    question: decodeString(requireField(record, "question", "ApprovalQuestion"), "ApprovalQuestion.question"),
+    options: decodeArray(requireField(record, "options", "ApprovalQuestion"), "ApprovalQuestion.options", (item) => decodeString(item, "ApprovalQuestion.options item")),
+    isOther: decodeBoolean(requireField(record, "isOther", "ApprovalQuestion"), "ApprovalQuestion.isOther"),
+    isSecret: decodeBoolean(requireField(record, "isSecret", "ApprovalQuestion"), "ApprovalQuestion.isSecret"),
+  };
+}
+
 export function decodeApprovalRequest(value: unknown): ApprovalRequest {
   const record = assertRecord(value, "ApprovalRequest");
-  assertKnownFields(record, "ApprovalRequest", ["id", "runId", "kind", "title", "body", "command", "filePath", "permission", "question", "options", "status", "createdAt", "resolvedAt", "response", "approved"]);
+  assertKnownFields(record, "ApprovalRequest", ["id", "runId", "kind", "title", "body", "command", "filePath", "permission", "question", "options", "questions", "status", "createdAt", "resolvedAt", "response", "approved"]);
   return {
     id: decodeString(requireField(record, "id", "ApprovalRequest"), "ApprovalRequest.id"),
     runId: decodeString(requireField(record, "runId", "ApprovalRequest"), "ApprovalRequest.runId"),
@@ -490,6 +519,7 @@ export function decodeApprovalRequest(value: unknown): ApprovalRequest {
     permission: decodeString(requireField(record, "permission", "ApprovalRequest"), "ApprovalRequest.permission"),
     question: decodeString(requireField(record, "question", "ApprovalRequest"), "ApprovalRequest.question"),
     options: decodeArray(requireField(record, "options", "ApprovalRequest"), "ApprovalRequest.options", (item) => decodeString(item, "ApprovalRequest.options item")),
+    questions: decodeArray(requireField(record, "questions", "ApprovalRequest"), "ApprovalRequest.questions", (item) => decodeApprovalQuestion(item)),
     status: decodeString(requireField(record, "status", "ApprovalRequest"), "ApprovalRequest.status"),
     createdAt: decodeString(requireField(record, "createdAt", "ApprovalRequest"), "ApprovalRequest.createdAt"),
     resolvedAt: decodeString(requireField(record, "resolvedAt", "ApprovalRequest"), "ApprovalRequest.resolvedAt"),
@@ -557,15 +587,25 @@ export function decodeGetActiveRunResponse(value: unknown): GetActiveRunResponse
   };
 }
 
+export function decodeApprovalAnswer(value: unknown): ApprovalAnswer {
+  const record = assertRecord(value, "ApprovalAnswer");
+  assertKnownFields(record, "ApprovalAnswer", ["questionId", "answers"]);
+  return {
+    questionId: decodeString(requireField(record, "questionId", "ApprovalAnswer"), "ApprovalAnswer.questionId"),
+    answers: decodeArray(requireField(record, "answers", "ApprovalAnswer"), "ApprovalAnswer.answers", (item) => decodeString(item, "ApprovalAnswer.answers item")),
+  };
+}
+
 export function decodeSubmitApprovalRequest(value: unknown): SubmitApprovalRequest {
   const record = assertRecord(value, "SubmitApprovalRequest");
-  assertKnownFields(record, "SubmitApprovalRequest", ["workspaceId", "conversationId", "approvalId", "approved", "response", "cancelled"]);
+  assertKnownFields(record, "SubmitApprovalRequest", ["workspaceId", "conversationId", "approvalId", "approved", "response", "answers", "cancelled"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "SubmitApprovalRequest"), "SubmitApprovalRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "SubmitApprovalRequest"), "SubmitApprovalRequest.conversationId"),
     approvalId: decodeString(requireField(record, "approvalId", "SubmitApprovalRequest"), "SubmitApprovalRequest.approvalId"),
     approved: decodeBoolean(requireField(record, "approved", "SubmitApprovalRequest"), "SubmitApprovalRequest.approved"),
     response: decodeString(requireField(record, "response", "SubmitApprovalRequest"), "SubmitApprovalRequest.response"),
+    answers: decodeArray(requireField(record, "answers", "SubmitApprovalRequest"), "SubmitApprovalRequest.answers", (item) => decodeApprovalAnswer(item)),
     cancelled: decodeBoolean(requireField(record, "cancelled", "SubmitApprovalRequest"), "SubmitApprovalRequest.cancelled"),
   };
 }

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -162,7 +163,7 @@ func TestServiceSurfacesAndResolvesApprovalRequests(t *testing.T) {
 		t.Fatalf("approval command = %q, want go test", run.PendingApproval.Command)
 	}
 
-	if _, err := service.SubmitApproval("workspace_api", conversation.ID, run.PendingApproval.ID, true, "", false); err != nil {
+	if _, err := service.SubmitApproval("workspace_api", conversation.ID, run.PendingApproval.ID, true, "", nil, false); err != nil {
 		t.Fatalf("submit approval: %v", err)
 	}
 	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusCompleted)
@@ -198,7 +199,7 @@ func TestServiceKeepsApprovalPendingWhenHarnessRejectsResponse(t *testing.T) {
 	}
 	run := waitForPendingApproval(t, service, "workspace_api", conversation.ID)
 
-	if _, err := service.SubmitApproval("workspace_api", conversation.ID, run.PendingApproval.ID, true, "", false); err == nil {
+	if _, err := service.SubmitApproval("workspace_api", conversation.ID, run.PendingApproval.ID, true, "", nil, false); err == nil {
 		t.Fatal("submit approval succeeded, want harness error")
 	}
 	run, ok, err := service.ActiveRun("workspace_api", conversation.ID)
@@ -210,6 +211,69 @@ func TestServiceKeepsApprovalPendingWhenHarnessRejectsResponse(t *testing.T) {
 	}
 	if _, err := service.CancelActiveRun("workspace_api", conversation.ID); err != nil {
 		t.Fatalf("cancel cleanup: %v", err)
+	}
+}
+
+func TestServiceMarksHarnessRefUnavailableWhenResumeFails(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), unavailableRefHarness{})
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	conversation.HarnessRefs = []HarnessThreadRef{{
+		CreatedAt:     "2026-05-29T20:00:00Z",
+		Harness:       HarnessCodex,
+		LastResumedAt: "2026-05-29T20:00:00Z",
+		Status:        HarnessRefLinked,
+		ThreadID:      "thread_missing",
+	}}
+	if err := service.store.SaveConversation(conversation); err != nil {
+		t.Fatalf("save conversation with ref: %v", err)
+	}
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "resume")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, result.Run.ID, RunStatusFailed)
+
+	updated, err := service.store.LoadConversation("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("load updated conversation: %v", err)
+	}
+	if updated.HarnessRefs[0].Status != HarnessRefMissing {
+		t.Fatalf("harness ref status = %q, want missing", updated.HarnessRefs[0].Status)
+	}
+	if updated.HarnessRefs[0].UnavailableMsg == "" {
+		t.Fatal("harness ref unavailable message is empty")
+	}
+}
+
+func TestServiceCancelsBeforeHarnessTurnIDsAreAvailable(t *testing.T) {
+	harness := newPreStartCancelHarness()
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	result, err := service.SendUserMessage("workspace_api", conversation.ID, "stop immediately")
+	if err != nil {
+		t.Fatalf("send message: %v", err)
+	}
+	harness.waitForStart(t)
+
+	run, err := service.CancelActiveRun("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("cancel active run: %v", err)
+	}
+	if run.ID != result.Run.ID || run.Status != RunStatusCancelled {
+		t.Fatalf("run = %+v, want cancelled %s", run, result.Run.ID)
+	}
+	page, err := service.LoadMessagePage("workspace_api", conversation.ID, 0, 20)
+	if err != nil {
+		t.Fatalf("load page: %v", err)
+	}
+	if page.Messages[1].Status != MessageStatusCancelled {
+		t.Fatalf("assistant status = %q, want cancelled", page.Messages[1].Status)
 	}
 }
 
@@ -267,6 +331,20 @@ func TestStoreIgnoresTemporaryJSONFiles(t *testing.T) {
 	}
 	if _, ok, err := store.ActiveRun("workspace_api", conversation.ID); err != nil || ok {
 		t.Fatalf("active run = ok %v err %v, want none and no temp-file error", ok, err)
+	}
+}
+
+func TestApprovalRequestMarshalsEmptySlicesAsArrays(t *testing.T) {
+	data, err := json.Marshal(Run{})
+	if err != nil {
+		t.Fatalf("marshal run: %v", err)
+	}
+	text := string(data)
+	if !strings.Contains(text, `"options":[]`) {
+		t.Fatalf("marshaled run = %s, want empty options array", text)
+	}
+	if !strings.Contains(text, `"questions":[]`) {
+		t.Fatalf("marshaled run = %s, want empty questions array", text)
 	}
 }
 
@@ -365,6 +443,55 @@ type failingApprovalHarness struct {
 
 func (harness failingApprovalHarness) SubmitApproval(context.Context, ApprovalResponse) error {
 	return errors.New("approval transport failed")
+}
+
+type unavailableRefHarness struct{}
+
+func (harness unavailableRefHarness) StartTurn(context.Context, TurnRequest, TurnSink) error {
+	return &HarnessRefUnavailableError{
+		Harness:  HarnessCodex,
+		ThreadID: "thread_missing",
+		Message:  "resume codex thread thread_missing: not found",
+	}
+}
+
+func (harness unavailableRefHarness) CancelTurn(context.Context, CancelRequest) error {
+	return nil
+}
+
+func (harness unavailableRefHarness) SubmitApproval(context.Context, ApprovalResponse) error {
+	return nil
+}
+
+type preStartCancelHarness struct {
+	started chan struct{}
+}
+
+func newPreStartCancelHarness() *preStartCancelHarness {
+	return &preStartCancelHarness{started: make(chan struct{})}
+}
+
+func (harness *preStartCancelHarness) StartTurn(ctx context.Context, _ TurnRequest, _ TurnSink) error {
+	close(harness.started)
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func (harness *preStartCancelHarness) CancelTurn(context.Context, CancelRequest) error {
+	return ErrTurnNotStarted
+}
+
+func (harness *preStartCancelHarness) SubmitApproval(context.Context, ApprovalResponse) error {
+	return nil
+}
+
+func (harness *preStartCancelHarness) waitForStart(t *testing.T) {
+	t.Helper()
+	select {
+	case <-harness.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for harness start")
+	}
 }
 
 func (resolver resolver) ResolveWorkspace(id string) (workspace.WorkspaceSummary, error) {

@@ -1,4 +1,5 @@
 import type {
+  ApprovalAnswer,
   ChatMessage,
   Conversation,
   ConversationListItem,
@@ -38,6 +39,7 @@ interface ChatStore {
     approvalId: string,
     approved: boolean,
     response: string,
+    answers: ApprovalAnswer[],
     cancelled: boolean,
   ) => Promise<void>;
   workspaceId: string | null;
@@ -190,6 +192,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         set({
           ...pagePatch(page, active.hasActiveRun ? active.run : null),
           conversations: list.conversations,
+          messages: mergeMessagesByRevision(current.messages, page.messages),
           status: "ready",
         });
       } catch (error) {
@@ -269,7 +272,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         commitCurrent(operationId, errorPatch(error));
       }
     },
-    submitApproval: async (approvalId, approved, response, cancelled) => {
+    submitApproval: async (approvalId, approved, response, answers, cancelled) => {
       const { selectedConversation, workspaceId } = get();
       if (!workspaceId || !selectedConversation) {
         return;
@@ -279,6 +282,7 @@ export const useChatStore = create<ChatStore>((set, get) => {
         const run = await window.setta.chat.submitApproval({
           approvalId,
           approved,
+          answers,
           cancelled,
           conversationId: selectedConversation.id,
           response,
@@ -321,4 +325,31 @@ function errorPatch(error: unknown): ChatPatch {
     operation: null,
     status: "error",
   };
+}
+
+export function mergeMessagesByRevision(
+  currentMessages: ChatMessage[],
+  nextMessages: ChatMessage[],
+): ChatMessage[] {
+  const currentByID = new Map(currentMessages.map((message) => [message.id, message]));
+  return nextMessages.map((next) => {
+    const current = currentByID.get(next.id);
+    if (!current || messageRevision(current) !== messageRevision(next)) {
+      return next;
+    }
+    return current;
+  });
+}
+
+function messageRevision(message: ChatMessage) {
+  return [
+    message.id,
+    message.runId,
+    message.role,
+    message.status,
+    message.updatedAt,
+    message.parts
+      .map((part) => `${part.id}:${part.type}:${part.format}:${part.text}`)
+      .join("\u0000"),
+  ].join("\u0001");
 }

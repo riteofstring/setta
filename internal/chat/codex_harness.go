@@ -40,11 +40,7 @@ type codexPendingApproval struct {
 	permissionProfile map[string]any
 	requestID         any
 	runID             string
-	questions         []codexQuestion
-}
-
-type codexQuestion struct {
-	ID string
+	questions         []ApprovalQuestion
 }
 
 type codexApprovalReply struct {
@@ -128,7 +124,7 @@ func (harness *CodexHarness) CancelTurn(ctx context.Context, request CancelReque
 		return fmt.Errorf("codex turn is not active for run %s", request.RunID)
 	}
 	if active.threadID == "" || active.turnID == "" {
-		return fmt.Errorf("codex turn ids are not available for run %s", request.RunID)
+		return ErrTurnNotStarted
 	}
 	_, err := active.client.call(ctx, "turn/interrupt", map[string]any{
 		"threadId": active.threadID,
@@ -191,11 +187,21 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, client *js
 			"threadId":              request.ThreadRef.ThreadID,
 		})
 		if err != nil {
-			return "", fmt.Errorf("resume codex thread %s: %w", request.ThreadRef.ThreadID, err)
+			return "", &HarnessRefUnavailableError{
+				Err:      err,
+				Harness:  HarnessCodex,
+				ThreadID: request.ThreadRef.ThreadID,
+				Message:  fmt.Sprintf("resume codex thread %s: %v", request.ThreadRef.ThreadID, err),
+			}
 		}
 		threadID, err := threadIDFromResponse(result)
 		if err != nil {
-			return "", err
+			return "", &HarnessRefUnavailableError{
+				Err:      err,
+				Harness:  HarnessCodex,
+				ThreadID: request.ThreadRef.ThreadID,
+				Message:  fmt.Sprintf("resume codex thread %s: %v", request.ThreadRef.ThreadID, err),
+			}
 		}
 		return threadID, nil
 	}
@@ -300,7 +306,7 @@ func (harness *CodexHarness) handleCodexServerRequest(message jsonRPCMessage, ru
 
 type codexApprovalDetails struct {
 	permissionProfile map[string]any
-	questions         []codexQuestion
+	questions         []ApprovalQuestion
 }
 
 func approvalRequestFromCodex(message jsonRPCMessage, runID string) (ApprovalRequest, codexApprovalDetails, error) {
@@ -346,13 +352,14 @@ func approvalRequestFromCodex(message jsonRPCMessage, runID string) (ApprovalReq
 	case "item/tool/requestUserInput":
 		questions, title, body, options := userInputQuestions(params)
 		return ApprovalRequest{
-			ID:       "codex_" + requestID,
-			RunID:    runID,
-			Kind:     ApprovalKindUserInput,
-			Title:    title,
-			Body:     body,
-			Question: body,
-			Options:  options,
+			ID:        "codex_" + requestID,
+			RunID:     runID,
+			Kind:      ApprovalKindUserInput,
+			Title:     title,
+			Body:      body,
+			Question:  body,
+			Options:   options,
+			Questions: questions,
 		}, codexApprovalDetails{questions: questions}, nil
 	default:
 		return ApprovalRequest{}, codexApprovalDetails{}, fmt.Errorf("unsupported codex app-server request: %s", message.Method)
@@ -375,8 +382,13 @@ func codexApprovalResult(pending codexPendingApproval, response ApprovalResponse
 			return codexApprovalReply{errorMessage: "user input cancelled"}, nil
 		}
 		answers := map[string]any{}
+		submitted := answersByQuestionID(response.Answers)
 		for _, question := range pending.questions {
-			answers[question.ID] = map[string]any{"answers": []string{response.Response}}
+			values := submitted[question.ID]
+			if len(values) == 0 {
+				return codexApprovalReply{}, fmt.Errorf("answer is required for question %s", question.ID)
+			}
+			answers[question.ID] = map[string]any{"answers": values}
 		}
 		return codexApprovalReply{result: map[string]any{"answers": answers}}, nil
 	default:
@@ -393,6 +405,17 @@ func approvalDecision(response ApprovalResponse) string {
 	default:
 		return "decline"
 	}
+}
+
+func answersByQuestionID(answers []ApprovalAnswer) map[string][]string {
+	byQuestion := map[string][]string{}
+	for _, answer := range answers {
+		if answer.QuestionID == "" {
+			continue
+		}
+		byQuestion[answer.QuestionID] = append([]string{}, answer.Answers...)
+	}
+	return byQuestion
 }
 
 func (harness *CodexHarness) registerActive(runID string, client *jsonRPCClient) {
@@ -661,6 +684,15 @@ func stringField(value map[string]any, name string) string {
 	return text
 }
 
+func boolField(value map[string]any, name string) bool {
+	raw, ok := value[name]
+	if !ok || raw == nil {
+		return false
+	}
+	flag, ok := raw.(bool)
+	return ok && flag
+}
+
 func stringFieldFromRaw(raw json.RawMessage, name string) string {
 	value, err := objectValue(raw)
 	if err != nil {
@@ -677,9 +709,24 @@ func jsonSummary(value map[string]any) string {
 	return string(data)
 }
 
-func userInputQuestions(params map[string]any) ([]codexQuestion, string, string, []string) {
+func questionOptions(question map[string]any) []string {
+	rawOptions, ok := question["options"].([]any)
+	if !ok {
+		return []string{}
+	}
+	options := make([]string, 0, len(rawOptions))
+	for _, rawOption := range rawOptions {
+		option, ok := rawOption.(map[string]any)
+		if ok {
+			options = append(options, stringField(option, "label"))
+		}
+	}
+	return options
+}
+
+func userInputQuestions(params map[string]any) ([]ApprovalQuestion, string, string, []string) {
 	rawQuestions, _ := params["questions"].([]any)
-	questions := make([]codexQuestion, 0, len(rawQuestions))
+	questions := make([]ApprovalQuestion, 0, len(rawQuestions))
 	options := []string{}
 	title := "User input requested"
 	body := ""
@@ -689,22 +736,21 @@ func userInputQuestions(params map[string]any) ([]codexQuestion, string, string,
 			continue
 		}
 		id := stringField(question, "id")
-		if id != "" {
-			questions = append(questions, codexQuestion{ID: id})
-		}
+		optionsForQuestion := questionOptions(question)
+		questions = append(questions, ApprovalQuestion{
+			ID:       id,
+			Header:   stringField(question, "header"),
+			Question: stringField(question, "question"),
+			Options:  optionsForQuestion,
+			IsOther:  boolField(question, "isOther"),
+			IsSecret: boolField(question, "isSecret"),
+		})
 		if index == 0 {
 			if header := stringField(question, "header"); header != "" {
 				title = header
 			}
 			body = stringField(question, "question")
-			if rawOptions, ok := question["options"].([]any); ok {
-				for _, rawOption := range rawOptions {
-					option, ok := rawOption.(map[string]any)
-					if ok {
-						options = append(options, stringField(option, "label"))
-					}
-				}
-			}
+			options = optionsForQuestion
 		}
 	}
 	return questions, title, body, options

@@ -15,6 +15,7 @@ import (
 
 const (
 	defaultPageLimit     = 40
+	deltaPersistInterval = 250 * time.Millisecond
 	maxConversationTitle = 80
 	maxPromptSummary     = 120
 )
@@ -39,6 +40,7 @@ type Option func(*Service)
 type activeTurn struct {
 	assistantMessage ChatMessage
 	cancel           context.CancelFunc
+	lastPersistedAt  time.Time
 	runID            string
 	workspaceID      string
 }
@@ -249,12 +251,11 @@ func (service *Service) persistTurnStartLocked(workspaceID string, conversationI
 
 func (service *Service) CancelActiveRun(workspaceID string, conversationID string) (Run, error) {
 	service.mu.Lock()
-	defer service.mu.Unlock()
-
 	key := activeKey(workspaceID, conversationID)
 	active, ok := service.active[key]
 	if !ok || active.workspaceID != workspaceID {
 		run, exists, err := service.store.ActiveRun(workspaceID, conversationID)
+		service.mu.Unlock()
 		if err != nil {
 			return Run{}, err
 		}
@@ -266,7 +267,40 @@ func (service *Service) CancelActiveRun(workspaceID string, conversationID strin
 
 	run, err := service.store.LoadRun(workspaceID, active.runID)
 	if err != nil {
+		service.mu.Unlock()
 		return Run{}, err
+	}
+	service.mu.Unlock()
+
+	err = service.harness.CancelTurn(context.Background(), CancelRequest{
+		RunID:          run.ID,
+		WorkspaceID:    workspaceID,
+		ConversationID: conversationID,
+	})
+	if err != nil && !errors.Is(err, ErrTurnNotStarted) {
+		return Run{}, err
+	}
+	active.cancel()
+	return service.markTurnCancelled(workspaceID, conversationID, active.runID)
+}
+
+func (service *Service) markTurnCancelled(workspaceID string, conversationID string, runID string) (Run, error) {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	key := activeKey(workspaceID, conversationID)
+	active, ok := service.active[key]
+	if !ok || active.runID != runID {
+		run, err := service.store.LoadRun(workspaceID, runID)
+		return run, err
+	}
+	run, err := service.store.LoadRun(workspaceID, runID)
+	if err != nil {
+		return Run{}, err
+	}
+	if run.Status != RunStatusRunning {
+		delete(service.active, key)
+		return run, nil
 	}
 	now := timestamp(service.now())
 	run.Status = RunStatusCancelled
@@ -286,16 +320,6 @@ func (service *Service) CancelActiveRun(workspaceID string, conversationID strin
 	if err := service.traceLocked(workspaceID, run.ID, "cancellation_requested", "Turn cancellation requested"); err != nil {
 		return Run{}, err
 	}
-	if err := service.harness.CancelTurn(context.Background(), CancelRequest{
-		RunID:          run.ID,
-		WorkspaceID:    workspaceID,
-		ConversationID: conversationID,
-	}); err != nil {
-		active.cancel()
-		delete(service.active, key)
-		return Run{}, err
-	}
-	active.cancel()
 	delete(service.active, key)
 	return run, nil
 }
@@ -307,7 +331,7 @@ func (service *Service) ActiveRun(workspaceID string, conversationID string) (Ru
 	return service.store.ActiveRun(workspaceID, conversationID)
 }
 
-func (service *Service) SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, cancelled bool) (Run, error) {
+func (service *Service) SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []ApprovalAnswer, cancelled bool) (Run, error) {
 	run, err := service.pendingApprovalRun(workspaceID, conversationID, approvalID)
 	if err != nil {
 		return Run{}, err
@@ -316,12 +340,13 @@ func (service *Service) SubmitApproval(workspaceID string, conversationID string
 		RunID:      run.ID,
 		ApprovalID: approvalID,
 		Approved:   approved,
+		Answers:    answers,
 		Response:   response,
 		Cancelled:  cancelled,
 	}); err != nil {
 		return Run{}, err
 	}
-	return service.clearPendingApproval(workspaceID, conversationID, approvalID, approved, response, cancelled)
+	return service.clearPendingApproval(workspaceID, conversationID, approvalID, approved, response, answers, cancelled)
 }
 
 func (service *Service) pendingApprovalRun(workspaceID string, conversationID string, approvalID string) (Run, error) {
@@ -341,7 +366,7 @@ func (service *Service) pendingApprovalRun(workspaceID string, conversationID st
 	return run, nil
 }
 
-func (service *Service) clearPendingApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, cancelled bool) (Run, error) {
+func (service *Service) clearPendingApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []ApprovalAnswer, cancelled bool) (Run, error) {
 	service.mu.Lock()
 	defer service.mu.Unlock()
 
@@ -357,7 +382,7 @@ func (service *Service) clearPendingApproval(workspaceID string, conversationID 
 	}
 	approval := run.PendingApproval
 	approval.ResolvedAt = timestamp(service.now())
-	approval.Response = response
+	approval.Response = approvalResponseSummary(response, answers)
 	approval.Approved = approved
 	switch {
 	case cancelled:
@@ -469,6 +494,10 @@ func (service *Service) runHarnessTurn(ctx context.Context, request TurnRequest)
 		if errors.Is(ctx.Err(), context.Canceled) {
 			return
 		}
+		var refErr *HarnessRefUnavailableError
+		if errors.As(err, &refErr) {
+			_ = service.markHarnessRefUnavailable(request.Workspace.ID, request.Conversation.ID, request.Run.ID, refErr)
+		}
 		_ = service.failTurn(request.Workspace.ID, request.Conversation.ID, request.Run.ID, err.Error())
 		return
 	}
@@ -568,13 +597,20 @@ func (service *Service) appendAssistantDelta(workspaceID string, conversationID 
 	}
 	message := active.assistantMessage
 	message.Parts[0].Text += delta
-	message.UpdatedAt = timestamp(service.now())
-	if err := service.store.SaveMessage(workspaceID, message); err != nil {
-		return err
-	}
+	now := service.now()
+	message.UpdatedAt = timestamp(now)
 	active.assistantMessage = message
+	if active.lastPersistedAt.IsZero() || now.Sub(active.lastPersistedAt) >= deltaPersistInterval {
+		if err := service.store.SaveMessage(workspaceID, message); err != nil {
+			return err
+		}
+		active.lastPersistedAt = now
+		if err := service.traceLocked(workspaceID, run.ID, "assistant_text_delta_received", "Assistant text delta received"); err != nil {
+			return err
+		}
+	}
 	service.active[key] = active
-	return service.traceLocked(workspaceID, run.ID, "assistant_text_delta_received", "Assistant text delta received")
+	return nil
 }
 
 func (service *Service) requestApproval(workspaceID string, conversationID string, runID string, approval ApprovalRequest) error {
@@ -599,6 +635,12 @@ func (service *Service) requestApproval(workspaceID string, conversationID strin
 		approval.ID = approvalID
 	}
 	approval.RunID = runID
+	if approval.Options == nil {
+		approval.Options = []string{}
+	}
+	if approval.Questions == nil {
+		approval.Questions = []ApprovalQuestion{}
+	}
 	approval.Status = ApprovalStatusPending
 	approval.CreatedAt = timestamp(service.now())
 	run.HasPendingApproval = true
@@ -659,6 +701,30 @@ func (service *Service) linkThread(workspaceID string, conversationID string, ru
 		return err
 	}
 	return service.traceLocked(workspaceID, runID, "codex_thread_ref_linked", "Codex thread reference linked")
+}
+
+func (service *Service) markHarnessRefUnavailable(workspaceID string, conversationID string, runID string, refErr *HarnessRefUnavailableError) error {
+	service.mu.Lock()
+	defer service.mu.Unlock()
+
+	conversation, err := service.store.LoadConversation(workspaceID, conversationID)
+	if err != nil {
+		return err
+	}
+	now := timestamp(service.now())
+	for index, ref := range conversation.HarnessRefs {
+		if ref.Harness == refErr.Harness && ref.ThreadID == refErr.ThreadID {
+			conversation.HarnessRefs[index].Status = HarnessRefMissing
+			conversation.HarnessRefs[index].UnavailableMsg = refErr.Error()
+			conversation.HarnessRefs[index].LastResumedAt = now
+			conversation.UpdatedAt = now
+			if err := service.store.SaveConversation(conversation); err != nil {
+				return err
+			}
+			return service.traceLocked(workspaceID, runID, "codex_thread_resume_failed", refErr.Error())
+		}
+	}
+	return nil
 }
 
 func (service *Service) trace(workspaceID string, runID string, eventType string, message string) error {
@@ -779,6 +845,20 @@ func upsertHarnessRef(refs *[]HarnessThreadRef, next HarnessThreadRef) {
 		}
 	}
 	*refs = append(*refs, next)
+}
+
+func approvalResponseSummary(response string, answers []ApprovalAnswer) string {
+	if strings.TrimSpace(response) != "" {
+		return response
+	}
+	parts := make([]string, 0, len(answers))
+	for _, answer := range answers {
+		if len(answer.Answers) == 0 {
+			continue
+		}
+		parts = append(parts, answer.QuestionID+": "+strings.Join(answer.Answers, ", "))
+	}
+	return strings.Join(parts, "\n")
 }
 
 func activeKey(workspaceID string, conversationID string) string {

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 
 	"setta/internal/workspace"
 )
@@ -30,8 +31,29 @@ type ApprovalResponse struct {
 	RunID      string
 	ApprovalID string
 	Approved   bool
+	Answers    []ApprovalAnswer
 	Response   string
 	Cancelled  bool
+}
+
+var ErrTurnNotStarted = errors.New("turn has not started")
+
+type HarnessRefUnavailableError struct {
+	Err      error
+	Harness  string
+	ThreadID string
+	Message  string
+}
+
+func (err *HarnessRefUnavailableError) Error() string {
+	if err.Message != "" {
+		return err.Message
+	}
+	return err.Harness + " thread ref unavailable: " + err.ThreadID
+}
+
+func (err *HarnessRefUnavailableError) Unwrap() error {
+	return err.Err
 }
 
 type TurnSink interface {

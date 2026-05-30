@@ -176,6 +176,21 @@ func validateRunState(run Run) error {
 }
 
 func validateApprovalRequest(approval ApprovalRequest) error {
+	if err := validateApprovalIdentity(approval); err != nil {
+		return err
+	}
+	if err := validateApprovalState(approval); err != nil {
+		return err
+	}
+	for _, question := range approval.Questions {
+		if err := validateApprovalQuestion(approval.ID, question); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateApprovalIdentity(approval ApprovalRequest) error {
 	if approval.ID == "" {
 		return fmt.Errorf("approval id is required")
 	}
@@ -188,6 +203,10 @@ func validateApprovalRequest(approval ApprovalRequest) error {
 	if approval.Title == "" {
 		return fmt.Errorf("approval %s title is required", approval.ID)
 	}
+	return nil
+}
+
+func validateApprovalState(approval ApprovalRequest) error {
 	if !validString(approval.Status, []string{ApprovalStatusPending, ApprovalStatusApproved, ApprovalStatusDenied, ApprovalStatusAnswered, ApprovalStatusCancelled}) {
 		return fmt.Errorf("approval %s has unsupported status %s", approval.ID, approval.Status)
 	}
@@ -201,6 +220,16 @@ func validateApprovalRequest(approval ApprovalRequest) error {
 	}
 	if approval.FilePath != "" && !filepath.IsAbs(approval.FilePath) {
 		return fmt.Errorf("approval %s filePath must be absolute", approval.ID)
+	}
+	return nil
+}
+
+func validateApprovalQuestion(approvalID string, question ApprovalQuestion) error {
+	if question.ID == "" {
+		return fmt.Errorf("approval %s question id is required", approvalID)
+	}
+	if question.Question == "" {
+		return fmt.Errorf("approval %s question %s text is required", approvalID, question.ID)
 	}
 	return nil
 }

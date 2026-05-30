@@ -1,5 +1,7 @@
 package chat
 
+import "encoding/json"
+
 const (
 	SchemaVersion = 1
 
@@ -104,21 +106,36 @@ type Run struct {
 }
 
 type ApprovalRequest struct {
-	ID         string   `json:"id"`
-	RunID      string   `json:"runId"`
-	Kind       string   `json:"kind"`
-	Title      string   `json:"title"`
-	Body       string   `json:"body"`
-	Command    string   `json:"command"`
-	FilePath   string   `json:"filePath"`
-	Permission string   `json:"permission"`
-	Question   string   `json:"question"`
-	Options    []string `json:"options"`
-	Status     string   `json:"status"`
-	CreatedAt  string   `json:"createdAt"`
-	ResolvedAt string   `json:"resolvedAt"`
-	Response   string   `json:"response"`
-	Approved   bool     `json:"approved"`
+	ID         string             `json:"id"`
+	RunID      string             `json:"runId"`
+	Kind       string             `json:"kind"`
+	Title      string             `json:"title"`
+	Body       string             `json:"body"`
+	Command    string             `json:"command"`
+	FilePath   string             `json:"filePath"`
+	Permission string             `json:"permission"`
+	Question   string             `json:"question"`
+	Options    []string           `json:"options"`
+	Questions  []ApprovalQuestion `json:"questions"`
+	Status     string             `json:"status"`
+	CreatedAt  string             `json:"createdAt"`
+	ResolvedAt string             `json:"resolvedAt"`
+	Response   string             `json:"response"`
+	Approved   bool               `json:"approved"`
+}
+
+type ApprovalQuestion struct {
+	ID       string   `json:"id"`
+	Header   string   `json:"header"`
+	Question string   `json:"question"`
+	Options  []string `json:"options"`
+	IsOther  bool     `json:"isOther"`
+	IsSecret bool     `json:"isSecret"`
+}
+
+type ApprovalAnswer struct {
+	QuestionID string   `json:"questionId"`
+	Answers    []string `json:"answers"`
 }
 
 type TraceEvent struct {
@@ -141,4 +158,31 @@ type MessagePage struct {
 	Messages           []ChatMessage `json:"messages"`
 	HasMoreOlder       bool          `json:"hasMoreOlder"`
 	OlderBeforeOrdinal int           `json:"olderBeforeOrdinal"`
+}
+
+func (approval ApprovalRequest) MarshalJSON() ([]byte, error) {
+	type approvalAlias ApprovalRequest
+	if approval.Options == nil {
+		approval.Options = []string{}
+	}
+	if approval.Questions == nil {
+		approval.Questions = []ApprovalQuestion{}
+	}
+	return json.Marshal(approvalAlias(approval))
+}
+
+func (question ApprovalQuestion) MarshalJSON() ([]byte, error) {
+	type questionAlias ApprovalQuestion
+	if question.Options == nil {
+		question.Options = []string{}
+	}
+	return json.Marshal(questionAlias(question))
+}
+
+func (answer ApprovalAnswer) MarshalJSON() ([]byte, error) {
+	type answerAlias ApprovalAnswer
+	if answer.Answers == nil {
+		answer.Answers = []string{}
+	}
+	return json.Marshal(answerAlias(answer))
 }

@@ -1,4 +1,4 @@
-import type { ChatMessage, Run } from "@generated/backend";
+import type { ApprovalAnswer, ApprovalQuestion, ChatMessage, Run } from "@generated/backend";
 import { ArrowDown, ChevronUp, Check, X } from "lucide-react";
 import { memo, useEffect, useRef, useState } from "react";
 
@@ -14,6 +14,7 @@ export interface ChatTranscriptProps {
     approvalId: string,
     approved: boolean,
     response: string,
+    answers: ApprovalAnswer[],
     cancelled: boolean,
   ) => Promise<void>;
 }
@@ -145,12 +146,13 @@ function ApprovalCard({
     approvalId: string,
     approved: boolean,
     response: string,
+    answers: ApprovalAnswer[],
     cancelled: boolean,
   ) => Promise<void>;
 }) {
   const approval = run.pendingApproval;
-  const [answer, setAnswer] = useState("");
   const isUserInput = approval.kind === "user_input";
+  const questions = approval.questions.length > 0 ? approval.questions : legacyQuestion(approval);
   return (
     <section
       className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
@@ -172,11 +174,9 @@ function ApprovalCard({
       {approval.question ? <div className="mt-2">{approval.question}</div> : null}
       {isUserInput ? (
         <UserInputApproval
-          answer={answer}
-          options={approval.options}
-          setAnswer={setAnswer}
-          submitApproval={(cancelled) =>
-            submitApproval(approval.id, !cancelled, answer.trim(), cancelled)
+          questions={questions}
+          submitApproval={(answers, cancelled) =>
+            submitApproval(approval.id, !cancelled, "", answers, cancelled)
           }
         />
       ) : (
@@ -195,16 +195,23 @@ function DecisionApproval({
     approvalId: string,
     approved: boolean,
     response: string,
+    answers: ApprovalAnswer[],
     cancelled: boolean,
   ) => Promise<void>;
 }) {
   return (
     <div className="mt-3 flex gap-2">
-      <Button onClick={() => void submitApproval(approvalId, true, "", false)} variant="primary">
+      <Button
+        onClick={() => void submitApproval(approvalId, true, "", [], false)}
+        variant="primary"
+      >
         <Check className="h-4 w-4" />
         Approve
       </Button>
-      <Button onClick={() => void submitApproval(approvalId, false, "", false)} variant="secondary">
+      <Button
+        onClick={() => void submitApproval(approvalId, false, "", [], false)}
+        variant="secondary"
+      >
         <X className="h-4 w-4" />
         Deny
       </Button>
@@ -213,52 +220,97 @@ function DecisionApproval({
 }
 
 function UserInputApproval({
-  answer,
-  options,
-  setAnswer,
+  questions,
   submitApproval,
 }: {
-  answer: string;
-  options: string[];
-  setAnswer: (value: string) => void;
-  submitApproval: (cancelled: boolean) => Promise<void>;
+  questions: ApprovalQuestion[];
+  submitApproval: (answers: ApprovalAnswer[], cancelled: boolean) => Promise<void>;
 }) {
+  const [answersByQuestion, setAnswersByQuestion] = useState<Record<string, string>>({});
+  const complete = questions.every(
+    (question) => answerValue(answersByQuestion, question.id) !== "",
+  );
+  const answers = questions.map((question) => ({
+    answers: [answerValue(answersByQuestion, question.id)],
+    questionId: question.id,
+  }));
+
   return (
     <div className="mt-3 space-y-3">
-      {options.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {options.map((option) => (
-            <Button
-              key={option}
-              onClick={() => setAnswer(option)}
-              type="button"
-              variant={answer === option ? "primary" : "secondary"}
-            >
-              {option}
-            </Button>
-          ))}
-        </div>
-      ) : null}
-      <input
-        className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
-        onChange={(event) => setAnswer(event.target.value)}
-        value={answer}
-      />
+      {questions.map((question) => {
+        const answer = answerValue(answersByQuestion, question.id);
+        return (
+          <div className="space-y-2" key={question.id}>
+            {question.header ? <div className="font-medium">{question.header}</div> : null}
+            <div>{question.question}</div>
+            {question.options.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {question.options.map((option) => (
+                  <Button
+                    key={option}
+                    onClick={() => setQuestionAnswer(setAnswersByQuestion, question.id, option)}
+                    type="button"
+                    variant={answer === option ? "primary" : "secondary"}
+                  >
+                    {option}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
+            <input
+              className="w-full rounded-md border border-amber-200 bg-white px-3 py-2 text-sm outline-none focus:border-amber-500"
+              onChange={(event) =>
+                setQuestionAnswer(setAnswersByQuestion, question.id, event.target.value)
+              }
+              type={question.isSecret ? "password" : "text"}
+              value={answer}
+            />
+          </div>
+        );
+      })}
       <div className="flex gap-2">
         <Button
-          disabled={answer.trim() === ""}
-          onClick={() => void submitApproval(false)}
+          disabled={!complete}
+          onClick={() => void submitApproval(answers, false)}
           type="button"
           variant="primary"
         >
           <Check className="h-4 w-4" />
           Answer
         </Button>
-        <Button onClick={() => void submitApproval(true)} type="button" variant="secondary">
+        <Button onClick={() => void submitApproval([], true)} type="button" variant="secondary">
           <X className="h-4 w-4" />
           Cancel
         </Button>
       </div>
     </div>
   );
+}
+
+function legacyQuestion(approval: Run["pendingApproval"]): ApprovalQuestion[] {
+  if (!approval.question) {
+    return [];
+  }
+  return [
+    {
+      header: approval.title,
+      id: "response",
+      isOther: false,
+      isSecret: false,
+      options: approval.options,
+      question: approval.question,
+    },
+  ];
+}
+
+function answerValue(answersByQuestion: Record<string, string>, questionID: string) {
+  return answersByQuestion[questionID]?.trim() ?? "";
+}
+
+function setQuestionAnswer(
+  setAnswersByQuestion: (next: (current: Record<string, string>) => Record<string, string>) => void,
+  questionID: string,
+  answer: string,
+) {
+  setAnswersByQuestion((current) => ({ ...current, [questionID]: answer }));
 }
