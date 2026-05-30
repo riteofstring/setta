@@ -23,9 +23,7 @@ async function createTopLevelSection(
   });
   const sectionId = response?.sectionId ?? null;
   if (!sectionId) {
-    throw new Error(
-      `Missing sectionId when creating section type ${implType}.`,
-    );
+    throw new Error(`Missing sectionId when creating section type ${implType}.`);
   }
   return sectionId;
 }
@@ -52,10 +50,10 @@ test.describe.serial("agentic handles", () => {
       await node.hover();
 
       const targetHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
       );
       const sourceHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
       );
 
       await expect(targetHandle).toBeVisible();

@@ -945,7 +945,7 @@ test("custom plain-chat slash commands clear app-generation mode inside active a
       },
     });
     await page.reload();
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     const projectChatSurface = await openSlashCommandsViewer(page);
 
     const customCommandRow = projectChatSurface

@@ -396,7 +396,7 @@ isolatedSizingTest(
         .poll(
           async () => {
             return await page.evaluate(() => {
-              return typeof window.settaGpuFlowZoom === "number";
+              return typeof window.reactFlowZoom === "number";
             });
           },
           { timeout: 10000 },
@@ -422,8 +422,8 @@ isolatedSizingTest(
         .poll(
           async () => {
             return await page.evaluate(() => {
-              return typeof window.settaGpuFlowZoom === "number"
-                ? window.settaGpuFlowZoom
+              return typeof window.reactFlowZoom === "number"
+                ? window.reactFlowZoom
                 : 1;
             });
           },

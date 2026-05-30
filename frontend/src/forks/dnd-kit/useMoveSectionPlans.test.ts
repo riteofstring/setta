@@ -1,6 +1,4 @@
-import { screenToFlowPosition } from "gpuFlow/viewportActions";
-import { gpuFlowViewportStore } from "gpuFlow/viewportStore";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { DragEndEvent } from "./adapter";
 import {
   planFreeMove,
@@ -34,10 +32,6 @@ function rect(left: number, top: number): DndRect {
 }
 
 describe("useMoveSectionPlans", () => {
-  afterEach(() => {
-    gpuFlowViewportStore.getState().setTransform([0, 0, 1]);
-  });
-
   it("skips sort plans that keep the child order unchanged", () => {
     const plan = planSortingMove({
       children: ["a", "b", "c"],
@@ -137,53 +131,6 @@ describe("useMoveSectionPlans", () => {
 
     expect(plan).toBeNull();
   });
-
-  it.each([
-    [0.5, { a: { x: 260, y: 200 }, b: { x: 500, y: 440 } }],
-    [1, { a: { x: 130, y: 100 }, b: { x: 250, y: 220 } }],
-    [2, { a: { x: 65, y: 50 }, b: { x: 125, y: 110 } }],
-  ])(
-    "builds moving-free pane drop positions through GPU viewport zoom %s",
-    (zoom, expectedPositions) => {
-      // Validates moving-free canvas drops use the GPU screen-to-flow conversion.
-      gpuFlowViewportStore.getState().setTransform([100, 80, zoom]);
-
-      const plan = planFreeMove({
-        behaviorDropType: null,
-        collisions: null,
-        delta: { x: 30, y: 20 },
-        dndChildrenState: {
-          x: {},
-          y: {},
-        },
-        dndSectionId: "a-TempDND",
-        draggingIds: ["a", "b"],
-        draggingRectsById: {
-          a: rect(200, 160),
-          b: rect(320, 280),
-        },
-        draggingSet: new Set(["a", "b"]),
-        isInvalidParent: () => false,
-        overId: null,
-        parentSectionMap: {
-          a: "source",
-          b: "source",
-        },
-        sharedParentChildren: ["a", "b"],
-        sharedParentId: "source",
-        topLevelSections: {},
-        toFlowPosition: (position) =>
-          screenToFlowPosition(position, { ignoreDomNode: true }),
-      });
-
-      expect(plan).toEqual({
-        sectionIds: ["a", "b"],
-        newParentId: null,
-        newIndex: 0,
-        positionsById: expectedPositions,
-      });
-    },
-  );
 
   it("builds a free-move plan when dropping into a new parent", () => {
     const plan = planFreeMove({

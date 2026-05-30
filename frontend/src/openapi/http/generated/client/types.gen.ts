@@ -11,7 +11,7 @@ import type {
 } from "../core/types.gen";
 import type { Middleware } from "./utils.gen";
 
-export type ResponseStyle = "data" | "fields";
+type ResponseStyle = "data" | "fields";
 
 export interface Config<T extends ClientOptions = ClientOptions>
   extends Omit<RequestInit, "body" | "headers" | "method">,
@@ -104,7 +104,7 @@ export interface ResolvedRequestOptions<
   serializedBody?: RequestInit["body"] | undefined;
 }
 
-export type RequestResult<
+type RequestResult<
   TData = unknown,
   TError = unknown,
   ThrowOnError extends boolean = boolean,
@@ -215,7 +215,7 @@ export type Client = CoreClient<
  * `setConfig()`. This is useful for example if you're using Next.js
  * to ensure your client always has the correct values.
  */
-export type CreateClientConfig<T extends ClientOptions = ClientOptions> = (
+type CreateClientConfig<T extends ClientOptions = ClientOptions> = (
   override?: Config<ClientOptions & T>,
 ) => Config<Required<ClientOptions> & T>;
 
@@ -240,7 +240,7 @@ export type Options<
 > &
   ([TData] extends [never] ? unknown : Omit<TData, "url">);
 
-export type OptionsLegacyParser<
+type OptionsLegacyParser<
   TData = unknown,
   ThrowOnError extends boolean = boolean,
   TResponseStyle extends ResponseStyle = "fields",

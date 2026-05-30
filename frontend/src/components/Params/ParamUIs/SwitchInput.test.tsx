@@ -8,8 +8,6 @@ describe("SwitchInput theme overrides", () => {
       <SwitchInput value={false} onChange={() => undefined} />,
     );
 
-    expect(markup).toContain('data-gpu-flow-interactive="true"');
-    expect(markup).toContain("nodrag nopan");
     expect(markup).toContain("bg-setta-400");
     expect(markup).toContain("data-[state=&#x27;checked&#x27;]:bg-blue-500");
     expect(markup).toContain("bg-white");

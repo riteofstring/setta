@@ -671,7 +671,7 @@ export async function readWorkflowEdgeStyle(
   edgeId: string,
 ): Promise<{ className: string; strokeDasharray: string }> {
   const path = page.locator(
-    `[data-edgeid="${edgeId}"] .setta-gpu-flow__state-machine-edge-path`,
+    `[data-edgeid="${edgeId}"] .react-flow__state-machine-edge-path`,
   );
   await expect(path).toBeVisible();
   return path.evaluate((element) => {

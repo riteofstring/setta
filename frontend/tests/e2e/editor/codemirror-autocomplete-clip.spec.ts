@@ -43,7 +43,7 @@ test("code autocomplete tooltip escapes section bounds", async ({ page }) => {
     }
 
     const codeMirror = page.locator(
-      `.setta-gpu-flow__node[data-id="${sectionId}"] [data-section-main-editor] .cm-content`,
+      `.react-flow__node[data-id="${sectionId}"] [data-section-main-editor] .cm-content`,
     );
     await expect(codeMirror).toBeVisible();
     await codeMirror.click();
@@ -120,8 +120,8 @@ async function getSectionHeight(
   return resizable.evaluate((el) => {
     const rect = el.getBoundingClientRect();
     const viewport =
-      el.closest(".setta-gpu-flow__canvas") ??
-      document.querySelector(".setta-gpu-flow__canvas");
+      el.closest(".react-flow__viewport") ??
+      document.querySelector(".react-flow__viewport");
     let scale = 1;
     if (viewport) {
       const transform = window.getComputedStyle(viewport).transform;

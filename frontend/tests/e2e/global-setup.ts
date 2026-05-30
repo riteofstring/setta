@@ -10,9 +10,6 @@ const PROJECT_URL =
   (process.env.SETTA_PROJECT_PATH
     ? new URL(process.env.SETTA_PROJECT_PATH, BASE_URL).toString()
     : BASE_URL);
-const CHROME_EXECUTABLE_PATH = process.env.SETTA_CHROME_BIN ?? process.env.CHROME_BIN;
-const BROWSER_LAUNCH_ARGS =
-  process.platform === "darwin" ? ["--use-mock-keychain"] : [];
 
 async function globalSetup(config: FullConfig) {
   if (!BOOTSTRAP_TOKEN) {
@@ -25,10 +22,7 @@ async function globalSetup(config: FullConfig) {
   if (!storagePath) {
     throw new Error("storageState path missing in Playwright config.");
   }
-  const browser = await chromium.launch({
-    ...(CHROME_EXECUTABLE_PATH ? { executablePath: CHROME_EXECUTABLE_PATH } : {}),
-    args: BROWSER_LAUNCH_ARGS,
-  });
+  const browser = await chromium.launch();
   const context = await browser.newContext();
   const page = await context.newPage();
   const pageErrors: string[] = [];

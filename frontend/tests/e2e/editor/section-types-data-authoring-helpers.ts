@@ -197,7 +197,7 @@ export async function dragPointerSurfaceToTarget(
 
 export async function getViewportScale(page: Page): Promise<number> {
   return page.evaluate(() => {
-    const viewport = document.querySelector(".setta-gpu-flow__canvas");
+    const viewport = document.querySelector(".react-flow__viewport");
     if (!viewport) {
       return 1;
     }

@@ -284,6 +284,38 @@ function recordPerformanceLongTask(entry) {
   });
 }
 
+function serializePerformanceDetail(detail) {
+  if (!detail || typeof detail !== "object") {
+    return null;
+  }
+  const result = {};
+  for (const [key, value] of Object.entries(detail).slice(0, 24)) {
+    if (
+      value === null ||
+      typeof value === "boolean" ||
+      typeof value === "number" ||
+      typeof value === "string"
+    ) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
+function recordPerformanceMeasure(entry) {
+  sendEvent({
+    type: "performance-measure",
+    timestampMs: nowTimestampMs(),
+    name: typeof entry.name === "string" ? entry.name : null,
+    entryType: entry.entryType,
+    startTimeMs: roundMs(entry.startTime),
+    durationMs: roundMs(entry.duration),
+    detail: serializePerformanceDetail(entry.detail),
+    url: window.location.href,
+    title: document.title,
+  });
+}
+
 function recordPerformanceEvent(entry) {
   const target =
     entry.target instanceof Element ? getTargetDescriptor(entry.target) : null;
@@ -328,6 +360,7 @@ function observePerformanceEntries(type, callback, options = {}) {
 
 function installPerformanceObservers() {
   observePerformanceEntries("longtask", recordPerformanceLongTask);
+  observePerformanceEntries("measure", recordPerformanceMeasure);
   observePerformanceEntries("event", recordPerformanceEvent, {
     durationThreshold: EVENT_TIMING_DURATION_THRESHOLD_MS,
   });

@@ -22,7 +22,7 @@ where the repo already has an authoritative generation story.
 
 The initial implementation is designed around a single agent-friendly command:
 
-- `./scripts/deadcode/report.sh`
+- `./scripts/report_dead_code.sh`
 
 That command writes JSON reports under `reports/deadcode/` with
 `aggregate.json` as the primary machine-readable output.
@@ -51,7 +51,7 @@ The checked-in policy/config input is:
 
 The expected workflow for a coding agent is:
 
-1. Run `./scripts/deadcode/report.sh`
+1. Run `./scripts/report_dead_code.sh`
 2. Read `reports/deadcode/aggregate.json`
 3. Filter by `language`, `lane`, `bucket`, `confidence`, or `path`
 4. Review candidates before deletion
@@ -389,12 +389,12 @@ honestly so candidate reports stay useful.
 
 ## Proposed Script Shape
 
-Add a dedicated report pipeline instead of folding this into `scripts/quality/check.sh`
+Add a dedicated report pipeline instead of folding this into `check_quality.sh`
 immediately.
 
 Suggested entrypoints:
 
-- `scripts/deadcode/report.sh`
+- `scripts/report_dead_code.sh`
 - `scripts/deadcode/report_go.sh`
 - `scripts/deadcode/report_python.sh`
 - `scripts/deadcode/report_frontend.sh`

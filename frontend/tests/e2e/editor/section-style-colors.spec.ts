@@ -80,9 +80,7 @@ test.describe.serial("section style colors", () => {
         "__pw_section_style_color__",
       );
 
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
       await node.click();
 
@@ -152,10 +150,10 @@ test.describe.serial("section style colors", () => {
         .toBe("#ff0000");
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".setta-gpu-flow__pane");
+      await page.waitForSelector(".react-flow__pane");
 
       const nodeAfter = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
+        `.react-flow__node[data-id="${sectionId}"]`,
       );
       await expect(nodeAfter).toBeVisible();
       await nodeAfter.click();
@@ -246,9 +244,7 @@ test.describe.serial("section style colors", () => {
         "__pw_section_style_minimap__",
       );
 
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
       await node.click();
 
@@ -331,9 +327,7 @@ test.describe.serial("section style colors", () => {
         refetchParams: true,
       });
 
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
       const sectionChrome = node
         .locator(`section[data-section-id="${sectionId}"]`)
@@ -580,7 +574,7 @@ test.describe.serial("section style colors", () => {
         .toBe("rgb(204, 255, 204)");
 
       const argEdgeHandle = page.locator(
-        `.setta-gpu-flow__handle.arg-edge-handle[data-nodeid="${sectionId}"][data-handleid="${edgeParamId}"]`,
+        `.react-flow__handle.arg-edge-handle[data-nodeid="${sectionId}"][data-handleid="${edgeParamId}"]`,
       );
       await expect(argEdgeHandle).toBeVisible();
       await expect(argEdgeHandle).toHaveCSS(
@@ -609,10 +603,10 @@ test.describe.serial("section style colors", () => {
 
       await sectionChrome.hover();
       const agenticTargetHandle = page.locator(
-        `.setta-gpu-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
       );
       const agenticSourceHandle = page.locator(
-        `.setta-gpu-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
+        `.react-flow__handle.agentic-handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
       );
       await expect(agenticTargetHandle).toHaveCSS(
         "border-color",
@@ -649,9 +643,7 @@ test.describe.serial("section style colors", () => {
         "__pw_section_style_drag__",
       );
 
-      const node = page.locator(
-        `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-      );
+      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
       await expect(node).toBeVisible();
       await node.click();
 

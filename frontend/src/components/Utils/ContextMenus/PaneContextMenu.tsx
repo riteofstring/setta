@@ -5,7 +5,7 @@ import {
   OnSelectedItemChangeFnType,
 } from "components/Utils/Combobox/ComboboxStateReducer";
 import { useIdNameCombobox } from "components/Utils/Combobox/useIdNameCombobox";
-import { screenToFlowPosition } from "gpuFlow/viewportActions";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import _ from "lodash";
 import type {
   ComponentPropsWithRef,

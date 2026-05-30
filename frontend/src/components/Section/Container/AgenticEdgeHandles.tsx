@@ -1,12 +1,8 @@
-import {
-  getProjectGpuHandleConnectionProps,
-  getProjectGpuReverseStartHandleConnectionProps,
-} from "components/Pages/Project/GpuProjectSurface/projectGpuHandleAdapter";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { Handle } from "gpuFlow/Handle";
-import { useNodeId } from "gpuFlow/NodeIdContext";
-import { HandlePosition } from "gpuFlow/flowTypes";
-import { useGpuFlowViewportStore } from "gpuFlow/viewportHooks";
+import { Handle } from "forks/xyflow/core/components/Handle";
+import { useNodeId } from "forks/xyflow/core/contexts/NodeIdContext";
+import { useReactFlow } from "forks/xyflow/core/store";
+import { HandlePosition } from "forks/xyflow/core/types";
 import { useMemo } from "react";
 import {
   AGENTIC_EDGE_HANDLE_IDS,
@@ -16,22 +12,18 @@ import {
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
-  NO_DRAG_CLASS_NAME,
-  NO_PAN_CLASS_NAME,
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
   SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER,
 } from "utils/constants";
 
-const EDGE_HANDLE_SAFE_ZONE_GUARD_CLASSES = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_DRAG_CLASS_NAME} ${NO_PAN_CLASS_NAME}`;
-
 export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
   const sectionId = useNodeId();
   const { canEditStructure } = useShareCapabilities();
-  const isSelectingEdge = useGpuFlowViewportStore(
+  const isSelectingEdge = useReactFlow(
     (state) => state.connectionStartHandle !== null,
   );
   const agenticEdges = useProjectState(
-    (state) => state.projectConfig.agenticEdges ?? [],
+    (state) => state.projectConfig.agenticEdges,
   );
   const connectionMask = useMemo(() => {
     if (!sectionId) {
@@ -62,7 +54,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
     <>
       <div
         aria-hidden="true"
-        className={`${EDGE_HANDLE_SAFE_ZONE_GUARD_CLASSES} agentic-handle-metrics agentic-handle-safe-zone agentic-handle-safe-zone--left`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle-safe-zone agentic-handle-safe-zone--left`}
       />
       <Handle
         id={AGENTIC_EDGE_HANDLE_IDS.reverseStart}
@@ -77,9 +69,6 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectableStart={canEditStructure}
         isConnectableEnd={false}
         connectionStartSemanticType="target"
-        {...getProjectGpuReverseStartHandleConnectionProps(
-          AGENTIC_EDGE_HANDLE_IDS.reverseStart,
-        )}
         isValidConnection={isValidAgenticEdgeConnection}
         onConnect={createAgenticEdgeFromConnection}
       />
@@ -91,7 +80,6 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectable={canEditStructure}
         isConnectableStart={false}
         isConnectableEnd={canEditStructure}
-        {...getProjectGpuHandleConnectionProps(AGENTIC_EDGE_HANDLE_IDS.target)}
         isValidConnection={isValidAgenticEdgeConnection}
         onConnect={createAgenticEdgeFromConnection}
         aria-label="Agentic link target"
@@ -101,7 +89,7 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
       />
       <div
         aria-hidden="true"
-        className={`${EDGE_HANDLE_SAFE_ZONE_GUARD_CLASSES} agentic-handle-metrics agentic-handle-safe-zone agentic-handle-safe-zone--right`}
+        className={`${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} agentic-handle-metrics agentic-handle-safe-zone agentic-handle-safe-zone--right`}
       />
       <Handle
         id={AGENTIC_EDGE_HANDLE_IDS.source}
@@ -111,7 +99,6 @@ export function AgenticEdgeHandles({ isUserView }: { isUserView: boolean }) {
         isConnectable={canEditStructure}
         isConnectableStart={canEditStructure}
         isConnectableEnd={canEditStructure}
-        {...getProjectGpuHandleConnectionProps(AGENTIC_EDGE_HANDLE_IDS.source)}
         isValidConnection={isValidAgenticEdgeConnection}
         onConnect={createAgenticEdgeFromConnection}
         aria-label="Agentic link source"

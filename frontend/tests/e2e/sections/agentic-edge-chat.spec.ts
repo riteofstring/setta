@@ -115,7 +115,7 @@ test.describe.serial("agentic edges", () => {
         `[data-testid="chat-shared-source-handle-${chatSection.sectionId}"]`,
       );
       const targetHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${textSection.sectionId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${textSection.sectionId}"][data-handleid="agentic-edge-target"]`,
       );
 
       await ensureHandlesInViewport(page, sourceHandle, targetHandle);
@@ -293,7 +293,7 @@ async function openIsolatedProject(
   }
   const url = new URL(name, BASE_URL).toString();
   await page.goto(url);
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
   const projectConfigId = await getCurrentProjectConfigId(page);
   return {
     projectConfigId,
@@ -411,8 +411,7 @@ async function configureManagedChatSection(
     const engine =
       useAIStore
         .getState()
-        .engineConfigs.find((config) => config.engineType === "setta_llm") ??
-      null;
+        .engineConfigs.find((config) => config.engineType === "setta_llm") ?? null;
     return engine?.id ?? null;
   });
   if (!managedEngineId) {

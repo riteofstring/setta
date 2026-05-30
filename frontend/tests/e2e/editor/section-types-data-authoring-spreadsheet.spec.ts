@@ -62,10 +62,10 @@ test.describe.serial("section types data authoring", () => {
       );
 
       const spreadsheetNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${spreadsheetSectionId}"]`,
+        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
       );
       const browserNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${browserSectionId}"]`,
+        `.react-flow__node[data-id="${browserSectionId}"]`,
       );
       await expect(spreadsheetNode).toBeVisible();
       await expect(browserNode).toBeVisible();
@@ -171,10 +171,10 @@ test.describe.serial("section types data authoring", () => {
       );
 
       const spreadsheetNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${spreadsheetSectionId}"]`,
+        `.react-flow__node[data-id="${spreadsheetSectionId}"]`,
       );
       const browserNode = page.locator(
-        `.setta-gpu-flow__node[data-id="${browserSectionId}"]`,
+        `.react-flow__node[data-id="${browserSectionId}"]`,
       );
       await expect(spreadsheetNode).toBeVisible();
       await expect(browserNode).toBeVisible();
@@ -373,7 +373,7 @@ test.describe.serial("section types data authoring", () => {
       await fs.writeFile(xlsxPath, xlsxBytes);
 
       await page.reload({ waitUntil: "domcontentloaded" });
-      await page.waitForSelector(".setta-gpu-flow__pane");
+      await page.waitForSelector(".react-flow__pane");
 
       const listPane = page.getByTestId("file-browser-list-pane");
       const previewPane = page.getByTestId("file-browser-preview-pane");

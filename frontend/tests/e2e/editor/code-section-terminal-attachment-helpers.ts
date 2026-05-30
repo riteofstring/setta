@@ -117,7 +117,7 @@ export async function getTerminalRowsSnapshot(
       document.querySelectorAll(`[data-attached-terminal-section-id="${id}"]`),
     );
     const detached = document.querySelector(
-      `.setta-gpu-flow__node[data-id="${id}"]`,
+      `.react-flow__node[data-id="${id}"]`,
     );
     if (detached) {
       candidates.push(detached);
@@ -129,7 +129,7 @@ export async function getTerminalRowsSnapshot(
         `[data-attached-terminal-section-id="${id}"]`,
       );
       const activeDetached = active.closest(
-        `.setta-gpu-flow__node[data-id="${id}"]`,
+        `.react-flow__node[data-id="${id}"]`,
       );
       const activeContainer = activeEmbedded ?? activeDetached;
       const activeRows = collectRows(activeContainer);
@@ -241,7 +241,7 @@ export async function focusTerminalAndType(
   text: string,
 ): Promise<void> {
   const detachedTerminalNode = page.locator(
-    `.setta-gpu-flow__node[data-id="${terminalId}"]`,
+    `.react-flow__node[data-id="${terminalId}"]`,
   );
   const embeddedTerminalHost = page.locator(
     `[data-attached-terminal-section-id="${terminalId}"]`,
@@ -682,7 +682,7 @@ export async function addTerminalResizeInstrumentation(
 }
 
 export async function focusPaneForDnd(page: Page): Promise<void> {
-  await page.click(".setta-gpu-flow__pane", {
+  await page.click(".react-flow__pane", {
     position: { x: 8, y: 8 },
     force: true,
   });
@@ -722,17 +722,14 @@ export async function activateMovingFreeDragMode(
 
 export async function resetViewport(page: Page): Promise<void> {
   await page.evaluate(async () => {
-    const { gpuFlowViewportStore } = await import(
-      "/src/gpuFlow/viewportStore.ts"
-    );
-    const viewportStore = gpuFlowViewportStore.getState();
-    viewportStore.setTransform({ x: 0, y: 0, zoom: 1 });
-    viewportStore.setFitViewInitializationState({
+    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
+    useReactFlow.setState({
+      transform: [0, 0, 1],
       fitViewOnInit: false,
       fitViewOnInitDone: true,
       fitViewOnInitOptions: undefined,
     });
-    window.settaGpuFlowZoom = 1;
+    window.reactFlowZoom = 1;
   });
 }
 
@@ -858,7 +855,7 @@ export async function getTerminalMarkerCharCenter({
       );
       const container =
         embedded ??
-        document.querySelector(`.setta-gpu-flow__node[data-id="${id}"]`);
+        document.querySelector(`.react-flow__node[data-id="${id}"]`);
       if (!container) {
         throw new Error(`Missing terminal container for ${id}.`);
       }
@@ -922,7 +919,7 @@ export async function copyTerminalSelection(
     );
     const container =
       embedded ??
-      document.querySelector(`.setta-gpu-flow__node[data-id="${id}"]`);
+      document.querySelector(`.react-flow__node[data-id="${id}"]`);
     if (!container) {
       throw new Error(`Missing terminal container for ${id}.`);
     }
@@ -959,7 +956,7 @@ export async function expectDetachedTerminalHeaderLayout(
     .poll(async () => {
       return await page.evaluate((id) => {
         const node = document.querySelector(
-          `.setta-gpu-flow__node[data-id="${id}"]`,
+          `.react-flow__node[data-id="${id}"]`,
         );
         if (!node) {
           return "missing-node";
@@ -1002,11 +999,11 @@ export async function isTerminalDetachedInDom(
 ): Promise<boolean> {
   const embeddedCount = await page
     .locator(
-      `.setta-gpu-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
+      `.react-flow__node[data-id="${sectionId}"] [data-attached-terminal-section-id="${terminalId}"]`,
     )
     .count();
   const terminalNodeCount = await page
-    .locator(`.setta-gpu-flow__node[data-id="${terminalId}"]`)
+    .locator(`.react-flow__node[data-id="${terminalId}"]`)
     .count();
   return embeddedCount === 0 && terminalNodeCount > 0;
 }

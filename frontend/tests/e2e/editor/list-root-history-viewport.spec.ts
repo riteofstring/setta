@@ -55,7 +55,9 @@ async function getViewport(page: Page): Promise<{
   zoom: number;
 }> {
   return page.evaluate(async () => {
-    const { getViewport } = await import("/src/gpuFlow/viewportActions.ts");
+    const { getViewport } = await import(
+      "/src/forks/xyflow/core/hooks/useViewportHelper"
+    );
     return getViewport();
   });
 }
@@ -102,9 +104,7 @@ test("list-root history redoes the restored section on the first step and reload
       throw new Error("Failed to create list root section.");
     }
 
-    const listNode = page.locator(
-      `.setta-gpu-flow__node[data-id="${sectionId}"]`,
-    );
+    const listNode = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
     await expect(listNode).toBeVisible();
     const incrementButton = listNode.locator("button.gg-math-plus");
     const decrementButton = listNode.locator("button.gg-math-minus");
@@ -207,7 +207,7 @@ test("list-root history redoes the restored section on the first step and reload
     );
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".setta-gpu-flow__pane");
+    await page.waitForSelector(".react-flow__pane");
     await expect(listNode).toBeVisible();
 
     const viewportAfterReload = await getViewport(page);

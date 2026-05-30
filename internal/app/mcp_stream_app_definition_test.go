@@ -19,7 +19,7 @@ import (
 	"setta/internal/observability"
 )
 
-func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedStreamableHTTP(t *testing.T) {
+func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -55,7 +55,7 @@ func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedStreamableHT
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)
@@ -91,7 +91,7 @@ func TestAppIDEMCPServerSupportsStreamAppDefinitionOverAuthenticatedStreamableHT
 	}
 }
 
-func TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthenticatedStreamableHTTP(t *testing.T) {
+func TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
 	prepareAppLSPFixture(t)
@@ -130,7 +130,7 @@ func TestAppIDEMCPServerSupportsTemporaryIDsForStreamAppDefinitionOverAuthentica
 	defer server.Close()
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
-	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
+	session, err := client.Connect(context.Background(), &sdkmcp.SSEClientTransport{
 		Endpoint:   server.URL + "/mcp",
 		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
 	}, nil)

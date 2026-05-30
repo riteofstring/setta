@@ -3310,16 +3310,6 @@
       "schemaRef": "#/$defs/ProjectConfigMetadata"
     },
     {
-      "name": "ProjectParamUpdateContent",
-      "kind": "model",
-      "schemaRef": "#/$defs/ProjectParamUpdateContent"
-    },
-    {
-      "name": "ProjectParamUpdateMessage",
-      "kind": "model",
-      "schemaRef": "#/$defs/ProjectParamUpdateMessage"
-    },
-    {
       "name": "ProjectPluginData",
       "kind": "alias",
       "schemaRef": "#/$defs/ProjectPluginData"
@@ -6438,6 +6428,10 @@
       "schemaRef": "#/$defs/Transport",
       "enumValues": [
         {
+          "name": "sse",
+          "value": "sse"
+        },
+        {
           "name": "streamable_http",
           "value": "streamable_http"
         },
@@ -6765,10 +6759,6 @@
         {
           "name": "UpdateFrontendProjectState",
           "value": "UpdateFrontendProjectState"
-        },
-        {
-          "name": "UpdateFrontendProjectParam",
-          "value": "UpdateFrontendProjectParam"
         },
         {
           "name": "UpdateSettings",
@@ -10075,7 +10065,7 @@
       "profile": "frontend",
       "type": "SettingsChatWindowing",
       "value": {
-        "autoCreateInitialChat": false,
+        "autoCreateInitialChat": true,
         "restorePriorStateOnUnmaximize": true,
         "shortcuts": {
           "canvasToggle": "Shift + Esc",
@@ -10261,7 +10251,7 @@
           "showDefaultConfigOnLoad": true
         },
         "chatWindowing": {
-          "autoCreateInitialChat": false,
+          "autoCreateInitialChat": true,
           "restorePriorStateOnUnmaximize": true,
           "shortcuts": {
             "canvasToggle": "Shift + Esc",

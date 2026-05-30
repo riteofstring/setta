@@ -5,7 +5,7 @@ import {
 } from "@dnd-kit/abstract";
 import type { Draggable } from "@dnd-kit/dom";
 import { Rectangle, type Coordinates } from "@dnd-kit/geometry";
-import { getZoom } from "gpuFlow/viewportActions";
+import { useReactFlow } from "forks/xyflow/core/store";
 import { getSectionIsHorizontalOrientation } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useDndChildren } from "../dndChildren";
@@ -537,7 +537,7 @@ function getTriggerDistCondition({
     return false;
   }
 
-  const zoom = getZoom();
+  const zoom = useReactFlow.getState().transform[2];
   const threshold = mode === "param" ? 30 : containerIsHorizontal ? 20 : 100;
 
   return triggerDist > threshold * zoom;

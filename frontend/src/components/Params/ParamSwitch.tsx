@@ -9,7 +9,7 @@ import {
   useParamDndState,
   type ParamListKey,
 } from "forks/dnd-kit/paramDndState";
-import { useGpuFlowZoom } from "gpuFlow/viewportHooks";
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useCallback } from "react";
 import {
@@ -94,7 +94,7 @@ function useTempParamPlaceholderStyle() {
     }),
     _.isEqual,
   );
-  const zoom = useGpuFlowZoom();
+  const zoom = useReactFlow((state) => state.transform[2]);
 
   return {
     height: normalizePlaceholderDimension(placeholderHeight, zoom),

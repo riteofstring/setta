@@ -21,7 +21,7 @@ export function SwitchInput({
   thumbThemeClassName,
 }: SwitchInputProps) {
   const rootBaseClassName =
-    "nodrag nopan relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none";
+    "nodrag relative inline-flex h-2.5 w-7 min-w-7 cursor-pointer items-center rounded-full p-[0.2rem] [-webkit-tap-highlight-color:rgba(0,_0,_0,_0)] focus-visible:shadow-black focus-visible:ring-2 disabled:pointer-events-none";
   const rootResolvedThemeClassName =
     rootThemeClassName ??
     "bg-setta-400 data-[state='checked']:bg-blue-500 dark:bg-setta-600 dark:data-[state='checked']:bg-blue-700";
@@ -33,7 +33,6 @@ export function SwitchInput({
     <div className={outerDivClassName}>
       <Switch.Root
         className={`${rootBaseClassName} ${rootResolvedThemeClassName}`}
-        data-gpu-flow-interactive="true"
         checked={value === true || value === "true"}
         disabled={isDisabled}
         onCheckedChange={onChange}

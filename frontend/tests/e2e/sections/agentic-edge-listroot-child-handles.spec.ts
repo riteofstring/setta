@@ -24,9 +24,7 @@ async function createTopLevelSection(
   });
   const sectionId = response?.sectionId ?? null;
   if (!sectionId) {
-    throw new Error(
-      `Missing sectionId when creating section type ${implType}.`,
-    );
+    throw new Error(`Missing sectionId when creating section type ${implType}.`);
   }
   return sectionId;
 }
@@ -56,9 +54,8 @@ async function getChildSectionIds(
   await expect(parentNode).toBeVisible();
 
   const fetchIds = async () => {
-    const ids = await parentNode
-      .locator("[data-section-id]")
-      .evaluateAll((nodes) => {
+    const ids = await parentNode.locator("[data-section-id]").evaluateAll(
+      (nodes) => {
         const output = new Set<string>();
         for (const node of nodes) {
           if (!(node instanceof HTMLElement)) {
@@ -70,7 +67,8 @@ async function getChildSectionIds(
           }
         }
         return Array.from(output);
-      });
+      },
+    );
     return ids.filter((id) => id !== parentId);
   };
 
@@ -111,10 +109,10 @@ test.describe.serial("agentic handles", () => {
       await parentNode.hover();
 
       const parentTargetHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${parentId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${parentId}"][data-handleid="agentic-edge-target"]`,
       );
       const childTargetHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${childId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${childId}"][data-handleid="agentic-edge-target"]`,
       );
 
       await expect(parentTargetHandle).toBeVisible();
@@ -123,7 +121,7 @@ test.describe.serial("agentic handles", () => {
       // The child callable is rendered below the list root, so its handle should
       // be significantly lower than the parent's. Previously the child's search
       // measurement could shift the parent's handles because the CSS var lived on
-      // the shared GPU flow node wrapper.
+      // the shared react-flow node wrapper.
       await expect
         .poll(
           async () => {

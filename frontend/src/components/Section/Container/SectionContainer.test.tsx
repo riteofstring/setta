@@ -45,7 +45,7 @@ let mockSectionViewState: MockSectionViewState = {
 
 const activeSectionIds = new Set<string>();
 
-vi.mock("gpuFlow/NodeIdContext", () => ({
+vi.mock("forks/xyflow/core/contexts/NodeIdContext", () => ({
   NodeIdContext: {
     Provider: ({ children }: { children: ReactNode }) => <>{children}</>,
   },

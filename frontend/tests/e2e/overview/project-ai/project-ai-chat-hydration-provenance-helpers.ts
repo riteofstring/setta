@@ -89,7 +89,7 @@ export async function openProjectAIChatSurface(page: Page): Promise<void> {
 }
 
 export async function selectProjectAIChatTab(page: Page): Promise<void> {
-  await page.waitForSelector(".setta-gpu-flow__pane");
+  await page.waitForSelector(".react-flow__pane");
   await page.getByTestId("overview-tab-project-ai-chat").click();
 }
 

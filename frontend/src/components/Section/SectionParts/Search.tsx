@@ -1,7 +1,6 @@
 import { callOpenAPI } from "@setta/app-subsystem-frontend-sdk";
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { scheduleGpuFlowPortLocalRectUpdate } from "gpuFlow/ports/portGeometry";
 import _ from "lodash";
 import { clearTextFieldCompletion } from "openapi/http";
 import {
@@ -15,6 +14,7 @@ import {
 } from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
+import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
 import { setCallableAndRefreshProjectState } from "state/actions/project/callable";
 import {
@@ -161,7 +161,7 @@ function useSectionSearchMeasurements(
         return;
       }
       handleScope.style.setProperty("--agentic-handle-top", nextTopCss);
-      scheduleGpuFlowPortLocalRectUpdate([sectionId]);
+      scheduleEdgeHandlePositionUpdate([sectionId]);
     };
     const updateHeight = () => {
       const style = window.getComputedStyle(node);
@@ -197,7 +197,7 @@ function useSectionSearchMeasurements(
       useTemporaryMiscState.setState({ [heightKey]: 0 });
       if (handleScope instanceof HTMLElement) {
         handleScope.style.removeProperty("--agentic-handle-top");
-        scheduleGpuFlowPortLocalRectUpdate([sectionId]);
+        scheduleEdgeHandlePositionUpdate([sectionId]);
       }
     };
   }, [heightKey, searchRef, sectionId]);

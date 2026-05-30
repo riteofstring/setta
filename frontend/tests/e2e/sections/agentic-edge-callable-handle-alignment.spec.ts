@@ -18,17 +18,17 @@ test.describe.serial("agentic handles", () => {
       );
 
       const node = page
-        .locator(".setta-gpu-flow__nodes")
+        .locator(".react-flow__nodes")
         .getByTestId(`rf__node-${sectionId}`);
       await expect(node).toBeVisible();
 
       await page.getByRole("button", { name: "fit view" }).click();
 
       const sourceHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-source"]`,
       );
       const targetHandle = page.locator(
-        `.setta-gpu-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
+        `.react-flow__handle[data-nodeid="${sectionId}"][data-handleid="agentic-edge-target"]`,
       );
       const search = node.locator("search.section-search");
 
