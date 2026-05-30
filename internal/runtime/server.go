@@ -22,6 +22,7 @@ import (
 
 type Config struct {
 	AppDataDir      string
+	ChatHarness     ChatHarnessMode
 	Host            string
 	Port            int
 	Version         string
@@ -29,6 +30,13 @@ type Config struct {
 	Stderr          io.Writer
 	ShutdownTimeout time.Duration
 }
+
+type ChatHarnessMode string
+
+const (
+	ChatHarnessCodex            ChatHarnessMode = "codex"
+	ChatHarnessScriptedWorkflow ChatHarnessMode = "scripted-workflow"
+)
 
 type ReadyEvent struct {
 	Event string `json:"event"`
@@ -45,6 +53,7 @@ type Server struct {
 func DefaultConfig() Config {
 	return Config{
 		AppDataDir:      "",
+		ChatHarness:     ChatHarnessCodex,
 		Host:            "127.0.0.1",
 		Port:            0,
 		Version:         "dev",
@@ -60,6 +69,9 @@ func (config Config) Validate() error {
 	}
 	if !filepath.IsAbs(config.AppDataDir) {
 		return fmt.Errorf("app data directory must be absolute: %s", config.AppDataDir)
+	}
+	if !validChatHarnessMode(config.ChatHarness) {
+		return fmt.Errorf("unsupported chat harness mode: %s", config.ChatHarness)
 	}
 	if config.Host == "" {
 		return errors.New("host is required")
@@ -114,7 +126,12 @@ func Start(ctx context.Context, config Config) (*Server, error) {
 		_ = listener.Close()
 		return nil, fmt.Errorf("create chat store: %w", err)
 	}
-	chatService, err := chat.NewService(chatStore, workspaceService, chat.NewCodexHarness(chat.CodexHarnessConfig{}))
+	harness, err := chatHarness(config.ChatHarness)
+	if err != nil {
+		_ = listener.Close()
+		return nil, err
+	}
+	chatService, err := chat.NewService(chatStore, workspaceService, harness)
 	if err != nil {
 		_ = listener.Close()
 		return nil, fmt.Errorf("create chat service: %w", err)
@@ -178,5 +195,28 @@ func normalizeConfig(config Config) Config {
 	if config.Stderr == nil {
 		config.Stderr = io.Discard
 	}
+	if config.ChatHarness == "" {
+		config.ChatHarness = ChatHarnessCodex
+	}
 	return config
+}
+
+func chatHarness(mode ChatHarnessMode) (chat.Harness, error) {
+	switch mode {
+	case ChatHarnessCodex:
+		return chat.NewCodexHarness(chat.CodexHarnessConfig{}), nil
+	case ChatHarnessScriptedWorkflow:
+		return chat.NewScriptedWorkflowHarness(), nil
+	default:
+		return nil, fmt.Errorf("unsupported chat harness mode: %s", mode)
+	}
+}
+
+func validChatHarnessMode(mode ChatHarnessMode) bool {
+	switch mode {
+	case ChatHarnessCodex, ChatHarnessScriptedWorkflow:
+		return true
+	default:
+		return false
+	}
 }

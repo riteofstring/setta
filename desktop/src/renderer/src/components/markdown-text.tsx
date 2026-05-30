@@ -4,12 +4,12 @@ import type { ReactNode } from "react";
 export const MarkdownText = memo(function MarkdownText({ text }: { text: string }) {
   const blocks = useMemo(() => parseBlocks(text), [text]);
   return (
-    <div className="min-w-0 space-y-3 text-sm leading-6 break-words text-inherit">
+    <div className="min-w-0 space-y-3 text-sm leading-6 break-words text-zinc-800">
       {blocks.map((block, index) => {
         if (block.kind === "code") {
           return (
             <pre
-              className="max-w-full overflow-x-auto rounded-md border border-zinc-700 bg-zinc-950 p-3 text-xs leading-5 text-zinc-50"
+              className="max-w-full overflow-x-auto rounded-md border border-zinc-200 bg-zinc-950 p-3 text-xs leading-5 text-zinc-50"
               key={index}
             >
               <code>{block.text}</code>
@@ -91,13 +91,13 @@ function renderInlineMarkdown(text: string) {
     const token = match[0];
     if (token.startsWith("`")) {
       nodes.push(
-        <code className="rounded bg-zinc-800 px-1 py-0.5 text-[0.85em] text-zinc-100" key={index}>
+        <code className="rounded bg-zinc-100 px-1 py-0.5 text-[0.85em] text-zinc-900" key={index}>
           {token.slice(1, -1)}
         </code>,
       );
     } else {
       nodes.push(
-        <strong className="font-semibold text-inherit" key={index}>
+        <strong className="font-semibold text-zinc-950" key={index}>
           {token.slice(2, -2)}
         </strong>,
       );

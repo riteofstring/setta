@@ -1,0 +1,282 @@
+package chat
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+	"strings"
+	"sync"
+)
+
+type ScriptedWorkflowHarness struct {
+	mu        sync.Mutex
+	approvals map[string]chan ApprovalResponse
+	steers    map[string]chan SteerRequest
+}
+
+func NewScriptedWorkflowHarness() *ScriptedWorkflowHarness {
+	return &ScriptedWorkflowHarness{
+		approvals: map[string]chan ApprovalResponse{},
+		steers:    map[string]chan SteerRequest{},
+	}
+}
+
+func (harness *ScriptedWorkflowHarness) StartTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	harness.registerRun(request.Run.ID)
+	defer harness.unregisterRun(request.Run.ID)
+
+	if err := sink.ThreadLinked("scripted-thread-"+request.Conversation.ID, "scripted-session", "scripted-turn-"+request.Run.ID); err != nil {
+		return TurnCompletion{}, err
+	}
+
+	prompt := strings.ToLower(request.Prompt)
+	switch {
+	case strings.Contains(prompt, "workflow hold"):
+		return harness.workflowTurn(ctx, request, sink)
+	case strings.Contains(prompt, "queued follow-up"):
+		return scriptedReply(sink, request.Run.ID, "Queued follow-up response rendered through the app.")
+	case strings.Contains(prompt, "cancel active"):
+		return harness.cancelTurn(ctx, request, sink)
+	case strings.Contains(prompt, "fail active"):
+		return harness.failTurn(ctx, request, sink)
+	case strings.Contains(prompt, "command approval"):
+		return harness.decisionApprovalTurn(ctx, request, sink, scriptedCommandApproval(request.Run.ID))
+	case strings.Contains(prompt, "file approval"):
+		return harness.decisionApprovalTurn(ctx, request, sink, scriptedFileApproval(request.Run.ID, request.Workspace.RootPath))
+	case strings.Contains(prompt, "permission approval"):
+		return harness.decisionApprovalTurn(ctx, request, sink, scriptedPermissionApproval(request.Run.ID))
+	case strings.Contains(prompt, "user input approval"):
+		return harness.userInputApprovalTurn(ctx, request, sink)
+	default:
+		return scriptedReply(sink, request.Run.ID, "Scripted response: "+request.Prompt)
+	}
+}
+
+func (harness *ScriptedWorkflowHarness) CancelTurn(_ context.Context, request CancelRequest) error {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	if _, ok := harness.steers[request.RunID]; !ok {
+		return ErrTurnNotStarted
+	}
+	return nil
+}
+
+func (harness *ScriptedWorkflowHarness) SteerTurn(_ context.Context, request SteerRequest) error {
+	harness.mu.Lock()
+	channel := harness.steers[request.RunID]
+	harness.mu.Unlock()
+
+	if channel == nil {
+		return ErrTurnNotStarted
+	}
+	channel <- request
+	return nil
+}
+
+func (harness *ScriptedWorkflowHarness) SubmitApproval(_ context.Context, response ApprovalResponse) error {
+	harness.mu.Lock()
+	channel := harness.approvals[response.RunID]
+	harness.mu.Unlock()
+
+	if channel == nil {
+		return fmt.Errorf("scripted approval run is not active: %s", response.RunID)
+	}
+	channel <- response
+	return nil
+}
+
+func (harness *ScriptedWorkflowHarness) workflowTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Workflow stream started. "); err != nil {
+		return TurnCompletion{}, err
+	}
+	steer, err := harness.waitForSteer(ctx, request.Run.ID)
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Steered with "+steer.Text+". "); err != nil {
+		return TurnCompletion{}, err
+	}
+	return scriptedReply(sink, request.Run.ID, "Active workflow complete.")
+}
+
+func (harness *ScriptedWorkflowHarness) cancelTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Cancel workflow waiting. "); err != nil {
+		return TurnCompletion{}, err
+	}
+	<-ctx.Done()
+	return TurnCompletion{}, ctx.Err()
+}
+
+func (harness *ScriptedWorkflowHarness) failTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Failure workflow waiting. "); err != nil {
+		return TurnCompletion{}, err
+	}
+	if _, err := harness.waitForSteer(ctx, request.Run.ID); err != nil {
+		return TurnCompletion{}, err
+	}
+	if err := sink.AssistantTextDelta("scripted-assistant-"+request.Run.ID, "Scripted failure surfaced. "); err != nil {
+		return TurnCompletion{}, err
+	}
+	return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted provider failure"}, nil
+}
+
+func (harness *ScriptedWorkflowHarness) decisionApprovalTurn(ctx context.Context, request TurnRequest, sink TurnSink, approval ApprovalRequest) (TurnCompletion, error) {
+	if err := scriptedApprovalActivity(sink, request.Run.ID, approval); err != nil {
+		return TurnCompletion{}, err
+	}
+	response, err := harness.requestAndWaitForApproval(ctx, request.Run.ID, sink, approval)
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	if !response.Approved || response.Cancelled {
+		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted approval was not approved"}, nil
+	}
+	return scriptedReply(sink, request.Run.ID, approval.Title+" resolved.")
+}
+
+func (harness *ScriptedWorkflowHarness) userInputApprovalTurn(ctx context.Context, request TurnRequest, sink TurnSink) (TurnCompletion, error) {
+	approval := scriptedUserInputApproval(request.Run.ID)
+	response, err := harness.requestAndWaitForApproval(ctx, request.Run.ID, sink, approval)
+	if err != nil {
+		return TurnCompletion{}, err
+	}
+	if response.Cancelled || len(response.Answers) == 0 {
+		return TurnCompletion{Outcome: TurnOutcomeFailed, ErrorMessage: "scripted user input was cancelled"}, nil
+	}
+	return scriptedReply(sink, request.Run.ID, "User input approval resolved.")
+}
+
+func (harness *ScriptedWorkflowHarness) requestAndWaitForApproval(ctx context.Context, runID string, sink TurnSink, approval ApprovalRequest) (ApprovalResponse, error) {
+	if err := sink.ApprovalRequested(approval); err != nil {
+		return ApprovalResponse{}, err
+	}
+	response, err := harness.waitForApproval(ctx, runID)
+	if err != nil {
+		return ApprovalResponse{}, err
+	}
+	if err := sink.ApprovalResolved(response.ApprovalID, response.Approved, response.Response); err != nil {
+		return ApprovalResponse{}, err
+	}
+	return response, nil
+}
+
+func (harness *ScriptedWorkflowHarness) registerRun(runID string) {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	harness.approvals[runID] = make(chan ApprovalResponse, 1)
+	harness.steers[runID] = make(chan SteerRequest, 4)
+}
+
+func (harness *ScriptedWorkflowHarness) unregisterRun(runID string) {
+	harness.mu.Lock()
+	defer harness.mu.Unlock()
+
+	delete(harness.approvals, runID)
+	delete(harness.steers, runID)
+}
+
+func (harness *ScriptedWorkflowHarness) waitForApproval(ctx context.Context, runID string) (ApprovalResponse, error) {
+	harness.mu.Lock()
+	channel := harness.approvals[runID]
+	harness.mu.Unlock()
+
+	select {
+	case response := <-channel:
+		return response, nil
+	case <-ctx.Done():
+		return ApprovalResponse{}, ctx.Err()
+	}
+}
+
+func (harness *ScriptedWorkflowHarness) waitForSteer(ctx context.Context, runID string) (SteerRequest, error) {
+	harness.mu.Lock()
+	channel := harness.steers[runID]
+	harness.mu.Unlock()
+
+	select {
+	case request := <-channel:
+		return request, nil
+	case <-ctx.Done():
+		return SteerRequest{}, ctx.Err()
+	}
+}
+
+func scriptedReply(sink TurnSink, runID string, text string) (TurnCompletion, error) {
+	if err := sink.AssistantTextDelta("scripted-assistant-"+runID, text); err != nil {
+		return TurnCompletion{}, err
+	}
+	return TurnCompletion{Outcome: TurnOutcomeCompleted}, nil
+}
+
+func scriptedApprovalActivity(sink TurnSink, runID string, approval ApprovalRequest) error {
+	item := RunItem{
+		ProviderItemID: approval.ProviderItemID,
+		Type:           RunItemTypeCommandExecution,
+		Status:         RunItemStatusRunning,
+		Title:          approval.Title,
+		Command:        approval.Command,
+		FilePaths:      approvalFilePaths(approval),
+		Summary:        approval.Body,
+	}
+	if err := sink.RunItemUpsert(item); err != nil {
+		return err
+	}
+	return sink.RunItemOutputDelta(approval.ProviderItemID, "stdout", "scripted approval output for "+runID+"\n")
+}
+
+func approvalFilePaths(approval ApprovalRequest) []string {
+	if approval.FilePath == "" {
+		return nil
+	}
+	return []string{approval.FilePath}
+}
+
+func scriptedCommandApproval(runID string) ApprovalRequest {
+	return ApprovalRequest{
+		ID:             "approval_command_" + runID,
+		ProviderItemID: "provider_command_" + runID,
+		Kind:           ApprovalKindCommand,
+		Title:          "Command approval",
+		Body:           "Approve the scripted command.",
+		Command:        "printf scripted-command",
+	}
+}
+
+func scriptedFileApproval(runID string, rootPath string) ApprovalRequest {
+	return ApprovalRequest{
+		ID:             "approval_file_" + runID,
+		ProviderItemID: "provider_file_" + runID,
+		Kind:           ApprovalKindFileChange,
+		Title:          "File change approval",
+		Body:           "Approve the scripted file change.",
+		FilePath:       filepath.Join(rootPath, "scripted-file.txt"),
+	}
+}
+
+func scriptedPermissionApproval(runID string) ApprovalRequest {
+	return ApprovalRequest{
+		ID:             "approval_permission_" + runID,
+		ProviderItemID: "provider_permission_" + runID,
+		Kind:           ApprovalKindPermission,
+		Title:          "Permission approval",
+		Body:           "Approve the scripted permission.",
+		Permission:     "network access for deterministic workflow test",
+	}
+}
+
+func scriptedUserInputApproval(runID string) ApprovalRequest {
+	return ApprovalRequest{
+		ID:    "approval_user_input_" + runID,
+		Kind:  ApprovalKindUserInput,
+		Title: "User input approval",
+		Body:  "Answer the scripted question.",
+		Questions: []ApprovalQuestion{{
+			ID:       "scripted_answer",
+			Header:   "Answer",
+			Question: "What should the scripted workflow continue with?",
+			Options:  []string{},
+		}},
+	}
+}

@@ -1,133 +1,124 @@
-import type { WorkspaceSummary } from "@generated/backend";
-import {
-  History,
-  ListFilter,
-  MessageSquarePlus,
-  Mic,
-  Plus,
-  Search,
-  Send,
-  Settings,
-  Square,
-} from "lucide-react";
-import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import type { ConversationListItem, RunStatus, WorkspaceSummary } from "@generated/backend";
+import { MessageSquarePlus, Plus, Send, Square } from "lucide-react";
+import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { useChatStore } from "../stores/chat-store";
 import { ChatTranscript } from "./chat-transcript";
+import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Textarea } from "./ui/textarea";
 
-export function ChatPanel({
-  chat,
-  workspace,
-}: {
-  chat: ChatView;
-  workspace: WorkspaceSummary | null;
-}) {
+export function ChatPanel({ workspace }: { workspace: WorkspaceSummary | null }) {
   if (!workspace) {
     return (
-      <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-r border-[#111827] bg-[#05080f] text-zinc-100">
-        <ChatHeader busy title="No workspace" />
-        <div className="grid min-h-0 flex-1 place-items-center px-6 text-center text-sm text-[#6f7fa4]">
-          Open a workspace to start chat.
-        </div>
+      <section className="grid min-h-0 place-items-center border-l border-zinc-200 bg-zinc-50">
+        <div className="text-sm text-zinc-500">Open a workspace to start chat.</div>
       </section>
     );
   }
-  return <ChatWorkspace chat={chat} workspace={workspace} />;
+  return <ChatWorkspace workspace={workspace} />;
 }
 
-function ChatWorkspace({ chat, workspace }: { chat: ChatView; workspace: WorkspaceSummary }) {
-  const busy = chat.operation !== null || chat.status === "loading";
-  const running = chat.activeRun?.status === "running";
+function ChatWorkspace({ workspace }: { workspace: WorkspaceSummary }) {
+  const chat = useChatViewState(workspace.id);
+  const busy = isChatBusy(chat);
+  const blocked = isChatBlocked(chat);
+  const composerBusy = isComposerBusy(chat);
+  const running = isRunRunning(chat);
+  const selectedConversationId = selectedChatConversationId(chat);
 
   return (
-    <section className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden border-r border-[#111827] bg-[#05080f] text-zinc-100">
-      <ChatHeader
-        busy={busy}
-        onCreateConversation={() => void chat.createConversation()}
-        title={chat.selectedConversation?.title ?? workspace.displayName}
-      />
-      <div className="grid min-h-0 min-w-0 flex-1 grid-rows-[minmax(0,1fr)_auto_auto] overflow-hidden">
+    <section className="grid min-h-0 min-w-0 grid-cols-[280px_1fr] overflow-hidden border-l border-zinc-200 bg-zinc-50">
+      <aside className="flex min-h-0 min-w-0 flex-col border-r border-zinc-200 bg-white">
+        <div className="flex h-14 items-center justify-between border-b border-zinc-200 px-4">
+          <h2 className="text-sm font-semibold">Chats</h2>
+          <Button
+            aria-label="New chat"
+            disabled={busy}
+            onClick={() => void chat.createConversation()}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        <ConversationList
+          conversations={chat.conversations}
+          selectedConversationId={selectedConversationId}
+          selectConversation={chat.selectConversation}
+        />
+      </aside>
+      <div className="grid min-h-0 min-w-0 grid-rows-[56px_minmax(0,1fr)_auto_auto] overflow-hidden">
+        <header className="flex min-w-0 items-center justify-between border-b border-zinc-200 bg-white px-5">
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold">{chatTitle(chat, workspace)}</div>
+            <div className="truncate text-xs text-zinc-500">{workspace.rootPath}</div>
+          </div>
+          <RunBadge active={running} status={activeRunStatus(chat)} />
+        </header>
         <ConversationBody busy={busy} chat={chat} />
-        <ChatError message={chat.error} />
-        <Composer busy={busy} chat={chat} running={running} />
+        <CriticalDiagnostics chat={chat} />
+        <ChatError message={selectedConversationChatError(chat)} />
+        <ComposerSlot blocked={blocked} busy={composerBusy} chat={chat} running={running} />
       </div>
     </section>
   );
 }
 
-function ChatHeader({
+type ChatView = ReturnType<typeof useChatViewState>;
+
+const composerBlockingOperations = new Set(["creating", "loading", "loadingOlder", "refreshing"]);
+
+function isChatBusy(chat: ChatView) {
+  return chat.operation !== null || chat.status === "loading";
+}
+
+function isComposerBusy(chat: ChatView) {
+  return chat.status === "loading" || composerBlockingOperations.has(chat.operation ?? "");
+}
+
+function isRunRunning(chat: ChatView) {
+  return chat.activeRun?.status === "running";
+}
+
+function isChatBlocked(chat: ChatView) {
+  return chat.error !== null && !chat.selectedConversation;
+}
+
+function selectedChatConversationId(chat: ChatView) {
+  return chat.selectedConversation?.id ?? "";
+}
+
+function chatTitle(chat: ChatView, workspace: WorkspaceSummary) {
+  return chat.selectedConversation?.title ?? workspace.displayName;
+}
+
+function activeRunStatus(chat: ChatView) {
+  return chat.activeRun?.status ?? null;
+}
+
+function selectedConversationChatError(chat: ChatView) {
+  return chat.selectedConversation ? chat.error : null;
+}
+
+function ComposerSlot({
+  blocked,
   busy,
-  onCreateConversation,
-  title,
+  chat,
+  running,
 }: {
+  blocked: boolean;
   busy: boolean;
-  onCreateConversation?: () => void;
-  title: string;
+  chat: ChatView;
+  running: boolean;
 }) {
-  return (
-    <header className="shrink-0 px-4 pt-2 pb-0">
-      <div className="flex min-w-0 items-center gap-2 text-[#7f8eb4]">
-        <IconButton
-          disabled={busy || !onCreateConversation}
-          label="New chat"
-          onClick={onCreateConversation}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </IconButton>
-        <IconButton label="Conversation history">
-          <History className="h-3.5 w-3.5" />
-        </IconButton>
-        <label className="flex min-w-0 flex-1 items-center gap-2">
-          <ListFilter className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <Input
-            className="h-6 min-w-0 flex-1 border-0 bg-transparent px-0 text-xs text-zinc-100 shadow-none outline-none placeholder:text-[#4f5d7d] focus-visible:border-0"
-            placeholder="Search in conversation"
-            type="search"
-          />
-        </label>
-        <IconButton label="Chat settings">
-          <Settings className="h-4 w-4" />
-        </IconButton>
-      </div>
-      <div className="sr-only">{title}</div>
-      <div className="mt-2 h-px bg-[#1f2635]" />
-    </header>
-  );
+  if (blocked) {
+    return null;
+  }
+  return <Composer busy={busy} chat={chat} running={running} />;
 }
 
-function IconButton({
-  children,
-  disabled = false,
-  label,
-  onClick,
-}: {
-  children: ReactNode;
-  disabled?: boolean;
-  label: string;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      aria-label={label}
-      className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded text-[#91a0c6] hover:bg-[#101622] hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-40"
-      disabled={disabled}
-      onClick={onClick}
-      title={label}
-      type="button"
-    >
-      {children}
-    </button>
-  );
-}
-
-export type ChatView = ReturnType<typeof useChatViewState>;
-
-function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
+export function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
+  if (chat.error && !chat.selectedConversation) {
+    return <ChatLoadError message={chat.error} />;
+  }
   if (!chat.selectedConversation) {
     return <EmptyConversation busy={busy} createConversation={chat.createConversation} />;
   }
@@ -136,9 +127,33 @@ function ConversationBody({ busy, chat }: { busy: boolean; chat: ChatView }) {
       activeRun={chat.activeRun}
       hasMoreOlder={chat.hasMoreOlder}
       loadOlder={chat.loadOlder}
+      loadRunItemOutput={chat.loadRunItemOutput}
+      messageIds={chat.messageIds}
       messages={chat.messages}
+      messagesById={chat.messagesById}
+      runItemIdsByRunId={chat.runItemIdsByRunId}
+      runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
+      runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
+      runItemOutputs={chat.runItemOutputs}
+      runItemOutputsById={chat.runItemOutputsById}
+      runItems={chat.runItems}
+      runItemsById={chat.runItemsById}
       submitApproval={chat.submitApproval}
     />
+  );
+}
+
+function ChatLoadError({ message }: { message: string }) {
+  return (
+    <div className="grid min-h-0 place-items-center px-6">
+      <div
+        className="max-w-2xl rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm break-words text-red-800"
+        data-testid="chat-load-error"
+      >
+        <div className="font-medium">Chat state is corrupt</div>
+        <div className="mt-2">{message}</div>
+      </div>
+    </div>
   );
 }
 
@@ -152,9 +167,9 @@ function EmptyConversation({
   return (
     <div className="grid min-h-0 place-items-center px-6">
       <div className="text-center">
-        <MessageSquarePlus className="mx-auto h-8 w-8 text-[#7f8eb4]" />
+        <MessageSquarePlus className="mx-auto h-8 w-8 text-zinc-400" />
         <Button
-          className="mt-4 border-[#1d4ed8] bg-[#172554] text-white hover:bg-[#1e3a8a]"
+          className="mt-4"
           disabled={busy}
           onClick={() => void createConversation()}
           variant="primary"
@@ -172,8 +187,30 @@ function ChatError({ message }: { message: string | null }) {
     return null;
   }
   return (
-    <div className="border-t border-zinc-800 bg-zinc-900 px-5 py-2 text-sm text-zinc-100">
+    <div className="border-t border-red-200 bg-red-50 px-5 py-2 text-sm text-red-700">
       {message}
+    </div>
+  );
+}
+
+function CriticalDiagnostics({ chat }: { chat: ChatView }) {
+  const selectedConversationId = chat.selectedConversation?.id ?? "";
+  const activeRunId = chat.activeRun?.id ?? "";
+  const critical = chat.diagnostics
+    .filter(
+      (diagnostic) =>
+        diagnostic.severity === "critical" &&
+        ((diagnostic.conversationId !== "" &&
+          diagnostic.conversationId === selectedConversationId) ||
+          (diagnostic.runId !== "" && diagnostic.runId === activeRunId)),
+    )
+    .at(-1);
+  if (!critical) {
+    return null;
+  }
+  return (
+    <div className="border-t border-red-200 bg-red-50 px-5 py-2 text-sm text-red-800">
+      <span className="font-medium">{critical.code}</span>: {critical.message}
     </div>
   );
 }
@@ -181,17 +218,35 @@ function ChatError({ message }: { message: string | null }) {
 function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; running: boolean }) {
   const [draft, setDraft] = useState("");
   const submittingRef = useRef(false);
-  const disabled = !chat.selectedConversation || busy || running;
+  const disabled = !chat.selectedConversation || busy;
 
   async function sendDraft() {
     const prompt = draft.trim();
-    if (!prompt || !chat.selectedConversation || running || submittingRef.current) {
+    if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
       return;
     }
     submittingRef.current = true;
     try {
       setDraft("");
-      await chat.sendMessage(prompt);
+      if (running) {
+        await chat.steerMessage(prompt);
+      } else {
+        await chat.sendMessage(prompt);
+      }
+    } finally {
+      submittingRef.current = false;
+    }
+  }
+
+  async function queueDraft() {
+    const prompt = draft.trim();
+    if (!prompt || !chat.selectedConversation || disabled || submittingRef.current) {
+      return;
+    }
+    submittingRef.current = true;
+    try {
+      setDraft("");
+      await chat.queueMessage(prompt);
     } finally {
       submittingRef.current = false;
     }
@@ -199,97 +254,171 @@ function Composer({ busy, chat, running }: { busy: boolean; chat: ChatView; runn
 
   return (
     <form
-      className="bg-[#05080f] px-4 pt-2 pb-4"
+      className="border-t border-zinc-200 bg-white p-4"
       onSubmit={(event) => {
         event.preventDefault();
         void sendDraft();
       }}
     >
-      <div className="flex min-w-0 items-center gap-2 rounded-md border border-[#2d3a57] bg-[#060a12] px-2 py-1">
-        <IconButton disabled={disabled} label="Add attachment">
-          <Plus className="h-3.5 w-3.5" />
-        </IconButton>
-        <IconButton disabled={disabled} label="Voice input">
-          <Mic className="h-3.5 w-3.5" />
-        </IconButton>
-        <Textarea
-          className="max-h-24 min-h-7 min-w-0 flex-1 resize-none border-0 bg-transparent px-1 py-1 text-sm leading-5 text-zinc-100 shadow-none outline-none placeholder:text-[#7380a4] focus-visible:border-0"
+      <div className="mx-auto flex max-w-4xl min-w-0 items-end gap-3">
+        <textarea
+          className="min-h-11 min-w-0 flex-1 resize-none rounded-md border border-zinc-300 px-3 py-2 text-sm leading-6 outline-none focus:border-zinc-500"
           disabled={disabled}
           onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (
-              event.key !== "Enter" ||
-              event.shiftKey ||
-              event.altKey ||
-              event.nativeEvent.isComposing
-            ) {
-              return;
-            }
-            event.preventDefault();
-            void sendDraft();
-          }}
+          onKeyDown={(event) =>
+            handleComposerKeyDown(event, {
+              queueDraft,
+              running,
+              sendDraft,
+              stopRun: chat.stopActiveRun,
+            })
+          }
           placeholder={chat.selectedConversation ? "Ask Codex" : "Create a chat first"}
-          rows={1}
+          rows={2}
           value={draft}
         />
-        <ComposerButton canSend={!disabled && draft.trim() !== ""} chat={chat} running={running} />
+        <ComposerButton
+          canSend={!disabled && draft.trim() !== ""}
+          chat={chat}
+          queueDraft={queueDraft}
+          running={running}
+        />
       </div>
     </form>
   );
 }
 
-function ComposerButton({
+interface ComposerKeyActions {
+  queueDraft: () => Promise<void>;
+  running: boolean;
+  sendDraft: () => Promise<void>;
+  stopRun: () => Promise<void>;
+}
+
+export function handleComposerKeyDown(
+  event: KeyboardEvent<HTMLTextAreaElement>,
+  actions: ComposerKeyActions,
+) {
+  if (isQueueShortcut(event)) {
+    event.preventDefault();
+    void actions.queueDraft();
+    return;
+  }
+  if (isStopShortcut(event, actions.running)) {
+    event.preventDefault();
+    void actions.stopRun();
+    return;
+  }
+  if (!isSubmitShortcut(event)) {
+    return;
+  }
+  event.preventDefault();
+  void actions.sendDraft();
+}
+
+function isQueueShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
+  return event.key === "Tab" && !event.nativeEvent.isComposing;
+}
+
+function isStopShortcut(event: KeyboardEvent<HTMLTextAreaElement>, running: boolean) {
+  return running && event.key === "c" && event.ctrlKey && !hasTextSelection(event.currentTarget);
+}
+
+function isSubmitShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
+  return (
+    event.key === "Enter" && !event.shiftKey && !event.altKey && !event.nativeEvent.isComposing
+  );
+}
+
+function hasTextSelection(textarea: HTMLTextAreaElement) {
+  return textarea.selectionStart !== textarea.selectionEnd;
+}
+
+export function ComposerButton({
   canSend,
   chat,
+  queueDraft,
   running,
 }: {
   canSend: boolean;
-  chat: ChatView;
+  chat: {
+    operation: string | null;
+    stopActiveRun: () => Promise<void>;
+  };
+  queueDraft: () => Promise<void>;
   running: boolean;
 }) {
   if (running) {
     return (
-      <Button
-        aria-label="Stop run"
-        className="h-7 w-7 shrink-0 border-[#2d3a57] bg-[#172554] px-0 text-zinc-100 hover:bg-[#1e3a8a]"
-        disabled={chat.operation === "cancelling"}
-        onClick={() => void chat.stopActiveRun()}
-        title="Stop run"
-        type="button"
-        variant="secondary"
-      >
-        <Square className="h-3.5 w-3.5" />
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          aria-label="Send steering message"
+          disabled={!canSend}
+          type="submit"
+          variant="primary"
+        >
+          <Send className="h-4 w-4" />
+          Send
+        </Button>
+        <Button
+          aria-label="Queue follow-up"
+          disabled={!canSend || chat.operation === "queueing"}
+          onClick={() => void queueDraft()}
+          type="button"
+          variant="secondary"
+        >
+          <MessageSquarePlus className="h-4 w-4" />
+          Queue
+        </Button>
+        <Button
+          aria-label="Stop run"
+          disabled={chat.operation === "cancelling"}
+          onClick={() => void chat.stopActiveRun()}
+          type="button"
+          variant="secondary"
+        >
+          <Square className="h-4 w-4" />
+        </Button>
+      </div>
     );
   }
   return (
-    <Button
-      aria-label="Send message"
-      className="h-7 w-7 shrink-0 border-[#2d3a57] bg-[#24304a] px-0 text-[#91a0c6] hover:bg-[#2f3d5c] hover:text-white"
-      disabled={!canSend}
-      title="Send message"
-      type="submit"
-      variant="primary"
-    >
-      <Send className="h-3.5 w-3.5" />
+    <Button aria-label="Send message" disabled={!canSend} type="submit" variant="primary">
+      <Send className="h-4 w-4" />
+      Send
     </Button>
   );
 }
 
-export function useChatViewState(workspaceId: string | null) {
+function useChatViewState(workspaceId: string | null) {
   const activeRun = useChatStore((state) => state.activeRun);
   const conversations = useChatStore((state) => state.conversations);
   const createConversation = useChatStore((state) => state.createConversation);
   const error = useChatStore((state) => state.error);
+  const diagnostics = useChatStore((state) => state.diagnostics);
   const hasMoreOlder = useChatStore((state) => state.hasMoreOlder);
   const loadOlder = useChatStore((state) => state.loadOlder);
+  const loadRunItemOutput = useChatStore((state) => state.loadRunItemOutput);
   const loadWorkspace = useChatStore((state) => state.loadWorkspace);
+  const messageIds = useChatStore((state) => state.messageIds);
   const messages = useChatStore((state) => state.messages);
+  const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
+  const queueMessage = useChatStore((state) => state.queueMessage);
+  const runItemIdsByRunId = useChatStore((state) => state.runItemIdsByRunId);
+  const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
+  const runItemOutputPagesByRunItemId = useChatStore(
+    (state) => state.runItemOutputPagesByRunItemId,
+  );
+  const runItemOutputs = useChatStore((state) => state.runItemOutputs);
+  const runItemOutputsById = useChatStore((state) => state.runItemOutputsById);
+  const runItems = useChatStore((state) => state.runItems);
+  const runItemsById = useChatStore((state) => state.runItemsById);
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
   const sendMessage = useChatStore((state) => state.sendMessage);
   const status = useChatStore((state) => state.status);
+  const steerMessage = useChatStore((state) => state.steerMessage);
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
@@ -305,16 +434,105 @@ export function useChatViewState(workspaceId: string | null) {
     activeRun,
     conversations,
     createConversation,
+    diagnostics,
     error,
     hasMoreOlder,
     loadOlder,
+    loadRunItemOutput,
+    messageIds,
     messages,
+    messagesById,
     operation,
+    queueMessage,
+    runItemIdsByRunId,
+    runItemOutputIdsByRunItemId,
+    runItemOutputPagesByRunItemId,
+    runItemOutputs,
+    runItemOutputsById,
+    runItems,
+    runItemsById,
     selectConversation,
     selectedConversation,
     sendMessage,
     status,
+    steerMessage,
     stopActiveRun,
     submitApproval,
   };
+}
+
+function ConversationList({
+  conversations,
+  selectedConversationId,
+  selectConversation,
+}: {
+  conversations: ConversationListItem[];
+  selectedConversationId: string;
+  selectConversation: (conversationId: string) => Promise<void>;
+}) {
+  const [visibleLimit, setVisibleLimit] = useState(80);
+  const selectedIndex = conversations.findIndex(
+    (item) => item.conversation.id === selectedConversationId,
+  );
+  const effectiveLimit =
+    selectedIndex >= visibleLimit
+      ? Math.min(conversations.length, selectedIndex + 1)
+      : visibleLimit;
+  const visibleConversations = useMemo(
+    () => conversations.slice(0, effectiveLimit),
+    [conversations, effectiveLimit],
+  );
+  if (visibleConversations.length === 0) {
+    return <div className="px-4 py-5 text-sm text-zinc-500">No chats yet</div>;
+  }
+  return (
+    <div className="min-h-0 overflow-y-auto p-2" data-testid="conversation-list">
+      {visibleConversations.map((item) => (
+        <button
+          className={
+            item.conversation.id === selectedConversationId
+              ? "mb-1 block w-full rounded-md bg-zinc-100 px-3 py-2 text-left"
+              : "mb-1 block w-full rounded-md px-3 py-2 text-left hover:bg-zinc-50"
+          }
+          data-testid="conversation-list-item"
+          key={item.conversation.id}
+          onClick={() => void selectConversation(item.conversation.id)}
+          type="button"
+        >
+          <div className="truncate text-sm font-medium text-zinc-900">
+            {item.conversation.title}
+          </div>
+          <div className="mt-1 text-xs text-zinc-500">{item.messageCount} messages</div>
+        </button>
+      ))}
+      {visibleConversations.length < conversations.length ? (
+        <Button
+          className="mt-2 w-full"
+          onClick={() => setVisibleLimit((current) => current + 80)}
+          variant="secondary"
+        >
+          More Chats
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+const runBadgeByStatus = {
+  cancelled: { label: "Cancelled", variant: "neutral" },
+  completed: { label: "Ready", variant: "success" },
+  failed: { label: "Failed", variant: "danger" },
+  queued: { label: "Queued", variant: "neutral" },
+  running: { label: "Running", variant: "neutral" },
+} satisfies Record<RunStatus, { label: string; variant: "danger" | "neutral" | "success" }>;
+
+function RunBadge({ active, status }: { active: boolean; status: RunStatus | null }) {
+  if (active) {
+    return <Badge variant="neutral">Running</Badge>;
+  }
+  if (status === null) {
+    return <Badge variant="success">Ready</Badge>;
+  }
+  const badge = runBadgeByStatus[status];
+  return <Badge variant={badge.variant}>{badge.label}</Badge>;
 }

@@ -1,4 +1,11 @@
-import type { BackendHealth, OpenWorkspaceResponse, WorkspaceSession } from "@generated/backend";
+import type {
+  BackendHealth,
+  ChatMessage,
+  MessagePage,
+  OpenWorkspaceResponse,
+  Run,
+  WorkspaceSession,
+} from "@generated/backend";
 import type { RuntimeVersions, SettaAPI } from "@shared/types";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
@@ -239,18 +246,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
   };
   const api: SettaAPI = {
     app: {
-      openWorkspaceInVSCode: async () => {},
       versions: async (): Promise<RuntimeVersions> => ({
         app: "test",
         chrome: "test",
         electron: "test",
         node: "test",
-      }),
-      workspaceGitInfo: async () => ({
-        branchName: "main",
-        commitShort: "abc123",
-        worktreeName: "workspace_api",
-        worktreeRoot: "/tmp/workspace_api",
       }),
     },
     backend: {
@@ -259,9 +259,11 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         ok: true,
         version: "test",
       }),
+      onEventStreamStatus: () => () => {},
+      onProcessStatus: () => () => {},
     },
     chat: {
-      activeRun: async () => ({ hasActiveRun: false, run: emptyRun() }),
+      activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),
       createConversation: async () => emptyConversation(),
       listConversations: async () => ({ conversations: [] }),
@@ -270,17 +272,40 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         hasMoreOlder: false,
         messages: [],
         olderBeforeOrdinal: 0,
+        queue: { messages: [], runs: [] },
+        runItemOutputs: [],
+        runItems: [],
       }),
       onEvent: () => () => {},
+      queueMessage: async () => ({
+        conversation: emptyConversation(),
+        page: emptyMessagePage(),
+        queue: { messages: [], runs: [] },
+        run: emptyRun(),
+        userMessage: emptyMessage(),
+      }),
+      runActivity: async () => ({
+        items: [],
+        output: [],
+        runId: "run_test",
+      }),
+      runItemOutput: async () => ({
+        hasMore: false,
+        nextOrdinal: 0,
+        output: [],
+        runId: "run_test",
+        runItemId: "run_item_test",
+      }),
       sendMessage: async () => ({
         assistantMessage: emptyMessage(),
         conversation: emptyConversation(),
-        page: {
-          conversation: emptyConversation(),
-          hasMoreOlder: false,
-          messages: [],
-          olderBeforeOrdinal: 0,
-        },
+        page: emptyMessagePage(),
+        run: emptyRun(),
+        userMessage: emptyMessage(),
+      }),
+      steerMessage: async () => ({
+        conversation: emptyConversation(),
+        page: emptyMessagePage(),
         run: emptyRun(),
         userMessage: emptyMessage(),
       }),
@@ -310,10 +335,11 @@ function emptyConversation() {
   };
 }
 
-function emptyMessage() {
+function emptyMessage(): ChatMessage {
   return {
     conversationId: "conversation_test",
     createdAt: "2026-05-29T20:00:00Z",
+    delivery: "normal",
     id: "message_test",
     ordinal: 1,
     parts: [{ format: "plain", id: "part_test", text: "", type: "text" }],
@@ -325,32 +351,28 @@ function emptyMessage() {
   };
 }
 
-function emptyRun() {
+function emptyMessagePage(): MessagePage {
   return {
+    conversation: emptyConversation(),
+    hasMoreOlder: false,
+    messages: [],
+    olderBeforeOrdinal: 0,
+    queue: { messages: [], runs: [] },
+    runItemOutputs: [],
+    runItems: [],
+  };
+}
+
+function emptyRun(): Run {
+  return {
+    assistantMessageId: "message_assistant",
     completedAt: "",
     conversationId: "conversation_test",
     error: "",
     harness: "codex",
     hasPendingApproval: false,
     id: "run_test",
-    pendingApproval: {
-      approved: false,
-      body: "",
-      command: "",
-      createdAt: "2026-05-29T20:00:00Z",
-      filePath: "",
-      id: "approval_test",
-      kind: "permission",
-      options: [],
-      questions: [],
-      permission: "",
-      question: "",
-      resolvedAt: "",
-      response: "",
-      runId: "run_test",
-      status: "pending",
-      title: "Approval",
-    },
+    pendingApproval: null,
     promptSummary: "",
     schemaVersion: 1,
     startedAt: "2026-05-29T20:00:00Z",
