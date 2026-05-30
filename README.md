@@ -1,8 +1,7 @@
 # Setta
 
-Setta 3 currently contains the phase 1 platform skeleton: a local Go backend,
-an Electron desktop shell, a typed preload bridge, and a WebContentsView browser
-pane proof.
+Setta 3 is a local-first Electron app with a Go backend and TypeScript
+frontend.
 
 ## Development
 

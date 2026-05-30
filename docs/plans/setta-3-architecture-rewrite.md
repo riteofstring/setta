@@ -30,6 +30,8 @@ implementation.
 - Electron desktop app.
 - Clear local workspace flow, similar to VS Code: open the app on a laptop,
   select/open a workspace, and work locally by default.
+- Active local workspace switching, similar to cmux: keep an ordered active
+  workspace list, selected workspace, and separate recent workspaces.
 - GUI remote workflow over SSH for remote workspaces. CLI support is secondary
   and can come later.
 - Project Chat:
