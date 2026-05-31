@@ -139,7 +139,7 @@ export function WorkspaceSidebar({
   function setSectionHeight(sectionId: SidebarSectionId, height: number) {
     setSections((current) => ({
       ...current,
-      [sectionId]: { ...current[sectionId], height },
+      [sectionId]: { ...current[sectionId], height, resized: true },
     }));
   }
 
@@ -169,30 +169,38 @@ export function WorkspaceSidebar({
       style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
       <div
-        className={cn("min-h-0 flex-1 overflow-y-auto px-1 pb-3", chromeInsetClass(chromeInsetTop))}
+        className={cn("shrink-0 px-1", chromeInsetClass(chromeInsetTop))}
+        data-testid="sidebar-shortcuts-shell"
+      >
+        <SidebarAccordionSection
+          height={sections.shortcuts.height}
+          onHeightChange={(height) => setSectionHeight("shortcuts", height)}
+          onOpenChange={(open) => setSectionOpen("shortcuts", open)}
+          open={sections.shortcuts.open}
+          resized={sections.shortcuts.resized}
+          testId="shortcuts-section"
+          title="Shortcuts"
+        >
+          <SidebarNav
+            busy={busy || chatBusy}
+            createConversation={createConversation}
+            hasWorkspace={selectedWorkspaceId !== ""}
+            openSearch={openSearch}
+          />
+        </SidebarAccordionSection>
+      </div>
+      <div
+        className="min-h-0 flex-1 overflow-y-auto px-1 pb-1"
+        data-testid="sidebar-scrollable-sections"
       >
         <div className="grid gap-1">
-          <SidebarAccordionSection
-            height={sections.shortcuts.height}
-            onHeightChange={(height) => setSectionHeight("shortcuts", height)}
-            onOpenChange={(open) => setSectionOpen("shortcuts", open)}
-            open={sections.shortcuts.open}
-            testId="shortcuts-section"
-            title="Shortcuts"
-          >
-            <SidebarNav
-              busy={busy || chatBusy}
-              createConversation={createConversation}
-              hasWorkspace={selectedWorkspaceId !== ""}
-              openSearch={openSearch}
-            />
-          </SidebarAccordionSection>
           <SidebarAccordionSection
             action={<ProjectFolderButton busy={busy} openLocalFolder={openLocalFolder} />}
             height={sections.projects.height}
             onHeightChange={(height) => setSectionHeight("projects", height)}
             onOpenChange={(open) => setSectionOpen("projects", open)}
             open={sections.projects.open}
+            resized={sections.projects.resized}
             testId="projects-section"
             title="Projects"
           >
@@ -229,6 +237,7 @@ export function WorkspaceSidebar({
             onHeightChange={(height) => setSectionHeight("chats", height)}
             onOpenChange={(open) => setSectionOpen("chats", open)}
             open={sections.chats.open}
+            resized={sections.chats.resized}
             testId="standalone-chat-section"
             title="Chats"
           >
@@ -239,32 +248,27 @@ export function WorkspaceSidebar({
             onHeightChange={(height) => setSectionHeight("notes", height)}
             onOpenChange={(open) => setSectionOpen("notes", open)}
             open={sections.notes.open}
+            resized={sections.notes.resized}
             testId="notes-section"
             title="Notes"
           >
             <NotesContent />
           </SidebarAccordionSection>
           <SidebarAccordionSection
-            height={sections.memories.height}
-            onHeightChange={(height) => setSectionHeight("memories", height)}
-            onOpenChange={(open) => setSectionOpen("memories", open)}
-            open={sections.memories.open}
-            testId="memory-integrations-section"
-            title="DB / Memories"
-          >
-            <MemoryIntegrationsContent />
-          </SidebarAccordionSection>
-          <SidebarAccordionSection
             height={sections.rules.height}
             onHeightChange={(height) => setSectionHeight("rules", height)}
             onOpenChange={(open) => setSectionOpen("rules", open)}
             open={sections.rules.open}
+            resized={sections.rules.resized}
             testId="rules-section"
             title="Rules"
           >
             <RulesContent />
           </SidebarAccordionSection>
         </div>
+      </div>
+      <div className="shrink-0 px-1 py-1" data-testid="sidebar-memory-footer">
+        <MemoryIntegrationsContent />
       </div>
     </aside>
   );

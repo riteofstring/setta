@@ -137,8 +137,10 @@ describe("workspace renderer states", () => {
     expect(html).toContain("Setta rules");
     expect(html).toContain("No rule canvases");
     expect(html).toContain('data-testid="notes-section"');
-    expect(html).toContain('data-testid="memory-integrations-section"');
     expect(html).toContain('data-testid="rules-section"');
+    expect(html).toContain('data-testid="sidebar-shortcuts-shell"');
+    expect(html).toContain('data-testid="sidebar-scrollable-sections"');
+    expect(html).toContain('data-testid="sidebar-memory-footer"');
     expect(html).toContain("Resize Projects");
     expect(html).toContain("Resize Shortcuts");
     expect(html).toContain("Resize Rules");

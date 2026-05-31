@@ -1,17 +1,15 @@
 import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from "react";
-
-import { cn } from "../lib/utils";
+import { useRef } from "react";
 
 const sectionMinHeight = 40;
 const sectionMaxHeight = 520;
 
 export const defaultSidebarSections = {
-  chats: { height: 70, open: true },
-  memories: { height: 58, open: true },
-  notes: { height: 70, open: true },
-  projects: { height: 280, open: true },
-  rules: { height: 86, open: true },
-  shortcuts: { height: 146, open: true },
+  chats: { height: 70, open: true, resized: false },
+  notes: { height: 70, open: true, resized: false },
+  projects: { height: 280, open: true, resized: false },
+  rules: { height: 86, open: true, resized: false },
+  shortcuts: { height: 146, open: true, resized: false },
 } satisfies Record<string, SidebarSectionState>;
 
 export type SidebarSectionId = keyof typeof defaultSidebarSections;
@@ -19,6 +17,7 @@ export type SidebarSectionId = keyof typeof defaultSidebarSections;
 export interface SidebarSectionState {
   height: number;
   open: boolean;
+  resized: boolean;
 }
 
 export function SidebarAccordionSection({
@@ -28,6 +27,7 @@ export function SidebarAccordionSection({
   onHeightChange,
   onOpenChange,
   open,
+  resized,
   testId,
   title,
 }: {
@@ -37,32 +37,30 @@ export function SidebarAccordionSection({
   onHeightChange: (height: number) => void;
   onOpenChange: (open: boolean) => void;
   open: boolean;
+  resized: boolean;
   testId: string;
   title: string;
 }) {
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+
   return (
     <section className="group/section min-w-0" data-testid={testId}>
       <div className="flex h-6 items-center justify-between gap-1 px-2">
         <button
           aria-expanded={open}
-          className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-xs font-medium text-zinc-500 hover:text-zinc-200"
+          className="flex min-w-0 flex-1 items-center text-left text-xs font-medium text-zinc-500 hover:text-zinc-200"
           onClick={() => onOpenChange(!open)}
           type="button"
         >
-          <span
-            className={cn(
-              "h-1.5 w-1.5 shrink-0 rounded-full",
-              open ? "bg-zinc-500" : "bg-zinc-700",
-            )}
-          />
           <span className="truncate">{title}</span>
         </button>
         {action}
       </div>
       {open ? (
-        <div className="relative min-h-0" style={sectionBodyStyle(height)}>
-          <div className="h-full min-h-0 overflow-y-auto pb-1">{children}</div>
+        <div className="relative min-h-0" ref={bodyRef} style={sectionBodyStyle(height, resized)}>
+          <div className={resized ? "h-full min-h-0 overflow-y-auto pb-1" : "pb-1"}>{children}</div>
           <SectionResizeHandle
+            bodyRef={bodyRef}
             height={height}
             label={`Resize ${title}`}
             onHeightChange={onHeightChange}
@@ -73,15 +71,20 @@ export function SidebarAccordionSection({
   );
 }
 
-function sectionBodyStyle(height: number): CSSProperties {
+function sectionBodyStyle(height: number, resized: boolean): CSSProperties | undefined {
+  if (!resized) {
+    return undefined;
+  }
   return { height };
 }
 
 function SectionResizeHandle({
+  bodyRef,
   height,
   label,
   onHeightChange,
 }: {
+  bodyRef: { current: HTMLDivElement | null };
   height: number;
   label: string;
   onHeightChange: (height: number) => void;
@@ -89,7 +92,7 @@ function SectionResizeHandle({
   function beginResize(event: ReactPointerEvent<HTMLDivElement>) {
     event.preventDefault();
     const startY = event.clientY;
-    const startHeight = height;
+    const startHeight = bodyRef.current?.getBoundingClientRect().height ?? height;
 
     function resize(pointerEvent: PointerEvent) {
       const delta = pointerEvent.clientY - startY;
