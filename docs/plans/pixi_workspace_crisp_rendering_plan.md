@@ -1,14 +1,16 @@
 # Pixi Workspace Crisp Rendering Plan
 
 **Date:** June 4, 2026  
-**Status:** Planned  
+**Status:** Phase 1 implemented; Phase 2 planned  
 **Scope:** Improve high-zoom sharpness and production rendering scalability for the Pixi workspace prototype without adding DOM labels or React state to hot interaction paths.
 
 ## Goal
 
 Make nodes and labels remain crisp during deep zoom while preserving fast pan, zoom, drag, selection, and edge interactions.
 
-The primary issue is that the current workspace zooms the whole Pixi viewport. Node labels are Pixi `Text` objects inside the zoomed world, so each label is rasterized to a texture and then magnified. This makes text blur at high zoom and makes naive fixes, such as regenerating larger text textures every wheel frame, risky for performance.
+The original issue was that the workspace zoomed the whole Pixi viewport while node labels were Pixi `Text` objects inside the zoomed world. Each label was rasterized to a texture and then magnified, which made text blur at high zoom and made naive fixes, such as regenerating larger text textures every wheel frame, risky for performance.
+
+Phase 1 moved labels into a screen-space Pixi layer. The remaining work is to make that label path explicitly pool-shaped and observable before replacing the label text technology or adding LOD.
 
 The recommended production direction is:
 
@@ -25,9 +27,11 @@ The current prototype:
 - Uses one Pixi canvas.
 - Uses `pixi-viewport` for pan and zoom.
 - Renders node bodies, ports, outlines, edges, temporary edges, and marquee selection with Pixi graphics.
-- Renders node labels as Pixi `Text` children inside each node container.
+- Renders node labels as screen-space Pixi `Text` objects in a `labelLayer` sibling of the viewport.
+- Tracks labels in a node-label map.
+- Syncs label screen positions through `syncAllLabels()` and `syncLabelPosition(nodeId)`.
 - Keeps interaction state in the imperative renderer path, not React state.
-- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, and group drag.
+- Has visual smoke coverage for pan, zoom, node drag, edge drawing, multiselect, marquee, Escape clear, group drag, deep zoom labels, pan after deep zoom, and unchanged React render count during label sync.
 
 This plan should extend the existing renderer/controller path. Do not create a second Pixi implementation or introduce DOM labels for workspace nodes.
 
@@ -71,6 +75,8 @@ The label layer must not inherit the viewport scale. Label positions are compute
 
 ## Phase 1: Screen-Space Pixi Label Layer
 
+Status: Implemented.
+
 Move node title rendering out of the zoomed node containers.
 
 Implementation tasks:
@@ -105,15 +111,16 @@ Expected result:
 
 ## Phase 2: Label Pooling and Debug Counters
 
-Make the label layer production-shaped before replacing text technology.
+Make the existing screen-space label layer production-shaped and observable before replacing text technology.
 
 Implementation tasks:
 
 - Introduce explicit label lifecycle helpers:
   - `acquireLabel(nodeId)`
   - `releaseLabel(nodeId)`
-  - `syncLabelPosition(nodeId)`
-  - `syncAllLabels()`
+- Keep the existing `syncLabelPosition(nodeId)` and `syncAllLabels()` helpers, adjusting call sites only if needed.
+- Keep the existing node-label map as the active-label registry for this phase.
+- Define `releaseLabel(nodeId)` as a lifecycle boundary for future culling. It may be a simple removal/destroy helper in this phase; full culling and LOD remain Phase 4.
 - Add debug snapshot fields:
 
 ```ts
@@ -123,11 +130,15 @@ render: {
 };
 ```
 
-- Ensure label sync does not change React render count.
-- Add visual smoke assertions that labels remain visible after:
-  - Deep zoom.
-  - Pan after deep zoom.
-  - Group drag at non-1x zoom.
+- Update `desktop/src/renderer/src/global.d.ts` for the new debug fields.
+- Increment `labelSyncCount` only when label position sync work runs.
+- Report `visibleLabelCount` from the current label objects.
+- Add visual smoke assertions that:
+  - `labelSyncCount` exists and advances after pan, zoom, and group drag.
+  - `visibleLabelCount` matches the visible screen-space label objects expected for the current fixture.
+  - Label sync still does not change React render count.
+- Preserve existing smoke assertions for deep zoom, pan after deep zoom, and group drag at non-1x zoom.
+- Update `docs/reports/performance/pixi-workspace-visual-smoke.md` with the final artifact and label counter values.
 
 Expected result:
 
