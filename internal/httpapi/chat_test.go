@@ -272,6 +272,36 @@ func TestChatCommandEndpointsListAndExecute(t *testing.T) {
 	waitForRunMessageStatusHTTP(t, handler, opened.Workspace.ID, conversation.ID, runs.Runs[0].ID, chat.MessageStatusComplete)
 }
 
+func TestChatCodexModelSelectionEndpoints(t *testing.T) {
+	handler := newChatHandler(t, nil)
+	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)
+	conversation := postJSON[chat.Conversation](t, handler, "/chat/conversations/create", CreateConversationRequest{WorkspaceID: opened.Workspace.ID}, http.StatusOK)
+
+	model := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/model/set", SetChatCodexModelRequest{
+		WorkspaceID:    opened.Workspace.ID,
+		ConversationID: conversation.ID,
+		ModelID:        "gpt-test",
+	}, http.StatusOK)
+	if model.Message == nil || model.Message.Parts[0].Text != "Model set: gpt-test" {
+		t.Fatalf("model result message = %+v, want model set", model.Message)
+	}
+	if model.Conversation.CodexSettings == nil || model.Conversation.CodexSettings.Model != "gpt-test" {
+		t.Fatalf("model settings = %+v, want gpt-test", model.Conversation.CodexSettings)
+	}
+
+	effort := postJSON[chat.ChatCommandExecuteResult](t, handler, "/chat/codex/reasoning-effort/set", SetChatCodexReasoningEffortRequest{
+		WorkspaceID:     opened.Workspace.ID,
+		ConversationID:  conversation.ID,
+		ReasoningEffort: chat.ReasoningEffortHigh,
+	}, http.StatusOK)
+	if effort.Message == nil || effort.Message.Parts[0].Text != "Reasoning set: High" {
+		t.Fatalf("effort result message = %+v, want reasoning set", effort.Message)
+	}
+	if effort.Conversation.CodexSettings == nil || effort.Conversation.CodexSettings.ReasoningEffort == nil || *effort.Conversation.CodexSettings.ReasoningEffort != chat.ReasoningEffortHigh {
+		t.Fatalf("effort settings = %+v, want high", effort.Conversation.CodexSettings)
+	}
+}
+
 func TestChatCommandEndpointReturnsTypedUnknownCommandError(t *testing.T) {
 	handler := newChatHandler(t, nil)
 	opened := postJSON[OpenWorkspaceResponse](t, handler, "/workspaces/open", OpenWorkspaceRequest{RootPath: t.TempDir()}, http.StatusOK)

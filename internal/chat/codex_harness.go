@@ -27,6 +27,9 @@ type CodexHarness struct {
 	active               map[string]*codexActiveTurn
 	approvals            map[string]codexPendingApproval
 	approvalsByRequestID map[string]string
+
+	threadSettingsUpdateMu        sync.Mutex
+	threadSettingsUpdateSupported bool
 }
 
 type codexActiveTurn struct {
@@ -86,6 +89,8 @@ func NewCodexHarness(config CodexHarnessConfig) *CodexHarness {
 		active:               map[string]*codexActiveTurn{},
 		approvals:            map[string]codexPendingApproval{},
 		approvalsByRequestID: map[string]string{},
+
+		threadSettingsUpdateSupported: true,
 	}
 }
 
@@ -211,7 +216,7 @@ func notificationTurnIDForRebind(message jsonRPCMessage, expectedThreadID string
 	if !ok {
 		return "", false, nil
 	}
-	if policy != codexNotificationScopeTurnState && message.Method != "turn/started" {
+	if policy != codexNotificationScopeTurnState && message.Method != codexapp.CodexNotificationTurnStarted {
 		return "", false, nil
 	}
 	params, err := objectValue(message.Params, "codex notification params")
@@ -222,7 +227,7 @@ func notificationTurnIDForRebind(message jsonRPCMessage, expectedThreadID string
 	if match.Kind != codexNotificationMatches {
 		return "", true, nil
 	}
-	if message.Method == "turn/completed" {
+	if message.Method == codexapp.CodexNotificationTurnCompleted {
 		turn, err := requireObject(params, "turn", "codex turn completed")
 		if err != nil {
 			return "", true, err
@@ -230,7 +235,7 @@ func notificationTurnIDForRebind(message jsonRPCMessage, expectedThreadID string
 		turnID, err := requireString(turn, "id", "codex turn completed turn")
 		return turnID, true, err
 	}
-	if message.Method == "turn/started" {
+	if message.Method == codexapp.CodexNotificationTurnStarted {
 		turnID, err := turnStartedID(params)
 		return turnID, true, err
 	}
@@ -288,7 +293,7 @@ func (harness *CodexHarness) CancelTurn(ctx context.Context, request CancelReque
 	if active.threadID == "" || active.turnID == "" {
 		return ErrTurnNotStarted
 	}
-	_, err := active.session.Call(ctx, "turn/interrupt", map[string]any{
+	_, err := active.session.Call(ctx, codexapp.CodexMethodTurnInterrupt, map[string]any{
 		"threadId": active.threadID,
 		"turnId":   active.turnID,
 	})
@@ -311,7 +316,7 @@ func (harness *CodexHarness) SteerTurn(ctx context.Context, request SteerRequest
 	if request.TurnID != "" && request.TurnID != active.turnID {
 		return fmt.Errorf("steering turn %s does not match active turn %s", request.TurnID, active.turnID)
 	}
-	_, err := active.session.Call(ctx, "turn/steer", map[string]any{
+	_, err := active.session.Call(ctx, codexapp.CodexMethodTurnSteer, map[string]any{
 		"expectedTurnId": active.turnID,
 		"input": []map[string]any{{
 			"text": request.Text,
@@ -360,7 +365,7 @@ func CodexInitializeParams(config CodexHarnessConfig) map[string]any {
 			"experimentalApi":    true,
 			"requestAttestation": config.AttestationProvider != nil,
 			"optOutNotificationMethods": []string{
-				"thread/started",
+				codexapp.CodexNotificationThreadStarted,
 			},
 		},
 	}
@@ -368,7 +373,7 @@ func CodexInitializeParams(config CodexHarnessConfig) map[string]any {
 
 func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *codexapp.Session, request TurnRequest) (string, error) {
 	if request.ThreadRef.ThreadID != "" && request.ThreadRef.Status == HarnessRefLinked {
-		result, err := session.Call(ctx, "thread/resume", map[string]any{
+		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, map[string]any{
 			"approvalPolicy":        "on-request",
 			"approvalsReviewer":     "user",
 			"cwd":                   request.Workspace.RootPath,
@@ -396,7 +401,7 @@ func (harness *CodexHarness) startOrResumeThread(ctx context.Context, session *c
 		return threadID, nil
 	}
 
-	result, err := session.Call(ctx, "thread/start", map[string]any{
+	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, map[string]any{
 		"approvalPolicy":        "on-request",
 		"approvalsReviewer":     "user",
 		"cwd":                   request.Workspace.RootPath,
@@ -422,7 +427,7 @@ func startCodexTurn(ctx context.Context, session *codexapp.Session, threadID str
 		}},
 	}
 	applyInitialCodexSettings(params, request)
-	result, err := session.Call(ctx, "turn/start", params)
+	result, err := session.Call(ctx, codexapp.CodexMethodTurnStart, params)
 	if err != nil {
 		return "", fmt.Errorf("start codex turn: %w", err)
 	}
@@ -456,71 +461,70 @@ type codexNotificationResult struct {
 type codexNotificationHandler func(jsonRPCMessage, string, string, TurnSink) (codexNotificationResult, error)
 
 var codexNotificationHandlers = map[string]codexNotificationHandler{
-	"account/rateLimits/updated":                handleCodexAccountRateLimitsUpdated,
-	"account/login/completed":                   handleCodexAccountLoginCompleted,
-	"account/updated":                           handleCodexAccountUpdated,
-	"app/list/updated":                          handleCodexAppListUpdated,
-	"command/exec/outputDelta":                  handleCodexCommandExecOutputDelta,
-	"configWarning":                             handleCodexNotice,
-	"deprecationNotice":                         handleCodexNotice,
-	"error":                                     handleCodexErrorNotification,
-	"externalAgentConfig/import/completed":      handleCodexTraceOnlyNotification,
-	"fs/changed":                                handleCodexFSChanged,
-	"fuzzyFileSearch/sessionCompleted":          handleCodexFuzzyFileSearchSessionCompleted,
-	"fuzzyFileSearch/sessionUpdated":            handleCodexFuzzyFileSearchSessionUpdated,
-	"guardianWarning":                           handleCodexNotice,
-	"hook/completed":                            handleCodexHookCompleted,
-	"hook/started":                              handleCodexHookStarted,
-	"item/agentMessage/delta":                   handleCodexAssistantDelta,
-	"item/autoApprovalReview/completed":         handleCodexAutoApprovalReviewCompleted,
-	"item/autoApprovalReview/started":           handleCodexAutoApprovalReviewStarted,
-	"item/commandExecution/outputDelta":         handleCodexOutputDelta,
-	"item/commandExecution/terminalInteraction": handleCodexTerminalInteraction,
-	"item/completed":                            handleCodexItemCompleted,
-	"item/fileChange/outputDelta":               handleCodexFileChangeOutputDelta,
-	"item/fileChange/patchUpdated":              handleCodexPatchUpdated,
-	"item/mcpToolCall/progress":                 handleCodexMCPProgress,
-	"item/plan/delta":                           handleCodexPlanDelta,
-	"item/reasoning/summaryPartAdded":           handleCodexReasoningSummaryPartAdded,
-	"item/reasoning/summaryTextDelta":           handleCodexReasoningSummaryDelta,
-	"item/reasoning/textDelta":                  handleCodexReasoningTextDelta,
-	"item/started":                              handleCodexItemStarted,
-	"mcpServer/oauthLogin/completed":            handleCodexMCPServerOAuthLoginCompleted,
-	"mcpServer/startupStatus/updated":           handleCodexMCPServerStartupStatusUpdated,
-	"model/rerouted":                            handleCodexNotice,
-	"model/verification":                        handleCodexModelVerification,
-	"process/exited":                            handleCodexProcessExited,
-	"process/outputDelta":                       handleCodexProcessOutputDelta,
-	"rawResponseItem/completed":                 ignoreCodexNotification,
-	"remoteControl/status/changed":              handleCodexRemoteControlStatusChanged,
-	"serverRequest/resolved":                    handleCodexServerRequestResolvedNotification,
-	"skills/changed":                            handleCodexSkillsChanged,
-	"thread/archived":                           handleCodexThreadLifecycle,
-	"thread/closed":                             handleCodexThreadLifecycle,
-	"thread/compacted":                          handleCodexNotice,
-	"thread/goal/cleared":                       handleCodexThreadGoalCleared,
-	"thread/goal/updated":                       handleCodexThreadGoalUpdated,
-	"thread/name/updated":                       handleCodexThreadNameUpdated,
-	"thread/realtime/closed":                    handleCodexRealtimeIgnored,
-	"thread/realtime/error":                     handleCodexRealtimeIgnored,
-	"thread/realtime/itemAdded":                 handleCodexRealtimeIgnored,
-	"thread/realtime/outputAudio/delta":         handleCodexRealtimeIgnored,
-	"thread/realtime/sdp":                       handleCodexRealtimeIgnored,
-	"thread/realtime/started":                   handleCodexRealtimeIgnored,
-	"thread/realtime/transcript/delta":          handleCodexRealtimeIgnored,
-	"thread/realtime/transcript/done":           handleCodexRealtimeIgnored,
-	"thread/settings/updated":                   handleCodexThreadSettingsUpdated,
-	"thread/started":                            handleCodexThreadStarted,
-	"thread/status/changed":                     handleCodexThreadStatusChanged,
-	"thread/tokenUsage/updated":                 handleCodexThreadTokenUsageUpdated,
-	"thread/unarchived":                         handleCodexThreadLifecycle,
-	"turn/completed":                            handleCodexTurnCompletedNotification,
-	"turn/diff/updated":                         handleCodexDiffUpdated,
-	"turn/plan/updated":                         handleCodexPlanUpdated,
-	"turn/started":                              handleCodexTurnStarted,
-	"warning":                                   handleCodexNotice,
-	"windows/worldWritableWarning":              handleCodexWindowsWorldWritableWarning,
-	"windowsSandbox/setupCompleted":             handleCodexWindowsSandboxSetupCompleted,
+	codexapp.CodexNotificationAccountRateLimitsUpdated:                handleCodexAccountRateLimitsUpdated,
+	codexapp.CodexNotificationAccountLoginCompleted:                   handleCodexAccountLoginCompleted,
+	codexapp.CodexNotificationAccountUpdated:                          handleCodexAccountUpdated,
+	codexapp.CodexNotificationAppListUpdated:                          handleCodexAppListUpdated,
+	codexapp.CodexNotificationCommandExecOutputDelta:                  handleCodexCommandExecOutputDelta,
+	codexapp.CodexNotificationConfigWarning:                           handleCodexNotice,
+	codexapp.CodexNotificationDeprecationNotice:                       handleCodexNotice,
+	codexapp.CodexNotificationError:                                   handleCodexErrorNotification,
+	codexapp.CodexNotificationExternalAgentConfigImportCompleted:      handleCodexTraceOnlyNotification,
+	codexapp.CodexNotificationFsChanged:                               handleCodexFSChanged,
+	codexapp.CodexNotificationFuzzyFileSearchSessionCompleted:         handleCodexFuzzyFileSearchSessionCompleted,
+	codexapp.CodexNotificationFuzzyFileSearchSessionUpdated:           handleCodexFuzzyFileSearchSessionUpdated,
+	codexapp.CodexNotificationGuardianWarning:                         handleCodexNotice,
+	codexapp.CodexNotificationHookCompleted:                           handleCodexHookCompleted,
+	codexapp.CodexNotificationHookStarted:                             handleCodexHookStarted,
+	codexapp.CodexNotificationItemAgentMessageDelta:                   handleCodexAssistantDelta,
+	codexapp.CodexNotificationItemAutoApprovalReviewCompleted:         handleCodexAutoApprovalReviewCompleted,
+	codexapp.CodexNotificationItemAutoApprovalReviewStarted:           handleCodexAutoApprovalReviewStarted,
+	codexapp.CodexNotificationItemCommandExecutionOutputDelta:         handleCodexOutputDelta,
+	codexapp.CodexNotificationItemCommandExecutionTerminalInteraction: handleCodexTerminalInteraction,
+	codexapp.CodexNotificationItemCompleted:                           handleCodexItemCompleted,
+	codexapp.CodexNotificationItemFileChangeOutputDelta:               handleCodexFileChangeOutputDelta,
+	codexapp.CodexNotificationItemFileChangePatchUpdated:              handleCodexPatchUpdated,
+	codexapp.CodexNotificationItemMcpToolCallProgress:                 handleCodexMCPProgress,
+	codexapp.CodexNotificationItemPlanDelta:                           handleCodexPlanDelta,
+	codexapp.CodexNotificationItemReasoningSummaryPartAdded:           handleCodexReasoningSummaryPartAdded,
+	codexapp.CodexNotificationItemReasoningSummaryTextDelta:           handleCodexReasoningSummaryDelta,
+	codexapp.CodexNotificationItemReasoningTextDelta:                  handleCodexReasoningTextDelta,
+	codexapp.CodexNotificationItemStarted:                             handleCodexItemStarted,
+	codexapp.CodexNotificationMcpServerOauthLoginCompleted:            handleCodexMCPServerOAuthLoginCompleted,
+	codexapp.CodexNotificationMcpServerStartupStatusUpdated:           handleCodexMCPServerStartupStatusUpdated,
+	codexapp.CodexNotificationModelRerouted:                           handleCodexNotice,
+	codexapp.CodexNotificationModelVerification:                       handleCodexModelVerification,
+	codexapp.CodexNotificationProcessExited:                           handleCodexProcessExited,
+	codexapp.CodexNotificationProcessOutputDelta:                      handleCodexProcessOutputDelta,
+	codexapp.CodexNotificationRemoteControlStatusChanged:              handleCodexRemoteControlStatusChanged,
+	codexapp.CodexNotificationServerRequestResolved:                   handleCodexServerRequestResolvedNotification,
+	codexapp.CodexNotificationSkillsChanged:                           handleCodexSkillsChanged,
+	codexapp.CodexNotificationThreadArchived:                          handleCodexThreadLifecycle,
+	codexapp.CodexNotificationThreadClosed:                            handleCodexThreadLifecycle,
+	codexapp.CodexNotificationThreadCompacted:                         handleCodexNotice,
+	codexapp.CodexNotificationThreadGoalCleared:                       handleCodexThreadGoalCleared,
+	codexapp.CodexNotificationThreadGoalUpdated:                       handleCodexThreadGoalUpdated,
+	codexapp.CodexNotificationThreadNameUpdated:                       handleCodexThreadNameUpdated,
+	codexapp.CodexNotificationThreadRealtimeClosed:                    handleCodexRealtimeIgnored,
+	codexapp.CodexNotificationThreadRealtimeError:                     handleCodexRealtimeIgnored,
+	codexapp.CodexNotificationThreadRealtimeItemAdded:                 handleCodexRealtimeIgnored,
+	codexapp.CodexNotificationThreadRealtimeOutputAudioDelta:          handleCodexRealtimeIgnored,
+	codexapp.CodexNotificationThreadRealtimeSdp:                       handleCodexRealtimeIgnored,
+	codexapp.CodexNotificationThreadRealtimeStarted:                   handleCodexRealtimeIgnored,
+	codexapp.CodexNotificationThreadRealtimeTranscriptDelta:           handleCodexRealtimeIgnored,
+	codexapp.CodexNotificationThreadRealtimeTranscriptDone:            handleCodexRealtimeIgnored,
+	codexapp.CodexNotificationThreadSettingsUpdated:                   handleCodexThreadSettingsUpdated,
+	codexapp.CodexNotificationThreadStarted:                           handleCodexThreadStarted,
+	codexapp.CodexNotificationThreadStatusChanged:                     handleCodexThreadStatusChanged,
+	codexapp.CodexNotificationThreadTokenUsageUpdated:                 handleCodexThreadTokenUsageUpdated,
+	codexapp.CodexNotificationThreadUnarchived:                        handleCodexThreadLifecycle,
+	codexapp.CodexNotificationTurnCompleted:                           handleCodexTurnCompletedNotification,
+	codexapp.CodexNotificationTurnDiffUpdated:                         handleCodexDiffUpdated,
+	codexapp.CodexNotificationTurnPlanUpdated:                         handleCodexPlanUpdated,
+	codexapp.CodexNotificationTurnStarted:                             handleCodexTurnStarted,
+	codexapp.CodexNotificationWarning:                                 handleCodexNotice,
+	codexapp.CodexNotificationWindowsWorldWritableWarning:             handleCodexWindowsWorldWritableWarning,
+	codexapp.CodexNotificationWindowsSandboxSetupCompleted:            handleCodexWindowsSandboxSetupCompleted,
 }
 
 func handleCodexItemStarted(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
@@ -545,10 +549,6 @@ func handleCodexReasoningSummaryPartAdded(message jsonRPCMessage, threadID strin
 
 func handleCodexTurnCompletedNotification(message jsonRPCMessage, threadID string, turnID string, sink TurnSink) (codexNotificationResult, error) {
 	return handleCodexTurnCompleted(message, threadID, turnID, sink)
-}
-
-func ignoreCodexNotification(jsonRPCMessage, string, string, TurnSink) (codexNotificationResult, error) {
-	return codexNotificationResult{}, nil
 }
 
 func handleCodexThreadStarted(message jsonRPCMessage, threadID string, _ string, sink TurnSink) (codexNotificationResult, error) {

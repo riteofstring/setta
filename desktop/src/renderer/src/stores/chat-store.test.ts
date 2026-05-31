@@ -358,96 +358,6 @@ describe("chat store", () => {
     expect(useChatStore.getState().transcript[0]?.run.status).toBe("failed");
   });
 
-  test("execute command updates from the backend page without creating an active run", async () => {
-    const conversation = testConversation();
-    const commandMessage = message(
-      "message_command",
-      1,
-      "command",
-      "complete",
-      "Goal set: tests",
-      "normal",
-      "",
-    );
-    const executeCommand = vi.fn().mockResolvedValue({
-      conversation,
-      message: commandMessage,
-      page: testPage(conversation, [commandMessage], false, goalState("tests", "active")),
-      result: goalCommandResult(),
-    });
-    installSettaAPI({ chat: { executeCommand } });
-    useChatStore.setState({
-      selectedConversation: conversation,
-      status: "ready",
-      workspaceId: "workspace_api",
-    });
-
-    await useChatStore.getState().executeCommand("/goal tests");
-
-    expect(executeCommand).toHaveBeenCalledWith("workspace_api", "conversation_api", "/goal tests");
-    expect(useChatStore.getState().messages.map((item) => item.role)).toContain("command");
-    expect(useChatStore.getState().activeRun).toBeNull();
-    expect(useChatStore.getState().goal?.status).toBe("active");
-  });
-
-  test("execute command uses the backend page running turn as active", async () => {
-    const conversation = testConversation();
-    const commandMessage = message(
-      "message_command",
-      1,
-      "command",
-      "complete",
-      "Goal set: tests",
-      "normal",
-      "",
-    );
-    const userMessage = message(
-      "message_goal_user",
-      2,
-      "user",
-      "complete",
-      "tests",
-      "goal",
-      "run_goal",
-    );
-    const assistantMessage = message(
-      "message_goal_assistant",
-      3,
-      "assistant",
-      "streaming",
-      "working",
-      "normal",
-      "run_goal",
-    );
-    const executeCommand = vi.fn().mockResolvedValue({
-      conversation,
-      message: commandMessage,
-      page: testPage(
-        conversation,
-        [commandMessage, userMessage, assistantMessage],
-        false,
-        goalState("tests", "active"),
-      ),
-      result: goalCommandResult(),
-    });
-    installSettaAPI({ chat: { executeCommand } });
-    useChatStore.setState({
-      selectedConversation: conversation,
-      status: "ready",
-      workspaceId: "workspace_api",
-    });
-
-    await useChatStore.getState().executeCommand("/goal tests");
-
-    expect(useChatStore.getState().activeRun?.id).toBe("run_goal");
-    expect(useChatStore.getState().goal?.status).toBe("active");
-    expect(useChatStore.getState().messages.map((item) => item.id)).toEqual([
-      commandMessage.id,
-      userMessage.id,
-      assistantMessage.id,
-    ]);
-  });
-
   test("execute command response ignores a captured active run that completed before the response", async () => {
     const conversation = testConversation();
     const activeRun = testRun("running", "run_active");
@@ -935,6 +845,40 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
           title: "Goal",
         },
       }),
+      setCodexModel: async () => ({
+        conversation,
+        message: null,
+        page: testPage(conversation, []),
+        result: {
+          action: "display",
+          goal: null,
+          kind: "model",
+          message: "Model set: gpt-test",
+          models: [],
+          raw: "/model",
+          reasoningEfforts: [],
+          selectedReasoningEffort: null,
+          selectedModel: "gpt-test",
+          title: "Model",
+        },
+      }),
+      setCodexReasoningEffort: async () => ({
+        conversation,
+        message: null,
+        page: testPage(conversation, []),
+        result: {
+          action: "display",
+          goal: null,
+          kind: "model",
+          message: "Reasoning set: High",
+          models: [],
+          raw: "/model",
+          reasoningEfforts: [],
+          selectedReasoningEffort: "high",
+          selectedModel: "",
+          title: "Model",
+        },
+      }),
       listCommands: async () => ({
         commands: [
           {
@@ -1226,7 +1170,7 @@ async function waitFor(done: () => boolean) {
   }
 }
 
-function testConversation(): Conversation {
+function testConversation(overrides: Partial<Conversation> = {}): Conversation {
   return {
     archivedAt: "",
     codexSettings: null,
@@ -1237,6 +1181,7 @@ function testConversation(): Conversation {
     title: "API chat",
     updatedAt: "2026-05-29T20:00:00Z",
     workspaceId: "workspace_api",
+    ...overrides,
   };
 }
 

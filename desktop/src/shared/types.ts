@@ -12,6 +12,7 @@ import type {
   MessagePage,
   OpenWorkspaceResponse,
   QueueMessageResult,
+  ReasoningEffort,
   RefreshCodexAccountRequest,
   Run,
   RunActivityPage,
@@ -76,6 +77,10 @@ export type BackendEventStreamStatus =
   | { status: "resyncing"; lastSequence: number; lastStreamId: string; message: string }
   | { status: "stopped"; message: string };
 
+export interface ChatCommandExecutionOptions {
+  confirmGoalReplacement?: boolean;
+}
+
 export interface SettaAPI {
   app: {
     installedEditors: () => Promise<InstalledEditorApp[]>;
@@ -106,6 +111,17 @@ export interface SettaAPI {
       workspaceId: string,
       conversationId: string,
       raw: string,
+      options?: ChatCommandExecutionOptions,
+    ) => Promise<ChatCommandExecuteResult>;
+    setCodexModel: (
+      workspaceId: string,
+      conversationId: string,
+      modelId: string,
+    ) => Promise<ChatCommandExecuteResult>;
+    setCodexReasoningEffort: (
+      workspaceId: string,
+      conversationId: string,
+      effort: ReasoningEffort,
     ) => Promise<ChatCommandExecuteResult>;
     listCommands: (workspaceId: string, conversationId: string) => Promise<ChatCommandListResult>;
     listConversations: (workspaceId: string) => Promise<ListConversationsResponse>;

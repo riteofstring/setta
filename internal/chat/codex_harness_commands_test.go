@@ -2,9 +2,7 @@ package chat
 
 import (
 	"context"
-	"strings"
 	"testing"
-	"time"
 
 	"setta/internal/workspace"
 )
@@ -60,6 +58,36 @@ func TestCodexHarnessBeginsGoalContinuationFromCommandRPC(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessGoalEditOpensEditor(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-goal-edit"))
+	request := testCommandRequest(t, "/goal edit")
+
+	result, err := harness.ExecuteCommand(context.Background(), request)
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if result.Action != ChatCommandResultGoalEditor {
+		t.Fatalf("action = %s, want goal editor", result.Action)
+	}
+	if result.Goal == nil || result.Goal.Objective != "finish renderer tests" {
+		t.Fatalf("goal = %+v, want editable goal", result.Goal)
+	}
+}
+
+func TestCodexHarnessGoalPauseRequiresExistingGoal(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-goal-pause-no-goal"))
+	request := testCommandRequest(t, "/goal pause")
+
+	_, err := harness.ExecuteCommand(context.Background(), request)
+	if err == nil {
+		t.Fatal("pause goal succeeded without goal")
+	}
+	commandErr, ok := IsChatCommandError(err)
+	if !ok || commandErr.Code != ChatCommandErrorGoalNotSet {
+		t.Fatalf("pause goal error = %#v, want no-goal command error", err)
+	}
+}
+
 func TestCodexHarnessExecutesModelListRPCWithoutThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-list"))
 	request := testCommandRequest(t, "/model")
@@ -85,9 +113,30 @@ func TestCodexHarnessExecutesModelListRPCWithoutThread(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessModelListFollowsPaginationAndHidesHiddenModels(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-model-list-paginated"))
+	request := testCommandRequest(t, "/model")
+
+	result, err := harness.ExecuteCommand(context.Background(), request)
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if len(result.Models) != 2 {
+		t.Fatalf("models = %+v, want two visible paginated models", result.Models)
+	}
+	if result.Models[0].Model != "gpt-test" || result.Models[1].Model != "gpt-test-2" {
+		t.Fatalf("models = %+v, want visible models from both pages", result.Models)
+	}
+	for _, model := range result.Models {
+		if model.Hidden {
+			t.Fatalf("models = %+v, want hidden models filtered", result.Models)
+		}
+	}
+}
+
 func TestCodexHarnessStoresReasoningEffortWithoutThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-effort-set-local"))
-	request := testCommandRequest(t, "/model effort xhigh")
+	request := testTypedReasoningEffortCommandRequest(t, ReasoningEffortXHigh)
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
 	if err != nil {
@@ -106,7 +155,7 @@ func TestCodexHarnessStoresReasoningEffortWithoutThread(t *testing.T) {
 
 func TestCodexHarnessStoresModelWithoutThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-set-local"))
-	request := testCommandRequest(t, "/model gpt-test")
+	request := testTypedModelCommandRequest(t, "gpt-test")
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
 	if err != nil {
@@ -166,7 +215,7 @@ func TestCodexHarnessExecutesModelListRPCAgainstLinkedThread(t *testing.T) {
 
 func TestCodexHarnessExecutesModelSetRPCAgainstLinkedThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-set"))
-	request := testCommandRequest(t, "/model gpt-test")
+	request := testTypedModelCommandRequest(t, "gpt-test")
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
@@ -178,29 +227,43 @@ func TestCodexHarnessExecutesModelSetRPCAgainstLinkedThread(t *testing.T) {
 	}
 }
 
-func TestCodexHarnessRequiresModelSettingsUpdatedNotification(t *testing.T) {
+func TestCodexHarnessTreatsModelSettingsUpdateAckAsSuccess(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-set-no-notification"))
-	request := testCommandRequest(t, "/model gpt-test")
+	request := testTypedModelCommandRequest(t, "gpt-test")
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
-	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-	defer cancel()
 
-	_, err := harness.ExecuteCommand(ctx, request)
-	if err == nil {
-		t.Fatal("execute command succeeded, want missing settings update notification error")
+	result, err := harness.ExecuteCommand(context.Background(), request)
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
 	}
-	commandErr, ok := IsChatCommandError(err)
-	if !ok || commandErr.Code != ChatCommandErrorCodexRPC {
-		t.Fatalf("error = %#v, want codex RPC command error", err)
+	if result.SelectedModel != "gpt-test" {
+		t.Fatalf("selected model = %q, want acked model", result.SelectedModel)
 	}
-	if !strings.Contains(err.Error(), "thread/settings/updated") {
-		t.Fatalf("error = %q, want settings updated notification", err)
+}
+
+func TestCodexHarnessDowngradesUnsupportedThreadSettingsUpdate(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-model-set-unsupported-settings-update"))
+	request := testTypedModelCommandRequest(t, "gpt-test")
+	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
+
+	result, err := harness.ExecuteCommand(context.Background(), request)
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if result.SelectedModel != "gpt-test" {
+		t.Fatalf("selected model = %q, want selected model despite unsupported settings update", result.SelectedModel)
+	}
+	if result.CapabilityDiagnostic != codexThreadSettingsUpdateDowngradeDiagnostic {
+		t.Fatalf("capability diagnostic = %q, want downgrade diagnostic", result.CapabilityDiagnostic)
+	}
+	if harness.isThreadSettingsUpdateSupported() {
+		t.Fatal("thread settings update remains supported, want capability downgrade")
 	}
 }
 
 func TestCodexHarnessTreatsCurrentModelSetAsNoop(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-model-set-already-current"))
-	request := testCommandRequest(t, "/model gpt-test")
+	request := testTypedModelCommandRequest(t, "gpt-test")
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
@@ -214,7 +277,7 @@ func TestCodexHarnessTreatsCurrentModelSetAsNoop(t *testing.T) {
 
 func TestCodexHarnessExecutesReasoningEffortSetRPCAgainstLinkedThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-effort-set"))
-	request := testCommandRequest(t, "/model effort high")
+	request := testTypedReasoningEffortCommandRequest(t, ReasoningEffortHigh)
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
@@ -228,7 +291,7 @@ func TestCodexHarnessExecutesReasoningEffortSetRPCAgainstLinkedThread(t *testing
 
 func TestCodexHarnessTreatsCurrentReasoningEffortSetAsNoop(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-effort-set-already-current"))
-	request := testCommandRequest(t, "/model effort high")
+	request := testTypedReasoningEffortCommandRequest(t, ReasoningEffortHigh)
 	request.ThreadRef = HarnessThreadRef{Harness: HarnessCodex, ThreadID: "thread_fake", Status: HarnessRefLinked}
 
 	result, err := harness.ExecuteCommand(context.Background(), request)
@@ -246,6 +309,29 @@ func testCommandRequest(t *testing.T, raw string) HarnessCommandRequest {
 	if err != nil {
 		t.Fatalf("parse command %q: %v", raw, err)
 	}
+	return testCommandRequestFromCommand(t, command)
+}
+
+func testTypedModelCommandRequest(t *testing.T, modelID string) HarnessCommandRequest {
+	t.Helper()
+	command, err := modelSetChatCommand(modelID)
+	if err != nil {
+		t.Fatalf("build model command: %v", err)
+	}
+	return testCommandRequestFromCommand(t, command)
+}
+
+func testTypedReasoningEffortCommandRequest(t *testing.T, effort ReasoningEffort) HarnessCommandRequest {
+	t.Helper()
+	command, err := reasoningEffortSetChatCommand(effort)
+	if err != nil {
+		t.Fatalf("build effort command: %v", err)
+	}
+	return testCommandRequestFromCommand(t, command)
+}
+
+func testCommandRequestFromCommand(t *testing.T, command ChatCommand) HarnessCommandRequest {
+	t.Helper()
 	rootPath := t.TempDir()
 	return HarnessCommandRequest{
 		Command: command,
@@ -265,7 +351,10 @@ func testCommandRequest(t *testing.T, raw string) HarnessCommandRequest {
 func fakeCommandDone(mode string) bool {
 	switch mode {
 	case "command-goal-set",
+		"command-goal-edit",
+		"command-goal-pause-no-goal",
 		"command-model-list",
+		"command-model-list-paginated",
 		"command-model-list-linked",
 		"command-model-set",
 		"command-model-set-local",
@@ -307,7 +396,7 @@ func fakeCommandUsesThread(mode string) bool {
 }
 
 func fakeCommandStartsThread(mode string) bool {
-	return mode == "command-goal-set" || mode == "command-goal-continuation"
+	return mode == "command-goal-set" || mode == "command-goal-continuation" || mode == "command-goal-edit" || mode == "command-goal-pause-no-goal"
 }
 
 func fakeCommandResumesThread(mode string) bool {
@@ -315,6 +404,7 @@ func fakeCommandResumesThread(mode string) bool {
 	case "command-model-list-linked",
 		"command-model-set",
 		"command-model-set-no-notification",
+		"command-model-set-unsupported-settings-update",
 		"command-model-set-already-current",
 		"command-effort-set",
 		"command-effort-set-already-current":
@@ -339,8 +429,8 @@ func assertFakeGoalSet(mode string, message map[string]any) {
 
 func assertFakeModelList(message map[string]any) {
 	params := fakeParams(message)
-	if params["includeHidden"] != true {
-		panic("model list should include hidden models")
+	if params["includeHidden"] != false {
+		panic("model list should hide hidden models by default")
 	}
 }
 
@@ -374,7 +464,7 @@ func assertFakeInitialTurnSettings(message map[string]any) {
 
 func fakeThreadResponseModel(mode string) string {
 	switch mode {
-	case "command-model-set", "command-model-set-no-notification":
+	case "command-model-set", "command-model-set-no-notification", "command-model-set-unsupported-settings-update":
 		return "gpt-old"
 	default:
 		return "gpt-test"

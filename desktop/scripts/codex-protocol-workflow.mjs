@@ -157,6 +157,19 @@ function handleMessage(message) {
       respond(message.id, { goal: null });
       return;
     case "thread/goal/set":
+      respond(message.id, {
+        goal: {
+          createdAt: 0,
+          objective: message.params?.objective ?? "",
+          status: message.params?.status ?? "active",
+          threadId,
+          timeUsedSeconds: 0,
+          tokenBudget: null,
+          tokensUsed: 0,
+          updatedAt: 0,
+        },
+      });
+      return;
     case "thread/goal/clear":
     case "thread/settings/update":
       respond(message.id, {});

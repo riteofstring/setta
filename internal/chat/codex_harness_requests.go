@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"setta/internal/codexapp"
 )
 
 const (
@@ -121,9 +123,9 @@ func structuredInputWithMode(params map[string]any, input StructuredInputRequest
 
 func (harness *CodexHarness) handleImmediateCodexServerRequest(ctx context.Context, message jsonRPCMessage, runID string, threadID string, turnID string, sink TurnSink) error {
 	switch message.Method {
-	case "item/tool/call":
+	case codexapp.CodexServerRequestItemToolCall:
 		return harness.handleCodexDynamicToolCall(ctx, message, runID, threadID, turnID, sink)
-	case "attestation/generate":
+	case codexapp.CodexServerRequestAttestationGenerate:
 		return harness.handleCodexAttestationGenerate(ctx, message, sink)
 	default:
 		return fmt.Errorf("codex request %s is not an immediate request", message.Method)

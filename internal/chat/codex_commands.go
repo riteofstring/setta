@@ -3,15 +3,13 @@ package chat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"setta/internal/codexapp"
 	"setta/internal/workspace"
 )
-
-const codexSettingsUpdatedTimeout = 15 * time.Second
 
 func (harness *CodexHarness) ListCommandCapabilities(_ context.Context, request HarnessCommandListRequest) (HarnessCommandListResult, error) {
 	return HarnessCommandListResult{Commands: defaultCommandCapabilities(request.ActiveRun)}, nil
@@ -232,9 +230,19 @@ type codexCommandThreadSettings struct {
 	ReasoningEffort ReasoningEffort
 }
 
+type codexThreadSettingsUpdateOutcome string
+
+const (
+	codexThreadSettingsUpdateAcked      codexThreadSettingsUpdateOutcome = "acked"
+	codexThreadSettingsUpdateDowngraded codexThreadSettingsUpdateOutcome = "downgraded"
+	codexThreadSettingsUpdateSkipped    codexThreadSettingsUpdateOutcome = "skipped"
+)
+
+const codexThreadSettingsUpdateDowngradeDiagnostic = "Codex does not support live thread settings updates in this session; Setta will stop retrying that experimental update."
+
 func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary, threadRef HarnessThreadRef) (codexCommandThread, error) {
 	if threadRef.ThreadID != "" && threadRef.Status == HarnessRefLinked {
-		result, err := session.Call(ctx, "thread/resume", map[string]any{
+		result, err := session.Call(ctx, codexapp.CodexMethodThreadResume, map[string]any{
 			"approvalPolicy":        "on-request",
 			"approvalsReviewer":     "user",
 			"cwd":                   workspaceSummary.RootPath,
@@ -264,7 +272,7 @@ func (harness *CodexHarness) startOrResumeCommandThread(ctx context.Context, ses
 		return thread, nil
 	}
 
-	result, err := session.Call(ctx, "thread/start", map[string]any{
+	result, err := session.Call(ctx, codexapp.CodexMethodThreadStart, map[string]any{
 		"approvalPolicy":        "on-request",
 		"approvalsReviewer":     "user",
 		"cwd":                   workspaceSummary.RootPath,
@@ -314,7 +322,7 @@ func (harness *CodexHarness) effectiveCodexCommandSettings(ctx context.Context, 
 }
 
 func codexCommandSettingsFromConfig(ctx context.Context, session *codexapp.Session, workspaceSummary workspace.WorkspaceSummary) (codexCommandThreadSettings, error) {
-	raw, err := session.Call(ctx, "config/read", map[string]any{"cwd": workspaceSummary.RootPath})
+	raw, err := session.Call(ctx, codexapp.CodexMethodConfigRead, map[string]any{"cwd": workspaceSummary.RootPath})
 	if err != nil {
 		return codexCommandThreadSettings{}, commandError(ChatCommandErrorCodexRPC, "config/read: "+err.Error(), err)
 	}
@@ -369,7 +377,7 @@ func (harness *CodexHarness) executeCodexCommandRPC(ctx context.Context, session
 	case ChatCommandGoal:
 		return executeCodexGoalCommand(ctx, session, threadID, command)
 	case ChatCommandModel:
-		return executeCodexModelCommand(ctx, session, threadID, currentSettings, command)
+		return harness.executeCodexModelCommand(ctx, session, threadID, currentSettings, command)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorUnsupportedHarness, fmt.Sprintf("codex does not support chat command kind %s", command.Kind), nil)
 	}
@@ -384,51 +392,104 @@ func executeCodexGoalCommand(ctx context.Context, session *codexapp.Session, thr
 	}
 	switch command.Goal.Action {
 	case GoalCommandShow:
-		raw, err := session.Call(ctx, "thread/goal/get", map[string]any{"threadId": threadID})
-		if err != nil {
-			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/goal/get: "+err.Error(), err)
-		}
-		goal, err := goalStateFromResponse(raw)
-		if err != nil {
-			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, "thread/goal/get response: "+err.Error(), err)
-		}
-		return HarnessCommandResult{Action: ChatCommandResultDisplay, Goal: goal}, nil
+		return executeCodexGoalShowCommand(ctx, session, threadID)
+	case GoalCommandEdit:
+		return executeCodexGoalEditCommand(ctx, session, threadID)
 	case GoalCommandSet:
-		raw, err := session.Call(ctx, "thread/goal/set", map[string]any{
-			"objective": command.Goal.Objective,
-			"status":    "active",
-			"threadId":  threadID,
-		})
-		return goalMutationResult(raw, err, "thread/goal/set")
+		return executeCodexGoalSetCommand(ctx, session, threadID, command.Goal.Objective)
 	case GoalCommandClear:
-		_, err := session.Call(ctx, "thread/goal/clear", map[string]any{"threadId": threadID})
-		if err != nil {
-			return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/goal/clear: "+err.Error(), err)
-		}
-		return HarnessCommandResult{Action: ChatCommandResultDisplay}, nil
+		return executeCodexGoalClearCommand(ctx, session, threadID, command.Goal.Action)
 	case GoalCommandPause, GoalCommandResume:
-		raw, err := session.Call(ctx, "thread/goal/set", map[string]any{
-			"status":   command.Goal.Status,
-			"threadId": threadID,
-		})
-		return goalMutationResult(raw, err, "thread/goal/set")
+		return executeCodexGoalStatusCommand(ctx, session, threadID, command.Goal)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported goal command action: %s", command.Goal.Action), nil)
 	}
+}
+
+func executeCodexGoalShowCommand(ctx context.Context, session *codexapp.Session, threadID string) (HarnessCommandResult, error) {
+	goal, err := getCodexGoal(ctx, session, threadID)
+	if err != nil {
+		return HarnessCommandResult{}, err
+	}
+	return HarnessCommandResult{Action: ChatCommandResultDisplay, Goal: goal}, nil
+}
+
+func executeCodexGoalEditCommand(ctx context.Context, session *codexapp.Session, threadID string) (HarnessCommandResult, error) {
+	goal, err := getCodexGoal(ctx, session, threadID)
+	if err != nil {
+		return HarnessCommandResult{}, err
+	}
+	return HarnessCommandResult{Action: ChatCommandResultGoalEditor, Goal: goal}, nil
+}
+
+func executeCodexGoalSetCommand(ctx context.Context, session *codexapp.Session, threadID string, objective string) (HarnessCommandResult, error) {
+	status := codexapp.ThreadGoalStatusActive
+	raw, err := session.Call(ctx, codexapp.CodexMethodThreadGoalSet, codexapp.ThreadGoalSetParams{
+		Objective: &objective,
+		Status:    &status,
+		ThreadID:  threadID,
+	})
+	return goalMutationResult(raw, err, codexapp.CodexMethodThreadGoalSet)
+}
+
+func executeCodexGoalClearCommand(ctx context.Context, session *codexapp.Session, threadID string, action GoalCommandAction) (HarnessCommandResult, error) {
+	if _, err := requireCodexGoal(ctx, session, threadID, action); err != nil {
+		return HarnessCommandResult{}, err
+	}
+	_, err := session.Call(ctx, codexapp.CodexMethodThreadGoalClear, codexapp.ThreadGoalClearParams{ThreadID: threadID})
+	if err != nil {
+		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/goal/clear: "+err.Error(), err)
+	}
+	return HarnessCommandResult{Action: ChatCommandResultDisplay}, nil
+}
+
+func executeCodexGoalStatusCommand(ctx context.Context, session *codexapp.Session, threadID string, goal *GoalCommand) (HarnessCommandResult, error) {
+	if _, err := requireCodexGoal(ctx, session, threadID, goal.Action); err != nil {
+		return HarnessCommandResult{}, err
+	}
+	status := codexapp.ThreadGoalStatus(goal.Status)
+	raw, err := session.Call(ctx, codexapp.CodexMethodThreadGoalSet, codexapp.ThreadGoalSetParams{
+		Status:   &status,
+		ThreadID: threadID,
+	})
+	return goalMutationResult(raw, err, codexapp.CodexMethodThreadGoalSet)
+}
+
+func requireCodexGoal(ctx context.Context, session *codexapp.Session, threadID string, action GoalCommandAction) (*ChatGoalState, error) {
+	goal, err := getCodexGoal(ctx, session, threadID)
+	if err != nil {
+		return nil, err
+	}
+	if goal == nil {
+		return nil, noGoalCommandError(action)
+	}
+	return goal, nil
+}
+
+func getCodexGoal(ctx context.Context, session *codexapp.Session, threadID string) (*ChatGoalState, error) {
+	raw, err := session.Call(ctx, codexapp.CodexMethodThreadGoalGet, codexapp.ThreadGoalGetParams{ThreadID: threadID})
+	if err != nil {
+		return nil, commandError(ChatCommandErrorCodexRPC, "thread/goal/get: "+err.Error(), err)
+	}
+	goal, err := goalStateFromGetResponse(raw)
+	if err != nil {
+		return nil, commandError(ChatCommandErrorCodexProviderDrift, "thread/goal/get response: "+err.Error(), err)
+	}
+	return goal, nil
 }
 
 func goalMutationResult(raw json.RawMessage, rpcErr error, method string) (HarnessCommandResult, error) {
 	if rpcErr != nil {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, method+": "+rpcErr.Error(), rpcErr)
 	}
-	goal, err := goalStateFromResponse(raw)
+	goal, err := goalStateFromSetResponse(raw)
 	if err != nil {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, method+" response: "+err.Error(), err)
 	}
 	return HarnessCommandResult{Action: ChatCommandResultDisplay, Goal: goal}, nil
 }
 
-func executeCodexModelCommand(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, command ChatCommand) (HarnessCommandResult, error) {
+func (harness *CodexHarness) executeCodexModelCommand(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, command ChatCommand) (HarnessCommandResult, error) {
 	if command.Model == nil {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "model command payload is required", nil)
 	}
@@ -436,25 +497,21 @@ func executeCodexModelCommand(ctx context.Context, session *codexapp.Session, th
 	case ModelCommandShowPicker:
 		return executeCodexModelPickerCommand(ctx, session, currentSettings)
 	case ModelCommandSet:
-		return executeCodexModelSetCommand(ctx, session, threadID, currentSettings, command.Model.ModelID)
+		return harness.executeCodexModelSetCommand(ctx, session, threadID, currentSettings, command.Model.ModelID)
 	case ModelCommandSetEffort:
 		if command.Model.ReasoningEffort == nil {
 			return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, "reasoning effort is required", nil)
 		}
-		return executeCodexEffortSetCommand(ctx, session, threadID, currentSettings, *command.Model.ReasoningEffort)
+		return harness.executeCodexEffortSetCommand(ctx, session, threadID, currentSettings, *command.Model.ReasoningEffort)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported model command action: %s", command.Model.Action), nil)
 	}
 }
 
 func executeCodexModelPickerCommand(ctx context.Context, session *codexapp.Session, currentSettings codexCommandThreadSettings) (HarnessCommandResult, error) {
-	raw, err := session.Call(ctx, "model/list", map[string]any{"includeHidden": true})
+	models, err := listCodexModelOptions(ctx, session)
 	if err != nil {
-		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "model/list: "+err.Error(), err)
-	}
-	models, err := modelOptionsFromResponse(raw)
-	if err != nil {
-		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexProviderDrift, "model/list response: "+err.Error(), err)
+		return HarnessCommandResult{}, err
 	}
 	return HarnessCommandResult{
 		Action:                  ChatCommandResultModelPicker,
@@ -465,7 +522,40 @@ func executeCodexModelPickerCommand(ctx context.Context, session *codexapp.Sessi
 	}, nil
 }
 
-func executeCodexModelSetCommand(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, modelID string) (HarnessCommandResult, error) {
+func listCodexModelOptions(ctx context.Context, session *codexapp.Session) ([]ChatModelOption, error) {
+	includeHidden := false
+	var cursor *string
+	models := []ChatModelOption{}
+	for {
+		raw, err := session.Call(ctx, codexapp.CodexMethodModelList, codexapp.ModelListParams{
+			Cursor:        cursor,
+			IncludeHidden: &includeHidden,
+		})
+		if err != nil {
+			return nil, commandError(ChatCommandErrorCodexRPC, "model/list: "+err.Error(), err)
+		}
+		page, err := modelListResponseFromResponse(raw)
+		if err != nil {
+			return nil, commandError(ChatCommandErrorCodexProviderDrift, "model/list response: "+err.Error(), err)
+		}
+		for index, item := range page.Data {
+			model, err := modelOptionFromCodex(item, index)
+			if err != nil {
+				return nil, commandError(ChatCommandErrorCodexProviderDrift, "model/list response: "+err.Error(), err)
+			}
+			if model.Hidden {
+				continue
+			}
+			models = append(models, model)
+		}
+		if page.NextCursor == nil || *page.NextCursor == "" {
+			return models, nil
+		}
+		cursor = page.NextCursor
+	}
+}
+
+func (harness *CodexHarness) executeCodexModelSetCommand(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, modelID string) (HarnessCommandResult, error) {
 	if threadID == "" {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is required to set the model", nil)
 	}
@@ -475,21 +565,25 @@ func executeCodexModelSetCommand(ctx context.Context, session *codexapp.Session,
 			ReasoningEffort: currentSettings.ReasoningEffort,
 		}), nil
 	}
-	_, err := session.Call(ctx, "thread/settings/update", map[string]any{
-		"model":    modelID,
-		"threadId": threadID,
-	})
-	if err != nil {
-		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
+	settings := codexCommandThreadSettings{
+		Model:           modelID,
+		ReasoningEffort: currentSettings.ReasoningEffort,
 	}
-	settings, err := waitForCodexThreadSettingsUpdated(ctx, session, threadID, codexCommandThreadSettings{Model: modelID})
+	outcome, err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
+		Model:    &modelID,
+		ThreadID: threadID,
+	})
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
-	return codexSettingsCommandResult(settings), nil
+	result := codexSettingsCommandResult(settings)
+	if outcome == codexThreadSettingsUpdateDowngraded {
+		result.CapabilityDiagnostic = codexThreadSettingsUpdateDowngradeDiagnostic
+	}
+	return result, nil
 }
 
-func executeCodexEffortSetCommand(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, effort ReasoningEffort) (HarnessCommandResult, error) {
+func (harness *CodexHarness) executeCodexEffortSetCommand(ctx context.Context, session *codexapp.Session, threadID string, currentSettings codexCommandThreadSettings, effort ReasoningEffort) (HarnessCommandResult, error) {
 	if threadID == "" {
 		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexThread, "codex thread is required to set reasoning effort", nil)
 	}
@@ -499,18 +593,75 @@ func executeCodexEffortSetCommand(ctx context.Context, session *codexapp.Session
 			ReasoningEffort: effort,
 		}), nil
 	}
-	_, err := session.Call(ctx, "thread/settings/update", map[string]any{
-		"effort":   string(effort),
-		"threadId": threadID,
-	})
-	if err != nil {
-		return HarnessCommandResult{}, commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
+	codexEffort := codexapp.ReasoningEffort(effort)
+	settings := codexCommandThreadSettings{
+		Model:           currentSettings.Model,
+		ReasoningEffort: effort,
 	}
-	settings, err := waitForCodexThreadSettingsUpdated(ctx, session, threadID, codexCommandThreadSettings{ReasoningEffort: effort})
+	outcome, err := harness.callThreadSettingsUpdate(ctx, session, codexapp.ThreadSettingsUpdateParams{
+		Effort:   &codexEffort,
+		ThreadID: threadID,
+	})
 	if err != nil {
 		return HarnessCommandResult{}, err
 	}
-	return codexSettingsCommandResult(settings), nil
+	result := codexSettingsCommandResult(settings)
+	if outcome == codexThreadSettingsUpdateDowngraded {
+		result.CapabilityDiagnostic = codexThreadSettingsUpdateDowngradeDiagnostic
+	}
+	return result, nil
+}
+
+func (harness *CodexHarness) callThreadSettingsUpdate(ctx context.Context, session *codexapp.Session, params codexapp.ThreadSettingsUpdateParams) (codexThreadSettingsUpdateOutcome, error) {
+	if !harness.isThreadSettingsUpdateSupported() {
+		return codexThreadSettingsUpdateSkipped, nil
+	}
+	_, err := session.Call(ctx, codexapp.CodexMethodThreadSettingsUpdate, params)
+	if err == nil {
+		return codexThreadSettingsUpdateAcked, nil
+	}
+	if isThreadSettingsUpdateUnsupported(err) {
+		harness.disableThreadSettingsUpdate()
+		return codexThreadSettingsUpdateDowngraded, nil
+	}
+	return codexThreadSettingsUpdateSkipped, commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
+}
+
+func (harness *CodexHarness) isThreadSettingsUpdateSupported() bool {
+	harness.threadSettingsUpdateMu.Lock()
+	defer harness.threadSettingsUpdateMu.Unlock()
+	return harness.threadSettingsUpdateSupported
+}
+
+func (harness *CodexHarness) disableThreadSettingsUpdate() {
+	harness.threadSettingsUpdateMu.Lock()
+	defer harness.threadSettingsUpdateMu.Unlock()
+	harness.threadSettingsUpdateSupported = false
+}
+
+const (
+	codexJSONRPCErrorInvalidRequest = -32600
+	codexJSONRPCErrorMethodNotFound = -32601
+)
+
+func isThreadSettingsUpdateUnsupported(err error) bool {
+	var rpcErr *codexapp.RPCError
+	if !errors.As(err, &rpcErr) {
+		return false
+	}
+	if rpcErr.Code == codexJSONRPCErrorMethodNotFound {
+		return true
+	}
+	if rpcErr.Code != codexJSONRPCErrorInvalidRequest {
+		return false
+	}
+	switch rpcErr.Message {
+	case "thread/settings/update requires experimentalApi capability",
+		"Invalid request: unknown variant `thread/settings/update`":
+		return true
+	default:
+		return false
+	}
 }
 
 func codexSettingsCommandResult(settings codexCommandThreadSettings) HarnessCommandResult {
@@ -519,71 +670,6 @@ func codexSettingsCommandResult(settings codexCommandThreadSettings) HarnessComm
 		SelectedModel:           settings.Model,
 		SelectedReasoningEffort: reasoningEffortResult(settings.ReasoningEffort),
 	}
-}
-
-func waitForCodexThreadSettingsUpdated(ctx context.Context, session *codexapp.Session, threadID string, expected codexCommandThreadSettings) (codexCommandThreadSettings, error) {
-	waitCtx, cancel := context.WithTimeout(ctx, codexSettingsUpdatedTimeout)
-	defer cancel()
-
-	for {
-		select {
-		case <-waitCtx.Done():
-			return codexCommandThreadSettings{}, commandError(
-				ChatCommandErrorCodexRPC,
-				fmt.Sprintf("thread/settings/update did not emit matching thread/settings/updated for thread %s: %v", threadID, waitCtx.Err()),
-				waitCtx.Err(),
-			)
-		case event, ok := <-session.Events():
-			settings, matched, err := codexSettingsUpdateFromEvent(event, ok, threadID, expected)
-			if err != nil {
-				return codexCommandThreadSettings{}, err
-			}
-			if !matched {
-				continue
-			}
-			return settings, nil
-		}
-	}
-}
-
-func codexSettingsUpdateFromEvent(event codexapp.Event, ok bool, threadID string, expected codexCommandThreadSettings) (codexCommandThreadSettings, bool, error) {
-	if !ok {
-		err := fmt.Errorf("codex app-server session closed before thread/settings/updated")
-		return codexCommandThreadSettings{}, false, commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
-	}
-	if event.Kind == codexapp.EventLifecycle {
-		err := fmt.Errorf("codex app-server exited before thread/settings/updated: %w", event.Err)
-		return codexCommandThreadSettings{}, false, commandError(ChatCommandErrorCodexRPC, "thread/settings/update: "+err.Error(), err)
-	}
-	if event.Kind != codexapp.EventNotification || event.Message.Method != "thread/settings/updated" {
-		return codexCommandThreadSettings{}, false, nil
-	}
-	settings, err := codexThreadSettingsFromNotification(event.Message, threadID)
-	if err != nil {
-		return codexCommandThreadSettings{}, false, commandError(ChatCommandErrorCodexProviderDrift, "thread/settings/updated notification: "+err.Error(), err)
-	}
-	if err := requireCodexExpectedSettings(settings, expected); err != nil {
-		return codexCommandThreadSettings{}, false, err
-	}
-	return settings, true, nil
-}
-
-func requireCodexExpectedSettings(settings codexCommandThreadSettings, expected codexCommandThreadSettings) error {
-	if expected.Model != "" && settings.Model != expected.Model {
-		return commandError(
-			ChatCommandErrorCodexProviderDrift,
-			fmt.Sprintf("thread/settings/updated selected model %s, want %s", settings.Model, expected.Model),
-			nil,
-		)
-	}
-	if expected.ReasoningEffort != "" && settings.ReasoningEffort != expected.ReasoningEffort {
-		return commandError(
-			ChatCommandErrorCodexProviderDrift,
-			fmt.Sprintf("thread/settings/updated selected reasoning effort %s, want %s", settings.ReasoningEffort, expected.ReasoningEffort),
-			nil,
-		)
-	}
-	return nil
 }
 
 func commandThreadFromResponse(raw json.RawMessage) (codexCommandThread, error) {
@@ -625,170 +711,94 @@ func commandThreadFromResponse(raw json.RawMessage) (codexCommandThread, error) 
 	}, nil
 }
 
-func goalStateFromResponse(raw json.RawMessage) (*ChatGoalState, error) {
-	response, err := objectValue(raw, "codex goal response")
-	if err != nil {
-		return nil, err
+func goalStateFromGetResponse(raw json.RawMessage) (*ChatGoalState, error) {
+	var response codexapp.ThreadGoalGetResponse
+	if err := json.Unmarshal(raw, &response); err != nil {
+		return nil, fmt.Errorf("codex goal response must match protocol: %w", err)
 	}
-	rawGoal, ok := response["goal"]
-	if !ok || rawGoal == nil {
+	if response.Goal == nil {
 		return nil, nil
 	}
-	goal, ok := rawGoal.(map[string]any)
-	if !ok {
-		return nil, fmt.Errorf("codex goal response.goal must be an object")
-	}
-	return goalStateFromObject(goal, "codex goal response goal")
+	return goalStateFromCodex(*response.Goal)
 }
 
-func goalStateFromObject(goal map[string]any, label string) (*ChatGoalState, error) {
-	threadID, err := requireString(goal, "threadId", label)
-	if err != nil {
-		return nil, err
+func goalStateFromSetResponse(raw json.RawMessage) (*ChatGoalState, error) {
+	var response codexapp.ThreadGoalSetResponse
+	if err := json.Unmarshal(raw, &response); err != nil {
+		return nil, fmt.Errorf("codex goal response must match protocol: %w", err)
 	}
-	objective, err := requireStringAllowEmpty(goal, "objective", label)
-	if err != nil {
-		return nil, err
-	}
-	status, err := requireString(goal, "status", label)
-	if err != nil {
-		return nil, err
-	}
+	return goalStateFromCodex(response.Goal)
+}
+
+func goalStateFromCodex(goal codexapp.ThreadGoal) (*ChatGoalState, error) {
+	status := string(goal.Status)
 	if _, ok := codexThreadGoalStatuses[status]; !ok {
 		return nil, fmt.Errorf("unsupported codex thread goal status: %s", status)
 	}
-	tokenBudget, err := optionalIntPointer(goal, "tokenBudget", label)
-	if err != nil {
-		return nil, err
-	}
-	tokensUsed, err := optionalInt(goal, "tokensUsed", label)
-	if err != nil {
-		return nil, err
-	}
-	timeUsedSeconds, err := optionalInt(goal, "timeUsedSeconds", label)
-	if err != nil {
-		return nil, err
-	}
-	createdAt, err := optionalInt(goal, "createdAt", label)
-	if err != nil {
-		return nil, err
-	}
-	updatedAt, err := optionalInt(goal, "updatedAt", label)
-	if err != nil {
-		return nil, err
-	}
 	return &ChatGoalState{
-		CreatedAt:       createdAt,
-		Objective:       objective,
+		CreatedAt:       goal.CreatedAt,
+		Objective:       goal.Objective,
 		Status:          status,
-		ThreadID:        threadID,
-		TimeUsedSeconds: timeUsedSeconds,
-		TokenBudget:     tokenBudget,
-		TokensUsed:      tokensUsed,
-		UpdatedAt:       updatedAt,
+		ThreadID:        goal.ThreadID,
+		TimeUsedSeconds: goal.TimeUsedSeconds,
+		TokenBudget:     goal.TokenBudget,
+		TokensUsed:      goal.TokensUsed,
+		UpdatedAt:       goal.UpdatedAt,
 	}, nil
 }
 
-func modelOptionsFromResponse(raw json.RawMessage) ([]ChatModelOption, error) {
-	response, err := objectValue(raw, "codex model list response")
-	if err != nil {
-		return nil, err
+func modelListResponseFromResponse(raw json.RawMessage) (codexapp.ModelListResponse, error) {
+	var response codexapp.ModelListResponse
+	if err := json.Unmarshal(raw, &response); err != nil {
+		return codexapp.ModelListResponse{}, fmt.Errorf("codex model list response must match protocol: %w", err)
 	}
-	rawData, ok := response["data"]
-	if !ok || rawData == nil {
-		return nil, fmt.Errorf("codex model list response.data is required")
+	if response.Data == nil {
+		return codexapp.ModelListResponse{}, fmt.Errorf("codex model list response.data is required")
 	}
-	items, ok := rawData.([]any)
-	if !ok {
-		return nil, fmt.Errorf("codex model list response.data must be an array")
-	}
-	models := make([]ChatModelOption, 0, len(items))
-	for index, rawItem := range items {
-		item, ok := rawItem.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("codex model list response.data[%d] must be an object", index)
-		}
-		model, err := modelOptionFromObject(item, index)
-		if err != nil {
-			return nil, err
-		}
-		models = append(models, model)
-	}
-	return models, nil
+	return response, nil
 }
 
-func modelOptionFromObject(item map[string]any, index int) (ChatModelOption, error) {
+func modelOptionFromCodex(item codexapp.Model, index int) (ChatModelOption, error) {
 	label := fmt.Sprintf("codex model list response.data[%d]", index)
-	id, err := requireString(item, "id", label)
-	if err != nil {
-		return ChatModelOption{}, err
+	if item.ID == "" {
+		return ChatModelOption{}, fmt.Errorf("%s.id is required", label)
 	}
-	model, err := requireString(item, "model", label)
-	if err != nil {
-		return ChatModelOption{}, err
+	if item.Model == "" {
+		return ChatModelOption{}, fmt.Errorf("%s.model is required", label)
 	}
-	displayName, err := requireString(item, "displayName", label)
-	if err != nil {
-		return ChatModelOption{}, err
+	if item.DisplayName == "" {
+		return ChatModelOption{}, fmt.Errorf("%s.displayName is required", label)
 	}
-	description, err := requireStringAllowEmpty(item, "description", label)
-	if err != nil {
-		return ChatModelOption{}, err
+	defaultReasoningEffort := ReasoningEffort(item.DefaultReasoningEffort)
+	if !validValue(defaultReasoningEffort, reasoningEffortValues) {
+		return ChatModelOption{}, fmt.Errorf("%s.defaultReasoningEffort has unsupported reasoning effort %s", label, item.DefaultReasoningEffort)
 	}
-	hidden, err := requireBool(item, "hidden", label)
-	if err != nil {
-		return ChatModelOption{}, err
-	}
-	isDefault, err := requireBool(item, "isDefault", label)
-	if err != nil {
-		return ChatModelOption{}, err
-	}
-	defaultReasoningEffort, err := requireReasoningEffort(item, "defaultReasoningEffort", label)
-	if err != nil {
-		return ChatModelOption{}, err
-	}
-	supportedReasoningEfforts, err := reasoningEffortOptionsFromObject(item, defaultReasoningEffort, label)
+	supportedReasoningEfforts, err := reasoningEffortOptionsFromCodex(item.SupportedReasoningEfforts, defaultReasoningEffort, label)
 	if err != nil {
 		return ChatModelOption{}, err
 	}
 	return ChatModelOption{
 		DefaultReasoningEffort:    defaultReasoningEffort,
-		Description:               description,
-		DisplayName:               displayName,
-		Hidden:                    hidden,
-		ID:                        id,
-		IsDefault:                 isDefault,
-		Model:                     model,
+		Description:               item.Description,
+		DisplayName:               item.DisplayName,
+		Hidden:                    item.Hidden,
+		ID:                        item.ID,
+		IsDefault:                 item.IsDefault,
+		Model:                     item.Model,
 		SupportedReasoningEfforts: supportedReasoningEfforts,
 	}, nil
 }
 
-func reasoningEffortOptionsFromObject(item map[string]any, defaultEffort ReasoningEffort, label string) ([]ChatReasoningEffortOption, error) {
-	rawSupported, ok := item["supportedReasoningEfforts"]
-	if !ok || rawSupported == nil {
-		return nil, fmt.Errorf("%s.supportedReasoningEfforts is required", label)
-	}
-	items, ok := rawSupported.([]any)
-	if !ok {
-		return nil, fmt.Errorf("%s.supportedReasoningEfforts must be an array", label)
-	}
+func reasoningEffortOptionsFromCodex(items []codexapp.ReasoningEffortOption, defaultEffort ReasoningEffort, label string) ([]ChatReasoningEffortOption, error) {
 	options := make([]ChatReasoningEffortOption, 0, len(items))
-	for index, rawOption := range items {
-		option, ok := rawOption.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("%s.supportedReasoningEfforts[%d] must be an object", label, index)
-		}
+	for index, option := range items {
 		optionLabel := fmt.Sprintf("%s.supportedReasoningEfforts[%d]", label, index)
-		effort, err := requireReasoningEffort(option, "reasoningEffort", optionLabel)
-		if err != nil {
-			return nil, err
-		}
-		description, err := requireStringAllowEmpty(option, "description", optionLabel)
-		if err != nil {
-			return nil, err
+		effort := ReasoningEffort(option.ReasoningEffort)
+		if !validValue(effort, reasoningEffortValues) {
+			return nil, fmt.Errorf("%s.reasoningEffort has unsupported reasoning effort %s", optionLabel, option.ReasoningEffort)
 		}
 		options = append(options, ChatReasoningEffortOption{
-			Description: description,
+			Description: option.Description,
 			DisplayName: reasoningEffortDisplayName(effort),
 			Effort:      effort,
 			IsDefault:   effort == defaultEffort,
@@ -812,18 +822,6 @@ func reasoningEffortsForSelectedModel(models []ChatModelOption, selectedModel st
 		return []ChatReasoningEffortOption{}
 	}
 	return models[0].SupportedReasoningEfforts
-}
-
-func requireReasoningEffort(value map[string]any, name string, label string) (ReasoningEffort, error) {
-	raw, err := requireString(value, name, label)
-	if err != nil {
-		return "", err
-	}
-	effort := ReasoningEffort(raw)
-	if !validValue(effort, reasoningEffortValues) {
-		return "", fmt.Errorf("%s.%s has unsupported reasoning effort %s", label, name, raw)
-	}
-	return effort, nil
 }
 
 func optionalReasoningEffort(value map[string]any, name string, label string) (ReasoningEffort, error) {

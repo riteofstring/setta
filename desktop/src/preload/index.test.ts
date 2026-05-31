@@ -137,6 +137,8 @@ describe("preload workspace API", () => {
       "runActivity",
       "runItemOutput",
       "sendMessage",
+      "setCodexModel",
+      "setCodexReasoningEffort",
       "steerMessage",
       "submitApproval",
     ]);
@@ -145,11 +147,16 @@ describe("preload workspace API", () => {
     await api.chat.createConversation("workspace_api", "Plan");
     await api.chat.listCommands("workspace_api", "conversation_api");
     await api.chat.executeCommand("workspace_api", "conversation_api", "/goal");
+    await api.chat.executeCommand("workspace_api", "conversation_api", "/goal replacement", {
+      confirmGoalReplacement: true,
+    });
     await api.chat.messagePage("workspace_api", "conversation_api", 10, 40);
     await api.chat.queueMessage("workspace_api", "conversation_api", "queued");
     await api.chat.runActivity("workspace_api", "run_api", 100);
     await api.chat.runItemOutput("workspace_api", "run_api", "item_api", 0, 100);
     await api.chat.sendMessage("workspace_api", "conversation_api", "hello");
+    await api.chat.setCodexModel("workspace_api", "conversation_api", "gpt-test");
+    await api.chat.setCodexReasoningEffort("workspace_api", "conversation_api", "high");
     await api.chat.steerMessage("workspace_api", "conversation_api", "steer");
     await api.chat.cancelRun("workspace_api", "conversation_api");
     await api.chat.activeRun("workspace_api", "conversation_api");
@@ -191,9 +198,18 @@ describe("preload workspace API", () => {
       "workspace_api",
       "conversation_api",
       "/goal",
+      false,
     );
     expect(invoke).toHaveBeenNthCalledWith(
       5,
+      ipcChannels.chatExecuteCommand,
+      "workspace_api",
+      "conversation_api",
+      "/goal replacement",
+      true,
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      6,
       ipcChannels.chatMessagePage,
       "workspace_api",
       "conversation_api",
@@ -201,21 +217,21 @@ describe("preload workspace API", () => {
       40,
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      6,
+      7,
       ipcChannels.chatQueueMessage,
       "workspace_api",
       "conversation_api",
       "queued",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      7,
+      8,
       ipcChannels.chatRunActivity,
       "workspace_api",
       "run_api",
       100,
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      8,
+      9,
       ipcChannels.chatRunItemOutput,
       "workspace_api",
       "run_api",
@@ -224,32 +240,46 @@ describe("preload workspace API", () => {
       100,
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      9,
+      10,
       ipcChannels.chatSendMessage,
       "workspace_api",
       "conversation_api",
       "hello",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      10,
+      11,
+      ipcChannels.chatSetCodexModel,
+      "workspace_api",
+      "conversation_api",
+      "gpt-test",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      12,
+      ipcChannels.chatSetCodexReasoningEffort,
+      "workspace_api",
+      "conversation_api",
+      "high",
+    );
+    expect(invoke).toHaveBeenNthCalledWith(
+      13,
       ipcChannels.chatSteerMessage,
       "workspace_api",
       "conversation_api",
       "steer",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      11,
+      14,
       ipcChannels.chatCancelRun,
       "workspace_api",
       "conversation_api",
     );
     expect(invoke).toHaveBeenNthCalledWith(
-      12,
+      15,
       ipcChannels.chatActiveRun,
       "workspace_api",
       "conversation_api",
     );
-    expect(invoke).toHaveBeenNthCalledWith(13, ipcChannels.chatSubmitApproval, {
+    expect(invoke).toHaveBeenNthCalledWith(16, ipcChannels.chatSubmitApproval, {
       approvalId: "approval_api",
       approved: true,
       answers: [],

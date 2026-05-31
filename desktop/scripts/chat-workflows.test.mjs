@@ -13,18 +13,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import {
   assertNoCriticalDiagnostics,
   assertRendererQueueMatchesBackend,
-  clickModelByText,
-  clickReasoningEffortByText,
-  dispatchDocumentEscape,
-  waitForComposerFocus,
-  waitForModelPicker,
-  waitForModelPickerAbsent,
-  waitForSelectedModel,
-  waitForSelectedReasoningEffort,
 } from "./chat-workflow-assertions.mjs";
 import { runLiveCodexWorkflow } from "./chat-live-workflow.mjs";
 import { runPostCompletionActiveRunWorkflow } from "./chat-workflow-lifecycle-cases.mjs";
 import { runProtocolApprovalWorkflows } from "./chat-workflow-approval-cases.mjs";
+import { runSlashCommandWorkflow } from "./chat-workflow-slash-cases.mjs";
 import { CDPClient } from "./cdp-client.mjs";
 import {
   assertProtocolNotificationActivity,
@@ -173,7 +166,30 @@ async function runDeterministicWorkflowLaunch(results) {
     });
     await runWorkflowStep(results, recordingDir, "slash-commands", context.client, async () => {
       const conversationId = await createChat(context.client, backend, workspaceId);
-      await runSlashCommandWorkflow(context.client, backend, workspaceId, conversationId);
+      await runSlashCommandWorkflow({
+        assertAssistantCompleted,
+        assertChatLayout,
+        assertNoActiveRun,
+        assertNoLinkedCodexRef,
+        assertNoRunWithPrompt,
+        assertNoVisibleUserMessage,
+        assertTextAbsent,
+        assertTranscriptSequence,
+        backend,
+        clickButtonByAria,
+        client: context.client,
+        conversationId,
+        submitComposer,
+        waitForCommandResult,
+        waitForGoalStatus,
+        waitForLinkedCodexRef,
+        waitForRunStatus,
+        waitForRunWithPrompt,
+        waitForState,
+        waitForText,
+        waitForTexts,
+        workspaceId,
+      });
     });
   } catch (error) {
     failure = error;
@@ -200,6 +216,8 @@ async function runDeterministicWorkflowLaunch(results) {
       "/chat/approvals/submit",
       "/chat/commands/list",
       "/chat/commands/execute",
+      "/chat/codex/model/set",
+      "/chat/codex/reasoning-effort/set",
       "/codex/account",
       "/codex/account/login/start",
       "/codex/account/logout",
@@ -214,6 +232,8 @@ async function runDeterministicWorkflowLaunch(results) {
       "chat:submit-approval",
       "chat:list-commands",
       "chat:execute-command",
+      "chat:set-codex-model",
+      "chat:set-codex-reasoning-effort",
       "codex-account:logout",
       "codex-account:read",
       "codex-account:start-login",
@@ -571,144 +591,6 @@ async function runApprovalsWorkflow(client, backend, workspaceId, conversationId
   await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
 }
 
-async function runSlashCommandWorkflow(client, backend, workspaceId, conversationId) {
-  await submitComposer(client, "/model scripted-careful", "Send message");
-  await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-careful");
-  await assertNoLinkedCodexRef(backend, workspaceId, conversationId);
-  await submitComposer(client, "/model effort high", "Send message");
-  await waitForCommandResult(backend, workspaceId, conversationId, "Reasoning set: High");
-  await assertNoLinkedCodexRef(backend, workspaceId, conversationId);
-  await submitComposer(client, "pre-turn model setting workflow", "Send message");
-  const preTurnModelRun = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "pre-turn model setting workflow",
-    "completed",
-  );
-  await assertAssistantCompleted(backend, workspaceId, conversationId, preTurnModelRun.id);
-  await waitForTexts(client, [
-    "Model for next turn: scripted-careful. Reasoning for next turn: High.",
-  ]);
-
-  await submitComposer(client, "/goal finish renderer tests", "Send message");
-  await waitForCommandResult(
-    backend,
-    workspaceId,
-    conversationId,
-    "Goal set: finish renderer tests",
-  );
-  await waitForTexts(client, ["Goal set: finish renderer tests"]);
-  await waitForLinkedCodexRef(backend, workspaceId, conversationId);
-  const goalRun = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "finish renderer tests",
-    "completed",
-  );
-  await assertAssistantCompleted(backend, workspaceId, conversationId, goalRun.id);
-  await waitForGoalStatus(backend, workspaceId, conversationId, "complete");
-  await waitForTexts(client, ["Scripted response: finish renderer tests"]);
-  await waitForTexts(client, ["Goal complete"]);
-  await assertNoVisibleUserMessage(client, "finish renderer tests");
-
-  await submitComposer(client, "workflow hold for queue and steering", "Send message");
-  const activeRun = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "workflow hold for queue and steering",
-    "running",
-  );
-  await waitForText(client, "Workflow stream started.");
-  await submitComposer(client, "/goal pause", "Send steering message");
-  await waitForCommandResult(backend, workspaceId, conversationId, "Goal paused.");
-  await waitForGoalStatus(backend, workspaceId, conversationId, "paused");
-  await waitForTexts(client, ["Goal paused.", "Workflow stream started."]);
-  await assertNoRunWithPrompt(backend, workspaceId, conversationId, "/goal pause");
-  await assertTextAbsent(client, "Steered with /goal pause.");
-  await submitComposer(client, "finish after slash command", "Send steering message");
-  await waitForTexts(client, [
-    "Steered with finish after slash command.",
-    "Active workflow complete.",
-  ]);
-  await waitForRunStatus(backend, workspaceId, conversationId, activeRun.id, "completed");
-  await assertNoActiveRun(backend, workspaceId, conversationId);
-
-  await submitComposer(client, "/model", "Send message");
-  await waitForModelPicker(waitForState, client);
-  await clickModelByText(waitForState, client, "scripted-fast");
-  await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-fast");
-  await waitForTexts(client, ["Model set: scripted-fast"]);
-  await submitComposer(client, "/model", "Send message");
-  await waitForSelectedModel(waitForState, client, "scripted-fast");
-  await waitForSelectedReasoningEffort(waitForState, client, "High");
-  await clickReasoningEffortByText(waitForState, client, "High");
-  await waitForCommandResult(backend, workspaceId, conversationId, "Reasoning set: High");
-  await waitForTexts(client, ["Reasoning set: High"]);
-  await submitComposer(client, "/model", "Send message");
-  await waitForSelectedModel(waitForState, client, "scripted-fast");
-  await waitForSelectedReasoningEffort(waitForState, client, "High");
-  await waitForComposerFocus(waitForState, client);
-  await clickButtonByAria(client, "Close model picker");
-  await waitForModelPickerAbsent(waitForState, client);
-  await submitComposer(client, "/model", "Send message");
-  await waitForSelectedModel(waitForState, client, "scripted-fast");
-  await dispatchDocumentEscape(client);
-  await waitForModelPickerAbsent(waitForState, client);
-
-  await submitComposer(client, "/model scripted-careful", "Send message");
-  await waitForCommandResult(backend, workspaceId, conversationId, "Model set: scripted-careful");
-  await assertNoRunWithPrompt(backend, workspaceId, conversationId, "/model scripted-careful");
-  await submitComposer(client, "model setting workflow", "Send message");
-  const modelRun = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "model setting workflow",
-    "completed",
-  );
-  await assertAssistantCompleted(backend, workspaceId, conversationId, modelRun.id);
-  await waitForTexts(client, [
-    "Model for next turn: scripted-careful. Reasoning for next turn: High.",
-  ]);
-
-  await submitComposer(client, "workflow hold for queue and steering", "Send message");
-  const secondRun = await waitForRunWithPrompt(
-    backend,
-    workspaceId,
-    conversationId,
-    "workflow hold for queue and steering",
-    "running",
-  );
-  await waitForText(client, "Workflow stream started.");
-  await assertModelCommandDisabled(backend, workspaceId, conversationId);
-  await assertTextAbsent(client, "Model set: scripted-ultra");
-  await submitComposer(client, "finish after disabled model command", "Send steering message");
-  await waitForTexts(client, [
-    "Steered with finish after disabled model command.",
-    "Active workflow complete.",
-  ]);
-  await waitForRunStatus(backend, workspaceId, conversationId, secondRun.id, "completed");
-  await assertNoActiveRun(backend, workspaceId, conversationId);
-  await assertTranscriptSequence(client, [
-    "Scripted response: finish renderer tests",
-    "workflow hold for queue and steering",
-    "Active workflow complete.",
-    "Goal paused.",
-    "Model set: scripted-fast",
-    "Reasoning set: High",
-    "Model set: scripted-careful",
-    "model setting workflow",
-    "Model for next turn: scripted-careful. Reasoning for next turn: High.",
-    "workflow hold for queue and steering",
-    "Active workflow complete.",
-  ]);
-  await assertChatLayout(client);
-  await assertNoCriticalDiagnostics(backend, workspaceId, conversationId);
-}
-
 async function openWorkspace(client, workspaceRoot, backend) {
   await waitForTexts(client, ["Shortcuts", "Projects"]);
   await clickButtonByAria(client, "Open project folder");
@@ -1008,20 +890,6 @@ async function assertNoLinkedCodexRef(backend, workspaceId, conversationId) {
     )
   ) {
     throw new Error(`conversation ${conversationId} unexpectedly has a linked codex ref`);
-  }
-}
-
-async function assertModelCommandDisabled(backend, workspaceId, conversationId) {
-  const result = await backend.post("/chat/commands/list", { conversationId, workspaceId });
-  const modelCommand = result.commands.find((command) => command.kind === "model");
-  if (!modelCommand) {
-    throw new Error(`model command was not listed: ${JSON.stringify(result.commands)}`);
-  }
-  if (
-    modelCommand.available ||
-    modelCommand.unavailableReason !== "model commands are unavailable while a run is active"
-  ) {
-    throw new Error(`model command was not disabled while active: ${JSON.stringify(modelCommand)}`);
   }
 }
 

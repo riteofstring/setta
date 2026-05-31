@@ -1,11 +1,13 @@
 import type {
   ChatCommandCapability,
   ChatCommandExecuteResult,
+  ChatGoalState,
   ChatModelOption,
   ChatReasoningEffortOption,
   ReasoningEffort,
   WorkspaceSummary,
 } from "@generated/backend";
+import type { ChatCommandExecutionOptions } from "@shared/types";
 import {
   AlertTriangle,
   ArrowUp,
@@ -549,13 +551,25 @@ function Composer({
   }
 
   async function executeSlashDraft(prompt: string) {
-    const result = await chat.executeCommand(commandTextToExecute(prompt, selectedSuggestion));
+    const commandText = commandTextToExecute(prompt, selectedSuggestion);
+    const options = goalReplacementExecutionOptions(commandText, chat.goal, (message) =>
+      window.confirm(message),
+    );
+    if (options === null) {
+      return;
+    }
+    const result = await chat.executeCommand(commandText, options);
     if (result.result.action === "model_picker") {
       setModelPicker(result);
+      setDraft("");
+    } else if (result.result.action === "goal_editor") {
+      setModelPicker(null);
+      setDraft(goalEditorDraft(result.result.goal));
+      requestAnimationFrame(() => textareaRef.current?.focus());
     } else {
       setModelPicker(null);
+      setDraft("");
     }
-    setDraft("");
   }
 
   async function queueDraft() {
@@ -667,7 +681,7 @@ function Composer({
     }
     submittingRef.current = true;
     try {
-      await chat.executeCommand(modelSelectionCommand(model));
+      await chat.setCodexModel(model.model);
       setDraft("");
       setModelPicker(null);
     } finally {
@@ -681,7 +695,7 @@ function Composer({
     }
     submittingRef.current = true;
     try {
-      await chat.executeCommand(reasoningEffortSelectionCommand(effort));
+      await chat.setCodexReasoningEffort(effort.effort);
       setDraft("");
       setModelPicker(null);
     } finally {
@@ -860,12 +874,45 @@ export function commandTextToExecute(
   return prompt;
 }
 
-export function modelSelectionCommand(model: ChatModelOption) {
-  return `/model ${model.model}`;
+export function goalReplacementExecutionOptions(
+  raw: string,
+  currentGoal: ChatGoalState | null,
+  confirmReplacement: (message: string) => boolean,
+): ChatCommandExecutionOptions | null {
+  const nextObjective = goalSetObjective(raw);
+  if (!nextObjective || !currentGoal || currentGoal.status === "complete") {
+    return {};
+  }
+  if (currentGoal.objective.trim() === nextObjective.trim()) {
+    return {};
+  }
+  if (!confirmReplacement("Replace the current goal?")) {
+    return null;
+  }
+  return { confirmGoalReplacement: true };
 }
 
-export function reasoningEffortSelectionCommand(effort: ChatReasoningEffortOption) {
-  return `/model effort ${effort.effort}`;
+export function goalEditorDraft(goal: ChatGoalState | null) {
+  const objective = goal?.objective.trim() ?? "";
+  return objective === "" ? "/goal " : `/goal ${objective}`;
+}
+
+function goalSetObjective(raw: string) {
+  const match = /^\/goal(?:\s+(.+))?$/.exec(raw.trim());
+  if (!match) {
+    return null;
+  }
+  const args = match[1]?.trim() ?? "";
+  switch (args) {
+    case "":
+    case "edit":
+    case "clear":
+    case "pause":
+    case "resume":
+      return null;
+    default:
+      return args;
+  }
 }
 
 export function modelPickerOptionSelected(
@@ -1073,6 +1120,8 @@ export function useChatViewState(workspaceId: string | null) {
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
   const sendMessage = useChatStore((state) => state.sendMessage);
+  const setCodexModel = useChatStore((state) => state.setCodexModel);
+  const setCodexReasoningEffort = useChatStore((state) => state.setCodexReasoningEffort);
   const status = useChatStore((state) => state.status);
   const steerMessage = useChatStore((state) => state.steerMessage);
   const stopActiveRun = useChatStore((state) => state.stopActiveRun);
@@ -1117,6 +1166,8 @@ export function useChatViewState(workspaceId: string | null) {
     selectConversation,
     selectedConversation,
     sendMessage,
+    setCodexModel,
+    setCodexReasoningEffort,
     status,
     steerMessage,
     stopActiveRun,

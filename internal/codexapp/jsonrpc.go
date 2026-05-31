@@ -66,6 +66,19 @@ type Error struct {
 	Message string `json:"message"`
 }
 
+type RPCError struct {
+	Method  string
+	Code    int
+	Message string
+}
+
+func (err *RPCError) Error() string {
+	if err.Method == "" {
+		return err.Message
+	}
+	return fmt.Sprintf("%s failed: %s", err.Method, err.Message)
+}
+
 func StartProcess(config ProcessConfig) (*Client, error) {
 	if config.Command == "" {
 		config.Command = "codex"
@@ -127,7 +140,7 @@ func (client *Client) Call(ctx context.Context, method string, params any) (json
 		}
 		message := response.message
 		if message.Error != nil {
-			return nil, fmt.Errorf("%s failed: %s", method, message.Error.Message)
+			return nil, &RPCError{Method: method, Code: message.Error.Code, Message: message.Error.Message}
 		}
 		return message.Result, nil
 	case <-client.lifecycle.Done():

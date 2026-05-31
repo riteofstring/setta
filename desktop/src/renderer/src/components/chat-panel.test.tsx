@@ -10,11 +10,11 @@ import {
   ComposerButton,
   ConversationBody,
   type ChatView,
+  goalEditorDraft,
+  goalReplacementExecutionOptions,
   handleComposerKeyDown,
   modelPickerOptionSelected,
-  modelSelectionCommand,
   reasoningEffortOptionSelected,
-  reasoningEffortSelectionCommand,
 } from "./chat-panel";
 
 type ConversationBodyProps = Parameters<typeof ConversationBody>[0];
@@ -156,6 +156,50 @@ describe("composer command helpers", () => {
     expect(commandTextToExecute("/unknown", null)).toBe("/unknown");
   });
 
+  test("confirms before replacing a non-terminal goal", () => {
+    const confirm = vi.fn(() => true);
+
+    expect(
+      goalReplacementExecutionOptions(
+        "/goal replacement",
+        goalState("existing", "active"),
+        confirm,
+      ),
+    ).toEqual({ confirmGoalReplacement: true });
+    expect(confirm).toHaveBeenCalledWith("Replace the current goal?");
+  });
+
+  test("keeps the draft when replacement is cancelled", () => {
+    const confirm = vi.fn(() => false);
+
+    expect(
+      goalReplacementExecutionOptions(
+        "/goal replacement",
+        goalState("existing", "paused"),
+        confirm,
+      ),
+    ).toBeNull();
+  });
+
+  test("does not confirm same-objective or completed goals", () => {
+    const confirm = vi.fn();
+
+    expect(
+      goalReplacementExecutionOptions("/goal existing", goalState("existing", "active"), confirm),
+    ).toEqual({});
+    expect(
+      goalReplacementExecutionOptions("/goal replacement", goalState("done", "complete"), confirm),
+    ).toEqual({});
+    expect(confirm).not.toHaveBeenCalled();
+  });
+
+  test("builds the first-pass goal editor draft", () => {
+    expect(goalEditorDraft(goalState("finish renderer tests", "active"))).toBe(
+      "/goal finish renderer tests",
+    );
+    expect(goalEditorDraft(null)).toBe("/goal ");
+  });
+
   test("keeps model picker visible after the slash draft is submitted", () => {
     const html = renderToString(
       <CommandSuggestions
@@ -230,32 +274,6 @@ describe("composer command helpers", () => {
     expect(html).toContain("Reasoning");
     expect(html).toContain("High");
     expect(html).not.toContain("scripted-fast-catalog-id");
-  });
-
-  test("uses the model value when selecting from the model picker", () => {
-    expect(
-      modelSelectionCommand({
-        description: "Catalog id differs from the model setting.",
-        displayName: "GPT Test",
-        hidden: false,
-        id: "catalog-row-gpt-test",
-        isDefault: false,
-        model: "gpt-test",
-        defaultReasoningEffort: "medium",
-        supportedReasoningEfforts: [],
-      }),
-    ).toBe("/model gpt-test");
-  });
-
-  test("uses explicit effort syntax when selecting reasoning from the picker", () => {
-    expect(
-      reasoningEffortSelectionCommand({
-        description: "Greater reasoning depth.",
-        displayName: "High",
-        effort: "high",
-        isDefault: false,
-      }),
-    ).toBe("/model effort high");
   });
 
   test("prefers the selected model over the catalog default", () => {
@@ -415,6 +433,19 @@ function composerButtonChat() {
   return {
     operation: null,
     stopActiveRun: async () => {},
+  };
+}
+
+function goalState(objective: string, status: string) {
+  return {
+    createdAt: 0,
+    objective,
+    status,
+    threadId: "thread_fake",
+    timeUsedSeconds: 0,
+    tokenBudget: null,
+    tokensUsed: 0,
+    updatedAt: 0,
   };
 }
 

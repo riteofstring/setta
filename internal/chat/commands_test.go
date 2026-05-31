@@ -15,6 +15,7 @@ func TestParseChatCommandGoalCommands(t *testing.T) {
 	}{
 		{raw: "/goal", action: GoalCommandShow},
 		{raw: "/goal   ", action: GoalCommandShow},
+		{raw: "/goal edit", action: GoalCommandEdit, args: "edit"},
 		{raw: "/goal finish renderer tests", action: GoalCommandSet, objective: "finish renderer tests", status: "active", args: "finish renderer tests"},
 		{raw: "/goal clear", action: GoalCommandClear, args: "clear"},
 		{raw: "/goal pause", action: GoalCommandPause, status: "paused", args: "pause"},
@@ -42,18 +43,20 @@ func TestParseChatCommandModelCommands(t *testing.T) {
 	if picker.Kind != ChatCommandModel || picker.Model == nil || picker.Model.Action != ModelCommandShowPicker {
 		t.Fatalf("picker command = %+v, want model picker", picker)
 	}
+}
 
-	set, err := ParseChatCommand("/model gpt-5.5")
+func TestModelSelectionCommandsAreTypedActions(t *testing.T) {
+	set, err := modelSetChatCommand("gpt-5.5")
 	if err != nil {
-		t.Fatalf("parse /model gpt-5.5: %v", err)
+		t.Fatalf("build model set command: %v", err)
 	}
 	if set.Model == nil || set.Model.Action != ModelCommandSet || set.Model.ModelID != "gpt-5.5" {
 		t.Fatalf("set command = %+v, want model set", set)
 	}
 
-	effort, err := ParseChatCommand("/model effort high")
+	effort, err := reasoningEffortSetChatCommand(ReasoningEffortHigh)
 	if err != nil {
-		t.Fatalf("parse /model effort high: %v", err)
+		t.Fatalf("build effort set command: %v", err)
 	}
 	if effort.Model == nil || effort.Model.Action != ModelCommandSetEffort || effort.Model.ReasoningEffort == nil || *effort.Model.ReasoningEffort != ReasoningEffortHigh {
 		t.Fatalf("effort command = %+v, want reasoning effort set", effort)
@@ -71,8 +74,9 @@ func TestParseChatCommandRejectsMalformedAndUnknownInput(t *testing.T) {
 		{raw: "/Goal", code: ChatCommandErrorMalformedCommand, text: "lowercase"},
 		{raw: "/goal!", code: ChatCommandErrorMalformedCommand, text: "lowercase"},
 		{raw: "/unknown", code: ChatCommandErrorUnknownCommand, text: "unknown slash command"},
-		{raw: "/model gpt 5", code: ChatCommandErrorMalformedCommand, text: "exactly one model id or effort"},
-		{raw: "/model effort extreme", code: ChatCommandErrorMalformedCommand, text: "unsupported reasoning level"},
+		{raw: "/model gpt-5.5", code: ChatCommandErrorMalformedCommand, text: "opens the model picker"},
+		{raw: "/model effort high", code: ChatCommandErrorMalformedCommand, text: "opens the model picker"},
+		{raw: "/goal " + strings.Repeat("a", maxGoalObjectiveRunes+1), code: ChatCommandErrorMalformedCommand, text: "4000 characters or fewer"},
 	}
 	for _, test := range tests {
 		_, err := ParseChatCommand(test.raw)

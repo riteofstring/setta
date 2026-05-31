@@ -113,6 +113,7 @@ const (
 
 	GoalCommandShow   GoalCommandAction = "show"
 	GoalCommandSet    GoalCommandAction = "set"
+	GoalCommandEdit   GoalCommandAction = "edit"
 	GoalCommandClear  GoalCommandAction = "clear"
 	GoalCommandPause  GoalCommandAction = "pause"
 	GoalCommandResume GoalCommandAction = "resume"
@@ -129,6 +130,7 @@ const (
 	ReasoningEffortXHigh   ReasoningEffort = "xhigh"
 
 	ChatCommandResultDisplay     ChatCommandResultAction = "display"
+	ChatCommandResultGoalEditor  ChatCommandResultAction = "goal_editor"
 	ChatCommandResultModelPicker ChatCommandResultAction = "model_picker"
 )
 
@@ -235,6 +237,7 @@ var (
 	goalCommandActionValues = []GoalCommandAction{
 		GoalCommandShow,
 		GoalCommandSet,
+		GoalCommandEdit,
 		GoalCommandClear,
 		GoalCommandPause,
 		GoalCommandResume,
@@ -254,6 +257,7 @@ var (
 	}
 	chatCommandResultActionValues = []ChatCommandResultAction{
 		ChatCommandResultDisplay,
+		ChatCommandResultGoalEditor,
 		ChatCommandResultModelPicker,
 	}
 	structuredInputModeValues = []StructuredInputMode{

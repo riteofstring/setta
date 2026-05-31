@@ -1,14 +1,19 @@
 package chat
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+
+	"setta/internal/codexapp"
+)
 
 var codexThreadGoalStatuses = map[string]struct{}{
-	"active":        {},
-	"blocked":       {},
-	"budgetLimited": {},
-	"complete":      {},
-	"paused":        {},
-	"usageLimited":  {},
+	string(codexapp.ThreadGoalStatusActive):        {},
+	string(codexapp.ThreadGoalStatusBlocked):       {},
+	string(codexapp.ThreadGoalStatusBudgetLimited): {},
+	string(codexapp.ThreadGoalStatusComplete):      {},
+	string(codexapp.ThreadGoalStatusPaused):        {},
+	string(codexapp.ThreadGoalStatusUsageLimited):  {},
 }
 
 func handleCodexThreadLifecycle(message jsonRPCMessage, threadID string, _ string, sink TurnSink) (codexNotificationResult, error) {
@@ -45,27 +50,19 @@ func handleCodexThreadGoalCleared(message jsonRPCMessage, threadID string, _ str
 }
 
 func handleCodexThreadGoalUpdated(message jsonRPCMessage, threadID string, _ string, sink TurnSink) (codexNotificationResult, error) {
-	params, err := objectValue(message.Params, "codex thread goal updated params")
+	var params codexapp.ThreadGoalUpdatedNotification
+	if err := json.Unmarshal(message.Params, &params); err != nil {
+		return codexNotificationResult{}, fmt.Errorf("codex thread goal updated params must match protocol: %w", err)
+	}
+	if err := requireCodexThreadIDMatch(message, threadID, params.ThreadID, sink); err != nil {
+		return codexNotificationResult{}, err
+	}
+	goal, err := goalStateFromCodex(params.Goal)
 	if err != nil {
 		return codexNotificationResult{}, err
 	}
-	messageThreadID, err := requireString(params, "threadId", "codex thread goal updated")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	if err := requireCodexThreadIDMatch(message, threadID, messageThreadID, sink); err != nil {
-		return codexNotificationResult{}, err
-	}
-	rawGoal, err := requireObject(params, "goal", "codex thread goal updated")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	goal, err := goalStateFromObject(rawGoal, "codex thread goal updated goal")
-	if err != nil {
-		return codexNotificationResult{}, err
-	}
-	if goal.ThreadID != messageThreadID {
-		return codexNotificationResult{}, fmt.Errorf("codex thread goal updated goal thread mismatch: expected %s, got %s", messageThreadID, goal.ThreadID)
+	if goal.ThreadID != params.ThreadID {
+		return codexNotificationResult{}, fmt.Errorf("codex thread goal updated goal thread mismatch: expected %s, got %s", params.ThreadID, goal.ThreadID)
 	}
 	if err := sink.GoalUpdated(goal); err != nil {
 		return codexNotificationResult{}, err
@@ -111,31 +108,25 @@ func handleCodexThreadSettingsUpdated(message jsonRPCMessage, threadID string, _
 }
 
 func codexThreadSettingsFromNotification(message jsonRPCMessage, threadID string) (codexCommandThreadSettings, error) {
-	params, err := objectValue(message.Params, "codex thread settings updated params")
-	if err != nil {
-		return codexCommandThreadSettings{}, err
+	var params codexapp.ThreadSettingsUpdatedNotification
+	if err := json.Unmarshal(message.Params, &params); err != nil {
+		return codexCommandThreadSettings{}, fmt.Errorf("codex thread settings updated params must match protocol: %w", err)
 	}
-	messageThreadID, err := requireString(params, "threadId", "codex thread settings updated")
-	if err != nil {
-		return codexCommandThreadSettings{}, err
+	if params.ThreadID != threadID {
+		return codexCommandThreadSettings{}, fmt.Errorf("codex thread settings updated thread mismatch: expected %s, got %s", threadID, params.ThreadID)
 	}
-	if messageThreadID != threadID {
-		return codexCommandThreadSettings{}, fmt.Errorf("codex thread settings updated thread mismatch: expected %s, got %s", threadID, messageThreadID)
+	if params.ThreadSettings.Model == "" {
+		return codexCommandThreadSettings{}, fmt.Errorf("codex thread settings updated threadSettings.model is required")
 	}
-	settings, err := requireObject(params, "threadSettings", "codex thread settings updated")
-	if err != nil {
-		return codexCommandThreadSettings{}, err
-	}
-	model, err := requireString(settings, "model", "codex thread settings updated threadSettings")
-	if err != nil {
-		return codexCommandThreadSettings{}, err
-	}
-	effort, err := optionalReasoningEffort(settings, "effort", "codex thread settings updated threadSettings")
-	if err != nil {
-		return codexCommandThreadSettings{}, err
+	effort := ReasoningEffort("")
+	if params.ThreadSettings.Effort != nil {
+		effort = ReasoningEffort(*params.ThreadSettings.Effort)
+		if !validValue(effort, reasoningEffortValues) {
+			return codexCommandThreadSettings{}, fmt.Errorf("codex thread settings updated threadSettings.effort has unsupported reasoning effort %s", effort)
+		}
 	}
 	return codexCommandThreadSettings{
-		Model:           model,
+		Model:           params.ThreadSettings.Model,
 		ReasoningEffort: effort,
 	}, nil
 }

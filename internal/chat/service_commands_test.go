@@ -90,6 +90,102 @@ func TestServicePersistsGoalCompletionNotification(t *testing.T) {
 	}
 }
 
+func TestServiceRequiresConfirmationBeforeReplacingActiveGoal(t *testing.T) {
+	harness := NewFakeHarness(nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	if err := service.store.SaveGoal("workspace_api", conversation.ID, ChatGoalState{
+		Objective: "existing goal",
+		Status:    "active",
+		ThreadID:  "thread_fake",
+	}); err != nil {
+		t.Fatalf("save goal: %v", err)
+	}
+
+	_, err = service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal replacement goal")
+	if err == nil {
+		t.Fatal("replace goal succeeded without confirmation")
+	}
+	commandErr, ok := IsChatCommandError(err)
+	if !ok || commandErr.Code != ChatCommandErrorGoalReplaceConfirm {
+		t.Fatalf("replace goal error = %#v, want replacement confirmation", err)
+	}
+
+	result, err := service.ExecuteChatCommandWithOptions("workspace_api", conversation.ID, "/goal replacement goal", ChatCommandExecutionOptions{
+		ConfirmGoalReplacement: true,
+	})
+	if err != nil {
+		t.Fatalf("replace goal with confirmation: %v", err)
+	}
+	if result.Page.Goal == nil || result.Page.Goal.Objective != "replacement goal" {
+		t.Fatalf("page goal = %+v, want replacement goal", result.Page.Goal)
+	}
+	runs, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want replacement goal continuation", runs)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
+}
+
+func TestServiceGoalEditOpensEditorWithoutCommandMessage(t *testing.T) {
+	harness := NewFakeHarness(nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+	if _, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal finish renderer tests"); err != nil {
+		t.Fatalf("set goal: %v", err)
+	}
+	runs, err := service.ListRuns("workspace_api", conversation.ID)
+	if err != nil {
+		t.Fatalf("list runs: %v", err)
+	}
+	if len(runs) != 1 {
+		t.Fatalf("runs = %+v, want goal continuation", runs)
+	}
+	waitForRunStatus(t, service, "workspace_api", conversation.ID, runs[0].ID, RunStatusCompleted)
+
+	result, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/goal edit")
+	if err != nil {
+		t.Fatalf("edit goal: %v", err)
+	}
+	if result.Result.Action != ChatCommandResultGoalEditor {
+		t.Fatalf("result action = %s, want goal editor", result.Result.Action)
+	}
+	if result.Message != nil {
+		t.Fatalf("edit command message = %+v, want no persisted command message", result.Message)
+	}
+	if result.Result.Goal == nil || result.Result.Goal.Objective != "finish renderer tests" {
+		t.Fatalf("edit result goal = %+v, want existing goal", result.Result.Goal)
+	}
+}
+
+func TestServiceGoalStatusCommandsRequireExistingGoal(t *testing.T) {
+	service := newTestService(t, t.TempDir(), testResolver(t), NewFakeHarness(nil))
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	for _, raw := range []string{"/goal pause", "/goal resume", "/goal clear"} {
+		_, err := service.ExecuteChatCommand("workspace_api", conversation.ID, raw)
+		if err == nil {
+			t.Fatalf("%s succeeded without goal", raw)
+		}
+		commandErr, ok := IsChatCommandError(err)
+		if !ok || commandErr.Code != ChatCommandErrorGoalNotSet {
+			t.Fatalf("%s error = %#v, want no-goal command error", raw, err)
+		}
+	}
+}
+
 func TestServiceStoresModelSettingsWithoutCreatingThread(t *testing.T) {
 	harness := NewFakeHarness(nil)
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)
@@ -98,9 +194,9 @@ func TestServiceStoresModelSettingsWithoutCreatingThread(t *testing.T) {
 		t.Fatalf("create conversation: %v", err)
 	}
 
-	result, err := service.ExecuteChatCommand("workspace_api", conversation.ID, "/model effort high")
+	result, err := service.SetChatCodexReasoningEffort("workspace_api", conversation.ID, ReasoningEffortHigh)
 	if err != nil {
-		t.Fatalf("execute model command: %v", err)
+		t.Fatalf("set reasoning effort: %v", err)
 	}
 
 	if result.Message == nil || result.Message.Parts[0].Text != "Reasoning set: High" {
@@ -118,6 +214,31 @@ func TestServiceStoresModelSettingsWithoutCreatingThread(t *testing.T) {
 	}
 	if loaded.CodexSettings == nil || loaded.CodexSettings.ReasoningEffort == nil || *loaded.CodexSettings.ReasoningEffort != ReasoningEffortHigh {
 		t.Fatalf("stored codex settings = %+v, want high reasoning", loaded.CodexSettings)
+	}
+}
+
+func TestServiceStoresTypedCodexModelWithoutParsingSlashCommand(t *testing.T) {
+	harness := NewFakeHarness(nil)
+	service := newTestService(t, t.TempDir(), testResolver(t), harness)
+	conversation, err := service.CreateConversation("workspace_api", "")
+	if err != nil {
+		t.Fatalf("create conversation: %v", err)
+	}
+
+	result, err := service.SetChatCodexModel("workspace_api", conversation.ID, "gpt-test")
+	if err != nil {
+		t.Fatalf("set codex model: %v", err)
+	}
+
+	if result.Message == nil || result.Message.Parts[0].Text != "Model set: gpt-test" {
+		t.Fatalf("command message = %+v, want model set result", result.Message)
+	}
+	if result.Conversation.CodexSettings == nil || result.Conversation.CodexSettings.Model != "gpt-test" {
+		t.Fatalf("result conversation codex settings = %+v, want gpt-test", result.Conversation.CodexSettings)
+	}
+	requests := harness.CommandRequests()
+	if len(requests) != 1 || requests[0].Command.Model == nil || requests[0].Command.Model.ModelID != "gpt-test" {
+		t.Fatalf("command requests = %+v, want typed model set request", requests)
 	}
 }
 
@@ -185,6 +306,7 @@ func TestServiceRetriesModelCommandAfterMissingThreadRef(t *testing.T) {
 func TestServiceExecutesActiveGoalCommandWithoutSteering(t *testing.T) {
 	harness := NewFakeHarness([]FakeHarnessEvent{
 		{Type: FakeEventThreadLinked, ThreadID: "thread_fake", SessionID: "session_fake", TurnID: "turn_fake"},
+		{Type: FakeEventGoalUpdated, Goal: &ChatGoalState{Objective: "active goal", Status: "active", ThreadID: "thread_fake"}},
 		{Type: FakeEventWaitForSteer},
 	})
 	service := newTestService(t, t.TempDir(), testResolver(t), harness)

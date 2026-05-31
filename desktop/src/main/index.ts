@@ -366,8 +366,37 @@ function registerIpc() {
   handleIpc(
     ipcMain,
     "chatExecuteCommand",
-    async (_event, workspaceId, conversationId, raw) => {
-      return requireBackendClient().executeChatCommand({ conversationId, raw, workspaceId });
+    async (_event, workspaceId, conversationId, raw, confirmGoalReplacement) => {
+      return requireBackendClient().executeChatCommand({
+        confirmGoalReplacement,
+        conversationId,
+        raw,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatSetCodexModel",
+    async (_event, workspaceId, conversationId, modelId) => {
+      return requireBackendClient().setChatCodexModel({
+        conversationId,
+        modelId,
+        workspaceId,
+      });
+    },
+    ipcObserver,
+  );
+  handleIpc(
+    ipcMain,
+    "chatSetCodexReasoningEffort",
+    async (_event, workspaceId, conversationId, reasoningEffort) => {
+      return requireBackendClient().setChatCodexReasoningEffort({
+        conversationId,
+        reasoningEffort,
+        workspaceId,
+      });
     },
     ipcObserver,
   );

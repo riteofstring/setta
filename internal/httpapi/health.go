@@ -101,9 +101,22 @@ type ListChatCommandsRequest struct {
 }
 
 type ExecuteChatCommandRequest struct {
+	WorkspaceID            string `json:"workspaceId"`
+	ConversationID         string `json:"conversationId"`
+	Raw                    string `json:"raw"`
+	ConfirmGoalReplacement bool   `json:"confirmGoalReplacement"`
+}
+
+type SetChatCodexModelRequest struct {
 	WorkspaceID    string `json:"workspaceId"`
 	ConversationID string `json:"conversationId"`
-	Raw            string `json:"raw"`
+	ModelID        string `json:"modelId"`
+}
+
+type SetChatCodexReasoningEffortRequest struct {
+	WorkspaceID     string               `json:"workspaceId"`
+	ConversationID  string               `json:"conversationId"`
+	ReasoningEffort chat.ReasoningEffort `json:"reasoningEffort"`
 }
 
 type CancelRunRequest struct {
@@ -193,9 +206,12 @@ type ChatService interface {
 	LoadRunActivityPage(workspaceID string, runID string, limit int) (chat.RunActivityPage, error)
 	LoadRunItemOutputPage(workspaceID string, runID string, runItemID string, afterOrdinal int, limit int) (chat.RunItemOutputPage, error)
 	ExecuteChatCommand(workspaceID string, conversationID string, raw string) (chat.ChatCommandExecuteResult, error)
+	ExecuteChatCommandWithOptions(workspaceID string, conversationID string, raw string, options chat.ChatCommandExecutionOptions) (chat.ChatCommandExecuteResult, error)
 	ListCommands(workspaceID string, conversationID string) (chat.ChatCommandListResult, error)
 	QueueUserMessage(workspaceID string, conversationID string, prompt string) (chat.QueueMessageResult, error)
 	SendUserMessage(workspaceID string, conversationID string, prompt string) (chat.SendMessageResult, error)
+	SetChatCodexModel(workspaceID string, conversationID string, modelID string) (chat.ChatCommandExecuteResult, error)
+	SetChatCodexReasoningEffort(workspaceID string, conversationID string, effort chat.ReasoningEffort) (chat.ChatCommandExecuteResult, error)
 	SteerActiveRun(workspaceID string, conversationID string, prompt string) (chat.SteerMessageResult, error)
 	SubscribeEvents(cursor chat.EventCursor) (*chat.EventSubscription, error)
 	SubmitApproval(workspaceID string, conversationID string, approvalID string, approved bool, response string, answers []chat.ApprovalAnswer, cancelled bool) (chat.Run, error)
@@ -468,9 +484,45 @@ func (handler handler) executeChatCommand(response http.ResponseWriter, request 
 	if !decodeRequest(response, request, &payload) {
 		return
 	}
-	result, err := service.ExecuteChatCommand(payload.WorkspaceID, payload.ConversationID, payload.Raw)
+	result, err := service.ExecuteChatCommandWithOptions(payload.WorkspaceID, payload.ConversationID, payload.Raw, chat.ChatCommandExecutionOptions{
+		ConfirmGoalReplacement: payload.ConfirmGoalReplacement,
+	})
 	if err != nil {
 		writeChatError(response, "execute_chat_command_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) setChatCodexModel(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload SetChatCodexModelRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.SetChatCodexModel(payload.WorkspaceID, payload.ConversationID, payload.ModelID)
+	if err != nil {
+		writeChatError(response, "set_chat_codex_model_failed", err)
+		return
+	}
+	writeJSON(response, http.StatusOK, result)
+}
+
+func (handler handler) setChatCodexReasoningEffort(response http.ResponseWriter, request *http.Request) {
+	service := requireChatService(response, handler.chatService)
+	if service == nil {
+		return
+	}
+	var payload SetChatCodexReasoningEffortRequest
+	if !decodeRequest(response, request, &payload) {
+		return
+	}
+	result, err := service.SetChatCodexReasoningEffort(payload.WorkspaceID, payload.ConversationID, payload.ReasoningEffort)
+	if err != nil {
+		writeChatError(response, "set_chat_codex_reasoning_effort_failed", err)
 		return
 	}
 	writeJSON(response, http.StatusOK, result)

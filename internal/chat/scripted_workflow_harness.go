@@ -212,13 +212,24 @@ func (harness *ScriptedWorkflowHarness) executeGoalCommandLocked(command ChatCom
 	}
 	switch command.Goal.Action {
 	case GoalCommandShow:
+	case GoalCommandEdit:
+		result.Action = ChatCommandResultGoalEditor
 	case GoalCommandSet:
 		harness.goal = &ChatGoalState{Objective: command.Goal.Objective, Status: "active", ThreadID: result.ThreadRef.ThreadID}
 	case GoalCommandClear:
+		if harness.goal == nil {
+			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
+		}
 		harness.goal = nil
 	case GoalCommandPause:
+		if harness.goal == nil {
+			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
+		}
 		harness.setGoalStatusLocked("paused", result.ThreadRef.ThreadID)
 	case GoalCommandResume:
+		if harness.goal == nil {
+			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
+		}
 		harness.setGoalStatusLocked("active", result.ThreadRef.ThreadID)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported goal command action: %s", command.Goal.Action), nil)

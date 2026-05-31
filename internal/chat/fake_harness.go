@@ -120,6 +120,9 @@ func (harness *FakeHarness) handleImmediateEvent(ctx context.Context, request Tu
 	case FakeEventError:
 		return errors.New(event.Error)
 	case FakeEventGoalUpdated:
+		harness.mu.Lock()
+		harness.goal = event.Goal
+		harness.mu.Unlock()
 		return sink.GoalUpdated(event.Goal)
 	case FakeEventRunItem:
 		item := event.RunItem
@@ -255,13 +258,24 @@ func (harness *FakeHarness) executeGoalCommandLocked(command ChatCommand, result
 	}
 	switch command.Goal.Action {
 	case GoalCommandShow:
+	case GoalCommandEdit:
+		result.Action = ChatCommandResultGoalEditor
 	case GoalCommandSet:
 		harness.goal = &ChatGoalState{Objective: command.Goal.Objective, Status: "active", ThreadID: result.ThreadRef.ThreadID}
 	case GoalCommandClear:
+		if harness.goal == nil {
+			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
+		}
 		harness.goal = nil
 	case GoalCommandPause:
+		if harness.goal == nil {
+			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
+		}
 		harness.setGoalStatusLocked("paused", result.ThreadRef.ThreadID)
 	case GoalCommandResume:
+		if harness.goal == nil {
+			return HarnessCommandResult{}, noGoalCommandError(command.Goal.Action)
+		}
 		harness.setGoalStatusLocked("active", result.ThreadRef.ThreadID)
 	default:
 		return HarnessCommandResult{}, commandError(ChatCommandErrorMalformedCommand, fmt.Sprintf("unsupported goal command action: %s", command.Goal.Action), nil)

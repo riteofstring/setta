@@ -1142,6 +1142,7 @@ type fakeCodexState struct {
 	commandThreadResumed bool
 	commandThreadStarted bool
 	holdCalls            int
+	modelListCalls       int
 	responseOutstanding  string
 }
 
@@ -1249,60 +1250,17 @@ func handleFakeCodexMethod(mode string, state *fakeCodexState, message map[strin
 		handleFakeCommandThread(mode, state, message)
 		writeFakeThreadResponse(message["id"], fakeThreadResponseModel(mode), fakeThreadResponseEffort(mode))
 	case "thread/goal/get":
-		assertFakeThreadID(message)
-		writeFakeResponse(message["id"], map[string]any{"goal": nil})
-		return fakeCommandDone(mode)
+		return handleFakeGoalGet(mode, message)
 	case "thread/goal/set":
-		assertFakeGoalSet(mode, message)
-		writeFakeGoalResponse(message["id"], "finish renderer tests", "active")
-		if mode == "command-goal-continuation" {
-			writeFakeThreadGoalUpdated("finish renderer tests", "active")
-			writeFakeTurnStartedID("turn_fake")
-			writeFakeAssistantDelta("goal continuation")
-			writeFakeThreadGoalUpdated("finish renderer tests", "complete")
-			writeFakeCompletedTurn("completed")
-			return true
-		}
-		return fakeCommandDone(mode)
+		return handleFakeGoalSetMethod(mode, message)
 	case "thread/goal/clear":
 		assertFakeThreadID(message)
 		writeFakeResponse(message["id"], map[string]any{"cleared": true})
 		return fakeCommandDone(mode)
 	case "model/list":
-		assertFakeModelList(message)
-		writeFakeResponse(message["id"], map[string]any{
-			"data": []map[string]any{{
-				"defaultReasoningEffort": "high",
-				"description":            "Fake model.",
-				"displayName":            "GPT Test",
-				"hidden":                 false,
-				"id":                     "gpt-test",
-				"isDefault":              true,
-				"model":                  "gpt-test",
-				"supportedReasoningEfforts": []map[string]any{
-					{"description": "Medium reasoning.", "reasoningEffort": "medium"},
-					{"description": "High reasoning.", "reasoningEffort": "high"},
-					{"description": "Extra high reasoning.", "reasoningEffort": "xhigh"},
-				},
-			}},
-			"nextCursor": nil,
-		})
-		return fakeCommandDone(mode)
+		return handleFakeModelList(mode, state, message)
 	case "thread/settings/update":
-		if mode == "command-model-set-already-current" || mode == "command-effort-set-already-current" {
-			panic("already-current settings command should not update settings")
-		}
-		if mode == "command-effort-set" {
-			assertFakeEffortSet(message)
-		} else {
-			assertFakeModelSet(message)
-		}
-		writeFakeResponse(message["id"], map[string]any{})
-		if mode == "command-model-set-no-notification" {
-			return false
-		}
-		writeFakeThreadSettingsUpdated("gpt-test", ReasoningEffortHigh)
-		return fakeCommandDone(mode)
+		return handleFakeThreadSettingsUpdate(mode, message)
 	case "turn/start":
 		return handleFakeTurnStart(mode, state, message)
 	case "turn/interrupt":

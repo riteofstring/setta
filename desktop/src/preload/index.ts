@@ -50,8 +50,18 @@ const api: SettaAPI = {
       invoke("chatCancelRun", workspaceId, conversationId),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
-    executeCommand: (workspaceId: string, conversationId: string, raw: string) =>
-      invoke("chatExecuteCommand", workspaceId, conversationId, raw),
+    executeCommand: (workspaceId: string, conversationId: string, raw: string, options) =>
+      invoke(
+        "chatExecuteCommand",
+        workspaceId,
+        conversationId,
+        raw,
+        options?.confirmGoalReplacement ?? false,
+      ),
+    setCodexModel: (workspaceId: string, conversationId: string, modelId: string) =>
+      invoke("chatSetCodexModel", workspaceId, conversationId, modelId),
+    setCodexReasoningEffort: (workspaceId: string, conversationId: string, effort) =>
+      invoke("chatSetCodexReasoningEffort", workspaceId, conversationId, effort),
     listCommands: (workspaceId: string, conversationId: string) =>
       invoke("chatListCommands", workspaceId, conversationId),
     listConversations: (workspaceId: string) => invoke("chatListConversations", workspaceId),

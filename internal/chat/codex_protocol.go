@@ -132,18 +132,6 @@ func optionalInt(value map[string]any, name string, label string) (int, error) {
 	return int(number), nil
 }
 
-func optionalIntPointer(value map[string]any, name string, label string) (*int, error) {
-	raw, ok := value[name]
-	if !ok || raw == nil {
-		return nil, nil
-	}
-	number, err := optionalInt(map[string]any{name: raw}, name, label)
-	if err != nil {
-		return nil, err
-	}
-	return &number, nil
-}
-
 func optionalStringArray(value map[string]any, name string, label string) ([]string, error) {
 	raw, ok := value[name]
 	if !ok || raw == nil {

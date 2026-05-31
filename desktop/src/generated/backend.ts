@@ -377,14 +377,16 @@ export function decodeChatCommandKind(value: unknown, label = "ChatCommandKind")
   }
 }
 
-export type ChatCommandResultAction = "display" | "model_picker";
+export type ChatCommandResultAction = "display" | "goal_editor" | "model_picker";
 
-export const chatCommandResultActionValues = ["display", "model_picker"] as const satisfies readonly ChatCommandResultAction[];
+export const chatCommandResultActionValues = ["display", "goal_editor", "model_picker"] as const satisfies readonly ChatCommandResultAction[];
 
 export function decodeChatCommandResultAction(value: unknown, label = "ChatCommandResultAction"): ChatCommandResultAction {
   const decoded = decodeString(value, label);
   switch (decoded) {
     case "display":
+      return decoded;
+    case "goal_editor":
       return decoded;
     case "model_picker":
       return decoded;
@@ -856,6 +858,7 @@ export interface ExecuteChatCommandRequest {
   workspaceId: string;
   conversationId: string;
   raw: string;
+  confirmGoalReplacement: boolean;
 }
 
 export interface ChatReasoningEffortOption {
@@ -894,6 +897,18 @@ export interface ChatCommandExecuteResult {
   message: ChatMessage | null;
   page: MessagePage;
   result: ChatCommandResult;
+}
+
+export interface SetChatCodexModelRequest {
+  workspaceId: string;
+  conversationId: string;
+  modelId: string;
+}
+
+export interface SetChatCodexReasoningEffortRequest {
+  workspaceId: string;
+  conversationId: string;
+  reasoningEffort: ReasoningEffort;
 }
 
 export interface CancelRunRequest {
@@ -1371,6 +1386,14 @@ export const backendEndpoints = {
   ExecuteChatCommand: {
     method: "POST",
     path: "/chat/commands/execute",
+  },
+  SetChatCodexModel: {
+    method: "POST",
+    path: "/chat/codex/model/set",
+  },
+  SetChatCodexReasoningEffort: {
+    method: "POST",
+    path: "/chat/codex/reasoning-effort/set",
   },
   CancelRun: {
     method: "POST",
@@ -1939,11 +1962,12 @@ export function decodeChatCommandListResult(value: unknown): ChatCommandListResu
 
 export function decodeExecuteChatCommandRequest(value: unknown): ExecuteChatCommandRequest {
   const record = assertRecord(value, "ExecuteChatCommandRequest");
-  assertKnownFields(record, "ExecuteChatCommandRequest", ["workspaceId", "conversationId", "raw"]);
+  assertKnownFields(record, "ExecuteChatCommandRequest", ["workspaceId", "conversationId", "raw", "confirmGoalReplacement"]);
   return {
     workspaceId: decodeString(requireField(record, "workspaceId", "ExecuteChatCommandRequest"), "ExecuteChatCommandRequest.workspaceId"),
     conversationId: decodeString(requireField(record, "conversationId", "ExecuteChatCommandRequest"), "ExecuteChatCommandRequest.conversationId"),
     raw: decodeString(requireField(record, "raw", "ExecuteChatCommandRequest"), "ExecuteChatCommandRequest.raw"),
+    confirmGoalReplacement: decodeBoolean(requireField(record, "confirmGoalReplacement", "ExecuteChatCommandRequest"), "ExecuteChatCommandRequest.confirmGoalReplacement"),
   };
 }
 
@@ -1998,6 +2022,26 @@ export function decodeChatCommandExecuteResult(value: unknown): ChatCommandExecu
     message: decodeNullable(requireField(record, "message", "ChatCommandExecuteResult"), "ChatCommandExecuteResult.message", (item) => decodeChatMessage(item)),
     page: decodeMessagePage(requireField(record, "page", "ChatCommandExecuteResult")),
     result: decodeChatCommandResult(requireField(record, "result", "ChatCommandExecuteResult")),
+  };
+}
+
+export function decodeSetChatCodexModelRequest(value: unknown): SetChatCodexModelRequest {
+  const record = assertRecord(value, "SetChatCodexModelRequest");
+  assertKnownFields(record, "SetChatCodexModelRequest", ["workspaceId", "conversationId", "modelId"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SetChatCodexModelRequest"), "SetChatCodexModelRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SetChatCodexModelRequest"), "SetChatCodexModelRequest.conversationId"),
+    modelId: decodeString(requireField(record, "modelId", "SetChatCodexModelRequest"), "SetChatCodexModelRequest.modelId"),
+  };
+}
+
+export function decodeSetChatCodexReasoningEffortRequest(value: unknown): SetChatCodexReasoningEffortRequest {
+  const record = assertRecord(value, "SetChatCodexReasoningEffortRequest");
+  assertKnownFields(record, "SetChatCodexReasoningEffortRequest", ["workspaceId", "conversationId", "reasoningEffort"]);
+  return {
+    workspaceId: decodeString(requireField(record, "workspaceId", "SetChatCodexReasoningEffortRequest"), "SetChatCodexReasoningEffortRequest.workspaceId"),
+    conversationId: decodeString(requireField(record, "conversationId", "SetChatCodexReasoningEffortRequest"), "SetChatCodexReasoningEffortRequest.conversationId"),
+    reasoningEffort: decodeReasoningEffort(requireField(record, "reasoningEffort", "SetChatCodexReasoningEffortRequest"), "SetChatCodexReasoningEffortRequest.reasoningEffort"),
   };
 }
 
@@ -2770,6 +2814,8 @@ export interface BackendClient {
   steerChatMessage: (request: SteerChatMessageRequest) => Promise<SteerMessageResult>;
   listChatCommands: (request: ListChatCommandsRequest) => Promise<ChatCommandListResult>;
   executeChatCommand: (request: ExecuteChatCommandRequest) => Promise<ChatCommandExecuteResult>;
+  setChatCodexModel: (request: SetChatCodexModelRequest) => Promise<ChatCommandExecuteResult>;
+  setChatCodexReasoningEffort: (request: SetChatCodexReasoningEffortRequest) => Promise<ChatCommandExecuteResult>;
   cancelRun: (request: CancelRunRequest) => Promise<Run>;
   getActiveRun: (request: GetActiveRunRequest) => Promise<GetActiveRunResponse>;
   listRuns: (request: ListRunsRequest) => Promise<ListRunsResponse>;
@@ -2903,6 +2949,22 @@ export function createBackendClient(baseURL: string, fetchImpl: BackendFetch = f
       decodeErrorResponse: decodeErrorResponse,
       decodeResponse: decodeChatCommandExecuteResult,
       endpoint: backendEndpoints.ExecuteChatCommand,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    setChatCodexModel: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatCommandExecuteResult,
+      endpoint: backendEndpoints.SetChatCodexModel,
+      fetchImpl,
+      requestPayload: request,
+    }),
+    setChatCodexReasoningEffort: (request) => requestBackend({
+      baseURL,
+      decodeErrorResponse: decodeErrorResponse,
+      decodeResponse: decodeChatCommandExecuteResult,
+      endpoint: backendEndpoints.SetChatCodexReasoningEffort,
       fetchImpl,
       requestPayload: request,
     }),

@@ -217,7 +217,7 @@ func (manager *Manager) initialize(ctx context.Context, client *Client) error {
 	if params == nil {
 		params = map[string]any{}
 	}
-	if _, err := client.Call(ctx, "initialize", params); err != nil {
+	if _, err := client.Call(ctx, CodexMethodInitialize, params); err != nil {
 		return fmt.Errorf("initialize codex app-server: %w", err)
 	}
 	if err := client.Notify("initialized", map[string]any{}); err != nil {

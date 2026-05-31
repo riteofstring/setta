@@ -699,6 +699,10 @@ func writeFakeResponse(id any, result any) {
 	writeFake(map[string]any{"id": id, "result": result})
 }
 
+func writeFakeErrorResponse(id any, code int, message string) {
+	writeFake(map[string]any{"id": id, "error": map[string]any{"code": code, "message": message}})
+}
+
 func writeFakeNotification(method string, params any) {
 	writeFake(map[string]any{"method": method, "params": params})
 }

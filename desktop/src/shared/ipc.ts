@@ -13,6 +13,7 @@ import type {
   MessagePage,
   OpenWorkspaceResponse,
   QueueMessageResult,
+  ReasoningEffort,
   RefreshCodexAccountRequest,
   Run,
   RunActivityPage,
@@ -44,6 +45,8 @@ export const ipcChannels = {
   chatRunActivity: "chat:run-activity",
   chatRunItemOutput: "chat:run-item-output",
   chatSendMessage: "chat:send-message",
+  chatSetCodexModel: "chat:set-codex-model",
+  chatSetCodexReasoningEffort: "chat:set-codex-reasoning-effort",
   chatSteerMessage: "chat:steer-message",
   chatSubmitApproval: "chat:submit-approval",
   codexAccountCancelLogin: "codex-account:cancel-login",
@@ -104,7 +107,20 @@ interface IpcContract {
     result: Conversation;
   };
   chatExecuteCommand: {
-    args: [workspaceId: string, conversationId: string, raw: string];
+    args: [
+      workspaceId: string,
+      conversationId: string,
+      raw: string,
+      confirmGoalReplacement: boolean,
+    ];
+    result: ChatCommandExecuteResult;
+  };
+  chatSetCodexModel: {
+    args: [workspaceId: string, conversationId: string, modelId: string];
+    result: ChatCommandExecuteResult;
+  };
+  chatSetCodexReasoningEffort: {
+    args: [workspaceId: string, conversationId: string, effort: ReasoningEffort];
     result: ChatCommandExecuteResult;
   };
   chatListConversations: {

@@ -41,12 +41,40 @@ func (service *Service) ListCommands(workspaceID string, conversationID string) 
 	return ChatCommandListResult{Commands: result.Commands}, nil
 }
 
+type ChatCommandExecutionOptions struct {
+	ConfirmGoalReplacement bool
+}
+
 func (service *Service) ExecuteChatCommand(workspaceID string, conversationID string, raw string) (ChatCommandExecuteResult, error) {
-	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
+	return service.ExecuteChatCommandWithOptions(workspaceID, conversationID, raw, ChatCommandExecutionOptions{})
+}
+
+func (service *Service) ExecuteChatCommandWithOptions(workspaceID string, conversationID string, raw string, options ChatCommandExecutionOptions) (ChatCommandExecuteResult, error) {
+	command, err := ParseChatCommand(raw)
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
-	command, err := ParseChatCommand(raw)
+	return service.executeChatCommand(workspaceID, conversationID, command, options)
+}
+
+func (service *Service) SetChatCodexModel(workspaceID string, conversationID string, modelID string) (ChatCommandExecuteResult, error) {
+	command, err := modelSetChatCommand(modelID)
+	if err != nil {
+		return ChatCommandExecuteResult{}, err
+	}
+	return service.executeChatCommand(workspaceID, conversationID, command, ChatCommandExecutionOptions{})
+}
+
+func (service *Service) SetChatCodexReasoningEffort(workspaceID string, conversationID string, effort ReasoningEffort) (ChatCommandExecuteResult, error) {
+	command, err := reasoningEffortSetChatCommand(effort)
+	if err != nil {
+		return ChatCommandExecuteResult{}, err
+	}
+	return service.executeChatCommand(workspaceID, conversationID, command, ChatCommandExecutionOptions{})
+}
+
+func (service *Service) executeChatCommand(workspaceID string, conversationID string, command ChatCommand, options ChatCommandExecutionOptions) (ChatCommandExecuteResult, error) {
+	workspaceSummary, err := service.workspaceResolver.ResolveWorkspace(workspaceID)
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
 	}
@@ -56,7 +84,7 @@ func (service *Service) ExecuteChatCommand(workspaceID string, conversationID st
 	}
 
 	service.mu.Lock()
-	state, err := service.prepareCommandExecutionLocked(workspaceID, conversationID, command)
+	state, err := service.prepareCommandExecutionLocked(workspaceID, conversationID, command, options)
 	service.mu.Unlock()
 	if err != nil {
 		return ChatCommandExecuteResult{}, err
@@ -72,7 +100,7 @@ func (service *Service) ExecuteChatCommand(workspaceID string, conversationID st
 		}
 
 		service.mu.Lock()
-		state, err = service.prepareCommandExecutionLocked(workspaceID, conversationID, command)
+		state, err = service.prepareCommandExecutionLocked(workspaceID, conversationID, command, options)
 		service.mu.Unlock()
 		if err != nil {
 			return ChatCommandExecuteResult{}, err
@@ -95,12 +123,15 @@ type commandExecutionState struct {
 	startGoalContinuation bool
 }
 
-func (service *Service) prepareCommandExecutionLocked(workspaceID string, conversationID string, command ChatCommand) (commandExecutionState, error) {
+func (service *Service) prepareCommandExecutionLocked(workspaceID string, conversationID string, command ChatCommand, options ChatCommandExecutionOptions) (commandExecutionState, error) {
 	conversation, activeRun, err := service.commandConversationStateLocked(workspaceID, conversationID)
 	if err != nil {
 		return commandExecutionState{}, err
 	}
 	if err := ensureCommandAvailable(command, activeRun); err != nil {
+		return commandExecutionState{}, err
+	}
+	if err := service.ensureGoalReplacementConfirmedLocked(workspaceID, conversationID, command, options); err != nil {
 		return commandExecutionState{}, err
 	}
 	state := commandExecutionState{
@@ -112,6 +143,31 @@ func (service *Service) prepareCommandExecutionLocked(workspaceID string, conver
 		err = service.ensureCanStartTurnLocked(workspaceID, conversationID, activeKey(workspaceID, conversationID))
 	}
 	return state, err
+}
+
+func (service *Service) ensureGoalReplacementConfirmedLocked(workspaceID string, conversationID string, command ChatCommand, options ChatCommandExecutionOptions) error {
+	if command.Kind != ChatCommandGoal || command.Goal == nil || command.Goal.Action != GoalCommandSet {
+		return nil
+	}
+	current, err := service.store.LoadGoal(workspaceID, conversationID)
+	if err != nil {
+		return err
+	}
+	if !goalReplacementRequiresConfirmation(current, command.Goal.Objective) || options.ConfirmGoalReplacement {
+		return nil
+	}
+	return commandError(ChatCommandErrorGoalReplaceConfirm, "Replacing the current goal requires confirmation.", nil)
+}
+
+func goalReplacementRequiresConfirmation(current *ChatGoalState, objective string) bool {
+	if current == nil || goalStatusIsTerminal(current.Status) {
+		return false
+	}
+	return strings.TrimSpace(current.Objective) != strings.TrimSpace(objective)
+}
+
+func goalStatusIsTerminal(status string) bool {
+	return status == "complete"
 }
 
 func (service *Service) executeCommandRequest(ctx context.Context, executor HarnessCommandExecutor, request HarnessCommandRequest, startGoalContinuation bool) (HarnessCommandResult, HarnessGoalContinuation, error) {
@@ -257,7 +313,7 @@ func (service *Service) persistCommandGoalStateLocked(workspaceID string, conver
 	switch command.Goal.Action {
 	case GoalCommandClear:
 		return service.updateGoalStateLocked(workspaceID, conversationID, runID, nil)
-	case GoalCommandShow, GoalCommandSet, GoalCommandPause, GoalCommandResume:
+	case GoalCommandShow, GoalCommandEdit, GoalCommandSet, GoalCommandPause, GoalCommandResume:
 		return service.updateGoalStateLocked(workspaceID, conversationID, runID, result.Goal)
 	default:
 		return nil
@@ -440,6 +496,9 @@ func commandResult(command ChatCommand, harnessResult HarnessCommandResult) Chat
 		SelectedReasoningEffort: harnessResult.SelectedReasoningEffort,
 	}
 	result.Title, result.Message = commandResultText(command, result)
+	if harnessResult.CapabilityDiagnostic != "" {
+		result.Message = strings.TrimSpace(result.Message + " " + harnessResult.CapabilityDiagnostic)
+	}
 	return result
 }
 
@@ -475,9 +534,14 @@ func goalCommandResultText(command ChatCommand, goal *ChatGoalState) (string, st
 	switch command.Goal.Action {
 	case GoalCommandShow:
 		if goal == nil {
-			return "Goal", "No goal set."
+			return "Goal", "No goal set. Usage: /goal <objective>, /goal edit, /goal pause, /goal resume, /goal clear."
 		}
 		return "Goal", fmt.Sprintf("Goal is %s: %s", goal.Status, goal.Objective)
+	case GoalCommandEdit:
+		if goal == nil {
+			return "Goal", "Edit goal."
+		}
+		return "Goal", "Edit goal: " + goal.Objective
 	case GoalCommandSet:
 		return "Goal", "Goal set: " + command.Goal.Objective
 	case GoalCommandClear:

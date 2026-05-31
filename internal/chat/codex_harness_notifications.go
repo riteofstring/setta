@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"strings"
+
+	"setta/internal/codexapp"
 )
 
 var codexOutputStreams = map[string]struct{}{
@@ -561,7 +563,7 @@ func handleCodexRealtimeIgnored(message jsonRPCMessage, threadID string, _ strin
 	if messageThreadID != threadID {
 		context["expectedThreadId"] = threadID
 	}
-	if message.Method == "thread/realtime/error" {
+	if message.Method == codexapp.CodexNotificationThreadRealtimeError {
 		errorMessage, err := requireString(params, "message", "codex realtime error")
 		if err != nil {
 			return codexNotificationResult{}, err
