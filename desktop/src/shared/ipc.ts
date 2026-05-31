@@ -1,20 +1,22 @@
 import type { IpcMain, IpcMainInvokeEvent, IpcRenderer } from "electron";
 
 import type {
-  AppearanceSettings,
   BackendHealth,
   CancelCodexLoginRequest,
   ChatCommandExecuteResult,
   ChatCommandListResult,
-  ChatMessage,
   CodexAccountState,
   Conversation,
+  ConversationListItem,
   GetActiveRunResponse,
+  ImmediateSteeringResult,
   ListConversationsResponse,
   LogoutCodexAccountRequest,
   MessagePage,
   OpenWorkspaceResponse,
+  QueueEditResult,
   QueueMessageResult,
+  QueueRemoveResult,
   ReasoningEffort,
   RefreshCodexAccountRequest,
   Run,
@@ -25,7 +27,6 @@ import type {
   StartCodexLoginResponse,
   SteerMessageResult,
   SubmitApprovalRequest,
-  UpdateAppearanceSettingsRequest,
   WorkspaceSession,
 } from "@generated/backend";
 import type { InstalledEditorApp, RuntimeVersions, WorkspaceGitInfo } from "./types";
@@ -36,26 +37,26 @@ export const ipcChannels = {
   appOpenWorkspaceInEditor: "app:open-workspace-in-editor",
   appVersions: "app:versions",
   appWorkspaceGitInfo: "app:workspace-git-info",
-  appearanceRead: "appearance:read",
-  appearanceUpdate: "appearance:update",
   backendHealth: "backend:health",
   chatActiveRun: "chat:active-run",
   chatCancelRun: "chat:cancel-run",
   chatCreateConversation: "chat:create-conversation",
-  chatDeleteConversation: "chat:delete-conversation",
+  chatEditQueuedMessage: "chat:edit-queued-message",
   chatExecuteCommand: "chat:execute-command",
   chatListConversations: "chat:list-conversations",
   chatListCommands: "chat:list-commands",
+  chatMarkConversationRead: "chat:mark-conversation-read",
   chatMessagePage: "chat:message-page",
   chatQueueMessage: "chat:queue-message",
+  chatRemoveQueuedMessage: "chat:remove-queued-message",
   chatRunActivity: "chat:run-activity",
   chatRunItemOutput: "chat:run-item-output",
   chatSendMessage: "chat:send-message",
   chatSetCodexModel: "chat:set-codex-model",
   chatSetCodexReasoningEffort: "chat:set-codex-reasoning-effort",
   chatSteerMessage: "chat:steer-message",
+  chatSendSteeringImmediately: "chat:send-steering-immediately",
   chatSubmitApproval: "chat:submit-approval",
-  chatUpdateUserMessage: "chat:update-user-message",
   codexAccountCancelLogin: "codex-account:cancel-login",
   codexAccountLogout: "codex-account:logout",
   codexAccountRead: "codex-account:read",
@@ -63,6 +64,7 @@ export const ipcChannels = {
   codexAccountStartLogin: "codex-account:start-login",
   workspaceClose: "workspace:close",
   workspaceOpenLocalFolder: "workspace:open-local-folder",
+  workspaceOpenPath: "workspace:open-path",
   workspaceRemoveRecent: "workspace:remove-recent",
   workspaceReorder: "workspace:reorder",
   workspaceSelect: "workspace:select",
@@ -97,14 +99,6 @@ interface IpcContract {
     args: [rootPath: string];
     result: WorkspaceGitInfo;
   };
-  appearanceRead: {
-    args: [];
-    result: AppearanceSettings;
-  };
-  appearanceUpdate: {
-    args: [request: UpdateAppearanceSettingsRequest];
-    result: AppearanceSettings;
-  };
   backendHealth: {
     args: [];
     result: BackendHealth;
@@ -121,9 +115,9 @@ interface IpcContract {
     args: [workspaceId: string, title: string];
     result: Conversation;
   };
-  chatDeleteConversation: {
-    args: [workspaceId: string, conversationId: string];
-    result: ListConversationsResponse;
+  chatEditQueuedMessage: {
+    args: [workspaceId: string, conversationId: string, messageId: string, prompt: string];
+    result: QueueEditResult;
   };
   chatExecuteCommand: {
     args: [
@@ -150,6 +144,10 @@ interface IpcContract {
     args: [workspaceId: string, conversationId: string];
     result: ChatCommandListResult;
   };
+  chatMarkConversationRead: {
+    args: [workspaceId: string, conversationId: string];
+    result: ConversationListItem;
+  };
   chatMessagePage: {
     args: [workspaceId: string, conversationId: string, beforeOrdinal: number, limit: number];
     result: MessagePage;
@@ -157,6 +155,10 @@ interface IpcContract {
   chatQueueMessage: {
     args: [workspaceId: string, conversationId: string, prompt: string];
     result: QueueMessageResult;
+  };
+  chatRemoveQueuedMessage: {
+    args: [workspaceId: string, conversationId: string, messageId: string];
+    result: QueueRemoveResult;
   };
   chatRunActivity: {
     args: [workspaceId: string, runId: string, limit: number];
@@ -176,6 +178,10 @@ interface IpcContract {
     args: [workspaceId: string, conversationId: string, prompt: string];
     result: SendMessageResult;
   };
+  chatSendSteeringImmediately: {
+    args: [workspaceId: string, conversationId: string, prompt: string];
+    result: ImmediateSteeringResult;
+  };
   chatSteerMessage: {
     args: [workspaceId: string, conversationId: string, prompt: string];
     result: SteerMessageResult;
@@ -183,10 +189,6 @@ interface IpcContract {
   chatSubmitApproval: {
     args: [input: SubmitApprovalRequest];
     result: Run;
-  };
-  chatUpdateUserMessage: {
-    args: [workspaceId: string, conversationId: string, messageId: string, text: string];
-    result: ChatMessage;
   };
   codexAccountCancelLogin: {
     args: [request: CancelCodexLoginRequest];
@@ -215,6 +217,10 @@ interface IpcContract {
   workspaceOpenLocalFolder: {
     args: [];
     result: OpenWorkspaceResponse | null;
+  };
+  workspaceOpenPath: {
+    args: [rootPath: string];
+    result: OpenWorkspaceResponse;
   };
   workspaceRemoveRecent: {
     args: [id: string];

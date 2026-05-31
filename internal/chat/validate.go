@@ -58,6 +58,43 @@ func validateConversationTimestamps(conversation Conversation) error {
 	return nil
 }
 
+func emptyConversationReadState(conversationID string) ConversationReadState {
+	return ConversationReadState{
+		SchemaVersion:            SchemaVersion,
+		ConversationID:           conversationID,
+		ReadMarker:               0,
+		LatestReadRelevantMarker: 0,
+		UpdatedAt:                "",
+	}
+}
+
+func validateConversationReadState(state ConversationReadState, conversationID string) error {
+	if state.SchemaVersion != SchemaVersion {
+		return fmt.Errorf("conversation read state %s has unsupported schemaVersion %d", state.ConversationID, state.SchemaVersion)
+	}
+	if state.ConversationID == "" {
+		return fmt.Errorf("conversation read state conversationId is required")
+	}
+	if state.ConversationID != conversationID {
+		return fmt.Errorf("conversation read state %s does not match requested conversation %s", state.ConversationID, conversationID)
+	}
+	if state.ReadMarker < 0 {
+		return fmt.Errorf("conversation read state %s readMarker must be non-negative", state.ConversationID)
+	}
+	if state.LatestReadRelevantMarker < 0 {
+		return fmt.Errorf("conversation read state %s latestReadRelevantMarker must be non-negative", state.ConversationID)
+	}
+	if state.ReadMarker > state.LatestReadRelevantMarker {
+		return fmt.Errorf("conversation read state %s readMarker exceeds latestReadRelevantMarker", state.ConversationID)
+	}
+	if state.UpdatedAt != "" {
+		if err := validateTimestamp(state.UpdatedAt, "conversation read state "+state.ConversationID+" updatedAt"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func validateChatCodexSettings(conversationID string, settings ChatCodexSettings) error {
 	if settings.ReasoningEffort != nil && !validValue(*settings.ReasoningEffort, reasoningEffortValues) {
 		return fmt.Errorf("conversation %s codexSettings has unsupported reasoning effort %s", conversationID, *settings.ReasoningEffort)

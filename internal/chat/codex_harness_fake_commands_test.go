@@ -142,7 +142,7 @@ func handleFakeThreadSettingsUpdate(mode string, message map[string]any) bool {
 		assertFakeModelSet(message)
 	}
 	if mode == "command-model-set-unsupported-settings-update" {
-		writeFakeErrorResponse(message["id"], codexJSONRPCErrorInvalidRequest, "thread/settings/update requires experimentalApi capability")
+		writeFakeErrorResponse(message["id"], -32600, "thread/settings/update requires experimentalApi capability")
 		return true
 	}
 	writeFakeResponse(message["id"], map[string]any{})
