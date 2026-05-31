@@ -51,9 +51,12 @@ interface PixiWorkspaceDebugSnapshot {
     edgeRedrawCount: number;
     frameCount: number;
     nodeDragUpdateCount: number;
+    pointerPanUpdateCount: number;
     reactRenderCount: number;
     recentFrameMs: number[];
     temporaryEdgeUpdateCount: number;
+    wheelPanUpdateCount: number;
+    wheelZoomUpdateCount: number;
     worstFrameMs: number;
   };
   visual: {

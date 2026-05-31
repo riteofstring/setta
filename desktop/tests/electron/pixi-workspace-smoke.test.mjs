@@ -82,10 +82,21 @@ try {
   const afterZoom = await getPixiSnapshot(context.client);
   assertZoomChanged(afterPan, afterZoom);
 
-  const dragNode = visibleNode(afterZoom);
+  await dispatchWheel(context.client, {
+    deltaX: 34,
+    deltaY: 28,
+    x: Math.floor(afterZoom.canvas.clientWidth / 2),
+    y: Math.floor(afterZoom.canvas.clientHeight / 2),
+  });
+  await delay(150);
+  const afterWheelPan = await getPixiSnapshot(context.client);
+  assertCameraMoved(afterZoom, afterWheelPan, "trackpad-style wheel pan");
+  assertZoomUnchanged(afterZoom, afterWheelPan, "trackpad-style wheel pan");
+
+  const dragNode = visibleNode(afterWheelPan);
   if (!dragNode) {
     throw new Error(
-      `no visible node was present in Pixi debug snapshot: ${JSON.stringify(afterZoom.graph.nodes)}`,
+      `no visible node was present in Pixi debug snapshot: ${JSON.stringify(afterWheelPan.graph.nodes)}`,
     );
   }
   await dispatchMouseDrag(context.client, {
@@ -95,7 +106,7 @@ try {
   });
   await delay(200);
   const afterDrag = await getPixiSnapshot(context.client);
-  assertNodeMoved(afterZoom, afterDrag, dragNode.id);
+  assertNodeMoved(afterWheelPan, afterDrag, dragNode.id);
   const cancelPair = visiblePortPair(afterDrag);
   if (!cancelPair) {
     throw new Error(
@@ -140,6 +151,7 @@ try {
     afterDrag,
     afterEdgeDraw,
     afterPan,
+    afterWheelPan,
     afterZoom,
     artifactDir,
     cancelPoint,
@@ -279,6 +291,14 @@ function assertZoomChanged(before, after) {
   if (Math.abs(after.camera.zoom - before.camera.zoom) < 0.01) {
     throw new Error(
       `camera zoom did not change: before=${JSON.stringify(before.camera)} after=${JSON.stringify(after.camera)}`,
+    );
+  }
+}
+
+function assertZoomUnchanged(before, after, label) {
+  if (Math.abs(after.camera.zoom - before.camera.zoom) > 0.005) {
+    throw new Error(
+      `camera zoom changed during ${label}: before=${JSON.stringify(before.camera)} after=${JSON.stringify(after.camera)}`,
     );
   }
 }
@@ -481,6 +501,19 @@ function edgeKeyFromParts(sourceNodeId, sourcePortId, targetNodeId, targetPortId
 }
 
 function assertRendererFramesHealthy(snapshot) {
+  assertFrameTimingsHealthy(snapshot);
+  assertPositiveRenderCounters(snapshot, [
+    "nodeDragUpdateCount",
+    "pointerPanUpdateCount",
+    "wheelPanUpdateCount",
+    "wheelZoomUpdateCount",
+    "cameraUpdateCount",
+    "edgeCommitCount",
+    "temporaryEdgeUpdateCount",
+  ]);
+}
+
+function assertFrameTimingsHealthy(snapshot) {
   if (snapshot.render.frameCount <= 0) {
     throw new Error(`Pixi ticker did not advance: ${JSON.stringify(snapshot.render)}`);
   }
@@ -490,20 +523,14 @@ function assertRendererFramesHealthy(snapshot) {
   ) {
     throw new Error(`Pixi frame timings were not finite: ${JSON.stringify(snapshot.render)}`);
   }
-  if (snapshot.render.nodeDragUpdateCount <= 0) {
-    throw new Error(`Pixi node drag counter did not advance: ${JSON.stringify(snapshot.render)}`);
-  }
-  if (snapshot.render.cameraUpdateCount <= 0) {
-    throw new Error(
-      `Pixi camera update counter did not advance: ${JSON.stringify(snapshot.render)}`,
-    );
-  }
-  if (snapshot.render.edgeCommitCount <= 0) {
-    throw new Error(`Pixi edge commit counter did not advance: ${JSON.stringify(snapshot.render)}`);
-  }
-  if (snapshot.render.temporaryEdgeUpdateCount <= 0) {
-    throw new Error(
-      `Pixi temporary edge update counter did not advance: ${JSON.stringify(snapshot.render)}`,
-    );
+}
+
+function assertPositiveRenderCounters(snapshot, counters) {
+  for (const counter of counters) {
+    if (snapshot.render[counter] <= 0) {
+      throw new Error(
+        `Pixi render counter did not advance: ${counter} render=${JSON.stringify(snapshot.render)}`,
+      );
+    }
   }
 }

@@ -31,6 +31,9 @@ The repository already has the initial Pixi/tooling foundation:
 - `desktop/src/renderer/src/components/pixi-workspace-renderer.js` owns the imperative Pixi application, viewport, scene graph, ticker, and interaction handlers.
 - Existing project, chat, right, and bottom panes do not render in prototype mode.
 - The prototype renders a dark workspace background, grid, hard-coded nodes, curved edges, ports, labels, selected-node outline, and low-cost glow animation.
+- Empty-space pointer drag pans the camera.
+- Small pixel wheel deltas pan the camera for trackpad-style two-finger swipes.
+- Large notched wheel deltas and Chromium pinch wheel events zoom the camera.
 - Existing nodes can be dragged, and connected edges redraw during drag.
 - Existing source ports can start temporary edges.
 - Releasing a temporary edge on a valid target port commits a new edge.
@@ -160,6 +163,7 @@ Already implemented enough for automated smoke coverage:
 
 - Mouse drag pan on empty workspace space.
 - Mouse wheel zoom.
+- Trackpad-style pixel wheel pan.
 - No React renders in the pan/zoom hot path.
 
 Still required:

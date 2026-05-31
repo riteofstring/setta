@@ -52,18 +52,20 @@ Date: 2026-06-03
 Artifact bundle:
 
 ```text
-.recordings/pixi-workspace/20260604T000336Z
+.recordings/pixi-workspace/20260604T021054Z
 ```
 
-The visual smoke workflow now also drives port-to-port edge drawing through the
-built Electron app. The run starts a temporary edge from a visible source port,
-captures the temporary edge, releases away from target ports to verify
-cancellation, then drags from a source port to a target port and verifies a
-committed edge.
+The visual smoke workflow now also drives trackpad-style wheel pan and
+port-to-port edge drawing through the built Electron app. The run starts a
+temporary edge from a visible source port, captures the temporary edge, releases
+away from target ports to verify cancellation, then drags from a source port to
+a target port and verifies a committed edge.
 
 Additional scenario coverage:
 
 - Temporary edge drawing reports `interaction.drawingEdge: true` before release.
+- Small pixel wheel deltas pan the camera without changing zoom.
+- Large notched wheel deltas still zoom the camera.
 - Invalid release leaves the edge count unchanged.
 - Valid target-port release adds one edge.
 - Intermediate screenshots are saved as `edge-drawing-cancel.png` and
@@ -77,16 +79,48 @@ Additional scenario coverage:
 | Edge commits                     |        1 |
 | Temporary edge updates           |       34 |
 | Edge redraws                     |       16 |
+| Pointer pan updates              |       12 |
+| Wheel pan updates                |        1 |
+| Wheel zoom updates               |        1 |
 | React host renders               |        1 |
-| Average recent frame interval    |  8.33 ms |
-| Worst recent frame interval      | 23.30 ms |
-| Sampled pixels                   |    6,003 |
-| Non-background sampled pixels    |    1,198 |
-| Sampled color count              |       35 |
+| Average recent frame interval    |  8.70 ms |
+| Worst recent frame interval      | 34.40 ms |
+| Sampled pixels                   |    6,001 |
+| Non-background sampled pixels    |      711 |
+| Sampled color count              |       34 |
+
+## Manual Recording Feedback Update
+
+Date: 2026-06-03
+
+Manual recording:
+
+```text
+.recordings/20260604T020112Z
+```
+
+Observed issues:
+
+- Trackpad pinch zoom felt too slow.
+- Node drag was unreliable.
+- Empty-space click-drag pan and two-finger trackpad pan were not discoverable
+  or did not respond.
+
+Follow-up implementation:
+
+- Replaced wheel-only viewport behavior with explicit canvas input handling.
+- Small pixel wheel deltas now pan the camera for Mac trackpad two-finger
+  swipes.
+- Chromium pinch wheel events (`ctrlKey`/`metaKey`) use a higher zoom
+  sensitivity around the pointer.
+- Large notched wheel deltas still zoom, preserving mouse-wheel smoke coverage.
+- Empty-space pointer drag now pans through a native canvas handler.
+- Node drag starts from the full node body except source-port hit zones and uses
+  pointer capture for steadier movement.
 
 Trackpad hardware note: this automated run could not produce physical Mac
 trackpad two-finger pan or pinch gestures. The implementation remains configured
-with `pixi-viewport` drag, pinch, and wheel handling, including
-`trackpadPinch: true`, and the automated workflow verifies the mouse-drag pan
-and Chromium wheel zoom path. Physical Mac trackpad pan/pinch verification is
-still required to claim hardware coverage.
+for touch pinch through `pixi-viewport` and handles Chromium trackpad pinch
+wheel events directly. The automated workflow verifies mouse-drag pan,
+trackpad-style wheel pan, and wheel zoom paths. Physical Mac trackpad pan/pinch
+verification is still required to claim hardware coverage.

@@ -69,10 +69,21 @@ Verify:
 
 - Two-finger trackpad pan moves the workspace camera smoothly without selecting
   or dragging a node.
-- Trackpad pinch zoom changes canvas zoom where Electron/Chromium exposes pinch
-  as supported input.
+- Trackpad pinch zoom changes canvas zoom at a useful rate where
+  Electron/Chromium exposes pinch as supported input.
+- Empty-space click-drag pans the camera.
+- Dragging from the colored node body moves the node. Dragging from a source port
+  starts edge drawing instead.
 - Mouse drag pan, mouse-wheel zoom, node drag, temporary edge cancellation, and
   source-port to target-port edge commit still work after trackpad gestures.
+
+Input policy:
+
+- Small pixel wheel deltas pan the camera. This is the expected Mac trackpad
+  two-finger swipe path.
+- Chromium pinch wheel events with `ctrlKey` or `metaKey` zoom around the
+  pointer.
+- Large notched wheel deltas zoom, preserving mouse-wheel zoom behavior.
 
 Record the result in `docs/reports/performance/pixi-workspace-visual-smoke.md`.
 If pinch is not exposed by the OS/Electron configuration, record that limitation

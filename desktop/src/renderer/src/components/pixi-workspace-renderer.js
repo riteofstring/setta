@@ -7,7 +7,13 @@ const backgroundColor = 0x07080d;
 const backgroundRed = 7;
 const backgroundGreen = 8;
 const backgroundBlue = 13;
+const lineWheelPixelSize = 20;
+const maxZoom = 4;
+const minZoom = 0.25;
+const mouseWheelZoomSensitivity = 0.0016;
+const notchedWheelDeltaThreshold = 80;
 const portHitRadiusScreen = 18;
+const trackpadPinchZoomSensitivity = 0.018;
 const ports = [
   { id: "input", role: "target", xOffset: 20, yRatio: 0.5 },
   { id: "output", role: "source", xOffset: -20, yRatio: 0.5 },
@@ -100,11 +106,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     worldWidth: 4000,
   });
   viewport.forceHitArea = new Rectangle(0, 0, screenSize.width, screenSize.height);
-  viewport
-    .drag({ mouseButtons: "left", pressDrag: true })
-    .pinch()
-    .wheel({ percent: 0.08, trackpadPinch: true, wheelZoom: true })
-    .decelerate({ friction: 0.88 });
+  viewport.pinch({ percent: 1.6 }).decelerate({ friction: 0.88 });
   viewport.moveCenter(0, 20);
   app.stage.addChild(viewport);
 
@@ -129,6 +131,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   let selectedNodeId = null;
   let draggingNode = null;
   let drawingEdge = null;
+  let panningCamera = null;
   let activeTargetPortKey = null;
   let destroyed = false;
   let frameCount = 0;
@@ -138,7 +141,10 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   let edgeRedrawCount = 0;
   let edgeCommitCount = 0;
   let nextEdgeSequence = initialEdges.length + 1;
+  let pointerPanUpdateCount = 0;
   let temporaryEdgeUpdateCount = 0;
+  let wheelPanUpdateCount = 0;
+  let wheelZoomUpdateCount = 0;
   let lastCameraState = cameraState(viewport);
   const recentFrameMs = [];
 
@@ -163,17 +169,30 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
   resizeObserver.observe(host);
 
   const pointerDown = (event) => {
-    const sourcePort = hitTestPortAtScreen(screenPointFromPointer(app.canvas, event), {
+    if (event.button !== 0) {
+      return;
+    }
+    const screen = screenPointFromPointer(app.canvas, event);
+    const sourcePort = hitTestPortAtScreen(screen, {
       excludeNodeId: null,
       role: "source",
     });
-    if (!sourcePort) {
+    if (sourcePort) {
+      startEdgeDrawing(sourcePort.nodeId, sourcePort.portId);
+      capturePointer(event);
+      stopNativeInteraction(event);
       return;
     }
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
-    startEdgeDrawing(sourcePort.nodeId, sourcePort.portId);
+    const node = hitTestNodeAtScreen(screen);
+    if (node) {
+      startNodeDragging(node.id, screen);
+      capturePointer(event);
+      stopNativeInteraction(event);
+      return;
+    }
+    startCameraPanning(screen);
+    capturePointer(event);
+    stopNativeInteraction(event);
   };
   const pointerMove = (event) => {
     if (drawingEdge) {
@@ -186,21 +205,13 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       drawTemporaryEdge();
       return;
     }
-    if (!draggingNode) {
+    if (draggingNode) {
+      moveDraggedNode(screenPointFromPointer(app.canvas, event));
       return;
     }
-    const node = nodes.find((candidate) => candidate.id === draggingNode?.nodeId);
-    const container = nodeContainers.get(draggingNode.nodeId);
-    if (!node || !container) {
-      throw new Error(`dragged node is missing: ${draggingNode.nodeId}`);
+    if (panningCamera) {
+      moveCameraPan(screenPointFromPointer(app.canvas, event));
     }
-    const world = viewport.toWorld(screenPointFromPointer(app.canvas, event));
-    node.x = world.x - draggingNode.offsetX;
-    node.y = world.y - draggingNode.offsetY;
-    container.x = node.x;
-    container.y = node.y;
-    nodeDragUpdateCount += 1;
-    redrawEdges();
   };
   const pointerUp = (event) => {
     if (drawingEdge) {
@@ -215,22 +226,41 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
         commitEdge(drawingEdge, targetPort);
       }
       finishEdgeDrawing();
+      releasePointer(event);
       return;
     }
-    if (!draggingNode) {
+    if (draggingNode) {
+      finishNodeDragging();
+      releasePointer(event);
       return;
     }
-    viewport.plugins.resume("drag");
-    draggingNode = null;
-    for (const body of nodeBodies.values()) {
-      body.cursor = "grab";
+    if (panningCamera) {
+      panningCamera = null;
+      viewport.plugins.resume("decelerate");
+      releasePointer(event);
     }
   };
   const pointerCancel = () => {
     pointerUp(null);
   };
+  const wheel = (event) => {
+    if (drawingEdge || draggingNode) {
+      return;
+    }
+    stopNativeInteraction(event);
+    const screen = screenPointFromWheel(app.canvas, event);
+    const delta = normalizedWheelDelta(event);
+    if (isZoomWheel(event, delta)) {
+      zoomCameraAtScreen(screen, zoomFactorFromWheel(event, delta));
+      wheelZoomUpdateCount += 1;
+      return;
+    }
+    panCameraByScreenDelta(delta.x, delta.y);
+    wheelPanUpdateCount += 1;
+  };
   app.canvas.addEventListener("pointerdown", pointerDown, true);
   app.canvas.addEventListener("pointermove", pointerMove);
+  app.canvas.addEventListener("wheel", wheel, { capture: true, passive: false });
   window.addEventListener("pointerup", pointerUp);
   window.addEventListener("pointercancel", pointerCancel);
 
@@ -318,9 +348,12 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
             edgeRedrawCount,
             frameCount,
             nodeDragUpdateCount,
+            pointerPanUpdateCount,
             reactRenderCount: reactRenderCount(),
             recentFrameMs: [...recentFrameMs],
             temporaryEdgeUpdateCount,
+            wheelPanUpdateCount,
+            wheelZoomUpdateCount,
             worstFrameMs: recentFrameMs.length === 0 ? 0 : Math.max(...recentFrameMs),
           },
           visual,
@@ -335,6 +368,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       resizeObserver.disconnect();
       app.canvas.removeEventListener("pointerdown", pointerDown, true);
       app.canvas.removeEventListener("pointermove", pointerMove);
+      app.canvas.removeEventListener("wheel", wheel, true);
       window.removeEventListener("pointerup", pointerUp);
       window.removeEventListener("pointercancel", pointerCancel);
       if (debugEnabled) {
@@ -390,23 +424,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
         return;
       }
       event.stopPropagation();
-      const sourcePort = hitTestPortAtScreen(event.global, {
-        excludeNodeId: null,
-        role: "source",
-      });
-      if (sourcePort?.nodeId === node.id) {
-        startEdgeDrawing(sourcePort.nodeId, sourcePort.portId);
-        return;
-      }
-      selectNode(node.id);
-      const world = viewport.toWorld(event.global);
-      draggingNode = {
-        nodeId: node.id,
-        offsetX: world.x - node.x,
-        offsetY: world.y - node.y,
-      };
-      body.cursor = "grabbing";
-      viewport.plugins.pause("drag");
+      startNodeDragging(node.id, event.global);
     });
 
     return container;
@@ -453,6 +471,68 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     });
 
     return container;
+  }
+
+  function startNodeDragging(nodeId, screen) {
+    const node = requireNode(nodeId);
+    const world = viewport.toWorld(screen);
+    selectNode(node.id);
+    draggingNode = {
+      nodeId: node.id,
+      offsetX: world.x - node.x,
+      offsetY: world.y - node.y,
+    };
+    const body = nodeBodies.get(node.id);
+    if (body) {
+      body.cursor = "grabbing";
+    }
+    viewport.plugins.pause("decelerate");
+  }
+
+  function moveDraggedNode(screen) {
+    if (!draggingNode) {
+      return;
+    }
+    const node = requireNode(draggingNode.nodeId);
+    const container = nodeContainers.get(draggingNode.nodeId);
+    if (!container) {
+      throw new Error(`dragged node container is missing: ${draggingNode.nodeId}`);
+    }
+    const world = viewport.toWorld(screen);
+    node.x = world.x - draggingNode.offsetX;
+    node.y = world.y - draggingNode.offsetY;
+    container.x = node.x;
+    container.y = node.y;
+    nodeDragUpdateCount += 1;
+    redrawEdges();
+  }
+
+  function finishNodeDragging() {
+    viewport.plugins.resume("decelerate");
+    draggingNode = null;
+    for (const body of nodeBodies.values()) {
+      body.cursor = "grab";
+    }
+  }
+
+  function startCameraPanning(screen) {
+    panningCamera = {
+      lastX: screen.x,
+      lastY: screen.y,
+    };
+    viewport.plugins.pause("decelerate");
+  }
+
+  function moveCameraPan(screen) {
+    if (!panningCamera) {
+      return;
+    }
+    const deltaX = screen.x - panningCamera.lastX;
+    const deltaY = screen.y - panningCamera.lastY;
+    panningCamera.lastX = screen.x;
+    panningCamera.lastY = screen.y;
+    panCameraByScreenDelta(-deltaX, -deltaY);
+    pointerPanUpdateCount += 1;
   }
 
   function selectNode(nodeId) {
@@ -503,7 +583,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       startY: start.y,
     };
     selectNode(sourceNodeId);
-    viewport.plugins.pause("drag");
+    viewport.plugins.pause("decelerate");
     setPortVisualState(sourceNodeId, sourcePortId, "active");
     temporaryEdgeUpdateCount += 1;
     drawTemporaryEdge();
@@ -513,7 +593,7 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
     drawingEdge = null;
     activeTargetPortKey = null;
     temporaryEdgeGraphics.clear();
-    viewport.plugins.resume("drag");
+    viewport.plugins.resume("decelerate");
     for (const node of nodes) {
       for (const port of ports) {
         setPortVisualState(node.id, port.id, "idle");
@@ -593,6 +673,42 @@ export async function createPixiWorkspaceRenderer({ debugEnabled, host, reactRen
       }
     }
     return bestPort;
+  }
+
+  function hitTestNodeAtScreen(screen) {
+    const world = viewport.toWorld(screen);
+    for (let index = nodes.length - 1; index >= 0; index -= 1) {
+      const node = nodes[index];
+      if (
+        world.x >= node.x &&
+        world.x <= node.x + node.width &&
+        world.y >= node.y &&
+        world.y <= node.y + node.height
+      ) {
+        return node;
+      }
+    }
+    return null;
+  }
+
+  function panCameraByScreenDelta(deltaX, deltaY) {
+    if (deltaX === 0 && deltaY === 0) {
+      return;
+    }
+    const corner = viewport.corner;
+    viewport.moveCorner(corner.x + deltaX / viewport.scaled, corner.y + deltaY / viewport.scaled);
+  }
+
+  function zoomCameraAtScreen(screen, factor) {
+    const nextZoom = clamp(viewport.scaled * factor, minZoom, maxZoom);
+    if (nextZoom === viewport.scaled) {
+      return;
+    }
+    const worldBefore = viewport.toWorld(screen);
+    viewport.setZoom(nextZoom);
+    const screenAfter = viewport.toScreen(worldBefore);
+    viewport.x += screen.x - screenAfter.x;
+    viewport.y += screen.y - screenAfter.y;
   }
 
   function setPortVisualState(nodeId, portId, state) {
@@ -763,4 +879,62 @@ function screenPointFromPointer(canvas, event) {
     x: event.clientX - rect.left,
     y: event.clientY - rect.top,
   };
+}
+
+function screenPointFromWheel(canvas, event) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
+
+function normalizedWheelDelta(event) {
+  const multiplier = event.deltaMode === 1 ? lineWheelPixelSize : 1;
+  return {
+    x: event.deltaX * multiplier,
+    y: event.deltaY * multiplier,
+  };
+}
+
+function isZoomWheel(event, delta) {
+  if (event.ctrlKey || event.metaKey) {
+    return true;
+  }
+  return Math.abs(delta.x) < 1 && Math.abs(delta.y) >= notchedWheelDeltaThreshold;
+}
+
+function zoomFactorFromWheel(event, delta) {
+  const sensitivity =
+    event.ctrlKey || event.metaKey ? trackpadPinchZoomSensitivity : mouseWheelZoomSensitivity;
+  return Math.exp(-delta.y * sensitivity);
+}
+
+function capturePointer(event) {
+  if (event.pointerId === undefined || event.currentTarget?.setPointerCapture === undefined) {
+    return;
+  }
+  event.currentTarget.setPointerCapture(event.pointerId);
+}
+
+function releasePointer(event) {
+  if (
+    !event ||
+    event.pointerId === undefined ||
+    event.currentTarget?.releasePointerCapture === undefined ||
+    !event.currentTarget.hasPointerCapture(event.pointerId)
+  ) {
+    return;
+  }
+  event.currentTarget.releasePointerCapture(event.pointerId);
+}
+
+function stopNativeInteraction(event) {
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+}
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
