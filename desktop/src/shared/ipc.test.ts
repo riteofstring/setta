@@ -20,19 +20,6 @@ describe("typed IPC adapters", () => {
     );
   });
 
-  test("renderer invoke removes Electron remote method wrapper from errors", async () => {
-    const invoke = vi.fn(async () => {
-      throw new Error(
-        "Error invoking remote method 'chat:list-conversations': Error: malformed chat state /tmp/run.json",
-      );
-    });
-    const typedInvoke = createRendererIpcInvoke({ invoke });
-
-    await expect(typedInvoke("chatListConversations", "workspace_api")).rejects.toThrow(
-      "malformed chat state /tmp/run.json",
-    );
-  });
-
   test("main handler registration preserves argument order", async () => {
     type MainHandler = Parameters<IpcMain["handle"]>[1];
     const handlers = new Map<string, MainHandler>();
