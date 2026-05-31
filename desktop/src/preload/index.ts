@@ -50,12 +50,8 @@ const api: SettaAPI = {
       invoke("chatCancelRun", workspaceId, conversationId),
     createConversation: (workspaceId: string, title: string) =>
       invoke("chatCreateConversation", workspaceId, title),
-    editQueuedMessage: (
-      workspaceId: string,
-      conversationId: string,
-      messageId: string,
-      prompt: string,
-    ) => invoke("chatEditQueuedMessage", workspaceId, conversationId, messageId, prompt),
+    deleteConversation: (workspaceId: string, conversationId: string) =>
+      invoke("chatDeleteConversation", workspaceId, conversationId),
     executeCommand: (workspaceId: string, conversationId: string, raw: string, options) =>
       invoke(
         "chatExecuteCommand",
@@ -88,8 +84,6 @@ const api: SettaAPI = {
     },
     queueMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatQueueMessage", workspaceId, conversationId, prompt),
-    removeQueuedMessage: (workspaceId: string, conversationId: string, messageId: string) =>
-      invoke("chatRemoveQueuedMessage", workspaceId, conversationId, messageId),
     runActivity: (workspaceId: string, runId: string, limit: number) =>
       invoke("chatRunActivity", workspaceId, runId, limit),
     runItemOutput: (
@@ -101,11 +95,15 @@ const api: SettaAPI = {
     ) => invoke("chatRunItemOutput", workspaceId, runId, runItemId, afterOrdinal, limit),
     sendMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSendMessage", workspaceId, conversationId, prompt),
-    sendSteeringImmediately: (workspaceId: string, conversationId: string, prompt = "") =>
-      invoke("chatSendSteeringImmediately", workspaceId, conversationId, prompt),
     steerMessage: (workspaceId: string, conversationId: string, prompt: string) =>
       invoke("chatSteerMessage", workspaceId, conversationId, prompt),
     submitApproval: (input) => invoke("chatSubmitApproval", input),
+    updateUserMessage: (
+      workspaceId: string,
+      conversationId: string,
+      messageId: string,
+      text: string,
+    ) => invoke("chatUpdateUserMessage", workspaceId, conversationId, messageId, text),
   },
   codexAccount: {
     cancelLogin: (request) => invoke("codexAccountCancelLogin", request),

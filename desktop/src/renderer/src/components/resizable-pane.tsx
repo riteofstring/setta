@@ -1,7 +1,5 @@
 import type { PointerEvent as ReactPointerEvent, ReactNode } from "react";
-import { useCallback, useState } from "react";
-
-import { cn } from "../lib/utils";
+import { useCallback } from "react";
 
 export function ResizablePane({
   children,
@@ -18,7 +16,6 @@ export function ResizablePane({
   onWidthChange: (width: number) => void;
   width: number;
 }) {
-  const [resizing, setResizing] = useState(false);
   const startResize = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const startX = event.clientX;
@@ -30,14 +27,12 @@ export function ResizablePane({
         onWidthChange(clamp(startWidth + moveEvent.clientX - startX, minWidth, maxWidth));
       };
       const stopResize = () => {
-        setResizing(false);
         document.body.style.cursor = previousCursor;
         document.body.style.userSelect = previousUserSelect;
         window.removeEventListener("pointermove", resize);
       };
 
       event.preventDefault();
-      setResizing(true);
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
       window.addEventListener("pointermove", resize);
@@ -47,13 +42,7 @@ export function ResizablePane({
   );
 
   return (
-    <div
-      className={cn(
-        "relative h-full min-h-0 shrink-0",
-        !resizing && "transition-[width] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
-      )}
-      style={{ width }}
-    >
+    <div className="relative h-full min-h-0 shrink-0" style={{ width }}>
       {children}
       <div
         aria-label={label}
@@ -92,7 +81,6 @@ export function ResizableBottomPane({
   minHeight: number;
   onHeightChange: (height: number) => void;
 }) {
-  const [resizing, setResizing] = useState(false);
   const startResize = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>) => {
       const startY = event.clientY;
@@ -105,14 +93,12 @@ export function ResizableBottomPane({
         onHeightChange(clamp(nextHeight, minHeight, bottomPaneMaxHeight(minHeight)));
       };
       const stopResize = () => {
-        setResizing(false);
         document.body.style.cursor = previousCursor;
         document.body.style.userSelect = previousUserSelect;
         window.removeEventListener("pointermove", resize);
       };
 
       event.preventDefault();
-      setResizing(true);
       document.body.style.cursor = "row-resize";
       document.body.style.userSelect = "none";
       window.addEventListener("pointermove", resize);
@@ -123,13 +109,7 @@ export function ResizableBottomPane({
 
   return (
     <div
-      className={cn(
-        "relative min-h-0 w-full",
-        maximized ? "h-full" : "shrink-0",
-        !resizing &&
-          !maximized &&
-          "transition-[height] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
-      )}
+      className={maximized ? "relative min-h-0 w-full h-full" : "relative min-h-0 w-full shrink-0"}
       style={maximized ? undefined : { height }}
     >
       {children}

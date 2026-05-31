@@ -13,7 +13,6 @@ import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { ChatPanel, type ChatView, useChatViewState } from "./components/chat-panel";
-import { EditorPicker } from "./components/editor-picker";
 import { ResizableBottomPane, ResizablePane } from "./components/resizable-pane";
 import { WorkspacePanePanel, useWorkspacePaneState } from "./components/workspace-pane";
 import { WorkspaceSidebar } from "./components/workspace-sidebar";
@@ -93,7 +92,7 @@ export function App() {
   }, [chatPaneOpen, maximizedPane, panes.bottom.open, panes.right.open]);
 
   return (
-    <div className="relative h-screen min-h-0 overflow-hidden bg-zinc-900 text-zinc-950">
+    <div className="fixed inset-0 min-h-0 overflow-hidden bg-zinc-900 text-zinc-950">
       <AppChromeControls
         bottomPaneOpen={panes.bottom.open}
         chatPaneOpen={chatPaneOpen}
@@ -104,7 +103,6 @@ export function App() {
         platform={platform}
         projectPaneOpen={projectPaneOpen}
         rightPaneOpen={panes.right.open}
-        selectedWorkspace={workspace.selectedWorkspace}
         setBottomPaneOpen={(open) => panes.setPaneOpen("bottom", open)}
         setChatPaneOpen={setChatPaneOpen}
         setProjectPaneOpen={(open) => {
@@ -116,7 +114,7 @@ export function App() {
         setRightPaneOpen={(open) => panes.setPaneOpen("right", open)}
         toggleMaximizedPane={toggleMaximizedPane}
       />
-      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900 transition-[gap] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]">
+      <main className="flex h-full min-h-0 min-w-0 overflow-hidden bg-zinc-900">
         <ProjectPane
           chromeInsetTop={visibility.project}
           chat={chat}
@@ -302,13 +300,12 @@ function WorkspaceArea({
     <div
       className={cn(
         "relative grid h-full min-h-0 min-w-0 flex-1 overflow-hidden bg-zinc-900",
-        "transition-[grid-template-rows] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
         workspaceAreaRows(maximizedPane),
       )}
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-8 z-40 h-px bg-zinc-800"
+        className="pointer-events-none absolute inset-x-0 top-10 z-40 h-px bg-zinc-800"
       />
       {contentPresent ? (
         <WorkspaceContentRow
@@ -328,10 +325,8 @@ function WorkspaceArea({
       {bottomPresent ? (
         <div
           className={cn(
-            "min-h-0 transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-            visibility.bottom
-              ? "translate-y-0 opacity-100"
-              : "pointer-events-none translate-y-3 opacity-0",
+            "min-h-0",
+            !visibility.bottom && "pointer-events-none translate-y-3 opacity-0",
           )}
         >
           <ResizableBottomPane
@@ -343,8 +338,10 @@ function WorkspaceArea({
           >
             <WorkspacePanePanel
               activeTabId={panes.bottom.activeTabId}
+              chromeInsetTop={maximizedPane === "bottom"}
               maximized={maximizedPane === "bottom"}
               onCloseTab={(tabId) => panes.closeTab("bottom", tabId)}
+              onCreateTab={(kind) => panes.createTab("bottom", kind)}
               onSelectTab={(tabId) => panes.selectTab("bottom", tabId)}
               onToggleMaximize={() => toggleMaximizedPane("bottom")}
               slot="bottom"
@@ -389,8 +386,7 @@ function WorkspaceContentRow({
     <div
       className={cn(
         "flex min-h-0 min-w-0 overflow-hidden bg-zinc-900",
-        "transition-[gap,opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-        visible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-2 opacity-0",
+        !visible && "pointer-events-none translate-y-2 opacity-0",
       )}
     >
       <ChatPane
@@ -409,16 +405,15 @@ function WorkspaceContentRow({
       {rightPresent ? (
         <div
           className={cn(
-            "h-full min-w-[360px] flex-1 transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-            visibility.right
-              ? "translate-x-0 opacity-100"
-              : "pointer-events-none translate-x-4 opacity-0",
+            "h-full min-w-[360px] flex-1",
+            !visibility.right && "pointer-events-none translate-x-4 opacity-0",
           )}
         >
           <WorkspacePanePanel
             activeTabId={panes.right.activeTabId}
             maximized={maximizedPane === "right"}
             onCloseTab={(tabId) => panes.closeTab("right", tabId)}
+            onCreateTab={(kind) => panes.createTab("right", kind)}
             onSelectTab={(tabId) => panes.selectTab("right", tabId)}
             slot="right"
             tabs={panes.right.tabs}
@@ -471,6 +466,7 @@ function ProjectPane({
           corruption={chat.corruption}
           createConversation={chat.createConversation}
           createWorkspaceConversation={chat.createWorkspaceConversation}
+          deleteConversation={chat.deleteConversation}
           diagnostics={chat.diagnostics}
           openLocalFolder={workspace.openLocalFolder}
           openSettingsPane={openSettingsPane}
@@ -520,6 +516,7 @@ function ChatPane({
 
   const panel = (
     <ChatPanel
+      avoidShellControls={!rightPaneOpen || maximized}
       chat={chat}
       chromeInsetTop={chromeInsetTop}
       maximized={maximized}
@@ -556,7 +553,6 @@ function AppChromeControls({
   platform,
   projectPaneOpen,
   rightPaneOpen,
-  selectedWorkspace,
   setBottomPaneOpen,
   setChatPaneOpen,
   setProjectPaneOpen,
@@ -572,7 +568,6 @@ function AppChromeControls({
   platform: DesktopPlatform;
   projectPaneOpen: boolean;
   rightPaneOpen: boolean;
-  selectedWorkspace: WorkspaceSummary | null;
   setBottomPaneOpen: (open: boolean) => void;
   setChatPaneOpen: (open: boolean) => void;
   setProjectPaneOpen: (open: boolean) => void;
@@ -604,18 +599,20 @@ function AppChromeControls({
   return (
     <>
       <ShellTopBar />
+      <FloatingProjectPaneControl
+        active={projectPaneOpen}
+        platform={platform}
+        setProjectPaneOpen={setProjectPaneOpen}
+      />
       <FloatingPaneControls
         bottomPaneOpen={bottomPaneOpen}
         chatPaneOpen={chatPaneOpen}
         platform={platform}
-        projectPaneOpen={projectPaneOpen}
         rightPaneOpen={rightPaneOpen}
-        rootPath={selectedWorkspace?.rootPath ?? ""}
         maximizedPane={maximizedPane}
         maximizeTarget={maximizeTarget}
         setBottomPaneOpen={setBottomPaneOpen}
         setChatPaneOpen={setChatPaneOpen}
-        setProjectPaneOpen={setProjectPaneOpen}
         setRightPaneOpen={setRightPaneOpen}
         toggleMaximizedPane={toggleMaximizedPane}
       />
@@ -623,11 +620,38 @@ function AppChromeControls({
   );
 }
 
+function FloatingProjectPaneControl({
+  active,
+  platform,
+  setProjectPaneOpen,
+}: {
+  active: boolean;
+  platform: DesktopPlatform;
+  setProjectPaneOpen: (open: boolean) => void;
+}) {
+  return (
+    <div
+      className={cn(
+        "app-no-drag fixed top-1 z-50 text-zinc-500",
+        floatingProjectControlLeftInsetClass(platform),
+      )}
+    >
+      <ShellPaneToggle
+        active={active}
+        label={active ? "Hide project sidebar" : "Show project sidebar"}
+        onClick={() => setProjectPaneOpen(!active)}
+      >
+        <PanelLeftOpen className="h-3.5 w-3.5" />
+      </ShellPaneToggle>
+    </div>
+  );
+}
+
 function ShellTopBar() {
   return (
     <div
       aria-hidden="true"
-      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-8 bg-transparent"
+      className="app-drag pointer-events-auto fixed inset-x-0 top-0 z-30 h-10 bg-transparent"
       data-testid="shell-top-bar"
     />
   );
@@ -656,8 +680,8 @@ function ShellPaneToggle({
       aria-pressed={active}
       className={
         active
-          ? "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-100 outline-none hover:bg-zinc-800 focus-visible:bg-zinc-800"
-          : "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+          ? "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-300 outline-none hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
+          : "inline-flex h-7 w-7 items-center justify-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
       }
       disabled={disabled}
       onClick={onClick}
@@ -673,47 +697,33 @@ function FloatingPaneControls({
   bottomPaneOpen,
   chatPaneOpen,
   platform,
-  projectPaneOpen,
   rightPaneOpen,
-  rootPath,
   maximizedPane,
   maximizeTarget,
   setBottomPaneOpen,
   setChatPaneOpen,
-  setProjectPaneOpen,
   setRightPaneOpen,
   toggleMaximizedPane,
 }: {
   bottomPaneOpen: boolean;
   chatPaneOpen: boolean;
   platform: DesktopPlatform;
-  projectPaneOpen: boolean;
   rightPaneOpen: boolean;
-  rootPath: string;
   maximizedPane: MaximizedPane;
   maximizeTarget: NonNullable<MaximizedPane> | null;
   setBottomPaneOpen: (open: boolean) => void;
   setChatPaneOpen: (open: boolean) => void;
-  setProjectPaneOpen: (open: boolean) => void;
   setRightPaneOpen: (open: boolean) => void;
   toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
 }) {
   return (
     <div
       className={cn(
-        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-zinc-400",
+        "app-no-drag pointer-events-none fixed top-1 z-50 flex items-center gap-1 text-zinc-500",
         floatingControlsRightInsetClass(platform),
       )}
     >
-      <div className="pointer-events-auto flex items-center gap-1 transition-transform duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]">
-        <EditorPicker rootPath={rootPath} />
-        <ShellPaneToggle
-          active={projectPaneOpen}
-          label={projectPaneOpen ? "Hide project sidebar" : "Show project sidebar"}
-          onClick={() => setProjectPaneOpen(!projectPaneOpen)}
-        >
-          <PanelLeftOpen className="h-3.5 w-3.5" />
-        </ShellPaneToggle>
+      <div className="pointer-events-auto flex items-center gap-1">
         <ShellPaneToggle
           active={chatPaneOpen}
           label={chatPaneOpen ? "Hide chat pane" : "Show chat pane"}
@@ -728,6 +738,11 @@ function FloatingPaneControls({
         >
           <PanelBottomOpen className="h-3.5 w-3.5" />
         </ShellPaneToggle>
+        <TopBarMaximizeButton
+          maximizedPane={maximizedPane}
+          maximizeTarget={maximizeTarget}
+          toggleMaximizedPane={toggleMaximizedPane}
+        />
         <ShellPaneToggle
           active={rightPaneOpen}
           label={rightPaneOpen ? "Hide right pane" : "Show right pane"}
@@ -735,11 +750,6 @@ function FloatingPaneControls({
         >
           <PanelRightOpen className="h-3.5 w-3.5" />
         </ShellPaneToggle>
-        <TopBarMaximizeButton
-          maximizedPane={maximizedPane}
-          maximizeTarget={maximizeTarget}
-          toggleMaximizedPane={toggleMaximizedPane}
-        />
       </div>
     </div>
   );
@@ -754,27 +764,22 @@ function TopBarMaximizeButton({
   maximizeTarget: NonNullable<MaximizedPane> | null;
   toggleMaximizedPane: (pane: NonNullable<MaximizedPane>) => void;
 }) {
+  if (maximizeTarget === null) {
+    return null;
+  }
   const active = maximizeTarget !== null && maximizedPane === maximizeTarget;
-  const label =
-    maximizeTarget === null ? "Maximize pane" : maximizeButtonLabel(maximizeTarget, active);
+  const label = maximizeButtonLabel(maximizeTarget, active);
   return (
     <button
-      aria-hidden={maximizeTarget === null}
       aria-label={label}
       className={cn(
         "inline-flex h-7 w-7 items-center justify-center rounded-sm outline-none transition-[opacity,transform,background-color,color] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]",
         active
-          ? "text-zinc-100 hover:bg-zinc-800 focus-visible:bg-zinc-800"
-          : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100",
-        maximizeTarget === null && "pointer-events-none translate-x-1 opacity-0",
+          ? "text-zinc-300 hover:bg-zinc-800/80 focus-visible:bg-zinc-800/80"
+          : "text-zinc-600 hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300",
       )}
-      disabled={maximizeTarget === null}
-      onClick={() => {
-        if (maximizeTarget !== null) {
-          toggleMaximizedPane(maximizeTarget);
-        }
-      }}
-      title={maximizeTarget === null ? undefined : label}
+      onClick={() => toggleMaximizedPane(maximizeTarget)}
+      title={label}
       type="button"
     >
       {active ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
@@ -801,6 +806,10 @@ function paneLabel(pane: NonNullable<MaximizedPane>) {
 
 function floatingControlsRightInsetClass(platform: DesktopPlatform) {
   return platform === "darwin" ? "right-2" : "right-36";
+}
+
+function floatingProjectControlLeftInsetClass(platform: DesktopPlatform) {
+  return platform === "darwin" ? "left-[74px]" : "left-2";
 }
 
 function useWorkspaceViewState() {

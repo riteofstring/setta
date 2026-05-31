@@ -4,26 +4,40 @@ import type {
   ChatGoalState,
   ChatModelOption,
   ChatReasoningEffortOption,
-  ReasoningEffort,
   WorkspaceSummary,
 } from "@generated/backend";
 import type { ChatCommandExecutionOptions } from "@shared/types";
-import { AlertTriangle, Check, Maximize2, Minimize2, X } from "lucide-react";
-import { Square } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import {
+  AlertTriangle,
+  ArrowUp,
+  Check,
+  Maximize2,
+  MessageSquarePlus,
+  Minimize2,
+  Square,
+  X,
+} from "lucide-react";
+import { type KeyboardEvent, useEffect, useRef, useState } from "react";
 
 import settaLogo from "../../../../img/logo/logo.svg";
 import { useChatStore } from "../stores/chat-store";
 import { cn } from "../lib/utils";
-import { ComposerButton, handleComposerKeyDown } from "./chat-composer-controls";
+import {
+  ModelPickerButton,
+  PermissionModeUnavailableButton,
+  VoiceInputUnavailableButton,
+  modelPickerOptionSelected,
+  reasoningEffortOptionSelected,
+} from "./chat-composer-controls";
 import { ChatTranscript } from "./chat-transcript";
+import { EditorPicker } from "./editor-picker";
+import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
-
-export { ComposerButton, handleComposerKeyDown } from "./chat-composer-controls";
 
 export function ChatPanel({
   chat,
   chromeInsetTop = false,
+  avoidShellControls = false,
   maximized = false,
   onToggleMaximize,
   searchOpen,
@@ -31,6 +45,7 @@ export function ChatPanel({
   workspace,
 }: {
   chat: ChatView;
+  avoidShellControls?: boolean;
   chromeInsetTop?: boolean;
   maximized?: boolean;
   onToggleMaximize?: () => void;
@@ -43,7 +58,7 @@ export function ChatPanel({
       <section
         className={cn(
           "flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-zinc-900 text-zinc-100",
-          chromeInsetTop && "pt-8",
+          chromeInsetTop && "pt-10",
         )}
       >
         <div className="grid min-h-0 flex-1 place-items-center px-3 text-center text-xs text-zinc-500">
@@ -54,30 +69,36 @@ export function ChatPanel({
   }
   return (
     <ChatWorkspace
+      avoidShellControls={avoidShellControls}
       chat={chat}
       chromeInsetTop={chromeInsetTop}
       maximized={maximized}
       onToggleMaximize={onToggleMaximize}
       searchOpen={searchOpen}
       setSearchOpen={setSearchOpen}
+      workspace={workspace}
     />
   );
 }
 
 function ChatWorkspace({
+  avoidShellControls,
   chat,
   chromeInsetTop,
   maximized,
   onToggleMaximize,
   searchOpen,
   setSearchOpen,
+  workspace,
 }: {
+  avoidShellControls: boolean;
   chat: ChatView;
   chromeInsetTop: boolean;
   maximized: boolean;
   onToggleMaximize?: () => void;
   searchOpen: boolean;
   setSearchOpen: (open: boolean) => void;
+  workspace: WorkspaceSummary;
 }) {
   const busy = isChatBusy(chat);
   const blocked = isChatBlocked(chat);
@@ -88,15 +109,18 @@ function ChatWorkspace({
   return (
     <section
       className={cn(
-        "relative flex h-full min-h-0 w-full min-w-0 flex-col overflow-visible bg-zinc-900 text-zinc-100",
-        chromeInsetTop && "pt-8",
+        "relative flex h-full min-h-0 w-full min-w-0 flex-col bg-zinc-900 text-zinc-100",
+        chromeInsetTop && "pt-10",
       )}
     >
-      {onToggleMaximize ? (
-        <ChatMaximizeButton maximized={maximized} onToggleMaximize={onToggleMaximize} />
-      ) : null}
+      <ChatPaneChromeActions
+        avoidShellControls={avoidShellControls}
+        maximized={maximized}
+        onToggleMaximize={onToggleMaximize}
+        rootPath={workspace.rootPath}
+      />
       <div
-        className="flex min-h-0 min-w-0 flex-1 flex-col overflow-visible"
+        className="flex min-h-0 min-w-0 flex-1 flex-col"
         data-conversation-id={selectedConversationId}
         data-run-status={activeRunStatus(chat) ?? ""}
         data-testid="chat-detail-pane"
@@ -114,6 +138,32 @@ function ChatWorkspace({
   );
 }
 
+function ChatPaneChromeActions({
+  avoidShellControls,
+  maximized,
+  onToggleMaximize,
+  rootPath,
+}: {
+  avoidShellControls: boolean;
+  maximized: boolean;
+  onToggleMaximize?: () => void;
+  rootPath: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "app-no-drag pointer-events-auto absolute top-1 z-50 flex items-center gap-1",
+        avoidShellControls ? "right-[min(8.5rem,calc(100%_-_6.5rem))]" : "right-1",
+      )}
+    >
+      {onToggleMaximize && !maximized ? (
+        <ChatMaximizeButton maximized={maximized} onToggleMaximize={onToggleMaximize} />
+      ) : null}
+      <EditorPicker rootPath={rootPath} />
+    </div>
+  );
+}
+
 function ChatMaximizeButton({
   maximized,
   onToggleMaximize,
@@ -125,7 +175,7 @@ function ChatMaximizeButton({
   return (
     <button
       aria-label={label}
-      className="app-no-drag absolute top-0 right-1 z-50 grid h-8 w-7 cursor-pointer place-items-center rounded-sm text-zinc-500 outline-none hover:bg-zinc-800 hover:text-zinc-100 focus-visible:bg-zinc-800 focus-visible:text-zinc-100"
+      className="app-no-drag grid h-7 w-7 cursor-pointer place-items-center rounded-sm text-zinc-600 outline-none hover:bg-zinc-800/80 hover:text-zinc-300 focus-visible:bg-zinc-800/80 focus-visible:text-zinc-300"
       onClick={onToggleMaximize}
       title={label}
       type="button"
@@ -143,7 +193,6 @@ const composerBlockingOperations = new Set([
   "loading",
   "loadingOlder",
   "refreshing",
-  "sendingSteeringImmediately",
 ]);
 
 function isChatBusy(chat: ChatView) {
@@ -185,7 +234,7 @@ function ComposerSlot({
   chat: ChatView;
   running: boolean;
 }) {
-  if (blocked) {
+  if (blocked || !chat.selectedConversation) {
     return null;
   }
   return <Composer busy={busy} chat={chat} running={running} />;
@@ -217,26 +266,21 @@ export function ConversationBody({
       <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <ChatTranscript
           activeRun={chat.activeRun}
-          editQueuedMessage={chat.editQueuedMessage}
-          editingQueuedMessageId={chat.editingQueuedMessageId}
           hasMoreOlder={chat.hasMoreOlder}
           loadOlder={chat.loadOlder}
           loadRunItemOutput={chat.loadRunItemOutput}
           messageIds={chat.messageIds}
           messagesById={chat.messagesById}
-          operation={chat.operation}
-          removeQueuedMessage={chat.removeQueuedMessage}
-          removingQueuedMessageId={chat.removingQueuedMessageId}
           runItemIdsByRunId={chat.runItemIdsByRunId}
           runItemOutputIdsByRunItemId={chat.runItemOutputIdsByRunItemId}
           runItemOutputPagesByRunItemId={chat.runItemOutputPagesByRunItemId}
           runItemOutputsById={chat.runItemOutputsById}
           runItemsById={chat.runItemsById}
           searchOpen={searchOpen}
-          sendSteeringImmediately={chat.sendSteeringImmediately}
           setSearchOpen={setSearchOpen}
           submitApproval={chat.submitApproval}
           transcript={chat.transcript}
+          updateUserMessage={chat.updateUserMessage}
         />
       </div>
     </div>
@@ -335,11 +379,11 @@ function EmptyConversation({ busy, chat }: { busy: boolean; chat: ChatView }) {
   }
 
   return (
-    <div className="grid min-h-0 place-items-center px-3 pb-[12vh]">
+    <div className="grid min-h-0 flex-1 place-items-center px-3 py-8">
       <div
         className={cn(
-          "w-full max-w-3xl transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
-          departing && "translate-y-16 opacity-0",
+          "w-full max-w-2xl transform-gpu transition-[opacity,transform] duration-150 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform motion-reduce:transition-none motion-reduce:will-change-auto",
+          departing && "translate-y-20 opacity-0",
         )}
       >
         <h1 className="mb-8 text-center text-2xl font-normal tracking-normal text-zinc-100">
@@ -352,7 +396,6 @@ function EmptyConversation({ busy, chat }: { busy: boolean; chat: ChatView }) {
           formClassName="bg-transparent px-0 pt-0 pb-0"
           frameClassName="border-zinc-700 bg-zinc-800/90 shadow-xl shadow-black/20"
           onSendPrompt={createAndSend}
-          placeholder="Do anything"
           running={running}
         />
       </div>
@@ -362,7 +405,7 @@ function EmptyConversation({ busy, chat }: { busy: boolean; chat: ChatView }) {
 
 function waitForComposerExit() {
   return new Promise<void>((resolve) => {
-    window.setTimeout(resolve, 130);
+    window.setTimeout(resolve, 150);
   });
 }
 
@@ -377,47 +420,6 @@ function ChatError({ message }: { message: string | null }) {
   );
 }
 
-function composerDisabled(disabledOverride: boolean | undefined, selected: boolean, busy: boolean) {
-  if (disabledOverride !== undefined) {
-    return disabledOverride;
-  }
-  return !selected || busy;
-}
-
-function isModelPickerOpen(modelPicker: ChatCommandExecuteResult | null) {
-  return modelPicker?.result.action === "model_picker";
-}
-
-function canSendComposerDraft(disabled: boolean, draftText: string) {
-  return !disabled && draftText !== "";
-}
-
-function canSendImmediateSteeringDraft({
-  disabled,
-  draftText,
-  hasPendingSteering,
-  running,
-  slashDraft,
-}: {
-  disabled: boolean;
-  draftText: string;
-  hasPendingSteering: boolean;
-  running: boolean;
-  slashDraft: boolean;
-}) {
-  return running && !disabled && !slashDraft && (draftText !== "" || hasPendingSteering);
-}
-
-function completedCommandDraft(
-  selectedSuggestion: ChatCommandCapability | null,
-  draftText: string,
-) {
-  if (!selectedSuggestion || draftText === selectedSuggestion.name) {
-    return "";
-  }
-  return selectedSuggestion.name + " ";
-}
-
 function Composer({
   busy,
   chat,
@@ -425,7 +427,6 @@ function Composer({
   formClassName,
   frameClassName,
   onSendPrompt,
-  placeholder = "",
   running,
 }: {
   busy: boolean;
@@ -434,33 +435,19 @@ function Composer({
   formClassName?: string;
   frameClassName?: string;
   onSendPrompt?: (prompt: string) => Promise<void>;
-  placeholder?: string;
   running: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const [commands, setCommands] = useState<ChatCommandCapability[]>([]);
   const [commandListKey, setCommandListKey] = useState("");
-  const [focusRequest, setFocusRequest] = useState(0);
   const [modelPicker, setModelPicker] = useState<ChatCommandExecuteResult | null>(null);
-  const restoreComposerFocusRef = useRef(false);
   const submittingRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const selected = chat.selectedConversation !== null;
-  const disabled = composerDisabled(disabledOverride, selected, busy);
+  const disabled = disabledOverride ?? (!selected || busy);
   const slashDraft = isSlashDraft(draft);
-  const draftText = draft.trim();
   const suggestions = commandSuggestions(commands, draft);
   const selectedSuggestion = suggestions[0] ?? null;
-  const hasPendingSteering = chat.pendingSteeringMessageIds.length > 0;
-  const modelPickerOpen = isModelPickerOpen(modelPicker);
-  const canSend = canSendComposerDraft(disabled, draftText);
-  const canSendImmediately = canSendImmediateSteeringDraft({
-    disabled,
-    draftText,
-    hasPendingSteering,
-    running,
-    slashDraft,
-  });
 
   useEffect(() => {
     if (!chat.selectedConversation) {
@@ -498,20 +485,6 @@ function Composer({
   }, [chat, commandListKey, running, slashDraft]);
 
   useEffect(() => {
-    if (focusRequest === 0) {
-      return;
-    }
-    textareaRef.current?.focus();
-  }, [focusRequest]);
-
-  useEffect(() => {
-    if (!restoreComposerFocusRef.current) {
-      return;
-    }
-    focusComposer();
-  }, [chat.activeRun?.id, chat.messagesById, disabled, running]);
-
-  useEffect(() => {
     if (modelPicker?.result.action !== "model_picker") {
       return;
     }
@@ -537,11 +510,8 @@ function Composer({
       return;
     }
     submittingRef.current = true;
-    restoreComposerFocusRef.current = true;
     try {
-      focusComposerSoon();
       await submitDraftPrompt(prompt);
-      focusComposerSoon();
     } finally {
       submittingRef.current = false;
     }
@@ -596,10 +566,22 @@ function Composer({
     }
   }
 
-  function completeCommand() {
-    const completed = completedCommandDraft(selectedSuggestion, draftText);
-    if (completed) {
-      updateDraft(completed);
+  async function openModelPicker() {
+    if (!chat.selectedConversation || disabled || running || submittingRef.current) {
+      return;
+    }
+    submittingRef.current = true;
+    try {
+      const result = await chat.executeCommand("/model");
+      if (result.result.action === "model_picker") {
+        setModelPicker(result);
+        setDraft("");
+        requestAnimationFrame(() => textareaRef.current?.focus());
+      }
+    } catch {
+      // The store records the command error and ChatError renders it below the transcript.
+    } finally {
+      submittingRef.current = false;
     }
   }
 
@@ -614,30 +596,7 @@ function Composer({
     submittingRef.current = true;
     try {
       setDraft("");
-      focusComposerSoon();
       await chat.queueMessage(prompt);
-      focusComposerSoon();
-    } finally {
-      submittingRef.current = false;
-    }
-  }
-
-  async function sendImmediateSteering() {
-    const prompt = draft.trim();
-    if (
-      slashDraft ||
-      !running ||
-      !chat.selectedConversation ||
-      disabled ||
-      submittingRef.current ||
-      (prompt === "" && !hasPendingSteering)
-    ) {
-      return;
-    }
-    submittingRef.current = true;
-    try {
-      await chat.sendSteeringImmediately(prompt === "" ? undefined : prompt);
-      setDraft("");
     } finally {
       submittingRef.current = false;
     }
@@ -652,7 +611,7 @@ function Composer({
         void sendDraft();
       }}
     >
-      <div className="relative mx-auto w-full max-w-3xl min-w-0">
+      <div className="relative mx-auto w-full max-w-2xl min-w-0">
         <div
           className={cn(
             "min-w-0 rounded-sm border border-zinc-700 bg-zinc-800/90 px-2 py-1.5 shadow-lg shadow-black/15",
@@ -660,7 +619,7 @@ function Composer({
           )}
         >
           <div className="relative min-w-0">
-            <ComposerPlaceholder selected={selected} visible={draft === "" && placeholder === ""} />
+            <ComposerPlaceholder visible={draft === ""} />
             <CommandSuggestions
               draft={draft}
               modelPicker={modelPicker}
@@ -676,40 +635,49 @@ function Composer({
               suggestions={suggestions}
             />
             <Textarea
-              aria-label={composerTextareaLabel(selected)}
+              aria-label={composerTextareaLabel()}
               className="max-h-28 min-h-8 min-w-0 resize-none border-0 bg-transparent px-0 py-0 text-xs leading-4 text-zinc-100 shadow-none outline-none placeholder:text-zinc-500 focus-visible:border-0 disabled:cursor-not-allowed disabled:opacity-50"
               disabled={disabled}
               onChange={(event) => updateDraft(event.target.value)}
               onKeyDown={(event) => {
                 handleComposerKeyDown(event, {
-                  completeCommand,
-                  draftEmpty: draftText === "",
+                  completeCommand: () => {
+                    if (selectedSuggestion && draft.trim() !== selectedSuggestion.name) {
+                      updateDraft(selectedSuggestion.name + " ");
+                    }
+                  },
                   dismissModelPicker,
-                  hasPendingSteering,
-                  modelPickerOpen,
+                  modelPickerOpen: modelPicker?.result.action === "model_picker",
                   queueDraft,
                   running,
                   sendDraft,
-                  sendImmediateSteering,
                   slashDraft,
                   stopRun: chat.stopActiveRun,
                 });
               }}
-              placeholder={placeholder}
               ref={textareaRef}
               rows={2}
               value={draft}
             />
           </div>
-          <div className="mt-1 flex min-w-0 items-center justify-end gap-1.5">
+          <div className="mt-1 flex min-w-0 items-center justify-between gap-1.5">
             <div className="flex min-w-0 items-center gap-1">
+              <PermissionModeUnavailableButton />
+            </div>
+            <div className="flex min-w-0 items-center gap-1">
+              <ModelPickerButton
+                disabled={!selected || disabled || running || submittingRef.current}
+                modelPicker={modelPicker}
+                onOpen={() => void openModelPicker()}
+                running={running}
+                selectedConversation={chat.selectedConversation}
+              />
+              <VoiceInputUnavailableButton />
               <ComposerButton
-                canSend={canSend}
+                canSend={!disabled && draft.trim() !== ""}
                 chat={chat}
-                canSendImmediately={canSendImmediately}
                 queueDraft={queueDraft}
                 running={running}
-                sendImmediateSteering={sendImmediateSteering}
               />
             </div>
           </div>
@@ -719,9 +687,6 @@ function Composer({
   );
 
   function updateDraft(nextDraft: string) {
-    if (!submittingRef.current) {
-      restoreComposerFocusRef.current = false;
-    }
     setDraft(nextDraft);
     if (!isSlashDraft(nextDraft)) {
       setModelPicker(null);
@@ -731,32 +696,6 @@ function Composer({
   function dismissModelPicker() {
     setModelPicker(null);
     textareaRef.current?.focus();
-  }
-
-  function focusComposerSoon() {
-    setFocusRequest((request) => request + 1);
-    focusComposer();
-    for (const delayMs of [0, 25, 100, 250, 500, 1000, 2000]) {
-      window.setTimeout(focusComposer, delayMs);
-    }
-  }
-
-  function focusComposer() {
-    const textarea = textareaRef.current;
-    if (!textarea || textarea.disabled) {
-      return;
-    }
-    const active = document.activeElement;
-    if (
-      active &&
-      active !== document.body &&
-      active !== document.documentElement &&
-      active !== textarea
-    ) {
-      restoreComposerFocusRef.current = false;
-      return;
-    }
-    textarea.focus();
   }
 
   async function executeModelSelection(model: ChatModelOption) {
@@ -999,32 +938,12 @@ function goalSetObjective(raw: string) {
   }
 }
 
-export function modelPickerOptionSelected(
-  model: Pick<ChatModelOption, "isDefault" | "model">,
-  selectedModel: string,
-) {
-  if (selectedModel === "") {
-    return model.isDefault;
-  }
-  return model.model === selectedModel;
+function composerTextareaLabel() {
+  return "Ask Setta";
 }
 
-export function reasoningEffortOptionSelected(
-  effort: Pick<ChatReasoningEffortOption, "effort" | "isDefault">,
-  selectedReasoningEffort: ReasoningEffort | null,
-) {
-  if (selectedReasoningEffort === null) {
-    return effort.isDefault;
-  }
-  return effort.effort === selectedReasoningEffort;
-}
-
-function composerTextareaLabel(selected: boolean) {
-  return selected ? "Ask Setta" : "Start new chat";
-}
-
-function ComposerPlaceholder({ selected, visible }: { selected: boolean; visible: boolean }) {
-  if (!selected || !visible) {
+function ComposerPlaceholder({ visible }: { visible: boolean }) {
+  if (!visible) {
     return null;
   }
   return (
@@ -1043,14 +962,142 @@ function ComposerPlaceholder({ selected, visible }: { selected: boolean; visible
   );
 }
 
+interface ComposerKeyActions {
+  completeCommand: () => void;
+  dismissModelPicker: () => void;
+  modelPickerOpen: boolean;
+  queueDraft: () => Promise<void>;
+  running: boolean;
+  sendDraft: () => Promise<void>;
+  slashDraft: boolean;
+  stopRun: () => Promise<void>;
+}
+
+export function handleComposerKeyDown(
+  event: KeyboardEvent<HTMLTextAreaElement>,
+  actions: ComposerKeyActions,
+) {
+  if (isDismissShortcut(event, actions.modelPickerOpen)) {
+    event.preventDefault();
+    actions.dismissModelPicker();
+    return;
+  }
+  if (isQueueShortcut(event)) {
+    event.preventDefault();
+    if (actions.slashDraft) {
+      actions.completeCommand();
+      return;
+    }
+    void actions.queueDraft();
+    return;
+  }
+  if (isStopShortcut(event, actions.running)) {
+    event.preventDefault();
+    void actions.stopRun();
+    return;
+  }
+  if (!isSubmitShortcut(event)) {
+    return;
+  }
+  event.preventDefault();
+  void actions.sendDraft();
+}
+
+function isDismissShortcut(event: KeyboardEvent<HTMLTextAreaElement>, modelPickerOpen: boolean) {
+  return modelPickerOpen && event.key === "Escape";
+}
+
+function isQueueShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
+  return event.key === "Tab" && !event.nativeEvent.isComposing;
+}
+
+function isStopShortcut(event: KeyboardEvent<HTMLTextAreaElement>, running: boolean) {
+  return running && event.key === "c" && event.ctrlKey && !hasTextSelection(event.currentTarget);
+}
+
+function isSubmitShortcut(event: KeyboardEvent<HTMLTextAreaElement>) {
+  return (
+    event.key === "Enter" && !event.shiftKey && !event.altKey && !event.nativeEvent.isComposing
+  );
+}
+
+function hasTextSelection(textarea: HTMLTextAreaElement) {
+  return textarea.selectionStart !== textarea.selectionEnd;
+}
+
+export function ComposerButton({
+  canSend,
+  chat,
+  queueDraft,
+  running,
+}: {
+  canSend: boolean;
+  chat: {
+    operation: string | null;
+    stopActiveRun: () => Promise<void>;
+  };
+  queueDraft: () => Promise<void>;
+  running: boolean;
+}) {
+  if (running) {
+    return (
+      <div className="flex items-center gap-1">
+        <Button
+          aria-label="Send steering message"
+          className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
+          disabled={!canSend}
+          title="Send steering message"
+          type="submit"
+          variant="primary"
+        >
+          <ArrowUp className="h-4 w-4" />
+        </Button>
+        <Button
+          aria-label="Queue follow-up"
+          className="h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
+          disabled={!canSend || chat.operation === "queueing"}
+          onClick={() => void queueDraft()}
+          title="Queue follow-up"
+          type="button"
+          variant="secondary"
+        >
+          <MessageSquarePlus className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          aria-label="Stop run"
+          className="h-6 w-6 shrink-0 rounded-sm border-zinc-700 bg-zinc-800 px-0 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100"
+          disabled={chat.operation === "cancelling"}
+          onClick={() => void chat.stopActiveRun()}
+          title="Stop run"
+          type="button"
+          variant="secondary"
+        >
+          <Square className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <Button
+      aria-label="Send message"
+      className="h-6 w-6 shrink-0 rounded-sm border-zinc-100 bg-zinc-100 px-0 text-zinc-950 hover:bg-white disabled:border-zinc-600 disabled:bg-zinc-700 disabled:text-zinc-500"
+      disabled={!canSend}
+      title="Send message"
+      type="submit"
+      variant="primary"
+    >
+      <ArrowUp className="h-4 w-4" />
+    </Button>
+  );
+}
+
 export function useChatViewState(workspaceId: string | null) {
   const activeRun = useChatStore((state) => state.activeRun);
   const conversations = useChatStore((state) => state.conversations);
   const corruption = useChatStore((state) => state.corruption);
   const createConversation = useChatStore((state) => state.createConversation);
   const createWorkspaceConversation = useChatStore((state) => state.createWorkspaceConversation);
-  const editQueuedMessage = useChatStore((state) => state.editQueuedMessage);
-  const editingQueuedMessageId = useChatStore((state) => state.editingQueuedMessageId);
+  const deleteConversation = useChatStore((state) => state.deleteConversation);
   const error = useChatStore((state) => state.error);
   const executeCommand = useChatStore((state) => state.executeCommand);
   const diagnostics = useChatStore((state) => state.diagnostics);
@@ -1065,8 +1112,6 @@ export function useChatViewState(workspaceId: string | null) {
   const messagesById = useChatStore((state) => state.messagesById);
   const operation = useChatStore((state) => state.operation);
   const queueMessage = useChatStore((state) => state.queueMessage);
-  const removeQueuedMessage = useChatStore((state) => state.removeQueuedMessage);
-  const removingQueuedMessageId = useChatStore((state) => state.removingQueuedMessageId);
   const runItemIdsByRunId = useChatStore((state) => state.runItemIdsByRunId);
   const runItemOutputIdsByRunItemId = useChatStore((state) => state.runItemOutputIdsByRunItemId);
   const runItemOutputPagesByRunItemId = useChatStore(
@@ -1079,7 +1124,6 @@ export function useChatViewState(workspaceId: string | null) {
   const selectConversation = useChatStore((state) => state.selectConversation);
   const selectedConversation = useChatStore((state) => state.selectedConversation);
   const sendMessage = useChatStore((state) => state.sendMessage);
-  const sendSteeringImmediately = useChatStore((state) => state.sendSteeringImmediately);
   const setCodexModel = useChatStore((state) => state.setCodexModel);
   const setCodexReasoningEffort = useChatStore((state) => state.setCodexReasoningEffort);
   const status = useChatStore((state) => state.status);
@@ -1088,17 +1132,8 @@ export function useChatViewState(workspaceId: string | null) {
   const submitApproval = useChatStore((state) => state.submitApproval);
   const storeWorkspaceId = useChatStore((state) => state.workspaceId);
   const transcript = useChatStore((state) => state.transcript);
+  const updateUserMessage = useChatStore((state) => state.updateUserMessage);
   const unreadConversationIds = useChatStore((state) => state.unreadConversationIds);
-  const pendingSteeringMessageIds = activeRun
-    ? messages
-        .filter(
-          (message) =>
-            message.delivery === "steering" &&
-            message.status === "pending" &&
-            message.runId === activeRun.id,
-        )
-        .map((message) => message.id)
-    : [];
 
   useEffect(() => {
     if (!workspaceId || workspaceId === storeWorkspaceId) {
@@ -1113,9 +1148,8 @@ export function useChatViewState(workspaceId: string | null) {
     corruption,
     createConversation,
     createWorkspaceConversation,
+    deleteConversation,
     diagnostics,
-    editQueuedMessage,
-    editingQueuedMessageId,
     error,
     executeCommand,
     goal,
@@ -1127,10 +1161,7 @@ export function useChatViewState(workspaceId: string | null) {
     messages,
     messagesById,
     operation,
-    pendingSteeringMessageIds,
     queueMessage,
-    removeQueuedMessage,
-    removingQueuedMessageId,
     runItemIdsByRunId,
     runItemOutputIdsByRunItemId,
     runItemOutputPagesByRunItemId,
@@ -1141,7 +1172,6 @@ export function useChatViewState(workspaceId: string | null) {
     selectConversation,
     selectedConversation,
     sendMessage,
-    sendSteeringImmediately,
     setCodexModel,
     setCodexReasoningEffort,
     status,
@@ -1149,6 +1179,7 @@ export function useChatViewState(workspaceId: string | null) {
     stopActiveRun,
     submitApproval,
     transcript,
+    updateUserMessage,
     unreadConversationIds,
   };
 }

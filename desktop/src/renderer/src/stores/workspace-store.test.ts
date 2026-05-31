@@ -276,12 +276,10 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
       activeRun: async () => ({ hasActiveRun: false, run: null }),
       cancelRun: async () => emptyRun(),
       createConversation: async () => emptyConversation(),
-      editQueuedMessage: async () => ({
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        queue: { messages: [], runs: [] },
-        run: emptyRun(),
-        userMessage: emptyMessage(),
+      deleteConversation: async () => ({
+        conversations: [],
+        corruption: emptyCorruption(),
+        diagnostics: [],
       }),
       executeCommand: async () => ({
         conversation: emptyConversation(),
@@ -326,13 +324,6 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         output: [],
         runId: "run_test",
         runItemId: "run_item_test",
-      }),
-      removeQueuedMessage: async () => ({
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        queue: { messages: [], runs: [] },
-        removedMessageId: "message_test",
-        removedRunId: "run_test",
       }),
       sendMessage: async () => ({
         assistantMessage: emptyMessage(),
@@ -381,15 +372,8 @@ function installSettaAPI(overrides: SettaAPIOverrides) {
         run: emptyRun(),
         userMessage: emptyMessage(),
       }),
-      sendSteeringImmediately: async () => ({
-        activeRun: emptyRun(),
-        cancelledRun: emptyRun(),
-        conversation: emptyConversation(),
-        page: emptyMessagePage(),
-        queue: { messages: [], runs: [] },
-        replayedSteeringMessageIds: [],
-      }),
       submitApproval: async () => emptyRun(),
+      updateUserMessage: async () => emptyMessage(),
     },
     codexAccount: {
       cancelLogin: async () => emptyCodexAccountState(),

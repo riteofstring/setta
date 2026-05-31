@@ -3,6 +3,7 @@ import { renderToString } from "react-dom/server";
 import { describe, expect, test, vi } from "vitest";
 
 import {
+  ChatPanel,
   CommandSuggestions,
   commandSuggestions,
   commandTextToExecute,
@@ -11,75 +12,52 @@ import {
   goalEditorDraft,
   goalReplacementExecutionOptions,
   handleComposerKeyDown,
-  modelPickerOptionSelected,
-  reasoningEffortOptionSelected,
 } from "./chat-panel";
+import { modelPickerOptionSelected, reasoningEffortOptionSelected } from "./chat-composer-controls";
 
 type ConversationBodyProps = Parameters<typeof ConversationBody>[0];
 
 describe("composer keyboard behavior", () => {
-  test("queues on Tab and preserves composer focus", () => {
-    vi.useFakeTimers();
-    const focus = vi.fn();
-    const event = keyboardEvent("Tab", { focus });
+  test("queues on Tab", () => {
+    const event = keyboardEvent("Tab");
     const queueDraft = vi.fn();
     const sendDraft = vi.fn();
     const stopRun = vi.fn();
 
-    try {
-      handleComposerKeyDown(event, {
-        completeCommand: vi.fn(),
-        draftEmpty: false,
-        dismissModelPicker: vi.fn(),
-        hasPendingSteering: false,
-        modelPickerOpen: false,
-        queueDraft,
-        running: false,
-        sendImmediateSteering: vi.fn(),
-        sendDraft,
-        slashDraft: false,
-        stopRun,
-      });
-      vi.runOnlyPendingTimers();
+    handleComposerKeyDown(event, {
+      completeCommand: vi.fn(),
+      dismissModelPicker: vi.fn(),
+      modelPickerOpen: false,
+      queueDraft,
+      running: false,
+      sendDraft,
+      slashDraft: false,
+      stopRun,
+    });
 
-      expect(event.preventDefault).toHaveBeenCalledOnce();
-      expect(queueDraft).toHaveBeenCalledOnce();
-      expect(focus).toHaveBeenCalledOnce();
-      expect(sendDraft).not.toHaveBeenCalled();
-      expect(stopRun).not.toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(queueDraft).toHaveBeenCalledOnce();
+    expect(sendDraft).not.toHaveBeenCalled();
+    expect(stopRun).not.toHaveBeenCalled();
   });
 
-  test("submits once on Enter and preserves composer focus", () => {
-    vi.useFakeTimers();
-    const focus = vi.fn();
-    const event = keyboardEvent("Enter", { focus });
+  test("submits once on Enter", () => {
+    const event = keyboardEvent("Enter");
     const sendDraft = vi.fn();
 
-    try {
-      handleComposerKeyDown(event, {
-        completeCommand: vi.fn(),
-        draftEmpty: false,
-        dismissModelPicker: vi.fn(),
-        hasPendingSteering: false,
-        modelPickerOpen: false,
-        queueDraft: vi.fn(),
-        running: false,
-        sendImmediateSteering: vi.fn(),
-        sendDraft,
-        slashDraft: false,
-        stopRun: vi.fn(),
-      });
-      vi.runOnlyPendingTimers();
+    handleComposerKeyDown(event, {
+      completeCommand: vi.fn(),
+      dismissModelPicker: vi.fn(),
+      modelPickerOpen: false,
+      queueDraft: vi.fn(),
+      running: false,
+      sendDraft,
+      slashDraft: false,
+      stopRun: vi.fn(),
+    });
 
-      expect(event.preventDefault).toHaveBeenCalledOnce();
-      expect(sendDraft).toHaveBeenCalledOnce();
-      expect(focus).toHaveBeenCalledOnce();
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(event.preventDefault).toHaveBeenCalledOnce();
+    expect(sendDraft).toHaveBeenCalledOnce();
   });
 
   test("stops an active run on Ctrl+C when no text is selected", () => {
@@ -88,13 +66,10 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
-      draftEmpty: false,
       dismissModelPicker: vi.fn(),
-      hasPendingSteering: false,
       modelPickerOpen: false,
       queueDraft: vi.fn(),
       running: true,
-      sendImmediateSteering: vi.fn(),
       sendDraft: vi.fn(),
       slashDraft: false,
       stopRun,
@@ -111,13 +86,10 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand,
-      draftEmpty: false,
       dismissModelPicker: vi.fn(),
-      hasPendingSteering: false,
       modelPickerOpen: false,
       queueDraft,
       running: false,
-      sendImmediateSteering: vi.fn(),
       sendDraft: vi.fn(),
       slashDraft: true,
       stopRun: vi.fn(),
@@ -134,13 +106,10 @@ describe("composer keyboard behavior", () => {
 
     handleComposerKeyDown(event, {
       completeCommand: vi.fn(),
-      draftEmpty: true,
       dismissModelPicker,
-      hasPendingSteering: true,
       modelPickerOpen: true,
       queueDraft: vi.fn(),
       running: false,
-      sendImmediateSteering: vi.fn(),
       sendDraft: vi.fn(),
       slashDraft: false,
       stopRun: vi.fn(),
@@ -148,28 +117,6 @@ describe("composer keyboard behavior", () => {
 
     expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(dismissModelPicker).toHaveBeenCalledOnce();
-  });
-
-  test("sends pending steering immediately on Escape when the composer is empty", () => {
-    const event = keyboardEvent("Escape");
-    const sendImmediateSteering = vi.fn();
-
-    handleComposerKeyDown(event, {
-      completeCommand: vi.fn(),
-      draftEmpty: true,
-      dismissModelPicker: vi.fn(),
-      hasPendingSteering: true,
-      modelPickerOpen: false,
-      queueDraft: vi.fn(),
-      running: true,
-      sendImmediateSteering,
-      sendDraft: vi.fn(),
-      slashDraft: false,
-      stopRun: vi.fn(),
-    });
-
-    expect(event.preventDefault).toHaveBeenCalledOnce();
-    expect(sendImmediateSteering).toHaveBeenCalledOnce();
   });
 });
 
@@ -363,11 +310,9 @@ describe("composer controls", () => {
     const html = renderToString(
       <ComposerButton
         canSend
-        canSendImmediately={false}
         chat={composerButtonChat()}
         queueDraft={async () => {}}
         running={false}
-        sendImmediateSteering={async () => {}}
       />,
     );
 
@@ -378,24 +323,40 @@ describe("composer controls", () => {
 
   test("shows separate steering queue and stop controls while running", () => {
     const html = renderToString(
-      <ComposerButton
-        canSend
-        canSendImmediately
-        chat={composerButtonChat()}
-        queueDraft={async () => {}}
-        running
-        sendImmediateSteering={async () => {}}
-      />,
+      <ComposerButton canSend chat={composerButtonChat()} queueDraft={async () => {}} running />,
     );
 
     expect(html).toContain("Send steering message");
     expect(html).toContain("Queue follow-up");
-    expect(html).toContain("Interrupt and send pending steering");
     expect(html).toContain("Stop run");
   });
 });
 
 describe("conversation body states", () => {
+  test("renders one composer for an empty workspace chat", () => {
+    const html = renderToString(
+      <ChatPanel
+        chat={emptyWorkspaceChatView()}
+        searchOpen={false}
+        setSearchOpen={() => {}}
+        workspace={{
+          displayName: "setta-test-project",
+          id: "workspace_test",
+          lastOpenedAt: "2026-06-02T00:00:00Z",
+          rootPath: "/tmp/setta-test-project",
+        }}
+      />,
+    );
+
+    expect(countOccurrences(html, 'data-testid="chat-composer"')).toBe(1);
+    expect(html).toContain("What should we build in setta?");
+    expect(html).toContain("Ask");
+    expect(html).toContain("Custom");
+    expect(html).toContain("Model");
+    expect(html).toContain("Reasoning");
+    expect(html).not.toContain("Do anything");
+  });
+
   test("shows corrupt-state load errors instead of empty chat actions", () => {
     const html = renderToString(
       <ConversationBody
@@ -421,18 +382,12 @@ describe("conversation body states", () => {
 
 function keyboardEvent(
   key: string,
-  options: {
-    ctrlKey?: boolean;
-    focus?: () => void;
-    selectionEnd?: number;
-    selectionStart?: number;
-  } = {},
+  options: { ctrlKey?: boolean; selectionEnd?: number; selectionStart?: number } = {},
 ) {
   return {
     altKey: false,
     ctrlKey: options.ctrlKey ?? false,
     currentTarget: {
-      ...(options.focus ? { focus: options.focus } : {}),
       selectionEnd: options.selectionEnd ?? 0,
       selectionStart: options.selectionStart ?? 0,
     },
@@ -448,6 +403,24 @@ function composerButtonChat() {
     operation: null,
     stopActiveRun: async () => {},
   };
+}
+
+function emptyWorkspaceChatView() {
+  return {
+    activeRun: null,
+    createConversation: async () => {},
+    error: null,
+    goal: null,
+    operation: null,
+    selectedConversation: null,
+    sendMessage: async () => {},
+    status: "ready",
+    stopActiveRun: async () => {},
+  } as unknown as ConversationBodyProps["chat"];
+}
+
+function countOccurrences(value: string, needle: string) {
+  return value.split(needle).length - 1;
 }
 
 function goalState(objective: string, status: string) {

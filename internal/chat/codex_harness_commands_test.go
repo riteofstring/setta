@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"setta/internal/workspace"
@@ -275,6 +276,38 @@ func TestCodexHarnessTreatsCurrentModelSetAsNoop(t *testing.T) {
 	}
 }
 
+func TestCodexHarnessExecutesSkillsListRPC(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-skills-list"))
+	request := testCommandRequest(t, "/skills")
+
+	result, err := harness.ExecuteCommand(context.Background(), request)
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if result.DisplayTitle != "Skills" || !strings.Contains(result.DisplayMessage, "fake-skill") {
+		t.Fatalf("result = %+v, want skills display text", result)
+	}
+	if result.HasThreadRef {
+		t.Fatalf("thread ref = %+v, want no thread for skills list", result.ThreadRef)
+	}
+}
+
+func TestCodexHarnessExecutesMCPStatusRPC(t *testing.T) {
+	harness := NewCodexHarness(testCodexConfig("command-mcp-status"))
+	request := testCommandRequest(t, "/mcp")
+
+	result, err := harness.ExecuteCommand(context.Background(), request)
+	if err != nil {
+		t.Fatalf("execute command: %v", err)
+	}
+	if result.DisplayTitle != "MCP" || !strings.Contains(result.DisplayMessage, "fake-mcp") || !strings.Contains(result.DisplayMessage, "fake_tool") {
+		t.Fatalf("result = %+v, want mcp display text", result)
+	}
+	if result.HasThreadRef {
+		t.Fatalf("thread ref = %+v, want no thread for mcp status", result.ThreadRef)
+	}
+}
+
 func TestCodexHarnessExecutesReasoningEffortSetRPCAgainstLinkedThread(t *testing.T) {
 	harness := NewCodexHarness(testCodexConfig("command-effort-set"))
 	request := testTypedReasoningEffortCommandRequest(t, ReasoningEffortHigh)
@@ -359,7 +392,9 @@ func fakeCommandDone(mode string) bool {
 		"command-model-set",
 		"command-model-set-local",
 		"command-effort-set",
-		"command-effort-set-local":
+		"command-effort-set-local",
+		"command-skills-list",
+		"command-mcp-status":
 		return true
 	default:
 		return false
