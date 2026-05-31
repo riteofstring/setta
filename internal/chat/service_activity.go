@@ -52,6 +52,7 @@ func (service *Service) runningActiveTurnLocked(workspaceID string, conversation
 
 func (service *Service) applyAssistantDeltaLocked(workspaceID string, conversationID string, run Run, active activeTurn, delta string) (activeTurn, error) {
 	message := active.assistantMessage
+	hadAssistantText := message.Parts[0].Text != ""
 	message.Parts[0].Text += delta
 	now := service.now()
 	message.UpdatedAt = timestamp(now)
@@ -59,6 +60,14 @@ func (service *Service) applyAssistantDeltaLocked(workspaceID string, conversati
 	active.assistantMessage = message
 	if _, err := service.events.Publish(NewAssistantTextDeltaEvent(workspaceID, conversationID, run.ID, message.ID, partID, delta, message.UpdatedAt)); err != nil {
 		return activeTurn{}, err
+	}
+	if !hadAssistantText && delta != "" {
+		if err := service.advanceReadRelevantMarkerLocked(workspaceID, conversationID, message.UpdatedAt); err != nil {
+			return activeTurn{}, err
+		}
+		if err := service.publishConversationUpdatedLocked(workspaceID, conversationID, run.ID); err != nil {
+			return activeTurn{}, err
+		}
 	}
 	if active.lastPersistedAt.IsZero() || now.Sub(active.lastPersistedAt) >= deltaPersistInterval {
 		if err := service.store.SaveMessage(workspaceID, message); err != nil {

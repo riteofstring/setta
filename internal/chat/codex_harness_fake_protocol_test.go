@@ -312,6 +312,8 @@ func writeFakeProtocolCoverageNotifications() {
 	})
 	writeFakeAutoApprovalReview("item/autoApprovalReview/started", "inProgress")
 	writeFakeAutoApprovalReview("item/autoApprovalReview/completed", "approved")
+	writeFakeContextCompaction("item/started", "context_compaction_fake")
+	writeFakeContextCompaction("item/completed", "context_compaction_fake")
 	writeFakeNotification("item/fileChange/outputDelta", map[string]any{
 		"delta":    "patch output\n",
 		"itemId":   "file_output_fake",
@@ -379,6 +381,17 @@ func writeFakeAutoApprovalReview(method string, status string) {
 		"targetItemId": "command_fake",
 		"threadId":     "thread_fake",
 		"turnId":       "turn_fake",
+	})
+}
+
+func writeFakeContextCompaction(method string, itemID string) {
+	writeFakeNotification(method, map[string]any{
+		"item": map[string]any{
+			"id":   itemID,
+			"type": "contextCompaction",
+		},
+		"threadId": "thread_fake",
+		"turnId":   "turn_fake",
 	})
 }
 
